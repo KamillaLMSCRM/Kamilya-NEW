@@ -7,8 +7,8 @@ class UserSession(Base):
     __tablename__ = "user_sessions"
 
     id = Column(UUID(as_uuid=True), primary_key=True)
-    user_id = Column(UUID(as_uuid=True), nullable=False, index=True, ForeignKey("users.id", ondelete="CASCADE"))
-    tenant_id = Column(UUID(as_uuid=True), nullable=False, index=True, ForeignKey("tenants.id", ondelete="CASCADE"))
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True)
     refresh_token = Column(Text, nullable=False, index=True)
     expires_at = Column(TIMESTAMP(timezone=True), nullable=False)
     user_agent = Column(Text, nullable=True)

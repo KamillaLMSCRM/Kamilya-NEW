@@ -8,7 +8,7 @@ class TenantSettings(Base):
     __tablename__ = "tenant_settings"
 
     id = Column(UUID(as_uuid=True), primary_key=True)
-    tenant_id = Column(UUID(as_uuid=True), nullable=False, unique=True, index=True, ForeignKey("tenants.id", ondelete="CASCADE"))
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
     logo_url = Column(Text, nullable=True)
     primary_color = Column(Text, nullable=True)
     default_language = Column(Text, nullable=False, default="ru")
