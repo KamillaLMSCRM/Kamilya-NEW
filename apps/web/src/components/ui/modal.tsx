@@ -3,13 +3,18 @@ import { cn } from '@/lib/utils';
 
 interface ModalProps {
   open: boolean;
-  onClose: () => void;
-  title: string;
+  onClose?: () => void;
+  onOpenChange?: (open: boolean) => void;
+  title?: string;
   children: React.ReactNode;
   className?: string;
 }
 
-export function Modal({ open, onClose, title, children, className }: ModalProps) {
+export function Modal({ open, onClose, onOpenChange, title, children, className }: ModalProps) {
+  const handleClose = () => {
+    onClose?.();
+    onOpenChange?.(false);
+  };
   useEffect(() => {
     if (open) {
       document.body.style.overflow = 'hidden';
@@ -25,13 +30,13 @@ export function Modal({ open, onClose, title, children, className }: ModalProps)
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div
         className="fixed inset-0 bg-black/50"
-        onClick={onClose}
+        onClick={handleClose}
         aria-hidden="true"
       />
       <div className={cn('relative bg-background rounded-lg shadow-lg p-6 z-10 w-full max-w-lg', className)}>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-semibold">{title}</h2>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground" aria-label="Close">
+          <button onClick={handleClose} className="text-muted-foreground hover:text-foreground" aria-label="Close">
             ✕
           </button>
         </div>
