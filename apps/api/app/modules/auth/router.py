@@ -68,33 +68,39 @@ class CheckCodeResponse(BaseModel):
 @router.post("/generate-code", response_model=GenerateCodeResponse)
 async def generate_code():
     """Generate a 6-digit code for Telegram bot authentication."""
+    import os
     code, expires_in = generate_auth_code()
-    return GenerateCodeResponse(code=code, expires_in=expires_in)
+    from starlette.responses import JSONResponse
+    return JSONResponse(content={"code": code, "expires_in": expires_in, "pid": os.getpid(), "sessions": len(auth_sessions)})
 
 
 @router.post("/check-code")
 async def check_auth_code(req: CheckCodeRequest):
     """Poll for code verification status. Returns JWT when verified."""
+    import os
     import logging
     logger = logging.getLogger(__name__)
+    from starlette.responses import JSONResponse
+
+    logger.info("check-code pid=%s code=%s sessions=%s", os.getpid(), req.code, len(auth_sessions))
 
     try:
         result = check_code(req.code)
     except Exception as exc:
         logger.exception("check_code raised: %s", exc)
-        from starlette.responses import JSONResponse as JR
-        return JR(status_code=200, content={"verified": False, "error": "check_error"})
+        return JSONResponse(status_code=200, content={"verified": False, "error": "check_error", "detail": str(exc)})
+
+    logger.info("check_code result=%s pid=%s", result, os.getpid())
 
     error = result.get("error")
     if error == "not_found":
-        return {"verified": False, "error": "Code not found"}
+        return JSONResponse(content={"verified": False, "error": "Code not found", "pid": os.getpid()})
     if error == "expired":
-        return {"verified": False, "error": "Code expired"}
+        return JSONResponse(content={"verified": False, "error": "Code expired", "pid": os.getpid()})
 
     if not result["verified"]:
-        return {"verified": False}
+        return JSONResponse(content={"verified": False, "pid": os.getpid()})
 
-    # Generate JWT token
     user_data = result["user"]
     access_token = create_access_token({
         "sub": user_data["user_id"],
@@ -102,8 +108,9 @@ async def check_auth_code(req: CheckCodeRequest):
         "roles": [user_data["role"]],
     })
 
-    return {
+    return JSONResponse(content={
         "verified": True,
         "access_token": access_token,
         "user": user_data,
-    }
+        "pid": os.getpid(),
+    })
