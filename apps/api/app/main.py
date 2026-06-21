@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import get_settings
-from app.core.errors import not_found_handler, validation_error_handler
+from app.core.errors import not_found_handler, validation_error_handler, unhandled_exception_handler
 from app.core.rate_limit import RateLimitMiddleware
 from app.core.security import SecurityHeadersMiddleware
 from app.modules.auth.router import router as auth_router
@@ -43,6 +43,7 @@ app.add_middleware(
 
 app.add_exception_handler(404, not_found_handler)
 app.add_exception_handler(422, validation_error_handler)
+app.add_exception_handler(500, unhandled_exception_handler)
 
 app.include_router(auth_router, prefix=f"{settings.API_PREFIX}")
 app.include_router(courses_router, prefix=f"{settings.API_PREFIX}", tags=["courses"])
