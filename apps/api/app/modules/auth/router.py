@@ -5,7 +5,7 @@ from app.core.auth import create_access_token, get_current_user
 from app.core.db import get_db
 from app.modules.auth.schemas import LoginRequest, RefreshRequest, TokenResponse, UserCreate, UserResponse
 from app.modules.auth.service import authenticate_user, create_user_and_tokens, refresh_access_token, blacklist_refresh_token
-from app.modules.auth.auth_sessions import generate_auth_code, check_code
+from app.modules.auth.auth_sessions import generate_auth_code, check_code, auth_sessions
 from app.models.tenants import Tenant
 
 router = APIRouter(prefix="/auth", tags=["auth"])
