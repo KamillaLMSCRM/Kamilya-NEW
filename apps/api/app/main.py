@@ -61,5 +61,6 @@ app.include_router(telegram_router, prefix=f"{settings.API_PREFIX}", tags=["tele
 
 
 @app.get("/health")
+@app.get(f"{settings.API_PREFIX}/health")
 async def health_check():
     return {"status": "ok", "app": settings.APP_NAME}
