@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Card, CardHeader, CardTitle, CardContent, Button, Table, Badge, Modal } from '@/components/ui';
-import { useAuthStore } from 'lib/store';
+import { useAuthStore } from '@/store/authStore';
 
 interface Document {
   id: string;
