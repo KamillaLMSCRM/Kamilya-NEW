@@ -5,7 +5,7 @@ from app.core.auth import create_access_token, get_current_user
 from app.core.db import get_db
 from app.modules.auth.schemas import LoginRequest, RefreshRequest, TokenResponse, UserCreate, UserResponse
 from app.modules.auth.service import authenticate_user, create_user_and_tokens, refresh_access_token, blacklist_refresh_token
-from app.modules.auth.auth_sessions import generate_auth_code, check_code, auth_sessions
+from app.modules.auth.auth_sessions import generate_auth_code, check_code
 from app.models.tenants import Tenant
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -68,38 +68,28 @@ class CheckCodeResponse(BaseModel):
 @router.post("/generate-code", response_model=GenerateCodeResponse)
 async def generate_code():
     """Generate a 6-digit code for Telegram bot authentication."""
-    import os
     code, expires_in = generate_auth_code()
-    from starlette.responses import JSONResponse
-    return JSONResponse(content={"code": code, "expires_in": expires_in, "pid": os.getpid(), "sessions": len(auth_sessions)})
+    return GenerateCodeResponse(code=code, expires_in=expires_in)
 
 
 @router.post("/check-code")
 async def check_auth_code(req: CheckCodeRequest):
     """Poll for code verification status. Returns JWT when verified."""
-    import os
-    import logging
-    logger = logging.getLogger(__name__)
     from starlette.responses import JSONResponse
-
-    logger.info("check-code pid=%s code=%s sessions=%s", os.getpid(), req.code, len(auth_sessions))
 
     try:
         result = check_code(req.code)
-    except Exception as exc:
-        logger.exception("check_code raised: %s", exc)
-        return JSONResponse(status_code=200, content={"verified": False, "error": "check_error", "detail": str(exc)})
-
-    logger.info("check_code result=%s pid=%s", result, os.getpid())
+    except Exception:
+        return JSONResponse(content={"verified": False, "error": "check_error"})
 
     error = result.get("error")
     if error == "not_found":
-        return JSONResponse(content={"verified": False, "error": "Code not found", "pid": os.getpid()})
+        return JSONResponse(content={"verified": False, "error": "Code not found"})
     if error == "expired":
-        return JSONResponse(content={"verified": False, "error": "Code expired", "pid": os.getpid()})
+        return JSONResponse(content={"verified": False, "error": "Code expired"})
 
     if not result["verified"]:
-        return JSONResponse(content={"verified": False, "pid": os.getpid()})
+        return JSONResponse(content={"verified": False})
 
     user_data = result["user"]
     access_token = create_access_token({
@@ -112,5 +102,4 @@ async def check_auth_code(req: CheckCodeRequest):
         "verified": True,
         "access_token": access_token,
         "user": user_data,
-        "pid": os.getpid(),
     })
