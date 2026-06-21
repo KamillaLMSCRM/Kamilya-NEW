@@ -11,8 +11,8 @@
 
 ```bash
 # 1. Clone repository
-git clone https://github.com/KamilyaLMSCRM/KamilyaLMS.git
-cd KamilyaLMS
+git clone https://github.com/KamillaLMSCRM/Kamilya-NEW.git
+cd Kamilya-NEW
 
 # 2. Create .env file
 cp .env.example .env
@@ -62,7 +62,7 @@ JWT_ALGORITHM=HS256
 JWT_EXPIRE_MINUTES=30
 
 # CORS
-CORS_ORIGINS=["https://lms.kml.kz","https://app.kml.kz"]
+CORS_ORIGINS=["https://app.kml.kz","https://web-acvn10y1u-kamillalmscrms-projects.vercel.app"]
 
 # AI (Qwen)
 QWEN_CHAT_URL=http://10.66.66.7:8555/v1
