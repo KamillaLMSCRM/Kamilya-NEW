@@ -5,8 +5,8 @@ import { useT } from '@/i18n/useT';
 
 interface OnboardingStep {
   id: string;
-  titleKey: string;
-  descriptionKey: string;
+  titleKey: any;
+  descriptionKey: any;
 }
 
 const steps: OnboardingStep[] = [
