@@ -62,7 +62,7 @@ JWT_ALGORITHM=HS256
 JWT_EXPIRE_MINUTES=30
 
 # CORS
-CORS_ORIGINS=["https://app.kml.kz","https://web-acvn10y1u-kamillalmscrms-projects.vercel.app"]
+CORS_ORIGINS=["https://lms.kml.kz","https://app.kml.kz"]
 
 # AI (Qwen)
 QWEN_CHAT_URL=http://10.66.66.7:8555/v1
