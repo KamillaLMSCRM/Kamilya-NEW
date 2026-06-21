@@ -50,8 +50,10 @@ class RateLimiter:
             try:
                 import redis.asyncio as aioredis
                 self._redis = aioredis.from_url(self.redis_url, decode_responses=True)
-            except ImportError:
-                logger.warning("Redis not available, rate limiting disabled")
+                await self._redis.ping()
+            except (ImportError, Exception) as e:
+                logger.warning(f"Redis not available ({e}), rate limiting disabled")
+                self._redis = None
                 return None
         return self._redis
 
@@ -66,28 +68,32 @@ class RateLimiter:
         if redis is None:
             return True, {"remaining": max_requests, "reset": 0}
 
-        now = time.time()
-        window_start = now - window_seconds
+        try:
+            now = time.time()
+            window_start = now - window_seconds
 
-        pipe = redis.pipeline()
-        pipe.zremrangebyscore(key, 0, window_start)
-        pipe.zadd(key, {str(now): now})
-        pipe.zcard(key)
-        pipe.expire(key, window_seconds)
-        results = await pipe.execute()
+            pipe = redis.pipeline()
+            pipe.zremrangebyscore(key, 0, window_start)
+            pipe.zadd(key, {str(now): now})
+            pipe.zcard(key)
+            pipe.expire(key, window_seconds)
+            results = await pipe.execute()
 
-        current_count = results[2]
-        remaining = max(0, max_requests - current_count)
-        reset_at = int(now + window_seconds)
+            current_count = results[2]
+            remaining = max(0, max_requests - current_count)
+            reset_at = int(now + window_seconds)
 
-        is_allowed = current_count <= max_requests
+            is_allowed = current_count <= max_requests
 
-        return is_allowed, {
-            "remaining": remaining,
-            "reset": reset_at,
-            "limit": max_requests,
-            "current": current_count,
-        }
+            return is_allowed, {
+                "remaining": remaining,
+                "reset": reset_at,
+                "limit": max_requests,
+                "current": current_count,
+            }
+        except Exception as e:
+            logger.warning(f"Redis rate limit check failed ({e}), allowing request")
+            return True, {"remaining": max_requests, "reset": 0}
 
     async def get_rate_limit_config(self, path: str) -> RateLimitConfig:
         """Get rate limit config for a path."""
