@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Text, TIMESTAMP, DateTime, ForeignKey, func
+from sqlalchemy import Column, Text, TIMESTAMP, DateTime, ForeignKey, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import UUID
 from app.core.db import Base
 
