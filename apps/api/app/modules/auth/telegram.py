@@ -1,6 +1,6 @@
 """Telegram bot webhook handler."""
 import httpx
-from fastapi import APIRouter, Request, HTTPException
+from fastapi import APIRouter, Request, HTTPException, Depends
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -76,7 +76,7 @@ async def handle_telegram_webhook(request: Request, db: AsyncSession = Depends(g
         "user_id": str(user.id),
         "tenant_id": str(user.tenant_id),
         "telegram_id": telegram_id,
-        "role": user.roles[0] if user.roles else "student",
+        "role": "student",
         "full_name": f"{user.first_name} {user.last_name}",
     }
 
