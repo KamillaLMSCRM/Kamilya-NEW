@@ -1,5 +1,7 @@
+import json
 from pydantic_settings import BaseSettings
 from functools import lru_cache
+from pydantic import field_validator
 
 
 class Settings(BaseSettings):
@@ -17,7 +19,7 @@ class Settings(BaseSettings):
 
     # JWT
     JWT_SECRET: str = "dev-secret-dont-use-in-production"
-    JWT_ALGORITHM: str = "RS256"
+    JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30
 
@@ -37,6 +39,16 @@ class Settings(BaseSettings):
 
     # CORS
     CORS_ORIGINS: list[str] = ["http://localhost:3000", "https://app.kml.kz"]
+
+    @field_validator("CORS_ORIGINS", mode="before")
+    @classmethod
+    def parse_cors_origins(cls, v):
+        if isinstance(v, str):
+            try:
+                return json.loads(v)
+            except json.JSONDecodeError:
+                return [origin.strip() for origin in v.split(",")]
+        return v
 
     # Celery
     CELERY_BROKER_URL: str = "redis://localhost:6379/0"
