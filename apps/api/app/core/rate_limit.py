@@ -66,7 +66,7 @@ class RateLimiter:
         """
         redis = await self._get_redis()
         if redis is None:
-            return True, {"remaining": max_requests, "reset": 0}
+            return True, {"remaining": max_requests, "reset": 0, "limit": max_requests, "current": 0}
 
         try:
             now = time.time()
@@ -93,7 +93,7 @@ class RateLimiter:
             }
         except Exception as e:
             logger.warning(f"Redis rate limit check failed ({e}), allowing request")
-            return True, {"remaining": max_requests, "reset": 0}
+            return True, {"remaining": max_requests, "reset": 0, "limit": max_requests, "current": 0}
 
     async def get_rate_limit_config(self, path: str) -> RateLimitConfig:
         """Get rate limit config for a path."""
@@ -111,8 +111,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self.limiter = RateLimiter(redis_url)
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
-        # Skip rate limiting for health checks and static files
-        if request.url.path in ("/health", "/docs", "/redoc", "/openapi.json"):
+        if request.url.path in ("/health", "/api/v1/health", "/docs", "/redoc", "/openapi.json"):
             return await call_next(request)
 
         # Get client identifier (IP + user ID if available)
