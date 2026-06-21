@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Text, BigInteger, TIMESTAMP, DateTime, CheckConstraint, UniqueConstraint, func
+from sqlalchemy import Column, Text, BigInteger, TIMESTAMP, DateTime, CheckConstraint, Index, func
 from sqlalchemy.dialects.postgresql import UUID
 from app.core.db import Base
 
@@ -19,5 +19,5 @@ class User(Base):
 
     __table_args__ = (
         CheckConstraint("status IN ('active', 'inactive', 'banned')", name="ck_user_status"),
-        UniqueConstraint("tenant_id", "telegram_id", name="uq_user_telegram", postgresql_where="telegram_id IS NOT NULL"),
+        Index("uq_user_telegram", "tenant_id", "telegram_id", unique=True, postgresql_where="telegram_id IS NOT NULL"),
     )
