@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
-import { Card, CardHeader, CardTitle, CardContent } from 'ui-kit';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui';
 
 const menuItems = [
   { label: 'Мой дашборд', href: '/student' },

@@ -29,8 +29,7 @@
     "@tiptap/extension-placeholder": "^2.9",
     "lucide-react": "^0.46",
     "tailwind-merge": "^2.6",
-    "class-variance-authority": "^0.7",
-    "ui-kit": "workspace:*"
+    "class-variance-authority": "^0.7"
   },
   "devDependencies": {
     "@types/react": "^18.3",

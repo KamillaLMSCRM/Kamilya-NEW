@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/store/authStore';
-import { Card, CardHeader, CardTitle, CardContent, Button, Input } from 'ui-kit';
+import { Card, CardHeader, CardTitle, CardContent, Button, Input } from '@/components/ui';
 
 export default function CoursesPage() {
   const { user, initialize } = useAuthStore();

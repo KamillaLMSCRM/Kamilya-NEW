@@ -1,5 +1,5 @@
 import React from 'react';
-import { Card, CardHeader, CardTitle, CardContent, Button, Input } from 'ui-kit';
+import { Card, CardHeader, CardTitle, CardContent, Button, Input } from '@/components/ui';
 
 interface CourseEditorProps {
   course: { id: string; title: string; description: string; status: string };

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Card, CardHeader, CardTitle, CardContent, Button, Table, Badge, Modal } from 'ui-kit';
+import { Card, CardHeader, CardTitle, CardContent, Button, Table, Badge, Modal } from '@/components/ui';
 import { useAuthStore } from 'lib/store';
 
 interface Document {

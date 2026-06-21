@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { Button, Input, Card, CardHeader, CardTitle, CardContent } from 'ui-kit';
+import { Button, Input, Card, CardHeader, CardTitle, CardContent } from '@/components/ui';
 import CourseEditor from '@/components/CourseEditor';
 
 interface Module {

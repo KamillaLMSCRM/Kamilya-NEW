@@ -2,8 +2,8 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Input } from 'ui-kit';
-import { Button } from 'ui-kit';
+import { Input } from '@/components/ui';
+import { Button } from '@/components/ui';
 
 export default function RegisterPage() {
   const router = useRouter();

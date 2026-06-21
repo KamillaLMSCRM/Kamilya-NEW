@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
-import { Card, CardHeader, CardTitle, CardContent, Button } from 'ui-kit';
+import { Card, CardHeader, CardTitle, CardContent, Button } from '@/components/ui';
 
 interface Lesson {
   id: string;
