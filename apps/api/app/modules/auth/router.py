@@ -72,19 +72,27 @@ async def generate_code():
     return GenerateCodeResponse(code=code, expires_in=expires_in)
 
 
-@router.post("/check-code", response_model=CheckCodeResponse)
+@router.post("/check-code")
 async def check_auth_code(req: CheckCodeRequest):
     """Poll for code verification status. Returns JWT when verified."""
-    result = check_code(req.code)
+    import logging
+    logger = logging.getLogger(__name__)
+
+    try:
+        result = check_code(req.code)
+    except Exception as exc:
+        logger.exception("check_code raised: %s", exc)
+        from starlette.responses import JSONResponse as JR
+        return JR(status_code=200, content={"verified": False, "error": "check_error"})
 
     error = result.get("error")
     if error == "not_found":
-        return CheckCodeResponse(verified=False, error="Code not found")
+        return {"verified": False, "error": "Code not found"}
     if error == "expired":
-        return CheckCodeResponse(verified=False, error="Code expired")
+        return {"verified": False, "error": "Code expired"}
 
     if not result["verified"]:
-        return CheckCodeResponse(verified=False)
+        return {"verified": False}
 
     # Generate JWT token
     user_data = result["user"]
@@ -94,8 +102,8 @@ async def check_auth_code(req: CheckCodeRequest):
         "roles": [user_data["role"]],
     })
 
-    return CheckCodeResponse(
-        verified=True,
-        access_token=access_token,
-        user=user_data,
-    )
+    return {
+        "verified": True,
+        "access_token": access_token,
+        "user": user_data,
+    }
