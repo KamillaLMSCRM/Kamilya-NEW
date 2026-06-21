@@ -4,7 +4,6 @@ const defaultTheme = require('tailwindcss/defaultTheme');
 module.exports = {
   content: [
     './src/**/*.{ts,tsx}',
-    '../../packages/ui-kit/**/*.{ts,tsx}',
   ],
   theme: {
     extend: {
@@ -13,5 +12,5 @@ module.exports = {
       },
     },
   },
-  plugins: [require('tailwindcss-animate')],
+  plugins: [],
 }
