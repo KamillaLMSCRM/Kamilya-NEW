@@ -1,0 +1,24 @@
+{
+  "name": "ui-kit",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "index.ts",
+  "exports": {
+    "./button": "./components/button.tsx",
+    "./card": "./components/card.tsx",
+    "./input": "./components/input.tsx",
+    "./modal": "./components/modal.tsx",
+    "./badge": "./components/badge.tsx",
+    "./table": "./components/table.tsx"
+  },
+  "dependencies": {
+    "react": "^18.3",
+    "react-dom": "^18.3",
+    "tailwind-merge": "^2.6",
+    "class-variance-authority": "^0.7"
+  },
+  "devDependencies": {
+    "typescript": "^5.6"
+  }
+}

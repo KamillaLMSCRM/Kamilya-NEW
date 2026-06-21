@@ -1,0 +1,22 @@
+{
+  "name": "shared-types",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Shared types between frontend and backend (Pydantic ↔ Zod codegen)",
+  "type": "module",
+  "main": "index.ts",
+  "types": "index.ts",
+  "exports": {
+    ".": "./index.ts"
+  },
+  "scripts": {
+    "codegen": "python codegen.py",
+    "generate": "python codegen.py"
+  },
+  "dependencies": {
+    "zod": "^3.24"
+  },
+  "devDependencies": {
+    "typescript": "^5.6"
+  }
+}

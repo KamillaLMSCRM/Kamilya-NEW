@@ -1,0 +1,71 @@
+"""Certificate API router"""
+from uuid import UUID
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.auth import get_current_user
+from app.core.db import get_db
+from app.modules.certificates.schemas import CertificateResponse
+from app.modules.certificates.service import (
+    issue_certificate,
+    get_user_certificates,
+    get_certificate,
+    verify_certificate,
+)
+
+router = APIRouter(prefix="/certificates", tags=["certificates"])
+
+
+@router.get("", response_model=list[CertificateResponse])
+async def list_certificates(
+    db: AsyncSession = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    """Get current user's certificates."""
+    return await get_user_certificates(db, user.id, user.tenant_id)
+
+
+@router.post("/{course_id}/issue", response_model=CertificateResponse, status_code=201)
+async def issue_course_certificate(
+    course_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    """Issue certificate for completing a course."""
+    try:
+        cert = await issue_certificate(
+            db=db,
+            user_id=user.id,
+            course_id=course_id,
+            tenant_id=user.tenant_id,
+            user_name=f"{user.first_name} {user.last_name}" if hasattr(user, "first_name") else "",
+            course_title="",
+        )
+        return cert
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/{cert_id}", response_model=CertificateResponse)
+async def get_cert(
+    cert_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    """Get a specific certificate."""
+    cert = await get_certificate(db, cert_id, user.tenant_id)
+    if not cert:
+        raise HTTPException(status_code=404, detail="Certificate not found")
+    return cert
+
+
+@router.get("/verify/{certificate_number}")
+async def verify_cert(
+    certificate_number: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """Verify a certificate (public endpoint)."""
+    result = await verify_certificate(db, certificate_number)
+    if not result:
+        raise HTTPException(status_code=404, detail="Certificate not found")
+    return result

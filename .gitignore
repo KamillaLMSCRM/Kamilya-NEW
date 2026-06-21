@@ -1,0 +1,77 @@
+# Node
+node_modules/
+next-env.d.ts
+.next/
+out/
+tsconfig.tsbuildinfo
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+venv_tmp/
+
+# Poetry
+poetry.lock
+
+# Docker
+Dockerfile.cache
+
+# Env files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+*.log
+logs/
+
+# OS
+Thumbs.db
+
+# Testing
+coverage/
+.nyc_output/
+
+# Drizzle
+drizzle/
+migrations/
+
+# Alembic
+alembic/versions/.gitkeep
+
+# misc
+*.pem
+*.key
+*.crt

@@ -1,0 +1,53 @@
+{
+  "name": "web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 3000",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "next": "^14.2",
+    "react": "^18.3",
+    "react-dom": "^18.3",
+    "@tanstack/react-query": "^5.59",
+    "zustand": "^5.0",
+    "axios": "^1.7",
+    "zod": "^3.24",
+    "next-intl": "^3.25",
+    "@hookform/resolvers": "^3.9",
+    "react-hook-form": "^7.53",
+    "date-fns": "^4.0",
+    "react-dropzone": "^14.3",
+    "recharts": "^2.15",
+    "@tiptap/react": "^2.9",
+    "@tiptap/starter-kit": "^2.9",
+    "@tiptap/extension-placeholder": "^2.9",
+    "lucide-react": "^0.46",
+    "tailwind-merge": "^2.6",
+    "class-variance-authority": "^0.7",
+    "ui-kit": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3",
+    "@types/react-dom": "^18.3",
+    "typescript": "^5.6",
+    "tailwindcss": "^3.4",
+    "postcss": "^8.4",
+    "autoprefixer": "^10.4",
+    "eslint": "^9.14",
+    "eslint-config-next": "^14.2",
+    "prettier": "^3.3",
+    "eslint-plugin-prettier": "^5.2",
+    "@playwright/test": "^1.49",
+    "vitest": "^2.1",
+    "msw": "^2.7",
+    "@testing-library/react": "^16.1",
+    "@testing-library/jest-dom": "^6.6",
+    "jsdom": "^25.0"
+  }
+}

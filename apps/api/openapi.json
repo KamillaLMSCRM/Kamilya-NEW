@@ -1,0 +1,4 @@
+{
+  "$schema": "https://openapi.stripe.com/v1/schema",
+  "output": "apps/api/app/modules/courses/schemas.py"
+}

@@ -1,0 +1,22 @@
+# Caddyfile — Kamilya LMS reverse proxy
+# /etc/caddy/Caddyfile
+
+(kamilya) {
+    tls /etc/ssl/cloudflare/cert.pem /etc/ssl/cloudflare/key.pem
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options nosniff
+        X-Frame-Options DENY
+        Referrer-Policy strict-origin-when-cross-origin
+    }
+}
+
+app.kml.kz {
+    import kamilya
+    reverse_proxy localhost:3000
+}
+
+api.kml.kz {
+    import kamilya
+    reverse_proxy localhost:8000
+}

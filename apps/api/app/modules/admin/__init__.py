@@ -1,0 +1,1 @@
+"""Tenant admin dashboard module"""
