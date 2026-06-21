@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta, timezone
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import argon2
 from sqlalchemy import select, update
@@ -12,6 +12,32 @@ from app.models.user_sessions import UserSession
 from app.modules.auth.schemas import TokenResponse
 
 ph = argon2.PasswordHasher()
+
+
+async def create_user_and_tokens(
+    db: AsyncSession,
+    tenant_id: UUID,
+    email: str,
+    first_name: str,
+    last_name: str,
+    password: str | None = None,
+) -> tuple[User, str, str]:
+    password_hash = ph.hash(password) if password else None
+    user = User(
+        id=uuid4(),
+        tenant_id=tenant_id,
+        email=email,
+        first_name=first_name,
+        last_name=last_name,
+        password_hash=password_hash,
+        status="active",
+    )
+    db.add(user)
+    await db.flush()
+
+    access_token = create_access_token({"sub": str(user.id), "tenant_id": str(user.tenant_id), "roles": []})
+    refresh_token = create_refresh_token({"sub": str(user.id), "tenant_id": str(user.tenant_id)})
+    return user, access_token, refresh_token
 
 
 async def authenticate_user(db: AsyncSession, email: str, password: str) -> tuple[User, str, str]:
