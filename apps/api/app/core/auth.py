@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
-from app.core.db import async_session_factory
+from app.core.db import async_session_factory, get_db
 from app.models.users import User
 
 settings = get_settings()
