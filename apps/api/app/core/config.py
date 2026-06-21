@@ -32,6 +32,9 @@ class Settings(BaseSettings):
     QWEN_API_URL: str = "http://localhost:8555"
     QWEN_EMBEDDING_URL: str = "http://localhost:8001"
 
+    # Telegram Bot
+    TELEGRAM_BOT_TOKEN: str = ""
+
     # CORS
     CORS_ORIGINS: list[str] = ["http://localhost:3000", "https://app.kml.kz"]
 

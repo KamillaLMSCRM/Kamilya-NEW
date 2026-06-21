@@ -1,38 +1,32 @@
 import { create } from 'zustand';
-import { AuthState, getStoredAuth, setStoredAuth, clearStoredAuth } from '@/lib/auth';
+import { AuthUser, getStoredAuth, setStoredAuth, clearStoredAuth } from '@/lib/auth';
 
-interface AuthStore extends AuthState {
+interface AuthStore {
+  accessToken: string | null;
+  user: AuthUser | null;
   initialize: () => void;
-  login: (accessToken: string, refreshToken: string, user: AuthState['user']) => void;
+  login: (accessToken: string, user: AuthUser) => void;
   logout: () => void;
-  updateUser: (user: Partial<AuthState['user']>) => void;
 }
 
 export const useAuthStore = create<AuthStore>((set) => ({
   accessToken: null,
-  refreshToken: null,
   user: null,
 
   initialize: () => {
     const auth = getStoredAuth();
     if (auth) {
-      set(auth);
+      set({ accessToken: auth.access_token, user: auth.user });
     }
   },
 
-  login: (accessToken, refreshToken, user) => {
-    set({ accessToken, refreshToken, user });
-    setStoredAuth({ accessToken, refreshToken, user });
+  login: (accessToken, user) => {
+    set({ accessToken, user });
+    setStoredAuth({ access_token: accessToken, user });
   },
 
   logout: () => {
-    set({ accessToken: null, refreshToken: null, user: null });
+    set({ accessToken: null, user: null });
     clearStoredAuth();
-  },
-
-  updateUser: (partial) => {
-    set((state) => ({
-      user: state.user ? { ...state.user, ...partial } : null,
-    }));
   },
 }));

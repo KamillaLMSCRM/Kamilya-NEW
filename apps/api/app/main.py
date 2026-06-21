@@ -17,6 +17,7 @@ from app.modules.student.router import router as student_router
 from app.modules.audit.router import router as audit_router
 from app.modules.admin.router import router as admin_router
 from app.modules.users.router import router as users_router
+from app.modules.auth.telegram import router as telegram_router
 
 settings = get_settings()
 
@@ -56,6 +57,7 @@ app.include_router(student_router, prefix=f"{settings.API_PREFIX}", tags=["stude
 app.include_router(audit_router, prefix=f"{settings.API_PREFIX}", tags=["audit"])
 app.include_router(admin_router, prefix=f"{settings.API_PREFIX}", tags=["admin"])
 app.include_router(users_router, prefix=f"{settings.API_PREFIX}", tags=["users"])
+app.include_router(telegram_router, prefix=f"{settings.API_PREFIX}", tags=["telegram"])
 
 
 @app.get("/health")
