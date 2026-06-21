@@ -1,0 +1,56 @@
+services:
+  - type: web
+    name: kamilya-api
+    runtime: python
+    plan: starter
+    buildCommand: |
+      cd apps/api
+      pip install poetry
+      poetry config virtualenvs.in-project true
+      poetry install --no-interaction --no-ansi --without dev
+    startCommand: |
+      cd apps/api
+      poetry run uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12"
+      - key: APP_ENV
+        value: production
+      - key: DEBUG
+        value: "false"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: kamilya-db
+          property: connectionString
+      - key: REDIS_URL
+        fromRedis:
+          name: kamilya-redis
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_ALGORITHM
+        value: HS256
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: "60"
+      - key: REFRESH_TOKEN_EXPIRE_DAYS
+        value: "30"
+      - key: QWEN_API_URL
+        value: "http://10.66.66.7:8555"
+      - key: QWEN_EMBEDDING_URL
+        value: "http://10.66.66.7:8001"
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: CORS_ORIGINS
+        value: '["https://app.kml.kz","https://web-inky-three-48.vercel.app"]'
+    healthCheckPath: /api/v1/health
+    autoDeploy: true
+
+databases:
+  - name: kamilya-db
+    plan: starter
+    databaseName: kamilya_lms
+    user: kamilya
+
+  - name: kamilya-redis
+    plan: starter
+    ipAllowList: []
