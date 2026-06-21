@@ -77,9 +77,10 @@ async def check_auth_code(req: CheckCodeRequest):
     """Poll for code verification status. Returns JWT when verified."""
     result = check_code(req.code)
 
-    if result["error"] == "not_found":
+    error = result.get("error")
+    if error == "not_found":
         return CheckCodeResponse(verified=False, error="Code not found")
-    if result["error"] == "expired":
+    if error == "expired":
         return CheckCodeResponse(verified=False, error="Code expired")
 
     if not result["verified"]:
