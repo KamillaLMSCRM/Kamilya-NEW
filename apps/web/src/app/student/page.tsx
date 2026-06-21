@@ -29,7 +29,7 @@ interface DashboardData {
 export default function StudentDashboardPage() {
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
-  const token = useAuthStore((s) => s.token);
+  const token = useAuthStore((s) => s.accessToken);
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
   const fetchDashboard = useCallback(async () => {

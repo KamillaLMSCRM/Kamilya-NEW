@@ -22,7 +22,7 @@ interface AIGenerationJob {
 
 export default function AIGeneratePage() {
   const router = useRouter();
-  const token = useAuthStore((s) => s.token);
+  const token = useAuthStore((s) => s.accessToken);
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
   const [documents, setDocuments] = useState<string[]>([]);

@@ -23,7 +23,7 @@ export default function AdminUsersPage() {
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newUser, setNewUser] = useState({ email: '', first_name: '', last_name: '', role: 'student', password: '' });
-  const token = useAuthStore((s) => s.token);
+  const token = useAuthStore((s) => s.accessToken);
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
   const fetchUsers = useCallback(async () => {

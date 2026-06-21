@@ -19,7 +19,7 @@ export default function DocumentsPage() {
   const [uploading, setUploading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [title, setTitle] = useState('');
-  const token = useAuthStore((s) => s.token);
+  const token = useAuthStore((s) => s.accessToken);
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
   const fetchDocuments = useCallback(async () => {

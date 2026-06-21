@@ -43,7 +43,7 @@ export default function AdminDashboardPage() {
   const [users, setUsers] = useState<UserItem[]>([]);
   const [courses, setCourses] = useState<CourseItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const token = useAuthStore((s) => s.token);
+  const token = useAuthStore((s) => s.accessToken);
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
   const fetchData = useCallback(async () => {

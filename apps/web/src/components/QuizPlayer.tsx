@@ -55,7 +55,7 @@ export default function QuizPlayer({ quizId, onComplete }: QuizPlayerProps) {
   const [result, setResult] = useState<QuizResult | null>(null);
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const [startTime] = useState(Date.now());
-  const token = useAuthStore((s) => s.token);
+  const token = useAuthStore((s) => s.accessToken);
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
   useEffect(() => {
