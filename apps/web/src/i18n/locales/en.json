@@ -112,6 +112,8 @@
     "continueCourse": "Continue",
     "viewCertificate": "Certificate",
     "progress": "Progress",
+    "addModule": "Add Module",
+    "addLesson": "Add Lesson",
     "browse": "Available Courses",
     "viewAll": "View All Courses",
     "enroll": "Enroll",
@@ -256,5 +258,41 @@
     "theme": "Theme",
     "dark": "Dark",
     "light": "Light"
+  },
+  "onboarding": {
+    "welcome": {
+      "title": "Welcome to Kamilya LMS",
+      "description": "Set up your organization in a few steps",
+      "message": "We'll help you set up a learning platform for your team"
+    },
+    "company": {
+      "title": "Organization Info",
+      "description": "Enter your company details",
+      "name": "Organization Name",
+      "namePlaceholder": "Enter organization name",
+      "logo": "Organization Logo",
+      "logoHint": "Recommended size: 200x200 pixels"
+    },
+    "team": {
+      "title": "Team Setup",
+      "description": "Add employees and departments",
+      "department": "Department",
+      "departmentPlaceholder": "Department name",
+      "employees": "Employees",
+      "employeesPlaceholder": "Enter employee emails (one per line)",
+      "employeesHint": "Invitations will be sent after setup"
+    },
+    "courses": {
+      "title": "First Course",
+      "description": "Create the first course for your team",
+      "titlePlaceholder": "Course title",
+      "descriptionPlaceholder": "Course description"
+    },
+    "complete": {
+      "title": "Setup Complete",
+      "description": "You're ready to go!",
+      "message": "Congratulations! Your organization is set up. Start creating courses and inviting employees.",
+      "start": "Start Working"
+    }
   }
 }

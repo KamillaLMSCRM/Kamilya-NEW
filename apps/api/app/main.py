@@ -18,6 +18,8 @@ from app.modules.audit.router import router as audit_router
 from app.modules.admin.router import router as admin_router
 from app.modules.users.router import router as users_router
 from app.modules.auth.telegram import router as telegram_router
+from app.modules.positions.router import router as positions_router
+from app.modules.job_descriptions.router import router as job_descriptions_router
 
 settings = get_settings()
 
@@ -57,6 +59,8 @@ app.include_router(audit_router, prefix=f"{settings.API_PREFIX}", tags=["audit"]
 app.include_router(admin_router, prefix=f"{settings.API_PREFIX}", tags=["admin"])
 app.include_router(users_router, prefix=f"{settings.API_PREFIX}", tags=["users"])
 app.include_router(telegram_router, prefix=f"{settings.API_PREFIX}", tags=["telegram"])
+app.include_router(positions_router, prefix=f"{settings.API_PREFIX}", tags=["positions"])
+app.include_router(job_descriptions_router, prefix=f"{settings.API_PREFIX}", tags=["job-descriptions"])
 
 
 @app.get("/health")
