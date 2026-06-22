@@ -72,7 +72,7 @@ async def list_jobs(
 ):
     """List AI jobs for current tenant."""
     from sqlalchemy import select
-    from app.modules.ai.models import AIJob
+    from app.models.ai_job import AIJob
 
     stmt = (
         select(AIJob)
