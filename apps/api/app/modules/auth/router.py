@@ -90,8 +90,16 @@ class CheckCodeResponse(BaseModel):
 @router.post("/generate-code", response_model=GenerateCodeResponse)
 async def generate_code():
     """Generate a 6-digit code for Telegram bot authentication."""
-    code, expires_in = await generate_auth_code()
-    return GenerateCodeResponse(code=code, expires_in=expires_in)
+    import logging
+    logger = logging.getLogger(__name__)
+    try:
+        code, expires_in = await generate_auth_code()
+        logger.info(f"Generated auth code: {code}")
+        return GenerateCodeResponse(code=code, expires_in=expires_in)
+    except Exception as e:
+        logger.exception(f"Error generating auth code: {e}")
+        from fastapi import HTTPException
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/check-code")

@@ -85,8 +85,11 @@ export default function LoginPage() {
           login(res.data.access_token, res.data.user);
           router.push('/dashboard');
         }
-      } catch {
-        // Ignore polling errors
+      } catch (err: any) {
+        if (err.response?.status === 429) {
+          setError('Слишком много запросов. Подождите 1 минуту или обновите страницу.');
+          if (pollingRef.current) clearInterval(pollingRef.current);
+        }
       }
     }, 2000);
   }, [login, router]);

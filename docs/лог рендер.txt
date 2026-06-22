@@ -1,0 +1,300 @@
+2026-06-22T11:50:14.75427145Z            ^^^^^^^^^^^^^^^^^^^^^^^
+2026-06-22T11:50:14.75427443Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 2271, in _execute_internal
+2026-06-22T11:50:14.75427713Z     result: Result[Any] = compile_state_cls.orm_execute_statement(
+2026-06-22T11:50:14.75427983Z                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-06-22T11:50:14.75429322Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/orm/context.py", line 306, in orm_execute_statement
+2026-06-22T11:50:14.75429618Z     result = conn.execute(
+2026-06-22T11:50:14.75429908Z              ^^^^^^^^^^^^^
+2026-06-22T11:50:14.75430185Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1421, in execute
+2026-06-22T11:50:14.75430446Z     return meth(
+2026-06-22T11:50:14.754307091Z            ^^^^^
+2026-06-22T11:50:14.754309751Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/sql/elements.py", line 526, in _execute_on_connection
+2026-06-22T11:50:14.754312291Z     return connection._execute_clauseelement(
+2026-06-22T11:50:14.754314861Z            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-06-22T11:50:14.754317441Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1643, in _execute_clauseelement
+2026-06-22T11:50:14.754320401Z     ret = self._execute_context(
+2026-06-22T11:50:14.754322911Z           ^^^^^^^^^^^^^^^^^^^^^^
+2026-06-22T11:50:14.754325701Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1848, in _execute_context
+2026-06-22T11:50:14.754328381Z     return self._exec_single_context(
+2026-06-22T11:50:14.754331171Z            ^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-06-22T11:50:14.754333731Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1988, in _exec_single_context
+2026-06-22T11:50:14.754336521Z     self._handle_dbapi_exception(
+2026-06-22T11:50:14.754339181Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 2365, in _handle_dbapi_exception
+2026-06-22T11:50:14.754346181Z     raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+2026-06-22T11:50:14.754349012Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1969, in _exec_single_context
+2026-06-22T11:50:14.754351701Z     self.dialect.do_execute(
+2026-06-22T11:50:14.754354362Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/engine/default.py", line 952, in do_execute
+2026-06-22T11:50:14.754356882Z     cursor.execute(statement, parameters)
+2026-06-22T11:50:14.754361582Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 585, in execute
+2026-06-22T11:50:14.754366062Z     self._adapt_connection.await_(
+2026-06-22T11:50:14.754368782Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 132, in await_only
+2026-06-22T11:50:14.754371712Z     return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501
+2026-06-22T11:50:14.754374312Z            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-06-22T11:50:14.754377032Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 196, in greenlet_spawn
+2026-06-22T11:50:14.754379902Z     value = await result
+2026-06-22T11:50:14.754382642Z             ^^^^^^^^^^^^
+2026-06-22T11:50:14.754395013Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 563, in _prepare_and_execute
+2026-06-22T11:50:14.754397933Z     self._handle_exception(error)
+2026-06-22T11:50:14.754400773Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 513, in _handle_exception
+2026-06-22T11:50:14.754403543Z     self._adapt_connection._handle_exception(error)
+2026-06-22T11:50:14.754406283Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 797, in _handle_exception
+2026-06-22T11:50:14.754408823Z     raise translated_error from error
+2026-06-22T11:50:14.754411623Z sqlalchemy.exc.ProgrammingError: (sqlalchemy.dialects.postgresql.asyncpg.ProgrammingError) <class 'asyncpg.exceptions.UndefinedColumnError'>: column users.role does not exist
+2026-06-22T11:50:14.754414883Z [SQL: SELECT users.id, users.tenant_id, users.email, users.telegram_id, users.password_hash, users.first_name, users.last_name, users.role, users.is_active, users.position_id, users.last_login, users.status, users.created_at, users.updated_at 
+2026-06-22T11:50:14.754417503Z FROM users 
+2026-06-22T11:50:14.754420063Z WHERE users.telegram_id = $1::BIGINT]
+2026-06-22T11:50:14.754422903Z [parameters: (349746594,)]
+2026-06-22T11:50:14.754425643Z (Background on this error at: https://sqlalche.me/e/20/f405)
+2026-06-22T11:50:15.788454245Z INFO:     178.88.50.166:0 - "POST /api/v1/auth/check-code HTTP/1.1" 200 OK
+2026-06-22T11:50:18.629269886Z INFO:     10.216.25.186:45432 - "GET /api/v1/health HTTP/1.1" 200 OK
+2026-06-22T11:50:18.74037066Z INFO:     178.88.50.166:0 - "POST /api/v1/auth/check-code HTTP/1.1" 200 OK
+2026-06-22T11:50:22.807604792Z     await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+2026-06-22T11:50:22.807607462Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+2026-06-22T11:50:22.807610022Z     raise exc
+2026-06-22T11:50:22.807612712Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+2026-06-22T11:50:22.807615382Z     await app(scope, receive, sender)
+2026-06-22T11:50:22.807617913Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/fastapi/routing.py", line 136, in app
+2026-06-22T11:50:22.807620742Z     response = await f(request)
+2026-06-22T11:50:22.807623263Z                ^^^^^^^^^^^^^^^^
+2026-06-22T11:50:22.807625973Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/fastapi/routing.py", line 690, in app
+2026-06-22T11:50:22.807628673Z     raw_response = await run_endpoint_function(
+2026-06-22T11:50:22.807631223Z                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-06-22T11:50:22.807633913Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/fastapi/routing.py", line 344, in run_endpoint_function
+2026-06-22T11:50:22.807636613Z     return await dependant.call(**values)
+2026-06-22T11:50:22.807639223Z            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-06-22T11:50:22.807641923Z   File "/opt/render/project/src/apps/api/app/modules/auth/telegram.py", line 62, in handle_telegram_webhook
+2026-06-22T11:50:22.807644593Z     result = await db.execute(
+2026-06-22T11:50:22.807647163Z              ^^^^^^^^^^^^^^^^^
+2026-06-22T11:50:22.807659843Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/ext/asyncio/session.py", line 448, in execute
+2026-06-22T11:50:22.807662624Z     result = await greenlet_spawn(
+2026-06-22T11:50:22.807665264Z              ^^^^^^^^^^^^^^^^^^^^^
+2026-06-22T11:50:22.807670794Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 201, in greenlet_spawn
+2026-06-22T11:50:22.807673554Z     result = context.throw(*sys.exc_info())
+2026-06-22T11:50:22.807676134Z              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-06-22T11:50:22.807678834Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 2373, in execute
+2026-06-22T11:50:22.807681374Z     return self._execute_internal(
+2026-06-22T11:50:22.807684114Z            ^^^^^^^^^^^^^^^^^^^^^^^
+2026-06-22T11:50:22.807686954Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 2271, in _execute_internal
+2026-06-22T11:50:22.807689644Z     result: Result[Any] = compile_state_cls.orm_execute_statement(
+2026-06-22T11:50:22.807692204Z                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-06-22T11:50:22.807695034Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/orm/context.py", line 306, in orm_execute_statement
+2026-06-22T11:50:22.807700535Z     result = conn.execute(
+2026-06-22T11:50:22.807703145Z              ^^^^^^^^^^^^^
+2026-06-22T11:50:22.807705645Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1421, in execute
+2026-06-22T11:50:22.807708265Z     return meth(
+2026-06-22T11:50:22.807710925Z            ^^^^^
+2026-06-22T11:50:22.807713485Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/sql/elements.py", line 526, in _execute_on_connection
+2026-06-22T11:50:22.807716085Z     return connection._execute_clauseelement(
+2026-06-22T11:50:22.807718655Z            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-06-22T11:50:22.807721335Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1643, in _execute_clauseelement
+2026-06-22T11:50:22.807724385Z     ret = self._execute_context(
+2026-06-22T11:50:22.807727405Z           ^^^^^^^^^^^^^^^^^^^^^^
+2026-06-22T11:50:22.807730285Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1848, in _execute_context
+2026-06-22T11:50:22.807733015Z     return self._exec_single_context(
+2026-06-22T11:50:22.807736056Z            ^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-06-22T11:50:22.807739056Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1988, in _exec_single_context
+2026-06-22T11:50:22.807742085Z     self._handle_dbapi_exception(
+2026-06-22T11:50:22.807745576Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 2365, in _handle_dbapi_exception
+2026-06-22T11:50:22.807748156Z     raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+2026-06-22T11:50:22.807750166Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1969, in _exec_single_context
+2026-06-22T11:50:22.807752106Z     self.dialect.do_execute(
+2026-06-22T11:50:22.807754426Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/engine/default.py", line 952, in do_execute
+2026-06-22T11:50:22.807756366Z     cursor.execute(statement, parameters)
+2026-06-22T11:50:22.807758246Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 585, in execute
+2026-06-22T11:50:22.807763836Z     self._adapt_connection.await_(
+2026-06-22T11:50:22.807765876Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 132, in await_only
+2026-06-22T11:50:22.807767906Z     return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501
+2026-06-22T11:50:22.807769796Z            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-06-22T11:50:22.807771746Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 196, in greenlet_spawn
+2026-06-22T11:50:22.807773706Z     value = await result
+2026-06-22T11:50:22.807775606Z             ^^^^^^^^^^^^
+2026-06-22T11:50:22.807777577Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 563, in _prepare_and_execute
+2026-06-22T11:50:22.807779486Z     self._handle_exception(error)
+2026-06-22T11:50:22.807781386Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 513, in _handle_exception
+2026-06-22T11:50:22.807783466Z     self._adapt_connection._handle_exception(error)
+2026-06-22T11:50:22.807785667Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 797, in _handle_exception
+2026-06-22T11:50:22.807787567Z     raise translated_error from error
+2026-06-22T11:50:22.807789567Z sqlalchemy.exc.ProgrammingError: (sqlalchemy.dialects.postgresql.asyncpg.ProgrammingError) <class 'asyncpg.exceptions.UndefinedColumnError'>: column users.role does not exist
+2026-06-22T11:50:22.807792067Z [SQL: SELECT users.id, users.tenant_id, users.email, users.telegram_id, users.password_hash, users.first_name, users.last_name, users.role, users.is_active, users.position_id, users.last_login, users.status, users.created_at, users.updated_at 
+2026-06-22T11:50:22.807794077Z FROM users 
+2026-06-22T11:50:22.807795987Z WHERE users.telegram_id = $1::BIGINT]
+2026-06-22T11:50:22.807797907Z [parameters: (349746594,)]
+2026-06-22T11:50:22.807799927Z (Background on this error at: https://sqlalche.me/e/20/f405)
+2026-06-22T11:50:22.811493117Z ERROR:    Exception in ASGI application
+2026-06-22T11:50:22.811510118Z Traceback (most recent call last):
+2026-06-22T11:50:22.811513868Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 526, in _prepare_and_execute
+2026-06-22T11:50:22.811517488Z     prepared_stmt, attributes = await adapt_connection._prepare(
+2026-06-22T11:50:22.811520078Z                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-06-22T11:50:22.811534818Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 773, in _prepare
+2026-06-22T11:50:22.811538298Z     prepared_stmt = await self._connection.prepare(
+2026-06-22T11:50:22.811541108Z                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-06-22T11:50:22.811544709Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/asyncpg/connection.py", line 638, in prepare
+2026-06-22T11:50:22.811548178Z     return await self._prepare(
+2026-06-22T11:50:22.811550889Z            ^^^^^^^^^^^^^^^^^^^^
+2026-06-22T11:50:22.811553699Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/asyncpg/connection.py", line 657, in _prepare
+2026-06-22T11:50:22.811556429Z     stmt = await self._get_statement(
+2026-06-22T11:50:22.811559429Z            ^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-06-22T11:50:22.811562669Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/asyncpg/connection.py", line 443, in _get_statement
+2026-06-22T11:50:22.811565619Z     statement = await self._protocol.prepare(
+2026-06-22T11:50:22.811577869Z                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-06-22T11:50:22.811580839Z   File "asyncpg/protocol/protocol.pyx", line 165, in prepare
+2026-06-22T11:50:22.81158431Z asyncpg.exceptions.UndefinedColumnError: column users.role does not exist
+2026-06-22T11:50:22.81158701Z 
+2026-06-22T11:50:22.81159015Z The above exception was the direct cause of the following exception:
+2026-06-22T11:50:22.81159302Z 
+2026-06-22T11:50:22.81159622Z Traceback (most recent call last):
+2026-06-22T11:50:22.81159944Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1969, in _exec_single_context
+2026-06-22T11:50:22.81160241Z     self.dialect.do_execute(
+2026-06-22T11:50:22.8116056Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/engine/default.py", line 952, in do_execute
+2026-06-22T11:50:22.81160866Z     cursor.execute(statement, parameters)
+2026-06-22T11:50:22.81161172Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 585, in execute
+2026-06-22T11:50:22.81161505Z     self._adapt_connection.await_(
+2026-06-22T11:50:22.81161808Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 132, in await_only
+2026-06-22T11:50:22.81162114Z     return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501
+2026-06-22T11:50:22.811624211Z            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-06-22T11:50:22.811627051Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 196, in greenlet_spawn
+2026-06-22T11:50:22.81163136Z     value = await result
+2026-06-22T11:50:22.811634171Z             ^^^^^^^^^^^^
+2026-06-22T11:50:22.811636981Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 563, in _prepare_and_execute
+2026-06-22T11:50:22.811639621Z     self._handle_exception(error)
+2026-06-22T11:50:22.811642611Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 513, in _handle_exception
+2026-06-22T11:50:22.811645461Z     self._adapt_connection._handle_exception(error)
+2026-06-22T11:50:22.811648931Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 797, in _handle_exception
+2026-06-22T11:50:22.811651731Z     raise translated_error from error
+2026-06-22T11:50:22.811655141Z sqlalchemy.dialects.postgresql.asyncpg.AsyncAdapt_asyncpg_dbapi.ProgrammingError: <class 'asyncpg.exceptions.UndefinedColumnError'>: column users.role does not exist
+2026-06-22T11:50:22.811658081Z 
+2026-06-22T11:50:22.811660981Z The above exception was the direct cause of the following exception:
+2026-06-22T11:50:22.811663901Z 
+2026-06-22T11:50:22.811666701Z Traceback (most recent call last):
+2026-06-22T11:50:22.811669581Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/uvicorn/protocols/http/httptools_impl.py", line 421, in run_asgi
+2026-06-22T11:50:22.811672472Z     result = await app(  # type: ignore[func-returns-value]
+2026-06-22T11:50:22.811675422Z              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-06-22T11:50:22.811678272Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/uvicorn/middleware/proxy_headers.py", line 62, in __call__
+2026-06-22T11:50:22.811680792Z     return await self.app(scope, receive, send)
+2026-06-22T11:50:22.811683502Z            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-06-22T11:50:22.811686402Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/fastapi/applications.py", line 1163, in __call__
+2026-06-22T11:50:22.811694502Z     await super().__call__(scope, receive, send)
+2026-06-22T11:50:22.811697522Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/starlette/applications.py", line 90, in __call__
+2026-06-22T11:50:22.811700422Z     await self.middleware_stack(scope, receive, send)
+2026-06-22T11:50:22.811726853Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/starlette/middleware/errors.py", line 186, in __call__
+2026-06-22T11:50:22.811784494Z     raise exc
+2026-06-22T11:50:22.811787734Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/starlette/middleware/errors.py", line 164, in __call__
+2026-06-22T11:50:22.811821965Z     await self.app(scope, receive, _send)
+2026-06-22T11:50:22.811824625Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/starlette/middleware/cors.py", line 88, in __call__
+2026-06-22T11:50:22.811828065Z     await self.app(scope, receive, send)
+2026-06-22T11:50:22.811831236Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/starlette/middleware/base.py", line 193, in __call__
+2026-06-22T11:50:22.811834816Z     response = await self.dispatch_func(request, call_next)
+2026-06-22T11:50:22.811838076Z                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-06-22T11:50:22.811842046Z   File "/opt/render/project/src/apps/api/app/core/rate_limit.py", line 152, in dispatch
+2026-06-22T11:50:22.811847156Z     response = await call_next(request)
+2026-06-22T11:50:22.811850296Z                ^^^^^^^^^^^^^^^^^^^^^^^^
+2026-06-22T11:50:22.811853336Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/starlette/middleware/base.py", line 168, in call_next
+2026-06-22T11:50:22.811856466Z     raise app_exc from app_exc.__cause__ or app_exc.__context__
+2026-06-22T11:50:22.811859526Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/starlette/middleware/base.py", line 144, in coro
+2026-06-22T11:50:22.811862556Z     await self.app(scope, receive_or_disconnect, send_no_error)
+2026-06-22T11:50:22.811865576Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/starlette/middleware/base.py", line 193, in __call__
+2026-06-22T11:50:22.811868386Z     response = await self.dispatch_func(request, call_next)
+2026-06-22T11:50:22.811871546Z                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-06-22T11:50:22.811874537Z   File "/opt/render/project/src/apps/api/app/core/security.py", line 36, in dispatch
+2026-06-22T11:50:22.811877426Z     response = await call_next(request)
+2026-06-22T11:50:22.811880647Z                ^^^^^^^^^^^^^^^^^^^^^^^^
+2026-06-22T11:50:22.811883597Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/starlette/middleware/base.py", line 168, in call_next
+2026-06-22T11:50:22.811886547Z     raise app_exc from app_exc.__cause__ or app_exc.__context__
+2026-06-22T11:50:22.811889807Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/starlette/middleware/base.py", line 144, in coro
+2026-06-22T11:50:22.811892817Z     await self.app(scope, receive_or_disconnect, send_no_error)
+2026-06-22T11:50:22.811896107Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/starlette/middleware/exceptions.py", line 63, in __call__
+2026-06-22T11:50:22.811899397Z     await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+2026-06-22T11:50:22.811902147Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+2026-06-22T11:50:22.811905657Z     raise exc
+2026-06-22T11:50:22.811908737Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+2026-06-22T11:50:22.811911638Z     await app(scope, receive, sender)
+2026-06-22T11:50:22.811920338Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/fastapi/middleware/asyncexitstack.py", line 18, in __call__
+2026-06-22T11:50:22.811923518Z     await self.app(scope, receive, send)
+2026-06-22T11:50:22.811926978Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/starlette/routing.py", line 660, in __call__
+2026-06-22T11:50:22.811930078Z     await self.middleware_stack(scope, receive, send)
+2026-06-22T11:50:22.811936158Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/fastapi/routing.py", line 2531, in app
+2026-06-22T11:50:22.811939058Z     await route.handle(scope, receive, send)
+2026-06-22T11:50:22.811941848Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/fastapi/routing.py", line 1700, in handle
+2026-06-22T11:50:22.811944508Z     await self.original_router.handle(scope, receive, send)
+2026-06-22T11:50:22.811947028Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/fastapi/routing.py", line 2586, in handle
+2026-06-22T11:50:22.811949698Z     await included_router._handle_selected(scope, receive, send)
+2026-06-22T11:50:22.811952388Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/fastapi/routing.py", line 1720, in _handle_selected
+2026-06-22T11:50:22.811955168Z     await original_route.handle(scope, receive, send)
+2026-06-22T11:50:22.811957799Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/fastapi/routing.py", line 1239, in handle
+2026-06-22T11:50:22.811960739Z     await app(scope, receive, send)
+2026-06-22T11:50:22.811963459Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/fastapi/routing.py", line 150, in app
+2026-06-22T11:50:22.811966519Z     await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+2026-06-22T11:50:22.811969549Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+2026-06-22T11:50:22.811972579Z     raise exc
+2026-06-22T11:50:22.811986659Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+2026-06-22T11:50:22.811989919Z     await app(scope, receive, sender)
+2026-06-22T11:50:22.811992879Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/fastapi/routing.py", line 136, in app
+2026-06-22T11:50:22.811995929Z     response = await f(request)
+2026-06-22T11:50:22.81199886Z                ^^^^^^^^^^^^^^^^
+2026-06-22T11:50:22.81200193Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/fastapi/routing.py", line 690, in app
+2026-06-22T11:50:22.81200508Z     raw_response = await run_endpoint_function(
+2026-06-22T11:50:22.81200829Z                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-06-22T11:50:22.81201165Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/fastapi/routing.py", line 344, in run_endpoint_function
+2026-06-22T11:50:22.81201458Z     return await dependant.call(**values)
+2026-06-22T11:50:22.81201746Z            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-06-22T11:50:22.81202052Z   File "/opt/render/project/src/apps/api/app/modules/auth/telegram.py", line 62, in handle_telegram_webhook
+2026-06-22T11:50:22.81202372Z     result = await db.execute(
+2026-06-22T11:50:22.8120267Z              ^^^^^^^^^^^^^^^^^
+2026-06-22T11:50:22.81202944Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/ext/asyncio/session.py", line 448, in execute
+2026-06-22T11:50:22.81203208Z     result = await greenlet_spawn(
+2026-06-22T11:50:22.81203474Z              ^^^^^^^^^^^^^^^^^^^^^
+2026-06-22T11:50:22.812038021Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 201, in greenlet_spawn
+2026-06-22T11:50:22.812046141Z     result = context.throw(*sys.exc_info())
+2026-06-22T11:50:22.812049171Z              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-06-22T11:50:22.812052011Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 2373, in execute
+2026-06-22T11:50:22.812054881Z     return self._execute_internal(
+2026-06-22T11:50:22.812057661Z            ^^^^^^^^^^^^^^^^^^^^^^^
+2026-06-22T11:50:22.812060951Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 2271, in _execute_internal
+2026-06-22T11:50:22.812064171Z     result: Result[Any] = compile_state_cls.orm_execute_statement(
+2026-06-22T11:50:22.812067251Z                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-06-22T11:50:22.812070771Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/orm/context.py", line 306, in orm_execute_statement
+2026-06-22T11:50:22.812111692Z     result = conn.execute(
+2026-06-22T11:50:22.812114362Z              ^^^^^^^^^^^^^
+2026-06-22T11:50:22.812117183Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1421, in execute
+2026-06-22T11:50:22.812119912Z     return meth(
+2026-06-22T11:50:22.812122372Z            ^^^^^
+2026-06-22T11:50:22.812125013Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/sql/elements.py", line 526, in _execute_on_connection
+2026-06-22T11:50:22.812127613Z     return connection._execute_clauseelement(
+2026-06-22T11:50:22.812130253Z            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-06-22T11:50:22.812132723Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1643, in _execute_clauseelement
+2026-06-22T11:50:22.812135213Z     ret = self._execute_context(
+2026-06-22T11:50:22.812137723Z           ^^^^^^^^^^^^^^^^^^^^^^
+2026-06-22T11:50:22.812140423Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1848, in _execute_context
+2026-06-22T11:50:22.812143043Z     return self._exec_single_context(
+2026-06-22T11:50:22.812145813Z            ^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-06-22T11:50:22.812148393Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1988, in _exec_single_context
+2026-06-22T11:50:22.812151093Z     self._handle_dbapi_exception(
+2026-06-22T11:50:22.812153913Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 2365, in _handle_dbapi_exception
+2026-06-22T11:50:22.812156433Z     raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+2026-06-22T11:50:22.812158993Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1969, in _exec_single_context
+2026-06-22T11:50:22.812161584Z     self.dialect.do_execute(
+2026-06-22T11:50:22.812164204Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/engine/default.py", line 952, in do_execute
+2026-06-22T11:50:22.812166944Z     cursor.execute(statement, parameters)
+2026-06-22T11:50:22.812169624Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 585, in execute
+2026-06-22T11:50:22.812172594Z     self._adapt_connection.await_(
+2026-06-22T11:50:22.812175524Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 132, in await_only
+2026-06-22T11:50:22.812178384Z     return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501
+2026-06-22T11:50:22.812181514Z            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-06-22T11:50:22.812189564Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 196, in greenlet_spawn
+2026-06-22T11:50:22.812192584Z     value = await result
+2026-06-22T11:50:22.812195344Z             ^^^^^^^^^^^^
+2026-06-22T11:50:22.812212985Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 563, in _prepare_and_execute
+2026-06-22T11:50:22.812216125Z     self._handle_exception(error)
+2026-06-22T11:50:22.812218845Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 513, in _handle_exception
+2026-06-22T11:50:22.812222005Z     self._adapt_connection._handle_exception(error)
+2026-06-22T11:50:22.812225185Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 797, in _handle_exception
+2026-06-22T11:50:22.812228135Z     raise translated_error from error
+2026-06-22T11:50:22.812231405Z sqlalchemy.exc.ProgrammingError: (sqlalchemy.dialects.postgresql.asyncpg.ProgrammingError) <class 'asyncpg.exceptions.UndefinedColumnError'>: column users.role does not exist
+2026-06-22T11:50:22.812234875Z [SQL: SELECT users.id, users.tenant_id, users.email, users.telegram_id, users.password_hash, users.first_name, users.last_name, users.role, users.is_active, users.position_id, users.last_login, users.status, users.created_at, users.updated_at 
+2026-06-22T11:50:22.812251596Z FROM users 
+2026-06-22T11:50:22.812255216Z WHERE users.telegram_id = $1::BIGINT]
+2026-06-22T11:50:22.812258366Z [parameters: (349746594,)]
+2026-06-22T11:50:22.812261116Z (Background on this error at: https://sqlalche.me/e/20/f405)
+2026-06-22T11:50:23.630640349Z INFO:     10.216.25.186:45448 - "GET /api/v1/health HTTP/1.1" 200 OK
+2026-06-22T11:50:24.711704719Z Rate limit exceeded for 178.88.50.166 on /api/v1/auth/check-code
+2026-06-22T11:50:24.711835222Z INFO:     178.88.50.166:0 - "POST /api/v1/auth/check-code HTTP/1.1" 429 Too Many Requests
