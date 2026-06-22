@@ -90,7 +90,7 @@ class CheckCodeResponse(BaseModel):
 @router.post("/generate-code", response_model=GenerateCodeResponse)
 async def generate_code():
     """Generate a 6-digit code for Telegram bot authentication."""
-    code, expires_in = generate_auth_code()
+    code, expires_in = await generate_auth_code()
     return GenerateCodeResponse(code=code, expires_in=expires_in)
 
 
@@ -100,7 +100,7 @@ async def check_auth_code(req: CheckCodeRequest):
     from starlette.responses import JSONResponse
 
     try:
-        result = check_code(req.code)
+        result = await check_code(req.code)
     except Exception:
         return JSONResponse(content={"verified": False, "error": "check_error"})
 
