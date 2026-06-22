@@ -57,8 +57,17 @@ async def get_current_user(
     token = credentials.credentials
     payload = decode_token(token)
     user_id = payload.get("sub")
+    tenant_id = payload.get("tenant_id")
     if not user_id:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token payload")
+
+    # Set tenant context for RLS
+    if tenant_id:
+        try:
+            from sqlalchemy import text
+            await db.execute(text("SELECT set_current_tenant(:tid)"), {"tid": tenant_id})
+        except Exception:
+            pass  # RLS not available, rely on ORM filtering
 
     result = await db.execute(select(User).where(User.id == UUID(user_id)))
     user = result.scalar_one_or_none()
