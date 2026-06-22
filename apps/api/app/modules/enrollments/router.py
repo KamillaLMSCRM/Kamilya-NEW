@@ -2,10 +2,12 @@
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, func
 
 from app.core.auth import get_current_user, require_role
 from app.core.db import get_db
 from app.models.users import User
+from app.models.enrollment import Enrollment
 from app.modules.enrollments.schemas import EnrollmentCreate, EnrollmentResponse
 from app.modules.enrollments.service import (
     get_enrolled_users,
@@ -16,6 +18,30 @@ from app.modules.enrollments.service import (
 )
 
 router = APIRouter(prefix="/courses", tags=["enrollments"])
+
+stats_router = APIRouter(prefix="/enrollments", tags=["enrollments"])
+
+
+@stats_router.get("/stats")
+async def global_enrollment_stats(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Global enrollment statistics for dashboard."""
+    total_result = await db.execute(
+        select(func.count(Enrollment.id)).where(Enrollment.tenant_id == user.tenant_id)
+    )
+    total = total_result.scalar() or 0
+
+    completed_result = await db.execute(
+        select(func.count(Enrollment.id)).where(
+            Enrollment.tenant_id == user.tenant_id,
+            Enrollment.status == "completed",
+        )
+    )
+    completed = completed_result.scalar() or 0
+
+    return {"total": total, "completed": completed}
 
 
 @router.get("/{course_id}/enrollments", response_model=list[EnrollmentResponse])

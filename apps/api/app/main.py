@@ -8,7 +8,7 @@ from app.modules.auth.router import router as auth_router
 from app.modules.courses.router import router as courses_router
 from app.modules.lessons.router import router as lessons_router
 from app.modules.ai.router import router as ai_router
-from app.modules.enrollments.router import router as enrollments_router
+from app.modules.enrollments.router import router as enrollments_router, stats_router as enrollments_stats_router
 from app.modules.progress.router import router as progress_router
 from app.modules.documents.router import router as documents_router
 from app.modules.quizzes.router import router as quizzes_router
@@ -49,6 +49,7 @@ app.include_router(courses_router, prefix=f"{settings.API_PREFIX}", tags=["cours
 app.include_router(lessons_router, prefix=f"{settings.API_PREFIX}", tags=["lessons"])
 app.include_router(ai_router, prefix=f"{settings.API_PREFIX}", tags=["ai-generation"])
 app.include_router(enrollments_router, prefix=f"{settings.API_PREFIX}", tags=["enrollments"])
+app.include_router(enrollments_stats_router, prefix=f"{settings.API_PREFIX}", tags=["enrollments"])
 app.include_router(progress_router, prefix=f"{settings.API_PREFIX}", tags=["progress"])
 app.include_router(documents_router, prefix=f"{settings.API_PREFIX}", tags=["documents"])
 app.include_router(quizzes_router, prefix=f"{settings.API_PREFIX}", tags=["quizzes"])
