@@ -6,6 +6,7 @@ from app.core.db import Base
 
 class PositionCourse(Base):
     __tablename__ = "position_courses"
+    __table_args__ = {'extend_existing': True}
 
     position_id = Column(UUID(as_uuid=True), ForeignKey("positions.id", ondelete="CASCADE"), primary_key=True)
     course_id = Column(UUID(as_uuid=True), primary_key=True)
@@ -13,6 +14,7 @@ class PositionCourse(Base):
 
 class Position(Base):
     __tablename__ = "positions"
+    __table_args__ = {'extend_existing': True}
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id = Column(UUID(as_uuid=True), nullable=False, index=True)

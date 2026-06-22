@@ -2,9 +2,6 @@ from sqlalchemy import Column, Text, BigInteger, Boolean, TIMESTAMP, DateTime, C
 from sqlalchemy.dialects.postgresql import UUID
 from app.core.db import Base
 
-# Import Position so SQLAlchemy sees 'positions' table before resolving User.position_id FK
-from app.models.position import Position  # noqa: F401
-
 
 class User(Base):
     __tablename__ = "users"
@@ -32,4 +29,5 @@ class User(Base):
         CheckConstraint("status IN ('active', 'inactive', 'banned')", name="ck_user_status"),
         CheckConstraint("role IN ('superadmin', 'admin', 'org_admin', 'teacher', 'student')", name="ck_user_role"),
         Index("uq_user_telegram", "tenant_id", "telegram_id", unique=True, postgresql_where="telegram_id IS NOT NULL"),
+        {"extend_existing": True},
     )
