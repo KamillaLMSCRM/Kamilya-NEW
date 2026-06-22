@@ -1,18 +1,16 @@
 """Documents — API router"""
 import uuid
 import os
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import get_current_user
 from app.core.db import get_db
-from app.core.config import get_settings
 from app.models.document import Document
 from app.modules.documents.schemas import DocumentResponse
 
 router = APIRouter(prefix="/documents", tags=["documents"])
-settings = get_settings()
 
 
 @router.get("", response_model=list[DocumentResponse])
@@ -31,7 +29,8 @@ async def list_documents(
 @router.post("/upload", response_model=DocumentResponse, status_code=201)
 async def upload_document(
     file: UploadFile = File(...),
-    title: str = "",
+    title: str = Form(""),
+    description: str = Form(""),
     db: AsyncSession = Depends(get_db),
     user=Depends(get_current_user),
 ):
@@ -49,6 +48,7 @@ async def upload_document(
         content_type=file.content_type or "application/octet-stream",
         size=file_size,
         s3_key=s3_key,
+        description=description,
     )
     db.add(doc)
     await db.flush()

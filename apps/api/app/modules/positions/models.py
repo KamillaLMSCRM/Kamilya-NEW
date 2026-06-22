@@ -11,5 +11,8 @@ class Position(Base):
     name = Column(Text, nullable=False)
     department = Column(Text, nullable=False, default="")
     level = Column(Text, nullable=False, default="")
+    responsibilities = Column(Text, nullable=False, default="")
+    requirements = Column(Text, nullable=False, default="")
+    course_id = Column(UUID(as_uuid=True), nullable=True)
     employee_count = Column(Integer, nullable=False, default=0)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())

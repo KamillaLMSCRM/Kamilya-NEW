@@ -1,15 +1,18 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Card, CardHeader, CardTitle, CardContent, Button, Input } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
+import { api } from '@/lib/api';
 
-interface Course {
+interface Document {
   id: string;
   title: string;
-  status: string;
+  filename: string;
+  content_type: string;
+  size: number;
+  description: string;
 }
 
 interface AIGenerationJob {
@@ -21,146 +24,322 @@ interface AIGenerationJob {
   message: string;
 }
 
+type Step = 'documents' | 'generate' | 'review';
+
+const STAGES = [
+  { key: 'ingestion', label: 'Обработка документов', icon: '📄', color: 'text-blue-500' },
+  { key: 'architect', label: 'Проектирование структуры', icon: '🏗️', color: 'text-gold-500' },
+  { key: 'content_generation', label: 'Генерация контента', icon: '✍️', color: 'text-primary' },
+  { key: 'review', label: 'Проверка качества', icon: '🔍', color: 'text-violet-500' },
+  { key: 'assessment', label: 'Генерация тестов', icon: '📝', color: 'text-emerald-500' },
+  { key: 'saving', label: 'Сохранение', icon: '💾', color: 'text-warm-500' },
+];
+
 export default function AIGeneratePage() {
   const { t } = useT();
   const router = useRouter();
   const token = useAuthStore((s) => s.accessToken);
-  const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
-  const [documents, setDocuments] = useState<string[]>([]);
+  const [step, setStep] = useState<Step>('documents');
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [selectedDocIds, setSelectedDocIds] = useState<string[]>([]);
   const [targetAudience, setTargetAudience] = useState('');
   const [numModules, setNumModules] = useState(3);
   const [language, setLanguage] = useState('ru');
-  const [generating, setGenerating] = useState(false);
   const [currentJob, setCurrentJob] = useState<AIGenerationJob | null>(null);
+  const [dragOver, setDragOver] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    if (!token) return;
-    fetch(`${API_URL}/v1/documents`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((res) => res.json())
-      .then((docs) => setDocuments(docs.map((d: any) => d.id)));
-  }, [token, API_URL]);
+  useEffect(() => { fetchDocuments(); }, []);
 
-  useEffect(() => {
-    if (!currentJob || currentJob.status === 'completed' || currentJob.status === 'failed') return;
-
-    const interval = setInterval(async () => {
-      const res = await fetch(`${API_URL}/v1/ai/jobs/${currentJob.id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        const job = await res.json();
-        setCurrentJob(job);
-        if (job.status === 'completed' && job.course_id) {
-          router.push(`/courses/${job.course_id}/edit`);
-        }
-      }
-    }, 3000);
-
-    return () => clearInterval(interval);
-  }, [currentJob, token, API_URL, router]);
-
-  const handleGenerate = async () => {
-    setGenerating(true);
+  const fetchDocuments = async () => {
     try {
-      const res = await fetch(`${API_URL}/v1/ai/generate-course`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          documents,
-          target_audience: targetAudience,
-          num_modules: numModules,
-          language,
-        }),
-      });
-      if (res.ok) {
-        const job = await res.json();
-        setCurrentJob(job);
-      }
-    } finally {
-      setGenerating(false);
+      const res = await api.get('/v1/documents');
+      setDocuments(Array.isArray(res.data) ? res.data : []);
+    } catch {}
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    const files = Array.from(e.dataTransfer.files);
+    for (const file of files) {
+      await uploadFile(file);
     }
   };
 
-  return (
-    <div className="p-6 max-w-4xl mx-auto space-y-6">
-      <h1 className="text-2xl font-bold">{t('ai.title')}</h1>
+  const uploadFile = async (file: File) => {
+    setUploading(true);
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('title', file.name.replace(/\.[^/.]+$/, ''));
+    try {
+      await api.post('/v1/documents/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      await fetchDocuments();
+    } catch (e) {
+      console.error('Upload failed', e);
+    } finally {
+      setUploading(false);
+    }
+  };
 
-      <Card>
-        <CardContent className="p-6 space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">{t('ai.targetAudience')}</label>
-            <Input
-              value={targetAudience}
-              onChange={(e) => setTargetAudience(e.target.value)}
-              placeholder={t('ai.targetAudiencePlaceholder')}
-            />
+  const toggleDoc = (id: string) => {
+    setSelectedDocIds(prev => prev.includes(id) ? prev.filter(d => d !== id) : [...prev, id]);
+  };
+
+  const handleGenerate = async () => {
+    try {
+      const res = await api.post('/v1/ai/generate-course', {
+        documents: selectedDocIds,
+        target_audience: targetAudience,
+        num_modules: numModules,
+        language,
+      });
+      setCurrentJob(res.data);
+      setStep('generate');
+    } catch (e) {
+      console.error('Generation failed', e);
+    }
+  };
+
+  // Poll job status
+  useEffect(() => {
+    if (!currentJob || currentJob.status === 'completed' || currentJob.status === 'failed') return;
+    const interval = setInterval(async () => {
+      try {
+        const res = await api.get(`/v1/ai/jobs/${currentJob.id}`);
+        setCurrentJob(res.data);
+        if (res.data.status === 'completed' && res.data.course_id) {
+          setStep('review');
+        }
+      } catch {}
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [currentJob]);
+
+  const getStageIndex = (stageKey: string) => STAGES.findIndex(s => s.key === stageKey);
+
+  const stepConfig = [
+    { key: 'documents', label: 'Документы', num: 1 },
+    { key: 'generate', label: 'Генерация', num: 2 },
+    { key: 'review', label: 'Результат', num: 3 },
+  ];
+
+  return (
+    <div className="max-w-4xl mx-auto space-y-6">
+      <h1 className="text-2xl font-bold text-warm-800 font-display">{t('ai.title')}</h1>
+
+      {/* Step indicator */}
+      <div className="flex items-center gap-4">
+        {stepConfig.map((s, i) => (
+          <div key={s.key} className="flex items-center gap-2">
+            <div className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold ${
+              step === s.key ? 'bg-primary text-white' : 'bg-warm-100 text-warm-400'
+            }`}>
+              {s.num}
+            </div>
+            <span className={`text-sm font-medium ${step === s.key ? 'text-warm-800' : 'text-warm-400'}`}>
+              {s.label}
+            </span>
+            {i < stepConfig.length - 1 && <div className="w-8 h-px bg-warm-200 ml-2" />}
+          </div>
+        ))}
+      </div>
+
+      {/* STEP 1: Documents */}
+      {step === 'documents' && (
+        <div className="space-y-4">
+          {/* Upload zone */}
+          <div
+            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={handleDrop}
+            onClick={() => fileRef.current?.click()}
+            className={`rounded-2xl border-2 border-dashed p-6 text-center cursor-pointer transition-all ${
+              dragOver ? 'border-primary bg-primary/5' : 'border-warm-200 hover:border-warm-300 hover:bg-warm-50'
+            }`}
+          >
+            <input ref={fileRef} type="file" multiple onChange={(e) => {
+              Array.from(e.target.files || []).forEach(uploadFile);
+            }} className="hidden" accept=".pdf,.doc,.docx,.txt,.md,.pptx,.xlsx,.csv" />
+            <div className="text-2xl mb-2">{uploading ? '⏳' : '📁'}</div>
+            <p className="text-sm text-warm-500">
+              {uploading ? 'Загрузка...' : 'Перетащите документы или нажмите для выбора'}
+            </p>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          {/* Documents list */}
+          {documents.length > 0 && (
+            <div className="space-y-2">
+              <div className="text-xs font-semibold text-warm-400 uppercase tracking-wider px-1">
+                Загруженные документы ({selectedDocIds.length} выбрано)
+              </div>
+              {documents.map(doc => (
+                <label
+                  key={doc.id}
+                  className={`flex items-center gap-3 rounded-xl border p-3 cursor-pointer transition-all ${
+                    selectedDocIds.includes(doc.id)
+                      ? 'border-primary bg-primary/5'
+                      : 'border-warm-100 hover:border-warm-200'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedDocIds.includes(doc.id)}
+                    onChange={() => toggleDoc(doc.id)}
+                    className="h-4 w-4 rounded border-warm-300 text-primary focus:ring-primary"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium text-warm-800 truncate">{doc.title}</div>
+                    {doc.description && <div className="text-xs text-warm-400 truncate">{doc.description}</div>}
+                  </div>
+                  <div className="text-xs text-warm-300 shrink-0">{doc.filename}</div>
+                </label>
+              ))}
+            </div>
+          )}
+
+          {/* Config */}
+          <div className="rounded-2xl border border-warm-100 bg-white p-5 space-y-4">
+            <h3 className="font-bold text-warm-800 font-display">Настройки генерации</h3>
             <div>
-              <label className="block text-sm font-medium mb-1">{t('ai.numModules')}</label>
-              <Input
-                type="number"
-                min={1}
-                max={10}
-                value={numModules}
-                onChange={(e) => setNumModules(parseInt(e.target.value) || 3)}
+              <label className="block text-xs font-semibold text-warm-500 mb-1">{t('ai.targetAudience')}</label>
+              <textarea
+                value={targetAudience}
+                onChange={(e) => setTargetAudience(e.target.value)}
+                rows={2}
+                placeholder={t('ai.targetAudiencePlaceholder')}
+                className="w-full rounded-xl border border-warm-200 px-3 py-2.5 text-sm outline-none focus:border-primary transition-colors resize-none"
               />
             </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">{t('ai.language')}</label>
-              <select
-                value={language}
-                onChange={(e) => setLanguage(e.target.value)}
-                className="w-full border rounded px-3 py-2"
-              >
-                <option value="ru">{t('ai.languages.ru')}</option>
-                <option value="kk">{t('ai.languages.kk')}</option>
-                <option value="en">{t('ai.languages.en')}</option>
-              </select>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-warm-500 mb-1">{t('ai.numModules')}</label>
+                <input
+                  type="number" min={1} max={10}
+                  value={numModules}
+                  onChange={(e) => setNumModules(parseInt(e.target.value) || 3)}
+                  className="w-full rounded-xl border border-warm-200 px-3 py-2.5 text-sm outline-none focus:border-primary transition-colors"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-warm-500 mb-1">{t('ai.language')}</label>
+                <select
+                  value={language}
+                  onChange={(e) => setLanguage(e.target.value)}
+                  className="w-full rounded-xl border border-warm-200 px-3 py-2.5 text-sm outline-none focus:border-primary transition-colors"
+                >
+                  <option value="ru">{t('ai.languages.ru')}</option>
+                  <option value="kk">{t('ai.languages.kk')}</option>
+                  <option value="en">{t('ai.languages.en')}</option>
+                </select>
+              </div>
             </div>
           </div>
 
-          <div className="flex gap-2">
-            <Button onClick={handleGenerate} disabled={generating}>
-              {generating ? 'Запуск...' : t('ai.generate')}
-            </Button>
-            <Button variant="outline" onClick={() => router.push('/courses')}>
-              {t('common.cancel')}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+          <button
+            onClick={handleGenerate}
+            disabled={selectedDocIds.length === 0}
+            className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-medium text-white hover:bg-primary/90 transition-colors disabled:opacity-50"
+          >
+            {t('ai.generate')} ({selectedDocIds.length} документов)
+          </button>
+        </div>
+      )}
 
-      {currentJob && (
-        <Card>
-          <CardHeader>
-            <CardTitle>{t('ai.progress')}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium">{t('ai.status')}:</span>
-              <span className="text-sm">{currentJob.status}</span>
+      {/* STEP 2: Generation progress */}
+      {step === 'generate' && currentJob && (
+        <div className="space-y-6">
+          {/* Progress bar */}
+          <div className="rounded-2xl border border-warm-100 bg-white p-6">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-sm font-bold text-warm-800">{t('ai.progress')}</span>
+              <span className="text-sm font-bold text-primary">{currentJob.progress}%</span>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium">{t('ai.stage')}:</span>
-              <span className="text-sm">{currentJob.stage}</span>
-            </div>
-            <div className="h-2 bg-gray-200 rounded">
+            <div className="h-2 bg-warm-100 rounded-full overflow-hidden">
               <div
-                className="h-2 bg-blue-600 rounded transition-all"
+                className="h-full bg-gradient-to-r from-primary to-gold-500 rounded-full transition-all duration-500"
                 style={{ width: `${currentJob.progress}%` }}
               />
             </div>
-            <p className="text-sm text-gray-500">{currentJob.message}</p>
-          </CardContent>
-        </Card>
+            <p className="text-xs text-warm-400 mt-2">{currentJob.message}</p>
+          </div>
+
+          {/* Stages */}
+          <div className="space-y-2">
+            {STAGES.map((stage, i) => {
+              const currentIdx = getStageIndex(currentJob.stage);
+              const stageIdx = getStageIndex(stage.key);
+              const isActive = currentJob.stage === stage.key;
+              const isDone = stageIdx < currentIdx;
+              const isPending = stageIdx > currentIdx;
+
+              return (
+                <div
+                  key={stage.key}
+                  className={`flex items-center gap-3 rounded-xl border p-3 transition-all ${
+                    isActive ? 'border-primary bg-primary/5 shadow-sm' :
+                    isDone ? 'border-emerald-200 bg-emerald-50' :
+                    'border-warm-100 opacity-50'
+                  }`}
+                >
+                  <div className={`text-lg ${isDone ? 'text-emerald-500' : isActive ? stage.color : 'text-warm-300'}`}>
+                    {isDone ? '✓' : stage.icon}
+                  </div>
+                  <span className={`text-sm font-medium ${isDone ? 'text-emerald-600' : isActive ? 'text-warm-800' : 'text-warm-400'}`}>
+                    {stage.label}
+                  </span>
+                  {isActive && (
+                    <div className="ml-auto h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {currentJob.status === 'completed' && currentJob.course_id && (
+            <button
+              onClick={() => router.push(`/courses/${currentJob.course_id}/edit`)}
+              className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-medium text-white hover:bg-primary/90 transition-colors"
+            >
+              Открыть курс →
+            </button>
+          )}
+
+          {currentJob.status === 'failed' && (
+            <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-600">
+              Ошибка: {currentJob.message}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* STEP 3: Review */}
+      {step === 'review' && currentJob?.course_id && (
+        <div className="space-y-4">
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-6 text-center">
+            <div className="text-3xl mb-3">✅</div>
+            <h3 className="font-bold text-emerald-800 font-display text-lg">Курс успешно сгенерирован!</h3>
+            <p className="text-sm text-emerald-600 mt-1">Перейдите к редактированию для финальных правок</p>
+          </div>
+          <div className="flex gap-3">
+            <button
+              onClick={() => router.push(`/courses/${currentJob.course_id}/edit`)}
+              className="flex-1 rounded-xl bg-primary px-4 py-3 text-sm font-medium text-white hover:bg-primary/90 transition-colors"
+            >
+              Редактировать курс →
+            </button>
+            <button
+              onClick={() => router.push('/courses')}
+              className="rounded-xl border border-warm-200 px-4 py-3 text-sm text-warm-500 hover:bg-warm-50 transition-colors"
+            >
+              Все курсы
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

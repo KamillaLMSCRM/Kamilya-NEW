@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { Card, CardHeader, CardTitle, CardContent, Button, Table, Badge, Modal } from '@/components/ui';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
+import { api } from '@/lib/api';
 
 interface Document {
   id: string;
@@ -11,6 +11,7 @@ interface Document {
   filename: string;
   content_type: string;
   size: number;
+  description: string;
   created_at: string;
 }
 
@@ -18,48 +19,61 @@ export default function DocumentsPage() {
   const { t } = useT();
   const [documents, setDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
-  const [uploading, setUploading] = useState(false);
-  const [showModal, setShowModal] = useState(false);
+  const [showUpload, setShowUpload] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [title, setTitle] = useState('');
-  const token = useAuthStore((s) => s.accessToken);
-  const API_URL = process.env.NEXT_PUBLIC_API_URL;
+  const [description, setDescription] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const fetchDocuments = useCallback(async () => {
-    if (!token) return;
     try {
-      const res = await fetch(`${API_URL}/v1/documents`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) setDocuments(await res.json());
-    } finally {
+      const res = await api.get('/v1/documents');
+      setDocuments(Array.isArray(res.data) ? res.data : []);
+    } catch {} finally {
       setLoading(false);
     }
-  }, [token, API_URL]);
+  }, []);
 
-  useEffect(() => {
-    fetchDocuments();
-  }, [fetchDocuments]);
+  useEffect(() => { fetchDocuments(); }, [fetchDocuments]);
 
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    const file = e.dataTransfer.files[0];
+    if (file) {
+      setSelectedFile(file);
+      if (!title) setTitle(file.name.replace(/\.[^/.]+$/, ''));
+    }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !token) return;
+    if (file) {
+      setSelectedFile(file);
+      if (!title) setTitle(file.name.replace(/\.[^/.]+$/, ''));
+    }
+  };
 
+  const handleUpload = async () => {
+    if (!selectedFile) return;
     setUploading(true);
     const formData = new FormData();
-    formData.append('file', file);
-    formData.append('title', title || file.name);
-
+    formData.append('file', selectedFile);
+    formData.append('title', title || selectedFile.name);
+    formData.append('description', description);
     try {
-      const res = await fetch(`${API_URL}/v1/documents/upload`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData,
+      await api.post('/v1/documents/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
       });
-      if (res.ok) {
-        fetchDocuments();
-        setShowModal(false);
-        setTitle('');
-      }
+      fetchDocuments();
+      setShowUpload(false);
+      setSelectedFile(null);
+      setTitle('');
+      setDescription('');
+    } catch (e) {
+      console.error('Upload failed', e);
     } finally {
       setUploading(false);
     }
@@ -67,11 +81,8 @@ export default function DocumentsPage() {
 
   const handleDelete = async (id: string) => {
     if (!confirm('Удалить документ?')) return;
-    const res = await fetch(`${API_URL}/v1/documents/${id}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (res.ok) fetchDocuments();
+    await api.delete(`/v1/documents/${id}`);
+    fetchDocuments();
   };
 
   const formatSize = (bytes: number) => {
@@ -80,79 +91,116 @@ export default function DocumentsPage() {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
+  const getFileIcon = (contentType: string) => {
+    if (contentType.includes('pdf')) return '📄';
+    if (contentType.includes('word') || contentType.includes('doc')) return '📝';
+    if (contentType.includes('image')) return '🖼️';
+    if (contentType.includes('video')) return '🎬';
+    return '📎';
+  };
+
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6">
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">{t('documents.title')}</h1>
-        <Button onClick={() => setShowModal(true)}>{t('documents.upload')}</Button>
+        <h1 className="text-2xl font-bold text-warm-800 font-display">{t('documents.title')}</h1>
+        <button onClick={() => setShowUpload(true)} className="rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-white hover:bg-primary/90 transition-colors">
+          + Загрузить документ
+        </button>
       </div>
 
-      <Card>
-        <CardContent className="p-0">
-          {loading ? (
-            <div className="p-6 text-gray-400">{t('common.loading')}</div>
-          ) : documents.length === 0 ? (
-            <div className="p-6 text-gray-400">{t('documents.noDocuments')}</div>
-          ) : (
-            <Table>
-              <thead>
-                <tr>
-                   <th className="text-left p-3">{t('documents.name')}</th>
-                   <th className="text-left p-3">{t('documents.file')}</th>
-                   <th className="text-left p-3">{t('documents.type')}</th>
-                   <th className="text-left p-3">{t('documents.size')}</th>
-                   <th className="text-left p-3">{t('documents.date')}</th>
-                  <th className="text-right p-3"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {documents.map((doc) => (
-                  <tr key={doc.id} className="border-t">
-                    <td className="p-3 font-medium">{doc.title}</td>
-                    <td className="p-3 text-gray-500">{doc.filename}</td>
-                    <td className="p-3">
-                      <Badge variant="outline">{doc.content_type.split('/').pop()}</Badge>
-                    </td>
-                    <td className="p-3 text-gray-500">{formatSize(doc.size)}</td>
-                    <td className="p-3 text-gray-500">{new Date(doc.created_at).toLocaleDateString('ru')}</td>
-                    <td className="p-3 text-right">
-                      <button
-                        onClick={() => handleDelete(doc.id)}
-                        className="text-red-500 hover:underline text-sm"
-                      >
-                        {t('common.delete')}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+      {/* Upload modal */}
+      {showUpload && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={() => { setShowUpload(false); setSelectedFile(null); setTitle(''); setDescription(''); }} />
+          <div className="relative bg-white rounded-2xl shadow-card-lg w-full max-w-lg mx-4 p-6 z-10">
+            <h2 className="text-lg font-bold text-warm-800 font-display mb-4">Загрузка документа</h2>
 
-      <Modal open={showModal} onOpenChange={setShowModal}>
-        <CardHeader>
-          <CardTitle>{t('documents.uploadTitle')}</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">{t('documents.name')} ({t('common.optional')})</label>
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="w-full border rounded px-3 py-2"
-              placeholder={t('documents.uploadDescription')}
-            />
+            {/* Drag & drop zone */}
+            <div
+              onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={handleDrop}
+              onClick={() => fileRef.current?.click()}
+              className={`rounded-2xl border-2 border-dashed p-8 text-center cursor-pointer transition-all ${
+                dragOver ? 'border-primary bg-primary/5' : selectedFile ? 'border-emerald-300 bg-emerald-50' : 'border-warm-200 hover:border-warm-300 hover:bg-warm-50'
+              }`}
+            >
+              <input ref={fileRef} type="file" onChange={handleFileSelect} className="hidden" accept=".pdf,.doc,.docx,.txt,.md,.pptx,.xlsx,.csv" />
+              {selectedFile ? (
+                <div className="space-y-2">
+                  <div className="text-3xl">{getFileIcon(selectedFile.type)}</div>
+                  <div className="text-sm font-medium text-warm-800">{selectedFile.name}</div>
+                  <div className="text-xs text-warm-400">{formatSize(selectedFile.size)}</div>
+                  <button onClick={(e) => { e.stopPropagation(); setSelectedFile(null); }} className="text-xs text-primary hover:underline">Выбрать другой файл</button>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <div className="text-3xl text-warm-300">📁</div>
+                  <div className="text-sm text-warm-500">Перетащите файл сюда или нажмите для выбора</div>
+                  <div className="text-xs text-warm-400">PDF, DOC, TXT, MD, PPTX, XLSX, CSV</div>
+                </div>
+              )}
+            </div>
+
+            {/* Title & description */}
+            <div className="space-y-3 mt-4">
+              <div>
+                <label className="block text-xs font-semibold text-warm-500 mb-1">Название</label>
+                <input value={title} onChange={e => setTitle(e.target.value)} placeholder="Название документа" className="w-full rounded-xl border border-warm-200 px-3 py-2.5 text-sm outline-none focus:border-primary transition-colors" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-warm-500 mb-1">Описание</label>
+                <textarea value={description} onChange={e => setDescription(e.target.value)} rows={2} placeholder="Краткое описание содержимого документа..." className="w-full rounded-xl border border-warm-200 px-3 py-2.5 text-sm outline-none focus:border-primary transition-colors resize-none" />
+              </div>
+            </div>
+
+            <div className="flex gap-2 justify-end mt-5">
+              <button onClick={() => { setShowUpload(false); setSelectedFile(null); setTitle(''); setDescription(''); }} className="rounded-xl border border-warm-200 px-4 py-2 text-sm text-warm-500 hover:bg-warm-50 transition-colors">Отмена</button>
+              <button onClick={handleUpload} disabled={!selectedFile || uploading} className="rounded-xl bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90 transition-colors disabled:opacity-50">
+                {uploading ? 'Загрузка...' : 'Загрузить'}
+              </button>
+            </div>
           </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">{t('documents.file')}</label>
-            <input type="file" onChange={handleUpload} disabled={uploading} />
+        </div>
+      )}
+
+      {/* Documents list */}
+      {loading ? (
+        <div className="flex items-center justify-center py-12">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        </div>
+      ) : documents.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-warm-200 py-12 text-center">
+          <div className="text-warm-300 mb-3">
+            <svg className="mx-auto" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/>
+            </svg>
           </div>
-          {uploading && <p className="text-sm text-blue-600">{t('documents.uploading')}</p>}
-        </CardContent>
-      </Modal>
+          <p className="text-warm-400 text-sm">{t('documents.noDocuments')}</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {documents.map((doc) => (
+            <div key={doc.id} className="rounded-2xl border border-warm-100 bg-white p-4 shadow-card hover:shadow-card-hover transition-all">
+              <div className="flex items-start gap-4">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-warm-50 text-lg shrink-0">
+                  {getFileIcon(doc.content_type)}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-sm font-bold text-warm-800 truncate">{doc.title}</h3>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className="text-xs text-warm-400">{doc.filename}</span>
+                    <span className="text-xs text-warm-300">·</span>
+                    <span className="text-xs text-warm-400">{formatSize(doc.size)}</span>
+                  </div>
+                  {doc.description && <p className="text-xs text-warm-500 mt-1.5 line-clamp-2">{doc.description}</p>}
+                </div>
+                <button onClick={() => handleDelete(doc.id)} className="rounded-xl border border-red-200 px-3 py-1.5 text-xs text-red-400 hover:border-red-300 hover:text-red-600 transition-colors shrink-0">Удалить</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

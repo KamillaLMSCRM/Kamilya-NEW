@@ -1,7 +1,7 @@
 """Document model"""
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, BigInteger, DateTime
+from sqlalchemy import Column, String, BigInteger, Text, DateTime
 from sqlalchemy.dialects.postgresql import UUID
 from app.core.db import Base
 
@@ -17,4 +17,5 @@ class Document(Base):
     content_type = Column(String, nullable=False)
     size = Column(BigInteger, nullable=False)
     s3_key = Column(String, nullable=False)
+    description = Column(Text, nullable=False, default="")
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
