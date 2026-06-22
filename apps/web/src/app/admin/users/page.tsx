@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Card, CardHeader, CardTitle, CardContent, Button, Badge, Table, Modal, Input } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
+import { api } from '@/lib/api';
 
 interface User {
   id: string;
@@ -11,18 +12,28 @@ interface User {
   last_name: string;
   role: string;
   is_active: boolean;
+  position_id: string | null;
   created_at: string;
   last_login: string | null;
 }
 
+interface Position {
+  id: string;
+  name: string;
+  department: string;
+}
+
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<User[]>([]);
+  const [positions, setPositions] = useState<Position[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newUser, setNewUser] = useState({ email: '', first_name: '', last_name: '', role: 'student', password: '' });
+  const [assignModal, setAssignModal] = useState<{ userId: string; userName: string; currentPositionId: string | null } | null>(null);
+  const [selectedPositionId, setSelectedPositionId] = useState('');
   const token = useAuthStore((s) => s.accessToken);
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -44,17 +55,19 @@ export default function AdminUsersPage() {
     }
   }, [token, API_URL, page, search]);
 
-  useEffect(() => {
-    fetchUsers();
-  }, [fetchUsers]);
+  const fetchPositions = useCallback(async () => {
+    try {
+      const res = await api.get('/v1/positions');
+      setPositions(Array.isArray(res.data) ? res.data : []);
+    } catch {}
+  }, []);
+
+  useEffect(() => { fetchUsers(); fetchPositions(); }, [fetchUsers, fetchPositions]);
 
   const handleCreate = async () => {
     const res = await fetch(`${API_URL}/v1/users`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify(newUser),
     });
     if (res.ok) {
@@ -82,11 +95,29 @@ export default function AdminUsersPage() {
     if (res.ok) fetchUsers();
   };
 
+  const handleAssignPosition = async () => {
+    if (!assignModal || !selectedPositionId) return;
+    const res = await api.post(`/v1/positions/${selectedPositionId}/assign/${assignModal.userId}`);
+    if (res.status === 200 || res.status === 201) {
+      const data = res.data;
+      alert(`Должность назначена! Записано на ${data.courses_attached} курс(ов), новых записей: ${data.newly_enrolled}`);
+      setAssignModal(null);
+      setSelectedPositionId('');
+      fetchUsers();
+    }
+  };
+
+  const getPositionName = (posId: string | null) => {
+    if (!posId) return null;
+    const pos = positions.find(p => p.id === posId);
+    return pos?.name || null;
+  };
+
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Управление пользователями</h1>
-        <Button onClick={() => setShowCreateModal(true)}>Добавить пользователя</Button>
+        <h1 className="text-2xl font-bold">Управление обучающимися</h1>
+        <Button onClick={() => setShowCreateModal(true)}>Добавить обучающегося</Button>
       </div>
 
       <div className="flex gap-2">
@@ -111,6 +142,7 @@ export default function AdminUsersPage() {
                   <th className="text-left p-3">Имя</th>
                   <th className="text-left p-3">Email</th>
                   <th className="text-left p-3">Роль</th>
+                  <th className="text-left p-3">Должность</th>
                   <th className="text-left p-3">Статус</th>
                   <th className="text-left p-3">Создан</th>
                   <th className="text-right p-3">Действия</th>
@@ -132,6 +164,20 @@ export default function AdminUsersPage() {
                         <option value="admin">Админ</option>
                         <option value="org_admin">Орг. админ</option>
                       </select>
+                    </td>
+                    <td className="p-3">
+                      {getPositionName(user.position_id) ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                          {getPositionName(user.position_id)}
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => { setAssignModal({ userId: user.id, userName: `${user.first_name} ${user.last_name}`, currentPositionId: user.position_id }); setSelectedPositionId(user.position_id || ''); }}
+                          className="text-xs text-warm-400 hover:text-primary transition-colors"
+                        >
+                          + Назначить
+                        </button>
+                      )}
                     </td>
                     <td className="p-3">
                       <Badge variant={user.is_active ? 'default' : 'destructive'}>
@@ -170,9 +216,10 @@ export default function AdminUsersPage() {
         </div>
       </div>
 
+      {/* Create user modal */}
       <Modal open={showCreateModal} onOpenChange={setShowCreateModal}>
         <CardHeader>
-          <CardTitle>Новый пользователь</CardTitle>
+          <CardTitle>Новый обучающийся</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <Input placeholder="Email" value={newUser.email} onChange={(e) => setNewUser({ ...newUser, email: e.target.value })} />
@@ -187,6 +234,33 @@ export default function AdminUsersPage() {
           <Button onClick={handleCreate} className="w-full">Создать</Button>
         </CardContent>
       </Modal>
+
+      {/* Assign position modal */}
+      {assignModal && (
+        <Modal open={!!assignModal} onOpenChange={() => setAssignModal(null)}>
+          <CardHeader>
+            <CardTitle>Назначить должность: {assignModal.userName}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-warm-500">
+              Обучающийся автоматически запишется на все курсы, привязанные к должности.
+            </p>
+            <select
+              value={selectedPositionId}
+              onChange={(e) => setSelectedPositionId(e.target.value)}
+              className="w-full border rounded px-3 py-2"
+            >
+              <option value="">— Выберите должность —</option>
+              {positions.map(p => (
+                <option key={p.id} value={p.id}>{p.name}{p.department ? ` (${p.department})` : ''}</option>
+              ))}
+            </select>
+            <Button onClick={handleAssignPosition} disabled={!selectedPositionId} className="w-full">
+              Назначить и записать на курсы
+            </Button>
+          </CardContent>
+        </Modal>
+      )}
     </div>
   );
 }

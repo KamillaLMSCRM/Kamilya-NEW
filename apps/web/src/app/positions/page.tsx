@@ -12,14 +12,21 @@ interface Position {
   level: string;
   responsibilities: string;
   requirements: string;
-  course_id: string | null;
+  course_ids: string[];
   employee_count: number;
   created_at: string;
+}
+
+interface Course {
+  id: string;
+  title: string;
+  status: string;
 }
 
 export default function PositionsPage() {
   const { t } = useT();
   const [positions, setPositions] = useState<Position[]>([]);
+  const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [editPos, setEditPos] = useState<Position | null>(null);
@@ -28,6 +35,7 @@ export default function PositionsPage() {
   const [level, setLevel] = useState('');
   const [responsibilities, setResponsibilities] = useState('');
   const [requirements, setRequirements] = useState('');
+  const [selectedCourseIds, setSelectedCourseIds] = useState<string[]>([]);
 
   const fetchPositions = useCallback(async () => {
     try {
@@ -38,16 +46,32 @@ export default function PositionsPage() {
     }
   }, []);
 
-  useEffect(() => { fetchPositions(); }, [fetchPositions]);
+  const fetchCourses = useCallback(async () => {
+    try {
+      const res = await api.get('/v1/courses');
+      setCourses(Array.isArray(res.data) ? res.data : []);
+    } catch {}
+  }, []);
+
+  useEffect(() => { fetchPositions(); fetchCourses(); }, [fetchPositions, fetchCourses]);
 
   const resetForm = () => {
     setName(''); setDepartment(''); setLevel(''); setResponsibilities(''); setRequirements('');
-    setEditPos(null); setShowCreate(false);
+    setSelectedCourseIds([]); setEditPos(null); setShowCreate(false);
+  };
+
+  const toggleCourse = (cid: string) => {
+    setSelectedCourseIds(prev =>
+      prev.includes(cid) ? prev.filter(id => id !== cid) : [...prev, cid]
+    );
   };
 
   const handleCreate = async () => {
     if (!name.trim()) return;
-    await api.post('/v1/positions', { name, department, level, responsibilities, requirements });
+    await api.post('/v1/positions', {
+      name, department, level, responsibilities, requirements,
+      course_ids: selectedCourseIds,
+    });
     resetForm();
     fetchPositions();
   };
@@ -59,12 +83,16 @@ export default function PositionsPage() {
     setLevel(pos.level);
     setResponsibilities(pos.responsibilities);
     setRequirements(pos.requirements);
+    setSelectedCourseIds(pos.course_ids || []);
     setShowCreate(true);
   };
 
   const handleUpdate = async () => {
     if (!editPos) return;
-    await api.put(`/v1/positions/${editPos.id}`, { name, department, level, responsibilities, requirements });
+    await api.put(`/v1/positions/${editPos.id}`, {
+      name, department, level, responsibilities, requirements,
+      course_ids: selectedCourseIds,
+    });
     resetForm();
     fetchPositions();
   };
@@ -84,11 +112,10 @@ export default function PositionsPage() {
         </button>
       </div>
 
-      {/* Create/Edit modal */}
       {showCreate && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={resetForm} />
-          <div className="relative bg-white rounded-2xl shadow-card-lg w-full max-w-lg mx-4 p-6 z-10">
+          <div className="relative bg-white rounded-2xl shadow-card-lg w-full max-w-lg mx-4 p-6 z-10 max-h-[90vh] overflow-y-auto">
             <h2 className="text-lg font-bold text-warm-800 font-display mb-4">
               {editPos ? 'Редактировать должность' : 'Новая должность'}
             </h2>
@@ -115,6 +142,31 @@ export default function PositionsPage() {
                 <label className="block text-xs font-semibold text-warm-500 mb-1">Требования</label>
                 <textarea value={requirements} onChange={e => setRequirements(e.target.value)} rows={3} placeholder="Какие знания/навыки нужны..." className="w-full rounded-xl border border-warm-200 px-3 py-2.5 text-sm outline-none focus:border-primary transition-colors resize-none" />
               </div>
+              <div>
+                <label className="block text-xs font-semibold text-warm-500 mb-1">
+                  Курсы должности <span className="text-warm-300 font-normal">(обучающиеся автоматически запишутся)</span>
+                </label>
+                {courses.length === 0 ? (
+                  <p className="text-xs text-warm-400 py-2">Нет курсов. Создайте курс в разделе «Генерация курсов».</p>
+                ) : (
+                  <div className="space-y-1.5 max-h-40 overflow-y-auto border border-warm-200 rounded-xl p-2">
+                    {courses.map(c => (
+                      <label key={c.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-warm-50 cursor-pointer text-sm">
+                        <input
+                          type="checkbox"
+                          checked={selectedCourseIds.includes(c.id)}
+                          onChange={() => toggleCourse(c.id)}
+                          className="rounded border-warm-300 text-primary focus:ring-primary"
+                        />
+                        <span className="flex-1 truncate">{c.title}</span>
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${c.status === 'published' ? 'bg-emerald-50 text-emerald-600' : 'bg-warm-100 text-warm-500'}`}>
+                          {c.status === 'published' ? 'Опубл.' : 'Черновик'}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
             <div className="flex gap-2 justify-end mt-5">
               <button onClick={resetForm} className="rounded-xl border border-warm-200 px-4 py-2 text-sm text-warm-500 hover:bg-warm-50 transition-colors">Отмена</button>
@@ -140,10 +192,19 @@ export default function PositionsPage() {
             <div key={pos.id} className="rounded-2xl border border-warm-100 bg-white p-5 shadow-card hover:shadow-card-hover transition-all">
               <div className="flex items-start justify-between">
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <h3 className="font-bold text-warm-800">{pos.name}</h3>
                     {pos.level && <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">{pos.level}</span>}
-                    {pos.course_id && <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-600">Курс создан</span>}
+                    {pos.course_ids.length > 0 && (
+                      <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-600">
+                        {pos.course_ids.length} {pos.course_ids.length === 1 ? 'курс' : 'курса'}
+                      </span>
+                    )}
+                    {pos.employee_count > 0 && (
+                      <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-600">
+                        {pos.employee_count} обучающихся
+                      </span>
+                    )}
                   </div>
                   {pos.department && <p className="text-sm text-warm-400 mt-1">{pos.department}</p>}
                   {pos.responsibilities && <p className="text-sm text-warm-500 mt-2 line-clamp-2">{pos.responsibilities}</p>}

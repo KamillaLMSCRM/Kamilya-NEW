@@ -29,6 +29,7 @@ class UserResponse(BaseModel):
     last_name: str
     role: str
     is_active: bool
+    position_id: UUID | None = None
     telegram_id: str | None = None
     last_login: datetime | None = None
     created_at: datetime

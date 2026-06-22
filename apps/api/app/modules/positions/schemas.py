@@ -9,6 +9,7 @@ class PositionCreate(BaseModel):
     level: str = ""
     responsibilities: str = ""
     requirements: str = ""
+    course_ids: list[UUID] = []
 
 
 class PositionUpdate(BaseModel):
@@ -17,7 +18,7 @@ class PositionUpdate(BaseModel):
     level: str | None = None
     responsibilities: str | None = None
     requirements: str | None = None
-    course_id: UUID | None = None
+    course_ids: list[UUID] | None = None
 
 
 class PositionResponse(BaseModel):
@@ -28,7 +29,7 @@ class PositionResponse(BaseModel):
     level: str
     responsibilities: str
     requirements: str
-    course_id: UUID | None
+    course_ids: list[UUID] = []
     employee_count: int
     created_at: datetime
 
