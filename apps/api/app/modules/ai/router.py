@@ -62,6 +62,38 @@ async def generate_course(
     )
 
 
+@router.get("/jobs", response_model=list[AIJobResponse])
+async def list_jobs(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """List AI jobs for current tenant."""
+    from sqlalchemy import select
+    from app.modules.ai.models import AIJob
+
+    stmt = (
+        select(AIJob)
+        .where(AIJob.tenant_id == user.tenant_id)
+        .order_by(AIJob.created_at.desc())
+        .limit(20)
+    )
+    result = await db.execute(stmt)
+    jobs = result.scalars().all()
+
+    return [
+        AIJobResponse(
+            id=j.id,
+            status=j.status,
+            course_id=UUID(j.course_id) if j.course_id else None,
+            created_at=j.created_at,
+            progress=j.progress,
+            stage=j.stage,
+            message=j.message or "",
+        )
+        for j in jobs
+    ]
+
+
 @router.get("/jobs/{job_id}", response_model=AIJobResponse)
 async def get_job(
     job_id: str,

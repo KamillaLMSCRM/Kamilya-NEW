@@ -181,6 +181,40 @@ lms/
 └── .github/workflows/             # CI/CD
 ```
 
+## Context7 — актуальная документация библиотек
+
+**MCP Context7 настроен.** Используй для проверки актуальных API и версий библиотек перед использованием.
+
+### Когда использовать Context7
+- Перед использованием API любой библиотеки (Next.js, FastAPI, SQLAlchemy, Tailwind, etc.)
+- При ошибке «module not found» или «function doesn't exist» — проверь актуальную сигнатуру
+- При выборе между deprecated и новым API
+- Когда нужен конкретный пример использования с правильными импортами
+
+### Примеры использования
+```
+use context7 to show me how to use FastAPI dependency injection
+use context7 for Next.js 14 App Router dynamic params
+use context7 for SQLAlchemy 2.0 async session patterns
+use context7 for Tailwind CSS 3.4 container queries
+use context7 with /vercel/next.js for middleware patterns
+```
+
+### Модули проекта (проверяй актуальность через Context7)
+| Модуль | Библиотека | Context7 query |
+|--------|-----------|----------------|
+| Backend API | FastAPI | `use context7 for FastAPI middleware CORS` |
+| ORM | SQLAlchemy 2.0 | `use context7 for SQLAlchemy 2.0 async select` |
+| Migrations | Alembic | `use context7 for Alembic autogenerate` |
+| Queue | Celery | `use context7 for Celery task retry` |
+| Frontend | Next.js 14 | `use context7 with /vercel/next.js for App Router` |
+| Styling | Tailwind | `use context7 for Tailwind custom colors` |
+| State | Zustand | `use context7 for Zustand persist middleware` |
+| Forms | React Hook Form | `use context7 for react-hook-form validation` |
+| Charts | Recharts | `use context7 for Recharts responsive container` |
+
+---
+
 ## Промпт-инструменты (для AI agent)
 
 ### Если нужна помощь по конкретной feature
