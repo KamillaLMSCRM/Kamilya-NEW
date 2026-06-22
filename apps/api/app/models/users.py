@@ -15,7 +15,7 @@ class User(Base):
     last_name = Column(Text, nullable=False)
     role = Column(Text, nullable=False, default="student")
     is_active = Column(Boolean, nullable=False, default=True)
-    position_id = Column(UUID(as_uuid=True), ForeignKey("positions(id)", ondelete="SET NULL"), nullable=True)
+    position_id = Column(UUID(as_uuid=True), ForeignKey("positions.id", ondelete="SET NULL"), nullable=True)
     last_login = Column(DateTime(timezone=True), nullable=True)
     status = Column(Text, nullable=False, default="active")
     created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
