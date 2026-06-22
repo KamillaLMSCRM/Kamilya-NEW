@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
 import { api } from '@/lib/api';
@@ -36,6 +36,8 @@ export default function PositionsPage() {
   const [responsibilities, setResponsibilities] = useState('');
   const [requirements, setRequirements] = useState('');
   const [selectedCourseIds, setSelectedCourseIds] = useState<string[]>([]);
+  const [analyzing, setAnalyzing] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchPositions = useCallback(async () => {
     try {
@@ -103,13 +105,57 @@ export default function PositionsPage() {
     fetchPositions();
   };
 
+  const handleAnalyzeJD = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAnalyzing(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const token = useAuthStore.getState().accessToken;
+      const API_URL = process.env.NEXT_PUBLIC_API_URL;
+      const res = await fetch(`${API_URL}/v1/positions/analyze-jd`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: 'Ошибка анализа' }));
+        alert(err.detail || 'Ошибка анализа');
+        return;
+      }
+      const data = await res.json();
+      if (data.name) setName(data.name);
+      if (data.department) setDepartment(data.department);
+      if (data.level) setLevel(data.level);
+      if (data.responsibilities) setResponsibilities(data.responsibilities);
+      if (data.requirements) setRequirements(data.requirements);
+      setShowCreate(true);
+    } catch (err) {
+      alert('Не удалось проанализировать файл');
+    } finally {
+      setAnalyzing(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-warm-800 font-display">Должности</h1>
-        <button onClick={() => { resetForm(); setShowCreate(true); }} className="rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-white hover:bg-primary/90 transition-colors">
-          + Добавить должность
-        </button>
+        <div className="flex gap-2">
+          <input ref={fileInputRef} type="file" accept=".pdf,.docx,.doc,.txt" onChange={handleAnalyzeJD} className="hidden" />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={analyzing}
+            className="rounded-xl border border-warm-200 px-4 py-2.5 text-sm font-medium text-warm-600 hover:bg-warm-50 transition-colors disabled:opacity-50"
+          >
+            {analyzing ? 'Анализ...' : 'Загрузить JD'}
+          </button>
+          <button onClick={() => { resetForm(); setShowCreate(true); }} className="rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-white hover:bg-primary/90 transition-colors">
+            + Добавить должность
+          </button>
+        </div>
       </div>
 
       {showCreate && (

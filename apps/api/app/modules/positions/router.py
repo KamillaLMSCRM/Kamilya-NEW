@@ -1,6 +1,9 @@
-"""Positions — API router with course attachment"""
+"""Positions — API router with course attachment + JD analysis"""
 import uuid
-from fastapi import APIRouter, Depends, HTTPException
+import os
+import json
+import logging
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -8,6 +11,8 @@ from app.core.auth import get_current_user
 from app.core.db import get_db
 from app.models.users import User
 from app.modules.positions.models import Position, PositionCourse
+
+logger = logging.getLogger(__name__)
 from app.modules.positions.schemas import PositionCreate, PositionUpdate, PositionResponse
 
 router = APIRouter(prefix="/positions", tags=["positions"])
@@ -251,3 +256,97 @@ async def unassign_user_from_position(
 
     await db.flush()
     return {"status": "ok"}
+
+
+def _extract_text(content: bytes, filename: str) -> str:
+    """Extract text from uploaded file (PDF, DOCX, TXT)."""
+    ext = os.path.splitext(filename or "")[1].lower()
+
+    if ext == ".txt":
+        return content.decode("utf-8", errors="replace")
+
+    if ext == ".pdf":
+        try:
+            from pypdf import PdfReader
+            import io
+            reader = PdfReader(io.BytesIO(content))
+            return "\n".join(page.extract_text() or "" for page in reader.pages)
+        except Exception as e:
+            logger.warning(f"PDF extraction failed: {e}")
+            return ""
+
+    if ext in (".docx", ".doc"):
+        try:
+            from docx import Document
+            import io
+            doc = Document(io.BytesIO(content))
+            return "\n".join(p.text for p in doc.paragraphs)
+        except Exception as e:
+            logger.warning(f"DOCX extraction failed: {e}")
+            return ""
+
+    return content.decode("utf-8", errors="replace")
+
+
+@router.post("/analyze-jd")
+async def analyze_jd(
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Analyze a job description document and extract position fields."""
+    content = await file.read()
+    if len(content) > 5 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="File too large (max 5MB)")
+
+    text = _extract_text(content, file.filename or "")
+    if not text.strip():
+        raise HTTPException(status_code=400, detail="Could not extract text from file")
+
+    # Truncate to avoid token overflow
+    text = text[:8000]
+
+    prompt = f"""Проанализируй текст должностной инструкции и извлеки структурированные данные.
+
+ТЕКСТ:
+{text}
+
+Ответь ТОЛЬКО валидным JSON без markdown-обёрток:
+{{
+  "name": "Название должности (на русском)",
+  "department": "Отдел/департамент",
+  "level": "junior/middle/senior/lead/head",
+  "responsibilities": "Краткий список ключевых обязанностей (3-7 пунктов через перенос строки)",
+  "requirements": "Краткий список требований (3-7 пунктов через перенос строки)"
+}}
+
+Если информация не найдена — поставь пустую строку."""
+
+    try:
+        from app.modules.ai.llm_client import create_llm
+        llm = create_llm(temperature=0.3, max_tokens=1024)
+        response = await llm.ainvoke([{"role": "user", "content": prompt}])
+        raw = response.content.strip()
+
+        # Strip markdown code fences if present
+        if raw.startswith("```"):
+            raw = raw.split("\n", 1)[1]
+            if raw.endswith("```"):
+                raw = raw[:-3]
+            raw = raw.strip()
+
+        data = json.loads(raw)
+    except json.JSONDecodeError as e:
+        logger.error(f"LLM returned invalid JSON: {e}")
+        raise HTTPException(status_code=422, detail="AI returned invalid response. Please try again.")
+    except Exception as e:
+        logger.error(f"JD analysis failed: {e}")
+        raise HTTPException(status_code=503, detail="AI service unavailable. Please try again later.")
+
+    return {
+        "name": data.get("name", ""),
+        "department": data.get("department", ""),
+        "level": data.get("level", ""),
+        "responsibilities": data.get("responsibilities", ""),
+        "requirements": data.get("requirements", ""),
+    }
