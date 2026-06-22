@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, timezone
 from uuid import UUID, uuid4
 
 import argon2
-from sqlalchemy import select, update
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import HTTPException, status
 
@@ -126,8 +126,9 @@ async def refresh_access_token(db: AsyncSession, refresh_token: str) -> str:
 
 
 async def blacklist_refresh_token(db: AsyncSession, refresh_token: str) -> None:
+    """Delete the session (fully invalidate the refresh token)."""
+    from sqlalchemy import delete
     await db.execute(
-        update(UserSession)
+        delete(UserSession)
         .where(UserSession.refresh_token == refresh_token)
-        .values(refresh_token="")
     )

@@ -3,12 +3,12 @@ from __future__ import annotations
 
 import asyncio
 import json
-from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, Query
 from uuid import UUID, uuid4
 from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.auth import get_current_user
+from app.core.auth import get_current_user, decode_token
 from app.core.db import get_db
 from app.models.users import User
 from app.modules.ai.schemas import AIGenerateRequest, AIJobResponse
@@ -139,8 +139,25 @@ async def cancel_generation(
 
 
 @router.websocket("/ws/jobs/{job_id}")
-async def job_progress_ws(websocket: WebSocket, job_id: str):
-    """WebSocket endpoint for real-time job progress updates."""
+async def job_progress_ws(websocket: WebSocket, job_id: str, token: str = Query(None)):
+    """WebSocket endpoint for real-time job progress updates. Requires JWT via query param."""
+    # Authenticate via token query param
+    if not token:
+        await websocket.close(code=4001, reason="Missing token")
+        return
+
+    try:
+        payload = decode_token(token)
+    except Exception:
+        await websocket.close(code=4003, reason="Invalid token")
+        return
+
+    user_id = payload.get("sub")
+    tenant_id = payload.get("tenant_id")
+    if not user_id or not tenant_id:
+        await websocket.close(code=4003, reason="Invalid token payload")
+        return
+
     await websocket.accept()
 
     try:
@@ -150,6 +167,11 @@ async def job_progress_ws(websocket: WebSocket, job_id: str):
                 job = await get_ai_job(session, job_id)
                 if not job:
                     await websocket.send_json({"error": "Job not found"})
+                    break
+
+                # Verify tenant access
+                if str(job.tenant_id) != tenant_id:
+                    await websocket.send_json({"error": "Access denied"})
                     break
 
                 await websocket.send_json({

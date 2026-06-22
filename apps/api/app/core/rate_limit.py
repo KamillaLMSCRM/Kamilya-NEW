@@ -31,6 +31,7 @@ RATE_LIMITS: dict[str, RateLimitConfig] = {
     "/api/v1/auth/login": RateLimitConfig(requests_per_minute=5, requests_per_hour=20, burst_size=3),
     "/api/v1/auth/register": RateLimitConfig(requests_per_minute=3, requests_per_hour=10, burst_size=2),
     "/api/v1/auth/refresh": RateLimitConfig(requests_per_minute=10, requests_per_hour=100, burst_size=5),
+    "/api/v1/auth/check-code": RateLimitConfig(requests_per_minute=10, requests_per_hour=60, burst_size=5),
     "/api/v1/ai/generate-course": RateLimitConfig(requests_per_minute=2, requests_per_hour=10, burst_size=1),
     "/api/v1/quizzes": RateLimitConfig(requests_per_minute=30, requests_per_hour=500, burst_size=10),
     "/api/v1/documents/upload": RateLimitConfig(requests_per_minute=10, requests_per_hour=100, burst_size=5),
@@ -44,18 +45,23 @@ class RateLimiter:
     def __init__(self, redis_url: str = "redis://localhost:6379/1"):
         self.redis_url = redis_url
         self._redis = None
+        self._available = True
 
     async def _get_redis(self):
-        if self._redis is None:
-            try:
-                import redis.asyncio as aioredis
-                self._redis = aioredis.from_url(self.redis_url, decode_responses=True)
-                await self._redis.ping()
-            except (ImportError, Exception) as e:
-                logger.warning(f"Redis not available ({e}), rate limiting disabled")
-                self._redis = None
-                return None
-        return self._redis
+        if not self._available:
+            return None
+        if self._redis is not None:
+            return self._redis
+        try:
+            import redis.asyncio as aioredis
+            self._redis = aioredis.from_url(self.redis_url, decode_responses=True)
+            await self._redis.ping()
+            return self._redis
+        except (ImportError, Exception) as e:
+            logger.warning(f"Redis not available ({e}), rate limiting DISABLED (fail-closed)")
+            self._available = False
+            self._redis = None
+            return None
 
     async def check_rate_limit(
         self, key: str, max_requests: int, window_seconds: int
@@ -66,7 +72,8 @@ class RateLimiter:
         """
         redis = await self._get_redis()
         if redis is None:
-            return True, {"remaining": max_requests, "reset": 0, "limit": max_requests, "current": 0}
+            # Fail-closed: block request if Redis unavailable
+            return False, {"remaining": 0, "reset": int(time.time() + window_seconds), "limit": max_requests, "current": max_requests + 1}
 
         try:
             now = time.time()
@@ -92,8 +99,8 @@ class RateLimiter:
                 "current": current_count,
             }
         except Exception as e:
-            logger.warning(f"Redis rate limit check failed ({e}), allowing request")
-            return True, {"remaining": max_requests, "reset": 0, "limit": max_requests, "current": 0}
+            logger.warning(f"Redis rate limit check failed ({e}), blocking request")
+            return False, {"remaining": 0, "reset": int(time.time() + window_seconds), "limit": max_requests, "current": max_requests + 1}
 
     async def get_rate_limit_config(self, path: str) -> RateLimitConfig:
         """Get rate limit config for a path."""
@@ -114,7 +121,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         if request.url.path in ("/health", "/api/v1/health", "/docs", "/redoc", "/openapi.json"):
             return await call_next(request)
 
-        # Get client identifier (IP + user ID if available)
+        # Get client identifier: IP
         client_ip = request.client.host if request.client else "unknown"
         path = request.url.path
 
