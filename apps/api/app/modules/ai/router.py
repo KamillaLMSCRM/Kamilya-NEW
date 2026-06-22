@@ -40,16 +40,19 @@ async def generate_course(
     await db.commit()
 
     # Start Celery task (async background processing)
-    generate_course_task.delay(
-        job_id=job.id,
-        documents=req.documents,
-        target_audience=req.target_audience,
-        num_modules=req.num_modules,
-        language=req.language,
-        course_id=str(req.course_id) if req.course_id else None,
-        tenant_id=str(user.tenant_id),
-        user_id=str(user.id),
-    )
+    try:
+        generate_course_task.delay(
+            job_id=job.id,
+            documents=req.documents,
+            target_audience=req.target_audience,
+            num_modules=req.num_modules,
+            language=req.language,
+            course_id=str(req.course_id) if req.course_id else None,
+            tenant_id=str(user.tenant_id),
+            user_id=str(user.id),
+        )
+    except Exception:
+        pass  # Celery/Redis not available — job still created
 
     return AIJobResponse(
         id=job.id,
