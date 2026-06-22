@@ -65,3 +65,24 @@ app.include_router(positions_router, prefix=f"{settings.API_PREFIX}", tags=["pos
 @app.get(f"{settings.API_PREFIX}/health")
 async def health_check():
     return {"status": "ok", "app": settings.APP_NAME}
+
+
+@app.on_event("startup")
+async def run_migrations():
+    """Run alembic migrations on startup (Render doesn't do this automatically)."""
+    import subprocess
+    import os
+    try:
+        result = subprocess.run(
+            ["alembic", "upgrade", "head"],
+            cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        if result.returncode != 0:
+            print(f"Alembic warning: {result.stderr[:500]}")
+        else:
+            print("Alembic migrations applied successfully")
+    except Exception as e:
+        print(f"Alembic migration error (non-fatal): {e}")
