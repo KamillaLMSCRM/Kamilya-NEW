@@ -1,51 +1,50 @@
-2026-06-22T13:48:06.467514378Z INFO:     10.216.26.90:41880 - "GET /api/v1/health HTTP/1.1" 200 OK
-2026-06-22T13:48:11.426052375Z INFO:     10.216.26.90:41886 - "GET /api/v1/health HTTP/1.1" 200 OK
-2026-06-22T13:48:16.428848109Z INFO:     10.216.26.90:56858 - "GET /api/v1/health HTTP/1.1" 200 OK
-2026-06-22T13:48:21.427321679Z INFO:     10.216.26.90:56860 - "GET /api/v1/health HTTP/1.1" 200 OK
-2026-06-22T13:48:26.425327369Z INFO:     10.216.26.90:60304 - "GET /api/v1/health HTTP/1.1" 200 OK
-2026-06-22T13:48:26.427085961Z INFO:     10.216.26.90:60306 - "GET /api/v1/health HTTP/1.1" 200 OK
-2026-06-22T13:48:31.425999902Z INFO:     10.216.26.90:60314 - "GET /api/v1/health HTTP/1.1" 200 OK
-2026-06-22T13:48:36.428355026Z INFO:     10.216.26.90:49054 - "GET /api/v1/health HTTP/1.1" 200 OK
-2026-06-22T13:48:41.425448163Z INFO:     10.216.26.90:49068 - "GET /api/v1/health HTTP/1.1" 200 OK
-2026-06-22T13:48:46.426844634Z INFO:     10.216.26.90:51054 - "GET /api/v1/health HTTP/1.1" 200 OK
-2026-06-22T13:48:51.426320979Z INFO:     10.216.26.90:51062 - "GET /api/v1/health HTTP/1.1" 200 OK
-2026-06-22T13:48:56.422019053Z INFO:     10.216.26.90:39036 - "GET /api/v1/health HTTP/1.1" 200 OK
-2026-06-22T13:48:56.430156949Z INFO:     10.216.26.90:39044 - "GET /api/v1/health HTTP/1.1" 200 OK
-2026-06-22T13:49:01.426656393Z INFO:     10.216.26.90:39060 - "GET /api/v1/health HTTP/1.1" 200 OK
-2026-06-22T13:49:06.42623883Z INFO:     10.216.26.90:40152 - "GET /api/v1/health HTTP/1.1" 200 OK
-2026-06-22T13:49:11.425650404Z INFO:     10.216.26.90:40162 - "GET /api/v1/health HTTP/1.1" 200 OK
-2026-06-22T13:49:16.426541392Z INFO:     10.216.26.90:60998 - "GET /api/v1/health HTTP/1.1" 200 OK
-2026-06-22T13:49:21.425790432Z INFO:     10.216.26.90:32778 - "GET /api/v1/health HTTP/1.1" 200 OK
-2026-06-22T13:49:26.420706578Z INFO:     10.216.26.90:56280 - "GET /api/v1/health HTTP/1.1" 200 OK
-2026-06-22T13:49:26.425924683Z INFO:     10.216.26.90:56290 - "GET /api/v1/health HTTP/1.1" 200 OK
-2026-06-22T13:49:31.426240829Z INFO:     10.216.26.90:56304 - "GET /api/v1/health HTTP/1.1" 200 OK
-2026-06-22T13:49:36.427023786Z INFO:     10.216.26.90:59658 - "GET /api/v1/health HTTP/1.1" 200 OK
-2026-06-22T13:49:41.427767303Z INFO:     10.216.26.90:59660 - "GET /api/v1/health HTTP/1.1" 200 OK
-2026-06-22T13:49:46.425846845Z INFO:     10.216.26.90:50012 - "GET /api/v1/health HTTP/1.1" 200 OK
-2026-06-22T13:49:51.425594417Z INFO:     10.216.26.90:50024 - "GET /api/v1/health HTTP/1.1" 200 OK
-2026-06-22T13:49:56.420853721Z INFO:     10.216.26.90:60010 - "GET /api/v1/health HTTP/1.1" 200 OK
-2026-06-22T13:49:56.425807561Z INFO:     10.216.26.90:60018 - "GET /api/v1/health HTTP/1.1" 200 OK
-2026-06-22T13:50:01.429368555Z INFO:     10.216.26.90:60032 - "GET /api/v1/health HTTP/1.1" 200 OK
-2026-06-22T13:50:06.435444001Z INFO:     10.216.26.90:40648 - "GET /api/v1/health HTTP/1.1" 200 OK
-2026-06-22T13:50:11.426367641Z INFO:     10.216.26.90:40664 - "GET /api/v1/health HTTP/1.1" 200 OK
-2026-06-22T13:50:16.430415417Z INFO:     10.216.26.90:39896 - "GET /api/v1/health HTTP/1.1" 200 OK
-2026-06-22T13:50:21.430681343Z INFO:     10.216.26.90:39912 - "GET /api/v1/health HTTP/1.1" 200 OK
-2026-06-22T13:50:26.424245767Z INFO:     10.216.26.90:35734 - "GET /api/v1/health HTTP/1.1" 200 OK
-2026-06-22T13:50:26.434365541Z INFO:     10.216.26.90:35748 - "GET /api/v1/health HTTP/1.1" 200 OK
-2026-06-22T13:50:31.42567931Z INFO:     10.216.26.90:35756 - "GET /api/v1/health HTTP/1.1" 200 OK
-2026-06-22T13:50:36.427841002Z INFO:     10.216.26.90:38870 - "GET /api/v1/health HTTP/1.1" 200 OK
-2026-06-22T13:50:41.431380526Z INFO:     10.216.26.90:38884 - "GET /api/v1/health HTTP/1.1" 200 OK
-2026-06-22T13:50:46.426104279Z INFO:     10.216.26.90:36266 - "GET /api/v1/health HTTP/1.1" 200 OK
-2026-06-22T13:50:51.427182754Z INFO:     10.216.26.90:36270 - "GET /api/v1/health HTTP/1.1" 200 OK
-2026-06-22T13:50:56.422378046Z INFO:     10.216.26.90:59590 - "GET /api/v1/health HTTP/1.1" 200 OK
-2026-06-22T13:50:56.426161887Z INFO:     10.216.26.90:59596 - "GET /api/v1/health HTTP/1.1" 200 OK
-2026-06-22T13:51:01.42586376Z INFO:     10.216.26.90:59604 - "GET /api/v1/health HTTP/1.1" 200 OK
-2026-06-22T13:51:06.428318729Z INFO:     10.216.26.90:55294 - "GET /api/v1/health HTTP/1.1" 200 OK
-2026-06-22T13:51:11.42920704Z INFO:     10.216.26.90:55296 - "GET /api/v1/health HTTP/1.1" 200 OK
-2026-06-22T13:51:16.426967006Z INFO:     10.216.26.90:48058 - "GET /api/v1/health HTTP/1.1" 200 OK
-2026-06-22T13:51:21.431565097Z INFO:     10.216.26.90:48074 - "GET /api/v1/health HTTP/1.1" 200 OK
-2026-06-22T13:51:26.421654798Z INFO:     10.216.26.90:56114 - "GET /api/v1/health HTTP/1.1" 200 OK
-2026-06-22T13:51:26.432367666Z INFO:     10.216.26.90:56128 - "GET /api/v1/health HTTP/1.1" 200 OK
-2026-06-22T13:51:31.429095627Z INFO:     10.216.26.90:56130 - "GET /api/v1/health HTTP/1.1" 200 OK
-2026-06-22T13:51:36.428905763Z INFO:     10.216.26.90:38934 - "GET /api/v1/health HTTP/1.1" 200 OK
-2026-06-22T13:51:41.443407993Z INFO:     10.216.26.90:38948 - "GET /api/v1/health HTTP/1.1" 200 OK
+2026-06-22T14:48:39.322531974Z     result = context.switch(value)
+2026-06-22T14:48:39.322533924Z              ^^^^^^^^^^^^^^^^^^^^^
+2026-06-22T14:48:39.322535894Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 4353, in flush
+2026-06-22T14:48:39.322538234Z     self._flush(objects)
+2026-06-22T14:48:39.322540304Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 4488, in _flush
+2026-06-22T14:48:39.322542274Z     with util.safe_reraise():
+2026-06-22T14:48:39.322544244Z          ^^^^^^^^^^^^^^^^^^^
+2026-06-22T14:48:39.322546234Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/util/langhelpers.py", line 122, in __exit__
+2026-06-22T14:48:39.322548184Z     raise exc_value.with_traceback(exc_tb)
+2026-06-22T14:48:39.322550134Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 4449, in _flush
+2026-06-22T14:48:39.322552094Z     flush_context.execute()
+2026-06-22T14:48:39.322554014Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/orm/unitofwork.py", line 465, in execute
+2026-06-22T14:48:39.322556034Z     rec.execute(self)
+2026-06-22T14:48:39.322557954Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/orm/unitofwork.py", line 641, in execute
+2026-06-22T14:48:39.322559895Z     util.preloaded.orm_persistence.save_obj(
+2026-06-22T14:48:39.322561824Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/orm/persistence.py", line 77, in save_obj
+2026-06-22T14:48:39.322563964Z     for table, mapper in base_mapper._sorted_tables.items():
+2026-06-22T14:48:39.322565895Z                          ^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-06-22T14:48:39.322567844Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/util/langhelpers.py", line 1234, in __get__
+2026-06-22T14:48:39.322569795Z     obj.__dict__[self.__name__] = result = self.fget(obj)
+2026-06-22T14:48:39.322571715Z                                            ^^^^^^^^^^^^^^
+2026-06-22T14:48:39.322573625Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/orm/mapper.py", line 4074, in _sorted_tables
+2026-06-22T14:48:39.322575575Z     sorted_ = sql_util.sort_tables(
+2026-06-22T14:48:39.322583415Z               ^^^^^^^^^^^^^^^^^^^^^
+2026-06-22T14:48:39.322585395Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/sql/ddl.py", line 1319, in sort_tables
+2026-06-22T14:48:39.322587305Z     for (t, fkcs) in sort_tables_and_constraints(
+2026-06-22T14:48:39.322589235Z                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-06-22T14:48:39.322591195Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/sql/ddl.py", line 1389, in sort_tables_and_constraints
+2026-06-22T14:48:39.322593125Z     filtered = filter_fn(fkc)
+2026-06-22T14:48:39.322595055Z                ^^^^^^^^^^^^^^
+2026-06-22T14:48:39.322596975Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/sql/ddl.py", line 1309, in _skip_fn
+2026-06-22T14:48:39.322598875Z     if fixed_skip_fn(fk):
+2026-06-22T14:48:39.322600775Z        ^^^^^^^^^^^^^^^^^
+2026-06-22T14:48:39.322602785Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/orm/mapper.py", line 4057, in skip
+2026-06-22T14:48:39.322606265Z     dep = table_to_mapper.get(fk.column.table)
+2026-06-22T14:48:39.322608235Z                               ^^^^^^^^^
+2026-06-22T14:48:39.322610175Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/util/langhelpers.py", line 1122, in __get__
+2026-06-22T14:48:39.322612085Z     obj.__dict__[self.__name__] = result = self.fget(obj)
+2026-06-22T14:48:39.322613996Z                                            ^^^^^^^^^^^^^^
+2026-06-22T14:48:39.322615936Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/sql/schema.py", line 3198, in column
+2026-06-22T14:48:39.322617936Z     return self._resolve_column()
+2026-06-22T14:48:39.322619856Z            ^^^^^^^^^^^^^^^^^^^^^^
+2026-06-22T14:48:39.322621785Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/sql/schema.py", line 3221, in _resolve_column
+2026-06-22T14:48:39.322623705Z     raise exc.NoReferencedTableError(
+2026-06-22T14:48:39.322626436Z sqlalchemy.exc.NoReferencedTableError: Foreign key associated with column 'users.position_id' could not find table 'positions(id)' with which to generate a foreign key to target column 'None'
+2026-06-22T14:48:43.772407459Z INFO:     10.216.27.169:55356 - "GET /api/v1/health HTTP/1.1" 200 OK
+2026-06-22T14:48:48.772670183Z INFO:     10.216.27.169:41168 - "GET /api/v1/health HTTP/1.1" 200 OK
+2026-06-22T14:48:53.772754113Z INFO:     10.216.27.169:41176 - "GET /api/v1/health HTTP/1.1" 200 OK
+2026-06-22T14:48:58.77262199Z INFO:     10.216.27.169:59322 - "GET /api/v1/health HTTP/1.1" 200 OK
+2026-06-22T14:49:03.772310733Z INFO:     10.216.27.169:59334 - "GET /api/v1/health HTTP/1.1" 200 OK
