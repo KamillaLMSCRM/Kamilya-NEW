@@ -72,8 +72,8 @@ class RateLimiter:
         """
         redis = await self._get_redis()
         if redis is None:
-            # Fail-closed: block request if Redis unavailable
-            return False, {"remaining": 0, "reset": int(time.time() + window_seconds), "limit": max_requests, "current": max_requests + 1}
+            # Fail-open: allow request if Redis unavailable (no rate limiting)
+            return True, {"remaining": max_requests, "reset": int(time.time() + window_seconds), "limit": max_requests, "current": 0}
 
         try:
             now = time.time()
@@ -99,8 +99,8 @@ class RateLimiter:
                 "current": current_count,
             }
         except Exception as e:
-            logger.warning(f"Redis rate limit check failed ({e}), blocking request")
-            return False, {"remaining": 0, "reset": int(time.time() + window_seconds), "limit": max_requests, "current": max_requests + 1}
+            logger.warning(f"Redis rate limit check failed ({e}), allowing request")
+            return True, {"remaining": max_requests, "reset": int(time.time() + window_seconds), "limit": max_requests, "current": 0}
 
     async def get_rate_limit_config(self, path: str) -> RateLimitConfig:
         """Get rate limit config for a path."""
@@ -118,20 +118,22 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self.limiter = RateLimiter(redis_url)
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
+        # Fast-path: skip rate limiting for docs/health
         if request.url.path in ("/health", "/api/v1/health", "/docs", "/redoc", "/openapi.json"):
             return await call_next(request)
 
-        # Get client identifier: IP
         client_ip = request.client.host if request.client else "unknown"
         path = request.url.path
+        info = {"remaining": 0, "reset": 0, "limit": 0, "current": 0}
 
-        # Check rate limit
-        config = await self.limiter.get_rate_limit_config(path)
-        key = f"rate_limit:{path}:{client_ip}"
-
-        is_allowed, info = await self.limiter.check_rate_limit(
-            key, config.requests_per_minute, 60
-        )
+        try:
+            config = await self.limiter.get_rate_limit_config(path)
+            key = f"rate_limit:{path}:{client_ip}"
+            is_allowed, info = await self.limiter.check_rate_limit(
+                key, config.requests_per_minute, 60
+            )
+        except Exception:
+            is_allowed = True  # fail-open
 
         if not is_allowed:
             logger.warning(f"Rate limit exceeded for {client_ip} on {path}")
@@ -139,21 +141,20 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 status_code=429,
                 content={
                     "detail": "Rate limit exceeded",
-                    "retry_after": info["reset"] - int(time.time()),
+                    "retry_after": max(1, info.get("reset", 0) - int(time.time())),
                 },
                 headers={
-                    "X-RateLimit-Limit": str(info["limit"]),
-                    "X-RateLimit-Remaining": str(info["remaining"]),
-                    "X-RateLimit-Reset": str(info["reset"]),
-                    "Retry-After": str(max(1, info["reset"] - int(time.time()))),
+                    "X-RateLimit-Limit": str(info.get("limit", 0)),
+                    "X-RateLimit-Remaining": str(info.get("remaining", 0)),
+                    "X-RateLimit-Reset": str(info.get("reset", 0)),
+                    "Retry-After": str(max(1, info.get("reset", 0) - int(time.time()))),
                 },
             )
 
         response = await call_next(request)
 
-        # Add rate limit headers
-        response.headers["X-RateLimit-Limit"] = str(info["limit"])
-        response.headers["X-RateLimit-Remaining"] = str(info["remaining"])
-        response.headers["X-RateLimit-Reset"] = str(info["reset"])
+        response.headers["X-RateLimit-Limit"] = str(info.get("limit", 0))
+        response.headers["X-RateLimit-Remaining"] = str(info.get("remaining", 0))
+        response.headers["X-RateLimit-Reset"] = str(info.get("reset", 0))
 
         return response
