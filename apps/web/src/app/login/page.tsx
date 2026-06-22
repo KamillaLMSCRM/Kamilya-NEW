@@ -91,7 +91,7 @@ export default function LoginPage() {
           if (pollingRef.current) clearInterval(pollingRef.current);
         }
       }
-    }, 2000);
+    }, 5000);
   }, [login, router]);
 
   return (
