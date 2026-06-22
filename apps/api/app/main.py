@@ -70,19 +70,16 @@ async def health_check():
 @app.on_event("startup")
 async def run_migrations():
     """Run alembic migrations on startup (Render doesn't do this automatically)."""
-    import subprocess
-    import os
+    import subprocess, sys, os
     try:
         result = subprocess.run(
-            ["alembic", "upgrade", "head"],
-            cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-            capture_output=True,
-            text=True,
-            timeout=60,
+            [sys.executable, "-m", "alembic", "upgrade", "head"],
+            cwd=os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+            capture_output=True, text=True, timeout=60,
         )
         if result.returncode != 0:
             print(f"Alembic warning: {result.stderr[:500]}")
         else:
-            print("Alembic migrations applied successfully")
+            print("Alembic migrations OK")
     except Exception as e:
-        print(f"Alembic migration error (non-fatal): {e}")
+        print(f"Alembic error (non-fatal): {e}")
