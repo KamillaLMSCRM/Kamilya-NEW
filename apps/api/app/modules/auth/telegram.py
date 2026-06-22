@@ -89,7 +89,7 @@ async def handle_telegram_webhook(request: Request, db: AsyncSession = Depends(g
         "full_name": f"{user.first_name} {user.last_name}",
     }
 
-    success = verify_code(text, telegram_id, user_data)
+    success = await verify_code(text, telegram_id, user_data)
 
     if success:
         await send_telegram_message(
