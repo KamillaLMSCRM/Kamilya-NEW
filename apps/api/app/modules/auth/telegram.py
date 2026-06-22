@@ -8,6 +8,7 @@ from app.core.config import get_settings
 from app.core.db import get_db
 from app.modules.auth.auth_sessions import verify_code
 from app.models.users import User
+from app.models.user_roles import UserRole
 
 settings = get_settings()
 router = APIRouter(prefix="/telegram", tags=["telegram"])
@@ -71,12 +72,20 @@ async def handle_telegram_webhook(request: Request, db: AsyncSession = Depends(g
         )
         return {"ok": True}
 
-    # Verify the code
+    # Get role from user_roles table
+    role_result = await db.execute(
+        select(UserRole.role)
+        .where(UserRole.user_id == user.id, UserRole.tenant_id == user.tenant_id)
+        .limit(1)
+    )
+    role_row = role_result.scalar_one_or_none()
+    role = role_row if role_row else user.role
+
     user_data = {
         "user_id": str(user.id),
         "tenant_id": str(user.tenant_id),
         "telegram_id": telegram_id,
-        "role": "student",
+        "role": role,
         "full_name": f"{user.first_name} {user.last_name}",
     }
 

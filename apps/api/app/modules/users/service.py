@@ -1,11 +1,12 @@
 """User management service"""
-from uuid import UUID
+from uuid import UUID, uuid4
 from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, desc
 from argon2 import PasswordHasher
 
 from app.models.users import User
+from app.models.user_roles import UserRole
 
 ph = PasswordHasher()
 
@@ -79,16 +80,29 @@ async def create_user(
     hashed_password = ph.hash(password) if password else ""
 
     user = User(
+        id=uuid4(),
         tenant_id=tenant_id,
         email=email,
         first_name=first_name,
         last_name=last_name,
         role=role,
-        password_hash=hashed_password,
         is_active=is_active,
+        password_hash=hashed_password,
+        status="active",
     )
     db.add(user)
     await db.flush()
+
+    # Create role entry
+    user_role = UserRole(
+        id=uuid4(),
+        user_id=user.id,
+        tenant_id=tenant_id,
+        role=role,
+    )
+    db.add(user_role)
+    await db.flush()
+
     await db.refresh(user)
     return user
 
@@ -141,7 +155,7 @@ async def change_role(
     db: AsyncSession, user_id: UUID, tenant_id: UUID, new_role: str
 ) -> User | None:
     """Change user role."""
-    valid_roles = ["student", "instructor", "admin", "org_admin", "superadmin"]
+    valid_roles = ["student", "teacher", "admin", "org_admin", "superadmin"]
     if new_role not in valid_roles:
         raise ValueError(f"Invalid role. Must be one of: {valid_roles}")
 
@@ -150,6 +164,22 @@ async def change_role(
         return None
 
     user.role = new_role
+
+    # Update or create role entry
+    existing_role = (await db.execute(
+        select(UserRole).where(UserRole.user_id == user_id, UserRole.tenant_id == tenant_id)
+    )).scalar_one_or_none()
+
+    if existing_role:
+        existing_role.role = new_role
+    else:
+        db.add(UserRole(
+            id=uuid4(),
+            user_id=user_id,
+            tenant_id=tenant_id,
+            role=new_role,
+        ))
+
     await db.flush()
     await db.refresh(user)
     return user

@@ -1,6 +1,7 @@
 """Security headers middleware."""
 from __future__ import annotations
 
+import secrets
 from typing import Callable
 
 from fastapi import Request, Response
@@ -21,7 +22,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
     CSP_DIRECTIVES = {
         "default-src": "'self'",
-        "script-src": "'self' 'unsafe-inline' 'unsafe-eval'",
+        "script-src": "'self' 'unsafe-inline'",
         "style-src": "'self' 'unsafe-inline'",
         "img-src": "'self' data: https:",
         "font-src": "'self'",

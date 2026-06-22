@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta, timezone
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import jwt
 from fastapi import Depends, HTTPException, status, Request
@@ -19,15 +19,23 @@ ROLES = ['superadmin', 'admin', 'org_admin', 'teacher', 'student']
 
 def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
     to_encode = data.copy()
-    expire = datetime.now(timezone.utc) + (expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES))
+    now = datetime.now(timezone.utc)
+    expire = now + (expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES))
     to_encode["exp"] = expire
+    to_encode["iat"] = now
+    to_encode["nbf"] = now
+    to_encode["jti"] = str(uuid4())
     return jwt.encode(to_encode, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
 
 
 def create_refresh_token(data: dict) -> str:
     to_encode = data.copy()
-    expire = datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+    now = datetime.now(timezone.utc)
+    expire = now + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
     to_encode["exp"] = expire
+    to_encode["iat"] = now
+    to_encode["nbf"] = now
+    to_encode["jti"] = str(uuid4())
     to_encode["type"] = "refresh"
     return jwt.encode(to_encode, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
 
@@ -54,13 +62,20 @@ async def get_current_user(
 
     result = await db.execute(select(User).where(User.id == UUID(user_id)))
     user = result.scalar_one_or_none()
-    if not user or user.status != "active":
+    if not user or not user.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found or inactive")
+
+    # Sync role from JWT if present (fast path)
+    jwt_roles = payload.get("roles", [])
+    if jwt_roles and user.role != jwt_roles[0]:
+        user.role = jwt_roles[0]
+        await db.flush()
+
     return user
 
 
 async def get_current_active_user(user: User = Depends(get_current_user)) -> User:
-    if user.status != "active":
+    if not user.is_active:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User is not active")
     return user
 
@@ -71,8 +86,7 @@ def require_role(*allowed_roles: str):
             raise ValueError(f"Invalid role: {role}. Allowed: {ROLES}")
 
     async def role_checker(user: User = Depends(get_current_active_user)) -> User:
-        user_roles = user.roles or []
-        if not any(r in user_roles for r in allowed_roles):
+        if user.role not in allowed_roles:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"Requires one of roles: {allowed_roles}"
@@ -80,6 +94,10 @@ def require_role(*allowed_roles: str):
         return user
 
     return role_checker
+
+
+def require_admin(user: User = Depends(require_role("admin", "org_admin", "superadmin"))) -> User:
+    return user
 
 
 async def get_superadmin(user: User = Depends(require_role("superadmin"))) -> User:

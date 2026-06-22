@@ -1,7 +1,7 @@
 import json
 from pydantic_settings import BaseSettings
 from functools import lru_cache
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 
 
 class Settings(BaseSettings):
@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     REDIS_URL: str = "redis://localhost:6379/0"
 
     # JWT
-    JWT_SECRET: str = "dev-secret-dont-use-in-production"
+    JWT_SECRET: str = ""
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30
@@ -49,6 +49,12 @@ class Settings(BaseSettings):
             except json.JSONDecodeError:
                 return [origin.strip() for origin in v.split(",")]
         return v
+
+    @model_validator(mode="after")
+    def validate_jwt_secret(self):
+        if not self.JWT_SECRET:
+            raise ValueError("JWT_SECRET is required. Set it in .env or environment variables.")
+        return self
 
     # Celery
     CELERY_BROKER_URL: str = "redis://localhost:6379/0"

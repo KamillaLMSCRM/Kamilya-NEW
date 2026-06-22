@@ -42,7 +42,7 @@ async def register(req: UserCreate, db=Depends(get_db)):
         await db.flush()
 
     user, access_token, refresh_token = await create_user_and_tokens(
-        db, tenant.id, req.email, req.first_name, req.last_name, password=req.password
+        db, tenant.id, req.email, req.first_name, req.last_name, password=req.password, role="student"
     )
     return TokenResponse(access_token=access_token, refresh_token=refresh_token, expires_in=900)
 

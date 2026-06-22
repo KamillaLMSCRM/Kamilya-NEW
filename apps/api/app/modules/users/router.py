@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
 
-from app.core.auth import get_current_user
+from app.core.auth import require_role
 from app.core.db import get_db
 from app.modules.users.schemas import (
     UserCreate,
@@ -22,13 +22,9 @@ from app.modules.users.service import (
     reset_password,
     change_role,
 )
+from app.models.users import User
 
 router = APIRouter(prefix="/users", tags=["users"])
-
-
-def require_admin(user):
-    if not hasattr(user, "role") or user.role not in ("admin", "org_admin", "superadmin"):
-        raise HTTPException(status_code=403, detail="Admin access required")
 
 
 @router.get("", response_model=UserListResponse)
@@ -39,10 +35,9 @@ async def list_all_users(
     role: Optional[str] = Query(None),
     is_active: Optional[bool] = Query(None),
     db: AsyncSession = Depends(get_db),
-    user=Depends(get_current_user),
+    user: User = Depends(require_role("admin", "org_admin", "superadmin")),
 ):
     """List users (admin only)."""
-    require_admin(user)
     users, total = await list_users(
         db, user.tenant_id, page, per_page, search, role, is_active
     )
@@ -58,10 +53,9 @@ async def list_all_users(
 async def get_user_detail(
     user_id: UUID,
     db: AsyncSession = Depends(get_db),
-    user=Depends(get_current_user),
+    user: User = Depends(require_role("admin", "org_admin", "superadmin")),
 ):
     """Get user details (admin only)."""
-    require_admin(user)
     target = await get_user(db, user_id, user.tenant_id)
     if not target:
         raise HTTPException(status_code=404, detail="User not found")
@@ -72,10 +66,9 @@ async def get_user_detail(
 async def create_new_user(
     req: UserCreate,
     db: AsyncSession = Depends(get_db),
-    user=Depends(get_current_user),
+    user: User = Depends(require_role("admin", "org_admin", "superadmin")),
 ):
     """Create a new user (admin only)."""
-    require_admin(user)
     try:
         new_user = await create_user(
             db=db,
@@ -97,10 +90,9 @@ async def update_user_detail(
     user_id: UUID,
     req: UserUpdate,
     db: AsyncSession = Depends(get_db),
-    user=Depends(get_current_user),
+    user: User = Depends(require_role("admin", "org_admin", "superadmin")),
 ):
     """Update user (admin only)."""
-    require_admin(user)
     updates = req.model_dump(exclude_unset=True)
     updated = await update_user(db, user_id, user.tenant_id, updates)
     if not updated:
@@ -112,10 +104,9 @@ async def update_user_detail(
 async def deactivate_user(
     user_id: UUID,
     db: AsyncSession = Depends(get_db),
-    user=Depends(get_current_user),
+    user: User = Depends(require_role("admin", "org_admin", "superadmin")),
 ):
     """Deactivate user (admin only)."""
-    require_admin(user)
     success = await delete_user(db, user_id, user.tenant_id)
     if not success:
         raise HTTPException(status_code=404, detail="User not found")
@@ -126,10 +117,9 @@ async def reset_user_password(
     user_id: UUID,
     req: PasswordReset,
     db: AsyncSession = Depends(get_db),
-    user=Depends(get_current_user),
+    user: User = Depends(require_role("admin", "org_admin", "superadmin")),
 ):
     """Reset user password (admin only)."""
-    require_admin(user)
     success = await reset_password(db, user_id, user.tenant_id, req.new_password)
     if not success:
         raise HTTPException(status_code=404, detail="User not found")
@@ -141,10 +131,9 @@ async def change_user_role(
     user_id: UUID,
     role: str = Query(...),
     db: AsyncSession = Depends(get_db),
-    user=Depends(get_current_user),
+    user: User = Depends(require_role("admin", "org_admin", "superadmin")),
 ):
     """Change user role (admin only)."""
-    require_admin(user)
     try:
         updated = await change_role(db, user_id, user.tenant_id, role)
         if not updated:
