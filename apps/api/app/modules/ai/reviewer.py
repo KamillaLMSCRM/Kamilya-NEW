@@ -1,7 +1,35 @@
-"""AI pipeline — reviewer agent"""
-"""Reviewer Agent: validates generated content and provides feedback."""
-from typing import Dict, Any, List
+"""Reviewer Agent: validates generated content with LLM-as-judge + heuristic fallback."""
+from __future__ import annotations
+
 import json
+import logging
+from typing import Any
+
+logger = logging.getLogger(__name__)
+
+REVIEW_PROMPT = """\
+You are a course content quality reviewer. Evaluate the following lesson content \
+and return a JSON object with exactly this structure:
+
+{
+  "quality_score": <1-10>,
+  "issues": ["<issue1>", ...],
+  "suggestions": ["<suggestion1>", ...],
+  "language_match": <true/false>,
+  "has_introduction": <true/false>,
+  "has_summary": <true/false>,
+  "has_practical": <true/false>,
+  "topic_relevance": <1-10>
+}
+
+ scoring guide:
+- 9-10: Excellent, publication-ready
+- 7-8: Good, minor improvements needed
+- 5-6: Acceptable, needs revision
+- 3-4: Poor, significant issues
+- 1-2: Unusable
+
+Return ONLY valid JSON, no other text."""
 
 
 class ReviewerAgent:
@@ -9,19 +37,55 @@ class ReviewerAgent:
 
     def __init__(self, llm_client=None):
         self.llm = llm_client
+        self._llm_available: bool | None = None
 
-    async def review_lesson(
-        self, lesson_content: str, lesson_meta: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        """Review a lesson and return validation results."""
-        # TODO: Call Qwen 3.5 when available
+    async def _try_llm_review(
+        self, lesson_content: str, lesson_meta: dict[str, Any]
+    ) -> dict[str, Any] | None:
+        """Try LLM-as-judge review. Returns None if unavailable."""
+        if self._llm_available is False:
+            return None
+
+        lang = lesson_meta.get("language", "ru")
+        lang_names = {"ru": "Russian", "kk": "Kazakh", "en": "English"}
+        lang_name = lang_names.get(lang, lang)
+
+        prompt = f"""{REVIEW_PROMPT}
+
+Lesson title: {lesson_meta.get('title', 'Unknown')}
+Target language: {lang_name}
+
+Content:
+{lesson_content[:6000]}
+"""
+        try:
+            response = await self.llm.ainvoke([{"role": "user", "content": prompt}])
+            text = response.content.strip()
+            # Extract JSON from response
+            if "```" in text:
+                text = text.split("```")[1]
+                if text.startswith("json"):
+                    text = text[4:]
+                text = text.strip()
+            result = json.loads(text)
+            self._llm_available = True
+            logger.info("LLM-as-judge review succeeded (score=%s)", result.get("quality_score"))
+            return result
+        except Exception as e:
+            self._llm_available = False
+            logger.warning("LLM review failed, falling back to heuristic: %s", e)
+            return None
+
+    def _heuristic_review(
+        self, lesson_content: str, lesson_meta: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Fallback heuristic review when LLM is unavailable."""
         content_length = len(lesson_content)
         word_count = len(lesson_content.split())
 
         issues = []
         suggestions = []
 
-        # Basic checks
         if content_length < 200:
             issues.append("Content too short (< 200 characters)")
         if word_count < 100:
@@ -31,10 +95,11 @@ class ReviewerAgent:
         if "```" not in lesson_content and lesson_meta.get("content_type") == "text":
             suggestions.append("Consider adding code examples if applicable")
 
-        # Structure check
-        has_introduction = "введение" in lesson_content.lower() or "intro" in lesson_content.lower()
-        has_summary = "итог" in lesson_content.lower() or "summary" in lesson_content.lower()
-        has_questions = "вопрос" in lesson_content.lower() or "quiz" in lesson_content.lower()
+        lower = lesson_content.lower()
+        has_introduction = any(w in lower for w in ["введение", "intro", "вступление"])
+        has_summary = any(w in lower for w in ["итог", "summary", "заключение", "резюме"])
+        has_questions = any(w in lower for w in ["вопрос", "quiz", "задание", "упражнение"])
+        has_practical = any(w in lower for w in ["пример", "practice", "практика", "задача"])
 
         if not has_introduction:
             suggestions.append("Add introduction section")
@@ -42,29 +107,58 @@ class ReviewerAgent:
             suggestions.append("Add summary section")
         if not has_questions:
             suggestions.append("Add self-check questions")
+        if not has_practical:
+            suggestions.append("Add practical examples")
 
         quality_score = 100
         quality_score -= len(issues) * 20
         quality_score -= len(suggestions) * 5
-        quality_score = max(0, quality_score)
+        quality_score = max(0, min(100, quality_score))
 
         return {
-            "is_valid": len(issues) == 0,
-            "quality_score": quality_score,
+            "quality_score": round(quality_score / 10, 1),
             "issues": issues,
             "suggestions": suggestions,
+            "language_match": True,
+            "has_introduction": has_introduction,
+            "has_summary": has_summary,
+            "has_practical": has_practical,
+            "topic_relevance": 5,
+        }
+
+    async def review_lesson(
+        self, lesson_content: str, lesson_meta: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Review a lesson — LLM-as-judge first, heuristic fallback."""
+        # Try LLM review first
+        if self.llm is not None:
+            llm_result = await self._try_llm_review(lesson_content, lesson_meta)
+            if llm_result is not None:
+                return {
+                    "is_valid": len(llm_result.get("issues", [])) == 0,
+                    **llm_result,
+                    "reviewer": "llm",
+                    "stats": {
+                        "characters": len(lesson_content),
+                        "words": len(lesson_content.split()),
+                    },
+                }
+
+        # Heuristic fallback
+        result = self._heuristic_review(lesson_content, lesson_meta)
+        return {
+            "is_valid": len(result["issues"]) == 0,
+            **result,
+            "reviewer": "heuristic",
             "stats": {
-                "characters": content_length,
-                "words": word_count,
-                "has_introduction": has_introduction,
-                "has_summary": has_summary,
-                "has_questions": has_questions,
+                "characters": len(lesson_content),
+                "words": len(lesson_content.split()),
             },
         }
 
     async def review_course_outline(
-        self, outline: Dict[str, Any]
-    ) -> Dict[str, Any]:
+        self, outline: dict[str, Any]
+    ) -> dict[str, Any]:
         """Review course outline for completeness."""
         issues = []
         suggestions = []

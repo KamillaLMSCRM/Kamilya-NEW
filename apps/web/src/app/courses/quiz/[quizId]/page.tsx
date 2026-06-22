@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import { Card, CardContent, Button, Badge } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
+import { CheckCircle2, XCircle, Circle, Lightbulb } from 'lucide-react';
 
 interface QuizChoice {
   id: string;
@@ -219,7 +220,9 @@ export default function QuizPlayerPage() {
         {result && (
           <Card className={result.passed ? 'border-green-500 bg-green-50' : 'border-red-500 bg-red-50'}>
             <CardContent className="p-6 text-center space-y-3">
-              <div className="text-3xl font-bold">{result.passed ? '✓' : '✗'}</div>
+              <div className={`${result.passed ? 'text-green-500' : 'text-red-500'}`}>
+                {result.passed ? <CheckCircle2 className="w-12 h-12 mx-auto" /> : <XCircle className="w-12 h-12 mx-auto" />}
+              </div>
               <p className="text-lg font-semibold">{result.message}</p>
               <p className="text-sm text-gray-600">
                 {result.correct_answers} / {result.total_questions} {t('quiz.correct')} · {result.attempt.score_percent}%
@@ -313,8 +316,8 @@ export default function QuizPlayerPage() {
                 <Card key={q.id} className={isCorrect ? 'border-green-300' : 'border-red-300'}>
                   <CardContent className="p-4 space-y-3">
                     <div className="flex items-start gap-2">
-                      <span className={`text-lg shrink-0 ${isCorrect ? 'text-green-600' : 'text-red-600'}`}>
-                        {isCorrect ? '✓' : '✗'}
+                      <span className={`shrink-0 ${isCorrect ? 'text-green-600' : 'text-red-600'}`}>
+                        {isCorrect ? <CheckCircle2 className="w-5 h-5" /> : <XCircle className="w-5 h-5" />}
                       </span>
                       <div>
                         <p className="font-medium">{i + 1}. {q.text}</p>
@@ -329,15 +332,17 @@ export default function QuizPlayerPage() {
                           <div key={c.id} className={`flex items-center gap-2 text-sm py-1 px-2 rounded ${
                             isCorrectChoice ? 'bg-green-100 text-green-800' : wasSelected ? 'bg-red-100 text-red-800' : 'text-gray-600'
                           }`}>
-                            <span>{isCorrectChoice ? '✓' : wasSelected ? '✗' : '○'}</span>
+                            <span>
+                              {isCorrectChoice ? <CheckCircle2 className="w-4 h-4" /> : wasSelected ? <XCircle className="w-4 h-4" /> : <Circle className="w-4 h-4" />}
+                            </span>
                             <span>{c.text}</span>
                           </div>
                         );
                       })}
                     </div>
                     {q.explanation && (
-                      <div className="ml-8 mt-2 p-3 bg-blue-50 text-sm text-blue-800 rounded">
-                        💡 {q.explanation}
+                      <div className="ml-8 mt-2 flex items-center gap-2 p-3 bg-blue-50 text-sm text-blue-800 rounded">
+                        <Lightbulb className="w-4 h-4 shrink-0" /> {q.explanation}
                       </div>
                     )}
                   </CardContent>
@@ -386,8 +391,8 @@ export default function QuizPlayerPage() {
                     <Badge variant={a.passed ? 'default' : 'outline'}>
                       {a.score_percent}%
                     </Badge>
-                    <span className={a.passed ? 'text-green-600' : 'text-red-600'}>
-                      {a.passed ? '✓' : '✗'}
+                    <span className={`flex items-center gap-1 ${a.passed ? 'text-green-600' : 'text-red-600'}`}>
+                      {a.passed ? <CheckCircle2 className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
                     </span>
                     <span className="text-gray-500">
                       {new Date(a.started_at).toLocaleDateString('ru-RU')}

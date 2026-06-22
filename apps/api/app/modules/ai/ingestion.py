@@ -236,6 +236,61 @@ class Summarizer:
         }
 
 
+class EmbeddingsProvider:
+    """Embeddings with automatic fallback: Qwen → simple hash-based."""
+
+    def __init__(self, qwen_url: str = "http://10.66.66.7:8001/v1"):
+        self.qwen_url = qwen_url
+        self._qwen_available: bool | None = None
+
+    async def _try_qwen(self, texts: list[str]) -> list[list[float]] | None:
+        """Try Qwen embeddings API. Returns None if unavailable."""
+        import httpx
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                resp = await client.post(
+                    f"{self.qwen_url}/embeddings",
+                    json={"model": "qwen3-embedding", "input": texts},
+                    headers={"Authorization": "Bearer not-needed"},
+                )
+                resp.raise_for_status()
+                data = resp.json()
+                return [item["embedding"] for item in data["data"]]
+        except Exception:
+            return None
+
+    def _hash_embedding(self, text: str, dim: int = 384) -> list[float]:
+        """Deterministic hash-based embedding (for BM25-like text matching)."""
+        import hashlib
+        h = hashlib.sha512(text.encode("utf-8")).digest()
+        # Expand to desired dimension
+        raw = []
+        for i in range(0, dim * 4, 4):
+            chunk = h[i % len(h):] + h[:i % len(h)]
+            raw.append(int.from_bytes(chunk[:4], "big"))
+        # Normalize to [-1, 1]
+        import struct
+        return [struct.unpack("f", struct.pack("I", v & 0xFFFFFFFF))[0] for v in raw[:dim]]
+
+    async def embed(self, texts: list[str]) -> list[list[float]]:
+        """Get embeddings with automatic fallback."""
+        if self._qwen_available is not False:
+            result = await self._try_qwen(texts)
+            if result is not None:
+                self._qwen_available = True
+                logger.info("Using Qwen embeddings")
+                return result
+            self._qwen_available = False
+            logger.warning("Qwen embeddings unavailable, falling back to hash-based")
+
+        return [self._hash_embedding(t) for t in texts]
+
+    async def embed_query(self, text: str) -> list[float]:
+        """Embed a single query."""
+        results = await self.embed([text])
+        return results[0]
+
+
 class DocumentIngestion:
     """Full ingestion pipeline: parse → chunk → embed → store → summarize."""
 
@@ -245,6 +300,7 @@ class DocumentIngestion:
         summaries_dir: str = "./summaries",
         chunk_size: int = 1000,
         chunk_overlap: int = 200,
+        qwen_embeddings_url: str = "http://10.66.66.7:8001/v1",
     ):
         self.persist_dir = persist_dir
         self.summaries_dir = summaries_dir
@@ -252,6 +308,7 @@ class DocumentIngestion:
         self.chunker = DocumentChunker(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
         self.store = VectorStore(persist_dir)
         self.summarizer = Summarizer()
+        self.embeddings = EmbeddingsProvider(qwen_url=qwen_embeddings_url)
 
     async def ingest_file(
         self, file_path: str, doc_id: str | None = None
@@ -272,9 +329,10 @@ class DocumentIngestion:
         chunks = self.chunker.chunk_markdown(markdown, doc_id, filename)
         logger.info(f"  Chunked: {len(chunks)} chunks")
 
-        # Step 3: Embed (placeholder — will use Qwen Embeddings when available)
-        embeddings = [[0.0] * 1024] * len(chunks)  # Placeholder
-        logger.info(f"  Embedded: {len(embeddings)} vectors")
+        # Step 3: Embed (Qwen → hash fallback)
+        texts = [c["text"] for c in chunks]
+        embeddings = await self.embeddings.embed(texts)
+        logger.info(f"  Embedded: {len(embeddings)} vectors (dim={len(embeddings[0]) if embeddings else 0})")
 
         # Step 4: Store in ChromaDB
         self.store.add_chunks(chunks, embeddings)

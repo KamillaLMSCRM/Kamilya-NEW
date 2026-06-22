@@ -4,6 +4,16 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
 import { api } from '@/lib/api';
+import {
+  FileText,
+  FileImage,
+  Film,
+  File,
+  FolderOpen,
+  Upload,
+  Trash2,
+  Plus,
+} from 'lucide-react';
 
 interface Document {
   id: string;
@@ -92,11 +102,11 @@ export default function DocumentsPage() {
   };
 
   const getFileIcon = (contentType: string) => {
-    if (contentType.includes('pdf')) return '📄';
-    if (contentType.includes('word') || contentType.includes('doc')) return '📝';
-    if (contentType.includes('image')) return '🖼️';
-    if (contentType.includes('video')) return '🎬';
-    return '📎';
+    if (contentType.includes('pdf')) return <FileText className="w-5 h-5 text-red-500" />;
+    if (contentType.includes('word') || contentType.includes('doc')) return <FileText className="w-5 h-5 text-blue-500" />;
+    if (contentType.includes('image')) return <FileImage className="w-5 h-5 text-violet-500" />;
+    if (contentType.includes('video')) return <Film className="w-5 h-5 text-amber-500" />;
+    return <File className="w-5 h-5 text-warm-400" />;
   };
 
   return (
@@ -135,7 +145,7 @@ export default function DocumentsPage() {
                 </div>
               ) : (
                 <div className="space-y-2">
-                  <div className="text-3xl text-warm-300">📁</div>
+                  <div className="text-3xl text-warm-300"><FolderOpen className="w-16 h-16 mx-auto" /></div>
                   <div className="text-sm text-warm-500">Перетащите файл сюда или нажмите для выбора</div>
                   <div className="text-xs text-warm-400">PDF, DOC, TXT, MD, PPTX, XLSX, CSV</div>
                 </div>

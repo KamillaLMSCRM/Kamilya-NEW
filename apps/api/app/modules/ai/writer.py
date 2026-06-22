@@ -60,7 +60,7 @@ async def _retrieve_and_rerank(
     queries: list[str],
     lesson_title: str,
     doc_ids: list[str] | None = None,
-    embeddings_client=None,
+    embeddings_provider=None,
     n_results: int = 15,
     top_n: int = 10,
     similarity_threshold: float = 0.45,
@@ -73,8 +73,13 @@ async def _retrieve_and_rerank(
         else:
             where = {"doc_id": {"$in": doc_ids}}
 
-    # Use placeholder embeddings when real embeddings not available
-    query_embeddings = [[0.0] * 1024] * len(queries)
+    # Get real embeddings (Qwen → hash fallback)
+    if embeddings_provider is not None:
+        query_embeddings = await embeddings_provider.embed(queries)
+    else:
+        from app.modules.ai.ingestion import EmbeddingsProvider
+        provider = EmbeddingsProvider()
+        query_embeddings = await provider.embed(queries)
 
     best_chunks: dict[str, tuple[float, list[str], str]] = {}
 
@@ -132,6 +137,7 @@ async def write_lesson(
     relevant_headings: list[str] | None = None,
     language: str = "ru",
     sibling_lessons: list[str] | None = None,
+    embeddings_provider=None,
 ) -> LessonContent:
     """Generate grounded content for a single lesson (3-step pipeline)."""
     # Step 1: Deterministic query generation
@@ -143,6 +149,7 @@ async def write_lesson(
     # Step 2: Retrieve + rank
     formatted_chunks = await _retrieve_and_rerank(
         store, queries, lesson_title, doc_ids,
+        embeddings_provider=embeddings_provider,
     )
 
     if not formatted_chunks:
@@ -196,6 +203,7 @@ async def write_course(
     doc_ids: list[str] | None = None,
     language: str = "ru",
     on_progress: Callable | None = None,
+    embeddings_provider=None,
 ) -> CourseContent:
     """Generate content for all lessons sequentially."""
     modules = []
@@ -225,6 +233,7 @@ async def write_course(
                 relevant_headings=lesson_headings,
                 language=language,
                 sibling_lessons=[t for t in sibling_titles if t != lesson.title],
+                embeddings_provider=embeddings_provider,
             )
             lesson_contents.append(content)
 

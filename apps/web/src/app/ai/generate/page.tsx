@@ -5,6 +5,19 @@ import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
 import { api } from '@/lib/api';
+import {
+  FileText,
+  Building2,
+  PenLine,
+  Search,
+  ClipboardCheck,
+  Save,
+  Loader2,
+  FolderOpen,
+  CheckCircle2,
+  Upload,
+  ChevronRight,
+} from 'lucide-react';
 
 interface Document {
   id: string;
@@ -27,12 +40,12 @@ interface AIGenerationJob {
 type Step = 'documents' | 'generate' | 'review';
 
 const STAGES = [
-  { key: 'ingestion', label: 'Обработка документов', icon: '📄', color: 'text-blue-500' },
-  { key: 'architect', label: 'Проектирование структуры', icon: '🏗️', color: 'text-gold-500' },
-  { key: 'content_generation', label: 'Генерация контента', icon: '✍️', color: 'text-primary' },
-  { key: 'review', label: 'Проверка качества', icon: '🔍', color: 'text-violet-500' },
-  { key: 'assessment', label: 'Генерация тестов', icon: '📝', color: 'text-emerald-500' },
-  { key: 'saving', label: 'Сохранение', icon: '💾', color: 'text-warm-500' },
+  { key: 'ingestion', label: 'Обработка документов', icon: FileText, color: 'text-blue-500' },
+  { key: 'architect', label: 'Проектирование структуры', icon: Building2, color: 'text-gold-500' },
+  { key: 'content_generation', label: 'Генерация контента', icon: PenLine, color: 'text-primary' },
+  { key: 'review', label: 'Проверка качества', icon: Search, color: 'text-violet-500' },
+  { key: 'assessment', label: 'Генерация тестов', icon: ClipboardCheck, color: 'text-emerald-500' },
+  { key: 'saving', label: 'Сохранение', icon: Save, color: 'text-warm-500' },
 ];
 
 export default function AIGeneratePage() {
@@ -165,7 +178,9 @@ export default function AIGeneratePage() {
             <input ref={fileRef} type="file" multiple onChange={(e) => {
               Array.from(e.target.files || []).forEach(uploadFile);
             }} className="hidden" accept=".pdf,.doc,.docx,.txt,.md,.pptx,.xlsx,.csv" />
-            <div className="text-2xl mb-2">{uploading ? '⏳' : '📁'}</div>
+            <div className="text-2xl mb-2 text-warm-400">
+              {uploading ? <Loader2 className="w-8 h-8 mx-auto animate-spin" /> : <FolderOpen className="w-8 h-8 mx-auto" />}
+            </div>
             <p className="text-sm text-warm-500">
               {uploading ? 'Загрузка...' : 'Перетащите документы или нажмите для выбора'}
             </p>
@@ -286,8 +301,8 @@ export default function AIGeneratePage() {
                     'border-warm-100 opacity-50'
                   }`}
                 >
-                  <div className={`text-lg ${isDone ? 'text-emerald-500' : isActive ? stage.color : 'text-warm-300'}`}>
-                    {isDone ? '✓' : stage.icon}
+                  <div className={`${isDone ? 'text-emerald-500' : isActive ? stage.color : 'text-warm-300'}`}>
+                    {isDone ? <CheckCircle2 className="w-5 h-5" /> : <stage.icon className="w-5 h-5" />}
                   </div>
                   <span className={`text-sm font-medium ${isDone ? 'text-emerald-600' : isActive ? 'text-warm-800' : 'text-warm-400'}`}>
                     {stage.label}
@@ -305,7 +320,7 @@ export default function AIGeneratePage() {
               onClick={() => router.push(`/courses/${currentJob.course_id}/edit`)}
               className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-medium text-white hover:bg-primary/90 transition-colors"
             >
-              Открыть курс →
+              Открыть курс <ChevronRight className="w-4 h-4 ml-1 inline" />
             </button>
           )}
 
@@ -321,7 +336,9 @@ export default function AIGeneratePage() {
       {step === 'review' && currentJob?.course_id && (
         <div className="space-y-4">
           <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-6 text-center">
-            <div className="text-3xl mb-3">✅</div>
+            <div className="mb-3">
+              <CheckCircle2 className="w-12 h-12 mx-auto text-emerald-500" />
+            </div>
             <h3 className="font-bold text-emerald-800 font-display text-lg">Курс успешно сгенерирован!</h3>
             <p className="text-sm text-emerald-600 mt-1">Перейдите к редактированию для финальных правок</p>
           </div>
@@ -330,7 +347,7 @@ export default function AIGeneratePage() {
               onClick={() => router.push(`/courses/${currentJob.course_id}/edit`)}
               className="flex-1 rounded-xl bg-primary px-4 py-3 text-sm font-medium text-white hover:bg-primary/90 transition-colors"
             >
-              Редактировать курс →
+              Редактировать курс <ChevronRight className="w-4 h-4 ml-1 inline" />
             </button>
             <button
               onClick={() => router.push('/courses')}

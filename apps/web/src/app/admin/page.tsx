@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Card, CardHeader, CardTitle, CardContent, Button, Badge, Table } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
+import { ChevronRight } from 'lucide-react';
 
 interface TenantStats {
   total_users: number;
@@ -195,8 +196,8 @@ export default function AdminDashboardPage() {
                 ))}
               </tbody>
             </Table>
-            <a href="/admin/users" className="text-blue-600 text-sm hover:underline mt-2 block">
-              {t('admin.allUsers')} →
+            <a href="/admin/users" className="flex items-center gap-1 text-blue-600 text-sm hover:underline mt-2 block">
+              {t('admin.allUsers')} <ChevronRight className="w-4 h-4" />
             </a>
           </CardContent>
         </Card>
@@ -228,8 +229,8 @@ export default function AdminDashboardPage() {
                 ))}
               </tbody>
             </Table>
-            <a href="/courses" className="text-blue-600 text-sm hover:underline mt-2 block">
-              {t('admin.allCourses')} →
+            <a href="/courses" className="flex items-center gap-1 text-blue-600 text-sm hover:underline mt-2 block">
+              {t('admin.allCourses')} <ChevronRight className="w-4 h-4" />
             </a>
           </CardContent>
         </Card>

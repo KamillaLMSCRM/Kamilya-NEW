@@ -13,7 +13,7 @@ from app.modules.ai.architect_schema import CourseStructure
 from app.modules.ai.writer_schema import CourseContent, ModuleContent, LessonContent
 from app.modules.ai.assessment_schema import CourseAssessment, LessonAssessment
 from app.modules.ai.llm_client import LLMClient, create_llm
-from app.modules.ai.ingestion import VectorStore, DocumentIngestion
+from app.modules.ai.ingestion import VectorStore, DocumentIngestion, EmbeddingsProvider
 from app.modules.ai.architect import run_architect, create_architect_tools
 from app.modules.ai.writer import write_lesson, write_course
 from app.modules.ai.assessment import generate_lesson_assessment, generate_course_assessment
@@ -232,7 +232,7 @@ async def run_generation_pipeline(
         state.message = "Ingesting documents..."
         await _update_job_db(job_id, status="running", stage="ingestion", progress=5, message=state.message)
 
-        ingestion = DocumentIngestion()
+        ingestion = DocumentIngestion(qwen_embeddings_url="http://10.66.66.7:8001/v1")
 
         # Stage 2: Architect
         state.stage = "architect"
@@ -242,6 +242,7 @@ async def run_generation_pipeline(
 
         llm = create_llm()
         store = VectorStore()
+        embeddings_provider = EmbeddingsProvider()
         tools = create_architect_tools(
             summaries_dir="./summaries",
             chroma_dir="./chroma_data",
@@ -287,6 +288,7 @@ async def run_generation_pipeline(
             doc_ids=documents if documents else None,
             language=language,
             on_progress=on_lesson_progress,
+            embeddings_provider=embeddings_provider,
         )
 
         state.content = content
@@ -306,9 +308,13 @@ async def run_generation_pipeline(
             for les_idx, content_les in enumerate(content_mod.lessons):
                 review = await reviewer.review_lesson(
                     lesson_content=content_les.content if hasattr(content_les, 'content') else "",
-                    lesson_meta={"content_type": "text"},
+                    lesson_meta={
+                        "content_type": "text",
+                        "language": language,
+                        "title": content_les.title if hasattr(content_les, 'title') else "",
+                    },
                 )
-                if review["quality_score"] < 70:
+                if review["quality_score"] < 5.0:
                     low_quality_lessons.append({
                         "module": mod_idx,
                         "lesson": les_idx,

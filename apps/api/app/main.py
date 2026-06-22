@@ -1,5 +1,12 @@
+import logging
+import os
+import subprocess
+import sys
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
 from app.core.config import get_settings
 from app.core.errors import register_error_handlers
 from app.core.rate_limit import RateLimitMiddleware
@@ -20,7 +27,34 @@ from app.modules.users.router import router as users_router
 from app.modules.auth.telegram import router as telegram_router
 from app.modules.positions.router import router as positions_router
 
+logger = logging.getLogger(__name__)
 settings = get_settings()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Startup/shutdown lifecycle."""
+    # --- startup ---
+    _run_migrations()
+    yield
+    # --- shutdown ---
+
+
+def _run_migrations():
+    """Run alembic migrations on startup (Render doesn't do this automatically)."""
+    try:
+        result = subprocess.run(
+            [sys.executable, "-m", "alembic", "upgrade", "head"],
+            cwd=os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+            capture_output=True, text=True, timeout=60,
+        )
+        if result.returncode != 0:
+            logger.warning("Alembic warning: %s", result.stderr[:500])
+        else:
+            logger.info("Alembic migrations OK")
+    except Exception as e:
+        logger.error("Alembic error (non-fatal): %s", e)
+
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -28,6 +62,7 @@ app = FastAPI(
     docs_url=f"{settings.API_PREFIX}/docs",
     redoc_url=f"{settings.API_PREFIX}/redoc",
     openapi_url=f"{settings.API_PREFIX}/openapi.json",
+    lifespan=lifespan,
 )
 
 # Security middleware (outermost = last to execute, first to respond)
@@ -66,21 +101,3 @@ app.include_router(positions_router, prefix=f"{settings.API_PREFIX}", tags=["pos
 @app.get(f"{settings.API_PREFIX}/health")
 async def health_check():
     return {"status": "ok", "app": settings.APP_NAME}
-
-
-@app.on_event("startup")
-async def run_migrations():
-    """Run alembic migrations on startup (Render doesn't do this automatically)."""
-    import subprocess, sys, os
-    try:
-        result = subprocess.run(
-            [sys.executable, "-m", "alembic", "upgrade", "head"],
-            cwd=os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
-            capture_output=True, text=True, timeout=60,
-        )
-        if result.returncode != 0:
-            print(f"Alembic warning: {result.stderr[:500]}")
-        else:
-            print("Alembic migrations OK")
-    except Exception as e:
-        print(f"Alembic error (non-fatal): {e}")

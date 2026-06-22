@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
+import { ChevronRight } from 'lucide-react';
 import { api } from '@/lib/api';
 
 interface Stat {
@@ -222,8 +223,8 @@ export default function DashboardPage() {
       <div>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-bold text-warm-800 font-display">Последние курсы</h2>
-          <a href="/courses" className="text-sm text-primary hover:text-primary/80 transition-colors">
-            Все курсы →
+          <a href="/courses" className="flex items-center gap-1 text-sm text-primary hover:text-primary/80 transition-colors">
+            Все курсы <ChevronRight className="w-4 h-4" />
           </a>
         </div>
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">

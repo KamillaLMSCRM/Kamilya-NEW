@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Card, CardHeader, CardTitle, CardContent, Button, Badge } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
+import { CheckCircle2 } from 'lucide-react';
 
 interface EnrolledCourse {
   course_id: string;
@@ -103,7 +104,9 @@ export default function StudentDashboardPage() {
                   <div className="flex items-start justify-between mb-2">
                     <h3 className="font-medium line-clamp-2">{course.title}</h3>
                     {course.progress_percent === 100 ? (
-                      <Badge variant="default" className="bg-green-100 text-green-700">✓</Badge>
+                      <Badge variant="default" className="flex items-center gap-1 bg-green-100 text-green-700">
+                        <CheckCircle2 className="w-3 h-3" />
+                      </Badge>
                     ) : null}
                   </div>
 

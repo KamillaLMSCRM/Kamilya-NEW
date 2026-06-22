@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Card, CardHeader, CardTitle, CardContent, Button, Badge } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
+import { CheckCircle2 } from 'lucide-react';
 
 interface Certificate {
   id: string;
@@ -132,8 +133,8 @@ function VerifyCertificateForm() {
       />
       <Button onClick={handleVerify}>{t('certificates.verifyButton')}</Button>
       {result && (
-        <div className="w-full mt-2 p-2 bg-green-50 rounded text-sm">
-          ✓ {t('certificates.valid')}. {result.user_name}, {result.course_title}
+        <div className="w-full mt-2 flex items-center gap-2 p-2 bg-green-50 rounded text-sm">
+          <CheckCircle2 className="w-4 h-4 text-green-600" /> {t('certificates.valid')}. {result.user_name}, {result.course_title}
         </div>
       )}
       {error && (

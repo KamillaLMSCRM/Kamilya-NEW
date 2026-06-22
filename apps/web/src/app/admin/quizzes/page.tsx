@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, Button, Badge, Input } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
+import { CheckCircle2, Circle, Lightbulb } from 'lucide-react';
 
 interface QuizChoice {
   id: string;
@@ -349,13 +350,15 @@ export default function QuizzesAdminPage() {
                         </div>
                         <div className="ml-8 space-y-1">
                           {q.choices.map((c) => (
-                            <div key={c.id} className={`text-sm ${c.is_correct ? 'text-green-600 font-medium' : 'text-gray-600'}`}>
-                              {c.is_correct ? '✓' : '○'} {c.text}
+                            <div key={c.id} className={`flex items-center gap-1 text-sm ${c.is_correct ? 'text-green-600 font-medium' : 'text-gray-600'}`}>
+                              {c.is_correct ? <CheckCircle2 className="w-4 h-4" /> : <Circle className="w-4 h-4" />} {c.text}
                             </div>
                           ))}
                         </div>
                         {q.explanation && (
-                          <div className="ml-8 mt-2 text-xs text-blue-600">💡 {q.explanation}</div>
+                          <div className="ml-8 mt-2 flex items-center gap-1 text-xs text-blue-600">
+                            <Lightbulb className="w-4 h-4" /> {q.explanation}
+                          </div>
                         )}
                       </div>
                       <Button variant="destructive" size="sm" onClick={() => handleDeleteQuestion(q.id)}>

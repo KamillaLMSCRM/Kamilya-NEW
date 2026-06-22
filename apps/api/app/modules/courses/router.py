@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
@@ -10,6 +10,7 @@ from app.core.db import get_db
 from app.models.users import User
 from app.models.courses import Course
 from app.modules.courses.schemas import CourseCreate, CourseUpdate, CourseResponse
+from app.modules.audit.service import log_action
 
 router = APIRouter(prefix="/courses", tags=["courses"])
 
@@ -40,6 +41,7 @@ async def list_courses(
 @router.post("", response_model=CourseResponse, status_code=201)
 async def create_course(
     req: CourseCreate,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role("superadmin", "admin", "org_admin", "teacher")),
 ):
@@ -53,6 +55,14 @@ async def create_course(
     db.add(course)
     await db.flush()
     await db.refresh(course)
+    await log_action(
+        db, user.tenant_id, "create", "course",
+        resource_id=str(course.id), user_id=user.id,
+        details={"title": course.title},
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+    await db.commit()
     return course
 
 
@@ -75,6 +85,7 @@ async def get_course(
 async def update_course(
     course_id: UUID,
     req: CourseUpdate,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role("superadmin", "admin", "org_admin", "teacher")),
 ):
@@ -88,12 +99,21 @@ async def update_course(
         setattr(course, field, value)
     await db.flush()
     await db.refresh(course)
+    await log_action(
+        db, user.tenant_id, "update", "course",
+        resource_id=str(course.id), user_id=user.id,
+        details=req.model_dump(exclude_unset=True),
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+    await db.commit()
     return course
 
 
 @router.post("/{course_id}/publish", response_model=CourseResponse)
 async def publish_course(
     course_id: UUID,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role("superadmin", "admin", "org_admin", "teacher")),
 ):
@@ -107,12 +127,20 @@ async def publish_course(
     course.published_at = datetime.now(timezone.utc)
     await db.flush()
     await db.refresh(course)
+    await log_action(
+        db, user.tenant_id, "publish", "course",
+        resource_id=str(course.id), user_id=user.id,
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+    await db.commit()
     return course
 
 
 @router.post("/{course_id}/unpublish", response_model=CourseResponse)
 async def unpublish_course(
     course_id: UUID,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role("superadmin", "admin", "org_admin", "teacher")),
 ):
@@ -126,12 +154,20 @@ async def unpublish_course(
     course.published_at = None
     await db.flush()
     await db.refresh(course)
+    await log_action(
+        db, user.tenant_id, "unpublish", "course",
+        resource_id=str(course.id), user_id=user.id,
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+    await db.commit()
     return course
 
 
 @router.post("/{course_id}/duplicate", response_model=CourseResponse, status_code=201)
 async def duplicate_course(
     course_id: UUID,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role("superadmin", "admin", "org_admin", "teacher")),
 ):
@@ -151,12 +187,21 @@ async def duplicate_course(
     db.add(new_course)
     await db.flush()
     await db.refresh(new_course)
+    await log_action(
+        db, user.tenant_id, "duplicate", "course",
+        resource_id=str(new_course.id), user_id=user.id,
+        details={"original_id": str(course.id), "title": new_course.title},
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+    await db.commit()
     return new_course
 
 
 @router.delete("/{course_id}", status_code=204)
 async def delete_course(
     course_id: UUID,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role("superadmin", "admin", "org_admin")),
 ):
@@ -166,4 +211,12 @@ async def delete_course(
     course = result.scalar_one_or_none()
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
+    await log_action(
+        db, user.tenant_id, "delete", "course",
+        resource_id=str(course.id), user_id=user.id,
+        details={"title": course.title},
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
     await db.delete(course)
+    await db.commit()

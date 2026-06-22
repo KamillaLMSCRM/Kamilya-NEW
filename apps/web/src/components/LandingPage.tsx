@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { useT } from '@/i18n/useT';
+import { Bot, Building2, BarChart3 } from 'lucide-react';
 
 interface LandingPageProps {}
 
@@ -48,21 +49,21 @@ export default function LandingPage({}: LandingPageProps) {
 
         <section id="features" className="mt-24 grid md:grid-cols-3 gap-8">
           <div className="p-6 bg-white rounded-xl shadow-sm">
-            <div className="text-4xl mb-4">🤖</div>
+            <div className="mb-4"><Bot className="w-12 h-12 text-blue-600" /></div>
             <h3 className="text-xl font-semibold mb-2">{t('landing.features.aiCourses')}</h3>
             <p className="text-gray-600">
               Загрузите документы — AI создаст структуру, контент и тесты за минуты.
             </p>
           </div>
           <div className="p-6 bg-white rounded-xl shadow-sm">
-            <div className="text-4xl mb-4">🏢</div>
+            <div className="mb-4"><Building2 className="w-12 h-12 text-blue-600" /></div>
             <h3 className="text-xl font-semibold mb-2">Multi-tenant SaaS</h3>
             <p className="text-gray-600">
               Полная изоляция данных между компаниями. Каждый тенант — отдельный мир.
             </p>
           </div>
           <div className="p-6 bg-white rounded-xl shadow-sm">
-            <div className="text-4xl mb-4">📊</div>
+            <div className="mb-4"><BarChart3 className="w-12 h-12 text-blue-600" /></div>
             <h3 className="text-xl font-semibold mb-2">Аналитика в реальном времени</h3>
             <p className="text-gray-600">
               Отслеживайте прогресс сотрудников с помощью дашбордов и отчётов.

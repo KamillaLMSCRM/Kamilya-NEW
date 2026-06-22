@@ -8,9 +8,9 @@ import { useT } from '@/i18n/useT';
 export default function SettingsPage() {
   const { t } = useT();
   const user = useAuthStore((s) => s.user);
-  const [firstName, setFirstName] = useState(user?.firstName || '');
-  const [lastName, setLastName] = useState(user?.lastName || '');
-  const [email, setEmail] = useState(user?.email || '');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [email, setEmail] = useState('');
   const [saved, setSaved] = useState(false);
   const token = useAuthStore((s) => s.accessToken);
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -75,7 +75,7 @@ export default function SettingsPage() {
         <CardContent className="p-6 space-y-4">
           <h2 className="text-lg font-semibold">{t('settings.security')}</h2>
           <div className="text-sm text-gray-600">
-            <p>Telegram: {user?.telegramId || 'Не привязан'}</p>
+            <p>Telegram: {user?.telegram_id || 'Не привязан'}</p>
             <p className="mt-2">Для смены пароля обратитесь к администратору.</p>
           </div>
         </CardContent>

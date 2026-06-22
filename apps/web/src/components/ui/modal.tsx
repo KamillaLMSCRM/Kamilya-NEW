@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { cn } from '@/lib/utils';
+import { X } from 'lucide-react';
 
 interface ModalProps {
   open: boolean;
@@ -37,7 +38,7 @@ export function Modal({ open, onClose, onOpenChange, title, children, className 
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-semibold">{title}</h2>
           <button onClick={handleClose} className="text-muted-foreground hover:text-foreground" aria-label="Close">
-            ✕
+            <X className="w-5 h-5" />
           </button>
         </div>
         {children}

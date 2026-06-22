@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
 from sqlalchemy import select
 from app.core.auth import create_access_token, get_current_user
@@ -6,14 +6,22 @@ from app.core.db import get_db
 from app.modules.auth.schemas import LoginRequest, RefreshRequest, TokenResponse, UserCreate, UserResponse
 from app.modules.auth.service import authenticate_user, create_user_and_tokens, refresh_access_token, blacklist_refresh_token
 from app.modules.auth.auth_sessions import generate_auth_code, check_code
+from app.modules.audit.service import log_action
 from app.models.tenants import Tenant
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 @router.post("/login", response_model=TokenResponse)
-async def login(req: LoginRequest, db=Depends(get_db)):
+async def login(req: LoginRequest, request: Request, db=Depends(get_db)):
     user, access_token, refresh_token = await authenticate_user(db, req.email, req.password)
+    await log_action(
+        db, user.tenant_id, "login", "user",
+        resource_id=str(user.id), user_id=user.id,
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+    await db.commit()
     return TokenResponse(access_token=access_token, refresh_token=refresh_token)
 
 
@@ -27,13 +35,20 @@ async def refresh(req: RefreshRequest, db=Depends(get_db)):
 
 
 @router.post("/logout")
-async def logout(req: RefreshRequest, db=Depends(get_db), _=Depends(get_current_user)):
+async def logout(req: RefreshRequest, request: Request, db=Depends(get_db), user=Depends(get_current_user)):
     await blacklist_refresh_token(db, req.refresh_token)
+    await log_action(
+        db, user.tenant_id, "logout", "user",
+        resource_id=str(user.id), user_id=user.id,
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+    await db.commit()
     return {"status": "ok"}
 
 
 @router.post("/register", response_model=TokenResponse)
-async def register(req: UserCreate, db=Depends(get_db)):
+async def register(req: UserCreate, request: Request, db=Depends(get_db)):
     result = await db.execute(select(Tenant).where(Tenant.slug == req.email.split("@")[-1]))
     tenant = result.scalar_one_or_none()
     if not tenant:
@@ -44,6 +59,13 @@ async def register(req: UserCreate, db=Depends(get_db)):
     user, access_token, refresh_token = await create_user_and_tokens(
         db, tenant.id, req.email, req.first_name, req.last_name, password=req.password, role="student"
     )
+    await log_action(
+        db, tenant.id, "register", "user",
+        resource_id=str(user.id), user_id=user.id,
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+    await db.commit()
     return TokenResponse(access_token=access_token, refresh_token=refresh_token, expires_in=900)
 
 

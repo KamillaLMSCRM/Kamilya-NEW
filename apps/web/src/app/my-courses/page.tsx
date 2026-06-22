@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, Button, Badge } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
+import { CheckCircle2, ChevronRight } from 'lucide-react';
 
 interface EnrolledCourse {
   course_id: string;
@@ -90,7 +91,9 @@ export default function MyCoursesPage() {
                 <div className="flex items-start justify-between mb-2">
                   <h3 className="font-medium line-clamp-2">{course.title}</h3>
                   {course.progress_percent === 100 && (
-                    <Badge className="bg-green-100 text-green-700">✓</Badge>
+                    <Badge className="flex items-center gap-1 bg-green-100 text-green-700">
+                      <CheckCircle2 className="w-3 h-3" />
+                    </Badge>
                   )}
                 </div>
 
@@ -129,7 +132,7 @@ export default function MyCoursesPage() {
 
       {/* Browse available courses for self-enrollment */}
       <div className="mt-8 pt-6 border-t">
-        <h2 className="text-lg font-semibold mb-4">{t('courses.browse')} →</h2>
+        <h2 className="text-lg font-semibold mb-4">{t('courses.browse')} <ChevronRight className="inline w-4 h-4" /></h2>
         <a href="/courses">
           <Button variant="outline">{t('courses.viewAll')}</Button>
         </a>

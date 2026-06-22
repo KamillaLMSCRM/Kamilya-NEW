@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import { Card, CardContent, Button, Input, Badge } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
+import { ChevronLeft, ChevronUp, ChevronDown, X, Plus } from 'lucide-react';
 
 interface Lesson {
   id: string;
@@ -173,7 +174,9 @@ export default function CourseEditPage() {
     <div className="max-w-4xl mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <a href={`/courses/${courseId}`} className="text-sm text-blue-600 hover:underline">← {course.title}</a>
+          <a href={`/courses/${courseId}`} className="flex items-center gap-1 text-sm text-blue-600 hover:underline">
+            <ChevronLeft className="w-4 h-4" /> {course.title}
+          </a>
           <h1 className="text-2xl font-bold mt-1">{t('courses.editCourse')}</h1>
         </div>
         <Badge variant={course.status === 'published' ? 'default' : 'outline'}>
@@ -207,8 +210,8 @@ export default function CourseEditPage() {
                 {/* Module header */}
                 <div className="flex items-center gap-2">
                   <div className="flex flex-col gap-0.5">
-                    <Button variant="ghost" size="sm" className="h-5 px-1" onClick={() => handleMoveModule(mod.id, 'up')} disabled={modIdx === 0}>↑</Button>
-                    <Button variant="ghost" size="sm" className="h-5 px-1" onClick={() => handleMoveModule(mod.id, 'down')} disabled={modIdx === modules.length - 1}>↓</Button>
+                    <Button variant="ghost" size="sm" className="h-5 px-1" onClick={() => handleMoveModule(mod.id, 'up')} disabled={modIdx === 0}><ChevronUp className="w-3 h-3" /></Button>
+                    <Button variant="ghost" size="sm" className="h-5 px-1" onClick={() => handleMoveModule(mod.id, 'down')} disabled={modIdx === modules.length - 1}><ChevronDown className="w-3 h-3" /></Button>
                   </div>
                   {editingModuleId === mod.id ? (
                     <div className="flex gap-2 flex-1">
@@ -235,13 +238,13 @@ export default function CourseEditPage() {
                   {mod.lessons.map((lesson, lessonIdx) => (
                     <div key={lesson.id} className="flex items-center gap-2 p-2 bg-gray-50 rounded text-sm">
                       <div className="flex flex-col gap-0.5">
-                        <Button variant="ghost" className="h-4 px-1 text-xs" onClick={() => handleMoveLesson(lesson.id, mod.id, 'up')} disabled={lessonIdx === 0}>↑</Button>
-                        <Button variant="ghost" className="h-4 px-1 text-xs" onClick={() => handleMoveLesson(lesson.id, mod.id, 'down')} disabled={lessonIdx === mod.lessons.length - 1}>↓</Button>
+                        <Button variant="ghost" className="h-4 px-1 text-xs" onClick={() => handleMoveLesson(lesson.id, mod.id, 'up')} disabled={lessonIdx === 0}><ChevronUp className="w-3 h-3" /></Button>
+                        <Button variant="ghost" className="h-4 px-1 text-xs" onClick={() => handleMoveLesson(lesson.id, mod.id, 'down')} disabled={lessonIdx === mod.lessons.length - 1}><ChevronDown className="w-3 h-3" /></Button>
                       </div>
                       <span className="flex-1">{lesson.title}</span>
                       <Badge variant="outline" className="text-xs">{lesson.content_type}</Badge>
                       <Button variant="ghost" size="sm" className="text-red-500 text-xs" onClick={() => handleDeleteLesson(lesson.id, mod.id)}>
-                        ✕
+                        <X className="w-3 h-3" />
                       </Button>
                     </div>
                   ))}

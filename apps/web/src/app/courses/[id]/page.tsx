@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { Card, CardHeader, CardTitle, CardContent, Button } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
+import { useT } from '@/i18n/useT';
+import { CheckCircle2, ChevronRight, ChevronLeft } from 'lucide-react';
 
 interface Lesson {
   id: string;
@@ -31,6 +33,7 @@ interface Course {
 export default function CoursePlayerPage() {
   const params = useParams();
   const courseId = params?.id as string;
+  const { t } = useT();
   const [course, setCourse] = useState<Course | null>(null);
   const [modules, setModules] = useState<Module[]>([]);
   const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
@@ -50,7 +53,10 @@ export default function CoursePlayerPage() {
 
   const fetchData = async () => {
     try {
-      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
 
       const [courseRes, structRes, progressRes, enrollRes] = await Promise.all([
         fetch(`${API_URL}/v1/courses/${courseId}`, { headers }),
@@ -190,7 +196,9 @@ export default function CoursePlayerPage() {
           >
             {enrolling ? 'Запись...' : 'Записаться на курс'}
           </button>
-          <a href="/dashboard" className="block mt-4 text-sm text-blue-600 hover:underline">← Вернуться</a>
+          <a href="/dashboard" className="block mt-4 flex items-center gap-1 text-sm text-blue-600 hover:underline">
+            <ChevronLeft className="w-4 h-4" /> Вернуться
+          </a>
         </div>
       </div>
     );
@@ -201,14 +209,16 @@ export default function CoursePlayerPage() {
       {/* Left sidebar — TOC */}
       <div className="w-80 bg-white border-r flex flex-col">
         <div className="p-4 border-b">
-          <a href="/dashboard" className="text-sm text-blue-600 hover:underline">← Мой дашборд</a>
+          <a href="/dashboard" className="flex items-center gap-1 text-sm text-blue-600 hover:underline">
+            <ChevronLeft className="w-4 h-4" /> Мой дашборд
+          </a>
           <h2 className="font-bold mt-2">{course.title}</h2>
           <div className="mt-2 h-2 bg-gray-200 rounded">
             <div className="h-2 bg-blue-600 rounded" style={{ width: `${progressPercent}%` }} />
           </div>
           <p className="text-xs text-gray-500 mt-1">{completedCount}/{totalLessons} уроков ({progressPercent}%)</p>
-          <a href={`/courses/${courseId}/edit`} className="text-xs text-blue-500 hover:underline mt-1 inline-block">
-            {t('courses.editCourse')} →
+          <a href={`/courses/${courseId}/edit`} className="flex items-center gap-1 text-xs text-blue-500 hover:underline mt-1 inline-block">
+            {t('courses.editCourse')} <ChevronRight className="w-3 h-3" />
           </a>
         </div>
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
@@ -222,7 +232,7 @@ export default function CoursePlayerPage() {
                   onClick={() => handleSelectLesson(lesson)}
                 >
                   <span className={`w-4 h-4 rounded-full border flex-shrink-0 flex items-center justify-center text-xs ${completedLessons.has(lesson.id) ? 'bg-green-500 text-white border-green-500' : 'border-gray-300'}`}>
-                    {completedLessons.has(lesson.id) ? '✓' : ''}
+                    {completedLessons.has(lesson.id) && <CheckCircle2 className="w-3 h-3" />}
                   </span>
                   {lesson.title}
                 </div>
@@ -255,13 +265,15 @@ export default function CoursePlayerPage() {
             <div className="mt-8 flex gap-2">
               {selectedLesson.content_type === 'quiz' && quizId ? (
                 <a href={`/courses/quiz/${quizId}`}>
-                  <Button>Пройти тест →</Button>
+                  <Button>Пройти тест <ChevronRight className="w-4 h-4 ml-1" /></Button>
                 </a>
               ) : completedLessons.has(selectedLesson.id) ? (
-                <span className="text-green-600 font-medium">✓ Урок завершён</span>
+                <span className="flex items-center gap-2 text-green-600 font-medium">
+                  <CheckCircle2 className="w-5 h-5" /> Урок завершён
+                </span>
               ) : (
                 <Button onClick={() => handleMarkComplete(selectedLesson.id)}>
-                  Завершить урок →
+                  Завершить урок <ChevronRight className="w-4 h-4 ml-1" />
                 </Button>
               )}
             </div>
