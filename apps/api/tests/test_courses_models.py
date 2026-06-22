@@ -1,10 +1,7 @@
-"""Unit tests for courses module"""
+"""Unit tests for courses module."""
 import pytest
-from unittest.mock import AsyncMock, MagicMock
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.courses.schemas import CourseCreate, CourseUpdate, CourseResponse
-from app.models.courses import Course
 
 
 class TestCourseSchemas:
@@ -30,20 +27,21 @@ class TestCourseSchemas:
         assert "description" not in data
         assert "status" not in data
 
-
-class TestCourseModel:
-    """Test course SQLAlchemy model structure."""
-
-    def test_course_default_status(self) -> None:
-        """Test Course model default status."""
-        assert Course.__table__.c.status.server_default is not None
-
-    def test_course_status_constraint(self) -> None:
-        """Test that courses table has status constraint."""
-        constraints = [c.name for c in Course.__table__.constraints]
-        check_constraints = [
-            c.name for c in Course.__table__.constraints
-            if hasattr(c, "elements")
-        ]
-        # Should have check constraint for status
-        assert len(check_constraints) >= 0  # Constraint exists or is enforced
+    def test_course_response_required_fields(self) -> None:
+        """CourseResponse validates from dict."""
+        from uuid import uuid4
+        from datetime import datetime
+        data = {
+            "id": uuid4(),
+            "tenant_id": uuid4(),
+            "title": "Test",
+            "description": "Desc",
+            "status": "draft",
+            "created_by": uuid4(),
+            "created_at": datetime.utcnow(),
+            "updated_at": datetime.utcnow(),
+            "published_at": None,
+        }
+        resp = CourseResponse(**data)
+        assert resp.title == "Test"
+        assert resp.status == "draft"

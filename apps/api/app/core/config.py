@@ -1,10 +1,12 @@
 import json
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
 from pydantic import field_validator, model_validator
 
 
 class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+
     # App
     APP_NAME: str = "Kamilya LMS"
     APP_ENV: str = "development"
@@ -14,8 +16,19 @@ class Settings(BaseSettings):
     # Database
     DATABASE_URL: str = "postgresql+asyncpg://lms:lms_dev_password_2026@localhost:5432/kamilya_lms"
 
+    @field_validator("DATABASE_URL", mode="before")
+    @classmethod
+    def fix_database_url(cls, v):
+        if isinstance(v, str) and v.startswith("postgres://"):
+            return v.replace("postgres://", "postgresql+asyncpg://", 1)
+        return v
+
     # Redis
     REDIS_URL: str = "redis://localhost:6379/0"
+
+    # Supabase
+    SUPABASE_URL: str = ""
+    SUPABASE_KEY: str = ""
 
     # JWT
     JWT_SECRET: str = ""
@@ -33,6 +46,8 @@ class Settings(BaseSettings):
     # Qwen
     QWEN_API_URL: str = "http://localhost:8555"
     QWEN_EMBEDDING_URL: str = "http://localhost:8001"
+    LLM_API_URL: str = ""
+    EMBEDDING_URL: str = ""
 
     # Telegram Bot
     TELEGRAM_BOT_TOKEN: str = ""
@@ -59,10 +74,6 @@ class Settings(BaseSettings):
     # Celery
     CELERY_BROKER_URL: str = "redis://localhost:6379/0"
     CELERY_RESULT_BACKEND: str = "redis://localhost:6379/0"
-
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
 
 
 @lru_cache()
