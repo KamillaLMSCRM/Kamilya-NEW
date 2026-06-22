@@ -239,7 +239,10 @@ class Summarizer:
 class EmbeddingsProvider:
     """Embeddings with automatic fallback: Qwen → simple hash-based."""
 
-    def __init__(self, qwen_url: str = "http://10.66.66.7:8001/v1"):
+    def __init__(self, qwen_url: str | None = None):
+        from app.core.config import get_settings
+        if qwen_url is None:
+            qwen_url = get_settings().QWEN_EMBEDDING_URL
         self.qwen_url = qwen_url
         self._qwen_available: bool | None = None
 
@@ -300,7 +303,7 @@ class DocumentIngestion:
         summaries_dir: str = "./summaries",
         chunk_size: int = 1000,
         chunk_overlap: int = 200,
-        qwen_embeddings_url: str = "http://10.66.66.7:8001/v1",
+        qwen_embeddings_url: str | None = None,
     ):
         self.persist_dir = persist_dir
         self.summaries_dir = summaries_dir

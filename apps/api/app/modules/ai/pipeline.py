@@ -232,7 +232,7 @@ async def run_generation_pipeline(
         state.message = "Ingesting documents..."
         await _update_job_db(job_id, status="running", stage="ingestion", progress=5, message=state.message)
 
-        ingestion = DocumentIngestion(qwen_embeddings_url="http://10.66.66.7:8001/v1")
+        ingestion = DocumentIngestion()
 
         # Stage 2: Architect
         state.stage = "architect"

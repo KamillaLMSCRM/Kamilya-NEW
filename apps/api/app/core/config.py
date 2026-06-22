@@ -43,11 +43,11 @@ class Settings(BaseSettings):
     MINIO_BUCKET: str = "lms-content"
     MINIO_USE_SSL: bool = False
 
-    # Qwen
-    QWEN_API_URL: str = "http://localhost:8555"
-    QWEN_EMBEDDING_URL: str = "http://localhost:8001"
-    LLM_API_URL: str = ""
-    EMBEDDING_URL: str = ""
+    # Qwen (VPS proxy for Render, local for dev)
+    QWEN_API_URL: str = "http://173.249.51.164:8556/v1"
+    QWEN_EMBEDDING_URL: str = "http://173.249.51.164:8002/v1"
+    LLM_API_URL: str = "http://173.249.51.164:8556/v1"
+    EMBEDDING_URL: str = "http://173.249.51.164:8002/v1"
 
     # Telegram Bot
     TELEGRAM_BOT_TOKEN: str = ""

@@ -4,7 +4,17 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from app.core.config import get_settings
+
 logger = logging.getLogger(__name__)
+
+
+def _default_llm_url() -> str:
+    return get_settings().QWEN_API_URL
+
+
+def _default_embedding_url() -> str:
+    return get_settings().QWEN_EMBEDDING_URL
 
 
 class LLMClient:
@@ -12,12 +22,14 @@ class LLMClient:
 
     def __init__(
         self,
-        base_url: str = "http://10.66.66.7:8555/v1",
+        base_url: str | None = None,
         api_key: str = "not-needed",
         model: str = "qwen3.5",
         temperature: float = 0.7,
         max_tokens: int = 8192,
     ):
+        if base_url is None:
+            base_url = _default_llm_url()
         self.base_url = base_url
         self.api_key = api_key
         self.model = model
@@ -70,10 +82,12 @@ class EmbeddingsClient:
 
     def __init__(
         self,
-        base_url: str = "http://10.66.66.7:8001/v1",
+        base_url: str | None = None,
         api_key: str = "not-needed",
         model: str = "qwen3-embedding",
     ):
+        if base_url is None:
+            base_url = _default_embedding_url()
         self.base_url = base_url
         self.api_key = api_key
         self.model = model
@@ -100,7 +114,7 @@ class EmbeddingsClient:
 
 
 def create_llm(
-    base_url: str = "http://10.66.66.7:8555/v1",
+    base_url: str | None = None,
     api_key: str = "not-needed",
     model: str = "qwen3.5",
     temperature: float = 0.7,
@@ -119,7 +133,7 @@ def create_llm(
 
 
 def create_embeddings(
-    base_url: str = "http://10.66.66.7:8001/v1",
+    base_url: str | None = None,
     api_key: str = "not-needed",
     model: str = "qwen3-embedding",
     callbacks: list | None = None,
