@@ -2,6 +2,9 @@ from sqlalchemy import Column, Text, BigInteger, Boolean, TIMESTAMP, DateTime, C
 from sqlalchemy.dialects.postgresql import UUID
 from app.core.db import Base
 
+# Import Position so SQLAlchemy sees 'positions' table before resolving User.position_id FK
+from app.models.position import Position  # noqa: F401
+
 
 class User(Base):
     __tablename__ = "users"
