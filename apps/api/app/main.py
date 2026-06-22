@@ -7,6 +7,10 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+# Must be imported BEFORE router imports so SQLAlchemy sees 'positions' table
+# before resolving User.position_id ForeignKey
+from app.modules.positions.models import Position  # noqa: F401
+
 from app.core.config import get_settings
 from app.core.errors import register_error_handlers
 from app.core.rate_limit import RateLimitMiddleware
