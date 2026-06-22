@@ -111,7 +111,12 @@
     "startCourse": "Бастау",
     "continueCourse": "Жалғастыру",
     "viewCertificate": "Сертификат",
-    "progress": "Прогресс"
+    "progress": "Прогресс",
+    "browse": "Қол жетімді курстар",
+    "viewAll": "Барлық курстарды көру",
+    "enroll": "Жазылу",
+    "enrolled": "Жазылған",
+    "alreadyEnrolled": "Сізде бұл курсқа жазылу бар"
   },
   "student": {
     "title": "Менің басқару панелі",
@@ -137,7 +142,11 @@
     "total": "Барлығы",
     "passScore": "Өту баллы",
     "tryAgain": "Қайта байқап көріңіз",
-    "attemptLimit": "Әрекет шегі таусылды"
+    "attemptLimit": "Әрекет шегі таусылды",
+    "review": "Жауаптарды қарау",
+    "showReview": "Жауаптарды көрсету",
+    "hideReview": "Жауаптарды жасыру",
+    "attempts": "Әрекеттер"
   },
   "certificates": {
     "title": "Менің сертификаттарым",

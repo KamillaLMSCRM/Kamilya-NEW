@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Card, CardHeader, CardTitle, CardContent, Button, Badge } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
+import { useT } from '@/i18n/useT';
 
 interface EnrolledCourse {
   course_id: string;
@@ -27,6 +28,7 @@ interface DashboardData {
 }
 
 export default function StudentDashboardPage() {
+  const { t } = useT();
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const token = useAuthStore((s) => s.accessToken);
@@ -48,49 +50,49 @@ export default function StudentDashboardPage() {
     fetchDashboard();
   }, [fetchDashboard]);
 
-  if (loading) return <div className="p-6">Загрузка...</div>;
-  if (!dashboard) return <div className="p-6">Ошибка загрузки</div>;
+  if (loading) return <div className="p-6">{t('common.loading')}</div>;
+  if (!dashboard) return <div className="p-6">{t('common.error')}</div>;
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Мой дашборд</h1>
-        <p className="text-gray-500">Добро пожаловать, {dashboard.full_name || 'Студент'}!</p>
+        <h1 className="text-2xl font-bold">{t('student.title')}</h1>
+        <p className="text-gray-500">{t('dashboard.welcome')}, {dashboard.full_name || 'Студент'}!</p>
       </div>
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardContent className="p-4 text-center">
             <div className="text-3xl font-bold text-blue-600">{dashboard.total_courses}</div>
-            <div className="text-sm text-gray-500">Курсов</div>
+            <div className="text-sm text-gray-500">{t('courses.title')}</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
             <div className="text-3xl font-bold text-green-600">{dashboard.completed_courses}</div>
-            <div className="text-sm text-gray-500">Завершено</div>
+            <div className="text-sm text-gray-500">{t('student.completed')}</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
             <div className="text-3xl font-bold text-orange-600">{dashboard.total_progress_percent}%</div>
-            <div className="text-sm text-gray-500">Общий прогресс</div>
+            <div className="text-sm text-gray-500">{t('dashboard.overallProgress')}</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
             <div className="text-3xl font-bold text-purple-600">{dashboard.certificates_count}</div>
-            <div className="text-sm text-gray-500">Сертификатов</div>
+            <div className="text-sm text-gray-500">{t('dashboard.certificatesCount')}</div>
           </CardContent>
         </Card>
       </div>
 
       <div>
-        <h2 className="text-lg font-semibold mb-4">Мои курсы</h2>
+        <h2 className="text-lg font-semibold mb-4">{t('student.enrolledCourses')}</h2>
         {dashboard.enrolled_courses.length === 0 ? (
           <Card>
             <CardContent className="p-6 text-center text-gray-400">
-              Вы пока не записаны ни на один курс
+              {t('student.noCourses')}
             </CardContent>
           </Card>
         ) : (
@@ -123,12 +125,12 @@ export default function StudentDashboardPage() {
                   <div className="flex gap-2">
                     <a href={`/courses/${course.course_id}`} className="flex-1">
                       <Button variant="outline" className="w-full" size="sm">
-                        {course.progress_percent === 0 ? 'Начать' : 'Продолжить'}
+                        {course.progress_percent === 0 ? t('courses.startCourse') : t('courses.continueCourse')}
                       </Button>
                     </a>
                     {course.progress_percent === 100 && (
                       <a href={`/courses/${course.course_id}/certificate`}>
-                        <Button size="sm">Сертификат</Button>
+                        <Button size="sm">{t('courses.viewCertificate')}</Button>
                       </a>
                     )}
                   </div>

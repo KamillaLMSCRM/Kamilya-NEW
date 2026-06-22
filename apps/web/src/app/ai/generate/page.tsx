@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardHeader, CardTitle, CardContent, Button, Input } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
+import { useT } from '@/i18n/useT';
 
 interface Course {
   id: string;
@@ -21,6 +22,7 @@ interface AIGenerationJob {
 }
 
 export default function AIGeneratePage() {
+  const { t } = useT();
   const router = useRouter();
   const token = useAuthStore((s) => s.accessToken);
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -87,22 +89,22 @@ export default function AIGeneratePage() {
 
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-6">
-      <h1 className="text-2xl font-bold">AI Генерация курса</h1>
+      <h1 className="text-2xl font-bold">{t('ai.title')}</h1>
 
       <Card>
         <CardContent className="p-6 space-y-4">
           <div>
-            <label className="block text-sm font-medium mb-1">Целевая аудитория</label>
+            <label className="block text-sm font-medium mb-1">{t('ai.targetAudience')}</label>
             <Input
               value={targetAudience}
               onChange={(e) => setTargetAudience(e.target.value)}
-              placeholder="Опишите для кого этот курс..."
+              placeholder={t('ai.targetAudiencePlaceholder')}
             />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-1">Количество модулей</label>
+              <label className="block text-sm font-medium mb-1">{t('ai.numModules')}</label>
               <Input
                 type="number"
                 min={1}
@@ -112,25 +114,25 @@ export default function AIGeneratePage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">Язык</label>
+              <label className="block text-sm font-medium mb-1">{t('ai.language')}</label>
               <select
                 value={language}
                 onChange={(e) => setLanguage(e.target.value)}
                 className="w-full border rounded px-3 py-2"
               >
-                <option value="ru">Русский</option>
-                <option value="kk">Қазақша</option>
-                <option value="en">English</option>
+                <option value="ru">{t('ai.languages.ru')}</option>
+                <option value="kk">{t('ai.languages.kk')}</option>
+                <option value="en">{t('ai.languages.en')}</option>
               </select>
             </div>
           </div>
 
           <div className="flex gap-2">
             <Button onClick={handleGenerate} disabled={generating}>
-              {generating ? 'Запуск...' : 'Генерировать курс'}
+              {generating ? 'Запуск...' : t('ai.generate')}
             </Button>
             <Button variant="outline" onClick={() => router.push('/courses')}>
-              Отмена
+              {t('common.cancel')}
             </Button>
           </div>
         </CardContent>
@@ -139,15 +141,15 @@ export default function AIGeneratePage() {
       {currentJob && (
         <Card>
           <CardHeader>
-            <CardTitle>Прогресс генерации</CardTitle>
+            <CardTitle>{t('ai.progress')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
             <div className="flex items-center gap-2">
-              <span className="text-sm font-medium">Статус:</span>
+              <span className="text-sm font-medium">{t('ai.status')}:</span>
               <span className="text-sm">{currentJob.status}</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-sm font-medium">Этап:</span>
+              <span className="text-sm font-medium">{t('ai.stage')}:</span>
               <span className="text-sm">{currentJob.stage}</span>
             </div>
             <div className="h-2 bg-gray-200 rounded">

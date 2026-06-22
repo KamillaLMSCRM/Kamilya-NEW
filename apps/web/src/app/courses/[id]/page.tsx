@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { Card, CardHeader, CardTitle, CardContent, Button } from '@/components/ui';
+import { useAuthStore } from '@/store/authStore';
 
 interface Lesson {
   id: string;
@@ -35,6 +36,11 @@ export default function CoursePlayerPage() {
   const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
   const [loading, setLoading] = useState(true);
   const [completedLessons, setCompletedLessons] = useState<Set<string>>(new Set());
+  const [enrolled, setEnrolled] = useState<boolean | null>(null);
+  const [enrolling, setEnrolling] = useState(false);
+  const [quizId, setQuizId] = useState<string | null>(null);
+  const token = useAuthStore((s) => s.accessToken);
+  const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
   useEffect(() => {
     if (courseId) {
@@ -44,19 +50,43 @@ export default function CoursePlayerPage() {
 
   const fetchData = async () => {
     try {
-      const [courseRes, structRes] = await Promise.all([
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/v1/courses/${courseId}`),
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/v1/courses/${courseId}/structure`),
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
+      const [courseRes, structRes, progressRes, enrollRes] = await Promise.all([
+        fetch(`${API_URL}/v1/courses/${courseId}`, { headers }),
+        fetch(`${API_URL}/v1/courses/${courseId}/structure`, { headers }),
+        fetch(`${API_URL}/v1/progress/courses/${courseId}/completed-ids`, { headers }),
+        fetch(`${API_URL}/v1/courses/${courseId}/enrollments`, { headers }),
       ]);
 
       if (courseRes.ok) setCourse(await courseRes.json());
 
+      // Check if user is enrolled
+      if (enrollRes.ok) {
+        const enrollData = await enrollRes.json();
+        setEnrolled(enrollData.length > 0);
+      } else {
+        setEnrolled(false);
+      }
+
+      let allLessons: Lesson[] = [];
       if (structRes.ok) {
         const data = await structRes.json();
         setModules(data.modules || []);
-        if (data.modules?.[0]?.lessons?.[0]) {
-          setSelectedLesson(data.modules[0].lessons[0]);
-        }
+        allLessons = (data.modules || []).flatMap((m: Module) => m.lessons || []);
+      }
+
+      let completedIds: Set<string> = new Set();
+      if (progressRes.ok) {
+        const progressData = await progressRes.json();
+        completedIds = new Set(progressData.completed_lesson_ids || []);
+        setCompletedLessons(completedIds);
+      }
+
+      // Resume from last incomplete lesson, or start from first
+      if (allLessons.length > 0) {
+        const firstIncomplete = allLessons.find((l) => !completedIds.has(l.id));
+        setSelectedLesson(firstIncomplete || allLessons[0]);
       }
     } catch (e) {
       console.error(e);
@@ -65,7 +95,61 @@ export default function CoursePlayerPage() {
     }
   };
 
+  const handleEnroll = async () => {
+    if (!token || !courseId) return;
+    setEnrolling(true);
+    try {
+      const res = await fetch(`${API_URL}/v1/courses/${courseId}/enroll`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (res.ok) {
+        setEnrolled(true);
+      } else {
+        const err = await res.json();
+        alert(err.detail || 'Не удалось записаться');
+      }
+    } finally {
+      setEnrolling(false);
+    }
+  };
+
+  const handleSelectLesson = async (lesson: Lesson) => {
+    setSelectedLesson(lesson);
+    setQuizId(null);
+    if (lesson.content_type === 'quiz' && token) {
+      try {
+        const res = await fetch(`${API_URL}/v1/quizzes/by-lesson/${lesson.id}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setQuizId(data.id);
+        }
+      } catch { /* no quiz */ }
+    }
+  };
+
   const handleMarkComplete = async (lessonId: string) => {
+    // Persist to backend
+    if (token) {
+      try {
+        await fetch(`${API_URL}/v1/progress/lessons/${lessonId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ completed: true }),
+        });
+      } catch (e) {
+        console.error('Failed to persist progress', e);
+      }
+    }
+
     setCompletedLessons((prev) => new Set(prev).add(lessonId));
 
     const nextLesson = findNextLesson(lessonId);
@@ -92,6 +176,26 @@ export default function CoursePlayerPage() {
   if (loading) return <div className="p-6">Загрузка...</div>;
   if (!course) return <div className="p-6">Курс не найден</div>;
 
+  // If not enrolled, show enroll prompt
+  if (enrolled === false) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="bg-white rounded-lg shadow-md p-8 max-w-md w-full text-center">
+          <h2 className="text-xl font-bold mb-2">{course.title}</h2>
+          <p className="text-gray-600 mb-6">Запишитесь на курс, чтобы начать обучение</p>
+          <button
+            onClick={handleEnroll}
+            disabled={enrolling}
+            className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 disabled:opacity-50"
+          >
+            {enrolling ? 'Запись...' : 'Записаться на курс'}
+          </button>
+          <a href="/dashboard" className="block mt-4 text-sm text-blue-600 hover:underline">← Вернуться</a>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 flex">
       {/* Left sidebar — TOC */}
@@ -103,6 +207,9 @@ export default function CoursePlayerPage() {
             <div className="h-2 bg-blue-600 rounded" style={{ width: `${progressPercent}%` }} />
           </div>
           <p className="text-xs text-gray-500 mt-1">{completedCount}/{totalLessons} уроков ({progressPercent}%)</p>
+          <a href={`/courses/${courseId}/edit`} className="text-xs text-blue-500 hover:underline mt-1 inline-block">
+            {t('courses.editCourse')} →
+          </a>
         </div>
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
           {modules.map((mod) => (
@@ -112,7 +219,7 @@ export default function CoursePlayerPage() {
                 <div
                   key={lesson.id}
                   className={`text-sm p-2 rounded cursor-pointer flex items-center gap-2 ${selectedLesson?.id === lesson.id ? 'bg-blue-50 text-blue-700 font-medium' : 'hover:bg-gray-50 text-gray-700'}`}
-                  onClick={() => setSelectedLesson(lesson)}
+                  onClick={() => handleSelectLesson(lesson)}
                 >
                   <span className={`w-4 h-4 rounded-full border flex-shrink-0 flex items-center justify-center text-xs ${completedLessons.has(lesson.id) ? 'bg-green-500 text-white border-green-500' : 'border-gray-300'}`}>
                     {completedLessons.has(lesson.id) ? '✓' : ''}
@@ -146,9 +253,17 @@ export default function CoursePlayerPage() {
             )}
 
             <div className="mt-8 flex gap-2">
-              <Button onClick={() => handleMarkComplete(selectedLesson.id)}>
-                Завершить урок →
-              </Button>
+              {selectedLesson.content_type === 'quiz' && quizId ? (
+                <a href={`/courses/quiz/${quizId}`}>
+                  <Button>Пройти тест →</Button>
+                </a>
+              ) : completedLessons.has(selectedLesson.id) ? (
+                <span className="text-green-600 font-medium">✓ Урок завершён</span>
+              ) : (
+                <Button onClick={() => handleMarkComplete(selectedLesson.id)}>
+                  Завершить урок →
+                </Button>
+              )}
             </div>
           </div>
         ) : (

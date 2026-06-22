@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Card, CardHeader, CardTitle, CardContent, Button, Table, Badge, Modal } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
+import { useT } from '@/i18n/useT';
 
 interface Document {
   id: string;
@@ -14,6 +15,7 @@ interface Document {
 }
 
 export default function DocumentsPage() {
+  const { t } = useT();
   const [documents, setDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -81,25 +83,25 @@ export default function DocumentsPage() {
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Документы</h1>
-        <Button onClick={() => setShowModal(true)}>Загрузить документ</Button>
+        <h1 className="text-2xl font-bold">{t('documents.title')}</h1>
+        <Button onClick={() => setShowModal(true)}>{t('documents.upload')}</Button>
       </div>
 
       <Card>
         <CardContent className="p-0">
           {loading ? (
-            <div className="p-6 text-gray-400">Загрузка...</div>
+            <div className="p-6 text-gray-400">{t('common.loading')}</div>
           ) : documents.length === 0 ? (
-            <div className="p-6 text-gray-400">Документов пока нет</div>
+            <div className="p-6 text-gray-400">{t('documents.noDocuments')}</div>
           ) : (
             <Table>
               <thead>
                 <tr>
-                  <th className="text-left p-3">Название</th>
-                  <th className="text-left p-3">Файл</th>
-                  <th className="text-left p-3">Тип</th>
-                  <th className="text-left p-3">Размер</th>
-                  <th className="text-left p-3">Дата</th>
+                   <th className="text-left p-3">{t('documents.name')}</th>
+                   <th className="text-left p-3">{t('documents.file')}</th>
+                   <th className="text-left p-3">{t('documents.type')}</th>
+                   <th className="text-left p-3">{t('documents.size')}</th>
+                   <th className="text-left p-3">{t('documents.date')}</th>
                   <th className="text-right p-3"></th>
                 </tr>
               </thead>
@@ -118,7 +120,7 @@ export default function DocumentsPage() {
                         onClick={() => handleDelete(doc.id)}
                         className="text-red-500 hover:underline text-sm"
                       >
-                        Удалить
+                        {t('common.delete')}
                       </button>
                     </td>
                   </tr>
@@ -131,24 +133,24 @@ export default function DocumentsPage() {
 
       <Modal open={showModal} onOpenChange={setShowModal}>
         <CardHeader>
-          <CardTitle>Загрузка документа</CardTitle>
+          <CardTitle>{t('documents.uploadTitle')}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <label className="block text-sm font-medium mb-1">Название (необязательно)</label>
+            <label className="block text-sm font-medium mb-1">{t('documents.name')} ({t('common.optional')})</label>
             <input
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               className="w-full border rounded px-3 py-2"
-              placeholder="Описание документа"
+              placeholder={t('documents.uploadDescription')}
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">Файл</label>
+            <label className="block text-sm font-medium mb-1">{t('documents.file')}</label>
             <input type="file" onChange={handleUpload} disabled={uploading} />
           </div>
-          {uploading && <p className="text-sm text-blue-600">Загрузка...</p>}
+          {uploading && <p className="text-sm text-blue-600">{t('documents.uploading')}</p>}
         </CardContent>
       </Modal>
     </div>

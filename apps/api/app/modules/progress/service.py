@@ -65,3 +65,21 @@ async def get_course_progress(db: AsyncSession, user_id: UUID, course_id: UUID, 
         "completed_lessons": completed,
         "percent": round((completed / total * 100) if total > 0 else 0, 1),
     }
+
+
+async def get_completed_lesson_ids(
+    db: AsyncSession, user_id: UUID, course_id: UUID, tenant_id: UUID
+) -> list[str]:
+    """Get list of completed lesson IDs for a course."""
+    result = await db.execute(
+        select(Progress.lesson_id)
+        .join(Lesson, Progress.lesson_id == Lesson.id)
+        .join(Module, Lesson.module_id == Module.id)
+        .where(
+            Module.course_id == course_id,
+            Progress.tenant_id == tenant_id,
+            Progress.user_id == user_id,
+            Progress.completed == True,
+        )
+    )
+    return [str(lid) for lid in result.scalars().all()]

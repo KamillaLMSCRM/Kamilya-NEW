@@ -76,11 +76,12 @@ class ContentBlockResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 class CourseStructureResponse(BaseModel):
-    course_id: UUID
+    id: UUID
     title: str
     description: str
     status: str
     modules: List["ModuleWithLessonsResponse"]
+    model_config = {"from_attributes": True}
 
 class ModuleWithLessonsResponse(BaseModel):
     id: UUID

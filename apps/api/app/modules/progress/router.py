@@ -6,7 +6,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.auth import get_current_user
 from app.core.db import get_db
 from app.modules.progress.schemas import ProgressResponse, ProgressUpdate, CourseProgressResponse
-from app.modules.progress.service import get_lesson_progress, update_lesson_progress, get_course_progress
+from app.modules.progress.service import (
+    get_lesson_progress,
+    update_lesson_progress,
+    get_course_progress,
+    get_completed_lesson_ids,
+)
 
 router = APIRouter(prefix="/progress", tags=["progress"])
 
@@ -37,3 +42,14 @@ async def get_course_progress_endpoint(
     user=Depends(get_current_user),
 ):
     return await get_course_progress(db, user.id, course_id, user.tenant_id)
+
+
+@router.get("/courses/{course_id}/completed-ids")
+async def get_completed_lesson_ids_endpoint(
+    course_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    """Get list of completed lesson IDs for a course."""
+    ids = await get_completed_lesson_ids(db, user.id, course_id, user.tenant_id)
+    return {"completed_lesson_ids": ids}

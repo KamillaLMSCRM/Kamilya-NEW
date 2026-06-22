@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Card, CardHeader, CardTitle, CardContent, Button, Badge, Table } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
+import { useT } from '@/i18n/useT';
 
 interface TenantStats {
   total_users: number;
@@ -39,6 +40,7 @@ interface CourseItem {
 }
 
 export default function AdminDashboardPage() {
+  const { t } = useT();
   const [stats, setStats] = useState<TenantStats | null>(null);
   const [users, setUsers] = useState<UserItem[]>([]);
   const [courses, setCourses] = useState<CourseItem[]>([]);
@@ -97,18 +99,18 @@ export default function AdminDashboardPage() {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
-  if (loading) return <div className="p-6">Загрузка...</div>;
-  if (!stats) return <div className="p-6">Ошибка загрузки</div>;
+  if (loading) return <div className="p-6">{t('common.loading')}</div>;
+  if (!stats) return <div className="p-6">{t('common.error')}</div>;
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Панель администратора</h1>
+        <h1 className="text-2xl font-bold">{t('admin.title')}</h1>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => handleExport('users')}>Экспорт пользователей</Button>
-          <Button variant="outline" onClick={() => handleExport('courses')}>Экспорт курсов</Button>
-          <Button variant="outline" onClick={() => handleExport('enrollments')}>Экспорт записей</Button>
-          <Button variant="outline" onClick={() => handleExport('quiz-results')}>Экспорт результатов</Button>
+          <Button variant="outline" onClick={() => handleExport('users')}>{t('admin.exportUsers')}</Button>
+          <Button variant="outline" onClick={() => handleExport('courses')}>{t('admin.exportCourses')}</Button>
+          <Button variant="outline" onClick={() => handleExport('enrollments')}>{t('admin.exportEnrollments')}</Button>
+          <Button variant="outline" onClick={() => handleExport('quiz-results')}>{t('admin.exportQuizResults')}</Button>
         </div>
       </div>
 
@@ -116,28 +118,28 @@ export default function AdminDashboardPage() {
         <Card>
           <CardContent className="p-4 text-center">
             <div className="text-3xl font-bold text-blue-600">{stats.total_users}</div>
-            <div className="text-sm text-gray-500">Пользователей</div>
-            <div className="text-xs text-gray-400">{stats.active_users} активных</div>
+            <div className="text-sm text-gray-500">{t('admin.stats.totalUsers')}</div>
+            <div className="text-xs text-gray-400">{stats.active_users} {t('admin.stats.activeUsers')}</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
             <div className="text-3xl font-bold text-green-600">{stats.total_courses}</div>
-            <div className="text-sm text-gray-500">Курсов</div>
-            <div className="text-xs text-gray-400">{stats.published_courses} опубликовано</div>
+            <div className="text-sm text-gray-500">{t('admin.stats.totalCourses')}</div>
+            <div className="text-xs text-gray-400">{stats.published_courses} {t('admin.stats.published')}</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
             <div className="text-3xl font-bold text-orange-600">{stats.total_enrollments}</div>
-            <div className="text-sm text-gray-500">Записей на курсы</div>
-            <div className="text-xs text-gray-400">{stats.completed_enrollments} завершено</div>
+            <div className="text-sm text-gray-500">{t('admin.stats.enrollments')}</div>
+            <div className="text-xs text-gray-400">{stats.completed_enrollments} {t('admin.stats.completed')}</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
             <div className="text-3xl font-bold text-purple-600">{stats.certificates_issued}</div>
-            <div className="text-sm text-gray-500">Сертификатов</div>
+            <div className="text-sm text-gray-500">{t('admin.stats.certificates')}</div>
           </CardContent>
         </Card>
       </div>
@@ -146,25 +148,25 @@ export default function AdminDashboardPage() {
         <Card>
           <CardContent className="p-4 text-center">
             <div className="text-2xl font-bold">{stats.ai_generated_courses}</div>
-            <div className="text-sm text-gray-500">AI-сгенерированных</div>
+            <div className="text-sm text-gray-500">{t('admin.stats.aiGenerated')}</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
             <div className="text-2xl font-bold">{stats.total_quizzes_taken}</div>
-            <div className="text-sm text-gray-500">Тестов пройдено</div>
+            <div className="text-sm text-gray-500">{t('admin.stats.quizzesTaken')}</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
             <div className="text-2xl font-bold">{stats.average_quiz_score}%</div>
-            <div className="text-sm text-gray-500">Средний балл</div>
+            <div className="text-sm text-gray-500">{t('admin.stats.averageScore')}</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
             <div className="text-2xl font-bold">{formatBytes(stats.storage_used_bytes)}</div>
-            <div className="text-sm text-gray-500">Хранилище</div>
+            <div className="text-sm text-gray-500">{t('admin.stats.storage')}</div>
           </CardContent>
         </Card>
       </div>
@@ -172,15 +174,15 @@ export default function AdminDashboardPage() {
       <div className="grid lg:grid-cols-2 gap-6">
         <Card>
           <CardHeader>
-            <CardTitle>Последние пользователи</CardTitle>
+            <CardTitle>{t('admin.recentUsers')}</CardTitle>
           </CardHeader>
           <CardContent>
             <Table>
               <thead>
                 <tr>
-                  <th className="text-left p-2">Имя</th>
-                  <th className="text-left p-2">Email</th>
-                  <th className="text-left p-2">Роль</th>
+                   <th className="text-left p-2">{t('users.name')}</th>
+                   <th className="text-left p-2">{t('users.email')}</th>
+                   <th className="text-left p-2">{t('users.role')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -194,14 +196,14 @@ export default function AdminDashboardPage() {
               </tbody>
             </Table>
             <a href="/admin/users" className="text-blue-600 text-sm hover:underline mt-2 block">
-              Все пользователи →
+              {t('admin.allUsers')} →
             </a>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle>Последние курсы</CardTitle>
+            <CardTitle>{t('admin.recentCourses')}</CardTitle>
           </CardHeader>
           <CardContent>
             <Table>
@@ -227,7 +229,7 @@ export default function AdminDashboardPage() {
               </tbody>
             </Table>
             <a href="/courses" className="text-blue-600 text-sm hover:underline mt-2 block">
-              Все курсы →
+              {t('admin.allCourses')} →
             </a>
           </CardContent>
         </Card>

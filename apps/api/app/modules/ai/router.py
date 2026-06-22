@@ -6,10 +6,13 @@ import json
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
 from uuid import UUID, uuid4
 from datetime import datetime, timezone
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import get_current_user
+from app.core.db import get_db
+from app.models.users import User
 from app.modules.ai.schemas import AIGenerateRequest, AIJobResponse
-from app.modules.ai.pipeline import get_job_state, start_generation_job, update_job
+from app.modules.ai.job_service import create_ai_job, get_ai_job, update_ai_job
 from app.modules.ai.tasks import generate_course_task
 
 router = APIRouter(prefix="/ai", tags=["ai-generation"])
@@ -18,32 +21,41 @@ router = APIRouter(prefix="/ai", tags=["ai-generation"])
 @router.post("/generate-course", response_model=AIJobResponse, status_code=202)
 async def generate_course(
     req: AIGenerateRequest,
-    user=Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
     """Start AI course generation (returns job_id for polling/WebSocket)."""
-    job_id = start_generation_job(
-        documents=req.documents,
-        target_audience=req.target_audience,
-        num_modules=req.num_modules,
-        language=req.language,
-        course_id=str(req.course_id) if req.course_id else None,
+    job = await create_ai_job(
+        db=db,
+        tenant_id=user.tenant_id,
+        user_id=user.id,
+        course_id=req.course_id,
+        params={
+            "documents": req.documents,
+            "target_audience": req.target_audience,
+            "num_modules": req.num_modules,
+            "language": req.language,
+        },
     )
+    await db.commit()
 
     # Start Celery task (async background processing)
     generate_course_task.delay(
-        job_id=job_id,
+        job_id=job.id,
         documents=req.documents,
         target_audience=req.target_audience,
         num_modules=req.num_modules,
         language=req.language,
         course_id=str(req.course_id) if req.course_id else None,
+        tenant_id=str(user.tenant_id),
+        user_id=str(user.id),
     )
 
     return AIJobResponse(
-        id=job_id,
+        id=job.id,
         status="pending",
         course_id=req.course_id,
-        created_at=datetime.now(timezone.utc),
+        created_at=job.created_at,
         progress=0,
         stage="queued",
         message="Job queued",
@@ -53,38 +65,41 @@ async def generate_course(
 @router.get("/jobs/{job_id}", response_model=AIJobResponse)
 async def get_job(
     job_id: str,
-    user=Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
     """Get job status (for polling)."""
-    state = get_job_state(job_id)
-    if not state:
+    job = await get_ai_job(db, job_id)
+    if not job or job.tenant_id != user.tenant_id:
         raise HTTPException(status_code=404, detail="Job not found")
 
     return AIJobResponse(
-        id=state.job_id,
-        status=state.status,
-        course_id=UUID(state.course_id) if state.course_id else None,
-        created_at=datetime.fromtimestamp(state.started_at, tz=timezone.utc),
-        progress=state.progress,
-        stage=state.stage,
-        message=state.message,
+        id=job.id,
+        status=job.status,
+        course_id=UUID(job.course_id) if job.course_id else None,
+        created_at=job.created_at,
+        progress=job.progress,
+        stage=job.stage,
+        message=job.message or "",
     )
 
 
 @router.post("/jobs/{job_id}/cancel")
 async def cancel_generation(
     job_id: str,
-    user=Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
     """Cancel a running generation job."""
-    state = get_job_state(job_id)
-    if not state:
+    job = await get_ai_job(db, job_id)
+    if not job or job.tenant_id != user.tenant_id:
         raise HTTPException(status_code=404, detail="Job not found")
 
-    if state.status in ("completed", "failed"):
+    if job.status in ("completed", "failed"):
         raise HTTPException(status_code=400, detail="Job already finished")
 
-    update_job(job_id, status="cancelled", message="Cancelled by user")
+    await update_ai_job(db, job_id, status="cancelled", message="Cancelled by user")
+    await db.commit()
     return {"status": "cancelled"}
 
 
@@ -95,21 +110,23 @@ async def job_progress_ws(websocket: WebSocket, job_id: str):
 
     try:
         while True:
-            state = get_job_state(job_id)
-            if not state:
-                await websocket.send_json({"error": "Job not found"})
-                break
+            from app.core.db import async_session_factory
+            async with async_session_factory() as session:
+                job = await get_ai_job(session, job_id)
+                if not job:
+                    await websocket.send_json({"error": "Job not found"})
+                    break
 
-            await websocket.send_json({
-                "job_id": state.job_id,
-                "status": state.status,
-                "stage": state.stage,
-                "progress": state.progress,
-                "message": state.message,
-            })
+                await websocket.send_json({
+                    "job_id": job.id,
+                    "status": job.status,
+                    "stage": job.stage,
+                    "progress": job.progress,
+                    "message": job.message or "",
+                })
 
-            if state.status in ("completed", "failed", "cancelled"):
-                break
+                if job.status in ("completed", "failed", "cancelled"):
+                    break
 
             await asyncio.sleep(2)
 

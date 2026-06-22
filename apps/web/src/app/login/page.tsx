@@ -5,8 +5,10 @@ import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
 import { api } from '@/lib/api';
 import SkipLink from '@/components/SkipLink';
+import { useT } from '@/i18n/useT';
 
 export default function LoginPage() {
+  const { t } = useT();
   const router = useRouter();
   const { login, accessToken } = useAuthStore();
   const [code, setCode] = useState('');
@@ -94,7 +96,7 @@ export default function LoginPage() {
       <main id="main-content" className="w-full max-w-md p-8 bg-white rounded-xl shadow-md">
         <div className="text-center mb-8">
           <h1 className="text-2xl font-bold text-blue-600">Kamilya LMS</h1>
-          <h2 className="text-xl font-semibold mt-2">Вход через Telegram</h2>
+          <h2 className="text-xl font-semibold mt-2">{t('auth.loginWithTelegram')}</h2>
         </div>
 
         {error && (
@@ -106,7 +108,7 @@ export default function LoginPage() {
         {loading ? (
           <div className="text-center py-8">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="mt-4 text-gray-600">Генерация кода...</p>
+            <p className="mt-4 text-gray-600">{t('common.loading')}</p>
           </div>
         ) : code ? (
           <div className="space-y-6">
@@ -185,7 +187,7 @@ export default function LoginPage() {
 
         <div className="mt-6 text-center text-sm text-gray-600">
           <a href="/register" className="text-blue-600 hover:underline">
-            Зарегистрировать организацию
+            {t('auth.register')}
           </a>
         </div>
       </main>

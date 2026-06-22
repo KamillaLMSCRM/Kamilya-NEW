@@ -1,6 +1,9 @@
-from fastapi import Request, status
+import logging
+from fastapi import Request, FastAPI, status
 from fastapi.responses import JSONResponse
 from pydantic import ValidationError
+
+logger = logging.getLogger(__name__)
 
 
 def _cors_headers(request: Request) -> dict:
@@ -47,10 +50,15 @@ async def unique_violation_handler(request: Request, exc: Exception) -> JSONResp
 
 
 async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
-    import logging
-    logging.getLogger(__name__).exception("Unhandled exception")
+    logger.exception("Unhandled exception")
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={"error": "internal_error", "message": "Internal server error"},
         headers=_cors_headers(request),
     )
+
+
+def register_error_handlers(app: FastAPI) -> None:
+    app.add_exception_handler(404, not_found_handler)
+    app.add_exception_handler(422, validation_error_handler)
+    app.add_exception_handler(500, unhandled_exception_handler)

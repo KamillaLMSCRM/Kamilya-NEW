@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Card, CardHeader, CardTitle, CardContent, Button, Badge } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
+import { useT } from '@/i18n/useT';
 
 interface Certificate {
   id: string;
@@ -13,6 +14,7 @@ interface Certificate {
 }
 
 export default function CertificatesPage() {
+  const { t } = useT();
   const [certificates, setCertificates] = useState<Certificate[]>([]);
   const [loading, setLoading] = useState(true);
   const token = useAuthStore((s) => s.accessToken);
@@ -49,16 +51,16 @@ export default function CertificatesPage() {
     }
   };
 
-  if (loading) return <div className="p-6">Загрузка...</div>;
+  if (loading) return <div className="p-6">{t('common.loading')}</div>;
 
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-6">
-      <h1 className="text-2xl font-bold">Мои сертификаты</h1>
+      <h1 className="text-2xl font-bold">{t('certificates.title')}</h1>
 
       {certificates.length === 0 ? (
         <Card>
           <CardContent className="p-6 text-center text-gray-400">
-            У вас пока нет сертификатов. Завершите курсы, чтобы получить сертификат!
+            {t('certificates.noCertificates')}
           </CardContent>
         </Card>
       ) : (
@@ -69,18 +71,18 @@ export default function CertificatesPage() {
                 <div>
                   <div className="font-medium">{cert.certificate_number}</div>
                   <div className="text-sm text-gray-500">
-                    Выдан: {new Date(cert.issued_at).toLocaleDateString('ru')}
+                    {t('certificates.issuedAt')}: {new Date(cert.issued_at).toLocaleDateString('ru')}
                   </div>
                   {cert.expires_at && (
                     <div className="text-sm text-gray-400">
-                      Действителен до: {new Date(cert.expires_at).toLocaleDateString('ru')}
+                      {t('certificates.expiresAt')}: {new Date(cert.expires_at).toLocaleDateString('ru')}
                     </div>
                   )}
                 </div>
                 <div className="flex gap-2">
                   <Badge variant="outline">PDF</Badge>
                   <Button size="sm" onClick={() => handleDownload(cert.id)}>
-                    Скачать
+                    {t('common.download')}
                   </Button>
                 </div>
               </CardContent>
@@ -90,7 +92,7 @@ export default function CertificatesPage() {
       )}
 
       <div className="mt-8">
-        <h2 className="text-lg font-semibold mb-4">Проверить сертификат</h2>
+        <h2 className="text-lg font-semibold mb-4">{t('certificates.verify')}</h2>
         <Card>
           <CardContent className="p-4">
             <VerifyCertificateForm />
@@ -102,6 +104,7 @@ export default function CertificatesPage() {
 }
 
 function VerifyCertificateForm() {
+  const { t } = useT();
   const [number, setNumber] = useState('');
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState('');
@@ -114,7 +117,7 @@ function VerifyCertificateForm() {
     if (res.ok) {
       setResult(await res.json());
     } else {
-      setError('Сертификат не найден');
+      setError(t('certificates.invalid'));
     }
   };
 
@@ -124,13 +127,13 @@ function VerifyCertificateForm() {
         type="text"
         value={number}
         onChange={(e) => setNumber(e.target.value)}
-        placeholder="Номер сертификата (KML-2026-XXXXXX)"
+        placeholder={t('certificates.verifyPlaceholder')}
         className="flex-1 border rounded px-3 py-2"
       />
-      <Button onClick={handleVerify}>Проверить</Button>
+      <Button onClick={handleVerify}>{t('certificates.verifyButton')}</Button>
       {result && (
         <div className="w-full mt-2 p-2 bg-green-50 rounded text-sm">
-          ✓ Сертификат действителен. Выдан: {result.user_name}, Курс: {result.course_title}
+          ✓ {t('certificates.valid')}. {result.user_name}, {result.course_title}
         </div>
       )}
       {error && (

@@ -36,7 +36,7 @@ async def get_quiz_with_questions(db: AsyncSession, quiz_id: UUID, tenant_id: UU
             "explanation": q.explanation,
             "order_index": q.order_index,
             "choices": [
-                {"id": c.id, "text": c.text, "order_index": c.order_index}
+                {"id": c.id, "text": c.text, "order_index": c.order_index, "is_correct": c.is_correct}
                 for c in choices
             ],
         })
@@ -70,6 +70,7 @@ async def grade_quiz(
         select(func.count(QuizAttempt.id)).where(
             QuizAttempt.quiz_id == quiz_id,
             QuizAttempt.user_id == user_id,
+            QuizAttempt.tenant_id == tenant_id,
         )
     )
     attempt_count = attempt_count_result.scalar() or 0
@@ -151,33 +152,45 @@ async def grade_quiz(
 
 
 async def get_user_attempts(
-    db: AsyncSession, quiz_id: UUID, user_id: UUID
+    db: AsyncSession, quiz_id: UUID, user_id: UUID, tenant_id: UUID
 ) -> list[QuizAttempt]:
-    """Get all attempts by a user for a quiz."""
+    """Get all attempts by a user for a quiz (with tenant isolation)."""
     result = await db.execute(
         select(QuizAttempt)
-        .where(QuizAttempt.quiz_id == quiz_id, QuizAttempt.user_id == user_id)
+        .where(
+            QuizAttempt.quiz_id == quiz_id,
+            QuizAttempt.user_id == user_id,
+            QuizAttempt.tenant_id == tenant_id,
+        )
         .order_by(QuizAttempt.started_at.desc())
     )
     return result.scalars().all()
 
 
-async def get_quiz_stats(db: AsyncSession, quiz_id: UUID) -> dict:
-    """Get quiz statistics."""
+async def get_quiz_stats(db: AsyncSession, quiz_id: UUID, tenant_id: UUID) -> dict:
+    """Get quiz statistics (with tenant isolation)."""
     total_result = await db.execute(
-        select(func.count(QuizAttempt.id)).where(QuizAttempt.quiz_id == quiz_id)
+        select(func.count(QuizAttempt.id)).where(
+            QuizAttempt.quiz_id == quiz_id,
+            QuizAttempt.tenant_id == tenant_id,
+        )
     )
     total_attempts = total_result.scalar() or 0
 
     passed_result = await db.execute(
         select(func.count(QuizAttempt.id)).where(
-            QuizAttempt.quiz_id == quiz_id, QuizAttempt.passed == True
+            QuizAttempt.quiz_id == quiz_id,
+            QuizAttempt.passed == True,
+            QuizAttempt.tenant_id == tenant_id,
         )
     )
     passed_count = passed_result.scalar() or 0
 
     avg_result = await db.execute(
-        select(func.avg(QuizAttempt.score_percent)).where(QuizAttempt.quiz_id == quiz_id)
+        select(func.avg(QuizAttempt.score_percent)).where(
+            QuizAttempt.quiz_id == quiz_id,
+            QuizAttempt.tenant_id == tenant_id,
+        )
     )
     avg_score = round(avg_result.scalar() or 0, 1)
 

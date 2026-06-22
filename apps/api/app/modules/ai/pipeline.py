@@ -4,8 +4,10 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+from datetime import datetime, timezone
 from typing import Callable
 from dataclasses import dataclass, field
+from uuid import UUID
 
 from app.modules.ai.architect_schema import CourseStructure
 from app.modules.ai.writer_schema import CourseContent, ModuleContent, LessonContent
@@ -15,6 +17,8 @@ from app.modules.ai.ingestion import VectorStore, DocumentIngestion
 from app.modules.ai.architect import run_architect, create_architect_tools
 from app.modules.ai.writer import write_lesson, write_course
 from app.modules.ai.assessment import generate_lesson_assessment, generate_course_assessment
+from app.modules.ai.reviewer import ReviewerAgent
+from app.core.db import async_session_factory
 
 logger = logging.getLogger(__name__)
 
@@ -35,18 +39,167 @@ class GenerationState:
     errors: list[str] = field(default_factory=list)
 
 
-# In-memory job store (replace with Redis/DB in production)
-_jobs: dict[str, GenerationState] = {}
+async def _update_job_db(job_id: str, **kwargs):
+    """Update job state in the database."""
+    from app.modules.ai.job_service import update_ai_job
+    async with async_session_factory() as session:
+        await update_ai_job(session, job_id, **kwargs)
+        await session.commit()
 
 
-def get_job_state(job_id: str) -> GenerationState | None:
-    return _jobs.get(job_id)
+async def _save_generation_to_db(
+    state: GenerationState,
+    tenant_id: UUID,
+    user_id: UUID,
+):
+    """Save generated course structure, content, and assessments to DB."""
+    from app.modules.courses.models import Course
+    from app.modules.lessons.models import Module, Lesson
+    from app.modules.quizzes.models import Quiz, Question, QuizChoice
 
+    async with async_session_factory() as session:
+        # Create course
+        course = Course(
+            id=UUID(state.course_id) if state.course_id else None,
+            tenant_id=tenant_id,
+            title=state.structure.title if state.structure else "AI Generated Course",
+            description=state.structure.description if state.structure else "",
+            status="draft",
+            created_by=user_id,
+            ai_generated="true",
+        )
+        if not state.course_id:
+            session.add(course)
+            await session.flush()
+            state.course_id = str(course.id)
+        else:
+            session.add(course)
 
-def update_job(job_id: str, **kwargs):
-    if job_id in _jobs:
-        for k, v in kwargs.items():
-            setattr(_jobs[job_id], k, v)
+        # Create modules and lessons
+        if state.structure and state.content:
+            for mod_idx, (struct_mod, content_mod) in enumerate(
+                zip(state.structure.modules, state.content.modules)
+            ):
+                module = Module(
+                    tenant_id=tenant_id,
+                    course_id=course.id,
+                    title=struct_mod.title,
+                    description=struct_mod.description or "",
+                    order_index=mod_idx,
+                    ai_generated=True,
+                )
+                session.add(module)
+                await session.flush()
+
+                for les_idx, (struct_les, content_les) in enumerate(
+                    zip(struct_mod.lessons, content_mod.lessons)
+                ):
+                    lesson = Lesson(
+                        tenant_id=tenant_id,
+                        module_id=module.id,
+                        title=struct_les.title,
+                        content_type="text",
+                        content=content_les.content if hasattr(content_les, 'content') else "",
+                        order_index=les_idx,
+                        ai_generated=True,
+                    )
+                    session.add(lesson)
+                    await session.flush()
+
+                    # Create quiz from assessment
+                    if state.assessment:
+                        for lesson_assess in state.assessment.assessments:
+                            if lesson_assess.lesson_title == struct_les.title:
+                                quiz = Quiz(
+                                    tenant_id=tenant_id,
+                                    lesson_id=lesson.id,
+                                    title=f"Quiz: {struct_les.title}",
+                                    pass_score=80,
+                                    attempt_limit=3,
+                                )
+                                session.add(quiz)
+                                await session.flush()
+
+                                q_idx = 0
+
+                                # MCQ questions
+                                for mcq in lesson_assess.mcq:
+                                    question = Question(
+                                        quiz_id=quiz.id,
+                                        text=mcq.question,
+                                        type="multiple_choice",
+                                        points=1,
+                                        explanation=mcq.explanation,
+                                        order_index=q_idx,
+                                    )
+                                    session.add(question)
+                                    await session.flush()
+
+                                    for c_idx, option in enumerate(mcq.options):
+                                        choice = QuizChoice(
+                                            question_id=question.id,
+                                            text=option.text,
+                                            is_correct=option.is_correct,
+                                            order_index=c_idx,
+                                        )
+                                        session.add(choice)
+                                    q_idx += 1
+
+                                # True/False questions
+                                for tf in lesson_assess.true_false:
+                                    question = Question(
+                                        quiz_id=quiz.id,
+                                        text=tf.statement,
+                                        type="true_false",
+                                        points=1,
+                                        explanation=tf.explanation,
+                                        order_index=q_idx,
+                                    )
+                                    session.add(question)
+                                    await session.flush()
+
+                                    session.add(QuizChoice(
+                                        question_id=question.id,
+                                        text="Верно",
+                                        is_correct=tf.is_true,
+                                        order_index=0,
+                                    ))
+                                    session.add(QuizChoice(
+                                        question_id=question.id,
+                                        text="Неверно",
+                                        is_correct=not tf.is_true,
+                                        order_index=1,
+                                    ))
+                                    q_idx += 1
+
+                                # Matching questions (stored as MCQ with pair text)
+                                for mq in lesson_assess.matching:
+                                    for pair in mq.pairs:
+                                        question = Question(
+                                            quiz_id=quiz.id,
+                                            text=f"{mq.instruction}: {pair.left} → ?",
+                                            type="multiple_choice",
+                                            points=1,
+                                            explanation=f"Правильный ответ: {pair.right}",
+                                            order_index=q_idx,
+                                        )
+                                        session.add(question)
+                                        await session.flush()
+
+                                        # Create choices: correct pair + 2 random distractors
+                                        all_rights = [p.right for p in mq.pairs]
+                                        choices_texts = [pair.right] + [r for r in all_rights if r != pair.right][:2]
+                                        for c_idx, text in enumerate(choices_texts):
+                                            session.add(QuizChoice(
+                                                question_id=question.id,
+                                                text=text,
+                                                is_correct=(c_idx == 0),
+                                                order_index=c_idx,
+                                            ))
+                                        q_idx += 1
+
+        await session.commit()
+        logger.info(f"Saved generation results to DB for course {state.course_id}")
 
 
 async def run_generation_pipeline(
@@ -59,6 +212,8 @@ async def run_generation_pipeline(
     course_hours: float | None = None,
     guidance: str | None = None,
     course_id: str | None = None,
+    tenant_id: UUID | None = None,
+    user_id: UUID | None = None,
 ) -> GenerationState:
     """
     Full generation pipeline:
@@ -69,24 +224,21 @@ async def run_generation_pipeline(
     5. Save results to DB
     """
     state = GenerationState(job_id=job_id, course_id=course_id)
-    _jobs[job_id] = state
 
     try:
         # Stage 1: Ingestion
         state.stage = "ingestion"
         state.progress = 5
         state.message = "Ingesting documents..."
-        update_job(job_id, status="running", stage="ingestion", progress=5)
+        await _update_job_db(job_id, status="running", stage="ingestion", progress=5, message=state.message)
 
         ingestion = DocumentIngestion()
-        # TODO: Download documents from storage and ingest
-        # For now, assume documents are already ingested
 
         # Stage 2: Architect
         state.stage = "architect"
         state.progress = 10
         state.message = "Designing course structure..."
-        update_job(job_id, stage="architect", progress=10)
+        await _update_job_db(job_id, stage="architect", progress=10, message=state.message)
 
         llm = create_llm()
         store = VectorStore()
@@ -105,19 +257,19 @@ async def run_generation_pipeline(
             num_modules=num_modules,
             language=language,
             guidance=guidance,
-            on_message=lambda msg: update_job(job_id, message=f"Architect: {msg}"),
+            on_message=lambda msg: asyncio.create_task(_update_job_db(job_id, message=f"Architect: {msg}")),
         )
 
         state.structure = structure
         state.progress = 25
         state.message = f"Structure designed: {len(structure.modules)} modules"
-        update_job(job_id, progress=25, message=state.message)
+        await _update_job_db(job_id, progress=25, message=state.message)
 
         # Stage 3: Content Generation (Writer)
         state.stage = "content_generation"
         state.progress = 30
         state.message = "Generating lesson content..."
-        update_job(job_id, stage="content_generation", progress=30)
+        await _update_job_db(job_id, stage="content_generation", progress=30, message=state.message)
 
         total_lessons = sum(len(m.lessons) for m in structure.modules)
         lessons_done = 0
@@ -125,8 +277,8 @@ async def run_generation_pipeline(
         async def on_lesson_progress(msg: str):
             nonlocal lessons_done
             lessons_done += 1
-            pct = 30 + int(lessons_done / total_lessons * 40)
-            update_job(job_id, progress=min(pct, 70), message=msg)
+            pct = 30 + int(lessons_done / total_lessons * 40) if total_lessons > 0 else 70
+            await _update_job_db(job_id, progress=min(pct, 70), message=msg)
 
         content = await write_course(
             llm=llm,
@@ -140,21 +292,50 @@ async def run_generation_pipeline(
         state.content = content
         state.progress = 70
         state.message = "Content generation complete"
-        update_job(job_id, progress=70, message=state.message)
+        await _update_job_db(job_id, progress=70, message=state.message)
+
+        # Stage 3.5: Review content quality
+        state.stage = "review"
+        state.progress = 72
+        state.message = "Reviewing content quality..."
+        await _update_job_db(job_id, stage="review", progress=72, message=state.message)
+
+        reviewer = ReviewerAgent(llm_client=llm)
+        low_quality_lessons = []
+        for mod_idx, content_mod in enumerate(content.modules):
+            for les_idx, content_les in enumerate(content_mod.lessons):
+                review = await reviewer.review_lesson(
+                    lesson_content=content_les.content if hasattr(content_les, 'content') else "",
+                    lesson_meta={"content_type": "text"},
+                )
+                if review["quality_score"] < 70:
+                    low_quality_lessons.append({
+                        "module": mod_idx,
+                        "lesson": les_idx,
+                        "score": review["quality_score"],
+                        "issues": review["issues"],
+                    })
+
+        if low_quality_lessons:
+            state.message = f"Review: {len(low_quality_lessons)} lessons below quality threshold"
+            await _update_job_db(job_id, message=state.message)
+        else:
+            state.message = "Content quality verified"
+            await _update_job_db(job_id, message=state.message)
 
         # Stage 4: Assessment Generation
         state.stage = "assessment"
         state.progress = 75
         state.message = "Generating assessments..."
-        update_job(job_id, stage="assessment", progress=75)
+        await _update_job_db(job_id, stage="assessment", progress=75, message=state.message)
 
         assessments_done = 0
 
         async def on_assessment_progress(msg: str):
             nonlocal assessments_done
             assessments_done += 1
-            pct = 75 + int(assessments_done / total_lessons * 20)
-            update_job(job_id, progress=min(pct, 95), message=msg)
+            pct = 75 + int(assessments_done / total_lessons * 20) if total_lessons > 0 else 95
+            await _update_job_db(job_id, progress=min(pct, 95), message=msg)
 
         assessment = await generate_course_assessment(
             llm=llm,
@@ -166,23 +347,27 @@ async def run_generation_pipeline(
         state.assessment = assessment
         state.progress = 95
         state.message = "Assessments generated"
-        update_job(job_id, progress=95, message=state.message)
+        await _update_job_db(job_id, progress=95, message=state.message)
 
         # Stage 5: Save to DB
         state.stage = "saving"
         state.progress = 98
         state.message = "Saving results..."
-        update_job(job_id, stage="saving", progress=98)
+        await _update_job_db(job_id, stage="saving", progress=98, message=state.message)
 
-        # TODO: Save to PostgreSQL
-        # - Create/update course with structure
-        # - Create modules, lessons, content blocks
-        # - Create quizzes, questions, choices
+        if tenant_id and user_id:
+            await _save_generation_to_db(state, tenant_id, user_id)
 
         state.status = "completed"
         state.progress = 100
         state.message = "Course generation complete!"
-        update_job(job_id, status="completed", progress=100, message=state.message)
+        await _update_job_db(
+            job_id,
+            status="completed",
+            progress=100,
+            message=state.message,
+            completed_at=datetime.now(timezone.utc),
+        )
 
         logger.info(f"Generation pipeline complete for job {job_id}")
 
@@ -190,25 +375,7 @@ async def run_generation_pipeline(
         state.status = "failed"
         state.message = f"Error: {str(e)}"
         state.errors.append(str(e))
-        update_job(job_id, status="failed", message=state.message)
+        await _update_job_db(job_id, status="failed", message=state.message, errors=[str(e)])
         logger.error(f"Generation pipeline failed for job {job_id}: {e}")
 
     return state
-
-
-def start_generation_job(
-    documents: list[str],
-    target_audience: str = "",
-    num_modules: int = 3,
-    language: str = "ru",
-    goals: list[str] | None = None,
-    course_hours: float | None = None,
-    guidance: str | None = None,
-    course_id: str | None = None,
-) -> str:
-    """Start a generation job (sync wrapper for Celery)."""
-    import uuid
-    job_id = str(uuid.uuid4())
-    state = GenerationState(job_id=job_id, course_id=course_id)
-    _jobs[job_id] = state
-    return job_id

@@ -1,11 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
 from datetime import datetime, timezone
+from typing import Optional
 
-from app.core.auth import get_current_user
+from app.core.auth import get_current_user, require_role
 from app.core.db import get_db
+from app.models.users import User
 from app.models.courses import Course
 from app.modules.courses.schemas import CourseCreate, CourseUpdate, CourseResponse
 
@@ -13,8 +15,25 @@ router = APIRouter(prefix="/courses", tags=["courses"])
 
 
 @router.get("", response_model=list[CourseResponse])
-async def list_courses(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Course).order_by(Course.created_at.desc()))
+async def list_courses(
+    status: Optional[str] = Query(None, description="Filter by status: draft, published, archived"),
+    q: Optional[str] = Query(None, description="Search in title and description"),
+    page: int = Query(1, ge=1),
+    per_page: int = Query(20, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    query = select(Course).where(Course.tenant_id == user.tenant_id)
+    if status:
+        query = query.where(Course.status == status)
+    if q:
+        search = f"%{q}%"
+        query = query.where(
+            (Course.title.ilike(search)) | (Course.description.ilike(search))
+        )
+    query = query.order_by(Course.created_at.desc())
+    query = query.offset((page - 1) * per_page).limit(per_page)
+    result = await db.execute(query)
     return result.scalars().all()
 
 
@@ -22,7 +41,7 @@ async def list_courses(db: AsyncSession = Depends(get_db)):
 async def create_course(
     req: CourseCreate,
     db: AsyncSession = Depends(get_db),
-    user=Depends(get_current_user),
+    user: User = Depends(require_role("superadmin", "admin", "org_admin", "teacher")),
 ):
     course = Course(
         tenant_id=user.tenant_id,
@@ -38,8 +57,15 @@ async def create_course(
 
 
 @router.get("/{course_id}", response_model=CourseResponse)
-async def get_course(course_id: UUID, db: AsyncSession = Depends(get_db)):
-    course = await db.get(Course, course_id)
+async def get_course(
+    course_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    result = await db.execute(
+        select(Course).where(Course.id == course_id, Course.tenant_id == user.tenant_id)
+    )
+    course = result.scalar_one_or_none()
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
     return course
@@ -50,10 +76,13 @@ async def update_course(
     course_id: UUID,
     req: CourseUpdate,
     db: AsyncSession = Depends(get_db),
-    user=Depends(get_current_user),
+    user: User = Depends(require_role("superadmin", "admin", "org_admin", "teacher")),
 ):
-    course = await db.get(Course, course_id)
-    if not course or course.tenant_id != user.tenant_id:
+    result = await db.execute(
+        select(Course).where(Course.id == course_id, Course.tenant_id == user.tenant_id)
+    )
+    course = result.scalar_one_or_none()
+    if not course:
         raise HTTPException(status_code=404, detail="Course not found")
     for field, value in req.model_dump(exclude_unset=True).items():
         setattr(course, field, value)
@@ -66,10 +95,13 @@ async def update_course(
 async def publish_course(
     course_id: UUID,
     db: AsyncSession = Depends(get_db),
-    user=Depends(get_current_user),
+    user: User = Depends(require_role("superadmin", "admin", "org_admin", "teacher")),
 ):
-    course = await db.get(Course, course_id)
-    if not course or course.tenant_id != user.tenant_id:
+    result = await db.execute(
+        select(Course).where(Course.id == course_id, Course.tenant_id == user.tenant_id)
+    )
+    course = result.scalar_one_or_none()
+    if not course:
         raise HTTPException(status_code=404, detail="Course not found")
     course.status = "published"
     course.published_at = datetime.now(timezone.utc)
@@ -82,10 +114,13 @@ async def publish_course(
 async def unpublish_course(
     course_id: UUID,
     db: AsyncSession = Depends(get_db),
-    user=Depends(get_current_user),
+    user: User = Depends(require_role("superadmin", "admin", "org_admin", "teacher")),
 ):
-    course = await db.get(Course, course_id)
-    if not course or course.tenant_id != user.tenant_id:
+    result = await db.execute(
+        select(Course).where(Course.id == course_id, Course.tenant_id == user.tenant_id)
+    )
+    course = result.scalar_one_or_none()
+    if not course:
         raise HTTPException(status_code=404, detail="Course not found")
     course.status = "draft"
     course.published_at = None
@@ -98,10 +133,13 @@ async def unpublish_course(
 async def duplicate_course(
     course_id: UUID,
     db: AsyncSession = Depends(get_db),
-    user=Depends(get_current_user),
+    user: User = Depends(require_role("superadmin", "admin", "org_admin", "teacher")),
 ):
-    course = await db.get(Course, course_id)
-    if not course or course.tenant_id != user.tenant_id:
+    result = await db.execute(
+        select(Course).where(Course.id == course_id, Course.tenant_id == user.tenant_id)
+    )
+    course = result.scalar_one_or_none()
+    if not course:
         raise HTTPException(status_code=404, detail="Course not found")
     new_course = Course(
         tenant_id=user.tenant_id,
@@ -120,9 +158,12 @@ async def duplicate_course(
 async def delete_course(
     course_id: UUID,
     db: AsyncSession = Depends(get_db),
-    user=Depends(get_current_user),
+    user: User = Depends(require_role("superadmin", "admin", "org_admin")),
 ):
-    course = await db.get(Course, course_id)
-    if not course or course.tenant_id != user.tenant_id:
+    result = await db.execute(
+        select(Course).where(Course.id == course_id, Course.tenant_id == user.tenant_id)
+    )
+    course = result.scalar_one_or_none()
+    if not course:
         raise HTTPException(status_code=404, detail="Course not found")
     await db.delete(course)

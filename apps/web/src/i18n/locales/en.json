@@ -111,7 +111,12 @@
     "startCourse": "Start",
     "continueCourse": "Continue",
     "viewCertificate": "Certificate",
-    "progress": "Progress"
+    "progress": "Progress",
+    "browse": "Available Courses",
+    "viewAll": "View All Courses",
+    "enroll": "Enroll",
+    "enrolled": "Enrolled",
+    "alreadyEnrolled": "Already enrolled"
   },
   "student": {
     "title": "My Dashboard",
@@ -137,7 +142,11 @@
     "total": "Total",
     "passScore": "Pass Score",
     "tryAgain": "Try Again",
-    "attemptLimit": "Attempt limit reached"
+    "attemptLimit": "Attempt limit reached",
+    "review": "Review Answers",
+    "showReview": "Show Answers",
+    "hideReview": "Hide Answers",
+    "attempts": "Attempts"
   },
   "certificates": {
     "title": "My Certificates",

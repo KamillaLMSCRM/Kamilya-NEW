@@ -100,7 +100,7 @@
     "status": "Статус",
     "draft": "Черновик",
     "published": "Опубликован",
-    "enrollments": "Записей",
+    "enrollments": "Записи на курс",
     "lessons": "Уроков",
     "modules": "Модулей",
     "publish": "Опубликовать",
@@ -111,7 +111,12 @@
     "startCourse": "Начать",
     "continueCourse": "Продолжить",
     "viewCertificate": "Сертификат",
-    "progress": "Прогресс"
+    "progress": "Прогресс",
+    "browse": "Доступные курсы",
+    "viewAll": "Смотреть все курсы",
+    "enroll": "Записаться",
+    "enrolled": "Записан",
+    "alreadyEnrolled": "Вы уже записаны"
   },
   "student": {
     "title": "Мой дашборд",
@@ -137,7 +142,11 @@
     "total": "Всего",
     "passScore": "Проходной",
     "tryAgain": "Попробовать снова",
-    "attemptLimit": "Лимит попыток исчерпан"
+    "attemptLimit": "Лимит попыток исчерпан",
+    "review": "Обзор ответов",
+    "showReview": "Показать ответы",
+    "hideReview": "Скрыть ответы",
+    "attempts": "Попытки"
   },
   "certificates": {
     "title": "Мои сертификаты",

@@ -1,4 +1,5 @@
 from sqlalchemy import Column, Text, Integer, Boolean, TIMESTAMP, ForeignKey, func
+from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID
 from app.core.db import Base
 
@@ -16,6 +17,9 @@ class Module(Base):
     created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
     updated_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
 
+    course = relationship("Course", back_populates="modules")
+    lessons = relationship("Lesson", back_populates="module", cascade="all, delete-orphan", order_by="Lesson.order_index")
+
 
 class Lesson(Base):
     __tablename__ = "lessons"
@@ -32,6 +36,8 @@ class Lesson(Base):
     published_at = Column(TIMESTAMP(timezone=True), nullable=True)
     created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
     updated_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+
+    module = relationship("Module", back_populates="lessons")
 
 
 class ContentBlock(Base):

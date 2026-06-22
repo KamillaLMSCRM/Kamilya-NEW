@@ -11,11 +11,14 @@ from app.modules.lessons.schemas import (
     ModuleCreate, ModuleUpdate, ModuleResponse,
     LessonCreate, LessonUpdate, LessonResponse,
     CourseStructureResponse, ModuleWithLessonsResponse,
+    ContentBlockCreate, ContentBlockResponse,
 )
 from app.modules.lessons.service import (
     list_modules, create_module, update_module, delete_module,
     list_lessons, create_lesson, update_lesson, delete_lesson,
     reorder_items, get_course_structure,
+    list_content_blocks, create_content_block, update_content_block,
+    delete_content_block, reorder_content_blocks,
 )
 from app.modules.lessons.models import Module
 from app.models.courses import Course
@@ -75,7 +78,7 @@ async def reorder_modules(
     db: AsyncSession = Depends(get_db),
     user=Depends(get_current_user),
 ):
-    await reorder_items(db, "module", ids_order)
+    await reorder_items(db, "module", ids_order, user.tenant_id)
     return {"status": "ok"}
 
 
@@ -135,7 +138,7 @@ async def reorder_lessons(
     db: AsyncSession = Depends(get_db),
     user=Depends(get_current_user),
 ):
-    await reorder_items(db, "lesson", ids_order)
+    await reorder_items(db, "lesson", ids_order, user.tenant_id)
     return {"status": "ok"}
 
 
@@ -147,3 +150,78 @@ async def get_course_structure_endpoint(
 ):
     course = await get_course_structure(db, course_id, user.tenant_id)
     return course
+
+
+# ── Content Blocks ──────────────────────────────────────────
+
+
+@router.get("/lessons/{lesson_id}/content-blocks", response_model=List[ContentBlockResponse])
+async def list_lesson_content_blocks(
+    lesson_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    return await list_content_blocks(db, lesson_id, user.tenant_id)
+
+
+@router.post("/lessons/{lesson_id}/content-blocks", response_model=ContentBlockResponse, status_code=201)
+async def create_lesson_content_block(
+    lesson_id: UUID,
+    data: ContentBlockCreate,
+    db: AsyncSession = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    try:
+        block = await create_content_block(
+            db, lesson_id, user.tenant_id,
+            block_type=data.block_type,
+            content=data.content,
+            order_index=data.order_index,
+            metadata_=data.metadata,
+        )
+        return block
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.patch("/content-blocks/{block_id}", response_model=ContentBlockResponse)
+async def update_lesson_content_block(
+    block_id: UUID,
+    data: ContentBlockCreate,
+    db: AsyncSession = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    block = await update_content_block(
+        db, block_id, user.tenant_id,
+        content=data.content,
+        order_index=data.order_index,
+        metadata_=data.metadata,
+    )
+    if not block:
+        raise HTTPException(status_code=404, detail="Content block not found")
+    return block
+
+
+@router.delete("/content-blocks/{block_id}", status_code=204)
+async def delete_lesson_content_block(
+    block_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    deleted = await delete_content_block(db, block_id, user.tenant_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Content block not found")
+
+
+@router.post("/lessons/{lesson_id}/content-blocks/reorder", status_code=200)
+async def reorder_lesson_content_blocks(
+    lesson_id: UUID,
+    ids_order: List[UUID],
+    db: AsyncSession = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    try:
+        await reorder_content_blocks(db, lesson_id, ids_order, user.tenant_id)
+        return {"status": "ok"}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
