@@ -127,7 +127,7 @@ export default function AdminUsersPage() {
                         onChange={(e) => handleChangeRole(user.id, e.target.value)}
                         className="border rounded px-2 py-1 text-sm"
                       >
-                        <option value="student">Студент</option>
+                        <option value="student">Обучающийся</option>
                         <option value="instructor">Инструктор</option>
                         <option value="admin">Админ</option>
                         <option value="org_admin">Орг. админ</option>
@@ -179,7 +179,7 @@ export default function AdminUsersPage() {
           <Input placeholder="Имя" value={newUser.first_name} onChange={(e) => setNewUser({ ...newUser, first_name: e.target.value })} />
           <Input placeholder="Фамилия" value={newUser.last_name} onChange={(e) => setNewUser({ ...newUser, last_name: e.target.value })} />
           <select value={newUser.role} onChange={(e) => setNewUser({ ...newUser, role: e.target.value })} className="w-full border rounded px-3 py-2">
-            <option value="student">Студент</option>
+            <option value="student">Обучающийся</option>
             <option value="instructor">Инструктор</option>
             <option value="admin">Админ</option>
           </select>

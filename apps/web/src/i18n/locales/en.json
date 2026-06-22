@@ -200,7 +200,7 @@
     "unblock": "Unblock",
     "blocked": "Blocked",
     "roles": {
-      "student": "Student",
+      "student": "Learner",
       "instructor": "Instructor",
       "admin": "Admin",
       "orgAdmin": "Org Admin",

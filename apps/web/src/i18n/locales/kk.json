@@ -200,7 +200,7 @@
     "unblock": "Бұғаттан шығару",
     "blocked": "Бұғатталған",
     "roles": {
-      "student": "Студент",
+      "student": "Оқушы",
       "instructor": "Оқытушы",
       "admin": "Әкімші",
       "orgAdmin": "Ұйым әкімшісі",

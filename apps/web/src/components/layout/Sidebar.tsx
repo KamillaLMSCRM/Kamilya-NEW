@@ -148,7 +148,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
                 {user?.full_name || 'Пользователь'}
               </div>
               <div className="text-[11px] text-warm-400 truncate capitalize">
-                {user?.role || 'student'}
+                {user?.role === 'superadmin' ? 'Суперадмин' : user?.role === 'admin' ? 'Администратор' : user?.role === 'org_admin' ? 'Орг. администратор' : user?.role === 'teacher' ? 'Преподаватель' : 'Обучающийся'}
               </div>
             </div>
           )}
