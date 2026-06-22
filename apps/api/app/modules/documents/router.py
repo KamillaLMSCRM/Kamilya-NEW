@@ -37,6 +37,17 @@ async def upload_document(
     content = await file.read()
     file_size = len(content)
 
+    # Check for duplicate by filename in same tenant
+    existing = await db.execute(
+        select(Document).where(
+            Document.tenant_id == user.tenant_id,
+            Document.filename == (file.filename or "unknown"),
+        )
+    )
+    existing_doc = existing.scalar_one_or_none()
+    if existing_doc:
+        return existing_doc
+
     ext = os.path.splitext(file.filename or "")[1]
     s3_key = f"tenants/{user.tenant_id}/documents/{uuid.uuid4()}{ext}"
 
