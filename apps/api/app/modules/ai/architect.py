@@ -350,7 +350,9 @@ When ready to output the final course structure, output ONLY the JSON code block
     messages[0]["content"] = messages[0]["content"] + "\n\n" + tool_descriptions
 
     for iteration in range(max_iterations):
-        response = await llm.ainvoke(messages)
+        # Groq free tier: keep messages compact — limit to last 8 messages
+        trimmed = messages[:1] + messages[-6:] if len(messages) > 7 else messages
+        response = await llm.ainvoke(trimmed)
         content = response.content
 
         if on_message:
