@@ -34,14 +34,14 @@ async def login(req: LoginRequest, request: Request, db=Depends(get_db)):
         logger.exception(f"log_action failed: {e}")
         raise
     await db.commit()
-    return TokenResponse(access_token=access_token, refresh_token=refresh_token)
+    return TokenResponse(access_token=access_token, refresh_token=refresh_token, expires_in=900)
 
 
 @router.post("/refresh", response_model=TokenResponse)
 async def refresh(req: RefreshRequest, db=Depends(get_db)):
     try:
         new_token = await refresh_access_token(db, req.refresh_token)
-        return TokenResponse(access_token=new_token)
+        return TokenResponse(access_token=new_token, refresh_token=req.refresh_token, expires_in=900)
     except Exception:
         raise HTTPException(status_code=401, detail="Invalid refresh token")
 
