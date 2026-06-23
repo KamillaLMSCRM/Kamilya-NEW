@@ -1,3 +1,4 @@
+from uuid import uuid4
 from sqlalchemy import Column, Text, CheckConstraint, TIMESTAMP, DateTime, ForeignKey, func
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from app.core.db import Base
@@ -7,7 +8,7 @@ import re
 class TenantSettings(Base):
     __tablename__ = "tenant_settings"
 
-    id = Column(UUID(as_uuid=True), primary_key=True)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
     logo_url = Column(Text, nullable=True)
     primary_color = Column(Text, nullable=True)

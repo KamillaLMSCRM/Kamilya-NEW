@@ -1,3 +1,4 @@
+from uuid import uuid4
 from sqlalchemy import Column, Text, UUID, DateTime, Boolean, func, CheckConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import JSONB
@@ -6,7 +7,7 @@ from app.core.db import Base
 class Course(Base):
     __tablename__ = "courses"
 
-    id = Column(UUID(as_uuid=True), primary_key=True)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     tenant_id = Column(UUID(as_uuid=True), nullable=False, index=True)
     title = Column(Text, nullable=False)
     description = Column(Text, nullable=False, default="")

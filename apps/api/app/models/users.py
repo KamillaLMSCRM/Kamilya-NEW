@@ -1,3 +1,4 @@
+from uuid import uuid4
 from sqlalchemy import Column, Text, BigInteger, Boolean, TIMESTAMP, DateTime, CheckConstraint, Index, ForeignKey, func
 from sqlalchemy.dialects.postgresql import UUID
 from app.core.db import Base
@@ -9,7 +10,7 @@ from app.modules.positions.models import Position, PositionCourse  # noqa: F401
 class User(Base):
     __tablename__ = "users"
 
-    id = Column(UUID(as_uuid=True), primary_key=True)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     tenant_id = Column(UUID(as_uuid=True), nullable=False, index=True)
     email = Column(Text, index=True, nullable=True)
     telegram_id = Column(BigInteger, nullable=True)

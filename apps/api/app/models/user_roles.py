@@ -1,3 +1,4 @@
+from uuid import uuid4
 from sqlalchemy import Column, Text, TIMESTAMP, DateTime, CheckConstraint, UniqueConstraint, ForeignKey, func
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from app.core.db import Base
@@ -6,7 +7,7 @@ from app.core.db import Base
 class UserRole(Base):
     __tablename__ = "user_roles"
 
-    id = Column(UUID(as_uuid=True), primary_key=True)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True)
     role = Column(Text, nullable=False)

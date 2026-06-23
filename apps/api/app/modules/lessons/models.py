@@ -1,3 +1,4 @@
+from uuid import uuid4
 from sqlalchemy import Column, Text, Integer, Boolean, TIMESTAMP, ForeignKey, func
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID
@@ -7,7 +8,7 @@ from app.core.db import Base
 class Module(Base):
     __tablename__ = "modules"
 
-    id = Column(UUID(as_uuid=True), primary_key=True)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     tenant_id = Column(UUID(as_uuid=True), nullable=False, index=True)
     course_id = Column(UUID(as_uuid=True), ForeignKey("courses.id"), nullable=False, index=True)
     title = Column(Text, nullable=False)
@@ -24,7 +25,7 @@ class Module(Base):
 class Lesson(Base):
     __tablename__ = "lessons"
 
-    id = Column(UUID(as_uuid=True), primary_key=True)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     tenant_id = Column(UUID(as_uuid=True), nullable=False, index=True)
     module_id = Column(UUID(as_uuid=True), ForeignKey("modules.id"), nullable=False, index=True)
     title = Column(Text, nullable=False)
@@ -43,7 +44,7 @@ class Lesson(Base):
 class ContentBlock(Base):
     __tablename__ = "content_blocks"
 
-    id = Column(UUID(as_uuid=True), primary_key=True)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     lesson_id = Column(UUID(as_uuid=True), ForeignKey("lessons.id"), nullable=False, index=True)
     block_type = Column(Text, nullable=False)
     content = Column(Text, nullable=True)
