@@ -44,6 +44,10 @@ def _parse_json_response(content: str) -> dict:
     json_str = json_str.replace('\u201c', '"').replace('\u201d', '"')
     json_str = json_str.replace('\u2018', "'").replace('\u2019', "'")
     json_str = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', json_str)
+    # Fix missing commas after string values before next key
+    json_str = re.sub(r'"\s*\n(\s*")', r'",\n\1', json_str)
+    # Fix missing commas after boolean/null/number before next key
+    json_str = re.sub(r'(false|true|null|\d+\.?\d*)\s*\n(\s*")', r'\1,\n\2', json_str)
     json_str = json_str.strip()
 
     try:
