@@ -20,30 +20,51 @@ MAX_ASSESSMENT_RETRIES = 4
 
 def _parse_json_response(content: str) -> dict:
     """Parse JSON from LLM response with preprocessing."""
-    match = re.search(r"```json\s*\n(.*?)\n?\s*```", content, re.DOTALL)
+    # Try extracting from code fence first
+    match = re.search(r"```(?:json)?\s*\n(.*?)\n?\s*```", content, re.DOTALL)
     if match:
-        json_str = match.group(1)
+        json_str = match.group(1).strip()
     else:
-        match = re.search(r"(\{[\s\S]*\}|\[[\s\S]*\])", content)
-        json_str = match.group(0) if match else content
+        # Find the first { or [ that starts a valid JSON block
+        for start_char, end_char in [('{', '}'), ('[', ']')]:
+            idx = content.find(start_char)
+            if idx >= 0:
+                # Find matching end
+                depth = 0
+                for i in range(idx, len(content)):
+                    if content[i] == start_char:
+                        depth += 1
+                    elif content[i] == end_char:
+                        depth -= 1
+                    if depth == 0:
+                        json_str = content[idx:i + 1]
+                        break
+                else:
+                    json_str = content[idx:]
+                break
+        else:
+            json_str = content
 
-    # Remove trailing commas
+    # Aggressive cleanup
     json_str = re.sub(r",\s*([}\]])", r"\1", json_str)
-    # Remove comments
     json_str = re.sub(r"//[^\n]*", "", json_str)
-    # Fix unescaped quotes in strings
-    json_str = re.sub(r'"([^"]*)"([^":,}\]\s])"', r'"\1\\"\2"', json_str)
-    # Remove any leading/trailing non-JSON text
+    json_str = re.sub(r"//[^\n]*", "", json_str)
+    json_str = re.sub(r'/\*.*?\*/', '', json_str, flags=re.DOTALL)
+    # Remove trailing commas before newlines
+    json_str = re.sub(r",(\s*\n)", r"\1", json_str)
     json_str = json_str.strip()
 
     try:
         return json.loads(json_str)
     except json.JSONDecodeError:
-        # Last resort: try to find the first { ... } block
-        match = re.search(r"\{.*\}", json_str, re.DOTALL)
+        # Last resort: try to find any { ... } block with balanced braces
+        match = re.search(r"\{[\s\S]*\}", json_str, re.DOTALL)
         if match:
-            return json.loads(match.group(0))
-        raise
+            try:
+                return json.loads(match.group(0))
+            except json.JSONDecodeError:
+                pass
+        raise ValueError(f"Cannot parse JSON from LLM response ({len(content)} chars)")
 
 
 def _validate_assessment(assessment: LessonAssessment) -> list[str]:
