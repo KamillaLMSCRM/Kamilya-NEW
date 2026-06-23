@@ -41,29 +41,30 @@ def _parse_json_response(content: str) -> dict:
     json_str = re.sub(r"//[^\n]*", "", json_str)
     json_str = re.sub(r'/\*.*?\*/', '', json_str, flags=re.DOTALL)
     json_str = re.sub(r",(\s*\n)", r"\1", json_str)
+    json_str = json_str.replace('\u201c', '"').replace('\u201d', '"')
+    json_str = json_str.replace('\u2018', "'").replace('\u2019', "'")
+    json_str = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', json_str)
     json_str = json_str.strip()
 
     try:
         return json.loads(json_str)
     except json.JSONDecodeError as e:
-        # Log context around error position
-        pos = e.pos or 0
-        context_start = max(0, pos - 50)
-        context_end = min(len(json_str), pos + 50)
-        print(f"[JSON_PARSE] FAILED: {e}", flush=True)
-        print(f"[JSON_PARSE] context: ...{json_str[context_start:context_end]!r}...", flush=True)
-
         # Try to fix common issues and retry
         fixed = json_str
-        # Fix: remove any non-printable chars
-        fixed = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', fixed)
-        # Fix: trailing commas again
+        # Fix missing commas: } {  →  }, {
+        fixed = re.sub(r'\}\s*\{', '},{', fixed)
+        # Fix missing commas after values: "val" "key"  →  "val", "key"
+        fixed = re.sub(r'"\s*\n\s*"', '", "', fixed)
+        # Fix: value without comma before next line with key
+        fixed = re.sub(r'(false|true|null|\d+)\s*\n\s*"', r'\1, "', fixed)
+        # Remove trailing commas again after fixes
         fixed = re.sub(r",\s*([}\]])", r"\1", fixed)
         try:
             return json.loads(fixed)
         except json.JSONDecodeError:
             pass
 
+        # Last resort: try to extract individual items
         raise ValueError(f"Cannot parse JSON ({len(content)} chars): {e}")
 
 
