@@ -167,7 +167,7 @@ class VectorStore:
         emb = query_embeddings[0]
 
         where_clause = ""
-        params: dict = {"embedding": str(emb), "n": n_results}
+        params: dict = {"n": n_results}
         if where:
             doc_id = where.get("doc_id")
             if doc_id:
@@ -182,12 +182,14 @@ class VectorStore:
                     params["doc_id"] = doc_id
 
         sql = text(f"""
-            SELECT text, doc_name, headings, 1 - (embedding <=> :embedding::vector) as distance
+            SELECT text, doc_name, headings, 1 - (embedding <=> :embedding1::vector) as distance
             FROM document_embeddings
             {where_clause}
-            ORDER BY embedding <=> :embedding::vector
+            ORDER BY embedding <=> :embedding2::vector
             LIMIT :n
         """)
+        params["embedding1"] = str(emb)
+        params["embedding2"] = str(emb)
 
         async with async_session_factory() as session:
             result = await session.execute(sql, params)
