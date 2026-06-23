@@ -347,7 +347,7 @@ After receiving tool results, continue your analysis.
 When ready to output the final course structure, output ONLY the JSON code block.
 """
 
-    messages.append({"role": "system", "content": tool_descriptions})
+    messages[0]["content"] = messages[0]["content"] + "\n\n" + tool_descriptions
 
     for iteration in range(max_iterations):
         response = await llm.ainvoke(messages)
