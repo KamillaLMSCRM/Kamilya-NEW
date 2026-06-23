@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, Query
 from uuid import UUID, uuid4
 from datetime import datetime, timezone
@@ -13,7 +14,9 @@ from app.core.db import get_db
 from app.models.users import User
 from app.modules.ai.schemas import AIGenerateRequest, AIJobResponse
 from app.modules.ai.job_service import create_ai_job, get_ai_job, update_ai_job
-from app.modules.ai.tasks import generate_course_task
+from app.modules.ai.pipeline import run_generation_pipeline
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/ai", tags=["ai-generation"])
 
@@ -39,20 +42,25 @@ async def generate_course(
     )
     await db.commit()
 
-    # Start Celery task (async background processing)
-    try:
-        generate_course_task.delay(
-            job_id=job.id,
-            documents=req.documents,
-            target_audience=req.target_audience,
-            num_modules=req.num_modules,
-            language=req.language,
-            course_id=str(req.course_id) if req.course_id else None,
-            tenant_id=str(user.tenant_id),
-            user_id=str(user.id),
-        )
-    except Exception:
-        pass  # Celery/Redis not available — job still created
+    # Run pipeline directly as background task (no Celery needed)
+    async def _safe_pipeline():
+        try:
+            logger.info(f"Starting generation pipeline for job {job.id}")
+            await run_generation_pipeline(
+                job_id=job.id,
+                documents=req.documents,
+                target_audience=req.target_audience,
+                num_modules=req.num_modules,
+                language=req.language,
+                course_id=str(req.course_id) if req.course_id else None,
+                tenant_id=user.tenant_id,
+                user_id=user.id,
+            )
+            logger.info(f"Pipeline completed for job {job.id}")
+        except Exception as e:
+            logger.error(f"Pipeline failed for job {job.id}: {e}", exc_info=True)
+
+    asyncio.create_task(_safe_pipeline())
 
     return AIJobResponse(
         id=job.id,
