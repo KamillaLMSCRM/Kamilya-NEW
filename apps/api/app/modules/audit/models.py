@@ -14,7 +14,7 @@ class AuditLog(Base):
     user_id = Column(UUID(as_uuid=True), nullable=True, index=True)
     action = Column(String(100), nullable=False, index=True)
     resource_type = Column(String(100), nullable=False, index=True)
-    resource_id = Column(String(100), nullable=True)
+    resource_id = Column(UUID(as_uuid=True), nullable=True)
     details = Column(JSON, nullable=True)
     ip_address = Column(String(45), nullable=True)
     user_agent = Column(Text, nullable=True)

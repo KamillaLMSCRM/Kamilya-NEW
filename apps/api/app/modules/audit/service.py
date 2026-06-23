@@ -13,19 +13,22 @@ async def log_action(
     tenant_id: UUID,
     action: str,
     resource_type: str,
-    resource_id: str | None = None,
+    resource_id: str | UUID | None = None,
     user_id: UUID | None = None,
     details: dict[str, Any] | None = None,
     ip_address: str | None = None,
     user_agent: str | None = None,
 ) -> AuditLog:
     """Log an audit event."""
+    rid = None
+    if resource_id is not None:
+        rid = UUID(str(resource_id)) if not isinstance(resource_id, UUID) else resource_id
     entry = AuditLog(
         tenant_id=tenant_id,
         user_id=user_id,
         action=action,
         resource_type=resource_type,
-        resource_id=resource_id,
+        resource_id=rid,
         details=details,
         ip_address=ip_address,
         user_agent=user_agent,
