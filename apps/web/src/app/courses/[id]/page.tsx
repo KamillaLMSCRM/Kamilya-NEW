@@ -196,8 +196,8 @@ export default function CoursePlayerPage() {
           >
             {enrolling ? 'Запись...' : 'Записаться на курс'}
           </button>
-          <a href="/dashboard" className="block mt-4 flex items-center gap-1 text-sm text-blue-600 hover:underline">
-            <ChevronLeft className="w-4 h-4" /> Вернуться
+          <a href="/courses" className="block mt-4 flex items-center gap-1 text-sm text-blue-600 hover:underline">
+            <ChevronLeft className="w-4 h-4" /> Вернуться к курсам
           </a>
         </div>
       </div>
@@ -209,8 +209,8 @@ export default function CoursePlayerPage() {
       {/* Left sidebar — TOC */}
       <div className="w-80 bg-white border-r flex flex-col">
         <div className="p-4 border-b">
-          <a href="/dashboard" className="flex items-center gap-1 text-sm text-blue-600 hover:underline">
-            <ChevronLeft className="w-4 h-4" /> Мой дашборд
+          <a href="/courses" className="flex items-center gap-1 text-sm text-blue-600 hover:underline">
+            <ChevronLeft className="w-4 h-4" /> Кursos
           </a>
           <h2 className="font-bold mt-2">{course.title}</h2>
           <div className="mt-2 h-2 bg-gray-200 rounded">

@@ -12,6 +12,8 @@ from app.modules.documents.schemas import DocumentResponse
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
+UPLOAD_DIR = "./uploads/documents"
+
 # Allowed MIME types and their magic bytes
 ALLOWED_MIME_TYPES = {
     "application/pdf": b"%PDF",
@@ -95,9 +97,17 @@ async def upload_document(
         return existing_doc
 
     ext = os.path.splitext(file.filename or "")[1]
-    s3_key = f"tenants/{user.tenant_id}/documents/{uuid.uuid4()}{ext}"
+    doc_id = uuid.uuid4()
+    s3_key = f"tenants/{user.tenant_id}/documents/{doc_id}{ext}"
+
+    # Save file to disk for ingestion
+    file_path = os.path.join(UPLOAD_DIR, str(user.tenant_id), f"{doc_id}{ext}")
+    os.makedirs(os.path.dirname(file_path), exist_ok=True)
+    with open(file_path, "wb") as f:
+        f.write(content)
 
     doc = Document(
+        id=doc_id,
         tenant_id=user.tenant_id,
         uploaded_by=user.id,
         title=title or file.filename or "Untitled",

@@ -44,6 +44,8 @@ export default function CourseEditPage() {
   const [editModuleTitle, setEditModuleTitle] = useState('');
   const [newLessonTitle, setNewLessonTitle] = useState('');
   const [addingLessonToModule, setAddingLessonToModule] = useState<string | null>(null);
+  const [editingLessonId, setEditingLessonId] = useState<string | null>(null);
+  const [editLessonContent, setEditLessonContent] = useState('');
 
   const fetchData = useCallback(async () => {
     if (!courseId || !token) return;
@@ -157,7 +159,6 @@ export default function CourseEditPage() {
     [lessons[lessonIdx], lessons[newIdx]] = [lessons[newIdx], lessons[lessonIdx]];
     reordered[modIdx] = { ...reordered[modIdx], lessons };
     setModules(reordered);
-    // Persist reorder
     if (token) {
       await fetch(`${API_URL}/v1/modules/${moduleId}/reorder`, {
         method: 'POST',
@@ -165,6 +166,33 @@ export default function CourseEditPage() {
         body: JSON.stringify(lessons.map((l) => l.id)),
       });
     }
+  };
+
+  const handleEditLessonContent = async (lessonId: string) => {
+    if (!token) return;
+    try {
+      const res = await fetch(`${API_URL}/v1/lessons/${lessonId}`, {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setEditingLessonId(lessonId);
+        setEditLessonContent(data.content || '');
+      }
+    } catch (e) {
+      console.error('Failed to load lesson', e);
+    }
+  };
+
+  const handleSaveLessonContent = async () => {
+    if (!editingLessonId || !token) return;
+    await fetch(`${API_URL}/v1/lessons/${editingLessonId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ content: editLessonContent }),
+    });
+    setEditingLessonId(null);
   };
 
   if (loading) return <div className="p-6">{t('common.loading')}</div>;
@@ -236,16 +264,35 @@ export default function CourseEditPage() {
                 {/* Lessons */}
                 <div className="ml-8 space-y-1">
                   {mod.lessons.map((lesson, lessonIdx) => (
-                    <div key={lesson.id} className="flex items-center gap-2 p-2 bg-gray-50 rounded text-sm">
-                      <div className="flex flex-col gap-0.5">
-                        <Button variant="ghost" className="h-4 px-1 text-xs" onClick={() => handleMoveLesson(lesson.id, mod.id, 'up')} disabled={lessonIdx === 0}><ChevronUp className="w-3 h-3" /></Button>
-                        <Button variant="ghost" className="h-4 px-1 text-xs" onClick={() => handleMoveLesson(lesson.id, mod.id, 'down')} disabled={lessonIdx === mod.lessons.length - 1}><ChevronDown className="w-3 h-3" /></Button>
+                    <div key={lesson.id} className="bg-gray-50 rounded">
+                      <div className="flex items-center gap-2 p-2 text-sm">
+                        <div className="flex flex-col gap-0.5">
+                          <Button variant="ghost" className="h-4 px-1 text-xs" onClick={() => handleMoveLesson(lesson.id, mod.id, 'up')} disabled={lessonIdx === 0}><ChevronUp className="w-3 h-3" /></Button>
+                          <Button variant="ghost" className="h-4 px-1 text-xs" onClick={() => handleMoveLesson(lesson.id, mod.id, 'down')} disabled={lessonIdx === mod.lessons.length - 1}><ChevronDown className="w-3 h-3" /></Button>
+                        </div>
+                        <span className="flex-1">{lesson.title}</span>
+                        <Badge variant="outline" className="text-xs">{lesson.content_type}</Badge>
+                        <Button variant="ghost" size="sm" className="text-blue-600 text-xs" onClick={() => handleEditLessonContent(lesson.id)}>
+                          Контент
+                        </Button>
+                        <Button variant="ghost" size="sm" className="text-red-500 text-xs" onClick={() => handleDeleteLesson(lesson.id, mod.id)}>
+                          <X className="w-3 h-3" />
+                        </Button>
                       </div>
-                      <span className="flex-1">{lesson.title}</span>
-                      <Badge variant="outline" className="text-xs">{lesson.content_type}</Badge>
-                      <Button variant="ghost" size="sm" className="text-red-500 text-xs" onClick={() => handleDeleteLesson(lesson.id, mod.id)}>
-                        <X className="w-3 h-3" />
-                      </Button>
+                      {editingLessonId === lesson.id && (
+                        <div className="px-2 pb-3 space-y-2 border-t border-gray-200 pt-2">
+                          <textarea
+                            value={editLessonContent}
+                            onChange={(e) => setEditLessonContent(e.target.value)}
+                            className="w-full min-h-[200px] rounded-xl border border-warm-200 bg-white px-3 py-2 text-sm text-warm-800 outline-none focus:border-primary font-mono"
+                            placeholder="Markdown контент урока..."
+                          />
+                          <div className="flex gap-2">
+                            <Button size="sm" onClick={handleSaveLessonContent}>{t('common.save')}</Button>
+                            <Button variant="outline" size="sm" onClick={() => setEditingLessonId(null)}>{t('common.cancel')}</Button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ))}
 
