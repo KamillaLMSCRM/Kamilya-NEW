@@ -13,7 +13,7 @@ from app.modules.ai.ingestion import VectorStore, Summarizer
 
 logger = logging.getLogger(__name__)
 
-CHAPTER_TEXT_MAX_CHARS = 8000
+CHAPTER_TEXT_MAX_CHARS = 4000
 
 SYSTEM_PROMPT = """\
 You are a Course Architect. Your job is to explore a collection of ingested \
@@ -79,7 +79,7 @@ def create_architect_tools(
     summaries_dir: str = "./summaries",
     chroma_dir: str = "./chroma_data",
     doc_ids: list[str] | None = None,
-    max_chapters_per_doc: int = 5,
+    max_chapters_per_doc: int = 3,
     embeddings_client=None,
     vector_store: VectorStore | None = None,
 ):
@@ -204,7 +204,7 @@ def create_architect_tools(
 
         raw = store.query(
             query_embeddings=[query_embedding],
-            n_results=10,
+            n_results=5,
             where=where,
             include=["documents", "metadatas", "distances"],
         )
@@ -373,10 +373,13 @@ When ready to output the final course structure, output ONLY the JSON code block
 
                 if tool_name in tools:
                     result = tools[tool_name](**tool_args) if not asyncio.iscoroutinefunction(tools[tool_name]) else await tools[tool_name](**tool_args)
+                    result_str = str(result)
+                    if len(result_str) > 3000:
+                        result_str = result_str[:3000] + "\n... [truncated]"
                     messages.append({"role": "assistant", "content": content})
-                    messages.append({"role": "user", "content": f"Tool result: {result}"})
+                    messages.append({"role": "user", "content": f"Tool result: {result_str}"})
                     if on_message:
-                        on_message(f"  -> {tool_name} returned {len(str(result))} chars")
+                        on_message(f"  -> {tool_name} returned {len(result_str)} chars")
                 else:
                     messages.append({"role": "assistant", "content": content})
                     messages.append({"role": "user", "content": f"Error: Unknown tool '{tool_name}'"})
