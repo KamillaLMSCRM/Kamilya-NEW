@@ -25,6 +25,7 @@ class Lesson:
 class Module:
     """A module containing multiple lessons."""
     title: str
+    description: str = ""
     lessons: list[Lesson] = field(default_factory=list)
 
 
@@ -63,7 +64,7 @@ class CourseStructure:
                         relevant_headings=l.get("relevant_headings", []),
                     )
                 )
-            modules.append(Module(title=m.get("title", ""), lessons=lessons))
+            modules.append(Module(title=m.get("title", ""), description=m.get("description", ""), lessons=lessons))
         return cls(
             title=raw.get("title", ""),
             description=raw.get("description", ""),
