@@ -125,9 +125,14 @@ Output ONLY valid JSON matching this schema:
             print(f"[ASSESSMENT_OK] attempt {attempt+1} keys={list(data.keys())}", flush=True)
             break
         except (json.JSONDecodeError, ValueError) as e:
-            print(f"[ASSESSMENT_PARSE] attempt {attempt + 1} failed: {e} | content[:300]={response.content[:300]}", flush=True)
+            print(f"[ASSESSMENT_PARSE] attempt {attempt + 1} failed: {e}", flush=True)
             if attempt < MAX_ASSESSMENT_RETRIES:
-                logger.warning(f"JSON parse attempt {attempt + 1} failed: {e}")
+                # Self-correction: send broken JSON back to LLM
+                user_prompt = (
+                    f"Your JSON has a syntax error: {e}\n\n"
+                    f"Here is your output:\n{response.content[:3000]}\n\n"
+                    f"Fix the JSON syntax and output ONLY the corrected valid JSON. No explanation."
+                )
                 continue
             raise
 
