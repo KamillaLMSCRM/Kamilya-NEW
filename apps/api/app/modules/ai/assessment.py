@@ -20,50 +20,29 @@ MAX_ASSESSMENT_RETRIES = 4
 
 def _parse_json_response(content: str) -> dict:
     """Parse JSON from LLM response with preprocessing."""
-    # Try extracting from code fence first
-    match = re.search(r"```(?:json)?\s*\n(.*?)\n?\s*```", content, re.DOTALL)
-    if match:
-        json_str = match.group(1).strip()
+    # Strip any text before the first code fence or first {
+    # Try code fence extraction — find ALL matches and pick the largest
+    matches = re.findall(r"```(?:json)?\s*\n([\s\S]*?)\n?\s*```", content)
+    if matches:
+        json_str = max(matches, key=len).strip()
     else:
-        # Find the first { or [ that starts a valid JSON block
-        for start_char, end_char in [('{', '}'), ('[', ']')]:
-            idx = content.find(start_char)
-            if idx >= 0:
-                # Find matching end
-                depth = 0
-                for i in range(idx, len(content)):
-                    if content[i] == start_char:
-                        depth += 1
-                    elif content[i] == end_char:
-                        depth -= 1
-                    if depth == 0:
-                        json_str = content[idx:i + 1]
-                        break
-                else:
-                    json_str = content[idx:]
-                break
+        # Find all {...} blocks and pick the largest
+        brace_matches = re.findall(r"\{[\s\S]*\}", content)
+        if brace_matches:
+            json_str = max(brace_matches, key=len).strip()
         else:
-            json_str = content
+            json_str = content.strip()
 
     # Aggressive cleanup
     json_str = re.sub(r",\s*([}\]])", r"\1", json_str)
     json_str = re.sub(r"//[^\n]*", "", json_str)
-    json_str = re.sub(r"//[^\n]*", "", json_str)
     json_str = re.sub(r'/\*.*?\*/', '', json_str, flags=re.DOTALL)
-    # Remove trailing commas before newlines
     json_str = re.sub(r",(\s*\n)", r"\1", json_str)
     json_str = json_str.strip()
 
     try:
         return json.loads(json_str)
     except json.JSONDecodeError:
-        # Last resort: try to find any { ... } block with balanced braces
-        match = re.search(r"\{[\s\S]*\}", json_str, re.DOTALL)
-        if match:
-            try:
-                return json.loads(match.group(0))
-            except json.JSONDecodeError:
-                pass
         raise ValueError(f"Cannot parse JSON from LLM response ({len(content)} chars)")
 
 
@@ -119,7 +98,9 @@ Output ONLY valid JSON matching this schema:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ])
+            print(f"[ASSESSMENT_RAW] attempt {attempt+1} len={len(response.content)} first500={response.content[:500]!r}", flush=True)
             data = _parse_json_response(response.content)
+            print(f"[ASSESSMENT_OK] attempt {attempt+1} keys={list(data.keys())}", flush=True)
             break
         except (json.JSONDecodeError, ValueError) as e:
             print(f"[ASSESSMENT_PARSE] attempt {attempt + 1} failed: {e} | content[:300]={response.content[:300]}", flush=True)
