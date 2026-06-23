@@ -24,7 +24,7 @@ class LLMClient:
         self,
         base_url: str | None = None,
         api_key: str = "not-needed",
-        model: str = "qwen3.5",
+        model: str = "cyankiwi/Qwen3.6-35B-A3B-AWQ-4bit",
         temperature: float = 0.7,
         max_tokens: int = 8192,
     ):
@@ -84,7 +84,7 @@ class EmbeddingsClient:
         self,
         base_url: str | None = None,
         api_key: str = "not-needed",
-        model: str = "qwen3-embedding",
+        model: str = "Qwen3-Embedding-8B",
     ):
         if base_url is None:
             base_url = _default_embedding_url()
@@ -116,7 +116,7 @@ class EmbeddingsClient:
 def create_llm(
     base_url: str | None = None,
     api_key: str = "not-needed",
-    model: str = "qwen3.5",
+    model: str = "cyankiwi/Qwen3.6-35B-A3B-AWQ-4bit",
     temperature: float = 0.7,
     max_tokens: int = 8192,
     response_format: dict | None = None,
@@ -135,7 +135,7 @@ def create_llm(
 def create_embeddings(
     base_url: str | None = None,
     api_key: str = "not-needed",
-    model: str = "qwen3-embedding",
+    model: str = "Qwen3-Embedding-8B",
     callbacks: list | None = None,
 ) -> EmbeddingsClient:
     """Factory for creating embeddings client instances."""

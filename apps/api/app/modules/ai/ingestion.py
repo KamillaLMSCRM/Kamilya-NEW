@@ -253,7 +253,7 @@ class EmbeddingsProvider:
             async with httpx.AsyncClient(timeout=10) as client:
                 resp = await client.post(
                     f"{self.qwen_url}/embeddings",
-                    json={"model": "qwen3-embedding", "input": texts},
+                    json={"model": "Qwen3-Embedding-8B", "input": texts},
                     headers={"Authorization": "Bearer not-needed"},
                 )
                 resp.raise_for_status()
