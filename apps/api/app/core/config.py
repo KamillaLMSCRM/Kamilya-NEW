@@ -43,15 +43,15 @@ class Settings(BaseSettings):
     MINIO_BUCKET: str = "lms-content"
     MINIO_USE_SSL: bool = False
 
-    # Qwen Embeddings (via Cloudflare tunnel)
-    QWEN_EMBEDDING_URL: str = "http://173.249.51.164:8002/v1"
-    EMBEDDING_URL: str = "http://173.249.51.164:8002/v1"
+    # Qwen (via Cloudflare tunnel)
+    QWEN_API_URL: str = "https://qwen.kml.kz/v1"
+    QWEN_EMBEDDING_URL: str = "https://qwen-embed.kml.kz/v1"
+    EMBEDDING_URL: str = "https://qwen-embed.kml.kz/v1"
+    LLM_API_URL: str = "https://qwen.kml.kz/v1"
 
-    # Groq LLM (free tier)
-    LLM_API_URL: str = "https://api.groq.com/openai/v1"
-    QWEN_API_URL: str = "https://api.groq.com/openai/v1"
+    # LLM
     LLM_API_KEY: str = ""
-    LLM_MODEL: str = "llama-3.3-70b-versatile"
+    LLM_MODEL: str = "cyankiwi/Qwen3.6-35B-A3B-AWQ-4bit"
 
     # Telegram Bot
     TELEGRAM_BOT_TOKEN: str = ""

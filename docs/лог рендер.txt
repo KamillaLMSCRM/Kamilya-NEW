@@ -1,50 +1,67 @@
-2026-06-22T14:48:39.322531974Z     result = context.switch(value)
-2026-06-22T14:48:39.322533924Z              ^^^^^^^^^^^^^^^^^^^^^
-2026-06-22T14:48:39.322535894Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 4353, in flush
-2026-06-22T14:48:39.322538234Z     self._flush(objects)
-2026-06-22T14:48:39.322540304Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 4488, in _flush
-2026-06-22T14:48:39.322542274Z     with util.safe_reraise():
-2026-06-22T14:48:39.322544244Z          ^^^^^^^^^^^^^^^^^^^
-2026-06-22T14:48:39.322546234Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/util/langhelpers.py", line 122, in __exit__
-2026-06-22T14:48:39.322548184Z     raise exc_value.with_traceback(exc_tb)
-2026-06-22T14:48:39.322550134Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 4449, in _flush
-2026-06-22T14:48:39.322552094Z     flush_context.execute()
-2026-06-22T14:48:39.322554014Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/orm/unitofwork.py", line 465, in execute
-2026-06-22T14:48:39.322556034Z     rec.execute(self)
-2026-06-22T14:48:39.322557954Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/orm/unitofwork.py", line 641, in execute
-2026-06-22T14:48:39.322559895Z     util.preloaded.orm_persistence.save_obj(
-2026-06-22T14:48:39.322561824Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/orm/persistence.py", line 77, in save_obj
-2026-06-22T14:48:39.322563964Z     for table, mapper in base_mapper._sorted_tables.items():
-2026-06-22T14:48:39.322565895Z                          ^^^^^^^^^^^^^^^^^^^^^^^^^^
-2026-06-22T14:48:39.322567844Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/util/langhelpers.py", line 1234, in __get__
-2026-06-22T14:48:39.322569795Z     obj.__dict__[self.__name__] = result = self.fget(obj)
-2026-06-22T14:48:39.322571715Z                                            ^^^^^^^^^^^^^^
-2026-06-22T14:48:39.322573625Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/orm/mapper.py", line 4074, in _sorted_tables
-2026-06-22T14:48:39.322575575Z     sorted_ = sql_util.sort_tables(
-2026-06-22T14:48:39.322583415Z               ^^^^^^^^^^^^^^^^^^^^^
-2026-06-22T14:48:39.322585395Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/sql/ddl.py", line 1319, in sort_tables
-2026-06-22T14:48:39.322587305Z     for (t, fkcs) in sort_tables_and_constraints(
-2026-06-22T14:48:39.322589235Z                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-2026-06-22T14:48:39.322591195Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/sql/ddl.py", line 1389, in sort_tables_and_constraints
-2026-06-22T14:48:39.322593125Z     filtered = filter_fn(fkc)
-2026-06-22T14:48:39.322595055Z                ^^^^^^^^^^^^^^
-2026-06-22T14:48:39.322596975Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/sql/ddl.py", line 1309, in _skip_fn
-2026-06-22T14:48:39.322598875Z     if fixed_skip_fn(fk):
-2026-06-22T14:48:39.322600775Z        ^^^^^^^^^^^^^^^^^
-2026-06-22T14:48:39.322602785Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/orm/mapper.py", line 4057, in skip
-2026-06-22T14:48:39.322606265Z     dep = table_to_mapper.get(fk.column.table)
-2026-06-22T14:48:39.322608235Z                               ^^^^^^^^^
-2026-06-22T14:48:39.322610175Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/util/langhelpers.py", line 1122, in __get__
-2026-06-22T14:48:39.322612085Z     obj.__dict__[self.__name__] = result = self.fget(obj)
-2026-06-22T14:48:39.322613996Z                                            ^^^^^^^^^^^^^^
-2026-06-22T14:48:39.322615936Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/sql/schema.py", line 3198, in column
-2026-06-22T14:48:39.322617936Z     return self._resolve_column()
-2026-06-22T14:48:39.322619856Z            ^^^^^^^^^^^^^^^^^^^^^^
-2026-06-22T14:48:39.322621785Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/sql/schema.py", line 3221, in _resolve_column
-2026-06-22T14:48:39.322623705Z     raise exc.NoReferencedTableError(
-2026-06-22T14:48:39.322626436Z sqlalchemy.exc.NoReferencedTableError: Foreign key associated with column 'users.position_id' could not find table 'positions(id)' with which to generate a foreign key to target column 'None'
-2026-06-22T14:48:43.772407459Z INFO:     10.216.27.169:55356 - "GET /api/v1/health HTTP/1.1" 200 OK
-2026-06-22T14:48:48.772670183Z INFO:     10.216.27.169:41168 - "GET /api/v1/health HTTP/1.1" 200 OK
-2026-06-22T14:48:53.772754113Z INFO:     10.216.27.169:41176 - "GET /api/v1/health HTTP/1.1" 200 OK
-2026-06-22T14:48:58.77262199Z INFO:     10.216.27.169:59322 - "GET /api/v1/health HTTP/1.1" 200 OK
-2026-06-22T14:49:03.772310733Z INFO:     10.216.27.169:59334 - "GET /api/v1/health HTTP/1.1" 200 OK
+2026-06-23T02:02:42.704161426Z              ^^^^^^^^^^^^^^^^^^^
+2026-06-23T02:02:42.704163335Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1421, in execute
+2026-06-23T02:02:42.704165295Z     return meth(
+2026-06-23T02:02:42.704167235Z            ^^^^^
+2026-06-23T02:02:42.704169215Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/sql/elements.py", line 526, in _execute_on_connection
+2026-06-23T02:02:42.704171136Z     return connection._execute_clauseelement(
+2026-06-23T02:02:42.704173056Z            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-06-23T02:02:42.704174986Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1643, in _execute_clauseelement
+2026-06-23T02:02:42.704176896Z     ret = self._execute_context(
+2026-06-23T02:02:42.704178786Z           ^^^^^^^^^^^^^^^^^^^^^^
+2026-06-23T02:02:42.704180736Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1848, in _execute_context
+2026-06-23T02:02:42.704182666Z     return self._exec_single_context(
+2026-06-23T02:02:42.704184576Z            ^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-06-23T02:02:42.704186496Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1988, in _exec_single_context
+2026-06-23T02:02:42.704188426Z     self._handle_dbapi_exception(
+2026-06-23T02:02:42.704190366Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 2365, in _handle_dbapi_exception
+2026-06-23T02:02:42.704192356Z     raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+2026-06-23T02:02:42.704197196Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py", line 1969, in _exec_single_context
+2026-06-23T02:02:42.704199176Z     self.dialect.do_execute(
+2026-06-23T02:02:42.704201126Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/engine/default.py", line 952, in do_execute
+2026-06-23T02:02:42.704211476Z     cursor.execute(statement, parameters)
+2026-06-23T02:02:42.704213556Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 585, in execute
+2026-06-23T02:02:42.704215487Z     self._adapt_connection.await_(
+2026-06-23T02:02:42.704217416Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 132, in await_only
+2026-06-23T02:02:42.704219536Z     return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501
+2026-06-23T02:02:42.704221927Z            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-06-23T02:02:42.704223856Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/util/_concurrency_py3k.py", line 196, in greenlet_spawn
+2026-06-23T02:02:42.704225827Z     value = await result
+2026-06-23T02:02:42.704227757Z             ^^^^^^^^^^^^
+2026-06-23T02:02:42.704229667Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 563, in _prepare_and_execute
+2026-06-23T02:02:42.704231587Z     self._handle_exception(error)
+2026-06-23T02:02:42.704233547Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 513, in _handle_exception
+2026-06-23T02:02:42.704245257Z     self._adapt_connection._handle_exception(error)
+2026-06-23T02:02:42.704247367Z   File "/opt/render/project/src/.venv/lib/python3.12/site-packages/sqlalchemy/dialects/postgresql/asyncpg.py", line 797, in _handle_exception
+2026-06-23T02:02:42.704249327Z     raise translated_error from error
+2026-06-23T02:02:42.704251807Z sqlalchemy.exc.ProgrammingError: (sqlalchemy.dialects.postgresql.asyncpg.ProgrammingError) <class 'asyncpg.exceptions.UndefinedColumnError'>: column "user_agent" of relation "audit_logs" does not exist
+2026-06-23T02:02:42.704255627Z [SQL: INSERT INTO audit_logs (id, tenant_id, user_id, action, resource_type, resource_id, details, ip_address, user_agent, created_at) VALUES ($1::UUID, $2::UUID, $3::UUID, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR, $7::JSON, $8::VARCHAR, $9::VARCHAR, $10::TIMESTAMP WITH TIME ZONE)]
+2026-06-23T02:02:42.704258397Z [parameters: (UUID('514cdb40-d172-4b2f-a98b-f74b541ecdd2'), UUID('3136878b-6678-4f9b-81da-f68defadb06b'), UUID('b2c3d4e5-f6a7-8901-bcde-f12345678901'), 'login', 'user', 'b2c3d4e5-f6a7-8901-bcde-f12345678901', 'null', '178.88.50.166', 'curl/8.13.0', datetime.datetime(2026, 6, 23, 2, 2, 42, 611114, tzinfo=datetime.timezone.utc))]
+2026-06-23T02:02:42.704260377Z (Background on this error at: https://sqlalche.me/e/20/f405)
+2026-06-23T02:02:42.807864116Z INFO:     178.88.50.166:0 - "GET /api/v1/documents HTTP/1.1" 200 OK
+2026-06-23T02:02:42.941621569Z INFO:     10.216.24.118:47052 - "GET /api/v1/health HTTP/1.1" 200 OK
+2026-06-23T02:02:47.942237286Z INFO:     10.216.24.118:33278 - "GET /api/v1/health HTTP/1.1" 200 OK
+2026-06-23T02:02:47.992882779Z INFO:     178.88.50.166:0 - "OPTIONS /api/v1/ai/generate-course HTTP/1.1" 200 OK
+2026-06-23T02:02:48.594268379Z INFO:     178.88.50.166:0 - "POST /api/v1/ai/generate-course HTTP/1.1" 202 Accepted
+2026-06-23T02:02:51.712489334Z INFO:     178.88.50.166:0 - "OPTIONS /api/v1/ai/jobs/5ac1aeac-7103-44b2-9ed3-b6fa7f9d25ae HTTP/1.1" 200 OK
+2026-06-23T02:02:51.846485642Z INFO:     178.88.50.166:0 - "GET /api/v1/ai/jobs/5ac1aeac-7103-44b2-9ed3-b6fa7f9d25ae HTTP/1.1" 200 OK
+2026-06-23T02:02:52.941393906Z INFO:     10.216.24.118:33290 - "GET /api/v1/health HTTP/1.1" 200 OK
+2026-06-23T02:02:55.549134292Z INFO:     178.88.50.166:0 - "GET /api/v1/ai/jobs/5ac1aeac-7103-44b2-9ed3-b6fa7f9d25ae HTTP/1.1" 200 OK
+2026-06-23T02:02:57.935409912Z INFO:     10.216.24.118:53760 - "GET /api/v1/health HTTP/1.1" 200 OK
+2026-06-23T02:02:57.941256088Z INFO:     10.216.24.118:53774 - "GET /api/v1/health HTTP/1.1" 200 OK
+2026-06-23T02:02:59.560754515Z INFO:     178.88.50.166:0 - "GET /api/v1/ai/jobs/5ac1aeac-7103-44b2-9ed3-b6fa7f9d25ae HTTP/1.1" 200 OK
+2026-06-23T02:03:02.941431295Z INFO:     10.216.24.118:53778 - "GET /api/v1/health HTTP/1.1" 200 OK
+2026-06-23T02:03:03.551318488Z INFO:     178.88.50.166:0 - "GET /api/v1/ai/jobs/5ac1aeac-7103-44b2-9ed3-b6fa7f9d25ae HTTP/1.1" 200 OK
+2026-06-23T02:03:07.568833767Z INFO:     178.88.50.166:0 - "GET /api/v1/ai/jobs/5ac1aeac-7103-44b2-9ed3-b6fa7f9d25ae HTTP/1.1" 200 OK
+2026-06-23T02:03:07.945745067Z INFO:     10.216.24.118:46770 - "GET /api/v1/health HTTP/1.1" 200 OK
+2026-06-23T02:03:11.541798292Z INFO:     178.88.50.166:0 - "GET /api/v1/ai/jobs/5ac1aeac-7103-44b2-9ed3-b6fa7f9d25ae HTTP/1.1" 200 OK
+2026-06-23T02:03:12.942015324Z INFO:     10.216.24.118:46772 - "GET /api/v1/health HTTP/1.1" 200 OK
+2026-06-23T02:03:15.548370774Z INFO:     178.88.50.166:0 - "GET /api/v1/ai/jobs/5ac1aeac-7103-44b2-9ed3-b6fa7f9d25ae HTTP/1.1" 200 OK
+2026-06-23T02:03:17.942223171Z INFO:     10.216.24.118:53066 - "GET /api/v1/health HTTP/1.1" 200 OK
+2026-06-23T02:03:19.545593047Z INFO:     178.88.50.166:0 - "GET /api/v1/ai/jobs/5ac1aeac-7103-44b2-9ed3-b6fa7f9d25ae HTTP/1.1" 200 OK
+2026-06-23T02:03:22.942100962Z INFO:     10.216.24.118:53068 - "GET /api/v1/health HTTP/1.1" 200 OK
+2026-06-23T02:03:23.539579601Z INFO:     178.88.50.166:0 - "GET /api/v1/ai/jobs/5ac1aeac-7103-44b2-9ed3-b6fa7f9d25ae HTTP/1.1" 200 OK
+2026-06-23T02:03:26.688461911Z INFO:     178.88.50.166:0 - "GET /api/v1/ai/jobs/5ac1aeac-7103-44b2-9ed3-b6fa7f9d25ae HTTP/1.1" 200 OK
+2026-06-23T02:03:27.93576968Z INFO:     10.216.24.118:36952 - "GET /api/v1/health HTTP/1.1" 200 OK
+2026-06-23T02:03:27.940510836Z INFO:     10.216.24.118:36960 - "GET /api/v1/health HTTP/1.1" 200 OK
+2026-06-23T02:03:30.544229513Z INFO:     178.88.50.166:0 - "GET /api/v1/ai/jobs/5ac1aeac-7103-44b2-9ed3-b6fa7f9d25ae HTTP/1.1" 200 OK
+2026-06-23T02:03:32.942202816Z INFO:     10.216.24.118:36970 - "GET /api/v1/health HTTP/1.1" 200 OK

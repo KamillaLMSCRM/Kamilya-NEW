@@ -13,33 +13,73 @@ from app.modules.ai.ingestion import VectorStore, Summarizer
 
 logger = logging.getLogger(__name__)
 
-CHAPTER_TEXT_MAX_CHARS = 4000
+CHAPTER_TEXT_MAX_CHARS = 8000
 
 SYSTEM_PROMPT = """\
-You are a Course Architect. Explore ingested documents and design a structured course.
+You are a Course Architect. Your job is to explore a collection of ingested \
+documents and design a structured course based on their content.
 
-Workflow:
-1. Call list_documents() to see available documents.
-2. Call get_document_summary(doc_id) and get_document_toc(doc_id) for each document.
-3. Use get_chapter_text(doc_id, chapter_title) for important chapters.
-4. Design course: title, description, modules → lessons → objectives.
+## Workflow
 
-Rules:
-- 3-8 lessons per module. Objectives must be specific and measurable.
-- Write ALL text in TARGET LANGUAGE. Translate if source is different language.
-- Base everything on actual document content.
+1. Call `list_documents()` to see all available documents.
+2. For EACH document, call `get_document_summary(doc_id)` and \
+`get_document_toc(doc_id)` to understand its content and structure.
+3. Use `get_chapter_text(doc_id, chapter_title)` to read chapters that are \
+important for course design.
+4. Use `search_documents(query)` to find specific information across documents.
+5. Based on your analysis, design a course structure with:
+   - A descriptive course **title**
+   - A brief course **description**
+   - Logical **modules** (topic groups)
+   - **Lessons** within each module
+   - **Learning objectives** for each lesson
 
-Output ONLY this JSON when ready:
+## Rules
+
+- Structure the course logically — from fundamental to advanced topics.
+- Each lesson should cover a focused, self-contained topic.
+- Learning objectives must be specific and measurable.
+- Write ALL text in the TARGET LANGUAGE specified by the user.
+- If source documents are in a different language, TRANSLATE and ADAPT.
+- Aim for 3-8 lessons per module.
+- Base everything on the actual document content — do not invent topics.
+
+## Output
+
+After your analysis, output the course structure as a JSON code block:
+
 ```json
-{"title":"...","description":"...","modules":[{"title":"...","description":"...","lessons":[{"title":"...","description":"...","objectives":[{"text":"..."}],"source_doc_ids":["doc-id"],"relevant_headings":["Heading"]}]}]}
-```"""
+{
+  "title": "Course Title",
+  "description": "Brief course description",
+  "modules": [
+    {
+      "title": "Module 1 Title",
+      "lessons": [
+        {
+          "title": "Lesson Title",
+          "description": "Brief lesson description",
+          "objectives": [
+            {"text": "Learner will be able to ..."}
+          ],
+          "source_doc_ids": ["doc-stem-1"],
+          "relevant_headings": ["Chapter 3: Topic Name"]
+        }
+      ]
+    }
+  ]
+}
+```
+
+Output ONLY the JSON block as your final answer.
+"""
 
 
 def create_architect_tools(
     summaries_dir: str = "./summaries",
     chroma_dir: str = "./chroma_data",
     doc_ids: list[str] | None = None,
-    max_chapters_per_doc: int = 3,
+    max_chapters_per_doc: int = 5,
     embeddings_client=None,
     vector_store: VectorStore | None = None,
 ):
@@ -164,7 +204,7 @@ def create_architect_tools(
 
         raw = store.query(
             query_embeddings=[query_embedding],
-            n_results=5,
+            n_results=10,
             where=where,
             include=["documents", "metadatas", "distances"],
         )
@@ -291,16 +331,26 @@ async def run_architect(
     messages.append({"role": "user", "content": human_content})
 
     tool_descriptions = """
-Tools: list_documents(), get_document_summary(doc_id), get_document_toc(doc_id), get_chapter_text(doc_id, chapter_title), search_documents(query).
-Call: {"tool":"name","args":{...}}. After tool result, continue analysis.
+You have access to these tools:
+- list_documents() -> str: List all ingested documents
+- get_document_summary(doc_id: str) -> str: Get document summary
+- get_document_toc(doc_id: str) -> str: Get document table of contents
+- get_chapter_text(doc_id: str, chapter_title: str) -> str: Read chapter text
+- search_documents(query: str, doc_id: str = None) -> str: Semantic search
+
+To use a tool, respond with a JSON block:
+```json
+{"tool": "tool_name", "args": {"arg1": "value1"}}
+```
+
+After receiving tool results, continue your analysis.
+When ready to output the final course structure, output ONLY the JSON code block.
 """
 
     messages[0]["content"] = messages[0]["content"] + "\n\n" + tool_descriptions
 
     for iteration in range(max_iterations):
-        # Groq free tier: keep messages compact — limit to last 8 messages
-        trimmed = messages[:1] + messages[-6:] if len(messages) > 7 else messages
-        response = await llm.ainvoke(trimmed)
+        response = await llm.ainvoke(messages)
         content = response.content
 
         if on_message:
@@ -323,13 +373,10 @@ Call: {"tool":"name","args":{...}}. After tool result, continue analysis.
 
                 if tool_name in tools:
                     result = tools[tool_name](**tool_args) if not asyncio.iscoroutinefunction(tools[tool_name]) else await tools[tool_name](**tool_args)
-                    result_str = str(result)
-                    if len(result_str) > 3000:
-                        result_str = result_str[:3000] + "\n... [truncated]"
                     messages.append({"role": "assistant", "content": content})
-                    messages.append({"role": "user", "content": f"Tool result: {result_str}"})
+                    messages.append({"role": "user", "content": f"Tool result: {result}"})
                     if on_message:
-                        on_message(f"  -> {tool_name} returned {len(result_str)} chars")
+                        on_message(f"  -> {tool_name} returned {len(str(result))} chars")
                 else:
                     messages.append({"role": "assistant", "content": content})
                     messages.append({"role": "user", "content": f"Error: Unknown tool '{tool_name}'"})
