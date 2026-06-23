@@ -181,15 +181,15 @@ class VectorStore:
                     where_clause = "WHERE doc_id = :doc_id"
                     params["doc_id"] = doc_id
 
+        emb_str = str(emb)
         sql = text(f"""
             SELECT text, doc_name, headings,
-                   1 - (embedding <=> :embedding) as distance
+                   1 - (embedding <=> '{emb_str}'::vector) as distance
             FROM document_embeddings
             {where_clause}
             ORDER BY distance
             LIMIT :n
         """)
-        params["embedding"] = str(emb)
 
         async with async_session_factory() as session:
             result = await session.execute(sql, params)
