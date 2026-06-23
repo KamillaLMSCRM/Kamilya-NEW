@@ -14,13 +14,25 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 @router.post("/login", response_model=TokenResponse)
 async def login(req: LoginRequest, request: Request, db=Depends(get_db)):
-    user, access_token, refresh_token = await authenticate_user(db, req.email, req.password)
-    await log_action(
-        db, user.tenant_id, "login", "user",
-        resource_id=str(user.id), user_id=user.id,
-        ip_address=request.client.host if request.client else None,
-        user_agent=request.headers.get("user-agent"),
-    )
+    import logging
+    logger = logging.getLogger(__name__)
+    try:
+        user, access_token, refresh_token = await authenticate_user(db, req.email, req.password)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"authenticate_user failed: {e}")
+        raise
+    try:
+        await log_action(
+            db, user.tenant_id, "login", "user",
+            resource_id=str(user.id), user_id=user.id,
+            ip_address=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent"),
+        )
+    except Exception as e:
+        logger.exception(f"log_action failed: {e}")
+        raise
     await db.commit()
     return TokenResponse(access_token=access_token, refresh_token=refresh_token)
 
