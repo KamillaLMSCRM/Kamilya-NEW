@@ -7,7 +7,7 @@ import time
 from datetime import datetime, timezone
 from typing import Callable
 from dataclasses import dataclass, field
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from app.modules.ai.architect_schema import CourseStructure
 from app.modules.ai.writer_schema import CourseContent, ModuleContent, LessonContent
@@ -60,7 +60,7 @@ async def _save_generation_to_db(
     async with async_session_factory() as session:
         # Create course
         course = Course(
-            id=UUID(state.course_id) if state.course_id else None,
+            id=UUID(state.course_id) if state.course_id else uuid4(),
             tenant_id=tenant_id,
             title=state.structure.title if state.structure else "AI Generated Course",
             description=state.structure.description if state.structure else "",
