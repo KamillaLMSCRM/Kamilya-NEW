@@ -43,11 +43,15 @@ class Settings(BaseSettings):
     MINIO_BUCKET: str = "lms-content"
     MINIO_USE_SSL: bool = False
 
-    # Qwen (VPS proxy for Render, local for dev)
-    QWEN_API_URL: str = "http://173.249.51.164:8556/v1"
+    # Qwen Embeddings (via Cloudflare tunnel)
     QWEN_EMBEDDING_URL: str = "http://173.249.51.164:8002/v1"
-    LLM_API_URL: str = "http://173.249.51.164:8556/v1"
     EMBEDDING_URL: str = "http://173.249.51.164:8002/v1"
+
+    # Groq LLM (free tier)
+    LLM_API_URL: str = "https://api.groq.com/openai/v1"
+    QWEN_API_URL: str = "https://api.groq.com/openai/v1"
+    LLM_API_KEY: str = ""
+    LLM_MODEL: str = "llama-3.3-70b-versatile"
 
     # Telegram Bot
     TELEGRAM_BOT_TOKEN: str = ""

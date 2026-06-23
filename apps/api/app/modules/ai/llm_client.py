@@ -23,13 +23,18 @@ class LLMClient:
     def __init__(
         self,
         base_url: str | None = None,
-        api_key: str = "not-needed",
-        model: str = "cyankiwi/Qwen3.6-35B-A3B-AWQ-4bit",
+        api_key: str | None = None,
+        model: str | None = None,
         temperature: float = 0.7,
         max_tokens: int = 8192,
     ):
+        settings = get_settings()
         if base_url is None:
-            base_url = _default_llm_url()
+            base_url = settings.QWEN_API_URL
+        if api_key is None:
+            api_key = settings.LLM_API_KEY or "not-needed"
+        if model is None:
+            model = settings.LLM_MODEL or "llama-3.3-70b-versatile"
         self.base_url = base_url
         self.api_key = api_key
         self.model = model
@@ -122,8 +127,8 @@ class EmbeddingsClient:
 
 def create_llm(
     base_url: str | None = None,
-    api_key: str = "not-needed",
-    model: str = "cyankiwi/Qwen3.6-35B-A3B-AWQ-4bit",
+    api_key: str | None = None,
+    model: str | None = None,
     temperature: float = 0.7,
     max_tokens: int = 8192,
     response_format: dict | None = None,
