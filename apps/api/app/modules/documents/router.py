@@ -100,7 +100,7 @@ async def upload_document(
     doc_id = uuid.uuid4()
     s3_key = f"tenants/{user.tenant_id}/documents/{doc_id}{ext}"
 
-    # Save file to disk for ingestion
+    # Save file temporarily for ingestion, then embed into pgvector
     file_path = os.path.join(UPLOAD_DIR, str(user.tenant_id), f"{doc_id}{ext}")
     os.makedirs(os.path.dirname(file_path), exist_ok=True)
     with open(file_path, "wb") as f:
@@ -120,6 +120,22 @@ async def upload_document(
     db.add(doc)
     await db.flush()
     await db.refresh(doc)
+
+    # Ingest into pgvector immediately (persistent embeddings)
+    try:
+        from app.modules.ai.ingestion import DocumentIngestion
+        ingestion = DocumentIngestion()
+        result = await ingestion.ingest_file(file_path, doc_id=str(doc_id))
+        print(f"[UPLOAD] Ingested {file.filename}: {result.get('chunks', 0)} chunks", flush=True)
+    except Exception as e:
+        print(f"[UPLOAD] Ingestion failed for {file.filename}: {e}", flush=True)
+    finally:
+        # Clean up temp file (Render ephemeral disk)
+        try:
+            os.remove(file_path)
+        except OSError:
+            pass
+
     return doc
 
 

@@ -230,34 +230,21 @@ async def run_generation_pipeline(
         # Stage 1: Ingestion — actually ingest documents into vector store
         state.stage = "ingestion"
         state.progress = 5
-        state.message = "Ingesting documents..."
+        state.message = "Checking document embeddings..."
         await _update_job_db(job_id, status="running", stage="ingestion", progress=5, message=state.message)
 
-        ingestion = DocumentIngestion()
-
-        # Find uploaded document files on disk and ingest them
+        # Documents are ingested at upload time into pgvector.
+        # Here we just verify embeddings exist for the requested doc_ids.
         if documents:
-            upload_dir = "./uploads/documents"
-            file_paths = []
+            from app.modules.ai.ingestion import VectorStore
+            store = VectorStore()
             for doc_id in documents:
-                # Look for file in uploads dir (any tenant, any extension)
-                for tenant_dir in os.listdir(upload_dir) if os.path.exists(upload_dir) else []:
-                    tenant_path = os.path.join(upload_dir, tenant_dir)
-                    if os.path.isdir(tenant_path):
-                        for fname in os.listdir(tenant_path):
-                            if fname.startswith(doc_id):
-                                file_paths.append(os.path.join(tenant_path, fname))
-                                break
-            if file_paths:
-                state.message = f"Ingesting {len(file_paths)} documents..."
-                await _update_job_db(job_id, message=state.message)
                 try:
-                    await ingestion.ingest_files(file_paths)
-                    logger.info(f"Ingested {len(file_paths)} documents into vector store")
+                    chunks = await store.get_all_chunks(doc_ids=[doc_id])
+                    if not chunks:
+                        logger.warning(f"No embeddings found for doc {doc_id} — may need re-upload")
                 except Exception as e:
-                    logger.warning(f"Ingestion failed (continuing anyway): {e}")
-            else:
-                logger.warning(f"No document files found on disk for IDs: {documents}")
+                    logger.warning(f"Could not check embeddings for {doc_id}: {e}")
 
         # Stage 2: Architect
         state.stage = "architect"
