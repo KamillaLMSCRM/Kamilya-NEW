@@ -307,12 +307,21 @@ def _attempt_json_repair(json_str: str) -> str | None:
 
 
 def _attempt_json_repair(json_str: str) -> str | None:
-    """Fix common JSON issues from LLM output."""
+    """Fix common JSON issues from LLM output using json_repair."""
+    from json_repair import repair_json
+    try:
+        repaired = repair_json(json_str, return_objects=True)
+        if isinstance(repaired, dict):
+            return json.dumps(repaired, ensure_ascii=False)
+    except Exception:
+        pass
     return None
 
 
 def _parse_course_structure(text: str) -> CourseStructure:
     """Parse JSON course structure from LLM output."""
+    from json_repair import repair_json
+
     # Strip thinking tags
     text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
 
@@ -332,25 +341,23 @@ def _parse_course_structure(text: str) -> CourseStructure:
     json_str = re.sub(r",\s*([}\]])", r"\1", json_str)
     json_str = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', json_str)
     json_str = json_str.replace('\u201c', '"').replace('\u201d', '"')
-    # Fix missing commas after string values before next key
-    json_str = re.sub(r'"\s*\n(\s*")', r'",\n\1', json_str)
-    # Fix missing commas after boolean/null/number before next key
-    json_str = re.sub(r'(false|true|null|\d+\.?\d*)\s*\n(\s*")', r'\1,\n\2', json_str)
-    # Fix smart quotes
     json_str = json_str.replace('\u2018', "'").replace('\u2019', "'")
 
+    # Try direct parse
     try:
         return CourseStructure.from_json(json_str)
-    except (json.JSONDecodeError, KeyError, ValueError) as e:
-        # Last resort: use LLM to fix the JSON
-        logger.warning(f"JSON parse failed, attempting repair: {e}")
-        repaired = _attempt_json_repair(json_str)
-        if repaired:
-            try:
-                return CourseStructure.from_json(repaired)
-            except (json.JSONDecodeError, KeyError, ValueError):
-                pass
-        raise ValueError(f"Failed to parse course structure JSON: {e}") from e
+    except (json.JSONDecodeError, KeyError, ValueError):
+        pass
+
+    # Fallback: json_repair
+    repaired = _attempt_json_repair(json_str)
+    if repaired:
+        try:
+            return CourseStructure.from_json(repaired)
+        except (json.JSONDecodeError, KeyError, ValueError):
+            pass
+
+    raise ValueError(f"Failed to parse course structure JSON")
 
 
 async def run_architect(

@@ -21,6 +21,8 @@ MAX_ASSESSMENT_RETRIES = 4
 
 def _parse_json_response(content: str) -> dict:
     """Parse JSON from LLM response with preprocessing."""
+    from json_repair import repair_json
+
     # Strip thinking tags if present
     content = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
 
@@ -40,36 +42,22 @@ def _parse_json_response(content: str) -> dict:
     json_str = re.sub(r",\s*([}\]])", r"\1", json_str)
     json_str = re.sub(r"//[^\n]*", "", json_str)
     json_str = re.sub(r'/\*.*?\*/', '', json_str, flags=re.DOTALL)
-    json_str = re.sub(r",(\s*\n)", r"\1", json_str)
     json_str = json_str.replace('\u201c', '"').replace('\u201d', '"')
     json_str = json_str.replace('\u2018', "'").replace('\u2019', "'")
     json_str = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', json_str)
-    # Fix missing commas after string values before next key
-    json_str = re.sub(r'"\s*\n(\s*")', r'",\n\1', json_str)
-    # Fix missing commas after boolean/null/number before next key
-    json_str = re.sub(r'(false|true|null|\d+\.?\d*)\s*\n(\s*")', r'\1,\n\2', json_str)
-    json_str = json_str.strip()
 
+    # Try direct parse first
     try:
         return json.loads(json_str)
-    except json.JSONDecodeError as e:
-        # Try to fix common issues and retry
-        fixed = json_str
-        # Fix missing commas: } {  →  }, {
-        fixed = re.sub(r'\}\s*\{', '},{', fixed)
-        # Fix missing commas after values: "val" "key"  →  "val", "key"
-        fixed = re.sub(r'"\s*\n\s*"', '", "', fixed)
-        # Fix: value without comma before next line with key
-        fixed = re.sub(r'(false|true|null|\d+)\s*\n\s*"', r'\1, "', fixed)
-        # Remove trailing commas again after fixes
-        fixed = re.sub(r",\s*([}\]])", r"\1", fixed)
-        try:
-            return json.loads(fixed)
-        except json.JSONDecodeError:
-            pass
+    except json.JSONDecodeError:
+        pass
 
-        # Last resort: try to extract individual items
-        raise ValueError(f"Cannot parse JSON ({len(content)} chars): {e}")
+    # Fallback: json_repair library handles all missing commas, etc.
+    repaired = repair_json(json_str, return_objects=True)
+    if isinstance(repaired, dict):
+        return repaired
+
+    raise ValueError(f"Cannot parse JSON ({len(json_str)} chars)")
 
 
 def _validate_assessment(assessment: LessonAssessment) -> list[str]:
