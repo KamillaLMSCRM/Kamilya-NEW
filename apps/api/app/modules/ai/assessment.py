@@ -142,7 +142,9 @@ async def generate_course_assessment(
         for lesson in module.lessons:
             num += 1
             if on_progress:
-                on_progress(f"Generating assessment {num}/{total}: {lesson.title}")
+                result = on_progress(f"Generating assessment {num}/{total}: {lesson.title}")
+                if hasattr(result, '__await__'):
+                    await result
             a = await generate_lesson_assessment(llm, lesson, language=language)
             assessments.append(a)
             if num < total:

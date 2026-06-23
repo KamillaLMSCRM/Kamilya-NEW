@@ -217,7 +217,9 @@ async def write_course(
         for lesson in module.lessons:
             lesson_num += 1
             if on_progress:
-                on_progress(f"Writing lesson {lesson_num}/{total_lessons}: {lesson.title}")
+                result = on_progress(f"Writing lesson {lesson_num}/{total_lessons}: {lesson.title}")
+                if hasattr(result, '__await__'):
+                    await result
 
             objectives = [obj.text for obj in lesson.objectives]
             lesson_headings = lesson.relevant_headings if lesson.relevant_headings else None
