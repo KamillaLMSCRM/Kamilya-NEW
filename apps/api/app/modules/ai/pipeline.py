@@ -66,7 +66,7 @@ async def _save_generation_to_db(
             description=state.structure.description if state.structure else "",
             status="draft",
             created_by=user_id,
-            ai_generated="true",
+            ai_generated=True,
         )
         if not state.course_id:
             session.add(course)
