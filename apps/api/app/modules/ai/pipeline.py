@@ -370,6 +370,7 @@ async def run_generation_pipeline(
         await _update_job_db(
             job_id,
             status="completed",
+            stage="completed",
             progress=100,
             message=state.message,
             completed_at=datetime.now(timezone.utc),

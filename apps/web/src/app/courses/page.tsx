@@ -16,6 +16,7 @@ export default function CoursesPage() {
   const [description, setDescription] = useState('');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchCourses();
@@ -55,6 +56,19 @@ export default function CoursesPage() {
       fetchCourses();
     } catch (e) {
       console.error('Failed to toggle publish', e);
+    }
+  };
+
+  const handleDelete = async (courseId: string) => {
+    if (!confirm('Удалить курс? Это действие необратимо.')) return;
+    setDeletingId(courseId);
+    try {
+      await api.delete(`/v1/courses/${courseId}`);
+      fetchCourses();
+    } catch (e) {
+      console.error('Failed to delete course', e);
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -189,6 +203,16 @@ export default function CoursesPage() {
                   >
                     {t('common.edit')}
                   </a>
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handleDelete(course.id);
+                    }}
+                    disabled={deletingId === course.id}
+                    className="rounded-xl px-3 py-2 text-xs font-medium text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
+                  >
+                    {deletingId === course.id ? '…' : '✕'}
+                  </button>
                 </div>
               </div>
             </a>
