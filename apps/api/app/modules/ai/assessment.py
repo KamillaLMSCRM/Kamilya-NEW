@@ -21,9 +21,11 @@ MAX_ASSESSMENT_RETRIES = 4
 
 def _parse_json_response(content: str) -> dict:
     """Parse JSON from LLM response with preprocessing."""
-    # Strip any text before the first code fence or first {
+    # Strip thinking tags if present
+    content = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
+
     # Try code fence extraction — find ALL matches and pick the largest
-    matches = re.findall(r"```(?:json)?\s*\n([\s\S]*?)\n?\s*```", content)
+    matches = re.findall(r"```(?:json)?\s*\n?([\s\S]*?)\n?\s*```", content)
     if matches:
         json_str = max(matches, key=len).strip()
     else:
@@ -41,10 +43,13 @@ def _parse_json_response(content: str) -> dict:
     json_str = re.sub(r",(\s*\n)", r"\1", json_str)
     json_str = json_str.strip()
 
+    print(f"[JSON_PARSE] len={len(json_str)} first80={json_str[:80]!r}", flush=True)
+
     try:
         return json.loads(json_str)
-    except json.JSONDecodeError:
-        raise ValueError(f"Cannot parse JSON from LLM response ({len(content)} chars)")
+    except json.JSONDecodeError as e:
+        print(f"[JSON_PARSE] FAILED: {e} at pos {e.pos}", flush=True)
+        raise ValueError(f"Cannot parse JSON ({len(content)} chars): {e}")
 
 
 def _validate_assessment(assessment: LessonAssessment) -> list[str]:
