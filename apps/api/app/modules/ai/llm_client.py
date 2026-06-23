@@ -53,6 +53,7 @@ class LLMClient:
             "messages": messages,
             "temperature": self.temperature,
             "max_tokens": self.max_tokens,
+            "chat_template_kwargs": {"enable_thinking": False},
         }
         if response_format:
             payload["response_format"] = response_format
@@ -66,7 +67,10 @@ class LLMClient:
             response.raise_for_status()
             data = response.json()
 
-        content = data["choices"][0]["message"]["content"]
+        msg = data["choices"][0]["message"]
+        content = msg.get("content") or msg.get("reasoning") or ""
+        if not content:
+            logger.warning(f"LLM returned empty content: {data['choices'][0].get('finish_reason')}")
         return _LLMResponse(content=content)
 
 
