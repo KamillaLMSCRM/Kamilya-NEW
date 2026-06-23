@@ -182,7 +182,8 @@ class VectorStore:
                     params["doc_id"] = doc_id
 
         sql = text(f"""
-            SELECT text, doc_name, headings, 1 - (embedding <=> :embedding::vector) as distance
+            SELECT text, doc_name, headings,
+                   1 - (embedding <=> :embedding) as distance
             FROM document_embeddings
             {where_clause}
             ORDER BY distance
