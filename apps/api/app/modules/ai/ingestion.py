@@ -122,42 +122,50 @@ class DocumentChunker:
 
 
 class VectorStore:
-    """ChromaDB vector store wrapper."""
+    """Supabase pgvector-backed vector store."""
 
     def __init__(self, persist_dir: str = "./chroma_data"):
         self.persist_dir = persist_dir
-        self._collection = None
 
-    def _get_collection(self):
-        if self._collection is None:
-            try:
-                import chromadb
-                client = chromadb.PersistentClient(path=self.persist_dir)
-                self._collection = client.get_or_create_collection(
-                    name="kamilya_documents",
-                    metadata={"hnsw:space": "cosine"},
+    def add_chunks(self, chunks: list[dict], embeddings: list[list[float]], tenant_id: str | None = None):
+        """Add chunks with embeddings to Supabase."""
+        import asyncio
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor() as pool:
+                    loop.run_in_executor(pool, lambda: asyncio.run(self._add_chunks_async(chunks, embeddings, tenant_id)))
+            else:
+                loop.run_until_complete(self._add_chunks_async(chunks, embeddings, tenant_id))
+        except Exception as e:
+            logger.warning(f"Failed to store embeddings in Supabase: {e}")
+
+    async def _add_chunks_async(self, chunks: list[dict], embeddings: list[list[float]], tenant_id: str | None = None):
+        """Async insert embeddings into Supabase."""
+        from app.core.db import async_session_factory
+        import hashlib
+        async with async_session_factory() as session:
+            for chunk, emb in zip(chunks, embeddings):
+                chunk_id = hashlib.md5(chunk["text"].encode()).hexdigest()
+                meta = chunk.get("metadata", {})
+                await session.execute(
+                    __import__('sqlalchemy').text(
+                        """INSERT INTO document_embeddings (id, tenant_id, doc_id, text, headings, doc_name, embedding)
+                           VALUES (:id, :tenant_id, :doc_id, :text, :headings, :doc_name, :embedding)
+                           ON CONFLICT (id) DO NOTHING"""
+                    ),
+                    {
+                        "id": chunk_id,
+                        "tenant_id": tenant_id or "00000000-0000-0000-0000-000000000000",
+                        "doc_id": meta.get("doc_id", ""),
+                        "text": chunk["text"],
+                        "headings": meta.get("headings", ""),
+                        "doc_name": meta.get("doc_name", ""),
+                        "embedding": str(emb),
+                    }
                 )
-            except ImportError:
-                logger.warning("ChromaDB not installed")
-                return None
-        return self._collection
-
-    def add_chunks(self, chunks: list[dict], embeddings: list[list[float]]):
-        """Add chunks with embeddings to the store."""
-        collection = self._get_collection()
-        if collection is None:
-            return
-
-        ids = [hashlib.md5(c["text"].encode()).hexdigest() for c in chunks]
-        documents = [c["text"] for c in chunks]
-        metadatas = [c["metadata"] for c in chunks]
-
-        collection.add(
-            ids=ids,
-            documents=documents,
-            embeddings=embeddings,
-            metadatas=metadatas,
-        )
+            await session.commit()
 
     def query(
         self,
@@ -166,44 +174,95 @@ class VectorStore:
         where: dict | None = None,
         include: list[str] | None = None,
     ) -> dict:
-        """Query the vector store."""
-        collection = self._get_collection()
-        if collection is None:
+        """Query the vector store using pgvector cosine distance."""
+        import asyncio
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor() as pool:
+                    return loop.run_in_executor(pool, lambda: asyncio.run(self._query_async(query_embeddings, n_results, where)))
+            else:
+                return loop.run_until_complete(self._query_async(query_embeddings, n_results, where))
+        except Exception as e:
+            logger.warning(f"Supabase query failed: {e}")
             return {"documents": [[]], "metadatas": [[]], "distances": [[]]}
 
-        kwargs: dict[str, Any] = {
-            "query_embeddings": query_embeddings,
-            "n_results": n_results,
-        }
-        if where:
-            kwargs["where"] = where
-        if include:
-            kwargs["include"] = include
+    async def _query_async(self, query_embeddings, n_results, where) -> dict:
+        """Async vector search via pgvector."""
+        from app.core.db import async_session_factory
+        from sqlalchemy import text
+        emb = query_embeddings[0]
+        emb_str = str(emb)
 
-        return collection.query(**kwargs)
+        where_clause = ""
+        params: dict = {"embedding": emb_str, "n": n_results}
+        if where:
+            doc_id = where.get("doc_id")
+            if doc_id:
+                if isinstance(doc_id, dict) and "$in" in doc_id:
+                    ids = doc_id["$in"]
+                    placeholders = ", ".join(f":doc_id_{i}" for i in range(len(ids)))
+                    where_clause = f"WHERE doc_id IN ({placeholders})"
+                    for i, did in enumerate(ids):
+                        params[f"doc_id_{i}"] = did
+                else:
+                    where_clause = "WHERE doc_id = :doc_id"
+                    params["doc_id"] = doc_id
+
+        sql = text(f"""
+            SELECT text, doc_name, headings, 1 - (embedding <=> :embedding::vector) as distance
+            FROM document_embeddings
+            {where_clause}
+            ORDER BY embedding <=> :embedding::vector
+            LIMIT :n
+        """)
+
+        async with async_session_factory() as session:
+            result = await session.execute(sql, params)
+            rows = result.fetchall()
+
+        documents = [[row[0] for row in rows]]
+        metadatas = [[{"doc_name": row[1], "headings": row[2]} for row in rows]]
+        distances = [[row[3] for row in rows]]
+
+        return {"documents": documents, "metadatas": metadatas, "distances": distances}
 
     def get_all_chunks(self, doc_ids: list[str] | None = None) -> list[tuple[str, dict]]:
         """Get all chunks, optionally filtered by doc_ids."""
-        collection = self._get_collection()
-        if collection is None:
+        import asyncio
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor() as pool:
+                    return loop.run_in_executor(pool, lambda: asyncio.run(self._get_all_chunks_async(doc_ids)))
+            else:
+                return loop.run_until_complete(self._get_all_chunks_async(doc_ids))
+        except Exception as e:
+            logger.warning(f"Supabase get_all failed: {e}")
             return []
 
-        where = None
+    async def _get_all_chunks_async(self, doc_ids: list[str] | None = None) -> list[tuple[str, dict]]:
+        from app.core.db import async_session_factory
+        from sqlalchemy import text
+        params: dict = {}
+        where = ""
         if doc_ids:
             if len(doc_ids) == 1:
-                where = {"doc_id": doc_ids[0]}
+                where = "WHERE doc_id = :doc_id"
+                params["doc_id"] = doc_ids[0]
             else:
-                where = {"doc_id": {"$in": doc_ids}}
+                placeholders = ", ".join(f":doc_id_{i}" for i in range(len(doc_ids)))
+                where = f"WHERE doc_id IN ({placeholders})"
+                for i, did in enumerate(doc_ids):
+                    params[f"doc_id_{i}"] = did
 
-        kwargs: dict[str, Any] = {}
-        if where:
-            kwargs["where"] = where
+        async with async_session_factory() as session:
+            result = await session.execute(text(f"SELECT text, doc_id, doc_name, headings FROM document_embeddings {where}"), params)
+            rows = result.fetchall()
 
-        result = collection.get(**kwargs)
-        pairs = []
-        for doc, meta in zip(result.get("documents", []), result.get("metadatas", [])):
-            pairs.append((doc, meta))
-        return pairs
+        return [(row[0], {"doc_id": row[1], "doc_name": row[2], "headings": row[3]}) for row in rows]
 
 
 class Summarizer:
@@ -262,7 +321,7 @@ class EmbeddingsProvider:
         except Exception:
             return None
 
-    def _hash_embedding(self, text: str, dim: int = 384) -> list[float]:
+    def _hash_embedding(self, text: str, dim: int = 4096) -> list[float]:
         """Deterministic hash-based embedding (for BM25-like text matching)."""
         import hashlib
         h = hashlib.sha512(text.encode("utf-8")).digest()
@@ -337,9 +396,9 @@ class DocumentIngestion:
         embeddings = await self.embeddings.embed(texts)
         logger.info(f"  Embedded: {len(embeddings)} vectors (dim={len(embeddings[0]) if embeddings else 0})")
 
-        # Step 4: Store in ChromaDB
+        # Step 4: Store in Supabase pgvector
         self.store.add_chunks(chunks, embeddings)
-        logger.info(f"  Stored in ChromaDB")
+        logger.info(f"  Stored in Supabase pgvector")
 
         # Step 5: Generate summary
         summary = await self.summarizer.summarize(markdown, doc_id, filename)
