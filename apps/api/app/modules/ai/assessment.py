@@ -1,6 +1,7 @@
 """Assessment Agent — grounded question generation from lesson content."""
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import re
@@ -139,5 +140,7 @@ async def generate_course_assessment(
                 on_progress(f"Generating assessment {num}/{total}: {lesson.title}")
             a = await generate_lesson_assessment(llm, lesson, language=language)
             assessments.append(a)
+            if num < total:
+                await asyncio.sleep(5)
 
     return CourseAssessment(assessments=assessments)
