@@ -43,6 +43,7 @@ export default function CoursePlayerPage() {
   const [enrolling, setEnrolling] = useState(false);
   const [quizId, setQuizId] = useState<string | null>(null);
   const token = useAuthStore((s) => s.accessToken);
+  const user = useAuthStore((s) => s.user);
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
   useEffect(() => {
@@ -67,8 +68,12 @@ export default function CoursePlayerPage() {
 
       if (courseRes.ok) setCourse(await courseRes.json());
 
-      // Check if user is enrolled
-      if (enrollRes.ok) {
+      // Check if user is enrolled (admins/teachers bypass enrollment check)
+      const userRole = user?.role;
+      const isAdminOrTeacher = userRole === 'admin' || userRole === 'superadmin' || userRole === 'teacher' || userRole === 'org_admin';
+      if (isAdminOrTeacher) {
+        setEnrolled(true);
+      } else if (enrollRes.ok) {
         const enrollData = await enrollRes.json();
         setEnrolled(enrollData.length > 0);
       } else {

@@ -389,6 +389,33 @@ async def run_generation_pipeline(
         if tenant_id and user_id:
             await _save_generation_to_db(state, tenant_id, user_id)
 
+            # Auto-enroll the creator in the generated course
+            if state.course_id:
+                try:
+                    from app.models.enrollment import Enrollment
+                    from sqlalchemy import select as sa_select
+                    from app.core.db import async_session_factory
+                    async with async_session_factory() as session:
+                        existing = await session.execute(
+                            sa_select(Enrollment).where(
+                                Enrollment.user_id == user_id,
+                                Enrollment.course_id == UUID(state.course_id),
+                                Enrollment.tenant_id == tenant_id,
+                            )
+                        )
+                        if not existing.scalar_one_or_none():
+                            enrollment = Enrollment(
+                                user_id=user_id,
+                                course_id=UUID(state.course_id),
+                                tenant_id=tenant_id,
+                                status="enrolled",
+                            )
+                            session.add(enrollment)
+                            await session.commit()
+                            logger.info(f"Auto-enrolled creator {user_id} in course {state.course_id}")
+                except Exception as e:
+                    logger.warning(f"Auto-enrollment failed: {e}")
+
         state.status = "completed"
         state.progress = 100
         state.message = "Course generation complete!"

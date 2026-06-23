@@ -111,6 +111,23 @@ async def create_lesson(
     return lesson
 
 
+@router.get("/lessons/{lesson_id}", response_model=LessonResponse)
+async def get_lesson_endpoint(
+    lesson_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    from sqlalchemy import select
+    from app.modules.lessons.models import Lesson
+    result = await db.execute(
+        select(Lesson).where(Lesson.id == lesson_id, Lesson.tenant_id == user.tenant_id)
+    )
+    lesson = result.scalar_one_or_none()
+    if not lesson:
+        raise HTTPException(status_code=404, detail="Lesson not found")
+    return lesson
+
+
 @router.patch("/lessons/{lesson_id}", response_model=LessonResponse)
 async def update_lesson_endpoint(
     lesson_id: UUID,
