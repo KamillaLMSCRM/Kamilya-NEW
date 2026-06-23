@@ -43,12 +43,27 @@ def _parse_json_response(content: str) -> dict:
     json_str = re.sub(r",(\s*\n)", r"\1", json_str)
     json_str = json_str.strip()
 
-    print(f"[JSON_PARSE] len={len(json_str)} first80={json_str[:80]!r}", flush=True)
-
     try:
         return json.loads(json_str)
     except json.JSONDecodeError as e:
-        print(f"[JSON_PARSE] FAILED: {e} at pos {e.pos}", flush=True)
+        # Log context around error position
+        pos = e.pos or 0
+        context_start = max(0, pos - 50)
+        context_end = min(len(json_str), pos + 50)
+        print(f"[JSON_PARSE] FAILED: {e}", flush=True)
+        print(f"[JSON_PARSE] context: ...{json_str[context_start:context_end]!r}...", flush=True)
+
+        # Try to fix common issues and retry
+        fixed = json_str
+        # Fix: remove any non-printable chars
+        fixed = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', fixed)
+        # Fix: trailing commas again
+        fixed = re.sub(r",\s*([}\]])", r"\1", fixed)
+        try:
+            return json.loads(fixed)
+        except json.JSONDecodeError:
+            pass
+
         raise ValueError(f"Cannot parse JSON ({len(content)} chars): {e}")
 
 
