@@ -84,7 +84,7 @@ async def _retrieve_and_rerank(
     best_chunks: dict[str, tuple[float, list[str], str]] = {}
 
     for qe, query_text in zip(query_embeddings, queries):
-        results = store.query(
+        results = await store.query(
             query_embeddings=[qe],
             n_results=n_results,
             where=where,

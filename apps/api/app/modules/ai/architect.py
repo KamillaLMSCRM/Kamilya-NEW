@@ -200,9 +200,9 @@ def create_architect_tools(
             where = {"doc_id": {"$in": list(scope)}}
 
         # Use placeholder embeddings when real embeddings not available
-        query_embedding = [0.0] * 1024
+        query_embedding = [0.0] * 4096
 
-        raw = store.query(
+        raw = await store.query(
             query_embeddings=[query_embedding],
             n_results=10,
             where=where,
