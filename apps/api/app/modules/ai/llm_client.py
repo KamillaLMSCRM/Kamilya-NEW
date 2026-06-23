@@ -59,11 +59,14 @@ class LLMClient:
             payload["response_format"] = response_format
 
         async with httpx.AsyncClient(timeout=300) as client:
+            print(f"[LLM_REQ] {self.base_url}/chat/completions model={self.model} msgs={len(messages)}", flush=True)
             response = await client.post(
                 f"{self.base_url}/chat/completions",
                 json=payload,
                 headers={"Authorization": f"Bearer {self.api_key}"},
             )
+            if response.status_code != 200:
+                print(f"[LLM_ERROR] {response.status_code}: {response.text[:500]}", flush=True)
             response.raise_for_status()
             data = response.json()
 
