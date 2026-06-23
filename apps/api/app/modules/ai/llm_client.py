@@ -34,7 +34,7 @@ class LLMClient:
         if api_key is None:
             api_key = settings.LLM_API_KEY or "not-needed"
         if model is None:
-            model = settings.LLM_MODEL or "llama-3.3-70b-versatile"
+            model = settings.LLM_MODEL or "cyankiwi/Qwen3.6-35B-A3B-AWQ-4bit"
         self.base_url = base_url
         self.api_key = api_key
         self.model = model
