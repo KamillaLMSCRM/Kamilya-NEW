@@ -62,17 +62,28 @@ class LLMClient:
         if response_format:
             payload["response_format"] = response_format
 
-        async with httpx.AsyncClient(timeout=300) as client:
-            print(f"[LLM_REQ] {self.base_url}/chat/completions model={self.model} msgs={len(messages)}", flush=True)
-            response = await client.post(
-                f"{self.base_url}/chat/completions",
-                json=payload,
-                headers={"Authorization": f"Bearer {self.api_key}"},
-            )
-            if response.status_code != 200:
-                print(f"[LLM_ERROR] {response.status_code}: {response.text[:500]}", flush=True)
-            response.raise_for_status()
-            data = response.json()
+        import asyncio
+
+        for attempt in range(4):
+            async with httpx.AsyncClient(timeout=300) as client:
+                print(f"[LLM_REQ] {self.base_url}/chat/completions model={self.model} msgs={len(messages)}", flush=True)
+                response = await client.post(
+                    f"{self.base_url}/chat/completions",
+                    json=payload,
+                    headers={"Authorization": f"Bearer {self.api_key}"},
+                )
+                if response.status_code == 429:
+                    wait = (attempt + 1) * 15
+                    print(f"[LLM] 429 rate limited, waiting {wait}s (attempt {attempt + 1}/4)", flush=True)
+                    await asyncio.sleep(wait)
+                    continue
+                if response.status_code != 200:
+                    print(f"[LLM_ERROR] {response.status_code}: {response.text[:500]}", flush=True)
+                response.raise_for_status()
+                data = response.json()
+                break
+        else:
+            raise Exception("LLM rate limited after 4 retries")
 
         msg = data["choices"][0]["message"]
         content = msg.get("content") or msg.get("reasoning") or ""
