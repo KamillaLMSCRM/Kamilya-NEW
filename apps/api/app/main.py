@@ -100,6 +100,13 @@ app.include_router(users_router, prefix=f"{settings.API_PREFIX}", tags=["users"]
 app.include_router(telegram_router, prefix=f"{settings.API_PREFIX}", tags=["telegram"])
 app.include_router(positions_router, prefix=f"{settings.API_PREFIX}", tags=["positions"])
 
+# Suppress Render health check spam in logs
+class HealthCheckFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        return "health" not in record.getMessage().lower()
+
+logging.getLogger("uvicorn.access").addFilter(HealthCheckFilter())
+
 
 @app.get("/health")
 @app.get(f"{settings.API_PREFIX}/health")
