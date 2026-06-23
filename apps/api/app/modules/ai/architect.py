@@ -278,9 +278,12 @@ def _build_system_prompt(
 
 def _parse_course_structure(text: str) -> CourseStructure:
     """Parse JSON course structure from LLM output."""
-    match = re.search(r"```json\s*\n(.*?)\n\s*```", text, re.DOTALL)
+    # Strip thinking tags
+    text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
+
+    match = re.search(r"```(?:json)?\s*\n?([\s\S]*?)\n?\s*```", text)
     if match:
-        json_str = match.group(1)
+        json_str = match.group(1).strip()
     else:
         match = re.search(r"\{[\s\S]*\}", text)
         if match:
@@ -290,11 +293,21 @@ def _parse_course_structure(text: str) -> CourseStructure:
 
     # Sanitize JSON
     json_str = re.sub(r"//[^\n]*", "", json_str)
+    json_str = re.sub(r'/\*.*?\*/', '', json_str, flags=re.DOTALL)
     json_str = re.sub(r",\s*([}\]])", r"\1", json_str)
+    json_str = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', json_str)
 
     try:
         return CourseStructure.from_json(json_str)
-    except (json.JSONDecodeError, KeyError) as e:
+    except (json.JSONDecodeError, KeyError, ValueError) as e:
+        # Retry: try to find first complete {...} block
+        matches = re.findall(r"\{[\s\S]*?\}", json_str)
+        for m in sorted(matches, key=len, reverse=True):
+            try:
+                cleaned = re.sub(r",\s*([}\]])", r"\1", m)
+                return CourseStructure.from_json(cleaned)
+            except (json.JSONDecodeError, KeyError, ValueError):
+                continue
         raise ValueError(f"Failed to parse course structure JSON: {e}") from e
 
 
