@@ -16,63 +16,23 @@ logger = logging.getLogger(__name__)
 CHAPTER_TEXT_MAX_CHARS = 4000
 
 SYSTEM_PROMPT = """\
-You are a Course Architect. Your job is to explore a collection of ingested \
-documents and design a structured course based on their content.
+You are a Course Architect. Explore ingested documents and design a structured course.
 
-## Workflow
+Workflow:
+1. Call list_documents() to see available documents.
+2. Call get_document_summary(doc_id) and get_document_toc(doc_id) for each document.
+3. Use get_chapter_text(doc_id, chapter_title) for important chapters.
+4. Design course: title, description, modules → lessons → objectives.
 
-1. Call `list_documents()` to see all available documents.
-2. For EACH document, call `get_document_summary(doc_id)` and \
-`get_document_toc(doc_id)` to understand its content and structure.
-3. Use `get_chapter_text(doc_id, chapter_title)` to read chapters that are \
-important for course design.
-4. Use `search_documents(query)` to find specific information across documents.
-5. Based on your analysis, design a course structure with:
-   - A descriptive course **title**
-   - A brief course **description**
-   - Logical **modules** (topic groups)
-   - **Lessons** within each module
-   - **Learning objectives** for each lesson
+Rules:
+- 3-8 lessons per module. Objectives must be specific and measurable.
+- Write ALL text in TARGET LANGUAGE. Translate if source is different language.
+- Base everything on actual document content.
 
-## Rules
-
-- Structure the course logically — from fundamental to advanced topics.
-- Each lesson should cover a focused, self-contained topic.
-- Learning objectives must be specific and measurable.
-- Write ALL text in the TARGET LANGUAGE specified by the user.
-- If source documents are in a different language, TRANSLATE and ADAPT.
-- Aim for 3-8 lessons per module.
-- Base everything on the actual document content — do not invent topics.
-
-## Output
-
-After your analysis, output the course structure as a JSON code block:
-
+Output ONLY this JSON when ready:
 ```json
-{
-  "title": "Course Title",
-  "description": "Brief course description",
-  "modules": [
-    {
-      "title": "Module 1 Title",
-      "lessons": [
-        {
-          "title": "Lesson Title",
-          "description": "Brief lesson description",
-          "objectives": [
-            {"text": "Learner will be able to ..."}
-          ],
-          "source_doc_ids": ["doc-stem-1"],
-          "relevant_headings": ["Chapter 3: Topic Name"]
-        }
-      ]
-    }
-  ]
-}
-```
-
-Output ONLY the JSON block as your final answer.
-"""
+{"title":"...","description":"...","modules":[{"title":"...","description":"...","lessons":[{"title":"...","description":"...","objectives":[{"text":"..."}],"source_doc_ids":["doc-id"],"relevant_headings":["Heading"]}]}]}
+```"""
 
 
 def create_architect_tools(
@@ -331,20 +291,8 @@ async def run_architect(
     messages.append({"role": "user", "content": human_content})
 
     tool_descriptions = """
-You have access to these tools:
-- list_documents() -> str: List all ingested documents
-- get_document_summary(doc_id: str) -> str: Get document summary
-- get_document_toc(doc_id: str) -> str: Get document table of contents
-- get_chapter_text(doc_id: str, chapter_title: str) -> str: Read chapter text
-- search_documents(query: str, doc_id: str = None) -> str: Semantic search
-
-To use a tool, respond with a JSON block:
-```json
-{"tool": "tool_name", "args": {"arg1": "value1"}}
-```
-
-After receiving tool results, continue your analysis.
-When ready to output the final course structure, output ONLY the JSON code block.
+Tools: list_documents(), get_document_summary(doc_id), get_document_toc(doc_id), get_chapter_text(doc_id, chapter_title), search_documents(query).
+Call: {"tool":"name","args":{...}}. After tool result, continue analysis.
 """
 
     messages[0]["content"] = messages[0]["content"] + "\n\n" + tool_descriptions

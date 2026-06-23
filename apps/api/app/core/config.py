@@ -51,7 +51,7 @@ class Settings(BaseSettings):
     LLM_API_URL: str = "https://api.groq.com/openai/v1"
     QWEN_API_URL: str = "https://api.groq.com/openai/v1"
     LLM_API_KEY: str = ""
-    LLM_MODEL: str = "llama-3.1-8b-instant"
+    LLM_MODEL: str = "llama-3.3-70b-versatile"
 
     # Telegram Bot
     TELEGRAM_BOT_TOKEN: str = ""
