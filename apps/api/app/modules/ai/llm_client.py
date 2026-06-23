@@ -64,7 +64,7 @@ class LLMClient:
 
         import asyncio
 
-        for attempt in range(4):
+        for attempt in range(5):
             async with httpx.AsyncClient(timeout=300) as client:
                 print(f"[LLM_REQ] {self.base_url}/chat/completions model={self.model} msgs={len(messages)}", flush=True)
                 response = await client.post(
@@ -73,8 +73,8 @@ class LLMClient:
                     headers={"Authorization": f"Bearer {self.api_key}"},
                 )
                 if response.status_code == 429:
-                    wait = (attempt + 1) * 15
-                    print(f"[LLM] 429 rate limited, waiting {wait}s (attempt {attempt + 1}/4)", flush=True)
+                    wait = (attempt + 1) * 30
+                    print(f"[LLM] 429 rate limited, waiting {wait}s (attempt {attempt + 1}/5)", flush=True)
                     await asyncio.sleep(wait)
                     continue
                 if response.status_code != 200:
@@ -83,7 +83,7 @@ class LLMClient:
                 data = response.json()
                 break
         else:
-            raise Exception("LLM rate limited after 4 retries")
+            raise Exception("LLM rate limited after retries")
 
         msg = data["choices"][0]["message"]
         content = msg.get("content") or msg.get("reasoning") or ""
