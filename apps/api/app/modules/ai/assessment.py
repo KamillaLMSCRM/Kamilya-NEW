@@ -15,7 +15,7 @@ from app.modules.ai.llm_client import LLMClient
 from app.modules.ai.writer_schema import LessonContent
 
 logger = logging.getLogger(__name__)
-MAX_ASSESSMENT_RETRIES = 2
+MAX_ASSESSMENT_RETRIES = 4
 
 
 def _parse_json_response(content: str) -> dict:
@@ -33,8 +33,17 @@ def _parse_json_response(content: str) -> dict:
     json_str = re.sub(r"//[^\n]*", "", json_str)
     # Fix unescaped quotes in strings
     json_str = re.sub(r'"([^"]*)"([^":,}\]\s])"', r'"\1\\"\2"', json_str)
+    # Remove any leading/trailing non-JSON text
+    json_str = json_str.strip()
 
-    return json.loads(json_str)
+    try:
+        return json.loads(json_str)
+    except json.JSONDecodeError:
+        # Last resort: try to find the first { ... } block
+        match = re.search(r"\{.*\}", json_str, re.DOTALL)
+        if match:
+            return json.loads(match.group(0))
+        raise
 
 
 def _validate_assessment(assessment: LessonAssessment) -> list[str]:
@@ -92,6 +101,7 @@ Output ONLY valid JSON matching this schema:
             data = _parse_json_response(response.content)
             break
         except (json.JSONDecodeError, ValueError) as e:
+            print(f"[ASSESSMENT_PARSE] attempt {attempt + 1} failed: {e} | content[:300]={response.content[:300]}", flush=True)
             if attempt < MAX_ASSESSMENT_RETRIES:
                 logger.warning(f"JSON parse attempt {attempt + 1} failed: {e}")
                 continue
