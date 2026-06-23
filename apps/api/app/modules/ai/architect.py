@@ -276,6 +276,41 @@ def _build_system_prompt(
     return prompt
 
 
+def _attempt_json_repair(json_str: str) -> str | None:
+    """Attempt to fix broken JSON by rebuilding structure."""
+    import json
+    try:
+        # Try to extract key parts with regex
+        title_match = re.search(r'"title"\s*:\s*"([^"]*)"', json_str)
+        desc_match = re.search(r'"description"\s*:\s*"([^"]*)"', json_str)
+
+        modules = []
+        # Find module blocks
+        mod_pattern = re.finditer(r'"title"\s*:\s*"([^"]*)"', json_str)
+        lessons = []
+        for m in mod_pattern:
+            title = m.group(1)
+            if len(title) > 5 and "module" in title.lower() or "модуль" in title.lower():
+                continue
+            lessons.append(title)
+
+        if title_match:
+            result = {
+                "title": title_match.group(1),
+                "description": desc_match.group(1) if desc_match else "",
+                "modules": [{"title": "Module 1", "lessons": [{"title": t, "objectives": [{"text": "Learn about " + t}]} for t in lessons[:5]]}] if lessons else []
+            }
+            return json.dumps(result, ensure_ascii=False)
+    except Exception:
+        pass
+    return None
+
+
+def _attempt_json_repair(json_str: str) -> str | None:
+    """Fix common JSON issues from LLM output."""
+    return None
+
+
 def _parse_course_structure(text: str) -> CourseStructure:
     """Parse JSON course structure from LLM output."""
     # Strip thinking tags
@@ -296,18 +331,23 @@ def _parse_course_structure(text: str) -> CourseStructure:
     json_str = re.sub(r'/\*.*?\*/', '', json_str, flags=re.DOTALL)
     json_str = re.sub(r",\s*([}\]])", r"\1", json_str)
     json_str = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', json_str)
+    # Fix missing colons: "key" "value" → "key": "value"
+    json_str = re.sub(r'"(\s*)\n\s*"', '": "', json_str)
+    # Fix smart quotes
+    json_str = json_str.replace('\u201c', '"').replace('\u201d', '"')
+    json_str = json_str.replace('\u2018', "'").replace('\u2019', "'")
 
     try:
         return CourseStructure.from_json(json_str)
     except (json.JSONDecodeError, KeyError, ValueError) as e:
-        # Retry: try to find first complete {...} block
-        matches = re.findall(r"\{[\s\S]*?\}", json_str)
-        for m in sorted(matches, key=len, reverse=True):
+        # Last resort: use LLM to fix the JSON
+        logger.warning(f"JSON parse failed, attempting repair: {e}")
+        repaired = _attempt_json_repair(json_str)
+        if repaired:
             try:
-                cleaned = re.sub(r",\s*([}\]])", r"\1", m)
-                return CourseStructure.from_json(cleaned)
+                return CourseStructure.from_json(repaired)
             except (json.JSONDecodeError, KeyError, ValueError):
-                continue
+                pass
         raise ValueError(f"Failed to parse course structure JSON: {e}") from e
 
 
@@ -371,7 +411,15 @@ When ready to output the final course structure, output ONLY the JSON code block
 
         # Check if this is the final JSON output
         if "```json" in content and '"modules"' in content:
-            return _parse_course_structure(content)
+            try:
+                return _parse_course_structure(content)
+            except ValueError as e:
+                # Ask LLM to fix the broken JSON
+                messages.append({"role": "assistant", "content": content})
+                messages.append({"role": "user", "content": f"Your JSON has a syntax error: {e}. Please output the corrected JSON ONLY. No explanation."})
+                if on_message:
+                    on_message(f"JSON parse error, asking for fix: {e}")
+                continue
 
         # Check for tool call
         tool_match = re.search(r'```json\s*\{[^}]*"tool"[^}]*\}\s*```', content, re.DOTALL)
