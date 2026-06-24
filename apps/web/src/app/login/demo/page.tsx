@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
+import { clearStoredAuth } from '@/lib/auth';
 import { api } from '@/lib/api';
 import { Shield, BookOpen, GraduationCap, ArrowLeft } from 'lucide-react';
 
@@ -56,9 +57,10 @@ export default function DemoLoginPage() {
     setLoading(card.role);
     setError('');
     try {
+      clearStoredAuth();
       const res = await api.post('/v1/auth/demo-login', { role: card.role });
       login(res.data.access_token, res.data.user);
-      router.push(card.redirect);
+      window.location.href = card.redirect;
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Ошибка входа');
     } finally {
