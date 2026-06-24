@@ -1,67 +1,39 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, Badge, Button } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
 import { api } from '@/lib/api';
-import { CheckCircle2, Clock, AlertCircle, Play } from 'lucide-react';
+import { CheckCircle2, Clock, Play, BookOpen } from 'lucide-react';
 
-interface QuizAssignment {
-  id: string;
+interface EnrolledQuiz {
   quiz_id: string;
   quiz_title: string;
-  status: string;
+  lesson_title: string;
+  module_title: string;
+  course_id: string;
+  pass_score: number;
+  deferral_days: number;
+  attempt_limit: number;
   score_percent: number | null;
-  due_date: string | null;
+  passed: boolean;
   completed_at: string | null;
-  created_at: string;
 }
 
 export default function MyQuizzesPage() {
   const { t } = useT();
-  const token = useAuthStore((s) => s.accessToken);
-  const [assignments, setAssignments] = useState<QuizAssignment[]>([]);
+  const [quizzes, setQuizzes] = useState<EnrolledQuiz[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchAssignments = useCallback(async () => {
-    if (!token) return;
-    try {
-      const res = await api.get('/v1/quiz-assignments/my');
-      setAssignments(res.data || []);
-    } finally {
-      setLoading(false);
-    }
-  }, [token]);
+  useEffect(() => {
+    api.get('/v1/quizzes/enrolled')
+      .then((res) => setQuizzes(res.data || []))
+      .finally(() => setLoading(false));
+  }, []);
 
-  useEffect(() => { fetchAssignments(); }, [fetchAssignments]);
-
-  const getStatusBadge = (a: QuizAssignment) => {
-    if (a.status === 'completed') {
-      return (
-        <Badge variant={a.score_percent && a.score_percent >= 80 ? 'default' : 'destructive'}>
-          {a.score_percent}%
-        </Badge>
-      );
-    }
-    if (a.due_date && new Date(a.due_date) < new Date()) {
-      return <Badge variant="destructive">Просрочен</Badge>;
-    }
-    return <Badge variant="outline">Ожидает</Badge>;
-  };
-
-  const getStatusIcon = (a: QuizAssignment) => {
-    if (a.status === 'completed') {
-      return <CheckCircle2 className="w-5 h-5 text-emerald-500" />;
-    }
-    if (a.due_date && new Date(a.due_date) < new Date()) {
-      return <AlertCircle className="w-5 h-5 text-red-500" />;
-    }
-    return <Clock className="w-5 h-5 text-warm-400" />;
-  };
-
-  const pending = assignments.filter(a => a.status !== 'completed');
-  const completed = assignments.filter(a => a.status === 'completed');
+  const pending = quizzes.filter((q) => !q.passed);
+  const completed = quizzes.filter((q) => q.passed);
 
   if (loading) return <div className="p-6">{t('common.loading')}</div>;
 
@@ -73,13 +45,13 @@ export default function MyQuizzesPage() {
       <div className="grid grid-cols-3 gap-4">
         <Card>
           <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-warm-800">{assignments.length}</div>
-            <div className="text-xs text-warm-400">Всего</div>
+            <div className="text-2xl font-bold text-warm-800">{quizzes.length}</div>
+            <div className="text-xs text-warm-400">Всего тестов</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-primary">{pending.length}</div>
+            <div className="text-2xl font-bold text-amber-500">{pending.length}</div>
             <div className="text-xs text-warm-400">Ожидают</div>
           </CardContent>
         </Card>
@@ -95,20 +67,22 @@ export default function MyQuizzesPage() {
       {pending.length > 0 && (
         <div className="space-y-3">
           <h2 className="text-lg font-semibold text-warm-800">Нужно пройти</h2>
-          {pending.map(a => (
-            <Card key={a.id}>
+          {pending.map((q) => (
+            <Card key={q.quiz_id}>
               <CardContent className="p-4 flex items-center gap-4">
-                {getStatusIcon(a)}
+                <Clock className="w-5 h-5 text-amber-500" />
                 <div className="flex-1 min-w-0">
-                  <div className="font-medium text-warm-800 truncate">{a.quiz_title}</div>
-                  {a.due_date && (
-                    <div className="text-xs text-warm-400">
-                      Срок: {new Date(a.due_date).toLocaleDateString('ru-RU')}
-                    </div>
-                  )}
+                  <div className="font-medium text-warm-800 truncate">{q.quiz_title}</div>
+                  <div className="text-xs text-warm-400 flex items-center gap-1">
+                    <BookOpen className="w-3 h-3" />
+                    {q.module_title} → {q.lesson_title}
+                  </div>
+                  <div className="text-xs text-warm-400">
+                    Порог: {q.pass_score}% · Дедлайн: {q.deferral_days} дн.
+                  </div>
                 </div>
-                {getStatusBadge(a)}
-                <a href={`/courses/quiz/${a.quiz_id}`}>
+                <Badge variant="outline">Ожидает</Badge>
+                <a href={`/courses/quiz/${q.quiz_id}`}>
                   <Button size="sm">
                     <Play className="w-4 h-4 mr-1" /> Пройти
                   </Button>
@@ -123,27 +97,33 @@ export default function MyQuizzesPage() {
       {completed.length > 0 && (
         <div className="space-y-3">
           <h2 className="text-lg font-semibold text-warm-800">Пройденные</h2>
-          {completed.map(a => (
-            <Card key={a.id}>
+          {completed.map((q) => (
+            <Card key={q.quiz_id}>
               <CardContent className="p-4 flex items-center gap-4">
                 <CheckCircle2 className="w-5 h-5 text-emerald-500" />
                 <div className="flex-1 min-w-0">
-                  <div className="font-medium text-warm-800 truncate">{a.quiz_title}</div>
+                  <div className="font-medium text-warm-800 truncate">{q.quiz_title}</div>
                   <div className="text-xs text-warm-400">
-                    Пройден {a.completed_at ? new Date(a.completed_at).toLocaleDateString('ru-RU') : ''}
+                    {q.module_title} → {q.lesson_title}
+                  </div>
+                  <div className="text-xs text-warm-400">
+                    Пройден {q.completed_at ? new Date(q.completed_at).toLocaleDateString('ru-RU') : ''}
                   </div>
                 </div>
-                {getStatusBadge(a)}
+                <Badge variant="default">{q.score_percent}%</Badge>
               </CardContent>
             </Card>
           ))}
         </div>
       )}
 
-      {assignments.length === 0 && (
+      {quizzes.length === 0 && (
         <Card>
           <CardContent className="p-8 text-center text-warm-400">
-            Вам пока не назначено ни одного теста
+            <p>У вас пока нет тестов.</p>
+            <a href="/courses" className="text-blue-600 hover:underline text-sm mt-2 inline-block">
+              Перейти к курсам
+            </a>
           </CardContent>
         </Card>
       )}

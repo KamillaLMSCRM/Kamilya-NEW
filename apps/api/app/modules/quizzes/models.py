@@ -16,6 +16,7 @@ class Quiz(Base):
     pass_score = Column(Integer, nullable=False, default=80)
     time_limit = Column(Integer, nullable=True)
     attempt_limit = Column(Integer, nullable=False, default=3)
+    deferral_days = Column(Integer, nullable=False, default=7)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 

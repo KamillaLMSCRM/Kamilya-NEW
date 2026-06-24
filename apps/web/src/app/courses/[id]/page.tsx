@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { Card, CardHeader, CardTitle, CardContent, Button } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
-import { CheckCircle2, ChevronRight, ChevronLeft } from 'lucide-react';
+import { CheckCircle2, ChevronRight, ChevronLeft, Clock, AlertTriangle } from 'lucide-react';
 
 interface Lesson {
   id: string;
@@ -13,6 +13,7 @@ interface Lesson {
   content_type: string;
   content: string | null;
   order_index: number;
+  quiz_id?: string | null;
 }
 
 interface Module {
@@ -30,6 +31,21 @@ interface Course {
   status: string;
 }
 
+interface QuizInfo {
+  id: string;
+  title: string;
+  pass_score: number;
+  time_limit: number | null;
+  attempt_limit: number;
+  deferral_days: number;
+}
+
+interface QuizAttempt {
+  score_percent: number;
+  passed: boolean;
+  completed_at: string;
+}
+
 export default function CoursePlayerPage() {
   const params = useParams();
   const courseId = params?.id as string;
@@ -41,23 +57,58 @@ export default function CoursePlayerPage() {
   const [completedLessons, setCompletedLessons] = useState<Set<string>>(new Set());
   const [enrolled, setEnrolled] = useState<boolean | null>(null);
   const [enrolling, setEnrolling] = useState(false);
-  const [quizId, setQuizId] = useState<string | null>(null);
+  const [lessonQuiz, setLessonQuiz] = useState<QuizInfo | null>(null);
+  const [quizAttempts, setQuizAttempts] = useState<QuizAttempt[]>([]);
+  const [quizPassed, setQuizPassed] = useState(false);
   const token = useAuthStore((s) => s.accessToken);
   const user = useAuthStore((s) => s.user);
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
-  useEffect(() => {
-    if (courseId) {
-      fetchData();
+  const fetchQuizForLesson = useCallback(async (lessonId: string) => {
+    if (!token) return;
+    try {
+      const res = await fetch(`${API_URL}/v1/quizzes/by-lesson/${lessonId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const quiz: QuizInfo = await res.json();
+        setLessonQuiz(quiz);
+
+        // Fetch attempts for this quiz
+        const attemptsRes = await fetch(`${API_URL}/v1/quizzes/${quiz.id}/attempts`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (attemptsRes.ok) {
+          const attempts: QuizAttempt[] = await attemptsRes.json();
+          setQuizAttempts(attempts);
+          setQuizPassed(attempts.some((a) => a.passed));
+        }
+      } else {
+        setLessonQuiz(null);
+        setQuizAttempts([]);
+        setQuizPassed(false);
+      }
+    } catch {
+      setLessonQuiz(null);
+      setQuizAttempts([]);
+      setQuizPassed(false);
     }
+  }, [token, API_URL]);
+
+  useEffect(() => {
+    if (courseId) fetchData();
   }, [courseId]);
+
+  useEffect(() => {
+    if (selectedLesson) {
+      fetchQuizForLesson(selectedLesson.id);
+    }
+  }, [selectedLesson, fetchQuizForLesson]);
 
   const fetchData = async () => {
     try {
       const headers: Record<string, string> = {};
-      if (token) {
-        headers.Authorization = `Bearer ${token}`;
-      }
+      if (token) headers.Authorization = `Bearer ${token}`;
 
       const [courseRes, structRes, progressRes, enrollRes] = await Promise.all([
         fetch(`${API_URL}/v1/courses/${courseId}`, { headers }),
@@ -68,14 +119,13 @@ export default function CoursePlayerPage() {
 
       if (courseRes.ok) setCourse(await courseRes.json());
 
-      // Check if user is enrolled (admins/teachers bypass enrollment check)
       const userRole = user?.role;
-      const isAdminOrTeacher = userRole === 'admin' || userRole === 'superadmin' || userRole === 'teacher' || userRole === 'org_admin';
-      if (isAdminOrTeacher) {
+      const bypass = userRole === 'admin' || userRole === 'superadmin' || userRole === 'teacher' || userRole === 'org_admin';
+      if (bypass) {
         setEnrolled(true);
       } else if (enrollRes.ok) {
-        const enrollData = await enrollRes.json();
-        setEnrolled(enrollData.length > 0);
+        const d = await enrollRes.json();
+        setEnrolled(d.length > 0);
       } else {
         setEnrolled(false);
       }
@@ -89,15 +139,14 @@ export default function CoursePlayerPage() {
 
       let completedIds: Set<string> = new Set();
       if (progressRes.ok) {
-        const progressData = await progressRes.json();
-        completedIds = new Set(progressData.completed_lesson_ids || []);
+        const d = await progressRes.json();
+        completedIds = new Set(d.completed_lesson_ids || []);
         setCompletedLessons(completedIds);
       }
 
-      // Resume from last incomplete lesson, or start from first
       if (allLessons.length > 0) {
-        const firstIncomplete = allLessons.find((l) => !completedIds.has(l.id));
-        setSelectedLesson(firstIncomplete || allLessons[0]);
+        const first = allLessons.find((l) => !completedIds.has(l.id));
+        setSelectedLesson(first || allLessons[0]);
       }
     } catch (e) {
       console.error(e);
@@ -112,14 +161,10 @@ export default function CoursePlayerPage() {
     try {
       const res = await fetch(`${API_URL}/v1/courses/${courseId}/enroll`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       });
-      if (res.ok) {
-        setEnrolled(true);
-      } else {
+      if (res.ok) setEnrolled(true);
+      else {
         const err = await res.json();
         alert(err.detail || 'Не удалось записаться');
       }
@@ -128,45 +173,19 @@ export default function CoursePlayerPage() {
     }
   };
 
-  const handleSelectLesson = async (lesson: Lesson) => {
-    setSelectedLesson(lesson);
-    setQuizId(null);
-    if (lesson.content_type === 'quiz' && token) {
-      try {
-        const res = await fetch(`${API_URL}/v1/quizzes/by-lesson/${lesson.id}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setQuizId(data.id);
-        }
-      } catch { /* no quiz */ }
-    }
-  };
-
   const handleMarkComplete = async (lessonId: string) => {
-    // Persist to backend
     if (token) {
       try {
         await fetch(`${API_URL}/v1/progress/lessons/${lessonId}`, {
           method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({ completed: true }),
         });
       } catch (e) {
         console.error('Failed to persist progress', e);
       }
     }
-
     setCompletedLessons((prev) => new Set(prev).add(lessonId));
-
-    const nextLesson = findNextLesson(lessonId);
-    if (nextLesson) {
-      setSelectedLesson(nextLesson);
-    }
   };
 
   const findNextLesson = (currentId: string): Lesson | null => {
@@ -180,6 +199,12 @@ export default function CoursePlayerPage() {
     return null;
   };
 
+  const handleNextLesson = () => {
+    if (!selectedLesson) return;
+    const next = findNextLesson(selectedLesson.id);
+    if (next) setSelectedLesson(next);
+  };
+
   const totalLessons = modules.reduce((acc, m) => acc + m.lessons.length, 0);
   const completedCount = completedLessons.size;
   const progressPercent = totalLessons > 0 ? Math.round((completedCount / totalLessons) * 100) : 0;
@@ -187,27 +212,25 @@ export default function CoursePlayerPage() {
   if (loading) return <div className="p-6">Загрузка...</div>;
   if (!course) return <div className="p-6">Курс не найден</div>;
 
-  // If not enrolled, show enroll prompt
   if (enrolled === false) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="bg-white rounded-lg shadow-md p-8 max-w-md w-full text-center">
           <h2 className="text-xl font-bold mb-2">{course.title}</h2>
           <p className="text-gray-600 mb-6">Запишитесь на курс, чтобы начать обучение</p>
-          <button
-            onClick={handleEnroll}
-            disabled={enrolling}
-            className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 disabled:opacity-50"
-          >
+          <button onClick={handleEnroll} disabled={enrolling} className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 disabled:opacity-50">
             {enrolling ? 'Запись...' : 'Записаться на курс'}
           </button>
-          <a href="/courses" className="block mt-4 flex items-center gap-1 text-sm text-blue-600 hover:underline">
+          <a href="/courses" className="block mt-4 flex items-center gap-1 text-sm text-blue-600 hover:underline justify-center">
             <ChevronLeft className="w-4 h-4" /> Вернуться к курсам
           </a>
         </div>
       </div>
     );
   }
+
+  const lessonCompleted = selectedLesson ? completedLessons.has(selectedLesson.id) : false;
+  const hasQuiz = lessonQuiz !== null;
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
@@ -219,12 +242,9 @@ export default function CoursePlayerPage() {
           </a>
           <h2 className="font-bold mt-2">{course.title}</h2>
           <div className="mt-2 h-2 bg-gray-200 rounded">
-            <div className="h-2 bg-blue-600 rounded" style={{ width: `${progressPercent}%` }} />
+            <div className="h-2 bg-blue-600 rounded transition-all" style={{ width: `${progressPercent}%` }} />
           </div>
           <p className="text-xs text-gray-500 mt-1">{completedCount}/{totalLessons} уроков ({progressPercent}%)</p>
-          <a href={`/courses/${courseId}/edit`} className="flex items-center gap-1 text-xs text-blue-500 hover:underline mt-1 inline-block">
-            {t('courses.editCourse')} <ChevronRight className="w-3 h-3" />
-          </a>
         </div>
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
           {modules.map((mod) => (
@@ -234,7 +254,7 @@ export default function CoursePlayerPage() {
                 <div
                   key={lesson.id}
                   className={`text-sm p-2 rounded cursor-pointer flex items-center gap-2 ${selectedLesson?.id === lesson.id ? 'bg-blue-50 text-blue-700 font-medium' : 'hover:bg-gray-50 text-gray-700'}`}
-                  onClick={() => handleSelectLesson(lesson)}
+                  onClick={() => setSelectedLesson(lesson)}
                 >
                   <span className={`w-4 h-4 rounded-full border flex-shrink-0 flex items-center justify-center text-xs ${completedLessons.has(lesson.id) ? 'bg-green-500 text-white border-green-500' : 'border-gray-300'}`}>
                     {completedLessons.has(lesson.id) && <CheckCircle2 className="w-3 h-3" />}
@@ -247,13 +267,14 @@ export default function CoursePlayerPage() {
         </div>
       </div>
 
-      {/* Center — lesson content */}
+      {/* Center — lesson content + quiz */}
       <div className="flex-1 p-8">
         {selectedLesson ? (
           <div className="max-w-3xl mx-auto">
             <h1 className="text-2xl font-bold mb-6">{selectedLesson.title}</h1>
 
-            {selectedLesson.content_type === 'text' || selectedLesson.content_type === 'quiz' ? (
+            {/* Lesson content */}
+            {selectedLesson.content_type === 'quiz' ? (
               <div className="prose max-w-none">
                 {selectedLesson.content ? (
                   <div dangerouslySetInnerHTML={{ __html: simpleMarkdown(selectedLesson.content) }} />
@@ -262,25 +283,96 @@ export default function CoursePlayerPage() {
                 )}
               </div>
             ) : (
-              <div className="bg-gray-200 rounded-lg h-64 flex items-center justify-center text-gray-400">
-                Тип: {selectedLesson.content_type}
+              <div className="prose max-w-none">
+                {selectedLesson.content ? (
+                  <div dangerouslySetInnerHTML={{ __html: simpleMarkdown(selectedLesson.content) }} />
+                ) : (
+                  <p className="text-gray-400 italic">Контент пока не добавлен</p>
+                )}
               </div>
             )}
 
-            <div className="mt-8 flex gap-2">
-              {selectedLesson.content_type === 'quiz' && quizId ? (
-                <a href={`/courses/quiz/${quizId}`}>
-                  <Button>Пройти тест <ChevronRight className="w-4 h-4 ml-1" /></Button>
-                </a>
-              ) : completedLessons.has(selectedLesson.id) ? (
-                <span className="flex items-center gap-2 text-green-600 font-medium">
-                  <CheckCircle2 className="w-5 h-5" /> Урок завершён
-                </span>
-              ) : (
-                <Button onClick={() => handleMarkComplete(selectedLesson.id)}>
-                  Завершить урок <ChevronRight className="w-4 h-4 ml-1" />
-                </Button>
+            {/* Action buttons */}
+            <div className="mt-8 space-y-4">
+              {/* Show quiz section if lesson is completed and quiz exists */}
+              {lessonCompleted && hasQuiz && (
+                <div className="border rounded-lg p-6 bg-white shadow-sm">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+                      </svg>
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-gray-800">{lessonQuiz.title}</h3>
+                      <p className="text-sm text-gray-500">
+                        Порог: {lessonQuiz.pass_score}%
+                        {lessonQuiz.time_limit && ` · Время: ${lessonQuiz.time_limit} мин`}
+                        {` · Попыток: ${lessonQuiz.attempt_limit}`}
+                      </p>
+                    </div>
+                  </div>
+
+                  {quizPassed ? (
+                    <div className="flex items-center gap-2 text-green-600">
+                      <CheckCircle2 className="w-5 h-5" />
+                      <span className="font-medium">Тест пройден ({quizAttempts.find(a => a.passed)?.score_percent}%)</span>
+                    </div>
+                  ) : (
+                    <>
+                      {/* Deferral info */}
+                      <div className="flex items-center gap-2 text-sm text-amber-600 bg-amber-50 rounded px-3 py-2 mb-4">
+                        <Clock className="w-4 h-4" />
+                        <span>Дедлайн: {lessonQuiz.deferral_days} дн. после завершения урока</span>
+                      </div>
+
+                      {/* Previous attempts */}
+                      {quizAttempts.length > 0 && (
+                        <div className="text-sm text-gray-500 mb-3">
+                          Попыток: {quizAttempts.length}/{lessonQuiz.attempt_limit}
+                          {quizAttempts.length > 0 && (
+                            <span className="ml-2">· Лучший: {Math.max(...quizAttempts.map(a => a.score_percent))}%</span>
+                          )}
+                        </div>
+                      )}
+
+                      <div className="flex gap-2">
+                        <a href={`/courses/quiz/${lessonQuiz.id}`}>
+                          <Button>Пройти тест <ChevronRight className="w-4 h-4 ml-1" /></Button>
+                        </a>
+                        <Button variant="outline" onClick={handleNextLesson}>
+                          Отложить
+                        </Button>
+                      </div>
+                    </>
+                  )}
+                </div>
               )}
+
+              {/* Mark complete / Next lesson */}
+              {!lessonCompleted ? (
+                <Button onClick={() => handleMarkComplete(selectedLesson.id)}>
+                  Завершить урок <CheckCircle2 className="w-4 h-4 ml-1" />
+                </Button>
+              ) : !hasQuiz ? (
+                <div className="flex items-center gap-3">
+                  <span className="flex items-center gap-2 text-green-600 font-medium">
+                    <CheckCircle2 className="w-5 h-5" /> Урок завершён
+                  </span>
+                  <Button variant="outline" onClick={handleNextLesson}>
+                    Далее <ChevronRight className="w-4 h-4 ml-1" />
+                  </Button>
+                </div>
+              ) : quizPassed ? (
+                <div className="flex items-center gap-3">
+                  <span className="flex items-center gap-2 text-green-600 font-medium">
+                    <CheckCircle2 className="w-5 h-5" /> Урок + тест завершены
+                  </span>
+                  <Button variant="outline" onClick={handleNextLesson}>
+                    Далее <ChevronRight className="w-4 h-4 ml-1" />
+                  </Button>
+                </div>
+              ) : null}
             </div>
           </div>
         ) : (

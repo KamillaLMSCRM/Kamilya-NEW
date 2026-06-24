@@ -48,6 +48,85 @@ async def list_quizzes(
     return out
 
 
+@router.get("/enrolled")
+async def list_enrolled_quizzes(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """List quizzes from courses the user is enrolled in, with attempt status."""
+    from app.modules.enrollments.models import Enrollment
+    from app.modules.lessons.models import Module, Lesson
+    from app.modules.quizzes.models import QuizAttempt
+
+    enrollments = await db.execute(
+        select(Enrollment.course_id).where(
+            Enrollment.user_id == user.id,
+            Enrollment.tenant_id == user.tenant_id,
+        )
+    )
+    course_ids = [r[0] for r in enrollments.fetchall()]
+    if not course_ids:
+        return []
+
+    lessons_q = await db.execute(
+        select(Lesson.id, Lesson.title, Module.title.label("module_title"), Module.course_id)
+        .join(Module, Lesson.module_id == Module.id)
+        .where(Module.course_id.in_(course_ids))
+    )
+    lesson_rows = lessons_q.fetchall()
+    lesson_ids = [r[0] for r in lesson_rows]
+    lesson_map = {r[0]: {"title": r[1], "module_title": r[2], "course_id": str(r[3])} for r in lesson_rows}
+
+    if not lesson_ids:
+        return []
+
+    quizzes_q = await db.execute(
+        select(Quiz).where(Quiz.lesson_id.in_(lesson_ids), Quiz.tenant_id == user.tenant_id)
+    )
+    quizzes = {str(q.lesson_id): q for q in quizzes_q.scalars().all()}
+    if not quizzes:
+        return []
+
+    attempts_q = await db.execute(
+        select(QuizAttempt.quiz_id, QuizAttempt.score_percent, QuizAttempt.passed, QuizAttempt.completed_at)
+        .where(
+            QuizAttempt.user_id == user.id,
+            QuizAttempt.tenant_id == user.tenant_id,
+            QuizAttempt.quiz_id.in_([q.id for q in quizzes.values()]),
+        )
+        .order_by(QuizAttempt.completed_at.desc())
+    )
+    attempts = attempts_q.fetchall()
+    attempt_map = {}
+    for a in attempts:
+        qid = str(a[0])
+        if qid not in attempt_map:
+            attempt_map[qid] = {"score_percent": a[1], "passed": a[2], "completed_at": a[3].isoformat() if a[3] else None}
+        elif a[2] and not attempt_map[qid]["passed"]:
+            attempt_map[qid] = {"score_percent": a[1], "passed": a[2], "completed_at": a[3].isoformat() if a[3] else None}
+
+    out = []
+    for lid, quiz in quizzes.items():
+        li = lesson_map.get(lid, {})
+        att = attempt_map.get(str(quiz.id))
+        out.append({
+            "quiz_id": str(quiz.id),
+            "quiz_title": quiz.title,
+            "lesson_title": li.get("title", ""),
+            "module_title": li.get("module_title", ""),
+            "course_id": li.get("course_id", ""),
+            "pass_score": quiz.pass_score,
+            "deferral_days": quiz.deferral_days,
+            "attempt_limit": quiz.attempt_limit,
+            "score_percent": att["score_percent"] if att else None,
+            "passed": att["passed"] if att else False,
+            "completed_at": att["completed_at"] if att else None,
+        })
+
+    out.sort(key=lambda x: (x["passed"], x.get("completed_at") or ""))
+    return out
+
+
 @router.get("/by-lesson/{lesson_id}", response_model=QuizResponse)
 async def get_quiz_by_lesson(
     lesson_id: UUID,

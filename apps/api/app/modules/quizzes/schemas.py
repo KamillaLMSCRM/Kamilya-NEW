@@ -31,6 +31,7 @@ class QuizResponse(BaseModel):
     pass_score: int
     time_limit: int | None = None
     attempt_limit: int
+    deferral_days: int = 7
     questions: list[QuestionResponse] = []
     model_config = {"from_attributes": True}
 
@@ -44,6 +45,7 @@ class QuizCreate(BaseModel):
     pass_score: int = 80
     time_limit: int | None = None
     attempt_limit: int = 3
+    deferral_days: int = 7
 
 
 class QuizUpdate(BaseModel):
@@ -51,6 +53,7 @@ class QuizUpdate(BaseModel):
     pass_score: int | None = None
     time_limit: int | None = None
     attempt_limit: int | None = None
+    deferral_days: int | None = None
 
 
 class QuizChoiceCreate(BaseModel):
