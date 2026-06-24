@@ -229,6 +229,9 @@ async def complete_course(
     user: User = Depends(get_current_user),
 ):
     from app.models.enrollment import Enrollment
+    from app.modules.certificates.service import issue_certificate
+    from app.modules.audit.service import log_action
+
     result = await db.execute(
         select(Enrollment).where(
             Enrollment.course_id == course_id,
@@ -240,8 +243,44 @@ async def complete_course(
     if not enrollment:
         raise HTTPException(status_code=404, detail="Not enrolled")
     if enrollment.status == "completed":
-        return {"status": "already_completed"}
+        # Idempotent — but still return cert info
+        return {"status": "already_completed", "course_id": str(course_id)}
+
     enrollment.status = "completed"
     enrollment.completed_at = datetime.now(timezone.utc)
+
+    # Auto-issue certificate
+    cert_number = None
+    cert_id = None
+    try:
+        cert = await issue_certificate(
+            db=db,
+            user_id=user.id,
+            course_id=course_id,
+            tenant_id=user.tenant_id,
+        )
+        cert_number = cert.certificate_number
+        cert_id = str(cert.id)
+    except ValueError as e:
+        # If issue fails (e.g. tenant integrity issue) — log and continue,
+        # don't block course completion. User can request cert manually.
+        import logging
+        logging.getLogger(__name__).warning(f"Auto-issue cert failed: {e}")
+
+    await log_action(
+        db=db,
+        tenant_id=user.tenant_id,
+        user_id=user.id,
+        action="course.complete",
+        resource_type="course",
+        resource_id=str(course_id),
+        details={"certificate_number": cert_number, "certificate_id": cert_id},
+    )
+
     await db.commit()
-    return {"status": "completed"}
+    return {
+        "status": "completed",
+        "course_id": str(course_id),
+        "certificate_number": cert_number,
+        "certificate_id": cert_id,
+    }

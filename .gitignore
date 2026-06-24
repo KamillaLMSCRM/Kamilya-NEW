@@ -75,6 +75,9 @@ alembic/versions/.gitkeep
 *.key
 *.crt
 
+# Local storage (certificates, generated PDFs, etc.)
+storage/
+
 .vercel
 check_*.sql
 check_*.sql

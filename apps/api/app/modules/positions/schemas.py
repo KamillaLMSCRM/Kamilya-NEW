@@ -32,6 +32,7 @@ class PositionResponse(BaseModel):
     course_ids: list[UUID] = []
     employee_count: int
     created_at: datetime
+    re_enrolled: int | None = None  # only set on update responses
 
     class Config:
         from_attributes = True

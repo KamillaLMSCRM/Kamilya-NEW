@@ -22,7 +22,14 @@ async def log_action(
     """Log an audit event."""
     rid = None
     if resource_id is not None:
-        rid = UUID(str(resource_id)) if not isinstance(resource_id, UUID) else resource_id
+        if isinstance(resource_id, UUID):
+            rid = resource_id
+        else:
+            # Try to parse as UUID; fallback to None so non-UUID ids (e.g. slugs) still log
+            try:
+                rid = UUID(str(resource_id))
+            except (ValueError, TypeError):
+                rid = None
     entry = AuditLog(
         tenant_id=tenant_id,
         user_id=user_id,

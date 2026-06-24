@@ -1,7 +1,7 @@
 # Kamilya LMS Core v1.0 — Progress Summary
 
-**Date:** June 21, 2026  
-**Phase:** W11 (Performance + Security — COMPLETE)
+**Date:** June 24, 2026  
+**Phase:** W11 (Performance + Security — COMPLETE) + critical business-flow fixes
 
 ---
 
@@ -243,3 +243,92 @@ docker compose -f docker-compose.prod.yml up -d
 - [x] Production deployment guide
 
 **Kamilya LMS Core v1.0 is ready for beta launch!**
+
+---
+
+## 🔧 CRITICAL BUSINESS-FLOW FIXES (June 24, 2026)
+
+Идентифицированы при deep-flow аудите "ДИ → курсы → новый сотрудник → сертификат".
+Все P0/P1 уязвимости закрыты в этом коммите.
+
+### 1. Auto-issued certificates ✅
+**Was:** `POST /courses/{id}/complete` ставил `status="completed"` — сертификат НЕ выдавался.
+Пользователь должен был **сам** догадаться вызвать `POST /certificates/{id}/issue`.
+
+**Now:** `complete_course` автоматически выдаёт сертификат. Endpoint `/certificates/{id}/issue`
+оставлен для обратной совместимости и стал идемпотентным (возвращает существующий).
+
+### 2. Certificate integrity check ✅
+**Was:** `issue_certificate` не проверял, что курс реально пройден — любой user
+с JWT мог получить сертификат за любой курс.
+
+**Now:** `issue_certificate` требует `Enrollment.status == "completed"`. Иначе → `400`.
+
+### 3. PDF generation ✅
+**Was:** `Certificate.pdf_path` — поле в БД, **никогда не заполнялось**.
+Verify-страница отдавала JSON, не PDF. Непригодно для HR-использования.
+
+**Now:** fpdf2-based renderer. `pdf.py` модуль с `_safe_text()` (cyrillic → latin
+transliteration для Helvetica core font — pure-Python, no system deps).
+`POST /certificates/{id}/download` отдаёт реальный PDF.
+Recovery path: если файл потерян на диске — автогенерация при download.
+
+### 4. Deferral_days enforcement ✅
+**Was:** Поле `deferral_days` в Quiz — декоративное, нигде не проверялось.
+
+**Now:** `grade_quiz` блокирует submission если `now > progress.completed_at + deferral_days`.
+`/quizzes/enrolled` возвращает `is_expired: bool` для UI.
+
+### 5. Position → auto-enroll coverage ✅
+**Was:** При добавлении курса в существующую `position` — сотрудники,
+уже назначенные на эту позицию, **не получали** новый курс.
+
+**Now:** `update_position` с новыми `course_ids` → `bulk_enroll` всех текущих holders
+в newly added courses. Ответ содержит `re_enrolled: int`.
+
+### 6. Position change / unassign cleanup ✅
+**Was:** `unassign` и `assign` на новую позицию — не очищали старые enrollments.
+Сотрудник, перешедший с Junior на Senior, оставался зачисленным на junior-курсы.
+
+**Now:**
+- `assign` на новую позицию → unenroll из OLD position's courses (которых нет в NEW).
+- `unassign` → unenroll из position's courses.
+- `only_active=True` (default) — completed enrollments остаются как history.
+
+### 7. N+1 fix в auto-enroll ✅
+**Was:** `assign_user_to_position` делал N SELECT'ов (по одному на course) для dedup.
+На 50 сотрудниках × 10 курсов = 500 запросов.
+
+**Now:** `_bulk_enroll_users_in_courses` — single IN-query для existing pairs.
+
+### 8. Audit log fix (bonus) ✅
+**Was:** `log_action(resource_id="slug-string")` → `UUID(str(...))` падал на non-UUID.
+
+**Now:** Try-parse UUID, fallback to None. Slug-string ids логируются без падения.
+
+### Files touched
+```
+apps/api/requirements.txt                                    (+ fpdf2)
+apps/api/app/core/config.py                                  (CERTIFICATE_STORAGE_DIR)
+apps/api/app/modules/certificates/pdf.py                     (NEW)
+apps/api/app/modules/certificates/service.py                 (rewrite)
+apps/api/app/modules/certificates/router.py                  (download endpoint)
+apps/api/app/modules/courses/router.py                       (auto-issue + audit)
+apps/api/app/modules/positions/router.py                     (re-enroll + unenroll + N+1 fix)
+apps/api/app/modules/positions/schemas.py                    (re_enrolled field)
+apps/api/app/modules/quizzes/service.py                      (deferral enforcement)
+apps/api/app/modules/quizzes/router.py                       (is_expired field)
+apps/api/app/modules/audit/service.py                        (UUID fallback)
+apps/api/tests/test_certificate_pdf.py                       (NEW — 6 tests)
+apps/api/tests/test_quiz_deferral.py                         (NEW — 4 tests)
+apps/api/tests/test_positions_bulk.py                        (NEW — 4 tests)
+.gitignore                                                    (storage/)
+docs/audit-code-2026-06-24.md                                (updated)
+```
+
+### Tests
+**53/53 passing** (было 39, добавлено 14 новых).
+
+### Next steps
+- Supabase Storage вместо local disk (когда появится supabase-py client)
+- Phase 2 (a11y) — фронт

@@ -3,13 +3,16 @@ import uuid
 import os
 import json
 import logging
+from uuid import UUID
+
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
-from sqlalchemy import select, delete
+from sqlalchemy import select, delete, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import get_current_user
 from app.core.db import get_db
 from app.models.users import User
+from app.models.enrollment import Enrollment
 from app.modules.positions.models import Position, PositionCourse
 
 logger = logging.getLogger(__name__)
@@ -18,7 +21,10 @@ from app.modules.positions.schemas import PositionCreate, PositionUpdate, Positi
 router = APIRouter(prefix="/positions", tags=["positions"])
 
 
-async def _sync_courses(db: AsyncSession, position_id: uuid.UUID, course_ids: list[uuid.UUID] | None):
+# ── Helpers ──────────────────────────────────────────────────
+
+
+async def _sync_courses(db: AsyncSession, position_id: UUID, course_ids: list[UUID] | None):
     """Replace all position_courses for a position."""
     if course_ids is None:
         return
@@ -27,11 +33,96 @@ async def _sync_courses(db: AsyncSession, position_id: uuid.UUID, course_ids: li
         db.add(PositionCourse(position_id=position_id, course_id=cid))
 
 
-async def _get_course_ids(db: AsyncSession, position_id: uuid.UUID) -> list[uuid.UUID]:
+async def _get_course_ids(db: AsyncSession, position_id: UUID) -> list[UUID]:
     result = await db.execute(
         select(PositionCourse.course_id).where(PositionCourse.position_id == position_id)
     )
     return [row[0] for row in result.all()]
+
+
+async def _bulk_enroll_users_in_courses(
+    db: AsyncSession,
+    user_ids: list[UUID],
+    course_ids: list[UUID],
+    tenant_id: UUID,
+) -> int:
+    """Enroll users in courses, skipping existing. Returns count of NEW enrollments.
+
+    Single IN-query for dedup instead of N+1.
+    """
+    if not user_ids or not course_ids:
+        return 0
+
+    # Single query: find all existing enrollments for this batch
+    existing_result = await db.execute(
+        select(Enrollment.user_id, Enrollment.course_id).where(
+            Enrollment.user_id.in_(user_ids),
+            Enrollment.course_id.in_(course_ids),
+            Enrollment.tenant_id == tenant_id,
+        )
+    )
+    existing_pairs = {(r[0], r[1]) for r in existing_result.all()}
+
+    new_count = 0
+    for uid in user_ids:
+        for cid in course_ids:
+            if (uid, cid) in existing_pairs:
+                continue
+            db.add(Enrollment(
+                id=uuid.uuid4(),
+                course_id=cid,
+                user_id=uid,
+                tenant_id=tenant_id,
+                status="enrolled",
+            ))
+            new_count += 1
+    return new_count
+
+
+async def _bulk_unenroll_users_from_courses(
+    db: AsyncSession,
+    user_ids: list[UUID],
+    course_ids: list[UUID],
+    tenant_id: UUID,
+    only_active: bool = True,
+) -> int:
+    """Remove enrollments. Returns count of removed.
+
+    By default, only removes 'enrolled' status (in-progress) — completed stays
+    as a historical record. Set only_active=False to force-remove all.
+    """
+    if not user_ids or not course_ids:
+        return 0
+    from sqlalchemy import and_
+    conds = [
+        Enrollment.user_id.in_(user_ids),
+        Enrollment.course_id.in_(course_ids),
+        Enrollment.tenant_id == tenant_id,
+    ]
+    if only_active:
+        conds.append(Enrollment.status == "enrolled")
+    result = await db.execute(
+        delete(Enrollment).where(and_(*conds))
+    )
+    return result.rowcount or 0
+
+
+async def _update_employee_count(db: AsyncSession, position_id: UUID, tenant_id: UUID) -> int:
+    """Refresh position.employee_count. Returns new value."""
+    count_result = await db.execute(
+        select(func.count(User.id)).where(
+            User.position_id == position_id,
+            User.tenant_id == tenant_id,
+        )
+    )
+    new_count = count_result.scalar() or 0
+    pos = await db.get(Position, position_id)
+    if pos:
+        pos.employee_count = new_count
+    return new_count
+
+
+# ── CRUD ─────────────────────────────────────────────────────
 
 
 @router.get("", response_model=list[PositionResponse])
@@ -60,7 +151,7 @@ async def list_positions(
 
 @router.get("/{position_id}", response_model=PositionResponse)
 async def get_position(
-    position_id: uuid.UUID,
+    position_id: UUID,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
@@ -114,11 +205,12 @@ async def create_position(
 
 @router.put("/{position_id}", response_model=PositionResponse)
 async def update_position(
-    position_id: uuid.UUID,
+    position_id: UUID,
     req: PositionUpdate,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    """Update position. If course_ids change, re-enroll all current holders."""
     result = await db.execute(
         select(Position)
         .where(Position.id == position_id, Position.tenant_id == user.tenant_id)
@@ -130,8 +222,26 @@ async def update_position(
     for field, value in req.model_dump(exclude_unset=True, exclude={"course_ids"}).items():
         setattr(pos, field, value)
 
+    re_enrolled = 0
     if req.course_ids is not None:
+        new_course_ids = set(req.course_ids)
+        old_course_ids = set(await _get_course_ids(db, pos.id))
+
         await _sync_courses(db, pos.id, req.course_ids)
+
+        # Re-enroll all current holders in newly added courses
+        added = new_course_ids - old_course_ids
+        if added:
+            holders_result = await db.execute(
+                select(User.id).where(
+                    User.position_id == position_id,
+                    User.tenant_id == user.tenant_id,
+                )
+            )
+            holder_ids = [r[0] for r in holders_result.all()]
+            re_enrolled = await _bulk_enroll_users_in_courses(
+                db, holder_ids, list(added), user.tenant_id
+            )
 
     await db.flush()
     course_ids = await _get_course_ids(db, pos.id)
@@ -141,12 +251,13 @@ async def update_position(
         responsibilities=pos.responsibilities, requirements=pos.requirements,
         course_ids=course_ids, employee_count=pos.employee_count,
         created_at=pos.created_at,
+        re_enrolled=re_enrolled,
     )
 
 
 @router.delete("/{position_id}", status_code=204)
 async def delete_position(
-    position_id: uuid.UUID,
+    position_id: UUID,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
@@ -162,15 +273,16 @@ async def delete_position(
 
 @router.post("/{position_id}/assign/{target_user_id}")
 async def assign_user_to_position(
-    position_id: uuid.UUID,
-    target_user_id: uuid.UUID,
+    position_id: UUID,
+    target_user_id: UUID,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """Assign a user to a position and auto-enroll them in all position courses."""
-    from app.models.enrollment import Enrollment
-    from uuid import uuid4 as uuid4_fn
+    """Assign a user to a position and auto-enroll them in all position courses.
 
+    If user already had a different position, their OLD position's courses that
+    are not in the NEW position are unenrolled (only in-progress ones).
+    """
     # Verify position exists
     pos_result = await db.execute(
         select(Position).where(Position.id == position_id, Position.tenant_id == user.tenant_id)
@@ -184,38 +296,28 @@ async def assign_user_to_position(
     if not target or target.tenant_id != user.tenant_id:
         raise HTTPException(status_code=404, detail="User not found")
 
-    # Assign position to user
+    old_position_id = target.position_id
     target.position_id = position_id
+    await _update_employee_count(db, position_id, user.tenant_id)
 
-    # Update employee_count
-    count_result = await db.execute(
-        select(func.count(User.id)).where(
-            User.position_id == position_id,
-            User.tenant_id == user.tenant_id,
-        )
-    )
-    pos.employee_count = count_result.scalar() or 0
-
-    # Auto-enroll in all position courses
-    course_ids = await _get_course_ids(db, position_id)
-    enrolled_count = 0
-    for cid in course_ids:
-        existing = await db.execute(
-            select(Enrollment).where(
-                Enrollment.course_id == cid,
-                Enrollment.user_id == target_user_id,
-                Enrollment.tenant_id == user.tenant_id,
+    # Unenroll from old position's courses that aren't in the new position
+    unenrolled = 0
+    if old_position_id and old_position_id != position_id:
+        old_course_ids = await _get_course_ids(db, old_position_id)
+        new_course_ids = set(await _get_course_ids(db, position_id))
+        to_remove = [cid for cid in old_course_ids if cid not in new_course_ids]
+        if to_remove:
+            unenrolled = await _bulk_unenroll_users_from_courses(
+                db, [target_user_id], to_remove, user.tenant_id
             )
-        )
-        if not existing.scalar_one_or_none():
-            db.add(Enrollment(
-                id=uuid4_fn(),
-                course_id=cid,
-                user_id=target_user_id,
-                tenant_id=user.tenant_id,
-                status="enrolled",
-            ))
-            enrolled_count += 1
+        # Update old position count
+        await _update_employee_count(db, old_position_id, user.tenant_id)
+
+    # Auto-enroll in new position's courses
+    course_ids = await _get_course_ids(db, position_id)
+    newly_enrolled = await _bulk_enroll_users_in_courses(
+        db, [target_user_id], course_ids, user.tenant_id
+    )
 
     await db.flush()
 
@@ -223,17 +325,19 @@ async def assign_user_to_position(
         "status": "ok",
         "position": pos.name,
         "courses_attached": len(course_ids),
-        "newly_enrolled": enrolled_count,
+        "newly_enrolled": newly_enrolled,
+        "unenrolled_from_old": unenrolled,
     }
 
 
 @router.post("/unassign/{target_user_id}")
 async def unassign_user_from_position(
-    target_user_id: uuid.UUID,
+    target_user_id: UUID,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """Remove a user from their position."""
+    """Remove a user from their position. Active enrollments in position's courses
+    are removed (completed enrollments stay as historical record)."""
     target = await db.get(User, target_user_id)
     if not target or target.tenant_id != user.tenant_id:
         raise HTTPException(status_code=404, detail="User not found")
@@ -241,21 +345,20 @@ async def unassign_user_from_position(
     old_position_id = target.position_id
     target.position_id = None
 
-    # Update old position employee_count
+    unenrolled = 0
     if old_position_id:
-        from sqlalchemy import func as sqlfunc
-        count_result = await db.execute(
-            select(sqlfunc.count(User.id)).where(
-                User.position_id == old_position_id,
-                User.tenant_id == user.tenant_id,
+        old_course_ids = await _get_course_ids(db, old_position_id)
+        if old_course_ids:
+            unenrolled = await _bulk_unenroll_users_from_courses(
+                db, [target_user_id], old_course_ids, user.tenant_id
             )
-        )
-        pos = await db.get(Position, old_position_id)
-        if pos:
-            pos.employee_count = count_result.scalar() or 0
+        await _update_employee_count(db, old_position_id, user.tenant_id)
 
     await db.flush()
-    return {"status": "ok"}
+    return {"status": "ok", "unenrolled": unenrolled}
+
+
+# ── JD analysis ─────────────────────────────────────────────
 
 
 def _extract_text(content: bytes, filename: str) -> str:

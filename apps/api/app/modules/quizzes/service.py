@@ -1,6 +1,6 @@
 """Quiz service — grading and attempt management"""
 from uuid import UUID
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 
@@ -48,8 +48,32 @@ async def get_quiz_with_questions(db: AsyncSession, quiz_id: UUID, tenant_id: UU
         "pass_score": quiz.pass_score,
         "time_limit": quiz.time_limit,
         "attempt_limit": quiz.attempt_limit,
+        "deferral_days": quiz.deferral_days,
         "questions": questions_with_choices,
     }
+
+
+async def _is_quiz_expired(
+    db: AsyncSession, quiz: Quiz, user_id: UUID, tenant_id: UUID
+) -> bool:
+    """Return True if deferral window expired (no lesson completion in time).
+
+    If user never completed the lesson, deferral hasn't started — quiz is NOT
+    considered expired (teacher may have shared quiz without forced progression).
+    """
+    from app.models.progress import Progress
+    progress_result = await db.execute(
+        select(Progress).where(
+            Progress.user_id == user_id,
+            Progress.lesson_id == quiz.lesson_id,
+            Progress.tenant_id == tenant_id,
+        )
+    )
+    progress = progress_result.scalar_one_or_none()
+    if not progress or not progress.completed_at:
+        return False
+    deadline = progress.completed_at + timedelta(days=quiz.deferral_days)
+    return datetime.now(timezone.utc) > deadline
 
 
 async def grade_quiz(
@@ -64,6 +88,13 @@ async def grade_quiz(
     quiz = await db.get(Quiz, quiz_id)
     if not quiz:
         raise ValueError("Quiz not found")
+
+    # Enforce deferral window
+    if await _is_quiz_expired(db, quiz, user_id, tenant_id):
+        raise ValueError(
+            f"Quiz deferral window expired ({quiz.deferral_days} days). "
+            "Contact your teacher to re-open."
+        )
 
     # Check attempt limit
     attempt_count_result = await db.execute(

@@ -125,9 +125,26 @@ async def list_enrolled_quizzes(
             attempt_map[qid]["attempts_count"] = (attempt_map[qid].get("attempts_count") or 0) + a[4]
 
     out = []
+    from app.models.progress import Progress
+    from datetime import datetime, timezone, timedelta
+    now = datetime.now(timezone.utc)
     for lid, quiz in quizzes.items():
         li = lesson_map.get(lid, {})
         att = attempt_map.get(str(quiz.id))
+
+        # Compute is_expired from progress.completed_at + deferral_days
+        is_expired = False
+        prog_result = await db.execute(
+            select(Progress.completed_at).where(
+                Progress.user_id == user.id,
+                Progress.lesson_id == quiz.lesson_id,
+                Progress.tenant_id == user.tenant_id,
+            )
+        )
+        prog_completed_at = prog_result.scalar_one_or_none()
+        if prog_completed_at and quiz.deferral_days > 0:
+            is_expired = now > prog_completed_at + timedelta(days=quiz.deferral_days)
+
         out.append({
             "quiz_id": str(quiz.id),
             "quiz_title": quiz.title,
@@ -141,6 +158,7 @@ async def list_enrolled_quizzes(
             "passed": att["passed"] if att else False,
             "completed_at": att["completed_at"] if att else None,
             "attempts_count": att["attempts_count"] if att else 0,
+            "is_expired": is_expired,
         })
 
     out.sort(key=lambda x: (x["passed"], x.get("completed_at") or ""))

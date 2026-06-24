@@ -1,6 +1,7 @@
 """Certificate API router"""
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import get_current_user
@@ -11,6 +12,7 @@ from app.modules.certificates.service import (
     get_user_certificates,
     get_certificate,
     verify_certificate,
+    read_pdf_bytes,
 )
 
 router = APIRouter(prefix="/certificates", tags=["certificates"])
@@ -31,7 +33,7 @@ async def issue_course_certificate(
     db: AsyncSession = Depends(get_db),
     user=Depends(get_current_user),
 ):
-    """Issue certificate for completing a course."""
+    """Issue certificate for completing a course (enforces completion)."""
     try:
         cert = await issue_certificate(
             db=db,
@@ -57,6 +59,28 @@ async def get_cert(
     if not cert:
         raise HTTPException(status_code=404, detail="Certificate not found")
     return cert
+
+
+@router.get("/{cert_id}/download")
+async def download_certificate_pdf(
+    cert_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    """Download certificate as PDF."""
+    pdf_bytes = await read_pdf_bytes(db, cert_id, user.tenant_id)
+    if not pdf_bytes:
+        cert = await get_certificate(db, cert_id, user.tenant_id)
+        if not cert:
+            raise HTTPException(status_code=404, detail="Certificate not found")
+        raise HTTPException(status_code=500, detail="PDF generation failed")
+
+    filename = f"certificate-{cert.certificate_number}.pdf"
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.get("/verify/{certificate_number}")
