@@ -90,62 +90,36 @@ def create_architect_tools(
     scope = set(doc_ids) if doc_ids else None
     chapter_read_counts = collections.defaultdict(int)
 
-    def list_documents() -> str:
+    async def list_documents() -> str:
         """List all ingested documents with IDs and names from DB."""
         from app.core.db import async_session_factory
         from sqlalchemy import text
-        import asyncio
 
-        async def _query():
-            async with async_session_factory() as session:
-                result = await session.execute(
-                    text("SELECT DISTINCT doc_id, doc_name FROM document_embeddings ORDER BY doc_name")
-                )
-                return result.fetchall()
-
-        try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                import concurrent.futures
-                with concurrent.futures.ThreadPoolExecutor() as pool:
-                    rows = pool.submit(asyncio.run, _query()).result()
-            else:
-                rows = loop.run_until_complete(_query())
-        except RuntimeError:
-            rows = asyncio.run(_query())
+        async with async_session_factory() as session:
+            result = await session.execute(
+                text("SELECT DISTINCT doc_id, doc_name FROM document_embeddings ORDER BY doc_name")
+            )
+            rows = result.fetchall()
 
         results = []
         for row in rows:
             results.append({"doc_id": row[0], "doc_name": row[1]})
         return json.dumps(results, ensure_ascii=False, indent=2)
 
-    def get_document_summary(doc_id: str) -> str:
+    async def get_document_summary(doc_id: str) -> str:
         """Get educational profile summary of a document from DB embeddings."""
         from app.core.db import async_session_factory
         from sqlalchemy import text
-        import asyncio
 
         if scope and doc_id not in scope:
             return f"Document '{doc_id}' is not in the current scope."
 
-        async def _query():
-            async with async_session_factory() as session:
-                result = await session.execute(
-                    text("SELECT text, headings FROM document_embeddings WHERE doc_id = :doc_id LIMIT 5"),
-                    {"doc_id": doc_id},
-                )
-                return result.fetchall()
-
-        try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                import concurrent.futures
-                with concurrent.futures.ThreadPoolExecutor() as pool:
-                    rows = pool.submit(asyncio.run, _query()).result()
-            else:
-                rows = loop.run_until_complete(_query())
-        except RuntimeError:
-            rows = asyncio.run(_query())
+        async with async_session_factory() as session:
+            result = await session.execute(
+                text("SELECT text, headings FROM document_embeddings WHERE doc_id = :doc_id LIMIT 5"),
+                {"doc_id": doc_id},
+            )
+            rows = result.fetchall()
 
         if not rows:
             return f"Document '{doc_id}' has no ingested content."
@@ -164,33 +138,20 @@ def create_architect_tools(
 
         return "\n\n".join(parts)
 
-    def get_document_toc(doc_id: str) -> str:
+    async def get_document_toc(doc_id: str) -> str:
         """Get table of contents of a document from DB."""
         from app.core.db import async_session_factory
         from sqlalchemy import text
-        import asyncio
 
         if scope and doc_id not in scope:
             return f"Document '{doc_id}' is not in scope."
 
-        async def _query():
-            async with async_session_factory() as session:
-                result = await session.execute(
-                    text("SELECT DISTINCT headings FROM document_embeddings WHERE doc_id = :doc_id"),
-                    {"doc_id": doc_id},
-                )
-                return result.fetchall()
-
-        try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                import concurrent.futures
-                with concurrent.futures.ThreadPoolExecutor() as pool:
-                    rows = pool.submit(asyncio.run, _query()).result()
-            else:
-                rows = loop.run_until_complete(_query())
-        except RuntimeError:
-            rows = asyncio.run(_query())
+        async with async_session_factory() as session:
+            result = await session.execute(
+                text("SELECT DISTINCT headings FROM document_embeddings WHERE doc_id = :doc_id"),
+                {"doc_id": doc_id},
+            )
+            rows = result.fetchall()
 
         if not rows:
             return f"Document '{doc_id}' not found."
@@ -208,11 +169,10 @@ def create_architect_tools(
             return "\n".join(f"- {h}" for h in sorted(headings_set))
         return "No TOC available."
 
-    def get_chapter_text(doc_id: str, chapter_title: str) -> str:
+    async def get_chapter_text(doc_id: str, chapter_title: str) -> str:
         """Read text chunks matching a heading from DB."""
         from app.core.db import async_session_factory
         from sqlalchemy import text
-        import asyncio
 
         if scope and doc_id not in scope:
             return f"Document '{doc_id}' is not in scope."
@@ -223,24 +183,12 @@ def create_architect_tools(
             )
         chapter_read_counts[doc_id] += 1
 
-        async def _query():
-            async with async_session_factory() as session:
-                result = await session.execute(
-                    text("SELECT text, headings FROM document_embeddings WHERE doc_id = :doc_id"),
-                    {"doc_id": doc_id},
-                )
-                return result.fetchall()
-
-        try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                import concurrent.futures
-                with concurrent.futures.ThreadPoolExecutor() as pool:
-                    rows = pool.submit(asyncio.run, _query()).result()
-            else:
-                rows = loop.run_until_complete(_query())
-        except RuntimeError:
-            rows = asyncio.run(_query())
+        async with async_session_factory() as session:
+            result = await session.execute(
+                text("SELECT text, headings FROM document_embeddings WHERE doc_id = :doc_id"),
+                {"doc_id": doc_id},
+            )
+            rows = result.fetchall()
 
         if not rows:
             return f"Document '{doc_id}' not found."
@@ -342,36 +290,6 @@ def _build_system_prompt(
         )
 
     return prompt
-
-
-def _attempt_json_repair(json_str: str) -> str | None:
-    """Attempt to fix broken JSON by rebuilding structure."""
-    import json
-    try:
-        # Try to extract key parts with regex
-        title_match = re.search(r'"title"\s*:\s*"([^"]*)"', json_str)
-        desc_match = re.search(r'"description"\s*:\s*"([^"]*)"', json_str)
-
-        modules = []
-        # Find module blocks
-        mod_pattern = re.finditer(r'"title"\s*:\s*"([^"]*)"', json_str)
-        lessons = []
-        for m in mod_pattern:
-            title = m.group(1)
-            if len(title) > 5 and "module" in title.lower() or "модуль" in title.lower():
-                continue
-            lessons.append(title)
-
-        if title_match:
-            result = {
-                "title": title_match.group(1),
-                "description": desc_match.group(1) if desc_match else "",
-                "modules": [{"title": "Module 1", "lessons": [{"title": t, "objectives": [{"text": "Learn about " + t}]} for t in lessons[:5]]}] if lessons else []
-            }
-            return json.dumps(result, ensure_ascii=False)
-    except Exception:
-        pass
-    return None
 
 
 def _attempt_json_repair(json_str: str) -> str | None:
@@ -498,19 +416,40 @@ When ready to output the final course structure, output ONLY the JSON code block
                     on_message(f"JSON parse error, asking for fix: {e}")
                 continue
 
-        # Check for tool call
-        tool_match = re.search(r'```json\s*\{[^}]*"tool"[^}]*\}\s*```', content, re.DOTALL)
-        if not tool_match:
-            tool_match = re.search(r'\{"tool"\s*:\s*"(\w+)"\s*,\s*"args"\s*:\s*(\{[^}]*\})\s*\}', content)
+        # Check for tool call in ```json block
+        tool_match = re.search(r'```json\s*\n?([\s\S]*?)\n?\s*```', content)
+        if tool_match:
+            raw = tool_match.group(1).strip()
+            if '"tool"' in raw:
+                try:
+                    tool_json = json.loads(raw)
+                    tool_name = tool_json.get("tool")
+                    tool_args = tool_json.get("args", {})
+
+                    if tool_name in tools:
+                        result = await tools[tool_name](**tool_args)
+                        messages.append({"role": "assistant", "content": content})
+                        messages.append({"role": "user", "content": f"Tool result: {result}"})
+                        if on_message:
+                            on_message(f"  -> {tool_name} returned {len(str(result))} chars")
+                        continue
+                    else:
+                        messages.append({"role": "assistant", "content": content})
+                        messages.append({"role": "user", "content": f"Error: Unknown tool '{tool_name}'"})
+                        continue
+                except (json.JSONDecodeError, AttributeError) as e:
+                    pass  # Fall through to other parsing
+
+        # Check for inline tool call
+        tool_match = re.search(r'\{"tool"\s*:\s*"(\w+)"\s*,\s*"args"\s*:\s*(\{[^}]*\})\s*\}', content)
 
         if tool_match:
             try:
-                tool_json = json.loads(tool_match.group(0).strip().strip("`").strip())
-                tool_name = tool_json.get("tool")
-                tool_args = tool_json.get("args", {})
+                tool_name = tool_match.group(1)
+                tool_args = json.loads(tool_match.group(2))
 
                 if tool_name in tools:
-                    result = tools[tool_name](**tool_args) if not asyncio.iscoroutinefunction(tools[tool_name]) else await tools[tool_name](**tool_args)
+                    result = await tools[tool_name](**tool_args)
                     messages.append({"role": "assistant", "content": content})
                     messages.append({"role": "user", "content": f"Tool result: {result}"})
                     if on_message:
