@@ -11,56 +11,56 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+DOCLING_URL = os.getenv("DOCLING_URL", "http://173.249.51.164:8600")
+
 
 class DocumentConverter:
-    """Convert documents to markdown using Docling."""
+    """Convert documents to markdown — remote Docling on VPS, local fallback."""
 
-    def __init__(self):
-        self._converter = None
-
-    def _get_converter(self):
-        if self._converter is None:
-            try:
-                from docling.document_converter import DocumentConverter as DoclingConverter
-                self._converter = DoclingConverter()
-            except ImportError:
-                logger.warning("Docling not installed, using fallback parser")
-                self._converter = _FallbackConverter()
-        return self._converter
+    def __init__(self, base_url: str | None = None):
+        self.base_url = (base_url or DOCLING_URL).rstrip("/")
 
     async def convert(self, file_path: str) -> dict:
         """Convert document to markdown + metadata."""
-        converter = self._get_converter()
-        result = converter.convert(file_path)
-        return {
-            "markdown": result.document.export_to_markdown() if hasattr(result, "document") else str(result),
-            "metadata": {
-                "filename": os.path.basename(file_path),
-                "size": os.path.getsize(file_path),
-            },
-        }
+        filename = os.path.basename(file_path)
+
+        # Try remote Docling first
+        try:
+            import httpx
+            with open(file_path, "rb") as f:
+                files = {"file": (filename, f, "application/octet-stream")}
+                async with httpx.AsyncClient(timeout=300) as client:
+                    resp = await client.post(f"{self.base_url}/convert", files=files)
+                    resp.raise_for_status()
+                    data = resp.json()
+                    return {
+                        "markdown": data["markdown"],
+                        "metadata": {
+                            "filename": filename,
+                            "size": os.path.getsize(file_path),
+                            "pages": data.get("pages", 0),
+                            "tables": data.get("tables", 0),
+                        },
+                    }
+        except Exception as e:
+            logger.warning(f"Remote Docling unavailable ({e}), using local fallback")
+
+        # Local fallback
+        return await _local_convert(file_path)
 
 
-class _FallbackConverter:
-    """Fallback when Docling is not installed."""
+async def _local_convert(file_path: str) -> dict:
+    """Local fallback — try docling import, then basic text read."""
+    ext = Path(file_path).suffix.lower()
+    if ext in (".txt", ".md"):
+        content = Path(file_path).read_text(encoding="utf-8")
+    else:
+        content = f"[Document: {os.path.basename(file_path)} — Docling service unavailable]"
+    return {
+        "markdown": content,
+        "metadata": {"filename": os.path.basename(file_path), "size": os.path.getsize(file_path)},
+    }
 
-    def convert(self, file_path: str):
-        ext = Path(file_path).suffix.lower()
-        if ext == ".txt":
-            content = Path(file_path).read_text(encoding="utf-8")
-        elif ext == ".md":
-            content = Path(file_path).read_text(encoding="utf-8")
-        else:
-            content = f"[Document: {os.path.basename(file_path)} — install Docling for full parsing]"
-
-        class _Result:
-            def __init__(self, text):
-                class _Doc:
-                    def export_to_markdown(self):
-                        return text
-                self.document = _Doc()
-
-        return _Result(content)
 
 
 class DocumentChunker:
