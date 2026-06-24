@@ -20,7 +20,7 @@ router = APIRouter(prefix="/quiz-assignments", tags=["quiz-assignments"])
 async def create_assignment(
     req: QuizAssignmentCreate,
     db: AsyncSession = Depends(get_db),
-    user=Depends(require_role(["admin", "superadmin"])),
+    user=Depends(require_role(["admin", "superadmin", "org_admin", "teacher"])),
 ):
     result = await assign_quiz(
         db, req.quiz_id, req.user_ids, user.id, user.tenant_id, req.due_date
@@ -39,7 +39,7 @@ async def my_assignments(
 @router.get("")
 async def list_assignments(
     db: AsyncSession = Depends(get_db),
-    user=Depends(require_role(["admin", "superadmin"])),
+    user=Depends(require_role(["admin", "superadmin", "org_admin", "teacher"])),
 ):
     return await get_all_assignments(db, user.tenant_id)
 
@@ -48,7 +48,7 @@ async def list_assignments(
 async def remove_assignment(
     assignment_id: UUID,
     db: AsyncSession = Depends(get_db),
-    user=Depends(require_role(["admin", "superadmin"])),
+    user=Depends(require_role(["admin", "superadmin", "org_admin", "teacher"])),
 ):
     deleted = await delete_assignment(db, assignment_id, user.tenant_id)
     return {"deleted": deleted}
