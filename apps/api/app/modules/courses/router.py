@@ -220,3 +220,28 @@ async def delete_course(
     )
     await db.delete(course)
     await db.commit()
+
+
+@router.post("/{course_id}/complete")
+async def complete_course(
+    course_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    from app.models.enrollment import Enrollment
+    result = await db.execute(
+        select(Enrollment).where(
+            Enrollment.course_id == course_id,
+            Enrollment.user_id == user.id,
+            Enrollment.tenant_id == user.tenant_id,
+        )
+    )
+    enrollment = result.scalar_one_or_none()
+    if not enrollment:
+        raise HTTPException(status_code=404, detail="Not enrolled")
+    if enrollment.status == "completed":
+        return {"status": "already_completed"}
+    enrollment.status = "completed"
+    enrollment.completed_at = datetime.now(timezone.utc)
+    await db.commit()
+    return {"status": "completed"}

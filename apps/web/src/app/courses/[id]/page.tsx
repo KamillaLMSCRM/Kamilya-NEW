@@ -185,7 +185,18 @@ export default function CoursePlayerPage() {
         console.error('Failed to persist progress', e);
       }
     }
-    setCompletedLessons((prev) => new Set(prev).add(lessonId));
+    const newCompleted = new Set(completedLessons).add(lessonId);
+    setCompletedLessons(newCompleted);
+    // Auto-complete course if all lessons done
+    const total = modules.reduce((acc, m) => acc + m.lessons.length, 0);
+    if (newCompleted.size >= total && total > 0 && token && courseId) {
+      try {
+        await fetch(`${API_URL}/v1/courses/${courseId}/complete`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      } catch {}
+    }
   };
 
   const findNextLesson = (currentId: string): Lesson | null => {
@@ -202,7 +213,29 @@ export default function CoursePlayerPage() {
   const handleNextLesson = () => {
     if (!selectedLesson) return;
     const next = findNextLesson(selectedLesson.id);
-    if (next) setSelectedLesson(next);
+    if (next) {
+      setSelectedLesson(next);
+    } else {
+      // Last lesson — check if course is complete
+      checkCourseCompletion();
+    }
+  };
+
+  const checkCourseCompletion = async () => {
+    const total = modules.reduce((acc, m) => acc + m.lessons.length, 0);
+    if (completedLessons.size >= total && total > 0 && token && courseId) {
+      try {
+        await fetch(`${API_URL}/v1/courses/${courseId}/complete`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      } catch {}
+      alert('Курс пройден! Поздравляем!');
+      window.location.href = '/courses';
+    } else {
+      // Not all lessons done — go back to courses
+      window.location.href = '/courses';
+    }
   };
 
   const totalLessons = modules.reduce((acc, m) => acc + m.lessons.length, 0);
