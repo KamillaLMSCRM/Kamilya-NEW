@@ -24,13 +24,13 @@ class UserUpdate(BaseModel):
 class UserResponse(BaseModel):
     id: UUID
     tenant_id: UUID
-    email: str
+    email: str | None = None
     first_name: str
     last_name: str
     role: str
     is_active: bool
     position_id: UUID | None = None
-    telegram_id: str | None = None
+    telegram_id: int | None = None
     last_login: datetime | None = None
     created_at: datetime
     model_config = {"from_attributes": True}

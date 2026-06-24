@@ -18,9 +18,11 @@ class CourseResponse(BaseModel):
     title: str
     description: str
     status: str
-    created_by: UUID
+    thumbnail_url: str | None = None
+    ai_generated: bool = False
+    created_by: UUID | None = None
     created_at: datetime
     updated_at: datetime
-    published_at: datetime | None
+    published_at: datetime | None = None
 
     model_config = {'from_attributes': True}
