@@ -64,7 +64,15 @@ export default function AdminUsersPage() {
 
   useEffect(() => { fetchUsers(); fetchPositions(); }, [fetchUsers, fetchPositions]);
 
+  const [createError, setCreateError] = useState('');
+
   const handleCreate = async () => {
+    setCreateError('');
+    if (!newUser.email.trim()) { setCreateError('Введите email'); return; }
+    if (!newUser.first_name.trim()) { setCreateError('Введите имя'); return; }
+    if (!newUser.last_name.trim()) { setCreateError('Введите фамилию'); return; }
+    if (newUser.password.length < 8) { setCreateError('Пароль должен быть минимум 8 символов'); return; }
+
     const res = await fetch(`${API_URL}/v1/users`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -74,6 +82,9 @@ export default function AdminUsersPage() {
       setShowCreateModal(false);
       setNewUser({ email: '', first_name: '', last_name: '', role: 'student', password: '' });
       fetchUsers();
+    } else {
+      const err = await res.json().catch(() => ({ detail: 'Ошибка сервера' }));
+      setCreateError(err.detail || 'Ошибка создания пользователя');
     }
   };
 
@@ -227,10 +238,12 @@ export default function AdminUsersPage() {
           <Input placeholder="Фамилия" value={newUser.last_name} onChange={(e) => setNewUser({ ...newUser, last_name: e.target.value })} />
           <select value={newUser.role} onChange={(e) => setNewUser({ ...newUser, role: e.target.value })} className="w-full border rounded px-3 py-2">
             <option value="student">Обучающийся</option>
-            <option value="instructor">Инструктор</option>
+            <option value="teacher">Преподаватель</option>
+            <option value="org_admin">Орг. админ</option>
             <option value="admin">Админ</option>
           </select>
           <Input type="password" placeholder="Пароль (мин. 8 символов)" value={newUser.password} onChange={(e) => setNewUser({ ...newUser, password: e.target.value })} />
+          {createError && <p className="text-sm text-red-500">{createError}</p>}
           <Button onClick={handleCreate} className="w-full">Создать</Button>
         </CardContent>
       </Modal>
