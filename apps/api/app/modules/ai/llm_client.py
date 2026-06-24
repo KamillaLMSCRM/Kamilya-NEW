@@ -66,16 +66,27 @@ class LLMClient:
         import asyncio
 
         for attempt in range(5):
-            async with httpx.AsyncClient(timeout=300) as client:
-                print(f"[LLM_REQ] {self.base_url}/chat/completions model={self.model} msgs={len(messages)}", flush=True)
-                response = await client.post(
-                    f"{self.base_url}/chat/completions",
-                    json=payload,
-                    headers={"Authorization": f"Bearer {self.api_key}"},
-                )
+            async with httpx.AsyncClient(timeout=600) as client:
+                print(f"[LLM_REQ] {self.base_url}/chat/completions model={self.model} msgs={len(messages)} attempt={attempt+1}", flush=True)
+                try:
+                    response = await client.post(
+                        f"{self.base_url}/chat/completions",
+                        json=payload,
+                        headers={"Authorization": f"Bearer {self.api_key}"},
+                    )
+                except httpx.TimeoutException:
+                    wait = (attempt + 1) * 30
+                    print(f"[LLM] Timeout on attempt {attempt+1}/5, retrying in {wait}s", flush=True)
+                    await asyncio.sleep(wait)
+                    continue
                 if response.status_code == 429:
                     wait = (attempt + 1) * 30
                     print(f"[LLM] 429 rate limited, waiting {wait}s (attempt {attempt + 1}/5)", flush=True)
+                    await asyncio.sleep(wait)
+                    continue
+                if response.status_code in (502, 503, 504):
+                    wait = (attempt + 1) * 15
+                    print(f"[LLM] {response.status_code} server error, retrying in {wait}s (attempt {attempt + 1}/5)", flush=True)
                     await asyncio.sleep(wait)
                     continue
                 if response.status_code != 200:
@@ -84,7 +95,7 @@ class LLMClient:
                 data = response.json()
                 break
         else:
-            raise Exception("LLM rate limited after retries")
+            raise Exception("LLM failed after retries")
 
         msg = data["choices"][0]["message"]
         content = msg.get("content") or msg.get("reasoning") or ""
