@@ -76,9 +76,11 @@ export default function CoursesPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-warm-800 font-display">{t('courses.title')}</h1>
-        <Button onClick={() => setShowCreate(!showCreate)}>
-          {showCreate ? t('common.cancel') : '+ ' + t('courses.createCourse')}
-        </Button>
+        {(user?.role === 'admin' || user?.role === 'superadmin' || user?.role === 'teacher' || user?.role === 'org_admin') && (
+          <Button onClick={() => setShowCreate(!showCreate)}>
+            {showCreate ? t('common.cancel') : '+ ' + t('courses.createCourse')}
+          </Button>
+        )}
       </div>
 
       {/* Filters */}
@@ -183,36 +185,40 @@ export default function CoursesPage() {
                 )}
 
                 <div className="mt-4 flex items-center gap-2">
-                  <button
-                    onClick={(e) => {
-                      e.preventDefault();
-                      handlePublish(course.id, course.status);
-                    }}
-                    className={`flex-1 rounded-xl px-3 py-2 text-xs font-medium transition-colors ${
-                      course.status === 'published'
-                        ? 'bg-warm-50 text-warm-600 hover:bg-warm-100'
-                        : 'bg-primary/10 text-primary hover:bg-primary/20'
-                    }`}
-                  >
-                    {course.status === 'published' ? t('courses.unpublish') : t('courses.publish')}
-                  </button>
-                  <a
-                    href={`/courses/${course.id}/edit`}
-                    onClick={(e) => e.stopPropagation()}
-                    className="rounded-xl border border-warm-200 px-3 py-2 text-xs font-medium text-warm-500 hover:border-warm-300 hover:text-warm-700 transition-colors"
-                  >
-                    {t('common.edit')}
-                  </a>
-                  <button
-                    onClick={(e) => {
-                      e.preventDefault();
-                      handleDelete(course.id);
-                    }}
-                    disabled={deletingId === course.id}
-                    className="rounded-xl px-3 py-2 text-xs font-medium text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
-                  >
-                    {deletingId === course.id ? '…' : '✕'}
-                  </button>
+                  {(user?.role === 'admin' || user?.role === 'superadmin' || user?.role === 'teacher' || user?.role === 'org_admin') && (
+                    <>
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          handlePublish(course.id, course.status);
+                        }}
+                        className={`flex-1 rounded-xl px-3 py-2 text-xs font-medium transition-colors ${
+                          course.status === 'published'
+                            ? 'bg-warm-50 text-warm-600 hover:bg-warm-100'
+                            : 'bg-primary/10 text-primary hover:bg-primary/20'
+                        }`}
+                      >
+                        {course.status === 'published' ? t('courses.unpublish') : t('courses.publish')}
+                      </button>
+                      <a
+                        href={`/courses/${course.id}/edit`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="rounded-xl border border-warm-200 px-3 py-2 text-xs font-medium text-warm-500 hover:border-warm-300 hover:text-warm-700 transition-colors"
+                      >
+                        {t('common.edit')}
+                      </a>
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          handleDelete(course.id);
+                        }}
+                        disabled={deletingId === course.id}
+                        className="rounded-xl px-3 py-2 text-xs font-medium text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
+                      >
+                        {deletingId === course.id ? '…' : '✕'}
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             </a>
