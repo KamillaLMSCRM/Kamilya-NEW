@@ -40,7 +40,7 @@ describe("CardSkeleton", () => {
 
 describe("TableSkeleton", () => {
   it("renders skeleton rows", () => {
-    render(<TableSkeleton rowCount={3} columns={4} />)
+    render(<TableSkeleton rows={3} cols={4} />)
     const skeletons = document.querySelectorAll(".animate-pulse")
     expect(skeletons.length).toBeGreaterThan(0)
   })

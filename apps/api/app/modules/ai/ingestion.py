@@ -144,7 +144,7 @@ class VectorStore:
                     ),
                     {
                         "id": chunk_id,
-                        "tenant_id": tenant_id or "00000000-0000-0000-0000-000000000000",
+                        "tenant_id": tenant_id,
                         "doc_id": meta.get("doc_id", ""),
                         "text": chunk["text"],
                         "headings": meta.get("headings", ""),

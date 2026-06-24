@@ -63,7 +63,7 @@ try:
             self.retry(exc=e, countdown=60)
 
     @celery_app.task(name="ai.ingest_document")
-    def ingest_document_task(file_path: str, doc_id: str | None = None):
+    def ingest_document_task(file_path: str, doc_id: str | None = None, tenant_id: str | None = None):
         """Celery task to ingest a single document."""
         from app.modules.ai.ingestion import DocumentIngestion
 
@@ -73,7 +73,7 @@ try:
         asyncio.set_event_loop(loop)
 
         ingestion = DocumentIngestion()
-        result = loop.run_until_complete(ingestion.ingest_file(file_path, doc_id))
+        result = loop.run_until_complete(ingestion.ingest_file(file_path, doc_id, tenant_id=tenant_id))
 
         loop.close()
 

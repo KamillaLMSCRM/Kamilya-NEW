@@ -1,7 +1,7 @@
 'use client';
 
-import NotFoundPage from '@/components/ui/ErrorPage';
+import { ErrorPage } from '@/components/ui/ErrorPage';
 
 export default function NotFound() {
-  return <NotFoundPage />;
+  return <ErrorPage statusCode={404} title="Страница не найдена" message="Запрашиваемая страница не существует" />;
 }

@@ -27,7 +27,7 @@ test('landing → navigate to login page', async ({ page }) => {
 
 test('landing → navigate to register from nav bar', async ({ page }) => {
   await goToLanding(page);
-  await page.getByRole('link', { name: /регистрат/[иия]/i }).click();
+  await page.getByRole('link', { name: /регистрац/i }).click();
   // Should land on /register (308 or direct)
   const url = page.url();
   expect(url).toMatch(/\/register/);
@@ -41,7 +41,7 @@ test('landing → navigate to register from hero CTA', async ({ page }) => {
   expect(url).toMatch(/\/register/);
 });
 
-test('login page generates code and shows digit boxes', async ({ loginPageElements: el }) => {
+test('login page generates code and shows digit boxes', async ({ page, loginPageElements: el }) => {
   await goToLogin(page);
 
   // At least one code digit box rendered
@@ -63,7 +63,7 @@ test('login page has registration link', async ({ page, loginPageElements: el })
   await expect(el.registerLink).toHaveAttribute('href', '/register');
 });
 
-test('login page heading is visible', async ({ loginPageElements: el }) => {
+test('login page heading is visible', async ({ page, loginPageElements: el }) => {
   await goToLogin(page);
   await expect(el.heading).toContainText(/войти с помощью telegram|войти через telegram/i);
 });
