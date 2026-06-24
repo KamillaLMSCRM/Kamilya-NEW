@@ -21,6 +21,12 @@ async def get_lesson_progress(db: AsyncSession, user_id: UUID, lesson_id: UUID, 
 async def update_lesson_progress(
     db: AsyncSession, user_id: UUID, lesson_id: UUID, tenant_id: UUID, completed: bool = True
 ):
+    # Resolve course_id from lesson
+    lesson_result = await db.execute(
+        select(Module.course_id).join(Lesson, Lesson.module_id == Module.id).where(Lesson.id == lesson_id)
+    )
+    course_id = lesson_result.scalar_one_or_none()
+
     progress = await get_lesson_progress(db, user_id, lesson_id, tenant_id)
     if progress:
         progress.completed = completed
@@ -32,9 +38,11 @@ async def update_lesson_progress(
         progress = Progress(
             user_id=user_id,
             lesson_id=lesson_id,
+            course_id=course_id,
             tenant_id=tenant_id,
             completed=completed,
             completion_percent=100 if completed else 0,
+            percent=100 if completed else 0,
             completed_at=datetime.now(timezone.utc) if completed else None,
             last_accessed_at=datetime.now(timezone.utc),
         )

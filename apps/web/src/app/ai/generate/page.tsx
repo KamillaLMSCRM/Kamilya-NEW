@@ -125,7 +125,7 @@ export default function AIGeneratePage() {
       try {
         const res = await api.get(`/v1/ai/jobs/${currentJob.id}`);
         setCurrentJob(res.data);
-        if (res.data.status === 'completed' && res.data.course_id) {
+        if (res.data.status === 'completed') {
           setStep('review');
         }
       } catch {}
@@ -286,11 +286,11 @@ export default function AIGeneratePage() {
           {/* Stages */}
           <div className="space-y-2">
             {STAGES.map((stage, i) => {
+              const isAllDone = currentJob.stage === 'completed' || currentJob.status === 'completed';
               const currentIdx = getStageIndex(currentJob.stage);
               const stageIdx = getStageIndex(stage.key);
-              const isActive = currentJob.stage === stage.key;
-              const isDone = stageIdx < currentIdx;
-              const isPending = stageIdx > currentIdx;
+              const isActive = !isAllDone && currentJob.stage === stage.key;
+              const isDone = isAllDone || stageIdx < currentIdx;
 
               return (
                 <div

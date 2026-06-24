@@ -230,7 +230,7 @@ async def run_generation_pipeline(
         # Stage 1: Ingestion — actually ingest documents into vector store
         state.stage = "ingestion"
         state.progress = 5
-        state.message = "Checking document embeddings..."
+        state.message = "Проверка эмбеддингов документов..."
         await _update_job_db(job_id, status="running", stage="ingestion", progress=5, message=state.message)
 
         # Documents are ingested at upload time into pgvector.
@@ -249,7 +249,7 @@ async def run_generation_pipeline(
         # Stage 2: Architect
         state.stage = "architect"
         state.progress = 10
-        state.message = "Designing course structure..."
+        state.message = "Проектирование структуры курса..."
         await _update_job_db(job_id, stage="architect", progress=10, message=state.message)
 
         llm = create_llm()
@@ -275,13 +275,13 @@ async def run_generation_pipeline(
 
         state.structure = structure
         state.progress = 25
-        state.message = f"Structure designed: {len(structure.modules)} modules"
+        state.message = f"Структура спроектирована: {len(structure.modules)} модулей"
         await _update_job_db(job_id, progress=25, message=state.message)
 
         # Stage 3: Content Generation (Writer)
         state.stage = "content_generation"
         state.progress = 30
-        state.message = "Generating lesson content..."
+        state.message = "Генерация контента уроков..."
         await _update_job_db(job_id, stage="content_generation", progress=30, message=state.message)
 
         total_lessons = sum(len(m.lessons) for m in structure.modules)
@@ -305,13 +305,13 @@ async def run_generation_pipeline(
 
         state.content = content
         state.progress = 70
-        state.message = "Content generation complete"
+        state.message = "Контент сгенерирован"
         await _update_job_db(job_id, progress=70, message=state.message)
 
         # Stage 3.5: Review content quality
         state.stage = "review"
         state.progress = 72
-        state.message = "Reviewing content quality..."
+        state.message = "Проверка качества контента..."
         await _update_job_db(job_id, stage="review", progress=72, message=state.message)
 
         reviewer = ReviewerAgent(llm_client=llm)
@@ -335,16 +335,16 @@ async def run_generation_pipeline(
                     })
 
         if low_quality_lessons:
-            state.message = f"Review: {len(low_quality_lessons)} lessons below quality threshold"
+            state.message = f"Проверка: {len(low_quality_lessons)} уроков ниже порога качества"
             await _update_job_db(job_id, message=state.message)
         else:
-            state.message = "Content quality verified"
+            state.message = "Качество контента проверено"
             await _update_job_db(job_id, message=state.message)
 
         # Stage 4: Assessment Generation
         state.stage = "assessment"
         state.progress = 75
-        state.message = "Generating assessments..."
+        state.message = "Генерация тестов..."
         await _update_job_db(job_id, stage="assessment", progress=75, message=state.message)
 
         assessments_done = 0
@@ -364,13 +364,13 @@ async def run_generation_pipeline(
 
         state.assessment = assessment
         state.progress = 95
-        state.message = "Assessments generated"
+        state.message = "Тесты сгенерированы"
         await _update_job_db(job_id, progress=95, message=state.message)
 
         # Stage 5: Save to DB
         state.stage = "saving"
         state.progress = 98
-        state.message = "Saving results..."
+        state.message = "Сохранение результатов..."
         await _update_job_db(job_id, stage="saving", progress=98, message=state.message)
 
         if tenant_id and user_id:
@@ -405,7 +405,7 @@ async def run_generation_pipeline(
 
         state.status = "completed"
         state.progress = 100
-        state.message = "Course generation complete!"
+        state.message = "Курс успешно сгенерирован!"
         await _update_job_db(
             job_id,
             status="completed",
