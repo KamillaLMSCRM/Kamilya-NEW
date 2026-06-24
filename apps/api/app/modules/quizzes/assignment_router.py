@@ -15,12 +15,14 @@ from app.modules.quizzes.assignment_service import (
 
 router = APIRouter(prefix="/quiz-assignments", tags=["quiz-assignments"])
 
+QUIZ_ASSIGN_ROLES = ("admin", "superadmin", "org_admin", "teacher")
+
 
 @router.post("")
 async def create_assignment(
     req: QuizAssignmentCreate,
     db: AsyncSession = Depends(get_db),
-    user=Depends(require_role(["admin", "superadmin", "org_admin", "teacher"])),
+    user=Depends(require_role(*QUIZ_ASSIGN_ROLES)),
 ):
     result = await assign_quiz(
         db, req.quiz_id, req.user_ids, user.id, user.tenant_id, req.due_date
@@ -39,7 +41,7 @@ async def my_assignments(
 @router.get("")
 async def list_assignments(
     db: AsyncSession = Depends(get_db),
-    user=Depends(require_role(["admin", "superadmin", "org_admin", "teacher"])),
+    user=Depends(require_role(*QUIZ_ASSIGN_ROLES)),
 ):
     return await get_all_assignments(db, user.tenant_id)
 
@@ -48,7 +50,7 @@ async def list_assignments(
 async def remove_assignment(
     assignment_id: UUID,
     db: AsyncSession = Depends(get_db),
-    user=Depends(require_role(["admin", "superadmin", "org_admin", "teacher"])),
+    user=Depends(require_role(*QUIZ_ASSIGN_ROLES)),
 ):
     deleted = await delete_assignment(db, assignment_id, user.tenant_id)
     return {"deleted": deleted}
