@@ -18,6 +18,5 @@ class Progress(Base):
     completion_percent = Column(Integer, default=0)
     percent = Column(Integer, default=0)
     time_spent = Column(Integer, default=0)
-    started_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     completed_at = Column(DateTime(timezone=True), nullable=True)
-    last_accessed_at = Column("last_at", DateTime(timezone=True), nullable=True)
+    last_accessed_at = Column("last_at", DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
