@@ -3,6 +3,7 @@ import "./globals.css";
 import { Inter } from "next/font/google";
 import RouteWrapper from "@/components/RouteWrapper";
 import { Toaster } from "@/components/ui/Toast";
+import { SkipToContent } from "@/components/a11y/SkipToContent";
 
 const inter = Inter({ subsets: ["latin", "cyrillic"] });
 
@@ -19,6 +20,7 @@ export default function RootLayout({
   return (
     <html lang="ru">
       <body className={inter.className}>
+        <SkipToContent />
         <RouteWrapper>
           {children}
           <Toaster />

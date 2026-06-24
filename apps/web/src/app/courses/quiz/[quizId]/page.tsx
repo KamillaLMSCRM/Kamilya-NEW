@@ -208,9 +208,20 @@ export default function QuizPlayerPage() {
           <h1 className="text-xl font-bold">{quiz.title}</h1>
           <div className="flex items-center gap-4">
             {timeLeft !== null && !result && (
-              <Badge variant={timeLeft < 60 ? 'destructive' : 'outline'} className="text-lg px-3 py-1">
+              <div
+                role="timer"
+                aria-live={timeLeft < 60 ? 'assertive' : 'polite'}
+                aria-atomic="true"
+                aria-label={t('quiz.timeLeft') || 'Time left'}
+                className={
+                  'text-lg px-3 py-1 rounded-md font-mono ' +
+                  (timeLeft < 60
+                    ? 'bg-red-100 text-red-700'
+                    : 'bg-warm-100 text-warm-700')
+                }
+              >
                 {formatTime(timeLeft)}
-              </Badge>
+              </div>
             )}
             {result && (
               <Badge variant={result.passed ? 'default' : 'destructive'} className="text-lg px-3 py-1">

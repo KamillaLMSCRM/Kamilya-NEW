@@ -526,5 +526,14 @@
     "serverErrorMessage": "Something went wrong. We are working on a fix.",
     "goHome": "Go home",
     "refresh": "Refresh"
+  },
+  "a11y": {
+    "skipToContent": "Skip to main content",
+    "closeDialog": "Close dialog",
+    "mainNavigation": "Main navigation",
+    "userMenu": "User menu",
+    "primaryContent": "Main content",
+    "openMenu": "Open menu",
+    "closeMenu": "Close menu"
   }
 }
