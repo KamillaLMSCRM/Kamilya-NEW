@@ -4,7 +4,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { Card, CardHeader, CardTitle, CardContent, Button, Badge } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
-import { CheckCircle2 } from 'lucide-react';
+import { toast } from '@/components/ui/Toast';
+import { CheckCircle2, Download, Loader2 } from 'lucide-react';
 
 interface Certificate {
   id: string;
@@ -18,6 +19,7 @@ export default function CertificatesPage() {
   const { t } = useT();
   const [certificates, setCertificates] = useState<Certificate[]>([]);
   const [loading, setLoading] = useState(true);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const token = useAuthStore((s) => s.accessToken);
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -28,27 +30,47 @@ export default function CertificatesPage() {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) setCertificates(await res.json());
+    } catch {
+      toast.error(t('common.loadFailed') || 'Failed to load certificates');
     } finally {
       setLoading(false);
     }
-  }, [token, API_URL]);
+  }, [token, API_URL, t]);
 
   useEffect(() => {
     fetchCertificates();
   }, [fetchCertificates]);
 
-  const handleDownload = async (certId: string) => {
-    const res = await fetch(`${API_URL}/v1/certificates/${certId}/download`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (res.ok) {
+  const handleDownload = async (cert: Certificate) => {
+    if (downloadingId) return;
+    setDownloadingId(cert.id);
+    try {
+      const res = await fetch(`${API_URL}/v1/certificates/${cert.id}/download`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        if (res.status === 404) {
+          toast.error(t('certificates.invalid'));
+        } else {
+          toast.error(t('common.saveFailed') || 'Download failed');
+        }
+        return;
+      }
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `certificate-${certId}.pdf`;
+      a.download = `certificate-${cert.certificate_number}.pdf`;
+      document.body.appendChild(a);
       a.click();
+      document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
+      toast.success(t('toast.courseCompleted') || 'Downloaded');
+    } catch (e) {
+      console.error('Certificate download failed', e);
+      toast.error(t('common.saveFailed') || 'Download failed');
+    } finally {
+      setDownloadingId(null);
     }
   };
 
@@ -82,7 +104,16 @@ export default function CertificatesPage() {
                 </div>
                 <div className="flex gap-2">
                   <Badge variant="outline">PDF</Badge>
-                  <Button size="sm" onClick={() => handleDownload(cert.id)}>
+                  <Button
+                    size="sm"
+                    onClick={() => handleDownload(cert)}
+                    disabled={downloadingId === cert.id}
+                  >
+                    {downloadingId === cert.id ? (
+                      <Loader2 className="w-4 h-4 mr-1 animate-spin" aria-hidden="true" />
+                    ) : (
+                      <Download className="w-4 h-4 mr-1" aria-hidden="true" />
+                    )}
                     {t('common.download')}
                   </Button>
                 </div>

@@ -114,13 +114,24 @@ export default function AdminUsersPage() {
     try {
       const res = await api.post(`/v1/positions/${selectedPositionId}/assign/${assignModal.userId}`);
       if (res.status === 200 || res.status === 201) {
-        const data = res.data;
-        toast.success(
-          t('toast.positionAssigned'),
-          {
-            description: `Записано на ${data.courses_attached} курс(ов), новых записей: ${data.newly_enrolled}`,
-          }
-        );
+        const data = res.data as {
+          position?: string;
+          courses_attached?: number;
+          newly_enrolled?: number;
+          unenrolled_from_old?: number;
+        };
+        const parts: string[] = [];
+        parts.push(t('toast.positionAssigned'));
+        if (typeof data.newly_enrolled === 'number') {
+          parts.push(`Новых записей: ${data.newly_enrolled}`);
+        }
+        if (typeof data.courses_attached === 'number') {
+          parts.push(`Курсов: ${data.courses_attached}`);
+        }
+        if (data.unenrolled_from_old && data.unenrolled_from_old > 0) {
+          parts.push(`Отменено записей со старой должности: ${data.unenrolled_from_old}`);
+        }
+        toast.success(parts.join(' · '));
         setAssignModal(null);
         setSelectedPositionId('');
         fetchUsers();

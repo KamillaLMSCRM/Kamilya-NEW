@@ -332,3 +332,72 @@ docs/audit-code-2026-06-24.md                                (updated)
 ### Next steps
 - Supabase Storage вместо local disk (когда появится supabase-py client)
 - Phase 2 (a11y) — фронт
+- Frontend wiring под новые API (phase 3)
+
+---
+
+## 🎨 FRONTEND WIRING — phase 3 (June 24, 2026)
+
+Подключаем фронт к новым API из critical-fix коммита.
+
+### 1. Quiz deferral — UI ✅
+**Was:** Кнопка "Пройти" была активна даже когда deferral window истёк.
+
+**Now:** `/my-quizzes` показывает:
+- Иконку 🔒 (Lock) вместо ⏰ (Clock) для просроченных
+- Красный badge "Срок истёк" + пояснение "{days} дн." 
+- Disabled кнопка "Недоступен" с tooltip
+- Поле `is_expired` из API типизировано в `EnrolledQuiz`
+
+### 2. Course completion → certificate toast ✅
+**Was:** После `POST /v1/courses/{id}/complete` → silent redirect в `/courses`.
+Пользователь не знал, что сертификат уже выдан.
+
+**Now:** `finalizeCourseCompletion()` показывает два toast:
+- "Курс пройден! Поздравляем!" (как раньше)
+- "Сертификат выдан" с action-кнопкой "Посмотреть сертификат" → `/certificates`
+
+Cert_id берётся из response `{certificate_id, certificate_number}` (бэкенд уже возвращает).
+
+### 3. Certificate download — UX ✅
+**Was:** Кнопка download без loading/error. На 500-й ответ клиент молча падал.
+
+**Now:** 
+- Spinner (Loader2) во время загрузки
+- Disabled кнопка пока идёт скачивание
+- Toast.error на 404/500
+- Filename теперь `certificate-{number}.pdf` вместо `{id}.pdf` (человеко-читаемо)
+- a-element привязан к DOM (`appendChild` → `click` → `removeChild`)
+
+### 4. Position update — re_enrolled feedback ✅
+**Was:** После сохранения позиции с новыми курсами — silent reload.
+Пользователь не знал, сколько людей было зачислено.
+
+**Now:** `handleUpdate` читает `re_enrolled` из response, показывает toast
+"Зачислено сотрудников на новые курсы: {count}". Если 0 — "Изменений нет".
+
+### 5. Assign position — unenrolled_from_old ✅
+**Was:** При смене позиции — пользователь видел только `newly_enrolled`.
+Количество unenrolled со старой позиции терялось.
+
+**Now:** `handleAssignPosition` показывает все 3 числа: position name,
+новые записи, отменённые записи (если > 0).
+
+### Files touched
+```
+apps/web/src/app/my-quizzes/page.tsx           (is_expired UI, i18n)
+apps/web/src/app/courses/[id]/page.tsx         (finalizeCourseCompletion)
+apps/web/src/app/certificates/page.tsx         (loading + error + better filename)
+apps/web/src/app/positions/page.tsx            (re_enrolled toast)
+apps/web/src/app/admin/users/page.tsx          (unenrolled_from_old)
+apps/web/src/i18n/locales/{ru,kk,en}.json      (+9 keys each, parity preserved)
+```
+
+### Verification
+- `pnpm tsc --noEmit` — clean
+- `pnpm test` — 26/26 unit tests pass (e2e tests pre-existing setup issue, не мои)
+- `python scripts/check_i18n.py` — 457/457 keys parity
+
+### Next steps
+- Phase 2 (a11y) — модалки, focus trap, skip-to-content
+- Supabase Storage migration

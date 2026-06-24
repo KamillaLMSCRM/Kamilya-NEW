@@ -17,6 +17,7 @@ interface Position {
   course_ids: string[];
   employee_count: number;
   created_at: string;
+  re_enrolled?: number;
 }
 
 interface Course {
@@ -94,12 +95,19 @@ export default function PositionsPage() {
 
   const handleUpdate = async () => {
     if (!editPos) return;
-    await api.put(`/v1/positions/${editPos.id}`, {
+    const res = await api.put(`/v1/positions/${editPos.id}`, {
       name, department, level, responsibilities, requirements,
       course_ids: selectedCourseIds,
     });
+    const data = res.data as { re_enrolled?: number } | undefined;
     resetForm();
     fetchPositions();
+    toast.success(t('toast.positionUpdated'));
+    if (data?.re_enrolled && data.re_enrolled > 0) {
+      toast.success(t('toast.positionReEnrolled', { count: data.re_enrolled }));
+    } else {
+      toast.success(t('toast.positionReEnrolledNone'));
+    }
   };
 
   const handleDelete = async (id: string) => {

@@ -200,14 +200,7 @@ export default function CoursePlayerPage() {
     // Auto-complete course if all lessons done
     const total = modules.reduce((acc, m) => acc + m.lessons.length, 0);
     if (newCompleted.size >= total && total > 0 && token && courseId) {
-      try {
-        await fetch(`${API_URL}/v1/courses/${courseId}/complete`, {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        toast.success(t('toast.courseCompleted'));
-        router.push('/courses');
-      } catch {}
+      await finalizeCourseCompletion();
     }
   };
 
@@ -236,18 +229,44 @@ export default function CoursePlayerPage() {
   const checkCourseCompletion = async () => {
     const total = modules.reduce((acc, m) => acc + m.lessons.length, 0);
     if (completedLessons.size >= total && total > 0 && token && courseId) {
-      try {
-        await fetch(`${API_URL}/v1/courses/${courseId}/complete`, {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${token}` },
-        });
-      } catch {}
-      toast.success(t('toast.courseCompleted'));
-      router.push('/courses');
+      await finalizeCourseCompletion();
     } else {
       // Not all lessons done — go back to courses
       router.push('/courses');
     }
+  };
+
+  // Finalizes course: calls /complete, auto-issue cert happens server-side.
+  // Shows a toast with a "View certificate" action if a cert was issued.
+  const finalizeCourseCompletion = async () => {
+    if (!token || !courseId) {
+      router.push('/courses');
+      return;
+    }
+    try {
+      const res = await fetch(`${API_URL}/v1/courses/${courseId}/complete`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+      const data: { certificate_id?: string; status?: string } = await res.json().catch(() => ({}));
+      toast.success(t('toast.courseCompleted'));
+      if (data.certificate_id) {
+        toast.success(t('toast.certificateIssued'), {
+          description: data.certificate_id,
+          action: {
+            label: t('toast.viewCertificate'),
+            onClick: () => router.push('/certificates'),
+          },
+        });
+      }
+    } catch (e) {
+      console.error('Course completion failed', e);
+      toast.error(t('common.saveFailed'));
+    }
+    router.push('/courses');
   };
 
   const totalLessons = modules.reduce((acc, m) => acc + m.lessons.length, 0);
