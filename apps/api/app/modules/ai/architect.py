@@ -404,15 +404,26 @@ When ready to output the final course structure, output ONLY the JSON code block
     messages[0]["content"] = messages[0]["content"] + "\n\n" + tool_descriptions
 
     # Pre-check: validate documents exist before starting the loop
+    # Query all docs (not scoped) to verify system works
+    from app.core.db import async_session_factory
+    from sqlalchemy import text as sa_text
+    async with async_session_factory() as session:
+        all_docs = await session.execute(
+            sa_text("SELECT DISTINCT doc_id, doc_name FROM document_embeddings ORDER BY doc_name")
+        )
+        all_rows = all_docs.fetchall()
+    if not all_rows:
+        raise ValueError("No documents have been ingested. Please upload documents before generating a course.")
+    logger.info(f"Architect pre-check: {len(all_rows)} documents available: {[r[1] for r in all_rows]}")
+
     doc_list_result = await tools["list_documents"]()
-    logger.info(f"Architect pre-check: documents = {doc_list_result[:200]}")
+    logger.info(f"Architect scoped docs: {doc_list_result[:300]}")
     try:
         doc_list = json.loads(doc_list_result)
         if not doc_list:
-            raise ValueError("No documents have been ingested. Please upload documents before generating a course.")
+            raise ValueError(f"None of the selected documents have embeddings. Available docs: {[r[1] for r in all_rows]}. Please re-upload the documents.")
     except (json.JSONDecodeError, TypeError):
-        if "not found" in doc_list_result.lower() or doc_list_result.strip() == "[]":
-            raise ValueError(f"No documents available for course generation. Response: {doc_list_result}")
+        pass
 
     # Inject document list into conversation so LLM knows what's available
     messages.append({"role": "user", "content": f"Here are the available documents:\n{doc_list_result}\n\nAnalyze these documents and design the course."})

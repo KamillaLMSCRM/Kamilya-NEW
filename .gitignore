@@ -76,3 +76,5 @@ alembic/versions/.gitkeep
 *.crt
 
 .vercel
+check_docs.sql
+fix_*.sql
