@@ -8,6 +8,7 @@ from app.modules.auth.service import authenticate_user, create_user_and_tokens, 
 from app.modules.auth.auth_sessions import generate_auth_code, check_code
 from app.modules.audit.service import log_action
 from app.models.tenants import Tenant
+from app.models.users import User
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -142,6 +143,93 @@ async def check_auth_code(req: CheckCodeRequest):
 
     return JSONResponse(content={
         "verified": True,
+        "access_token": access_token,
+        "user": user_data,
+    })
+
+
+# ── Demo Login ─────────────────────────────────────────────────────────
+
+DEMO_TENANT_SLUG = "demo"
+DEMO_USERS = {
+    "admin": {
+        "telegram_id": 900000001,
+        "email": "admin@demo.kml",
+        "first_name": "Админ",
+        "last_name": "Демо",
+        "role": "admin",
+    },
+    "teacher": {
+        "telegram_id": 900000002,
+        "email": "teacher@demo.kml",
+        "first_name": "Айгуль",
+        "last_name": "Методологова",
+        "role": "teacher",
+    },
+    "student": {
+        "telegram_id": 900000003,
+        "email": "student@demo.kml",
+        "first_name": "Арман",
+        "last_name": "Обучаев",
+        "role": "student",
+    },
+}
+
+
+class DemoLoginRequest(BaseModel):
+    role: str
+
+
+@router.post("/demo-login")
+async def demo_login(req: DemoLoginRequest, db=Depends(get_db)):
+    """Login as a demo user for the given role. Creates user/tenant if needed."""
+    if req.role not in DEMO_USERS:
+        raise HTTPException(status_code=400, detail=f"Unknown demo role: {req.role}")
+
+    demo = DEMO_USERS[req.role]
+
+    # Ensure demo tenant exists
+    result = await db.execute(select(Tenant).where(Tenant.slug == DEMO_TENANT_SLUG))
+    tenant = result.scalar_one_or_none()
+    if not tenant:
+        tenant = Tenant(name="Демо-организация", slug=DEMO_TENANT_SLUG, status="active")
+        db.add(tenant)
+        await db.flush()
+
+    # Find or create demo user
+    result = await db.execute(select(User).where(User.telegram_id == demo["telegram_id"]))
+    user = result.scalar_one_or_none()
+    if not user:
+        user = User(
+            tenant_id=tenant.id,
+            telegram_id=demo["telegram_id"],
+            email=demo["email"],
+            first_name=demo["first_name"],
+            last_name=demo["last_name"],
+            role=demo["role"],
+            is_active=True,
+            status="active",
+        )
+        db.add(user)
+        await db.flush()
+
+    access_token = create_access_token({
+        "sub": str(user.id),
+        "tenant_id": str(user.tenant_id),
+        "roles": [user.role],
+    })
+
+    user_data = {
+        "user_id": str(user.id),
+        "tenant_id": str(user.tenant_id),
+        "telegram_id": str(user.telegram_id),
+        "role": user.role,
+        "full_name": f"{user.first_name} {user.last_name}",
+    }
+
+    await db.commit()
+
+    return JSONResponse(content={
         "access_token": access_token,
         "user": user_data,
     })
