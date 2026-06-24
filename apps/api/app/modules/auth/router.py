@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
 from sqlalchemy import select
+from starlette.responses import JSONResponse
 from app.core.auth import create_access_token, get_current_user
 from app.core.db import get_db
 from app.modules.auth.schemas import LoginRequest, RefreshRequest, TokenResponse, UserCreate, UserResponse
@@ -183,53 +184,63 @@ class DemoLoginRequest(BaseModel):
 @router.post("/demo-login")
 async def demo_login(req: DemoLoginRequest, db=Depends(get_db)):
     """Login as a demo user for the given role. Creates user/tenant if needed."""
+    import logging
+    logger = logging.getLogger(__name__)
+
     if req.role not in DEMO_USERS:
         raise HTTPException(status_code=400, detail=f"Unknown demo role: {req.role}")
 
     demo = DEMO_USERS[req.role]
 
-    # Ensure demo tenant exists
-    result = await db.execute(select(Tenant).where(Tenant.slug == DEMO_TENANT_SLUG))
-    tenant = result.scalar_one_or_none()
-    if not tenant:
-        tenant = Tenant(name="Демо-организация", slug=DEMO_TENANT_SLUG, status="active")
-        db.add(tenant)
-        await db.flush()
+    try:
+        # Ensure demo tenant exists
+        result = await db.execute(select(Tenant).where(Tenant.slug == DEMO_TENANT_SLUG))
+        tenant = result.scalar_one_or_none()
+        if not tenant:
+            tenant = Tenant(name="Демо-организация", slug=DEMO_TENANT_SLUG, status="active")
+            db.add(tenant)
+            await db.flush()
 
-    # Find or create demo user
-    result = await db.execute(select(User).where(User.telegram_id == demo["telegram_id"]))
-    user = result.scalar_one_or_none()
-    if not user:
-        user = User(
-            tenant_id=tenant.id,
-            telegram_id=demo["telegram_id"],
-            email=demo["email"],
-            first_name=demo["first_name"],
-            last_name=demo["last_name"],
-            role=demo["role"],
-            is_active=True,
-            status="active",
+        # Find or create demo user (search by telegram_id within demo tenant)
+        result = await db.execute(
+            select(User).where(User.telegram_id == demo["telegram_id"], User.tenant_id == tenant.id)
         )
-        db.add(user)
-        await db.flush()
+        user = result.scalar_one_or_none()
+        if not user:
+            user = User(
+                tenant_id=tenant.id,
+                telegram_id=demo["telegram_id"],
+                email=demo["email"],
+                first_name=demo["first_name"],
+                last_name=demo["last_name"],
+                role=demo["role"],
+                is_active=True,
+                status="active",
+            )
+            db.add(user)
+            await db.flush()
 
-    access_token = create_access_token({
-        "sub": str(user.id),
-        "tenant_id": str(user.tenant_id),
-        "roles": [user.role],
-    })
+        access_token = create_access_token({
+            "sub": str(user.id),
+            "tenant_id": str(user.tenant_id),
+            "roles": [user.role],
+        })
 
-    user_data = {
-        "user_id": str(user.id),
-        "tenant_id": str(user.tenant_id),
-        "telegram_id": str(user.telegram_id),
-        "role": user.role,
-        "full_name": f"{user.first_name} {user.last_name}",
-    }
+        user_data = {
+            "user_id": str(user.id),
+            "tenant_id": str(user.tenant_id),
+            "telegram_id": str(user.telegram_id),
+            "role": user.role,
+            "full_name": f"{user.first_name} {user.last_name}",
+        }
 
-    await db.commit()
+        return JSONResponse(content={
+            "access_token": access_token,
+            "user": user_data,
+        })
 
-    return JSONResponse(content={
-        "access_token": access_token,
-        "user": user_data,
-    })
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"demo_login failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
