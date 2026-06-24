@@ -1,27 +1,26 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import { useT } from '@/i18n/useT';
 import { Bot, Building2, BarChart3 } from 'lucide-react';
 
-interface LandingPageProps {}
-
-export default function LandingPage({}: LandingPageProps) {
+export default function LandingPage() {
   const { t } = useT();
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
-      <nav className="container mx-auto px-6 py-4 flex justify-between items-center">
+      <nav className="container mx-auto px-6 py-4 flex justify-between items-center" aria-label={t('nav.dashboard')}>
         <div className="text-2xl font-bold text-blue-600">Kamilya LMS</div>
         <div className="space-x-4">
-          <a href="/login" className="text-gray-700 hover:text-blue-600">
+          <Link href="/login" className="text-gray-700 hover:text-blue-600">
             {t('auth.loginButton')}
-          </a>
-          <a
+          </Link>
+          <Link
             href="/register"
             className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
           >
             {t('auth.register')}
-          </a>
+          </Link>
         </div>
       </nav>
 
@@ -33,12 +32,12 @@ export default function LandingPage({}: LandingPageProps) {
           {t('landing.description')}
         </p>
         <div className="flex justify-center gap-4">
-          <a
+          <Link
             href="/register"
             className="bg-blue-600 text-white px-8 py-3 rounded-lg text-lg hover:bg-blue-700"
           >
             {t('landing.getStarted')}
-          </a>
+          </Link>
           <a
             href="#features"
             className="border border-gray-300 text-gray-700 px-8 py-3 rounded-lg text-lg hover:bg-gray-50"
@@ -49,31 +48,37 @@ export default function LandingPage({}: LandingPageProps) {
 
         <section id="features" className="mt-24 grid md:grid-cols-3 gap-8">
           <div className="p-6 bg-white rounded-xl shadow-sm">
-            <div className="mb-4"><Bot className="w-12 h-12 text-blue-600" /></div>
+            <div className="mb-4">
+              <Bot className="w-12 h-12 text-blue-600" aria-hidden="true" />
+            </div>
             <h3 className="text-xl font-semibold mb-2">{t('landing.features.aiCourses')}</h3>
             <p className="text-gray-600">
-              Загрузите документы — AI создаст структуру, контент и тесты за минуты.
+              {t('landing.features.aiCoursesDesc')}
             </p>
           </div>
           <div className="p-6 bg-white rounded-xl shadow-sm">
-            <div className="mb-4"><Building2 className="w-12 h-12 text-blue-600" /></div>
-            <h3 className="text-xl font-semibold mb-2">Multi-tenant SaaS</h3>
+            <div className="mb-4">
+              <Building2 className="w-12 h-12 text-blue-600" aria-hidden="true" />
+            </div>
+            <h3 className="text-xl font-semibold mb-2">{t('landing.features.multiTenant')}</h3>
             <p className="text-gray-600">
-              Полная изоляция данных между компаниями. Каждый тенант — отдельный мир.
+              {t('landing.features.multiTenantDesc')}
             </p>
           </div>
           <div className="p-6 bg-white rounded-xl shadow-sm">
-            <div className="mb-4"><BarChart3 className="w-12 h-12 text-blue-600" /></div>
-            <h3 className="text-xl font-semibold mb-2">Аналитика в реальном времени</h3>
+            <div className="mb-4">
+              <BarChart3 className="w-12 h-12 text-blue-600" aria-hidden="true" />
+            </div>
+            <h3 className="text-xl font-semibold mb-2">{t('landing.features.analytics')}</h3>
             <p className="text-gray-600">
-              Отслеживайте прогресс сотрудников с помощью дашбордов и отчётов.
+              {t('landing.features.analyticsDesc')}
             </p>
           </div>
         </section>
       </main>
 
       <footer className="container mx-auto px-6 py-8 text-center text-gray-500 border-t mt-20">
-        <p>© 2026 Kamilya LMS. AI-first корпоративное обучение для Казахстана.</p>
+        <p>{t('landing.footer')}</p>
       </footer>
     </div>
   );

@@ -14,11 +14,20 @@ type NestedKeyOf<T> = T extends object
 
 export type TranslationKey = NestedKeyOf<typeof ru>;
 
+/** Interpolate `{key}` placeholders in a translation string. */
+function interpolate(template: string, params?: Record<string, string | number>): string {
+  if (!params) return template;
+  return template.replace(/\{(\w+)\}/g, (_, name) => {
+    const v = params[name];
+    return v === undefined ? `{${name}}` : String(v);
+  });
+}
+
 export function useT() {
   const lang = useLanguageStore((s) => s.lang);
 
   const t = useCallback(
-    (key: TranslationKey): string => {
+    (key: TranslationKey, params?: Record<string, string | number>): string => {
       const keys = key.split('.');
       let result: any = translations[lang] || translations.ru;
 
@@ -32,14 +41,17 @@ export function useT() {
             if (fallback && typeof fallback === 'object' && fk in fallback) {
               fallback = fallback[fk];
             } else {
-              return key;
+              return interpolate(key, params);
             }
           }
-          return typeof fallback === 'string' ? fallback : key;
+          return interpolate(
+            typeof fallback === 'string' ? fallback : key,
+            params
+          );
         }
       }
 
-      return typeof result === 'string' ? result : key;
+      return interpolate(typeof result === 'string' ? result : key, params);
     },
     [lang]
   );

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { Card, CardHeader, CardTitle, CardContent, Button } from '@/components/ui';
+import Link from 'next/link';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
 import { toast } from '@/components/ui/Toast';
@@ -253,21 +254,21 @@ export default function CoursePlayerPage() {
   const completedCount = completedLessons.size;
   const progressPercent = totalLessons > 0 ? Math.round((completedCount / totalLessons) * 100) : 0;
 
-  if (loading) return <div className="p-6">Загрузка...</div>;
-  if (!course) return <div className="p-6">Курс не найден</div>;
+  if (loading) return <div className="p-6">{t('common.loading')}</div>;
+  if (!course) return <div className="p-6">{t('errors.notFound')}</div>;
 
   if (enrolled === false) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="bg-white rounded-lg shadow-md p-8 max-w-md w-full text-center">
           <h2 className="text-xl font-bold mb-2">{course.title}</h2>
-          <p className="text-gray-600 mb-6">Запишитесь на курс, чтобы начать обучение</p>
+          <p className="text-gray-600 mb-6">{t('courses.enrollRequired')}</p>
           <button onClick={handleEnroll} disabled={enrolling} className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 disabled:opacity-50">
-            {enrolling ? 'Запись...' : 'Записаться на курс'}
+            {enrolling ? t('common.saving' as any) : t('courses.enrollButton')}
           </button>
-          <a href="/courses" className="block mt-4 flex items-center gap-1 text-sm text-blue-600 hover:underline justify-center">
-            <ChevronLeft className="w-4 h-4" /> Вернуться к курсам
-          </a>
+          <Link href="/courses" className="block mt-4 flex items-center gap-1 text-sm text-blue-600 hover:underline justify-center">
+            <ChevronLeft className="w-4 h-4" /> {t('courses.backToCourses')}
+          </Link>
         </div>
       </div>
     );
@@ -277,12 +278,12 @@ export default function CoursePlayerPage() {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="bg-white rounded-lg shadow-md p-8 max-w-md w-full text-center">
-          <CheckCircle2 className="w-16 h-16 text-green-500 mx-auto mb-4" />
+          <CheckCircle2 className="w-16 h-16 text-green-500 mx-auto mb-4" aria-hidden="true" />
           <h2 className="text-xl font-bold mb-2">{course.title}</h2>
-          <p className="text-gray-600 mb-6">Вы успешно завершили этот курс!</p>
-          <a href="/courses" className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 inline-block">
-            Вернуться к курсам
-          </a>
+          <p className="text-gray-600 mb-6">{t('courses.courseComplete')}</p>
+          <Link href="/courses" className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 inline-block">
+            {t('courses.backToCourses')}
+          </Link>
         </div>
       </div>
     );
@@ -296,14 +297,16 @@ export default function CoursePlayerPage() {
       {/* Left sidebar — TOC */}
       <div className="w-80 bg-white border-r flex flex-col">
         <div className="p-4 border-b">
-          <a href="/courses" className="flex items-center gap-1 text-sm text-blue-600 hover:underline">
-            <ChevronLeft className="w-4 h-4" /> Курсы
-          </a>
+          <Link href="/courses" className="flex items-center gap-1 text-sm text-blue-600 hover:underline">
+            <ChevronLeft className="w-4 h-4" /> {t('courses.title')}
+          </Link>
           <h2 className="font-bold mt-2">{course.title}</h2>
           <div className="mt-2 h-2 bg-gray-200 rounded">
             <div className="h-2 bg-blue-600 rounded transition-all" style={{ width: `${progressPercent}%` }} />
           </div>
-          <p className="text-xs text-gray-500 mt-1">{completedCount}/{totalLessons} уроков ({progressPercent}%)</p>
+          <p className="text-xs text-gray-500 mt-1">
+            {t('courses.lessonsCount', { done: completedCount, total: totalLessons })} ({progressPercent}%)
+          </p>
         </div>
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
           {modules.map((mod) => (
@@ -332,28 +335,15 @@ export default function CoursePlayerPage() {
           <div className="max-w-3xl mx-auto">
             <h1 className="text-2xl font-bold mb-6">{selectedLesson.title}</h1>
 
-            {/* Lesson content */}
-            {selectedLesson.content_type === 'quiz' ? (
-              <div className="prose max-w-none">
-                {selectedLesson.content ? (
-                  <div dangerouslySetInnerHTML={{ __html: simpleMarkdown(selectedLesson.content) }} />
-                ) : (
-                  <p className="text-gray-400 italic">Контент пока не добавлен</p>
-                )}
-              </div>
-            ) : (
-              <div className="prose max-w-none">
-                {selectedLesson.content ? (
-                  <div dangerouslySetInnerHTML={{ __html: simpleMarkdown(selectedLesson.content) }} />
-                ) : (
-                  <p className="text-gray-400 italic">Контент пока не добавлен</p>
-                )}
-              </div>
-            )}
+            <div className="prose max-w-none">
+              {selectedLesson.content ? (
+                <div dangerouslySetInnerHTML={{ __html: simpleMarkdown(selectedLesson.content) }} />
+              ) : (
+                <p className="text-gray-400 italic">{t('common.noData')}</p>
+              )}
+            </div>
 
-            {/* Action buttons */}
             <div className="mt-8 space-y-4">
-              {/* Show quiz section if lesson is completed and quiz exists */}
               {lessonCompleted && hasQuiz && (
                 <div className="border rounded-lg p-6 bg-white shadow-sm">
                   <div className="flex items-center gap-3 mb-4">
@@ -365,42 +355,46 @@ export default function CoursePlayerPage() {
                     <div>
                       <h3 className="font-semibold text-gray-800">{lessonQuiz.title}</h3>
                       <p className="text-sm text-gray-500">
-                        Порог: {lessonQuiz.pass_score}%
-                        {lessonQuiz.time_limit && ` · Время: ${lessonQuiz.time_limit} мин`}
-                        {` · Попыток: ${lessonQuiz.attempt_limit}`}
+                        {t('quiz.score')}: {lessonQuiz.pass_score}%
+                        {lessonQuiz.time_limit && ` · ${lessonQuiz.time_limit} ${t('common.minutes')}`}
+                        {` · ${t('quiz.attempts')}: ${lessonQuiz.attempt_limit}`}
                       </p>
                     </div>
                   </div>
 
                   {quizPassed ? (
                     <div className="flex items-center gap-2 text-green-600">
-                      <CheckCircle2 className="w-5 h-5" />
-                      <span className="font-medium">Тест пройден ({quizAttempts.find(a => a.passed)?.score_percent}%)</span>
+                      <CheckCircle2 className="w-5 h-5" aria-hidden="true" />
+                      <span className="font-medium">
+                        {t('quiz.passed')} ({quizAttempts.find(a => a.passed)?.score_percent}%)
+                      </span>
                     </div>
                   ) : (
                     <>
-                      {/* Deferral info */}
                       <div className="flex items-center gap-2 text-sm text-amber-600 bg-amber-50 rounded px-3 py-2 mb-4">
-                        <Clock className="w-4 h-4" />
-                        <span>Дедлайн: {lessonQuiz.deferral_days} дн. после завершения урока</span>
+                        <Clock className="w-4 h-4" aria-hidden="true" />
+                        <span>
+                          {t('quiz.deferralDays')}: {lessonQuiz.deferral_days}
+                        </span>
                       </div>
 
-                      {/* Previous attempts */}
                       {quizAttempts.length > 0 && (
                         <div className="text-sm text-gray-500 mb-3">
-                          Попыток: {quizAttempts.length}/{lessonQuiz.attempt_limit}
+                          {t('quiz.attempts')}: {quizAttempts.length}/{lessonQuiz.attempt_limit}
                           {quizAttempts.length > 0 && (
-                            <span className="ml-2">· Лучший: {Math.max(...quizAttempts.map(a => a.score_percent))}%</span>
+                            <span className="ml-2">
+                              · {t('common.of')} {Math.max(...quizAttempts.map(a => a.score_percent))}%
+                            </span>
                           )}
                         </div>
                       )}
 
                       <div className="flex gap-2">
-                        <a href={`/courses/quiz/${lessonQuiz.id}`}>
-                          <Button>Пройти тест <ChevronRight className="w-4 h-4 ml-1" /></Button>
-                        </a>
+                        <Link href={`/courses/quiz/${lessonQuiz.id}`}>
+                          <Button>{t('quiz.startQuiz')} <ChevronRight className="w-4 h-4 ml-1" /></Button>
+                        </Link>
                         <Button variant="outline" onClick={handleNextLesson}>
-                          Отложить
+                          {t('courses.nextLesson')}
                         </Button>
                       </div>
                     </>
@@ -408,27 +402,26 @@ export default function CoursePlayerPage() {
                 </div>
               )}
 
-              {/* Mark complete / Next lesson */}
               {!lessonCompleted ? (
                 <Button onClick={() => handleMarkComplete(selectedLesson.id)}>
-                  Завершить урок <CheckCircle2 className="w-4 h-4 ml-1" />
+                  {t('courses.markComplete')} <CheckCircle2 className="w-4 h-4 ml-1" />
                 </Button>
               ) : !hasQuiz ? (
                 <div className="flex items-center gap-3">
                   <span className="flex items-center gap-2 text-green-600 font-medium">
-                    <CheckCircle2 className="w-5 h-5" /> Урок завершён
+                    <CheckCircle2 className="w-5 h-5" aria-hidden="true" /> {t('courses.markComplete')}
                   </span>
                   <Button variant="outline" onClick={handleNextLesson}>
-                    Далее <ChevronRight className="w-4 h-4 ml-1" />
+                    {t('courses.nextLesson')} <ChevronRight className="w-4 h-4 ml-1" />
                   </Button>
                 </div>
               ) : quizPassed ? (
                 <div className="flex items-center gap-3">
                   <span className="flex items-center gap-2 text-green-600 font-medium">
-                    <CheckCircle2 className="w-5 h-5" /> Урок + тест завершены
+                    <CheckCircle2 className="w-5 h-5" aria-hidden="true" /> {t('quiz.passed')}
                   </span>
                   <Button variant="outline" onClick={handleNextLesson}>
-                    Далее <ChevronRight className="w-4 h-4 ml-1" />
+                    {t('courses.nextLesson')} <ChevronRight className="w-4 h-4 ml-1" />
                   </Button>
                 </div>
               ) : null}
@@ -436,7 +429,7 @@ export default function CoursePlayerPage() {
           </div>
         ) : (
           <div className="flex items-center justify-center h-64 text-gray-400">
-            Выберите урок из меню
+            {t('common.search')}
           </div>
         )}
       </div>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import { Card, CardContent, Button, Badge } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
@@ -133,9 +134,9 @@ export default function MyCoursesPage() {
       {/* Browse available courses for self-enrollment */}
       <div className="mt-8 pt-6 border-t">
         <h2 className="text-lg font-semibold mb-4">{t('courses.browse')} <ChevronRight className="inline w-4 h-4" /></h2>
-        <a href="/courses">
+        <Link href="/courses">
           <Button variant="outline">{t('courses.viewAll')}</Button>
-        </a>
+        </Link>
       </div>
     </div>
   );}

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useT } from '@/i18n/useT';
 import { useAuthStore } from '@/store/authStore';
 import { cn } from '@/lib/utils';
@@ -14,6 +15,7 @@ interface CommandItem {
 
 export default function CommandPalette() {
   const { t } = useT();
+  const router = useRouter();
   const user = useAuthStore((s) => s.user);
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -66,7 +68,7 @@ export default function CommandPalette() {
     : allItems;
 
   const handleSelect = (href: string) => {
-    window.location.href = href;
+    router.push(href);
     setOpen(false);
     setQuery('');
   };
@@ -88,24 +90,25 @@ export default function CommandPalette() {
                 <circle cx="11" cy="11" r="8" />
                 <path d="m21 21-4.3-4.3" />
               </svg>
-              <input
-                type="text"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Поиск страниц, настроек..."
-                className="flex-1 bg-transparent text-sm text-warm-800 placeholder:text-warm-400 outline-none"
-                autoFocus
-              />
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={t('commandPalette.placeholder')}
+              className="flex-1 bg-transparent text-sm text-warm-800 placeholder:text-warm-400 outline-none"
+              autoFocus
+              aria-label={t('commandPalette.placeholder')}
+            />
               <kbd className="rounded border border-warm-200 bg-warm-50 px-1.5 py-0.5 text-[10px] font-mono text-warm-400">
                 esc
               </kbd>
             </div>
 
             {/* Results */}
-            <div className="flex-1 overflow-y-auto p-2">
+            <div className="flex-1 overflow-y-auto p-2" role="listbox">
               {filtered.length === 0 ? (
                 <div className="px-4 py-8 text-center text-sm text-warm-400">
-                  Ничего не найдено
+                  {t('commandPalette.noResults')}
                 </div>
               ) : (
                 filtered.map((item) => (
@@ -121,21 +124,21 @@ export default function CommandPalette() {
               )}
             </div>
 
-            {/* Footer */}
-            <div className="border-t border-warm-100 px-4 py-2.5 text-[11px] text-warm-400 flex items-center gap-4">
-              <span className="flex items-center gap-1">
-                <kbd className="rounded border border-warm-200 bg-warm-50 px-1 py-0.5 font-mono">↑↓</kbd>
-                навигация
-              </span>
-              <span className="flex items-center gap-1">
-                <kbd className="rounded border border-warm-200 bg-warm-50 px-1 py-0.5 font-mono">↵</kbd>
-                выбрать
-              </span>
-              <span className="flex items-center gap-1">
-                <kbd className="rounded border border-warm-200 bg-warm-50 px-1 py-0.5 font-mono">esc</kbd>
-                закрыть
-              </span>
-            </div>
+      {/* Footer */}
+      <div className="border-t border-warm-100 px-4 py-2.5 text-[11px] text-warm-400 flex items-center gap-4">
+        <span className="flex items-center gap-1">
+          <kbd className="rounded border border-warm-200 bg-warm-50 px-1 py-0.5 font-mono">↑↓</kbd>
+          {t('commandPalette.navigation')}
+        </span>
+        <span className="flex items-center gap-1">
+          <kbd className="rounded border border-warm-200 bg-warm-50 px-1 py-0.5 font-mono">↵</kbd>
+          {t('commandPalette.select')}
+        </span>
+        <span className="flex items-center gap-1">
+          <kbd className="rounded border border-warm-200 bg-warm-50 px-1 py-0.5 font-mono">esc</kbd>
+          {t('commandPalette.close')}
+        </span>
+      </div>
           </div>
         </div>
       )}

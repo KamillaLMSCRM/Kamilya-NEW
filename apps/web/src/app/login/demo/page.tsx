@@ -60,7 +60,7 @@ export default function DemoLoginPage() {
       clearStoredAuth();
       const res = await api.post('/v1/auth/demo-login', { role: card.role });
       login(res.data.access_token, res.data.user);
-      window.location.href = card.redirect;
+      router.push(card.redirect);
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Ошибка входа');
     } finally {

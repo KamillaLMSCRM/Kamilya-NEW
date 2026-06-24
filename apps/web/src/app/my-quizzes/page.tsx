@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { Card, CardContent, Badge, Button } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
@@ -123,10 +124,10 @@ export default function MyQuizzesPage() {
       {quizzes.length === 0 && (
         <Card>
           <CardContent className="p-8 text-center text-warm-400">
-            <p>У вас пока нет тестов.</p>
-            <a href="/courses" className="text-blue-600 hover:underline text-sm mt-2 inline-block">
-              Перейти к курсам
-            </a>
+            <p>{t('student.noQuizzes') || 'У вас пока нет тестов.'}</p>
+            <Link href="/courses" className="text-blue-600 hover:underline text-sm mt-2 inline-block">
+              {t('student.browseCourses')}
+            </Link>
           </CardContent>
         </Card>
       )}

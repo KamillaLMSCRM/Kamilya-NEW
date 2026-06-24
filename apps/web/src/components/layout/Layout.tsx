@@ -1,8 +1,10 @@
 'use client';
 
 import { useEffect, useState, createContext, useContext } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
+import { useT } from '@/i18n/useT';
 import Sidebar from './Sidebar';
 import TopBar from './TopBar';
 import CommandPalette from '@/components/CommandPalette';
@@ -17,6 +19,7 @@ export function useSidebarCollapsed() {
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const { t } = useT();
   const { user, initialize } = useAuthStore();
   const [collapsed, setCollapsed] = useState(false);
   const [activeJob, setActiveJob] = useState<{ id: string; progress: number; stage: string } | null>(null);
@@ -68,8 +71,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     return (
       <div className="min-h-screen bg-warm-50 flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-          <p className="text-warm-400 text-sm">Загрузка...</p>
+          <div
+            className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent"
+            aria-label={t('common.loading')}
+          />
+          <p className="text-warm-400 text-sm">{t('common.loading')}</p>
         </div>
       </div>
     );
@@ -87,14 +93,14 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <TopBar />
           {/* Active generation banner */}
           {activeJob && (
-            <a
+            <Link
               href="/ai/generate"
-              className="flex items-center gap-3 px-4 py-2.5 bg-primary/5 border-b border-primary/20 text-sm text-primary hover:bg-primary/10 transition-colors cursor-pointer"
+              className="flex items-center gap-3 px-4 py-2.5 bg-primary/5 border-b border-primary/20 text-sm text-primary hover:bg-primary/10 transition-colors"
             >
-              <Loader2 className="w-4 h-4 animate-spin" />
-              <span className="font-medium">Генерация курса идёт... {activeJob.progress}%</span>
+              <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
+              <span className="font-medium">{t('toast.generationStarted')}... {activeJob.progress}%</span>
               <span className="text-primary/60">{activeJob.stage}</span>
-            </a>
+            </Link>
           )}
           <div className="p-6">{children}</div>
         </main>

@@ -33,7 +33,16 @@
     "saving": "Saving...",
     "loadFailed": "Failed to load",
     "saveFailed": "Failed to save",
-    "saved": "Saved"
+    "saved": "Saved",
+    "minLength": "Minimum {min} characters",
+    "or": "or",
+    "and": "and",
+    "of": "of",
+    "published": "published",
+    "noData": "No data",
+    "tryLater": "Try again later",
+    "minutes": "min",
+    "hours": "h"
   },
   "nav": {
     "home": "Home",
@@ -48,7 +57,8 @@
     "register": "Register",
     "myDashboard": "My Dashboard",
     "aiGeneration": "AI Generation",
-    "userManagement": "User Management"
+    "userManagement": "User Management",
+    "positions": "Positions"
   },
   "auth": {
     "login": "Login",
@@ -66,7 +76,8 @@
     "loginWithTelegram": "Login with Telegram",
     "invalidCredentials": "Invalid email or password",
     "accountCreated": "Account created! Please login.",
-    "passwordMin": "Minimum 8 characters"
+    "passwordMin": "Minimum 8 characters",
+    "company": "Company"
   },
   "landing": {
     "title": "Kamilya LMS",
@@ -82,8 +93,13 @@
       "certificates": "Certificates",
       "certificatesDesc": "Automatic certificate issuance upon course completion",
       "quizzes": "Quizzes & Assessments",
-      "quizzesDesc": "Interactive quizzes with automatic grading"
-    }
+      "quizzesDesc": "Interactive quizzes with automatic grading",
+      "multiTenant": "Multi-tenant SaaS",
+      "multiTenantDesc": "Full data isolation between companies. Each tenant is a separate world.",
+      "analytics": "Real-time analytics",
+      "analyticsDesc": "Track employee progress with dashboards and reports."
+    },
+    "footer": "© 2026 Kamilya LMS. AI-first corporate learning for Kazakhstan."
   },
   "dashboard": {
     "title": "Dashboard",
@@ -93,7 +109,27 @@
     "totalCourses": "Total Courses",
     "completedCourses": "Completed",
     "overallProgress": "Overall Progress",
-    "certificatesCount": "Certificates"
+    "certificatesCount": "Certificates",
+    "aiGenerations": "AI generations",
+    "inProgress": "in progress",
+    "queueEmpty": "queue empty",
+    "employees": "Employees",
+    "employeesDone": "{count} completed",
+    "lastCourses": "Recent courses",
+    "allCourses": "All courses",
+    "noCoursesHint": "No courses yet. Start with",
+    "aiGeneration": "AI generation",
+    "aiPipeline": "AI Pipeline",
+    "kanban": {
+      "queued": "Queue",
+      "ingesting": "Documents",
+      "architecting": "Structure",
+      "generating": "Content",
+      "reviewing": "Review",
+      "empty": "Empty"
+    },
+    "subtitle": "Here's what's happening today",
+    "newCourse": "New course"
   },
   "courses": {
     "title": "Courses",
@@ -122,7 +158,24 @@
     "viewAll": "View All Courses",
     "enroll": "Enroll",
     "enrolled": "Enrolled",
-    "alreadyEnrolled": "Already enrolled"
+    "alreadyEnrolled": "Already enrolled",
+    "edit": "Edit",
+    "enrollRequired": "Enroll first",
+    "enrollButton": "Enroll",
+    "markComplete": "Mark lesson complete",
+    "courseComplete": "Course complete!",
+    "noLessons": "No lessons yet",
+    "lessonsCount": "{done} of {total} lessons",
+    "nextLesson": "Next lesson",
+    "prevLesson": "Previous lesson",
+    "backToCourses": "Back to courses",
+    "goBack": "Go back",
+    "saveLesson": "Save lesson",
+    "lessonTitle": "Lesson title",
+    "lessonContent": "Lesson content",
+    "moduleTitle": "Module title",
+    "aiBadge": "AI",
+    "delete": "Delete"
   },
   "student": {
     "title": "My Dashboard",
@@ -130,7 +183,11 @@
     "noCourses": "You haven't enrolled in any courses yet",
     "completed": "Completed",
     "inProgress": "In Progress",
-    "notStarted": "Not Started"
+    "notStarted": "Not Started",
+    "dashboard": "Dashboard",
+    "browseCourses": "Browse courses",
+    "myQuizzes": "My quizzes",
+    "noQuizzes": "You have no quizzes yet."
   },
   "quiz": {
     "title": "Quiz",
@@ -152,7 +209,15 @@
     "review": "Review Answers",
     "showReview": "Show Answers",
     "hideReview": "Hide Answers",
-    "attempts": "Attempts"
+    "attempts": "Attempts",
+    "score": "Score",
+    "deferralDays": "Deferral (days)",
+    "timeLimit": "Time limit",
+    "startQuiz": "Start quiz",
+    "submitQuiz": "Submit answers",
+    "nextQuestion": "Next question",
+    "prevQuestion": "Previous question",
+    "result": "Score: {score}%"
   },
   "certificates": {
     "title": "My Certificates",
@@ -164,7 +229,9 @@
     "verifyPlaceholder": "Certificate number (KML-2026-XXXXXX)",
     "verifyButton": "Verify",
     "valid": "Certificate is valid",
-    "invalid": "Certificate not found"
+    "invalid": "Certificate not found",
+    "issuedTo": "Issued to",
+    "download": "Download"
   },
   "admin": {
     "title": "Admin Dashboard",
@@ -188,7 +255,18 @@
     "exportUsers": "Export Users",
     "exportCourses": "Export Courses",
     "exportEnrollments": "Export Enrollments",
-    "exportQuizResults": "Export Quiz Results"
+    "exportQuizResults": "Export Quiz Results",
+    "totalUsers": "Total users",
+    "activeUsers": "Active",
+    "courses": "Courses",
+    "aiCourses": "AI courses",
+    "certificates": "Certificates issued",
+    "quizzesTaken": "Quizzes taken",
+    "avgScore": "Average score",
+    "storageUsed": "Storage used",
+    "addAdminUser": "Add learner",
+    "noUsers": "No users",
+    "noCourses": "No courses"
   },
   "users": {
     "title": "User Management",
@@ -212,7 +290,31 @@
     },
     "createUser": "New User",
     "password": "Password (min. 8 characters)",
-    "createButton": "Create"
+    "createButton": "Create",
+    "telegramColumn": "Telegram",
+    "changeRole": "Change role",
+    "position": "Position",
+    "assignPosition": "Assign position",
+    "assignPositionHint": "The learner will be auto-enrolled in all courses linked to the position.",
+    "selectPosition": "— Select position —",
+    "assignAndEnroll": "Assign and enroll",
+    "totalCount": "Total: {total} users",
+    "prevPage": "Back",
+    "nextPage": "Next",
+    "page": "Page {page}",
+    "newUser": "New user",
+    "createTitle": "New learner",
+    "loadingList": "Loading...",
+    "noUsersFound": "No users found",
+    "invite": "Invite",
+    "surname": "Surname",
+    "roleStudent": "Learner",
+    "roleTeacher": "Teacher",
+    "roleAdmin": "Admin",
+    "roleOrgAdmin": "Org admin",
+    "roleSuperadmin": "Superadmin",
+    "roleInstructor": "Instructor",
+    "active": "Active"
   },
   "ai": {
     "title": "AI Course Generation",
@@ -251,7 +353,12 @@
     "uploadTitle": "Upload Document",
     "uploadDescription": "Document description",
     "uploadButton": "Select File",
-    "uploading": "Uploading..."
+    "uploading": "Uploading...",
+    "uploadedAt": "Uploaded",
+    "dragDropHint": "Drag file here or click to select",
+    "allowedTypes": "PDF, DOCX, TXT, CSV, XLS, XLSX",
+    "maxSize": "Max {size} MB",
+    "alreadyUploaded": "Already uploaded"
   },
   "settings": {
     "title": "Settings",
@@ -345,5 +452,61 @@
     "review": "Quality review",
     "assessment": "Generating quizzes",
     "saving": "Saving"
+  },
+  "positions": {
+    "title": "Positions",
+    "create": "Create position",
+    "edit": "Edit position",
+    "name": "Name",
+    "department": "Department",
+    "level": "Level",
+    "responsibilities": "Responsibilities",
+    "requirements": "Requirements",
+    "noPositions": "No positions",
+    "analyzeJD": "Analyze JD via AI",
+    "employeeCount": "Employees",
+    "courseCount": "Courses",
+    "save": "Save position"
+  },
+  "errors": {
+    "network": "Network error",
+    "serverError": "Server error",
+    "notFound": "Not found",
+    "forbidden": "Forbidden",
+    "unauthorized": "Unauthorized",
+    "validation": "Validation error",
+    "tryAgain": "Try again"
+  },
+  "sidebar": {
+    "generation": "COURSE GENERATION",
+    "courses": "Courses",
+    "admin": "Management",
+    "collapse": "Collapse sidebar (Ctrl+B)",
+    "expand": "Expand sidebar (Ctrl+B)",
+    "myTests": "My tests",
+    "platform": "AI platform",
+    "logo": "Kamilya LMS",
+    "userRole": {
+      "superadmin": "Superadmin",
+      "admin": "Administrator",
+      "org_admin": "Org. administrator",
+      "teacher": "Teacher",
+      "student": "Learner"
+    }
+  },
+  "commandPalette": {
+    "placeholder": "Search pages, settings...",
+    "noResults": "No results",
+    "navigation": "navigation",
+    "select": "select",
+    "close": "close"
+  },
+  "errorPage": {
+    "notFoundTitle": "Page not found",
+    "notFoundMessage": "The requested page does not exist",
+    "serverErrorTitle": "Internal server error",
+    "serverErrorMessage": "Something went wrong. We are working on a fix.",
+    "goHome": "Go home",
+    "refresh": "Refresh"
   }
 }

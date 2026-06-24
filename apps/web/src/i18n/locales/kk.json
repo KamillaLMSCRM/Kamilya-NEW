@@ -33,7 +33,16 @@
     "saving": "Сақтау...",
     "loadFailed": "Жүктеу мүмкін болмады",
     "saveFailed": "Сақтау мүмкін болмады",
-    "saved": "Сақталды"
+    "saved": "Сақталды",
+    "minLength": "Кемінде {min} таңба",
+    "or": "немесе",
+    "and": "және",
+    "of": "/",
+    "published": "жарияланды",
+    "noData": "Деректер жоқ",
+    "tryLater": "Кейінірек көріңіз",
+    "minutes": "мин",
+    "hours": "сағ"
   },
   "nav": {
     "home": "Басты бет",
@@ -48,7 +57,8 @@
     "register": "Тіркелу",
     "myDashboard": "Менің басқару панелі",
     "aiGeneration": "AI Өндіру",
-    "userManagement": "Пайдаланушыларды басқару"
+    "userManagement": "Пайдаланушыларды басқару",
+    "positions": "Лауазымдар"
   },
   "auth": {
     "login": "Кіру",
@@ -66,7 +76,8 @@
     "loginWithTelegram": "Telegram арқылы кіру",
     "invalidCredentials": "Email немесе құпия сөз қате",
     "accountCreated": "Тіркелгі жасалды! Кіріңіз.",
-    "passwordMin": "Кемінде 8 таңба"
+    "passwordMin": "Кемінде 8 таңба",
+    "company": "Компания"
   },
   "landing": {
     "title": "Kamilya LMS",
@@ -82,8 +93,13 @@
       "certificates": "Сертификаттар",
       "certificatesDesc": "Курс аяқталғаннан кейін автоматты түрде сертификат беру",
       "quizzes": "Тестер мен бағалау",
-      "quizzesDesc": "Автоматты тексерумен интерактивті тестер"
-    }
+      "quizzesDesc": "Автоматты тексерумен интерактивті тестер",
+      "multiTenant": "Multi-tenant SaaS",
+      "multiTenantDesc": "Компаниялар арасында деректердің толық оқшаулануы. Әр тенант — бөлек әлем.",
+      "analytics": "Нақты уақыттағы аналитика",
+      "analyticsDesc": "Дашбордтар мен есептер арқылы қызметкерлердің прогресін қадағалаңыз."
+    },
+    "footer": "© 2026 Kamilya LMS. Қазақстанға арналған AI-first корпоративтік оқыту."
   },
   "dashboard": {
     "title": "Басқару панелі",
@@ -93,7 +109,27 @@
     "totalCourses": "Барлық курс",
     "completedCourses": "Аяқталды",
     "overallProgress": "Жалпы прогресс",
-    "certificatesCount": "Сертификат"
+    "certificatesCount": "Сертификат",
+    "aiGenerations": "AI генерациялар",
+    "inProgress": "процесте",
+    "queueEmpty": "кезек бос",
+    "employees": "Қызметкерлер",
+    "employeesDone": "{count} аяқтады",
+    "lastCourses": "Соңғы курстар",
+    "allCourses": "Барлық курстар",
+    "noCoursesHint": "Курстар жоқ. Бастаңыз",
+    "aiGeneration": "AI-генерация",
+    "aiPipeline": "AI Pipeline",
+    "kanban": {
+      "queued": "Кезек",
+      "ingesting": "Құжаттар",
+      "architecting": "Құрылым",
+      "generating": "Контент",
+      "reviewing": "Тексеру",
+      "empty": "Бос"
+    },
+    "subtitle": "Бүгін не болып жатыр",
+    "newCourse": "Жаңа курс"
   },
   "courses": {
     "title": "Курстар",
@@ -122,7 +158,24 @@
     "viewAll": "Барлық курстарды көру",
     "enroll": "Жазылу",
     "enrolled": "Жазылған",
-    "alreadyEnrolled": "Сізде бұл курсқа жазылу бар"
+    "alreadyEnrolled": "Сізде бұл курсқа жазылу бар",
+    "edit": "Өңдеу",
+    "enrollRequired": "Алдымен курсқа жазылыңыз",
+    "enrollButton": "Курсқа жазылу",
+    "markComplete": "Сабақты аяқталды деп белгілеу",
+    "courseComplete": "Курс аяқталды!",
+    "noLessons": "Курста сабақтар жоқ",
+    "lessonsCount": "{total} сабақтан {done}",
+    "nextLesson": "Келесі сабақ",
+    "prevLesson": "Алдыңғы сабақ",
+    "backToCourses": "Курстар тізіміне",
+    "goBack": "Артқа",
+    "saveLesson": "Сабақты сақтау",
+    "lessonTitle": "Сабақ атауы",
+    "lessonContent": "Сабақ мазмұны",
+    "moduleTitle": "Модуль атауы",
+    "aiBadge": "AI",
+    "delete": "Жою"
   },
   "student": {
     "title": "Менің басқару панелі",
@@ -130,7 +183,11 @@
     "noCourses": "Сіз әлі ешқандай курсқа жазылмағансыз",
     "completed": "Аяқталды",
     "inProgress": "Орындалуда",
-    "notStarted": "Басталмаған"
+    "notStarted": "Басталмаған",
+    "dashboard": "Дашборд",
+    "browseCourses": "Курстарды қарау",
+    "myQuizzes": "Менің тесттерім",
+    "noQuizzes": "Сізде әлі тесттер жоқ."
   },
   "quiz": {
     "title": "Тест",
@@ -152,7 +209,15 @@
     "review": "Жауаптарды қарау",
     "showReview": "Жауаптарды көрсету",
     "hideReview": "Жауаптарды жасыру",
-    "attempts": "Әрекеттер"
+    "attempts": "Әрекеттер",
+    "score": "Нәтиже",
+    "deferralDays": "Кейінге қалдыру (күн)",
+    "timeLimit": "Уақыт шегі",
+    "startQuiz": "Тестті бастау",
+    "submitQuiz": "Жауаптарды жіберу",
+    "nextQuestion": "Келесі сұрақ",
+    "prevQuestion": "Алдыңғы сұрақ",
+    "result": "Нәтиже: {score}%"
   },
   "certificates": {
     "title": "Менің сертификаттарым",
@@ -164,7 +229,9 @@
     "verifyPlaceholder": "Сертификат нөмірі (KML-2026-XXXXXX)",
     "verifyButton": "Тексеру",
     "valid": "Сертификат жарамды",
-    "invalid": "Сертификат табылмады"
+    "invalid": "Сертификат табылмады",
+    "issuedTo": "Берілді",
+    "download": "Жүктеу"
   },
   "admin": {
     "title": "Әкімшінің басқару панелі",
@@ -188,7 +255,18 @@
     "exportUsers": "Пайдаланушыларды экспорттау",
     "exportCourses": "Курстарды экспорттау",
     "exportEnrollments": "Жазылуларды экспорттау",
-    "exportQuizResults": "Тест нәтижелерін экспорттау"
+    "exportQuizResults": "Тест нәтижелерін экспорттау",
+    "totalUsers": "Барлық пайдаланушы",
+    "activeUsers": "Белсенді",
+    "courses": "Курстар",
+    "aiCourses": "AI курстар",
+    "certificates": "Сертификат берілді",
+    "quizzesTaken": "Тест тапсырылды",
+    "avgScore": "Орташа балл",
+    "storageUsed": "Орын қолданылды",
+    "addAdminUser": "Оқушы қосу",
+    "noUsers": "Пайдаланушылар жоқ",
+    "noCourses": "Курстар жоқ"
   },
   "users": {
     "title": "Пайдаланушыларды басқару",
@@ -212,7 +290,31 @@
     },
     "createUser": "Жаңа пайдаланушы",
     "password": "Құпия сөз (кемінде 8 таңба)",
-    "createButton": "Жасау"
+    "createButton": "Жасау",
+    "telegramColumn": "Telegram",
+    "changeRole": "Рөлді өзгерту",
+    "position": "Лауазым",
+    "assignPosition": "Лауазым тағайындау",
+    "assignPositionHint": "Оқушы лауазымға байланысты барлық курстарға автоматты түрде жазылады.",
+    "selectPosition": "— Лауазымды таңдаңыз —",
+    "assignAndEnroll": "Тағайындау және курстарға жазу",
+    "totalCount": "Барлығы: {total} пайдаланушы",
+    "prevPage": "Артқа",
+    "nextPage": "Келесі",
+    "page": "Бет {page}",
+    "newUser": "Жаңа пайдаланушы",
+    "createTitle": "Жаңа оқушы",
+    "loadingList": "Жүктелуде...",
+    "noUsersFound": "Пайдаланушылар табылмады",
+    "invite": "Шақыру",
+    "surname": "Тегі",
+    "roleStudent": "Оқушы",
+    "roleTeacher": "Оқытушы",
+    "roleAdmin": "Әкімші",
+    "roleOrgAdmin": "Ұйым әкімшісі",
+    "roleSuperadmin": "Суперәкімші",
+    "roleInstructor": "Нұсқаушы",
+    "active": "Белсенді"
   },
   "ai": {
     "title": "AI Курс өндіру",
@@ -251,7 +353,12 @@
     "uploadTitle": "Құжатты жүктеу",
     "uploadDescription": "Құжат сипаттамасы",
     "uploadButton": "Файлды таңдаңыз",
-    "uploading": "Жүктелуде..."
+    "uploading": "Жүктелуде...",
+    "uploadedAt": "Жүктелді",
+    "dragDropHint": "Файлды осында сүйреңіз немесе таңдау үшін басыңыз",
+    "allowedTypes": "PDF, DOCX, TXT, CSV, XLS, XLSX",
+    "maxSize": "Макс. {size} МБ",
+    "alreadyUploaded": "Файл жүктелген"
   },
   "settings": {
     "title": "Баптаулар",
@@ -345,5 +452,61 @@
     "review": "Сапаны тексеру",
     "assessment": "Тесттер генерациясы",
     "saving": "Сақтау"
+  },
+  "positions": {
+    "title": "Лауазымдар",
+    "create": "Лауазым жасау",
+    "edit": "Лауазымды өңдеу",
+    "name": "Атауы",
+    "department": "Бөлім",
+    "level": "Деңгей",
+    "responsibilities": "Міндеттер",
+    "requirements": "Талаптар",
+    "noPositions": "Лауазымдар жоқ",
+    "analyzeJD": "AI арқылы лауазымдық нұсқаулықты талдау",
+    "employeeCount": "Қызметкерлер",
+    "courseCount": "Курстар",
+    "save": "Лауазымды сақтау"
+  },
+  "errors": {
+    "network": "Желі қатесі",
+    "serverError": "Сервер қатесі",
+    "notFound": "Табылмады",
+    "forbidden": "Қол жеткізу тыйым салынған",
+    "unauthorized": "Авторизацияланбаған",
+    "validation": "Валидация қатесі",
+    "tryAgain": "Қайталап көріңіз"
+  },
+  "sidebar": {
+    "generation": "КУРСТАР ГЕНЕРАЦИЯСЫ",
+    "courses": "Курстар",
+    "admin": "Басқару",
+    "collapse": "Сайдбарды жию (Ctrl+B)",
+    "expand": "Сайдбарды жаю (Ctrl+B)",
+    "myTests": "Менің тесттерім",
+    "platform": "AI-платформа",
+    "logo": "Kamilya LMS",
+    "userRole": {
+      "superadmin": "Суперәкімші",
+      "admin": "Әкімші",
+      "org_admin": "Ұйым әкімшісі",
+      "teacher": "Оқытушы",
+      "student": "Оқушы"
+    }
+  },
+  "commandPalette": {
+    "placeholder": "Беттерді, параметрлерді іздеу...",
+    "noResults": "Ештеңе табылмады",
+    "navigation": "навигация",
+    "select": "таңдау",
+    "close": "жабу"
+  },
+  "errorPage": {
+    "notFoundTitle": "Бет табылмады",
+    "notFoundMessage": "Сұралған бет жоқ",
+    "serverErrorTitle": "Сервердің ішкі қатесі",
+    "serverErrorMessage": "Бірдеңе дұрыс болмады. Біз қазір түзетумен айналысып жатырмыз.",
+    "goHome": "Басты бетке",
+    "refresh": "Жаңарту"
   }
 }

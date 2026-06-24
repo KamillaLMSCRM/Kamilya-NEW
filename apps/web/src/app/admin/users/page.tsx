@@ -141,15 +141,22 @@ export default function AdminUsersPage() {
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Управление обучающимися</h1>
-        <Button onClick={() => setShowCreateModal(true)}>Добавить обучающегося</Button>
+        <h1 className="text-2xl font-bold text-warm-800">{t('users.title')}</h1>
+        <Button onClick={() => setShowCreateModal(true)}>{t('admin.addAdminUser')}</Button>
       </div>
 
       <div className="flex gap-2">
+        <label htmlFor="users-search" className="sr-only">
+          {t('users.searchPlaceholder')}
+        </label>
         <Input
-          placeholder="Поиск по имени или email..."
+          id="users-search"
+          placeholder={t('users.searchPlaceholder')}
           value={search}
-          onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            setPage(1);
+          }}
           className="max-w-sm"
         />
       </div>
@@ -157,37 +164,44 @@ export default function AdminUsersPage() {
       <Card>
         <CardContent className="p-0">
           {loading ? (
-            <div className="p-6 text-gray-400">Загрузка...</div>
+            <div className="p-6 text-warm-400">{t('users.loadingList')}</div>
           ) : users.length === 0 ? (
-            <div className="p-6 text-gray-400">Пользователей не найдено</div>
+            <div className="p-6 text-warm-400">{t('users.noUsersFound')}</div>
           ) : (
             <Table>
               <thead>
                 <tr>
-                  <th className="text-left p-3">Имя</th>
-                  <th className="text-left p-3">Email</th>
-                  <th className="text-left p-3">Роль</th>
-                  <th className="text-left p-3">Должность</th>
-                  <th className="text-left p-3">Статус</th>
-                  <th className="text-left p-3">Создан</th>
-                  <th className="text-right p-3">Действия</th>
+                  <th scope="col" className="text-left p-3">{t('users.name')}</th>
+                  <th scope="col" className="text-left p-3">{t('users.email')}</th>
+                  <th scope="col" className="text-left p-3">{t('users.role')}</th>
+                  <th scope="col" className="text-left p-3">{t('users.position')}</th>
+                  <th scope="col" className="text-left p-3">{t('users.status')}</th>
+                  <th scope="col" className="text-left p-3">{t('users.created')}</th>
+                  <th scope="col" className="text-right p-3">{t('users.actions')}</th>
                 </tr>
               </thead>
               <tbody>
                 {users.map((user) => (
                   <tr key={user.id} className="border-t">
-                    <td className="p-3 font-medium">{user.first_name} {user.last_name}</td>
-                    <td className="p-3 text-gray-500">{user.email}</td>
+                    <td className="p-3 font-medium">
+                      {user.first_name} {user.last_name}
+                    </td>
+                    <td className="p-3 text-warm-500">{user.email}</td>
                     <td className="p-3">
+                      <label htmlFor={`role-${user.id}`} className="sr-only">
+                        {t('users.changeRole')}
+                      </label>
                       <select
+                        id={`role-${user.id}`}
                         value={user.role}
                         onChange={(e) => handleChangeRole(user.id, e.target.value)}
-                        className="border rounded px-2 py-1 text-sm"
+                        className="border rounded px-2 py-1 text-sm bg-white"
                       >
-                        <option value="student">Обучающийся</option>
-                        <option value="instructor">Инструктор</option>
-                        <option value="admin">Админ</option>
-                        <option value="org_admin">Орг. админ</option>
+                        <option value="student">{t('users.roleStudent')}</option>
+                        <option value="teacher">{t('users.roleTeacher')}</option>
+                        <option value="org_admin">{t('users.roleOrgAdmin')}</option>
+                        <option value="admin">{t('users.roleAdmin')}</option>
+                        <option value="superadmin">{t('users.roleSuperadmin')}</option>
                       </select>
                     </td>
                     <td className="p-3">
@@ -197,27 +211,38 @@ export default function AdminUsersPage() {
                         </span>
                       ) : (
                         <button
-                          onClick={() => { setAssignModal({ userId: user.id, userName: `${user.first_name} ${user.last_name}`, currentPositionId: user.position_id }); setSelectedPositionId(user.position_id || ''); }}
+                          type="button"
+                          onClick={() => {
+                            setAssignModal({
+                              userId: user.id,
+                              userName: `${user.first_name} ${user.last_name}`,
+                              currentPositionId: user.position_id,
+                            });
+                            setSelectedPositionId(user.position_id || '');
+                          }}
                           className="text-xs text-warm-400 hover:text-primary transition-colors"
                         >
-                          + Назначить
+                          + {t('users.assignPosition')}
                         </button>
                       )}
                     </td>
                     <td className="p-3">
                       <Badge variant={user.is_active ? 'default' : 'destructive'}>
-                        {user.is_active ? 'Активен' : 'Заблокирован'}
+                        {user.is_active ? t('users.active') : t('users.blocked')}
                       </Badge>
                     </td>
-                    <td className="p-3 text-gray-500 text-sm">
-                      {new Date(user.created_at).toLocaleDateString('ru')}
+                    <td className="p-3 text-warm-500 text-sm">
+                      {new Date(user.created_at).toLocaleDateString(undefined)}
                     </td>
                     <td className="p-3 text-right">
                       <button
+                        type="button"
                         onClick={() => handleToggleActive(user.id, user.is_active)}
-                        className={`text-sm ${user.is_active ? 'text-red-500 hover:underline' : 'text-green-500 hover:underline'}`}
+                        className={`text-sm hover:underline ${
+                          user.is_active ? 'text-red-500' : 'text-emerald-500'
+                        }`}
                       >
-                        {user.is_active ? 'Заблокировать' : 'Разблокировать'}
+                        {user.is_active ? t('users.block') : t('users.unblock')}
                       </button>
                     </td>
                   </tr>
@@ -229,14 +254,26 @@ export default function AdminUsersPage() {
       </Card>
 
       <div className="flex justify-between items-center">
-        <span className="text-sm text-gray-500">Всего: {total} пользователей</span>
+        <span className="text-sm text-warm-500">
+          {t('users.totalCount', { total })}
+        </span>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
-            Назад
+          <Button
+            variant="outline"
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={page === 1}
+          >
+            {t('users.prevPage')}
           </Button>
-          <span className="text-sm py-2 px-3">Стр. {page}</span>
-          <Button variant="outline" onClick={() => setPage((p) => p + 1)} disabled={users.length < 20}>
-            Далее
+          <span className="text-sm py-2 px-3 text-warm-700">
+            {t('users.page', { page })}
+          </span>
+          <Button
+            variant="outline"
+            onClick={() => setPage((p) => p + 1)}
+            disabled={users.length < 20}
+          >
+            {t('users.nextPage')}
           </Button>
         </div>
       </div>
@@ -244,21 +281,56 @@ export default function AdminUsersPage() {
       {/* Create user modal */}
       <Modal open={showCreateModal} onOpenChange={setShowCreateModal}>
         <CardHeader>
-          <CardTitle>Новый обучающийся</CardTitle>
+          <CardTitle>{t('users.createTitle')}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Input placeholder="Email" value={newUser.email} onChange={(e) => setNewUser({ ...newUser, email: e.target.value })} />
-          <Input placeholder="Имя" value={newUser.first_name} onChange={(e) => setNewUser({ ...newUser, first_name: e.target.value })} />
-          <Input placeholder="Фамилия" value={newUser.last_name} onChange={(e) => setNewUser({ ...newUser, last_name: e.target.value })} />
-          <select value={newUser.role} onChange={(e) => setNewUser({ ...newUser, role: e.target.value })} className="w-full border rounded px-3 py-2">
-            <option value="student">Обучающийся</option>
-            <option value="teacher">Преподаватель</option>
-            <option value="org_admin">Орг. админ</option>
-            <option value="admin">Админ</option>
-          </select>
-          <Input type="password" placeholder="Пароль (мин. 8 символов)" value={newUser.password} onChange={(e) => setNewUser({ ...newUser, password: e.target.value })} />
+          <label className="block">
+            <span className="text-sm text-warm-700 mb-1 block">{t('users.email')}</span>
+            <Input
+              type="email"
+              value={newUser.email}
+              onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+            />
+          </label>
+          <label className="block">
+            <span className="text-sm text-warm-700 mb-1 block">{t('users.name')}</span>
+            <Input
+              value={newUser.first_name}
+              onChange={(e) => setNewUser({ ...newUser, first_name: e.target.value })}
+            />
+          </label>
+          <label className="block">
+            <span className="text-sm text-warm-700 mb-1 block">{t('users.surname')}</span>
+            <Input
+              value={newUser.last_name}
+              onChange={(e) => setNewUser({ ...newUser, last_name: e.target.value })}
+            />
+          </label>
+          <label className="block">
+            <span className="text-sm text-warm-700 mb-1 block">{t('users.role')}</span>
+            <select
+              value={newUser.role}
+              onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
+              className="w-full border border-warm-200 rounded-lg px-3 py-2 text-sm bg-white"
+            >
+              <option value="student">{t('users.roleStudent')}</option>
+              <option value="teacher">{t('users.roleTeacher')}</option>
+              <option value="org_admin">{t('users.roleOrgAdmin')}</option>
+              <option value="admin">{t('users.roleAdmin')}</option>
+            </select>
+          </label>
+          <label className="block">
+            <span className="text-sm text-warm-700 mb-1 block">{t('users.password')}</span>
+            <Input
+              type="password"
+              value={newUser.password}
+              onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
+            />
+          </label>
           {createError && <p className="text-sm text-red-500">{createError}</p>}
-          <Button onClick={handleCreate} className="w-full">Создать</Button>
+          <Button onClick={handleCreate} className="w-full">
+            {t('users.createButton')}
+          </Button>
         </CardContent>
       </Modal>
 
@@ -266,24 +338,34 @@ export default function AdminUsersPage() {
       {assignModal && (
         <Modal open={!!assignModal} onOpenChange={() => setAssignModal(null)}>
           <CardHeader>
-            <CardTitle>Назначить должность: {assignModal.userName}</CardTitle>
+            <CardTitle>
+              {t('users.assignPosition')}: {assignModal.userName}
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <p className="text-sm text-warm-500">
-              Обучающийся автоматически запишется на все курсы, привязанные к должности.
-            </p>
-            <select
-              value={selectedPositionId}
-              onChange={(e) => setSelectedPositionId(e.target.value)}
-              className="w-full border rounded px-3 py-2"
+            <p className="text-sm text-warm-500">{t('users.assignPositionHint')}</p>
+            <label className="block">
+              <span className="sr-only">{t('users.position')}</span>
+              <select
+                value={selectedPositionId}
+                onChange={(e) => setSelectedPositionId(e.target.value)}
+                className="w-full border border-warm-200 rounded-lg px-3 py-2 text-sm bg-white"
+              >
+                <option value="">{t('users.selectPosition')}</option>
+                {positions.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                    {p.department ? ` (${p.department})` : ''}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <Button
+              onClick={handleAssignPosition}
+              disabled={!selectedPositionId}
+              className="w-full"
             >
-              <option value="">— Выберите должность —</option>
-              {positions.map(p => (
-                <option key={p.id} value={p.id}>{p.name}{p.department ? ` (${p.department})` : ''}</option>
-              ))}
-            </select>
-            <Button onClick={handleAssignPosition} disabled={!selectedPositionId} className="w-full">
-              Назначить и записать на курсы
+              {t('users.assignAndEnroll')}
             </Button>
           </CardContent>
         </Modal>

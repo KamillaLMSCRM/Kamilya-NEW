@@ -33,7 +33,16 @@
     "saving": "Сохранение...",
     "loadFailed": "Не удалось загрузить",
     "saveFailed": "Не удалось сохранить",
-    "saved": "Сохранено"
+    "saved": "Сохранено",
+    "minLength": "Минимум {min} символов",
+    "or": "или",
+    "and": "и",
+    "of": "из",
+    "published": "опубликовано",
+    "noData": "Нет данных",
+    "tryLater": "Попробуйте позже",
+    "minutes": "мин",
+    "hours": "ч"
   },
   "nav": {
     "home": "Главная",
@@ -48,7 +57,8 @@
     "register": "Регистрация",
     "myDashboard": "Мой дашборд",
     "aiGeneration": "AI Генерация",
-    "userManagement": "Управление пользователями"
+    "userManagement": "Управление пользователями",
+    "positions": "Должности"
   },
   "auth": {
     "login": "Вход",
@@ -66,7 +76,8 @@
     "loginWithTelegram": "Войти через Telegram",
     "invalidCredentials": "Неверные email или пароль",
     "accountCreated": "Аккаунт создан! Войдите.",
-    "passwordMin": "Минимум 8 символов"
+    "passwordMin": "Минимум 8 символов",
+    "company": "Компания"
   },
   "landing": {
     "title": "Kamilya LMS",
@@ -82,8 +93,13 @@
       "certificates": "Сертификаты",
       "certificatesDesc": "Автоматическая выдача сертификатов по окончании курса",
       "quizzes": "Тесты и оценки",
-      "quizzesDesc": "Интерактивные тесты с автоматической проверкой"
-    }
+      "quizzesDesc": "Интерактивные тесты с автоматической проверкой",
+      "multiTenant": "Multi-tenant SaaS",
+      "multiTenantDesc": "Полная изоляция данных между компаниями. Каждый тенант — отдельный мир.",
+      "analytics": "Аналитика в реальном времени",
+      "analyticsDesc": "Отслеживайте прогресс сотрудников с помощью дашбордов и отчётов."
+    },
+    "footer": "© 2026 Kamilya LMS. AI-first корпоративное обучение для Казахстана."
   },
   "dashboard": {
     "title": "Панель управления",
@@ -93,7 +109,27 @@
     "totalCourses": "Всего курсов",
     "completedCourses": "Завершено",
     "overallProgress": "Общий прогресс",
-    "certificatesCount": "Сертификатов"
+    "certificatesCount": "Сертификатов",
+    "aiGenerations": "AI генераций",
+    "inProgress": "в процессе",
+    "queueEmpty": "очередь пуста",
+    "employees": "Сотрудники",
+    "employeesDone": "{count} завершили",
+    "lastCourses": "Последние курсы",
+    "allCourses": "Все курсы",
+    "noCoursesHint": "Нет курсов. Начните с",
+    "aiGeneration": "AI-генерации",
+    "aiPipeline": "AI Pipeline",
+    "kanban": {
+      "queued": "Очередь",
+      "ingesting": "Документы",
+      "architecting": "Структура",
+      "generating": "Контент",
+      "reviewing": "Проверка",
+      "empty": "Пусто"
+    },
+    "subtitle": "Вот что происходит сегодня",
+    "newCourse": "Новый курс"
   },
   "courses": {
     "title": "Курсы",
@@ -122,7 +158,24 @@
     "viewAll": "Смотреть все курсы",
     "enroll": "Записаться",
     "enrolled": "Записан",
-    "alreadyEnrolled": "Вы уже записаны"
+    "alreadyEnrolled": "Вы уже записаны",
+    "edit": "Редактировать",
+    "enrollRequired": "Сначала запишитесь на курс",
+    "enrollButton": "Записаться на курс",
+    "markComplete": "Отметить урок пройденным",
+    "courseComplete": "Курс пройден!",
+    "noLessons": "В курсе пока нет уроков",
+    "lessonsCount": "{done} из {total} уроков",
+    "nextLesson": "Следующий урок",
+    "prevLesson": "Предыдущий урок",
+    "backToCourses": "К списку курсов",
+    "goBack": "Назад",
+    "saveLesson": "Сохранить урок",
+    "lessonTitle": "Название урока",
+    "lessonContent": "Содержание урока",
+    "moduleTitle": "Название модуля",
+    "aiBadge": "AI",
+    "delete": "Удалить"
   },
   "student": {
     "title": "Мой дашборд",
@@ -130,7 +183,11 @@
     "noCourses": "Вы пока не записаны ни на один курс",
     "completed": "Завершено",
     "inProgress": "В процессе",
-    "notStarted": "Не начато"
+    "notStarted": "Не начато",
+    "dashboard": "Дашборд",
+    "browseCourses": "Посмотреть курсы",
+    "myQuizzes": "Мои тесты",
+    "noQuizzes": "У вас пока нет тестов."
   },
   "quiz": {
     "title": "Тест",
@@ -152,7 +209,15 @@
     "review": "Обзор ответов",
     "showReview": "Показать ответы",
     "hideReview": "Скрыть ответы",
-    "attempts": "Попытки"
+    "attempts": "Попытки",
+    "score": "Результат",
+    "deferralDays": "Отсрочка (дней)",
+    "timeLimit": "Лимит времени",
+    "startQuiz": "Начать тест",
+    "submitQuiz": "Отправить ответы",
+    "nextQuestion": "Следующий вопрос",
+    "prevQuestion": "Предыдущий вопрос",
+    "result": "Результат: {score}%"
   },
   "certificates": {
     "title": "Мои сертификаты",
@@ -164,7 +229,9 @@
     "verifyPlaceholder": "Номер сертификата (KML-2026-XXXXXX)",
     "verifyButton": "Проверить",
     "valid": "Сертификат действителен",
-    "invalid": "Сертификат не найден"
+    "invalid": "Сертификат не найден",
+    "issuedTo": "Выдан",
+    "download": "Скачать"
   },
   "admin": {
     "title": "Панель администратора",
@@ -188,7 +255,18 @@
     "exportUsers": "Экспорт пользователей",
     "exportCourses": "Экспорт курсов",
     "exportEnrollments": "Экспорт записей",
-    "exportQuizResults": "Экспорт результатов"
+    "exportQuizResults": "Экспорт результатов",
+    "totalUsers": "Всего пользователей",
+    "activeUsers": "Активных",
+    "courses": "Курсы",
+    "aiCourses": "AI курсов",
+    "certificates": "Сертификатов выдано",
+    "quizzesTaken": "Тестов пройдено",
+    "avgScore": "Средний балл",
+    "storageUsed": "Использовано места",
+    "addAdminUser": "Добавить обучающегося",
+    "noUsers": "Нет пользователей",
+    "noCourses": "Нет курсов"
   },
   "users": {
     "title": "Управление пользователями",
@@ -212,7 +290,31 @@
     },
     "createUser": "Новый пользователь",
     "password": "Пароль (мин. 8 символов)",
-    "createButton": "Создать"
+    "createButton": "Создать",
+    "telegramColumn": "Telegram",
+    "changeRole": "Изменить роль",
+    "position": "Должность",
+    "assignPosition": "Назначить должность",
+    "assignPositionHint": "Обучающийся автоматически запишется на все курсы, привязанные к должности.",
+    "selectPosition": "— Выберите должность —",
+    "assignAndEnroll": "Назначить и записать на курсы",
+    "totalCount": "Всего: {total} пользователей",
+    "prevPage": "Назад",
+    "nextPage": "Далее",
+    "page": "Стр. {page}",
+    "newUser": "Новый пользователь",
+    "createTitle": "Новый обучающийся",
+    "loadingList": "Загрузка...",
+    "noUsersFound": "Пользователей не найдено",
+    "invite": "Пригласить",
+    "surname": "Фамилия",
+    "roleStudent": "Обучающийся",
+    "roleTeacher": "Преподаватель",
+    "roleAdmin": "Админ",
+    "roleOrgAdmin": "Орг. админ",
+    "roleSuperadmin": "Суперадмин",
+    "roleInstructor": "Инструктор",
+    "active": "Активен"
   },
   "ai": {
     "title": "AI Генерация курса",
@@ -251,7 +353,12 @@
     "uploadTitle": "Загрузка документа",
     "uploadDescription": "Описание документа",
     "uploadButton": "Выберите файл",
-    "uploading": "Загрузка..."
+    "uploading": "Загрузка...",
+    "uploadedAt": "Загружен",
+    "dragDropHint": "Перетащите файл сюда или нажмите для выбора",
+    "allowedTypes": "PDF, DOCX, TXT, CSV, XLS, XLSX",
+    "maxSize": "Макс. {size} МБ",
+    "alreadyUploaded": "Файл уже загружен"
   },
   "settings": {
     "title": "Настройки",
@@ -345,5 +452,61 @@
     "review": "Проверка качества",
     "assessment": "Генерация тестов",
     "saving": "Сохранение"
+  },
+  "positions": {
+    "title": "Должности",
+    "create": "Создать должность",
+    "edit": "Редактировать должность",
+    "name": "Название",
+    "department": "Отдел",
+    "level": "Уровень",
+    "responsibilities": "Обязанности",
+    "requirements": "Требования",
+    "noPositions": "Нет должностей",
+    "analyzeJD": "Анализ должностной инструкции через AI",
+    "employeeCount": "Сотрудников",
+    "courseCount": "Курсов",
+    "save": "Сохранить должность"
+  },
+  "errors": {
+    "network": "Ошибка сети",
+    "serverError": "Ошибка сервера",
+    "notFound": "Не найдено",
+    "forbidden": "Доступ запрещён",
+    "unauthorized": "Не авторизован",
+    "validation": "Ошибка валидации",
+    "tryAgain": "Попробуйте снова"
+  },
+  "sidebar": {
+    "generation": "ГЕНЕРАЦИЯ КУРСОВ",
+    "courses": "Курсы",
+    "admin": "Управление",
+    "collapse": "Свернуть сайдбар (Ctrl+B)",
+    "expand": "Развернуть сайдбар (Ctrl+B)",
+    "myTests": "Мои тесты",
+    "platform": "AI-платформа",
+    "logo": "Kamilya LMS",
+    "userRole": {
+      "superadmin": "Суперадмин",
+      "admin": "Администратор",
+      "org_admin": "Орг. администратор",
+      "teacher": "Преподаватель",
+      "student": "Обучающийся"
+    }
+  },
+  "commandPalette": {
+    "placeholder": "Поиск страниц, настроек...",
+    "noResults": "Ничего не найдено",
+    "navigation": "навигация",
+    "select": "выбрать",
+    "close": "закрыть"
+  },
+  "errorPage": {
+    "notFoundTitle": "Страница не найдена",
+    "notFoundMessage": "Запрашиваемая страница не существует",
+    "serverErrorTitle": "Внутренняя ошибка сервера",
+    "serverErrorMessage": "Что-то пошло не так. Мы уже работаем над исправлением.",
+    "goHome": "На главную",
+    "refresh": "Обновить"
   }
 }
