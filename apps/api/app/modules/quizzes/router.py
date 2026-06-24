@@ -42,7 +42,9 @@ async def list_quizzes(
     quizzes = result.scalars().all()
     out = []
     for q in quizzes:
-        out.append(await get_quiz_with_questions(db, q.id, user.tenant_id))
+        quiz_data = await get_quiz_with_questions(db, q.id, user.tenant_id)
+        if quiz_data:
+            out.append(quiz_data)
     return out
 
 

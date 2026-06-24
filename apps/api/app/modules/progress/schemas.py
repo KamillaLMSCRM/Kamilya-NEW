@@ -16,7 +16,6 @@ class ProgressResponse(BaseModel):
     tenant_id: UUID
     completed: bool
     completion_percent: int
-    started_at: datetime
     completed_at: datetime | None = None
     last_accessed_at: datetime | None = None
     model_config = {"from_attributes": True}

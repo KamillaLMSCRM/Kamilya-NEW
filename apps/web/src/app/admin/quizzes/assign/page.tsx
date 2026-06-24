@@ -52,8 +52,8 @@ export default function QuizAssignPage() {
         api.get('/v1/quiz-assignments'),
       ]);
       setQuizzes(quizzesRes.data || []);
-      setUsers((usersRes.data || []).filter((u: User) => u.role === 'student' || u.role === 'user'));
-      setAssignments(assignmentsRes.data || []);
+        setUsers((usersRes.data || []).filter((u: User) => u.role !== 'superadmin' && u.role !== 'admin'));
+        setAssignments(assignmentsRes.data || []);
     } finally {
       setLoading(false);
     }
