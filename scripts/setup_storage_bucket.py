@@ -11,6 +11,9 @@ Usage (run from apps/api/ with venv active):
     SUPABASE_BUCKET=certificates \\
     python ../../scripts/setup_storage_bucket.py
 
+Note: bucket names with spaces (e.g. "Kamilya LMS") are supported by
+Supabase. Pass via env or --bucket "Kamilya LMS".
+
 Or with --bucket override:
     python ../../scripts/setup_storage_bucket.py --bucket my-certs
 """
@@ -28,7 +31,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--bucket",
         default=os.environ.get("SUPABASE_BUCKET", "certificates"),
-        help="Bucket name (default: $SUPABASE_BUCKET or 'certificates')",
+        help="Bucket name (default: $SUPABASE_BUCKET or 'certificates'). Spaces allowed.",
     )
     parser.add_argument(
         "--public",

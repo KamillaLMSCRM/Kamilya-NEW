@@ -29,7 +29,9 @@ class Settings(BaseSettings):
     # Supabase
     SUPABASE_URL: str = ""
     SUPABASE_KEY: str = ""
-    SUPABASE_BUCKET: str = "certificates"
+    # Bucket name as created in Supabase Dashboard -> Storage. Spaces are allowed
+    # in bucket names; supabase-py handles URL-encoding internally.
+    SUPABASE_BUCKET: str = "Kamilya LMS"
     SUPABASE_SIGNED_URL_TTL: int = 300  # seconds
 
     # Storage backend selector: "local" | "supabase". Falls back to local if

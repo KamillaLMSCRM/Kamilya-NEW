@@ -330,7 +330,81 @@ docs/audit-code-2026-06-24.md                                (updated)
 **53/53 passing** (было 39, добавлено 14 новых).
 
 ### Next steps
-- Supabase Storage вместо local disk (когда появится supabase-py client)
+- Supabase Storage migration (DONE — see Supabase Storage section)
+
+---
+
+## ☁️ SUPABASE STORAGE — migration (June 24, 2026)
+
+Storage backend abstracted so production (Render, Frankfurt) uses Supabase
+Storage (Frankfurt, same region) and dev/CI can keep local filesystem.
+No schema change — `Certificate.pdf_path` now stores a storage key like
+`{tenant_id}/{cert_id}.pdf` instead of a relative filesystem path.
+
+### Operational runbook (one-time setup)
+
+1. **Create the bucket** in Supabase Dashboard:
+   - Dashboard → Storage → New bucket
+   - Name: `Kamilya LMS` (or your choice; spaces allowed)
+   - Public: **off** (we use signed URLs for access control)
+   - File size limit: 1 MB is enough for certs
+
+   Or run the script:
+   ```
+   cd apps/api
+   $env:SUPABASE_URL = "https://<project>.supabase.co"
+   $env:SUPABASE_KEY = "<service_role key>"
+   python ../../scripts/setup_storage_bucket.py
+   ```
+   The script is idempotent and exits 0 if the bucket exists.
+
+2. **Wire env vars** in three places (must be IDENTICAL):
+   - Local dev: `apps/api/.env`
+   - Render Dashboard: Service → Environment
+   - Supabase: not needed (only URL + key)
+
+   ```
+   STORAGE_BACKEND=supabase
+   SUPABASE_URL=https://<project>.supabase.co
+   SUPABASE_KEY=<service_role secret>      # NOT the anon key!
+   SUPABASE_BUCKET=Kamilya LMS
+   SUPABASE_SIGNED_URL_TTL=300
+   ```
+
+3. **Verify** in production after deploy:
+   - Complete a course → certificate should be issued
+   - Click "Download" on /certificates → 302 to a `*.supabase.co` signed URL
+   - Check Supabase Dashboard → Storage → Kamilya LMS → `{tenant_id}/` for new files
+
+### Security checklist (before prod)
+- [ ] `SUPABASE_KEY` in backend is the **service_role** key, never anon
+- [ ] `NEXT_PUBLIC_SUPABASE_ANON_KEY` on Vercel is the **anon** key, never service_role
+- [ ] `JWT_SECRET` is ≥32 random chars (current dev secret is 29 chars — regenerate for prod)
+- [ ] `RENDER_API_KEY` and `TELEGRAM_BOT_TOKEN` rotated since last commit
+- [ ] Supabase Dashboard → Storage → bucket policy: only authenticated requests via signed URLs
+- [ ] CORS allowed origins: only `https://app.kml.kz` and `https://web-inky-three-48.vercel.app`
+
+### How the download works now
+- `GET /api/v1/certificates/{id}/download` checks `storage.name`
+- **supabase**: 302 redirect to a 5-minute signed URL — offloads bandwidth from Render
+- **local**: streams PDF bytes directly (dev/CI path)
+- Frontend: no changes — `fetch().blob()` handles both responses transparently
+
+### Files
+```
+apps/api/app/core/storage/__init__.py           (NEW — backend abstraction)
+apps/api/app/core/config.py                     (STORAGE_BACKEND + SUPABASE_BUCKET)
+apps/api/app/modules/certificates/pdf.py        (use storage backend)
+apps/api/app/modules/certificates/service.py    (get_pdf_url helper)
+apps/api/app/modules/certificates/router.py     (302 vs stream routing)
+apps/api/requirements.txt                       (supabase>=2.0)
+apps/api/.env.example                           (updated)
+apps/api/tests/test_storage.py                  (NEW — 15 tests)
+apps/api/tests/test_setup_storage_bucket.py     (NEW — 7 tests)
+apps/api/tests/test_certificate_pdf.py          (migrated to storage backend)
+scripts/setup_storage_bucket.py                 (NEW — idempotent create script)
+.gitignore                                      (scope storage/ exclude to apps/api/storage/)
+```
 
 ---
 
