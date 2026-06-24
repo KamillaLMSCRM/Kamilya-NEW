@@ -56,6 +56,7 @@ export default function CoursePlayerPage() {
   const [loading, setLoading] = useState(true);
   const [completedLessons, setCompletedLessons] = useState<Set<string>>(new Set());
   const [enrolled, setEnrolled] = useState<boolean | null>(null);
+  const [courseCompleted, setCourseCompleted] = useState(false);
   const [enrolling, setEnrolling] = useState(false);
   const [lessonQuiz, setLessonQuiz] = useState<QuizInfo | null>(null);
   const [quizAttempts, setQuizAttempts] = useState<QuizAttempt[]>([]);
@@ -126,6 +127,9 @@ export default function CoursePlayerPage() {
       } else if (enrollRes.ok) {
         const d = await enrollRes.json();
         setEnrolled(d.length > 0);
+        if (d.length > 0 && d[0].status === 'completed') {
+          setCourseCompleted(true);
+        }
       } else {
         setEnrolled(false);
       }
@@ -258,6 +262,21 @@ export default function CoursePlayerPage() {
           </button>
           <a href="/courses" className="block mt-4 flex items-center gap-1 text-sm text-blue-600 hover:underline justify-center">
             <ChevronLeft className="w-4 h-4" /> Вернуться к курсам
+          </a>
+        </div>
+      </div>
+    );
+  }
+
+  if (courseCompleted) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="bg-white rounded-lg shadow-md p-8 max-w-md w-full text-center">
+          <CheckCircle2 className="w-16 h-16 text-green-500 mx-auto mb-4" />
+          <h2 className="text-xl font-bold mb-2">{course.title}</h2>
+          <p className="text-gray-600 mb-6">Вы успешно завершили этот курс!</p>
+          <a href="/courses" className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 inline-block">
+            Вернуться к курсам
           </a>
         </div>
       </div>
