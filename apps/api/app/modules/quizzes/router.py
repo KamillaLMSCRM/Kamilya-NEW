@@ -2,7 +2,7 @@
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 
 from app.core.auth import get_current_user, require_role
 from app.core.db import get_db
@@ -88,12 +88,19 @@ async def list_enrolled_quizzes(
         return []
 
     attempts_q = await db.execute(
-        select(QuizAttempt.quiz_id, QuizAttempt.score_percent, QuizAttempt.passed, QuizAttempt.completed_at)
+        select(
+            QuizAttempt.quiz_id,
+            QuizAttempt.score_percent,
+            QuizAttempt.passed,
+            QuizAttempt.completed_at,
+            func.count(QuizAttempt.id).label("attempts_count"),
+        )
         .where(
             QuizAttempt.user_id == user.id,
             QuizAttempt.tenant_id == user.tenant_id,
             QuizAttempt.quiz_id.in_([q.id for q in quizzes.values()]),
         )
+        .group_by(QuizAttempt.quiz_id, QuizAttempt.score_percent, QuizAttempt.passed, QuizAttempt.completed_at)
         .order_by(QuizAttempt.completed_at.desc())
     )
     attempts = attempts_q.fetchall()
@@ -101,9 +108,21 @@ async def list_enrolled_quizzes(
     for a in attempts:
         qid = str(a[0])
         if qid not in attempt_map:
-            attempt_map[qid] = {"score_percent": a[1], "passed": a[2], "completed_at": a[3].isoformat() if a[3] else None}
+            attempt_map[qid] = {
+                "score_percent": a[1],
+                "passed": a[2],
+                "completed_at": a[3].isoformat() if a[3] else None,
+                "attempts_count": a[4],
+            }
         elif a[2] and not attempt_map[qid]["passed"]:
-            attempt_map[qid] = {"score_percent": a[1], "passed": a[2], "completed_at": a[3].isoformat() if a[3] else None}
+            attempt_map[qid] = {
+                "score_percent": a[1],
+                "passed": a[2],
+                "completed_at": a[3].isoformat() if a[3] else None,
+                "attempts_count": a[4],
+            }
+        else:
+            attempt_map[qid]["attempts_count"] = (attempt_map[qid].get("attempts_count") or 0) + a[4]
 
     out = []
     for lid, quiz in quizzes.items():
@@ -121,6 +140,7 @@ async def list_enrolled_quizzes(
             "score_percent": att["score_percent"] if att else None,
             "passed": att["passed"] if att else False,
             "completed_at": att["completed_at"] if att else None,
+            "attempts_count": att["attempts_count"] if att else 0,
         })
 
     out.sort(key=lambda x: (x["passed"], x.get("completed_at") or ""))

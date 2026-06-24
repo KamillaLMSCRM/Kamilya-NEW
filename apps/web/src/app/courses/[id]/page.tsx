@@ -195,6 +195,8 @@ export default function CoursePlayerPage() {
           method: 'POST',
           headers: { Authorization: `Bearer ${token}` },
         });
+        alert('Курс пройден! Поздравляем!');
+        window.location.href = '/courses';
       } catch {}
     }
   };

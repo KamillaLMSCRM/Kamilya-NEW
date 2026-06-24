@@ -19,6 +19,7 @@ interface EnrolledQuiz {
   score_percent: number | null;
   passed: boolean;
   completed_at: string | null;
+  attempts_count: number;
 }
 
 export default function MyQuizzesPage() {
@@ -79,6 +80,7 @@ export default function MyQuizzesPage() {
                   </div>
                   <div className="text-xs text-warm-400">
                     Порог: {q.pass_score}% · Дедлайн: {q.deferral_days} дн.
+                    {q.attempts_count > 0 && ` · Попыток: ${q.attempts_count}/${q.attempt_limit}`}
                   </div>
                 </div>
                 <Badge variant="outline">Ожидает</Badge>
@@ -108,6 +110,7 @@ export default function MyQuizzesPage() {
                   </div>
                   <div className="text-xs text-warm-400">
                     Пройден {q.completed_at ? new Date(q.completed_at).toLocaleDateString('ru-RU') : ''}
+                    {q.attempts_count > 0 && ` · Попыток: ${q.attempts_count}`}
                   </div>
                 </div>
                 <Badge variant="default">{q.score_percent}%</Badge>
