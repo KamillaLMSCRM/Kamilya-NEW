@@ -79,29 +79,52 @@ def create_architect_tools(
     max_chapters_per_doc: int = 5,
     embeddings_client=None,
     vector_store: VectorStore | None = None,
+    tenant_id: str | None = None,
 ):
-    """Create retrieval tools for the Architect Agent."""
+    """Create retrieval tools for the Architect Agent.
+
+    tenant_id: REQUIRED for tenant isolation. When provided, every query is
+    filtered by `WHERE tenant_id = :tenant_id` — this prevents leaking other
+    tenants' embeddings into the LLM context. Pass None ONLY for
+    system/maintenance code paths.
+    """
     import collections
 
     store = vector_store or VectorStore(chroma_dir)
     scope = set(doc_ids) if doc_ids else None
     chapter_read_counts = collections.defaultdict(int)
 
+    def _tenant_clause(extra_where: str = "") -> tuple[str, dict]:
+        """Build WHERE clause that always includes tenant filter when known."""
+        clauses = []
+        params: dict = {}
+        if tenant_id is not None:
+            clauses.append("tenant_id = :tenant_id")
+            params["tenant_id"] = tenant_id
+        if extra_where:
+            clauses.append(extra_where)
+        return ("WHERE " + " AND ".join(clauses)) if clauses else "", params
+
     async def list_documents() -> str:
-        """List all ingested documents with IDs and names from DB."""
+        """List all ingested documents with IDs and names from DB (tenant-scoped)."""
         from app.core.db import async_session_factory
         from sqlalchemy import text
 
         async with async_session_factory() as session:
             if scope:
                 placeholders = ", ".join(f":doc_{i}" for i in range(len(scope)))
+                extra = f"doc_id IN ({placeholders})"
+                where, params = _tenant_clause(extra)
+                params.update({f"doc_{i}": did for i, did in enumerate(scope)})
                 result = await session.execute(
-                    text(f"SELECT DISTINCT doc_id, doc_name FROM document_embeddings WHERE doc_id IN ({placeholders}) ORDER BY doc_name"),
-                    {f"doc_{i}": did for i, did in enumerate(scope)},
+                    text(f"SELECT DISTINCT doc_id, doc_name FROM document_embeddings {where} ORDER BY doc_name"),
+                    params,
                 )
             else:
+                where, params = _tenant_clause()
                 result = await session.execute(
-                    text("SELECT DISTINCT doc_id, doc_name FROM document_embeddings ORDER BY doc_name")
+                    text(f"SELECT DISTINCT doc_id, doc_name FROM document_embeddings {where} ORDER BY doc_name"),
+                    params,
                 )
             rows = result.fetchall()
 
@@ -119,9 +142,11 @@ def create_architect_tools(
             return f"Document '{doc_id}' is not in the current scope."
 
         async with async_session_factory() as session:
+            where, params = _tenant_clause("doc_id = :doc_id")
+            params["doc_id"] = doc_id
             result = await session.execute(
-                text("SELECT text, headings FROM document_embeddings WHERE doc_id = :doc_id LIMIT 5"),
-                {"doc_id": doc_id},
+                text(f"SELECT text, headings FROM document_embeddings {where} LIMIT 5"),
+                params,
             )
             rows = result.fetchall()
 
@@ -151,9 +176,11 @@ def create_architect_tools(
             return f"Document '{doc_id}' is not in scope."
 
         async with async_session_factory() as session:
+            where, params = _tenant_clause("doc_id = :doc_id")
+            params["doc_id"] = doc_id
             result = await session.execute(
-                text("SELECT DISTINCT headings FROM document_embeddings WHERE doc_id = :doc_id"),
-                {"doc_id": doc_id},
+                text(f"SELECT DISTINCT headings FROM document_embeddings {where}"),
+                params,
             )
             rows = result.fetchall()
 
@@ -188,9 +215,11 @@ def create_architect_tools(
         chapter_read_counts[doc_id] += 1
 
         async with async_session_factory() as session:
+            where, params = _tenant_clause("doc_id = :doc_id")
+            params["doc_id"] = doc_id
             result = await session.execute(
-                text("SELECT text, headings FROM document_embeddings WHERE doc_id = :doc_id"),
-                {"doc_id": doc_id},
+                text(f"SELECT text, headings FROM document_embeddings {where}"),
+                params,
             )
             rows = result.fetchall()
 
@@ -212,13 +241,14 @@ def create_architect_tools(
         return f"No content found for chapter '{chapter_title}'."
 
     async def search_documents(query: str, doc_id: str | None = None) -> str:
-        """Semantic search across ingested documents."""
+        """Semantic search across ingested documents (tenant-scoped)."""
         from app.modules.ai.ingestion import EmbeddingsProvider
         where = None
         if doc_id:
             where = {"doc_id": doc_id}
         elif scope:
             where = {"doc_id": {"$in": list(scope)}}
+        tenant_filter = tenant_id
 
         # Generate real embeddings for the query
         provider = EmbeddingsProvider()
@@ -230,6 +260,38 @@ def create_architect_tools(
             where=where,
             include=["documents", "metadatas", "distances"],
         )
+        # Post-filter by tenant_id via SQL to avoid leaking chunks from other
+        # tenants. Chroma `where` doesn't support arbitrary AND with the
+        # vector query, and we don't store tenant_id in chunk metadata, so we
+        # verify each result row against the source table.
+        if tenant_filter is not None:
+            from app.core.db import async_session_factory
+            from sqlalchemy import text as _sa_text
+            metas = raw.get("metadatas", [[]])[0]
+            docs = raw.get("documents", [[]])[0]
+            dists = raw.get("distances", [[]])[0]
+            # Collect unique doc_names (these are the human-readable names; the
+            # embeddings table also has a stable doc_id) — query DB to map back.
+            candidate_doc_names = list({m.get("doc_name", "") for m in metas if m.get("doc_name")})
+            if candidate_doc_names:
+                placeholders = ", ".join(f":n_{i}" for i in range(len(candidate_doc_names)))
+                async with async_session_factory() as session:
+                    res = await session.execute(
+                        _sa_text(
+                            f"SELECT DISTINCT doc_name FROM document_embeddings "
+                            f"WHERE tenant_id = :tenant_id AND doc_name IN ({placeholders})"
+                        ),
+                        {"tenant_id": tenant_filter, **{f"n_{i}": n for i, n in enumerate(candidate_doc_names)}},
+                    )
+                    allowed = {row[0] for row in res.fetchall()}
+                keep_idx = [i for i, m in enumerate(metas) if m.get("doc_name", "") in allowed]
+                raw["documents"] = [[docs[i] for i in keep_idx]]
+                raw["metadatas"] = [[metas[i] for i in keep_idx]]
+                raw["distances"] = [[dists[i] for i in keep_idx]]
+            else:
+                raw["documents"] = [[]]
+                raw["metadatas"] = [[]]
+                raw["distances"] = [[]]
         results = []
         docs = raw.get("documents", [[]])[0]
         metas = raw.get("metadatas", [[]])[0]
@@ -362,10 +424,14 @@ async def run_architect(
     guidance: str | None = None,
     on_message: Callable | None = None,
     max_iterations: int = 20,
+    tenant_id: str | None = None,
 ) -> CourseStructure:
     """
     Run the Architect Agent — iterative LLM calls with tool execution.
     Simplified ReAct loop (no LangGraph dependency required).
+
+    tenant_id: when provided, the pre-check is scoped to this tenant and
+    the error message will not leak documents from other tenants.
     """
     system_prompt = _build_system_prompt(
         goals=goals,
@@ -403,25 +469,43 @@ When ready to output the final course structure, output ONLY the JSON code block
 
     messages[0]["content"] = messages[0]["content"] + "\n\n" + tool_descriptions
 
-    # Pre-check: validate documents exist before starting the loop
-    # Query all docs (not scoped) to verify system works
+    # Pre-check: validate documents exist before starting the loop.
+    # Tenant-scoped — never show documents from other tenants in error messages.
     from app.core.db import async_session_factory
     from sqlalchemy import text as sa_text
     async with async_session_factory() as session:
-        all_docs = await session.execute(
-            sa_text("SELECT DISTINCT doc_id, doc_name FROM document_embeddings ORDER BY doc_name")
-        )
+        if tenant_id is not None:
+            all_docs = await session.execute(
+                sa_text(
+                    "SELECT DISTINCT doc_id, doc_name FROM document_embeddings "
+                    "WHERE tenant_id = :tenant_id ORDER BY doc_name"
+                ),
+                {"tenant_id": tenant_id},
+            )
+        else:
+            all_docs = await session.execute(
+                sa_text("SELECT DISTINCT doc_id, doc_name FROM document_embeddings ORDER BY doc_name")
+            )
         all_rows = all_docs.fetchall()
     if not all_rows:
-        raise ValueError("No documents have been ingested. Please upload documents before generating a course.")
-    logger.info(f"Architect pre-check: {len(all_rows)} documents available: {[r[1] for r in all_rows]}")
+        raise ValueError(
+            "No documents with embeddings were found for your organization. "
+            "Please upload documents before generating a course."
+        )
+    logger.info(f"Architect pre-check: {len(all_rows)} documents available (tenant={tenant_id})")
 
     doc_list_result = await tools["list_documents"]()
     logger.info(f"Architect scoped docs: {doc_list_result[:300]}")
     try:
         doc_list = json.loads(doc_list_result)
         if not doc_list:
-            raise ValueError(f"None of the selected documents have embeddings. Available docs: {[r[1] for r in all_rows]}. Please re-upload the documents.")
+            # Build a helpful, tenant-safe error message.
+            available_names = [r[1] for r in all_rows]
+            raise ValueError(
+                "None of the selected documents have embeddings yet — their ingestion "
+                "may have failed during upload. Please re-upload the documents you "
+                f"want to use. Currently available for your organization: {available_names}"
+            )
     except (json.JSONDecodeError, TypeError):
         pass
 

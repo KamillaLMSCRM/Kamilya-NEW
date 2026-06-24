@@ -41,7 +41,7 @@ services:
       - key: TELEGRAM_BOT_TOKEN
         sync: false
       - key: CORS_ORIGINS
-        value: '["https://app.kml.kz","https://web-inky-three-48.vercel.app"]'
+        value: '["https://app.kml.kz","https://www.kml.kz","https://web-inky-three-48.vercel.app","https://web-natt1inhm-kamillalmscrms-projects.vercel.app"]'
     healthCheckPath: /api/v1/health
     autoDeploy: true
 

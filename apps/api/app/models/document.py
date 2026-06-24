@@ -19,5 +19,10 @@ class Document(Base):
     size = Column("file_size", BigInteger, nullable=False, default=0)
     s3_key = Column(String, nullable=False, server_default="")
     description = Column(Text, nullable=False, server_default="")
+    # Status of pgvector ingestion. 'pending' = just created; 'success' =
+    # embeddings written; 'failed' = ingestion threw and the file has no
+    # embeddings (user must re-upload to use it in AI generation).
+    embedding_status = Column(String, nullable=False, server_default="pending")
+    embedding_error = Column(Text, nullable=True)
     created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
     updated_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())

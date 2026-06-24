@@ -65,7 +65,14 @@ class Settings(BaseSettings):
     TELEGRAM_BOT_TOKEN: str = ""
 
     # CORS
-    CORS_ORIGINS: list[str] = ["http://localhost:3000", "https://web-inky-three-48.vercel.app"]
+    CORS_ORIGINS: list[str] = [
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "https://web-inky-three-48.vercel.app",
+        "https://web-natt1inhm-kamillalmscrms-projects.vercel.app",
+        "https://app.kml.kz",
+        "https://www.kml.kz",
+    ]
 
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod

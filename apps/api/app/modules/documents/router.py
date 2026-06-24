@@ -116,18 +116,24 @@ async def upload_document(
         size=file_size,
         s3_key=s3_key,
         description=description,
+        embedding_status="pending",
     )
     db.add(doc)
     await db.flush()
-    await db.refresh(doc)
 
     # Ingest into pgvector immediately (persistent embeddings)
     try:
         from app.modules.ai.ingestion import DocumentIngestion
         ingestion = DocumentIngestion()
         result = await ingestion.ingest_file(file_path, doc_id=str(doc_id), tenant_id=str(user.tenant_id))
-        print(f"[UPLOAD] Ingested {file.filename}: {result.get('chunks', 0)} chunks", flush=True)
+        chunks = result.get("chunks", 0)
+        doc.embedding_status = "success" if chunks > 0 else "failed"
+        if chunks == 0:
+            doc.embedding_error = "Ingestion produced 0 chunks (file may be empty or unsupported)"
+        print(f"[UPLOAD] Ingested {file.filename}: {chunks} chunks", flush=True)
     except Exception as e:
+        doc.embedding_status = "failed"
+        doc.embedding_error = str(e)[:500]
         print(f"[UPLOAD] Ingestion failed for {file.filename}: {e}", flush=True)
     finally:
         # Clean up temp file (Render ephemeral disk)
@@ -135,6 +141,8 @@ async def upload_document(
             os.remove(file_path)
         except OSError:
             pass
+        await db.flush()
+        await db.refresh(doc)
 
     return doc
 

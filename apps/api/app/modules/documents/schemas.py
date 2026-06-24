@@ -2,6 +2,7 @@
 from pydantic import BaseModel
 from uuid import UUID
 from datetime import datetime
+from typing import Literal
 
 
 class DocumentResponse(BaseModel):
@@ -14,5 +15,7 @@ class DocumentResponse(BaseModel):
     size: int
     s3_key: str
     description: str = ""
+    embedding_status: Literal["pending", "success", "failed"] = "pending"
+    embedding_error: str | None = None
     created_at: datetime
     model_config = {"from_attributes": True}

@@ -253,17 +253,31 @@ async def run_generation_pipeline(
         await _update_job_db(job_id, status="running", stage="ingestion", progress=5, message=state.message)
 
         # Documents are ingested at upload time into pgvector.
-        # Here we just verify embeddings exist for the requested doc_ids.
+        # Here we verify embeddings exist for the requested doc_ids and fail-fast
+        # if NONE of the selected documents have embeddings (otherwise the
+        # Architect agent fails deep inside its loop with a confusing error).
         if documents:
             from app.modules.ai.ingestion import VectorStore
             store = VectorStore()
+            missing_docs: list[str] = []
             for doc_id in documents:
                 try:
                     chunks = await store.get_all_chunks(doc_ids=[doc_id])
                     if not chunks:
+                        missing_docs.append(doc_id)
                         logger.warning(f"No embeddings found for doc {doc_id} — may need re-upload")
                 except Exception as e:
                     logger.warning(f"Could not check embeddings for {doc_id}: {e}")
+            if len(missing_docs) == len(documents):
+                raise ValueError(
+                    f"None of the {len(documents)} selected document(s) have embeddings. "
+                    "Re-upload them and try again."
+                )
+            if missing_docs:
+                logger.warning(
+                    f"Proceeding with {len(documents) - len(missing_docs)}/{len(documents)} "
+                    f"docs that have embeddings (missing: {missing_docs})"
+                )
 
         # Stage 2: Architect
         await _check_cancelled_async(job_id)
@@ -280,6 +294,7 @@ async def run_generation_pipeline(
             chroma_dir="./chroma_data",
             doc_ids=documents if documents else None,
             vector_store=store,
+            tenant_id=str(tenant_id) if tenant_id else None,
         )
 
         structure = await run_architect(
@@ -291,6 +306,7 @@ async def run_generation_pipeline(
             language=language,
             guidance=guidance,
             on_message=lambda msg: asyncio.create_task(_update_job_db(job_id, message=f"Architect: {msg}")),
+            tenant_id=str(tenant_id) if tenant_id else None,
         )
 
         state.structure = structure
