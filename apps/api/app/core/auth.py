@@ -74,12 +74,7 @@ async def get_current_user(
     if not user or not user.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found or inactive")
 
-    # Sync role from JWT if present (fast path)
-    jwt_roles = payload.get("roles", [])
-    if jwt_roles and user.role != jwt_roles[0]:
-        user.role = jwt_roles[0]
-        await db.flush()
-
+    # Role is always from DB, never from JWT (JWT role is just for fast checks)
     return user
 
 
