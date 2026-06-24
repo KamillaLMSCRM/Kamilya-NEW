@@ -66,7 +66,8 @@ async def get_my_assignments(db: AsyncSession, user_id: UUID, tenant_id: UUID) -
 async def get_all_assignments(db: AsyncSession, tenant_id: UUID) -> list[dict]:
     result = await db.execute(
         text(
-            """SELECT qa.id, qa.quiz_id, q.title as quiz_title, qa.user_id, u.full_name as user_name,
+            """SELECT qa.id, qa.quiz_id, q.title as quiz_title, qa.user_id,
+                      COALESCE(NULLIF(u.first_name || ' ' || u.last_name, ' '), u.email, 'Unknown') as user_name,
                       qa.status, qa.score_percent, qa.due_date, qa.completed_at, qa.created_at
                FROM quiz_assignments qa
                LEFT JOIN quizzes q ON q.id = qa.quiz_id
