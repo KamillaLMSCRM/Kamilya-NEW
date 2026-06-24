@@ -48,8 +48,12 @@ async def lifespan(app: FastAPI):
 def _run_migrations():
     """Run alembic migrations on startup (Render doesn't do this automatically)."""
     try:
+        venv_bin = os.path.dirname(sys.executable)
+        alembic_bin = os.path.join(venv_bin, "alembic")
+        if not os.path.exists(alembic_bin):
+            alembic_bin = os.path.join(venv_bin, "alembic.exe")
         result = subprocess.run(
-            [sys.executable, "-m", "alembic", "upgrade", "head"],
+            [alembic_bin, "-c", "alembic.ini", "upgrade", "head"],
             cwd=os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
             capture_output=True, text=True, timeout=60,
         )
