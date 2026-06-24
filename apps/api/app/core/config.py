@@ -29,6 +29,12 @@ class Settings(BaseSettings):
     # Supabase
     SUPABASE_URL: str = ""
     SUPABASE_KEY: str = ""
+    SUPABASE_BUCKET: str = "certificates"
+    SUPABASE_SIGNED_URL_TTL: int = 300  # seconds
+
+    # Storage backend selector: "local" | "supabase". Falls back to local if
+    # Supabase env vars are missing or init fails.
+    STORAGE_BACKEND: str = "local"
 
     # JWT
     JWT_SECRET: str = ""

@@ -76,7 +76,9 @@ alembic/versions/.gitkeep
 *.crt
 
 # Local storage (certificates, generated PDFs, etc.)
-storage/
+# Only the apps/api/storage/ runtime dir is excluded; the app/core/storage
+# package is source code and must be tracked.
+apps/api/storage/
 
 .vercel
 check_*.sql

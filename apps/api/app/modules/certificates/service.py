@@ -2,14 +2,11 @@
 import logging
 import uuid
 from datetime import datetime, timezone
-from pathlib import Path
 from uuid import UUID
 
-from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import get_settings
 from app.modules.certificates.models import Certificate
 from app.modules.certificates.pdf import write_certificate_pdf, read_certificate_pdf
 
@@ -23,35 +20,26 @@ def generate_certificate_number() -> str:
     return f"KML-{year}-{short_id}"
 
 
-def _storage_root() -> Path:
-    s = get_settings()
-    p = Path(s.CERTIFICATE_STORAGE_DIR)
-    if not p.is_absolute():
-        p = Path.cwd() / p
-    return p
-
-
 async def _generate_and_store_pdf(
     db: AsyncSession,
     cert: Certificate,
     user_name: str,
     course_title: str,
 ) -> None:
-    """Render PDF and update cert.pdf_path. Best-effort — logs but does not raise."""
+    """Render PDF and store via the active backend. Best-effort — logs but does not raise."""
     try:
-        rel_path = write_certificate_pdf(
+        key = write_certificate_pdf(
             cert_id=str(cert.id),
             tenant_id=str(cert.tenant_id),
             user_name=user_name,
             course_title=course_title,
             certificate_number=cert.certificate_number,
             issued_at=cert.issued_at or datetime.now(timezone.utc),
-            storage_root=_storage_root(),
         )
-        cert.pdf_path = rel_path
+        cert.pdf_path = key
         await db.flush()
     except Exception as e:
-        logger.exception(f"Failed to render PDF for cert {cert.id}: {e}")
+        logger.exception(f"Failed to render/store PDF for cert {cert.id}: {e}")
 
 
 async def issue_certificate(
@@ -152,35 +140,50 @@ async def get_certificate(
 async def read_pdf_bytes(
     db: AsyncSession, cert_id: UUID, tenant_id: UUID
 ) -> bytes | None:
-    """Read raw PDF bytes for a certificate. Regenerates if missing on disk."""
+    """Read raw PDF bytes for a certificate. Regenerates if missing."""
     cert = await get_certificate(db, cert_id, tenant_id)
     if not cert:
         return None
 
-    # Try disk first
-    pdf_bytes = read_certificate_pdf(str(tenant_id), str(cert_id), _storage_root())
+    # Try storage first
+    pdf_bytes = read_certificate_pdf(str(tenant_id), str(cert_id))
     if pdf_bytes:
         return pdf_bytes
 
-    # Missing on disk — regenerate (recovery path)
+    # Missing — regenerate (recovery path)
     user_name = (cert.metadata_ or {}).get("user_name", "Student")
     course_title = (cert.metadata_ or {}).get("course_title", "Course")
     try:
-        rel_path = write_certificate_pdf(
+        key = write_certificate_pdf(
             cert_id=str(cert.id),
             tenant_id=str(tenant_id),
             user_name=user_name,
             course_title=course_title,
             certificate_number=cert.certificate_number,
             issued_at=cert.issued_at or datetime.now(timezone.utc),
-            storage_root=_storage_root(),
         )
-        cert.pdf_path = rel_path
+        cert.pdf_path = key
         await db.flush()
-        return read_certificate_pdf(str(tenant_id), str(cert_id), _storage_root())
+        return read_certificate_pdf(str(tenant_id), str(cert_id))
     except Exception as e:
         logger.exception(f"PDF regeneration failed for {cert_id}: {e}")
         return None
+
+
+async def get_pdf_url(
+    db: AsyncSession, cert_id: UUID, tenant_id: UUID, expires_in: int = 300
+) -> str | None:
+    """Return a URL the client can use to download the PDF.
+
+    For Supabase: returns a time-limited signed URL.
+    For local: returns None (caller should stream bytes instead).
+    """
+    from app.core.storage import get_storage
+    cert = await get_certificate(db, cert_id, tenant_id)
+    if not cert:
+        return None
+    key = f"{tenant_id}/{cert_id}.pdf"
+    return get_storage().get_url(key, expires_in=expires_in)
 
 
 async def verify_certificate(db: AsyncSession, certificate_number: str) -> dict | None:

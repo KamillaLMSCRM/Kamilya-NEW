@@ -7,12 +7,23 @@ from uuid import uuid4
 
 import pytest
 
+from app.core.storage import reset_storage_for_tests
 from app.modules.certificates.pdf import (
     render_certificate_pdf,
     write_certificate_pdf,
     read_certificate_pdf,
     _safe_text,
 )
+
+
+@pytest.fixture(autouse=True)
+def _reset_storage(monkeypatch, tmp_path):
+    """Use a fresh local storage rooted at tmp_path for every test."""
+    monkeypatch.setenv("STORAGE_BACKEND", "local")
+    monkeypatch.setenv("CERTIFICATE_STORAGE_DIR", str(tmp_path))
+    reset_storage_for_tests()
+    yield
+    reset_storage_for_tests()
 
 
 def test_safe_text_transliterates_cyrillic():
@@ -63,31 +74,27 @@ def test_render_certificate_pdf_empty_names_fallback():
     assert pdf_bytes[:4] == b"%PDF"
 
 
-def test_write_and_read_pdf_roundtrip(tmp_path):
-    """write_certificate_pdf + read_certificate_pdf round-trip correctly."""
+def test_write_and_read_pdf_roundtrip():
+    """write_certificate_pdf + read_certificate_pdf round-trip via storage backend."""
     cert_id = str(uuid4())
     tenant_id = str(uuid4())
-    pdf_bytes = write_certificate_pdf(
+    key = write_certificate_pdf(
         cert_id=cert_id,
         tenant_id=tenant_id,
         user_name="Round Trip",
         course_title="Test Course",
         certificate_number="KML-2026-ROUND",
         issued_at=datetime(2026, 6, 24, tzinfo=timezone.utc),
-        storage_root=tmp_path,
     )
-    assert pdf_bytes.endswith(".pdf")
-    # File exists at returned relative path
-    assert (tmp_path / pdf_bytes).exists()
+    assert key == f"{tenant_id}/{cert_id}.pdf"
 
-    # Read back
-    read_back = read_certificate_pdf(tenant_id, cert_id, tmp_path)
+    # Read back via the same storage abstraction
+    read_back = read_certificate_pdf(tenant_id, cert_id)
     assert read_back is not None
     assert read_back[:4] == b"%PDF"
-    assert read_back == (tmp_path / pdf_bytes).read_bytes()
 
 
-def test_read_pdf_missing_returns_none(tmp_path):
+def test_read_pdf_missing_returns_none():
     """Reading non-existent cert returns None, doesn't raise."""
-    result = read_certificate_pdf("missing-tenant", "missing-cert", tmp_path)
+    result = read_certificate_pdf("missing-tenant", "missing-cert")
     assert result is None

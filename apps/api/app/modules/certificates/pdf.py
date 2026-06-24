@@ -1,8 +1,6 @@
 """Certificate PDF generation — pure-Python (fpdf2)."""
 import logging
-from io import BytesIO
 from datetime import datetime
-from pathlib import Path
 
 from fpdf import FPDF
 
@@ -145,25 +143,22 @@ def write_certificate_pdf(
     course_title: str,
     certificate_number: str,
     issued_at: datetime,
-    storage_root: Path,
 ) -> str:
-    """Generate PDF and write to disk. Returns relative path (posix-style) for DB."""
+    """Render and upload PDF to the active storage backend. Returns the storage key."""
+    from app.core.storage import get_storage
     pdf_bytes = render_certificate_pdf(
         user_name=user_name,
         course_title=course_title,
         certificate_number=certificate_number,
         issued_at=issued_at,
     )
-    rel = Path(tenant_id) / f"{cert_id}.pdf"
-    target = storage_root / rel
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_bytes(pdf_bytes)
-    return rel.as_posix()
+    key = f"{tenant_id}/{cert_id}.pdf"
+    get_storage().put_bytes(key, pdf_bytes, content_type="application/pdf")
+    return key
 
 
-def read_certificate_pdf(tenant_id: str, cert_id: str, storage_root: Path) -> bytes | None:
-    """Read PDF bytes from disk. None if missing."""
-    target = storage_root / tenant_id / f"{cert_id}.pdf"
-    if not target.exists():
-        return None
-    return target.read_bytes()
+def read_certificate_pdf(tenant_id: str, cert_id: str) -> bytes | None:
+    """Read PDF bytes from the active storage backend. None if missing."""
+    from app.core.storage import get_storage
+    key = f"{tenant_id}/{cert_id}.pdf"
+    return get_storage().get_bytes(key)

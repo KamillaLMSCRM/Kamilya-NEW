@@ -1,11 +1,12 @@
 """Certificate API router"""
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import Response
+from fastapi.responses import Response, RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import get_current_user
 from app.core.db import get_db
+from app.core.storage import get_storage
 from app.modules.certificates.schemas import CertificateResponse
 from app.modules.certificates.service import (
     issue_certificate,
@@ -13,6 +14,7 @@ from app.modules.certificates.service import (
     get_certificate,
     verify_certificate,
     read_pdf_bytes,
+    get_pdf_url,
 )
 
 router = APIRouter(prefix="/certificates", tags=["certificates"])
@@ -67,12 +69,29 @@ async def download_certificate_pdf(
     db: AsyncSession = Depends(get_db),
     user=Depends(get_current_user),
 ):
-    """Download certificate as PDF."""
+    """Download certificate as PDF.
+
+    Storage routing:
+    - Supabase backend: 302 redirect to a time-limited signed URL (offloads bandwidth).
+    - Local backend: stream the PDF bytes directly.
+    """
+    cert = await get_certificate(db, cert_id, user.tenant_id)
+    if not cert:
+        raise HTTPException(status_code=404, detail="Certificate not found")
+
+    storage = get_storage()
+    backend_name = storage.name
+
+    if backend_name.startswith("supabase"):
+        # Redirect to signed URL
+        signed_url = await get_pdf_url(db, cert_id, user.tenant_id, expires_in=300)
+        if not signed_url:
+            raise HTTPException(status_code=500, detail="Could not generate download URL")
+        return RedirectResponse(url=signed_url, status_code=302)
+
+    # Local: stream bytes
     pdf_bytes = await read_pdf_bytes(db, cert_id, user.tenant_id)
     if not pdf_bytes:
-        cert = await get_certificate(db, cert_id, user.tenant_id)
-        if not cert:
-            raise HTTPException(status_code=404, detail="Certificate not found")
         raise HTTPException(status_code=500, detail="PDF generation failed")
 
     filename = f"certificate-{cert.certificate_number}.pdf"
