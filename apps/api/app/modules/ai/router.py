@@ -20,6 +20,9 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/ai", tags=["ai-generation"])
 
+# Store running tasks for cancellation
+_running_tasks: dict[str, asyncio.Task] = {}
+
 
 @router.post("/generate-course", response_model=AIJobResponse, status_code=202)
 async def generate_course(
@@ -44,6 +47,7 @@ async def generate_course(
 
     # Run pipeline directly as background task (no Celery needed)
     async def _safe_pipeline():
+        from app.core.db import async_session_factory
         try:
             logger.info(f"Starting generation pipeline for job {job.id}")
             await run_generation_pipeline(
@@ -57,10 +61,18 @@ async def generate_course(
                 user_id=user.id,
             )
             logger.info(f"Pipeline completed for job {job.id}")
+        except asyncio.CancelledError:
+            logger.info(f"Pipeline cancelled for job {job.id}")
+            async with async_session_factory() as session:
+                await update_ai_job(session, job.id, status="cancelled", message="Cancelled by user")
+                await session.commit()
         except Exception as e:
             logger.error(f"Pipeline failed for job {job.id}: {e}", exc_info=True)
+        finally:
+            _running_tasks.pop(job.id, None)
 
-    asyncio.create_task(_safe_pipeline())
+    task = asyncio.create_task(_safe_pipeline())
+    _running_tasks[job.id] = task
 
     return AIJobResponse(
         id=job.id,
@@ -138,11 +150,19 @@ async def cancel_generation(
     if not job or job.tenant_id != user.tenant_id:
         raise HTTPException(status_code=404, detail="Job not found")
 
-    if job.status in ("completed", "failed"):
+    if job.status in ("completed", "failed", "cancelled"):
         raise HTTPException(status_code=400, detail="Job already finished")
 
-    await update_ai_job(db, job_id, status="cancelled", message="Cancelled by user")
-    await db.commit()
+    # Cancel the actual asyncio task
+    task = _running_tasks.get(job_id)
+    if task and not task.done():
+        task.cancel()
+        logger.info(f"Cancelled task for job {job_id}")
+    else:
+        # Task not found in memory (server restarted), just update DB
+        await update_ai_job(db, job_id, status="cancelled", message="Cancelled by user")
+        await db.commit()
+
     return {"status": "cancelled"}
 
 

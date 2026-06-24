@@ -17,6 +17,7 @@ import {
   CheckCircle2,
   Upload,
   ChevronRight,
+  XCircle,
 } from 'lucide-react';
 
 interface Document {
@@ -135,6 +136,18 @@ export default function AIGeneratePage() {
     }
   };
 
+  const handleCancel = async () => {
+    if (!currentJob) return;
+    try {
+      await api.post(`/v1/ai/jobs/${currentJob.id}/cancel`);
+      localStorage.removeItem('ai_active_job_id');
+      setCurrentJob(null);
+      setStep('documents');
+    } catch (e) {
+      console.error('Cancel failed', e);
+    }
+  };
+
   // Poll job status
   useEffect(() => {
     if (!currentJob || currentJob.status === 'completed' || currentJob.status === 'failed') return;
@@ -145,7 +158,7 @@ export default function AIGeneratePage() {
         if (res.data.status === 'completed') {
           localStorage.removeItem('ai_active_job_id');
           setStep('review');
-        } else if (res.data.status === 'failed') {
+        } else if (res.data.status === 'failed' || res.data.status === 'cancelled') {
           localStorage.removeItem('ai_active_job_id');
         }
       } catch {}
@@ -335,6 +348,17 @@ export default function AIGeneratePage() {
             })}
           </div>
 
+          {/* Cancel button */}
+          {currentJob.status === 'running' && (
+            <button
+              onClick={handleCancel}
+              className="w-full rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-600 hover:bg-red-100 transition-colors flex items-center justify-center gap-2"
+            >
+              <XCircle className="w-4 h-4" />
+              Отменить генерацию
+            </button>
+          )}
+
           {currentJob.status === 'completed' && currentJob.course_id && (
             <button
               onClick={() => router.push(`/courses/${currentJob.course_id}/edit`)}
@@ -347,6 +371,12 @@ export default function AIGeneratePage() {
           {currentJob.status === 'failed' && (
             <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-600">
               Ошибка: {currentJob.message}
+            </div>
+          )}
+
+          {currentJob.status === 'cancelled' && (
+            <div className="rounded-2xl border border-warm-200 bg-warm-50 p-4 text-sm text-warm-600">
+              Генерация отменена
             </div>
           )}
         </div>

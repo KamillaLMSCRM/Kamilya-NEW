@@ -203,6 +203,25 @@ async def _save_generation_to_db(
         logger.info(f"Saved generation results to DB for course {state.course_id}")
 
 
+def _check_cancelled(job_id: str):
+    """Raise CancelledError if job was cancelled in DB."""
+    import asyncio
+    from app.modules.ai.router import _running_tasks
+    # If task was cancelled via asyncio, this will be raised
+    # Also check DB status
+    # (synchronous check — the actual task.cancel() sets CancelledError)
+
+
+async def _check_cancelled_async(job_id: str):
+    """Async check: raise CancelledError if job status is 'cancelled' in DB."""
+    from app.modules.ai.job_service import get_ai_job
+    from app.core.db import async_session_factory
+    async with async_session_factory() as session:
+        job = await get_ai_job(session, job_id)
+        if job and job.status == "cancelled":
+            raise asyncio.CancelledError(f"Job {job_id} cancelled")
+
+
 async def run_generation_pipeline(
     job_id: str,
     documents: list[str],
@@ -247,6 +266,7 @@ async def run_generation_pipeline(
                     logger.warning(f"Could not check embeddings for {doc_id}: {e}")
 
         # Stage 2: Architect
+        await _check_cancelled_async(job_id)
         state.stage = "architect"
         state.progress = 10
         state.message = "Проектирование структуры курса..."
@@ -279,6 +299,7 @@ async def run_generation_pipeline(
         await _update_job_db(job_id, progress=25, message=state.message)
 
         # Stage 3: Content Generation (Writer)
+        await _check_cancelled_async(job_id)
         state.stage = "content_generation"
         state.progress = 30
         state.message = "Генерация контента уроков..."
@@ -309,6 +330,7 @@ async def run_generation_pipeline(
         await _update_job_db(job_id, progress=70, message=state.message)
 
         # Stage 3.5: Review content quality
+        await _check_cancelled_async(job_id)
         state.stage = "review"
         state.progress = 72
         state.message = "Проверка качества контента..."
@@ -342,6 +364,7 @@ async def run_generation_pipeline(
             await _update_job_db(job_id, message=state.message)
 
         # Stage 4: Assessment Generation
+        await _check_cancelled_async(job_id)
         state.stage = "assessment"
         state.progress = 75
         state.message = "Генерация тестов..."

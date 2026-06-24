@@ -221,6 +221,11 @@ async def write_course(
                 if hasattr(result, '__await__'):
                     await result
 
+            # Check for cancellation
+            import asyncio
+            if asyncio.current_task() and asyncio.current_task().cancelled():
+                raise asyncio.CancelledError()
+
             objectives = [obj.text for obj in lesson.objectives]
             lesson_headings = lesson.relevant_headings if lesson.relevant_headings else None
 
