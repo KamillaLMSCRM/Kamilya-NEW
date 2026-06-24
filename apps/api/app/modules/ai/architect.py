@@ -91,66 +91,129 @@ def create_architect_tools(
     chapter_read_counts = collections.defaultdict(int)
 
     def list_documents() -> str:
-        """List all ingested documents with IDs and names."""
-        from pathlib import Path
+        """List all ingested documents with IDs and names from DB."""
+        from app.core.db import async_session_factory
+        from sqlalchemy import text
+        import asyncio
+
+        async def _query():
+            async with async_session_factory() as session:
+                result = await session.execute(
+                    text("SELECT DISTINCT doc_id, doc_name FROM document_embeddings ORDER BY doc_name")
+                )
+                return result.fetchall()
+
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor() as pool:
+                    rows = pool.submit(asyncio.run, _query()).result()
+            else:
+                rows = loop.run_until_complete(_query())
+        except RuntimeError:
+            rows = asyncio.run(_query())
+
         results = []
-        summaries_path = Path(summaries_dir)
-        if summaries_path.exists():
-            for fp in sorted(summaries_path.glob("*.json")):
-                with open(fp) as f:
-                    data = json.load(f)
-                if scope and data.get("doc_id") not in scope:
-                    continue
-                results.append({"doc_id": data.get("doc_id"), "doc_name": data.get("doc_name")})
+        for row in rows:
+            results.append({"doc_id": row[0], "doc_name": row[1]})
         return json.dumps(results, ensure_ascii=False, indent=2)
 
     def get_document_summary(doc_id: str) -> str:
-        """Get educational profile summary of a document."""
-        from pathlib import Path
+        """Get educational profile summary of a document from DB embeddings."""
+        from app.core.db import async_session_factory
+        from sqlalchemy import text
+        import asyncio
+
         if scope and doc_id not in scope:
             return f"Document '{doc_id}' is not in the current scope."
-        summaries_path = Path(summaries_dir)
-        for fp in summaries_path.glob("*.json"):
-            with open(fp) as f:
-                data = json.load(f)
-            if data.get("doc_id") == doc_id:
-                edu = data.get("educational_summary", {})
-                if edu:
-                    parts = []
-                    if edu.get("target_audience"):
-                        parts.append(f"Target Audience: {edu['target_audience']}")
-                    if edu.get("global_description"):
-                        parts.append(f"Description: {edu['global_description']}")
-                    if edu.get("core_topics"):
-                        parts.append(f"Core Topics: {', '.join(edu['core_topics'])}")
-                    if edu.get("extractable_skills"):
-                        parts.append(f"Extractable Skills: {', '.join(edu['extractable_skills'])}")
-                    return "\n".join(parts) if parts else "No educational profile available."
-                return data.get("summary", "No summary available.")
-        return f"Document '{doc_id}' not found."
+
+        async def _query():
+            async with async_session_factory() as session:
+                result = await session.execute(
+                    text("SELECT text, headings FROM document_embeddings WHERE doc_id = :doc_id LIMIT 5"),
+                    {"doc_id": doc_id},
+                )
+                return result.fetchall()
+
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor() as pool:
+                    rows = pool.submit(asyncio.run, _query()).result()
+            else:
+                rows = loop.run_until_complete(_query())
+        except RuntimeError:
+            rows = asyncio.run(_query())
+
+        if not rows:
+            return f"Document '{doc_id}' has no ingested content."
+
+        parts = []
+        for text_content, headings in rows:
+            headings_str = ""
+            try:
+                h = json.loads(headings) if headings else []
+                if h:
+                    headings_str = " > ".join(h) + ": "
+            except (json.JSONDecodeError, TypeError):
+                pass
+            preview = text_content[:500] + "..." if len(text_content) > 500 else text_content
+            parts.append(f"{headings_str}{preview}")
+
+        return "\n\n".join(parts)
 
     def get_document_toc(doc_id: str) -> str:
-        """Get table of contents of a document."""
-        from pathlib import Path
+        """Get table of contents of a document from DB."""
+        from app.core.db import async_session_factory
+        from sqlalchemy import text
+        import asyncio
+
         if scope and doc_id not in scope:
             return f"Document '{doc_id}' is not in scope."
-        summaries_path = Path(summaries_dir)
-        for fp in summaries_path.glob("*.json"):
-            with open(fp) as f:
-                data = json.load(f)
-            if data.get("doc_id") == doc_id:
-                toc = data.get("toc", "")
-                if toc:
-                    return toc
-                chapters = data.get("chapters", {})
-                if chapters:
-                    return "\n".join(f"- {t}" for t in chapters.keys())
-                return "No TOC available."
-        return f"Document '{doc_id}' not found."
+
+        async def _query():
+            async with async_session_factory() as session:
+                result = await session.execute(
+                    text("SELECT DISTINCT headings FROM document_embeddings WHERE doc_id = :doc_id"),
+                    {"doc_id": doc_id},
+                )
+                return result.fetchall()
+
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor() as pool:
+                    rows = pool.submit(asyncio.run, _query()).result()
+            else:
+                rows = loop.run_until_complete(_query())
+        except RuntimeError:
+            rows = asyncio.run(_query())
+
+        if not rows:
+            return f"Document '{doc_id}' not found."
+
+        headings_set = set()
+        for (headings_json,) in rows:
+            try:
+                h = json.loads(headings_json) if headings_json else []
+                for heading in h:
+                    headings_set.add(heading)
+            except (json.JSONDecodeError, TypeError):
+                pass
+
+        if headings_set:
+            return "\n".join(f"- {h}" for h in sorted(headings_set))
+        return "No TOC available."
 
     def get_chapter_text(doc_id: str, chapter_title: str) -> str:
-        """Read full text of a specific chapter (capped at 8000 chars)."""
-        from pathlib import Path
+        """Read text chunks matching a heading from DB."""
+        from app.core.db import async_session_factory
+        from sqlalchemy import text
+        import asyncio
+
         if scope and doc_id not in scope:
             return f"Document '{doc_id}' is not in scope."
         if chapter_read_counts[doc_id] >= max_chapters_per_doc:
@@ -159,37 +222,42 @@ def create_architect_tools(
                 f"Use search_documents() instead."
             )
         chapter_read_counts[doc_id] += 1
-        summaries_path = Path(summaries_dir)
-        for fp in summaries_path.glob("*.json"):
-            with open(fp) as f:
-                data = json.load(f)
-            if data.get("doc_id") != doc_id:
-                continue
-            chapters = data.get("chapters", {})
-            if not chapters:
-                return f"No chapters for '{doc_id}'."
-            rel_path = None
-            for title, path in chapters.items():
-                if title.lower() == chapter_title.lower():
-                    rel_path = path
-                    break
-            if not rel_path:
-                chapter_lower = chapter_title.lower()
-                for title, path in chapters.items():
-                    if chapter_lower in title.lower() or title.lower() in chapter_lower:
-                        rel_path = path
-                        break
-            if not rel_path:
-                available = ", ".join(f'"{t}"' for t in chapters.keys())
-                return f"Chapter '{chapter_title}' not found. Available: {available}"
-            chapter_path = summaries_path / rel_path
-            if not chapter_path.exists():
-                return f"Chapter file not found at {rel_path}."
-            content = chapter_path.read_text(encoding="utf-8")
-            if len(content) > CHAPTER_TEXT_MAX_CHARS:
-                content = content[:CHAPTER_TEXT_MAX_CHARS] + "\n\n... [truncated]"
-            return content
-        return f"Document '{doc_id}' not found."
+
+        async def _query():
+            async with async_session_factory() as session:
+                result = await session.execute(
+                    text("SELECT text, headings FROM document_embeddings WHERE doc_id = :doc_id"),
+                    {"doc_id": doc_id},
+                )
+                return result.fetchall()
+
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor() as pool:
+                    rows = pool.submit(asyncio.run, _query()).result()
+            else:
+                rows = loop.run_until_complete(_query())
+        except RuntimeError:
+            rows = asyncio.run(_query())
+
+        if not rows:
+            return f"Document '{doc_id}' not found."
+
+        matching = []
+        for text_content, headings_json in rows:
+            try:
+                h = json.loads(headings_json) if headings_json else []
+                if any(chapter_title.lower() in heading.lower() for heading in h):
+                    matching.append(text_content)
+            except (json.JSONDecodeError, TypeError):
+                pass
+
+        if matching:
+            full = "\n\n".join(matching)
+            return full[:8000] + "..." if len(full) > 8000 else full
+        return f"No content found for chapter '{chapter_title}'."
 
     async def search_documents(query: str, doc_id: str | None = None) -> str:
         """Semantic search across ingested documents."""
