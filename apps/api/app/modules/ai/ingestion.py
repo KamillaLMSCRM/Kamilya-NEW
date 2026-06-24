@@ -332,7 +332,7 @@ class DocumentIngestion:
         self.embeddings = EmbeddingsProvider(qwen_url=qwen_embeddings_url)
 
     async def ingest_file(
-        self, file_path: str, doc_id: str | None = None
+        self, file_path: str, doc_id: str | None = None, tenant_id: str | None = None
     ) -> dict:
         """Ingest a single file through the full pipeline."""
         filename = os.path.basename(file_path)
@@ -356,7 +356,7 @@ class DocumentIngestion:
         logger.info(f"  Embedded: {len(embeddings)} vectors (dim={len(embeddings[0]) if embeddings else 0})")
 
         # Step 4: Store in Supabase pgvector
-        await self.store.add_chunks(chunks, embeddings)
+        await self.store.add_chunks(chunks, embeddings, tenant_id=tenant_id)
         logger.info(f"  Stored in Supabase pgvector")
 
         # Step 5: Generate summary

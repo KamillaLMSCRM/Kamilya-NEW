@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from typing import Callable
 
 from app.modules.ai.llm_client import LLMClient, create_llm
@@ -153,10 +154,34 @@ async def write_lesson(
     )
 
     if not formatted_chunks:
+        # No chunks found — still generate content from LLM using general knowledge
+        objectives_text = "\n".join(f"- {o}" for o in objectives) if objectives else "- (none)"
+        lang_names = {"ru": "Русский", "kk": "Қазақша", "en": "English"}
+        lang_name = lang_names.get(language, language)
+
+        prompt = f"""Write a comprehensive educational lesson on the topic below. 
+Use your general knowledge. Write detailed, well-structured content with examples.
+
+Lesson: {lesson_title}
+Module: {module_title}
+Course: {course_title}
+Target Language: {language} ({lang_name})
+Objectives:
+{objectives_text}
+
+IMPORTANT: Write the ENTIRE lesson content in {language} ({lang_name}).
+Format as Markdown with ## headers for sections.
+Include practical examples and key concepts.
+Length: 1500-2500 words."""
+
+        response = await llm.ainvoke([{"role": "user", "content": prompt}])
+        content = response.content or ""
+        content = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
+
         return LessonContent(
             title=lesson_title,
             objectives=objectives,
-            content=f"# {lesson_title}\n\n*No relevant content found.*\n",
+            content=content,
             source_chunks=[],
         )
 

@@ -125,7 +125,7 @@ async def upload_document(
     try:
         from app.modules.ai.ingestion import DocumentIngestion
         ingestion = DocumentIngestion()
-        result = await ingestion.ingest_file(file_path, doc_id=str(doc_id))
+        result = await ingestion.ingest_file(file_path, doc_id=str(doc_id), tenant_id=str(user.tenant_id))
         print(f"[UPLOAD] Ingested {file.filename}: {result.get('chunks', 0)} chunks", flush=True)
     except Exception as e:
         print(f"[UPLOAD] Ingestion failed for {file.filename}: {e}", flush=True)
