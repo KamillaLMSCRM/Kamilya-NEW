@@ -77,6 +77,7 @@
     "invalidCredentials": "Email немесе құпия сөз қате",
     "accountCreated": "Тіркелгі жасалды! Кіріңіз.",
     "passwordMin": "Кемінде 8 таңба",
+    "passwordMinHint": "Құпиясөз кемінде 8 таңбадан тұруы керек",
     "company": "Компания"
   },
   "landing": {
@@ -428,8 +429,9 @@
   },
   "topbar": {
     "notifications": "Хабарламалар",
-    "noNotifications": "Хабарлама жоқ",
-    "commandPalette": "Командалық тақтаны ашу"
+    "noNotifications": "Жаңа хабарламалар жоқ",
+    "commandPalette": "Командалық палитра",
+    "openCommandPalette": "Командалық палитраны ашу"
   },
   "dialogs": {
     "delete": "Жою",
@@ -533,6 +535,7 @@
     "userMenu": "Пайдаланушы мәзірі",
     "primaryContent": "Негізгі мазмұн",
     "openMenu": "Мәзірді ашу",
-    "closeMenu": "Мәзірді жабу"
+    "closeMenu": "Мәзірді жабу",
+    "formRequired": "Міндетті деп белгіленген барлық өрістер толтырылуы керек."
   }
 }

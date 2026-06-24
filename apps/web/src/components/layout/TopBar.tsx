@@ -46,7 +46,7 @@ export default function TopBar({ title }: TopBarProps) {
             window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }));
           }}
           className="hidden sm:flex items-center gap-2 rounded-xl border border-warm-200 bg-warm-50 px-3 py-2 text-sm text-warm-400 hover:border-warm-300 hover:text-warm-600 transition-colors"
-          aria-label="Open command palette"
+          aria-label={t('topbar.openCommandPalette') || 'Open command palette'}
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <circle cx="11" cy="11" r="8" />

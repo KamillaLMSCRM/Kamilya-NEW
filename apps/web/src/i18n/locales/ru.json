@@ -77,6 +77,7 @@
     "invalidCredentials": "Неверные email или пароль",
     "accountCreated": "Аккаунт создан! Войдите.",
     "passwordMin": "Минимум 8 символов",
+    "passwordMinHint": "Пароль должен содержать не менее 8 символов",
     "company": "Компания"
   },
   "landing": {
@@ -428,8 +429,9 @@
   },
   "topbar": {
     "notifications": "Уведомления",
-    "noNotifications": "Нет уведомлений",
-    "commandPalette": "Открыть командную палитру"
+    "noNotifications": "Нет новых уведомлений",
+    "commandPalette": "Командная палитра",
+    "openCommandPalette": "Открыть командную палитру"
   },
   "dialogs": {
     "delete": "Удалить",
@@ -533,6 +535,7 @@
     "userMenu": "Меню пользователя",
     "primaryContent": "Основное содержимое",
     "openMenu": "Открыть меню",
-    "closeMenu": "Закрыть меню"
+    "closeMenu": "Закрыть меню",
+    "formRequired": "Все поля, отмеченные как обязательные, должны быть заполнены."
   }
 }

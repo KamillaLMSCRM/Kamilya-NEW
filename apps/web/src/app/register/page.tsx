@@ -55,28 +55,41 @@ export default function RegisterPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-blue-50 to-white py-12">
-      <div className="w-full max-w-md p-8 bg-white rounded-xl shadow-md">
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="w-full max-w-md p-8 bg-white rounded-xl shadow-md focus:outline-none"
+      >
         <div className="text-center mb-8">
           <h1 className="text-2xl font-bold text-blue-600">Kamilya LMS</h1>
           <h2 className="text-xl font-semibold mt-2">{t('auth.register')}</h2>
         </div>
 
         {error && (
-          <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-lg text-sm" role="alert">
+          <div
+            className="mb-4 p-3 bg-red-50 text-red-600 rounded-lg text-sm"
+            role="alert"
+            aria-live="assertive"
+          >
             {error}
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+        <form onSubmit={handleSubmit} className="space-y-4" noValidate aria-describedby="register-form-help">
+          <p id="register-form-help" className="sr-only">
+            {t('a11y.formRequired') || 'All fields marked required must be filled.'}
+          </p>
           <div>
             <label htmlFor="register-company" className="block text-sm font-medium mb-1">
               {t('auth.company') || 'Компания'}
+              <span aria-hidden="true" className="text-red-500 ml-0.5">*</span>
             </label>
             <Input
               id="register-company"
               value={company}
               onChange={(e) => setCompany(e.target.value)}
               required
+              aria-required="true"
               autoComplete="organization"
             />
           </div>
@@ -84,24 +97,28 @@ export default function RegisterPage() {
             <div>
               <label htmlFor="register-first-name" className="block text-sm font-medium mb-1">
                 {t('auth.firstName')}
+                <span aria-hidden="true" className="text-red-500 ml-0.5">*</span>
               </label>
               <Input
                 id="register-first-name"
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
                 required
+                aria-required="true"
                 autoComplete="given-name"
               />
             </div>
             <div>
               <label htmlFor="register-last-name" className="block text-sm font-medium mb-1">
                 {t('auth.lastName')}
+                <span aria-hidden="true" className="text-red-500 ml-0.5">*</span>
               </label>
               <Input
                 id="register-last-name"
                 value={lastName}
                 onChange={(e) => setLastName(e.target.value)}
                 required
+                aria-required="true"
                 autoComplete="family-name"
               />
             </div>
@@ -109,6 +126,7 @@ export default function RegisterPage() {
           <div>
             <label htmlFor="register-email" className="block text-sm font-medium mb-1">
               {t('auth.email')}
+              <span aria-hidden="true" className="text-red-500 ml-0.5">*</span>
             </label>
             <Input
               id="register-email"
@@ -116,12 +134,14 @@ export default function RegisterPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
+              aria-required="true"
               autoComplete="email"
             />
           </div>
           <div>
             <label htmlFor="register-password" className="block text-sm font-medium mb-1">
               {t('auth.passwordMin')}
+              <span aria-hidden="true" className="text-red-500 ml-0.5">*</span>
             </label>
             <Input
               id="register-password"
@@ -129,11 +149,16 @@ export default function RegisterPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
+              aria-required="true"
+              aria-describedby="register-password-hint"
               minLength={8}
               autoComplete="new-password"
             />
+            <p id="register-password-hint" className="text-xs text-gray-500 mt-1">
+              {t('auth.passwordMinHint') || 'Минимум 8 символов'}
+            </p>
           </div>
-          <Button type="submit" className="w-full" disabled={loading}>
+          <Button type="submit" className="w-full" disabled={loading} aria-busy={loading}>
             {loading ? t('common.saving' as any) : t('auth.registerButton')}
           </Button>
         </form>
@@ -144,7 +169,7 @@ export default function RegisterPage() {
             {t('auth.login')}
           </Link>
         </div>
-      </div>
+      </main>
     </div>
   );
 }

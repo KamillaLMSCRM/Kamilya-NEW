@@ -77,6 +77,7 @@
     "invalidCredentials": "Invalid email or password",
     "accountCreated": "Account created! Please login.",
     "passwordMin": "Minimum 8 characters",
+    "passwordMinHint": "Password must be at least 8 characters long",
     "company": "Company"
   },
   "landing": {
@@ -429,8 +430,9 @@
   },
   "topbar": {
     "notifications": "Notifications",
-    "noNotifications": "No notifications",
-    "commandPalette": "Open command palette"
+    "noNotifications": "No new notifications",
+    "commandPalette": "Command palette",
+    "openCommandPalette": "Open command palette"
   },
   "dialogs": {
     "delete": "Delete",
@@ -534,6 +536,7 @@
     "userMenu": "User menu",
     "primaryContent": "Main content",
     "openMenu": "Open menu",
-    "closeMenu": "Close menu"
+    "closeMenu": "Close menu",
+    "formRequired": "All fields marked as required must be filled."
   }
 }

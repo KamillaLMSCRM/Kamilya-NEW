@@ -172,6 +172,8 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
         className="absolute -right-3 top-20 z-40 flex h-6 w-6 items-center justify-center rounded-full border border-warm-200 bg-white text-warm-400 shadow-sm hover:text-warm-700 hover:border-warm-300 transition-colors"
         title={collapsed ? t('sidebar.expand') : t('sidebar.collapse')}
         aria-label={collapsed ? t('sidebar.expand') : t('sidebar.collapse')}
+        aria-expanded={!collapsed}
+        aria-controls="sidebar-nav"
       >
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <path d={collapsed ? 'm9 18 6-6-6-6' : 'm15 18-6-6 6-6'} />
@@ -179,7 +181,11 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
       </button>
 
       {/* Nav */}
-      <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-6" aria-label={t('nav.dashboard')}>
+      <nav
+        id="sidebar-nav"
+        className="flex-1 overflow-y-auto px-3 py-4 space-y-6"
+        aria-label={t('a11y.mainNavigation')}
+      >
         {navSections.map((section) => {
           const visibleItems = section.items.filter((item) => hasRole(item.roles));
           if (visibleItems.length === 0) return null;
@@ -187,16 +193,20 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
           return (
             <div key={section.title}>
               {!collapsed && (
-                <div className="px-3 mb-2 text-[10px] font-semibold text-warm-400 uppercase tracking-wider">
+                <h2 className="px-3 mb-2 text-[10px] font-semibold text-warm-400 uppercase tracking-wider">
                   {section.title}
-                </div>
+                </h2>
               )}
-              <div className="space-y-0.5">
+              <ul className="space-y-0.5" role="list">
                 {visibleItems.map((item) => {
                   const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
-                  return <NavLink key={item.href} item={item} isActive={isActive} collapsed={collapsed} />;
+                  return (
+                    <li key={item.href}>
+                      <NavLink item={item} isActive={isActive} collapsed={collapsed} />
+                    </li>
+                  );
                 })}
-              </div>
+              </ul>
             </div>
           );
         })}
