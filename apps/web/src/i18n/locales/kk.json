@@ -29,7 +29,11 @@
     "active": "Белсенді",
     "inactive": "Белсенді емес",
     "enabled": "Қосылған",
-    "disabled": "Өшірілген"
+    "disabled": "Өшірілген",
+    "saving": "Сақтау...",
+    "loadFailed": "Жүктеу мүмкін болмады",
+    "saveFailed": "Сақтау мүмкін болмады",
+    "saved": "Сақталды"
   },
   "nav": {
     "home": "Басты бет",
@@ -257,7 +261,15 @@
     "language": "Интерфейс тілі",
     "theme": "Тақырып",
     "dark": "Қараңғы",
-    "light": "Жарық"
+    "light": "Жарық",
+    "saved": "Параметрлер сақталды",
+    "saveError": "Параметрлерді сақтау мүмкін болмады",
+    "loadError": "Профильді жүктеу мүмкін болмады",
+    "languageHelp": "Интерфейс тілін таңдаңыз",
+    "languageChanged": "Тіл өзгертілді: {lang}",
+    "telegram": "Telegram",
+    "notLinked": "Байланыстырылмаған",
+    "passwordHelp": "Құпиясөзді ауыстыру үшін әкімшіге хабарласыңыз"
   },
   "onboarding": {
     "welcome": {
@@ -294,5 +306,44 @@
       "message": "Құттықтаймыз! Ұйымыңыз бапталды. Курстар жасауды және қызметкерлерді шақыруды бастаңыз.",
       "start": "Жұмысқа өту"
     }
+  },
+  "topbar": {
+    "notifications": "Хабарламалар",
+    "noNotifications": "Хабарлама жоқ",
+    "commandPalette": "Командалық тақтаны ашу"
+  },
+  "dialogs": {
+    "delete": "Жою",
+    "cancel": "Болдырмау",
+    "confirmDeleteCourse": "Курсты жою? Бұл әрекетті қайтару мүмкін емес.",
+    "confirmDeleteAssignment": "Тағайындауды жою?",
+    "confirmDeleteModule": "Модульді барлық сабақтарымен бірге жою?",
+    "confirmDeleteLesson": "Сабақты жою?",
+    "confirmDeleteDocument": "Құжатты жою?",
+    "confirmDeleteQuestion": "Сұрақты жою?",
+    "confirmDeleteQuiz": "Тестті барлық сұрақтарымен бірге жою?",
+    "confirmDeletePosition": "Лауазымды жою?",
+    "confirmUnenrollUser": "Пайдаланушыны курстан шығару?"
+  },
+  "toast": {
+    "courseCreated": "Курс жасалды",
+    "courseDeleted": "Курс жойылды",
+    "documentUploaded": "Құжат жүктелді",
+    "documentDeleted": "Құжат жойылды",
+    "userCreated": "Пайдаланушы жасалды",
+    "positionAssigned": "Лауазым тағайындалды",
+    "enrollSuccess": "Сіз курсқа жазылдыңыз",
+    "enrollError": "Жазылу мүмкін болмады",
+    "courseCompleted": "Курс аяқталды! Құттықтаймыз!",
+    "generationStarted": "Курсты генерациялау басталды",
+    "generationCancelled": "Генерация тоқтатылды"
+  },
+  "pipeline": {
+    "ingestion": "Құжаттарды өңдеу",
+    "architect": "Құрылымды жобалау",
+    "content_generation": "Контент генерациясы",
+    "review": "Сапаны тексеру",
+    "assessment": "Тесттер генерациясы",
+    "saving": "Сақтау"
   }
 }

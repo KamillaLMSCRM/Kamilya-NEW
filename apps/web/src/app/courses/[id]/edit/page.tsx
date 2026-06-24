@@ -5,6 +5,8 @@ import { useParams } from 'next/navigation';
 import { Card, CardContent, Button, Input, Badge } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
+import { toast } from '@/components/ui/Toast';
 import { ChevronLeft, ChevronUp, ChevronDown, X, Plus } from 'lucide-react';
 
 interface Lesson {
@@ -33,6 +35,7 @@ export default function CourseEditPage() {
   const params = useParams();
   const courseId = params?.id as string;
   const { t } = useT();
+    const { confirm, dialog } = useConfirm();
   const token = useAuthStore((s) => s.accessToken);
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -93,7 +96,13 @@ export default function CourseEditPage() {
   };
 
   const handleDeleteModule = async (moduleId: string) => {
-    if (!confirm('Удалить модуль со всеми уроками?') || !token) return;
+        if (!token) return;
+    const ok = await confirm({
+      title: t('dialogs.confirmDeleteModule'),
+      variant: 'danger',
+      confirmLabel: t('dialogs.delete'),
+    });
+    if (!ok) return;
     await fetch(`${API_URL}/v1/modules/${moduleId}`, {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${token}` },
@@ -119,7 +128,13 @@ export default function CourseEditPage() {
   };
 
   const handleDeleteLesson = async (lessonId: string, moduleId: string) => {
-    if (!confirm('Удалить урок?') || !token) return;
+        if (!token) return;
+    const ok = await confirm({
+      title: t('dialogs.confirmDeleteLesson'),
+      variant: 'danger',
+      confirmLabel: t('dialogs.delete'),
+    });
+    if (!ok) return;
     await fetch(`${API_URL}/v1/lessons/${lessonId}`, {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${token}` },
@@ -320,6 +335,7 @@ export default function CourseEditPage() {
           ))}
         </div>
       )}
+{dialog}
     </div>
   );
 }

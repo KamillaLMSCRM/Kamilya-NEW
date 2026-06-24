@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import { Card, CardContent, Button, Badge } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
+import { toast } from '@/components/ui/Toast';
 import { CheckCircle2, XCircle, Circle, Lightbulb } from 'lucide-react';
 
 interface QuizChoice {
@@ -161,9 +162,12 @@ export default function QuizPlayerPage() {
         // Refresh attempts
         const attemptsRes = await fetch(`${API_URL}/v1/quizzes/${quizId}/attempts`, { headers: { Authorization: `Bearer ${token}` } });
         if (attemptsRes.ok) setAttempts(await attemptsRes.json());
+        toast.success(data.passed ? 'Тест пройден!' : 'Тест завершён', {
+          description: `Результат: ${data.score_percent ?? 0}%`,
+        });
       } else {
         const err = await res.json();
-        alert(err.detail || 'Ошибка отправки');
+        toast.error(t('common.saveFailed'), { description: err.detail || 'Ошибка отправки' });
       }
     } finally {
       setSubmitting(false);

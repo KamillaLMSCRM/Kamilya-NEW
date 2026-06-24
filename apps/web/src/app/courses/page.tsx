@@ -4,11 +4,14 @@ import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/store/authStore';
 import { Button, Input } from '@/components/ui';
 import { useT } from '@/i18n/useT';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
+import { toast } from '@/components/ui/Toast';
 import { api } from '@/lib/api';
 
 export default function CoursesPage() {
   const { user, accessToken } = useAuthStore();
   const { t } = useT();
+  const { confirm, dialog } = useConfirm();
   const [courses, setCourses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
@@ -29,23 +32,31 @@ export default function CoursesPage() {
       if (statusFilter) params.set('status', statusFilter);
       const res = await api.get(`/v1/courses?${params}`);
       setCourses(Array.isArray(res.data) ? res.data : []);
-    } catch (e) {
-      console.error('Failed to fetch courses', e);
+    } catch (err: any) {
+      toast.error(t('common.loadFailed'), {
+        description: err?.response?.data?.detail || err?.message,
+      });
     } finally {
       setLoading(false);
     }
   };
 
   const handleCreate = async () => {
-    if (!title.trim()) return;
+    if (!title.trim()) {
+      toast.warning(t('common.required' as any) || 'Введите название курса');
+      return;
+    }
     try {
       await api.post('/v1/courses', { title, description: description || '' });
       setShowCreate(false);
       setTitle('');
       setDescription('');
+      toast.success(t('toast.courseCreated'));
       fetchCourses();
-    } catch (e) {
-      console.error('Failed to create course', e);
+    } catch (err: any) {
+      toast.error(t('common.saveFailed'), {
+        description: err?.response?.data?.detail || err?.message,
+      });
     }
   };
 
@@ -54,19 +65,29 @@ export default function CoursesPage() {
     try {
       await api.post(`/v1/courses/${courseId}/${endpoint}`);
       fetchCourses();
-    } catch (e) {
-      console.error('Failed to toggle publish', e);
+    } catch (err: any) {
+      toast.error(t('common.saveFailed'), {
+        description: err?.response?.data?.detail || err?.message,
+      });
     }
   };
 
   const handleDelete = async (courseId: string) => {
-    if (!confirm('Удалить курс? Это действие необратимо.')) return;
+    const ok = await confirm({
+      title: t('dialogs.confirmDeleteCourse'),
+      variant: 'danger',
+      confirmLabel: t('dialogs.delete'),
+    });
+    if (!ok) return;
     setDeletingId(courseId);
     try {
       await api.delete(`/v1/courses/${courseId}`);
+      toast.success(t('toast.courseDeleted'));
       fetchCourses();
-    } catch (e) {
-      console.error('Failed to delete course', e);
+    } catch (err: any) {
+      toast.error(t('common.saveFailed'), {
+        description: err?.response?.data?.detail || err?.message,
+      });
     } finally {
       setDeletingId(null);
     }
@@ -225,6 +246,8 @@ export default function CoursesPage() {
           ))}
         </div>
       )}
+
+      {dialog}
     </div>
   );
 }

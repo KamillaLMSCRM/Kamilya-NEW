@@ -183,9 +183,22 @@ class DemoLoginRequest(BaseModel):
 
 @router.post("/demo-login")
 async def demo_login(req: DemoLoginRequest, db=Depends(get_db)):
-    """Login as a demo user for the given role. Creates user/tenant if needed."""
+    """Login as a demo user for the given role. Creates user/tenant if needed.
+
+    In production: only teacher/student roles are allowed. Admin demo-login
+    is disabled to prevent privilege escalation via unauthenticated endpoint.
+    """
     import logging
+    from app.core.config import get_settings
+    settings = get_settings()
     logger = logging.getLogger(__name__)
+
+    # Production gate: block admin (privilege escalation risk)
+    if settings.APP_ENV == "production" and req.role == "admin":
+        raise HTTPException(
+            status_code=404,
+            detail="Admin demo login is not available in production",
+        )
 
     if req.role not in DEMO_USERS:
         raise HTTPException(status_code=400, detail=f"Unknown demo role: {req.role}")

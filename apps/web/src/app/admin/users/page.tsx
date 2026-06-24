@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Card, CardHeader, CardTitle, CardContent, Button, Badge, Table, Modal, Input } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
+import { useT } from '@/i18n/useT';
+import { toast } from '@/components/ui/Toast';
 import { api } from '@/lib/api';
 
 interface User {
@@ -24,6 +26,7 @@ interface Position {
 }
 
 export default function AdminUsersPage() {
+  const { t } = useT();
   const [users, setUsers] = useState<User[]>([]);
   const [positions, setPositions] = useState<Position[]>([]);
   const [total, setTotal] = useState(0);
@@ -108,13 +111,24 @@ export default function AdminUsersPage() {
 
   const handleAssignPosition = async () => {
     if (!assignModal || !selectedPositionId) return;
-    const res = await api.post(`/v1/positions/${selectedPositionId}/assign/${assignModal.userId}`);
-    if (res.status === 200 || res.status === 201) {
-      const data = res.data;
-      alert(`Должность назначена! Записано на ${data.courses_attached} курс(ов), новых записей: ${data.newly_enrolled}`);
-      setAssignModal(null);
-      setSelectedPositionId('');
-      fetchUsers();
+    try {
+      const res = await api.post(`/v1/positions/${selectedPositionId}/assign/${assignModal.userId}`);
+      if (res.status === 200 || res.status === 201) {
+        const data = res.data;
+        toast.success(
+          t('toast.positionAssigned'),
+          {
+            description: `Записано на ${data.courses_attached} курс(ов), новых записей: ${data.newly_enrolled}`,
+          }
+        );
+        setAssignModal(null);
+        setSelectedPositionId('');
+        fetchUsers();
+      }
+    } catch (err: any) {
+      toast.error(t('common.saveFailed'), {
+        description: err?.response?.data?.detail || err?.message,
+      });
     }
   };
 

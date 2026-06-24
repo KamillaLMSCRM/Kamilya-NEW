@@ -1,58 +1,56 @@
 'use client';
 
-import React, { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { cn } from '@/lib/utils';
-import { X, AlertTriangle } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
+import { Modal } from '@/components/ui/modal';
+import { useT } from '@/i18n/useT';
 
-interface ModalDialogProps {
-  open: boolean;
-  onClose?: () => void;
-  onOpenChange?: (open: boolean) => void;
-  title?: string;
-  children: React.ReactNode;
-  className?: string;
-}
-
-export function ModalDialog({ open, onClose, onOpenChange, title, children, className }: ModalDialogProps) {
-  const handleClose = () => {
-    onClose?.();
-    onOpenChange?.(false);
-  };
-
-  if (!open) return null;
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div
-        className="fixed inset-0 bg-black/50"
-        onClick={handleClose}
-        aria-hidden="true"
-      />
-      <div className={cn('relative bg-background rounded-lg shadow-lg p-6 z-10 w-full max-w-lg', className)}>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold">{title}</h2>
-          <button onClick={handleClose} className="text-muted-foreground hover:text-foreground" aria-label="Close">
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-        {children}
-      </div>
-    </div>
-  );
-}
+export type ConfirmVariant = 'danger' | 'warning' | 'info';
 
 interface ConfirmDialogProps {
   open: boolean;
   onClose: () => void;
-  onConfirm: () => void;
+  onConfirm: () => Promise<void> | void;
   title: string;
-  message: string;
-  confirmText?: string;
-  cancelText?: string;
-  variant?: 'danger' | 'warning';
+  /** Optional body message — if absent, only the title is shown. */
+  message?: string;
+  variant?: ConfirmVariant;
+  /** Translation key for confirm button — defaults to `dialogs.delete`. */
+  confirmKey?: string;
+  /** Translation key for cancel button — defaults to `dialogs.cancel`. */
+  cancelKey?: string;
+  /** If provided, overrides the i18n key for the confirm button. */
+  confirmLabel?: string;
+  /** If provided, overrides the i18n key for the cancel button. */
+  cancelLabel?: string;
 }
 
-export function ConfirmDialog({ open, onClose, onConfirm, title, message, confirmText = 'OK', cancelText = 'Отмена', variant = 'danger' }: ConfirmDialogProps) {
+const VARIANT_ICON: Record<ConfirmVariant, string> = {
+  danger: 'text-red-500',
+  warning: 'text-amber-500',
+  info: 'text-blue-500',
+};
+
+const VARIANT_BUTTON: Record<ConfirmVariant, string> = {
+  danger: 'bg-red-600 hover:bg-red-700',
+  warning: 'bg-amber-600 hover:bg-amber-700',
+  info: 'bg-blue-600 hover:bg-blue-700',
+};
+
+export function ConfirmDialog({
+  open,
+  onClose,
+  onConfirm,
+  title,
+  message,
+  variant = 'danger',
+  confirmKey,
+  cancelKey,
+  confirmLabel,
+  cancelLabel,
+}: ConfirmDialogProps) {
+  const { t } = useT();
   const [confirming, setConfirming] = useState(false);
 
   const handleConfirm = async () => {
@@ -64,33 +62,107 @@ export function ConfirmDialog({ open, onClose, onConfirm, title, message, confir
     }
   };
 
+  const confirmText = confirmLabel ?? t((confirmKey ?? 'dialogs.delete') as any);
+  const cancelText = cancelLabel ?? t((cancelKey ?? 'dialogs.cancel') as any);
+
   return (
-    <ModalDialog open={open} onClose={onClose} title={title} className="max-w-md">
-      <div className="flex items-start gap-3 mb-4">
-        <AlertTriangle className={cn(
-          "w-5 h-5 shrink-0 mt-1",
-          variant === 'danger' ? 'text-red-500' : 'text-amber-500'
-        )} />
-        <p className="text-sm text-gray-600">{message}</p>
-      </div>
+    <Modal open={open} onClose={onClose} title={title}>
+      {message && (
+        <div className="flex items-start gap-3 mb-5">
+          <AlertTriangle
+            className={cn('w-5 h-5 shrink-0 mt-0.5', VARIANT_ICON[variant])}
+            aria-hidden="true"
+          />
+          <p className="text-sm text-warm-600">{message}</p>
+        </div>
+      )}
       <div className="flex gap-2 justify-end">
         <button
+          type="button"
           onClick={onClose}
-          className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+          disabled={confirming}
+          className="px-4 py-2 text-sm font-medium border border-warm-200 rounded-lg text-warm-700 hover:bg-warm-50 transition-colors disabled:opacity-50"
         >
           {cancelText}
         </button>
         <button
+          type="button"
           onClick={handleConfirm}
           disabled={confirming}
           className={cn(
-            "px-4 py-2 text-sm text-white rounded-lg transition-colors disabled:opacity-50",
-            variant === 'danger' ? 'bg-red-600 hover:bg-red-700' : 'bg-amber-600 hover:bg-amber-700'
+            'px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors disabled:opacity-50 inline-flex items-center gap-2',
+            VARIANT_BUTTON[variant]
           )}
         >
-          {confirming ? '...' : confirmText}
+          {confirming && (
+            <div
+              className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent"
+              aria-hidden="true"
+            />
+          )}
+          {confirming ? t('common.saving' as any) : confirmText}
         </button>
       </div>
-    </ModalDialog>
+    </Modal>
   );
+}
+
+/**
+ * Hook for imperative confirm dialogs.
+ *
+ * Usage:
+ *   const confirm = useConfirm();
+ *   <button onClick={async () => {
+ *     const ok = await confirm({
+ *       title: 'Удалить курс?',
+ *       variant: 'danger',
+ *     });
+ *     if (ok) deleteCourse();
+ *   }} />
+ */
+interface UseConfirmOptions {
+  title: string;
+  message?: string;
+  variant?: ConfirmVariant;
+  confirmLabel?: string;
+  cancelLabel?: string;
+}
+
+export function useConfirm() {
+  const [state, setState] = useState<{
+    open: boolean;
+    opts: UseConfirmOptions | null;
+    resolve: ((ok: boolean) => void) | null;
+  }>({ open: false, opts: null, resolve: null });
+
+  const confirm = useCallback((opts: UseConfirmOptions): Promise<boolean> => {
+    return new Promise((resolve) => {
+      setState({ open: true, opts, resolve });
+    });
+  }, []);
+
+  const handleClose = useCallback(() => {
+    state.resolve?.(false);
+    setState({ open: false, opts: null, resolve: null });
+  }, [state.resolve]);
+
+  const handleConfirm = useCallback(() => {
+    state.resolve?.(true);
+    setState({ open: false, opts: null, resolve: null });
+  }, [state.resolve]);
+
+  const dialog = state.opts ? (
+    <ConfirmDialog
+      open={state.open}
+      onClose={handleClose}
+      onConfirm={handleConfirm}
+      title={state.opts.title}
+      message={state.opts.message}
+      variant={state.opts.variant ?? 'danger'}
+      confirmLabel={state.opts.confirmLabel}
+      cancelLabel={state.opts.cancelLabel}
+    />
+  ) : null;
+
+  return { confirm, dialog };
 }

@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
 
-from app.core.auth import require_role
+from app.core.auth import get_current_user, require_role
 from app.core.db import get_db
 from app.modules.users.schemas import (
     UserCreate,
@@ -25,6 +25,49 @@ from app.modules.users.service import (
 from app.models.users import User
 
 router = APIRouter(prefix="/users", tags=["users"])
+
+
+@router.get("/me", response_model=UserResponse)
+async def get_current_user_profile(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Get the current authenticated user's profile.
+
+    Returns the user object derived from the JWT — does not require admin role.
+    """
+    # Reload from DB to get fresh data (not the JWT-cached user from get_current_user).
+    fresh = await db.get(User, user.id)
+    if not fresh:
+        raise HTTPException(status_code=404, detail="User not found")
+    return UserResponse.model_validate(fresh)
+
+
+@router.patch("/me", response_model=UserResponse)
+async def update_current_user_profile(
+    req: UserUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Update the current authenticated user's profile (first_name, last_name, email).
+
+    Tenant isolation: only fields allowed for self-update are accepted.
+    """
+    # Whitelist: regular users can only update their own first_name, last_name, email.
+    # role/is_active changes must go through admin endpoints.
+    updates = req.model_dump(exclude_unset=True, exclude={"role", "is_active"})
+
+    target = await db.get(User, user.id)
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    for field, value in updates.items():
+        if value is not None and hasattr(target, field):
+            setattr(target, field, value)
+
+    await db.flush()
+    await db.refresh(target)
+    return UserResponse.model_validate(target)
 
 
 @router.get("", response_model=UserListResponse)

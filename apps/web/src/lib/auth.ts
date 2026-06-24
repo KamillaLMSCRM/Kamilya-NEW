@@ -4,6 +4,7 @@ export interface AuthUser {
   telegram_id: string;
   role: string;
   full_name: string;
+  email?: string | null;
 }
 
 export interface AuthState {

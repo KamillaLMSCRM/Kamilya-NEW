@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
+import { toast } from '@/components/ui/Toast';
 import { api } from '@/lib/api';
 import {
   FileText,
@@ -27,6 +29,7 @@ interface Document {
 
 export default function DocumentsPage() {
   const { t } = useT();
+    const { confirm, dialog } = useConfirm();
   const [documents, setDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
   const [showUpload, setShowUpload] = useState(false);
@@ -90,7 +93,12 @@ export default function DocumentsPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Удалить документ?')) return;
+        const ok = await confirm({
+      title: t('dialogs.confirmDeleteDocument'),
+      variant: 'danger',
+      confirmLabel: t('dialogs.delete'),
+    });
+    if (!ok) return;
     await api.delete(`/v1/documents/${id}`);
     fetchDocuments();
   };
@@ -211,6 +219,7 @@ export default function DocumentsPage() {
           ))}
         </div>
       )}
+{dialog}
     </div>
   );
 }

@@ -29,7 +29,11 @@
     "active": "Активен",
     "inactive": "Неактивен",
     "enabled": "Включён",
-    "disabled": "Выключен"
+    "disabled": "Выключен",
+    "saving": "Сохранение...",
+    "loadFailed": "Не удалось загрузить",
+    "saveFailed": "Не удалось сохранить",
+    "saved": "Сохранено"
   },
   "nav": {
     "home": "Главная",
@@ -257,7 +261,15 @@
     "language": "Язык интерфейса",
     "theme": "Тема",
     "dark": "Тёмная",
-    "light": "Светлая"
+    "light": "Светлая",
+    "saved": "Настройки сохранены",
+    "saveError": "Не удалось сохранить настройки",
+    "loadError": "Не удалось загрузить профиль",
+    "languageHelp": "Выберите язык интерфейса",
+    "languageChanged": "Язык изменён: {lang}",
+    "telegram": "Telegram",
+    "notLinked": "Не привязан",
+    "passwordHelp": "Для смены пароля обратитесь к администратору"
   },
   "onboarding": {
     "welcome": {
@@ -294,5 +306,44 @@
       "message": "Поздравляем! Ваша организация настроена. Начните создавать курсы и приглашать сотрудников.",
       "start": "Перейти к работе"
     }
+  },
+  "topbar": {
+    "notifications": "Уведомления",
+    "noNotifications": "Нет уведомлений",
+    "commandPalette": "Открыть командную палитру"
+  },
+  "dialogs": {
+    "delete": "Удалить",
+    "cancel": "Отмена",
+    "confirmDeleteCourse": "Удалить курс? Это действие необратимо.",
+    "confirmDeleteAssignment": "Удалить назначение?",
+    "confirmDeleteModule": "Удалить модуль со всеми уроками?",
+    "confirmDeleteLesson": "Удалить урок?",
+    "confirmDeleteDocument": "Удалить документ?",
+    "confirmDeleteQuestion": "Удалить вопрос?",
+    "confirmDeleteQuiz": "Удалить тест со всеми вопросами?",
+    "confirmDeletePosition": "Удалить должность?",
+    "confirmUnenrollUser": "Отписать пользователя от курса?"
+  },
+  "toast": {
+    "courseCreated": "Курс создан",
+    "courseDeleted": "Курс удалён",
+    "documentUploaded": "Документ загружен",
+    "documentDeleted": "Документ удалён",
+    "userCreated": "Пользователь создан",
+    "positionAssigned": "Должность назначена",
+    "enrollSuccess": "Вы записаны на курс",
+    "enrollError": "Не удалось записаться",
+    "courseCompleted": "Курс пройден! Поздравляем!",
+    "generationStarted": "Генерация курса запущена",
+    "generationCancelled": "Генерация отменена"
+  },
+  "pipeline": {
+    "ingestion": "Обработка документов",
+    "architect": "Проектирование структуры",
+    "content_generation": "Генерация контента",
+    "review": "Проверка качества",
+    "assessment": "Генерация тестов",
+    "saving": "Сохранение"
   }
 }

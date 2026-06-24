@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, Button, Badge, Input } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
+import { toast } from '@/components/ui/Toast';
 import { CheckCircle2, Circle, Lightbulb } from 'lucide-react';
 
 interface QuizChoice {
@@ -35,6 +37,7 @@ interface Quiz {
 
 export default function QuizzesAdminPage() {
   const { t } = useT();
+    const { confirm, dialog } = useConfirm();
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedQuiz, setSelectedQuiz] = useState<Quiz | null>(null);
@@ -118,7 +121,13 @@ export default function QuizzesAdminPage() {
   };
 
   const handleDeleteQuestion = async (questionId: string) => {
-    if (!token || !selectedQuiz || !confirm('Удалить вопрос?')) return;
+        if (!token || !selectedQuiz) return;
+    const ok = await confirm({
+      title: t('dialogs.confirmDeleteQuestion'),
+      variant: 'danger',
+      confirmLabel: t('dialogs.delete'),
+    });
+    if (!ok) return;
     const res = await fetch(`${API_URL}/v1/quizzes/${selectedQuiz.id}/questions/${questionId}`, {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${token}` },
@@ -130,7 +139,13 @@ export default function QuizzesAdminPage() {
   };
 
   const handleDeleteQuiz = async (quizId: string) => {
-    if (!token || !confirm('Удалить тест со всеми вопросами?')) return;
+        if (!token) return;
+    const ok = await confirm({
+      title: t('dialogs.confirmDeleteQuiz'),
+      variant: 'danger',
+      confirmLabel: t('dialogs.delete'),
+    });
+    if (!ok) return;
     const res = await fetch(`${API_URL}/v1/quizzes/${quizId}`, {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${token}` },
@@ -378,6 +393,7 @@ export default function QuizzesAdminPage() {
           </Card>
         )}
       </div>
+{dialog}
     </div>
   );
 }

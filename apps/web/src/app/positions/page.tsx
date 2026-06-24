@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
+import { toast } from '@/components/ui/Toast';
 import { api } from '@/lib/api';
 
 interface Position {
@@ -25,6 +27,7 @@ interface Course {
 
 export default function PositionsPage() {
   const { t } = useT();
+    const { confirm, dialog } = useConfirm();
   const [positions, setPositions] = useState<Position[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
@@ -100,7 +103,12 @@ export default function PositionsPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Удалить должность?')) return;
+        const ok = await confirm({
+      title: t('dialogs.confirmDeletePosition'),
+      variant: 'danger',
+      confirmLabel: t('dialogs.delete'),
+    });
+    if (!ok) return;
     await api.delete(`/v1/positions/${id}`);
     fetchPositions();
   };
@@ -121,7 +129,7 @@ export default function PositionsPage() {
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ detail: 'Ошибка анализа' }));
-        alert(err.detail || 'Ошибка анализа');
+        toast.error(t('common.saveFailed'), { description: err.detail || 'Ошибка анализа' });
         return;
       }
       const data = await res.json();
@@ -132,7 +140,7 @@ export default function PositionsPage() {
       if (data.requirements) setRequirements(data.requirements);
       setShowCreate(true);
     } catch (err) {
-      alert('Не удалось проанализировать файл');
+      toast.error(t('common.saveFailed'), { description: 'Не удалось проанализировать файл' });
     } finally {
       setAnalyzing(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -265,6 +273,7 @@ export default function PositionsPage() {
           ))}
         </div>
       )}
+{dialog}
     </div>
   );
 }

@@ -5,6 +5,8 @@ import { useParams } from 'next/navigation';
 import { Card, CardHeader, CardTitle, CardContent, Button } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
+import { toast } from '@/components/ui/Toast';
+import { useRouter } from 'next/navigation';
 import { CheckCircle2, ChevronRight, ChevronLeft, Clock, AlertTriangle } from 'lucide-react';
 
 interface Lesson {
@@ -50,6 +52,7 @@ export default function CoursePlayerPage() {
   const params = useParams();
   const courseId = params?.id as string;
   const { t } = useT();
+  const router = useRouter();
   const [course, setCourse] = useState<Course | null>(null);
   const [modules, setModules] = useState<Module[]>([]);
   const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
@@ -167,10 +170,12 @@ export default function CoursePlayerPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       });
-      if (res.ok) setEnrolled(true);
-      else {
+      if (res.ok) {
+        setEnrolled(true);
+        toast.success(t('toast.enrollSuccess'));
+      } else {
         const err = await res.json();
-        alert(err.detail || 'Не удалось записаться');
+        toast.error(t('toast.enrollError'), { description: err.detail });
       }
     } finally {
       setEnrolling(false);
@@ -199,8 +204,8 @@ export default function CoursePlayerPage() {
           method: 'POST',
           headers: { Authorization: `Bearer ${token}` },
         });
-        alert('Курс пройден! Поздравляем!');
-        window.location.href = '/courses';
+        toast.success(t('toast.courseCompleted'));
+        router.push('/courses');
       } catch {}
     }
   };
@@ -236,11 +241,11 @@ export default function CoursePlayerPage() {
           headers: { Authorization: `Bearer ${token}` },
         });
       } catch {}
-      alert('Курс пройден! Поздравляем!');
-      window.location.href = '/courses';
+      toast.success(t('toast.courseCompleted'));
+      router.push('/courses');
     } else {
       // Not all lessons done — go back to courses
-      window.location.href = '/courses';
+      router.push('/courses');
     }
   };
 

@@ -29,7 +29,11 @@
     "active": "Active",
     "inactive": "Inactive",
     "enabled": "Enabled",
-    "disabled": "Disabled"
+    "disabled": "Disabled",
+    "saving": "Saving...",
+    "loadFailed": "Failed to load",
+    "saveFailed": "Failed to save",
+    "saved": "Saved"
   },
   "nav": {
     "home": "Home",
@@ -257,7 +261,15 @@
     "language": "Interface Language",
     "theme": "Theme",
     "dark": "Dark",
-    "light": "Light"
+    "light": "Light",
+    "saved": "Settings saved",
+    "saveError": "Could not save settings",
+    "loadError": "Could not load profile",
+    "languageHelp": "Choose interface language",
+    "languageChanged": "Language changed: {lang}",
+    "telegram": "Telegram",
+    "notLinked": "Not linked",
+    "passwordHelp": "Contact your administrator to change password"
   },
   "onboarding": {
     "welcome": {
@@ -294,5 +306,44 @@
       "message": "Congratulations! Your organization is set up. Start creating courses and inviting employees.",
       "start": "Start Working"
     }
+  },
+  "topbar": {
+    "notifications": "Notifications",
+    "noNotifications": "No notifications",
+    "commandPalette": "Open command palette"
+  },
+  "dialogs": {
+    "delete": "Delete",
+    "cancel": "Cancel",
+    "confirmDeleteCourse": "Delete course? This action cannot be undone.",
+    "confirmDeleteAssignment": "Delete assignment?",
+    "confirmDeleteModule": "Delete module with all lessons?",
+    "confirmDeleteLesson": "Delete lesson?",
+    "confirmDeleteDocument": "Delete document?",
+    "confirmDeleteQuestion": "Delete question?",
+    "confirmDeleteQuiz": "Delete quiz with all questions?",
+    "confirmDeletePosition": "Delete position?",
+    "confirmUnenrollUser": "Unenroll user from course?"
+  },
+  "toast": {
+    "courseCreated": "Course created",
+    "courseDeleted": "Course deleted",
+    "documentUploaded": "Document uploaded",
+    "documentDeleted": "Document deleted",
+    "userCreated": "User created",
+    "positionAssigned": "Position assigned",
+    "enrollSuccess": "Enrolled",
+    "enrollError": "Could not enroll",
+    "courseCompleted": "Course complete! Congratulations!",
+    "generationStarted": "Course generation started",
+    "generationCancelled": "Generation cancelled"
+  },
+  "pipeline": {
+    "ingestion": "Processing documents",
+    "architect": "Designing structure",
+    "content_generation": "Generating content",
+    "review": "Quality review",
+    "assessment": "Generating quizzes",
+    "saving": "Saving"
   }
 }

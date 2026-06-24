@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, Button, Badge, Input, Table } from '@/components/ui';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
+import { toast } from '@/components/ui/Toast';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
 
@@ -28,6 +30,7 @@ interface Enrollment {
 
 export default function EnrollmentsPage() {
   const { t } = useT();
+  const { confirm, dialog } = useConfirm();
   const [courses, setCourses] = useState<Course[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [selectedCourse, setSelectedCourse] = useState<string>('');
@@ -89,12 +92,23 @@ export default function EnrollmentsPage() {
   };
 
   const handleUnenroll = async (enrollmentId: string) => {
-    if (!confirm('От записаться пользователя?')) return;
-    await fetch(`${API_URL}/v1/courses/enrollments/${enrollmentId}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` },
+    const ok = await confirm({
+      title: t('dialogs.confirmUnenrollUser'),
+      variant: 'danger',
+      confirmLabel: t('dialogs.delete'),
     });
-    fetchEnrollments(selectedCourse);
+    if (!ok) return;
+    try {
+      const res = await fetch(`${API_URL}/v1/courses/enrollments/${enrollmentId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error('Unenroll failed');
+      toast.success(t('toast.courseDeleted'));
+      fetchEnrollments(selectedCourse);
+    } catch (err: any) {
+      toast.error(t('common.saveFailed'), { description: err?.message });
+    }
   };
 
   const toggleUser = (userId: string) => {
@@ -211,6 +225,8 @@ export default function EnrollmentsPage() {
           </CardContent>
         </Card>
       </div>
+
+      {dialog}
     </div>
   );
 }

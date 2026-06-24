@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, Button, Badge, Input } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
+import { toast } from '@/components/ui/Toast';
 import { api } from '@/lib/api';
 import { CheckCircle2, Trash2, UserPlus } from 'lucide-react';
 
@@ -33,6 +35,7 @@ interface Assignment {
 
 export default function QuizAssignPage() {
   const { t } = useT();
+    const { confirm, dialog } = useConfirm();
   const token = useAuthStore((s) => s.accessToken);
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -70,18 +73,28 @@ export default function QuizAssignPage() {
         user_ids: selectedUsers,
         due_date: dueDate || null,
       });
-      alert(`Назначено: ${res.data.created}, пропущено (уже есть): ${res.data.skipped}`);
+      toast.success(
+        t('toast.positionAssigned'),
+        { description: `Назначено: ${res.data.created}, пропущено: ${res.data.skipped}` }
+      );
       setSelectedUsers([]);
       fetchData();
-    } catch (e) {
-      alert('Ошибка назначения');
+    } catch (err: any) {
+      toast.error(t('common.saveFailed'), {
+        description: err?.response?.data?.detail || err?.message,
+      });
     } finally {
       setAssigning(false);
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Удалить назначение?')) return;
+        const ok = await confirm({
+      title: t('dialogs.confirmDeleteAssignment'),
+      variant: 'danger',
+      confirmLabel: t('dialogs.delete'),
+    });
+    if (!ok) return;
     await api.delete(`/v1/quiz-assignments/${id}`);
     fetchData();
   };
@@ -196,6 +209,7 @@ export default function QuizAssignPage() {
           )}
         </CardContent>
       </Card>
+{dialog}
     </div>
   );
 }
