@@ -23,6 +23,7 @@ from app.modules.enrollments.router import router as enrollments_router, stats_r
 from app.modules.progress.router import router as progress_router
 from app.modules.documents.router import router as documents_router
 from app.modules.quizzes.router import router as quizzes_router
+from app.modules.quizzes.assignment_router import router as quiz_assignments_router
 from app.modules.certificates.router import router as certificates_router
 from app.modules.student.router import router as student_router
 from app.modules.audit.router import router as audit_router
@@ -92,6 +93,7 @@ app.include_router(enrollments_stats_router, prefix=f"{settings.API_PREFIX}", ta
 app.include_router(progress_router, prefix=f"{settings.API_PREFIX}", tags=["progress"])
 app.include_router(documents_router, prefix=f"{settings.API_PREFIX}", tags=["documents"])
 app.include_router(quizzes_router, prefix=f"{settings.API_PREFIX}", tags=["quizzes"])
+app.include_router(quiz_assignments_router, prefix=f"{settings.API_PREFIX}", tags=["quiz-assignments"])
 app.include_router(certificates_router, prefix=f"{settings.API_PREFIX}", tags=["certificates"])
 app.include_router(student_router, prefix=f"{settings.API_PREFIX}", tags=["student"])
 app.include_router(audit_router, prefix=f"{settings.API_PREFIX}", tags=["audit"])

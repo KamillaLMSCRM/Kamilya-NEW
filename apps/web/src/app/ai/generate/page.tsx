@@ -64,7 +64,23 @@ export default function AIGeneratePage() {
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => { fetchDocuments(); }, []);
+  useEffect(() => { fetchDocuments(); restoreActiveJob(); }, []);
+
+  const restoreActiveJob = async () => {
+    const savedJobId = localStorage.getItem('ai_active_job_id');
+    if (!savedJobId) return;
+    try {
+      const res = await api.get(`/v1/ai/jobs/${savedJobId}`);
+      if (res.data.status === 'running' || res.data.status === 'pending') {
+        setCurrentJob(res.data);
+        setStep('generate');
+      } else {
+        localStorage.removeItem('ai_active_job_id');
+      }
+    } catch {
+      localStorage.removeItem('ai_active_job_id');
+    }
+  };
 
   const fetchDocuments = async () => {
     try {
@@ -112,6 +128,7 @@ export default function AIGeneratePage() {
         language,
       });
       setCurrentJob(res.data);
+      localStorage.setItem('ai_active_job_id', res.data.id);
       setStep('generate');
     } catch (e) {
       console.error('Generation failed', e);
@@ -126,7 +143,10 @@ export default function AIGeneratePage() {
         const res = await api.get(`/v1/ai/jobs/${currentJob.id}`);
         setCurrentJob(res.data);
         if (res.data.status === 'completed') {
+          localStorage.removeItem('ai_active_job_id');
           setStep('review');
+        } else if (res.data.status === 'failed') {
+          localStorage.removeItem('ai_active_job_id');
         }
       } catch {}
     }, 3000);

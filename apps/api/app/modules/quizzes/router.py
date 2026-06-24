@@ -93,6 +93,16 @@ async def submit_quiz(
             answers=answers_dicts,
             time_spent_seconds=req.time_spent_seconds,
         )
+        # Update quiz assignment status if exists
+        try:
+            from app.modules.quizzes.assignment_service import update_assignment_status
+            await update_assignment_status(
+                db, quiz_id, user.id, user.tenant_id,
+                result["attempt"]["score_percent"],
+                result["passed"],
+            )
+        except Exception:
+            pass
         return QuizResultResponse(**result)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
