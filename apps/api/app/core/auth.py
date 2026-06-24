@@ -67,7 +67,7 @@ async def get_current_user(
             from sqlalchemy import text
             await db.execute(text("SELECT set_current_tenant(:tid)"), {"tid": tenant_id})
         except Exception:
-            pass  # RLS not available, rely on ORM filtering
+            pass  # Fallback: rely on ORM filtering if RLS not available
 
     result = await db.execute(select(User).where(User.id == UUID(user_id)))
     user = result.scalar_one_or_none()

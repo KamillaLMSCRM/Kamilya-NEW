@@ -1,17 +1,24 @@
 from datetime import datetime, timedelta, timezone
 from uuid import UUID, uuid4
+import hashlib
 
 import argon2
-from sqlalchemy import select
+from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import HTTPException, status
 
-from app.core.auth import create_access_token, create_refresh_token
+from app.core.auth import create_access_token, create_refresh_token, decode_token
+from app.models.tenants import Tenant
 from app.models.users import User
 from app.models.user_roles import UserRole
 from app.models.user_sessions import UserSession
 
 ph = argon2.PasswordHasher()
+
+
+def _hash_token(token: str) -> str:
+    """SHA-256 hash for storing refresh tokens."""
+    return hashlib.sha256(token.encode()).hexdigest()
 
 
 async def _get_user_roles(db: AsyncSession, user_id: UUID, tenant_id: UUID) -> list[str]:
@@ -69,7 +76,19 @@ async def create_user_and_tokens(
 
 
 async def authenticate_user(db: AsyncSession, email: str, password: str) -> tuple[User, str, str]:
-    result = await db.execute(select(User).where(User.email == email))
+    # Scope to tenant via email domain to prevent cross-tenant login
+    email_domain = email.split("@")[-1] if "@" in email else ""
+    tenant_result = await db.execute(select(Tenant).where(Tenant.slug == email_domain))
+    tenant = tenant_result.scalar_one_or_none()
+
+    if tenant:
+        result = await db.execute(
+            select(User).where(User.email == email, User.tenant_id == tenant.id)
+        )
+    else:
+        # Fallback: no tenant match (legacy users)
+        result = await db.execute(select(User).where(User.email == email))
+
     user = result.scalar_one_or_none()
     if not user or not user.password_hash:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
@@ -101,15 +120,12 @@ async def authenticate_user(db: AsyncSession, email: str, password: str) -> tupl
 
 
 async def refresh_access_token(db: AsyncSession, refresh_token: str) -> str:
-    from app.core.auth import decode_token
-
     payload = decode_token(refresh_token)
     if payload.get("type") != "refresh":
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
     user_id = UUID(payload["sub"])
-    session = (await db.execute(select(UserSession).where(UserSession.refresh_token == refresh_token))).scalar_one_or_none()
-    if not session or session.expires_at < datetime.now(timezone.utc):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token expired")
+
+    # Stateless refresh: verify JWT is valid and user exists
     user = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
     if not user or not user.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
@@ -126,9 +142,8 @@ async def refresh_access_token(db: AsyncSession, refresh_token: str) -> str:
 
 
 async def blacklist_refresh_token(db: AsyncSession, refresh_token: str) -> None:
-    """Delete the session (fully invalidate the refresh token)."""
-    from sqlalchemy import delete
+    """Delete the session by hashed token lookup."""
+    token_hash = _hash_token(refresh_token)
     await db.execute(
-        delete(UserSession)
-        .where(UserSession.refresh_token == refresh_token)
+        delete(UserSession).where(UserSession.refresh_token == token_hash)
     )

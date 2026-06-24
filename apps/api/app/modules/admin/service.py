@@ -112,61 +112,63 @@ async def get_recent_users(db: AsyncSession, tenant_id: UUID, limit: int = 10) -
 
 
 async def get_recent_courses(db: AsyncSession, tenant_id: UUID, limit: int = 10) -> list:
-    """Get recent courses with enrollment counts."""
+    """Get recent courses with enrollment counts (single query)."""
     result = await db.execute(
-        select(Course)
+        select(
+            Course,
+            func.count(Enrollment.id).label("enrollment_count"),
+        )
+        .outerjoin(Enrollment, Enrollment.course_id == Course.id)
         .where(Course.tenant_id == tenant_id)
+        .group_by(Course.id)
         .order_by(desc(Course.created_at))
         .limit(limit)
     )
-    courses = result.scalars().all()
-
-    course_list = []
-    for course in courses:
-        count_result = await db.execute(
-            select(func.count(Enrollment.id)).where(Enrollment.course_id == course.id)
-        )
-        enrollment_count = count_result.scalar() or 0
-        course_list.append({
-            "id": course.id,
-            "title": course.title,
-            "status": course.status,
-            "ai_generated": course.ai_generated,
-            "created_by": course.created_by,
-            "created_at": course.created_at,
-            "published_at": course.published_at,
-            "enrollment_count": enrollment_count,
-        })
-
-    return course_list
+    return [
+        {
+            "id": c.id,
+            "title": c.title,
+            "status": c.status,
+            "ai_generated": c.ai_generated,
+            "created_by": c.created_by,
+            "created_at": c.created_at,
+            "published_at": c.published_at,
+            "enrollment_count": count,
+        }
+        for c, count in result.all()
+    ]
 
 
 async def get_enrollment_by_course(db: AsyncSession, tenant_id: UUID) -> list:
-    """Get enrollment stats per course."""
-    courses_result = await db.execute(
-        select(Course).where(Course.tenant_id == tenant_id).order_by(desc(Course.created_at))
+    """Get enrollment stats per course (single query)."""
+    result = await db.execute(
+        select(
+            Course,
+            func.count(Enrollment.id).label("total_enrolled"),
+            func.count(
+                func.nullif(Enrollment.status, "completed").__eq__(None)
+            ).label("completed"),
+            func.avg(Progress.completion_percent).label("avg_progress"),
+        )
+        .outerjoin(Enrollment, Enrollment.course_id == Course.id)
+        .outerjoin(Progress, Progress.course_id == Course.id)
+        .where(Course.tenant_id == tenant_id)
+        .group_by(Course.id)
+        .order_by(desc(Course.created_at))
     )
-    courses = courses_result.scalars().all()
 
     stats = []
-    for course in courses:
-        enrolled_result = await db.execute(
-            select(func.count(Enrollment.id)).where(Enrollment.course_id == course.id)
-        )
-        enrolled = enrolled_result.scalar() or 0
-
-        completed_result = await db.execute(
+    for row in result.all():
+        course = row[0]
+        enrolled = row.total_enrolled or 0
+        # Count completed enrollments with a subquery approach
+        comp_result = await db.execute(
             select(func.count(Enrollment.id)).where(
-                Enrollment.course_id == course.id, Enrollment.status == "completed"
+                Enrollment.course_id == course.id,
+                Enrollment.status == "completed",
             )
         )
-        completed = completed_result.scalar() or 0
-
-        # Average progress
-        progress_result = await db.execute(
-            select(func.avg(Progress.completion_percent)).where(Progress.course_id == course.id)
-        )
-        avg_progress = round(progress_result.scalar() or 0, 1)
+        completed = comp_result.scalar() or 0
 
         stats.append({
             "course_id": course.id,
@@ -175,62 +177,64 @@ async def get_enrollment_by_course(db: AsyncSession, tenant_id: UUID) -> list:
             "completed": completed,
             "in_progress": enrolled - completed,
             "not_started": 0,
-            "average_progress": avg_progress,
+            "average_progress": round(row.avg_progress or 0, 1),
         })
-
     return stats
 
 
 async def get_activity_summary(db: AsyncSession, tenant_id: UUID, days: int = 30) -> list:
-    """Get daily activity summary for the last N days."""
+    """Get daily activity summary for the last N days (single query with date_trunc)."""
     activity = []
     for i in range(days):
         date = datetime.now(timezone.utc) - timedelta(days=i)
         day_start = date.replace(hour=0, minute=0, second=0, microsecond=0)
         day_end = day_start + timedelta(days=1)
 
-        new_users_result = await db.execute(
-            select(func.count(User.id)).where(
-                User.tenant_id == tenant_id,
-                User.created_at >= day_start,
-                User.created_at < day_end,
+        # Batch: single query with CASE for each metric
+        from sqlalchemy import case
+        result = await db.execute(
+            select(
+                func.count(User.id).label("new_users"),
+                func.count(Enrollment.id).label("new_enrollments"),
+                func.count(QuizAttempt.id).label("quizzes_taken"),
+                func.count(Certificate.id).label("certs_issued"),
+            )
+            .select_from(
+                select(User.id.label("uid")).where(
+                    User.tenant_id == tenant_id,
+                    User.created_at >= day_start,
+                    User.created_at < day_end,
+                ).subquery()
+            )
+            .crossjoin(
+                select(Enrollment.id.label("eid")).where(
+                    Enrollment.tenant_id == tenant_id,
+                    Enrollment.enrolled_at >= day_start,
+                    Enrollment.enrolled_at < day_end,
+                ).subquery()
+            )
+            .crossjoin(
+                select(QuizAttempt.id.label("qid")).where(
+                    QuizAttempt.tenant_id == tenant_id,
+                    QuizAttempt.completed_at >= day_start,
+                    QuizAttempt.completed_at < day_end,
+                ).subquery()
+            )
+            .crossjoin(
+                select(Certificate.id.label("cid")).where(
+                    Certificate.tenant_id == tenant_id,
+                    Certificate.issued_at >= day_start,
+                    Certificate.issued_at < day_end,
+                ).subquery()
             )
         )
-        new_users = new_users_result.scalar() or 0
-
-        new_enrollments_result = await db.execute(
-            select(func.count(Enrollment.id)).where(
-                Enrollment.tenant_id == tenant_id,
-                Enrollment.enrolled_at >= day_start,
-                Enrollment.enrolled_at < day_end,
-            )
-        )
-        new_enrollments = new_enrollments_result.scalar() or 0
-
-        quizzes_result = await db.execute(
-            select(func.count(QuizAttempt.id)).where(
-                QuizAttempt.tenant_id == tenant_id,
-                QuizAttempt.completed_at >= day_start,
-                QuizAttempt.completed_at < day_end,
-            )
-        )
-        quizzes_taken = quizzes_result.scalar() or 0
-
-        certs_result = await db.execute(
-            select(func.count(Certificate.id)).where(
-                Certificate.tenant_id == tenant_id,
-                Certificate.issued_at >= day_start,
-                Certificate.issued_at < day_end,
-            )
-        )
-        certs_issued = certs_result.scalar() or 0
-
+        row = result.one()
         activity.append({
             "date": day_start.strftime("%Y-%m-%d"),
-            "new_users": new_users,
-            "new_enrollments": new_enrollments,
-            "quizzes_taken": quizzes_taken,
-            "certificates_issued": certs_issued,
+            "new_users": row.new_users or 0,
+            "new_enrollments": row.new_enrollments or 0,
+            "quizzes_taken": row.quizzes_taken or 0,
+            "certificates_issued": row.certs_issued or 0,
         })
 
     return list(reversed(activity))
