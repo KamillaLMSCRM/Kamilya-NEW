@@ -84,7 +84,7 @@ export default function DashboardPage() {
           <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
         </svg>
       ),
-      color: 'bg-blue-500/10 text-blue-600',
+      color: 'bg-primary/10 text-primary',
     },
     {
       label: t('dashboard.completedCourses'),
@@ -96,7 +96,7 @@ export default function DashboardPage() {
           <polyline points="22 4 12 14.01 9 11.01" />
         </svg>
       ),
-      color: 'bg-emerald-500/10 text-emerald-600',
+      color: 'bg-success/15 text-success',
     },
     {
       label: t('dashboard.aiGenerations'),
@@ -108,7 +108,7 @@ export default function DashboardPage() {
           <circle cx="12" cy="15" r="2" />
         </svg>
       ),
-      color: 'bg-gold-500/10 text-gold-600',
+      color: 'bg-accent/15 text-accent',
     },
     {
       label: t('dashboard.employees'),
@@ -124,16 +124,16 @@ export default function DashboardPage() {
           <path d="M16 3.13a4 4 0 0 1 0 7.75" />
         </svg>
       ),
-      color: 'bg-violet-500/10 text-violet-600',
+      color: 'bg-accent/15 text-accent-foreground',
     },
   ];
 
   const kanbanColumns = [
-    { key: 'queued', label: t('dashboard.kanban.queued'), color: 'bg-warm-300' },
-    { key: 'ingesting', label: t('dashboard.kanban.ingesting'), color: 'bg-gold-500' },
+    { key: 'queued', label: t('dashboard.kanban.queued'), color: 'bg-muted-foreground/40' },
+    { key: 'ingesting', label: t('dashboard.kanban.ingesting'), color: 'bg-accent' },
     { key: 'architecting', label: t('dashboard.kanban.architecting'), color: 'bg-primary' },
-    { key: 'generating', label: t('dashboard.kanban.generating'), color: 'bg-blue-500' },
-    { key: 'reviewing', label: t('dashboard.kanban.reviewing'), color: 'bg-violet-500' },
+    { key: 'generating', label: t('dashboard.kanban.generating'), color: 'bg-info' },
+    { key: 'reviewing', label: t('dashboard.kanban.reviewing'), color: 'bg-accent' },
   ];
 
   return (
@@ -141,14 +141,14 @@ export default function DashboardPage() {
       {/* Welcome */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-warm-800 font-display">
+          <h1 className="text-2xl font-bold text-foreground font-display">
             {t('dashboard.welcome')}, {user?.full_name?.split(' ')[0] || ''}
           </h1>
-          <p className="mt-1 text-sm text-warm-400">{t('dashboard.subtitle')}</p>
+          <p className="mt-1 text-sm text-muted-foreground">{t('dashboard.subtitle')}</p>
         </div>
         <Link
           href="/ai/generate"
-          className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-white hover:bg-primary/90 transition-colors shadow-sm"
+          className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors shadow-sm"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="M12 5v14M5 12h14" />
@@ -162,7 +162,7 @@ export default function DashboardPage() {
         {statCards.map((stat, i) => (
           <div
             key={stat.label}
-            className={`group relative rounded-2xl border border-warm-100 bg-white p-5 shadow-card hover:shadow-card-hover transition-all duration-300 animate-fade-up stagger-${i + 1}`}
+            className={`group relative rounded-2xl border border-border bg-card p-5 shadow-card hover:shadow-card-hover transition-all duration-300 animate-fade-up stagger-${i + 1}`}
             style={{ opacity: 0, animationFillMode: 'forwards' }}
           >
             <div className="flex items-start justify-between">
@@ -171,11 +171,11 @@ export default function DashboardPage() {
               </div>
             </div>
             <div className="mt-4">
-              <div className="text-2xl font-bold text-warm-800 font-display">{stat.value}</div>
-              <div className="text-sm text-warm-400 mt-0.5">{stat.label}</div>
+              <div className="text-2xl font-bold text-foreground font-display">{stat.value}</div>
+              <div className="text-sm text-muted-foreground mt-0.5">{stat.label}</div>
             </div>
             {stat.delta && (
-              <div className="mt-2 text-[11px] text-warm-400">{stat.delta}</div>
+              <div className="mt-2 text-[11px] text-muted-foreground">{stat.delta}</div>
             )}
           </div>
         ))}
@@ -183,7 +183,7 @@ export default function DashboardPage() {
 
       {/* Kanban pipeline */}
       <div>
-        <h2 className="text-lg font-bold text-warm-800 font-display mb-4">{t('dashboard.aiPipeline')}</h2>
+        <h2 className="text-lg font-bold text-foreground font-display mb-4">{t('dashboard.aiPipeline')}</h2>
         <div className="flex gap-4 overflow-x-auto pb-4">
           {kanbanColumns.map((col) => {
             const jobs = pipelineJobs.filter((j) => {
@@ -197,25 +197,25 @@ export default function DashboardPage() {
 
             return (
               <div key={col.key} className="kanban-col">
-                <div className="flex items-center gap-2 px-4 py-3 border-b border-warm-100">
+                <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
                   <span className={`h-2 w-2 rounded-full ${col.color}`} aria-hidden="true" />
-                  <span className="text-xs font-semibold text-warm-600 uppercase tracking-wider">{col.label}</span>
-                  <span className="ml-auto rounded-full bg-warm-100 px-2 py-0.5 text-[10px] font-semibold text-warm-500">
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{col.label}</span>
+                  <span className="ml-auto rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
                     {jobs.length}
                   </span>
                 </div>
                 <div className="scroll-inner">
                   {jobs.length === 0 ? (
-                    <div className="rounded-xl border border-dashed border-warm-200 p-4 text-center text-xs text-warm-300">
+                    <div className="rounded-xl border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
                       {t('dashboard.kanban.empty')}
                     </div>
                   ) : (
                     jobs.map((job) => (
                       <div key={job.id} className="kanban-card">
-                        <div className="text-sm font-medium text-warm-800 truncate">
+                        <div className="text-sm font-medium text-foreground truncate">
                           {job.course_title || job.id.slice(0, 8)}
                         </div>
-                        <div className="mt-1 text-[11px] text-warm-400">
+                        <div className="mt-1 text-[11px] text-muted-foreground">
                           {new Date(job.created_at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
                         </div>
                       </div>
@@ -231,7 +231,7 @@ export default function DashboardPage() {
       {/* Recent courses */}
       <div>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-bold text-warm-800 font-display">{t('dashboard.lastCourses')}</h2>
+          <h2 className="text-lg font-bold text-foreground font-display">{t('dashboard.lastCourses')}</h2>
           <Link href="/courses" className="flex items-center gap-1 text-sm text-primary hover:text-primary/80 transition-colors">
             {t('dashboard.allCourses')} <ChevronRight className="w-4 h-4" aria-hidden="true" />
           </Link>
@@ -241,26 +241,26 @@ export default function DashboardPage() {
             <Link
               key={course.id}
               href={`/courses/${course.id}`}
-              className="group block rounded-2xl border border-warm-100 bg-white overflow-hidden shadow-card hover:shadow-card-hover transition-all duration-300 hover:-translate-y-1"
+              className="group block rounded-2xl border border-border bg-card overflow-hidden shadow-card hover:shadow-card-hover transition-all duration-300 hover:-translate-y-1"
             >
               {/* Gradient header */}
-              <div className="h-24 bg-gradient-to-br from-primary/20 via-primary/10 to-gold-500/10 p-4 flex items-end">
-                <span className="text-xs font-medium text-primary bg-white/80 backdrop-blur-sm rounded-full px-2.5 py-1">
+              <div className="h-24 bg-gradient-to-br from-primary/20 via-primary/10 to-accent/10 p-4 flex items-end">
+                <span className="text-xs font-medium text-primary bg-card/80 backdrop-blur-sm rounded-full px-2.5 py-1">
                   {course.status === 'published' ? t('courses.published') : t('courses.draft')}
                 </span>
               </div>
               <div className="p-4">
-                <h3 className="text-sm font-bold text-warm-800 group-hover:text-primary transition-colors truncate">
+                <h3 className="text-sm font-bold text-foreground group-hover:text-primary transition-colors truncate">
                   {course.title}
                 </h3>
                 {course.description && (
-                  <p className="mt-1 text-xs text-warm-400 line-clamp-2">{course.description}</p>
+                  <p className="mt-1 text-xs text-muted-foreground line-clamp-2">{course.description}</p>
                 )}
               </div>
             </Link>
           ))}
           {recentCourses.length === 0 && (
-            <div className="col-span-full rounded-2xl border border-dashed border-warm-200 p-8 text-center text-sm text-warm-400">
+            <div className="col-span-full rounded-2xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
               {t('dashboard.noCoursesHint')}{' '}
               <Link href="/ai/generate" className="text-primary hover:underline">
                 {t('dashboard.aiGeneration')}

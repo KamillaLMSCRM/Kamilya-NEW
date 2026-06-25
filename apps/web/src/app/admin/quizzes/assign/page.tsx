@@ -117,11 +117,11 @@ export default function QuizAssignPage() {
           </h3>
 
           <div>
-            <label className="text-sm text-warm-500 mb-1 block">Тест</label>
+            <label className="text-sm text-muted-foreground mb-1 block">Тест</label>
             <select
               value={selectedQuiz}
               onChange={(e) => setSelectedQuiz(e.target.value)}
-              className="w-full rounded-xl border border-warm-200 px-3 py-2.5 text-sm outline-none focus:border-primary"
+              className="w-full rounded-xl border border-border px-3 py-2.5 text-sm outline-none focus:border-primary"
             >
               <option value="">Выберите тест</option>
               {quizzes.map(q => (
@@ -131,23 +131,23 @@ export default function QuizAssignPage() {
           </div>
 
           <div>
-            <label className="text-sm text-warm-500 mb-1 block">Сотрудники ({selectedUsers.length} выбрано)</label>
-            <div className="max-h-48 overflow-y-auto border border-warm-200 rounded-xl p-2 space-y-1">
+            <label className="text-sm text-muted-foreground mb-1 block">Сотрудники ({selectedUsers.length} выбрано)</label>
+            <div className="max-h-48 overflow-y-auto border border-border rounded-xl p-2 space-y-1">
               {users.length === 0 && (
-                <p className="text-sm text-warm-400">Нет сотрудников</p>
+                <p className="text-sm text-muted-foreground">Нет сотрудников</p>
               )}
               {users.map(u => (
                 <label
                   key={u.id}
                   className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-colors ${
-                    selectedUsers.includes(u.id) ? 'bg-primary/5 border border-primary/20' : 'hover:bg-warm-50'
+                    selectedUsers.includes(u.id) ? 'bg-primary/5 border border-primary/20' : 'hover:bg-muted'
                   }`}
                 >
                   <input
                     type="checkbox"
                     checked={selectedUsers.includes(u.id)}
                     onChange={() => toggleUser(u.id)}
-                    className="h-4 w-4 rounded border-warm-300 text-primary"
+                    className="h-4 w-4 rounded border-border text-primary"
                   />
                   <span className="text-sm">{u.full_name}</span>
                 </label>
@@ -156,7 +156,7 @@ export default function QuizAssignPage() {
           </div>
 
           <div>
-            <label className="text-sm text-warm-500 mb-1 block">Срок сдачи (опционально)</label>
+            <label className="text-sm text-muted-foreground mb-1 block">Срок сдачи (опционально)</label>
             <Input
               type="datetime-local"
               value={dueDate}
@@ -178,20 +178,20 @@ export default function QuizAssignPage() {
         <CardContent className="p-4 space-y-3">
           <h3 className="font-semibold">Текущие назначения ({assignments.length})</h3>
           {assignments.length === 0 ? (
-            <p className="text-sm text-warm-400">Нет назначений</p>
+            <p className="text-sm text-muted-foreground">Нет назначений</p>
           ) : (
             <div className="space-y-2">
               {assignments.map(a => (
-                <div key={a.id} className="flex items-center gap-3 p-3 rounded-xl border border-warm-100">
+                <div key={a.id} className="flex items-center gap-3 p-3 rounded-xl border border-border">
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium text-warm-800 truncate">{a.quiz_title}</div>
-                    <div className="text-xs text-warm-400">{a.user_name}</div>
+                    <div className="text-sm font-medium text-foreground truncate">{a.quiz_title}</div>
+                    <div className="text-xs text-muted-foreground">{a.user_name}</div>
                   </div>
                   <Badge variant={a.status === 'completed' ? 'default' : 'outline'}>
                     {a.status === 'completed' ? `${a.score_percent}%` : a.status}
                   </Badge>
                   {a.due_date && (
-                    <span className="text-xs text-warm-400">
+                    <span className="text-xs text-muted-foreground">
                       до {new Date(a.due_date).toLocaleDateString('ru-RU')}
                     </span>
                   )}
@@ -199,7 +199,7 @@ export default function QuizAssignPage() {
                     variant="ghost"
                     size="sm"
                     onClick={() => handleDelete(a.id)}
-                    className="text-warm-400 hover:text-red-500"
+                    className="text-muted-foreground hover:text-destructive"
                   >
                     <Trash2 className="w-4 h-4" />
                   </Button>

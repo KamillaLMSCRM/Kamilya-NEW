@@ -128,8 +128,8 @@ export default function AdminKiosksPage() {
     <div className="p-6 max-w-6xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-warm-800">🖥️ Киоски для цехов</h1>
-          <p className="text-sm text-warm-500 mt-1">
+          <h1 className="text-2xl font-bold text-foreground">🖥️ Киоски для цехов</h1>
+          <p className="text-sm text-muted-foreground mt-1">
             Создайте общую ссылку для киоска в цехе. Распечатайте QR-код и повесьте на стену —
             сотрудники вводят табельный номер и проходят назначенные курсы на общем устройстве.
           </p>
@@ -142,9 +142,9 @@ export default function AdminKiosksPage() {
       <Card>
         <CardContent className="p-0">
           {loading ? (
-            <div className="p-6 text-warm-400">Загрузка...</div>
+            <div className="p-6 text-muted-foreground">Загрузка...</div>
           ) : kiosks.length === 0 ? (
-            <div className="p-8 text-center text-warm-400">
+            <div className="p-8 text-center text-muted-foreground">
               <div className="text-4xl mb-2">🏭</div>
               <p>Киосков пока нет. Создайте первый для вашего цеха.</p>
             </div>
@@ -164,42 +164,42 @@ export default function AdminKiosksPage() {
                 {kiosks.map((k) => (
                   <tr key={k.id} className="border-t">
                     <td className="p-3">
-                      <div className="font-medium text-warm-800">{k.name}</div>
+                      <div className="font-medium text-foreground">{k.name}</div>
                       <div className="flex items-center gap-1 mt-1">
                         <input
                           readOnly
                           value={k.kiosk_url}
                           onClick={(e) => (e.target as HTMLInputElement).select()}
-                          className="flex-1 max-w-md rounded border border-warm-200 px-2 py-0.5 text-[10px] font-mono bg-warm-50"
+                          className="flex-1 max-w-md rounded border border-border px-2 py-0.5 text-[10px] font-mono bg-muted"
                         />
                         <button
                           type="button"
                           onClick={() => copyKioskUrl(k.kiosk_url)}
-                          className="text-xs px-2 py-0.5 rounded border border-warm-200 hover:bg-warm-50"
+                          className="text-xs px-2 py-0.5 rounded border border-border hover:bg-muted"
                           title="Скопировать"
                         >
                           📋
                         </button>
                       </div>
                     </td>
-                    <td className="p-3 text-warm-500 text-sm">
-                      {k.location || <span className="text-warm-300">—</span>}
+                    <td className="p-3 text-muted-foreground text-sm">
+                      {k.location || <span className="text-muted-foreground">—</span>}
                     </td>
                     <td className="p-3 text-sm">
                       {k.scope_position_name ? (
                         <Badge variant="outline">{k.scope_position_name}</Badge>
                       ) : (
-                        <span className="text-warm-400 text-xs">любая должность</span>
+                        <span className="text-muted-foreground text-xs">любая должность</span>
                       )}
                     </td>
                     <td className="p-3">
                       {k.is_active ? (
-                        <Badge variant="default" className="bg-emerald-100 text-emerald-700">Активен</Badge>
+                        <Badge variant="default" className="bg-success/15 text-success">Активен</Badge>
                       ) : (
                         <Badge variant="outline">Отключён</Badge>
                       )}
                     </td>
-                    <td className="p-3 text-warm-500 text-xs">
+                    <td className="p-3 text-muted-foreground text-xs">
                       {new Date(k.created_at).toLocaleDateString('ru-RU')}
                     </td>
                     <td className="p-3 text-right">
@@ -207,14 +207,14 @@ export default function AdminKiosksPage() {
                         <button
                           type="button"
                           onClick={() => handleToggleActive(k)}
-                          className="text-xs px-2 py-1 rounded border border-warm-200 hover:bg-warm-50"
+                          className="text-xs px-2 py-1 rounded border border-border hover:bg-muted"
                         >
                           {k.is_active ? 'Отключить' : 'Включить'}
                         </button>
                         <button
                           type="button"
                           onClick={() => handleDelete(k)}
-                          className="text-xs px-2 py-1 rounded border border-red-200 text-red-500 hover:bg-red-50"
+                          className="text-xs px-2 py-1 rounded border border-destructive/40 text-destructive hover:bg-destructive/10"
                         >
                           Удалить
                         </button>
@@ -235,7 +235,7 @@ export default function AdminKiosksPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <label className="block">
-              <span className="block text-xs font-semibold text-warm-500 mb-1">Название *</span>
+              <span className="block text-xs font-semibold text-muted-foreground mb-1">Название *</span>
               <Input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
@@ -244,22 +244,22 @@ export default function AdminKiosksPage() {
               />
             </label>
             <label className="block">
-              <span className="block text-xs font-semibold text-warm-500 mb-1">Локация (опционально)</span>
+              <span className="block text-xs font-semibold text-muted-foreground mb-1">Локация (опционально)</span>
               <Input
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
                 placeholder="Цех №1, Алматы, ул. Промышленная 5"
               />
-              <span className="block text-[11px] text-warm-500 mt-1">
+              <span className="block text-[11px] text-muted-foreground mt-1">
                 Где физически стоит киоск (планшет). Для вашего учёта.
               </span>
             </label>
             <label className="block">
-              <span className="block text-xs font-semibold text-warm-500 mb-1">Ограничить по должности</span>
+              <span className="block text-xs font-semibold text-muted-foreground mb-1">Ограничить по должности</span>
               <select
                 value={scopePositionId}
                 onChange={(e) => setScopePositionId(e.target.value)}
-                className="w-full rounded-xl border border-warm-200 px-3 py-2 text-sm bg-white"
+                className="w-full rounded-xl border border-border px-3 py-2 text-sm bg-card"
               >
                 <option value="">Не ограничивать (любой сотрудник тенанта)</option>
                 {positions.map((p) => (
@@ -268,13 +268,13 @@ export default function AdminKiosksPage() {
                   </option>
                 ))}
               </select>
-              <span className="block text-[11px] text-warm-500 mt-1">
+              <span className="block text-[11px] text-muted-foreground mt-1">
                 Если выбрать должность — только сотрудники этой должности смогут войти на киоск.
                 Оставьте пустым для общего киоска (ТБ инструктаж для всех).
               </span>
             </label>
             {createError && (
-              <div className="rounded-lg border border-red-200 bg-red-50 p-2 text-sm text-red-700">
+              <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-2 text-sm text-destructive">
                 {createError}
               </div>
             )}

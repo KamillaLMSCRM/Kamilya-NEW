@@ -20,13 +20,13 @@ export function LanguageSwitcher() {
       <label htmlFor="lang-select" className="sr-only">
         Language
       </label>
-      <div className="flex items-center gap-2 rounded-xl border border-warm-200 bg-warm-50 px-2.5 py-1.5 text-sm text-warm-700 hover:border-warm-300 transition-colors">
-        <Globe className="w-4 h-4 text-warm-400" aria-hidden="true" />
+      <div className="flex items-center gap-2 rounded-xl border border-border bg-muted px-2.5 py-1.5 text-sm text-foreground hover:border-foreground/20 transition-colors">
+        <Globe className="w-4 h-4 text-muted-foreground" aria-hidden="true" />
         <select
           id="lang-select"
           value={lang}
           onChange={(e) => setLang(e.target.value as Locale)}
-          className="bg-transparent text-sm font-medium text-warm-700 outline-none cursor-pointer pr-1"
+          className="bg-transparent text-sm font-medium text-foreground outline-none cursor-pointer pr-1"
           aria-label="Select language"
         >
           {locales.map((l) => (

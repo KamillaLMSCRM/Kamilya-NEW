@@ -190,7 +190,7 @@ export default function QuizzesAdminPage() {
             />
             <div className="grid grid-cols-3 gap-3">
               <div>
-                <label className="text-sm text-gray-500">{t('quiz.passScore')}</label>
+                <label className="text-sm text-muted-foreground">{t('quiz.passScore')}</label>
                 <Input
                   type="number"
                   value={newQuiz.pass_score}
@@ -198,7 +198,7 @@ export default function QuizzesAdminPage() {
                 />
               </div>
               <div>
-                <label className="text-sm text-gray-500">{t('quiz.timeLeft')} (мин)</label>
+                <label className="text-sm text-muted-foreground">{t('quiz.timeLeft')} (мин)</label>
                 <Input
                   type="number"
                   placeholder="∞"
@@ -207,7 +207,7 @@ export default function QuizzesAdminPage() {
                 />
               </div>
               <div>
-                <label className="text-sm text-gray-500">Лимит попыток</label>
+                <label className="text-sm text-muted-foreground">Лимит попыток</label>
                 <Input
                   type="number"
                   value={newQuiz.attempt_limit}
@@ -247,7 +247,7 @@ export default function QuizzesAdminPage() {
                 {quizzes.map((q) => (
                   <div
                     key={q.id}
-                    className={`p-2 rounded cursor-pointer text-sm ${selectedQuiz?.id === q.id ? 'bg-blue-50' : 'hover:bg-gray-50'}`}
+                    className={`p-2 rounded cursor-pointer text-sm ${selectedQuiz?.id === q.id ? 'bg-primary/10' : 'hover:bg-muted'}`}
                     onClick={() => setSelectedQuiz(q)}
                   >
                     {q.title}
@@ -277,7 +277,7 @@ export default function QuizzesAdminPage() {
                   <div>{t('quiz.timeLeft')}: <strong>{selectedQuiz.time_limit ? `${selectedQuiz.time_limit} мин` : '∞'}</strong></div>
                   <div>Попыток: <strong>{selectedQuiz.attempt_limit}</strong></div>
                 </div>
-                <div className="text-sm text-gray-500">
+                <div className="text-sm text-muted-foreground">
                   {selectedQuiz.questions.length} вопросов · {selectedQuiz.questions.reduce((a, q) => a + q.points, 0)} баллов
                 </div>
               </CardContent>
@@ -293,7 +293,7 @@ export default function QuizzesAdminPage() {
               </div>
 
               {showAddQuestion && (
-                <Card className="border-blue-200">
+                <Card className="border-primary/40">
                   <CardContent className="p-4 space-y-3">
                     <Input
                       placeholder="Текст вопроса"
@@ -365,13 +365,13 @@ export default function QuizzesAdminPage() {
                         </div>
                         <div className="ml-8 space-y-1">
                           {q.choices.map((c) => (
-                            <div key={c.id} className={`flex items-center gap-1 text-sm ${c.is_correct ? 'text-green-600 font-medium' : 'text-gray-600'}`}>
+                            <div key={c.id} className={`flex items-center gap-1 text-sm ${c.is_correct ? 'text-success font-medium' : 'text-muted-foreground'}`}>
                               {c.is_correct ? <CheckCircle2 className="w-4 h-4" /> : <Circle className="w-4 h-4" />} {c.text}
                             </div>
                           ))}
                         </div>
                         {q.explanation && (
-                          <div className="ml-8 mt-2 flex items-center gap-1 text-xs text-blue-600">
+                          <div className="ml-8 mt-2 flex items-center gap-1 text-xs text-primary">
                             <Lightbulb className="w-4 h-4" /> {q.explanation}
                           </div>
                         )}
@@ -387,7 +387,7 @@ export default function QuizzesAdminPage() {
           </div>
         ) : (
           <Card className="lg:col-span-2">
-            <CardContent className="p-8 text-center text-gray-400">
+            <CardContent className="p-8 text-center text-muted-foreground">
               Загрузите тест по ID или создайте новый
             </CardContent>
           </Card>

@@ -81,7 +81,7 @@ export default function DemoLoginPage() {
         </div>
 
         {error && (
-          <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-lg text-sm" role="alert">
+          <div className="mb-4 p-3 bg-destructive/10 text-destructive rounded-lg text-sm" role="alert">
             {error}
           </div>
         )}

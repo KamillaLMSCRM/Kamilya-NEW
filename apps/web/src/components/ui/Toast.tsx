@@ -27,10 +27,10 @@ interface ToastOptions {
 }
 
 const ICONS: Record<ToastVariant, ReactNode> = {
-  success: <CheckCircle2 className="w-5 h-5 text-emerald-600" />,
-  error: <XCircle className="w-5 h-5 text-red-600" />,
-  warning: <AlertTriangle className="w-5 h-5 text-amber-600" />,
-  info: <Info className="w-5 h-5 text-blue-600" />,
+  success: <CheckCircle2 className="w-5 h-5 text-success" />,
+  error: <XCircle className="w-5 h-5 text-destructive" />,
+  warning: <AlertTriangle className="w-5 h-5 text-warning" />,
+  info: <Info className="w-5 h-5 text-primary" />,
 };
 
 class Toast {
@@ -88,11 +88,11 @@ export function Toaster() {
       closeButton
       toastOptions={{
         classNames: {
-          toast: 'group toast group-[.toaster]:bg-white group-[.toaster]:text-warm-800 group-[.toaster]:border-warm-200 group-[.toaster]:shadow-card-lg',
-          description: 'group-[.toast]:text-warm-500',
-          actionButton: 'group-[.toast]:bg-primary group-[.toast]:text-white',
-          cancelButton: 'group-[.toast]:bg-warm-100 group-[.toast]:text-warm-600',
-          closeButton: 'group-[.toast]:bg-warm-50 group-[.toast]:text-warm-500',
+          toast: 'group toast group-[.toaster]:bg-card group-[.toaster]:text-card-foreground group-[.toaster]:border-border group-[.toaster]:shadow-card-lg',
+          description: 'group-[.toast]:text-muted-foreground',
+          actionButton: 'group-[.toast]:bg-primary group-[.toast]:text-primary-foreground',
+          cancelButton: 'group-[.toast]:bg-muted group-[.toast]:text-muted-foreground',
+          closeButton: 'group-[.toast]:bg-muted group-[.toast]:text-muted-foreground',
         },
       }}
       icons={{

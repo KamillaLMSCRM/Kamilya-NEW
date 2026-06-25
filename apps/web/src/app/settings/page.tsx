@@ -83,21 +83,21 @@ export default function SettingsPage() {
 
   return (
     <div className="max-w-2xl space-y-6">
-      <h1 className="text-2xl font-bold text-warm-800 font-display">{t('settings.title')}</h1>
+      <h1 className="text-2xl font-bold text-foreground font-display">{t('settings.title')}</h1>
 
       {/* Profile */}
       <Card>
         <CardContent className="p-6 space-y-4">
-          <h2 className="text-lg font-semibold text-warm-800">{t('settings.profile')}</h2>
+          <h2 className="text-lg font-semibold text-foreground">{t('settings.profile')}</h2>
           {loading ? (
-            <div className="flex items-center gap-2 text-sm text-warm-400">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
               {t('common.loading')}
             </div>
           ) : (
             <>
               <div>
-                <label htmlFor="settings-first-name" className="text-sm font-medium text-warm-700 mb-1 block">
+                <label htmlFor="settings-first-name" className="text-sm font-medium text-foreground mb-1 block">
                   {t('auth.firstName')}
                 </label>
                 <Input
@@ -107,7 +107,7 @@ export default function SettingsPage() {
                 />
               </div>
               <div>
-                <label htmlFor="settings-last-name" className="text-sm font-medium text-warm-700 mb-1 block">
+                <label htmlFor="settings-last-name" className="text-sm font-medium text-foreground mb-1 block">
                   {t('auth.lastName')}
                 </label>
                 <Input
@@ -117,7 +117,7 @@ export default function SettingsPage() {
                 />
               </div>
               <div>
-                <label htmlFor="settings-email" className="text-sm font-medium text-warm-700 mb-1 block">
+                <label htmlFor="settings-email" className="text-sm font-medium text-foreground mb-1 block">
                   {t('auth.email')}
                 </label>
                 <Input
@@ -138,8 +138,8 @@ export default function SettingsPage() {
       {/* Language */}
       <Card>
         <CardContent className="p-6 space-y-4">
-          <h2 className="text-lg font-semibold text-warm-800">{t('settings.language')}</h2>
-          <p className="text-sm text-warm-500">{t('settings.languageHelp')}</p>
+          <h2 className="text-lg font-semibold text-foreground">{t('settings.language')}</h2>
+          <p className="text-sm text-muted-foreground">{t('settings.languageHelp')}</p>
           <div className="flex gap-2" role="radiogroup" aria-label={t('settings.language')}>
             {locales.map((l) => {
               const active = lang === l;
@@ -162,7 +162,7 @@ export default function SettingsPage() {
                     'flex-1 rounded-xl border px-4 py-2.5 text-sm font-medium transition-colors ' +
                     (active
                       ? 'border-primary bg-primary/10 text-primary'
-                      : 'border-warm-200 bg-white text-warm-700 hover:border-warm-300')
+                      : 'border-border bg-card text-foreground hover:border-border')
                   }
                 >
                   {active && <CheckCircle2 className="inline w-4 h-4 mr-1.5" aria-hidden="true" />}
@@ -177,13 +177,13 @@ export default function SettingsPage() {
       {/* Security */}
       <Card>
         <CardContent className="p-6 space-y-4">
-          <h2 className="text-lg font-semibold text-warm-800">{t('settings.security')}</h2>
-          <div className="text-sm text-warm-600 space-y-1">
+          <h2 className="text-lg font-semibold text-foreground">{t('settings.security')}</h2>
+          <div className="text-sm text-foreground space-y-1">
             <p>
               <span className="font-medium">{t('settings.telegram')}:</span>{' '}
               {user?.telegram_id || t('settings.notLinked')}
             </p>
-            <p className="text-warm-500">{t('settings.passwordHelp')}</p>
+            <p className="text-muted-foreground">{t('settings.passwordHelp')}</p>
           </div>
         </CardContent>
       </Card>

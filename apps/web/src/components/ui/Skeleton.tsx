@@ -11,7 +11,7 @@ interface SkeletonProps {
 }
 
 export function Skeleton({ className, variant = 'text', width, height }: SkeletonProps) {
-  const baseStyles = "animate-pulse rounded-md bg-gray-200";
+  const baseStyles = "animate-pulse rounded-md bg-muted";
   
   const variantStyles = {
     text: height ? '' : 'h-4 w-full',

@@ -64,8 +64,8 @@ export default function MyCoursesPage() {
               onClick={() => setFilter(f)}
               className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
                 filter === f
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted text-muted-foreground hover:bg-muted/70'
               }`}
             >
               {f === 'all' ? t('common.all') : f === 'active' ? t('student.inProgress') : t('student.completed')}
@@ -76,7 +76,7 @@ export default function MyCoursesPage() {
 
       {filteredCourses.length === 0 ? (
         <Card>
-          <CardContent className="py-12 text-center text-gray-500">
+          <CardContent className="py-12 text-center text-muted-foreground">
             {filter === 'all'
               ? t('student.noCourses')
               : filter === 'active'
@@ -92,22 +92,22 @@ export default function MyCoursesPage() {
                 <div className="flex items-start justify-between mb-2">
                   <h3 className="font-medium line-clamp-2">{course.title}</h3>
                   {course.progress_percent === 100 && (
-                    <Badge className="flex items-center gap-1 bg-green-100 text-green-700">
+                    <Badge className="flex items-center gap-1 bg-success/15 text-success">
                       <CheckCircle2 className="w-3 h-3" />
                     </Badge>
                   )}
                 </div>
 
-                <p className="text-sm text-gray-500 mb-3 line-clamp-2">{course.description}</p>
+                <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{course.description}</p>
 
                 <div className="mb-3">
-                  <div className="flex justify-between text-xs text-gray-500 mb-1">
+                  <div className="flex justify-between text-xs text-muted-foreground mb-1">
                     <span>{course.completed_lessons}/{course.total_lessons} уроков</span>
                     <span>{course.progress_percent}%</span>
                   </div>
-                  <div className="h-2 bg-gray-200 rounded">
+                  <div className="h-2 bg-muted rounded">
                     <div
-                      className="h-2 bg-blue-600 rounded transition-all"
+                      className="h-2 bg-primary rounded transition-all"
                       style={{ width: `${course.progress_percent}%` }}
                     />
                   </div>

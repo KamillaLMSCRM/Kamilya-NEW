@@ -201,7 +201,7 @@ export default function QuizPlayerPage() {
   const gradedAnswers = result?.attempt.answers || [];
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-muted">
       <div className="max-w-3xl mx-auto p-6 space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -216,8 +216,8 @@ export default function QuizPlayerPage() {
                 className={
                   'text-lg px-3 py-1 rounded-md font-mono ' +
                   (timeLeft < 60
-                    ? 'bg-red-100 text-red-700'
-                    : 'bg-warm-100 text-warm-700')
+                    ? 'bg-destructive/15 text-destructive'
+                    : 'bg-muted text-foreground')
                 }
               >
                 {formatTime(timeLeft)}
@@ -233,13 +233,13 @@ export default function QuizPlayerPage() {
 
         {/* Results Summary */}
         {result && (
-          <Card className={result.passed ? 'border-green-500 bg-green-50' : 'border-red-500 bg-red-50'}>
+          <Card className={result.passed ? 'border-success bg-success/10' : 'border-destructive bg-destructive/10'}>
             <CardContent className="p-6 text-center space-y-3">
-              <div className={`${result.passed ? 'text-green-500' : 'text-red-500'}`}>
+              <div className={`${result.passed ? 'text-success' : 'text-destructive'}`}>
                 {result.passed ? <CheckCircle2 className="w-12 h-12 mx-auto" /> : <XCircle className="w-12 h-12 mx-auto" />}
               </div>
               <p className="text-lg font-semibold">{result.message}</p>
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-muted-foreground">
                 {result.correct_answers} / {result.total_questions} {t('quiz.correct')} · {result.attempt.score_percent}%
               </p>
               <div className="flex gap-3 justify-center mt-4">
@@ -268,10 +268,10 @@ export default function QuizPlayerPage() {
                   onClick={() => setCurrentIdx(i)}
                   className={`w-9 h-9 rounded-full text-sm font-medium border transition-colors ${
                     i === currentIdx
-                      ? 'bg-blue-600 text-white border-blue-600'
+                      ? 'bg-primary text-white border-primary'
                       : selected
-                      ? 'bg-blue-100 text-blue-700 border-blue-300'
-                      : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400'
+                      ? 'bg-primary/15 text-primary border-primary/40'
+                      : 'bg-card text-foreground border-border hover:border-primary/70'
                   }`}
                 >
                   {i + 1}
@@ -286,12 +286,12 @@ export default function QuizPlayerPage() {
           <Card>
             <CardContent className="p-6 space-y-4">
               <div className="flex items-start gap-2">
-                <span className="text-sm text-gray-500 shrink-0">
+                <span className="text-sm text-muted-foreground shrink-0">
                   {currentIdx + 1}/{totalQuestions}
                 </span>
                 <p className="font-medium">{currentQ.text}</p>
               </div>
-              <p className="text-xs text-gray-400">
+              <p className="text-xs text-muted-foreground">
                 {t('quiz.points')}: {currentQ.points} · {currentQ.type}
               </p>
               <div className="space-y-2">
@@ -301,7 +301,7 @@ export default function QuizPlayerPage() {
                     <label
                       key={choice.id}
                       className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                        isSelected ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:bg-gray-50'
+                        isSelected ? 'border-primary bg-primary/10' : 'border-border hover:bg-muted'
                       }`}
                     >
                       <input
@@ -328,15 +328,15 @@ export default function QuizPlayerPage() {
               const graded = gradedAnswers.find((a) => a.question_id === q.id);
               const isCorrect = graded?.is_correct ?? false;
               return (
-                <Card key={q.id} className={isCorrect ? 'border-green-300' : 'border-red-300'}>
+                <Card key={q.id} className={isCorrect ? 'border-success/40' : 'border-destructive/40'}>
                   <CardContent className="p-4 space-y-3">
                     <div className="flex items-start gap-2">
-                      <span className={`shrink-0 ${isCorrect ? 'text-green-600' : 'text-red-600'}`}>
+                      <span className={`shrink-0 ${isCorrect ? 'text-success' : 'text-destructive'}`}>
                         {isCorrect ? <CheckCircle2 className="w-5 h-5" /> : <XCircle className="w-5 h-5" />}
                       </span>
                       <div>
                         <p className="font-medium">{i + 1}. {q.text}</p>
-                        <p className="text-xs text-gray-400">{q.points} {t('quiz.points')}</p>
+                        <p className="text-xs text-muted-foreground">{q.points} {t('quiz.points')}</p>
                       </div>
                     </div>
                     <div className="space-y-1 ml-8">
@@ -345,7 +345,7 @@ export default function QuizPlayerPage() {
                         const isCorrectChoice = graded?.correct_choice_ids.includes(c.id) ?? false;
                         return (
                           <div key={c.id} className={`flex items-center gap-2 text-sm py-1 px-2 rounded ${
-                            isCorrectChoice ? 'bg-green-100 text-green-800' : wasSelected ? 'bg-red-100 text-red-800' : 'text-gray-600'
+                            isCorrectChoice ? 'bg-success/15 text-success' : wasSelected ? 'bg-destructive/15 text-destructive' : 'text-muted-foreground'
                           }`}>
                             <span>
                               {isCorrectChoice ? <CheckCircle2 className="w-4 h-4" /> : wasSelected ? <XCircle className="w-4 h-4" /> : <Circle className="w-4 h-4" />}
@@ -356,7 +356,7 @@ export default function QuizPlayerPage() {
                       })}
                     </div>
                     {q.explanation && (
-                      <div className="ml-8 mt-2 flex items-center gap-2 p-3 bg-blue-50 text-sm text-blue-800 rounded">
+                      <div className="ml-8 mt-2 flex items-center gap-2 p-3 bg-primary/10 text-sm text-primary rounded">
                         <Lightbulb className="w-4 h-4 shrink-0" /> {q.explanation}
                       </div>
                     )}
@@ -377,7 +377,7 @@ export default function QuizPlayerPage() {
             >
               {t('quiz.previous')}
             </Button>
-            <span className="text-sm text-gray-500">
+            <span className="text-sm text-muted-foreground">
               {answeredCount}/{totalQuestions}
             </span>
             {currentIdx < totalQuestions - 1 ? (
@@ -406,10 +406,10 @@ export default function QuizPlayerPage() {
                     <Badge variant={a.passed ? 'default' : 'outline'}>
                       {a.score_percent}%
                     </Badge>
-                    <span className={`flex items-center gap-1 ${a.passed ? 'text-green-600' : 'text-red-600'}`}>
+                    <span className={`flex items-center gap-1 ${a.passed ? 'text-success' : 'text-destructive'}`}>
                       {a.passed ? <CheckCircle2 className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
                     </span>
-                    <span className="text-gray-500">
+                    <span className="text-muted-foreground">
                       {new Date(a.started_at).toLocaleDateString('ru-RU')}
                     </span>
                   </div>

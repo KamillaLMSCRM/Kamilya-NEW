@@ -47,9 +47,9 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  not_started: 'bg-warm-100 text-warm-500',
-  in_progress: 'bg-amber-100 text-amber-700',
-  completed: 'bg-emerald-100 text-emerald-700',
+  not_started: 'bg-muted text-muted-foreground',
+  in_progress: 'bg-warning/15 text-warning',
+  completed: 'bg-success/15 text-success',
 };
 
 export default function KioskPage() {
@@ -122,7 +122,7 @@ export default function KioskPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-warm-50">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
       </div>
     );
@@ -132,12 +132,12 @@ export default function KioskPage() {
     const reason = kiosk?.reason_if_invalid || 'kiosk_not_found';
     const label = REASON_LABELS[reason] || 'Киоск недоступен';
     return (
-      <div className="min-h-screen flex items-center justify-center bg-warm-50 p-4">
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <Card className="max-w-md w-full">
           <CardContent className="pt-8 text-center space-y-4">
             <div className="text-5xl">⚠️</div>
-            <h1 className="text-xl font-bold text-warm-800">Киоск недоступен</h1>
-            <p className="text-sm text-warm-600">{label}</p>
+            <h1 className="text-xl font-bold text-foreground">Киоск недоступен</h1>
+            <p className="text-sm text-muted-foreground">{label}</p>
           </CardContent>
         </Card>
       </div>
@@ -147,7 +147,7 @@ export default function KioskPage() {
   // ── After identify: show user's courses ──
   if (result) {
     return (
-      <div className="min-h-screen bg-warm-50 p-4">
+      <div className="min-h-screen bg-background p-4">
         <div className="max-w-2xl mx-auto space-y-4 py-6">
           {/* User header */}
           <Card>
@@ -157,10 +157,10 @@ export default function KioskPage() {
                   {result.user.first_name[0]}{result.user.last_name[0]}
                 </div>
                 <div className="flex-1">
-                  <div className="text-xl font-bold text-warm-800">
+                  <div className="text-xl font-bold text-foreground">
                     {result.user.first_name} {result.user.last_name}
                   </div>
-                  <div className="text-sm text-warm-500">
+                  <div className="text-sm text-muted-foreground">
                     Табельный №: <span className="font-mono">{result.user.personnel_number}</span>
                     {result.user.position_name && (
                       <span className="ml-2">· {result.user.position_name}</span>
@@ -170,7 +170,7 @@ export default function KioskPage() {
                 <button
                   type="button"
                   onClick={handleBack}
-                  className="rounded-xl border border-warm-200 px-3 py-1.5 text-sm text-warm-500 hover:bg-warm-50"
+                  className="rounded-xl border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted"
                 >
                   Сменить
                 </button>
@@ -185,7 +185,7 @@ export default function KioskPage() {
             </CardHeader>
             <CardContent>
               {result.courses.length === 0 ? (
-                <p className="text-sm text-warm-500 text-center py-6">
+                <p className="text-sm text-muted-foreground text-center py-6">
                   Курсы не назначены. Обратитесь к HR.
                 </p>
               ) : (
@@ -194,13 +194,13 @@ export default function KioskPage() {
                     <a
                       key={c.course_id}
                       href={`/courses/${c.course_id}`}
-                      className="block rounded-lg border border-warm-200 p-3 hover:border-primary hover:bg-primary/5 transition-colors"
+                      className="block rounded-lg border border-border p-3 hover:border-primary hover:bg-primary/5 transition-colors"
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex-1 min-w-0">
-                          <div className="font-medium text-warm-800">{c.title}</div>
+                          <div className="font-medium text-foreground">{c.title}</div>
                           {c.description && (
-                            <div className="text-xs text-warm-500 mt-1 line-clamp-2">
+                            <div className="text-xs text-muted-foreground mt-1 line-clamp-2">
                               {c.description}
                             </div>
                           )}
@@ -216,7 +216,7 @@ export default function KioskPage() {
             </CardContent>
           </Card>
 
-          <p className="text-center text-xs text-warm-400">
+          <p className="text-center text-xs text-muted-foreground">
             {result.kiosk_name} · {result.kiosk_location || 'общий киоск'}
           </p>
         </div>
@@ -226,30 +226,30 @@ export default function KioskPage() {
 
   // ── Default: identify screen ──
   return (
-    <div className="min-h-screen flex items-center justify-center bg-warm-50 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="max-w-md w-full">
         <CardHeader>
           <div className="text-center space-y-2">
             <div className="text-5xl">🏭</div>
             <CardTitle>{kiosk.name}</CardTitle>
-            <div className="text-sm text-warm-500">
+            <div className="text-sm text-muted-foreground">
               {kiosk.tenant_name}
               {kiosk.location && <span className="block text-xs mt-0.5">{kiosk.location}</span>}
             </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <p className="text-center text-sm text-warm-600">
+          <p className="text-center text-sm text-muted-foreground">
             Введите ваш <strong>табельный номер</strong> чтобы увидеть назначенные курсы.
             {kiosk.scope_position_name && (
-              <span className="block text-xs text-amber-700 mt-1">
+              <span className="block text-xs text-warning mt-1">
                 Этот киоск только для должности: <strong>{kiosk.scope_position_name}</strong>
               </span>
             )}
           </p>
 
           <label className="block">
-            <span className="block text-xs font-semibold text-warm-500 mb-1">Табельный номер</span>
+            <span className="block text-xs font-semibold text-muted-foreground mb-1">Табельный номер</span>
             <Input
               value={personnelNumber}
               onChange={(e) => setPersonnelNumber(e.target.value)}
@@ -264,7 +264,7 @@ export default function KioskPage() {
           </label>
 
           {error && (
-            <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+            <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
               {error}
             </div>
           )}
@@ -277,7 +277,7 @@ export default function KioskPage() {
             {submitting ? 'Проверяю...' : 'Показать курсы'}
           </Button>
 
-          <p className="text-xs text-warm-400 text-center">
+          <p className="text-xs text-muted-foreground text-center">
             Киоск предназначен для общего пользования (планшет в цехе).
             Все входы регистрируются для аудита.
           </p>

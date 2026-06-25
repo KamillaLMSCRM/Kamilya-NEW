@@ -224,7 +224,7 @@ export default function AdminUsersPage() {
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-warm-800">{t('users.title')}</h1>
+        <h1 className="text-2xl font-bold text-foreground">{t('users.title')}</h1>
         <div className="flex gap-2">
           <Button
             variant="outline"
@@ -256,9 +256,9 @@ export default function AdminUsersPage() {
       <Card>
         <CardContent className="p-0">
           {loading ? (
-            <div className="p-6 text-warm-400">{t('users.loadingList')}</div>
+            <div className="p-6 text-muted-foreground">{t('users.loadingList')}</div>
           ) : users.length === 0 ? (
-            <div className="p-6 text-warm-400">{t('users.noUsersFound')}</div>
+            <div className="p-6 text-muted-foreground">{t('users.noUsersFound')}</div>
           ) : (
             <Table>
               <thead>
@@ -278,7 +278,7 @@ export default function AdminUsersPage() {
                     <td className="p-3 font-medium">
                       {user.first_name} {user.last_name}
                     </td>
-                    <td className="p-3 text-warm-500">{user.email}</td>
+                    <td className="p-3 text-muted-foreground">{user.email}</td>
                     <td className="p-3">
                       <label htmlFor={`role-${user.id}`} className="sr-only">
                         {t('users.changeRole')}
@@ -287,7 +287,7 @@ export default function AdminUsersPage() {
                         id={`role-${user.id}`}
                         value={user.role}
                         onChange={(e) => handleChangeRole(user.id, e.target.value)}
-                        className="border rounded px-2 py-1 text-sm bg-white"
+                        className="border rounded px-2 py-1 text-sm bg-card"
                       >
                         <option value="student">{t('users.roleStudent')}</option>
                         <option value="teacher">{t('users.roleTeacher')}</option>
@@ -312,7 +312,7 @@ export default function AdminUsersPage() {
                             });
                             setSelectedPositionId(user.position_id || '');
                           }}
-                          className="text-xs text-warm-400 hover:text-primary transition-colors"
+                          className="text-xs text-muted-foreground hover:text-primary transition-colors"
                         >
                           + {t('users.assignPosition')}
                         </button>
@@ -323,7 +323,7 @@ export default function AdminUsersPage() {
                         {user.is_active ? t('users.active') : t('users.blocked')}
                       </Badge>
                     </td>
-                    <td className="p-3 text-warm-500 text-sm">
+                    <td className="p-3 text-muted-foreground text-sm">
                       {new Date(user.created_at).toLocaleDateString(undefined)}
                     </td>
                     <td className="p-3 text-right">
@@ -331,7 +331,7 @@ export default function AdminUsersPage() {
                         type="button"
                         onClick={() => handleToggleActive(user.id, user.is_active)}
                         className={`text-sm hover:underline ${
-                          user.is_active ? 'text-red-500' : 'text-emerald-500'
+                          user.is_active ? 'text-destructive' : 'text-success'
                         }`}
                       >
                         {user.is_active ? t('users.block') : t('users.unblock')}
@@ -346,7 +346,7 @@ export default function AdminUsersPage() {
       </Card>
 
       <div className="flex justify-between items-center">
-        <span className="text-sm text-warm-500">
+        <span className="text-sm text-muted-foreground">
           {t('users.totalCount', { total })}
         </span>
         <div className="flex gap-2">
@@ -357,7 +357,7 @@ export default function AdminUsersPage() {
           >
             {t('users.prevPage')}
           </Button>
-          <span className="text-sm py-2 px-3 text-warm-700">
+          <span className="text-sm py-2 px-3 text-foreground">
             {t('users.page', { page })}
           </span>
           <Button
@@ -377,7 +377,7 @@ export default function AdminUsersPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <label className="block">
-            <span className="text-sm text-warm-700 mb-1 block">{t('users.email')}</span>
+            <span className="text-sm text-foreground mb-1 block">{t('users.email')}</span>
             <Input
               type="email"
               value={newUser.email}
@@ -385,25 +385,25 @@ export default function AdminUsersPage() {
             />
           </label>
           <label className="block">
-            <span className="text-sm text-warm-700 mb-1 block">{t('users.name')}</span>
+            <span className="text-sm text-foreground mb-1 block">{t('users.name')}</span>
             <Input
               value={newUser.first_name}
               onChange={(e) => setNewUser({ ...newUser, first_name: e.target.value })}
             />
           </label>
           <label className="block">
-            <span className="text-sm text-warm-700 mb-1 block">{t('users.surname')}</span>
+            <span className="text-sm text-foreground mb-1 block">{t('users.surname')}</span>
             <Input
               value={newUser.last_name}
               onChange={(e) => setNewUser({ ...newUser, last_name: e.target.value })}
             />
           </label>
           <label className="block">
-            <span className="text-sm text-warm-700 mb-1 block">{t('users.role')}</span>
+            <span className="text-sm text-foreground mb-1 block">{t('users.role')}</span>
             <select
               value={newUser.role}
               onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
-              className="w-full border border-warm-200 rounded-lg px-3 py-2 text-sm bg-white"
+              className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-card"
             >
               <option value="student">{t('users.roleStudent')}</option>
               <option value="teacher">{t('users.roleTeacher')}</option>
@@ -412,14 +412,14 @@ export default function AdminUsersPage() {
             </select>
           </label>
           <label className="block">
-            <span className="text-sm text-warm-700 mb-1 block">{t('users.password')}</span>
+            <span className="text-sm text-foreground mb-1 block">{t('users.password')}</span>
             <Input
               type="password"
               value={newUser.password}
               onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
             />
           </label>
-          {createError && <p className="text-sm text-red-500">{createError}</p>}
+          {createError && <p className="text-sm text-destructive">{createError}</p>}
           <Button onClick={handleCreate} className="w-full">
             {t('users.createButton')}
           </Button>
@@ -435,13 +435,13 @@ export default function AdminUsersPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <p className="text-sm text-warm-500">{t('users.assignPositionHint')}</p>
+            <p className="text-sm text-muted-foreground">{t('users.assignPositionHint')}</p>
             <label className="block">
               <span className="sr-only">{t('users.position')}</span>
               <select
                 value={selectedPositionId}
                 onChange={(e) => setSelectedPositionId(e.target.value)}
-                className="w-full border border-warm-200 rounded-lg px-3 py-2 text-sm bg-white"
+                className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-card"
               >
                 <option value="">{t('users.selectPosition')}</option>
                 {positions.map((p) => (
@@ -472,7 +472,7 @@ export default function AdminUsersPage() {
           <CardContent className="space-y-4">
             {!bulkResults ? (
               <>
-                <p className="text-sm text-warm-500">
+                <p className="text-sm text-muted-foreground">
                   Введите email-ы сотрудников по одному на строку, через запятую или пробел.
                   Имена будут запрошены у сотрудника при принятии приглашения.
                 </p>
@@ -481,16 +481,16 @@ export default function AdminUsersPage() {
                   onChange={(e) => setBulkEmails(e.target.value)}
                   rows={10}
                   placeholder={`ivanov@company.kz\npetrov@company.kz\nsidorov@company.kz`}
-                  className="w-full rounded-lg border border-warm-200 px-3 py-2 text-sm font-mono outline-none focus:border-primary resize-y"
+                  className="w-full rounded-lg border border-border px-3 py-2 text-sm font-mono outline-none focus:border-primary resize-y"
                 />
-                <div className="text-xs text-warm-500 space-y-0.5">
+                <div className="text-xs text-muted-foreground space-y-0.5">
                   <div>
-                    Распознано: <span className="font-semibold text-emerald-700">{parsedBulkEmails.valid.length}</span> корректных
+                    Распознано: <span className="font-semibold text-success">{parsedBulkEmails.valid.length}</span> корректных
                     {parsedBulkEmails.invalid.length > 0 && (
-                      <>, <span className="font-semibold text-amber-600">{parsedBulkEmails.invalid.length}</span> некорректных</>
+                      <>, <span className="font-semibold text-warning">{parsedBulkEmails.invalid.length}</span> некорректных</>
                     )}
                   </div>
-                  <div className="text-warm-400">
+                  <div className="text-muted-foreground">
                     Все приглашённые получат роль «Студент». Ссылка действительна 3 дня (настраивается).
                     Методолог копирует ссылку и отправляет сотруднику вручную (Slack, Telegram, почта).
                   </div>
@@ -514,9 +514,9 @@ export default function AdminUsersPage() {
               </>
             ) : (
               <>
-                <div className="rounded-lg border border-warm-200 bg-warm-50 p-3 text-sm">
-                  <div className="font-semibold text-warm-800 mb-1">Готово</div>
-                  <div className="space-y-0.5 text-warm-600">
+                <div className="rounded-lg border border-border bg-muted p-3 text-sm">
+                  <div className="font-semibold text-foreground mb-1">Готово</div>
+                  <div className="space-y-0.5 text-foreground">
                     {bulkResults.created.length > 0 && (
                       <div>✅ Создано приглашений: <strong>{bulkResults.created.length}</strong></div>
                     )}
@@ -530,23 +530,23 @@ export default function AdminUsersPage() {
                 </div>
                 {bulkResults.created.length > 0 && (
                   <>
-                    <div className="text-xs text-warm-500">
+                    <div className="text-xs text-muted-foreground">
                       Скопируйте ссылку и отправьте сотруднику. Срок действия — 3 дня.
                     </div>
-                    <div className="max-h-64 overflow-y-auto space-y-1.5 rounded-lg border border-warm-200 p-2">
+                    <div className="max-h-64 overflow-y-auto space-y-1.5 rounded-lg border border-border p-2">
                       {bulkResults.created.map((r) => (
                         <div key={r.invitation_id} className="flex items-center gap-2 text-xs">
-                          <span className="font-medium text-warm-800 shrink-0">{r.email}</span>
+                          <span className="font-medium text-foreground shrink-0">{r.email}</span>
                           <input
                             readOnly
                             value={r.invite_url}
-                            className="flex-1 min-w-0 rounded border border-warm-200 px-2 py-1 font-mono text-[10px] bg-warm-50"
+                            className="flex-1 min-w-0 rounded border border-border px-2 py-1 font-mono text-[10px] bg-muted"
                             onClick={(e) => (e.target as HTMLInputElement).select()}
                           />
                           <button
                             type="button"
                             onClick={() => copyInviteUrl(r.invite_url)}
-                            className="shrink-0 rounded border border-warm-200 px-2 py-1 text-xs hover:bg-warm-50"
+                            className="shrink-0 rounded border border-border px-2 py-1 text-xs hover:bg-muted"
                           >
                             📋
                           </button>
@@ -556,8 +556,8 @@ export default function AdminUsersPage() {
                   </>
                 )}
                 {(bulkResults.skipped_existing.length > 0 || bulkResults.invalid.length > 0) && (
-                  <details className="text-xs text-warm-500">
-                    <summary className="cursor-pointer hover:text-warm-700">
+                  <details className="text-xs text-muted-foreground">
+                    <summary className="cursor-pointer hover:text-foreground">
                       Подробности ({bulkResults.skipped_existing.length + bulkResults.invalid.length})
                     </summary>
                     <div className="mt-2 space-y-0.5 pl-3">

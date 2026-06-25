@@ -85,7 +85,7 @@ export default function RegisterPage() {
           <div>
             <label htmlFor="register-company" className="block text-sm font-medium mb-1">
               {t('auth.company') || 'Компания'}
-              <span aria-hidden="true" className="text-red-500 ml-0.5">*</span>
+              <span aria-hidden="true" className="text-destructive ml-0.5">*</span>
             </label>
             <Input
               id="register-company"
@@ -100,7 +100,7 @@ export default function RegisterPage() {
             <div>
               <label htmlFor="register-first-name" className="block text-sm font-medium mb-1">
                 {t('auth.firstName')}
-                <span aria-hidden="true" className="text-red-500 ml-0.5">*</span>
+                <span aria-hidden="true" className="text-destructive ml-0.5">*</span>
               </label>
               <Input
                 id="register-first-name"
@@ -114,7 +114,7 @@ export default function RegisterPage() {
             <div>
               <label htmlFor="register-last-name" className="block text-sm font-medium mb-1">
                 {t('auth.lastName')}
-                <span aria-hidden="true" className="text-red-500 ml-0.5">*</span>
+                <span aria-hidden="true" className="text-destructive ml-0.5">*</span>
               </label>
               <Input
                 id="register-last-name"
@@ -129,7 +129,7 @@ export default function RegisterPage() {
           <div>
             <label htmlFor="register-email" className="block text-sm font-medium mb-1">
               {t('auth.email')}
-              <span aria-hidden="true" className="text-red-500 ml-0.5">*</span>
+              <span aria-hidden="true" className="text-destructive ml-0.5">*</span>
             </label>
             <Input
               id="register-email"
@@ -144,7 +144,7 @@ export default function RegisterPage() {
           <div>
             <label htmlFor="register-password" className="block text-sm font-medium mb-1">
               {t('auth.passwordMin')}
-              <span aria-hidden="true" className="text-red-500 ml-0.5">*</span>
+              <span aria-hidden="true" className="text-destructive ml-0.5">*</span>
             </label>
             <Input
               id="register-password"

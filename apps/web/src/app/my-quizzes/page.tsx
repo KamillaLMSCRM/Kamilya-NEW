@@ -41,26 +41,26 @@ export default function MyQuizzesPage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <h1 className="text-2xl font-bold text-warm-800 font-display">{t('student.myQuizzes')}</h1>
+      <h1 className="text-2xl font-bold text-foreground font-display">{t('student.myQuizzes')}</h1>
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-4">
         <Card>
           <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-warm-800">{quizzes.length}</div>
-            <div className="text-xs text-warm-400">{t('student.totalQuizzes')}</div>
+            <div className="text-2xl font-bold text-foreground">{quizzes.length}</div>
+            <div className="text-xs text-muted-foreground">{t('student.totalQuizzes')}</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-amber-500">{pending.length}</div>
-            <div className="text-xs text-warm-400">{t('student.pendingQuizzes')}</div>
+            <div className="text-2xl font-bold text-warning">{pending.length}</div>
+            <div className="text-xs text-muted-foreground">{t('student.pendingQuizzes')}</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-emerald-500">{completed.length}</div>
-            <div className="text-xs text-warm-400">{t('student.passedQuizzes')}</div>
+            <div className="text-2xl font-bold text-success">{completed.length}</div>
+            <div className="text-xs text-muted-foreground">{t('student.passedQuizzes')}</div>
           </CardContent>
         </Card>
       </div>
@@ -68,27 +68,27 @@ export default function MyQuizzesPage() {
       {/* Pending */}
       {pending.length > 0 && (
         <div className="space-y-3">
-          <h2 className="text-lg font-semibold text-warm-800">{t('student.toComplete')}</h2>
+          <h2 className="text-lg font-semibold text-foreground">{t('student.toComplete')}</h2>
           {pending.map((q) => (
             <Card key={q.quiz_id}>
               <CardContent className="p-4 flex items-center gap-4">
                 {q.is_expired ? (
-                  <Lock className="w-5 h-5 text-red-400" aria-hidden="true" />
+                  <Lock className="w-5 h-5 text-destructive" aria-hidden="true" />
                 ) : (
-                  <Clock className="w-5 h-5 text-amber-500" aria-hidden="true" />
+                  <Clock className="w-5 h-5 text-warning" aria-hidden="true" />
                 )}
                 <div className="flex-1 min-w-0">
-                  <div className="font-medium text-warm-800 truncate">{q.quiz_title}</div>
-                  <div className="text-xs text-warm-400 flex items-center gap-1">
+                  <div className="font-medium text-foreground truncate">{q.quiz_title}</div>
+                  <div className="text-xs text-muted-foreground flex items-center gap-1">
                     <BookOpen className="w-3 h-3" aria-hidden="true" />
                     {q.module_title} → {q.lesson_title}
                   </div>
-                  <div className="text-xs text-warm-400">
+                  <div className="text-xs text-muted-foreground">
                     {t('quiz.passScore')}: {q.pass_score}% · {t('quiz.deferralDays')}: {q.deferral_days} {t('quiz.days')}
                     {q.attempts_count > 0 && ` · ${t('quiz.attempts')}: ${q.attempts_count}/${q.attempt_limit}`}
                   </div>
                   {q.is_expired && (
-                    <div className="text-xs text-red-500 mt-1">
+                    <div className="text-xs text-destructive mt-1">
                       {t('quiz.expiredHint', { days: q.deferral_days })}
                     </div>
                   )}
@@ -118,17 +118,17 @@ export default function MyQuizzesPage() {
       {/* Completed */}
       {completed.length > 0 && (
         <div className="space-y-3">
-          <h2 className="text-lg font-semibold text-warm-800">{t('student.completedQuizzes')}</h2>
+          <h2 className="text-lg font-semibold text-foreground">{t('student.completedQuizzes')}</h2>
           {completed.map((q) => (
             <Card key={q.quiz_id}>
               <CardContent className="p-4 flex items-center gap-4">
-                <CheckCircle2 className="w-5 h-5 text-emerald-500" aria-hidden="true" />
+                <CheckCircle2 className="w-5 h-5 text-success" aria-hidden="true" />
                 <div className="flex-1 min-w-0">
-                  <div className="font-medium text-warm-800 truncate">{q.quiz_title}</div>
-                  <div className="text-xs text-warm-400">
+                  <div className="font-medium text-foreground truncate">{q.quiz_title}</div>
+                  <div className="text-xs text-muted-foreground">
                     {q.module_title} → {q.lesson_title}
                   </div>
-                  <div className="text-xs text-warm-400">
+                  <div className="text-xs text-muted-foreground">
                     {t('student.passedOn')} {q.completed_at ? new Date(q.completed_at).toLocaleDateString('ru-RU') : ''}
                     {q.attempts_count > 0 && ` · ${t('quiz.attempts')}: ${q.attempts_count}`}
                   </div>
@@ -142,9 +142,9 @@ export default function MyQuizzesPage() {
 
       {quizzes.length === 0 && (
         <Card>
-          <CardContent className="p-8 text-center text-warm-400">
+          <CardContent className="p-8 text-center text-muted-foreground">
             <p>{t('student.noQuizzes') || 'У вас пока нет тестов.'}</p>
-            <Link href="/courses" className="text-blue-600 hover:underline text-sm mt-2 inline-block">
+            <Link href="/courses" className="text-primary hover:underline text-sm mt-2 inline-block">
               {t('student.browseCourses')}
             </Link>
           </CardContent>

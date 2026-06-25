@@ -69,13 +69,13 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-warm-50 flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <div
             className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent"
             aria-label={t('common.loading')}
           />
-          <p className="text-warm-400 text-sm">{t('common.loading')}</p>
+          <p className="text-muted-foreground text-sm">{t('common.loading')}</p>
         </div>
       </div>
     );
@@ -83,7 +83,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   return (
     <SidebarContext.Provider value={{ collapsed }}>
-      <div className="min-h-screen bg-warm-50 grain">
+      <div className="min-h-screen bg-background grain">
         <Sidebar collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} />
         <CommandPalette />
         <main

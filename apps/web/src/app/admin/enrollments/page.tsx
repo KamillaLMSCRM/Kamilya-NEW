@@ -144,11 +144,11 @@ export default function EnrollmentsPage() {
 
             {selectedCourse && (
               <>
-                <h3 className="font-medium text-sm text-gray-500">
+                <h3 className="font-medium text-sm text-muted-foreground">
                   {t('courses.enrollments')}: {enrollments.length}
                 </h3>
                 {enrollments.length === 0 ? (
-                  <p className="text-sm text-gray-400">{t('courses.noCourses')}</p>
+                  <p className="text-sm text-muted-foreground">{t('courses.noCourses')}</p>
                 ) : (
                   <Table>
                     <thead>
@@ -197,7 +197,7 @@ export default function EnrollmentsPage() {
                 {enrolling ? t('common.loading') : `${t('courses.enrollments')} (${selectedUsers.size})`}
               </Button>
             </div>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-muted-foreground">
               {selectedCourse ? `${t('common.all')}: ${users.length}` : t('courses.status')}
             </p>
             <div className="max-h-96 overflow-y-auto space-y-1">
@@ -205,7 +205,7 @@ export default function EnrollmentsPage() {
                 <label
                   key={user.id}
                   className={`flex items-center gap-3 p-2 rounded cursor-pointer ${
-                    selectedUsers.has(user.id) ? 'bg-blue-50' : 'hover:bg-gray-50'
+                    selectedUsers.has(user.id) ? 'bg-primary/10' : 'hover:bg-muted'
                   }`}
                 >
                   <input
@@ -217,7 +217,7 @@ export default function EnrollmentsPage() {
                   />
                   <div>
                     <div className="text-sm font-medium">{user.first_name} {user.last_name}</div>
-                    <div className="text-xs text-gray-500">{user.email}</div>
+                    <div className="text-xs text-muted-foreground">{user.email}</div>
                   </div>
                 </label>
               ))}

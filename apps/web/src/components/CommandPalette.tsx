@@ -85,8 +85,8 @@ export default function CommandPalette() {
             onClick={(e) => e.stopPropagation()}
           >
             {/* Search input */}
-            <div className="flex items-center gap-3 border-b border-warm-100 px-4 py-3">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-warm-400 shrink-0">
+            <div className="flex items-center gap-3 border-b border-border px-4 py-3">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground shrink-0">
                 <circle cx="11" cy="11" r="8" />
                 <path d="m21 21-4.3-4.3" />
               </svg>
@@ -95,11 +95,11 @@ export default function CommandPalette() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder={t('commandPalette.placeholder')}
-              className="flex-1 bg-transparent text-sm text-warm-800 placeholder:text-warm-400 outline-none"
+              className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none"
               autoFocus
               aria-label={t('commandPalette.placeholder')}
             />
-              <kbd className="rounded border border-warm-200 bg-warm-50 px-1.5 py-0.5 text-[10px] font-mono text-warm-400">
+              <kbd className="rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground">
                 esc
               </kbd>
             </div>
@@ -107,7 +107,7 @@ export default function CommandPalette() {
             {/* Results */}
             <div className="flex-1 overflow-y-auto p-2" role="listbox">
               {filtered.length === 0 ? (
-                <div className="px-4 py-8 text-center text-sm text-warm-400">
+                <div className="px-4 py-8 text-center text-sm text-muted-foreground">
                   {t('commandPalette.noResults')}
                 </div>
               ) : (
@@ -115,9 +115,9 @@ export default function CommandPalette() {
                   <button
                     key={item.href}
                     onClick={() => handleSelect(item.href!)}
-                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-warm-700 hover:bg-warm-50 transition-colors"
+                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-foreground hover:bg-muted transition-colors"
                   >
-                    <span className="text-warm-400">{item.icon}</span>
+                    <span className="text-muted-foreground">{item.icon}</span>
                     <span>{item.label}</span>
                   </button>
                 ))
@@ -125,17 +125,17 @@ export default function CommandPalette() {
             </div>
 
       {/* Footer */}
-      <div className="border-t border-warm-100 px-4 py-2.5 text-[11px] text-warm-400 flex items-center gap-4">
+      <div className="border-t border-border px-4 py-2.5 text-[11px] text-muted-foreground flex items-center gap-4">
         <span className="flex items-center gap-1">
-          <kbd className="rounded border border-warm-200 bg-warm-50 px-1 py-0.5 font-mono">↑↓</kbd>
+          <kbd className="rounded border border-border bg-muted px-1 py-0.5 font-mono">↑↓</kbd>
           {t('commandPalette.navigation')}
         </span>
         <span className="flex items-center gap-1">
-          <kbd className="rounded border border-warm-200 bg-warm-50 px-1 py-0.5 font-mono">↵</kbd>
+          <kbd className="rounded border border-border bg-muted px-1 py-0.5 font-mono">↵</kbd>
           {t('commandPalette.select')}
         </span>
         <span className="flex items-center gap-1">
-          <kbd className="rounded border border-warm-200 bg-warm-50 px-1 py-0.5 font-mono">esc</kbd>
+          <kbd className="rounded border border-border bg-muted px-1 py-0.5 font-mono">esc</kbd>
           {t('commandPalette.close')}
         </span>
       </div>

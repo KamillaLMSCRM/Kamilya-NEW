@@ -27,15 +27,15 @@ interface ConfirmDialogProps {
 }
 
 const VARIANT_ICON: Record<ConfirmVariant, string> = {
-  danger: 'text-red-500',
-  warning: 'text-amber-500',
-  info: 'text-blue-500',
+  danger: 'text-destructive',
+  warning: 'text-warning',
+  info: 'text-primary',
 };
 
 const VARIANT_BUTTON: Record<ConfirmVariant, string> = {
-  danger: 'bg-red-600 hover:bg-red-700',
-  warning: 'bg-amber-600 hover:bg-amber-700',
-  info: 'bg-blue-600 hover:bg-blue-700',
+  danger: 'bg-destructive hover:bg-destructive/90 text-destructive-foreground',
+  warning: 'bg-warning hover:bg-warning/90 text-warning-foreground',
+  info: 'bg-primary hover:bg-primary/90 text-primary-foreground',
 };
 
 export function ConfirmDialog({
@@ -73,7 +73,7 @@ export function ConfirmDialog({
             className={cn('w-5 h-5 shrink-0 mt-0.5', VARIANT_ICON[variant])}
             aria-hidden="true"
           />
-          <p className="text-sm text-warm-600">{message}</p>
+          <p className="text-sm text-muted-foreground">{message}</p>
         </div>
       )}
       <div className="flex gap-2 justify-end">
@@ -81,7 +81,7 @@ export function ConfirmDialog({
           type="button"
           onClick={onClose}
           disabled={confirming}
-          className="px-4 py-2 text-sm font-medium border border-warm-200 rounded-lg text-warm-700 hover:bg-warm-50 transition-colors disabled:opacity-50"
+          className="px-4 py-2 text-sm font-medium border border-border rounded-lg text-foreground hover:bg-muted transition-colors disabled:opacity-50"
         >
           {cancelText}
         </button>
@@ -90,13 +90,13 @@ export function ConfirmDialog({
           onClick={handleConfirm}
           disabled={confirming}
           className={cn(
-            'px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors disabled:opacity-50 inline-flex items-center gap-2',
+            'px-4 py-2 text-sm font-medium rounded-lg transition-colors disabled:opacity-50 inline-flex items-center gap-2',
             VARIANT_BUTTON[variant]
           )}
         >
           {confirming && (
             <div
-              className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent"
+              className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent"
               aria-hidden="true"
             />
           )}

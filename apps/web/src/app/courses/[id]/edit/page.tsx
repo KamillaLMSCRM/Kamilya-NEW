@@ -217,7 +217,7 @@ export default function CourseEditPage() {
     <div className="max-w-4xl mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <a href={`/courses/${courseId}`} className="flex items-center gap-1 text-sm text-blue-600 hover:underline">
+          <a href={`/courses/${courseId}`} className="flex items-center gap-1 text-sm text-primary hover:underline">
             <ChevronLeft className="w-4 h-4" /> {course.title}
           </a>
           <h1 className="text-2xl font-bold mt-1">{t('courses.editCourse')}</h1>
@@ -244,7 +244,7 @@ export default function CourseEditPage() {
 
       {/* Modules list */}
       {modules.length === 0 ? (
-        <div className="text-center text-gray-400 py-8">{t('courses.noCourses')}</div>
+        <div className="text-center text-muted-foreground py-8">{t('courses.noCourses')}</div>
       ) : (
         <div className="space-y-4">
           {modules.map((mod, modIdx) => (
@@ -269,7 +269,7 @@ export default function CourseEditPage() {
                       <Button variant="ghost" size="sm" onClick={() => { setEditingModuleId(mod.id); setEditModuleTitle(mod.title); }}>
                         {t('common.edit')}
                       </Button>
-                      <Button variant="ghost" size="sm" className="text-red-500" onClick={() => handleDeleteModule(mod.id)}>
+                      <Button variant="ghost" size="sm" className="text-destructive" onClick={() => handleDeleteModule(mod.id)}>
                         {t('common.delete')}
                       </Button>
                     </div>
@@ -279,7 +279,7 @@ export default function CourseEditPage() {
                 {/* Lessons */}
                 <div className="ml-8 space-y-1">
                   {mod.lessons.map((lesson, lessonIdx) => (
-                    <div key={lesson.id} className="bg-gray-50 rounded">
+                    <div key={lesson.id} className="bg-muted rounded">
                       <div className="flex items-center gap-2 p-2 text-sm">
                         <div className="flex flex-col gap-0.5">
                           <Button variant="ghost" className="h-4 px-1 text-xs" onClick={() => handleMoveLesson(lesson.id, mod.id, 'up')} disabled={lessonIdx === 0}><ChevronUp className="w-3 h-3" /></Button>
@@ -287,19 +287,19 @@ export default function CourseEditPage() {
                         </div>
                         <span className="flex-1">{lesson.title}</span>
                         <Badge variant="outline" className="text-xs">{lesson.content_type}</Badge>
-                        <Button variant="ghost" size="sm" className="text-blue-600 text-xs" onClick={() => handleEditLessonContent(lesson.id)}>
+                        <Button variant="ghost" size="sm" className="text-primary text-xs" onClick={() => handleEditLessonContent(lesson.id)}>
                           Контент
                         </Button>
-                        <Button variant="ghost" size="sm" className="text-red-500 text-xs" onClick={() => handleDeleteLesson(lesson.id, mod.id)}>
+                        <Button variant="ghost" size="sm" className="text-destructive text-xs" onClick={() => handleDeleteLesson(lesson.id, mod.id)}>
                           <X className="w-3 h-3" />
                         </Button>
                       </div>
                       {editingLessonId === lesson.id && (
-                        <div className="px-2 pb-3 space-y-2 border-t border-gray-200 pt-2">
+                        <div className="px-2 pb-3 space-y-2 border-t border-border pt-2">
                           <textarea
                             value={editLessonContent}
                             onChange={(e) => setEditLessonContent(e.target.value)}
-                            className="w-full min-h-[200px] rounded-xl border border-warm-200 bg-white px-3 py-2 text-sm text-warm-800 outline-none focus:border-primary font-mono"
+                            className="w-full min-h-[200px] rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-primary font-mono"
                             placeholder="Markdown контент урока..."
                           />
                           <div className="flex gap-2">
@@ -325,7 +325,7 @@ export default function CourseEditPage() {
                       <Button variant="outline" size="sm" onClick={() => { setAddingLessonToModule(null); setNewLessonTitle(''); }}>{t('common.cancel')}</Button>
                     </div>
                   ) : (
-                    <Button variant="ghost" size="sm" className="text-blue-600" onClick={() => setAddingLessonToModule(mod.id)}>
+                    <Button variant="ghost" size="sm" className="text-primary" onClick={() => setAddingLessonToModule(mod.id)}>
                       + {t('courses.addLesson')}
                     </Button>
                   )}

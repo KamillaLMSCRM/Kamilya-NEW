@@ -38,9 +38,9 @@ const ACTION_LABELS: Record<string, string> = {
 };
 
 const ACTION_COLORS: Record<string, string> = {
-  create: 'bg-emerald-100 text-emerald-700',
-  update: 'bg-amber-100 text-amber-700',
-  skip: 'bg-warm-100 text-warm-500',
+  create: 'bg-success/15 text-success',
+  update: 'bg-warning/15 text-warning',
+  skip: 'bg-muted text-muted-foreground',
 };
 
 export default function AdminStaffPage() {
@@ -138,8 +138,8 @@ export default function AdminStaffPage() {
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-warm-800">📋 Штатное расписание</h1>
-        <p className="text-sm text-warm-500 mt-1">
+        <h1 className="text-2xl font-bold text-foreground">📋 Штатное расписание</h1>
+        <p className="text-sm text-muted-foreground mt-1">
           Загрузите список сотрудников из Excel/CSV. Система сопоставит табельные номера
           с существующими пользователями, создаст должности (если новые) и обновит данные.
         </p>
@@ -150,7 +150,7 @@ export default function AdminStaffPage() {
         <CardHeader>
           <CardTitle>📄 Формат файла</CardTitle>
         </CardHeader>
-        <CardContent className="text-sm text-warm-600 space-y-2">
+        <CardContent className="text-sm text-foreground space-y-2">
           <div>Поддерживаются: <strong>.xlsx</strong> (Excel), <strong>.csv</strong> (UTF-8 или Windows-1251).</div>
           <div>
             <strong>Обязательные колонки:</strong> табельный_номер (personnel_number), имя (first_name), фамилия (last_name), отдел (department), должность (position).
@@ -158,7 +158,7 @@ export default function AdminStaffPage() {
           <div>
             <strong>Опционально:</strong> email, телефон (phone), дата_приема (hire_date).
           </div>
-          <div className="text-warm-400 text-xs">
+          <div className="text-muted-foreground text-xs">
             Первая строка — заголовки. Можно на русском или английском. Регистр не важен.
           </div>
         </CardContent>
@@ -175,10 +175,10 @@ export default function AdminStaffPage() {
             type="file"
             accept=".xlsx,.csv"
             onChange={handleFileSelect}
-            className="block w-full text-sm text-warm-700 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
+            className="block w-full text-sm text-foreground file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
           />
           {selectedFile && (
-            <div className="flex items-center gap-2 text-sm text-warm-600">
+            <div className="flex items-center gap-2 text-sm text-foreground">
               <span>📎 {selectedFile.name} ({(selectedFile.size / 1024).toFixed(1)} КБ)</span>
             </div>
           )}
@@ -200,14 +200,14 @@ export default function AdminStaffPage() {
             <Card>
               <CardContent className="pt-6 text-center space-y-2">
                 <div className="text-4xl">❌</div>
-                <h3 className="text-lg font-bold text-red-700">Файл не подходит</h3>
-                <p className="text-sm text-warm-600">
+                <h3 className="text-lg font-bold text-destructive">Файл не подходит</h3>
+                <p className="text-sm text-foreground">
                   Отсутствуют обязательные колонки:{' '}
-                  <strong className="text-red-700">
+                  <strong className="text-destructive">
                     {preview.missing_required_columns.join(', ')}
                   </strong>
                 </p>
-                <p className="text-xs text-warm-500">
+                <p className="text-xs text-muted-foreground">
                   Переименуйте заголовки в файле и попробуйте снова.
                 </p>
               </CardContent>
@@ -223,26 +223,26 @@ export default function AdminStaffPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-                    <div className="rounded-lg bg-emerald-50 p-3 text-center">
-                      <div className="text-2xl font-bold text-emerald-700">{preview.summary.create}</div>
-                      <div className="text-xs text-emerald-600">Создать</div>
+                    <div className="rounded-lg bg-success/10 p-3 text-center">
+                      <div className="text-2xl font-bold text-success">{preview.summary.create}</div>
+                      <div className="text-xs text-success">Создать</div>
                     </div>
-                    <div className="rounded-lg bg-amber-50 p-3 text-center">
-                      <div className="text-2xl font-bold text-amber-700">{preview.summary.update}</div>
-                      <div className="text-xs text-amber-600">Обновить</div>
+                    <div className="rounded-lg bg-warning/10 p-3 text-center">
+                      <div className="text-2xl font-bold text-warning">{preview.summary.update}</div>
+                      <div className="text-xs text-warning">Обновить</div>
                     </div>
-                    <div className="rounded-lg bg-warm-50 p-3 text-center">
-                      <div className="text-2xl font-bold text-warm-700">{preview.summary.skip}</div>
-                      <div className="text-xs text-warm-600">Без изменений</div>
+                    <div className="rounded-lg bg-muted p-3 text-center">
+                      <div className="text-2xl font-bold text-foreground">{preview.summary.skip}</div>
+                      <div className="text-xs text-foreground">Без изменений</div>
                     </div>
-                    <div className="rounded-lg bg-rose-50 p-3 text-center">
-                      <div className="text-2xl font-bold text-rose-700">{preview.summary.new_positions}</div>
-                      <div className="text-xs text-rose-600">Новых должностей</div>
+                    <div className="rounded-lg bg-destructive/10 p-3 text-center">
+                      <div className="text-2xl font-bold text-destructive">{preview.summary.new_positions}</div>
+                      <div className="text-xs text-destructive">Новых должностей</div>
                     </div>
                   </div>
 
                   {preview.summary.invalid_rows && preview.summary.invalid_rows > 0 && (
-                    <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 mb-4">
+                    <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive mb-4">
                       ⚠️ В файле <strong>{preview.summary.invalid_rows}</strong> строк с ошибками — исправьте
                       и перезагрузите. Commit будет заблокирован.
                     </div>
@@ -250,12 +250,12 @@ export default function AdminStaffPage() {
 
                   {preview.new_positions.length > 0 && (
                     <details className="mb-4 text-sm">
-                      <summary className="cursor-pointer text-warm-700 font-medium">
+                      <summary className="cursor-pointer text-foreground font-medium">
                         Новые должности ({preview.new_positions.length})
                       </summary>
                       <ul className="mt-2 space-y-1 pl-4">
                         {preview.new_positions.map((p, i) => (
-                          <li key={i} className="text-warm-600 text-xs">+ {p}</li>
+                          <li key={i} className="text-foreground text-xs">+ {p}</li>
                         ))}
                       </ul>
                     </details>
@@ -272,7 +272,7 @@ export default function AdminStaffPage() {
                   <CardContent className="p-0">
                     <div className="max-h-96 overflow-y-auto">
                       <Table>
-                        <thead className="sticky top-0 bg-warm-50">
+                        <thead className="sticky top-0 bg-muted">
                           <tr>
                             <th className="text-left p-2">Действие</th>
                             <th className="text-left p-2">Таб. №</th>
@@ -297,13 +297,13 @@ export default function AdminStaffPage() {
                               <td className="p-2 text-xs">
                                 {item.department}
                                 <br />
-                <span className="text-warm-400">{item.position}</span>
+                <span className="text-muted-foreground">{item.position}</span>
                               </td>
-                              <td className="p-2 text-xs text-warm-500">
-                                {item.email || <span className="text-warm-300">—</span>}
+                              <td className="p-2 text-xs text-muted-foreground">
+                                {item.email || <span className="text-muted-foreground">—</span>}
                               </td>
-                              <td className="p-2 text-[11px] text-warm-500">
-                                {item.notes.length > 0 ? item.notes.join(' · ') : <span className="text-warm-300">—</span>}
+                              <td className="p-2 text-[11px] text-muted-foreground">
+                                {item.notes.length > 0 ? item.notes.join(' · ') : <span className="text-muted-foreground">—</span>}
                               </td>
                             </tr>
                           ))}
@@ -325,7 +325,7 @@ export default function AdminStaffPage() {
                   <CardContent className="p-0">
                     <div className="max-h-64 overflow-y-auto">
                       <Table>
-                        <thead className="sticky top-0 bg-warm-50">
+                        <thead className="sticky top-0 bg-muted">
                           <tr>
                             <th className="text-left p-2">Строка</th>
                             <th className="text-left p-2">Ошибки</th>
@@ -336,10 +336,10 @@ export default function AdminStaffPage() {
                           {preview.invalid_rows.map((inv, i) => (
                             <tr key={i} className="border-t">
                               <td className="p-2 text-xs">{inv.row_number}</td>
-                              <td className="p-2 text-xs text-red-700">
+                              <td className="p-2 text-xs text-destructive">
                                 {inv.errors.join(', ')}
                               </td>
-                              <td className="p-2 text-xs font-mono text-warm-500">
+                              <td className="p-2 text-xs font-mono text-muted-foreground">
                                 {JSON.stringify(inv.raw)}
                               </td>
                             </tr>

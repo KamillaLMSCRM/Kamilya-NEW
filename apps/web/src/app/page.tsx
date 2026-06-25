@@ -31,13 +31,13 @@ export default function Home() {
   }, [user, router]);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-warm-50">
+    <div className="flex min-h-screen items-center justify-center bg-background">
       <div className="flex flex-col items-center gap-3">
         <div
           className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent"
           aria-label={t('common.loading')}
         />
-        <p className="text-warm-400 text-sm">{t('common.loading')}</p>
+        <p className="text-muted-foreground text-sm">{t('common.loading')}</p>
       </div>
     </div>
   );

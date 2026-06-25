@@ -34,7 +34,7 @@ const ROLE_LABELS: Record<string, string> = {
 
 export default function AcceptInvitePage() {
   return (
-    <Suspense fallback={<div className="p-8 text-center text-warm-500">Загрузка...</div>}>
+    <Suspense fallback={<div className="p-8 text-center text-muted-foreground">Загрузка...</div>}>
       <AcceptInviteForm />
     </Suspense>
   );
@@ -152,7 +152,7 @@ function AcceptInviteForm() {
 
   if (loadingInvitation) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-warm-50 p-4">
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
       </div>
     );
@@ -160,13 +160,13 @@ function AcceptInviteForm() {
 
   if (!token) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-warm-50 p-4">
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <Card className="max-w-md w-full">
           <CardContent className="pt-6 text-center space-y-3">
             <div className="text-5xl">🔗</div>
-            <h1 className="text-xl font-bold text-warm-800">Ссылка неполная</h1>
-            <p className="text-sm text-warm-500">
-              Откройте ссылку из приглашения целиком — она должна содержать токен после <code className="bg-warm-100 px-1 rounded">?token=...</code>
+            <h1 className="text-xl font-bold text-foreground">Ссылка неполная</h1>
+            <p className="text-sm text-muted-foreground">
+              Откройте ссылку из приглашения целиком — она должна содержать токен после <code className="bg-muted px-1 rounded">?token=...</code>
             </p>
           </CardContent>
         </Card>
@@ -178,12 +178,12 @@ function AcceptInviteForm() {
     const reason = invitation?.reason_if_invalid || 'invitation_not_found';
     const label = REASON_LABELS[reason] || 'Приглашение недоступно';
     return (
-      <div className="min-h-screen flex items-center justify-center bg-warm-50 p-4">
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <Card className="max-w-md w-full">
           <CardContent className="pt-6 text-center space-y-3">
             <div className="text-5xl">⚠️</div>
-            <h1 className="text-xl font-bold text-warm-800">Приглашение недоступно</h1>
-            <p className="text-sm text-warm-600">{label}</p>
+            <h1 className="text-xl font-bold text-foreground">Приглашение недоступно</h1>
+            <p className="text-sm text-muted-foreground">{label}</p>
             <Button
               variant="outline"
               onClick={() => router.push('/login')}
@@ -198,7 +198,7 @@ function AcceptInviteForm() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-warm-50 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="max-w-md w-full">
         <CardHeader>
           <CardTitle>
@@ -209,12 +209,12 @@ function AcceptInviteForm() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm">
-            <div className="flex items-center gap-2 text-emerald-800">
+          <div className="rounded-lg border border-success/30 bg-success/10 p-3 text-sm">
+            <div className="flex items-center gap-2 text-success">
               <span>✉️</span>
               <span className="font-semibold">{invitation.email}</span>
             </div>
-            <div className="text-emerald-700 mt-1 text-xs">
+            <div className="text-success/80 mt-1 text-xs">
               Роль: {ROLE_LABELS[invitation.role] || invitation.role} ·
               {' '}Ссылка действует до{' '}
               {new Date(invitation.expires_at).toLocaleDateString('ru-RU', {
@@ -223,12 +223,12 @@ function AcceptInviteForm() {
             </div>
           </div>
 
-          <p className="text-sm text-warm-600">
+          <p className="text-sm text-muted-foreground">
             Заполните имя, фамилию и задайте пароль — и вы в системе.
           </p>
 
           <label className="block">
-            <span className="block text-xs font-semibold text-warm-500 mb-1">Имя</span>
+            <span className="block text-xs font-semibold text-muted-foreground mb-1">Имя</span>
             <Input
               value={firstName}
               onChange={(e) => setFirstName(e.target.value)}
@@ -237,7 +237,7 @@ function AcceptInviteForm() {
             />
           </label>
           <label className="block">
-            <span className="block text-xs font-semibold text-warm-500 mb-1">Фамилия</span>
+            <span className="block text-xs font-semibold text-muted-foreground mb-1">Фамилия</span>
             <Input
               value={lastName}
               onChange={(e) => setLastName(e.target.value)}
@@ -246,8 +246,8 @@ function AcceptInviteForm() {
           </label>
           {invitation?.requires_personnel_number && (
             <label className="block">
-              <span className="block text-xs font-semibold text-warm-500 mb-1">
-                Табельный номер <span className="text-red-500">*</span>
+              <span className="block text-xs font-semibold text-muted-foreground mb-1">
+                Табельный номер <span className="text-destructive">*</span>
               </span>
               <Input
                 value={personnelNumber}
@@ -255,13 +255,13 @@ function AcceptInviteForm() {
                 placeholder="T-1042"
                 autoComplete="off"
               />
-              <span className="block text-[11px] text-warm-500 mt-1">
+              <span className="block text-[11px] text-muted-foreground mt-1">
                 HR указал табельный номер для этого приглашения. Введите его для подтверждения.
               </span>
             </label>
           )}
           <label className="block">
-            <span className="block text-xs font-semibold text-warm-500 mb-1">Пароль (минимум 8 символов)</span>
+            <span className="block text-xs font-semibold text-muted-foreground mb-1">Пароль (минимум 8 символов)</span>
             <Input
               type="password"
               value={password}
@@ -271,7 +271,7 @@ function AcceptInviteForm() {
             />
           </label>
           <label className="block">
-            <span className="block text-xs font-semibold text-warm-500 mb-1">Повторите пароль</span>
+            <span className="block text-xs font-semibold text-muted-foreground mb-1">Повторите пароль</span>
             <Input
               type="password"
               value={password2}
@@ -282,7 +282,7 @@ function AcceptInviteForm() {
           </label>
 
           {error && (
-            <div className="rounded-lg border border-red-200 bg-red-50 p-2 text-sm text-red-700">
+            <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-2 text-sm text-destructive">
               {error}
             </div>
           )}
@@ -295,7 +295,7 @@ function AcceptInviteForm() {
             {submitting ? 'Создаём аккаунт...' : 'Войти в систему'}
           </Button>
 
-          <p className="text-xs text-warm-400 text-center">
+          <p className="text-xs text-muted-foreground text-center">
             Принимая приглашение, вы соглашаетесь с правилами использования платформы.
           </p>
         </CardContent>

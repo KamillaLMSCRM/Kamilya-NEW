@@ -278,14 +278,14 @@ export default function CoursePlayerPage() {
 
   if (enrolled === false) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="bg-white rounded-lg shadow-md p-8 max-w-md w-full text-center">
+      <div className="min-h-screen bg-muted flex items-center justify-center">
+        <div className="bg-card rounded-lg shadow-md p-8 max-w-md w-full text-center">
           <h2 className="text-xl font-bold mb-2">{course.title}</h2>
-          <p className="text-gray-600 mb-6">{t('courses.enrollRequired')}</p>
-          <button onClick={handleEnroll} disabled={enrolling} className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 disabled:opacity-50">
+          <p className="text-muted-foreground mb-6">{t('courses.enrollRequired')}</p>
+          <button onClick={handleEnroll} disabled={enrolling} className="bg-primary text-white px-6 py-2 rounded hover:bg-primary disabled:opacity-50">
             {enrolling ? t('common.saving' as any) : t('courses.enrollButton')}
           </button>
-          <Link href="/courses" className="block mt-4 flex items-center gap-1 text-sm text-blue-600 hover:underline justify-center">
+          <Link href="/courses" className="block mt-4 flex items-center gap-1 text-sm text-primary hover:underline justify-center">
             <ChevronLeft className="w-4 h-4" /> {t('courses.backToCourses')}
           </Link>
         </div>
@@ -295,12 +295,12 @@ export default function CoursePlayerPage() {
 
   if (courseCompleted) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="bg-white rounded-lg shadow-md p-8 max-w-md w-full text-center">
-          <CheckCircle2 className="w-16 h-16 text-green-500 mx-auto mb-4" aria-hidden="true" />
+      <div className="min-h-screen bg-muted flex items-center justify-center">
+        <div className="bg-card rounded-lg shadow-md p-8 max-w-md w-full text-center">
+          <CheckCircle2 className="w-16 h-16 text-success mx-auto mb-4" aria-hidden="true" />
           <h2 className="text-xl font-bold mb-2">{course.title}</h2>
-          <p className="text-gray-600 mb-6">{t('courses.courseComplete')}</p>
-          <Link href="/courses" className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 inline-block">
+          <p className="text-muted-foreground mb-6">{t('courses.courseComplete')}</p>
+          <Link href="/courses" className="bg-primary text-white px-6 py-2 rounded hover:bg-primary inline-block">
             {t('courses.backToCourses')}
           </Link>
         </div>
@@ -312,32 +312,32 @@ export default function CoursePlayerPage() {
   const hasQuiz = lessonQuiz !== null;
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen bg-muted flex">
       {/* Left sidebar — TOC */}
-      <div className="w-80 bg-white border-r flex flex-col">
+      <div className="w-80 bg-card border-r flex flex-col">
         <div className="p-4 border-b">
-          <Link href="/courses" className="flex items-center gap-1 text-sm text-blue-600 hover:underline">
+          <Link href="/courses" className="flex items-center gap-1 text-sm text-primary hover:underline">
             <ChevronLeft className="w-4 h-4" /> {t('courses.title')}
           </Link>
           <h2 className="font-bold mt-2">{course.title}</h2>
-          <div className="mt-2 h-2 bg-gray-200 rounded">
-            <div className="h-2 bg-blue-600 rounded transition-all" style={{ width: `${progressPercent}%` }} />
+          <div className="mt-2 h-2 bg-muted rounded">
+            <div className="h-2 bg-primary rounded transition-all" style={{ width: `${progressPercent}%` }} />
           </div>
-          <p className="text-xs text-gray-500 mt-1">
+          <p className="text-xs text-muted-foreground mt-1">
             {t('courses.lessonsCount', { done: completedCount, total: totalLessons })} ({progressPercent}%)
           </p>
         </div>
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
           {modules.map((mod) => (
             <div key={mod.id}>
-              <p className="text-xs font-semibold text-gray-400 uppercase mb-1">{mod.title}</p>
+              <p className="text-xs font-semibold text-muted-foreground uppercase mb-1">{mod.title}</p>
               {mod.lessons.map((lesson) => (
                 <div
                   key={lesson.id}
-                  className={`text-sm p-2 rounded cursor-pointer flex items-center gap-2 ${selectedLesson?.id === lesson.id ? 'bg-blue-50 text-blue-700 font-medium' : 'hover:bg-gray-50 text-gray-700'}`}
+                  className={`text-sm p-2 rounded cursor-pointer flex items-center gap-2 ${selectedLesson?.id === lesson.id ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-muted text-foreground'}`}
                   onClick={() => setSelectedLesson(lesson)}
                 >
-                  <span className={`w-4 h-4 rounded-full border flex-shrink-0 flex items-center justify-center text-xs ${completedLessons.has(lesson.id) ? 'bg-green-500 text-white border-green-500' : 'border-gray-300'}`}>
+                  <span className={`w-4 h-4 rounded-full border flex-shrink-0 flex items-center justify-center text-xs ${completedLessons.has(lesson.id) ? 'bg-success text-white border-success' : 'border-border'}`}>
                     {completedLessons.has(lesson.id) && <CheckCircle2 className="w-3 h-3" />}
                   </span>
                   {lesson.title}
@@ -358,22 +358,22 @@ export default function CoursePlayerPage() {
               {selectedLesson.content ? (
                 <div dangerouslySetInnerHTML={{ __html: simpleMarkdown(selectedLesson.content) }} />
               ) : (
-                <p className="text-gray-400 italic">{t('common.noData')}</p>
+                <p className="text-muted-foreground italic">{t('common.noData')}</p>
               )}
             </div>
 
             <div className="mt-8 space-y-4">
               {lessonCompleted && hasQuiz && (
-                <div className="border rounded-lg p-6 bg-white shadow-sm">
+                <div className="border rounded-lg p-6 bg-card shadow-sm">
                   <div className="flex items-center gap-3 mb-4">
-                    <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                    <div className="w-10 h-10 rounded-full bg-primary/15 flex items-center justify-center">
                       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
                       </svg>
                     </div>
                     <div>
-                      <h3 className="font-semibold text-gray-800">{lessonQuiz.title}</h3>
-                      <p className="text-sm text-gray-500">
+                      <h3 className="font-semibold text-foreground">{lessonQuiz.title}</h3>
+                      <p className="text-sm text-muted-foreground">
                         {t('quiz.score')}: {lessonQuiz.pass_score}%
                         {lessonQuiz.time_limit && ` · ${lessonQuiz.time_limit} ${t('common.minutes')}`}
                         {` · ${t('quiz.attempts')}: ${lessonQuiz.attempt_limit}`}
@@ -382,7 +382,7 @@ export default function CoursePlayerPage() {
                   </div>
 
                   {quizPassed ? (
-                    <div className="flex items-center gap-2 text-green-600">
+                    <div className="flex items-center gap-2 text-success">
                       <CheckCircle2 className="w-5 h-5" aria-hidden="true" />
                       <span className="font-medium">
                         {t('quiz.passed')} ({quizAttempts.find(a => a.passed)?.score_percent}%)
@@ -390,7 +390,7 @@ export default function CoursePlayerPage() {
                     </div>
                   ) : (
                     <>
-                      <div className="flex items-center gap-2 text-sm text-amber-600 bg-amber-50 rounded px-3 py-2 mb-4">
+                      <div className="flex items-center gap-2 text-sm text-warning bg-warning/10 rounded px-3 py-2 mb-4">
                         <Clock className="w-4 h-4" aria-hidden="true" />
                         <span>
                           {t('quiz.deferralDays')}: {lessonQuiz.deferral_days}
@@ -398,7 +398,7 @@ export default function CoursePlayerPage() {
                       </div>
 
                       {quizAttempts.length > 0 && (
-                        <div className="text-sm text-gray-500 mb-3">
+                        <div className="text-sm text-muted-foreground mb-3">
                           {t('quiz.attempts')}: {quizAttempts.length}/{lessonQuiz.attempt_limit}
                           {quizAttempts.length > 0 && (
                             <span className="ml-2">
@@ -427,7 +427,7 @@ export default function CoursePlayerPage() {
                 </Button>
               ) : !hasQuiz ? (
                 <div className="flex items-center gap-3">
-                  <span className="flex items-center gap-2 text-green-600 font-medium">
+                  <span className="flex items-center gap-2 text-success font-medium">
                     <CheckCircle2 className="w-5 h-5" aria-hidden="true" /> {t('courses.markComplete')}
                   </span>
                   <Button variant="outline" onClick={handleNextLesson}>
@@ -436,7 +436,7 @@ export default function CoursePlayerPage() {
                 </div>
               ) : quizPassed ? (
                 <div className="flex items-center gap-3">
-                  <span className="flex items-center gap-2 text-green-600 font-medium">
+                  <span className="flex items-center gap-2 text-success font-medium">
                     <CheckCircle2 className="w-5 h-5" aria-hidden="true" /> {t('quiz.passed')}
                   </span>
                   <Button variant="outline" onClick={handleNextLesson}>
@@ -447,7 +447,7 @@ export default function CoursePlayerPage() {
             </div>
           </div>
         ) : (
-          <div className="flex items-center justify-center h-64 text-gray-400">
+          <div className="flex items-center justify-center h-64 text-muted-foreground">
             {t('common.search')}
           </div>
         )}

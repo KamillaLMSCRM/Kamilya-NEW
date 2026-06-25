@@ -118,29 +118,29 @@ export default function AdminDashboardPage() {
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardContent className="p-4 text-center">
-            <div className="text-3xl font-bold text-blue-600">{stats.total_users}</div>
-            <div className="text-sm text-gray-500">{t('admin.stats.totalUsers')}</div>
-            <div className="text-xs text-gray-400">{stats.active_users} {t('admin.stats.activeUsers')}</div>
+            <div className="text-3xl font-bold text-primary">{stats.total_users}</div>
+            <div className="text-sm text-muted-foreground">{t('admin.stats.totalUsers')}</div>
+            <div className="text-xs text-muted-foreground">{stats.active_users} {t('admin.stats.activeUsers')}</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
-            <div className="text-3xl font-bold text-green-600">{stats.total_courses}</div>
-            <div className="text-sm text-gray-500">{t('admin.stats.totalCourses')}</div>
-            <div className="text-xs text-gray-400">{stats.published_courses} {t('admin.stats.published')}</div>
+            <div className="text-3xl font-bold text-success">{stats.total_courses}</div>
+            <div className="text-sm text-muted-foreground">{t('admin.stats.totalCourses')}</div>
+            <div className="text-xs text-muted-foreground">{stats.published_courses} {t('admin.stats.published')}</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
-            <div className="text-3xl font-bold text-orange-600">{stats.total_enrollments}</div>
-            <div className="text-sm text-gray-500">{t('admin.stats.enrollments')}</div>
-            <div className="text-xs text-gray-400">{stats.completed_enrollments} {t('admin.stats.completed')}</div>
+            <div className="text-3xl font-bold text-warning">{stats.total_enrollments}</div>
+            <div className="text-sm text-muted-foreground">{t('admin.stats.enrollments')}</div>
+            <div className="text-xs text-muted-foreground">{stats.completed_enrollments} {t('admin.stats.completed')}</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
-            <div className="text-3xl font-bold text-purple-600">{stats.certificates_issued}</div>
-            <div className="text-sm text-gray-500">{t('admin.stats.certificates')}</div>
+            <div className="text-3xl font-bold text-accent">{stats.certificates_issued}</div>
+            <div className="text-sm text-muted-foreground">{t('admin.stats.certificates')}</div>
           </CardContent>
         </Card>
       </div>
@@ -149,25 +149,25 @@ export default function AdminDashboardPage() {
         <Card>
           <CardContent className="p-4 text-center">
             <div className="text-2xl font-bold">{stats.ai_generated_courses}</div>
-            <div className="text-sm text-gray-500">{t('admin.stats.aiGenerated')}</div>
+            <div className="text-sm text-muted-foreground">{t('admin.stats.aiGenerated')}</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
             <div className="text-2xl font-bold">{stats.total_quizzes_taken}</div>
-            <div className="text-sm text-gray-500">{t('admin.stats.quizzesTaken')}</div>
+            <div className="text-sm text-muted-foreground">{t('admin.stats.quizzesTaken')}</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
             <div className="text-2xl font-bold">{stats.average_quiz_score}%</div>
-            <div className="text-sm text-gray-500">{t('admin.stats.averageScore')}</div>
+            <div className="text-sm text-muted-foreground">{t('admin.stats.averageScore')}</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
             <div className="text-2xl font-bold">{formatBytes(stats.storage_used_bytes)}</div>
-            <div className="text-sm text-gray-500">{t('admin.stats.storage')}</div>
+            <div className="text-sm text-muted-foreground">{t('admin.stats.storage')}</div>
           </CardContent>
         </Card>
       </div>
@@ -190,22 +190,22 @@ export default function AdminDashboardPage() {
                 {users.map((u) => (
                   <tr key={u.id} className="border-t">
                     <td className="p-2">{u.first_name} {u.last_name}</td>
-                    <td className="p-2 text-gray-500">{u.email}</td>
+                    <td className="p-2 text-muted-foreground">{u.email}</td>
                     <td className="p-2"><Badge variant="outline">{u.role}</Badge></td>
                   </tr>
                 ))}
               </tbody>
             </Table>
-            <a href="/admin/users" className="flex items-center gap-1 text-blue-600 text-sm hover:underline mt-2 block">
+            <a href="/admin/users" className="flex items-center gap-1 text-primary text-sm hover:underline mt-2 block">
               Управление пользователями →
             </a>
-            <a href="/admin/kiosks" className="flex items-center gap-1 text-blue-600 text-sm hover:underline mt-2 block">
+            <a href="/admin/kiosks" className="flex items-center gap-1 text-primary text-sm hover:underline mt-2 block">
               🖥️ Киоски для цехов →
             </a>
-            <a href="/admin/staff" className="flex items-center gap-1 text-blue-600 text-sm hover:underline mt-2 block">
+            <a href="/admin/staff" className="flex items-center gap-1 text-primary text-sm hover:underline mt-2 block">
               📋 Штатное расписание →
             </a>
-            <a href="/admin/employees" className="flex items-center gap-1 text-blue-600 text-sm hover:underline mt-2 block">
+            <a href="/admin/employees" className="flex items-center gap-1 text-primary text-sm hover:underline mt-2 block">
               📊 Структура штата →
             </a>
           </CardContent>
@@ -238,7 +238,7 @@ export default function AdminDashboardPage() {
                 ))}
               </tbody>
             </Table>
-            <a href="/courses" className="flex items-center gap-1 text-blue-600 text-sm hover:underline mt-2 block">
+            <a href="/courses" className="flex items-center gap-1 text-primary text-sm hover:underline mt-2 block">
               {t('admin.allCourses')} <ChevronRight className="w-4 h-4" />
             </a>
           </CardContent>

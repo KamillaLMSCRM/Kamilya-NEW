@@ -58,32 +58,32 @@ export default function StudentDashboardPage() {
     <div className="p-6 max-w-6xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-bold">{t('student.title')}</h1>
-        <p className="text-gray-500">{t('dashboard.welcome')}, {dashboard.full_name || 'Студент'}!</p>
+        <p className="text-muted-foreground">{t('dashboard.welcome')}, {dashboard.full_name || 'Студент'}!</p>
       </div>
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardContent className="p-4 text-center">
-            <div className="text-3xl font-bold text-blue-600">{dashboard.total_courses}</div>
-            <div className="text-sm text-gray-500">{t('courses.title')}</div>
+            <div className="text-3xl font-bold text-primary">{dashboard.total_courses}</div>
+            <div className="text-sm text-muted-foreground">{t('courses.title')}</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
-            <div className="text-3xl font-bold text-green-600">{dashboard.completed_courses}</div>
-            <div className="text-sm text-gray-500">{t('student.completed')}</div>
+            <div className="text-3xl font-bold text-success">{dashboard.completed_courses}</div>
+            <div className="text-sm text-muted-foreground">{t('student.completed')}</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
-            <div className="text-3xl font-bold text-orange-600">{dashboard.total_progress_percent}%</div>
-            <div className="text-sm text-gray-500">{t('dashboard.overallProgress')}</div>
+            <div className="text-3xl font-bold text-warning">{dashboard.total_progress_percent}%</div>
+            <div className="text-sm text-muted-foreground">{t('dashboard.overallProgress')}</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
-            <div className="text-3xl font-bold text-purple-600">{dashboard.certificates_count}</div>
-            <div className="text-sm text-gray-500">{t('dashboard.certificatesCount')}</div>
+            <div className="text-3xl font-bold text-accent">{dashboard.certificates_count}</div>
+            <div className="text-sm text-muted-foreground">{t('dashboard.certificatesCount')}</div>
           </CardContent>
         </Card>
       </div>
@@ -92,7 +92,7 @@ export default function StudentDashboardPage() {
         <h2 className="text-lg font-semibold mb-4">{t('student.enrolledCourses')}</h2>
         {dashboard.enrolled_courses.length === 0 ? (
           <Card>
-            <CardContent className="p-6 text-center text-gray-400">
+            <CardContent className="p-6 text-center text-muted-foreground">
               {t('student.noCourses')}
             </CardContent>
           </Card>
@@ -104,22 +104,22 @@ export default function StudentDashboardPage() {
                   <div className="flex items-start justify-between mb-2">
                     <h3 className="font-medium line-clamp-2">{course.title}</h3>
                     {course.progress_percent === 100 ? (
-                      <Badge variant="default" className="flex items-center gap-1 bg-green-100 text-green-700">
+                      <Badge variant="default" className="flex items-center gap-1 bg-success/15 text-success">
                         <CheckCircle2 className="w-3 h-3" />
                       </Badge>
                     ) : null}
                   </div>
 
-                  <p className="text-sm text-gray-500 mb-3 line-clamp-2">{course.description}</p>
+                  <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{course.description}</p>
 
                   <div className="mb-3">
-                    <div className="flex justify-between text-xs text-gray-500 mb-1">
+                    <div className="flex justify-between text-xs text-muted-foreground mb-1">
                       <span>{course.completed_lessons}/{course.total_lessons} уроков</span>
                       <span>{course.progress_percent}%</span>
                     </div>
-                    <div className="h-2 bg-gray-200 rounded">
+                    <div className="h-2 bg-muted rounded">
                       <div
-                        className="h-2 bg-blue-600 rounded transition-all"
+                        className="h-2 bg-primary rounded transition-all"
                         style={{ width: `${course.progress_percent}%` }}
                       />
                     </div>

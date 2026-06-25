@@ -46,22 +46,22 @@ interface TreeResponse {
 }
 
 const PROGRESS_COLORS = (pct: number) => {
-  if (pct === 0) return 'bg-warm-100 text-warm-500';
-  if (pct < 50) return 'bg-rose-100 text-rose-700';
-  if (pct < 100) return 'bg-amber-100 text-amber-700';
-  return 'bg-emerald-100 text-emerald-700';
+  if (pct === 0) return 'bg-muted text-muted-foreground';
+  if (pct < 50) return 'bg-destructive/15 text-destructive';
+  if (pct < 100) return 'bg-warning/15 text-warning';
+  return 'bg-success/15 text-success';
 };
 
 function ProgressBar({ percent }: { percent: number }) {
   return (
     <div className="flex items-center gap-2">
-      <div className="flex-1 h-2 bg-warm-100 rounded-full overflow-hidden">
+      <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
         <div
           className={`h-full transition-all ${
-            percent === 0 ? 'bg-warm-200' :
-            percent < 50 ? 'bg-rose-400' :
-            percent < 100 ? 'bg-amber-400' :
-            'bg-emerald-500'
+            percent === 0 ? 'bg-muted' :
+            percent < 50 ? 'bg-destructive/70' :
+            percent < 100 ? 'bg-warning' :
+            'bg-success'
           }`}
           style={{ width: `${percent}%` }}
         />
@@ -135,9 +135,9 @@ export default function AdminEmployeesPage() {
   if (departments.length === 0) {
     return (
       <div className="p-6 max-w-6xl mx-auto space-y-6">
-        <h1 className="text-2xl font-bold text-warm-800">📊 Структура штата</h1>
+        <h1 className="text-2xl font-bold text-foreground">📊 Структура штата</h1>
         <Card>
-          <CardContent className="py-12 text-center text-warm-400">
+          <CardContent className="py-12 text-center text-muted-foreground">
             <div className="text-5xl mb-3">👥</div>
             <p className="text-sm">Сотрудников с должностями пока нет.</p>
             <p className="text-xs mt-1">Загрузите штатное расписание в <a href="/admin/staff" className="text-primary underline">/admin/staff</a></p>
@@ -151,14 +151,14 @@ export default function AdminEmployeesPage() {
     <div className="p-6 max-w-6xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-warm-800">📊 Структура штата</h1>
-          <p className="text-sm text-warm-500 mt-1">
+          <h1 className="text-2xl font-bold text-foreground">📊 Структура штата</h1>
+          <p className="text-sm text-muted-foreground mt-1">
             Прогресс обязательных курсов по отделам и должностям
           </p>
         </div>
         <button
           onClick={fetchTree}
-          className="rounded-xl border border-warm-200 px-3 py-1.5 text-sm text-warm-600 hover:bg-warm-50"
+          className="rounded-xl border border-border px-3 py-1.5 text-sm text-foreground hover:bg-muted"
         >
           🔄 Обновить
         </button>
@@ -166,23 +166,23 @@ export default function AdminEmployeesPage() {
 
       {/* Summary */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="rounded-lg bg-warm-50 p-3 text-center">
-          <div className="text-2xl font-bold text-warm-800">{summary.total_employees}</div>
-          <div className="text-xs text-warm-600">Сотрудников</div>
+        <div className="rounded-lg bg-muted p-3 text-center">
+          <div className="text-2xl font-bold text-foreground">{summary.total_employees}</div>
+          <div className="text-xs text-foreground">Сотрудников</div>
         </div>
-        <div className="rounded-lg bg-warm-50 p-3 text-center">
-          <div className="text-2xl font-bold text-warm-800">{summary.total_departments}</div>
-          <div className="text-xs text-warm-600">Отделов</div>
+        <div className="rounded-lg bg-muted p-3 text-center">
+          <div className="text-2xl font-bold text-foreground">{summary.total_departments}</div>
+          <div className="text-xs text-foreground">Отделов</div>
         </div>
-        <div className="rounded-lg bg-warm-50 p-3 text-center">
-          <div className="text-2xl font-bold text-warm-800">{summary.total_positions}</div>
-          <div className="text-xs text-warm-600">Должностей</div>
+        <div className="rounded-lg bg-muted p-3 text-center">
+          <div className="text-2xl font-bold text-foreground">{summary.total_positions}</div>
+          <div className="text-xs text-foreground">Должностей</div>
         </div>
-        <div className="rounded-lg bg-warm-50 p-3 text-center">
-          <div className={`text-2xl font-bold ${summary.overall_ready_percent === 100 ? 'text-emerald-700' : summary.overall_ready_percent < 50 ? 'text-rose-700' : 'text-amber-700'}`}>
+        <div className="rounded-lg bg-muted p-3 text-center">
+          <div className={`text-2xl font-bold ${summary.overall_ready_percent === 100 ? 'text-success' : summary.overall_ready_percent < 50 ? 'text-destructive' : 'text-warning'}`}>
             {summary.overall_ready_percent}%
           </div>
-          <div className="text-xs text-warm-600">
+          <div className="text-xs text-foreground">
             Готово ({summary.total_completed_courses} / {summary.total_assigned_courses})
           </div>
         </div>
@@ -191,7 +191,7 @@ export default function AdminEmployeesPage() {
       {/* Tree */}
       <Card>
         <CardContent className="p-0">
-          <div className="divide-y divide-warm-100">
+          <div className="divide-y divide-border">
             {departments.map((dept) => {
               const deptOpen = expandedDepts.has(dept.name);
               return (
@@ -200,14 +200,14 @@ export default function AdminEmployeesPage() {
                   <button
                     type="button"
                     onClick={() => toggleDept(dept.name)}
-                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-warm-50 text-left"
+                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted text-left"
                   >
-                    <span className="text-warm-400 text-sm w-4">
+                    <span className="text-muted-foreground text-sm w-4">
                       {deptOpen ? '▼' : '▶'}
                     </span>
                     <span className="text-lg">🏢</span>
-                    <span className="font-semibold text-warm-800">{dept.name}</span>
-                    <span className="text-xs text-warm-500">
+                    <span className="font-semibold text-foreground">{dept.name}</span>
+                    <span className="text-xs text-muted-foreground">
                       {dept.position_count} должностей · {dept.employee_count} чел
                     </span>
                     <div className="flex-1 max-w-xs ml-4">
@@ -217,7 +217,7 @@ export default function AdminEmployeesPage() {
 
                   {/* Positions */}
                   {deptOpen && (
-                    <div className="bg-warm-50/40">
+                    <div className="bg-muted/40">
                       {dept.positions.map((pos) => {
                         const posOpen = expandedPositions.has(pos.id);
                         return (
@@ -225,14 +225,14 @@ export default function AdminEmployeesPage() {
                             <button
                               type="button"
                               onClick={() => togglePos(pos.id)}
-                              className="w-full flex items-center gap-3 pl-10 pr-4 py-2.5 hover:bg-warm-50 text-left border-t border-warm-100"
+                              className="w-full flex items-center gap-3 pl-10 pr-4 py-2.5 hover:bg-muted text-left border-t border-border"
                             >
-                              <span className="text-warm-400 text-xs w-4">
+                              <span className="text-muted-foreground text-xs w-4">
                                 {posOpen ? '▼' : '▶'}
                               </span>
                               <span className="text-base">👷</span>
-                              <span className="font-medium text-warm-700 text-sm">{pos.name}</span>
-                              <span className="text-xs text-warm-500">
+                              <span className="font-medium text-foreground text-sm">{pos.name}</span>
+                              <span className="text-xs text-muted-foreground">
                                 {pos.employee_count} чел
                               </span>
                               <div className="flex-1 max-w-[180px] ml-2">
@@ -242,33 +242,33 @@ export default function AdminEmployeesPage() {
 
                             {/* Employees */}
                             {posOpen && (
-                              <div className="bg-white border-t border-warm-100">
+                              <div className="bg-card border-t border-border">
                                 {pos.employees.length === 0 ? (
-                                  <div className="pl-16 pr-4 py-2 text-xs text-warm-400 italic">
+                                  <div className="pl-16 pr-4 py-2 text-xs text-muted-foreground italic">
                                     Нет сотрудников на этой должности
                                   </div>
                                 ) : (
                                   pos.employees.map((emp) => (
                                     <div
                                       key={emp.id}
-                                      className="flex items-center gap-3 pl-16 pr-4 py-2 border-t border-warm-50"
+                                      className="flex items-center gap-3 pl-16 pr-4 py-2 border-t border-border"
                                     >
                                       <span className="text-sm">👤</span>
-                                      <span className="text-sm text-warm-800">
+                                      <span className="text-sm text-foreground">
                                         {emp.full_name}
                                       </span>
                                       {emp.personnel_number && (
-                                        <span className="text-[11px] font-mono text-warm-400">
+                                        <span className="text-[11px] font-mono text-muted-foreground">
                                           № {emp.personnel_number}
                                         </span>
                                       )}
                                       <span className="flex-1" />
                                       {emp.assigned_courses === 0 ? (
-                                        <span className="text-[11px] text-warm-400 italic">
+                                        <span className="text-[11px] text-muted-foreground italic">
                                           курсы не назначены
                                         </span>
                                       ) : (
-                                        <span className="text-[11px] text-warm-500 tabular-nums">
+                                        <span className="text-[11px] text-muted-foreground tabular-nums">
                                           {emp.completed_courses} / {emp.assigned_courses}
                                         </span>
                                       )}
