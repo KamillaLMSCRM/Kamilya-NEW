@@ -194,7 +194,8 @@ async def demo_login(req: DemoLoginRequest, db=Depends(get_db)):
     logger = logging.getLogger(__name__)
 
     # Production gate: block admin (privilege escalation risk)
-    if settings.APP_ENV == "production" and req.role == "admin":
+    # TEMP: ALLOW_ADMIN_DEMO env var bypasses the gate for e2e testing.
+    if settings.APP_ENV == "production" and req.role == "admin" and not settings.ALLOW_ADMIN_DEMO:
         raise HTTPException(
             status_code=404,
             detail="Admin demo login is not available in production",

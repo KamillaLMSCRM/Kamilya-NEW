@@ -13,6 +13,11 @@ class Settings(BaseSettings):
     DEBUG: bool = False
     API_PREFIX: str = "/api/v1"
 
+    # TEMP: enable admin demo-login in production for e2e testing.
+    # Set to true on Render via env var, then back to false after testing.
+    # Remove this once e2e admin tests are complete.
+    ALLOW_ADMIN_DEMO: bool = False
+
     # Database
     DATABASE_URL: str = "postgresql+asyncpg://lms:lms_dev_password_2026@localhost:5432/kamilya_lms"
 
