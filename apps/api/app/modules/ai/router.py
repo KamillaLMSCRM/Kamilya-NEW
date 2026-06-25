@@ -346,9 +346,15 @@ async def chat(
         "Ты — ассистент методолога LMS Kamilya. Помогаешь рецензировать AI-сгенерированный "
         "курс перед публикацией сотрудникам. Отвечай кратко (3-6 предложений), по делу, "
         "на русском. Если видишь фактическую ошибку или противоречие — укажи прямо. "
-        "Не придумывай номера статей законов РК если не уверен. Если пользователь просит "
-        "изменить формулировку урока — предложи конкретный текст, который можно вставить. "
-        "Не повторяй вопрос пользователя. Не добавляй вводные фразы типа 'Конечно' или 'Хороший вопрос'."
+        "Не придумывай номера статей законов РК если не уверен.\n\n"
+        "ВАЖНО — формат предложений правок. Когда ты предлагаешь конкретную замену "
+        "содержимого урока, оборачивай её в маркеры:\n"
+        "[APPLY_LESSON:UUID]<новый полный текст урока>[/APPLY_LESSON]\n"
+        "где UUID — это id урока, который пользователь сейчас редактирует или обсуждает. "
+        "Внутри маркера — ТОЛЬКО новый текст урока, без пояснений и markdown. "
+        "Можно использовать только если ты уверен в UUID (он есть в фокусе рецензии). "
+        "Если уверенности в UUID нет — не используй маркеры, просто дай текстовый совет."
+        "\n\nНе повторяй вопрос пользователя. Не добавляй вводные фразы типа 'Конечно' или 'Хороший вопрос'."
     )
 
     user_block_parts = [f"Контекст курса:\n{summary}"]
@@ -357,7 +363,7 @@ async def chat(
     user_block_parts.append(f"\nСообщение методолога:\n{req.message}")
     user_block = "\n".join(user_block_parts)
 
-    llm = create_llm(temperature=0.4, max_tokens=900)
+    llm = create_llm(temperature=0.4, max_tokens=1500)
     try:
         resp = await llm.ainvoke(
             [
@@ -373,7 +379,35 @@ async def chat(
     if not reply:
         reply = "(пустой ответ от модели)"
 
-    return AIChatResponse(reply=reply)
+    # Parse [APPLY_LESSON:UUID]body[/APPLY_LESSON] blocks — extract the first one
+    # if present, strip from reply. Pattern is permissive on whitespace.
+    import re
+    apply_id: UUID | None = None
+    apply_content: str | None = None
+    apply_title_hint: str | None = None
+    m = re.search(
+        r"\[APPLY_LESSON:([0-9a-fA-F-]{36})(?:\|title=([^\]]*))?\]([\s\S]*?)\[/APPLY_LESSON\]",
+        reply,
+        flags=re.DOTALL,
+    )
+    if m:
+        try:
+            apply_id = UUID(m.group(1))
+            apply_title_hint = m.group(2)
+            apply_content = m.group(3).strip()
+            # Strip the marker block from the visible reply (the assistant's
+            # explanatory text remains; the marker block is just the suggestion payload).
+            reply = (reply[: m.start()] + reply[m.end() :]).strip()
+        except (ValueError, AttributeError):
+            apply_id = None
+            apply_content = None
+
+    return AIChatResponse(
+        reply=reply or "(пустой ответ)",
+        apply_lesson_id=apply_id,
+        apply_lesson_content=apply_content,
+        apply_lesson_title_hint=apply_title_hint,
+    )
 
 
 # ── Regenerate module / lesson ──────────────────────────────────────────

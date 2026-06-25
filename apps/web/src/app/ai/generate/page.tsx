@@ -23,6 +23,7 @@ import {
   RefreshCw,
   MessageSquare,
 } from 'lucide-react';
+// Note: Save, PenLine already in list
 
 interface Document {
   id: string;
@@ -31,6 +32,8 @@ interface Document {
   content_type: string;
   size: number;
   description: string;
+  short_summary?: string | null;
+  summary_ready?: boolean;
 }
 
 interface AIGenerationJob {
@@ -81,7 +84,15 @@ export default function AIGeneratePage() {
   });
 
   // ── Chat with AI assistant ──
-  const [chatMessages, setChatMessages] = useState<Array<{ role: 'user' | 'assistant'; content: string; at: number }>>([]);
+  const [chatMessages, setChatMessages] = useState<Array<{
+    role: 'user' | 'assistant';
+    content: string;
+    at: number;
+    apply_lesson_id?: string;
+    apply_lesson_content?: string;
+    apply_lesson_title_hint?: string;
+    applied_lesson_id?: string; // marker: user already applied this suggestion
+  }>>([]);
   const [chatInput, setChatInput] = useState('');
   const [chatSending, setChatSending] = useState(false);
   const [chatContext, setChatContext] = useState<{ context: 'course' | 'module' | 'lesson'; target_id?: string }>({ context: 'course' });
@@ -103,6 +114,11 @@ export default function AIGeneratePage() {
     guidance: string;
     regenerate_quiz: boolean;
   }>({ open: false, kind: 'module', target_id: '', target_title: '', guidance: '', regenerate_quiz: true });
+
+  // ── Inline lesson edit (Phase 5) ──
+  const [editingLessonId, setEditingLessonId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<{ title: string; content: string }>({ title: '', content: '' });
+  const [editSaving, setEditSaving] = useState(false);
 
   useEffect(() => { fetchDocuments(); restoreActiveJob(); }, []);
 
@@ -251,7 +267,14 @@ export default function AIGeneratePage() {
         target_id: chatContext.target_id,
         message: userMessage,
       });
-      setChatMessages((prev) => [...prev, { role: 'assistant', content: res.data.reply, at: Date.now() }]);
+      setChatMessages((prev) => [...prev, {
+        role: 'assistant',
+        content: res.data.reply,
+        at: Date.now(),
+        apply_lesson_id: res.data.apply_lesson_id || undefined,
+        apply_lesson_content: res.data.apply_lesson_content || undefined,
+        apply_lesson_title_hint: res.data.apply_lesson_title_hint || undefined,
+      }]);
     } catch (e: any) {
       setChatMessages((prev) => [
         ...prev,
@@ -259,6 +282,20 @@ export default function AIGeneratePage() {
       ]);
     } finally {
       setChatSending(false);
+    }
+  };
+
+  const applyChatSuggestion = async (messageIdx: number, lessonId: string, content: string) => {
+    try {
+      await api.patch(`/v1/lessons/${lessonId}`, { content });
+      setChatMessages((prev) =>
+        prev.map((m, i) => (i === messageIdx ? { ...m, applied_lesson_id: lessonId } : m))
+      );
+      if (currentJob?.course_id) {
+        await loadCoursePreview(currentJob.course_id);
+      }
+    } catch (e: any) {
+      alert(`Не удалось применить: ${e?.response?.data?.detail || e?.message || 'неизвестно'}`);
     }
   };
 
@@ -325,6 +362,34 @@ export default function AIGeneratePage() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [regenJob?.job_id, currentJob?.course_id]);
+
+  // ── Inline edit (Phase 5) ──
+  const startEditLesson = (lessonId: string, lessonTitle: string, lessonContent: string) => {
+    setEditingLessonId(lessonId);
+    setEditForm({ title: lessonTitle, content: lessonContent });
+  };
+  const cancelEditLesson = () => {
+    setEditingLessonId(null);
+    setEditForm({ title: '', content: '' });
+  };
+  const saveEditLesson = async () => {
+    if (!editingLessonId || editSaving) return;
+    setEditSaving(true);
+    try {
+      await api.patch(`/v1/lessons/${editingLessonId}`, {
+        title: editForm.title.trim(),
+        content: editForm.content,
+      });
+      cancelEditLesson();
+      if (currentJob?.course_id) {
+        await loadCoursePreview(currentJob.course_id);
+      }
+    } catch (e: any) {
+      alert(`Не удалось сохранить: ${e?.response?.data?.detail || e?.message || 'неизвестно'}`);
+    } finally {
+      setEditSaving(false);
+    }
+  };
 
   // Poll job status
   useEffect(() => {
@@ -420,7 +485,13 @@ export default function AIGeneratePage() {
                   />
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-medium text-foreground truncate">{doc.title}</div>
-                    {doc.description && <div className="text-xs text-muted-foreground truncate">{doc.description}</div>}
+                    {doc.short_summary ? (
+                      <div className="text-xs text-primary/80 truncate italic">
+                        {doc.summary_ready ? '📄 ' : '⚠️ '}{doc.short_summary}
+                      </div>
+                    ) : doc.description ? (
+                      <div className="text-xs text-muted-foreground truncate">{doc.description}</div>
+                    ) : null}
                   </div>
                   <div className="text-xs text-muted-foreground shrink-0">{doc.filename}</div>
                 </label>
@@ -650,7 +721,14 @@ export default function AIGeneratePage() {
                 onRegenerateModule={(moduleId, title) => startRegenerate('module', moduleId, title)}
                 onRegenerateLesson={(lessonId, title) => startRegenerate('lesson', lessonId, title)}
                 onFocusChat={(context, target_id) => setChatContext({ context, target_id })}
+                onEditLesson={startEditLesson}
                 busyTargetId={regenJob?.target_id ?? null}
+                editingLessonId={editingLessonId}
+                editForm={editForm}
+                editSaving={editSaving}
+                onCancelEdit={cancelEditLesson}
+                onSaveEdit={saveEditLesson}
+                onEditFormChange={setEditForm}
               />
             ) : (
               <div className="p-6 text-center text-sm text-muted-foreground">
@@ -702,18 +780,52 @@ export default function AIGeneratePage() {
                 </div>
               ) : (
                 chatMessages.map((m, i) => (
-                  <div key={i} className={
-                    m.role === 'user'
-                      ? 'flex justify-end'
-                      : 'flex justify-start'
-                  }>
+                  <div key={i} className="space-y-1.5">
                     <div className={
                       m.role === 'user'
-                        ? 'max-w-[85%] rounded-2xl rounded-tr-md bg-primary px-3 py-2 text-sm text-primary-foreground whitespace-pre-wrap'
-                        : 'max-w-[85%] rounded-2xl rounded-tl-md bg-muted px-3 py-2 text-sm text-foreground whitespace-pre-wrap'
+                        ? 'flex justify-end'
+                        : 'flex justify-start'
                     }>
-                      {m.content}
+                      <div className={
+                        m.role === 'user'
+                          ? 'max-w-[85%] rounded-2xl rounded-tr-md bg-primary px-3 py-2 text-sm text-primary-foreground whitespace-pre-wrap'
+                          : 'max-w-[85%] rounded-2xl rounded-tl-md bg-muted px-3 py-2 text-sm text-foreground whitespace-pre-wrap'
+                      }>
+                        {m.content}
+                      </div>
                     </div>
+                    {m.role === 'assistant' && m.apply_lesson_id && m.apply_lesson_content && (
+                      <div className="flex justify-start">
+                        <div className="max-w-[85%] rounded-2xl rounded-tl-md border border-success/30 bg-success/5 p-3 space-y-2">
+                          <div className="text-[11px] font-semibold uppercase tracking-wider text-success">
+                            Предложение замены{m.apply_lesson_title_hint ? `: «${m.apply_lesson_title_hint}»` : ''}
+                          </div>
+                          <div className="text-xs text-muted-foreground line-clamp-4 whitespace-pre-line font-mono">
+                            {m.apply_lesson_content}
+                          </div>
+                          <div className="flex items-center justify-between gap-2 pt-1">
+                            <span className="text-[10px] text-muted-foreground">
+                              Урок id: {m.apply_lesson_id.slice(0, 8)}…
+                            </span>
+                            {m.applied_lesson_id === m.apply_lesson_id ? (
+                              <span className="inline-flex items-center gap-1 rounded-md bg-success/15 px-2 py-1 text-[11px] font-medium text-success">
+                                <CheckCircle2 className="w-3 h-3" />
+                                Применено
+                              </span>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => applyChatSuggestion(i, m.apply_lesson_id!, m.apply_lesson_content!)}
+                                className="inline-flex items-center gap-1 rounded-md bg-success px-2 py-1 text-[11px] font-medium text-success-foreground hover:bg-success/90 transition-colors"
+                              >
+                                <CheckCircle2 className="w-3 h-3" />
+                                Применить к уроку
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))
               )}
@@ -948,13 +1060,27 @@ function CoursePreviewTree({
   onRegenerateModule,
   onRegenerateLesson,
   onFocusChat,
+  onEditLesson,
   busyTargetId,
+  editingLessonId,
+  editForm,
+  editSaving,
+  onCancelEdit,
+  onSaveEdit,
+  onEditFormChange,
 }: {
   modules: any[];
   onRegenerateModule: (moduleId: string, title: string) => void;
   onRegenerateLesson: (lessonId: string, title: string) => void;
   onFocusChat: (context: 'module' | 'lesson', target_id: string) => void;
+  onEditLesson: (lessonId: string, title: string, content: string) => void;
   busyTargetId: string | null;
+  editingLessonId: string | null;
+  editForm: { title: string; content: string };
+  editSaving: boolean;
+  onCancelEdit: () => void;
+  onSaveEdit: () => void;
+  onEditFormChange: (next: { title: string; content: string }) => void;
 }) {
   const [openIds, setOpenIds] = useState<Set<string>>(new Set());
   const toggle = (id: string) => {
@@ -1021,50 +1147,102 @@ function CoursePreviewTree({
                 {m.lessons?.length ? (
                   m.lessons.map((l: any, li: number) => {
                     const lessonBusy = busyTargetId === l.id;
+                    const isEditing = editingLessonId === l.id;
                     return (
                       <li key={l.id} className="px-4 py-3 pl-14 space-y-1.5">
                         <div className="flex items-start gap-2">
                           <span className="text-xs font-mono text-muted-foreground shrink-0 mt-0.5">{mi + 1}.{li + 1}</span>
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <div className="text-sm font-medium text-foreground truncate flex-1 min-w-0">{l.title}</div>
-                              <button
-                                type="button"
-                                onClick={() => onFocusChat('lesson', l.id)}
-                                className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors shrink-0"
-                                title="Спросить AI про этот урок"
-                              >
-                                <MessageSquare className="w-2.5 h-2.5" />
-                                AI
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => onRegenerateLesson(l.id, l.title)}
-                                disabled={lessonBusy || !!busyTargetId}
-                                className="inline-flex items-center gap-1 rounded-md border border-warning/40 bg-warning/10 px-1.5 py-0.5 text-[10px] font-medium text-warning hover:bg-warning/15 transition-colors disabled:opacity-50 shrink-0"
-                              >
-                                {lessonBusy ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <RefreshCw className="w-2.5 h-2.5" />}
-                                Перегенерировать
-                              </button>
-                            </div>
-                            {l.content_preview && (
-                              <p className="text-xs text-muted-foreground line-clamp-3 mt-1 whitespace-pre-line">
-                                {l.content_preview}
-                              </p>
+                            {isEditing ? (
+                              <div className="space-y-2">
+                                <input
+                                  type="text"
+                                  value={editForm.title}
+                                  onChange={(e) => onEditFormChange({ ...editForm, title: e.target.value })}
+                                  className="w-full rounded-lg border border-primary bg-background px-2 py-1 text-sm font-medium text-foreground focus:outline-none"
+                                  placeholder="Название урока"
+                                />
+                                <textarea
+                                  value={editForm.content}
+                                  onChange={(e) => onEditFormChange({ ...editForm, content: e.target.value })}
+                                  rows={Math.min(15, Math.max(6, editForm.content.split('\n').length + 2))}
+                                  className="w-full rounded-lg border border-primary bg-background px-2 py-1.5 text-xs text-foreground font-mono leading-relaxed focus:outline-none resize-y"
+                                  placeholder="Содержимое урока"
+                                />
+                                <div className="flex items-center justify-end gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={onCancelEdit}
+                                    disabled={editSaving}
+                                    className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-2 py-1 text-[11px] font-medium text-muted-foreground hover:bg-muted transition-colors disabled:opacity-50"
+                                  >
+                                    <XCircle className="w-3 h-3" />
+                                    Отмена
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={onSaveEdit}
+                                    disabled={editSaving || !editForm.title.trim()}
+                                    className="inline-flex items-center gap-1 rounded-md bg-primary px-2 py-1 text-[11px] font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+                                  >
+                                    {editSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
+                                    Сохранить
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <>
+                                <div className="flex items-center gap-2">
+                                  <div className="text-sm font-medium text-foreground truncate flex-1 min-w-0">{l.title}</div>
+                                  <button
+                                    type="button"
+                                    onClick={() => onFocusChat('lesson', l.id)}
+                                    className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors shrink-0"
+                                    title="Спросить AI про этот урок"
+                                  >
+                                    <MessageSquare className="w-2.5 h-2.5" />
+                                    AI
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => onEditLesson(l.id, l.title, l.content_preview || '')}
+                                    disabled={!!busyTargetId}
+                                    className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:opacity-50 shrink-0"
+                                    title="Редактировать урок"
+                                  >
+                                    <PenLine className="w-2.5 h-2.5" />
+                                    Изменить
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => onRegenerateLesson(l.id, l.title)}
+                                    disabled={lessonBusy || !!busyTargetId}
+                                    className="inline-flex items-center gap-1 rounded-md border border-warning/40 bg-warning/10 px-1.5 py-0.5 text-[10px] font-medium text-warning hover:bg-warning/15 transition-colors disabled:opacity-50 shrink-0"
+                                  >
+                                    {lessonBusy ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <RefreshCw className="w-2.5 h-2.5" />}
+                                    Перегенерировать
+                                  </button>
+                                </div>
+                                {l.content_preview && (
+                                  <p className="text-xs text-muted-foreground line-clamp-3 mt-1 whitespace-pre-line">
+                                    {l.content_preview}
+                                  </p>
+                                )}
+                                <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                                  {l.duration_seconds ? (
+                                    <span className="text-[11px] text-muted-foreground">
+                                      ⏱ {Math.max(1, Math.round(l.duration_seconds / 60))} мин
+                                    </span>
+                                  ) : null}
+                                  {l.has_quiz && (
+                                    <span className="inline-flex items-center gap-1 rounded-full bg-success/15 px-2 py-0.5 text-[11px] font-medium text-success">
+                                      <ClipboardCheck className="w-3 h-3" />
+                                      Тест: {l.quiz_question_count || 0} вопр.
+                                    </span>
+                                  )}
+                                </div>
+                              </>
                             )}
-                            <div className="flex flex-wrap items-center gap-2 mt-1.5">
-                              {l.duration_seconds ? (
-                                <span className="text-[11px] text-muted-foreground">
-                                  ⏱ {Math.max(1, Math.round(l.duration_seconds / 60))} мин
-                                </span>
-                              ) : null}
-                              {l.has_quiz && (
-                                <span className="inline-flex items-center gap-1 rounded-full bg-success/15 px-2 py-0.5 text-[11px] font-medium text-success">
-                                  <ClipboardCheck className="w-3 h-3" />
-                                  Тест: {l.quiz_question_count || 0} вопр.
-                                </span>
-                              )}
-                            </div>
                           </div>
                         </div>
                       </li>

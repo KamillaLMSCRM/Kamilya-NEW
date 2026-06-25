@@ -46,7 +46,16 @@ class AIChatRequest(BaseModel):
 
 
 class AIChatResponse(BaseModel):
+    """LLM reply, optionally with an inline suggestion the methodologist
+    can apply directly to a lesson. If the assistant wraps a rewrite in
+    [APPLY_LESSON:uuid]…[/APPLY_LESSON] tags, backend extracts the body,
+    strips the tags from `reply`, and exposes the parsed suggestion
+    here for the UI's one-click apply button.
+    """
     reply: str
+    apply_lesson_id: Optional[UUID] = None
+    apply_lesson_content: Optional[str] = None
+    apply_lesson_title_hint: Optional[str] = None  # parsed "[APPLY_LESSON:title=...]" hint, optional
     model_config = ConfigDict(protected_namespaces=())
 
 

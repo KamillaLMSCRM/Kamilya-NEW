@@ -1,4 +1,6 @@
 """Documents — API router with MIME validation."""
+import json
+import logging
 import uuid
 import os
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
@@ -13,6 +15,9 @@ from app.modules.documents.schemas import DocumentResponse
 router = APIRouter(prefix="/documents", tags=["documents"])
 
 UPLOAD_DIR = "./uploads/documents"
+SUMMARIES_DIR = "./summaries"
+
+logger = logging.getLogger(__name__)
 
 # Allowed MIME types and their magic bytes
 ALLOWED_MIME_TYPES = {
@@ -39,6 +44,61 @@ def validate_magic_bytes(content: bytes, content_type: str) -> bool:
     return content[:len(expected_magic)] == expected_magic
 
 
+def _load_short_summary(doc_id: str, filename: str | None = None) -> tuple[bool, str | None]:
+    """Read ./summaries/{doc_id}.json (produced by ingestion) and return
+    a 3-7 word summary that captures what the document is about. Falls
+    back to a derived label from the filename if no summary file exists.
+
+    Returns (summary_ready, short_summary_text).
+    """
+    summary_path = os.path.join(SUMMARIES_DIR, f"{doc_id}.json")
+    try:
+        with open(summary_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        # Prefer educational_summary.core_topics[0] (1 phrase)
+        topics = (data.get("educational_summary") or {}).get("core_topics") or []
+        for topic in topics:
+            if isinstance(topic, str) and topic.strip():
+                return True, topic.strip()[:120]
+        # Then global_description (full sentence — extract head phrase)
+        desc = (data.get("educational_summary") or {}).get("global_description")
+        if isinstance(desc, str) and desc.strip():
+            head = desc.split(".")[0].strip()
+            # Trim to ~7 words
+            words = head.split()
+            return True, " ".join(words[:7])[:120] if len(words) > 7 else head[:120]
+        # Then headings[0]
+        toc = data.get("toc") or ""
+        for line in toc.splitlines():
+            if line.lstrip("- ").strip():
+                return True, line.lstrip("- ").strip()[:120]
+    except FileNotFoundError:
+        pass
+    except Exception as e:
+        logger.debug(f"Failed to load summary for {doc_id}: {e}")
+
+    # Fallback: derive from filename (e.g. "02_client_onboarding_process.md"
+    # → "Client onboarding process")
+    if filename:
+        stem = os.path.splitext(os.path.basename(filename))[0]
+        # Strip leading numeric prefix like "02_" or "2-"
+        import re
+        stem = re.sub(r"^\d+[_\-\.\s]+", "", stem)
+        stem = stem.replace("_", " ").replace("-", " ").strip()
+        if stem:
+            return False, stem[:120]
+    return False, None
+
+
+def _hydrate(doc: Document) -> DocumentResponse:
+    """Attach short_summary/summary_ready to a Document instance."""
+    resp = DocumentResponse.model_validate(doc)
+    ready, short = _load_short_summary(str(doc.id), doc.filename)
+    resp.summary_ready = ready
+    resp.short_summary = short
+    return resp
+
+
 @router.get("", response_model=list[DocumentResponse])
 async def list_documents(
     db: AsyncSession = Depends(get_db),
@@ -49,7 +109,23 @@ async def list_documents(
         .where(Document.tenant_id == user.tenant_id)
         .order_by(Document.created_at.desc())
     )
-    return result.scalars().all()
+    docs = result.scalars().all()
+    return [_hydrate(d) for d in docs] if docs else []
+
+
+@router.get("/{doc_id}", response_model=DocumentResponse)
+async def get_document(
+    doc_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    result = await db.execute(
+        select(Document).where(Document.id == doc_id, Document.tenant_id == user.tenant_id)
+    )
+    doc = result.scalar_one_or_none()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+    return _hydrate(doc)
 
 
 @router.post("/upload", response_model=DocumentResponse, status_code=201)
@@ -94,7 +170,7 @@ async def upload_document(
     )
     existing_doc = existing.scalar_one_or_none()
     if existing_doc:
-        return existing_doc
+        return _hydrate(existing_doc)
 
     ext = os.path.splitext(file.filename or "")[1]
     doc_id = uuid.uuid4()
@@ -144,7 +220,7 @@ async def upload_document(
         await db.flush()
         await db.refresh(doc)
 
-    return doc
+    return _hydrate(doc)
 
 
 @router.delete("/{document_id}", status_code=204)
