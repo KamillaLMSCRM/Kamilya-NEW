@@ -8,23 +8,30 @@
 | Domain | Purpose | Backend |
 |---|---|---|
 | `app.kml.kz` | LMS app (this monorepo — `apps/web` + `apps/api`) | Next.js 14 (Frankfurt `fra1`) |
-| `www.kml.kz` / `kml.kz` | Marketing landing site (separate Next.js project) | Vercel Frankfurt, separate project |
+| `www.kml.kz` / `kml.kz` | Marketing landing site | Vercel Frankfurt, separate project |
 | `cdn.lms.kml.kz` | Static assets (Supabase Storage CDN alias) | Supabase Storage |
 
-The landing project is **NOT in this monorepo** — it's a separate Next.js project
-imported into Vercel from a different source (GitLab / Vercel CLI / other).
-Source repo not visible on GitHub `KamillaLMSCRM` org.
+The landing site lives in a **separate repo**: `KamillaLMSCRM/kamilya-landing`
+(private). Local clone at `D:\Камиля\landing` (NOT inside this monorepo).
+Vercel deploys it automatically on push to master.
 
 ## Vercel projects
 
 | Project | ID | Notes |
 |---|---|---|
 | LMS (`web`) | `prj_hJMzgp9QNFCwUMrsDEBZINpJJzBp` | Frankfurt, free plan, custom domain `app.kml.kz` |
-| Landing | _(separate project, ID unknown)_ | Domain `www.kml.kz` |
+| Landing | _(separate project, ID unknown — TBD)_ | Domain `www.kml.kz`, deploys on push to `kamilya-landing` master |
 
 Vercel aliases (legacy):
 - `web-inky-three-48.vercel.app`
 - `web-natt1inhm-kamillalmscrms-projects.vercel.app`
+
+## GitHub repos
+
+| Repo | Visibility | Local clone |
+|---|---|---|
+| `KamillaLMSCRM/Kamilya-NEW` | public | `D:\Камиля\lms` (this directory) |
+| `KamillaLMSCRM/kamilya-landing` | **private** | `D:\Камиля\landing` |
 
 ## Backend / infra
 
@@ -41,20 +48,22 @@ Vercel aliases (legacy):
 
 > Askar's rule: no production secrets in chat. Tokens are referenced, not stored, here.
 
-| Token | Location (Windows Credential Manager name) | Notes |
+| Token | Location | Notes |
 |---|---|---|
-| GitHub PAT — Kamilya-NEW (this monorepo) | `github-kamilya-new` | scope: `repo`, `read:org` |
-| GitHub PAT — Landing site repo | `github-kamilya-landing` | separate repo, see Domain table |
-| Render API | `render-kamilya-api` | service: `kamilya-lms-api` |
-| Vercel — LMS project | `vercel-kamilya-lms` | project ID above |
-| Vercel — Landing project | `vercel-kamilya-landing` | _TBD — Askar to provide when first needed_ |
-| Supabase service role | `supabase-kamilya` | project ref above |
-| Upstash Redis | `upstash-kamilya` | |
-| LLM proxy auth | `qwen-dgx` | |
-| Docling proxy | `docling-kml` | |
+| GitHub PAT — Kamilya-NEW (this monorepo) | `apps/api/.env` (in repo at deploy time via Render env) | public repo, deploy key not strictly needed |
+| GitHub PAT — Landing site repo | **`apps/api/.env` → `github_kamilya_landing_token`** | private repo `kamilya-landing` |
+| Render API | Render dashboard → account settings → API tokens | service: `kamilya-lms-api` |
+| Vercel — LMS project | Vercel dashboard → account settings → tokens | project `prj_hJMzgp9QNFCwUMrsDEBZINpJJzBp` |
+| Vercel — Landing project | _TBD — Askar to provide when first needed_ | |
+| Supabase service role | Render env (`SUPABASE_*`) | project ref `ducegbxphkgffgozkchw` |
+| Upstash Redis | Render env (`REDIS_URL`) | |
+| LLM proxy auth | Render env (`LLM_API_URL`) | `http://10.66.66.7:8555` |
+| Docling proxy | Render env (`DOCLING_URL`) | `https://docling.kml.kz` |
 
-If a token isn't in Credential Manager yet, ask Askar — do not request a new
-PAT if one already exists; reuse by reading the existing entry.
+**Important:** Askar stores production PATs **in `apps/api/.env`** (not Windows
+Credential Manager). When a future session needs to push to `kamilya-landing`,
+read the token from `apps/api/.env` directly (key name: `github_kamilya_landing_token`),
+use it once for the push, do NOT echo it back, and consider rotating after use.
 
 ## GitHub org
 
