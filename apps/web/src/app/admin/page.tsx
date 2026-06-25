@@ -202,6 +202,9 @@ export default function AdminDashboardPage() {
             <a href="/admin/kiosks" className="flex items-center gap-1 text-blue-600 text-sm hover:underline mt-2 block">
               🖥️ Киоски для цехов →
             </a>
+            <a href="/admin/staff" className="flex items-center gap-1 text-blue-600 text-sm hover:underline mt-2 block">
+              📋 Штатное расписание →
+            </a>
           </CardContent>
         </Card>
 
