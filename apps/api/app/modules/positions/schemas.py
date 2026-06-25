@@ -257,3 +257,74 @@ class JDVersionCreate(BaseModel):
 class JDRestoreResponse(BaseModel):
     position: PositionResponse
     restored_from_version_id: UUID
+
+
+# ── Onboarding quiz (Phase 3) ──────────────────────────────────
+
+
+class QuizChoiceDraft(BaseModel):
+    """One answer choice in an onboarding quiz question.
+
+    Draft = not yet persisted to a separate QuizChoice row (we store
+    questions as JSON for v1). Methodologist edits/adds/removes these
+    in the modal before saving.
+    """
+    text: str = Field(..., min_length=1, max_length=1000)
+    is_correct: bool = False
+
+
+class QuizQuestionDraft(BaseModel):
+    """One question in an onboarding quiz.
+
+    Stored as JSON in position_quizzes.questions. Designed for v1:
+    - Only MCQ type supported (single correct answer per question)
+    - explanation is optional but recommended (shown to learner after submit)
+    """
+    text: str = Field(..., min_length=3, max_length=2000)
+    type: str = Field(default="MCQ", max_length=32)
+    explanation: str = Field(default="", max_length=2000)
+    choices: list[QuizChoiceDraft] = Field(..., min_length=2, max_length=8)
+
+    def normalize(self) -> "QuizQuestionDraft":
+        """Trim text and ensure exactly one correct choice (default first if none)."""
+        clean_choices = [
+            QuizChoiceDraft(text=c.text.strip()[:1000], is_correct=bool(c.is_correct))
+            for c in self.choices
+            if c.text.strip()
+        ]
+        if not any(c.is_correct for c in clean_choices) and clean_choices:
+            clean_choices[0].is_correct = True
+        return QuizQuestionDraft(
+            text=self.text.strip()[:2000],
+            type=(self.type or "MCQ").strip()[:32] or "MCQ",
+            explanation=self.explanation.strip()[:2000],
+            choices=clean_choices,
+        )
+
+
+class SuggestOnboardingQuizResponse(BaseModel):
+    """Return of POST /{id}/suggest-onboarding-quiz (AI draft, not saved)."""
+    title: str
+    questions: list[QuizQuestionDraft]
+
+
+class SavePositionQuizRequest(BaseModel):
+    """Body for POST /{id}/onboarding-quiz (upsert)."""
+    title: str = Field(..., min_length=2, max_length=255)
+    pass_score: int = Field(default=80, ge=0, le=100)
+    time_limit: int | None = Field(default=None, ge=1, le=600)  # minutes
+    questions: list[QuizQuestionDraft] = Field(..., min_length=1, max_length=30)
+    is_active: bool = True
+
+
+class PositionQuizResponse(BaseModel):
+    """Stored onboarding quiz (return of GET or POST upsert)."""
+    id: UUID
+    position_id: UUID
+    title: str
+    pass_score: int
+    time_limit: int | None
+    questions: list[QuizQuestionDraft]
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime

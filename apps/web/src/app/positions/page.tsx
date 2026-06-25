@@ -91,6 +91,27 @@ interface CourseSuggestion {
   reason: string;
 }
 
+// Onboarding quiz draft (matches backend QuizChoiceDraft / QuizQuestionDraft)
+interface QuizChoiceDraft {
+  text: string;
+  is_correct: boolean;
+}
+interface QuizQuestionDraft {
+  text: string;
+  type: string;
+  explanation: string;
+  choices: QuizChoiceDraft[];
+}
+
+// RU pluralization for question count: 1 вопрос, 2-4 вопроса, 5+ вопросов
+function pluralQuestions(n: number): string {
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (mod10 === 1 && mod100 !== 11) return 'вопрос';
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return 'вопроса';
+  return 'вопросов';
+}
+
 // Reusable component: renders a list of audit findings with severity-colored badges.
 function JDAuditList({ items, compact = false }: { items: JDAuditItem[]; compact?: boolean }) {
   if (items.length === 0) return null;
@@ -191,6 +212,16 @@ export default function PositionsPage() {
   const [selectedSuggestions, setSelectedSuggestions] = useState<Set<number>>(new Set());
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
   const [creatingCourses, setCreatingCourses] = useState(false);
+
+  // ── Onboarding quiz state (Phase 3) ─────────────────────
+  const [quizFor, setQuizFor] = useState<string | null>(null);  // position_id
+  const [quizTitle, setQuizTitle] = useState('Онбординг-тест');
+  const [quizPassScore, setQuizPassScore] = useState(80);
+  const [quizQuestions, setQuizQuestions] = useState<QuizQuestionDraft[]>([]);
+  const [quizLoading, setQuizLoading] = useState(false);
+  const [quizSaving, setQuizSaving] = useState(false);
+  const [quizExists, setQuizExists] = useState(false);  // whether this position already has a saved quiz
+  const [quizIsActive, setQuizIsActive] = useState(true);
 
   const fetchPositions = useCallback(async () => {
     try {
@@ -578,6 +609,163 @@ export default function PositionsPage() {
     }
   };
 
+  // ── Onboarding quiz (Phase 3) ──────────────────────────
+  const openQuizModal = async (positionId: string) => {
+    setQuizFor(positionId);
+    setQuizLoading(true);
+    try {
+      // First, fetch existing quiz (if any) to prefill the modal
+      const existing = await api.get(`/v1/positions/${positionId}/onboarding-quiz`);
+      if (existing.data) {
+        const q = existing.data as { title: string; pass_score: number; questions: QuizQuestionDraft[]; is_active: boolean };
+        setQuizTitle(q.title);
+        setQuizPassScore(q.pass_score);
+        setQuizQuestions(q.questions);
+        setQuizExists(true);
+        setQuizIsActive(q.is_active);
+      } else {
+        // No saved quiz yet — generate one from JD
+        const fresh = await api.post(`/v1/positions/${positionId}/suggest-onboarding-quiz`);
+        const data = fresh.data as { title: string; questions: QuizQuestionDraft[] };
+        setQuizTitle(data.title || 'Онбординг-тест');
+        setQuizPassScore(80);
+        setQuizQuestions(data.questions && data.questions.length > 0 ? data.questions : []);
+        setQuizExists(false);
+        setQuizIsActive(true);
+      }
+    } catch (err: any) {
+      toast.error('Не удалось загрузить онбординг-тест');
+      setQuizTitle('Онбординг-тест');
+      setQuizPassScore(80);
+      setQuizQuestions([]);
+      setQuizExists(false);
+      setQuizIsActive(true);
+    } finally {
+      setQuizLoading(false);
+    }
+  };
+
+  const closeQuizModal = () => {
+    setQuizFor(null);
+    setQuizQuestions([]);
+    setQuizTitle('Онбординг-тест');
+    setQuizPassScore(80);
+    setQuizExists(false);
+    setQuizIsActive(true);
+  };
+
+  const updateQuestion = (qi: number, patch: Partial<QuizQuestionDraft>) => {
+    setQuizQuestions(prev => prev.map((q, i) => i === qi ? { ...q, ...patch } : q));
+  };
+  const updateChoice = (qi: number, ci: number, patch: Partial<QuizChoiceDraft>) => {
+    setQuizQuestions(prev => prev.map((q, i) => {
+      if (i !== qi) return q;
+      return { ...q, choices: q.choices.map((c, j) => j === ci ? { ...c, ...patch } : c) };
+    }));
+  };
+  const setCorrectChoice = (qi: number, ci: number) => {
+    setQuizQuestions(prev => prev.map((q, i) => {
+      if (i !== qi) return q;
+      return { ...q, choices: q.choices.map((c, j) => ({ ...c, is_correct: j === ci })) };
+    }));
+  };
+  const addQuestion = () => {
+    setQuizQuestions(prev => [...prev, {
+      text: '',
+      type: 'MCQ',
+      explanation: '',
+      choices: [
+        { text: '', is_correct: true },
+        { text: '', is_correct: false },
+      ],
+    }]);
+  };
+  const removeQuestion = (qi: number) => {
+    setQuizQuestions(prev => prev.filter((_, i) => i !== qi));
+  };
+  const addChoice = (qi: number) => {
+    setQuizQuestions(prev => prev.map((q, i) => {
+      if (i !== qi) return q;
+      if (q.choices.length >= 8) return q;  // cap at 8
+      return { ...q, choices: [...q.choices, { text: '', is_correct: false }] };
+    }));
+  };
+  const removeChoice = (qi: number, ci: number) => {
+    setQuizQuestions(prev => prev.map((q, i) => {
+      if (i !== qi) return q;
+      if (q.choices.length <= 2) return q;  // min 2
+      const next = q.choices.filter((_, j) => j !== ci);
+      // If we removed the only correct, mark first remaining as correct
+      if (!next.some(c => c.is_correct) && next.length > 0) next[0].is_correct = true;
+      return { ...q, choices: next };
+    }));
+  };
+
+  const handleSaveQuiz = async () => {
+    if (!quizFor) return;
+    // Client-side validation
+    for (let i = 0; i < quizQuestions.length; i++) {
+      const q = quizQuestions[i];
+      if (!q.text.trim()) {
+        toast.error(`Вопрос #${i + 1}: введите текст`);
+        return;
+      }
+      if (q.choices.length < 2) {
+        toast.error(`Вопрос #${i + 1}: минимум 2 варианта`);
+        return;
+      }
+      if (!q.choices.some(c => c.is_correct)) {
+        toast.error(`Вопрос #${i + 1}: отметьте правильный ответ`);
+        return;
+      }
+      if (q.choices.some(c => !c.text.trim())) {
+        toast.error(`Вопрос #${i + 1}: все варианты должны иметь текст`);
+        return;
+      }
+    }
+    if (quizQuestions.length === 0) {
+      toast.error('Добавьте хотя бы один вопрос');
+      return;
+    }
+    setQuizSaving(true);
+    try {
+      await api.post(`/v1/positions/${quizFor}/onboarding-quiz`, {
+        title: quizTitle.trim() || 'Онбординг-тест',
+        pass_score: quizPassScore,
+        time_limit: null,
+        questions: quizQuestions,
+        is_active: quizIsActive,
+      });
+      toast.success(quizExists ? 'Онбординг-тест обновлён' : `Онбординг-тест сохранён (${quizQuestions.length} ${pluralQuestions(quizQuestions.length)})`);
+      fetchPositions();
+      closeQuizModal();
+    } catch (err: any) {
+      const detail = err?.response?.data?.detail || 'Не удалось сохранить онбординг-тест';
+      toast.error(detail);
+    } finally {
+      setQuizSaving(false);
+    }
+  };
+
+  const handleDeleteQuiz = async () => {
+    if (!quizFor) return;
+    const ok = await confirm({
+      title: 'Удалить онбординг-тест?',
+      message: 'Все вопросы будут удалены безвозвратно.',
+      variant: 'danger',
+      confirmLabel: 'Удалить',
+    });
+    if (!ok) return;
+    try {
+      await api.delete(`/v1/positions/${quizFor}/onboarding-quiz`);
+      toast.success('Онбординг-тест удалён');
+      fetchPositions();
+      closeQuizModal();
+    } catch (err: any) {
+      toast.error('Не удалось удалить онбординг-тест');
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -805,6 +993,13 @@ export default function PositionsPage() {
                   >
                     {suggestionsFor === pos.id ? 'Скрыть' : '💡 Предложить курсы'}
                   </button>
+                  <button
+                    onClick={() => quizFor === pos.id ? closeQuizModal() : openQuizModal(pos.id)}
+                    className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs text-rose-700 hover:bg-rose-100 transition-colors"
+                    title="AI создаст онбординг-тест по ДИ: 7 вопросов с вариантами, чтобы новый сотрудник подтвердил понимание"
+                  >
+                    {quizFor === pos.id ? 'Скрыть' : '📝 Онбординг-тест'}
+                  </button>
                   <button onClick={() => handleDelete(pos.id)} className="rounded-xl border border-red-200 px-3 py-1.5 text-xs text-red-400 hover:border-red-300 hover:text-red-600 transition-colors">Удалить</button>
                 </div>
               </div>
@@ -938,6 +1133,206 @@ export default function PositionsPage() {
               >
                 Закрыть
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Onboarding quiz modal (Phase 3) — after clicking "Онбординг-тест" on a saved position */}
+      {quizFor && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={closeQuizModal} />
+          <div className="relative bg-white rounded-2xl shadow-card-lg w-full max-w-3xl mx-4 p-6 z-10 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center gap-2 mb-4">
+              <span className="text-2xl">📝</span>
+              <div className="flex-1">
+                <h2 className="text-lg font-bold text-warm-800 font-display">
+                  {quizExists ? 'Редактировать онбординг-тест' : 'AI создал онбординг-тест'}
+                </h2>
+                <p className="text-xs text-warm-500">
+                  {quizExists
+                    ? 'Измените вопросы и сохраните. Новые сотрудники увидят этот тест при онбординге.'
+                    : 'Проверьте вопросы, отредактируйте если нужно, и сохраните. Новые сотрудники увидят этот тест при онбординге.'}
+                </p>
+              </div>
+            </div>
+            {quizLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="h-8 w-8 animate-spin rounded-full border-2 border-rose-500 border-t-transparent" />
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {/* Meta: title + pass score */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 rounded-lg border border-warm-200 bg-warm-50 p-3">
+                  <div className="sm:col-span-2">
+                    <label className="block text-[11px] font-semibold text-warm-500 mb-1">Название теста</label>
+                    <input
+                      value={quizTitle}
+                      onChange={(e) => setQuizTitle(e.target.value)}
+                      maxLength={255}
+                      className="w-full rounded-lg border border-warm-200 px-2.5 py-1.5 text-sm outline-none focus:border-primary"
+                      placeholder="Онбординг-тест: ..."
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-warm-500 mb-1">Проходной балл, %</label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={quizPassScore}
+                      onChange={(e) => setQuizPassScore(Math.max(0, Math.min(100, parseInt(e.target.value || '0', 10))))}
+                      className="w-full rounded-lg border border-warm-200 px-2.5 py-1.5 text-sm outline-none focus:border-primary"
+                    />
+                  </div>
+                </div>
+
+                {/* Questions list */}
+                {quizQuestions.length === 0 ? (
+                  <div className="rounded-lg border border-dashed border-rose-300 bg-rose-50 p-4 text-center">
+                    <p className="text-sm text-warm-700 mb-2">
+                      AI не сгенерировал вопросов (или ДИ пустая).
+                    </p>
+                    <p className="text-xs text-warm-500 mb-3">
+                      Заполните обязанности и требования в ДИ, или добавьте вопросы вручную.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={addQuestion}
+                      className="rounded-lg border border-rose-300 bg-white px-3 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-50"
+                    >
+                      + Добавить вопрос вручную
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {quizQuestions.map((q, qi) => (
+                      <div key={qi} className="rounded-lg border border-rose-200 bg-rose-50/30 p-3">
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <span className="text-[11px] font-bold text-rose-700 mt-1.5">#{qi + 1}</span>
+                          <textarea
+                            value={q.text}
+                            onChange={(e) => updateQuestion(qi, { text: e.target.value })}
+                            placeholder="Текст вопроса..."
+                            rows={2}
+                            className="flex-1 rounded-lg border border-warm-200 bg-white px-2.5 py-1.5 text-sm outline-none focus:border-primary resize-y"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeQuestion(qi)}
+                            title="Удалить вопрос"
+                            className="rounded-lg border border-red-200 px-2 py-1 text-xs text-red-500 hover:bg-red-50"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                        {/* Choices */}
+                        <div className="space-y-1.5 ml-7">
+                          {q.choices.map((c, ci) => (
+                            <div key={ci} className="flex items-start gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setCorrectChoice(qi, ci)}
+                                title={c.is_correct ? 'Правильный' : 'Отметить как правильный'}
+                                className={`shrink-0 mt-1.5 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${
+                                  c.is_correct
+                                    ? 'border-emerald-500 bg-emerald-500 text-white'
+                                    : 'border-warm-300 hover:border-warm-400'
+                                }`}
+                              >
+                                {c.is_correct && <span className="text-[10px]">✓</span>}
+                              </button>
+                              <input
+                                value={c.text}
+                                onChange={(e) => updateChoice(qi, ci, { text: e.target.value })}
+                                placeholder={`Вариант ${ci + 1}`}
+                                className="flex-1 rounded-lg border border-warm-200 bg-white px-2.5 py-1.5 text-sm outline-none focus:border-primary"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => removeChoice(qi, ci)}
+                                disabled={q.choices.length <= 2}
+                                title={q.choices.length <= 2 ? 'Минимум 2 варианта' : 'Удалить вариант'}
+                                className="shrink-0 rounded-lg border border-warm-200 px-2 py-1 text-xs text-warm-400 hover:bg-warm-50 disabled:opacity-30 disabled:hover:bg-transparent"
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          ))}
+                          <button
+                            type="button"
+                            onClick={() => addChoice(qi)}
+                            disabled={q.choices.length >= 8}
+                            className="text-[11px] text-rose-600 hover:text-rose-700 disabled:opacity-30 disabled:cursor-not-allowed"
+                          >
+                            + Вариант ({q.choices.length}/8)
+                          </button>
+                        </div>
+                        {/* Explanation (optional) */}
+                        <div className="ml-7 mt-2">
+                          <label className="block text-[10px] font-semibold text-warm-500 mb-0.5">
+                            Объяснение (видно сотруднику после ответа, необязательно)
+                          </label>
+                          <input
+                            value={q.explanation}
+                            onChange={(e) => updateQuestion(qi, { explanation: e.target.value })}
+                            placeholder="Почему этот ответ правильный..."
+                            className="w-full rounded-lg border border-warm-200 bg-white px-2.5 py-1.5 text-xs outline-none focus:border-primary"
+                          />
+                        </div>
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={addQuestion}
+                      className="w-full rounded-lg border border-dashed border-rose-300 px-3 py-2 text-sm text-rose-700 hover:bg-rose-50 transition-colors"
+                    >
+                      + Добавить вопрос ({quizQuestions.length}/30)
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Footer */}
+            <div className="flex items-center justify-between gap-2 mt-5 pt-4 border-t border-warm-100">
+              <div className="flex items-center gap-2">
+                {quizExists && !quizLoading && (
+                  <button
+                    type="button"
+                    onClick={handleDeleteQuiz}
+                    className="rounded-xl border border-red-200 px-3 py-2 text-xs text-red-500 hover:bg-red-50 transition-colors"
+                  >
+                    Удалить тест
+                  </button>
+                )}
+                <label className="flex items-center gap-1.5 text-xs text-warm-500 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={quizIsActive}
+                    onChange={(e) => setQuizIsActive(e.target.checked)}
+                    className="rounded border-warm-300 text-rose-600 focus:ring-rose-500"
+                  />
+                  Активен (назначать при онбординге)
+                </label>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={closeQuizModal}
+                  className="rounded-xl border border-warm-200 px-4 py-2 text-sm text-warm-500 hover:bg-warm-50 transition-colors"
+                >
+                  Отмена
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveQuiz}
+                  disabled={quizLoading || quizSaving}
+                  className="rounded-xl bg-rose-600 px-4 py-2 text-sm font-medium text-white hover:bg-rose-700 transition-colors disabled:opacity-50"
+                >
+                  {quizSaving ? 'Сохраняю...' : (quizExists ? 'Обновить тест' : `Сохранить тест (${quizQuestions.length})`)}
+                </button>
+              </div>
             </div>
           </div>
         </div>

@@ -1,13 +1,52 @@
-# Positions: Bulk-JD + AI + Versions + Audit + Course Suggestions — handoff (round 4)
+# Positions: Bulk-JD + AI + Versions + Audit + Course Suggestions + Onboarding Quiz — handoff (round 5)
 
 **Branch:** `feature/positions-bulk-ai`
-**Status:** Round 4 (course suggestions) + all prior rounds ready for review
+**Status:** Round 5 (onboarding quiz) + all prior rounds ready for review
 **Not pushed to master** — push is in feature branch only.
 
 - Round 1 (pushed): bulk-JD upload, recommended-content, mypy plugin prep
 - Round 2 (pushed): generate-from-name, JD preview/diff, JD versioning, recommended-courses
 - Round 3 (pushed): AI-аудит ДИ (качество, compliance)
-- **Round 4 (this commit): AI-suggest курсов из ДИ — методолог выбирает, мы создаём draft + привязываем к position**
+- Round 4 (pushed): AI-suggest курсов из ДИ → draft courses + привязка к position
+- **Round 5 (this commit): AI-generate онбординг-тест из ДИ — методолог редактирует → сохраняет → quiz привязан к position**
+
+---
+
+## Round 5: Onboarding quiz (Phase 3, финал)
+
+**Сценарий:** методолог открывает существующую position с заполненной ДИ → жмёт `📝 Онбординг-тест` → AI генерирует 7 MCQ-вопросов по ДИ (прикладные ситуации, не trivia) → методолог правит/добавляет/удаляет вопросы → сохраняет → quiz привязан к position, готов к назначению новым сотрудникам при онбординге.
+
+### Backend
+- **`POST /api/v1/positions/{id}/suggest-onboarding-quiz`** — AI возвращает 7 MCQ с 4 вариантами и 1 правильным + explanation. LLM-промпт фокусирует на ситуационных вопросах («что ты сделаешь, если...?»), не на trivia. Best-effort: при падении AI возвращает пустой quiz (методолог может заполнить руками).
+- **`GET /api/v1/positions/{id}/onboarding-quiz`** — возврат сохранённого теста или `null`. Загружается при открытии модалки для редактирования.
+- **`POST /api/v1/positions/{id}/onboarding-quiz`** — upsert. Заменяет целиком questions + title + pass_score + is_active. Валидирует: каждый вопрос ≥2 варианта, ровно 1 правильный, ≥1 вопрос.
+- **`DELETE /api/v1/positions/{id}/onboarding-quiz`** — удалить тест (204).
+
+**Модель данных:** новая таблица `position_quizzes` (1-to-1 с position, `unique` constraint на `position_id`):
+- `id`, `position_id` (FK CASCADE), `tenant_id`, `title`, `pass_score` (80%), `time_limit` (NULL = без лимита), `questions` (JSON), `is_active`, `created_by`, `created_at`, `updated_at`
+- `questions` JSON shape: `[{text, type: "MCQ", explanation, choices: [{text, is_correct}]}, ...]`
+- v1 использует JSON для простоты (методолог правит в модалке до сохранения). В v1.1 можно мигрировать в нормальные `Question`/`QuizChoice` таблицы если понадобятся attempts/history.
+
+**Migration:** `0023_add_position_quizzes.py` (НЕ применена автоматически — запусти вручную `alembic upgrade head`).
+
+### Frontend
+- Кнопка `📝 Онбординг-тест` (rose-цвет) в карточке position, рядом с `💡 Предложить курсы`
+- Модалка `Onboarding quiz modal`:
+  - При открытии: GET → если есть сохранённый тест, открывает на редактирование; если нет — POST suggest-onboarding-quiz → AI-черновик
+  - Поля: title + pass_score + список вопросов
+  - Каждый вопрос: textarea для текста + 2-8 вариантов с radio-кружочком (✓ = правильный) + кнопка удалить вариант + поле `explanation` + кнопка удалить вопрос
+  - Кнопка `+ Добавить вопрос` (cap 30) и `+ Вариант` (cap 8 per question)
+  - Checkbox `Активен (назначать при онбординге)` в footer
+  - Кнопка `Удалить тест` слева в footer (только если quizExists)
+  - Кнопка `Сохранить/Обновить тест` справа
+- Client-side валидация: текст вопроса, ≥2 варианта, ровно 1 правильный, все варианты с текстом
+- Toast: «Онбординг-тест сохранён (N вопросов)» / «Онбординг-тест обновлён»
+
+### Что НЕ сделано (deferred для v1.1+)
+- **Auto-assign quiz при onboarding** — сейчас quiz просто хранится в position. Авто-назначение (создание `QuizAttempt` при добавлении сотрудника на должность) — отдельный PR.
+- **UI прохождения теста сотрудником** — quiz виден методологу для редактирования, но сотрудник пока не может его пройти через UI (нужно создать страницу `/quiz/{id}` или добавить в onboarding flow).
+- **Migration на нормальные Question/QuizChoice таблицы** — JSON-колонка ок для v1 (методолог редактирует в модалке). Если понадобятся attempts/score history — отдельная миграция.
+- **Tests** — нет unit-тестов на новые endpoint (соответствует паттерну предыдущих раундов).
 
 ---
 
@@ -81,21 +120,27 @@
 - `POST /{id}/jd-audit` (re-audit without file)
 
 ### Round 4 (course suggestions)
-- `POST /{id}/suggest-courses` ← **new**
-- `POST /{id}/create-courses` ← **new**
+- `POST /{id}/suggest-courses`
+- `POST /{id}/create-courses`
+
+### Round 5 (onboarding quiz) ← **new this commit**
+- `POST /{id}/suggest-onboarding-quiz` — AI draft
+- `GET /{id}/onboarding-quiz` — загрузить для редактирования (или null)
+- `POST /{id}/onboarding-quiz` — upsert
+- `DELETE /{id}/onboarding-quiz` — удалить
 
 ---
 
 ## Что осталось (deferred, отдельные PR)
 
-- **Phase 3: AI-generate onboarding quiz из ДИ** — последняя фаза из трёх
-  - Из responsibilities+requirements получить 5-10 questions
-  - Методолог одобряет/правит
-  - Quiz сохраняется в position, автоназначается при onboarding
-  - Прохождение квиза = подтверждение что сотрудник понял ДИ
+- **Auto-assign quiz при onboarding** — quiz хранится в position, но сотрудник пока не получает его автоматически при добавлении на должность. Нужно:
+  1. Создать `QuizAttempt` row при `POST /positions/{id}/assign/{user_id}` если у position есть активный quiz
+  2. UI для прохождения теста (`/quiz/{attempt_id}` или встроить в onboarding flow)
+  3. Notification HR/менеджеру когда тест пройден / провален
 
 - **Pre-existing:** mypy errors в `app/core/config.py` и `db.py`
-- **Phase 2 (this round) limitation:** созданные курсы — drafts без контента. Методолог должен отдельно зайти в `/ai/generate/` чтобы наполнить контентом. Это **намеренно** — следующая фаза (или ручной workflow) — генерация полного контента в один клик.
+- **Phase 2 (round 4) limitation:** созданные курсы — drafts без контента. Методолог должен отдельно зайти в `/ai/generate/` чтобы наполнить контентом. Это **намеренно** — отдельный workflow для генерации полного контента.
+- **Phase 3 (round 5) deferred:** migration на нормальные Question/QuizChoice таблицы если понадобятся attempts/history.
 
 ---
 
@@ -108,13 +153,14 @@
 - Vercel auto-deploy для frontend
 - Render auto-deploy для backend
 
-## Caveats (финальные)
+## Caveats (финальные, после round 5)
 
-1. Migration `0022` НЕ применена автоматически — нужно `alembic upgrade head` вручную
-2. Нет unit-тестов на новые endpoint (4 rounds, 13+ новых endpoints без тестов)
-3. Phase 3 (quiz generation) — отдельный PR
-4. Real-time: AI calls синхронные, могут быть 3-10 сек на запрос (suggest-courses, jd-audit) — UX с loading spinner есть
-5. **Созданные draft courses без контента** — UX может быть confusing если методолог забудет наполнить. Можно добавить badge "черновик" + warning в courses list — отдельная задача
+1. Migrations `0022` и `0023` НЕ применены автоматически — нужно `alembic upgrade head` вручную перед merge
+2. Нет unit-тестов на новые endpoint (5 rounds, 17+ новых endpoints без тестов)
+3. Real-time: AI calls синхронные, могут быть 3-10 сек на запрос (suggest-courses, suggest-onboarding-quiz, jd-audit) — UX с loading spinner есть
+4. **Созданные draft courses без контента** — UX может быть confusing если методолог забудет наполнить. Можно добавить badge "черновик" + warning в courses list — отдельная задача
+5. **Onboarding quiz хранится, но auto-assign не сделан** — см. "Что осталось" выше
+6. **Миграция JSON → Question/QuizChoice таблицы** — отдельный PR если понадобится
 
 
 ## Round 2: what changed

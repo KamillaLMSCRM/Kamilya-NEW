@@ -48,8 +48,12 @@ from app.modules.positions.schemas import (
     CreateCoursesRequest,
     CreatedCourseRef,
     CreateCoursesResponse,
+    QuizQuestionDraft,
+    SuggestOnboardingQuizResponse,
+    SavePositionQuizRequest,
+    PositionQuizResponse,
 )
-from app.modules.positions.models import PositionJDVersion
+from app.modules.positions.models import PositionJDVersion, PositionQuiz
 from app.modules.courses.models import Course
 
 router = APIRouter(prefix="/positions", tags=["positions"])
@@ -1416,3 +1420,312 @@ async def restore_jd_version(
         ),
         restored_from_version_id=version_id,
     )
+
+
+
+# ── Onboarding quiz (Phase 3) ──────────────────────────────────
+
+
+@router.post("/{position_id}/suggest-onboarding-quiz", response_model=SuggestOnboardingQuizResponse)
+async def suggest_onboarding_quiz(
+    position_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """AI generates a draft onboarding quiz from the position's JD.
+
+    Returns 7 MCQ questions testing whether a new hire understood
+    their responsibilities and requirements. The methodologist then
+    edits the questions in the modal before calling
+    POST /{id}/onboarding-quiz to save.
+
+    Best-effort: LLM failure -> returns a quiz with 0 questions (so the
+    UI does not block on AI being down). Methodologist can build the
+    quiz manually in that case.
+    """
+    pos = await db.get(Position, position_id)
+    if not pos or pos.tenant_id != user.tenant_id:
+        raise HTTPException(status_code=404, detail="Position not found")
+
+    if not (pos.responsibilities.strip() or pos.requirements.strip()):
+        return SuggestOnboardingQuizResponse(
+            title=f"Онбординг: {pos.name}",
+            questions=[],
+        )
+
+    from app.modules.ai.llm_client import create_llm
+
+    jd_text = f"""Должность: {pos.name}
+Отдел: {pos.department or '(не указан)'}
+Уровень: {pos.level or '(не указан)'}
+
+ОБЯЗАННОСТИ:
+{pos.responsibilities or '(не указаны)'}
+
+ТРЕБОВАНИЯ:
+{pos.requirements or '(не указаны)'}"""
+
+    prompt = f"""Сгенерируй онбординг-тест для нового сотрудника на этой должности.
+
+{jd_text}
+
+Цель теста — проверить, что новый сотрудник ПОНЯЛ свои обязанности и требования, а не просто прочитал. Избегай trivia-вопросов про законы/статьи. Фокус на прикладных ситуациях: «что ты сделаешь, если...?», «какой результат ожидается от...?», «какое поведение НЕдопустимо в работе X?».
+
+Сгенерируй 7 вопросов. Каждый — MCQ с 4 вариантами и ровно 1 правильным. К каждому вопросу добавь короткое объяснение правильного ответа.
+
+Ответь ТОЛЬКО валидным JSON без markdown-обёрток:
+{{
+  "title": "Онбординг: {pos.name}",
+  "questions": [
+    {{
+      "text": "Ситуационный вопрос (что / как / зачем)",
+      "type": "MCQ",
+      "explanation": "Почему этот ответ правильный (1-2 предложения)",
+      "choices": [
+        {{"text": "вариант 1", "is_correct": false}},
+        {{"text": "вариант 2", "is_correct": true}},
+        {{"text": "вариант 3", "is_correct": false}},
+        {{"text": "вариант 4", "is_correct": false}}
+      ]
+    }}
+  ]
+}}
+
+Пиши на русском. Вопросы и варианты — конкретные по этой должности, не общие."""
+
+    try:
+        llm = create_llm(temperature=0.6, max_tokens=3500)
+        response = await llm.ainvoke([{"role": "user", "content": prompt}])
+        raw = response.content.strip()
+        if raw.startswith("```"):
+            raw = raw.split("\n", 1)[1]
+            if raw.endswith("```"):
+                raw = raw[:-3]
+            raw = raw.strip()
+        data = json.loads(raw)
+    except Exception as e:
+        logger.warning(f"suggest-onboarding-quiz failed: {e}")
+        return SuggestOnboardingQuizResponse(
+            title=f"Онбординг: {pos.name}",
+            questions=[],
+        )
+
+    # Parse + validate questions
+    valid: list[QuizQuestionDraft] = []
+    for q in (data.get("questions") or [])[:30]:  # hard cap
+        if not isinstance(q, dict):
+            continue
+        text = str(q.get("text", "")).strip()
+        if len(text) < 3:
+            continue
+        raw_choices = q.get("choices") or []
+        if not isinstance(raw_choices, list):
+            continue
+        choices = []
+        for c in raw_choices[:8]:
+            if not isinstance(c, dict):
+                continue
+            ctext = str(c.get("text", "")).strip()
+            if not ctext:
+                continue
+            choices.append(QuizChoiceDraft(
+                text=ctext[:1000],
+                is_correct=bool(c.get("is_correct", False)),
+            ))
+        if len(choices) < 2:
+            continue
+        # Ensure exactly one correct
+        if not any(c.is_correct for c in choices):
+            choices[0].is_correct = True
+        elif sum(1 for c in choices if c.is_correct) > 1:
+            seen = False
+            for c in choices:
+                if c.is_correct and seen:
+                    c.is_correct = False
+                elif c.is_correct:
+                    seen = True
+        valid.append(QuizQuestionDraft(
+            text=text[:2000],
+            type=str(q.get("type", "MCQ"))[:32] or "MCQ",
+            explanation=str(q.get("explanation", "")).strip()[:2000],
+            choices=choices,
+        ))
+
+    return SuggestOnboardingQuizResponse(
+        title=str(data.get("title") or f"Онбординг: {pos.name}").strip()[:255],
+        questions=valid,
+    )
+
+
+@router.get("/{position_id}/onboarding-quiz", response_model=PositionQuizResponse | None)
+async def get_onboarding_quiz(
+    position_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Return the saved onboarding quiz for a position, or None if not yet set."""
+    pos = await db.get(Position, position_id)
+    if not pos or pos.tenant_id != user.tenant_id:
+        raise HTTPException(status_code=404, detail="Position not found")
+
+    result = await db.execute(
+        select(PositionQuiz).where(PositionQuiz.position_id == position_id)
+    )
+    qz = result.scalar_one_or_none()
+    if not qz:
+        return None
+
+    # Deserialize questions JSON -> QuizQuestionDraft list (with normalization)
+    raw_qs = qz.questions or []
+    questions = []
+    for q in raw_qs:
+        if not isinstance(q, dict):
+            continue
+        choices_raw = q.get("choices") or []
+        choices = [
+            QuizChoiceDraft(
+                text=str(c.get("text", "")).strip()[:1000],
+                is_correct=bool(c.get("is_correct", False)),
+            )
+            for c in choices_raw
+            if isinstance(c, dict) and str(c.get("text", "")).strip()
+        ]
+        if len(choices) < 2:
+            continue
+        questions.append(QuizQuestionDraft(
+            text=str(q.get("text", "")).strip()[:2000],
+            type=str(q.get("type", "MCQ"))[:32] or "MCQ",
+            explanation=str(q.get("explanation", "")).strip()[:2000],
+            choices=choices,
+        ).normalize())
+
+    return PositionQuizResponse(
+        id=qz.id,
+        position_id=qz.position_id,
+        title=qz.title,
+        pass_score=qz.pass_score,
+        time_limit=qz.time_limit,
+        questions=questions,
+        is_active=qz.is_active,
+        created_at=qz.created_at,
+        updated_at=qz.updated_at,
+    )
+
+
+@router.post("/{position_id}/onboarding-quiz", response_model=PositionQuizResponse)
+async def save_onboarding_quiz(
+    position_id: UUID,
+    payload: SavePositionQuizRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Create or replace the onboarding quiz for a position.
+
+    Upsert semantics: if a quiz already exists for this position,
+    update it (questions replaced entirely). Otherwise insert a new row.
+
+    Methodologist responsibility: review the AI-generated draft,
+    edit/add/remove questions, then save. We validate that:
+    - every question has >=2 choices
+    - every question has exactly one is_correct: true choice
+    - at least one question total
+    """
+    pos = await db.get(Position, position_id)
+    if not pos or pos.tenant_id != user.tenant_id:
+        raise HTTPException(status_code=404, detail="Position not found")
+
+    # Normalize + validate
+    clean_questions: list[dict] = []
+    for q in payload.questions:
+        normalized = q.normalize()
+        if len(normalized.choices) < 2:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Вопрос «{normalized.text[:60]}» должен иметь минимум 2 варианта ответа",
+            )
+        correct_count = sum(1 for c in normalized.choices if c.is_correct)
+        if correct_count != 1:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Вопрос «{normalized.text[:60]}» должен иметь ровно 1 правильный ответ",
+            )
+        clean_questions.append({
+            "text": normalized.text,
+            "type": normalized.type,
+            "explanation": normalized.explanation,
+            "choices": [
+                {"text": c.text, "is_correct": c.is_correct}
+                for c in normalized.choices
+            ],
+        })
+
+    # Upsert
+    result = await db.execute(
+        select(PositionQuiz).where(PositionQuiz.position_id == position_id)
+    )
+    qz = result.scalar_one_or_none()
+
+    if qz:
+        qz.title = payload.title.strip()
+        qz.pass_score = payload.pass_score
+        qz.time_limit = payload.time_limit
+        qz.questions = clean_questions
+        qz.is_active = payload.is_active
+    else:
+        qz = PositionQuiz(
+            position_id=position_id,
+            tenant_id=user.tenant_id,
+            title=payload.title.strip(),
+            pass_score=payload.pass_score,
+            time_limit=payload.time_limit,
+            questions=clean_questions,
+            is_active=payload.is_active,
+            created_by=user.id,
+        )
+        db.add(qz)
+
+    await db.commit()
+    await db.refresh(qz)
+
+    return PositionQuizResponse(
+        id=qz.id,
+        position_id=qz.position_id,
+        title=qz.title,
+        pass_score=qz.pass_score,
+        time_limit=qz.time_limit,
+        questions=[
+            QuizQuestionDraft(
+                text=q["text"],
+                type=q["type"],
+                explanation=q.get("explanation", ""),
+                choices=[QuizChoiceDraft(text=c["text"], is_correct=c["is_correct"]) for c in q["choices"]],
+            )
+            for q in clean_questions
+        ],
+        is_active=qz.is_active,
+        created_at=qz.created_at,
+        updated_at=qz.updated_at,
+    )
+
+
+@router.delete("/{position_id}/onboarding-quiz", status_code=204)
+async def delete_onboarding_quiz(
+    position_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Remove the onboarding quiz for a position."""
+    pos = await db.get(Position, position_id)
+    if not pos or pos.tenant_id != user.tenant_id:
+        raise HTTPException(status_code=404, detail="Position not found")
+
+    result = await db.execute(
+        select(PositionQuiz).where(PositionQuiz.position_id == position_id)
+    )
+    qz = result.scalar_one_or_none()
+    if not qz:
+        raise HTTPException(status_code=404, detail="Onboarding quiz not found")
+
+    await db.delete(qz)
+    await db.commit()
+    return None
