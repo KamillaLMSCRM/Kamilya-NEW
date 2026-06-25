@@ -4,9 +4,10 @@ import os
 import json
 import logging
 from uuid import UUID
+from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
-from sqlalchemy import select, delete, func
+from sqlalchemy import select, delete, func, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import get_current_user
@@ -16,7 +17,19 @@ from app.models.enrollment import Enrollment
 from app.modules.positions.models import Position, PositionCourse
 
 logger = logging.getLogger(__name__)
-from app.modules.positions.schemas import PositionCreate, PositionUpdate, PositionResponse
+from app.modules.positions.schemas import (
+    PositionCreate,
+    PositionUpdate,
+    PositionResponse,
+    BulkJDItem,
+    BulkJDResponse,
+    BulkPositionRequest,
+    BulkPositionResponse,
+    BulkPositionCreated,
+    BulkPositionFailed,
+    RecommendedContentItem,
+    RecommendedContentResponse,
+)
 
 router = APIRouter(prefix="/positions", tags=["positions"])
 
@@ -453,3 +466,221 @@ async def analyze_jd(
         "responsibilities": data.get("responsibilities", ""),
         "requirements": data.get("requirements", ""),
     }
+
+
+# ── Bulk JD analysis (multi-file upload) ──────────────────────
+
+
+@router.post("/bulk-analyze-jd", response_model=BulkJDResponse)
+async def bulk_analyze_jd(
+    files: List[UploadFile] = File(...),
+    user: User = Depends(get_current_user),
+):
+    """Analyze multiple JD files in one request.
+
+    Returns a list of BulkJDItem — one per file. Per-file failures are
+    captured in `error` (e.g. unsupported format, AI parse error) so the
+    methodologist sees a full preview, not just a 500 on file #5 of 12.
+
+    Limits:
+    - Max 50 files per request (UI also enforces)
+    - Each file max 5 MB (per existing single-JD rule)
+    """
+    if not files:
+        raise HTTPException(status_code=400, detail="No files provided")
+    if len(files) > 50:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Too many files ({len(files)}). Max 50 per request.",
+        )
+
+    from app.modules.ai.llm_client import create_llm
+
+    items: list[BulkJDItem] = []
+
+    for f in files:
+        item = BulkJDItem(filename=f.filename or "<unnamed>")
+        try:
+            content = await f.read()
+            if len(content) > 5 * 1024 * 1024:
+                item.error = "File too large (max 5MB)"
+                items.append(item)
+                continue
+
+            text_ = _extract_text(content, f.filename or "")
+            if not text_.strip():
+                item.error = "Could not extract text from file"
+                items.append(item)
+                continue
+
+            text_ = text_[:8000]
+
+            prompt = f"""Проанализируй текст должностной инструкции и извлеки структурированные данные.
+
+ТЕКСТ:
+{text_}
+
+Ответь ТОЛЬКО валидным JSON без markdown-обёрток:
+{{
+  "name": "Название должности (на русском)",
+  "department": "Отдел/департамент",
+  "level": "junior/middle/senior/lead/head",
+  "responsibilities": "Краткий список ключевых обязанностей (3-7 пунктов через перенос строки)",
+  "requirements": "Краткий список требований (3-7 пунктов через перенос строки)"
+}}
+
+Если информация не найдена — поставь пустую строку."""
+
+            llm = create_llm(temperature=0.3, max_tokens=1024)
+            response = await llm.ainvoke([{"role": "user", "content": prompt}])
+            raw = response.content.strip()
+            if raw.startswith("```"):
+                raw = raw.split("\n", 1)[1]
+                if raw.endswith("```"):
+                    raw = raw[:-3]
+                raw = raw.strip()
+            data = json.loads(raw)
+
+            item.name = (data.get("name") or "").strip()
+            item.department = (data.get("department") or "").strip()
+            item.level = (data.get("level") or "").strip()
+            item.responsibilities = (data.get("responsibilities") or "").strip()
+            item.requirements = (data.get("requirements") or "").strip()
+        except json.JSONDecodeError:
+            item.error = "AI returned invalid response"
+            logger.warning(f"bulk-analyze-jd: invalid JSON for {item.filename}")
+        except Exception as e:
+            item.error = f"Failed: {type(e).__name__}"
+            logger.error(f"bulk-analyze-jd: error for {item.filename}: {e}")
+        finally:
+            items.append(item)
+
+    return BulkJDResponse(items=items)
+
+
+# ── Bulk create positions ─────────────────────────────────────
+
+
+@router.post("/bulk-create", response_model=BulkPositionResponse, status_code=201)
+async def bulk_create_positions(
+    payload: BulkPositionRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Create multiple positions in a single transaction.
+
+    All-or-nothing per position: each is created in its own savepoint,
+    so a failure on item #3 doesn't roll back items #1-#2 (or #4+).
+    """
+    if not payload.items:
+        raise HTTPException(status_code=400, detail="items is empty")
+
+    created: list[BulkPositionCreated] = []
+    failed: list[BulkPositionFailed] = []
+
+    for idx, item in enumerate(payload.items):
+        try:
+            if not item.name.strip():
+                raise ValueError("name is empty")
+            pos_id = uuid.uuid4()
+            db.add(Position(
+                id=pos_id,
+                tenant_id=user.tenant_id,
+                name=item.name.strip(),
+                department=item.department.strip(),
+                level=item.level.strip(),
+                responsibilities=item.responsibilities.strip(),
+                requirements=item.requirements.strip(),
+                employee_count=0,
+            ))
+            if item.course_ids:
+                await _sync_courses(db, pos_id, item.course_ids)
+            await db.flush()
+            created.append(BulkPositionCreated(index=idx, id=pos_id, name=item.name.strip()))
+        except Exception as e:
+            failed.append(BulkPositionFailed(
+                index=idx,
+                name=item.name,
+                error=f"{type(e).__name__}: {e}",
+            ))
+            # Roll back this savepoint but keep going for the rest
+            await db.rollback()
+
+    await db.commit()
+    return BulkPositionResponse(created=created, failed=failed)
+
+
+# ── Recommended content (vector search) ────────────────────────
+
+
+@router.get("/{position_id}/recommended-content", response_model=RecommendedContentResponse)
+async def recommended_content(
+    position_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+    limit: int = 5,
+):
+    """Return top-N documents most semantically similar to a position's JD.
+
+    Uses the responsibilities + requirements as the query, embeds via
+    Qwen (or hash fallback), and runs cosine similarity against
+    document_embeddings filtered to the current tenant.
+
+    Returns document metadata (not courses directly) because the
+    document_embeddings table is the source of truth for content;
+    courses are built on top of documents. The methodologist can then
+    decide which doc/course to attach.
+    """
+    if limit < 1 or limit > 20:
+        raise HTTPException(status_code=400, detail="limit must be 1..20")
+
+    # Load position (and verify tenant)
+    pos = await db.get(Position, position_id)
+    if not pos or pos.tenant_id != user.tenant_id:
+        raise HTTPException(status_code=404, detail="Position not found")
+
+    query_text = f"{pos.responsibilities}\n{pos.requirements}".strip()
+    if not query_text:
+        return RecommendedContentResponse(items=[])
+
+    # Embed
+    from app.modules.ai.ingestion import EmbeddingsProvider
+    provider = EmbeddingsProvider()
+    embeddings = await provider.embed([query_text])
+    emb = embeddings[0]
+    emb_str = str(emb)
+
+    # Vector search: top `limit * 5` chunks, then dedupe by doc_id, then trim.
+    # We over-fetch because many chunks can come from the same doc.
+    raw_limit = limit * 5
+    sql = text(f"""
+        SELECT doc_id, doc_name, headings,
+               1 - (embedding <=> CAST(:emb AS vector)) as distance
+        FROM document_embeddings
+        WHERE tenant_id = :tenant_id
+        ORDER BY distance
+        LIMIT :n
+    """)
+
+    result = await db.execute(
+        sql,
+        {"emb": emb_str, "tenant_id": str(user.tenant_id), "n": raw_limit},
+    )
+    rows = result.fetchall()
+
+    # Dedupe by doc_id, keep highest-similarity chunk per doc
+    seen: dict[UUID, RecommendedContentItem] = {}
+    for row in rows:
+        doc_id, doc_name, headings, distance = row[0], row[1], row[2], float(row[3])
+        if doc_id in seen:
+            continue
+        seen[doc_id] = RecommendedContentItem(
+            doc_id=doc_id,
+            doc_name=doc_name or "",
+            similarity=round(distance, 4),
+            headings=headings or "",
+        )
+        if len(seen) >= limit:
+            break
+
+    return RecommendedContentResponse(items=list(seen.values()))

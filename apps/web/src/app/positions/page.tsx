@@ -26,6 +26,26 @@ interface Course {
   status: string;
 }
 
+// Bulk-JD upload result item (matches backend BulkJDItem)
+interface BulkJDItem {
+  filename: string;
+  name: string;
+  department: string;
+  level: string;
+  responsibilities: string;
+  requirements: string;
+  error: string | null;
+  selected: boolean; // for the preview modal
+}
+
+// Recommended content item (matches backend RecommendedContentItem)
+interface RecommendedItem {
+  doc_id: string;
+  doc_name: string;
+  similarity: number;
+  headings: string;
+}
+
 export default function PositionsPage() {
   const { t } = useT();
     const { confirm, dialog } = useConfirm();
@@ -42,6 +62,18 @@ export default function PositionsPage() {
   const [selectedCourseIds, setSelectedCourseIds] = useState<string[]>([]);
   const [analyzing, setAnalyzing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // ── Bulk JD upload state ─────────────────────────────────
+  const [bulkAnalyzing, setBulkAnalyzing] = useState(false);
+  const [bulkItems, setBulkItems] = useState<BulkJDItem[]>([]);
+  const [showBulkPreview, setShowBulkPreview] = useState(false);
+  const [bulkCreating, setBulkCreating] = useState(false);
+  const bulkFileInputRef = useRef<HTMLInputElement>(null);
+
+  // ── Recommended content state (per position) ─────────────
+  const [recsFor, setRecsFor] = useState<string | null>(null);
+  const [recs, setRecs] = useState<RecommendedItem[]>([]);
+  const [recsLoading, setRecsLoading] = useState(false);
 
   const fetchPositions = useCallback(async () => {
     try {
@@ -155,18 +187,128 @@ export default function PositionsPage() {
     }
   };
 
+  // ── Bulk JD upload (multiple files at once) ──────────────
+  const handleBulkAnalyzeJD = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files ? Array.from(e.target.files) : [];
+    if (files.length === 0) return;
+    if (files.length > 50) {
+      toast.error('Максимум 50 файлов за раз');
+      return;
+    }
+    setBulkAnalyzing(true);
+    try {
+      const formData = new FormData();
+      files.forEach(f => formData.append('files', f));
+      const token = useAuthStore.getState().accessToken;
+      const API_URL = process.env.NEXT_PUBLIC_API_URL;
+      const res = await fetch(`${API_URL}/v1/positions/bulk-analyze-jd`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: 'Ошибка анализа' }));
+        toast.error(t('common.saveFailed'), { description: err.detail || 'Ошибка анализа' });
+        return;
+      }
+      const data = await res.json();
+      const items: BulkJDItem[] = (data.items || []).map((it: any) => ({
+        filename: it.filename,
+        name: it.name || '',
+        department: it.department || '',
+        level: it.level || '',
+        responsibilities: it.responsibilities || '',
+        requirements: it.requirements || '',
+        error: it.error || null,
+        // Auto-deselect files that failed to parse
+        selected: !it.error,
+      }));
+      setBulkItems(items);
+      setShowBulkPreview(true);
+      const ok = items.filter((i) => !i.error).length;
+      const failed = items.filter((i) => i.error).length;
+      toast.success(`Проанализировано: ${ok} успешно, ${failed} с ошибками`);
+    } catch (err) {
+      toast.error(t('common.saveFailed'), { description: 'Не удалось проанализировать файлы' });
+    } finally {
+      setBulkAnalyzing(false);
+      if (bulkFileInputRef.current) bulkFileInputRef.current.value = '';
+    }
+  };
+
+  const handleBulkCreateAll = async () => {
+    const toCreate = bulkItems.filter((i) => i.selected && !i.error);
+    if (toCreate.length === 0) {
+      toast.error('Нет выбранных для создания');
+      return;
+    }
+    setBulkCreating(true);
+    try {
+      const res = await api.post('/v1/positions/bulk-create', {
+        items: toCreate.map((i) => ({
+          name: i.name,
+          department: i.department,
+          level: i.level,
+          responsibilities: i.responsibilities,
+          requirements: i.requirements,
+          course_ids: [],
+        })),
+      });
+      const data = res.data as { created: any[]; failed: any[] };
+      toast.success(
+        `Создано: ${data.created.length}, ошибок: ${data.failed.length}`,
+      );
+      setShowBulkPreview(false);
+      setBulkItems([]);
+      fetchPositions();
+    } catch (err: any) {
+      toast.error(t('common.saveFailed'), {
+        description: err?.response?.data?.detail || 'Ошибка создания',
+      });
+    } finally {
+      setBulkCreating(false);
+    }
+  };
+
+  // ── Recommended content (vector search) ──────────────────
+  const handleRecommend = async (positionId: string) => {
+    setRecsFor(positionId);
+    setRecsLoading(true);
+    try {
+      const res = await api.get(`/v1/positions/${positionId}/recommended-content`, {
+        params: { limit: 5 },
+      });
+      setRecs(res.data.items || []);
+    } catch (err: any) {
+      toast.error(t('common.saveFailed'), { description: 'Не удалось получить рекомендации' });
+      setRecs([]);
+    } finally {
+      setRecsLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-warm-800 font-display">Должности</h1>
         <div className="flex gap-2">
           <input ref={fileInputRef} type="file" accept=".pdf,.docx,.doc,.txt" onChange={handleAnalyzeJD} className="hidden" />
+          <input ref={bulkFileInputRef} type="file" accept=".pdf,.docx,.doc,.txt" multiple onChange={handleBulkAnalyzeJD} className="hidden" />
           <button
             onClick={() => fileInputRef.current?.click()}
             disabled={analyzing}
             className="rounded-xl border border-warm-200 px-4 py-2.5 text-sm font-medium text-warm-600 hover:bg-warm-50 transition-colors disabled:opacity-50"
+            title="Один JD файл → автозаполнение формы"
           >
             {analyzing ? 'Анализ...' : 'Загрузить JD'}
+          </button>
+          <button
+            onClick={() => bulkFileInputRef.current?.click()}
+            disabled={bulkAnalyzing}
+            className="rounded-xl border border-primary/30 bg-primary/5 px-4 py-2.5 text-sm font-medium text-primary hover:bg-primary/10 transition-colors disabled:opacity-50"
+            title="Несколько JD файлов разом → превью → создать все"
+          >
+            {bulkAnalyzing ? 'Анализ...' : 'Массовая загрузка JD'}
           </button>
           <button onClick={() => { resetForm(); setShowCreate(true); }} className="rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-white hover:bg-primary/90 transition-colors">
             + Добавить должность
@@ -271,9 +413,43 @@ export default function PositionsPage() {
                   {pos.department && <p className="text-sm text-warm-400 mt-1">{pos.department}</p>}
                   {pos.responsibilities && <p className="text-sm text-warm-500 mt-2 line-clamp-2">{pos.responsibilities}</p>}
                   {pos.requirements && <p className="text-xs text-warm-400 mt-1 line-clamp-1">Требования: {pos.requirements}</p>}
+
+                  {/* AI recommended content panel */}
+                  {recsFor === pos.id && (
+                    <div className="mt-3 rounded-lg border border-primary/20 bg-primary/5 p-3">
+                      <div className="text-xs font-semibold text-primary mb-2">
+                        {recsLoading ? 'Подбираю курсы...' : `Рекомендованные документы (${recs.length})`}
+                      </div>
+                      {recsLoading ? (
+                        <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                      ) : recs.length === 0 ? (
+                        <p className="text-xs text-warm-400">
+                          Не нашлось похожих документов. Добавьте обязанности/требования к должности.
+                        </p>
+                      ) : (
+                        <ul className="space-y-1.5">
+                          {recs.map((r) => (
+                            <li key={r.doc_id} className="text-xs flex items-center gap-2">
+                              <span className="font-mono text-[10px] text-warm-400 w-12 text-right">
+                                {(r.similarity * 100).toFixed(0)}%
+                              </span>
+                              <span className="flex-1 truncate text-warm-700">{r.doc_name}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <div className="flex gap-2 ml-4">
                   <button onClick={() => handleEdit(pos)} className="rounded-xl border border-warm-200 px-3 py-1.5 text-xs text-warm-500 hover:border-warm-300 hover:text-warm-700 transition-colors">Изменить</button>
+                  <button
+                    onClick={() => recsFor === pos.id ? setRecsFor(null) : handleRecommend(pos.id)}
+                    className="rounded-xl border border-primary/30 bg-primary/5 px-3 py-1.5 text-xs text-primary hover:bg-primary/10 transition-colors"
+                    title="AI подберёт документы, похожие на обязанности/требования этой должности"
+                  >
+                    {recsFor === pos.id ? 'Скрыть' : 'Подобрать курсы'}
+                  </button>
                   <button onClick={() => handleDelete(pos.id)} className="rounded-xl border border-red-200 px-3 py-1.5 text-xs text-red-400 hover:border-red-300 hover:text-red-600 transition-colors">Удалить</button>
                 </div>
               </div>
@@ -282,6 +458,93 @@ export default function PositionsPage() {
         </div>
       )}
 {dialog}
+
+      {/* Bulk JD preview modal */}
+      {showBulkPreview && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowBulkPreview(false)} />
+          <div className="relative bg-white rounded-2xl shadow-card-lg w-full max-w-3xl mx-4 p-6 z-10 max-h-[90vh] overflow-y-auto">
+            <h2 className="text-lg font-bold text-warm-800 font-display mb-4">
+              Превью массовой загрузки ({bulkItems.length} файлов)
+            </h2>
+            <p className="text-sm text-warm-500 mb-4">
+              Снимите галочку с файлов, которые не нужно создавать. Файлы с ошибками автоматически исключены.
+            </p>
+            <div className="space-y-2 max-h-96 overflow-y-auto">
+              {bulkItems.map((it, idx) => (
+                <label
+                  key={idx}
+                  className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                    it.error
+                      ? 'border-red-200 bg-red-50 cursor-not-allowed opacity-60'
+                      : it.selected
+                        ? 'border-primary/30 bg-primary/5'
+                        : 'border-warm-200 hover:bg-warm-50'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={it.selected}
+                    disabled={!!it.error}
+                    onChange={(e) => {
+                      const next = [...bulkItems];
+                      next[idx] = { ...it, selected: e.target.checked };
+                      setBulkItems(next);
+                    }}
+                    className="mt-1 rounded border-warm-300 text-primary focus:ring-primary"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-warm-800 truncate">
+                        {it.name || it.filename}
+                      </span>
+                      {it.level && (
+                        <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                          {it.level}
+                        </span>
+                      )}
+                      {it.error && (
+                        <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-700">
+                          ошибка
+                        </span>
+                      )}
+                    </div>
+                    {it.department && (
+                      <p className="text-xs text-warm-500 mt-0.5">{it.department}</p>
+                    )}
+                    {it.error && (
+                      <p className="text-xs text-red-600 mt-1">{it.error}</p>
+                    )}
+                    {it.responsibilities && (
+                      <p className="text-xs text-warm-400 mt-1 line-clamp-2">
+                        {it.responsibilities}
+                      </p>
+                    )}
+                    <p className="text-[10px] text-warm-300 mt-1 truncate">{it.filename}</p>
+                  </div>
+                </label>
+              ))}
+            </div>
+            <div className="flex gap-2 justify-end mt-5">
+              <button
+                onClick={() => { setShowBulkPreview(false); setBulkItems([]); }}
+                className="rounded-xl border border-warm-200 px-4 py-2 text-sm text-warm-500 hover:bg-warm-50 transition-colors"
+              >
+                Отмена
+              </button>
+              <button
+                onClick={handleBulkCreateAll}
+                disabled={bulkCreating || bulkItems.filter((i) => i.selected && !i.error).length === 0}
+                className="rounded-xl bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90 transition-colors disabled:opacity-50"
+              >
+                {bulkCreating
+                  ? 'Создаём...'
+                  : `Создать ${bulkItems.filter((i) => i.selected && !i.error).length} должностей`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
