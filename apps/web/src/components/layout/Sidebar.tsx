@@ -25,7 +25,7 @@ function NavLink({ item, isActive, collapsed }: { item: NavItem; isActive: boole
         collapsed && 'justify-center px-0',
         isActive
           ? 'bg-primary/10 text-primary shadow-sm'
-          : 'text-warm-500 hover:bg-warm-100 hover:text-warm-800'
+          : 'text-muted-foreground hover:bg-muted hover:text-foreground'
       )}
     >
       <span className={cn('flex h-5 w-5 shrink-0 items-center justify-center', collapsed && 'h-5 w-5')}>
@@ -149,12 +149,12 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   return (
     <aside
       className={cn(
-        'fixed left-0 top-0 z-30 flex h-screen flex-col border-r border-warm-200 bg-white transition-all duration-300',
+        'fixed left-0 top-0 z-30 flex h-screen flex-col border-r border-border bg-card transition-all duration-300',
         collapsed ? 'w-[68px]' : 'w-[240px]'
       )}
     >
       {/* Logo */}
-      <div className={cn('flex h-16 items-center border-b border-warm-100 px-4', collapsed && 'justify-center px-0')}>
+      <div className={cn('flex h-16 items-center border-b border-border px-4', collapsed && 'justify-center px-0')}>
         <Logo variant={collapsed ? 'mark' : 'full'} size={32} withSubtitle={!collapsed} />
       </div>
 
@@ -162,7 +162,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
       <button
         type="button"
         onClick={onToggle}
-        className="absolute -right-3 top-20 z-40 flex h-6 w-6 items-center justify-center rounded-full border border-warm-200 bg-white text-warm-400 shadow-sm hover:text-warm-700 hover:border-warm-300 transition-colors"
+        className="absolute -right-3 top-20 z-40 flex h-6 w-6 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-sm hover:text-foreground hover:border-border transition-colors"
         title={collapsed ? t('sidebar.expand') : t('sidebar.collapse')}
         aria-label={collapsed ? t('sidebar.expand') : t('sidebar.collapse')}
         aria-expanded={!collapsed}
@@ -186,7 +186,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
           return (
             <div key={section.title}>
               {!collapsed && (
-                <h2 className="px-3 mb-2 text-[10px] font-semibold text-warm-400 uppercase tracking-wider">
+                <h2 className="px-3 mb-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
                   {section.title}
                 </h2>
               )}
@@ -206,7 +206,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
       </nav>
 
       {/* User footer */}
-      <div className="border-t border-warm-100 p-3">
+      <div className="border-t border-border p-3">
         <div className={cn('flex items-center gap-3 rounded-xl px-3 py-2', collapsed && 'justify-center px-0')}>
           <div
             className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary"
@@ -216,10 +216,10 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
           </div>
           {!collapsed && (
             <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium text-warm-800 truncate">
+              <div className="text-sm font-medium text-foreground truncate">
                 {user?.full_name || t('common.required' as any)}
               </div>
-              <div className="text-[11px] text-warm-400 truncate capitalize">
+              <div className="text-[11px] text-muted-foreground truncate capitalize">
                 {t(`sidebar.userRole.${user?.role}` as any)}
               </div>
             </div>
@@ -232,7 +232,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
             router.push('/login');
           }}
           className={cn(
-            'mt-1 flex w-full items-center rounded-xl px-3 py-2 text-sm text-warm-400 transition-colors hover:bg-red-50 hover:text-red-600',
+            'mt-1 flex w-full items-center rounded-xl px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive',
             collapsed && 'justify-center px-0'
           )}
           title={collapsed ? t('nav.logout') : undefined}

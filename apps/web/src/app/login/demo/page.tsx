@@ -24,8 +24,8 @@ const ROLES: RoleCard[] = [
     title: 'Администратор',
     description: 'Управление курсами, пользователями и настройками платформы',
     icon: <Shield className="w-8 h-8" />,
-    color: 'text-blue-600',
-    bg: 'bg-blue-50 hover:bg-blue-100 border-blue-200',
+    color: 'text-primary',
+    bg: 'bg-primary/10 hover:bg-primary/15 border-primary/20',
     redirect: '/dashboard',
   },
   {
@@ -33,8 +33,8 @@ const ROLES: RoleCard[] = [
     title: 'Методолог',
     description: 'Создание и редактирование курсов, просмотр прогресса студентов',
     icon: <BookOpen className="w-8 h-8" />,
-    color: 'text-emerald-600',
-    bg: 'bg-emerald-50 hover:bg-emerald-100 border-emerald-200',
+    color: 'text-success',
+    bg: 'bg-success/10 hover:bg-success/15 border-success/30',
     redirect: '/courses',
   },
   {
@@ -42,8 +42,8 @@ const ROLES: RoleCard[] = [
     title: 'Обучающийся',
     description: 'Прохождение курсов, тестов и получение сертификатов',
     icon: <GraduationCap className="w-8 h-8" />,
-    color: 'text-violet-600',
-    bg: 'bg-violet-50 hover:bg-violet-100 border-violet-200',
+    color: 'text-accent',
+    bg: 'bg-accent/10 hover:bg-accent/15 border-accent/30',
     redirect: '/my-courses',
   },
 ];
@@ -70,7 +70,7 @@ export default function DemoLoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-blue-50 to-white">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-primary/5 to-background">
       <main className="w-full max-w-2xl p-8">
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
@@ -102,10 +102,10 @@ export default function DemoLoginPage() {
                 )}
               </div>
               <div className="flex-1 min-w-0">
-                <div className="font-semibold text-warm-800 text-lg">{card.title}</div>
-                <div className="text-sm text-warm-400 mt-0.5">{card.description}</div>
+                <div className="font-semibold text-foreground text-lg">{card.title}</div>
+                <div className="text-sm text-muted-foreground mt-0.5">{card.description}</div>
               </div>
-              <svg className="w-5 h-5 text-warm-300 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5 text-muted-foreground/60 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
             </button>
@@ -115,7 +115,7 @@ export default function DemoLoginPage() {
         <div className="mt-6 text-center">
           <a
             href="/login"
-            className="inline-flex items-center gap-1.5 text-sm text-warm-400 hover:text-blue-600 transition-colors"
+            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-primary transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
             Назад к входу через Telegram

@@ -55,11 +55,11 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-blue-50 to-white py-12">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-primary/5 to-background py-12">
       <main
         id="main-content"
         tabIndex={-1}
-        className="w-full max-w-md p-8 bg-white rounded-xl shadow-md focus:outline-none"
+        className="w-full max-w-md p-8 bg-card rounded-xl shadow-card focus:outline-none"
       >
         <div className="text-center mb-8">
           <div className="flex justify-center mb-3">
@@ -70,7 +70,7 @@ export default function RegisterPage() {
 
         {error && (
           <div
-            className="mb-4 p-3 bg-red-50 text-red-600 rounded-lg text-sm"
+            className="mb-4 p-3 bg-destructive/10 text-destructive rounded-lg text-sm"
             role="alert"
             aria-live="assertive"
           >
@@ -157,7 +157,7 @@ export default function RegisterPage() {
               minLength={8}
               autoComplete="new-password"
             />
-            <p id="register-password-hint" className="text-xs text-gray-500 mt-1">
+            <p id="register-password-hint" className="text-xs text-muted-foreground mt-1">
               {t('auth.passwordMinHint') || 'Минимум 8 символов'}
             </p>
           </div>
@@ -166,9 +166,9 @@ export default function RegisterPage() {
           </Button>
         </form>
 
-        <div className="mt-6 text-center text-sm text-gray-600">
+        <div className="mt-6 text-center text-sm text-muted-foreground">
           {t('auth.hasAccount')}{' '}
-          <Link href="/login" className="text-blue-600 hover:underline">
+          <Link href="/login" className="text-primary hover:underline">
             {t('auth.login')}
           </Link>
         </div>

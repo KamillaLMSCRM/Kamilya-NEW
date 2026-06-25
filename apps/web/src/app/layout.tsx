@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { Inter, Manrope, Syne, DM_Mono } from "next/font/google";
+import { Manrope, Syne, DM_Mono } from "next/font/google";
 import RouteWrapper from "@/components/RouteWrapper";
 import { Toaster } from "@/components/ui/Toast";
 import { SkipToContent } from "@/components/a11y/SkipToContent";
@@ -10,7 +10,7 @@ import { SkipToContent } from "@/components/a11y/SkipToContent";
 //   - sans: Manrope (UI body)
 //   - display: Syne (hero / brand wordmark)
 //   - mono: DM Mono (code blocks, numeric badges)
-const inter = Inter({ subsets: ["latin", "cyrillic"], variable: "--font-inter" });
+// DESIGN.md §2.2 fix: Inter removed (orphaned ~50KB download).
 const manrope = Manrope({ subsets: ["latin", "cyrillic"], variable: "--font-manrope" });
 const syne = Syne({ subsets: ["latin"], variable: "--font-syne" });
 const dmMono = DM_Mono({ subsets: ["latin"], weight: ["400", "500"], variable: "--font-dm-mono" });
@@ -18,6 +18,9 @@ const dmMono = DM_Mono({ subsets: ["latin"], weight: ["400", "500"], variable: "
 export const metadata: Metadata = {
   title: "Kamilya LMS",
   description: "AI-first корпоративная LMS для Казахстана",
+  // DESIGN.md §7.3: favicon ideally lives in app/icon.tsx for single
+  // source of truth, but next/og's URL parser fails on the cyrillic
+  // workspace path (D:\Камиля\...). Inline SVG kept as fallback.
   icons: {
     icon: [
       {
@@ -47,7 +50,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="ru" className={`${inter.variable} ${manrope.variable} ${syne.variable} ${dmMono.variable}`}>
+    <html lang="ru" className={`${manrope.variable} ${syne.variable} ${dmMono.variable}`}>
       <body className={manrope.className}>
         <SkipToContent />
         <RouteWrapper>
