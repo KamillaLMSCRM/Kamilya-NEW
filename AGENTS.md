@@ -263,3 +263,37 @@ What I need: [specific question]"
 ---
 
 **Готов начать? Открой [`TZ.md`](./TZ.md) и начни с раздела 15 (этапы разработки).**
+
+---
+
+## Domain context (актуально на 2026-06-25)
+
+Факты о кодбазе, которые нужны ЛЮБОМУ агенту перед началом работы — обнаружены при реализации employee-onboarding epic. Если что-то изменилось — обнови.
+
+### Нет email-сервиса
+В проекте **нет** SMTP, SendGrid, Mailgun, SES и любых других провайдеров email-рассылки. Это осознанное решение для v1.0:
+- Все приглашения пользователям идут через **copy-paste invite URL** (методолог копирует → шлёт в Slack/Telegram/почту вручную)
+- Для фич, где требуется автоматическое уведомление по email (например, certificate email, deadline reminder) — это **отдельный epic** с интеграцией провайдера + шаблоны + DKIM/SPF
+- Если твоя фича требует "отправить email" — это блокер для v1, обсуди с Askar'ом
+
+### tenant_settings — конфиг тенанта
+Таблица `tenant_settings` (1-to-1 с tenants) хранит per-tenant настройки:
+```
+id, tenant_id, logo_url, primary_color, default_language ('ru'|'kk'|'en'),
+self_enrollment ('true'|'false'), quiz_pass_threshold (str, default "80"),
+invite_expiry_days (int, default 3, range 1-30)  -- added 2026-06-25
+```
+Когда нужна per-tenant настройка (язык, лимиты, флаги) — добавляй колонку сюда с разумным default. Не плоди новые таблицы.
+
+### Public frontend URL — конфиг
+`PUBLIC_URL` (apps/api/app/core/config.py, default `https://app.kml.kz`) — используется для построения invite-ссылок и любых внешних URL, которые видит пользователь. Если backend деплоится отдельно от frontend — укажи frontend URL здесь.
+
+### Alembic migrations
+- Команда: `cd apps/api && alembic upgrade head` (env.py использует async pattern)
+- Pre-existing баг (исправлен в master, commit `9734c8e`): env.py был сломан (sync `with` на `AsyncConnection`), 9 миграций имели битые `down_revision` refs. **Сейчас работает** — но если добавляешь новую миграцию, используй формат `down_revision = "0001"` (short rev_id, не filename)
+- В `Dockerfile` уже стоит `alembic upgrade head && uvicorn ...` — миграции применяются автоматически на каждом deploy
+
+### Multi-tenancy (КРИТИЧНО)
+- **Каждый** query фильтрует по `tenant_id`
+- Прямой SQL запрещён — только через ORM/repositories
+- Любой PR без tenant filter = **rejected**
