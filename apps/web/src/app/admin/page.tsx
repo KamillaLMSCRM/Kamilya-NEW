@@ -197,7 +197,10 @@ export default function AdminDashboardPage() {
               </tbody>
             </Table>
             <a href="/admin/users" className="flex items-center gap-1 text-blue-600 text-sm hover:underline mt-2 block">
-              {t('admin.allUsers')} <ChevronRight className="w-4 h-4" />
+              Управление пользователями →
+            </a>
+            <a href="/admin/kiosks" className="flex items-center gap-1 text-blue-600 text-sm hover:underline mt-2 block">
+              🖥️ Киоски для цехов →
             </a>
           </CardContent>
         </Card>
