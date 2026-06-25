@@ -4,7 +4,7 @@ import { usePathname } from 'next/navigation';
 import Layout from '@/components/layout/Layout';
 
 const publicRoutes = ['/', '/register'];
-const publicPrefixes = ['/login'];
+const publicPrefixes = ['/login', '/accept-invite', '/kiosk'];
 
 export default function RouteWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
