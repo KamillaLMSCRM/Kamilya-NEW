@@ -72,14 +72,21 @@ export default function AIGeneratePage() {
     if (!savedJobId) return;
     try {
       const res = await api.get(`/v1/ai/jobs/${savedJobId}`);
-      if (res.data.status === 'running' || res.data.status === 'pending') {
+      const status = res.data.status;
+      if (status === 'running' || status === 'pending') {
         setCurrentJob(res.data);
         setStep('generate');
       } else {
+        // Backend confirmed terminal state — safe to drop reference
         localStorage.removeItem('ai_active_job_id');
       }
-    } catch {
-      localStorage.removeItem('ai_active_job_id');
+    } catch (err: any) {
+      // Transient network error — keep the id in localStorage and try again
+      // on the next polling tick (Layout.tsx also polls globally). Only drop
+      // if the backend confirms 404 (job truly gone).
+      if (err?.response?.status === 404) {
+        localStorage.removeItem('ai_active_job_id');
+      }
     }
   };
 

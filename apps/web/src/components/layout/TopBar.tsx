@@ -99,17 +99,13 @@ export default function TopBar({ title }: TopBarProps) {
           )}
         </div>
 
-        {/* Avatar */}
-        <div className="flex items-center gap-3 rounded-xl border border-border px-3 py-1.5">
-          <div
-            className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary"
-            aria-hidden="true"
-          >
-            {user?.full_name?.[0] || '?'}
-          </div>
-          <span className="hidden md:block text-sm font-medium text-foreground">
-            {user?.full_name?.split(' ')[0] || 'User'}
-          </span>
+        {/* Avatar — name shown in Sidebar footer, TopBar only shows initials */}
+        <div
+          className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary"
+          aria-label={user?.full_name || 'User'}
+          title={user?.full_name}
+        >
+          {user?.full_name?.[0] || '?'}
         </div>
       </div>
     </header>

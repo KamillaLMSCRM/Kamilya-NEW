@@ -45,20 +45,35 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // Poll active generation job from localStorage
+  // Poll active generation job from localStorage — survives SPA navigation.
+  // IMPORTANT: do NOT remove the job id from localStorage on transient network
+  // errors (the Celery worker keeps running on the backend). Only remove when
+  // the backend explicitly confirms a terminal state (completed/failed/cancelled)
+  // or returns 404 (job truly gone). This lets the user navigate away and back
+  // without losing the job reference if a transient 5xx / network blip happens.
   useEffect(() => {
     const checkActiveJob = async () => {
       const jobId = localStorage.getItem('ai_active_job_id');
       if (!jobId) { setActiveJob(null); return; }
       try {
         const res = await api.get(`/v1/ai/jobs/${jobId}`);
-        if (res.data.status === 'running' || res.data.status === 'pending') {
+        const status = res.data.status;
+        if (status === 'running' || status === 'pending') {
           setActiveJob({ id: res.data.id, progress: res.data.progress, stage: res.data.stage });
         } else {
+          // Terminal state — backend confirmed job is done/failed/cancelled
           localStorage.removeItem('ai_active_job_id');
           setActiveJob(null);
         }
-      } catch {
+      } catch (err: any) {
+        // Transient error (network blip, 5xx, etc.) — keep the job id in
+        // localStorage so restoreActiveJob() can pick it up when the user
+        // navigates back to /ai/generate. Hide the widget for now.
+        const code = err?.response?.status;
+        if (code === 404) {
+          // Job truly doesn't exist on backend anymore — safe to drop
+          localStorage.removeItem('ai_active_job_id');
+        }
         setActiveJob(null);
       }
     };
@@ -91,19 +106,21 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           style={{ marginLeft: collapsed ? 68 : 240 }}
         >
           <TopBar />
-          {/* Active generation banner */}
-          {activeJob && (
-            <Link
-              href="/ai/generate"
-              className="flex items-center gap-3 px-4 py-2.5 bg-primary/5 border-b border-primary/20 text-sm text-primary hover:bg-primary/10 transition-colors"
-            >
-              <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
-              <span className="font-medium">{t('toast.generationStarted')}... {activeJob.progress}%</span>
-              <span className="text-primary/60">{activeJob.stage}</span>
-            </Link>
-          )}
           <div className="p-6">{children}</div>
         </main>
+        {/* Floating generation progress widget — bottom-right, dismissible look */}
+        {activeJob && (
+          <Link
+            href="/ai/generate"
+            className="fixed bottom-4 right-4 z-30 flex items-center gap-3 rounded-full border border-primary/30 bg-card/95 px-4 py-2.5 text-sm text-primary shadow-card-lg backdrop-blur-sm hover:bg-card hover:shadow-card-hover transition-all"
+            role="status"
+            aria-live="polite"
+          >
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+            <span className="font-medium">{t('toast.generationStarted')} · {activeJob.progress}%</span>
+            <span className="hidden sm:inline text-primary/60">· {activeJob.stage}</span>
+          </Link>
+        )}
       </div>
     </SidebarContext.Provider>
   );
