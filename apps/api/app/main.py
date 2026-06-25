@@ -29,6 +29,7 @@ from app.modules.student.router import router as student_router
 from app.modules.audit.router import router as audit_router
 from app.modules.admin.router import router as admin_router
 from app.modules.users.router import router as users_router
+from app.modules.users.invitations_router import router as invitations_public_router
 from app.modules.auth.telegram import router as telegram_router
 from app.modules.positions.router import router as positions_router
 
@@ -103,6 +104,7 @@ app.include_router(student_router, prefix=f"{settings.API_PREFIX}", tags=["stude
 app.include_router(audit_router, prefix=f"{settings.API_PREFIX}", tags=["audit"])
 app.include_router(admin_router, prefix=f"{settings.API_PREFIX}", tags=["admin"])
 app.include_router(users_router, prefix=f"{settings.API_PREFIX}", tags=["users"])
+app.include_router(invitations_public_router, prefix=f"{settings.API_PREFIX}", tags=["invitations"])
 app.include_router(telegram_router, prefix=f"{settings.API_PREFIX}", tags=["telegram"])
 app.include_router(positions_router, prefix=f"{settings.API_PREFIX}", tags=["positions"])
 
