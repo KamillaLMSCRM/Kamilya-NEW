@@ -182,9 +182,17 @@ class VectorStore:
                     params["doc_id"] = doc_id
 
         emb_str = str(emb)
+        # NOTE: Use CAST(:emb AS vector) instead of ':emb'::vector or :emb::vector.
+        # - ':emb'::vector (f-string interpolation) works but looks like SQL injection
+        #   to security scanners, and a previous audit (a1ea9c9) flagged it.
+        # - :emb::vector (bind param with cast) raises "syntax error at or near ':'"
+        #   because PostgreSQL parses :emb: as a placeholder + 'vector' as literal.
+        # CAST(:emb AS vector) is the standard SQL form that works with bind params
+        # and is also safe-looking for auditors. emb_str is a list of floats from
+        # the embedding model, not user input, so the bind value is well-typed.
         sql = text(f"""
             SELECT text, doc_name, headings,
-                   1 - (embedding <=> :emb::vector) as distance
+                   1 - (embedding <=> CAST(:emb AS vector)) as distance
             FROM document_embeddings
             {where_clause}
             ORDER BY distance
