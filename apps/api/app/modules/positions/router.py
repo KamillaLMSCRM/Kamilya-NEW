@@ -42,8 +42,15 @@ from app.modules.positions.schemas import (
     JDRestoreResponse,
     JDAuditItem,
     JDAuditResponse,
+    CourseSuggestion,
+    CourseSuggestionsResponse,
+    CreateCourseItem,
+    CreateCoursesRequest,
+    CreatedCourseRef,
+    CreateCoursesResponse,
 )
 from app.modules.positions.models import PositionJDVersion
+from app.modules.courses.models import Course
 
 router = APIRouter(prefix="/positions", tags=["positions"])
 
@@ -618,6 +625,198 @@ async def jd_audit(
 
     issues = await _audit_jd_text(text, pos.name, pos.responsibilities, pos.requirements)
     return JDAuditResponse(items=issues)
+
+
+@router.post("/{position_id}/restore-jd/{version_id}", response_model=JDRestoreResponse)
+async def restore_jd_version(
+    position_id: UUID,
+    version_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Restore a position's JD from a historical version.
+
+    This creates a NEW auto-snapshot of the current values (so the
+    restore is itself reversible) and overwrites with the version's content.
+    """
+    pos = await db.get(Position, position_id)
+    if not pos or pos.tenant_id != user.tenant_id:
+        raise HTTPException(status_code=404, detail="Position not found")
+
+    ver = await db.get(PositionJDVersion, version_id)
+    if not ver or ver.position_id != position_id:
+        raise HTTPException(status_code=404, detail="Version not found")
+
+    # Snapshot current BEFORE restoring
+    db.add(PositionJDVersion(
+        position_id=pos.id,
+        tenant_id=pos.tenant_id,
+        responsibilities=pos.responsibilities,
+        requirements=pos.requirements,
+        source="auto",
+        note=f"auto-snapshot before restore from version {version_id}",
+        created_by=user.id,
+    ))
+
+    pos.responsibilities = ver.responsibilities
+    pos.requirements = ver.requirements
+    await db.commit()
+    await db.refresh(pos)
+
+    course_ids = await _get_course_ids(db, pos.id)
+    return JDRestoreResponse(
+        position=PositionResponse(
+            id=pos.id, tenant_id=pos.tenant_id, name=pos.name,
+            department=pos.department, level=pos.level,
+            responsibilities=pos.responsibilities, requirements=pos.requirements,
+            course_ids=course_ids, employee_count=pos.employee_count,
+            created_at=pos.created_at,
+        ),
+        restored_from_version_id=version_id,
+    )
+
+
+# ── AI course suggestions (Phase 2) ────────────────────────────
+
+
+@router.post("/{position_id}/suggest-courses", response_model=CourseSuggestionsResponse)
+async def suggest_courses(
+    position_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """AI proposes 3-5 course topics for this position based on its JD.
+
+    The suggestions are titles + descriptions + chapter estimates —
+    enough for the methodologist to pick which to create as draft
+    courses. Actual course content (modules, lessons) is generated
+    separately via /ai/generate/ (the methodologist picks the source
+    documents there).
+
+    Best-effort: if the LLM fails, returns [] with no error.
+    """
+    pos = await db.get(Position, position_id)
+    if not pos or pos.tenant_id != user.tenant_id:
+        raise HTTPException(status_code=404, detail="Position not found")
+
+    jd_text = f"""Должность: {pos.name}
+Отдел: {pos.department or '(не указан)'}
+Уровень: {pos.level or '(не указан)'}
+
+ОБЯЗАННОСТИ:
+{pos.responsibilities or '(не указаны)'}
+
+ТРЕБОВАНИЯ:
+{pos.requirements or '(не указаны)'}"""
+
+    if not (pos.responsibilities.strip() or pos.requirements.strip()):
+        return CourseSuggestionsResponse(items=[])
+
+    from app.modules.ai.llm_client import create_llm
+
+    prompt = f"""На основе должностной инструкции предложи 3-5 тем обучающих курсов для онбординга сотрудника на эту должность.
+
+{jd_text}
+
+Каждый курс должен закрывать конкретный навык или знание, нужное для этой работы. Избегай общих тем типа "Введение в компанию" — фокус на профессиональных hard-skills.
+
+Ответь ТОЛЬКО валидным JSON без markdown-обёрток:
+{{
+  "items": [
+    {{
+      "title": "Название курса (короткое, понятное)",
+      "description": "Чему научится сотрудник, 1-2 предложения",
+      "estimated_chapters": 4,
+      "reason": "Почему этот курс важен для этой должности (1 предложение)"
+    }}
+  ]
+}}
+
+Пиши на русском. Курсы должны быть конкретными и actionable, не общими."""
+
+    try:
+        llm = create_llm(temperature=0.5, max_tokens=1500)
+        response = await llm.ainvoke([{"role": "user", "content": prompt}])
+        raw = response.content.strip()
+        if raw.startswith("```"):
+            raw = raw.split("\n", 1)[1]
+            if raw.endswith("```"):
+                raw = raw[:-3]
+            raw = raw.strip()
+        data = json.loads(raw)
+        items_raw = data.get("items", [])
+        if not isinstance(items_raw, list):
+            return CourseSuggestionsResponse(items=[])
+        valid: list[CourseSuggestion] = []
+        for it in items_raw[:5]:  # cap at 5
+            if not isinstance(it, dict):
+                continue
+            title = str(it.get("title", "")).strip()
+            if not title:
+                continue
+            try:
+                valid.append(CourseSuggestion(
+                    title=title[:200],
+                    description=str(it.get("description", "")).strip()[:2000],
+                    estimated_chapters=max(1, min(20, int(it.get("estimated_chapters", 3)))),
+                    reason=str(it.get("reason", "")).strip()[:500],
+                ))
+            except Exception:
+                continue
+        return CourseSuggestionsResponse(items=valid)
+    except Exception as e:
+        logger.warning(f"suggest-courses failed: {e}")
+        return CourseSuggestionsResponse(items=[])
+
+
+@router.post("/{position_id}/create-courses", response_model=CreateCoursesResponse, status_code=201)
+async def create_courses_from_suggestions(
+    position_id: UUID,
+    payload: CreateCoursesRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Create draft courses from selected AI suggestions and attach
+    them to this position.
+
+    Each new course:
+    - status = 'draft' (methodologist fills in content later)
+    - tenant_id = user's tenant
+    - linked to position via position_courses (auto-enrolls future hires)
+
+    Returns the list of created courses with their ids. The methodologist
+    can then go to /ai/generate/ to fill in the actual content, or edit
+    the course directly.
+    """
+    pos = await db.get(Position, position_id)
+    if not pos or pos.tenant_id != user.tenant_id:
+        raise HTTPException(status_code=404, detail="Position not found")
+
+    if not payload.items:
+        raise HTTPException(status_code=400, detail="items is empty")
+
+    created_refs: list[CreatedCourseRef] = []
+    for item in payload.items:
+        course_id = uuid.uuid4()
+        db.add(Course(
+            id=course_id,
+            tenant_id=user.tenant_id,
+            title=item.title.strip(),
+            description=item.description.strip(),
+            status="draft",
+            ai_generated=False,
+            created_by=user.id,
+        ))
+        # Attach to position so new employees auto-enroll
+        db.add(PositionCourse(position_id=position_id, course_id=course_id))
+        created_refs.append(CreatedCourseRef(id=str(course_id), title=item.title.strip()))
+
+    await db.commit()
+
+    return CreateCoursesResponse(
+        created=created_refs,
+        attached_to_position=len(created_refs),
+    )
 
 
 # ── Bulk JD analysis (multi-file upload) ──────────────────────

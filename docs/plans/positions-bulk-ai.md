@@ -1,86 +1,121 @@
-# Positions: Bulk-JD + AI + Versions + Audit — handoff (round 3)
+# Positions: Bulk-JD + AI + Versions + Audit + Course Suggestions — handoff (round 4)
 
 **Branch:** `feature/positions-bulk-ai`
-**Status:** Round 3 ready for review (final planned phase)
+**Status:** Round 4 (course suggestions) + all prior rounds ready for review
 **Not pushed to master** — push is in feature branch only.
 
 - Round 1 (pushed): bulk-JD upload, recommended-content, mypy plugin prep
 - Round 2 (pushed): generate-from-name, JD preview/diff, JD versioning, recommended-courses
-- **Round 3 (this commit): AI-аудит ДИ — то, что пользователь имел в виду с самого начала**
+- Round 3 (pushed): AI-аудит ДИ (качество, compliance)
+- **Round 4 (this commit): AI-suggest курсов из ДИ — методолог выбирает, мы создаём draft + привязываем к position**
 
 ---
 
-## Round 3: AI-аудит ДИ (the real ask)
+## Round 4: AI course suggestions (Phase 2)
 
-**Пользовательский сценарий:** HR загружает ДИ для позиции → AI анализирует, подсвечивает замечания → методолог правит ДИ на основе замечаний → потом генерирует курсы и тесты для онбординга.
+**Сценарий:** методолог нажимает «💡 Предложить курсы» на сохранённой position → AI анализирует ДИ (responsibilities + requirements) → возвращает 3-5 тем с описанием и обоснованием → методолог выбирает какие → мы создаём draft courses (status='draft') и автоматически привязываем к position (через `position_courses`). Контент курса пустой — методолог наполняет через существующий `/ai/generate/`.
 
 ### Backend
-- `_audit_jd_text()` — приватная функция с structured LLM prompt
-  - Категории: completeness / specificity / clarity / compliance / structure / other
-  - Severity: warning / suggestion / ok
-  - Возвращает 3-7 findings (положительные тоже, severity=ok)
-  - Best-effort: при ошибке AI возвращает `[]`, не блокирует основной analyze-jd
-- `POST /api/v1/positions/analyze-jd` — теперь возвращает `issues: [JDAuditItem]` вместе с парсингом
-- `POST /api/v1/positions/bulk-analyze-jd` — каждая item содержит `issues: [JDAuditItem]`
-- `POST /api/v1/positions/{id}/jd-audit` — **новый**: re-audit сохранённой позиции без файла
-  - Использует `responsibilities + requirements` как вход
-  - Полезно когда ДИ уже создана, и методолог хочет проверить её качество
+- `POST /api/v1/positions/{id}/suggest-courses` — LLM предлагает 3-5 тем
+  - Возвращает `[{title, description, estimated_chapters, reason}]`
+  - Темы конкретные, не общие («Введение в компанию» → «Работа с CRM: основные сценарии для кассира»)
+  - Best-effort: ошибка AI → `items: []`
+- `POST /api/v1/positions/{id}/create-courses` — создаёт draft courses + привязка
+  - Body: `{items: [{title, description}]}` (max 10)
+  - Возвращает `[{id, title}]` + `attached_to_position: N`
+  - Tenant-scoped, использует user.tenant_id
+  - `ai_generated: false` (потому что мы только title/description, не content)
 
 ### Frontend
-- `JDAuditList` — переиспользуемый компонент (severity-цветные бейджи, с suggestion под каждым finding)
-- **Preview modal** (после analyze-jd) — теперь показывает issues вверху как "AI заметил 3 замечания"
-- **Bulk preview modal** — каждая item имеет бейдж `🔍 N` (количество issues), expandable details показывает issues
-- **Audit modal** — отдельная модалка для кнопки `🔍 AI-аудит` в карточке position
-- **Toast в bulk** — теперь сообщает "AI нашёл N замечаний и M предложений"
+- Кнопка `💡 Предложить курсы` в карточке position (emerald-цвет, рядом с `🔍 AI-аудит`)
+- Модалка со списком suggestions
+  - Каждый item — чекбокс + title + description + estimated chapters badge + reason
+  - Auto-select all по умолчанию (методолог снимает ненужные)
+- Кнопка `Создать N черновиков`
+- Toast: «Создано N черновиков курсов. Наполните контент через «Генерация курсов»»
+- После создания — `fetchPositions()` чтобы badge «N курсов» в карточке обновился
 
-### Категории проверок (что AI ищет)
-- **completeness** — есть ли обязанности, требования, KPI, взаимодействие с другими отделами
-- **specificity** — обязанности измеримы? (не "выполняет задачи", а "обрабатывает 50 заявок/день")
-- **compliance** — для производства: ОТ/ТБ, для IT: ИБ, для финансов: ПОД/ФТ
-- **clarity** — нет устаревших формулировок, двусмысленностей
-- **structure** — порядок и формат
-
-### Phase 2 / Phase 3 (deferred, отдельные PR)
-- **Phase 2:** AI-suggest courses from JD → используя существующий `ai/generate/` pipeline
-- **Phase 3:** AI-generate onboarding quiz на основе ДИ
-
-Пользователь сказал "пусть будет как опция" про `generate-from-name` (round 2). Оставляем deprecated, не выпиливаем.
+### Удалён дубль
+- В router.py был **двойной** `restore_jd_version` (старый URL `/restore-jd/{version_id}` и новый `/jd-versions/{version_id}/restore`). Оставил только новый.
 
 ---
 
-## Новые файлы / изменения (round 3)
+## Новые файлы / изменения (round 4)
 
 | Файл | Изменение |
 |---|---|
-| `apps/api/app/modules/positions/schemas.py` | +`JDAuditItem` + `JDAuditResponse`; `BulkJDItem.issues` field |
-| `apps/api/app/modules/positions/router.py` | +`_audit_jd_text()`; +`POST /{id}/jd-audit`; `analyze_jd` + `bulk_analyze_jd` теперь вызывают audit |
-| `apps/web/src/app/positions/page.tsx` | +`JDAuditList` component; +`auditFor/auditIssues/auditLoading` state; +`handleAudit`; +`pendingIssues` state; кнопка `🔍 AI-аудит` в карточке; issues в preview modal; бейджи в bulk modal |
+| `apps/api/app/modules/positions/schemas.py` | +`CourseSuggestion` + `CourseSuggestionsResponse` + `CreateCourseItem` + `CreateCoursesRequest` + `CreatedCourseRef` + `CreateCoursesResponse` |
+| `apps/api/app/modules/positions/router.py` | +`suggest_courses()`; +`create_courses_from_suggestions()`; import `Course` model; удалён дубль `restore_jd_version` |
+| `apps/web/src/app/positions/page.tsx` | +`CourseSuggestion` interface; +suggestions state; +`handleSuggestCourses`; +`handleCreateCoursesFromSuggestions`; +кнопка `💡 Предложить курсы` в карточке; +модалка suggestions |
 
-**Без изменений:** все round 1-2 фичи, schemas, models, migrations.
+**Без изменений:** models, migrations, schemas core, course generation pipeline (используется существующий).
 
 ---
 
 ## Verified
 
 - ✅ `pnpm typecheck` (frontend) — clean
-- ✅ FastAPI app — 18+ endpoint зарегистрированы, импорт без ошибок
-- ✅ mypy schemas — clean (pre-existing errors в `core/*` не мои)
+- ✅ FastAPI app — **21 unique** position routes, **0 duplicates**
+- ✅ Imports clean (schemas, router, app)
 
 ---
 
-## Что НЕ сделано (phase 2/3, deferred)
+## Все rounds вместе — endpoint map
 
-- **AI-suggest courses from JD** — пользователь говорит про это явно ("генерил курсы и тестирование"), но **отдельный PR** после того как phase 1 (audit) в проде. Логика:
-  - Из JD получить список тем для курсов
-  - Методолог выбирает какие генерировать
-  - Переиспользовать `ai/generate/` pipeline (architect + writer)
-  - Курсы привязываются к position
-- **AI-generate onboarding quiz** — отдельный PR. Логика:
-  - Из responsibilities+requirements получить 5-10 вопросов
+### Round 1 (bulk-JD + recommendations)
+- `POST /analyze-jd` (+ audit из round 3)
+- `POST /bulk-analyze-jd` (+ audit из round 3)
+- `POST /bulk-create`
+- `GET /{id}/recommended-content`
+
+### Round 2 (versions + courses + generate)
+- `POST /generate-jd-from-name` (deprecated by user, оставлен)
+- `POST /{id}/jd-preview` (diff against current)
+- `GET /{id}/recommended-courses`
+- `GET /{id}/jd-versions`
+- `POST /{id}/jd-versions` (manual snapshot)
+- `POST /{id}/jd-versions/{version_id}/restore`
+- Auto-snapshot on PUT (встроен в update_position)
+
+### Round 3 (audit)
+- `POST /{id}/jd-audit` (re-audit without file)
+
+### Round 4 (course suggestions)
+- `POST /{id}/suggest-courses` ← **new**
+- `POST /{id}/create-courses` ← **new**
+
+---
+
+## Что осталось (deferred, отдельные PR)
+
+- **Phase 3: AI-generate onboarding quiz из ДИ** — последняя фаза из трёх
+  - Из responsibilities+requirements получить 5-10 questions
   - Методолог одобряет/правит
   - Quiz сохраняется в position, автоназначается при onboarding
+  - Прохождение квиза = подтверждение что сотрудник понял ДИ
+
+- **Pre-existing:** mypy errors в `app/core/config.py` и `db.py`
+- **Phase 2 (this round) limitation:** созданные курсы — drafts без контента. Методолог должен отдельно зайти в `/ai/generate/` чтобы наполнить контентом. Это **намеренно** — следующая фаза (или ручной workflow) — генерация полного контента в один клик.
 
 ---
+
+## Рекомендация по merge
+
+**Merge `feature/positions-bulk-ai` в master одним PR.** Squashed или merge commit — на твоё усмотрение.
+
+После merge:
+- Применить `alembic upgrade head` (для 0022)
+- Vercel auto-deploy для frontend
+- Render auto-deploy для backend
+
+## Caveats (финальные)
+
+1. Migration `0022` НЕ применена автоматически — нужно `alembic upgrade head` вручную
+2. Нет unit-тестов на новые endpoint (4 rounds, 13+ новых endpoints без тестов)
+3. Phase 3 (quiz generation) — отдельный PR
+4. Real-time: AI calls синхронные, могут быть 3-10 сек на запрос (suggest-courses, jd-audit) — UX с loading spinner есть
+5. **Созданные draft courses без контента** — UX может быть confusing если методолог забудет наполнить. Можно добавить badge "черновик" + warning в courses list — отдельная задача
+
 
 ## Round 2: what changed
 

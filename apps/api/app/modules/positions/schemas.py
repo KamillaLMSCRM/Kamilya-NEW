@@ -151,6 +151,47 @@ class JDAuditResponse(BaseModel):
     issues: list[JDAuditItem]
 
 
+# ── Course suggestions (AI proposes training topics from JD) ────
+
+
+class CourseSuggestion(BaseModel):
+    """One AI-proposed course topic derived from a position's JD.
+
+    The methodologist reviews, picks which ones to create as draft
+    courses, and fills in the actual content (via existing ai/generate
+    pipeline or manually).
+    """
+    title: str
+    description: str
+    estimated_chapters: int  # rough number of chapters
+    reason: str  # why this course is relevant to the position
+
+
+class CourseSuggestionsResponse(BaseModel):
+    items: list[CourseSuggestion]
+
+
+class CreateCourseItem(BaseModel):
+    """One course to create from a selected suggestion."""
+    title: str = Field(..., min_length=2, max_length=200)
+    description: str = Field(default="", max_length=2000)
+
+
+class CreateCoursesRequest(BaseModel):
+    """Request body for POST /{id}/create-courses."""
+    items: list[CreateCourseItem] = Field(..., min_length=1, max_length=10)
+
+
+class CreatedCourseRef(BaseModel):
+    id: str  # course id
+    title: str
+
+
+class CreateCoursesResponse(BaseModel):
+    created: list[CreatedCourseRef]
+    attached_to_position: int  # how many were linked to this position via position_courses
+
+
 # Rebuild BulkJDItem to include forward-ref'd JDAuditItem
 BulkJDItem.model_rebuild()
 

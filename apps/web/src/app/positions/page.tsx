@@ -83,6 +83,14 @@ interface JDAuditItem {
   suggestion: string;
 }
 
+// Course suggestion (matches backend CourseSuggestion)
+interface CourseSuggestion {
+  title: string;
+  description: string;
+  estimated_chapters: number;
+  reason: string;
+}
+
 // Reusable component: renders a list of audit findings with severity-colored badges.
 function JDAuditList({ items, compact = false }: { items: JDAuditItem[]; compact?: boolean }) {
   if (items.length === 0) return null;
@@ -176,6 +184,13 @@ export default function PositionsPage() {
   const [auditLoading, setAuditLoading] = useState(false);
   // Issues captured from the most recent file upload (so they survive the preview modal)
   const [pendingIssues, setPendingIssues] = useState<JDAuditItem[]>([]);
+
+  // ── Course suggestions state (Phase 2) ──────────────────
+  const [suggestionsFor, setSuggestionsFor] = useState<string | null>(null);
+  const [suggestions, setSuggestions] = useState<CourseSuggestion[]>([]);
+  const [selectedSuggestions, setSelectedSuggestions] = useState<Set<number>>(new Set());
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+  const [creatingCourses, setCreatingCourses] = useState(false);
 
   const fetchPositions = useCallback(async () => {
     try {
@@ -517,6 +532,52 @@ export default function PositionsPage() {
     }
   };
 
+  // ── Course suggestions (Phase 2) ────────────────────────
+  const handleSuggestCourses = async (positionId: string) => {
+    setSuggestionsFor(positionId);
+    setSuggestionsLoading(true);
+    setSelectedSuggestions(new Set());  // reset selection
+    try {
+      const res = await api.post(`/v1/positions/${positionId}/suggest-courses`);
+      const items = (res.data.items as CourseSuggestion[]) || [];
+      setSuggestions(items);
+      // Auto-select all by default (methodologist can deselect what they don't want)
+      setSelectedSuggestions(new Set(items.map((_, i) => i)));
+    } catch (err: any) {
+      toast.error(t('common.saveFailed'), { description: 'Не удалось получить предложения' });
+      setSuggestions([]);
+    } finally {
+      setSuggestionsLoading(false);
+    }
+  };
+
+  const handleCreateCoursesFromSuggestions = async () => {
+    if (!suggestionsFor) return;
+    const toCreate = suggestions.filter((_, i) => selectedSuggestions.has(i));
+    if (toCreate.length === 0) {
+      toast.error('Выберите хотя бы один курс');
+      return;
+    }
+    setCreatingCourses(true);
+    try {
+      const res = await api.post(`/v1/positions/${suggestionsFor}/create-courses`, {
+        items: toCreate.map((s) => ({ title: s.title, description: s.description })),
+      });
+      const data = res.data as { created: { id: string; title: string }[]; attached_to_position: number };
+      toast.success(
+        `Создано ${data.created.length} черновик${data.created.length === 1 ? '' : 'ов'} курсов. Наполните контент через «Генерация курсов».`
+      );
+      setSuggestionsFor(null);
+      setSuggestions([]);
+      setSelectedSuggestions(new Set());
+      fetchPositions();  // refresh to show updated course_ids count
+    } catch (err: any) {
+      toast.error(t('common.saveFailed'), { description: 'Не удалось создать курсы' });
+    } finally {
+      setCreatingCourses(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -737,6 +798,13 @@ export default function PositionsPage() {
                   >
                     {auditFor === pos.id ? 'Скрыть' : '🔍 AI-аудит'}
                   </button>
+                  <button
+                    onClick={() => suggestionsFor === pos.id ? setSuggestionsFor(null) : handleSuggestCourses(pos.id)}
+                    className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs text-emerald-700 hover:bg-emerald-100 transition-colors"
+                    title="AI предложит 3-5 тем курсов для онбординга на эту должность"
+                  >
+                    {suggestionsFor === pos.id ? 'Скрыть' : '💡 Предложить курсы'}
+                  </button>
                   <button onClick={() => handleDelete(pos.id)} className="rounded-xl border border-red-200 px-3 py-1.5 text-xs text-red-400 hover:border-red-300 hover:text-red-600 transition-colors">Удалить</button>
                 </div>
               </div>
@@ -745,6 +813,96 @@ export default function PositionsPage() {
         </div>
       )}
 {dialog}
+
+      {/* Course suggestions modal (after clicking "Предложить курсы" on a saved position) */}
+      {suggestionsFor && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setSuggestionsFor(null)} />
+          <div className="relative bg-white rounded-2xl shadow-card-lg w-full max-w-2xl mx-4 p-6 z-10 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center gap-2 mb-4">
+              <span className="text-2xl">💡</span>
+              <div>
+                <h2 className="text-lg font-bold text-warm-800 font-display">
+                  AI предложил курсы для онбординга
+                </h2>
+                <p className="text-xs text-warm-500">
+                  Темы созданы на основе ДИ. Выберите какие превратить в черновики, дальше наполните контентом через «Генерация курсов».
+                </p>
+              </div>
+            </div>
+            {suggestionsLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="h-8 w-8 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent" />
+              </div>
+            ) : suggestions.length === 0 ? (
+              <p className="text-sm text-warm-400 py-8 text-center">
+                AI не предложил курсов. Попробуйте сначала заполнить обязанности и требования в ДИ.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {suggestions.map((s, idx) => {
+                  const checked = selectedSuggestions.has(idx);
+                  return (
+                    <label
+                      key={idx}
+                      className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                        checked
+                          ? 'border-emerald-300 bg-emerald-50'
+                          : 'border-warm-200 hover:bg-warm-50'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={(e) => {
+                          const next = new Set(selectedSuggestions);
+                          if (e.target.checked) next.add(idx);
+                          else next.delete(idx);
+                          setSelectedSuggestions(next);
+                        }}
+                        className="mt-1 rounded border-warm-300 text-emerald-600 focus:ring-emerald-500"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-semibold text-warm-800">{s.title}</span>
+                          {s.estimated_chapters > 0 && (
+                            <span className="rounded-full bg-emerald-100 text-emerald-700 px-2 py-0.5 text-[10px] font-semibold">
+                              ~{s.estimated_chapters} гл.
+                            </span>
+                          )}
+                        </div>
+                        {s.description && (
+                          <p className="text-xs text-warm-600 mt-1">{s.description}</p>
+                        )}
+                        {s.reason && (
+                          <p className="text-[11px] text-emerald-700 mt-1 italic">💡 {s.reason}</p>
+                        )}
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+            )}
+            <div className="flex gap-2 justify-end mt-5">
+              <button
+                onClick={() => setSuggestionsFor(null)}
+                className="rounded-xl border border-warm-200 px-4 py-2 text-sm text-warm-500 hover:bg-warm-50 transition-colors"
+              >
+                Отмена
+              </button>
+              <button
+                onClick={handleCreateCoursesFromSuggestions}
+                disabled={creatingCourses || selectedSuggestions.size === 0}
+                className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 transition-colors disabled:opacity-50"
+              >
+                {creatingCourses
+                  ? 'Создаю...'
+                  : `Создать ${selectedSuggestions.size} черновик${selectedSuggestions.size === 1 ? '' : selectedSuggestions.size < 5 ? 'а' : 'ов'}`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* JD audit modal (after clicking "AI-аудит" on a saved position) */}
       {auditFor && (
