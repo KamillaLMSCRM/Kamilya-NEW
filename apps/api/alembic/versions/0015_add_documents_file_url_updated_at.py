@@ -8,7 +8,7 @@ from alembic import op
 import sqlalchemy as sa
 
 revision = "0015_add_documents_file_url_updated_at"
-down_revision = "0013e_rls_correct"
+down_revision = "0012"
 branch_labels = None
 depends_on = None
 

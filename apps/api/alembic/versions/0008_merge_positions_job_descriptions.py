@@ -9,7 +9,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import UUID
 
 revision = "0008"
-down_revision = "0007_add_positions_job_descriptions"
+down_revision = "0007"
 branch_labels = None
 depends_on = None
 
