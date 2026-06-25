@@ -2,7 +2,7 @@
 
 import { useEffect, useState, createContext, useContext } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
 import Sidebar from './Sidebar';
@@ -19,10 +19,16 @@ export function useSidebarCollapsed() {
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   const { t } = useT();
   const { user, initialize } = useAuthStore();
   const [collapsed, setCollapsed] = useState(false);
   const [activeJob, setActiveJob] = useState<{ id: string; progress: number; stage: string } | null>(null);
+
+  // Hide the floating widget while the user is already on /ai/generate —
+  // that page has its own prominent progress bar, so the floating pill
+  // would just duplicate the same info.
+  const onGeneratePage = pathname === '/ai/generate' || pathname?.startsWith('/ai/generate/');
 
   useEffect(() => {
     initialize();
@@ -108,8 +114,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <TopBar />
           <div className="p-6">{children}</div>
         </main>
-        {/* Floating generation progress widget — bottom-right, dismissible look */}
-        {activeJob && (
+        {/* Floating generation progress widget — bottom-right. Hidden on
+            /ai/generate where the page already has its own progress bar. */}
+        {activeJob && !onGeneratePage && (
           <Link
             href="/ai/generate"
             className="fixed bottom-4 right-4 z-30 flex items-center gap-3 rounded-full border border-primary/30 bg-card/95 px-4 py-2.5 text-sm text-primary shadow-card-lg backdrop-blur-sm hover:bg-card hover:shadow-card-hover transition-all"
