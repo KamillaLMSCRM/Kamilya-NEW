@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
 import { cn } from '@/lib/utils';
+import { Logo } from '@/components/brand/Logo';
 
 interface NavItem {
   label: string;
@@ -154,15 +155,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
     >
       {/* Logo */}
       <div className={cn('flex h-16 items-center border-b border-warm-100 px-4', collapsed && 'justify-center px-0')}>
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary text-white font-bold text-sm font-display" aria-hidden="true">
-          K
-        </div>
-        {!collapsed && (
-          <div className="ml-3 overflow-hidden">
-            <div className="text-sm font-bold text-warm-800 font-display truncate">{t('sidebar.logo')}</div>
-            <div className="text-[11px] text-warm-400 truncate">{t('sidebar.platform')}</div>
-          </div>
-        )}
+        <Logo variant={collapsed ? 'mark' : 'full'} size={32} withSubtitle={!collapsed} />
       </div>
 
       {/* Collapse toggle */}

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
 import { clearStoredAuth } from '@/lib/auth';
 import { api } from '@/lib/api';
+import { Logo } from '@/components/brand/Logo';
 import { Shield, BookOpen, GraduationCap, ArrowLeft } from 'lucide-react';
 
 interface RoleCard {
@@ -72,9 +73,11 @@ export default function DemoLoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-blue-50 to-white">
       <main className="w-full max-w-2xl p-8">
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-blue-600">Kamilya LMS</h1>
-          <h2 className="text-xl font-semibold mt-2 text-warm-800">Демо-доступ</h2>
-          <p className="text-sm text-warm-400 mt-2">Выберите роль для входа в систему</p>
+          <div className="flex justify-center mb-4">
+            <Logo variant="full" size={44} />
+          </div>
+          <h2 className="text-xl font-semibold mt-2 text-foreground">Демо-доступ</h2>
+          <p className="text-sm text-muted-foreground mt-2">Выберите роль для входа в систему</p>
         </div>
 
         {error && (

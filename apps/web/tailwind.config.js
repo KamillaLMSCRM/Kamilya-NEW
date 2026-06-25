@@ -8,9 +8,9 @@ module.exports = {
   theme: {
     extend: {
       fontFamily: {
-        display: ['Syne', ...defaultTheme.fontFamily.sans],
-        sans: ['Manrope', ...defaultTheme.fontFamily.sans],
-        mono: ['DM Mono', ...defaultTheme.fontFamily.mono],
+        display: ['var(--font-syne)', 'Syne', ...defaultTheme.fontFamily.sans],
+        sans: ['var(--font-manrope)', 'Manrope', ...defaultTheme.fontFamily.sans],
+        mono: ['var(--font-dm-mono)', 'DM Mono', ...defaultTheme.fontFamily.mono],
       },
       colors: {
         border: 'hsl(var(--border))',

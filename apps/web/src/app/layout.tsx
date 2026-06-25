@@ -1,11 +1,19 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { Inter } from "next/font/google";
+import { Inter, Manrope, Syne, DM_Mono } from "next/font/google";
 import RouteWrapper from "@/components/RouteWrapper";
 import { Toaster } from "@/components/ui/Toast";
 import { SkipToContent } from "@/components/a11y/SkipToContent";
 
-const inter = Inter({ subsets: ["latin", "cyrillic"] });
+// Brand fonts — loaded once, exposed via CSS variables for Tailwind config.
+// Matches tailwind.config.js fontFamily tokens:
+//   - sans: Manrope (UI body)
+//   - display: Syne (hero / brand wordmark)
+//   - mono: DM Mono (code blocks, numeric badges)
+const inter = Inter({ subsets: ["latin", "cyrillic"], variable: "--font-inter" });
+const manrope = Manrope({ subsets: ["latin", "cyrillic"], variable: "--font-manrope" });
+const syne = Syne({ subsets: ["latin"], variable: "--font-syne" });
+const dmMono = DM_Mono({ subsets: ["latin"], weight: ["400", "500"], variable: "--font-dm-mono" });
 
 export const metadata: Metadata = {
   title: "Kamilya LMS",
@@ -39,8 +47,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="ru">
-      <body className={inter.className}>
+    <html lang="ru" className={`${inter.variable} ${manrope.variable} ${syne.variable} ${dmMono.variable}`}>
+      <body className={manrope.className}>
         <SkipToContent />
         <RouteWrapper>
           {children}

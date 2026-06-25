@@ -6,6 +6,7 @@ import { useAuthStore } from '@/store/authStore';
 import { api } from '@/lib/api';
 import SkipLink from '@/components/SkipLink';
 import { useT } from '@/i18n/useT';
+import { Logo } from '@/components/brand/Logo';
 import { ChevronRight } from 'lucide-react';
 
 export default function LoginPage() {
@@ -99,7 +100,9 @@ export default function LoginPage() {
       <SkipLink />
       <main id="main-content" className="w-full max-w-md p-8 bg-white rounded-xl shadow-md">
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-blue-600">Kamilya LMS</h1>
+          <div className="flex justify-center mb-3">
+            <Logo variant="full" size={40} />
+          </div>
           <h2 className="text-xl font-semibold mt-2">{t('auth.loginWithTelegram')}</h2>
         </div>
 

@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Input, Button } from '@/components/ui';
 import { useT } from '@/i18n/useT';
 import { toast } from '@/components/ui/Toast';
+import { Logo } from '@/components/brand/Logo';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -61,7 +62,9 @@ export default function RegisterPage() {
         className="w-full max-w-md p-8 bg-white rounded-xl shadow-md focus:outline-none"
       >
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-blue-600">Kamilya LMS</h1>
+          <div className="flex justify-center mb-3">
+            <Logo variant="full" size={40} />
+          </div>
           <h2 className="text-xl font-semibold mt-2">{t('auth.register')}</h2>
         </div>
 
