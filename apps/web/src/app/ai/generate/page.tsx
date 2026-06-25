@@ -19,6 +19,9 @@ import {
   ChevronRight,
   XCircle,
   Clock,
+  Send,
+  RefreshCw,
+  MessageSquare,
 } from 'lucide-react';
 
 interface Document {
@@ -76,6 +79,30 @@ export default function AIGeneratePage() {
     status: 'approved',
     comment: '',
   });
+
+  // ── Chat with AI assistant ──
+  const [chatMessages, setChatMessages] = useState<Array<{ role: 'user' | 'assistant'; content: string; at: number }>>([]);
+  const [chatInput, setChatInput] = useState('');
+  const [chatSending, setChatSending] = useState(false);
+  const [chatContext, setChatContext] = useState<{ context: 'course' | 'module' | 'lesson'; target_id?: string }>({ context: 'course' });
+
+  // ── Regenerate module / lesson ──
+  // Tracks an in-flight regenerate job keyed by target. Polled every 2s.
+  const [regenJob, setRegenJob] = useState<{
+    target_kind: 'module' | 'lesson';
+    target_id: string;
+    job_id: string;
+    progress: number;
+    stage: string;
+  } | null>(null);
+  const [regenDialog, setRegenDialog] = useState<{
+    open: boolean;
+    kind: 'module' | 'lesson';
+    target_id: string;
+    target_title: string;
+    guidance: string;
+    regenerate_quiz: boolean;
+  }>({ open: false, kind: 'module', target_id: '', target_title: '', guidance: '', regenerate_quiz: true });
 
   useEffect(() => { fetchDocuments(); restoreActiveJob(); }, []);
 
@@ -209,6 +236,95 @@ export default function AIGeneratePage() {
       setReviewSubmitting(false);
     }
   };
+
+  // ── Chat with AI assistant ──────────────────────────────────────
+  const sendChat = async () => {
+    if (!currentJob?.course_id || !chatInput.trim() || chatSending) return;
+    const userMessage = chatInput.trim();
+    setChatInput('');
+    setChatMessages((prev) => [...prev, { role: 'user', content: userMessage, at: Date.now() }]);
+    setChatSending(true);
+    try {
+      const res = await api.post('/v1/ai/chat', {
+        course_id: currentJob.course_id,
+        context: chatContext.context,
+        target_id: chatContext.target_id,
+        message: userMessage,
+      });
+      setChatMessages((prev) => [...prev, { role: 'assistant', content: res.data.reply, at: Date.now() }]);
+    } catch (e: any) {
+      setChatMessages((prev) => [
+        ...prev,
+        { role: 'assistant', content: `⚠️ Ошибка: ${e?.response?.data?.detail || e?.message || 'неизвестно'}`, at: Date.now() },
+      ]);
+    } finally {
+      setChatSending(false);
+    }
+  };
+
+  // ── Regenerate module / lesson ──────────────────────────────────
+  const startRegenerate = (kind: 'module' | 'lesson', target_id: string, target_title: string) => {
+    setRegenDialog({ open: true, kind, target_id, target_title, guidance: '', regenerate_quiz: true });
+  };
+
+  const submitRegenerate = async () => {
+    if (!regenDialog.target_id) return;
+    setReviewSubmitting(true); // reuse busy flag
+    try {
+      const url = regenDialog.kind === 'module'
+        ? `/v1/ai/regenerate-module/${regenDialog.target_id}`
+        : `/v1/ai/regenerate-lesson/${regenDialog.target_id}`;
+      const body = regenDialog.kind === 'module'
+        ? { guidance: regenDialog.guidance.trim(), language: 'ru' }
+        : { guidance: regenDialog.guidance.trim(), regenerate_quiz: regenDialog.regenerate_quiz };
+      const res = await api.post(url, body);
+      setRegenJob({
+        target_kind: regenDialog.kind,
+        target_id: regenDialog.target_id,
+        job_id: res.data.id,
+        progress: res.data.progress || 0,
+        stage: res.data.stage || 'queued',
+      });
+      setRegenDialog({ open: false, kind: 'module', target_id: '', target_title: '', guidance: '', regenerate_quiz: true });
+    } catch (e: any) {
+      console.error('Regenerate start failed', e);
+      alert(`Не удалось запустить перегенерацию: ${e?.response?.data?.detail || e?.message || 'неизвестно'}`);
+    } finally {
+      setReviewSubmitting(false);
+    }
+  };
+
+  // Poll regen job every 2s. On completion, refresh preview.
+  useEffect(() => {
+    if (!regenJob) return;
+    let cancelled = false;
+    const interval = setInterval(async () => {
+      if (cancelled) return;
+      try {
+        const res = await api.get(`/v1/ai/jobs/${regenJob.job_id}`);
+        if (res.data.status === 'completed') {
+          if (cancelled) return;
+          setRegenJob(null);
+          if (currentJob?.course_id) {
+            await loadCoursePreview(currentJob.course_id);
+          }
+        } else if (res.data.status === 'failed' || res.data.status === 'cancelled') {
+          if (cancelled) return;
+          alert(`Перегенерация ${res.data.status}: ${res.data.message || ''}`);
+          setRegenJob(null);
+        } else {
+          setRegenJob((j) => j ? { ...j, progress: res.data.progress, stage: res.data.stage } : j);
+        }
+      } catch {
+        // network blip — keep polling
+      }
+    }, 2000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [regenJob?.job_id, currentJob?.course_id]);
 
   // Poll job status
   useEffect(() => {
@@ -529,12 +645,112 @@ export default function AIGeneratePage() {
                 <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
               </div>
             ) : preview && preview.modules?.length > 0 ? (
-              <CoursePreviewTree modules={preview.modules} />
+              <CoursePreviewTree
+                modules={preview.modules}
+                onRegenerateModule={(moduleId, title) => startRegenerate('module', moduleId, title)}
+                onRegenerateLesson={(lessonId, title) => startRegenerate('lesson', lessonId, title)}
+                onFocusChat={(context, target_id) => setChatContext({ context, target_id })}
+                busyTargetId={regenJob?.target_id ?? null}
+              />
             ) : (
               <div className="p-6 text-center text-sm text-muted-foreground">
                 Структура пуста. Откройте курс в редакторе для просмотра.
               </div>
             )}
+          </div>
+
+          {/* AI Assistant chat panel */}
+          <div className="rounded-2xl border border-border bg-card overflow-hidden">
+            <div className="border-b border-border bg-muted/50 px-4 py-3 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 min-w-0">
+                <MessageSquare className="w-4 h-4 text-primary shrink-0" />
+                <h4 className="text-sm font-bold text-foreground font-display truncate">
+                  AI-ассистент методолога
+                </h4>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                {(['course', 'module', 'lesson'] as const).map((ctx) => (
+                  <button
+                    key={ctx}
+                    type="button"
+                    onClick={() => {
+                      if (ctx === 'course') setChatContext({ context: 'course' });
+                    }}
+                    disabled={ctx !== 'course' && !chatContext.target_id}
+                    className={
+                      chatContext.context === ctx
+                        ? 'rounded-full bg-primary px-2.5 py-1 text-[11px] font-medium text-primary-foreground'
+                        : 'rounded-full bg-muted px-2.5 py-1 text-[11px] font-medium text-muted-foreground hover:bg-muted/70 disabled:opacity-50'
+                    }
+                    title={
+                      ctx !== 'course' && !chatContext.target_id
+                        ? 'Сначала выберите урок или модуль'
+                        : undefined
+                    }
+                  >
+                    {ctx === 'course' ? 'Весь курс' : ctx === 'module' ? 'Модуль' : 'Урок'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="max-h-72 overflow-y-auto p-4 space-y-3 bg-background">
+              {chatMessages.length === 0 ? (
+                <div className="text-center py-8 text-sm text-muted-foreground">
+                  Спросите AI: «Что спорно в модуле 2?», «Перепиши урок про охрану труда проще», «Сделай тест сложнее».
+                  Чтобы сфокусировать на конкретном уроке или модуле — нажмите «Спросить AI» рядом с ним.
+                </div>
+              ) : (
+                chatMessages.map((m, i) => (
+                  <div key={i} className={
+                    m.role === 'user'
+                      ? 'flex justify-end'
+                      : 'flex justify-start'
+                  }>
+                    <div className={
+                      m.role === 'user'
+                        ? 'max-w-[85%] rounded-2xl rounded-tr-md bg-primary px-3 py-2 text-sm text-primary-foreground whitespace-pre-wrap'
+                        : 'max-w-[85%] rounded-2xl rounded-tl-md bg-muted px-3 py-2 text-sm text-foreground whitespace-pre-wrap'
+                    }>
+                      {m.content}
+                    </div>
+                  </div>
+                ))
+              )}
+              {chatSending && (
+                <div className="flex justify-start">
+                  <div className="rounded-2xl rounded-tl-md bg-muted px-3 py-2">
+                    <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="border-t border-border p-3 flex gap-2">
+              <input
+                type="text"
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); } }}
+                placeholder={
+                  chatContext.context === 'course'
+                    ? 'Спросите что угодно про этот курс…'
+                    : `Спросите про ${chatContext.context === 'module' ? 'модуль' : 'урок'}…`
+                }
+                disabled={chatSending}
+                maxLength={2000}
+                className="flex-1 rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none disabled:opacity-50"
+              />
+              <button
+                type="button"
+                onClick={sendChat}
+                disabled={chatSending || !chatInput.trim()}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+              >
+                <Send className="w-4 h-4" />
+                <span className="hidden sm:inline">Отправить</span>
+              </button>
+            </div>
           </div>
 
           {/* Footer actions */}
@@ -609,6 +825,93 @@ export default function AIGeneratePage() {
           </div>
         </div>
       )}
+
+      {/* Regenerate confirmation dialog */}
+      {regenDialog.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 p-4 backdrop-blur-sm" role="dialog" aria-modal="true">
+          <div className="w-full max-w-md rounded-2xl border border-border bg-card shadow-card-lg">
+            <div className="border-b border-border px-5 py-4">
+              <h3 className="font-bold text-foreground font-display">
+                Перегенерировать {regenDialog.kind === 'module' ? 'модуль' : 'урок'}
+              </h3>
+              <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                «{regenDialog.target_title}»
+              </p>
+            </div>
+            <div className="px-5 py-4 space-y-3">
+              <div>
+                <label htmlFor="regen-guidance" className="block text-xs font-semibold text-muted-foreground mb-1">
+                  Что поправить (опционально)
+                </label>
+                <textarea
+                  id="regen-guidance"
+                  value={regenDialog.guidance}
+                  onChange={(e) => setRegenDialog((d) => ({ ...d, guidance: e.target.value }))}
+                  maxLength={1000}
+                  rows={3}
+                  placeholder="Например: «Добавь больше примеров», «Сделай тон проще», «Убери устаревшие ссылки»"
+                  className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
+                />
+              </div>
+              {regenDialog.kind === 'lesson' && (
+                <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={regenDialog.regenerate_quiz}
+                    onChange={(e) => setRegenDialog((d) => ({ ...d, regenerate_quiz: e.target.checked }))}
+                    className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                  />
+                  Перегенерировать тест (3 вопроса)
+                </label>
+              )}
+              <p className="text-[11px] text-muted-foreground italic">
+                Текущий контент будет заменён. Действие нельзя отменить (можно начать новую генерацию).
+              </p>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-border px-5 py-3">
+              <button
+                type="button"
+                onClick={() => setRegenDialog({ open: false, kind: 'module', target_id: '', target_title: '', guidance: '', regenerate_quiz: true })}
+                disabled={reviewSubmitting}
+                className="rounded-xl border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-muted transition-colors disabled:opacity-50"
+              >
+                Отмена
+              </button>
+              <button
+                type="button"
+                onClick={submitRegenerate}
+                disabled={reviewSubmitting}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-warning px-4 py-2 text-sm font-medium text-warning-foreground hover:bg-warning/90 transition-colors disabled:opacity-50"
+              >
+                {reviewSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                <RefreshCw className="w-4 h-4" />
+                Запустить
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Regenerate progress banner (inline, while running) */}
+      {regenJob && (
+        <div className="fixed bottom-4 right-4 z-30 max-w-sm rounded-2xl border border-warning/30 bg-card shadow-card-lg p-4 space-y-2" role="status" aria-live="polite">
+          <div className="flex items-center gap-2">
+            <Loader2 className="h-4 w-4 animate-spin text-warning" />
+            <span className="text-sm font-medium text-foreground">
+              Перегенерация {regenJob.target_kind === 'module' ? 'модуля' : 'урока'}
+            </span>
+          </div>
+          <div className="h-2 bg-muted rounded overflow-hidden">
+            <div
+              className="h-2 bg-warning rounded transition-all"
+              style={{ width: `${regenJob.progress || 5}%` }}
+            />
+          </div>
+          <div className="text-[11px] text-muted-foreground">
+            {regenJob.stage} · {regenJob.progress}%
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -640,7 +943,19 @@ function ReviewBadge({ status }: { status: 'pending' | 'approved' | 'needs_chang
   );
 }
 
-function CoursePreviewTree({ modules }: { modules: any[] }) {
+function CoursePreviewTree({
+  modules,
+  onRegenerateModule,
+  onRegenerateLesson,
+  onFocusChat,
+  busyTargetId,
+}: {
+  modules: any[];
+  onRegenerateModule: (moduleId: string, title: string) => void;
+  onRegenerateLesson: (lessonId: string, title: string) => void;
+  onFocusChat: (context: 'module' | 'lesson', target_id: string) => void;
+  busyTargetId: string | null;
+}) {
   const [openIds, setOpenIds] = useState<Set<string>>(new Set());
   const toggle = (id: string) => {
     setOpenIds((prev) => {
@@ -653,62 +968,108 @@ function CoursePreviewTree({ modules }: { modules: any[] }) {
     <ul role="list" className="divide-y divide-border">
       {modules.map((m: any, mi: number) => {
         const isOpen = openIds.has(m.id);
+        const moduleBusy = busyTargetId === m.id;
         return (
           <li key={m.id}>
-            <button
-              type="button"
-              onClick={() => toggle(m.id)}
-              aria-expanded={isOpen}
-              className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-muted/40 transition-colors"
-            >
-              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-primary/10 text-xs font-bold text-primary">
-                {mi + 1}
-              </span>
-              <span className="flex-1 min-w-0">
-                <div className="text-sm font-semibold text-foreground truncate">{m.title}</div>
-                {m.description && (
-                  <div className="text-xs text-muted-foreground truncate">{m.description}</div>
-                )}
-              </span>
-              <span className="shrink-0 text-[11px] text-muted-foreground">
-                {m.lessons?.length || 0} ур.
-              </span>
-              <ChevronRight
-                className={`shrink-0 h-4 w-4 text-muted-foreground transition-transform ${isOpen ? 'rotate-90' : ''}`}
-                aria-hidden="true"
-              />
-            </button>
+            <div className="flex items-center gap-3 px-4 py-3 hover:bg-muted/40 transition-colors">
+              <button
+                type="button"
+                onClick={() => toggle(m.id)}
+                aria-expanded={isOpen}
+                className="flex flex-1 items-center gap-3 text-left min-w-0"
+              >
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-primary/10 text-xs font-bold text-primary">
+                  {mi + 1}
+                </span>
+                <span className="flex-1 min-w-0">
+                  <div className="text-sm font-semibold text-foreground truncate">{m.title}</div>
+                  {m.description && (
+                    <div className="text-xs text-muted-foreground truncate">{m.description}</div>
+                  )}
+                </span>
+                <span className="shrink-0 text-[11px] text-muted-foreground">
+                  {m.lessons?.length || 0} ур.
+                </span>
+                <ChevronRight
+                  className={`shrink-0 h-4 w-4 text-muted-foreground transition-transform ${isOpen ? 'rotate-90' : ''}`}
+                  aria-hidden="true"
+                />
+              </button>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => onFocusChat('module', m.id)}
+                  className="inline-flex items-center gap-1 rounded-lg border border-border bg-card px-2 py-1 text-[11px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                  title="Спросить AI про этот модуль"
+                >
+                  <MessageSquare className="w-3 h-3" />
+                  Спросить AI
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onRegenerateModule(m.id, m.title)}
+                  disabled={moduleBusy || !!busyTargetId}
+                  className="inline-flex items-center gap-1 rounded-lg border border-warning/40 bg-warning/10 px-2 py-1 text-[11px] font-medium text-warning hover:bg-warning/15 transition-colors disabled:opacity-50"
+                >
+                  {moduleBusy ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                  Перегенерировать
+                </button>
+              </div>
+            </div>
             {isOpen && (
               <ul role="list" className="bg-muted/30 divide-y divide-border">
                 {m.lessons?.length ? (
-                  m.lessons.map((l: any, li: number) => (
-                    <li key={l.id} className="px-4 py-3 pl-14 space-y-1.5">
-                      <div className="flex items-start gap-2">
-                        <span className="text-xs font-mono text-muted-foreground shrink-0 mt-0.5">{mi + 1}.{li + 1}</span>
-                        <div className="flex-1 min-w-0">
-                          <div className="text-sm font-medium text-foreground">{l.title}</div>
-                          {l.content_preview && (
-                            <p className="text-xs text-muted-foreground line-clamp-3 mt-1 whitespace-pre-line">
-                              {l.content_preview}
-                            </p>
-                          )}
-                          <div className="flex flex-wrap items-center gap-2 mt-1.5">
-                            {l.duration_seconds ? (
-                              <span className="text-[11px] text-muted-foreground">
-                                ⏱ {Math.max(1, Math.round(l.duration_seconds / 60))} мин
-                              </span>
-                            ) : null}
-                            {l.has_quiz && (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-success/15 px-2 py-0.5 text-[11px] font-medium text-success">
-                                <ClipboardCheck className="w-3 h-3" />
-                                Тест: {l.quiz_question_count || 0} вопр.
-                              </span>
+                  m.lessons.map((l: any, li: number) => {
+                    const lessonBusy = busyTargetId === l.id;
+                    return (
+                      <li key={l.id} className="px-4 py-3 pl-14 space-y-1.5">
+                        <div className="flex items-start gap-2">
+                          <span className="text-xs font-mono text-muted-foreground shrink-0 mt-0.5">{mi + 1}.{li + 1}</span>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <div className="text-sm font-medium text-foreground truncate flex-1 min-w-0">{l.title}</div>
+                              <button
+                                type="button"
+                                onClick={() => onFocusChat('lesson', l.id)}
+                                className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors shrink-0"
+                                title="Спросить AI про этот урок"
+                              >
+                                <MessageSquare className="w-2.5 h-2.5" />
+                                AI
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => onRegenerateLesson(l.id, l.title)}
+                                disabled={lessonBusy || !!busyTargetId}
+                                className="inline-flex items-center gap-1 rounded-md border border-warning/40 bg-warning/10 px-1.5 py-0.5 text-[10px] font-medium text-warning hover:bg-warning/15 transition-colors disabled:opacity-50 shrink-0"
+                              >
+                                {lessonBusy ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <RefreshCw className="w-2.5 h-2.5" />}
+                                Перегенерировать
+                              </button>
+                            </div>
+                            {l.content_preview && (
+                              <p className="text-xs text-muted-foreground line-clamp-3 mt-1 whitespace-pre-line">
+                                {l.content_preview}
+                              </p>
                             )}
+                            <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                              {l.duration_seconds ? (
+                                <span className="text-[11px] text-muted-foreground">
+                                  ⏱ {Math.max(1, Math.round(l.duration_seconds / 60))} мин
+                                </span>
+                              ) : null}
+                              {l.has_quiz && (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-success/15 px-2 py-0.5 text-[11px] font-medium text-success">
+                                  <ClipboardCheck className="w-3 h-3" />
+                                  Тест: {l.quiz_question_count || 0} вопр.
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </li>
-                  ))
+                      </li>
+                    );
+                  })
                 ) : (
                   <li className="px-4 py-3 pl-14 text-xs text-muted-foreground italic">Нет уроков</li>
                 )}
