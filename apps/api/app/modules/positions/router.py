@@ -40,6 +40,8 @@ from app.modules.positions.schemas import (
     JDVersionListResponse,
     JDVersionCreate,
     JDRestoreResponse,
+    JDAuditItem,
+    JDAuditResponse,
 )
 from app.modules.positions.models import PositionJDVersion
 
@@ -488,7 +490,134 @@ async def analyze_jd(
         "level": data.get("level", ""),
         "responsibilities": data.get("responsibilities", ""),
         "requirements": data.get("requirements", ""),
+        "issues": _audit_jd_text(
+            text,
+            data.get("name", ""),
+            data.get("responsibilities", ""),
+            data.get("requirements", ""),
+        ),
     }
+
+
+# ── JD audit (LLM quality check) ──────────────────────────────
+
+
+async def _audit_jd_text(
+    text: str,
+    name: str = "",
+    responsibilities: str = "",
+    requirements: str = "",
+) -> list[JDAuditItem]:
+    """Run an LLM quality audit on a JD and return a list of findings.
+
+    Categories:
+    - completeness: missing required sections (KPIs, safety, compliance)
+    - specificity: vague wording, no measurable outcomes
+    - clarity: jargon, ambiguous pronouns, out-of-date terms
+    - compliance: missing ОТ/ИБ/etc. if relevant for the role
+    - structure: order/format issues
+    - other: anything else
+
+    Severity:
+    - "warning": should fix before publishing
+    - "suggestion": nice-to-have improvement
+    - "ok": positive observation (also surfaced, capped to top-2)
+
+    Returns [] on AI failure — audit is best-effort, never blocks the
+    main analyze-jd response.
+    """
+    if not text.strip():
+        return []
+
+    from app.modules.ai.llm_client import create_llm
+
+    audit_prompt = f"""Ты — HR-эксперт по качеству должностных инструкций в Казахстане.
+Проведи АУДИТ этой ДИ и найди 3-7 проблем или рекомендаций по улучшению.
+
+КОНТЕКСТ:
+- Название: {name or "(не указано)"}
+
+ТЕКСТ ДИ:
+{text[:6000]}
+
+Ответь ТОЛЬКО валидным JSON без markdown-обёрток:
+{{
+  "issues": [
+    {{
+      "severity": "warning" | "suggestion" | "ok",
+      "category": "completeness" | "specificity" | "clarity" | "compliance" | "structure" | "other",
+      "field": "responsibilities" | "requirements" | "name" | "",
+      "message": "Краткое описание проблемы на русском (1 предложение)",
+      "suggestion": "Конкретное предложение как исправить (или пустая строка)"
+    }}
+  ]
+}}
+
+Сфокусируйся на проблемах, которые РЕАЛЬНО важны для казахстанской компании:
+- Полнота: есть ли обязанности, требования, KPI, взаимодействие?
+- Конкретность: обязанности измеримы? (не "выполняет задачи", а "обрабатывает 50 заявок/день")
+- Compliance: для производства — ОТ/ТБ, для IT — ИБ, для финансов — ПОД/ФТ
+- Ясность: нет ли устаревших формулировок, двусмысленностей
+
+Если ДИ хорошая — всё равно верни 1-2 positive findings (severity="ok")."""
+
+    try:
+        llm = create_llm(temperature=0.2, max_tokens=1500)
+        response = await llm.ainvoke([{"role": "user", "content": audit_prompt}])
+        raw = response.content.strip()
+        if raw.startswith("```"):
+            raw = raw.split("\n", 1)[1]
+            if raw.endswith("```"):
+                raw = raw[:-3]
+            raw = raw.strip()
+        data = json.loads(raw)
+        items_raw = data.get("issues", [])
+        if not isinstance(items_raw, list):
+            return []
+        # Validate and cap
+        valid: list[JDAuditItem] = []
+        for it in items_raw[:10]:  # hard cap at 10
+            if not isinstance(it, dict):
+                continue
+            try:
+                valid.append(JDAuditItem(
+                    severity=str(it.get("severity", "suggestion")),
+                    category=str(it.get("category", "other")),
+                    field=str(it.get("field", "")),
+                    message=str(it.get("message", "")),
+                    suggestion=str(it.get("suggestion", "")),
+                ))
+            except Exception:
+                continue
+        return valid
+    except Exception as e:
+        logger.warning(f"JD audit failed: {e}")
+        return []
+
+
+@router.post("/{position_id}/jd-audit", response_model=JDAuditResponse)
+async def jd_audit(
+    position_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Re-audit a saved position's JD (no file upload needed).
+
+    Uses the position's current responsibilities + requirements + name
+    as input. Returns a fresh list of issues. Useful for the methodologist
+    who wants to check existing positions without re-uploading files.
+    """
+    pos = await db.get(Position, position_id)
+    if not pos or pos.tenant_id != user.tenant_id:
+        raise HTTPException(status_code=404, detail="Position not found")
+
+    # Build pseudo-text from saved fields (no file)
+    text = f"{pos.responsibilities}\n\n{pos.requirements}".strip()
+    if not text:
+        return JDAuditResponse(items=[])
+
+    issues = await _audit_jd_text(text, pos.name, pos.responsibilities, pos.requirements)
+    return JDAuditResponse(items=issues)
 
 
 # ── Bulk JD analysis (multi-file upload) ──────────────────────
@@ -569,6 +698,16 @@ async def bulk_analyze_jd(
             item.level = (data.get("level") or "").strip()
             item.responsibilities = (data.get("responsibilities") or "").strip()
             item.requirements = (data.get("requirements") or "").strip()
+            # Run AI audit on this item (best-effort, never blocks)
+            try:
+                item.issues = await _audit_jd_text(
+                    text_,
+                    item.name,
+                    item.responsibilities,
+                    item.requirements,
+                )
+            except Exception as audit_err:
+                logger.warning(f"bulk-analyze-jd: audit failed for {item.filename}: {audit_err}")
         except json.JSONDecodeError:
             item.error = "AI returned invalid response"
             logger.warning(f"bulk-analyze-jd: invalid JSON for {item.filename}")

@@ -50,13 +50,17 @@ class BulkJDItem(BaseModel):
     responsibilities: str = ""
     requirements: str = ""
     error: str | None = None  # set if parsing failed for this file
+    issues: list["JDAuditItem"] = []  # quality audit findings (warnings/suggestions)
+
+
+# ── Bulk create positions ─────────────────────────────────────
 
 
 class BulkJDResponse(BaseModel):
     items: list[BulkJDItem]
 
 
-# ── Bulk create positions ─────────────────────────────────────
+
 
 
 class BulkPositionItem(BaseModel):
@@ -121,6 +125,34 @@ class GenerateJDResponse(BaseModel):
     level: str
     responsibilities: str
     requirements: str
+
+
+# ── JD audit (quality check) ──────────────────────────────────
+
+
+class JDAuditItem(BaseModel):
+    """One finding from the AI quality audit.
+
+    Used by:
+    - POST /v1/positions/analyze-jd (and bulk variant) — file upload audit
+    - POST /v1/positions/{id}/jd-audit — re-audit of saved position
+
+    The methodologist uses these to improve the JD before locking it in.
+    """
+    severity: str  # "warning" | "suggestion" | "ok"
+    category: str  # "completeness" | "clarity" | "compliance" | "specificity" | "structure" | "other"
+    field: str = ""  # which field the issue is about ("responsibilities" | "requirements" | "name" | "" for whole-JD)
+    message: str  # human-readable description
+    suggestion: str = ""  # optional concrete fix
+
+
+class JDAuditResponse(BaseModel):
+    """Return of /jd-audit (audit-only, no re-parse)."""
+    issues: list[JDAuditItem]
+
+
+# Rebuild BulkJDItem to include forward-ref'd JDAuditItem
+BulkJDItem.model_rebuild()
 
 
 # ── JD preview / diff (analyze against current) ────────────────

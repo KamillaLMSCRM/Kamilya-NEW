@@ -1,11 +1,84 @@
-# Positions: Bulk-JD + AI + Versions — handoff (round 2)
+# Positions: Bulk-JD + AI + Versions + Audit — handoff (round 3)
 
-**Branch:** `feature/positions-bulk-ai` (same as round 1)
-**Status:** Round 2 ready for review
+**Branch:** `feature/positions-bulk-ai`
+**Status:** Round 3 ready for review (final planned phase)
 **Not pushed to master** — push is in feature branch only.
 
-Round 1 (already pushed): bulk-JD upload, recommended-content, mypy plugin prep.
-Round 2 (this commit): generate-from-name, JD preview/diff, JD versioning, recommended-courses.
+- Round 1 (pushed): bulk-JD upload, recommended-content, mypy plugin prep
+- Round 2 (pushed): generate-from-name, JD preview/diff, JD versioning, recommended-courses
+- **Round 3 (this commit): AI-аудит ДИ — то, что пользователь имел в виду с самого начала**
+
+---
+
+## Round 3: AI-аудит ДИ (the real ask)
+
+**Пользовательский сценарий:** HR загружает ДИ для позиции → AI анализирует, подсвечивает замечания → методолог правит ДИ на основе замечаний → потом генерирует курсы и тесты для онбординга.
+
+### Backend
+- `_audit_jd_text()` — приватная функция с structured LLM prompt
+  - Категории: completeness / specificity / clarity / compliance / structure / other
+  - Severity: warning / suggestion / ok
+  - Возвращает 3-7 findings (положительные тоже, severity=ok)
+  - Best-effort: при ошибке AI возвращает `[]`, не блокирует основной analyze-jd
+- `POST /api/v1/positions/analyze-jd` — теперь возвращает `issues: [JDAuditItem]` вместе с парсингом
+- `POST /api/v1/positions/bulk-analyze-jd` — каждая item содержит `issues: [JDAuditItem]`
+- `POST /api/v1/positions/{id}/jd-audit` — **новый**: re-audit сохранённой позиции без файла
+  - Использует `responsibilities + requirements` как вход
+  - Полезно когда ДИ уже создана, и методолог хочет проверить её качество
+
+### Frontend
+- `JDAuditList` — переиспользуемый компонент (severity-цветные бейджи, с suggestion под каждым finding)
+- **Preview modal** (после analyze-jd) — теперь показывает issues вверху как "AI заметил 3 замечания"
+- **Bulk preview modal** — каждая item имеет бейдж `🔍 N` (количество issues), expandable details показывает issues
+- **Audit modal** — отдельная модалка для кнопки `🔍 AI-аудит` в карточке position
+- **Toast в bulk** — теперь сообщает "AI нашёл N замечаний и M предложений"
+
+### Категории проверок (что AI ищет)
+- **completeness** — есть ли обязанности, требования, KPI, взаимодействие с другими отделами
+- **specificity** — обязанности измеримы? (не "выполняет задачи", а "обрабатывает 50 заявок/день")
+- **compliance** — для производства: ОТ/ТБ, для IT: ИБ, для финансов: ПОД/ФТ
+- **clarity** — нет устаревших формулировок, двусмысленностей
+- **structure** — порядок и формат
+
+### Phase 2 / Phase 3 (deferred, отдельные PR)
+- **Phase 2:** AI-suggest courses from JD → используя существующий `ai/generate/` pipeline
+- **Phase 3:** AI-generate onboarding quiz на основе ДИ
+
+Пользователь сказал "пусть будет как опция" про `generate-from-name` (round 2). Оставляем deprecated, не выпиливаем.
+
+---
+
+## Новые файлы / изменения (round 3)
+
+| Файл | Изменение |
+|---|---|
+| `apps/api/app/modules/positions/schemas.py` | +`JDAuditItem` + `JDAuditResponse`; `BulkJDItem.issues` field |
+| `apps/api/app/modules/positions/router.py` | +`_audit_jd_text()`; +`POST /{id}/jd-audit`; `analyze_jd` + `bulk_analyze_jd` теперь вызывают audit |
+| `apps/web/src/app/positions/page.tsx` | +`JDAuditList` component; +`auditFor/auditIssues/auditLoading` state; +`handleAudit`; +`pendingIssues` state; кнопка `🔍 AI-аудит` в карточке; issues в preview modal; бейджи в bulk modal |
+
+**Без изменений:** все round 1-2 фичи, schemas, models, migrations.
+
+---
+
+## Verified
+
+- ✅ `pnpm typecheck` (frontend) — clean
+- ✅ FastAPI app — 18+ endpoint зарегистрированы, импорт без ошибок
+- ✅ mypy schemas — clean (pre-existing errors в `core/*` не мои)
+
+---
+
+## Что НЕ сделано (phase 2/3, deferred)
+
+- **AI-suggest courses from JD** — пользователь говорит про это явно ("генерил курсы и тестирование"), но **отдельный PR** после того как phase 1 (audit) в проде. Логика:
+  - Из JD получить список тем для курсов
+  - Методолог выбирает какие генерировать
+  - Переиспользовать `ai/generate/` pipeline (architect + writer)
+  - Курсы привязываются к position
+- **AI-generate onboarding quiz** — отдельный PR. Логика:
+  - Из responsibilities+requirements получить 5-10 вопросов
+  - Методолог одобряет/правит
+  - Quiz сохраняется в position, автоназначается при onboarding
 
 ---
 

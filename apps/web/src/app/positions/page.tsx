@@ -35,6 +35,7 @@ interface BulkJDItem {
   responsibilities: string;
   requirements: string;
   error: string | null;
+  issues: JDAuditItem[];
   selected: boolean; // for the preview modal
 }
 
@@ -71,6 +72,57 @@ interface JDVersion {
   note: string | null;
   created_at: string;
   created_by: string | null;
+}
+
+// JD audit item (matches backend JDAuditItem)
+interface JDAuditItem {
+  severity: 'warning' | 'suggestion' | 'ok';
+  category: string;
+  field: string;
+  message: string;
+  suggestion: string;
+}
+
+// Reusable component: renders a list of audit findings with severity-colored badges.
+function JDAuditList({ items, compact = false }: { items: JDAuditItem[]; compact?: boolean }) {
+  if (items.length === 0) return null;
+  const counts = {
+    warning: items.filter((i) => i.severity === 'warning').length,
+    suggestion: items.filter((i) => i.severity === 'suggestion').length,
+    ok: items.filter((i) => i.severity === 'ok').length,
+  };
+  return (
+    <div className={compact ? 'rounded-lg border border-amber-200 bg-amber-50 p-2.5' : 'rounded-lg border border-amber-200 bg-amber-50/50 p-3'}>
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-sm">🔍</span>
+        <span className="text-xs font-semibold text-amber-900">
+          AI заметил: {counts.warning > 0 && <span className="text-amber-700">{counts.warning} замечаний</span>}
+          {counts.warning > 0 && counts.suggestion > 0 && ', '}
+          {counts.suggestion > 0 && <span className="text-amber-600">{counts.suggestion} предложений</span>}
+          {counts.warning === 0 && counts.suggestion === 0 && counts.ok > 0 && <span className="text-emerald-700">{counts.ok} положительных</span>}
+        </span>
+      </div>
+      <ul className="space-y-1.5">
+        {items.map((it, i) => (
+          <li key={i} className={`text-xs flex items-start gap-2 ${compact ? '' : 'rounded border border-warm-200 bg-white p-2'}`}>
+            <span className={`shrink-0 mt-0.5 inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold ${
+              it.severity === 'warning' ? 'bg-red-100 text-red-700' :
+              it.severity === 'suggestion' ? 'bg-amber-100 text-amber-700' :
+              'bg-emerald-100 text-emerald-700'
+            }`}>
+              {it.severity === 'warning' ? '!' : it.severity === 'suggestion' ? '?' : '✓'}
+            </span>
+            <div className="flex-1 min-w-0">
+              <div className="text-warm-800">{it.message}</div>
+              {it.suggestion && (
+                <div className="text-warm-500 mt-0.5 italic">→ {it.suggestion}</div>
+              )}
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
 }
 
 export default function PositionsPage() {
@@ -117,6 +169,13 @@ export default function PositionsPage() {
 
   // ── Generate-from-name state ──────────────────────────────
   const [generating, setGenerating] = useState(false);
+
+  // ── JD audit state ────────────────────────────────────────
+  const [auditFor, setAuditFor] = useState<string | null>(null);  // position_id
+  const [auditIssues, setAuditIssues] = useState<JDAuditItem[]>([]);
+  const [auditLoading, setAuditLoading] = useState(false);
+  // Issues captured from the most recent file upload (so they survive the preview modal)
+  const [pendingIssues, setPendingIssues] = useState<JDAuditItem[]>([]);
 
   const fetchPositions = useCallback(async () => {
     try {
@@ -226,6 +285,7 @@ export default function PositionsPage() {
           { field: 'requirements', current: editPos.requirements, proposed: data.requirements || '', changed: (data.requirements || '') !== editPos.requirements },
         ];
         setPreview(items);
+        setPendingIssues((data.issues as JDAuditItem[]) || []);
         setShowCreate(true); // keep create modal open behind preview
         return;
       }
@@ -277,6 +337,7 @@ export default function PositionsPage() {
         responsibilities: it.responsibilities || '',
         requirements: it.requirements || '',
         error: it.error || null,
+        issues: (it.issues as JDAuditItem[]) || [],
         // Auto-deselect files that failed to parse
         selected: !it.error,
       }));
@@ -284,7 +345,14 @@ export default function PositionsPage() {
       setShowBulkPreview(true);
       const ok = items.filter((i) => !i.error).length;
       const failed = items.filter((i) => i.error).length;
-      toast.success(`Проанализировано: ${ok} успешно, ${failed} с ошибками`);
+      // Count audit warnings across all items
+      const totalWarnings = items.reduce((sum, i) => sum + (i.issues?.filter(x => x.severity === 'warning').length || 0), 0);
+      const totalSuggestions = items.reduce((sum, i) => sum + (i.issues?.filter(x => x.severity === 'suggestion').length || 0), 0);
+      if (totalWarnings > 0 || totalSuggestions > 0) {
+        toast.success(`Проанализировано: ${ok} успешно, ${failed} с ошибками. AI нашёл ${totalWarnings} замечаний и ${totalSuggestions} предложений.`);
+      } else {
+        toast.success(`Проанализировано: ${ok} успешно, ${failed} с ошибками`);
+      }
     } catch (err) {
       toast.error(t('common.saveFailed'), { description: 'Не удалось проанализировать файлы' });
     } finally {
@@ -427,9 +495,25 @@ export default function PositionsPage() {
         else if (it.field === 'requirements') setRequirements(it.proposed);
       }
       setPreview(null);
+      setPendingIssues([]);
       toast.success('Изменения применены');
     } finally {
       setPreviewApplying(false);
+    }
+  };
+
+  // ── JD audit (re-check saved position) ─────────────────
+  const handleAudit = async (positionId: string) => {
+    setAuditFor(positionId);
+    setAuditLoading(true);
+    try {
+      const res = await api.post(`/v1/positions/${positionId}/jd-audit`);
+      setAuditIssues((res.data.items as JDAuditItem[]) || []);
+    } catch (err: any) {
+      toast.error(t('common.saveFailed'), { description: 'Не удалось запустить аудит' });
+      setAuditIssues([]);
+    } finally {
+      setAuditLoading(false);
     }
   };
 
@@ -646,6 +730,13 @@ export default function PositionsPage() {
                   >
                     История
                   </button>
+                  <button
+                    onClick={() => auditFor === pos.id ? setAuditFor(null) : handleAudit(pos.id)}
+                    className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs text-amber-700 hover:bg-amber-100 transition-colors"
+                    title="AI проверит качество этой ДИ (полнота, ясность, compliance) и подсветит замечания"
+                  >
+                    {auditFor === pos.id ? 'Скрыть' : '🔍 AI-аудит'}
+                  </button>
                   <button onClick={() => handleDelete(pos.id)} className="rounded-xl border border-red-200 px-3 py-1.5 text-xs text-red-400 hover:border-red-300 hover:text-red-600 transition-colors">Удалить</button>
                 </div>
               </div>
@@ -654,6 +745,45 @@ export default function PositionsPage() {
         </div>
       )}
 {dialog}
+
+      {/* JD audit modal (after clicking "AI-аудит" on a saved position) */}
+      {auditFor && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setAuditFor(null)} />
+          <div className="relative bg-white rounded-2xl shadow-card-lg w-full max-w-2xl mx-4 p-6 z-10 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center gap-2 mb-4">
+              <span className="text-2xl">🔍</span>
+              <div>
+                <h2 className="text-lg font-bold text-warm-800 font-display">
+                  AI-аудит должностной инструкции
+                </h2>
+                <p className="text-xs text-warm-500">
+                  Анализ полноты, ясности и compliance (ОТ, ИБ, ПОД/ФТ) для казахстанской компании
+                </p>
+              </div>
+            </div>
+            {auditLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="h-8 w-8 animate-spin rounded-full border-2 border-amber-500 border-t-transparent" />
+              </div>
+            ) : auditIssues.length === 0 ? (
+              <p className="text-sm text-warm-400 py-8 text-center">
+                AI не нашёл замечаний. (Или ДИ пустая — добавьте обязанности и требования.)
+              </p>
+            ) : (
+              <JDAuditList items={auditIssues} />
+            )}
+            <div className="flex justify-end mt-5">
+              <button
+                onClick={() => setAuditFor(null)}
+                className="rounded-xl border border-warm-200 px-4 py-2 text-sm text-warm-500 hover:bg-warm-50 transition-colors"
+              >
+                Закрыть
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* JD preview / diff modal (after analyze-jd on existing position) */}
       {preview && (
@@ -666,6 +796,11 @@ export default function PositionsPage() {
             <p className="text-sm text-warm-500 mb-4">
               Сравнение текущих значений с тем, что AI извлёк из JD-файла. Нажмите «Применить» чтобы заменить выбранные поля, или закройте чтобы отклонить.
             </p>
+            {pendingIssues.length > 0 && (
+              <div className="mb-4">
+                <JDAuditList items={pendingIssues} compact />
+              </div>
+            )}
             <div className="space-y-3">
               {preview.map((it) => (
                 <div
@@ -844,6 +979,11 @@ export default function PositionsPage() {
                           ошибка
                         </span>
                       )}
+                      {!it.error && it.issues && it.issues.length > 0 && (
+                        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700" title={`${it.issues.length} замечаний/предложений от AI`}>
+                          🔍 {it.issues.length}
+                        </span>
+                      )}
                     </div>
                     {it.department && (
                       <p className="text-xs text-warm-500 mt-0.5">{it.department}</p>
@@ -855,6 +995,16 @@ export default function PositionsPage() {
                       <p className="text-xs text-warm-400 mt-1 line-clamp-2">
                         {it.responsibilities}
                       </p>
+                    )}
+                    {!it.error && it.issues && it.issues.length > 0 && (
+                      <details className="mt-1.5">
+                        <summary className="text-[10px] text-amber-700 cursor-pointer hover:text-amber-900">
+                          показать {it.issues.length} замечаний AI
+                        </summary>
+                        <div className="mt-1.5">
+                          <JDAuditList items={it.issues} compact />
+                        </div>
+                      </details>
                     )}
                     <p className="text-[10px] text-warm-300 mt-1 truncate">{it.filename}</p>
                   </div>
