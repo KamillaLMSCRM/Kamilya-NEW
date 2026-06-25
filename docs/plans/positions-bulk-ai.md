@@ -155,7 +155,7 @@
 
 ## Caveats (финальные, после round 5)
 
-1. Migrations `0022` и `0023` НЕ применены автоматически — нужно `alembic upgrade head` вручную перед merge
+1. ✅ **Migrations 0022 и 0023 УЖЕ применены к prod-БД** — alembic upgrade head прошёл успешно (был 0021, стал 0023). Заодно починил pre-existing баг в `env.py` (async pattern) и 9 битых `down_revision` ссылок в migrations 0004-0015 — отдельный коммит `9734c8e`.
 2. Нет unit-тестов на новые endpoint (5 rounds, 17+ новых endpoints без тестов)
 3. Real-time: AI calls синхронные, могут быть 3-10 сек на запрос (suggest-courses, suggest-onboarding-quiz, jd-audit) — UX с loading spinner есть
 4. **Созданные draft courses без контента** — UX может быть confusing если методолог забудет наполнить. Можно добавить badge "черновик" + warning в courses list — отдельная задача
