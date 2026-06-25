@@ -18,6 +18,7 @@ import {
   Upload,
   ChevronRight,
   XCircle,
+  Clock,
 } from 'lucide-react';
 
 interface Document {
@@ -64,6 +65,17 @@ export default function AIGeneratePage() {
   const [dragOver, setDragOver] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // Result-step state: preview of the generated course + approval.
+  const [preview, setPreview] = useState<any | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [courseMeta, setCourseMeta] = useState<any | null>(null); // includes review_status, reviewer
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [reviewDialog, setReviewDialog] = useState<{ open: boolean; status: 'approved' | 'needs_changes'; comment: string }>({
+    open: false,
+    status: 'approved',
+    comment: '',
+  });
 
   useEffect(() => { fetchDocuments(); restoreActiveJob(); }, []);
 
@@ -152,6 +164,49 @@ export default function AIGeneratePage() {
       setStep('documents');
     } catch (e) {
       console.error('Cancel failed', e);
+    }
+  };
+
+  // ── Result step: fetch preview + course meta (with review status) ──
+  const loadCoursePreview = async (courseId: string) => {
+    setPreviewLoading(true);
+    try {
+      const [previewRes, metaRes] = await Promise.all([
+        api.get(`/v1/courses/${courseId}/preview`),
+        api.get(`/v1/courses/${courseId}`),
+      ]);
+      setPreview(previewRes.data);
+      setCourseMeta(metaRes.data);
+    } catch (e) {
+      console.error('Preview load failed', e);
+      setPreview(null);
+      setCourseMeta(null);
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  // Reload preview when we land on the review step with a course_id.
+  useEffect(() => {
+    if (step === 'review' && currentJob?.course_id) {
+      loadCoursePreview(currentJob.course_id);
+    }
+  }, [step, currentJob?.course_id]);
+
+  const submitReview = async () => {
+    if (!currentJob?.course_id) return;
+    setReviewSubmitting(true);
+    try {
+      const res = await api.post(`/v1/courses/${currentJob.course_id}/review`, {
+        review_status: reviewDialog.status,
+        comment: reviewDialog.comment.trim() || null,
+      });
+      setCourseMeta(res.data);
+      setReviewDialog({ open: false, status: 'approved', comment: '' });
+    } catch (e) {
+      console.error('Review submit failed', e);
+    } finally {
+      setReviewSubmitting(false);
     }
   };
 
@@ -392,19 +447,103 @@ export default function AIGeneratePage() {
       {/* STEP 3: Review */}
       {step === 'review' && currentJob?.course_id && (
         <div className="space-y-4">
+          {/* Success header */}
           <div className="rounded-2xl border border-success/40 bg-success/10 p-6 text-center">
             <div className="mb-3">
               <CheckCircle2 className="w-12 h-12 mx-auto text-success" />
             </div>
             <h3 className="font-bold text-success font-display text-lg">Курс успешно сгенерирован!</h3>
-            <p className="text-sm text-success mt-1">Перейдите к редактированию для финальных правок</p>
+            <p className="text-sm text-success mt-1">
+              Проверьте структуру ниже. Методолог должен одобрить курс перед публикацией.
+            </p>
           </div>
-          <div className="flex gap-3">
+
+          {/* Course meta + review status */}
+          {courseMeta && (
+            <div className="rounded-2xl border border-border bg-card p-4 space-y-3">
+              <div className="flex flex-wrap items-center gap-3">
+                <h4 className="text-base font-bold text-foreground font-display flex-1 min-w-0 truncate">
+                  {courseMeta.title}
+                </h4>
+                <ReviewBadge status={courseMeta.review_status} />
+              </div>
+              <p className="text-sm text-muted-foreground line-clamp-2">{courseMeta.description}</p>
+
+              {/* Reviewer info */}
+              {courseMeta.review_status !== 'pending' && courseMeta.reviewer && (
+                <div className="text-xs text-muted-foreground border-t border-border pt-3">
+                  <span className="font-medium text-foreground">{courseMeta.reviewer.full_name || 'Методолог'}</span>
+                  {courseMeta.reviewed_at && (
+                    <span> · {new Date(courseMeta.reviewed_at).toLocaleString('ru-RU')}</span>
+                  )}
+                  {courseMeta.review_comment && (
+                    <div className="mt-1 italic text-foreground">«{courseMeta.review_comment}»</div>
+                  )}
+                </div>
+              )}
+
+              {/* Approval actions */}
+              {courseMeta.review_status !== 'approved' && (
+                <div className="flex flex-wrap gap-2 border-t border-border pt-3">
+                  <button
+                    type="button"
+                    onClick={() => setReviewDialog({ open: true, status: 'approved', comment: '' })}
+                    disabled={reviewSubmitting}
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-success px-3 py-2 text-sm font-medium text-success-foreground hover:bg-success/90 transition-colors disabled:opacity-50"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    Одобрить как методолог
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setReviewDialog({ open: true, status: 'needs_changes', comment: '' })}
+                    disabled={reviewSubmitting}
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-warning/50 bg-warning/10 px-3 py-2 text-sm font-medium text-warning hover:bg-warning/15 transition-colors disabled:opacity-50"
+                  >
+                    <XCircle className="w-4 h-4" />
+                    Нужны правки
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Preview: modules → lessons → quiz headers */}
+          <div className="rounded-2xl border border-border bg-card overflow-hidden">
+            <div className="border-b border-border bg-muted/50 px-4 py-3 flex items-center justify-between">
+              <h4 className="text-sm font-bold text-foreground font-display">
+                Структура курса
+              </h4>
+              {preview && (
+                <div className="flex gap-3 text-xs text-muted-foreground">
+                  <span>{preview.modules_count} модулей</span>
+                  <span>·</span>
+                  <span>{preview.lessons_count} уроков</span>
+                  <span>·</span>
+                  <span>{preview.quizzes_count} тестов</span>
+                </div>
+              )}
+            </div>
+            {previewLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : preview && preview.modules?.length > 0 ? (
+              <CoursePreviewTree modules={preview.modules} />
+            ) : (
+              <div className="p-6 text-center text-sm text-muted-foreground">
+                Структура пуста. Откройте курс в редакторе для просмотра.
+              </div>
+            )}
+          </div>
+
+          {/* Footer actions */}
+          <div className="flex flex-wrap gap-3">
             <button
               onClick={() => router.push(`/courses/${currentJob.course_id}/edit`)}
-              className="flex-1 rounded-xl bg-primary px-4 py-3 text-sm font-medium text-white hover:bg-primary/90 transition-colors"
+              className="flex-1 min-w-[180px] inline-flex items-center justify-center gap-1.5 rounded-xl bg-primary px-4 py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
             >
-              Редактировать курс <ChevronRight className="w-4 h-4 ml-1 inline" />
+              Редактировать курс <ChevronRight className="w-4 h-4" />
             </button>
             <button
               onClick={() => router.push('/courses')}
@@ -415,6 +554,169 @@ export default function AIGeneratePage() {
           </div>
         </div>
       )}
+
+      {/* Review confirmation dialog */}
+      {reviewDialog.open && currentJob?.course_id && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 p-4 backdrop-blur-sm" role="dialog" aria-modal="true">
+          <div className="w-full max-w-md rounded-2xl border border-border bg-card shadow-card-lg">
+            <div className="border-b border-border px-5 py-4">
+              <h3 className="font-bold text-foreground font-display">
+                {reviewDialog.status === 'approved' ? 'Одобрить курс' : 'Курс требует правок'}
+              </h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {reviewDialog.status === 'approved'
+                  ? 'Курс будет помечен как одобренный методологом. Это действие фиксируется в audit log.'
+                  : 'Методолог может оставить комментарий — курс останется в статусе "нужны правки" пока вы не одобрите.'}
+              </p>
+            </div>
+            <div className="px-5 py-4">
+              <label htmlFor="review-comment" className="block text-xs font-semibold text-muted-foreground mb-1">
+                Комментарий (опционально)
+              </label>
+              <textarea
+                id="review-comment"
+                value={reviewDialog.comment}
+                onChange={(e) => setReviewDialog((d) => ({ ...d, comment: e.target.value }))}
+                maxLength={2000}
+                rows={4}
+                placeholder={reviewDialog.status === 'needs_changes' ? 'Что нужно поправить…' : 'Любые замечания…'}
+                className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
+              />
+            </div>
+            <div className="flex justify-end gap-2 border-t border-border px-5 py-3">
+              <button
+                type="button"
+                onClick={() => setReviewDialog({ open: false, status: 'approved', comment: '' })}
+                disabled={reviewSubmitting}
+                className="rounded-xl border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-muted transition-colors disabled:opacity-50"
+              >
+                Отмена
+              </button>
+              <button
+                type="button"
+                onClick={submitReview}
+                disabled={reviewSubmitting}
+                className={
+                  reviewDialog.status === 'approved'
+                    ? 'rounded-xl bg-success px-4 py-2 text-sm font-medium text-success-foreground hover:bg-success/90 transition-colors disabled:opacity-50 inline-flex items-center gap-1.5'
+                    : 'rounded-xl bg-warning px-4 py-2 text-sm font-medium text-warning-foreground hover:bg-warning/90 transition-colors disabled:opacity-50 inline-flex items-center gap-1.5'
+                }
+              >
+                {reviewSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                {reviewDialog.status === 'approved' ? 'Одобрить' : 'Отправить'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
+  );
+}
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+function ReviewBadge({ status }: { status: 'pending' | 'approved' | 'needs_changes' }) {
+  if (status === 'approved') {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-success/15 px-2.5 py-1 text-xs font-medium text-success" aria-label="Одобрено методологом">
+        <CheckCircle2 className="w-3 h-3" />
+        Одобрено
+      </span>
+    );
+  }
+  if (status === 'needs_changes') {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-warning/15 px-2.5 py-1 text-xs font-medium text-warning" aria-label="Требуются правки">
+        <XCircle className="w-3 h-3" />
+        Нужны правки
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground" aria-label="Ожидает проверки методологом">
+      <Clock className="w-3 h-3" />
+      На проверке
+    </span>
+  );
+}
+
+function CoursePreviewTree({ modules }: { modules: any[] }) {
+  const [openIds, setOpenIds] = useState<Set<string>>(new Set());
+  const toggle = (id: string) => {
+    setOpenIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+  return (
+    <ul role="list" className="divide-y divide-border">
+      {modules.map((m: any, mi: number) => {
+        const isOpen = openIds.has(m.id);
+        return (
+          <li key={m.id}>
+            <button
+              type="button"
+              onClick={() => toggle(m.id)}
+              aria-expanded={isOpen}
+              className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-muted/40 transition-colors"
+            >
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-primary/10 text-xs font-bold text-primary">
+                {mi + 1}
+              </span>
+              <span className="flex-1 min-w-0">
+                <div className="text-sm font-semibold text-foreground truncate">{m.title}</div>
+                {m.description && (
+                  <div className="text-xs text-muted-foreground truncate">{m.description}</div>
+                )}
+              </span>
+              <span className="shrink-0 text-[11px] text-muted-foreground">
+                {m.lessons?.length || 0} ур.
+              </span>
+              <ChevronRight
+                className={`shrink-0 h-4 w-4 text-muted-foreground transition-transform ${isOpen ? 'rotate-90' : ''}`}
+                aria-hidden="true"
+              />
+            </button>
+            {isOpen && (
+              <ul role="list" className="bg-muted/30 divide-y divide-border">
+                {m.lessons?.length ? (
+                  m.lessons.map((l: any, li: number) => (
+                    <li key={l.id} className="px-4 py-3 pl-14 space-y-1.5">
+                      <div className="flex items-start gap-2">
+                        <span className="text-xs font-mono text-muted-foreground shrink-0 mt-0.5">{mi + 1}.{li + 1}</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium text-foreground">{l.title}</div>
+                          {l.content_preview && (
+                            <p className="text-xs text-muted-foreground line-clamp-3 mt-1 whitespace-pre-line">
+                              {l.content_preview}
+                            </p>
+                          )}
+                          <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                            {l.duration_seconds ? (
+                              <span className="text-[11px] text-muted-foreground">
+                                ⏱ {Math.max(1, Math.round(l.duration_seconds / 60))} мин
+                              </span>
+                            ) : null}
+                            {l.has_quiz && (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-success/15 px-2 py-0.5 text-[11px] font-medium text-success">
+                                <ClipboardCheck className="w-3 h-3" />
+                                Тест: {l.quiz_question_count || 0} вопр.
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </li>
+                  ))
+                ) : (
+                  <li className="px-4 py-3 pl-14 text-xs text-muted-foreground italic">Нет уроков</li>
+                )}
+              </ul>
+            )}
+          </li>
+        );
+      })}
+    </ul>
   );
 }
