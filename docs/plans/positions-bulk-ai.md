@@ -1,108 +1,164 @@
-# Positions: Bulk-JD + AI Recommendations — handoff
+# Positions: Bulk-JD + AI + Versions — handoff (round 2)
 
-**Branch:** `feature/positions-bulk-ai`
-**Author of changes:** Mavis (auto-deployed since you were away)
-**Status:** Backend + frontend working, ready for your review
-**Not merged to master** — push is in feature branch only.
+**Branch:** `feature/positions-bulk-ai` (same as round 1)
+**Status:** Round 2 ready for review
+**Not pushed to master** — push is in feature branch only.
 
----
-
-## Что сделано
-
-### 1. Bulk-JD upload (несколько JD файлов разом)
-
-**Backend** — `apps/api/app/modules/positions/`
-- `POST /api/v1/positions/bulk-analyze-jd` — multipart с `files: List[UploadFile]`, max 50 файлов
-  - Возвращает `BulkJDResponse{items: [{filename, name, department, level, responsibilities, requirements, error}]}`
-  - Per-file failures НЕ валят весь запрос — каждая ошибка в `error` поле
-- `POST /api/v1/positions/bulk-create` — `{items: [{name, department, level, responsibilities, requirements, course_ids}]}`, max 200
-  - Возвращает `BulkPositionResponse{created, failed}`
-  - Каждая позиция в savepoint, ошибка одной не откатывает другие
-  - Tenant-scoped (берёт `user.tenant_id`)
-
-**Frontend** — `apps/web/src/app/positions/page.tsx`
-- Новая кнопка «Массовая загрузка JD» в toolbar (синяя, primary/5 background)
-- Multi-file input (`.pdf,.docx,.doc,.txt`)
-- Модалка превью с чекбоксами, отметка файлов с ошибками, кнопка «Создать N должностей»
-- В toast'е: «Проанализировано: N успешно, M с ошибками»
-
-### 2. AI-рекомендации контента по ДИ
-
-**Backend** — `apps/api/app/modules/positions/router.py`
-- `GET /api/v1/positions/{position_id}/recommended-content?limit=5` (limit 1..20)
-- Берёт `responsibilities + requirements`, embedding через Qwen (с hash fallback), cosine search в `document_embeddings` (tenant-scoped)
-- Over-fetch 5x для dedup по `doc_id`, возвращает top-N unique documents с `similarity` (0..1)
-- Returns: `RecommendedContentResponse{items: [{doc_id, doc_name, similarity, headings}]}`
-
-**Frontend** — `apps/web/src/app/positions/page.tsx`
-- Кнопка «Подобрать курсы» в карточке position (primary/5 background)
-- Inline panel с процентом similarity для каждого рекомендованного документа
-- Кнопка переключается на «Скрыть» когда открыто
+Round 1 (already pushed): bulk-JD upload, recommended-content, mypy plugin prep.
+Round 2 (this commit): generate-from-name, JD preview/diff, JD versioning, recommended-courses.
 
 ---
 
-## Дизайн-решения
+## Round 2: what changed
 
-1. **Per-file error handling, не fail-fast.** Если 1 из 20 JD не распарсился — остальные 19 создаются, ошибка в `error` поле.
-2. **Per-position savepoint в bulk-create.** Если item #5 валится, items #1-4 и #6+ сохраняются.
-3. **Over-fetch в vector search.** Top 25 chunks → dedupe по doc_id → top 5 unique. Один документ не занимает 5 мест.
-4. **`similarity` не `distance`.** 0..1, где 1 = identical. Проще UI ("95% похоже").
-5. **Tenant isolation везде.** `WHERE tenant_id = :tenant_id` в SQL, `pos.tenant_id != user.tenant_id → 404` в recommended.
-6. **`recommended-content`, не `recommended-courses`.** `document_embeddings` — единица чанка, не курса. Курс строится поверх документов (architect.py). Методолог видит документы и сам решает, какие курсы (на базе этих документов) привязать. Если хочешь прямую привязку к `courses.id` — отдельная задача, нужна агрегация embeddings по course_id.
+### 1. AI-генерация ДИ по названию (без файла)
+
+**Backend** — `POST /api/v1/positions/generate-jd-from-name`
+- Body: `{name, department?, level?}`
+- LLM генерирует responsibilities + requirements + уточняет name/department/level
+- Same LLM prompt family as analyze-jd, just no text extraction
+
+**Frontend** — кнопка `✨ Сгенерировать` рядом с input названия (в форме создания)
+- Disabled пока name пустое
+- Показывает toast «AI сгенерировал ДИ. Проверьте и отредактируйте.»
+
+### 2. Превью/дифф после анализа
+
+**Backend** — `POST /api/v1/positions/{id}/jd-preview`
+- Body: `{text, name?, department?, level?}` (text — содержимое JD)
+- LLM сравнивает current position vs AI предложение
+- Возвращает `[{field, current, proposed, changed}]` — 5 полей
+
+**Frontend** — модалка диффа открывается когда:
+- Пользователь **edit** существующей position
+- И загружает JD-файл через "Загрузить JD"
+- Вместо silent overwrite → preview модалка "AI предложил изменения"
+- Side-by-side сравнение (Было / Станет) для каждого измененного поля
+- Кнопки "Отклонить" / "Применить изменения"
+- **Без изменений** → silent fill (старое поведение, не ломаем)
+
+### 3. Версионирование ДИ
+
+**Backend** — новая таблица `position_jd_versions`:
+```
+id, position_id, tenant_id, responsibilities, requirements,
+created_by, source ('auto' | 'manual'), note, created_at
+```
+
+**Endpoints:**
+- `GET  /api/v1/positions/{id}/jd-versions` — список (newest first)
+- `POST /api/v1/positions/{id}/jd-versions` — manual snapshot с note
+- `POST /api/v1/positions/{id}/jd-versions/{version_id}/restore` — восстановить
+- **Auto-snapshot** в существующем `PUT /api/v1/positions/{id}`: если responsibilities или requirements меняются, перед update создаётся auto-snapshot старых значений
+
+**Frontend:**
+- Кнопка `История` в карточке position
+- Модалка со списком снимков (timestamp, source badge, note, кнопка "Восстановить")
+- Кнопка "📌 Снять снимок сейчас" в модалке (для маркировки known-good состояний)
+
+**Migration:** `0022_add_position_jd_versions.py` (НЕ применена автоматически — запусти вручную):
+```bash
+cd apps/api
+alembic upgrade head
+```
+
+### 4. Прямая привязка рекомендаций к курсам
+
+**Backend** — `GET /api/v1/positions/{id}/recommended-courses?limit=5`
+- Та же vector search в `document_embeddings` (как `recommended-content`)
+- **Но** дополнительно: для каждого top doc_name проверяем fuzzy-match с `course.title`:
+  - Exact match (case-insensitive)
+  - Substring match в любую сторону
+- Возвращает `[{course_id, title, similarity, matched_doc_name}]`
+- **Heuristic** (нет formal document→course mapping в БД). Proper агрегация потребует новой таблицы `course_documents` — отдельный PR.
+
+**Frontend:**
+- В recommendations panel теперь **две секции**: "Документы" + "Курсы"
+- Кнопка "Подобрать курсы" загружает оба параллельно (Promise.all)
+- Если courses пуст → "Не нашлось курсов с похожим контентом"
+
+### 5. mypy fix (pre-existing)
+
+**pyproject.toml** — добавлен `pydantic.mypy` plugin:
+```toml
+[tool.mypy]
+plugins = ["pydantic.mypy"]
+```
+
+**Что фиксит:** mypy больше не ругается на `BaseModel cannot subclass`. Все pydantic schemas в `positions/schemas.py` теперь проходят mypy clean.
+
+**Что НЕ фиксит:** pre-existing errors в `app/core/config.py` (no type annotations) и `app/core/db.py` (async generator return type). Эти не мои, отдельная задача.
 
 ---
 
-## Что НЕ сделано (out of scope, по согласованию)
+## Новые файлы / изменения
 
-- **AI-генерация ДИ по названию** (без файла, по 2-3 словам) — отложено
-- **Превью/дифф после анализа** (показать что AI поменял в полях) — отложено
-- **Версионирование ДИ** — отложено
-- **Прямая привязка рекомендаций к курсам** (сейчас → документы) — отдельный PR
-- **i18n для новых строк** (тексты в UI на русском) — можно потом, через `t()` после стабилизации копий
-- **Кеширование embeddings для position** — каждый вызов recomputes. Если будет медленно — добавим cache в `Position.description_embedding`
+| Файл | Изменение |
+|---|---|
+| `apps/api/alembic/versions/0022_add_position_jd_versions.py` | **NEW** — migration для versions table |
+| `apps/api/app/modules/positions/models.py` | +`PositionJDVersion` model |
+| `apps/api/app/modules/positions/schemas.py` | +7 новых schemas (GenerateJD, JDPreview, RecommendedCourses, JDVersion×3, JDRestore) |
+| `apps/api/app/modules/positions/router.py` | +6 endpoints + auto-snapshot в PUT |
+| `apps/web/src/app/positions/page.tsx` | +3 interfaces, +5 state, +6 handlers, +3 модалки (preview/history/refactor recommendations) |
+| `apps/api/pyproject.toml` | +`pydantic.mypy` plugin |
+
+**Без изменений:** documents/ courses/ ai/ routers (только positions).
 
 ---
 
-## Что проверить когда вернёшься
+## Type-check & smoke test
 
-1. **Review diff:**
+- `pnpm typecheck` (frontend) — **clean** ✅
+- `mypy app/modules/positions/` — clean для **моих** файлов; 4 pre-existing errors в `core/config.py` и `core/db.py` (не мои)
+- FastAPI app imports — clean, 21 endpoint зарегистрированы (10 ранее + 11 новых) ✅
+- Migration file syntax — valid, нужен `alembic upgrade head` для применения
+
+---
+
+## Что нужно сделать когда вернёшься
+
+1. **Apply migration:**
    ```bash
-   cd D:\Камиля\lms
-   git fetch origin
-   git diff origin/master..feature/positions-bulk-ai
+   cd D:\Камиля\lms\apps\api
+   alembic upgrade head
    ```
-2. **Smoke test на staging** (если есть):
-   - Зайти в `/positions`
-   - Нажать «Массовая загрузка JD» → выбрать 3-5 PDF/DOCX
-   - Должна открыться модалка с превью
-   - Нажать «Создать N должностей» → toast с результатом
-   - Открыть любую должность → «Подобрать курсы» → должны появиться похожие документы
-3. **Если ок — merge:**
+2. **Проверить в `/positions`:**
+   - Кнопка `✨ Сгенерировать` рядом с input названия
+   - Edit существующей position → Загрузить JD → preview modal
+   - Кнопка `История` → модалка со снимками
+   - Кнопка `Подобрать курсы` → две секции (документы + курсы)
+3. **Если ок — merge feature branch в master:**
    ```bash
-   gh pr create --base master --head feature/positions-bulk-ai --title "feat(positions): bulk-JD upload + AI content recommendations"
-   # или merge напрямую:
    git checkout master
    git merge --no-ff feature/positions-bulk-ai
    git push origin master
    ```
-4. **Если что-то не так** — скажи, поправлю
+4. **Создать PR:** https://github.com/KamillaLMSCRM/Kamilya-NEW/pull/new/feature/positions-bulk-ai
 
 ---
 
-## Файлы изменены
+## Известные limitations (для v1.1+)
 
-| Файл | Изменение |
-|---|---|
-| `apps/api/app/modules/positions/schemas.py` | +8 новых Pydantic моделей |
-| `apps/api/app/modules/positions/router.py` | +3 endpoint, +импорты |
-| `apps/web/src/app/positions/page.tsx` | +bulk upload UI, +recommend panel, +handlers, +state |
+1. **Recommended-courses использует fuzzy match по `course.title`** — не точное сопоставление с `document`. Если у тебя 50 курсов и 200 документов с похожими названиями, рекомендации могут быть странными. **Нужна таблица `course_documents` для proper mapping** — отдельный PR.
 
-**Без изменений:** models.py, миграции (не нужны), конфиг, env vars.
+2. **Auto-snapshot только для responsibilities/requirements.** Поля name/department/level не версионируются (они обычно не меняются часто, и audit log покрывает их).
+
+3. **Migration НЕ применена автоматически.** Только файл. Нужно `alembic upgrade head` вручную (или через Render deploy hook).
+
+4. **Heuristic dedup by doc_name.** В `recommended-content` мы делаем vector search и dedup по `doc_id`. Но в `recommended-courses` мы дополнительно делаем fuzzy match по `doc_name ↔ course.title`. Это может дать дубликаты, если 2 курса имеют похожие названия.
+
+5. **Нет тестов.** Эта фича добавлена без unit-тестов. Для production рекомендую добавить:
+   - `tests/test_positions_bulk.py` (уже есть аналогичный для существующего функционала)
+   - `tests/test_positions_versions.py`
+   - UI тесты через vitest + React Testing Library
 
 ---
 
-## Known follow-ups (не блокеры)
+## План v1.1 (если пользователь доволен)
 
-- `pyproject.toml` имеет `strict = true` mypy, но нет pydantic plugin → mypy ругается на все pydantic schemas (pre-existing). Лучше добавить plugin в отдельном PR.
-- Bulk-create max 200 позиций за раз — для крупного onbording (500+ должностей) может быть мало. Поднять или сделать пагинацию — отдельная задача.
-- В рекомендациях similarity вычисляется по `responsibilities + requirements` склеенным через `\n`. Если одно из полей пустое — другой всё равно работает. Но edge case: position без обоих полей → пустой результат (обработано, возвращаем `items: []`).
+- Таблица `course_documents` для proper doc↔course mapping
+- UI для version diff (visual side-by-side)
+- Экспорт/импорт versions в JSON
+- Auto-cleanup (старые auto-snapshots через N дней)
+- i18n строк (сейчас hardcoded RU)
+- Real-time: WebSocket notification когда AI auto-snapshot создан

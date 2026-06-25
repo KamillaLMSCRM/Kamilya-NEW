@@ -29,7 +29,19 @@ from app.modules.positions.schemas import (
     BulkPositionFailed,
     RecommendedContentItem,
     RecommendedContentResponse,
+    GenerateJDRequest,
+    GenerateJDResponse,
+    JDPreviewRequest,
+    JDPreviewItem,
+    JDPreviewResponse,
+    RecommendedCourseItem,
+    RecommendedCoursesResponse,
+    JDVersionItem,
+    JDVersionListResponse,
+    JDVersionCreate,
+    JDRestoreResponse,
 )
+from app.modules.positions.models import PositionJDVersion
 
 router = APIRouter(prefix="/positions", tags=["positions"])
 
@@ -233,6 +245,17 @@ async def update_position(
         raise HTTPException(status_code=404, detail="Position not found")
 
     for field, value in req.model_dump(exclude_unset=True, exclude={"course_ids"}).items():
+        # Auto-snapshot JD BEFORE overwriting, so we always have the previous
+        # values if responsibilities or requirements change.
+        if field in ("responsibilities", "requirements") and getattr(pos, field) != value:
+            db.add(PositionJDVersion(
+                position_id=pos.id,
+                tenant_id=pos.tenant_id,
+                responsibilities=pos.responsibilities,
+                requirements=pos.requirements,
+                source="auto",
+                created_by=user.id,
+            ))
         setattr(pos, field, value)
 
     re_enrolled = 0
@@ -684,3 +707,374 @@ async def recommended_content(
             break
 
     return RecommendedContentResponse(items=list(seen.values()))
+
+
+# ── Generate JD from name (no file) ────────────────────────────
+
+
+@router.post("/generate-jd-from-name", response_model=GenerateJDResponse)
+async def generate_jd_from_name(
+    req: GenerateJDRequest,
+    user: User = Depends(get_current_user),
+):
+    """AI generates responsibilities + requirements from a job title.
+
+    Use case: the methodologist is creating a new position but doesn't
+    have a JD document yet. They enter the title (and optionally
+    department + level), and we generate a reasonable draft they can edit.
+
+    Same LLM prompt as analyze-jd, just no text extraction step.
+    """
+    from app.modules.ai.llm_client import create_llm
+
+    name = req.name.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="name is required")
+
+    prompt = f"""Сгенерируй типичные обязанности и требования для должности.
+
+НАЗВАНИЕ: {name}
+{f"ОТДЕЛ: {req.department}" if req.department else ""}
+{f"УРОВЕНЬ: {req.level}" if req.level else ""}
+
+Ответь ТОЛЬКО валидным JSON без markdown-обёрток:
+{{
+  "name": "Название должности (на русском, уточнённое)",
+  "department": "Отдел/департамент (предложение, если не указан)",
+  "level": "junior/middle/senior/lead/head",
+  "responsibilities": "Список 3-7 ключевых обязанностей через перенос строки",
+  "requirements": "Список 3-7 требований через перенос строки"
+}}
+
+Пиши реалистично, как для реальной должности в казахстанской компании."""
+
+    try:
+        llm = create_llm(temperature=0.4, max_tokens=1024)
+        response = await llm.ainvoke([{"role": "user", "content": prompt}])
+        raw = response.content.strip()
+        if raw.startswith("```"):
+            raw = raw.split("\n", 1)[1]
+            if raw.endswith("```"):
+                raw = raw[:-3]
+            raw = raw.strip()
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=422, detail="AI returned invalid response. Please try again.")
+    except Exception as e:
+        logger.error(f"generate-jd-from-name failed: {e}")
+        raise HTTPException(status_code=503, detail="AI service unavailable. Please try again later.")
+
+    return GenerateJDResponse(
+        name=(data.get("name") or name).strip(),
+        department=(data.get("department") or req.department or "").strip(),
+        level=(data.get("level") or req.level or "").strip(),
+        responsibilities=(data.get("responsibilities") or "").strip(),
+        requirements=(data.get("requirements") or "").strip(),
+    )
+
+
+# ── JD preview / diff against current position ────────────────
+
+
+@router.post("/{position_id}/jd-preview", response_model=JDPreviewResponse)
+async def jd_preview(
+    position_id: UUID,
+    req: JDPreviewRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Compute a field-by-field diff between the position's current values
+    and what the AI would propose given the input (text or pre-filled fields).
+
+    The user reviews and clicks 'Apply' to overwrite, or edits manually.
+    No mutation of the position.
+    """
+    pos = await db.get(Position, position_id)
+    if not pos or pos.tenant_id != user.tenant_id:
+        raise HTTPException(status_code=404, detail="Position not found")
+
+    # If text is provided, run analyze-jd-style extraction
+    proposed_name = req.name
+    proposed_department = req.department
+    proposed_level = req.level
+    proposed_resp = ""
+    proposed_req = ""
+
+    if req.text.strip():
+        from app.modules.ai.llm_client import create_llm
+        text = req.text.strip()[:8000]
+        prompt = f"""Проанализируй текст должностной инструкции и сравни с текущими значениями.
+
+ТЕКСТ:
+{text}
+
+ТЕКУЩИЕ ЗНАЧЕНИЯ:
+- name: {pos.name}
+- department: {pos.department or '(пусто)'}
+- level: {pos.level or '(пусто)'}
+- responsibilities: {pos.responsibilities or '(пусто)'}
+- requirements: {pos.requirements or '(пусто)'}
+
+Верни ТОЛЬКО валидный JSON с предложенными значениями (используй текущие, если в тексте нет новых):
+{{
+  "name": "{pos.name}",
+  "department": "{pos.department}",
+  "level": "{pos.level}",
+  "responsibilities": "(уточнённый текст)",
+  "requirements": "(уточнённый текст)"
+}}"""
+        try:
+            llm = create_llm(temperature=0.3, max_tokens=1024)
+            response = await llm.ainvoke([{"role": "user", "content": prompt}])
+            raw = response.content.strip()
+            if raw.startswith("```"):
+                raw = raw.split("\n", 1)[1]
+                if raw.endswith("```"):
+                    raw = raw[:-3]
+                raw = raw.strip()
+            data = json.loads(raw)
+            proposed_name = (data.get("name") or pos.name).strip()
+            proposed_department = (data.get("department") or pos.department or "").strip()
+            proposed_level = (data.get("level") or pos.level or "").strip()
+            proposed_resp = (data.get("responsibilities") or "").strip()
+            proposed_req = (data.get("requirements") or "").strip()
+        except Exception as e:
+            logger.error(f"jd-preview LLM failed: {e}")
+            # Fall through with pre-filled values only
+    else:
+        # No text, just use the pre-filled values from req as "proposed"
+        proposed_resp = req.name  # not used; just keep current
+
+    def _diff(field: str, current: str, proposed: str) -> JDPreviewItem:
+        return JDPreviewItem(
+            field=field,
+            current=current or "",
+            proposed=proposed or "",
+            changed=(current or "").strip() != (proposed or "").strip(),
+        )
+
+    items = [
+        _diff("name", pos.name, proposed_name),
+        _diff("department", pos.department, proposed_department),
+        _diff("level", pos.level, proposed_level),
+        _diff("responsibilities", pos.responsibilities, proposed_resp),
+        _diff("requirements", pos.requirements, proposed_req),
+    ]
+    return JDPreviewResponse(items=items)
+
+
+# ── Recommended courses (text-match against course titles) ─────
+
+
+@router.get("/{position_id}/recommended-courses", response_model=RecommendedCoursesResponse)
+async def recommended_courses(
+    position_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+    limit: int = 5,
+):
+    """Return top-N courses whose content (via document embeddings)
+    is most semantically similar to the position's JD.
+
+    Unlike /recommended-content (which returns docs directly), this
+    endpoint aggregates by course: if any document in the course
+    library is similar to the position, the course is recommended.
+
+    Aggregation strategy: for each top doc_id, look at all courses
+    in the tenant; for each course, compute the avg similarity of
+    its' chunks to the position. Return top-N unique courses.
+
+    This is a simple heuristic — proper aggregation would require a
+    `course_documents` table (TODO: separate PR).
+    """
+    if limit < 1 or limit > 20:
+        raise HTTPException(status_code=400, detail="limit must be 1..20")
+
+    pos = await db.get(Position, position_id)
+    if not pos or pos.tenant_id != user.tenant_id:
+        raise HTTPException(status_code=404, detail="Position not found")
+
+    query_text = f"{pos.responsibilities}\n{pos.requirements}".strip()
+    if not query_text:
+        return RecommendedCoursesResponse(items=[])
+
+    from app.modules.ai.ingestion import EmbeddingsProvider
+    provider = EmbeddingsProvider()
+    embeddings = await provider.embed([query_text])
+    emb_str = str(embeddings[0])
+
+    # Get top 25 chunks
+    sql = text(f"""
+        SELECT doc_id, doc_name, headings,
+               1 - (embedding <=> CAST(:emb AS vector)) as distance
+        FROM document_embeddings
+        WHERE tenant_id = :tenant_id
+        ORDER BY distance
+        LIMIT 25
+    """)
+    result = await db.execute(sql, {"emb": emb_str, "tenant_id": str(user.tenant_id)})
+    chunks = result.fetchall()
+
+    # Group chunks by doc_name (heuristic for course identity, since
+    # there's no formal document-to-course mapping). Best doc_name in
+    # the tenant becomes a course recommendation.
+    by_doc: dict[str, tuple[float, str]] = {}
+    for doc_id, doc_name, headings, distance in chunks:
+        key = (doc_name or "").strip()
+        if not key:
+            continue
+        if key not in by_doc or by_doc[key][0] < float(distance):
+            by_doc[key] = (float(distance), str(doc_id))
+
+    # Also list tenant's courses and try to fuzzy-match doc_name -> course.title
+    courses_result = await db.execute(
+        text("SELECT id, title FROM courses WHERE tenant_id = :tid"),
+        {"tid": str(user.tenant_id)},
+    )
+    courses = courses_result.fetchall()
+    course_by_title = {(c[1] or "").strip().lower(): (c[0], c[1]) for c in courses}
+
+    items: list[RecommendedCourseItem] = []
+    # First pass: exact title match
+    for doc_name, (sim, doc_id) in sorted(by_doc.items(), key=lambda x: -x[1][0])[:limit * 2]:
+        key = doc_name.lower()
+        # Try exact match first
+        if key in course_by_title:
+            cid, title = course_by_title[key]
+            items.append(RecommendedCourseItem(
+                course_id=cid, title=title, similarity=round(sim, 4), matched_doc_name=doc_name,
+            ))
+            continue
+        # Try substring match (doc_name contains course title or vice versa)
+        for ctitle, (cid, title) in course_by_title.items():
+            if ctitle and (ctitle in key or key in ctitle):
+                items.append(RecommendedCourseItem(
+                    course_id=cid, title=title, similarity=round(sim, 4), matched_doc_name=doc_name,
+                ))
+                break
+        if len(items) >= limit:
+            break
+
+    return RecommendedCoursesResponse(items=items[:limit])
+
+
+# ── JD version history ─────────────────────────────────────────
+
+
+@router.get("/{position_id}/jd-versions", response_model=JDVersionListResponse)
+async def list_jd_versions(
+    position_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """List all historical JD snapshots for a position, newest first."""
+    # Verify position + tenant
+    pos = await db.get(Position, position_id)
+    if not pos or pos.tenant_id != user.tenant_id:
+        raise HTTPException(status_code=404, detail="Position not found")
+
+    result = await db.execute(
+        select(PositionJDVersion)
+        .where(PositionJDVersion.position_id == position_id)
+        .order_by(PositionJDVersion.created_at.desc())
+    )
+    rows = result.scalars().all()
+    return JDVersionListResponse(items=[
+        JDVersionItem(
+            id=r.id,
+            responsibilities=r.responsibilities,
+            requirements=r.requirements,
+            source=r.source,
+            note=r.note,
+            created_at=r.created_at,
+            created_by=r.created_by,
+        )
+        for r in rows
+    ])
+
+
+@router.post("/{position_id}/jd-versions", response_model=JDVersionItem, status_code=201)
+async def create_jd_version(
+    position_id: UUID,
+    req: JDVersionCreate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Manually snapshot the position's CURRENT responsibilities +
+    requirements as a version. Useful for marking known-good states
+    before a planned refactor."""
+    pos = await db.get(Position, position_id)
+    if not pos or pos.tenant_id != user.tenant_id:
+        raise HTTPException(status_code=404, detail="Position not found")
+
+    version = PositionJDVersion(
+        position_id=pos.id,
+        tenant_id=pos.tenant_id,
+        responsibilities=pos.responsibilities,
+        requirements=pos.requirements,
+        source="manual",
+        note=req.note,
+        created_by=user.id,
+    )
+    db.add(version)
+    await db.commit()
+    await db.refresh(version)
+
+    return JDVersionItem(
+        id=version.id,
+        responsibilities=version.responsibilities,
+        requirements=version.requirements,
+        source=version.source,
+        note=version.note,
+        created_at=version.created_at,
+        created_by=version.created_by,
+    )
+
+
+@router.post("/{position_id}/jd-versions/{version_id}/restore", response_model=JDRestoreResponse)
+async def restore_jd_version(
+    position_id: UUID,
+    version_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Restore a position's JD from a historical version.
+
+    This creates a NEW auto-snapshot of the current values (so the
+    restore is itself reversible) and overwrites with the version's content.
+    """
+    pos = await db.get(Position, position_id)
+    if not pos or pos.tenant_id != user.tenant_id:
+        raise HTTPException(status_code=404, detail="Position not found")
+
+    ver = await db.get(PositionJDVersion, version_id)
+    if not ver or ver.position_id != position_id:
+        raise HTTPException(status_code=404, detail="Version not found")
+
+    # Snapshot current BEFORE restoring
+    db.add(PositionJDVersion(
+        position_id=pos.id,
+        tenant_id=pos.tenant_id,
+        responsibilities=pos.responsibilities,
+        requirements=pos.requirements,
+        source="auto",
+        note=f"auto-snapshot before restore from version {version_id}",
+        created_by=user.id,
+    ))
+
+    pos.responsibilities = ver.responsibilities
+    pos.requirements = ver.requirements
+    await db.commit()
+    await db.refresh(pos)
+
+    course_ids = await _get_course_ids(db, pos.id)
+    return JDRestoreResponse(
+        position=PositionResponse(
+            id=pos.id, tenant_id=pos.tenant_id, name=pos.name,
+            department=pos.department, level=pos.level,
+            responsibilities=pos.responsibilities, requirements=pos.requirements,
+            course_ids=course_ids, employee_count=pos.employee_count,
+            created_at=pos.created_at,
+        ),
+        restored_from_version_id=version_id,
+    )

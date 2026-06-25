@@ -46,6 +46,33 @@ interface RecommendedItem {
   headings: string;
 }
 
+// Recommended course item (matches backend RecommendedCourseItem)
+interface RecommendedCourse {
+  course_id: string;
+  title: string;
+  similarity: number;
+  matched_doc_name: string;
+}
+
+// JD preview diff item (matches backend JDPreviewItem)
+interface JDPreviewItem {
+  field: string;
+  current: string;
+  proposed: string;
+  changed: boolean;
+}
+
+// JD version item (matches backend JDVersionItem)
+interface JDVersion {
+  id: string;
+  responsibilities: string;
+  requirements: string;
+  source: string; // "auto" | "manual"
+  note: string | null;
+  created_at: string;
+  created_by: string | null;
+}
+
 export default function PositionsPage() {
   const { t } = useT();
     const { confirm, dialog } = useConfirm();
@@ -74,6 +101,22 @@ export default function PositionsPage() {
   const [recsFor, setRecsFor] = useState<string | null>(null);
   const [recs, setRecs] = useState<RecommendedItem[]>([]);
   const [recsLoading, setRecsLoading] = useState(false);
+
+  // ── Recommended courses state (per position) ──────────────
+  const [recCourses, setRecCourses] = useState<RecommendedCourse[]>([]);
+  const [recCoursesLoading, setRecCoursesLoading] = useState(false);
+
+  // ── JD history state ──────────────────────────────────────
+  const [showHistory, setShowHistory] = useState<string | null>(null); // position_id
+  const [historyVersions, setHistoryVersions] = useState<JDVersion[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+
+  // ── JD preview/diff state ─────────────────────────────────
+  const [preview, setPreview] = useState<JDPreviewItem[] | null>(null);
+  const [previewApplying, setPreviewApplying] = useState(false);
+
+  // ── Generate-from-name state ──────────────────────────────
+  const [generating, setGenerating] = useState(false);
 
   const fetchPositions = useCallback(async () => {
     try {
@@ -173,6 +216,20 @@ export default function PositionsPage() {
         return;
       }
       const data = await res.json();
+      // If editing existing position, show diff instead of silent overwrite
+      if (editPos) {
+        const items: JDPreviewItem[] = [
+          { field: 'name', current: editPos.name, proposed: data.name || editPos.name, changed: (data.name || '') !== editPos.name },
+          { field: 'department', current: editPos.department, proposed: data.department || editPos.department, changed: (data.department || '') !== editPos.department },
+          { field: 'level', current: editPos.level, proposed: data.level || editPos.level, changed: (data.level || '') !== editPos.level },
+          { field: 'responsibilities', current: editPos.responsibilities, proposed: data.responsibilities || '', changed: (data.responsibilities || '') !== editPos.responsibilities },
+          { field: 'requirements', current: editPos.requirements, proposed: data.requirements || '', changed: (data.requirements || '') !== editPos.requirements },
+        ];
+        setPreview(items);
+        setShowCreate(true); // keep create modal open behind preview
+        return;
+      }
+      // New position: silent auto-fill (current behavior)
       if (data.name) setName(data.name);
       if (data.department) setDepartment(data.department);
       if (data.level) setLevel(data.level);
@@ -274,16 +331,105 @@ export default function PositionsPage() {
   const handleRecommend = async (positionId: string) => {
     setRecsFor(positionId);
     setRecsLoading(true);
+    setRecCoursesLoading(true);
     try {
-      const res = await api.get(`/v1/positions/${positionId}/recommended-content`, {
-        params: { limit: 5 },
-      });
-      setRecs(res.data.items || []);
+      // Load both in parallel: documents + courses
+      const [docRes, courseRes] = await Promise.all([
+        api.get(`/v1/positions/${positionId}/recommended-content`, { params: { limit: 5 } }),
+        api.get(`/v1/positions/${positionId}/recommended-courses`, { params: { limit: 5 } }).catch(() => ({ data: { items: [] } })),
+      ]);
+      setRecs(docRes.data.items || []);
+      setRecCourses((courseRes.data.items as RecommendedCourse[]) || []);
     } catch (err: any) {
       toast.error(t('common.saveFailed'), { description: 'Не удалось получить рекомендации' });
       setRecs([]);
+      setRecCourses([]);
     } finally {
       setRecsLoading(false);
+      setRecCoursesLoading(false);
+    }
+  };
+
+  // ── Generate JD from name only (no file) ────────────────
+  const handleGenerateFromName = async () => {
+    if (!name.trim()) {
+      toast.error('Сначала введите название должности');
+      return;
+    }
+    setGenerating(true);
+    try {
+      const res = await api.post('/v1/positions/generate-jd-from-name', {
+        name: name.trim(),
+        department: department.trim(),
+        level: level.trim(),
+      });
+      const data = res.data as { name: string; department: string; level: string; responsibilities: string; requirements: string };
+      setName(data.name);
+      if (data.department) setDepartment(data.department);
+      if (data.level) setLevel(data.level);
+      setResponsibilities(data.responsibilities);
+      setRequirements(data.requirements);
+      toast.success('AI сгенерировал ДИ. Проверьте и отредактируйте.');
+    } catch (err: any) {
+      toast.error(t('common.saveFailed'), { description: err?.response?.data?.detail || 'Ошибка генерации' });
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  // ── JD history ─────────────────────────────────────────
+  const handleFetchHistory = async (positionId: string) => {
+    setShowHistory(positionId);
+    setHistoryLoading(true);
+    try {
+      const res = await api.get(`/v1/positions/${positionId}/jd-versions`);
+      setHistoryVersions((res.data.items as JDVersion[]) || []);
+    } catch (err: any) {
+      toast.error(t('common.saveFailed'), { description: 'Не удалось загрузить историю' });
+      setHistoryVersions([]);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  const handleSnapshotNow = async () => {
+    if (!editPos) return;
+    try {
+      await api.post(`/v1/positions/${editPos.id}/jd-versions`, { note: 'manual snapshot' });
+      toast.success('Снимок сохранён');
+    } catch (err: any) {
+      toast.error(t('common.saveFailed'), { description: 'Не удалось сохранить снимок' });
+    }
+  };
+
+  const handleRestoreVersion = async (versionId: string) => {
+    if (!showHistory) return;
+    try {
+      await api.post(`/v1/positions/${showHistory}/jd-versions/${versionId}/restore`);
+      toast.success('Восстановлено из снимка');
+      setShowHistory(null);
+      fetchPositions();
+    } catch (err: any) {
+      toast.error(t('common.saveFailed'), { description: 'Не удалось восстановить' });
+    }
+  };
+
+  // ── JD preview / apply AI suggestions ───────────────────
+  const handleApplyPreview = (items: JDPreviewItem[]) => {
+    setPreviewApplying(true);
+    try {
+      for (const it of items) {
+        if (!it.changed) continue;
+        if (it.field === 'name') setName(it.proposed);
+        else if (it.field === 'department') setDepartment(it.proposed);
+        else if (it.field === 'level') setLevel(it.proposed);
+        else if (it.field === 'responsibilities') setResponsibilities(it.proposed);
+        else if (it.field === 'requirements') setRequirements(it.proposed);
+      }
+      setPreview(null);
+      toast.success('Изменения применены');
+    } finally {
+      setPreviewApplying(false);
     }
   };
 
@@ -326,7 +472,18 @@ export default function PositionsPage() {
             <div className="space-y-3">
               <div>
                 <label className="block text-xs font-semibold text-warm-500 mb-1">Название *</label>
-                <input value={name} onChange={e => setName(e.target.value)} placeholder="Frontend Developer" className="w-full rounded-xl border border-warm-200 px-3 py-2.5 text-sm outline-none focus:border-primary transition-colors" />
+                <div className="flex gap-2">
+                  <input value={name} onChange={e => setName(e.target.value)} placeholder="Frontend Developer" className="flex-1 rounded-xl border border-warm-200 px-3 py-2.5 text-sm outline-none focus:border-primary transition-colors" />
+                  <button
+                    type="button"
+                    onClick={handleGenerateFromName}
+                    disabled={generating || !name.trim()}
+                    className="rounded-xl border border-primary/30 bg-primary/5 px-3 py-2 text-xs font-medium text-primary hover:bg-primary/10 transition-colors disabled:opacity-50 whitespace-nowrap"
+                    title="AI сгенерирует ответственности и требования по названию (без файла)"
+                  >
+                    {generating ? 'Генерирую...' : '✨ Сгенерировать'}
+                  </button>
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -416,28 +573,60 @@ export default function PositionsPage() {
 
                   {/* AI recommended content panel */}
                   {recsFor === pos.id && (
-                    <div className="mt-3 rounded-lg border border-primary/20 bg-primary/5 p-3">
-                      <div className="text-xs font-semibold text-primary mb-2">
-                        {recsLoading ? 'Подбираю курсы...' : `Рекомендованные документы (${recs.length})`}
+                    <div className="mt-3 rounded-lg border border-primary/20 bg-primary/5 p-3 space-y-3">
+                      {/* Documents */}
+                      <div>
+                        <div className="text-xs font-semibold text-primary mb-1.5">
+                          {recsLoading ? 'Подбираю документы...' : `Документы (${recs.length})`}
+                        </div>
+                        {recsLoading ? (
+                          <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                        ) : recs.length === 0 ? (
+                          <p className="text-xs text-warm-400">
+                            {recCourses.length > 0 ? 'Нет похожих документов' : 'Нет похожих документов. Добавьте обязанности/требования к должности.'}
+                          </p>
+                        ) : (
+                          <ul className="space-y-1">
+                            {recs.map((r) => (
+                              <li key={r.doc_id} className="text-xs flex items-center gap-2">
+                                <span className="font-mono text-[10px] text-warm-400 w-12 text-right">
+                                  {(r.similarity * 100).toFixed(0)}%
+                                </span>
+                                <span className="flex-1 truncate text-warm-700">{r.doc_name}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
                       </div>
-                      {recsLoading ? (
-                        <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                      ) : recs.length === 0 ? (
-                        <p className="text-xs text-warm-400">
-                          Не нашлось похожих документов. Добавьте обязанности/требования к должности.
-                        </p>
-                      ) : (
-                        <ul className="space-y-1.5">
-                          {recs.map((r) => (
-                            <li key={r.doc_id} className="text-xs flex items-center gap-2">
-                              <span className="font-mono text-[10px] text-warm-400 w-12 text-right">
-                                {(r.similarity * 100).toFixed(0)}%
-                              </span>
-                              <span className="flex-1 truncate text-warm-700">{r.doc_name}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
+                      {/* Courses */}
+                      <div>
+                        <div className="text-xs font-semibold text-primary mb-1.5">
+                          {recCoursesLoading ? 'Подбираю курсы...' : `Курсы (${recCourses.length})`}
+                        </div>
+                        {recCoursesLoading ? (
+                          <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                        ) : recCourses.length === 0 ? (
+                          <p className="text-xs text-warm-400">
+                            Не нашлось курсов с похожим контентом
+                          </p>
+                        ) : (
+                          <ul className="space-y-1">
+                            {recCourses.map((c) => (
+                              <li key={c.course_id} className="text-xs flex items-center gap-2">
+                                <span className="font-mono text-[10px] text-warm-400 w-12 text-right">
+                                  {(c.similarity * 100).toFixed(0)}%
+                                </span>
+                                <span className="flex-1 truncate text-warm-700">{c.title}</span>
+                                {c.matched_doc_name && (
+                                  <span className="text-[10px] text-warm-300 truncate max-w-[120px]" title={c.matched_doc_name}>
+                                    ↳ {c.matched_doc_name}
+                                  </span>
+                                )}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -446,9 +635,16 @@ export default function PositionsPage() {
                   <button
                     onClick={() => recsFor === pos.id ? setRecsFor(null) : handleRecommend(pos.id)}
                     className="rounded-xl border border-primary/30 bg-primary/5 px-3 py-1.5 text-xs text-primary hover:bg-primary/10 transition-colors"
-                    title="AI подберёт документы, похожие на обязанности/требования этой должности"
+                    title="AI подберёт документы и курсы, похожие на обязанности/требования этой должности"
                   >
                     {recsFor === pos.id ? 'Скрыть' : 'Подобрать курсы'}
+                  </button>
+                  <button
+                    onClick={() => showHistory === pos.id ? setShowHistory(null) : handleFetchHistory(pos.id)}
+                    className="rounded-xl border border-warm-200 px-3 py-1.5 text-xs text-warm-500 hover:bg-warm-50 transition-colors"
+                    title="История версий этой должности (авто-снимки + ручные)"
+                  >
+                    История
                   </button>
                   <button onClick={() => handleDelete(pos.id)} className="rounded-xl border border-red-200 px-3 py-1.5 text-xs text-red-400 hover:border-red-300 hover:text-red-600 transition-colors">Удалить</button>
                 </div>
@@ -458,6 +654,146 @@ export default function PositionsPage() {
         </div>
       )}
 {dialog}
+
+      {/* JD preview / diff modal (after analyze-jd on existing position) */}
+      {preview && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center">
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setPreview(null)} />
+          <div className="relative bg-white rounded-2xl shadow-card-lg w-full max-w-2xl mx-4 p-6 z-10 max-h-[90vh] overflow-y-auto">
+            <h2 className="text-lg font-bold text-warm-800 font-display mb-2">
+              AI предложил изменения
+            </h2>
+            <p className="text-sm text-warm-500 mb-4">
+              Сравнение текущих значений с тем, что AI извлёк из JD-файла. Нажмите «Применить» чтобы заменить выбранные поля, или закройте чтобы отклонить.
+            </p>
+            <div className="space-y-3">
+              {preview.map((it) => (
+                <div
+                  key={it.field}
+                  className={`rounded-lg border p-3 ${
+                    it.changed ? 'border-primary/30 bg-primary/5' : 'border-warm-200 bg-warm-50 opacity-60'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-xs font-semibold text-warm-700">
+                      {it.field === 'responsibilities' ? 'Обязанности' :
+                       it.field === 'requirements' ? 'Требования' :
+                       it.field === 'name' ? 'Название' :
+                       it.field === 'department' ? 'Отдел' :
+                       it.field === 'level' ? 'Уровень' : it.field}
+                    </span>
+                    {it.changed ? (
+                      <span className="rounded-full bg-primary text-white px-2 py-0.5 text-[10px] font-semibold">
+                        изменится
+                      </span>
+                    ) : (
+                      <span className="rounded-full bg-warm-200 text-warm-500 px-2 py-0.5 text-[10px]">
+                        без изменений
+                      </span>
+                    )}
+                  </div>
+                  {it.changed && (
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div>
+                        <div className="text-warm-400 mb-0.5">Было:</div>
+                        <div className="text-warm-600 line-clamp-4 whitespace-pre-wrap">{it.current || '(пусто)'}</div>
+                      </div>
+                      <div>
+                        <div className="text-primary mb-0.5">Станет:</div>
+                        <div className="text-warm-800 line-clamp-4 whitespace-pre-wrap">{it.proposed || '(пусто)'}</div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-2 justify-end mt-5">
+              <button
+                onClick={() => setPreview(null)}
+                className="rounded-xl border border-warm-200 px-4 py-2 text-sm text-warm-500 hover:bg-warm-50 transition-colors"
+              >
+                Отклонить
+              </button>
+              <button
+                onClick={() => handleApplyPreview(preview)}
+                disabled={previewApplying}
+                className="rounded-xl bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90 transition-colors disabled:opacity-50"
+              >
+                {previewApplying ? 'Применяю...' : 'Применить изменения'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* JD history modal */}
+      {showHistory && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowHistory(null)} />
+          <div className="relative bg-white rounded-2xl shadow-card-lg w-full max-w-2xl mx-4 p-6 z-10 max-h-[90vh] overflow-y-auto">
+            <h2 className="text-lg font-bold text-warm-800 font-display mb-4">
+              История версий ДИ
+            </h2>
+            {historyLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+              </div>
+            ) : historyVersions.length === 0 ? (
+              <p className="text-sm text-warm-400 py-4 text-center">
+                Нет снимков. Снимки создаются автоматически при изменении обязанностей/требований.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {historyVersions.map((v) => (
+                  <div key={v.id} className="rounded-lg border border-warm-200 p-3 hover:border-warm-300">
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <div className="text-xs text-warm-500">
+                        <span className="font-mono">{new Date(v.created_at).toLocaleString('ru-RU')}</span>
+                        <span className="ml-2 rounded-full bg-warm-100 px-1.5 py-0.5 text-[10px] font-semibold text-warm-600">
+                          {v.source === 'manual' ? 'ручной' : 'авто'}
+                        </span>
+                        {v.note && <span className="ml-2 text-warm-400">— {v.note}</span>}
+                      </div>
+                      <button
+                        onClick={() => handleRestoreVersion(v.id)}
+                        className="rounded-md border border-primary/30 bg-primary/5 px-2 py-1 text-[11px] font-medium text-primary hover:bg-primary/10 transition-colors"
+                      >
+                        Восстановить
+                      </button>
+                    </div>
+                    {v.responsibilities && (
+                      <p className="text-xs text-warm-600 line-clamp-2">
+                        <span className="font-semibold">Обязанности:</span> {v.responsibilities}
+                      </p>
+                    )}
+                    {v.requirements && (
+                      <p className="text-xs text-warm-600 line-clamp-1">
+                        <span className="font-semibold">Требования:</span> {v.requirements}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="flex gap-2 justify-end mt-5">
+              {editPos && showHistory === editPos.id && (
+                <button
+                  onClick={handleSnapshotNow}
+                  className="rounded-xl border border-warm-200 px-4 py-2 text-sm text-warm-500 hover:bg-warm-50 transition-colors"
+                >
+                  📌 Снять снимок сейчас
+                </button>
+              )}
+              <button
+                onClick={() => setShowHistory(null)}
+                className="rounded-xl border border-warm-200 px-4 py-2 text-sm text-warm-500 hover:bg-warm-50 transition-colors"
+              >
+                Закрыть
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Bulk JD preview modal */}
       {showBulkPreview && (

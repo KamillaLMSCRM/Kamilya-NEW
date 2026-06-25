@@ -103,3 +103,84 @@ class RecommendedContentItem(BaseModel):
 
 class RecommendedContentResponse(BaseModel):
     items: list[RecommendedContentItem]
+
+
+# ── Generate JD from name (AI, no file) ────────────────────────
+
+
+class GenerateJDRequest(BaseModel):
+    name: str = Field(..., min_length=2, max_length=200)
+    department: str = Field(default="", max_length=200)
+    level: str = Field(default="", max_length=64)  # junior/middle/senior/lead/head
+
+
+class GenerateJDResponse(BaseModel):
+    """Same shape as the analyze-jd response, returned by name-only generation."""
+    name: str
+    department: str
+    level: str
+    responsibilities: str
+    requirements: str
+
+
+# ── JD preview / diff (analyze against current) ────────────────
+
+
+class JDPreviewItem(BaseModel):
+    field: str  # "responsibilities" | "requirements" | "name" | "department" | "level"
+    current: str
+    proposed: str
+    changed: bool
+
+
+class JDPreviewRequest(BaseModel):
+    """Multi-modal: file upload OR text. If file is provided, text is ignored."""
+    text: str = ""  # raw text of the JD
+    name: str = Field(default="", max_length=200)
+    department: str = Field(default="", max_length=200)
+    level: str = Field(default="", max_length=64)
+
+
+class JDPreviewResponse(BaseModel):
+    items: list[JDPreviewItem]  # field-by-field diff between current (position) and AI proposal
+
+
+# ── Recommended courses (not documents) ────────────────────────
+
+
+class RecommendedCourseItem(BaseModel):
+    course_id: UUID
+    title: str
+    similarity: float
+    matched_doc_name: str = ""  # which document in the course matched the position
+
+
+class RecommendedCoursesResponse(BaseModel):
+    items: list[RecommendedCourseItem]
+
+
+# ── Position JD versions (history) ─────────────────────────────
+
+
+class JDVersionItem(BaseModel):
+    id: UUID
+    responsibilities: str
+    requirements: str
+    source: str  # "auto" | "manual"
+    note: str | None
+    created_at: datetime
+    created_by: UUID | None
+
+
+class JDVersionListResponse(BaseModel):
+    items: list[JDVersionItem]
+
+
+class JDVersionCreate(BaseModel):
+    """Manual snapshot with optional note."""
+    note: str | None = Field(default=None, max_length=500)
+
+
+class JDRestoreResponse(BaseModel):
+    position: PositionResponse
+    restored_from_version_id: UUID
