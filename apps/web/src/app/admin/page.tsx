@@ -205,6 +205,9 @@ export default function AdminDashboardPage() {
             <a href="/admin/staff" className="flex items-center gap-1 text-blue-600 text-sm hover:underline mt-2 block">
               📋 Штатное расписание →
             </a>
+            <a href="/admin/employees" className="flex items-center gap-1 text-blue-600 text-sm hover:underline mt-2 block">
+              📊 Структура штата →
+            </a>
           </CardContent>
         </Card>
 

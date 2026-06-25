@@ -32,6 +32,7 @@ from app.modules.users.router import router as users_router
 from app.modules.users.invitations_router import router as invitations_public_router
 from app.modules.users.kiosk_router import admin_router as kiosks_admin_router, public_router as kiosks_public_router
 from app.modules.users.staff_import_router import router as staff_import_router
+from app.modules.users.staff_tree_router import router as staff_tree_router
 from app.modules.auth.telegram import router as telegram_router
 from app.modules.positions.router import router as positions_router
 
@@ -110,6 +111,7 @@ app.include_router(invitations_public_router, prefix=f"{settings.API_PREFIX}", t
 app.include_router(kiosks_admin_router, prefix=f"{settings.API_PREFIX}", tags=["kiosks"])
 app.include_router(kiosks_public_router, prefix=f"{settings.API_PREFIX}", tags=["kiosks"])
 app.include_router(staff_import_router, prefix=f"{settings.API_PREFIX}", tags=["staff"])
+app.include_router(staff_tree_router, prefix=f"{settings.API_PREFIX}", tags=["staff"])
 app.include_router(telegram_router, prefix=f"{settings.API_PREFIX}", tags=["telegram"])
 app.include_router(positions_router, prefix=f"{settings.API_PREFIX}", tags=["positions"])
 
