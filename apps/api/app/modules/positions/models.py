@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import Column, Text, UUID, DateTime, Integer, ForeignKey, func
+from sqlalchemy import Boolean, JSON, Column, Text, UUID, DateTime, Integer, ForeignKey, String, func
 from sqlalchemy.orm import relationship
 from app.core.db import Base
 
@@ -28,3 +28,67 @@ class Position(Base):
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
     courses = relationship("PositionCourse", primaryjoin="Position.id == PositionCourse.position_id", cascade="all, delete-orphan")
+
+
+class PositionJDVersion(Base):
+    """Snapshot of position.responsibilities + position.requirements.
+
+    Inserted automatically before a PUT that changes them, or manually
+    via POST /positions/{id}/jd-versions.
+    """
+    __tablename__ = "position_jd_versions"
+    __table_args__ = {'extend_existing': True}
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, server_default=func.gen_random_uuid())
+    position_id = Column(UUID(as_uuid=True), ForeignKey("positions.id", ondelete="CASCADE"), nullable=False, index=True)
+    tenant_id = Column(UUID(as_uuid=True), nullable=False, index=True)
+    responsibilities = Column(Text, nullable=False, default="")
+    requirements = Column(Text, nullable=False, default="")
+    created_by = Column(UUID(as_uuid=True), nullable=True)  # user.id or NULL for system
+    source = Column(String(32), nullable=False, default="auto")  # "auto" | "manual"
+    note = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+class PositionQuiz(Base):
+    """Onboarding quiz for a position (Phase 3).
+
+    One quiz per position (1-to-1 via unique position_id). Generated
+    by AI from the position's responsibilities + requirements, then
+    edited by the methodologist and saved here.
+
+    Questions are stored as a JSON column for v1 (simpler than a
+    proper Question/QuizChoice table pair, and the methodologist edits
+    them inline in the modal before saving). A separate table pair can
+    be added in v1.1 if we need attempts/history.
+
+    Shape of `questions` JSON (list):
+    [
+      {
+        "text": "Что обязан делать кассир при обнаружении подозрительной купюры?",
+        "type": "MCQ",
+        "explanation": "По правилам ЦБ РК кассир обязан вызвать старшего и не возвращать купюру клиенту.",
+        "choices": [
+          {"text": "...", "is_correct": false},
+          {"text": "...", "is_correct": true},
+        ]
+      },
+      ...
+    ]
+
+    is_active toggles whether this quiz is auto-assigned on onboarding.
+    """
+    __tablename__ = "position_quizzes"
+    __table_args__ = {'extend_existing': True}
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, server_default=func.gen_random_uuid())
+    position_id = Column(UUID(as_uuid=True), ForeignKey("positions.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
+    tenant_id = Column(UUID(as_uuid=True), nullable=False, index=True)
+    title = Column(String(255), nullable=False, default="Онбординг-тест")
+    pass_score = Column(Integer, nullable=False, default=80)  # percent
+    time_limit = Column(Integer, nullable=True)  # minutes, NULL = unlimited
+    questions = Column(JSON, nullable=False, default=list)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_by = Column(UUID(as_uuid=True), nullable=True)  # user.id who first generated/saved it
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())

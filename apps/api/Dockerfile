@@ -15,4 +15,8 @@ COPY . .
 ENV PYTHONUNBUFFERED=1
 EXPOSE 8000
 
-CMD ["poetry", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run migrations before starting uvicorn. Uses sh -c so `&&` works in CMD.
+# If migrations fail, the container exits and won't start with old code against a half-migrated DB.
+# Acceptable on single-instance Render (numInstances=1). For multi-instance, switch to a preDeploy hook
+# to avoid two containers racing on DDL.
+CMD ["sh", "-c", "poetry run alembic upgrade head && poetry run uvicorn app.main:app --host 0.0.0.0 --port 8000"]

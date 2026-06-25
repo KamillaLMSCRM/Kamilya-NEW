@@ -9,7 +9,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 
 revision = "0006"
-down_revision = "0005_add_quiz_attempts_certificates"
+down_revision = "0005"
 branch_labels = None
 depends_on = None
 

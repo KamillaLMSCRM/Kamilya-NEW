@@ -9,7 +9,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 
 revision = "0005"
-down_revision = "0004_add_ai_jobs"
+down_revision = "0004"
 branch_labels = None
 depends_on = None
 
