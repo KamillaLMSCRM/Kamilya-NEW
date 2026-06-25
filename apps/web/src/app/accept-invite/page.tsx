@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { Suspense, useEffect, useState, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardHeader, CardTitle, CardContent, Button, Input } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
@@ -33,6 +33,14 @@ const ROLE_LABELS: Record<string, string> = {
 };
 
 export default function AcceptInvitePage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-warm-500">Загрузка...</div>}>
+      <AcceptInviteForm />
+    </Suspense>
+  );
+}
+
+function AcceptInviteForm() {
   const router = useRouter();
   const params = useSearchParams();
   const token = params.get('token');
