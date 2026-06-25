@@ -25,6 +25,7 @@ class UserResponse(BaseModel):
     id: UUID
     tenant_id: UUID
     email: str | None = None
+    personnel_number: str | None = None
     first_name: str
     last_name: str
     role: str
@@ -66,6 +67,7 @@ class InvitationCreated(BaseModel):
     invitation_id: UUID
     invite_url: str
     expires_at: datetime
+    personnel_number: str | None = None  # included if HR provided one (used as soft 2FA)
 
 
 class InvitationSkipped(BaseModel):
@@ -90,12 +92,15 @@ class InvitationListItem(BaseModel):
     """One row for /users/invitations listing."""
     id: UUID
     email: str
+    personnel_number: str | None = None
     role: str
     status: str
     invited_by: UUID
     created_at: datetime
     expires_at: datetime
     accepted_at: datetime | None = None
+    accepted_ip: str | None = None
+    accepted_user_agent: str | None = None
     user_id: UUID | None = None
 
 
@@ -122,6 +127,7 @@ class InvitationPublicView(BaseModel):
     expires_at: datetime
     valid: bool
     reason_if_invalid: str | None = None
+    requires_personnel_number: bool = False  # True if HR set personnel_number (soft 2FA)
 
 
 class InvitationAcceptRequest(BaseModel):
@@ -129,6 +135,7 @@ class InvitationAcceptRequest(BaseModel):
     first_name: str = Field(..., min_length=1, max_length=100)
     last_name: str = Field(..., min_length=1, max_length=100)
     password: str = Field(..., min_length=8, max_length=128)
+    personnel_number: str | None = Field(default=None, max_length=64)  # required only if invitation has it
 
 
 class InvitationAcceptResponse(BaseModel):

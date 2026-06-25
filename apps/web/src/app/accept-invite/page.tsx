@@ -14,6 +14,7 @@ interface PublicInvitation {
   expires_at: string;
   valid: boolean;
   reason_if_invalid: string | null;
+  requires_personnel_number: boolean;
 }
 
 const REASON_LABELS: Record<string, string> = {
@@ -45,6 +46,7 @@ export default function AcceptInvitePage() {
   const [lastName, setLastName] = useState('');
   const [password, setPassword] = useState('');
   const [password2, setPassword2] = useState('');
+  const [personnelNumber, setPersonnelNumber] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -71,6 +73,7 @@ export default function AcceptInvitePage() {
           expires_at: new Date().toISOString(),
           valid: false,
           reason_if_invalid: 'invitation_not_found',
+          requires_personnel_number: false,
         });
       } finally {
         setLoadingInvitation(false);
@@ -83,6 +86,10 @@ export default function AcceptInvitePage() {
     if (!token) { setError('Ссылка не содержит токен'); return; }
     if (firstName.trim().length < 1) { setError('Введите имя'); return; }
     if (lastName.trim().length < 1) { setError('Введите фамилию'); return; }
+    if (invitation?.requires_personnel_number && !personnelNumber.trim()) {
+      setError('Введите табельный номер — это требует HR для безопасности');
+      return;
+    }
     if (password.length < 8) { setError('Пароль должен быть минимум 8 символов'); return; }
     if (password !== password2) { setError('Пароли не совпадают'); return; }
 
@@ -92,6 +99,9 @@ export default function AcceptInvitePage() {
         first_name: firstName.trim(),
         last_name: lastName.trim(),
         password,
+        ...(invitation?.requires_personnel_number
+          ? { personnel_number: personnelNumber.trim() }
+          : {}),
       });
       const { access_token, user_id, tenant_id, role } = res.data;
 
@@ -226,6 +236,22 @@ export default function AcceptInvitePage() {
               placeholder="Иванов"
             />
           </label>
+          {invitation?.requires_personnel_number && (
+            <label className="block">
+              <span className="block text-xs font-semibold text-warm-500 mb-1">
+                Табельный номер <span className="text-red-500">*</span>
+              </span>
+              <Input
+                value={personnelNumber}
+                onChange={(e) => setPersonnelNumber(e.target.value)}
+                placeholder="T-1042"
+                autoComplete="off"
+              />
+              <span className="block text-[11px] text-warm-500 mt-1">
+                HR указал табельный номер для этого приглашения. Введите его для подтверждения.
+              </span>
+            </label>
+          )}
           <label className="block">
             <span className="block text-xs font-semibold text-warm-500 mb-1">Пароль (минимум 8 символов)</span>
             <Input

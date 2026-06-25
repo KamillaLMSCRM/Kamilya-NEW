@@ -72,8 +72,14 @@ async def bulk_create_invitations(
     raw_emails: list[str],
     base_url: str | None = None,
     default_role: str = "student",
+    personnel_numbers: dict[str, str] | None = None,
 ) -> dict:
     """Process a list of emails, create invitations + pending User rows.
+
+    personnel_numbers: optional {email: personnel_number} map. When present,
+    each invitation stores the personnel_number on its row — the accept form
+    then requires the user to enter it as soft 2FA verification. Useful when
+    HR has imported a staff list (with personnel_number) before issuing invites.
 
     Returns: {created: [...], skipped_existing: [...], invalid: [...]}
     """
@@ -137,12 +143,15 @@ async def bulk_create_invitations(
     expires_at = now + timedelta(days=expiry_days)
 
     created: list[dict] = []
+    pn_map = personnel_numbers or {}
     for email in to_create:
         user_id = uuid4()
+        pn = pn_map.get(email)
         db.add(User(
             id=user_id,
             tenant_id=tenant_id,
             email=email,
+            personnel_number=pn,
             first_name="",
             last_name="",
             role=default_role,
@@ -159,6 +168,7 @@ async def bulk_create_invitations(
             email=email,
             first_name="",
             last_name="",
+            personnel_number=pn,
             role=default_role,
             invited_by=invited_by,
             token=token,
@@ -172,6 +182,7 @@ async def bulk_create_invitations(
             "invitation_id": invitation_id,
             "invite_url": _build_invite_url(token, base_url),
             "expires_at": expires_at,
+            "personnel_number": pn,
         })
 
     await db.commit()
@@ -237,7 +248,8 @@ async def resend_invitation(
 
 
 async def get_public_invitation(db: AsyncSession, token: str, tenant_lookup=None) -> dict:
-    """Resolve token → {email, tenant_name, role, expires_at, valid, reason_if_invalid}.
+    """Resolve token → {email, tenant_name, role, expires_at, valid, reason_if_invalid,
+    requires_personnel_number}.
 
     No auth — anyone with the token can view. Used by /accept-invite page on load.
     Returns dict; HTTPException is NOT raised (so frontend can show the user
@@ -255,6 +267,7 @@ async def get_public_invitation(db: AsyncSession, token: str, tenant_lookup=None
             "expires_at": datetime.min.replace(tzinfo=timezone.utc),
             "valid": False,
             "reason_if_invalid": "invitation_not_found",
+            "requires_personnel_number": False,
         }
 
     # Look up tenant name
@@ -262,6 +275,7 @@ async def get_public_invitation(db: AsyncSession, token: str, tenant_lookup=None
     tenant_result = await db.execute(select(Tenant).where(Tenant.id == inv.tenant_id))
     tenant = tenant_result.scalar_one_or_none()
     tenant_name = tenant.name if tenant else "Unknown"
+    requires_pn = bool(inv.personnel_number)
 
     if inv.status == "accepted":
         return {
@@ -271,6 +285,7 @@ async def get_public_invitation(db: AsyncSession, token: str, tenant_lookup=None
             "expires_at": inv.expires_at,
             "valid": False,
             "reason_if_invalid": "already_accepted",
+            "requires_personnel_number": requires_pn,
         }
     if inv.status == "superseded":
         return {
@@ -280,6 +295,7 @@ async def get_public_invitation(db: AsyncSession, token: str, tenant_lookup=None
             "expires_at": inv.expires_at,
             "valid": False,
             "reason_if_invalid": "superseded",
+            "requires_personnel_number": requires_pn,
         }
     if inv.status == "revoked":
         return {
@@ -289,6 +305,7 @@ async def get_public_invitation(db: AsyncSession, token: str, tenant_lookup=None
             "expires_at": inv.expires_at,
             "valid": False,
             "reason_if_invalid": "revoked",
+            "requires_personnel_number": requires_pn,
         }
     if inv.status == "expired" or inv.expires_at < datetime.now(timezone.utc):
         # Lazy-expire: if status was still 'pending' but past expiry, flip it.
@@ -302,6 +319,7 @@ async def get_public_invitation(db: AsyncSession, token: str, tenant_lookup=None
             "expires_at": inv.expires_at,
             "valid": False,
             "reason_if_invalid": "expired",
+            "requires_personnel_number": requires_pn,
         }
 
     return {
@@ -311,6 +329,7 @@ async def get_public_invitation(db: AsyncSession, token: str, tenant_lookup=None
         "expires_at": inv.expires_at,
         "valid": True,
         "reason_if_invalid": None,
+        "requires_personnel_number": requires_pn,
     }
 
 
@@ -320,10 +339,16 @@ async def accept_invitation(
     first_name: str,
     last_name: str,
     password: str,
+    personnel_number: str | None = None,
+    accepted_ip: str | None = None,
+    accepted_user_agent: str | None = None,
 ) -> dict:
     """Validate token, set user password, activate user, issue JWT.
 
     Raises HTTPException on failure. Returns {user_id, tenant_id, role, access_token}.
+
+    If invitation.personnel_number is set (HR provided it), the caller MUST
+    supply matching personnel_number — soft 2FA check.
     """
     result = await db.execute(
         select(UserInvitation).where(UserInvitation.token == token)
@@ -346,6 +371,19 @@ async def accept_invitation(
     if not inv.user_id:
         raise HTTPException(status_code=500, detail="Invitation has no associated user")
 
+    # Soft 2FA: if invitation has personnel_number, verify it matches
+    if inv.personnel_number:
+        if not personnel_number:
+            raise HTTPException(
+                status_code=422,
+                detail="Это приглашение требует ввод табельного номера",
+            )
+        if personnel_number.strip().lower() != inv.personnel_number.strip().lower():
+            raise HTTPException(
+                status_code=403,
+                detail="Табельный номер не совпадает. Проверьте правильность или обратитесь к HR.",
+            )
+
     # Activate user
     user = await db.get(User, inv.user_id)
     if not user:
@@ -355,14 +393,21 @@ async def accept_invitation(
 
     user.first_name = first_name.strip()
     user.last_name = last_name.strip()
+    if inv.personnel_number and not user.personnel_number:
+        # Persist on user too (for future kiosk auth, etc.)
+        user.personnel_number = inv.personnel_number.strip()
     user.password_hash = ph.hash(password)
     user.is_active = True
     user.status = "active"
     user.last_login = datetime.now(timezone.utc)
 
-    # Mark invitation accepted
+    # Mark invitation accepted + audit fields
     inv.status = "accepted"
     inv.accepted_at = datetime.now(timezone.utc)
+    if accepted_ip:
+        inv.accepted_ip = accepted_ip[:64]  # cap to avoid overflow
+    if accepted_user_agent:
+        inv.accepted_user_agent = accepted_user_agent[:500]
 
     await db.commit()
 
