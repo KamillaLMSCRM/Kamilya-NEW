@@ -97,6 +97,10 @@ class Settings(BaseSettings):
     # Storage
     CERTIFICATE_STORAGE_DIR: str = "storage/certificates"
 
+    # Public URL — used to build invite links (e.g. /accept-invite?token=...)
+    # Defaults to app.kml.kz in production. Override in .env for staging.
+    PUBLIC_URL: str = "https://app.kml.kz"
+
 
 @lru_cache()
 def get_settings() -> Settings:

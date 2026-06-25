@@ -35,6 +35,33 @@ export default function AdminUsersPage() {
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newUser, setNewUser] = useState({ email: '', first_name: '', last_name: '', role: 'student', password: '' });
+
+  // ── Bulk invite (Phase 1 of employee onboarding) ──────────────
+  const [showBulkInvite, setShowBulkInvite] = useState(false);
+  const [bulkEmails, setBulkEmails] = useState('');
+  const [bulkSending, setBulkSending] = useState(false);
+  const [bulkResults, setBulkResults] = useState<{
+    created: { email: string; invitation_id: string; invite_url: string; expires_at: string }[];
+    skipped_existing: { email: string; reason: string }[];
+    invalid: { input: string; reason: string }[];
+  } | null>(null);
+
+  // Email regex mirrors backend (lib/invitations_service.py)
+  const EMAIL_RE = /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/;
+  const parsedBulkEmails = (() => {
+    const raw = bulkEmails.split(/[\s,;\n]+/).map(s => s.trim()).filter(Boolean);
+    const seen = new Set<string>();
+    const valid: string[] = [];
+    const invalid: string[] = [];
+    for (const e of raw) {
+      const norm = e.toLowerCase();
+      if (seen.has(norm)) continue;
+      seen.add(norm);
+      if (EMAIL_RE.test(norm) && norm.length <= 320) valid.push(norm);
+      else invalid.push(e);
+    }
+    return { valid, invalid, total: raw.length };
+  })();
   const [assignModal, setAssignModal] = useState<{ userId: string; userName: string; currentPositionId: string | null } | null>(null);
   const [selectedPositionId, setSelectedPositionId] = useState('');
   const token = useAuthStore((s) => s.accessToken);
@@ -88,6 +115,51 @@ export default function AdminUsersPage() {
     } else {
       const err = await res.json().catch(() => ({ detail: 'Ошибка сервера' }));
       setCreateError(err.detail || 'Ошибка создания пользователя');
+    }
+  };
+
+  const handleBulkInvite = async () => {
+    if (parsedBulkEmails.valid.length === 0) {
+      toast.error('Введите хотя бы один корректный email');
+      return;
+    }
+    setBulkSending(true);
+    try {
+      const res = await fetch(`${API_URL}/v1/users/invitations/bulk`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ items: parsedBulkEmails.valid.map(email => ({ email })) }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: 'Ошибка сервера' }));
+        throw new Error(err.detail || 'Bulk invite failed');
+      }
+      const data = await res.json();
+      setBulkResults({
+        created: data.created || [],
+        skipped_existing: data.skipped_existing || [],
+        invalid: data.invalid || [],
+      });
+      fetchUsers();
+      const msg = [
+        `Создано: ${data.created?.length || 0}`,
+        (data.skipped_existing?.length || 0) > 0 ? `пропущено: ${data.skipped_existing.length}` : null,
+        (data.invalid?.length || 0) > 0 ? `некорректных: ${data.invalid.length}` : null,
+      ].filter(Boolean).join(' · ');
+      toast.success(msg || 'Готово');
+    } catch (err: any) {
+      toast.error(t('common.saveFailed'), { description: err.message });
+    } finally {
+      setBulkSending(false);
+    }
+  };
+
+  const copyInviteUrl = async (url: string) => {
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success('Ссылка скопирована');
+    } catch {
+      toast.error('Не удалось скопировать');
     }
   };
 
@@ -153,7 +225,16 @@ export default function AdminUsersPage() {
     <div className="p-6 max-w-6xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-warm-800">{t('users.title')}</h1>
-        <Button onClick={() => setShowCreateModal(true)}>{t('admin.addAdminUser')}</Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => { setShowBulkInvite(true); setBulkResults(null); setBulkEmails(''); }}
+            title="Пригласить несколько сотрудников сразу — вставьте список email-ов"
+          >
+            📋 Массовое приглашение
+          </Button>
+          <Button onClick={() => setShowCreateModal(true)}>{t('admin.addAdminUser')}</Button>
+        </div>
       </div>
 
       <div className="flex gap-2">
@@ -378,6 +459,126 @@ export default function AdminUsersPage() {
             >
               {t('users.assignAndEnroll')}
             </Button>
+          </CardContent>
+        </Modal>
+      )}
+
+      {/* Bulk invite modal (Phase 1) */}
+      {showBulkInvite && (
+        <Modal open={showBulkInvite} onOpenChange={() => setShowBulkInvite(false)}>
+          <CardHeader>
+            <CardTitle>📋 Массовое приглашение</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {!bulkResults ? (
+              <>
+                <p className="text-sm text-warm-500">
+                  Введите email-ы сотрудников по одному на строку, через запятую или пробел.
+                  Имена будут запрошены у сотрудника при принятии приглашения.
+                </p>
+                <textarea
+                  value={bulkEmails}
+                  onChange={(e) => setBulkEmails(e.target.value)}
+                  rows={10}
+                  placeholder={`ivanov@company.kz\npetrov@company.kz\nsidorov@company.kz`}
+                  className="w-full rounded-lg border border-warm-200 px-3 py-2 text-sm font-mono outline-none focus:border-primary resize-y"
+                />
+                <div className="text-xs text-warm-500 space-y-0.5">
+                  <div>
+                    Распознано: <span className="font-semibold text-emerald-700">{parsedBulkEmails.valid.length}</span> корректных
+                    {parsedBulkEmails.invalid.length > 0 && (
+                      <>, <span className="font-semibold text-amber-600">{parsedBulkEmails.invalid.length}</span> некорректных</>
+                    )}
+                  </div>
+                  <div className="text-warm-400">
+                    Все приглашённые получат роль «Студент». Ссылка действительна 3 дня (настраивается).
+                    Методолог копирует ссылку и отправляет сотруднику вручную (Slack, Telegram, почта).
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowBulkInvite(false)}
+                    className="flex-1"
+                  >
+                    Отмена
+                  </Button>
+                  <Button
+                    onClick={handleBulkInvite}
+                    disabled={bulkSending || parsedBulkEmails.valid.length === 0}
+                    className="flex-1"
+                  >
+                    {bulkSending ? 'Отправляю...' : `Пригласить ${parsedBulkEmails.valid.length} ${parsedBulkEmails.valid.length === 1 ? 'человека' : 'человек'}`}
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="rounded-lg border border-warm-200 bg-warm-50 p-3 text-sm">
+                  <div className="font-semibold text-warm-800 mb-1">Готово</div>
+                  <div className="space-y-0.5 text-warm-600">
+                    {bulkResults.created.length > 0 && (
+                      <div>✅ Создано приглашений: <strong>{bulkResults.created.length}</strong></div>
+                    )}
+                    {bulkResults.skipped_existing.length > 0 && (
+                      <div>⚠️ Пропущено (уже в команде / есть активное приглашение): <strong>{bulkResults.skipped_existing.length}</strong></div>
+                    )}
+                    {bulkResults.invalid.length > 0 && (
+                      <div>❌ Некорректных email-ов: <strong>{bulkResults.invalid.length}</strong></div>
+                    )}
+                  </div>
+                </div>
+                {bulkResults.created.length > 0 && (
+                  <>
+                    <div className="text-xs text-warm-500">
+                      Скопируйте ссылку и отправьте сотруднику. Срок действия — 3 дня.
+                    </div>
+                    <div className="max-h-64 overflow-y-auto space-y-1.5 rounded-lg border border-warm-200 p-2">
+                      {bulkResults.created.map((r) => (
+                        <div key={r.invitation_id} className="flex items-center gap-2 text-xs">
+                          <span className="font-medium text-warm-800 shrink-0">{r.email}</span>
+                          <input
+                            readOnly
+                            value={r.invite_url}
+                            className="flex-1 min-w-0 rounded border border-warm-200 px-2 py-1 font-mono text-[10px] bg-warm-50"
+                            onClick={(e) => (e.target as HTMLInputElement).select()}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => copyInviteUrl(r.invite_url)}
+                            className="shrink-0 rounded border border-warm-200 px-2 py-1 text-xs hover:bg-warm-50"
+                          >
+                            📋
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+                {(bulkResults.skipped_existing.length > 0 || bulkResults.invalid.length > 0) && (
+                  <details className="text-xs text-warm-500">
+                    <summary className="cursor-pointer hover:text-warm-700">
+                      Подробности ({bulkResults.skipped_existing.length + bulkResults.invalid.length})
+                    </summary>
+                    <div className="mt-2 space-y-0.5 pl-3">
+                      {bulkResults.skipped_existing.map((s, i) => (
+                        <div key={i}>
+                          ⚠️ <span className="font-mono">{s.email}</span> — {s.reason === 'already_in_tenant' ? 'уже в команде' : s.reason === 'pending_invite_exists' ? 'уже есть активное приглашение' : s.reason}
+                        </div>
+                      ))}
+                      {bulkResults.invalid.map((inv, i) => (
+                        <div key={i}>
+                          ❌ <span className="font-mono">{inv.input}</span> — некорректный формат
+                        </div>
+                      ))}
+                    </div>
+                  </details>
+                )}
+                <Button onClick={() => setShowBulkInvite(false)} className="w-full">
+                  Готово
+                </Button>
+              </>
+            )}
           </CardContent>
         </Modal>
       )}

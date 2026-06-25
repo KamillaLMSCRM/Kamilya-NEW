@@ -1,0 +1,345 @@
+"""Kiosk links service — identify workers by personnel_number, list their courses.
+
+Stage 1b of employee onboarding epic.
+
+Public flow (no auth):
+1. HR creates kiosk link → gets URL (e.g. https://app.kml.kz/kiosk/abc123)
+2. HR prints URL as QR code, posts on workshop wall
+3. Worker scans → sees kiosk page
+4. Worker enters their personnel_number → POST /kiosks/{token}/identify
+5. Server returns: user identity (first/last name, position, dept), list of
+   assigned courses with progress (from position_courses + enrollments)
+6. Worker clicks a course → opens existing course player (reused)
+7. Worker takes quiz → existing QuizAttempt flow records attempt
+
+Audit:
+- Identify attempts (success + fail) logged via print for now
+- Could extend to a kiosk_audit table later if compliance demands
+"""
+from __future__ import annotations
+
+import logging
+import secrets
+from datetime import datetime, timezone
+from uuid import UUID, uuid4
+
+from fastapi import HTTPException
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
+
+from app.models.enrollment import Enrollment
+from app.models.users import User
+from app.modules.positions.models import Position, PositionCourse
+
+logger = logging.getLogger(__name__)
+
+
+# ── Helpers ──────────────────────────────────────────────────────
+
+
+def _generate_kiosk_token() -> str:
+    """24-char URL-safe token. ~144 bits entropy (still infeasible to brute force)."""
+    return secrets.token_urlsafe(16)
+
+
+# ── Admin CRUD ──────────────────────────────────────────────────
+
+
+async def create_kiosk_link(
+    db: AsyncSession,
+    tenant_id: UUID,
+    created_by: UUID,
+    name: str,
+    location: str | None = None,
+    scope_position_id: UUID | None = None,
+    expires_at: datetime | None = None,
+    base_url: str | None = None,
+) -> dict:
+    """Create a new kiosk link for the tenant.
+
+    Returns {id, name, token, kiosk_url, ...}.
+    """
+    token = _generate_kiosk_token()
+    kiosk_id = uuid4()
+
+    from app.models.kiosk_link import KioskLink  # local import to avoid circular
+
+    link = KioskLink(
+        id=kiosk_id,
+        tenant_id=tenant_id,
+        name=name.strip(),
+        token=token,
+        location=(location or "").strip() or None,
+        scope_position_id=scope_position_id,
+        is_active=True,
+        created_by=created_by,
+        expires_at=expires_at,
+    )
+    db.add(link)
+    await db.commit()
+    await db.refresh(link)
+
+    base = (base_url or "https://app.kml.kz").rstrip("/")
+    return {
+        "id": link.id,
+        "name": link.name,
+        "token": link.token,
+        "kiosk_url": f"{base}/kiosk/{link.token}",
+        "location": link.location,
+        "scope_position_id": link.scope_position_id,
+        "is_active": link.is_active,
+        "expires_at": link.expires_at,
+        "created_at": link.created_at,
+    }
+
+
+async def list_kiosk_links(db: AsyncSession, tenant_id: UUID) -> list:
+    """List all kiosk links for the tenant, newest first."""
+    from app.models.kiosk_link import KioskLink
+
+    result = await db.execute(
+        select(KioskLink)
+        .where(KioskLink.tenant_id == tenant_id)
+        .order_by(KioskLink.created_at.desc())
+    )
+    return result.scalars().all()
+
+
+async def get_kiosk_link(db: AsyncSession, tenant_id: UUID, kiosk_id: UUID):
+    from app.models.kiosk_link import KioskLink
+    link = await db.get(KioskLink, kiosk_id)
+    if not link or link.tenant_id != tenant_id:
+        return None
+    return link
+
+
+async def update_kiosk_link(
+    db: AsyncSession,
+    tenant_id: UUID,
+    kiosk_id: UUID,
+    patch: dict,
+):
+    from app.models.kiosk_link import KioskLink
+    link = await db.get(KioskLink, kiosk_id)
+    if not link or link.tenant_id != tenant_id:
+        return None
+    for k, v in patch.items():
+        if hasattr(link, k):
+            setattr(link, k, v)
+    await db.commit()
+    await db.refresh(link)
+    return link
+
+
+async def delete_kiosk_link(db: AsyncSession, tenant_id: UUID, kiosk_id: UUID) -> bool:
+    from app.models.kiosk_link import KioskLink
+    link = await db.get(KioskLink, kiosk_id)
+    if not link or link.tenant_id != tenant_id:
+        return False
+    await db.delete(link)
+    await db.commit()
+    return True
+
+
+# ── Public kiosk flow (no auth) ──────────────────────────────────
+
+
+async def get_public_kiosk(db: AsyncSession, token: str) -> dict:
+    """Resolve token → {name, tenant_name, scope_position_name, valid, reason_if_invalid}.
+
+    No auth — anyone with the kiosk URL can view. Used by /kiosk/{token} page.
+    """
+    from app.models.kiosk_link import KioskLink
+
+    result = await db.execute(select(KioskLink).where(KioskLink.token == token))
+    link = result.scalar_one_or_none()
+    if not link:
+        return {
+            "name": "",
+            "tenant_name": "",
+            "scope_position_name": None,
+            "location": None,
+            "valid": False,
+            "reason_if_invalid": "kiosk_not_found",
+        }
+
+    # Tenant name
+    from app.models.tenants import Tenant
+    tenant_result = await db.execute(select(Tenant).where(Tenant.id == link.tenant_id))
+    tenant = tenant_result.scalar_one_or_none()
+    tenant_name = tenant.name if tenant else ""
+
+    # Scope position name (if scoped)
+    pos_name = None
+    if link.scope_position_id:
+        pos_result = await db.execute(
+            select(Position).where(Position.id == link.scope_position_id)
+        )
+        pos = pos_result.scalar_one_or_none()
+        pos_name = pos.name if pos else None
+
+    # Validity checks
+    if not link.is_active:
+        return {
+            "name": link.name,
+            "tenant_name": tenant_name,
+            "scope_position_name": pos_name,
+            "location": link.location,
+            "valid": False,
+            "reason_if_invalid": "kiosk_disabled",
+        }
+    if link.expires_at and link.expires_at < datetime.now(timezone.utc):
+        return {
+            "name": link.name,
+            "tenant_name": tenant_name,
+            "scope_position_name": pos_name,
+            "location": link.location,
+            "valid": False,
+            "reason_if_invalid": "kiosk_expired",
+        }
+
+    return {
+        "name": link.name,
+        "tenant_name": tenant_name,
+        "scope_position_name": pos_name,
+        "location": link.location,
+        "valid": True,
+        "reason_if_invalid": None,
+    }
+
+
+async def identify_at_kiosk(
+    db: AsyncSession,
+    token: str,
+    personnel_number: str,
+) -> dict:
+    """Worker enters their personnel_number → server returns identity + assigned courses.
+
+    Used by kiosk page after worker types their tab number.
+
+    Returns {user: {...}, courses: [{course_id, title, status, progress_percent}]}
+
+    Raises HTTPException on failure.
+    """
+    from app.models.kiosk_link import KioskLink
+
+    pn = personnel_number.strip()
+    if not pn:
+        raise HTTPException(status_code=422, detail="Введите табельный номер")
+
+    # Resolve kiosk
+    result = await db.execute(select(KioskLink).where(KioskLink.token == token))
+    link = result.scalar_one_or_none()
+    if not link:
+        raise HTTPException(status_code=404, detail="Киоск не найден")
+    if not link.is_active:
+        raise HTTPException(status_code=410, detail="Киоск отключён")
+    if link.expires_at and link.expires_at < datetime.now(timezone.utc):
+        raise HTTPException(status_code=410, detail="Срок действия киоска истёк")
+
+    # Find user by personnel_number (case-insensitive) within tenant
+    user_result = await db.execute(
+        select(User).where(
+            User.tenant_id == link.tenant_id,
+            User.personnel_number.ilike(pn),
+        )
+    )
+    user = user_result.scalar_one_or_none()
+    if not user:
+        # Don't leak whether the user exists in another tenant
+        logger.info(f"kiosk identify failed: pn={pn} not found in tenant {link.tenant_id}")
+        raise HTTPException(
+            status_code=404,
+            detail="Табельный номер не найден. Обратитесь к HR.",
+        )
+
+    if not user.is_active or user.status != "active":
+        logger.info(f"kiosk identify: user {user.id} inactive")
+        raise HTTPException(status_code=403, detail="Учётная запись не активна. Обратитесь к HR.")
+
+    # Check kiosk scope (if scoped to a position, user must have that position)
+    if link.scope_position_id:
+        if str(user.position_id) != str(link.scope_position_id):
+            logger.info(f"kiosk identify: user {user.id} position mismatch")
+            raise HTTPException(
+                status_code=403,
+                detail="Этот киоск не для вашей должности. Обратитесь к HR.",
+            )
+
+    # Get user's assigned courses via position_courses + direct enrollments
+    course_ids: set[UUID] = set()
+    if user.position_id:
+        pc_result = await db.execute(
+            select(PositionCourse.course_id).where(PositionCourse.position_id == user.position_id)
+        )
+        course_ids.update(row[0] for row in pc_result.all())
+
+    # Direct enrollments too (in case of course assigned ad-hoc)
+    enr_result = await db.execute(
+        select(Enrollment.course_id).where(
+            Enrollment.user_id == user.id,
+            Enrollment.tenant_id == link.tenant_id,
+        )
+    )
+    course_ids.update(row[0] for row in enr_result.all())
+
+    # Fetch course details
+    # Importing Course triggers SQLAlchemy to resolve the "Module" relationship string
+    # in Course's model, so we also import Module to make sure it's registered.
+    from app.modules.courses.models import Course
+    from app.modules.lessons.models import Module  # noqa: F401  (registers Module for Course.relationship)
+    courses_data: list[dict] = [] 
+    if course_ids:
+        course_result = await db.execute(
+            select(Course).where(Course.id.in_(course_ids))
+        )
+        courses = course_result.scalars().all()
+        for c in courses:
+            # Get enrollment status
+            enr_status_result = await db.execute(
+                select(Enrollment).where(
+                    Enrollment.user_id == user.id,
+                    Enrollment.course_id == c.id,
+                )
+            )
+            enr = enr_status_result.scalar_one_or_none()
+            status = "not_started"
+            if enr:
+                if enr.completed_at:
+                    status = "completed"
+                elif enr.status != "enrolled":
+                    status = "in_progress"
+
+            courses_data.append({
+                "course_id": str(c.id),
+                "title": c.title,
+                "description": (c.description or "")[:200],
+                "status": status,
+            })
+
+    # Sort: in_progress first, then not_started, then completed
+    status_order = {"in_progress": 0, "not_started": 1, "completed": 2}
+    courses_data.sort(key=lambda x: (status_order.get(x["status"], 9), x["title"]))
+
+    # Get position name for display
+    pos_name = None
+    if user.position_id:
+        pos_result = await db.execute(select(Position).where(Position.id == user.position_id))
+        pos = pos_result.scalar_one_or_none()
+        pos_name = pos.name if pos else None
+
+    logger.info(f"kiosk identify: user {user.id} ({pn}) identified at kiosk {link.id}")
+
+    return {
+        "user": {
+            "user_id": str(user.id),
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "personnel_number": user.personnel_number,
+            "position_name": pos_name,
+        },
+        "kiosk_name": link.name,
+        "kiosk_location": link.location,
+        "courses": courses_data,
+    }
