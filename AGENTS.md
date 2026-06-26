@@ -450,6 +450,70 @@ What I need: [specific question]"
 
 ---
 
+## Lessons learned (важно для будущих агентов)
+
+### Ingestion & embeddings — где баги прячутся
+
+**Урок 1: Embeddings endpoint должен быть `/embeddings`, не `/chat/completions`**
+- `apps/api/app/modules/ai/llm_client.py::_BaseProviderClient._request` — общий для LLM и embeddings. До коммита `c7cd55d` хардкодил `/chat/completions`. `EmbeddingsClient` наследовал и слал embedding-запросы на chat endpoint → 4xx → цепочка падала → fallback на hash → embeddings не записывались.
+- **Защита:** при изменении `_request` проверяй что endpoint overridable. В коде теперь есть `LLMProviderConfig.endpoint` с default `/chat/completions`, и `EmbeddingsClient.__init__` переопределяет на `/embeddings`. Если добавишь новый тип клиента (chat + audio + vision) — каждый должен override `endpoint`.
+
+**Урок 2: `embedding_status` отражает chunks, не embeddings**
+- `apps/api/app/modules/documents/router.py:212` ставил `success` если `chunks > 0`, где `chunks` это выход chunker (разбиение markdown), а не количество реально записанных embeddings в pgvector.
+- Если `embed()` падал или все embeddings отбрасывались NaN-фильтром — статус всё равно был `success`, документ выглядел "здоровым" в UI, но `No embeddings found` при AI-генерации.
+- **Защита:** статус должен основываться на `embeddings_written`, не на `chunks`. После коммита `01349f7` `ingest_file()` возвращает `embeddings_written`, router использует его.
+
+**Урок 3: Hash embedding fallback может вернуть NaN**
+- Старая реализация `_hash_embedding` использовала bit-shuffle + `struct.unpack("f", ...)`. Некоторые битовые комбинации дают NaN/inf в IEEE-754. Pgvector режет с `NaN not allowed in vector`.
+- После коммита `150f60c` — seed → `random.uniform(-1, 1)`. Детерминированно, никогда NaN.
+
+**Урок 4: Embeddings NaN надо фильтровать ДО insert, не после**
+- `VectorStore.add_chunks` теперь проверяет каждый embedding на None/NaN/inf и skip-ит чанк с warn-логом. Если все — `ingest_file` raise-ит `RuntimeError`, router ставит `embedding_status='failed'`. До этого фикса один плохой чанк убивал весь документ.
+
+**Урок 5: Embedding chain (Qwen → Voyage) может вернуть "remaining=0" в логах**
+- Это **НЕ** значит chain пустой. Это значит Qwen упал и `_call_with_failover` увидел что `len(self._clients) - self._clients.index(client) - 1 == 0` потому что client.index вернул что Qwen — последний в списке. На самом деле Voyage в chain был. Просто logging misleading.
+- Если в логах `remaining=0` после Qwen, **первый** шаг — проверить реально ли Voyage добавлен (`from_settings` или `from_settings_async`).
+
+---
+
+### Telegram bot webhook — где баги прячутся
+
+**Урок 6: Auth-sessions (Redis) требует UUID-aware JSON encoder**
+- `apps/api/app/modules/auth/auth_sessions.py::verify_code` сериализует user_data через `json.dumps(session)`. Если `user_data` содержит UUID (например `tenant_id`) — `json.dumps` падает с `TypeError`.
+- Раньше работало случайно: candidate был superadmin (`tenant_id=None`), ветка с UUID не выполнялась. После изменения порядка резолва в telegram.py — candidate = tenant admin, `tenant_id` это UUID, упало.
+- **Защита:** есть `_SessionEncoder` (json.JSONEncoder с поддержкой UUID). Любой новый код который пишет user_data в Redis — используй `_dumps()`, не `json.dumps()`.
+
+**Урок 7: User ORM не имеет relationship `tenant`**
+- `apps/api/app/models/users.py` не объявляет `tenant` как relationship. Доступ `user.tenant` — AttributeError.
+- Раньше работало случайно: superadmin candidate имел `tenant_id=NULL`, ветка с `user.tenant` skip-илась.
+- **Защита:** всегда используй `select(Tenant).where(Tenant.id == user.tenant_id)` для получения тенанта. Не пиши `user.tenant`.
+
+---
+
+### Render deploy — где баги прячутся
+
+**Урок 8: autoDeploy не всегда работает**
+- Если webhook от GitHub отвалится или сервис был создан вручную в Dashboard до `render.yaml` — push в GitHub не триггерит деплой.
+- **Решение:** `RENDER_API_KEY` в env даёт мне (агенту) доступ к Render API. Могу сам триггерить деплой через `POST /v1/services/{id}/deploys`. Если ключа нет — нужно чтобы человек запускал руками через Dashboard.
+
+**Урок 9: Render logs endpoint НЕ доступен через API**
+- `GET /v1/services/{id}/logs` возвращает 404. Render даёт логи только через Dashboard UI.
+- **Workaround:** добавлять `print(..., flush=True)` в production код, чтобы логи шли в stdout (видны в Dashboard → Logs). `logger.info()` может фильтроваться.
+
+**Урок 10: Cloudflare может блокировать твой же IP**
+- Bot Fight Mode или WAF rule может заблокировать `python-urllib/3.11` UA с твоего ASN (например `9198` Казахтелеком).
+- **Решение:** Cloudflare Dashboard → Security → WAF → Custom Rules → Allow rule для своего IP или Render egress IP. Или переключить DNS на "DNS only" для приватных сервисов (docling.kml.kz).
+
+---
+
+### Многошаговые фичи — паттерн
+
+**Урок 11: При изменении Auth flow — прогоняй ВСЕ три способа логина**
+- В Kamilya LMS 3 способа: Telegram-код (через бота), public register (по telegram_id), superadmin email/password. Изменение порядка резолва users в telegram.py сломало оба других способа в разных местах (один получил `tenant_id=UUID` → json.dumps упал, другой получил `tenant_id=None` → ветка skip-илась). Регрессии скрывались за уникальным состоянием каждого user-row.
+- **Защита:** smoke-тесты на КАЖДЫЙ сценарий (test_telegram_webhook.py). Перед деплоем фичи которая меняет auth: `pytest tests/test_telegram_webhook.py` локально + хотя бы один integration-test на каждый login path.
+
+---
+
 ## Domain context (актуально на 2026-06-26)
 
 Факты о кодбазе, которые нужны ЛЮБОМУ агенту перед началом работы — обнаружены при реализации employee-onboarding epic. Если что-то изменилось — обнови.
