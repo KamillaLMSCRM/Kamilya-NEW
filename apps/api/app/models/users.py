@@ -11,7 +11,9 @@ class User(Base):
     __tablename__ = "users"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
-    tenant_id = Column(UUID(as_uuid=True), nullable=False, index=True)
+    # tenant_id is NULLABLE: superadmin (platform operator) doesn't
+    # belong to any tenant. Tenant users always have tenant_id set.
+    tenant_id = Column(UUID(as_uuid=True), nullable=True, index=True)
     email = Column(Text, index=True, nullable=True)
     personnel_number = Column(Text, nullable=True, index=True)  # табельный/employee ID (optional, unique per tenant)
     telegram_id = Column(BigInteger, nullable=True)

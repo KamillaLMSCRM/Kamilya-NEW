@@ -65,12 +65,12 @@ async def create_user_and_tokens(
     roles = [role]
     access_token = create_access_token({
         "sub": str(user.id),
-        "tenant_id": str(user.tenant_id),
+        "tenant_id": user.tenant_id,  # UUID or None — never str(None)
         "roles": roles,
     })
     refresh_token = create_refresh_token({
         "sub": str(user.id),
-        "tenant_id": str(user.tenant_id),
+        "tenant_id": user.tenant_id,
     })
     return user, access_token, refresh_token
 
@@ -109,12 +109,12 @@ async def authenticate_user(db: AsyncSession, email: str, password: str) -> tupl
 
     access_token = create_access_token({
         "sub": str(user.id),
-        "tenant_id": str(user.tenant_id),
+        "tenant_id": user.tenant_id,  # UUID or None — never str(None)
         "roles": roles,
     })
     refresh_token = create_refresh_token({
         "sub": str(user.id),
-        "tenant_id": str(user.tenant_id),
+        "tenant_id": user.tenant_id,
     })
     return user, access_token, refresh_token
 
@@ -136,7 +136,7 @@ async def refresh_access_token(db: AsyncSession, refresh_token: str) -> str:
 
     return create_access_token({
         "sub": str(user.id),
-        "tenant_id": str(user.tenant_id),
+        "tenant_id": user.tenant_id,  # pass UUID or None — never str(None)
         "roles": roles,
     })
 

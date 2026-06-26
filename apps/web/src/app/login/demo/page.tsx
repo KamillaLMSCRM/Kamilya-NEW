@@ -6,7 +6,7 @@ import { useAuthStore } from '@/store/authStore';
 import { clearStoredAuth } from '@/lib/auth';
 import { api } from '@/lib/api';
 import { Logo } from '@/components/brand/Logo';
-import { Shield, BookOpen, GraduationCap, ArrowLeft, Crown } from 'lucide-react';
+import { Shield, BookOpen, GraduationCap, ArrowLeft, KeyRound } from 'lucide-react';
 
 interface RoleCard {
   role: string;
@@ -16,20 +16,9 @@ interface RoleCard {
   color: string;
   bg: string;
   redirect: string;
-  badge?: string;
 }
 
 const ROLES: RoleCard[] = [
-  {
-    role: 'superadmin',
-    title: 'Суперадмин (платформа)',
-    description: 'Управление всеми тенантами, провайдерами AI, админами',
-    icon: <Crown className="w-8 h-8" />,
-    color: 'text-warning',
-    bg: 'bg-warning/10 hover:bg-warning/15 border-warning/30',
-    redirect: '/admin/super',
-    badge: 'только для Askar',
-  },
   {
     role: 'admin',
     title: 'Администратор',
@@ -88,7 +77,9 @@ export default function DemoLoginPage() {
             <Logo variant="full" size={44} />
           </div>
           <h2 className="text-xl font-semibold mt-2 text-foreground">Демо-доступ</h2>
-          <p className="text-sm text-muted-foreground mt-2">Выберите роль для входа в систему</p>
+          <p className="text-sm text-muted-foreground mt-2">
+            Выберите роль для входа в систему
+          </p>
         </div>
 
         {error && (
@@ -113,14 +104,7 @@ export default function DemoLoginPage() {
                 )}
               </div>
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="font-semibold text-foreground text-lg">{card.title}</span>
-                  {card.badge && (
-                    <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-warning/20 text-warning">
-                      {card.badge}
-                    </span>
-                  )}
-                </div>
+                <div className="font-semibold text-foreground text-lg">{card.title}</div>
                 <div className="text-sm text-muted-foreground mt-0.5">{card.description}</div>
               </div>
               <svg className="w-5 h-5 text-muted-foreground/60 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -130,14 +114,23 @@ export default function DemoLoginPage() {
           ))}
         </div>
 
-        <div className="mt-6 text-center">
+        <div className="mt-8 pt-6 border-t border-border text-center space-y-3">
           <a
-            href="/login"
-            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-primary transition-colors"
+            href="/superadmin/login"
+            className="inline-flex items-center gap-1.5 text-sm text-warning hover:text-warning/80 transition-colors"
           >
-            <ArrowLeft className="w-4 h-4" />
-            Назад к входу через Telegram
+            <KeyRound className="w-4 h-4" />
+            Вход для оператора платформы (суперадмин)
           </a>
+          <div>
+            <a
+              href="/login"
+              className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-primary transition-colors"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Назад к входу через Telegram
+            </a>
+          </div>
         </div>
       </main>
     </div>

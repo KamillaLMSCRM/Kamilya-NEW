@@ -31,6 +31,7 @@ from app.modules.admin.router import router as admin_router
 from app.modules.admin.provider_keys.router import router as provider_keys_router
 from app.modules.admin.superadmin.router import router as superadmin_router
 from app.modules.demo.router import router as demo_router
+from app.modules.auth.superadmin_login import router as superadmin_login_router
 from app.modules.users.router import router as users_router
 from app.modules.users.invitations_router import router as invitations_public_router
 from app.modules.users.kiosk_router import admin_router as kiosks_admin_router, public_router as kiosks_public_router
@@ -112,6 +113,7 @@ app.include_router(admin_router, prefix=f"{settings.API_PREFIX}", tags=["admin"]
 app.include_router(provider_keys_router, prefix=f"{settings.API_PREFIX}", tags=["admin"])
 app.include_router(superadmin_router, prefix=f"{settings.API_PREFIX}", tags=["admin"])
 app.include_router(demo_router, prefix=f"{settings.API_PREFIX}", tags=["demo"])
+app.include_router(superadmin_login_router, prefix=f"{settings.API_PREFIX}")
 app.include_router(users_router, prefix=f"{settings.API_PREFIX}", tags=["users"])
 app.include_router(invitations_public_router, prefix=f"{settings.API_PREFIX}", tags=["invitations"])
 app.include_router(kiosks_admin_router, prefix=f"{settings.API_PREFIX}", tags=["kiosks"])
