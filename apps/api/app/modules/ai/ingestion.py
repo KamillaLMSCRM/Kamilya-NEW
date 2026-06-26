@@ -332,15 +332,21 @@ class EmbeddingsProvider:
         return self._client
 
     def _hash_embedding(self, text: str, dim: int = 4096) -> list[float]:
-        """Deterministic hash-based embedding (last-resort, non-semantic)."""
+        """Deterministic hash-based embedding (last-resort, non-semantic).
+
+        Uses a seeded random generator so the same text always produces
+        the same vector. All values are explicitly clamped to a finite
+        range — the previous bit-shuffle implementation could emit
+        NaN/inf for some bit patterns, which Postgres pgvector rejects
+        with a cryptic DataError and which used to mark the whole
+        document as embedding_status='failed' (see bug 2026-06-26).
+        """
         import hashlib
-        import struct
-        h = hashlib.sha512(text.encode("utf-8")).digest()
-        raw = []
-        for i in range(0, dim * 4, 4):
-            chunk = h[i % len(h):] + h[:i % len(h)]
-            raw.append(int.from_bytes(chunk[:4], "big"))
-        return [struct.unpack("f", struct.pack("I", v & 0xFFFFFFFF))[0] for v in raw[:dim]]
+        import random
+        seed = int.from_bytes(hashlib.sha256(text.encode("utf-8")).digest()[:8], "big")
+        rng = random.Random(seed)
+        # Each component in [-1.0, 1.0). Never NaN, never inf.
+        return [rng.uniform(-1.0, 1.0) for _ in range(dim)]
 
     async def embed(self, texts: list[str]) -> list[list[float]]:
         """Get embeddings with automatic failover Qwen → Voyage → hash."""
