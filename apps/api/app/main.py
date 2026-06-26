@@ -50,6 +50,10 @@ async def lifespan(app: FastAPI):
     """Startup/shutdown lifecycle."""
     # --- startup ---
     _run_migrations()
+    # Wire stdout/logger into the in-memory ring buffer so /v1/admin/debug/logs
+    # can return recent lines without scraping Render Dashboard.
+    from app.core import debug_log_buffer
+    debug_log_buffer.install()
     yield
     # --- shutdown ---
 

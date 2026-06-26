@@ -92,3 +92,51 @@ async def export_quiz_results(
         media_type="text/csv",
         headers={"Content-Disposition": "attachment; filename=quiz-results.csv"},
     )
+
+
+# ── Debug / observability ──────────────────────────────────────────────
+# Endpoints here exist so an AI agent (or on-call engineer) can read
+# runtime logs without opening the Render Dashboard. Capture happens in
+# app.core.debug_log_buffer: every print() and logger.info() line is
+# tee'd into a thread-safe ring buffer that survives until the
+# container restarts.
+
+
+@router.get("/debug/logs")
+async def debug_logs(
+    limit: int = 100,
+    level: str | None = None,
+    since_ts: float | None = None,
+    user: User = Depends(require_role("superadmin")),
+):
+    """Return the last N log lines from the in-memory ring buffer.
+
+    Query params:
+      limit:  1..1000 (default 100)
+      level:  minimum severity to return (DEBUG/INFO/WARNING/ERROR)
+      since_ts: unix timestamp; return only records strictly after it
+
+    Auth: superadmin only. Tenants have no business reading platform
+    operator diagnostics.
+    """
+    from app.core import debug_log_buffer
+    records = debug_log_buffer.get_recent(
+        limit=min(max(limit, 1), 1000),
+        level=level,
+        since_ts=since_ts,
+    )
+    return {
+        "count": len(records),
+        "buffer_total": debug_log_buffer.get_recent(limit=1000).__len__(),
+        "records": records,
+    }
+
+
+@router.delete("/debug/logs")
+async def debug_logs_clear(
+    user: User = Depends(require_role("superadmin")),
+):
+    """Wipe the in-memory log buffer. Useful when isolating a repro."""
+    from app.core import debug_log_buffer
+    debug_log_buffer.clear()
+    return {"status": "cleared"}
