@@ -92,6 +92,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     return () => clearInterval(interval);
   }, [t]);
 
+  // Hooks must be called unconditionally on every render — keep them
+  // above any early-return so React's order-of-hooks rule is satisfied.
+  const pathname = usePathname();
+  const isSuperadmin = user != null && user.tenant == null;
+
   if (!user) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -110,8 +115,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   // frontend) should only see platform-level pages. If they navigate to
   // a tenant-only page (sidebar is hidden but URL is reachable), redirect
   // them to /admin/super so they don't end up on a 403.
-  const pathname = usePathname();
-  const isSuperadmin = user.tenant == null;
   const TENANT_PATHS = [
     '/courses',
     '/documents',
