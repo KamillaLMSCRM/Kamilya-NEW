@@ -27,12 +27,23 @@ export default function TopBar({ title }: TopBarProps) {
   }, [showNotifications]);
 
   const isImpersonating = !!user?.impersonated_by;
+  const isSuperadmin = !!user && user.tenant == null && !isImpersonating;
 
   const exitImpersonation = () => {
     // Impersonation is a one-shot session: the only way out is to
     // re-authenticate as the platform superadmin. Wipe local storage
     // and route back to the superadmin login form.
     logout();
+    if (typeof window !== 'undefined') {
+      window.location.href = '/superadmin/login';
+    }
+  };
+
+  const goToSuperadmin = () => {
+    // The current user is a tenant admin whose telegram_id also
+    // belongs to the platform superadmin (same identity, different
+    // tenant rows). Swap to the superadmin session by re-logging-in
+    // via the email/password form.
     if (typeof window !== 'undefined') {
       window.location.href = '/superadmin/login';
     }
@@ -156,6 +167,25 @@ export default function TopBar({ title }: TopBarProps) {
         >
           {user?.full_name?.[0] || '?'}
         </div>
+
+        {/* Super admin switch — only visible to tenant users whose
+            telegram_id is also bound to the platform superadmin row.
+            Clicking routes to the superadmin login form. The actual
+            swap happens after re-auth. */}
+        {!isSuperadmin && !isImpersonating && (
+          <button
+            type="button"
+            onClick={goToSuperadmin}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-warning/40 bg-warning/5 px-3 py-2 text-xs font-medium text-warning hover:bg-warning/15 transition-colors"
+            title="Войти как оператор платформы"
+            aria-label="Войти как суперадмин"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+            </svg>
+            Super admin
+          </button>
+        )}
       </div>
       </div>
     </header>

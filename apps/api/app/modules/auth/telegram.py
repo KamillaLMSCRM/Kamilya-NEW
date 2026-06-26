@@ -60,16 +60,26 @@ async def handle_telegram_webhook(request: Request, db: AsyncSession = Depends(g
 
     # Find user by telegram_id. Multiple users can share a telegram_id
     # across tenants (e.g. a superadmin platform row plus per-tenant
-    # demo users created when someone tested /start). Resolution order:
-    #   1. Superadmin (tenant_id IS NULL) — always preferred
-    #   2. Most recently active tenant user
+    # admin rows). Resolution order:
+    #   1. Most recently active tenant user — preferred for the daily flow.
+    #      The platform superadmin row (tenant_id IS NULL) is now picked
+    #      ONLY if there are no tenant-scoped candidates, so the bot's
+    #      default landing is a real tenant admin context, not /admin/super.
+    #   2. Superadmin (tenant_id IS NULL) — fallback.
+    # To switch to the superadmin session, the user clicks the "Super admin"
+    # button in the TopBar — that triggers a fresh superadmin-login round
+    # trip with a separate code, never through this bot path.
     # Using scalar_one_or_none() here previously broke the bot with
     # MultipleResultsFound — see issue 2026-06-26.
     candidates = (
         await db.execute(
             select(User)
             .where(User.telegram_id == int(telegram_id))
-            .order_by(User.tenant_id.is_(None).desc(), User.last_login.desc().nulls_last())
+            .order_by(
+                # Prefer tenant-scoped rows over the NULL-tenant platform row.
+                User.tenant_id.is_(None).asc(),
+                User.last_login.desc().nulls_last(),
+            )
         )
     ).scalars().all()
     user = candidates[0] if candidates else None
