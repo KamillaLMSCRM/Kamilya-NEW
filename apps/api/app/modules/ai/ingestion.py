@@ -149,6 +149,7 @@ class VectorStore:
 
         async with async_session_factory() as session:
             dropped = 0
+            inserted = 0
             for chunk, emb in zip(chunks, embeddings):
                 # Sanity-check the vector: reject NaN/inf in any component.
                 # If the provider returned garbage, skip the chunk rather
@@ -168,7 +169,17 @@ class VectorStore:
 
                 chunk_id = hashlib.md5(chunk["text"].encode()).hexdigest()
                 meta = chunk.get("metadata", {})
-                await session.execute(
+                # DEBUG: log first chunk for visibility.
+                if inserted == 0:
+                    print(
+                        f"[INGEST] add_chunks first chunk: id={chunk_id} "
+                        f"doc_id={meta.get('doc_id', '?')} "
+                        f"text_len={len(chunk.get('text', ''))} "
+                        f"emb_len={len(emb) if emb else 0} "
+                        f"emb_sample={list(emb[:3]) if emb else 'NONE'}",
+                        flush=True,
+                    )
+                result = await session.execute(
                     text(
                         """INSERT INTO document_embeddings (id, tenant_id, doc_id, text, headings, doc_name, embedding)
                            VALUES (:id, :tenant_id, :doc_id, :text, :headings, :doc_name, :embedding)
@@ -184,7 +195,22 @@ class VectorStore:
                         "embedding": str(emb),
                     }
                 )
+                inserted += 1
             await session.commit()
+            # DEBUG: verify rows landed by counting from the same session.
+            cnt = await session.execute(
+                text(
+                    "SELECT COUNT(*) FROM document_embeddings "
+                    "WHERE doc_id::text = :did"
+                ),
+                {"did": meta.get("doc_id", "") if chunks else ""},
+            )
+            count_in_session = cnt.scalar()
+            print(
+                f"[INGEST] add_chunks post-commit: inserted_attempted={inserted} "
+                f"dropped={dropped} count_in_session={count_in_session}",
+                flush=True,
+            )
             if dropped:
                 _logger.warning(
                     "add_chunks: dropped %d malformed embeddings "
