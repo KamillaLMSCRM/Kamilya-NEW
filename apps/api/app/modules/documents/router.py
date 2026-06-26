@@ -208,11 +208,39 @@ async def upload_document(
         from app.modules.ai.ingestion import DocumentIngestion
         ingestion = DocumentIngestion()
         result = await ingestion.ingest_file(file_path, doc_id=str(doc_id), tenant_id=str(user.tenant_id))
+        # IMPORTANT: judge success on embeddings_written (real pgvector rows),
+        # NOT on chunks (which only counts chunker output). Previously the
+        # status was 'success' even when every embedding was malformed and
+        # zero rows landed in pgvector — making the doc silently unusable.
         chunks = result.get("chunks", 0)
-        doc.embedding_status = "success" if chunks > 0 else "failed"
+        embeddings_written = result.get("embeddings_written", 0)
         if chunks == 0:
+            doc.embedding_status = "failed"
             doc.embedding_error = "Ingestion produced 0 chunks (file may be empty or unsupported)"
-        print(f"[UPLOAD] Ingested {file.filename}: {chunks} chunks", flush=True)
+        elif embeddings_written == 0:
+            doc.embedding_status = "failed"
+            doc.embedding_error = (
+                f"All {chunks} embeddings were malformed and dropped — "
+                f"document is not usable for AI generation. Try re-uploading."
+            )
+        elif embeddings_written < chunks:
+            # Partial — some chunks had good embeddings, some didn't.
+            # Mark as success so the doc is at least usable, but record
+            # how many were lost.
+            doc.embedding_status = "success"
+            doc.embedding_error = (
+                f"Partial: {embeddings_written}/{chunks} chunks embedded; "
+                f"the rest were malformed and dropped."
+            )
+        else:
+            doc.embedding_status = "success"
+            doc.embedding_error = None
+        print(
+            f"[UPLOAD] Ingested {file.filename}: "
+            f"chunks={chunks} embeddings_written={embeddings_written} "
+            f"status={doc.embedding_status}",
+            flush=True,
+        )
     except Exception as e:
         doc.embedding_status = "failed"
         doc.embedding_error = str(e)[:500]

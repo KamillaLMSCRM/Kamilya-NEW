@@ -400,25 +400,51 @@ class DocumentIngestion:
         if not doc_id:
             doc_id = hashlib.md5(filename.encode()).hexdigest()[:12]
 
-        logger.info(f"Ingesting document: {filename} (id={doc_id})")
+        print(f"[INGEST] start file={filename} doc_id={doc_id}", flush=True)
 
         # Step 1: Convert to markdown
         converted = await self.converter.convert(file_path)
         markdown = converted["markdown"]
-        logger.info(f"  Converted: {len(markdown)} chars")
+        print(f"[INGEST] converted {len(markdown)} chars", flush=True)
 
         # Step 2: Chunk
         chunks = self.chunker.chunk_markdown(markdown, doc_id, filename)
-        logger.info(f"  Chunked: {len(chunks)} chunks")
+        print(f"[INGEST] chunked {len(chunks)} chunks", flush=True)
 
-        # Step 3: Embed (Qwen → hash fallback)
+        # Step 3: Embed (Qwen → Voyage → hash fallback)
         texts = [c["text"] for c in chunks]
-        embeddings = await self.embeddings.embed(texts)
-        logger.info(f"  Embedded: {len(embeddings)} vectors (dim={len(embeddings[0]) if embeddings else 0})")
+        try:
+            embeddings = await self.embeddings.embed(texts)
+            print(
+                f"[INGEST] embedded {len(embeddings)} vectors "
+                f"(dim={len(embeddings[0]) if embeddings else 0})",
+                flush=True,
+            )
+        except Exception as e:
+            # If the embedding chain blew up (not just failed-over), surface
+            # it loudly. Status will be set to 'failed' by the caller.
+            print(f"[INGEST] EMBED RAISED: {type(e).__name__}: {e}", flush=True)
+            raise
 
-        # Step 4: Store in Supabase pgvector
-        await self.store.add_chunks(chunks, embeddings, tenant_id=tenant_id)
-        logger.info(f"  Stored in Supabase pgvector")
+        # Step 4: Store in pgvector
+        try:
+            dropped = await self.store.add_chunks(chunks, embeddings, tenant_id=tenant_id)
+            print(
+                f"[INGEST] stored (dropped={dropped})",
+                flush=True,
+            )
+            embeddings_written = len(chunks) - dropped
+            if embeddings_written == 0 and len(chunks) > 0:
+                # Every chunk's embedding was malformed. Surface this so
+                # the upload router can mark embedding_status='failed'
+                # instead of pretending the doc is good to use.
+                raise RuntimeError(
+                    f"All {len(chunks)} embeddings were malformed "
+                    f"(None/NaN/inf). Doc will not be usable for AI generation."
+                )
+        except Exception as e:
+            print(f"[INGEST] STORE RAISED: {type(e).__name__}: {e}", flush=True)
+            raise
 
         # Step 5: Generate summary
         summary = await self.summarizer.summarize(markdown, doc_id, filename)
@@ -426,13 +452,14 @@ class DocumentIngestion:
         summary_path = os.path.join(self.summaries_dir, f"{doc_id}.json")
         with open(summary_path, "w", encoding="utf-8") as f:
             json.dump(summary, f, ensure_ascii=False, indent=2)
-        logger.info(f"  Summary saved: {summary_path}")
+        print(f"[INGEST] summary saved", flush=True)
 
         return {
             "doc_id": doc_id,
             "filename": filename,
             "chunks": len(chunks),
             "summary": summary,
+            "embeddings_written": embeddings_written,
         }
 
     async def ingest_files(self, file_paths: list[str]) -> list[dict]:
