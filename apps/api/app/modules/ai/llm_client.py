@@ -79,6 +79,14 @@ class LLMProviderConfig:
     model: str
     timeout: float = 600.0  # per-request timeout, seconds
     extra_body: dict = field(default_factory=dict)  # vendor-specific extras
+    # OpenAI-compatible endpoint path. Default = chat/completions (LLM).
+    # EmbeddingsClient overrides this to /embeddings.
+    # Bug 2026-06-26: previously hardcoded in _request, which meant
+    # POST /v1/embeddings was being sent to /v1/chat/completions on
+    # both Qwen-embed and Voyage, both of which responded with an
+    # HTTP 4xx/5xx — every ingestion silently fell back to the
+    # hash-based embedding and was effectively non-semantic.
+    endpoint: str = "/chat/completions"
 
 
 def _qwen_llm_provider() -> LLMProviderConfig:
@@ -194,7 +202,7 @@ class _BaseProviderClient:
             try:
                 async with httpx.AsyncClient(timeout=self.config.timeout) as client:
                     resp = await client.post(
-                        f"{self.config.base_url}/chat/completions",
+                        f"{self.config.base_url}{self.config.endpoint}",
                         json=payload,
                         headers={"Authorization": f"Bearer {self.config.api_key}"},
                     )
@@ -476,6 +484,11 @@ class EmbeddingsClient(_BaseProviderClient):
     def __init__(self, config: LLMProviderConfig | None = None, max_retries: int = 2):
         if config is None:
             config = _qwen_embed_provider()
+        # Always POST to /embeddings, regardless of the LLMProviderConfig's
+        # default endpoint. Without this override every embedding request
+        # would 4xx because _request would hit /chat/completions.
+        from dataclasses import replace
+        config = replace(config, endpoint="/embeddings")
         super().__init__(config=config, max_retries=max_retries)
 
     async def _embed(self, texts: list[str], input_type: str) -> list[list[float]]:
