@@ -85,6 +85,190 @@ apps/web/src/features/<feature>/
 - Integration: каждый endpoint
 - E2E (Playwright): critical paths (login, create course, take quiz)
 
+---
+
+## Mandatory skill loading (auto-applied)
+
+**Эти skills зарегистрированы глобально** (`~/.mavis/skills/<name>/SKILL.md`) и **ОБЯЗАТЕЛЬНО** загружаются агентом перед написанием кода в соответствующем контексте. Это ECC-equivalent правил, принудительно зашитый в system prompt через AGENTS.md.
+
+| Триггер (что делаю) | Skill (что загрузить ПЕРВЫМ) |
+|---|---|
+| Проектирую новый endpoint, schema, URL structure, error envelope | `skill api-design` |
+| Пишу SQL/ORM query, auth code, file upload, external integration, review PR | `skill security-review` |
+| Пишу service/repository код, новый тест, фикшу баг | `skill tdd-workflow` |
+| Создаю router, dependency, middleware, async service, WebSocket | `skill fastapi-patterns` |
+| Создаю новую таблицу, индекс, миграцию, оптимизирую запрос | `skill postgres-patterns` |
+| Меняю Dockerfile или docker-compose | `skill docker-patterns` |
+| Собираюсь сказать "готово/сделано/можно мержить" | `skill verification-before-completion` |
+
+**Запрещено:**
+- Писать endpoint без `api-design`
+- Писать query/auth/upload без `security-review`
+- Писать service/repository без `tdd-workflow`
+- Писать router/middleware без `fastapi-patterns`
+- Создавать миграцию без `postgres-patterns`
+- Менять Docker без `docker-patterns`
+- Декларировать задачу готовой без `verification-before-completion`
+
+**Загрузить несколько skills одновременно** — нормально (например, новый endpoint с миграцией → `api-design` + `security-review` + `tdd-workflow` + `fastapi-patterns` + `postgres-patterns`).
+
+---
+
+## Coding standards (auto-applied)
+
+Расширение архитектурных правил выше. Подробные паттерны — в `skill fullstack-dev`.
+
+### Иммутабельность
+- Возвращаем новые объекты, не мутируем inputs. Pydantic модели immutable by design — не переприсваивай поля.
+- Исключение: ORM internal state, Alembic migration data fixups.
+
+### Размер файлов
+- 200-400 строк типично, 800 максимум. Один файл = одна ответственность.
+- Если больше — split на под-модули (см. tdd-workflow § "Service is getting too big").
+
+### Именование
+- Python: `snake_case` (функции, переменные, файлы), `PascalCase` (классы)
+- TypeScript: `camelCase` (переменные/функции), `PascalCase` (компоненты/типы), `kebab-case` (файлы)
+- URLs: `kebab-case`, plural nouns (`/api/v1/course-modules`)
+- DB: `snake_case`, plural table names (`courses`, `enrollments`)
+- Enums: `Literal["draft", "published", "archived"]` в Pydantic, `VARCHAR(20) + CHECK` в DB
+
+### Dead code & comments
+- ❌ Закомментированный код в коммитах — удалять. Если временно нужен — TODO с linked issue.
+- ❌ Неиспользуемые импорты/функции/ветки — удалять. ruff/pyright/tsc подскажут.
+- ❌ `print()`, `console.log()`, debugger statements в production-коде.
+- ✅ Комментарии объясняют "почему", не "что" (код сам себя описывает).
+
+### Error handling
+- Каждый уровень обрабатывает ошибки явно:
+  - **Repository** → typed exceptions (`NotFoundError`, `ConflictError`)
+  - **Service** → ловит repo exceptions, добавляет бизнес-логику, throws domain exceptions
+  - **Router** → global exception handler → JSON envelope (`ErrorResponse`)
+  - **UI** → `getErrorMessage(error)` маппит коды в человеко-читаемые RU/KK/EN строки
+- ❌ Никогда не swallow exceptions silently (try/except: pass).
+- ❌ Никогда не возвращать stack trace или internal error messages клиенту.
+
+### Input validation
+- Pydantic v2 на каждом API boundary. Fail fast at startup (validated settings), not at usage.
+- Все поля с `Field(..., min_length=, max_length=)` где применимо.
+- Reject unknown fields (`extra="forbid"` в BaseSchema).
+- UUID4 для всех ID-полей. Enums через `Literal[...]` или `Enum`.
+
+---
+
+## Testing rules (auto-applied)
+
+Расширение архитектурного правила § 7. Подробности — в `skill tdd-workflow`.
+
+### Coverage targets
+| Слой | Минимум | Гейт |
+|---|---|---|
+| `service.py` | 80% | CI fail-under |
+| `repository.py` | 80% | CI fail-under |
+| `router.py` | integration per endpoint | manual + CI |
+| `schemas.py` | edge cases (max length, bad UUID) | manual |
+| `pages/` Next.js | E2E critical paths | Playwright |
+
+### Методология
+- RED → GREEN → REFACTOR. Test first. Test name = behavior, не implementation.
+- Unit tests mock repository layer (fast). Integration tests use real DB (transactional rollback).
+- E2E (Playwright) только для critical paths: login, course creation, quiz taking, certificate generation.
+
+### Cross-tenant test (MANDATORY для data-access endpoints)
+- Tenant A создаёт ресурс → Tenant B пытается его прочитать → expect **404** (не 403).
+- Тест ДОЛЖЕН быть в PR, иначе review rejection.
+
+### Запрещено
+- `assert True` без actual assertion
+- Тесты с зависимостями друг от друга
+- `time.sleep()` для async wait (use `await asyncio.sleep()` или polling)
+- Skip тестов без linked issue
+
+---
+
+## Security checklist (auto-applied, before commit)
+
+Расширение архитектурного правила § 2 + § 6. Подробности — в `skill security-review`.
+
+### Multi-tenancy (см. § 2 выше)
+- Каждый query фильтрует по `tenant_id` из JWT
+- 404 для cross-tenant (не 403)
+- RLS как second line of defense
+- Pre-commit grep: `rg -L "tenant_id"` на всех `select(...)` queries
+
+### Secrets & PII
+- ❌ Никогда не логируй JWT, password, refresh tokens, API keys
+- ❌ Никогда не коммить `.env` (только `.env.example` с dummy values)
+- ❌ Никогда не хардкодь secrets в коде (`settings.X` from env)
+- ✅ Pre-commit grep: `rg -i "(password|secret|api_key|jwt)\s*=\s*['\"]"`
+
+### Auth & Authz
+- JWT: `algorithms=["HS256"]` explicit (never include `"none"`)
+- Required claims: `sub`, `tenant_id`, `role`, `iat`, `exp`, `aud`
+- Tokens: access in memory (15min), refresh in httpOnly cookie (30 days)
+- RBAC: `Depends(require_role("admin", "methodologist"))` на каждом protected endpoint
+
+### File upload
+- Magic-byte MIME check (`python-magic`), НЕ по расширению
+- Filename sanitization (`re.sub(r"[^a-zA-Z0-9._-]", "_", filename)`)
+- Storage key = server-generated UUID (не user-provided filename)
+- Size limit enforced server-side (50MB default)
+
+### Input validation (Pydantic)
+- `tenant_id`, `created_by`, `user_id` — НИКОГДА из request body/query, только из JWT
+- UUID validation: `UUID4` type
+- String length limits: `Field(..., min_length=3, max_length=200)`
+- Enum validation: `Literal[...]` (Pydantic) + DB `CHECK` constraint
+
+### Rate limiting
+- Auth endpoints: 5/min/IP
+- LLM generation: per-tenant budget (cost control)
+- File upload: per-user, per-hour
+- Public endpoints: per-IP, per-minute
+
+### CORS & Headers
+- `allow_origins` = explicit list (`["https://app.kml.kz", "https://www.kml.kz"]`), NEVER `"*"` в production
+- Security headers (HSTS, X-Content-Type-Options, X-Frame-Options)
+- HTTPS only в production
+
+---
+
+## Performance rules (auto-applied)
+
+Расширение архитектурного правила § 5. Подробности — в `skill postgres-patterns`.
+
+### Budget
+- API P95 ≤ 800ms
+- Page P95 ≤ 2.5s
+- LCP ≤ 2.5s, FID ≤ 100ms, CLS ≤ 0.1
+
+### Database
+- ❌ Никогда N+1 queries. Используй `selectinload` / `joinedload` для eager loading.
+- ✅ Indexes для всех WHERE, JOIN, ORDER BY columns. Composite: equality first, then sort.
+- ✅ `EXPLAIN ANALYZE` перед оптимизацией. Без замера — нет оптимизации.
+- ✅ `pool_size = (CPU × 2) + spindle_count` (start 10-20). `pool_pre_ping=True`.
+- ✅ Cursor pagination для feeds/timelines (deep pages). Offset pagination для admin lists (< 10k pages).
+
+### Async
+- ❌ Никогда sync I/O в async routes (`requests`, `time.sleep`, `psycopg2` sync).
+- ✅ Все I/O через async-библиотеки (`httpx.AsyncClient`, `asyncpg`, `redis.asyncio`).
+- ✅ `asyncio.wait_for(..., timeout=30)` для external calls.
+- ✅ Background jobs в Celery (отдельный процесс), НЕ threads в API.
+
+### Frontend
+- ✅ Server Components для default, Client Components только где нужен interactivity.
+- ✅ Image optimization (`next/image`), font optimization (`next/font`).
+- ✅ Code splitting (Next.js automatic per route).
+- ✅ TanStack Query для server state (cache, dedupe, optimistic updates).
+- ✅ Skeleton/spinner loading states, не blank screens.
+
+### Premature optimization = ЗАПРЕЩЕНО
+- Measure first (Sentry, Vercel Analytics, `EXPLAIN ANALYZE`)
+- Fix the bottleneck, not the symptom
+- Profile before claiming improvement
+
+---
+
 ## Что ты получишь от меня (human architect)
 
 - Ответы на вопросы по `TZ.md` если что-то неясно
@@ -266,7 +450,7 @@ What I need: [specific question]"
 
 ---
 
-## Domain context (актуально на 2026-06-25)
+## Domain context (актуально на 2026-06-26)
 
 Факты о кодбазе, которые нужны ЛЮБОМУ агенту перед началом работы — обнаружены при реализации employee-onboarding epic. Если что-то изменилось — обнови.
 
@@ -297,3 +481,25 @@ invite_expiry_days (int, default 3, range 1-30)  -- added 2026-06-25
 - **Каждый** query фильтрует по `tenant_id`
 - Прямой SQL запрещён — только через ORM/repositories
 - Любой PR без tenant filter = **rejected**
+
+### LLM / Embeddings fallback chain (added 2026-06-26)
+Чтобы LMS не падала когда DGX с Qwen лежит, реализован автоматический failover на cloud-провайдеров. Реализация в `apps/api/app/modules/ai/llm_client.py` (классы `ResilientLLMClient`, `ResilientEmbeddingsClient`).
+
+**LLM chain (по порядку):**
+1. **Qwen self-hosted** (`https://qwen.kml.kz/v1`, модель `cyankiwi/Qwen3.6-35B-A3B-AWQ-4bit`) — primary, бесплатно
+2. **DeepSeek v4-flash** (`https://api.deepseek.com/v1`, модель `deepseek-v4-flash`) — fallback, $0.14/$0.28 per 1M tokens. Ключ `DEEPSEEK_API_KEY` в env. **ВАЖНО:** `deepseek-chat` deprecated 2026-07-24 — НЕ использовать старое имя.
+
+**Embeddings chain (по порядку):**
+1. **Qwen self-hosted** (`https://qwen-embed.kml.kz/v1`, модель `Qwen3-Embedding-8B`) — primary
+2. **Voyage voyage-4-lite** (`https://api.voyageai.com/v1`) — fallback, $0.02/M с **200M бесплатных токенов** на аккаунт. Ключ `VOYAGE_API_KEY` в env.
+
+**Что НЕ включено в v1:**
+- ❌ OpenRouter (через него можно добавить Claude Haiku как 4-й tier для reviewer — отложено до отдельного epic)
+- ❌ Quality-tier для reviewer (DeepSeek v4-pro / Claude) — отложено
+- ❌ Superadmin modal для управления ключами (сейчас ключи в env) — отложено, но архитектура готова
+
+**Если фича добавляет нового провайдера:**
+- Добавь config в `app/core/config.py`
+- Добавь factory `_xxx_provider()` в `llm_client.py` возвращающий `LLMProviderConfig | None`
+- Включи его в chain через `from_settings()` (только если ключ есть в env)
+- Покрой тестами в `tests/test_llm_failover.py`

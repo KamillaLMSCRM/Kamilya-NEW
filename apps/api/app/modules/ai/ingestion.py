@@ -264,61 +264,68 @@ class Summarizer:
 
 
 class EmbeddingsProvider:
-    """Embeddings with automatic fallback: Qwen → simple hash-based."""
+    """Embeddings with automatic fallback chain.
+
+    Chain (June 2026):
+      1. Qwen self-hosted (primary)
+      2. Voyage voyage-4-lite via ResilientEmbeddingsClient (fallback if Qwen down)
+      3. Hash-based deterministic embedding (last resort — non-semantic, but
+         keeps ingestion alive if both cloud providers are down)
+
+    Used by retrieval (Architect, Writer) and by DocumentIngestion.
+    """
 
     def __init__(self, qwen_url: str | None = None):
+        # The legacy qwen_url arg is honored for tests but in production the
+        # chain is built from settings (Qwen + optional Voyage).
         from app.core.config import get_settings
         if qwen_url is None:
             qwen_url = get_settings().QWEN_EMBEDDING_URL
         self.qwen_url = qwen_url
-        self._qwen_available: bool | None = None
+        # Built lazily on first embed() call so config changes are picked up
+        # and we don't spin up an httpx client until needed.
+        self._client = None
 
-    async def _try_qwen(self, texts: list[str]) -> list[list[float]] | None:
-        """Try Qwen embeddings API. Returns None if unavailable."""
-        import httpx
-        try:
-            async with httpx.AsyncClient(timeout=10) as client:
-                resp = await client.post(
-                    f"{self.qwen_url}/embeddings",
-                    json={"model": "Qwen3-Embedding-8B", "input": texts},
-                    headers={"Authorization": "Bearer not-needed"},
-                )
-                resp.raise_for_status()
-                data = resp.json()
-                return [item["embedding"] for item in data["data"]]
-        except Exception:
-            return None
+    def _get_client(self):
+        if self._client is None:
+            from app.modules.ai.llm_client import ResilientEmbeddingsClient
+            self._client = ResilientEmbeddingsClient.from_settings()
+        return self._client
 
     def _hash_embedding(self, text: str, dim: int = 4096) -> list[float]:
-        """Deterministic hash-based embedding (for BM25-like text matching)."""
+        """Deterministic hash-based embedding (last-resort, non-semantic)."""
         import hashlib
+        import struct
         h = hashlib.sha512(text.encode("utf-8")).digest()
-        # Expand to desired dimension
         raw = []
         for i in range(0, dim * 4, 4):
             chunk = h[i % len(h):] + h[:i % len(h)]
             raw.append(int.from_bytes(chunk[:4], "big"))
-        # Normalize to [-1, 1]
-        import struct
         return [struct.unpack("f", struct.pack("I", v & 0xFFFFFFFF))[0] for v in raw[:dim]]
 
     async def embed(self, texts: list[str]) -> list[list[float]]:
-        """Get embeddings with automatic fallback."""
-        if self._qwen_available is not False:
-            result = await self._try_qwen(texts)
-            if result is not None:
-                self._qwen_available = True
-                logger.info("Using Qwen embeddings")
-                return result
-            self._qwen_available = False
-            logger.warning("Qwen embeddings unavailable, falling back to hash-based")
-
-        return [self._hash_embedding(t) for t in texts]
+        """Get embeddings with automatic failover Qwen → Voyage → hash."""
+        from app.modules.ai.llm_client import AllProvidersFailedError
+        try:
+            return await self._get_client().embed_documents(texts)
+        except AllProvidersFailedError:
+            logger.error(
+                "[EMBED_FAILOVER] All cloud embedding providers failed; "
+                "using hash-based fallback (non-semantic)"
+            )
+            return [self._hash_embedding(t) for t in texts]
 
     async def embed_query(self, text: str) -> list[float]:
         """Embed a single query."""
-        results = await self.embed([text])
-        return results[0]
+        from app.modules.ai.llm_client import AllProvidersFailedError
+        try:
+            return await self._get_client().embed_query(text)
+        except AllProvidersFailedError:
+            logger.error(
+                "[EMBED_FAILOVER] All cloud embedding providers failed; "
+                "using hash-based fallback (non-semantic)"
+            )
+            return self._hash_embedding(text)
 
 
 class DocumentIngestion:

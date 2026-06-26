@@ -56,7 +56,7 @@ class Settings(BaseSettings):
     MINIO_BUCKET: str = "lms-content"
     MINIO_USE_SSL: bool = False
 
-    # Qwen (via Cloudflare tunnel)
+    # Qwen (via Cloudflare tunnel) — primary LLM + embeddings provider
     QWEN_API_URL: str = "https://qwen.kml.kz/v1"
     QWEN_EMBEDDING_URL: str = "https://qwen-embed.kml.kz/v1"
     EMBEDDING_URL: str = "https://qwen-embed.kml.kz/v1"
@@ -65,6 +65,26 @@ class Settings(BaseSettings):
     # LLM
     LLM_API_KEY: str = ""
     LLM_MODEL: str = "cyankiwi/Qwen3.6-35B-A3B-AWQ-4bit"
+
+    # DeepSeek — LLM fallback (cost). Activated only when DEEPSEEK_API_KEY is set
+    # and the primary Qwen endpoint fails. Pricing (per 1M tokens, June 2026):
+    #   deepseek-v4-flash  $0.14 in / $0.28 out
+    #   deepseek-v4-pro    $0.435 in / $0.87 out
+    # Endpoint is OpenAI-compatible (https://api.deepseek.com/v1).
+    DEEPSEEK_API_KEY: str = ""
+    DEEPSEEK_BASE_URL: str = "https://api.deepseek.com/v1"
+    DEEPSEEK_MODEL: str = "deepseek-v4-flash"
+
+    # Voyage AI — embeddings fallback. Endpoint is OpenAI-compatible
+    # (https://api.voyageai.com/v1). Free tier: 200M tokens per account for
+    # voyage-4-lite/voyage-4/voyage-context-3. Activated only when
+    # VOYAGE_API_KEY is set and Qwen embeddings fail.
+    #   voyage-4-lite        $0.02/M  (free up to 200M)
+    #   voyage-4             $0.06/M  (free up to 200M)
+    #   voyage-multilingual-2 $0.12/M (free up to 50M)
+    VOYAGE_API_KEY: str = ""
+    VOYAGE_BASE_URL: str = "https://api.voyageai.com/v1"
+    VOYAGE_MODEL: str = "voyage-4-lite"
 
     # Telegram Bot
     TELEGRAM_BOT_TOKEN: str = ""
