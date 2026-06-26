@@ -101,23 +101,34 @@ async def handle_telegram_webhook(request: Request, db: AsyncSession = Depends(g
     role_row = role_result.scalar_one_or_none()
     role = role_row if role_row else user.role
 
+    # Build the tenant payload. We do an explicit fetch rather than
+    # touch `user.tenant` because the User ORM model has no `tenant`
+    # relationship declared — the previous code only worked by accident
+    # (superadmin row has tenant_id IS NULL so the branch was skipped).
+    # With tenant-scoped candidates now in play, the lazy access raised
+    # AttributeError and the bot silently failed on every webhook.
+    tenant_payload = None
+    if user.tenant_id is not None:
+        from app.models.tenants import Tenant  # local import to avoid cycle
+        tenant_row = (
+            await db.execute(select(Tenant).where(Tenant.id == user.tenant_id))
+        ).scalar_one_or_none()
+        if tenant_row is not None:
+            tenant_payload = {
+                "id": str(tenant_row.id),
+                "name": tenant_row.name,
+                "slug": tenant_row.slug,
+                "is_demo": bool(tenant_row.is_demo),
+                "plan": tenant_row.plan,
+            }
+
     user_data = {
         "user_id": str(user.id),
         "tenant_id": user.tenant_id,  # UUID or None — never str(None)
         "telegram_id": telegram_id,
         "role": role,
         "full_name": f"{user.first_name} {user.last_name}",
-        "tenant": (
-            {
-                "id": str(user.tenant.id),
-                "name": user.tenant.name,
-                "slug": user.tenant.slug,
-                "is_demo": bool(user.tenant.is_demo),
-                "plan": user.tenant.plan,
-            }
-            if user.tenant_id is not None and user.tenant is not None
-            else None
-        ),
+        "tenant": tenant_payload,
     }
 
     success = await verify_code(text, telegram_id, user_data)
