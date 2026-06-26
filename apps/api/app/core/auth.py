@@ -75,7 +75,49 @@ async def get_current_user(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found or inactive")
 
     # Role is always from DB, never from JWT (JWT role is just for fast checks)
+    # UNLESS this is an impersonation token — in that case, the real sub is
+    # the platform superadmin (tenant_id=NULL), but we want the wrapper to
+    # behave like a tenant admin so all the require_tenant_user() checks
+    # and ORM filters see the impersonated tenant context.
+    if payload.get("impersonated_tenant"):
+        return _ImpersonatedUser(
+            real_user=user,
+            tenant_id=UUID(payload["impersonated_tenant"]),
+            role=payload.get("impersonated_role", "admin"),
+        )
     return user
+
+
+class _ImpersonatedUser:
+    """Read-only view over a real User with overridden tenant_id and role.
+
+    Used when a platform superadmin impersonates a tenant admin. The real
+    sub in the JWT is still the superadmin (so audit log writes identify
+    the actual operator), but `user.tenant_id` and `user.role` are
+    overridden to the impersonation target so all tenant-scoped ORM
+    filters and role checks behave naturally.
+
+    Forwarded attributes: every attribute of the underlying User model is
+    available via __getattr__, so endpoints that read `user.id`, `user.foo`
+    keep working unchanged.
+    """
+
+    __slots__ = ("_user", "tenant_id", "role", "is_impersonating")
+
+    def __init__(self, real_user: User, tenant_id: UUID, role: str):
+        self._user = real_user
+        self.tenant_id = tenant_id
+        self.role = role
+        self.is_impersonating = True
+
+    def __getattr__(self, name):
+        return getattr(self._user, name)
+
+    def __repr__(self):
+        return (
+            f"<ImpersonatedUser id={self._user.id} "
+            f"as={self.role} in tenant={self.tenant_id}>"
+        )
 
 
 async def get_current_active_user(user: User = Depends(get_current_user)) -> User:

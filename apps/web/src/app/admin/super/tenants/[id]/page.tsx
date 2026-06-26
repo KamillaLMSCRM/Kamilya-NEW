@@ -75,6 +75,9 @@ export default function TenantDetailPage({ params }: { params: Promise<{ id: str
   });
   const [addingAdmin, setAddingAdmin] = useState(false);
 
+  const [impersonateRole, setImpersonateRole] = useState<'admin' | 'org_admin' | 'teacher'>('admin');
+  const [impersonating, setImpersonating] = useState(false);
+
   const fetchAll = useCallback(async () => {
     if (!token) return;
     setLoading(true);
@@ -216,6 +219,36 @@ export default function TenantDetailPage({ params }: { params: Promise<{ id: str
     }
   };
 
+  const handleImpersonate = async () => {
+    if (!token) return;
+    setImpersonating(true);
+    try {
+      const res = await fetch(`${API_URL}/admin/super/tenants/${id}/impersonate`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ role: impersonateRole }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: 'Unknown' }));
+        throw new Error(err.detail || `HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      // Replace AuthStore with the impersonation session so the next
+      // navigation picks up the new token + user payload.
+      const { useAuthStore } = await import('@/store/authStore');
+      useAuthStore.getState().login(data.access_token, data.user);
+      toast.success(`Входим как ${data.tenant.name} (${data.as_role})…`);
+      router.push('/dashboard');
+    } catch (e) {
+      toast.error(`Impersonation failed: ${(e as Error).message}`);
+    } finally {
+      setImpersonating(false);
+    }
+  };
+
   if (loading) return <div className="p-6 text-text-tertiary">…</div>;
   if (!tenant) return <div className="p-6 text-red-600">Tenant not found</div>;
 
@@ -233,6 +266,40 @@ export default function TenantDetailPage({ params }: { params: Promise<{ id: str
           {tenant.status}
         </Badge>
         <code className="text-xs text-text-tertiary">/{tenant.slug}</code>
+
+        {/* Impersonation control — superadmin enters the tenant as
+            one of its admin-level roles. Useful for debugging what
+            a real tenant user sees, and for support. */}
+        <div className="ml-auto flex items-center gap-2 rounded-xl border border-warning/30 bg-warning/5 px-3 py-1.5">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="text-warning shrink-0">
+            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+            <circle cx="9" cy="7" r="4" />
+            <path d="M22 11h-6" />
+            <path d="m19 8-3 3 3 3" />
+          </svg>
+          <span className="text-xs text-warning/90 font-medium">Войти как:</span>
+          <select
+            value={impersonateRole}
+            onChange={(e) => setImpersonateRole(e.target.value as typeof impersonateRole)}
+            className="rounded border border-warning/30 bg-background px-2 py-1 text-xs"
+            disabled={impersonating}
+          >
+            {ROLE_KEYS.map((r) => (
+              <option key={r} value={r}>
+                {t(`superadmin.roles.${r}`)}
+              </option>
+            ))}
+          </select>
+          <Button
+            size="sm"
+            variant="default"
+            onClick={handleImpersonate}
+            disabled={impersonating}
+            className="bg-warning text-warning-foreground hover:bg-warning/90"
+          >
+            {impersonating ? '…' : 'Войти'}
+          </Button>
+        </div>
       </div>
 
       {/* Stats */}

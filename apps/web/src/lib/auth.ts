@@ -14,6 +14,12 @@ export interface AuthUser {
   full_name: string;
   email?: string | null;
   tenant?: AuthTenant | null;
+  // Set when this session was minted by the platform superadmin via
+  // /admin/super/tenants/{id}/impersonate. The frontend uses this to
+  // render an "Acting as superadmin → tenant X (exit)" banner.
+  impersonated_by?: string | null;
+  impersonated_tenant?: string | null;
+  impersonated_role?: string | null;
 }
 
 export interface AuthState {

@@ -11,10 +11,13 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from pydantic import BaseModel, Field
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.auth import require_role
+from app.core.auth import create_access_token, require_role
 from app.core.db import get_db
+from app.models.tenants import Tenant
 from app.models.users import User
 from app.modules.admin.superadmin.schemas import (
     AdminCreate,
@@ -210,4 +213,141 @@ async def deactivate_admin(
         svc.db, tenant_id, "superadmin.admin.deactivated", "user",
         resource_id=user_id, user_id=user.id,
         ip_address=request.client.host if request.client else None,
+    )
+
+
+# ── Impersonation ──────────────────────────────────────────────────────
+
+
+class ImpersonateRequest(BaseModel):
+    """Optional — defaults to impersonating as 'admin'."""
+    role: str = Field(
+        default="admin",
+        description="Role to assume inside the tenant. Must be one of admin|org_admin|teacher.",
+        pattern="^(admin|org_admin|teacher)$",
+    )
+
+
+class ImpersonateResponse(BaseModel):
+    access_token: str
+    expires_in: int = 900  # 15 min — same as regular access tokens
+    as_role: str
+    tenant: dict
+    user: dict
+
+
+@router.post(
+    "/tenants/{tenant_id}/impersonate",
+    response_model=ImpersonateResponse,
+    summary="Mint a short-lived JWT bound to a tenant (impersonation)",
+)
+async def impersonate_tenant(
+    tenant_id: uuid.UUID,
+    request: Request,
+    user: User = Depends(require_role("superadmin")),
+    db: AsyncSession = Depends(get_db),
+):
+    """Superadmin enters a tenant context.
+
+    The returned JWT has:
+      sub                = superadmin.id (so audit identifies the operator)
+      tenant_id          = <target tenant>
+      roles              = [requested role]
+      impersonated_by    = superadmin.id (marker claim — copied to audit)
+      impersonated_tenant= <target tenant>
+      impersonated_role  = requested role
+
+    `get_current_user` detects `impersonated_tenant` and returns an
+    `_ImpersonatedUser` wrapper so downstream handlers see a normal
+    user object with the overridden tenant_id/role.
+
+    All actions performed under this token are audit-logged with
+    `actor_id=superadmin.id` and a `impersonation` flag in details.
+
+    Security:
+      - Token expires in 15 min (same as regular).
+      - The superadmin must re-impersonate to extend.
+      - Audit row written on every impersonation start.
+    """
+    # We don't even need to parse the body — defaults are fine. But to be
+    # explicit and validate role, instantiate the schema.
+    try:
+        # Body is optional; FastAPI doesn't parse without Depends. Use raw
+        # JSON with a default fallback.
+        body = await request.json()
+    except Exception:
+        body = {}
+    try:
+        req = ImpersonateRequest(**body)
+    except Exception as e:
+        raise HTTPException(status_code=422, detail=f"Invalid impersonate body: {e}")
+
+    # 1. Verify tenant exists and is not deleted.
+    tenant = (
+        await db.execute(select(Tenant).where(Tenant.id == tenant_id))
+    ).scalar_one_or_none()
+    if tenant is None:
+        raise HTTPException(status_code=404, detail="Tenant not found")
+
+    # 2. Mint the impersonation token.
+    access_token = create_access_token({
+        "sub": str(user.id),  # real operator (for audit)
+        "tenant_id": str(tenant.id),
+        "roles": [req.role],
+        "impersonated_by": str(user.id),
+        "impersonated_tenant": str(tenant.id),
+        "impersonated_role": req.role,
+    })
+
+    # 3. Audit row — written under the TARGET tenant's audit stream
+    #    so the tenant admin (if they ever get access) can see "the
+    #    superadmin impersonated us at this moment".
+    await log_action(
+        db,
+        tenant.id,
+        "superadmin.impersonation.started",
+        "tenant",
+        resource_id=tenant.id,
+        user_id=user.id,
+        details={
+            "as_role": req.role,
+            "superadmin_email": user.email,
+            "tenant_slug": tenant.slug,
+        },
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+    await db.commit()
+
+    return ImpersonateResponse(
+        access_token=access_token,
+        expires_in=900,
+        as_role=req.role,
+        tenant={
+            "id": str(tenant.id),
+            "name": tenant.name,
+            "slug": tenant.slug,
+            "plan": tenant.plan,
+            "is_demo": bool(tenant.is_demo),
+        },
+        # Synthesize the user payload so the frontend can populate its
+        # AuthStore immediately without a second /users/me round-trip.
+        user={
+            "user_id": str(user.id),
+            "tenant_id": str(tenant.id),
+            "telegram_id": str(user.telegram_id) if user.telegram_id else "",
+            "role": req.role,
+            "full_name": f"{user.first_name} {user.last_name}",
+            "email": user.email,
+            "tenant": {
+                "id": str(tenant.id),
+                "name": tenant.name,
+                "slug": tenant.slug,
+                "is_demo": bool(tenant.is_demo),
+                "plan": tenant.plan,
+            },
+            "impersonated_by": str(user.id),
+            "impersonated_tenant": str(tenant.id),
+            "impersonated_role": req.role,
+        },
     )
