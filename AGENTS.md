@@ -452,6 +452,39 @@ What I need: [specific question]"
 
 ## Lessons learned (важно для будущих агентов)
 
+### Render API access (project secret)
+
+`RENDER_API_KEY` хранится в `apps/api/.env`. **Это проектный секрет, не персональный** — любой агент работающий с Kamilya LMS может и должен использовать его.
+
+**Доступное через API:**
+- `GET /v1/services` — список сервисов
+- `GET /v1/services/{id}` — детали сервиса
+- `GET /v1/services/{id}/deploys` — список деплоев (статус, commit, время)
+- `GET /v1/services/{id}/events` — события deploys/builds
+- `GET /v1/services/{id}/env-vars` — env vars (НЕ содержит секреты в plaintext)
+- `POST /v1/services/{id}/deploys` — триггер нового деплоя (без body)
+
+**НЕ доступно через API:**
+- `GET /v1/services/{id}/logs` — возвращает 404. Runtime logs только через Dashboard UI.
+- `GET /v1/services/{id}/deploys/{deployId}/logs` — тоже 404.
+
+**Workaround для runtime logs:** добавляй `print(..., flush=True)` в production код — вывод виден в Dashboard → Logs. Либо добавь endpoint `GET /v1/admin/debug/logs` (superadmin only) который возвращает последние N строк из in-memory log buffer — тогда агент может читать логи через API.
+
+**Типичные команды:**
+```powershell
+$env:RENDER_API_KEY = "rnd_xxx"  # из .env
+$env:RENDER_SERVICE_ID = "srv-d8rp8ej7uimc73fglid0"  # kamilya-lms-api
+$headers = @{ Authorization = "Bearer $env:RENDER_API_KEY"; Accept = "application/json" }
+
+# Триггер деплоя
+Invoke-WebRequest -Uri "https://api.render.com/v1/services/$env:RENDER_SERVICE_ID/deploys" `
+  -Method POST -Headers $headers -UseBasicParsing
+
+# Последние деплои
+Invoke-RestMethod -Uri "https://api.render.com/v1/services/$env:RENDER_SERVICE_ID/deploys?limit=5" `
+  -Headers $headers
+```
+
 ### Ingestion & embeddings — где баги прячутся
 
 **Урок 1: Embeddings endpoint должен быть `/embeddings`, не `/chat/completions`**
