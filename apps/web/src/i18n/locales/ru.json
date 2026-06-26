@@ -574,5 +574,105 @@
       "voyage": "Voyage (Embeddings fallback)"
     },
     "superadminOnly": "Только для суперадмина"
+  },
+  "superadmin": {
+    "title": "Админ платформы",
+    "superadminOnly": "Только для суперадмина",
+    "tenants": {
+      "title": "Тенанты",
+      "description": "Управление организациями, подписками и их админами.",
+      "create": "Новый тенант",
+      "createTitle": "Создать тенант",
+      "search": "Поиск по имени или slug",
+      "noTenants": "Тенантов пока нет",
+      "fields": {
+        "name": "Название",
+        "slug": "Slug",
+        "plan": "Тариф",
+        "status": "Статус",
+        "users": "Пользователи",
+        "courses": "Курсы",
+        "created": "Создан",
+        "actions": "Действия"
+      },
+      "stats": {
+        "users": "Пользователи",
+        "activeUsers": "Активные",
+        "admins": "Админы",
+        "courses": "Курсы",
+        "published": "Опубликовано",
+        "documents": "Документы",
+        "enrollments": "Назначения",
+        "lastActivity": "Последняя активность",
+        "never": "никогда"
+      },
+      "subscription": {
+        "title": "Подписка",
+        "plan": "Тариф",
+        "status": "Статус",
+        "trialEndsAt": "Окончание триала",
+        "paidUntil": "Оплачено до",
+        "maxUsers": "Лимит пользователей",
+        "maxCourses": "Лимит курсов в месяц",
+        "unlimited": "без лимита",
+        "notes": "Внутренние заметки"
+      },
+      "edit": "Изменить",
+      "save": "Сохранить",
+      "cancel": "Отмена",
+      "saveOk": "Тенант сохранён",
+      "saveError": "Не удалось сохранить тенант",
+      "loadError": "Не удалось загрузить тенантов"
+    },
+    "admins": {
+      "title": "Админы тенанта",
+      "add": "Добавить админа",
+      "addTitle": "Добавить админа / методиста",
+      "noAdmins": "В этом тенанте пока нет админов",
+      "fields": {
+        "name": "Имя",
+        "email": "Email",
+        "telegram": "Telegram ID",
+        "role": "Роль",
+        "active": "Активен",
+        "lastLogin": "Последний вход",
+        "actions": "Действия"
+      },
+      "form": {
+        "identifier": "Идентификатор",
+        "identifierHelp": "Email или Telegram ID. Можно оба сразу.",
+        "firstName": "Имя",
+        "lastName": "Фамилия",
+        "sendInvite": "Отправить приглашение",
+        "sendInviteHelp": "Работает только если указан email."
+      },
+      "deactivate": "Деактивировать",
+      "save": "Сохранить",
+      "cancel": "Отмена",
+      "saveOk": "Админ добавлен",
+      "saveError": "Не удалось добавить админа",
+      "deactivateOk": "Админ деактивирован",
+      "deactivateError": "Не удалось деактивировать",
+      "deactivateConfirm": "Деактивировать {name}?",
+      "identifierRequired": "Email или Telegram ID обязателен"
+    },
+    "plans": {
+      "free": "Бесплатный",
+      "trial": "Пробный",
+      "pro": "Pro",
+      "enterprise": "Корпоративный"
+    },
+    "statuses": {
+      "active": "Активен",
+      "trial": "Триал",
+      "suspended": "Приостановлен",
+      "archived": "Архив"
+    },
+    "roles": {
+      "admin": "Админ",
+      "org_admin": "Орг-админ",
+      "teacher": "Методист",
+      "superadmin": "Суперадмин"
+    }
   }
 }

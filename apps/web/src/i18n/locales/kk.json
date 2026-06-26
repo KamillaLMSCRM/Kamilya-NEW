@@ -574,5 +574,105 @@
       "voyage": "Voyage (Эмбеддинг резервтік)"
     },
     "superadminOnly": "Тек суперадминге арналған"
+  },
+  "superadmin": {
+    "title": "Платформа әкімшісі",
+    "superadminOnly": "Тек суперадминге",
+    "tenants": {
+      "title": "Тенанттар",
+      "description": "Ұйымдарды, жазылуларды және олардың әкімшілерін басқару.",
+      "create": "Жаңа тенант",
+      "createTitle": "Тенант құру",
+      "search": "Атауы немесе slug бойынша іздеу",
+      "noTenants": "Тенанттар әлі жоқ",
+      "fields": {
+        "name": "Атауы",
+        "slug": "Slug",
+        "plan": "Тариф",
+        "status": "Күйі",
+        "users": "Пайдаланушылар",
+        "courses": "Курстар",
+        "created": "Құрылған",
+        "actions": "Әрекеттер"
+      },
+      "stats": {
+        "users": "Пайдаланушылар",
+        "activeUsers": "Белсенді",
+        "admins": "Әкімшілер",
+        "courses": "Курстар",
+        "published": "Жарияланған",
+        "documents": "Құжаттар",
+        "enrollments": "Тағайындаулар",
+        "lastActivity": "Соңғы белсенділік",
+        "never": "ешқашан"
+      },
+      "subscription": {
+        "title": "Жазылу",
+        "plan": "Тариф",
+        "status": "Күйі",
+        "trialEndsAt": "Триал аяқталады",
+        "paidUntil": "Төленген",
+        "maxUsers": "Пайдаланушылар шегі",
+        "maxCourses": "Айына курстар шегі",
+        "unlimited": "шексіз",
+        "notes": "Ішкі жазбалар"
+      },
+      "edit": "Өзгерту",
+      "save": "Сақтау",
+      "cancel": "Болдырмау",
+      "saveOk": "Тенант сақталды",
+      "saveError": "Тенантты сақтау мүмкін болмады",
+      "loadError": "Тенанттарды жүктеу мүмкін болмады"
+    },
+    "admins": {
+      "title": "Тенант әкімшілері",
+      "add": "Әкімші қосу",
+      "addTitle": "Әкімші / оқытушы қосу",
+      "noAdmins": "Бұл тенантта әкімшілер жоқ",
+      "fields": {
+        "name": "Аты",
+        "email": "Email",
+        "telegram": "Telegram ID",
+        "role": "Рөл",
+        "active": "Белсенді",
+        "lastLogin": "Соңғы кіру",
+        "actions": "Әрекеттер"
+      },
+      "form": {
+        "identifier": "Идентификатор",
+        "identifierHelp": "Email немесе Telegram ID. Екеуі де болады.",
+        "firstName": "Аты",
+        "lastName": "Тегі",
+        "sendInvite": "Шақыру жіберу",
+        "sendInviteHelp": "Тек email көрсетілгенде жұмыс істейді."
+      },
+      "deactivate": "Өшіру",
+      "save": "Сақтау",
+      "cancel": "Болдырмау",
+      "saveOk": "Әкімші қосылды",
+      "saveError": "Әкімші қосу мүмкін болмады",
+      "deactivateOk": "Әкімші өшірілді",
+      "deactivateError": "Өшіру мүмкін болмады",
+      "deactivateConfirm": "{name} өшірілсін бе?",
+      "identifierRequired": "Email немесе Telegram ID міндетті"
+    },
+    "plans": {
+      "free": "Тегін",
+      "trial": "Сынақ",
+      "pro": "Pro",
+      "enterprise": "Корпоративті"
+    },
+    "statuses": {
+      "active": "Белсенді",
+      "trial": "Сынақ",
+      "suspended": "Тоқтатылған",
+      "archived": "Мұрағат"
+    },
+    "roles": {
+      "admin": "Әкімші",
+      "org_admin": "Ұйым әкімшісі",
+      "teacher": "Оқытушы",
+      "superadmin": "Суперадмин"
+    }
   }
 }

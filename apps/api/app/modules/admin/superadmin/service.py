@@ -1,0 +1,311 @@
+"""Business logic for superadmin tenant + admin management."""
+from __future__ import annotations
+
+import logging
+import secrets
+import uuid
+from datetime import datetime, timedelta, timezone
+
+import argon2
+from sqlalchemy import func, select, update
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models.tenants import Tenant
+from app.models.users import User, UserInvitation
+from app.modules.admin.superadmin.schemas import (
+    AdminCreate,
+    AdminResponse,
+    AdminUpdate,
+    TenantCreate,
+    TenantResponse,
+    TenantStats,
+    TenantUpdate,
+)
+
+logger = logging.getLogger(__name__)
+_ph = argon2.PasswordHasher()
+
+
+# Roles a superadmin can grant via the admin-management UI. We do NOT
+# allow creating *other* superadmins from here — that's a deliberate
+# privilege-escalation guard. Use direct DB access for that.
+GRANTABLE_ROLES = {"admin", "org_admin", "teacher"}
+
+
+class SuperadminService:
+    def __init__(self, db: AsyncSession):
+        self.db = db
+
+    # ── Tenants ────────────────────────────────────────────────────
+
+    async def list_tenants(
+        self, search: str | None = None, limit: int = 100, offset: int = 0
+    ) -> tuple[list[Tenant], int]:
+        """List tenants with optional name/slug search.
+
+        Returns (tenants, total_count). total is computed via a separate
+        COUNT(*) so the list query stays simple.
+        """
+        base_query = select(Tenant)
+        if search:
+            like = f"%{search.lower()}%"
+            base_query = base_query.where(
+                func.lower(Tenant.name).like(like)
+                | func.lower(Tenant.slug).like(like)
+            )
+
+        # Total count
+        count_q = select(func.count()).select_from(base_query.subquery())
+        total = (await self.db.execute(count_q)).scalar() or 0
+
+        # Page
+        page_q = base_query.order_by(Tenant.created_at.desc()).offset(offset).limit(limit)
+        result = await self.db.execute(page_q)
+        return list(result.scalars().all()), int(total)
+
+    async def get_tenant(self, tenant_id: uuid.UUID) -> Tenant | None:
+        return await self.db.get(Tenant, tenant_id)
+
+    async def get_tenant_stats(self, tenant_id: uuid.UUID) -> TenantStats:
+        """Aggregate per-tenant usage counters."""
+        # Users
+        user_count_q = select(func.count(User.id)).where(User.tenant_id == tenant_id)
+        active_user_q = user_count_q.where(User.is_active.is_(True))
+        admin_role_q = user_count_q.where(User.role.in_(["admin", "org_admin", "superadmin"]))
+        user_count = (await self.db.execute(user_count_q)).scalar() or 0
+        active_user_count = (await self.db.execute(active_user_q)).scalar() or 0
+        admin_count = (await self.db.execute(admin_role_q)).scalar() or 0
+
+        # Courses, documents, enrollments, last activity
+        from app.models.courses import Course
+        from app.models.document import Document
+        from app.models.enrollment import Enrollment
+
+        course_count_q = select(func.count(Course.id)).where(Course.tenant_id == tenant_id)
+        published_count_q = course_count_q.where(Course.status == "published")
+        doc_count_q = select(func.count(Document.id)).where(Document.tenant_id == tenant_id)
+        enr_count_q = select(func.count(Enrollment.id)).where(Enrollment.tenant_id == tenant_id)
+        last_login_q = select(func.max(User.last_login)).where(User.tenant_id == tenant_id)
+
+        course_count = (await self.db.execute(course_count_q)).scalar() or 0
+        published_count = (await self.db.execute(published_count_q)).scalar() or 0
+        doc_count = (await self.db.execute(doc_count_q)).scalar() or 0
+        enr_count = (await self.db.execute(enr_count_q)).scalar() or 0
+        last_activity = (await self.db.execute(last_login_q)).scalar()
+
+        return TenantStats(
+            user_count=int(user_count),
+            active_user_count=int(active_user_count),
+            admin_count=int(admin_count),
+            course_count=int(course_count),
+            published_course_count=int(published_count),
+            document_count=int(doc_count),
+            enrollment_count=int(enr_count),
+            last_activity_at=last_activity,
+        )
+
+    async def create_tenant(self, payload: TenantCreate) -> Tenant:
+        # Slug uniqueness is enforced by DB unique index; catch and re-raise.
+        tenant = Tenant(
+            name=payload.name,
+            slug=payload.slug,
+            plan=payload.plan,
+            status=payload.status,
+            trial_ends_at=payload.trial_ends_at,
+            paid_until=payload.paid_until,
+            max_users=payload.max_users,
+            max_courses_per_month=payload.max_courses_per_month,
+            notes=payload.notes,
+        )
+        self.db.add(tenant)
+        try:
+            await self.db.flush()
+        except IntegrityError as e:
+            raise ValueError(f"Slug '{payload.slug}' is already taken") from e
+        await self.db.commit()
+        await self.db.refresh(tenant)
+        logger.info("superadmin.tenant.created id=%s slug=%s", tenant.id, tenant.slug)
+        return tenant
+
+    async def update_tenant(
+        self, tenant_id: uuid.UUID, payload: TenantUpdate
+    ) -> Tenant:
+        tenant = await self.db.get(Tenant, tenant_id)
+        if tenant is None:
+            raise LookupError(f"Tenant {tenant_id} not found")
+
+        changes: dict = {}
+        for field in (
+            "name", "slug", "status", "plan", "trial_ends_at", "paid_until",
+            "max_users", "max_courses_per_month", "notes", "settings",
+        ):
+            new_value = getattr(payload, field)
+            if new_value is not None and getattr(tenant, field) != new_value:
+                changes[field] = {"from": getattr(tenant, field), "to": new_value}
+                setattr(tenant, field, new_value)
+
+        if not changes:
+            return tenant
+        try:
+            await self.db.commit()
+        except IntegrityError as e:
+            raise ValueError(f"Slug '{payload.slug}' is already taken") from e
+        await self.db.refresh(tenant)
+        logger.info(
+            "superadmin.tenant.updated id=%s changes=%s", tenant.id, list(changes.keys())
+        )
+        return tenant
+
+    # ── Admins (per-tenant users) ──────────────────────────────────
+
+    async def list_admins(self, tenant_id: uuid.UUID) -> list[User]:
+        """List users in a tenant that have elevated roles."""
+        result = await self.db.execute(
+            select(User)
+            .where(
+                User.tenant_id == tenant_id,
+                User.role.in_(["admin", "org_admin", "superadmin"]),
+            )
+            .order_by(User.created_at.asc())
+        )
+        return list(result.scalars().all())
+
+    async def create_admin(
+        self, tenant_id: uuid.UUID, payload: AdminCreate, superadmin_id: uuid.UUID
+    ) -> tuple[User, UserInvitation | None]:
+        """Add a user with an admin role to a tenant.
+
+        Returns (user, invite_or_none). If `send_invite` is True and
+        `email` is set, a UserInvitation row is also created so the new
+        admin can set their password via the standard invite flow.
+        """
+        if payload.role not in GRANTABLE_ROLES:
+            raise ValueError(
+                f"Cannot grant role '{payload.role}' from superadmin UI"
+            )
+
+        # Idempotent: if a user with this email or telegram_id already
+        # exists in this tenant, promote them rather than error.
+        existing = await self._find_existing_user(tenant_id, payload)
+        if existing is not None:
+            existing.role = payload.role
+            existing.is_active = payload.is_active
+            existing.first_name = payload.first_name
+            existing.last_name = payload.last_name
+            # Update telegram_id if it was provided and missing.
+            if payload.telegram_id and not existing.telegram_id:
+                existing.telegram_id = payload.telegram_id
+            await self.db.commit()
+            await self.db.refresh(existing)
+            logger.info(
+                "superadmin.admin.promoted id=%s tenant=%s role=%s",
+                existing.id, tenant_id, payload.role,
+            )
+            return existing, None
+
+        # Build a temp password — only used if email is set; otherwise
+        # the user logs in via Telegram and the hash is just a placeholder.
+        temp_pw = secrets.token_urlsafe(16) if payload.email else "telegram-only"
+
+        user = User(
+            tenant_id=tenant_id,
+            email=payload.email,
+            telegram_id=payload.telegram_id,
+            first_name=payload.first_name,
+            last_name=payload.last_name,
+            role=payload.role,
+            is_active=payload.is_active,
+            status="active",
+            password_hash=_ph.hash(temp_pw),
+        )
+        self.db.add(user)
+        await self.db.flush()
+
+        invite: UserInvitation | None = None
+        if payload.send_invite and payload.email:
+            # Use tenant's invite expiry default (3 days).
+            invite = UserInvitation(
+                tenant_id=tenant_id,
+                email=payload.email,
+                first_name=payload.first_name,
+                last_name=payload.last_name,
+                role=payload.role,
+                invited_by=superadmin_id,
+                token=secrets.token_urlsafe(32),
+                status="pending",
+                expires_at=datetime.now(timezone.utc).replace(microsecond=0)
+                + timedelta(days=3),
+            )
+            self.db.add(invite)
+
+        await self.db.commit()
+        await self.db.refresh(user)
+        if invite:
+            await self.db.refresh(invite)
+        logger.info(
+            "superadmin.admin.created id=%s tenant=%s role=%s by=%s",
+            user.id, tenant_id, payload.role, superadmin_id,
+        )
+        return user, invite
+
+    async def update_admin(
+        self, tenant_id: uuid.UUID, user_id: uuid.UUID, payload: AdminUpdate
+    ) -> User:
+        user = await self._get_user_in_tenant(tenant_id, user_id)
+        changes: dict = {}
+        for field in ("role", "is_active", "first_name", "last_name"):
+            new_value = getattr(payload, field)
+            if new_value is not None and getattr(user, field) != new_value:
+                changes[field] = {"from": getattr(user, field), "to": new_value}
+                setattr(user, field, new_value)
+        if changes:
+            await self.db.commit()
+            await self.db.refresh(user)
+            logger.info(
+                "superadmin.admin.updated id=%s tenant=%s changes=%s",
+                user_id, tenant_id, list(changes.keys()),
+            )
+        return user
+
+    async def deactivate_admin(self, tenant_id: uuid.UUID, user_id: uuid.UUID) -> None:
+        """Soft-delete: set is_active=false. Reversible from the same UI."""
+        user = await self._get_user_in_tenant(tenant_id, user_id)
+        if user.role == "superadmin":
+            raise ValueError(
+                "Cannot deactivate a superadmin via this endpoint. "
+                "Use direct DB access for that — it's a privilege-escalation guard."
+            )
+        user.is_active = False
+        user.status = "inactive"
+        await self.db.commit()
+        logger.info(
+            "superadmin.admin.deactivated id=%s tenant=%s", user_id, tenant_id
+        )
+
+    # ── Helpers ────────────────────────────────────────────────────
+
+    async def _find_existing_user(
+        self, tenant_id: uuid.UUID, payload: AdminCreate
+    ) -> User | None:
+        if payload.email:
+            result = await self.db.execute(
+                select(User).where(
+                    User.tenant_id == tenant_id, User.email == payload.email
+                )
+            )
+            return result.scalar_one_or_none()
+        if payload.telegram_id:
+            result = await self.db.execute(
+                select(User).where(
+                    User.tenant_id == tenant_id, User.telegram_id == payload.telegram_id
+                )
+            )
+            return result.scalar_one_or_none()
+        return None
+
+    async def _get_user_in_tenant(self, tenant_id: uuid.UUID, user_id: uuid.UUID) -> User:
+        user = await self.db.get(User, user_id)
+        if user is None or user.tenant_id != tenant_id:
+            raise LookupError(f"User {user_id} not found in tenant {tenant_id}")
+        return user

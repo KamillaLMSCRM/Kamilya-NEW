@@ -1,0 +1,558 @@
+'use client';
+
+import Link from 'next/link';
+import { useEffect, useState, useCallback, use } from 'react';
+import { useRouter } from 'next/navigation';
+import { Card, CardHeader, CardTitle, CardContent, Button, Badge, Table, Modal, Input } from '@/components/ui';
+import { useAuthStore } from '@/store/authStore';
+import { useT } from '@/i18n/useT';
+import { toast } from '@/components/ui/Toast';
+
+const PLAN_KEYS = ['free', 'trial', 'pro', 'enterprise'] as const;
+const STATUS_KEYS = ['active', 'trial', 'suspended', 'archived'] as const;
+const ROLE_KEYS = ['admin', 'org_admin', 'teacher'] as const;
+
+interface Tenant {
+  id: string;
+  name: string;
+  slug: string;
+  status: string;
+  plan: string;
+  trial_ends_at: string | null;
+  paid_until: string | null;
+  max_users: number | null;
+  max_courses_per_month: number | null;
+  notes: string | null;
+  settings: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+  stats?: {
+    user_count: number;
+    active_user_count: number;
+    admin_count: number;
+    course_count: number;
+    published_course_count: number;
+    document_count: number;
+    enrollment_count: number;
+    last_activity_at: string | null;
+  };
+}
+
+interface Admin {
+  id: string;
+  email: string | null;
+  telegram_id: number | null;
+  first_name: string;
+  last_name: string;
+  role: string;
+  is_active: boolean;
+  last_login: string | null;
+  created_at: string;
+}
+
+export default function TenantDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
+  const { t } = useT();
+  const token = useAuthStore((s) => s.accessToken);
+  const API_URL = process.env.NEXT_PUBLIC_API_URL;
+  const router = useRouter();
+
+  const [tenant, setTenant] = useState<Tenant | null>(null);
+  const [admins, setAdmins] = useState<Admin[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const [editForm, setEditForm] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
+
+  const [showAddAdmin, setShowAddAdmin] = useState(false);
+  const [adminForm, setAdminForm] = useState({
+    email: '',
+    telegram_id: '',
+    first_name: '',
+    last_name: '',
+    role: 'admin' as typeof ROLE_KEYS[number],
+    send_invite: false,
+  });
+  const [addingAdmin, setAddingAdmin] = useState(false);
+
+  const fetchAll = useCallback(async () => {
+    if (!token) return;
+    setLoading(true);
+    try {
+      const [tRes, aRes] = await Promise.all([
+        fetch(`${API_URL}/admin/super/tenants/${id}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        fetch(`${API_URL}/admin/super/tenants/${id}/admins`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+      ]);
+      if (!tRes.ok) throw new Error(`HTTP ${tRes.status}`);
+      const tnt = await tRes.json();
+      setTenant(tnt);
+      setEditForm({
+        name: tnt.name,
+        slug: tnt.slug,
+        status: tnt.status,
+        plan: tnt.plan,
+        trial_ends_at: tnt.trial_ends_at ? tnt.trial_ends_at.slice(0, 10) : '',
+        paid_until: tnt.paid_until ? tnt.paid_until.slice(0, 10) : '',
+        max_users: tnt.max_users != null ? String(tnt.max_users) : '',
+        max_courses_per_month: tnt.max_courses_per_month != null ? String(tnt.max_courses_per_month) : '',
+        notes: tnt.notes || '',
+      });
+      if (aRes.ok) {
+        const data = await aRes.json();
+        setAdmins(Array.isArray(data) ? data : []);
+      }
+    } catch (e) {
+      toast.error(t('superadmin.tenants.loadError'));
+    } finally {
+      setLoading(false);
+    }
+  }, [id, token, API_URL, t]);
+
+  useEffect(() => {
+    fetchAll();
+  }, [fetchAll]);
+
+  const handleSave = async () => {
+    if (!tenant) return;
+    setSaving(true);
+    try {
+      const body: Record<string, unknown> = {};
+      // Only include fields that differ from current tenant.
+      const fields = ['name', 'slug', 'status', 'plan', 'trial_ends_at', 'paid_until', 'max_users', 'max_courses_per_month', 'notes'];
+      for (const f of fields) {
+        const v = editForm[f];
+        if (v === undefined) continue;
+        if (v === '') {
+          if (f === 'trial_ends_at' || f === 'paid_until' || f === 'max_users' || f === 'max_courses_per_month') {
+            body[f] = null;
+          } else {
+            body[f] = v;
+          }
+        } else if (f === 'max_users' || f === 'max_courses_per_month') {
+          body[f] = parseInt(v, 10);
+        } else if (f === 'trial_ends_at' || f === 'paid_until') {
+          body[f] = new Date(v).toISOString();
+        } else {
+          body[f] = v;
+        }
+      }
+      const res = await fetch(`${API_URL}/admin/super/tenants/${id}`, {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: 'Unknown' }));
+        throw new Error(err.detail || `HTTP ${res.status}`);
+      }
+      toast.success(t('superadmin.tenants.saveOk'));
+      await fetchAll();
+    } catch (e) {
+      toast.error(`${t('superadmin.tenants.saveError')}: ${(e as Error).message}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleAddAdmin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adminForm.email && !adminForm.telegram_id) {
+      toast.error(t('superadmin.admins.identifierRequired'));
+      return;
+    }
+    setAddingAdmin(true);
+    try {
+      const body: Record<string, unknown> = {
+        first_name: adminForm.first_name,
+        last_name: adminForm.last_name,
+        role: adminForm.role,
+      };
+      if (adminForm.email) body.email = adminForm.email;
+      if (adminForm.telegram_id) body.telegram_id = parseInt(adminForm.telegram_id, 10);
+      if (adminForm.send_invite && adminForm.email) body.send_invite = true;
+
+      const res = await fetch(`${API_URL}/admin/super/tenants/${id}/admins`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: 'Unknown' }));
+        throw new Error(err.detail || `HTTP ${res.status}`);
+      }
+      toast.success(t('superadmin.admins.saveOk'));
+      setShowAddAdmin(false);
+      setAdminForm({ email: '', telegram_id: '', first_name: '', last_name: '', role: 'admin', send_invite: false });
+      await fetchAll();
+    } catch (e) {
+      toast.error(`${t('superadmin.admins.saveError')}: ${(e as Error).message}`);
+    } finally {
+      setAddingAdmin(false);
+    }
+  };
+
+  const handleDeactivate = async (admin: Admin) => {
+    if (!confirm(t('superadmin.admins.deactivateConfirm', { name: `${admin.first_name} ${admin.last_name}` }))) return;
+    try {
+      const res = await fetch(`${API_URL}/admin/super/tenants/${id}/admins/${admin.id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      toast.success(t('superadmin.admins.deactivateOk'));
+      await fetchAll();
+    } catch (e) {
+      toast.error(t('superadmin.admins.deactivateError'));
+    }
+  };
+
+  if (loading) return <div className="p-6 text-text-tertiary">…</div>;
+  if (!tenant) return <div className="p-6 text-red-600">Tenant not found</div>;
+
+  const stats = tenant.stats;
+
+  return (
+    <div className="p-6 space-y-6">
+      <div className="flex items-center gap-3">
+        <Link href="/admin/super/tenants" className="text-text-tertiary hover:text-text-primary">
+          ←
+        </Link>
+        <h1 className="text-2xl font-semibold">{tenant.name}</h1>
+        <Badge variant="secondary">{tenant.plan}</Badge>
+        <Badge variant={tenant.status === 'active' ? 'default' : 'secondary'}>
+          {tenant.status}
+        </Badge>
+        <code className="text-xs text-text-tertiary">/{tenant.slug}</code>
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="pt-4">
+            <p className="text-xs text-text-tertiary">{t('superadmin.tenants.stats.users')}</p>
+            <p className="text-2xl font-semibold">{stats?.user_count ?? 0}</p>
+            <p className="text-xs text-text-tertiary">
+              {stats?.active_user_count ?? 0} {t('superadmin.tenants.stats.activeUsers')}
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4">
+            <p className="text-xs text-text-tertiary">{t('superadmin.tenants.stats.admins')}</p>
+            <p className="text-2xl font-semibold">{stats?.admin_count ?? 0}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4">
+            <p className="text-xs text-text-tertiary">{t('superadmin.tenants.stats.courses')}</p>
+            <p className="text-2xl font-semibold">{stats?.course_count ?? 0}</p>
+            <p className="text-xs text-text-tertiary">
+              {stats?.published_course_count ?? 0} {t('superadmin.tenants.stats.published')}
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4">
+            <p className="text-xs text-text-tertiary">{t('superadmin.tenants.stats.enrollments')}</p>
+            <p className="text-2xl font-semibold">{stats?.enrollment_count ?? 0}</p>
+            <p className="text-xs text-text-tertiary">
+              {t('superadmin.tenants.stats.lastActivity')}: {stats?.last_activity_at
+                ? new Date(stats.last_activity_at).toLocaleDateString()
+                : t('superadmin.tenants.stats.never')}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Subscription edit */}
+      <Card>
+        <CardHeader>
+          <CardTitle>{t('superadmin.tenants.subscription.title')}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                {t('superadmin.tenants.fields.name')}
+              </label>
+              <Input
+                value={editForm.name || ''}
+                onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                {t('superadmin.tenants.fields.slug')}
+              </label>
+              <Input
+                value={editForm.slug || ''}
+                onChange={(e) => setEditForm({ ...editForm, slug: e.target.value })}
+                pattern="[a-z0-9-]+"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                {t('superadmin.tenants.subscription.plan')}
+              </label>
+              <select
+                className="w-full rounded border border-border bg-bg-primary px-3 py-2 text-sm"
+                value={editForm.plan || ''}
+                onChange={(e) => setEditForm({ ...editForm, plan: e.target.value })}
+              >
+                {PLAN_KEYS.map((p) => (
+                  <option key={p} value={p}>
+                    {t(`superadmin.plans.${p}`)}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                {t('superadmin.tenants.subscription.status')}
+              </label>
+              <select
+                className="w-full rounded border border-border bg-bg-primary px-3 py-2 text-sm"
+                value={editForm.status || ''}
+                onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
+              >
+                {STATUS_KEYS.map((s) => (
+                  <option key={s} value={s}>
+                    {t(`superadmin.statuses.${s}`)}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                {t('superadmin.tenants.subscription.trialEndsAt')}
+              </label>
+              <Input
+                type="date"
+                value={editForm.trial_ends_at || ''}
+                onChange={(e) => setEditForm({ ...editForm, trial_ends_at: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                {t('superadmin.tenants.subscription.paidUntil')}
+              </label>
+              <Input
+                type="date"
+                value={editForm.paid_until || ''}
+                onChange={(e) => setEditForm({ ...editForm, paid_until: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                {t('superadmin.tenants.subscription.maxUsers')}
+              </label>
+              <Input
+                type="number"
+                min="1"
+                value={editForm.max_users || ''}
+                onChange={(e) => setEditForm({ ...editForm, max_users: e.target.value })}
+                placeholder={t('superadmin.tenants.subscription.unlimited')}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                {t('superadmin.tenants.subscription.maxCourses')}
+              </label>
+              <Input
+                type="number"
+                min="0"
+                value={editForm.max_courses_per_month || ''}
+                onChange={(e) => setEditForm({ ...editForm, max_courses_per_month: e.target.value })}
+                placeholder={t('superadmin.tenants.subscription.unlimited')}
+              />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium mb-1">
+                {t('superadmin.tenants.subscription.notes')}
+              </label>
+              <textarea
+                className="w-full rounded border border-border bg-bg-primary px-3 py-2 text-sm min-h-[80px]"
+                value={editForm.notes || ''}
+                onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
+                maxLength={2000}
+              />
+            </div>
+          </div>
+          <div className="flex justify-end mt-4">
+            <Button onClick={handleSave} variant="default" disabled={saving}>
+              {saving ? '…' : t('superadmin.tenants.save')}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Admins */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>{t('superadmin.admins.title')}</CardTitle>
+          <Button onClick={() => setShowAddAdmin(true)} variant="default">
+            + {t('superadmin.admins.add')}
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {admins.length === 0 ? (
+            <p className="text-text-tertiary py-8 text-center">
+              {t('superadmin.admins.noAdmins')}
+            </p>
+          ) : (
+            <Table>
+              <thead>
+                <tr className="text-left text-xs uppercase text-text-tertiary">
+                  <th className="px-3 py-2">{t('superadmin.admins.fields.name')}</th>
+                  <th className="px-3 py-2">{t('superadmin.admins.fields.email')}</th>
+                  <th className="px-3 py-2">{t('superadmin.admins.fields.telegram')}</th>
+                  <th className="px-3 py-2">{t('superadmin.admins.fields.role')}</th>
+                  <th className="px-3 py-2">{t('superadmin.admins.fields.lastLogin')}</th>
+                  <th className="px-3 py-2 text-right">·</th>
+                </tr>
+              </thead>
+              <tbody>
+                {admins.map((a) => (
+                  <tr key={a.id} className="border-t border-border">
+                    <td className="px-3 py-2">
+                      {a.first_name} {a.last_name}
+                      {!a.is_active && (
+                        <Badge variant="secondary" className="ml-2">
+                          {t('superadmin.admins.fields.active')}: ✗
+                        </Badge>
+                      )}
+                    </td>
+                    <td className="px-3 py-2 text-sm">{a.email || '—'}</td>
+                    <td className="px-3 py-2 text-sm font-mono">{a.telegram_id || '—'}</td>
+                    <td className="px-3 py-2">
+                      <Badge variant="secondary">{a.role}</Badge>
+                    </td>
+                    <td className="px-3 py-2 text-xs text-text-tertiary">
+                      {a.last_login ? new Date(a.last_login).toLocaleString() : '—'}
+                    </td>
+                    <td className="px-3 py-2 text-right">
+                      {a.is_active && (
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => handleDeactivate(a)}
+                        >
+                          {t('superadmin.admins.deactivate')}
+                        </Button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      <Modal
+        open={showAddAdmin}
+        onClose={() => !addingAdmin && setShowAddAdmin(false)}
+        title={t('superadmin.admins.addTitle')}
+      >
+        <form onSubmit={handleAddAdmin} className="space-y-4">
+          <div className="text-xs text-text-tertiary -mt-2">
+            {t('superadmin.admins.form.identifierHelp')}
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                {t('superadmin.admins.fields.email')}
+              </label>
+              <Input
+                type="email"
+                value={adminForm.email}
+                onChange={(e) => setAdminForm({ ...adminForm, email: e.target.value })}
+                placeholder="admin@org.kz"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                {t('superadmin.admins.fields.telegram')}
+              </label>
+              <Input
+                type="number"
+                value={adminForm.telegram_id}
+                onChange={(e) => setAdminForm({ ...adminForm, telegram_id: e.target.value })}
+                placeholder="123456789"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                {t('superadmin.admins.form.firstName')}
+              </label>
+              <Input
+                value={adminForm.first_name}
+                onChange={(e) => setAdminForm({ ...adminForm, first_name: e.target.value })}
+                required
+                minLength={1}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                {t('superadmin.admins.form.lastName')}
+              </label>
+              <Input
+                value={adminForm.last_name}
+                onChange={(e) => setAdminForm({ ...adminForm, last_name: e.target.value })}
+                required
+                minLength={1}
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">
+              {t('superadmin.admins.fields.role')}
+            </label>
+            <select
+              className="w-full rounded border border-border bg-bg-primary px-3 py-2 text-sm"
+              value={adminForm.role}
+              onChange={(e) => setAdminForm({ ...adminForm, role: e.target.value as any })}
+            >
+              {ROLE_KEYS.map((r) => (
+                <option key={r} value={r}>
+                  {t(`superadmin.roles.${r}`)}
+                </option>
+              ))}
+            </select>
+          </div>
+          {adminForm.email && (
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={adminForm.send_invite}
+                onChange={(e) => setAdminForm({ ...adminForm, send_invite: e.target.checked })}
+              />
+              <span>{t('superadmin.admins.form.sendInvite')}</span>
+              <span className="text-text-tertiary text-xs">
+                ({t('superadmin.admins.form.sendInviteHelp')})
+              </span>
+            </label>
+          )}
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="secondary" onClick={() => setShowAddAdmin(false)} disabled={addingAdmin}>
+              {t('superadmin.admins.cancel')}
+            </Button>
+            <Button type="submit" variant="default" disabled={addingAdmin}>
+              {addingAdmin ? '…' : t('superadmin.admins.save')}
+            </Button>
+          </div>
+        </form>
+      </Modal>
+    </div>
+  );
+}

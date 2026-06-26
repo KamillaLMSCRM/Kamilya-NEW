@@ -574,5 +574,105 @@
       "voyage": "Voyage (Embeddings fallback)"
     },
     "superadminOnly": "Superadmin only"
+  },
+  "superadmin": {
+    "title": "Platform Admin",
+    "superadminOnly": "Superadmin only",
+    "tenants": {
+      "title": "Tenants",
+      "description": "Manage organizations, subscriptions and their admins.",
+      "create": "New tenant",
+      "createTitle": "Create tenant",
+      "search": "Search by name or slug",
+      "noTenants": "No tenants yet",
+      "fields": {
+        "name": "Name",
+        "slug": "Slug",
+        "plan": "Plan",
+        "status": "Status",
+        "users": "Users",
+        "courses": "Courses",
+        "created": "Created",
+        "actions": "Actions"
+      },
+      "stats": {
+        "users": "Users",
+        "activeUsers": "Active users",
+        "admins": "Admins",
+        "courses": "Courses",
+        "published": "Published",
+        "documents": "Documents",
+        "enrollments": "Enrollments",
+        "lastActivity": "Last activity",
+        "never": "never"
+      },
+      "subscription": {
+        "title": "Subscription",
+        "plan": "Plan",
+        "status": "Status",
+        "trialEndsAt": "Trial ends",
+        "paidUntil": "Paid until",
+        "maxUsers": "Max users",
+        "maxCourses": "Max courses per month",
+        "unlimited": "unlimited",
+        "notes": "Internal notes"
+      },
+      "edit": "Edit",
+      "save": "Save",
+      "cancel": "Cancel",
+      "saveOk": "Tenant saved",
+      "saveError": "Failed to save tenant",
+      "loadError": "Failed to load tenants"
+    },
+    "admins": {
+      "title": "Tenant admins",
+      "add": "Add admin",
+      "addTitle": "Add admin / teacher",
+      "noAdmins": "No admins in this tenant yet",
+      "fields": {
+        "name": "Name",
+        "email": "Email",
+        "telegram": "Telegram ID",
+        "role": "Role",
+        "active": "Active",
+        "lastLogin": "Last login",
+        "actions": "Actions"
+      },
+      "form": {
+        "identifier": "Identifier",
+        "identifierHelp": "Provide email OR Telegram ID. Both is fine.",
+        "firstName": "First name",
+        "lastName": "Last name",
+        "sendInvite": "Send invite email",
+        "sendInviteHelp": "Only relevant if email is provided."
+      },
+      "deactivate": "Deactivate",
+      "save": "Save",
+      "cancel": "Cancel",
+      "saveOk": "Admin added",
+      "saveError": "Failed to add admin",
+      "deactivateOk": "Admin deactivated",
+      "deactivateError": "Failed to deactivate admin",
+      "deactivateConfirm": "Deactivate {name}?",
+      "identifierRequired": "Email or Telegram ID required"
+    },
+    "plans": {
+      "free": "Free",
+      "trial": "Trial",
+      "pro": "Pro",
+      "enterprise": "Enterprise"
+    },
+    "statuses": {
+      "active": "Active",
+      "trial": "Trial",
+      "suspended": "Suspended",
+      "archived": "Archived"
+    },
+    "roles": {
+      "admin": "Admin",
+      "org_admin": "Org admin",
+      "teacher": "Teacher",
+      "superadmin": "Superadmin"
+    }
   }
 }
