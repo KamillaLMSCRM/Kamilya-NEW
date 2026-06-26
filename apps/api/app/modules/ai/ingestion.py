@@ -150,6 +150,7 @@ class VectorStore:
         async with async_session_factory() as session:
             dropped = 0
             inserted = 0
+            last_doc_id = ""
             for chunk, emb in zip(chunks, embeddings):
                 # Sanity-check the vector: reject NaN/inf in any component.
                 # If the provider returned garbage, skip the chunk rather
@@ -169,17 +170,8 @@ class VectorStore:
 
                 chunk_id = hashlib.md5(chunk["text"].encode()).hexdigest()
                 meta = chunk.get("metadata", {})
-                # DEBUG: log first chunk for visibility.
-                if inserted == 0:
-                    print(
-                        f"[INGEST] add_chunks first chunk: id={chunk_id} "
-                        f"doc_id={meta.get('doc_id', '?')} "
-                        f"text_len={len(chunk.get('text', ''))} "
-                        f"emb_len={len(emb) if emb else 0} "
-                        f"emb_sample={list(emb[:3]) if emb else 'NONE'}",
-                        flush=True,
-                    )
-                result = await session.execute(
+                last_doc_id = meta.get("doc_id", "")
+                await session.execute(
                     text(
                         """INSERT INTO document_embeddings (id, tenant_id, doc_id, text, headings, doc_name, embedding)
                            VALUES (:id, :tenant_id, :doc_id, :text, :headings, :doc_name, :embedding)
@@ -188,7 +180,7 @@ class VectorStore:
                     {
                         "id": chunk_id,
                         "tenant_id": tenant_id,
-                        "doc_id": meta.get("doc_id", ""),
+                        "doc_id": last_doc_id,
                         "text": chunk["text"],
                         "headings": meta.get("headings", ""),
                         "doc_name": meta.get("doc_name", ""),
@@ -196,14 +188,25 @@ class VectorStore:
                     }
                 )
                 inserted += 1
+            # IMPORTANT: explicit flush before the SELECT below. Without it,
+            # SQLAlchemy's text() SELECT inside the same session may not see
+            # the freshly-INSERTed rows in asyncpg — the unit-of-work
+            # hasn't pushed to the connection yet, and session.execute()
+            # inside the same transaction can return 0 rows even when the
+            # COMMIT (called below) eventually writes them. Reproduced on
+            # 2026-06-26: ingested 25 chunks, session commit reported OK,
+            # post-commit SELECT in the SAME session returned 0 — because
+            # the SELECT ran before the flush actually pushed to pgwire.
+            await session.flush()
             await session.commit()
-            # DEBUG: verify rows landed by counting from the same session.
+
+            # Verify rows landed by counting from the same session, AFTER flush.
             cnt = await session.execute(
                 text(
                     "SELECT COUNT(*) FROM document_embeddings "
                     "WHERE doc_id::text = :did"
                 ),
-                {"did": meta.get("doc_id", "") if chunks else ""},
+                {"did": last_doc_id},
             )
             count_in_session = cnt.scalar()
             print(
