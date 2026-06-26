@@ -128,12 +128,44 @@ class VectorStore:
         self.persist_dir = persist_dir
 
     async def add_chunks(self, chunks: list[dict], embeddings: list[list[float]], tenant_id: str | None = None):
-        """Add chunks with embeddings to Supabase."""
+        """Add chunks with embeddings to Supabase.
+
+        Defends against malformed vectors (NaN/inf) that occasionally
+        come back from cloud embedding providers. Postgres pgvector
+        rejects these with a cryptic 'NaN not allowed in vector'
+        DataError, which used to mark the whole document as
+        embedding_status='failed' and block any AI generation against
+        it — see bug 2026-06-26: re-uploading the document didn't
+        help because the failing chunk was consistently the same.
+        Now we drop bad vectors at the door and log them so the
+        document is at least partially usable.
+        """
         from app.core.db import async_session_factory
         from sqlalchemy import text
         import hashlib
+        import math
+        import logging as _log
+        _logger = _log.getLogger(__name__)
+
         async with async_session_factory() as session:
+            dropped = 0
             for chunk, emb in zip(chunks, embeddings):
+                # Sanity-check the vector: reject NaN/inf in any component.
+                # If the provider returned garbage, skip the chunk rather
+                # than blow up the whole insert.
+                if emb is None or any(
+                    not isinstance(x, (int, float)) or math.isnan(x) or math.isinf(x)
+                    for x in emb
+                ):
+                    _logger.warning(
+                        "Skipping chunk with malformed embedding "
+                        "(None/NaN/inf). doc_id=%s text_preview=%r",
+                        chunk.get("metadata", {}).get("doc_id", "?"),
+                        (chunk.get("text") or "")[:60],
+                    )
+                    dropped += 1
+                    continue
+
                 chunk_id = hashlib.md5(chunk["text"].encode()).hexdigest()
                 meta = chunk.get("metadata", {})
                 await session.execute(
@@ -153,6 +185,13 @@ class VectorStore:
                     }
                 )
             await session.commit()
+            if dropped:
+                _logger.warning(
+                    "add_chunks: dropped %d malformed embeddings "
+                    "(see warnings above). Document may have partial coverage.",
+                    dropped,
+                )
+            return dropped
 
     async def query(
         self,
