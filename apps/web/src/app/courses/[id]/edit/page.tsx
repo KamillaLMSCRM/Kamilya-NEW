@@ -7,7 +7,8 @@ import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { toast } from '@/components/ui/Toast';
-import { ChevronLeft, ChevronUp, ChevronDown, X, Plus } from 'lucide-react';
+import { ChevronLeft, ChevronUp, ChevronDown, X, Plus, Sparkles, Bot } from 'lucide-react';
+import { AIChatPanel } from '@/components/ai/AIChatPanel';
 
 interface Lesson {
   id: string;
@@ -49,6 +50,15 @@ export default function CourseEditPage() {
   const [addingLessonToModule, setAddingLessonToModule] = useState<string | null>(null);
   const [editingLessonId, setEditingLessonId] = useState<string | null>(null);
   const [editLessonContent, setEditLessonContent] = useState('');
+
+  // AI chat panel state — opens as a slide-over from the right.
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatFocus, setChatFocus] = useState<{
+    lessonId?: string;
+    lessonTitle?: string;
+    moduleId?: string;
+    moduleTitle?: string;
+  }>({});
 
   const fetchData = useCallback(async () => {
     if (!courseId || !token) return;
@@ -225,6 +235,17 @@ export default function CourseEditPage() {
         <Badge variant={course.status === 'published' ? 'default' : 'outline'}>
           {course.status === 'published' ? t('courses.published') : t('courses.draft')}
         </Badge>
+        <Button
+          variant="default"
+          size="sm"
+          onClick={() => {
+            setChatFocus({});
+            setChatOpen(true);
+          }}
+        >
+          <Sparkles className="w-4 h-4 mr-1" />
+          AI-помощник
+        </Button>
       </div>
 
       {/* Add Module */}
@@ -290,6 +311,21 @@ export default function CourseEditPage() {
                         <Button variant="ghost" size="sm" className="text-primary text-xs" onClick={() => handleEditLessonContent(lesson.id)}>
                           Контент
                         </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-primary text-xs"
+                          title="AI-помощник по этому уроку"
+                          onClick={() => {
+                            setChatFocus({
+                              lessonId: lesson.id,
+                              lessonTitle: lesson.title,
+                            });
+                            setChatOpen(true);
+                          }}
+                        >
+                          <Bot className="w-3 h-3" />
+                        </Button>
                         <Button variant="ghost" size="sm" className="text-destructive text-xs" onClick={() => handleDeleteLesson(lesson.id, mod.id)}>
                           <X className="w-3 h-3" />
                         </Button>
@@ -336,6 +372,17 @@ export default function CourseEditPage() {
         </div>
       )}
 {dialog}
+
+      <AIChatPanel
+        open={chatOpen}
+        onClose={() => setChatOpen(false)}
+        courseId={courseId}
+        focusLessonId={chatFocus.lessonId}
+        focusLessonTitle={chatFocus.lessonTitle}
+        focusModuleId={chatFocus.moduleId}
+        focusModuleTitle={chatFocus.moduleTitle}
+        onLessonApplied={() => fetchData()}
+      />
     </div>
   );
 }

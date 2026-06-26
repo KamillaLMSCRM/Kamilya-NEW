@@ -18,6 +18,13 @@ class Settings(BaseSettings):
     # Remove this once e2e admin tests are complete.
     ALLOW_ADMIN_DEMO: bool = False
 
+    # Same idea but for superadmin. Askar uses this on prod to log in
+    # as superadmin via /login/demo (binds to the kamilya-demo tenant).
+    # Set to true on Render; safe to leave enabled — there's exactly
+    # one superadmin demo user and it has no other privileges beyond
+    # the standard superadmin role.
+    ALLOW_SUPERADMIN_DEMO: bool = False
+
     # Database
     DATABASE_URL: str = "postgresql+asyncpg://lms:lms_dev_password_2026@localhost:5432/kamilya_lms"
 

@@ -174,6 +174,19 @@ DEMO_USERS = {
         "last_name": "Обучаев",
         "role": "student",
     },
+    # Superadmin demo — only enabled in production when ALLOW_ADMIN_DEMO is set.
+    # Used by the platform operator (Askar) to log in as superadmin via the
+    # /login/demo UI without needing Telegram. The demo user is auto-created
+    # on first login and bound to the existing `kamilya-demo` tenant so the
+    # operator lands in the right organization context.
+    "superadmin": {
+        "telegram_id": 900000000,
+        "email": "superadmin@demo.kml",
+        "first_name": "Super",
+        "last_name": "Admin",
+        "role": "superadmin",
+        "_tenant_slug": "kamilya-demo",  # always join this tenant
+    },
 }
 
 
@@ -185,20 +198,31 @@ class DemoLoginRequest(BaseModel):
 async def demo_login(req: DemoLoginRequest, db=Depends(get_db)):
     """Login as a demo user for the given role. Creates user/tenant if needed.
 
-    In production: only teacher/student roles are allowed. Admin demo-login
-    is disabled to prevent privilege escalation via unauthenticated endpoint.
+    Production gate:
+    - teacher/student: always allowed.
+    - admin: requires `ALLOW_ADMIN_DEMO=true` env var (prevents privilege
+      escalation via the unauthenticated endpoint).
+    - superadmin: requires `ALLOW_SUPERADMIN_DEMO=true` env var. The
+      superadmin demo user is bound to the existing `kamilya-demo` tenant
+      (not the generic demo tenant) so the operator lands in the right
+      organization.
     """
     import logging
     from app.core.config import get_settings
     settings = get_settings()
     logger = logging.getLogger(__name__)
 
-    # Production gate: block admin (privilege escalation risk)
-    # TEMP: ALLOW_ADMIN_DEMO env var bypasses the gate for e2e testing.
+    # Production gate: block admin unless explicitly enabled.
     if settings.APP_ENV == "production" and req.role == "admin" and not settings.ALLOW_ADMIN_DEMO:
         raise HTTPException(
             status_code=404,
             detail="Admin demo login is not available in production",
+        )
+    # Same gate for superadmin — explicit opt-in via env var.
+    if settings.APP_ENV == "production" and req.role == "superadmin" and not settings.ALLOW_SUPERADMIN_DEMO:
+        raise HTTPException(
+            status_code=404,
+            detail="Superadmin demo login is not available in production",
         )
 
     if req.role not in DEMO_USERS:
@@ -207,20 +231,30 @@ async def demo_login(req: DemoLoginRequest, db=Depends(get_db)):
     demo = DEMO_USERS[req.role]
 
     try:
-        # Ensure demo tenant exists
-        result = await db.execute(select(Tenant).where(Tenant.slug == DEMO_TENANT_SLUG))
+        # Resolve tenant — superadmin demo binds to an existing operator
+        # tenant so the JWT lands in the right org context.
+        target_tenant_slug = demo.get("_tenant_slug") or DEMO_TENANT_SLUG
+        result = await db.execute(select(Tenant).where(Tenant.slug == target_tenant_slug))
         tenant = result.scalar_one_or_none()
-        if not tenant:
-            tenant = Tenant(name="Демо-организация", slug=DEMO_TENANT_SLUG, status="active")
-            db.add(tenant)
-            await db.flush()
+        if tenant is None:
+            # Fallback to the generic demo tenant if the operator-specified
+            # one doesn't exist yet.
+            result = await db.execute(select(Tenant).where(Tenant.slug == DEMO_TENANT_SLUG))
+            tenant = result.scalar_one_or_none()
+            if tenant is None:
+                tenant = Tenant(name="Демо-организация", slug=DEMO_TENANT_SLUG, status="active")
+                db.add(tenant)
+                await db.flush()
 
-        # Find or create demo user (search by telegram_id within demo tenant)
+        # Find or create demo user (search by telegram_id within the
+        # target tenant — handles the case where a superadmin demo user
+        # was previously created under the generic demo tenant and now
+        # needs to migrate).
         result = await db.execute(
             select(User).where(User.telegram_id == demo["telegram_id"], User.tenant_id == tenant.id)
         )
         user = result.scalar_one_or_none()
-        if not user:
+        if user is None:
             user = User(
                 tenant_id=tenant.id,
                 telegram_id=demo["telegram_id"],

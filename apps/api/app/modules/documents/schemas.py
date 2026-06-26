@@ -18,4 +18,7 @@ class DocumentResponse(BaseModel):
     embedding_status: Literal["pending", "success", "failed"] = "pending"
     embedding_error: str | None = None
     created_at: datetime
+    # Populated by router._hydrate when educational summary is available.
+    summary_ready: bool = False
+    short_summary: str | None = None
     model_config = {"from_attributes": True}
