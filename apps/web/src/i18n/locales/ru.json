@@ -537,5 +537,42 @@
     "openMenu": "Открыть меню",
     "closeMenu": "Закрыть меню",
     "formRequired": "Все поля, отмеченные как обязательные, должны быть заполнены."
+  },
+  "providers": {
+    "title": "Провайдеры AI",
+    "description": "API-ключи для внешних сервисов (fallback для LLM и эмбеддингов).",
+    "addKey": "Добавить ключ",
+    "addKeyTitle": "Новый API-ключ",
+    "noKeys": "Ключей пока нет. Добавьте первый ключ для резервного провайдера.",
+    "provider": "Провайдер",
+    "apiKey": "API-ключ",
+    "label": "Метка (опционально)",
+    "labelPlaceholder": "Например: Production",
+    "active": "Активный",
+    "inactive": "Неактивный",
+    "save": "Сохранить",
+    "cancel": "Отмена",
+    "test": "Проверить",
+    "testing": "Проверка…",
+    "activate": "Активировать",
+    "deactivate": "Деактивировать",
+    "delete": "Удалить",
+    "deleteConfirm": "Удалить ключ «{label}»?",
+    "keyPreview": "Ключ",
+    "lastUsed": "Последнее использование",
+    "lastError": "Последняя ошибка",
+    "lastErrorNone": "Ошибок нет",
+    "testOk": "Ключ работает ({latency} мс)",
+    "testFail": "Ошибка: {error}",
+    "saveOk": "Ключ сохранён",
+    "deleteOk": "Ключ удалён",
+    "saveError": "Не удалось сохранить ключ",
+    "deleteError": "Не удалось удалить ключ",
+    "loadError": "Не удалось загрузить список ключей",
+    "providersList": {
+      "deepseek": "DeepSeek (LLM fallback)",
+      "voyage": "Voyage (Embeddings fallback)"
+    },
+    "superadminOnly": "Только для суперадмина"
   }
 }

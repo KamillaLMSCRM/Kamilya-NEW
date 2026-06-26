@@ -116,6 +116,36 @@ def _deepseek_llm_provider() -> LLMProviderConfig | None:
     )
 
 
+async def _resolve_db_key(provider: str, env_key: str) -> str:
+    """Resolve an API key: prefer env, otherwise look up the active global
+    key from `provider_keys` table.
+
+    The env value is checked first so an operator can always override
+    without touching the DB. If neither has a key, the empty string is
+    returned and the provider should be skipped by the caller.
+
+    This is intentionally called only when a provider would actually be
+    used (i.e. as part of building the chain), so it adds zero DB calls
+    on the hot path.
+    """
+    if env_key:
+        return env_key
+    # Avoid circular import at module load.
+    from app.core.db import async_session_factory
+    from app.modules.admin.provider_keys.service import ProviderKeyService
+
+    try:
+        async with async_session_factory() as session:
+            svc = ProviderKeyService(session)
+            return await svc.get_active_key_value(provider) or ""
+    except Exception as e:  # pragma: no cover — defensive
+        logger.warning(
+            "[KEY_RESOLVE] failed to read provider key for %s: %s",
+            provider, type(e).__name__,
+        )
+        return ""
+
+
 def _qwen_embed_provider() -> LLMProviderConfig:
     s = get_settings()
     return LLMProviderConfig(
@@ -330,16 +360,70 @@ class ResilientLLMClient:
         max_tokens: int = 8192,
         max_retries_per_provider: int = 2,
     ) -> "ResilientLLMClient":
-        """Build the production chain from settings.
+        """Build the production chain from env-only settings.
 
         Order:
           1. Qwen self-hosted (always present)
-          2. DeepSeek (only if DEEPSEEK_API_KEY is set)
+          2. DeepSeek (only if DEEPSEEK_API_KEY is set in env)
+
+        Does NOT consult the provider_keys table — used by tests and
+        legacy callers that don't pass a DB session. Production code
+        should use `from_settings_async()` to also pick up keys stored
+        in the superadmin-managed provider_keys table.
         """
         providers: list[LLMProviderConfig] = [_qwen_llm_provider()]
         deepseek = _deepseek_llm_provider()
         if deepseek is not None:
             providers.append(deepseek)
+        return cls(
+            providers,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            max_retries_per_provider=max_retries_per_provider,
+        )
+
+    @classmethod
+    async def from_settings_async(
+        cls,
+        *,
+        temperature: float = 0.7,
+        max_tokens: int = 8192,
+        max_retries_per_provider: int = 2,
+    ) -> "ResilientLLMClient":
+        """Build the production chain from env + provider_keys table.
+
+        Same order as `from_settings()` but each provider's API key is
+        resolved by `_resolve_db_key()` which prefers env and falls
+        back to the active global key stored in `provider_keys`.
+
+        This is what the AI pipeline (course generation, chat, fallback
+        routing) calls — keys added or rotated via the superadmin
+        provider-keys UI take effect immediately without a redeploy.
+        """
+        from dataclasses import replace
+
+        s = get_settings()
+        qwen = _qwen_llm_provider()  # always present
+        providers: list[LLMProviderConfig] = [qwen]
+
+        deepseek_key = await _resolve_db_key("deepseek", s.DEEPSEEK_API_KEY)
+        if deepseek_key:
+            cfg = _deepseek_llm_provider()
+            if cfg is None:
+                # Env was empty but DB had a key — build config from
+                # defaults + DB key.
+                cfg = LLMProviderConfig(
+                    name="deepseek",
+                    base_url=s.DEEPSEEK_BASE_URL,
+                    api_key=deepseek_key,
+                    model=s.DEEPSEEK_MODEL,
+                    timeout=120.0,
+                    extra_body={"thinking": {"type": "disabled"}},
+                )
+            else:
+                cfg = replace(cfg, api_key=deepseek_key)
+            providers.append(cfg)
+
         return cls(
             providers,
             temperature=temperature,
@@ -439,10 +523,43 @@ class ResilientEmbeddingsClient:
 
     @classmethod
     def from_settings(cls, max_retries_per_provider: int = 2) -> "ResilientEmbeddingsClient":
+        """Build the embeddings chain from env-only settings (tests/legacy)."""
         providers: list[LLMProviderConfig] = [_qwen_embed_provider()]
         voyage = _voyage_embed_provider()
         if voyage is not None:
             providers.append(voyage)
+        return cls(providers, max_retries_per_provider=max_retries_per_provider)
+
+    @classmethod
+    async def from_settings_async(
+        cls, max_retries_per_provider: int = 2
+    ) -> "ResilientEmbeddingsClient":
+        """Build the embeddings chain from env + provider_keys table.
+
+        Same order as `from_settings()` but each provider's API key is
+        resolved by `_resolve_db_key()` which prefers env and falls
+        back to the active global key stored in `provider_keys`.
+        """
+        from dataclasses import replace
+
+        s = get_settings()
+        providers: list[LLMProviderConfig] = [_qwen_embed_provider()]
+
+        voyage_key = await _resolve_db_key("voyage", s.VOYAGE_API_KEY)
+        if voyage_key:
+            cfg = _voyage_embed_provider()
+            if cfg is None:
+                cfg = LLMProviderConfig(
+                    name="voyage",
+                    base_url=s.VOYAGE_BASE_URL,
+                    api_key=voyage_key,
+                    model=s.VOYAGE_MODEL,
+                    timeout=60.0,
+                )
+            else:
+                cfg = replace(cfg, api_key=voyage_key)
+            providers.append(cfg)
+
         return cls(providers, max_retries_per_provider=max_retries_per_provider)
 
     @property

@@ -13,7 +13,7 @@ from uuid import UUID, uuid4
 from app.modules.ai.architect_schema import CourseStructure
 from app.modules.ai.writer_schema import CourseContent, ModuleContent, LessonContent
 from app.modules.ai.assessment_schema import CourseAssessment, LessonAssessment
-from app.modules.ai.llm_client import LLMClient, create_llm
+from app.modules.ai.llm_client import LLMClient, ResilientLLMClient, create_llm
 from app.modules.ai.ingestion import VectorStore, DocumentIngestion, EmbeddingsProvider
 from app.modules.ai.architect import run_architect, create_architect_tools
 from app.modules.ai.writer import write_lesson, write_course
@@ -286,7 +286,7 @@ async def run_generation_pipeline(
         state.message = "Проектирование структуры курса..."
         await _update_job_db(job_id, stage="architect", progress=10, message=state.message)
 
-        llm = create_llm()
+        llm = await ResilientLLMClient.from_settings_async()
         store = VectorStore()
         embeddings_provider = EmbeddingsProvider()
         tools = create_architect_tools(

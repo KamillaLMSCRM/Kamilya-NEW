@@ -487,19 +487,39 @@ invite_expiry_days (int, default 3, range 1-30)  -- added 2026-06-25
 
 **LLM chain (по порядку):**
 1. **Qwen self-hosted** (`https://qwen.kml.kz/v1`, модель `cyankiwi/Qwen3.6-35B-A3B-AWQ-4bit`) — primary, бесплатно
-2. **DeepSeek v4-flash** (`https://api.deepseek.com/v1`, модель `deepseek-v4-flash`) — fallback, $0.14/$0.28 per 1M tokens. Ключ `DEEPSEEK_API_KEY` в env. **ВАЖНО:** `deepseek-chat` deprecated 2026-07-24 — НЕ использовать старое имя.
+2. **DeepSeek v4-flash** (`https://api.deepseek.com/v1`, модель `deepseek-v4-flash`) — fallback, $0.14/$0.28 per 1M tokens. Ключ `DEEPSEEK_API_KEY` в env или в БД. **ВАЖНО:** `deepseek-chat` deprecated 2026-07-24 — НЕ использовать старое имя.
 
 **Embeddings chain (по порядку):**
 1. **Qwen self-hosted** (`https://qwen-embed.kml.kz/v1`, модель `Qwen3-Embedding-8B`) — primary
-2. **Voyage voyage-4-lite** (`https://api.voyageai.com/v1`) — fallback, $0.02/M с **200M бесплатных токенов** на аккаунт. Ключ `VOYAGE_API_KEY` в env.
+2. **Voyage voyage-4-lite** (`https://api.voyageai.com/v1`) — fallback, $0.02/M с **200M бесплатных токенов** на аккаунт. Ключ `VOYAGE_API_KEY` в env или в БД.
+
+**Resolution priority (для каждого провайдера):**
+1. Environment variable (`DEEPSEEK_API_KEY` / `VOYAGE_API_KEY`) — перекрывает всё
+2. Active global key в таблице `provider_keys` (superadmin-managed)
+3. Provider skipped from chain
+
+Production hot-path вызывает `ResilientLLMClient.from_settings_async()` / `ResilientEmbeddingsClient.from_settings_async()` (async!) — они читают ключи из БД через `_resolve_db_key()`. Sync `from_settings()` оставлен только для тестов и legacy (читает только env).
 
 **Что НЕ включено в v1:**
 - ❌ OpenRouter (через него можно добавить Claude Haiku как 4-й tier для reviewer — отложено до отдельного epic)
 - ❌ Quality-tier для reviewer (DeepSeek v4-pro / Claude) — отложено
-- ❌ Superadmin modal для управления ключами (сейчас ключи в env) — отложено, но архитектура готова
+- ❌ Per-tenant provider keys (сейчас только global, tenant_id=NULL). Архитектура таблицы это поддерживает, нужен только UI
+
+### Provider keys UI (superadmin) — added 2026-06-26
+URL: `/admin/providers` (только для роли `superadmin`). Backend: `apps/api/app/modules/admin/provider_keys/`.
+
+**Endpoints:**
+- `GET    /v1/admin/provider-keys` — список ключей (masked preview)
+- `POST   /v1/admin/provider-keys` — создать ключ (encrypt через Fernet перед insert)
+- `PATCH  /v1/admin/provider-keys/{id}` — изменить label / api_key / is_active
+- `DELETE /v1/admin/provider-keys/{id}` — удалить
+- `POST   /v1/admin/provider-keys/{id}/test` — ping провайдера для проверки ключа
+
+**Шифрование:** Fernet с мастер-ключом `PROVIDER_KEY_ENCRYPTION_KEY` в env. Потеря этого ключа = все ключи в БД нерасшифровываемы. Хранить offline backup в password manager.
 
 **Если фича добавляет нового провайдера:**
 - Добавь config в `app/core/config.py`
 - Добавь factory `_xxx_provider()` в `llm_client.py` возвращающий `LLMProviderConfig | None`
-- Включи его в chain через `from_settings()` (только если ключ есть в env)
-- Покрой тестами в `tests/test_llm_failover.py`
+- Включи его в chain через `from_settings_async()` (только если ключ есть в env или БД)
+- Добавь provider name в enum/validator в `admin/provider_keys/schemas.py`
+- Покрой тестами в `tests/test_llm_failover.py` и `tests/test_provider_keys.py`

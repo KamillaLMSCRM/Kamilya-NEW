@@ -537,5 +537,42 @@
     "openMenu": "Мәзірді ашу",
     "closeMenu": "Мәзірді жабу",
     "formRequired": "Міндетті деп белгіленген барлық өрістер толтырылуы керек."
+  },
+  "providers": {
+    "title": "AI провайдерлер",
+    "description": "Сыртқы қызметтерге арналған API-кілттер (LLM және эмбеддингтер резервтік).",
+    "addKey": "Кілт қосу",
+    "addKeyTitle": "Жаңа API-кілт",
+    "noKeys": "Кілттер әлі жоқ. Резервтік провайдерге алғашқы кілтті қосыңыз.",
+    "provider": "Провайдер",
+    "apiKey": "API-кілт",
+    "label": "Белгі (міндетті емес)",
+    "labelPlaceholder": "Мысалы: Өндірістік",
+    "active": "Белсенді",
+    "inactive": "Белсенді емес",
+    "save": "Сақтау",
+    "cancel": "Болдырмау",
+    "test": "Тексеру",
+    "testing": "Тексерілуде…",
+    "activate": "Белсендіру",
+    "deactivate": "Өшіру",
+    "delete": "Жою",
+    "deleteConfirm": "«{label}» кілтін жою керек пе?",
+    "keyPreview": "Кілт",
+    "lastUsed": "Соңғы қолдану",
+    "lastError": "Соңғы қате",
+    "lastErrorNone": "Қателер жоқ",
+    "testOk": "Кілт жұмыс істейді ({latency} мс)",
+    "testFail": "Қате: {error}",
+    "saveOk": "Кілт сақталды",
+    "deleteOk": "Кілт жойылды",
+    "saveError": "Кілтті сақтау мүмкін болмады",
+    "deleteError": "Кілтті жою мүмкін болмады",
+    "loadError": "Кілттерді жүктеу мүмкін болмады",
+    "providersList": {
+      "deepseek": "DeepSeek (LLM резервтік)",
+      "voyage": "Voyage (Эмбеддинг резервтік)"
+    },
+    "superadminOnly": "Тек суперадминге арналған"
   }
 }

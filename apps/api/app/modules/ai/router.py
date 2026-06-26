@@ -24,7 +24,7 @@ from app.modules.ai.schemas import (
 )
 from app.modules.ai.job_service import create_ai_job, get_ai_job, update_ai_job
 from app.modules.ai.pipeline import run_generation_pipeline
-from app.modules.ai.llm_client import create_llm
+from app.modules.ai.llm_client import ResilientLLMClient, create_llm
 from app.modules.courses.models import Course
 
 logger = logging.getLogger(__name__)
@@ -363,7 +363,7 @@ async def chat(
     user_block_parts.append(f"\nСообщение методолога:\n{req.message}")
     user_block = "\n".join(user_block_parts)
 
-    llm = create_llm(temperature=0.4, max_tokens=1500)
+    llm = await ResilientLLMClient.from_settings_async(temperature=0.4, max_tokens=1500)
     try:
         resp = await llm.ainvoke(
             [
@@ -450,7 +450,7 @@ async def _regenerate_module_job(
             old_lessons = old_lessons_q.scalars().all()
 
             # Generate new module title + lesson plan with architect-style prompt.
-            llm = create_llm(temperature=0.7, max_tokens=1500)
+            llm = await ResilientLLMClient.from_settings_async(temperature=0.7, max_tokens=1500)
             plan_prompt = (
                 f"Курс: «{course.title}». Текущий модуль: «{module.title}» "
                 f"(описание: {module.description or '(пусто)'}). "
@@ -646,7 +646,7 @@ async def _regenerate_lesson_job(
                 select(Course).where(Course.id == module.course_id)
             )).scalar_one()
 
-            llm = create_llm(temperature=0.7, max_tokens=2000)
+            llm = await ResilientLLMClient.from_settings_async(temperature=0.7, max_tokens=2000)
             rewrite_prompt = (
                 f"Ты автор LMS-уроков. Перепиши урок «{lesson.title}» "
                 f"в рамках курса «{course.title}» (модуль «{module.title}»).\n"

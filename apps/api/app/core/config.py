@@ -126,6 +126,14 @@ class Settings(BaseSettings):
     # Defaults to app.kml.kz in production. Override in .env for staging.
     PUBLIC_URL: str = "https://app.kml.kz"
 
+    # Encryption key for secrets stored in provider_keys table.
+    # Fernet key (base64-encoded 32-byte key). Generate via:
+    #     python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+    # Loss of this key = all stored provider keys become unreadable.
+    # Keep an offline backup in your password manager alongside other
+    # production secrets.
+    PROVIDER_KEY_ENCRYPTION_KEY: str = ""
+
 
 @lru_cache()
 def get_settings() -> Settings:
