@@ -58,11 +58,21 @@ async def handle_telegram_webhook(request: Request, db: AsyncSession = Depends(g
         )
         return {"ok": True}
 
-    # Find user by telegram_id
-    result = await db.execute(
-        select(User).where(User.telegram_id == int(telegram_id))
-    )
-    user = result.scalar_one_or_none()
+    # Find user by telegram_id. Multiple users can share a telegram_id
+    # across tenants (e.g. a superadmin platform row plus per-tenant
+    # demo users created when someone tested /start). Resolution order:
+    #   1. Superadmin (tenant_id IS NULL) — always preferred
+    #   2. Most recently active tenant user
+    # Using scalar_one_or_none() here previously broke the bot with
+    # MultipleResultsFound — see issue 2026-06-26.
+    candidates = (
+        await db.execute(
+            select(User)
+            .where(User.telegram_id == int(telegram_id))
+            .order_by(User.tenant_id.is_(None).desc(), User.last_login.desc().nulls_last())
+        )
+    ).scalars().all()
+    user = candidates[0] if candidates else None
 
     if not user:
         await send_telegram_message(
@@ -83,17 +93,21 @@ async def handle_telegram_webhook(request: Request, db: AsyncSession = Depends(g
 
     user_data = {
         "user_id": str(user.id),
-        "tenant_id": str(user.tenant_id),
+        "tenant_id": user.tenant_id,  # UUID or None — never str(None)
         "telegram_id": telegram_id,
         "role": role,
         "full_name": f"{user.first_name} {user.last_name}",
-        "tenant": {
-            "id": str(user.tenant_id),
-            "name": user.tenant.name if user.tenant else "",
-            "slug": user.tenant.slug if user.tenant else "",
-            "is_demo": bool(user.tenant.is_demo) if user.tenant else False,
-            "plan": user.tenant.plan if user.tenant else "free",
-        },
+        "tenant": (
+            {
+                "id": str(user.tenant.id),
+                "name": user.tenant.name,
+                "slug": user.tenant.slug,
+                "is_demo": bool(user.tenant.is_demo),
+                "plan": user.tenant.plan,
+            }
+            if user.tenant_id is not None and user.tenant is not None
+            else None
+        ),
     }
 
     success = await verify_code(text, telegram_id, user_data)
