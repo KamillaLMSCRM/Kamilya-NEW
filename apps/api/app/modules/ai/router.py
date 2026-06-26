@@ -42,6 +42,8 @@ async def generate_course(
     user: User = Depends(get_current_user),
 ):
     """Start AI course generation (returns job_id for polling/WebSocket)."""
+    from app.core.demo_limits import check_ai_generation_quota
+    await check_ai_generation_quota(db, user.id, user.tenant_id)
     job = await create_ai_job(
         db=db,
         tenant_id=user.tenant_id,

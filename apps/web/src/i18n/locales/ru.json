@@ -674,5 +674,19 @@
       "teacher": "Методист",
       "superadmin": "Суперадмин"
     }
+  },
+  "demo": {
+    "banner": {
+      "title": "Демо-режим",
+      "subtitle": "Это песочница для знакомства с Kamilya LMS.",
+      "limits": "Курсы {courses}/{coursesLimit} · Документы {documents}/{documentsLimit} · AI генерация {aiToday}/1 сегодня",
+      "registerCta": "Зарегистрироваться для полного доступа"
+    },
+    "limitModal": {
+      "title": "Лимит демо-режима",
+      "defaultMessage": "Демо-режим имеет ограничения на бесплатное использование.",
+      "registerCta": "Зарегистрироваться",
+      "closeCta": "Понятно"
+    }
   }
 }

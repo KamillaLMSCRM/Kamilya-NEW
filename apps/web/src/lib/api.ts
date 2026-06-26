@@ -25,6 +25,19 @@ api.interceptors.response.use(
         window.location.href = '/login';
       }
     }
+    // Demo sandbox limits — surface a global event so DemoLimitProvider
+    // can pop the friendly modal regardless of which component fired
+    // the request.
+    if (
+      err.response?.status === 403 &&
+      err.response?.data?.detail?.code === 'demo_limit_exceeded'
+    ) {
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(
+          new CustomEvent('demo_limit', { detail: err.response.data.detail })
+        );
+      }
+    }
     return Promise.reject(err);
   },
 );

@@ -136,6 +136,8 @@ async def upload_document(
     db: AsyncSession = Depends(get_db),
     user=Depends(get_current_user),
 ):
+    from app.core.demo_limits import assert_can_create_document
+    await assert_can_create_document(db, user.tenant_id)
     content = await file.read()
     file_size = len(content)
 

@@ -87,6 +87,13 @@ async def handle_telegram_webhook(request: Request, db: AsyncSession = Depends(g
         "telegram_id": telegram_id,
         "role": role,
         "full_name": f"{user.first_name} {user.last_name}",
+        "tenant": {
+            "id": str(user.tenant_id),
+            "name": user.tenant.name if user.tenant else "",
+            "slug": user.tenant.slug if user.tenant else "",
+            "is_demo": bool(user.tenant.is_demo) if user.tenant else False,
+            "plan": user.tenant.plan if user.tenant else "free",
+        },
     }
 
     success = await verify_code(text, telegram_id, user_data)

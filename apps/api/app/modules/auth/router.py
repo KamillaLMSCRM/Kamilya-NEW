@@ -280,6 +280,13 @@ async def demo_login(req: DemoLoginRequest, db=Depends(get_db)):
             "telegram_id": str(user.telegram_id),
             "role": user.role,
             "full_name": f"{user.first_name} {user.last_name}",
+            "tenant": {
+                "id": str(tenant.id),
+                "name": tenant.name,
+                "slug": tenant.slug,
+                "is_demo": tenant.is_demo,
+                "plan": tenant.plan,
+            },
         }
 
         return JSONResponse(content={

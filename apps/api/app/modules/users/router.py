@@ -122,6 +122,8 @@ async def create_new_user(
     user: User = Depends(require_role("admin", "org_admin", "superadmin")),
 ):
     """Create a new user (admin only)."""
+    from app.core.demo_limits import assert_can_create_user
+    await assert_can_create_user(db, user.tenant_id)
     try:
         new_user = await create_user(
             db=db,
@@ -207,6 +209,10 @@ async def bulk_invite_users(
 ):
     """Bulk-create user invitations (Phase 1).
 
+    Demo tenant: invitations are disabled -- prospect shouldn't be able
+    to invite fake users. The DemoLimitExceeded exception is caught
+    here and surfaced as a 403.
+
     Body: { items: [{email}, ...] } (max 200 per request)
     Response: {created: [{email, invitation_id, invite_url, expires_at}], skipped_existing, invalid}
 
@@ -217,6 +223,8 @@ async def bulk_invite_users(
     privileged roles). For admin/methodologist invites, use POST /users.
     """
     from app.core.config import get_settings
+    from app.core.demo_limits import assert_can_send_invite
+    await assert_can_send_invite(db, user.tenant_id)
     settings = get_settings()
     base_url = getattr(settings, "PUBLIC_URL", None)
 

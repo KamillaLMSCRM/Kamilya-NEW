@@ -674,5 +674,19 @@
       "teacher": "Оқытушы",
       "superadmin": "Суперадмин"
     }
+  },
+  "demo": {
+    "banner": {
+      "title": "Демо-режим",
+      "subtitle": "Бұл Kamilya LMS-пен танысуға арналған құмсалғы.",
+      "limits": "Курстар {courses}/{coursesLimit} · Құжаттар {documents}/{documentsLimit} · AI генерация {aiToday}/1 бүгін",
+      "registerCta": "Толық қол жетімділік үшін тіркеліңіз"
+    },
+    "limitModal": {
+      "title": "Демо лимиті",
+      "defaultMessage": "Демо-режимде тегін пайдалану шектеулі.",
+      "registerCta": "Тіркелу",
+      "closeCta": "Түсінікті"
+    }
   }
 }

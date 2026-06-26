@@ -9,6 +9,8 @@ import TopBar from './TopBar';
 import CommandPalette from '@/components/CommandPalette';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
+import { DemoLimitProvider } from '@/components/demo/DemoLimitProvider';
+import { DemoBanner } from '@/components/demo/DemoBanner';
 
 const SidebarContext = createContext({ collapsed: false });
 
@@ -105,18 +107,21 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <SidebarContext.Provider value={{ collapsed }}>
-      <div className="min-h-screen bg-background grain">
-        <Sidebar collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} />
-        <CommandPalette />
-        <main
-          className="transition-all duration-300"
-          style={{ marginLeft: collapsed ? 68 : 240 }}
-        >
-          <TopBar />
-          <div className="p-6">{children}</div>
-        </main>
-      </div>
-    </SidebarContext.Provider>
+    <DemoLimitProvider>
+      <SidebarContext.Provider value={{ collapsed }}>
+        <div className="min-h-screen bg-background grain">
+          <Sidebar collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} />
+          <CommandPalette />
+          <main
+            className="transition-all duration-300"
+            style={{ marginLeft: collapsed ? 68 : 240 }}
+          >
+            <DemoBanner />
+            <TopBar />
+            <div className="p-6">{children}</div>
+          </main>
+        </div>
+      </SidebarContext.Provider>
+    </DemoLimitProvider>
   );
 }

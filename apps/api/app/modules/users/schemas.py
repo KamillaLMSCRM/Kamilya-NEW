@@ -21,6 +21,16 @@ class UserUpdate(BaseModel):
     is_active: bool | None = None
 
 
+class TenantSummary(BaseModel):
+    """Lightweight tenant info embedded in user/auth responses so the
+    frontend knows the sandbox/plan context without a separate fetch."""
+    id: UUID
+    name: str
+    slug: str
+    is_demo: bool = False
+    plan: str = "free"
+
+
 class UserResponse(BaseModel):
     id: UUID
     tenant_id: UUID
@@ -34,6 +44,8 @@ class UserResponse(BaseModel):
     telegram_id: int | None = None
     last_login: datetime | None = None
     created_at: datetime
+    # Optional tenant context — populated by routers that load Tenant.
+    tenant: TenantSummary | None = None
     model_config = {"from_attributes": True}
 
 

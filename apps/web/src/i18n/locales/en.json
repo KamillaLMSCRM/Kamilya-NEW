@@ -674,5 +674,19 @@
       "teacher": "Teacher",
       "superadmin": "Superadmin"
     }
+  },
+  "demo": {
+    "banner": {
+      "title": "Demo mode",
+      "subtitle": "This is a sandbox for exploring Kamilya LMS.",
+      "limits": "Courses {courses}/{coursesLimit} · Documents {documents}/{documentsLimit} · AI generation {aiToday}/1 today",
+      "registerCta": "Register for full access"
+    },
+    "limitModal": {
+      "title": "Demo limit reached",
+      "defaultMessage": "Demo mode has free-usage limits.",
+      "registerCta": "Register",
+      "closeCta": "Got it"
+    }
   }
 }

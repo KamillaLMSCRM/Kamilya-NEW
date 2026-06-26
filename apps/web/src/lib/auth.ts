@@ -1,3 +1,11 @@
+export interface AuthTenant {
+  id: string;
+  name: string;
+  slug: string;
+  is_demo: boolean;
+  plan: string;
+}
+
 export interface AuthUser {
   user_id: string;
   tenant_id: string;
@@ -5,6 +13,7 @@ export interface AuthUser {
   role: string;
   full_name: string;
   email?: string | null;
+  tenant?: AuthTenant | null;
 }
 
 export interface AuthState {
