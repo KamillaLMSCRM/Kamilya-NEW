@@ -112,25 +112,39 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   }
 
   // Platform superadmin (tenant_id IS NULL → user.tenant is null on the
-  // frontend) should only see platform-level pages. If they navigate to
-  // a tenant-only page (sidebar is hidden but URL is reachable), redirect
-  // them to /admin/super so they don't end up on a 403.
-  const TENANT_PATHS = [
-    '/courses',
-    '/documents',
-    '/positions',
-    '/admin/users',
-    '/admin/employees',
-    '/admin/staff',
-    '/admin/kiosks',
-    '/admin/enrollments',
-    '/admin/quizzes',
-    '/ai/generate',
-    '/settings',
+  // frontend) should only see platform-level pages. Anything else is a
+  // tenant-scoped page that would return 403 on every API call.
+  // Whitelist the platform paths they ARE allowed to visit; redirect
+  // everything else to /admin/super.
+  const SUPERADMIN_ALLOWED_PREFIXES = [
+    '/admin/super',
+    '/admin/providers',
+    '/superadmin',     // login form (already public, but defense in depth)
   ];
-  if (isSuperadmin && pathname && TENANT_PATHS.some((p) => pathname.startsWith(p))) {
+  if (
+    isSuperadmin &&
+    pathname &&
+    !SUPERADMIN_ALLOWED_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + '/'))
+  ) {
     if (typeof window !== 'undefined') {
       router.replace('/admin/super');
+    }
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <p className="text-muted-foreground text-sm">Redirecting…</p>
+      </div>
+    );
+  }
+
+  // Inverse guard: tenant user (not superadmin) trying to reach a
+  // platform-level page → back to their dashboard.
+  if (
+    !isSuperadmin &&
+    pathname &&
+    (pathname.startsWith('/admin/super') || pathname.startsWith('/admin/providers'))
+  ) {
+    if (typeof window !== 'undefined') {
+      router.replace('/dashboard');
     }
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
