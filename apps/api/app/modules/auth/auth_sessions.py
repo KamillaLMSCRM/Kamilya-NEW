@@ -4,11 +4,35 @@ import random
 import json
 import logging
 from typing import Any
+from uuid import UUID
 
 logger = logging.getLogger(__name__)
 
 COOLDOWN_SECONDS = 25
 CODE_TTL_SECONDS = 300  # 5 minutes
+
+
+class _SessionEncoder(json.JSONEncoder):
+    """JSON encoder that knows about UUID and datetime, the two types
+    that routinely sneak into AuthUser / Tenant payloads.
+
+    Without this, ``json.dumps(user_data)`` would raise TypeError when
+    ``user_data`` contains a UUID ``tenant_id`` — which happens whenever
+    a non-superadmin Telegram candidate is resolved. The old code path
+    only ever saw superadmin candidates whose tenant_id was None, so
+    JSON-serialisation never tripped; inverting the resolution order
+    surfaced the latent bug.
+    """
+    def default(self, o):
+        if isinstance(o, UUID):
+            return str(o)
+        # Fall back to default behaviour for datetime, etc. — and to
+        # raise TypeError loudly for anything else we don't expect.
+        return super().default(o)
+
+
+def _dumps(obj) -> str:
+    return json.dumps(obj, cls=_SessionEncoder)
 
 # Fallback in-memory store if Redis unavailable
 _memory_store: dict[str, dict[str, Any]] = {}
@@ -58,7 +82,7 @@ async def generate_auth_code() -> tuple[str, float]:
             "verified": False,
             "user_data": None,
         }
-        await redis.setex(f"auth:code:{code}", CODE_TTL_SECONDS, json.dumps(session))
+        await redis.setex(f"auth:code:{code}", CODE_TTL_SECONDS, _dumps(session))
         return code, CODE_TTL_SECONDS
     else:
         # In-memory fallback
@@ -93,7 +117,7 @@ async def verify_code(code: str, telegram_id: str, user_data: dict) -> bool:
             return False
         session["verified"] = True
         session["user_data"] = user_data
-        await redis.setex(key, CODE_TTL_SECONDS, json.dumps(session))
+        await redis.setex(key, CODE_TTL_SECONDS, _dumps(session))
         return True
     else:
         session = _memory_store.get(code)
