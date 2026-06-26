@@ -88,9 +88,10 @@ use it once for the push, do NOT echo it back, and consider rotating after use.
 Public: `/`, `/login`, `/login/demo`, `/register`, `/accept-invite`, `/kiosk/[token]`
 Authed: `/dashboard`, `/courses`, `/courses/[id]`, `/courses/[id]/edit`,
         `/courses/quiz/[quizId]`, `/documents`, `/positions`, `/certificates`,
-        `/settings`, `/my-courses`, `/my-quizzes`, `/student`, `/ai/generate`
+        `/settings`, `/my-courses`, `/my-quizzes`, `/quizzes`, `/student`, `/ai/generate`
 Admin:  `/admin`, `/admin/users`, `/admin/employees`, `/admin/enrollments`,
-        `/admin/kiosks`, `/admin/quizzes`, `/admin/quizzes/assign`, `/admin/staff`
+        `/admin/kiosks`, `/admin/staff`
+        (`/admin/quizzes` → `/quizzes` — moved 2026-06-26 so teacher can also manage)
 
 ## Languages
 
