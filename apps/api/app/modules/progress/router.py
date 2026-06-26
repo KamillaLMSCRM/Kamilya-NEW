@@ -3,7 +3,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.auth import get_current_user
+from app.core.auth import get_current_user, require_tenant_user
 from app.core.db import get_db
 from app.modules.progress.schemas import ProgressResponse, ProgressUpdate, CourseProgressResponse
 from app.modules.progress.service import (
@@ -13,7 +13,11 @@ from app.modules.progress.service import (
     get_completed_lesson_ids,
 )
 
-router = APIRouter(prefix="/progress", tags=["progress"])
+router = APIRouter(
+    prefix="/progress",
+    tags=["progress"],
+    dependencies=[Depends(require_tenant_user())],
+)
 
 
 @router.get("/lessons/{lesson_id}", response_model=ProgressResponse | None)

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, createContext, useContext } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
 import Sidebar from './Sidebar';
@@ -102,6 +102,36 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           />
           <p className="text-muted-foreground text-sm">{t('common.loading')}</p>
         </div>
+      </div>
+    );
+  }
+
+  // Platform superadmin (tenant_id IS NULL → user.tenant is null on the
+  // frontend) should only see platform-level pages. If they navigate to
+  // a tenant-only page (sidebar is hidden but URL is reachable), redirect
+  // them to /admin/super so they don't end up on a 403.
+  const pathname = usePathname();
+  const isSuperadmin = user.tenant == null;
+  const TENANT_PATHS = [
+    '/courses',
+    '/documents',
+    '/positions',
+    '/admin/users',
+    '/admin/employees',
+    '/admin/staff',
+    '/admin/kiosks',
+    '/admin/enrollments',
+    '/admin/quizzes',
+    '/ai/generate',
+    '/settings',
+  ];
+  if (isSuperadmin && pathname && TENANT_PATHS.some((p) => pathname.startsWith(p))) {
+    if (typeof window !== 'undefined') {
+      router.replace('/admin/super');
+    }
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <p className="text-muted-foreground text-sm">Redirecting…</p>
       </div>
     );
   }

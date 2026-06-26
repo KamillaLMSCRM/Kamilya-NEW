@@ -3,12 +3,16 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.auth import get_current_user
+from app.core.auth import get_current_user, require_tenant_user
 from app.core.db import get_db
 from app.modules.student.schemas import StudentDashboard, CourseProgress
 from app.modules.student.service import get_student_dashboard, get_course_progress_detail
 
-router = APIRouter(prefix="/student", tags=["student"])
+router = APIRouter(
+    prefix="/student",
+    tags=["student"],
+    dependencies=[Depends(require_tenant_user())],
+)
 
 
 @router.get("/dashboard", response_model=StudentDashboard)

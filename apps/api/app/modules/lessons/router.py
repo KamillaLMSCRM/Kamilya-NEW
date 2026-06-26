@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
 
-from app.core.auth import get_current_user
+from app.core.auth import get_current_user, require_tenant_user
 from app.core.db import get_db
 from app.modules.lessons.schemas import (
     ModuleCreate, ModuleUpdate, ModuleResponse,
@@ -23,7 +23,9 @@ from app.modules.lessons.service import (
 from app.modules.lessons.models import Module
 from app.models.courses import Course
 
-router = APIRouter()
+router = APIRouter(
+    dependencies=[Depends(require_tenant_user())],
+)
 
 
 @router.get("/courses/{course_id}/modules", response_model=List[ModuleResponse])

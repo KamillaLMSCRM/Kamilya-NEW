@@ -11,7 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.core.auth import get_current_user, decode_token, require_role
+from app.core.auth import get_current_user, decode_token, require_role, require_tenant_user
 from app.core.db import get_db
 from app.models.users import User
 from app.modules.ai.schemas import (
@@ -29,7 +29,11 @@ from app.modules.courses.models import Course
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/ai", tags=["ai-generation"])
+router = APIRouter(
+    prefix="/ai",
+    tags=["ai-generation"],
+    dependencies=[Depends(require_tenant_user())],
+)
 
 # Store running tasks for cancellation
 _running_tasks: dict[str, asyncio.Task] = {}

@@ -6,7 +6,7 @@ from uuid import UUID
 from datetime import datetime, timezone
 from typing import Optional
 
-from app.core.auth import get_current_user, require_role
+from app.core.auth import get_current_user, require_role, require_tenant_user
 from app.core.db import get_db
 from app.models.users import User
 from app.models.courses import Course
@@ -23,7 +23,11 @@ from app.modules.courses.schemas import (
 )
 from app.modules.audit.service import log_action
 
-router = APIRouter(prefix="/courses", tags=["courses"])
+router = APIRouter(
+    prefix="/courses",
+    tags=["courses"],
+    dependencies=[Depends(require_tenant_user())],
+)
 
 
 async def _hydrate_reviewer(db: AsyncSession, course: Course) -> Optional[CourseReviewer]:

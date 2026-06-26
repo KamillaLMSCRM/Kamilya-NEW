@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 
-from app.core.auth import get_current_user, require_role
+from app.core.auth import get_current_user, require_role, require_tenant_user
 from app.core.db import get_db
 from app.models.users import User
 from app.models.enrollment import Enrollment
@@ -17,7 +17,11 @@ from app.modules.enrollments.service import (
     get_course_enrollment_stats,
 )
 
-router = APIRouter(prefix="/courses", tags=["enrollments"])
+router = APIRouter(
+    prefix="/courses",
+    tags=["enrollments"],
+    dependencies=[Depends(require_tenant_user())],
+)
 
 stats_router = APIRouter(prefix="/enrollments", tags=["enrollments"])
 

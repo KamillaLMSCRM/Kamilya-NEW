@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy import select, delete, func, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.auth import get_current_user
+from app.core.auth import get_current_user, require_tenant_user
 from app.core.db import get_db
 from app.models.users import User
 from app.models.enrollment import Enrollment
@@ -56,7 +56,11 @@ from app.modules.positions.schemas import (
 from app.modules.positions.models import PositionJDVersion, PositionQuiz
 from app.modules.courses.models import Course
 
-router = APIRouter(prefix="/positions", tags=["positions"])
+router = APIRouter(
+    prefix="/positions",
+    tags=["positions"],
+    dependencies=[Depends(require_tenant_user())],
+)
 
 
 # ── Helpers ──────────────────────────────────────────────────

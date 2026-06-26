@@ -7,12 +7,16 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.auth import get_current_user
+from app.core.auth import get_current_user, require_tenant_user
 from app.core.db import get_db
 from app.models.document import Document
 from app.modules.documents.schemas import DocumentResponse
 
-router = APIRouter(prefix="/documents", tags=["documents"])
+router = APIRouter(
+    prefix="/documents",
+    tags=["documents"],
+    dependencies=[Depends(require_tenant_user())],
+)
 
 UPLOAD_DIR = "./uploads/documents"
 SUMMARIES_DIR = "./summaries"

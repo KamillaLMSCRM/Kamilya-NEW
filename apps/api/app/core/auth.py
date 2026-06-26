@@ -106,3 +106,30 @@ def require_admin(user: User = Depends(require_role("admin", "org_admin", "super
 
 async def get_superadmin(user: User = Depends(require_role("superadmin"))) -> User:
     return user
+
+
+def require_tenant_user():
+    """Reject platform superadmin (tenant_id IS NULL) from tenant-level endpoints.
+
+    Most LMS features (courses, users, documents, AI generation) are
+    scoped to a tenant. A superadmin who has tenant_id=NULL cannot
+    operate on a NULL tenant -- they would either see empty results
+    (misleading) or hit FK violations (500s). This dependency gives
+    them an explicit 403 with a clear message.
+
+    Superadmin should use the /admin/super/* endpoints instead, which
+    explicitly take a tenant_id path param.
+    """
+    async def checker(user: User = Depends(get_current_active_user)) -> User:
+        if user.tenant_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=(
+                    "This action requires a tenant context. "
+                    "Superadmin should use /admin/super/* endpoints. "
+                    "Switch to a tenant user via the Telegram login."
+                ),
+            )
+        return user
+
+    return checker

@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import Optional
 
-from app.core.auth import get_current_user, require_role
+from app.core.auth import get_current_user, require_role, require_tenant_user
 from app.core.db import get_db
 from app.modules.users.schemas import (
     UserCreate,
@@ -34,7 +34,11 @@ from app.modules.users.invitations_service import (
 )
 from app.models.users import User, UserInvitation
 
-router = APIRouter(prefix="/users", tags=["users"])
+router = APIRouter(
+    prefix="/users",
+    tags=["users"],
+    dependencies=[Depends(require_tenant_user())],
+)
 
 
 @router.get("/me", response_model=UserResponse)
