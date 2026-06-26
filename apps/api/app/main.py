@@ -38,6 +38,7 @@ from app.modules.users.kiosk_router import admin_router as kiosks_admin_router, 
 from app.modules.users.staff_import_router import router as staff_import_router
 from app.modules.users.staff_tree_router import router as staff_tree_router
 from app.modules.auth.telegram import router as telegram_router
+from app.modules.auth.telegram_register import router as telegram_register_router
 from app.modules.positions.router import router as positions_router
 
 logger = logging.getLogger(__name__)
@@ -121,6 +122,7 @@ app.include_router(kiosks_public_router, prefix=f"{settings.API_PREFIX}", tags=[
 app.include_router(staff_import_router, prefix=f"{settings.API_PREFIX}", tags=["staff"])
 app.include_router(staff_tree_router, prefix=f"{settings.API_PREFIX}", tags=["staff"])
 app.include_router(telegram_router, prefix=f"{settings.API_PREFIX}", tags=["telegram"])
+app.include_router(telegram_register_router, prefix=f"{settings.API_PREFIX}", tags=["auth"])
 app.include_router(positions_router, prefix=f"{settings.API_PREFIX}", tags=["positions"])
 
 # Suppress Render health check spam in logs
