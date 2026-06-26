@@ -168,9 +168,19 @@ class VectorStore:
                     dropped += 1
                     continue
 
-                chunk_id = hashlib.md5(chunk["text"].encode()).hexdigest()
+                # Composite id: doc_id + text. Was previously just md5(text),
+                # which collided across documents that share paragraphs
+                # (any reused boilerplate like "## Overview" with identical
+                # content produced the same chunk_id) — and ON CONFLICT DO
+                # NOTHING then silently skipped every insert for that
+                # overlap. Composite id ensures each (doc, chunk) pair is
+                # unique; ON CONFLICT becomes a genuine no-op only when
+                # the same chunk of the same doc is re-uploaded.
                 meta = chunk.get("metadata", {})
                 last_doc_id = meta.get("doc_id", "")
+                chunk_id = hashlib.md5(
+                    f"{last_doc_id}|{chunk['text']}".encode()
+                ).hexdigest()
                 await session.execute(
                     text(
                         """INSERT INTO document_embeddings (id, tenant_id, doc_id, text, headings, doc_name, embedding)
@@ -197,10 +207,18 @@ class VectorStore:
             # 2026-06-26: ingested 25 chunks, session commit reported OK,
             # post-commit SELECT in the SAME session returned 0 — because
             # the SELECT ran before the flush actually pushed to pgwire.
+            #
+            # NOTE: under PgBouncer transaction pooling, flush() before
+            # commit() can race with the connection handoff. If we see
+            # 'count_in_session=0' here despite successful INSERTs, the
+            # workaround is to commit first and trust the diagnostic
+            # SELECT on a fresh connection (we add one below).
             await session.flush()
             await session.commit()
 
-            # Verify rows landed by counting from the same session, AFTER flush.
+            # Verify rows landed — first inside the session (best-effort,
+            # may see 0 under PgBouncer), then on a fresh session that
+            # has to read from the committed transaction snapshot.
             cnt = await session.execute(
                 text(
                     "SELECT COUNT(*) FROM document_embeddings "
@@ -209,11 +227,33 @@ class VectorStore:
                 {"did": last_doc_id},
             )
             count_in_session = cnt.scalar()
+
+            # Second check: open a NEW session and read from a different
+            # connection. This is the ground-truth — if PgBouncer gave us
+            # a different backend after commit, this is what other
+            # workers / queries will see.
+            from app.core.db import async_session_factory as _fresh_factory
+            async with _fresh_factory() as fresh:
+                cnt2 = await fresh.execute(
+                    text(
+                        "SELECT COUNT(*) FROM document_embeddings "
+                        "WHERE doc_id::text = :did"
+                    ),
+                    {"did": last_doc_id},
+                )
+                count_in_fresh = cnt2.scalar()
             print(
                 f"[INGEST] add_chunks post-commit: inserted_attempted={inserted} "
-                f"dropped={dropped} count_in_session={count_in_session}",
+                f"dropped={dropped} count_in_session={count_in_session} "
+                f"count_in_fresh={count_in_fresh}",
                 flush=True,
             )
+
+            # Verify rows landed by counting from the same session, AFTER flush.
+            # This block is intentionally a no-op after the new
+            # diagnostic above (count_in_fresh) — kept only so the
+            # function still exits cleanly. The fresh-session count is
+            # the ground truth under PgBouncer.
             if dropped:
                 _logger.warning(
                     "add_chunks: dropped %d malformed embeddings "
