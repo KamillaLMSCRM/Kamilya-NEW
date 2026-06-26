@@ -507,6 +507,17 @@ Invoke-RestMethod -Uri "https://api.render.com/v1/services/$env:RENDER_SERVICE_I
 - Это **НЕ** значит chain пустой. Это значит Qwen упал и `_call_with_failover` увидел что `len(self._clients) - self._clients.index(client) - 1 == 0` потому что client.index вернул что Qwen — последний в списке. На самом деле Voyage в chain был. Просто logging misleading.
 - Если в логах `remaining=0` после Qwen, **первый** шаг — проверить реально ли Voyage добавлен (`from_settings` или `from_settings_async`).
 
+**Урок 5b: PgBouncer transaction pooling — INSERT проходит, тот же SELECT возвращает 0**
+- Корневая причина "embeddings не записываются" в Kamilya на Supabase + PgBouncer.
+- `count_in_session=N` после `flush() + commit()` в SQLAlchemy AsyncSession НЕ равен `0`-результату из production — после commit соединение возвращается в pool, и следующий SELECT в той же сессии может получить **другой backend**, который (в зависимости от replication/read-routing) ещё не видит свежезакоммиченные строки.
+- **Надёжная проверка** — открыть новую `async with async_session_factory()` сессию и сделать SELECT оттуда (`count_in_fresh`). Это всегда видит committed data.
+- Доказательство: локальный repro показал `count_in_session=31`, PgBouncer-овский prod показал `count_in_session=0`, но `count_in_fresh=25` и `SELECT ... FROM psql` показал 25 строк. То есть INSERT реально прошёл — бэк просто не мог это увидеть в своей же сессии.
+- Все будущие диагностические SELECT-ы после commit должны идти через **fresh session**, не текущую.
+
+**Урок 5c: Историческая проблема — `chunk_id = md5(text)`**
+- Старый код использовал `chunk_id = md5(chunk["text"])` (только текст). Это ломало re-upload: один и тот же текст в двух документах имел одинаковый `chunk_id`, и `ON CONFLICT DO NOTHING` тихо пропускал второй INSERT. Также мог конфликтовать с cross-tenant данными.
+- Фикс: `chunk_id = md5(f"{doc_id}|{text}")` — composite id гарантирует уникальность per-document.
+
 ---
 
 ### Telegram bot webhook — где баги прячутся
