@@ -113,6 +113,28 @@ export default function QuizzesAdminPage() {
     attempt_limit: number;
   }>({ pass_score: 80, time_limit: '', attempt_limit: 3 });
   const [savingSettings, setSavingSettings] = useState(false);
+  // AI draft state. When the methodologist clicks "Generate with AI",
+  // we POST /v1/quizzes/generate and stash the draft here so they can
+  // review/edit questions before saving. The draft is NEVER persisted
+  // to the DB until the methodologist explicitly clicks Save — this
+  // is the whole point of having a review step.
+  const [aiDraft, setAiDraft] = useState<{
+    lesson_id: string;
+    suggested_title: string;
+    suggested_pass_score: number;
+    questions: Array<{
+      text: string;
+      type: string;
+      points: number;
+      explanation: string | null;
+      order_index: number;
+      choices: Array<{ text: string; is_correct: boolean }>;
+    }>;
+    latency_ms?: number;
+  } | null>(null);
+  const [aiGenerating, setAiGenerating] = useState(false);
+  const [aiDifficulty, setAiDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium');
+  const [aiGuidance, setAiGuidance] = useState('');
   const token = useAuthStore((s) => s.accessToken);
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -257,6 +279,119 @@ export default function QuizzesAdminPage() {
     } else {
       const err = await res.json().catch(() => ({ detail: 'Unknown error' }));
       toast.error(`Не удалось создать тест: ${err.detail || `HTTP ${res.status}`}`);
+    }
+  };
+
+  // Call POST /v1/quizzes/generate — backend calls the LLM (Qwen on DGX,
+  // falls back to DeepSeek) and returns a draft. We do NOT save yet;
+  // the methodologist reviews in the preview modal first.
+  const handleGenerateWithAI = async () => {
+    if (!token || !newQuiz.lesson_id) return;
+    setAiGenerating(true);
+    try {
+      const res = await fetch(`${API_URL}/v1/quizzes/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          lesson_id: newQuiz.lesson_id,
+          num_questions: 8,
+          difficulty: aiDifficulty,
+          language: 'ru',
+          guidance: aiGuidance.trim() || null,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: 'Unknown error' }));
+        throw new Error(err.detail || `HTTP ${res.status}`);
+      }
+      const draft = await res.json();
+      setAiDraft(draft);
+      // Pre-fill the create form with the AI's suggested values so the
+      // methodologist can tweak before saving.
+      setNewQuiz((p) => ({
+        ...p,
+        title: draft.suggested_title,
+        pass_score: draft.suggested_pass_score,
+      }));
+    } catch (e) {
+      toast.error(`AI-генерация не удалась: ${(e as Error).message}`);
+    } finally {
+      setAiGenerating(false);
+    }
+  };
+
+  // Persist the AI draft as a real Quiz + Questions. We do this in two
+  // calls because the existing POST /v1/quizzes schema doesn't accept
+  // questions inline. POST returns the empty quiz; we then POST each
+  // question one at a time. (Acceptable trade-off — methodologist is
+  // already reviewing the draft at this point, the latency is fine.)
+  const handleSaveAiDraft = async () => {
+    if (!aiDraft || !token) return;
+    if (!newQuiz.lesson_id) {
+      toast.error('Сначала выберите урок');
+      return;
+    }
+    setAiGenerating(true);
+    try {
+      // 1. Create the empty quiz shell.
+      const createRes = await fetch(`${API_URL}/v1/quizzes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          lesson_id: newQuiz.lesson_id,
+          title: newQuiz.title || aiDraft.suggested_title,
+          pass_score: newQuiz.pass_score,
+          time_limit: newQuiz.time_limit ? parseInt(newQuiz.time_limit) : null,
+          attempt_limit: newQuiz.attempt_limit,
+        }),
+      });
+      if (!createRes.ok) {
+        const err = await createRes.json().catch(() => ({ detail: 'Unknown error' }));
+        throw new Error(err.detail || `HTTP ${createRes.status}`);
+      }
+      const quiz = await createRes.json();
+
+      // 2. Add each question. Failures here leave a partial quiz — the
+      // methodologist can edit/clean it up via the regular UI.
+      let added = 0;
+      for (const q of aiDraft.questions) {
+        const qRes = await fetch(`${API_URL}/v1/quizzes/${quiz.id}/questions`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({
+            text: q.text,
+            type: q.type,
+            points: q.points,
+            explanation: q.explanation,
+            order_index: q.order_index,
+            choices: q.choices.map((c, i) => ({
+              text: c.text,
+              is_correct: c.is_correct,
+              order_index: i,
+            })),
+          }),
+        });
+        if (qRes.ok) added++;
+      }
+
+      // 3. Refresh everything.
+      setAiDraft(null);
+      setShowCreateQuiz(false);
+      setAiGuidance('');
+      await fetchQuizzes();
+      if (newQuiz.course_id) {
+        setPreviews((p) => {
+          const next = { ...p };
+          delete next[newQuiz.course_id];
+          return next;
+        });
+        fetchPreview(newQuiz.course_id);
+      }
+      toast.success(`Тест создан: ${added} из ${aiDraft.questions.length} вопросов добавлено`);
+    } catch (e) {
+      toast.error(`Не удалось сохранить: ${(e as Error).message}`);
+    } finally {
+      setAiGenerating(false);
     }
   };
 
@@ -498,6 +633,209 @@ export default function QuizzesAdminPage() {
                 {t('common.create')}
               </Button>
               <Button variant="outline" onClick={() => setShowCreateQuiz(false)}>{t('common.cancel')}</Button>
+            </div>
+
+            {/* AI assistant — generate a draft quiz from the lesson content.
+                The methodologist reviews the draft in a preview modal before
+                saving. Backend POST /v1/quizzes/generate returns ~10s on Qwen
+                self-hosted, with DeepSeek fallback if Qwen is down. We do NOT
+                auto-save — the AI might write nonsense questions about
+                content that wasn't in the lesson. */}
+            <div className="mt-3 pt-3 border-t border-border/50">
+              <div className="flex items-center gap-2 mb-2">
+                <Lightbulb size={14} className="text-amber-500" />
+                <span className="text-sm font-medium">Или сгенерировать черновик с AI</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2 mb-2">
+                <div>
+                  <label className="text-xs text-muted-foreground">Сложность</label>
+                  <select
+                    className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm"
+                    value={aiDifficulty}
+                    onChange={(e) => setAiDifficulty(e.target.value as 'easy' | 'medium' | 'hard')}
+                    disabled={aiGenerating}
+                  >
+                    <option value="easy">Лёгкий (онбординг)</option>
+                    <option value="medium">Средний</option>
+                    <option value="hard">Сложный (senior)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground">Пожелания (опц.)</label>
+                  <Input
+                    placeholder="например: фокус на штрафы"
+                    value={aiGuidance}
+                    onChange={(e) => setAiGuidance(e.target.value)}
+                    disabled={aiGenerating}
+                  />
+                </div>
+              </div>
+              <Button
+                variant="secondary"
+                onClick={handleGenerateWithAI}
+                disabled={!newQuiz.lesson_id || aiGenerating}
+                className="w-full"
+              >
+                {aiGenerating ? 'Генерируем черновик…' : '✨ Сгенерировать черновик'}
+              </Button>
+              {aiDraft && (
+                <p className="text-xs text-muted-foreground mt-2">
+                  Черновик готов ({aiDraft.questions.length} вопросов
+                  {aiDraft.latency_ms ? `, ${(aiDraft.latency_ms / 1000).toFixed(1)}с` : ''}).
+                  Прокрутите вниз, чтобы посмотреть и сохранить.
+                </p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* AI draft preview. Rendered as a full-width section (not a modal)
+          so the methodologist can scroll through all questions at once
+          and edit fields inline. We deliberately keep this as a Card,
+          not a Modal — the questions are too long for a typical modal
+          viewport. */}
+      {aiDraft && (
+        <Card className="border-amber-300 dark:border-amber-700">
+          <CardContent className="p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Lightbulb size={16} className="text-amber-500" />
+                <h3 className="font-semibold">
+                  Черновик от AI — проверьте перед сохранением
+                </h3>
+              </div>
+              <button
+                type="button"
+                className="text-sm text-muted-foreground hover:underline"
+                onClick={() => setAiDraft(null)}
+              >
+                Отклонить
+              </button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {aiDraft.questions.length} вопросов
+              {aiDraft.latency_ms ? `, сгенерировано за ${(aiDraft.latency_ms / 1000).toFixed(1)}с` : ''}.
+              AI мог ошибиться в формулировках или фактах — обязательно проверьте каждый вопрос.
+            </p>
+            <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
+              {aiDraft.questions.map((q, qi) => (
+                <div
+                  key={qi}
+                  className="border border-border/60 rounded-md p-3 space-y-2"
+                >
+                  <div className="flex items-start gap-2">
+                    <Badge variant="outline">{qi + 1}</Badge>
+                    <textarea
+                      className="flex-1 rounded-md border border-input bg-background px-2 py-1 text-sm"
+                      value={q.text}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setAiDraft((d) =>
+                          d
+                            ? {
+                                ...d,
+                                questions: d.questions.map((qq, i) =>
+                                  i === qi ? { ...qq, text: v } : qq
+                                ),
+                              }
+                            : d
+                        );
+                      }}
+                      rows={2}
+                    />
+                  </div>
+                  <div className="pl-7 space-y-1">
+                    {q.choices.map((ch, ci) => (
+                      <label
+                        key={ci}
+                        className="flex items-start gap-2 text-sm cursor-pointer"
+                      >
+                        <input
+                          type="radio"
+                          name={`ai-q-${qi}`}
+                          checked={ch.is_correct}
+                          onChange={() => {
+                            setAiDraft((d) =>
+                              d
+                                ? {
+                                    ...d,
+                                    questions: d.questions.map((qq, i) =>
+                                      i === qi
+                                        ? {
+                                            ...qq,
+                                            choices: qq.choices.map((cc, j) => ({
+                                              ...cc,
+                                              is_correct: j === ci,
+                                            })),
+                                          }
+                                        : qq
+                                    ),
+                                  }
+                                : d
+                            );
+                          }}
+                          className="mt-1"
+                        />
+                        <input
+                          type="text"
+                          className="flex-1 rounded border border-input bg-background px-2 py-1 text-sm"
+                          value={ch.text}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            setAiDraft((d) =>
+                              d
+                                ? {
+                                    ...d,
+                                    questions: d.questions.map((qq, i) =>
+                                      i === qi
+                                        ? {
+                                            ...qq,
+                                            choices: qq.choices.map((cc, j) =>
+                                              j === ci ? { ...cc, text: v } : cc
+                                            ),
+                                          }
+                                        : qq
+                                    ),
+                                  }
+                                : d
+                            );
+                          }}
+                        />
+                      </label>
+                    ))}
+                  </div>
+                  {q.explanation && (
+                    <div className="pl-7 text-xs text-muted-foreground">
+                      💡 {q.explanation}
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    className="text-xs text-destructive hover:underline pl-7"
+                    onClick={() => {
+                      setAiDraft((d) =>
+                        d
+                          ? {
+                              ...d,
+                              questions: d.questions.filter((_, i) => i !== qi),
+                            }
+                          : d
+                      );
+                    }}
+                  >
+                    Удалить вопрос
+                  </button>
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-2 pt-2 border-t border-border/50">
+              <Button onClick={handleSaveAiDraft} disabled={aiGenerating}>
+                {aiGenerating ? 'Сохраняем…' : 'Сохранить тест'}
+              </Button>
+              <Button variant="outline" onClick={() => setAiDraft(null)}>
+                Отклонить
+              </Button>
             </div>
           </CardContent>
         </Card>

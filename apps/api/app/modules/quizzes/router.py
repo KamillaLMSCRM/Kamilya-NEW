@@ -19,6 +19,8 @@ from app.modules.quizzes.schemas import (
     QuestionUpdate,
     QuizChoiceCreate,
     QuizChoiceUpdate,
+    QuizGenerateRequest,
+    QuizGenerateResponse,
 )
 from app.modules.quizzes.service import (
     get_quiz_with_questions,
@@ -26,6 +28,7 @@ from app.modules.quizzes.service import (
     get_user_attempts,
     get_quiz_stats,
 )
+from app.modules.quizzes.ai import generate_quiz_draft
 
 router = APIRouter(prefix="/quizzes", tags=["quizzes"])
 
@@ -271,6 +274,62 @@ async def create_quiz(
     await db.flush()
     await db.refresh(quiz)
     return await get_quiz_with_questions(db, quiz.id, user.tenant_id)
+
+
+@router.post("/generate", response_model=QuizGenerateResponse)
+async def generate_quiz(
+    req: QuizGenerateRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_role("superadmin", "admin", "org_admin", "teacher")),
+):
+    """AI-generate a draft quiz from a lesson's content.
+
+    Sync endpoint — the LLM answers in ~10s on Qwen self-hosted and
+    ~5s on the DeepSeek fallback. We deliberately do NOT write to the
+    DB; the methodologist reviews the draft in the UI and saves it with
+    a follow-up POST /v1/quizzes in one click. This keeps the AI from
+    silently publishing bad questions to employees.
+
+    Tenant isolation: the lesson must belong to the caller's tenant,
+    otherwise 404 (never 403 — see AGENTS.md).
+    """
+    from app.modules.lessons.models import Lesson
+
+    lesson = await db.get(Lesson, req.lesson_id)
+    if not lesson or lesson.tenant_id != user.tenant_id:
+        raise HTTPException(status_code=404, detail="Lesson not found")
+
+    title = (lesson.title or "").strip() or "Урок без названия"
+    content = (lesson.content or "").strip()
+
+    try:
+        draft = await generate_quiz_draft(
+            lesson_title=title,
+            lesson_content=content,
+            num_questions=req.num_questions,
+            difficulty=req.difficulty,
+            language=req.language,
+            guidance=req.guidance,
+        )
+    except RuntimeError as e:
+        # 502 = upstream (LLM) error. Don't leak internals — the message
+        # we set in ai.py is already user-safe.
+        raise HTTPException(status_code=502, detail=str(e))
+
+    if not draft["questions"]:
+        raise HTTPException(
+            status_code=502,
+            detail="AI вернул пустой или нечитаемый ответ. Попробуйте ещё раз или упростите запрос.",
+        )
+
+    return QuizGenerateResponse(
+        lesson_id=lesson.id,
+        suggested_title=draft["suggested_title"],
+        suggested_pass_score=draft["suggested_pass_score"],
+        questions=draft["questions"],
+        model_used=draft.get("model_used"),
+        latency_ms=draft.get("latency_ms"),
+    )
 
 
 @router.put("/{quiz_id}", response_model=QuizResponse)
