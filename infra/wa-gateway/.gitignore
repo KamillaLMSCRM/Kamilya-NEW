@@ -1,0 +1,12 @@
+# Credentials and runtime state — never commit
+.env
+.env.local
+.env.production
+node_modules/
+sessions/
+logs/
+*.log
+
+# OS junk
+.DS_Store
+Thumbs.db

@@ -1,0 +1,25 @@
+{
+  "name": "@kamilya/wa-gateway",
+  "version": "0.1.0",
+  "description": "WhatsApp gateway for Kamilya LMS — multi-tenant Baileys bridge",
+  "main": "src/index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "test": "node --test tests/"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "^6.7.0",
+    "express": "^4.19.2",
+    "jsonwebtoken": "^9.0.2",
+    "qrcode": "^1.5.3",
+    "pino": "^9.3.2",
+    "pino-pretty": "^11.2.2"
+  },
+  "license": "UNLICENSED",
+  "private": true
+}
