@@ -67,9 +67,9 @@ async def assign_quiz_by_positions(
     pos_result = await db.execute(
         text(
             """SELECT id, name FROM positions
-               WHERE tenant_id = :tid AND id = ANY(:pids::uuid[])"""
+               WHERE tenant_id = :tid AND id = ANY(:pids)"""
         ),
-        {"tid": str(tenant_id), "pids": [str(p) for p in position_ids]},
+        {"tid": tenant_id, "pids": list(position_ids)},
     )
     found_positions = {r[0]: r[1] for r in pos_result.all()}
     positions_not_found = [p for p in position_ids if p not in found_positions]
@@ -89,10 +89,10 @@ async def assign_quiz_by_positions(
         text(
             """SELECT id, position_id FROM users
                WHERE tenant_id = :tid
-                 AND position_id = ANY(:pids::uuid[])
+                 AND position_id = ANY(:pids)
                  AND is_active = true"""
         ),
-        {"tid": str(tenant_id), "pids": [str(p) for p in found_positions]},
+        {"tid": tenant_id, "pids": list(found_positions.keys())},
     )
     user_rows = user_result.all()
     user_ids = [r[0] for r in user_rows]
