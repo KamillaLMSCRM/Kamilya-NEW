@@ -58,7 +58,9 @@
     "myDashboard": "Мой дашборд",
     "aiGeneration": "AI Генерация",
     "userManagement": "Управление пользователями",
-    "positions": "Должности"
+    "positions": "Должности",
+    "staffRoster": "Штатка",
+    "staffTree": "Структура штата"
   },
   "auth": {
     "login": "Вход",
@@ -505,6 +507,10 @@
     "myTests": "Мои тесты",
     "platform": "AI-платформа",
     "logo": "Kamilya LMS",
+    "content": "КОНТЕНТ",
+    "staff": "ПЕРСОНАЛ",
+    "learning": "ОБУЧЕНИЕ",
+    "quizConstructor": "Конструктор тестов",
     "userRole": {
       "superadmin": "Суперадмин",
       "admin": "Администратор",

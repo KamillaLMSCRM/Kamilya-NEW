@@ -524,7 +524,18 @@ export default function QuizzesAdminPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">{t('quiz.title')} — Админ</h1>
+        <div>
+          {/* Page header renamed on 2026-06-27 from "Тест — Админ" to
+              "Конструктор тестов" — the old label sounded like an admin
+              operations panel, but this is actually a content-construction
+              page where the methodologist authors quiz questions. The
+              subtitle clarifies the workflow: pick a lesson → write/AI the
+              questions → save. */}
+          <h1 className="text-2xl font-bold">Конструктор тестов</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Создание и редактирование тестов. Выберите урок → добавьте вопросы вручную или сгенерируйте черновик из контента урока с помощью AI.
+          </p>
+        </div>
         <Button onClick={() => setShowCreateQuiz(!showCreateQuiz)}>
           {t('common.create')} {t('quiz.title')}
         </Button>
@@ -640,52 +651,68 @@ export default function QuizzesAdminPage() {
                 saving. Backend POST /v1/quizzes/generate returns ~10s on Qwen
                 self-hosted, with DeepSeek fallback if Qwen is down. We do NOT
                 auto-save — the AI might write nonsense questions about
-                content that wasn't in the lesson. */}
-            <div className="mt-3 pt-3 border-t border-border/50">
-              <div className="flex items-center gap-2 mb-2">
-                <Lightbulb size={14} className="text-amber-500" />
-                <span className="text-sm font-medium">Или сгенерировать черновик с AI</span>
-              </div>
-              <div className="grid grid-cols-2 gap-2 mb-2">
-                <div>
-                  <label className="text-xs text-muted-foreground">Сложность</label>
-                  <select
-                    className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm"
-                    value={aiDifficulty}
-                    onChange={(e) => setAiDifficulty(e.target.value as 'easy' | 'medium' | 'hard')}
-                    disabled={aiGenerating}
-                  >
-                    <option value="easy">Лёгкий (онбординг)</option>
-                    <option value="medium">Средний</option>
-                    <option value="hard">Сложный (senior)</option>
-                  </select>
+                content that wasn't in the lesson.
+                Gated on 2026-06-27: only show this section once a lesson is
+                picked. Before that, the AI has no source material to work
+                from, so the section was just noise that confused the
+                methodologist about what the button does. */}
+            {newQuiz.lesson_id ? (
+              <div className="mt-3 pt-3 border-t border-border/50">
+                <div className="flex items-center gap-2 mb-2">
+                  <Lightbulb size={14} className="text-amber-500" />
+                  <span className="text-sm font-medium">Или сгенерировать черновик с AI</span>
                 </div>
-                <div>
-                  <label className="text-xs text-muted-foreground">Пожелания (опц.)</label>
-                  <Input
-                    placeholder="например: фокус на штрафы"
-                    value={aiGuidance}
-                    onChange={(e) => setAiGuidance(e.target.value)}
-                    disabled={aiGenerating}
-                  />
+                <div className="grid grid-cols-2 gap-2 mb-2">
+                  <div>
+                    <label className="text-xs text-muted-foreground">Сложность</label>
+                    <select
+                      className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm"
+                      value={aiDifficulty}
+                      onChange={(e) => setAiDifficulty(e.target.value as 'easy' | 'medium' | 'hard')}
+                      disabled={aiGenerating}
+                    >
+                      <option value="easy">Лёгкий (онбординг)</option>
+                      <option value="medium">Средний</option>
+                      <option value="hard">Сложный (senior)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground">Пожелания (опц.)</label>
+                    <Input
+                      placeholder="например: фокус на штрафы"
+                      value={aiGuidance}
+                      onChange={(e) => setAiGuidance(e.target.value)}
+                      disabled={aiGenerating}
+                    />
+                  </div>
+                </div>
+                <Button
+                  variant="secondary"
+                  onClick={handleGenerateWithAI}
+                  disabled={!newQuiz.lesson_id || aiGenerating}
+                  className="w-full"
+                >
+                  {aiGenerating ? 'Генерируем черновик…' : '✨ Сгенерировать черновик'}
+                </Button>
+                {aiDraft && (
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Черновик готов ({aiDraft.questions.length} вопросов
+                    {aiDraft.latency_ms ? `, ${(aiDraft.latency_ms / 1000).toFixed(1)}с` : ''}).
+                    Прокрутите вниз, чтобы посмотреть и сохранить.
+                  </p>
+                )}
+              </div>
+            ) : (
+              <div className="mt-3 pt-3 border-t border-border/50 rounded-lg bg-muted/40 px-3 py-2.5">
+                <div className="flex items-start gap-2">
+                  <Lightbulb size={14} className="text-muted-foreground mt-0.5 shrink-0" />
+                  <p className="text-xs text-muted-foreground">
+                    <span className="font-medium text-foreground">AI-черновик:</span>{' '}
+                    выберите урок выше — AI прочитает его контент и предложит вопросы. Без выбранного урока генерация невозможна.
+                  </p>
                 </div>
               </div>
-              <Button
-                variant="secondary"
-                onClick={handleGenerateWithAI}
-                disabled={!newQuiz.lesson_id || aiGenerating}
-                className="w-full"
-              >
-                {aiGenerating ? 'Генерируем черновик…' : '✨ Сгенерировать черновик'}
-              </Button>
-              {aiDraft && (
-                <p className="text-xs text-muted-foreground mt-2">
-                  Черновик готов ({aiDraft.questions.length} вопросов
-                  {aiDraft.latency_ms ? `, ${(aiDraft.latency_ms / 1000).toFixed(1)}с` : ''}).
-                  Прокрутите вниз, чтобы посмотреть и сохранить.
-                </p>
-              )}
-            </div>
+            )}
           </CardContent>
         </Card>
       )}

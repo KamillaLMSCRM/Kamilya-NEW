@@ -56,14 +56,36 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
     return roles.includes(user.role);
   };
 
+  // Navigation structure reorganized on 2026-06-27:
+  // - "Контент" — creating course/test/document content (was "Курсы" + "Генерация" mixed)
+  // - "Персонал" — staff/staff-tree/positions/enrollments operations
+  //   (was hidden under /admin/* with no sidebar entries, so methodologists
+  //    couldn't find them; now grouped together since they form one workflow)
+  // - "Админ" — platform administration (unchanged)
   const navSections: { title: string; items: NavItem[] }[] = [
     {
-      title: t('sidebar.generation'),
+      title: t('sidebar.content'),
       items: [
         {
           label: t('nav.aiGeneration'),
           href: '/ai/generate',
           icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 2a4 4 0 0 0-4 4v2H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10a2 2 0 0 0-2-2h-2V6a4 4 0 0 0-4-4Z" /><circle cx="12" cy="15" r="2" /></svg>,
+          roles: ['admin', 'org_admin', 'teacher'],
+        },
+        {
+          label: t('nav.courses'),
+          href: '/courses',
+          icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" /></svg>,
+          roles: ['admin', 'org_admin', 'teacher'],
+        },
+        {
+          // Quiz constructor. Was previously labelled "Тест — Админ" and felt
+          // out of place. Renamed to "Конструктор тестов" via page header on
+          // 2026-06-27. AI-assist section is now hidden until a lesson is
+          // picked, so it stops looking like "AI from thin air".
+          label: t('sidebar.quizConstructor'),
+          href: '/quizzes',
+          icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>,
           roles: ['admin', 'org_admin', 'teacher'],
         },
         {
@@ -75,14 +97,59 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
       ],
     },
     {
-      title: t('sidebar.courses'),
+      // "Персонал" section added 2026-06-27: was previously missing from
+      // sidebar entirely. Methodologists (teacher role) didn't know that
+      // /admin/staff, /admin/employees, /positions existed.
+      // /admin/enrollments stays admin-only — methodologists assign courses
+      // through /positions (attaching a course to a position auto-enrolls
+      // everyone who holds it; direct user→course assignment is admin scope).
+      title: t('sidebar.staff'),
       items: [
         {
-          label: t('nav.courses'),
-          href: '/courses',
-          icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" /></svg>,
+          // Staff import — Excel/CSV uploader for personnel roster.
+          // Was at /admin/staff with no sidebar link; now reachable.
+          label: t('nav.staffRoster'),
+          href: '/admin/staff',
+          icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></svg>,
           roles: ['admin', 'org_admin', 'teacher'],
         },
+        {
+          // Org tree — departments/positions/employees with course-progress.
+          // Was at /admin/employees with no sidebar link; now reachable.
+          label: t('nav.staffTree'),
+          href: '/admin/employees',
+          icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 21h18" /><path d="M5 21V7l8-4v18" /><path d="M19 21V11l-6-4" /></svg>,
+          roles: ['admin', 'org_admin', 'teacher'],
+        },
+        {
+          // Positions — JD authoring with AI tools (analyze, suggest courses,
+          // onboarding quiz). Was already in sidebar but mis-grouped under
+          // "Курсы". Now correctly under "Персонал" since positions are the
+          // bridge between staff roster and course content.
+          label: t('nav.positions'),
+          href: '/positions',
+          icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect width="20" height="14" x="2" y="7" rx="2" ry="2" /><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" /></svg>,
+          roles: ['admin', 'org_admin', 'teacher'],
+        },
+        {
+          // Enrollments (direct user→course assignment) — admin-only.
+          // Methodologists (teacher) assign via /positions instead:
+          // attaching a course to a position auto-enrolls everyone who
+          // holds that position. GET /v1/users is admin-only too, so
+          // /admin/enrollments can't render the user picker for teacher.
+          label: t('courses.enrollments'),
+          href: '/admin/enrollments',
+          icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><line x1="19" x2="19" y1="8" y2="14" /><line x1="22" x2="16" y1="11" y2="11" /></svg>,
+          roles: ['admin'],
+        },
+      ],
+    },
+    {
+      // Student-facing shortcuts kept here so org_admin (who often acts
+      // as both methodologist and student in demo tenants) can switch
+      // perspective without logout. Unchanged from prior version.
+      title: t('sidebar.learning'),
+      items: [
         {
           label: t('student.enrolledCourses'),
           href: '/my-courses',
@@ -100,30 +167,6 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
           href: '/certificates',
           icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="6" /><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11" /></svg>,
           roles: ['student', 'org_admin'],
-        },
-        {
-          // Quizzes were previously under "Админ платформы" and only
-          // visible to admin/org_admin — see /admin/quizzes. Moved to
-          // the Courses section on 2026-06-26 so methodologists (teacher)
-          // can manage pass_score / attempt_limit on the quizzes they
-          // created, matching the backend's existing role policy
-          // (PUT /v1/quizzes/{id} is open to admin/org_admin/teacher).
-          label: t('quiz.title'),
-          href: '/quizzes',
-          icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>,
-          roles: ['admin', 'org_admin', 'teacher'],
-        },
-        {
-          label: t('nav.positions'),
-          href: '/positions',
-          icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect width="20" height="14" x="2" y="7" rx="2" ry="2" /><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" /></svg>,
-          roles: ['admin', 'org_admin', 'teacher'],
-        },
-        {
-          label: t('courses.enrollments'),
-          href: '/admin/enrollments',
-          icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><line x1="19" x2="19" y1="8" y2="14" /><line x1="22" x2="16" y1="11" y2="11" /></svg>,
-          roles: ['admin'],
         },
       ],
     },

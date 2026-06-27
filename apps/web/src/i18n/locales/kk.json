@@ -58,7 +58,9 @@
     "myDashboard": "Менің басқару панелі",
     "aiGeneration": "AI Өндіру",
     "userManagement": "Пайдаланушыларды басқару",
-    "positions": "Лауазымдар"
+    "positions": "Лауазымдар",
+    "staffRoster": "Штат",
+    "staffTree": "Штат құрылымы"
   },
   "auth": {
     "login": "Кіру",
@@ -505,6 +507,10 @@
     "myTests": "Менің тесттерім",
     "platform": "AI-платформа",
     "logo": "Kamilya LMS",
+    "content": "КОНТЕНТ",
+    "staff": "ПЕРСОНАЛ",
+    "learning": "ОҚЫТУ",
+    "quizConstructor": "Тест конструкторы",
     "userRole": {
       "superadmin": "Суперәкімші",
       "admin": "Әкімші",
