@@ -61,6 +61,7 @@ async def lifespan(app: FastAPI):
 
 def _run_migrations():
     """Run alembic migrations on startup (Render doesn't do this automatically)."""
+    import traceback
     try:
         venv_bin = os.path.dirname(sys.executable)
         alembic_bin = os.path.join(venv_bin, "alembic")
@@ -72,10 +73,14 @@ def _run_migrations():
             capture_output=True, text=True, timeout=60,
         )
         if result.returncode != 0:
+            print(f"[alembic] FAILED stdout={result.stdout[:500]} stderr={result.stderr[:500]}", flush=True)
             logger.warning("Alembic warning: %s", result.stderr[:500])
         else:
+            print("[alembic] OK", flush=True)
             logger.info("Alembic migrations OK")
     except Exception as e:
+        print(f"[alembic] EXC {e.__class__.__name__}: {e}", flush=True)
+        print(traceback.format_exc(), flush=True)
         logger.error("Alembic error (non-fatal): %s", e)
 
 
