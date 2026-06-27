@@ -87,7 +87,7 @@ async def update_current_user_profile(
 @router.get("", response_model=UserListResponse)
 async def list_all_users(
     page: int = Query(1, ge=1),
-    per_page: int = Query(20, ge=1, le=100),
+    per_page: int = Query(20, ge=1, le=500),
     search: Optional[str] = Query(None),
     role: Optional[str] = Query(None),
     is_active: Optional[bool] = Query(None),
@@ -97,7 +97,11 @@ async def list_all_users(
     """List users. Admin/org_admin/superadmin for full management; teacher
     included so methodologists can pick assignees for quiz assignments
     (POST /v1/quiz-assignments already accepts teacher role). The endpoint
-    still scopes by tenant_id so cross-tenant access is impossible."""
+    still scopes by tenant_id so cross-tenant access is impossible.
+
+    per_page capped at 500 — large enough for most kazakhstan legal
+    entities (typically <300 employees), small enough to not blow up
+    the response. Use page+per_page for tenants beyond that."""
     users, total = await list_users(
         db, user.tenant_id, page, per_page, search, role, is_active
     )
