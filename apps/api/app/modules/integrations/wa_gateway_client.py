@@ -39,14 +39,17 @@ def _mint_service_jwt() -> str:
     means each call gets a fresh token — we never store long-lived tokens
     in the gateway.
     """
+    import time
+    now = int(time.time())
     return jwt.encode(
         {
             "sub": "kamilya-backend",
             "role": "service",
+            "iat": now,
+            "exp": now + 300,
         },
         settings.KAMILYA_BACKEND_SECRET,
         algorithm="HS256",
-        expires_in=300,
     )
 
 
