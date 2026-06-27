@@ -35,12 +35,14 @@ import {
   Mail,
   Users,
   ChevronRight,
+  RefreshCw,
 } from 'lucide-react';
 import {
   fetchAssignments,
   assignQuiz,
   assignQuizByPositions,
   removeAssignment,
+  recalcPositionEmployees,
 } from './api';
 import type { PositionLite, QuizAssignment } from './types';
 
@@ -74,6 +76,11 @@ export function QuizAssignPanel({ quizId, refreshKey }: QuizAssignPanelProps) {
   const [loadingAssignments, setLoadingAssignments] = useState(true);
   const [dueDate, setDueDate] = useState<string>('');
   const [submitting, setSubmitting] = useState(false);
+  // "Только с email" — скрывает пользователей без email/неактивных из
+  // списка доступных. Полезно когда HR загрузил сотрудников но ещё не
+  // ввёл их контакты. По умолчанию выключен — пользователь сам решает
+  // хочет ли он видеть «неполных» сотрудников.
+  const [onlyWithEmail, setOnlyWithEmail] = useState(false);
 
   // Users mode
   const [users, setUsers] = useState<UserLite[]>([]);
@@ -155,12 +162,39 @@ export function QuizAssignPanel({ quizId, refreshKey }: QuizAssignPanelProps) {
       }
       const data: PositionLite[] = await res.json();
       setPositions(data);
+      // Surface stale counts so the methodologist knows to recalc.
+      // We don't auto-recalc — that would silently overwrite values the
+      // operator may have intentionally edited (rare but possible).
+      const staleCount = data.filter((p) => p.employee_count_stale).length;
+      if (staleCount > 0) {
+        toast.error(
+          t('quizAssignments.employeeCountStale', { count: staleCount }),
+          // Long-lived toast — 8 seconds — so the message isn't missed.
+          { duration: 8000 }
+        );
+      }
     } catch (e) {
       toast.error(`${t('quizAssignments.loadError')}: ${(e as Error).message}`);
     } finally {
       setLoadingPositions(false);
     }
   }, [token, API_URL, t]);
+
+  // Per-position manual recalc. Called when the methodologist clicks
+  // the "↻" badge next to a stale count. Cheaper than a full reload —
+  // updates one row in-place.
+  const handleRecalcPosition = async (positionId: string) => {
+    if (!token) return;
+    try {
+      const updated = await recalcPositionEmployees(token, positionId);
+      setPositions((prev) =>
+        prev.map((p) => (p.id === updated.id ? updated : p))
+      );
+      toast.success(t('quizAssignments.employeeCountRecalculated', { name: updated.name }));
+    } catch (e) {
+      toast.error(`Recalc failed: ${(e as Error).message}`);
+    }
+  };
 
   useEffect(() => {
     reloadAssignments();
@@ -176,6 +210,39 @@ export function QuizAssignPanel({ quizId, refreshKey }: QuizAssignPanelProps) {
     [assignments, quizId]
   );
 
+  // Group assignments by lifecycle status so the methodologist can scan
+  // "who's still pending" vs "who's done" at a glance. Without grouping
+  // a 30-row list becomes a wall of identical-looking rows.
+  const groupedAssignments = useMemo(() => {
+    const overdue: QuizAssignment[] = [];
+    const pending: QuizAssignment[] = [];
+    const completed: QuizAssignment[] = [];
+    for (const a of myAssignments) {
+      if (a.status === 'completed') {
+        completed.push(a);
+      } else if (a.due_date && new Date(a.due_date) < new Date()) {
+        overdue.push(a);
+      } else {
+        pending.push(a);
+      }
+    }
+    // Sort each bucket: overdue by due_date asc (most urgent first),
+    // pending by due_date asc with nulls last, completed by completed_at desc.
+    const overdueSort = [...overdue].sort((a, b) =>
+      (a.due_date || '').localeCompare(b.due_date || '')
+    );
+    const pendingSort = [...pending].sort((a, b) => {
+      if (!a.due_date && !b.due_date) return 0;
+      if (!a.due_date) return 1;
+      if (!b.due_date) return -1;
+      return a.due_date.localeCompare(b.due_date);
+    });
+    const completedSort = [...completed].sort((a, b) =>
+      (b.completed_at || '').localeCompare(a.completed_at || '')
+    );
+    return { overdue: overdueSort, pending: pendingSort, completed: completedSort };
+  }, [myAssignments]);
+
   // Users already assigned to this quiz (shown in the "available" list as
   // a small greyed-out hint so the methodologist knows the dedup is working)
   const assignedUserIds = useMemo(
@@ -183,7 +250,9 @@ export function QuizAssignPanel({ quizId, refreshKey }: QuizAssignPanelProps) {
     [myAssignments]
   );
 
-  // Users available to assign — filtered by search, not already assigned
+  // Users available to assign — filtered by search, not already assigned,
+  // and optionally by "только с email" (skips pending users from the
+  // available list but the pending-users callout still warns about them).
   const availableUsers = useMemo(() => {
     const q = search.trim().toLowerCase();
     return users.filter((u) => {
@@ -192,9 +261,10 @@ export function QuizAssignPanel({ quizId, refreshKey }: QuizAssignPanelProps) {
         const email = (u.email ?? '').toLowerCase();
         if (!fullName.includes(q) && !email.includes(q)) return false;
       }
+      if (onlyWithEmail && (!u.email || !u.is_active)) return false;
       return true;
     });
-  }, [users, search]);
+  }, [users, search, onlyWithEmail]);
 
   const toggleUser = (id: string) => {
     setSelectedIds((prev) => {
@@ -435,17 +505,28 @@ export function QuizAssignPanel({ quizId, refreshKey }: QuizAssignPanelProps) {
           </div>
 
           {/* Pending users warning. Если есть сотрудники с пустым email
-              или неактивные — напоминаем что они не получат тест. */}
+              или неактивные — напоминаем что они не получат тест. Inline
+              filter checkbox lets the methodologist clean up the list
+              instead of having to scroll past broken rows. */}
           {mode === 'users' && pendingUsers.length > 0 && (
             <div className="rounded-md border border-amber-300/60 bg-amber-50/40 dark:bg-amber-950/20 px-3 py-2 text-xs flex items-start gap-2">
               <Mail size={14} className="text-amber-600 mt-0.5 shrink-0" />
-              <div>
+              <div className="flex-1">
                 <div className="font-medium text-amber-900 dark:text-amber-200">
                   {t('quizAssignments.pendingUsersTitle', { count: pendingUsers.length })}
                 </div>
                 <div className="text-amber-800/80 dark:text-amber-300/80">
                   {t('quizAssignments.pendingUsersHint')}
                 </div>
+                <label className="mt-1.5 inline-flex items-center gap-1.5 text-amber-900 dark:text-amber-200 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={onlyWithEmail}
+                    onChange={(e) => setOnlyWithEmail(e.target.checked)}
+                    className="rounded"
+                  />
+                  {t('quizAssignments.onlyWithEmail')}
+                </label>
               </div>
             </div>
           )}
@@ -490,7 +571,20 @@ export function QuizAssignPanel({ quizId, refreshKey }: QuizAssignPanelProps) {
                         )}
                       </span>
                       {u.email && (
-                        <span className="text-xs text-muted-foreground">{u.email}</span>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            void navigator.clipboard?.writeText(u.email!);
+                            toast.success(t('quizAssignments.emailCopied', { email: u.email ?? '' }));
+                          }}
+                          className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
+                          title={t('quizAssignments.copyEmail')}
+                        >
+                          <Mail size={11} />
+                          {u.email}
+                        </button>
                       )}
                     </label>
                   );
@@ -513,6 +607,8 @@ export function QuizAssignPanel({ quizId, refreshKey }: QuizAssignPanelProps) {
               <div className="rounded border border-border/50 divide-y divide-border/40">
                 {positions.map((p) => {
                   const checked = selectedPositions.has(p.id);
+                  const displayCount = p.current_employee_count;
+                  const stale = p.employee_count_stale;
                   return (
                     <label
                       key={p.id}
@@ -533,10 +629,33 @@ export function QuizAssignPanel({ quizId, refreshKey }: QuizAssignPanelProps) {
                           </span>
                         )}
                       </span>
-                      <Badge variant="outline">
-                        <Users size={10} className="mr-1" />
-                        {p.employee_count ?? 0}
-                      </Badge>
+                      {/* Employee count: live count from JOIN. If stale, show
+                          a small ↻ badge that triggers recalc on click.
+                          Without live count, the methodologist would skip
+                          positions thinking they're empty (legacy bug). */}
+                      <span
+                        title={stale ? t('quizAssignments.employeeCountStaleHint') : undefined}
+                      >
+                        <Badge variant="outline">
+                          <Users size={10} className="mr-1" />
+                          {displayCount}
+                        </Badge>
+                      </span>
+                      {stale && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleRecalcPosition(p.id);
+                          }}
+                          className="text-muted-foreground hover:text-foreground"
+                          title={t('quizAssignments.recalcEmployeeCount')}
+                          aria-label={t('quizAssignments.recalcEmployeeCount')}
+                        >
+                          <RefreshCw size={12} />
+                        </button>
+                      )}
                       <ChevronRight size={14} className="text-muted-foreground/50" />
                     </label>
                   );
@@ -547,14 +666,31 @@ export function QuizAssignPanel({ quizId, refreshKey }: QuizAssignPanelProps) {
         </CardContent>
       </Card>
 
-      {/* ─── Текущие назначения ─── */}
+      {/* ─── Текущие назначения — сгруппированы по lifecycle ─── */}
       <Card>
-        <CardContent className="p-4 space-y-2">
+        <CardContent className="p-4 space-y-3">
           <div className="flex items-center justify-between">
             <h4 className="font-semibold">
               {t('quizAssignments.currentHeading')}{' '}
               <Badge variant="secondary" className="ml-1">{myAssignments.length}</Badge>
             </h4>
+            {myAssignments.length > 0 && (
+              <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                {groupedAssignments.overdue.length > 0 && (
+                  <span className="text-destructive">
+                    {t('quizAssignments.overdueCount', { count: groupedAssignments.overdue.length })}
+                  </span>
+                )}
+                {groupedAssignments.pending.length > 0 && (
+                  <span>{t('quizAssignments.pendingCount', { count: groupedAssignments.pending.length })}</span>
+                )}
+                {groupedAssignments.completed.length > 0 && (
+                  <span className="text-emerald-700">
+                    {t('quizAssignments.completedCount', { count: groupedAssignments.completed.length })}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
 
           {myAssignments.length === 0 ? (
@@ -562,61 +698,125 @@ export function QuizAssignPanel({ quizId, refreshKey }: QuizAssignPanelProps) {
               {t('quizAssignments.noAssignments')}
             </p>
           ) : (
-            <div className="divide-y divide-border/40 rounded border border-border/50">
-              {myAssignments.map((a) => {
-                const isDone = a.status === 'completed';
-                const overdue =
-                  !isDone &&
-                  a.due_date &&
-                  new Date(a.due_date) < new Date();
-                const dueLocale = a.due_date
-                  ? new Date(a.due_date).toLocaleDateString('ru-RU')
-                  : null;
-                return (
-                  <div
-                    key={a.id}
-                    className="flex items-center gap-2 px-3 py-2 text-sm"
-                  >
-                    <span className="flex-1 truncate">
-                      {a.user_name || a.user_email || a.user_id}
-                      {a.position_name && (
-                        <span className="text-xs text-muted-foreground ml-2">
-                          · {a.position_name}
-                        </span>
-                      )}
-                    </span>
-                    {dueLocale && (
-                      <span className="text-xs text-muted-foreground">
-                        {t('quizAssignments.dueOn', { date: dueLocale })}
-                      </span>
-                    )}
-                    {isDone ? (
-                      <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
-                        ✓ {t('quizAssignments.score', { percent: a.score_percent ?? 0 })}
-                      </Badge>
-                    ) : overdue ? (
-                      <Badge variant="destructive">{t('quizAssignments.statusOverdue')}</Badge>
-                    ) : (
-                      <Badge variant="secondary">{t('quizAssignments.statusAssigned')}</Badge>
-                    )}
-                    {!isDone && (
-                      <button
-                        type="button"
-                        title={t('quizAssignments.revoke')}
-                        onClick={() => handleRevoke(a)}
-                        className="text-muted-foreground hover:text-destructive"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
+            <div className="space-y-3">
+              {/* Overdue first — most urgent. Red section header. */}
+              {groupedAssignments.overdue.length > 0 && (
+                <AssignmentGroup
+                  title={t('quizAssignments.groupOverdue')}
+                  items={groupedAssignments.overdue}
+                  t={t}
+                  onRevoke={handleRevoke}
+                  showOverdue
+                />
+              )}
+              {/* Pending next — what to chase up */}
+              {groupedAssignments.pending.length > 0 && (
+                <AssignmentGroup
+                  title={t('quizAssignments.groupPending')}
+                  items={groupedAssignments.pending}
+                  t={t}
+                  onRevoke={handleRevoke}
+                />
+              )}
+              {/* Completed last — historical record */}
+              {groupedAssignments.completed.length > 0 && (
+                <AssignmentGroup
+                  title={t('quizAssignments.groupCompleted')}
+                  items={groupedAssignments.completed}
+                  t={t}
+                  onRevoke={handleRevoke}
+                />
+              )}
             </div>
           )}
         </CardContent>
       </Card>
       {dialog}
+    </div>
+  );
+}
+
+/** One grouped section in the assignments list. Renders the bucket title +
+ *  a list of assignment rows. Pulled out as a local sub-component so the
+ *  JSX in QuizAssignPanel doesn't get unwieldy with 3× repeated row markup. */
+function AssignmentGroup({
+  title,
+  items,
+  t,
+  onRevoke,
+  showOverdue,
+}: {
+  title: string;
+  items: QuizAssignment[];
+  t: (key: any, params?: Record<string, string | number>) => string;
+  onRevoke: (a: QuizAssignment) => void;
+  showOverdue?: boolean;
+}) {
+  return (
+    <div>
+      <div className={`text-xs font-medium uppercase tracking-wide mb-1.5 ${
+        showOverdue ? 'text-destructive' : 'text-muted-foreground'
+      }`}>
+        {title} · {items.length}
+      </div>
+      <div className="divide-y divide-border/40 rounded border border-border/50">
+        {items.map((a) => {
+          const isDone = a.status === 'completed';
+          const overdue =
+            showOverdue ||
+            (!isDone && a.due_date && new Date(a.due_date) < new Date());
+          const dueLocale = a.due_date
+            ? new Date(a.due_date).toLocaleDateString('ru-RU')
+            : null;
+          const createdLocale = a.created_at
+            ? new Date(a.created_at).toLocaleDateString('ru-RU')
+            : null;
+          return (
+            <div
+              key={a.id}
+              className="flex items-center gap-2 px-3 py-2 text-sm"
+            >
+              <span className="flex-1 truncate">
+                {a.user_name || a.user_email || a.user_id}
+                {a.position_name && (
+                  <span className="text-xs text-muted-foreground ml-2">
+                    · {a.position_name}
+                  </span>
+                )}
+                {createdLocale && !isDone && (
+                  <span className="text-xs text-muted-foreground ml-2">
+                    · {t('quizAssignments.assignedOn', { date: createdLocale })}
+                  </span>
+                )}
+              </span>
+              {dueLocale && (
+                <span className="text-xs text-muted-foreground">
+                  {t('quizAssignments.dueOn', { date: dueLocale })}
+                </span>
+              )}
+              {isDone ? (
+                <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
+                  ✓ {t('quizAssignments.score', { percent: a.score_percent ?? 0 })}
+                </Badge>
+              ) : overdue ? (
+                <Badge variant="destructive">{t('quizAssignments.statusOverdue')}</Badge>
+              ) : (
+                <Badge variant="secondary">{t('quizAssignments.statusAssigned')}</Badge>
+              )}
+              {!isDone && (
+                <button
+                  type="button"
+                  title={t('quizAssignments.revoke')}
+                  onClick={() => onRevoke(a)}
+                  className="text-muted-foreground hover:text-destructive"
+                >
+                  <Trash2 size={14} />
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

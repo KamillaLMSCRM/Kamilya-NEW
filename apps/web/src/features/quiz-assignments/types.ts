@@ -43,5 +43,10 @@ export interface PositionLite {
   id: string;
   name: string;
   department: string;
+  /** Cached count from positions.employee_count (may be stale). */
   employee_count: number;
+  /** Always-fresh count from JOIN to users table. Prefer this for UI display. */
+  current_employee_count: number;
+  /** True when cached != live. UI can show a "↻" badge. */
+  employee_count_stale: boolean;
 }

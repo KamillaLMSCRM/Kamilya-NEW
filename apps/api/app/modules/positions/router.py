@@ -167,6 +167,24 @@ async def _update_employee_count(db: AsyncSession, position_id: UUID, tenant_id:
 # ── CRUD ─────────────────────────────────────────────────────
 
 
+async def _live_employee_count(db: AsyncSession, position_id: UUID, tenant_id: UUID) -> int:
+    """Compute the real-time employee count for a position.
+
+    Filters to `is_active = true` so deactivated users don't show up —
+    matches the methodologist's mental model of "who currently works here".
+    Counts only users belonging to the same tenant as a defense-in-depth
+    measure (RLS already handles this but explicit is safer).
+    """
+    result = await db.execute(
+        select(func.count(User.id)).where(
+            User.position_id == position_id,
+            User.tenant_id == tenant_id,
+            User.is_active == True,  # noqa: E712 (SQLAlchemy needs ==)
+        )
+    )
+    return int(result.scalar() or 0)
+
+
 @router.get("", response_model=list[PositionResponse])
 async def list_positions(
     db: AsyncSession = Depends(get_db),
@@ -181,11 +199,15 @@ async def list_positions(
     responses = []
     for pos in positions:
         course_ids = await _get_course_ids(db, pos.id)
+        live = await _live_employee_count(db, pos.id, user.tenant_id)
         responses.append(PositionResponse(
             id=pos.id, tenant_id=pos.tenant_id, name=pos.name,
             department=pos.department, level=pos.level,
             responsibilities=pos.responsibilities, requirements=pos.requirements,
-            course_ids=course_ids, employee_count=pos.employee_count,
+            course_ids=course_ids,
+            employee_count=pos.employee_count,
+            current_employee_count=live,
+            employee_count_stale=pos.employee_count != live,
             created_at=pos.created_at,
         ))
     return responses
@@ -205,11 +227,56 @@ async def get_position(
     if not pos:
         raise HTTPException(status_code=404, detail="Position not found")
     course_ids = await _get_course_ids(db, pos.id)
+    live = await _live_employee_count(db, pos.id, user.tenant_id)
     return PositionResponse(
         id=pos.id, tenant_id=pos.tenant_id, name=pos.name,
         department=pos.department, level=pos.level,
         responsibilities=pos.responsibilities, requirements=pos.requirements,
-        course_ids=course_ids, employee_count=pos.employee_count,
+        course_ids=course_ids,
+        employee_count=pos.employee_count,
+        current_employee_count=live,
+        employee_count_stale=pos.employee_count != live,
+        created_at=pos.created_at,
+    )
+
+
+@router.post("/{position_id}/recalc-employees", response_model=PositionResponse)
+async def recalc_employee_count(
+    position_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Manually recompute and persist `employee_count` from the live
+    `users` table.
+
+    Use when:
+    - staff-import added users via a path that bypassed
+      `/positions/{id}/assign/{user}` (the only place that calls
+      `_update_employee_count` automatically)
+    - direct DB writes happened
+    - tenant wants to clean up after a bulk edit
+
+    Idempotent and safe to call anytime. Returns the updated PositionResponse
+    with `employee_count == current_employee_count` and `employee_count_stale=False`.
+    """
+    pos = await db.get(Position, position_id)
+    if not pos or pos.tenant_id != user.tenant_id:
+        raise HTTPException(status_code=404, detail="Position not found")
+
+    live = await _live_employee_count(db, pos.id, user.tenant_id)
+    pos.employee_count = live
+    await db.flush()
+    await db.refresh(pos)
+
+    course_ids = await _get_course_ids(db, pos.id)
+    return PositionResponse(
+        id=pos.id, tenant_id=pos.tenant_id, name=pos.name,
+        department=pos.department, level=pos.level,
+        responsibilities=pos.responsibilities, requirements=pos.requirements,
+        course_ids=course_ids,
+        employee_count=pos.employee_count,
+        current_employee_count=live,
+        employee_count_stale=False,
         created_at=pos.created_at,
     )
 

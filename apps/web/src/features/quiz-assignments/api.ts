@@ -13,6 +13,7 @@
 import type {
   AssignmentCreateResult,
   PositionAssignmentSummary,
+  PositionLite,
   QuizAssignment,
 } from './types';
 
@@ -94,4 +95,22 @@ export async function removeAssignment(token: string, assignmentId: string): Pro
     const detail = await res.json().catch(() => ({ detail: `HTTP ${res.status}` }));
     throw new Error(detail.detail || `HTTP ${res.status}`);
   }
+}
+
+/** Manually recompute positions.employee_count from the live users table.
+ * Use when the cached count drifted (e.g. after a staff import that
+ * bypassed the assignment endpoint). */
+export async function recalcPositionEmployees(
+  token: string,
+  positionId: string
+): Promise<PositionLite> {
+  const res = await fetch(
+    `${BASE}/v1/positions/${positionId}/recalc-employees`,
+    { method: 'POST', headers: { Authorization: `Bearer ${token}` } }
+  );
+  if (!res.ok) {
+    const detail = await res.json().catch(() => ({ detail: `HTTP ${res.status}` }));
+    throw new Error(detail.detail || `HTTP ${res.status}`);
+  }
+  return res.json();
 }

@@ -30,7 +30,20 @@ class PositionResponse(BaseModel):
     responsibilities: str
     requirements: str
     course_ids: list[UUID] = []
+    # Cached count maintained by /positions/{id}/assign/{user} and
+    # staff-import endpoints. May be stale if employees were added/removed
+    # via direct DB writes. UI should prefer current_employee_count when
+    # shown — it's always computed at query time.
     employee_count: int
+    # Always-fresh count: SELECT COUNT(*) FROM users WHERE position_id = ...
+    # filtered by is_active=true. Computed in the same query as the
+    # position GET, so no extra round-trip. Added 2026-06-27 because the
+    # cached employee_count drifted to 0 in some tenants after staff import
+    # paths that bypass the position-assignment endpoint.
+    current_employee_count: int = 0
+    # True when cached count != live count. UI can show a small "↻ уточнено"
+    # badge so the methodologist knows the cached value was stale.
+    employee_count_stale: bool = False
     created_at: datetime
     re_enrolled: int | None = None  # only set on update responses
 
