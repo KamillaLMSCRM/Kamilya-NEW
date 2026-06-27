@@ -26,6 +26,7 @@ ssh -i C:\Users\Askar\.ssh\id_vm root@173.249.51.164
 | Qwen LLM (chat) | 8555 | `qwen.kml.kz` | ✅ Running |
 | Qwen Embeddings | 8001 | `qwen-embed.kml.kz` | ✅ Running |
 | Docling (PDF→MD) | 8600 | `docling.kml.kz` | ✅ Running |
+| **WhatsApp Gateway** | **8700** | **`wa.kml.kz`** | ✅ **Running** |
 | Nginx | 80/443 | Reverse proxy | ✅ Running |
 | WireGuard | 22677 | Tunnel to Windows | ✅ Active |
 
@@ -60,6 +61,51 @@ curl http://localhost:8001/v1/models
 # If down — check vLLM process
 ps aux | grep vllm
 ```
+
+### WhatsApp Gateway (wa-gateway)
+```bash
+# Status
+systemctl status wa-gateway
+
+# Restart
+systemctl restart wa-gateway
+
+# Logs (also written to /var/log/wa-gateway.log via systemd)
+journalctl -u wa-gateway -f
+
+# Health check
+curl http://localhost:8700/health
+curl https://wa.kml.kz/health   # via nginx + Cloudflare
+
+# Per-tenant session files
+ls -la /opt/whatsapp-gateway/sessions/
+# Each tenant gets: sessions/{tenant_id}/auth/creds.json
+
+# Force-clear a tenant's session (tenant must re-scan QR)
+rm -rf /opt/whatsapp-gateway/sessions/{tenant_id}/auth
+```
+
+### WhatsApp Gateway Architecture
+
+```
+Browser/HR-Admin scans QR ──► wa.kml.kz ──► nginx ──► 127.0.0.1:8700
+                                                       (wa-gateway, Node.js + Baileys)
+                                                       │
+                                                       ├── /opt/whatsapp-gateway/sessions/{tid}/auth/creds.json
+                                                       │
+                                                       └── Persistent socket ──► WhatsApp servers (Meta)
+```
+
+**Auth model:** Kamilya backend (Render) signs service-JWT with
+`KAMILYA_BACKEND_SECRET`. wa-gateway verifies on every /v1/* request.
+The two envs MUST match. Loss of secret = re-auth all tenants.
+
+**State:** Per-tenant `creds.json` on disk. Survives `systemctl restart
+wa-gateway` — no QR re-scan needed unless the session was logged out
+or banned by Meta.
+
+**Code:** `/infra/wa-gateway/` in the Kamilya repo. Deploy via
+`scp -r infra/wa-gateway/*` + `npm ci --omit=dev` + restart.
 
 ### Nginx
 ```bash
@@ -117,6 +163,7 @@ All DNS is managed via Cloudflare dashboard: `dash.cloudflare.com` → `kml.kz`
 | `qwen.kml.kz` | A | 173.249.51.164 | ✅ |
 | `qwen-embed.kml.kz` | A | 173.249.51.164 | ✅ |
 | `docling.kml.kz` | A | 173.249.51.164 | ✅ |
+| `wa.kml.kz` | A | 173.249.51.164 | ✅ |
 
 To add new subdomain: A record → 173.249.51.164 → Proxy on.
 
