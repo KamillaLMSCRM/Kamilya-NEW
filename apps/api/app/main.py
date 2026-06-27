@@ -40,6 +40,7 @@ from app.modules.users.staff_tree_router import router as staff_tree_router
 from app.modules.auth.telegram import router as telegram_router
 from app.modules.auth.telegram_register import router as telegram_register_router
 from app.modules.positions.router import router as positions_router
+from app.modules.integrations.router import router as integrations_router
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -128,6 +129,7 @@ app.include_router(staff_tree_router, prefix=f"{settings.API_PREFIX}", tags=["st
 app.include_router(telegram_router, prefix=f"{settings.API_PREFIX}", tags=["telegram"])
 app.include_router(telegram_register_router, prefix=f"{settings.API_PREFIX}", tags=["auth"])
 app.include_router(positions_router, prefix=f"{settings.API_PREFIX}", tags=["positions"])
+app.include_router(integrations_router, prefix=f"{settings.API_PREFIX}", tags=["integrations"])
 
 # Suppress Render health check spam in logs
 class HealthCheckFilter(logging.Filter):

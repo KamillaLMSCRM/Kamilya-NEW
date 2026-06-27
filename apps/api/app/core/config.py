@@ -141,6 +141,22 @@ class Settings(BaseSettings):
     # production secrets.
     PROVIDER_KEY_ENCRYPTION_KEY: str = ""
 
+    # Master encryption key for tenant_integrations.config_encrypted.
+    # Same Fernet format as PROVIDER_KEY_ENCRYPTION_KEY.
+    # Loss of this key = all tenant SMTP passwords / Telegram bot tokens
+    # become unrecoverable. Tenants must re-enter. Backup required.
+    MASTER_ENCRYPTION_KEY: str = ""
+
+    # WhatsApp gateway — base URL of wa-gateway microservice.
+    # Empty by default so dev environments without the gateway don't
+    # crash. Production sets this to http://wa.kml.kz (or https if
+    # Cloudflare proxy terminates TLS).
+    WA_GATEWAY_URL: str = ""
+
+    # Shared JWT secret for wa-gateway authentication. Must match the
+    # KAMILYA_BACKEND_SECRET on the wa-gateway VPS.
+    KAMILYA_BACKEND_SECRET: str = ""
+
 
 @lru_cache()
 def get_settings() -> Settings:
