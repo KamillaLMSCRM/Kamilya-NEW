@@ -192,10 +192,19 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
           roles: ['admin', 'org_admin'],
         },
         {
-          label: t('providers.title'),
-          href: '/admin/providers',
-          icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 2 4 7v6c0 5 3.5 9.5 8 11 4.5-1.5 8-6 8-11V7l-8-5z" /><path d="m9 12 2 2 4-4" /></svg>,
-          roles: ['superadmin'],
+label: t('providers.title'),
+           href: '/admin/providers',
+           icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 2 4 7v6c0 5 3.5 9.5 8 11 4.5-1.5 8-6 8-11V7l-8-5z" /><path d="m9 12 2 2 4-4" /></svg>,
+           roles: ['superadmin'],
+         },
+         {
+           // Notification channels (SMTP/Telegram/WhatsApp) — owned by tenant
+           // (ADR-0010). Admin and org_admin see it because they configure the
+           // channels; superadmin sees it as well to help onboard large tenants.
+           label: t('integrations.title'),
+           href: '/admin/settings/integrations',
+           icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M22 12h-4l-3 9L9 3l-3 9H2" /></svg>,
+           roles: ['admin', 'org_admin', 'superadmin'],
         },
       ],
     },
