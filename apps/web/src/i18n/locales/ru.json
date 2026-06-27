@@ -694,5 +694,35 @@
       "registerCta": "Зарегистрироваться",
       "closeCta": "Понятно"
     }
+  },
+  "quizAssignments": {
+    "title": "Назначения",
+    "assignHeading": "Назначить сотрудникам",
+    "assignDescription": "Выберите сотрудников из списка и (опционально) укажите дедлайн. После назначения тест появится у сотрудника в разделе «Мои тесты».",
+    "search": "Поиск по ФИО или email…",
+    "dueDate": "Дедлайн",
+    "selectAll": "Выбрать всех",
+    "clearSelection": "Сбросить ({count})",
+    "assignButton": "Назначить ({count})",
+    "assigning": "Назначаем…",
+    "noStudents": "В тенанте пока нет сотрудников с ролью «student». Добавьте их в разделе «Пользователи».",
+    "allAssigned": "Все сотрудники уже назначены этому тесту.",
+    "currentHeading": "Текущие назначения",
+    "noAssignments": "Этот тест пока никому не назначен.",
+    "statusAssigned": "Назначен",
+    "statusCompleted": "Пройден",
+    "statusOverdue": "Просрочен",
+    "score": "{percent}%",
+    "dueOn": "до {date}",
+    "revoke": "Отозвать",
+    "revokeConfirm": "Отозвать назначение для «{name}»?",
+    "revokeSuccess": "Назначение отозвано",
+    "revokeError": "Не удалось отозвать",
+    "assignSuccess": "Назначено сотрудников: {count}",
+    "assignSuccessWithSkipped": "Назначено: {created}, уже было: {skipped}",
+    "selectAtLeastOne": "Выберите хотя бы одного сотрудника",
+    "loadError": "Не удалось загрузить данные",
+    "loading": "Загрузка сотрудников и назначений…",
+    "availableCount": "доступно: {count}"
   }
 }

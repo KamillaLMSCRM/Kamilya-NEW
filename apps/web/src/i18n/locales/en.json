@@ -694,5 +694,35 @@
       "registerCta": "Register",
       "closeCta": "Got it"
     }
+  },
+  "quizAssignments": {
+    "title": "Assignments",
+    "assignHeading": "Assign to employees",
+    "assignDescription": "Pick employees from the list and optionally set a due date. After assignment the quiz will appear in their \"My quizzes\" section.",
+    "search": "Search by name or email…",
+    "dueDate": "Due date",
+    "selectAll": "Select all",
+    "clearSelection": "Clear ({count})",
+    "assignButton": "Assign ({count})",
+    "assigning": "Assigning…",
+    "noStudents": "No employees with the \"student\" role yet. Add them in the Users section.",
+    "allAssigned": "All employees are already assigned to this quiz.",
+    "currentHeading": "Current assignments",
+    "noAssignments": "This quiz hasn't been assigned to anyone yet.",
+    "statusAssigned": "Assigned",
+    "statusCompleted": "Completed",
+    "statusOverdue": "Overdue",
+    "score": "{percent}%",
+    "dueOn": "by {date}",
+    "revoke": "Revoke",
+    "revokeConfirm": "Revoke assignment for \"{name}\"?",
+    "revokeSuccess": "Assignment revoked",
+    "revokeError": "Failed to revoke",
+    "assignSuccess": "Assigned to {count} employee(s)",
+    "assignSuccessWithSkipped": "Assigned: {created}, already existed: {skipped}",
+    "selectAtLeastOne": "Pick at least one employee",
+    "loadError": "Failed to load data",
+    "loading": "Loading employees and assignments…",
+    "availableCount": "available: {count}"
   }
 }

@@ -7,6 +7,7 @@ import { useT } from '@/i18n/useT';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { toast } from '@/components/ui/Toast';
 import { CheckCircle2, Circle, Lightbulb, ChevronRight, ChevronDown } from 'lucide-react';
+import { QuizAssignPanel } from '@/features/quiz-assignments';
 
 interface QuizChoice {
   id: string;
@@ -1148,6 +1149,15 @@ export default function QuizzesAdminPage() {
                   </CardContent>
                 </Card>
               ))}
+            </div>
+
+            {/* Assignments — назначить тест сотрудникам.
+                Это часть рабочего цикла методолога: написал вопросы →
+                назначил кому надо → видно кто прошёл, кто нет.
+                refreshKey === quiz.id гарантирует, что при выборе другого
+                теста панель перезагружает данные. */}
+            <div className="pt-2">
+              <QuizAssignPanel quizId={selectedQuiz.id} refreshKey={selectedQuiz.id} />
             </div>
           </div>
         ) : (

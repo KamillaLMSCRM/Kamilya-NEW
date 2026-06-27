@@ -92,9 +92,12 @@ async def list_all_users(
     role: Optional[str] = Query(None),
     is_active: Optional[bool] = Query(None),
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("admin", "org_admin", "superadmin")),
+    user: User = Depends(require_role("admin", "org_admin", "superadmin", "teacher")),
 ):
-    """List users (admin only)."""
+    """List users. Admin/org_admin/superadmin for full management; teacher
+    included so methodologists can pick assignees for quiz assignments
+    (POST /v1/quiz-assignments already accepts teacher role). The endpoint
+    still scopes by tenant_id so cross-tenant access is impossible."""
     users, total = await list_users(
         db, user.tenant_id, page, per_page, search, role, is_active
     )
