@@ -1,32 +1,80 @@
 import { create } from 'zustand';
-import { AuthUser, getStoredAuth, setStoredAuth, clearStoredAuth } from '@/lib/auth';
+import {
+  AuthUser,
+  getAccessToken,
+  getCurrentUser,
+  setAuth as setAuthMemory,
+  clearAuth as clearAuthMemory,
+  restoreSession,
+  logout as logoutRequest,
+  subscribeAuth,
+} from '@/lib/auth';
 
 interface AuthStore {
   accessToken: string | null;
   user: AuthUser | null;
-  initialize: () => void;
+  /** True once we've attempted to restore the session from the refresh cookie. */
+  initialized: boolean;
+  /** Initialize from the refresh cookie (call once on app mount). */
+  initialize: () => Promise<void>;
+  /** Set access token + user (called after successful login). */
   login: (accessToken: string, user: AuthUser) => void;
-  logout: () => void;
+  /** Logout — clears in-memory state and tells server to blacklist the refresh cookie. */
+  logout: () => Promise<void>;
+  /** Manually set user (e.g. after profile update). */
+  setUser: (user: AuthUser) => void;
 }
 
-export const useAuthStore = create<AuthStore>((set) => ({
-  accessToken: null,
-  user: null,
+// Initial state mirrors in-memory store (so SSR + first paint show correct state).
+const initialState = {
+  accessToken: typeof window === 'undefined' ? null : getAccessToken(),
+  user: typeof window === 'undefined' ? null : getCurrentUser(),
+  initialized: false,
+};
 
-  initialize: () => {
-    const auth = getStoredAuth();
-    if (auth) {
-      set({ accessToken: auth.access_token, user: auth.user });
-    }
-  },
-
-  login: (accessToken, user) => {
+export const useAuthStore = create<AuthStore>((set) => {
+  // Subscribe to in-memory auth changes so the Zustand store stays in sync
+  // with anything that calls setAuth/clearAuth directly (e.g. refresh logic).
+  subscribeAuth(({ accessToken, user }) => {
     set({ accessToken, user });
-    setStoredAuth({ access_token: accessToken, user });
-  },
+  });
 
-  logout: () => {
-    set({ accessToken: null, user: null });
-    clearStoredAuth();
-  },
-}));
+  return {
+    ...initialState,
+
+    initialize: async () => {
+      if (get().initialized) return;
+      await restoreSession();
+      set({
+        accessToken: getAccessToken(),
+        user: getCurrentUser(),
+        initialized: true,
+      });
+    },
+
+    login: (accessToken, user) => {
+      setAuthMemory(accessToken, user);
+      set({ accessToken, user, initialized: true });
+    },
+
+    logout: async () => {
+      await logoutRequest();
+      clearAuthMemory();
+      set({ accessToken: null, user: null });
+    },
+
+    setUser: (user) => {
+      set({ user });
+      // Also update the underlying memory store so getCurrentUser() is consistent.
+      const token = getAccessToken();
+      if (token) {
+        setAuthMemory(token, user);
+      }
+    },
+  };
+});
+
+// Helper for components that need to call get() without subscribing.
+function get() {
+  return useAuthStore.getState();
+}
