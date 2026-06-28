@@ -112,12 +112,19 @@ Output ONLY valid JSON matching this schema:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ])
-            print(f"[ASSESSMENT_RAW] attempt {attempt+1} len={len(response.content)} first500={response.content[:500]!r}", flush=True)
+            # Raw response may contain document PII — DEBUG level only
+            # so production logs (INFO+) don't leak it (audit §6.4).
+            logger.debug(
+                "[ASSESSMENT_RAW] attempt %d len=%d first500=%r",
+                attempt + 1,
+                len(response.content),
+                response.content[:500],
+            )
             data = _parse_json_response(response.content)
-            print(f"[ASSESSMENT_OK] attempt {attempt+1} keys={list(data.keys())}", flush=True)
+            logger.debug("[ASSESSMENT_OK] attempt %d keys=%s", attempt + 1, list(data.keys()))
             break
         except (json.JSONDecodeError, ValueError) as e:
-            print(f"[ASSESSMENT_PARSE] attempt {attempt + 1} failed: {e}", flush=True)
+            logger.warning("[ASSESSMENT_PARSE] attempt %d failed: %s", attempt + 1, e)
             if attempt < MAX_ASSESSMENT_RETRIES:
                 # Self-correction: send broken JSON back to LLM
                 user_prompt = (

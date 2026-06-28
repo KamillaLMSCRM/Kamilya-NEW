@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta, timezone
 from uuid import UUID, uuid4
+import logging
 
 import jwt
 from fastapi import Depends, HTTPException, status, Request
@@ -10,6 +11,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
 from app.core.db import async_session_factory, get_db
 from app.models.users import User
+
+logger = logging.getLogger(__name__)
 
 settings = get_settings()
 security = HTTPBearer()
@@ -97,8 +100,14 @@ async def get_current_user(
         try:
             from sqlalchemy import text
             await db.execute(text("SELECT set_current_tenant(:tid)"), {"tid": tenant_id})
-        except Exception:
-            pass  # Fallback: rely on ORM filtering if RLS not available
+        except Exception as exc:
+            # Fallback: rely on ORM filtering if RLS not available.
+            # Logged as warning — silent failure previously (audit §2.4).
+            logger.warning(
+                "set_current_tenant failed for tenant_id=%s; falling back to ORM filter: %s",
+                tenant_id,
+                exc,
+            )
 
     result = await db.execute(select(User).where(User.id == UUID(user_id)))
     user = result.scalar_one_or_none()

@@ -235,16 +235,20 @@ async def upload_document(
         else:
             doc.embedding_status = "success"
             doc.embedding_error = None
-        print(
-            f"[UPLOAD] Ingested {file.filename}: "
-            f"chunks={chunks} embeddings_written={embeddings_written} "
-            f"status={doc.embedding_status}",
-            flush=True,
+        # Filename can contain sensitive info (e.g. "2025_salary_review.docx").
+        # Log only the doc id, not the filename (audit §6.5).
+        logger.info(
+            "[UPLOAD] Ingested doc_id=%s chunks=%d embeddings_written=%d status=%s",
+            doc.id,
+            chunks,
+            embeddings_written,
+            doc.embedding_status,
         )
     except Exception as e:
         doc.embedding_status = "failed"
         doc.embedding_error = str(e)[:500]
-        print(f"[UPLOAD] Ingestion failed for {file.filename}: {e}", flush=True)
+        # Filename still excluded from logs (PII risk).
+        logger.error("[UPLOAD] Ingestion failed for doc_id=%s: %s", doc.id, e)
     finally:
         # Clean up temp file (Render ephemeral disk)
         try:
