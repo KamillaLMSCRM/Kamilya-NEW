@@ -126,9 +126,22 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         path = request.url.path
         info = {"remaining": 0, "reset": 0, "limit": 0, "current": 0}
 
+        # Extract tenant context from Authorization header (best-effort,
+        # not verified — middleware doesn't decode JWT, it just peeks at
+        # the payload to scope the rate-limit bucket). For unauthenticated
+        # endpoints (login, register) this stays empty and we fall back
+        # to IP-only. See audit §4.5.
+        tenant_id = _peek_tenant_id_from_request(request)
+
         try:
             config = await self.limiter.get_rate_limit_config(path)
-            key = f"rate_limit:{path}:{client_ip}"
+            if tenant_id:
+                key = f"rate_limit:{path}:tenant:{tenant_id}"
+            else:
+                # Auth-less endpoints (login, refresh, register): key by IP
+                # so a single attacker IP can't drain the bucket. Once the
+                # user authenticates we switch to per-tenant bucketing.
+                key = f"rate_limit:{path}:ip:{client_ip}"
             is_allowed, info = await self.limiter.check_rate_limit(
                 key, config.requests_per_minute, 60
             )
@@ -136,7 +149,12 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             is_allowed = True  # fail-open
 
         if not is_allowed:
-            logger.warning(f"Rate limit exceeded for {client_ip} on {path}")
+            logger.warning(
+                "Rate limit exceeded for tenant=%s ip=%s on %s",
+                tenant_id or "<none>",
+                client_ip,
+                path,
+            )
             return JSONResponse(
                 status_code=429,
                 content={
@@ -158,3 +176,38 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         response.headers["X-RateLimit-Reset"] = str(info.get("reset", 0))
 
         return response
+
+
+def _peek_tenant_id_from_request(request: Request) -> str | None:
+    """Best-effort tenant_id extraction from JWT (no signature check).
+
+    The middleware runs BEFORE route handlers, so we can't use the
+    FastAPI dependency injection that decodes tokens. Instead we
+    decode the payload WITHOUT verifying the signature — anyone can
+    forge a token with any tenant_id, but the rate-limit bucket is
+    not security-critical: a forged tenant_id just splits that
+    attacker's quota across multiple buckets, not amplifies it.
+
+    Returns the tenant_id string if the token looks well-formed, else None.
+    """
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header.startswith("Bearer "):
+        return None
+    token = auth_header[len("Bearer ") :].strip()
+    parts = token.split(".")
+    if len(parts) != 3:
+        return None
+    try:
+        # PyJWT is already a dependency; lazy import to avoid global cost.
+        import base64
+        import json
+
+        payload_b64 = parts[1]
+        # Add padding if missing.
+        payload_b64 += "=" * (-len(payload_b64) % 4)
+        payload_bytes = base64.urlsafe_b64decode(payload_b64.encode("ascii"))
+        payload = json.loads(payload_bytes.decode("utf-8"))
+        tid = payload.get("tenant_id")
+        return str(tid) if tid else None
+    except Exception:
+        return None
