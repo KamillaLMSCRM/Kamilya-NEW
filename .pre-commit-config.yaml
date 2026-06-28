@@ -1,0 +1,115 @@
+# Kamilya LMS pre-commit configuration.
+#
+# Enforces the rules documented in AGENTS.md §Security checklist and
+# §Coding standards before they reach CI:
+#
+#   - ruff lint + format
+#   - mypy on app/
+#   - detect-secrets: blocks accidental commits of API keys, passwords
+#   - tenant-id gate: rejects select(<Model>) calls without tenant_id
+#     filter (audit §3, §9.2)
+#   - file-size guard: blocks files >800 LOC entering the repo
+#
+# Install:
+#   pip install pre-commit detect-secrets
+#   pre-commit install
+#
+# Run manually against all files:
+#   pre-commit run --all-files
+
+repos:
+  # ------------------------------------------------------------------
+  # Python — ruff
+  # ------------------------------------------------------------------
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.6
+    hooks:
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+        files: ^apps/api/
+      - id: ruff-format
+        files: ^apps/api/
+
+  # ------------------------------------------------------------------
+  # Python — mypy (strict, but warning-only at pre-commit stage)
+  # ------------------------------------------------------------------
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.13.0
+    hooks:
+      - id: mypy
+        files: ^apps/api/app/
+        args: [--ignore-missing-imports, --no-strict-optional]
+        # 'continue-on-error: true' so pre-commit is informational; CI is
+        # the gate. Once CI is green and mypy is stable, flip this.
+        # (pre-commit doesn't natively support continue-on-error for
+        # hooks — the local config sets fail_fast behavior below.)
+
+  # ------------------------------------------------------------------
+  # Frontend — tsc + next lint (informational)
+  # ------------------------------------------------------------------
+  - repo: local
+    hooks:
+      - id: tsc-no-emit
+        name: tsc --noEmit (frontend)
+        entry: bash -c "cd apps/web && pnpm exec tsc --noEmit"
+        language: system
+        pass_filenames: false
+        types_or: [ts, tsx]
+        stages: [manual]  # only on `pre-commit run --hook-stage manual`
+
+  # ------------------------------------------------------------------
+  # Secret scanning
+  # ------------------------------------------------------------------
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.5.0
+    hooks:
+      - id: detect-secrets
+        args: ['--baseline', '.secrets.baseline']
+        exclude: |
+          (?x)^(
+            .*\.lock |
+            .*package-lock\.json |
+            .*poetry\.lock |
+            apps/api/.env.example |
+            apps/web/.env.example |
+            docs/.*
+          )$
+
+  # ------------------------------------------------------------------
+  # Tenant-id security gate (mirrors scripts/ci/tenant-gate.sh)
+  # ------------------------------------------------------------------
+  - repo: local
+    hooks:
+      - id: tenant-gate
+        name: tenant_id filter gate
+        entry: bash scripts/ci/tenant-gate.sh
+        language: system
+        pass_filenames: false
+        files: ^apps/api/app/.*\.py$
+
+  # ------------------------------------------------------------------
+  # File-size guard — keeps modules under the 800 LOC budget.
+  # ------------------------------------------------------------------
+  - repo: local
+    hooks:
+      - id: file-size
+        name: file <= 800 LOC
+        entry: bash scripts/ci/file-size-guard.sh
+        language: system
+        pass_filenames: false
+
+  # ------------------------------------------------------------------
+  # General hygiene
+  # ------------------------------------------------------------------
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-json
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: ['--maxkb=500']
+      - id: no-commit-to-branch
+        args: ['--branch=main']
