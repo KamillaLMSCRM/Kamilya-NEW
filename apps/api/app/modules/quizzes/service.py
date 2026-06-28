@@ -1,4 +1,5 @@
 """Quiz service — grading and attempt management"""
+from typing import Iterable
 from uuid import UUID
 from datetime import datetime, timezone, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -8,49 +9,105 @@ from app.modules.quizzes.models import Quiz, Question, QuizChoice, QuizAttempt
 
 
 async def get_quiz_with_questions(db: AsyncSession, quiz_id: UUID, tenant_id: UUID):
-    """Get quiz with all questions and choices."""
-    quiz = await db.get(Quiz, quiz_id)
-    if not quiz or quiz.tenant_id != tenant_id:
-        return None
+    """Get quiz with all questions and choices (single quiz).
 
-    result = await db.execute(
-        select(Question)
-        .where(Question.quiz_id == quiz_id)
-        .order_by(Question.order_index)
+    Convenience wrapper around get_quizzes_with_questions for the common
+    single-quiz case. Returns the first item from the batched call, or
+    None if no quiz matches.
+    """
+    results = await get_quizzes_with_questions(db, [quiz_id], tenant_id)
+    return results[0] if results else None
+
+
+async def get_quizzes_with_questions(
+    db: AsyncSession, quiz_ids: Iterable[UUID], tenant_id: UUID
+) -> list[dict]:
+    """Fetch many quizzes (with their questions+choices) in 3 batched queries.
+
+    Replaces the per-quiz N+1 pattern of calling get_quiz_with_questions()
+    in a loop. Three queries total, regardless of quiz count:
+      1. SELECT quizzes WHERE id IN (...) AND tenant_id = ?
+      2. SELECT questions WHERE quiz_id IN (...) ORDER BY order_index
+      3. SELECT quiz_choices WHERE question_id IN (...) ORDER BY order_index
+
+    Returns a list of quiz dicts in the same shape as
+    get_quiz_with_questions(), in the order the quizzes came back from
+    the first query. Empty input → empty list.
+    """
+    quiz_ids = list(quiz_ids)
+    if not quiz_ids:
+        return []
+
+    # Query 1 — quizzes, scoped to tenant.
+    quizzes_result = await db.execute(
+        select(Quiz).where(
+            Quiz.id.in_(quiz_ids),
+            Quiz.tenant_id == tenant_id,
+        )
     )
-    questions = result.scalars().all()
+    quizzes = quizzes_result.scalars().all()
+    if not quizzes:
+        return []
 
-    questions_with_choices = []
-    for q in questions:
+    valid_quiz_ids = [q.id for q in quizzes]
+
+    # Query 2 — all questions across these quizzes, ordered.
+    questions_result = await db.execute(
+        select(Question)
+        .where(Question.quiz_id.in_(valid_quiz_ids))
+        .order_by(Question.quiz_id, Question.order_index)
+    )
+    questions = questions_result.scalars().all()
+
+    # Query 3 — all choices for those questions, ordered.
+    question_ids = [q.id for q in questions]
+    choices_by_qid: dict[UUID, list[QuizChoice]] = {qid: [] for qid in question_ids}
+    if question_ids:
         choices_result = await db.execute(
             select(QuizChoice)
-            .where(QuizChoice.question_id == q.id)
-            .order_by(QuizChoice.order_index)
+            .where(QuizChoice.question_id.in_(question_ids))
+            .order_by(QuizChoice.question_id, QuizChoice.order_index)
         )
-        choices = choices_result.scalars().all()
-        questions_with_choices.append({
-            "id": q.id,
-            "text": q.text,
-            "type": q.type,
-            "points": q.points,
-            "explanation": q.explanation,
-            "order_index": q.order_index,
-            "choices": [
-                {"id": c.id, "text": c.text, "order_index": c.order_index, "is_correct": c.is_correct}
-                for c in choices
+        for c in choices_result.scalars().all():
+            choices_by_qid.setdefault(c.question_id, []).append(c)
+
+    # Assemble in Python — one pass over quizzes, one over questions.
+    questions_by_quiz: dict[UUID, list[Question]] = {qid: [] for qid in valid_quiz_ids}
+    for q in questions:
+        questions_by_quiz.setdefault(q.quiz_id, []).append(q)
+
+    out: list[dict] = []
+    for quiz in quizzes:
+        out.append({
+            "id": quiz.id,
+            "lesson_id": quiz.lesson_id,
+            "title": quiz.title,
+            "pass_score": quiz.pass_score,
+            "time_limit": quiz.time_limit,
+            "attempt_limit": quiz.attempt_limit,
+            "deferral_days": quiz.deferral_days,
+            "questions": [
+                {
+                    "id": q.id,
+                    "text": q.text,
+                    "type": q.type,
+                    "points": q.points,
+                    "explanation": q.explanation,
+                    "order_index": q.order_index,
+                    "choices": [
+                        {
+                            "id": c.id,
+                            "text": c.text,
+                            "order_index": c.order_index,
+                            "is_correct": c.is_correct,
+                        }
+                        for c in choices_by_qid.get(q.id, [])
+                    ],
+                }
+                for q in questions_by_quiz.get(quiz.id, [])
             ],
         })
-
-    return {
-        "id": quiz.id,
-        "lesson_id": quiz.lesson_id,
-        "title": quiz.title,
-        "pass_score": quiz.pass_score,
-        "time_limit": quiz.time_limit,
-        "attempt_limit": quiz.attempt_limit,
-        "deferral_days": quiz.deferral_days,
-        "questions": questions_with_choices,
-    }
+    return out
 
 
 async def _is_quiz_expired(

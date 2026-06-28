@@ -31,6 +31,7 @@ from app.modules.quizzes.schemas import (
 )
 from app.modules.quizzes.service import (
     get_quiz_with_questions,
+    get_quizzes_with_questions,
     grade_quiz,
     get_user_attempts,
     get_quiz_stats,
@@ -45,17 +46,19 @@ async def list_quizzes(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """List all quizzes for the current tenant."""
+    """List all quizzes for the current tenant.
+
+    Previously did N+1 (one get_quiz_with_questions() call per quiz,
+    each issuing 3 queries). Now uses get_quizzes_with_questions() to
+    batch into 3 total queries regardless of quiz count.
+    """
     result = await db.execute(
-        select(Quiz).where(Quiz.tenant_id == user.tenant_id).order_by(Quiz.created_at.desc())
+        select(Quiz)
+        .where(Quiz.tenant_id == user.tenant_id)
+        .order_by(Quiz.created_at.desc())
     )
-    quizzes = result.scalars().all()
-    out = []
-    for q in quizzes:
-        quiz_data = await get_quiz_with_questions(db, q.id, user.tenant_id)
-        if quiz_data:
-            out.append(quiz_data)
-    return out
+    quiz_ids = [q.id for q in result.scalars().all()]
+    return await get_quizzes_with_questions(db, quiz_ids, user.tenant_id)
 
 
 @router.get("/grouped", response_model=QuizGroupedResponse)
@@ -96,7 +99,9 @@ async def list_quizzes_grouped(
     )
     courses = courses_result.scalars().unique().all()
 
-    # Pre-fetch quizzes for all lessons in one query (avoids N+1).
+    # Pre-fetch quizzes for all lessons in one query, then batch-fetch
+    # their questions+choices in 2 more queries (total 3) instead of 3
+    # per quiz. See get_quizzes_with_questions().
     lesson_ids: list[UUID] = [
         lesson.id
         for course in courses
@@ -113,10 +118,10 @@ async def list_quizzes_grouped(
                 )
             )
         ).scalars().all()
-        for q in quizzes_rows:
-            quiz_data = await get_quiz_with_questions(db, q.id, user.tenant_id)
-            if quiz_data:
-                quizzes_by_lesson[q.lesson_id] = quiz_data
+        quiz_ids = [q.id for q in quizzes_rows]
+        quiz_data_list = await get_quizzes_with_questions(db, quiz_ids, user.tenant_id)
+        for quiz_data in quiz_data_list:
+            quizzes_by_lesson[quiz_data["lesson_id"]] = quiz_data
 
     # Build grouped response
     grouped_courses: list[GroupedCourse] = []

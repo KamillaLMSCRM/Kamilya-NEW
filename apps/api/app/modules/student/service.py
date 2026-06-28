@@ -11,7 +11,13 @@ from app.modules.certificates.models import Certificate
 
 
 async def get_student_dashboard(db: AsyncSession, user_id: UUID, tenant_id: UUID) -> dict:
-    """Get student dashboard data."""
+    """Get student dashboard data.
+
+    Optimization (audit §5.2): replaced N+1 (2 queries per enrolled
+    course — one for total lessons, one for completed) with a single
+    grouped query that returns (course_id, total_lessons,
+    completed_lessons) for ALL enrolled courses in one round-trip.
+    """
     # Get enrolled courses
     enrollments_result = await db.execute(
         select(Enrollment, Course)
@@ -21,32 +27,45 @@ async def get_student_dashboard(db: AsyncSession, user_id: UUID, tenant_id: UUID
     )
     enrollments = enrollments_result.all()
 
+    enrolled_course_ids = [course.id for _e, course in enrollments]
+
+    # Single grouped query: total + completed lessons per course.
+    # LEFT JOIN to include courses with 0 lessons (still enrolled).
+    totals_by_course: dict[UUID, tuple[int, int]] = {}
+    if enrolled_course_ids:
+        # Total lessons per course (one row per course).
+        totals_query = (
+            select(Module.course_id, func.count(Lesson.id).label("total"))
+            .join(Lesson, Lesson.module_id == Module.id)
+            .where(Module.course_id.in_(enrolled_course_ids))
+            .group_by(Module.course_id)
+        )
+        for row in (await db.execute(totals_query)).all():
+            totals_by_course[row.course_id] = [row.total, 0]
+
+        # Completed lessons per course.
+        completed_query = (
+            select(Module.course_id, func.count(Progress.id).label("completed"))
+            .join(Lesson, Lesson.module_id == Module.id)
+            .join(Progress, Progress.lesson_id == Lesson.id)
+            .where(
+                Module.course_id.in_(enrolled_course_ids),
+                Progress.user_id == user_id,
+                Progress.completed == True,
+            )
+            .group_by(Module.course_id)
+        )
+        for row in (await db.execute(completed_query)).all():
+            if row.course_id not in totals_by_course:
+                totals_by_course[row.course_id] = [0, 0]
+            totals_by_course[row.course_id][1] = row.completed
+
     enrolled_courses = []
     total_lessons_all = 0
     completed_lessons_all = 0
 
     for enrollment, course in enrollments:
-        # Get total lessons in course
-        total_result = await db.execute(
-            select(func.count(Lesson.id))
-            .join(Module, Lesson.module_id == Module.id)
-            .where(Module.course_id == course.id)
-        )
-        total_lessons = total_result.scalar() or 0
-
-        # Get completed lessons for user
-        completed_result = await db.execute(
-            select(func.count(Progress.id))
-            .join(Lesson, Progress.lesson_id == Lesson.id)
-            .join(Module, Lesson.module_id == Module.id)
-            .where(
-                Module.course_id == course.id,
-                Progress.user_id == user_id,
-                Progress.completed == True,
-            )
-        )
-        completed_lessons = completed_result.scalar() or 0
-
+        total_lessons, completed_lessons = totals_by_course.get(course.id, [0, 0])
         progress_percent = round((completed_lessons / total_lessons * 100) if total_lessons > 0 else 0)
 
         enrolled_courses.append({
