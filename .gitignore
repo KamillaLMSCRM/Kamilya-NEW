@@ -91,3 +91,16 @@ test_demo.json
 repomix-output*.md
 .claude/
 .aider*
+
+# Playwright session storage and report outputs (per-machine, never commit)
+.playwright/
+.playwright-sidebar.png
+.reports/
+
+# Per-developer AI session notes (rendered guides, scratch analysis, etc.)
+docs/agents/
+docs/analysis/
+docs/prompts/
+
+# Runtime caches — never commit
+apps/api/summaries/
