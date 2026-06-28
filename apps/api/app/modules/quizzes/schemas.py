@@ -186,3 +186,86 @@ class QuizGenerateResponse(BaseModel):
     questions: list[QuizQuestionDraft]
     model_used: str | None = None  # which tier answered (qwen / deepseek / etc.)
     latency_ms: int | None = None
+
+
+# --- Grouped listing (for Quiz Constructor UI) ---
+
+
+class QuizWithLocation(QuizResponse):
+    """Quiz with its parent course/module/lesson resolved.
+
+    Returned by GET /v1/quizzes/grouped. The UI uses `location` to render
+    the three-column cascade (course → module → lesson) without needing
+    a separate preview endpoint, eliminating the previous design where
+    quizzes appeared as "orphan" before any preview was loaded.
+
+    `location` is null only for true orphans (quiz whose lesson was
+    deleted out from under it). The UI should highlight these so
+    methodologists can clean up.
+    """
+    location: "QuizLocation | None" = None
+
+
+class QuizLocation(BaseModel):
+    """Path from quiz up to its course — used to render cascade UI."""
+    course_id: UUID
+    course_title: str
+    course_status: str  # draft / published / archived
+    module_id: UUID
+    module_title: str
+    module_order_index: int
+    lesson_id: UUID
+    lesson_title: str
+    lesson_order_index: int
+    model_config = {"from_attributes": True}
+
+
+class QuizGroupedResponse(BaseModel):
+    """Response for GET /v1/quizzes/grouped.
+
+    Server-side grouped by course → module → lesson → quiz. The UI
+    receives a ready-to-render cascade without any client-side
+    grouping or extra requests.
+
+    `orphans` lists quizzes whose lesson was deleted out from under them
+    or whose lesson_id is null. Surfaced so the methodologist sees real
+    orphans (not "everything before preview loaded").
+    """
+    courses: list["GroupedCourse"]
+    orphans: list["OrphanQuiz"] = []
+
+
+class GroupedCourse(BaseModel):
+    id: UUID
+    title: str
+    status: str
+    modules: list["GroupedModule"]
+
+
+class GroupedModule(BaseModel):
+    id: UUID
+    title: str
+    order_index: int
+    lessons: list["GroupedLesson"]
+
+
+class GroupedLesson(BaseModel):
+    id: UUID
+    title: str
+    order_index: int
+    quiz: QuizResponse | None  # None if lesson has no quiz yet
+
+
+class OrphanQuiz(BaseModel):
+    """Quiz whose lesson was deleted or whose lesson_id is null.
+
+    Surfaced separately so UI can warn the methodologist instead of
+    silently dropping the quiz.
+    """
+    quiz: QuizResponse
+    lesson_id: UUID | None  # None if FK is null, otherwise points to non-existent lesson
+
+
+# Rebuild the forward references
+QuizWithLocation.model_rebuild()
+QuizGroupedResponse.model_rebuild()

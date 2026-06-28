@@ -33,58 +33,56 @@ interface Quiz {
   pass_score: number;
   time_limit: number | null;
   attempt_limit: number;
+  deferral_days: number;
   questions: Question[];
 }
 
-// Course preview types — matches backend GET /v1/courses/{id}/preview.
-// We use this endpoint for the cascade selector instead of inventing a new
-// tree endpoint; it already returns modules → lessons with has_quiz flags,
-// which is exactly what we need to (a) pick a lesson for a new quiz and
-// (b) group existing quizzes in the list.
-interface PreviewLesson {
+// Response shape of GET /v1/quizzes/grouped. The backend returns the full
+// course → module → lesson tree with each lesson carrying its quiz (if any),
+// plus a flat orphans list for quizzes whose lesson was deleted or nulled.
+interface GroupedLesson {
   id: string;
   title: string;
   order_index: number;
-  has_quiz: boolean;
-  quiz_id: string | null;
-  quiz_title: string | null;
-  quiz_question_count: number;
+  quiz: Quiz | null;
 }
 
-interface PreviewModule {
+interface GroupedModule {
   id: string;
   title: string;
   order_index: number;
-  lessons: PreviewLesson[];
+  lessons: GroupedLesson[];
 }
 
-interface CoursePreview {
+interface GroupedCourse {
   id: string;
   title: string;
-  modules_count: number;
-  lessons_count: number;
-  quizzes_count: number;
-  modules: PreviewModule[];
+  status: string;
+  modules: GroupedModule[];
 }
 
-interface CourseLite {
-  id: string;
-  title: string;
+interface OrphanQuiz {
+  quiz: Quiz;
+  lesson_id: string | null;
+}
+
+interface QuizGroupedResponse {
+  courses: GroupedCourse[];
+  orphans: OrphanQuiz[];
 }
 
 export default function QuizzesAdminPage() {
   const { t } = useT();
     const { confirm, dialog } = useConfirm();
-  const [quizzes, setQuizzes] = useState<Quiz[]>([]);
+  const [grouped, setGrouped] = useState<QuizGroupedResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedQuiz, setSelectedQuiz] = useState<Quiz | null>(null);
   const [editing, setEditing] = useState(false);
   // Cascade selector state — Course → Module → Lesson. Replaces the old
   // free-form "Lesson ID (UUID)" input that forced methodologists to
   // look up UUIDs in the database, which was a usability dead end.
-  const [courses, setCourses] = useState<CourseLite[]>([]);
-  const [previews, setPreviews] = useState<Record<string, CoursePreview>>({});
-  const [loadingPreviews, setLoadingPreviews] = useState<Record<string, boolean>>({});
+  // Source of truth for the selector is `grouped` (server-provided tree),
+  // so no separate state for courses/previews is needed.
   const [openCourses, setOpenCourses] = useState<Record<string, boolean>>({});
   const [newQuiz, setNewQuiz] = useState({
     course_id: '',
@@ -139,106 +137,46 @@ export default function QuizzesAdminPage() {
   const token = useAuthStore((s) => s.accessToken);
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
-  const fetchQuizzes = useCallback(async () => {
+  // Single request fetches the entire cascade tree (course → module →
+  // lesson → quiz) plus orphans. Replaces the previous two-request flow
+  // (`/v1/courses` + lazy `/v1/courses/{id}/preview`) which left quizzes
+  // in a misleading "orphan" bucket until previews loaded.
+  const fetchGrouped = useCallback(async () => {
     if (!token) return;
+    setLoading(true);
     try {
-      const res = await fetch(`${API_URL}/v1/quizzes`, {
+      const res = await fetch(`${API_URL}/v1/quizzes/grouped`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (res.ok) setQuizzes(await res.json());
+      if (res.ok) setGrouped(await res.json());
     } finally {
       setLoading(false);
     }
   }, [token, API_URL]);
 
-  const fetchCourses = useCallback(async () => {
-    if (!token) return;
-    const res = await fetch(`${API_URL}/v1/courses`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (res.ok) setCourses(await res.json());
-  }, [token, API_URL]);
+  useEffect(() => { fetchGrouped(); }, [fetchGrouped]);
 
-  // Lazy-load preview for a course — only when the user expands it in the
-  // cascade selector. Prevents N+1 fetches when there are many courses.
-  const fetchPreview = useCallback(
-    async (courseId: string) => {
-      if (!token || previews[courseId] || loadingPreviews[courseId]) return;
-      setLoadingPreviews((p) => ({ ...p, [courseId]: true }));
-      try {
-        const res = await fetch(
-          `${API_URL}/v1/courses/${courseId}/preview?max_chars=80`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        if (res.ok) {
-          const data: CoursePreview = await res.json();
-          setPreviews((p) => ({ ...p, [courseId]: data }));
-        }
-      } finally {
-        setLoadingPreviews((p) => ({ ...p, [courseId]: false }));
-      }
-    },
-    [token, API_URL, previews, loadingPreviews]
+  // Flat list of every quiz, regardless of placement in the tree. Used
+  // by the "Тесты" badge count and by the orphan-less delete handler
+  // (e.g. handleDeleteQuiz just needs `flatQuizzes.find(...)`). With the
+  // server-provided tree this is a pure projection — no N+1, no merging.
+  const flatQuizzes = useMemo(() => {
+    if (!grouped) return [];
+    return grouped.courses.flatMap((c) =>
+      c.modules.flatMap((m) =>
+        m.lessons.flatMap((l) => (l.quiz ? [l.quiz] : []))
+      )
+    );
+  }, [grouped]);
+
+  // Resolve the course currently selected in the create-quiz cascade
+  // from the server-provided tree. Replaces the old `previews[course_id]`
+  // lookup, since with the grouped endpoint we already have all modules
+  // and lessons in memory — no per-course fetch needed.
+  const selectedCourseInForm = useMemo(
+    () => grouped?.courses.find((c) => c.id === newQuiz.course_id) ?? null,
+    [grouped, newQuiz.course_id]
   );
-
-  useEffect(() => { fetchQuizzes(); }, [fetchQuizzes]);
-  useEffect(() => { fetchCourses(); }, [fetchCourses]);
-
-  // Index quiz → lesson → module → course for grouping in the list.
-  // Without this we only have lesson_id which is useless on its own.
-  const quizIndex = useMemo(() => {
-    const byQuizId: Record<string, { lesson?: PreviewLesson; module?: PreviewModule; course?: CourseLite }> = {};
-    for (const course of courses) {
-      const prev = previews[course.id];
-      if (!prev) continue;
-      for (const m of prev.modules) {
-        for (const l of m.lessons) {
-          if (l.quiz_id) {
-            byQuizId[l.quiz_id] = { lesson: l, module: m, course };
-          }
-        }
-      }
-    }
-    return byQuizId;
-  }, [courses, previews]);
-
-  // Group quizzes by Course → Module → Lesson for the list panel.
-  // Quizzes whose lesson we can't locate (e.g. lesson deleted, preview
-  // not yet loaded) fall into a single "Без привязки" bucket so they
-  // don't disappear from the UI.
-  const grouped = useMemo(() => {
-    const buckets: Array<{
-      course: CourseLite;
-      modules: Array<{
-        module: PreviewModule;
-        lessons: Array<{ lesson: PreviewLesson | null; quiz: Quiz }>;
-      }>;
-    }> = [];
-    const orphan: Quiz[] = [];
-
-    for (const course of courses) {
-      const prev = previews[course.id];
-      if (!prev) continue;
-      const courseBucket = { course, modules: [] as Array<{ module: PreviewModule; lessons: Array<{ lesson: PreviewLesson | null; quiz: Quiz }> }> };
-      for (const m of prev.modules) {
-        const moduleBucket = { module: m, lessons: [] as Array<{ lesson: PreviewLesson | null; quiz: Quiz }> };
-        for (const l of m.lessons) {
-          if (l.has_quiz && l.quiz_id) {
-            const q = quizzes.find((qz) => qz.id === l.quiz_id);
-            if (q) moduleBucket.lessons.push({ lesson: l, quiz: q });
-          }
-        }
-        if (moduleBucket.lessons.length > 0) courseBucket.modules.push(moduleBucket);
-      }
-      if (courseBucket.modules.length > 0) buckets.push(courseBucket);
-    }
-
-    for (const q of quizzes) {
-      if (!quizIndex[q.id]) orphan.push(q);
-    }
-
-    return { buckets, orphan };
-  }, [courses, previews, quizzes, quizIndex]);
 
   const handleCreateQuiz = async () => {
     if (!token || !newQuiz.lesson_id || !newQuiz.title) return;
@@ -255,7 +193,6 @@ export default function QuizzesAdminPage() {
     });
     if (res.ok) {
       const quiz = await res.json();
-      setQuizzes((prev) => [...prev, quiz]);
       setSelectedQuiz(quiz);
       setShowCreateQuiz(false);
       setNewQuiz({
@@ -267,16 +204,8 @@ export default function QuizzesAdminPage() {
         time_limit: '',
         attempt_limit: 3,
       });
-      // Refresh the preview for the chosen course so the new quiz shows up
-      // in the grouped list immediately, without waiting for a full reload.
-      if (newQuiz.course_id) {
-        setPreviews((p) => {
-          const next = { ...p };
-          delete next[newQuiz.course_id];
-          return next;
-        });
-        fetchPreview(newQuiz.course_id);
-      }
+      // Refresh the tree so the new quiz appears under the chosen lesson.
+      await fetchGrouped();
     } else {
       const err = await res.json().catch(() => ({ detail: 'Unknown error' }));
       toast.error(`Не удалось создать тест: ${err.detail || `HTTP ${res.status}`}`);
@@ -379,15 +308,7 @@ export default function QuizzesAdminPage() {
       setAiDraft(null);
       setShowCreateQuiz(false);
       setAiGuidance('');
-      await fetchQuizzes();
-      if (newQuiz.course_id) {
-        setPreviews((p) => {
-          const next = { ...p };
-          delete next[newQuiz.course_id];
-          return next;
-        });
-        fetchPreview(newQuiz.course_id);
-      }
+      await fetchGrouped();
       toast.success(`Тест создан: ${added} из ${aiDraft.questions.length} вопросов добавлено`);
     } catch (e) {
       toast.error(`Не удалось сохранить: ${(e as Error).message}`);
@@ -456,8 +377,8 @@ export default function QuizzesAdminPage() {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (res.ok) {
-      setQuizzes((prev) => prev.filter((q) => q.id !== quizId));
       setSelectedQuiz(null);
+      await fetchGrouped();
     }
   };
 
@@ -505,10 +426,30 @@ export default function QuizzesAdminPage() {
         throw new Error(err.detail || `HTTP ${res.status}`);
       }
       const updated = await res.json();
-      // Patch both the list and the selected detail so the UI updates
-      // without a full refetch.
-      setQuizzes((prev) => prev.map((q) => (q.id === updated.id ? updated : q)));
+      // Keep the selected detail in sync without a full tree refetch.
       setSelectedQuiz(updated);
+      // Patch the in-memory tree so the list panel reflects the new
+      // pass_score / time_limit / attempt_limit immediately.
+      setGrouped((g) => {
+        if (!g) return g;
+        return {
+          ...g,
+          courses: g.courses.map((c) => ({
+            ...c,
+            modules: c.modules.map((m) => ({
+              ...m,
+              lessons: m.lessons.map((l) =>
+                l.quiz && l.quiz.id === updated.id
+                  ? { ...l, quiz: updated }
+                  : l
+              ),
+            })),
+          })),
+          orphans: g.orphans.map((o) =>
+            o.quiz.id === updated.id ? { ...o, quiz: updated } : o
+          ),
+        };
+      });
       setEditingSettings(false);
       toast.success('Параметры теста сохранены');
     } catch (e) {
@@ -550,10 +491,10 @@ export default function QuizzesAdminPage() {
             {/* Cascade selector: Курс → Модуль → Урок.
                 The old free-form Lesson ID input was a usability dead end
                 — methodologists had no way to discover the UUID. We now
-                lazy-load GET /v1/courses/{id}/preview to enumerate
-                lessons in the chosen course, marking ones that already
-                have a quiz so we don't accidentally create a second
-                quiz for the same lesson. */}
+                use the tree returned by GET /v1/quizzes/grouped (already
+                loaded into `grouped`) to enumerate lessons in the chosen
+                course, marking ones that already have a quiz so we don't
+                accidentally create a second quiz for the same lesson. */}
             <div className="grid md:grid-cols-3 gap-2">
               <div>
                 <label className="text-sm text-muted-foreground">Курс</label>
@@ -563,11 +504,10 @@ export default function QuizzesAdminPage() {
                   onChange={(e) => {
                     const cid = e.target.value;
                     setNewQuiz((p) => ({ ...p, course_id: cid, module_id: '', lesson_id: '' }));
-                    fetchPreview(cid);
                   }}
                 >
                   <option value="">— выберите курс —</option>
-                  {courses.map((c) => (
+                  {grouped?.courses.map((c) => (
                     <option key={c.id} value={c.id}>{c.title}</option>
                   ))}
                 </select>
@@ -578,10 +518,10 @@ export default function QuizzesAdminPage() {
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                   value={newQuiz.module_id}
                   onChange={(e) => setNewQuiz((p) => ({ ...p, module_id: e.target.value, lesson_id: '' }))}
-                  disabled={!newQuiz.course_id || loadingPreviews[newQuiz.course_id]}
+                  disabled={!newQuiz.course_id}
                 >
                   <option value="">— выберите модуль —</option>
-                  {(previews[newQuiz.course_id]?.modules ?? []).map((m) => (
+                  {selectedCourseInForm?.modules.map((m) => (
                     <option key={m.id} value={m.id}>{m.title}</option>
                   ))}
                 </select>
@@ -595,11 +535,11 @@ export default function QuizzesAdminPage() {
                   disabled={!newQuiz.module_id}
                 >
                   <option value="">— выберите урок —</option>
-                  {(previews[newQuiz.course_id]?.modules ?? [])
+                  {selectedCourseInForm?.modules
                     .find((m) => m.id === newQuiz.module_id)
                     ?.lessons.map((l) => (
-                      <option key={l.id} value={l.id} disabled={l.has_quiz}>
-                        {l.title}{l.has_quiz ? ' (уже есть тест)' : ''}
+                      <option key={l.id} value={l.id} disabled={l.quiz != null}>
+                        {l.title}{l.quiz ? ' (уже есть тест)' : ''}
                       </option>
                     ))}
                 </select>
@@ -871,25 +811,34 @@ export default function QuizzesAdminPage() {
 
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Quiz list — grouped by Course → Module → Lesson.
-            Replaces the flat list + dev-only "Load quiz by ID" panel.
-            Each row shows the quiz title and a count badge so the
-            methodologist can scan it without expanding every group. */}
+            Data source is `grouped` (the response from GET /v1/quizzes/grouped).
+            Each course row shows its quiz count; lessons without a quiz are
+            skipped so we don't render empty rows. Orphans surface as their
+            own bucket (real orphans: lesson deleted or FK nulled). */}
         <Card>
           <CardContent className="p-4 space-y-2">
             <div className="flex items-center justify-between">
               <h3 className="font-semibold">Тесты</h3>
-              <Badge variant="secondary">{quizzes.length}</Badge>
+              <Badge variant="secondary">{flatQuizzes.length}</Badge>
             </div>
             {loading ? (
               <p className="text-sm text-muted-foreground">Загрузка…</p>
-            ) : grouped.buckets.length === 0 && grouped.orphan.length === 0 ? (
+            ) : grouped && grouped.courses.every((c) => c.modules.every((m) => m.lessons.every((l) => !l.quiz))) && grouped.orphans.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 Тестов пока нет. Нажмите «Создать тест» выше.
               </p>
             ) : (
               <div className="space-y-1 max-h-[28rem] overflow-y-auto">
-                {grouped.buckets.map(({ course, modules }) => {
+                {grouped?.courses.map((course) => {
                   const isOpen = openCourses[course.id] ?? true;
+                  const moduleRows = course.modules
+                    .map((m) => ({
+                      module: m,
+                      lessons: m.lessons.filter((l) => l.quiz),
+                    }))
+                    .filter((mb) => mb.lessons.length > 0);
+                  const quizCount = moduleRows.reduce((acc, mb) => acc + mb.lessons.length, 0);
+                  if (quizCount === 0) return null;
                   return (
                     <div key={course.id} className="rounded border border-border/50">
                       <button
@@ -899,32 +848,33 @@ export default function QuizzesAdminPage() {
                       >
                         {isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                         <span className="flex-1 truncate">{course.title}</span>
-                        <Badge variant="outline">
-                          {modules.reduce((acc, mb) => acc + mb.lessons.length, 0)}
-                        </Badge>
+                        <Badge variant="outline">{quizCount}</Badge>
                       </button>
                       {isOpen && (
                         <div className="pl-5 pr-2 pb-2 space-y-2">
-                          {modules.map(({ module, lessons }) => (
+                          {moduleRows.map(({ module, lessons }) => (
                             <div key={module.id}>
                               <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide px-1 py-1">
                                 {module.title}
                               </div>
-                              {lessons.map(({ lesson, quiz }) => (
-                                <div
-                                  key={quiz.id}
-                                  className={`p-2 rounded cursor-pointer text-sm ${
-                                    selectedQuiz?.id === quiz.id ? 'bg-primary/10' : 'hover:bg-muted'
-                                  }`}
-                                  onClick={() => setSelectedQuiz(quiz)}
-                                >
-                                  <div className="flex items-center gap-2">
-                                    <Circle size={10} className="shrink-0" />
-                                    <span className="flex-1 truncate">{lesson?.title ?? quiz.title}</span>
-                                    <Badge className="ml-2">{quiz.questions.length}</Badge>
+                              {lessons.map((l) => {
+                                const quiz = l.quiz!;
+                                return (
+                                  <div
+                                    key={quiz.id}
+                                    className={`p-2 rounded cursor-pointer text-sm ${
+                                      selectedQuiz?.id === quiz.id ? 'bg-primary/10' : 'hover:bg-muted'
+                                    }`}
+                                    onClick={() => setSelectedQuiz(quiz)}
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      <Circle size={10} className="shrink-0" />
+                                      <span className="flex-1 truncate">{l.title}</span>
+                                      <Badge className="ml-2">{quiz.questions.length}</Badge>
+                                    </div>
                                   </div>
-                                </div>
-                              ))}
+                                );
+                              })}
                             </div>
                           ))}
                         </div>
@@ -932,23 +882,23 @@ export default function QuizzesAdminPage() {
                     </div>
                   );
                 })}
-                {grouped.orphan.length > 0 && (
+                {grouped && grouped.orphans.length > 0 && (
                   <div className="rounded border border-dashed border-border/50 mt-2">
                     <div className="px-2 py-1.5 text-xs uppercase tracking-wide text-muted-foreground">
                       Без привязки
                     </div>
-                    {grouped.orphan.map((q) => (
+                    {grouped.orphans.map(({ quiz }) => (
                       <div
-                        key={q.id}
+                        key={quiz.id}
                         className={`p-2 rounded cursor-pointer text-sm ${
-                          selectedQuiz?.id === q.id ? 'bg-primary/10' : 'hover:bg-muted'
+                          selectedQuiz?.id === quiz.id ? 'bg-primary/10' : 'hover:bg-muted'
                         }`}
-                        onClick={() => setSelectedQuiz(q)}
+                        onClick={() => setSelectedQuiz(quiz)}
                       >
                         <div className="flex items-center gap-2">
                           <Circle size={10} className="shrink-0" />
-                          <span className="flex-1 truncate">{q.title}</span>
-                          <Badge className="ml-2">{q.questions.length}</Badge>
+                          <span className="flex-1 truncate">{quiz.title}</span>
+                          <Badge className="ml-2">{quiz.questions.length}</Badge>
                         </div>
                       </div>
                     ))}

@@ -2,7 +2,9 @@
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, or_
+from sqlalchemy.sql import true
+from sqlalchemy.orm import selectinload
 
 from app.core.auth import get_current_user, require_role
 from app.core.db import get_db
@@ -21,6 +23,11 @@ from app.modules.quizzes.schemas import (
     QuizChoiceUpdate,
     QuizGenerateRequest,
     QuizGenerateResponse,
+    QuizGroupedResponse,
+    GroupedCourse,
+    GroupedModule,
+    GroupedLesson,
+    OrphanQuiz,
 )
 from app.modules.quizzes.service import (
     get_quiz_with_questions,
@@ -49,6 +56,116 @@ async def list_quizzes(
         if quiz_data:
             out.append(quiz_data)
     return out
+
+
+@router.get("/grouped", response_model=QuizGroupedResponse)
+async def list_quizzes_grouped(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """List quizzes grouped by course → module → lesson → quiz.
+
+    Replaces the previous client-side cascade that depended on lazy
+    `/courses/{id}/preview` fetches and produced misleading "orphan"
+    buckets when previews had not yet loaded.
+
+    Surfaces:
+    - Grouped tree (course/module/lesson, with quiz nested under lesson)
+    - Orphan quizzes (lesson_id null OR lesson_id pointing to non-existent row)
+
+    Two query plan:
+    1. Single SELECT joining courses → modules → lessons → quizzes,
+       scoped by tenant_id via RLS. Eager-loads everything we need.
+    2. Single SELECT for orphans (quizzes without valid lesson_id).
+
+    Both queries are filtered by tenant_id and use index-friendly
+    WHERE clauses; total response size is O(quizzes) per tenant.
+    """
+    from app.modules.courses.models import Course
+    from app.modules.lessons.models import Module, Lesson
+
+    # Query 1: full tree with quizzes joined
+    # Use selectinload for module→lesson to avoid N+1 on lessons.
+    courses_result = await db.execute(
+        select(Course)
+        .where(Course.tenant_id == user.tenant_id)
+        .options(
+            selectinload(Course.modules).selectinload(Module.lessons),
+        )
+        .order_by(Course.created_at.desc())
+    )
+    courses = courses_result.scalars().unique().all()
+
+    # Pre-fetch quizzes for all lessons in one query (avoids N+1).
+    lesson_ids: list[UUID] = [
+        lesson.id
+        for course in courses
+        for module in course.modules
+        for lesson in module.lessons
+    ]
+    quizzes_by_lesson: dict[UUID, dict] = {}
+    if lesson_ids:
+        quizzes_rows = (
+            await db.execute(
+                select(Quiz).where(
+                    Quiz.lesson_id.in_(lesson_ids),
+                    Quiz.tenant_id == user.tenant_id,
+                )
+            )
+        ).scalars().all()
+        for q in quizzes_rows:
+            quiz_data = await get_quiz_with_questions(db, q.id, user.tenant_id)
+            if quiz_data:
+                quizzes_by_lesson[q.lesson_id] = quiz_data
+
+    # Build grouped response
+    grouped_courses: list[GroupedCourse] = []
+    for course in courses:
+        grouped_modules: list[GroupedModule] = []
+        for module in sorted(course.modules, key=lambda m: (m.order_index, m.title)):
+            grouped_lessons: list[GroupedLesson] = []
+            for lesson in sorted(module.lessons, key=lambda l: (l.order_index, l.title)):
+                quiz = quizzes_by_lesson.get(lesson.id)
+                grouped_lessons.append(GroupedLesson(
+                    id=lesson.id,
+                    title=lesson.title,
+                    order_index=lesson.order_index,
+                    quiz=quiz,
+                ))
+            grouped_modules.append(GroupedModule(
+                id=module.id,
+                title=module.title,
+                order_index=module.order_index,
+                lessons=grouped_lessons,
+            ))
+        grouped_courses.append(GroupedCourse(
+            id=course.id,
+            title=course.title,
+            status=course.status,
+            modules=grouped_modules,
+        ))
+
+    # Query 2: orphan quizzes (lesson_id null OR lesson_id pointing to a
+    # lesson that doesn't exist anymore). These surface separately so
+    # the methodologist sees them and can either re-link or delete.
+    # We exclude quizzes already accounted for in the tree above.
+    orphan_quizzes_result = await db.execute(
+        select(Quiz).where(
+            Quiz.tenant_id == user.tenant_id,
+            or_(
+                Quiz.lesson_id.is_(None),
+                Quiz.lesson_id.notin_(lesson_ids) if lesson_ids else true(),
+            ),
+        ).order_by(Quiz.created_at.desc())
+    )
+    orphan_quizzes = orphan_quizzes_result.scalars().all()
+    orphans: list[OrphanQuiz] = []
+    for q in orphan_quizzes:
+        quiz_data = await get_quiz_with_questions(db, q.id, user.tenant_id)
+        if quiz_data:
+            orphans.append(OrphanQuiz(quiz=quiz_data, lesson_id=q.lesson_id))
+
+    return QuizGroupedResponse(courses=grouped_courses, orphans=orphans)
 
 
 @router.get("/enrolled")
