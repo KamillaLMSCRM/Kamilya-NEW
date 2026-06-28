@@ -267,31 +267,23 @@ class DemoLoginRequest(BaseModel):
 async def demo_login(req: DemoLoginRequest, response: Response, db=Depends(get_db)):
     """Login as a demo user for the given role. Creates user/tenant if needed.
 
-    Production gate:
-    - teacher/student: always allowed.
-    - admin: requires `ALLOW_ADMIN_DEMO=true` env var (prevents privilege
-      escalation via the unauthenticated endpoint).
-    - superadmin: requires `ALLOW_SUPERADMIN_DEMO=true` env var. The
-      superadmin demo user is bound to the existing `kamilya-demo` tenant
-      (not the generic demo tenant) so the operator lands in the right
-      organization.
+    Production gate (audit §4.8):
+    - teacher/student: always allowed (safe — no privilege escalation).
+    - admin/superadmin: REJECTED in production. Was previously gated by
+      ALLOW_ADMIN_DEMO / ALLOW_SUPERADMIN_DEMO env vars, but those were
+      temporary opt-ins for E2E testing. E2E tests now exist (see
+      apps/web/tests/e2e/) so the opt-in escape hatch is removed.
     """
     import logging
     from app.core.config import get_settings
     settings = get_settings()
     logger = logging.getLogger(__name__)
 
-    # Production gate: block admin unless explicitly enabled.
-    if settings.APP_ENV == "production" and req.role == "admin" and not settings.ALLOW_ADMIN_DEMO:
+    # Block admin/superadmin demo-login in production unconditionally.
+    if settings.APP_ENV == "production" and req.role in ("admin", "superadmin"):
         raise HTTPException(
             status_code=404,
-            detail="Admin demo login is not available in production",
-        )
-    # Same gate for superadmin — explicit opt-in via env var.
-    if settings.APP_ENV == "production" and req.role == "superadmin" and not settings.ALLOW_SUPERADMIN_DEMO:
-        raise HTTPException(
-            status_code=404,
-            detail="Superadmin demo login is not available in production",
+            detail=f"{req.role.capitalize()} demo login is not available in production",
         )
 
     if req.role not in DEMO_USERS:

@@ -86,3 +86,8 @@ check_*.sql
 fix_*.sql
 add_*.sql
 test_demo.json
+
+# Generated artefacts (don't commit)
+repomix-output*.md
+.claude/
+.aider*

@@ -13,17 +13,12 @@ class Settings(BaseSettings):
     DEBUG: bool = False
     API_PREFIX: str = "/api/v1"
 
-    # TEMP: enable admin demo-login in production for e2e testing.
-    # Set to true on Render via env var, then back to false after testing.
-    # Remove this once e2e admin tests are complete.
-    ALLOW_ADMIN_DEMO: bool = False
-
-    # Same idea but for superadmin. Askar uses this on prod to log in
-    # as superadmin via /login/demo (binds to the kamilya-demo tenant).
-    # Set to true on Render; safe to leave enabled — there's exactly
-    # one superadmin demo user and it has no other privileges beyond
-    # the standard superadmin role.
-    ALLOW_SUPERADMIN_DEMO: bool = False
+    # Demo-login flags removed in favor of the simpler rule:
+    #   - non-production env: admin and superadmin demo-login always work.
+    #   - production env: both are rejected with 404.
+    # See apps/api/app/modules/auth/router.py::demo_login() for the
+    # implementation. E2E tests added in commit 215158a cover this path
+    # so we no longer need the env-var opt-in (audit §4.8).
 
     # Database
     # IMPORTANT: in production the URL must point at the `lms_app` role
