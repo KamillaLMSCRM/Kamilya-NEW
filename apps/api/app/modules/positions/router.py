@@ -586,7 +586,7 @@ async def analyze_jd(
         "level": data.get("level", ""),
         "responsibilities": data.get("responsibilities", ""),
         "requirements": data.get("requirements", ""),
-        "issues": _audit_jd_text(
+        "issues": await _audit_jd_text(
             text,
             data.get("name", ""),
             data.get("responsibilities", ""),
