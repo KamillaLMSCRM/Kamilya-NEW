@@ -669,9 +669,3 @@ async def recommended_courses(
             break
 
     return RecommendedCoursesResponse(items=items[:limit])
-
-
-# ── JD version history ─────────────────────────────────────────
-
-
-@router.get("/{position_id}/jd-versions", response_model=JDVersionListResponse)
