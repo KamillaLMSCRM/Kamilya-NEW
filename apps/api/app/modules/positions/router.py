@@ -560,9 +560,3 @@ async def bulk_create_positions(
 
     await db.commit()
     return BulkPositionResponse(created=created, failed=failed)
-
-
-# ── Recommended content (vector search) ────────────────────────
-
-
-@router.get("/{position_id}/recommended-content", response_model=RecommendedContentResponse)
