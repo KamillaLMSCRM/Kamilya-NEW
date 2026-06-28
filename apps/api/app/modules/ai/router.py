@@ -82,7 +82,7 @@ async def generate_course(
         except asyncio.CancelledError:
             logger.info(f"Pipeline cancelled for job {job.id}")
             async with async_session_factory() as session:
-                await update_ai_job(session, job.id, status="cancelled", message="Cancelled by user")
+                await update_ai_job(session, job.id, tenant_id=user.tenant_id, status="cancelled", message="Cancelled by user")
                 await session.commit()
         except Exception as e:
             logger.error(f"Pipeline failed for job {job.id}: {e}", exc_info=True)
@@ -142,8 +142,8 @@ async def get_job(
     user: User = Depends(get_current_user),
 ):
     """Get job status (for polling)."""
-    job = await get_ai_job(db, job_id)
-    if not job or job.tenant_id != user.tenant_id:
+    job = await get_ai_job(db, job_id, tenant_id=str(user.tenant_id) if user.tenant_id else None)
+    if not job:
         raise HTTPException(status_code=404, detail="Job not found")
 
     return AIJobResponse(
@@ -164,8 +164,8 @@ async def cancel_generation(
     user: User = Depends(get_current_user),
 ):
     """Cancel a running generation job."""
-    job = await get_ai_job(db, job_id)
-    if not job or job.tenant_id != user.tenant_id:
+    job = await get_ai_job(db, job_id, tenant_id=str(user.tenant_id) if user.tenant_id else None)
+    if not job:
         raise HTTPException(status_code=404, detail="Job not found")
 
     if job.status in ("completed", "failed", "cancelled"):
@@ -178,7 +178,7 @@ async def cancel_generation(
         logger.info(f"Cancelled task for job {job_id}")
     else:
         # Task not found in memory (server restarted), just update DB
-        await update_ai_job(db, job_id, status="cancelled", message="Cancelled by user")
+        await update_ai_job(db, job_id, tenant_id=str(user.tenant_id) if user.tenant_id else None, status="cancelled", message="Cancelled by user")
         await db.commit()
 
     return {"status": "cancelled"}
@@ -210,16 +210,13 @@ async def job_progress_ws(websocket: WebSocket, job_id: str, token: str = Query(
         while True:
             from app.core.db import async_session_factory
             async with async_session_factory() as session:
-                job = await get_ai_job(session, job_id)
+                job = await get_ai_job(session, job_id, tenant_id=str(tenant_id) if tenant_id else None)
                 if not job:
                     await websocket.send_json({"error": "Job not found"})
                     break
 
-                # Verify tenant access
-                if str(job.tenant_id) != tenant_id:
-                    await websocket.send_json({"error": "Access denied"})
-                    break
-
+                # Belt-and-braces: query is already tenant-scoped, but in
+                # case the JWT tenant_id is None (superadmin) we accept.
                 await websocket.send_json({
                     "job_id": job.id,
                     "status": job.status,

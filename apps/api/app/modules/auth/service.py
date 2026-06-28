@@ -76,6 +76,17 @@ async def create_user_and_tokens(
 
 
 async def authenticate_user(db: AsyncSession, email: str, password: str) -> tuple[User, str, str]:
+    """Authenticate by email + password.
+
+    Tenant scoping (see audit §3.2):
+        Email domain is matched against Tenant.slug. If a tenant matches,
+        the user is looked up scoped to that tenant. If no tenant matches
+        (e.g. someone registered with a non-tenant domain), we fall back
+        to a global lookup BUT only for users with tenant_id IS NULL
+        (superadmin/legacy). Tenant users can never be looked up without
+        their tenant context — this prevents cross-tenant login by
+        guessing the email of another tenant's user.
+    """
     # Scope to tenant via email domain to prevent cross-tenant login
     email_domain = email.split("@")[-1] if "@" in email else ""
     tenant_result = await db.execute(select(Tenant).where(Tenant.slug == email_domain))
@@ -86,8 +97,13 @@ async def authenticate_user(db: AsyncSession, email: str, password: str) -> tupl
             select(User).where(User.email == email, User.tenant_id == tenant.id)
         )
     else:
-        # Fallback: no tenant match (legacy users)
-        result = await db.execute(select(User).where(User.email == email))
+        # Restricted fallback: only superadmin-style users (tenant_id IS NULL)
+        # can authenticate when their email domain does not match any tenant.
+        # Tenant users with a mismatched domain are rejected here — they
+        # must use the correct tenant-domain email to log in.
+        result = await db.execute(
+            select(User).where(User.email == email, User.tenant_id.is_(None))
+        )
 
     user = result.scalar_one_or_none()
     if not user or not user.password_hash:
