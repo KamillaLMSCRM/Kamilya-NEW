@@ -10,6 +10,10 @@ from app.models.user_roles import UserRole
 
 ph = PasswordHasher()
 
+# Roles visible on the team-management surface (ADR-0011).
+# Students are auto-provisioned via Telegram/kiosk and not managed here.
+TEAM_ROLES = ("teacher", "admin", "org_admin", "superadmin")
+
 
 async def list_users(
     db: AsyncSession,
@@ -20,7 +24,11 @@ async def list_users(
     role: str | None = None,
     is_active: bool | None = None,
 ) -> tuple[list[User], int]:
-    """List users with pagination and filters."""
+    """List users with pagination and filters.
+
+    role='non_student' is a sentinel meaning "all team roles,
+    excluding student" (the default for /v1/users per ADR-0011).
+    """
     query = select(User).where(User.tenant_id == tenant_id)
     count_query = select(func.count(User.id)).where(User.tenant_id == tenant_id)
 
@@ -33,7 +41,11 @@ async def list_users(
         query = query.where(search_filter)
         count_query = count_query.where(search_filter)
 
-    if role:
+    if role == "non_student":
+        # Default surface — show only team-managed roles.
+        query = query.where(User.role.in_(TEAM_ROLES))
+        count_query = count_query.where(User.role.in_(TEAM_ROLES))
+    elif role:
         query = query.where(User.role == role)
         count_query = count_query.where(User.role == role)
 

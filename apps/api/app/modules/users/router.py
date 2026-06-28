@@ -91,19 +91,46 @@ async def list_all_users(
     search: Optional[str] = Query(None),
     role: Optional[str] = Query(None),
     is_active: Optional[bool] = Query(None),
+    include_students: bool = Query(
+        False,
+        description="Audit §2.1 / ADR-0011: by default students are excluded "
+                    "because they're auto-provisioned via Telegram/kiosk, "
+                    "not managed here. Pass ?include_students=true to opt-in "
+                    "(admin-only).",
+    ),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role("admin", "org_admin", "superadmin", "teacher")),
 ):
-    """List users. Admin/org_admin/superadmin for full management; teacher
-    included so methodologists can pick assignees for quiz assignments
-    (POST /v1/quiz-assignments already accepts teacher role). The endpoint
-    still scopes by tenant_id so cross-tenant access is impossible.
+    """List users (the team-management surface — ADR-0011).
+
+    Admin/org_admin/superadmin for full management; teacher included so
+    methodologists can pick assignees for quiz assignments.
+
+    By default students (role='student') are excluded — they're auto-
+    provisioned via Telegram-bot or kiosk and are not team-managed.
+    Pass ?include_students=true to see them (admin-only).
 
     per_page capped at 500 — large enough for most kazakhstan legal
     entities (typically <300 employees), small enough to not blow up
-    the response. Use page+per_page for tenants beyond that."""
+    the response.
+    """
+    if include_students and user.role not in ("admin", "org_admin", "superadmin"):
+        raise HTTPException(
+            status_code=403,
+            detail="include_students=true requires admin role",
+        )
+
+    effective_role = role
+    if not include_students and role is None:
+        # Default: exclude students from the listing. Audit §2.1 /
+        # ADR-0011 — the /admin/team surface is for managing teachers,
+        # org_admins, and admins only. Students have their own surface
+        # at /v1/students (read-only) and are provisioned via the
+        # Telegram/kiosk flows.
+        effective_role = "non_student"  # sentinel — handled in service
+
     users, total = await list_users(
-        db, user.tenant_id, page, per_page, search, role, is_active
+        db, user.tenant_id, page, per_page, search, effective_role, is_active
     )
     return UserListResponse(
         users=[UserResponse.model_validate(u) for u in users],
@@ -132,8 +159,26 @@ async def create_new_user(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role("admin", "org_admin", "superadmin")),
 ):
-    """Create a new user (admin only)."""
+    """Create a new team user (admin only).
+
+    ADR-0011: only team-managed roles can be created via this endpoint.
+    Students (role='student') must be provisioned via the Telegram-bot
+    flow, kiosk, or staff import — see /admin/staff. Attempting to
+    create a student here returns 400.
+    """
     from app.core.demo_limits import assert_can_create_user
+    from app.modules.users.service import TEAM_ROLES
+
+    if req.role not in TEAM_ROLES:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"role='{req.role}' cannot be created via this endpoint. "
+                f"Students are provisioned via Telegram-bot or kiosk. "
+                f"Allowed roles: {', '.join(TEAM_ROLES)}"
+            ),
+        )
+
     await assert_can_create_user(db, user.tenant_id)
     try:
         new_user = await create_user(
@@ -199,7 +244,21 @@ async def change_user_role(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role("admin", "org_admin", "superadmin")),
 ):
-    """Change user role (admin only)."""
+    """Change user role (admin only).
+
+    ADR-0011: only team-managed roles are accepted. Demoting/promoting
+    to 'student' must go through the regular student-provisioning flow.
+    """
+    from app.modules.users.service import TEAM_ROLES
+
+    if role not in TEAM_ROLES:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"role='{role}' is not a team-managed role. "
+                f"Allowed roles: {', '.join(TEAM_ROLES)}"
+            ),
+        )
     try:
         updated = await change_role(db, user_id, user.tenant_id, role)
         if not updated:
