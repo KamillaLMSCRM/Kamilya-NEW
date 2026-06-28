@@ -4,10 +4,9 @@ services:
     runtime: python
     plan: starter
     buildCommand: |
-      cd apps/api
       pip install poetry
       poetry config virtualenvs.in-project true
-      poetry install --no-interaction --no-ansi --without dev
+      cd apps/api && poetry install --no-interaction --no-ansi --without dev
     startCommand: |
       cd apps/api
       poetry run uvicorn app.main:app --host 0.0.0.0 --port $PORT

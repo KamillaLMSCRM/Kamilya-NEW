@@ -12,6 +12,13 @@ RUN poetry install --no-interaction --no-ansi --without dev
 
 COPY . .
 
+# Copy shared packages for in-repo path dependency (packages/ → ml_pipeline/ with Jinja2 prompt templates).
+# Poetry installs packages via path = "../../packages" in editable mode, but the runtime files
+# still need to exist on disk inside the container.
+# NOTE: build context must be the repo root (e.g. `docker build -f apps/api/Dockerfile .`)
+# so that ../../packages resolves to /packages inside the container.
+COPY ../../packages /packages
+
 ENV PYTHONUNBUFFERED=1
 EXPOSE 8000
 

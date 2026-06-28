@@ -14,6 +14,7 @@ from app.modules.ai.assessment_schema import (
 )
 from app.modules.ai.llm_client import LLMClient
 from app.modules.ai.writer_schema import LessonContent
+from packages.ml_pipeline import get_renderer
 
 logger = logging.getLogger(__name__)
 MAX_ASSESSMENT_RETRIES = 4
@@ -87,9 +88,8 @@ async def generate_lesson_assessment(
     lang_name = lang_names.get(language, language)
 
     system_prompt = (
-        f"You are an assessment designer. Create questions based ONLY on the "
-        f"provided lesson content. Write ALL content in {language} ({lang_name}). "
-        f"Output valid JSON matching the schema."
+        get_renderer().render("assessment/system.md")
+        + f" Write ALL content in {language} ({lang_name})."
     )
 
     user_prompt = f"""Create assessment questions for this lesson.

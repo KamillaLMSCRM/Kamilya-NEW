@@ -26,6 +26,7 @@ from app.modules.ai.job_service import create_ai_job, get_ai_job, update_ai_job
 from app.modules.ai.pipeline import run_generation_pipeline
 from app.modules.ai.llm_client import ResilientLLMClient, create_llm
 from app.modules.courses.models import Course
+from packages.ml_pipeline import get_renderer
 
 logger = logging.getLogger(__name__)
 
@@ -348,20 +349,7 @@ async def chat(
             db, req.course_id, req.context, req.target_id, user.tenant_id
         )
 
-    system_prompt = (
-        "Ты — ассистент методолога LMS Kamilya. Помогаешь рецензировать AI-сгенерированный "
-        "курс перед публикацией сотрудникам. Отвечай кратко (3-6 предложений), по делу, "
-        "на русском. Если видишь фактическую ошибку или противоречие — укажи прямо. "
-        "Не придумывай номера статей законов РК если не уверен.\n\n"
-        "ВАЖНО — формат предложений правок. Когда ты предлагаешь конкретную замену "
-        "содержимого урока, оборачивай её в маркеры:\n"
-        "[APPLY_LESSON:UUID]<новый полный текст урока>[/APPLY_LESSON]\n"
-        "где UUID — это id урока, который пользователь сейчас редактирует или обсуждает. "
-        "Внутри маркера — ТОЛЬКО новый текст урока, без пояснений и markdown. "
-        "Можно использовать только если ты уверен в UUID (он есть в фокусе рецензии). "
-        "Если уверенности в UUID нет — не используй маркеры, просто дай текстовый совет."
-        "\n\nНе повторяй вопрос пользователя. Не добавляй вводные фразы типа 'Конечно' или 'Хороший вопрос'."
-    )
+    system_prompt = get_renderer().render("router/system_methodology_review.md")
 
     user_block_parts = [f"Контекст курса:\n{summary}"]
     if target_block:
@@ -472,7 +460,7 @@ async def _regenerate_module_job(
             )
             plan_resp = await llm.ainvoke(
                 [
-                    {"role": "system", "content": "Ты архитектор курсов. Отвечай только валидным JSON без пояснений и без markdown-обёрток."},
+                    {"role": "system", "content": get_renderer().render("router/system_architect_module_regen.md")},
                     {"role": "user", "content": plan_prompt},
                 ]
             )
@@ -535,7 +523,7 @@ async def _regenerate_module_job(
                 )
                 content_resp = await llm.ainvoke(
                     [
-                        {"role": "system", "content": "Ты автор LMS-уроков на русском. Отвечай только текстом урока, без markdown."},
+                        {"role": "system", "content": get_renderer().render("router/system_writer_lesson_regen_module.md")},
                         {"role": "user", "content": rewrite_prompt},
                     ]
                 )
@@ -559,7 +547,7 @@ async def _regenerate_module_job(
                 )
                 assess_resp = await llm.ainvoke(
                     [
-                        {"role": "system", "content": "Ты автор тестов. Отвечай только валидным JSON."},
+                        {"role": "system", "content": get_renderer().render("router/system_quiz_regen_module.md")},
                         {"role": "user", "content": assess_prompt},
                     ]
                 )
@@ -663,7 +651,7 @@ async def _regenerate_lesson_job(
             )
             resp = await llm.ainvoke(
                 [
-                    {"role": "system", "content": "Ты автор LMS-уроков на русском. Отвечай только текстом урока."},
+                    {"role": "system", "content": get_renderer().render("router/system_writer_lesson_regen.md")},
                     {"role": "user", "content": rewrite_prompt},
                 ]
             )
@@ -692,7 +680,7 @@ async def _regenerate_lesson_job(
                 )
                 assess_resp = await llm.ainvoke(
                     [
-                        {"role": "system", "content": "Ты автор тестов. Отвечай только валидным JSON."},
+                        {"role": "system", "content": get_renderer().render("router/system_quiz_regen_module.md")},
                         {"role": "user", "content": assess_prompt},
                     ]
                 )

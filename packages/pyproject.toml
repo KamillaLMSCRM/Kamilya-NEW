@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "packages"
+version = "0.1.0"
+description = "Shared packages for Kamilya LMS monorepo"
+authors = ["Kamilya Team <dev@kml.kz>"]
+packages = [
+    { include = "ml_pipeline" },
+]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+jinja2 = "^3.1"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

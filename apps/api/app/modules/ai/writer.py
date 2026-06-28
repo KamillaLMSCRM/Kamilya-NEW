@@ -12,31 +12,18 @@ from typing import Callable
 from app.modules.ai.llm_client import LLMClient, create_llm
 from app.modules.ai.ingestion import VectorStore
 from app.modules.ai.writer_schema import CourseContent, LessonContent, ModuleContent
+from packages.ml_pipeline import get_renderer
 
 logger = logging.getLogger(__name__)
 MAX_CHUNK_CHARS = 24_000
 
-GENERATION_PROMPT = """\
-You are a Course Content Writer. Write a comprehensive, well-structured lesson \
-based EXCLUSIVELY on the provided source chunks.
 
-Rules:
-- Write in Markdown format starting with a level-1 heading
-- Write in the TARGET LANGUAGE specified (translate/adapt from source if needed)
-- Base content ONLY on the provided chunks — do NOT invent facts
-- Cover all learning objectives
-- Do NOT cite or reference source numbers in the output
+def _load_generation_prompt() -> str:
+    """Load the static writer generation prompt from Jinja2 template."""
+    return get_renderer().render("writer/system.md")
 
-CRITICAL — language rule:
-- Your ENTIRE output MUST be in the TARGET LANGUAGE specified below.
-- TRANSLATE everything if source material is in a different language.
 
-CRITICAL — anti-repetition rules:
-- Write ONLY about the specific topic indicated by the lesson title and objectives
-- Do NOT include general introductions or background material UNLESS it is the SPECIFIC topic
-- Do NOT define concepts covered by other lessons in the module
-- Start directly with the lesson-specific material.
-"""
+GENERATION_PROMPT = _load_generation_prompt()
 
 
 def _generate_queries(

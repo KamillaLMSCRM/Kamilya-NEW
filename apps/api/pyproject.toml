@@ -24,6 +24,8 @@ websockets = "^14.0"
 openpyxl = "^3.1"
 cryptography = "^42.0"
 aiosmtplib = "^3.0"
+jinja2 = "^3.1"
+packages = {path = "../../packages", develop = true}
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3"
