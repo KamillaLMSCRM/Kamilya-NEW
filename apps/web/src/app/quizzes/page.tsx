@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, Button, Badge, Input } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
+import { getAccessToken } from '@/lib/auth';
 import { useT } from '@/i18n/useT';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { toast } from '@/components/ui/Toast';
@@ -135,6 +136,14 @@ export default function QuizzesAdminPage() {
   const [aiDifficulty, setAiDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium');
   const [aiGuidance, setAiGuidance] = useState('');
   const token = useAuthStore((s) => s.accessToken);
+  // Initialize the auth store from localStorage on mount. Without this,
+  // if the user refreshes the page (or navigates directly to /quizzes
+  // without going through the Layout's useEffect), token is null until
+  // Layout re-runs initialize(). This is a no-op if already initialized.
+  const initialize = useAuthStore((s) => s.initialize);
+  useEffect(() => {
+    initialize();
+  }, [initialize]);
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
   // Single request fetches the entire cascade tree (course → module →
@@ -142,11 +151,14 @@ export default function QuizzesAdminPage() {
   // (`/v1/courses` + lazy `/v1/courses/{id}/preview`) which left quizzes
   // in a misleading "orphan" bucket until previews loaded.
   const fetchGrouped = useCallback(async () => {
-    if (!token) return;
+    // Fallback to localStorage in case Zustand hasn't been initialized
+    // yet (e.g. direct page load bypassing Layout's useEffect).
+    const authToken = token || getAccessToken();
+    if (!authToken) return;
     setLoading(true);
     try {
       const res = await fetch(`${API_URL}/v1/quizzes/grouped`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${authToken}` },
       });
       if (res.ok) setGrouped(await res.json());
     } finally {
@@ -182,7 +194,7 @@ export default function QuizzesAdminPage() {
     if (!token || !newQuiz.lesson_id || !newQuiz.title) return;
     const res = await fetch(`${API_URL}/v1/quizzes`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token || getAccessToken()}` },
       body: JSON.stringify({
         lesson_id: newQuiz.lesson_id,
         title: newQuiz.title,
@@ -221,7 +233,7 @@ export default function QuizzesAdminPage() {
     try {
       const res = await fetch(`${API_URL}/v1/quizzes/generate`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token || getAccessToken()}` },
         body: JSON.stringify({
           lesson_id: newQuiz.lesson_id,
           num_questions: 8,
@@ -266,7 +278,7 @@ export default function QuizzesAdminPage() {
       // 1. Create the empty quiz shell.
       const createRes = await fetch(`${API_URL}/v1/quizzes`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token || getAccessToken()}` },
         body: JSON.stringify({
           lesson_id: newQuiz.lesson_id,
           title: newQuiz.title || aiDraft.suggested_title,
@@ -287,7 +299,7 @@ export default function QuizzesAdminPage() {
       for (const q of aiDraft.questions) {
         const qRes = await fetch(`${API_URL}/v1/quizzes/${quiz.id}/questions`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token || getAccessToken()}` },
           body: JSON.stringify({
             text: q.text,
             type: q.type,
@@ -321,7 +333,7 @@ export default function QuizzesAdminPage() {
     if (!token || !selectedQuiz || !newQuestion.text) return;
     const res = await fetch(`${API_URL}/v1/quizzes/${selectedQuiz.id}/questions`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token || getAccessToken()}` },
       body: JSON.stringify({
         ...newQuestion,
         order_index: selectedQuiz.questions.length,
@@ -356,7 +368,7 @@ export default function QuizzesAdminPage() {
     if (!ok) return;
     const res = await fetch(`${API_URL}/v1/quizzes/${selectedQuiz.id}/questions/${questionId}`, {
       method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` },
+      headers: { Authorization: `Bearer ${token || getAccessToken()}` },
     });
     if (res.ok) {
       const quiz = await res.json();
@@ -374,7 +386,7 @@ export default function QuizzesAdminPage() {
     if (!ok) return;
     const res = await fetch(`${API_URL}/v1/quizzes/${quizId}`, {
       method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` },
+      headers: { Authorization: `Bearer ${token || getAccessToken()}` },
     });
     if (res.ok) {
       setSelectedQuiz(null);
@@ -418,7 +430,7 @@ export default function QuizzesAdminPage() {
       }
       const res = await fetch(`${API_URL}/v1/quizzes/${selectedQuiz.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token || getAccessToken()}` },
         body: JSON.stringify(body),
       });
       if (!res.ok) {
