@@ -25,6 +25,10 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None) -> s
     to_encode["iat"] = now
     to_encode["nbf"] = now
     to_encode["jti"] = str(uuid4())
+    # aud/iss claims — required for validation on decode (see decode_token).
+    # Callers may override them via the data dict, but defaults are always set.
+    to_encode.setdefault("aud", settings.JWT_AUDIENCE)
+    to_encode.setdefault("iss", settings.JWT_ISSUER)
     return jwt.encode(to_encode, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
 
 
@@ -37,15 +41,42 @@ def create_refresh_token(data: dict) -> str:
     to_encode["nbf"] = now
     to_encode["jti"] = str(uuid4())
     to_encode["type"] = "refresh"
+    to_encode.setdefault("aud", settings.JWT_AUDIENCE)
+    to_encode.setdefault("iss", settings.JWT_ISSUER)
     return jwt.encode(to_encode, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
 
 
 def decode_token(token: str) -> dict:
+    """Decode and validate a JWT.
+
+    Defense-in-depth (see audit §4.2):
+      - algorithms list is explicit; never includes "none"
+      - aud is validated against settings.JWT_AUDIENCE (rejects tokens
+        minted by other services that happen to share the same secret)
+      - iss is validated against settings.JWT_ISSUER
+    """
     try:
-        payload = jwt.decode(token, settings.JWT_SECRET, algorithms=[settings.JWT_ALGORITHM])
+        payload = jwt.decode(
+            token,
+            settings.JWT_SECRET,
+            algorithms=[settings.JWT_ALGORITHM],
+            audience=settings.JWT_AUDIENCE,
+            issuer=settings.JWT_ISSUER,
+            options={
+                "require": ["exp", "iat", "aud", "iss", "sub"],
+                "verify_aud": True,
+                "verify_iss": True,
+                "verify_exp": True,
+                "verify_signature": True,
+            },
+        )
         return payload
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token expired")
+    except jwt.InvalidAudienceError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token audience")
+    except jwt.InvalidIssuerError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token issuer")
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
 

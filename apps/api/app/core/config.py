@@ -58,6 +58,8 @@ class Settings(BaseSettings):
     # JWT
     JWT_SECRET: str = ""
     JWT_ALGORITHM: str = "HS256"
+    JWT_AUDIENCE: str = "kamilya-lms"  # claimed in 'aud'; validated on every decode
+    JWT_ISSUER: str = "kamilya-lms"  # claimed in 'iss'; validated on every decode
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30
 
@@ -125,6 +127,17 @@ class Settings(BaseSettings):
     def validate_jwt_secret(self):
         if not self.JWT_SECRET:
             raise ValueError("JWT_SECRET is required. Set it in .env or environment variables.")
+        if len(self.JWT_SECRET) < 32:
+            raise ValueError(
+                f"JWT_SECRET must be at least 32 characters (got {len(self.JWT_SECRET)}). "
+                "Generate one with: python -c \"import secrets; print(secrets.token_urlsafe(48))\""
+            )
+        if self.JWT_ALGORITHM not in ("HS256", "HS384", "HS512"):
+            raise ValueError(
+                f"JWT_ALGORITHM='{self.JWT_ALGORITHM}' is not allowed. "
+                "Only symmetric HMAC algorithms are permitted (HS256/HS384/HS512). "
+                "Asymmetric keys (RS256, ES256) and 'none' are rejected."
+            )
         return self
 
     # Celery
