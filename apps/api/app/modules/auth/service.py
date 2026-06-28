@@ -119,7 +119,14 @@ async def authenticate_user(db: AsyncSession, email: str, password: str) -> tupl
     return user, access_token, refresh_token
 
 
-async def refresh_access_token(db: AsyncSession, refresh_token: str) -> str:
+async def refresh_access_token(db: AsyncSession, refresh_token: str) -> tuple[str, str]:
+    """Validate a refresh token and mint a fresh (access, refresh) pair.
+
+    Returns (new_access_token, new_refresh_token). The new refresh token
+    rotates the previous one — callers should treat the old token as
+    invalidated (we don't have a blacklist mechanism yet; rotating
+    reduces the window if a refresh token leaks).
+    """
     payload = decode_token(refresh_token)
     if payload.get("type") != "refresh":
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
@@ -134,11 +141,16 @@ async def refresh_access_token(db: AsyncSession, refresh_token: str) -> str:
     if not roles:
         roles = [user.role]
 
-    return create_access_token({
+    new_access = create_access_token({
         "sub": str(user.id),
         "tenant_id": user.tenant_id,  # pass UUID or None — never str(None)
         "roles": roles,
     })
+    new_refresh = create_refresh_token({
+        "sub": str(user.id),
+        "tenant_id": user.tenant_id,
+    })
+    return new_access, new_refresh
 
 
 async def blacklist_refresh_token(db: AsyncSession, refresh_token: str) -> None:

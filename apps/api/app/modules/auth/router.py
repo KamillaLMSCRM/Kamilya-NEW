@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel
 from sqlalchemy import select
 from starlette.responses import JSONResponse
 from app.core.auth import create_access_token, get_current_user
+from app.core.config import get_settings
 from app.core.db import get_db
 from app.modules.auth.schemas import LoginRequest, RefreshRequest, TokenResponse, UserCreate, UserResponse
 from app.modules.auth.service import authenticate_user, create_user_and_tokens, refresh_access_token, blacklist_refresh_token
@@ -14,8 +15,62 @@ from app.models.users import User
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
+# ---------------------------------------------------------------------------
+# Refresh-token cookie helpers
+# ---------------------------------------------------------------------------
+# We store the refresh token in an httpOnly cookie so JavaScript cannot read
+# it (XSS-stealing-resistant). The access token is returned in the JSON
+# body and held in-memory by the frontend. On 401 the frontend calls
+# /auth/refresh which reads the refresh-token cookie, mints a new access
+# token, and (optionally) rotates the refresh cookie.
+#
+# Per audit §4.1: in production the cookie MUST be Secure (HTTPS only). In
+# local dev Secure is omitted because browsers refuse to set Secure cookies
+# on plain HTTP. SameSite=Strict prevents the cookie from being sent on
+# cross-origin requests (defense against CSRF).
+# ---------------------------------------------------------------------------
+REFRESH_COOKIE_NAME = "kamilya_refresh"
+REFRESH_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 30  # 30 days, matches REFRESH_TOKEN_EXPIRE_DAYS
+
+
+def _is_production() -> bool:
+    return get_settings().APP_ENV == "production"
+
+
+def _set_refresh_cookie(response: Response, refresh_token: str) -> None:
+    response.set_cookie(
+        key=REFRESH_COOKIE_NAME,
+        value=refresh_token,
+        max_age=REFRESH_COOKIE_MAX_AGE_SECONDS,
+        path="/api/v1/auth",  # Only sent to auth endpoints — minimizes XSRF surface
+        httponly=True,
+        secure=_is_production(),
+        samesite="strict",
+    )
+
+
+def _clear_refresh_cookie(response: Response) -> None:
+    response.delete_cookie(
+        key=REFRESH_COOKIE_NAME,
+        path="/api/v1/auth",
+        secure=_is_production(),
+        samesite="strict",
+    )
+
+
+def _read_refresh_cookie_or_body(request: Request, body_token: str | None) -> str | None:
+    """Return refresh token from httpOnly cookie if present, else from body.
+
+    Cookie is preferred because it survives across tabs and is rotated by
+    the server on every successful refresh. Body is kept for backward
+    compatibility with clients that haven't migrated yet.
+    """
+    cookie_token = request.cookies.get(REFRESH_COOKIE_NAME)
+    return cookie_token or body_token
+
+
 @router.post("/login", response_model=TokenResponse)
-async def login(req: LoginRequest, request: Request, db=Depends(get_db)):
+async def login(req: LoginRequest, request: Request, response: Response, db=Depends(get_db)):
     import logging
     logger = logging.getLogger(__name__)
     try:
@@ -36,21 +91,33 @@ async def login(req: LoginRequest, request: Request, db=Depends(get_db)):
         logger.exception(f"log_action failed: {e}")
         raise
     await db.commit()
+    # Set refresh token as httpOnly cookie; access token still returned in body.
+    _set_refresh_cookie(response, refresh_token)
     return TokenResponse(access_token=access_token, refresh_token=refresh_token, expires_in=900)
 
 
 @router.post("/refresh", response_model=TokenResponse)
-async def refresh(req: RefreshRequest, db=Depends(get_db)):
+async def refresh(req: RefreshRequest, request: Request, response: Response, db=Depends(get_db)):
+    # Prefer refresh token from cookie; fall back to request body for legacy clients.
+    refresh_token = _read_refresh_cookie_or_body(request, req.refresh_token)
+    if not refresh_token:
+        raise HTTPException(status_code=401, detail="Missing refresh token")
     try:
-        new_token = await refresh_access_token(db, req.refresh_token)
-        return TokenResponse(access_token=new_token, refresh_token=req.refresh_token, expires_in=900)
+        # refresh_access_token rotates the refresh token and returns the new one.
+        new_access, new_refresh = await refresh_access_token(db, refresh_token)
     except Exception:
+        _clear_refresh_cookie(response)
         raise HTTPException(status_code=401, detail="Invalid refresh token")
+    # Re-issue the cookie with the rotated refresh token.
+    _set_refresh_cookie(response, new_refresh)
+    return TokenResponse(access_token=new_access, refresh_token=new_refresh, expires_in=900)
 
 
 @router.post("/logout")
-async def logout(req: RefreshRequest, request: Request, db=Depends(get_db), user=Depends(get_current_user)):
-    await blacklist_refresh_token(db, req.refresh_token)
+async def logout(req: RefreshRequest, request: Request, response: Response, db=Depends(get_db), user=Depends(get_current_user)):
+    refresh_token = _read_refresh_cookie_or_body(request, req.refresh_token)
+    if refresh_token:
+        await blacklist_refresh_token(db, refresh_token)
     await log_action(
         db, user.tenant_id, "logout", "user",
         resource_id=str(user.id), user_id=user.id,
@@ -58,11 +125,12 @@ async def logout(req: RefreshRequest, request: Request, db=Depends(get_db), user
         user_agent=request.headers.get("user-agent"),
     )
     await db.commit()
+    _clear_refresh_cookie(response)
     return {"status": "ok"}
 
 
 @router.post("/register", response_model=TokenResponse)
-async def register(req: UserCreate, request: Request, db=Depends(get_db)):
+async def register(req: UserCreate, request: Request, response: Response, db=Depends(get_db)):
     result = await db.execute(select(Tenant).where(Tenant.slug == req.email.split("@")[-1]))
     tenant = result.scalar_one_or_none()
     if not tenant:
@@ -80,6 +148,7 @@ async def register(req: UserCreate, request: Request, db=Depends(get_db)):
         user_agent=request.headers.get("user-agent"),
     )
     await db.commit()
+    _set_refresh_cookie(response, refresh_token)
     return TokenResponse(access_token=access_token, refresh_token=refresh_token, expires_in=900)
 
 
@@ -195,7 +264,7 @@ class DemoLoginRequest(BaseModel):
 
 
 @router.post("/demo-login")
-async def demo_login(req: DemoLoginRequest, db=Depends(get_db)):
+async def demo_login(req: DemoLoginRequest, response: Response, db=Depends(get_db)):
     """Login as a demo user for the given role. Creates user/tenant if needed.
 
     Production gate:
