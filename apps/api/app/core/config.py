@@ -103,6 +103,13 @@ class Settings(BaseSettings):
     # Telegram Bot
     TELEGRAM_BOT_TOKEN: str = ""
 
+    # Observability (audit §9.4)
+    # Sentry DSN — leave empty to disable Sentry entirely. When set,
+    # app/main.py initializes the SDK with FastAPI + SQLAlchemy + asyncpg
+    # integrations. PII (Authorization header, cookies, passwords) is
+    # scrubbed via send_default_pii=False.
+    SENTRY_DSN: str = ""
+
     # CORS
     CORS_ORIGINS: list[str] = [
         "http://localhost:3000",

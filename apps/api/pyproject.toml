@@ -35,6 +35,13 @@ ruff = "^0.8"
 mypy = "^1.13"
 httpx = "^0.27"
 
+[tool.poetry.group.observability.dependencies]
+# Sentry SDK with FastAPI + SQLAlchemy + asyncpg integrations.
+# Activated only when SENTRY_DSN env var is set (see app/main.py).
+# Optional group so apps without observability needs can `poetry install --without observability`.
+sentry-sdk = {extras = ["fastapi"], version = "^2.0"}
+python-json-logger = "^2.0"
+
 [tool.ruff]
 target-version = "py312"
 line-length = 120

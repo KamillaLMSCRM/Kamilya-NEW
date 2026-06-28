@@ -7,6 +7,17 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+# Structured JSON logging — emit machine-parseable lines in production so
+# external log aggregators (Sentry, Datadog, Render Log Streams) can index
+# by tenant_id, request_id, etc. without regex parsing.
+# Audit §9.4: in dev (APP_ENV != 'production') we keep the human-readable
+# formatter because JSON is awkward to read in a terminal.
+try:
+    from pythonjsonlogger import jsonlogger
+    _HAS_JSON_LOGGER = True
+except ImportError:
+    _HAS_JSON_LOGGER = False
+
 # Must be imported BEFORE router imports so SQLAlchemy sees 'positions' table
 # before resolving User.position_id ForeignKey
 from app.modules.positions.models import Position  # noqa: F401
@@ -46,6 +57,65 @@ from app.modules.integrations.router import router as integrations_router
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
+
+
+# ---------------------------------------------------------------------------
+# Observability setup — Sentry + structured logging (audit §9.4)
+# ---------------------------------------------------------------------------
+# Sentry: enabled only when SENTRY_DSN env var is set. Skipped in dev
+# because unhandled exceptions in local work would spam the project's
+# Sentry quota.
+if settings.SENTRY_DSN:
+    try:
+        import sentry_sdk
+        from sentry_sdk.integrations.fastapi import FastApiIntegration
+        from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
+        from sentry_sdk.integrations.asyncpg import AsyncpgIntegration
+
+        sentry_sdk.init(
+            dsn=settings.SENTRY_DSN,
+            environment=settings.APP_ENV,
+            release=os.getenv("RENDER_GIT_COMMIT", "unknown"),
+            traces_sample_rate=0.1,  # 10% of requests; tune via Sentry UI later
+            profiles_sample_rate=0.1,
+            integrations=[
+                FastApiIntegration(transaction_style="endpoint"),
+                SqlalchemyIntegration(),
+                AsyncpgIntegration(),
+            ],
+            # Don't send health-check pings to Sentry — they're noise.
+            before_send_transaction=lambda event, hint: (
+                None
+                if event.get("transaction") in ("/api/v1/health", "GET /api/v1/health")
+                else event
+            ),
+            # PII: scrub Authorization header, cookies, password fields.
+            send_default_pii=False,
+        )
+        logger.info("Sentry initialized (env=%s)", settings.APP_ENV)
+    except ImportError:
+        logger.warning(
+            "SENTRY_DSN is set but sentry-sdk is not installed; skipping"
+        )
+
+
+# Structured JSON logging in production. In dev/staging we keep the
+# human-readable formatter because JSON in a terminal is hard to read.
+if settings.APP_ENV == "production" and _HAS_JSON_LOGGER:
+    handler = logging.StreamHandler()
+    handler.setFormatter(
+        jsonlogger.JsonFormatter(
+            "%(asctime)s %(name)s %(levelname)s %(message)s",
+            rename_fields={"asctime": "timestamp", "levelname": "level"},
+        )
+    )
+    root = logging.getLogger()
+    # Replace existing handlers so JSON takes effect (uvicorn already added its own).
+    root.handlers = [handler]
+    root.setLevel(logging.INFO)
+elif settings.DEBUG:
+    # Verbose logging in DEBUG mode.
+    logging.basicConfig(level=logging.DEBUG, format="%(asctime)s %(name)s %(levelname)s %(message)s")
 
 
 @asynccontextmanager
