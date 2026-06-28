@@ -1,0 +1,106 @@
+# Kamilya LMS — local dev stack.
+#
+# Brings up the core services a developer needs to run the backend
+# locally: Postgres with pgvector, Redis, MinIO (S3-compatible), and
+# an optional Qwen LLM stub (the real Qwen runs on the DGX behind a
+# VPN tunnel — not reachable from a dev laptop).
+#
+# Usage:
+#   docker compose up postgres redis minio   # minimum for backend tests
+#   docker compose up                        # full stack including qwen-stub
+#   docker compose down -v                   # wipe volumes (DB, redis, minio)
+#
+# After 'up', set in apps/api/.env:
+#   DATABASE_URL=postgresql+asyncpg://lms:lms_dev_password_2026@localhost:5432/kamilya_lms
+#   REDIS_URL=redis://localhost:6379/0
+#   MINIO_ENDPOINT=localhost:9000
+#   MINIO_ACCESS_KEY=minioadmin
+#   MINIO_SECRET_KEY=minioadmin_secret_2026
+#   MINIO_BUCKET=lms-content
+#
+# See apps/api/.env.example for the complete list.
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: kamilya-postgres
+    environment:
+      POSTGRES_USER: lms
+      POSTGRES_PASSWORD: lms_dev_password_2026
+      POSTGRES_DB: kamilya_lms
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      # Initialize with pgvector and create the lms_app role from
+      # migration 0033 (FORCE RLS + app-role).
+      - ./infra/init-pgvector.sh:/docker-entrypoint-initdb.d/01-init.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lms -d kamilya_lms"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: kamilya-redis
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    container_name: kamilya-minio
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin_secret_2026
+    command: ["server", "/data", "--console-address", ":9001"]
+    ports:
+      - "9000:9000"   # S3 API
+      - "9001:9001"   # Web console
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Optional: stub LLM endpoint that returns canned responses. The real
+  # Qwen runs on the DGX and is reachable only via VPN tunnel, so dev
+  # laptops benefit from a local stub. Set LLM_API_URL=http://localhost:8555/v1
+  # in apps/api/.env when using this.
+  qwen-stub:
+    image: ghcr.io/qwenlm/qwen-api:latest   # placeholder — replace with actual stub image
+    container_name: kamilya-qwen-stub
+    profiles: ["full"]                       # only starts with `docker compose --profile full up`
+    ports:
+      - "8555:8555"
+    environment:
+      MODEL_NAME: cyankiwi/Qwen3.6-35B-A3B-AWQ-4bit
+
+  # Optional: pgAdmin for inspecting the DB.
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: kamilya-pgadmin
+    profiles: ["tools"]
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@kml.kz
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres-data:
+  redis-data:
+  minio-data:
