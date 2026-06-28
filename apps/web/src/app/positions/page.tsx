@@ -963,45 +963,66 @@ export default function PositionsPage() {
                     </div>
                   )}
                 </div>
-                <div className="flex gap-2 ml-4">
-                  <button onClick={() => handleEdit(pos)} className="rounded-xl border border-border px-3 py-1.5 text-xs text-muted-foreground hover:border-border hover:text-foreground transition-colors">Изменить</button>
+                <div className="flex flex-col items-end gap-2 ml-4 shrink-0">
+                  {/* Primary action — the most common task */}
                   <button
-                    onClick={() => recsFor === pos.id ? setRecsFor(null) : handleRecommend(pos.id)}
-                    className="rounded-xl border border-primary/30 bg-primary/5 px-3 py-1.5 text-xs text-primary hover:bg-primary/10 transition-colors"
-                    title="AI подберёт документы и курсы, похожие на обязанности/требования этой должности"
+                    onClick={() => handleEdit(pos)}
+                    className="rounded-lg bg-primary px-4 py-1.5 text-xs font-medium text-white hover:bg-primary/90 transition-colors"
                   >
-                    {recsFor === pos.id ? 'Скрыть' : 'Подобрать курсы'}
+                    Изменить
                   </button>
-                  <button
-                    onClick={() => showHistory === pos.id ? setShowHistory(null) : handleFetchHistory(pos.id)}
-                    className="rounded-xl border border-border px-3 py-1.5 text-xs text-muted-foreground hover:bg-muted transition-colors"
-                    title="История версий этой должности (авто-снимки + ручные)"
-                  >
-                    История
-                  </button>
-                  <button
-                    onClick={() => auditFor === pos.id ? setAuditFor(null) : handleAudit(pos.id)}
-                    className="rounded-xl border border-warning/40 bg-warning/10 px-3 py-1.5 text-xs text-warning hover:bg-warning/15 transition-colors"
-                    title="AI проверит качество этой ДИ (полнота, ясность, compliance) и подсветит замечания"
-                  >
-                    {auditFor === pos.id ? 'Скрыть' : '🔍 AI-аудит'}
-                  </button>
-                  <button
-                    onClick={() => suggestionsFor === pos.id ? setSuggestionsFor(null) : handleSuggestCourses(pos.id)}
-                    className="rounded-xl border border-success/40 bg-success/10 px-3 py-1.5 text-xs text-success hover:bg-success/15 transition-colors"
-                    title="AI предложит 3-5 тем курсов для онбординга на эту должность"
-                  >
-                    {suggestionsFor === pos.id ? 'Скрыть' : '💡 Предложить курсы'}
-                  </button>
-                  <button
-                    onClick={() => quizFor === pos.id ? closeQuizModal() : openQuizModal(pos.id)}
-                    className="rounded-xl border border-destructive/40 bg-destructive/10 px-3 py-1.5 text-xs text-destructive hover:bg-destructive/15 transition-colors"
-                    title="AI создаст онбординг-тест по ДИ: 7 вопросов с вариантами, чтобы новый сотрудник подтвердил понимание"
-                  >
-                    {quizFor === pos.id ? 'Скрыть' : '📝 Онбординг-тест'}
-                  </button>
-                  <button onClick={() => handleDelete(pos.id)} className="rounded-xl border border-destructive/40 px-3 py-1.5 text-xs text-destructive hover:border-destructive/40 hover:text-destructive transition-colors">Удалить</button>
                 </div>
+              </div>
+
+              {/* AI-помощник — grouped under a clear label so user sees these are expensive LLM calls */}
+              <div className="mt-3 pt-3 border-t border-border/60 flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-semibold text-muted-foreground mr-1">🤖 AI-помощник:</span>
+                <button
+                  onClick={() => recsFor === pos.id ? setRecsFor(null) : handleRecommend(pos.id)}
+                  className="rounded-lg border border-primary/30 bg-primary/5 px-2.5 py-1 text-xs text-primary hover:bg-primary/10 transition-colors"
+                  title="AI подберёт документы и курсы, похожие на обязанности/требования этой должности"
+                >
+                  {recsFor === pos.id ? 'Скрыть' : '📚 Подобрать курсы'}
+                </button>
+                <button
+                  onClick={() => suggestionsFor === pos.id ? setSuggestionsFor(null) : handleSuggestCourses(pos.id)}
+                  className="rounded-lg border border-success/40 bg-success/10 px-2.5 py-1 text-xs text-success hover:bg-success/15 transition-colors"
+                  title="AI предложит 3-5 тем курсов для онбординга на эту должность"
+                >
+                  {suggestionsFor === pos.id ? 'Скрыть' : '💡 Предложить темы'}
+                </button>
+                <button
+                  onClick={() => auditFor === pos.id ? setAuditFor(null) : handleAudit(pos.id)}
+                  className="rounded-lg border border-warning/40 bg-warning/10 px-2.5 py-1 text-xs text-warning hover:bg-warning/15 transition-colors"
+                  title="AI проверит качество этой ДИ (полнота, ясность, compliance) и подсветит замечания"
+                >
+                  {auditFor === pos.id ? 'Скрыть' : '✓ Аудит'}
+                </button>
+                <button
+                  onClick={() => quizFor === pos.id ? closeQuizModal() : openQuizModal(pos.id)}
+                  className="rounded-lg border border-destructive/40 bg-destructive/10 px-2.5 py-1 text-xs text-destructive hover:bg-destructive/15 transition-colors"
+                  title="AI создаст онбординг-тест по ДИ: 7 вопросов с вариантами, чтобы новый сотрудник подтвердил понимание"
+                >
+                  {quizFor === pos.id ? 'Скрыть' : '📝 Тест'}
+                </button>
+              </div>
+
+              {/* Footer — secondary actions: history, delete. Separated to reduce accidental destructive clicks. */}
+              <div className="mt-2 pt-2 border-t border-border/40 flex items-center justify-between">
+                <button
+                  onClick={() => showHistory === pos.id ? setShowHistory(null) : handleFetchHistory(pos.id)}
+                  className="text-xs text-muted-foreground hover:text-foreground transition-colors px-2 py-0.5"
+                  title="История версий этой должности (авто-снимки + ручные)"
+                >
+                  📜 История
+                </button>
+                <button
+                  onClick={() => handleDelete(pos.id)}
+                  className="text-xs text-destructive/70 hover:text-destructive transition-colors px-2 py-0.5"
+                  title="Удалить должность (необратимо)"
+                >
+                  🗑 Удалить
+                </button>
               </div>
             </div>
           ))}

@@ -558,10 +558,24 @@ async def analyze_jd(
                 raw = raw[:-3]
             raw = raw.strip()
 
-        data = json.loads(raw)
-    except json.JSONDecodeError as e:
-        logger.error(f"LLM returned invalid JSON: {e}")
-        raise HTTPException(status_code=422, detail="AI returned invalid response. Please try again.")
+        try:
+            data = json.loads(raw)
+        except json.JSONDecodeError as first_err:
+            # Fallback: try json_repair — same library used in assessment.py
+            # to handle LLMs that truncate output or add trailing junk.
+            logger.warning(f"analyze-jd: initial JSON parse failed ({first_err}); trying json_repair")
+            try:
+                from json_repair import repair_json
+                repaired = repair_json(raw, return_objects=True)
+                if isinstance(repaired, dict):
+                    data = repaired
+                else:
+                    raise ValueError("json_repair did not return a dict")
+            except Exception as repair_err:
+                logger.error(f"analyze-jd: json_repair also failed: {repair_err}")
+                raise HTTPException(status_code=422, detail="AI returned invalid response. Please try again.")
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"JD analysis failed: {e}")
         raise HTTPException(status_code=503, detail="AI service unavailable. Please try again later.")
