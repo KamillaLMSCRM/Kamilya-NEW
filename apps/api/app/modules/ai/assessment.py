@@ -14,7 +14,7 @@ from app.modules.ai.assessment_schema import (
 )
 from app.modules.ai.llm_client import LLMClient
 from app.modules.ai.writer_schema import LessonContent
-from packages.ml_pipeline import get_renderer
+from app.ml_prompts import get_renderer
 
 logger = logging.getLogger(__name__)
 MAX_ASSESSMENT_RETRIES = 4

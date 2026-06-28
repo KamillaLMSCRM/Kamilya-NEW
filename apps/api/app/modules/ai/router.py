@@ -26,7 +26,7 @@ from app.modules.ai.job_service import create_ai_job, get_ai_job, update_ai_job
 from app.modules.ai.pipeline import run_generation_pipeline
 from app.modules.ai.llm_client import ResilientLLMClient, create_llm
 from app.modules.courses.models import Course
-from packages.ml_pipeline import get_renderer
+from app.ml_prompts import get_renderer
 
 logger = logging.getLogger(__name__)
 

@@ -11,8 +11,8 @@ from pathlib import Path
 
 import pytest
 
-from packages.ml_pipeline import PromptRenderer, get_renderer
-from packages.ml_pipeline.renderer import PromptRenderer as _PromptRenderer
+from app.ml_prompts import PromptRenderer, get_renderer
+from app.ml_prompts.renderer import PromptRenderer as _PromptRenderer
 
 _PROMPTS_DIR = get_renderer().env.loader.searchpath[0] if hasattr(get_renderer(), "env") else None
 
@@ -243,7 +243,7 @@ def test_router_uses_renderer():
     import app.modules.ai.router as router_module  # noqa: F401
 
     src = Path(router_module.__file__).read_text(encoding="utf-8")
-    assert "from packages.ml_pipeline import get_renderer" in src
+    assert "from app.ml_prompts import get_renderer" in src
     # All 5 templates must be referenced at least once
     assert src.count('get_renderer().render("router/') >= 5
 

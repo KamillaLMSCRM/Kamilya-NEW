@@ -5,7 +5,7 @@ import json
 import logging
 from typing import Any
 
-from packages.ml_pipeline import get_renderer
+from app.ml_prompts import get_renderer
 
 logger = logging.getLogger(__name__)
 

@@ -12,7 +12,7 @@ from typing import Callable
 from app.modules.ai.llm_client import LLMClient, create_llm
 from app.modules.ai.ingestion import VectorStore
 from app.modules.ai.writer_schema import CourseContent, LessonContent, ModuleContent
-from packages.ml_pipeline import get_renderer
+from app.ml_prompts import get_renderer
 
 logger = logging.getLogger(__name__)
 MAX_CHUNK_CHARS = 24_000
