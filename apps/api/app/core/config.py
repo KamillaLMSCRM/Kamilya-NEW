@@ -26,6 +26,11 @@ class Settings(BaseSettings):
     ALLOW_SUPERADMIN_DEMO: bool = False
 
     # Database
+    # IMPORTANT: in production the URL must point at the `lms_app` role
+    # (created by alembic migration 0033) and NOT at `postgres`. The
+    # `postgres` user is a superuser and bypasses RLS even with FORCE
+    # enabled. See docs/adr/0004-rls-force-and-app-role.md for the
+    # operational checklist after migration.
     DATABASE_URL: str = "postgresql+asyncpg://lms:lms_dev_password_2026@localhost:5432/kamilya_lms"
 
     @field_validator("DATABASE_URL", mode="before")
