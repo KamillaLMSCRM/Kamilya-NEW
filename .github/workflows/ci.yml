@@ -1,0 +1,245 @@
+# Kamilya LMS — CI pipeline
+#
+# Gates:
+#   1. Lint:      ruff (E/F/I/N/W/UP/B)
+#   2. Types:     mypy strict on app/ — non-blocking warning for now (TODO: hard-fail)
+#   3. Tenant security gate (custom script): every select() on tenant tables
+#      filters by tenant_id OR is whitelisted. Fails PR if violated.
+#   4. Tests:     pytest with coverage on app/modules/. fail-under=70 (interim).
+#   5. Frontend:  tsc --noEmit + next lint (warn-only for now)
+#   6. Secrets:   detect-secrets scan on changed files
+#
+# See AGENTS.md §Mandatory skill loading and §Security checklist for the
+# rules this workflow enforces.
+
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+# Cancel in-flight runs for the same ref.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.12"
+  POETRY_VERSION: "1.8.5"
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Backend lint + tenant-security gate
+  # ---------------------------------------------------------------------------
+  backend-lint:
+    name: Backend lint + tenant gate
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/api
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: ${{ env.POETRY_VERSION }}
+
+      - name: Cache Poetry deps
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pypoetry
+          key: poetry-${{ runner.os }}-${{ hashFiles('apps/api/poetry.lock', 'apps/api/pyproject.toml') }}
+
+      - name: Install deps
+        run: poetry install --no-interaction --no-ansi --with dev
+
+      - name: Ruff (lint)
+        run: poetry run ruff check .
+
+      - name: Ruff format check
+        run: poetry run ruff format --check .
+
+      # -----------------------------------------------------------------------
+      # Tenant-id security gate
+      # -----------------------------------------------------------------------
+      # Enforces AGENTS.md §Multi-tenancy: every ORM query that touches a
+      # tenant-scoped table must include a `tenant_id` filter, unless the
+      # call site is whitelisted (superadmin endpoints, system jobs).
+      #
+      # The script greps for `select(` on tenant models and checks that the
+      # surrounding query includes `tenant_id`. False positives are managed
+      # via an inline `# tenant-gate: allow` comment.
+      # -----------------------------------------------------------------------
+      - name: Tenant-id security gate
+        run: |
+          set -euo pipefail
+          bash ../../scripts/ci/tenant-gate.sh
+
+  # ---------------------------------------------------------------------------
+  # Backend type-check (warn-only — full strictness is a follow-up)
+  # ---------------------------------------------------------------------------
+  backend-types:
+    name: Backend mypy
+    runs-on: ubuntu-latest
+    continue-on-error: true  # strict mypy will turn on after dedicated cleanup PR
+    defaults:
+      run:
+        working-directory: apps/api
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: ${{ env.POETRY_VERSION }}
+
+      - name: Install deps
+        run: poetry install --no-interaction --no-ansi --with dev
+
+      - name: mypy
+        run: poetry run mypy app/
+
+  # ---------------------------------------------------------------------------
+  # Backend tests + coverage
+  # ---------------------------------------------------------------------------
+  backend-tests:
+    name: Backend tests (pytest + coverage)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/api
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: lms
+          POSTGRES_PASSWORD: lms_test_password
+          POSTGRES_DB: kamilya_lms_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql+asyncpg://lms:lms_test_password@localhost:5432/kamilya_lms_test
+      REDIS_URL: redis://localhost:6379/0
+      JWT_SECRET: test_jwt_secret_for_ci_only_min_length_32
+      JWT_AUDIENCE: kamilya-lms
+      PROVIDER_KEY_ENCRYPTION_KEY: ZGV2X2tleV9tdXN0X2JlXzMyX2J5dGVzX2xvbmc=  # 32-byte base64 dev key
+      MASTER_ENCRYPTION_KEY: ZGV2X2tleV9tdXN0X2JlXzMyX2J5dGVzX2xvbmc=
+      APP_ENV: test
+      DEBUG: "false"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: ${{ env.POETRY_VERSION }}
+
+      - name: Install deps
+        run: poetry install --no-interaction --no-ansi --with dev
+
+      - name: Run migrations
+        run: |
+          poetry run alembic upgrade head
+
+      # -----------------------------------------------------------------------
+      # Coverage gate — interim 70% (post-cleanup will move to 80%).
+      # CI fail-under=70 on app/modules/ per AGENTS.md §Testing rules.
+      # -----------------------------------------------------------------------
+      - name: pytest with coverage
+        run: |
+          poetry run pytest \
+            --cov=app/modules \
+            --cov-report=xml \
+            --cov-report=term-missing \
+            --cov-fail-under=70 \
+            --tb=short
+
+      - name: Upload coverage artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: apps/api/coverage.xml
+
+  # ---------------------------------------------------------------------------
+  # Frontend type-check + lint
+  # ---------------------------------------------------------------------------
+  frontend-checks:
+    name: Frontend (tsc + lint)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+          cache-dependency-path: apps/web/pnpm-lock.yaml
+
+      - name: Install pnpm
+        run: npm install -g pnpm@9
+
+      - name: Install deps
+        run: pnpm install --frozen-lockfile
+
+      - name: tsc --noEmit
+        continue-on-error: true  # cleanup in follow-up
+        run: pnpm exec tsc --noEmit
+
+      - name: next lint
+        continue-on-error: true
+        run: pnpm exec next lint
+
+  # ---------------------------------------------------------------------------
+  # Secret scanning
+  # ---------------------------------------------------------------------------
+  secrets-scan:
+    name: Detect secrets
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: detect-secrets scan
+        uses: detect-secrets/action@main
+        with:
+          exclude-files: |
+            apps/api/.env.example
+            apps/web/.env.example
+            docs/.*
