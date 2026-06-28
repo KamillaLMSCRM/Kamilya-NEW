@@ -355,16 +355,23 @@ lms/
 │   ├── web/                       # Next.js 14
 │   └── api/                       # FastAPI
 ├── packages/
-│   ├── db-schema/                 # Drizzle + миграции
+│   ├── db-schema/                 # SQL reference schema (read-only)
 │   ├── shared-types/              # Zod ↔ Pydantic
 │   ├── ui-kit/                    # Design system
 │   └── ml-pipeline/               # Qwen agents
 ├── infra/                         # Docker, Caddy, Ansible
 ├── docs/
-│   ├── adr/                       # ADR (уже 3)
+│   ├── adr/                       # Architecture Decision Records
 │   ├── diagrams/                  # C4, sequence, ERD
 │   └── runbooks/                  # Operations
 └── .github/workflows/             # CI/CD
+
+**Note on db-schema vs Alembic:** `packages/db-schema/` holds a
+SQL-only reference schema for documentation and quick eyeballing. The
+**canonical migrations** live in `apps/api/alembic/versions/` and are
+applied via `cd apps/api && alembic upgrade head` on startup. Never
+edit `packages/db-schema/` to "fix" a migration — write a new
+Alembic revision instead.
 ```
 
 ## Context7 — актуальная документация библиотек
