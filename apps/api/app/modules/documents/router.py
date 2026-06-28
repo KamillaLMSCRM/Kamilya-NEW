@@ -28,24 +28,69 @@ ALLOWED_MIME_TYPES = {
     "application/pdf": b"%PDF",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document": b"PK",
     "application/msword": b"\xd0\xcf\x11\xe0",
-    "text/plain": None,  # No magic bytes check for text
-    "text/markdown": None,
-    "text/csv": None,
+    "text/plain": b"TEXT_HEURISTIC",  # Sentinel — actual check via validate_text_content()
+    "text/markdown": b"TEXT_HEURISTIC",
+    "text/csv": b"TEXT_HEURISTIC",
     "application/vnd.ms-excel": b"\xd0\xcf\x11\xe0",
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": b"PK",
 }
 
+# Per ADR-0005: 10 MB cap. Documented decision; supersedes the 50 MB
+# guidance in AGENTS.md (which was carried over from a pre-product spec
+# and not validated against real uploads).
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
+
+# Heuristic thresholds for text-content validation (audit §4.7):
+# a binary blob declared as text/plain must NOT pass. We accept UTF-8
+# decodable content where at most 1% of bytes are non-printable
+# (excluding tab, newline, carriage return — common in markdown).
+TEXT_PRINTABLE_MIN_RATIO = 0.99
+TEXT_MAX_SAMPLE_BYTES = 64 * 1024  # check first 64 KB; enough to catch binary
 
 
 def validate_magic_bytes(content: bytes, content_type: str) -> bool:
-    """Validate file content against expected magic bytes."""
+    """Validate file content against expected magic bytes.
+
+    For text/* MIME types, dispatches to validate_text_content() which
+    applies the printable-ASCII / UTF-8 heuristic from ADR-0005.
+    """
     expected_magic = ALLOWED_MIME_TYPES.get(content_type)
     if expected_magic is None:
-        return True  # No magic bytes check needed (text files)
+        return True  # Unknown content_type → caller rejects separately
+    if expected_magic == b"TEXT_HEURISTIC":
+        return _validate_text_content(content)
     if len(content) < len(expected_magic):
         return False
-    return content[:len(expected_magic)] == expected_magic
+    return content[: len(expected_magic)] == expected_magic
+
+
+def _validate_text_content(content: bytes) -> bool:
+    """Heuristic check for text MIME types (audit §4.7, ADR-0005).
+
+    Returns True iff:
+      - content decodes as UTF-8 (strict), AND
+      - first TEXT_MAX_SAMPLE_BYTES contain at least TEXT_PRINTABLE_MIN_RATIO
+        printable characters (excluding tab, newline, carriage return).
+
+    This blocks the "binary blob declared as text/plain" bypass where
+    a user uploads an executable but tags it as text so the magic-byte
+    check returns True.
+    """
+    sample = content[:TEXT_MAX_SAMPLE_BYTES]
+    try:
+        # Strict UTF-8 — invalid sequences raise immediately.
+        sample.decode("utf-8")
+    except UnicodeDecodeError:
+        return False
+
+    if not sample:
+        return False
+
+    printable_count = sum(
+        1 for b in sample if b in (0x09, 0x0A, 0x0D) or 0x20 <= b <= 0x7E or b >= 0x80
+    )
+    ratio = printable_count / len(sample)
+    return ratio >= TEXT_PRINTABLE_MIN_RATIO
 
 
 def _load_short_summary(doc_id: str, filename: str | None = None) -> tuple[bool, str | None]:

@@ -212,7 +212,9 @@ apps/web/src/features/<feature>/
 - Magic-byte MIME check (`python-magic`), НЕ по расширению
 - Filename sanitization (`re.sub(r"[^a-zA-Z0-9._-]", "_", filename)`)
 - Storage key = server-generated UUID (не user-provided filename)
-- Size limit enforced server-side (50MB default)
+- Size limit enforced server-side — **10 MB default** (see ADR-0005)
+- Text MIME types (`text/plain`, `text/markdown`, `text/csv`) must pass
+  UTF-8 + printable-ASCII heuristic (no binary blob bypass)
 
 ### Input validation (Pydantic)
 - `tenant_id`, `created_by`, `user_id` — НИКОГДА из request body/query, только из JWT
@@ -540,9 +542,16 @@ Invoke-RestMethod -Uri "https://api.render.com/v1/services/$env:RENDER_SERVICE_I
 - Если webhook от GitHub отвалится или сервис был создан вручную в Dashboard до `render.yaml` — push в GitHub не триггерит деплой.
 - **Решение:** `RENDER_API_KEY` в env даёт мне (агенту) доступ к Render API. Могу сам триггерить деплой через `POST /v1/services/{id}/deploys`. Если ключа нет — нужно чтобы человек запускал руками через Dashboard.
 
-**Урок 9: Render logs endpoint НЕ доступен через API**
-- `GET /v1/services/{id}/logs` возвращает 404. Render даёт логи только через Dashboard UI.
-- **Workaround:** добавлять `print(..., flush=True)` в production код, чтобы логи шли в stdout (видны в Dashboard → Logs). `logger.info()` может фильтроваться.
+**Урок 8b: Render CLI v2.20.0 — установлен 2026-06-28**
+- Установлен `render` CLI в `$env:USERPROFILE\bin\render.exe`. PowerShell wrapper (`Microsoft.PowerShell_profile.ps1`) автоматически подгружает `RENDER_API_KEY` из `apps/api/.env`.
+- **Главное:** CLI даёт доступ к **runtime logs** через `render logs --resources srv-xxx --tail`, что НЕ доступно через REST API (endpoint возвращает 404).
+- Также: `render deploys create --wait` стримит deploy logs в реальном времени, `render ssh --ephemeral` для SSH в контейнер.
+- Установлены 21 Render agent skill в `~/.agents/skills/` (render-deploy, render-debug, render-cli, render-postgres, render-env-vars, render-log-analysis и др.) — вызываются автоматически когда релевантны.
+
+**Урок 9: Render logs endpoint НЕ доступен через REST API, но ДОСТУПЕН через CLI**
+- `GET /v1/services/{id}/logs` возвращает 404. Render даёт логи только через Dashboard UI **или через Render CLI** (`render logs`).
+- **Workaround:** `render logs --resources srv-xxx --tail` (live tail), или `render logs --resources srv-xxx --limit 200 --output json --confirm` для batch.
+- **Альтернативный workaround (если CLI недоступен):** добавлять `print(..., flush=True)` в production код, чтобы логи шли в stdout (видны в Dashboard → Logs). `logger.info()` может фильтроваться.
 
 **Урок 10: Cloudflare может блокировать твой же IP**
 - Bot Fight Mode или WAF rule может заблокировать `python-urllib/3.11` UA с твоего ASN (например `9198` Казахтелеком).
