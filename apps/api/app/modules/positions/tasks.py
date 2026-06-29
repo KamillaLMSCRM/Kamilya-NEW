@@ -36,17 +36,31 @@ try:
         Each user is processed in its own try/except so a single
         bad row does not fail the whole batch. Failures are
         recorded in the result dict for inspection.
+
+        Event-loop strategy:
+          Celery prefork + SQLAlchemy async + asyncio is a known
+          pitfall — asyncpg connections get bound to whichever loop
+          was current when the engine was imported, and that loop
+          is shared across forked child processes. Result:
+          "got Future attached to a different loop" when the inner
+          async body accesses an ORM relationship (`Position.department`)
+          and SQLAlchemy's lazy loader schedules a fetch on the
+          engine's loop, NOT on the loop `loop.run_until_complete` is
+          driving.
+
+          `asyncio.run()` solves this in 3.7+ — it creates a fresh
+          loop, runs the coroutine to completion, then closes the
+          loop and binds a fresh one on the next call. Any
+          wait_on_future from the runner executes on the same loop
+          as the coroutine, so no future-mismatch.
+
+          See docs/LESSONS.md 2026-06-29 "tasks.py async event-loop
+          bug" for the full writeup.
         """
-        logger.info("apply_rules_for_users_task: starting for %d users", len(user_ids))
-        try:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            return loop.run_until_complete(_run_apply_rules(user_ids))
-        finally:
-            try:
-                loop.close()
-            except Exception:
-                pass
+        logger.info(
+            "apply_rules_for_users_task: starting for %d users", len(user_ids)
+        )
+        return asyncio.run(_run_apply_rules(user_ids))
 
     async def _run_apply_rules(user_ids: Sequence[str]) -> dict:
         """Inner async body — kept separate so the Celery task wrapper
