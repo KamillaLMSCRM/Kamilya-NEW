@@ -532,6 +532,13 @@ async def commit_import(
     updated = 0
     skipped = 0
     positions_created = 0
+    # B1b: track user_ids that need apply-rules after commit. The
+    # caller (staff_import_router) dispatches the Celery task with
+    # this list. We can't apply-rules inline here because staff_import
+    # is run in the HTTP request thread and apply-rules is potentially
+    # long; Celery is the right boundary (per AGENTS.md §Celery
+    # guidance — long-running task, not a request thread).
+    affected_user_ids: list[UUID] = []
 
     for row in parsed.rows:
         pn_norm = row.personnel_number.lower()
@@ -571,12 +578,19 @@ async def commit_import(
             if (existing.phone or "") != (row.phone or ""):
                 # Add phone column if doesn't exist (skip for now if not in model)
                 changed = True
-            if not existing.position_id:
+            # Position changed — that's also a trigger for apply-rules
+            position_changed = False
+            if existing.position_id != pos.id:
                 existing.position_id = pos.id
-                existing.is_active = True  # auto-activate when position is assigned
+                existing.is_active = True
                 changed = True
+                position_changed = True
             if changed:
                 updated += 1
+                # Recompute only if the user's position actually
+                # changed — name/email updates don't move rules.
+                if position_changed or not existing.position_id:
+                    affected_user_ids.append(existing.id)
             else:
                 skipped += 1
         else:
@@ -594,7 +608,9 @@ async def commit_import(
                 status="active",
             )
             db.add(user)
+            await db.flush()
             created += 1
+            affected_user_ids.append(user.id)
             # Invalidate cache so next row can find this user (duplicate-PN check)
             users_by_pn[pn_norm] = user
 
@@ -605,4 +621,5 @@ async def commit_import(
         "updated": updated,
         "skipped": skipped,
         "positions_created": positions_created,
+        "affected_user_ids": [str(uid) for uid in affected_user_ids],
     }

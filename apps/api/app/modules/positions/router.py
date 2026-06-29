@@ -1,20 +1,22 @@
 """Positions — API router with course attachment + JD analysis"""
-import uuid
 import os
-import json
 import logging
 from uuid import UUID
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
-from sqlalchemy import select, delete, func, text
+from sqlalchemy import select, func, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import get_current_user, require_tenant_user
 from app.core.db import get_db
 from app.models.users import User
-from app.models.enrollment import Enrollment
 from app.modules.positions.models import Position, PositionCourse
+from app.modules.positions.assignment_service import recompute_enrollments
+from app.modules.positions.batch_service import (
+    recompute_position_holders,
+    recompute_department_members,
+)
 
 logger = logging.getLogger(__name__)
 from app.modules.positions.schemas import (
@@ -81,73 +83,6 @@ async def _get_course_ids(db: AsyncSession, position_id: UUID) -> list[UUID]:
         select(PositionCourse.course_id).where(PositionCourse.position_id == position_id)
     )
     return [row[0] for row in result.all()]
-
-
-async def _bulk_enroll_users_in_courses(
-    db: AsyncSession,
-    user_ids: list[UUID],
-    course_ids: list[UUID],
-    tenant_id: UUID,
-) -> int:
-    """Enroll users in courses, skipping existing. Returns count of NEW enrollments.
-
-    Single IN-query for dedup instead of N+1.
-    """
-    if not user_ids or not course_ids:
-        return 0
-
-    # Single query: find all existing enrollments for this batch
-    existing_result = await db.execute(
-        select(Enrollment.user_id, Enrollment.course_id).where(
-            Enrollment.user_id.in_(user_ids),
-            Enrollment.course_id.in_(course_ids),
-            Enrollment.tenant_id == tenant_id,
-        )
-    )
-    existing_pairs = {(r[0], r[1]) for r in existing_result.all()}
-
-    new_count = 0
-    for uid in user_ids:
-        for cid in course_ids:
-            if (uid, cid) in existing_pairs:
-                continue
-            db.add(Enrollment(
-                id=uuid.uuid4(),
-                course_id=cid,
-                user_id=uid,
-                tenant_id=tenant_id,
-                status="enrolled",
-            ))
-            new_count += 1
-    return new_count
-
-
-async def _bulk_unenroll_users_from_courses(
-    db: AsyncSession,
-    user_ids: list[UUID],
-    course_ids: list[UUID],
-    tenant_id: UUID,
-    only_active: bool = True,
-) -> int:
-    """Remove enrollments. Returns count of removed.
-
-    By default, only removes 'enrolled' status (in-progress) — completed stays
-    as a historical record. Set only_active=False to force-remove all.
-    """
-    if not user_ids or not course_ids:
-        return 0
-    from sqlalchemy import and_
-    conds = [
-        Enrollment.user_id.in_(user_ids),
-        Enrollment.course_id.in_(course_ids),
-        Enrollment.tenant_id == tenant_id,
-    ]
-    if only_active:
-        conds.append(Enrollment.status == "enrolled")
-    result = await db.execute(
-        delete(Enrollment).where(and_(*conds))
-    )
-    return result.rowcount or 0
 
 
 async def _update_employee_count(db: AsyncSession, position_id: UUID, tenant_id: UUID) -> int:
@@ -320,7 +255,13 @@ async def update_position(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """Update position. If course_ids change, re-enroll all current holders."""
+    """Update position. If course_ids change, recompute all current
+    holders' enrollments via the recompute kernel (B1b).
+
+    This is symmetric in add/remove: adding a course creates
+    enrollments, removing a course removes in-progress enrollments
+    (completed are kept). P1-4 (asymmetric add-only) is resolved.
+    """
     result = await db.execute(
         select(Position)
         .where(Position.id == position_id, Position.tenant_id == user.tenant_id)
@@ -345,24 +286,11 @@ async def update_position(
 
     re_enrolled = 0
     if req.course_ids is not None:
-        new_course_ids = set(req.course_ids)
-        old_course_ids = set(await _get_course_ids(db, pos.id))
-
         await _sync_courses(db, pos.id, req.course_ids)
-
-        # Re-enroll all current holders in newly added courses
-        added = new_course_ids - old_course_ids
-        if added:
-            holders_result = await db.execute(
-                select(User.id).where(
-                    User.position_id == position_id,
-                    User.tenant_id == user.tenant_id,
-                )
-            )
-            holder_ids = [r[0] for r in holders_result.all()]
-            re_enrolled = await _bulk_enroll_users_in_courses(
-                db, holder_ids, list(added), user.tenant_id
-            )
+        # Symmetric add+remove: run recompute on every holder. The
+        # kernel handles both directions in one pass.
+        batch = await recompute_position_holders(db, pos.id, user.tenant_id)
+        re_enrolled = batch.added
 
     await db.flush()
     course_ids = await _get_course_ids(db, pos.id)
@@ -382,6 +310,15 @@ async def delete_position(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    """Delete a position.
+
+    Before dropping, recompute every holder so that any enrollments
+    coming from this position's PositionCourse rows are removed
+    (in-progress only — completed are kept as historical record).
+    Without this, holders would keep stale `source='position'`
+    enrollments pointing at a deleted position, leaking rule data
+    into the materialized view.
+    """
     result = await db.execute(
         select(Position)
         .where(Position.id == position_id, Position.tenant_id == user.tenant_id)
@@ -389,6 +326,25 @@ async def delete_position(
     pos = result.scalar_one_or_none()
     if not pos:
         raise HTTPException(status_code=404, detail="Position not found")
+
+    # Recompute every holder first. recompute_enrollments reads the
+    # user's position_id; once the row is gone we'd see the user's
+    # old position as "no position" and not know to unenroll.
+    holder_result = await db.execute(
+        select(User.id).where(
+            User.position_id == position_id,
+            User.tenant_id == user.tenant_id,
+        )
+    )
+    holder_ids = [r[0] for r in holder_result.all()]
+    for user_id in holder_ids:
+        await recompute_enrollments(db, user_id)
+    # Set position_id NULL so the user no longer claims this position.
+    await db.execute(
+        User.__table__.update()
+        .where(User.id.in_(holder_ids))
+        .values(position_id=None)
+    )
     await db.delete(pos)
 
 
@@ -399,10 +355,15 @@ async def assign_user_to_position(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """Assign a user to a position and auto-enroll them in all position courses.
+    """Assign a user to a position.
 
-    If user already had a different position, their OLD position's courses that
-    are not in the NEW position are unenrolled (only in-progress ones).
+    Side effects: the recompute kernel derives the user's enrollments
+    from the new position's PositionCourse rows (and the position's
+    department's DepartmentCourse rows, B1b). Completed enrollments
+    are kept; in-progress ones are dropped; manual ones are protected.
+
+    Replaces the previous hand-rolled add/remove logic, which had a
+    known asymmetry bug (only handled add, missed remove).
     """
     # Verify position exists
     pos_result = await db.execute(
@@ -420,34 +381,23 @@ async def assign_user_to_position(
     old_position_id = target.position_id
     target.position_id = position_id
     await _update_employee_count(db, position_id, user.tenant_id)
-
-    # Unenroll from old position's courses that aren't in the new position
-    unenrolled = 0
     if old_position_id and old_position_id != position_id:
-        old_course_ids = await _get_course_ids(db, old_position_id)
-        new_course_ids = set(await _get_course_ids(db, position_id))
-        to_remove = [cid for cid in old_course_ids if cid not in new_course_ids]
-        if to_remove:
-            unenrolled = await _bulk_unenroll_users_from_courses(
-                db, [target_user_id], to_remove, user.tenant_id
-            )
-        # Update old position count
         await _update_employee_count(db, old_position_id, user.tenant_id)
 
-    # Auto-enroll in new position's courses
-    course_ids = await _get_course_ids(db, position_id)
-    newly_enrolled = await _bulk_enroll_users_in_courses(
-        db, [target_user_id], course_ids, user.tenant_id
-    )
-
+    # Single recompute call: handles add (new position's courses)
+    # AND remove (old position's courses not in new) AND manual
+    # protection AND completed protection. Replaces the old two-step
+    # add/remove with a single source of truth.
+    outcome = await recompute_enrollments(db, target_user_id)
     await db.flush()
 
     return {
         "status": "ok",
         "position": pos.name,
-        "courses_attached": len(course_ids),
-        "newly_enrolled": newly_enrolled,
-        "unenrolled_from_old": unenrolled,
+        "added": outcome.added,
+        "removed": outcome.removed,
+        "skipped_manual": outcome.skipped_manual,
+        "protected_completed": outcome.protected_completed,
     }
 
 
@@ -457,26 +407,26 @@ async def unassign_user_from_position(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """Remove a user from their position. Active enrollments in position's courses
-    are removed (completed enrollments stay as historical record)."""
+    """Remove a user from their position. The recompute kernel
+    removes rule-driven enrollments (in_progress only — completed
+    are kept as historical record) and protects manual ones.
+    """
     target = await db.get(User, target_user_id)
     if not target or target.tenant_id != user.tenant_id:
         raise HTTPException(status_code=404, detail="User not found")
 
     old_position_id = target.position_id
     target.position_id = None
-
-    unenrolled = 0
     if old_position_id:
-        old_course_ids = await _get_course_ids(db, old_position_id)
-        if old_course_ids:
-            unenrolled = await _bulk_unenroll_users_from_courses(
-                db, [target_user_id], old_course_ids, user.tenant_id
-            )
         await _update_employee_count(db, old_position_id, user.tenant_id)
 
+    outcome = await recompute_enrollments(db, target_user_id)
     await db.flush()
-    return {"status": "ok", "unenrolled": unenrolled}
+    return {
+        "status": "ok",
+        "removed": outcome.removed,
+        "protected_completed": outcome.protected_completed,
+    }
 
 
 # ── JD analysis ─────────────────────────────────────────────

@@ -10,6 +10,7 @@ celery_app = Celery(
     backend=settings.REDIS_URL,
     include=[
         "app.modules.ai.tasks",
+        "app.modules.positions.tasks",
     ],
 )
 

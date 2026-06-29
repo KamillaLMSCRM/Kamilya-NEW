@@ -54,6 +54,12 @@ class CommitResponse(BaseModel):
     updated: int
     skipped: int
     positions_created: int
+    # B1b: when present, a Celery task has been dispatched to apply
+    # course-assignment rules for these users. The frontend can poll
+    # for the task result or simply refresh the staff structure page
+    # once the rule processing settles.
+    apply_rules_task_id: str | None = None
+    affected_user_count: int = 0
 
 
 def _parsed_file_to_response(parsed: ParsedFile, preview: PreviewResult | None = None) -> dict:
@@ -178,4 +184,34 @@ async def import_staff_commit(
             detail=f"Ошибка применения: {type(e).__name__}: {e}",
         )
 
-    return result
+    # B1b: dispatch apply-rules to Celery for every affected user.
+    # This materializes PositionCourse/DepartmentCourse into
+    # Enrollment rows. Run in a worker process so the HTTP request
+    # returns immediately. If the task fails, the staff data is
+    # still consistent — apply-rules can be re-run via the
+    # /admin/staff/apply-rules endpoint (B1c) without re-importing.
+    affected_user_ids: list[str] = result.pop("affected_user_ids", [])
+    task_id: str | None = None
+    if affected_user_ids:
+        try:
+            from app.modules.positions.tasks import apply_rules_for_users_task
+            async_result = apply_rules_for_users_task.delay(affected_user_ids)
+            task_id = async_result.id
+        except Exception as e:
+            # Don't fail the import — log and continue. The user can
+            # retry apply-rules manually. The import is the source
+            # of truth for staff data; apply-rules is downstream.
+            import logging
+            logging.getLogger(__name__).exception(
+                "apply-rules dispatch failed for %d users: %s",
+                len(affected_user_ids), e,
+            )
+
+    return {
+        "created": result["created"],
+        "updated": result["updated"],
+        "skipped": result["skipped"],
+        "positions_created": result["positions_created"],
+        "apply_rules_task_id": task_id,
+        "affected_user_count": len(affected_user_ids),
+    }
