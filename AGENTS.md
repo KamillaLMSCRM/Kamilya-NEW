@@ -461,6 +461,10 @@ What I need: [specific question]"
 
 ## Lessons learned (важно для будущих агентов)
 
+> **Структурированные уроки (Symptom → Root Cause → Fix → Detection Rule) живут в [`docs/LESSONS.md`](./docs/LESSONS.md).** Сюда попадают только компактные доменные подсказки (формат «Урок N: …»).
+>
+> **Правило записи в `docs/LESSONS.md`:** если ты ловишь себя на том, что пробуешь второй fix против того же симптома (особенно после ложного «готово»), **STOP**. Прочитай `~/.mavis/agents/mavis/skills/systematic-debugging/SKILL.md` (Iron Law: NO FIXES WITHOUT ROOT CAUSE INVESTIGATION). Когда найдёшь настоящую причину — задокументируй её в `docs/LESSONS.md` в формате 4-частей. **Detection Rule** — самая важная часть: это дешёвый check, который бы поймал баг с первого раза.
+
 ### Render API access (project secret)
 
 `RENDER_API_KEY` хранится в `apps/api/.env`. **Это проектный секрет, не персональный** — любой агент работающий с Kamilya LMS может и должен использовать его.
