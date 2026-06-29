@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel
 from sqlalchemy import select
 from starlette.responses import JSONResponse
-from app.core.auth import create_access_token, get_current_user
+from app.core.auth import create_access_token, create_refresh_token, get_current_user
 from app.core.config import get_settings
 from app.core.db import get_db
 from app.modules.auth.schemas import LoginRequest, RefreshRequest, TokenResponse, UserCreate, UserResponse
@@ -186,8 +186,15 @@ async def generate_code():
 
 
 @router.post("/check-code")
-async def check_auth_code(req: CheckCodeRequest):
-    """Poll for code verification status. Returns JWT when verified."""
+async def check_auth_code(req: CheckCodeRequest, response: Response):
+    """Poll for code verification status. Returns JWT when verified.
+
+    On a successful verification we also mint a refresh token and set it
+    as an httpOnly cookie — otherwise the in-memory access token is the
+    only thing carrying the session, and any page reload (which clears
+    the in-memory store) would log the user out. Mirrors what /auth/login
+    does for the email/password flow.
+    """
     from starlette.responses import JSONResponse
 
     try:
@@ -210,10 +217,16 @@ async def check_auth_code(req: CheckCodeRequest):
         "tenant_id": user_data["tenant_id"],
         "roles": [user_data["role"]],
     })
+    refresh_token = create_refresh_token({
+        "sub": user_data["user_id"],
+        "tenant_id": user_data["tenant_id"],
+    })
+    _set_refresh_cookie(response, refresh_token)
 
     return JSONResponse(content={
         "verified": True,
         "access_token": access_token,
+        "refresh_token": refresh_token,
         "user": user_data,
     })
 

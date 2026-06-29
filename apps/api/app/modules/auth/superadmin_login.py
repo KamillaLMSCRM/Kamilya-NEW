@@ -16,7 +16,7 @@ Distinct from /login because:
 from datetime import datetime, timezone
 
 import argon2
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -30,6 +30,29 @@ from app.modules.audit.service import log_action
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 _ph = argon2.PasswordHasher()
+
+
+# Mirror of app.modules.auth.router._set_refresh_cookie — duplicated to keep
+# this module free of an import cycle with router.py.
+REFRESH_COOKIE_NAME = "kamilya_refresh"
+REFRESH_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 30
+
+
+def _is_production() -> bool:
+    from app.core.config import get_settings
+    return get_settings().APP_ENV == "production"
+
+
+def _set_refresh_cookie(response: Response, refresh_token: str) -> None:
+    response.set_cookie(
+        key=REFRESH_COOKIE_NAME,
+        value=refresh_token,
+        max_age=REFRESH_COOKIE_MAX_AGE_SECONDS,
+        path="/api/v1/auth",
+        httponly=True,
+        secure=_is_production(),
+        samesite="strict",
+    )
 
 
 class SuperadminLoginRequest(BaseModel):
@@ -48,6 +71,7 @@ class SuperadminLoginResponse(BaseModel):
 async def superadmin_login(
     req: SuperadminLoginRequest,
     request: Request,
+    response: Response,
     db: AsyncSession = Depends(get_db),
 ):
     """Log in as platform superadmin.
@@ -124,6 +148,13 @@ async def superadmin_login(
         user_agent=request.headers.get("user-agent"),
     )
     await db.commit()
+
+    # Same httpOnly refresh-cookie contract as /auth/login and /auth/check-code.
+    # Without this, the in-memory access token is the only session anchor and
+    # any page reload would log the superadmin out.
+    # Duplicated from app.modules.auth.router._set_refresh_cookie to avoid a
+    # circular import (router.py imports superadmin_login_router at startup).
+    _set_refresh_cookie(response, refresh_token)
 
     return SuperadminLoginResponse(
         access_token=access_token,
