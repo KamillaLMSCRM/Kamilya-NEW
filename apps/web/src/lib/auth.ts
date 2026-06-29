@@ -47,7 +47,19 @@ export interface AuthUser {
   impersonated_role?: string;
 }
 
-const REFRESH_ENDPOINT = '/api/v1/auth/refresh';
+// Absolute URL because the browser fetch in restoreSession runs outside
+// axios (which has its own baseURL). Vercel rewrites used to proxy
+// /api/v1/* here too, but Vercel's edge strips Set-Cookie on proxied
+// responses — that broke the httpOnly refresh-cookie round-trip, which
+// meant every page reload kicked the user back to /login.
+//
+// Going cross-origin instead: CORS is already wired in apps/api
+// (ALLOWED_ORIGINS includes https://app.kml.kz), and the browser
+// will store the httpOnly refresh cookie normally. The access token
+// remains in-memory only (XSS-stealing-resistant).
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
+const REFRESH_ENDPOINT = `${API_BASE}/api/v1/auth/refresh`;
+const LOGOUT_ENDPOINT = `${API_BASE}/api/v1/auth/logout`;
 
 let _accessToken: string | null = null;
 let _user: AuthUser | null = null;
@@ -146,7 +158,7 @@ export async function restoreSession(): Promise<boolean> {
  */
 export async function logout(): Promise<void> {
   try {
-    await fetch('/api/v1/auth/logout', {
+    await fetch(LOGOUT_ENDPOINT, {
       method: 'POST',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
