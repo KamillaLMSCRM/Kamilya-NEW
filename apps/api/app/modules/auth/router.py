@@ -82,8 +82,14 @@ def _set_refresh_cookie(response: Response, refresh_token: str) -> None:
 
 
 def _clear_refresh_cookie(response: Response) -> None:
-    response.delete_cookie(
+    # Note: starlette's Response.delete_cookie() in 0.41.x does NOT accept
+    # the `partitioned` kwarg (only set_cookie does). We work around by
+    # setting a same-attribute Set-Cookie with max-age=0. See
+    # https://github.com/encode/starlette/issues/2529
+    response.set_cookie(
         key=REFRESH_COOKIE_NAME,
+        value="",
+        max_age=0,
         path="/api/v1/auth",
         secure=True,
         samesite="none",

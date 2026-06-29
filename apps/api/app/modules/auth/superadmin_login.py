@@ -61,6 +61,21 @@ def _set_refresh_cookie(response: Response, refresh_token: str) -> None:
     )
 
 
+def _clear_refresh_cookie(response: Response) -> None:
+    # See router.py for why we use set_cookie(max_age=0) instead of
+    # delete_cookie (starlette 0.41.x doesn't accept partitioned kwarg
+    # in delete_cookie).
+    response.set_cookie(
+        key=REFRESH_COOKIE_NAME,
+        value="",
+        max_age=0,
+        path="/api/v1/auth",
+        secure=True,
+        samesite="none",
+        partitioned=True,
+    )
+
+
 class SuperadminLoginRequest(BaseModel):
     email: EmailStr
     password: str = Field(..., min_length=8, max_length=256)
