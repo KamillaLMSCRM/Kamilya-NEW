@@ -72,7 +72,14 @@ export default function AdminTeamPage() {
 
   const fetchUsers = useCallback(async () => {
     if (!token) return;
-    const params = new URLSearchParams({ page: String(page), per_page: '20' });
+    const params = new URLSearchParams({
+      page: String(page),
+      per_page: '20',
+      // P0-2 (2026-06-29): include staff imported via /admin/staff,
+      // which materialize as role='student'. Without this query param
+      // they are silently filtered out at the backend.
+      include_students: 'true',
+    });
     if (search) params.set('search', search);
     try {
       const res = await fetch(`${API_URL}/v1/users?${params}`, {

@@ -51,7 +51,8 @@ export default function QuizAssignPage() {
     try {
       const [quizzesRes, usersRes, assignmentsRes] = await Promise.all([
         api.get('/v1/quizzes'),
-        api.get('/v1/users'),
+        // P0-2 (2026-06-29): include staff imported via /admin/staff.
+        api.get('/v1/users?include_students=true'),
         api.get('/v1/quiz-assignments'),
       ]);
       setQuizzes(quizzesRes.data || []);

@@ -46,7 +46,12 @@ export default function EnrollmentsPage() {
     try {
       const [coursesRes, usersRes] = await Promise.all([
         fetch(`${API_URL}/v1/courses`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`${API_URL}/v1/users?per_page=100`, { headers: { Authorization: `Bearer ${token}` } }),
+        // P0-2 fix (2026-06-29): include_students=true makes role='student'
+        // (employees imported via /admin/staff or via the staff-import
+        // wizard) visible here. Backend endpoint is admin-only and applies
+        // an org filter via tenant_id; we add per_page=200 to fit ~300
+        // employees per tenant without paging.
+        fetch(`${API_URL}/v1/users?per_page=200&include_students=true`, { headers: { Authorization: `Bearer ${token}` } }),
       ]);
       if (coursesRes.ok) setCourses(await coursesRes.json());
       if (usersRes.ok) {

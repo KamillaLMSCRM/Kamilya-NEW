@@ -56,7 +56,7 @@ export default function AdminDashboardPage() {
         fetch(`${API_URL}/v1/admin/stats`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
-        fetch(`${API_URL}/v1/users?per_page=5`, {
+        fetch(`${API_URL}/v1/users?per_page=5&include_students=true`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
         fetch(`${API_URL}/v1/courses`, {
