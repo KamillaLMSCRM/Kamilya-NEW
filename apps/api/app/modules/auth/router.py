@@ -223,12 +223,12 @@ async def check_auth_code(req: CheckCodeRequest, response: Response):
     })
     _set_refresh_cookie(response, refresh_token)
 
-    return JSONResponse(content={
+    return {
         "verified": True,
         "access_token": access_token,
         "refresh_token": refresh_token,
         "user": user_data,
-    })
+    }
 
 
 # ── Demo Login ─────────────────────────────────────────────────────────
@@ -372,11 +372,11 @@ async def demo_login(req: DemoLoginRequest, response: Response, db=Depends(get_d
         })
         _set_refresh_cookie(response, refresh_token)
 
-        return JSONResponse(content={
+        return {
             "access_token": access_token,
             "refresh_token": refresh_token,
             "user": user_data,
-        })
+        }
 
     except HTTPException:
         raise
