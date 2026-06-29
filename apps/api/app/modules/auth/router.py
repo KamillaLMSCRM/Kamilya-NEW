@@ -35,6 +35,18 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 # response, which made the refresh cookie silently disappear — breaking
 # session persistence on every page reload (see session-repair 2026-06-29).
 #
+# IMPORTANT: per RFC 6265bis and the Chrome/Firefox/Safari implementations,
+# a cookie with SameSite=None MUST also have Secure=true or the browser
+# drops it on the floor. We therefore always set Secure=True (the API is
+# always reached via HTTPS — on Render via the *.onrender.com TLS endpoint,
+# and locally via the Vercel preview proxy or a developer-managed reverse
+# proxy that terminates TLS).
+#
+# For local plain-HTTP dev (e.g. uvicorn on http://localhost:8000), the
+# cookie will be ignored by the browser. Workaround: use the Vercel
+# preview URL (https://web-*.vercel.app) which proxies /api/v1/* to
+# localhost via ssh-tunnel or similar — the dev cookie path.
+#
 # CSRF defense instead relies on:
 #   1. The cookie path being /api/v1/auth only — it is never sent on
 #      state-changing endpoints outside auth.
@@ -48,10 +60,6 @@ REFRESH_COOKIE_NAME = "kamilya_refresh"
 REFRESH_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 30  # 30 days, matches REFRESH_TOKEN_EXPIRE_DAYS
 
 
-def _is_production() -> bool:
-    return get_settings().APP_ENV == "production"
-
-
 def _set_refresh_cookie(response: Response, refresh_token: str) -> None:
     response.set_cookie(
         key=REFRESH_COOKIE_NAME,
@@ -59,7 +67,7 @@ def _set_refresh_cookie(response: Response, refresh_token: str) -> None:
         max_age=REFRESH_COOKIE_MAX_AGE_SECONDS,
         path="/api/v1/auth",  # Only sent to auth endpoints — minimizes XSRF surface
         httponly=True,
-        secure=_is_production(),
+        secure=True,  # Required by SameSite=None (RFC 6265bis)
         samesite="none",
     )
 
@@ -68,7 +76,7 @@ def _clear_refresh_cookie(response: Response) -> None:
     response.delete_cookie(
         key=REFRESH_COOKIE_NAME,
         path="/api/v1/auth",
-        secure=_is_production(),
+        secure=True,
         samesite="none",
     )
 

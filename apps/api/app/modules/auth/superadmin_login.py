@@ -46,13 +46,14 @@ def _is_production() -> bool:
 def _set_refresh_cookie(response: Response, refresh_token: str) -> None:
     # Mirror of app.modules.auth.router._set_refresh_cookie — see that file
     # for the full SameSite=None justification (cross-origin frontend).
+    # Secure=True is required by SameSite=None per RFC 6265bis.
     response.set_cookie(
         key=REFRESH_COOKIE_NAME,
         value=refresh_token,
         max_age=REFRESH_COOKIE_MAX_AGE_SECONDS,
         path="/api/v1/auth",
         httponly=True,
-        secure=_is_production(),
+        secure=True,
         samesite="none",
     )
 
