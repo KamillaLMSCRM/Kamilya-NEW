@@ -363,8 +363,18 @@ async def demo_login(req: DemoLoginRequest, response: Response, db=Depends(get_d
             },
         }
 
+        # Same httpOnly refresh-cookie contract as /login and /register.
+        # Without this the in-memory access token is the only session
+        # anchor and any page reload would log the user out.
+        refresh_token = create_refresh_token({
+            "sub": str(user.id),
+            "tenant_id": str(user.tenant_id),
+        })
+        _set_refresh_cookie(response, refresh_token)
+
         return JSONResponse(content={
             "access_token": access_token,
+            "refresh_token": refresh_token,
             "user": user_data,
         })
 
