@@ -13,7 +13,39 @@
 // network round-trip to /refresh). In exchange, XSS cannot directly
 // exfiltrate the access or refresh token.
 
-import type { AuthUser } from '@/lib/auth';
+/**
+ * Tenant info attached to the user payload — only present for tenant
+ * users. Platform superadmins have `tenant: null` and are routed through
+ * `/superadmin/*` flows.
+ */
+export interface AuthUserTenant {
+  id: string;
+  name: string;
+  slug?: string;
+  is_demo?: boolean;
+}
+
+/**
+ * Authenticated user payload kept in memory after login / refresh.
+ *
+ * Built from /auth/login, /auth/refresh, /invitations/{token}/accept
+ * (see `apps/web/src/app/accept-invite/page.tsx` for the canonical
+ * assembly) and from the impersonation flow
+ * (apps/api/app/modules/users/superadmin_impersonate.py). Keep this in
+ * sync if the backend user schema changes.
+ */
+export interface AuthUser {
+  user_id: string;
+  tenant_id: string | null;
+  tenant: AuthUserTenant | null;
+  telegram_id: string;
+  role: string;
+  full_name: string;
+  email: string | null;
+  /** Set when this session was minted via superadmin impersonation. */
+  impersonated_by?: string;
+  impersonated_role?: string;
+}
 
 const REFRESH_ENDPOINT = '/api/v1/auth/refresh';
 
@@ -126,10 +158,6 @@ export async function logout(): Promise<void> {
   clearAuth();
 }
 
-
-// Re-export the type so the rest of the codebase can `import { AuthUser }
-// from '@/lib/auth'` without changing.
-export type { AuthUser };
 
 // Legacy interface kept for compatibility with the older auth.ts API
 // surface (some pages still call getStoredAuth()).

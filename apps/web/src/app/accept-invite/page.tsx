@@ -120,6 +120,7 @@ function AcceptInviteForm() {
         const authUser = {
           user_id,
           tenant_id,
+          tenant: null,
           telegram_id: me.telegram_id ? String(me.telegram_id) : '',
           role,
           full_name: `${me.first_name || ''} ${me.last_name || ''}`.trim() || `${firstName} ${lastName}`,
@@ -131,6 +132,7 @@ function AcceptInviteForm() {
         const fallbackUser = {
           user_id,
           tenant_id,
+          tenant: null,
           telegram_id: '',
           role,
           full_name: `${firstName} ${lastName}`,
