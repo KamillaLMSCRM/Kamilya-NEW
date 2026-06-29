@@ -20,6 +20,7 @@ export function useSidebarCollapsed() {
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   const { t } = useT();
   const { user, initialize } = useAuthStore();
   const [collapsed, setCollapsed] = useState(false);
@@ -113,7 +114,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   // Hooks must be called unconditionally on every render — keep them
   // above any early-return so React's order-of-hooks rule is satisfied.
-  const pathname = usePathname();
+  // (pathname is already declared at the top of the component for the
+  // redirect-to-login guard.)
   const isSuperadmin = user != null && user.tenant == null;
 
   if (!user) {
