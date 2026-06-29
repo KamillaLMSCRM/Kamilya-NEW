@@ -51,12 +51,15 @@ async def handle_telegram_webhook(request: Request, db: AsyncSession = Depends(g
 
     # Validate 6-digit code format
     if not text.isdigit() or len(text) != 6:
+        print(f"[telegram-webhook] non-code message from telegram_id={telegram_id}: text={text!r}", flush=True)
         await send_telegram_message(
             chat_id,
             "❌ Неверный формат кода.\n"
             "Отправьте 6-значный числовой код из Kamilya LMS."
         )
         return {"ok": True}
+
+    print(f"[telegram-webhook] received code from telegram_id={telegram_id}: code={text}", flush=True)
 
     # Find user by telegram_id. Multiple users can share a telegram_id
     # across tenants (e.g. a superadmin platform row plus per-tenant
@@ -85,6 +88,7 @@ async def handle_telegram_webhook(request: Request, db: AsyncSession = Depends(g
     user = candidates[0] if candidates else None
 
     if not user:
+        print(f"[telegram-webhook] no User row found for telegram_id={telegram_id}", flush=True)
         await send_telegram_message(
             chat_id,
             "⚠️ Ваш Telegram не привязан к аккаунту Kamilya LMS.\n"
@@ -132,6 +136,7 @@ async def handle_telegram_webhook(request: Request, db: AsyncSession = Depends(g
     }
 
     success = await verify_code(text, telegram_id, user_data)
+    print(f"[telegram-webhook] verify_code({text!r}, tg={telegram_id}, user_id={user.id}) -> {success}", flush=True)
 
     if success:
         await send_telegram_message(
