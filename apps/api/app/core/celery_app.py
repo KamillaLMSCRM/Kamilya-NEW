@@ -25,4 +25,9 @@ celery_app.conf.update(
     worker_prefetch_multiplier=1,
     task_soft_time_limit=300,
     task_time_limit=600,
+    # Upstash uses rediss:// — Celery 5.6+ requires explicit ssl options
+    # for the redis broker/backend when REDIS_URL starts with rediss://.
+    # CERT_REQUIRED matches Upstash's recommendation.
+    broker_use_ssl={"ssl_cert_reqs": "CERT_REQUIRED"} if str(settings.REDIS_URL).startswith("rediss://") else None,
+    redis_backend_use_ssl={"ssl_cert_reqs": "CERT_REQUIRED"} if str(settings.REDIS_URL).startswith("rediss://") else None,
 )
