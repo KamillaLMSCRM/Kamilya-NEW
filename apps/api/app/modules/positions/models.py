@@ -1,7 +1,38 @@
 import uuid
-from sqlalchemy import Boolean, JSON, Column, Text, UUID, DateTime, Integer, ForeignKey, String, func
+
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    Column,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    UUID,
+    func,
+)
 from sqlalchemy.orm import relationship
+
 from app.core.db import Base
+
+# Department is referenced via relationship("Department", ...) below.
+# Import it here so SQLAlchemy's class registry knows about it before
+# any mapper configuration runs.
+from app.models.department import Department  # noqa: F401
+# Course is referenced from Module.course = relationship("Course", ...).
+# Import Course BEFORE importing lessons.models so the registry can
+# resolve the string. Without this, importing positions.models
+# standalone (e.g. from a test) breaks because lessons.models tries
+# to resolve "Course" before Course is loaded.
+from app.models.courses import Course  # noqa: F401
+# Course.modules is defined as a relationship("Module", ...) in
+# app.modules.courses.models. Importing lessons.models here ensures
+# SQLAlchemy's class registry is populated whenever this module is
+# loaded (e.g. from a test that imports assignment_service without
+# first triggering the lessons module to be loaded).
+from app.modules.lessons.models import Lesson, Module  # noqa: F401
 
 
 class PositionCourse(Base):
@@ -10,6 +41,40 @@ class PositionCourse(Base):
 
     position_id = Column(UUID(as_uuid=True), ForeignKey("positions.id", ondelete="CASCADE"), primary_key=True)
     course_id = Column(UUID(as_uuid=True), primary_key=True)
+    # Whether this course counts toward the position's ready_percent.
+    # required=True (default): counts. required=False: enrolled but
+    # excluded from the ready_percent denominator.
+    required = Column(Boolean, nullable=False, default=True, server_default=func.true())
+
+
+class DepartmentCourse(Base):
+    """Rule binding a course to a department.
+
+    When a user holds a position in this department, recompute_enrollments
+    materializes an Enrollment for them. Same required semantics as
+    PositionCourse. v1.0 ignores Department.parent_id — the rule
+    applies only to the department it is attached to, not ancestors.
+    """
+    __tablename__ = "department_courses"
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant_id", "department_id", "course_id",
+            name="uq_department_courses_tenant_dept_course",
+        ),
+        {'extend_existing': True},
+    )
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, server_default=func.gen_random_uuid())
+    tenant_id = Column(UUID(as_uuid=True), nullable=False, index=True)
+    department_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("departments.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    course_id = Column(UUID(as_uuid=True), nullable=False, index=True)
+    required = Column(Boolean, nullable=False, default=True, server_default=func.true())
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
 
 class Position(Base):
@@ -25,9 +90,18 @@ class Position(Base):
     requirements = Column(Text, nullable=False, default="")
     course_id = Column(UUID(as_uuid=True), nullable=True)  # legacy, kept for backward compat
     employee_count = Column(Integer, nullable=False, default=0)
+    # FK to normalized Department (ADR-0011). Column was added in
+    # migration 0035; the ORM was missing it until B1a.
+    department_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("departments.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
     courses = relationship("PositionCourse", primaryjoin="Position.id == PositionCourse.position_id", cascade="all, delete-orphan")
+    department = relationship("Department", lazy="joined")
 
 
 class PositionJDVersion(Base):
