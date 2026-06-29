@@ -251,6 +251,124 @@ for explicit `JSONResponse`.
 
 ---
 
+## 2026-06-29 — Cross-site cookie + Vercel Edge middleware: 6 fix attempts
+
+### Symptom
+
+Telegram login flow on `app.kml.kz`:
+1. User submits 6-digit code to bot
+2. Frontend `/api/v1/auth/check-code` returns 200 with `verified: true`,
+   `access_token`, `user`, and `Set-Cookie: kamilya_refresh=...`
+3. Frontend `login(token, user)` updates Zustand store, `router.push('/dashboard')`
+4. **Immediately redirected back to /login**
+
+Console:
+```
+[login-polling] VERIFIED — calling login() and redirecting to /dashboard
+Failed to load resource: .../api/v1/auth/refresh 401
+Uncaught (in promise) Error: A listener indicated an asynchronous response...
+```
+
+Vercel Edge logs:
+```
+GET /dashboard → 307
+```
+
+(307 was being emitted by `apps/web/src/middleware.ts` on the Edge
+when `request.cookies.get('kamilya_refresh')` returned undefined.)
+
+### Root cause
+
+Three independent bugs layered on top of each other. The login
+flow was broken because **all three** were broken — fixing any
+one wasn't enough.
+
+**Bug 1: cookie SameSite=Strict** (`f728dbd`)
+
+`apps/api/app/modules/auth/router.py:_set_refresh_cookie` was
+setting `samesite="strict"`. Browsers silently drop `Set-Cookie`
+on cross-origin responses with `SameSite=Strict`. Since the API
+lives on `kamilya-lms-api.onrender.com` and the site on
+`app.kml.kz`, this is cross-origin.
+
+**Bug 2: cookie Secure=False** (`9054c99`)
+
+After fixing #1 by setting `samesite="none"`, the cookie was
+still being dropped. RFC 6265bis requires `SameSite=None` cookies
+to also be `Secure=True` or the browser drops them. The code had
+`secure=_is_production()` which evaluated to `False` because
+`APP_ENV` defaults to `"development"` and was never set on Render.
+
+**Bug 3: cookie not visible to Vercel Edge middleware** (`b3bd1e6`)
+
+Even with `Secure=True; SameSite=None`, Chrome did not expose the
+cookie to the Vercel Edge middleware in this environment. Edge
+middleware (`apps/web/src/middleware.ts`) was checking
+`request.cookies.get('kamilya_refresh')` and 307-redirecting to
+/login when undefined. This blocked navigation to /dashboard
+entirely.
+
+The cross-site context (different eTLD+1: `kml.kz` vs
+`onrender.com`) is the root of the issue. Adding `Partitioned`
+(commit `9ac09c0`) is the right spec for cross-site partitioned
+cookies, but it didn't help in this particular Chrome/Edge
+environment.
+
+**The other fixes in this session** (kept because they're still
+useful defense-in-depth, even though the middleware-removal was
+what actually unblocked the user):
+
+- `e2014d4` + `5ecdeb7`: Layout's redirect-to-login guard now waits
+  for the auth store's `initialized` flag. Prevents a race condition
+  where Layout would redirect before the in-memory token was
+  populated.
+- `8fc099f`: axios interceptor now retries the request once via
+  `/auth/refresh` when it gets a 401, instead of immediately
+  redirecting to /login. This keeps the user logged in across
+  page reloads even if the access token expired.
+- `3fef182`: replaced `response.delete_cookie(partitioned=True)`
+  with `response.set_cookie(value="", max_age=0, partitioned=True)`
+  because Starlette 0.41.x's `delete_cookie` does not accept the
+  `partitioned` kwarg (caused a 500 on `/auth/refresh` logout path).
+
+### Fix
+
+1. Cookie: `SameSite=None; Secure; Path=/api/v1/auth; HttpOnly`
+   (no `Partitioned` since it didn't help and adds noise).
+2. `apps/web/src/middleware.ts`: turn it into a no-op pass-through.
+   Auth check moves entirely to the client-side Layout. Server-side
+   RSC fetch for protected pages will still get data via `/api/v1/*`
+   which enforces auth server-side.
+3. Layout: gate the redirect-to-login on `state.initialized`
+   so it doesn't fire before `/auth/refresh` has resolved.
+4. axios interceptor: refresh-on-401 with single retry.
+
+### Detection rule
+
+When the frontend lives on a different eTLD+1 from the API:
+
+1. Run this before merging:
+   ```bash
+   rg -n "response\.set_cookie|response\.delete_cookie" apps/api/app
+   ```
+   For every cookie, verify in the same change set:
+   - `secure=True` if `samesite="none"` (RFC 6265bis)
+   - `httponly=True` for session cookies
+   - For `delete_cookie` calls, do NOT pass `partitioned` — use
+     `set_cookie(value="", max_age=0, ...)` instead.
+2. If `apps/web/src/middleware.ts` exists, it runs on the Vercel
+   Edge and can only see cookies the browser sends with the
+   document request. Cross-site cookies (different eTLD+1 between
+   site and API) are unreliable in this context — do not gate
+   auth on Edge-cookie visibility. Move the check to the client
+   (Layout) or to a same-site subdomain.
+3. Add `[layout-guard]`-style console.log to any component that
+   does an auth-state-based redirect. The log must include the
+   actual state values (initialized, accessToken, pathname) so
+   future bugs are immediately diagnosable from DevTools.
+
+---
+
 ## How to add a new entry
 
 When you find yourself typing "let me try a different fix" — STOP.
