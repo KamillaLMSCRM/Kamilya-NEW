@@ -20,6 +20,7 @@ import {
   RefreshCw,
   MessageSquare,
   ChevronRight,
+  XCircle,
 } from 'lucide-react';
 import { ReviewBadge, CoursePreviewTree } from './components/CoursePreview';
 
