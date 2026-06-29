@@ -241,8 +241,6 @@ async def check_auth_code(req: CheckCodeRequest, response: Response):
     except Exception:
         return JSONResponse(content={"verified": False, "error": "check_error"})
 
-    print(f"[check-code] code={req.code!r} -> result={result}", flush=True)
-
     error = result.get("error")
     if error == "not_found":
         return JSONResponse(content={"verified": False, "error": "Code not found"})
