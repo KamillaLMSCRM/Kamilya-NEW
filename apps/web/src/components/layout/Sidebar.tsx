@@ -114,14 +114,6 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
           roles: ['admin', 'org_admin', 'teacher'],
         },
         {
-          // Org tree — departments/positions/employees with course-progress.
-          // Was at /admin/employees with no sidebar link; now reachable.
-          label: t('nav.staffTree'),
-          href: '/admin/employees',
-          icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 21h18" /><path d="M5 21V7l8-4v18" /><path d="M19 21V11l-6-4" /></svg>,
-          roles: ['admin', 'org_admin', 'teacher'],
-        },
-        {
           // Positions — JD authoring with AI tools (analyze, suggest courses,
           // onboarding quiz). Was already in sidebar but mis-grouped under
           // "Курсы". Now correctly under "Персонал" since positions are the

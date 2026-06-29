@@ -202,10 +202,10 @@ export default function AdminDashboardPage() {
             <a href="/admin/kiosks" className="flex items-center gap-1 text-primary text-sm hover:underline mt-2 block">
               🖥️ Киоски для цехов →
             </a>
-            <a href="/admin/staff" className="flex items-center gap-1 text-primary text-sm hover:underline mt-2 block">
+            <a href="/admin/staff?tab=import" className="flex items-center gap-1 text-primary text-sm hover:underline mt-2 block">
               📋 Штатное расписание →
             </a>
-            <a href="/admin/employees" className="flex items-center gap-1 text-primary text-sm hover:underline mt-2 block">
+            <a href="/admin/staff?tab=structure" className="flex items-center gap-1 text-primary text-sm hover:underline mt-2 block">
               📊 Структура штата →
             </a>
           </CardContent>

@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Card, CardHeader, CardTitle, CardContent, Button, Badge, Table } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
@@ -46,6 +47,16 @@ const ACTION_COLORS: Record<string, string> = {
 export default function AdminStaffPage() {
   const { t } = useT();
   const accessToken = useAuthStore((s) => s.accessToken);
+  const search = useSearchParams();
+
+  // ADR-0011: tab state. 'import' = Excel/CSV preview + commit,
+  // 'structure' = the department/position/employee tree (formerly /admin/employees).
+  // Default from query string so /admin/staff?tab=structure deep-links land
+  // on the right tab (used by /admin page quick-link and the legacy
+  // /admin/employees redirect).
+  const initialTab: 'import' | 'structure' =
+    search?.get('tab') === 'structure' ? 'structure' : 'import';
+  const [tab, setTab] = useState<'import' | 'structure'>(initialTab);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -140,10 +151,40 @@ export default function AdminStaffPage() {
       <div>
         <h1 className="text-2xl font-bold text-foreground">📋 Штатное расписание</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Загрузите список сотрудников из Excel/CSV. Система сопоставит табельные номера
-          с существующими пользователями, создаст должности (если новые) и обновит данные.
+          Импорт сотрудников из Excel/CSV и просмотр оргструктуры.
         </p>
       </div>
+
+      {/* ADR-0011: tabs combine import + structure on one page */}
+      <div role="tablist" className="flex border-b border-border">
+        <button
+          role="tab"
+          aria-selected={tab === 'import'}
+          onClick={() => setTab('import')}
+          className={`px-4 py-2 text-sm font-medium transition-colors ${
+            tab === 'import'
+              ? 'border-b-2 border-primary text-primary'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          📥 Импорт
+        </button>
+        <button
+          role="tab"
+          aria-selected={tab === 'structure'}
+          onClick={() => setTab('structure')}
+          className={`px-4 py-2 text-sm font-medium transition-colors ${
+            tab === 'structure'
+              ? 'border-b-2 border-primary text-primary'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          🌳 Структура
+        </button>
+      </div>
+
+      {tab === 'import' && (
+        <div className="space-y-6">
 
       {/* Format help */}
       <Card>
@@ -374,6 +415,195 @@ export default function AdminStaffPage() {
           )}
         </>
       )}
+        </div>
+      )}
+
+      {tab === 'structure' && <StructureTab />}
+    </div>
+  );
+}
+
+
+// ── Structure tab ────────────────────────────────────────────────────
+
+interface StructureEmployee {
+  id: string;
+  full_name: string;
+  personnel_number: string | null;
+  is_active: boolean;
+  assigned_courses: number;
+  completed_courses: number;
+  ready_percent: number;
+}
+
+interface StructurePosition {
+  id: string;
+  name: string;
+  department: string;
+  department_slug: string | null;
+  employee_count: number;
+  ready_percent: number;
+  employees: StructureEmployee[];
+}
+
+interface StructureDepartment {
+  id: string | null;
+  name: string;
+  slug: string;
+  position_count: number;
+  employee_count: number;
+  ready_percent: number;
+  positions: StructurePosition[];
+}
+
+interface StructureResponse {
+  departments: StructureDepartment[];
+  summary: {
+    total_employees: number;
+    total_departments: number;
+    total_positions: number;
+    overall_ready_percent: number;
+    total_assigned_courses: number;
+    total_completed_courses: number;
+  };
+}
+
+function StructureTab() {
+  const [data, setData] = useState<StructureResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [expandedDepts, setExpandedDepts] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        // ADR-0011: new canonical endpoint is /admin/staff/structure. The
+        // legacy /admin/staff/tree still works but returns the old shape.
+        const res = await api.get('/v1/admin/staff/structure');
+        if (!cancelled) setData(res.data);
+      } catch {
+        if (!cancelled) setData(null);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const toggleDept = (slug: string) => {
+    setExpandedDepts((prev) => {
+      const next = new Set(prev);
+      if (next.has(slug)) next.delete(slug);
+      else next.add(slug);
+      return next;
+    });
+  };
+
+  if (loading) {
+    return <div className="p-6 text-muted-foreground">Загружаю структуру...</div>;
+  }
+  if (!data || data.departments.length === 0) {
+    return (
+      <div className="p-6 text-center text-muted-foreground">
+        <p>Нет ни одного сотрудника.</p>
+        <p className="text-sm mt-2">Используйте вкладку «Импорт» чтобы загрузить штатку из Excel/CSV.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Summary cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="rounded-lg bg-primary/10 p-3 text-center">
+          <div className="text-2xl font-bold text-primary">{data.summary.total_employees}</div>
+          <div className="text-xs text-primary">Сотрудников</div>
+        </div>
+        <div className="rounded-lg bg-accent/10 p-3 text-center">
+          <div className="text-2xl font-bold text-accent">{data.summary.total_departments}</div>
+          <div className="text-xs text-accent">Отделов</div>
+        </div>
+        <div className="rounded-lg bg-muted p-3 text-center">
+          <div className="text-2xl font-bold text-foreground">{data.summary.total_positions}</div>
+          <div className="text-xs text-foreground">Должностей</div>
+        </div>
+        <div className="rounded-lg bg-success/10 p-3 text-center">
+          <div className="text-2xl font-bold text-success">{data.summary.overall_ready_percent}%</div>
+          <div className="text-xs text-success">Готово</div>
+        </div>
+      </div>
+
+      {/* Department tree */}
+      <Card>
+        <CardContent className="p-0">
+          <ul className="divide-y divide-border">
+            {data.departments.map((dept) => {
+              const isOpen = expandedDepts.has(dept.slug);
+              return (
+                <li key={dept.slug}>
+                  <button
+                    type="button"
+                    onClick={() => toggleDept(dept.slug)}
+                    aria-expanded={isOpen}
+                    className="flex w-full items-center gap-3 px-4 py-3 hover:bg-muted/40 transition-colors text-left"
+                  >
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-primary/10 text-xs font-bold text-primary">
+                      🏢
+                    </span>
+                    <span className="flex-1 min-w-0">
+                      <div className="text-sm font-semibold text-foreground">{dept.name}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {dept.position_count} должностей · {dept.employee_count} сотрудников
+                      </div>
+                    </span>
+                    <span className="text-xs font-medium text-muted-foreground">{dept.ready_percent}%</span>
+                  </button>
+                  {isOpen && (
+                    <ul className="bg-muted/30 divide-y divide-border">
+                      {dept.positions.length === 0 && (
+                        <li className="px-4 py-3 pl-14 text-xs text-muted-foreground italic">
+                          Нет должностей
+                        </li>
+                      )}
+                      {dept.positions.map((pos) => (
+                        <li key={pos.id} className="px-4 py-3 pl-14">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex-1 min-w-0">
+                              <div className="text-sm font-medium text-foreground">{pos.name}</div>
+                              <div className="text-xs text-muted-foreground mt-0.5">
+                                {pos.employee_count} сотрудников · {pos.ready_percent}% готово
+                              </div>
+                              {pos.employees.length > 0 && (
+                                <ul className="mt-2 space-y-1">
+                                  {pos.employees.map((emp) => (
+                                    <li key={emp.id} className="text-xs flex items-center gap-2">
+                                      <span className={emp.is_active ? 'text-foreground' : 'text-muted-foreground line-through'}>
+                                        {emp.full_name}
+                                        {emp.personnel_number && (
+                                          <span className="text-muted-foreground ml-1">
+                                            ({emp.personnel_number})
+                                          </span>
+                                        )}
+                                      </span>
+                                      <span className="ml-auto text-muted-foreground">
+                                        {emp.completed_courses}/{emp.assigned_courses} курсов
+                                      </span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              )}
+                            </div>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </CardContent>
+      </Card>
     </div>
   );
 }
