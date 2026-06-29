@@ -45,8 +45,10 @@ def _is_production() -> bool:
 
 def _set_refresh_cookie(response: Response, refresh_token: str) -> None:
     # Mirror of app.modules.auth.router._set_refresh_cookie — see that file
-    # for the full SameSite=None justification (cross-origin frontend).
+    # for the full SameSite=None + Partitioned justification.
     # Secure=True is required by SameSite=None per RFC 6265bis.
+    # Partitioned=True is required for Chrome to store the cookie at all
+    # when the API is on a different eTLD+1 (cross-site context).
     response.set_cookie(
         key=REFRESH_COOKIE_NAME,
         value=refresh_token,
@@ -55,6 +57,7 @@ def _set_refresh_cookie(response: Response, refresh_token: str) -> None:
         httponly=True,
         secure=True,
         samesite="none",
+        partitioned=True,
     )
 
 

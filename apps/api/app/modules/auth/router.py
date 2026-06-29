@@ -69,6 +69,15 @@ def _set_refresh_cookie(response: Response, refresh_token: str) -> None:
         httponly=True,
         secure=True,  # Required by SameSite=None (RFC 6265bis)
         samesite="none",
+        # CHIPS (Cookies Having Independent Partitioned State) — lets Chrome
+        # store the cookie even when the API is on a different eTLD+1
+        # (kamilya-lms-api.onrender.com) than the top-level site
+        # (app.kml.kz). Without Partitioned, Chrome's third-party cookie
+        # handling silently drops the cookie on cross-site requests, which
+        # broke login in 2026-06-29 because the Vercel Edge middleware
+        # (apps/web/src/middleware.ts) couldn't see the refresh cookie on
+        # the /dashboard navigation and 307'd the user back to /login.
+        partitioned=True,
     )
 
 
@@ -78,6 +87,7 @@ def _clear_refresh_cookie(response: Response) -> None:
         path="/api/v1/auth",
         secure=True,
         samesite="none",
+        partitioned=True,
     )
 
 
