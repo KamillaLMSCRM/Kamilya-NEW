@@ -3,13 +3,15 @@ services:
     name: kamilya-api
     runtime: python
     plan: starter
-    buildCommand: |
-      pip install poetry
-      poetry config virtualenvs.in-project true
-      cd apps/api && poetry install --no-interaction --no-ansi --without dev
+    buildCommand: pip install --no-cache-dir -r apps/api/requirements.txt
+    # Pre-flight: run any pending Alembic migrations before uvicorn starts.
+    # Without this, schema-affecting code in a new deploy would crash at
+    # first request that touches the new column/table. Migrations are
+    # idempotent — re-running across deploys is safe.
+    # See docs/LESSONS.md 2026-06-29 "Worker setup blocked by missing
+    # prod migrations (0032..0036)" for the root cause.
     startCommand: |
-      cd apps/api
-      poetry run uvicorn app.main:app --host 0.0.0.0 --port $PORT
+      cd apps/api && alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: PYTHON_VERSION
         value: "3.12"
@@ -43,6 +45,10 @@ services:
         value: '["https://app.kml.kz","https://www.kml.kz","https://web-inky-three-48.vercel.app","https://web-natt1inhm-kamillalmscrms-projects.vercel.app"]'
     healthCheckPath: /api/v1/health
     autoDeploy: true
+
+  # Celery worker: deployed on the project VPS (173.249.51.164, Ubuntu 24.04)
+  # as a systemd unit, NOT as a Render Worker Service. See
+  # docs/INFRA_CELERY_WORKER.md for full setup instructions.
 
 databases:
   - name: kamilya-db
