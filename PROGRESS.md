@@ -1,6 +1,11 @@
 # Kamilya LMS Core v1.0 — Progress Summary
 
-**Date:** June 24, 2026  
+> **Snapshot date:** June 24, 2026
+> **Актуальное состояние (2026-06-29):** v1.0 Beta завершён, см. `TZ.md §15`,
+> `docs/audit-2026-06-28-full.md`, `AGENTS.md` (Domain context). История ниже —
+> от момента старта W11 до Beta launch — зафиксирована для аудита.
+
+**Date:** June 24, 2026
 **Phase:** W11 (Performance + Security — COMPLETE) + critical business-flow fixes
 
 ---
