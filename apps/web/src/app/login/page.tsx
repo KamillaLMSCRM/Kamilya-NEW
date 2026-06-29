@@ -81,12 +81,24 @@ export default function LoginPage() {
     pollingRef.current = setInterval(async () => {
       try {
         const res = await api.post('/v1/auth/check-code', { code: authCode });
+        // eslint-disable-next-line no-console
+        console.log('[login-polling] response:', JSON.stringify({
+          status: res.status,
+          verified: res.data?.verified,
+          hasAccessToken: !!res.data?.access_token,
+          hasUser: !!res.data?.user,
+          error: res.data?.error,
+        }));
         if (res.data.verified && res.data.access_token) {
+          // eslint-disable-next-line no-console
+          console.log('[login-polling] VERIFIED — calling login() and redirecting to /dashboard');
           if (pollingRef.current) clearInterval(pollingRef.current);
           login(res.data.access_token, res.data.user);
           router.push('/dashboard');
         }
       } catch (err: any) {
+        // eslint-disable-next-line no-console
+        console.log('[login-polling] ERROR:', err?.response?.status, err?.message);
         if (err.response?.status === 429) {
           setError('Слишком много запросов. Подождите 1 минуту или обновите страницу.');
           if (pollingRef.current) clearInterval(pollingRef.current);
