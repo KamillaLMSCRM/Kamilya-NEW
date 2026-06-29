@@ -26,8 +26,23 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 #
 # Per audit §4.1: in production the cookie MUST be Secure (HTTPS only). In
 # local dev Secure is omitted because browsers refuse to set Secure cookies
-# on plain HTTP. SameSite=Strict prevents the cookie from being sent on
-# cross-origin requests (defense against CSRF).
+# on plain HTTP.
+#
+# SameSite=None is required because the frontend at app.kml.kz makes
+# cross-origin XHR/fetch requests directly to the API at
+# kamilya-lms-api.onrender.com. Browsers (Chrome/Firefox/Safari) refuse to
+# set a cookie with SameSite=Strict or SameSite=Lax in a cross-origin
+# response, which made the refresh cookie silently disappear — breaking
+# session persistence on every page reload (see session-repair 2026-06-29).
+#
+# CSRF defense instead relies on:
+#   1. The cookie path being /api/v1/auth only — it is never sent on
+#      state-changing endpoints outside auth.
+#   2. The frontend never sending the refresh token in a body or custom
+#      header that an attacker page could forge.
+#   3. rotate-on-use: every /refresh consumes the old refresh and issues a
+#      new one (see service.refresh_access_token), so a stolen refresh
+#      token is single-use.
 # ---------------------------------------------------------------------------
 REFRESH_COOKIE_NAME = "kamilya_refresh"
 REFRESH_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 30  # 30 days, matches REFRESH_TOKEN_EXPIRE_DAYS
@@ -45,7 +60,7 @@ def _set_refresh_cookie(response: Response, refresh_token: str) -> None:
         path="/api/v1/auth",  # Only sent to auth endpoints — minimizes XSRF surface
         httponly=True,
         secure=_is_production(),
-        samesite="strict",
+        samesite="none",
     )
 
 
@@ -54,7 +69,7 @@ def _clear_refresh_cookie(response: Response) -> None:
         key=REFRESH_COOKIE_NAME,
         path="/api/v1/auth",
         secure=_is_production(),
-        samesite="strict",
+        samesite="none",
     )
 
 
