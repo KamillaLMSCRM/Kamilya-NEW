@@ -57,9 +57,13 @@ export interface AuthUser {
 // (ALLOWED_ORIGINS includes https://app.kml.kz), and the browser
 // will store the httpOnly refresh cookie normally. The access token
 // remains in-memory only (XSS-stealing-resistant).
+// NEXT_PUBLIC_API_URL ends in `/api` on Vercel (axios-style baseURL:
+//   `${baseURL}/v1/auth/refresh` ⇒ …onrender.com/api/v1/auth/refresh).
+// We follow the same convention so the paths line up everywhere. No
+// rewrite involved — this hits the backend directly cross-origin.
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
-const REFRESH_ENDPOINT = `${API_BASE}/api/v1/auth/refresh`;
-const LOGOUT_ENDPOINT = `${API_BASE}/api/v1/auth/logout`;
+const REFRESH_ENDPOINT = `${API_BASE}/v1/auth/refresh`;
+const LOGOUT_ENDPOINT = `${API_BASE}/v1/auth/logout`;
 
 let _accessToken: string | null = null;
 let _user: AuthUser | null = null;
