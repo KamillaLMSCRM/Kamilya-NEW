@@ -33,11 +33,30 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     initialize();
   }, [initialize]);
 
+  // Redirect-to-login guard. MUST wait for `initialized` from the auth
+  // store, otherwise this fires on every fresh mount of Layout with
+  // accessToken=null in the Zustand store (because the store was
+  // initialised before the in-memory lib/auth token was populated),
+  // and we send the user back to /login even when they have a valid
+  // session that was just minted by /login polling.
+  //
+  // Fix for 2026-06-29 login-bounce bug — see docs/LOGIN_BUG_REPORT_2026-06-29.md.
   useEffect(() => {
-    if (typeof window !== 'undefined' && !useAuthStore.getState().accessToken) {
+    if (typeof window === 'undefined') return;
+    const state = useAuthStore.getState();
+    // eslint-disable-next-line no-console
+    console.log('[layout-guard] tick', {
+      initialized: state.initialized,
+      hasAccessToken: !!state.accessToken,
+      pathname,
+    });
+    if (!state.initialized) return;  // wait for /auth/refresh to settle
+    if (!state.accessToken) {
+      // eslint-disable-next-line no-console
+      console.log('[layout-guard] REDIRECT to /login');
       router.push('/login');
     }
-  }, [router]);
+  }, [router, pathname]);
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {

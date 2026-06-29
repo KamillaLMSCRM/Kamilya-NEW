@@ -54,6 +54,10 @@ export const useAuthStore = create<AuthStore>((set) => {
 
     login: (accessToken, user) => {
       setAuthMemory(accessToken, user);
+      // Force-initialize the store so any Layout/guard useEffects that
+      // wait for `initialized === true` unblock immediately after a
+      // successful login, instead of racing against the in-flight
+      // /auth/refresh call inside initialize().
       set({ accessToken, user, initialized: true });
     },
 
