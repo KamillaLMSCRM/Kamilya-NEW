@@ -63,7 +63,8 @@
     "staffRoster": "Staff roster",
     "staffTree": "Staff structure",
     "courseAssignments": "Course assignments",
-    "companyCourses": "Company-wide courses"
+    "companyCourses": "Company-wide courses",
+    "certificateSettings": "Certificate settings"
   },
   "auth": {
     "login": "Login",

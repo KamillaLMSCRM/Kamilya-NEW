@@ -63,7 +63,8 @@
     "staffRoster": "Штатка",
     "staffTree": "Структура штата",
     "courseAssignments": "Привязка курсов",
-    "companyCourses": "Курсы компании"
+    "companyCourses": "Курсы компании",
+    "certificateSettings": "Настройки сертификата"
   },
   "auth": {
     "login": "Вход",

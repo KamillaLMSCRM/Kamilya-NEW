@@ -107,9 +107,11 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
       title: t('sidebar.courseManagement'),
       items: [
         {
-          // Staff import — Excel/CSV uploader for personnel roster.
+          // Штатка — оргструктура (отделы / должности / сотрудники), не
+          // импорт. Импорт живёт в первой вкладке той же страницы.
+          // Deep-link ?tab=structure — чтобы юзер сразу видел дерево.
           label: t('nav.staffRoster'),
-          href: '/admin/staff',
+          href: '/admin/staff?tab=structure',
           icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></svg>,
           roles: ['admin', 'org_admin', 'teacher'],
         },
@@ -125,9 +127,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
           // Course assignments — bind courses to positions (level 3) and
           // departments (level 2). The RulesTab inside /admin/staff powers
           // both. Deep-linked via ?tab=rules so Cmd-K / external links land
-          // on the right tab. TODO TZ_JOB_INSTRUCTION_ONBOARDING_v1: this
-          // tab will also surface the «Загрузить ДИ» flow + «Сгенерировать
-          // онбординг-курс» button per-position.
+          // on the right tab.
           label: t('nav.courseAssignments'),
           href: '/admin/staff?tab=rules',
           icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>,
@@ -138,7 +138,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
           // attach a course to every department in the tenant. See
           // TZ_COURSE_ASSIGNMENT_ACCESS_v1 §1.1 «Уровень 1».
           label: t('nav.companyCourses'),
-          href: '/admin/staff?tab=company',
+          href: '/admin/staff?tab=company-courses',
           icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect width="20" height="16" x="2" y="4" rx="2" /><path d="M2 8h20" /><path d="M10 4v4" /><path d="M14 4v4" /></svg>,
           roles: ['admin', 'org_admin', 'teacher'],
         },
@@ -147,17 +147,21 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
           // between admin and methodologist (teacher). ADR-0012
           // treats direct assignment as part of the content domain
           // (TZ_COURSE_ASSIGNMENT_ACCESS_v1 §1.2 level-4 manual
-          // override), not pure tenant infrastructure. Both roles
-          // need the escape hatch for ad-hoc overrides on top of
-          // auto-enrollment from PositionCourse / DepartmentCourse.
-          // /v1/users?include_students=true is admin-only on the
-          // backend, so the user picker is gated by the user's
-          // role (admins see all employees; methodologists see
-          // only those not gated by their content role).
+          // override), not pure tenant infrastructure.
           label: t('courses.enrollments'),
           href: '/admin/enrollments',
           icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><line x1="19" x2="19" y1="8" y2="14" /><line x1="22" x2="16" y1="11" y2="11" /></svg>,
           roles: ['admin', 'org_admin', 'teacher'],
+        },
+        {
+          // Настройки сертификата — отдельный epic. Ссылка временно
+          // ведёт на /admin/page.tsx (общий хаб), оттуда должна быть
+          // карточка «Сертификаты». Когда появится выделенный
+          // /admin/settings?tab=certificates — поменяю href.
+          label: t('nav.certificateSettings'),
+          href: '/admin',
+          icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="6" /><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11" /></svg>,
+          roles: ['admin', 'org_admin', 'superadmin'],
         },
       ],
     },

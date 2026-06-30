@@ -33,7 +33,7 @@ test('dashboard and sub-pages return valid responses', async ({ page }) => {
     // deep links. Sidebar uses query strings to land on the right tab in
     // the unified /admin/staff page; tests verify these routes load.
     '/admin/staff?tab=rules',
-    '/admin/staff?tab=company',
+    '/admin/staff?tab=company-courses',
   ];
 
   for (const route of routes) {

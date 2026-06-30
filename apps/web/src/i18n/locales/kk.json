@@ -63,7 +63,8 @@
     "staffRoster": "Штат",
     "staffTree": "Штат құрылымы",
     "courseAssignments": "Курстарды байланыстыру",
-    "companyCourses": "Компания курстары"
+    "companyCourses": "Компания курстары",
+    "certificateSettings": "Сертификат баптаулары"
   },
   "auth": {
     "login": "Кіру",

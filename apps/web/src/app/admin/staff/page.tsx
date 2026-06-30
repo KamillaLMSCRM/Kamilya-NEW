@@ -53,26 +53,31 @@ export default function AdminStaffPage() {
   const search = useSearchParams();
 
   // ADR-0011: tab state.
-  //   'import'   = Excel/CSV preview + commit (B1a apply-rules polling).
-  //   'structure'= the department/position/employee tree (formerly /admin/employees).
-  //   'rules'    = B2: edit «course bindings» per position/department.
+  //   'import'             = Excel/CSV preview + commit (B1a apply-rules polling).
+  //   'structure'          = the department/position/employee tree (formerly /admin/employees).
+  //   'rules'              = B2: edit «course bindings» per position/department.
+  //   'company-courses'    = level-1 batch-attach (TZ_COURSE_ASSIGNMENT_ACCESS_v1 §1.1).
   // Default from query string so deep-links land on the right tab
-  // (used by /admin page quick-link and the legacy /admin/employees
-  // redirect).
-  type Tab = 'import' | 'structure' | 'rules' | 'company';
+  // (used by /admin page quick-link, the sidebar, Cmd-K, and the
+  // legacy /admin/employees redirect).
+  type Tab = 'import' | 'structure' | 'rules' | 'company-courses';
   const queryTab = search?.get('tab');
+  // Alias: 'company' (old sidebar name) → 'company-courses'. Keeps old
+  // links working without a 404 / tab-reset-to-import.
+  const normalisedTab: string | null =
+    queryTab === 'company' ? 'company-courses' : queryTab;
   // Студенту вкладки «Импорт», «Структура», «Правила» не нужны — он
   // потребитель контента, ничего не настраивает (см. ADR-0012).
   // Страница /admin/staff — это admin/methodologist surface. Если
   // зашёл студент — показываем понятное «нет доступа».
   const userRole = useAuthStore((s) => s.user?.role ?? '');
   const isStaffOwnersRole = ['methodologist', 'teacher', 'admin', 'org_admin', 'superadmin'].includes(userRole);
-  const allowedTabs: Tab[] = ['import', 'structure']; // 'rules' добавим если isStaffOwnersRole
+  const allowedTabs: Tab[] = ['import', 'structure']; // 'rules'/'company-courses' добавим если isStaffOwnersRole
   if (isStaffOwnersRole) allowedTabs.push('rules');
-  if (isStaffOwnersRole) allowedTabs.push('company');
+  if (isStaffOwnersRole) allowedTabs.push('company-courses');
   const initialTab: Tab =
-    (queryTab === 'structure' || queryTab === 'rules' || queryTab === 'company') && allowedTabs.includes(queryTab)
-      ? (queryTab as Tab)
+    (normalisedTab === 'structure' || normalisedTab === 'rules' || normalisedTab === 'company-courses') && allowedTabs.includes(normalisedTab as Tab)
+      ? (normalisedTab as Tab)
       : 'import';
   const [tab, setTab] = useState<Tab>(initialTab);
 
@@ -243,10 +248,10 @@ export default function AdminStaffPage() {
         </button>
         <button
           role="tab"
-          aria-selected={tab === 'company'}
-          onClick={() => setTab('company')}
+          aria-selected={tab === 'company-courses'}
+          onClick={() => setTab('company-courses')}
           className={`px-4 py-2 text-sm font-medium transition-colors ${
-            tab === 'company'
+            tab === 'company-courses'
               ? 'border-b-2 border-primary text-primary'
               : 'text-muted-foreground hover:text-foreground'
           }`}
@@ -496,7 +501,7 @@ export default function AdminStaffPage() {
 
       {tab === 'structure' && <StructureTab />}
       {tab === 'rules' && <RulesTab />}
-      {tab === 'company' && <CompanyCoursesTab />}
+      {tab === 'company-courses' && <CompanyCoursesTab />}
       </>
 
       )}
