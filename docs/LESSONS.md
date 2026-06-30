@@ -1772,3 +1772,124 @@ neighbouring tests.
   `app/core/rate_limit.py` (lazy `aioredis.from_url`).
 - Commit `4636762` — the reverted Epic A. Read it via
   `git show 4636762^..4636762` to see what NOT to do.
+
+## 2026-06-30 — Сначала проверь БД сам, потом пиши фикс
+
+# Symptom
+Стал писать `DepartmentLocator` type в бэке на основе предположения
+«в проде 0 tenants с `department_id` заполненным». Askar в ответ:
+«опять забыл что у тебя есть секреты доступа к БД?». Прав.
+
+# Root cause
+Я знал что `apps/api/.env` содержит `DATABASE_URL` к Supabase
+(это записано в AGENTS.md / user memory), но **забыл это в
+контексте** и попросил Askar'а вручную делать SQL-проверку.
+Потерял ~15 минут на ровном месте.
+
+# Fix
+Перед тем как предлагать «продуктовое» решение, **сам** открой
+`apps/api/.env`, вытащи `DATABASE_URL`, подключись через
+`asyncpg` (или `psycopg2`) и проверь факты в БД. Секреты из
+`.env` **не печатай** — клади в `$env:DATABASE_URL` или читай
+через `python -c` / `os.environ` после grep по файлу.
+
+# Detection rule
+**В любой задаче про бэк/БД:** первый шаг = `Get-Content
+apps/api/.env | Select-String DATABASE_URL` (без печати значения).
+Если в чате вижу что-то про «посмотри в БД» / «у тебя неправильно» /
+«а почему ты предполагаешь» — значит **сам** не проверил.
+Остановись, проверь, **потом** пиши.
+
+# Iron Law (project rule)
+У меня есть полный доступ к:
+  - прод-БД (Supabase через `DATABASE_URL` в `apps/api/.env`)
+  - Render API (`RENDER_API_KEY`, `RENDER_SERVICE_ID` в .env)
+  - Vercel API (если есть токен у Askar'а)
+  - LLM-провайдерам (через `provider_keys` или env)
+**Не проси Askar'а сделать то, что ты можешь сделать сам за 30 секунд.**
+См. AGENTS.md раздел «ОДИН АГЕНТ» — там это правило уже записано.
+
+## 2026-06-30 — Smoke-тест INSERT-фикса должен реально делать INSERT
+
+# Symptom
+Задеплоил фикс `attach_course_to_department` с auto-create Department.
+Smoke-тест через `asyncpg` (SELECT проверки + детальный план INSERT)
+показал «OK». Askar нажал «Привязать» — UI показал **404 Not Found**.
+В Render логах — никакого traceback, просто 404.
+
+# Root cause
+Предыдущий коммит добавил в `Department` ORM колонки `description`,
+`code`, `head_user_id`, `created_at` (которые были в БД но отсутствовали
+в ORM). Я не проверил реальную nullability через `information_schema`,
+а выставил `description: nullable=True`. Реальная schema:
+`description nullable=NO`. `asyncpg.NotNullViolationError` ловится
+моим `except IntegrityError`, делает rollback + re-fetch → None → 404.
+
+Мой smoke-тест через `asyncpg` (`db_check_dept_ids.py`) делал **только
+SELECT проверки** (count positions, list departments). Он не делал
+**INSERT** через мой helper, поэтому не поймал баг. Unit-тесты тоже
+не поймали — мокают db, не SQLAlchemy реальной schema.
+
+# Fix
+1. **Всегда** перед объявлением nullable в ORM: SELECT
+   `is_nullable FROM information_schema.columns WHERE table_name=...`.
+2. Smoke-тест для **INSERT-фикса** должен реально **пройти через
+   INSERT** (и **rollback** в конце) — не только SELECT.
+3. Добавить unit-тест на nullable=NOT NULL поля — мокать db.add
+   и проверять что insert передал все required поля.
+
+# Detection rule
+**Pre-deploy check** для любого auto-create / insert helper:
+1. Открыть `information_schema.columns` для target table.
+2. Сравнить каждое `nullable=NO` поле с kwargs, которые передаёт
+   helper. Если поле NOT NULL в БД, оно либо должно быть в kwargs,
+   либо иметь `default=` в ORM.
+3. Добавить `pytest`-тест который инстанцирует model **без** explicit
+   NOT NULL полей и проверяет что они заполнены (через
+   `model.field is not None` после `__init__`).
+
+# Iron Law
+**Smoke-тест INSERT-фикса = реальный INSERT, не SELECT.**
+**Перед объявлением колонки nullable в ORM = SELECT из information_schema.**
+Урок стоил ещё одного деплоя + одного «Askar нажал кнопку и увидел
+404» — мог бы поймать локально за 30 секунд, если бы smoke-тест
+реально сделал INSERT.
+
+## 2026-06-30 — `scalars()` на single-column SELECT возвращает значения, не Row
+
+# Symptom
+После фикса NotNullViolationError Askar нажал «Привязать» — UI показал
+**500**. Render лог:
+  TypeError: 'asyncpg.pgproto.pgproto.UUID' object is not subscriptable
+  File "batch_service.py", line 105, in recompute_department_members
+    position_ids = [row[0] for row in pos_result.scalars().all()]
+
+# Root cause
+`result.scalars()` на single-column SELECT возвращает **scalar values
+напрямую** (asyncpg.UUID объекты), не Row. `row[0]` пытается сделать
+`asyncpg.UUID[0]` — TypeError. Это **pre-existing** баг.
+
+# Почему не падал раньше
+Legacy Excel-imported тенанты имели `Position.department_id = NULL` для
+всех строк. Helper `recompute_department_members`:
+  position_ids = [row[0] for row in ...]
+  if not position_ids: return result  ← short-circuit
+После моего backfill `Position.department_id IS NOT NULL` стал правдой
+для 2 строк, `position_ids` непуст, итерация выполнилась, упало.
+
+# Fix
+`list(result.scalars().all())` — scalars() уже возвращает значения.
+Применил ко всем 3 sites: position_ids, holder_ids, user_ids.
+
+# Detection rule
+**При рефакторе / новой фиче которая активирует dormant path** —
+прогнать через `EXPLAIN` или `pytest --cov` или **smoke-тест** который
+реально доходит до строки (а не short-circuit). Конкретнее: если я
+меняю код, который до этого **никогда не выполнялся** (например,
+`recompute_department_members` для dept с 0 holder'ами) — это
+dormant bug farm.
+
+# Iron Law
+**Любой pre-existing `if not X: return` short-circuit скрывает
+баги в коде ПОСЛЕ него.** Когда я fix-шу что-то upstream, dormant
+path может упасть. Прогоняй smoke-тест, который обходит short-circuit.

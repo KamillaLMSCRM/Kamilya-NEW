@@ -74,6 +74,10 @@ lms/
 | [TZ.md](./TZ.md) | Полная техническая спецификация (18 разделов) |
 | [docs/audit-2026-06-28-full.md](./docs/audit-2026-06-28-full.md) | Аудит кодовой базы (36 findings, 6 critical) |
 | [docs/adr/](./docs/adr/) | 9 ADR: stack, monorepo, multitenant, RLS, upload, AI, auth, storage |
+| [docs/adr/0012-rbac-admin-vs-methodologist.md](./docs/adr/0012-rbac-admin-vs-methodologist.md) | RBAC admin vs methodologist (раздел §6 — enrollments joined to content domain) |
+| [docs/LESSONS.md](./docs/LESSONS.md) | Уроки (4 последних от 2026-06-30) |
+| [docs/plans/](./docs/plans/) | Планы эпиков (active + done/) |
+| [docs/handoffs/](./docs/handoffs/) | Handoff-документы для передачи работы между сессиями/агентами |
 
 ## Архитектурные принципы
 
