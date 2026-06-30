@@ -107,20 +107,33 @@ async def list_positions(
     for pos in positions:
         course_ids = await _get_course_ids(db, pos.id)
         live = await _live_employee_count(db, pos.id, user.tenant_id)
-        responses.append(PositionResponse(
-            id=pos.id, tenant_id=pos.tenant_id, name=pos.name,
-            department=pos.department, level=pos.level,
-            responsibilities=pos.responsibilities, requirements=pos.requirements,
-            course_ids=course_ids,
-            employee_count=pos.employee_count,
-            current_employee_count=live,
-            employee_count_stale=pos.employee_count != live,
-            # Backfill legacy NULL created_at with the position's
-            # position_id-first-seen heuristic is unreliable; we just
-            # trust the schema's `created_at: datetime | None = None`
-            # to handle it. See LESSONS.md Lesson 14.
-            created_at=pos.created_at,
-        ))
+        try:
+            responses.append(PositionResponse(
+                id=pos.id, tenant_id=pos.tenant_id, name=pos.name,
+                department=pos.department, level=pos.level,
+                responsibilities=pos.responsibilities, requirements=pos.requirements,
+                course_ids=course_ids,
+                employee_count=pos.employee_count,
+                current_employee_count=live,
+                employee_count_stale=pos.employee_count != live,
+                created_at=pos.created_at,
+            ))
+        except Exception as exc:
+            # Print to stdout flush=True so render.com CLI log actually
+            # surfaces it (uvicorn logs to stderr/stdout, but render CLI
+            # buffers only certain levels — stderr+flush is reliable).
+            import traceback
+            print(
+                f"[DEBUG list_positions FAIL] pos_id={pos.id} exc={type(exc).__name__}:{exc}",
+                flush=True,
+            )
+            print(
+                f"[DEBUG list_positions FAIL] attrs: id={pos.id} tenant={pos.tenant_id} "
+                f"name={pos.name!r} dept={pos.department!r} created_at={pos.created_at!r}",
+                flush=True,
+            )
+            print(traceback.format_exc(), flush=True)
+            raise
     return responses
 
 
