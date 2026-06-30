@@ -201,7 +201,19 @@ async def register(req: UserCreate, request: Request, response: Response, db=Dep
     result = await db.execute(select(Tenant).where(Tenant.slug == req.email.split("@")[-1]))
     tenant = result.scalar_one_or_none()
     if not tenant:
-        tenant = Tenant(id=req.tenant_id, name=req.email.split("@")[-1], slug=req.email.split("@")[-1], status="trial")
+        # Auto-create a new tenant from the email domain. The id is
+        # server-generated (uuid4); we never trust the client to
+        # provide a tenant_id. Lesson 17 cross-cutting rule: trust
+        # the JWT for tenant_id, derive from email domain for new
+        # tenants, never from request body.
+        from uuid import uuid4
+        domain = req.email.split("@")[-1]
+        tenant = Tenant(
+            id=uuid4(),
+            name=domain,
+            slug=domain,
+            status="trial",
+        )
         db.add(tenant)
         await db.flush()
 

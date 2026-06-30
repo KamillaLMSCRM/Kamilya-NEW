@@ -28,7 +28,22 @@ async def send_telegram_message(chat_id: int, text: str):
 
 @router.post("/webhook")
 async def handle_telegram_webhook(request: Request, db: AsyncSession = Depends(get_db)):
-    """Handle incoming Telegram updates."""
+    """Handle incoming Telegram updates.
+
+    Security (added 2026-06-30, smoke Bug 3): if a webhook secret is
+    configured in settings, require the X-Telegram-Bot-Api-Secret-Token
+    header to match. Telegram sends this header when you call setWebhook
+    with secret_token. Without this check, anyone who can reach the URL
+    can submit fake updates (e.g. tricking the bot into sendMessage to
+    arbitrary chat_ids).
+    """
+    if settings.TELEGRAM_WEBHOOK_SECRET:
+        provided = request.headers.get("X-Telegram-Bot-Api-Secret-Token", "")
+        # Constant-time compare avoids leaking length / prefix.
+        import hmac
+        if not hmac.compare_digest(provided, settings.TELEGRAM_WEBHOOK_SECRET):
+            raise HTTPException(status_code=404, detail="Not Found")
+
     update = await request.json()
 
     # Extract message data
