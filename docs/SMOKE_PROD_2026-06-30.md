@@ -204,3 +204,105 @@ UI smoke next.
    task progress and the resulting enrollments).
 6. **Add 1 integration test per critical endpoint** (Lesson 5b
    follow-up: pool visibility for `document_embeddings`).
+
+---
+
+## Round 2 of smoke — 2026-06-30 10:00-11:00
+
+After the three Bug 1-3 fixes from the first round (commits 936137b,
+fc318b4, env-vars TELEGRAM_WEBHOOK_SECRET), continued smoke to verify
+the B1c apply-rules flow and look for any remaining prod bugs.
+
+### Verified working (live in prod)
+
+| Action | Endpoint | Result |
+|---|---|---|
+| Re-test cert verify | `GET /api/v1/certificates/verify/INVALID` | 404 (was 500) |
+| Re-test register | `POST /api/v1/auth/register` | 200 + tokens (was 500) |
+| Re-test telegram webhook (no secret) | `POST /api/v1/telegram/webhook` | 404 (was 200) |
+| Re-test telegram webhook (with secret) | `POST /api/v1/telegram/webhook` + header | 200 (was 200, but now authed) |
+| Create new course | `POST /api/v1/courses` | 200 + new course id |
+| Get course structure | `GET /api/v1/courses/{id}/structure` | 200, empty modules |
+| Get positions | `GET /api/v1/positions` | 200, returns array directly (not items/total) |
+| Telegram webhook setWebhook | `POST api.telegram.org/bot.../setWebhook` | "Webhook was set" |
+
+### Bug 4 found: POST /api/v1/positions -> 500
+
+After Bug 1-3 were fixed, the smoke continued to `POST /api/v1/positions`
+to create a new position for the B1c test. The endpoint returned 500
+with:
+
+```
+AttributeError: 'str' object has no attribute '_sa_instance_state'
+```
+
+The Position model declared `department` twice — once as a Text
+Column (legacy free-text field) at line 87 of
+`apps/api/app/modules/positions/models.py`, and once as a
+`relationship("Department")` at line 104. SQLAlchemy treats the
+second declaration as overriding the first, so `department`
+resolved to a relationship, not a Column. When the handler passed
+a string (e.g. `"IT"`), the cascade machinery tried to interpret
+it as an ORM instance and crashed.
+
+**Fix (commit d39e106):** Renamed the relationship to
+`department_obj` so both stay accessible. The Column is still
+`department` (preserves the existing code in router.py /
+jd_router.py / recommendations_router.py that does
+`pos.department` expecting a string). Smoke retest: 200 with
+PositionResponse.
+
+### Bug 5 found: POST /api/v1/positions/{id}/courses -> 500
+
+With the new position created, the B1c test continued to attach a
+course to it. `POST /api/v1/positions/{id}/courses` returned 500:
+
+```
+IntegrityError: null value in column 'tenant_id' of relation
+  'position_courses' violates not-null constraint
+```
+
+The PositionCourse model (apps/api/app/modules/positions/models.py:38)
+did not declare `tenant_id` at all, but the production DB column
+`position_courses.tenant_id` was NOT NULL — added by an untracked
+manual migration. Three insert sites passed `PositionCourse(...)`
+without `tenant_id`, and the DB rejected all of them.
+
+**Fix (commits 8638ea3 + 942f3ce):**
+1. Added `tenant_id: Column(UUID, nullable=False, index=True)` to
+   the PositionCourse model.
+2. Passed `user.tenant_id` to all three insert sites:
+   - `router.py::attach_course_to_position`
+   - `router.py::_sync_courses` (gains new `tenant_id` parameter)
+   - `recommendations_router.py::create_courses`
+3. Smoke retest: 200 with PositionResponse (course_ids includes
+   the attached course, re_enrolled=0 because the position has 0
+   employees). Confirmed row in `position_courses` via direct
+   asyncpg query (4 rows total, our new one is the 3rd).
+
+### Lessons 19-20 written up
+
+The schema-drift class of bug (Bug 1 certificates, Bug 5 position
+courses) is now documented in `docs/LESSONS.md` Lessons 19 and 20:
+
+- **Lesson 19:** Production schema drift — code is not the source
+  of truth, the DB is. Migrations don't run in prod (alembic is
+  not in startCommand); Base.metadata.create_all was used to set
+  up the initial schema. Detection: query
+  `information_schema.columns` and diff against `Base.metadata`.
+- **Lesson 20:** Render `PUT /env-vars` replaces ALL. There is no
+  PATCH / additive endpoint. The 200 is silent on partial writes.
+  Detection: after every PUT, GET back and verify all keys are
+  present.
+
+### Cross-cutting follow-up
+
+All five bugs found in the 2026-06-30 smoke (Bugs 1-5) share a
+common root cause: **production DB and migrations/code have
+drifted because the migration chain does not run on deploy**.
+
+**TODO (tracked, not done today):** add `alembic upgrade head`
+back into the Render `startCommand` so future migrations apply
+automatically. Without this, every migration since 0001 has
+been a no-op in production, and the same drift will recur.
+
