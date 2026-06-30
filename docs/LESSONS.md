@@ -1450,3 +1450,174 @@ replacing), fix it.
   in `users.role` (which is a string); it is a row in
   `user_roles` (a UUID-keyed mapping). The two are different
   by design.
+
+
+---
+
+## 2026-06-30 — Course assignment = 4-level package model (vision vs code)
+
+Askar articulated the product vision for course assignment in
+plain terms. The model has 4 levels of attachment + 2 axes
+(level vs obligation). Current code implements 3 of 4 levels
+and most of the invariants. **Lesson 22** captures the gap
+analysis so the next agent doesn't re-derive it.
+
+### The 4-level package model
+
+A course is attached to a person via one of 4 levels (each
+successively narrower):
+
+| Level | What it does | Example |
+|---|---|---|
+| 1. **Tenant-wide** (company) | One rule, all employees get it | "Охрана труда — для всех" |
+| 2. **Department-wide** | One rule, all in a department | "1С — для бухгалтерии" |
+| 3. **Position-wide** | One rule, all on a position | "Excel advanced — для Chief Accountant" |
+| 4. **Personal (manual)** | Per-user override or addition | "Иванов — спецкурс по Excel 365" |
+
+A user's **effective** set of courses = union of all 4 levels
+that cover them. This is the same model as RBAC role-based
+access, just applied to training.
+
+### Two axes: level × obligation
+
+| Axis | Question | Example |
+|---|---|---|
+| Level (1-4) | **Кому** положен курс | Position → "for Chief Accountants" |
+| Obligation (required/recommended) | **Надо ли** проходить | Required → counts toward ready_percent |
+
+These are independent. A level-1 course can be recommended
+("soft onboarding"), a level-4 personal override can be required
+("must complete before promotion"). Don't conflate them.
+
+### The 3 invariants
+
+1. **Auto-recompute on any change** — when rules change (course
+   attached to position, position assigned to user, etc.),
+   `recompute_enrollments` runs and re-derives the user's
+   enrollment set. Caller doesn't manually create enrollments.
+
+2. **Completed is never removed** — when a rule is detached, all
+   in-progress enrollments drop, but `status='completed'` rows
+   stay. The user keeps their certificate, their history.
+
+3. **Personal is never auto-removed** — when a level-2/3 rule
+   changes, the manual enrollments (source='manual') are
+   preserved. Methodologist's manual decisions are not silently
+   overridden.
+
+### What the current code does (gap analysis)
+
+| Level | Code | Status |
+|---|---|---|
+| 1. Tenant-wide | `TenantCourse` table — **does not exist** | ❌ **Missing** |
+| 2. Department | `DepartmentCourse` + `recompute_department_members` | ✅ Works |
+| 3. Position | `PositionCourse` + `recompute_position_holders` | ✅ Works |
+| 4. Personal | `Enrollment.source='manual'` via `POST /v1/courses/{id}/enrollments` | ⚠️ Code works, but `require_role` doesn't include `methodologist` (RBAC drift) — `admin/org_admin/teacher` only |
+
+| Invariant | Code | Status |
+|---|---|---|
+| Position > Department priority | `recompute_enrollments:88-111` | ✅ Works |
+| Completed protected | `recompute_enrollments:144-152` | ✅ Works |
+| Manual never auto-removed | `recompute_enrollments:124-130` | ✅ Works |
+| Auto-recompute triggers | `staff_import_service.py:592-613` (Celery dispatch) | ✅ Works |
+
+### What needs to be built
+
+#### Epic A — Tenant-wide courses (level 1) [MISSING]
+
+This is the only level currently absent. Without it, Askar
+cannot say "Охрана труда — обязательна для всех". The
+implementation pattern is identical to level 2/3, just with a
+broader scope:
+
+1. **Schema migration** `0039_tenant_courses.py`:
+   ```sql
+   CREATE TABLE tenant_courses (
+       tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+       course_id UUID NOT NULL,
+       required BOOLEAN NOT NULL DEFAULT true,
+       created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+       PRIMARY KEY (tenant_id, course_id)
+   );
+   ```
+2. **Recompute kernel** `recompute_enrollments:88` add a step
+   1.5: collect from `tenant_courses WHERE tenant_id=$1`,
+   assign `expected[course_id] = "tenant"` with the **lowest**
+   priority (so position/department/manual override it).
+3. **API**: `POST /v1/tenants/{id}/courses` (methodologist +
+   admin). On attach, fan-out to all users in the tenant
+   (`recompute_all_tenant_users`).
+4. **UI**: in `/admin/staff?tab=rules` add a "Корпоративные
+   курсы" section above position/department.
+
+#### Epic B — Personal courses UI (level 4) [PARTIAL]
+
+Code works, but two things need fixing:
+
+1. `app/modules/enrollments/router.py:65` — `require_role`
+   doesn't include `methodologist`. Add it. (RBAC drift, same
+   pattern as Lesson 21.)
+2. UI: in `/positions/[id]/employees/{uid}` add "Назначить курс
+   лично" button. Currently no UI surface for level-4.
+
+#### Epic C — Render startCommand [BLOCKER]
+
+`alembic upgrade head` is missing from Render's startCommand.
+Without it, **Epic A's migration 0039 will be a no-op in prod**,
+same as every other migration since 0001. This is the root
+cause of all schema-drift bugs (Lessons 19, 21) and will recur
+on every future migration.
+
+Fix: `alembic upgrade head && uvicorn app.main:app --host
+0.0.0.0 --port $PORT`.
+
+### Askar's main test scenario (the one that matters)
+
+> HR грузит Excel с 50 сотрудниками → методолог привязывает
+> «Охрану труда» на уровне компании (1 клик) → у всех 50 сразу
+> появляется запись. Методолог привязывает «1С» на должность
+> «Бухгалтер» (1 клик) → у 3 бухгалтеров добавляется. Иванову
+> лично — advanced-курс (1 клик) → 1 запись. **Итого: 4 клика,
+> 50 + 3 + 1 записей появились автоматически.**
+
+**Сегодня в проде:** сценарий **не работает**. После загрузки
+штатки методолог не может привязать курс на уровень компании
+(нет TenantCourse), только на должность/отдел. Персональные
+назначения возможны через API но не через UI.
+
+### Detection rule
+
+When working on course assignment, before adding any new
+"rule" type, check:
+
+```bash
+# Is this rule at the tenant level?
+grep -nE "TenantCourse|tenant_courses" apps/api/app/
+
+# Is this rule at the personal level?
+grep -nE "source.*manual|user_id.*rule" apps/api/app/models/enrollment.py
+```
+
+If neither matches — you're introducing a new level. Make sure
+it integrates with `recompute_enrollments`, not around it.
+
+### Why this lesson matters
+
+Three of the four levels + all three invariants are already
+implemented correctly in `recompute_enrollments`. The code is
+**not the bottleneck** — the missing level 1 is. The next
+agent reading this should not be tempted to "rewrite" the
+assignment kernel. The kernel is fine. Add level 1, fix the
+two minor gaps, and the product story is complete.
+
+### Related
+
+- ADR-0011 (departments refactor): the architectural foundation
+  that level 1 would extend.
+- ADR-0012 (RBAC split): the source of the level-4 RBAC drift
+  in Epic B.
+- `app/modules/positions/assignment_service.py` — the kernel to
+  extend, not rewrite.
+- `app/modules/positions/batch_service.py:90-119` — the
+  `recompute_department_members` pattern to copy for
+  `recompute_all_tenant_users`.
