@@ -157,9 +157,6 @@ async def refresh(req: RefreshRequest, request: Request, response: Response, db=
         expires_in=900,
         user=UserResponse.model_validate(user),
     )
-        expires_in=900,
-        user=user_resp,
-    )
 
 
 @router.post("/logout")
