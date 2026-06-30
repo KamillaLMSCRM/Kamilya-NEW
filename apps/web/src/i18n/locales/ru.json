@@ -60,11 +60,11 @@
     "aiGeneration": "AI Генерация",
     "userManagement": "Управление пользователями",
     "positions": "Должности",
-    "staffRoster": "Штатка",
     "staffTree": "Структура штата",
     "courseAssignments": "Привязка курсов",
     "companyCourses": "Курсы компании",
-    "certificateSettings": "Настройки сертификата"
+    "certificateSettings": "Настройки сертификата",
+    "staffSchedule": "Штатное расписание"
   },
   "auth": {
     "login": "Вход",

@@ -29,11 +29,13 @@ test('dashboard and sub-pages return valid responses', async ({ page }) => {
     '/admin/enrollments',
     '/admin',
     '/certificates',
-    // ADR-0012 §6 + TZ_COURSE_ASSIGNMENT_ACCESS_v1 §1.1: course-assignment
-    // deep links. Sidebar uses query strings to land on the right tab in
-    // the unified /admin/staff page; tests verify these routes load.
-    '/admin/staff?tab=rules',
-    '/admin/staff?tab=company-courses',
+    // 2026-06-30: removed the deep-link routes to specific tabs of
+    // /admin/staff. Sidebar / Cmd-K now goes through the single
+    // "Штатное расписание" entry; tabs are reached inside the page.
+    // The two tab deep-links are still valid (server keeps ?tab= as
+    // a feature), so leaving them out of the smoke list is just a
+    // navigation simplification, not a deprecation.
+    '/admin/staff',
   ];
 
   for (const route of routes) {

@@ -60,11 +60,11 @@
     "aiGeneration": "AI Өндіру",
     "userManagement": "Пайдаланушыларды басқару",
     "positions": "Лауазымдар",
-    "staffRoster": "Штат",
     "staffTree": "Штат құрылымы",
     "courseAssignments": "Курстарды байланыстыру",
     "companyCourses": "Компания курстары",
-    "certificateSettings": "Сертификат баптаулары"
+    "certificateSettings": "Сертификат баптаулары",
+    "staffSchedule": "Штаттық кесте"
   },
   "auth": {
     "login": "Кіру",

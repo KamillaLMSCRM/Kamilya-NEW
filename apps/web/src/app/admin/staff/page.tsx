@@ -244,7 +244,7 @@ export default function AdminStaffPage() {
               : 'text-muted-foreground hover:text-foreground'
           }`}
         >
-          📐 Правила
+          📐 Привязка курсов
         </button>
         <button
           role="tab"

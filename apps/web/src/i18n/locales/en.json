@@ -60,11 +60,11 @@
     "aiGeneration": "AI Generation",
     "userManagement": "User Management",
     "positions": "Positions",
-    "staffRoster": "Staff roster",
     "staffTree": "Staff structure",
     "courseAssignments": "Course assignments",
     "companyCourses": "Company-wide courses",
-    "certificateSettings": "Certificate settings"
+    "certificateSettings": "Certificate settings",
+    "staffSchedule": "Staff schedule"
   },
   "auth": {
     "login": "Login",

@@ -54,13 +54,10 @@ export default function CommandPalette() {
     allItems.push(
       { label: t('courses.enrollments'), href: '/admin/enrollments', icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" x2="19" y1="8" y2="14"/><line x1="22" x2="16" y1="11" y2="11"/></svg> },
       { label: t('quiz.title'), href: '/quizzes', icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg> },
-      // TZ_COURSE_ASSIGNMENT_ACCESS_v1 §1.1: levels 2/3 — bind courses to
-      // positions and departments. Surfaced as Cmd-K shortcuts so the
-      // methodologist can jump straight to the rules without scrolling
-      // the sidebar.
-      { label: t('nav.courseAssignments'), href: '/admin/staff?tab=rules', icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg> },
-      // Level 1 — batch-attach to every department in the tenant.
-      { label: t('nav.companyCourses'), href: '/admin/staff?tab=company-courses', icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="M2 8h20"/><path d="M10 4v4"/><path d="M14 4v4"/></svg> },
+      // 2026-06-30: removed /admin/staff?tab=rules and ?tab=company-courses
+      // Cmd-K entries. They were deep-links into the same page that
+      // "Штатное расписание" already covers via its tabs. Keeping them
+      // would re-introduce the duplicate-navigation UX we just removed.
     );
   }
 

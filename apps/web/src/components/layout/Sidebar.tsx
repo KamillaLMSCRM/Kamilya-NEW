@@ -97,20 +97,25 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
       ],
     },
     {
-      // "Управление курсами" section — replaces the old "Персонал" section
-      // (renamed 2026-06-30 per architect). The workflow that lives here is
-      // the full course-assignment pipeline, not just staff roster:
-      //   Штатка → Должности → Привязка курсов (уровни 2+3) →
-      //   Курсы компании (уровень 1) → Ручные записи (уровень 4).
-      // See TZ_COURSE_ASSIGNMENT_ACCESS_v1 §1.1 for the 4-level model and
-      // TZ_JOB_INSTRUCTION_ONBOARDING_v1 for ДИ-driven onboarding courses.
+      // "Управление курсами" section. The course-assignment workflow
+      // lives inside "Штатное расписание" (4 tabs: Импорт / Структура /
+      // Привязка курсов / Курсы компании). Direct user→course assignment
+      // (level-4 manual override) lives at its own URL. See
+      // TZ_COURSE_ASSIGNMENT_ACCESS_v1 §1.1 for the 4-level model.
+      //
+      // 2026-06-30: removed the duplicated "Привязка курсов" and
+      // "Курсы компании" sidebar entries — they deep-linked into
+      // /admin/staff?tab=... which is the same place the
+      // "Штатное расписание" entry already points to. Renamed
+      // "Штатка" → "Штатное расписание" to match the page header.
       title: t('sidebar.courseManagement'),
       items: [
         {
-          // Штатка — оргструктура (отделы / должности / сотрудники), не
-          // импорт. Импорт живёт в первой вкладке той же страницы.
-          // Deep-link ?tab=structure — чтобы юзер сразу видел дерево.
-          label: t('nav.staffRoster'),
+          // Staff schedule ("Штатное расписание"). Page header reads the
+          // same; we use the full wording here so the sidebar entry
+          // doesn't look like a nickname. ?tab=structure deep-links
+          // into the org-chart tab, not the importer.
+          label: t('nav.staffSchedule'),
           href: '/admin/staff?tab=structure',
           icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></svg>,
           roles: ['admin', 'org_admin', 'teacher'],
@@ -124,30 +129,9 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
           roles: ['admin', 'org_admin', 'teacher'],
         },
         {
-          // Course assignments — bind courses to positions (level 3) and
-          // departments (level 2). The RulesTab inside /admin/staff powers
-          // both. Deep-linked via ?tab=rules so Cmd-K / external links land
-          // on the right tab.
-          label: t('nav.courseAssignments'),
-          href: '/admin/staff?tab=rules',
-          icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>,
-          roles: ['admin', 'org_admin', 'teacher'],
-        },
-        {
-          // Company-wide courses — level 1 in the assignment model. Batch-
-          // attach a course to every department in the tenant. See
-          // TZ_COURSE_ASSIGNMENT_ACCESS_v1 §1.1 «Уровень 1».
-          label: t('nav.companyCourses'),
-          href: '/admin/staff?tab=company-courses',
-          icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect width="20" height="16" x="2" y="4" rx="2" /><path d="M2 8h20" /><path d="M10 4v4" /><path d="M14 4v4" /></svg>,
-          roles: ['admin', 'org_admin', 'teacher'],
-        },
-        {
-          // Enrollments (direct user→course assignment) — shared
-          // between admin and methodologist (teacher). ADR-0012
-          // treats direct assignment as part of the content domain
-          // (TZ_COURSE_ASSIGNMENT_ACCESS_v1 §1.2 level-4 manual
-          // override), not pure tenant infrastructure.
+          // Direct user→course assignment (level-4 manual override).
+          // ADR-0012 keeps this shared between admin and methodologist
+          // (teacher) — content domain, not pure tenant infrastructure.
           label: t('courses.enrollments'),
           href: '/admin/enrollments',
           icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><line x1="19" x2="19" y1="8" y2="14" /><line x1="22" x2="16" y1="11" y2="11" /></svg>,
