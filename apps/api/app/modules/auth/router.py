@@ -61,6 +61,8 @@ REFRESH_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 30  # 30 days, matches REFRESH_T
 
 
 def _set_refresh_cookie(response: Response, refresh_token: str) -> None:
+    import logging
+    logger = logging.getLogger(__name__)
     response.set_cookie(
         key=REFRESH_COOKIE_NAME,
         value=refresh_token,
@@ -78,6 +80,14 @@ def _set_refresh_cookie(response: Response, refresh_token: str) -> None:
         # (apps/web/src/middleware.ts) couldn't see the refresh cookie on
         # the /dashboard navigation and 307'd the user back to /login.
         partitioned=True,
+    )
+    # Debug for current login-flow investigation (2026-06-30). The frontend
+    # shows 401 on every /refresh, so we log whether the Set-Cookie header
+    # actually got attached to the outgoing response.
+    set_cookie_header = response.headers.get('set-cookie')
+    logger.info(
+        "DEBUG _set_refresh_cookie: set_cookie_present=%s value_len=%d path=/api/v1/auth secure=True samesite=None partitioned=True",
+        set_cookie_header is not None, len(refresh_token),
     )
 
 
@@ -139,7 +149,21 @@ async def login(req: LoginRequest, request: Request, response: Response, db=Depe
 async def refresh(req: RefreshRequest, request: Request, response: Response, db=Depends(get_db)):
     # Prefer refresh token from cookie; fall back to request body for legacy clients.
     refresh_token = _read_refresh_cookie_or_body(request, req.refresh_token)
+    import logging
+    logger = logging.getLogger(__name__)
+    cookie_present = request.cookies.get(REFRESH_COOKIE_NAME) is not None
+    body_present = bool(req.refresh_token)
+    has_authorization = bool(request.headers.get('authorization'))
+    origin = request.headers.get('origin')
+    referer = request.headers.get('referer')
+    logger.info(
+        "DEBUG /refresh: ip=%s cookie_present=%s body_present=%s body_len=%d auth_present=%s origin=%r referer=%r",
+        request.client.host if request.client else "?",
+        cookie_present, body_present, len(req.refresh_token or ""),
+        has_authorization, origin, referer,
+    )
     if not refresh_token:
+        logger.info("DEBUG /refresh: missing token, rejecting with 401 (cookie=%s body=%s)", cookie_present, body_present)
         raise HTTPException(status_code=401, detail="Missing refresh token")
     try:
         # refresh_access_token rotates the refresh token and returns the new one.
