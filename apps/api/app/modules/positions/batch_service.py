@@ -80,7 +80,7 @@ async def recompute_position_holders(
             User.tenant_id == tenant_id,
         )
     )
-    holder_ids = [row[0] for row in holder_result.scalars().all()]
+    holder_ids = list(holder_result.scalars().all())
     for user_id in holder_ids:
         outcome = await recompute_enrollments(db, user_id)
         result.merge(outcome)
@@ -102,7 +102,18 @@ async def recompute_department_members(
             Position.tenant_id == tenant_id,
         )
     )
-    position_ids = [row[0] for row in pos_result.scalars().all()]
+    # Pre-existing bug fixed 2026-06-30: `pos_result.scalars().all()`
+    # on a single-column SELECT returns native `asyncpg.UUID` objects
+    # (not Row objects and not `uuid.UUID`). Iterating with `row[0]`
+    # then tried UUID[0] and raised
+    #   TypeError: 'asyncpg.pgproto.pgproto.UUID' object is not subscriptable
+    # The bug was dormant because legacy Excel-imported tenants had
+    # `Position.department_id = NULL` for every row, so the earlier
+    # `if not position_ids: return result` short-circuit masked it.
+    # After the slug-or-UUID fix backfills Position.department_id,
+    # recompute actually iterates — and crashed.
+    # Fix: take scalars() as-is (already UUID values, not Rows).
+    position_ids = list(pos_result.scalars().all())
     if not position_ids:
         return result
 
@@ -112,7 +123,7 @@ async def recompute_department_members(
             User.tenant_id == tenant_id,
         )
     )
-    user_ids = [row[0] for row in user_result.scalars().all()]
+    user_ids = list(user_result.scalars().all())
     for user_id in user_ids:
         outcome = await recompute_enrollments(db, user_id)
         result.merge(outcome)
