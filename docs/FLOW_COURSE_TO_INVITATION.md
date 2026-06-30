@@ -16,12 +16,12 @@
 [1] Методолог: AI generation     -> /api/v1/ai/generate-course (202 + Celery-like)
        Qwen -> DeepSeek failover. Stage progression в /ai/jobs/{id}
 [2] Методолог: Review + Publish  -> /api/v1/courses/{id}/review + /publish
-[3] HR/Admin: Staff import       -> /api/v1/admin/staff/import/preview + /commit
+[3] Методолог: Staff import       -> /api/v1/admin/staff/import/preview + /commit
        Парсит xlsx/csv. Auto-creates Position + Department.
        Commit диспатчит Celery: positions.apply_course_rules
-[4] HR/Admin: Position→Course    -> /api/v1/positions/{id}/courses (POST/DELETE)
+[4] Методолог: Position→Course    -> /api/v1/positions/{id}/courses (POST/DELETE)
        Sync recompute_enrollments для всех holders.
-[5] HR/Admin: Send invitation    -> /api/v1/users/invitations/bulk
+[5] Методолог: Send invitation    -> /api/v1/users/invitations/bulk
        Копирует invite_url в Slack/Telegram (НЕ email).
 [6] Сотрудник: Accept            -> /api/v1/invitations/{token}/accept
        Создаёт пароль. Активирует. Возвращает JWT для auto-login.
@@ -42,13 +42,13 @@
 | `POST /courses/{id}/review` | Bearer | superadmin, admin, org_admin, teacher |
 | `POST /courses/{id}/publish` | Bearer | superadmin, admin, org_admin, teacher |
 | `POST /courses/{id}/complete` | Bearer | any tenant user (student self-completes) |
-| `POST /admin/staff/import/preview` | Bearer | superadmin, admin, org_admin |
-| `POST /admin/staff/import/commit` | Bearer | superadmin, admin, org_admin |
-| `GET /admin/staff/apply-rules/status/{tid}` | Bearer | superadmin, admin, org_admin, **methodologist** |
-| `POST /positions/{id}/courses` | Bearer | any tenant user (no role check) |
-| `DELETE /positions/{id}/courses/{cid}` | Bearer | any tenant user |
-| `POST /positions/{id}/assign/{uid}` | Bearer | any tenant user |
-| `POST /users/invitations/bulk` | Bearer | superadmin, admin, org_admin |
+| `POST /admin/staff/import/preview` | Bearer | superadmin, admin, org_admin, **methodologist** |
+| `POST /admin/staff/import/commit` | Bearer | superadmin, admin, org_admin, **methodologist** |
+| `GET /admin/staff/apply-rules/status/{tid}` | Bearer | superadmin, admin, org_admin, methodologist |
+| `POST /positions/{id}/courses` | Bearer | methodologist, admin, superadmin |
+| `DELETE /positions/{id}/courses/{cid}` | Bearer | methodologist, admin, superadmin |
+| `POST /positions/{id}/assign/{uid}` | Bearer | any tenant user (TBD: should be methodologist per ADR §3) |
+| `POST /users/invitations/bulk` | Bearer | superadmin, admin, org_admin, **methodologist** |
 | `GET /invitations/{token}` | public (token) | — |
 | `POST /invitations/{token}/accept` | public (token) | — |
 
@@ -239,9 +239,9 @@ Body: file=<xlsx|csv>
 2. **422** если есть `invalid_rows` (полный rollback)
 3. **400** если нет валидных строк
 4. В одной DB транзакции:
-   - Auto-create `Position` для новых пар `(department, position)`. `level=""`, `responsibilities=""`, `requirements=""` — HR заполнит позже через `PUT /v1/positions/{id}`.
+   - Auto-create `Position` для новых пар `(department, position)`. `level=""`, `responsibilities=""`, `requirements=""` — методолог заполнит позже через `PUT /v1/positions/{id}`.
    - **Update** существующего user по `personnel_number` (case-insensitive, tenant-scoped). Меняет: first_name, last_name, email, phone, position_id. **НЕ трогает** role/status/is_active/password.
-   - **Create** нового user с `role="student"`, `is_active=True`, `password_hash=NULL`, `status="active"`. (HR повышает role отдельно через `POST /v1/users/{id}/role`.)
+   - **Create** нового user с `role="student"`, `is_active=True`, `password_hash=NULL`, `status="active"`. (Методолог повышает role отдельно через `POST /v1/users/{id}/role`.)
 5. COMMIT.
 
 **Auto-enrollment (после commit, async через Celery):**
@@ -404,7 +404,7 @@ POST /api/v1/users/invitations/bulk
    (default 3, range 1-30).
 
 **Важно:** **email НЕ отправляется**. Endpoint возвращает
-`invite_url` для HR, который копирует его в Slack/Telegram/email
+`invite_url` для методолога, который копирует его в Slack/Telegram/email
 **вручную**. Это **осознанное** решение для v1.0 (нет SMTP, нет
 SendGrid). Упомянуто в `AGENTS.md` "Domain context" секция.
 
@@ -568,7 +568,7 @@ apps/api/app/
 
 1. **No `POST /admin/staff/apply-rules`** (manual retroactive
    trigger). Только через `import/commit`. Нужно отдельный endpoint
-   если HR захочет re-run apply-rules для уже импортированных
+   если методолог захочет re-run apply-rules для уже импортированных
    пользователей после смены правил.
 2. **Course publish не проверяет `review_status`** (router.py:302).
    Admin может publish course с `pending` review.
