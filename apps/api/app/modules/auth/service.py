@@ -157,9 +157,13 @@ async def refresh_access_token(db: AsyncSession, refresh_token: str) -> tuple[st
     if not roles:
         roles = [user.role]
 
+    # tenant_id is normalised to str/None by the JWT encoder (see
+    # _json_safe_jwt_payload in app/core/auth.py). It accepts UUID
+    # | str | None and emits the right shape for jwt.encode's stdlib
+    # json.dumps. Direct callers don't need to str() it manually any more.
     new_access = create_access_token({
         "sub": str(user.id),
-        "tenant_id": user.tenant_id,  # pass UUID or None — never str(None)
+        "tenant_id": user.tenant_id,
         "roles": roles,
     })
     new_refresh = create_refresh_token({

@@ -61,8 +61,6 @@ REFRESH_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 30  # 30 days, matches REFRESH_T
 
 
 def _set_refresh_cookie(response: Response, refresh_token: str) -> None:
-    import logging
-    logger = logging.getLogger(__name__)
     response.set_cookie(
         key=REFRESH_COOKIE_NAME,
         value=refresh_token,
@@ -80,14 +78,6 @@ def _set_refresh_cookie(response: Response, refresh_token: str) -> None:
         # (apps/web/src/middleware.ts) couldn't see the refresh cookie on
         # the /dashboard navigation and 307'd the user back to /login.
         partitioned=True,
-    )
-    # Debug for current login-flow investigation (2026-06-30). The frontend
-    # shows 401 on every /refresh, so we log whether the Set-Cookie header
-    # actually got attached to the outgoing response.
-    set_cookie_header = response.headers.get('set-cookie')
-    logger.info(
-        "DEBUG _set_refresh_cookie: set_cookie_present=%s value_len=%d path=/api/v1/auth secure=True samesite=None partitioned=True",
-        set_cookie_header is not None, len(refresh_token),
     )
 
 
@@ -149,26 +139,11 @@ async def login(req: LoginRequest, request: Request, response: Response, db=Depe
 async def refresh(req: RefreshRequest, request: Request, response: Response, db=Depends(get_db)):
     # Prefer refresh token from cookie; fall back to request body for legacy clients.
     refresh_token = _read_refresh_cookie_or_body(request, req.refresh_token)
-    # TEMP 2026-06-30 round 2 — /refresh is still 401 after first fix. Need
-    # to know if cookie reaches server at all, and what payload is.
-    print(
-        f"[DEBUG /refresh ROUND2] cookie_present={request.cookies.get(REFRESH_COOKIE_NAME) is not None} "
-        f"cookie_len={len(request.cookies.get(REFRESH_COOKIE_NAME) or '')} "
-        f"body_present={bool(req.refresh_token)} body_len={len(req.refresh_token or '')} "
-        f"origin={request.headers.get('origin')!r} ref={request.headers.get('referer')!r}",
-        flush=True,
-    )
     if not refresh_token:
         raise HTTPException(status_code=401, detail="Missing refresh token")
     try:
         new_access, new_refresh = await refresh_access_token(db, refresh_token)
-    except Exception as exc:
-        import traceback
-        print(
-            f"[DEBUG /refresh ROUND2] refresh_access_token raised {type(exc).__name__}: {exc}",
-            flush=True,
-        )
-        print(traceback.format_exc(), flush=True)
+    except Exception:
         _clear_refresh_cookie(response)
         raise HTTPException(status_code=401, detail="Invalid refresh token")
     _set_refresh_cookie(response, new_refresh)

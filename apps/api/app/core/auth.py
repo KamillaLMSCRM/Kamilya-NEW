@@ -20,13 +20,52 @@ security = HTTPBearer()
 ROLES = ['superadmin', 'admin', 'org_admin', 'methodologist', 'teacher', 'student']
 
 
+def _json_safe_jwt_payload(data: dict) -> dict:
+    """Normalise a JWT payload so jwt.encode() never trips on UUID/datetime.
+
+    `jwt.encode` uses stdlib `json.dumps` under the hood; both Python's
+    stdlib json and PyJWT 2.x reject UUID/datetime values. We coerce:
+
+      - UUID → str(uuid) (None stays None — that's intentional, see
+        superadmin flow which uses tenant_id=None)
+      - datetime → isoformat() (only datetime *objects*, not ints —
+        `exp`/`iat`/`nbf` are intentionally emitted by callers as
+        datetime, which we convert here so the payload is JSON-clean)
+
+    Reasoning: callers throughout auth/service.py do `user.tenant_id`
+    which is a UUID column. We used to require them to wrap every
+    call site with `str(...)`. That's brittle — any new contributor who
+    forgets gets a 500. A single guard here at the encode boundary
+    enforces the contract once.
+    """
+    from uuid import UUID
+    from datetime import datetime
+    out: dict = {}
+    for k, v in data.items():
+        if isinstance(v, UUID):
+            out[k] = str(v) if v is not None else None
+        elif isinstance(v, datetime):
+            out[k] = v.isoformat()
+        elif isinstance(v, dict):
+            out[k] = _json_safe_jwt_payload(v)
+        elif isinstance(v, (list, tuple)):
+            out[k] = [
+                (str(x) if isinstance(x, UUID) else
+                 x.isoformat() if isinstance(x, datetime) else x)
+                for x in v
+            ]
+        else:
+            out[k] = v
+    return out
+
+
 def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
-    to_encode = data.copy()
+    to_encode = _json_safe_jwt_payload(data)
     now = datetime.now(UTC)
     expire = now + (expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES))
-    to_encode["exp"] = expire
-    to_encode["iat"] = now
-    to_encode["nbf"] = now
+    to_encode["exp"] = expire.isoformat()
+    to_encode["iat"] = now.isoformat()
+    to_encode["nbf"] = now.isoformat()
     to_encode["jti"] = str(uuid4())
     # aud/iss claims — required for validation on decode (see decode_token).
     # Callers may override them via the data dict, but defaults are always set.
@@ -36,12 +75,12 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None) -> s
 
 
 def create_refresh_token(data: dict) -> str:
-    to_encode = data.copy()
+    to_encode = _json_safe_jwt_payload(data)
     now = datetime.now(UTC)
     expire = now + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
-    to_encode["exp"] = expire
-    to_encode["iat"] = now
-    to_encode["nbf"] = now
+    to_encode["exp"] = expire.isoformat()
+    to_encode["iat"] = now.isoformat()
+    to_encode["nbf"] = now.isoformat()
     to_encode["jti"] = str(uuid4())
     to_encode["type"] = "refresh"
     to_encode.setdefault("aud", settings.JWT_AUDIENCE)

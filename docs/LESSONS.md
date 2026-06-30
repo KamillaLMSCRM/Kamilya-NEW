@@ -754,3 +754,127 @@ test will tell you about model/column mismatches during a
 `db.add(...)` call within microseconds, while the alternative
 (letting it hit production) costs you a 500 trace and an
 emergency rollback.
+
+
+
+---
+
+## 2026-06-30 — Schema `created_at: datetime` (required) silently 422'd list_positions
+
+### Symptom
+Right after B2 shipped, opening `/admin/staff?tab=rules` (RulesTab)
+or `/positions` in the browser **always returned 422** to any client.
+Browser console:
+
+```
+Failed to load resource: .../api/v1/positions  status of 422 ()
+```
+
+The page rendered empty («Нет должностей», «Отделы: Нет отделов»)
+even though `/admin/staff/structure` (which uses a *different* endpoint
+that does NOT funnel through the `PositionResponse` Pydantic schema)
+showed 10 real positions with employees. So the data was there —
+only the API path that built Pydantic responses was rejecting the
+whole tenant's list.
+
+### Root cause
+
+The `positions` table has a few rows in production with
+`created_at IS NULL`. This came from one of:
+
+1. **Legacy rows** predating migration that added `created_at` with
+   `server_default=func.now()`. The column was added, defaults
+   applied to *new* rows, but the old rows kept their pre-migration
+   `NULL`.
+2. **Bulk INSERT path** in `staff_import_service.py` / B1a staff import
+   that constructs `Position(...)` with positional kwargs and inserts
+   directly without reading back `created_at`. The DB-server default
+   fills it on insert, but if the code path later selects via
+   `select(Position)` without `expire_on_commit`, the stale ORM-side
+   object can have `created_at=None`.
+
+`PositionResponse` in `app/modules/positions/schemas.py` had:
+
+```python
+created_at: datetime       # REQUIRED, no default
+```
+
+Pydantic v2 raises `ValidationError` when it sees `None` for this field.
+FastAPI catches the exception during response serialization and converts
+it to **422 Unprocessable Content** for the entire list endpoint — so
+**one** NULL row makes the whole tenant's `GET /v1/positions` fail.
+
+### Fix
+
+Two layers, defense in depth:
+
+1. **Schema (`schemas.py`):** relax to `created_at: datetime | None = None`.
+   This means legacy data doesn't kill the list endpoint, but more
+   importantly, it provides a *visible signal* that something is off,
+   rather than a generic 422 with no idea what went wrong.
+
+2. **Migration `0037_backfill_positions_created_at.py`:** one-shot
+   data fix that does:
+
+   ```sql
+   -- 1. For positions that have users, take the earliest user.created_at
+   UPDATE positions AS p
+   SET created_at = (
+       SELECT MIN(u.created_at)
+       FROM users AS u
+       WHERE u.position_id = p.id
+         AND u.created_at IS NOT NULL
+   )
+   WHERE p.created_at IS NULL
+     AND EXISTS (SELECT 1 FROM users WHERE position_id = p.id AND created_at IS NOT NULL);
+
+   -- 2. Anything still NULL → now() (legacy positions with no users)
+   UPDATE positions
+   SET created_at = now()
+   WHERE created_at IS NULL;
+   ```
+
+   Same treatment for `position_quizzes` + `position_jd_versions` as
+   a defensive sweep.
+
+### Detection rule
+
+Any `db.execute(select(SomeModel))` followed by a Pydantic response
+schema that lists `datetime` without `= None` is a future-bug.
+Add a CI check:
+
+```bash
+git diff -- 'apps/api/app/modules/**/*.py'   | grep -E 'created_at: datetime\s*$'   && echo 'WARN: required datetime field — make sure your DB column has a default AND existing rows have non-null values'
+```
+
+Better: a `mypy`/`pydantic` model-level check could enforce that
+every `datetime` field either has `server_default` + populated rows,
+or has `= None`. Out of scope for now; the grep is a 30-second fix
+for the same class of bug.
+
+Operational lesson for monitoring: when ANY list endpoint starts
+returning 422 for a tenant that previously worked, suspect legacy
+NULL rows in a `*_at` column before suspecting the API code. Check
+DB first, fix forward via migration, not by relaxing the schema
+exclusively.
+
+### Why didn't existing tests catch it?
+
+The unit tests for `assignment_service` mock the DB and never
+serialize through `PositionResponse`. The integration tests for
+`positions/router.py` would have surfaced this, but the project
+doesn't appear to have any — `app/modules/positions/tests/` is
+empty. **Add at least one integration test per list endpoint that
+exercises a legacy-shape row** before declaring v1.0 done.
+
+### Related
+
+- This is *Lesson 12 + 13*'s mirror image: a schema declaration that
+  blocked production traffic because of a discrepancy between
+  declared-required and actual-data shape. Lesson 12 was the role
+  enum. Lesson 13 was the PositionCourse.tenant_id constructor kwarg.
+  Both share the symptom of "works in unit tests, breaks in prod
+  where data has more variety than dev fixtures."
+- Architectural: see `docs/adr/0012-rbac-admin-vs-methodologist.md`
+  for the broader rule that endpoints must be defensive about
+  cross-tenant data state.
