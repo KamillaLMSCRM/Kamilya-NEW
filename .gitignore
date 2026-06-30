@@ -106,3 +106,5 @@ docs/prompts/
 apps/api/summaries/
 
 .env*.local
+# one-off deploy scripts with embedded secrets — must NEVER commit
+*.deploy.sh
