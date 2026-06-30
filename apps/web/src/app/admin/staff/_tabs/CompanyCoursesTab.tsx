@@ -24,7 +24,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, Button, Badge, Table } from '@/components/ui';
+import { Card, CardContent, CardHeader, CardTitle, Button, Badge, Table, SearchInput } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
@@ -76,6 +76,7 @@ export default function CompanyCoursesTab() {
   const [loading, setLoading] = useState(true);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [pickerSearch, setPickerSearch] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   // Tenant-wide set = пересечение course_ids по всем отделам.
@@ -363,9 +364,19 @@ export default function CompanyCoursesTab() {
               {pluralize(departments.length, 'отдел', 'отдела', 'отделов')} сразу.
               Сотрудники получат его автоматически при следующем входе.
             </p>
+            <SearchInput
+              value={pickerSearch}
+              onChange={setPickerSearch}
+              placeholder="Найти курс по названию…"
+            />
             <div className="max-h-80 overflow-y-auto border border-border rounded-md divide-y divide-border">
               {allCourses
                 .filter((c) => !tenantWideCourseIds.has(c.id))
+                .filter((c) =>
+                  pickerSearch
+                    ? c.title.toLowerCase().includes(pickerSearch.toLowerCase())
+                    : true,
+                )
                 .sort((a, b) => a.title.localeCompare(b.title, 'ru'))
                 .map((c) => (
                   <label
@@ -390,9 +401,17 @@ export default function CompanyCoursesTab() {
                     </div>
                   </label>
                 ))}
-              {allCourses.filter((c) => !tenantWideCourseIds.has(c.id)).length === 0 && (
+              {allCourses
+                .filter((c) => !tenantWideCourseIds.has(c.id))
+                .filter((c) =>
+                  pickerSearch
+                    ? c.title.toLowerCase().includes(pickerSearch.toLowerCase())
+                    : true,
+                ).length === 0 && (
                 <div className="p-4 text-sm text-muted-foreground text-center">
-                  Все курсы уже добавлены в обязательные для компании.
+                  {pickerSearch
+                    ? 'По вашему запросу ничего не найдено'
+                    : 'Все курсы уже добавлены в обязательные для компании.'}
                 </div>
               )}
             </div>
@@ -402,6 +421,7 @@ export default function CompanyCoursesTab() {
                 onClick={() => {
                   setPickerOpen(false);
                   setPicked(new Set());
+                  setPickerSearch('');
                 }}
                 disabled={submitting}
               >

@@ -4,3 +4,4 @@ export { Input } from './input';
 export { Badge } from './badge';
 export { Modal } from './modal';
 export { Table } from './table';
+export { SearchInput } from './search-input';

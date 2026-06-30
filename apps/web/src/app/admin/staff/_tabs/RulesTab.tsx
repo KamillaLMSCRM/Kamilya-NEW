@@ -38,7 +38,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, Button, Badge } from '@/components/ui';
+import { Card, CardContent, CardHeader, CardTitle, Button, Badge, SearchInput } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
@@ -153,6 +153,9 @@ export default function RulesTab() {
   const [active, setActive] = useState<ActivePanel | null>(null);
   const [mutating, setMutating] = useState(false);
   const [pickCourseId, setPickCourseId] = useState('');
+  // Поиск в левой колонке (отделы + должности) и в picker'е курсов.
+  const [pickerSearch, setPickerSearch] = useState('');
+  const [posSearch, setPosSearch] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -210,6 +213,24 @@ export default function RulesTab() {
     return courses.filter((c) => !set.has(c.id));
   }, [courses, activeCourses]);
 
+  // Фильтрация списка курсов в picker'е по подстроке.
+  const filteredAvailableCourses = useMemo(() => {
+    if (!pickerSearch) return availableCourses;
+    const q = pickerSearch.toLowerCase();
+    return availableCourses.filter((c) => c.title.toLowerCase().includes(q));
+  }, [availableCourses, pickerSearch]);
+
+  // Фильтрация списка должностей (левая колонка) по подстроке.
+  const filteredPositions = useMemo(() => {
+    if (!posSearch) return positions;
+    const q = posSearch.toLowerCase();
+    return positions.filter(
+      (p) =>
+        p.name.toLowerCase().includes(q) ||
+        (p.department || '').toLowerCase().includes(q),
+    );
+  }, [positions, posSearch]);
+
   const handleAttach = async () => {
     if (!active || !pickCourseId) return;
     setMutating(true);
@@ -221,6 +242,7 @@ export default function RulesTab() {
           : 'Привязано',
       );
       setPickCourseId('');
+      setPickerSearch('');
       await load();
     } catch (err: any) {
       const detail = err?.response?.data?.detail || 'Ошибка привязки';
@@ -319,29 +341,48 @@ export default function RulesTab() {
           {positions.length === 0 ? (
             <div className="px-4 py-3 text-xs text-muted-foreground">Нет должностей</div>
           ) : (
-            <ul className="divide-y divide-border max-h-96 overflow-y-auto">
-              {positions.map((p) => (
-                <li key={p.id}>
-                  <button
-                    type="button"
-                    onClick={() => setActive({ type: 'position', id: p.id })}
-                    className={`flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-muted/40 ${
-                      active?.type === 'position' && active.id === p.id
-                        ? 'bg-primary/10 font-semibold'
-                        : ''
-                    }`}
-                  >
-                    <span className="flex-1 min-w-0">
-                      <div className="truncate">{p.name}</div>
-                      <div className="text-[11px] text-muted-foreground truncate">
-                        {p.department}
-                      </div>
-                    </span>
-                    <Badge variant="secondary">{p.course_ids.length}</Badge>
-                  </button>
-                </li>
-              ))}
-            </ul>
+            <>
+              {/* Поиск по должностям — при >10 должностях скроллить
+                 список в search-инпуте удобнее, чем глазами. */}
+              {positions.length > 10 && (
+                <div className="p-2">
+                  <SearchInput
+                    value={posSearch}
+                    onChange={setPosSearch}
+                    placeholder="Найти должность или отдел…"
+                  />
+                </div>
+              )}
+              {filteredPositions.length === 0 ? (
+                <div className="px-4 py-3 text-xs text-muted-foreground">
+                  Ничего не найдено по «{posSearch}»
+                </div>
+              ) : (
+                <ul className="divide-y divide-border max-h-96 overflow-y-auto">
+                  {filteredPositions.map((p) => (
+                    <li key={p.id}>
+                      <button
+                        type="button"
+                        onClick={() => setActive({ type: 'position', id: p.id })}
+                        className={`flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-muted/40 ${
+                          active?.type === 'position' && active.id === p.id
+                            ? 'bg-primary/10 font-semibold'
+                            : ''
+                        }`}
+                      >
+                        <span className="flex-1 min-w-0">
+                          <div className="truncate">{p.name}</div>
+                          <div className="text-[11px] text-muted-foreground truncate">
+                            {p.department}
+                          </div>
+                        </span>
+                        <Badge variant="secondary">{p.course_ids.length}</Badge>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </>
           )}
         </CardContent>
       </Card>
@@ -405,31 +446,47 @@ export default function RulesTab() {
                 </ul>
               )}
 
-              {/* Add course */}
-              <div className="flex flex-col sm:flex-row gap-2 pt-2 border-t border-border">
-                <select
-                  value={pickCourseId}
-                  onChange={(e) => setPickCourseId(e.target.value)}
-                  disabled={mutating || availableCourses.length === 0}
-                  className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
-                >
-                  <option value="">
-                    {availableCourses.length === 0
-                      ? 'Нет доступных курсов'
-                      : '+ добавить курс…'}
-                  </option>
-                  {availableCourses.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.title}
-                    </option>
-                  ))}
-                </select>
-                <Button
-                  onClick={handleAttach}
-                  disabled={!pickCourseId || mutating}
-                >
-                  {mutating ? '…' : 'Привязать'}
-                </Button>
+              {/* Add course — кастомный picker с поиском вместо
+                 native <select>: при >20 курсах скролл неудобен, а
+                 мобильные браузеры вообще плохо поддерживают. */}
+              <div className="pt-2 border-t border-border space-y-2">
+                <SearchInput
+                  value={pickerSearch}
+                  onChange={setPickerSearch}
+                  placeholder="Найти курс по названию…"
+                />
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <select
+                    value={pickCourseId}
+                    onChange={(e) => setPickCourseId(e.target.value)}
+                    disabled={mutating || filteredAvailableCourses.length === 0}
+                    className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    size={Math.min(6, Math.max(1, filteredAvailableCourses.length))}
+                  >
+                    {filteredAvailableCourses.length === 0 ? (
+                      <option value="">
+                        {availableCourses.length === 0
+                          ? 'Нет доступных курсов'
+                          : 'По вашему запросу ничего не найдено'}
+                      </option>
+                    ) : (
+                      <>
+                        <option value="">+ добавить курс…</option>
+                        {filteredAvailableCourses.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.title}
+                          </option>
+                        ))}
+                      </>
+                    )}
+                  </select>
+                  <Button
+                    onClick={handleAttach}
+                    disabled={!pickCourseId || mutating}
+                  >
+                    {mutating ? '…' : 'Привязать'}
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </>

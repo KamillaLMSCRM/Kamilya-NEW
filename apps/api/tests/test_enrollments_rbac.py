@@ -1,0 +1,177 @@
+"""RBAC tests for /admin/enrollments access (ADR-0012 §6, revised 2026-06-30).
+
+Direct user→course assignment is shared between admin (tenant infrastructure)
+and methodologist (teacher role, content domain). Students must NOT be able
+to enroll/remove/list arbitrary enrollments — they keep the self-enrollment
+path (`POST /v1/courses/{id}/enroll`) instead.
+
+These tests verify role gating on:
+  - POST   /v1/courses/{id}/enrollments  (bulk enroll by manager)
+  - GET    /v1/courses/{id}/enrollments  (list)
+  - DELETE /v1/courses/enrollments/{id}  (remove)
+  - GET    /v1/admin/export/enrollments  (CSV export)
+
+Per ADR-0012 §6, all four allow `superadmin`, `admin`, `org_admin`, `teacher`.
+Students must get 403.
+"""
+from __future__ import annotations
+
+import pytest
+
+pytestmark = pytest.mark.asyncio
+
+
+def _bulk_enroll_payload(user_ids: list[str]) -> dict:
+    return {"user_ids": user_ids}
+
+
+class TestEnrollmentRoleGating:
+    """ADR-0012 §6 — enrollments are admin + methodologist shared."""
+
+    async def test_teacher_can_bulk_enroll(
+        self, client, make_tenant, make_user, make_course, auth_headers
+    ):
+        tenant = await make_tenant(name="Tenant T")
+        teacher = await make_user(tenant, role="teacher")
+        student = await make_user(tenant, role="student")
+        course = await make_course(tenant, teacher, title="T's Course")
+
+        r = await client.post(
+            f"/api/v1/courses/{course.id}/enrollments",
+            json=_bulk_enroll_payload([str(student.id)]),
+            headers=auth_headers(teacher),
+        )
+
+        assert r.status_code == 201, (
+            f"Teacher must be able to bulk-enroll. Got {r.status_code}: {r.text}"
+        )
+        body = r.json()
+        assert len(body) == 1
+        assert body[0]["user_id"] == str(student.id)
+
+    async def test_admin_can_bulk_enroll(
+        self, client, make_tenant, make_user, make_course, auth_headers
+    ):
+        """Regression: admin keeps the original behavior."""
+        tenant = await make_tenant(name="Tenant A")
+        admin = await make_user(tenant, role="admin")
+        student = await make_user(tenant, role="student")
+        course = await make_course(tenant, admin, title="A's Course")
+
+        r = await client.post(
+            f"/api/v1/courses/{course.id}/enrollments",
+            json=_bulk_enroll_payload([str(student.id)]),
+            headers=auth_headers(admin),
+        )
+
+        assert r.status_code == 201, (
+            f"Admin must be able to bulk-enroll. Got {r.status_code}: {r.text}"
+        )
+
+    async def test_student_cannot_bulk_enroll(
+        self, client, make_tenant, make_user, make_course, auth_headers
+    ):
+        tenant = await make_tenant(name="Tenant S")
+        student_a = await make_user(tenant, role="student")
+        student_b = await make_user(tenant, role="student")
+        course = await make_course(tenant, student_a, title="S's Course")
+
+        r = await client.post(
+            f"/api/v1/courses/{course.id}/enrollments",
+            json=_bulk_enroll_payload([str(student_b.id)]),
+            headers=auth_headers(student_a),
+        )
+
+        assert r.status_code == 403, (
+            f"Student must NOT be able to bulk-enroll others. "
+            f"Got {r.status_code}: {r.text}"
+        )
+
+    async def test_teacher_can_list_enrollments(
+        self, client, make_tenant, make_user, make_course, auth_headers
+    ):
+        tenant = await make_tenant(name="Tenant L")
+        teacher = await make_user(tenant, role="teacher")
+        course = await make_course(tenant, teacher, title="L's Course")
+
+        r = await client.get(
+            f"/api/v1/courses/{course.id}/enrollments",
+            headers=auth_headers(teacher),
+        )
+
+        # 200 + empty list is acceptable. Anything other than 403/401/200 is wrong.
+        assert r.status_code == 200, (
+            f"Teacher must be able to list enrollments. Got {r.status_code}: {r.text}"
+        )
+
+    async def test_student_cannot_list_enrollments(
+        self, client, make_tenant, make_user, make_course, auth_headers
+    ):
+        """Regression: list was open to all auth'd users before this fix.
+        Student must NOT see the full enrollment roster of a course."""
+        tenant = await make_tenant(name="Tenant LS")
+        student = await make_user(tenant, role="student")
+        course = await make_course(tenant, student, title="LS's Course")
+
+        r = await client.get(
+            f"/api/v1/courses/{course.id}/enrollments",
+            headers=auth_headers(student),
+        )
+
+        assert r.status_code == 403, (
+            f"Student must NOT list enrollments. Got {r.status_code}: {r.text}"
+        )
+
+    async def test_student_cannot_unenroll(
+        self, client, make_tenant, make_user, make_course, auth_headers
+    ):
+        """Regression: DELETE was open to all auth'd users before this fix.
+        Student must NOT be able to unenroll anyone."""
+        from uuid import uuid4
+
+        tenant = await make_tenant(name="Tenant UD")
+        student = await make_user(tenant, role="student")
+        course = await make_course(tenant, student, title="UD's Course")
+
+        # Random enrollment_id; backend should reject on role before reaching service
+        r = await client.delete(
+            f"/api/v1/courses/enrollments/{uuid4()}",
+            headers=auth_headers(student),
+        )
+
+        assert r.status_code == 403, (
+            f"Student must NOT unenroll. Got {r.status_code}: {r.text}"
+        )
+
+    async def test_teacher_can_export_enrollments_csv(
+        self, client, make_tenant, make_user, auth_headers
+    ):
+        tenant = await make_tenant(name="Tenant E")
+        teacher = await make_user(tenant, role="teacher")
+
+        r = await client.get(
+            "/api/v1/admin/export/enrollments",
+            headers=auth_headers(teacher),
+        )
+
+        assert r.status_code == 200, (
+            f"Teacher must be able to export enrollments CSV. "
+            f"Got {r.status_code}: {r.text}"
+        )
+        assert "text/csv" in r.headers.get("content-type", "")
+
+    async def test_student_cannot_export_enrollments_csv(
+        self, client, make_tenant, make_user, auth_headers
+    ):
+        tenant = await make_tenant(name="Tenant ES")
+        student = await make_user(tenant, role="student")
+
+        r = await client.get(
+            "/api/v1/admin/export/enrollments",
+            headers=auth_headers(student),
+        )
+
+        assert r.status_code == 403, (
+            f"Student must NOT export enrollments CSV. "
+            f"Got {r.status_code}: {r.text}"
+        )

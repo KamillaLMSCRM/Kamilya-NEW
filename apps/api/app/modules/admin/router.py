@@ -66,12 +66,19 @@ async def export_courses(
     )
 
 
+# ADR-0012: enrollment CSV export is part of the methodologist's content
+# domain (manual assignment workflow), not pure tenant infrastructure.
+# Methodologist (teacher) needs the export for compliance/handoff to HR,
+# so both admin and teacher can download.
+_ENROLLMENT_REPORT_ROLES = ("superadmin", "admin", "org_admin", "teacher")
+
+
 @router.get("/export/enrollments")
 async def export_enrollments(
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("admin", "org_admin", "superadmin")),
+    user: User = Depends(require_role(*_ENROLLMENT_REPORT_ROLES)),
 ):
-    """Export enrollments to CSV (admin only)."""
+    """Export enrollments to CSV (admin + methodologist, ADR-0012)."""
     csv_data = await export_enrollments_csv(db, user.tenant_id)
     return StreamingResponse(
         io.StringIO(csv_data),

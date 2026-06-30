@@ -48,11 +48,20 @@ async def global_enrollment_stats(
     return {"total": total, "completed": completed}
 
 
+# ADR-0012: enrollment management is shared between admin (tenant
+# infrastructure) and methodologist (teacher) — direct user→course
+# assignment is part of the content domain (TZ_COURSE_ASSIGNMENT_ACCESS_v1
+# §1.2 level-4 manual override), not pure admin scope. Students keep
+# the self-enrollment path below; everyone else is rejected.
+
+_ENROLLMENT_MANAGER_ROLES = ("superadmin", "admin", "org_admin", "teacher")
+
+
 @router.get("/{course_id}/enrollments", response_model=list[EnrollmentResponse])
 async def list_enrollments(
     course_id: UUID,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_role(*_ENROLLMENT_MANAGER_ROLES)),
 ):
     return await get_enrolled_users(db, course_id, user.tenant_id)
 
@@ -62,7 +71,7 @@ async def create_enrollments(
     course_id: UUID,
     req: EnrollmentCreate,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("superadmin", "admin", "org_admin", "teacher")),
+    user: User = Depends(require_role(*_ENROLLMENT_MANAGER_ROLES)),
 ):
     return await enroll_users(db, course_id, user.tenant_id, req.user_ids)
 
@@ -84,7 +93,7 @@ async def enroll_self(
 async def remove_enrollment(
     enrollment_id: UUID,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_role(*_ENROLLMENT_MANAGER_ROLES)),
 ):
     await unenroll(db, enrollment_id, user.tenant_id)
 
@@ -93,7 +102,7 @@ async def remove_enrollment(
 async def enrollment_stats(
     course_id: UUID,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("superadmin", "admin", "org_admin", "teacher")),
+    user: User = Depends(require_role(*_ENROLLMENT_MANAGER_ROLES)),
 ):
     """Get enrollment statistics for a course."""
     return await get_course_enrollment_stats(db, course_id, user.tenant_id)
