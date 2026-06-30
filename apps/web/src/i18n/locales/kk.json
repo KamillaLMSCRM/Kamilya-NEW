@@ -61,7 +61,9 @@
     "userManagement": "Пайдаланушыларды басқару",
     "positions": "Лауазымдар",
     "staffRoster": "Штат",
-    "staffTree": "Штат құрылымы"
+    "staffTree": "Штат құрылымы",
+    "courseAssignments": "Курстарды байланыстыру",
+    "companyCourses": "Компания курстары"
   },
   "auth": {
     "login": "Кіру",
@@ -510,6 +512,7 @@
     "logo": "Kamilya LMS",
     "content": "КОНТЕНТ",
     "staff": "ПЕРСОНАЛ",
+    "courseManagement": "КУРСТАРДЫ БАСҚАРУ",
     "learning": "ОҚЫТУ",
     "quizConstructor": "Тест конструкторы",
     "userRole": {

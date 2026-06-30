@@ -97,17 +97,17 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
       ],
     },
     {
-      // "Персонал" section added 2026-06-27: was previously missing from
-      // sidebar entirely. Methodologists (teacher role) didn't know that
-      // /admin/staff, /admin/employees, /positions existed.
-      // /admin/enrollments stays admin-only — methodologists assign courses
-      // through /positions (attaching a course to a position auto-enrolls
-      // everyone who holds it; direct user→course assignment is admin scope).
-      title: t('sidebar.staff'),
+      // "Управление курсами" section — replaces the old "Персонал" section
+      // (renamed 2026-06-30 per architect). The workflow that lives here is
+      // the full course-assignment pipeline, not just staff roster:
+      //   Штатка → Должности → Привязка курсов (уровни 2+3) →
+      //   Курсы компании (уровень 1) → Ручные записи (уровень 4).
+      // See TZ_COURSE_ASSIGNMENT_ACCESS_v1 §1.1 for the 4-level model and
+      // TZ_JOB_INSTRUCTION_ONBOARDING_v1 for ДИ-driven onboarding courses.
+      title: t('sidebar.courseManagement'),
       items: [
         {
           // Staff import — Excel/CSV uploader for personnel roster.
-          // Was at /admin/staff with no sidebar link; now reachable.
           label: t('nav.staffRoster'),
           href: '/admin/staff',
           icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></svg>,
@@ -115,24 +115,49 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
         },
         {
           // Positions — JD authoring with AI tools (analyze, suggest courses,
-          // onboarding quiz). Was already in sidebar but mis-grouped under
-          // "Курсы". Now correctly under "Персонал" since positions are the
-          // bridge between staff roster and course content.
+          // onboarding quiz). Bridge between staff roster and course content.
           label: t('nav.positions'),
           href: '/positions',
           icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect width="20" height="14" x="2" y="7" rx="2" ry="2" /><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" /></svg>,
           roles: ['admin', 'org_admin', 'teacher'],
         },
         {
-          // Enrollments (direct user→course assignment) — admin-only.
-          // Methodologists (teacher) assign via /positions instead:
-          // attaching a course to a position auto-enrolls everyone who
-          // holds that position. GET /v1/users is admin-only too, so
-          // /admin/enrollments can't render the user picker for teacher.
+          // Course assignments — bind courses to positions (level 3) and
+          // departments (level 2). The RulesTab inside /admin/staff powers
+          // both. Deep-linked via ?tab=rules so Cmd-K / external links land
+          // on the right tab. TODO TZ_JOB_INSTRUCTION_ONBOARDING_v1: this
+          // tab will also surface the «Загрузить ДИ» flow + «Сгенерировать
+          // онбординг-курс» button per-position.
+          label: t('nav.courseAssignments'),
+          href: '/admin/staff?tab=rules',
+          icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>,
+          roles: ['admin', 'org_admin', 'teacher'],
+        },
+        {
+          // Company-wide courses — level 1 in the assignment model. Batch-
+          // attach a course to every department in the tenant. See
+          // TZ_COURSE_ASSIGNMENT_ACCESS_v1 §1.1 «Уровень 1».
+          label: t('nav.companyCourses'),
+          href: '/admin/staff?tab=company',
+          icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect width="20" height="16" x="2" y="4" rx="2" /><path d="M2 8h20" /><path d="M10 4v4" /><path d="M14 4v4" /></svg>,
+          roles: ['admin', 'org_admin', 'teacher'],
+        },
+        {
+          // Enrollments (direct user→course assignment) — shared
+          // between admin and methodologist (teacher). ADR-0012
+          // treats direct assignment as part of the content domain
+          // (TZ_COURSE_ASSIGNMENT_ACCESS_v1 §1.2 level-4 manual
+          // override), not pure tenant infrastructure. Both roles
+          // need the escape hatch for ad-hoc overrides on top of
+          // auto-enrollment from PositionCourse / DepartmentCourse.
+          // /v1/users?include_students=true is admin-only on the
+          // backend, so the user picker is gated by the user's
+          // role (admins see all employees; methodologists see
+          // only those not gated by their content role).
           label: t('courses.enrollments'),
           href: '/admin/enrollments',
           icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><line x1="19" x2="19" y1="8" y2="14" /><line x1="22" x2="16" y1="11" y2="11" /></svg>,
-          roles: ['admin'],
+          roles: ['admin', 'org_admin', 'teacher'],
         },
       ],
     },

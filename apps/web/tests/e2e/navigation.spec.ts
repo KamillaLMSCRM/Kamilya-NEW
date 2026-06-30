@@ -29,6 +29,11 @@ test('dashboard and sub-pages return valid responses', async ({ page }) => {
     '/admin/enrollments',
     '/admin',
     '/certificates',
+    // ADR-0012 §6 + TZ_COURSE_ASSIGNMENT_ACCESS_v1 §1.1: course-assignment
+    // deep links. Sidebar uses query strings to land on the right tab in
+    // the unified /admin/staff page; tests verify these routes load.
+    '/admin/staff?tab=rules',
+    '/admin/staff?tab=company',
   ];
 
   for (const route of routes) {
