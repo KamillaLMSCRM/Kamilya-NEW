@@ -44,7 +44,12 @@ class Department(Base):
     tenant_id = Column(UUID(as_uuid=True), nullable=False)
     name = Column(Text, nullable=False)  # display name "Human Resources"
     slug = Column(Text, nullable=False)  # canonical "hr"
-    description = Column(Text, nullable=True)
+    # `description` is NOT NULL in the DB schema (added by migration
+    # 0035 / 0036) — older ORM declaration said `nullable=True`,
+    # which broke auto-create on 2026-06-30 with
+    # `NotNullViolationError: null value in column "description"`.
+    # Now correct: pass empty string on create, populate later.
+    description = Column(Text, nullable=False, default="")
     code = Column(Text, nullable=True)
     head_user_id = Column(
         UUID(as_uuid=True),
