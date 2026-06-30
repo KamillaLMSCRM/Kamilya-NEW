@@ -59,10 +59,17 @@ class TokenResponse(BaseModel):
     refresh_token: str
     token_type: str = 'bearer'
     expires_in: int
-    # Optional: present on /login, /register, /refresh, /check-code.
-    # The frontend _refresh() in apps/web/src/lib/api.ts requires
-    # data.user to exist or it never calls setAuth() — see Lesson 17.
-    user: UserResponse | None = None
+    # Optional. Free-form shape that mirrors what /check-code returns
+    # (see apps/api/app/modules/auth/telegram.py for the canonical
+    # user_data dict). Use dict (not UserResponse) because:
+    #   - UserResponse is missing 'role' and 'tenant' which the
+    #     frontend AuthUser interface requires.
+    #   - /refresh serves the same AuthUser shape as /check-code, so
+    #     we use a single serialisation path (build_user_payload in
+    #     service.py) for both login and refresh.
+    # Frontend guard: if absent/None, frontend _refresh() in
+    # apps/web/src/lib/api.ts keeps the existing in-memory user.
+    user: dict | None = None
 
 
 class LoginRequest(BaseModel):

@@ -123,31 +123,13 @@ def decode_token(token: str) -> dict:
             },
         )
         return payload
-    except jwt.InvalidTokenError as exc:
-        # TEMP 2026-06-30 R6 — surface the exact PyJWT exception class so we
-        # can identify which claim is failing. Round 2's _json_safe_jwt_payload
-        # conversion of datetime → isoformat() was fixed in R5, but /refresh
-        # is still 401 with no traceback. Print full type name + message
-        # before re-raising.
-        print(f"[DEBUG decode_token R6] {type(exc).__module__}.{type(exc).__name__}: {exc}", flush=True)
-        # Best-effort: print key claim values from the unverified payload so
-        # we can see what was actually in the token. PyJWT doesn't expose
-        # the unverified payload on these errors, so we re-decode without
-        # verification to inspect.
-        try:
-            unverified = jwt.decode(token, options={"verify_signature": False, "verify_aud": False, "verify_iss": False, "verify_exp": False})
-            print(f"[DEBUG decode_token R6] payload keys: {list(unverified.keys())}", flush=True)
-            print(f"[DEBUG decode_token R6] aud={unverified.get('aud')!r} iss={unverified.get('iss')!r} sub={unverified.get('sub')!r}", flush=True)
-            print(f"[DEBUG decode_token R6] exp={unverified.get('exp')!r} (type {type(unverified.get('exp')).__name__}) iat={unverified.get('iat')!r} (type {type(unverified.get('iat')).__name__})", flush=True)
-            print(f"[DEBUG decode_token R6] expected aud={settings.JWT_AUDIENCE!r} iss={settings.JWT_ISSUER!r}", flush=True)
-        except Exception as inner:
-            print(f"[DEBUG decode_token R6] unverified decode failed: {inner}", flush=True)
-        if isinstance(exc, jwt.ExpiredSignatureError):
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token expired")
-        if isinstance(exc, jwt.InvalidAudienceError):
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token audience")
-        if isinstance(exc, jwt.InvalidIssuerError):
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token issuer")
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token expired")
+    except jwt.InvalidAudienceError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token audience")
+    except jwt.InvalidIssuerError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token issuer")
+    except jwt.InvalidTokenError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
 
 

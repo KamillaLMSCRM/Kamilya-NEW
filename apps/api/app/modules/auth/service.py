@@ -21,6 +21,69 @@ def _hash_token(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
 
 
+async def build_user_payload(db: AsyncSession, user: User, telegram_id: str | int | None = None) -> dict:
+    """Build the user_data dict that the frontend AuthUser shape expects.
+
+    Single source of truth for serialising a User ORM row into the
+    shape consumed by apps/web/src/lib/auth.ts::AuthUser. Used by:
+
+      - telegram.py webhook (after /check-code verification)
+      - service.py::refresh_access_token (so /refresh returns the
+        same shape and the frontend can update its in-memory user
+        without losing role/tenant/full_name)
+
+    The shape is:
+        {
+            user_id: str,           # UUID
+            tenant_id: str | None,  # UUID or None (superadmin-style)
+            tenant: dict | None,    # {id, name, slug, is_demo, plan} or None
+            telegram_id: str | int,
+            role: str,
+            full_name: str,
+            email: str | None,
+            first_name: str,
+            last_name: str,
+        }
+
+    Roles are looked up via user_roles table; if empty we fall back to
+    the User.role column (legacy single-role). The first role wins
+    (frontend AuthUser.role is a scalar, not an array).
+    """
+    # Roles: prefer user_roles table, fall back to User.role.
+    roles = await _get_user_roles(db, user.id, user.tenant_id)
+    role = roles[0] if roles else (user.role or "student")
+
+    # Tenant: load via Tenant table if user has tenant_id, else None.
+    tenant_payload: dict | None = None
+    if user.tenant_id is not None:
+        tenant_row = (
+            await db.execute(select(Tenant).where(Tenant.id == user.tenant_id))
+        ).scalar_one_or_none()
+        if tenant_row is not None:
+            tenant_payload = {
+                "id": str(tenant_row.id),
+                "name": tenant_row.name,
+                "slug": tenant_row.slug,
+                "is_demo": bool(tenant_row.is_demo),
+                "plan": tenant_row.plan,
+            }
+
+    return {
+        "user_id": str(user.id),
+        # tenant_id stays a str() for the frontend. Note this differs
+        # from auth_sessions.py which keeps it as a UUID inside Redis
+        # (UUID-aware encoder) and only stringifies at the JSON boundary.
+        "tenant_id": str(user.tenant_id) if user.tenant_id is not None else None,
+        "telegram_id": str(telegram_id) if telegram_id is not None else None,
+        "role": role,
+        "full_name": f"{user.first_name or ''} {user.last_name or ''}".strip() or (user.email or ""),
+        "tenant": tenant_payload,
+        "email": user.email,
+        "first_name": user.first_name,
+        "last_name": user.last_name,
+    }
+
+
 async def _get_user_roles(db: AsyncSession, user_id: UUID, tenant_id: UUID) -> list[str]:
     result = await db.execute(
         select(UserRole.role).where(UserRole.user_id == user_id, UserRole.tenant_id == tenant_id)
@@ -135,18 +198,12 @@ async def authenticate_user(db: AsyncSession, email: str, password: str) -> tupl
     return user, access_token, refresh_token
 
 
-async def refresh_access_token(db: AsyncSession, refresh_token: str) -> tuple[str, str, User]:
+async def refresh_access_token(db: AsyncSession, refresh_token: str) -> tuple[str, str, dict]:
     """Validate a refresh token and mint a fresh (access, refresh) pair.
 
-    Returns (new_access_token, new_refresh_token, user). The new refresh
-    token rotates the previous one — callers should treat the old token as
-    invalidated (we don't have a blacklist mechanism yet; rotating
-    reduces the window if a refresh token leaks). The User object is
-    returned so the router can serialise it into TokenResponse.user —
-    the frontend's _refresh() in apps/web/src/lib/api.ts requires
-    data.user to exist or it never calls setAuth() and the next request
-    is sent with a stale/null access token, producing a 401 → redirect
-    to /login loop. (Lesson 17, 2026-06-30.)
+    Returns (new_access_token, new_refresh_token, user_payload). The
+    user_payload is a dict in the AuthUser shape (see
+    build_user_payload) so the frontend's setAuth() can persist it.
     """
     payload = decode_token(refresh_token)
     if payload.get("type") != "refresh":
@@ -162,10 +219,6 @@ async def refresh_access_token(db: AsyncSession, refresh_token: str) -> tuple[st
     if not roles:
         roles = [user.role]
 
-    # tenant_id is normalised to str/None by the JWT encoder (see
-    # _json_safe_jwt_payload in app/core/auth.py). It accepts UUID
-    # | str | None and emits the right shape for jwt.encode's stdlib
-    # json.dumps. Direct callers don't need to str() it manually any more.
     new_access = create_access_token({
         "sub": str(user.id),
         "tenant_id": user.tenant_id,
@@ -175,7 +228,8 @@ async def refresh_access_token(db: AsyncSession, refresh_token: str) -> tuple[st
         "sub": str(user.id),
         "tenant_id": user.tenant_id,
     })
-    return new_access, new_refresh, user
+    user_payload = await build_user_payload(db, user, telegram_id=None)
+    return new_access, new_refresh, user_payload
 
 
 async def blacklist_refresh_token(db: AsyncSession, refresh_token: str) -> None:
