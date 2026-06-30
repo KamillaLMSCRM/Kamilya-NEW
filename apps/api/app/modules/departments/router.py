@@ -286,6 +286,29 @@ class BatchLevelOneResponse(BaseModel):
     courses_processed: int
 
 
+class DepartmentListItem(BaseModel):
+    """One row of GET /v1/departments — used by the Company Courses tab
+    and any other surface that needs to compute cross-department
+    aggregates (e.g. "courses attached to every department").
+
+    `course_ids` is the list of `course_id`s bound to this department
+    via `department_courses`. The UI computes the intersection across
+    all departments to get the "tenant-wide" set.
+    """
+
+    id: UUID
+    name: str
+    slug: str
+    parent_id: UUID | None = None
+    course_ids: list[UUID] = []
+
+
+class DepartmentListResponse(BaseModel):
+    """Response for GET /v1/departments."""
+
+    departments: list[DepartmentListItem]
+
+
 async def _list_tenant_departments(
     db: AsyncSession, tenant_id: UUID
 ) -> list[Department]:
@@ -297,6 +320,54 @@ async def _list_tenant_departments(
         select(Department).where(Department.tenant_id == tenant_id)
     )
     return list(result.scalars().all())
+
+
+@router.get("", response_model=DepartmentListResponse)
+async def list_departments(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_role("admin", "methodologist", "superadmin")),
+):
+    """List all departments in the caller's tenant with their
+    course_ids. Used by the «Курсы компании» tab to compute the
+    tenant-wide set as intersection of course_ids.
+
+    No pagination: a typical tenant has tens of departments, not
+    thousands. If this assumption breaks (very large enterprises),
+    paginate here + on the UI side.
+    """
+    if user.tenant_id is None:
+        # superadmin without tenant scope — return empty list rather
+        # than 400, because the "list all departments I can see" use
+        # case for platform admins is out of v1.0 scope.
+        return DepartmentListResponse(departments=[])
+
+    depts = await _list_tenant_departments(db, user.tenant_id)
+    if not depts:
+        return DepartmentListResponse(departments=[])
+
+    # 1 round-trip: all bindings for these departments.
+    bindings_result = await db.execute(
+        select(DepartmentCourse.department_id, DepartmentCourse.course_id).where(
+            DepartmentCourse.tenant_id == user.tenant_id,
+            DepartmentCourse.department_id.in_([d.id for d in depts]),
+        )
+    )
+    bindings_by_dept: dict[UUID, list[UUID]] = {}
+    for dept_id, course_id in bindings_result.all():
+        bindings_by_dept.setdefault(dept_id, []).append(course_id)
+
+    return DepartmentListResponse(
+        departments=[
+            DepartmentListItem(
+                id=d.id,
+                name=d.name,
+                slug=d.slug,
+                parent_id=d.parent_id,
+                course_ids=bindings_by_dept.get(d.id, []),
+            )
+            for d in depts
+        ]
+    )
 
 
 @router.post(

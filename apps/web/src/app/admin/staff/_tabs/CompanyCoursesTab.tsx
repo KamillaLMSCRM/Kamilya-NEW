@@ -3,34 +3,24 @@
 /**
  * CompanyCoursesTab — вкладка «Курсы компании» в /admin/staff
  *
- * Реализует уровень 1 (tenant-wide) привязки курсов по TZ §1.1:
- * «Уровень 1 реализуется через привязку курса ко всем отделам
- * одним action'ом в UI (batch-INSERT в department_courses)».
+ * Реализует уровень 1 (company-wide) привязки курсов по ТЗ §1.1:
+ * «Уровень 1 реализуется через привязку курса ко всем отделам».
  *
- * Бэкенд (см. /v1/departments/attach-courses-all и
- * /v1/departments/detach-courses-all, добавленные 2026-06-30 в
- * рамках Epic по TZ_COURSE_ASSIGNMENT_ACCESS_v1.md):
+ * Бэкенд:
+ *   GET    /v1/departments                       — список отделов тенанта с course_ids
+ *   GET    /v1/courses                           — каталог курсов
+ *   POST   /v1/departments/attach-courses-all     — batch attach
+ *   DELETE /v1/departments/detach-courses-all    — batch detach
  *
- *   POST   /v1/departments/attach-courses-all
- *          body: { course_ids: [uuid, ...], required: true }
- *          → 200 { departments_affected, enrollments_added, ... }
+ * Логика UI:
+ *   - tenant-wide set = пересечение course_ids всех отделов тенанта
+ *   - если 0 отделов в тенанте — показываем «сначала создайте отделы»
+ *   - если в каталоге 0 курсов — «сначала создайте курс»
+ *   - иначе — список tenant-wide + picker для добавления
  *
- *   DELETE /v1/departments/detach-courses-all
- *          body: { course_ids: [uuid, ...] }
- *          → 200 (или 404 если ни один курс не был привязан)
- *
- * UI:
- *   1. Список «курсы компании» — те, что привязаны ко всем отделам.
- *      Загружается через /v1/departments (для каждого берём course_ids),
- *      пересечение = tenant-wide.
- *   2. Кнопка «+ Добавить курс компании» — multi-select picker из
- *      /v1/courses, по submit дёргает attach-courses-all.
- *   3. Кнопка «× убрать» напротив каждого — detach-courses-all.
- *
- * Caveat (TZ §1.1): при создании нового отдела методолог должен
- * не забыть привязать к нему «общие» курсы через эту вкладку.
- * v1.1 может ввести явный tenant_courses, если это станет
- * источником ошибок.
+ * Caveat (TZ §1.1): при создании нового отдела методолог должен вернуться
+ * сюда и нажать «Привязать» снова, чтобы новый отдел унаследовал общие
+ * курсы. Это задокументировано в самом UI.
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -39,7 +29,7 @@ import { useAuthStore } from '@/store/authStore';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
 
-// ── RBAC — same owners as RulesTab (ADR-0012) ────────────────
+// ── RBAC — те же владельцы, что у RulesTab (ADR-0012) ───────
 
 const COMPANY_COURSES_OWNERS = new Set([
   'methodologist',
@@ -49,7 +39,7 @@ const COMPANY_COURSES_OWNERS = new Set([
   'superadmin',
 ]);
 
-// ── types ─────────────────────────────────────────────────────
+// ── типы ─────────────────────────────────────────────────────
 
 interface Course {
   id: string;
@@ -61,7 +51,12 @@ interface Department {
   id: string;
   name: string;
   slug: string;
+  parent_id: string | null;
   course_ids: string[];
+}
+
+interface DepartmentsListResponse {
+  departments: Department[];
 }
 
 interface AttachAllResponse {
@@ -83,8 +78,7 @@ export default function CompanyCoursesTab() {
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [submitting, setSubmitting] = useState(false);
 
-  // Course IDs attached to EVERY department in the tenant =
-  // "tenant-wide" (level 1) courses. We compute by intersection.
+  // Tenant-wide set = пересечение course_ids по всем отделам.
   const tenantWideCourseIds = useMemo(() => {
     if (departments.length === 0) return new Set<string>();
     const [first, ...rest] = departments;
@@ -97,7 +91,6 @@ export default function CompanyCoursesTab() {
     return intersection;
   }, [departments]);
 
-  // Map id → title for nice display
   const courseById = useMemo(() => {
     const m = new Map<string, Course>();
     for (const c of allCourses) m.set(c.id, c);
@@ -115,15 +108,33 @@ export default function CompanyCoursesTab() {
     if (!accessToken) return;
     setLoading(true);
     try {
-      const [deptRes, courseRes] = await Promise.all([
+      // Загружаем параллельно. Если один из запросов падает —
+      // показываем только то, что получилось (не блокируем UI).
+      const [deptRes, courseRes] = await Promise.allSettled([
         api.get('/v1/departments'),
-        api.get('/v1/courses'),
+        // Большой per_page чтобы получить все курсы разом (каталог
+        // тенанта — десятки курсов, не тысячи).
+        api.get('/v1/courses?per_page=100'),
       ]);
-      setDepartments(deptRes.data || []);
-      setAllCourses(courseRes.data || []);
-    } catch (err: any) {
-      const detail = err?.response?.data?.detail || 'Не удалось загрузить';
-      toast.error(typeof detail === 'string' ? detail : JSON.stringify(detail));
+      if (deptRes.status === 'fulfilled') {
+        const data: DepartmentsListResponse = deptRes.value.data || { departments: [] };
+        setDepartments(data.departments || []);
+      } else {
+        // Не critical: picker всё равно будет работать, просто
+        // покажем предупреждение.
+        console.warn('Failed to load departments:', deptRes.reason);
+        toast.error('Не удалось загрузить список отделов');
+        setDepartments([]);
+      }
+      if (courseRes.status === 'fulfilled') {
+        // /v1/courses возвращает массив напрямую, не объект.
+        const data = courseRes.value.data;
+        setAllCourses(Array.isArray(data) ? data : []);
+      } else {
+        console.warn('Failed to load courses:', courseRes.reason);
+        toast.error('Не удалось загрузить каталог курсов');
+        setAllCourses([]);
+      }
     } finally {
       setLoading(false);
     }
@@ -139,17 +150,21 @@ export default function CompanyCoursesTab() {
     try {
       const res = await api.post<AttachAllResponse>(
         '/v1/departments/attach-courses-all',
-        { course_ids: Array.from(picked), required: true }
+        { course_ids: Array.from(picked), required: true },
       );
       toast.success(
-        `Привязано к ${res.data.departments_affected} отделам, ` +
-          `+${res.data.enrollments_added} enrollments`
+        `Курсы добавлены в ${res.data.departments_affected} ${pluralize(
+          res.data.departments_affected,
+          'отдел',
+          'отдела',
+          'отделов',
+        )}. Новые записи на курс созданы для ${res.data.enrollments_added} сотрудников.`,
       );
       setPickerOpen(false);
       setPicked(new Set());
       await load();
     } catch (err: any) {
-      const detail = err?.response?.data?.detail || 'Не удалось привязать';
+      const detail = err?.response?.data?.detail || 'Не удалось добавить курсы';
       toast.error(typeof detail === 'string' ? detail : JSON.stringify(detail));
     } finally {
       setSubmitting(false);
@@ -159,9 +174,9 @@ export default function CompanyCoursesTab() {
   const handleDetach = async (courseId: string, title: string) => {
     if (
       !confirm(
-        `Снять курс «${title}» со ВСЕХ отделов?\n` +
-          `Будет удалён из привязки каждого отдела. ` +
-          `In-progress enrollments будут удалены, completed — останутся в истории.`
+        `Снять курс «${title}» со всех отделов?\n\n` +
+          `Курс перестанет быть обязательным для сотрудников, которые ещё не начали его проходить. ` +
+          `Те, кто уже прошёл, сохранят сертификат.`,
       )
     )
       return;
@@ -169,21 +184,24 @@ export default function CompanyCoursesTab() {
     try {
       const res = await api.delete<AttachAllResponse>(
         '/v1/departments/detach-courses-all',
-        { data: { course_ids: [courseId] } }
+        { data: { course_ids: [courseId] } },
       );
       toast.success(
-        `Снято с ${res.data.departments_affected} отделов, ` +
-          `-${res.data.enrollments_removed} enrollments`
+        `Курс снят с ${res.data.departments_affected} ${pluralize(
+          res.data.departments_affected,
+          'отдела',
+          'отделов',
+          'отделов',
+        )}.`,
       );
       await load();
     } catch (err: any) {
       const status = err?.response?.status;
       const detail = err?.response?.data?.detail;
       if (status === 404) {
-        // Already detached — not really an error from the user's POV.
-        toast.info('Курс уже был снят со всех отделов');
+        toast.info('Этот курс уже не привязан ни к одному отделу');
       } else {
-        toast.error(typeof detail === 'string' ? detail : 'Не удалось снять');
+        toast.error(typeof detail === 'string' ? detail : 'Не удалось снять курс');
       }
     } finally {
       setSubmitting(false);
@@ -204,9 +222,10 @@ export default function CompanyCoursesTab() {
       <Card>
         <CardContent className="p-6 text-center space-y-2">
           <div className="text-4xl">🚫</div>
-          <h3 className="text-lg font-bold text-foreground">Нет доступа</h3>
+          <h3 className="text-lg font-bold text-foreground">Раздел недоступен</h3>
           <p className="text-sm text-muted-foreground">
-            Вкладка «Курсы компании» доступна администратору и методологу.
+            «Курсы компании» — раздел для администратора и методолога. Студенты проходят
+            курсы, не настраивая их.
           </p>
         </CardContent>
       </Card>
@@ -214,51 +233,88 @@ export default function CompanyCoursesTab() {
   }
 
   if (loading) {
-    return <div className="p-6 text-muted-foreground">Загружаю курсы компании...</div>;
+    return <div className="p-6 text-muted-foreground">Загружаю…</div>;
   }
+
+  // ── Empty states: три честных сценария ─────────────────────
+
+  if (departments.length === 0) {
+    return (
+      <Card>
+        <CardContent className="p-6 text-center space-y-3">
+          <div className="text-4xl">🏢</div>
+          <h3 className="text-lg font-bold text-foreground">Сначала создайте отделы</h3>
+          <p className="text-sm text-muted-foreground max-w-md mx-auto">
+            Чтобы назначить курс сразу всем сотрудникам, нужна оргструктура.
+            Загрузите штатное расписание из Excel на вкладке «Импорт» — отделы
+            создадутся автоматически. После этого вернитесь сюда.
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Это ограничение текущей версии. В следующем релизе появится единая
+            настройка «обязательные курсы для всей компании» без привязки к отделам.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (allCourses.length === 0) {
+    return (
+      <Card>
+        <CardContent className="p-6 text-center space-y-3">
+          <div className="text-4xl">📚</div>
+          <h3 className="text-lg font-bold text-foreground">В каталоге пока нет ни одного курса</h3>
+          <p className="text-sm text-muted-foreground max-w-md mx-auto">
+            Сначала создайте курс в разделе «Курсы» (например, «Техника безопасности» или
+            «Охрана труда»). После этого он появится здесь и вы сможете назначить его всем
+            отделам одним кликом.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // ── Normal state: есть отделы И есть курсы ─────────────────
 
   return (
     <div className="space-y-4">
-      {/* Header card explaining level-1 semantics */}
       <Card>
         <CardHeader>
-          <CardTitle>🏢 Курсы компании (уровень 1)</CardTitle>
+          <CardTitle>🏢 Курсы для всей компании</CardTitle>
         </CardHeader>
         <CardContent className="text-sm text-foreground space-y-2">
           <p>
-            Курсы из этого списка привязаны ко <strong>всем</strong> отделам
-            тенанта. Каждый новый сотрудник автоматически получает их в
-            обязательные курсы.
+            Курсы из этого списка получает <strong>каждый новый сотрудник</strong> —
+            независимо от должности и отдела. Это обязательные курсы для всей
+            компании (например, вводный инструктаж по охране труда).
           </p>
           <p className="text-muted-foreground text-xs">
-            <strong>Подсказка:</strong> при создании нового отдела методолог должен
-            вернуться сюда и заново нажать «Привязать», чтобы новый отдел
-            унаследовал общие курсы. (В v1.1 планируется явная таблица
-            <code className="mx-1">tenant_courses</code>.)
+            <strong>Важно:</strong> если вы создадите новый отдел, его сотрудники
+            не получат эти курсы автоматически. После создания отдела вернитесь
+            сюда и заново добавьте нужные курсы — это займёт один клик.
           </p>
           <p className="text-muted-foreground text-xs">
-            Всего отделов: <strong>{departments.length}</strong> · Курсов в каталоге:{' '}
-            <strong>{allCourses.length}</strong> · Курсов уровня 1:{' '}
-            <strong>{tenantWideCourses.length}</strong>
+            Сейчас привязано: {departments.length}{' '}
+            {pluralize(departments.length, 'отдел', 'отдела', 'отделов')} ·{' '}
+            {tenantWideCourses.length} обязательных курсов.
           </p>
         </CardContent>
       </Card>
 
-      {/* Tenant-wide courses list */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle>Привязаны ко всем отделам</CardTitle>
+            <CardTitle>Обязательные для всех</CardTitle>
             <Button onClick={() => setPickerOpen((p) => !p)} disabled={submitting}>
-              {pickerOpen ? 'Отмена' : '+ Добавить'}
+              {pickerOpen ? 'Отмена' : '+ Добавить курс'}
             </Button>
           </div>
         </CardHeader>
         <CardContent className="p-0">
           {tenantWideCourses.length === 0 ? (
             <div className="p-6 text-sm text-muted-foreground text-center">
-              Нет курсов уровня 1. Нажмите «+ Добавить», чтобы привязать
-              курс сразу ко всем отделам.
+              Пока ни одного курса. Нажмите «+ Добавить курс», чтобы назначить
+              обязательный курс сразу всем отделам.
             </div>
           ) : (
             <Table>
@@ -285,7 +341,7 @@ export default function CompanyCoursesTab() {
                         onClick={() => handleDetach(c.id, c.title)}
                         disabled={submitting}
                       >
-                        × Снять
+                        Снять с компании
                       </Button>
                     </td>
                   </tr>
@@ -296,13 +352,17 @@ export default function CompanyCoursesTab() {
         </CardContent>
       </Card>
 
-      {/* Course picker */}
       {pickerOpen && (
         <Card>
           <CardHeader>
-            <CardTitle>Выберите курсы для привязки ко всем отделам</CardTitle>
+            <CardTitle>Выберите курс для всей компании</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Курс будет добавлен во все {departments.length}{' '}
+              {pluralize(departments.length, 'отдел', 'отдела', 'отделов')} сразу.
+              Сотрудники получат его автоматически при следующем входе.
+            </p>
             <div className="max-h-80 overflow-y-auto border border-border rounded-md divide-y divide-border">
               {allCourses
                 .filter((c) => !tenantWideCourseIds.has(c.id))
@@ -332,7 +392,7 @@ export default function CompanyCoursesTab() {
                 ))}
               {allCourses.filter((c) => !tenantWideCourseIds.has(c.id)).length === 0 && (
                 <div className="p-4 text-sm text-muted-foreground text-center">
-                  Все курсы уже привязаны ко всем отделам.
+                  Все курсы уже добавлены в обязательные для компании.
                 </div>
               )}
             </div>
@@ -349,8 +409,8 @@ export default function CompanyCoursesTab() {
               </Button>
               <Button onClick={handleAttach} disabled={picked.size === 0 || submitting}>
                 {submitting
-                  ? 'Привязываю...'
-                  : `Привязать ко всем отделам (${picked.size})`}
+                  ? 'Добавляю…'
+                  : `Добавить во все отделы (${picked.size})`}
               </Button>
             </div>
           </CardContent>
@@ -358,4 +418,14 @@ export default function CompanyCoursesTab() {
       )}
     </div>
   );
+}
+
+// ── helpers ──────────────────────────────────────────────────
+
+function pluralize(n: number, one: string, few: string, many: string): string {
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (mod10 === 1 && mod100 !== 11) return one;
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return few;
+  return many;
 }
