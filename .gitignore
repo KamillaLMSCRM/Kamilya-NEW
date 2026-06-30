@@ -104,3 +104,5 @@ docs/prompts/
 
 # Runtime caches — never commit
 apps/api/summaries/
+
+.env*.local

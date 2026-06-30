@@ -3,25 +3,30 @@
 Stage 1d of employee onboarding epic.
 
 Endpoints:
-- POST /admin/staff/import/preview   multipart file → returns ParsedFile + PreviewResult
-- POST /admin/staff/import/commit    same payload structure → applies changes, returns counts
+- POST /admin/staff/import/preview           multipart file → returns ParsedFile + PreviewResult
+- POST /admin/staff/import/commit            same payload structure → applies changes, returns counts
+- GET  /admin/staff/apply-rules/status/{tid} poll Celery task state (B1c)
 """
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
-from pydantic import BaseModel, Field
+import logging
+
+from celery.result import AsyncResult
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import require_role
+from app.core.celery_app import celery_app
 from app.core.db import get_db
 from app.models.users import User
 from app.modules.users.staff_import_service import (
-    parse_upload,
-    build_preview,
-    commit_import,
     ParsedFile,
     PreviewResult,
+    build_preview,
+    commit_import,
+    parse_upload,
 )
 
-
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/admin/staff", tags=["staff-import"])
 
 
@@ -215,3 +220,74 @@ async def import_staff_commit(
         "apply_rules_task_id": task_id,
         "affected_user_count": len(affected_user_ids),
     }
+
+
+class ApplyRulesStatusResponse(BaseModel):
+    """Polling response for /admin/staff/apply-rules/status/{task_id}.
+
+    Maps Celery task states onto a UI-friendly surface. Frontend
+    refreshes every 1–2s while `state in ("PENDING", "STARTED",
+    "RECEIVED", "RETRY")` and stops on SUCCESS / FAILURE.
+
+    `result` carries the per-task body — for `positions.apply_course_rules`
+    that's the standard RecomputeRollup dict (users_processed, added,
+    removed, skipped_manual, protected_completed, failed_user_ids, errors).
+    """
+
+    task_id: str
+    state: str
+    ready: bool
+    successful: bool | None = None
+    failed: bool | None = None
+    result: dict | str | None = None
+    error: str | None = None
+
+
+@router.get("/apply-rules/status/{task_id}", response_model=ApplyRulesStatusResponse)
+def get_apply_rules_status(
+    task_id: str,
+    user: User = Depends(require_role("admin", "org_admin", "superadmin", "methodologist")),
+):
+    """Return the current state of a Celery apply-rules task.
+
+    Polling pattern (recommended for UI):
+      - poll every 1s while state ∈ {PENDING, RECEIVED, STARTED, RETRY}
+      - stop on SUCCESS/FAILURE
+      - if FAILED, surface `error` to user, log it for support
+
+    `require_role` ensures only admin / methodologist / superadmin
+    can introspect task state — students must not see these
+    results because they reveal other users' enrollment counts.
+    """
+    if not task_id:
+        raise HTTPException(status_code=400, detail="task_id is required")
+    res = AsyncResult(task_id, app=celery_app)
+
+    state = res.state          # PENDING | RECEIVED | STARTED | SUCCESS | FAILURE | RETRY | REVOKED
+    ready = res.ready()
+    successful = res.successful() if ready else None
+    failed = res.failed() if ready else None
+
+    body: dict | str | None = None
+    err: str | None = None
+    if state == "SUCCESS":
+        try:
+            body = res.result if isinstance(res.result, (dict, list, str, int, float, bool)) else str(res.result)
+        except Exception as e:  # noqa: BLE001
+            logger.warning("could not read SUCCESS result for %s: %s", task_id, e)
+            body = None
+    elif state == "FAILURE":
+        try:
+            err = str(res.result)
+        except Exception as e:  # noqa: BLE001
+            err = f"<error reading exception: {e!r}>"
+
+    return ApplyRulesStatusResponse(
+        task_id=task_id,
+        state=state,
+        ready=ready,
+        successful=successful,
+        failed=failed,
+        result=body,
+        error=err,
+    )

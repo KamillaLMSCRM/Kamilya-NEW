@@ -1,15 +1,15 @@
-from datetime import datetime, timedelta, timezone
-from uuid import UUID, uuid4
 import logging
+from datetime import UTC, datetime, timedelta
+from uuid import UUID, uuid4
 
 import jwt
-from fastapi import Depends, HTTPException, status, Request
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
-from app.core.db import async_session_factory, get_db
+from app.core.db import get_db
 from app.models.users import User
 
 logger = logging.getLogger(__name__)
@@ -17,12 +17,12 @@ logger = logging.getLogger(__name__)
 settings = get_settings()
 security = HTTPBearer()
 
-ROLES = ['superadmin', 'admin', 'org_admin', 'teacher', 'student']
+ROLES = ['superadmin', 'admin', 'org_admin', 'methodologist', 'teacher', 'student']
 
 
 def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
     to_encode = data.copy()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     expire = now + (expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES))
     to_encode["exp"] = expire
     to_encode["iat"] = now
@@ -37,7 +37,7 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None) -> s
 
 def create_refresh_token(data: dict) -> str:
     to_encode = data.copy()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     expire = now + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
     to_encode["exp"] = expire
     to_encode["iat"] = now

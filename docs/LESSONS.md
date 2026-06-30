@@ -383,3 +383,374 @@ When you find yourself typing "let me try a different fix" — STOP.
    `~/.mavis/agents/mavis/skills/systematic-debugging/SKILL.md`).
 5. Once you find the real fix, document it here **in this exact
    format**: Symptom → Root Cause → Fix → Detection Rule.
+---
+
+## 2026-06-29 — VPS celery worker setup: 30+ min blocked by /tmp/inspect.py shadowing stdlib
+
+### Symptom
+
+Fresh poetry install + venv on VPS 173.249.51.164. Any rom celery import Celery (or even transitively via pp.core.celery_app) hangs for **30+ seconds** and then raises:
+
+`
+AttributeError: module 'inspect' has no attribute 'getfullargspec'
+`
+
+The same rom celery import Celery works fine inside the kamilya-api Docker image on Render and on the dev Windows machine.
+
+### Root cause
+
+/tmp/inspect.py on the VPS (date 2026-06-21, owner askar tooling) **shadowed the stdlib inspect module**. When Python launched a script from /tmp/foo.py, sys.path[0] was '/tmp', and import inspect resolved to the user's diagnostic file — a tiny script that just ran sshpass to inspect llm_node on the Qwen DGX. That file had no getfullargspec, so celery.utils.functional (which does _getfullargspec = inspect.getfullargspec at import time) blew up.
+
+Same shadow risk for /tmp/inspect2.py and /tmp/inspect_tools.py (also on disk).
+
+### Fix
+
+1. Moved shadow files out of any importable directory:
+   `ash
+   mv /tmp/inspect.py /root/inspect.py.bak
+   rm /tmp/inspect2.py /tmp/inspect_tools.py
+   `
+2. Anywhere on the VPS that runs Python:
+   - **Never launch a script from /tmp** — always use a subdirectory like /tmp/scripts/.
+   - If you must: set PYTHONPATH explicitly to the project, never inherit the script's directory.
+3. Notable side-effect: the /tmp/inspect.py script **contained a plain-text DGX root password** (sshpass -p 'Aa31415926535'). Removed but consider rotating that DGX credential since it sat on disk unencrypted since 2026-06-21.
+
+### Detection rule
+
+Before any rom celery import Celery or import celery.app hang, run the **cheap 5-second check**:
+
+`python
+python -c "import inspect; print(inspect.__file__); print(hasattr(inspect, 'getfullargspec'))"
+`
+
+If output shows anything other than /usr/lib/python3.12/inspect.py and True, **something is shadowing stdlib.** Next:
+
+`ash
+find /tmp /root /opt -maxdepth 3 -name 'inspect.py' -o -name 'argparse.py' -o -name 'sys.py' -o -name 'json.py' 2>/dev/null
+`
+
+Symptom-specific cheap check for celery on a fresh box:
+
+`python
+python -c "from celery.utils.functional import _getfullargspec; print(_getfullargspec)"
+`
+
+Pass = stdlib intact, celery import will work. Fail = shadowed stdlib, scan and remove.
+
+---
+
+## 2026-06-29 — Worker setup blocked by missing prod migrations (0032..0036)
+
+### Symptom
+
+After deploying Celery worker to VPS and verifying state=SUCCESS via send_task() with empty input, I expected a real staff import through /admin/staff → commit_import → pply_rules_for_users_task.delay() to materialize enrollments in Postgres. Before running that production smoke I checked the prod database schema directly via psql on the VPS and discovered:
+
+`
+$ psql -d postgres -c 'SELECT version_num FROM alembic_version;'
+ version_num
+-------------
+ 0031                       <-- expected 0036
+
+$ psql -d postgres -c '\d enrollments'
+                             enrollments has NO source column
+$ psql -d postgres -c 'SELECT table_name ... WHERE table_name LIKE department%'
+ (no rows)                   <-- department_courses also missing
+`
+
+If I had run the real smoke without checking, the worker would have died at
+ssignment_service.py:172 doing Enrollment.source.in_(("position", "department"))
+with column "source" does not exist. Import would have appeared to succeed
+(comit_import returns 200 with pply_rules_task_id), but the Celery task
+would fail silently on the worker side, leaving no enrollments.
+
+### Root cause
+
+lembic_version on prod is  031. Migrations  032_tenant_integrations,
+ 033_force_rls_and_lms_app_role,  034_tenant_llm_budget,
+ 035_departments,  036_course_assignment_refactor were committed to the
+repo but **never actually applied to prod**. My earlier progress note
+("Migration 0036 already applied in prod from B1a deploy") was wrong —
+it relied on the Render startCommand (which supposedly runs
+lembic upgrade head) but the deploy logs may have been swallowed,
+or the command line was wrong, or the migrations had a silent failure.
+
+I never verified by querying the DB. **Trust, but verify.**
+
+### Fix
+
+1. SSH into VPS (no need for prod direct DB writes — Render already has
+   DATABASE_URL pointing at the same Supabase), or run migrations from
+   anywhere with DATABASE_URL access:
+
+   `ash
+   cd apps/api
+   # If running from Render shell of the web service:
+   alembic upgrade head
+
+   # If running locally (against prod connection string):
+   DATABASE_URL=<prod> alembic upgrade head
+   `
+2. Verify:
+   `ash
+   psql \ -c 'SELECT version_num FROM alembic_version;'
+   # → 0036
+
+   psql \ -c '\d enrollments'
+   # → includes "source" column
+
+   psql \ -c '\dt department_courses'
+   # → exists
+   `
+3. **Then** run the production smoke.
+
+### Detection rule
+
+Before declaring **any** schema-affecting feature "live in prod":
+
+`ash
+psql \ -c 'SELECT version_num FROM alembic_version'
+# AND
+
+psql \ -c '\d <the_table_you_touched>'
+# AND/OR
+
+psql \ -c '\d+ <the_table> | grep <new_column>'
+`
+
+Three cheap checks. Run all of them and compare with the migration file.
+A migration that "succeeded" in the Render deploy log is not the same as
+a migration that "applied" to the database — Alembic's transactional
+DDL exceptions sometimes get hidden when run via startCommand if a
+step earlier in the chain (poetry install, for instance) exits
+non-zero before migrations run.
+
+**Mandatory for next agent:** before continuing with B1b's E2E smoke,
+the very next command is lembic upgrade head against prod — and
+verify the schema before sending any tasks to the VPS worker.
+
+---
+
+## 2026-06-29 — Render prod migrations NEVER ran (alembic=0031 stuck)
+
+### Symptom (the proof)
+
+After deploying the celery worker (commit 9c0eeb3), I started verifying
+end-to-end via the demo UI (/auth/demo-login → /admin/staff). While
+debugging I ran:
+
+`ash
+psql \ -c \"SELECT version_num FROM alembic_version\"
+# → 0031              <-- expected 0036
+
+psql \ -c '\\d enrollments'
+# → enrollments has NO source column        <-- expected per 0036
+
+psql \ -c '\\dt department_courses'
+# → no rows                                  <-- expected per 0036
+`
+
+The web service was happily returning 200 on /api/v1/health and serving
+requests because (a) most read paths don't touch new tables/columns,
+(b) asyncpg lazily resolves columns at first use, (c) SQLAlchemy
+ORM just generates whatever queries the model declares and lets the
+DB error silently bubble up to whichever endpoint first needs it.
+
+### Root cause
+
+The render.yaml startCommand for kamilya-api is:
+`
+uvicorn app.main:app --host 0.0.0.0 --port \
+`
+— it does **NOT** run lembic upgrade head. The Render build phase runs
+pip install -r requirements.txt only. No automation runs the migrations.
+
+Prior agents had assumed migrations were \"applied automatically\" but
+the config never actually did so. So every migration in lembic/versions/
+shipped since some unknown point never reached prod.
+
+I had relied on this assumption in PLAN_B1_COURSE_ASSIGNMENT_2026-06-29.md
+(\"Migration 0036 already applied in prod from B1a deploy\"). That claim
+was wrong. Lesson: don't trust yourself.
+
+### Fix (applied today from VPS)
+
+1. **Manually applied 0033..0036 via SQL** (0032/0034 needed extra SQL
+   because prod had partially-applied state — 	enant_integrations table
+   existed but lembic_version still pointed at  031).
+2. **Three helper SQLs** used:
+   - pply_0035_ddl.sql — created departments, positions.department_id.
+   - pply_0036_ddl.sql — created department_courses, added
+     nrollments.source, indexes, partial unique index.
+   - ix_position_courses.sql — backfilled 	enant_id and 
+equired
+     columns in pre-existing position_courses.
+   - ix_departments.sql — added slug, parent_id, code,
+     head_user_id columns (0035's expected schema was incomplete).
+3. **Stamped** lembic_version = '0036' manually via lembic stamp 0036.
+4. Verified: psql \\d enrollments shows source column;
+   psql \\dt department_courses exists.
+
+### Fix (going forward — do NOT skip)
+
+In 
+ender.yaml, prepend alembic to the startCommand:
+`
+startCommand: |
+  bash -c \"alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port \\"
+`
+This is critical for every subsequent migration. Not optional.
+
+### Detection rule
+
+**Never declare a schema-affecting feature \"live in prod\" without running:**
+
+`ash
+psql \ -c \"SELECT version_num FROM alembic_version\"
+psql \ -c \"\\d <the_table>\"
+psql \ -c \"\\dt <new_table>\"
+`
+
+And compare against pps/api/alembic/versions/*.py revision_history.
+If lembic_version doesn't equal the latest .py revision —
+**the migration isn't applied**, regardless of what the deploy log
+might suggest.
+
+If a DB schema diverges from ORM models (via migration that has
+DDL the prod DB doesn't), symptoms are unhelpful: web returns 200 on
+endpoints that never touched the missing column. The FIRST request that
+hits the missing column will return 500 with psycopg2.ProgrammingError:
+column \"foo\" does not exist.
+
+### Bonus finding: 	asks.py async event-loop bug (separate issue)
+
+Real production smoke via pply_rules_for_users_task.delay([user_uuid])
+FAILED with:
+
+`
+RuntimeError: Task ... got Future <Future pending> attached to a
+different loop
+`
+
+Pattern at pp/modules/positions/tasks.py:42-49 (and same shape in
+pp/modules/ai/tasks.py:32-35):
+
+`python
+loop = asyncio.new_event_loop()
+asyncio.set_event_loop(loop)
+return loop.run_until_complete(_run_apply_rules(user_ids))
+`
+
+This pattern is fragile under Celery prefork + asyncpg. When the
+async function accessed an ORM relationship (Position.department),
+SQLAlchemy created a future bound to a different event loop (probably
+the AsyncSession's one vs the one we created with 
+ew_event_loop).
+
+Worker returns state=SUCCESS with ailed_user_ids=[user_id] — caller
+might think things work, but actually NO enrollments were created.
+
+Fix: use a single dedicated loop, or replace asyncpg with sync
+psycopg2 inside Celery tasks, or initialize the AsyncSession inside the
+freshly-created loop. **Not fixed today** — file follow-up ticket.
+
+
+
+---
+
+## 2026-06-30 — Two latent bugs caught by writing tests for B1c endpoints
+
+Both bugs would have shipped to production if the new endpoints had
+been pushed without test coverage. They were caught the day after by
+running the test files written for the new router code.
+
+### Lesson 12: `methodologist` role missing from the `ROLES` constant
+
+#### Symptom
+`staff_import_router.py::get_apply_rules_status` uses
+`Depends(require_role("admin", "org_admin", "superadmin", "methodologist"))`.
+At module-import time, `require_role` validates every role name
+against the `ROLES = [...]` constant in `app/core/auth.py` and
+raises `ValueError` if a name isn't in the list.
+
+The very first test in `test_staff_import_status_router.py` failed
+at the test-module `from app.modules.users.staff_import_router
+import ...` line — `ValueError: Invalid role: methodologist`.
+
+#### Root cause
+`ROLES = ['superadmin', 'admin', 'org_admin', 'teacher', 'student']`
+in `apps/api/app/core/auth.py` was missing `'methodologist'`, even
+though:
+- `methodologist` is used in `require_role` calls in
+  `staff_import_router.py` (the very file this lesson is about) and
+  in domain comments throughout the codebase.
+- `methodologist` exists as a real domain role (course review/
+  approval workflow, see `app/modules/courses/router.py:226`).
+
+This is the kind of latent bug that lives forever in production —
+the file is only imported when the first request hits a
+`methodologist`-allow-listed route. If no one ever calls that
+route, the dead-code path never fires the `ValueError`.
+
+#### Fix
+Add `'methodologist'` to the `ROLES` constant.
+
+#### Detection rule
+A unit test for the import alone (`from app.modules.X.router import Y`)
+on a router that uses `require_role` should pass. If it fails with
+`ValueError: Invalid role: ...`, the `ROLES` constant is stale.
+
+Cheap pre-commit check:
+```bash
+git diff -- 'apps/api/**/router.py' \
+  | grep -oE 'require_role\([^)]+\)' \
+  | grep -oE '"[a-z_]+"' \
+  | sort -u > /tmp/roles_used
+git grep -ohE "'[a-z_]+'" -- 'apps/api/app/models/users.py' \
+  | sort -u > /tmp/roles_in_model
+diff /tmp/roles_used /tmp/roles_in_model
+```
+Should be empty. Any diff is a stale `ROLES` enum OR a typo'd role.
+
+---
+
+### Lesson 13: `PositionCourse(...)` with `tenant_id=...` parameter
+
+#### Symptom
+`positions/router.py::attach_course_to_position` calls
+`db.add(PositionCourse(position_id=..., course_id=..., tenant_id=user.tenant_id, required=...))`.
+The first test in `test_positions_courses_router.py` failed with
+`TypeError: 'tenant_id' is an invalid keyword argument for PositionCourse`.
+
+#### Root cause
+`PositionCourse` is a junction table for `positions × courses` —
+its primary key is `(position_id, course_id)`, no `tenant_id`
+column. RLS migration `0013d_rls_final.sql` deliberately
+**excluded `position_courses` from RLS**: tenant scoping is
+enforced via `position.tenant_id` resolution at query time (see
+`kiosk_service.py:270`).
+
+The new endpoint code blindly copied the pattern from
+`DepartmentCourse` (which DOES have `tenant_id`) and would have
+500'd on every POST in production.
+
+#### Fix
+Drop the `tenant_id=...` kwarg from the `PositionCourse(...)`
+constructor. Tests assert binding has only `position_id`,
+`course_id`, `required`.
+
+#### Detection rule
+Whenever a junction model class is referenced, confirm the actual
+SQLAlchemy columns on the model match the kwargs you pass to its
+constructor. Cheapest check:
+```python
+from app.modules.positions.models import PositionCourse
+assert not hasattr(
+    PositionCourse, "tenant_id"
+), "PositionCourse has no tenant_id column"
+```
+
+In practice: write the unit test FIRST, before the endpoint. The
+test will tell you about model/column mismatches during a
+`db.add(...)` call within microseconds, while the alternative
+(letting it hit production) costs you a 500 trace and an
+emergency rollback.

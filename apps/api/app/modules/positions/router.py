@@ -1,62 +1,33 @@
 """Positions — API router with course attachment + JD analysis"""
-import os
 import logging
+import os
 from uuid import UUID
-from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
-from sqlalchemy import select, func, text
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import get_current_user, require_tenant_user
 from app.core.db import get_db
 from app.models.users import User
-from app.modules.positions.models import Position, PositionCourse
 from app.modules.positions.assignment_service import recompute_enrollments
 from app.modules.positions.batch_service import (
     recompute_position_holders,
-    recompute_department_members,
 )
+from app.modules.positions.models import Position, PositionCourse
 
 logger = logging.getLogger(__name__)
+from app.modules.positions.models import PositionJDVersion
 from app.modules.positions.schemas import (
-    PositionCreate,
-    PositionUpdate,
-    PositionResponse,
-    BulkJDItem,
-    BulkJDResponse,
-    BulkPositionRequest,
-    BulkPositionResponse,
     BulkPositionCreated,
     BulkPositionFailed,
-    RecommendedContentItem,
-    RecommendedContentResponse,
-    GenerateJDRequest,
-    GenerateJDResponse,
-    JDPreviewRequest,
-    JDPreviewItem,
-    JDPreviewResponse,
-    RecommendedCourseItem,
-    RecommendedCoursesResponse,
-    JDVersionItem,
-    JDVersionListResponse,
-    JDVersionCreate,
-    JDRestoreResponse,
-    JDAuditItem,
-    JDAuditResponse,
-    CourseSuggestion,
-    CourseSuggestionsResponse,
-    CreateCourseItem,
-    CreateCoursesRequest,
-    CreatedCourseRef,
-    CreateCoursesResponse,
-    QuizQuestionDraft,
-    SuggestOnboardingQuizResponse,
-    SavePositionQuizRequest,
-    PositionQuizResponse,
+    BulkPositionRequest,
+    BulkPositionResponse,
+    PositionCreate,
+    PositionResponse,
+    PositionUpdate,
 )
-from app.modules.positions.models import PositionJDVersion, PositionQuiz
-from app.modules.courses.models import Course
 
 router = APIRouter(
     prefix="/positions",
@@ -348,6 +319,136 @@ async def delete_position(
     await db.delete(pos)
 
 
+class _PositionCourseItem(BaseModel):
+    """Body for POST /v1/positions/{id}/courses (B1c).
+
+    The same schema is accepted by POST /v1/departments/{id}/courses
+    in the departments router.
+    """
+
+    course_id: UUID
+    required: bool = True
+
+
+@router.post(
+    "/{position_id}/courses",
+    response_model=PositionResponse,
+    status_code=201,
+)
+async def attach_course_to_position(
+    position_id: UUID,
+    body: _PositionCourseItem,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Attach a single course to a Position (B1c).
+
+    Idempotent: attaching a course that's already linked returns 200
+    (not 409) with the current state of the position — that way the
+    UI's "save" button can be re-clicked without surprises.
+
+    Side effect: triggers a single-user recompute through the kernel
+    for every holder of this position. The recompute is fan-outed via
+    `recompute_position_holders` (see batch_service.py).
+    """
+    pos = await db.get(Position, position_id)
+    if pos is None or pos.tenant_id != user.tenant_id:
+        raise HTTPException(status_code=404, detail="Position not found")
+
+    # Idempotent insert. ON CONFLICT in the model handles the case
+    # where (position_id, course_id) already exists.
+    existing = await db.scalar(
+        select(PositionCourse).where(
+            PositionCourse.position_id == position_id,
+            PositionCourse.course_id == body.course_id,
+        )
+    )
+    if existing is None:
+        db.add(
+            PositionCourse(
+                position_id=position_id,
+                course_id=body.course_id,
+                required=body.required,
+            )
+        )
+        await db.flush()
+    else:
+        # Mutate `required` in-place if the user is changing the flag
+        # on an existing binding.
+        existing.required = body.required
+
+    # Fan-out: re-derive every holder's enrollments from the rules.
+    batch = await recompute_position_holders(db, position_id, user.tenant_id)
+    await db.flush()
+
+    course_ids = await _get_course_ids(db, position_id)
+    return PositionResponse(
+        id=pos.id,
+        tenant_id=pos.tenant_id,
+        name=pos.name,
+        department=pos.department,
+        level=pos.level,
+        responsibilities=pos.responsibilities,
+        requirements=pos.requirements,
+        course_ids=course_ids,
+        employee_count=pos.employee_count,
+        created_at=pos.created_at,
+        re_enrolled=batch.added,
+    )
+
+
+@router.delete(
+    "/{position_id}/courses/{course_id}",
+    response_model=PositionResponse,
+)
+async def detach_course_from_position(
+    position_id: UUID,
+    course_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Detach a single course from a Position (B1c).
+
+    Side effect: re-derive every holder's enrollments. Completions
+    are kept; in-progress enrollments from this position are removed
+    (B1a's symmetric add/remove semantics).
+    """
+    pos = await db.get(Position, position_id)
+    if pos is None or pos.tenant_id != user.tenant_id:
+        raise HTTPException(status_code=404, detail="Position not found")
+
+    binding = await db.scalar(
+        select(PositionCourse).where(
+            PositionCourse.position_id == position_id,
+            PositionCourse.course_id == course_id,
+        )
+    )
+    if binding is None:
+        raise HTTPException(status_code=404, detail="Binding not found")
+
+    await db.delete(binding)
+    await db.flush()
+
+    # Fan-out recompute — same shape as attach.
+    batch = await recompute_position_holders(db, position_id, user.tenant_id)
+    await db.flush()
+
+    course_ids = await _get_course_ids(db, position_id)
+    return PositionResponse(
+        id=pos.id,
+        tenant_id=pos.tenant_id,
+        name=pos.name,
+        department=pos.department,
+        level=pos.level,
+        responsibilities=pos.responsibilities,
+        requirements=pos.requirements,
+        course_ids=course_ids,
+        employee_count=pos.employee_count,
+        created_at=pos.created_at,
+        re_enrolled=batch.added,
+    )
+
+
 @router.post("/{position_id}/assign/{target_user_id}")
 async def assign_user_to_position(
     position_id: UUID,
@@ -441,8 +542,9 @@ def _extract_text(content: bytes, filename: str) -> str:
 
     if ext == ".pdf":
         try:
-            from pypdf import PdfReader
             import io
+
+            from pypdf import PdfReader
             reader = PdfReader(io.BytesIO(content))
             return "\n".join(page.extract_text() or "" for page in reader.pages)
         except Exception as e:
@@ -451,8 +553,9 @@ def _extract_text(content: bytes, filename: str) -> str:
 
     if ext in (".docx", ".doc"):
         try:
-            from docx import Document
             import io
+
+            from docx import Document
             doc = Document(io.BytesIO(content))
             return "\n".join(p.text for p in doc.paragraphs)
         except Exception as e:
