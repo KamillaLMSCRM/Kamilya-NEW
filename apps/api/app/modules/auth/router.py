@@ -344,6 +344,13 @@ DEMO_USERS = {
         "last_name": "Методологова",
         "role": "teacher",
     },
+    "methodologist": {
+        "telegram_id": 900000004,
+        "email": "methodologist@demo.kml",
+        "first_name": "Методист",
+        "last_name": "Демо",
+        "role": "methodologist",
+    },
     "student": {
         "telegram_id": 900000003,
         "email": "student@demo.kml",
