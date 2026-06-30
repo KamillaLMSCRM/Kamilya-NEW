@@ -101,7 +101,13 @@ class Position(Base):
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
     courses = relationship("PositionCourse", primaryjoin="Position.id == PositionCourse.position_id", cascade="all, delete-orphan")
-    department = relationship("Department", lazy="joined")
+    # Note: 'department' above is a Column (text) used for legacy rows.
+    # The normalised FK relationship must use a different attribute name,
+    # otherwise SQLAlchemy treats the second declaration as overriding the
+    # first, and any handler that passes a string for `department` crashes
+    # with `AttributeError: 'str' object has no attribute '_sa_instance_state'`.
+    # Renamed to `department_obj` to keep both accessible. (Lesson 19.)
+    department_obj = relationship("Department", lazy="joined")
 
 
 class PositionJDVersion(Base):
