@@ -7,6 +7,8 @@ import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
 import { toast } from '@/components/ui/Toast';
 import { api } from '@/lib/api';
+import { ApplyRulesProgress } from '@/components/ui/ApplyRulesProgress';
+import RulesTab from './_tabs/RulesTab';
 
 interface PreviewItem {
   row_number: number;
@@ -49,20 +51,38 @@ export default function AdminStaffPage() {
   const accessToken = useAuthStore((s) => s.accessToken);
   const search = useSearchParams();
 
-  // ADR-0011: tab state. 'import' = Excel/CSV preview + commit,
-  // 'structure' = the department/position/employee tree (formerly /admin/employees).
-  // Default from query string so /admin/staff?tab=structure deep-links land
-  // on the right tab (used by /admin page quick-link and the legacy
-  // /admin/employees redirect).
-  const initialTab: 'import' | 'structure' =
-    search?.get('tab') === 'structure' ? 'structure' : 'import';
-  const [tab, setTab] = useState<'import' | 'structure'>(initialTab);
+  // ADR-0011: tab state.
+  //   'import'   = Excel/CSV preview + commit (B1a apply-rules polling).
+  //   'structure'= the department/position/employee tree (formerly /admin/employees).
+  //   'rules'    = B2: edit «course bindings» per position/department.
+  // Default from query string so deep-links land on the right tab
+  // (used by /admin page quick-link and the legacy /admin/employees
+  // redirect).
+  type Tab = 'import' | 'structure' | 'rules';
+  const queryTab = search?.get('tab');
+  // Студенту вкладки «Импорт», «Структура», «Правила» не нужны — он
+  // потребитель контента, ничего не настраивает (см. ADR-0012).
+  // Страница /admin/staff — это admin/methodologist surface. Если
+  // зашёл студент — показываем понятное «нет доступа».
+  const userRole = useAuthStore((s) => s.user?.role ?? '');
+  const isStaffOwnersRole = ['methodologist', 'teacher', 'admin', 'org_admin', 'superadmin'].includes(userRole);
+  const allowedTabs: Tab[] = ['import', 'structure']; // 'rules' добавим если isStaffOwnersRole
+  if (isStaffOwnersRole) allowedTabs.push('rules');
+  const initialTab: Tab =
+    (queryTab === 'structure' || queryTab === 'rules') && allowedTabs.includes(queryTab)
+      ? (queryTab as Tab)
+      : 'import';
+  const [tab, setTab] = useState<Tab>(initialTab);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<PreviewResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [committing, setCommitting] = useState(false);
+  // B2c: после /commit получаем task_id от apply-rules. Запускаем
+  // polling через <ApplyRulesProgress/> и держим banner видимым до
+  // терминального state.
+  const [applyTaskId, setApplyTaskId] = useState<string | null>(null);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -129,6 +149,12 @@ export default function AdminStaffPage() {
         `Импорт завершён: создано ${r.created}, обновлено ${r.updated}, ` +
         `должностей ${r.positions_created}, пропущено ${r.skipped}`
       );
+      // Запускаем polling apply-rules ТОЛЬКО если бэк вернул
+      // task_id (т.е. были затронутые сотрудники И воркер
+      // доступен). Если affected_user_count === 0 — banner не
+      // нужен.
+      const tid: string | null = r.apply_rules_task_id ?? null;
+      setApplyTaskId(tid);
       setSelectedFile(null);
       setPreview(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -143,6 +169,7 @@ export default function AdminStaffPage() {
   const handleReset = () => {
     setSelectedFile(null);
     setPreview(null);
+    setApplyTaskId(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -155,7 +182,26 @@ export default function AdminStaffPage() {
         </p>
       </div>
 
-      {/* ADR-0011: tabs combine import + structure on one page */}
+      {!isStaffOwnersRole ? (
+        // Student hit /admin/staff (maybe via stale link). Очищаем
+        // объяснение, не показываем UI. ADR-0012: студенты не
+        // настраивают ничего ни в одном из доменов.
+        <Card>
+          <CardContent className="p-6 text-center space-y-2">
+            <div className="text-4xl">🚫</div>
+            <h3 className="text-lg font-bold text-foreground">
+              Нет доступа к странице «Штатное расписание»
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              Эта страница для администратора тенанта и методолога.
+              Если ты — обучающийся, перейди в «Мои курсы» через меню.
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+      <>
+
+      {/* ADR-0011 + ADR-0012: tabs combine import + structure + rules on one page */}
       <div role="tablist" className="flex border-b border-border">
         <button
           role="tab"
@@ -181,10 +227,26 @@ export default function AdminStaffPage() {
         >
           🌳 Структура
         </button>
+        <button
+          role="tab"
+          aria-selected={tab === 'rules'}
+          onClick={() => setTab('rules')}
+          className={`px-4 py-2 text-sm font-medium transition-colors ${
+            tab === 'rules'
+              ? 'border-b-2 border-primary text-primary'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          📐 Правила
+        </button>
       </div>
 
       {tab === 'import' && (
         <div className="space-y-6">
+
+      {/* B2c: apply-rules progress banner — показывается после
+         /commit если бэк вернул task_id. Polling внутри компонента. */}
+      {applyTaskId && <ApplyRulesProgress taskId={applyTaskId} />}
 
       {/* Format help */}
       <Card>
@@ -419,6 +481,10 @@ export default function AdminStaffPage() {
       )}
 
       {tab === 'structure' && <StructureTab />}
+      {tab === 'rules' && <RulesTab />}
+      </>
+
+      )}
     </div>
   );
 }
