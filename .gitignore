@@ -102,6 +102,12 @@ docs/agents/
 docs/analysis/
 docs/prompts/
 
+# Render CLI debug captures (render logs ... > .render-logs.json).
+# Regenerated every time we run `render logs --output json` for diagnostics;
+# not part of the project source.
+.render-logs*.json
+.render-logs*.txt
+
 # Runtime caches — never commit
 apps/api/summaries/
 
