@@ -135,13 +135,18 @@ async def authenticate_user(db: AsyncSession, email: str, password: str) -> tupl
     return user, access_token, refresh_token
 
 
-async def refresh_access_token(db: AsyncSession, refresh_token: str) -> tuple[str, str]:
+async def refresh_access_token(db: AsyncSession, refresh_token: str) -> tuple[str, str, User]:
     """Validate a refresh token and mint a fresh (access, refresh) pair.
 
-    Returns (new_access_token, new_refresh_token). The new refresh token
-    rotates the previous one — callers should treat the old token as
+    Returns (new_access_token, new_refresh_token, user). The new refresh
+    token rotates the previous one — callers should treat the old token as
     invalidated (we don't have a blacklist mechanism yet; rotating
-    reduces the window if a refresh token leaks).
+    reduces the window if a refresh token leaks). The User object is
+    returned so the router can serialise it into TokenResponse.user —
+    the frontend's _refresh() in apps/web/src/lib/api.ts requires
+    data.user to exist or it never calls setAuth() and the next request
+    is sent with a stale/null access token, producing a 401 → redirect
+    to /login loop. (Lesson 17, 2026-06-30.)
     """
     payload = decode_token(refresh_token)
     if payload.get("type") != "refresh":
@@ -170,7 +175,7 @@ async def refresh_access_token(db: AsyncSession, refresh_token: str) -> tuple[st
         "sub": str(user.id),
         "tenant_id": user.tenant_id,
     })
-    return new_access, new_refresh
+    return new_access, new_refresh, user
 
 
 async def blacklist_refresh_token(db: AsyncSession, refresh_token: str) -> None:

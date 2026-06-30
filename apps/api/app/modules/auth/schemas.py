@@ -59,6 +59,10 @@ class TokenResponse(BaseModel):
     refresh_token: str
     token_type: str = 'bearer'
     expires_in: int
+    # Optional: present on /login, /register, /refresh, /check-code.
+    # The frontend _refresh() in apps/web/src/lib/api.ts requires
+    # data.user to exist or it never calls setAuth() — see Lesson 17.
+    user: UserResponse | None = None
 
 
 class LoginRequest(BaseModel):

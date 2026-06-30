@@ -142,12 +142,17 @@ async def refresh(req: RefreshRequest, request: Request, response: Response, db=
     if not refresh_token:
         raise HTTPException(status_code=401, detail="Missing refresh token")
     try:
-        new_access, new_refresh = await refresh_access_token(db, refresh_token)
+        new_access, new_refresh, user = await refresh_access_token(db, refresh_token)
     except Exception:
         _clear_refresh_cookie(response)
         raise HTTPException(status_code=401, detail="Invalid refresh token")
     _set_refresh_cookie(response, new_refresh)
-    return TokenResponse(access_token=new_access, refresh_token=new_refresh, expires_in=900)
+    return TokenResponse(
+        access_token=new_access,
+        refresh_token=new_refresh,
+        expires_in=900,
+        user=UserResponse.model_validate(user),
+    )
 
 
 @router.post("/logout")
