@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.auth import get_current_user, require_tenant_user
+from app.core.auth import get_current_user, require_role, require_tenant_user
 from app.core.db import get_db
 from app.models.users import User
 from app.modules.positions.assignment_service import recompute_enrollments
