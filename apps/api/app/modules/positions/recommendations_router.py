@@ -194,8 +194,13 @@ async def create_courses_from_suggestions(
             ai_generated=False,
             created_by=user.id,
         ))
-        # Attach to position so new employees auto-enroll
-        db.add(PositionCourse(position_id=position_id, course_id=course_id))
+        # Attach to position so new employees auto-enroll.
+        # tenant_id is required by the NOT NULL constraint; smoke 2026-06-30.
+        db.add(PositionCourse(
+            position_id=position_id,
+            course_id=course_id,
+            tenant_id=user.tenant_id,
+        ))
         created_refs.append(CreatedCourseRef(id=str(course_id), title=item.title.strip()))
 
     await db.commit()

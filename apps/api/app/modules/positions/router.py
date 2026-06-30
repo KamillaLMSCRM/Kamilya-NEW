@@ -40,13 +40,22 @@ router = APIRouter(
 
 
 
-async def _sync_courses(db: AsyncSession, position_id: UUID, course_ids: list[UUID] | None):
-    """Replace all position_courses for a position."""
+async def _sync_courses(db: AsyncSession, position_id: UUID, course_ids: list[UUID] | None, tenant_id: UUID | None = None):
+    """Replace all position_courses for a position.
+
+    `tenant_id` is required by the NOT NULL constraint on
+    position_courses.tenant_id; we resolve it from the caller because
+    the model otherwise has no way to derive it (smoke 2026-06-30).
+    """
     if course_ids is None:
         return
     await db.execute(delete(PositionCourse).where(PositionCourse.position_id == position_id))
     for cid in course_ids:
-        db.add(PositionCourse(position_id=position_id, course_id=cid))
+        db.add(PositionCourse(
+            position_id=position_id,
+            course_id=cid,
+            tenant_id=tenant_id,
+        ))
 
 
 async def _get_course_ids(db: AsyncSession, position_id: UUID) -> list[UUID]:
@@ -206,7 +215,7 @@ async def create_position(
     await db.flush()
 
     if req.course_ids:
-        await _sync_courses(db, pos.id, req.course_ids)
+        await _sync_courses(db, pos.id, req.course_ids, tenant_id=user.tenant_id)
         await db.flush()
 
     course_ids = await _get_course_ids(db, pos.id)
@@ -368,6 +377,7 @@ async def attach_course_to_position(
             PositionCourse(
                 position_id=position_id,
                 course_id=body.course_id,
+                tenant_id=user.tenant_id,  # NOT NULL constraint; smoke 2026-06-30
                 required=body.required,
             )
         )
