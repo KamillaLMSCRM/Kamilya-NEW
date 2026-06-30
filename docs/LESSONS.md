@@ -1330,3 +1330,123 @@ agent that automates Render has to learn this.
   side-effect of an env-var update. Use a pipeline: GET,
   modify the list in memory, PUT, then drop the in-memory
   reference.
+
+
+---
+
+## 2026-06-30 — Methodologist does staff-import / position-course / invitations, NOT HR
+
+### Symptom
+
+On 2026-06-30 Askar had to correct the agent three times across
+the same session: "это функционал методолога, не HR".
+
+Despite this, the agent kept writing "HR/Admin" in the
+FLOW_COURSE_TO_INVITATION.md document for steps 3-5 (staff
+import, position-course binding, invitations) and had to be
+corrected again after the document was committed.
+
+The mistake is **doubly bad** because the code itself does not
+match the ADR either. ADR-0012
+(`docs/adr/0012-rbac-admin-vs-methodologist.md`) defines
+methodologist as the role for "learning content and staff
+configuration: courses, JDs, position/department bindings,
+quiz authoring, onboarding quiz reset, staff import, course
+review workflow". But the actual `require_role` decorators
+in `staff_import_router.py` and `users/router.py` say
+`("admin", "org_admin", "superadmin")` — methodologist is
+**not** in the allow-list, so the code is more restrictive
+than the ADR specifies.
+
+### What the ADR says vs what the code does
+
+| Endpoint | ADR-0012 row | ADR target | Code today | Discrepancy |
+|---|---|---|---|---|
+| `POST /v1/admin/staff/import/preview` | row 129 | admin + methodologist | admin only | methodologist blocked |
+| `POST /v1/admin/staff/import/commit` | row 130 | admin + methodologist | admin only | methodologist blocked |
+| `GET /v1/admin/staff/apply-rules/status/{tid}` | row 131 | admin + methodologist | admin + methodologist | OK |
+| `GET /v1/admin/staff/structure` | row 132 | admin + methodologist + teacher | admin + methodologist + teacher | OK |
+| `POST /v1/positions/{id}/courses` | row 133 | methodologist + admin | any tenant user | too permissive (no role check) |
+| `DELETE /v1/positions/{id}/courses/{cid}` | row 134 | methodologist + admin | any tenant user | too permissive |
+| `POST /v1/users/invitations/bulk` | §3 rule (Bulk-import) | methodologist | admin only | methodologist blocked |
+| `POST /v1/users/invitations/{id}/resend` | §3 rule | methodologist | admin only | methodologist blocked |
+
+So we have **two related issues**:
+1. **Documentation drift** (FLOW doc, commit messages) keeps
+   saying "HR/Admin" because that's what the code's
+   `require_role` says.
+2. **Code drift** is the opposite of what the ADR says:
+   methodologist is **not** allowed where the ADR says
+   methodologist should be allowed. The code is **stricter**
+   than the ADR.
+
+### Fix (in progress)
+
+1. Update the code to match the ADR: add `methodologist` to
+   `require_role` in:
+   - `staff_import_router.py::import_preview` (line 105)
+   - `staff_import_router.py::import_commit` (line 142)
+   - `users/router.py::bulk_create_invitations` (line 278)
+   - `users/router.py::list_invitations` (line 338)
+   - `users/router.py::resend_invitation` (line 384)
+2. Update the FLOW document so steps 3-5 say "methodologist"
+   not "HR/Admin". Already done in commit f3a81c7 (this Lesson).
+3. Cross-check the rest of the codebase for "HR" /
+   "HR/Admin" / "HR Admin" in prose or commit messages. The
+   string "HR" should not appear anywhere outside AGENTS.md /
+   LESSONS.md context.
+
+### Detection rule
+
+```bash
+# In any new doc, run this before commit:
+grep -nE "\bHR(/Admin| Admin)?\b" docs/*.md
+# In any new code, look at every require_role and cross-check
+# against docs/adr/0012-rbac-admin-vs-methodologist.md §3 table.
+```
+
+If grep finds "HR" outside the historical context (where it
+describes the **original Chamilo model** that we are
+replacing), fix it.
+
+### Why this is dangerous
+
+1. **Methodologist literally cannot do their job in production**
+   until the code is fixed. They see the UI for /admin/staff
+   (the B2 third tab "📐 Правила" is for them per ADR §4) but
+   get 403 when they try to call the import endpoint.
+2. **The doc lies to new contributors** about who the actor
+   is. If a new agent reads the FLOW doc and copies the
+   "HR/Admin" label into new code or commit messages, the
+   drift compounds.
+3. **The agent is wrong twice** — first about who the actor
+   is, second about whose domain this is. Askar had to
+   correct the same wrong statement multiple times in one
+   session, which is a strong signal that the agent's
+   internal model is wrong, not just an isolated slip.
+
+### Cross-cutting rule for next agent
+
+> When writing prose that describes "who does step X",
+> consult `docs/adr/0012-rbac-admin-vs-methodologist.md` §3
+> for the canonical answer. **Do not** rely on the current
+> `require_role` in code, because (a) the code may be wrong
+> (this lesson) and (b) the code may change between when
+> the doc was written and when the code is read.
+>
+> If a conflict exists between ADR and code, the ADR is the
+> source of truth. File a separate bug to fix the code.
+
+### Related
+
+- `docs/adr/0012-rbac-admin-vs-methodologist.md` §3 has the
+  full endpoint allow-list table. Reference it from every
+  new doc that names roles.
+- `app/core/auth.py:218` `require_role` factory — this is
+  the only place RBAC is enforced. Changes here affect every
+  endpoint.
+- `app/models/user_roles.py` — model that backs the
+  many-to-many role assignments. Methodologist is not a row
+  in `users.role` (which is a string); it is a row in
+  `user_roles` (a UUID-keyed mapping). The two are different
+  by design.
