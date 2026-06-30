@@ -44,7 +44,12 @@ class PositionResponse(BaseModel):
     # True when cached count != live count. UI can show a small "↻ уточнено"
     # badge so the methodologist knows the cached value was stale.
     employee_count_stale: bool = False
-    created_at: datetime
+    # nullable on the Pydantic side: legacy rows in the `positions` table
+    # (pre-migration 0036 / staff-import that bypassed ServerDefault)
+    # can have created_at IS NULL. Without the default this validation
+    # error would 422 every list call the moment a NULL row exists in
+    # the tenant. See LESSONS.md Lesson 14 (added 2026-06-30).
+    created_at: datetime | None = None
     re_enrolled: int | None = None  # only set on update responses
 
     class Config:
