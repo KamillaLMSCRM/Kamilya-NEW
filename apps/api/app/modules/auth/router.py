@@ -149,34 +149,12 @@ async def login(req: LoginRequest, request: Request, response: Response, db=Depe
 async def refresh(req: RefreshRequest, request: Request, response: Response, db=Depends(get_db)):
     # Prefer refresh token from cookie; fall back to request body for legacy clients.
     refresh_token = _read_refresh_cookie_or_body(request, req.refresh_token)
-    import logging
-    logger = logging.getLogger(__name__)
-    cookie_present = request.cookies.get(REFRESH_COOKIE_NAME) is not None
-    body_present = bool(req.refresh_token)
-    has_authorization = bool(request.headers.get('authorization'))
-    origin = request.headers.get('origin')
-    referer = request.headers.get('referer')
-    logger.info(
-        "DEBUG /refresh: ip=%s cookie_present=%s body_present=%s body_len=%d auth_present=%s origin=%r referer=%r",
-        request.client.host if request.client else "?",
-        cookie_present, body_present, len(req.refresh_token or ""),
-        has_authorization, origin, referer,
-    )
     if not refresh_token:
-        logger.info("DEBUG /refresh: missing token, rejecting with 401 (cookie=%s body=%s)", cookie_present, body_present)
         raise HTTPException(status_code=401, detail="Missing refresh token")
     try:
         # refresh_access_token rotates the refresh token and returns the new one.
         new_access, new_refresh = await refresh_access_token(db, refresh_token)
-    except Exception as exc:
-        import traceback
-        print(
-            f"[DEBUG /refresh FAIL] exc={type(exc).__name__}:{exc!r} "
-            f"cookie_present={cookie_present} body_present={body_present} "
-            f"body_len={len(req.refresh_token or '')} ip={request.client.host if request.client else '?'}",
-            flush=True,
-        )
-        print(traceback.format_exc(), flush=True)
+    except Exception:
         _clear_refresh_cookie(response)
         raise HTTPException(status_code=401, detail="Invalid refresh token")
     # Re-issue the cookie with the rotated refresh token.
@@ -283,6 +261,22 @@ async def check_auth_code(req: CheckCodeRequest, response: Response):
         return JSONResponse(content={"verified": False})
 
     user_data = result["user"]
+    # FastAPI's default JSON encoder doesn't know how to serialise UUID.
+    # auth_sessions stores user_data verbatim (it survives via UUID-aware
+    # `_SessionEncoder`) but the response body we return here goes through
+    # starlette's JSONResponse which uses stdlib json.dumps — crash.
+    # Str-ify at the boundary so the frontend gets a normal JSON shape.
+    from uuid import UUID
+    if isinstance(user_data.get("tenant_id"), UUID):
+        user_data["tenant_id"] = str(user_data["tenant_id"])
+    if isinstance(user_data.get("user_id"), UUID):
+        user_data["user_id"] = str(user_data["user_id"])
+    if isinstance(user_data.get("telegram_id"), UUID):
+        user_data["telegram_id"] = str(user_data["telegram_id"])
+    tenant_obj = user_data.get("tenant")
+    if isinstance(tenant_obj, dict) and isinstance(tenant_obj.get("id"), UUID):
+        tenant_obj["id"] = str(tenant_obj["id"])
+
     access_token = create_access_token({
         "sub": user_data["user_id"],
         "tenant_id": user_data["tenant_id"],

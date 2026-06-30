@@ -25,10 +25,18 @@ class PositionResponse(BaseModel):
     id: UUID
     tenant_id: UUID
     name: str
-    department: str
-    level: str
-    responsibilities: str
-    requirements: str
+    # nullable on the Pydantic side: positions created via the staff-
+    # import wizard with no department supplied (or via legacy inserts)
+    # have department IS NULL. The ORM model has a default '' but the
+    # column itself is nullable since migration 0035 (when Department
+    # got its own table). Without the | None here, any such row 422s
+    # the whole tenant's /positions call. The frontend treats null
+    # and empty string the same way (renders «— без отдела —»).
+    # See LESSONS.md Lesson 14 (added 2026-06-30).
+    department: str | None = None
+    level: str = ""
+    responsibilities: str = ""
+    requirements: str = ""
     course_ids: list[UUID] = []
     # Cached count maintained by /positions/{id}/assign/{user} and
     # staff-import endpoints. May be stale if employees were added/removed
