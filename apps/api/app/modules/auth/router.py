@@ -149,15 +149,28 @@ async def login(req: LoginRequest, request: Request, response: Response, db=Depe
 async def refresh(req: RefreshRequest, request: Request, response: Response, db=Depends(get_db)):
     # Prefer refresh token from cookie; fall back to request body for legacy clients.
     refresh_token = _read_refresh_cookie_or_body(request, req.refresh_token)
+    # TEMP 2026-06-30 round 2 — /refresh is still 401 after first fix. Need
+    # to know if cookie reaches server at all, and what payload is.
+    print(
+        f"[DEBUG /refresh ROUND2] cookie_present={request.cookies.get(REFRESH_COOKIE_NAME) is not None} "
+        f"cookie_len={len(request.cookies.get(REFRESH_COOKIE_NAME) or '')} "
+        f"body_present={bool(req.refresh_token)} body_len={len(req.refresh_token or '')} "
+        f"origin={request.headers.get('origin')!r} ref={request.headers.get('referer')!r}",
+        flush=True,
+    )
     if not refresh_token:
         raise HTTPException(status_code=401, detail="Missing refresh token")
     try:
-        # refresh_access_token rotates the refresh token and returns the new one.
         new_access, new_refresh = await refresh_access_token(db, refresh_token)
-    except Exception:
+    except Exception as exc:
+        import traceback
+        print(
+            f"[DEBUG /refresh ROUND2] refresh_access_token raised {type(exc).__name__}: {exc}",
+            flush=True,
+        )
+        print(traceback.format_exc(), flush=True)
         _clear_refresh_cookie(response)
         raise HTTPException(status_code=401, detail="Invalid refresh token")
-    # Re-issue the cookie with the rotated refresh token.
     _set_refresh_cookie(response, new_refresh)
     return TokenResponse(access_token=new_access, refresh_token=new_refresh, expires_in=900)
 
