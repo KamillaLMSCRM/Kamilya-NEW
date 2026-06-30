@@ -107,16 +107,28 @@ async def list_positions(
     for pos in positions:
         course_ids = await _get_course_ids(db, pos.id)
         live = await _live_employee_count(db, pos.id, user.tenant_id)
-        responses.append(PositionResponse(
-            id=pos.id, tenant_id=pos.tenant_id, name=pos.name,
-            department=pos.department, level=pos.level,
-            responsibilities=pos.responsibilities, requirements=pos.requirements,
-            course_ids=course_ids,
-            employee_count=pos.employee_count,
-            current_employee_count=live,
-            employee_count_stale=pos.employee_count != live,
-            created_at=pos.created_at,
-        ))
+        try:
+            responses.append(PositionResponse(
+                id=pos.id, tenant_id=pos.tenant_id, name=pos.name,
+                department=pos.department, level=pos.level,
+                responsibilities=pos.responsibilities, requirements=pos.requirements,
+                course_ids=course_ids,
+                employee_count=pos.employee_count,
+                current_employee_count=live,
+                employee_count_stale=pos.employee_count != live,
+                created_at=pos.created_at,
+            ))
+        except Exception as exc:  # TEMP 2026-06-30: capture 422 root cause
+            import logging, traceback
+            logging.getLogger(__name__).error(
+                "DEBUG list_positions failed for pos.id=%s: %s\nattrs=%r\npos.__dict__=%r",
+                pos.id, exc, dir(pos), {k: getattr(pos, k, '<n/a>') for k in [
+                    'id','tenant_id','name','department','level',
+                    'responsibilities','requirements','employee_count','created_at'
+                ]},
+                exc_info=True,
+            )
+            raise
     return responses
 
 

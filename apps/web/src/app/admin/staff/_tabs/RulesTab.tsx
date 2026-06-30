@@ -104,8 +104,17 @@ async function fetchDepartments(): Promise<DepartmentRow[]> {
 
 // Нет GET /v1/departments/{id}/courses — показываем hint в UI и
 // оставляем массив пустым. B2d epic добавит endpoint.
-async function fetchCoursesForDepartment(_departmentId: string): Promise<string[]> {
-  return [];
+// Список курсов ограничен 100 на страницу в бэке (`Query(20, ge=1,
+// le=100)` в `courses/router.py`). Берём больше не нужно — для B2
+// хватит опубликованных + draft, перебирать 200+ не планируется. Если
+// понадобится больше, добавим пагинацию в следующей итерации.
+async function fetchCoursesLite(): Promise<CourseLite[]> {
+  try {
+    const r = await api.get('/v1/courses?per_page=100');
+    return r.data?.items ?? r.data ?? [];
+  } catch {
+    return [];
+  }
 }
 
 async function attachCourse(
@@ -148,15 +157,21 @@ export default function RulesTab() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [pos, deps, coursesResp] = await Promise.all([
-        fetchPositions(),
-        fetchDepartments(),
-        api.get('/v1/courses?per_page=200').catch(() => ({ data: { items: [] } })),
+      const [pos, deps, coursesList] = await Promise.all([
+        fetchPositions().catch((e) => {
+          console.error('positions fetch failed:', e?.response?.status, e?.response?.data);
+          return [];
+        }),
+        fetchDepartments().catch((e) => {
+          console.error('departments fetch failed:', e?.response?.status, e?.response?.data);
+          return [];
+        }),
+        fetchCoursesLite(),
       ]);
 
       setPositions(pos);
       setDepartments(deps);
-      setCourses(coursesResp.data?.items ?? coursesResp.data ?? []);
+      setCourses(coursesList);
     } catch (err: any) {
       const detail = err?.response?.data?.detail || 'Не удалось загрузить правила';
       toast.error(typeof detail === 'string' ? detail : JSON.stringify(detail));

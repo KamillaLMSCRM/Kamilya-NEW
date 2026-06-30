@@ -263,7 +263,17 @@ label: t('providers.title'),
               )}
               <ul className="space-y-0.5" role="list">
                 {visibleItems.map((item) => {
-                  const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+                  // Active when pathname exactly matches OR when the item
+                  // path is a single segment and pathname has it as its
+                  // first segment. We deliberately don't treat a 1-segment
+                  // href like `/admin` as a prefix of `/admin/staff` so
+                  // the parent "Админ" link doesn't light up while the user
+                  // is on a child page like `/admin/staff`. Otherwise a
+                  // tenant-admin would see two highlighted items at once.
+                  const isActive =
+                    pathname === item.href ||
+                    (item.href.split('/').filter(Boolean).length > 1 &&
+                      pathname.startsWith(item.href + '/'));
                   return (
                     <li key={item.href}>
                       <NavLink item={item} isActive={isActive} collapsed={collapsed} />
