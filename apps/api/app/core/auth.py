@@ -21,16 +21,27 @@ ROLES = ['superadmin', 'admin', 'org_admin', 'methodologist', 'teacher', 'studen
 
 
 def _json_safe_jwt_payload(data: dict) -> dict:
-    """Normalise a JWT payload so jwt.encode() never trips on UUID/datetime.
+    """Normalise a JWT payload so jwt.encode() never trips on UUID.
 
-    `jwt.encode` uses stdlib `json.dumps` under the hood; both Python's
-    stdlib json and PyJWT 2.x reject UUID/datetime values. We coerce:
+    `jwt.encode` uses stdlib `json.dumps` under the hood; both stdlib
+    json and PyJWT 2.x reject uuid.UUID. We coerce UUID → str (None
+    stays None — that's intentional, see superadmin flow which uses
+    tenant_id=None).
 
-      - UUID → str(uuid) (None stays None — that's intentional, see
-        superadmin flow which uses tenant_id=None)
-      - datetime → isoformat() (only datetime *objects*, not ints —
-        `exp`/`iat`/`nbf` are intentionally emitted by callers as
-        datetime, which we convert here so the payload is JSON-clean)
+    IMPORTANT: we do NOT touch datetime values here. The standard JWT
+    registered claims `exp` / `iat` / `nbf` are *defined* by RFC 7519
+    §4.1 as NumericDate (Unix seconds, integer). PyJWT's
+    verify_exp=True calls datetime.fromtimestamp(exp) on whatever value
+    is in the payload — a string (from a misguided isoformat() call)
+    would raise and produce `InvalidTokenError`, which is exactly what
+    happened in the 2026-06-30 R5 bug: every /refresh request failed
+    with `Invalid token` because the token was minted seconds earlier
+    with `exp` as a string. Callers that want to set `exp` etc. must
+    pass int (Unix seconds) or datetime — and we convert datetime to
+    int in create_access_token/refresh below. The `iat`/`nbf` etc. set
+    by callers (e.g. a tenant_id-as-datetime) would be untouched here
+    only if the caller passed a raw string; we trust the documented
+    contract and let `create_access_token` own the standard claims.
 
     Reasoning: callers throughout auth/service.py do `user.tenant_id`
     which is a UUID column. We used to require them to wrap every
@@ -44,15 +55,11 @@ def _json_safe_jwt_payload(data: dict) -> dict:
     for k, v in data.items():
         if isinstance(v, UUID):
             out[k] = str(v) if v is not None else None
-        elif isinstance(v, datetime):
-            out[k] = v.isoformat()
         elif isinstance(v, dict):
             out[k] = _json_safe_jwt_payload(v)
         elif isinstance(v, (list, tuple)):
             out[k] = [
-                (str(x) if isinstance(x, UUID) else
-                 x.isoformat() if isinstance(x, datetime) else x)
-                for x in v
+                (str(x) if isinstance(x, UUID) else x) for x in v
             ]
         else:
             out[k] = v
@@ -63,9 +70,12 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None) -> s
     to_encode = _json_safe_jwt_payload(data)
     now = datetime.now(UTC)
     expire = now + (expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES))
-    to_encode["exp"] = expire.isoformat()
-    to_encode["iat"] = now.isoformat()
-    to_encode["nbf"] = now.isoformat()
+    # Standard JWT claims must be NumericDate (Unix seconds, int) per
+    # RFC 7519 §4.1. PyJWT verify_exp calls datetime.fromtimestamp()
+    # on these — passing isoformat() strings broke /refresh on 2026-06-30.
+    to_encode["exp"] = int(expire.timestamp())
+    to_encode["iat"] = int(now.timestamp())
+    to_encode["nbf"] = int(now.timestamp())
     to_encode["jti"] = str(uuid4())
     # aud/iss claims — required for validation on decode (see decode_token).
     # Callers may override them via the data dict, but defaults are always set.
@@ -78,9 +88,9 @@ def create_refresh_token(data: dict) -> str:
     to_encode = _json_safe_jwt_payload(data)
     now = datetime.now(UTC)
     expire = now + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
-    to_encode["exp"] = expire.isoformat()
-    to_encode["iat"] = now.isoformat()
-    to_encode["nbf"] = now.isoformat()
+    to_encode["exp"] = int(expire.timestamp())
+    to_encode["iat"] = int(now.timestamp())
+    to_encode["nbf"] = int(now.timestamp())
     to_encode["jti"] = str(uuid4())
     to_encode["type"] = "refresh"
     to_encode.setdefault("aud", settings.JWT_AUDIENCE)
@@ -114,12 +124,8 @@ def decode_token(token: str) -> dict:
         )
         return payload
     except jwt.ExpiredSignatureError:
-        # TEMP 2026-06-30 R4 — print to find out which exception is firing
-        # for /refresh (user reports dashboard still bounces to /login).
-        print(f"[DEBUG decode_token R4] ExpiredSignatureError aud={settings.JWT_AUDIENCE} iss={settings.JWT_ISSUER}", flush=True)
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token expired")
     except jwt.InvalidAudienceError:
-        print(f"[DEBUG decode_token R4] InvalidAudienceError aud={settings.JWT_AUDIENCE} iss={settings.JWT_ISSUER}", flush=True)
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token audience")
     except jwt.InvalidIssuerError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token audience")
