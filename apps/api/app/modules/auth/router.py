@@ -160,16 +160,37 @@ async def refresh(req: RefreshRequest, request: Request, response: Response, db=
 
 
 @router.post("/logout")
-async def logout(req: RefreshRequest, request: Request, response: Response, db=Depends(get_db), user=Depends(get_current_user)):
+async def logout(req: RefreshRequest, request: Request, response: Response, db=Depends(get_db)):
+    # Logout used to depend on `get_current_user` (Bearer access-token),
+    # which 401'd when the access-token expired (1h TTL) before logout
+    # had a chance to blacklist the refresh-token. The user saw a 401 in
+    # Network and thought logout was broken, even though the cookie was
+    # already cleared client-side.
+    #
+    # The refresh-token itself is the source of truth for "is this user
+    # still in a session we own" — its TTL is 30 days. We decode it,
+    # look up the user, blacklist the token, log the action, clear the
+    # cookie. No access-token required.
     refresh_token = _read_refresh_cookie_or_body(request, req.refresh_token)
+    user = None
     if refresh_token:
+        # Best-effort decode — if the token is malformed/expired/revoked
+        # we still want to clear the cookie. Don't raise.
+        try:
+            payload = decode_token(refresh_token)
+            if payload.get("type") == "refresh":
+                user_id = UUID(payload["sub"])
+                user = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
+        except Exception:
+            user = None
         await blacklist_refresh_token(db, refresh_token)
-    await log_action(
-        db, user.tenant_id, "logout", "user",
-        resource_id=str(user.id), user_id=user.id,
-        ip_address=request.client.host if request.client else None,
-        user_agent=request.headers.get("user-agent"),
-    )
+    if user is not None:
+        await log_action(
+            db, user.tenant_id, "logout", "user",
+            resource_id=str(user.id), user_id=user.id,
+            ip_address=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent"),
+        )
     await db.commit()
     _clear_refresh_cookie(response)
     return {"status": "ok"}
