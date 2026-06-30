@@ -275,7 +275,7 @@ async def change_user_role(
 async def bulk_invite_users(
     payload: InvitationBulkCreateRequest,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("admin", "org_admin", "superadmin")),
+    user: User = Depends(require_role("admin", "org_admin", "superadmin", "methodologist")),
 ):
     """Bulk-create user invitations (Phase 1).
 
@@ -335,7 +335,7 @@ async def list_invitations(
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("admin", "org_admin", "superadmin")),
+    user: User = Depends(require_role("admin", "org_admin", "superadmin", "methodologist")),
 ):
     """List invitations for current tenant."""
     from sqlalchemy import desc, func as sqlfunc
@@ -381,7 +381,7 @@ async def list_invitations(
 async def resend_user_invitation(
     invitation_id: UUID,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("admin", "org_admin", "superadmin")),
+    user: User = Depends(require_role("admin", "org_admin", "superadmin", "methodologist")),
 ):
     """Re-invite: create new row with fresh token, mark old as superseded.
 

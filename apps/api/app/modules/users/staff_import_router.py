@@ -102,7 +102,7 @@ def _parsed_file_to_response(parsed: ParsedFile, preview: PreviewResult | None =
 async def import_staff_preview(
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("admin", "org_admin", "superadmin")),
+    user: User = Depends(require_role("admin", "org_admin", "superadmin", "methodologist")),
 ):
     """Parse uploaded file (xlsx/csv) and return a preview of what would change.
 
@@ -139,7 +139,7 @@ async def import_staff_preview(
 async def import_staff_commit(
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("admin", "org_admin", "superadmin")),
+    user: User = Depends(require_role("admin", "org_admin", "superadmin", "methodologist")),
 ):
     """Parse uploaded file and apply changes (create new users, update existing, auto-create positions).
 
