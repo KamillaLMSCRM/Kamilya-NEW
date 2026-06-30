@@ -1125,3 +1125,208 @@ template for any future "401 with no idea why" debugging.
   Layout.tsx depend on `user.role` being set. R7 fix unblocks
   Layout-guard for tenant users (was: always treated as
   no-role, fall through to wrong redirect).
+
+
+---
+
+## 2026-06-30 — Three production bugs from end-to-end smoke (commit 3f49b43 → fc318b4)
+
+After the login-bug fix, ran a public-API smoke against the prod
+backend and immediately found three latent production bugs. They
+shared a single pattern: the system was in a state the migration
+chain and CI did not exercise. Fixing each required manual DB
+access that the deployment pipeline cannot do.
+
+### Lesson 19: Production schema drift — code is not the source of truth, the DB is
+
+#### Symptom
+
+```
+GET /api/v1/certificates/verify/INVALID-CERT-12345
+→ 500 Internal Server Error
+
+Backend traceback:
+  sqlalchemy.exc.ProgrammingError:
+    column certificates.certificate_number does not exist
+```
+
+Initial hypothesis: the column was simply missing because
+migration 0005_add_quiz_attempts_certificates.py was never
+applied. Quick fix: write a new migration that adds it.
+
+#### Root cause (deeper)
+
+Direct query against `information_schema.columns` revealed:
+
+| Code/model expects | Production DB has |
+|---|---|
+| `certificate_number` | `cert_number` |
+| `pdf_path` | `pdf_url` |
+| `expires_at` | (missing) |
+| `metadata` (JSONB) | (missing) |
+| `pdf_url` | `pdf_url` |
+
+The DB was set up via a different code path than the migration
+chain (likely `Base.metadata.create_all()` at first uvicorn boot,
+or a manual `psql` script someone ran before the migration
+chain was written). The migrations **were** in the chain (0005
+creates `certificate_number` correctly), but the production DB
+predated the migration chain — so the chain was applied to a DB
+that already had its own schema.
+
+Worse: every alembic run on Render logs "FAILED" because the
+startCommand is just `uvicorn app.main:app ...` (no `alembic
+upgrade head`). The 0037 backfill, the 0038 reconcile, every
+migration since 0001 — none of them have actually been applied to
+production since the initial `create_all`.
+
+#### Fix
+
+1. **Manual reconcile via asyncpg** (only path that works because
+   alembic is not in startCommand):
+   ```python
+   ALTER TABLE certificates RENAME COLUMN cert_number TO certificate_number;
+   ALTER TABLE certificates ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP WITH TIME ZONE;
+   ALTER TABLE certificates ADD COLUMN IF NOT EXISTS pdf_path TEXT;
+   ALTER TABLE certificates ADD COLUMN IF NOT EXISTS metadata JSONB;
+   UPDATE certificates SET pdf_path = pdf_url WHERE pdf_path IS NULL AND pdf_url IS NOT NULL;
+   ```
+
+2. **Migration 0038_reconcile_production_schema.py** wraps the
+   same changes in idempotent guards (DO block for RENAME,
+   ADD COLUMN IF NOT EXISTS, CREATE INDEX IF NOT EXISTS). It is
+   safe to re-run and will make preview / staging environments
+   match production from day one.
+
+3. **TODO (not done today, tracked as follow-up)**: add
+   `alembic upgrade head && uvicorn ...` back into the Render
+   startCommand so future migrations auto-apply. Without this
+   the same drift will recur.
+
+#### Detection rule
+
+```bash
+# Compare model columns vs DB columns. Run from a project venv.
+python -c "
+import asyncio, asyncpg
+from app.core.db import Base
+from app.core.config import get_settings
+import os, sys
+sys.path.insert(0, 'apps/api')
+
+url = os.environ['DATABASE_URL']
+expected = {c.name: c for table in Base.metadata.tables.values() for c in table.columns}
+
+async def main():
+    conn = await asyncpg.connect(url)
+    for table_name, cols in expected.items():
+        rows = await conn.fetch(\"SELECT column_name FROM information_schema.columns WHERE table_name=\\$1\", table_name)
+        actual = {r['column_name'] for r in rows}
+        model_names = {c.name for c in cols}
+        missing_in_db = model_names - actual
+        extra_in_db = actual - model_names
+        if missing_in_db or extra_in_db:
+            print(f'{table_name}: missing_in_db={missing_in_db} extra_in_db={extra_in_db}')
+asyncio.run(main())
+"
+```
+
+Run this before each deploy. Any drift is a P0.
+
+#### Why this lesson matters
+
+The "code is the source of truth" mental model breaks the moment
+you have a hand-crafted production DB. The model thinks it owns
+the schema; the DB disagrees silently; both are right in
+isolation. The only way to catch it is to query the live DB and
+diff against `Base.metadata`. The alembic chain is supposed to be
+the bridge, but only if it actually runs in prod.
+
+#### Related
+
+- Lesson 5b (PgBouncer transaction pooling — same DB visibility
+  issue, different surface): the "embeddings not written"
+  problem looked like a write bug but was actually a read bug
+  caused by stale session. Same pattern: trust the DB, verify
+  with a fresh connection.
+- AGENTS.md "Verification before completion" skill: this is
+  exactly the kind of prod-vs-dev gap that skill is supposed to
+  catch. Add the diff script above to `verification-before-
+  completion` checks.
+
+### Lesson 20: Render env-vars — `PUT /env-vars` REPLACES ALL
+
+#### Symptom
+
+Wanted to add `TELEGRAM_WEBHOOK_SECRET` to the Render service.
+The natural assumption is that a `POST` or `PATCH` adds the new
+variable while leaving the others alone. In reality:
+
+```
+PUT /v1/services/{id}/env-vars
+Body: [{ "key": "TELEGRAM_WEBHOOK_SECRET", "value": "..." }]
+→ 200 OK
+
+But the next deploy failed because DATABASE_URL, JWT_SECRET, and
+all 17 other vars were silently deleted.
+```
+
+#### Root cause
+
+The Render API uses a PUT-with-full-list semantics for env vars:
+the body must contain **every** env var the service needs, and
+any var absent from the list is dropped. There is no PATCH /
+additive endpoint. The error message does not warn about this;
+it just returns 200.
+
+#### Fix (the right way)
+
+```python
+# 1. GET current vars
+current = api.get("/v1/services/{id}/env-vars").json()
+existing = [e["envVar"] for e in current]
+
+# 2. Append / update
+existing = [v for v in existing if v["key"] != "TELEGRAM_WEBHOOK_SECRET"]
+existing.append({"key": "TELEGRAM_WEBHOOK_SECRET", "value": new_secret})
+
+# 3. PUT back
+api.put("/v1/services/{id}/env-vars", json=existing)
+```
+
+This is the only safe pattern. Any tool that wraps "add env var"
+must fetch first, append, then PUT — never assume additive.
+
+#### Detection rule
+
+Add to the `docker-patterns` / `render-env-vars` skill:
+
+```bash
+# If you use PUT /env-vars, always re-read after to verify
+# nothing got dropped. The 200 is silent on partial writes.
+```
+
+#### Why this lesson matters
+
+This is the second time a "silent" Render API behaviour has cost
+us time (Lesson 9 was the silent log-stripping). Render's API is
+optimised for "the dashboard does it" workflows, where the user
+sees the form. The API exposes the same operations but with
+HTTP semantics that don't match the dashboard's intuition. Any
+agent that automates Render has to learn this.
+
+#### Mitigation
+
+- After every `PUT /env-vars`, do a `GET` and compare keys.
+- Consider using a Render `envGroup` (named env group shared
+  across services) for stable secrets like DB URLs. Then
+  service-level env vars only carry per-service config
+  (TELEGRAM_WEBHOOK_SECRET etc.) and the risk of accidentally
+  wiping the DB URL is reduced.
+- Never write the env-var payload to a file on the local
+  filesystem for editing. The 18 secrets in
+  `apps/api/.env` (DATABASE_URL with password, JWT_SECRET,
+  provider keys) must never be serialised to disk as a
+  side-effect of an env-var update. Use a pipeline: GET,
+  modify the list in memory, PUT, then drop the in-memory
+  reference.
