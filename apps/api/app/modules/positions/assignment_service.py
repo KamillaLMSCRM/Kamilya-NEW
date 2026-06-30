@@ -1,9 +1,19 @@
 """Course assignment kernel — recompute_enrollments.
 
 Materializes the rule→enrollment derivation: a user's enrollments for
-`source IN ('position', 'department')` are kept in lockstep with the
-union of `PositionCourse` (for the user's position) and
+`source IN ('position', 'department', 'tenant')` are kept in
+lockstep with the union of `TenantCourse` (for the user's tenant),
+`PositionCourse` (for the user's position) and
 `DepartmentCourse` (for the position's department).
+
+Priority order (highest wins):
+  1. position (most specific)
+  2. department
+  3. tenant (broadest)
+
+`source='manual'` enrollments are never touched by this kernel.
+`status='completed'` enrollments are protected from removal even
+if their source rule disappears.
 
 Properties:
   - Idempotent. Calling it twice with no rule change is a no-op.
@@ -19,6 +29,7 @@ Triggers that should call this kernel:
   - update_position when course_ids change (recompute all holders)
   - delete_position (recompute holders before drop, then drop)
   - attach/detach course to/from department
+  - attach/detach course to/from tenant
 """
 from __future__ import annotations
 
@@ -29,6 +40,7 @@ from sqlalchemy import and_, delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.enrollment import Enrollment
+from app.models.tenant_courses import TenantCourse
 from app.models.users import User
 from app.modules.positions.models import (
     DepartmentCourse,
@@ -84,11 +96,25 @@ async def recompute_enrollments(
     result = RecomputeResult()
 
     # ── Step 2: collect expected courses from rules ─────────────
-    # course_id → source ('position' wins over 'department')
+    # course_id → source. Priority: position > department > tenant.
+    # We seed expected with the BROADEST level first (tenant) so the
+    # narrower levels override it. Each level is processed only for
+    # courses not already in expected.
     expected: dict[UUID, str] = {}
 
+    # Level 1 (broadest): tenant-wide courses. Every user in the
+    # tenant inherits these. No additional scoping.
+    tc_result = await db.execute(
+        select(TenantCourse.course_id).where(
+            TenantCourse.tenant_id == tenant_id,
+        )
+    )
+    for (course_id,) in tc_result.all():
+        expected[course_id] = "tenant"
+
     if user.position_id is not None:
-        # Position rules
+        # Level 3 (narrowest): position-level courses. These override
+        # tenant-level if a course appears at both.
         pc_result = await db.execute(
             select(PositionCourse.course_id).where(
                 PositionCourse.position_id == user.position_id,
@@ -97,7 +123,8 @@ async def recompute_enrollments(
         for (course_id,) in pc_result.all():
             expected[course_id] = "position"
 
-        # Department rules — look up via Position.department_id
+        # Level 2 (middle): department-level courses. Override tenant
+        # but not position. Look up via Position.department_id.
         pos = await db.get(Position, user.position_id)
         if pos is not None and pos.department_id is not None:
             dc_result = await db.execute(

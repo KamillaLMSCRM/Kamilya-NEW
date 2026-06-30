@@ -53,6 +53,7 @@ from app.modules.positions.router import router as positions_router
 from app.modules.positions.jd_router import router as positions_jd_router
 from app.modules.positions.recommendations_router import router as positions_recommendations_router
 from app.modules.positions.admin_router import router as positions_admin_router
+from app.modules.positions.tenant_courses_router import router as tenant_courses_router
 from app.modules.departments.router import router as departments_router
 from app.modules.integrations.router import router as integrations_router
 
@@ -209,6 +210,7 @@ app.include_router(positions_router, prefix=f"{settings.API_PREFIX}", tags=["pos
 app.include_router(positions_jd_router, prefix=f"{settings.API_PREFIX}", tags=["positions"])
 app.include_router(positions_recommendations_router, prefix=f"{settings.API_PREFIX}", tags=["positions"])
 app.include_router(positions_admin_router, prefix=f"{settings.API_PREFIX}", tags=["positions"])
+app.include_router(tenant_courses_router, prefix=f"{settings.API_PREFIX}", tags=["positions"])
 app.include_router(departments_router, prefix=f"{settings.API_PREFIX}", tags=["departments"])
 app.include_router(integrations_router, prefix=f"{settings.API_PREFIX}", tags=["integrations"])
 

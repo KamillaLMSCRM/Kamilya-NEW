@@ -5,13 +5,15 @@ recompute kernel. They exist so a single call (e.g. "attach this
 course to this department") propagates correctly to every affected
 user without each caller having to do the per-user fan-out itself.
 
-Three functions:
+Four functions:
   - recompute_position_holders(position_id) — every User with
     position_id == position_id is recomputed. Triggered by
     update_position when course_ids change.
   - recompute_department_members(department_id) — every holder of
     every position in the department. Triggered by
     attach/detach course to department.
+  - recompute_all_tenant_users(tenant_id) — every user in the
+    tenant. Triggered by attach/detach course to tenant.
   - apply_rules_for_users(user_ids, actor_id) — batch wrapper, used
     by Celery after staff import and as the explicit
     /admin/staff/apply-rules endpoint.
@@ -111,6 +113,27 @@ async def recompute_department_members(
             User.position_id.in_(position_ids),
             User.tenant_id == tenant_id,
         )
+    )
+    user_ids = [row[0] for row in user_result.scalars().all()]
+    for user_id in user_ids:
+        outcome = await recompute_enrollments(db, user_id)
+        result.merge(outcome)
+    return result
+
+
+async def recompute_all_tenant_users(
+    db: AsyncSession,
+    tenant_id: UUID,
+) -> BatchResult:
+    """Recompute enrollments for every user in the tenant.
+
+    Triggered by attach_course_to_tenant / detach_course_from_tenant.
+    For a 1000-user tenant this can take a few seconds; consider
+    dispatching to Celery for large tenants (TODO, not done today).
+    """
+    result = BatchResult()
+    user_result = await db.execute(
+        select(User.id).where(User.tenant_id == tenant_id)
     )
     user_ids = [row[0] for row in user_result.scalars().all()]
     for user_id in user_ids:
