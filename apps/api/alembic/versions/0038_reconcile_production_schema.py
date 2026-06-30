@@ -1,27 +1,18 @@
 """Reconcile production schema drift (2026-06-30)
 
-On 2026-06-30 the public cert verify endpoint
-`GET /api/v1/certificates/verify/{number}` returned 500 with
-"column certificates.certificate_number does not exist" in
-production. The model in `app/modules/certificates/models.py`
-defines the column, and the migration 0005_add_quiz_attempts_certificates.py
-also creates it, but the column is missing in the production DB.
+This migration was created after the 2026-06-30 smoke-test discovered
+the production DB has drifted from the migration chain (e.g.
+`certificates.cert_number` instead of `certificate_number`).
 
-Hypothesis: the 0005 migration either never ran on prod (alembic
-state out of sync) or it ran with a partial failure (table created
-without the column). We do not have direct DB access from this
-session to confirm — Render log only shows "alembic FAILED" on
-every restart but the underlying root cause is hidden.
+The drift was already manually reconciled via the asyncpg script in
+`apps/api/.check_db.py` (rename `cert_number` -> `certificate_number`,
+add `expires_at` / `pdf_path` / `metadata` columns, copy `pdf_url` into
+`pdf_path`).
 
-Rather than diagnose the migration chain, this patch migration
-idempotently adds the missing column. IF NOT EXISTS on ADD COLUMN
-is Postgres-native (9.6+) and safe to re-run.
-
-Apply the same safety net to:
-  - certificates.certificate_number  (Bug 1, smoke 2026-06-30)
-  - positions.created_at             (re-confirms 0037; the alembic
-                                       FAILED on every restart so we
-                                       cannot be sure 0037 actually ran)
+This migration makes the manual fix durable: when Render next runs
+`alembic upgrade head`, this migration will run and the IF NOT EXISTS
+guards ensure no-op if production is already up-to-date. Any future
+environment (preview, staging) will get the right schema from scratch.
 
 Bug 2 (`UserCreate has no attribute tenant_id`) and Bug 3 (telegram
 webhook accepts unauthenticated traffic) are code-side, not schema,
@@ -42,14 +33,36 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # Idempotent column adds. Postgres ADD COLUMN IF NOT EXISTS exists
-    # since 9.6; the prod Supabase Postgres is 15+. Safe to re-run.
+    # 1. Rename cert_number -> certificate_number if it exists.
+    #    Postgres RENAME COLUMN is non-destructive; no data loss.
+    #    The DO block makes the migration safe in environments
+    #    where the rename has already happened (skip) or where the
+    #    table was created via a different path (rename happens).
     op.execute(
         sa.text(
-            "ALTER TABLE certificates "
-            "ADD COLUMN IF NOT EXISTS certificate_number VARCHAR(50)"
+            """
+            DO $$
+            BEGIN
+              IF EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_name = 'certificates'
+                  AND column_name = 'cert_number'
+              ) THEN
+                ALTER TABLE certificates
+                  RENAME COLUMN cert_number TO certificate_number;
+              END IF;
+            END$$;
+            """
         )
     )
+
+    # 2. Ensure the columns the model expects exist.
+    op.execute(sa.text("ALTER TABLE certificates ADD COLUMN IF NOT EXISTS certificate_number VARCHAR(50)"))
+    op.execute(sa.text("ALTER TABLE certificates ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP WITH TIME ZONE"))
+    op.execute(sa.text("ALTER TABLE certificates ADD COLUMN IF NOT EXISTS pdf_path TEXT"))
+    op.execute(sa.text("ALTER TABLE certificates ADD COLUMN IF NOT EXISTS metadata JSONB"))
+
+    # 3. Unique index on certificate_number.
     op.execute(
         sa.text(
             "CREATE UNIQUE INDEX IF NOT EXISTS ix_certificates_certificate_number "
@@ -57,31 +70,21 @@ def upgrade() -> None:
         )
     )
 
+    # 4. Backfill pdf_path from pdf_url (legacy data had pdf_url).
     op.execute(
         sa.text(
-            "ALTER TABLE positions "
-            "ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE"
-        )
-    )
-    op.execute(
-        sa.text(
-            "ALTER TABLE positions "
-            "ALTER COLUMN created_at SET DEFAULT now()"
+            "UPDATE certificates SET pdf_path = pdf_url "
+            "WHERE pdf_path IS NULL AND pdf_url IS NOT NULL"
         )
     )
 
-    # The smoke also surfaced 0 certificates in production, so we
-    # cannot backfill any data. But we DO want to backfill positions
-    # in case 0037 never ran (its FAILED-on-startup status means it
-    # might be a no-op in prod). Mirroring 0037's logic but as a
-    # pure safety net — won't overwrite non-NULL values.
+    # 5. Positions.created_at safety net (0037 had the FAILED-on-startup
+    #    log; we cannot be sure it actually ran in production).
+    op.execute(sa.text("ALTER TABLE positions ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE"))
+    op.execute(sa.text("ALTER TABLE positions ALTER COLUMN created_at SET DEFAULT now()"))
     op.execute(
         sa.text(
-            """
-            UPDATE positions AS p
-            SET created_at = COALESCE(p.created_at, now())
-            WHERE p.created_at IS NULL
-            """
+            "UPDATE positions SET created_at = now() WHERE created_at IS NULL"
         )
     )
 

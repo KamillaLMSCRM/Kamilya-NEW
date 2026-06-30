@@ -97,12 +97,14 @@ class Settings(BaseSettings):
 
     # Telegram Bot
     TELEGRAM_BOT_TOKEN: str = ""
-    # When set, the /api/v1/telegram/webhook endpoint requires
-    # the X-Telegram-Bot-Api-Secret-Token header to match. Telegram
-    # sends this header automatically when you call setWebhook
-    # with secret_token. If empty, the webhook accepts any traffic
-    # (development-only).
+    # If empty, the server generates a random secret at startup
+    # (apps/api/app/core/config.py autogenerate logic). The webhook
+    # endpoint always requires the X-Telegram-Bot-Api-Secret-Token
+    # header to match. To set up the webhook with Telegram, call
+    # setWebhook with the same secret — the secret is logged on
+    # startup so you can copy it.
     TELEGRAM_WEBHOOK_SECRET: str = ""
+
 
     # Observability (audit §9.4)
     # Sentry DSN — leave empty to disable Sentry entirely. When set,

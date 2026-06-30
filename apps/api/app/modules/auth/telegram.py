@@ -30,19 +30,37 @@ async def send_telegram_message(chat_id: int, text: str):
 async def handle_telegram_webhook(request: Request, db: AsyncSession = Depends(get_db)):
     """Handle incoming Telegram updates.
 
-    Security (added 2026-06-30, smoke Bug 3): if a webhook secret is
-    configured in settings, require the X-Telegram-Bot-Api-Secret-Token
-    header to match. Telegram sends this header when you call setWebhook
-    with secret_token. Without this check, anyone who can reach the URL
-    can submit fake updates (e.g. tricking the bot into sendMessage to
-    arbitrary chat_ids).
+    Security (added 2026-06-30, smoke Bug 3): always require the
+    X-Telegram-Bot-Api-Secret-Token header to match
+    settings.TELEGRAM_WEBHOOK_SECRET. Telegram sends this header
+    when you call setWebhook with secret_token. If the secret is
+    not configured server-side, the webhook is closed (404) to
+    prevent an open relay.
+
+    The fail-closed default is intentional — we'd rather have a
+    broken Telegram login than an open webhook. The webhook is
+    configured once via:
+        https://api.telegram.org/bot{TOKEN}/setWebhook
+            ?url=https://kamilya-lms-api.onrender.com/api/v1/telegram/webhook
+            &secret_token={TELEGRAM_WEBHOOK_SECRET}
+    after which the secret_token becomes the value Telegram sends
+    back in the X-Telegram-Bot-Api-Secret-Token header.
     """
-    if settings.TELEGRAM_WEBHOOK_SECRET:
-        provided = request.headers.get("X-Telegram-Bot-Api-Secret-Token", "")
-        # Constant-time compare avoids leaking length / prefix.
-        import hmac
-        if not hmac.compare_digest(provided, settings.TELEGRAM_WEBHOOK_SECRET):
-            raise HTTPException(status_code=404, detail="Not Found")
+    if not settings.TELEGRAM_WEBHOOK_SECRET:
+        # Fail closed: refuse traffic if the server is not configured.
+        # Don't leak this in the response — pretend the URL doesn't exist.
+        import logging
+        logging.getLogger(__name__).error(
+            "Telegram webhook called but TELEGRAM_WEBHOOK_SECRET is not "
+            "configured. Set it in Render env to enable Telegram login."
+        )
+        raise HTTPException(status_code=404, detail="Not Found")
+
+    provided = request.headers.get("X-Telegram-Bot-Api-Secret-Token", "")
+    # Constant-time compare avoids leaking length / prefix.
+    import hmac
+    if not hmac.compare_digest(provided, settings.TELEGRAM_WEBHOOK_SECRET):
+        raise HTTPException(status_code=404, detail="Not Found")
 
     update = await request.json()
 
