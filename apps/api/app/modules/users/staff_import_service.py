@@ -616,10 +616,95 @@ async def commit_import(
 
     await db.commit()
 
+    # P0-1 (TZ §2.6): trigger apply-rules inline so the import
+    # is actually useful. Pre-fix the router dispatched to Celery,
+    # but on Render free tier there's no worker process and the
+    # task silently dropped — new staff had no enrollments.
+    # Inline asyncio + Redis progress is enough for v1.0 (a few
+    # hundred users fits in <10s). The standalone
+    # /admin/staff/apply-rules endpoint still exists for
+    # retroactive retries (see staff_import_router).
+    apply_rules_task_id: str | None = None
+    if affected_user_ids:
+        from app.core import redis_progress
+        from app.modules.positions.batch_service import apply_rules_for_users
+
+        apply_rules_task_id = redis_progress.new_task_id()
+        await redis_progress.init_task(
+            apply_rules_task_id, total=len(affected_user_ids)
+        )
+        await redis_progress.mark_started(apply_rules_task_id)
+
+        # Chunked per TZ §2.6 (50 users per chunk). The chunked
+        # call is the same `apply_rules_for_users` that the
+        # retroactive endpoint uses; the kernel handles the
+        # recompute invariants regardless of chunk size.
+        chunk_size = 50
+        aggregate_added = 0
+        aggregate_removed = 0
+        aggregate_failed = 0
+        for i in range(0, len(affected_user_ids), chunk_size):
+            chunk = affected_user_ids[i : i + chunk_size]
+            try:
+                # Per TZ §2.6: 'успех импорта не зависит от
+                # успеха apply' — but we now run inside the same
+                # function, so we catch + log per-chunk to keep
+                # the import summary clean.
+                outcome = await apply_rules_for_users(db, chunk)
+                aggregate_added += outcome.added
+                aggregate_removed += outcome.removed
+                # One Redis tick per processed user so the UI
+                # progress bar advances smoothly.
+                for _ in chunk:
+                    await redis_progress.increment_done(
+                        apply_rules_task_id,
+                        added=0,
+                        removed=0,
+                    )
+            except Exception as exc:  # noqa: BLE001 — apply-rules
+                # failures must NOT roll back the import.
+                aggregate_failed += len(chunk)
+                logger.exception(
+                    "apply-rules inline chunk failed (chunk_size=%d): %s",
+                    len(chunk), exc,
+                )
+                for _ in chunk:
+                    await redis_progress.increment_failed(
+                        apply_rules_task_id
+                    )
+
+        # Final state in Redis.
+        result_payload = {
+            "users_processed": len(affected_user_ids) - aggregate_failed,
+            "added": aggregate_added,
+            "removed": aggregate_removed,
+            "failed_chunks": aggregate_failed // chunk_size
+            if chunk_size
+            else 0,
+        }
+        if aggregate_failed == 0:
+            await redis_progress.mark_success(
+                apply_rules_task_id, result_payload
+            )
+        elif aggregate_failed < len(affected_user_ids):
+            # Partial — mark SUCCESS (we did what we could) but
+            # the failed count is in the result payload so the
+            # UI can surface a warning.
+            await redis_progress.mark_success(
+                apply_rules_task_id, result_payload
+            )
+        else:
+            # Total failure — mark FAILURE so the UI shows red.
+            await redis_progress.mark_failure(
+                apply_rules_task_id,
+                f"All {aggregate_failed} affected users failed apply-rules",
+            )
+
     return {
         "created": created,
         "updated": updated,
         "skipped": skipped,
         "positions_created": positions_created,
         "affected_user_ids": [str(uid) for uid in affected_user_ids],
+        "apply_rules_task_id": apply_rules_task_id,
     }

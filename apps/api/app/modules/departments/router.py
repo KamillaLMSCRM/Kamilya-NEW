@@ -29,7 +29,7 @@ from datetime import datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -232,4 +232,268 @@ async def detach_course_from_department(
         courses=courses,
         re_enrolled=batch.added,
         created_at=dept.created_at,
+    )
+
+
+# ── Batch level-1 endpoints (TZ §1.1, §2.5) ──────────────
+#
+# Level 1 (tenant-wide) is implemented as a batch attach of a course
+# to every department in the caller's tenant. There is no
+# `tenant_courses` table by design (TZ §1.1: conscious decision v1.0
+# to avoid an extra aggregation surface; the rule applies via
+# department-level bindings that recompute propagates).
+#
+# Caveat documented in TZ: when a new department is later created,
+# the methodologist must re-run the attach-all action so the new
+# department inherits the "general" courses. v1.1 may add a
+# `tenant_courses` table to fix this if it becomes a real problem.
+
+
+class AttachAllRequest(BaseModel):
+    """Body for POST /v1/departments/attach-courses-all.
+
+    `course_ids` must be non-empty; bound at 100 to keep a single
+    fan-out bounded (a department might have 10–50 positions, each
+    with several holders; 100 courses × N holders could exceed the
+    recompute budget for a single HTTP request).
+    """
+
+    course_ids: list[UUID] = Field(..., min_length=1, max_length=100)
+    required: bool = True
+
+
+class DetachAllRequest(BaseModel):
+    """Body for DELETE /v1/departments/detach-courses-all."""
+
+    course_ids: list[UUID] = Field(..., min_length=1, max_length=100)
+
+
+class BatchLevelOneResponse(BaseModel):
+    """Response for the batch level-1 endpoints.
+
+    `departments_affected` is the count of departments whose binding
+    set was actually mutated (skipped duplicates are NOT counted).
+    `enrollments_added` is the aggregate of `batch.added` across
+    every per-department recompute, so the UI can show a
+    "✓ +N enrollments" inline.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    departments_affected: int
+    enrollments_added: int = 0
+    enrollments_removed: int = 0
+    courses_processed: int
+
+
+async def _list_tenant_departments(
+    db: AsyncSession, tenant_id: UUID
+) -> list[Department]:
+    """Return every Department row for the given tenant. No
+    pagination — the count is small (tens, not thousands) and
+    this endpoint is the rare batch operation.
+    """
+    result = await db.execute(
+        select(Department).where(Department.tenant_id == tenant_id)
+    )
+    return list(result.scalars().all())
+
+
+@router.post(
+    "/attach-courses-all",
+    response_model=BatchLevelOneResponse,
+    status_code=200,
+)
+async def attach_courses_to_all_departments(
+    body: AttachAllRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_role("admin", "methodologist", "superadmin")),
+):
+    """Level-1 attach: bind every course in `body.course_ids` to
+    every Department in the caller's tenant.
+
+    Per TZ §1.1 there is no `tenant_courses` table in v1.0 — level 1
+    is materialized as N `department_courses` rows, one per dept.
+    Each per-dept attach triggers
+    `recompute_department_members` so the new rule fans out to
+    every position holder in that department.
+
+    Idempotent: re-running with the same course_ids is a no-op
+    (existing bindings are detected, not duplicated).
+
+    Superadmin: allowed, but `user.tenant_id` MUST be set. A
+    superadmin without a tenant context (system-level admin) gets
+    400 — level 1 is inherently a per-tenant operation and
+    "every department" is undefined when there is no tenant.
+
+    Cross-tenant: callers can only attach to departments in
+    their own tenant. Course IDs are not validated against any
+    catalog here — they're opaque UUIDs from the caller's
+    course library; a course that does not belong to the tenant
+    will simply not match any existing `recompute` rule, which
+    is the correct behaviour (no enrollment is created for a
+    course the tenant doesn't own).
+
+    Returns a summary: how many departments were touched and the
+    aggregate recompute rollup.
+    """
+    if user.tenant_id is None:
+        # superadmin without tenant scope — cannot run level-1.
+        raise HTTPException(
+            status_code=400,
+            detail="Level-1 attach requires a tenant context",
+        )
+
+    departments = await _list_tenant_departments(db, user.tenant_id)
+    if not departments:
+        return BatchLevelOneResponse(
+            departments_affected=0,
+            enrollments_added=0,
+            enrollments_removed=0,
+            courses_processed=len(body.course_ids),
+        )
+
+    affected = 0
+    total_added = 0
+    total_removed = 0
+
+    for course_id in body.course_ids:
+        for dept in departments:
+            # Idempotent upsert — same pattern as the single-dept
+            # endpoint above.
+            existing = await db.scalar(
+                select(DepartmentCourse).where(
+                    DepartmentCourse.department_id == dept.id,
+                    DepartmentCourse.course_id == course_id,
+                )
+            )
+            if existing is None:
+                db.add(
+                    DepartmentCourse(
+                        department_id=dept.id,
+                        course_id=course_id,
+                        tenant_id=user.tenant_id,
+                        required=body.required,
+                    )
+                )
+                affected += 1
+            else:
+                # Flip the flag in place if the caller changed it.
+                existing.required = body.required
+
+        await db.flush()
+
+        # Fan-out for THIS course across all departments. We run
+        # recompute per-department so each call respects the
+        # recompute kernel's invariants (manual protected,
+        # completed protected, in-progress removed, cross-tenant).
+        for dept in departments:
+            batch = await recompute_department_members(
+                db, dept.id, user.tenant_id
+            )
+            total_added += batch.added
+            total_removed += batch.removed
+        await db.flush()
+
+    return BatchLevelOneResponse(
+        departments_affected=affected,
+        enrollments_added=total_added,
+        enrollments_removed=total_removed,
+        courses_processed=len(body.course_ids),
+    )
+
+
+@router.delete(
+    "/detach-courses-all",
+    response_model=BatchLevelOneResponse,
+)
+async def detach_courses_from_all_departments(
+    body: DetachAllRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_role("admin", "methodologist", "superadmin")),
+):
+    """Level-1 detach: remove `body.course_ids` from every Department
+    in the caller's tenant.
+
+    Symmetric to attach-courses-all. For each course, we look for
+    an existing `department_courses` row in every department; rows
+    that exist are deleted and that department's members are
+    recomputed. If NONE of the course_ids are bound to ANY
+    department in the tenant, returns 404 — the operation is a
+    no-op and the UI should report "already detached".
+
+    Symmetry note: this respects the recompute invariants
+    (completed enrollments are protected, in-progress ones are
+    removed). Methodologists should be aware that detaching a
+    general course that is in-progress for some employees will
+    remove those in-progress enrollments.
+    """
+    if user.tenant_id is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Level-1 detach requires a tenant context",
+        )
+
+    departments = await _list_tenant_departments(db, user.tenant_id)
+    if not departments:
+        # Tenant has no departments → 404 (nothing to detach from).
+        raise HTTPException(
+            status_code=404,
+            detail="No departments in tenant",
+        )
+
+    total_affected = 0
+    total_added = 0
+    total_removed = 0
+    found_any = False
+
+    for course_id in body.course_ids:
+        per_course_affected = 0
+        for dept in departments:
+            binding = await db.scalar(
+                select(DepartmentCourse).where(
+                    DepartmentCourse.department_id == dept.id,
+                    DepartmentCourse.course_id == course_id,
+                )
+            )
+            if binding is None:
+                continue
+
+            found_any = True
+            await db.delete(binding)
+            per_course_affected += 1
+
+        if per_course_affected == 0:
+            # This course_id is not bound to any department in the
+            # tenant. Skip the recompute fan-out for it.
+            continue
+
+        await db.flush()
+        total_affected += per_course_affected
+
+        # Fan-out recompute for every department we just touched
+        # (and any others whose state could change — recompute is
+        # idempotent so we can safely fan out to all departments).
+        for dept in departments:
+            batch = await recompute_department_members(
+                db, dept.id, user.tenant_id
+            )
+            total_added += batch.added
+            total_removed += batch.removed
+        await db.flush()
+
+    if not found_any:
+        # No course_id was bound anywhere in the tenant. Surface
+        # this so the UI can show "already detached" instead of
+        # silently succeeding.
+        raise HTTPException(
+            status_code=404,
+            detail="None of the courses are bound to any department in this tenant",
+        )
+
+    return BatchLevelOneResponse(
+        departments_affected=total_affected,
+        enrollments_added=total_added,
+        enrollments_removed=total_removed,
+        courses_processed=len(body.course_ids),
     )

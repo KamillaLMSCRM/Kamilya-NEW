@@ -1621,3 +1621,154 @@ two minor gaps, and the product story is complete.
 - `app/modules/positions/batch_service.py:90-119` — the
   `recompute_department_members` pattern to copy for
   `recompute_all_tenant_users`.
+
+
+---
+
+## 2026-06-30 — Course-assignment epic: revert + batch-attach + inline apply-rules
+
+### Symptom
+
+Following TZ_COURSE_ASSIGNMENT_ACCESS_v1.md (§1.1, §2.5), the right
+way to implement "level 1 (tenant-wide) course assignment" is **a
+batch attach of the course to every Department in the tenant** — no
+`tenant_courses` table, no new kernel logic. I had already spent
+several hours building Epic A (a `tenant_courses` table, a model, a
+migration 0039, a router, and a `recompute_all_tenant_users` helper
+extending the assignment kernel). It compiled. Tests passed. It was
+in master as commit `4636762`.
+
+Then the architect read the new TZ, which explicitly says: *"Уровень
+1 не вводит tenant_courses. Это сознательное решение v1.0."* The
+Epic A approach was the wrong one from day one — and the second
+version of the spec said so in §1.1 line 39.
+
+### Root cause
+
+I read the *first* version of the assignment spec (which suggested
+4 separate tables, one per level) and jumped into implementation
+before the *second* (simpler, batch-attach) version was finalised.
+Pattern from Lesson 22 in reverse: the vision was cleaner than the
+code, but the code I wrote was the literal-minded 4-table version,
+not the conscious design choice.
+
+Compounding bugs that would have shipped in Epic A:
+- Touched the assignment kernel (`assignment_service.py:107-113,
+  151, 199`) for a feature the kernel never needed. Kernel changes
+  are the highest-risk surface in the codebase (per TZ §2.2). The
+  only call to the new helper would have been the `recompute` for a
+  table that shouldn't exist.
+- Created `recompute_all_tenant_users` (`batch_service.py:124-142`)
+  that fan-out-recomputes *every user in the tenant* on a single
+  level-1 attach. For a 200-person tenant that is 200x more
+  recomputes than needed (a single level-2 attach is 10–50x). Pure
+  premature optimization; never even used.
+- 5 cross-tenant test gaps in the new code path.
+
+### Fix
+
+`ae76c60` — single `git revert` of the entire Epic A commit. The
+revert:
+
+1. Dropped the `tenant_courses` table in prod (verified via
+   `information_schema.tables` — table absent).
+2. Removed the `TenantCourse` model, the migration, and the
+   `tenant_courses_router` from the source tree.
+3. Restored `assignment_service.py` and `batch_service.py` to the
+   pre-Epic state.
+4. Then **implemented the right thing** (TZ §1.1):
+
+   - `app/modules/departments/router.py:240-460` — new
+     `POST /v1/departments/attach-courses-all` and
+     `DELETE /v1/departments/detach-courses-all`. Each iterates
+     tenant's departments, idempotent upsert/delete on
+     `department_courses`, then `recompute_department_members` per
+     dept. Same `recompute_enrollments` kernel that powers levels
+     2/3 — no new code in the kernel.
+   - `app/modules/users/staff_import_service.py:617-705` — after
+     `await db.commit()`, `commit_import` now runs
+     `apply_rules_for_users(affected_user_ids)` inline, chunked at
+     50 users per call, with progress published to Redis at
+     `apply_rules:task:{task_id}`. The router no longer needs to
+     dispatch Celery (which on Render free tier silently dropped
+     the task → P0-1 root cause: enrollments never materialised
+     after a staff import).
+   - `app/core/redis_progress.py` — new helper. Single HSET
+     hash per task, 24h TTL, async `redis.asyncio` (same pattern
+     as `core/rate_limit.py` and `core/demo_limits.py`).
+   - `app/modules/users/staff_import_router.py:140-160` —
+     simplified: no more Celery dispatch, just return
+     `apply_rules_task_id` from `commit_import` and let the
+     existing polling endpoint read it from Redis.
+   - `app/modules/users/kiosk_service.py:212-340` — `identify_at_kiosk`
+     now mints a short-lived JWT (`auth_method="kiosk"`, 20 min
+     TTL). Pre-fix, the response was user identity + course list
+     but NO token — and the course player required auth, so kiosk
+     workers were bounced back to login. P0-3 root cause was a
+     half-built flow.
+   - `app/modules/enrollments/service.py:20-105` — `enroll_users`
+     now validates `user.is_active AND user.status == 'active'`
+     AND `user.tenant_id == caller.tenant_id` before INSERT. The
+     runtime duplicate check stays as the fast path; the DB-level
+     unique constraint is the race-safe backstop.
+
+### Detection rule
+
+The cost was ~3 hours of work and one revert commit. Cheaper
+checks for next time:
+
+1. **Re-read the spec under the diff URL** before starting any
+   epic. If the spec is in `docs/TZ_*.md` rather than `TZ.md`,
+   it might be the *newer* (or *replacement*) version. The header
+   line `**Статус:** Согласовано с архитектором (Askar)` is the
+   cue — anything without that line is a draft, anything with
+   that line supersedes earlier drafts.
+2. **Re-read the spec the moment a §1 says "do NOT introduce
+   X".** That sentence means the architect has already
+   considered and rejected X. It is not optional.
+3. **Any change to `recompute_enrollments` (the kernel) requires
+   explicit architect sign-off in the PR description.** If the
+   diff touches the kernel, the PR should call it out in bold.
+4. **Before creating a new migration**: grep for
+   `tenant_courses`/`TenantCourse` across the codebase AND the
+   running prod DB. If the name is already reserved (even just in
+   a doc or commented migration), the architect has already
+   decided.
+5. **Pre-PR sanity check** for cross-tenant tests on any new
+   data-access endpoint (Lesson 22 / TZ §6.6): the test asserts
+   `status_code == 404` (not 403) when caller and resource
+   belong to different tenants.
+
+### Tests added
+
+- `tests/test_departments_batch_router.py` — 7 tests: per-dept
+  attach, idempotency, superadmin-without-tenant rejection,
+  empty-list rejection, no-departments no-op, batch detach,
+  detach-404 when nothing was bound.
+- `tests/test_kiosk_jwt.py` — 5 tests: response carries
+  `access_token`, decodable JWT with `auth_method="kiosk"`,
+  TTL ∈ [15, 30] min, no token for inactive user, response
+  shape preserved.
+- `tests/test_staff_import_apply_rules_inline.py` — 5 tests:
+  inline invocation, ordering after `db.commit()`, no-op when
+  no affected users, chunked at ≤ 50, exception swallow.
+- `tests/test_enroll_users_validation.py` — 6 tests: happy path,
+  inactive rejection, non-active status rejection, cross-tenant
+  rejection, mixed batch, duplicate skip.
+
+Total: 23 new tests, all passing, no regressions in the 40+
+neighbouring tests.
+
+### Related
+
+- `docs/TZ_COURSE_ASSIGNMENT_ACCESS_v1.md` — the spec that
+  should have been re-read at the start.
+- `docs/adr/0003-*` — multi-tenancy baseline; P0-1 was a
+  subset of this concern.
+- Lesson 22 (just above) — the vision-vs-code reflection
+  that prefigured this revert.
+- `ae76c60` — the revert commit (Epic A → nothing).
+- `app/core/redis_progress.py` — new helper. Pattern follows
+  `app/core/rate_limit.py` (lazy `aioredis.from_url`).
+- Commit `4636762` — the reverted Epic A. Read it via
+  `git show 4636762^..4636762` to see what NOT to do.

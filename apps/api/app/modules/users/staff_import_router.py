@@ -189,28 +189,14 @@ async def import_staff_commit(
             detail=f"Ошибка применения: {type(e).__name__}: {e}",
         )
 
-    # B1b: dispatch apply-rules to Celery for every affected user.
-    # This materializes PositionCourse/DepartmentCourse into
-    # Enrollment rows. Run in a worker process so the HTTP request
-    # returns immediately. If the task fails, the staff data is
-    # still consistent — apply-rules can be re-run via the
-    # /admin/staff/apply-rules endpoint (B1c) without re-importing.
+    # P0-1 fix (TZ §2.6): commit_import now triggers apply-rules
+    # INLINE (no Celery) and returns the Redis task_id directly.
+    # The HTTP request blocks for the duration of apply-rules
+    # (typically <10s for hundreds of users) and the response
+    # includes the task_id for the UI to poll via
+    # GET /admin/staff/apply-rules/status/{task_id}.
     affected_user_ids: list[str] = result.pop("affected_user_ids", [])
-    task_id: str | None = None
-    if affected_user_ids:
-        try:
-            from app.modules.positions.tasks import apply_rules_for_users_task
-            async_result = apply_rules_for_users_task.delay(affected_user_ids)
-            task_id = async_result.id
-        except Exception as e:
-            # Don't fail the import — log and continue. The user can
-            # retry apply-rules manually. The import is the source
-            # of truth for staff data; apply-rules is downstream.
-            import logging
-            logging.getLogger(__name__).exception(
-                "apply-rules dispatch failed for %d users: %s",
-                len(affected_user_ids), e,
-            )
+    task_id: str | None = result.pop("apply_rules_task_id", None)
 
     return {
         "created": result["created"],
@@ -244,15 +230,27 @@ class ApplyRulesStatusResponse(BaseModel):
 
 
 @router.get("/apply-rules/status/{task_id}", response_model=ApplyRulesStatusResponse)
-def get_apply_rules_status(
+async def get_apply_rules_status(
     task_id: str,
     user: User = Depends(require_role("admin", "org_admin", "superadmin", "methodologist")),
 ):
-    """Return the current state of a Celery apply-rules task.
+    """Return the current state of an apply-rules task.
+
+    Two backends, tried in order:
+
+    1. **Redis (inline path, P0-1 fix).** Since TZ §2.6 the import
+       runs `apply_rules_for_users` inline, not in Celery. The
+       task state is published to Redis at key
+       `apply_rules:task:{task_id}` by `core/redis_progress.py`.
+       This is the hot path.
+    2. **Celery (retroactive / retry path).** The standalone
+       `POST /admin/staff/apply-rules` endpoint still dispatches
+       a Celery task for back-fills. We fall back to that result
+       backend so the same status URL works for both flows.
 
     Polling pattern (recommended for UI):
-      - poll every 1s while state ∈ {PENDING, RECEIVED, STARTED, RETRY}
-      - stop on SUCCESS/FAILURE
+      - poll every 1s while state ∈ {PENDING, STARTED}
+      - stop on SUCCESS / FAILURE
       - if FAILED, surface `error` to user, log it for support
 
     `require_role` ensures only admin / methodologist / superadmin
@@ -261,9 +259,43 @@ def get_apply_rules_status(
     """
     if not task_id:
         raise HTTPException(status_code=400, detail="task_id is required")
-    res = AsyncResult(task_id, app=celery_app)
 
-    state = res.state          # PENDING | RECEIVED | STARTED | SUCCESS | FAILURE | RETRY | REVOKED
+    # 1) Try Redis first.
+    try:
+        from app.core import redis_progress
+        rd = await redis_progress.get_task(task_id)
+    except Exception as exc:  # noqa: BLE001 — Redis hiccup must not 500
+        logger.warning("redis get_task failed for %s: %s", task_id, exc)
+        rd = None
+
+    if rd:
+        state = rd.get("state", "PENDING")
+        done = rd.get("done", 0)
+        total = rd.get("total", 0)
+        ready = state in ("SUCCESS", "FAILURE")
+        successful = state == "SUCCESS"
+        failed = state == "FAILURE"
+        body = {
+            "users_processed": done,
+            "total": total,
+            "added": rd.get("added", 0),
+            "removed": rd.get("removed", 0),
+            "failed": rd.get("failed", 0),
+        } if state == "SUCCESS" else None
+        return ApplyRulesStatusResponse(
+            task_id=task_id,
+            state=state,
+            ready=ready,
+            successful=successful,
+            failed=failed,
+            result=body,
+            error=rd.get("error") or None,
+        )
+
+    # 2) Fall back to Celery (for retroactive apply-rules tasks
+    #    dispatched by the standalone endpoint).
+    res = AsyncResult(task_id, app=celery_app)
+    state = res.state
     ready = res.ready()
     successful = res.successful() if ready else None
     failed = res.failed() if ready else None

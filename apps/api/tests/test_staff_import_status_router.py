@@ -39,8 +39,13 @@ async def test_success_state_passes_dict_through():
     user = MagicMock()
     user.role = "admin"
 
-    with patch("app.modules.users.staff_import_router.AsyncResult", return_value=fake_result):
-        resp = get_apply_rules_status(
+    # Redis check returns None → endpoint falls through to Celery branch.
+    async def fake_redis_get_task(_tid):
+        return None
+
+    with patch("app.modules.users.staff_import_router.AsyncResult", return_value=fake_result), \
+         patch("app.core.redis_progress.get_task", side_effect=fake_redis_get_task):
+        resp = await get_apply_rules_status(
             task_id="abc-123",
             user=user,
         )
@@ -71,8 +76,12 @@ async def test_failure_state_extracts_error_message():
     user = MagicMock()
     user.role = "admin"
 
-    with patch("app.modules.users.staff_import_router.AsyncResult", return_value=fake_result):
-        resp = get_apply_rules_status(task_id="xyz", user=user)
+    async def fake_redis_get_task(_tid):
+        return None
+
+    with patch("app.modules.users.staff_import_router.AsyncResult", return_value=fake_result), \
+         patch("app.core.redis_progress.get_task", side_effect=fake_redis_get_task):
+        resp = await get_apply_rules_status(task_id="xyz", user=user)
 
     assert resp.state == "FAILURE"
     assert resp.failed is True
@@ -97,8 +106,12 @@ async def test_pending_state_returns_minimal_payload():
     user = MagicMock()
     user.role = "admin"
 
-    with patch("app.modules.users.staff_import_router.AsyncResult", return_value=fake_result):
-        resp = get_apply_rules_status(task_id="t1", user=user)
+    async def fake_redis_get_task(_tid):
+        return None
+
+    with patch("app.modules.users.staff_import_router.AsyncResult", return_value=fake_result), \
+         patch("app.core.redis_progress.get_task", side_effect=fake_redis_get_task):
+        resp = await get_apply_rules_status(task_id="t1", user=user)
 
     assert resp.state == "PENDING"
     assert resp.ready is False
@@ -120,7 +133,7 @@ async def test_empty_task_id_returns_400():
     user.role = "admin"
 
     with pytest.raises(HTTPException) as exc:
-        get_apply_rules_status(task_id="", user=user)
+        await get_apply_rules_status(task_id="", user=user)
     assert exc.value.status_code == 400
 
 
@@ -141,8 +154,12 @@ async def test_revoked_state_handled():
     user = MagicMock()
     user.role = "methodologist"
 
-    with patch("app.modules.users.staff_import_router.AsyncResult", return_value=fake_result):
-        resp = get_apply_rules_status(task_id="rev", user=user)
+    async def fake_redis_get_task(_tid):
+        return None
+
+    with patch("app.modules.users.staff_import_router.AsyncResult", return_value=fake_result), \
+         patch("app.core.redis_progress.get_task", side_effect=fake_redis_get_task):
+        resp = await get_apply_rules_status(task_id="rev", user=user)
 
     # REVOKED is in the terminal bucket but doesn't carry a useful result.
     # We just must not crash and must report state truthfully.

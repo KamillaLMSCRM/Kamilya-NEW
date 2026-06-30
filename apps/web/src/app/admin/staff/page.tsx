@@ -9,6 +9,7 @@ import { toast } from '@/components/ui/Toast';
 import { api } from '@/lib/api';
 import { ApplyRulesProgress } from '@/components/ui/ApplyRulesProgress';
 import RulesTab from './_tabs/RulesTab';
+import CompanyCoursesTab from './_tabs/CompanyCoursesTab';
 
 interface PreviewItem {
   row_number: number;
@@ -58,7 +59,7 @@ export default function AdminStaffPage() {
   // Default from query string so deep-links land on the right tab
   // (used by /admin page quick-link and the legacy /admin/employees
   // redirect).
-  type Tab = 'import' | 'structure' | 'rules';
+  type Tab = 'import' | 'structure' | 'rules' | 'company';
   const queryTab = search?.get('tab');
   // Студенту вкладки «Импорт», «Структура», «Правила» не нужны — он
   // потребитель контента, ничего не настраивает (см. ADR-0012).
@@ -68,8 +69,9 @@ export default function AdminStaffPage() {
   const isStaffOwnersRole = ['methodologist', 'teacher', 'admin', 'org_admin', 'superadmin'].includes(userRole);
   const allowedTabs: Tab[] = ['import', 'structure']; // 'rules' добавим если isStaffOwnersRole
   if (isStaffOwnersRole) allowedTabs.push('rules');
+  if (isStaffOwnersRole) allowedTabs.push('company');
   const initialTab: Tab =
-    (queryTab === 'structure' || queryTab === 'rules') && allowedTabs.includes(queryTab)
+    (queryTab === 'structure' || queryTab === 'rules' || queryTab === 'company') && allowedTabs.includes(queryTab)
       ? (queryTab as Tab)
       : 'import';
   const [tab, setTab] = useState<Tab>(initialTab);
@@ -238,6 +240,18 @@ export default function AdminStaffPage() {
           }`}
         >
           📐 Правила
+        </button>
+        <button
+          role="tab"
+          aria-selected={tab === 'company'}
+          onClick={() => setTab('company')}
+          className={`px-4 py-2 text-sm font-medium transition-colors ${
+            tab === 'company'
+              ? 'border-b-2 border-primary text-primary'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          🏢 Курсы компании
         </button>
       </div>
 
@@ -482,6 +496,7 @@ export default function AdminStaffPage() {
 
       {tab === 'structure' && <StructureTab />}
       {tab === 'rules' && <RulesTab />}
+      {tab === 'company' && <CompanyCoursesTab />}
       </>
 
       )}

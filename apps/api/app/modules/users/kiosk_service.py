@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import logging
 import secrets
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from uuid import UUID, uuid4
 
 from fastapi import HTTPException
@@ -28,9 +28,16 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.core.auth import create_access_token
 from app.models.enrollment import Enrollment
 from app.models.users import User
 from app.modules.positions.models import Position, PositionCourse
+
+# Per TZ §3.5: kiosk JWTs are short-lived (15-30 min) so a worker
+# closing the tab on a shared device doesn't leave a session
+# open for the next user. 20 min sits in the middle of the
+# window and gives enough time to actually watch a course.
+KIOSK_JWT_TTL_MINUTES = 20
 
 logger = logging.getLogger(__name__)
 
@@ -331,6 +338,26 @@ async def identify_at_kiosk(
 
     logger.info(f"kiosk identify: user {user.id} ({pn}) identified at kiosk {link.id}")
 
+    # Per TZ §3.5: issue a short-lived JWT so the worker can
+    # actually open courses. Without this, identify returns
+    # identity + course list but the course player (which
+    # requires auth) bounces the worker back to login. The
+    # token is short-lived (KIOSK_JWT_TTL_MINUTES) to protect
+    # shared devices: when the worker closes the tab, the
+    # next user must re-identify with their own tab number.
+    # `auth_method="kiosk"` is recorded in the token payload
+    # so audit logs can distinguish kiosk sessions from
+    # magic-link / telegram sessions.
+    access_token = create_access_token(
+        data={
+            "sub": str(user.id),
+            "tenant_id": str(user.tenant_id),
+            "role": user.role,
+            "auth_method": "kiosk",
+        },
+        expires_delta=timedelta(minutes=KIOSK_JWT_TTL_MINUTES),
+    )
+
     return {
         "user": {
             "user_id": str(user.id),
@@ -342,4 +369,6 @@ async def identify_at_kiosk(
         "kiosk_name": link.name,
         "kiosk_location": link.location,
         "courses": courses_data,
+        "access_token": access_token,
+        "token_type": "bearer",
     }

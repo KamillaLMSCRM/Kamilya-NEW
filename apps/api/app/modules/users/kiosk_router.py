@@ -208,6 +208,12 @@ class KioskIdentifyResponse(BaseModel):
     kiosk_name: str
     kiosk_location: str | None = None
     courses: list[dict]
+    # Per TZ §3.5: kiosk identify must return a JWT so the
+    # worker can actually open courses. Pre-fix the response
+    # was missing both fields and the course player (which
+    # requires auth) bounced the worker back to login.
+    access_token: str
+    token_type: str = "bearer"
 
 
 @public_router.get("/{token}", response_model=KioskPublicView)
