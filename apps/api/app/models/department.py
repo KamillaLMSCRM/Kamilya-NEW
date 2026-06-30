@@ -10,11 +10,25 @@ table that has:
     (parent = "Engineering" → child = "Backend"). v1.0 doesn't
     expose this in the UI; the field exists so we don't need a
     migration when we add it in v1.1.
+  - `code`, `head_user_id`, `description`, `created_at` — present
+    in the DB schema (added by migration 0035 / 0036 / 0037). The
+    ORM was missing them until 2026-06-30, which meant any read of
+    `Department.created_at` raised AttributeError even though the
+    column exists. Now declared.
 """
 import uuid
-from sqlalchemy import Column, Text, ForeignKey, UniqueConstraint, Index
+
+from sqlalchemy import (
+    Column,
+    DateTime,
+    ForeignKey,
+    Index,
+    Text,
+    UniqueConstraint,
+    func,
+)
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import relationship
+
 from app.core.db import Base
 
 
@@ -30,8 +44,18 @@ class Department(Base):
     tenant_id = Column(UUID(as_uuid=True), nullable=False)
     name = Column(Text, nullable=False)  # display name "Human Resources"
     slug = Column(Text, nullable=False)  # canonical "hr"
+    description = Column(Text, nullable=True)
+    code = Column(Text, nullable=True)
+    head_user_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     parent_id = Column(
         UUID(as_uuid=True),
         ForeignKey("departments.id", ondelete="SET NULL"),
         nullable=True,
+    )
+    created_at = Column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
     )

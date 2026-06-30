@@ -30,7 +30,8 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import select
+from sqlalchemy import func, select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import require_role
@@ -38,7 +39,7 @@ from app.core.db import get_db
 from app.models.department import Department
 from app.models.users import User
 from app.modules.positions.batch_service import recompute_department_members
-from app.modules.positions.models import DepartmentCourse
+from app.modules.positions.models import DepartmentCourse, Position
 
 logger = logging.getLogger(__name__)
 
@@ -103,6 +104,135 @@ async def _get_course_rows(db: AsyncSession, department_id: UUID) -> list[Depart
     ]
 
 
+async def _resolve_department(
+    db: AsyncSession,
+    locator: str,
+    tenant_id,
+    *,
+    auto_create: bool,
+) -> Department | None:
+    """Resolve a Department by UUID or by slug.
+
+    Excel-based staff import (see `users/staff_import_service.py:551`)
+    writes the department **name as a string** into `Position.department`
+    but never sets `Position.department_id` (FK). As a result, the
+    `departments` table is empty for legacy Excel-imported tenants, and
+    the original `POST /v1/departments/{id}/courses` endpoint
+    (department_id: UUID) is unreachable from the UI (RuleTab falls
+    back to `d.id ?? d.slug` and sends the slug — 422).
+
+    This helper accepts either a UUID (canonical, fast path) or a
+    department name (which we look up case-insensitively against
+    `Department.slug`). For attach (auto_create=True), if neither
+    matches, we **create** the Department row on the fly from the
+    given name and backfill `Position.department_id` for any
+    existing Position whose `department` matches the same lowercase
+    slug. This unblocks all current prod tenants (verified 2026-06-30:
+    0 positions have `department_id` set, 0 rows in `departments`).
+
+    For detach (auto_create=False), a missing department is a 404
+    (caller raises); we never invent a department just to delete from.
+
+    Returns the Department, or None if not found and auto_create=False.
+    """
+    # Normalize: callers may pass a UUID object or a str. FastAPI
+    # delivers path params as str, but unit tests sometimes pass a
+    # bare UUID — handle both.
+    if not isinstance(locator, str):
+        locator = str(locator)
+
+    # Fast path: UUID. Validating here is cheap and lets us use
+    # db.get() for the indexed PK lookup.
+    try:
+        parsed_uuid = UUID(locator)
+    except (ValueError, TypeError, AttributeError):
+        parsed_uuid = None
+
+    if parsed_uuid is not None:
+        dept = await db.get(Department, parsed_uuid)
+        if dept is not None and dept.tenant_id == tenant_id:
+            return dept
+        # UUID-shaped but doesn't exist OR belongs to another tenant.
+        # In both cases fall through to slug lookup — the locator
+        # might be a string that just *looks* like a UUID. If that
+        # fails too, we return None / 404.
+        if dept is None:
+            # Could be a non-UUID-shaped string. Try slug.
+            pass
+        else:
+            # UUID exists but wrong tenant. Don't leak existence —
+            # treat as not found.
+            return None
+
+    slug = locator.strip().lower()
+    if not slug:
+        return None
+
+    dept = await db.scalar(
+        select(Department).where(
+            Department.tenant_id == tenant_id,
+            Department.slug == slug,
+        )
+    )
+    if dept is not None:
+        # Defence-in-depth: even though the WHERE clause filters by
+        # tenant_id, double-check here. Catches both DB bugs and
+        # unit-test mocks that bypass WHERE (see
+        # `test_attach_by_slug_cross_tenant_404`). Returning the
+        # wrong-tenant row would leak org-chart existence.
+        if dept.tenant_id != tenant_id:
+            return None
+        return dept
+
+    if not auto_create:
+        return None
+
+    # Auto-create: brand new Department for this tenant.
+    # The display name keeps the original casing from the URL
+    # (which the UI took from `Position.department` Title-case like
+    # "HR", "IT", "Маркетинг"); the slug is the canonical lowercase.
+    # `created_at` is filled by the DB via `server_default=func.now()`.
+    new_dept = Department(
+        tenant_id=tenant_id,
+        slug=slug,
+        name=locator.strip(),  # keep original casing for display
+    )
+    db.add(new_dept)
+    try:
+        await db.flush()
+    except IntegrityError:
+        # Race: another request created the same slug between our
+        # SELECT and INSERT. Re-fetch.
+        await db.rollback()
+        dept = await db.scalar(
+            select(Department).where(
+                Department.tenant_id == tenant_id,
+                Department.slug == slug,
+            )
+        )
+        if dept is None:
+            # Genuinely can't create; surface to caller as 404.
+            return None
+        return dept
+
+    # Backfill: any Position whose free-text `department` matches
+    # this slug (case-insensitive) and has no FK yet now points to
+    # the new Department. This is the whole point — legacy Excel
+    # rows finally get a FK, so /v1/admin/staff/structure outer-join
+    # will start returning UUIDs from the next request onward.
+    await db.execute(
+        update(Position)
+        .where(
+            Position.tenant_id == tenant_id,
+            Position.department_id.is_(None),
+            func.lower(Position.department) == slug,
+        )
+        .values(department_id=new_dept.id)
+    )
+    await db.flush()
+    return new_dept
+
+
 # ── Endpoints ────────────────────────────────────────────────
 
 
@@ -112,12 +242,21 @@ async def _get_course_rows(db: AsyncSession, department_id: UUID) -> list[Depart
     status_code=201,
 )
 async def attach_course_to_department(
-    department_id: UUID,
+    department_id: str,
     body: DepartmentCourseItem,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role("admin", "methodologist", "superadmin")),
 ):
     """Attach a course to a Department (B1c).
+
+    `department_id` accepts either a UUID (canonical path) or a
+    department name/slug. The slug path is the legacy Excel-import
+    case (see `_resolve_department`): the UI sends
+    `Position.department` (the original Title-case string like "HR",
+    "IT", "Маркетинг") because the `departments` table is empty for
+    Excel-imported tenants and `/v1/admin/staff/structure` returns
+    `id: null`. The slug path auto-creates the Department row and
+    backfills `Position.department_id` for all matching legacy rows.
 
     Idempotent: attaching a course that's already linked returns 200
     (not 409) with the current state — that way the UI's "save" button
@@ -135,10 +274,13 @@ async def attach_course_to_department(
     tenant returns 404 (not 403) — never leak existence of resources
     in other tenants.
     """
-    dept = await db.get(Department, department_id)
-    if dept is None or dept.tenant_id != user.tenant_id:
+    dept = await _resolve_department(
+        db, department_id, user.tenant_id, auto_create=True
+    )
+    if dept is None:
         # 404 not 403 — see security-review §1.3.
         raise HTTPException(status_code=404, detail="Department not found")
+    department_id = dept.id  # canonical UUID for the rest of the flow
 
     # Idempotent upsert. We avoid touching unique-constraint ON CONFLICT
     # because SQLAlchemy doesn't carry the constraint name into the
@@ -187,12 +329,16 @@ async def attach_course_to_department(
     response_model=DepartmentResponse,
 )
 async def detach_course_from_department(
-    department_id: UUID,
+    department_id: str,
     course_id: UUID,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role("admin", "methodologist", "superadmin")),
 ):
     """Detach a course from a Department (B1c).
+
+    `department_id` accepts UUID or slug (see POST). Detach does NOT
+    auto-create a missing Department — if you didn't attach, you can't
+    detach. 404 in that case.
 
     Side effect: re-derive every member's enrollments. Completions are
     kept; in-progress enrollments sourced from this department are
@@ -203,9 +349,12 @@ async def detach_course_from_department(
     the binding doesn't exist — explicit so the UI can show "already
     detached" instead of silently succeeding.
     """
-    dept = await db.get(Department, department_id)
-    if dept is None or dept.tenant_id != user.tenant_id:
+    dept = await _resolve_department(
+        db, department_id, user.tenant_id, auto_create=False
+    )
+    if dept is None:
         raise HTTPException(status_code=404, detail="Department not found")
+    department_id = dept.id
 
     binding = await db.scalar(
         select(DepartmentCourse).where(
