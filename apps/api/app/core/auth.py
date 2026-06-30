@@ -114,8 +114,14 @@ def decode_token(token: str) -> dict:
         )
         return payload
     except jwt.ExpiredSignatureError:
+        # TEMP 2026-06-30 R4 — print to find out which exception is firing
+        # for /refresh (user reports dashboard still bounces to /login).
+        print(f"[DEBUG decode_token R4] ExpiredSignatureError aud={settings.JWT_AUDIENCE} iss={settings.JWT_ISSUER}", flush=True)
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token expired")
     except jwt.InvalidAudienceError:
+        print(f"[DEBUG decode_token R4] InvalidAudienceError aud={settings.JWT_AUDIENCE} iss={settings.JWT_ISSUER}", flush=True)
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token audience")
+    except jwt.InvalidIssuerError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token audience")
     except jwt.InvalidIssuerError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token issuer")

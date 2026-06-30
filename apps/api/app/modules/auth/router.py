@@ -139,19 +139,39 @@ async def login(req: LoginRequest, request: Request, response: Response, db=Depe
 async def refresh(req: RefreshRequest, request: Request, response: Response, db=Depends(get_db)):
     # Prefer refresh token from cookie; fall back to request body for legacy clients.
     refresh_token = _read_refresh_cookie_or_body(request, req.refresh_token)
+    # TEMP 2026-06-30 round 4 — user reports /dashboard still bounces to /login
+    # after r3 fix. Need to see: did refresh succeed? what exception if not?
+    # Round 2 proved print(flush=True) is the only thing that survives Render
+    # log filtering (lesson 9: GET /v1/services/{id}/logs returns 404,
+    # CLI --output text strips INFO level).
+    print(
+        f"[DEBUG /refresh R4] cookie_present={request.cookies.get(REFRESH_COOKIE_NAME) is not None} "
+        f"cookie_len={len(request.cookies.get(REFRESH_COOKIE_NAME) or '')} "
+        f"body_present={bool(req.refresh_token)}",
+        flush=True,
+    )
     if not refresh_token:
         raise HTTPException(status_code=401, detail="Missing refresh token")
     try:
         new_access, new_refresh, user = await refresh_access_token(db, refresh_token)
-    except Exception:
+    except Exception as exc:
+        import traceback
+        print(f"[DEBUG /refresh R4] refresh_access_token raised {type(exc).__name__}: {exc}", flush=True)
+        print(traceback.format_exc(), flush=True)
         _clear_refresh_cookie(response)
         raise HTTPException(status_code=401, detail="Invalid refresh token")
     _set_refresh_cookie(response, new_refresh)
+    user_resp = UserResponse.model_validate(user)
+    print(
+        f"[DEBUG /refresh R4] OK access_len={len(new_access)} user_id={user_resp.id} "
+        f"tenant_id={user_resp.tenant_id} email={user_resp.email}",
+        flush=True,
+    )
     return TokenResponse(
         access_token=new_access,
         refresh_token=new_refresh,
         expires_in=900,
-        user=UserResponse.model_validate(user),
+        user=user_resp,
     )
 
 
