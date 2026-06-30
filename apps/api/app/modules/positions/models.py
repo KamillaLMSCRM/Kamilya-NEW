@@ -41,6 +41,11 @@ class PositionCourse(Base):
 
     position_id = Column(UUID(as_uuid=True), ForeignKey("positions.id", ondelete="CASCADE"), primary_key=True)
     course_id = Column(UUID(as_uuid=True), primary_key=True)
+    # tenant_id is NOT NULL in production DB (added by a manual
+    # migration that pre-dated the model). The smoke 2026-06-30 found
+    # this gap when POST /v1/positions/{id}/courses returned
+    # "NotNullViolationError: null value in column 'tenant_id'".
+    tenant_id = Column(UUID(as_uuid=True), nullable=False, index=True)
     # Whether this course counts toward the position's ready_percent.
     # required=True (default): counts. required=False: enrolled but
     # excluded from the ready_percent denominator.
