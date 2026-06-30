@@ -168,7 +168,12 @@ async def refresh(req: RefreshRequest, request: Request, response: Response, db=
     try:
         # refresh_access_token rotates the refresh token and returns the new one.
         new_access, new_refresh = await refresh_access_token(db, refresh_token)
-    except Exception:
+    except Exception as exc:
+        import logging
+        logging.getLogger(__name__).warning(
+            "DEBUG /refresh: refresh_access_token raised %s: %r (cookie_present=%s body_present=%s body_len=%d)",
+            type(exc).__name__, exc, cookie_present, body_present, len(req.refresh_token or "")
+        )
         _clear_refresh_cookie(response)
         raise HTTPException(status_code=401, detail="Invalid refresh token")
     # Re-issue the cookie with the rotated refresh token.
