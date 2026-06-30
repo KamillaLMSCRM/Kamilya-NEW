@@ -878,3 +878,250 @@ exercises a legacy-shape row** before declaring v1.0 done.
 - Architectural: see `docs/adr/0012-rbac-admin-vs-methodologist.md`
   for the broader rule that endpoints must be defensive about
   cross-tenant data state.
+
+
+---
+
+## 2026-06-30 — Login-bug: 4 fixes in one day, all teaching the same lesson
+
+Round 1 fixed positions schema. Round 2 fixed UUID-in-JWT. Round 3 tried
+to fix refresh but used the wrong shape. Round 7 fixed it properly.
+The arc — UUID → exp-as-string → AuthUser-shape gap — is worth
+documenting as a single unit because each fix only made sense after
+the previous one failed in production.
+
+### Lesson 15: Round 1 — PositionResponse nullable legacy fields
+
+#### Symptom
+`GET /v1/positions` returned 422 Unprocessable Content for tenants
+that had positions with NULL `created_at`. The frontend positions page
+loaded empty (`/positions`) until the schema was relaxed.
+
+#### Root cause
+Pydantic v2 `PositionResponse.created_at: datetime` (no `= None`)
+combined with legacy data rows that had `created_at IS NULL`. One bad
+row in a tenant poisoned the entire list response.
+
+#### Fix
+1. `PositionResponse.created_at: datetime | None = None`
+2. Migration `0037_backfill_positions_created_at.py`:
+   - backfill from earliest `user.created_at` of users on that position
+   - fallback to `now()` for legacy positions with no users
+3. Same treatment for `position_quizzes` + `position_jd_versions`
+
+#### Detection rule
+```bash
+git diff -- 'apps/api/app/modules/**/schemas.py' | grep -E 'created_at: datetime\s*$' | grep -v '| None'
+```
+
+Any datetime field without `= None` is a future-bug. Add CI check.
+
+(Same as Lesson 14.)
+
+
+### Lesson 16: Round 2 — UUID in JWT payload vs stdlib json.dumps
+
+#### Symptom
+After the round 1 schema fix, login STILL failed: refresh access_token
+crashed with `TypeError: Object of type UUID is not JSON serializable`.
+
+#### Root cause
+PyJWT 2.x uses stdlib `json.dumps` under the hood. `json.dumps` rejects
+`uuid.UUID` and `datetime.datetime`. Our `service.py::create_user_and_tokens`
+was passing `user.tenant_id` (a UUID column) directly into the JWT payload.
+
+#### Fix
+Centralised in `app/core/auth.py::_json_safe_jwt_payload()` at the
+encode boundary. All callers in `auth/service.py` keep passing native
+types; the helper normalises UUID to str before `jwt.encode` runs.
+
+```python
+def _json_safe_jwt_payload(data: dict) -> dict:
+    out = {}
+    for k, v in data.items():
+        if isinstance(v, UUID):
+            out[k] = str(v) if v is not None else None
+        elif isinstance(v, dict):
+            out[k] = _json_safe_jwt_payload(v)
+        # ... etc
+    return out
+```
+
+#### Why this lesson matters
+We used to require callers to wrap every `user.tenant_id` with `str()`.
+That's brittle — any new contributor who forgets gets a 500. A single
+guard at the encode boundary enforces the contract once.
+
+#### Detection rule
+Keep `_json_safe_jwt_payload` at the boundary. Code reviewers should
+reject any new caller of `create_access_token` / `create_refresh_token`
+that pre-stringifies UUIDs in the payload dict — that means the
+boundary is being bypassed.
+
+
+### Lesson 17: Round 3 then 7 — TokenResponse shape mismatch with AuthUser
+
+#### Symptom
+After UUID/exp were fixed, refresh succeeded but the frontend
+sidebar showed `Sidebar.UserRole.Undefined` and the placeholder
+"required" for empty `full_name`. The `hasAccessToken: true` console
+log confirmed a token existed, but the user object had
+`role: undefined` and `full_name: undefined`.
+
+#### Root cause
+Round 3 (931e43c) added `user: UserResponse | None` to `TokenResponse`.
+`UserResponse` had the wrong shape:
+
+```python
+class UserResponse(BaseModel):   # what /refresh returned
+    id: UUID
+    tenant_id: UUID
+    email: str | None
+    telegram_id: int | None
+    first_name: str
+    last_name: str
+    status: str
+    created_at: datetime
+    updated_at: datetime
+    # NO role, NO tenant object, NO full_name
+```
+
+But the frontend `AuthUser` interface expects:
+
+```ts
+interface AuthUser {
+  user_id: string;
+  tenant_id: string | null;
+  tenant: AuthUserTenant | null;   // missing in UserResponse
+  telegram_id: string;
+  role: string;                     // missing in UserResponse
+  full_name: string;                // missing in UserResponse
+  email: string | null;
+}
+```
+
+When the frontend `_refresh()` called `setAuth(token, data.user as AuthUser)`,
+the result was `{role: undefined, full_name: undefined, tenant: undefined}`.
+`Layout.tsx::isSuperadmin` was undefined, `Sidebar` showed
+"UserRole.Undefined", layout-guard treated user as no-role, and
+tenant-level pages bounced.
+
+The `/check-code` endpoint did NOT have this problem because it returns
+its own JSONResponse with a hand-built `user_data` dict (see
+`apps/api/app/modules/auth/telegram.py` line 129) that has the right
+shape. The hand-built dict was the only source of truth; R3's
+`UserResponse` was a separate, broken serialiser.
+
+#### Fix
+1. New helper `service.build_user_payload(db, user, telegram_id)` —
+   single source of truth for the AuthUser shape, used by both
+   `telegram.py` (login) and `service.py::refresh_access_token`.
+2. `TokenResponse.user: dict | None` (was `UserResponse | None`) so
+   the dict shape isn't constrained by a Pydantic model that doesn't
+   know about role/tenant.
+3. `refresh_access_token` signature: `tuple[str, str, dict]` — third
+   element is the AuthUser-shaped dict, not a User ORM object.
+
+#### Why this is its own lesson
+The auth flow has two login paths (`/check-code` and `/auth/login`)
+and one refresh path (`/refresh`). All three need to return the same
+user shape. We had three places that needed to agree, and they were
+drifting apart. The helper makes the agreement mechanical rather
+than documentary.
+
+#### Detection rule
+When adding a new endpoint that returns user data, check ALL three:
+
+```bash
+grep -rn 'TokenResponse\|UserResponse' apps/api/app/modules/ | grep -v __pycache__
+grep -rn 'interface AuthUser\|type AuthUser' apps/web/src/lib/
+```
+
+If the backend Pydantic schema and the TS interface drift apart,
+the browser will compile happily and break at runtime. Add a
+generator: `apps/api/app/modules/auth/schemas.py` to Zod schema in
+`packages/shared-types/codegen.py`, used by both backend and frontend.
+This was always on the TZ but never built — bumping it up the
+backlog now.
+
+
+### Lesson 18: Round 5 — JWT exp/iat must be NumericDate (Unix int), not isoformat
+
+#### Symptom
+After R2 (UUID fix) and R4 (R6 debug-print), refresh still 401'd with
+`InvalidTokenError`. No traceback — `except Exception: raise HTTPException(401)`
+swallowed the real cause. After adding `print(f"[DEBUG decode_token R4] ...")`
+to `decode_token`'s exception branches, the actual reason surfaced.
+
+#### Root cause
+Round 2's `_json_safe_jwt_payload()` was supposed to fix UUID issues.
+But it also converted `datetime` to `isoformat()` strings:
+
+```python
+to_encode['exp'] = expire.isoformat()    # '2026-06-30T03:33:42+00:00'
+to_encode['iat'] = now.isoformat()
+```
+
+**RFC 7519 §4.1.4** defines `exp` as NumericDate (Unix seconds, int).
+PyJWT's `verify_exp=True` calls `datetime.fromtimestamp(exp)` on
+whatever value is in the payload — passing a string raises ValueError,
+which PyJWT surfaces as `InvalidTokenError`. R3's
+`except Exception: raise HTTPException(401)` did not even log this,
+so we went two rounds blind.
+
+#### Fix
+```python
+to_encode['exp'] = int(expire.timestamp())   # int, not str
+to_encode['iat'] = int(now.timestamp())
+to_encode['nbf'] = int(now.timestamp())
+```
+
+`_json_safe_jwt_payload` no longer touches datetime values — it only
+handles UUID. Standard registered claims are owned by
+`create_access_token/refresh` which know the correct wire format.
+
+#### Why this is dangerous
+A string-typed `exp` does not crash on encode (json.dumps accepts
+strings). It only fails on decode. Encode and decode go through
+different code paths in PyJWT, and the asymmetry hides bugs.
+
+#### Detection rule
+```python
+# Quick smoke test in test_jwt_roundtrip.py
+def test_jwt_exp_is_int():
+    tok = create_access_token({"sub": str(uuid4())})
+    payload = jwt.decode(tok, options={"verify_signature": False})
+    assert isinstance(payload['exp'], int), f"exp must be int, got {type(payload['exp'])}"
+    assert isinstance(payload['iat'], int), f"iat must be int, got {type(payload['iat'])}"
+```
+
+Run this in CI. If it ever fails, we re-introduced isoformat strings
+and /refresh will be 401 again.
+
+
+### Cross-cutting rule (this whole week's lesson)
+
+When fixing a bug in a multi-step auth flow, **log the exception class
+name** at the catch boundary on the FIRST round, not the third. We
+spent rounds 4 and 5 guessing about the cause because the
+`except Exception: raise HTTPException(401)` swallowed the type. Add
+`logging.getLogger(__name__).exception("/refresh failed")` to every
+auth handler's catch block, every time. The performance cost is
+negligible; the diagnostic value is enormous.
+
+The R6 pattern (catch-all on the most generic exception, print
+type + message, then re-raise with sanitised HTTP detail) is the
+template for any future "401 with no idea why" debugging.
+
+### Related
+
+- AGENTS.md section "Mandatory skill loading" — security-review
+  should have been loaded for R3 (we added a new auth endpoint
+  shape). It was not, and we shipped a broken shape to prod. Make
+  it a hard rule that **any change to auth/router.py or
+  auth/service.py must load the security-review skill**, not just
+  call it optional.
+- docs/adr/0012-rbac-admin-vs-methodologist.md — RBAC checks in
+  Layout.tsx depend on `user.role` being set. R7 fix unblocks
+  Layout-guard for tenant users (was: always treated as
+  no-role, fall through to wrong redirect).
