@@ -32,6 +32,9 @@ async def enroll_users(db: AsyncSession, course_id: UUID, tenant_id: UUID, user_
       - users from a different tenant (defense in depth — the
         router should have caught this, but if it didn't, we
         refuse to insert a cross-tenant Enrollment row)
+      - users whose role is not `student`; system/team users are
+        managed via /admin/team and must not become learners by
+        accidental assignment
       - users that aren't `is_active=True` AND `status='active'`
       - users already enrolled in this course
     """
@@ -62,6 +65,8 @@ async def enroll_users(db: AsyncSession, course_id: UUID, tenant_id: UUID, user_
         # by tenant, but a bug there would leak cross-tenant).
         if user.tenant_id != tenant_id:
             continue
+        if user.role != "student":
+            continue
         # Active check: is_active AND status='active' are both
         # required. is_active is the boolean convenience flag;
         # status is the source of truth (e.g. 'suspended' is
@@ -88,6 +93,7 @@ async def enroll_users(db: AsyncSession, course_id: UUID, tenant_id: UUID, user_
             user_id=uid,
             tenant_id=tenant_id,
             status="enrolled",
+            source="manual",
         )
         db.add(enrollment)
         enrollments.append(enrollment)
@@ -143,6 +149,10 @@ async def unenroll(db: AsyncSession, enrollment_id: UUID, tenant_id: UUID) -> No
     )
     enrollment = result.scalar_one_or_none()
     if enrollment:
+        if enrollment.source != "manual":
+            raise ValueError(
+                "Rule-driven enrollments must be changed through department or position rules"
+            )
         await db.delete(enrollment)
 
 

@@ -18,6 +18,16 @@ interface Tenant {
   max_users: number | null;
   max_courses_per_month: number | null;
   created_at: string;
+  stats?: {
+    user_count: number;
+    active_user_count: number;
+    admin_count: number;
+    course_count: number;
+    published_course_count: number;
+    document_count: number;
+    enrollment_count: number;
+    last_activity_at: string | null;
+  } | null;
 }
 
 const PLAN_KEYS = ['free', 'trial', 'pro', 'enterprise'] as const;
@@ -147,6 +157,7 @@ export default function SuperAdminTenants() {
                   <th className="px-3 py-2">{t('superadmin.tenants.fields.plan')}</th>
                   <th className="px-3 py-2">{t('superadmin.tenants.fields.status')}</th>
                   <th className="px-3 py-2">{t('superadmin.tenants.fields.users')}</th>
+                  <th className="px-3 py-2">{t('superadmin.tenants.stats.courses')}</th>
                   <th className="px-3 py-2">{t('superadmin.tenants.fields.created')}</th>
                   <th className="px-3 py-2 text-right">·</th>
                 </tr>
@@ -165,7 +176,20 @@ export default function SuperAdminTenants() {
                       </Badge>
                     </td>
                     <td className="px-3 py-2 text-sm text-text-secondary">
-                      {tnt.max_users ?? '∞'}
+                      <div className="font-medium text-text-primary">
+                        {tnt.stats?.active_user_count ?? 0}/{tnt.stats?.user_count ?? 0}
+                      </div>
+                      <div className="text-xs text-text-tertiary">
+                        {t('superadmin.tenants.subscription.maxUsers')}: {tnt.max_users ?? '∞'}
+                      </div>
+                    </td>
+                    <td className="px-3 py-2 text-sm text-text-secondary">
+                      <div className="font-medium text-text-primary">
+                        {tnt.stats?.published_course_count ?? 0}/{tnt.stats?.course_count ?? 0}
+                      </div>
+                      <div className="text-xs text-text-tertiary">
+                        {t('superadmin.tenants.stats.published')}
+                      </div>
                     </td>
                     <td className="px-3 py-2 text-xs text-text-tertiary">
                       {new Date(tnt.created_at).toLocaleDateString()}

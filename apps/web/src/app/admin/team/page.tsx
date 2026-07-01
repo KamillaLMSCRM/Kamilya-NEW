@@ -4,8 +4,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { Card, CardHeader, CardTitle, CardContent, Button, Badge, Table, Modal, Input } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
-import { toast } from '@/components/ui/Toast';
-import { api } from '@/lib/api';
 
 interface User {
   id: string;
@@ -14,21 +12,13 @@ interface User {
   last_name: string;
   role: string;
   is_active: boolean;
-  position_id: string | null;
   created_at: string;
   last_login: string | null;
-}
-
-interface Position {
-  id: string;
-  name: string;
-  department: string;
 }
 
 export default function AdminTeamPage() {
   const { t } = useT();
   const [users, setUsers] = useState<User[]>([]);
-  const [positions, setPositions] = useState<Position[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
@@ -39,34 +29,6 @@ export default function AdminTeamPage() {
   // Telegram-bot flow.
   const [newUser, setNewUser] = useState({ email: '', first_name: '', last_name: '', role: 'teacher', password: '' });
 
-  // ── Bulk invite (Phase 1 of employee onboarding) ──────────────
-  const [showBulkInvite, setShowBulkInvite] = useState(false);
-  const [bulkEmails, setBulkEmails] = useState('');
-  const [bulkSending, setBulkSending] = useState(false);
-  const [bulkResults, setBulkResults] = useState<{
-    created: { email: string; invitation_id: string; invite_url: string; expires_at: string }[];
-    skipped_existing: { email: string; reason: string }[];
-    invalid: { input: string; reason: string }[];
-  } | null>(null);
-
-  // Email regex mirrors backend (lib/invitations_service.py)
-  const EMAIL_RE = /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/;
-  const parsedBulkEmails = (() => {
-    const raw = bulkEmails.split(/[\s,;\n]+/).map(s => s.trim()).filter(Boolean);
-    const seen = new Set<string>();
-    const valid: string[] = [];
-    const invalid: string[] = [];
-    for (const e of raw) {
-      const norm = e.toLowerCase();
-      if (seen.has(norm)) continue;
-      seen.add(norm);
-      if (EMAIL_RE.test(norm) && norm.length <= 320) valid.push(norm);
-      else invalid.push(e);
-    }
-    return { valid, invalid, total: raw.length };
-  })();
-  const [assignModal, setAssignModal] = useState<{ userId: string; userName: string; currentPositionId: string | null } | null>(null);
-  const [selectedPositionId, setSelectedPositionId] = useState('');
   const token = useAuthStore((s) => s.accessToken);
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -75,10 +37,6 @@ export default function AdminTeamPage() {
     const params = new URLSearchParams({
       page: String(page),
       per_page: '20',
-      // P0-2 (2026-06-29): include staff imported via /admin/staff,
-      // which materialize as role='student'. Without this query param
-      // they are silently filtered out at the backend.
-      include_students: 'true',
     });
     if (search) params.set('search', search);
     try {
@@ -95,14 +53,7 @@ export default function AdminTeamPage() {
     }
   }, [token, API_URL, page, search]);
 
-  const fetchPositions = useCallback(async () => {
-    try {
-      const res = await api.get('/v1/positions');
-      setPositions(Array.isArray(res.data) ? res.data : []);
-    } catch {}
-  }, []);
-
-  useEffect(() => { fetchUsers(); fetchPositions(); }, [fetchUsers, fetchPositions]);
+  useEffect(() => { fetchUsers(); }, [fetchUsers]);
 
   const [createError, setCreateError] = useState('');
 
@@ -120,56 +71,11 @@ export default function AdminTeamPage() {
     });
     if (res.ok) {
       setShowCreateModal(false);
-      setNewUser({ email: '', first_name: '', last_name: '', role: 'student', password: '' });
+      setNewUser({ email: '', first_name: '', last_name: '', role: 'teacher', password: '' });
       fetchUsers();
     } else {
       const err = await res.json().catch(() => ({ detail: 'Ошибка сервера' }));
       setCreateError(err.detail || 'Ошибка создания пользователя');
-    }
-  };
-
-  const handleBulkInvite = async () => {
-    if (parsedBulkEmails.valid.length === 0) {
-      toast.error('Введите хотя бы один корректный email');
-      return;
-    }
-    setBulkSending(true);
-    try {
-      const res = await fetch(`${API_URL}/v1/users/invitations/bulk`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ items: parsedBulkEmails.valid.map(email => ({ email })) }),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ detail: 'Ошибка сервера' }));
-        throw new Error(err.detail || 'Bulk invite failed');
-      }
-      const data = await res.json();
-      setBulkResults({
-        created: data.created || [],
-        skipped_existing: data.skipped_existing || [],
-        invalid: data.invalid || [],
-      });
-      fetchUsers();
-      const msg = [
-        `Создано: ${data.created?.length || 0}`,
-        (data.skipped_existing?.length || 0) > 0 ? `пропущено: ${data.skipped_existing.length}` : null,
-        (data.invalid?.length || 0) > 0 ? `некорректных: ${data.invalid.length}` : null,
-      ].filter(Boolean).join(' · ');
-      toast.success(msg || 'Готово');
-    } catch (err: any) {
-      toast.error(t('common.saveFailed'), { description: err.message });
-    } finally {
-      setBulkSending(false);
-    }
-  };
-
-  const copyInviteUrl = async (url: string) => {
-    try {
-      await navigator.clipboard.writeText(url);
-      toast.success('Ссылка скопирована');
-    } catch {
-      toast.error('Не удалось скопировать');
     }
   };
 
@@ -191,46 +97,6 @@ export default function AdminTeamPage() {
     if (res.ok) fetchUsers();
   };
 
-  const handleAssignPosition = async () => {
-    if (!assignModal || !selectedPositionId) return;
-    try {
-      const res = await api.post(`/v1/positions/${selectedPositionId}/assign/${assignModal.userId}`);
-      if (res.status === 200 || res.status === 201) {
-        const data = res.data as {
-          position?: string;
-          courses_attached?: number;
-          newly_enrolled?: number;
-          unenrolled_from_old?: number;
-        };
-        const parts: string[] = [];
-        parts.push(t('toast.positionAssigned'));
-        if (typeof data.newly_enrolled === 'number') {
-          parts.push(`Новых записей: ${data.newly_enrolled}`);
-        }
-        if (typeof data.courses_attached === 'number') {
-          parts.push(`Курсов: ${data.courses_attached}`);
-        }
-        if (data.unenrolled_from_old && data.unenrolled_from_old > 0) {
-          parts.push(`Отменено записей со старой должности: ${data.unenrolled_from_old}`);
-        }
-        toast.success(parts.join(' · '));
-        setAssignModal(null);
-        setSelectedPositionId('');
-        fetchUsers();
-      }
-    } catch (err: any) {
-      toast.error(t('common.saveFailed'), {
-        description: err?.response?.data?.detail || err?.message,
-      });
-    }
-  };
-
-  const getPositionName = (posId: string | null) => {
-    if (!posId) return null;
-    const pos = positions.find(p => p.id === posId);
-    return pos?.name || null;
-  };
-
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
@@ -239,16 +105,7 @@ export default function AdminTeamPage() {
           Управление методологами и администраторами тенанта. Студенты
           приходят через Telegram-бот или импорт в разделе «Импорт штата».
         </p>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={() => { setShowBulkInvite(true); setBulkResults(null); setBulkEmails(''); }}
-            title="Пригласить несколько сотрудников сразу — вставьте список email-ов"
-          >
-            📋 Массовое приглашение
-          </Button>
-          <Button onClick={() => setShowCreateModal(true)}>+ Добавить сотрудника</Button>
-        </div>
+        <Button onClick={() => setShowCreateModal(true)}>+ {t('users.createButton')}</Button>
       </div>
 
       <div className="flex gap-2">
@@ -280,7 +137,6 @@ export default function AdminTeamPage() {
                   <th scope="col" className="text-left p-3">{t('users.name')}</th>
                   <th scope="col" className="text-left p-3">{t('users.email')}</th>
                   <th scope="col" className="text-left p-3">{t('users.role')}</th>
-                  <th scope="col" className="text-left p-3">{t('users.position')}</th>
                   <th scope="col" className="text-left p-3">{t('users.status')}</th>
                   <th scope="col" className="text-left p-3">{t('users.created')}</th>
                   <th scope="col" className="text-right p-3">{t('users.actions')}</th>
@@ -310,28 +166,6 @@ export default function AdminTeamPage() {
                         <option value="admin">{t('users.roleAdmin')}</option>
                         <option value="superadmin">{t('users.roleSuperadmin')}</option>
                       </select>
-                    </td>
-                    <td className="p-3">
-                      {getPositionName(user.position_id) ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
-                          {getPositionName(user.position_id)}
-                        </span>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setAssignModal({
-                              userId: user.id,
-                              userName: `${user.first_name} ${user.last_name}`,
-                              currentPositionId: user.position_id,
-                            });
-                            setSelectedPositionId(user.position_id || '');
-                          }}
-                          className="text-xs text-muted-foreground hover:text-primary transition-colors"
-                        >
-                          + {t('users.assignPosition')}
-                        </button>
-                      )}
                     </td>
                     <td className="p-3">
                       <Badge variant={user.is_active ? 'default' : 'destructive'}>
@@ -388,7 +222,7 @@ export default function AdminTeamPage() {
       {/* Create user modal */}
       <Modal open={showCreateModal} onOpenChange={setShowCreateModal}>
         <CardHeader>
-          <CardTitle>Новый сотрудник</CardTitle>
+          <CardTitle>Новый участник команды</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <label className="block">
@@ -442,162 +276,6 @@ export default function AdminTeamPage() {
         </CardContent>
       </Modal>
 
-      {/* Assign position modal */}
-      {assignModal && (
-        <Modal open={!!assignModal} onOpenChange={() => setAssignModal(null)}>
-          <CardHeader>
-            <CardTitle>
-              {t('users.assignPosition')}: {assignModal.userName}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-sm text-muted-foreground">{t('users.assignPositionHint')}</p>
-            <label className="block">
-              <span className="sr-only">{t('users.position')}</span>
-              <select
-                value={selectedPositionId}
-                onChange={(e) => setSelectedPositionId(e.target.value)}
-                className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-card"
-              >
-                <option value="">{t('users.selectPosition')}</option>
-                {positions.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                    {p.department ? ` (${p.department})` : ''}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <Button
-              onClick={handleAssignPosition}
-              disabled={!selectedPositionId}
-              className="w-full"
-            >
-              {t('users.assignAndEnroll')}
-            </Button>
-          </CardContent>
-        </Modal>
-      )}
-
-      {/* Bulk invite modal (Phase 1) */}
-      {showBulkInvite && (
-        <Modal open={showBulkInvite} onOpenChange={() => setShowBulkInvite(false)}>
-          <CardHeader>
-            <CardTitle>📋 Массовое приглашение</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {!bulkResults ? (
-              <>
-                <p className="text-sm text-muted-foreground">
-                  Введите email-ы сотрудников по одному на строку, через запятую или пробел.
-                  Имена будут запрошены у сотрудника при принятии приглашения.
-                </p>
-                <textarea
-                  value={bulkEmails}
-                  onChange={(e) => setBulkEmails(e.target.value)}
-                  rows={10}
-                  placeholder={`ivanov@company.kz\npetrov@company.kz\nsidorov@company.kz`}
-                  className="w-full rounded-lg border border-border px-3 py-2 text-sm font-mono outline-none focus:border-primary resize-y"
-                />
-                <div className="text-xs text-muted-foreground space-y-0.5">
-                  <div>
-                    Распознано: <span className="font-semibold text-success">{parsedBulkEmails.valid.length}</span> корректных
-                    {parsedBulkEmails.invalid.length > 0 && (
-                      <>, <span className="font-semibold text-warning">{parsedBulkEmails.invalid.length}</span> некорректных</>
-                    )}
-                  </div>
-                  <div className="text-muted-foreground">
-                    Все приглашённые получат роль «Студент». Ссылка действительна 3 дня (настраивается).
-                    Методолог копирует ссылку и отправляет сотруднику вручную (Slack, Telegram, почта).
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    onClick={() => setShowBulkInvite(false)}
-                    className="flex-1"
-                  >
-                    Отмена
-                  </Button>
-                  <Button
-                    onClick={handleBulkInvite}
-                    disabled={bulkSending || parsedBulkEmails.valid.length === 0}
-                    className="flex-1"
-                  >
-                    {bulkSending ? 'Отправляю...' : `Пригласить ${parsedBulkEmails.valid.length} ${parsedBulkEmails.valid.length === 1 ? 'человека' : 'человек'}`}
-                  </Button>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="rounded-lg border border-border bg-muted p-3 text-sm">
-                  <div className="font-semibold text-foreground mb-1">Готово</div>
-                  <div className="space-y-0.5 text-foreground">
-                    {bulkResults.created.length > 0 && (
-                      <div>✅ Создано приглашений: <strong>{bulkResults.created.length}</strong></div>
-                    )}
-                    {bulkResults.skipped_existing.length > 0 && (
-                      <div>⚠️ Пропущено (уже в команде / есть активное приглашение): <strong>{bulkResults.skipped_existing.length}</strong></div>
-                    )}
-                    {bulkResults.invalid.length > 0 && (
-                      <div>❌ Некорректных email-ов: <strong>{bulkResults.invalid.length}</strong></div>
-                    )}
-                  </div>
-                </div>
-                {bulkResults.created.length > 0 && (
-                  <>
-                    <div className="text-xs text-muted-foreground">
-                      Скопируйте ссылку и отправьте сотруднику. Срок действия — 3 дня.
-                    </div>
-                    <div className="max-h-64 overflow-y-auto space-y-1.5 rounded-lg border border-border p-2">
-                      {bulkResults.created.map((r) => (
-                        <div key={r.invitation_id} className="flex items-center gap-2 text-xs">
-                          <span className="font-medium text-foreground shrink-0">{r.email}</span>
-                          <input
-                            readOnly
-                            value={r.invite_url}
-                            className="flex-1 min-w-0 rounded border border-border px-2 py-1 font-mono text-[10px] bg-muted"
-                            onClick={(e) => (e.target as HTMLInputElement).select()}
-                          />
-                          <button
-                            type="button"
-                            onClick={() => copyInviteUrl(r.invite_url)}
-                            className="shrink-0 rounded border border-border px-2 py-1 text-xs hover:bg-muted"
-                          >
-                            📋
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </>
-                )}
-                {(bulkResults.skipped_existing.length > 0 || bulkResults.invalid.length > 0) && (
-                  <details className="text-xs text-muted-foreground">
-                    <summary className="cursor-pointer hover:text-foreground">
-                      Подробности ({bulkResults.skipped_existing.length + bulkResults.invalid.length})
-                    </summary>
-                    <div className="mt-2 space-y-0.5 pl-3">
-                      {bulkResults.skipped_existing.map((s, i) => (
-                        <div key={i}>
-                          ⚠️ <span className="font-mono">{s.email}</span> — {s.reason === 'already_in_tenant' ? 'уже в команде' : s.reason === 'pending_invite_exists' ? 'уже есть активное приглашение' : s.reason}
-                        </div>
-                      ))}
-                      {bulkResults.invalid.map((inv, i) => (
-                        <div key={i}>
-                          ❌ <span className="font-mono">{inv.input}</span> — некорректный формат
-                        </div>
-                      ))}
-                    </div>
-                  </details>
-                )}
-                <Button onClick={() => setShowBulkInvite(false)} className="w-full">
-                  Готово
-                </Button>
-              </>
-            )}
-          </CardContent>
-        </Modal>
-      )}
     </div>
   );
 }

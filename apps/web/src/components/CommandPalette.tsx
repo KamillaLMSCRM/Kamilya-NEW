@@ -44,15 +44,20 @@ export default function CommandPalette() {
     { label: t('nav.certificates'), href: '/certificates', icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg> },
   ];
 
-  // ADR-0012: enrollments/quizzes are shared admin+methodologist (teacher)
-  // domain. Show them to both. Admin-only items (users, /admin dashboard)
-  // stay gated to admin/superadmin/org_admin.
+  // Quizzes are content-domain tools. Direct course assignments are stricter:
+  // methodologist/teacher owns learner trajectories; tenant admin does not.
   const canManageContent = user?.role && ['admin', 'superadmin', 'org_admin', 'teacher'].includes(user.role);
+  const canManageAssignments = user?.role && ['methodologist', 'teacher'].includes(user.role);
   const canManageTenant = user?.role && ['admin', 'superadmin'].includes(user.role);
+
+  if (canManageAssignments) {
+    allItems.push(
+      { label: t('courses.enrollments'), href: '/assignments', icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" x2="19" y1="8" y2="14"/><line x1="22" x2="16" y1="11" y2="11"/></svg> },
+    );
+  }
 
   if (canManageContent) {
     allItems.push(
-      { label: t('courses.enrollments'), href: '/admin/enrollments', icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" x2="19" y1="8" y2="14"/><line x1="22" x2="16" y1="11" y2="11"/></svg> },
       { label: t('quiz.title'), href: '/quizzes', icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg> },
       // 2026-06-30: removed /admin/staff?tab=rules and ?tab=company-courses
       // Cmd-K entries. They were deep-links into the same page that

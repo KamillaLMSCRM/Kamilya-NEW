@@ -54,8 +54,13 @@ async def list_tenants(
     svc: SuperadminService = Depends(_service),
 ):
     tenants, total = await svc.list_tenants(search=search, limit=limit, offset=offset)
+    tenant_responses = []
+    for tenant in tenants:
+        response = TenantResponse.model_validate(tenant)
+        response.stats = await svc.get_tenant_stats(tenant.id)
+        tenant_responses.append(response)
     return TenantListResponse(
-        tenants=[TenantResponse.model_validate(t) for t in tenants],
+        tenants=tenant_responses,
         total=total,
     )
 

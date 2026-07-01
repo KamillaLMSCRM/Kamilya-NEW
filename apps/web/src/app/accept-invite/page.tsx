@@ -4,7 +4,6 @@ import { Suspense, useEffect, useState, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardHeader, CardTitle, CardContent, Button, Input } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
-import { setStoredAuth } from '@/lib/auth';
 import { api } from '@/lib/api';
 
 interface PublicInvitation {
@@ -31,6 +30,10 @@ const ROLE_LABELS: Record<string, string> = {
   admin: 'Администратор',
   org_admin: 'Админ организации',
 };
+
+function getRoleHome(role?: string | null) {
+  return role === 'student' ? '/student' : '/dashboard';
+}
 
 export default function AcceptInvitePage() {
   return (
@@ -60,7 +63,7 @@ function AcceptInviteForm() {
 
   // Redirect if already logged in (defensive — shouldn't happen on this page)
   useEffect(() => {
-    if (accessToken) router.push('/dashboard');
+    if (accessToken) router.push(getRoleHome(useAuthStore.getState().user?.role));
   }, [accessToken, router]);
 
   // Fetch invitation details on mount
@@ -141,7 +144,7 @@ function AcceptInviteForm() {
         login(access_token, fallbackUser);
       }
 
-      router.push('/dashboard');
+      router.push(getRoleHome(role));
     } catch (err: any) {
       const detail = err?.response?.data?.detail || 'Не удалось принять приглашение';
       setError(typeof detail === 'string' ? detail : JSON.stringify(detail));

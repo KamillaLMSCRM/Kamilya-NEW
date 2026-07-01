@@ -36,6 +36,12 @@ from alembic import op
 import sqlalchemy as sa
 
 
+revision = "0037"
+down_revision = "0036"
+branch_labels = None
+depends_on = None
+
+
 def upgrade() -> None:
     # 1. Backfill using earliest user.created_at for that position.
     op.execute(

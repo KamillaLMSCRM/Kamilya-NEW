@@ -1,0 +1,1 @@
+"""Tenant public registration module."""

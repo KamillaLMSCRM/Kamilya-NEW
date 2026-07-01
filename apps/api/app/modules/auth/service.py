@@ -3,7 +3,7 @@ from uuid import UUID, uuid4
 import hashlib
 
 import argon2
-from sqlalchemy import select, delete
+from sqlalchemy import select, delete, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import HTTPException, status
 
@@ -156,6 +156,7 @@ async def authenticate_user(db: AsyncSession, email: str, password: str) -> tupl
     tenant = tenant_result.scalar_one_or_none()
 
     if tenant:
+        await db.execute(text("SELECT set_current_tenant(:tid)"), {"tid": str(tenant.id)})
         result = await db.execute(
             select(User).where(User.email == email, User.tenant_id == tenant.id)
         )
@@ -209,6 +210,10 @@ async def refresh_access_token(db: AsyncSession, refresh_token: str) -> tuple[st
     if payload.get("type") != "refresh":
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
     user_id = UUID(payload["sub"])
+    tenant_id = payload.get("tenant_id")
+
+    if tenant_id:
+        await db.execute(text("SELECT set_current_tenant(:tid)"), {"tid": tenant_id})
 
     # Stateless refresh: verify JWT is valid and user exists
     user = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()

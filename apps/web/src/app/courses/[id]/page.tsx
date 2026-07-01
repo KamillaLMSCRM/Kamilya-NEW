@@ -197,7 +197,10 @@ export default function CoursePlayerPage() {
     }
     const newCompleted = new Set(completedLessons).add(lessonId);
     setCompletedLessons(newCompleted);
-    // Auto-complete course if all lessons done
+    if (selectedLesson?.id === lessonId && lessonQuiz && !quizPassed) {
+      return;
+    }
+    // Auto-complete course if all lessons and required quizzes are done.
     const total = modules.reduce((acc, m) => acc + m.lessons.length, 0);
     if (newCompleted.size >= total && total > 0 && token && courseId) {
       await finalizeCourseCompletion();
@@ -249,6 +252,20 @@ export default function CoursePlayerPage() {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) {
+        const detail = await res.json().catch(() => null);
+        const reason = detail?.detail?.reason;
+        if (reason === 'lessons_incomplete') {
+          toast.error(t('common.saveFailed'), {
+            description: `${detail.detail.completed_lessons}/${detail.detail.total_lessons}`,
+          });
+          return;
+        }
+        if (reason === 'quizzes_incomplete') {
+          toast.error(t('common.saveFailed'), {
+            description: `${detail.detail.passed_quizzes}/${detail.detail.total_quizzes}`,
+          });
+          return;
+        }
         throw new Error(`HTTP ${res.status}`);
       }
       const data: { certificate_id?: string; status?: string } = await res.json().catch(() => ({}));
@@ -262,11 +279,11 @@ export default function CoursePlayerPage() {
           },
         });
       }
+      router.push('/courses');
     } catch (e) {
       console.error('Course completion failed', e);
       toast.error(t('common.saveFailed'));
     }
-    router.push('/courses');
   };
 
   const totalLessons = modules.reduce((acc, m) => acc + m.lessons.length, 0);

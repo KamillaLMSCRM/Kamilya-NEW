@@ -1,13 +1,23 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import select, text
 from starlette.responses import JSONResponse
+from datetime import datetime, timezone
+from uuid import UUID
 from app.core.auth import create_access_token, create_refresh_token, get_current_user
 from app.core.config import get_settings
 from app.core.db import get_db
+from app.core.email import EmailService
 from app.modules.auth.schemas import LoginRequest, RefreshRequest, TokenResponse, UserCreate, UserResponse
-from app.modules.auth.service import authenticate_user, create_user_and_tokens, refresh_access_token, blacklist_refresh_token
+from app.modules.auth.service import (
+    authenticate_user,
+    create_user_and_tokens,
+    refresh_access_token,
+    blacklist_refresh_token,
+    build_user_payload,
+)
 from app.modules.auth.auth_sessions import generate_auth_code, check_code
+from app.modules.auth.email_otp import create_email_code, consume_email_code
 from app.modules.audit.service import log_action
 from app.models.tenants import Tenant
 from app.models.users import User
@@ -60,6 +70,15 @@ REFRESH_COOKIE_NAME = "kamilya_refresh"
 REFRESH_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 30  # 30 days, matches REFRESH_TOKEN_EXPIRE_DAYS
 
 
+def _append_partitioned_cookie_attribute(response: Response, cookie_name: str) -> None:
+    prefix = f"{cookie_name}=".lower().encode()
+    for index in range(len(response.raw_headers) - 1, -1, -1):
+        key, value = response.raw_headers[index]
+        if key.lower() == b"set-cookie" and value.lower().startswith(prefix) and b"partitioned" not in value.lower():
+            response.raw_headers[index] = (key, value + b"; Partitioned")
+            return
+
+
 def _set_refresh_cookie(response: Response, refresh_token: str) -> None:
     response.set_cookie(
         key=REFRESH_COOKIE_NAME,
@@ -77,8 +96,8 @@ def _set_refresh_cookie(response: Response, refresh_token: str) -> None:
         # broke login in 2026-06-29 because the Vercel Edge middleware
         # (apps/web/src/middleware.ts) couldn't see the refresh cookie on
         # the /dashboard navigation and 307'd the user back to /login.
-        partitioned=True,
     )
+    _append_partitioned_cookie_attribute(response, REFRESH_COOKIE_NAME)
 
 
 def _clear_refresh_cookie(response: Response) -> None:
@@ -93,8 +112,8 @@ def _clear_refresh_cookie(response: Response) -> None:
         path="/api/v1/auth",
         secure=True,
         samesite="none",
-        partitioned=True,
     )
+    _append_partitioned_cookie_attribute(response, REFRESH_COOKIE_NAME)
 
 
 def _read_refresh_cookie_or_body(request: Request, body_token: str | None) -> str | None:
@@ -247,6 +266,109 @@ class CheckCodeResponse(BaseModel):
     access_token: str | None = None
     user: dict | None = None
     error: str | None = None
+
+
+class EmailCodeRequest(BaseModel):
+    email: str
+
+
+class EmailCodeVerifyRequest(BaseModel):
+    email: str
+    code: str
+
+
+class EmailCodeResponse(BaseModel):
+    ok: bool
+    expires_in: int = 300
+
+
+async def _lookup_login_user_by_email(db, email: str) -> dict | None:
+    result = await db.execute(
+        text(
+            """
+            SELECT user_id, tenant_id, role, is_active
+            FROM lookup_login_user_by_email(:email)
+            """
+        ),
+        {"email": email.lower().strip()},
+    )
+    row = result.mappings().first()
+    return dict(row) if row else None
+
+
+@router.post("/email/request-code", response_model=EmailCodeResponse)
+async def request_email_code(req: EmailCodeRequest, db=Depends(get_db)):
+    """Send an email OTP when the user exists.
+
+    Response is intentionally neutral to avoid disclosing which emails are
+    registered in the system.
+    """
+    normalized_email = req.email.lower().strip()
+    if "@" not in normalized_email:
+        return EmailCodeResponse(ok=True)
+
+    user_row = await _lookup_login_user_by_email(db, normalized_email)
+    if not user_row or not user_row.get("is_active"):
+        return EmailCodeResponse(ok=True)
+
+    code, expires_in = await create_email_code(
+        email=normalized_email,
+        user_id=str(user_row["user_id"]),
+        tenant_id=str(user_row["tenant_id"]) if user_row["tenant_id"] else None,
+        role=user_row["role"] or "student",
+    )
+    await EmailService().send_login_code(to_email=normalized_email, code=code)
+    return EmailCodeResponse(ok=True, expires_in=expires_in)
+
+
+@router.post("/email/verify-code")
+async def verify_email_code(req: EmailCodeVerifyRequest, response: Response, db=Depends(get_db)):
+    normalized_email = req.email.lower().strip()
+    normalized_code = req.code.strip()
+    payload = await consume_email_code(email=normalized_email, code=normalized_code)
+    if not payload:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired code")
+
+    tenant_id = payload.get("tenant_id")
+    if tenant_id:
+        await db.execute(text("SELECT set_current_tenant(:tid)"), {"tid": tenant_id})
+
+    user = (
+        await db.execute(select(User).where(User.id == UUID(payload["user_id"])))
+    ).scalar_one_or_none()
+    if not user or not user.is_active or (user.email or "").lower() != normalized_email:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired code")
+
+    user.last_login = datetime.now(timezone.utc)
+    await db.flush()
+    user_payload = await build_user_payload(db, user)
+
+    access_token = create_access_token({
+        "sub": str(user.id),
+        "tenant_id": user.tenant_id,
+        "roles": [user_payload["role"]],
+    })
+    refresh_token = create_refresh_token({
+        "sub": str(user.id),
+        "tenant_id": user.tenant_id,
+    })
+    _set_refresh_cookie(response, refresh_token)
+    await log_action(
+        db,
+        user.tenant_id,
+        "login.email_otp",
+        "user",
+        resource_id=str(user.id),
+        user_id=user.id,
+    )
+    await db.commit()
+    return {
+        "verified": True,
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "expires_in": 900,
+        "user": user_payload,
+    }
 
 
 @router.post("/generate-code", response_model=GenerateCodeResponse)

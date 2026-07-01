@@ -23,7 +23,7 @@ from app.core.config import get_settings
 config = context.config
 if config.config_file_name is not None:
     settings = get_settings()
-    config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+    config.set_main_option("sqlalchemy.url", settings.MIGRATION_DATABASE_URL or settings.DATABASE_URL)
 
 target_metadata = Base.metadata
 

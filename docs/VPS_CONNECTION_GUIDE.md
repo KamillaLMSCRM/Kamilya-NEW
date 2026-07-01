@@ -262,7 +262,7 @@ ssh -i C:\Users\Askar\.ssh\id_vm root@173.249.51.164 \
   "PGPASSWORD='$DB_PASS' psql -h aws-1-eu-central-1.pooler.supabase.com -p 5432 -U postgres.ducegbxphkgffgozkchw -d postgres -f /tmp/query.sql"
 ```
 
-Где `$DB_PASS` = `ParolSupabase!1` из `apps/api/.env`. **НЕ пиши пароль в git.**
+Где `$DB_PASS` берется из локального `.env` / password manager. **НЕ пиши пароль в git.**
 
 ### Проверить логи Celery worker (после apply-rules)
 

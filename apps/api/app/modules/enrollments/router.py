@@ -48,13 +48,13 @@ async def global_enrollment_stats(
     return {"total": total, "completed": completed}
 
 
-# ADR-0012: enrollment management is shared between admin (tenant
-# infrastructure) and methodologist (teacher) — direct user→course
-# assignment is part of the content domain (TZ_COURSE_ASSIGNMENT_ACCESS_v1
-# §1.2 level-4 manual override), not pure admin scope. Students keep
-# the self-enrollment path below; everyone else is rejected.
+# Direct user→course assignment is a learning-content/methodologist
+# concern (TZ_COURSE_ASSIGNMENT_ACCESS_v1 §1.2 level-4 manual override),
+# not tenant administration. Tenant admins manage org/team structure;
+# methodologist/teacher manages learning trajectories. Students keep the
+# self-enrollment path below; everyone else is rejected.
 
-_ENROLLMENT_MANAGER_ROLES = ("superadmin", "admin", "org_admin", "teacher")
+_ENROLLMENT_MANAGER_ROLES = ("methodologist", "teacher")
 
 
 @router.get("/{course_id}/enrollments", response_model=list[EnrollmentResponse])
@@ -95,7 +95,10 @@ async def remove_enrollment(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role(*_ENROLLMENT_MANAGER_ROLES)),
 ):
-    await unenroll(db, enrollment_id, user.tenant_id)
+    try:
+        await unenroll(db, enrollment_id, user.tenant_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.get("/{course_id}/enrollment-stats")

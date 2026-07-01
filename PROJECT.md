@@ -1,270 +1,125 @@
-# Kamilya LMS Core v1.0
+# Kamilya LMS Core
 
-> AI-first корпоративная LMS для Казахстана. Полная замена Chamilo 2.0.
->
-> **Документ актуализирован:** 2026-06-29 (после аудита 2026-06-28).
-> **Статус:** Beta launch (W12 завершён).
+> Актуализировано: 2026-07-01.
+> Статус: beta, продуктовый контур работает, продолжается доведение superadmin, RBAC и learner-flow.
 
----
+## Видение Продукта
 
-## Что это
+Kamilya LMS - корпоративная система обучения для компаний Казахстана. Система заменяет ручной onboarding и разрозненные курсы единым процессом:
 
-HR загружает документы (PDF/DOCX/TXT) → AI анализирует и генерирует структурированный курс → обучающиеся проходят → тесты → сертификаты. Всё в одном продукте с multi-tenancy и ролевой моделью.
+1. Компания заводит tenant.
+2. Админ tenant-а настраивает пользователей, интеграции, kiosk-ссылки и окружение.
+3. Методолог управляет курсами, тестами, должностями, отделами и правилами назначения.
+4. Обучающийся получает ссылку/доступ, проходит курсы и тесты.
+5. Система автоматически выдает сертификат и сохраняет PDF.
 
----
+Ключевая идея: LMS должна понимать оргструктуру. Курсы назначаются не только вручную, но и через правила "отдел -> курс", "должность -> курс", плюс ручное назначение конкретному обучающемуся.
 
-## Архитектура
+## Роли И Границы
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│  Frontend (Next.js 14, Vercel Frankfurt)                    │
-│  Production: https://app.kml.kz / https://www.kml.kz        │
-│  Preview:    web-natt1inhm-kamillalmscrms-projects.vercel.app│
-└────────────────────────┬────────────────────────────────────┘
-                         │ HTTPS
-                         ▼
-┌─────────────────────────────────────────────────────────────┐
-│  Backend (FastAPI, Render Frankfurt)                        │
-│  Service: kamilya-lms-api (srv-d8rp8ej7uimc73fglid0)        │
-└────┬─────────────┬─────────────┬───────────┬───────────────┘
-     │             │             │           │
-     ▼             ▼             ▼           ▼
-  Supabase       Upstash     Qwen LLM    Voyage / DeepSeek
-  PostgreSQL     Redis       + Qwen      (failover chain,
-  (pgvector)                 Embeddings  per ADR-0007)
-  + Storage
-  (PDF certs)
-```
+| Роль | Зона ответственности |
+|---|---|
+| `superadmin` | Платформа: tenant list, tenant state, global provider keys, platform diagnostics |
+| `admin`, `org_admin` | Tenant-инфраструктура: настройки, интеграции, kiosk, системные пользователи |
+| `methodologist`, `teacher` | Обучение: курсы, quiz, staff structure, правила, `/assignments` |
+| `student` | Личный кабинет, прохождение курсов/тестов, сертификаты |
 
----
+Принятые правила:
 
-## Стек
+- Students не смешиваются с системными пользователями tenant-а.
+- `/admin/team` - только команда администрирования/обучения tenant-а.
+- `/assignments` - ручные назначения курсов обучающимся; это не admin-функция.
+- `/admin/enrollments` - legacy redirect на `/assignments`.
+- Tenant admin не определяет индивидуальные траектории обучения.
+- Manual enrollment разрешен только для активных `student` того же tenant.
 
-### Backend (`apps/api`)
+Канон RBAC: [docs/adr/0012-rbac-admin-vs-methodologist.md](./docs/adr/0012-rbac-admin-vs-methodologist.md).
 
-| Компонент | Технология |
-|-----------|-----------|
-| Framework | FastAPI (async) |
-| ORM | SQLAlchemy 2.0 (async) + Alembic |
-| Migrations | Alembic, canonical (0028+ revisions) |
-| Queue | Celery + Upstash Redis |
-| Auth | JWT HS256 + argon2 + 3 login flows (Telegram / public / superadmin) |
-| AI (chat) | Qwen self-hosted → DeepSeek v4-flash (failover, ADR-0007) |
-| AI (embeddings) | Qwen-Embedding-8B → Voyage voyage-4-lite (failover) |
-| Vector store | pgvector (Supabase) |
-| Object storage | Supabase Storage (PDF сертификаты) |
-| Observability | Sentry + structured JSON logging |
-| Rate limiting | Redis-based, fail-closed, scoped by tenant_id |
-| Multi-tenancy | Row-level filters + RLS + Postgres app role (ADR-0003/0004) |
+## Learner Flow
 
-### Frontend (`apps/web`)
+1. Обучающийся открывает invite link `/accept-invite?token=...`.
+2. После принятия приглашения `student` попадает на `/student`.
+3. `/student`, `/my-courses`, `/my-quizzes` показывают назначенные курсы и quiz.
+4. Course player не завершает курс, пока не закрыты уроки и обязательные quiz.
+5. После успешного completion backend idempotent выдает сертификат.
+6. Сертификаты доступны через `/certificates`; PDF хранится в Supabase Storage.
 
-| Компонент | Технология |
-|-----------|-----------|
-| Framework | Next.js 14 (App Router) |
-| Language | TypeScript strict |
-| Styling | Tailwind CSS 3.4 + semantic tokens |
-| State | Zustand 5 |
-| HTTP | Axios |
-| i18n | ru / kk / en (parity 711/711 keys) |
-| A11y | WCAG 2.1 AA target (axe-core + SkipLink + Modal focus trap) |
+## Assignment Model
 
-### Инфра
+Источники назначения:
 
-| Сервис | Где |
-|--------|-----|
-| Database | Supabase PostgreSQL (Frankfurt), pgvector enabled |
-| Redis | Upstash |
-| AI LLM primary | Qwen 3.5 self-hosted (`LLM_API_URL=http://10.66.66.7:8555`) |
-| AI LLM fallback | DeepSeek v4-flash (env `DEEPSEEK_API_KEY`) |
-| AI Embeddings primary | Qwen-Embedding-8B (self-hosted) |
-| AI Embeddings fallback | Voyage voyage-4-lite (200M free tokens) |
-| Docling | `https://docling.kml.kz` (PDF/DOCX → Markdown) |
+- `department` - через правила отдела.
+- `position` - через правила должности.
+- `manual` - прямое назначение через `/assignments`.
 
----
+`enrollments` - runtime truth о том, какие курсы реально доступны обучающемуся. Rule tables являются источником пересчета, но UI обучающегося и сертификаты опираются на `enrollments`.
 
-## Структура проекта
+Manual removal разрешен только для `source='manual'`; rule-driven назначения удаляются через изменение правил и пересчет.
 
-```
-lms/
-├── apps/
-│   ├── api/                        ← FastAPI backend
-│   │   ├── app/
-│   │   │   ├── main.py             ← entry point
-│   │   │   ├── core/               ← auth, config, db, celery, security, storage
-│   │   │   │   └── storage/        ← backend abstraction (local | supabase)
-│   │   │   ├── models/             ← SQLAlchemy models
-│   │   │   └── modules/            ← feature modules
-│   │   │       ├── auth/           ← JWT + Telegram + superadmin login
-│   │   │       ├── ai/             ← generation pipeline (architect/writer/assessor/reviewer)
-│   │   │       ├── courses/        ← course CRUD + structure
-│   │   │       ├── lessons/        ← lessons + content blocks
-│   │   │       ├── quizzes/        ← quizzes + attempts + deferral
-│   │   │       ├── documents/      ← file upload + RAG ingestion
-│   │   │       ├── positions/      ← должности + JD analysis + staff structure
-│   │   │       ├── enrollments/    ← записи на курсы
-│   │   │       ├── progress/       ← прогресс обучения
-│   │   │       ├── certificates/   ← сертификаты + PDF render
-│   │   │       ├── users/          ← users + staff import + invitations + kiosks
-│   │   │       ├── admin/          ← admin endpoints + provider-keys UI
-│   │   │       ├── student/        ← student dashboard
-│   │   │       ├── audit/          ← audit log read API
-│   │   │       ├── integrations/   ← tenant integrations (Telegram, etc.)
-│   │   │       └── demo/           ← public demo tenant routes
-│   │   └── alembic/                ← 35 миграций (0001..0035)
-│   │
-│   └── web/                        ← Next.js 14 frontend
-│       ├── src/
-│       │   ├── app/                ← 16+ routes (admin, student, courses, ...)
-│       │   ├── components/         ← layout + UI kit + a11y
-│       │   ├── i18n/               ← ru/kk/en (711 keys, parity)
-│       │   ├── lib/                ← api client, auth
-│       │   └── store/              ← Zustand stores
-│       └── tailwind.config.js
-│
-├── packages/                       ← pnpm workspaces
-│   ├── db-schema/                  ← SQL reference schema (read-only)
-│   ├── shared-types/               ← Zod ↔ Pydantic codegen
-│   └── ui-kit/                     ← Design system tokens
-│
-├── infra/                          ← Docker, Caddy, monitoring
-├── docs/
-│   ├── adr/                        ← 10 ADRs (0001..0011, 0010 = storage backend)
-│   ├── audit-2026-06-28-full.md    ← последний полный аудит
-│   ├── DEPLOY.md
-│   ├── DESIGN.md
-│   └── WCAG.md
-│
-├── AGENTS.md                       ← agent instructions
-├── TZ.md                           ← ТЗ (18 разделов)
-├── PROGRESS.md                     ← история прогресса по неделям
-├── PROJECT.md                      ← этот файл
-├── render.yaml                     ← Render Blueprint
-└── docker-compose.yml              ← local dev (postgres+pgvector, redis, minio)
-```
+## Superadmin
 
----
+Superadmin surface должен отвечать на вопрос "что происходит на платформе":
 
-## Функционал (на 2026-06-29)
+- список tenant-ов;
+- active/total users;
+- published/total courses;
+- tenant details;
+- platform/provider configuration.
 
-### Реализовано
+Tenant list уже показывает фактические user/course counters. Дальше нужно довести tenant detail, impersonation и operational diagnostics.
 
-| Фича | Где |
-|------|-----|
-| JWT Auth + Telegram login + superadmin login | `modules/auth/` |
-| Multi-tenancy (row-level + RLS + app role) | ADR-0003, ADR-0004, migration 0033 |
-| Course CRUD + structure + editor | `modules/courses/`, `modules/lessons/` |
-| AI generation pipeline (architect → writer → assessor → reviewer) | `modules/ai/` |
-| Document upload + RAG ingestion + vector search | `modules/documents/` |
-| Position management + JD analysis | `modules/positions/` |
-| Auto-enroll / unenroll / deferral enforcement | `modules/positions/`, `modules/quizzes/` |
-| Enrollment + progress tracking + auto-certificate issuance | `modules/enrollments/`, `modules/progress/`, `modules/courses/` |
-| Quizzes + attempts + grading + deferral window | `modules/quizzes/` |
-| Certificate generation (PDF via fpdf2) + Supabase Storage | `modules/certificates/` |
-| Admin dashboard + user/team management | `modules/admin/`, `modules/users/` |
-| Staff import (Excel/CSV) + org tree (departments/positions/employees) | `modules/users/staff_import_router.py`, `modules/positions/admin_router.py` |
-| Kiosks (public token-based flow for factory floor) | `modules/users/kiosk_router.py` |
-| Invitations + bulk invite (superadmin) | `modules/users/invitations_router.py` |
-| Provider keys UI (encrypted Fernet) | `modules/admin/provider_keys/` |
-| LLM/Embeddings failover chain | `modules/ai/llm_client.py` (ADR-0007) |
-| Per-tenant LLM budget | migration 0034 |
-| i18n (RU primary, KK mandatory, EN secondary) | `apps/web/src/i18n/` |
-| WCAG 2.1 AA: Modal focus trap, SkipLink, axe-core tests | `apps/web/src/components/a11y/`, `apps/web/tests/a11y.test.tsx` |
-| Rate limiting (Redis, tenant-scoped) | `core/rate_limit.py` |
-| Security headers (CSP, HSTS, X-Frame-Options, X-Content-Type-Options, Permissions-Policy) | `core/security.py` |
-| Audit log + structured logger (no PII) | `modules/audit/`, `core/` |
-| Sentry + JSON logging | `core/` |
-| E2E happy-path (Playwright) | `apps/web/tests/e2e/` |
-| Backup scripts (restic-compatible) | `scripts/backup.sh`, `restore.sh` |
-| Monitoring (Prometheus + alerts) | `monitoring/`, `docker-compose.monitoring.yml` |
+## Техническая Архитектура
 
-### Не реализовано (по TZ)
+| Слой | Реализация |
+|---|---|
+| Frontend | Next.js 14 App Router, TypeScript, Tailwind |
+| Backend | FastAPI, SQLAlchemy async, Alembic |
+| DB | Supabase Postgres + pgvector |
+| Storage | Supabase Storage, bucket `Kamilya LMS` |
+| Queue | Upstash Redis |
+| Worker | Celery на VPS как `kamilya-worker.service` |
+| API hosting | Render service `kamilya-lms-api` |
+| Web hosting | Vercel project `web` |
+| AI | Qwen over DGX/VPS tunnel, DeepSeek/Voyage fallback |
 
-| Фича | Когда |
-|------|-------|
-| SCORM support | v1.1 |
-| Mobile native apps | v2.0 |
-| OpenRouter / Claude в reviewer (quality tier) | отложено до отдельного epic |
-| Per-tenant provider keys (сейчас только global) | нужен только UI |
-| Email-сервис (SMTP/SendGrid) | блокер для v1 фич, где требуется email |
+## Database And Security
 
----
+Runtime и migrations разделены:
 
-## Деплой
+- `DATABASE_URL` - runtime connection через `lms_app`, без `BYPASSRLS`.
+- `MIGRATION_DATABASE_URL` - admin connection для Alembic DDL.
 
-### Frontend (Vercel)
+Supabase на 2026-07-01:
 
-```powershell
-cd D:\Камиля\lms
-npx vercel deploy --prod --yes --token $env:VERCEL_TOKEN --scope $env:VERCEL_SCOPE
-```
+- Alembic version: `0040`.
+- Tenant tables with `tenant_id`: RLS enabled and FORCE RLS enabled.
+- `provider_keys` исключена из общей tenant policy, потому что `tenant_id IS NULL` используется для global platform key.
+- Production Render и VPS worker обновлены на `lms_app` runtime connection.
 
-Project `web` (Vercel id `prj_hJMzgp9QNFCwUMrsDEBZINpJJzBp`), Frankfurt region.
+Подробности: [docs/supabase-audit-2026-07-01.md](./docs/supabase-audit-2026-07-01.md).
 
-### Backend (Render)
+## Production Infra
 
-```powershell
-$env:RENDER_API_KEY = (Get-Content apps/api/.env | Select-String 'RENDER_API_KEY' | ForEach-Object { $_.ToString().Split('=',2)[1] })
-$env:RENDER_SERVICE_ID = "srv-d8rp8ej7uimc73fglid0"
-Invoke-WebRequest -Uri "https://api.render.com/v1/services/$env:RENDER_SERVICE_ID/deploys" `
-  -Method POST -Headers @{ Authorization = "Bearer $env:RENDER_API_KEY"; Accept = "application/json" } `
-  -UseBasicParsing
-```
+| Компонент | Где |
+|---|---|
+| Frontend | `https://app.kml.kz` on Vercel |
+| Backend | `https://kamilya-lms-api.onrender.com` on Render |
+| DB | Supabase pooler `aws-1-eu-central-1.pooler.supabase.com` |
+| Storage | Supabase Storage bucket `Kamilya LMS` |
+| Worker | VPS `173.249.51.164`, systemd `kamilya-worker` |
+| Docling | VPS service behind `docling.kml.kz` |
+| WhatsApp gateway | VPS service behind `wa.kml.kz` |
 
-Или через Render CLI (`render deploys create --wait`). Логи — через `render logs --resources srv-xxx --tail`.
+`api.kml.kz` не является production API source of truth; production API сейчас Render URL.
 
-### Git
+## Документация
 
-```powershell
-git add -A ; git commit -m "..." ; git push origin master
-```
+- Product/current state: this file and [docs/PROJECT-CONTEXT.md](./docs/PROJECT-CONTEXT.md)
+- Deployment: [DEPLOY.md](./DEPLOY.md)
+- VPS: [docs/VPS_CONNECTION_GUIDE.md](./docs/VPS_CONNECTION_GUIDE.md)
+- RBAC: [docs/adr/0012-rbac-admin-vs-methodologist.md](./docs/adr/0012-rbac-admin-vs-methodologist.md)
+- RLS/app role: [docs/adr/0004-rls-force-and-app-role.md](./docs/adr/0004-rls-force-and-app-role.md)
+- Supabase audit: [docs/supabase-audit-2026-07-01.md](./docs/supabase-audit-2026-07-01.md)
+- Tenant registration/trial: [docs/product/tenant-registration-trial-flow.md](./docs/product/tenant-registration-trial-flow.md)
 
-Render autoDeploy подхватывает push в `master`. Если не сработал — триггерим вручную через API (см. выше).
-
----
-
-## Окружение
-
-### Backend env (Render Dashboard → Service → Environment)
-
-Ключевые: `DATABASE_URL`, `JWT_SECRET`, `REDIS_URL`, `SUPABASE_URL`, `SUPABASE_KEY`,
-`SUPABASE_BUCKET`, `STORAGE_BACKEND`, `LLM_API_URL`, `DOCLING_URL`,
-`DEEPSEEK_API_KEY`, `VOYAGE_API_KEY`, `PROVIDER_KEY_ENCRYPTION_KEY`,
-`TELEGRAM_BOT_TOKEN`, `RENDER_API_KEY`, `SENTRY_DSN`, `CORS_ORIGINS`.
-
-Локально — `apps/api/.env` (см. `apps/api/.env.example`).
-
-### Frontend env (Vercel → Project → Environment Variables)
-
-`NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
-
-Локально — `apps/web/.env.local`.
-
----
-
-## Быстрые ссылки
-
-| Ресурс | URL |
-|--------|-----|
-| Production | https://app.kml.kz |
-| Marketing | https://www.kml.kz |
-| Backend (Render) | https://kamilya-lms-api.onrender.com |
-| GitHub | https://github.com/KamillaLMSCRM/Kamilya-NEW |
-| Supabase | https://supabase.com/dashboard (project ref `ducegbxphkgffgozkchw`) |
-| Render | https://dashboard.render.com |
-| Vercel | https://vercel.com/kamillalmscrms-projects |
-| Sentry | (см. `SENTRY_DSN` в env) |
-
----
-
-## Где искать что
-
-- **Контракт фичи** → `TZ.md` (§3 — функциональные требования F-001..F-018)
-- **Архитектурное решение** → `docs/adr/00XX-*.md` (10 ADRs)
-- **История изменений** → `git log` + `PROGRESS.md` (по неделям) + коммиты `feat(8.3)` / `fix(2.1)` etc.
-- **Полный аудит** → `docs/audit-2026-06-28-full.md`
-- **Структурированные уроки (Symptom→Root Cause→Fix→Detection Rule)** → `docs/LESSONS.md`
-- **Деплой** → `DEPLOY.md` + `render.yaml`
-- **Дизайн-система** → `DESIGN.md`
-- **A11y правила** → `WCAG.md`
-- **Agent instructions** → `AGENTS.md`
+Old audits and large TZ files remain historical/spec references. Short completed plans should be removed once their result is reflected here or in ADR/audit docs.

@@ -14,6 +14,7 @@ class EnrollmentResponse(BaseModel):
     user_id: UUID
     tenant_id: UUID
     status: str
+    source: str = "manual"
     enrolled_at: datetime
     completed_at: datetime | None = None
     model_config = {"from_attributes": True}

@@ -50,6 +50,18 @@ async def issue_course_certificate(
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@router.get("/verify/{certificate_number}")
+async def verify_cert(
+    certificate_number: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """Verify a certificate (public endpoint)."""
+    result = await verify_certificate(db, certificate_number)
+    if not result:
+        raise HTTPException(status_code=404, detail="Certificate not found")
+    return result
+
+
 @router.get("/{cert_id}", response_model=CertificateResponse)
 async def get_cert(
     cert_id: UUID,
@@ -100,15 +112,3 @@ async def download_certificate_pdf(
         media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
-
-
-@router.get("/verify/{certificate_number}")
-async def verify_cert(
-    certificate_number: str,
-    db: AsyncSession = Depends(get_db),
-):
-    """Verify a certificate (public endpoint)."""
-    result = await verify_certificate(db, certificate_number)
-    if not result:
-        raise HTTPException(status_code=404, detail="Certificate not found")
-    return result

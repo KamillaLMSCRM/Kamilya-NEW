@@ -71,11 +71,16 @@ interface QuizAttempt {
   completed_at: string | null;
 }
 
+function getRoleHome(role?: string | null) {
+  return role === 'student' ? '/student' : '/dashboard';
+}
+
 export default function QuizPlayerPage() {
   const params = useParams();
   const quizId = params?.quizId as string;
   const { t } = useT();
   const token = useAuthStore((s) => s.accessToken);
+  const user = useAuthStore((s) => s.user);
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
   const [quiz, setQuiz] = useState<Quiz | null>(null);
@@ -249,7 +254,7 @@ export default function QuizPlayerPage() {
                 {canAttempt && !result.passed && (
                   <Button onClick={handleRetry}>{t('quiz.tryAgain')}</Button>
                 )}
-                <a href="/dashboard">
+                <a href={getRoleHome(user?.role)}>
                   <Button variant="outline">{t('nav.dashboard')}</Button>
                 </a>
               </div>

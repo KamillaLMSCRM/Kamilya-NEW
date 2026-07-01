@@ -1,252 +1,161 @@
-# Kamilya LMS — Production Deployment Guide
+# Kamilya LMS Production Deployment
 
-## Prerequisites
+Актуально на 2026-07-01.
 
-- Ubuntu 22.04+ VPS
-- Docker & Docker Compose
-- Domain: `lms.kml.kz`
-- SSL certificate (Let's Encrypt or Cloudflare Origin)
+## Production Topology
 
-## Quick Deploy
+| Component | Runtime |
+|---|---|
+| Web | Vercel, `https://app.kml.kz` |
+| API | Render, service `kamilya-lms-api`, id `srv-d8rp8ej7uimc73fglid0` |
+| DB | Supabase Postgres, pooler `aws-1-eu-central-1.pooler.supabase.com` |
+| Storage | Supabase Storage, bucket `Kamilya LMS` |
+| Redis | Upstash Redis |
+| Worker | VPS `173.249.51.164`, systemd `kamilya-worker` |
+| Docling | VPS service, `docling.kml.kz` |
+| WhatsApp gateway | VPS service, `wa.kml.kz` |
 
-```bash
-# 1. Clone repository
-git clone https://github.com/KamillaLMSCRM/Kamilya-NEW.git
-cd Kamilya-NEW
+The old single-VPS Docker Compose deployment is not the production architecture.
 
-# 2. Create .env file
-cp .env.example .env
-# Edit .env with production values
+## Secrets
 
-# 3. Start services
-docker compose -f docker-compose.prod.yml up -d
+Do not commit secrets.
 
-# 4. Run migrations
-docker compose -f docker-compose.prod.yml exec api alembic upgrade head
-
-# 5. Create admin user
-docker compose -f docker-compose.prod.yml exec api python -c "
-from app.core.db import get_session
-from app.modules.users.service import create_user
-import asyncio
-
-async def main():
-    async with get_session() as db:
-        await create_user(
-            db=db,
-            tenant_id='your-tenant-id',
-            email='admin@kml.kz',
-            first_name='Admin',
-            last_name='User',
-            role='superadmin',
-            password='your-secure-password',
-        )
-        await db.commit()
-
-asyncio.run(main())
-"
-```
-
-## Environment Variables
+Required backend env:
 
 ```env
-# Database
-DATABASE_URL=postgresql+asyncpg://user:password@localhost:5432/kamilya
-
-# Redis
-REDIS_URL=redis://localhost:6379/0
-
-# JWT
-JWT_SECRET=your-super-secret-key
-JWT_ALGORITHM=HS256
-JWT_EXPIRE_MINUTES=30
-
-# CORS
-CORS_ORIGINS=["https://lms.kml.kz","https://app.kml.kz"]
-
-# AI (Qwen)
-QWEN_CHAT_URL=http://10.66.66.7:8555/v1
-QWEN_EMBEDDINGS_URL=http://10.66.66.7:8001/v1
-
-# Storage
-MINIO_ENDPOINT=localhost:9000
-MINIO_ACCESS_KEY=minioadmin
-MINIO_SECRET_KEY=minioadmin
+DATABASE_URL=postgres://lms_app.<project-ref>:<password>@aws-1-eu-central-1.pooler.supabase.com:5432/postgres
+MIGRATION_DATABASE_URL=postgres://postgres.<project-ref>:<password>@aws-1-eu-central-1.pooler.supabase.com:5432/postgres
+REDIS_URL=...
+JWT_SECRET=...
+SUPABASE_URL=...
+SUPABASE_KEY=...
+SUPABASE_BUCKET=Kamilya LMS
+STORAGE_BACKEND=supabase
+PUBLIC_URL=https://app.kml.kz
+CORS_ORIGINS=["https://app.kml.kz","https://www.kml.kz"]
 ```
 
-## Docker Compose (Production)
+Rules:
 
-```yaml
-version: '3.8'
+- `DATABASE_URL` is runtime only and must use `lms_app`.
+- `MIGRATION_DATABASE_URL` is for Alembic and may use admin DB role.
+- Supabase service role key stays backend-only.
+- Frontend must never receive service role secrets.
 
-services:
-  api:
-    build: ./apps/api
-    ports:
-      - "8000:8000"
-    environment:
-      - DATABASE_URL=${DATABASE_URL}
-      - REDIS_URL=${REDIS_URL}
-      - JWT_SECRET=${JWT_SECRET}
-    depends_on:
-      - postgres
-      - redis
-    restart: unless-stopped
+## Backend Deploy On Render
 
-  web:
-    build: ./apps/web
-    ports:
-      - "3000:3000"
-    environment:
-      - NEXT_PUBLIC_API_URL=https://lms.kml.kz/api
-    restart: unless-stopped
+Render service:
 
-  worker:
-    build: ./apps/api
-    command: celery -A app.core.celery_app worker -l info
-    environment:
-      - DATABASE_URL=${DATABASE_URL}
-      - REDIS_URL=${REDIS_URL}
-    depends_on:
-      - postgres
-      - redis
-    restart: unless-stopped
-
-  postgres:
-    image: postgres:16
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    environment:
-      - POSTGRES_DB=kamilya
-      - POSTGRES_USER=user
-      - POSTGRES_PASSWORD=${DB_PASSWORD}
-    restart: unless-stopped
-
-  redis:
-    image: redis:7-alpine
-    volumes:
-      - redis_data:/data
-    restart: unless-stopped
-
-  nginx:
-    image: nginx:alpine
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx/prod.conf:/etc/nginx/nginx.conf
-      - ./nginx/ssl:/etc/nginx/ssl
-    depends_on:
-      - api
-      - web
-    restart: unless-stopped
-
-volumes:
-  postgres_data:
-  redis_data:
+```text
+srv-d8rp8ej7uimc73fglid0
+https://kamilya-lms-api.onrender.com
 ```
 
-## Nginx Configuration
+Deploy command through Render API:
 
-```nginx
-upstream api_backend {
-    server api:8000;
+```powershell
+$env:RENDER_SERVICE_ID = "srv-d8rp8ej7uimc73fglid0"
+$headers = @{
+  Authorization = "Bearer $env:RENDER_API_KEY"
+  Accept = "application/json"
 }
 
-upstream web_frontend {
-    server web:3000;
-}
-
-server {
-    listen 80;
-    server_name lms.kml.kz;
-    return 301 https://$server_name$request_uri;
-}
-
-server {
-    listen 443 ssl http2;
-    server_name lms.kml.kz;
-
-    ssl_certificate /etc/nginx/ssl/fullchain.pem;
-    ssl_certificate_key /etc/nginx/ssl/privkey.pem;
-
-    # Security headers
-    add_header X-Frame-Options "DENY" always;
-    add_header X-Content-Type-Options "nosniff" always;
-    add_header X-XSS-Protection "1; mode=block" always;
-    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
-
-    # API
-    location /api/ {
-        proxy_pass http://api_backend;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-
-    # WebSocket
-    location /api/v1/ai/ws/ {
-        proxy_pass http://api_backend;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_set_header Host $host;
-    }
-
-    # Frontend
-    location / {
-        proxy_pass http://web_frontend;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-    }
-}
+Invoke-RestMethod `
+  -Uri "https://api.render.com/v1/services/$env:RENDER_SERVICE_ID/deploys" `
+  -Method POST `
+  -Headers $headers
 ```
 
-## Health Checks
+Health check:
+
+```powershell
+Invoke-WebRequest `
+  -Uri "https://kamilya-lms-api.onrender.com/api/v1/health" `
+  -UseBasicParsing
+```
+
+Expected:
+
+```json
+{"status":"ok","app":"Kamilya LMS"}
+```
+
+## Database Migrations
+
+Alembic reads `MIGRATION_DATABASE_URL` when it is set:
+
+```powershell
+cd apps/api
+python -m alembic -c alembic.ini current
+python -m alembic -c alembic.ini upgrade head
+```
+
+Current production state after 2026-07-01 cutover:
+
+```text
+0040 (head)
+```
+
+## Frontend Deploy On Vercel
+
+Vercel project:
+
+```text
+web
+prj_hJMzgp9QNFCwUMrsDEBZINpJJzBp
+```
+
+Required frontend env:
+
+```env
+NEXT_PUBLIC_API_URL=https://kamilya-lms-api.onrender.com/api
+NEXT_PUBLIC_SUPABASE_URL=...
+NEXT_PUBLIC_SUPABASE_ANON_KEY=...
+```
+
+Build check:
+
+```powershell
+cd apps/web
+.\node_modules\.bin\tsc.cmd --noEmit
+.\node_modules\.bin\next.cmd build
+```
+
+## VPS Worker
+
+Worker runs outside Render:
 
 ```bash
-# API health
-curl https://lms.kml.kz/api/health
-
-# Frontend
-curl https://lms.kml.kz/
-
-# Database
-docker compose exec postgres pg_isready
+systemctl status kamilya-worker
+journalctl -u kamilya-worker -f
 ```
 
-## Monitoring
+Deployment/update:
 
 ```bash
-# View logs
-docker compose logs -f api
-docker compose logs -f worker
-docker compose logs -f web
-
-# Check status
-docker compose ps
-
-# Restart services
-docker compose restart api worker web
+cd /opt/kamilya-worker
+git pull origin master
+systemctl restart kamilya-worker
+systemctl is-active kamilya-worker
 ```
 
-## Backup
+The worker env is `/opt/kamilya-worker/apps/api/.env`. It must use the same `DATABASE_URL` / `MIGRATION_DATABASE_URL` split as Render.
 
-```bash
-# Database backup
-docker compose exec postgres pg_dump -U user kamilya > backup_$(date +%Y%m%d).sql
+## Rollback
 
-# Restore
-docker compose exec postgres psql -U user kamilya < backup_20260621.sql
-```
+Render:
 
-## Troubleshooting
+1. Open Render service `kamilya-lms-api`.
+2. Roll back to the previous successful deploy.
+3. If the issue is DB env related, restore previous env value from password manager or Render env history.
 
-| Issue | Solution |
-|-------|----------|
-| API 502 | Check if api container is running: `docker compose ps` |
-| Database connection | Verify DATABASE_URL in .env |
-| Redis connection | Check Redis container: `docker compose logs redis` |
-| CORS errors | Add domain to CORS_ORIGINS in .env |
-| Rate limiting | Check Redis is running and rate limit config |
+VPS worker:
+
+1. Restore the latest `/opt/kamilya-worker/apps/api/.env.bak.*`.
+2. Restart `kamilya-worker`.
+
+Database:
+
+- Do not downgrade production migrations unless the migration has an explicit tested downgrade path.
+- Prefer forward fix migrations.

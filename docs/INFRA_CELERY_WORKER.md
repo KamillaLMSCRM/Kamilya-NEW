@@ -332,10 +332,12 @@ journalctl -u kamilya-worker -f | grep -E "apply_rules|positions.apply_course_ru
 
 ### 10.3. Проверить enrollments в БД
 
+`$DB_PASS` берется из локального `.env` / password manager; не записывать пароль в markdown.
+
 ```bash
 ssh -i C:\Users\Askar\.ssh\id_vm root@173.249.51.164 '
 cd /opt/kamilya-worker/apps/api
-PGPASSWORD='"'"'ParolSupabase!1'"'"' psql -h aws-1-eu-central-1.pooler.supabase.com -p 5432 -U postgres.ducegbxphkgffgozkchw -d postgres -c "
+PGPASSWORD="$DB_PASS" psql -h aws-1-eu-central-1.pooler.supabase.com -p 5432 -U postgres.ducegbxphkgffgozkchw -d postgres -c "
   SELECT
     u.first_name || \" \" || u.last_name AS user,
     c.title AS course,

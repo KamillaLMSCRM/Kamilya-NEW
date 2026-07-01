@@ -28,6 +28,12 @@ import type { NextRequest } from 'next/server';
 // short-lived JWT cookie that Edge can verify without round-tripping
 // to the API. Both are out of scope for the 2026-06-29 hotfix.
 export function middleware(request: NextRequest) {
+  if (request.nextUrl.pathname === '/admin/enrollments') {
+    const url = request.nextUrl.clone();
+    url.pathname = '/assignments';
+    return NextResponse.redirect(url);
+  }
+
   return NextResponse.next();
 }
 

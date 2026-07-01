@@ -132,7 +132,7 @@ export default function StudentDashboardPage() {
                       </Button>
                     </a>
                     {course.progress_percent === 100 && (
-                      <a href={`/courses/${course.course_id}/certificate`}>
+                      <a href="/certificates">
                         <Button size="sm">{t('courses.viewCertificate')}</Button>
                       </a>
                     )}

@@ -27,8 +27,9 @@ class Settings(BaseSettings):
     # enabled. See docs/adr/0004-rls-force-and-app-role.md for the
     # operational checklist after migration.
     DATABASE_URL: str = "postgresql+asyncpg://lms:lms_dev_password_2026@localhost:5432/kamilya_lms"
+    MIGRATION_DATABASE_URL: str = ""
 
-    @field_validator("DATABASE_URL", mode="before")
+    @field_validator("DATABASE_URL", "MIGRATION_DATABASE_URL", mode="before")
     @classmethod
     def fix_database_url(cls, v):
         if isinstance(v, str) and v.startswith("postgres://"):
@@ -104,6 +105,12 @@ class Settings(BaseSettings):
     # setWebhook with the same secret — the secret is logged on
     # startup so you can copy it.
     TELEGRAM_WEBHOOK_SECRET: str = ""
+
+    # Email
+    # Provider values: "log" (default, no external delivery) or "resend".
+    EMAIL_PROVIDER: str = "log"
+    RESEND_API_KEY: str = ""
+    EMAIL_FROM: str = "Kamilya LMS <no-reply@notify.kml.kz>"
 
 
     # Observability (audit §9.4)

@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: kamilya-api
+    name: kamilya-lms-api
     runtime: python
     plan: starter
     buildCommand: pip install --no-cache-dir -r apps/api/requirements.txt
@@ -20,15 +20,13 @@ services:
       - key: DEBUG
         value: "false"
       - key: DATABASE_URL
-        fromDatabase:
-          name: kamilya-db
-          property: connectionString
+        sync: false
+      - key: MIGRATION_DATABASE_URL
+        sync: false
       - key: REDIS_URL
-        fromRedis:
-          name: kamilya-redis
-          property: connectionString
+        sync: false
       - key: JWT_SECRET
-        generateValue: true
+        sync: false
       - key: JWT_ALGORITHM
         value: HS256
       - key: ACCESS_TOKEN_EXPIRE_MINUTES
@@ -41,21 +39,27 @@ services:
         value: "http://10.66.66.7:8001"
       - key: TELEGRAM_BOT_TOKEN
         sync: false
+      - key: EMAIL_PROVIDER
+        value: resend
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        value: "Kamilya LMS <no-reply@notify.kml.kz>"
       - key: CORS_ORIGINS
         value: '["https://app.kml.kz","https://www.kml.kz","https://web-inky-three-48.vercel.app","https://web-natt1inhm-kamillalmscrms-projects.vercel.app"]'
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_KEY
+        sync: false
+      - key: SUPABASE_BUCKET
+        value: "Kamilya LMS"
+      - key: STORAGE_BACKEND
+        value: "supabase"
+      - key: PUBLIC_URL
+        value: "https://app.kml.kz"
     healthCheckPath: /api/v1/health
     autoDeploy: true
 
   # Celery worker: deployed on the project VPS (173.249.51.164, Ubuntu 24.04)
   # as a systemd unit, NOT as a Render Worker Service. See
   # docs/INFRA_CELERY_WORKER.md for full setup instructions.
-
-databases:
-  - name: kamilya-db
-    plan: starter
-    databaseName: kamilya_lms
-    user: kamilya
-
-  - name: kamilya-redis
-    plan: starter
-    ipAllowList: []

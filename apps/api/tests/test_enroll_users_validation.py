@@ -25,18 +25,19 @@ from uuid import uuid4
 
 import pytest
 
-from app.modules.enrollments.service import enroll_users
+from app.modules.enrollments.service import enroll_users, unenroll
 
 
 # ── helpers ─────────────────────────────────────────────────
 
 
-def _user(*, user_id=None, tenant_id=None, is_active=True, status="active"):
+def _user(*, user_id=None, tenant_id=None, is_active=True, status="active", role="student"):
     u = MagicMock()
     u.id = user_id or uuid4()
     u.tenant_id = tenant_id or uuid4()
     u.is_active = is_active
     u.status = status
+    u.role = role
     return u
 
 
@@ -102,6 +103,7 @@ async def test_enroll_active_user_in_tenant_succeeds():
     assert add_call.user_id == user.id
     assert add_call.course_id == course
     assert add_call.tenant_id == tenant
+    assert add_call.source == "manual"
 
 
 # ── 2. enroll rejects inactive user ─────────────────────────
@@ -180,6 +182,23 @@ async def test_enroll_rejects_user_from_other_tenant():
 
 
 @pytest.mark.asyncio
+async def test_enroll_rejects_non_student_team_user():
+    """Manual course assignment is for learners only."""
+    tenant = uuid4()
+    course = uuid4()
+    admin_user = _user(tenant_id=tenant, is_active=True, status="active", role="admin")
+
+    db = _db_with_users_and_dupes(
+        users_for_lookup=[[admin_user]], dup_results=[]
+    )
+
+    result = await enroll_users(db, course, tenant, [admin_user.id])
+
+    assert result == []
+    db.add.assert_not_called()
+
+
+@pytest.mark.asyncio
 async def test_enroll_mixed_valid_and_invalid_users():
     """One bulk call: 4 users (1 active+same-tenant, 1 inactive,
     1 other-tenant, 1 already-enrolled). Only 1 should be added.
@@ -238,3 +257,39 @@ async def test_enroll_skips_duplicate():
 
     assert result == []
     db.add.assert_not_called()
+
+@pytest.mark.asyncio
+async def test_unenroll_rejects_rule_driven_enrollment():
+    tenant = uuid4()
+    enrollment = MagicMock()
+    enrollment.source = "position"
+
+    result = MagicMock()
+    result.scalar_one_or_none = MagicMock(return_value=enrollment)
+
+    db = AsyncMock()
+    db.execute = AsyncMock(return_value=result)
+    db.delete = AsyncMock()
+
+    with pytest.raises(ValueError):
+        await unenroll(db, uuid4(), tenant)
+
+    db.delete.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_unenroll_deletes_manual_enrollment():
+    tenant = uuid4()
+    enrollment = MagicMock()
+    enrollment.source = "manual"
+
+    result = MagicMock()
+    result.scalar_one_or_none = MagicMock(return_value=enrollment)
+
+    db = AsyncMock()
+    db.execute = AsyncMock(return_value=result)
+    db.delete = AsyncMock()
+
+    await unenroll(db, uuid4(), tenant)
+
+    db.delete.assert_awaited_once_with(enrollment)
