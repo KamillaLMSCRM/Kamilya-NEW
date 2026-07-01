@@ -22,7 +22,7 @@ from uuid import UUID, uuid4
 
 from argon2 import PasswordHasher
 from fastapi import HTTPException
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import create_access_token
@@ -63,6 +63,11 @@ def _build_invite_url(token: str, base_url: str | None = None) -> str:
     """Build the invite URL. Falls back to kml.kz if no base_url configured."""
     base = (base_url or "https://app.kml.kz").rstrip("/")
     return f"{base}/accept-invite?token={token}"
+
+
+async def _set_invitation_tenant_context(db: AsyncSession, tenant_id: UUID) -> None:
+    """Set RLS tenant context after a public token lookup resolves tenant_id."""
+    await db.execute(text("SELECT set_current_tenant(:tid)"), {"tid": str(tenant_id)})
 
 
 async def bulk_create_invitations(
@@ -270,6 +275,8 @@ async def get_public_invitation(db: AsyncSession, token: str, tenant_lookup=None
             "requires_personnel_number": False,
         }
 
+    await _set_invitation_tenant_context(db, inv.tenant_id)
+
     # Look up tenant name
     from app.models.tenants import Tenant  # local import to avoid circular
     tenant_result = await db.execute(select(Tenant).where(Tenant.id == inv.tenant_id))
@@ -356,6 +363,7 @@ async def accept_invitation(
     inv = result.scalar_one_or_none()
     if not inv:
         raise HTTPException(status_code=404, detail="Invitation not found")
+    await _set_invitation_tenant_context(db, inv.tenant_id)
     if inv.status != "pending":
         reasons = {
             "accepted": "Это приглашение уже принято",
