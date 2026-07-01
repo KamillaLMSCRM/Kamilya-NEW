@@ -123,7 +123,6 @@ cd "D:\Камиля\lms\apps\web"
 npm run typecheck --if-present
 npx next build
 ```
-
 ```powershell
 cd "D:\Камиля\lms"
 rg -n 'value="superadmin"|roleSuperadmin|Launch control|Trial usage|AI usage|tenant launch' apps/web/src/app/admin/super apps/web/src/app/admin/team/page.tsx

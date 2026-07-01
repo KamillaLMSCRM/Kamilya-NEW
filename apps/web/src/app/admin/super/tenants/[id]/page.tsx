@@ -323,9 +323,9 @@ export default function TenantDetailPage({ params }: { params: Promise<{ id: str
           ←
         </Link>
         <h1 className="text-2xl font-semibold">{tenant.name}</h1>
-        <Badge variant="secondary">{tenant.plan}</Badge>
+        <Badge variant="secondary">{t(`superadmin.plans.${tenant.plan}` as any)}</Badge>
         <Badge variant={tenant.status === 'active' ? 'default' : 'secondary'}>
-          {tenant.status}
+          {t(`superadmin.statuses.${tenant.status}` as any)}
         </Badge>
         <code className="text-xs text-text-tertiary">/{tenant.slug}</code>
 
