@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState, useCallback, use } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardHeader, CardTitle, CardContent, Button, Badge, Table, Modal, Input } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
@@ -87,8 +87,8 @@ function addDaysIso(days: number) {
   return date.toISOString();
 }
 
-export default function TenantDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params);
+export default function TenantDetailPage({ params }: { params: { id: string } }) {
+  const { id } = params;
   const { t } = useT();
   const token = useAuthStore((s) => s.accessToken);
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -97,6 +97,7 @@ export default function TenantDetailPage({ params }: { params: Promise<{ id: str
   const [tenant, setTenant] = useState<Tenant | null>(null);
   const [admins, setAdmins] = useState<Admin[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
 
   const [editForm, setEditForm] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
@@ -118,12 +119,13 @@ export default function TenantDetailPage({ params }: { params: Promise<{ id: str
   const fetchAll = useCallback(async () => {
     if (!token) return;
     setLoading(true);
+    setLoadFailed(false);
     try {
       const [tRes, aRes] = await Promise.all([
-        fetch(`${API_URL}/admin/super/tenants/${id}`, {
+        fetch(`${API_URL}/v1/admin/super/tenants/${id}`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
-        fetch(`${API_URL}/admin/super/tenants/${id}/admins`, {
+        fetch(`${API_URL}/v1/admin/super/tenants/${id}/admins`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
       ]);
@@ -146,6 +148,7 @@ export default function TenantDetailPage({ params }: { params: Promise<{ id: str
         setAdmins(Array.isArray(data) ? data : []);
       }
     } catch (e) {
+      setLoadFailed(true);
       toast.error(t('superadmin.tenants.loadError'));
     } finally {
       setLoading(false);
@@ -159,7 +162,7 @@ export default function TenantDetailPage({ params }: { params: Promise<{ id: str
   const patchTenant = async (body: Record<string, unknown>) => {
     setSaving(true);
     try {
-      const res = await fetch(`${API_URL}/admin/super/tenants/${id}`, {
+      const res = await fetch(`${API_URL}/v1/admin/super/tenants/${id}`, {
         method: 'PATCH',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -221,7 +224,7 @@ export default function TenantDetailPage({ params }: { params: Promise<{ id: str
       if (adminForm.telegram_id) body.telegram_id = parseInt(adminForm.telegram_id, 10);
       if (adminForm.send_invite && adminForm.email) body.send_invite = true;
 
-      const res = await fetch(`${API_URL}/admin/super/tenants/${id}/admins`, {
+      const res = await fetch(`${API_URL}/v1/admin/super/tenants/${id}/admins`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -247,7 +250,7 @@ export default function TenantDetailPage({ params }: { params: Promise<{ id: str
   const handleDeactivate = async (admin: Admin) => {
     if (!confirm(t('superadmin.admins.deactivateConfirm', { name: `${admin.first_name} ${admin.last_name}` }))) return;
     try {
-      const res = await fetch(`${API_URL}/admin/super/tenants/${id}/admins/${admin.id}`, {
+      const res = await fetch(`${API_URL}/v1/admin/super/tenants/${id}/admins/${admin.id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -263,7 +266,7 @@ export default function TenantDetailPage({ params }: { params: Promise<{ id: str
     if (!token) return;
     setImpersonating(true);
     try {
-      const res = await fetch(`${API_URL}/admin/super/tenants/${id}/impersonate`, {
+      const res = await fetch(`${API_URL}/v1/admin/super/tenants/${id}/impersonate`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -280,17 +283,34 @@ export default function TenantDetailPage({ params }: { params: Promise<{ id: str
       // navigation picks up the new token + user payload.
       const { useAuthStore } = await import('@/store/authStore');
       useAuthStore.getState().login(data.access_token, data.user);
-      toast.success(`Входим как ${data.tenant.name} (${data.as_role})…`);
+      toast.success(
+        t('superadmin.tenants.impersonate.entering', {
+          name: data.tenant.name,
+          role: data.as_role,
+        })
+      );
       router.push('/dashboard');
     } catch (e) {
-      toast.error(`Impersonation failed: ${(e as Error).message}`);
+      toast.error(t('superadmin.tenants.impersonate.error', { error: (e as Error).message }));
     } finally {
       setImpersonating(false);
     }
   };
 
-  if (loading) return <div className="p-6 text-text-tertiary">…</div>;
-  if (!tenant) return <div className="p-6 text-red-600">Tenant not found</div>;
+  if (loading) return <div className="p-6 text-text-tertiary">{t('common.loading')}</div>;
+  if (loadFailed) {
+    return (
+      <div className="p-6">
+        <div className="rounded border border-destructive/30 bg-destructive/5 p-4 text-sm max-w-xl">
+          <p className="text-text-primary">{t('superadmin.tenants.loadError')}</p>
+          <Button size="sm" variant="secondary" className="mt-3" onClick={fetchAll}>
+            {t('common.retry')}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+  if (!tenant) return <div className="p-6 text-red-600">{t('superadmin.tenants.notFound')}</div>;
 
   const stats = tenant.stats;
   const usage = tenant.usage;
@@ -303,9 +323,9 @@ export default function TenantDetailPage({ params }: { params: Promise<{ id: str
           ←
         </Link>
         <h1 className="text-2xl font-semibold">{tenant.name}</h1>
-        <Badge variant="secondary">{tenant.plan}</Badge>
+        <Badge variant="secondary">{t(`superadmin.plans.${tenant.plan}` as any)}</Badge>
         <Badge variant={tenant.status === 'active' ? 'default' : 'secondary'}>
-          {tenant.status}
+          {t(`superadmin.statuses.${tenant.status}` as any)}
         </Badge>
         <code className="text-xs text-text-tertiary">/{tenant.slug}</code>
 
@@ -319,7 +339,7 @@ export default function TenantDetailPage({ params }: { params: Promise<{ id: str
             <path d="M22 11h-6" />
             <path d="m19 8-3 3 3 3" />
           </svg>
-          <span className="text-xs text-warning/90 font-medium">Войти как:</span>
+          <span className="text-xs text-warning/90 font-medium">{t('superadmin.tenants.impersonate.label')}</span>
           <select
             value={impersonateRole}
             onChange={(e) => setImpersonateRole(e.target.value as typeof impersonateRole)}
@@ -339,7 +359,7 @@ export default function TenantDetailPage({ params }: { params: Promise<{ id: str
             disabled={impersonating}
             className="bg-warning text-warning-foreground hover:bg-warning/90"
           >
-            {impersonating ? '…' : 'Войти'}
+            {impersonating ? t('common.loading') : t('superadmin.tenants.impersonate.submit')}
           </Button>
         </div>
       </div>
@@ -351,11 +371,16 @@ export default function TenantDetailPage({ params }: { params: Promise<{ id: str
         <CardContent>
           <div className="grid gap-4 lg:grid-cols-[1.2fr_1fr_1fr]">
             <div className="space-y-2">
-              <div className="text-xs font-semibold uppercase text-text-tertiary">Контакт регистрации</div>
+              <div className="text-xs font-semibold uppercase text-text-tertiary">
+                {t('superadmin.tenants.launch.contact')}
+              </div>
               <div className="text-sm font-medium">{lead?.contact_name || '—'}</div>
-              <div className="break-all text-sm text-text-secondary">{tenant.billing_contact_email || lead?.email || '—'}</div>
+              <div className="break-all text-sm text-text-secondary">
+                {tenant.billing_contact_email || lead?.email || '—'}
+              </div>
               <div className="text-xs text-text-tertiary">
-                {lead?.phone || 'телефон не указан'} · {lead?.telegram_username || 'telegram не указан'}
+                {lead?.phone || t('superadmin.tenants.lead.phoneMissing')} ·{' '}
+                {lead?.telegram_username || t('superadmin.tenants.lead.telegramMissing')}
               </div>
               {lead?.message && (
                 <div className="rounded border border-border bg-bg-primary p-2 text-xs text-text-secondary">
@@ -365,37 +390,53 @@ export default function TenantDetailPage({ params }: { params: Promise<{ id: str
             </div>
 
             <div className="space-y-2">
-              <div className="text-xs font-semibold uppercase text-text-tertiary">Использование триала</div>
+              <div className="text-xs font-semibold uppercase text-text-tertiary">
+                {t('superadmin.tenants.launch.usage')}
+              </div>
               <div className="grid grid-cols-2 gap-2 text-sm">
                 <div className="rounded border border-border bg-bg-primary p-2">
-                  <div className="text-text-tertiary text-xs">AI курс</div>
+                  <div className="text-text-tertiary text-xs">
+                    {t('superadmin.tenants.launch.aiCourses')}
+                  </div>
                   <div className="font-semibold">{usage?.ai_course_generations_used ?? 0}/1</div>
                 </div>
                 <div className="rounded border border-border bg-bg-primary p-2">
-                  <div className="text-text-tertiary text-xs">ДИ курс</div>
+                  <div className="text-text-tertiary text-xs">
+                    {t('superadmin.tenants.launch.jdCourses')}
+                  </div>
                   <div className="font-semibold">{usage?.jd_course_generations_used ?? 0}/1</div>
                 </div>
                 <div className="rounded border border-border bg-bg-primary p-2">
-                  <div className="text-text-tertiary text-xs">Обучающиеся</div>
-                  <div className="font-semibold">{usage?.active_students_count_snapshot ?? stats?.active_user_count ?? 0}/{tenant.max_users ?? 10}</div>
+                  <div className="text-text-tertiary text-xs">
+                    {t('superadmin.tenants.launch.learners')}
+                  </div>
+                  <div className="font-semibold">
+                    {usage?.active_students_count_snapshot ?? stats?.active_user_count ?? 0}/{tenant.max_users ?? 10}
+                  </div>
                 </div>
                 <div className="rounded border border-border bg-bg-primary p-2">
-                  <div className="text-text-tertiary text-xs">Команда</div>
+                  <div className="text-text-tertiary text-xs">
+                    {t('superadmin.tenants.launch.team')}
+                  </div>
                   <div className="font-semibold">{usage?.system_users_count_snapshot ?? stats?.admin_count ?? 0}/3</div>
                 </div>
               </div>
-              <div className="text-xs text-text-tertiary">Обновлено: {formatDate(usage?.updated_at)}</div>
+              <div className="text-xs text-text-tertiary">
+                {t('superadmin.tenants.launch.updatedAt', { date: formatDate(usage?.updated_at) })}
+              </div>
             </div>
 
             <div className="space-y-2">
-              <div className="text-xs font-semibold uppercase text-text-tertiary">Ручные действия</div>
+              <div className="text-xs font-semibold uppercase text-text-tertiary">
+                {t('superadmin.tenants.launch.actions')}
+              </div>
               <Button
                 type="button"
                 className="w-full"
                 disabled={saving}
                 onClick={() => patchTenant({ plan: 'pro', status: 'active', paid_until: addDaysIso(30) })}
               >
-                Активировать paid на 30 дней
+                {t('superadmin.tenants.launch.activatePaid', { days: 30 })}
               </Button>
               <Button
                 type="button"
@@ -404,7 +445,7 @@ export default function TenantDetailPage({ params }: { params: Promise<{ id: str
                 disabled={saving}
                 onClick={() => patchTenant({ status: 'trial', plan: 'trial', trial_ends_at: addDaysIso(14) })}
               >
-                Продлить trial на 14 дней
+                {t('superadmin.tenants.launch.extendTrial', { days: 14 })}
               </Button>
               <Button
                 type="button"
@@ -413,7 +454,7 @@ export default function TenantDetailPage({ params }: { params: Promise<{ id: str
                 disabled={saving}
                 onClick={() => patchTenant({ status: 'suspended' })}
               >
-                Приостановить
+                {t('superadmin.tenants.launch.suspend')}
               </Button>
             </div>
           </div>

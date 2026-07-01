@@ -28,7 +28,7 @@ export default function SuperAdminLanding() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch(`${API_URL}/admin/super/tenants?limit=10`, {
+        const res = await fetch(`${API_URL}/v1/admin/super/tenants?limit=10`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -92,26 +92,29 @@ export default function SuperAdminLanding() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Запуск первого тенанта</CardTitle>
+            <CardTitle>{t('superadmin.launch.title')}</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2 text-sm text-text-secondary">
-              <div className="flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-primary" aria-hidden="true" />
-                Проверить trial и контакт лида
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-primary" aria-hidden="true" />
-                Добавить методиста или войти через impersonation
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-primary" aria-hidden="true" />
-                Вручную активировать платный доступ после оплаты
-              </div>
-            </div>
+            <p className="text-sm text-text-tertiary">
+              {t('superadmin.launch.subtitle')}
+            </p>
+            <ol className="mt-3 space-y-2 text-sm text-text-secondary list-none">
+              <li className="flex items-start gap-2">
+                <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" aria-hidden="true" />
+                <span>{t('superadmin.launch.steps.1')}</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" aria-hidden="true" />
+                <span>{t('superadmin.launch.steps.2')}</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" aria-hidden="true" />
+                <span>{t('superadmin.launch.steps.3')}</span>
+              </li>
+            </ol>
             <Link href="/admin/super/tenants">
               <Button variant="secondary" className="mt-4">
-                Открыть тенанты
+                {t('superadmin.launch.openTenants')}
               </Button>
             </Link>
           </CardContent>

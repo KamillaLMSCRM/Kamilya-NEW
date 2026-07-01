@@ -203,8 +203,13 @@ async def update_user_detail(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role("admin", "org_admin", "superadmin")),
 ):
-    """Update user (admin only)."""
-    updates = req.model_dump(exclude_unset=True)
+    """Update user profile/status fields (admin only).
+
+    Role changes are intentionally excluded here. Use
+    POST /users/{id}/role so ADR-0011 team-role boundaries are enforced
+    in one place.
+    """
+    updates = req.model_dump(exclude_unset=True, exclude={"role"})
     updated = await update_user(db, user_id, user.tenant_id, updates)
     if not updated:
         raise HTTPException(status_code=404, detail="User not found")
