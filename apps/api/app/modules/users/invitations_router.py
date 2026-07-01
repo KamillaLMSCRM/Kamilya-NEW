@@ -8,10 +8,11 @@ Public — anyone with the token can call. Token is 32-char URL-safe (~190 bits 
 Rate-limited by token uniqueness; brute force infeasible.
 """
 from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException, Body, Request
+from fastapi import APIRouter, Depends, HTTPException, Body, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_db
+from app.modules.auth.router import _set_refresh_cookie
 from app.modules.users.schemas import (
     InvitationPublicView,
     InvitationAcceptRequest,
@@ -41,6 +42,7 @@ async def accept_invitation_endpoint(
     token: str,
     payload: InvitationAcceptRequest = Body(...),
     request: Request = None,  # for IP/UA capture
+    response: Response = None,
     db: AsyncSession = Depends(get_db),
 ):
     """Accept invitation: set password, activate user, issue JWT.
@@ -73,6 +75,8 @@ async def accept_invitation_endpoint(
             accepted_ip=ip,
             accepted_user_agent=ua,
         )
+        if response is not None and result.get("refresh_token"):
+            _set_refresh_cookie(response, result["refresh_token"])
         return result
     except HTTPException:
         raise

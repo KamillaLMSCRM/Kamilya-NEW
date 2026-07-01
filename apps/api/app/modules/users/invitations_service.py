@@ -25,7 +25,7 @@ from fastapi import HTTPException
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.auth import create_access_token
+from app.core.auth import create_access_token, create_refresh_token
 from app.models.tenant_settings import TenantSettings
 from app.models.users import User, UserInvitation
 
@@ -425,11 +425,16 @@ async def accept_invitation(
         "tenant_id": str(user.tenant_id),
         "roles": [user.role],
     })
+    refresh_token = create_refresh_token({
+        "sub": str(user.id),
+        "tenant_id": str(user.tenant_id),
+        "roles": [user.role],
+    })
 
     return {
         "user_id": user.id,
         "tenant_id": user.tenant_id,
         "role": user.role,
         "access_token": access_token,
-        "refresh_token": None,  # v1: not issued on accept; user can log in normally later
+        "refresh_token": refresh_token,
     }
