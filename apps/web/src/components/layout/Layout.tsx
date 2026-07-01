@@ -116,7 +116,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   // above any early-return so React's order-of-hooks rule is satisfied.
   // (pathname is already declared at the top of the component for the
   // redirect-to-login guard.)
-  const isSuperadmin = user != null && user.tenant == null;
+  const isSuperadmin = user?.role === 'superadmin' && user.tenant == null;
 
   if (!user) {
     return (
