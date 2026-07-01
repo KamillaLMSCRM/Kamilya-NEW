@@ -43,6 +43,15 @@ def _is_production() -> bool:
     return get_settings().APP_ENV == "production"
 
 
+def _append_partitioned_cookie_attribute(response: Response, cookie_name: str) -> None:
+    prefix = f"{cookie_name}=".lower().encode()
+    for index in range(len(response.raw_headers) - 1, -1, -1):
+        key, value = response.raw_headers[index]
+        if key.lower() == b"set-cookie" and value.lower().startswith(prefix) and b"partitioned" not in value.lower():
+            response.raw_headers[index] = (key, value + b"; Partitioned")
+            return
+
+
 def _set_refresh_cookie(response: Response, refresh_token: str) -> None:
     # Mirror of app.modules.auth.router._set_refresh_cookie — see that file
     # for the full SameSite=None + Partitioned justification.
@@ -57,8 +66,8 @@ def _set_refresh_cookie(response: Response, refresh_token: str) -> None:
         httponly=True,
         secure=True,
         samesite="none",
-        partitioned=True,
     )
+    _append_partitioned_cookie_attribute(response, REFRESH_COOKIE_NAME)
 
 
 def _clear_refresh_cookie(response: Response) -> None:
@@ -72,8 +81,8 @@ def _clear_refresh_cookie(response: Response) -> None:
         path="/api/v1/auth",
         secure=True,
         samesite="none",
-        partitioned=True,
     )
+    _append_partitioned_cookie_attribute(response, REFRESH_COOKIE_NAME)
 
 
 class SuperadminLoginRequest(BaseModel):
@@ -144,9 +153,9 @@ async def superadmin_login(
             detail="Account is inactive",
         )
 
+    await db.execute(text("SELECT set_config('app.is_superadmin', 'true', true)"))
     user.last_login = datetime.now(timezone.utc)
     await db.flush()
-    await db.execute(text("SELECT set_config('app.is_superadmin', 'true', true)"))
 
     # Build JWT — tenant_id=None is meaningful here (no RLS context set).
     access_token = create_access_token({
