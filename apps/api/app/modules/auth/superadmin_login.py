@@ -18,7 +18,7 @@ from datetime import datetime, timezone
 import argon2
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel, EmailStr, Field
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import create_access_token, create_refresh_token
@@ -146,6 +146,7 @@ async def superadmin_login(
 
     user.last_login = datetime.now(timezone.utc)
     await db.flush()
+    await db.execute(text("SELECT set_config('app.is_superadmin', 'true', true)"))
 
     # Build JWT — tenant_id=None is meaningful here (no RLS context set).
     access_token = create_access_token({

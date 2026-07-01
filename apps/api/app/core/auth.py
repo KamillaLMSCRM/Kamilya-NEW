@@ -5,7 +5,7 @@ from uuid import UUID, uuid4
 import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
@@ -147,7 +147,6 @@ async def get_current_user(
     # Set tenant context for RLS
     if tenant_id:
         try:
-            from sqlalchemy import text
             await db.execute(text("SELECT set_current_tenant(:tid)"), {"tid": tenant_id})
         except Exception as exc:
             # Fallback: rely on ORM filtering if RLS not available.
@@ -162,6 +161,9 @@ async def get_current_user(
     user = result.scalar_one_or_none()
     if not user or not user.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found or inactive")
+
+    if user.role == "superadmin" and user.tenant_id is None:
+        await db.execute(text("SELECT set_config('app.is_superadmin', 'true', true)"))
 
     # Role is always from DB, never from JWT (JWT role is just for fast checks)
     # UNLESS this is an impersonation token — in that case, the real sub is
