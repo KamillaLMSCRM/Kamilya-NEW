@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState, useCallback, use } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardHeader, CardTitle, CardContent, Button, Badge, Table, Modal, Input } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
@@ -87,8 +87,8 @@ function addDaysIso(days: number) {
   return date.toISOString();
 }
 
-export default function TenantDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params);
+export default function TenantDetailPage({ params }: { params: { id: string } }) {
+  const { id } = params;
   const { t } = useT();
   const token = useAuthStore((s) => s.accessToken);
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
