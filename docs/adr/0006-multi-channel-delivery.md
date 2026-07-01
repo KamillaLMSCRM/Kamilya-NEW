@@ -1,5 +1,7 @@
 # ADR-0010: Multi-Channel Delivery + Cross-Device Learning
 
+> 2026-07-01 superseding note: the tenant-owned-channel principle still applies to paid tenant integrations, Telegram bots and WhatsApp. However, platform-owned transactional email is now accepted for v1 system emails: login OTP, tenant registration/trial, billing and learner invitation notifications. Production provider is Resend with sender `Kamilya LMS <no-reply@notify.kml.kz>`. See `docs/product/tenant-registration-trial-flow.md` and `docs/NEXT_STEPS_2026-07-01.md`.
+
 **Версия:** 1.1 — финал после обсуждения с Askar 2026-06-27
 **Статус:** утверждён, начинаем спринт 1
 

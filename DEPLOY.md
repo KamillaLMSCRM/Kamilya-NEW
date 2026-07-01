@@ -34,6 +34,9 @@ SUPABASE_BUCKET=Kamilya LMS
 STORAGE_BACKEND=supabase
 PUBLIC_URL=https://app.kml.kz
 CORS_ORIGINS=["https://app.kml.kz","https://www.kml.kz"]
+EMAIL_PROVIDER=resend
+RESEND_API_KEY=...
+EMAIL_FROM=Kamilya LMS <no-reply@notify.kml.kz>
 ```
 
 Rules:
@@ -42,6 +45,7 @@ Rules:
 - `MIGRATION_DATABASE_URL` is for Alembic and may use admin DB role.
 - Supabase service role key stays backend-only.
 - Frontend must never receive service role secrets.
+- `RESEND_API_KEY` stays backend-only. Do not expose it in frontend env or docs.
 
 ## Backend Deploy On Render
 
@@ -71,6 +75,11 @@ Health check:
 
 ```powershell
 Invoke-WebRequest `
+  -Uri "https://kamilya-lms-api.onrender.com/" `
+  -Method Head `
+  -UseBasicParsing
+
+Invoke-WebRequest `
   -Uri "https://kamilya-lms-api.onrender.com/api/v1/health" `
   -UseBasicParsing
 ```
@@ -94,7 +103,7 @@ python -m alembic -c alembic.ini upgrade head
 Current production state after 2026-07-01 cutover:
 
 ```text
-0040 (head)
+0043 (head)
 ```
 
 ## Frontend Deploy On Vercel

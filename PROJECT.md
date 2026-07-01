@@ -8,6 +8,7 @@
 Kamilya LMS - корпоративная система обучения для компаний Казахстана. Система заменяет ручной onboarding и разрозненные курсы единым процессом:
 
 1. Компания заводит tenant.
+   Self-service trial registration уже доступна через `/register-tenant`: HR оставляет данные компании, tenant создается в `trial` статусе, первый пользователь получает роль `admin`.
 2. Админ tenant-а настраивает пользователей, интеграции, kiosk-ссылки и окружение.
 3. Методолог управляет курсами, тестами, должностями, отделами и правилами назначения.
 4. Обучающийся получает ссылку/доступ, проходит курсы и тесты.
@@ -91,10 +92,19 @@ Runtime и migrations разделены:
 
 Supabase на 2026-07-01:
 
-- Alembic version: `0040`.
+- Alembic version: `0043`.
 - Tenant tables with `tenant_id`: RLS enabled and FORCE RLS enabled.
 - `provider_keys` исключена из общей tenant policy, потому что `tenant_id IS NULL` используется для global platform key.
 - Production Render и VPS worker обновлены на `lms_app` runtime connection.
+
+## Auth And Tenant Acquisition
+
+- `/login` поддерживает два режима: email OTP и Telegram code flow.
+- Email OTP: `POST /api/v1/auth/email/request-code` и `POST /api/v1/auth/email/verify-code`.
+- Production transactional email: Resend, sender `Kamilya LMS <no-reply@notify.kml.kz>`.
+- Resend sending domain: `notify.kml.kz`; DKIM/SPF/return-path/DMARC verified in DNS as of 2026-07-01.
+- `/register-tenant` создает trial tenant: 14 дней, 1 normal AI course, 1 job-instruction course, 10 learners, 3 system users.
+- Full billing UI and superadmin lead management are not finished yet; see `docs/NEXT_STEPS_2026-07-01.md`.
 
 Подробности: [docs/supabase-audit-2026-07-01.md](./docs/supabase-audit-2026-07-01.md).
 
@@ -121,5 +131,6 @@ Supabase на 2026-07-01:
 - RLS/app role: [docs/adr/0004-rls-force-and-app-role.md](./docs/adr/0004-rls-force-and-app-role.md)
 - Supabase audit: [docs/supabase-audit-2026-07-01.md](./docs/supabase-audit-2026-07-01.md)
 - Tenant registration/trial: [docs/product/tenant-registration-trial-flow.md](./docs/product/tenant-registration-trial-flow.md)
+- Current next steps: [docs/NEXT_STEPS_2026-07-01.md](./docs/NEXT_STEPS_2026-07-01.md)
 
 Old audits and large TZ files remain historical/spec references. Short completed plans should be removed once their result is reflected here or in ADR/audit docs.

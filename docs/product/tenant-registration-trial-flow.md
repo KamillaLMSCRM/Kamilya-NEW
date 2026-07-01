@@ -34,6 +34,12 @@ Implemented on 2026-07-01:
   - `POST /api/v1/auth/email/verify-code`;
   - `/login` has Email and Telegram modes.
 - Resend support is implemented behind `EMAIL_PROVIDER=resend`, `RESEND_API_KEY`, `EMAIL_FROM`.
+- Production Resend is active as of 2026-07-01:
+  - sender: `Kamilya LMS <no-reply@notify.kml.kz>`;
+  - sending domain: `notify.kml.kz`;
+  - DKIM, SPF/return-path and DMARC for `notify.kml.kz` verified in DNS;
+  - Render env is set for `EMAIL_PROVIDER=resend`, `RESEND_API_KEY`, `EMAIL_FROM`.
+- Production Render API is live on commit `5dfaee6`; `/`, `/health`, `/api/v1/health` return 200.
 - The old `/register` Telegram-ID flow remains as a legacy fallback.
 
 Not implemented yet:
@@ -230,7 +236,7 @@ EmailService
 
 Default for production:
 
-- Resend first, once domain DNS is verified;
+- Resend first; `notify.kml.kz` DNS is verified as of 2026-07-01;
 - keep SMTP adapter for enterprise/custom tenant settings later.
 
 No self-hosted mail server in v1 because deliverability, DNS reputation, bounce handling and blacklists would become an operational product risk.

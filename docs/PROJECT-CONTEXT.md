@@ -13,6 +13,7 @@
 | VPS services | `docs/VPS_CONNECTION_GUIDE.md` |
 | Deployment | `DEPLOY.md` |
 | Tenant registration/trial | `docs/product/tenant-registration-trial-flow.md` |
+| Current next steps | `docs/NEXT_STEPS_2026-07-01.md` |
 | Agent rules | `AGENTS.md` |
 
 ## Repositories
@@ -35,6 +36,7 @@ C:\Kamilya New\Kamilya-NEW
 | Frontend app | `https://app.kml.kz` | Vercel, Next.js |
 | Marketing | `https://www.kml.kz` | Separate landing repo |
 | Backend API | `https://kamilya-lms-api.onrender.com` | Render service `srv-d8rp8ej7uimc73fglid0` |
+| Transactional email | Resend, `no-reply@notify.kml.kz` | `EMAIL_PROVIDER=resend`; domain `notify.kml.kz` |
 | DB | Supabase project `ducegbxphkgffgozkchw` | Pooler `aws-1-eu-central-1.pooler.supabase.com` |
 | Storage | Supabase bucket `Kamilya LMS` | Certificates and files |
 | Worker | VPS `173.249.51.164`, `kamilya-worker.service` | Celery apply-rules |
@@ -74,6 +76,9 @@ SUPABASE_KEY=...
 SUPABASE_BUCKET=Kamilya LMS
 STORAGE_BACKEND=supabase
 PUBLIC_URL=https://app.kml.kz
+EMAIL_PROVIDER=resend
+RESEND_API_KEY=...
+EMAIL_FROM=Kamilya LMS <no-reply@notify.kml.kz>
 ```
 
 Rules:
@@ -83,6 +88,7 @@ Rules:
 - Render and VPS worker both need the same DB URL split.
 - `.env` is ignored by git and may contain secrets.
 - Do not copy secrets into docs or chat.
+- `RESEND_API_KEY` is backend-only and currently set in Render env.
 
 Frontend:
 
@@ -96,10 +102,34 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 
 As of 2026-07-01:
 
-- Alembic: `0040 (head)`.
+- Alembic: `0043 (head)`.
 - RLS/FORCE RLS enabled for tenant-scoped tables with `tenant_id`.
 - Runtime app and worker connect as `lms_app`.
 - `provider_keys` is intentionally excluded from generic tenant RLS migration because `tenant_id IS NULL` represents global platform keys.
+
+## Current Production Deploy
+
+As of 2026-07-01:
+
+- GitHub `master` latest backend-relevant commit: `5dfaee6 fix: add root health probe endpoint`.
+- Render deploy `dep-d92dgvpo3t8c73bd5pug` is live on commit `5dfaee6`.
+- `/`, `/health`, and `/api/v1/health` return 200.
+- Email OTP request endpoint returns a neutral success response for unknown emails and sends OTP for known tenant users.
+
+## Tenant Acquisition Status
+
+Implemented:
+
+- `/register-tenant` self-service trial registration.
+- Trial storage: `tenant_leads`, `tenant_usage`, and trial fields on `tenants`.
+- Email OTP login with Resend provider support.
+
+Not finished:
+
+- Trial usage enforcement in AI generation and invite flows.
+- Trial onboarding wizard.
+- Billing/upgrade request UI.
+- Superadmin lead pipeline and tenant activation workflow.
 
 ## Product Invariants
 

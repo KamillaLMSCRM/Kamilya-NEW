@@ -1,10 +1,26 @@
 # Employee Onboarding — design doc
 
 **Branch:** `feature/employee-onboarding` (created from master)
-**Status:** Design phase — Askar's decisions integrated, awaiting final approval to start Phase 1
+**Status:** Historical design note. Do not treat email/channel decisions in this file as current without checking `docs/product/tenant-registration-trial-flow.md` and `docs/NEXT_STEPS_2026-07-01.md`.
 **Effort estimate:** ~2 weeks (4 phases, 1-4 days each)
 
 ---
+
+## 2026-07-01 Update
+
+The original 2026-06-25 decision "No SMTP / manual copy-link only" was correct for that sprint, but is no longer the full product direction.
+
+Current state:
+
+- Resend transactional email is configured for platform-owned emails.
+- Email OTP login is implemented.
+- Tenant registration trial flow is implemented at `/register-tenant`.
+- Learner invites may still use copy-link as fallback, but automatic learner invitation email is now a planned next step, not rejected.
+
+Current source of truth:
+
+- `docs/product/tenant-registration-trial-flow.md`
+- `docs/NEXT_STEPS_2026-07-01.md`
 
 ## Askar's decisions (resolved 2026-06-25)
 
