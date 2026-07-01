@@ -28,6 +28,7 @@ export default function TopBar({ title }: TopBarProps) {
 
   const isImpersonating = !!user?.impersonated_by;
   const isSuperadmin = !!user && user.tenant == null && !isImpersonating;
+  const canOpenSuperadminLogin = user?.role === 'admin' || user?.role === 'org_admin';
 
   const exitImpersonation = () => {
     // Impersonation is a one-shot session: the only way out is to
@@ -172,7 +173,7 @@ export default function TopBar({ title }: TopBarProps) {
             telegram_id is also bound to the platform superadmin row.
             Clicking routes to the superadmin login form. The actual
             swap happens after re-auth. */}
-        {!isSuperadmin && !isImpersonating && (
+        {canOpenSuperadminLogin && !isSuperadmin && !isImpersonating && (
           <button
             type="button"
             onClick={goToSuperadmin}
