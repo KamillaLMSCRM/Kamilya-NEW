@@ -31,7 +31,6 @@
     "inactive": "Неактивен",
     "enabled": "Включён",
     "disabled": "Выключен",
-    "saving": "Сохранение...",
     "loadFailed": "Не удалось загрузить",
     "saveFailed": "Не удалось сохранить",
     "saved": "Сохранено",
@@ -285,7 +284,8 @@
     "storageUsed": "Использовано места",
     "addAdminUser": "Добавить обучающегося",
     "noUsers": "Нет пользователей",
-    "noCourses": "Нет курсов"
+    "noCourses": "Нет курсов",
+    "staffStructure": "Структура штата"
   },
   "users": {
     "title": "Управление пользователями",
@@ -616,7 +616,12 @@
         "users": "Пользователи",
         "courses": "Курсы",
         "created": "Создан",
-        "actions": "Действия"
+        "actions": "Действия",
+        "contact": "Контакт",
+        "planStatus": "Тариф / статус",
+        "trial": "Триал",
+        "aiUsage": "Использование AI",
+        "activity": "Активность"
       },
       "stats": {
         "users": "Пользователи",
@@ -653,21 +658,6 @@
       "source": {
         "lead": "заявка: {intent}",
         "manual": "ручной режим"
-      },
-      "fields": {
-        "name": "Название",
-        "slug": "Slug",
-        "plan": "Тариф",
-        "status": "Статус",
-        "users": "Пользователи",
-        "courses": "Курсы",
-        "created": "Создан",
-        "actions": "Действия",
-        "contact": "Контакт",
-        "planStatus": "Тариф / статус",
-        "trial": "Триал",
-        "aiUsage": "Использование AI",
-        "activity": "Активность"
       },
       "activity": {
         "created": "создан {date}",

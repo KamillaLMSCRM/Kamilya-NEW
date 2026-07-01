@@ -1,4 +1,5 @@
 from app.modules.admin.superadmin.service import GRANTABLE_ROLES
+from app.modules.users.schemas import UserUpdate
 from app.modules.users.service import TEAM_ROLES
 
 
@@ -11,3 +12,7 @@ def test_superadmin_ui_can_grant_methodologist_but_not_superadmin():
     assert "teacher" in GRANTABLE_ROLES
     assert "superadmin" not in GRANTABLE_ROLES
 
+
+def test_user_patch_schema_does_not_accept_role_changes():
+    fields = set(UserUpdate.model_fields)
+    assert "role" not in fields

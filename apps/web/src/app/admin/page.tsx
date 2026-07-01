@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import { Card, CardHeader, CardTitle, CardContent, Button, Badge, Table } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
@@ -56,7 +57,7 @@ export default function AdminDashboardPage() {
         fetch(`${API_URL}/v1/admin/stats`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
-        fetch(`${API_URL}/v1/users?per_page=5&include_students=true`, {
+        fetch(`${API_URL}/v1/users?per_page=5`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
         fetch(`${API_URL}/v1/courses`, {
@@ -110,7 +111,6 @@ export default function AdminDashboardPage() {
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => handleExport('users')}>{t('admin.exportUsers')}</Button>
           <Button variant="outline" onClick={() => handleExport('courses')}>{t('admin.exportCourses')}</Button>
-          <Button variant="outline" onClick={() => handleExport('enrollments')}>{t('admin.exportEnrollments')}</Button>
           <Button variant="outline" onClick={() => handleExport('quiz-results')}>{t('admin.exportQuizResults')}</Button>
         </div>
       </div>
@@ -196,18 +196,17 @@ export default function AdminDashboardPage() {
                 ))}
               </tbody>
             </Table>
-            <a href="/admin/users" className="flex items-center gap-1 text-primary text-sm hover:underline mt-2 block">
-              Управление пользователями →
-            </a>
-            <a href="/admin/kiosks" className="flex items-center gap-1 text-primary text-sm hover:underline mt-2 block">
-              🖥️ Киоски для цехов →
-            </a>
-            <a href="/admin/staff?tab=import" className="flex items-center gap-1 text-primary text-sm hover:underline mt-2 block">
-              📋 Штатное расписание →
-            </a>
-            <a href="/admin/staff?tab=structure" className="flex items-center gap-1 text-primary text-sm hover:underline mt-2 block">
-              📊 Структура штата →
-            </a>
+            <div className="mt-3 space-y-2">
+              <Link href="/admin/team" className="flex items-center gap-1 text-primary text-sm hover:underline">
+                {t('nav.userManagement')} <ChevronRight className="w-4 h-4" />
+              </Link>
+              <Link href="/admin/staff?tab=import" className="flex items-center gap-1 text-primary text-sm hover:underline">
+                {t('nav.staffSchedule')} <ChevronRight className="w-4 h-4" />
+              </Link>
+              <Link href="/admin/staff?tab=structure" className="flex items-center gap-1 text-primary text-sm hover:underline">
+                {t('admin.staffStructure')} <ChevronRight className="w-4 h-4" />
+              </Link>
+            </div>
           </CardContent>
         </Card>
 
@@ -219,9 +218,9 @@ export default function AdminDashboardPage() {
             <Table>
               <thead>
                 <tr>
-                  <th className="text-left p-2">Название</th>
-                  <th className="text-left p-2">Статус</th>
-                  <th className="text-left p-2">Записей</th>
+                  <th className="text-left p-2">{t('admin.courses')}</th>
+                  <th className="text-left p-2">{t('users.status')}</th>
+                  <th className="text-left p-2">{t('courses.enrollments')}</th>
                 </tr>
               </thead>
               <tbody>

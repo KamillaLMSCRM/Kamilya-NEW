@@ -31,7 +31,6 @@
     "inactive": "Inactive",
     "enabled": "Enabled",
     "disabled": "Disabled",
-    "saving": "Saving...",
     "loadFailed": "Failed to load",
     "saveFailed": "Failed to save",
     "saved": "Saved",
@@ -285,7 +284,8 @@
     "storageUsed": "Storage used",
     "addAdminUser": "Add learner",
     "noUsers": "No users",
-    "noCourses": "No courses"
+    "noCourses": "No courses",
+    "staffStructure": "Staff structure"
   },
   "users": {
     "title": "User Management",
@@ -616,7 +616,12 @@
         "users": "Users",
         "courses": "Courses",
         "created": "Created",
-        "actions": "Actions"
+        "actions": "Actions",
+        "contact": "Contact",
+        "planStatus": "Plan / status",
+        "trial": "Trial",
+        "aiUsage": "AI usage",
+        "activity": "Activity"
       },
       "stats": {
         "users": "Users",
@@ -653,21 +658,6 @@
       "source": {
         "lead": "lead: {intent}",
         "manual": "manual mode"
-      },
-      "fields": {
-        "name": "Name",
-        "slug": "Slug",
-        "plan": "Plan",
-        "status": "Status",
-        "users": "Users",
-        "courses": "Courses",
-        "created": "Created",
-        "actions": "Actions",
-        "contact": "Contact",
-        "planStatus": "Plan / status",
-        "trial": "Trial",
-        "aiUsage": "AI usage",
-        "activity": "Activity"
       },
       "activity": {
         "created": "created {date}",

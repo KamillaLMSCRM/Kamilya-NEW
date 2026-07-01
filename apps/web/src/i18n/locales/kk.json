@@ -3,7 +3,7 @@
     "loading": "Жүктелуде...",
     "error": "Қате",
     "save": "Сақтау",
-    "saving": "Сақталуда...",
+    "saving": "Сақтау...",
     "cancel": "Бас тарту",
     "delete": "Жою",
     "edit": "Өзгерту",
@@ -31,7 +31,6 @@
     "inactive": "Белсенді емес",
     "enabled": "Қосылған",
     "disabled": "Өшірілген",
-    "saving": "Сақтау...",
     "loadFailed": "Жүктеу мүмкін болмады",
     "saveFailed": "Сақтау мүмкін болмады",
     "saved": "Сақталды",
@@ -285,7 +284,8 @@
     "storageUsed": "Орын қолданылды",
     "addAdminUser": "Оқушы қосу",
     "noUsers": "Пайдаланушылар жоқ",
-    "noCourses": "Курстар жоқ"
+    "noCourses": "Курстар жоқ",
+    "staffStructure": "Штат құрылымы"
   },
   "users": {
     "title": "Пайдаланушыларды басқару",
@@ -616,7 +616,12 @@
         "users": "Пайдаланушылар",
         "courses": "Курстар",
         "created": "Құрылған",
-        "actions": "Әрекеттер"
+        "actions": "Әрекеттер",
+        "contact": "Байланыс",
+        "planStatus": "Тариф / күйі",
+        "trial": "Сынақ",
+        "aiUsage": "AI пайдалану",
+        "activity": "Белсенділік"
       },
       "stats": {
         "users": "Пайдаланушылар",
@@ -653,21 +658,6 @@
       "source": {
         "lead": "өтінім: {intent}",
         "manual": "қолмен режим"
-      },
-      "fields": {
-        "name": "Атауы",
-        "slug": "Slug",
-        "plan": "Тариф",
-        "status": "Күйі",
-        "users": "Пайдаланушылар",
-        "courses": "Курстар",
-        "created": "Құрылған",
-        "actions": "Әрекеттер",
-        "contact": "Байланыс",
-        "planStatus": "Тариф / күйі",
-        "trial": "Сынақ",
-        "aiUsage": "AI пайдалану",
-        "activity": "Белсенділік"
       },
       "activity": {
         "created": "жасалды {date}",
