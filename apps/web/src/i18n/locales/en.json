@@ -328,7 +328,7 @@
     "invite": "Invite",
     "surname": "Surname",
     "roleStudent": "Learner",
-    "roleTeacher": "Teacher",
+    "roleTeacher": "Methodologist",
     "roleAdmin": "Admin",
     "roleOrgAdmin": "Org admin",
     "roleSuperadmin": "Superadmin",
@@ -520,7 +520,7 @@
       "superadmin": "Superadmin",
       "admin": "Administrator",
       "org_admin": "Org. administrator",
-      "teacher": "Teacher",
+      "teacher": "Methodologist",
       "student": "Learner"
     }
   },
@@ -636,10 +636,10 @@
       "loadError": "Failed to load tenants"
     },
     "admins": {
-      "title": "Tenant admins",
-      "add": "Add admin",
-      "addTitle": "Add admin / teacher",
-      "noAdmins": "No admins in this tenant yet",
+      "title": "Admins and Methodologists",
+      "add": "Add member",
+      "addTitle": "Add Admin / Methodologist",
+      "noAdmins": "No admins or methodologists in this tenant yet",
       "fields": {
         "name": "Name",
         "email": "Email",
@@ -660,9 +660,9 @@
       "deactivate": "Deactivate",
       "save": "Save",
       "cancel": "Cancel",
-      "saveOk": "Admin added",
-      "saveError": "Failed to add admin",
-      "deactivateOk": "Admin deactivated",
+      "saveOk": "Member added",
+      "saveError": "Failed to add member",
+      "deactivateOk": "Member deactivated",
       "deactivateError": "Failed to deactivate admin",
       "deactivateConfirm": "Deactivate {name}?",
       "identifierRequired": "Email or Telegram ID required"
@@ -682,7 +682,7 @@
     "roles": {
       "admin": "Admin",
       "org_admin": "Org admin",
-      "teacher": "Teacher",
+      "teacher": "Methodologist",
       "superadmin": "Superadmin"
     }
   },

@@ -7,20 +7,22 @@ import uuid
 from datetime import datetime, timedelta, timezone
 
 import argon2
-from sqlalchemy import func, select, update
+from sqlalchemy import desc, func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.tenants import Tenant
+from app.models.tenants import Tenant, TenantLead, TenantUsage
 from app.models.users import User, UserInvitation
 from app.modules.admin.superadmin.schemas import (
     AdminCreate,
     AdminResponse,
     AdminUpdate,
     TenantCreate,
+    TenantLeadInfo,
     TenantResponse,
     TenantStats,
     TenantUpdate,
+    TenantUsageInfo,
 )
 
 logger = logging.getLogger(__name__)
@@ -72,7 +74,7 @@ class SuperadminService:
         # Users
         user_count_q = select(func.count(User.id)).where(User.tenant_id == tenant_id)
         active_user_q = user_count_q.where(User.is_active.is_(True))
-        admin_role_q = user_count_q.where(User.role.in_(["admin", "org_admin", "superadmin"]))
+        admin_role_q = user_count_q.where(User.role.in_(["admin", "org_admin", "teacher"]))
         user_count = (await self.db.execute(user_count_q)).scalar() or 0
         active_user_count = (await self.db.execute(active_user_q)).scalar() or 0
         admin_count = (await self.db.execute(admin_role_q)).scalar() or 0
@@ -104,6 +106,30 @@ class SuperadminService:
             enrollment_count=int(enr_count),
             last_activity_at=last_activity,
         )
+
+    async def get_tenant_usage(self, tenant_id: uuid.UUID) -> TenantUsageInfo | None:
+        usage = await self.db.get(TenantUsage, tenant_id)
+        if usage is None:
+            return None
+        return TenantUsageInfo(
+            ai_course_generations_used=int(usage.ai_course_generations_used or 0),
+            jd_course_generations_used=int(usage.jd_course_generations_used or 0),
+            active_students_count_snapshot=int(usage.active_students_count_snapshot or 0),
+            system_users_count_snapshot=int(usage.system_users_count_snapshot or 0),
+            updated_at=usage.updated_at,
+        )
+
+    async def get_latest_lead(self, tenant_id: uuid.UUID) -> TenantLeadInfo | None:
+        result = await self.db.execute(
+            select(TenantLead)
+            .where(TenantLead.tenant_id == tenant_id)
+            .order_by(desc(TenantLead.created_at))
+            .limit(1)
+        )
+        lead = result.scalar_one_or_none()
+        if lead is None:
+            return None
+        return TenantLeadInfo.model_validate(lead)
 
     async def create_tenant(self, payload: TenantCreate) -> Tenant:
         # Slug uniqueness is enforced by DB unique index; catch and re-raise.
@@ -165,7 +191,7 @@ class SuperadminService:
             select(User)
             .where(
                 User.tenant_id == tenant_id,
-                User.role.in_(["admin", "org_admin", "superadmin"]),
+                User.role.in_(["admin", "org_admin", "teacher"]),
             )
             .order_by(User.created_at.asc())
         )

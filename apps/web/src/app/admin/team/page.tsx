@@ -26,7 +26,8 @@ export default function AdminTeamPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   // ADR-0011: team surface starts with teacher (default for invites), not student.
   // Student provisioning goes through /admin/staff (Excel import) or the
-  // Telegram-bot flow.
+  // Telegram-bot flow. Platform superadmin is tenant_id=NULL and must
+  // never be created from this tenant-level surface.
   const [newUser, setNewUser] = useState({ email: '', first_name: '', last_name: '', role: 'teacher', password: '' });
 
   const token = useAuthStore((s) => s.accessToken);
@@ -99,12 +100,14 @@ export default function AdminTeamPage() {
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-foreground">Команда</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Управление методологами и администраторами тенанта. Студенты
-          приходят через Telegram-бот или импорт в разделе «Импорт штата».
-        </p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Команда тенанта</h1>
+          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+            Здесь только администраторы и методисты. Обучающиеся и сотрудники
+            добавляются через штат, импорт или приглашения.
+          </p>
+        </div>
         <Button onClick={() => setShowCreateModal(true)}>+ {t('users.createButton')}</Button>
       </div>
 
@@ -164,7 +167,6 @@ export default function AdminTeamPage() {
                         <option value="teacher">{t('users.roleTeacher')}</option>
                         <option value="org_admin">{t('users.roleOrgAdmin')}</option>
                         <option value="admin">{t('users.roleAdmin')}</option>
-                        <option value="superadmin">{t('users.roleSuperadmin')}</option>
                       </select>
                     </td>
                     <td className="p-3">

@@ -45,6 +45,31 @@ class TenantStats(BaseModel):
     last_activity_at: datetime | None = None
 
 
+class TenantUsageInfo(BaseModel):
+    ai_course_generations_used: int = 0
+    jd_course_generations_used: int = 0
+    active_students_count_snapshot: int = 0
+    system_users_count_snapshot: int = 0
+    updated_at: datetime | None = None
+
+
+class TenantLeadInfo(BaseModel):
+    id: uuid.UUID
+    company_name: str
+    contact_name: str
+    email: str
+    phone: str | None = None
+    telegram_username: str | None = None
+    employee_count_range: str | None = None
+    intent: str
+    status: str
+    source: str
+    message: str | None = None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
 class TenantResponse(BaseModel):
     """Tenant detail (used for list + detail endpoints)."""
 
@@ -53,15 +78,21 @@ class TenantResponse(BaseModel):
     slug: str
     status: str
     plan: str
+    trial_started_at: datetime | None = None
     trial_ends_at: datetime | None
     paid_until: datetime | None
     max_users: int | None
     max_courses_per_month: int | None
+    billing_contact_email: str | None = None
+    billing_company_name: str | None = None
+    billing_identifier: str | None = None
     notes: str | None
     settings: dict
     created_at: datetime
     updated_at: datetime
     stats: TenantStats | None = None
+    usage: TenantUsageInfo | None = None
+    latest_lead: TenantLeadInfo | None = None
 
     model_config = {"from_attributes": True}
 

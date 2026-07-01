@@ -42,6 +42,14 @@ def _service(db: AsyncSession = Depends(get_db)) -> SuperadminService:
     return SuperadminService(db)
 
 
+async def _tenant_response(svc: SuperadminService, tenant: Tenant) -> TenantResponse:
+    response = TenantResponse.model_validate(tenant)
+    response.stats = await svc.get_tenant_stats(tenant.id)
+    response.usage = await svc.get_tenant_usage(tenant.id)
+    response.latest_lead = await svc.get_latest_lead(tenant.id)
+    return response
+
+
 # ── Tenants ────────────────────────────────────────────────────────────
 
 
@@ -54,11 +62,7 @@ async def list_tenants(
     svc: SuperadminService = Depends(_service),
 ):
     tenants, total = await svc.list_tenants(search=search, limit=limit, offset=offset)
-    tenant_responses = []
-    for tenant in tenants:
-        response = TenantResponse.model_validate(tenant)
-        response.stats = await svc.get_tenant_stats(tenant.id)
-        tenant_responses.append(response)
+    tenant_responses = [await _tenant_response(svc, tenant) for tenant in tenants]
     return TenantListResponse(
         tenants=tenant_responses,
         total=total,
@@ -82,7 +86,7 @@ async def create_tenant(
         details={"name": tenant.name, "slug": tenant.slug, "plan": tenant.plan},
         ip_address=request.client.host if request.client else None,
     )
-    return TenantResponse.model_validate(tenant)
+    return await _tenant_response(svc, tenant)
 
 
 @router.get("/tenants/{tenant_id}", response_model=TenantResponse)
@@ -94,9 +98,7 @@ async def get_tenant(
     tenant = await svc.get_tenant(tenant_id)
     if tenant is None:
         raise HTTPException(status_code=404, detail="Tenant not found")
-    response = TenantResponse.model_validate(tenant)
-    response.stats = await svc.get_tenant_stats(tenant_id)
-    return response
+    return await _tenant_response(svc, tenant)
 
 
 @router.patch("/tenants/{tenant_id}", response_model=TenantResponse)
@@ -119,7 +121,7 @@ async def update_tenant(
         details=payload.model_dump(exclude_none=True),
         ip_address=request.client.host if request.client else None,
     )
-    return TenantResponse.model_validate(tenant)
+    return await _tenant_response(svc, tenant)
 
 
 # ── Admins within a tenant ─────────────────────────────────────────────

@@ -13,10 +13,14 @@ interface Tenant {
   slug: string;
   status: string;
   plan: string;
+  trial_started_at: string | null;
   trial_ends_at: string | null;
   paid_until: string | null;
   max_users: number | null;
   max_courses_per_month: number | null;
+  billing_contact_email: string | null;
+  billing_company_name: string | null;
+  billing_identifier: string | null;
   created_at: string;
   stats?: {
     user_count: number;
@@ -28,10 +32,39 @@ interface Tenant {
     enrollment_count: number;
     last_activity_at: string | null;
   } | null;
+  usage?: {
+    ai_course_generations_used: number;
+    jd_course_generations_used: number;
+    active_students_count_snapshot: number;
+    system_users_count_snapshot: number;
+    updated_at: string | null;
+  } | null;
+  latest_lead?: {
+    contact_name: string;
+    email: string;
+    phone: string | null;
+    telegram_username: string | null;
+    employee_count_range: string | null;
+    intent: string;
+    status: string;
+    created_at: string;
+  } | null;
 }
 
 const PLAN_KEYS = ['free', 'trial', 'pro', 'enterprise'] as const;
 const STATUS_KEYS = ['active', 'trial', 'suspended', 'archived'] as const;
+
+function formatDate(value: string | null) {
+  if (!value) return '—';
+  return new Intl.DateTimeFormat('ru-KZ', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(value));
+}
+
+function trialDaysLeft(value: string | null) {
+  if (!value) return '—';
+  const days = Math.ceil((new Date(value).getTime() - Date.now()) / 86_400_000);
+  if (days < 0) return `${Math.abs(days)} дн. назад`;
+  return `${days} дн.`;
+}
 
 export default function SuperAdminTenants() {
   const { t } = useT();
@@ -153,27 +186,44 @@ export default function SuperAdminTenants() {
               <thead>
                 <tr className="text-left text-xs uppercase text-text-tertiary">
                   <th className="px-3 py-2">{t('superadmin.tenants.fields.name')}</th>
-                  <th className="px-3 py-2">{t('superadmin.tenants.fields.slug')}</th>
-                  <th className="px-3 py-2">{t('superadmin.tenants.fields.plan')}</th>
-                  <th className="px-3 py-2">{t('superadmin.tenants.fields.status')}</th>
+                  <th className="px-3 py-2">Контакт</th>
+                  <th className="px-3 py-2">Тариф / статус</th>
+                  <th className="px-3 py-2">Триал</th>
                   <th className="px-3 py-2">{t('superadmin.tenants.fields.users')}</th>
-                  <th className="px-3 py-2">{t('superadmin.tenants.stats.courses')}</th>
-                  <th className="px-3 py-2">{t('superadmin.tenants.fields.created')}</th>
+                  <th className="px-3 py-2">Использование AI</th>
+                  <th className="px-3 py-2">Активность</th>
                   <th className="px-3 py-2 text-right">·</th>
                 </tr>
               </thead>
               <tbody>
                 {tenants.map((tnt) => (
                   <tr key={tnt.id} className="border-t border-border">
-                    <td className="px-3 py-2 font-medium">{tnt.name}</td>
-                    <td className="px-3 py-2 font-mono text-xs">/{tnt.slug}</td>
                     <td className="px-3 py-2">
-                      <Badge variant="secondary">{tnt.plan}</Badge>
+                      <div className="font-medium text-text-primary">{tnt.name}</div>
+                      <div className="text-xs font-mono text-text-tertiary">/{tnt.slug}</div>
                     </td>
                     <td className="px-3 py-2">
-                      <Badge variant={tnt.status === 'active' ? 'default' : 'secondary'}>
-                        {tnt.status}
-                      </Badge>
+                      <div className="text-sm text-text-primary">
+                        {tnt.latest_lead?.contact_name || '—'}
+                      </div>
+                      <div className="text-xs text-text-tertiary break-all">
+                        {tnt.billing_contact_email || tnt.latest_lead?.email || '—'}
+                      </div>
+                    </td>
+                    <td className="px-3 py-2">
+                      <div className="flex flex-wrap gap-1">
+                        <Badge variant="secondary">{t(`superadmin.plans.${tnt.plan}` as any)}</Badge>
+                        <Badge variant={tnt.status === 'active' ? 'default' : 'secondary'}>
+                          {t(`superadmin.statuses.${tnt.status}` as any)}
+                        </Badge>
+                      </div>
+                      <div className="mt-1 text-xs text-text-tertiary">
+                        {tnt.latest_lead?.intent ? `заявка: ${tnt.latest_lead.intent}` : 'ручной режим'}
+                      </div>
+                    </td>
+                    <td className="px-3 py-2 text-sm text-text-secondary">
+                      <div className="font-medium text-text-primary">{trialDaysLeft(tnt.trial_ends_at)}</div>
+                      <div className="text-xs text-text-tertiary">до {formatDate(tnt.trial_ends_at)}</div>
                     </td>
                     <td className="px-3 py-2 text-sm text-text-secondary">
                       <div className="font-medium text-text-primary">
@@ -185,19 +235,20 @@ export default function SuperAdminTenants() {
                     </td>
                     <td className="px-3 py-2 text-sm text-text-secondary">
                       <div className="font-medium text-text-primary">
-                        {tnt.stats?.published_course_count ?? 0}/{tnt.stats?.course_count ?? 0}
+                        AI {tnt.usage?.ai_course_generations_used ?? 0}/1 · ДИ {tnt.usage?.jd_course_generations_used ?? 0}/1
                       </div>
                       <div className="text-xs text-text-tertiary">
-                        {t('superadmin.tenants.stats.published')}
+                        {tnt.stats?.published_course_count ?? 0}/{tnt.stats?.course_count ?? 0} курсов
                       </div>
                     </td>
                     <td className="px-3 py-2 text-xs text-text-tertiary">
-                      {new Date(tnt.created_at).toLocaleDateString()}
+                      <div>создан {formatDate(tnt.created_at)}</div>
+                      <div>вход {formatDate(tnt.stats?.last_activity_at ?? null)}</div>
                     </td>
                     <td className="px-3 py-2 text-right">
                       <Link href={`/admin/super/tenants/${tnt.id}`}>
                         <Button size="sm" variant="secondary">
-                          {t('superadmin.tenants.edit')} →
+                          Открыть
                         </Button>
                       </Link>
                     </td>

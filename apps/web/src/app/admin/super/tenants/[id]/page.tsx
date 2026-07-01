@@ -18,10 +18,14 @@ interface Tenant {
   slug: string;
   status: string;
   plan: string;
+  trial_started_at: string | null;
   trial_ends_at: string | null;
   paid_until: string | null;
   max_users: number | null;
   max_courses_per_month: number | null;
+  billing_contact_email: string | null;
+  billing_company_name: string | null;
+  billing_identifier: string | null;
   notes: string | null;
   settings: Record<string, unknown>;
   created_at: string;
@@ -36,6 +40,27 @@ interface Tenant {
     enrollment_count: number;
     last_activity_at: string | null;
   };
+  usage?: {
+    ai_course_generations_used: number;
+    jd_course_generations_used: number;
+    active_students_count_snapshot: number;
+    system_users_count_snapshot: number;
+    updated_at: string | null;
+  } | null;
+  latest_lead?: {
+    id: string;
+    company_name: string;
+    contact_name: string;
+    email: string;
+    phone: string | null;
+    telegram_username: string | null;
+    employee_count_range: string | null;
+    intent: string;
+    status: string;
+    source: string;
+    message: string | null;
+    created_at: string;
+  } | null;
 }
 
 interface Admin {
@@ -48,6 +73,18 @@ interface Admin {
   is_active: boolean;
   last_login: string | null;
   created_at: string;
+}
+
+function formatDate(value: string | null | undefined) {
+  if (!value) return '—';
+  return new Intl.DateTimeFormat('ru-KZ', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(value));
+}
+
+function addDaysIso(days: number) {
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  date.setHours(23, 59, 59, 0);
+  return date.toISOString();
 }
 
 export default function TenantDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -119,30 +156,9 @@ export default function TenantDetailPage({ params }: { params: Promise<{ id: str
     fetchAll();
   }, [fetchAll]);
 
-  const handleSave = async () => {
-    if (!tenant) return;
+  const patchTenant = async (body: Record<string, unknown>) => {
     setSaving(true);
     try {
-      const body: Record<string, unknown> = {};
-      // Only include fields that differ from current tenant.
-      const fields = ['name', 'slug', 'status', 'plan', 'trial_ends_at', 'paid_until', 'max_users', 'max_courses_per_month', 'notes'];
-      for (const f of fields) {
-        const v = editForm[f];
-        if (v === undefined) continue;
-        if (v === '') {
-          if (f === 'trial_ends_at' || f === 'paid_until' || f === 'max_users' || f === 'max_courses_per_month') {
-            body[f] = null;
-          } else {
-            body[f] = v;
-          }
-        } else if (f === 'max_users' || f === 'max_courses_per_month') {
-          body[f] = parseInt(v, 10);
-        } else if (f === 'trial_ends_at' || f === 'paid_until') {
-          body[f] = new Date(v).toISOString();
-        } else {
-          body[f] = v;
-        }
-      }
       const res = await fetch(`${API_URL}/admin/super/tenants/${id}`, {
         method: 'PATCH',
         headers: {
@@ -162,6 +178,30 @@ export default function TenantDetailPage({ params }: { params: Promise<{ id: str
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleSave = async () => {
+    if (!tenant) return;
+    const body: Record<string, unknown> = {};
+    const fields = ['name', 'slug', 'status', 'plan', 'trial_ends_at', 'paid_until', 'max_users', 'max_courses_per_month', 'notes'];
+    for (const f of fields) {
+      const v = editForm[f];
+      if (v === undefined) continue;
+      if (v === '') {
+        if (f === 'trial_ends_at' || f === 'paid_until' || f === 'max_users' || f === 'max_courses_per_month') {
+          body[f] = null;
+        } else {
+          body[f] = v;
+        }
+      } else if (f === 'max_users' || f === 'max_courses_per_month') {
+        body[f] = parseInt(v, 10);
+      } else if (f === 'trial_ends_at' || f === 'paid_until') {
+        body[f] = new Date(v).toISOString();
+      } else {
+        body[f] = v;
+      }
+    }
+    await patchTenant(body);
   };
 
   const handleAddAdmin = async (e: React.FormEvent) => {
@@ -253,6 +293,8 @@ export default function TenantDetailPage({ params }: { params: Promise<{ id: str
   if (!tenant) return <div className="p-6 text-red-600">Tenant not found</div>;
 
   const stats = tenant.stats;
+  const usage = tenant.usage;
+  const lead = tenant.latest_lead;
 
   return (
     <div className="p-6 space-y-6">
@@ -301,6 +343,82 @@ export default function TenantDetailPage({ params }: { params: Promise<{ id: str
           </Button>
         </div>
       </div>
+
+      <Card className="border-primary/20 bg-primary/5">
+        <CardHeader>
+          <CardTitle>Панель запуска</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 lg:grid-cols-[1.2fr_1fr_1fr]">
+            <div className="space-y-2">
+              <div className="text-xs font-semibold uppercase text-text-tertiary">Контакт регистрации</div>
+              <div className="text-sm font-medium">{lead?.contact_name || '—'}</div>
+              <div className="break-all text-sm text-text-secondary">{tenant.billing_contact_email || lead?.email || '—'}</div>
+              <div className="text-xs text-text-tertiary">
+                {lead?.phone || 'телефон не указан'} · {lead?.telegram_username || 'telegram не указан'}
+              </div>
+              {lead?.message && (
+                <div className="rounded border border-border bg-bg-primary p-2 text-xs text-text-secondary">
+                  {lead.message}
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <div className="text-xs font-semibold uppercase text-text-tertiary">Использование триала</div>
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div className="rounded border border-border bg-bg-primary p-2">
+                  <div className="text-text-tertiary text-xs">AI курс</div>
+                  <div className="font-semibold">{usage?.ai_course_generations_used ?? 0}/1</div>
+                </div>
+                <div className="rounded border border-border bg-bg-primary p-2">
+                  <div className="text-text-tertiary text-xs">ДИ курс</div>
+                  <div className="font-semibold">{usage?.jd_course_generations_used ?? 0}/1</div>
+                </div>
+                <div className="rounded border border-border bg-bg-primary p-2">
+                  <div className="text-text-tertiary text-xs">Обучающиеся</div>
+                  <div className="font-semibold">{usage?.active_students_count_snapshot ?? stats?.active_user_count ?? 0}/{tenant.max_users ?? 10}</div>
+                </div>
+                <div className="rounded border border-border bg-bg-primary p-2">
+                  <div className="text-text-tertiary text-xs">Команда</div>
+                  <div className="font-semibold">{usage?.system_users_count_snapshot ?? stats?.admin_count ?? 0}/3</div>
+                </div>
+              </div>
+              <div className="text-xs text-text-tertiary">Обновлено: {formatDate(usage?.updated_at)}</div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="text-xs font-semibold uppercase text-text-tertiary">Ручные действия</div>
+              <Button
+                type="button"
+                className="w-full"
+                disabled={saving}
+                onClick={() => patchTenant({ plan: 'pro', status: 'active', paid_until: addDaysIso(30) })}
+              >
+                Активировать paid на 30 дней
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                className="w-full"
+                disabled={saving}
+                onClick={() => patchTenant({ status: 'trial', plan: 'trial', trial_ends_at: addDaysIso(14) })}
+              >
+                Продлить trial на 14 дней
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                className="w-full"
+                disabled={saving}
+                onClick={() => patchTenant({ status: 'suspended' })}
+              >
+                Приостановить
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

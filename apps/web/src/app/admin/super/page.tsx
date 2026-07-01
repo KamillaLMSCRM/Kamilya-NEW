@@ -92,14 +92,28 @@ export default function SuperAdminLanding() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Provider keys · API</CardTitle>
+            <CardTitle>Запуск первого тенанта</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-xs font-mono text-text-tertiary space-y-1">
-              <div>GET /v1/admin/super/tenants</div>
-              <div>PATCH /v1/admin/super/tenants/&#123;id&#125;</div>
-              <div>POST /v1/admin/super/tenants/&#123;id&#125;/admins</div>
-            </p>
+            <div className="space-y-2 text-sm text-text-secondary">
+              <div className="flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-primary" aria-hidden="true" />
+                Проверить trial и контакт лида
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-primary" aria-hidden="true" />
+                Добавить методиста или войти через impersonation
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-primary" aria-hidden="true" />
+                Вручную активировать платный доступ после оплаты
+              </div>
+            </div>
+            <Link href="/admin/super/tenants">
+              <Button variant="secondary" className="mt-4">
+                Открыть тенанты
+              </Button>
+            </Link>
           </CardContent>
         </Card>
       </div>
