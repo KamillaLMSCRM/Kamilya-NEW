@@ -115,11 +115,10 @@ export default function CoursePlayerPage() {
       const headers: Record<string, string> = {};
       if (token) headers.Authorization = `Bearer ${token}`;
 
-      const [courseRes, structRes, progressRes, enrollRes] = await Promise.all([
+      const [courseRes, structRes, progressRes] = await Promise.all([
         fetch(`${API_URL}/v1/courses/${courseId}`, { headers }),
         fetch(`${API_URL}/v1/courses/${courseId}/structure`, { headers }),
         fetch(`${API_URL}/v1/progress/courses/${courseId}/completed-ids`, { headers }),
-        fetch(`${API_URL}/v1/courses/${courseId}/enrollments`, { headers }),
       ]);
 
       if (courseRes.ok) setCourse(await courseRes.json());
@@ -128,11 +127,17 @@ export default function CoursePlayerPage() {
       const bypass = userRole === 'admin' || userRole === 'superadmin' || userRole === 'teacher' || userRole === 'org_admin';
       if (bypass) {
         setEnrolled(true);
-      } else if (enrollRes.ok) {
-        const d = await enrollRes.json();
-        setEnrolled(d.length > 0);
-        if (d.length > 0 && d[0].status === 'completed') {
-          setCourseCompleted(true);
+      } else if (userRole === 'student') {
+        const dashboardRes = await fetch(`${API_URL}/v1/student/dashboard`, { headers });
+        if (dashboardRes.ok) {
+          const dashboard = await dashboardRes.json();
+          const enrolledCourse = (dashboard.enrolled_courses || []).find(
+            (item: { course_id: string }) => item.course_id === courseId
+          );
+          setEnrolled(Boolean(enrolledCourse));
+          setCourseCompleted(enrolledCourse?.progress_percent === 100);
+        } else {
+          setEnrolled(false);
         }
       } else {
         setEnrolled(false);
