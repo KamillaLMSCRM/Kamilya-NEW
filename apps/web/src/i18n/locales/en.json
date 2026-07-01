@@ -325,6 +325,18 @@
     "createTitle": "New learner",
     "loadingList": "Loading...",
     "noUsersFound": "No users found",
+    "teamPage": {
+      "title": "Tenant team",
+      "subtitle": "Only tenant administrators and methodologists. Learners and staff are added via the org chart, import, or invitations.",
+      "newMember": "New team member",
+      "errors": {
+        "emailRequired": "Enter email",
+        "firstNameRequired": "Enter first name",
+        "lastNameRequired": "Enter last name",
+        "passwordMin": "Password must be at least 8 characters",
+        "generic": "Server error"
+      }
+    },
     "invite": "Invite",
     "surname": "Surname",
     "roleStudent": "Learner",
@@ -633,7 +645,68 @@
       "cancel": "Cancel",
       "saveOk": "Tenant saved",
       "saveError": "Failed to save tenant",
-      "loadError": "Failed to load tenants"
+      "loadError": "Failed to load tenants",
+      "createFirst": "Create first tenant",
+      "notFound": "Tenant not found",
+      "open": "Open",
+      "publishedOfTotal": "{published}/{total} courses",
+      "source": {
+        "lead": "lead: {intent}",
+        "manual": "manual mode"
+      },
+      "fields": {
+        "name": "Name",
+        "slug": "Slug",
+        "plan": "Plan",
+        "status": "Status",
+        "users": "Users",
+        "courses": "Courses",
+        "created": "Created",
+        "actions": "Actions",
+        "contact": "Contact",
+        "planStatus": "Plan / status",
+        "trial": "Trial",
+        "aiUsage": "AI usage",
+        "activity": "Activity"
+      },
+      "activity": {
+        "created": "created {date}",
+        "lastLogin": "login {date}"
+      },
+      "trialUntil": "until {date}",
+      "lead": {
+        "phoneMissing": "no phone",
+        "telegramMissing": "no telegram"
+      },
+      "impersonate": {
+        "label": "Sign in as:",
+        "submit": "Sign in",
+        "entering": "Signing in as {name} ({role})…",
+        "error": "Sign-in failed: {error}"
+      },
+      "launch": {
+        "contact": "Registration contact",
+        "usage": "Trial usage",
+        "actions": "Manual actions",
+        "activatePaid": "Activate paid for {days} days",
+        "extendTrial": "Extend trial by {days} days",
+        "suspend": "Suspend",
+        "updatedAt": "Updated: {date}",
+        "aiCourses": "AI course",
+        "jdCourses": "JD course",
+        "learners": "Learners",
+        "team": "Team"
+      }
+    },
+    "launch": {
+      "title": "Launch first tenant",
+      "subtitle": "When the first tenant appears, start with this sequence.",
+      "openTenants": "Open tenants",
+      "steps": {
+        "1": "Verify trial and lead contact",
+        "2": "Add a methodologist or sign in via impersonation",
+        "3": "Manually activate paid access after payment"
+      }
     },
     "admins": {
       "title": "Admins and Methodologists",

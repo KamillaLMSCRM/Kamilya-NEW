@@ -60,10 +60,10 @@ export default function AdminTeamPage() {
 
   const handleCreate = async () => {
     setCreateError('');
-    if (!newUser.email.trim()) { setCreateError('Введите email'); return; }
-    if (!newUser.first_name.trim()) { setCreateError('Введите имя'); return; }
-    if (!newUser.last_name.trim()) { setCreateError('Введите фамилию'); return; }
-    if (newUser.password.length < 8) { setCreateError('Пароль должен быть минимум 8 символов'); return; }
+    if (!newUser.email.trim()) { setCreateError(t('users.teamPage.errors.emailRequired')); return; }
+    if (!newUser.first_name.trim()) { setCreateError(t('users.teamPage.errors.firstNameRequired')); return; }
+    if (!newUser.last_name.trim()) { setCreateError(t('users.teamPage.errors.lastNameRequired')); return; }
+    if (newUser.password.length < 8) { setCreateError(t('users.teamPage.errors.passwordMin')); return; }
 
     const res = await fetch(`${API_URL}/v1/users`, {
       method: 'POST',
@@ -75,8 +75,8 @@ export default function AdminTeamPage() {
       setNewUser({ email: '', first_name: '', last_name: '', role: 'teacher', password: '' });
       fetchUsers();
     } else {
-      const err = await res.json().catch(() => ({ detail: 'Ошибка сервера' }));
-      setCreateError(err.detail || 'Ошибка создания пользователя');
+      const err = await res.json().catch(() => ({ detail: t('users.teamPage.errors.generic') }));
+      setCreateError(err.detail || t('users.teamPage.errors.generic'));
     }
   };
 
@@ -102,10 +102,9 @@ export default function AdminTeamPage() {
     <div className="p-6 max-w-6xl mx-auto space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Команда тенанта</h1>
+          <h1 className="text-2xl font-bold text-foreground">{t('users.teamPage.title')}</h1>
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-            Здесь только администраторы и методисты. Обучающиеся и сотрудники
-            добавляются через штат, импорт или приглашения.
+            {t('users.teamPage.subtitle')}
           </p>
         </div>
         <Button onClick={() => setShowCreateModal(true)}>+ {t('users.createButton')}</Button>
@@ -132,7 +131,7 @@ export default function AdminTeamPage() {
           {loading ? (
             <div className="p-6 text-muted-foreground">{t('users.loadingList')}</div>
           ) : users.length === 0 ? (
-            <div className="p-6 text-muted-foreground">{t('users.noUsersFound')}</div>
+            <div className="py-8 text-center text-muted-foreground">{t('users.noUsersFound')}</div>
           ) : (
             <Table>
               <thead>
@@ -224,7 +223,7 @@ export default function AdminTeamPage() {
       {/* Create user modal */}
       <Modal open={showCreateModal} onOpenChange={setShowCreateModal}>
         <CardHeader>
-          <CardTitle>Новый участник команды</CardTitle>
+          <CardTitle>{t('users.teamPage.newMember')}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <label className="block">

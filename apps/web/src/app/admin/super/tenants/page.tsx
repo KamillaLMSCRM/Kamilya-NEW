@@ -72,6 +72,7 @@ export default function SuperAdminTenants() {
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [search, setSearch] = useState('');
   const [showCreate, setShowCreate] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -88,6 +89,7 @@ export default function SuperAdminTenants() {
   const fetchTenants = useCallback(async () => {
     if (!token) return;
     setLoading(true);
+    setLoadFailed(false);
     try {
       const params = new URLSearchParams();
       if (search) params.set('search', search);
@@ -98,6 +100,7 @@ export default function SuperAdminTenants() {
       const data = await res.json();
       setTenants(data.tenants || []);
     } catch (e) {
+      setLoadFailed(true);
       toast.error(t('superadmin.tenants.loadError'));
     } finally {
       setLoading(false);
@@ -175,87 +178,113 @@ export default function SuperAdminTenants() {
           </div>
         </CardHeader>
         <CardContent>
-          {loading ? (
-            <p className="text-text-tertiary">…</p>
-          ) : tenants.length === 0 ? (
+          {loadFailed ? (
+            <div className="rounded border border-destructive/30 bg-destructive/5 p-4 text-sm">
+              <p className="text-text-primary">{t('superadmin.tenants.loadError')}</p>
+              <Button size="sm" variant="secondary" className="mt-3" onClick={fetchTenants}>
+                {t('common.retry')}
+              </Button>
+            </div>
+          ) : loading ? (
             <p className="text-text-tertiary py-8 text-center">
-              {t('superadmin.tenants.noTenants')}
+              {t('common.loading')}
             </p>
+          ) : tenants.length === 0 ? (
+            <div className="py-10 text-center">
+              <p className="text-text-tertiary">{t('superadmin.tenants.noTenants')}</p>
+              <Button
+                size="sm"
+                variant="default"
+                className="mt-4"
+                onClick={() => setShowCreate(true)}
+              >
+                {t('superadmin.tenants.createFirst')}
+              </Button>
+            </div>
           ) : (
-            <Table>
-              <thead>
-                <tr className="text-left text-xs uppercase text-text-tertiary">
-                  <th className="px-3 py-2">{t('superadmin.tenants.fields.name')}</th>
-                  <th className="px-3 py-2">Контакт</th>
-                  <th className="px-3 py-2">Тариф / статус</th>
-                  <th className="px-3 py-2">Триал</th>
-                  <th className="px-3 py-2">{t('superadmin.tenants.fields.users')}</th>
-                  <th className="px-3 py-2">Использование AI</th>
-                  <th className="px-3 py-2">Активность</th>
-                  <th className="px-3 py-2 text-right">·</th>
-                </tr>
-              </thead>
-              <tbody>
-                {tenants.map((tnt) => (
-                  <tr key={tnt.id} className="border-t border-border">
-                    <td className="px-3 py-2">
-                      <div className="font-medium text-text-primary">{tnt.name}</div>
-                      <div className="text-xs font-mono text-text-tertiary">/{tnt.slug}</div>
-                    </td>
-                    <td className="px-3 py-2">
-                      <div className="text-sm text-text-primary">
-                        {tnt.latest_lead?.contact_name || '—'}
-                      </div>
-                      <div className="text-xs text-text-tertiary break-all">
-                        {tnt.billing_contact_email || tnt.latest_lead?.email || '—'}
-                      </div>
-                    </td>
-                    <td className="px-3 py-2">
-                      <div className="flex flex-wrap gap-1">
-                        <Badge variant="secondary">{t(`superadmin.plans.${tnt.plan}` as any)}</Badge>
-                        <Badge variant={tnt.status === 'active' ? 'default' : 'secondary'}>
-                          {t(`superadmin.statuses.${tnt.status}` as any)}
-                        </Badge>
-                      </div>
-                      <div className="mt-1 text-xs text-text-tertiary">
-                        {tnt.latest_lead?.intent ? `заявка: ${tnt.latest_lead.intent}` : 'ручной режим'}
-                      </div>
-                    </td>
-                    <td className="px-3 py-2 text-sm text-text-secondary">
-                      <div className="font-medium text-text-primary">{trialDaysLeft(tnt.trial_ends_at)}</div>
-                      <div className="text-xs text-text-tertiary">до {formatDate(tnt.trial_ends_at)}</div>
-                    </td>
-                    <td className="px-3 py-2 text-sm text-text-secondary">
-                      <div className="font-medium text-text-primary">
-                        {tnt.stats?.active_user_count ?? 0}/{tnt.stats?.user_count ?? 0}
-                      </div>
-                      <div className="text-xs text-text-tertiary">
-                        {t('superadmin.tenants.subscription.maxUsers')}: {tnt.max_users ?? '∞'}
-                      </div>
-                    </td>
-                    <td className="px-3 py-2 text-sm text-text-secondary">
-                      <div className="font-medium text-text-primary">
-                        AI {tnt.usage?.ai_course_generations_used ?? 0}/1 · ДИ {tnt.usage?.jd_course_generations_used ?? 0}/1
-                      </div>
-                      <div className="text-xs text-text-tertiary">
-                        {tnt.stats?.published_course_count ?? 0}/{tnt.stats?.course_count ?? 0} курсов
-                      </div>
-                    </td>
-                    <td className="px-3 py-2 text-xs text-text-tertiary">
-                      <div>создан {formatDate(tnt.created_at)}</div>
-                      <div>вход {formatDate(tnt.stats?.last_activity_at ?? null)}</div>
-                    </td>
-                    <td className="px-3 py-2 text-right">
-                      <Link href={`/admin/super/tenants/${tnt.id}`}>
-                        <Button size="sm" variant="secondary">
-                          Открыть
-                        </Button>
-                      </Link>
-                    </td>
+            <div className="overflow-x-auto">
+              <Table>
+                <thead>
+                  <tr className="text-left text-xs uppercase text-text-tertiary">
+                    <th className="px-3 py-2">{t('superadmin.tenants.fields.name')}</th>
+                    <th className="px-3 py-2">{t('superadmin.tenants.fields.contact')}</th>
+                    <th className="px-3 py-2">{t('superadmin.tenants.fields.planStatus')}</th>
+                    <th className="px-3 py-2">{t('superadmin.tenants.fields.trial')}</th>
+                    <th className="px-3 py-2">{t('superadmin.tenants.fields.users')}</th>
+                    <th className="px-3 py-2">{t('superadmin.tenants.fields.aiUsage')}</th>
+                    <th className="px-3 py-2">{t('superadmin.tenants.fields.activity')}</th>
+                    <th className="px-3 py-2 text-right">·</th>
                   </tr>
-                ))}
-              </tbody>
-            </Table>
+                </thead>
+                <tbody>
+                  {tenants.map((tnt) => (
+                    <tr key={tnt.id} className="border-t border-border">
+                      <td className="px-3 py-2">
+                        <div className="font-medium text-text-primary">{tnt.name}</div>
+                        <div className="text-xs font-mono text-text-tertiary">/{tnt.slug}</div>
+                      </td>
+                      <td className="px-3 py-2">
+                        <div className="text-sm text-text-primary">
+                          {tnt.latest_lead?.contact_name || '—'}
+                        </div>
+                        <div className="text-xs text-text-tertiary break-all">
+                          {tnt.billing_contact_email || tnt.latest_lead?.email || '—'}
+                        </div>
+                      </td>
+                      <td className="px-3 py-2">
+                        <div className="flex flex-wrap gap-1">
+                          <Badge variant="secondary">{t(`superadmin.plans.${tnt.plan}` as any)}</Badge>
+                          <Badge variant={tnt.status === 'active' ? 'default' : 'secondary'}>
+                            {t(`superadmin.statuses.${tnt.status}` as any)}
+                          </Badge>
+                        </div>
+                        <div className="mt-1 text-xs text-text-tertiary">
+                          {tnt.latest_lead?.intent
+                            ? t('superadmin.tenants.source.lead', { intent: tnt.latest_lead.intent })
+                            : t('superadmin.tenants.source.manual')}
+                        </div>
+                      </td>
+                      <td className="px-3 py-2 text-sm text-text-secondary">
+                        <div className="font-medium text-text-primary">{trialDaysLeft(tnt.trial_ends_at)}</div>
+                        <div className="text-xs text-text-tertiary">
+                          {t('superadmin.tenants.trialUntil', { date: formatDate(tnt.trial_ends_at) })}
+                        </div>
+                      </td>
+                      <td className="px-3 py-2 text-sm text-text-secondary">
+                        <div className="font-medium text-text-primary">
+                          {tnt.stats?.active_user_count ?? 0}/{tnt.stats?.user_count ?? 0}
+                        </div>
+                        <div className="text-xs text-text-tertiary">
+                          {t('superadmin.tenants.subscription.maxUsers')}: {tnt.max_users ?? '∞'}
+                        </div>
+                      </td>
+                      <td className="px-3 py-2 text-sm text-text-secondary">
+                        <div className="font-medium text-text-primary">
+                          {t('superadmin.tenants.launch.aiCourses')} {tnt.usage?.ai_course_generations_used ?? 0}/1 · {t('superadmin.tenants.launch.jdCourses')} {tnt.usage?.jd_course_generations_used ?? 0}/1
+                        </div>
+                        <div className="text-xs text-text-tertiary">
+                          {t('superadmin.tenants.publishedOfTotal', {
+                            published: tnt.stats?.published_course_count ?? 0,
+                            total: tnt.stats?.course_count ?? 0,
+                          })}
+                        </div>
+                      </td>
+                      <td className="px-3 py-2 text-xs text-text-tertiary">
+                        <div>{t('superadmin.tenants.activity.created', { date: formatDate(tnt.created_at) })}</div>
+                        <div>{t('superadmin.tenants.activity.lastLogin', { date: formatDate(tnt.stats?.last_activity_at ?? null) })}</div>
+                      </td>
+                      <td className="px-3 py-2 text-right">
+                        <Link href={`/admin/super/tenants/${tnt.id}`}>
+                          <Button size="sm" variant="secondary">
+                            {t('superadmin.tenants.open')}
+                          </Button>
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            </div>
           )}
         </CardContent>
       </Card>

@@ -325,6 +325,18 @@
     "createTitle": "Новый обучающийся",
     "loadingList": "Загрузка...",
     "noUsersFound": "Пользователей не найдено",
+    "teamPage": {
+      "title": "Команда тенанта",
+      "subtitle": "Здесь только администраторы и методисты. Обучающиеся и сотрудники добавляются через штат, импорт или приглашения.",
+      "newMember": "Новый участник команды",
+      "errors": {
+        "emailRequired": "Введите email",
+        "firstNameRequired": "Введите имя",
+        "lastNameRequired": "Введите фамилию",
+        "passwordMin": "Пароль должен быть минимум 8 символов",
+        "generic": "Ошибка сервера"
+      }
+    },
     "invite": "Пригласить",
     "surname": "Фамилия",
     "roleStudent": "Обучающийся",
@@ -633,7 +645,68 @@
       "cancel": "Отмена",
       "saveOk": "Тенант сохранён",
       "saveError": "Не удалось сохранить тенант",
-      "loadError": "Не удалось загрузить тенантов"
+      "loadError": "Не удалось загрузить тенантов",
+      "createFirst": "Создать первого тенанта",
+      "notFound": "Тенант не найден",
+      "open": "Открыть",
+      "publishedOfTotal": "{published}/{total} курсов",
+      "source": {
+        "lead": "заявка: {intent}",
+        "manual": "ручной режим"
+      },
+      "fields": {
+        "name": "Название",
+        "slug": "Slug",
+        "plan": "Тариф",
+        "status": "Статус",
+        "users": "Пользователи",
+        "courses": "Курсы",
+        "created": "Создан",
+        "actions": "Действия",
+        "contact": "Контакт",
+        "planStatus": "Тариф / статус",
+        "trial": "Триал",
+        "aiUsage": "Использование AI",
+        "activity": "Активность"
+      },
+      "activity": {
+        "created": "создан {date}",
+        "lastLogin": "вход {date}"
+      },
+      "trialUntil": "до {date}",
+      "lead": {
+        "phoneMissing": "телефон не указан",
+        "telegramMissing": "telegram не указан"
+      },
+      "impersonate": {
+        "label": "Войти как:",
+        "submit": "Войти",
+        "entering": "Входим как {name} ({role})…",
+        "error": "Не удалось войти: {error}"
+      },
+      "launch": {
+        "contact": "Контакт регистрации",
+        "usage": "Использование триала",
+        "actions": "Ручные действия",
+        "activatePaid": "Активировать платный на {days} дн.",
+        "extendTrial": "Продлить триал на {days} дн.",
+        "suspend": "Приостановить",
+        "updatedAt": "Обновлено: {date}",
+        "aiCourses": "AI курс",
+        "jdCourses": "ДИ курс",
+        "learners": "Обучающиеся",
+        "team": "Команда"
+      }
+    },
+    "launch": {
+      "title": "Запуск первого тенанта",
+      "subtitle": "Когда появится первый тенант, начните с этой последовательности.",
+      "openTenants": "Открыть тенанты",
+      "steps": {
+        "1": "Проверьте триал и контакт лида",
+        "2": "Добавьте методиста или войдите через impersonation",
+        "3": "Вручную активируйте платный доступ после оплаты"
+      }
     },
     "admins": {
       "title": "Админы и методисты",
