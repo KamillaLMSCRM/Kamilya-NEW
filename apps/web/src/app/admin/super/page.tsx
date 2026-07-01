@@ -28,7 +28,7 @@ export default function SuperAdminLanding() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch(`${API_URL}/admin/super/tenants?limit=10`, {
+        const res = await fetch(`${API_URL}/v1/admin/super/tenants?limit=10`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);

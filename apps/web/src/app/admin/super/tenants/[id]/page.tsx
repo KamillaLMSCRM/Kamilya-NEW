@@ -122,10 +122,10 @@ export default function TenantDetailPage({ params }: { params: Promise<{ id: str
     setLoadFailed(false);
     try {
       const [tRes, aRes] = await Promise.all([
-        fetch(`${API_URL}/admin/super/tenants/${id}`, {
+        fetch(`${API_URL}/v1/admin/super/tenants/${id}`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
-        fetch(`${API_URL}/admin/super/tenants/${id}/admins`, {
+        fetch(`${API_URL}/v1/admin/super/tenants/${id}/admins`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
       ]);
@@ -162,7 +162,7 @@ export default function TenantDetailPage({ params }: { params: Promise<{ id: str
   const patchTenant = async (body: Record<string, unknown>) => {
     setSaving(true);
     try {
-      const res = await fetch(`${API_URL}/admin/super/tenants/${id}`, {
+      const res = await fetch(`${API_URL}/v1/admin/super/tenants/${id}`, {
         method: 'PATCH',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -224,7 +224,7 @@ export default function TenantDetailPage({ params }: { params: Promise<{ id: str
       if (adminForm.telegram_id) body.telegram_id = parseInt(adminForm.telegram_id, 10);
       if (adminForm.send_invite && adminForm.email) body.send_invite = true;
 
-      const res = await fetch(`${API_URL}/admin/super/tenants/${id}/admins`, {
+      const res = await fetch(`${API_URL}/v1/admin/super/tenants/${id}/admins`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -250,7 +250,7 @@ export default function TenantDetailPage({ params }: { params: Promise<{ id: str
   const handleDeactivate = async (admin: Admin) => {
     if (!confirm(t('superadmin.admins.deactivateConfirm', { name: `${admin.first_name} ${admin.last_name}` }))) return;
     try {
-      const res = await fetch(`${API_URL}/admin/super/tenants/${id}/admins/${admin.id}`, {
+      const res = await fetch(`${API_URL}/v1/admin/super/tenants/${id}/admins/${admin.id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -266,7 +266,7 @@ export default function TenantDetailPage({ params }: { params: Promise<{ id: str
     if (!token) return;
     setImpersonating(true);
     try {
-      const res = await fetch(`${API_URL}/admin/super/tenants/${id}/impersonate`, {
+      const res = await fetch(`${API_URL}/v1/admin/super/tenants/${id}/impersonate`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,

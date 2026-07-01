@@ -93,7 +93,7 @@ export default function SuperAdminTenants() {
     try {
       const params = new URLSearchParams();
       if (search) params.set('search', search);
-      const res = await fetch(`${API_URL}/admin/super/tenants?${params}`, {
+      const res = await fetch(`${API_URL}/v1/admin/super/tenants?${params}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -125,7 +125,7 @@ export default function SuperAdminTenants() {
       if (form.trial_ends_at) body.trial_ends_at = new Date(form.trial_ends_at).toISOString();
       if (form.max_users) body.max_users = parseInt(form.max_users, 10);
 
-      const res = await fetch(`${API_URL}/admin/super/tenants`, {
+      const res = await fetch(`${API_URL}/v1/admin/super/tenants`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
