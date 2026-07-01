@@ -222,6 +222,11 @@ class HealthCheckFilter(logging.Filter):
 logging.getLogger("uvicorn.access").addFilter(HealthCheckFilter())
 
 
+@app.api_route("/", methods=["GET", "HEAD"], include_in_schema=False)
+async def root_probe():
+    return {"status": "ok", "app": settings.APP_NAME}
+
+
 @app.get("/health")
 @app.get(f"{settings.API_PREFIX}/health")
 async def health_check():
