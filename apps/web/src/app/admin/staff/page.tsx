@@ -33,7 +33,22 @@ interface PreviewResponse {
   invalid_rows: Array<{ row_number: number; errors: string[]; raw: Record<string, string> }>;
   missing_required_columns: string[];
   total_rows_in_file: number;
+  detected_columns?: Record<string, string>;
+  raw_columns?: string[];
+  sample_rows?: Array<Record<string, string>>;
+  suggested_mapping?: Record<string, string>;
 }
+
+const STAFF_FIELDS = [
+  { key: 'personnel_number', label: 'Табельный номер', required: true },
+  { key: 'first_name', label: 'Имя', required: true },
+  { key: 'last_name', label: 'Фамилия', required: true },
+  { key: 'department', label: 'Отдел', required: true },
+  { key: 'position', label: 'Должность', required: true },
+  { key: 'email', label: 'Email', required: false },
+  { key: 'phone', label: 'Телефон', required: false },
+  { key: 'hire_date', label: 'Дата приёма', required: false },
+] as const;
 
 const ACTION_LABELS: Record<string, string> = {
   create: 'Создать',
@@ -84,6 +99,7 @@ export default function AdminStaffPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<PreviewResponse | null>(null);
+  const [columnMapping, setColumnMapping] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [committing, setCommitting] = useState(false);
   // B2c: после /commit получаем task_id от apply-rules. Запускаем
@@ -96,6 +112,7 @@ export default function AdminStaffPage() {
     if (!file) return;
     setSelectedFile(file);
     setPreview(null);
+    setColumnMapping({});
   };
 
   const handlePreview = async () => {
@@ -104,10 +121,20 @@ export default function AdminStaffPage() {
     try {
       const formData = new FormData();
       formData.append('file', selectedFile);
+      if (Object.keys(columnMapping).length > 0) {
+        formData.append('mapping', JSON.stringify(columnMapping));
+      }
       const res = await api.post('/v1/admin/staff/import/preview', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       setPreview(res.data);
+      if (res.data?.suggested_mapping) {
+        setColumnMapping((current) => ({ ...res.data.suggested_mapping, ...current }));
+      }
+      if (res.data?.missing_required_columns?.length > 0) {
+        toast.error('Нужно сопоставить колонки файла');
+        return;
+      }
       const s = res.data.summary;
       const invalid = res.data.invalid_rows?.length || 0;
       toast.success(
@@ -148,6 +175,9 @@ export default function AdminStaffPage() {
     try {
       const formData = new FormData();
       formData.append('file', selectedFile);
+      if (Object.keys(columnMapping).length > 0) {
+        formData.append('mapping', JSON.stringify(columnMapping));
+      }
       const res = await api.post('/v1/admin/staff/import/commit', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
@@ -176,6 +206,7 @@ export default function AdminStaffPage() {
   const handleReset = () => {
     setSelectedFile(null);
     setPreview(null);
+    setColumnMapping({});
     setApplyTaskId(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
@@ -330,18 +361,80 @@ export default function AdminStaffPage() {
         <>
           {preview.missing_required_columns && preview.missing_required_columns.length > 0 && (
             <Card>
-              <CardContent className="pt-6 text-center space-y-2">
-                <div className="text-4xl">❌</div>
-                <h3 className="text-lg font-bold text-destructive">Файл не подходит</h3>
-                <p className="text-sm text-foreground">
-                  Отсутствуют обязательные колонки:{' '}
-                  <strong className="text-destructive">
-                    {preview.missing_required_columns.join(', ')}
-                  </strong>
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Переименуйте заголовки в файле и попробуйте снова.
-                </p>
+              <CardHeader>
+                <CardTitle>2️⃣ Сопоставьте колонки</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="rounded-xl border border-warning/30 bg-warning/10 p-3 text-sm text-warning">
+                  Мы не смогли автоматически распознать все обязательные поля. Выберите, какая колонка файла чему соответствует.
+                </div>
+
+                <div className="grid gap-3 md:grid-cols-2">
+                  {STAFF_FIELDS.map((field) => (
+                    <label key={field.key} className="space-y-1">
+                      <span className="text-xs font-semibold text-muted-foreground">
+                        {field.label}{field.required ? ' *' : ''}
+                      </span>
+                      <select
+                        value={columnMapping[field.key] || ''}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          setColumnMapping((current) => {
+                            const next = { ...current };
+                            if (value) next[field.key] = value;
+                            else delete next[field.key];
+                            return next;
+                          });
+                        }}
+                        className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm outline-none focus:border-primary"
+                      >
+                        <option value="">Не использовать</option>
+                        {(preview.raw_columns || []).map((column) => (
+                          <option key={`${field.key}-${column}`} value={column}>
+                            {column}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  ))}
+                </div>
+
+                {(preview.sample_rows || []).length > 0 && (
+                  <div className="overflow-x-auto rounded-xl border border-border">
+                    <Table>
+                      <thead className="bg-muted">
+                        <tr>
+                          {(preview.raw_columns || []).map((column) => (
+                            <th key={column} className="p-2 text-left text-xs whitespace-nowrap">{column}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(preview.sample_rows || []).map((row, idx) => (
+                          <tr key={idx} className="border-t">
+                            {(preview.raw_columns || []).map((column) => (
+                              <td key={`${idx}-${column}`} className="p-2 text-xs text-muted-foreground whitespace-nowrap">
+                                {row[column] || '—'}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </Table>
+                  </div>
+                )}
+
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    onClick={handlePreview}
+                    disabled={!selectedFile || loading || STAFF_FIELDS.filter((f) => f.required).some((f) => !columnMapping[f.key])}
+                  >
+                    {loading ? 'Проверяю...' : 'Проверить с этим сопоставлением'}
+                  </Button>
+                  <Button onClick={handleReset} variant="outline">
+                    Выбрать другой файл
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           )}

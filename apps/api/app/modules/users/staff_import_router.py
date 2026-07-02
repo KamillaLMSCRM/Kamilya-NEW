@@ -8,9 +8,10 @@ Endpoints:
 - GET  /admin/staff/apply-rules/status/{tid} poll Celery task state (B1c)
 """
 import logging
+import json
 
 from celery.result import AsyncResult
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -59,6 +60,10 @@ class PreviewResponse(BaseModel):
     invalid_rows: list[dict] = Field(default_factory=list)  # rows that failed to parse (with errors)
     missing_required_columns: list[str] = Field(default_factory=list)
     total_rows_in_file: int = 0
+    detected_columns: dict[str, str] = Field(default_factory=dict)
+    raw_columns: list[str] = Field(default_factory=list)
+    sample_rows: list[dict[str, str]] = Field(default_factory=list)
+    suggested_mapping: dict[str, str] = Field(default_factory=dict)
 
 
 class CommitResponse(BaseModel):
@@ -81,6 +86,9 @@ def _parsed_file_to_response(parsed: ParsedFile, preview: PreviewResult | None =
         "total_rows_in_file": parsed.total_rows_in_file,
         "invalid_rows": parsed.invalid_rows,
         "detected_columns": parsed.detected_columns,
+        "raw_columns": parsed.raw_columns,
+        "sample_rows": parsed.sample_rows,
+        "suggested_mapping": parsed.suggested_mapping,
         "items": [],
         "new_positions": [],
         "new_departments": [],
@@ -116,9 +124,22 @@ def _parsed_file_to_response(parsed: ParsedFile, preview: PreviewResult | None =
     return out
 
 
+def _parse_mapping(mapping: str | None) -> dict[str, str] | None:
+    if not mapping:
+        return None
+    try:
+        value = json.loads(mapping)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Некорректное сопоставление колонок")
+    if not isinstance(value, dict):
+        raise HTTPException(status_code=400, detail="Некорректное сопоставление колонок")
+    return {str(k): str(v) for k, v in value.items() if v}
+
+
 @router.post("/import/preview", response_model=PreviewResponse)
 async def import_staff_preview(
     file: UploadFile = File(...),
+    mapping: str = Form(""),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role("admin", "org_admin", "superadmin", "methodologist")),
 ):
@@ -133,7 +154,7 @@ async def import_staff_preview(
         raise HTTPException(status_code=413, detail="Файл слишком большой (макс. 10 МБ)")
 
     try:
-        parsed = parse_upload(file.filename or "upload", content)
+        parsed = parse_upload(file.filename or "upload", content, mapping=_parse_mapping(mapping))
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -156,6 +177,7 @@ async def import_staff_preview(
 @router.post("/import/commit", response_model=CommitResponse)
 async def import_staff_commit(
     file: UploadFile = File(...),
+    mapping: str = Form(""),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role("admin", "org_admin", "superadmin", "methodologist")),
 ):
@@ -170,7 +192,7 @@ async def import_staff_commit(
         raise HTTPException(status_code=413, detail="Файл слишком большой (макс. 10 МБ)")
 
     try:
-        parsed = parse_upload(file.filename or "upload", content)
+        parsed = parse_upload(file.filename or "upload", content, mapping=_parse_mapping(mapping))
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:

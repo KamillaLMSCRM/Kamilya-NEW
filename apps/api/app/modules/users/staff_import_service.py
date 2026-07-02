@@ -125,6 +125,9 @@ class ParsedFile:
     detected_columns: dict[str, str]  # original -> canonical
     missing_required_columns: list[str]
     total_rows_in_file: int
+    raw_columns: list[str] = field(default_factory=list)
+    sample_rows: list[dict[str, str]] = field(default_factory=list)
+    suggested_mapping: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass
@@ -164,6 +167,74 @@ def _normalize_header(h: Any) -> str:
     return s
 
 
+def _suggest_field_for_header(raw: str) -> str | None:
+    """Best-effort match for messy HR exports."""
+    normalized = _normalize_header(raw)
+    direct = COLUMN_ALIASES.get(normalized)
+    if direct:
+        return direct
+    compact = re.sub(r"[\s_\-№#./]+", "", normalized)
+    rules: list[tuple[str, str]] = [
+        ("personnel_number", "id", ""),
+        ("personnel_number", "таб", "номер"),
+        ("personnel_number", "employee", "id"),
+        ("personnel_number", "personnel", ""),
+        ("first_name", "имя", ""),
+        ("first_name", "employee", "name"),
+        ("first_name", "name", "first"),
+        ("last_name", "фам", ""),
+        ("last_name", "family", ""),
+        ("last_name", "surname", ""),
+        ("last_name", "last", "name"),
+        ("department", "отдел", ""),
+        ("department", "департамент", ""),
+        ("department", "подраздел", ""),
+        ("department", "department", ""),
+        ("department", "division", ""),
+        ("position", "долж", ""),
+        ("position", "пози", ""),
+        ("position", "job", "title"),
+        ("position", "role", ""),
+        ("position", "position", ""),
+        ("email", "email", ""),
+        ("email", "mail", ""),
+        ("phone", "тел", ""),
+        ("phone", "phone", ""),
+        ("hire_date", "при", "дат"),
+        ("hire_date", "hire", "date"),
+    ]
+    for field, a, b in rules:
+        if a in compact and (not b or b in compact):
+            return field
+    return None
+
+
+def _build_column_map(raw_columns: list[str], mapping: dict[str, str] | None = None) -> dict[str, str]:
+    """Return raw_header -> canonical field mapping."""
+    manual = {field: raw for field, raw in (mapping or {}).items() if raw}
+    column_map: dict[str, str] = {}
+    used_fields: set[str] = set()
+
+    for field, raw in manual.items():
+        if field in ALL_FIELDS and raw in raw_columns and field not in used_fields:
+            column_map[raw] = field
+            used_fields.add(field)
+
+    for raw in raw_columns:
+        if raw in column_map:
+            continue
+        canonical = _suggest_field_for_header(raw)
+        if canonical and canonical not in used_fields:
+            column_map[raw] = canonical
+            used_fields.add(canonical)
+
+    return column_map
+
+
+def _suggested_mapping_from_column_map(column_map: dict[str, str]) -> dict[str, str]:
+    return {canonical: raw for raw, canonical in column_map.items()}
+
+
 def _parse_hire_date(s: str | None) -> str | None:
     """Try to parse hire_date. Returns ISO format or None."""
     if not s:
@@ -187,7 +258,7 @@ def _parse_hire_date(s: str | None) -> str | None:
     return None  # can't parse
 
 
-def parse_csv(content: bytes) -> ParsedFile:
+def parse_csv(content: bytes, mapping: dict[str, str] | None = None) -> ParsedFile:
     """Parse CSV with Russian/English headers, return ParsedFile."""
     # Decode (try utf-8-sig first for BOM, then cp1251 for old Russian Excel exports)
     try:
@@ -200,11 +271,12 @@ def parse_csv(content: bytes) -> ParsedFile:
 
     reader = csv.DictReader(io.StringIO(text))
     raw_columns = [c for c in (reader.fieldnames or [])]
-    column_map: dict[str, str] = {}  # raw_header -> canonical
-    for raw in raw_columns:
-        canonical = COLUMN_ALIASES.get(_normalize_header(raw))
-        if canonical:
-            column_map[raw] = canonical
+    raw_rows = list(reader)
+    sample_rows = [
+        {str(k): str(v).strip() if v is not None else "" for k, v in row.items()}
+        for row in raw_rows[:5]
+    ]
+    column_map = _build_column_map(raw_columns, mapping)
 
     missing = REQUIRED_FIELDS - set(column_map.values())
     if missing:
@@ -214,12 +286,15 @@ def parse_csv(content: bytes) -> ParsedFile:
             detected_columns=column_map,
             missing_required_columns=sorted(missing),
             total_rows_in_file=0,
+            raw_columns=raw_columns,
+            sample_rows=sample_rows,
+            suggested_mapping=_suggested_mapping_from_column_map(column_map),
         )
 
     rows: list[ParsedRow] = []
     invalid: list[dict] = []
     seen_pn: set[str] = set()
-    for i, raw_row in enumerate(reader, start=2):  # row 1 = header
+    for i, raw_row in enumerate(raw_rows, start=2):  # row 1 = header
         # Skip empty rows
         if not any(v and str(v).strip() for v in raw_row.values()):
             continue
@@ -271,10 +346,13 @@ def parse_csv(content: bytes) -> ParsedFile:
         detected_columns=column_map,
         missing_required_columns=[],
         total_rows_in_file=len(rows) + len(invalid),
+        raw_columns=raw_columns,
+        sample_rows=sample_rows,
+        suggested_mapping=_suggested_mapping_from_column_map(column_map),
     )
 
 
-def parse_xlsx(content: bytes) -> ParsedFile:
+def parse_xlsx(content: bytes, mapping: dict[str, str] | None = None) -> ParsedFile:
     """Parse Excel .xlsx via openpyxl. Returns ParsedFile (same shape as parse_csv)."""
     wb = load_workbook(io.BytesIO(content), read_only=True, data_only=True)
     ws = wb.active
@@ -286,26 +364,34 @@ def parse_xlsx(content: bytes) -> ParsedFile:
                           missing_required_columns=list(REQUIRED_FIELDS), total_rows_in_file=0)
 
     raw_columns = [str(c).strip() if c is not None else "" for c in header_cells]
-    column_map: dict[str, str] = {}
-    for raw in raw_columns:
-        canonical = COLUMN_ALIASES.get(_normalize_header(raw))
-        if canonical:
-            column_map[raw] = canonical
+    raw_data_rows = list(ws.iter_rows(min_row=2, values_only=True))
+    sample_rows = [
+        {
+            raw_header: str(cell).strip() if cell is not None else ""
+            for raw_header, cell in zip(raw_columns, row)
+        }
+        for row in raw_data_rows[:5]
+    ]
+    column_map = _build_column_map(raw_columns, mapping)
 
     missing = REQUIRED_FIELDS - set(column_map.values())
     if missing:
+        wb.close()
         return ParsedFile(
             rows=[],
             invalid_rows=[],
             detected_columns=column_map,
             missing_required_columns=sorted(missing),
             total_rows_in_file=0,
+            raw_columns=raw_columns,
+            sample_rows=sample_rows,
+            suggested_mapping=_suggested_mapping_from_column_map(column_map),
         )
 
     rows: list[ParsedRow] = []
     invalid: list[dict] = []
     seen_pn: set[str] = set()
-    for i, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
+    for i, row in enumerate(raw_data_rows, start=2):
         # Skip empty rows
         if not any(v is not None and str(v).strip() for v in row):
             continue
@@ -361,16 +447,19 @@ def parse_xlsx(content: bytes) -> ParsedFile:
         detected_columns=column_map,
         missing_required_columns=[],
         total_rows_in_file=len(rows) + len(invalid),
+        raw_columns=raw_columns,
+        sample_rows=sample_rows,
+        suggested_mapping=_suggested_mapping_from_column_map(column_map),
     )
 
 
-def parse_upload(filename: str, content: bytes) -> ParsedFile:
+def parse_upload(filename: str, content: bytes, mapping: dict[str, str] | None = None) -> ParsedFile:
     """Dispatch based on file extension."""
     name = filename.lower()
     if name.endswith(".csv"):
-        return parse_csv(content)
+        return parse_csv(content, mapping=mapping)
     if name.endswith(".xlsx"):
-        return parse_xlsx(content)
+        return parse_xlsx(content, mapping=mapping)
     if name.endswith(".xls"):
         raise ValueError("Старый формат .xls не поддерживается. Сохраните файл как .xlsx или .csv.")
     raise ValueError(f"Формат файла не поддерживается: {filename}. Используйте .xlsx или .csv.")
