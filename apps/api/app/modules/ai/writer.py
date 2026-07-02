@@ -48,6 +48,7 @@ async def _retrieve_and_rerank(
     queries: list[str],
     lesson_title: str,
     doc_ids: list[str] | None = None,
+    tenant_id: str | None = None,
     embeddings_provider=None,
     n_results: int = 15,
     top_n: int = 10,
@@ -77,6 +78,7 @@ async def _retrieve_and_rerank(
             n_results=n_results,
             where=where,
             include=["documents", "metadatas", "distances"],
+            tenant_id=tenant_id,
         )
         documents = results.get("documents", [[]])[0]
         distances = results.get("distances", [[]])[0]
@@ -122,6 +124,7 @@ async def write_lesson(
     module_title: str,
     course_title: str,
     doc_ids: list[str] | None = None,
+    tenant_id: str | None = None,
     relevant_headings: list[str] | None = None,
     language: str = "ru",
     sibling_lessons: list[str] | None = None,
@@ -137,6 +140,7 @@ async def write_lesson(
     # Step 2: Retrieve + rank
     formatted_chunks = await _retrieve_and_rerank(
         store, queries, lesson_title, doc_ids,
+        tenant_id=tenant_id,
         embeddings_provider=embeddings_provider,
     )
 
@@ -216,6 +220,7 @@ async def write_course(
     language: str = "ru",
     on_progress: Callable | None = None,
     embeddings_provider=None,
+    tenant_id: str | None = None,
 ) -> CourseContent:
     """Generate content for all lessons sequentially."""
     modules = []
@@ -249,6 +254,7 @@ async def write_course(
                 module_title=module.title,
                 course_title=structure.title,
                 doc_ids=doc_ids,
+                tenant_id=tenant_id,
                 relevant_headings=lesson_headings,
                 language=language,
                 sibling_lessons=[t for t in sibling_titles if t != lesson.title],

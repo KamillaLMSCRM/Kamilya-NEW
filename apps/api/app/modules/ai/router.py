@@ -96,6 +96,17 @@ async def generate_course(
                 await session.commit()
         except Exception as e:
             logger.error(f"Pipeline failed for job {job.id}: {e}", exc_info=True)
+            async with async_session_factory() as session:
+                await update_ai_job(
+                    session,
+                    job.id,
+                    tenant_id=str(user.tenant_id) if user.tenant_id else None,
+                    status="failed",
+                    stage="failed",
+                    progress=0,
+                    message=f"Generation failed: {str(e)[:300]}",
+                )
+                await session.commit()
         finally:
             _running_tasks.pop(job.id, None)
 

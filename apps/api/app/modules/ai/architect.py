@@ -212,6 +212,7 @@ def create_architect_tools(
             n_results=10,
             where=where,
             include=["documents", "metadatas", "distances"],
+            tenant_id=tenant_id,
         )
         # Post-filter by tenant_id via SQL to avoid leaking chunks from other
         # tenants. Chroma `where` doesn't support arbitrary AND with the

@@ -127,6 +127,11 @@ class VectorStore:
     def __init__(self, persist_dir: str = "./chroma_data"):
         self.persist_dir = persist_dir
 
+    async def _set_tenant_context(self, session, tenant_id: str | None) -> None:
+        if tenant_id:
+            from sqlalchemy import text
+            await session.execute(text("SELECT set_current_tenant(:tid)"), {"tid": str(tenant_id)})
+
     async def add_chunks(self, chunks: list[dict], embeddings: list[list[float]], tenant_id: str | None = None):
         """Add chunks with embeddings to Supabase.
 
@@ -148,6 +153,7 @@ class VectorStore:
         _logger = _log.getLogger(__name__)
 
         async with async_session_factory() as session:
+            await self._set_tenant_context(session, tenant_id)
             dropped = 0
             inserted = 0
             last_doc_id = ""
@@ -215,6 +221,7 @@ class VectorStore:
             # SELECT on a fresh connection (we add one below).
             await session.flush()
             await session.commit()
+            await self._set_tenant_context(session, tenant_id)
 
             # Verify rows landed — first inside the session (best-effort,
             # may see 0 under PgBouncer), then on a fresh session that
@@ -234,6 +241,7 @@ class VectorStore:
             # workers / queries will see.
             from app.core.db import async_session_factory as _fresh_factory
             async with _fresh_factory() as fresh:
+                await self._set_tenant_context(fresh, tenant_id)
                 cnt2 = await fresh.execute(
                     text(
                         "SELECT COUNT(*) FROM document_embeddings "
@@ -268,6 +276,7 @@ class VectorStore:
         n_results: int = 10,
         where: dict | None = None,
         include: list[str] | None = None,
+        tenant_id: str | None = None,
     ) -> dict:
         """Query the vector store using pgvector cosine distance."""
         from app.core.db import async_session_factory
@@ -309,6 +318,7 @@ class VectorStore:
         params["emb"] = emb_str
 
         async with async_session_factory() as session:
+            await self._set_tenant_context(session, tenant_id)
             result = await session.execute(sql, params)
             rows = result.fetchall()
 
@@ -318,7 +328,11 @@ class VectorStore:
 
         return {"documents": documents, "metadatas": metadatas, "distances": distances}
 
-    async def get_all_chunks(self, doc_ids: list[str] | None = None) -> list[tuple[str, dict]]:
+    async def get_all_chunks(
+        self,
+        doc_ids: list[str] | None = None,
+        tenant_id: str | None = None,
+    ) -> list[tuple[str, dict]]:
         """Get all chunks, optionally filtered by doc_ids."""
         from app.core.db import async_session_factory
         from sqlalchemy import text
@@ -335,6 +349,7 @@ class VectorStore:
                     params[f"doc_id_{i}"] = did
 
         async with async_session_factory() as session:
+            await self._set_tenant_context(session, tenant_id)
             result = await session.execute(text(f"SELECT text, doc_id, doc_name, headings FROM document_embeddings {where}"), params)
             rows = result.fetchall()
 

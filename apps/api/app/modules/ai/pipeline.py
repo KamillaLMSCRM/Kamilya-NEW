@@ -262,7 +262,10 @@ async def run_generation_pipeline(
             missing_docs: list[str] = []
             for doc_id in documents:
                 try:
-                    chunks = await store.get_all_chunks(doc_ids=[doc_id])
+                    chunks = await store.get_all_chunks(
+                        doc_ids=[doc_id],
+                        tenant_id=str(tenant_id) if tenant_id else None,
+                    )
                     if not chunks:
                         missing_docs.append(doc_id)
                         logger.warning(f"No embeddings found for doc {doc_id} — may need re-upload")
@@ -338,6 +341,7 @@ async def run_generation_pipeline(
             language=language,
             on_progress=on_lesson_progress,
             embeddings_provider=embeddings_provider,
+            tenant_id=str(tenant_id) if tenant_id else None,
         )
 
         state.content = content
