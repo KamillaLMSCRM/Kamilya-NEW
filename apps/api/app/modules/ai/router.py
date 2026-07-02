@@ -4,7 +4,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, WebSocket, WebSocketDisconnect, Query
 from uuid import UUID, uuid4
 from datetime import datetime, timezone
 from sqlalchemy import select
@@ -43,6 +43,7 @@ _running_tasks: dict[str, asyncio.Task] = {}
 @router.post("/generate-course", response_model=AIJobResponse, status_code=202)
 async def generate_course(
     req: AIGenerateRequest,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
@@ -110,8 +111,7 @@ async def generate_course(
         finally:
             _running_tasks.pop(job.id, None)
 
-    task = asyncio.create_task(_safe_pipeline())
-    _running_tasks[job.id] = task
+    background_tasks.add_task(_safe_pipeline)
 
     return AIJobResponse(
         id=job.id,
