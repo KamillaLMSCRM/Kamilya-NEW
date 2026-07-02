@@ -37,6 +37,18 @@ services:
         value: "http://10.66.66.7:8555"
       - key: QWEN_EMBEDDING_URL
         value: "http://10.66.66.7:8001"
+      - key: DEEPSEEK_API_KEY
+        sync: false
+      - key: DEEPSEEK_BASE_URL
+        value: "https://api.deepseek.com/v1"
+      - key: DEEPSEEK_MODEL
+        value: "deepseek-v4-flash"
+      - key: VOYAGE_API_KEY
+        sync: false
+      - key: VOYAGE_BASE_URL
+        value: "https://api.voyageai.com/v1"
+      - key: VOYAGE_MODEL
+        value: "voyage-4-lite"
       - key: TELEGRAM_BOT_TOKEN
         sync: false
       - key: EMAIL_PROVIDER
