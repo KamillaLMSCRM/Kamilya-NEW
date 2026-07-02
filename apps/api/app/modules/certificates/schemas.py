@@ -15,3 +15,13 @@ class CertificateResponse(BaseModel):
 
 class CertificateGenerateRequest(BaseModel):
     course_id: UUID
+
+
+class CertificateSettings(BaseModel):
+    organization_name: str = "Kamilya LMS"
+    signer_name: str = ""
+    signer_title: str = ""
+    validity_months: int | None = None
+    footer_note: str = ""
+    verification_base_url: str = "https://app.kml.kz/certificates"
+    show_verification_url: bool = True

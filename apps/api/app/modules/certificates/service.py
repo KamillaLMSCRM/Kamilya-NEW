@@ -6,9 +6,12 @@ from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm.attributes import flag_modified
 
+from app.models.tenants import Tenant
 from app.modules.certificates.models import Certificate
 from app.modules.certificates.pdf import write_certificate_pdf, read_certificate_pdf
+from app.modules.certificates.schemas import CertificateSettings
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +23,43 @@ def generate_certificate_number() -> str:
     return f"KML-{year}-{short_id}"
 
 
+def _add_months(dt: datetime, months: int) -> datetime:
+    month = dt.month - 1 + months
+    year = dt.year + month // 12
+    month = month % 12 + 1
+    day = min(dt.day, [31, 29 if year % 4 == 0 and (year % 100 != 0 or year % 400 == 0) else 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month - 1])
+    return dt.replace(year=year, month=month, day=day)
+
+
+async def get_certificate_settings(db: AsyncSession, tenant_id: UUID) -> CertificateSettings:
+    tenant = await db.get(Tenant, tenant_id)
+    raw = ((tenant.settings or {}) if tenant else {}).get("certificate_settings") or {}
+    return CertificateSettings(**raw)
+
+
+async def update_certificate_settings(
+    db: AsyncSession, tenant_id: UUID, payload: CertificateSettings
+) -> CertificateSettings:
+    tenant = await db.get(Tenant, tenant_id)
+    if not tenant:
+        raise ValueError("Tenant not found")
+    settings = dict(tenant.settings or {})
+    settings["certificate_settings"] = payload.model_dump()
+    tenant.settings = settings
+    flag_modified(tenant, "settings")
+    await db.flush()
+    return payload
+
+
+def _verification_url(settings: CertificateSettings, certificate_number: str) -> str:
+    if not settings.show_verification_url:
+        return ""
+    base = (settings.verification_base_url or "").rstrip("/")
+    if not base:
+        return ""
+    return f"{base}?verify={certificate_number}"
+
+
 async def _generate_and_store_pdf(
     db: AsyncSession,
     cert: Certificate,
@@ -28,6 +68,7 @@ async def _generate_and_store_pdf(
 ) -> None:
     """Render PDF and store via the active backend. Best-effort — logs but does not raise."""
     try:
+        settings = await get_certificate_settings(db, cert.tenant_id)
         key = write_certificate_pdf(
             cert_id=str(cert.id),
             tenant_id=str(cert.tenant_id),
@@ -35,6 +76,11 @@ async def _generate_and_store_pdf(
             course_title=course_title,
             certificate_number=cert.certificate_number,
             issued_at=cert.issued_at or datetime.now(timezone.utc),
+            organization=settings.organization_name,
+            signer_name=settings.signer_name,
+            signer_title=settings.signer_title,
+            footer_note=settings.footer_note,
+            verification_url=_verification_url(settings, cert.certificate_number),
         )
         cert.pdf_path = key
         await db.flush()
@@ -94,15 +140,21 @@ async def issue_certificate(
             if c:
                 course_title = c.title
 
+    issued_at = datetime.now(timezone.utc)
+    settings = await get_certificate_settings(db, tenant_id)
+    expires_at = _add_months(issued_at, settings.validity_months) if settings.validity_months else None
+
     cert = Certificate(
         tenant_id=tenant_id,
         user_id=user_id,
         course_id=course_id,
         certificate_number=generate_certificate_number(),
-        issued_at=datetime.now(timezone.utc),
+        issued_at=issued_at,
+        expires_at=expires_at,
         metadata_={
             "user_name": user_name or "",
             "course_title": course_title or "",
+            "certificate_settings": settings.model_dump(),
         },
     )
     db.add(cert)
@@ -154,6 +206,7 @@ async def read_pdf_bytes(
     user_name = (cert.metadata_ or {}).get("user_name", "Student")
     course_title = (cert.metadata_ or {}).get("course_title", "Course")
     try:
+        settings = await get_certificate_settings(db, tenant_id)
         key = write_certificate_pdf(
             cert_id=str(cert.id),
             tenant_id=str(tenant_id),
@@ -161,6 +214,11 @@ async def read_pdf_bytes(
             course_title=course_title,
             certificate_number=cert.certificate_number,
             issued_at=cert.issued_at or datetime.now(timezone.utc),
+            organization=settings.organization_name,
+            signer_name=settings.signer_name,
+            signer_title=settings.signer_title,
+            footer_note=settings.footer_note,
+            verification_url=_verification_url(settings, cert.certificate_number),
         )
         cert.pdf_path = key
         await db.flush()

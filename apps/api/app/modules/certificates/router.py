@@ -4,20 +4,44 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response, RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.auth import get_current_user
+from app.core.auth import get_current_user, require_role
 from app.core.db import get_db
 from app.core.storage import get_storage
-from app.modules.certificates.schemas import CertificateResponse
+from app.modules.certificates.schemas import CertificateResponse, CertificateSettings
 from app.modules.certificates.service import (
     issue_certificate,
     get_user_certificates,
     get_certificate,
+    get_certificate_settings,
+    update_certificate_settings,
     verify_certificate,
     read_pdf_bytes,
     get_pdf_url,
 )
 
 router = APIRouter(prefix="/certificates", tags=["certificates"])
+
+
+@router.get("/settings", response_model=CertificateSettings)
+async def get_settings(
+    db: AsyncSession = Depends(get_db),
+    user=Depends(require_role("admin", "org_admin")),
+):
+    """Get tenant certificate template/settings."""
+    return await get_certificate_settings(db, user.tenant_id)
+
+
+@router.put("/settings", response_model=CertificateSettings)
+async def save_settings(
+    payload: CertificateSettings,
+    db: AsyncSession = Depends(get_db),
+    user=Depends(require_role("admin", "org_admin")),
+):
+    """Save tenant certificate template/settings."""
+    try:
+        return await update_certificate_settings(db, user.tenant_id, payload)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
 
 @router.get("", response_model=list[CertificateResponse])

@@ -72,6 +72,10 @@ def render_certificate_pdf(
     certificate_number: str,
     issued_at: datetime,
     organization: str = "Kamilya LMS",
+    signer_name: str = "",
+    signer_title: str = "",
+    footer_note: str = "",
+    verification_url: str = "",
 ) -> bytes:
     """Render certificate as PDF bytes. Uses Helvetica + transliteration for Cyrillic."""
     pdf = CertificatePDF(orientation="L", unit="mm", format="A4")
@@ -125,13 +129,28 @@ def render_certificate_pdf(
     pdf.cell(95, 6, f"Certificate {_safe_text('№')}: {_safe_text(certificate_number)}", align="C", new_x="LMARGIN", new_y="NEXT")
 
     pdf.ln(15)
+    if signer_name or signer_title:
+        pdf.set_font("Helvetica", "", 10)
+        pdf.set_text_color(50, 50, 50)
+        pdf.cell(0, 6, _safe_text(signer_name), align="C", new_x="LMARGIN", new_y="NEXT")
+        if signer_title:
+            pdf.set_font("Helvetica", "I", 9)
+            pdf.cell(0, 5, _safe_text(signer_title), align="C", new_x="LMARGIN", new_y="NEXT")
+        pdf.ln(5)
+
     pdf.set_font("Helvetica", "I", 9)
+    footer = f"Issued by {_safe_text(organization)}"
+    if verification_url:
+        footer += f" - Verify: {_safe_text(verification_url)}"
     pdf.cell(
         0,
         5,
-        f"Issued by {_safe_text(organization)} - Verify at /verify/{_safe_text(certificate_number)}",
+        footer,
         align="C",
     )
+    if footer_note:
+        pdf.ln(5)
+        pdf.cell(0, 5, _safe_text(footer_note), align="C")
 
     return bytes(pdf.output())
 
@@ -143,6 +162,11 @@ def write_certificate_pdf(
     course_title: str,
     certificate_number: str,
     issued_at: datetime,
+    organization: str = "Kamilya LMS",
+    signer_name: str = "",
+    signer_title: str = "",
+    footer_note: str = "",
+    verification_url: str = "",
 ) -> str:
     """Render and upload PDF to the active storage backend. Returns the storage key."""
     from app.core.storage import get_storage
@@ -151,6 +175,11 @@ def write_certificate_pdf(
         course_title=course_title,
         certificate_number=certificate_number,
         issued_at=issued_at,
+        organization=organization,
+        signer_name=signer_name,
+        signer_title=signer_title,
+        footer_note=footer_note,
+        verification_url=verification_url,
     )
     key = f"{tenant_id}/{cert_id}.pdf"
     get_storage().put_bytes(key, pdf_bytes, content_type="application/pdf")
