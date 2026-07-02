@@ -19,10 +19,17 @@ from app.models.users import User
 from app.modules.audit.service import log_action
 from app.modules.auth.router import _set_refresh_cookie
 from app.modules.auth.service import build_user_payload
-from app.modules.tenants.schemas import TenantRegisterRequest, TenantRegisterResponse, TrialLimits
+from app.modules.tenants.schemas import (
+    PublicLeadRequest,
+    PublicLeadResponse,
+    TenantRegisterRequest,
+    TenantRegisterResponse,
+    TrialLimits,
+)
 
 
 router = APIRouter(prefix="/tenants", tags=["tenants"])
+public_router = APIRouter(prefix="/public", tags=["public"])
 _ph = argon2.PasswordHasher()
 
 TRIAL_DAYS = 14
@@ -59,6 +66,24 @@ def _split_contact_name(name: str) -> tuple[str, str]:
     return parts[0], " ".join(parts[1:])
 
 
+def _build_public_lead_message(payload: PublicLeadRequest) -> str | None:
+    parts: list[str] = []
+    if payload.message:
+        parts.append(payload.message.strip())
+    metadata = {
+        "interest": payload.interest,
+        "industry": payload.industry,
+        "utm_source": payload.utm_source,
+        "utm_medium": payload.utm_medium,
+        "utm_campaign": payload.utm_campaign,
+        "referrer": payload.referrer,
+    }
+    compact = {key: value for key, value in metadata.items() if value}
+    if compact:
+        parts.append(f"Landing metadata: {compact}")
+    return "\n\n".join(parts) if parts else None
+
+
 async def _unique_slug(db: AsyncSession, company_name: str) -> str:
     base = _slugify(company_name)
     candidate = base
@@ -74,6 +99,34 @@ async def _unique_slug(db: AsyncSession, company_name: str) -> str:
                 detail={"code": "slug_taken", "message": "Could not generate a free tenant slug."},
             )
         candidate = f"{base}-{suffix}"
+
+
+@public_router.post("/leads", response_model=PublicLeadResponse, status_code=status.HTTP_201_CREATED)
+async def submit_public_lead(
+    payload: PublicLeadRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    if payload.website:
+        return PublicLeadResponse(id=uuid4(), ok=True)
+
+    lead = TenantLead(
+        tenant_id=None,
+        company_name=payload.company.strip(),
+        contact_name=payload.name.strip(),
+        email=payload.email,
+        phone=payload.phone.strip() if payload.phone else None,
+        employee_count_range=str(payload.companySize) if payload.companySize else None,
+        preferred_language=payload.locale,
+        intent=payload.interest,
+        status="lead_submitted",
+        source="landing_form",
+        message=_build_public_lead_message(payload),
+    )
+    db.add(lead)
+    await db.flush()
+    lead_id = lead.id
+    await db.commit()
+    return PublicLeadResponse(id=lead_id, ok=True)
 
 
 @router.post("/register", response_model=TenantRegisterResponse, status_code=status.HTTP_201_CREATED)

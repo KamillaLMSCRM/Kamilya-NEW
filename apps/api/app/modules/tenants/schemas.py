@@ -53,3 +53,30 @@ class TenantRegisterResponse(BaseModel):
     trial_ends_at: datetime
     limits: TrialLimits
     next_step: str = "trial_onboarding"
+
+
+class PublicLeadRequest(BaseModel):
+    name: str = Field(..., min_length=2, max_length=100)
+    company: str = Field(..., min_length=2, max_length=200)
+    email: EmailStr
+    phone: str | None = Field(None, max_length=50)
+    companySize: int | None = Field(None, ge=1, le=100000)
+    industry: str | None = Field(None, max_length=80)
+    interest: str = Field(..., max_length=40)
+    message: str | None = Field(None, max_length=1000)
+    locale: Literal["ru", "kk"] = "ru"
+    utm_source: str | None = Field(None, max_length=100)
+    utm_medium: str | None = Field(None, max_length=100)
+    utm_campaign: str | None = Field(None, max_length=100)
+    referrer: str | None = Field(None, max_length=500)
+    website: str | None = Field(None, max_length=0)
+
+    @field_validator("email")
+    @classmethod
+    def normalize_public_email(cls, value: str) -> str:
+        return value.lower().strip()
+
+
+class PublicLeadResponse(BaseModel):
+    id: UUID
+    ok: bool = True
