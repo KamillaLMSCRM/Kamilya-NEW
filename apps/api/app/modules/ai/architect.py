@@ -58,12 +58,18 @@ def create_architect_tools(
             clauses.append(extra_where)
         return ("WHERE " + " AND ".join(clauses)) if clauses else "", params
 
+    async def _set_tenant_context(session) -> None:
+        if tenant_id is not None:
+            from sqlalchemy import text
+            await session.execute(text("SELECT set_current_tenant(:tid)"), {"tid": str(tenant_id)})
+
     async def list_documents() -> str:
         """List all ingested documents with IDs and names from DB (tenant-scoped)."""
         from app.core.db import async_session_factory
         from sqlalchemy import text
 
         async with async_session_factory() as session:
+            await _set_tenant_context(session)
             if scope:
                 placeholders = ", ".join(f":doc_{i}" for i in range(len(scope)))
                 extra = f"doc_id IN ({placeholders})"
@@ -95,6 +101,7 @@ def create_architect_tools(
             return f"Document '{doc_id}' is not in the current scope."
 
         async with async_session_factory() as session:
+            await _set_tenant_context(session)
             where, params = _tenant_clause("doc_id = :doc_id")
             params["doc_id"] = doc_id
             result = await session.execute(
@@ -129,6 +136,7 @@ def create_architect_tools(
             return f"Document '{doc_id}' is not in scope."
 
         async with async_session_factory() as session:
+            await _set_tenant_context(session)
             where, params = _tenant_clause("doc_id = :doc_id")
             params["doc_id"] = doc_id
             result = await session.execute(
@@ -168,6 +176,7 @@ def create_architect_tools(
         chapter_read_counts[doc_id] += 1
 
         async with async_session_factory() as session:
+            await _set_tenant_context(session)
             where, params = _tenant_clause("doc_id = :doc_id")
             params["doc_id"] = doc_id
             result = await session.execute(
@@ -230,6 +239,7 @@ def create_architect_tools(
             if candidate_doc_names:
                 placeholders = ", ".join(f":n_{i}" for i in range(len(candidate_doc_names)))
                 async with async_session_factory() as session:
+                    await _set_tenant_context(session)
                     res = await session.execute(
                         _sa_text(
                             f"SELECT DISTINCT doc_name FROM document_embeddings "
@@ -429,6 +439,10 @@ When ready to output the final course structure, output ONLY the JSON code block
     from sqlalchemy import text as sa_text
     async with async_session_factory() as session:
         if tenant_id is not None:
+            await session.execute(
+                sa_text("SELECT set_current_tenant(:tid)"),
+                {"tid": str(tenant_id)},
+            )
             all_docs = await session.execute(
                 sa_text(
                     "SELECT DISTINCT doc_id, doc_name FROM document_embeddings "
