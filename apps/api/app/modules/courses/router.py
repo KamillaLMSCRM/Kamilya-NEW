@@ -418,8 +418,6 @@ async def _complete_course_for_user(db: AsyncSession, course_id: UUID, user: Use
         )
     )
     enrollment = result.scalar_one_or_none()
-    if not enrollment:
-        raise HTTPException(status_code=404, detail="Not enrolled")
 
     course_result = await db.execute(
         select(Course).where(Course.id == course_id, Course.tenant_id == user.tenant_id)
@@ -494,6 +492,17 @@ async def _complete_course_for_user(db: AsyncSession, course_id: UUID, user: Use
                 "total_quizzes": total_quizzes,
             },
         )
+
+    if not enrollment:
+        enrollment = Enrollment(
+            course_id=course_id,
+            user_id=user.id,
+            tenant_id=user.tenant_id,
+            status="enrolled",
+            source="manual",
+        )
+        db.add(enrollment)
+        await db.flush()
 
     was_already_completed = enrollment.status == "completed"
     if not was_already_completed:

@@ -271,7 +271,8 @@ export default function CoursePlayerPage() {
           });
           return;
         }
-        throw new Error(`HTTP ${res.status}`);
+        const message = typeof detail?.detail === 'string' ? detail.detail : `HTTP ${res.status}`;
+        throw new Error(message);
       }
       const data: { certificate_id?: string; status?: string } = await res.json().catch(() => ({}));
       toast.success(t('toast.courseCompleted'));
@@ -287,7 +288,9 @@ export default function CoursePlayerPage() {
       router.push('/courses');
     } catch (e) {
       console.error('Course completion failed', e);
-      toast.error(t('common.saveFailed'));
+      toast.error(t('common.saveFailed'), {
+        description: e instanceof Error ? e.message : undefined,
+      });
     }
   };
 
