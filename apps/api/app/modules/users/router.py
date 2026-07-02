@@ -280,7 +280,7 @@ async def change_user_role(
 async def bulk_invite_users(
     payload: InvitationBulkCreateRequest,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("admin", "org_admin", "superadmin", "methodologist")),
+    user: User = Depends(require_role("admin", "org_admin", "superadmin", "teacher")),
 ):
     """Bulk-create user invitations (Phase 1).
 
