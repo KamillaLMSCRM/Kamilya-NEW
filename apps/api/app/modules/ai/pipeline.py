@@ -368,8 +368,16 @@ async def run_generation_pipeline(
 
         reviewer = ReviewerAgent(llm_client=llm)
         low_quality_lessons = []
+        reviewed_lessons = 0
         for mod_idx, content_mod in enumerate(content.modules):
             for les_idx, content_les in enumerate(content_mod.lessons):
+                reviewed_lessons += 1
+                await _update_job_db(
+                    job_id,
+                    tenant_id=tenant_id,
+                    progress=min(72 + int(reviewed_lessons / max(total_lessons, 1) * 3), 74),
+                    message=f"Reviewing lesson {reviewed_lessons}/{total_lessons}: {content_les.title if hasattr(content_les, 'title') else ''}",
+                )
                 review = await reviewer.review_lesson(
                     lesson_content=content_les.content if hasattr(content_les, 'content') else "",
                     lesson_meta={

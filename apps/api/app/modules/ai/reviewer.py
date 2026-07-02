@@ -1,6 +1,7 @@
 """Reviewer Agent: validates generated content with LLM-as-judge + heuristic fallback."""
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from typing import Any
@@ -45,7 +46,10 @@ Content:
 {lesson_content[:6000]}
 """
         try:
-            response = await self.llm.ainvoke([{"role": "user", "content": prompt}])
+            response = await asyncio.wait_for(
+                self.llm.ainvoke([{"role": "user", "content": prompt}]),
+                timeout=45,
+            )
             text = response.content.strip()
             # Extract JSON from response
             if "```" in text:
