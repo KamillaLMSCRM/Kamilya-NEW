@@ -3,7 +3,7 @@
 import { usePathname } from 'next/navigation';
 import Layout from '@/components/layout/Layout';
 
-const publicRoutes = ['/', '/register'];
+const publicRoutes = ['/', '/register', '/register-tenant'];
 // Platform superadmin login lives outside any tenant layout — no sidebar,
 // no AuthProvider tenant context required. Add the prefix so it stays
 // render-bare like /login.
