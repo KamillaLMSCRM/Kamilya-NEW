@@ -6,11 +6,75 @@ from sqlalchemy import select, func, desc
 
 from app.models.users import User
 from app.models.courses import Course
+from app.models.tenants import Tenant, TenantUsage
 from app.models.enrollment import Enrollment
 from app.models.progress import Progress
 from app.models.document import Document
 from app.modules.certificates.models import Certificate
 from app.modules.quizzes.models import QuizAttempt
+
+
+def _usage_item(used: int, limit: int | None) -> dict:
+    return {
+        "used": used,
+        "limit": limit,
+        "remaining": None if limit is None else max(0, limit - used),
+    }
+
+
+async def get_trial_usage(db: AsyncSession, tenant_id: UUID) -> dict:
+    tenant = await db.get(Tenant, tenant_id)
+    if not tenant:
+        raise ValueError("Tenant not found")
+
+    limits = (tenant.settings or {}).get("trial_limits") or {}
+    ai_limit = limits.get("ai_course_generations_limit")
+    jd_limit = limits.get("jd_course_generations_limit")
+    learners_limit = limits.get("max_students") or tenant.max_users
+    system_users_limit = limits.get("system_users_limit")
+
+    usage = await db.get(TenantUsage, tenant_id)
+
+    learner_roles = ("student",)
+    learners_used = (
+        await db.execute(
+            select(func.count(User.id)).where(
+                User.tenant_id == tenant_id,
+                User.is_active == True,
+                User.role.in_(learner_roles),
+            )
+        )
+    ).scalar() or 0
+
+    system_users_used = (
+        await db.execute(
+            select(func.count(User.id)).where(
+                User.tenant_id == tenant_id,
+                User.is_active == True,
+                User.role.in_(("admin", "org_admin", "teacher", "methodologist")),
+            )
+        )
+    ).scalar() or 0
+
+    now = datetime.now(timezone.utc)
+    days_left = None
+    if tenant.trial_ends_at:
+        end = tenant.trial_ends_at
+        if end.tzinfo is None:
+            end = end.replace(tzinfo=timezone.utc)
+        days_left = max(0, (end - now).days)
+
+    return {
+        "plan": tenant.plan,
+        "status": tenant.status,
+        "trial_started_at": tenant.trial_started_at,
+        "trial_ends_at": tenant.trial_ends_at,
+        "days_left": days_left,
+        "ai_courses": _usage_item(int((usage.ai_course_generations_used if usage else 0) or 0), ai_limit),
+        "jd_courses": _usage_item(int((usage.jd_course_generations_used if usage else 0) or 0), jd_limit),
+        "learners": _usage_item(int(learners_used), learners_limit),
+        "system_users": _usage_item(int(system_users_used), system_users_limit),
+    }
 
 
 async def get_tenant_stats(db: AsyncSession, tenant_id: UUID) -> dict:

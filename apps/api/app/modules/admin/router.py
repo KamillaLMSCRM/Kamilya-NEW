@@ -7,8 +7,8 @@ import io
 
 from app.core.auth import require_role
 from app.core.db import get_db
-from app.modules.admin.schemas import AdminDashboard, TenantStats
-from app.modules.admin.service import get_admin_dashboard, get_tenant_stats
+from app.modules.admin.schemas import AdminDashboard, TenantStats, TrialUsage
+from app.modules.admin.service import get_admin_dashboard, get_tenant_stats, get_trial_usage
 from app.modules.admin.export import (
     export_users_csv,
     export_courses_csv,
@@ -36,6 +36,18 @@ async def stats(
 ):
     """Get tenant statistics (admin only)."""
     return await get_tenant_stats(db, user.tenant_id)
+
+
+@router.get("/trial-usage", response_model=TrialUsage)
+async def trial_usage(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_role("admin", "org_admin")),
+):
+    """Get tenant-facing trial limits and current usage."""
+    try:
+        return await get_trial_usage(db, user.tenant_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
 
 @router.get("/export/users")

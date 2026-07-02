@@ -41,11 +41,30 @@ interface CourseItem {
   enrollment_count: number;
 }
 
+interface TrialUsageItem {
+  used: number;
+  limit: number | null;
+  remaining: number | null;
+}
+
+interface TrialUsage {
+  plan: string;
+  status: string;
+  trial_started_at: string | null;
+  trial_ends_at: string | null;
+  days_left: number | null;
+  ai_courses: TrialUsageItem;
+  jd_courses: TrialUsageItem;
+  learners: TrialUsageItem;
+  system_users: TrialUsageItem;
+}
+
 export default function AdminDashboardPage() {
   const { t } = useT();
   const [stats, setStats] = useState<TenantStats | null>(null);
   const [users, setUsers] = useState<UserItem[]>([]);
   const [courses, setCourses] = useState<CourseItem[]>([]);
+  const [trialUsage, setTrialUsage] = useState<TrialUsage | null>(null);
   const [loading, setLoading] = useState(true);
   const token = useAuthStore((s) => s.accessToken);
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -53,7 +72,7 @@ export default function AdminDashboardPage() {
   const fetchData = useCallback(async () => {
     if (!token) return;
     try {
-      const [statsRes, usersRes, coursesRes] = await Promise.all([
+      const [statsRes, usersRes, coursesRes, trialUsageRes] = await Promise.all([
         fetch(`${API_URL}/v1/admin/stats`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
@@ -61,6 +80,9 @@ export default function AdminDashboardPage() {
           headers: { Authorization: `Bearer ${token}` },
         }),
         fetch(`${API_URL}/v1/courses`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        fetch(`${API_URL}/v1/admin/trial-usage`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
       ]);
@@ -71,6 +93,7 @@ export default function AdminDashboardPage() {
         setUsers(data.users || []);
       }
       if (coursesRes.ok) setCourses(await coursesRes.json());
+      if (trialUsageRes.ok) setTrialUsage(await trialUsageRes.json());
     } finally {
       setLoading(false);
     }
@@ -101,6 +124,18 @@ export default function AdminDashboardPage() {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
+  const formatLimit = (item: TrialUsageItem) => {
+    if (item.limit == null) return `${item.used} / без лимита`;
+    return `${item.used} / ${item.limit}`;
+  };
+
+  const trialItems = trialUsage ? [
+    { label: 'AI-курс', value: formatLimit(trialUsage.ai_courses), left: trialUsage.ai_courses.remaining },
+    { label: 'Курс по ДИ', value: formatLimit(trialUsage.jd_courses), left: trialUsage.jd_courses.remaining },
+    { label: 'Обучающиеся', value: formatLimit(trialUsage.learners), left: trialUsage.learners.remaining },
+    { label: 'Пользователи системы', value: formatLimit(trialUsage.system_users), left: trialUsage.system_users.remaining },
+  ] : [];
+
   if (loading) return <div className="p-6">{t('common.loading')}</div>;
   if (!stats) return <div className="p-6">{t('common.error')}</div>;
 
@@ -114,6 +149,39 @@ export default function AdminDashboardPage() {
           <Button variant="outline" onClick={() => handleExport('quiz-results')}>{t('admin.exportQuizResults')}</Button>
         </div>
       </div>
+
+      {trialUsage && (
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <div className="flex items-center gap-2">
+                  <Badge variant={trialUsage.status === 'trial' ? 'secondary' : 'outline'}>
+                    {trialUsage.plan}
+                  </Badge>
+                  <h2 className="text-lg font-semibold text-foreground">Trial и лимиты</h2>
+                </div>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {trialUsage.trial_ends_at
+                    ? `Осталось дней: ${trialUsage.days_left ?? 0}. До ${new Date(trialUsage.trial_ends_at).toLocaleDateString('ru')}.`
+                    : 'Дата окончания trial не задана.'}
+                </p>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                {trialItems.map((item) => (
+                  <div key={item.label} className="rounded-xl border border-border bg-muted/30 px-3 py-2">
+                    <div className="text-xs text-muted-foreground">{item.label}</div>
+                    <div className="mt-1 text-base font-semibold text-foreground">{item.value}</div>
+                    {item.left != null && (
+                      <div className="text-xs text-muted-foreground">Осталось: {item.left}</div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>

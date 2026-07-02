@@ -19,6 +19,24 @@ class TenantStats(BaseModel):
     storage_used_bytes: int = 0
 
 
+class TrialUsageItem(BaseModel):
+    used: int = 0
+    limit: int | None = None
+    remaining: int | None = None
+
+
+class TrialUsage(BaseModel):
+    plan: str
+    status: str
+    trial_started_at: datetime | None = None
+    trial_ends_at: datetime | None = None
+    days_left: int | None = None
+    ai_courses: TrialUsageItem
+    jd_courses: TrialUsageItem
+    learners: TrialUsageItem
+    system_users: TrialUsageItem
+
+
 class UserListItem(BaseModel):
     id: UUID
     email: str
