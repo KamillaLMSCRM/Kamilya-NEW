@@ -1,7 +1,7 @@
 # Kamilya LMS - Project Context
 
 > Living document. No secrets in this file.
-> Updated: 2026-07-01.
+> Updated: 2026-07-02.
 
 ## Source Of Truth
 
@@ -100,21 +100,23 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 
 ## Current Production DB State
 
-As of 2026-07-01:
+As of 2026-07-02:
 
-- Alembic: `0043 (head)`.
+- Alembic: `0045 (head)`.
 - RLS/FORCE RLS enabled for tenant-scoped tables with `tenant_id`.
 - Runtime app and worker connect as `lms_app`.
 - `provider_keys` is intentionally excluded from generic tenant RLS migration because `tenant_id IS NULL` represents global platform keys.
 
 ## Current Production Deploy
 
-As of 2026-07-01:
+As of 2026-07-02:
 
-- GitHub `master` latest backend-relevant commit: `5dfaee6 fix: add root health probe endpoint`.
-- Render deploy `dep-d92dgvpo3t8c73bd5pug` is live on commit `5dfaee6`.
+- GitHub `master` latest backend-relevant commit: `2990f2f fix: ignore empty ai quizzes in completion`.
+- Render service `srv-d8rp8ej7uimc73fglid0` is live on commit `2990f2f`.
 - `/`, `/health`, and `/api/v1/health` return 200.
 - Email OTP request endpoint returns a neutral success response for unknown emails and sends OTP for known tenant users.
+- First tenant-flow production smoke passed: AI course generation, assignment, learner completion and certificate issue.
+- Smoke evidence: AI job `64891564-5bb5-4648-ba40-c3ec04d40621`, course `7e434b25-1057-42b0-ac64-ed56daa6b041`, certificate `KML-2026-5DE383`.
 
 ## Tenant Acquisition Status
 
@@ -130,6 +132,7 @@ Not finished:
 - Trial onboarding wizard.
 - Billing/upgrade request UI.
 - Superadmin lead pipeline and tenant activation workflow.
+- Cleanup for historical queued/running AI jobs from pre-fix smoke runs.
 
 ## Product Invariants
 
@@ -137,6 +140,8 @@ Not finished:
 - System users and learners are different product concepts even if both are rows in `users`.
 - Direct manual assignment is learning-content work, not tenant-admin work.
 - Course completion must require lessons and required quiz checks.
+- Empty generated quiz records must not block course completion.
+- AI generation must not block indefinitely on optional LLM review.
 - Certificate issue is backend-owned and idempotent.
 - Tenant filtering and RLS are mandatory for tenant-scoped data.
 

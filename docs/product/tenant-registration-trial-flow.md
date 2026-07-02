@@ -1,12 +1,12 @@
 # Tenant Registration And Trial Flow
 
 > Status: product spec with v1 implementation notes.
-> Date: 2026-07-01.
+> Date: 2026-07-02.
 > Decision: no self-hosted mail server for v1; use transactional email provider plus Telegram bot as optional acceleration channel.
 
 ## Current Implementation Status
 
-Implemented on 2026-07-01:
+Implemented as of 2026-07-02:
 
 - Frontend route: `/register-tenant`.
 - Public backend endpoint: `POST /api/v1/tenants/register`.
@@ -34,12 +34,13 @@ Implemented on 2026-07-01:
   - `POST /api/v1/auth/email/verify-code`;
   - `/login` has Email and Telegram modes.
 - Resend support is implemented behind `EMAIL_PROVIDER=resend`, `RESEND_API_KEY`, `EMAIL_FROM`.
-- Production Resend is active as of 2026-07-01:
+- Production Resend is active as of 2026-07-02:
   - sender: `Kamilya LMS <no-reply@notify.kml.kz>`;
   - sending domain: `notify.kml.kz`;
   - DKIM, SPF/return-path and DMARC for `notify.kml.kz` verified in DNS;
   - Render env is set for `EMAIL_PROVIDER=resend`, `RESEND_API_KEY`, `EMAIL_FROM`.
-- Production Render API is live on commit `5dfaee6`; `/`, `/health`, `/api/v1/health` return 200.
+- Production Render API is live on commit `2990f2f`; `/`, `/health`, `/api/v1/health` return 200.
+- First tenant-flow production smoke passed: AI course generation, methodologist assignment, learner completion and certificate issue.
 - The old `/register` Telegram-ID flow remains as a legacy fallback.
 
 Not implemented yet:

@@ -1,7 +1,7 @@
 # Kamilya LMS Core
 
-> Актуализировано: 2026-07-01.
-> Статус: beta, продуктовый контур работает, продолжается доведение superadmin, RBAC и learner-flow.
+> Актуализировано: 2026-07-02.
+> Статус: beta, первый production tenant-flow пройден end-to-end; остаются trial enforcement, billing и superadmin commercial control.
 
 ## Видение Продукта
 
@@ -90,9 +90,9 @@ Runtime и migrations разделены:
 - `DATABASE_URL` - runtime connection через `lms_app`, без `BYPASSRLS`.
 - `MIGRATION_DATABASE_URL` - admin connection для Alembic DDL.
 
-Supabase на 2026-07-01:
+Supabase на 2026-07-02:
 
-- Alembic version: `0043`.
+- Alembic version: `0045`.
 - Tenant tables with `tenant_id`: RLS enabled and FORCE RLS enabled.
 - `provider_keys` исключена из общей tenant policy, потому что `tenant_id IS NULL` используется для global platform key.
 - Production Render и VPS worker обновлены на `lms_app` runtime connection.
@@ -102,9 +102,16 @@ Supabase на 2026-07-01:
 - `/login` поддерживает два режима: email OTP и Telegram code flow.
 - Email OTP: `POST /api/v1/auth/email/request-code` и `POST /api/v1/auth/email/verify-code`.
 - Production transactional email: Resend, sender `Kamilya LMS <no-reply@notify.kml.kz>`.
-- Resend sending domain: `notify.kml.kz`; DKIM/SPF/return-path/DMARC verified in DNS as of 2026-07-01.
+- Resend sending domain: `notify.kml.kz`; DKIM/SPF/return-path/DMARC verified in DNS as of 2026-07-02.
 - `/register-tenant` создает trial tenant: 14 дней, 1 normal AI course, 1 job-instruction course, 10 learners, 3 system users.
-- Full billing UI and superadmin lead management are not finished yet; see `docs/NEXT_STEPS_2026-07-01.md`.
+- Full billing UI, trial enforcement and superadmin lead management are not finished yet; see `docs/NEXT_STEPS_2026-07-01.md`.
+
+Production smoke 2026-07-02:
+
+- Backend live commit: `2990f2f fix: ignore empty ai quizzes in completion`.
+- AI job: `64891564-5bb5-4648-ba40-c3ec04d40621`.
+- Generated course: `7e434b25-1057-42b0-ac64-ed56daa6b041`.
+- Certificate issued: `KML-2026-5DE383`.
 
 Подробности: [docs/supabase-audit-2026-07-01.md](./docs/supabase-audit-2026-07-01.md).
 
