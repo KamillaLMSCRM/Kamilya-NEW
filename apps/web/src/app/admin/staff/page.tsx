@@ -270,18 +270,20 @@ export default function AdminStaffPage() {
       {/* Format help */}
       <Card>
         <CardHeader>
-          <CardTitle>📄 Формат файла</CardTitle>
+          <CardTitle>📄 Файл штатного расписания</CardTitle>
         </CardHeader>
         <CardContent className="text-sm text-foreground space-y-2">
-          <div>Поддерживаются: <strong>.xlsx</strong> (Excel), <strong>.csv</strong> (UTF-8 или Windows-1251).</div>
+          <div>Загрузите Excel <strong>.xlsx</strong> или CSV-файл. Для CSV подходят кодировки UTF-8 и Windows-1251.</div>
           <div>
-            <strong>Обязательные колонки:</strong> табельный_номер (personnel_number), имя (first_name), фамилия (last_name), отдел (department), должность (position).
+            <strong>Обязательные столбцы:</strong> табельный номер, имя, фамилия, отдел, должность.
           </div>
           <div>
-            <strong>Опционально:</strong> email, телефон (phone), дата_приема (hire_date).
+            <strong>Дополнительно:</strong> email, телефон, дата приёма.
           </div>
           <div className="text-muted-foreground text-xs">
-            Первая строка — заголовки. Можно на русском или английском. Регистр не важен.
+            Первая строка должна содержать заголовки. Можно писать по-русски или латиницей:
+            Табельный номер / personnel_number, Имя / first_name, Фамилия / last_name,
+            Отдел / department, Должность / position. Регистр не важен.
           </div>
         </CardContent>
       </Card>
@@ -289,7 +291,7 @@ export default function AdminStaffPage() {
       {/* Upload + preview */}
       <Card>
         <CardHeader>
-          <CardTitle>1️⃣ Загрузить файл</CardTitle>
+          <CardTitle>1️⃣ Загрузка штатки</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <input
@@ -297,11 +299,19 @@ export default function AdminStaffPage() {
             type="file"
             accept=".xlsx,.csv"
             onChange={handleFileSelect}
-            className="block w-full text-sm text-foreground file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
+            className="sr-only"
           />
+          <div className="flex flex-wrap items-center gap-3">
+            <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()}>
+              Выбрать файл
+            </Button>
+            <span className="text-sm text-muted-foreground">
+              {selectedFile ? selectedFile.name : 'Файл не выбран'}
+            </span>
+          </div>
           {selectedFile && (
             <div className="flex items-center gap-2 text-sm text-foreground">
-              <span>📎 {selectedFile.name} ({(selectedFile.size / 1024).toFixed(1)} КБ)</span>
+              <span>📎 {(selectedFile.size / 1024).toFixed(1)} КБ</span>
             </div>
           )}
           <div className="flex gap-2">

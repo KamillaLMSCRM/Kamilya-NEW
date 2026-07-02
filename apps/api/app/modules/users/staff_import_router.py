@@ -11,7 +11,7 @@ import logging
 
 from celery.result import AsyncResult
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import require_role
@@ -45,12 +45,19 @@ class PreviewItemResponse(BaseModel):
 
 
 class PreviewResponse(BaseModel):
-    items: list[PreviewItemResponse]
-    new_positions: list[str]
-    new_departments: list[str]
-    summary: dict
-    invalid_rows: list[dict] = []  # rows that failed to parse (with errors)
-    missing_required_columns: list[str] = []
+    items: list[PreviewItemResponse] = Field(default_factory=list)
+    new_positions: list[str] = Field(default_factory=list)
+    new_departments: list[str] = Field(default_factory=list)
+    summary: dict = Field(default_factory=lambda: {
+        "create": 0,
+        "update": 0,
+        "skip": 0,
+        "new_positions": 0,
+        "new_departments": 0,
+        "invalid_rows": 0,
+    })
+    invalid_rows: list[dict] = Field(default_factory=list)  # rows that failed to parse (with errors)
+    missing_required_columns: list[str] = Field(default_factory=list)
     total_rows_in_file: int = 0
 
 
@@ -74,6 +81,17 @@ def _parsed_file_to_response(parsed: ParsedFile, preview: PreviewResult | None =
         "total_rows_in_file": parsed.total_rows_in_file,
         "invalid_rows": parsed.invalid_rows,
         "detected_columns": parsed.detected_columns,
+        "items": [],
+        "new_positions": [],
+        "new_departments": [],
+        "summary": {
+            "create": 0,
+            "update": 0,
+            "skip": 0,
+            "new_positions": 0,
+            "new_departments": 0,
+            "invalid_rows": len(parsed.invalid_rows),
+        },
     }
     if preview is not None:
         out["items"] = [
