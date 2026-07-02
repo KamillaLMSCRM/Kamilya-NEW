@@ -40,6 +40,14 @@ router = APIRouter(
 _running_tasks: dict[str, asyncio.Task] = {}
 
 
+def _job_course_uuid(course_id) -> UUID | None:
+    if course_id is None:
+        return None
+    if isinstance(course_id, UUID):
+        return course_id
+    return UUID(str(course_id))
+
+
 @router.post("/generate-course", response_model=AIJobResponse, status_code=202)
 async def generate_course(
     req: AIGenerateRequest,
@@ -152,7 +160,7 @@ async def list_jobs(
         AIJobResponse(
             id=j.id,
             status=j.status,
-            course_id=UUID(j.course_id) if j.course_id else None,
+            course_id=_job_course_uuid(j.course_id),
             created_at=j.created_at,
             progress=j.progress,
             stage=j.stage,
@@ -176,7 +184,7 @@ async def get_job(
     return AIJobResponse(
         id=job.id,
         status=job.status,
-        course_id=UUID(job.course_id) if job.course_id else None,
+        course_id=_job_course_uuid(job.course_id),
         created_at=job.created_at,
         progress=job.progress,
         stage=job.stage,
