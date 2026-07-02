@@ -95,7 +95,7 @@ export default function EnrollmentsPage() {
   const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
   const token = useAuthStore((s) => s.accessToken);
   const userRole = useAuthStore((s) => s.user?.role);
-  const canManageAssignments = userRole === 'methodologist' || userRole === 'teacher';
+  const canManageAssignments = userRole === 'teacher';
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
   // ── фильтры (UI-side) ──────────────────────────────────
