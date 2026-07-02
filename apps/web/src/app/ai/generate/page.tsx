@@ -31,6 +31,8 @@ interface Document {
   content_type: string;
   size: number;
   description: string;
+  embedding_status: 'pending' | 'success' | 'failed';
+  embedding_error?: string | null;
   short_summary?: string | null;
   summary_ready?: boolean;
 }
@@ -119,6 +121,23 @@ export default function AIGeneratePage() {
   const [editForm, setEditForm] = useState<{ title: string; content: string }>({ title: '', content: '' });
   const [editSaving, setEditSaving] = useState(false);
 
+  const selectedDocuments = documents.filter((doc) => selectedDocIds.includes(doc.id));
+  const selectedNotReadyCount = selectedDocuments.filter((doc) => doc.embedding_status !== 'success').length;
+  const failedDocumentsCount = documents.filter((doc) => doc.embedding_status === 'failed').length;
+  const canGenerate = selectedDocIds.length > 0 && selectedNotReadyCount === 0;
+
+  const documentStatusLabel = (status: Document['embedding_status']) => {
+    if (status === 'success') return 'Готов';
+    if (status === 'failed') return 'Ошибка';
+    return 'Обработка';
+  };
+
+  const documentStatusClass = (status: Document['embedding_status']) => {
+    if (status === 'success') return 'bg-success/10 text-success border-success/30';
+    if (status === 'failed') return 'bg-destructive/10 text-destructive border-destructive/30';
+    return 'bg-warning/10 text-warning border-warning/30';
+  };
+
   useEffect(() => { fetchDocuments(); restoreActiveJob(); }, []);
 
   const restoreActiveJob = async () => {
@@ -130,6 +149,14 @@ export default function AIGeneratePage() {
       if (status === 'running' || status === 'pending') {
         setCurrentJob(res.data);
         setStep('generate');
+      } else if (status === 'completed' && res.data.course_id) {
+        setCurrentJob(res.data);
+        setStep('review');
+        localStorage.removeItem('ai_active_job_id');
+      } else if (status === 'failed' || status === 'cancelled') {
+        setCurrentJob(res.data);
+        setStep('generate');
+        localStorage.removeItem('ai_active_job_id');
       } else {
         // Backend confirmed terminal state — safe to drop reference
         localStorage.removeItem('ai_active_job_id');
@@ -178,10 +205,13 @@ export default function AIGeneratePage() {
   };
 
   const toggleDoc = (id: string) => {
+    const doc = documents.find((item) => item.id === id);
+    if (doc && doc.embedding_status !== 'success') return;
     setSelectedDocIds(prev => prev.includes(id) ? prev.filter(d => d !== id) : [...prev, id]);
   };
 
   const handleGenerate = async () => {
+    if (!canGenerate) return;
     try {
       const res = await api.post('/v1/ai/generate-course', {
         documents: selectedDocIds,
@@ -467,34 +497,61 @@ export default function AIGeneratePage() {
               <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">
                 Загруженные документы ({selectedDocIds.length} выбрано)
               </div>
-              {documents.map(doc => (
-                <label
-                  key={doc.id}
-                  className={`flex items-center gap-3 rounded-xl border p-3 cursor-pointer transition-all ${
-                    selectedDocIds.includes(doc.id)
-                      ? 'border-primary bg-primary/5'
-                      : 'border-border hover:border-border'
-                  }`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={selectedDocIds.includes(doc.id)}
-                    onChange={() => toggleDoc(doc.id)}
-                    className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium text-foreground truncate">{doc.title}</div>
-                    {doc.short_summary ? (
-                      <div className="text-xs text-primary/80 truncate italic">
-                        {doc.summary_ready ? '📄 ' : '⚠️ '}{doc.short_summary}
+              {documents.map(doc => {
+                const isReady = doc.embedding_status === 'success';
+                const isSelected = selectedDocIds.includes(doc.id);
+
+                return (
+                  <label
+                    key={doc.id}
+                    title={doc.embedding_status === 'failed' ? doc.embedding_error || 'Документ не прошел индексацию' : undefined}
+                    className={`flex items-center gap-3 rounded-xl border p-3 transition-all ${
+                      isSelected
+                        ? 'border-primary bg-primary/5'
+                        : isReady
+                          ? 'border-border hover:border-border cursor-pointer'
+                          : 'border-border bg-muted/40 opacity-80 cursor-not-allowed'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      disabled={!isReady}
+                      onChange={() => toggleDoc(doc.id)}
+                      className="h-4 w-4 rounded border-border text-primary focus:ring-primary disabled:cursor-not-allowed disabled:opacity-50"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="text-sm font-medium text-foreground truncate">{doc.title}</div>
+                        <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-medium ${documentStatusClass(doc.embedding_status)}`}>
+                          {documentStatusLabel(doc.embedding_status)}
+                        </span>
                       </div>
-                    ) : doc.description ? (
-                      <div className="text-xs text-muted-foreground truncate">{doc.description}</div>
-                    ) : null}
-                  </div>
-                  <div className="text-xs text-muted-foreground shrink-0">{doc.filename}</div>
-                </label>
-              ))}
+                      {doc.short_summary ? (
+                        <div className="text-xs text-primary/80 truncate italic">
+                          {doc.summary_ready ? '📄 ' : '⚠️ '}{doc.short_summary}
+                        </div>
+                      ) : doc.embedding_status === 'failed' ? (
+                        <div className="text-xs text-destructive truncate">
+                          {doc.embedding_error || 'Документ нужно загрузить повторно или проверить формат.'}
+                        </div>
+                      ) : doc.embedding_status === 'pending' ? (
+                        <div className="text-xs text-warning truncate">
+                          Индексация еще идет. Обновите список через несколько секунд.
+                        </div>
+                      ) : doc.description ? (
+                        <div className="text-xs text-muted-foreground truncate">{doc.description}</div>
+                      ) : null}
+                    </div>
+                    <div className="text-xs text-muted-foreground shrink-0 max-w-[180px] truncate">{doc.filename}</div>
+                  </label>
+                );
+              })}
+              {failedDocumentsCount > 0 && (
+                <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                  Есть документы с ошибкой индексации. Они не участвуют в генерации, пока файл не будет загружен заново или ошибка не будет исправлена.
+                </div>
+              )}
             </div>
           )}
 
@@ -538,11 +595,16 @@ export default function AIGeneratePage() {
 
           <button
             onClick={handleGenerate}
-            disabled={selectedDocIds.length === 0}
+            disabled={!canGenerate}
             className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-medium text-white hover:bg-primary/90 transition-colors disabled:opacity-50"
           >
             {t('ai.generate')} ({selectedDocIds.length} документов)
           </button>
+          {selectedDocIds.length > 0 && selectedNotReadyCount > 0 && (
+            <div className="text-center text-xs text-warning">
+              Генерацию можно запустить только по документам со статусом «Готов».
+            </div>
+          )}
         </div>
       )}
 
@@ -866,6 +928,14 @@ export default function AIGeneratePage() {
 
           {/* Footer actions */}
           <div className="flex flex-wrap gap-3">
+            {courseMeta?.review_status === 'approved' && (
+              <button
+                onClick={() => router.push('/assignments')}
+                className="flex-1 min-w-[180px] inline-flex items-center justify-center gap-1.5 rounded-xl bg-success px-4 py-3 text-sm font-medium text-success-foreground hover:bg-success/90 transition-colors"
+              >
+                Назначить курс <ChevronRight className="w-4 h-4" />
+              </button>
+            )}
             <button
               onClick={() => router.push(`/courses/${currentJob.course_id}/edit`)}
               className="flex-1 min-w-[180px] inline-flex items-center justify-center gap-1.5 rounded-xl bg-primary px-4 py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
