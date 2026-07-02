@@ -161,7 +161,7 @@ def _qwen_embed_provider() -> LLMProviderConfig:
         base_url=s.QWEN_EMBEDDING_URL,
         api_key=s.LLM_API_KEY or "not-needed",
         model="Qwen3-Embedding-8B",
-        timeout=120.0,
+        timeout=20.0,
     )
 
 
@@ -175,7 +175,7 @@ def _voyage_embed_provider() -> LLMProviderConfig | None:
         base_url=s.VOYAGE_BASE_URL,
         api_key=s.VOYAGE_API_KEY,
         model=s.VOYAGE_MODEL,
-        timeout=60.0,
+        timeout=30.0,
     )
 
 

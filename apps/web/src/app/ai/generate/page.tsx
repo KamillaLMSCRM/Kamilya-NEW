@@ -58,8 +58,6 @@ const STAGES = [
   { key: 'saving', label: 'Сохранение', icon: Save, color: 'text-muted-foreground' },
 ];
 
-const DOCUMENT_UPLOAD_TIMEOUT_MS = 120_000;
-
 export default function AIGeneratePage() {
   const { t } = useT();
   const router = useRouter();
@@ -74,6 +72,7 @@ export default function AIGeneratePage() {
   const [currentJob, setCurrentJob] = useState<AIGenerationJob | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [uploadingCount, setUploadingCount] = useState(0);
+  const [uploadingFiles, setUploadingFiles] = useState<string[]>([]);
   const [uploadError, setUploadError] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -194,6 +193,7 @@ export default function AIGeneratePage() {
 
   const uploadFile = async (file: File) => {
     setUploadingCount((count) => count + 1);
+    setUploadingFiles((files) => [...files, file.name]);
     setUploadError('');
     const formData = new FormData();
     formData.append('file', file);
@@ -201,16 +201,24 @@ export default function AIGeneratePage() {
     try {
       await api.post('/v1/documents/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
-        signal: AbortSignal.timeout(DOCUMENT_UPLOAD_TIMEOUT_MS),
       });
       await fetchDocuments();
     } catch (e) {
       console.error('Upload failed', e);
-      const message = 'Документ не загрузился за 2 минуты. Проверьте размер/формат файла и попробуйте ещё раз.';
+      const message = 'Документ не загрузился. Проверьте формат файла и попробуйте ещё раз.';
       setUploadError(message);
       toast.error('Ошибка загрузки документа', { description: message });
     } finally {
       setUploadingCount((count) => Math.max(0, count - 1));
+      setUploadingFiles((files) => files.filter((name) => name !== file.name));
+    }
+  };
+
+  const handleFileInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    e.target.value = '';
+    for (const file of files) {
+      await uploadFile(file);
     }
   };
 
@@ -491,14 +499,19 @@ export default function AIGeneratePage() {
             }`}
           >
             <input ref={fileRef} type="file" multiple onChange={(e) => {
-              Array.from(e.target.files || []).forEach(uploadFile);
+              void handleFileInputChange(e);
             }} className="hidden" accept=".pdf,.doc,.docx,.txt,.md,.pptx,.xlsx,.csv" />
             <div className="text-2xl mb-2 text-muted-foreground">
               {uploading ? <Loader2 className="w-8 h-8 mx-auto animate-spin" /> : <FolderOpen className="w-8 h-8 mx-auto" />}
             </div>
             <p className="text-sm text-muted-foreground">
-              {uploading ? 'Загрузка...' : 'Перетащите документы или нажмите для выбора'}
+              {uploading ? `Загружаю: ${uploadingFiles.join(', ') || 'файл'}` : 'Перетащите документы или нажмите для выбора'}
             </p>
+            {uploading && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                Идёт загрузка и индексация. Не закрывайте вкладку до появления документа в списке.
+              </p>
+            )}
           </div>
 
           {uploadError && (
