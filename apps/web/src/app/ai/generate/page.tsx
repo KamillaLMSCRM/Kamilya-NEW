@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
 import { api } from '@/lib/api';
+import { toast } from '@/components/ui/Toast';
 import {
   FileText,
   Building2,
@@ -57,6 +58,8 @@ const STAGES = [
   { key: 'saving', label: 'Сохранение', icon: Save, color: 'text-muted-foreground' },
 ];
 
+const DOCUMENT_UPLOAD_TIMEOUT_MS = 120_000;
+
 export default function AIGeneratePage() {
   const { t } = useT();
   const router = useRouter();
@@ -70,7 +73,8 @@ export default function AIGeneratePage() {
   const [language, setLanguage] = useState('ru');
   const [currentJob, setCurrentJob] = useState<AIGenerationJob | null>(null);
   const [dragOver, setDragOver] = useState(false);
-  const [uploading, setUploading] = useState(false);
+  const [uploadingCount, setUploadingCount] = useState(0);
+  const [uploadError, setUploadError] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
 
   // Result-step state: preview of the generated course + approval.
@@ -125,6 +129,7 @@ export default function AIGeneratePage() {
   const selectedNotReadyCount = selectedDocuments.filter((doc) => doc.embedding_status !== 'success').length;
   const failedDocumentsCount = documents.filter((doc) => doc.embedding_status === 'failed').length;
   const canGenerate = selectedDocIds.length > 0 && selectedNotReadyCount === 0;
+  const uploading = uploadingCount > 0;
 
   const documentStatusLabel = (status: Document['embedding_status']) => {
     if (status === 'success') return 'Готов';
@@ -188,19 +193,24 @@ export default function AIGeneratePage() {
   };
 
   const uploadFile = async (file: File) => {
-    setUploading(true);
+    setUploadingCount((count) => count + 1);
+    setUploadError('');
     const formData = new FormData();
     formData.append('file', file);
     formData.append('title', file.name.replace(/\.[^/.]+$/, ''));
     try {
       await api.post('/v1/documents/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
+        signal: AbortSignal.timeout(DOCUMENT_UPLOAD_TIMEOUT_MS),
       });
       await fetchDocuments();
     } catch (e) {
       console.error('Upload failed', e);
+      const message = 'Документ не загрузился за 2 минуты. Проверьте размер/формат файла и попробуйте ещё раз.';
+      setUploadError(message);
+      toast.error('Ошибка загрузки документа', { description: message });
     } finally {
-      setUploading(false);
+      setUploadingCount((count) => Math.max(0, count - 1));
     }
   };
 
@@ -490,6 +500,12 @@ export default function AIGeneratePage() {
               {uploading ? 'Загрузка...' : 'Перетащите документы или нажмите для выбора'}
             </p>
           </div>
+
+          {uploadError && (
+            <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              {uploadError}
+            </div>
+          )}
 
           {/* Documents list */}
           {documents.length > 0 && (

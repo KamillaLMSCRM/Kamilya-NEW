@@ -16,6 +16,8 @@ interface User {
   last_login: string | null;
 }
 
+const emptyNewUser = { email: '', first_name: '', last_name: '', role: 'teacher', password: '' };
+
 export default function AdminTeamPage() {
   const { t } = useT();
   const [users, setUsers] = useState<User[]>([]);
@@ -28,7 +30,7 @@ export default function AdminTeamPage() {
   // Student provisioning goes through /admin/staff (Excel import) or the
   // Telegram-bot flow. Platform superadmin is tenant_id=NULL and must
   // never be created from this tenant-level surface.
-  const [newUser, setNewUser] = useState({ email: '', first_name: '', last_name: '', role: 'teacher', password: '' });
+  const [newUser, setNewUser] = useState(emptyNewUser);
 
   const token = useAuthStore((s) => s.accessToken);
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -58,6 +60,20 @@ export default function AdminTeamPage() {
 
   const [createError, setCreateError] = useState('');
 
+  const openCreateModal = () => {
+    setCreateError('');
+    setNewUser(emptyNewUser);
+    setShowCreateModal(true);
+  };
+
+  const handleCreateModalOpenChange = (open: boolean) => {
+    setShowCreateModal(open);
+    if (open) {
+      setCreateError('');
+      setNewUser(emptyNewUser);
+    }
+  };
+
   const handleCreate = async () => {
     setCreateError('');
     if (!newUser.email.trim()) { setCreateError(t('users.teamPage.errors.emailRequired')); return; }
@@ -72,7 +88,7 @@ export default function AdminTeamPage() {
     });
     if (res.ok) {
       setShowCreateModal(false);
-      setNewUser({ email: '', first_name: '', last_name: '', role: 'teacher', password: '' });
+      setNewUser(emptyNewUser);
       fetchUsers();
     } else {
       const err = await res.json().catch(() => ({ detail: t('users.teamPage.errors.generic') }));
@@ -107,7 +123,7 @@ export default function AdminTeamPage() {
             {t('users.teamPage.subtitle')}
           </p>
         </div>
-        <Button onClick={() => setShowCreateModal(true)}>+ {t('users.createButton')}</Button>
+        <Button onClick={openCreateModal}>+ {t('users.createButton')}</Button>
       </div>
 
       <div className="flex gap-2">
@@ -221,7 +237,7 @@ export default function AdminTeamPage() {
       </div>
 
       {/* Create user modal */}
-      <Modal open={showCreateModal} onOpenChange={setShowCreateModal}>
+      <Modal open={showCreateModal} onOpenChange={handleCreateModalOpenChange}>
         <CardHeader>
           <CardTitle>{t('users.teamPage.newMember')}</CardTitle>
         </CardHeader>
@@ -229,7 +245,9 @@ export default function AdminTeamPage() {
           <label className="block">
             <span className="text-sm text-foreground mb-1 block">{t('users.email')}</span>
             <Input
+              name="new_team_member_email"
               type="email"
+              autoComplete="off"
               value={newUser.email}
               onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
             />
@@ -237,6 +255,8 @@ export default function AdminTeamPage() {
           <label className="block">
             <span className="text-sm text-foreground mb-1 block">{t('users.name')}</span>
             <Input
+              name="new_team_member_first_name"
+              autoComplete="off"
               value={newUser.first_name}
               onChange={(e) => setNewUser({ ...newUser, first_name: e.target.value })}
             />
@@ -244,6 +264,8 @@ export default function AdminTeamPage() {
           <label className="block">
             <span className="text-sm text-foreground mb-1 block">{t('users.surname')}</span>
             <Input
+              name="new_team_member_last_name"
+              autoComplete="off"
               value={newUser.last_name}
               onChange={(e) => setNewUser({ ...newUser, last_name: e.target.value })}
             />
@@ -265,7 +287,9 @@ export default function AdminTeamPage() {
           <label className="block">
             <span className="text-sm text-foreground mb-1 block">{t('users.password')}</span>
             <Input
+              name="new_team_member_password"
               type="password"
+              autoComplete="new-password"
               value={newUser.password}
               onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
             />
