@@ -98,6 +98,12 @@ async def generate_course(
         except Exception as e:
             logger.error(f"Pipeline failed for job {job.id}: {e}", exc_info=True)
             async with async_session_factory() as session:
+                if user.tenant_id:
+                    from sqlalchemy import text
+                    await session.execute(
+                        text("SELECT set_current_tenant(:tid)"),
+                        {"tid": str(user.tenant_id)},
+                    )
                 await update_ai_job(
                     session,
                     job.id,

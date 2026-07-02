@@ -1,4 +1,4 @@
-"""AI Generation Pipeline — orchestrates architect, writer, and assessment agents."""
+﻿"""AI Generation Pipeline вЂ” orchestrates architect, writer, and assessment agents."""
 from __future__ import annotations
 
 import asyncio
@@ -40,11 +40,15 @@ class GenerationState:
     errors: list[str] = field(default_factory=list)
 
 
-async def _update_job_db(job_id: str, **kwargs):
+async def _update_job_db(job_id: str, tenant_id: UUID | str | None = None, **kwargs):
     """Update job state in the database."""
     from app.modules.ai.job_service import update_ai_job
+    from sqlalchemy import text
     async with async_session_factory() as session:
-        await update_ai_job(session, job_id, **kwargs)
+        tenant_value = str(tenant_id) if tenant_id else None
+        if tenant_value:
+            await session.execute(text("SELECT set_current_tenant(:tid)"), {"tid": tenant_value})
+        await update_ai_job(session, job_id, tenant_id=tenant_value, **kwargs)
         await session.commit()
 
 
@@ -57,8 +61,10 @@ async def _save_generation_to_db(
     from app.modules.courses.models import Course
     from app.modules.lessons.models import Module, Lesson
     from app.modules.quizzes.models import Quiz, Question, QuizChoice
+    from sqlalchemy import text
 
     async with async_session_factory() as session:
+        await session.execute(text("SELECT set_current_tenant(:tid)"), {"tid": str(tenant_id)})
         # Create course
         course = Course(
             id=UUID(state.course_id) if state.course_id else uuid4(),
@@ -161,13 +167,13 @@ async def _save_generation_to_db(
 
                                     session.add(QuizChoice(
                                         question_id=question.id,
-                                        text="Верно",
+                                        text="Р’РµСЂРЅРѕ",
                                         is_correct=tf.is_true,
                                         order_index=0,
                                     ))
                                     session.add(QuizChoice(
                                         question_id=question.id,
-                                        text="Неверно",
+                                        text="РќРµРІРµСЂРЅРѕ",
                                         is_correct=not tf.is_true,
                                         order_index=1,
                                     ))
@@ -178,10 +184,10 @@ async def _save_generation_to_db(
                                     for pair in mq.pairs:
                                         question = Question(
                                             quiz_id=quiz.id,
-                                            text=f"{mq.instruction}: {pair.left} → ?",
+                                            text=f"{mq.instruction}: {pair.left} в†’ ?",
                                             type="multiple_choice",
                                             points=1,
-                                            explanation=f"Правильный ответ: {pair.right}",
+                                            explanation=f"РџСЂР°РІРёР»СЊРЅС‹Р№ РѕС‚РІРµС‚: {pair.right}",
                                             order_index=q_idx,
                                         )
                                         session.add(question)
@@ -209,15 +215,19 @@ def _check_cancelled(job_id: str):
     from app.modules.ai.router import _running_tasks
     # If task was cancelled via asyncio, this will be raised
     # Also check DB status
-    # (synchronous check — the actual task.cancel() sets CancelledError)
+    # (synchronous check вЂ” the actual task.cancel() sets CancelledError)
 
 
-async def _check_cancelled_async(job_id: str):
+async def _check_cancelled_async(job_id: str, tenant_id: UUID | str | None = None):
     """Async check: raise CancelledError if job status is 'cancelled' in DB."""
     from app.modules.ai.job_service import get_ai_job
     from app.core.db import async_session_factory
+    from sqlalchemy import text
     async with async_session_factory() as session:
-        job = await get_ai_job(session, job_id)
+        tenant_value = str(tenant_id) if tenant_id else None
+        if tenant_value:
+            await session.execute(text("SELECT set_current_tenant(:tid)"), {"tid": tenant_value})
+        job = await get_ai_job(session, job_id, tenant_id=tenant_value)
         if job and job.status == "cancelled":
             raise asyncio.CancelledError(f"Job {job_id} cancelled")
 
@@ -246,11 +256,11 @@ async def run_generation_pipeline(
     state = GenerationState(job_id=job_id, course_id=course_id)
 
     try:
-        # Stage 1: Ingestion — actually ingest documents into vector store
+        # Stage 1: Ingestion вЂ” actually ingest documents into vector store
         state.stage = "ingestion"
         state.progress = 5
-        state.message = "Проверка эмбеддингов документов..."
-        await _update_job_db(job_id, status="running", stage="ingestion", progress=5, message=state.message)
+        state.message = "РџСЂРѕРІРµСЂРєР° СЌРјР±РµРґРґРёРЅРіРѕРІ РґРѕРєСѓРјРµРЅС‚РѕРІ..."
+        await _update_job_db(job_id, tenant_id=tenant_id, status="running", stage="ingestion", progress=5, message=state.message)
 
         # Documents are ingested at upload time into pgvector.
         # Here we verify embeddings exist for the requested doc_ids and fail-fast
@@ -268,7 +278,7 @@ async def run_generation_pipeline(
                     )
                     if not chunks:
                         missing_docs.append(doc_id)
-                        logger.warning(f"No embeddings found for doc {doc_id} — may need re-upload")
+                        logger.warning(f"No embeddings found for doc {doc_id} вЂ” may need re-upload")
                 except Exception as e:
                     logger.warning(f"Could not check embeddings for {doc_id}: {e}")
             if len(missing_docs) == len(documents):
@@ -283,11 +293,11 @@ async def run_generation_pipeline(
                 )
 
         # Stage 2: Architect
-        await _check_cancelled_async(job_id)
+        await _check_cancelled_async(job_id, tenant_id=tenant_id)
         state.stage = "architect"
         state.progress = 10
-        state.message = "Проектирование структуры курса..."
-        await _update_job_db(job_id, stage="architect", progress=10, message=state.message)
+        state.message = "РџСЂРѕРµРєС‚РёСЂРѕРІР°РЅРёРµ СЃС‚СЂСѓРєС‚СѓСЂС‹ РєСѓСЂСЃР°..."
+        await _update_job_db(job_id, tenant_id=tenant_id, stage="architect", progress=10, message=state.message)
 
         llm = await ResilientLLMClient.from_settings_async()
         store = VectorStore()
@@ -308,21 +318,21 @@ async def run_generation_pipeline(
             num_modules=num_modules,
             language=language,
             guidance=guidance,
-            on_message=lambda msg: asyncio.create_task(_update_job_db(job_id, message=f"Architect: {msg}")),
+            on_message=lambda msg: asyncio.create_task(_update_job_db(job_id, tenant_id=tenant_id, message=f"Architect: {msg}")),
             tenant_id=str(tenant_id) if tenant_id else None,
         )
 
         state.structure = structure
         state.progress = 25
-        state.message = f"Структура спроектирована: {len(structure.modules)} модулей"
-        await _update_job_db(job_id, progress=25, message=state.message)
+        state.message = f"РЎС‚СЂСѓРєС‚СѓСЂР° СЃРїСЂРѕРµРєС‚РёСЂРѕРІР°РЅР°: {len(structure.modules)} РјРѕРґСѓР»РµР№"
+        await _update_job_db(job_id, tenant_id=tenant_id, progress=25, message=state.message)
 
         # Stage 3: Content Generation (Writer)
-        await _check_cancelled_async(job_id)
+        await _check_cancelled_async(job_id, tenant_id=tenant_id)
         state.stage = "content_generation"
         state.progress = 30
-        state.message = "Генерация контента уроков..."
-        await _update_job_db(job_id, stage="content_generation", progress=30, message=state.message)
+        state.message = "Р“РµРЅРµСЂР°С†РёСЏ РєРѕРЅС‚РµРЅС‚Р° СѓСЂРѕРєРѕРІ..."
+        await _update_job_db(job_id, tenant_id=tenant_id, stage="content_generation", progress=30, message=state.message)
 
         total_lessons = sum(len(m.lessons) for m in structure.modules)
         lessons_done = 0
@@ -331,7 +341,7 @@ async def run_generation_pipeline(
             nonlocal lessons_done
             lessons_done += 1
             pct = 30 + int(lessons_done / total_lessons * 40) if total_lessons > 0 else 70
-            await _update_job_db(job_id, progress=min(pct, 70), message=msg)
+            await _update_job_db(job_id, tenant_id=tenant_id, progress=min(pct, 70), message=msg)
 
         content = await write_course(
             llm=llm,
@@ -346,15 +356,15 @@ async def run_generation_pipeline(
 
         state.content = content
         state.progress = 70
-        state.message = "Контент сгенерирован"
-        await _update_job_db(job_id, progress=70, message=state.message)
+        state.message = "РљРѕРЅС‚РµРЅС‚ СЃРіРµРЅРµСЂРёСЂРѕРІР°РЅ"
+        await _update_job_db(job_id, tenant_id=tenant_id, progress=70, message=state.message)
 
         # Stage 3.5: Review content quality
-        await _check_cancelled_async(job_id)
+        await _check_cancelled_async(job_id, tenant_id=tenant_id)
         state.stage = "review"
         state.progress = 72
-        state.message = "Проверка качества контента..."
-        await _update_job_db(job_id, stage="review", progress=72, message=state.message)
+        state.message = "РџСЂРѕРІРµСЂРєР° РєР°С‡РµСЃС‚РІР° РєРѕРЅС‚РµРЅС‚Р°..."
+        await _update_job_db(job_id, tenant_id=tenant_id, stage="review", progress=72, message=state.message)
 
         reviewer = ReviewerAgent(llm_client=llm)
         low_quality_lessons = []
@@ -377,18 +387,18 @@ async def run_generation_pipeline(
                     })
 
         if low_quality_lessons:
-            state.message = f"Проверка: {len(low_quality_lessons)} уроков ниже порога качества"
-            await _update_job_db(job_id, message=state.message)
+            state.message = f"РџСЂРѕРІРµСЂРєР°: {len(low_quality_lessons)} СѓСЂРѕРєРѕРІ РЅРёР¶Рµ РїРѕСЂРѕРіР° РєР°С‡РµСЃС‚РІР°"
+            await _update_job_db(job_id, tenant_id=tenant_id, message=state.message)
         else:
-            state.message = "Качество контента проверено"
-            await _update_job_db(job_id, message=state.message)
+            state.message = "РљР°С‡РµСЃС‚РІРѕ РєРѕРЅС‚РµРЅС‚Р° РїСЂРѕРІРµСЂРµРЅРѕ"
+            await _update_job_db(job_id, tenant_id=tenant_id, message=state.message)
 
         # Stage 4: Assessment Generation
-        await _check_cancelled_async(job_id)
+        await _check_cancelled_async(job_id, tenant_id=tenant_id)
         state.stage = "assessment"
         state.progress = 75
-        state.message = "Генерация тестов..."
-        await _update_job_db(job_id, stage="assessment", progress=75, message=state.message)
+        state.message = "Р“РµРЅРµСЂР°С†РёСЏ С‚РµСЃС‚РѕРІ..."
+        await _update_job_db(job_id, tenant_id=tenant_id, stage="assessment", progress=75, message=state.message)
 
         assessments_done = 0
 
@@ -396,7 +406,7 @@ async def run_generation_pipeline(
             nonlocal assessments_done
             assessments_done += 1
             pct = 75 + int(assessments_done / total_lessons * 20) if total_lessons > 0 else 95
-            await _update_job_db(job_id, progress=min(pct, 95), message=msg)
+            await _update_job_db(job_id, tenant_id=tenant_id, progress=min(pct, 95), message=msg)
 
         assessment = await generate_course_assessment(
             llm=llm,
@@ -407,14 +417,14 @@ async def run_generation_pipeline(
 
         state.assessment = assessment
         state.progress = 95
-        state.message = "Тесты сгенерированы"
-        await _update_job_db(job_id, progress=95, message=state.message)
+        state.message = "РўРµСЃС‚С‹ СЃРіРµРЅРµСЂРёСЂРѕРІР°РЅС‹"
+        await _update_job_db(job_id, tenant_id=tenant_id, progress=95, message=state.message)
 
         # Stage 5: Save to DB
         state.stage = "saving"
         state.progress = 98
-        state.message = "Сохранение результатов..."
-        await _update_job_db(job_id, stage="saving", progress=98, message=state.message)
+        state.message = "РЎРѕС…СЂР°РЅРµРЅРёРµ СЂРµР·СѓР»СЊС‚Р°С‚РѕРІ..."
+        await _update_job_db(job_id, tenant_id=tenant_id, stage="saving", progress=98, message=state.message)
 
         if tenant_id and user_id:
             await _save_generation_to_db(state, tenant_id, user_id)
@@ -426,6 +436,7 @@ async def run_generation_pipeline(
                     from sqlalchemy import select as sa_select
                     from app.core.db import async_session_factory
                     async with async_session_factory() as session:
+                        await session.execute(text("SELECT set_current_tenant(:tid)"), {"tid": str(tenant_id)})
                         existing = await session.execute(
                             sa_select(Enrollment).where(
                                 Enrollment.user_id == user_id,
@@ -448,9 +459,10 @@ async def run_generation_pipeline(
 
         state.status = "completed"
         state.progress = 100
-        state.message = "Курс успешно сгенерирован!"
+        state.message = "РљСѓСЂСЃ СѓСЃРїРµС€РЅРѕ СЃРіРµРЅРµСЂРёСЂРѕРІР°РЅ!"
         await _update_job_db(
             job_id,
+            tenant_id=tenant_id,
             status="completed",
             stage="completed",
             progress=100,
@@ -464,7 +476,9 @@ async def run_generation_pipeline(
         state.status = "failed"
         state.message = f"Error: {str(e)}"
         state.errors.append(str(e))
-        await _update_job_db(job_id, status="failed", message=state.message, errors=[str(e)])
+        await _update_job_db(job_id, tenant_id=tenant_id, status="failed", message=state.message, errors=[str(e)])
         logger.error(f"Generation pipeline failed for job {job_id}: {e}")
 
     return state
+
+
