@@ -438,7 +438,7 @@ async def generate_jd_from_name(
 
     Same LLM prompt as analyze-jd, just no text extraction step.
     """
-    from app.modules.ai.llm_client import create_llm
+    from app.modules.ai.llm_client import ResilientLLMClient
 
     name = req.name.strip()
     if not name:
@@ -462,7 +462,7 @@ async def generate_jd_from_name(
 Пиши реалистично, как для реальной должности в казахстанской компании."""
 
     try:
-        llm = create_llm(temperature=0.4, max_tokens=1024)
+        llm = await ResilientLLMClient.from_settings_async(temperature=0.4, max_tokens=1024)
         response = await llm.ainvoke([{"role": "user", "content": prompt}])
         raw = response.content.strip()
         if raw.startswith("```"):
@@ -470,9 +470,31 @@ async def generate_jd_from_name(
             if raw.endswith("```"):
                 raw = raw[:-3]
             raw = raw.strip()
-        data = json.loads(raw)
-    except json.JSONDecodeError:
-        raise HTTPException(status_code=422, detail="AI returned invalid response. Please try again.")
+        try:
+            data = json.loads(raw)
+        except json.JSONDecodeError as first_err:
+            logger.warning(
+                "generate-jd-from-name: initial JSON parse failed (%s); trying json_repair",
+                first_err,
+            )
+            try:
+                from json_repair import repair_json
+                repaired = repair_json(raw, return_objects=True)
+                if not isinstance(repaired, dict):
+                    raise ValueError("json_repair did not return a dict")
+                data = repaired
+            except Exception as repair_err:
+                logger.error(
+                    "generate-jd-from-name: json_repair failed: %s; raw=%s",
+                    repair_err,
+                    raw[:500],
+                )
+                raise HTTPException(
+                    status_code=422,
+                    detail="AI returned invalid response. Please try again.",
+                ) from repair_err
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"generate-jd-from-name failed: {e}")
         raise HTTPException(status_code=503, detail="AI service unavailable. Please try again later.")
