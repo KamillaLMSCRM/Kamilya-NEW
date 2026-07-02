@@ -15,7 +15,7 @@ from app.modules.lessons.schemas import (
 )
 from app.modules.lessons.service import (
     list_modules, create_module, update_module, delete_module,
-    list_lessons, create_lesson, update_lesson, delete_lesson,
+    list_lessons, create_lesson as create_lesson_service, update_lesson, delete_lesson,
     reorder_items, get_course_structure,
     list_content_blocks, create_content_block, update_content_block,
     delete_content_block, reorder_content_blocks,
@@ -109,7 +109,7 @@ async def create_lesson(
     module = result.scalar_one_or_none()
     if not module:
         raise HTTPException(status_code=404, detail="Module not found")
-    lesson = await create_lesson(db, module_id, user.tenant_id, data)
+    lesson = await create_lesson_service(db, module_id, user.tenant_id, data)
     return lesson
 
 
