@@ -64,6 +64,9 @@ class PreviewResponse(BaseModel):
     raw_columns: list[str] = Field(default_factory=list)
     sample_rows: list[dict[str, str]] = Field(default_factory=list)
     suggested_mapping: dict[str, str] = Field(default_factory=dict)
+    sheet_name: str | None = None
+    header_row: int = 1
+    sheets: list[dict] = Field(default_factory=list)
 
 
 class CommitResponse(BaseModel):
@@ -89,6 +92,9 @@ def _parsed_file_to_response(parsed: ParsedFile, preview: PreviewResult | None =
         "raw_columns": parsed.raw_columns,
         "sample_rows": parsed.sample_rows,
         "suggested_mapping": parsed.suggested_mapping,
+        "sheet_name": parsed.sheet_name,
+        "header_row": parsed.header_row,
+        "sheets": parsed.sheets,
         "items": [],
         "new_positions": [],
         "new_departments": [],
@@ -140,6 +146,7 @@ def _parse_mapping(mapping: str | None) -> dict[str, str] | None:
 async def import_staff_preview(
     file: UploadFile = File(...),
     mapping: str = Form(""),
+    sheet_name: str = Form(""),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role("admin", "org_admin", "superadmin", "methodologist")),
 ):
@@ -154,7 +161,12 @@ async def import_staff_preview(
         raise HTTPException(status_code=413, detail="Файл слишком большой (макс. 10 МБ)")
 
     try:
-        parsed = parse_upload(file.filename or "upload", content, mapping=_parse_mapping(mapping))
+        parsed = parse_upload(
+            file.filename or "upload",
+            content,
+            mapping=_parse_mapping(mapping),
+            sheet_name=sheet_name or None,
+        )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -178,6 +190,7 @@ async def import_staff_preview(
 async def import_staff_commit(
     file: UploadFile = File(...),
     mapping: str = Form(""),
+    sheet_name: str = Form(""),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role("admin", "org_admin", "superadmin", "methodologist")),
 ):
@@ -192,7 +205,12 @@ async def import_staff_commit(
         raise HTTPException(status_code=413, detail="Файл слишком большой (макс. 10 МБ)")
 
     try:
-        parsed = parse_upload(file.filename or "upload", content, mapping=_parse_mapping(mapping))
+        parsed = parse_upload(
+            file.filename or "upload",
+            content,
+            mapping=_parse_mapping(mapping),
+            sheet_name=sheet_name or None,
+        )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:

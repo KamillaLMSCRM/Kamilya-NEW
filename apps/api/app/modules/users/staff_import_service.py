@@ -96,7 +96,7 @@ COLUMN_ALIASES: dict[str, str] = {
 
 
 REQUIRED_FIELDS = {"personnel_number", "first_name", "last_name", "department", "position"}
-OPTIONAL_FIELDS = {"email", "phone", "hire_date"}
+OPTIONAL_FIELDS = {"email", "phone", "hire_date", "full_name"}
 ALL_FIELDS = REQUIRED_FIELDS | OPTIONAL_FIELDS
 
 
@@ -128,6 +128,9 @@ class ParsedFile:
     raw_columns: list[str] = field(default_factory=list)
     sample_rows: list[dict[str, str]] = field(default_factory=list)
     suggested_mapping: dict[str, str] = field(default_factory=dict)
+    sheet_name: str | None = None
+    header_row: int = 1
+    sheets: list[dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass
@@ -176,12 +179,16 @@ def _suggest_field_for_header(raw: str) -> str | None:
     compact = re.sub(r"[\s_\-№#./]+", "", normalized)
     rules: list[tuple[str, str]] = [
         ("personnel_number", "id", ""),
+        ("personnel_number", "таб", ""),
         ("personnel_number", "таб", "номер"),
         ("personnel_number", "employee", "id"),
         ("personnel_number", "personnel", ""),
         ("first_name", "имя", ""),
         ("first_name", "employee", "name"),
         ("first_name", "name", "first"),
+        ("full_name", "фио", ""),
+        ("full_name", "fullname", ""),
+        ("full_name", "full", "name"),
         ("last_name", "фам", ""),
         ("last_name", "family", ""),
         ("last_name", "surname", ""),
@@ -235,6 +242,91 @@ def _suggested_mapping_from_column_map(column_map: dict[str, str]) -> dict[str, 
     return {canonical: raw for raw, canonical in column_map.items()}
 
 
+def _split_full_name(full_name: str) -> tuple[str, str]:
+    parts = [p for p in str(full_name).strip().split() if p]
+    if len(parts) >= 2:
+        return parts[1], parts[0]
+    if len(parts) == 1:
+        return parts[0], parts[0]
+    return "", ""
+
+
+def _missing_required_fields(column_map: dict[str, str]) -> set[str]:
+    values = set(column_map.values())
+    missing = REQUIRED_FIELDS - values
+    if "full_name" in values:
+        missing.discard("first_name")
+        missing.discard("last_name")
+    return missing
+
+
+def _normalize_fields(fields: dict[str, str]) -> dict[str, str]:
+    if fields.get("full_name") and (not fields.get("first_name") or not fields.get("last_name")):
+        first, last = _split_full_name(fields["full_name"])
+        fields.setdefault("first_name", first)
+        fields.setdefault("last_name", last)
+    return fields
+
+
+def _sheet_score(sheet_name: str, raw_columns: list[str], sample_rows: list[dict[str, str]]) -> int:
+    column_map = _build_column_map(raw_columns)
+    values = set(column_map.values())
+    score = len(values & {"personnel_number", "first_name", "last_name", "full_name", "department", "position", "email"}) * 10
+    score += len(sample_rows)
+    normalized_sheet = _normalize_header(sheet_name)
+    if "сотруд" in normalized_sheet or "employee" in normalized_sheet:
+        score += 80
+    if "отдел" in normalized_sheet or "department" in normalized_sheet:
+        score -= 40
+    if "долж" in normalized_sheet or "position" in normalized_sheet:
+        score -= 30
+    if "personnel_number" in values:
+        score += 70
+    else:
+        score -= 80
+    if "email" in values:
+        score += 10
+    if {"personnel_number", "department", "position"} <= values and ({"first_name", "last_name"} <= values or "full_name" in values):
+        score += 100
+    return score
+
+
+def _xlsx_sheet_candidates(wb) -> list[dict[str, Any]]:
+    candidates: list[dict[str, Any]] = []
+    for ws in wb.worksheets:
+        max_row = min(ws.max_row or 0, 20)
+        best: dict[str, Any] | None = None
+        for header_row in range(1, max_row + 1):
+            header_cells = next(ws.iter_rows(min_row=header_row, max_row=header_row, values_only=True), None)
+            if not header_cells:
+                continue
+            raw_columns = [str(c).strip() if c is not None else "" for c in header_cells]
+            if not any(raw_columns):
+                continue
+            data_rows = list(ws.iter_rows(min_row=header_row + 1, max_row=min(ws.max_row or header_row, header_row + 5), values_only=True))
+            sample_rows = [
+                {
+                    raw_header: str(cell).strip() if cell is not None else ""
+                    for raw_header, cell in zip(raw_columns, row)
+                }
+                for row in data_rows
+                if any(cell is not None and str(cell).strip() for cell in row)
+            ]
+            score = _sheet_score(ws.title, raw_columns, sample_rows)
+            if best is None or score > best["score"]:
+                best = {
+                    "sheet_name": ws.title,
+                    "header_row": header_row,
+                    "score": score,
+                    "raw_columns": raw_columns,
+                    "sample_rows": sample_rows,
+                    "suggested_mapping": _suggested_mapping_from_column_map(_build_column_map(raw_columns)),
+                }
+        if best:
+            candidates.append(best)
+    return sorted(candidates, key=lambda c: c["score"], reverse=True)
+
+
 def _parse_hire_date(s: str | None) -> str | None:
     """Try to parse hire_date. Returns ISO format or None."""
     if not s:
@@ -258,7 +350,7 @@ def _parse_hire_date(s: str | None) -> str | None:
     return None  # can't parse
 
 
-def parse_csv(content: bytes, mapping: dict[str, str] | None = None) -> ParsedFile:
+def parse_csv(content: bytes, mapping: dict[str, str] | None = None, sheet_name: str | None = None) -> ParsedFile:
     """Parse CSV with Russian/English headers, return ParsedFile."""
     # Decode (try utf-8-sig first for BOM, then cp1251 for old Russian Excel exports)
     try:
@@ -278,7 +370,7 @@ def parse_csv(content: bytes, mapping: dict[str, str] | None = None) -> ParsedFi
     ]
     column_map = _build_column_map(raw_columns, mapping)
 
-    missing = REQUIRED_FIELDS - set(column_map.values())
+    missing = _missing_required_fields(column_map)
     if missing:
         return ParsedFile(
             rows=[],
@@ -289,6 +381,9 @@ def parse_csv(content: bytes, mapping: dict[str, str] | None = None) -> ParsedFi
             raw_columns=raw_columns,
             sample_rows=sample_rows,
             suggested_mapping=_suggested_mapping_from_column_map(column_map),
+            sheet_name=None,
+            header_row=1,
+            sheets=[],
         )
 
     rows: list[ParsedRow] = []
@@ -306,6 +401,7 @@ def parse_csv(content: bytes, mapping: dict[str, str] | None = None) -> ParsedFi
             if v is None:
                 continue
             fields[canonical] = str(v).strip()
+        fields = _normalize_fields(fields)
 
         # Validate required
         errors: list[str] = []
@@ -349,22 +445,33 @@ def parse_csv(content: bytes, mapping: dict[str, str] | None = None) -> ParsedFi
         raw_columns=raw_columns,
         sample_rows=sample_rows,
         suggested_mapping=_suggested_mapping_from_column_map(column_map),
+        sheet_name=None,
+        header_row=1,
+        sheets=[],
     )
 
 
-def parse_xlsx(content: bytes, mapping: dict[str, str] | None = None) -> ParsedFile:
+def parse_xlsx(content: bytes, mapping: dict[str, str] | None = None, sheet_name: str | None = None) -> ParsedFile:
     """Parse Excel .xlsx via openpyxl. Returns ParsedFile (same shape as parse_csv)."""
     wb = load_workbook(io.BytesIO(content), read_only=True, data_only=True)
-    ws = wb.active
+    sheet_candidates = _xlsx_sheet_candidates(wb)
+    selected_sheet = None
+    if sheet_name:
+        selected_sheet = next((c for c in sheet_candidates if c["sheet_name"] == sheet_name), None)
+    if selected_sheet is None and sheet_candidates:
+        selected_sheet = sheet_candidates[0]
+    ws = wb[selected_sheet["sheet_name"]] if selected_sheet else wb.active
+    header_row = int(selected_sheet["header_row"]) if selected_sheet else 1
 
     # Header row
-    header_cells = next(ws.iter_rows(min_row=1, max_row=1, values_only=True), None)
+    header_cells = next(ws.iter_rows(min_row=header_row, max_row=header_row, values_only=True), None)
     if not header_cells:
         return ParsedFile(rows=[], invalid_rows=[], detected_columns={},
-                          missing_required_columns=list(REQUIRED_FIELDS), total_rows_in_file=0)
+                          missing_required_columns=list(REQUIRED_FIELDS), total_rows_in_file=0,
+                          sheets=sheet_candidates, sheet_name=ws.title, header_row=header_row)
 
     raw_columns = [str(c).strip() if c is not None else "" for c in header_cells]
-    raw_data_rows = list(ws.iter_rows(min_row=2, values_only=True))
+    raw_data_rows = list(ws.iter_rows(min_row=header_row + 1, values_only=True))
     sample_rows = [
         {
             raw_header: str(cell).strip() if cell is not None else ""
@@ -374,7 +481,7 @@ def parse_xlsx(content: bytes, mapping: dict[str, str] | None = None) -> ParsedF
     ]
     column_map = _build_column_map(raw_columns, mapping)
 
-    missing = REQUIRED_FIELDS - set(column_map.values())
+    missing = _missing_required_fields(column_map)
     if missing:
         wb.close()
         return ParsedFile(
@@ -386,12 +493,15 @@ def parse_xlsx(content: bytes, mapping: dict[str, str] | None = None) -> ParsedF
             raw_columns=raw_columns,
             sample_rows=sample_rows,
             suggested_mapping=_suggested_mapping_from_column_map(column_map),
+            sheet_name=ws.title,
+            header_row=header_row,
+            sheets=sheet_candidates,
         )
 
     rows: list[ParsedRow] = []
     invalid: list[dict] = []
     seen_pn: set[str] = set()
-    for i, row in enumerate(raw_data_rows, start=2):
+    for i, row in enumerate(raw_data_rows, start=header_row + 1):
         # Skip empty rows
         if not any(v is not None and str(v).strip() for v in row):
             continue
@@ -407,6 +517,7 @@ def parse_xlsx(content: bytes, mapping: dict[str, str] | None = None) -> ParsedF
             else:
                 v = str(cell).strip() if cell is not None else ""
                 fields[canonical] = v
+        fields = _normalize_fields(fields)
 
         errors: list[str] = []
         for req in REQUIRED_FIELDS:
@@ -450,16 +561,24 @@ def parse_xlsx(content: bytes, mapping: dict[str, str] | None = None) -> ParsedF
         raw_columns=raw_columns,
         sample_rows=sample_rows,
         suggested_mapping=_suggested_mapping_from_column_map(column_map),
+        sheet_name=ws.title,
+        header_row=header_row,
+        sheets=sheet_candidates,
     )
 
 
-def parse_upload(filename: str, content: bytes, mapping: dict[str, str] | None = None) -> ParsedFile:
+def parse_upload(
+    filename: str,
+    content: bytes,
+    mapping: dict[str, str] | None = None,
+    sheet_name: str | None = None,
+) -> ParsedFile:
     """Dispatch based on file extension."""
     name = filename.lower()
     if name.endswith(".csv"):
-        return parse_csv(content, mapping=mapping)
+        return parse_csv(content, mapping=mapping, sheet_name=sheet_name)
     if name.endswith(".xlsx"):
-        return parse_xlsx(content, mapping=mapping)
+        return parse_xlsx(content, mapping=mapping, sheet_name=sheet_name)
     if name.endswith(".xls"):
         raise ValueError("Старый формат .xls не поддерживается. Сохраните файл как .xlsx или .csv.")
     raise ValueError(f"Формат файла не поддерживается: {filename}. Используйте .xlsx или .csv.")

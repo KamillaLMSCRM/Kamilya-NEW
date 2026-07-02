@@ -37,12 +37,22 @@ interface PreviewResponse {
   raw_columns?: string[];
   sample_rows?: Array<Record<string, string>>;
   suggested_mapping?: Record<string, string>;
+  sheet_name?: string | null;
+  header_row?: number;
+  sheets?: Array<{
+    sheet_name: string;
+    header_row: number;
+    score: number;
+    raw_columns: string[];
+    suggested_mapping: Record<string, string>;
+  }>;
 }
 
 const STAFF_FIELDS = [
   { key: 'personnel_number', label: 'Табельный номер', required: true },
   { key: 'first_name', label: 'Имя', required: true },
   { key: 'last_name', label: 'Фамилия', required: true },
+  { key: 'full_name', label: 'ФИО', required: false },
   { key: 'department', label: 'Отдел', required: true },
   { key: 'position', label: 'Должность', required: true },
   { key: 'email', label: 'Email', required: false },
@@ -100,6 +110,7 @@ export default function AdminStaffPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<PreviewResponse | null>(null);
   const [columnMapping, setColumnMapping] = useState<Record<string, string>>({});
+  const [selectedSheetName, setSelectedSheetName] = useState('');
   const [loading, setLoading] = useState(false);
   const [committing, setCommitting] = useState(false);
   // B2c: после /commit получаем task_id от apply-rules. Запускаем
@@ -113,6 +124,7 @@ export default function AdminStaffPage() {
     setSelectedFile(file);
     setPreview(null);
     setColumnMapping({});
+    setSelectedSheetName('');
   };
 
   const handlePreview = async () => {
@@ -121,6 +133,9 @@ export default function AdminStaffPage() {
     try {
       const formData = new FormData();
       formData.append('file', selectedFile);
+      if (selectedSheetName) {
+        formData.append('sheet_name', selectedSheetName);
+      }
       if (Object.keys(columnMapping).length > 0) {
         formData.append('mapping', JSON.stringify(columnMapping));
       }
@@ -130,6 +145,9 @@ export default function AdminStaffPage() {
       setPreview(res.data);
       if (res.data?.suggested_mapping) {
         setColumnMapping((current) => ({ ...res.data.suggested_mapping, ...current }));
+      }
+      if (res.data?.sheet_name) {
+        setSelectedSheetName(res.data.sheet_name);
       }
       if (res.data?.missing_required_columns?.length > 0) {
         toast.error('Нужно сопоставить колонки файла');
@@ -175,6 +193,9 @@ export default function AdminStaffPage() {
     try {
       const formData = new FormData();
       formData.append('file', selectedFile);
+      if (selectedSheetName || preview.sheet_name) {
+        formData.append('sheet_name', selectedSheetName || preview.sheet_name || '');
+      }
       if (Object.keys(columnMapping).length > 0) {
         formData.append('mapping', JSON.stringify(columnMapping));
       }
@@ -207,6 +228,7 @@ export default function AdminStaffPage() {
     setSelectedFile(null);
     setPreview(null);
     setColumnMapping({});
+    setSelectedSheetName('');
     setApplyTaskId(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
@@ -345,6 +367,26 @@ export default function AdminStaffPage() {
               <span>📎 {(selectedFile.size / 1024).toFixed(1)} КБ</span>
             </div>
           )}
+          {preview?.sheets && preview.sheets.length > 1 && (
+            <div className="max-w-md space-y-1">
+              <label className="text-xs font-semibold text-muted-foreground">Лист с сотрудниками</label>
+              <select
+                value={selectedSheetName || preview.sheet_name || ''}
+                onChange={(e) => {
+                  setSelectedSheetName(e.target.value);
+                  setPreview(null);
+                  setColumnMapping({});
+                }}
+                className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm outline-none focus:border-primary"
+              >
+                {preview.sheets.map((sheet) => (
+                  <option key={sheet.sheet_name} value={sheet.sheet_name}>
+                    {sheet.sheet_name} · заголовки в строке {sheet.header_row}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <div className="flex gap-2">
             <Button onClick={handlePreview} disabled={!selectedFile || loading} variant="outline">
               {loading ? 'Читаю...' : 'Предпросмотр'}
@@ -368,6 +410,11 @@ export default function AdminStaffPage() {
                 <div className="rounded-xl border border-warning/30 bg-warning/10 p-3 text-sm text-warning">
                   Мы не смогли автоматически распознать все обязательные поля. Выберите, какая колонка файла чему соответствует.
                 </div>
+                {preview.sheet_name && (
+                  <div className="rounded-xl border border-border bg-muted/40 p-3 text-sm text-muted-foreground">
+                    Анализируем лист «{preview.sheet_name}», строка заголовков: {preview.header_row || 1}.
+                  </div>
+                )}
 
                 <div className="grid gap-3 md:grid-cols-2">
                   {STAFF_FIELDS.map((field) => (
@@ -427,7 +474,7 @@ export default function AdminStaffPage() {
                 <div className="flex flex-wrap gap-2">
                   <Button
                     onClick={handlePreview}
-                    disabled={!selectedFile || loading || STAFF_FIELDS.filter((f) => f.required).some((f) => !columnMapping[f.key])}
+                    disabled={!selectedFile || loading || ['personnel_number', 'department', 'position'].some((key) => !columnMapping[key]) || (!columnMapping.first_name || !columnMapping.last_name) && !columnMapping.full_name}
                   >
                     {loading ? 'Проверяю...' : 'Проверить с этим сопоставлением'}
                   </Button>
