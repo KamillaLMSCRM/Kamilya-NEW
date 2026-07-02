@@ -50,7 +50,7 @@ class QuizAttempt(Base):
     quiz_id = Column(UUID(as_uuid=True), ForeignKey("quizzes.id", ondelete="cascade"), nullable=False, index=True)
     user_id = Column(UUID(as_uuid=True), nullable=False, index=True)
     tenant_id = Column(UUID(as_uuid=True), nullable=False, index=True)
-    score_percent = Column("score", Integer, nullable=False, default=0)
+    score_percent = Column(Integer, nullable=False, default=0)
     total_points = Column(Integer, nullable=False, default=0)
     earned_points = Column(Integer, nullable=False, default=0)
     passed = Column(Boolean, nullable=False, default=False)

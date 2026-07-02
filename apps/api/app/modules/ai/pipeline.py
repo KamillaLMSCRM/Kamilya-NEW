@@ -117,6 +117,15 @@ async def _save_generation_to_db(
                     if state.assessment:
                         for lesson_assess in state.assessment.assessments:
                             if lesson_assess.lesson_title == struct_les.title:
+                                question_count = (
+                                    len(lesson_assess.mcq)
+                                    + len(lesson_assess.true_false)
+                                    + sum(len(mq.pairs) for mq in lesson_assess.matching)
+                                )
+                                if question_count == 0:
+                                    logger.warning("Skipping empty quiz for lesson %s", struct_les.title)
+                                    continue
+
                                 quiz = Quiz(
                                     tenant_id=tenant_id,
                                     lesson_id=lesson.id,

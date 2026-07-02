@@ -408,7 +408,7 @@ async def _complete_course_for_user(db: AsyncSession, course_id: UUID, user: Use
     from app.modules.audit.service import log_action
     from app.modules.certificates.service import issue_certificate
     from app.modules.lessons.models import Lesson, Module
-    from app.modules.quizzes.models import Quiz, QuizAttempt
+    from app.modules.quizzes.models import Quiz, QuizAttempt, Question
 
     result = await db.execute(
         select(Enrollment).where(
@@ -461,9 +461,10 @@ async def _complete_course_for_user(db: AsyncSession, course_id: UUID, user: Use
         )
 
     total_quizzes = await db.scalar(
-        select(func.count(Quiz.id))
+        select(func.count(func.distinct(Quiz.id)))
         .join(Lesson, Quiz.lesson_id == Lesson.id)
         .join(Module, Lesson.module_id == Module.id)
+        .join(Question, Question.quiz_id == Quiz.id)
         .where(
             Module.course_id == course_id,
             Module.tenant_id == user.tenant_id,
@@ -475,6 +476,7 @@ async def _complete_course_for_user(db: AsyncSession, course_id: UUID, user: Use
         .join(Quiz, QuizAttempt.quiz_id == Quiz.id)
         .join(Lesson, Quiz.lesson_id == Lesson.id)
         .join(Module, Lesson.module_id == Module.id)
+        .join(Question, Question.quiz_id == Quiz.id)
         .where(
             Module.course_id == course_id,
             Quiz.tenant_id == user.tenant_id,
