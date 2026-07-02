@@ -467,6 +467,7 @@ async def run_generation_pipeline(
             stage="completed",
             progress=100,
             message=state.message,
+            course_id=UUID(state.course_id) if state.course_id else None,
             completed_at=datetime.now(timezone.utc),
         )
 
