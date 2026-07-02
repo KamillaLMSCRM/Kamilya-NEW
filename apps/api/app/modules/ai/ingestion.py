@@ -23,6 +23,13 @@ class DocumentConverter:
     async def convert(self, file_path: str) -> dict:
         """Convert document to markdown + metadata."""
         filename = os.path.basename(file_path)
+        ext = Path(file_path).suffix.lower()
+
+        # Plain text formats are already markdown-compatible. Sending them
+        # through remote Docling adds minutes of latency and can make the
+        # browser abort otherwise tiny uploads.
+        if ext in (".txt", ".md", ".csv"):
+            return await _local_convert(file_path)
 
         # Try remote Docling first
         try:
