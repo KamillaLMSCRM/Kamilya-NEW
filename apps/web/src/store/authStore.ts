@@ -62,9 +62,10 @@ export const useAuthStore = create<AuthStore>((set) => {
     },
 
     logout: async () => {
-      await logoutRequest();
       clearAuthMemory();
-      set({ accessToken: null, user: null });
+      set({ accessToken: null, user: null, initialized: true });
+      await logoutRequest();
+      set({ accessToken: null, user: null, initialized: true });
     },
 
     setUser: (user) => {

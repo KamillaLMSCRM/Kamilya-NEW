@@ -68,6 +68,7 @@ const LOGOUT_ENDPOINT = `${API_BASE}/v1/auth/logout`;
 let _accessToken: string | null = null;
 let _user: AuthUser | null = null;
 let _refreshInflight: Promise<string | null> | null = null;
+let _authEpoch = 0;
 const _listeners = new Set<(state: { accessToken: string | null; user: AuthUser | null }) => void>();
 
 
@@ -80,12 +81,14 @@ export function getCurrentUser(): AuthUser | null {
 }
 
 export function setAuth(accessToken: string, user: AuthUser): void {
+  _authEpoch += 1;
   _accessToken = accessToken;
   _user = user;
   _emit();
 }
 
 export function clearAuth(): void {
+  _authEpoch += 1;
   _accessToken = null;
   _user = null;
   _emit();
@@ -125,6 +128,7 @@ export async function restoreSession(): Promise<boolean> {
     return token !== null;
   }
 
+  const startedAtEpoch = _authEpoch;
   _refreshInflight = (async () => {
     try {
       const r = await fetch(REFRESH_ENDPOINT, {
@@ -137,6 +141,9 @@ export async function restoreSession(): Promise<boolean> {
         return null;
       }
       const data = await r.json();
+      if (startedAtEpoch !== _authEpoch) {
+        return null;
+      }
       if (data.access_token && data.user) {
         _accessToken = data.access_token;
         _user = data.user;
@@ -161,6 +168,9 @@ export async function restoreSession(): Promise<boolean> {
  * the cookie, then clears local in-memory state.
  */
 export async function logout(): Promise<void> {
+  clearAuth();
+  const abortRefresh = _refreshInflight;
+  _refreshInflight = null;
   try {
     await fetch(LOGOUT_ENDPOINT, {
       method: 'POST',
@@ -170,8 +180,9 @@ export async function logout(): Promise<void> {
     });
   } catch {
     // Ignore network errors — we still want to clear local state.
+  } finally {
+    await abortRefresh?.catch(() => null);
   }
-  clearAuth();
 }
 
 

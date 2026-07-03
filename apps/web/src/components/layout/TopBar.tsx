@@ -30,11 +30,11 @@ export default function TopBar({ title }: TopBarProps) {
   const isSuperadmin = !!user && user.tenant == null && !isImpersonating;
   const canExitToSuperadmin = isImpersonating && !!user?.impersonated_by;
 
-  const exitImpersonation = () => {
+  const exitImpersonation = async () => {
     // Impersonation is a one-shot session: the only way out is to
     // re-authenticate as the platform superadmin. Wipe local storage
     // and route back to the superadmin login form.
-    logout();
+    await logout();
     if (typeof window !== 'undefined') {
       window.location.href = '/superadmin/login';
     }

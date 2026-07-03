@@ -15,20 +15,21 @@ import { useT } from '@/i18n/useT';
 export default function Home() {
   const router = useRouter();
   const { t } = useT();
-  const { user, initialize } = useAuthStore();
+  const { user, initialized, initialize } = useAuthStore();
 
   useEffect(() => {
     initialize();
   }, [initialize]);
 
   useEffect(() => {
+    if (!initialized) return;
     // После initialize() user либо заполнится, либо останется null
     if (user) {
-      router.replace('/dashboard');
+      router.replace(user.role === 'student' ? '/student' : '/dashboard');
     } else {
       router.replace('/login');
     }
-  }, [user, router]);
+  }, [initialized, user, router]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background">

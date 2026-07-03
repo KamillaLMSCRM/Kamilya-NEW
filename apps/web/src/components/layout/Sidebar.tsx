@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
@@ -50,6 +51,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const pathname = usePathname();
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const hasRole = (roles?: string[]) => {
     if (!roles || !user) return true;
@@ -317,13 +319,20 @@ label: t('providers.title'),
         </div>
         <button
           type="button"
-          onClick={() => {
-            logout();
-            router.push('/login');
+          onClick={async () => {
+            if (isLoggingOut) return;
+            setIsLoggingOut(true);
+            try {
+              await logout();
+            } finally {
+              router.replace('/login');
+            }
           }}
+          disabled={isLoggingOut}
           className={cn(
             'mt-1 flex w-full items-center rounded-xl px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive',
-            collapsed && 'justify-center px-0'
+            collapsed && 'justify-center px-0',
+            isLoggingOut && 'pointer-events-none opacity-60'
           )}
           title={collapsed ? t('nav.logout') : undefined}
           aria-label={t('nav.logout')}
