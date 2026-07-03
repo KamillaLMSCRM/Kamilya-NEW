@@ -167,6 +167,7 @@ async def create_new_user(
     create a student here returns 400.
     """
     from app.core.demo_limits import assert_can_create_user
+    from app.core.trial_limits import assert_can_create_system_users
     from app.modules.users.service import TEAM_ROLES
 
     if req.role not in TEAM_ROLES:
@@ -180,6 +181,7 @@ async def create_new_user(
         )
 
     await assert_can_create_user(db, user.tenant_id)
+    await assert_can_create_system_users(db, user.tenant_id)
     try:
         new_user = await create_user(
             db=db,
@@ -299,7 +301,9 @@ async def bulk_invite_users(
     """
     from app.core.config import get_settings
     from app.core.demo_limits import assert_can_send_invite
+    from app.core.trial_limits import assert_can_create_learners
     await assert_can_send_invite(db, user.tenant_id)
+    await assert_can_create_learners(db, user.tenant_id, requested=len(payload.items))
     settings = get_settings()
     base_url = getattr(settings, "PUBLIC_URL", None)
 

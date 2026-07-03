@@ -57,7 +57,10 @@ async def generate_course(
 ):
     """Start AI course generation (returns job_id for polling/WebSocket)."""
     from app.core.demo_limits import check_ai_generation_quota
+    from app.core.trial_limits import reserve_ai_course_generation
     await check_ai_generation_quota(db, user.id, user.tenant_id)
+    if req.course_id is None:
+        await reserve_ai_course_generation(db, user.tenant_id)
 
     # Per-tenant LLM cost gate (audit §6.3). Raises 429 if monthly
     # budget exceeded. Default budget is $50/month per tenant; see

@@ -182,6 +182,9 @@ async def create_courses_from_suggestions(
     if not payload.items:
         raise HTTPException(status_code=400, detail="items is empty")
 
+    from app.core.trial_limits import assert_can_create_courses
+    await assert_can_create_courses(db, user.tenant_id, requested=len(payload.items))
+
     created_refs: list[CreatedCourseRef] = []
     for item in payload.items:
         course_id = uuid.uuid4()

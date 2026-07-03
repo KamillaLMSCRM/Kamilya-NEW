@@ -35,6 +35,15 @@ async def get_trial_usage(db: AsyncSession, tenant_id: UUID) -> dict:
 
     usage = await db.get(TenantUsage, tenant_id)
 
+    ai_generated_courses = (
+        await db.execute(
+            select(func.count(Course.id)).where(
+                Course.tenant_id == tenant_id,
+                Course.ai_generated == True,
+            )
+        )
+    ).scalar() or 0
+
     learner_roles = ("student",)
     learners_used = (
         await db.execute(
@@ -70,7 +79,13 @@ async def get_trial_usage(db: AsyncSession, tenant_id: UUID) -> dict:
         "trial_started_at": tenant.trial_started_at,
         "trial_ends_at": tenant.trial_ends_at,
         "days_left": days_left,
-        "ai_courses": _usage_item(int((usage.ai_course_generations_used if usage else 0) or 0), ai_limit),
+        "ai_courses": _usage_item(
+            max(
+                int((usage.ai_course_generations_used if usage else 0) or 0),
+                int(ai_generated_courses or 0),
+            ),
+            ai_limit,
+        ),
         "jd_courses": _usage_item(int((usage.jd_course_generations_used if usage else 0) or 0), jd_limit),
         "learners": _usage_item(int(learners_used), learners_limit),
         "system_users": _usage_item(int(system_users_used), system_users_limit),

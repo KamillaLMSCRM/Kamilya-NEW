@@ -46,6 +46,14 @@ interface PreviewResponse {
     raw_columns: string[];
     suggested_mapping: Record<string, string>;
   }>;
+  limit_warning?: {
+    code?: string;
+    resource?: string;
+    limit?: number;
+    current?: number;
+    requested?: number;
+    message?: string;
+  } | null;
 }
 
 const STAFF_FIELDS = [
@@ -153,6 +161,10 @@ export default function AdminStaffPage() {
         toast.error('Нужно сопоставить колонки файла');
         return;
       }
+      if (res.data?.limit_warning?.message) {
+        toast.error(res.data.limit_warning.message);
+        return;
+      }
       const s = res.data.summary;
       const invalid = res.data.invalid_rows?.length || 0;
       toast.success(
@@ -175,6 +187,10 @@ export default function AdminStaffPage() {
     }
     if (preview.summary.create === 0 && preview.summary.update === 0) {
       toast.error('Нет строк для применения');
+      return;
+    }
+    if (preview.limit_warning?.message) {
+      toast.error(preview.limit_warning.message);
       return;
     }
 
@@ -520,6 +536,12 @@ export default function AdminStaffPage() {
                     </div>
                   )}
 
+                  {preview.limit_warning?.message && (
+                    <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive mb-4">
+                      <strong>Лимит trial:</strong> {preview.limit_warning.message}
+                    </div>
+                  )}
+
                   {preview.new_positions.length > 0 && (
                     <details className="mb-4 text-sm">
                       <summary className="cursor-pointer text-foreground font-medium">
@@ -633,6 +655,7 @@ export default function AdminStaffPage() {
                   disabled={
                     committing ||
                     loading ||
+                    !!preview.limit_warning ||
                     (preview.invalid_rows && preview.invalid_rows.length > 0) ||
                     (preview.summary.create === 0 && preview.summary.update === 0)
                   }

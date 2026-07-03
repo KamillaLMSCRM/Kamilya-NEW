@@ -67,6 +67,7 @@ class PreviewResponse(BaseModel):
     sheet_name: str | None = None
     header_row: int = 1
     sheets: list[dict] = Field(default_factory=list)
+    limit_warning: dict | None = None
 
 
 class CommitResponse(BaseModel):
@@ -95,6 +96,7 @@ def _parsed_file_to_response(parsed: ParsedFile, preview: PreviewResult | None =
         "sheet_name": parsed.sheet_name,
         "header_row": parsed.header_row,
         "sheets": parsed.sheets,
+        "limit_warning": None,
         "items": [],
         "new_positions": [],
         "new_departments": [],
@@ -183,7 +185,13 @@ async def import_staff_preview(
 
     # Inject invalid_rows count into summary so HR sees parse errors too
     preview.summary["invalid_rows"] = len(parsed.invalid_rows)
-    return _parsed_file_to_response(parsed, preview)
+    response = _parsed_file_to_response(parsed, preview)
+    try:
+        from app.core.trial_limits import assert_can_create_learners
+        await assert_can_create_learners(db, user.tenant_id, requested=int(preview.summary.get("create") or 0))
+    except HTTPException as exc:
+        response["limit_warning"] = exc.detail if isinstance(exc.detail, dict) else {"message": str(exc.detail)}
+    return response
 
 
 @router.post("/import/commit", response_model=CommitResponse)
@@ -239,7 +247,17 @@ async def import_staff_commit(
         raise HTTPException(status_code=400, detail="Файл не содержит данных")
 
     try:
+        preview = await build_preview(db, user.tenant_id, parsed)
+        from app.core.trial_limits import assert_can_create_learners
+        await assert_can_create_learners(
+            db,
+            user.tenant_id,
+            requested=int(preview.summary.get("create") or 0),
+        )
         result = await commit_import(db, user.tenant_id, parsed)
+    except HTTPException:
+        await db.rollback()
+        raise
     except Exception as e:
         await db.rollback()
         raise HTTPException(

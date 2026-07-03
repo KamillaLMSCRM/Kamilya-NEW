@@ -77,6 +77,9 @@ async def create_course(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role("superadmin", "admin", "org_admin", "teacher")),
 ):
+    from app.core.trial_limits import assert_can_create_courses
+
+    await assert_can_create_courses(db, user.tenant_id)
     course = Course(
         tenant_id=user.tenant_id,
         title=req.title,
@@ -350,12 +353,15 @@ async def duplicate_course(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role("superadmin", "admin", "org_admin", "teacher")),
 ):
+    from app.core.trial_limits import assert_can_create_courses
+
     result = await db.execute(
         select(Course).where(Course.id == course_id, Course.tenant_id == user.tenant_id)
     )
     course = result.scalar_one_or_none()
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
+    await assert_can_create_courses(db, user.tenant_id)
     new_course = Course(
         tenant_id=user.tenant_id,
         title=f"{course.title} (копия)",
