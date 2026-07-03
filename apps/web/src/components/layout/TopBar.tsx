@@ -29,6 +29,7 @@ export default function TopBar({ title }: TopBarProps) {
   const isImpersonating = !!user?.impersonated_by;
   const isSuperadmin = !!user && user.tenant == null && !isImpersonating;
   const canExitToSuperadmin = isImpersonating && !!user?.impersonated_by;
+  const tenantName = user?.tenant?.name?.trim();
 
   const exitImpersonation = async () => {
     // Impersonation is a one-shot session: the only way out is to
@@ -89,10 +90,19 @@ export default function TopBar({ title }: TopBarProps) {
       )}
 
       <div className="flex h-16 items-center justify-between px-6">
-      {/* Left: Page title */}
-      <div>
+      {/* Left: Page title and tenant context */}
+      <div className="min-w-0">
         {title && (
           <h1 className="text-lg font-bold text-foreground font-display">{title}</h1>
+        )}
+        {tenantName && (
+          <div
+            className="mt-0.5 hidden max-w-[360px] items-center gap-1.5 truncate text-xs font-medium text-muted-foreground md:flex"
+            title={`Кабинет: ${tenantName}`}
+          >
+            <span className="shrink-0 text-muted-foreground/70">Кабинет:</span>
+            <span className="truncate text-foreground/80">{tenantName}</span>
+          </div>
         )}
       </div>
 
