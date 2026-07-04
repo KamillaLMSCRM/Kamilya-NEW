@@ -52,7 +52,6 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const tenantName = user?.tenant?.name?.trim();
 
   const hasRole = (roles?: string[]) => {
     if (!roles || !user) return true;
@@ -239,15 +238,9 @@ label: t('providers.title'),
       {/* Logo */}
       <div
         className={cn('flex h-16 items-center border-b border-border px-4', collapsed && 'justify-center px-0')}
-        title={collapsed && tenantName ? `Кабинет: ${tenantName}` : undefined}
       >
         <div className={cn('min-w-0', collapsed && 'flex justify-center')}>
           <Logo variant={collapsed ? 'mark' : 'full'} size={32} withSubtitle={!collapsed} />
-          {!collapsed && tenantName && (
-            <div className="mt-1 max-w-[200px] truncate text-[11px] font-medium text-muted-foreground" title={`Кабинет: ${tenantName}`}>
-              Кабинет: <span className="text-foreground/80">{tenantName}</span>
-            </div>
-          )}
         </div>
       </div>
 
