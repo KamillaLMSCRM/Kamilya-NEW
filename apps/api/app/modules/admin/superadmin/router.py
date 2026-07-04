@@ -121,6 +121,8 @@ async def update_tenant(
         details=payload.model_dump(exclude_none=True, mode="json"),
         ip_address=request.client.host if request.client else None,
     )
+    await svc.db.commit()
+    await svc.db.refresh(tenant)
     return await _tenant_response(svc, tenant)
 
 

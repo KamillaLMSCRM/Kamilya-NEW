@@ -174,10 +174,9 @@ class SuperadminService:
         if not changes:
             return tenant
         try:
-            await self.db.commit()
+            await self.db.flush()
         except IntegrityError as e:
             raise ValueError(f"Slug '{payload.slug}' is already taken") from e
-        await self.db.refresh(tenant)
         logger.info(
             "superadmin.tenant.updated id=%s changes=%s", tenant.id, list(changes.keys())
         )
