@@ -22,6 +22,7 @@ import {
   MessageSquare,
   ChevronRight,
   XCircle,
+  Trash2,
 } from 'lucide-react';
 import { ReviewBadge, CoursePreviewTree } from './components/CoursePreview';
 
@@ -226,6 +227,22 @@ export default function AIGeneratePage() {
     const doc = documents.find((item) => item.id === id);
     if (doc && doc.embedding_status !== 'success') return;
     setSelectedDocIds(prev => prev.includes(id) ? prev.filter(d => d !== id) : [...prev, id]);
+  };
+
+  const deleteDocument = async (doc: Document) => {
+    const previousDocuments = documents;
+    const previousSelected = selectedDocIds;
+    setDocuments((items) => items.filter((item) => item.id !== doc.id));
+    setSelectedDocIds((ids) => ids.filter((id) => id !== doc.id));
+    try {
+      await api.delete(`/v1/documents/${doc.id}`);
+      toast.success('Документ удалён', { description: doc.title });
+    } catch (e: any) {
+      setDocuments(previousDocuments);
+      setSelectedDocIds(previousSelected);
+      const message = e?.response?.data?.detail || e?.message || 'Попробуйте ещё раз.';
+      toast.error('Не удалось удалить документ', { description: message });
+    }
   };
 
   const handleGenerate = async () => {
@@ -531,7 +548,7 @@ export default function AIGeneratePage() {
                 const isSelected = selectedDocIds.includes(doc.id);
 
                 return (
-                  <label
+                  <div
                     key={doc.id}
                     title={doc.embedding_status === 'failed' ? doc.embedding_error || 'Документ не прошел индексацию' : undefined}
                     className={`flex items-center gap-3 rounded-xl border p-3 transition-all ${
@@ -548,6 +565,7 @@ export default function AIGeneratePage() {
                       disabled={!isReady}
                       onChange={() => toggleDoc(doc.id)}
                       className="h-4 w-4 rounded border-border text-primary focus:ring-primary disabled:cursor-not-allowed disabled:opacity-50"
+                      aria-label={`Выбрать документ ${doc.title}`}
                     />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 min-w-0">
@@ -573,12 +591,32 @@ export default function AIGeneratePage() {
                       ) : null}
                     </div>
                     <div className="text-xs text-muted-foreground shrink-0 max-w-[180px] truncate">{doc.filename}</div>
-                  </label>
+                    {doc.embedding_status === 'failed' && (
+                      <button
+                        type="button"
+                        onClick={() => void deleteDocument(doc)}
+                        className="shrink-0 inline-flex h-8 w-8 items-center justify-center rounded-lg border border-destructive/30 text-destructive transition-colors hover:bg-destructive/10"
+                        title="Удалить документ с ошибкой"
+                        aria-label={`Удалить документ ${doc.title}`}
+                      >
+                        <Trash2 className="h-4 w-4" aria-hidden="true" />
+                      </button>
+                    )}
+                  </div>
                 );
               })}
               {failedDocumentsCount > 0 && (
-                <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-                  Есть документы с ошибкой индексации. Они не участвуют в генерации, пока файл не будет загружен заново или ошибка не будет исправлена.
+                <div className="flex items-start justify-between gap-3 rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                  <span>
+                    Есть документы с ошибкой индексации. Они исключены из генерации. Удалите проблемный документ и загрузите его повторно после проверки формата.
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => void fetchDocuments()}
+                    className="shrink-0 rounded-lg border border-destructive/30 px-2 py-1 font-medium transition-colors hover:bg-destructive/10"
+                  >
+                    Обновить
+                  </button>
                 </div>
               )}
             </div>
