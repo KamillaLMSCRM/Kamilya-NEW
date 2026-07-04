@@ -476,21 +476,21 @@ export default function QuizzesAdminPage() {
 // have access to UUIDs without opening the database.)
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
+    <div className="mx-auto max-w-[1560px] space-y-5 px-1">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0 max-w-4xl">
           {/* Page header renamed on 2026-06-27 from "Тест — Админ" to
               "Конструктор тестов" — the old label sounded like an admin
               operations panel, but this is actually a content-construction
               page where the methodologist authors quiz questions. The
               subtitle clarifies the workflow: pick a lesson → write/AI the
               questions → save. */}
-          <h1 className="text-2xl font-bold">Конструктор тестов</h1>
-          <p className="text-sm text-muted-foreground mt-1">
+          <h1 className="text-[26px] font-semibold tracking-normal text-foreground">Конструктор тестов</h1>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
             Создание и редактирование тестов. Выберите урок → добавьте вопросы вручную или сгенерируйте черновик из контента урока с помощью AI.
           </p>
         </div>
-        <Button onClick={() => setShowCreateQuiz(!showCreateQuiz)}>
+        <Button onClick={() => setShowCreateQuiz(!showCreateQuiz)} className="h-11 px-5">
           {t('common.create')} {t('quiz.title')}
         </Button>
       </div>
@@ -821,26 +821,26 @@ export default function QuizzesAdminPage() {
         </Card>
       )}
 
-      <div className="grid lg:grid-cols-3 gap-6">
+      <div className="grid items-start gap-5 xl:grid-cols-[420px_minmax(0,1fr)]">
         {/* Quiz list — grouped by Course → Module → Lesson.
             Data source is `grouped` (the response from GET /v1/quizzes/grouped).
             Each course row shows its quiz count; lessons without a quiz are
             skipped so we don't render empty rows. Orphans surface as their
             own bucket (real orphans: lesson deleted or FK nulled). */}
-        <Card>
-          <CardContent className="p-4 space-y-2">
-            <div className="flex items-center justify-between">
-              <h3 className="font-semibold">Тесты</h3>
-              <Badge variant="secondary">{flatQuizzes.length}</Badge>
+        <Card className="overflow-hidden border-border/70 shadow-none">
+          <CardContent className="p-0">
+            <div className="flex items-center justify-between border-b border-border/70 px-4 py-3">
+              <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Тесты</h3>
+              <Badge variant="secondary" className="bg-muted text-foreground">{flatQuizzes.length}</Badge>
             </div>
             {loading ? (
-              <p className="text-sm text-muted-foreground">Загрузка…</p>
+              <p className="px-4 py-5 text-sm text-muted-foreground">Загрузка…</p>
             ) : grouped && grouped.courses.every((c) => c.modules.every((m) => m.lessons.every((l) => !l.quiz))) && grouped.orphans.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
+              <p className="px-4 py-5 text-sm leading-6 text-muted-foreground">
                 Тестов пока нет. Нажмите «Создать тест» выше.
               </p>
             ) : (
-              <div className="space-y-1 max-h-[28rem] overflow-y-auto">
+              <div className="max-h-[calc(100vh-280px)] space-y-1 overflow-y-auto p-3">
                 {grouped?.courses.map((course) => {
                   const isOpen = openCourses[course.id] ?? true;
                   const moduleRows = course.modules
@@ -852,21 +852,21 @@ export default function QuizzesAdminPage() {
                   const quizCount = moduleRows.reduce((acc, mb) => acc + mb.lessons.length, 0);
                   if (quizCount === 0) return null;
                   return (
-                    <div key={course.id} className="rounded border border-border/50">
+                    <div key={course.id} className="rounded-md border border-border/60 bg-background">
                       <button
                         type="button"
-                        className="w-full flex items-center gap-1 px-2 py-1.5 text-left text-sm font-medium hover:bg-muted/50"
+                        className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm font-medium text-foreground hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         onClick={() => setOpenCourses((p) => ({ ...p, [course.id]: !isOpen }))}
                       >
-                        {isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                        <span className="flex-1 truncate">{course.title}</span>
-                        <Badge variant="outline">{quizCount}</Badge>
+                        {isOpen ? <ChevronDown size={15} className="text-muted-foreground" /> : <ChevronRight size={15} className="text-muted-foreground" />}
+                        <span className="min-w-0 flex-1 truncate">{course.title}</span>
+                        <Badge variant="outline" className="border-border bg-card text-muted-foreground">{quizCount}</Badge>
                       </button>
                       {isOpen && (
-                        <div className="pl-5 pr-2 pb-2 space-y-2">
+                        <div className="space-y-2 px-3 pb-3">
                           {moduleRows.map(({ module, lessons }) => (
                             <div key={module.id}>
-                              <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide px-1 py-1">
+                              <div className="px-1 py-1.5 text-[11px] font-semibold uppercase leading-4 tracking-wide text-muted-foreground">
                                 {module.title}
                               </div>
                               {lessons.map((l) => {
@@ -874,15 +874,15 @@ export default function QuizzesAdminPage() {
                                 return (
                                   <div
                                     key={quiz.id}
-                                    className={`p-2 rounded cursor-pointer text-sm ${
-                                      selectedQuiz?.id === quiz.id ? 'bg-primary/10' : 'hover:bg-muted'
+                                    className={`cursor-pointer rounded-md px-3 py-2 text-sm transition-colors ${
+                                      selectedQuiz?.id === quiz.id ? 'bg-primary/10 text-primary' : 'text-foreground hover:bg-muted/70'
                                     }`}
                                     onClick={() => setSelectedQuiz(quiz)}
                                   >
                                     <div className="flex items-center gap-2">
-                                      <Circle size={10} className="shrink-0" />
-                                      <span className="flex-1 truncate">{l.title}</span>
-                                      <Badge className="ml-2">{quiz.questions.length}</Badge>
+                                      <Circle size={9} className="shrink-0 text-muted-foreground" />
+                                      <span className="min-w-0 flex-1 truncate">{l.title}</span>
+                                      <Badge variant="secondary" className="ml-2 bg-primary/10 text-primary">{quiz.questions.length}</Badge>
                                     </div>
                                   </div>
                                 );
@@ -895,22 +895,22 @@ export default function QuizzesAdminPage() {
                   );
                 })}
                 {grouped && grouped.orphans.length > 0 && (
-                  <div className="rounded border border-dashed border-border/50 mt-2">
-                    <div className="px-2 py-1.5 text-xs uppercase tracking-wide text-muted-foreground">
+                  <div className="mt-2 rounded-md border border-dashed border-border/70 bg-background">
+                    <div className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                       Без привязки
                     </div>
                     {grouped.orphans.map(({ quiz }) => (
                       <div
                         key={quiz.id}
-                        className={`p-2 rounded cursor-pointer text-sm ${
-                          selectedQuiz?.id === quiz.id ? 'bg-primary/10' : 'hover:bg-muted'
+                        className={`cursor-pointer rounded-md px-3 py-2 text-sm ${
+                          selectedQuiz?.id === quiz.id ? 'bg-primary/10 text-primary' : 'hover:bg-muted/70'
                         }`}
                         onClick={() => setSelectedQuiz(quiz)}
                       >
                         <div className="flex items-center gap-2">
                           <Circle size={10} className="shrink-0" />
-                          <span className="flex-1 truncate">{quiz.title}</span>
-                          <Badge className="ml-2">{quiz.questions.length}</Badge>
+                          <span className="min-w-0 flex-1 truncate">{quiz.title}</span>
+                          <Badge variant="secondary" className="ml-2 bg-primary/10 text-primary">{quiz.questions.length}</Badge>
                         </div>
                       </div>
                     ))}
@@ -923,27 +923,38 @@ export default function QuizzesAdminPage() {
 
         {/* Selected Quiz */}
         {selectedQuiz ? (
-          <div className="lg:col-span-2 space-y-4">
-            <Card>
-              <CardContent className="p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-semibold text-lg">{selectedQuiz.title}</h3>
-                  <div className="flex gap-2">
+          <div className="min-w-0 space-y-5">
+            <Card className="border-border/70 shadow-none">
+              <CardContent className="p-5">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <h3 className="truncate text-xl font-semibold leading-7 text-foreground">{selectedQuiz.title}</h3>
+                    <div className="mt-2 text-sm text-muted-foreground">
+                      {selectedQuiz.questions.length} вопросов · {selectedQuiz.questions.reduce((a, q) => a + q.points, 0)} баллов
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
                     {!editingSettings && (
                       <Button
                         variant="outline"
                         size="sm"
+                        className="h-9"
                         onClick={() => startEditSettings(selectedQuiz)}
                       >
                         Изменить параметры
                       </Button>
                     )}
-                    <Button variant="destructive" size="sm" onClick={() => handleDeleteQuiz(selectedQuiz.id)}>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-9 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      onClick={() => handleDeleteQuiz(selectedQuiz.id)}
+                    >
                       {t('common.delete')}
                     </Button>
                   </div>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+                <div className="mt-5 grid grid-cols-1 gap-3 text-sm md:grid-cols-3">
                   {editingSettings ? (
                     <>
                       <label className="flex flex-col gap-1">
@@ -988,7 +999,7 @@ export default function QuizzesAdminPage() {
                           }
                         />
                       </label>
-                      <div className="md:col-span-3 flex gap-2 justify-end">
+                      <div className="flex justify-end gap-2 md:col-span-3">
                         <Button variant="outline" size="sm" onClick={() => setEditingSettings(false)} disabled={savingSettings}>
                           {t('common.cancel')}
                         </Button>
@@ -999,23 +1010,29 @@ export default function QuizzesAdminPage() {
                     </>
                   ) : (
                     <>
-                      <div>{t('quiz.passScore')}: <strong>{selectedQuiz.pass_score}%</strong></div>
-                      <div>{t('quiz.timeLeft')}: <strong>{selectedQuiz.time_limit ? `${selectedQuiz.time_limit} мин` : '∞'}</strong></div>
-                      <div>Попыток: <strong>{selectedQuiz.attempt_limit}</strong></div>
+                      <div className="rounded-md border border-border/70 bg-muted/30 px-4 py-3">
+                        <div className="text-xs text-muted-foreground">{t('quiz.passScore')}</div>
+                        <div className="mt-1 text-lg font-semibold tabular-nums">{selectedQuiz.pass_score}%</div>
+                      </div>
+                      <div className="rounded-md border border-border/70 bg-muted/30 px-4 py-3">
+                        <div className="text-xs text-muted-foreground">{t('quiz.timeLeft')}</div>
+                        <div className="mt-1 text-lg font-semibold tabular-nums">{selectedQuiz.time_limit ? `${selectedQuiz.time_limit} мин` : '∞'}</div>
+                      </div>
+                      <div className="rounded-md border border-border/70 bg-muted/30 px-4 py-3">
+                        <div className="text-xs text-muted-foreground">Попыток</div>
+                        <div className="mt-1 text-lg font-semibold tabular-nums">{selectedQuiz.attempt_limit}</div>
+                      </div>
                     </>
                   )}
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  {selectedQuiz.questions.length} вопросов · {selectedQuiz.questions.reduce((a, q) => a + q.points, 0)} баллов
                 </div>
               </CardContent>
             </Card>
 
             {/* Questions */}
             <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <h4 className="font-semibold">Вопросы</h4>
-                <Button size="sm" onClick={() => setShowAddQuestion(!showAddQuestion)}>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h4 className="text-base font-semibold text-foreground">Вопросы</h4>
+                <Button size="sm" className="h-9" onClick={() => setShowAddQuestion(!showAddQuestion)}>
                   + {t('common.create')} вопрос
                 </Button>
               </div>
@@ -1081,30 +1098,39 @@ export default function QuizzesAdminPage() {
               )}
 
               {selectedQuiz.questions.map((q, i) => (
-                <Card key={q.id}>
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <Badge variant="outline">{i + 1}</Badge>
-                          <span className="font-medium">{q.text}</span>
-                          <Badge>{q.points} {t('quiz.points')}</Badge>
-                          <Badge variant="outline">{q.type}</Badge>
+                <Card key={q.id} className="border-border/70 shadow-none">
+                  <CardContent className="p-0">
+                    <div className="grid grid-cols-[44px_minmax(0,1fr)_auto] gap-4 px-4 py-4">
+                      <div className="flex h-7 w-7 items-center justify-center rounded-full border border-border bg-muted text-sm font-medium tabular-nums text-muted-foreground">
+                        {i + 1}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="mb-3 flex flex-wrap items-start gap-2">
+                          <span className="min-w-0 flex-1 text-base font-medium leading-6 text-foreground">{q.text}</span>
+                          <Badge variant="secondary" className="bg-primary/10 text-primary">{q.points} {t('quiz.points')}</Badge>
+                          <Badge variant="outline" className="border-border bg-card text-muted-foreground">{q.type}</Badge>
                         </div>
-                        <div className="ml-8 space-y-1">
+                        <div className="space-y-2">
                           {q.choices.map((c) => (
-                            <div key={c.id} className={`flex items-center gap-1 text-sm ${c.is_correct ? 'text-success font-medium' : 'text-muted-foreground'}`}>
-                              {c.is_correct ? <CheckCircle2 className="w-4 h-4" /> : <Circle className="w-4 h-4" />} {c.text}
+                            <div key={c.id} className={`flex items-start gap-2 text-sm leading-5 ${c.is_correct ? 'font-medium text-success' : 'text-muted-foreground'}`}>
+                              {c.is_correct ? <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" /> : <Circle className="mt-0.5 h-4 w-4 shrink-0" />}
+                              <span className="min-w-0 break-words">{c.text}</span>
                             </div>
                           ))}
                         </div>
                         {q.explanation && (
-                          <div className="ml-8 mt-2 flex items-center gap-1 text-xs text-primary">
-                            <Lightbulb className="w-4 h-4" /> {q.explanation}
+                          <div className="mt-3 flex items-start gap-2 rounded-md bg-primary/5 px-3 py-2 text-xs leading-5 text-primary">
+                            <Lightbulb className="mt-0.5 h-4 w-4 shrink-0" />
+                            <span>{q.explanation}</span>
                           </div>
                         )}
                       </div>
-                      <Button variant="destructive" size="sm" onClick={() => handleDeleteQuestion(q.id)}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                        onClick={() => handleDeleteQuestion(q.id)}
+                      >
                         {t('common.delete')}
                       </Button>
                     </div>
@@ -1123,8 +1149,8 @@ export default function QuizzesAdminPage() {
             </div>
           </div>
         ) : (
-          <Card className="lg:col-span-2">
-            <CardContent className="p-8 text-center text-muted-foreground">
+          <Card className="border-border/70 shadow-none">
+            <CardContent className="p-10 text-center text-muted-foreground">
               Загрузите тест по ID или создайте новый
             </CardContent>
           </Card>
