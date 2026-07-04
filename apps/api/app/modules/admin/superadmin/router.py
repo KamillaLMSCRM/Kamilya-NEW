@@ -118,7 +118,7 @@ async def update_tenant(
     await log_action(
         svc.db, tenant.id, "superadmin.tenant.updated", "tenant",
         resource_id=tenant.id, user_id=user.id,
-        details=payload.model_dump(exclude_none=True),
+        details=payload.model_dump(exclude_none=True, mode="json"),
         ip_address=request.client.host if request.client else None,
     )
     return await _tenant_response(svc, tenant)
