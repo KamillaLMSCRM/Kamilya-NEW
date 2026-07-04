@@ -16,6 +16,7 @@ import pytest
 
 from app.modules.ai.llm_client import (
     AllProvidersFailedError,
+    EmbeddingsClient,
     LLMClient,
     LLMProviderConfig,
     ProviderFailedError,
@@ -219,6 +220,60 @@ async def test_resilient_embeddings_falls_over_to_voyage():
     ]
     result = await chain.embed_query("test query")
     assert result == [0.1] * 8
+
+
+@pytest.mark.asyncio
+async def test_embeddings_client_rejects_wrong_dimensions(monkeypatch):
+    client = EmbeddingsClient(
+        LLMProviderConfig(name="qwen", base_url="http://mock", api_key="y", model="z"),
+        max_retries=0,
+    )
+
+    async def mock_request(payload):
+        return {"data": [{"embedding": [0.1] * 1024}]}
+
+    monkeypatch.setattr(client, "_request", mock_request)
+
+    with pytest.raises(ProviderFailedError) as exc:
+        await client.embed_documents(["hello"])
+
+    assert "expected 4096" in str(exc.value)
+    assert "1024" in str(exc.value)
+
+
+@pytest.mark.asyncio
+async def test_resilient_embeddings_falls_over_on_wrong_dimensions(monkeypatch):
+    qwen = EmbeddingsClient(
+        LLMProviderConfig(name="qwen", base_url="http://mock", api_key="y", model="z"),
+        max_retries=0,
+    )
+    voyage = EmbeddingsClient(
+        LLMProviderConfig(name="voyage", base_url="http://mock", api_key="y", model="z"),
+        max_retries=0,
+    )
+
+    async def mock_qwen_request(payload):
+        return {"data": [{"embedding": [0.1] * 1024}]}
+
+    async def mock_voyage_request(payload):
+        return {"data": [{"embedding": [0.2] * 4096}]}
+
+    monkeypatch.setattr(qwen, "_request", mock_qwen_request)
+    monkeypatch.setattr(voyage, "_request", mock_voyage_request)
+
+    chain = ResilientEmbeddingsClient(
+        [
+            LLMProviderConfig(name="qwen", base_url="x", api_key="y", model="z"),
+            LLMProviderConfig(name="voyage", base_url="x", api_key="y", model="z"),
+        ]
+    )
+    chain._clients = [qwen, voyage]
+
+    result = await chain.embed_documents(["hello"])
+
+    assert len(result) == 1
+    assert len(result[0]) == 4096
+    assert result[0][0] == 0.2
 
 
 @pytest.mark.asyncio

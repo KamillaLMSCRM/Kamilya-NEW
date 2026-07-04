@@ -157,7 +157,9 @@ class VectorStore:
         import hashlib
         import math
         import logging as _log
+        from app.core.config import get_settings
         _logger = _log.getLogger(__name__)
+        expected_dimensions = get_settings().EMBEDDING_DIMENSIONS
 
         async with async_session_factory() as session:
             await self._set_tenant_context(session, tenant_id)
@@ -175,6 +177,17 @@ class VectorStore:
                     _logger.warning(
                         "Skipping chunk with malformed embedding "
                         "(None/NaN/inf). doc_id=%s text_preview=%r",
+                        chunk.get("metadata", {}).get("doc_id", "?"),
+                        (chunk.get("text") or "")[:60],
+                    )
+                    dropped += 1
+                    continue
+                if len(emb) != expected_dimensions:
+                    _logger.warning(
+                        "Skipping chunk with wrong embedding dimensions "
+                        "(expected=%d got=%d). doc_id=%s text_preview=%r",
+                        expected_dimensions,
+                        len(emb),
                         chunk.get("metadata", {}).get("doc_id", "?"),
                         (chunk.get("text") or "")[:60],
                     )
@@ -422,7 +435,7 @@ class EmbeddingsProvider:
             self._client = ResilientEmbeddingsClient.from_settings()
         return self._client
 
-    def _hash_embedding(self, text: str, dim: int = 4096) -> list[float]:
+    def _hash_embedding(self, text: str, dim: int | None = None) -> list[float]:
         """Deterministic hash-based embedding (last-resort, non-semantic).
 
         Uses a seeded random generator so the same text always produces
@@ -434,6 +447,9 @@ class EmbeddingsProvider:
         """
         import hashlib
         import random
+        if dim is None:
+            from app.core.config import get_settings
+            dim = get_settings().EMBEDDING_DIMENSIONS
         seed = int.from_bytes(hashlib.sha256(text.encode("utf-8")).digest()[:8], "big")
         rng = random.Random(seed)
         # Each component in [-1.0, 1.0). Never NaN, never inf.
@@ -531,7 +547,8 @@ class DocumentIngestion:
                 # instead of pretending the doc is good to use.
                 raise RuntimeError(
                     f"All {len(chunks)} embeddings were malformed "
-                    f"(None/NaN/inf). Doc will not be usable for AI generation."
+                    f"(None/NaN/inf/wrong dimensions). "
+                    f"Doc will not be usable for AI generation."
                 )
         except Exception as e:
             print(f"[INGEST] STORE RAISED: {type(e).__name__}: {e}", flush=True)

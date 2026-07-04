@@ -490,6 +490,20 @@ class EmbeddingsClient(_BaseProviderClient):
         from dataclasses import replace
         config = replace(config, endpoint="/embeddings")
         super().__init__(config=config, max_retries=max_retries)
+        self.expected_dimensions = get_settings().EMBEDDING_DIMENSIONS
+
+    def _validate_embeddings(self, embeddings: list[list[float]]) -> list[list[float]]:
+        """Reject provider responses that cannot fit the pgvector schema."""
+        bad_dims = sorted({len(emb) for emb in embeddings if len(emb) != self.expected_dimensions})
+        if bad_dims:
+            raise ProviderFailedError(
+                self.config.name,
+                ValueError(
+                    f"embedding dimensions mismatch: expected "
+                    f"{self.expected_dimensions}, got {bad_dims}"
+                ),
+            )
+        return embeddings
 
     async def _embed(self, texts: list[str], input_type: str) -> list[list[float]]:
         payload: dict[str, Any] = {
@@ -500,7 +514,8 @@ class EmbeddingsClient(_BaseProviderClient):
             payload["input_type"] = input_type
 
         data = await self._request(payload)
-        return [item["embedding"] for item in data["data"]]
+        embeddings = [item["embedding"] for item in data["data"]]
+        return self._validate_embeddings(embeddings)
 
     async def embed_documents(self, texts: list[str]) -> list[list[float]]:
         return await self._embed(texts, input_type="document")

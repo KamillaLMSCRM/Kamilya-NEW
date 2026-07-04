@@ -70,6 +70,7 @@ class Settings(BaseSettings):
     QWEN_API_URL: str = "https://qwen.kml.kz/v1"
     QWEN_EMBEDDING_URL: str = "https://qwen-embed.kml.kz/v1"
     EMBEDDING_URL: str = "https://qwen-embed.kml.kz/v1"
+    EMBEDDING_DIMENSIONS: int = 4096
     LLM_API_URL: str = "https://qwen.kml.kz/v1"
 
     # LLM
