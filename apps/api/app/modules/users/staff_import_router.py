@@ -13,6 +13,7 @@ import json
 from celery.result import AsyncResult
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel, Field
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import require_role
@@ -24,6 +25,7 @@ from app.modules.users.staff_import_service import (
     PreviewResult,
     build_preview,
     commit_import,
+    create_manual_staff_member,
     parse_upload,
 )
 
@@ -79,6 +81,25 @@ class CommitResponse(BaseModel):
     # course-assignment rules for these users. The frontend can poll
     # for the task result or simply refresh the staff structure page
     # once the rule processing settles.
+    apply_rules_task_id: str | None = None
+    affected_user_count: int = 0
+
+
+class ManualStaffCreateRequest(BaseModel):
+    personnel_number: str = Field(..., min_length=1, max_length=64)
+    first_name: str = Field(..., min_length=1, max_length=120)
+    last_name: str = Field(..., min_length=1, max_length=120)
+    department: str = Field(..., min_length=1, max_length=160)
+    position: str = Field(..., min_length=1, max_length=160)
+    email: str | None = Field(default=None, max_length=320)
+    phone: str | None = Field(default=None, max_length=64)
+
+
+class ManualStaffCreateResponse(BaseModel):
+    created: int
+    updated: int
+    skipped: int
+    positions_created: int
     apply_rules_task_id: str | None = None
     affected_user_count: int = 0
 
@@ -142,6 +163,59 @@ def _parse_mapping(mapping: str | None) -> dict[str, str] | None:
     if not isinstance(value, dict):
         raise HTTPException(status_code=400, detail="Некорректное сопоставление колонок")
     return {str(k): str(v) for k, v in value.items() if v}
+
+
+@router.post("/manual", response_model=ManualStaffCreateResponse, status_code=201)
+async def create_manual_staff(
+    payload: ManualStaffCreateRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_role("admin", "org_admin", "superadmin", "methodologist", "teacher")),
+):
+    """Create one learner manually without uploading a staff file."""
+    if not user.tenant_id:
+        raise HTTPException(status_code=400, detail="Tenant is required")
+
+    existing_result = await db.execute(
+        select(User).where(
+            User.tenant_id == user.tenant_id,
+            func.lower(User.personnel_number) == payload.personnel_number.strip().lower(),
+        )
+    )
+    existing_user = existing_result.scalar_one_or_none()
+    if existing_user is None:
+        from app.core.trial_limits import assert_can_create_learners
+
+        await assert_can_create_learners(db, user.tenant_id, requested=1)
+
+    try:
+        result = await create_manual_staff_member(
+            db,
+            user.tenant_id,
+            personnel_number=payload.personnel_number,
+            first_name=payload.first_name,
+            last_name=payload.last_name,
+            department=payload.department,
+            position=payload.position,
+            email=payload.email,
+            phone=payload.phone,
+        )
+    except Exception as e:
+        msg = str(e)
+        if "uq_users_tenant_personnel" in msg or "duplicate key" in msg.lower():
+            raise HTTPException(
+                status_code=409,
+                detail="Сотрудник с таким табельным номером уже существует",
+            )
+        raise
+
+    return {
+        "created": result["created"],
+        "updated": result["updated"],
+        "skipped": result["skipped"],
+        "positions_created": result["positions_created"],
+        "apply_rules_task_id": result.get("apply_rules_task_id"),
+        "affected_user_count": len(result.get("affected_user_ids") or []),
+    }
 
 
 @router.post("/import/preview", response_model=PreviewResponse)

@@ -14,13 +14,13 @@ export default function AdminEmployeesRedirect() {
 
   useEffect(() => {
     const qs = search?.toString() ?? '';
-    const target = qs ? `/admin/staff?${qs}&tab=structure` : '/admin/staff?tab=structure';
+    const target = qs ? `/staff?${qs}&tab=structure` : '/staff?tab=structure';
     router.replace(target);
   }, [router, search]);
 
   return (
     <div className="p-6 text-muted-foreground">
-      Перенаправляю в <a className="text-primary underline" href="/admin/staff?tab=structure">Штатное расписание → Структура</a>…
+      Перенаправляю в <a className="text-primary underline" href="/staff?tab=structure">Штатное расписание → Структура</a>…
     </div>
   );
 }

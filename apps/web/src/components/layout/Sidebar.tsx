@@ -119,7 +119,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
           // doesn't look like a nickname. ?tab=structure deep-links
           // into the org-chart tab, not the importer.
           label: t('nav.staffSchedule'),
-          href: '/admin/staff?tab=structure',
+          href: '/staff?tab=structure',
           icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></svg>,
           roles: ['admin', 'org_admin', 'teacher'],
         },

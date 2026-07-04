@@ -121,6 +121,18 @@ export default function AdminStaffPage() {
   const [selectedSheetName, setSelectedSheetName] = useState('');
   const [loading, setLoading] = useState(false);
   const [committing, setCommitting] = useState(false);
+  const [manualOpen, setManualOpen] = useState(false);
+  const [manualSaving, setManualSaving] = useState(false);
+  const [structureRefreshKey, setStructureRefreshKey] = useState(0);
+  const [manualForm, setManualForm] = useState({
+    personnel_number: '',
+    first_name: '',
+    last_name: '',
+    email: '',
+    phone: '',
+    department: '',
+    position: '',
+  });
   // B2c: после /commit получаем task_id от apply-rules. Запускаем
   // polling через <ApplyRulesProgress/> и держим banner видимым до
   // терминального state.
@@ -249,6 +261,60 @@ export default function AdminStaffPage() {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
+  const handleManualChange = (field: keyof typeof manualForm, value: string) => {
+    setManualForm((current) => ({ ...current, [field]: value }));
+  };
+
+  const resetManualForm = () => {
+    setManualForm({
+      personnel_number: '',
+      first_name: '',
+      last_name: '',
+      email: '',
+      phone: '',
+      department: '',
+      position: '',
+    });
+  };
+
+  const handleManualCreate = async () => {
+    const requiredFields: Array<keyof typeof manualForm> = [
+      'personnel_number',
+      'first_name',
+      'last_name',
+      'department',
+      'position',
+    ];
+    if (requiredFields.some((field) => !manualForm[field].trim())) {
+      toast.error('Заполните табельный номер, имя, фамилию, отдел и должность');
+      return;
+    }
+
+    setManualSaving(true);
+    try {
+      const payload = Object.fromEntries(
+        Object.entries(manualForm).map(([key, value]) => [key, value.trim()])
+      );
+      const res = await api.post('/v1/admin/staff/manual', payload);
+      const r = res.data;
+      toast.success(
+        r.created > 0
+          ? 'Сотрудник добавлен в штатное расписание'
+          : 'Данные сотрудника обновлены'
+      );
+      setApplyTaskId(r.apply_rules_task_id ?? null);
+      setStructureRefreshKey((value) => value + 1);
+      setTab('structure');
+      setManualOpen(false);
+      resetManualForm();
+    } catch (err: any) {
+      const detail = err?.response?.data?.detail || 'Не удалось добавить сотрудника';
+      toast.error(typeof detail === 'string' ? detail : detail.message || JSON.stringify(detail));
+    } finally {
+      setManualSaving(false);
+    }
+  };
+
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
       <div>
@@ -276,6 +342,114 @@ export default function AdminStaffPage() {
         </Card>
       ) : (
       <>
+
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="text-sm text-muted-foreground">
+          Сотрудников можно загрузить файлом или добавить вручную.
+        </div>
+        <Button type="button" onClick={() => setManualOpen(true)}>
+          + Добавить сотрудника
+        </Button>
+      </div>
+
+      {manualOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-2xl rounded-xl bg-card p-6 shadow-xl">
+            <div className="mb-5 flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-bold text-foreground">Новый сотрудник</h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Сотрудник появится в структуре и получит курсы по своей должности и отделу.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setManualOpen(false)}
+                className="rounded-lg px-2 py-1 text-muted-foreground hover:bg-muted"
+                aria-label="Закрыть"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <label className="space-y-1">
+                <span className="text-sm font-medium">Табельный номер *</span>
+                <input
+                  value={manualForm.personnel_number}
+                  onChange={(e) => handleManualChange('personnel_number', e.target.value)}
+                  className="w-full rounded-lg border border-border bg-card px-3 py-2 outline-none focus:border-primary"
+                  placeholder="Например, 0001"
+                />
+              </label>
+              <label className="space-y-1">
+                <span className="text-sm font-medium">Email</span>
+                <input
+                  type="email"
+                  value={manualForm.email}
+                  onChange={(e) => handleManualChange('email', e.target.value)}
+                  className="w-full rounded-lg border border-border bg-card px-3 py-2 outline-none focus:border-primary"
+                  placeholder="employee@company.kz"
+                />
+              </label>
+              <label className="space-y-1">
+                <span className="text-sm font-medium">Имя *</span>
+                <input
+                  value={manualForm.first_name}
+                  onChange={(e) => handleManualChange('first_name', e.target.value)}
+                  className="w-full rounded-lg border border-border bg-card px-3 py-2 outline-none focus:border-primary"
+                  placeholder="Имя"
+                />
+              </label>
+              <label className="space-y-1">
+                <span className="text-sm font-medium">Фамилия *</span>
+                <input
+                  value={manualForm.last_name}
+                  onChange={(e) => handleManualChange('last_name', e.target.value)}
+                  className="w-full rounded-lg border border-border bg-card px-3 py-2 outline-none focus:border-primary"
+                  placeholder="Фамилия"
+                />
+              </label>
+              <label className="space-y-1">
+                <span className="text-sm font-medium">Отдел *</span>
+                <input
+                  value={manualForm.department}
+                  onChange={(e) => handleManualChange('department', e.target.value)}
+                  className="w-full rounded-lg border border-border bg-card px-3 py-2 outline-none focus:border-primary"
+                  placeholder="Например, Отдел продаж"
+                />
+              </label>
+              <label className="space-y-1">
+                <span className="text-sm font-medium">Должность *</span>
+                <input
+                  value={manualForm.position}
+                  onChange={(e) => handleManualChange('position', e.target.value)}
+                  className="w-full rounded-lg border border-border bg-card px-3 py-2 outline-none focus:border-primary"
+                  placeholder="Например, Менеджер по продажам"
+                />
+              </label>
+              <label className="space-y-1 md:col-span-2">
+                <span className="text-sm font-medium">Телефон</span>
+                <input
+                  value={manualForm.phone}
+                  onChange={(e) => handleManualChange('phone', e.target.value)}
+                  className="w-full rounded-lg border border-border bg-card px-3 py-2 outline-none focus:border-primary"
+                  placeholder="+7 777 000 00 00"
+                />
+              </label>
+            </div>
+
+            <div className="mt-6 flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setManualOpen(false)}>
+                Отмена
+              </Button>
+              <Button type="button" onClick={handleManualCreate} disabled={manualSaving}>
+                {manualSaving ? 'Сохраняю...' : 'Добавить'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ADR-0011 + ADR-0012: tabs combine import + structure + rules on one page */}
       <div role="tablist" className="flex border-b border-border">
@@ -672,7 +846,7 @@ export default function AdminStaffPage() {
         </div>
       )}
 
-      {tab === 'structure' && <StructureTab />}
+      {tab === 'structure' && <StructureTab refreshKey={structureRefreshKey} />}
       {tab === 'rules' && <RulesTab />}
       {tab === 'company-courses' && <CompanyCoursesTab />}
       </>
@@ -727,7 +901,7 @@ interface StructureResponse {
   };
 }
 
-function StructureTab() {
+function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
   const [data, setData] = useState<StructureResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [expandedDepts, setExpandedDepts] = useState<Set<string>>(new Set());
@@ -747,7 +921,7 @@ function StructureTab() {
       }
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [refreshKey]);
 
   const toggleDept = (slug: string) => {
     setExpandedDepts((prev) => {

@@ -916,3 +916,37 @@ async def commit_import(
         "affected_user_ids": [str(uid) for uid in affected_user_ids],
         "apply_rules_task_id": apply_rules_task_id,
     }
+
+
+async def create_manual_staff_member(
+    db: AsyncSession,
+    tenant_id: UUID,
+    *,
+    personnel_number: str,
+    first_name: str,
+    last_name: str,
+    department: str,
+    position: str,
+    email: str | None = None,
+    phone: str | None = None,
+) -> dict:
+    """Create one HR-managed learner without uploading a staff file."""
+    row = ParsedRow(
+        row_number=1,
+        personnel_number=personnel_number.strip(),
+        first_name=first_name.strip(),
+        last_name=last_name.strip(),
+        department=department.strip(),
+        position=position.strip(),
+        email=(email or "").strip().lower() or None,
+        phone=(phone or "").strip() or None,
+    )
+
+    parsed = ParsedFile(
+        rows=[row],
+        invalid_rows=[],
+        detected_columns={},
+        missing_required_columns=[],
+        total_rows_in_file=1,
+    )
+    return await commit_import(db, tenant_id, parsed)

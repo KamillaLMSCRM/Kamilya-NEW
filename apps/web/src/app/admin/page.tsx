@@ -268,10 +268,10 @@ export default function AdminDashboardPage() {
               <Link href="/admin/team" className="flex items-center gap-1 text-primary text-sm hover:underline">
                 {t('nav.userManagement')} <ChevronRight className="w-4 h-4" />
               </Link>
-              <Link href="/admin/staff?tab=import" className="flex items-center gap-1 text-primary text-sm hover:underline">
+              <Link href="/staff?tab=import" className="flex items-center gap-1 text-primary text-sm hover:underline">
                 {t('nav.staffSchedule')} <ChevronRight className="w-4 h-4" />
               </Link>
-              <Link href="/admin/staff?tab=structure" className="flex items-center gap-1 text-primary text-sm hover:underline">
+              <Link href="/staff?tab=structure" className="flex items-center gap-1 text-primary text-sm hover:underline">
                 {t('admin.staffStructure')} <ChevronRight className="w-4 h-4" />
               </Link>
             </div>
