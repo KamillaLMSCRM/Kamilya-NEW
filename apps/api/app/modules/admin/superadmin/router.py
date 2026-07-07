@@ -24,6 +24,7 @@ from app.modules.admin.superadmin.schemas import (
     AdminResponse,
     AdminUpdate,
     TenantCreate,
+    TenantCreateResponse,
     TenantListResponse,
     TenantResponse,
     TenantStats,
@@ -69,7 +70,7 @@ async def list_tenants(
     )
 
 
-@router.post("/tenants", response_model=TenantResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/tenants", response_model=TenantCreateResponse, status_code=status.HTTP_201_CREATED)
 async def create_tenant(
     payload: TenantCreate,
     request: Request,
@@ -77,16 +78,45 @@ async def create_tenant(
     svc: SuperadminService = Depends(_service),
 ):
     try:
-        tenant = await svc.create_tenant(payload)
+        tenant, first_admin, invite, invite_url = await svc.create_tenant_wizard(
+            payload, superadmin_id=user.id
+        )
     except ValueError as e:
+        await svc.db.rollback()
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
     await log_action(
         svc.db, tenant.id, "superadmin.tenant.created", "tenant",
         resource_id=tenant.id, user_id=user.id,
-        details={"name": tenant.name, "slug": tenant.slug, "plan": tenant.plan},
+        details={
+            "name": tenant.name,
+            "slug": tenant.slug,
+            "plan": tenant.plan,
+            "first_admin": first_admin.email if first_admin else None,
+            "invite_created": invite is not None,
+        },
         ip_address=request.client.host if request.client else None,
     )
-    return await _tenant_response(svc, tenant)
+    if first_admin is not None:
+        await log_action(
+            svc.db, tenant.id, "superadmin.admin.created", "user",
+            resource_id=first_admin.id, user_id=user.id,
+            details={
+                "email": first_admin.email,
+                "telegram_id": first_admin.telegram_id,
+                "role": first_admin.role,
+                "invite_sent": invite is not None,
+            },
+            ip_address=request.client.host if request.client else None,
+        )
+    await svc.db.commit()
+    await svc.db.refresh(tenant)
+    if first_admin is not None:
+        await svc.db.refresh(first_admin)
+    return TenantCreateResponse(
+        tenant=await _tenant_response(svc, tenant),
+        first_admin=AdminResponse.model_validate(first_admin) if first_admin else None,
+        invite_url=invite_url,
+    )
 
 
 @router.get("/tenants/{tenant_id}", response_model=TenantResponse)

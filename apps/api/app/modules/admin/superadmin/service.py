@@ -7,11 +7,13 @@ import uuid
 from datetime import datetime, timedelta, timezone
 
 import argon2
-from sqlalchemy import desc, func, select, update
+from sqlalchemy import desc, func, select, text, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.models.tenants import Tenant, TenantLead, TenantUsage
+from app.models.user_roles import UserRole
 from app.models.users import User, UserInvitation
 from app.modules.admin.superadmin.schemas import (
     AdminCreate,
@@ -24,6 +26,7 @@ from app.modules.admin.superadmin.schemas import (
     TenantUpdate,
     TenantUsageInfo,
 )
+from app.modules.users.invitations_service import _build_invite_url
 
 logger = logging.getLogger(__name__)
 _ph = argon2.PasswordHasher()
@@ -133,26 +136,70 @@ class SuperadminService:
 
     async def create_tenant(self, payload: TenantCreate) -> Tenant:
         # Slug uniqueness is enforced by DB unique index; catch and re-raise.
+        now = datetime.now(timezone.utc).replace(microsecond=0)
+        settings = {
+            **(payload.notes and {"superadmin_notes": payload.notes} or {}),
+            "trial_limits": {
+                "ai_course_generations_limit": 1,
+                "jd_course_generations_limit": 1,
+                "max_students": payload.max_users or 10,
+                "system_users_limit": 3,
+                "trial_days": 14,
+            },
+            "telegram_bot_mode": "shared",
+        }
         tenant = Tenant(
             name=payload.name,
             slug=payload.slug,
             plan=payload.plan,
             status=payload.status,
+            trial_started_at=now if payload.status == "trial" or payload.plan == "trial" else None,
             trial_ends_at=payload.trial_ends_at,
             paid_until=payload.paid_until,
             max_users=payload.max_users,
             max_courses_per_month=payload.max_courses_per_month,
             notes=payload.notes,
+            billing_contact_email=payload.first_admin.email if payload.first_admin else None,
+            billing_company_name=payload.name,
+            settings=settings,
         )
         self.db.add(tenant)
         try:
             await self.db.flush()
         except IntegrityError as e:
             raise ValueError(f"Slug '{payload.slug}' is already taken") from e
-        await self.db.commit()
-        await self.db.refresh(tenant)
         logger.info("superadmin.tenant.created id=%s slug=%s", tenant.id, tenant.slug)
         return tenant
+
+    async def create_tenant_wizard(
+        self, payload: TenantCreate, superadmin_id: uuid.UUID
+    ) -> tuple[Tenant, User | None, UserInvitation | None, str | None]:
+        """Create tenant plus optional first admin in one transaction."""
+        tenant = await self.create_tenant(payload)
+        await self.db.execute(
+            text("SELECT set_config('app.tenant_id', :tenant_id, true)"),
+            {"tenant_id": str(tenant.id)},
+        )
+
+        usage = TenantUsage(
+            tenant_id=tenant.id,
+            active_students_count_snapshot=0,
+            system_users_count_snapshot=1 if payload.first_admin else 0,
+        )
+        self.db.add(usage)
+
+        admin: User | None = None
+        invite: UserInvitation | None = None
+        invite_url: str | None = None
+        if payload.first_admin:
+            admin, invite = await self.create_admin(
+                tenant.id, payload.first_admin, superadmin_id=superadmin_id, commit=False
+            )
+            if invite:
+                settings = get_settings()
+                invite_url = _build_invite_url(invite.token, getattr(settings, "PUBLIC_URL", None))
+
+        return tenant, admin, invite, invite_url
 
     async def update_tenant(
         self, tenant_id: uuid.UUID, payload: TenantUpdate
@@ -197,7 +244,12 @@ class SuperadminService:
         return list(result.scalars().all())
 
     async def create_admin(
-        self, tenant_id: uuid.UUID, payload: AdminCreate, superadmin_id: uuid.UUID
+        self,
+        tenant_id: uuid.UUID,
+        payload: AdminCreate,
+        superadmin_id: uuid.UUID,
+        *,
+        commit: bool = True,
     ) -> tuple[User, UserInvitation | None]:
         """Add a user with an admin role to a tenant.
 
@@ -221,8 +273,12 @@ class SuperadminService:
             # Update telegram_id if it was provided and missing.
             if payload.telegram_id and not existing.telegram_id:
                 existing.telegram_id = payload.telegram_id
-            await self.db.commit()
-            await self.db.refresh(existing)
+            await self._sync_user_role(existing.id, tenant_id, payload.role)
+            if commit:
+                await self.db.commit()
+                await self.db.refresh(existing)
+            else:
+                await self.db.flush()
             logger.info(
                 "superadmin.admin.promoted id=%s tenant=%s role=%s",
                 existing.id, tenant_id, payload.role,
@@ -246,6 +302,7 @@ class SuperadminService:
         )
         self.db.add(user)
         await self.db.flush()
+        await self._sync_user_role(user.id, tenant_id, payload.role)
 
         invite: UserInvitation | None = None
         if payload.send_invite and payload.email:
@@ -264,15 +321,35 @@ class SuperadminService:
             )
             self.db.add(invite)
 
-        await self.db.commit()
-        await self.db.refresh(user)
-        if invite:
-            await self.db.refresh(invite)
+        if commit:
+            await self.db.commit()
+            await self.db.refresh(user)
+            if invite:
+                await self.db.refresh(invite)
+        else:
+            await self.db.flush()
         logger.info(
             "superadmin.admin.created id=%s tenant=%s role=%s by=%s",
             user.id, tenant_id, payload.role, superadmin_id,
         )
         return user, invite
+
+    async def _sync_user_role(
+        self, user_id: uuid.UUID, tenant_id: uuid.UUID, role: str
+    ) -> None:
+        existing_role = (
+            await self.db.execute(
+                select(UserRole).where(
+                    UserRole.user_id == user_id,
+                    UserRole.tenant_id == tenant_id,
+                )
+            )
+        ).scalar_one_or_none()
+        if existing_role:
+            existing_role.role = role
+        else:
+            self.db.add(UserRole(user_id=user_id, tenant_id=tenant_id, role=role))
+        await self.db.flush()
 
     async def update_admin(
         self, tenant_id: uuid.UUID, user_id: uuid.UUID, payload: AdminUpdate
@@ -285,6 +362,8 @@ class SuperadminService:
                 changes[field] = {"from": getattr(user, field), "to": new_value}
                 setattr(user, field, new_value)
         if changes:
+            if payload.role is not None:
+                await self._sync_user_role(user.id, tenant_id, payload.role)
             await self.db.commit()
             await self.db.refresh(user)
             logger.info(

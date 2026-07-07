@@ -116,6 +116,7 @@ class TenantCreate(BaseModel):
     max_users: int | None = Field(None, ge=1)
     max_courses_per_month: int | None = Field(None, ge=0)
     notes: str | None = Field(None, max_length=2000)
+    first_admin: "AdminCreate | None" = None
 
 
 class TenantUpdate(BaseModel):
@@ -198,3 +199,11 @@ class AdminResponse(BaseModel):
     last_login: datetime | None
 
     model_config = {"from_attributes": True}
+
+
+class TenantCreateResponse(BaseModel):
+    """Result of the superadmin tenant creation wizard."""
+
+    tenant: TenantResponse
+    first_admin: AdminResponse | None = None
+    invite_url: str | None = None
