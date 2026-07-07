@@ -98,6 +98,17 @@ class FakeRedis:
         return True
 
 
+class FailingRedis(FakeRedis):
+    async def get(self, key):
+        raise RuntimeError("max requests limit exceeded")
+
+    async def setex(self, key, ttl, value):
+        raise RuntimeError("max requests limit exceeded")
+
+    async def delete(self, key):
+        raise RuntimeError("max requests limit exceeded")
+
+
 @pytest.fixture
 def client():
     c = TestClient(app)
@@ -132,6 +143,28 @@ def patched_redis(fake_redis):
 
 
 class TestTelegramWebhook:
+    @pytest.mark.asyncio
+    async def test_auth_sessions_fall_back_when_redis_operations_fail(self):
+        async def _get():
+            return FailingRedis()
+
+        with patch.object(auth_sessions, "_get_redis", _get):
+            code, expires_in = await auth_sessions.generate_auth_code()
+            assert len(code) == 6
+            assert expires_in == 300
+            assert code in _memory_store
+
+            verified = await auth_sessions.verify_code(
+                code,
+                "349746594",
+                {"user_id": str(uuid4()), "telegram_id": "349746594"},
+            )
+            assert verified is True
+
+            result = await auth_sessions.check_code(code)
+            assert result["verified"] is True
+            assert result["user"]["telegram_id"] == "349746594"
+
     def test_start_command_does_not_500(self, client):
         """The /start branch responds 200 before touching the DB."""
         resp = client.post("/api/v1/telegram/webhook", json=_telegram_update("/start"))
