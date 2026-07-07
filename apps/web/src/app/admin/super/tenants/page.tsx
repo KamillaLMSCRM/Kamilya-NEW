@@ -209,6 +209,7 @@ export default function SuperAdminTenants() {
   const [slugEdited, setSlugEdited] = useState(false);
   const [createStep, setCreateStep] = useState<1 | 2 | 3>(1);
   const [createResult, setCreateResult] = useState<TenantCreateResult | null>(null);
+  const [deletingTenantId, setDeletingTenantId] = useState<string | null>(null);
 
   const fetchTenants = useCallback(async () => {
     if (!token) return;
@@ -315,6 +316,34 @@ export default function SuperAdminTenants() {
     if (!createResult?.invite_url) return;
     await navigator.clipboard.writeText(createResult.invite_url);
     toast.success('Ссылка приглашения скопирована.');
+  };
+
+  const handleDeleteTenant = async (tenant: Tenant) => {
+    const confirmation = window.prompt(
+      `Удаление безвозвратно удалит тенанта "${tenant.name}" и его данные.\n\nВведите slug для подтверждения: ${tenant.slug}`
+    );
+    if (confirmation !== tenant.slug) {
+      if (confirmation !== null) toast.error('Удаление отменено: slug не совпал.');
+      return;
+    }
+    setDeletingTenantId(tenant.id);
+    try {
+      const res = await fetch(`${API_URL}/v1/admin/super/tenants/${tenant.id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: 'Unknown' }));
+        const message = errorMessageFromResponse(err);
+        throw new Error(message === 'Unknown' ? `HTTP ${res.status}` : message);
+      }
+      toast.success(`Тенант ${tenant.name} удален.`);
+      await fetchTenants();
+    } catch (e) {
+      toast.error(`Не удалось удалить тенанта: ${(e as Error).message}`);
+    } finally {
+      setDeletingTenantId(null);
+    }
   };
 
   return (
@@ -449,12 +478,22 @@ export default function SuperAdminTenants() {
                           })}
                         </div>
                       </td>
-                      <td className="px-3 py-2 text-right">
-                        <Link href={`/admin/super/tenants/${tnt.id}`}>
-                          <Button size="sm" variant="secondary">
-                            {t('superadmin.tenants.open')}
+                      <td className="px-3 py-2">
+                        <div className="flex justify-end gap-2">
+                          <Link href={`/admin/super/tenants/${tnt.id}`}>
+                            <Button size="sm" variant="secondary">
+                              {t('superadmin.tenants.open')}
+                            </Button>
+                          </Link>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            disabled={deletingTenantId === tnt.id}
+                            onClick={() => handleDeleteTenant(tnt)}
+                          >
+                            {deletingTenantId === tnt.id ? '...' : 'Удалить'}
                           </Button>
-                        </Link>
+                        </div>
                       </td>
                     </tr>
                   ))}

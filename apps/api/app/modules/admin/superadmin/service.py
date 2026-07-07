@@ -37,6 +37,56 @@ _ph = argon2.PasswordHasher()
 # privilege-escalation guard. Use direct DB access for that.
 GRANTABLE_ROLES = {"admin", "org_admin", "teacher"}
 
+TENANT_DELETE_SQL = [
+    """
+    DELETE FROM quiz_choices
+    WHERE question_id IN (
+        SELECT q.id FROM questions q
+        JOIN quizzes z ON z.id = q.quiz_id
+        WHERE z.tenant_id = :tenant_id
+    )
+    """,
+    """
+    DELETE FROM questions
+    WHERE quiz_id IN (SELECT id FROM quizzes WHERE tenant_id = :tenant_id)
+    """,
+    """
+    DELETE FROM content_blocks
+    WHERE lesson_id IN (SELECT id FROM lessons WHERE tenant_id = :tenant_id)
+    """,
+    "DELETE FROM quiz_attempts WHERE tenant_id = :tenant_id",
+    "DELETE FROM quiz_assignments WHERE tenant_id = :tenant_id",
+    "DELETE FROM certificates WHERE tenant_id = :tenant_id",
+    "DELETE FROM progress WHERE tenant_id = :tenant_id",
+    "DELETE FROM enrollments WHERE tenant_id = :tenant_id",
+    "DELETE FROM position_quizzes WHERE tenant_id = :tenant_id",
+    "DELETE FROM position_courses WHERE tenant_id = :tenant_id",
+    "DELETE FROM department_courses WHERE tenant_id = :tenant_id",
+    "DELETE FROM position_jd_versions WHERE tenant_id = :tenant_id",
+    "DELETE FROM quizzes WHERE tenant_id = :tenant_id",
+    "DELETE FROM lessons WHERE tenant_id = :tenant_id",
+    "DELETE FROM modules WHERE tenant_id = :tenant_id",
+    "DELETE FROM courses WHERE tenant_id = :tenant_id",
+    "DELETE FROM documents WHERE tenant_id = :tenant_id",
+    "DELETE FROM generated_content WHERE tenant_id = :tenant_id",
+    "DELETE FROM ai_jobs WHERE tenant_id = :tenant_id",
+    "DELETE FROM kiosk_links WHERE tenant_id = :tenant_id",
+    "DELETE FROM tenant_integrations_audit WHERE tenant_id = :tenant_id",
+    "DELETE FROM tenant_integrations WHERE tenant_id = :tenant_id",
+    "DELETE FROM tenant_llm_usage WHERE tenant_id = :tenant_id",
+    "DELETE FROM tenant_settings WHERE tenant_id = :tenant_id",
+    "DELETE FROM provider_keys WHERE tenant_id = :tenant_id",
+    "DELETE FROM user_sessions WHERE tenant_id = :tenant_id",
+    "DELETE FROM user_invitations WHERE tenant_id = :tenant_id",
+    "DELETE FROM user_roles WHERE tenant_id = :tenant_id",
+    "DELETE FROM users WHERE tenant_id = :tenant_id",
+    "DELETE FROM departments WHERE tenant_id = :tenant_id",
+    "DELETE FROM audit_logs WHERE tenant_id = :tenant_id",
+    "DELETE FROM tenant_usage WHERE tenant_id = :tenant_id",
+    "DELETE FROM tenant_leads WHERE tenant_id = :tenant_id",
+    "DELETE FROM tenants WHERE id = :tenant_id",
+]
+
 
 class SuperadminService:
     def __init__(self, db: AsyncSession):
@@ -244,6 +294,44 @@ class SuperadminService:
             "superadmin.tenant.updated id=%s changes=%s", tenant.id, list(changes.keys())
         )
         return tenant
+
+    async def delete_tenant(self, tenant_id: uuid.UUID) -> Tenant:
+        tenant = await self.db.get(Tenant, tenant_id)
+        if tenant is None:
+            raise LookupError(f"Tenant {tenant_id} not found")
+
+        await self.db.execute(
+            text("SELECT set_config('app.tenant_id', :tenant_id, true)"),
+            {"tenant_id": str(tenant_id)},
+        )
+        deleted_snapshot = Tenant(
+            id=tenant.id,
+            name=tenant.name,
+            slug=tenant.slug,
+            status=tenant.status,
+            plan=tenant.plan,
+            trial_started_at=tenant.trial_started_at,
+            trial_ends_at=tenant.trial_ends_at,
+            paid_until=tenant.paid_until,
+            max_users=tenant.max_users,
+            max_courses_per_month=tenant.max_courses_per_month,
+            billing_contact_email=tenant.billing_contact_email,
+            billing_company_name=tenant.billing_company_name,
+            billing_identifier=tenant.billing_identifier,
+            notes=tenant.notes,
+            settings=tenant.settings,
+            created_at=tenant.created_at,
+            updated_at=tenant.updated_at,
+        )
+        for statement in TENANT_DELETE_SQL:
+            await self.db.execute(text(statement), {"tenant_id": str(tenant_id)})
+        await self.db.commit()
+        logger.warning(
+            "superadmin.tenant.deleted id=%s slug=%s",
+            deleted_snapshot.id,
+            deleted_snapshot.slug,
+        )
+        return deleted_snapshot
 
     # ── Admins (per-tenant users) ──────────────────────────────────
 

@@ -156,6 +156,32 @@ async def update_tenant(
     return await _tenant_response(svc, tenant)
 
 
+@router.delete("/tenants/{tenant_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_tenant(
+    tenant_id: uuid.UUID,
+    request: Request,
+    user: User = Depends(require_role("superadmin")),
+    svc: SuperadminService = Depends(_service),
+):
+    try:
+        tenant = await svc.delete_tenant(tenant_id)
+    except LookupError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        await svc.db.rollback()
+        raise HTTPException(status_code=500, detail=f"Tenant delete failed: {e}") from e
+
+    import logging
+
+    logging.getLogger(__name__).warning(
+        "superadmin.tenant.deleted id=%s slug=%s by=%s ip=%s",
+        tenant.id,
+        tenant.slug,
+        user.id,
+        request.client.host if request.client else None,
+    )
+
+
 # ── Admins within a tenant ─────────────────────────────────────────────
 
 
