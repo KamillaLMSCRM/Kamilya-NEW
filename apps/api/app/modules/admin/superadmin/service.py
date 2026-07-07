@@ -323,7 +323,8 @@ class SuperadminService:
             created_at=tenant.created_at,
             updated_at=tenant.updated_at,
         )
-        for statement in TENANT_DELETE_SQL:
+        statements = await self._tenant_delete_statements()
+        for statement in statements:
             await self.db.execute(text(statement), {"tenant_id": str(tenant_id)})
         await self.db.commit()
         logger.warning(
@@ -332,6 +333,34 @@ class SuperadminService:
             deleted_snapshot.slug,
         )
         return deleted_snapshot
+
+    async def _tenant_delete_statements(self) -> list[str]:
+        result = await self.db.execute(
+            text(
+                """
+                SELECT table_name, column_name
+                FROM information_schema.columns
+                WHERE table_schema = current_schema()
+                """
+            )
+        )
+        columns_by_table: dict[str, set[str]] = {}
+        for table_name, column_name in result:
+            columns_by_table.setdefault(table_name, set()).add(column_name)
+
+        statements: list[str] = []
+        for statement in TENANT_DELETE_SQL:
+            stripped = statement.strip()
+            table_name = stripped.split()[2]
+            table_columns = columns_by_table.get(table_name)
+            if table_columns is None:
+                logger.warning("superadmin.tenant.delete.skip_missing_table table=%s", table_name)
+                continue
+            if "WHERE tenant_id" in stripped and "tenant_id" not in table_columns:
+                logger.warning("superadmin.tenant.delete.skip_missing_tenant_id table=%s", table_name)
+                continue
+            statements.append(statement)
+        return statements
 
     # ── Admins (per-tenant users) ──────────────────────────────────
 
