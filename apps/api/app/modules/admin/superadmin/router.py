@@ -108,15 +108,13 @@ async def create_tenant(
             },
             ip_address=request.client.host if request.client else None,
         )
-    await svc.db.commit()
-    await svc.db.refresh(tenant)
-    if first_admin is not None:
-        await svc.db.refresh(first_admin)
-    return TenantCreateResponse(
+    response = TenantCreateResponse(
         tenant=await _tenant_response(svc, tenant),
         first_admin=AdminResponse.model_validate(first_admin) if first_admin else None,
         invite_url=invite_url,
     )
+    await svc.db.commit()
+    return response
 
 
 @router.get("/tenants/{tenant_id}", response_model=TenantResponse)
