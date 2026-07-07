@@ -134,9 +134,25 @@ class SuperadminService:
             return None
         return TenantLeadInfo.model_validate(lead)
 
+    async def _unique_slug(self, requested_slug: str) -> str:
+        base = requested_slug.strip("-")[:60] or "tenant"
+        candidate = base
+        suffix = 1
+        while True:
+            exists = (
+                await self.db.execute(select(Tenant.id).where(Tenant.slug == candidate))
+            ).scalar_one_or_none()
+            if exists is None:
+                return candidate
+            suffix += 1
+            if suffix > 99:
+                raise ValueError(f"Could not find a free slug for '{requested_slug}'")
+            candidate = f"{base}-{suffix}"
+
     async def create_tenant(self, payload: TenantCreate) -> Tenant:
         # Slug uniqueness is enforced by DB unique index; catch and re-raise.
         now = datetime.now(timezone.utc).replace(microsecond=0)
+        slug = await self._unique_slug(payload.slug)
         settings = {
             **(payload.notes and {"superadmin_notes": payload.notes} or {}),
             "trial_limits": {
@@ -150,7 +166,7 @@ class SuperadminService:
         }
         tenant = Tenant(
             name=payload.name,
-            slug=payload.slug,
+            slug=slug,
             plan=payload.plan,
             status=payload.status,
             trial_started_at=now if payload.status == "trial" or payload.plan == "trial" else None,
@@ -167,7 +183,7 @@ class SuperadminService:
         try:
             await self.db.flush()
         except IntegrityError as e:
-            raise ValueError(f"Slug '{payload.slug}' is already taken") from e
+            raise ValueError(f"Slug '{slug}' is already taken") from e
         logger.info("superadmin.tenant.created id=%s slug=%s", tenant.id, tenant.slug)
         return tenant
 

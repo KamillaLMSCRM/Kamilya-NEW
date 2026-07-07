@@ -296,7 +296,8 @@ export default function SuperAdminTenants() {
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ detail: 'Unknown' }));
-        throw new Error(errorMessageFromResponse(err) || `HTTP ${res.status}`);
+        const message = errorMessageFromResponse(err);
+        throw new Error(message === 'Unknown' ? `HTTP ${res.status}` : message);
       }
       const data = (await res.json()) as TenantCreateResult;
       setCreateResult(data);
