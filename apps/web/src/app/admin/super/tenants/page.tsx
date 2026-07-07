@@ -53,6 +53,93 @@ interface Tenant {
 
 const PLAN_KEYS = ['free', 'trial', 'pro', 'enterprise'] as const;
 const STATUS_KEYS = ['active', 'trial', 'suspended', 'archived'] as const;
+const SLUG_PATTERN = /^[a-z0-9-]+$/;
+const CYRILLIC_TO_LATIN: Record<string, string> = {
+  а: 'a',
+  б: 'b',
+  в: 'v',
+  г: 'g',
+  д: 'd',
+  е: 'e',
+  ё: 'e',
+  ж: 'zh',
+  з: 'z',
+  и: 'i',
+  й: 'i',
+  к: 'k',
+  л: 'l',
+  м: 'm',
+  н: 'n',
+  о: 'o',
+  п: 'p',
+  р: 'r',
+  с: 's',
+  т: 't',
+  у: 'u',
+  ф: 'f',
+  х: 'h',
+  ц: 'ts',
+  ч: 'ch',
+  ш: 'sh',
+  щ: 'sch',
+  ъ: '',
+  ы: 'y',
+  і: 'i',
+  ь: '',
+  э: 'e',
+  ю: 'yu',
+  я: 'ya',
+  ә: 'a',
+  ғ: 'g',
+  қ: 'k',
+  ң: 'n',
+  ө: 'o',
+  ұ: 'u',
+  ү: 'u',
+  һ: 'h',
+};
+
+function slugifyTenantName(value: string) {
+  const transliterated = value
+    .trim()
+    .toLowerCase()
+    .split('')
+    .map((char) => CYRILLIC_TO_LATIN[char] ?? char)
+    .join('');
+
+  return transliterated
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .replace(/-{2,}/g, '-')
+    .slice(0, 64);
+}
+
+function normalizeSlug(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9-]/g, '-')
+    .replace(/-{2,}/g, '-')
+    .replace(/^-+/, '')
+    .slice(0, 64);
+}
+
+function errorMessageFromResponse(payload: unknown) {
+  if (!payload || typeof payload !== 'object') return 'Unknown';
+  const detail = (payload as { detail?: unknown }).detail;
+  if (typeof detail === 'string') return detail;
+  if (Array.isArray(detail)) {
+    return detail
+      .map((item) => {
+        if (!item || typeof item !== 'object') return String(item);
+        const record = item as { loc?: unknown[]; msg?: string };
+        const field = Array.isArray(record.loc) ? record.loc.slice(1).join('.') : '';
+        return [field, record.msg].filter(Boolean).join(': ');
+      })
+      .filter(Boolean)
+      .join('; ');
+  }
+  return 'Unknown';
+}
 
 function formatDate(value: string | null) {
   if (!value) return '—';
@@ -85,6 +172,7 @@ export default function SuperAdminTenants() {
     trial_ends_at: '',
     max_users: '',
   });
+  const [slugEdited, setSlugEdited] = useState(false);
 
   const fetchTenants = useCallback(async () => {
     if (!token) return;
@@ -114,11 +202,16 @@ export default function SuperAdminTenants() {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
+    const slug = normalizeSlug(form.slug || slugifyTenantName(form.name));
+    if (!SLUG_PATTERN.test(slug) || slug.length < 2) {
+      toast.error('Slug должен содержать минимум 2 символа: латинские буквы, цифры и дефисы.');
+      return;
+    }
     setSubmitting(true);
     try {
       const body: Record<string, unknown> = {
-        name: form.name,
-        slug: form.slug,
+        name: form.name.trim(),
+        slug,
         plan: form.plan,
         status: form.status,
       };
@@ -135,11 +228,12 @@ export default function SuperAdminTenants() {
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ detail: 'Unknown' }));
-        throw new Error(err.detail || `HTTP ${res.status}`);
+        throw new Error(errorMessageFromResponse(err) || `HTTP ${res.status}`);
       }
       toast.success(t('superadmin.tenants.saveOk'));
       setShowCreate(false);
       setForm({ name: '', slug: '', plan: 'trial', status: 'trial', trial_ends_at: '', max_users: '' });
+      setSlugEdited(false);
       await fetchTenants();
     } catch (e) {
       toast.error(`${t('superadmin.tenants.saveError')}: ${(e as Error).message}`);
@@ -301,7 +395,14 @@ export default function SuperAdminTenants() {
             </label>
             <Input
               value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              onChange={(e) => {
+                const name = e.target.value;
+                setForm({
+                  ...form,
+                  name,
+                  slug: slugEdited ? form.slug : slugifyTenantName(name),
+                });
+              }}
               required
               minLength={2}
               maxLength={200}
@@ -313,13 +414,19 @@ export default function SuperAdminTenants() {
             </label>
             <Input
               value={form.slug}
-              onChange={(e) => setForm({ ...form, slug: e.target.value })}
+              onChange={(e) => {
+                setSlugEdited(true);
+                setForm({ ...form, slug: normalizeSlug(e.target.value) });
+              }}
               required
               minLength={2}
               maxLength={64}
-              pattern="[a-z0-9-]+"
               placeholder="my-org"
+              inputMode="url"
             />
+            <p className="mt-1 text-xs text-text-tertiary">
+              Только латинские буквы, цифры и дефисы. Заполняется автоматически из названия.
+            </p>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>

@@ -11,6 +11,34 @@ import { toast } from '@/components/ui/Toast';
 const PLAN_KEYS = ['free', 'trial', 'pro', 'enterprise'] as const;
 const STATUS_KEYS = ['active', 'trial', 'suspended', 'archived'] as const;
 const ROLE_KEYS = ['admin', 'org_admin', 'teacher'] as const;
+const SLUG_PATTERN = /^[a-z0-9-]+$/;
+
+function normalizeSlug(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9-]/g, '-')
+    .replace(/-{2,}/g, '-')
+    .replace(/^-+/, '')
+    .slice(0, 64);
+}
+
+function errorMessageFromResponse(payload: unknown) {
+  if (!payload || typeof payload !== 'object') return 'Unknown';
+  const detail = (payload as { detail?: unknown }).detail;
+  if (typeof detail === 'string') return detail;
+  if (Array.isArray(detail)) {
+    return detail
+      .map((item) => {
+        if (!item || typeof item !== 'object') return String(item);
+        const record = item as { loc?: unknown[]; msg?: string };
+        const field = Array.isArray(record.loc) ? record.loc.slice(1).join('.') : '';
+        return [field, record.msg].filter(Boolean).join(': ');
+      })
+      .filter(Boolean)
+      .join('; ');
+  }
+  return 'Unknown';
+}
 
 interface Tenant {
   id: string;
@@ -172,7 +200,7 @@ export default function TenantDetailPage({ params }: { params: { id: string } })
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ detail: 'Unknown' }));
-        throw new Error(err.detail || `HTTP ${res.status}`);
+        throw new Error(errorMessageFromResponse(err) || `HTTP ${res.status}`);
       }
       toast.success(t('superadmin.tenants.saveOk'));
       await fetchAll();
@@ -188,8 +216,12 @@ export default function TenantDetailPage({ params }: { params: { id: string } })
     const body: Record<string, unknown> = {};
     const fields = ['name', 'slug', 'status', 'plan', 'trial_ends_at', 'paid_until', 'max_users', 'max_courses_per_month', 'notes'];
     for (const f of fields) {
-      const v = editForm[f];
+      const v = f === 'slug' ? normalizeSlug(editForm[f] || '') : editForm[f];
       if (v === undefined) continue;
+      if (f === 'slug' && (!SLUG_PATTERN.test(v) || v.length < 2)) {
+        toast.error('Slug должен содержать минимум 2 символа: латинские буквы, цифры и дефисы.');
+        return;
+      }
       if (v === '') {
         if (f === 'trial_ends_at' || f === 'paid_until' || f === 'max_users' || f === 'max_courses_per_month') {
           body[f] = null;
@@ -522,9 +554,12 @@ export default function TenantDetailPage({ params }: { params: { id: string } })
               </label>
               <Input
                 value={editForm.slug || ''}
-                onChange={(e) => setEditForm({ ...editForm, slug: e.target.value })}
-                pattern="[a-z0-9-]+"
+                onChange={(e) => setEditForm({ ...editForm, slug: normalizeSlug(e.target.value) })}
+                inputMode="url"
               />
+              <p className="mt-1 text-xs text-text-tertiary">
+                Только латинские буквы, цифры и дефисы.
+              </p>
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">
