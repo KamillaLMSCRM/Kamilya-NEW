@@ -330,5 +330,8 @@ asyncpg.exceptions.InternalServerError:
 | --- | --- |
 | 10 VU / 30 секунд, learner-flow с токенами | Успешно, 0 ошибок, HTTP p95 около 236 мс |
 | 50 VU / 60 секунд, learner-flow с токенами | Успешно, 0 ошибок, HTTP p95 около 524 мс, p99 около 697 мс |
+| 100 VU / 120 секунд, learner-flow с токенами | HTTP ошибок 0%, общий HTTP p95 около 1.43 сек, p99 около 1.81 сек; порог `kamilya_lesson_progress_duration p95 < 1.2 сек` не пройден, фактически около 1.39 сек |
 
-Вывод после повторного прогона: ограничение SQLAlchemy pool ниже лимита Supabase session pooler устранило массовые 500 на 50 VU. Следующий этап можно поднимать до 100 VU, но уже с наблюдением Render CPU/RAM и Supabase connection count. До 500 VU рано идти без промежуточных 100/250 VU и без отдельного mixed-сценария с админскими экранами.
+Вывод после повторного прогона: ограничение SQLAlchemy pool ниже лимита Supabase session pooler устранило массовые 500 на 50 VU. До 500 VU рано идти без разбора latency на 100 VU, промежуточного 250 VU и отдельного mixed-сценария с админскими экранами.
+
+Вывод после 100 VU: backend уже не падает по соединениям, но learner write-path начинает упираться в latency сохранения прогресса урока. Перед 250/500 VU нужно отдельно разобрать `/progress/lessons/{lesson_id}`: количество DB-запросов, upsert/commit, индексы по `user_id`, `lesson_id`, `course_id`, а также влияние RLS/session context. Идти к 250 VU можно только как диагностический stress, не как приемочный прогон.
