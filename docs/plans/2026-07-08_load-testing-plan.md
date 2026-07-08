@@ -349,4 +349,6 @@ asyncpg.exceptions.InternalServerError:
 | 10 VU / 30 секунд | Успешно, 0 ошибок, progress p95 около 166 мс |
 | 100 VU / 120 секунд | HTTP ошибок 0%, общий HTTP p95 около 1.31 сек, progress p95 около 1.37 сек |
 
-Вывод: upsert исправил корректность и немного улучшил средние значения, но p95 на 100 VU по-прежнему выше целевого 1.2 сек. Следующая проверка - увеличить app DB pool с 10 до 12 соединений (`DB_POOL_SIZE=7`, `DB_MAX_OVERFLOW=5`), не превышая Supabase session pooler cap 15.
+Вывод: upsert исправил корректность и немного улучшил средние значения, но p95 на 100 VU по-прежнему выше целевого 1.2 сек. Проверка увеличения app DB pool с 10 до 12 соединений (`DB_POOL_SIZE=7`, `DB_MAX_OVERFLOW=5`) была остановлена: на старте 100 VU снова появились 500/401 на read endpoints. Практический предел текущей связки Render + Supabase session pooler - оставить приложение на 10 соединениях и не пытаться лечить latency простым увеличением pool.
+
+Следующий технический вывод: для 250/500 VU нужен не больший app pool в session mode, а смена DB-стратегии или снижение числа DB roundtrip на запрос. Варианты: Supabase transaction pooler/более высокий DB plan, отдельный PgBouncer, кэширование user/session lookup, объединение learner dashboard/course/progress reads, оптимизация RLS context setup.
