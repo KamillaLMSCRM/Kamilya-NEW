@@ -64,6 +64,8 @@ Thumbs.db
 # Testing
 coverage/
 .nyc_output/
+tests/load/*.csv
+tests/load/last-backend-error.txt
 
 # Drizzle
 drizzle/

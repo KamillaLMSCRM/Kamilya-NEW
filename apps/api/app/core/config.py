@@ -28,6 +28,10 @@ class Settings(BaseSettings):
     # operational checklist after migration.
     DATABASE_URL: str = "postgresql+asyncpg://lms:lms_dev_password_2026@localhost:5432/kamilya_lms"
     MIGRATION_DATABASE_URL: str = ""
+    DB_POOL_SIZE: int = 5
+    DB_MAX_OVERFLOW: int = 5
+    DB_POOL_TIMEOUT: int = 10
+    DB_POOL_RECYCLE_SECONDS: int = 1800
 
     @field_validator("DATABASE_URL", "MIGRATION_DATABASE_URL", mode="before")
     @classmethod

@@ -1,25 +1,21 @@
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
+
 from app.core.config import get_settings
 
 settings = get_settings()
 
-# Pool sizing per AGENTS.md §DB:
-#   pool_size = (CPU × 2) + spindle_count
-#   Start with 20 (Render starter plan = 0.5 CPU, 2 GB RAM).
-#   max_overflow = 10 (allows bursts above pool_size up to 30 connections).
-#   pool_pre_ping = True (defends against stale connections after PgBouncer
-#     or Supabase connection recycling).
-#   pool_recycle = 1800 (recycle connections every 30 min — defensive
-#     against firewalls dropping idle TCP, and matches Supabase's
-#     pooler-side timeout for free-tier projects).
+# Production uses the Supabase session pooler, which currently caps this
+# service at 15 DB clients. Keep SQLAlchemy below that cap so load spikes queue
+# inside the app instead of crashing with asyncpg EMAXCONNSESSION.
 engine = create_async_engine(
     settings.DATABASE_URL,
     echo=settings.DEBUG,
-    pool_size=20,
-    max_overflow=10,
+    pool_size=settings.DB_POOL_SIZE,
+    max_overflow=settings.DB_MAX_OVERFLOW,
+    pool_timeout=settings.DB_POOL_TIMEOUT,
     pool_pre_ping=True,
-    pool_recycle=1800,
+    pool_recycle=settings.DB_POOL_RECYCLE_SECONDS,
 )
 async_session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 

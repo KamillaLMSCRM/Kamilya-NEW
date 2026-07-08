@@ -23,6 +23,14 @@ services:
         sync: false
       - key: MIGRATION_DATABASE_URL
         sync: false
+      - key: DB_POOL_SIZE
+        value: "5"
+      - key: DB_MAX_OVERFLOW
+        value: "5"
+      - key: DB_POOL_TIMEOUT
+        value: "10"
+      - key: DB_POOL_RECYCLE_SECONDS
+        value: "1800"
       - key: REDIS_URL
         sync: false
       - key: JWT_SECRET
