@@ -335,3 +335,18 @@ asyncpg.exceptions.InternalServerError:
 Вывод после повторного прогона: ограничение SQLAlchemy pool ниже лимита Supabase session pooler устранило массовые 500 на 50 VU. До 500 VU рано идти без разбора latency на 100 VU, промежуточного 250 VU и отдельного mixed-сценария с админскими экранами.
 
 Вывод после 100 VU: backend уже не падает по соединениям, но learner write-path начинает упираться в latency сохранения прогресса урока. Перед 250/500 VU нужно отдельно разобрать `/progress/lessons/{lesson_id}`: количество DB-запросов, upsert/commit, индексы по `user_id`, `lesson_id`, `course_id`, а также влияние RLS/session context. Идти к 250 VU можно только как диагностический stress, не как приемочный прогон.
+
+Дальнейшее исправление:
+
+- добавлена миграция `0049` с dedupe прогресса и уникальным индексом `(tenant_id, user_id, lesson_id)`;
+- `PUT /progress/lessons/{lesson_id}` переведен на атомарный PostgreSQL upsert;
+- отдельно обнаружено, что prod стоял на `alembic_version=0045`, поэтому миграции `0046-0049` были применены вручную через `python -m alembic upgrade head`.
+
+Факт после upsert и ручной миграции до `0049`:
+
+| Прогон | Результат |
+| --- | --- |
+| 10 VU / 30 секунд | Успешно, 0 ошибок, progress p95 около 166 мс |
+| 100 VU / 120 секунд | HTTP ошибок 0%, общий HTTP p95 около 1.31 сек, progress p95 около 1.37 сек |
+
+Вывод: upsert исправил корректность и немного улучшил средние значения, но p95 на 100 VU по-прежнему выше целевого 1.2 сек. Следующая проверка - увеличить app DB pool с 10 до 12 соединений (`DB_POOL_SIZE=7`, `DB_MAX_OVERFLOW=5`), не превышая Supabase session pooler cap 15.
