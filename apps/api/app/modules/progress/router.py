@@ -1,6 +1,6 @@
 """Progress — API router"""
 from uuid import UUID
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import get_current_user, require_tenant_user
@@ -36,7 +36,10 @@ async def update_lesson_progress_endpoint(
     db: AsyncSession = Depends(get_db),
     user=Depends(get_current_user),
 ):
-    return await update_lesson_progress(db, user.id, lesson_id, user.tenant_id, req.completed)
+    progress = await update_lesson_progress(db, user.id, lesson_id, user.tenant_id, req.completed)
+    if progress is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lesson not found")
+    return progress
 
 
 @router.get("/courses/{course_id}", response_model=CourseProgressResponse)

@@ -1,13 +1,17 @@
 """Progress model"""
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import Column, Integer, Boolean, DateTime
+from sqlalchemy import Boolean, Column, DateTime, Index, Integer, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from app.core.db import Base
 
 
 class Progress(Base):
     __tablename__ = "progress"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "user_id", "lesson_id", name="uq_progress_tenant_user_lesson"),
+        Index("ix_progress_tenant_user_course_completed", "tenant_id", "user_id", "course_id", "completed"),
+    )
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(UUID(as_uuid=True), nullable=False, index=True)

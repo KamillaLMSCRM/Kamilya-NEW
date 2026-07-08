@@ -1,8 +1,8 @@
 """Progress — service"""
+import uuid
 from uuid import UUID
-from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, text
 from app.models.progress import Progress
 from app.modules.lessons.models import Module, Lesson
 
@@ -21,34 +21,74 @@ async def get_lesson_progress(db: AsyncSession, user_id: UUID, lesson_id: UUID, 
 async def update_lesson_progress(
     db: AsyncSession, user_id: UUID, lesson_id: UUID, tenant_id: UUID, completed: bool = True
 ):
-    # Resolve course_id from lesson
-    lesson_result = await db.execute(
-        select(Module.course_id).join(Lesson, Lesson.module_id == Module.id).where(Lesson.id == lesson_id)
+    result = await db.execute(
+        text(
+            """
+            INSERT INTO progress (
+                id,
+                tenant_id,
+                user_id,
+                course_id,
+                lesson_id,
+                completed,
+                completion_percent,
+                percent,
+                completed_at,
+                last_at
+            )
+            SELECT
+                :id,
+                :tenant_id,
+                :user_id,
+                m.course_id,
+                l.id,
+                :completed,
+                CASE WHEN :completed THEN 100 ELSE 0 END,
+                CASE WHEN :completed THEN 100 ELSE 0 END,
+                CASE WHEN :completed THEN NOW() ELSE NULL END,
+                NOW()
+            FROM lessons l
+            JOIN modules m ON m.id = l.module_id
+            WHERE l.id = :lesson_id
+              AND l.tenant_id = :tenant_id
+              AND m.tenant_id = :tenant_id
+            ON CONFLICT (tenant_id, user_id, lesson_id)
+            DO UPDATE SET
+                completed = EXCLUDED.completed,
+                completion_percent = CASE
+                    WHEN EXCLUDED.completed THEN 100
+                    ELSE progress.completion_percent
+                END,
+                percent = CASE
+                    WHEN EXCLUDED.completed THEN 100
+                    ELSE progress.percent
+                END,
+                completed_at = CASE
+                    WHEN EXCLUDED.completed AND progress.completed_at IS NULL THEN NOW()
+                    ELSE progress.completed_at
+                END,
+                last_at = NOW()
+            RETURNING
+                id,
+                user_id,
+                lesson_id,
+                tenant_id,
+                completed,
+                completion_percent,
+                completed_at,
+                last_at AS last_accessed_at
+            """
+        ),
+        {
+            "id": uuid.uuid4(),
+            "tenant_id": tenant_id,
+            "user_id": user_id,
+            "lesson_id": lesson_id,
+            "completed": completed,
+        },
     )
-    course_id = lesson_result.scalar_one_or_none()
-
-    progress = await get_lesson_progress(db, user_id, lesson_id, tenant_id)
-    if progress:
-        progress.completed = completed
-        progress.completion_percent = 100 if completed else progress.completion_percent
-        if completed and not progress.completed_at:
-            progress.completed_at = datetime.now(timezone.utc)
-        progress.last_accessed_at = datetime.now(timezone.utc)
-    else:
-        progress = Progress(
-            user_id=user_id,
-            lesson_id=lesson_id,
-            course_id=course_id,
-            tenant_id=tenant_id,
-            completed=completed,
-            completion_percent=100 if completed else 0,
-            percent=100 if completed else 0,
-            completed_at=datetime.now(timezone.utc) if completed else None,
-            last_accessed_at=datetime.now(timezone.utc),
-        )
-        db.add(progress)
-    await db.flush()
-    return progress
+    row = result.mappings().one_or_none()
+    return dict(row) if row else None
 
 
 async def get_course_progress(db: AsyncSession, user_id: UUID, course_id: UUID, tenant_id: UUID):
