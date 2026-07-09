@@ -1,0 +1,453 @@
+'use client';
+
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Button,
+  Badge,
+  Table,
+  Input,
+} from '@/components/ui';
+import { useAuthStore } from '@/store/authStore';
+import { useT } from '@/i18n/useT';
+import { toast } from '@/components/ui/Toast';
+import { api } from '@/lib/api';
+import { Skeleton } from '@/components/ui/Skeleton';
+
+/**
+ * Training log — единый журнал обучения (P0.3 first-tenant hardening).
+ *
+ * Backend: GET /api/v1/admin/training-log?…&format=csv
+ *
+ * Что показывает:
+ * - Сотрудник × курс: ФИО, табельный, должность, отдел, курс (native/SCORM),
+ *   статус enrollment, прогресс, лучший балл теста, дата завершения,
+ *   сертификат, время последнего визита в киоск.
+ * - Фильтры: курс, отдел, должность, статус (assigned/in_progress/completed/overdue),
+ *   тип (native/scorm), диапазон дат, поиск по ФИО/email/табельному.
+ * - Export CSV (UTF-8 BOM) с теми же фильтрами.
+ * - Пагинация (limit/offset).
+ */
+
+interface TrainingLogRow {
+  user_id: string;
+  full_name: string;
+  email: string | null;
+  personnel_number: string | null;
+  department_id: string | null;
+  department_name: string | null;
+  position_id: string | null;
+  position_name: string | null;
+  course_id: string;
+  course_title: string;
+  delivery_type: 'native' | 'scorm';
+  enrollment_status: string;
+  enrollment_source: string;
+  enrolled_at: string | null;
+  completed_at: string | null;
+  progress_percent: number;
+  best_score: number | null;
+  quiz_attempts_count: number;
+  certificate_id: string | null;
+  certificate_number: string | null;
+  certificate_issued_at: string | null;
+  kiosk_last_seen_at: string | null;
+}
+
+interface TrainingLogPage {
+  items: TrainingLogRow[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+interface Filters {
+  course_id?: string;
+  department_id?: string;
+  position_id?: string;
+  status?: 'assigned' | 'in_progress' | 'completed' | 'overdue';
+  delivery_type?: 'native' | 'scorm';
+  date_from?: string;
+  date_to?: string;
+  search?: string;
+}
+
+const STATUS_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: '', label: 'Все статусы' },
+  { value: 'assigned', label: 'Назначен' },
+  { value: 'in_progress', label: 'В процессе' },
+  { value: 'completed', label: 'Завершён' },
+  { value: 'overdue', label: 'Просрочен' },
+];
+
+const DELIVERY_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: '', label: 'Все типы' },
+  { value: 'native', label: 'Нативный' },
+  { value: 'scorm', label: 'SCORM 1.2' },
+];
+
+export default function AdminTrainingLogPage() {
+  const { t } = useT();
+  const router = useRouter();
+  const accessToken = useAuthStore((s) => s.accessToken);
+  const user = useAuthStore((s) => s.user);
+
+  const [filters, setFilters] = useState<Filters>({});
+  const [page, setPage] = useState<TrainingLogPage | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [limit, setLimit] = useState(100);
+  const [offset, setOffset] = useState(0);
+
+  // We trigger re-fetches by bumping this counter whenever filters change.
+  // It also doubles as a debounce key for the search box.
+  const [searchInput, setSearchInput] = useState('');
+  const [searchDebounceKey, setSearchDebounceKey] = useState(0);
+
+  useEffect(() => {
+    const id = setTimeout(() => setSearchDebounceKey((k) => k + 1), 350);
+    return () => clearTimeout(id);
+  }, [searchInput]);
+
+  const queryString = useMemo(() => {
+    const params = new URLSearchParams();
+    Object.entries(filters).forEach(([k, v]) => {
+      if (v) params.set(k, String(v));
+    });
+    params.set('limit', String(limit));
+    params.set('offset', String(offset));
+    return params.toString();
+  }, [filters, limit, offset, searchDebounceKey]);
+
+  const fetchPage = useCallback(async () => {
+    if (!accessToken) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await api.get<TrainingLogPage>(
+        `/v1/admin/training-log?${queryString}`,
+      );
+      setPage(res.data);
+    } catch (e: any) {
+      const msg =
+        e?.response?.data?.detail ||
+        e?.message ||
+        t('trainingLog.errors.loadFailed');
+      setError(String(msg));
+      toast.error(String(msg));
+    } finally {
+      setLoading(false);
+    }
+  }, [accessToken, queryString, t]);
+
+  useEffect(() => {
+    fetchPage();
+  }, [fetchPage]);
+
+  // Reset pagination when filters change (typical table UX).
+  useEffect(() => {
+    setOffset(0);
+  }, [filters, searchDebounceKey]);
+
+  const exportCsv = useCallback(async () => {
+    if (!accessToken) return;
+    try {
+      const res = await api.get(`/v1/admin/training-log?${queryString}&format=csv`, {
+        responseType: 'blob',
+      });
+      const blob = res.data as Blob;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const ts = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+      a.download = `training-log-${ts}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast.success(t('trainingLog.export.success'));
+    } catch (e: any) {
+      const msg =
+        e?.response?.data?.detail ||
+        e?.message ||
+        t('trainingLog.errors.exportFailed');
+      toast.error(String(msg));
+    }
+  }, [accessToken, queryString, t]);
+
+  // Auth gate: training-log is admin/HR work, not student work.
+  if (user && !['admin', 'org_admin', 'methodologist', 'superadmin'].includes(user.role)) {
+    return (
+      <div className="p-8 text-center text-muted-foreground">
+        {t('trainingLog.forbidden')}
+      </div>
+    );
+  }
+
+  const total = page?.total ?? 0;
+  const items = page?.items ?? [];
+
+  return (
+    <div className="space-y-6 p-6">
+      <header className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-semibold text-foreground">
+            {t('trainingLog.title')}
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            {t('trainingLog.subtitle')}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              setFilters({});
+              setSearchInput('');
+              setOffset(0);
+            }}
+          >
+            {t('trainingLog.filters.reset')}
+          </Button>
+          <Button type="button" onClick={exportCsv} disabled={loading || total === 0}>
+            {t('trainingLog.export.csv')}
+          </Button>
+        </div>
+      </header>
+
+      {/* Filters */}
+      <Card>
+        <CardHeader>
+          <CardTitle>{t('trainingLog.filters.title')}</CardTitle>
+        </CardHeader>
+        <CardContent className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-3">
+          <div className="md:col-span-2 lg:col-span-1">
+            <label className="block text-xs font-medium text-muted-foreground mb-1">
+              {t('trainingLog.filter.search.label')}
+            </label>
+            <Input
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              placeholder={t('trainingLog.filter.search.placeholder')}
+            />
+          </div>
+
+          <SelectField
+            label={t('trainingLog.filter.status.label')}
+            value={filters.status ?? ''}
+            options={STATUS_OPTIONS}
+            onChange={(v) => setFilters((f) => ({ ...f, status: (v || undefined) as Filters['status'] }))}
+          />
+
+          <SelectField
+            label={t('trainingLog.filter.delivery.label')}
+            value={filters.delivery_type ?? ''}
+            options={DELIVERY_OPTIONS}
+            onChange={(v) =>
+              setFilters((f) => ({ ...f, delivery_type: (v || undefined) as 'native' | 'scorm' }))
+            }
+          />
+
+          <DateField
+            label={t('trainingLog.filter.dateFrom')}
+            value={filters.date_from ?? ''}
+            onChange={(v) => setFilters((f) => ({ ...f, date_from: v || undefined }))}
+          />
+          <DateField
+            label={t('trainingLog.filter.dateTo')}
+            value={filters.date_to ?? ''}
+            onChange={(v) => setFilters((f) => ({ ...f, date_to: v || undefined }))}
+          />
+        </CardContent>
+      </Card>
+
+      {/* Summary */}
+      <div className="flex items-center justify-between text-sm text-muted-foreground">
+        <div>
+          {t('trainingLog.summary.total', { count: total })}
+        </div>
+        <div className="flex items-center gap-2">
+          <span>{t('trainingLog.summary.showing', { from: items.length ? offset + 1 : 0, to: offset + items.length })}</span>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={offset === 0 || loading}
+            onClick={() => setOffset(Math.max(0, offset - limit))}
+          >
+            {t('common.back')}
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={!page || offset + limit >= total || loading}
+            onClick={() => setOffset(offset + limit)}
+          >
+            {t('common.next')}
+          </Button>
+        </div>
+      </div>
+
+      {/* Table */}
+      <Card>
+        <CardContent className="p-0">
+          {loading && !page ? (
+            <div className="p-8 space-y-3">
+              <Skeleton className="h-6 w-full" />
+              <Skeleton className="h-6 w-full" />
+              <Skeleton className="h-6 w-3/4" />
+            </div>
+          ) : error ? (
+            <div className="p-8 text-center text-destructive">{error}</div>
+          ) : items.length === 0 ? (
+            <div className="p-8 text-center text-muted-foreground">
+              {t('trainingLog.empty')}
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <thead>
+                  <tr className="text-left text-xs font-medium text-muted-foreground">
+                    <th className="px-4 py-3">{t('trainingLog.table.fullName')}</th>
+                    <th className="px-4 py-3">{t('trainingLog.table.personnelNumber')}</th>
+                    <th className="px-4 py-3">{t('trainingLog.table.department')}</th>
+                    <th className="px-4 py-3">{t('trainingLog.table.position')}</th>
+                    <th className="px-4 py-3">{t('trainingLog.table.course')}</th>
+                    <th className="px-4 py-3">{t('trainingLog.table.type')}</th>
+                    <th className="px-4 py-3">{t('trainingLog.table.status')}</th>
+                    <th className="px-4 py-3">{t('trainingLog.table.progress')}</th>
+                    <th className="px-4 py-3">{t('trainingLog.table.score')}</th>
+                    <th className="px-4 py-3">{t('trainingLog.table.completedAt')}</th>
+                    <th className="px-4 py-3">{t('trainingLog.table.certificate')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map((row, idx) => (
+                    <tr key={`${row.user_id}-${row.course_id}-${idx}`} className="border-t border-border">
+                      <td className="px-4 py-3">
+                        <div className="font-medium text-foreground">{row.full_name}</div>
+                        {row.email && (
+                          <div className="text-xs text-muted-foreground">{row.email}</div>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-muted-foreground">
+                        {row.personnel_number || '—'}
+                      </td>
+                      <td className="px-4 py-3 text-sm">{row.department_name || '—'}</td>
+                      <td className="px-4 py-3 text-sm">{row.position_name || '—'}</td>
+                      <td className="px-4 py-3">
+                        <button
+                          type="button"
+                          className="text-left text-sm text-primary hover:underline"
+                          onClick={() => router.push(`/courses/${row.course_id}`)}
+                        >
+                          {row.course_title}
+                        </button>
+                      </td>
+                      <td className="px-4 py-3">
+                        <Badge variant={row.delivery_type === 'scorm' ? 'outline' : 'default'}>
+                          {row.delivery_type === 'scorm'
+                            ? t('trainingLog.badge.scorm')
+                            : t('trainingLog.badge.native')}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-3">
+                        <Badge
+                          variant={row.enrollment_status === 'completed' ? 'default' : 'secondary'}
+                        >
+                          {row.enrollment_status === 'completed'
+                            ? t('trainingLog.badge.completed')
+                            : t('trainingLog.badge.enrolled')}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-3 text-sm tabular-nums">
+                        {row.progress_percent}%
+                      </td>
+                      <td className="px-4 py-3 text-sm tabular-nums">
+                        {row.best_score !== null ? `${row.best_score}%` : '—'}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-muted-foreground">
+                        {row.completed_at ? formatDate(row.completed_at) : '—'}
+                      </td>
+                      <td className="px-4 py-3 text-sm">
+                        {row.certificate_number ? (
+                          <span className="text-primary">{row.certificate_number}</span>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function SelectField(props: {
+  label: string;
+  value: string;
+  options: Array<{ value: string; label: string }>;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div>
+      <label className="block text-xs font-medium text-muted-foreground mb-1">
+        {props.label}
+      </label>
+      <select
+        value={props.value}
+        onChange={(e) => props.onChange(e.target.value)}
+        className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+      >
+        {props.options.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+function DateField(props: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div>
+      <label className="block text-xs font-medium text-muted-foreground mb-1">
+        {props.label}
+      </label>
+      <Input
+        type="date"
+        value={props.value}
+        onChange={(e) => props.onChange(e.target.value)}
+      />
+    </div>
+  );
+}
+
+function formatDate(iso: string): string {
+  try {
+    const d = new Date(iso);
+    return d.toLocaleDateString('ru-RU', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    });
+  } catch {
+    return iso;
+  }
+}

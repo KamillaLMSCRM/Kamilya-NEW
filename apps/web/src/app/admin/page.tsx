@@ -6,6 +6,7 @@ import { Card, CardHeader, CardTitle, CardContent, Button, Badge, Table } from '
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
 import { ChevronRight } from 'lucide-react';
+import { OnboardingChecklist } from '@/components/admin/OnboardingChecklist';
 
 interface TenantStats {
   total_users: number;
@@ -182,6 +183,11 @@ export default function AdminDashboardPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* P0.6 first-tenant hardening: 7-step onboarding checklist
+          that mirrors real DB state. Sits between trial card and stats
+          because the next step is often "fill out team/courses". */}
+      <OnboardingChecklist />
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>

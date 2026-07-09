@@ -32,3 +32,19 @@ class KioskLink(Base):
     created_by = Column(UUID(as_uuid=True), nullable=False)  # FK users (no FK declared for circular import reasons)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
     expires_at = Column(DateTime(timezone=True), nullable=True)  # optional lifetime
+
+
+class KioskAccessLog(Base):
+    __tablename__ = "kiosk_access_logs"
+    __table_args__ = {"extend_existing": True}
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4, server_default=func.gen_random_uuid())
+    tenant_id = Column(UUID(as_uuid=True), nullable=False, index=True)
+    kiosk_id = Column(UUID(as_uuid=True), ForeignKey("kiosk_links.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(UUID(as_uuid=True), nullable=True, index=True)
+    personnel_number = Column(Text, nullable=True)
+    success = Column(Boolean, nullable=False, default=False, server_default="false")
+    reason = Column(Text, nullable=True)
+    ip_address = Column(Text, nullable=True)
+    user_agent = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())

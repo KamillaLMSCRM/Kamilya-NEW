@@ -149,6 +149,59 @@ async def delete_kiosk_link(db: AsyncSession, tenant_id: UUID, kiosk_id: UUID) -
     return True
 
 
+async def list_kiosk_access_logs(db: AsyncSession, tenant_id: UUID, kiosk_id: UUID | None = None, limit: int = 50) -> list:
+    from app.models.kiosk_link import KioskAccessLog, KioskLink
+
+    query = (
+        select(KioskAccessLog, KioskLink.name)
+        .join(KioskLink, KioskAccessLog.kiosk_id == KioskLink.id)
+        .where(KioskAccessLog.tenant_id == tenant_id)
+        .order_by(KioskAccessLog.created_at.desc())
+        .limit(limit)
+    )
+    if kiosk_id:
+        query = query.where(KioskAccessLog.kiosk_id == kiosk_id)
+    result = await db.execute(query)
+    rows = []
+    for log, kiosk_name in result.all():
+        rows.append({
+            "id": log.id,
+            "kiosk_id": log.kiosk_id,
+            "kiosk_name": kiosk_name,
+            "user_id": log.user_id,
+            "personnel_number": log.personnel_number,
+            "success": log.success,
+            "reason": log.reason,
+            "ip_address": log.ip_address,
+            "created_at": log.created_at,
+        })
+    return rows
+
+
+async def _record_kiosk_access(
+    db: AsyncSession,
+    link,
+    personnel_number: str,
+    success: bool,
+    reason: str | None = None,
+    user_id: UUID | None = None,
+    ip_address: str | None = None,
+    user_agent: str | None = None,
+) -> None:
+    from app.models.kiosk_link import KioskAccessLog
+
+    db.add(KioskAccessLog(
+        tenant_id=link.tenant_id,
+        kiosk_id=link.id,
+        user_id=user_id,
+        personnel_number=personnel_number[:128] if personnel_number else None,
+        success=success,
+        reason=reason,
+        ip_address=ip_address,
+        user_agent=user_agent[:500] if user_agent else None,
+    ))
+
+
 # ── Public kiosk flow (no auth) ──────────────────────────────────
 
 
@@ -220,6 +273,8 @@ async def identify_at_kiosk(
     db: AsyncSession,
     token: str,
     personnel_number: str,
+    ip_address: str | None = None,
+    user_agent: str | None = None,
 ) -> dict:
     """Worker enters their personnel_number → server returns identity + assigned courses.
 
@@ -256,6 +311,8 @@ async def identify_at_kiosk(
     if not user:
         # Don't leak whether the user exists in another tenant
         logger.info(f"kiosk identify failed: pn={pn} not found in tenant {link.tenant_id}")
+        await _record_kiosk_access(db, link, pn, False, "personnel_number_not_found", None, ip_address, user_agent)
+        await db.commit()
         raise HTTPException(
             status_code=404,
             detail="Табельный номер не найден. Обратитесь к HR.",
@@ -263,12 +320,16 @@ async def identify_at_kiosk(
 
     if not user.is_active or user.status != "active":
         logger.info(f"kiosk identify: user {user.id} inactive")
+        await _record_kiosk_access(db, link, pn, False, "user_inactive", user.id, ip_address, user_agent)
+        await db.commit()
         raise HTTPException(status_code=403, detail="Учётная запись не активна. Обратитесь к HR.")
 
     # Check kiosk scope (if scoped to a position, user must have that position)
     if link.scope_position_id:
         if str(user.position_id) != str(link.scope_position_id):
             logger.info(f"kiosk identify: user {user.id} position mismatch")
+            await _record_kiosk_access(db, link, pn, False, "position_mismatch", user.id, ip_address, user_agent)
+            await db.commit()
             raise HTTPException(
                 status_code=403,
                 detail="Этот киоск не для вашей должности. Обратитесь к HR.",
@@ -357,6 +418,8 @@ async def identify_at_kiosk(
         },
         expires_delta=timedelta(minutes=KIOSK_JWT_TTL_MINUTES),
     )
+    await _record_kiosk_access(db, link, pn, True, None, user.id, ip_address, user_agent)
+    await db.commit()
 
     return {
         "user": {

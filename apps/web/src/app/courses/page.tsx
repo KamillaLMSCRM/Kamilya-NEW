@@ -16,8 +16,13 @@ export default function CoursesPage() {
   const [courses, setCourses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
+  const [showScormImport, setShowScormImport] = useState(false);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [scormTitle, setScormTitle] = useState('');
+  const [scormStatus, setScormStatus] = useState('draft');
+  const [scormFile, setScormFile] = useState<File | null>(null);
+  const [scormImporting, setScormImporting] = useState(false);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -67,6 +72,35 @@ export default function CoursesPage() {
     }
   };
 
+  const handleScormImport = async () => {
+    if (!scormFile) {
+      toast.warning('Выберите SCORM ZIP');
+      return;
+    }
+    const form = new FormData();
+    form.append('file', scormFile);
+    form.append('status', scormStatus);
+    if (scormTitle.trim()) form.append('title', scormTitle.trim());
+    setScormImporting(true);
+    try {
+      await api.post('/v1/scorm/packages/import', form, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      toast.success('SCORM-курс импортирован');
+      setShowScormImport(false);
+      setScormTitle('');
+      setScormStatus('draft');
+      setScormFile(null);
+      fetchCourses();
+    } catch (err: any) {
+      toast.error('Не удалось импортировать SCORM', {
+        description: err?.response?.data?.detail || err?.message,
+      });
+    } finally {
+      setScormImporting(false);
+    }
+  };
+
   const handlePublish = async (courseId: string, currentStatus: string) => {
     const endpoint = currentStatus === 'published' ? 'unpublish' : 'publish';
     try {
@@ -105,9 +139,14 @@ export default function CoursesPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-foreground font-display">{t('courses.title')}</h1>
         {canManage && (
-          <Button onClick={() => setShowCreate(!showCreate)}>
-            {showCreate ? t('common.cancel') : '+ ' + t('courses.createCourse')}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={() => { setShowScormImport(!showScormImport); setShowCreate(false); }}>
+              {showScormImport ? t('common.cancel') : 'Импорт SCORM'}
+            </Button>
+            <Button onClick={() => { setShowCreate(!showCreate); setShowScormImport(false); }}>
+              {showCreate ? t('common.cancel') : '+ ' + t('courses.createCourse')}
+            </Button>
+          </div>
         )}
       </div>
 
@@ -171,6 +210,58 @@ export default function CoursesPage() {
           <div className="flex gap-2">
             <Button onClick={handleCreate}>{t('common.create')}</Button>
             <Button variant="outline" onClick={() => setShowCreate(false)}>
+              {t('common.cancel')}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {showScormImport && (
+        <div className="rounded-2xl border border-border bg-card p-6 shadow-card space-y-4">
+          <div>
+            <h3 className="font-bold text-foreground font-display">Импорт SCORM-курса</h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Поддерживается первый рабочий контур SCORM 1.2: ZIP с `imsmanifest.xml`.
+              SCORM 2004 будет добавлен отдельным runtime-адаптером.
+            </p>
+          </div>
+          <Input
+            placeholder="Название курса (можно оставить пустым)"
+            value={scormTitle}
+            onChange={(e) => setScormTitle(e.target.value)}
+          />
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <label className="flex-1 rounded-xl border border-border bg-background px-3 py-2 text-sm">
+              <span className="block text-xs font-medium text-muted-foreground mb-1">SCORM ZIP</span>
+              <input
+                type="file"
+                accept=".zip,application/zip"
+                onChange={(e) => setScormFile(e.target.files?.[0] || null)}
+                className="block w-full text-sm"
+              />
+            </label>
+            <label className="w-full sm:w-56">
+              <span className="block text-xs font-medium text-muted-foreground mb-1">Статус после импорта</span>
+              <select
+                value={scormStatus}
+                onChange={(e) => setScormStatus(e.target.value)}
+                className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-primary transition-colors"
+              >
+                <option value="draft">{t('courses.draft')}</option>
+                <option value="published">{t('courses.published')}</option>
+              </select>
+            </label>
+          </div>
+          {scormFile && (
+            <p className="text-xs text-muted-foreground">
+              Выбран файл: {scormFile.name} ({Math.round(scormFile.size / 1024)} KB)
+            </p>
+          )}
+          <div className="flex gap-2">
+            <Button onClick={handleScormImport} disabled={scormImporting}>
+              {scormImporting ? 'Импорт...' : 'Импортировать'}
+            </Button>
+            <Button variant="outline" onClick={() => setShowScormImport(false)} disabled={scormImporting}>
               {t('common.cancel')}
             </Button>
           </div>
@@ -245,6 +336,11 @@ export default function CoursesPage() {
                   {course.ai_generated && (
                     <span className="text-[11px] font-semibold rounded-full px-2.5 py-1 text-accent bg-accent/10 backdrop-blur-sm">
                       AI
+                    </span>
+                  )}
+                  {course.delivery_type === 'scorm' && (
+                    <span className="text-[11px] font-semibold rounded-full px-2.5 py-1 text-foreground bg-card/80 backdrop-blur-sm">
+                      SCORM
                     </span>
                   )}
                 </div>

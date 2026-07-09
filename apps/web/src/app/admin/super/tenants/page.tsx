@@ -328,10 +328,15 @@ export default function SuperAdminTenants() {
     }
     setDeletingTenantId(tenant.id);
     try {
-      const res = await fetch(`${API_URL}/v1/admin/super/tenants/${tenant.id}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      // P0.2: server-side defense in depth — confirm_slug is also required
+      // by the backend (DELETE /tenants/{id}?confirm_slug=<slug>).
+      const res = await fetch(
+        `${API_URL}/v1/admin/super/tenants/${tenant.id}?confirm_slug=${encodeURIComponent(tenant.slug)}`,
+        {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
       if (!res.ok) {
         const err = await res.json().catch(() => ({ detail: 'Unknown' }));
         const message = errorMessageFromResponse(err);
@@ -488,8 +493,15 @@ export default function SuperAdminTenants() {
                           <Button
                             size="sm"
                             variant="destructive"
-                            disabled={deletingTenantId === tnt.id}
+                            disabled={
+                              deletingTenantId === tnt.id || tnt.slug === 'kamilya'
+                            }
                             onClick={() => handleDeleteTenant(tnt)}
+                            title={
+                              tnt.slug === 'kamilya'
+                                ? 'Production tenant — protected from deletion'
+                                : undefined
+                            }
                           >
                             {deletingTenantId === tnt.id ? '...' : 'Удалить'}
                           </Button>

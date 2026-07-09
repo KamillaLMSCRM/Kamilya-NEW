@@ -1,0 +1,1 @@
+"""Onboarding status module (P0.6)."""

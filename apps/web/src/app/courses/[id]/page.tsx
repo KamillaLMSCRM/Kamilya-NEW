@@ -32,6 +32,7 @@ interface Course {
   title: string;
   description: string;
   status: string;
+  delivery_type?: 'native' | 'scorm';
 }
 
 interface QuizInfo {
@@ -47,6 +48,12 @@ interface QuizAttempt {
   score_percent: number;
   passed: boolean;
   completed_at: string;
+}
+
+interface AssistantMessage {
+  id?: string;
+  role: 'user' | 'assistant';
+  content: string;
 }
 
 export default function CoursePlayerPage() {
@@ -65,6 +72,12 @@ export default function CoursePlayerPage() {
   const [lessonQuiz, setLessonQuiz] = useState<QuizInfo | null>(null);
   const [quizAttempts, setQuizAttempts] = useState<QuizAttempt[]>([]);
   const [quizPassed, setQuizPassed] = useState(false);
+  const [scormLaunchUrl, setScormLaunchUrl] = useState('');
+  const [scormLaunchError, setScormLaunchError] = useState('');
+  const [scormLaunchLoading, setScormLaunchLoading] = useState(false);
+  const [assistantMessages, setAssistantMessages] = useState<AssistantMessage[]>([]);
+  const [assistantInput, setAssistantInput] = useState('');
+  const [assistantLoading, setAssistantLoading] = useState(false);
   const token = useAuthStore((s) => s.accessToken);
   const user = useAuthStore((s) => s.user);
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -109,6 +122,59 @@ export default function CoursePlayerPage() {
       fetchQuizForLesson(selectedLesson.id);
     }
   }, [selectedLesson, fetchQuizForLesson]);
+
+  useEffect(() => {
+    if (!token || !courseId || !selectedLesson || course?.delivery_type === 'scorm') return;
+    let cancelled = false;
+    const loadMessages = async () => {
+      try {
+        const res = await fetch(`${API_URL}/v1/learner/assistant/messages?course_id=${courseId}&lesson_id=${selectedLesson.id}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled) {
+          setAssistantMessages((Array.isArray(data) ? data : []).map((m: any) => ({
+            id: m.id,
+            role: m.role,
+            content: m.content,
+          })));
+        }
+      } catch {}
+    };
+    loadMessages();
+    return () => {
+      cancelled = true;
+    };
+  }, [token, courseId, selectedLesson?.id, course?.delivery_type, API_URL]);
+
+  useEffect(() => {
+    if (course?.delivery_type !== 'scorm' || !token || !courseId) return;
+    let cancelled = false;
+    const loadLaunch = async () => {
+      setScormLaunchLoading(true);
+      setScormLaunchError('');
+      try {
+        const res = await fetch(`${API_URL}/v1/scorm/courses/${courseId}/launch`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) {
+          const detail = await res.json().catch(() => null);
+          throw new Error(typeof detail?.detail === 'string' ? detail.detail : `HTTP ${res.status}`);
+        }
+        const data = await res.json();
+        if (!cancelled) setScormLaunchUrl(data.launch_url);
+      } catch (e) {
+        if (!cancelled) setScormLaunchError(e instanceof Error ? e.message : 'Не удалось открыть SCORM');
+      } finally {
+        if (!cancelled) setScormLaunchLoading(false);
+      }
+    };
+    loadLaunch();
+    return () => {
+      cancelled = true;
+    };
+  }, [course?.delivery_type, token, courseId, API_URL]);
 
   const fetchData = async () => {
     try {
@@ -294,6 +360,34 @@ export default function CoursePlayerPage() {
     }
   };
 
+  const handleAssistantSend = async () => {
+    const message = assistantInput.trim();
+    if (!message || !token || !selectedLesson) return;
+    setAssistantInput('');
+    setAssistantMessages((prev) => [...prev, { role: 'user', content: message }]);
+    setAssistantLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/v1/learner/assistant/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ course_id: courseId, lesson_id: selectedLesson.id, message }),
+      });
+      if (!res.ok) {
+        const detail = await res.json().catch(() => null);
+        throw new Error(typeof detail?.detail === 'string' ? detail.detail : `HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      setAssistantMessages((prev) => [...prev, { role: 'assistant', content: data.reply || '' }]);
+    } catch (e) {
+      setAssistantMessages((prev) => [...prev, {
+        role: 'assistant',
+        content: e instanceof Error ? `Не удалось ответить: ${e.message}` : 'Не удалось ответить',
+      }]);
+    } finally {
+      setAssistantLoading(false);
+    }
+  };
+
   const totalLessons = modules.reduce((acc, m) => acc + m.lessons.length, 0);
   const completedCount = completedLessons.size;
   const progressPercent = totalLessons > 0 ? Math.round((completedCount / totalLessons) * 100) : 0;
@@ -329,6 +423,44 @@ export default function CoursePlayerPage() {
             {t('courses.backToCourses')}
           </Link>
         </div>
+      </div>
+    );
+  }
+
+  if (course.delivery_type === 'scorm') {
+    return (
+      <div className="min-h-screen bg-muted flex flex-col">
+        <div className="flex h-14 items-center justify-between border-b bg-card px-4">
+          <div className="min-w-0">
+            <Link href="/courses" className="flex items-center gap-1 text-sm text-primary hover:underline">
+              <ChevronLeft className="w-4 h-4" /> {t('courses.title')}
+            </Link>
+            <h1 className="truncate text-sm font-semibold">{course.title}</h1>
+          </div>
+          <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">SCORM 1.2</span>
+        </div>
+        {scormLaunchLoading ? (
+          <div className="flex flex-1 items-center justify-center text-muted-foreground">{t('common.loading')}</div>
+        ) : scormLaunchError ? (
+          <div className="flex flex-1 items-center justify-center p-6">
+            <div className="max-w-lg rounded-xl border border-destructive/30 bg-card p-6 text-sm shadow-sm">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" aria-hidden="true" />
+                <div>
+                  <p className="font-semibold text-foreground">Не удалось открыть SCORM-курс</p>
+                  <p className="mt-1 text-muted-foreground">{scormLaunchError}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : scormLaunchUrl ? (
+          <iframe
+            title={course.title}
+            src={scormLaunchUrl}
+            className="block flex-1 border-0 bg-white"
+            allow="fullscreen"
+          />
+        ) : null}
       </div>
     );
   }
@@ -376,7 +508,8 @@ export default function CoursePlayerPage() {
       {/* Center — lesson content + quiz */}
       <div className="flex-1 p-8">
         {selectedLesson ? (
-          <div className="max-w-3xl mx-auto">
+          <div className="mx-auto grid max-w-6xl gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
+            <div className="min-w-0">
             <h1 className="text-2xl font-bold mb-6">{selectedLesson.title}</h1>
 
             <div className="prose max-w-none">
@@ -470,6 +603,50 @@ export default function CoursePlayerPage() {
                 </div>
               ) : null}
             </div>
+            </div>
+            <aside className="h-fit rounded-xl border border-border bg-card p-4 shadow-sm">
+              <div className="mb-3">
+                <h2 className="text-sm font-semibold text-foreground">AI-ассистент по уроку</h2>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Задайте вопрос по материалу. Ассистент не выбирает ответы теста за вас.
+                </p>
+              </div>
+              <div className="max-h-[420px] space-y-3 overflow-y-auto rounded-lg bg-muted/40 p-3">
+                {assistantMessages.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">Пока нет сообщений.</p>
+                ) : (
+                  assistantMessages.map((m, idx) => (
+                    <div key={m.id || idx} className={m.role === 'user' ? 'text-right' : 'text-left'}>
+                      <div className={`inline-block max-w-[95%] rounded-lg px-3 py-2 text-sm ${
+                        m.role === 'user'
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-card text-foreground border border-border'
+                      }`}>
+                        {m.content}
+                      </div>
+                    </div>
+                  ))
+                )}
+                {assistantLoading && <p className="text-xs text-muted-foreground">Ассистент думает...</p>}
+              </div>
+              <div className="mt-3 space-y-2">
+                <textarea
+                  value={assistantInput}
+                  onChange={(e) => setAssistantInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleAssistantSend();
+                    }
+                  }}
+                  placeholder="Что непонятно в этом уроке?"
+                  className="min-h-[84px] w-full resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+                />
+                <Button onClick={handleAssistantSend} disabled={assistantLoading || !assistantInput.trim()} className="w-full">
+                  Спросить
+                </Button>
+              </div>
+            </aside>
           </div>
         ) : (
           <div className="flex items-center justify-center h-64 text-muted-foreground">
