@@ -58,6 +58,7 @@ from app.modules.positions.admin_router import router as positions_admin_router
 from app.modules.departments.router import router as departments_router
 from app.modules.integrations.router import router as integrations_router
 from app.modules.learner_assistant.router import router as learner_assistant_router
+from app.modules.training_log.router import router as training_log_router
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -218,6 +219,7 @@ app.include_router(positions_admin_router, prefix=f"{settings.API_PREFIX}", tags
 app.include_router(departments_router, prefix=f"{settings.API_PREFIX}", tags=["departments"])
 app.include_router(integrations_router, prefix=f"{settings.API_PREFIX}", tags=["integrations"])
 app.include_router(learner_assistant_router, prefix=f"{settings.API_PREFIX}", tags=["learner-assistant"])
+app.include_router(training_log_router, prefix=f"{settings.API_PREFIX}", tags=["admin"])
 
 # Suppress Render health check spam in logs
 class HealthCheckFilter(logging.Filter):
