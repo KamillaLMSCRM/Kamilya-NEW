@@ -140,7 +140,7 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
           roles: ['methodologist', 'teacher'],
         },
         {
-          label: 'Шаблон сертификата',
+          label: t('sidebar.certificateTemplate'),
           href: '/admin/certificates/settings',
           icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="6" /><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11" /></svg>,
           roles: ['admin', 'org_admin'],
