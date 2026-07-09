@@ -12,6 +12,7 @@ class Course(Base):
     title = Column(Text, nullable=False)
     description = Column(Text, nullable=False, default="")
     status = Column(Text, nullable=False, default="draft")
+    delivery_type = Column(Text, nullable=False, default="native")
     thumbnail_url = Column(Text, nullable=True)
     created_by = Column(UUID(as_uuid=True), nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
@@ -30,5 +31,6 @@ class Course(Base):
 
     __table_args__ = (
         CheckConstraint("status IN ('draft', 'published', 'archived')", name="ck_course_status"),
+        CheckConstraint("delivery_type IN ('native', 'scorm')", name="ck_course_delivery_type"),
         CheckConstraint("review_status IN ('pending', 'approved', 'needs_changes')", name="ck_course_review_status"),
     )

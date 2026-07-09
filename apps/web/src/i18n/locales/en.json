@@ -63,7 +63,8 @@
     "courseAssignments": "Course assignments",
     "companyCourses": "Company-wide courses",
     "certificateSettings": "Certificate settings",
-    "staffSchedule": "Staff schedule"
+    "staffSchedule": "Staff schedule",
+    "kiosks": "Kiosks"
   },
   "auth": {
     "login": "Login",

@@ -63,7 +63,8 @@
     "courseAssignments": "Привязка курсов",
     "companyCourses": "Курсы компании",
     "certificateSettings": "Настройки сертификата",
-    "staffSchedule": "Штатное расписание"
+    "staffSchedule": "Штатное расписание",
+    "kiosks": "Киоски"
   },
   "auth": {
     "login": "Вход",

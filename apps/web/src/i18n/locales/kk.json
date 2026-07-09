@@ -63,7 +63,8 @@
     "courseAssignments": "Курстарды байланыстыру",
     "companyCourses": "Компания курстары",
     "certificateSettings": "Сертификат баптаулары",
-    "staffSchedule": "Штаттық кесте"
+    "staffSchedule": "Штаттық кесте",
+    "kiosks": "Киосктер"
   },
   "auth": {
     "login": "Кіру",

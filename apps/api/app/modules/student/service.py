@@ -65,14 +65,19 @@ async def get_student_dashboard(db: AsyncSession, user_id: UUID, tenant_id: UUID
     completed_lessons_all = 0
 
     for enrollment, course in enrollments:
-        total_lessons, completed_lessons = totals_by_course.get(course.id, [0, 0])
-        progress_percent = round((completed_lessons / total_lessons * 100) if total_lessons > 0 else 0)
+        if getattr(course, "delivery_type", "native") == "scorm":
+            total_lessons, completed_lessons = 1, 1 if enrollment.status == "completed" else 0
+            progress_percent = 100 if enrollment.status == "completed" else 0
+        else:
+            total_lessons, completed_lessons = totals_by_course.get(course.id, [0, 0])
+            progress_percent = round((completed_lessons / total_lessons * 100) if total_lessons > 0 else 0)
 
         enrolled_courses.append({
             "course_id": course.id,
             "title": course.title,
             "description": course.description or "",
             "status": course.status,
+            "delivery_type": getattr(course, "delivery_type", "native"),
             "progress_percent": progress_percent,
             "total_lessons": total_lessons,
             "completed_lessons": completed_lessons,
