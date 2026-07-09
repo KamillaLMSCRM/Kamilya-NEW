@@ -64,7 +64,8 @@
     "companyCourses": "Компания курстары",
     "certificateSettings": "Сертификат баптаулары",
     "staffSchedule": "Штаттық кесте",
-    "kiosks": "Киосктер"
+    "kiosks": "Киосктер",
+    "trainingLog": "Оқу журналы"
   },
   "auth": {
     "login": "Кіру",
@@ -894,5 +895,68 @@
       "step2": "/newbot жіберіп, боттың атауын және username көрсетіңіз",
       "step3": "BotFather жауабынан токенді көшіріп, осында қойыңыз"
     }
+  },
+  "trainingLog": {
+    "title": "Оқу журналы",
+    "subtitle": "Барлық тағайындаулар, прогресс және сертификаттар бір жерде — SCORM қоса.",
+    "forbidden": "Оқу журналы тек әкімшілер мен методологқа қол жетімді.",
+    "filters": {
+      "title": "Сүзгілер",
+      "reset": "Тазалау"
+    },
+    "filter": {
+      "search": {
+        "label": "Іздеу",
+        "placeholder": "Аты, email немесе табельдік нөмір"
+      },
+      "status": {
+        "label": "Күй",
+        "all": "Барлық күйлер",
+        "assigned": "Тағайындалған",
+        "inProgress": "Орындалуда",
+        "completed": "Аяқталған",
+        "overdue": "Мерзімі өткен"
+      },
+      "delivery": {
+        "label": "Курс түрі",
+        "all": "Барлық түрлер",
+        "native": "Native",
+        "scorm": "SCORM 1.2"
+      },
+      "dateFrom": "Күннен",
+      "dateTo": "Күнге дейін"
+    },
+    "summary": {
+      "total": "Барлығы: {{count}}",
+      "showing": "{{from}}–{{to}} көрсетілді"
+    },
+    "table": {
+      "fullName": "Қызметкер",
+      "personnelNumber": "Табельдік №",
+      "department": "Бөлім",
+      "position": "Лауазым",
+      "course": "Курс",
+      "type": "Түрі",
+      "status": "Күй",
+      "progress": "Прогресс",
+      "score": "Ең жақсы балл",
+      "completedAt": "Аяқталды",
+      "certificate": "Сертификат"
+    },
+    "badge": {
+      "native": "Native",
+      "scorm": "SCORM",
+      "completed": "Аяқталды",
+      "enrolled": "Тағайындалды"
+    },
+    "export": {
+      "csv": "CSV жүктеу",
+      "success": "Экспорт басталды"
+    },
+    "errors": {
+      "loadFailed": "Оқу журналын жүктеу мүмкін болмады",
+      "exportFailed": "CSV экспорты сәтсіз аяқталды"
+    },
+    "empty": "Таңдалған сүзгілер үшін жазбалар жоқ"
   }
 }
