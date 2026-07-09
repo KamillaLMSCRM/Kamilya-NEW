@@ -25,6 +25,7 @@ openpyxl = "^3.1"
 cryptography = "^42.0"
 aiosmtplib = "^3.0"
 jinja2 = "^3.1"
+fpdf2 = "^2.8"
 packages = {path = "../../packages", develop = true}
 
 [tool.poetry.group.dev.dependencies]
