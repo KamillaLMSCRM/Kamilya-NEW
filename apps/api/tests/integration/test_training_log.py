@@ -225,3 +225,224 @@ async def test_training_log_superadmin_no_tenant_returns_empty(client, db_sessio
     assert resp.status_code == 200
     body = resp.json()
     assert body["total"] == 0
+
+
+# ───────────────────────────────────────────────────────────────────
+# Honest status computation (added 2026-07-09 in P0 follow-up)
+# ───────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_training_log_status_assigned_no_progress(
+    client, db_session, make_tenant, make_user, make_course
+):
+    """A row with an enrollment but no lesson progress AND no SCORM attempt
+    must come back as computed_status='assigned' (not in_progress)."""
+    tenant = await make_tenant(name="Acme", slug="acme-assigned")
+    admin = await make_user(tenant, role="admin", email="admin@a.example")
+    student = await make_user(tenant, role="student", email="stu@a.example")
+    course = await make_course(tenant, admin, title="A1")
+    await _enroll(db_session, student, course)
+
+    token = await _login(client, admin)
+    resp = await client.get(
+        "/api/v1/admin/training-log",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["total"] == 1
+    row = body["items"][0]
+    assert row["computed_status"] == "assigned"
+    assert row["progress_percent"] == 0
+
+
+@pytest.mark.asyncio
+async def test_training_log_status_in_progress_native_lesson(
+    client, db_session, make_tenant, make_user, make_course, make_module, make_lesson
+):
+    """Native course with one completed lesson progress row → in_progress,
+    progress_percent = completed_lessons / total_lessons * 100."""
+    tenant = await make_tenant(name="Acme", slug="acme-inprog")
+    admin = await make_user(tenant, role="admin", email="admin@i.example")
+    student = await make_user(tenant, role="student", email="stu@i.example")
+    course = await make_course(tenant, admin, title="I1")
+    module = await make_module(course, title="M1")
+    l1 = await make_lesson(module, title="L1")
+    await make_lesson(module, title="L2")
+    await make_lesson(module, title="L3")
+    await _enroll(db_session, student, course)
+
+    # Mark lesson 1 as completed for this student.
+    from app.models.progress import Progress
+
+    p = Progress(
+        id=uuid4(),
+        tenant_id=tenant.id,
+        user_id=student.id,
+        course_id=course.id,
+        lesson_id=l1.id,
+        completed=True,
+        completion_percent=100,
+        percent=100,
+    )
+    db_session.add(p)
+    await db_session.flush()
+
+    token = await _login(client, admin)
+    resp = await client.get(
+        "/api/v1/admin/training-log?status=in_progress",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["total"] == 1
+    row = body["items"][0]
+    assert row["computed_status"] == "in_progress"
+    # 1 of 3 lessons → ~33%
+    assert 30 <= row["progress_percent"] <= 34
+
+
+@pytest.mark.asyncio
+async def test_training_log_status_assigned_excludes_started(
+    client, db_session, make_tenant, make_user, make_course, make_module, make_lesson
+):
+    """Filter status=assigned must NOT include rows that have any progress.
+    Regression: before this fix the filter was a no-op (returned everything
+    where completed_at IS NULL), which would surface 'in_progress' rows as
+    'assigned' — misleading HR."""
+    tenant = await make_tenant(name="Acme", slug="acme-aonly")
+    admin = await make_user(tenant, role="admin", email="admin@ao.example")
+    student = await make_user(tenant, role="student", email="stu@ao.example")
+    course = await make_course(tenant, admin, title="AO1")
+    module = await make_module(course, title="M1")
+    lesson = await make_lesson(module, title="L")
+    await _enroll(db_session, student, course)
+
+    from app.models.progress import Progress
+
+    p = Progress(
+        id=uuid4(),
+        tenant_id=tenant.id,
+        user_id=student.id,
+        course_id=course.id,
+        lesson_id=lesson.id,
+        completed=True,
+        completion_percent=100,
+        percent=100,
+    )
+    db_session.add(p)
+    await db_session.flush()
+
+    token = await _login(client, admin)
+    resp = await client.get(
+        "/api/v1/admin/training-log?status=assigned",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["total"] == 0  # student has progress → not 'assigned'
+
+
+@pytest.mark.asyncio
+async def test_training_log_status_in_progress_scorm_attempt(
+    client, db_session, make_tenant, make_user, make_course
+):
+    """SCORM course with a scorm_attempt row but no completed_at →
+    computed_status='in_progress'."""
+    tenant = await make_tenant(name="Acme", slug="acme-sip")
+    admin = await make_user(tenant, role="admin", email="admin@sip.example")
+    student = await make_user(tenant, role="student", email="stu@sip.example")
+    course = await make_course(
+        tenant, admin, title="Sip1", delivery_type="scorm"
+    )
+    await _enroll(db_session, student, course)
+
+    # Add a scorm_attempt to simulate a started SCORM attempt.
+    from datetime import datetime, timezone
+
+    from app.modules.scorm.models import ScormAttempt, ScormPackage
+
+    pkg = ScormPackage(
+        id=uuid4(),
+        tenant_id=tenant.id,
+        course_id=course.id,
+        version="scorm_1_2",
+        title="pkg",
+        entrypoint="index.html",
+        storage_key=f"scorm/{tenant.id}/{course.id}/x.zip",
+        manifest_json={},
+        uploaded_by=admin.id,
+    )
+    db_session.add(pkg)
+    await db_session.flush()
+
+    attempt = ScormAttempt(
+        id=uuid4(),
+        tenant_id=tenant.id,
+        course_id=course.id,
+        package_id=pkg.id,
+        user_id=student.id,
+        started_at=datetime.now(timezone.utc),
+        last_commit_at=datetime.now(timezone.utc),
+        cmi_json={},
+    )
+    db_session.add(attempt)
+    await db_session.flush()
+
+    token = await _login(client, admin)
+    resp = await client.get(
+        "/api/v1/admin/training-log?status=in_progress&delivery_type=scorm",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["total"] == 1
+    row = body["items"][0]
+    assert row["computed_status"] == "in_progress"
+    # SCORM progress map is a known simplification — 0 until completion.
+    assert row["progress_percent"] == 0
+
+
+@pytest.mark.asyncio
+async def test_training_log_status_overdue_returns_422(
+    client, db_session, make_tenant, make_user
+):
+    """status=overdue was removed (no deadline column on enrollments). The
+    Pydantic Literal must reject it with 422, not silently ignore."""
+    tenant = await make_tenant(name="Acme", slug="acme-od")
+    admin = await make_user(tenant, role="admin", email="admin@od.example")
+
+    token = await _login(client, admin)
+    resp = await client.get(
+        "/api/v1/admin/training-log?status=overdue",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 422
+    # Error message must mention the offending field so HR can debug.
+    body = resp.json()
+    detail_blob = str(body.get("detail", ""))
+    assert "overdue" in detail_blob.lower() or "status" in detail_blob.lower()
+
+
+@pytest.mark.asyncio
+async def test_training_log_progress_percent_zero_lessons(
+    client, db_session, make_tenant, make_user, make_course
+):
+    """Native course with no lessons at all: progress_percent = 0 (not a
+    divide-by-zero crash). Regression for the round() in repository."""
+    tenant = await make_tenant(name="Acme", slug="acme-nol")
+    admin = await make_user(tenant, role="admin", email="admin@nol.example")
+    student = await make_user(tenant, role="student", email="stu@nol.example")
+    course = await make_course(tenant, admin, title="NoLessons")
+    await _enroll(db_session, student, course)
+
+    token = await _login(client, admin)
+    resp = await client.get(
+        "/api/v1/admin/training-log",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 200
+    row = resp.json()["items"][0]
+    assert row["progress_percent"] == 0
+    assert row["computed_status"] == "assigned"

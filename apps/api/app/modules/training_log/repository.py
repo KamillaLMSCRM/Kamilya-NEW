@@ -69,7 +69,18 @@ _quiz_attempts = Table(
 
 
 def _apply_filters(stmt, f: TrainingLogFilter, tenant_id: UUID):
-    """Apply WHERE clauses shared by count + rows queries."""
+    """Apply WHERE clauses shared by count + rows queries.
+
+    Status semantics (revised 2026-07-09 for honest filtering):
+    - completed:   enrollment.completed_at IS NOT NULL
+    - assigned:    not completed AND no native lesson progress AND no SCORM attempt
+    - in_progress: not completed AND (native lesson progress OR SCORM attempt exists)
+    - overdue:     REMOVED — no deadline column on enrollments, so we can't honestly
+                   compute it. Surfacing a fake filter would mislead HR.
+
+    The 'assigned' / 'in_progress' filters rely on the LEFT-JOINed activity
+    subqueries (`_native_activity`, `_scorm_activity`) added by the caller.
+    """
     stmt = stmt.where(User.tenant_id == tenant_id)
     stmt = stmt.where(User.role.in_(("student",)))  # HR doesn't want to see admins/methodologists in this log
     if f.course_id:
@@ -82,10 +93,9 @@ def _apply_filters(stmt, f: TrainingLogFilter, tenant_id: UUID):
         stmt = stmt.where(Enrollment.enrolled_at <= f.date_to)
     if f.status == "completed":
         stmt = stmt.where(Enrollment.completed_at.is_not(None))
-    elif f.status == "assigned":
-        stmt = stmt.where(Enrollment.completed_at.is_(None))
-    # 'in_progress' and 'overdue' would need extra signals (progress>0 / deadline)
-    # and aren't implemented in this milestone.
+    # 'assigned' / 'in_progress' are applied by `list_training_log` / `count_training_log`
+    # because they reference the LEFT-JOINed activity subqueries that live on the main
+    # query, not on the count query.
     if f.search:
         like = f"%{f.search}%"
         stmt = stmt.where(
@@ -99,13 +109,121 @@ def _apply_filters(stmt, f: TrainingLogFilter, tenant_id: UUID):
     return stmt
 
 
+# Subqueries referenced from both list_training_log and count_training_log.
+# Each returns aggregate per (user, course) used to compute activity status
+# and progress percent.
+def _build_activity_subqueries():
+    """Return (native_activity, scorm_activity, course_lessons) subqueries.
+
+    native_activity: per (user_id, course_id) — completed_lessons (int), has_progress (bool)
+    scorm_activity:  per (user_id, course_id) — has_attempt (bool)
+    course_lessons:  per course_id            — total_lessons (int)
+
+    The "Progress" model is in app.models.progress; we reflect it as a Table to
+    avoid an import cycle (training_log → progress → potentially back).
+    The same pattern is already used for quiz_attempts above.
+    """
+    _progress = Table(
+        "progress",
+        MetaData(),
+        Column("id", PG_UUID),
+        Column("user_id", PG_UUID),
+        Column("course_id", PG_UUID),
+        Column("lesson_id", PG_UUID),
+        Column("completed", Boolean),
+    )
+    _scorm_attempts = Table(
+        "scorm_attempts",
+        MetaData(),
+        Column("id", PG_UUID),
+        Column("course_id", PG_UUID),
+        Column("user_id", PG_UUID),
+        Column("tenant_id", PG_UUID),
+    )
+    _lessons = Table(
+        "lessons",
+        MetaData(),
+        Column("id", PG_UUID),
+        Column("module_id", PG_UUID),
+    )
+    _modules = Table(
+        "modules",
+        MetaData(),
+        Column("id", PG_UUID),
+        Column("course_id", PG_UUID),
+    )
+
+    native_activity = (
+        select(
+            _progress.c.user_id.label("user_id"),
+            _progress.c.course_id.label("course_id"),
+            func.coalesce(
+                func.sum(case((_progress.c.completed.is_(True), 1), else_=0)),
+                0,
+            ).cast(Integer).label("completed_lessons"),
+            func.bool_or(_progress.c.completed).label("has_progress"),
+        )
+        .group_by(_progress.c.user_id, _progress.c.course_id)
+        .subquery()
+    )
+
+    scorm_activity = (
+        select(
+            _scorm_attempts.c.user_id.label("user_id"),
+            _scorm_attempts.c.course_id.label("course_id"),
+            func.bool_or(literal(True)).label("has_attempt"),
+        )
+        .group_by(_scorm_attempts.c.user_id, _scorm_attempts.c.course_id)
+        .subquery()
+    )
+
+    # Lessons per course: join lessons → modules → course_id
+    course_lessons = (
+        select(
+            _modules.c.course_id.label("course_id"),
+            func.count(_lessons.c.id).cast(Integer).label("total_lessons"),
+        )
+        .select_from(_lessons.join(_modules, _modules.c.id == _lessons.c.module_id))
+        .group_by(_modules.c.course_id)
+        .subquery()
+    )
+
+    return native_activity, scorm_activity, course_lessons
+
+
+def _apply_status_filter(stmt, f: TrainingLogFilter, native_activity, scorm_activity):
+    """Apply the assigned/in_progress filter using the activity subqueries.
+
+    `completed` is already handled in `_apply_filters` (uses Enrollment columns).
+    For `assigned` and `in_progress` we need the LEFT-JOINed activity columns.
+    """
+    if f.status == "in_progress":
+        stmt = stmt.where(
+            and_(
+                Enrollment.completed_at.is_(None),
+                or_(
+                    native_activity.c.has_progress.is_(True),
+                    scorm_activity.c.has_attempt.is_(True),
+                ),
+            )
+        )
+    elif f.status == "assigned":
+        stmt = stmt.where(
+            and_(
+                Enrollment.completed_at.is_(None),
+                native_activity.c.has_progress.isnot(True),
+                scorm_activity.c.has_attempt.isnot(True),
+            )
+        )
+    return stmt
+
+
 async def count_training_log(
     db: AsyncSession,
     tenant_id: UUID,
     f: TrainingLogFilter,
 ) -> int:
     """Count rows matching the filter (same WHERE as list query)."""
-    # Same join logic as list_training_log — count (user, course) pairs.
     from app.modules.positions.models import Position as PositionModel
 
     stmt = (
@@ -120,6 +238,74 @@ async def count_training_log(
         stmt = stmt.where(PositionModel.department_id == f.department_id)
     if f.position_id:
         stmt = stmt.where(User.position_id == f.position_id)
+
+    # Status filter for assigned/in_progress references activity subqueries
+    # LEFT-JOINed in list_training_log. For the count query we don't need to
+    # fetch those columns — just filter via correlated subqueries so the SQL
+    # stays cheap.
+    if f.status == "in_progress":
+        stmt = stmt.where(
+            and_(
+                Enrollment.completed_at.is_(None),
+                or_(
+                    select(1)
+                    .select_from(Table("progress", MetaData(),
+                                        Column("user_id", PG_UUID),
+                                        Column("course_id", PG_UUID),
+                                        Column("completed", Boolean)))
+                    .where(
+                        and_(
+                            text("progress.user_id = users.id"),
+                            text("progress.course_id = courses.id"),
+                            text("progress.completed = TRUE"),
+                        )
+                    )
+                    .exists(),
+                    select(1)
+                    .select_from(Table("scorm_attempts", MetaData(),
+                                        Column("user_id", PG_UUID),
+                                        Column("course_id", PG_UUID)))
+                    .where(
+                        and_(
+                            text("scorm_attempts.user_id = users.id"),
+                            text("scorm_attempts.course_id = courses.id"),
+                        )
+                    )
+                    .exists(),
+                ),
+            )
+        )
+    elif f.status == "assigned":
+        stmt = stmt.where(
+            and_(
+                Enrollment.completed_at.is_(None),
+                ~select(1)
+                .select_from(Table("progress", MetaData(),
+                                    Column("user_id", PG_UUID),
+                                    Column("course_id", PG_UUID),
+                                    Column("completed", Boolean)))
+                .where(
+                    and_(
+                        text("progress.user_id = users.id"),
+                        text("progress.course_id = courses.id"),
+                        text("progress.completed = TRUE"),
+                    )
+                )
+                .exists(),
+                ~select(1)
+                .select_from(Table("scorm_attempts", MetaData(),
+                                    Column("user_id", PG_UUID),
+                                    Column("course_id", PG_UUID)))
+                .where(
+                    and_(
+                        text("scorm_attempts.user_id = users.id"),
+                        text("scorm_attempts.course_id = courses.id"),
+                    )
+                )
+                .exists(),
+            )
+        )
+
     result = await db.execute(stmt)
     return int(result.scalar() or 0)
 
@@ -165,6 +351,8 @@ async def list_training_log(
         .subquery()
     )
 
+    native_activity, scorm_activity, course_lessons = _build_activity_subqueries()
+
     stmt = (
         select(
             User.id.label("user_id"),
@@ -184,15 +372,37 @@ async def list_training_log(
             Enrollment.source.label("enrollment_source"),
             Enrollment.enrolled_at,
             Enrollment.completed_at,
+            # Activity aggregates from the LEFT-JOINed subqueries.
+            # COALESCE because LEFT JOIN yields NULL when no rows match.
+            func.coalesce(native_activity.c.completed_lessons, 0).label("completed_lessons"),
+            func.coalesce(course_lessons.c.total_lessons, 0).label("total_lessons"),
+            func.coalesce(native_activity.c.has_progress, False).label("has_native_progress"),
+            func.coalesce(scorm_activity.c.has_attempt, False).label("has_scorm_attempt"),
         )
         .select_from(User)
         .join(Enrollment, Enrollment.user_id == User.id)
         .join(CourseModel, CourseModel.id == Enrollment.course_id)
         .outerjoin(pos, pos.c.id == User.position_id)
         .outerjoin(dept, dept.c.id == pos.c.department_id)
+        .outerjoin(
+            native_activity,
+            and_(
+                native_activity.c.user_id == User.id,
+                native_activity.c.course_id == CourseModel.id,
+            ),
+        )
+        .outerjoin(
+            scorm_activity,
+            and_(
+                scorm_activity.c.user_id == User.id,
+                scorm_activity.c.course_id == CourseModel.id,
+            ),
+        )
+        .outerjoin(course_lessons, course_lessons.c.course_id == CourseModel.id)
     )
 
     stmt = _apply_filters(stmt, f, tenant_id)
+    stmt = _apply_status_filter(stmt, f, native_activity, scorm_activity)
 
     if f.department_id:
         stmt = stmt.where(pos.c.department_id == f.department_id)
@@ -310,13 +520,42 @@ async def list_training_log(
     kiosk_rows = (await db.execute(kiosk_stmt)).mappings().all()
     kiosk_by_user = {r["user_id"]: r["last_seen"] for r in kiosk_rows}
 
-    # Assemble result. progress_percent for native is 0 if no progress row yet,
-    # 100 if completed. For SCORM: 100 if completed, 0 otherwise.
+    # Assemble result.
+    # progress_percent:
+    #   - completed enrollment → 100
+    #   - SCORM, not completed → 0 (no proper SCORM progress map yet — see
+    #     schemas.py docstring)
+    #   - native, not completed → completed_lessons / total_lessons * 100
+    #     (0 if no lessons or no progress)
+    # computed_status:
+    #   - completed  if is_completed
+    #   - in_progress if has_native_progress OR has_scorm_attempt
+    #   - assigned   otherwise
     result: list[dict[str, Any]] = []
     for r in rows:
         is_completed = r["enrollment_status"] == "completed" or r["completed_at"] is not None
         is_scorm = r["delivery_type"] == "scorm"
-        progress_percent = 100 if is_completed else 0
+        has_native_progress = bool(r["has_native_progress"])
+        has_scorm_attempt = bool(r["has_scorm_attempt"])
+        completed_lessons = int(r["completed_lessons"] or 0)
+        total_lessons = int(r["total_lessons"] or 0)
+
+        if is_completed:
+            progress_percent = 100
+            computed_status = "completed"
+        elif is_scorm:
+            # SCORM progress map is a known simplification (see schemas.py).
+            # We have an attempt but no granular percent.
+            progress_percent = 0
+            computed_status = "in_progress" if has_scorm_attempt else "assigned"
+        else:
+            # Native course: percent = completed / total.
+            if total_lessons > 0:
+                progress_percent = int(round(completed_lessons * 100 / total_lessons))
+            else:
+                progress_percent = 0
+            computed_status = "in_progress" if has_native_progress else "assigned"
+
         quiz_info = quiz_by_pair.get((r["user_id"], r["course_id"]), {})
         cert_info = cert_by_pair.get((r["user_id"], r["course_id"]), {})
         result.append({
@@ -335,6 +574,7 @@ async def list_training_log(
             "enrollment_source": r["enrollment_source"],
             "enrolled_at": r["enrolled_at"],
             "completed_at": r["completed_at"],
+            "computed_status": computed_status,
             "progress_percent": progress_percent,
             "best_score": quiz_info.get("best_score"),
             "quiz_attempts_count": quiz_info.get("quiz_attempts_count", 0),

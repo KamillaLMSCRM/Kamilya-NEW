@@ -914,8 +914,7 @@
         "all": "Барлық күйлер",
         "assigned": "Тағайындалған",
         "inProgress": "Орындалуда",
-        "completed": "Аяқталған",
-        "overdue": "Мерзімі өткен"
+        "completed": "Аяқталған"
       },
       "delivery": {
         "label": "Курс түрі",
@@ -947,7 +946,8 @@
       "native": "Native",
       "scorm": "SCORM",
       "completed": "Аяқталды",
-      "enrolled": "Тағайындалды"
+      "assigned": "Тағайындалды",
+      "inProgress": "Орындалуда"
     },
     "export": {
       "csv": "CSV жүктеу",

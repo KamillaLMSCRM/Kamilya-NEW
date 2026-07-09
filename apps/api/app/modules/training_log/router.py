@@ -50,7 +50,7 @@ async def list_training_log(
     course_id: UUID | None = Query(default=None),
     department_id: UUID | None = Query(default=None),
     position_id: UUID | None = Query(default=None),
-    status: Literal["assigned", "in_progress", "completed", "overdue"] | None = Query(default=None),
+    status: Literal["assigned", "in_progress", "completed"] | None = Query(default=None),
     delivery_type: Literal["native", "scorm"] | None = Query(default=None),
     date_from: datetime | None = Query(default=None),
     date_to: datetime | None = Query(default=None),

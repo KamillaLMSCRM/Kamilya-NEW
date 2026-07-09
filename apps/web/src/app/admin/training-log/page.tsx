@@ -49,6 +49,10 @@ interface TrainingLogRow {
   enrollment_source: string;
   enrolled_at: string | null;
   completed_at: string | null;
+  // Computed by backend (2026-07-09): honest status from real activity data.
+  // `overdue` was removed because enrollments have no deadline column —
+  // would have been a misleading filter. UI drops the option too.
+  computed_status: 'assigned' | 'in_progress' | 'completed';
   progress_percent: number;
   best_score: number | null;
   quiz_attempts_count: number;
@@ -69,19 +73,19 @@ interface Filters {
   course_id?: string;
   department_id?: string;
   position_id?: string;
-  status?: 'assigned' | 'in_progress' | 'completed' | 'overdue';
+  status?: 'assigned' | 'in_progress' | 'completed';
   delivery_type?: 'native' | 'scorm';
   date_from?: string;
   date_to?: string;
   search?: string;
 }
 
+// Mirrors backend TrainingLogFilter.status Literal (no `overdue`).
 const STATUS_OPTIONS: Array<{ value: string; label: string }> = [
   { value: '', label: 'Все статусы' },
   { value: 'assigned', label: 'Назначен' },
   { value: 'in_progress', label: 'В процессе' },
   { value: 'completed', label: 'Завершён' },
-  { value: 'overdue', label: 'Просрочен' },
 ];
 
 const DELIVERY_OPTIONS: Array<{ value: string; label: string }> = [
@@ -359,11 +363,13 @@ export default function AdminTrainingLogPage() {
                       </td>
                       <td className="px-4 py-3">
                         <Badge
-                          variant={row.enrollment_status === 'completed' ? 'default' : 'secondary'}
+                          variant={row.computed_status === 'completed' ? 'default' : 'secondary'}
                         >
-                          {row.enrollment_status === 'completed'
+                          {row.computed_status === 'completed'
                             ? t('trainingLog.badge.completed')
-                            : t('trainingLog.badge.enrolled')}
+                            : row.computed_status === 'in_progress'
+                              ? t('trainingLog.badge.inProgress')
+                              : t('trainingLog.badge.assigned')}
                         </Badge>
                       </td>
                       <td className="px-4 py-3 text-sm tabular-nums">
