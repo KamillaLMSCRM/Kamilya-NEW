@@ -105,6 +105,11 @@ def _parse_manifest(zf: zipfile.ZipFile, names: list[str]) -> dict[str, Any]:
     if PurePosixPath(href).is_absolute() or ".." in PurePosixPath(href).parts:
         raise HTTPException(status_code=400, detail="SCORM manifest contains unsafe launch path")
 
+    # SCORM 2004 manifests always reference the adlcp_v1p3 namespace; ElementTree
+    # stores namespace URIs inside tag names (e.g. "{http://www.adlnet.org/xsd/adlcp_v1p3}..."),
+    # NOT in element.attrib. The original fallback searched `root.attrib`, which never
+    # contained the namespace, so SCORM 2004 packages without an explicit schemaversion
+    # were silently accepted as SCORM 1.2. Walk all tag names to find the 2004 marker.
     version = "unknown"
     schema_version = _text_of(root, "imscp:metadata/imscp:schemaversion", ns)
     if schema_version:
@@ -114,10 +119,12 @@ def _parse_manifest(zf: zipfile.ZipFile, names: list[str]) -> dict[str, Any]:
         elif "1.2" in lowered or "1,2" in lowered:
             version = "scorm_1_2"
     if version == "unknown":
-        if "adlcp_v1p3" in json.dumps(root.attrib):
-            version = "scorm_2004"
-        else:
-            version = "scorm_1_2"
+        def _walk(el: ET.Element) -> bool:
+            tag = el.tag if isinstance(el.tag, str) else ""
+            if "adlcp_v1p3" in tag or "adlcp2004" in tag:
+                return True
+            return any(_walk(child) for child in list(el))
+        version = "scorm_2004" if _walk(root) else "scorm_1_2"
 
     manifest_dir = str(PurePosixPath(manifest_name).parent)
     entrypoint = href if manifest_dir == "." else f"{manifest_dir}/{href}"
