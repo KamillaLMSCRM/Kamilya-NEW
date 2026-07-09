@@ -22,13 +22,14 @@ class TrainingLogFilter(BaseModel):
     course_id: UUID | None = None
     department_id: UUID | None = None
     position_id: UUID | None = None
-    # enrollment status derived from `enrollments.status` plus date rules:
-    #   assigned  = enrollment exists, not completed
-    #   in_progress = enrollment exists, progress > 0
-    #   completed = enrollment.status='completed' OR enrollment.completed_at IS NOT NULL
-    #   overdue    = (deadline IS NOT NULL AND deadline < now() AND not completed) — no
-    #                deadline column today, so we expose the slot but always return None
-    status: Literal["assigned", "in_progress", "completed", "overdue"] | None = None
+    # enrollment status derived from `enrollments.status` plus activity rules:
+    #   assigned    = enrollment exists, no lesson progress, no SCORM attempt
+    #   in_progress = enrollment exists, NOT completed, BUT has lesson progress
+    #                 (native) or scorm_attempt (scorm)
+    #   completed   = enrollment.status='completed' OR enrollment.completed_at IS NOT NULL
+    #   overdue     = REMOVED 2026-07-09: no deadline column on enrollments, so we
+    #                 cannot honestly compute it. UI also drops the option.
+    status: Literal["assigned", "in_progress", "completed"] | None = None
     delivery_type: Literal["native", "scorm"] | None = None
     date_from: datetime | None = None
     date_to: datetime | None = None
@@ -68,10 +69,18 @@ class TrainingLogRow(BaseModel):
     enrolled_at: datetime | None = None
     completed_at: datetime | None = None
 
+    # Computed (derived in repository, surfaced for UI badge):
+    #   assigned    = no completion AND no progress/attempt
+    #   in_progress = no completion AND has progress/attempt
+    #   completed   = enrollment completed
+    computed_status: Literal["assigned", "in_progress", "completed"] = "assigned"
+
     # Progress
-    progress_percent: int  # 0..100, computed from `progress` table for native
-    # For SCORM: derived from scorm_attempts.lesson_status / completion_status.
-    # We surface both: `progress_percent` is the unified 0/100 view for HR.
+    progress_percent: int  # 0..100
+    #   native: completed_lessons / total_lessons * 100 (0 if no lessons, 100 if completed)
+    #   scorm:  100 if completed_at IS NOT NULL, else 0
+    # (No proper SCORM progress map yet — lesson_status/completion_status don't map
+    # to a clean integer percent. Documented as a known simplification.)
 
     # Quiz (native only; SCORM has its own score_raw stored on scorm_attempts)
     best_score: int | None = None  # 0..100

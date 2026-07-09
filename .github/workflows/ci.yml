@@ -16,9 +16,9 @@ name: CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: [master, main, develop]
   pull_request:
-    branches: [main, develop]
+    branches: [master, main, develop]
 
 # Cancel in-flight runs for the same ref.
 concurrency:
@@ -82,6 +82,52 @@ jobs:
         run: |
           set -euo pipefail
           bash ../../scripts/ci/tenant-gate.sh
+
+  # ---------------------------------------------------------------------------
+  # Backend unit tests + syntax compile (fast-fail gate, no Postgres needed)
+  # ---------------------------------------------------------------------------
+  # This job runs BEFORE the heavier backend-tests job so syntax errors and
+  # pure-Python unit-test regressions are caught in <30s without spinning up
+  # the Postgres + Redis service containers.
+  #
+  # Scope:
+  #   1. python -m compileall — catches syntax errors / indentation issues.
+  #   2. pytest tests/unit    — no DB / no storage backend. Runs hermetic
+  #      parser / validator / security-helper tests.
+  #
+  # Heavy integration tests (with Postgres + Redis) live in `backend-tests`.
+  # ---------------------------------------------------------------------------
+  backend-unit:
+    name: Backend unit tests (no DB)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/api
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: ${{ env.POETRY_VERSION }}
+
+      - name: Install deps
+        run: poetry install --no-interaction --no-ansi --with dev
+
+      - name: Syntax compile (compileall)
+        run: |
+          echo "Running compileall on app/ + tests/ — fail fast on syntax errors"
+          poetry run python -m compileall app tests
+
+      - name: pytest tests/unit (no DB)
+        run: |
+          echo "Running pure-Python unit tests (no Postgres / Redis required)"
+          poetry run pytest tests/unit -v --tb=short
 
   # ---------------------------------------------------------------------------
   # Backend type-check (warn-only — full strictness is a follow-up)

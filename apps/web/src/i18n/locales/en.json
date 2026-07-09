@@ -914,8 +914,7 @@
         "all": "All statuses",
         "assigned": "Assigned",
         "inProgress": "In progress",
-        "completed": "Completed",
-        "overdue": "Overdue"
+        "completed": "Completed"
       },
       "delivery": {
         "label": "Course type",
@@ -947,7 +946,8 @@
       "native": "Native",
       "scorm": "SCORM",
       "completed": "Completed",
-      "enrolled": "Assigned"
+      "assigned": "Assigned",
+      "inProgress": "In progress"
     },
     "export": {
       "csv": "Download CSV",

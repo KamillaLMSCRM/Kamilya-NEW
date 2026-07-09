@@ -914,8 +914,7 @@
         "all": "Все статусы",
         "assigned": "Назначен",
         "inProgress": "В процессе",
-        "completed": "Завершён",
-        "overdue": "Просрочен"
+        "completed": "Завершён"
       },
       "delivery": {
         "label": "Тип курса",
@@ -947,7 +946,8 @@
       "native": "Native",
       "scorm": "SCORM",
       "completed": "Завершён",
-      "enrolled": "Назначен"
+      "assigned": "Назначен",
+      "inProgress": "В процессе"
     },
     "export": {
       "csv": "Скачать CSV",
