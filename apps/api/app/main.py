@@ -49,6 +49,7 @@ from app.modules.users.router import router as users_router
 from app.modules.users.invitations_router import router as invitations_public_router
 from app.modules.users.kiosk_router import admin_router as kiosks_admin_router, public_router as kiosks_public_router
 from app.modules.users.staff_import_router import router as staff_import_router
+from app.modules.users.staff_import_mapping_router import router as staff_import_mapping_router
 from app.modules.auth.telegram import router as telegram_router
 from app.modules.auth.telegram_register import router as telegram_register_router
 from app.modules.tenants.router import public_router as tenants_public_router, router as tenants_router
@@ -210,6 +211,7 @@ app.include_router(invitations_public_router, prefix=f"{settings.API_PREFIX}", t
 app.include_router(kiosks_admin_router, prefix=f"{settings.API_PREFIX}", tags=["kiosks"])
 app.include_router(kiosks_public_router, prefix=f"{settings.API_PREFIX}", tags=["kiosks"])
 app.include_router(staff_import_router, prefix=f"{settings.API_PREFIX}", tags=["staff"])
+app.include_router(staff_import_mapping_router, prefix=f"{settings.API_PREFIX}", tags=["staff"])
 app.include_router(telegram_router, prefix=f"{settings.API_PREFIX}", tags=["telegram"])
 app.include_router(telegram_register_router, prefix=f"{settings.API_PREFIX}", tags=["auth"])
 app.include_router(tenants_router, prefix=f"{settings.API_PREFIX}", tags=["tenants"])

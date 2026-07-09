@@ -223,12 +223,17 @@ async def import_staff_preview(
     file: UploadFile = File(...),
     mapping: str = Form(""),
     sheet_name: str = Form(""),
+    mapping_id: str = Form(""),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role("admin", "org_admin", "superadmin", "methodologist")),
 ):
     """Parse uploaded file (xlsx/csv) and return a preview of what would change.
 
     No DB writes. HR reviews, then POSTs to /import/commit to apply.
+
+    P0.4: pass `mapping_id` (UUID of a saved mapping) to skip the
+    column-picking step. The saved mapping's JSON is loaded and used
+    instead of any inline `mapping` form field.
     """
     content = await file.read()
     if len(content) == 0:
@@ -236,12 +241,37 @@ async def import_staff_preview(
     if len(content) > 10 * 1024 * 1024:  # 10MB cap
         raise HTTPException(status_code=413, detail="Файл слишком большой (макс. 10 МБ)")
 
+    effective_mapping = _parse_mapping(mapping)
+    effective_sheet_name = sheet_name or None
+
+    # P0.4: if mapping_id is provided and no inline mapping, load saved mapping.
+    if mapping_id and not effective_mapping:
+        from uuid import UUID
+
+        from app.models.staff_import_mapping import StaffImportMapping
+        from sqlalchemy import select
+
+        try:
+            mid = UUID(mapping_id)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="mapping_id must be a UUID")
+        result = await db.execute(
+            select(StaffImportMapping).where(
+                StaffImportMapping.id == mid,
+                StaffImportMapping.tenant_id == user.tenant_id,
+            )
+        )
+        saved = result.scalar_one_or_none()
+        if saved is None:
+            raise HTTPException(status_code=404, detail="Saved mapping not found")
+        effective_mapping = dict(saved.mapping_json or {})
+
     try:
         parsed = parse_upload(
             file.filename or "upload",
             content,
-            mapping=_parse_mapping(mapping),
-            sheet_name=sheet_name or None,
+            mapping=effective_mapping,
+            sheet_name=effective_sheet_name,
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -273,12 +303,17 @@ async def import_staff_commit(
     file: UploadFile = File(...),
     mapping: str = Form(""),
     sheet_name: str = Form(""),
+    mapping_id: str = Form(""),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role("admin", "org_admin", "superadmin", "methodologist")),
 ):
     """Parse uploaded file and apply changes (create new users, update existing, auto-create positions).
 
     All-or-nothing: if any row fails to apply, the entire transaction is rolled back.
+
+    P0.4: pass `mapping_id` (UUID of a saved mapping) to skip the
+    column-picking step. Same precedence as preview: inline `mapping`
+    wins; otherwise we load the saved mapping.
     """
     content = await file.read()
     if len(content) == 0:
@@ -286,12 +321,36 @@ async def import_staff_commit(
     if len(content) > 10 * 1024 * 1024:
         raise HTTPException(status_code=413, detail="Файл слишком большой (макс. 10 МБ)")
 
+    effective_mapping = _parse_mapping(mapping)
+    effective_sheet_name = sheet_name or None
+
+    if mapping_id and not effective_mapping:
+        from uuid import UUID
+
+        from app.models.staff_import_mapping import StaffImportMapping
+        from sqlalchemy import select
+
+        try:
+            mid = UUID(mapping_id)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="mapping_id must be a UUID")
+        result = await db.execute(
+            select(StaffImportMapping).where(
+                StaffImportMapping.id == mid,
+                StaffImportMapping.tenant_id == user.tenant_id,
+            )
+        )
+        saved = result.scalar_one_or_none()
+        if saved is None:
+            raise HTTPException(status_code=404, detail="Saved mapping not found")
+        effective_mapping = dict(saved.mapping_json or {})
+
     try:
         parsed = parse_upload(
             file.filename or "upload",
             content,
-            mapping=_parse_mapping(mapping),
-            sheet_name=sheet_name or None,
+            mapping=effective_mapping,
+            sheet_name=effective_sheet_name,
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
