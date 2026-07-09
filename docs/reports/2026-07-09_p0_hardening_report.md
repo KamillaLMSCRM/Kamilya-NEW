@@ -36,11 +36,12 @@ dev-stack и реальным tenant», roadmap зафиксирован в эт
 p0-first-tenant-hardening
 ```
 
-11 коммитов поверх `origin/foundation-scorm-kiosk-assistant-2026-07-09`
+12 коммитов поверх `origin/foundation-scorm-kiosk-assistant-2026-07-09`
 (HEAD=`95a9370`). Не мержится в master/main — ждёт ревью владельца.
 
 Полный список коммитов (от новых к старым):
 ```
+fix(scorm): detect SCORM 2004 via namespace in attrib + fix test helper
 47e9736 feat(superadmin): DELETE requires confirm_slug, kamilya protected
 5bc0900 feat(scorm): edge-case fix + comprehensive unit/integration tests
 984cf5f feat(staff-import): UI for applying and saving column mappings
@@ -54,7 +55,9 @@ a42e494 feat(onboarding): tenant onboarding status endpoint with 7 steps
 95a9370 feat: add SCORM 1.2, kiosk hardening, and learner assistant
 ```
 
-(последний — это базовая ветка, не моя правка)
+(последний — это базовая ветка, не моя правка;
+первый — fix после ревью Askar'а: `_walk()` сканирует attrib + helper
+принимает `extra_files`, 12/12 unit tests passed)
 
 ## Файлы изменены / созданы
 
@@ -267,24 +270,62 @@ backend+frontend+DB это даст бессмысленные screenshots (бе
 
 ## Verification (Definition of Done)
 
-Минимальные проверки перед merge:
+Проверки выполнены **в двух проходах**. В первом проходе (до ревью Askar'а)
+отчёт содержал неточные формулировки — исправлено.
+
+### Что прогонялось
 
 ```bash
-cd apps/api && python -m compileall app           # синтаксис OK
-cd apps/api && python -m alembic -c alembic.ini heads  # один head: 0053
-cd apps/web && npm run typecheck                  # только pre-existing qrcode error
+cd apps/api && python -m compileall app                 # синтаксис OK
+cd apps/api && python -m alembic -c alembic.ini heads   # один head: 0053
+cd apps/api && python -m pytest tests/unit/test_scorm_parse.py -v
 ```
 
-Pre-existing ошибка (не моя):
-```
-src/app/admin/kiosks/page.tsx(5,20): error TS2307: Cannot find module 'qrcode'
-```
+### Результаты unit-тестов SCORM parser
 
-Это **не** моя проблема — была до этого эпика.
+**Первый прогон (до фиксов):** `4 failed, 8 passed` — найдено Askar'ом.
 
-Тесты запускать локально **не** получится без полного test environment
-(Postgres + Storage backend в tmp_path). Тесты спроектированы под
-существующий `conftest.py` в `apps/api/tests/conftest.py`.
+| Failed test | Причина |
+|---|---|
+| `test_scorm12_explicit_schemaversion_detected` | helper `_zip_with_manifest()` не добавлял `index.html` в zip → `entrypoint_exists=False` вместо `True` |
+| `test_scorm2004_namespace_only_detected` | **реальный баг parser'а**: `_walk()` смотрел только `el.tag`, а SCORM 2004 marker `adlcp2004:scormtype="sco"` живёт в `el.attrib.keys()` (ElementTree хранит namespace URI в attribute names как `{URI}localname`). Пакет ошибочно классифицировался как SCORM 1.2 |
+| `test_resource_href_with_query_string` | `_zip_with_manifest()` не принимал `extra_files` kwarg |
+| `test_resource_href_with_hash_fragment` | то же |
+
+**Второй прогон (после фиксов):** `12 passed` ✅
+
+Фиксы:
+- `_walk()` в `app/modules/scorm/router.py` теперь сканирует и `el.tag`, и каждый `el.attrib.keys()` на URI `adlcp_v1p3` / `adlcp2004`
+- `_zip_with_manifest()` в `tests/unit/test_scorm_parse.py` принимает `extra_files=[...]` и по умолчанию добавляет placeholder `index.html`
+- `test_resource_href_with_query_string` и `..._hash_fragment` больше не дублируют `index.html` в extra_files (helper добавляет сам)
+
+### npm run typecheck
+
+**Важно:** предыдущая версия этого отчёта писала про "pre-existing qrcode
+error, не моя проблема". Это было **неточно**. Уточнённое состояние:
+
+- `qrcode` (`^1.5.4`) и `@types/qrcode` (`^1.5.6`) **оба есть** в `apps/web/package.json`.
+- Ошибка `Cannot find module 'qrcode'` появляется когда `node_modules/`
+  не содержит этих пакетов (например, на checkout'е без `npm install`).
+- На checkout'е Askar'а `npm install` пройден → typecheck чистый.
+- На checkout'е где я работал, `node_modules/` оказался неполный → typecheck
+  показывал qrcode module not found. Это **не баг кода**, а состояние
+  рабочей директории. После `npm install` ошибка исчезает.
+
+Если при ревью typecheck у тебя зелёный — значит `node_modules/` у тебя
+синхронизирован с package.json. Дополнительных действий не требуется.
+
+### Integration тесты
+
+Integration тесты (`test_superadmin_lifecycle`, `test_training_log`,
+`test_onboarding_status`, `test_staff_import_mapping`, `test_scorm_e2e`)
+**не запускались** в этой сессии — для них нужен test Postgres
+(`ConnectionRefusedError` на `localhost:5432` если Postgres не поднят).
+Это **окружение**, не доказательство дефекта кода. На CI с
+`postgres:16` service container они должны проходить.
+
+51 тест-кейс (12 unit + 5 e2e + 9 superadmin + 9 training-log +
+9 onboarding + 7 staff-import-mapping) добавлен, все компилируются.
 
 ## Git status
 
@@ -292,7 +333,8 @@ src/app/admin/kiosks/page.tsx(5,20): error TS2307: Cannot find module 'qrcode'
 $ git status --short
 # (clean — все изменения закоммичены)
 
-$ git log --oneline -11
+$ git log --oneline -12
+fix(scorm): detect SCORM 2004 via namespace in attrib + fix test helper
 47e9736 feat(superadmin): DELETE requires confirm_slug, kamilya protected
 5bc0900 feat(scorm): edge-case fix + comprehensive unit/integration tests
 984cf5f feat(staff-import): UI for applying and saving column mappings
@@ -308,7 +350,8 @@ a42e494 feat(onboarding): tenant onboarding status endpoint with 7 steps
 
 ## Что нужно от владельца перед merge
 
-1. **Code review** — просмотреть 11 коммитов, особенно:
+1. **Code review** — просмотреть 12 коммитов, особенно:
+   - `fix(scorm): detect SCORM 2004 via namespace in attrib + fix test helper` (новый поверх ревью) — реальный баг parser'а
    - `5bc0900` (SCORM fix + tests) — архитектурное изменение
    - `15f650c` (staff_import_mappings) — новая таблица
    - `47e9736` (confirm_slug + protected tenant) — security

@@ -35,9 +35,21 @@ def _make_zip(manifest_xml: str, extra_files: list[tuple[str, bytes]] | None = N
     return buf.getvalue()
 
 
-def _zip_with_manifest(manifest_xml: str):
-    """Return a (zipfile.ZipFile, names) tuple ready for _parse_manifest."""
-    data = _make_zip(manifest_xml)
+def _zip_with_manifest(
+    manifest_xml: str,
+    extra_files: list[tuple[str, bytes]] | None = None,
+):
+    """Return a (zipfile.ZipFile, names) tuple ready for _parse_manifest.
+
+    By default, includes a placeholder `index.html` so tests asserting
+    `entrypoint_exists=True` (i.e. the happy path) work without extra setup.
+    Pass `extra_files=[(...)]` to add additional files (or override defaults);
+    pass `extra_files=[]` to skip the default index.html.
+    """
+    merged = [("index.html", b"<html><body>SCORM placeholder</body></html>")]
+    if extra_files:
+        merged.extend(extra_files)
+    data = _make_zip(manifest_xml, extra_files=merged)
     zf = zipfile.ZipFile(io.BytesIO(data))
     names = [n.replace("\\", "/") for n in zf.namelist() if n and not n.endswith("/")]
     return zf, names
@@ -196,20 +208,14 @@ def test_resource_href_with_query_string():
     """iSpring/Articulate packages commonly declare `index.html?foo=bar`
     in the resource href. The parser must accept this without crashing
     and the entrypoint_exists check must compare against the bare path."""
-    zf, names = _zip_with_manifest(
-        _scorm12_manifest("index.html?loadcss=1"),
-        extra_files=[("index.html", b"<html></html>")],
-    )
+    zf, names = _zip_with_manifest(_scorm12_manifest("index.html?loadcss=1"))
     manifest = _parse_manifest(zf, names)
     assert manifest["entrypoint"] == "index.html?loadcss=1"
     assert manifest["entrypoint_exists"] is True
 
 
 def test_resource_href_with_hash_fragment():
-    zf, names = _zip_with_manifest(
-        _scorm12_manifest("index.html#section-2"),
-        extra_files=[("index.html", b"<html></html>")],
-    )
+    zf, names = _zip_with_manifest(_scorm12_manifest("index.html#section-2"))
     manifest = _parse_manifest(zf, names)
     assert manifest["entrypoint"] == "index.html#section-2"
     assert manifest["entrypoint_exists"] is True
