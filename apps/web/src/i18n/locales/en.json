@@ -958,5 +958,15 @@
       "exportFailed": "Failed to export CSV"
     },
     "empty": "No rows match the selected filters"
+  },
+  "onboarding": {
+    "title": "Get your LMS ready",
+    "subtitle": "Walk through these steps — each one helps employees get value from the LMS faster.",
+    "progress": "{{done}} of {{total}}",
+    "trial": "Trial",
+    "trialDays": "{{days}} days",
+    "users": "users",
+    "allSetTitle": "All set — every step is done",
+    "allSetSubtitle": "New employees will land in the training log automatically."
   }
 }
