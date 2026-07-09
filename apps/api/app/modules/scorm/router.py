@@ -128,7 +128,14 @@ def _parse_manifest(zf: zipfile.ZipFile, names: list[str]) -> dict[str, Any]:
 
     manifest_dir = str(PurePosixPath(manifest_name).parent)
     entrypoint = href if manifest_dir == "." else f"{manifest_dir}/{href}"
-    if entrypoint not in names:
+
+    # Normalize: strip query/hash before checking whether the file is in
+    # the archive. SCORM 1.2 packages sometimes declare `index.html?foo=bar`
+    # in the resource href (iSpring/Articulate authoring tools). The raw
+    # href is preserved in `entrypoint` so the runtime shell can keep the
+    # query string when launching the iframe.
+    entrypoint_for_check = entrypoint.split("?", 1)[0].split("#", 1)[0]
+    if entrypoint_for_check not in names:
         # Some packages reference a URL with query/hash. The runtime step will handle
         # that; for import, keep the declared href but warn through manifest metadata.
         entrypoint_exists = False
