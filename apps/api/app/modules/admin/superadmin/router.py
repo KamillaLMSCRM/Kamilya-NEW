@@ -158,9 +158,60 @@ async def update_tenant(
 async def delete_tenant(
     tenant_id: uuid.UUID,
     request: Request,
+    confirm_slug: Annotated[
+        str | None,
+        Query(
+            description=(
+                "Required. Must match the tenant's slug exactly — defense "
+                "against accidental DELETE from a stray script or stale tab."
+            ),
+        ),
+    ] = None,
     user: User = Depends(require_role("superadmin")),
     svc: SuperadminService = Depends(_service),
 ):
+    """Soft-delete a tenant.
+
+    P0.2 first-tenant hardening:
+      - `confirm_slug` query param must match the tenant's slug (defense
+        against accidental deletion).
+      - Production tenant (`slug == "kamilya"`) is protected and cannot
+        be deleted through this endpoint.
+      - All actions are audit-logged (visible via /v1/audit).
+    """
+    try:
+        tenant = await svc.get_tenant(tenant_id)
+    except LookupError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    if tenant is None:
+        raise HTTPException(status_code=404, detail="Tenant not found")
+
+    if tenant.slug == "kamilya":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                "Production tenant 'kamilya' is protected from deletion. "
+                "Use the dedicated migration script if this is intentional."
+            ),
+        )
+
+    if confirm_slug is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "Missing required query parameter `confirm_slug`. "
+                "Repeat the DELETE with ?confirm_slug=<tenant.slug>."
+            ),
+        )
+    if confirm_slug != tenant.slug:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"confirm_slug mismatch: provided '{confirm_slug}', "
+                f"expected '{tenant.slug}'."
+            ),
+        )
+
     try:
         tenant = await svc.delete_tenant(tenant_id)
     except LookupError as e:
