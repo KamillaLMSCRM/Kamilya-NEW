@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import hashlib
+import html
 import json
 import mimetypes
+import re
 import zipfile
 from datetime import datetime, timedelta, timezone
 from io import BytesIO
@@ -166,6 +168,38 @@ def _assert_scorm_12(version: str) -> None:
         raise HTTPException(status_code=400, detail="Only SCORM 1.2 is supported")
 
 
+# Allowed characters for the asset URL path component. We accept a narrow
+# subset so HTML-escaped output cannot break out of an iframe src attribute.
+# Real SCORM packages use plain ASCII names + extension + optional ?query/#hash.
+_SAFE_ASSET_PATH = re.compile(r"^[A-Za-z0-9._/+%?&=:#@-]+$")
+
+
+def _assert_safe_asset_path(path: str) -> None:
+    """Reject asset paths with characters that could break out of an HTML
+    attribute (quote, <, >, newlines) or smuggle JS via `javascript:` etc.
+
+    The manifest parser already strips absolute paths and `..`, but it does
+    not stop a maliciously-crafted SCORM package from declaring a resource
+    href like `foo"><script>alert(1)</script>`. We refuse those at launch
+    time even if they got through import (defence-in-depth).
+    """
+    if not path or not _SAFE_ASSET_PATH.match(path):
+        raise HTTPException(status_code=400, detail="Unsafe SCORM asset path")
+
+
+def _safe_asset_url(package: ScormPackage, token: str, entrypoint: str) -> str:
+    """Build the iframe src URL with strict validation + HTML escaping.
+
+    html.escape() is applied to the full URL as an extra belt-and-braces
+    measure: the attribute is rendered with double-quotes so escaped quotes
+    (`&quot;`) cannot terminate it.
+    """
+    _assert_safe_asset_path(entrypoint)
+    return (
+        f"/api/v1/scorm/packages/{package.id}/assets-token/{token}/{entrypoint}"
+    )
+
+
 def _make_launch_token(user: User, package: ScormPackage) -> str:
     return create_access_token(
         {
@@ -233,6 +267,11 @@ async def _get_or_create_attempt(db: AsyncSession, package: ScormPackage, user_i
 
 
 def _asset_bytes(package: ScormPackage, asset_path: str) -> tuple[bytes, str]:
+    # Reject characters that could be used to escape the URL/path component
+    # before doing any path traversal checks. Real SCORM asset paths are
+    # ASCII letters, digits, dot, dash, underscore, slash — plus the URL
+    # query/fragment separators that we strip below.
+    _assert_safe_asset_path(asset_path)
     path = asset_path.split("?", 1)[0].split("#", 1)[0].lstrip("/").replace("\\", "/")
     if PurePosixPath(path).is_absolute() or ".." in PurePosixPath(path).parts:
         raise HTTPException(status_code=400, detail="Unsafe SCORM asset path")
@@ -413,14 +452,39 @@ async def launch_scorm_package(
     attempt = await _get_or_create_attempt(db, package, payload["sub"])
     await db.commit()
     entrypoint = package.entrypoint
-    asset_url = f"/api/v1/scorm/packages/{package.id}/assets-token/{token}/{entrypoint}"
+    # Defence-in-depth: validate the entrypoint path component before
+    # embedding it in an iframe src. _safe_asset_url also html-escapes the
+    # resulting URL so it cannot break out of the attribute even if a
+    # malicious package title sneaks through somehow.
+    asset_url = _safe_asset_url(package, token, entrypoint)
+    asset_url_escaped = html.escape(asset_url, quote=True)
     commit_url = f"/api/v1/scorm/attempts/{attempt.id}/commit?token={token}"
-    html = f"""<!doctype html>
+    # Title is user-provided (manifest parser keeps it verbatim from the
+    # imsmanifest.xml <organization><title>). Escape aggressively — this
+    # value lands between <title>...</title> and on the commit_url JSON dump.
+    title_escaped = html.escape(package.title or "SCORM", quote=True)
+    # Content Security Policy: the runtime shell only fetches its own
+    # asset URL and POSTs to its own commit endpoint. Disallow inline
+    # scripts from third-party origins (we already inline a small bootstrap
+    # which is allowed via the 'unsafe-inline' fallback; if you harden this
+    # further, move the bootstrap into an external /scorm/runtime.js).
+    csp = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline'; "
+        "style-src 'self' 'unsafe-inline'; "
+        "frame-src 'self'; "
+        "connect-src 'self'; "
+        "img-src 'self' data:; "
+        "base-uri 'none'; "
+        "form-action 'none'"
+    )
+    html_body = f"""<!doctype html>
 <html lang="ru">
 <head>
   <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy" content="{csp}" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>{package.title}</title>
+  <title>{title_escaped}</title>
   <style>
     html, body, iframe {{ width: 100%; height: 100%; margin: 0; border: 0; background: #fff; }}
     .bar {{ height: 36px; display: flex; align-items: center; gap: 12px; padding: 0 12px; border-bottom: 1px solid #ddd; font: 13px system-ui, sans-serif; color: #555; }}
@@ -432,7 +496,7 @@ async def launch_scorm_package(
 </head>
 <body>
   <div class="bar"><span id="status-dot" class="dot"></span><span id="status-text">SCORM 1.2 runtime готов</span></div>
-  <iframe id="sco" src="{asset_url}" allow="fullscreen"></iframe>
+  <iframe id="sco" src="{asset_url_escaped}" allow="fullscreen"></iframe>
   <script>
     const commitUrl = {json.dumps(commit_url)};
     const cmi = {{}};
@@ -483,7 +547,7 @@ async def launch_scorm_package(
   </script>
 </body>
 </html>"""
-    return HTMLResponse(html)
+    return HTMLResponse(html_body)
 
 
 @router.get("/packages/{package_id}/assets/{asset_path:path}")
