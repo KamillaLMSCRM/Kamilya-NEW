@@ -548,8 +548,8 @@ print(f"Result: {res.result!r}")
 Output:
 ```
 Celery app: kamilya_lms
-Broker: rediss://default:gQAAAAAAAlJHA...
-Result backend: rediss://default:gQAAAAAAAlJHA...
+Broker: rediss://default:<redacted>@<redis-host>:6379
+Result backend: rediss://default:<redacted>@<redis-host>:6379
 Dispatching apply_rules_for_users_task with empty user_ids...
 Task ID: ea002eca-6adc-49ee-86f3-157e19c1ab10
 Final state: SUCCESS
