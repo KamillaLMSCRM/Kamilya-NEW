@@ -101,6 +101,18 @@ async def create_user_and_tokens(
     role: str = "student",
 ) -> tuple[User, str, str]:
     password_hash = ph.hash(password) if password else None
+    # RLS bypass: the `tenant_isolation` policy on `users` checks
+    # `current_setting('app.tenant_id', true)`. Before INSERT this session
+    # variable is NULL (the caller hasn't set tenant context yet because we
+    # just created the tenant row), so the policy evaluates
+    # `tenant_id = NULL` = UNKNOWN and denies the INSERT.
+    # Setting it as a *local* (true) config here keeps the value scoped to
+    # the current transaction — safe for PgBouncer transaction-mode pool.
+    # Same pattern as auth/telegram_register.py:136.
+    await db.execute(
+        text("SELECT set_config('app.tenant_id', :tenant_id, true)"),
+        {"tenant_id": str(tenant_id)},
+    )
     user = User(
         id=uuid4(),
         tenant_id=tenant_id,

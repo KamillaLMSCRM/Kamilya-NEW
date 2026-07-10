@@ -217,7 +217,6 @@ async def create_courses_from_suggestions(
 # ── Bulk JD analysis (multi-file upload) ──────────────────────
 
 
-@router.post("/bulk-analyze-jd", response_model=BulkJDResponse)
 @router.get("/{position_id}/recommended-content", response_model=RecommendedContentResponse)
 async def recommended_content(
     position_id: UUID,
@@ -292,99 +291,12 @@ async def recommended_content(
 
 
 # ── Generate JD from name (no file) ────────────────────────────
-
-
-@router.post("/generate-jd-from-name", response_model=GenerateJDResponse)
-@router.get("/{position_id}/recommended-courses", response_model=RecommendedCoursesResponse)
-async def recommended_courses(
-    position_id: UUID,
-    db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
-    limit: int = 5,
-):
-    """Return top-N courses whose content (via document embeddings)
-    is most semantically similar to the position's JD.
-
-    Unlike /recommended-content (which returns docs directly), this
-    endpoint aggregates by course: if any document in the course
-    library is similar to the position, the course is recommended.
-
-    Aggregation strategy: for each top doc_id, look at all courses
-    in the tenant; for each course, compute the avg similarity of
-    its' chunks to the position. Return top-N unique courses.
-
-    This is a simple heuristic — proper aggregation would require a
-    `course_documents` table (TODO: separate PR).
-    """
-    if limit < 1 or limit > 20:
-        raise HTTPException(status_code=400, detail="limit must be 1..20")
-
-    pos = await db.get(Position, position_id)
-    if not pos or pos.tenant_id != user.tenant_id:
-        raise HTTPException(status_code=404, detail="Position not found")
-
-    query_text = f"{pos.responsibilities}\n{pos.requirements}".strip()
-    if not query_text:
-        return RecommendedCoursesResponse(items=[])
-
-    from app.modules.ai.ingestion import EmbeddingsProvider
-    provider = EmbeddingsProvider()
-    embeddings = await provider.embed([query_text])
-    emb_str = str(embeddings[0])
-
-    # Get top 25 chunks
-    sql = text(f"""
-        SELECT doc_id, doc_name, headings,
-               1 - (embedding <=> CAST(:emb AS vector)) as distance
-        FROM document_embeddings
-        WHERE tenant_id = :tenant_id
-        ORDER BY distance
-        LIMIT 25
-    """)
-    result = await db.execute(sql, {"emb": emb_str, "tenant_id": str(user.tenant_id)})
-    chunks = result.fetchall()
-
-    # Group chunks by doc_name (heuristic for course identity, since
-    # there's no formal document-to-course mapping). Best doc_name in
-    # the tenant becomes a course recommendation.
-    by_doc: dict[str, tuple[float, str]] = {}
-    for doc_id, doc_name, headings, distance in chunks:
-        key = (doc_name or "").strip()
-        if not key:
-            continue
-        if key not in by_doc or by_doc[key][0] < float(distance):
-            by_doc[key] = (float(distance), str(doc_id))
-
-    # Also list tenant's courses and try to fuzzy-match doc_name -> course.title
-    courses_result = await db.execute(
-        text("SELECT id, title FROM courses WHERE tenant_id = :tid"),
-        {"tid": str(user.tenant_id)},
-    )
-    courses = courses_result.fetchall()
-    course_by_title = {(c[1] or "").strip().lower(): (c[0], c[1]) for c in courses}
-
-    items: list[RecommendedCourseItem] = []
-    # First pass: exact title match
-    for doc_name, (sim, doc_id) in sorted(by_doc.items(), key=lambda x: -x[1][0])[:limit * 2]:
-        key = doc_name.lower()
-        # Try exact match first
-        if key in course_by_title:
-            cid, title = course_by_title[key]
-            items.append(RecommendedCourseItem(
-                course_id=cid, title=title, similarity=round(sim, 4), matched_doc_name=doc_name,
-            ))
-            continue
-        # Try substring match (doc_name contains course title or vice versa)
-        for ctitle, (cid, title) in course_by_title.items():
-            if ctitle and (ctitle in key or key in ctitle):
-                items.append(RecommendedCourseItem(
-                    course_id=cid, title=title, similarity=round(sim, 4), matched_doc_name=doc_name,
-                ))
-                break
-        if len(items) >= limit:
-            break
-
-    return RecommendedCoursesResponse(items=items[:limit])
+# NOTE: `recommended_courses` was previously registered here as well as in
+# jd_router.py — same path (`GET /positions/{id}/recommended-courses`),
+# same handler. After the 2026-07-10 split refactor this became a
+# `Duplicate Operation ID` warning at FastAPI startup. The real handler
+# lives in jd_router.py; this stub intentionally stays empty so future
+# readers know why the function isn't here.
 
 
 # ── JD version history ─────────────────────────────────────────
