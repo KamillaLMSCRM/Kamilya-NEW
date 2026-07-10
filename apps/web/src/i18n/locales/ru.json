@@ -142,6 +142,7 @@
   "courses": {
     "title": "Курсы",
     "createCourse": "Создать курс",
+    "importScorm": "Импорт SCORM",
     "editCourse": "Редактировать курс",
     "courseTitle": "Название курса",
     "courseDescription": "Описание",
@@ -530,6 +531,7 @@
     "courseManagement": "УПРАВЛЕНИЕ КУРСАМИ",
     "learning": "ОБУЧЕНИЕ",
     "quizConstructor": "Конструктор тестов",
+    "certificateTemplate": "Шаблон сертификата",
     "userRole": {
       "superadmin": "Суперадмин",
       "admin": "Администратор",

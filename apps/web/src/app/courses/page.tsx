@@ -141,7 +141,7 @@ export default function CoursesPage() {
         {canManage && (
           <div className="flex items-center gap-2">
             <Button variant="outline" onClick={() => { setShowScormImport(!showScormImport); setShowCreate(false); }}>
-              {showScormImport ? t('common.cancel') : 'Импорт SCORM'}
+              {showScormImport ? t('common.cancel') : t('courses.importScorm')}
             </Button>
             <Button onClick={() => { setShowCreate(!showCreate); setShowScormImport(false); }}>
               {showCreate ? t('common.cancel') : '+ ' + t('courses.createCourse')}

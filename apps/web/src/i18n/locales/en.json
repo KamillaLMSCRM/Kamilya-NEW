@@ -142,6 +142,7 @@
   "courses": {
     "title": "Courses",
     "createCourse": "Create Course",
+    "importScorm": "Import SCORM",
     "editCourse": "Edit Course",
     "courseTitle": "Course Title",
     "courseDescription": "Description",
@@ -530,6 +531,7 @@
     "courseManagement": "COURSE MANAGEMENT",
     "learning": "LEARNING",
     "quizConstructor": "Quiz constructor",
+    "certificateTemplate": "Certificate template",
     "userRole": {
       "superadmin": "Superadmin",
       "admin": "Administrator",

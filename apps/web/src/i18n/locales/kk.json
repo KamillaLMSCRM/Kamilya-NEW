@@ -142,6 +142,7 @@
   "courses": {
     "title": "Курстар",
     "createCourse": "Курс жасау",
+    "importScorm": "SCORM импорттау",
     "editCourse": "Курс өзгерту",
     "courseTitle": "Курс атауы",
     "courseDescription": "Сипаттама",
@@ -530,6 +531,7 @@
     "courseManagement": "КУРСТАРДЫ БАСҚАРУ",
     "learning": "ОҚЫТУ",
     "quizConstructor": "Тест конструкторы",
+    "certificateTemplate": "Сертификат үлгісі",
     "userRole": {
       "superadmin": "Суперәкімші",
       "admin": "Әкімші",

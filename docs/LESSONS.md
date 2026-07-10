@@ -1893,3 +1893,21 @@ dormant bug farm.
 **Любой pre-existing `if not X: return` short-circuit скрывает
 баги в коде ПОСЛЕ него.** Когда я fix-шу что-то upstream, dormant
 path может упасть. Прогоняй smoke-тест, который обходит short-circuit.
+
+---
+
+## 2026-07-10 — Live QA и credentials hygiene
+
+### Наблюдения
+
+- Live snapshot полезен для проверки production state, но не заменяет локальные
+  воспроизводимые тесты.
+- Connection strings, API keys, пароли и production credentials нельзя помещать
+  в отчёты, lessons, коммиты или сообщения агентам.
+- Нулевые строки в таблице не доказывают баг: сначала нужно проверить endpoint,
+  defaults, миграции и ожидаемую бизнес-логику.
+
+### Detection rule
+
+Перед публикацией QA-отчёта проверить его поиском секретов и отдельно пометить
+наблюдения, которые ещё не подтверждены пользовательским flow или endpoint-тестом.
