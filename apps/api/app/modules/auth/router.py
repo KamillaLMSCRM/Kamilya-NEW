@@ -553,6 +553,15 @@ async def demo_login(req: DemoLoginRequest, response: Response, db=Depends(get_d
         )
         user = result.scalar_one_or_none()
         if user is None:
+            # RLS bypass: same pattern as create_user_and_tokens — set
+            # app.tenant_id before INSERT so the `tenant_isolation` policy
+            # on `users` allows the row. demo_login creates the user inline
+            # (does not go through create_user_and_tokens) so the policy
+            # was failing here as well. See P1 QA 2026-07-10 bug #2.
+            await db.execute(
+                text("SELECT set_config('app.tenant_id', :tenant_id, true)"),
+                {"tenant_id": str(tenant.id)},
+            )
             user = User(
                 tenant_id=tenant.id,
                 telegram_id=demo["telegram_id"],
