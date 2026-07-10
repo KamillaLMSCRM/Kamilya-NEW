@@ -193,6 +193,22 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
           roles: ['admin', 'org_admin'],
         },
         {
+          label: t('nav.kiosks'),
+          href: '/admin/kiosks',
+          icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2" /><path d="M8 20h8" /><path d="M12 16v4" /></svg>,
+          roles: ['admin', 'org_admin'],
+        },
+        {
+          // P0.3 first-tenant hardening. Unified training log — native + SCORM
+          // courses in one view. HR/owner can answer «кто не прошёл обязательный
+          // курс» и выгрузить CSV. Hidden from teacher/student because it's an
+          // admin/HR concern (ADR-0012).
+          label: t('nav.trainingLog'),
+          href: '/admin/training-log',
+          icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="9" y1="13" x2="15" y2="13" /><line x1="9" y1="17" x2="15" y2="17" /></svg>,
+          roles: ['admin', 'org_admin', 'methodologist'],
+        },
+        {
           label: t('settings.title'),
           href: '/settings',
           icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><line x1="4" x2="4" y1="21" y2="14" /><line x1="4" x2="4" y1="10" y2="3" /><line x1="12" x2="12" y1="21" y2="12" /><line x1="12" x2="12" y1="8" y2="3" /><line x1="20" x2="20" y1="21" y2="16" /><line x1="20" x2="20" y1="12" y2="3" /></svg>,

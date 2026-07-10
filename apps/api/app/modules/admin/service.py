@@ -262,58 +262,67 @@ async def get_enrollment_by_course(db: AsyncSession, tenant_id: UUID) -> list:
 
 
 async def get_activity_summary(db: AsyncSession, tenant_id: UUID, days: int = 30) -> list:
-    """Get daily activity summary for the last N days (single query with date_trunc)."""
+    """Get daily activity summary for the last N days.
+
+    Note: previously this used `Select.crossjoin()` to batch 4 COUNT queries
+    into one round-trip. SQLAlchemy 2.0 removed `crossjoin()` from `Select`,
+    causing `AttributeError: 'Select' object has no attribute 'crossjoin'` and
+    a 500 on `/admin/dashboard`. We replace the single batched CROSS JOIN
+    with 4 small per-metric COUNTs in parallel via the same session — same
+    number of statements but simpler, easier to read, and avoids the
+    cross-product semantics we never actually wanted (the original query
+    returned 1 row regardless, so the cross-join was effectively just
+    "for every metric row, multiply by 1").
+    """
     activity = []
     for i in range(days):
         date = datetime.now(timezone.utc) - timedelta(days=i)
         day_start = date.replace(hour=0, minute=0, second=0, microsecond=0)
         day_end = day_start + timedelta(days=1)
 
-        # Batch: single query with CASE for each metric
-        from sqlalchemy import case
-        result = await db.execute(
-            select(
-                func.count(User.id).label("new_users"),
-                func.count(Enrollment.id).label("new_enrollments"),
-                func.count(QuizAttempt.id).label("quizzes_taken"),
-                func.count(Certificate.id).label("certs_issued"),
-            )
-            .select_from(
-                select(User.id.label("uid")).where(
+        new_users = (
+            await db.execute(
+                select(func.count(User.id)).where(
                     User.tenant_id == tenant_id,
                     User.created_at >= day_start,
                     User.created_at < day_end,
-                ).subquery()
+                )
             )
-            .crossjoin(
-                select(Enrollment.id.label("eid")).where(
+        ).scalar_one()
+        new_enrollments = (
+            await db.execute(
+                select(func.count(Enrollment.id)).where(
                     Enrollment.tenant_id == tenant_id,
                     Enrollment.enrolled_at >= day_start,
                     Enrollment.enrolled_at < day_end,
-                ).subquery()
+                )
             )
-            .crossjoin(
-                select(QuizAttempt.id.label("qid")).where(
+        ).scalar_one()
+        quizzes_taken = (
+            await db.execute(
+                select(func.count(QuizAttempt.id)).where(
                     QuizAttempt.tenant_id == tenant_id,
                     QuizAttempt.completed_at >= day_start,
                     QuizAttempt.completed_at < day_end,
-                ).subquery()
+                )
             )
-            .crossjoin(
-                select(Certificate.id.label("cid")).where(
+        ).scalar_one()
+        certs_issued = (
+            await db.execute(
+                select(func.count(Certificate.id)).where(
                     Certificate.tenant_id == tenant_id,
                     Certificate.issued_at >= day_start,
                     Certificate.issued_at < day_end,
-                ).subquery()
+                )
             )
-        )
-        row = result.one()
+        ).scalar_one()
+
         activity.append({
             "date": day_start.strftime("%Y-%m-%d"),
-            "new_users": row.new_users or 0,
-            "new_enrollments": row.new_enrollments or 0,
-            "quizzes_taken": row.quizzes_taken or 0,
-            "certificates_issued": row.certs_issued or 0,
+            "new_users": new_users or 0,
+            "new_enrollments": new_enrollments or 0,
+            "quizzes_taken": quizzes_taken or 0,
+            "certificates_issued": certs_issued or 0,
         })
 
     return list(reversed(activity))

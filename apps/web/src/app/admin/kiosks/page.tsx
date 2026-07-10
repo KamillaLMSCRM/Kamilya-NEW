@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Card, CardHeader, CardTitle, CardContent, Button, Badge, Table, Modal, Input } from '@/components/ui';
+import QRCode from 'qrcode';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
 import { toast } from '@/components/ui/Toast';
@@ -26,11 +27,24 @@ interface Position {
   department: string;
 }
 
+interface KioskAccessLog {
+  id: string;
+  kiosk_id: string;
+  kiosk_name: string;
+  personnel_number: string | null;
+  success: boolean;
+  reason: string | null;
+  ip_address: string | null;
+  created_at: string;
+}
+
 export default function AdminKiosksPage() {
   const { t } = useT();
   const accessToken = useAuthStore((s) => s.accessToken);
 
   const [kiosks, setKiosks] = useState<KioskLink[]>([]);
+  const [accessLogs, setAccessLogs] = useState<KioskAccessLog[]>([]);
+  const [qrByKioskId, setQrByKioskId] = useState<Record<string, string>>({});
   const [positions, setPositions] = useState<Position[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
@@ -61,10 +75,39 @@ export default function AdminKiosksPage() {
     } catch {}
   }, []);
 
+  const fetchAccessLogs = useCallback(async () => {
+    try {
+      const res = await api.get('/v1/admin/kiosks/access-logs?limit=50');
+      setAccessLogs(Array.isArray(res.data) ? res.data : []);
+    } catch {}
+  }, []);
+
   useEffect(() => {
     fetchKiosks();
     fetchPositions();
-  }, [fetchKiosks, fetchPositions]);
+    fetchAccessLogs();
+  }, [fetchKiosks, fetchPositions, fetchAccessLogs]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const generate = async () => {
+      const next: Record<string, string> = {};
+      for (const kiosk of kiosks) {
+        try {
+          next[kiosk.id] = await QRCode.toDataURL(kiosk.kiosk_url, {
+            margin: 1,
+            width: 180,
+            errorCorrectionLevel: 'M',
+          });
+        } catch {}
+      }
+      if (!cancelled) setQrByKioskId(next);
+    };
+    generate();
+    return () => {
+      cancelled = true;
+    };
+  }, [kiosks]);
 
   const resetForm = () => {
     setName('');
@@ -124,6 +167,28 @@ export default function AdminKiosksPage() {
     }
   };
 
+  const printKiosk = (kiosk: KioskLink) => {
+    const qr = qrByKioskId[kiosk.id];
+    const html = `<!doctype html><html><head><meta charset="utf-8"><title>${kiosk.name}</title><style>
+      body{font-family:Arial,sans-serif;margin:32px;color:#111} .sheet{max-width:560px;margin:0 auto;text-align:center;border:1px solid #ddd;border-radius:16px;padding:32px}
+      h1{font-size:28px;margin:0 0 8px}.muted{color:#666}.url{font-size:13px;word-break:break-all;margin-top:16px}.hint{font-size:18px;margin:20px 0}
+      img{width:240px;height:240px} @media print{button{display:none}.sheet{border:0}}
+    </style></head><body><div class="sheet">
+      <h1>${kiosk.name}</h1>
+      <div class="muted">${kiosk.location || 'Общий киоск'}</div>
+      <p class="hint">Отсканируйте QR-код и введите табельный номер</p>
+      ${qr ? `<img src="${qr}" alt="QR">` : ''}
+      <div class="url">${kiosk.kiosk_url}</div>
+      <p class="muted">После завершения обучения закройте вкладку.</p>
+      <button onclick="window.print()">Печать</button>
+    </div></body></html>`;
+    const w = window.open('', '_blank', 'width=720,height=860');
+    if (!w) return;
+    w.document.write(html);
+    w.document.close();
+    w.focus();
+  };
+
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
@@ -166,6 +231,9 @@ export default function AdminKiosksPage() {
                     <td className="p-3">
                       <div className="font-medium text-foreground">{k.name}</div>
                       <div className="flex items-center gap-1 mt-1">
+                        {qrByKioskId[k.id] && (
+                          <img src={qrByKioskId[k.id]} alt="" className="h-14 w-14 rounded border border-border bg-white p-1" />
+                        )}
                         <input
                           readOnly
                           value={k.kiosk_url}
@@ -179,6 +247,14 @@ export default function AdminKiosksPage() {
                           title="Скопировать"
                         >
                           📋
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => printKiosk(k)}
+                          className="text-xs px-2 py-0.5 rounded border border-border hover:bg-muted"
+                          title="Печать QR"
+                        >
+                          Печать
                         </button>
                       </div>
                     </td>
@@ -220,6 +296,48 @@ export default function AdminKiosksPage() {
                         </button>
                       </div>
                     </td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Журнал киоска</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          {accessLogs.length === 0 ? (
+            <div className="p-6 text-sm text-muted-foreground">Событий пока нет.</div>
+          ) : (
+            <Table>
+              <thead>
+                <tr>
+                  <th className="text-left p-3">Время</th>
+                  <th className="text-left p-3">Киоск</th>
+                  <th className="text-left p-3">Табельный номер</th>
+                  <th className="text-left p-3">Результат</th>
+                  <th className="text-left p-3">IP</th>
+                </tr>
+              </thead>
+              <tbody>
+                {accessLogs.map((log) => (
+                  <tr key={log.id} className="border-t">
+                    <td className="p-3 text-xs text-muted-foreground">
+                      {new Date(log.created_at).toLocaleString('ru-RU')}
+                    </td>
+                    <td className="p-3 text-sm">{log.kiosk_name}</td>
+                    <td className="p-3 text-sm font-mono">{log.personnel_number || '—'}</td>
+                    <td className="p-3">
+                      {log.success ? (
+                        <Badge variant="default" className="bg-success/15 text-success">Успешно</Badge>
+                      ) : (
+                        <Badge variant="outline">{log.reason || 'Ошибка'}</Badge>
+                      )}
+                    </td>
+                    <td className="p-3 text-xs text-muted-foreground">{log.ip_address || '—'}</td>
                   </tr>
                 ))}
               </tbody>

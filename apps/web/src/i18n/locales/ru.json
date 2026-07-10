@@ -63,7 +63,9 @@
     "courseAssignments": "Привязка курсов",
     "companyCourses": "Курсы компании",
     "certificateSettings": "Настройки сертификата",
-    "staffSchedule": "Штатное расписание"
+    "staffSchedule": "Штатное расписание",
+    "kiosks": "Киоски",
+    "trainingLog": "Журнал обучения"
   },
   "auth": {
     "login": "Вход",
@@ -893,5 +895,78 @@
       "step2": "Отправьте /newbot, задайте имя и username бота",
       "step3": "Скопируйте токен из ответа BotFather и вставьте сюда"
     }
+  },
+  "trainingLog": {
+    "title": "Журнал обучения",
+    "subtitle": "Все назначения, прогресс и сертификаты сотрудников в одном месте. Включая SCORM.",
+    "forbidden": "Журнал доступен только администратору и методологу.",
+    "filters": {
+      "title": "Фильтры",
+      "reset": "Сбросить"
+    },
+    "filter": {
+      "search": {
+        "label": "Поиск",
+        "placeholder": "Имя, email или табельный номер"
+      },
+      "status": {
+        "label": "Статус",
+        "all": "Все статусы",
+        "assigned": "Назначен",
+        "inProgress": "В процессе",
+        "completed": "Завершён"
+      },
+      "delivery": {
+        "label": "Тип курса",
+        "all": "Все типы",
+        "native": "Нативный",
+        "scorm": "SCORM 1.2"
+      },
+      "dateFrom": "Дата с",
+      "dateTo": "Дата по"
+    },
+    "summary": {
+      "total": "Всего записей: {{count}}",
+      "showing": "Показаны {{from}}–{{to}}"
+    },
+    "table": {
+      "fullName": "Сотрудник",
+      "personnelNumber": "Табельный",
+      "department": "Отдел",
+      "position": "Должность",
+      "course": "Курс",
+      "type": "Тип",
+      "status": "Статус",
+      "progress": "Прогресс",
+      "score": "Лучший балл",
+      "completedAt": "Завершён",
+      "certificate": "Сертификат"
+    },
+    "badge": {
+      "native": "Native",
+      "scorm": "SCORM",
+      "completed": "Завершён",
+      "assigned": "Назначен",
+      "inProgress": "В процессе"
+    },
+    "export": {
+      "csv": "Скачать CSV",
+      "success": "Экспорт начат"
+    },
+    "errors": {
+      "loadFailed": "Не удалось загрузить журнал",
+      "exportFailed": "Не удалось выгрузить CSV"
+    },
+    "empty": "Нет записей для выбранных фильтров"
+  },
+  "onboarding": {
+    "title": "Подготовка к обучению",
+    "subtitle": "Пройдите эти шаги — каждый шаг помогает сотрудникам быстрее получить пользу от LMS.",
+    "progress": "{{done}} из {{total}}",
+    "trial": "Trial",
+    "trialDays": "{{days}} дн.",
+    "users": "пользователей",
+    "allSetTitle": "Готово — все шаги пройдены",
+    "allSetSubtitle": "Новые сотрудники автоматически попадут в журнал обучения."
   }
 }

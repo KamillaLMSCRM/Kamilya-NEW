@@ -28,6 +28,7 @@ from app.core.rate_limit import RateLimitMiddleware
 from app.core.security import SecurityHeadersMiddleware
 from app.modules.auth.router import router as auth_router
 from app.modules.courses.router import router as courses_router
+from app.modules.scorm.router import router as scorm_router
 from app.modules.lessons.router import router as lessons_router
 from app.modules.ai.router import router as ai_router
 from app.modules.enrollments.router import router as enrollments_router, stats_router as enrollments_stats_router
@@ -41,12 +42,14 @@ from app.modules.audit.router import router as audit_router
 from app.modules.admin.router import router as admin_router
 from app.modules.admin.provider_keys.router import router as provider_keys_router
 from app.modules.admin.superadmin.router import router as superadmin_router
+from app.modules.admin.onboarding.router import router as onboarding_router
 from app.modules.demo.router import router as demo_router
 from app.modules.auth.superadmin_login import router as superadmin_login_router
 from app.modules.users.router import router as users_router
 from app.modules.users.invitations_router import router as invitations_public_router
 from app.modules.users.kiosk_router import admin_router as kiosks_admin_router, public_router as kiosks_public_router
 from app.modules.users.staff_import_router import router as staff_import_router
+from app.modules.users.staff_import_mapping_router import router as staff_import_mapping_router
 from app.modules.auth.telegram import router as telegram_router
 from app.modules.auth.telegram_register import router as telegram_register_router
 from app.modules.tenants.router import public_router as tenants_public_router, router as tenants_router
@@ -56,6 +59,8 @@ from app.modules.positions.recommendations_router import router as positions_rec
 from app.modules.positions.admin_router import router as positions_admin_router
 from app.modules.departments.router import router as departments_router
 from app.modules.integrations.router import router as integrations_router
+from app.modules.learner_assistant.router import router as learner_assistant_router
+from app.modules.training_log.router import router as training_log_router
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -183,6 +188,7 @@ register_error_handlers(app)
 
 app.include_router(auth_router, prefix=f"{settings.API_PREFIX}")
 app.include_router(courses_router, prefix=f"{settings.API_PREFIX}", tags=["courses"])
+app.include_router(scorm_router, prefix=f"{settings.API_PREFIX}", tags=["scorm"])
 app.include_router(lessons_router, prefix=f"{settings.API_PREFIX}", tags=["lessons"])
 app.include_router(ai_router, prefix=f"{settings.API_PREFIX}", tags=["ai-generation"])
 app.include_router(enrollments_router, prefix=f"{settings.API_PREFIX}", tags=["enrollments"])
@@ -197,6 +203,7 @@ app.include_router(audit_router, prefix=f"{settings.API_PREFIX}", tags=["audit"]
 app.include_router(admin_router, prefix=f"{settings.API_PREFIX}", tags=["admin"])
 app.include_router(provider_keys_router, prefix=f"{settings.API_PREFIX}", tags=["admin"])
 app.include_router(superadmin_router, prefix=f"{settings.API_PREFIX}", tags=["admin"])
+app.include_router(onboarding_router, prefix=f"{settings.API_PREFIX}", tags=["admin"])
 app.include_router(demo_router, prefix=f"{settings.API_PREFIX}", tags=["demo"])
 app.include_router(superadmin_login_router, prefix=f"{settings.API_PREFIX}")
 app.include_router(users_router, prefix=f"{settings.API_PREFIX}", tags=["users"])
@@ -204,6 +211,7 @@ app.include_router(invitations_public_router, prefix=f"{settings.API_PREFIX}", t
 app.include_router(kiosks_admin_router, prefix=f"{settings.API_PREFIX}", tags=["kiosks"])
 app.include_router(kiosks_public_router, prefix=f"{settings.API_PREFIX}", tags=["kiosks"])
 app.include_router(staff_import_router, prefix=f"{settings.API_PREFIX}", tags=["staff"])
+app.include_router(staff_import_mapping_router, prefix=f"{settings.API_PREFIX}", tags=["staff"])
 app.include_router(telegram_router, prefix=f"{settings.API_PREFIX}", tags=["telegram"])
 app.include_router(telegram_register_router, prefix=f"{settings.API_PREFIX}", tags=["auth"])
 app.include_router(tenants_router, prefix=f"{settings.API_PREFIX}", tags=["tenants"])
@@ -214,6 +222,8 @@ app.include_router(positions_recommendations_router, prefix=f"{settings.API_PREF
 app.include_router(positions_admin_router, prefix=f"{settings.API_PREFIX}", tags=["positions"])
 app.include_router(departments_router, prefix=f"{settings.API_PREFIX}", tags=["departments"])
 app.include_router(integrations_router, prefix=f"{settings.API_PREFIX}", tags=["integrations"])
+app.include_router(learner_assistant_router, prefix=f"{settings.API_PREFIX}", tags=["learner-assistant"])
+app.include_router(training_log_router, prefix=f"{settings.API_PREFIX}", tags=["admin"])
 
 # Suppress Render health check spam in logs
 class HealthCheckFilter(logging.Filter):

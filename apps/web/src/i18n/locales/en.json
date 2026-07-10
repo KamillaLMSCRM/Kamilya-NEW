@@ -63,7 +63,9 @@
     "courseAssignments": "Course assignments",
     "companyCourses": "Company-wide courses",
     "certificateSettings": "Certificate settings",
-    "staffSchedule": "Staff schedule"
+    "staffSchedule": "Staff schedule",
+    "kiosks": "Kiosks",
+    "trainingLog": "Training log"
   },
   "auth": {
     "login": "Login",
@@ -893,5 +895,78 @@
       "step2": "Send /newbot, set name and username",
       "step3": "Copy the token from BotFather's reply and paste it here"
     }
+  },
+  "trainingLog": {
+    "title": "Training log",
+    "subtitle": "All assignments, progress and certificates in one place — including SCORM.",
+    "forbidden": "Training log is available to admins and methodologists only.",
+    "filters": {
+      "title": "Filters",
+      "reset": "Reset"
+    },
+    "filter": {
+      "search": {
+        "label": "Search",
+        "placeholder": "Name, email or personnel number"
+      },
+      "status": {
+        "label": "Status",
+        "all": "All statuses",
+        "assigned": "Assigned",
+        "inProgress": "In progress",
+        "completed": "Completed"
+      },
+      "delivery": {
+        "label": "Course type",
+        "all": "All types",
+        "native": "Native",
+        "scorm": "SCORM 1.2"
+      },
+      "dateFrom": "Date from",
+      "dateTo": "Date to"
+    },
+    "summary": {
+      "total": "Total rows: {{count}}",
+      "showing": "Showing {{from}}–{{to}}"
+    },
+    "table": {
+      "fullName": "Employee",
+      "personnelNumber": "Personnel #",
+      "department": "Department",
+      "position": "Position",
+      "course": "Course",
+      "type": "Type",
+      "status": "Status",
+      "progress": "Progress",
+      "score": "Best score",
+      "completedAt": "Completed",
+      "certificate": "Certificate"
+    },
+    "badge": {
+      "native": "Native",
+      "scorm": "SCORM",
+      "completed": "Completed",
+      "assigned": "Assigned",
+      "inProgress": "In progress"
+    },
+    "export": {
+      "csv": "Download CSV",
+      "success": "Export started"
+    },
+    "errors": {
+      "loadFailed": "Failed to load training log",
+      "exportFailed": "Failed to export CSV"
+    },
+    "empty": "No rows match the selected filters"
+  },
+  "onboarding": {
+    "title": "Get your LMS ready",
+    "subtitle": "Walk through these steps — each one helps employees get value from the LMS faster.",
+    "progress": "{{done}} of {{total}}",
+    "trial": "Trial",
+    "trialDays": "{{days}} days",
+    "users": "users",
+    "allSetTitle": "All set — every step is done",
+    "allSetSubtitle": "New employees will land in the training log automatically."
   }
 }

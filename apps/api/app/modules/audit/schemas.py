@@ -11,7 +11,10 @@ class AuditLogResponse(BaseModel):
     user_id: UUID | None = None
     action: str
     resource_type: str
-    resource_id: str | None = None
+    # resource_id is stored as UUID in the DB but historically callers
+    # pass non-UUID slugs (e.g. tenant slugs) which the service layer
+    # normalizes to None. Accept either type so we don't 500 on serialize.
+    resource_id: UUID | str | None = None
     details: dict[str, Any] | None = None
     ip_address: str | None = None
     user_agent: str | None = None

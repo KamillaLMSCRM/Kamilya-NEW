@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Card, CardHeader, CardTitle, CardContent, Button, Badge, Table } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
@@ -137,6 +137,53 @@ export default function AdminStaffPage() {
   // polling через <ApplyRulesProgress/> и держим banner видимым до
   // терминального state.
   const [applyTaskId, setApplyTaskId] = useState<string | null>(null);
+  // P0.4 first-tenant hardening — saved per-tenant column mappings.
+  const [savedMappings, setSavedMappings] = useState<
+    Array<{ id: string; name: string; is_default: boolean }>
+  >([]);
+  const [selectedMappingId, setSelectedMappingId] = useState<string>('');
+
+  const fetchSavedMappings = useCallback(async () => {
+    try {
+      const res = await api.get('/v1/admin/staff/import/mappings');
+      setSavedMappings(res.data || []);
+      // Auto-select the default mapping on first load
+      const def = (res.data || []).find((m: any) => m.is_default);
+      if (def && !selectedMappingId) {
+        setSelectedMappingId(def.id);
+      }
+    } catch {
+      // Non-fatal — just leave the dropdown empty
+    }
+  }, [selectedMappingId]);
+
+  useEffect(() => {
+    fetchSavedMappings();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleSaveCurrentMapping = async () => {
+    if (Object.keys(columnMapping).length === 0) {
+      toast.error('Сначала сопоставьте колонки');
+      return;
+    }
+    const name = window.prompt('Название шаблона (например, «Штатка АО КазМунайГаз»):');
+    if (!name) return;
+    try {
+      const res = await api.post('/v1/admin/staff/import/mappings', {
+        name,
+        mapping_json: columnMapping,
+      });
+      toast.success('Шаблон сохранён');
+      setSavedMappings((cur) => [
+        { id: res.data.id, name: res.data.name, is_default: res.data.is_default },
+        ...cur,
+      ]);
+    } catch (err: any) {
+      const detail = err?.response?.data?.detail || 'Не удалось сохранить шаблон';
+      toast.error(typeof detail === 'string' ? detail : JSON.stringify(detail));
+    }
+  };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -158,6 +205,9 @@ export default function AdminStaffPage() {
       }
       if (Object.keys(columnMapping).length > 0) {
         formData.append('mapping', JSON.stringify(columnMapping));
+      } else if (selectedMappingId) {
+        // P0.4: re-use a saved per-tenant mapping.
+        formData.append('mapping_id', selectedMappingId);
       }
       const res = await api.post('/v1/admin/staff/import/preview', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
@@ -552,6 +602,50 @@ export default function AdminStaffPage() {
               {selectedFile ? selectedFile.name : 'Файл не выбран'}
             </span>
           </div>
+
+          {/* P0.4 first-tenant hardening: apply a saved column mapping.
+              The default mapping is auto-applied on file upload. */}
+          {savedMappings.length > 0 && (
+            <div className="flex flex-wrap items-center gap-3 rounded-md border border-border bg-muted/30 px-3 py-2">
+              <label className="text-sm font-medium text-foreground">
+                Шаблон колонок:
+              </label>
+              <select
+                value={selectedMappingId}
+                onChange={(e) => setSelectedMappingId(e.target.value)}
+                className="h-9 rounded-md border border-input bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                <option value="">— без шаблона —</option>
+                {savedMappings.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name}
+                    {m.is_default ? ' ★' : ''}
+                  </option>
+                ))}
+              </select>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={handleSaveCurrentMapping}
+                disabled={Object.keys(columnMapping).length === 0}
+              >
+                Сохранить текущий шаблон
+              </Button>
+            </div>
+          )}
+          {savedMappings.length === 0 && Object.keys(columnMapping).length > 0 && (
+            <div className="text-xs text-muted-foreground">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={handleSaveCurrentMapping}
+              >
+                Сохранить шаблон для следующих загрузок
+              </Button>
+            </div>
+          )}
           {selectedFile && (
             <div className="flex items-center gap-2 text-sm text-foreground">
               <span>📎 {(selectedFile.size / 1024).toFixed(1)} КБ</span>

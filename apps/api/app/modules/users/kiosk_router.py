@@ -16,7 +16,7 @@ Endpoints:
 """
 from uuid import UUID
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException, Body, Query
+from fastapi import APIRouter, Depends, HTTPException, Body, Query, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -29,6 +29,7 @@ from app.modules.users.kiosk_service import (
     get_kiosk_link,
     update_kiosk_link,
     delete_kiosk_link,
+    list_kiosk_access_logs,
     get_public_kiosk,
     identify_at_kiosk,
 )
@@ -63,6 +64,18 @@ class KioskLinkResponse(BaseModel):
     scope_position_name: str | None = None
     is_active: bool
     expires_at: datetime | None = None
+    created_at: datetime
+
+
+class KioskAccessLogResponse(BaseModel):
+    id: UUID
+    kiosk_id: UUID
+    kiosk_name: str
+    user_id: UUID | None = None
+    personnel_number: str | None = None
+    success: bool
+    reason: str | None = None
+    ip_address: str | None = None
     created_at: datetime
 
 
@@ -144,6 +157,17 @@ async def list_kiosks(
         _to_response(l, base_url, pos_names.get(l.scope_position_id))
         for l in links
     ]
+
+
+@admin_router.get("/access-logs", response_model=list[KioskAccessLogResponse])
+async def kiosk_access_logs(
+    kiosk_id: UUID | None = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=200),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_role("admin", "org_admin", "superadmin")),
+):
+    """Latest kiosk identify attempts for current tenant."""
+    return await list_kiosk_access_logs(db, user.tenant_id, kiosk_id=kiosk_id, limit=limit)
 
 
 @admin_router.patch("/{kiosk_id}", response_model=KioskLinkResponse)
@@ -229,6 +253,7 @@ async def view_kiosk(
 @public_router.post("/{token}/identify", response_model=KioskIdentifyResponse)
 async def identify_kiosk(
     token: str,
+    request: Request,
     payload: KioskIdentifyRequest = Body(...),
     db: AsyncSession = Depends(get_db),
 ):
@@ -237,5 +262,11 @@ async def identify_kiosk(
     No auth required. The kiosk URL is the public credential (it's printed
     on a wall); personnel_number is the per-user credential.
     """
-    result = await identify_at_kiosk(db, token, payload.personnel_number)
+    result = await identify_at_kiosk(
+        db,
+        token,
+        payload.personnel_number,
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
     return result
