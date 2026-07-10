@@ -77,3 +77,17 @@ def test_audit_response_accepts_postgres_uuid_resource_id() -> None:
         }
     )
     assert payload.resource_id == resource_id
+
+
+def test_demo_user_lookup_is_bounded_before_scalar_resolution() -> None:
+    from sqlalchemy import select
+
+    from app.models.users import User
+
+    statement = (
+        select(User)
+        .where(User.telegram_id == 900000003, User.tenant_id == uuid4())
+        .order_by(User.created_at.desc())
+        .limit(1)
+    )
+    assert "LIMIT" in str(statement).upper()

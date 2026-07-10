@@ -557,9 +557,16 @@ async def demo_login(req: DemoLoginRequest, response: Response, db=Depends(get_d
         # was previously created under the generic demo tenant and now
         # needs to migrate).
         result = await db.execute(
-            select(User).where(User.telegram_id == demo["telegram_id"], User.tenant_id == tenant.id)
+            select(User)
+            .where(User.telegram_id == demo["telegram_id"], User.tenant_id == tenant.id)
+            .order_by(User.created_at.desc())
+            .limit(1)
         )
-        user = result.scalar_one_or_none()
+        # Historical demo runs can leave duplicate rows for the same
+        # telegram_id in one tenant. The login path must remain available;
+        # choose the newest deterministic row instead of raising
+        # MultipleResultsFound from scalar_one_or_none().
+        user = result.scalars().first()
         if user is None:
             # RLS bypass: same pattern as create_user_and_tokens — set
             # app.tenant_id before INSERT so the `tenant_isolation` policy
