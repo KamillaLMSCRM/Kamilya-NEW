@@ -39,7 +39,8 @@ async def export_users_csv(db: AsyncSession, tenant_id: UUID) -> str:
             user.created_at.isoformat() if user.created_at else "",
         ])
 
-    return output.getvalue()
+    # Excel on Windows otherwise guesses a legacy code page for Cyrillic.
+    return "\ufeff" + output.getvalue()
 
 
 async def export_courses_csv(db: AsyncSession, tenant_id: UUID) -> str:
@@ -67,7 +68,7 @@ async def export_courses_csv(db: AsyncSession, tenant_id: UUID) -> str:
             course.published_at.isoformat() if course.published_at else "",
         ])
 
-    return output.getvalue()
+    return "\ufeff" + output.getvalue()
 
 
 async def export_enrollments_csv(db: AsyncSession, tenant_id: UUID) -> str:
@@ -98,7 +99,7 @@ async def export_enrollments_csv(db: AsyncSession, tenant_id: UUID) -> str:
             enrollment.completed_at.isoformat() if enrollment.completed_at else "",
         ])
 
-    return output.getvalue()
+    return "\ufeff" + output.getvalue()
 
 
 async def export_quiz_results_csv(db: AsyncSession, tenant_id: UUID) -> str:
@@ -130,4 +131,4 @@ async def export_quiz_results_csv(db: AsyncSession, tenant_id: UUID) -> str:
             attempt.completed_at.isoformat() if attempt.completed_at else "",
         ])
 
-    return output.getvalue()
+    return "\ufeff" + output.getvalue()

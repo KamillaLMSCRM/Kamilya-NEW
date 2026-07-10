@@ -11,7 +11,10 @@ class AuditLogResponse(BaseModel):
     user_id: UUID | None = None
     action: str
     resource_type: str
-    resource_id: str | None = None
+    # PostgreSQL returns the UUID column as uuid.UUID. Pydantic v2 does not
+    # coerce that value into str during from_attributes validation; accepting
+    # UUID keeps the API response valid and still serializes as a JSON string.
+    resource_id: UUID | None = None
     details: dict[str, Any] | None = None
     ip_address: str | None = None
     user_agent: str | None = None

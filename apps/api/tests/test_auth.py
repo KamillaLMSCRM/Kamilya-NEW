@@ -19,7 +19,13 @@ def _fake_settings():
 def test_create_access_token_has_required_claims():
     data = {"sub": str(uuid4()), "tenant_id": str(uuid4()), "roles": ["student"]}
     token = auth_module.create_access_token(data)
-    payload = jwt.decode(token, "test-secret-key-for-jwt-validation-2026", algorithms=["HS256"])
+    payload = jwt.decode(
+        token,
+        "test-secret-key-for-jwt-validation-2026",
+        algorithms=["HS256"],
+        audience="kamilya-lms",
+        issuer="kamilya-lms",
+    )
     assert "exp" in payload
     assert "iat" in payload
     assert "nbf" in payload
@@ -56,7 +62,13 @@ def test_create_access_token_custom_expiry():
     secret = "test-secret-key-for-jwt-validation-2026"
     data = {"sub": str(uuid4()), "tenant_id": str(uuid4())}
     token = auth_module.create_access_token(data, expires_delta=timedelta(hours=2))
-    payload = jwt.decode(token, secret, algorithms=["HS256"])
+    payload = jwt.decode(
+        token,
+        secret,
+        algorithms=["HS256"],
+        audience="kamilya-lms",
+        issuer="kamilya-lms",
+    )
     # JWT exp is a Unix timestamp (int)
     expire_ts = payload["exp"]
     now_ts = datetime.now(timezone.utc).timestamp()

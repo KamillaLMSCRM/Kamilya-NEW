@@ -269,42 +269,51 @@ async def get_activity_summary(db: AsyncSession, tenant_id: UUID, days: int = 30
         day_start = date.replace(hour=0, minute=0, second=0, microsecond=0)
         day_end = day_start + timedelta(days=1)
 
-        # Batch: single query with CASE for each metric
-        from sqlalchemy import case
+        # Use independent scalar subqueries. A cross join would both fail on
+        # SQLAlchemy 2.x (Select.crossjoin was removed) and return no row when
+        # any one metric has a zero count.
+        new_users = (
+            select(func.count(User.id))
+            .where(
+                User.tenant_id == tenant_id,
+                User.created_at >= day_start,
+                User.created_at < day_end,
+            )
+            .scalar_subquery()
+        )
+        new_enrollments = (
+            select(func.count(Enrollment.id))
+            .where(
+                Enrollment.tenant_id == tenant_id,
+                Enrollment.enrolled_at >= day_start,
+                Enrollment.enrolled_at < day_end,
+            )
+            .scalar_subquery()
+        )
+        quizzes_taken = (
+            select(func.count(QuizAttempt.id))
+            .where(
+                QuizAttempt.tenant_id == tenant_id,
+                QuizAttempt.completed_at >= day_start,
+                QuizAttempt.completed_at < day_end,
+            )
+            .scalar_subquery()
+        )
+        certificates_issued = (
+            select(func.count(Certificate.id))
+            .where(
+                Certificate.tenant_id == tenant_id,
+                Certificate.issued_at >= day_start,
+                Certificate.issued_at < day_end,
+            )
+            .scalar_subquery()
+        )
         result = await db.execute(
             select(
-                func.count(User.id).label("new_users"),
-                func.count(Enrollment.id).label("new_enrollments"),
-                func.count(QuizAttempt.id).label("quizzes_taken"),
-                func.count(Certificate.id).label("certs_issued"),
-            )
-            .select_from(
-                select(User.id.label("uid")).where(
-                    User.tenant_id == tenant_id,
-                    User.created_at >= day_start,
-                    User.created_at < day_end,
-                ).subquery()
-            )
-            .crossjoin(
-                select(Enrollment.id.label("eid")).where(
-                    Enrollment.tenant_id == tenant_id,
-                    Enrollment.enrolled_at >= day_start,
-                    Enrollment.enrolled_at < day_end,
-                ).subquery()
-            )
-            .crossjoin(
-                select(QuizAttempt.id.label("qid")).where(
-                    QuizAttempt.tenant_id == tenant_id,
-                    QuizAttempt.completed_at >= day_start,
-                    QuizAttempt.completed_at < day_end,
-                ).subquery()
-            )
-            .crossjoin(
-                select(Certificate.id.label("cid")).where(
-                    Certificate.tenant_id == tenant_id,
-                    Certificate.issued_at >= day_start,
-                    Certificate.issued_at < day_end,
-                ).subquery()
+                new_users.label("new_users"),
+                new_enrollments.label("new_enrollments"),
+                quizzes_taken.label("quizzes_taken"),
+                certificates_issued.label("certs_issued"),
             )
         )
         row = result.one()

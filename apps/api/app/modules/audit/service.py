@@ -1,6 +1,6 @@
 """Audit log service"""
 from uuid import UUID
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, desc

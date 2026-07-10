@@ -544,6 +544,14 @@ async def demo_login(req: DemoLoginRequest, response: Response, db=Depends(get_d
                 db.add(tenant)
                 await db.flush()
 
+        # The demo tenant may be created or resolved without an authenticated
+        # request context. Establish the tenant scope before reading or
+        # inserting the demo user under FORCE RLS.
+        await db.execute(
+            text("SELECT set_config('app.tenant_id', :tenant_id, true)"),
+            {"tenant_id": str(tenant.id)},
+        )
+
         # Find or create demo user (search by telegram_id within the
         # target tenant — handles the case where a superadmin demo user
         # was previously created under the generic demo tenant and now

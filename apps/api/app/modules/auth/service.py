@@ -101,6 +101,13 @@ async def create_user_and_tokens(
     role: str = "student",
 ) -> tuple[User, str, str]:
     password_hash = ph.hash(password) if password else None
+    # New tenant users are inserted before the request has passed through
+    # get_current_user(), so no tenant context exists yet. Set it explicitly
+    # for the transaction or the users RLS CHECK policy rejects the INSERT.
+    await db.execute(
+        text("SELECT set_config('app.tenant_id', :tenant_id, true)"),
+        {"tenant_id": str(tenant_id)},
+    )
     user = User(
         id=uuid4(),
         tenant_id=tenant_id,

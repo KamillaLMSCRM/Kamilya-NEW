@@ -59,7 +59,7 @@ async def export_users(
     csv_data = await export_users_csv(db, user.tenant_id)
     return StreamingResponse(
         io.StringIO(csv_data),
-        media_type="text/csv",
+        media_type="text/csv; charset=utf-8",
         headers={"Content-Disposition": "attachment; filename=users.csv"},
     )
 
@@ -73,7 +73,7 @@ async def export_courses(
     csv_data = await export_courses_csv(db, user.tenant_id)
     return StreamingResponse(
         io.StringIO(csv_data),
-        media_type="text/csv",
+        media_type="text/csv; charset=utf-8",
         headers={"Content-Disposition": "attachment; filename=courses.csv"},
     )
 
@@ -93,7 +93,7 @@ async def export_enrollments(
     csv_data = await export_enrollments_csv(db, user.tenant_id)
     return StreamingResponse(
         io.StringIO(csv_data),
-        media_type="text/csv",
+        media_type="text/csv; charset=utf-8",
         headers={"Content-Disposition": "attachment; filename=enrollments.csv"},
     )
 
@@ -107,7 +107,7 @@ async def export_quiz_results(
     csv_data = await export_quiz_results_csv(db, user.tenant_id)
     return StreamingResponse(
         io.StringIO(csv_data),
-        media_type="text/csv",
+        media_type="text/csv; charset=utf-8",
         headers={"Content-Disposition": "attachment; filename=quiz-results.csv"},
     )
 
