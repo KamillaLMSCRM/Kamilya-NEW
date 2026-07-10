@@ -57,11 +57,7 @@ async def export_users(
 ):
     """Export users to CSV (admin only)."""
     csv_data = await export_users_csv(db, user.tenant_id)
-    return StreamingResponse(
-        io.StringIO(csv_data),
-        media_type="text/csv; charset=utf-8",
-        headers={"Content-Disposition": "attachment; filename=users.csv"},
-    )
+    return _csv_response(csv_data, "users.csv")
 
 
 @router.get("/export/courses")
@@ -71,11 +67,7 @@ async def export_courses(
 ):
     """Export courses to CSV (admin only)."""
     csv_data = await export_courses_csv(db, user.tenant_id)
-    return StreamingResponse(
-        io.StringIO(csv_data),
-        media_type="text/csv; charset=utf-8",
-        headers={"Content-Disposition": "attachment; filename=courses.csv"},
-    )
+    return _csv_response(csv_data, "courses.csv")
 
 
 # ADR-0012: enrollment CSV export is part of the methodologist's content
@@ -91,11 +83,7 @@ async def export_enrollments(
 ):
     """Export enrollments to CSV (methodologist/teacher only)."""
     csv_data = await export_enrollments_csv(db, user.tenant_id)
-    return StreamingResponse(
-        io.StringIO(csv_data),
-        media_type="text/csv; charset=utf-8",
-        headers={"Content-Disposition": "attachment; filename=enrollments.csv"},
-    )
+    return _csv_response(csv_data, "enrollments.csv")
 
 
 @router.get("/export/quiz-results")
@@ -105,10 +93,24 @@ async def export_quiz_results(
 ):
     """Export quiz results to CSV (admin only)."""
     csv_data = await export_quiz_results_csv(db, user.tenant_id)
+    return _csv_response(csv_data, "quiz-results.csv")
+
+
+def _csv_response(csv_data: str, filename: str) -> StreamingResponse:
+    """Wrap a CSV string in a UTF-8-BOM StreamingResponse.
+
+    Without the BOM (\ufeff), Excel/Notepad interpret the bytes as cp1251
+    and any Cyrillic in user/course/enrollment names renders as
+    mojibake (e.g. "ID,Email,���,�������"). The `charset=utf-8` in
+    media_type is what PowerShell `Invoke-WebRequest` and most browsers
+    key off of when deciding how to decode the body.
+
+    See P1 QA report 2026-07-10 bug #6.
+    """
     return StreamingResponse(
-        io.StringIO(csv_data),
+        io.StringIO("\ufeff" + csv_data),
         media_type="text/csv; charset=utf-8",
-        headers={"Content-Disposition": "attachment; filename=quiz-results.csv"},
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
 
 

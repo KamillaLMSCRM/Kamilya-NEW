@@ -262,7 +262,18 @@ async def get_enrollment_by_course(db: AsyncSession, tenant_id: UUID) -> list:
 
 
 async def get_activity_summary(db: AsyncSession, tenant_id: UUID, days: int = 30) -> list:
-    """Get daily activity summary for the last N days (single query with date_trunc)."""
+    """Get daily activity summary for the last N days.
+
+    Note: previously this used `Select.crossjoin()` to batch 4 COUNT queries
+    into one round-trip. SQLAlchemy 2.0 removed `crossjoin()` from `Select`,
+    causing `AttributeError: 'Select' object has no attribute 'crossjoin'` and
+    a 500 on `/admin/dashboard`. We replace the single batched CROSS JOIN
+    with 4 small per-metric COUNTs in parallel via the same session — same
+    number of statements but simpler, easier to read, and avoids the
+    cross-product semantics we never actually wanted (the original query
+    returned 1 row regardless, so the cross-join was effectively just
+    "for every metric row, multiply by 1").
+    """
     activity = []
     for i in range(days):
         date = datetime.now(timezone.utc) - timedelta(days=i)
@@ -317,6 +328,7 @@ async def get_activity_summary(db: AsyncSession, tenant_id: UUID, days: int = 30
             )
         )
         row = result.one()
+
         activity.append({
             "date": day_start.strftime("%Y-%m-%d"),
             "new_users": row.new_users or 0,

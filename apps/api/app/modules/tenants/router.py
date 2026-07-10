@@ -14,6 +14,7 @@ from app.core.auth import create_access_token, create_refresh_token
 from app.core.db import get_db
 from app.core.email import EmailService
 from app.models.tenants import Tenant, TenantLead, TenantUsage
+from app.models.tenant_settings import TenantSettings
 from app.models.user_roles import UserRole
 from app.models.users import User
 from app.modules.audit.service import log_action
@@ -188,6 +189,13 @@ async def register_tenant(
 
     # RLS context is required before inserting tenant-scoped rows as lms_app.
     await db.execute(text("SELECT set_config('app.tenant_id', :tenant_id, true)"), {"tenant_id": str(tenant.id)})
+
+    # Auto-create per-tenant settings row with the model defaults so
+    # downstream endpoints (logo_url, default_language, quiz_pass_threshold,
+    # monthly_llm_budget_usd_cents, etc.) never read NULL / get 500s.
+    # Without this, all 7 production tenants had settings=NULL because the
+    # row was never seeded — see P1 QA report 2026-07-10 bug #5.
+    db.add(TenantSettings(tenant_id=tenant.id))
 
     user = User(
         id=uuid4(),
