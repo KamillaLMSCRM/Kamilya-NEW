@@ -48,9 +48,21 @@
   письмо автоматически.
 - Страница подключена в sidebar для `admin` и `org_admin`.
 
+### 7. Certificate learner UX
+
+- Пустое состояние `/certificates` теперь ведёт обучающегося к его курсам.
+- Проверка сертификата не отправляет пустой запрос, поддерживает Enter и
+  кодирует номер перед запросом.
+- Форма проверки адаптирована для узких экранов.
+
 ## Проверки
 
 - `apps/web`: `npm run typecheck` — passed.
+- `apps/web`: production `next build` — passed (через PowerShell с
+  `NEXT_TELEMETRY_DISABLED=1`, потому что npm-script использует Unix-синтаксис
+  переменной окружения).
+- `apps/web/tests/useIdleTimeout.test.tsx` — 2/2 passed.
+- `apps/api/tests/test_kiosk_jwt.py apps/api/tests/test_admin_p0.py` — 9/9 passed.
 - Все три locale-файла — валидный JSON.
 - `git diff --check` — passed.
 - Backend kiosk JWT tests уже присутствуют в `apps/api/tests/test_kiosk_jwt.py`; backend contract не менялся.
