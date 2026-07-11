@@ -768,6 +768,7 @@
     }
   },
   "quizAssignments": {
+    "navLabel": "Assign quiz",
     "title": "Assignments",
     "assignHeading": "Assign to employees",
     "assignDescription": "Pick employees or positions from the list and optionally set a due date. After assignment the quiz will appear in their \"My quizzes\" section.",
@@ -959,7 +960,44 @@
       "loadFailed": "Failed to load training log",
       "exportFailed": "Failed to export CSV"
     },
-    "empty": "No rows match the selected filters"
+    "empty": "No rows match the selected filters",
+    "emptyFilteredHint": "Try removing the status filter, widening the date range, or selecting another course type.",
+    "emptyHint": "Records appear after courses are assigned to employees."
+  },
+  "kiosk": {
+    "printSheet": {
+      "sharedKiosk": "Shared kiosk",
+      "scanHint": "Scan the QR code and enter your personnel number",
+      "closeHint": "Close the tab after completing the course.",
+      "print": "Print"
+    }
+  },
+  "invitations": {
+    "navLabel": "Invitations",
+    "title": "Employee invitations",
+    "subtitle": "Create an invite link for a learner and send it through your usual work channel.",
+    "createTitle": "New invitation",
+    "emailLabel": "Employee email",
+    "emailPlaceholder": "employee@company.kz",
+    "createButton": "Create link",
+    "creating": "Creating…",
+    "emailRequired": "Enter a valid email",
+    "created": "Invitation created",
+    "createError": "Could not create invitation",
+    "linksTitle": "Links to send",
+    "manualDeliveryHint": "The link is not sent automatically. Send it through your work channel.",
+    "copy": "Copy link",
+    "copied": "Link copied",
+    "listTitle": "Invitation history",
+    "empty": "No invitations yet",
+    "expiresAt": "Expires",
+    "resend": "New link",
+    "refresh": "Refresh",
+    "resent": "New link created",
+    "resentEmail": "New invitation",
+    "resendError": "Could not create a new link",
+    "loadError": "Could not load invitations",
+    "status": { "pending": "Pending", "accepted": "Accepted", "expired": "Expired", "revoked": "Revoked", "superseded": "Replaced" }
   },
   "onboarding": {
     "title": "Get your LMS ready",

@@ -1,9 +1,12 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams } from 'next/navigation';
+import Link from 'next/link';
 import { Card, CardHeader, CardTitle, CardContent, Button, Input } from '@/components/ui';
 import { api } from '@/lib/api';
+import { setAuth, getStoredAuth, AuthState } from '@/lib/auth';
+import { useIdleTimeout } from '@/lib/useIdleTimeout';
 
 interface KioskInfo {
   name: string;
@@ -32,6 +35,8 @@ interface KioskIdentifyResponse {
   kiosk_name: string;
   kiosk_location: string | null;
   courses: KioskCourse[];
+  access_token: string;
+  token_type: string;
 }
 
 const REASON_LABELS: Record<string, string> = {
@@ -64,6 +69,25 @@ export default function KioskPage() {
   const [error, setError] = useState('');
 
   const [result, setResult] = useState<KioskIdentifyResponse | null>(null);
+  const previousAuthRef = useRef<AuthState | null>(null);
+  const [sessionExpired, setSessionExpired] = useState(false);
+
+  const leaveKioskSession = useCallback(() => {
+    if (typeof window !== 'undefined') sessionStorage.removeItem('kamilya_kiosk_session');
+    if (previousAuthRef.current) {
+      setAuth(previousAuthRef.current.access_token, previousAuthRef.current.user);
+    }
+    previousAuthRef.current = null;
+    setResult(null);
+    setPersonnelNumber('');
+    setError('');
+    setSessionExpired(true);
+  }, []);
+
+  const { warningSeconds } = useIdleTimeout({
+    enabled: Boolean(result),
+    onTimeout: leaveKioskSession,
+  });
 
   // Fetch kiosk info on mount
   useEffect(() => {
@@ -103,7 +127,18 @@ export default function KioskPage() {
         personnel_number: personnelNumber.trim(),
       });
       setResult(res.data);
-      // Don't clear PN — worker might re-enter to verify (kiosk is shared device)
+      previousAuthRef.current = getStoredAuth();
+      setAuth(res.data.access_token, {
+        user_id: res.data.user.user_id,
+        tenant_id: null,
+        tenant: null,
+        telegram_id: '',
+        role: 'student',
+        full_name: `${res.data.user.first_name} ${res.data.user.last_name}`.trim(),
+        email: null,
+      });
+      if (typeof window !== 'undefined') sessionStorage.setItem('kamilya_kiosk_session', '1');
+      setSessionExpired(false);
     } catch (err: any) {
       const detail = err?.response?.data?.detail || 'Не удалось идентифицировать';
       setError(typeof detail === 'string' ? detail : JSON.stringify(detail));
@@ -113,9 +148,15 @@ export default function KioskPage() {
   }, [token, personnelNumber]);
 
   const handleBack = () => {
+    if (typeof window !== 'undefined') sessionStorage.removeItem('kamilya_kiosk_session');
+    if (previousAuthRef.current) {
+      setAuth(previousAuthRef.current.access_token, previousAuthRef.current.user);
+    }
+    previousAuthRef.current = null;
     setResult(null);
     setPersonnelNumber('');
     setError('');
+    setSessionExpired(false);
   };
 
   // ── Render ──────────────────────────────────────────────────────
@@ -144,11 +185,31 @@ export default function KioskPage() {
     );
   }
 
+  if (sessionExpired && !result) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <Card className="max-w-md w-full">
+          <CardContent className="pt-8 text-center space-y-4">
+            <div className="text-4xl">⌛</div>
+            <h1 className="text-xl font-bold text-foreground">Сеанс завершён</h1>
+            <p className="text-sm text-muted-foreground">Для защиты данных сотрудника введите табельный номер ещё раз.</p>
+            <Button className="w-full" onClick={() => setSessionExpired(false)}>Вернуться к входу</Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   // ── After identify: show user's courses ──
   if (result) {
     return (
       <div className="min-h-screen bg-background p-4">
         <div className="max-w-2xl mx-auto space-y-4 py-6">
+          {warningSeconds !== null && (
+            <div className="rounded-lg border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning" role="status">
+              Сеанс завершится через {warningSeconds} сек. Продолжите работу, чтобы сохранить доступ.
+            </div>
+          )}
           {/* User header */}
           <Card>
             <CardContent className="pt-6">
@@ -191,9 +252,15 @@ export default function KioskPage() {
               ) : (
                 <div className="space-y-2">
                   {result.courses.map((c) => (
-                    <a
+                    <Link
                       key={c.course_id}
                       href={`/courses/${c.course_id}`}
+                      onClick={() => {
+                        if (typeof window !== 'undefined') {
+                          sessionStorage.setItem('kamilya_kiosk_session', '1');
+                          sessionStorage.setItem('kamilya_kiosk_return', `/kiosk/${token}`);
+                        }
+                      }}
                       className="block rounded-lg border border-border p-3 hover:border-primary hover:bg-primary/5 transition-colors"
                     >
                       <div className="flex items-start justify-between gap-3">
@@ -209,7 +276,7 @@ export default function KioskPage() {
                           {STATUS_LABELS[c.status] || c.status}
                         </span>
                       </div>
-                    </a>
+                    </Link>
                   ))}
                 </div>
               )}
