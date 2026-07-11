@@ -6,6 +6,7 @@ import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
 import { toast } from '@/components/ui/Toast';
 import { CheckCircle2, Download, Loader2 } from 'lucide-react';
+import Link from 'next/link';
 
 interface Certificate {
   id: string;
@@ -82,8 +83,12 @@ export default function CertificatesPage() {
 
       {certificates.length === 0 ? (
         <Card>
-          <CardContent className="p-6 text-center text-muted-foreground">
-            {t('certificates.noCertificates')}
+          <CardContent className="flex flex-col items-center gap-4 p-8 text-center">
+            <CheckCircle2 className="h-12 w-12 text-muted-foreground/50" aria-hidden="true" />
+            <p className="max-w-md text-muted-foreground">{t('certificates.noCertificates')}</p>
+            <Link href="/my-courses" className="text-sm font-medium text-primary hover:underline">
+              {t('certificates.browseCourses')}
+            </Link>
           </CardContent>
         </Card>
       ) : (
@@ -145,7 +150,8 @@ function VerifyCertificateForm() {
   const handleVerify = async () => {
     setError('');
     setResult(null);
-    const res = await fetch(`${API_URL}/v1/certificates/verify/${number}`);
+    if (!number.trim()) return;
+    const res = await fetch(`${API_URL}/v1/certificates/verify/${encodeURIComponent(number.trim())}`);
     if (res.ok) {
       setResult(await res.json());
     } else {
@@ -154,15 +160,19 @@ function VerifyCertificateForm() {
   };
 
   return (
-    <div className="flex gap-2">
+    <div className="space-y-3">
+      <p className="text-sm text-muted-foreground">{t('certificates.verifyHint')}</p>
+      <div className="flex flex-col gap-2 sm:flex-row">
       <input
         type="text"
         value={number}
         onChange={(e) => setNumber(e.target.value)}
+        onKeyDown={(e) => { if (e.key === 'Enter') handleVerify(); }}
         placeholder={t('certificates.verifyPlaceholder')}
         className="flex-1 border rounded px-3 py-2"
       />
-      <Button onClick={handleVerify}>{t('certificates.verifyButton')}</Button>
+      <Button onClick={handleVerify} disabled={!number.trim()}>{t('certificates.verifyButton')}</Button>
+      </div>
       {result && (
         <div className="w-full mt-2 flex items-center gap-2 p-2 bg-success/10 rounded text-sm">
           <CheckCircle2 className="w-4 h-4 text-success" /> {t('certificates.valid')}. {result.user_name}, {result.course_title}

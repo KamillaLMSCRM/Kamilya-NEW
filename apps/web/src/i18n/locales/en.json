@@ -243,10 +243,12 @@
   "certificates": {
     "title": "My Certificates",
     "noCertificates": "You don't have any certificates yet. Complete courses to earn certificates!",
+    "browseCourses": "Go to my courses",
     "number": "Number",
     "issuedAt": "Issued",
     "expiresAt": "Valid Until",
     "verify": "Verify Certificate",
+    "verifyHint": "Enter a certificate number to verify its authenticity.",
     "verifyPlaceholder": "Certificate number (KML-2026-XXXXXX)",
     "verifyButton": "Verify",
     "valid": "Certificate is valid",
