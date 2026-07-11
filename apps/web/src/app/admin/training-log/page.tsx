@@ -194,6 +194,12 @@ export default function AdminTrainingLogPage() {
 
   const total = page?.total ?? 0;
   const items = page?.items ?? [];
+  const hasActiveFilters = Object.values(filters).some(Boolean) || Boolean(searchInput.trim());
+  const resetFilters = () => {
+    setFilters({});
+    setSearchInput('');
+    setOffset(0);
+  };
 
   return (
     <div className="space-y-6 p-6">
@@ -210,11 +216,7 @@ export default function AdminTrainingLogPage() {
           <Button
             type="button"
             variant="outline"
-            onClick={() => {
-              setFilters({});
-              setSearchInput('');
-              setOffset(0);
-            }}
+            onClick={resetFilters}
           >
             {t('trainingLog.filters.reset')}
           </Button>
@@ -310,8 +312,16 @@ export default function AdminTrainingLogPage() {
           ) : error ? (
             <div className="p-8 text-center text-destructive">{error}</div>
           ) : items.length === 0 ? (
-            <div className="p-8 text-center text-muted-foreground">
-              {t('trainingLog.empty')}
+            <div className="p-10 text-center">
+              <p className="font-medium text-foreground">{t('trainingLog.empty')}</p>
+              <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground">
+                {hasActiveFilters ? t('trainingLog.emptyFilteredHint') : t('trainingLog.emptyHint')}
+              </p>
+              {hasActiveFilters && (
+                <Button type="button" variant="outline" className="mt-4" onClick={resetFilters}>
+                  {t('trainingLog.filters.reset')}
+                </Button>
+              )}
             </div>
           ) : (
             <div className="overflow-x-auto">

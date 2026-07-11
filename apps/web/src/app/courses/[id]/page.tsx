@@ -9,6 +9,8 @@ import { useT } from '@/i18n/useT';
 import { toast } from '@/components/ui/Toast';
 import { useRouter } from 'next/navigation';
 import { CheckCircle2, ChevronRight, ChevronLeft, Clock, AlertTriangle } from 'lucide-react';
+import { clearAuth } from '@/lib/auth';
+import { useIdleTimeout } from '@/lib/useIdleTimeout';
 
 interface Lesson {
   id: string;
@@ -78,9 +80,38 @@ export default function CoursePlayerPage() {
   const [assistantMessages, setAssistantMessages] = useState<AssistantMessage[]>([]);
   const [assistantInput, setAssistantInput] = useState('');
   const [assistantLoading, setAssistantLoading] = useState(false);
+  const [kioskSession, setKioskSession] = useState(false);
+  const [kioskWarningSeconds, setKioskWarningSeconds] = useState<number | null>(null);
   const token = useAuthStore((s) => s.accessToken);
   const user = useAuthStore((s) => s.user);
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setKioskSession(sessionStorage.getItem('kamilya_kiosk_session') === '1');
+    }
+  }, []);
+
+  const exitKioskCourse = useCallback(() => {
+    const returnPath = typeof window !== 'undefined'
+      ? sessionStorage.getItem('kamilya_kiosk_return') || '/login'
+      : '/login';
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem('kamilya_kiosk_session');
+      sessionStorage.removeItem('kamilya_kiosk_return');
+    }
+    clearAuth();
+    router.push(returnPath);
+  }, [router]);
+
+  const { warningSeconds } = useIdleTimeout({
+    enabled: kioskSession,
+    onTimeout: exitKioskCourse,
+  });
+
+  useEffect(() => {
+    setKioskWarningSeconds(warningSeconds);
+  }, [warningSeconds]);
 
   const fetchQuizForLesson = useCallback(async (lessonId: string) => {
     if (!token) return;
@@ -395,9 +426,18 @@ export default function CoursePlayerPage() {
   if (loading) return <div className="p-6">{t('common.loading')}</div>;
   if (!course) return <div className="p-6">{t('errors.notFound')}</div>;
 
+  const kioskSessionNotice = kioskSession && kioskWarningSeconds !== null ? (
+    <div className="fixed inset-x-0 top-0 z-50 mx-auto max-w-2xl px-4 pt-4" role="status">
+      <div className="rounded-lg border border-warning/30 bg-warning px-4 py-3 text-sm text-warning-foreground shadow-lg">
+        Сеанс на общем устройстве завершится через {kioskWarningSeconds} сек. Продолжите работу, чтобы сохранить доступ.
+      </div>
+    </div>
+  ) : null;
+
   if (enrolled === false) {
     return (
       <div className="min-h-screen bg-muted flex items-center justify-center">
+        {kioskSessionNotice}
         <div className="bg-card rounded-lg shadow-md p-8 max-w-md w-full text-center">
           <h2 className="text-xl font-bold mb-2">{course.title}</h2>
           <p className="text-muted-foreground mb-6">{t('courses.enrollRequired')}</p>
@@ -470,6 +510,7 @@ export default function CoursePlayerPage() {
 
   return (
     <div className="min-h-screen bg-muted flex">
+      {kioskSessionNotice}
       {/* Left sidebar — TOC */}
       <div className="w-80 bg-card border-r flex flex-col">
         <div className="p-4 border-b">

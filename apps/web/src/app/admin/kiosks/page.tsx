@@ -169,18 +169,22 @@ export default function AdminKiosksPage() {
 
   const printKiosk = (kiosk: KioskLink) => {
     const qr = qrByKioskId[kiosk.id];
-    const html = `<!doctype html><html><head><meta charset="utf-8"><title>${kiosk.name}</title><style>
+    const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char] || char));
+    const name = escapeHtml(kiosk.name);
+    const location = escapeHtml(kiosk.location || t('kiosk.printSheet.sharedKiosk'));
+    const url = escapeHtml(kiosk.kiosk_url);
+    const html = `<!doctype html><html><head><meta charset="utf-8"><title>${name}</title><style>
       body{font-family:Arial,sans-serif;margin:32px;color:#111} .sheet{max-width:560px;margin:0 auto;text-align:center;border:1px solid #ddd;border-radius:16px;padding:32px}
       h1{font-size:28px;margin:0 0 8px}.muted{color:#666}.url{font-size:13px;word-break:break-all;margin-top:16px}.hint{font-size:18px;margin:20px 0}
       img{width:240px;height:240px} @media print{button{display:none}.sheet{border:0}}
     </style></head><body><div class="sheet">
-      <h1>${kiosk.name}</h1>
-      <div class="muted">${kiosk.location || 'Общий киоск'}</div>
-      <p class="hint">Отсканируйте QR-код и введите табельный номер</p>
+      <h1>${name}</h1>
+      <div class="muted">${location}</div>
+      <p class="hint">${t('kiosk.printSheet.scanHint')}</p>
       ${qr ? `<img src="${qr}" alt="QR">` : ''}
-      <div class="url">${kiosk.kiosk_url}</div>
-      <p class="muted">После завершения обучения закройте вкладку.</p>
-      <button onclick="window.print()">Печать</button>
+      <div class="url">${url}</div>
+      <p class="muted">${t('kiosk.printSheet.closeHint')}</p>
+      <button onclick="window.print()">${t('kiosk.printSheet.print')}</button>
     </div></body></html>`;
     const w = window.open('', '_blank', 'width=720,height=860');
     if (!w) return;
