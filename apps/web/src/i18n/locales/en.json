@@ -186,6 +186,9 @@
     "aiBadge": "AI",
     "delete": "Delete"
   },
+  "cohorts": {
+    "title": "Learning groups", "subtitle": "Combine employees and courses into learning cohorts", "learnerHint": "Your learning groups will appear here", "new": "New group", "name": "Name", "namePlaceholder": "For example, onboarding 2026", "description": "Description", "members": "members", "courses": "courses", "create": "Create group", "save": "Save group", "empty": "No groups yet", "created": "Group created", "saved": "Group saved", "loadFailed": "Could not load groups", "saveFailed": "Could not save"
+  },
   "surveys": {
     "title": "Feedback", "managerSubtitle": "Collect feedback after course completion", "learnerSubtitle": "Rate a course you completed", "name": "Survey name", "namePlaceholder": "For example, course feedback", "course": "Course", "selectCourse": "Select a course", "question": "Question", "questionPlaceholder": "How useful was the course?", "create": "Create survey", "questions": "questions", "empty": "No surveys yet", "noPending": "No surveys available", "alreadySubmitted": "Response already submitted", "created": "Survey created", "submitted": "Thank you for your feedback", "loadFailed": "Could not load surveys", "saveFailed": "Could not save", "submitFailed": "Could not submit response"
   },
