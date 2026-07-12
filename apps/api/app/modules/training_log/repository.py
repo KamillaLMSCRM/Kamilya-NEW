@@ -437,23 +437,40 @@ async def list_training_log(
         .subquery()
     )
 
-    # For each (user, course) we need to know which quizzes belong to that course.
-    # Quizzes have a course_id column on the `quizzes` table; we reflect it here
-    # without forcing an import cycle.
+    # For each (user, course) we need to know which quizzes belong to that
+    # course. A quiz belongs to a lesson, and a lesson belongs to a module;
+    # there is intentionally no quizzes.course_id column.
     _quizzes = Table(
         "quizzes",
         MetaData(),
         Column("id", PG_UUID),
-        Column("course_id", PG_UUID),
+        Column("lesson_id", PG_UUID),
         Column("tenant_id", PG_UUID),
+    )
+    _quiz_lessons = Table(
+        "lessons",
+        MetaData(),
+        Column("id", PG_UUID),
+        Column("module_id", PG_UUID),
+    )
+    _quiz_modules = Table(
+        "modules",
+        MetaData(),
+        Column("id", PG_UUID),
+        Column("course_id", PG_UUID),
     )
     quiz_course_stmt = (
         select(
             _quizzes.c.id.label("quiz_id"),
-            _quizzes.c.course_id.label("course_id"),
+            _quiz_modules.c.course_id.label("course_id"),
+        )
+        .select_from(
+            _quizzes
+            .join(_quiz_lessons, _quiz_lessons.c.id == _quizzes.c.lesson_id)
+            .join(_quiz_modules, _quiz_modules.c.id == _quiz_lessons.c.module_id)
         )
         .where(_quizzes.c.tenant_id == tenant_id)
-        .where(_quizzes.c.course_id.in_(course_ids))
+        .where(_quiz_modules.c.course_id.in_(course_ids))
         .subquery()
     )
 

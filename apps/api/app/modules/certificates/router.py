@@ -2,6 +2,7 @@
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response, RedirectResponse
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import get_current_user, require_role
@@ -80,6 +81,10 @@ async def verify_cert(
     db: AsyncSession = Depends(get_db),
 ):
     """Verify a certificate (public endpoint)."""
+    # Certificate verification is intentionally public, including for users
+    # without a tenant session. FORCE RLS otherwise hides valid certificates
+    # from this exact-number lookup.
+    await db.execute(text("SELECT set_config('app.public_certificate_lookup', 'true', true)"))
     result = await verify_certificate(db, certificate_number)
     if not result:
         raise HTTPException(status_code=404, detail="Certificate not found")
