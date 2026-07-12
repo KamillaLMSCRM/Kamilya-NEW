@@ -172,16 +172,17 @@ async def authenticate_user(db: AsyncSession, email: str, password: str) -> tupl
         result = await db.execute(
             select(User).where(User.email == email, User.tenant_id == tenant.id)
         )
+        user = result.scalar_one_or_none()
     else:
-        # Restricted fallback: only superadmin-style users (tenant_id IS NULL)
-        # can authenticate when their email domain does not match any tenant.
-        # Tenant users with a mismatched domain are rejected here — they
-        # must use the correct tenant-domain email to log in.
+        # Legacy tenants may have a slug that is not the email domain (for
+        # example slug=demo and admin@demo.kml). Resolve such an address only
+        # when it is globally unambiguous; duplicate addresses across tenants
+        # remain rejected instead of guessing a tenant context.
         result = await db.execute(
-            select(User).where(User.email == email, User.tenant_id.is_(None))
+            select(User).where(User.email == email)
         )
-
-    user = result.scalar_one_or_none()
+        matches = result.scalars().all()
+        user = matches[0] if len(matches) == 1 else None
     if not user or not user.password_hash:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
     try:
