@@ -87,6 +87,12 @@ export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
           roles: ['admin', 'org_admin', 'methodologist', 'teacher'],
         },
         {
+          label: t('surveys.title'),
+          href: '/surveys',
+          icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M4 5h16v12H7l-3 3Z" /><path d="M8 9h8M8 13h5" /></svg>,
+          roles: ['admin', 'org_admin', 'methodologist', 'teacher', 'student'],
+        },
+        {
           label: t('announcements.title'),
           href: '/announcements',
           icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M4 4h16v12H7l-3 3Z" /><path d="m7 8 5 3 5-3" /></svg>,

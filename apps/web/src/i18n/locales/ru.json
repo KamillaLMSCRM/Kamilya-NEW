@@ -186,6 +186,9 @@
     "aiBadge": "AI",
     "delete": "Удалить"
   },
+  "surveys": {
+    "title": "Обратная связь", "managerSubtitle": "Собирайте оценку после завершения курса", "learnerSubtitle": "Оцените пройденный курс", "name": "Название опроса", "namePlaceholder": "Например, оценка курса", "course": "Курс", "selectCourse": "Выберите курс", "question": "Вопрос", "questionPlaceholder": "Насколько курс был полезен?", "create": "Создать опрос", "questions": "вопросов", "empty": "Опросов пока нет", "noPending": "Нет доступных опросов", "alreadySubmitted": "Ответ уже отправлен", "created": "Опрос создан", "submitted": "Спасибо за обратную связь", "loadFailed": "Не удалось загрузить опросы", "saveFailed": "Не удалось сохранить", "submitFailed": "Не удалось отправить ответ"
+  },
   "announcements": {
     "title": "Уведомления", "subtitle": "Отправляйте объявления сотрудникам и участникам курсов", "subject": "Тема", "subjectPlaceholder": "Например, новый срок прохождения", "course": "Курс", "allCourses": "Весь tenant", "message": "Сообщение", "messagePlaceholder": "Текст уведомления", "create": "Сохранить черновик", "send": "Отправить", "draft": "Черновик", "delivery": "Отправлено: {sent} из {total}", "empty": "Уведомлений пока нет", "created": "Черновик создан", "sent": "Отправлено получателям: {count}", "loadFailed": "Не удалось загрузить уведомления", "saveFailed": "Не удалось сохранить", "sendFailed": "Не удалось отправить", "forbidden": "Раздел доступен методологу и администратору"
   },
