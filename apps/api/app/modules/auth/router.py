@@ -139,6 +139,12 @@ async def login(req: LoginRequest, request: Request, response: Response, db=Depe
         logger.exception(f"authenticate_user failed: {e}")
         raise
     try:
+        # The regular email login intentionally supports the legacy/platform
+        # superadmin account. Its tenant_id is NULL, so the audit insert must
+        # use the same explicit RLS context as the dedicated superadmin login
+        # endpoint; otherwise FORCE RLS turns a valid login into a 500.
+        if user.tenant_id is None and user.role == "superadmin":
+            await db.execute(text("SELECT set_config('app.is_superadmin', 'true', true)"))
         await log_action(
             db, user.tenant_id, "login", "user",
             resource_id=str(user.id), user_id=user.id,
