@@ -178,11 +178,15 @@ async def authenticate_user(db: AsyncSession, email: str, password: str) -> tupl
         # example slug=demo and admin@demo.kml). Resolve such an address only
         # when it is globally unambiguous; duplicate addresses across tenants
         # remain rejected instead of guessing a tenant context.
+        await db.execute(text("SELECT set_config('app.auth_lookup', 'true', true)"))
         result = await db.execute(
             select(User).where(User.email == email)
         )
         matches = result.scalars().all()
         user = matches[0] if len(matches) == 1 else None
+        await db.execute(text("SELECT set_config('app.auth_lookup', 'false', true)"))
+        if user and user.tenant_id is not None:
+            await db.execute(text("SELECT set_current_tenant(:tid)"), {"tid": str(user.tenant_id)})
     if not user or not user.password_hash:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
     try:
