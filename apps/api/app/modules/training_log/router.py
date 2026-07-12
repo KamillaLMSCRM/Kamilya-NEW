@@ -24,10 +24,12 @@ from app.models.users import User
 from app.modules.training_log.schemas import (
     TrainingLogFilter,
     TrainingLogPage,
+    TrainingLogSummary,
 )
 from app.modules.training_log.service import (
     get_training_log_page,
     stream_training_log_as_csv,
+    get_training_log_summary,
 )
 
 logger = logging.getLogger(__name__)
@@ -42,6 +44,16 @@ router = APIRouter(
 # methodologist owns learning trajectories (so they also benefit). Excluded:
 # student, teacher (no HR view), superadmin (separate superadmin log if needed).
 _TRAINING_LOG_ROLES = ("admin", "org_admin", "methodologist", "superadmin")
+
+
+@router.get("/summary", response_model=TrainingLogSummary)
+async def training_log_summary(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_role(*_TRAINING_LOG_ROLES)),
+):
+    if user.tenant_id is None:
+        return TrainingLogSummary(total=0, assigned=0, in_progress=0, completed=0)
+    return await get_training_log_summary(db, user.tenant_id)
 
 
 @router.get("", response_model=TrainingLogPage)

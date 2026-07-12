@@ -27,6 +27,7 @@ from app.modules.training_log.schemas import (
     TrainingLogFilter,
     TrainingLogPage,
     TrainingLogRow,
+    TrainingLogSummary,
 )
 
 logger = logging.getLogger(__name__)
@@ -104,3 +105,20 @@ async def stream_training_log_as_csv(
         yield buf.getvalue().encode("utf-8")
         buf.seek(0)
         buf.truncate()
+
+
+async def get_training_log_summary(
+    db: AsyncSession,
+    tenant_id: UUID,
+) -> TrainingLogSummary:
+    """Return status counts using the same repository status semantics as the table."""
+    f = TrainingLogFilter()
+    assigned = await count_training_log(db, tenant_id, f.model_copy(update={"status": "assigned"}))
+    in_progress = await count_training_log(db, tenant_id, f.model_copy(update={"status": "in_progress"}))
+    completed = await count_training_log(db, tenant_id, f.model_copy(update={"status": "completed"}))
+    return TrainingLogSummary(
+        total=assigned + in_progress + completed,
+        assigned=assigned,
+        in_progress=in_progress,
+        completed=completed,
+    )

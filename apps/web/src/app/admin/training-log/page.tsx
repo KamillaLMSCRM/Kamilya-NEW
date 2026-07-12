@@ -69,6 +69,13 @@ interface TrainingLogPage {
   offset: number;
 }
 
+interface TrainingLogSummary {
+  total: number;
+  assigned: number;
+  in_progress: number;
+  completed: number;
+}
+
 interface Filters {
   course_id?: string;
   department_id?: string;
@@ -102,6 +109,7 @@ export default function AdminTrainingLogPage() {
 
   const [filters, setFilters] = useState<Filters>({});
   const [page, setPage] = useState<TrainingLogPage | null>(null);
+  const [summary, setSummary] = useState<TrainingLogSummary | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [limit, setLimit] = useState(100);
@@ -151,6 +159,13 @@ export default function AdminTrainingLogPage() {
   useEffect(() => {
     fetchPage();
   }, [fetchPage]);
+
+  useEffect(() => {
+    if (!accessToken) return;
+    api.get<TrainingLogSummary>('/v1/admin/training-log/summary')
+      .then((res) => setSummary(res.data))
+      .catch(() => setSummary(null));
+  }, [accessToken]);
 
   // Reset pagination when filters change (typical table UX).
   useEffect(() => {
@@ -225,6 +240,13 @@ export default function AdminTrainingLogPage() {
           </Button>
         </div>
       </header>
+
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <SummaryCard label={t('trainingLog.title')} value={summary?.total ?? 0} />
+        <SummaryCard label={t('trainingLog.filter.status.assigned')} value={summary?.assigned ?? 0} />
+        <SummaryCard label={t('trainingLog.filter.status.inProgress')} value={summary?.in_progress ?? 0} />
+        <SummaryCard label={t('trainingLog.filter.status.completed')} value={summary?.completed ?? 0} />
+      </div>
 
       {/* Filters */}
       <Card>
@@ -407,6 +429,17 @@ export default function AdminTrainingLogPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+function SummaryCard({ label, value }: { label: string; value: number }) {
+  return (
+    <Card>
+      <CardContent className="p-4">
+        <div className="text-xs font-medium text-muted-foreground">{label}</div>
+        <div className="mt-1 text-2xl font-semibold tabular-nums text-foreground">{value}</div>
+      </CardContent>
+    </Card>
   );
 }
 

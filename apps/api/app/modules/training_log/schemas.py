@@ -106,6 +106,13 @@ class TrainingLogPage(BaseModel):
     offset: int
 
 
+class TrainingLogSummary(BaseModel):
+    total: int
+    assigned: int
+    in_progress: int
+    completed: int
+
+
 class TrainingLogCSVResponse(BaseModel):
     """Not actually returned by CSV endpoint (text/csv), but documents the
     contract for tests. The endpoint returns raw CSV with UTF-8 BOM."""
