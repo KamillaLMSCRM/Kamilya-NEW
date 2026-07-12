@@ -46,11 +46,6 @@ async def create_cohort(payload: CohortCreate, db: AsyncSession = Depends(get_db
     return await _summary(db, item)
 
 
-@router.get("/{cohort_id}", response_model=CohortDetail)
-async def get_cohort(cohort_id: UUID, db: AsyncSession = Depends(get_db), user=Depends(require_role(*MANAGER_ROLES))):
-    return await _detail(db, await _get(db, cohort_id, user.tenant_id))
-
-
 @router.put("/{cohort_id}/links", response_model=CohortSummary)
 async def replace_links(cohort_id: UUID, payload: CohortLinks, db: AsyncSession = Depends(get_db), user=Depends(require_role(*MANAGER_ROLES))):
     item = await _get(db, cohort_id, user.tenant_id)
@@ -98,3 +93,8 @@ async def my_cohorts(db: AsyncSession = Depends(get_db), user=Depends(get_curren
         if cohort.id not in grouped: grouped[cohort.id] = LearnerCohort(id=cohort.id, name=cohort.name, description=cohort.description, course_ids=[])
         if course_id and course_id not in grouped[cohort.id].course_ids: grouped[cohort.id].course_ids.append(course_id)
     return list(grouped.values())
+
+
+@router.get("/{cohort_id}", response_model=CohortDetail)
+async def get_cohort(cohort_id: UUID, db: AsyncSession = Depends(get_db), user=Depends(require_role(*MANAGER_ROLES))):
+    return await _detail(db, await _get(db, cohort_id, user.tenant_id))
