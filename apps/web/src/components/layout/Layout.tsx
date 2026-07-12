@@ -24,6 +24,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const { t } = useT();
   const { user, initialize } = useAuthStore();
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   // Track active generation to surface a toast when it finishes (so a user
   // who navigated away still gets notified). The /ai/generate page itself
   // owns its own progress UI; we don't render anything visible at the
@@ -178,14 +179,26 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     <DemoLimitProvider>
       <SidebarContext.Provider value={{ collapsed }}>
         <div className="min-h-screen bg-background grain">
-          <Sidebar collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} />
+          <Sidebar
+            collapsed={collapsed}
+            mobileOpen={mobileSidebarOpen}
+            onToggle={() => setCollapsed((c) => !c)}
+            onClose={() => setMobileSidebarOpen(false)}
+          />
+          {mobileSidebarOpen && (
+            <button
+              type="button"
+              className="fixed inset-0 z-20 bg-black/30 md:hidden"
+              aria-label={t('sidebar.close') || 'Закрыть меню'}
+              onClick={() => setMobileSidebarOpen(false)}
+            />
+          )}
           <CommandPalette />
           <main
-            className="transition-all duration-300"
-            style={{ marginLeft: collapsed ? 68 : 240 }}
+            className={collapsed ? 'ml-0 transition-all duration-300 md:ml-[68px]' : 'ml-0 transition-all duration-300 md:ml-[240px]'}
           >
             <DemoBanner />
-            <TopBar />
+            <TopBar onMenuClick={() => setMobileSidebarOpen(true)} />
             <div className="p-6">{children}</div>
           </main>
         </div>

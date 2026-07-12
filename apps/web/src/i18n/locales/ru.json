@@ -581,6 +581,8 @@
     "admin": "Управление",
     "collapse": "Свернуть сайдбар (Ctrl+B)",
     "expand": "Развернуть сайдбар (Ctrl+B)",
+    "open": "Открыть меню",
+    "close": "Закрыть меню",
     "myTests": "Мои тесты",
     "platform": "AI-платформа",
     "logo": "Kamilya LMS",

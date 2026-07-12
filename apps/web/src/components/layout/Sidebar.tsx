@@ -15,10 +15,11 @@ interface NavItem {
   roles?: string[];
 }
 
-function NavLink({ item, isActive, collapsed }: { item: NavItem; isActive: boolean; collapsed: boolean }) {
+function NavLink({ item, isActive, collapsed, onNavigate }: { item: NavItem; isActive: boolean; collapsed: boolean; onNavigate?: () => void }) {
   return (
     <Link
       href={item.href}
+      onClick={onNavigate}
       title={collapsed ? item.label : undefined}
       aria-current={isActive ? 'page' : undefined}
       className={cn(
@@ -42,10 +43,12 @@ function NavLink({ item, isActive, collapsed }: { item: NavItem; isActive: boole
 
 interface SidebarProps {
   collapsed: boolean;
+  mobileOpen?: boolean;
   onToggle: () => void;
+  onClose?: () => void;
 }
 
-export default function Sidebar({ collapsed, onToggle }: SidebarProps) {
+export default function Sidebar({ collapsed, mobileOpen = false, onToggle, onClose }: SidebarProps) {
   const { t } = useT();
   const router = useRouter();
   const pathname = usePathname();
@@ -292,7 +295,9 @@ label: t('providers.title'),
     <aside
       className={cn(
         'fixed left-0 top-0 z-30 flex h-screen flex-col border-r border-border bg-card transition-all duration-300',
-        collapsed ? 'w-[68px]' : 'w-[240px]'
+        collapsed ? 'w-[68px]' : 'w-[240px]',
+        'max-md:w-[240px] max-md:shadow-card-lg',
+        mobileOpen ? 'max-md:translate-x-0' : 'max-md:-translate-x-full'
       )}
     >
       {/* Logo */}
@@ -316,6 +321,17 @@ label: t('providers.title'),
       >
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <path d={collapsed ? 'm9 18 6-6-6-6' : 'm15 18-6-6 6-6'} />
+        </svg>
+      </button>
+      <button
+        type="button"
+        onClick={onClose}
+        className="absolute right-3 top-5 z-40 flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground md:hidden"
+        aria-label={t('sidebar.close') || 'Закрыть меню'}
+        title={t('sidebar.close') || 'Закрыть меню'}
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+          <path d="M6 6l12 12M18 6 6 18" />
         </svg>
       </button>
 
@@ -351,7 +367,7 @@ label: t('providers.title'),
                       pathname.startsWith(item.href + '/'));
                   return (
                     <li key={item.href}>
-                      <NavLink item={item} isActive={isActive} collapsed={collapsed} />
+                      <NavLink item={item} isActive={isActive} collapsed={collapsed} onNavigate={onClose} />
                     </li>
                   );
                 })}

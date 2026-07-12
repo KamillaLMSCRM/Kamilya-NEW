@@ -561,6 +561,8 @@
     "admin": "Management",
     "collapse": "Collapse sidebar (Ctrl+B)",
     "expand": "Expand sidebar (Ctrl+B)",
+    "open": "Open menu",
+    "close": "Close menu",
     "myTests": "My tests",
     "platform": "AI platform",
     "logo": "Kamilya LMS",

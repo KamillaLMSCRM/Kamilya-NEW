@@ -561,6 +561,8 @@
     "admin": "Басқару",
     "collapse": "Сайдбарды жию (Ctrl+B)",
     "expand": "Сайдбарды жаю (Ctrl+B)",
+    "open": "Мәзірді ашу",
+    "close": "Мәзірді жабу",
     "myTests": "Менің тесттерім",
     "platform": "AI-платформа",
     "logo": "Kamilya LMS",

@@ -7,9 +7,10 @@ import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 
 interface TopBarProps {
   title?: string;
+  onMenuClick?: () => void;
 }
 
-export default function TopBar({ title }: TopBarProps) {
+export default function TopBar({ title, onMenuClick }: TopBarProps) {
   const { t } = useT();
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
@@ -89,9 +90,20 @@ export default function TopBar({ title }: TopBarProps) {
         </div>
       )}
 
-      <div className="flex h-16 items-center justify-between px-6">
+      <div className="flex h-16 items-center justify-between px-4 sm:px-6">
       {/* Left: Page title and tenant context */}
-      <div className="min-w-0">
+      <div className="flex min-w-0 items-center gap-3">
+        <button
+          type="button"
+          onClick={onMenuClick}
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border text-muted-foreground hover:text-foreground md:hidden"
+          aria-label={t('sidebar.open') || 'Открыть меню'}
+          title={t('sidebar.open') || 'Открыть меню'}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+            <path d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
         {title && (
           <h1 className="text-lg font-bold text-foreground font-display">{title}</h1>
         )}
@@ -107,7 +119,7 @@ export default function TopBar({ title }: TopBarProps) {
       </div>
 
       {/* Right: Actions */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 sm:gap-3">
         {/* Language switcher */}
         <LanguageSwitcher />
 
