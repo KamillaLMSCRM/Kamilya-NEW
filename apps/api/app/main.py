@@ -40,6 +40,7 @@ from app.modules.certificates.router import router as certificates_router
 from app.modules.student.router import router as student_router
 from app.modules.learning_paths.router import router as learning_paths_router
 from app.modules.competencies.router import router as competencies_router
+from app.modules.announcements.router import router as announcements_router
 from app.modules.audit.router import router as audit_router
 from app.modules.admin.router import router as admin_router
 from app.modules.admin.provider_keys.router import router as provider_keys_router
@@ -203,6 +204,7 @@ app.include_router(certificates_router, prefix=f"{settings.API_PREFIX}", tags=["
 app.include_router(student_router, prefix=f"{settings.API_PREFIX}", tags=["student"])
 app.include_router(learning_paths_router, prefix=f"{settings.API_PREFIX}", tags=["learning-paths"])
 app.include_router(competencies_router, prefix=f"{settings.API_PREFIX}", tags=["competencies"])
+app.include_router(announcements_router, prefix=f"{settings.API_PREFIX}", tags=["announcements"])
 app.include_router(audit_router, prefix=f"{settings.API_PREFIX}", tags=["audit"])
 app.include_router(admin_router, prefix=f"{settings.API_PREFIX}", tags=["admin"])
 app.include_router(provider_keys_router, prefix=f"{settings.API_PREFIX}", tags=["admin"])

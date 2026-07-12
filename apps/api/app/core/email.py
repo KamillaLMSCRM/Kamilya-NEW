@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from html import escape
 
 import httpx
 
@@ -35,6 +36,15 @@ class EmailService:
             f"<p>Trial workspace for <strong>{company_name}</strong> has been created.</p>"
             "<p>You can sign in to Kamilya LMS with your email login code.</p>"
         )
+        await self._send(to_email=to_email, subject=subject, text=text, html=html)
+
+    async def send_announcement(self, *, to_email: str, company_name: str, title: str, body: str, course_title: str | None = None) -> None:
+        subject = f"{company_name}: {title}"
+        context = f"\nCourse: {course_title}" if course_title else ""
+        text = f"{body}{context}\n\nKamilya LMS"
+        html = f"<p>{escape(body).replace(chr(10), '<br>')}</p>"
+        if course_title:
+            html += f"<p><strong>Course:</strong> {escape(course_title)}</p>"
         await self._send(to_email=to_email, subject=subject, text=text, html=html)
 
     async def _send(self, *, to_email: str, subject: str, text: str, html: str) -> None:
