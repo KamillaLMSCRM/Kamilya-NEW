@@ -58,7 +58,9 @@ But that says nothing about who-does-what. Consequences:
 | **Superadmin**      | `superadmin` — platform-level: tenants CRUD, provider keys, impersonation. `tenant_id IS NULL` for these rows. |
 
 Note: ADRs/lessons have occasionally called `methodologist` and
-`teacher` interchangeable. In code they have the same `require_role`
+`teacher` interchangeable. They are now explicit aliases at the authorization
+boundary (`apps/api/app/core/auth.py`) and both are persistable database roles
+after migration `0055`. In code they have the same `require_role`
 allow-list, but they semantically differ:
 
 - `methodologist` = instructional designer / L&D manager (curriculum

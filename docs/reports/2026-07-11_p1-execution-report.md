@@ -72,11 +72,9 @@
 - Отдельного серверного session-revocation для kiosk inactivity нет: серверный JWT ограничивает верхний срок, а 5-минутный inactivity enforcement выполняется в браузере.
 - Реальный Playwright smoke на production/staging и ручной SCORM QA требуют поднятого окружения и не подменяются typecheck.
 - Полная локализация `/admin/page.tsx` и мобильная матрица P1 остаются следующими задачами.
-- RBAC требует отдельной выравнивающей задачи: в документации «методолог»
-  означает `methodologist/teacher`, но текущая модель пользователей допускает
-  `teacher`, а invitation list/resend backend-пути проверяют строку
-  `methodologist`. Поэтому invitation UI сознательно не показывается teacher-у,
-  пока роли не будут согласованы единым решением.
+- RBAC-выравнивание выполнено после этого отчёта: `teacher` и `methodologist`
+  теперь взаимные alias-ы learning-content домена, а миграция `0055` разрешает
+  `methodologist` в database role constraints. Admin/org_admin границы не менялись.
 
 ## Следующий шаг
 
