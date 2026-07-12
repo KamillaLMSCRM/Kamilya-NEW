@@ -23,6 +23,27 @@ class CohortSummary(BaseModel):
     created_at: datetime
 
 
+class CohortDetail(CohortSummary):
+    user_ids: list[UUID]
+    course_ids: list[UUID]
+
+
+class CohortApplyResult(BaseModel):
+    cohort_id: UUID
+    members: int
+    courses: int
+    added: int
+    skipped_existing: int
+
+
+class CohortProgress(BaseModel):
+    cohort_id: UUID
+    total_assignments: int
+    assigned: int
+    in_progress: int
+    completed: int
+
+
 class LearnerCohort(BaseModel):
     id: UUID
     name: str
