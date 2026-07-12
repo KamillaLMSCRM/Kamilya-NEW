@@ -191,9 +191,13 @@ async def authenticate_user(db: AsyncSession, email: str, password: str) -> tupl
     if not user.is_active:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User inactive")
 
-    # Update last_login
-    user.last_login = datetime.now(timezone.utc)
-    await db.flush()
+    # Tenant users can update their own row under tenant RLS. A superadmin
+    # has tenant_id=NULL and must be handled through the explicit
+    # superadmin-session RLS context; a plain password login must not issue a
+    # zero-row UPDATE and turn a valid login into StaleDataError.
+    if user.tenant_id is not None:
+        user.last_login = datetime.now(timezone.utc)
+        await db.flush()
 
     roles = await _get_user_roles(db, user.id, user.tenant_id)
     if not roles:
