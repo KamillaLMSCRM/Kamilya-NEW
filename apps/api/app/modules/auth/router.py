@@ -145,8 +145,14 @@ async def login(req: LoginRequest, request: Request, response: Response, db=Depe
         # endpoint; otherwise FORCE RLS turns a valid login into a 500.
         if user.tenant_id is None and user.role == "superadmin":
             await db.execute(text("SELECT set_config('app.is_superadmin', 'true', true)"))
+        audit_tenant_id = user.tenant_id
+        if user.tenant_id is None and user.role == "superadmin":
+            # audit_logs predates platform-level accounts and keeps tenant_id
+            # NOT NULL. Keep platform events on the same sentinel used by the
+            # dedicated superadmin login endpoint.
+            audit_tenant_id = UUID("00000000-0000-0000-0000-000000000000")
         await log_action(
-            db, user.tenant_id, "login", "user",
+            db, audit_tenant_id, "login", "user",
             resource_id=str(user.id), user_id=user.id,
             ip_address=request.client.host if request.client else None,
             user_agent=request.headers.get("user-agent"),
