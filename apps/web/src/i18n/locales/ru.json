@@ -188,6 +188,9 @@
   },
   "student": {
     "title": "Мой дашборд",
+    "learnerFallback": "Обучающийся",
+    "resumeTitle": "Продолжить обучение",
+    "resumeDescription": "Пройдено: {percent}%",
     "enrolledCourses": "Мои курсы",
     "noCourses": "Вы пока не записаны ни на один курс",
     "completed": "Завершено",

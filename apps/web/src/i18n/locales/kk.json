@@ -188,6 +188,9 @@
   },
   "student": {
     "title": "Менің дашбордым",
+    "learnerFallback": "Оқушы",
+    "resumeTitle": "Оқуды жалғастыру",
+    "resumeDescription": "Орындалды: {percent}%",
     "enrolledCourses": "Менің курстарым",
     "noCourses": "Сіз әлі бірде-бір курсқа тіркелмегенсіз",
     "completed": "Аяқталды",

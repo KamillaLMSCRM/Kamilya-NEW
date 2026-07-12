@@ -188,6 +188,9 @@
   },
   "student": {
     "title": "My Dashboard",
+    "learnerFallback": "Learner",
+    "resumeTitle": "Continue learning",
+    "resumeDescription": "Completed: {percent}%",
     "enrolledCourses": "My Courses",
     "noCourses": "You are not enrolled in any course yet",
     "completed": "Completed",

@@ -4,7 +4,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { Card, CardHeader, CardTitle, CardContent, Button, Badge } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
-import { CheckCircle2 } from 'lucide-react';
+import Link from 'next/link';
+import { CheckCircle2, PlayCircle } from 'lucide-react';
 
 interface EnrolledCourse {
   course_id: string;
@@ -54,12 +55,31 @@ export default function StudentDashboardPage() {
   if (loading) return <div className="p-6">{t('common.loading')}</div>;
   if (!dashboard) return <div className="p-6">{t('common.error')}</div>;
 
+  const nextCourse = dashboard.enrolled_courses.find((course) => course.progress_percent < 100);
+
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-bold">{t('student.title')}</h1>
-        <p className="text-muted-foreground">{t('dashboard.welcome')}, {dashboard.full_name || 'Студент'}!</p>
+        <p className="text-muted-foreground">{t('dashboard.welcome')}, {dashboard.full_name || t('student.learnerFallback')}!</p>
       </div>
+
+      {nextCourse && (
+        <Card className="border-primary/20 bg-primary/5">
+          <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <p className="text-xs font-semibold uppercase tracking-wide text-primary">{t('student.resumeTitle')}</p>
+              <h2 className="mt-1 truncate text-lg font-semibold text-foreground">{nextCourse.title}</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {t('student.resumeDescription', { percent: nextCourse.progress_percent })}
+              </p>
+            </div>
+            <Link href={`/courses/${nextCourse.course_id}`} className="shrink-0">
+              <Button className="gap-2"><PlayCircle className="h-4 w-4" aria-hidden="true" />{nextCourse.progress_percent === 0 ? t('courses.startCourse') : t('courses.continueCourse')}</Button>
+            </Link>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
@@ -92,8 +112,11 @@ export default function StudentDashboardPage() {
         <h2 className="text-lg font-semibold mb-4">{t('student.enrolledCourses')}</h2>
         {dashboard.enrolled_courses.length === 0 ? (
           <Card>
-            <CardContent className="p-6 text-center text-muted-foreground">
-              {t('student.noCourses')}
+            <CardContent className="flex flex-col items-center gap-3 p-8 text-center">
+              <p className="text-muted-foreground">{t('student.noCourses')}</p>
+              <Link href="/courses" className="text-sm font-medium text-primary hover:underline">
+                {t('student.browseCourses')}
+              </Link>
             </CardContent>
           </Card>
         ) : (
@@ -114,7 +137,7 @@ export default function StudentDashboardPage() {
 
                   <div className="mb-3">
                     <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                      <span>{course.completed_lessons}/{course.total_lessons} уроков</span>
+                      <span>{t('courses.lessonsCount', { done: course.completed_lessons, total: course.total_lessons })}</span>
                       <span>{course.progress_percent}%</span>
                     </div>
                     <div className="h-2 bg-muted rounded">
