@@ -61,7 +61,7 @@ interface TrialUsage {
 }
 
 export default function AdminDashboardPage() {
-  const { t } = useT();
+  const { t, lang } = useT();
   const [stats, setStats] = useState<TenantStats | null>(null);
   const [users, setUsers] = useState<UserItem[]>([]);
   const [courses, setCourses] = useState<CourseItem[]>([]);
@@ -126,16 +126,18 @@ export default function AdminDashboardPage() {
   };
 
   const formatLimit = (item: TrialUsageItem) => {
-    if (item.limit == null) return `${item.used} / без лимита`;
+    if (item.limit == null) return `${item.used} / ${t('admin.trial.unlimited')}`;
     return `${item.used} / ${item.limit}`;
   };
 
   const trialItems = trialUsage ? [
-    { label: 'AI-курс', value: formatLimit(trialUsage.ai_courses), left: trialUsage.ai_courses.remaining },
-    { label: 'Курс по ДИ', value: formatLimit(trialUsage.jd_courses), left: trialUsage.jd_courses.remaining },
-    { label: 'Обучающиеся', value: formatLimit(trialUsage.learners), left: trialUsage.learners.remaining },
-    { label: 'Пользователи системы', value: formatLimit(trialUsage.system_users), left: trialUsage.system_users.remaining },
+    { label: t('admin.trial.aiCourse'), value: formatLimit(trialUsage.ai_courses), left: trialUsage.ai_courses.remaining },
+    { label: t('admin.trial.jdCourse'), value: formatLimit(trialUsage.jd_courses), left: trialUsage.jd_courses.remaining },
+    { label: t('admin.trial.learners'), value: formatLimit(trialUsage.learners), left: trialUsage.learners.remaining },
+    { label: t('admin.trial.systemUsers'), value: formatLimit(trialUsage.system_users), left: trialUsage.system_users.remaining },
   ] : [];
+
+  const formatDate = (value: string) => new Date(value).toLocaleDateString(lang === 'kk' ? 'kk-KZ' : lang === 'en' ? 'en-US' : 'ru-RU');
 
   if (loading) return <div className="p-6">{t('common.loading')}</div>;
   if (!stats) return <div className="p-6">{t('common.error')}</div>;
@@ -160,12 +162,12 @@ export default function AdminDashboardPage() {
                   <Badge variant={trialUsage.status === 'trial' ? 'secondary' : 'outline'}>
                     {trialUsage.plan}
                   </Badge>
-                  <h2 className="text-lg font-semibold text-foreground">Trial и лимиты</h2>
+                  <h2 className="text-lg font-semibold text-foreground">{t('admin.trial.title')}</h2>
                 </div>
                 <p className="mt-1 text-sm text-muted-foreground">
                   {trialUsage.trial_ends_at
-                    ? `Осталось дней: ${trialUsage.days_left ?? 0}. До ${new Date(trialUsage.trial_ends_at).toLocaleDateString('ru')}.`
-                    : 'Дата окончания trial не задана.'}
+                    ? t('admin.trial.daysRemaining', { days: trialUsage.days_left ?? 0, date: formatDate(trialUsage.trial_ends_at) })
+                    : t('admin.trial.endDateMissing')}
                 </p>
               </div>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -174,7 +176,7 @@ export default function AdminDashboardPage() {
                     <div className="text-xs text-muted-foreground">{item.label}</div>
                     <div className="mt-1 text-base font-semibold text-foreground">{item.value}</div>
                     {item.left != null && (
-                      <div className="text-xs text-muted-foreground">Осталось: {item.left}</div>
+                      <div className="text-xs text-muted-foreground">{t('admin.trial.remaining')}: {item.left}</div>
                     )}
                   </div>
                 ))}
@@ -303,7 +305,7 @@ export default function AdminDashboardPage() {
                     <td className="p-2">{c.title}</td>
                     <td className="p-2">
                       <Badge variant={c.status === 'published' ? 'default' : 'outline'}>
-                        {c.status}
+                        {t(`admin.courseStatus.${c.status}` as any) || c.status}
                       </Badge>
                     </td>
                     <td className="p-2">{c.enrollment_count}</td>

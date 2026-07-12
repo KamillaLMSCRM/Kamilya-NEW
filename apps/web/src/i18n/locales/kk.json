@@ -291,6 +291,24 @@
     "noUsers": "Пайдаланушылар жоқ",
     "noCourses": "Курстар жоқ",
     "staffStructure": "Штат құрылымы"
+    ,"trial": {
+      "title": "Trial және лимиттер",
+      "daysRemaining": "Қалған күн: {days}. Аяқталуы: {date}.",
+      "endDateMissing": "Trial аяқталу күні көрсетілмеген.",
+      "remaining": "Қалды",
+      "unlimited": "шектеусіз",
+      "aiCourse": "AI курсы",
+      "jdCourse": "Лауазымдық нұсқаулық курсы",
+      "learners": "Оқушылар",
+      "systemUsers": "Жүйе пайдаланушылары"
+    },
+    "courseStatus": {
+      "draft": "Жоба",
+      "review": "Тексерілуде",
+      "needs_changes": "Өзгеріс қажет",
+      "published": "Жарияланған",
+      "archived": "Мұрағатта"
+    }
   },
   "users": {
     "title": "Пайдаланушыларды басқару",

@@ -291,6 +291,24 @@
     "noUsers": "Нет пользователей",
     "noCourses": "Нет курсов",
     "staffStructure": "Структура штата"
+    ,"trial": {
+      "title": "Trial и лимиты",
+      "daysRemaining": "Осталось дней: {days}. До {date}.",
+      "endDateMissing": "Дата окончания trial не задана.",
+      "remaining": "Осталось",
+      "unlimited": "без лимита",
+      "aiCourse": "AI-курс",
+      "jdCourse": "Курс по ДИ",
+      "learners": "Обучающиеся",
+      "systemUsers": "Пользователи системы"
+    },
+    "courseStatus": {
+      "draft": "Черновик",
+      "review": "На проверке",
+      "needs_changes": "Нужны изменения",
+      "published": "Опубликован",
+      "archived": "В архиве"
+    }
   },
   "users": {
     "title": "Управление пользователями",

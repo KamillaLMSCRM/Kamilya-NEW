@@ -291,6 +291,24 @@
     "noUsers": "No users",
     "noCourses": "No courses",
     "staffStructure": "Staff structure"
+    ,"trial": {
+      "title": "Trial and limits",
+      "daysRemaining": "{days} days left. Until {date}.",
+      "endDateMissing": "Trial end date is not set.",
+      "remaining": "Remaining",
+      "unlimited": "unlimited",
+      "aiCourse": "AI course",
+      "jdCourse": "Job-instruction course",
+      "learners": "Learners",
+      "systemUsers": "System users"
+    },
+    "courseStatus": {
+      "draft": "Draft",
+      "review": "In review",
+      "needs_changes": "Changes needed",
+      "published": "Published",
+      "archived": "Archived"
+    }
   },
   "users": {
     "title": "User Management",
