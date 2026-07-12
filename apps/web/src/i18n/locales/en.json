@@ -186,6 +186,9 @@
     "aiBadge": "AI",
     "delete": "Delete"
   },
+  "learningPaths": {
+    "title": "Learning paths", "managerDescription": "Combine courses into a structured program", "learnerDescription": "Continue learning step by step", "new": "New learning path", "name": "Name", "namePlaceholder": "For example, onboarding", "description": "Description", "descriptionPlaceholder": "What is this program for?", "selectCourses": "Courses in the program", "selectedCount": "Selected: {count}", "courses": "courses", "create": "Create", "save": "Save", "openLearning": "Open learning", "empty": "No learning paths yet", "noCourses": "Create a course first", "created": "Learning path created", "saved": "Learning path saved", "loadFailed": "Could not load learning paths", "saveFailed": "Could not save", "status": { "draft": "Draft", "published": "Published", "archived": "Archived" }
+  },
   "student": {
     "title": "My Dashboard",
     "learnerFallback": "Learner",
