@@ -18,10 +18,21 @@ _ROLES = "'superadmin', 'admin', 'org_admin', 'methodologist', 'teacher', 'stude
 
 
 def upgrade() -> None:
-    op.drop_constraint("ck_user_role", "users", type_="check")
-    op.create_check_constraint("ck_user_role", "users", f"role IN ({_ROLES})")
-    op.drop_constraint("ck_user_role_role", "user_roles", type_="check")
-    op.create_check_constraint("ck_user_role_role", "user_roles", f"role IN ({_ROLES})")
+    for table, constraint in (("users", "ck_user_role"), ("user_roles", "ck_user_role_role")):
+        op.execute(f"""
+            DO $$
+            BEGIN
+                IF EXISTS (
+                    SELECT 1 FROM pg_constraint
+                    WHERE conname = '{constraint}'
+                      AND conrelid = '{table}'::regclass
+                ) THEN
+                    ALTER TABLE {table} DROP CONSTRAINT {constraint};
+                END IF;
+                ALTER TABLE {table} ADD CONSTRAINT {constraint}
+                    CHECK (role IN ({_ROLES}));
+            END $$;
+        """)
 
 
 def downgrade() -> None:

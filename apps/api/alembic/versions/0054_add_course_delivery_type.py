@@ -31,20 +31,22 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.add_column(
-        "courses",
-        sa.Column(
-            "delivery_type",
-            sa.Text(),
-            nullable=False,
-            server_default="native",
-        ),
-    )
-    op.create_check_constraint(
-        "ck_course_delivery_type",
-        "courses",
-        "delivery_type IN ('native', 'scorm')",
-    )
+    # This column was hot-fixed in production before the migration was
+    # recorded. Keep the migration safe for both fresh and drifted databases.
+    op.execute("ALTER TABLE courses ADD COLUMN IF NOT EXISTS delivery_type TEXT DEFAULT 'native' NOT NULL")
+    op.execute("""
+        DO $$
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1 FROM pg_constraint
+                WHERE conname = 'ck_course_delivery_type'
+                  AND conrelid = 'courses'::regclass
+            ) THEN
+                ALTER TABLE courses ADD CONSTRAINT ck_course_delivery_type
+                    CHECK (delivery_type IN ('native', 'scorm'));
+            END IF;
+        END $$;
+    """)
 
 
 def downgrade() -> None:

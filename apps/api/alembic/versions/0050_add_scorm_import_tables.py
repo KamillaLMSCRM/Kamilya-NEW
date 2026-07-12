@@ -17,15 +17,9 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.add_column(
-        "courses",
-        sa.Column("delivery_type", sa.Text(), nullable=False, server_default="native"),
-    )
-    op.create_check_constraint(
-        "ck_course_delivery_type",
-        "courses",
-        "delivery_type IN ('native', 'scorm')",
-    )
+    # delivery_type is owned by migration 0054. It was accidentally added
+    # here in an earlier draft, which made recovery from the production
+    # hot-fix drift fail with DuplicateColumnError.
     op.create_table(
         "scorm_packages",
         sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True, nullable=False),
@@ -82,5 +76,3 @@ def downgrade() -> None:
     op.drop_index("ix_scorm_packages_course_id", table_name="scorm_packages")
     op.drop_index("ix_scorm_packages_tenant_id", table_name="scorm_packages")
     op.drop_table("scorm_packages")
-    op.drop_constraint("ck_course_delivery_type", "courses", type_="check")
-    op.drop_column("courses", "delivery_type")
