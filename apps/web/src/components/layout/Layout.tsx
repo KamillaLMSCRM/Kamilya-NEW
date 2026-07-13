@@ -175,6 +175,45 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     );
   }
 
+  // Tenant admins own company administration and compliance oversight. They
+  // do not author courses, manage learners, or make learning assignments.
+  // Keep direct URLs consistent with the role-aware sidebar instead of
+  // allowing a stale bookmark to open a learning-management screen.
+  const isTenantAdmin = user.role === 'admin' || user.role === 'org_admin';
+  const TENANT_ADMIN_BLOCKED_PREFIXES = [
+    '/ai',
+    '/learning-paths',
+    '/cohorts',
+    '/competencies',
+    '/surveys',
+    '/announcements',
+    '/courses',
+    '/quizzes',
+    '/documents',
+    '/staff',
+    '/positions',
+    '/assignments',
+    '/admin/staff',
+    '/admin/quizzes',
+    '/admin/invitations',
+    '/my-courses',
+    '/my-quizzes',
+  ];
+  if (
+    isTenantAdmin &&
+    pathname &&
+    TENANT_ADMIN_BLOCKED_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + '/'))
+  ) {
+    if (typeof window !== 'undefined') {
+      router.replace('/admin');
+    }
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <p className="text-muted-foreground text-sm">Переходим в панель компании...</p>
+      </div>
+    );
+  }
+
   return (
     <DemoLimitProvider>
       <SidebarContext.Provider value={{ collapsed }}>

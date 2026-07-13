@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.auth import get_current_user, require_tenant_user
+from app.core.auth import require_role, require_tenant_user
 from app.core.db import get_db
 from app.models.document import Document
 from app.modules.documents.schemas import DocumentResponse
@@ -151,7 +151,7 @@ def _hydrate(doc: Document) -> DocumentResponse:
 @router.get("", response_model=list[DocumentResponse])
 async def list_documents(
     db: AsyncSession = Depends(get_db),
-    user=Depends(get_current_user),
+    user=Depends(require_role("superadmin", "methodologist", "teacher")),
 ):
     result = await db.execute(
         select(Document)
@@ -166,7 +166,7 @@ async def list_documents(
 async def get_document(
     doc_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    user=Depends(get_current_user),
+    user=Depends(require_role("superadmin", "methodologist", "teacher")),
 ):
     result = await db.execute(
         select(Document).where(Document.id == doc_id, Document.tenant_id == user.tenant_id)
@@ -183,7 +183,7 @@ async def upload_document(
     title: str = Form(""),
     description: str = Form(""),
     db: AsyncSession = Depends(get_db),
-    user=Depends(get_current_user),
+    user=Depends(require_role("superadmin", "methodologist", "teacher")),
 ):
     from app.core.demo_limits import assert_can_create_document
     await assert_can_create_document(db, user.tenant_id)
@@ -310,7 +310,7 @@ async def upload_document(
 async def delete_document(
     document_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    user=Depends(get_current_user),
+    user=Depends(require_role("superadmin", "methodologist", "teacher")),
 ):
     result = await db.execute(
         select(Document).where(Document.id == document_id, Document.tenant_id == user.tenant_id)

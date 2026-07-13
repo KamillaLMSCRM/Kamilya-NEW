@@ -75,43 +75,43 @@ export default function Sidebar({ collapsed, mobileOpen = false, onToggle, onClo
           label: t('nav.aiGeneration'),
           href: '/ai/generate',
           icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 2a4 4 0 0 0-4 4v2H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10a2 2 0 0 0-2-2h-2V6a4 4 0 0 0-4-4Z" /><circle cx="12" cy="15" r="2" /></svg>,
-          roles: ['admin', 'org_admin', 'teacher'],
+          roles: ['methodologist', 'teacher'],
         },
         {
           label: t('learningPaths.title'),
           href: '/learning-paths',
           icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 5h16M4 12h16M4 19h16" /><circle cx="4" cy="5" r="1" /><circle cx="4" cy="12" r="1" /><circle cx="4" cy="19" r="1" /></svg>,
-          roles: ['admin', 'org_admin', 'methodologist', 'teacher', 'student'],
+          roles: ['methodologist', 'teacher', 'student'],
         },
         {
           label: t('cohorts.title'),
           href: '/cohorts',
           icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><circle cx="9" cy="8" r="3" /><circle cx="17" cy="9" r="2" /><path d="M3 20a6 6 0 0 1 12 0M15 20a4 4 0 0 1 6 0" /></svg>,
-          roles: ['admin', 'org_admin', 'methodologist', 'teacher', 'student'],
+          roles: ['methodologist', 'teacher', 'student'],
         },
         {
           label: t('competencies.title'),
           href: '/competencies',
           icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><circle cx="12" cy="12" r="8" /><path d="m12 8 1.4 2.8L16 12l-2.6 1.2L12 16l-1.4-2.8L8 12l2.6-1.2Z" /></svg>,
-          roles: ['admin', 'org_admin', 'methodologist', 'teacher'],
+          roles: ['methodologist', 'teacher'],
         },
         {
           label: t('surveys.title'),
           href: '/surveys',
           icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M4 5h16v12H7l-3 3Z" /><path d="M8 9h8M8 13h5" /></svg>,
-          roles: ['admin', 'org_admin', 'methodologist', 'teacher', 'student'],
+          roles: ['methodologist', 'teacher', 'student'],
         },
         {
           label: t('announcements.title'),
           href: '/announcements',
           icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M4 4h16v12H7l-3 3Z" /><path d="m7 8 5 3 5-3" /></svg>,
-          roles: ['admin', 'org_admin', 'methodologist', 'teacher'],
+          roles: ['methodologist', 'teacher'],
         },
         {
           label: t('nav.courses'),
           href: '/courses',
           icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" /></svg>,
-          roles: ['admin', 'org_admin', 'teacher'],
+          roles: ['methodologist', 'teacher'],
         },
         {
           // Quiz constructor. Was previously labelled "Тест — Админ" and felt
@@ -121,13 +121,13 @@ export default function Sidebar({ collapsed, mobileOpen = false, onToggle, onClo
           label: t('sidebar.quizConstructor'),
           href: '/quizzes',
           icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>,
-          roles: ['admin', 'org_admin', 'teacher'],
+          roles: ['methodologist', 'teacher'],
         },
         {
           label: t('nav.documents'),
           href: '/documents',
           icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" /><path d="M14 2v4a2 2 0 0 0 2 2h4" /></svg>,
-          roles: ['admin', 'org_admin', 'teacher'],
+          roles: ['methodologist', 'teacher'],
         },
       ],
     },
@@ -153,7 +153,7 @@ export default function Sidebar({ collapsed, mobileOpen = false, onToggle, onClo
           label: t('nav.staffSchedule'),
           href: '/staff?tab=structure',
           icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></svg>,
-          roles: ['admin', 'org_admin', 'teacher'],
+          roles: ['methodologist', 'teacher'],
         },
         {
           // Positions — JD authoring with AI tools (analyze, suggest courses,
@@ -161,7 +161,7 @@ export default function Sidebar({ collapsed, mobileOpen = false, onToggle, onClo
           label: t('nav.positions'),
           href: '/positions',
           icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect width="20" height="14" x="2" y="7" rx="2" ry="2" /><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" /></svg>,
-          roles: ['admin', 'org_admin', 'teacher'],
+          roles: ['methodologist', 'teacher'],
         },
         {
           // Direct user→course assignment (level-4 manual override).
@@ -178,13 +178,13 @@ export default function Sidebar({ collapsed, mobileOpen = false, onToggle, onClo
           icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /><path d="M16 19h5" /></svg>,
           // In the current RBAC model teacher is the methodologist-facing
           // learning role; the backend assignment routes accept teacher.
-          roles: ['admin', 'org_admin', 'teacher'],
+          roles: ['methodologist', 'teacher'],
         },
         {
           label: t('sidebar.certificateTemplate'),
           href: '/admin/certificates/settings',
           icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="6" /><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11" /></svg>,
-          roles: ['admin', 'org_admin', 'methodologist', 'teacher'],
+          roles: ['admin', 'org_admin'],
         },
       ],
     },
@@ -198,19 +198,19 @@ export default function Sidebar({ collapsed, mobileOpen = false, onToggle, onClo
           label: t('student.enrolledCourses'),
           href: '/my-courses',
           icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M22 10v6M2 10l10-5 10 5-10 5z" /><path d="M6 12v5c3 3 6 3 12 0v-5" /></svg>,
-          roles: ['student', 'org_admin'],
+          roles: ['student'],
         },
         {
           label: t('sidebar.myTests'),
           href: '/my-quizzes',
           icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>,
-          roles: ['student', 'org_admin'],
+          roles: ['student'],
         },
         {
           label: t('nav.certificates'),
           href: '/certificates',
           icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="6" /><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11" /></svg>,
-          roles: ['student', 'org_admin'],
+          roles: ['student'],
         },
       ],
     },
@@ -243,7 +243,7 @@ export default function Sidebar({ collapsed, mobileOpen = false, onToggle, onClo
           label: t('invitations.navLabel'),
           href: '/admin/invitations',
           icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 4h16v16H4z" /><path d="m4 7 8 5 8-5" /><path d="M15 17h5" /></svg>,
-          roles: ['admin', 'org_admin', 'methodologist', 'teacher'],
+          roles: ['methodologist', 'teacher'],
         },
         {
           // P0.3 first-tenant hardening. Unified training log — native + SCORM
@@ -253,7 +253,7 @@ export default function Sidebar({ collapsed, mobileOpen = false, onToggle, onClo
           label: t('nav.trainingLog'),
           href: '/admin/training-log',
           icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="9" y1="13" x2="15" y2="13" /><line x1="9" y1="17" x2="15" y2="17" /></svg>,
-          roles: ['admin', 'org_admin', 'methodologist', 'teacher'],
+          roles: ['admin', 'org_admin', 'methodologist'],
         },
         {
           label: t('settings.title'),

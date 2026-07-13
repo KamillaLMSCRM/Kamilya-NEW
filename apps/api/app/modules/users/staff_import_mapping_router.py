@@ -47,7 +47,7 @@ router = APIRouter(
     tags=["staff-import"],
 )
 
-_MAPPING_ROLES = ("admin", "org_admin", "methodologist", "teacher")
+_MAPPING_ROLES = ("superadmin", "methodologist", "teacher")
 
 
 @router.get("", response_model=list[StaffImportMappingResponse])

@@ -65,7 +65,7 @@ class StructureResponse(BaseModel):
 @router.get("/structure", response_model=StructureResponse)
 async def get_staff_structure(
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("admin", "org_admin", "superadmin", "teacher")),
+    user: User = Depends(require_role("superadmin", "methodologist", "teacher")),
 ):
     """Return nested tree: departments → positions → employees with progress.
 

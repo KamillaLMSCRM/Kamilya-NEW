@@ -20,7 +20,7 @@ from app.modules.quizzes.assignment_service import (
 
 router = APIRouter(prefix="/quiz-assignments", tags=["quiz-assignments"])
 
-QUIZ_ASSIGN_ROLES = ("admin", "superadmin", "org_admin", "teacher")
+QUIZ_ASSIGN_ROLES = ("superadmin", "methodologist", "teacher")
 
 
 @router.post("")

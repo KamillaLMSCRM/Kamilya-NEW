@@ -348,7 +348,7 @@ async def attach_course_to_position(
     position_id: UUID,
     body: _PositionCourseItem,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("methodologist", "admin", "superadmin")),
+    user: User = Depends(require_role("methodologist", "teacher", "superadmin")),
 ):
     """Attach a single course to a Position (B1c).
 
@@ -415,7 +415,7 @@ async def detach_course_from_position(
     position_id: UUID,
     course_id: UUID,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("methodologist", "admin", "superadmin")),
+    user: User = Depends(require_role("methodologist", "teacher", "superadmin")),
 ):
     """Detach a single course from a Position (B1c).
 

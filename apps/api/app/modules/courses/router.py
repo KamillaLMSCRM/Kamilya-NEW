@@ -75,7 +75,7 @@ async def create_course(
     req: CourseCreate,
     request: Request,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("superadmin", "admin", "org_admin", "teacher")),
+    user: User = Depends(require_role("superadmin", "methodologist", "teacher")),
 ):
     from app.core.trial_limits import assert_can_create_courses
 
@@ -224,7 +224,7 @@ async def review_course(
     req: CourseReviewRequest,
     request: Request,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("superadmin", "admin", "org_admin", "teacher")),
+    user: User = Depends(require_role("superadmin", "methodologist", "teacher")),
 ):
     """Mark a course as approved or needs_changes (methodologist sign-off).
 
@@ -266,7 +266,7 @@ async def update_course(
     req: CourseUpdate,
     request: Request,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("superadmin", "admin", "org_admin", "teacher")),
+    user: User = Depends(require_role("superadmin", "methodologist", "teacher")),
 ):
     result = await db.execute(
         select(Course).where(Course.id == course_id, Course.tenant_id == user.tenant_id)
@@ -295,7 +295,7 @@ async def publish_course(
     course_id: UUID,
     request: Request,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("superadmin", "admin", "org_admin", "teacher")),
+    user: User = Depends(require_role("superadmin", "methodologist", "teacher")),
 ):
     result = await db.execute(
         select(Course).where(Course.id == course_id, Course.tenant_id == user.tenant_id)
@@ -323,7 +323,7 @@ async def unpublish_course(
     course_id: UUID,
     request: Request,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("superadmin", "admin", "org_admin", "teacher")),
+    user: User = Depends(require_role("superadmin", "methodologist", "teacher")),
 ):
     result = await db.execute(
         select(Course).where(Course.id == course_id, Course.tenant_id == user.tenant_id)
@@ -351,7 +351,7 @@ async def duplicate_course(
     course_id: UUID,
     request: Request,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("superadmin", "admin", "org_admin", "teacher")),
+    user: User = Depends(require_role("superadmin", "methodologist", "teacher")),
 ):
     from app.core.trial_limits import assert_can_create_courses
 
@@ -389,7 +389,7 @@ async def delete_course(
     course_id: UUID,
     request: Request,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("superadmin", "admin", "org_admin")),
+    user: User = Depends(require_role("superadmin", "methodologist", "teacher")),
 ):
     result = await db.execute(
         select(Course).where(Course.id == course_id, Course.tenant_id == user.tenant_id)
