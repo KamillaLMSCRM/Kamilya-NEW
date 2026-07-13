@@ -44,7 +44,7 @@ describe("ConfirmDialog", () => {
     );
     const confirmBtn = screen.getByRole("button", { name: /^delete$/i });
     expect(confirmBtn).toBeInTheDocument();
-    expect(confirmBtn.className).toContain("red-600");
+    expect(confirmBtn.className).toContain("bg-destructive");
   });
 
   it("renders warning variant with amber confirm button", () => {
@@ -60,7 +60,7 @@ describe("ConfirmDialog", () => {
       />
     );
     const confirmBtn = screen.getByRole("button", { name: /^save$/i });
-    expect(confirmBtn.className).toContain("amber-600");
+    expect(confirmBtn.className).toContain("bg-warning");
   });
 
   it("renders info variant with blue confirm button", () => {
@@ -76,7 +76,7 @@ describe("ConfirmDialog", () => {
       />
     );
     const confirmBtn = screen.getByRole("button", { name: /^ok$/i });
-    expect(confirmBtn.className).toContain("blue-600");
+    expect(confirmBtn.className).toContain("bg-primary");
   });
 
   it("calls onClose when cancel clicked (default label 'Отмена' from i18n)", () => {

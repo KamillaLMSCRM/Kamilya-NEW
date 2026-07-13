@@ -117,7 +117,7 @@ export default function TenantRegisterPage() {
   }
 
   return (
-    <main className="min-h-screen bg-background">
+    <main id="main-content" className="min-h-screen bg-background">
       <div className="mx-auto grid min-h-screen w-full max-w-6xl grid-cols-1 gap-8 px-4 py-8 lg:grid-cols-[1fr_420px] lg:items-center lg:px-8">
         <section className="space-y-6">
           <div className="flex items-center gap-3">
@@ -188,6 +188,7 @@ export default function TenantRegisterPage() {
             <form className="space-y-4" onSubmit={handleSubmit}>
               <div>
                 <label htmlFor="company_name" className="mb-1 block text-sm font-medium">
+                  <span aria-hidden="true" className="mr-0.5 text-destructive">*</span>
                   Компания
                 </label>
                 <Input
@@ -197,11 +198,13 @@ export default function TenantRegisterPage() {
                   autoComplete="organization"
                   placeholder="ТОО Kamilya Foods"
                   required
+                  aria-required="true"
                 />
               </div>
 
               <div>
                 <label htmlFor="contact_name" className="mb-1 block text-sm font-medium">
+                  <span aria-hidden="true" className="mr-0.5 text-destructive">*</span>
                   Контактное лицо
                 </label>
                 <Input
@@ -211,12 +214,14 @@ export default function TenantRegisterPage() {
                   autoComplete="name"
                   placeholder="Камилла Ахметова"
                   required
+                  aria-required="true"
                 />
               </div>
 
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>
                   <label htmlFor="email" className="mb-1 block text-sm font-medium">
+                    <span aria-hidden="true" className="mr-0.5 text-destructive">*</span>
                     Email
                   </label>
                   <Input
@@ -227,10 +232,12 @@ export default function TenantRegisterPage() {
                     autoComplete="email"
                     placeholder="hr@company.kz"
                     required
+                    aria-required="true"
                   />
                 </div>
                 <div>
                   <label htmlFor="password" className="mb-1 block text-sm font-medium">
+                    <span aria-hidden="true" className="mr-0.5 text-destructive">*</span>
                     Пароль
                   </label>
                   <Input
@@ -241,7 +248,12 @@ export default function TenantRegisterPage() {
                     autoComplete="new-password"
                     minLength={8}
                     required
+                    aria-required="true"
+                    aria-describedby="password-hint"
                   />
+                  <p id="password-hint" className="mt-1 text-xs text-muted-foreground">
+                    Minimum 8 characters
+                  </p>
                 </div>
               </div>
 

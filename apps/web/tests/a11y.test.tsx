@@ -122,7 +122,7 @@ describe("Register form a11y", () => {
   });
 
   it("every input has an associated <label htmlFor>", async () => {
-    const { default: RegisterPage } = await import("@/app/register/page");
+    const { default: RegisterPage } = await import("@/app/register-tenant/page");
     render(<RegisterPage />);
     const inputs = document.querySelectorAll("input");
     expect(inputs.length).toBeGreaterThan(0);
@@ -135,7 +135,7 @@ describe("Register form a11y", () => {
   });
 
   it("required fields are marked with aria-required + visual asterisk", async () => {
-    const { default: RegisterPage } = await import("@/app/register/page");
+    const { default: RegisterPage } = await import("@/app/register-tenant/page");
     render(<RegisterPage />);
     const required = document.querySelectorAll<HTMLInputElement>("input[required]");
     expect(required.length).toBeGreaterThan(0);
@@ -149,9 +149,9 @@ describe("Register form a11y", () => {
   });
 
   it("password field has aria-describedby pointing to a hint", async () => {
-    const { default: RegisterPage } = await import("@/app/register/page");
+    const { default: RegisterPage } = await import("@/app/register-tenant/page");
     render(<RegisterPage />);
-    const pw = document.getElementById("register-password") as HTMLInputElement;
+    const pw = document.getElementById("password") as HTMLInputElement;
     expect(pw).toBeTruthy();
     const describedBy = pw.getAttribute("aria-describedby");
     expect(describedBy).toBeTruthy();
@@ -161,7 +161,7 @@ describe("Register form a11y", () => {
   });
 
   it("renders a <main> landmark with id=main-content", async () => {
-    const { default: RegisterPage } = await import("@/app/register/page");
+    const { default: RegisterPage } = await import("@/app/register-tenant/page");
     render(<RegisterPage />);
     const main = document.querySelector('main[id="main-content"]');
     expect(main).not.toBeNull();
