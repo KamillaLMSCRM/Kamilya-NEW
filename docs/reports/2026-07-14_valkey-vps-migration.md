@@ -11,9 +11,10 @@
 - Включены AOF persistence и `appendfsync everysec`.
 - Для очереди настроена политика `maxmemory-policy noeviction`.
 - Доступ защищён отдельным случайным 64-символьным паролем.
-- Сертификат сейчас self-signed с SAN для IP VPS.
+- Установлен публичный Let’s Encrypt IP-сертификат с SAN для IP VPS.
+- Сертификат короткоживущий; настроен systemd timer для автоматического обновления.
 - Worker `/opt/kamilya-worker` переключён на новый endpoint и перезапущен.
-- Render service `kamilya-lms-api` получил новый `REDIS_URL` и `REDIS_TLS_VERIFY=false`, после чего был выполнен deploy.
+- Render service `kamilya-lms-api` получил новый `REDIS_URL` и `REDIS_TLS_VERIFY=true`, после чего был выполнен deploy.
 - Локальный `.env` обновлён тем же endpoint; секреты остаются только в `.env` и не добавлены в Git.
 
 ## Проверки
@@ -32,11 +33,11 @@
 6. Render deploy завершён в статусе `live`.
 7. Production API health возвращает `ok`.
 
-## Важное ограничение безопасности
+## Состояние безопасности
 
-Сейчас используется TLS-шифрование с self-signed сертификатом, поэтому в URL присутствует `ssl_cert_reqs=none`, а в окружении установлен `REDIS_TLS_VERIFY=false`. Трафик шифруется, но клиент не проверяет цепочку доверия сертификата.
+Используется публичный Let’s Encrypt IP-сертификат с проверкой цепочки доверия. В `REDIS_URL` удалён параметр `ssl_cert_reqs=none`, а `REDIS_TLS_VERIFY=true` установлен и на Render, и на VPS worker.
 
-Это переходный режим. Следующий инфраструктурный шаг до масштабирования — выпустить публичный CA-сертификат для отдельного hostname, например `redis.kml.kz`, перевести URL на этот hostname и вернуть `REDIS_TLS_VERIFY=true`.
+IP-сертификаты Let’s Encrypt короткоживущие, поэтому на VPS добавлен `valkey-certbot-renew.timer`, который дважды в сутки проверяет необходимость обновления, временно освобождает порт 80 для ACME HTTP-01 и после выпуска копирует сертификат в Valkey с перезапуском сервиса.
 
 ## Откат
 
@@ -50,9 +51,7 @@
 
 ## Следующие действия
 
-- выпустить публичный TLS-сертификат и убрать `REDIS_TLS_VERIFY=false`;
 - добавить отдельные namespaces для `celery`, `auth`, `rate_limit` и `progress`;
 - настроить мониторинг памяти, rejected writes, длины очереди и перезапусков worker;
 - добавить регулярную проверку восстановления AOF/RDB;
 - после стабилизации удалить временный smoke-ключи с TTL автоматически.
-
