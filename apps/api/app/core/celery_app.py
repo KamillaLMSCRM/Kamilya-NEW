@@ -8,6 +8,28 @@ from app.core.config import get_settings
 
 settings = get_settings()
 
+
+def _redis_ssl_options() -> dict[str, object] | None:
+    """Build Celery TLS options from the Redis URL and explicit policy.
+
+    Production should keep certificate verification enabled.  The opt-out is
+    reserved for a transitional self-signed certificate on a private VPS;
+    it still encrypts the connection but must be replaced with a public CA
+    certificate before treating the endpoint as a permanent public service.
+    """
+    if not str(settings.REDIS_URL).startswith("rediss://"):
+        return None
+    verify = os.getenv("REDIS_TLS_VERIFY", "true").strip().lower() not in {
+        "0",
+        "false",
+        "no",
+        "off",
+    }
+    return {"ssl_cert_reqs": ssl.CERT_REQUIRED if verify else ssl.CERT_NONE}
+
+
+_redis_ssl_options = _redis_ssl_options()
+
 celery_app = Celery(
     "kamilya_lms",
     broker=settings.REDIS_URL,
@@ -34,8 +56,8 @@ celery_app.conf.update(
     # Pass ssl.CERT_REQUIRED as the int value (don't pass the string
     # "CERT_REQUIRED" — redis-py 5.x rejects it with
     # "Invalid SSL Certificate Requirements Flag: CERT_REQUIRED").
-    broker_use_ssl={"ssl_cert_reqs": ssl.CERT_REQUIRED} if str(settings.REDIS_URL).startswith("rediss://") else None,
-    redis_backend_use_ssl={"ssl_cert_reqs": ssl.CERT_REQUIRED} if str(settings.REDIS_URL).startswith("rediss://") else None,
+    broker_use_ssl=_redis_ssl_options,
+    redis_backend_use_ssl=_redis_ssl_options,
 )
 
 
