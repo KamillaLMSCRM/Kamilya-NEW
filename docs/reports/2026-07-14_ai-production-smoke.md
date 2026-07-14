@@ -26,6 +26,10 @@ The final run completed successfully:
 - DeepSeek fallback responded successfully and carried the generation pipeline.
 - The embedding path completed successfully.
 
+The four temporary tenants created by the smoke runs were removed through the
+protected superadmin tenant-deletion service. A follow-up inspection confirmed
+that no `ai-smoke-*` tenants, documents, or AI jobs remain.
+
 ## Fixes applied during the smoke
 
 ### Provider configuration
@@ -43,4 +47,3 @@ The Celery worker initialization reloaded `app.core.db` after disposing the engi
 ## Remaining operational item
 
 Qwen on the DGX/WireGuard path is still unavailable: the VPS cannot reach `10.66.66.7:8555` and the public endpoint returns Cloudflare `530`. DeepSeek currently provides the working fallback. The Qwen origin/tunnel should be restored separately before treating the primary provider as healthy.
-
