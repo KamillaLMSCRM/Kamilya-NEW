@@ -72,10 +72,9 @@ def _reset_db_engine_after_fork(**kwargs) -> None:
     "got Future attached to a different loop" the moment the task
     schedules an async operation on the child's loop.
 
-    By disposing the engine and forcing a fresh `async_session_factory`
-    on first use (via re-import of app.core.db), the child gets a
-    pool bound to its own (empty) loop, and the asyncio.run() pattern
-    inside tasks.py takes care of the rest.
+    Disposing the inherited pool is sufficient: SQLAlchemy recreates
+    connections lazily on the child's event loop, while keeping the
+    declarative model registry shared by all imported model modules.
 
     Same treatment for Redis, which Celery itself manages — but
     app-level redis clients (e.g. rate_limit) might cache a connection.
@@ -88,11 +87,10 @@ def _reset_db_engine_after_fork(**kwargs) -> None:
         if getattr(_db, "engine", None) is not None:
             _db.engine.sync_engine.pool.dispose()  # type: ignore[attr-defined]
 
-        # Drop and re-import so the next `from app.core.db import
-        # async_session_factory` picks up a pool that wasn't shared.
-        import importlib
-
-        importlib.reload(_db)
+        # Keep the existing db module and model registry intact. Reloading
+        # app.core.db creates a second declarative Base, which splits model
+        # metadata across modules imported before and after the reload. That
+        # makes cross-model foreign keys fail during mapper configuration.
     except Exception:
         # If the dispose fails (no DB used, no engine built, etc.),
         # do not crash worker init — the first task may still work
