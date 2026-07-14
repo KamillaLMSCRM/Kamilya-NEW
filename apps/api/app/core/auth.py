@@ -217,9 +217,18 @@ class _ImpersonatedUser:
         )
 
 
-async def get_current_active_user(user: User = Depends(get_current_user)) -> User:
+async def get_current_active_user(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> User:
     if not user.is_active:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User is not active")
+    # Keep login and read-only public surfaces reachable after trial expiry,
+    # but enforce the billing boundary for every role-gated tenant action.
+    # Superadmin without a tenant context is intentionally unaffected.
+    from app.core.trial_limits import assert_tenant_access
+
+    await assert_tenant_access(db, user.tenant_id)
     return user
 
 
@@ -266,7 +275,6 @@ def require_tenant_user():
     """
     async def checker(
         user: User = Depends(get_current_active_user),
-        db: AsyncSession = Depends(get_db),
     ) -> User:
         if user.tenant_id is None:
             raise HTTPException(
@@ -277,9 +285,6 @@ def require_tenant_user():
                     "Switch to a tenant user via the Telegram login."
                 ),
             )
-        from app.core.trial_limits import assert_tenant_access
-
-        await assert_tenant_access(db, user.tenant_id)
         return user
 
     return checker

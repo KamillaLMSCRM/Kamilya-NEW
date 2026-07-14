@@ -78,9 +78,31 @@ async def test_suspended_tenant_is_rejected():
     assert caught.value.detail["code"] == "tenant_unavailable"
 
 
+@pytest.mark.asyncio
+async def test_role_gate_checks_trial_access_for_mutations():
+    """All role-protected mutation routes share the billing boundary."""
+    from app.core.auth import get_current_active_user
+
+    tenant = _tenant(trial_ends_at=datetime.now(timezone.utc) - timedelta(seconds=1))
+    user = type("User", (), {"is_active": True, "tenant_id": tenant.id})()
+
+    with pytest.raises(HTTPException) as caught:
+        await get_current_active_user(user, FakeTenantDB(tenant))
+
+    assert caught.value.status_code == 403
+    assert caught.value.detail["code"] == "trial_expired"
+
+
+@pytest.mark.asyncio
+async def test_superadmin_without_tenant_context_bypasses_tenant_policy():
+    from app.core.auth import get_current_active_user
+
+    user = type("User", (), {"is_active": True, "tenant_id": None})()
+    assert await get_current_active_user(user, FakeTenantDB(_tenant())) is user
+
+
 def test_ai_task_is_durable_task_and_has_uuid_dependency():
     from app.modules.ai.tasks import generate_course_task
 
     assert generate_course_task is not None
     assert "job_id" in signature(generate_course_task.run).parameters
-
