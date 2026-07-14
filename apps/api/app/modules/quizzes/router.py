@@ -41,6 +41,17 @@ from app.modules.quizzes.ai import generate_quiz_draft
 router = APIRouter(prefix="/quizzes", tags=["quizzes"])
 
 
+async def _require_quiz_tenant(db: AsyncSession, quiz_id: UUID, tenant_id: UUID) -> Quiz:
+    """Resolve a quiz only inside the caller's tenant boundary."""
+    result = await db.execute(
+        select(Quiz).where(Quiz.id == quiz_id, Quiz.tenant_id == tenant_id)
+    )
+    quiz = result.scalar_one_or_none()
+    if quiz is None:
+        raise HTTPException(status_code=404, detail="Quiz not found")
+    return quiz
+
+
 @router.get("", response_model=list[QuizResponse])
 async def list_quizzes(
     db: AsyncSession = Depends(get_db),
@@ -359,6 +370,7 @@ async def list_attempts(
     user=Depends(get_current_user),
 ):
     """Get user's attempts for a quiz."""
+    await _require_quiz_tenant(db, quiz_id, user.tenant_id)
     return await get_user_attempts(db, quiz_id, user.id, user.tenant_id)
 
 
@@ -369,6 +381,7 @@ async def quiz_stats(
     user=Depends(get_current_user),
 ):
     """Get quiz statistics (admin view)."""
+    await _require_quiz_tenant(db, quiz_id, user.tenant_id)
     return await get_quiz_stats(db, quiz_id, user.tenant_id)
 
 
