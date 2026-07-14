@@ -264,7 +264,10 @@ def require_tenant_user():
     Superadmin should use the /admin/super/* endpoints instead, which
     explicitly take a tenant_id path param.
     """
-    async def checker(user: User = Depends(get_current_active_user)) -> User:
+    async def checker(
+        user: User = Depends(get_current_active_user),
+        db: AsyncSession = Depends(get_db),
+    ) -> User:
         if user.tenant_id is None:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -274,6 +277,9 @@ def require_tenant_user():
                     "Switch to a tenant user via the Telegram login."
                 ),
             )
+        from app.core.trial_limits import assert_tenant_access
+
+        await assert_tenant_access(db, user.tenant_id)
         return user
 
     return checker

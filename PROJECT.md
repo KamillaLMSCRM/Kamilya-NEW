@@ -1,7 +1,7 @@
 # Kamilya LMS Core
 
 > Актуализировано: 2026-07-02.
-> Статус: beta, первый production tenant-flow пройден end-to-end; остаются trial enforcement, billing и superadmin commercial control.
+> Статус: beta, первый production tenant-flow пройден end-to-end; количественные и временные trial limits enforced, остаются billing и superadmin commercial control.
 
 ## Видение Продукта
 
@@ -104,7 +104,7 @@ Supabase на 2026-07-02:
 - Production transactional email: Resend, sender `Kamilya LMS <no-reply@notify.kml.kz>`.
 - Resend sending domain: `notify.kml.kz`; DKIM/SPF/return-path/DMARC verified in DNS as of 2026-07-02.
 - `/register-tenant` создает trial tenant: 14 дней, 1 normal AI course, 1 job-instruction course, 10 learners, 3 system users.
-- Full billing UI, trial enforcement and superadmin lead management are not finished yet; see `docs/NEXT_STEPS_2026-07-01.md`.
+- Billing UI и superadmin lead management не завершены. Trial limits (количество и окончание периода) enforced на backend; login/dashboard остаются доступны для upgrade/support. См. `docs/NEXT_STEPS_2026-07-01.md`.
 
 Production smoke 2026-07-02:
 

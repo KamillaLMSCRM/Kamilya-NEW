@@ -126,9 +126,13 @@ Implemented:
 - Trial storage: `tenant_leads`, `tenant_usage`, and trial fields on `tenants`.
 - Email OTP login with Resend provider support.
 
+Implemented:
+
+- Backend enforcement количественных trial limits и окончания trial-периода для tenant-scoped операций.
+- AI generation dispatch через Celery/Redis; production worker должен быть поднят и мониториться.
+
 Not finished:
 
-- Trial usage enforcement in AI generation and invite flows.
 - Trial onboarding wizard.
 - Billing/upgrade request UI.
 - Superadmin lead pipeline and tenant activation workflow.

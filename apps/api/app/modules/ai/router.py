@@ -4,7 +4,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, WebSocket, WebSocketDisconnect, Query
+from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, Query
 from uuid import UUID, uuid4
 from datetime import datetime, timezone
 from sqlalchemy import select
@@ -51,7 +51,6 @@ def _job_course_uuid(course_id) -> UUID | None:
 @router.post("/generate-course", response_model=AIJobResponse, status_code=202)
 async def generate_course(
     req: AIGenerateRequest,
-    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
@@ -85,50 +84,43 @@ async def generate_course(
     )
     await db.commit()
 
-    # Run pipeline directly as background task (no Celery needed)
-    async def _safe_pipeline():
-        from app.core.db import async_session_factory
-        try:
-            logger.info(f"Starting generation pipeline for job {job.id}")
-            await run_generation_pipeline(
-                job_id=job.id,
-                documents=req.documents,
-                target_audience=req.target_audience,
-                num_modules=req.num_modules,
-                language=req.language,
-                course_id=str(req.course_id) if req.course_id else None,
-                tenant_id=user.tenant_id,
-                user_id=user.id,
-            )
-            logger.info(f"Pipeline completed for job {job.id}")
-        except asyncio.CancelledError:
-            logger.info(f"Pipeline cancelled for job {job.id}")
-            async with async_session_factory() as session:
-                await update_ai_job(session, job.id, tenant_id=user.tenant_id, status="cancelled", message="Cancelled by user")
-                await session.commit()
-        except Exception as e:
-            logger.error(f"Pipeline failed for job {job.id}: {e}", exc_info=True)
-            async with async_session_factory() as session:
-                if user.tenant_id:
-                    from sqlalchemy import text
-                    await session.execute(
-                        text("SELECT set_current_tenant(:tid)"),
-                        {"tid": str(user.tenant_id)},
-                    )
-                await update_ai_job(
-                    session,
-                    job.id,
-                    tenant_id=str(user.tenant_id) if user.tenant_id else None,
-                    status="failed",
-                    stage="failed",
-                    progress=0,
-                    message=f"Generation failed: {str(e)[:300]}",
-                )
-                await session.commit()
-        finally:
-            _running_tasks.pop(job.id, None)
+    from app.modules.ai.tasks import generate_course_task
 
-    background_tasks.add_task(_safe_pipeline)
+    if generate_course_task is None:
+        await update_ai_job(
+            db,
+            job.id,
+            tenant_id=str(user.tenant_id) if user.tenant_id else None,
+            status="failed",
+            stage="failed",
+            message="AI worker is unavailable",
+        )
+        await db.commit()
+        raise HTTPException(status_code=503, detail="AI worker is unavailable")
+
+    try:
+        generate_course_task.delay(
+            job_id=str(job.id),
+            documents=req.documents,
+            target_audience=req.target_audience,
+            num_modules=req.num_modules,
+            language=req.language,
+            course_id=str(req.course_id) if req.course_id else None,
+            tenant_id=str(user.tenant_id) if user.tenant_id else None,
+            user_id=str(user.id),
+        )
+    except Exception as exc:
+        logger.exception("Could not enqueue AI generation job %s", job.id)
+        await update_ai_job(
+            db,
+            job.id,
+            tenant_id=str(user.tenant_id) if user.tenant_id else None,
+            status="failed",
+            stage="failed",
+            message="AI job could not be queued",
+        )
+        await db.commit()
+        raise HTTPException(status_code=503, detail="AI job could not be queued") from exc
 
     return AIJobResponse(
         id=job.id,

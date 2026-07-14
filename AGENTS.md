@@ -349,7 +349,7 @@ apps/web/src/features/<feature>/
 ## Что ты НЕ должен делать
 
 - ❌ Создавать микросервисы (v1.0 = монолит)
-- ❌ Использовать SCORM (это v1.1)
+- ✅ Использовать только SCORM 1.2 в текущем scope; SCORM 2004 должен отклоняться. Полный browser/storage/production E2E всё ещё обязателен перед production claim.
 - ❌ Делать mobile native apps (это v2.0)
 - ❌ Писать custom WYSIWYG (используй Tiptap)
 - ❌ Использовать polling вместо WebSocket для real-time

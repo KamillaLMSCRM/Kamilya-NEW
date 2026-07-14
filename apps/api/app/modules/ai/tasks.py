@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from uuid import UUID
 
 logger = logging.getLogger(__name__)
 

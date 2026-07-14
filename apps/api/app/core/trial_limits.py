@@ -7,6 +7,7 @@ prospect environment; trial tenants are real company tenants created via
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Any, Literal
 
 from fastapi import HTTPException
@@ -69,6 +70,60 @@ def _is_trial_tenant(tenant: Tenant | None) -> bool:
     if not tenant:
         return False
     return tenant.plan == "trial" or tenant.status == "trial"
+
+
+def is_trial_expired(tenant: Tenant, now: datetime | None = None) -> bool:
+    """Return whether a trial tenant has no active trial or paid period.
+
+    The login/dashboard must remain reachable so the tenant can see the
+    upgrade/support action. Tenant-scoped mutations and learning routes use
+    ``assert_tenant_access`` instead. A paid period explicitly overrides an
+    expired trial date.
+    """
+    if not _is_trial_tenant(tenant) or tenant.trial_ends_at is None:
+        return False
+    current = now or datetime.now(timezone.utc)
+    trial_end = tenant.trial_ends_at
+    if trial_end.tzinfo is None:
+        trial_end = trial_end.replace(tzinfo=timezone.utc)
+    if tenant.paid_until is not None:
+        paid_until = tenant.paid_until
+        if paid_until.tzinfo is None:
+            paid_until = paid_until.replace(tzinfo=timezone.utc)
+        if paid_until > current:
+            return False
+    return trial_end <= current
+
+
+async def assert_tenant_access(db: AsyncSession, tenant_id: Any) -> None:
+    """Reject suspended/archived tenants and expired trials.
+
+    This is deliberately separate from ``get_current_user`` so an expired
+    tenant can still authenticate and open the billing/support surface.
+    """
+    if tenant_id is None:
+        return
+    tenant = await db.get(Tenant, tenant_id)
+    if tenant is None:
+        raise HTTPException(status_code=401, detail="Tenant not found")
+    if tenant.status in {"suspended", "archived"}:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "code": "tenant_unavailable",
+                "status": tenant.status,
+                "message": "Tenant access is unavailable. Contact Kamilya LMS support.",
+            },
+        )
+    if is_trial_expired(tenant):
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "code": "trial_expired",
+                "message": "Trial period has ended. Contact Kamilya LMS to continue.",
+                "cta": {"text": "Связаться с Kamilya LMS", "href": "mailto:support@kml.kz"},
+            },
+        )
 
 
 def _limits_from_tenant(tenant: Tenant) -> TrialLimits:
@@ -151,6 +206,7 @@ async def count_active_system_users(db: AsyncSession, tenant_id: Any) -> int:
 
 
 async def assert_can_create_courses(db: AsyncSession, tenant_id: Any, requested: int = 1) -> None:
+    await assert_tenant_access(db, tenant_id)
     limits = await _get_trial_limits(db, tenant_id)
     if not limits or limits.max_courses_total is None:
         return
@@ -160,6 +216,7 @@ async def assert_can_create_courses(db: AsyncSession, tenant_id: Any, requested:
 
 
 async def assert_can_create_ai_course(db: AsyncSession, tenant_id: Any, requested: int = 1) -> None:
+    await assert_tenant_access(db, tenant_id)
     limits = await _get_trial_limits(db, tenant_id)
     if not limits:
         return
@@ -189,6 +246,7 @@ async def reserve_ai_course_generation(db: AsyncSession, tenant_id: Any) -> None
 
 
 async def assert_can_create_learners(db: AsyncSession, tenant_id: Any, requested: int = 1) -> None:
+    await assert_tenant_access(db, tenant_id)
     limits = await _get_trial_limits(db, tenant_id)
     if not limits or limits.max_students is None:
         return
@@ -198,6 +256,7 @@ async def assert_can_create_learners(db: AsyncSession, tenant_id: Any, requested
 
 
 async def assert_can_create_system_users(db: AsyncSession, tenant_id: Any, requested: int = 1) -> None:
+    await assert_tenant_access(db, tenant_id)
     limits = await _get_trial_limits(db, tenant_id)
     if not limits or limits.system_users_limit is None:
         return
