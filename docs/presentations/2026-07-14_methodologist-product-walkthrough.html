@@ -458,21 +458,50 @@
     }
 
     @media (max-width: 560px) {
-      .stage-wrap { margin-top: 52px; }
+      html, body { min-height: 100%; height: auto; }
+      body { overflow-x: hidden; overflow-y: auto; }
+      .deck {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-start;
+        width: 100%;
+        min-height: 100dvh;
+        height: auto;
+        padding: 0 0 calc(24px + env(safe-area-inset-bottom));
+        overflow: visible;
+      }
+      .stage-wrap {
+        flex: 0 0 auto;
+        margin-top: calc(52px + env(safe-area-inset-top));
+      }
+      .sales-mode .stage-wrap { aspect-ratio: 1280 / 590; }
       .deck-controls { bottom: -54px; }
       .control { height: 36px; color: #fff; }
       .chapter { left: 8px; top: -44px; color: #fff; background: #151c2a; }
       .hint { display: none; }
+      .full-mode .callout { display: none; }
       .callout { left: 5% !important; right: auto !important; bottom: 10px !important; top: auto !important; width: 90%; padding: 9px 11px; }
       .callout .eyebrow, .callout p { display: none; }
       .callout h2 { margin: 0; font-size: 11px; }
       .focus-ring { box-shadow: 0 0 0 999px rgba(9,13,23,.18), 0 0 0 4px rgba(109,150,255,.18); }
-      .overview { padding: 18px; }
+      .overview {
+        position: fixed;
+        inset: 0;
+        z-index: 200;
+        width: 100vw;
+        height: 100dvh;
+        padding: calc(18px + env(safe-area-inset-top)) 18px calc(18px + env(safe-area-inset-bottom));
+        border-radius: 0;
+        background: #111826;
+      }
       .overview-grid { grid-template-columns: 1fr; }
       .mobile-caption {
         display: block;
+        flex: 0 0 auto;
         width: calc(100vw - 32px);
         margin-top: 72px;
+        margin-bottom: 0;
         padding: 17px;
         border: 1px solid var(--line);
         border-radius: 11px;
@@ -482,6 +511,45 @@
       .mobile-caption span { color: var(--blue); font-size: 10px; font-weight: 750; text-transform: uppercase; }
       .mobile-caption h2 { margin: 7px 0 8px; font-size: 18px; line-height: 1.2; }
       .mobile-caption p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.55; }
+      .mobile-result { margin-top: 14px; padding-top: 13px; border-top: 1px solid var(--line); }
+      .mobile-result b { display: block; margin-bottom: 5px; color: var(--green); font-size: 10px; text-transform: uppercase; }
+      .mobile-result p { color: #454851; }
+    }
+
+    @media (max-width: 900px) and (orientation: landscape) {
+      .deck {
+        display: grid;
+        place-items: center;
+        width: 100vw;
+        height: 100dvh;
+        min-height: 0;
+        padding: max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
+        overflow: hidden;
+      }
+      .stage-wrap {
+        width: min(calc(100vw - 20px), calc((100dvh - 20px) * 16 / 9));
+        margin-top: 0;
+        aspect-ratio: 16 / 9;
+        border: 1px solid rgba(23, 24, 28, .12);
+        border-radius: 10px;
+        overflow: hidden;
+      }
+      .sales-mode { place-items: start center; }
+      .sales-mode .stage-wrap {
+        width: min(calc(100vw - 20px), calc((100dvh - 72px) * 1280 / 590));
+        margin-top: 10px;
+        aspect-ratio: 1280 / 590;
+        overflow: visible;
+      }
+      .chapter, .hint { display: none; }
+      .deck-controls {
+        bottom: 7px;
+        gap: 5px;
+        transform: translateX(-50%) scale(.82);
+        transform-origin: bottom center;
+      }
+      .sales-mode .deck-controls { bottom: -49px; }
+      .mobile-caption { display: none; }
     }
 
     @media (prefers-reduced-motion: reduce) {
@@ -490,7 +558,7 @@
   </style>
 </head>
 <body>
-  <main class="deck" id="deck" aria-live="polite">
+  <main class="deck sales-mode" id="deck" aria-live="polite">
     <div class="stage-wrap">
       <div class="stage" id="stage"></div>
       <div class="chapter" id="chapter"><span>01</span><b>Начало</b></div>
@@ -781,6 +849,8 @@
     function renderDeck() {
       stage.innerHTML = '';
       overviewGrid.innerHTML = '';
+      deck.classList.toggle('sales-mode', mode === 'sales');
+      deck.classList.toggle('full-mode', mode === 'full');
 
       scenes.forEach((scene, index) => {
         const section = document.createElement('section');
@@ -853,7 +923,8 @@
       const activeNarrative = activeScene.querySelector('.sales-narrative');
       const captionTitle = activeCallout?.querySelector('h2')?.textContent || activeNarrative?.querySelector('h2')?.textContent || activeScene.querySelector('h1')?.textContent || scenes[current].title;
       const captionText = activeCallout?.querySelector('p')?.textContent || activeNarrative?.querySelector('.sales-message p')?.textContent || activeScene.querySelector('.lead')?.textContent || '';
-      mobileCaption.innerHTML = `<span>${String(current + 1).padStart(2,'0')} · ${scenes[current].chapter}</span><h2>${captionTitle}</h2><p>${captionText}</p>`;
+      const captionResult = activeNarrative?.querySelector('.sales-result p')?.textContent || activeCallout?.querySelector('.benefit p')?.textContent || '';
+      mobileCaption.innerHTML = `<span>${String(current + 1).padStart(2,'0')} · ${scenes[current].chapter}</span><h2>${captionTitle}</h2><p>${captionText}</p>${captionResult ? `<div class="mobile-result"><b>Практический результат</b><p>${captionResult}</p></div>` : ''}`;
     }
 
     function next() {
