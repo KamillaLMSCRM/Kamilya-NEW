@@ -3,6 +3,7 @@ from sqlalchemy import Column, Text, UUID, DateTime, Boolean, ForeignKey, func, 
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import JSONB
 from app.core.db import Base
+from app.models.document import Document  # noqa: F401 - registers source FK target
 
 class Course(Base):
     __tablename__ = "courses"

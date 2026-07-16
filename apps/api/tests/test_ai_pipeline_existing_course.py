@@ -11,6 +11,10 @@ from app.modules.courses.models import Course
 from app.modules.lessons.models import Module  # noqa: F401 - registers ORM relationship
 
 
+def test_course_model_registers_instruction_source_table() -> None:
+    assert "documents" in Course.metadata.tables
+
+
 class FakeSession:
     def __init__(self, course: Course):
         self.course = course
