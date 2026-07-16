@@ -77,12 +77,6 @@ class DepartmentCourse(Base):
         nullable=False,
         index=True,
     )
-    instruction_document_id = Column(
-        UUID(as_uuid=True),
-        ForeignKey("documents.id", ondelete="SET NULL"),
-        nullable=True,
-        index=True,
-    )
     course_id = Column(UUID(as_uuid=True), nullable=False, index=True)
     required = Column(Boolean, nullable=False, default=True, server_default=func.true())
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
@@ -99,6 +93,12 @@ class Position(Base):
     level = Column(Text, nullable=False, default="")
     responsibilities = Column(Text, nullable=False, default="")
     requirements = Column(Text, nullable=False, default="")
+    instruction_document_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("documents.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     course_id = Column(UUID(as_uuid=True), nullable=True)  # legacy, kept for backward compat
     employee_count = Column(Integer, nullable=False, default=0)
     # FK to normalized Department (ADR-0011). Column was added in

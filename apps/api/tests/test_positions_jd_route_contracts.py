@@ -9,6 +9,7 @@ public JD endpoints unique and bound to the intended function.
 from fastapi.routing import APIRoute
 
 from app.modules.positions.jd_router import router as jd_router
+from app.modules.positions.models import DepartmentCourse, Position
 from app.modules.positions.recommendations_router import router as recommendations_router
 from app.modules.positions.router import router as positions_router
 
@@ -74,3 +75,8 @@ def test_positions_routes_require_learning_content_role() -> None:
             "methodologist",
             "teacher",
         ) in closure_values, route.path
+
+
+def test_instruction_source_column_belongs_to_position_model() -> None:
+    assert "instruction_document_id" in Position.__table__.columns
+    assert "instruction_document_id" not in DepartmentCourse.__table__.columns
