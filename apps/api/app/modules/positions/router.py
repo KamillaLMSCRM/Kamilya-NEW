@@ -32,7 +32,10 @@ from app.modules.positions.schemas import (
 router = APIRouter(
     prefix="/positions",
     tags=["positions"],
-    dependencies=[Depends(require_tenant_user())],
+    dependencies=[
+        Depends(require_tenant_user()),
+        Depends(require_role("superadmin", "methodologist", "teacher")),
+    ],
 )
 
 
@@ -575,7 +578,6 @@ def _extract_text(content: bytes, filename: str) -> str:
     return content.decode("utf-8", errors="replace")
 
 
-@router.post("/analyze-jd")
 @router.post("/bulk-create", response_model=BulkPositionResponse, status_code=201)
 async def bulk_create_positions(
     payload: BulkPositionRequest,

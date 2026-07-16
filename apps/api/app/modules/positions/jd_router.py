@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy import select, delete, func, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.auth import get_current_user, require_tenant_user
+from app.core.auth import get_current_user, require_role, require_tenant_user
 from app.core.db import get_db
 from app.models.users import User
 from app.models.enrollment import Enrollment
@@ -59,7 +59,10 @@ from app.modules.courses.models import Course
 router = APIRouter(
     prefix="/positions",
     tags=["positions"],
-    dependencies=[Depends(require_tenant_user())],
+    dependencies=[
+        Depends(require_tenant_user()),
+        Depends(require_role("superadmin", "methodologist", "teacher")),
+    ],
 )
 
 
@@ -323,7 +326,6 @@ async def restore_jd_version(
 # ── AI course suggestions (Phase 2) ────────────────────────────
 
 
-@router.post("/{position_id}/suggest-courses", response_model=CourseSuggestionsResponse)
 @router.post("/bulk-analyze-jd", response_model=BulkJDResponse)
 async def bulk_analyze_jd(
     files: List[UploadFile] = File(...),
@@ -424,7 +426,6 @@ async def bulk_analyze_jd(
 # ── Bulk create positions ─────────────────────────────────────
 
 
-@router.post("/bulk-create", response_model=BulkPositionResponse, status_code=201)
 @router.post("/generate-jd-from-name", response_model=GenerateJDResponse)
 async def generate_jd_from_name(
     req: GenerateJDRequest,
