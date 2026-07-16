@@ -3,12 +3,15 @@ import json
 import logging
 import uuid
 import os
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from urllib.parse import quote
+
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import require_role, require_tenant_user
 from app.core.db import get_db
+from app.core.storage import get_storage
 from app.models.document import Document
 from app.modules.documents.schemas import DocumentResponse
 
@@ -182,9 +185,12 @@ async def upload_document(
     file: UploadFile = File(...),
     title: str = Form(""),
     description: str = Form(""),
+    category: str = Form("general"),
     db: AsyncSession = Depends(get_db),
     user=Depends(require_role("superadmin", "methodologist", "teacher")),
 ):
+    if category not in {"general", "job_instruction"}:
+        raise HTTPException(status_code=422, detail="Unsupported document category")
     from app.core.demo_limits import assert_can_create_document
     await assert_can_create_document(db, user.tenant_id)
     content = await file.read()
@@ -212,20 +218,30 @@ async def upload_document(
             detail="File content does not match declared type"
         )
 
-    # Check for duplicate by filename in same tenant
-    existing = await db.execute(
-        select(Document).where(
-            Document.tenant_id == user.tenant_id,
-            Document.filename == (file.filename or "unknown"),
+    # General library uploads remain idempotent by filename. Job instructions
+    # are versioned source files, so two uploads with the same filename must
+    # remain distinct records.
+    if category == "general":
+        existing = await db.execute(
+            select(Document).where(
+                Document.tenant_id == user.tenant_id,
+                Document.filename == (file.filename or "unknown"),
+                Document.category == category,
+            )
         )
-    )
-    existing_doc = existing.scalar_one_or_none()
-    if existing_doc:
-        return _hydrate(existing_doc)
+        existing_doc = existing.scalar_one_or_none()
+        if existing_doc:
+            return _hydrate(existing_doc)
 
     ext = os.path.splitext(file.filename or "")[1]
     doc_id = uuid.uuid4()
     s3_key = f"tenants/{user.tenant_id}/documents/{doc_id}{ext}"
+
+    try:
+        get_storage().put_bytes(s3_key, content, content_type)
+    except Exception as exc:
+        logger.exception("Could not persist document blob %s", doc_id)
+        raise HTTPException(status_code=503, detail="Document storage is unavailable") from exc
 
     # Save file temporarily for ingestion, then embed into pgvector
     file_path = os.path.join(UPLOAD_DIR, str(user.tenant_id), f"{doc_id}{ext}")
@@ -243,6 +259,7 @@ async def upload_document(
         size=file_size,
         s3_key=s3_key,
         description=description,
+        category=category,
         embedding_status="pending",
     )
     db.add(doc)
@@ -304,6 +321,34 @@ async def upload_document(
         await db.refresh(doc)
 
     return _hydrate(doc)
+
+
+@router.get("/{document_id}/download")
+async def download_document(
+    document_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user=Depends(require_role("superadmin", "methodologist", "teacher")),
+):
+    result = await db.execute(
+        select(Document).where(
+            Document.id == document_id,
+            Document.tenant_id == user.tenant_id,
+        )
+    )
+    doc = result.scalar_one_or_none()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    blob = get_storage().get_bytes(doc.s3_key)
+    if blob is None:
+        raise HTTPException(status_code=404, detail="Document file is unavailable")
+
+    filename = quote(doc.filename or "document")
+    return Response(
+        content=blob,
+        media_type=doc.content_type or "application/octet-stream",
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{filename}"},
+    )
 
 
 @router.delete("/{document_id}", status_code=204)

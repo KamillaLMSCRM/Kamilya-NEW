@@ -55,6 +55,8 @@ from app.modules.positions.schemas import (
 )
 from app.modules.positions.models import PositionJDVersion, PositionQuiz
 from app.modules.courses.models import Course
+from app.modules.documents.router import upload_document
+from app.modules.positions.router import _extract_text, _get_course_ids, _position_response
 
 router = APIRouter(
     prefix="/positions",
@@ -77,10 +79,14 @@ async def analyze_jd(
 ):
     """Analyze a job description document and extract position fields."""
     content = await file.read()
-    if len(content) > 5 * 1024 * 1024:
-        raise HTTPException(status_code=400, detail="File too large (max 5MB)")
+    return await _analyze_jd_content(content, file.filename or "")
 
-    text = _extract_text(content, file.filename or "")
+
+async def _analyze_jd_content(content: bytes, filename: str) -> dict:
+    if len(content) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="File too large (max 10MB)")
+
+    text = _extract_text(content, filename)
     if not text.strip():
         raise HTTPException(status_code=400, detail="Could not extract text from file")
 
@@ -151,6 +157,59 @@ async def analyze_jd(
             data.get("requirements", ""),
         ),
     }
+
+
+@router.post("/{position_id}/instruction", response_model=PositionResponse)
+async def upload_position_instruction(
+    position_id: UUID,
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Persist, analyze and attach one job-instruction source file."""
+    pos = await db.scalar(
+        select(Position).where(
+            Position.id == position_id,
+            Position.tenant_id == user.tenant_id,
+        )
+    )
+    if not pos:
+        raise HTTPException(status_code=404, detail="Position not found")
+
+    content = await file.read()
+    analysis = await _analyze_jd_content(content, file.filename or "")
+
+    await file.seek(0)
+    document = await upload_document(
+        file=file,
+        title=f"Должностная инструкция: {pos.name}",
+        description=f"Действующая должностная инструкция для должности {pos.name}",
+        category="job_instruction",
+        db=db,
+        user=user,
+    )
+
+    if pos.responsibilities or pos.requirements:
+        db.add(
+            PositionJDVersion(
+                position_id=pos.id,
+                tenant_id=pos.tenant_id,
+                responsibilities=pos.responsibilities,
+                requirements=pos.requirements,
+                source="instruction_replace",
+                note=f"До загрузки {file.filename or 'должностной инструкции'}",
+                created_by=user.id,
+            )
+        )
+
+    pos.instruction_document_id = document.id
+    for field in ("name", "department", "level", "responsibilities", "requirements"):
+        value = str(analysis.get(field) or "").strip()
+        if value:
+            setattr(pos, field, value)
+
+    await db.flush()
+    return await _position_response(db, pos)
 
 
 # ── JD audit (LLM quality check) ──────────────────────────────

@@ -37,6 +37,15 @@ class PositionResponse(BaseModel):
     level: str = ""
     responsibilities: str = ""
     requirements: str = ""
+    instruction_document_id: UUID | None = None
+    instruction_filename: str | None = None
+    instruction_embedding_status: str | None = None
+    instruction_updated_at: datetime | None = None
+    source_course_id: UUID | None = None
+    source_course_title: str | None = None
+    source_course_status: str | None = None
+    source_course_generation_status: str | None = None
+    source_course_outdated: bool = False
     course_ids: list[UUID] = []
     # Cached count maintained by /positions/{id}/assign/{user} and
     # staff-import endpoints. May be stale if employees were added/removed
@@ -216,6 +225,18 @@ class CreatedCourseRef(BaseModel):
 class CreateCoursesResponse(BaseModel):
     created: list[CreatedCourseRef]
     attached_to_position: int  # how many were linked to this position via position_courses
+
+
+class GenerateInstructionCourseRequest(BaseModel):
+    target_audience: str = Field(default="", max_length=2000)
+    num_modules: int = Field(default=3, ge=1, le=10)
+    language: str = Field(default="ru", pattern="^(ru|kk|en)$")
+
+
+class GenerateInstructionCourseResponse(BaseModel):
+    course_id: UUID
+    job_id: str
+    status: str
 
 
 # Rebuild BulkJDItem to include forward-ref'd JDAuditItem

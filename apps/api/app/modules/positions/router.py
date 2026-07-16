@@ -1,16 +1,20 @@
 """Positions — API router with course attachment + JD analysis"""
 import logging
 import os
+import uuid
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import get_current_user, require_role, require_tenant_user
 from app.core.db import get_db
+from app.models.document import Document
+from app.models.ai_job import AIJob
 from app.models.users import User
+from app.modules.courses.models import Course
 from app.modules.positions.assignment_service import recompute_enrollments
 from app.modules.positions.batch_service import (
     recompute_position_holders,
@@ -104,6 +108,81 @@ async def _live_employee_count(db: AsyncSession, position_id: UUID, tenant_id: U
     return int(result.scalar() or 0)
 
 
+async def _position_response(
+    db: AsyncSession,
+    pos: Position,
+    *,
+    re_enrolled: int | None = None,
+) -> PositionResponse:
+    course_ids = await _get_course_ids(db, pos.id)
+    live = await _live_employee_count(db, pos.id, pos.tenant_id)
+
+    instruction = None
+    if pos.instruction_document_id:
+        instruction = await db.scalar(
+            select(Document).where(
+                Document.id == pos.instruction_document_id,
+                Document.tenant_id == pos.tenant_id,
+            )
+        )
+
+    source_course = await db.scalar(
+        select(Course)
+        .join(PositionCourse, PositionCourse.course_id == Course.id)
+        .where(
+            PositionCourse.position_id == pos.id,
+            PositionCourse.tenant_id == pos.tenant_id,
+            Course.tenant_id == pos.tenant_id,
+            Course.source_instruction_id.is_not(None),
+        )
+        .order_by(
+            (Course.source_instruction_id == pos.instruction_document_id).desc(),
+            Course.updated_at.desc(),
+        )
+        .limit(1)
+    )
+    generation_status = None
+    if source_course:
+        generation_status = await db.scalar(
+            select(AIJob.status)
+            .where(
+                AIJob.course_id == source_course.id,
+                AIJob.tenant_id == pos.tenant_id,
+            )
+            .order_by(AIJob.created_at.desc())
+            .limit(1)
+        )
+
+    return PositionResponse(
+        id=pos.id,
+        tenant_id=pos.tenant_id,
+        name=pos.name,
+        department=pos.department,
+        level=pos.level,
+        responsibilities=pos.responsibilities,
+        requirements=pos.requirements,
+        instruction_document_id=pos.instruction_document_id,
+        instruction_filename=instruction.filename if instruction else None,
+        instruction_embedding_status=instruction.embedding_status if instruction else None,
+        instruction_updated_at=instruction.updated_at if instruction else None,
+        source_course_id=source_course.id if source_course else None,
+        source_course_title=source_course.title if source_course else None,
+        source_course_status=source_course.status if source_course else None,
+        source_course_generation_status=generation_status,
+        source_course_outdated=bool(
+            source_course
+            and pos.instruction_document_id
+            and source_course.source_instruction_id != pos.instruction_document_id
+        ),
+        course_ids=course_ids,
+        employee_count=pos.employee_count,
+        current_employee_count=live,
+        employee_count_stale=pos.employee_count != live,
+        created_at=pos.created_at,
+        re_enrolled=re_enrolled,
+    )
+
+
 @router.get("", response_model=list[PositionResponse])
 async def list_positions(
     db: AsyncSession = Depends(get_db),
@@ -117,18 +196,7 @@ async def list_positions(
     positions = result.scalars().all()
     responses = []
     for pos in positions:
-        course_ids = await _get_course_ids(db, pos.id)
-        live = await _live_employee_count(db, pos.id, user.tenant_id)
-        responses.append(PositionResponse(
-            id=pos.id, tenant_id=pos.tenant_id, name=pos.name,
-            department=pos.department, level=pos.level,
-            responsibilities=pos.responsibilities, requirements=pos.requirements,
-            course_ids=course_ids,
-            employee_count=pos.employee_count,
-            current_employee_count=live,
-            employee_count_stale=pos.employee_count != live,
-            created_at=pos.created_at,
-        ))
+        responses.append(await _position_response(db, pos))
     return responses
 
 
@@ -145,18 +213,7 @@ async def get_position(
     pos = result.scalar_one_or_none()
     if not pos:
         raise HTTPException(status_code=404, detail="Position not found")
-    course_ids = await _get_course_ids(db, pos.id)
-    live = await _live_employee_count(db, pos.id, user.tenant_id)
-    return PositionResponse(
-        id=pos.id, tenant_id=pos.tenant_id, name=pos.name,
-        department=pos.department, level=pos.level,
-        responsibilities=pos.responsibilities, requirements=pos.requirements,
-        course_ids=course_ids,
-        employee_count=pos.employee_count,
-        current_employee_count=live,
-        employee_count_stale=pos.employee_count != live,
-        created_at=pos.created_at,
-    )
+    return await _position_response(db, pos)
 
 
 @router.post("/{position_id}/recalc-employees", response_model=PositionResponse)
@@ -187,17 +244,7 @@ async def recalc_employee_count(
     await db.flush()
     await db.refresh(pos)
 
-    course_ids = await _get_course_ids(db, pos.id)
-    return PositionResponse(
-        id=pos.id, tenant_id=pos.tenant_id, name=pos.name,
-        department=pos.department, level=pos.level,
-        responsibilities=pos.responsibilities, requirements=pos.requirements,
-        course_ids=course_ids,
-        employee_count=pos.employee_count,
-        current_employee_count=live,
-        employee_count_stale=False,
-        created_at=pos.created_at,
-    )
+    return await _position_response(db, pos)
 
 
 @router.post("", response_model=PositionResponse, status_code=201)
@@ -221,14 +268,7 @@ async def create_position(
         await _sync_courses(db, pos.id, req.course_ids, tenant_id=user.tenant_id)
         await db.flush()
 
-    course_ids = await _get_course_ids(db, pos.id)
-    return PositionResponse(
-        id=pos.id, tenant_id=pos.tenant_id, name=pos.name,
-        department=pos.department, level=pos.level,
-        responsibilities=pos.responsibilities, requirements=pos.requirements,
-        course_ids=course_ids, employee_count=pos.employee_count,
-        created_at=pos.created_at,
-    )
+    return await _position_response(db, pos)
 
 
 @router.put("/{position_id}", response_model=PositionResponse)
@@ -276,15 +316,7 @@ async def update_position(
         re_enrolled = batch.added
 
     await db.flush()
-    course_ids = await _get_course_ids(db, pos.id)
-    return PositionResponse(
-        id=pos.id, tenant_id=pos.tenant_id, name=pos.name,
-        department=pos.department, level=pos.level,
-        responsibilities=pos.responsibilities, requirements=pos.requirements,
-        course_ids=course_ids, employee_count=pos.employee_count,
-        created_at=pos.created_at,
-        re_enrolled=re_enrolled,
-    )
+    return await _position_response(db, pos, re_enrolled=re_enrolled)
 
 
 @router.delete("/{position_id}", status_code=204)

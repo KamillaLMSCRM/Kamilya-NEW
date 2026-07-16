@@ -14,6 +14,8 @@ from app.core.auth import get_current_user, require_role, require_tenant_user
 from app.core.db import get_db
 from app.models.users import User
 from app.models.enrollment import Enrollment
+from app.models.document import Document
+from app.models.ai_job import AIJob
 from app.modules.positions.models import Position, PositionCourse
 
 logger = logging.getLogger(__name__)
@@ -48,6 +50,9 @@ from app.modules.positions.schemas import (
     CreateCoursesRequest,
     CreatedCourseRef,
     CreateCoursesResponse,
+    GenerateInstructionCourseRequest,
+    GenerateInstructionCourseResponse,
+    QuizChoiceDraft,
     QuizQuestionDraft,
     SuggestOnboardingQuizResponse,
     SavePositionQuizRequest,
@@ -55,6 +60,7 @@ from app.modules.positions.schemas import (
 )
 from app.modules.positions.models import PositionJDVersion, PositionQuiz
 from app.modules.courses.models import Course
+from app.modules.positions.router import _get_course_ids
 
 router = APIRouter(
     prefix="/positions",
@@ -64,6 +70,158 @@ router = APIRouter(
         Depends(require_role("superadmin", "methodologist", "teacher")),
     ],
 )
+
+
+@router.post(
+    "/{position_id}/generate-instruction-course",
+    response_model=GenerateInstructionCourseResponse,
+    status_code=202,
+)
+async def generate_instruction_course(
+    position_id: UUID,
+    payload: GenerateInstructionCourseRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Generate one native draft course from the position's current DI."""
+    pos = await db.scalar(
+        select(Position).where(
+            Position.id == position_id,
+            Position.tenant_id == user.tenant_id,
+        )
+    )
+    if not pos:
+        raise HTTPException(status_code=404, detail="Position not found")
+    if not pos.instruction_document_id:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "code": "instruction_required",
+                "message": "Сначала загрузите должностную инструкцию.",
+            },
+        )
+
+    instruction = await db.scalar(
+        select(Document).where(
+            Document.id == pos.instruction_document_id,
+            Document.tenant_id == user.tenant_id,
+            Document.category == "job_instruction",
+        )
+    )
+    if not instruction:
+        raise HTTPException(status_code=422, detail="Job instruction is invalid")
+    if instruction.embedding_status != "success":
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "code": "instruction_not_ready",
+                "message": "Индексация должностной инструкции ещё не завершена или завершилась ошибкой.",
+            },
+        )
+
+    existing = await db.scalar(
+        select(Course)
+        .join(PositionCourse, PositionCourse.course_id == Course.id)
+        .where(
+            PositionCourse.position_id == pos.id,
+            PositionCourse.tenant_id == user.tenant_id,
+            Course.tenant_id == user.tenant_id,
+            Course.source_instruction_id == instruction.id,
+        )
+        .order_by(Course.created_at.desc())
+        .limit(1)
+    )
+    latest_job_status = None
+    if existing:
+        latest_job_status = await db.scalar(
+            select(AIJob.status)
+            .where(
+                AIJob.course_id == existing.id,
+                AIJob.tenant_id == user.tenant_id,
+            )
+            .order_by(AIJob.created_at.desc())
+            .limit(1)
+        )
+        if existing.ai_generated or latest_job_status in {"pending", "running", "completed"}:
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "code": "instruction_course_exists",
+                    "course_id": str(existing.id),
+                    "message": "Курс по текущей версии ДИ уже создан или генерируется.",
+                },
+            )
+
+    from app.core.trial_limits import (
+        release_jd_course_generation,
+        reserve_jd_course_generation,
+    )
+
+    reserved = False
+    created_now = existing is None
+    course = existing or Course(
+        tenant_id=user.tenant_id,
+        title=f"Введение в должность: {pos.name}",
+        description=f"Курс по действующей должностной инструкции для должности {pos.name}",
+        status="draft",
+        delivery_type="native",
+        created_by=user.id,
+        ai_generated=False,
+        source_instruction_id=instruction.id,
+        source_instruction_version_at=instruction.updated_at,
+    )
+    try:
+        if created_now:
+            await reserve_jd_course_generation(db, user.tenant_id)
+            reserved = True
+            db.add(course)
+            await db.flush()
+            db.add(
+                PositionCourse(
+                    position_id=pos.id,
+                    course_id=course.id,
+                    tenant_id=user.tenant_id,
+                    required=True,
+                )
+            )
+            await db.flush()
+
+        from app.modules.ai.router import generate_course
+        from app.modules.ai.schemas import AIGenerateRequest
+
+        job = await generate_course(
+            AIGenerateRequest(
+                course_id=course.id,
+                documents=[str(instruction.id)],
+                target_audience=payload.target_audience or pos.name,
+                num_modules=payload.num_modules,
+                language=payload.language,
+            ),
+            db=db,
+            user=user,
+        )
+        return GenerateInstructionCourseResponse(
+            course_id=course.id,
+            job_id=job.id,
+            status=job.status,
+        )
+    except Exception:
+        if created_now:
+            await db.execute(
+                delete(PositionCourse).where(
+                    PositionCourse.position_id == pos.id,
+                    PositionCourse.course_id == course.id,
+                    PositionCourse.tenant_id == user.tenant_id,
+                )
+            )
+            if course.id:
+                persisted = await db.get(Course, course.id)
+                if persisted:
+                    await db.delete(persisted)
+        if reserved:
+            await release_jd_course_generation(db, user.tenant_id)
+        await db.commit()
+        raise
 
 
 # ── Helpers ──────────────────────────────────────────────────

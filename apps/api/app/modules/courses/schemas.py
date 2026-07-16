@@ -31,6 +31,8 @@ class CourseResponse(BaseModel):
     delivery_type: Literal["native", "scorm"] = "native"
     thumbnail_url: str | None = None
     ai_generated: bool = False
+    source_instruction_id: UUID | None = None
+    source_instruction_version_at: datetime | None = None
     created_by: UUID | None = None
     created_at: datetime
     updated_at: datetime

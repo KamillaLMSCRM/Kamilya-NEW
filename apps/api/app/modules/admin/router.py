@@ -41,7 +41,7 @@ async def stats(
 @router.get("/trial-usage", response_model=TrialUsage)
 async def trial_usage(
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("admin", "org_admin")),
+    user: User = Depends(require_role("admin", "org_admin", "methodologist", "teacher")),
 ):
     """Get tenant-facing trial limits and current usage."""
     try:

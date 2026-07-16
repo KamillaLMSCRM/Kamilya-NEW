@@ -43,7 +43,7 @@ class GenerationState:
 async def _update_job_db(job_id: str, tenant_id: UUID | str | None = None, **kwargs):
     """Update job state in the database."""
     from app.modules.ai.job_service import update_ai_job
-    from sqlalchemy import text
+    from sqlalchemy import delete, select, text
     async with async_session_factory() as session:
         tenant_value = str(tenant_id) if tenant_id else None
         if tenant_value:
@@ -61,26 +61,47 @@ async def _save_generation_to_db(
     from app.modules.courses.models import Course
     from app.modules.lessons.models import Module, Lesson
     from app.modules.quizzes.models import Quiz, Question, QuizChoice
-    from sqlalchemy import text
+    from sqlalchemy import delete, select, text
 
     async with async_session_factory() as session:
         await session.execute(text("SELECT set_current_tenant(:tid)"), {"tid": str(tenant_id)})
-        # Create course
-        course = Course(
-            id=UUID(state.course_id) if state.course_id else uuid4(),
-            tenant_id=tenant_id,
-            title=state.structure.title if state.structure else "AI Generated Course",
-            description=state.structure.description if state.structure else "",
-            status="draft",
-            created_by=user_id,
-            ai_generated=True,
-        )
         if not state.course_id:
+            course = Course(
+                id=uuid4(),
+                tenant_id=tenant_id,
+                title=state.structure.title if state.structure else "AI Generated Course",
+                description=state.structure.description if state.structure else "",
+                status="draft",
+                created_by=user_id,
+                ai_generated=True,
+            )
             session.add(course)
             await session.flush()
             state.course_id = str(course.id)
         else:
-            session.add(course)
+            course = await session.scalar(
+                select(Course).where(
+                    Course.id == UUID(state.course_id),
+                    Course.tenant_id == tenant_id,
+                )
+            )
+            if not course:
+                raise ValueError("Target course does not exist in this tenant")
+            course.title = state.structure.title if state.structure else course.title
+            course.description = (
+                state.structure.description if state.structure else course.description
+            )
+            course.status = "draft"
+            course.ai_generated = True
+            # Regeneration replaces the draft's previous learning structure.
+            # Database cascades remove lessons/quizzes below each module.
+            await session.execute(
+                delete(Module).where(
+                    Module.course_id == course.id,
+                    Module.tenant_id == tenant_id,
+                )
+            )
+            await session.flush()
 
         # Create modules and lessons
         if state.structure and state.content:
@@ -262,6 +283,7 @@ async def run_generation_pipeline(
     4. Run Assessment Agent (questions for each lesson)
     5. Save results to DB
     """
+    created_course_in_pipeline = course_id is None
     state = GenerationState(job_id=job_id, course_id=course_id)
 
     try:
@@ -446,14 +468,17 @@ async def run_generation_pipeline(
         if tenant_id and user_id:
             await _save_generation_to_db(state, tenant_id, user_id)
 
-            # Auto-enroll the creator in the generated course
-            if state.course_id:
+            # Auto-enrolment is only useful for the standalone generation demo.
+            # A pre-created course belongs to an authoring workflow (for example,
+            # a methodologist generating from a job instruction) and must not turn
+            # its author into a learner.
+            if state.course_id and created_course_in_pipeline:
                 try:
                     from app.models.enrollment import Enrollment
-                    from sqlalchemy import select as sa_select
+                    from sqlalchemy import select as sa_select, text as sa_text
                     from app.core.db import async_session_factory
                     async with async_session_factory() as session:
-                        await session.execute(text("SELECT set_current_tenant(:tid)"), {"tid": str(tenant_id)})
+                        await session.execute(sa_text("SELECT set_current_tenant(:tid)"), {"tid": str(tenant_id)})
                         existing = await session.execute(
                             sa_select(Enrollment).where(
                                 Enrollment.user_id == user_id,

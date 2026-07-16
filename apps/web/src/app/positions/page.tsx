@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import Link from 'next/link';
+import { Download, FileText, FileUp, Pencil, Sparkles } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
@@ -14,6 +16,15 @@ interface Position {
   level: string;
   responsibilities: string;
   requirements: string;
+  instruction_document_id: string | null;
+  instruction_filename: string | null;
+  instruction_embedding_status: string | null;
+  instruction_updated_at: string | null;
+  source_course_id: string | null;
+  source_course_title: string | null;
+  source_course_status: string | null;
+  source_course_generation_status: string | null;
+  source_course_outdated: boolean;
   course_ids: string[];
   employee_count: number;
   created_at: string;
@@ -169,6 +180,9 @@ export default function PositionsPage() {
   const [requirements, setRequirements] = useState('');
   const [selectedCourseIds, setSelectedCourseIds] = useState<string[]>([]);
   const [analyzing, setAnalyzing] = useState(false);
+  const [instructionFor, setInstructionFor] = useState<string | null>(null);
+  const [generatingCourseFor, setGeneratingCourseFor] = useState<string | null>(null);
+  const [jdRemaining, setJdRemaining] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // ── Bulk JD upload state ─────────────────────────────────
@@ -239,7 +253,29 @@ export default function PositionsPage() {
     } catch {}
   }, []);
 
-  useEffect(() => { fetchPositions(); fetchCourses(); }, [fetchPositions, fetchCourses]);
+  const fetchTrialUsage = useCallback(async () => {
+    try {
+      const res = await api.get('/v1/admin/trial-usage');
+      setJdRemaining(res.data?.jd_courses?.remaining ?? null);
+    } catch {
+      setJdRemaining(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchPositions();
+    fetchCourses();
+    fetchTrialUsage();
+  }, [fetchPositions, fetchCourses, fetchTrialUsage]);
+
+  useEffect(() => {
+    const hasRunningGeneration = positions.some((position) =>
+      ['pending', 'running'].includes(position.source_course_generation_status || ''),
+    );
+    if (!hasRunningGeneration) return;
+    const timer = window.setInterval(fetchPositions, 5000);
+    return () => window.clearInterval(timer);
+  }, [positions, fetchPositions]);
 
   const resetForm = () => {
     setName(''); setDepartment(''); setLevel(''); setResponsibilities(''); setRequirements('');
@@ -303,50 +339,78 @@ export default function PositionsPage() {
 
   const handleAnalyzeJD = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file || !instructionFor) return;
     setAnalyzing(true);
     try {
       const formData = new FormData();
       formData.append('file', file);
       const token = useAuthStore.getState().accessToken;
       const API_URL = process.env.NEXT_PUBLIC_API_URL;
-      const res = await fetch(`${API_URL}/v1/positions/analyze-jd`, {
+      const res = await fetch(`${API_URL}/v1/positions/${instructionFor}/instruction`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
         body: formData,
       });
       if (!res.ok) {
-        const err = await res.json().catch(() => ({ detail: 'Ошибка анализа' }));
-        toast.error(t('common.saveFailed'), { description: err.detail || 'Ошибка анализа' });
+        const err = await res.json().catch(() => ({ detail: 'Ошибка загрузки' }));
+        const detail = typeof err.detail === 'string'
+          ? err.detail
+          : err.detail?.message || 'Не удалось загрузить должностную инструкцию';
+        toast.error(t('common.saveFailed'), { description: detail });
         return;
       }
-      const data = await res.json();
-      // If editing existing position, show diff instead of silent overwrite
-      if (editPos) {
-        const items: JDPreviewItem[] = [
-          { field: 'name', current: editPos.name, proposed: data.name || editPos.name, changed: (data.name || '') !== editPos.name },
-          { field: 'department', current: editPos.department, proposed: data.department || editPos.department, changed: (data.department || '') !== editPos.department },
-          { field: 'level', current: editPos.level, proposed: data.level || editPos.level, changed: (data.level || '') !== editPos.level },
-          { field: 'responsibilities', current: editPos.responsibilities, proposed: data.responsibilities || '', changed: (data.responsibilities || '') !== editPos.responsibilities },
-          { field: 'requirements', current: editPos.requirements, proposed: data.requirements || '', changed: (data.requirements || '') !== editPos.requirements },
-        ];
-        setPreview(items);
-        setPendingIssues((data.issues as JDAuditItem[]) || []);
-        setShowCreate(true); // keep create modal open behind preview
-        return;
-      }
-      // New position: silent auto-fill (current behavior)
-      if (data.name) setName(data.name);
-      if (data.department) setDepartment(data.department);
-      if (data.level) setLevel(data.level);
-      if (data.responsibilities) setResponsibilities(data.responsibilities);
-      if (data.requirements) setRequirements(data.requirements);
-      setShowCreate(true);
+      toast.success('Должностная инструкция сохранена. Проверьте извлечённые данные.');
+      await fetchPositions();
     } catch (err) {
-      toast.error(t('common.saveFailed'), { description: 'Не удалось проанализировать файл' });
+      toast.error(t('common.saveFailed'), { description: 'Не удалось загрузить должностную инструкцию' });
     } finally {
       setAnalyzing(false);
+      setInstructionFor(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleGenerateInstructionCourse = async (positionId: string) => {
+    setGeneratingCourseFor(positionId);
+    try {
+      const res = await api.post(`/v1/positions/${positionId}/generate-instruction-course`, {
+        target_audience: positions.find((item) => item.id === positionId)?.name || '',
+        num_modules: 3,
+        language: 'ru',
+      });
+      toast.success('Генерация курса запущена. Черновик появится в разделе «Курсы».');
+      await Promise.all([fetchPositions(), fetchTrialUsage()]);
+      return res.data;
+    } catch (err: any) {
+      const detail = err?.response?.data?.detail;
+      const description = typeof detail === 'string'
+        ? detail
+        : detail?.message || 'Не удалось запустить генерацию курса';
+      toast.error(t('common.saveFailed'), { description });
+    } finally {
+      setGeneratingCourseFor(null);
+    }
+  };
+
+  const handleDownloadInstruction = async (position: Position) => {
+    if (!position.instruction_document_id) return;
+    try {
+      const token = useAuthStore.getState().accessToken;
+      const API_URL = process.env.NEXT_PUBLIC_API_URL;
+      const res = await fetch(
+        `${API_URL}/v1/documents/${position.instruction_document_id}/download`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      if (!res.ok) throw new Error('download failed');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = position.instruction_filename || 'dolzhnostnaya-instrukciya';
+      anchor.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast.error('Не удалось скачать должностную инструкцию');
     }
   };
 
@@ -768,28 +832,17 @@ export default function PositionsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-foreground font-display">Должности</h1>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground font-display">Должности и инструкции</h1>
+          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+            Сохраните действующую должностную инструкцию, проверьте извлечённые данные и создайте по ней курс.
+          </p>
+        </div>
         <div className="flex gap-2">
           <input ref={fileInputRef} type="file" accept=".pdf,.docx,.doc,.txt" onChange={handleAnalyzeJD} className="hidden" />
           <input ref={bulkFileInputRef} type="file" accept=".pdf,.docx,.doc,.txt" multiple onChange={handleBulkAnalyzeJD} className="hidden" />
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={analyzing}
-            className="rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-foreground hover:bg-muted transition-colors disabled:opacity-50"
-            title="Один JD файл → автозаполнение формы"
-          >
-            {analyzing ? 'Анализ...' : 'Загрузить JD'}
-          </button>
-          <button
-            onClick={() => bulkFileInputRef.current?.click()}
-            disabled={bulkAnalyzing}
-            className="rounded-xl border border-primary/30 bg-primary/5 px-4 py-2.5 text-sm font-medium text-primary hover:bg-primary/10 transition-colors disabled:opacity-50"
-            title="Несколько JD файлов разом → превью → создать все"
-          >
-            {bulkAnalyzing ? 'Анализ...' : 'Массовая загрузка JD'}
-          </button>
-          <button onClick={() => { resetForm(); setShowCreate(true); }} className="rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-white hover:bg-primary/90 transition-colors">
+          <button onClick={() => { resetForm(); setShowCreate(true); }} className="rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-white hover:bg-primary/90 transition-colors">
             + Добавить должность
           </button>
         </div>
@@ -883,7 +936,7 @@ export default function PositionsPage() {
       ) : (
         <div className="space-y-3">
           {positions.map((pos) => (
-            <div key={pos.id} className="rounded-2xl border border-border bg-card p-5 shadow-card hover:shadow-card-hover transition-all">
+            <div key={pos.id} className="rounded-lg border border-border bg-card p-5 shadow-card transition-shadow hover:shadow-card-hover">
               <div className="flex items-start justify-between">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
@@ -963,47 +1016,149 @@ export default function PositionsPage() {
                     </div>
                   )}
                 </div>
-                <div className="flex flex-col items-end gap-2 ml-4 shrink-0">
-                  {/* Primary action — the most common task */}
+                <div className="ml-4 flex shrink-0 flex-col items-end gap-2">
                   <button
                     onClick={() => handleEdit(pos)}
-                    className="rounded-lg bg-primary px-4 py-1.5 text-xs font-medium text-white hover:bg-primary/90 transition-colors"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs font-medium text-foreground transition-colors hover:bg-muted"
                   >
+                    <Pencil size={14} aria-hidden="true" />
                     Изменить
                   </button>
                 </div>
               </div>
 
-              {/* AI-помощник — grouped under a clear label so user sees these are expensive LLM calls */}
-              <div className="mt-3 pt-3 border-t border-border/60 flex items-center gap-2 flex-wrap">
-                <span className="text-xs font-semibold text-muted-foreground mr-1">🤖 AI-помощник:</span>
+              <div className="mt-4 rounded-lg border border-border bg-muted/40 p-4">
+                {!pos.instruction_document_id ? (
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-start gap-3">
+                      <FileText className="mt-0.5 text-muted-foreground" size={20} aria-hidden="true" />
+                      <div>
+                        <p className="text-sm font-semibold text-foreground">Должностная инструкция не загружена</p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">Загрузите утверждённый PDF, DOCX, DOC или TXT до 10 МБ.</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => { setInstructionFor(pos.id); fileInputRef.current?.click(); }}
+                      disabled={analyzing}
+                      className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary/90 disabled:opacity-50"
+                    >
+                      <FileUp size={16} aria-hidden="true" />
+                      {analyzing && instructionFor === pos.id ? 'Загружаю...' : 'Загрузить инструкцию'}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="flex min-w-0 items-start gap-3">
+                        <FileText className="mt-0.5 shrink-0 text-primary" size={20} aria-hidden="true" />
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-foreground">{pos.instruction_filename}</p>
+                          <p className="mt-0.5 text-xs text-muted-foreground">
+                            {pos.instruction_embedding_status === 'success' ? 'Источник сохранён и готов к генерации' :
+                             pos.instruction_embedding_status === 'failed' ? 'Ошибка индексации — замените файл' :
+                             'Источник обрабатывается'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          onClick={() => handleDownloadInstruction(pos)}
+                          className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-foreground transition-colors hover:bg-card"
+                          title="Скачать исходную должностную инструкцию"
+                        >
+                          <Download size={16} aria-hidden="true" />
+                          Скачать
+                        </button>
+                        <button
+                          onClick={() => { setInstructionFor(pos.id); fileInputRef.current?.click(); }}
+                          disabled={analyzing}
+                          className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-foreground transition-colors hover:bg-card disabled:opacity-50"
+                        >
+                          <FileUp size={16} aria-hidden="true" />
+                          Заменить
+                        </button>
+                      </div>
+                    </div>
+
+                    {pos.source_course_id && !pos.source_course_outdated ? (
+                      <div className="flex flex-col gap-3 border-t border-border pt-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <p className="text-sm font-semibold text-foreground">{pos.source_course_title}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {['pending', 'running'].includes(pos.source_course_generation_status || '')
+                              ? 'AI формирует структуру, уроки и вопросы. Статус обновится автоматически.'
+                              : pos.source_course_generation_status === 'failed'
+                                ? 'Генерация завершилась ошибкой. Можно запустить повторно без списания лимита.'
+                                : pos.source_course_status === 'published'
+                                  ? 'Курс опубликован'
+                                  : 'Черновик курса создан — проверьте содержание'}
+                          </p>
+                        </div>
+                        {pos.source_course_generation_status === 'failed' ? (
+                          <button
+                            onClick={() => handleGenerateInstructionCourse(pos.id)}
+                            disabled={generatingCourseFor === pos.id}
+                            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary/90 disabled:opacity-50"
+                          >
+                            <Sparkles size={16} aria-hidden="true" />
+                            Повторить генерацию
+                          </button>
+                        ) : ['pending', 'running'].includes(pos.source_course_generation_status || '') ? (
+                          <span className="inline-flex min-h-10 items-center rounded-lg border border-border px-4 py-2 text-sm text-muted-foreground">
+                            Генерация выполняется
+                          </span>
+                        ) : (
+                          <Link
+                            href={`/courses/${pos.source_course_id}/edit`}
+                            className="inline-flex min-h-10 items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary/90"
+                          >
+                            Открыть курс
+                          </Link>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="flex flex-col gap-3 border-t border-border pt-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <p className="text-sm font-semibold text-foreground">
+                            {pos.source_course_outdated ? 'Инструкция обновлена' : 'Следующий шаг: создать курс'}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {jdRemaining === null ? 'AI создаст редактируемый черновик.' : `Доступно генераций по ДИ: ${jdRemaining}`}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => handleGenerateInstructionCourse(pos.id)}
+                          disabled={
+                            generatingCourseFor === pos.id ||
+                            pos.instruction_embedding_status !== 'success' ||
+                            jdRemaining === 0
+                          }
+                          className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          <Sparkles size={16} aria-hidden="true" />
+                          {generatingCourseFor === pos.id ? 'Запускаю...' : pos.source_course_outdated ? 'Создать новую версию курса' : 'Создать курс по ДИ'}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border/60 pt-3">
+                <span className="mr-1 text-xs font-semibold text-muted-foreground">Дополнительно:</span>
                 <button
                   onClick={() => recsFor === pos.id ? setRecsFor(null) : handleRecommend(pos.id)}
                   className="rounded-lg border border-primary/30 bg-primary/5 px-2.5 py-1 text-xs text-primary hover:bg-primary/10 transition-colors"
                   title="AI подберёт документы и курсы, похожие на обязанности/требования этой должности"
                 >
-                  {recsFor === pos.id ? 'Скрыть' : '📚 Подобрать курсы'}
-                </button>
-                <button
-                  onClick={() => suggestionsFor === pos.id ? setSuggestionsFor(null) : handleSuggestCourses(pos.id)}
-                  className="rounded-lg border border-success/40 bg-success/10 px-2.5 py-1 text-xs text-success hover:bg-success/15 transition-colors"
-                  title="AI предложит 3-5 тем курсов для онбординга на эту должность"
-                >
-                  {suggestionsFor === pos.id ? 'Скрыть' : '💡 Предложить темы'}
+                  {recsFor === pos.id ? 'Скрыть рекомендации' : 'Подобрать материалы'}
                 </button>
                 <button
                   onClick={() => auditFor === pos.id ? setAuditFor(null) : handleAudit(pos.id)}
                   className="rounded-lg border border-warning/40 bg-warning/10 px-2.5 py-1 text-xs text-warning hover:bg-warning/15 transition-colors"
-                  title="AI проверит качество этой ДИ (полнота, ясность, compliance) и подсветит замечания"
+                  title="AI даст рекомендации по полноте и ясности текста. Это не юридическое заключение."
                 >
-                  {auditFor === pos.id ? 'Скрыть' : '✓ Аудит'}
-                </button>
-                <button
-                  onClick={() => quizFor === pos.id ? closeQuizModal() : openQuizModal(pos.id)}
-                  className="rounded-lg border border-destructive/40 bg-destructive/10 px-2.5 py-1 text-xs text-destructive hover:bg-destructive/15 transition-colors"
-                  title="AI создаст онбординг-тест по ДИ: 7 вопросов с вариантами, чтобы новый сотрудник подтвердил понимание"
-                >
-                  {quizFor === pos.id ? 'Скрыть' : '📝 Тест'}
+                  {auditFor === pos.id ? 'Скрыть рекомендации' : 'Проверить текст'}
                 </button>
               </div>
 

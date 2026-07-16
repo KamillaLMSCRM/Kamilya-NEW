@@ -1,7 +1,7 @@
 # Kamilya LMS - Project Context
 
 > Living document. No secrets in this file.
-> Updated: 2026-07-02.
+> Updated: 2026-07-16.
 
 ## Source Of Truth
 
@@ -100,12 +100,20 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 
 ## Current Production DB State
 
-As of 2026-07-02:
+As of 2026-07-16:
 
-- Alembic: `0045 (head)`.
+- Alembic schema head: `0063`; migration `0063` has been applied to the configured Supabase database.
 - RLS/FORCE RLS enabled for tenant-scoped tables with `tenant_id`.
 - Runtime app and worker connect as `lms_app`.
 - `provider_keys` is intentionally excluded from generic tenant RLS migration because `tenant_id IS NULL` represents global platform keys.
+
+Job-instruction source model:
+
+- `documents.category` distinguishes `general` and `job_instruction` sources;
+- `positions.instruction_document_id` points to the current instruction;
+- `courses.source_instruction_id` and `source_instruction_version_at` preserve course provenance;
+- the source file is stored through the configured storage backend and downloaded through a tenant-scoped API;
+- generation uses a separate `jd_course_generations_used` trial counter.
 
 ## Current Production Deploy
 

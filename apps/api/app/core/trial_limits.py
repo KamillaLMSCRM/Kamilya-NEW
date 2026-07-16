@@ -245,6 +245,54 @@ async def reserve_ai_course_generation(db: AsyncSession, tenant_id: Any) -> None
     await db.flush()
 
 
+async def assert_can_create_jd_course(
+    db: AsyncSession,
+    tenant_id: Any,
+    requested: int = 1,
+) -> None:
+    await assert_tenant_access(db, tenant_id)
+    limits = await _get_trial_limits(db, tenant_id)
+    if not limits:
+        return
+    await assert_can_create_courses(db, tenant_id, requested)
+    if limits.jd_course_generations_limit is None:
+        return
+    usage = await db.get(TenantUsage, tenant_id)
+    current = int((usage.jd_course_generations_used if usage else 0) or 0)
+    if current + requested > limits.jd_course_generations_limit:
+        raise TrialLimitExceeded(
+            "jd_courses",
+            limits.jd_course_generations_limit,
+            current,
+            requested,
+        )
+
+
+async def reserve_jd_course_generation(db: AsyncSession, tenant_id: Any) -> None:
+    limits = await _get_trial_limits(db, tenant_id)
+    if not limits:
+        return
+    await assert_can_create_jd_course(db, tenant_id)
+    usage = await db.get(TenantUsage, tenant_id)
+    if not usage:
+        usage = TenantUsage(tenant_id=tenant_id)
+        db.add(usage)
+        await db.flush()
+    usage.jd_course_generations_used = int(usage.jd_course_generations_used or 0) + 1
+    await db.flush()
+
+
+async def release_jd_course_generation(db: AsyncSession, tenant_id: Any) -> None:
+    usage = await db.get(TenantUsage, tenant_id)
+    if not usage:
+        return
+    usage.jd_course_generations_used = max(
+        0,
+        int(usage.jd_course_generations_used or 0) - 1,
+    )
+    await db.flush()
+
+
 async def assert_can_create_learners(db: AsyncSession, tenant_id: Any, requested: int = 1) -> None:
     await assert_tenant_access(db, tenant_id)
     limits = await _get_trial_limits(db, tenant_id)

@@ -8,6 +8,7 @@ import pytest
 from fastapi import HTTPException
 
 from app.models.tenants import Tenant
+from app.models.tenants import TenantUsage
 
 
 class FakeTenantDB:
@@ -106,3 +107,58 @@ def test_ai_task_is_durable_task_and_has_uuid_dependency():
 
     assert generate_course_task is not None
     assert "job_id" in signature(generate_course_task.run).parameters
+
+
+class FakeUsageDB:
+    def __init__(self, usage: TenantUsage | None = None):
+        self.usage = usage
+        self.added = None
+
+    async def get(self, model, tenant_id):
+        if model is TenantUsage:
+            return self.usage
+        return None
+
+    def add(self, value):
+        self.added = value
+        self.usage = value
+
+    async def flush(self):
+        return None
+
+
+@pytest.mark.asyncio
+async def test_jd_generation_uses_separate_trial_counter(monkeypatch):
+    from app.core import trial_limits
+
+    tenant_id = uuid4()
+    usage = TenantUsage(tenant_id=tenant_id, jd_course_generations_used=0)
+    db = FakeUsageDB(usage)
+
+    async def fake_limits(_db, _tenant_id):
+        return trial_limits.TrialLimits(
+            jd_course_generations_limit=1,
+            max_courses_total=None,
+        )
+
+    async def allow_courses(_db, _tenant_id, requested=1):
+        return None
+
+    async def allow_tenant(_db, _tenant_id):
+        return None
+
+    monkeypatch.setattr(trial_limits, "_get_trial_limits", fake_limits)
+    monkeypatch.setattr(trial_limits, "assert_can_create_courses", allow_courses)
+    monkeypatch.setattr(trial_limits, "assert_tenant_access", allow_tenant)
+
+    await trial_limits.reserve_jd_course_generation(db, tenant_id)
+    assert usage.jd_course_generations_used == 1
+
+    with pytest.raises(HTTPException) as caught:
+        await trial_limits.reserve_jd_course_generation(db, tenant_id)
+
+    assert caught.value.status_code == 403
+    assert caught.value.detail["resource"] == "jd_courses"
+
+    await trial_limits.release_jd_course_generation(db, tenant_id)
+    assert usage.jd_course_generations_used == 0

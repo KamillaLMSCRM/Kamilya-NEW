@@ -36,6 +36,11 @@ def test_job_description_routes_have_one_intended_handler_each() -> None:
         ("/positions/bulk-create", "POST"): "bulk_create_positions",
         ("/positions/{position_id}/suggest-courses", "POST"): "suggest_courses",
         ("/positions/{position_id}/create-courses", "POST"): "create_courses_from_suggestions",
+        ("/positions/{position_id}/instruction", "POST"): "upload_position_instruction",
+        (
+            "/positions/{position_id}/generate-instruction-course",
+            "POST",
+        ): "generate_instruction_course",
     }
 
     for (path, method), endpoint_name in expected.items():

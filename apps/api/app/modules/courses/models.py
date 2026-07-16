@@ -19,6 +19,13 @@ class Course(Base):
     updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
     published_at = Column(DateTime(timezone=True), nullable=True)
     ai_generated = Column(Boolean, nullable=False, default=False)
+    source_instruction_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("documents.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    source_instruction_version_at = Column(DateTime(timezone=True), nullable=True)
 
     # Review / approval workflow (methodologist sign-off).
     # See alembic 0027_add_course_review_fields.py for the migration.

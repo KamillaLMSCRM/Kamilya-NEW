@@ -15,9 +15,11 @@ class DocumentResponse(BaseModel):
     size: int
     s3_key: str
     description: str = ""
+    category: Literal["general", "job_instruction"] = "general"
     embedding_status: Literal["pending", "success", "failed"] = "pending"
     embedding_error: str | None = None
     created_at: datetime
+    updated_at: datetime
     # Populated by router._hydrate when educational summary is available.
     summary_ready: bool = False
     short_summary: str | None = None
