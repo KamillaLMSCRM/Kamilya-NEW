@@ -10,9 +10,9 @@
 - [x] Commit the course release integrity changes after tests and secret checks.
 - [x] Preserve useful historical QA and pilot documentation in a docs-only commit.
 - [x] Push to `origin/master` using the repository token without Git Credential Manager.
-- [ ] Fix the production-schema drift found while applying migration `0065`.
-- [ ] Synchronize the Render pre-deploy migration command with `render.yaml`.
-- [ ] Verify Render deployment, API health, and production Alembic revision.
+- [x] Fix the production-schema drift found while applying migration `0065`.
+- [x] Synchronize the Render pre-deploy migration command with `render.yaml`.
+- [x] Verify Render deployment, API health, and production Alembic revision.
 - [x] Verify Vercel deployment and `app.kml.kz` availability.
 
 ## Safety boundaries

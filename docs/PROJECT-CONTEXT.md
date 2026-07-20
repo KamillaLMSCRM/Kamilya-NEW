@@ -119,10 +119,13 @@ Job-instruction source model:
 
 ## Current Production Deploy
 
-As of 2026-07-02:
+As of 2026-07-20:
 
-- GitHub `master` latest backend-relevant commit: `2990f2f fix: ignore empty ai quizzes in completion`.
-- Render service `srv-d8rp8ej7uimc73fglid0` is live on commit `2990f2f`.
+- GitHub `master` latest backend-relevant commit: `194f682 fix(db): reconcile legacy generated content before RLS`.
+- Render service `srv-d8rp8ej7uimc73fglid0` is live on commit `194f682`.
+- Render runs `PYTHONPATH=. alembic upgrade head` as a pre-deploy command from `apps/api`.
+- Production PostgreSQL is at Alembic revision `0065`; the new tenant-scoped tables have RLS enabled and forced.
+- Vercel production deployment for `app.kml.kz` is green.
 - `/`, `/health`, and `/api/v1/health` return 200.
 - Email OTP request endpoint returns a neutral success response for unknown emails and sends OTP for known tenant users.
 - First tenant-flow production smoke passed: AI course generation, assignment, learner completion and certificate issue.

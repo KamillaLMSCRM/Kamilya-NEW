@@ -3,15 +3,16 @@ services:
     name: kamilya-lms-api
     runtime: python
     plan: starter
-    buildCommand: pip install --no-cache-dir -r apps/api/requirements.txt
+    rootDir: apps/api
+    buildCommand: pip install --no-cache-dir -r requirements.txt
     # Apply schema changes once before replacing the live instance.
     # Without this, schema-affecting code in a new deploy can start against
     # an older database revision.
     # See docs/LESSONS.md 2026-06-29 "Worker setup blocked by missing
     # prod migrations (0032..0036)" for the root cause.
-    preDeployCommand: cd apps/api && alembic upgrade head
+    preDeployCommand: PYTHONPATH=. alembic upgrade head
     startCommand: |
-      cd apps/api && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+      uvicorn app.main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: PYTHON_VERSION
         value: "3.12"
