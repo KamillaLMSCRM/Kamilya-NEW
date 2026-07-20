@@ -14,15 +14,15 @@ Background (see docs/audit-2026-06-28-full.md §3.1):
 This migration closes that gap by:
     1. Calling `ALTER TABLE ... FORCE ROW LEVEL SECURITY` on every
        tenant-scoped table. FORCE makes RLS apply even to the table owner.
-    2. Creating a dedicated `lms_app` role with `NOBYPASSRLS` and granting
-       it the minimum privileges needed to operate.
+    2. Validating the infrastructure-managed `lms_app` role has
+       `NOBYPASSRLS` and granting it the minimum privileges needed to operate.
     3. Documenting the required `DATABASE_URL` swap in the migration
        upgrade/downgrade notes (the URL itself lives in env vars, not
        migration code).
 
-Note: this migration is idempotent — FORCE on an already-FORCE'd table
-is a no-op. The role creation uses `IF NOT EXISTS`-style guards via
-exception handling to remain safe on re-run.
+PostgreSQL role creation and attribute changes require cluster-level rights.
+Provision `lms_app` before Alembic; the migration fails closed if the role is
+missing, is a superuser, or can bypass RLS.
 
 Operational checklist (DO AFTER deploying this migration):
     a) On Supabase: create the `lms_app` role manually (Dashboard →
@@ -44,8 +44,6 @@ ROW LEVEL SECURITY` if rollback is absolutely necessary.
 """
 
 from alembic import op
-import sqlalchemy as sa
-
 
 revision = "0033"
 down_revision = "0032"
@@ -113,12 +111,22 @@ def upgrade() -> None:
     # ------------------------------------------------------------------
     op.execute("""
         DO $$
+        DECLARE
+            app_role RECORD;
         BEGIN
-            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'lms_app') THEN
-                CREATE ROLE lms_app NOLOGIN NOBYPASSRLS;
-            ELSE
-                -- Make sure NOBYPASSRLS is set even if the role pre-existed.
-                ALTER ROLE lms_app NOBYPASSRLS;
+            SELECT rolsuper, rolbypassrls
+            INTO app_role
+            FROM pg_roles
+            WHERE rolname = 'lms_app';
+
+            IF NOT FOUND THEN
+                RAISE EXCEPTION
+                    'Required role lms_app is missing; provision it with LOGIN NOSUPERUSER NOBYPASSRLS before running migrations';
+            END IF;
+
+            IF app_role.rolsuper OR app_role.rolbypassrls THEN
+                RAISE EXCEPTION
+                    'Role lms_app must be NOSUPERUSER NOBYPASSRLS before running migrations';
             END IF;
         END
         $$;
@@ -165,19 +173,6 @@ def downgrade() -> None:
 
     op.execute("REVOKE USAGE ON SCHEMA public FROM lms_app")
 
-    # Drop the role. Will fail if any active connection still uses it;
-    # operator must terminate connections first.
-    op.execute("""
-        DO $$
-        BEGIN
-            IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'lms_app') THEN
-                -- Terminate any lingering sessions from this role.
-                PERFORM pg_terminate_backend(pid)
-                FROM pg_stat_activity
-                WHERE usename = 'lms_app';
-                DROP ROLE lms_app;
-            END IF;
-        END
-        $$;
-    """)
+    # The cluster role itself is infrastructure-owned and is intentionally
+    # not dropped by an application schema downgrade.
     # We do NOT undo FORCE — see note above.

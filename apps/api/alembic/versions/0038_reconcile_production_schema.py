@@ -22,9 +22,9 @@ Revision ID: 0038
 Revises: 0037
 Create Date: 2026-06-30
 """
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 revision = "0038"
 down_revision = "0037"
@@ -73,8 +73,20 @@ def upgrade() -> None:
     # 4. Backfill pdf_path from pdf_url (legacy data had pdf_url).
     op.execute(
         sa.text(
-            "UPDATE certificates SET pdf_path = pdf_url "
-            "WHERE pdf_path IS NULL AND pdf_url IS NOT NULL"
+            """
+            DO $$
+            BEGIN
+              IF EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_schema = 'public'
+                  AND table_name = 'certificates'
+                  AND column_name = 'pdf_url'
+              ) THEN
+                UPDATE certificates SET pdf_path = pdf_url
+                WHERE pdf_path IS NULL AND pdf_url IS NOT NULL;
+              END IF;
+            END$$;
+            """
         )
     )
 

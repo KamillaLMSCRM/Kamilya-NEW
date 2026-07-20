@@ -4,9 +4,10 @@ Revision ID: 0004
 Revises: 0003
 Create Date: 2026-06-21
 """
-from alembic import op
 import sqlalchemy as sa
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy.dialects.postgresql import JSONB, UUID
+
+from alembic import op
 
 revision = "0004"
 down_revision = "0003"
@@ -45,6 +46,9 @@ def upgrade() -> None:
         sa.Column("content_type", sa.String, nullable=False),
         sa.Column("title", sa.String, nullable=False),
         sa.Column("content", JSONB, nullable=False),
+        # Retained for compatibility with production rows created before the
+        # generated-content model stopped exposing ordering directly.
+        sa.Column("order_index", sa.Integer, nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
     )
 

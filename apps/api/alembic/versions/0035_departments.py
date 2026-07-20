@@ -13,9 +13,9 @@ Adds:
     backward compat; will be dropped in 0036 once the FK column is
     confirmed stable.
 """
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 revision = "0035"
 down_revision = "0034"
@@ -31,12 +31,21 @@ def upgrade() -> None:
         sa.Column("tenant_id", sa.dialects.postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column("name", sa.Text(), nullable=False),
         sa.Column("slug", sa.Text(), nullable=False),
+        sa.Column("description", sa.Text(), nullable=False, server_default=""),
+        sa.Column("code", sa.Text(), nullable=True),
+        sa.Column(
+            "head_user_id",
+            sa.dialects.postgresql.UUID(as_uuid=True),
+            sa.ForeignKey("users.id", ondelete="SET NULL"),
+            nullable=True,
+        ),
         sa.Column(
             "parent_id",
             sa.dialects.postgresql.UUID(as_uuid=True),
             sa.ForeignKey("departments.id", ondelete="SET NULL"),
             nullable=True,
         ),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
         sa.UniqueConstraint("tenant_id", "slug", name="uq_departments_tenant_slug"),
     )
     op.create_index("idx_departments_tenant", "departments", ["tenant_id"])

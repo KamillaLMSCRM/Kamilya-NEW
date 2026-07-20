@@ -102,7 +102,9 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 
 As of 2026-07-16:
 
-- Alembic schema head: `0063`; migration `0063` has been applied to the configured Supabase database.
+- Production Supabase schema: `0063` (verified before the isolated HostKZ test).
+- Repository schema head: `0065`; migrations `0064`-`0065` were validated only
+  on the isolated HostKZ test database and have not been applied to Supabase.
 - RLS/FORCE RLS enabled for tenant-scoped tables with `tenant_id`.
 - Runtime app and worker connect as `lms_app`.
 - `provider_keys` is intentionally excluded from generic tenant RLS migration because `tenant_id IS NULL` represents global platform keys.

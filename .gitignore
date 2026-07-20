@@ -83,6 +83,12 @@ alembic/versions/.gitkeep
 # Only the apps/api/storage/ runtime dir is excluded; the app/core/storage
 # package is source code and must be tracked.
 apps/api/storage/
+storage/
+
+# Local tenant source documents used for manual QA. They can contain client
+# material and must never be included in repository history.
+docs/Документы тенантов/
+docs/Документы тенантов.7z
 
 .vercel
 check_*.sql

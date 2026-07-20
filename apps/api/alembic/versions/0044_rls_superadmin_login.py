@@ -7,7 +7,6 @@ Create Date: 2026-07-01
 
 from alembic import op
 
-
 revision = "0044"
 down_revision = "0043"
 branch_labels = None
@@ -15,13 +14,15 @@ depends_on = None
 
 
 def upgrade() -> None:
+    # asyncpg prepares each Alembic execute call and rejects multiple SQL
+    # commands in one prepared statement.
+    op.execute("DROP POLICY IF EXISTS users_platform_superadmin_login ON users")
     op.execute(
         """
-        DROP POLICY IF EXISTS users_platform_superadmin_login ON users;
         CREATE POLICY users_platform_superadmin_login ON users
         FOR SELECT
         TO lms_app
-        USING (tenant_id IS NULL AND role = 'superadmin');
+        USING (tenant_id IS NULL AND role = 'superadmin')
         """
     )
 

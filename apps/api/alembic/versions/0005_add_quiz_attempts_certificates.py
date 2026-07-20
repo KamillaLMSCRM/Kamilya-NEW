@@ -4,9 +4,10 @@ Revision ID: 0005
 Revises: 0004_add_ai_jobs
 Create Date: 2026-06-21
 """
-from alembic import op
 import sqlalchemy as sa
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy.dialects.postgresql import JSONB, UUID
+
+from alembic import op
 
 revision = "0005"
 down_revision = "0004"
@@ -23,6 +24,7 @@ def upgrade() -> None:
         sa.Column("user_id", UUID(as_uuid=True), nullable=False, index=True),
         sa.Column("tenant_id", UUID(as_uuid=True), nullable=False, index=True),
         sa.Column("score_percent", sa.Integer(), nullable=False, server_default="0"),
+        sa.Column("score", sa.Integer(), nullable=True),
         sa.Column("total_points", sa.Integer(), nullable=False, server_default="0"),
         sa.Column("earned_points", sa.Integer(), nullable=False, server_default="0"),
         sa.Column("passed", sa.Boolean(), nullable=False, server_default="false"),
@@ -32,9 +34,6 @@ def upgrade() -> None:
         sa.Column("time_spent_seconds", sa.Integer(), nullable=True),
         sa.ForeignKeyConstraint(["quiz_id"], ["quizzes.id"], ondelete="cascade"),
     )
-    op.create_index("ix_quiz_attempts_user_id", "quiz_attempts", ["user_id"])
-    op.create_index("ix_quiz_attempts_quiz_id", "quiz_attempts", ["quiz_id"])
-
     # certificates
     op.create_table(
         "certificates",
@@ -46,6 +45,7 @@ def upgrade() -> None:
         sa.Column("issued_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
         sa.Column("expires_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("pdf_path", sa.Text(), nullable=True),
+        sa.Column("pdf_url", sa.Text(), nullable=True),
         sa.Column("metadata", JSONB, nullable=True),
         sa.ForeignKeyConstraint(["course_id"], ["courses.id"], ondelete="cascade"),
     )

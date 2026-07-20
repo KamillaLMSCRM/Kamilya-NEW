@@ -4,8 +4,9 @@ Revision ID: 0012
 Revises: 0011
 Create Date: 2026-06-22
 """
-from alembic import op
 import sqlalchemy as sa
+
+from alembic import op
 
 revision = "0012"
 down_revision = "0011"
@@ -23,6 +24,11 @@ def column_exists(bind, table, column):
 
 def upgrade() -> None:
     bind = op.get_bind()
+
+    # Alembic creates version_num as VARCHAR(32), while several historical
+    # revision identifiers in this repository are longer than 32 characters.
+    # Expand it before Alembic writes the next revision during a clean install.
+    bind.execute(sa.text("ALTER TABLE alembic_version ALTER COLUMN version_num TYPE VARCHAR(128)"))
 
     # Add role column
     if not column_exists(bind, "users", "role"):
@@ -42,11 +48,12 @@ def upgrade() -> None:
         bind.execute(sa.text("ALTER TABLE users ADD COLUMN last_login TIMESTAMPTZ"))
 
     # Sync role from user_roles table where user_roles has data
-    bind.execute(sa.text("""
-        UPDATE users SET role = ur.role
-        FROM user_roles ur
-        WHERE users.id = ur.user_id AND users.tenant_id = ur.tenant_id
-    """))
+    if bind.execute(sa.text("SELECT to_regclass('public.user_roles') IS NOT NULL")).scalar():
+        bind.execute(sa.text("""
+            UPDATE users SET role = ur.role
+            FROM user_roles ur
+            WHERE users.id = ur.user_id AND users.tenant_id = ur.tenant_id
+        """))
 
     # Sync is_active from status
     bind.execute(sa.text("UPDATE users SET is_active = (status = 'active') WHERE status IS NOT NULL"))

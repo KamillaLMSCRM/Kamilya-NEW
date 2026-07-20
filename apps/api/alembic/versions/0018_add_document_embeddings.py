@@ -4,8 +4,8 @@ Revision ID: 0018
 Revises: 0017
 Create Date: 2026-06-24
 """
+
 from alembic import op
-import sqlalchemy as sa
 
 revision = "0018"
 down_revision = "0017"
@@ -26,18 +26,18 @@ def upgrade() -> None:
             text TEXT NOT NULL,
             headings TEXT NOT NULL DEFAULT '',
             doc_name TEXT NOT NULL DEFAULT '',
-            embedding vector(4096)
+            embedding vector(4096),
+            created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
         )
     """)
 
     # Indexes
     op.execute("CREATE INDEX IF NOT EXISTS ix_document_embeddings_tenant ON document_embeddings (tenant_id)")
     op.execute("CREATE INDEX IF NOT EXISTS ix_document_embeddings_doc ON document_embeddings (doc_id)")
-    op.execute("""
-        CREATE INDEX IF NOT EXISTS ix_document_embeddings_embedding
-        ON document_embeddings USING ivfflat (embedding vector_cosine_ops)
-        WITH (lists = 10)
-    """)
+    # pgvector ANN indexes support at most 2,000 dimensions for vector, while
+    # this schema stores 4,096-dimensional embeddings. Keep exact cosine search
+    # filtered by the tenant/document indexes until embeddings are migrated to
+    # a supported dimension or an explicit quantized index is introduced.
 
 
 def downgrade() -> None:
