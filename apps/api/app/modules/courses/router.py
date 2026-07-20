@@ -10,6 +10,7 @@ from app.core.auth import get_current_user, require_role, require_tenant_user
 from app.core.db import get_db
 from app.models.users import User
 from app.models.courses import Course
+from app.models.enrollment import Enrollment
 from app.modules.courses.schemas import (
     CourseCreate,
     CourseUpdate,
@@ -22,6 +23,11 @@ from app.modules.courses.schemas import (
     CoursePreviewRequest,
 )
 from app.modules.audit.service import log_action
+from app.modules.courses.access import AUTHORING_ROLES, require_course_access
+from app.modules.courses.publication_service import (
+    activate_course_assignments,
+    refresh_course_assignments,
+)
 
 router = APIRouter(
     prefix="/courses",
@@ -51,6 +57,15 @@ async def list_courses(
     user: User = Depends(get_current_user),
 ):
     query = select(Course).where(Course.tenant_id == user.tenant_id)
+    if user.role == "student":
+        query = query.join(
+            Enrollment,
+            (Enrollment.course_id == Course.id)
+            & (Enrollment.user_id == user.id)
+            & (Enrollment.tenant_id == user.tenant_id),
+        ).where(Course.status == "published")
+    elif user.role not in AUTHORING_ROLES:
+        raise HTTPException(status_code=403, detail="Course authoring role required")
     if status:
         query = query.where(Course.status == status)
     if q:
@@ -108,12 +123,7 @@ async def get_course(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    result = await db.execute(
-        select(Course).where(Course.id == course_id, Course.tenant_id == user.tenant_id)
-    )
-    course = result.scalar_one_or_none()
-    if not course:
-        raise HTTPException(status_code=404, detail="Course not found")
+    course = await require_course_access(db, course_id, user)
     course.reviewer = await _hydrate_reviewer(db, course)
     return course
 
@@ -123,7 +133,7 @@ async def get_course_preview(
     course_id: UUID,
     max_chars: int = Query(240, ge=80, le=2000, description="Max chars of lesson content to include inline"),
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_role("superadmin", "methodologist", "teacher")),
 ):
     """Lightweight course structure for the AI-generation review step.
 
@@ -303,9 +313,20 @@ async def publish_course(
     course = result.scalar_one_or_none()
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
+    if course.ai_generated and course.review_status != "approved":
+        raise HTTPException(
+            status_code=409,
+            detail="AI-generated course must be approved before publication",
+        )
+    if course.source_instruction_id is not None and not course.ai_generated:
+        raise HTTPException(
+            status_code=409,
+            detail="Job-instruction course generation is not complete",
+        )
     course.status = "published"
     course.published_at = datetime.now(timezone.utc)
     await db.flush()
+    await activate_course_assignments(db, course)
     await db.refresh(course)
     await log_action(
         db, user.tenant_id, "publish", "course",
@@ -334,6 +355,7 @@ async def unpublish_course(
     course.status = "draft"
     course.published_at = None
     await db.flush()
+    await refresh_course_assignments(db, course)
     await db.refresh(course)
     await log_action(
         db, user.tenant_id, "unpublish", "course",

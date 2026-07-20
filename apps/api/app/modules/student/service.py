@@ -22,7 +22,12 @@ async def get_student_dashboard(db: AsyncSession, user_id: UUID, tenant_id: UUID
     enrollments_result = await db.execute(
         select(Enrollment, Course)
         .join(Course, Enrollment.course_id == Course.id)
-        .where(Enrollment.user_id == user_id, Enrollment.tenant_id == tenant_id)
+        .where(
+            Enrollment.user_id == user_id,
+            Enrollment.tenant_id == tenant_id,
+            Course.tenant_id == tenant_id,
+            Course.status == "published",
+        )
         .order_by(Enrollment.enrolled_at.desc())
     )
     enrollments = enrollments_result.all()

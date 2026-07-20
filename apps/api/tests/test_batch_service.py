@@ -60,7 +60,7 @@ async def test_recompute_position_holders_runs_recompute_per_holder():
     # Inline result object so .scalars() returns our mock that has .all()
     result_obj = MagicMock()
     scalars = MagicMock()
-    scalars.all = MagicMock(return_value=[(user_a,), (user_b,)])
+    scalars.all = MagicMock(return_value=[user_a, user_b])
     result_obj.scalars = MagicMock(return_value=scalars)
     db.execute = AsyncMock(return_value=result_obj)
 

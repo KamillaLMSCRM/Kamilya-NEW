@@ -7,7 +7,7 @@ import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { toast } from '@/components/ui/Toast';
-import { ChevronLeft, ChevronUp, ChevronDown, X, Plus, Sparkles, Bot } from 'lucide-react';
+import { ChevronLeft, ChevronUp, ChevronDown, X, Plus, Sparkles, Bot, CheckCircle2, Rocket } from 'lucide-react';
 import { AIChatPanel } from '@/components/ai/AIChatPanel';
 
 interface Lesson {
@@ -30,6 +30,9 @@ interface Course {
   title: string;
   description: string;
   status: string;
+  ai_generated: boolean;
+  review_status: 'pending' | 'approved' | 'needs_changes';
+  source_instruction_id?: string | null;
 }
 
 export default function CourseEditPage() {
@@ -50,6 +53,7 @@ export default function CourseEditPage() {
   const [addingLessonToModule, setAddingLessonToModule] = useState<string | null>(null);
   const [editingLessonId, setEditingLessonId] = useState<string | null>(null);
   const [editLessonContent, setEditLessonContent] = useState('');
+  const [releaseAction, setReleaseAction] = useState<'approve' | 'publish' | null>(null);
 
   // AI chat panel state — opens as a slide-over from the right.
   const [chatOpen, setChatOpen] = useState(false);
@@ -220,33 +224,114 @@ export default function CourseEditPage() {
     setEditingLessonId(null);
   };
 
+  const releaseRequest = async (path: string, body?: object) => {
+    if (!token) return null;
+    const response = await fetch(`${API_URL}/v1/courses/${courseId}/${path}`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        ...(body ? { 'Content-Type': 'application/json' } : {}),
+      },
+      ...(body ? { body: JSON.stringify(body) } : {}),
+    });
+    if (!response.ok) {
+      const payload = await response.json().catch(() => null);
+      throw new Error(payload?.detail || 'Не удалось изменить статус курса');
+    }
+    return response.json() as Promise<Course>;
+  };
+
+  const handleApprove = async () => {
+    setReleaseAction('approve');
+    try {
+      const updated = await releaseRequest('review', { review_status: 'approved' });
+      if (updated) setCourse(updated);
+      toast.success('Курс одобрен', { description: 'Теперь его можно опубликовать.' });
+    } catch (error) {
+      toast.error('Не удалось одобрить курс', { description: (error as Error).message });
+    } finally {
+      setReleaseAction(null);
+    }
+  };
+
+  const handlePublish = async () => {
+    setReleaseAction('publish');
+    try {
+      const updated = await releaseRequest('publish');
+      if (updated) setCourse(updated);
+      toast.success(
+        course?.source_instruction_id ? 'Курс опубликован и назначен' : 'Курс опубликован',
+        course?.source_instruction_id
+          ? { description: 'Назначения по должности активированы для текущих сотрудников.' }
+          : undefined,
+      );
+    } catch (error) {
+      toast.error('Не удалось опубликовать курс', { description: (error as Error).message });
+    } finally {
+      setReleaseAction(null);
+    }
+  };
+
   if (loading) return <div className="p-6">{t('common.loading')}</div>;
   if (!course) return <div className="p-6">{t('common.error')}</div>;
 
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <a href={`/courses/${courseId}`} className="flex items-center gap-1 text-sm text-primary hover:underline">
             <ChevronLeft className="w-4 h-4" /> {course.title}
           </a>
           <h1 className="text-2xl font-bold mt-1">{t('courses.editCourse')}</h1>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <Badge variant={course.status === 'published' ? 'default' : 'outline'}>
+              {course.status === 'published' ? t('courses.published') : t('courses.draft')}
+            </Badge>
+            {course.ai_generated && (
+              <Badge variant={course.review_status === 'approved' ? 'secondary' : 'outline'}>
+                {course.review_status === 'approved' ? 'Проверен методологом' : 'Требует проверки'}
+              </Badge>
+            )}
+            {course.source_instruction_id && <Badge variant="outline">По должностной инструкции</Badge>}
+          </div>
         </div>
-        <Badge variant={course.status === 'published' ? 'default' : 'outline'}>
-          {course.status === 'published' ? t('courses.published') : t('courses.draft')}
-        </Badge>
-        <Button
-          variant="default"
-          size="sm"
-          onClick={() => {
-            setChatFocus({});
-            setChatOpen(true);
-          }}
-        >
-          <Sparkles className="w-4 h-4 mr-1" />
-          AI-помощник
-        </Button>
+        <div className="flex flex-wrap gap-2 sm:justify-end">
+          {course.status !== 'published' && course.ai_generated && course.review_status !== 'approved' && (
+            <Button size="sm" variant="outline" onClick={handleApprove} disabled={releaseAction !== null}>
+              <CheckCircle2 className="mr-1.5 h-4 w-4" />
+              {releaseAction === 'approve' ? 'Одобрение...' : 'Одобрить курс'}
+            </Button>
+          )}
+          {course.status !== 'published' && (!course.ai_generated || course.review_status === 'approved') && (
+            <Button size="sm" onClick={handlePublish} disabled={releaseAction !== null}>
+              <Rocket className="mr-1.5 h-4 w-4" />
+              {releaseAction === 'publish'
+                ? 'Публикация...'
+                : course.source_instruction_id
+                  ? 'Опубликовать и назначить'
+                  : 'Опубликовать'}
+            </Button>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setChatFocus({});
+              setChatOpen(true);
+            }}
+          >
+            <Sparkles className="w-4 h-4 mr-1" />
+            AI-помощник
+          </Button>
+        </div>
       </div>
+
+      {course.status !== 'published' && course.source_instruction_id && (
+        <div className="rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-950">
+          Пока курс является черновиком, сотрудники его не видят. После проверки публикация заменит
+          прежнее правило этой должностной инструкции и назначит курс текущим сотрудникам должности.
+        </div>
+      )}
 
       {/* Add Module */}
       <Card>

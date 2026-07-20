@@ -37,6 +37,7 @@ from app.modules.quizzes.service import (
     get_quiz_stats,
 )
 from app.modules.quizzes.ai import generate_quiz_draft
+from app.modules.courses.access import AUTHORING_ROLES, require_lesson_access
 
 router = APIRouter(prefix="/quizzes", tags=["quizzes"])
 
@@ -52,10 +53,20 @@ async def _require_quiz_tenant(db: AsyncSession, quiz_id: UUID, tenant_id: UUID)
     return quiz
 
 
+async def _require_quiz_access(db: AsyncSession, quiz_id: UUID, user: User) -> Quiz:
+    quiz = await _require_quiz_tenant(db, quiz_id, user.tenant_id)
+    if quiz.lesson_id is None:
+        if user.role not in AUTHORING_ROLES:
+            raise HTTPException(status_code=404, detail="Quiz not found")
+        return quiz
+    await require_lesson_access(db, quiz.lesson_id, user)
+    return quiz
+
+
 @router.get("", response_model=list[QuizResponse])
 async def list_quizzes(
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_role("superadmin", "methodologist", "teacher")),
 ):
     """List all quizzes for the current tenant.
 
@@ -75,7 +86,7 @@ async def list_quizzes(
 @router.get("/grouped", response_model=QuizGroupedResponse)
 async def list_quizzes_grouped(
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_role("superadmin", "methodologist", "teacher")),
 ):
     """List quizzes grouped by course → module → lesson → quiz.
 
@@ -191,13 +202,18 @@ async def list_enrolled_quizzes(
 ):
     """List quizzes from courses the user is enrolled in, with attempt status."""
     from app.modules.enrollments.models import Enrollment
+    from app.modules.courses.models import Course
     from app.modules.lessons.models import Module, Lesson
     from app.modules.quizzes.models import QuizAttempt
 
     enrollments = await db.execute(
-        select(Enrollment.course_id).where(
+        select(Enrollment.course_id)
+        .join(Course, Course.id == Enrollment.course_id)
+        .where(
             Enrollment.user_id == user.id,
             Enrollment.tenant_id == user.tenant_id,
+            Course.tenant_id == user.tenant_id,
+            Course.status == "published",
         )
     )
     course_ids = [r[0] for r in enrollments.fetchall()]
@@ -308,6 +324,7 @@ async def get_quiz_by_lesson(
     user=Depends(get_current_user),
 ):
     """Get quiz for a given lesson (only returns first quiz if multiple exist)."""
+    await require_lesson_access(db, lesson_id, user)
     result = await db.execute(
         select(Quiz).where(Quiz.lesson_id == lesson_id, Quiz.tenant_id == user.tenant_id).limit(1)
     )
@@ -324,6 +341,7 @@ async def get_quiz(
     user=Depends(get_current_user),
 ):
     """Get quiz with questions (without correct answers)."""
+    await _require_quiz_access(db, quiz_id, user)
     quiz = await get_quiz_with_questions(db, quiz_id, user.tenant_id)
     if not quiz:
         raise HTTPException(status_code=404, detail="Quiz not found")
@@ -338,6 +356,7 @@ async def submit_quiz(
     user=Depends(get_current_user),
 ):
     """Submit quiz answers and get graded results."""
+    await _require_quiz_access(db, quiz_id, user)
     try:
         answers_dicts = [a.model_dump() for a in req.answers]
         result = await grade_quiz(
@@ -370,7 +389,7 @@ async def list_attempts(
     user=Depends(get_current_user),
 ):
     """Get user's attempts for a quiz."""
-    await _require_quiz_tenant(db, quiz_id, user.tenant_id)
+    await _require_quiz_access(db, quiz_id, user)
     return await get_user_attempts(db, quiz_id, user.id, user.tenant_id)
 
 
@@ -378,7 +397,7 @@ async def list_attempts(
 async def quiz_stats(
     quiz_id: UUID,
     db: AsyncSession = Depends(get_db),
-    user=Depends(get_current_user),
+    user=Depends(require_role("superadmin", "methodologist", "teacher")),
 ):
     """Get quiz statistics (admin view)."""
     await _require_quiz_tenant(db, quiz_id, user.tenant_id)

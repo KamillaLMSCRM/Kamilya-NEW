@@ -283,7 +283,6 @@ async def run_generation_pipeline(
     4. Run Assessment Agent (questions for each lesson)
     5. Save results to DB
     """
-    created_course_in_pipeline = course_id is None
     state = GenerationState(job_id=job_id, course_id=course_id)
 
     try:
@@ -467,37 +466,6 @@ async def run_generation_pipeline(
 
         if tenant_id and user_id:
             await _save_generation_to_db(state, tenant_id, user_id)
-
-            # Auto-enrolment is only useful for the standalone generation demo.
-            # A pre-created course belongs to an authoring workflow (for example,
-            # a methodologist generating from a job instruction) and must not turn
-            # its author into a learner.
-            if state.course_id and created_course_in_pipeline:
-                try:
-                    from app.models.enrollment import Enrollment
-                    from sqlalchemy import select as sa_select, text as sa_text
-                    from app.core.db import async_session_factory
-                    async with async_session_factory() as session:
-                        await session.execute(sa_text("SELECT set_current_tenant(:tid)"), {"tid": str(tenant_id)})
-                        existing = await session.execute(
-                            sa_select(Enrollment).where(
-                                Enrollment.user_id == user_id,
-                                Enrollment.course_id == UUID(state.course_id),
-                                Enrollment.tenant_id == tenant_id,
-                            )
-                        )
-                        if not existing.scalar_one_or_none():
-                            enrollment = Enrollment(
-                                user_id=user_id,
-                                course_id=UUID(state.course_id),
-                                tenant_id=tenant_id,
-                                status="enrolled",
-                            )
-                            session.add(enrollment)
-                            await session.commit()
-                            logger.info(f"Auto-enrolled creator {user_id} in course {state.course_id}")
-                except Exception as e:
-                    logger.warning(f"Auto-enrollment failed: {e}")
 
         state.status = "completed"
         state.progress = 100

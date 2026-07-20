@@ -28,10 +28,8 @@ export default function CoursesPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const canManage =
-    user?.role === 'admin' ||
-    user?.role === 'superadmin' ||
-    user?.role === 'teacher' ||
-    user?.role === 'org_admin';
+    user?.role === 'methodologist' ||
+    user?.role === 'teacher';
 
   useEffect(() => {
     fetchCourses();

@@ -23,6 +23,7 @@ import {
   ChevronRight,
   XCircle,
   Trash2,
+  Rocket,
 } from 'lucide-react';
 import { ReviewBadge, CoursePreviewTree } from './components/CoursePreview';
 
@@ -82,6 +83,7 @@ export default function AIGeneratePage() {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [courseMeta, setCourseMeta] = useState<any | null>(null); // includes review_status, reviewer
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [publishSubmitting, setPublishSubmitting] = useState(false);
   const [reviewDialog, setReviewDialog] = useState<{ open: boolean; status: 'approved' | 'needs_changes'; comment: string }>({
     open: false,
     status: 'approved',
@@ -314,6 +316,22 @@ export default function AIGeneratePage() {
       console.error('Review submit failed', e);
     } finally {
       setReviewSubmitting(false);
+    }
+  };
+
+  const publishCourse = async () => {
+    if (!currentJob?.course_id) return;
+    setPublishSubmitting(true);
+    try {
+      const res = await api.post(`/v1/courses/${currentJob.course_id}/publish`);
+      setCourseMeta(res.data);
+      toast.success('Курс опубликован', { description: 'Теперь его можно назначать обучающимся.' });
+    } catch (error: any) {
+      toast.error('Не удалось опубликовать курс', {
+        description: error?.response?.data?.detail || error?.message,
+      });
+    } finally {
+      setPublishSubmitting(false);
     }
   };
 
@@ -995,7 +1013,17 @@ export default function AIGeneratePage() {
 
           {/* Footer actions */}
           <div className="flex flex-wrap gap-3">
-            {courseMeta?.review_status === 'approved' && (
+            {courseMeta?.review_status === 'approved' && courseMeta?.status !== 'published' && (
+              <button
+                onClick={publishCourse}
+                disabled={publishSubmitting}
+                className="flex-1 min-w-[180px] inline-flex items-center justify-center gap-1.5 rounded-xl bg-success px-4 py-3 text-sm font-medium text-success-foreground hover:bg-success/90 transition-colors disabled:opacity-50"
+              >
+                {publishSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Rocket className="w-4 h-4" />}
+                {publishSubmitting ? 'Публикация...' : 'Опубликовать курс'}
+              </button>
+            )}
+            {courseMeta?.status === 'published' && (
               <button
                 onClick={() => router.push('/assignments')}
                 className="flex-1 min-w-[180px] inline-flex items-center justify-center gap-1.5 rounded-xl bg-success px-4 py-3 text-sm font-medium text-success-foreground hover:bg-success/90 transition-colors"

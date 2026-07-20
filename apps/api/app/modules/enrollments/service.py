@@ -3,6 +3,7 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from app.modules.lessons.models import Module, Lesson
+from app.models.courses import Course
 
 
 async def get_enrolled_users(db: AsyncSession, course_id: UUID, tenant_id: UUID):
@@ -44,6 +45,17 @@ async def enroll_users(db: AsyncSession, course_id: UUID, tenant_id: UUID, user_
 
     if not user_ids:
         return []
+
+    course = await db.scalar(
+        select(Course).where(
+            Course.id == course_id,
+            Course.tenant_id == tenant_id,
+        )
+    )
+    if course is None:
+        raise ValueError("Course not found")
+    if course.status != "published":
+        raise ValueError("Course must be published before assignment")
 
     # 1 round-trip: load all candidate users with their status
     # + tenant. We do this in one query (not N+1) so the cost

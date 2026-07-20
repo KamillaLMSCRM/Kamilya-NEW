@@ -29,6 +29,7 @@ from sqlalchemy import and_, delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.enrollment import Enrollment
+from app.models.courses import Course
 from app.models.users import User
 from app.modules.positions.models import (
     DepartmentCourse,
@@ -90,8 +91,13 @@ async def recompute_enrollments(
     if user.position_id is not None:
         # Position rules
         pc_result = await db.execute(
-            select(PositionCourse.course_id).where(
+            select(PositionCourse.course_id)
+            .join(Course, Course.id == PositionCourse.course_id)
+            .where(
                 PositionCourse.position_id == user.position_id,
+                PositionCourse.tenant_id == tenant_id,
+                Course.tenant_id == tenant_id,
+                Course.status == "published",
             )
         )
         for (course_id,) in pc_result.all():
@@ -101,9 +107,13 @@ async def recompute_enrollments(
         pos = await db.get(Position, user.position_id)
         if pos is not None and pos.department_id is not None:
             dc_result = await db.execute(
-                select(DepartmentCourse.course_id).where(
+                select(DepartmentCourse.course_id)
+                .join(Course, Course.id == DepartmentCourse.course_id)
+                .where(
                     DepartmentCourse.department_id == pos.department_id,
                     DepartmentCourse.tenant_id == tenant_id,
+                    Course.tenant_id == tenant_id,
+                    Course.status == "published",
                 )
             )
             for (course_id,) in dc_result.all():

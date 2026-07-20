@@ -73,9 +73,29 @@ def _db_with_users_and_dupes(users_for_lookup: list, dup_results: list):
         return result
 
     db.execute = AsyncMock(side_effect=execute_side_effect)
+    course = MagicMock()
+    course.status = "published"
+    course.tenant_id = users_for_lookup[0][0].tenant_id if users_for_lookup and users_for_lookup[0] else None
+    db.scalar = AsyncMock(return_value=course)
     db.add = MagicMock()
     db.flush = AsyncMock()
     return db
+
+
+@pytest.mark.asyncio
+async def test_enroll_rejects_draft_course():
+    """A draft is authoring state and must never create learner access."""
+    tenant = uuid4()
+    course_id = uuid4()
+    user = _user(tenant_id=tenant)
+    db = _db_with_users_and_dupes(users_for_lookup=[[user]], dup_results=[None])
+    db.scalar.return_value.status = "draft"
+    db.scalar.return_value.tenant_id = tenant
+
+    with pytest.raises(ValueError, match="published"):
+        await enroll_users(db, course_id, tenant, [user.id])
+
+    db.add.assert_not_called()
 
 
 # ── 1. enroll active user in same tenant ────────────────────

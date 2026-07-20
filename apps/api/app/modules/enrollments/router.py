@@ -73,7 +73,11 @@ async def create_enrollments(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role(*_ENROLLMENT_MANAGER_ROLES)),
 ):
-    return await enroll_users(db, course_id, user.tenant_id, req.user_ids)
+    try:
+        return await enroll_users(db, course_id, user.tenant_id, req.user_ids)
+    except ValueError as exc:
+        status_code = 409 if "published" in str(exc) else 404
+        raise HTTPException(status_code=status_code, detail=str(exc)) from exc
 
 
 @router.post("/{course_id}/enroll", response_model=EnrollmentResponse, status_code=201)

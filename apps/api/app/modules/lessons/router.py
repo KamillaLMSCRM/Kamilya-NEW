@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
 
-from app.core.auth import get_current_user, require_tenant_user
+from app.core.auth import get_current_user, require_role, require_tenant_user
 from app.core.db import get_db
 from app.modules.lessons.schemas import (
     ModuleCreate, ModuleUpdate, ModuleResponse,
@@ -22,6 +22,13 @@ from app.modules.lessons.service import (
 )
 from app.modules.lessons.models import Module
 from app.models.courses import Course
+from app.modules.courses.access import (
+    require_course_access,
+    require_lesson_access,
+    require_module_access,
+)
+
+AUTHOR_ROLES = ("methodologist", "teacher", "superadmin")
 
 router = APIRouter(
     dependencies=[Depends(require_tenant_user())],
@@ -34,6 +41,7 @@ async def list_course_modules(
     db: AsyncSession = Depends(get_db),
     user=Depends(get_current_user),
 ):
+    await require_course_access(db, course_id, user)
     modules = await list_modules(db, course_id, user.tenant_id)
     return modules
 
@@ -43,7 +51,7 @@ async def create_course_module(
     course_id: UUID,
     data: ModuleCreate,
     db: AsyncSession = Depends(get_db),
-    user=Depends(get_current_user),
+    user=Depends(require_role(*AUTHOR_ROLES)),
 ):
     result = await db.execute(select(Course).where(Course.id == course_id, Course.tenant_id == user.tenant_id))
     course = result.scalar_one_or_none()
@@ -58,7 +66,7 @@ async def update_course_module(
     module_id: UUID,
     data: ModuleUpdate,
     db: AsyncSession = Depends(get_db),
-    user=Depends(get_current_user),
+    user=Depends(require_role(*AUTHOR_ROLES)),
 ):
     module = await update_module(db, module_id, user.tenant_id, data)
     return module
@@ -68,7 +76,7 @@ async def update_course_module(
 async def delete_course_module(
     module_id: UUID,
     db: AsyncSession = Depends(get_db),
-    user=Depends(get_current_user),
+    user=Depends(require_role(*AUTHOR_ROLES)),
 ):
     await delete_module(db, module_id, user.tenant_id)
 
@@ -78,7 +86,7 @@ async def reorder_modules(
     course_id: UUID,
     ids_order: List[UUID],
     db: AsyncSession = Depends(get_db),
-    user=Depends(get_current_user),
+    user=Depends(require_role(*AUTHOR_ROLES)),
 ):
     await reorder_items(db, "module", ids_order, user.tenant_id)
     return {"status": "ok"}
@@ -90,10 +98,7 @@ async def list_module_lessons(
     db: AsyncSession = Depends(get_db),
     user=Depends(get_current_user),
 ):
-    result = await db.execute(select(Module).where(Module.id == module_id, Module.tenant_id == user.tenant_id))
-    module = result.scalar_one_or_none()
-    if not module:
-        raise HTTPException(status_code=404, detail="Module not found")
+    await require_module_access(db, module_id, user)
     lessons = await list_lessons(db, module_id, user.tenant_id)
     return lessons
 
@@ -103,7 +108,7 @@ async def create_lesson(
     module_id: UUID,
     data: LessonCreate,
     db: AsyncSession = Depends(get_db),
-    user=Depends(get_current_user),
+    user=Depends(require_role(*AUTHOR_ROLES)),
 ):
     result = await db.execute(select(Module).where(Module.id == module_id, Module.tenant_id == user.tenant_id))
     module = result.scalar_one_or_none()
@@ -119,15 +124,7 @@ async def get_lesson_endpoint(
     db: AsyncSession = Depends(get_db),
     user=Depends(get_current_user),
 ):
-    from sqlalchemy import select
-    from app.modules.lessons.models import Lesson
-    result = await db.execute(
-        select(Lesson).where(Lesson.id == lesson_id, Lesson.tenant_id == user.tenant_id)
-    )
-    lesson = result.scalar_one_or_none()
-    if not lesson:
-        raise HTTPException(status_code=404, detail="Lesson not found")
-    return lesson
+    return await require_lesson_access(db, lesson_id, user)
 
 
 @router.patch("/lessons/{lesson_id}", response_model=LessonResponse)
@@ -135,7 +132,7 @@ async def update_lesson_endpoint(
     lesson_id: UUID,
     data: LessonUpdate,
     db: AsyncSession = Depends(get_db),
-    user=Depends(get_current_user),
+    user=Depends(require_role(*AUTHOR_ROLES)),
 ):
     lesson = await update_lesson(db, lesson_id, user.tenant_id, data)
     return lesson
@@ -145,7 +142,7 @@ async def update_lesson_endpoint(
 async def delete_lesson_endpoint(
     lesson_id: UUID,
     db: AsyncSession = Depends(get_db),
-    user=Depends(get_current_user),
+    user=Depends(require_role(*AUTHOR_ROLES)),
 ):
     await delete_lesson(db, lesson_id, user.tenant_id)
 
@@ -155,7 +152,7 @@ async def reorder_lessons(
     module_id: UUID,
     ids_order: List[UUID],
     db: AsyncSession = Depends(get_db),
-    user=Depends(get_current_user),
+    user=Depends(require_role(*AUTHOR_ROLES)),
 ):
     await reorder_items(db, "lesson", ids_order, user.tenant_id)
     return {"status": "ok"}
@@ -167,6 +164,7 @@ async def get_course_structure_endpoint(
     db: AsyncSession = Depends(get_db),
     user=Depends(get_current_user),
 ):
+    await require_course_access(db, course_id, user)
     course = await get_course_structure(db, course_id, user.tenant_id)
     return course
 
@@ -180,6 +178,7 @@ async def list_lesson_content_blocks(
     db: AsyncSession = Depends(get_db),
     user=Depends(get_current_user),
 ):
+    await require_lesson_access(db, lesson_id, user)
     return await list_content_blocks(db, lesson_id, user.tenant_id)
 
 
@@ -188,7 +187,7 @@ async def create_lesson_content_block(
     lesson_id: UUID,
     data: ContentBlockCreate,
     db: AsyncSession = Depends(get_db),
-    user=Depends(get_current_user),
+    user=Depends(require_role(*AUTHOR_ROLES)),
 ):
     try:
         block = await create_content_block(
@@ -208,7 +207,7 @@ async def update_lesson_content_block(
     block_id: UUID,
     data: ContentBlockCreate,
     db: AsyncSession = Depends(get_db),
-    user=Depends(get_current_user),
+    user=Depends(require_role(*AUTHOR_ROLES)),
 ):
     block = await update_content_block(
         db, block_id, user.tenant_id,
@@ -225,7 +224,7 @@ async def update_lesson_content_block(
 async def delete_lesson_content_block(
     block_id: UUID,
     db: AsyncSession = Depends(get_db),
-    user=Depends(get_current_user),
+    user=Depends(require_role(*AUTHOR_ROLES)),
 ):
     deleted = await delete_content_block(db, block_id, user.tenant_id)
     if not deleted:
@@ -237,7 +236,7 @@ async def reorder_lesson_content_blocks(
     lesson_id: UUID,
     ids_order: List[UUID],
     db: AsyncSession = Depends(get_db),
-    user=Depends(get_current_user),
+    user=Depends(require_role(*AUTHOR_ROLES)),
 ):
     try:
         await reorder_content_blocks(db, lesson_id, ids_order, user.tenant_id)
