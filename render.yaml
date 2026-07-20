@@ -4,14 +4,14 @@ services:
     runtime: python
     plan: starter
     buildCommand: pip install --no-cache-dir -r apps/api/requirements.txt
-    # Pre-flight: run any pending Alembic migrations before uvicorn starts.
-    # Without this, schema-affecting code in a new deploy would crash at
-    # first request that touches the new column/table. Migrations are
-    # idempotent — re-running across deploys is safe.
+    # Apply schema changes once before replacing the live instance.
+    # Without this, schema-affecting code in a new deploy can start against
+    # an older database revision.
     # See docs/LESSONS.md 2026-06-29 "Worker setup blocked by missing
     # prod migrations (0032..0036)" for the root cause.
+    preDeployCommand: cd apps/api && alembic upgrade head
     startCommand: |
-      cd apps/api && alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+      cd apps/api && uvicorn app.main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: PYTHON_VERSION
         value: "3.12"

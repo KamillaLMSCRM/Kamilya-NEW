@@ -7,11 +7,13 @@
 
 - [x] Separate HostKZ migration and validation work from product changes.
 - [x] Ignore local tenant documents, archives, and runtime storage.
-- [ ] Commit the course release integrity changes after tests and secret checks.
-- [ ] Preserve useful historical QA and pilot documentation in a docs-only commit.
-- [ ] Push to `origin/master` using the repository token without Git Credential Manager.
+- [x] Commit the course release integrity changes after tests and secret checks.
+- [x] Preserve useful historical QA and pilot documentation in a docs-only commit.
+- [x] Push to `origin/master` using the repository token without Git Credential Manager.
+- [ ] Fix the production-schema drift found while applying migration `0065`.
+- [ ] Synchronize the Render pre-deploy migration command with `render.yaml`.
 - [ ] Verify Render deployment, API health, and production Alembic revision.
-- [ ] Verify Vercel deployment and `app.kml.kz` availability.
+- [x] Verify Vercel deployment and `app.kml.kz` availability.
 
 ## Safety boundaries
 
