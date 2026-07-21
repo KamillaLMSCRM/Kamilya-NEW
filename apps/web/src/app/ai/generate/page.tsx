@@ -296,7 +296,7 @@ export default function AIGeneratePage() {
     setCombinationGoal('');
   };
 
-  const useCompatibilityCluster = (cluster: CompatibilityCluster) => {
+  const handleCompatibilityCluster = (cluster: CompatibilityCluster) => {
     setSelectedDocIds(cluster.documents.map((document) => document.id));
     setSourceStrategy('single_topic');
     setCombinationGoal('');
@@ -764,7 +764,7 @@ export default function AIGeneratePage() {
                             </ul>
                             <button
                               type="button"
-                              onClick={() => useCompatibilityCluster(cluster)}
+                              onClick={() => handleCompatibilityCluster(cluster)}
                               className="mt-3 w-full rounded-lg border border-primary/30 px-3 py-2 text-xs font-medium text-primary transition-colors hover:bg-primary/5"
                             >
                               Создать курс по этой группе
