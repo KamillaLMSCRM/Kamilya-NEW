@@ -33,15 +33,6 @@ interface UserItem {
   created_at: string;
 }
 
-interface CourseItem {
-  id: string;
-  title: string;
-  status: string;
-  ai_generated: boolean;
-  created_at: string;
-  enrollment_count: number;
-}
-
 interface TrialUsageItem {
   used: number;
   limit: number | null;
@@ -64,7 +55,6 @@ export default function AdminDashboardPage() {
   const { t, lang } = useT();
   const [stats, setStats] = useState<TenantStats | null>(null);
   const [users, setUsers] = useState<UserItem[]>([]);
-  const [courses, setCourses] = useState<CourseItem[]>([]);
   const [trialUsage, setTrialUsage] = useState<TrialUsage | null>(null);
   const [loading, setLoading] = useState(true);
   const token = useAuthStore((s) => s.accessToken);
@@ -73,14 +63,11 @@ export default function AdminDashboardPage() {
   const fetchData = useCallback(async () => {
     if (!token) return;
     try {
-      const [statsRes, usersRes, coursesRes, trialUsageRes] = await Promise.all([
+      const [statsRes, usersRes, trialUsageRes] = await Promise.all([
         fetch(`${API_URL}/v1/admin/stats`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
         fetch(`${API_URL}/v1/users?per_page=5`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
-        fetch(`${API_URL}/v1/courses`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
         fetch(`${API_URL}/v1/admin/trial-usage`, {
@@ -93,7 +80,6 @@ export default function AdminDashboardPage() {
         const data = await usersRes.json();
         setUsers(data.users || []);
       }
-      if (coursesRes.ok) setCourses(await coursesRes.json());
       if (trialUsageRes.ok) setTrialUsage(await trialUsageRes.json());
     } finally {
       setLoading(false);
@@ -148,8 +134,6 @@ export default function AdminDashboardPage() {
         <h1 className="text-2xl font-bold">{t('admin.title')}</h1>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => handleExport('users')}>{t('admin.exportUsers')}</Button>
-          <Button variant="outline" onClick={() => handleExport('courses')}>{t('admin.exportCourses')}</Button>
-          <Button variant="outline" onClick={() => handleExport('quiz-results')}>{t('admin.exportQuizResults')}</Button>
         </div>
       </div>
 
@@ -248,7 +232,7 @@ export default function AdminDashboardPage() {
         </Card>
       </div>
 
-      <div className="grid lg:grid-cols-2 gap-6">
+      <div className="grid gap-6">
         <Card>
           <CardHeader>
             <CardTitle>{t('admin.recentUsers')}</CardTitle>
@@ -286,38 +270,6 @@ export default function AdminDashboardPage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>{t('admin.recentCourses')}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <thead>
-                <tr>
-                  <th className="text-left p-2">{t('admin.courses')}</th>
-                  <th className="text-left p-2">{t('users.status')}</th>
-                  <th className="text-left p-2">{t('courses.enrollments')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {courses.slice(0, 5).map((c) => (
-                  <tr key={c.id} className="border-t">
-                    <td className="p-2">{c.title}</td>
-                    <td className="p-2">
-                      <Badge variant={c.status === 'published' ? 'default' : 'outline'}>
-                        {t(`admin.courseStatus.${c.status}` as any) || c.status}
-                      </Badge>
-                    </td>
-                    <td className="p-2">{c.enrollment_count}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </Table>
-            <a href="/courses" className="flex items-center gap-1 text-primary text-sm hover:underline mt-2 block">
-              {t('admin.allCourses')} <ChevronRight className="w-4 h-4" />
-            </a>
-          </CardContent>
-        </Card>
       </div>
     </div>
   );

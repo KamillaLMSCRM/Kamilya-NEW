@@ -375,13 +375,20 @@
         "firstNameRequired": "Enter first name",
         "lastNameRequired": "Enter last name",
         "passwordMin": "Password must be at least 8 characters",
+        "emailExists": "A user with this email already exists in the tenant team",
+        "limitReached": "User limit reached: {current} of {limit}",
+        "limitExceeded": "The user limit for the current plan has been reached",
+        "forbidden": "Your role cannot create tenant team members",
+        "network": "Could not reach the server. Please try again",
         "generic": "Server error"
-      }
+      },
+      "creating": "Creating..."
     },
     "invite": "Invite",
     "surname": "Surname",
     "roleStudent": "Learner",
     "roleTeacher": "Methodologist",
+    "roleTeacherLegacy": "Methodologist (legacy role)",
     "roleAdmin": "Admin",
     "roleOrgAdmin": "Org admin",
     "roleSuperadmin": "Superadmin",

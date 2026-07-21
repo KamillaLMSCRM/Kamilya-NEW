@@ -375,13 +375,20 @@
         "firstNameRequired": "Атты енгізіңіз",
         "lastNameRequired": "Тегі енгізіңіз",
         "passwordMin": "Құпиясөз кемінде 8 таңбадан тұруы керек",
+        "emailExists": "Бұл email-мен пайдаланушы тенант командасында бар",
+        "limitReached": "Пайдаланушы лимиті бітті: {current} / {limit}",
+        "limitExceeded": "Ағымдағы тарифтің пайдаланушы лимиті бітті",
+        "forbidden": "Сіздің рөліңіз команда мүшелерін қоса алмайды",
+        "network": "Серверге қосылу мүмкін болмады. Қайталап көріңіз",
         "generic": "Сервер қатесі"
-      }
+      },
+      "creating": "Құрылуда..."
     },
     "invite": "Шақыру",
     "surname": "Тегі",
     "roleStudent": "Оқушы",
     "roleTeacher": "Әдіскер",
+    "roleTeacherLegacy": "Әдіскер (ескі рөл)",
     "roleAdmin": "Әкімші",
     "roleOrgAdmin": "Ұйым әкімшісі",
     "roleSuperadmin": "Суперәкімші",
