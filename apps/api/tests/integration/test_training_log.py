@@ -177,10 +177,12 @@ async def test_training_log_csv_export(client, db_session, make_tenant, make_use
     # UTF-8 BOM at the start so Excel opens as UTF-8.
     assert body[:3] == b"\xef\xbb\xbf"
     text = body.decode("utf-8-sig")
-    reader = csv.DictReader(io.StringIO(text))
+    reader = csv.DictReader(io.StringIO(text), delimiter=";")
     rows = list(reader)
     assert len(rows) == 1
-    assert rows[0]["course_title"] == "X1"
+    assert rows[0]["Курс"] == "X1"
+    assert "user_id" not in rows[0]
+    assert rows[0]["Статус"] == "Назначен"
 
 
 @pytest.mark.asyncio

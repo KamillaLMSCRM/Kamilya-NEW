@@ -70,6 +70,7 @@ async def list_training_log(
     limit: int = Query(default=100, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
     format: Literal["json", "csv"] = Query(default="json"),
+    lang: Literal["ru", "kk", "en"] = Query(default="ru"),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role(*_TRAINING_LOG_ROLES)),
 ):
@@ -99,7 +100,7 @@ async def list_training_log(
     if format == "csv":
         # Stream CSV with all rows matching the filter (no pagination cap).
         return StreamingResponse(
-            stream_training_log_as_csv(db, user.tenant_id, f),
+            stream_training_log_as_csv(db, user.tenant_id, f, lang=lang),
             media_type="text/csv; charset=utf-8",
             headers={
                 "Content-Disposition": (

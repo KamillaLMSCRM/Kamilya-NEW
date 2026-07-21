@@ -102,7 +102,7 @@ const DELIVERY_OPTIONS: Array<{ value: string; label: string }> = [
 ];
 
 export default function AdminTrainingLogPage() {
-  const { t } = useT();
+  const { t, lang } = useT();
   const router = useRouter();
   const accessToken = useAuthStore((s) => s.accessToken);
   const user = useAuthStore((s) => s.user);
@@ -175,7 +175,7 @@ export default function AdminTrainingLogPage() {
   const exportCsv = useCallback(async () => {
     if (!accessToken) return;
     try {
-      const res = await api.get(`/v1/admin/training-log?${queryString}&format=csv`, {
+      const res = await api.get(`/v1/admin/training-log?${queryString}&format=csv&lang=${lang}`, {
         responseType: 'blob',
       });
       const blob = res.data as Blob;
@@ -196,7 +196,7 @@ export default function AdminTrainingLogPage() {
         t('trainingLog.errors.exportFailed');
       toast.error(String(msg));
     }
-  }, [accessToken, queryString, t]);
+  }, [accessToken, lang, queryString, t]);
 
   // Auth gate: training-log is admin/HR work, not student work.
   if (user && !['admin', 'org_admin', 'methodologist', 'superadmin'].includes(user.role)) {
