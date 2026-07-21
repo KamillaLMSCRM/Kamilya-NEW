@@ -2,9 +2,9 @@
 
 Дата: 2026-07-21
 
-Статус: реализовано и проверено локально
+Статус: реализовано, проверено и развёрнуто в production
 
-Production: миграция и код в production не применялись в рамках этой задачи
+Production revision: `5bc86c61591bc4bea849b7700a70ef7efd4a27ee`
 
 ## Цель
 
@@ -68,9 +68,12 @@ Production: миграция и код в production не применялись
 - Миграции на чистой локальной PostgreSQL 17 + pgvector: `0068 (head)`.
 - Проверены tenant/document scope, complete-link clustering, валидация общей цели, запрет документов вне выбранного набора, отсутствие general-knowledge fallback и смена статуса после ручной правки.
 
-## Перед production
+## Production-проверка
 
-1. Применить миграцию `0068` штатным deployment-процессом.
-2. Проверить Render worker и API на одной версии кода.
-3. Выполнить smoke-тест на реальных документах из двух разных областей и на осознанно объединённом наборе.
-4. Проверить отображение источников и статус `needs_review` в production UI.
+- Vercel deployment `dpl_Gi96zFAgpSPBJgBD2e2ZBuKLpHgE`: `READY`; alias `app.kml.kz` переключён на revision `5bc86c6`.
+- Render deployment `dep-d9fjsvtaeets73c7gc6g`: `live` на той же revision.
+- Production Alembic revision: `0068`; все семь новых колонок курса и урока подтверждены прямым read-only запросом.
+- `GET /api/v1/health`: HTTP 200.
+- `POST /api/v1/ai/document-compatibility` доступен в production и выполняет валидацию запроса.
+- VPS Celery worker обновлён до `5bc86c6`, status `active/ready`; зарегистрированы `ai.generate_course`, `ai.ingest_document` и `positions.apply_course_rules`.
+- В production на момент релиза нет готовых документов и embedding chunks, поэтому semantic smoke на существующих данных не выполнялся. Кластеризация и серверная блокировка проверены integration-тестом на реальной локальной PostgreSQL/pgvector.
