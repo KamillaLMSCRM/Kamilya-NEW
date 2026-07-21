@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
 from app.core.db import get_db
 from app.models.users import User
+from app.models.user_roles import UserRole
 
 logger = logging.getLogger(__name__)
 
@@ -176,7 +177,35 @@ async def get_current_user(
             tenant_id=UUID(payload["impersonated_tenant"]),
             role=payload.get("impersonated_role", "admin"),
         )
+    active_role = payload.get("active_role")
+    if active_role and active_role != user.role:
+        assigned = await db.execute(
+            select(UserRole.id).where(
+                UserRole.user_id == user.id,
+                UserRole.tenant_id == user.tenant_id,
+                UserRole.role == active_role,
+            )
+        )
+        if assigned.scalar_one_or_none() is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Selected role is no longer assigned",
+            )
+        return _ActiveRoleUser(user, active_role)
     return user
+
+
+class _ActiveRoleUser:
+    """Read-only user view with a server-validated active tenant role."""
+
+    __slots__ = ("_user", "role")
+
+    def __init__(self, user: User, role: str):
+        self._user = user
+        self.role = role
+
+    def __getattr__(self, name):
+        return getattr(self._user, name)
 
 
 class _ImpersonatedUser:

@@ -6,10 +6,10 @@ from datetime import datetime
 
 class UserCreate(BaseModel):
     email: str
-    first_name: str
-    last_name: str
+    first_name: str | None = None
+    last_name: str | None = None
     role: str = "student"
-    password: str = Field(min_length=8)
+    password: str | None = Field(default=None, min_length=8)
     is_active: bool = True
 
 
@@ -38,6 +38,7 @@ class UserResponse(BaseModel):
     first_name: str
     last_name: str
     role: str
+    roles: list[str] = Field(default_factory=list)
     is_active: bool
     position_id: UUID | None = None
     telegram_id: int | None = None
@@ -57,6 +58,10 @@ class UserListResponse(BaseModel):
 
 class PasswordReset(BaseModel):
     new_password: str = Field(min_length=8)
+
+
+class RoleAssignmentRequest(BaseModel):
+    role: str
 
 
 # ── Invitations (Phase 1 of employee onboarding epic) ──────────

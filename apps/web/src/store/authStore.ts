@@ -8,6 +8,7 @@ import {
   restoreSession,
   logout as logoutRequest,
   subscribeAuth,
+  switchRole as switchRoleRequest,
 } from '@/lib/auth';
 
 interface AuthStore {
@@ -23,6 +24,8 @@ interface AuthStore {
   logout: () => Promise<void>;
   /** Manually set user (e.g. after profile update). */
   setUser: (user: AuthUser) => void;
+  /** Switch to another server-assigned role and rotate the session tokens. */
+  switchRole: (role: string) => Promise<AuthUser>;
 }
 
 // Initial state mirrors in-memory store (so SSR + first paint show correct state).
@@ -75,6 +78,12 @@ export const useAuthStore = create<AuthStore>((set) => {
       if (token) {
         setAuthMemory(token, user);
       }
+    },
+
+    switchRole: async (role) => {
+      const user = await switchRoleRequest(role);
+      set({ accessToken: getAccessToken(), user, initialized: true });
+      return user;
     },
   };
 });

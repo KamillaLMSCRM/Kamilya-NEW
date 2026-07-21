@@ -71,6 +71,49 @@ async def get_user(db: AsyncSession, user_id: UUID, tenant_id: UUID) -> User | N
     return None
 
 
+async def get_role_map(
+    db: AsyncSession, users: list[User], tenant_id: UUID
+) -> dict[UUID, list[str]]:
+    """Load all role assignments for a page of users in one query."""
+    if not users:
+        return {}
+    result = await db.execute(
+        select(UserRole.user_id, UserRole.role).where(
+            UserRole.tenant_id == tenant_id,
+            UserRole.user_id.in_([user.id for user in users]),
+        )
+    )
+    role_map: dict[UUID, set[str]] = {user.id: {user.role} for user in users}
+    for user_id, role in result.all():
+        role_map.setdefault(user_id, set()).add(role)
+    return {
+        user.id: [user.role, *sorted(role_map[user.id] - {user.role})]
+        for user in users
+    }
+
+
+async def assign_role(
+    db: AsyncSession, user_id: UUID, tenant_id: UUID, role: str
+) -> User | None:
+    if role not in TEAM_ROLES:
+        raise ValueError(f"Invalid team role: {role}")
+    user = await get_user(db, user_id, tenant_id)
+    if not user:
+        return None
+    existing = await db.execute(
+        select(UserRole.id).where(
+            UserRole.user_id == user_id,
+            UserRole.tenant_id == tenant_id,
+            UserRole.role == role,
+        )
+    )
+    if existing.scalar_one_or_none() is not None:
+        raise ValueError("Role already assigned")
+    db.add(UserRole(user_id=user_id, tenant_id=tenant_id, role=role))
+    await db.flush()
+    return user
+
+
 async def create_user(
     db: AsyncSession,
     tenant_id: UUID,
@@ -177,14 +220,16 @@ async def change_role(
 
     user.role = new_role
 
-    # Update or create role entry
+    # Changing the primary role must not remove other assigned roles.
     existing_role = (await db.execute(
-        select(UserRole).where(UserRole.user_id == user_id, UserRole.tenant_id == tenant_id)
+        select(UserRole.id).where(
+            UserRole.user_id == user_id,
+            UserRole.tenant_id == tenant_id,
+            UserRole.role == new_role,
+        )
     )).scalar_one_or_none()
 
-    if existing_role:
-        existing_role.role = new_role
-    else:
+    if existing_role is None:
         db.add(UserRole(
             id=uuid4(),
             user_id=user_id,

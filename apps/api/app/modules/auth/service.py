@@ -21,7 +21,28 @@ def _hash_token(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
 
 
-async def build_user_payload(db: AsyncSession, user: User, telegram_id: str | int | None = None) -> dict:
+async def get_user_roles(db: AsyncSession, user: User) -> list[str]:
+    """Return assigned roles with the user's primary role first."""
+    if user.tenant_id is None:
+        return [user.role]
+
+    result = await db.execute(
+        select(UserRole.role).where(
+            UserRole.user_id == user.id,
+            UserRole.tenant_id == user.tenant_id,
+        )
+    )
+    assigned = {row[0] for row in result.all()}
+    assigned.add(user.role)
+    return [user.role, *sorted(assigned - {user.role})]
+
+
+async def build_user_payload(
+    db: AsyncSession,
+    user: User,
+    telegram_id: str | int | None = None,
+    active_role: str | None = None,
+) -> dict:
     """Build the user_data dict that the frontend AuthUser shape expects.
 
     Single source of truth for serialising a User ORM row into the
@@ -45,13 +66,11 @@ async def build_user_payload(db: AsyncSession, user: User, telegram_id: str | in
             last_name: str,
         }
 
-    Roles are looked up via user_roles table; if empty we fall back to
-    the User.role column (legacy single-role). The first role wins
-    (frontend AuthUser.role is a scalar, not an array).
+    Assigned roles are returned as an array. ``role`` is the active role for
+    the current session and defaults to the user's primary role.
     """
-    # Roles: prefer user_roles table, fall back to User.role.
-    roles = await _get_user_roles(db, user.id, user.tenant_id)
-    role = roles[0] if roles else (user.role or "student")
+    roles = await get_user_roles(db, user)
+    role = active_role if active_role in roles else user.role
 
     # Tenant: load via Tenant table if user has tenant_id, else None.
     tenant_payload: dict | None = None
@@ -76,19 +95,13 @@ async def build_user_payload(db: AsyncSession, user: User, telegram_id: str | in
         "tenant_id": str(user.tenant_id) if user.tenant_id is not None else None,
         "telegram_id": str(telegram_id) if telegram_id is not None else None,
         "role": role,
+        "roles": roles,
         "full_name": f"{user.first_name or ''} {user.last_name or ''}".strip() or (user.email or ""),
         "tenant": tenant_payload,
         "email": user.email,
         "first_name": user.first_name,
         "last_name": user.last_name,
     }
-
-
-async def _get_user_roles(db: AsyncSession, user_id: UUID, tenant_id: UUID) -> list[str]:
-    result = await db.execute(
-        select(UserRole.role).where(UserRole.user_id == user_id, UserRole.tenant_id == tenant_id)
-    )
-    return [row[0] for row in result.all()]
 
 
 async def create_user_and_tokens(
@@ -142,10 +155,12 @@ async def create_user_and_tokens(
         "sub": str(user.id),
         "tenant_id": user.tenant_id,  # UUID or None — never str(None)
         "roles": roles,
+        "active_role": role,
     })
     refresh_token = create_refresh_token({
         "sub": str(user.id),
         "tenant_id": user.tenant_id,
+        "active_role": role,
     })
     return user, access_token, refresh_token
 
@@ -204,18 +219,19 @@ async def authenticate_user(db: AsyncSession, email: str, password: str) -> tupl
         user.last_login = datetime.now(timezone.utc)
         await db.flush()
 
-    roles = await _get_user_roles(db, user.id, user.tenant_id)
-    if not roles:
-        roles = [user.role]
+    roles = await get_user_roles(db, user)
+    active_role = user.role
 
     access_token = create_access_token({
         "sub": str(user.id),
         "tenant_id": user.tenant_id,  # UUID or None — never str(None)
         "roles": roles,
+        "active_role": active_role,
     })
     refresh_token = create_refresh_token({
         "sub": str(user.id),
         "tenant_id": user.tenant_id,
+        "active_role": active_role,
     })
     return user, access_token, refresh_token
 
@@ -241,20 +257,22 @@ async def refresh_access_token(db: AsyncSession, refresh_token: str) -> tuple[st
     if not user or not user.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
 
-    roles = await _get_user_roles(db, user.id, user.tenant_id)
-    if not roles:
-        roles = [user.role]
+    roles = await get_user_roles(db, user)
+    requested_role = payload.get("active_role")
+    active_role = requested_role if requested_role in roles else user.role
 
     new_access = create_access_token({
         "sub": str(user.id),
         "tenant_id": user.tenant_id,
         "roles": roles,
+        "active_role": active_role,
     })
     new_refresh = create_refresh_token({
         "sub": str(user.id),
         "tenant_id": user.tenant_id,
+        "active_role": active_role,
     })
-    user_payload = await build_user_payload(db, user, telegram_id=None)
+    user_payload = await build_user_payload(db, user, telegram_id=None, active_role=active_role)
     return new_access, new_refresh, user_payload
 
 

@@ -90,3 +90,7 @@ class RefreshRequest(BaseModel):
     # The body field is kept only as a legacy fallback for clients that
     # don't share the cookie origin.
     refresh_token: str | None = None
+
+
+class RoleSwitchRequest(BaseModel):
+    role: str

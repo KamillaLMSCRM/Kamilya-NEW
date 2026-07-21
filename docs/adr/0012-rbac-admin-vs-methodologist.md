@@ -16,6 +16,24 @@ assignment listing/removal, and enrollment CSV export should allow
 Tenant admins manage organization settings, team/system users, integrations,
 and infrastructure; they do not decide individual learning trajectories.
 
+## Amendment 2026-07-21: one account, multiple roles
+
+A tenant user may hold more than one assigned role. `users.role` remains the
+primary role used at a new login; `user_roles` is the authoritative set of
+roles assigned to that account.
+
+- Adding a role to an existing email does not create another user, change the
+  password/profile, or consume another system-user plan slot.
+- The user selects one active working mode in the top bar. The backend issues
+  new access and refresh tokens with that active role.
+- Every request validates the selected role against `user_roles`; a role value
+  supplied only by the client or a stale token cannot grant access.
+- `require_role(...)` evaluates the active role, not the union of all assigned
+  roles. Admin and methodologist interfaces therefore remain separated even
+  when the same person performs both jobs.
+- A refresh preserves the selected mode. A new login starts in the primary
+  role. Migration `0067` backfills missing primary-role assignments.
+
 ## Problem
 
 The codebase has two privileged tenant-side roles — `admin` (and

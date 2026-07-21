@@ -11,6 +11,7 @@ interface User {
   first_name: string;
   last_name: string;
   role: string;
+  roles?: string[];
   is_active: boolean;
   created_at: string;
   last_login: string | null;
@@ -48,9 +49,46 @@ export default function AdminTeamPage() {
   const [createFormKey, setCreateFormKey] = useState(0);
   const [createFormUnlocked, setCreateFormUnlocked] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+  const [teamError, setTeamError] = useState('');
+  const [matchedAccount, setMatchedAccount] = useState<User | null>(null);
 
   const token = useAuthStore((s) => s.accessToken);
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
+  const existingAccount = users.find(
+    (user) => user.email?.trim().toLowerCase() === newUser.email.trim().toLowerCase(),
+  ) || matchedAccount;
+
+  useEffect(() => {
+    if (!showCreateModal || !token || !newUser.email.includes('@')) {
+      setMatchedAccount(null);
+      return;
+    }
+    const normalizedEmail = newUser.email.trim().toLowerCase();
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      try {
+        const params = new URLSearchParams({ search: normalizedEmail, per_page: '5' });
+        const response = await fetch(`${API_URL}/v1/users?${params}`, {
+          headers: { Authorization: `Bearer ${token}` },
+          signal: controller.signal,
+        });
+        if (!response.ok) return;
+        const data = await response.json();
+        const exact = (data.users || []).find(
+          (candidate: User) => candidate.email?.trim().toLowerCase() === normalizedEmail,
+        );
+        setMatchedAccount(exact || null);
+      } catch (error) {
+        if (!(error instanceof DOMException && error.name === 'AbortError')) {
+          setMatchedAccount(null);
+        }
+      }
+    }, 350);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [API_URL, newUser.email, showCreateModal, token]);
 
   const fetchUsers = useCallback(async () => {
     if (!token) return;
@@ -80,6 +118,7 @@ export default function AdminTeamPage() {
   const openCreateModal = () => {
     setCreateError('');
     setNewUser(createEmptyNewUser());
+    setMatchedAccount(null);
     setCreateFormUnlocked(false);
     setCreateFormKey((key) => key + 1);
     setShowCreateModal(true);
@@ -90,6 +129,7 @@ export default function AdminTeamPage() {
     if (open) {
       setCreateError('');
       setNewUser(createEmptyNewUser());
+      setMatchedAccount(null);
       setCreateFormUnlocked(false);
       setCreateFormKey((key) => key + 1);
     }
@@ -139,9 +179,11 @@ export default function AdminTeamPage() {
     if (isCreating) return;
     setCreateError('');
     if (!newUser.email.trim()) { setCreateError(t('users.teamPage.errors.emailRequired')); return; }
-    if (!newUser.first_name.trim()) { setCreateError(t('users.teamPage.errors.firstNameRequired')); return; }
-    if (!newUser.last_name.trim()) { setCreateError(t('users.teamPage.errors.lastNameRequired')); return; }
-    if (newUser.password.length < 8) { setCreateError(t('users.teamPage.errors.passwordMin')); return; }
+    if (!existingAccount) {
+      if (!newUser.first_name.trim()) { setCreateError(t('users.teamPage.errors.firstNameRequired')); return; }
+      if (!newUser.last_name.trim()) { setCreateError(t('users.teamPage.errors.lastNameRequired')); return; }
+      if (newUser.password.length < 8) { setCreateError(t('users.teamPage.errors.passwordMin')); return; }
+    }
 
     setIsCreating(true);
     try {
@@ -180,12 +222,20 @@ export default function AdminTeamPage() {
     if (res.ok) fetchUsers();
   };
 
-  const handleChangeRole = async (userId: string, newRole: string) => {
-    const res = await fetch(`${API_URL}/v1/users/${userId}/role?role=${newRole}`, {
+  const handleAssignRole = async (userId: string, role: string) => {
+    if (!role) return;
+    setTeamError('');
+    const res = await fetch(`${API_URL}/v1/users/${userId}/roles`, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ role }),
     });
-    if (res.ok) fetchUsers();
+    if (res.ok) {
+      await fetchUsers();
+      return;
+    }
+    const payload = await res.json().catch(() => null);
+    setTeamError(getCreateErrorMessage(payload, res.status));
   };
 
   return (
@@ -216,6 +266,8 @@ export default function AdminTeamPage() {
         />
       </div>
 
+      {teamError && <p role="alert" className="text-sm text-destructive">{teamError}</p>}
+
       <Card>
         <CardContent className="p-0">
           {loading ? (
@@ -242,21 +294,43 @@ export default function AdminTeamPage() {
                     </td>
                     <td className="p-3 text-muted-foreground">{user.email}</td>
                     <td className="p-3">
-                      <label htmlFor={`role-${user.id}`} className="sr-only">
-                        {t('users.changeRole')}
-                      </label>
-                      <select
-                        id={`role-${user.id}`}
-                        value={user.role}
-                        onChange={(e) => handleChangeRole(user.id, e.target.value)}
-                        className="border rounded px-2 py-1 text-sm bg-card"
-                      >
-                        {/* ADR-0011: only team-managed roles. Students are provisioned via
-                            Telegram-bot or /admin/staff import and never appear here. */}
-                        <option value="methodologist">{t('users.roleMethodologist')}</option>
-                        <option value="org_admin">{t('users.roleOrgAdmin')}</option>
-                        <option value="admin">{t('users.roleAdmin')}</option>
-                      </select>
+                      <div className="flex min-w-52 flex-wrap items-center gap-1.5">
+                        {(user.roles?.length ? user.roles : [user.role]).map((role) => (
+                          <Badge key={role} variant={role === user.role ? 'default' : 'outline'}>
+                            {role === 'methodologist'
+                              ? t('users.roleMethodologist')
+                              : role === 'org_admin'
+                                ? t('users.roleOrgAdmin')
+                                : t('users.roleAdmin')}
+                          </Badge>
+                        ))}
+                        {(user.roles?.length || 1) < 3 && (
+                          <label>
+                            <span className="sr-only">{t('users.addRole')}</span>
+                            <select
+                              defaultValue=""
+                              onChange={(event) => {
+                                const role = event.target.value;
+                                event.target.value = '';
+                                void handleAssignRole(user.id, role);
+                              }}
+                              className="h-7 rounded-md border border-border bg-card px-2 text-xs text-muted-foreground"
+                              aria-label={t('users.addRole')}
+                            >
+                              <option value="">+ {t('users.addRole')}</option>
+                              {!user.roles?.includes('methodologist') && user.role !== 'methodologist' && (
+                                <option value="methodologist">{t('users.roleMethodologist')}</option>
+                              )}
+                              {!user.roles?.includes('org_admin') && user.role !== 'org_admin' && (
+                                <option value="org_admin">{t('users.roleOrgAdmin')}</option>
+                              )}
+                              {!user.roles?.includes('admin') && user.role !== 'admin' && (
+                                <option value="admin">{t('users.roleAdmin')}</option>
+                              )}
+                            </select>
+                          </label>
+                        )}
+                      </div>
                     </td>
                     <td className="p-3">
                       <Badge variant={user.is_active ? 'default' : 'destructive'}>
@@ -344,7 +418,18 @@ export default function AdminTeamPage() {
               value={newUser.email}
               onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
             />
+            {existingAccount ? (
+              <span className="mt-1 block text-xs font-medium text-primary">
+                {t('users.teamPage.roleWillBeAdded', { name: `${existingAccount.first_name} ${existingAccount.last_name}` })}
+              </span>
+            ) : (
+              <span className="mt-1 block text-xs text-muted-foreground">
+                {t('users.teamPage.existingAccountHint')}
+              </span>
+            )}
           </label>
+          {!existingAccount && (
+            <>
           <label className="block">
             <span className="text-sm text-foreground mb-1 block">{t('users.name')}</span>
             <Input
@@ -371,6 +456,8 @@ export default function AdminTeamPage() {
               onChange={(e) => setNewUser({ ...newUser, last_name: e.target.value })}
             />
           </label>
+            </>
+          )}
           <label className="block">
             <span className="text-sm text-foreground mb-1 block">{t('users.role')}</span>
             <select
@@ -385,7 +472,7 @@ export default function AdminTeamPage() {
               <option value="admin">{t('users.roleAdmin')}</option>
             </select>
           </label>
-          <label className="block">
+          {!existingAccount && <label className="block">
             <span className="text-sm text-foreground mb-1 block">{t('users.password')}</span>
             <Input
               name={`team_member_password_${createFormKey}`}
@@ -399,7 +486,7 @@ export default function AdminTeamPage() {
               value={newUser.password}
               onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
             />
-          </label>
+          </label>}
           {createError && <p className="text-sm text-destructive">{createError}</p>}
           <Button type="submit" className="w-full" disabled={isCreating}>
             {isCreating ? t('users.teamPage.creating') : t('users.createButton')}

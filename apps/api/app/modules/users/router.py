@@ -2,7 +2,7 @@
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import func, select
 from typing import Optional
 
 from app.core.auth import get_current_user, require_role, require_tenant_user
@@ -13,6 +13,7 @@ from app.modules.users.schemas import (
     UserResponse,
     UserListResponse,
     PasswordReset,
+    RoleAssignmentRequest,
     InvitationBulkCreateRequest,
     InvitationBulkCreateResponse,
     InvitationListItem,
@@ -27,6 +28,8 @@ from app.modules.users.service import (
     delete_user,
     reset_password,
     change_role,
+    assign_role,
+    get_role_map,
 )
 from app.modules.users.invitations_service import (
     bulk_create_invitations,
@@ -39,6 +42,11 @@ router = APIRouter(
     tags=["users"],
     dependencies=[Depends(require_tenant_user())],
 )
+
+
+async def _user_response(db: AsyncSession, user: User) -> UserResponse:
+    roles = (await get_role_map(db, [user], user.tenant_id)).get(user.id, [user.role])
+    return UserResponse.model_validate(user).model_copy(update={"roles": roles})
 
 
 @router.get("/me", response_model=UserResponse)
@@ -54,7 +62,8 @@ async def get_current_user_profile(
     fresh = await db.get(User, user.id)
     if not fresh:
         raise HTTPException(status_code=404, detail="User not found")
-    return UserResponse.model_validate(fresh)
+    response = await _user_response(db, fresh)
+    return response.model_copy(update={"role": user.role})
 
 
 @router.patch("/me", response_model=UserResponse)
@@ -81,7 +90,7 @@ async def update_current_user_profile(
 
     await db.flush()
     await db.refresh(target)
-    return UserResponse.model_validate(target)
+    return await _user_response(db, target)
 
 
 @router.get("", response_model=UserListResponse)
@@ -132,8 +141,14 @@ async def list_all_users(
     users, total = await list_users(
         db, user.tenant_id, page, per_page, search, effective_role, is_active
     )
+    role_map = await get_role_map(db, users, user.tenant_id)
     return UserListResponse(
-        users=[UserResponse.model_validate(u) for u in users],
+        users=[
+            UserResponse.model_validate(item).model_copy(
+                update={"roles": role_map.get(item.id, [item.role])}
+            )
+            for item in users
+        ],
         total=total,
         page=page,
         per_page=per_page,
@@ -150,7 +165,7 @@ async def get_user_detail(
     target = await get_user(db, user_id, user.tenant_id)
     if not target:
         raise HTTPException(status_code=404, detail="User not found")
-    return UserResponse.model_validate(target)
+    return await _user_response(db, target)
 
 
 @router.post("", response_model=UserResponse, status_code=201)
@@ -180,20 +195,43 @@ async def create_new_user(
             ),
         )
 
+    normalized_email = req.email.strip().lower()
+    existing = (
+        await db.execute(
+            select(User).where(
+                User.tenant_id == user.tenant_id,
+                func.lower(User.email) == normalized_email,
+            )
+        )
+    ).scalar_one_or_none()
+    if existing:
+        try:
+            await assign_role(db, existing.id, user.tenant_id, req.role)
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc))
+        return await _user_response(db, existing)
+
+    if not req.first_name or not req.first_name.strip():
+        raise HTTPException(status_code=422, detail="First name is required for a new account")
+    if not req.last_name or not req.last_name.strip():
+        raise HTTPException(status_code=422, detail="Last name is required for a new account")
+    if not req.password:
+        raise HTTPException(status_code=422, detail="Password is required for a new account")
+
     await assert_can_create_user(db, user.tenant_id)
     await assert_can_create_system_users(db, user.tenant_id)
     try:
         new_user = await create_user(
             db=db,
             tenant_id=user.tenant_id,
-            email=req.email,
-            first_name=req.first_name,
-            last_name=req.last_name,
+            email=normalized_email,
+            first_name=req.first_name.strip(),
+            last_name=req.last_name.strip(),
             role=req.role,
             password=req.password,
             is_active=req.is_active,
         )
-        return UserResponse.model_validate(new_user)
+        return await _user_response(db, new_user)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -215,7 +253,28 @@ async def update_user_detail(
     updated = await update_user(db, user_id, user.tenant_id, updates)
     if not updated:
         raise HTTPException(status_code=404, detail="User not found")
-    return UserResponse.model_validate(updated)
+    return await _user_response(db, updated)
+
+
+@router.post("/{user_id}/roles", response_model=UserResponse)
+async def add_user_role(
+    user_id: UUID,
+    req: RoleAssignmentRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_role("admin", "org_admin", "superadmin")),
+):
+    """Assign an additional team role without creating another account."""
+    from app.modules.users.service import TEAM_ROLES
+
+    if req.role not in TEAM_ROLES:
+        raise HTTPException(status_code=400, detail="Role is not managed on the tenant team surface")
+    try:
+        target = await assign_role(db, user_id, user.tenant_id, req.role)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+    return await _user_response(db, target)
 
 
 @router.delete("/{user_id}", status_code=204)
@@ -270,7 +329,7 @@ async def change_user_role(
         updated = await change_role(db, user_id, user.tenant_id, role)
         if not updated:
             raise HTTPException(status_code=404, detail="User not found")
-        return UserResponse.model_validate(updated)
+        return await _user_response(db, updated)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 

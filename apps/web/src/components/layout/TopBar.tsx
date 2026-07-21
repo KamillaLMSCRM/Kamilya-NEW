@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useT } from '@/i18n/useT';
 import { useAuthStore } from '@/store/authStore';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
+import { toast } from '@/components/ui/Toast';
 
 interface TopBarProps {
   title?: string;
@@ -14,6 +15,8 @@ export default function TopBar({ title, onMenuClick }: TopBarProps) {
   const { t } = useT();
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
+  const switchRole = useAuthStore((s) => s.switchRole);
+  const [isSwitchingRole, setIsSwitchingRole] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const notificationsRef = useRef<HTMLDivElement>(null);
 
@@ -31,6 +34,26 @@ export default function TopBar({ title, onMenuClick }: TopBarProps) {
   const isSuperadmin = !!user && user.tenant == null && !isImpersonating;
   const canExitToSuperadmin = isImpersonating && !!user?.impersonated_by;
   const tenantName = user?.tenant?.name?.trim();
+  const assignedRoles = user?.roles?.length ? user.roles : user?.role ? [user.role] : [];
+
+  const roleHome = (role: string) => {
+    if (role === 'student') return '/student';
+    if (role === 'admin' || role === 'org_admin') return '/admin';
+    return '/dashboard';
+  };
+
+  const handleRoleSwitch = async (role: string) => {
+    if (!user || role === user.role || isSwitchingRole) return;
+    setIsSwitchingRole(true);
+    try {
+      await switchRole(role);
+      window.location.assign(roleHome(role));
+    } catch {
+      toast.error(t('topbar.roleSwitchError'));
+    } finally {
+      setIsSwitchingRole(false);
+    }
+  };
 
   const exitImpersonation = async () => {
     // Impersonation is a one-shot session: the only way out is to
@@ -120,6 +143,24 @@ export default function TopBar({ title, onMenuClick }: TopBarProps) {
 
       {/* Right: Actions */}
       <div className="flex items-center gap-2 sm:gap-3">
+        {assignedRoles.length > 1 && !isImpersonating && (
+          <label className="flex items-center gap-2">
+            <span className="sr-only">{t('topbar.activeRole')}</span>
+            <select
+              value={user?.role || ''}
+              disabled={isSwitchingRole}
+              onChange={(event) => void handleRoleSwitch(event.target.value)}
+              className="h-10 w-32 rounded-lg border border-border bg-card px-2 text-sm font-medium text-foreground disabled:opacity-60 sm:w-44 sm:px-3"
+              title={t('topbar.activeRole')}
+            >
+              {assignedRoles.map((role) => (
+                <option key={role} value={role}>
+                  {t(`sidebar.userRole.${role}` as any)}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         {/* Language switcher */}
         <LanguageSwitcher />
 

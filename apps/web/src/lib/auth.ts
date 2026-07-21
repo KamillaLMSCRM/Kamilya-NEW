@@ -40,6 +40,7 @@ export interface AuthUser {
   tenant: AuthUserTenant | null;
   telegram_id: string;
   role: string;
+  roles?: string[];
   full_name: string;
   email: string | null;
   /** Set when this session was minted via superadmin impersonation. */
@@ -64,6 +65,7 @@ export interface AuthUser {
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
 const REFRESH_ENDPOINT = `${API_BASE}/v1/auth/refresh`;
 const LOGOUT_ENDPOINT = `${API_BASE}/v1/auth/logout`;
+const SWITCH_ROLE_ENDPOINT = `${API_BASE}/v1/auth/switch-role`;
 
 let _accessToken: string | null = null;
 let _user: AuthUser | null = null;
@@ -183,6 +185,25 @@ export async function logout(): Promise<void> {
   } finally {
     await abortRefresh?.catch(() => null);
   }
+}
+
+
+export async function switchRole(role: string): Promise<AuthUser> {
+  if (!_accessToken) throw new Error('Authentication required');
+  const response = await fetch(SWITCH_ROLE_ENDPOINT, {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${_accessToken}`,
+    },
+    body: JSON.stringify({ role }),
+  });
+  if (!response.ok) throw new Error('Role switch failed');
+  const data = await response.json();
+  if (!data.access_token || !data.user) throw new Error('Invalid role switch response');
+  setAuth(data.access_token, data.user);
+  return data.user;
 }
 
 

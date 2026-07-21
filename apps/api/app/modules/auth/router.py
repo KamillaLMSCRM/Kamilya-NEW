@@ -8,13 +8,14 @@ from app.core.auth import create_access_token, create_refresh_token, get_current
 from app.core.config import get_settings
 from app.core.db import get_db
 from app.core.email import EmailService
-from app.modules.auth.schemas import LoginRequest, RefreshRequest, TokenResponse, UserCreate, UserResponse
+from app.modules.auth.schemas import LoginRequest, RefreshRequest, RoleSwitchRequest, TokenResponse, UserCreate, UserResponse
 from app.modules.auth.service import (
     authenticate_user,
     create_user_and_tokens,
     refresh_access_token,
     blacklist_refresh_token,
     build_user_payload,
+    get_user_roles,
 )
 from app.modules.auth.auth_sessions import generate_auth_code, check_code
 from app.modules.auth.email_otp import create_email_code, consume_email_code
@@ -190,6 +191,46 @@ async def refresh(req: RefreshRequest, request: Request, response: Response, db=
     )
 
 
+@router.post("/switch-role", response_model=TokenResponse)
+async def switch_role(
+    req: RoleSwitchRequest,
+    response: Response,
+    db=Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Select one of the roles assigned to the current tenant account."""
+    if getattr(current_user, "is_impersonating", False):
+        raise HTTPException(status_code=403, detail="Role switching is unavailable while impersonating")
+
+    user = (await db.execute(select(User).where(User.id == current_user.id))).scalar_one_or_none()
+    if not user or not user.is_active:
+        raise HTTPException(status_code=401, detail="User not found or inactive")
+
+    roles = await get_user_roles(db, user)
+    if req.role not in roles:
+        raise HTTPException(status_code=403, detail="Role is not assigned to this account")
+
+    access_token = create_access_token({
+        "sub": str(user.id),
+        "tenant_id": user.tenant_id,
+        "roles": roles,
+        "active_role": req.role,
+    })
+    refresh_token = create_refresh_token({
+        "sub": str(user.id),
+        "tenant_id": user.tenant_id,
+        "active_role": req.role,
+    })
+    user_payload = await build_user_payload(db, user, active_role=req.role)
+    _set_refresh_cookie(response, refresh_token)
+    return TokenResponse(
+        access_token=access_token,
+        refresh_token=refresh_token,
+        expires_in=900,
+        user=user_payload,
+    )
+
+
 @router.post("/logout")
 async def logout(req: RefreshRequest, request: Request, response: Response, db=Depends(get_db)):
     # Logout used to depend on `get_current_user` (Bearer access-token),
@@ -358,11 +399,13 @@ async def verify_email_code(req: EmailCodeVerifyRequest, response: Response, db=
     access_token = create_access_token({
         "sub": str(user.id),
         "tenant_id": user.tenant_id,
-        "roles": [user_payload["role"]],
+        "roles": user_payload["roles"],
+        "active_role": user_payload["role"],
     })
     refresh_token = create_refresh_token({
         "sub": str(user.id),
         "tenant_id": user.tenant_id,
+        "active_role": user_payload["role"],
     })
     _set_refresh_cookie(response, refresh_token)
     await log_action(
@@ -445,10 +488,12 @@ async def check_auth_code(req: CheckCodeRequest, response: Response):
         "sub": user_data["user_id"],
         "tenant_id": user_data["tenant_id"],
         "roles": [user_data["role"]],
+        "active_role": user_data["role"],
     })
     refresh_token = create_refresh_token({
         "sub": user_data["user_id"],
         "tenant_id": user_data["tenant_id"],
+        "active_role": user_data["role"],
     })
     _set_refresh_cookie(response, refresh_token)
 
@@ -599,6 +644,7 @@ async def demo_login(req: DemoLoginRequest, response: Response, db=Depends(get_d
             "sub": str(user.id),
             "tenant_id": str(user.tenant_id),
             "roles": [user.role],
+            "active_role": user.role,
         })
 
         user_data = {
@@ -622,6 +668,7 @@ async def demo_login(req: DemoLoginRequest, response: Response, db=Depends(get_d
         refresh_token = create_refresh_token({
             "sub": str(user.id),
             "tenant_id": str(user.tenant_id),
+            "active_role": user.role,
         })
         _set_refresh_cookie(response, refresh_token)
 

@@ -353,6 +353,7 @@
     "createButton": "Create",
     "telegramColumn": "Telegram",
     "changeRole": "Change role",
+    "addRole": "Add role",
     "position": "Position",
     "assignPosition": "Assign position",
     "assignPositionHint": "The learner will be auto-enrolled in all courses linked to the position.",
@@ -370,6 +371,8 @@
       "title": "Tenant team",
       "subtitle": "Only tenant administrators and methodologists. Learners and staff are added via the org chart, import, or invitations.",
       "newMember": "New team member",
+      "existingAccountHint": "If this email already belongs to a member of this company, the selected role will be added to that account. The password and profile will not change.",
+      "roleWillBeAdded": "Account found: {name}. The selected role will be added without creating another user.",
       "errors": {
         "emailRequired": "Enter email",
         "firstNameRequired": "Enter first name",
@@ -493,6 +496,8 @@
     }
   },
   "topbar": {
+    "activeRole": "Working mode",
+    "roleSwitchError": "Could not switch working mode",
     "notifications": "Notifications",
     "noNotifications": "No new notifications",
     "commandPalette": "Command palette",
