@@ -72,7 +72,7 @@ async def test_training_log_student_forbidden(client, db_session, make_tenant, m
 @pytest.mark.asyncio
 async def test_training_log_happy_path(client, db_session, make_tenant, make_user, make_course):
     tenant = await make_tenant(name="Acme", slug="acme")
-    admin = await make_user(tenant, role="admin", email="admin@acme.example")
+    admin = await make_user(tenant, role="methodologist", email="admin@acme.example")
     student = await make_user(tenant, role="student", email="stu@acme.example")
     course = await make_course(tenant, admin, title="Intro")
     await _enroll(db_session, student, course)
@@ -97,7 +97,7 @@ async def test_training_log_happy_path(client, db_session, make_tenant, make_use
 async def test_training_log_tenant_isolation(client, db_session, make_tenant, make_user, make_course):
     tenant_a = await make_tenant(name="AcmeA", slug="acmea")
     tenant_b = await make_tenant(name="AcmeB", slug="acmeb")
-    admin_b = await make_user(tenant_b, role="admin", email="admin@b.example")
+    admin_b = await make_user(tenant_b, role="methodologist", email="admin@b.example")
     student_a = await make_user(tenant_a, role="student", email="stu@a.example")
     course_a = await make_course(tenant_a, admin_b, title="CourseA")
     await _enroll(db_session, student_a, course_a)
@@ -115,7 +115,7 @@ async def test_training_log_tenant_isolation(client, db_session, make_tenant, ma
 @pytest.mark.asyncio
 async def test_training_log_filter_by_completed_status(client, db_session, make_tenant, make_user, make_course):
     tenant = await make_tenant(name="Acme", slug="acme-c")
-    admin = await make_user(tenant, role="admin", email="admin@c.example")
+    admin = await make_user(tenant, role="methodologist", email="admin@c.example")
     student = await make_user(tenant, role="student", email="stu@c.example")
     course = await make_course(tenant, admin, title="C1")
     enrollment = await _enroll(db_session, student, course)
@@ -142,7 +142,7 @@ async def test_training_log_filter_by_completed_status(client, db_session, make_
 @pytest.mark.asyncio
 async def test_training_log_filter_by_delivery_type_scorm(client, db_session, make_tenant, make_user, make_course):
     tenant = await make_tenant(name="Acme", slug="acme-s")
-    admin = await make_user(tenant, role="admin", email="admin@s.example")
+    admin = await make_user(tenant, role="methodologist", email="admin@s.example")
     student = await make_user(tenant, role="student", email="stu@s.example")
     course = await make_course(tenant, admin, title="ScormCourse", delivery_type="scorm")
     await _enroll(db_session, student, course)
@@ -161,7 +161,7 @@ async def test_training_log_filter_by_delivery_type_scorm(client, db_session, ma
 @pytest.mark.asyncio
 async def test_training_log_csv_export(client, db_session, make_tenant, make_user, make_course):
     tenant = await make_tenant(name="Acme", slug="acme-x")
-    admin = await make_user(tenant, role="admin", email="admin@x.example")
+    admin = await make_user(tenant, role="methodologist", email="admin@x.example")
     student = await make_user(tenant, role="student", email="stu@x.example")
     course = await make_course(tenant, admin, title="X1")
     await _enroll(db_session, student, course)
@@ -188,7 +188,7 @@ async def test_training_log_csv_export(client, db_session, make_tenant, make_use
 @pytest.mark.asyncio
 async def test_training_log_pagination(client, db_session, make_tenant, make_user, make_course):
     tenant = await make_tenant(name="Acme", slug="acme-p")
-    admin = await make_user(tenant, role="admin", email="admin@p.example")
+    admin = await make_user(tenant, role="methodologist", email="admin@p.example")
     course = await make_course(tenant, admin, title="P1")
     # 5 enrollments, different students
     for i in range(5):
@@ -241,7 +241,7 @@ async def test_training_log_status_assigned_no_progress(
     """A row with an enrollment but no lesson progress AND no SCORM attempt
     must come back as computed_status='assigned' (not in_progress)."""
     tenant = await make_tenant(name="Acme", slug="acme-assigned")
-    admin = await make_user(tenant, role="admin", email="admin@a.example")
+    admin = await make_user(tenant, role="methodologist", email="admin@a.example")
     student = await make_user(tenant, role="student", email="stu@a.example")
     course = await make_course(tenant, admin, title="A1")
     await _enroll(db_session, student, course)
@@ -266,7 +266,7 @@ async def test_training_log_status_in_progress_native_lesson(
     """Native course with one completed lesson progress row → in_progress,
     progress_percent = completed_lessons / total_lessons * 100."""
     tenant = await make_tenant(name="Acme", slug="acme-inprog")
-    admin = await make_user(tenant, role="admin", email="admin@i.example")
+    admin = await make_user(tenant, role="methodologist", email="admin@i.example")
     student = await make_user(tenant, role="student", email="stu@i.example")
     course = await make_course(tenant, admin, title="I1")
     module = await make_module(course, title="M1")
@@ -314,7 +314,7 @@ async def test_training_log_status_assigned_excludes_started(
     where completed_at IS NULL), which would surface 'in_progress' rows as
     'assigned' — misleading HR."""
     tenant = await make_tenant(name="Acme", slug="acme-aonly")
-    admin = await make_user(tenant, role="admin", email="admin@ao.example")
+    admin = await make_user(tenant, role="methodologist", email="admin@ao.example")
     student = await make_user(tenant, role="student", email="stu@ao.example")
     course = await make_course(tenant, admin, title="AO1")
     module = await make_module(course, title="M1")
@@ -353,7 +353,7 @@ async def test_training_log_status_in_progress_scorm_attempt(
     """SCORM course with a scorm_attempt row but no completed_at →
     computed_status='in_progress'."""
     tenant = await make_tenant(name="Acme", slug="acme-sip")
-    admin = await make_user(tenant, role="admin", email="admin@sip.example")
+    admin = await make_user(tenant, role="methodologist", email="admin@sip.example")
     student = await make_user(tenant, role="student", email="stu@sip.example")
     course = await make_course(
         tenant, admin, title="Sip1", delivery_type="scorm"
@@ -413,7 +413,7 @@ async def test_training_log_status_overdue_returns_422(
     """status=overdue was removed (no deadline column on enrollments). The
     Pydantic Literal must reject it with 422, not silently ignore."""
     tenant = await make_tenant(name="Acme", slug="acme-od")
-    admin = await make_user(tenant, role="admin", email="admin@od.example")
+    admin = await make_user(tenant, role="methodologist", email="admin@od.example")
 
     token = await _login(client, admin)
     resp = await client.get(
@@ -423,7 +423,7 @@ async def test_training_log_status_overdue_returns_422(
     assert resp.status_code == 422
     # Error message must mention the offending field so HR can debug.
     body = resp.json()
-    detail_blob = str(body.get("detail", ""))
+    detail_blob = str(body)
     assert "overdue" in detail_blob.lower() or "status" in detail_blob.lower()
 
 
@@ -434,7 +434,7 @@ async def test_training_log_progress_percent_zero_lessons(
     """Native course with no lessons at all: progress_percent = 0 (not a
     divide-by-zero crash). Regression for the round() in repository."""
     tenant = await make_tenant(name="Acme", slug="acme-nol")
-    admin = await make_user(tenant, role="admin", email="admin@nol.example")
+    admin = await make_user(tenant, role="methodologist", email="admin@nol.example")
     student = await make_user(tenant, role="student", email="stu@nol.example")
     course = await make_course(tenant, admin, title="NoLessons")
     await _enroll(db_session, student, course)

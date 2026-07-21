@@ -38,11 +38,11 @@ class TestCoursesCrossTenant:
         self, client, make_tenant, make_user, make_course, auth_headers
     ):
         tenant_a = await make_tenant(name="Tenant A")
-        user_a = await make_user(tenant_a, role="admin")
+        user_a = await make_user(tenant_a, role="methodologist")
         course = await make_course(tenant_a, user_a, title="A's Course")
 
         tenant_b = await make_tenant(name="Tenant B")
-        user_b = await make_user(tenant_b, role="admin")
+        user_b = await make_user(tenant_b, role="methodologist")
 
         r = await client.get(
             f"/api/v1/courses/{course.id}",
@@ -57,11 +57,11 @@ class TestCoursesCrossTenant:
         self, client, make_tenant, make_user, make_course, auth_headers
     ):
         tenant_a = await make_tenant()
-        user_a = await make_user(tenant_a, role="admin")
+        user_a = await make_user(tenant_a, role="methodologist")
         course = await make_course(tenant_a, user_a)
 
         tenant_b = await make_tenant()
-        user_b = await make_user(tenant_b, role="admin")
+        user_b = await make_user(tenant_b, role="methodologist")
 
         r = await client.patch(
             f"/api/v1/courses/{course.id}",
@@ -75,11 +75,11 @@ class TestCoursesCrossTenant:
         self, client, make_tenant, make_user, make_course, auth_headers
     ):
         tenant_a = await make_tenant()
-        user_a = await make_user(tenant_a, role="admin")
+        user_a = await make_user(tenant_a, role="methodologist")
         course = await make_course(tenant_a, user_a)
 
         tenant_b = await make_tenant()
-        user_b = await make_user(tenant_b, role="admin")
+        user_b = await make_user(tenant_b, role="methodologist")
 
         r = await client.delete(
             f"/api/v1/courses/{course.id}",
@@ -92,12 +92,12 @@ class TestCoursesCrossTenant:
         self, client, make_tenant, make_user, make_course, auth_headers
     ):
         tenant_a = await make_tenant()
-        user_a = await make_user(tenant_a, role="admin")
+        user_a = await make_user(tenant_a, role="methodologist")
         await make_course(tenant_a, user_a, title="A-Course-1")
         await make_course(tenant_a, user_a, title="A-Course-2")
 
         tenant_b = await make_tenant()
-        user_b = await make_user(tenant_b, role="admin")
+        user_b = await make_user(tenant_b, role="methodologist")
         b_course = await make_course(tenant_b, user_b, title="B-Course-1")
 
         r = await client.get(
@@ -117,11 +117,11 @@ class TestCoursesCrossTenant:
         self, client, make_tenant, make_user, make_course, auth_headers
     ):
         tenant_a = await make_tenant()
-        user_a = await make_user(tenant_a, role="admin")
+        user_a = await make_user(tenant_a, role="methodologist")
         course = await make_course(tenant_a, user_a)
 
         tenant_b = await make_tenant()
-        user_b = await make_user(tenant_b, role="admin")
+        user_b = await make_user(tenant_b, role="methodologist")
 
         r = await client.get(
             f"/api/v1/courses/{course.id}/preview",
@@ -143,11 +143,11 @@ class TestDocumentsCrossTenant:
         self, client, make_tenant, make_user, make_document, auth_headers
     ):
         tenant_a = await make_tenant()
-        user_a = await make_user(tenant_a, role="admin")
+        user_a = await make_user(tenant_a, role="methodologist")
         doc = await make_document(tenant_a, user_a, name="a-secret.md")
 
         tenant_b = await make_tenant()
-        user_b = await make_user(tenant_b, role="admin")
+        user_b = await make_user(tenant_b, role="methodologist")
 
         r = await client.get(
             f"/api/v1/documents/{doc.id}",
@@ -160,11 +160,11 @@ class TestDocumentsCrossTenant:
         self, client, make_tenant, make_user, make_document, auth_headers
     ):
         tenant_a = await make_tenant()
-        user_a = await make_user(tenant_a, role="admin")
+        user_a = await make_user(tenant_a, role="methodologist")
         doc = await make_document(tenant_a, user_a)
 
         tenant_b = await make_tenant()
-        user_b = await make_user(tenant_b, role="admin")
+        user_b = await make_user(tenant_b, role="methodologist")
 
         r = await client.delete(
             f"/api/v1/documents/{doc.id}",
@@ -177,12 +177,12 @@ class TestDocumentsCrossTenant:
         self, client, make_tenant, make_user, make_document, auth_headers
     ):
         tenant_a = await make_tenant()
-        user_a = await make_user(tenant_a, role="admin")
+        user_a = await make_user(tenant_a, role="methodologist")
         await make_document(tenant_a, user_a, name="a-1.md")
         await make_document(tenant_a, user_a, name="a-2.md")
 
         tenant_b = await make_tenant()
-        user_b = await make_user(tenant_b, role="admin")
+        user_b = await make_user(tenant_b, role="methodologist")
         await make_document(tenant_b, user_b, name="b-1.md")
 
         r = await client.get(
@@ -210,14 +210,14 @@ class TestQuizzesCrossTenant:
         self, client, make_tenant, make_user, make_course, make_module, make_lesson, make_quiz, auth_headers
     ):
         tenant_a = await make_tenant()
-        user_a = await make_user(tenant_a, role="admin")
+        user_a = await make_user(tenant_a, role="methodologist")
         course = await make_course(tenant_a, user_a)
         mod = await make_module(course)
         lesson = await make_lesson(mod)
         quiz = await make_quiz(lesson)
 
         tenant_b = await make_tenant()
-        user_b = await make_user(tenant_b, role="admin")
+        user_b = await make_user(tenant_b, role="methodologist")
 
         r = await client.get(
             f"/api/v1/quizzes/{quiz.id}",
@@ -230,14 +230,14 @@ class TestQuizzesCrossTenant:
         self, client, make_tenant, make_user, make_course, make_module, make_lesson, make_quiz, auth_headers
     ):
         tenant_a = await make_tenant()
-        user_a = await make_user(tenant_a, role="admin")
+        user_a = await make_user(tenant_a, role="methodologist")
         course = await make_course(tenant_a, user_a)
         mod = await make_module(course)
         lesson = await make_lesson(mod)
         await make_quiz(lesson, title="A's Quiz")
 
         tenant_b = await make_tenant()
-        user_b = await make_user(tenant_b, role="admin")
+        user_b = await make_user(tenant_b, role="methodologist")
 
         r = await client.get(
             f"/api/v1/quizzes/by-lesson/{lesson.id}",
@@ -250,14 +250,14 @@ class TestQuizzesCrossTenant:
         self, client, make_tenant, make_user, make_course, make_module, make_lesson, make_quiz, auth_headers
     ):
         tenant_a = await make_tenant()
-        user_a = await make_user(tenant_a, role="admin")
+        user_a = await make_user(tenant_a, role="methodologist")
         course = await make_course(tenant_a, user_a)
         mod = await make_module(course)
         lesson = await make_lesson(mod)
         quiz = await make_quiz(lesson)
 
         tenant_b = await make_tenant()
-        user_b = await make_user(tenant_b, role="admin")
+        user_b = await make_user(tenant_b, role="methodologist")
 
         r = await client.get(
             f"/api/v1/quizzes/{quiz.id}/attempts",

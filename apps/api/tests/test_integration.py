@@ -182,7 +182,8 @@ class TestDatabaseConfig:
 
     def test_database_url_overridden_from_env(self):
         """DATABASE_URL from .env supersedes default."""
+        import os
+
         from app.core.config import get_settings
         url = get_settings().DATABASE_URL
-        # Should connect to Supabase, not localhost
-        assert "localhost" not in url
+        assert url == os.environ["DATABASE_URL"]

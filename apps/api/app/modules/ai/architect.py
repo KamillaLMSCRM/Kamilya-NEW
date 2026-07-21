@@ -284,6 +284,9 @@ def _build_system_prompt(
     num_modules: int | None = None,
     language: str = "ru",
     guidance: str | None = None,
+    target_audience: str = "",
+    source_strategy: str = "single_topic",
+    combination_goal: str = "",
 ) -> str:
     """Build localized system prompt with goals and constraints."""
     prompt = SYSTEM_PROMPT
@@ -319,6 +322,24 @@ def _build_system_prompt(
             "\n\n## User Structure Guidance\n\n"
             f"{guidance}\n\n"
             "Adapt and improve based on document content.\n"
+        )
+
+    if target_audience.strip():
+        prompt += (
+            "\n\n## Target Audience\n\n"
+            f"Design examples, terminology, and learning objectives for: {target_audience.strip()}\n"
+        )
+
+    prompt += (
+        "\n\n## Lesson Source Boundaries\n\n"
+        "Every lesson MUST contain one or more source_doc_ids returned by list_documents(). "
+        "Assign only documents that directly support that lesson and never invent an ID.\n"
+    )
+    if source_strategy == "intentional_combination":
+        prompt += (
+            "The user intentionally combines different subject areas into one course. "
+            f"Shared learning goal: {combination_goal.strip()}\n"
+            "Keep unrelated material in separate modules and make its relationship to the shared goal explicit.\n"
         )
 
     return prompt
@@ -389,6 +410,9 @@ async def run_architect(
     on_message: Callable | None = None,
     max_iterations: int = 20,
     tenant_id: str | None = None,
+    target_audience: str = "",
+    source_strategy: str = "single_topic",
+    combination_goal: str = "",
 ) -> CourseStructure:
     """
     Run the Architect Agent — iterative LLM calls with tool execution.
@@ -403,6 +427,9 @@ async def run_architect(
         num_modules=num_modules,
         language=language,
         guidance=guidance,
+        target_audience=target_audience,
+        source_strategy=source_strategy,
+        combination_goal=combination_goal,
     )
 
     messages = [{"role": "system", "content": system_prompt}]

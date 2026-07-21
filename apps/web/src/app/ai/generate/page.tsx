@@ -24,6 +24,8 @@ import {
   XCircle,
   Trash2,
   Rocket,
+  AlertTriangle,
+  Layers3,
 } from 'lucide-react';
 import { ReviewBadge, CoursePreviewTree } from './components/CoursePreview';
 
@@ -47,6 +49,26 @@ interface AIGenerationJob {
   progress: number;
   stage: string;
   message: string;
+}
+
+interface CompatibilityDocument {
+  id: string;
+  title: string;
+  filename: string;
+}
+
+interface CompatibilityCluster {
+  id: string;
+  label: string;
+  cohesion: number;
+  documents: CompatibilityDocument[];
+}
+
+interface DocumentCompatibility {
+  status: 'compatible' | 'mixed' | 'incompatible';
+  score: number;
+  requires_decision: boolean;
+  clusters: CompatibilityCluster[];
 }
 
 type Step = 'documents' | 'generate' | 'review';
@@ -76,6 +98,11 @@ export default function AIGeneratePage() {
   const [uploadingCount, setUploadingCount] = useState(0);
   const [uploadingFiles, setUploadingFiles] = useState<string[]>([]);
   const [uploadError, setUploadError] = useState('');
+  const [compatibility, setCompatibility] = useState<DocumentCompatibility | null>(null);
+  const [compatibilityLoading, setCompatibilityLoading] = useState(false);
+  const [compatibilityError, setCompatibilityError] = useState('');
+  const [sourceStrategy, setSourceStrategy] = useState<'single_topic' | 'intentional_combination'>('single_topic');
+  const [combinationGoal, setCombinationGoal] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
 
   // Result-step state: preview of the generated course + approval.
@@ -130,7 +157,13 @@ export default function AIGeneratePage() {
   const selectedDocuments = documents.filter((doc) => selectedDocIds.includes(doc.id));
   const selectedNotReadyCount = selectedDocuments.filter((doc) => doc.embedding_status !== 'success').length;
   const failedDocumentsCount = documents.filter((doc) => doc.embedding_status === 'failed').length;
-  const canGenerate = selectedDocIds.length > 0 && selectedNotReadyCount === 0;
+  const hasResolvedSourceDecision = !compatibility?.requires_decision
+    || (sourceStrategy === 'intentional_combination' && combinationGoal.trim().length >= 20);
+  const canGenerate = selectedDocIds.length > 0
+    && selectedNotReadyCount === 0
+    && !compatibilityLoading
+    && !!compatibility
+    && hasResolvedSourceDecision;
   const uploading = uploadingCount > 0;
 
   const documentStatusLabel = (status: Document['embedding_status']) => {
@@ -146,6 +179,36 @@ export default function AIGeneratePage() {
   };
 
   useEffect(() => { fetchDocuments(); restoreActiveJob(); }, []);
+
+  useEffect(() => {
+    if (selectedDocIds.length === 0 || selectedNotReadyCount > 0) {
+      setCompatibility(null);
+      setCompatibilityError('');
+      return;
+    }
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      setCompatibilityLoading(true);
+      setCompatibilityError('');
+      try {
+        const response = await api.post('/v1/ai/document-compatibility', {
+          documents: selectedDocIds,
+        });
+        if (!cancelled) setCompatibility(response.data);
+      } catch (error: any) {
+        if (!cancelled) {
+          setCompatibility(null);
+          setCompatibilityError(error?.response?.data?.message || 'Не удалось проверить совместимость документов.');
+        }
+      } finally {
+        if (!cancelled) setCompatibilityLoading(false);
+      }
+    }, 350);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [selectedDocIds, selectedNotReadyCount]);
 
   const restoreActiveJob = async () => {
     const savedJobId = localStorage.getItem('ai_active_job_id');
@@ -229,6 +292,14 @@ export default function AIGeneratePage() {
     const doc = documents.find((item) => item.id === id);
     if (doc && doc.embedding_status !== 'success') return;
     setSelectedDocIds(prev => prev.includes(id) ? prev.filter(d => d !== id) : [...prev, id]);
+    setSourceStrategy('single_topic');
+    setCombinationGoal('');
+  };
+
+  const useCompatibilityCluster = (cluster: CompatibilityCluster) => {
+    setSelectedDocIds(cluster.documents.map((document) => document.id));
+    setSourceStrategy('single_topic');
+    setCombinationGoal('');
   };
 
   const deleteDocument = async (doc: Document) => {
@@ -255,12 +326,28 @@ export default function AIGeneratePage() {
         target_audience: targetAudience,
         num_modules: numModules,
         language,
+        source_strategy: sourceStrategy,
+        combination_goal: sourceStrategy === 'intentional_combination' ? combinationGoal.trim() : '',
       });
       setCurrentJob(res.data);
       localStorage.setItem('ai_active_job_id', res.data.id);
       setStep('generate');
-    } catch (e) {
+    } catch (e: any) {
       console.error('Generation failed', e);
+      const detail = e?.response?.data?.details ?? e?.response?.data?.detail;
+      if (detail?.code === 'mixed_document_topics' && detail.analysis) {
+        setCompatibility(detail.analysis);
+        setStep('documents');
+        toast.error('Документы относятся к разным темам', {
+          description: 'Выберите одну тематическую группу или задайте общую учебную цель.',
+        });
+        return;
+      }
+      toast.error('Не удалось запустить генерацию', {
+        description: typeof detail === 'string'
+          ? detail
+          : detail?.message || e?.response?.data?.message || 'Проверьте документы и повторите попытку.',
+      });
     }
   };
 
@@ -311,6 +398,7 @@ export default function AIGeneratePage() {
         comment: reviewDialog.comment.trim() || null,
       });
       setCourseMeta(res.data);
+      await loadCoursePreview(currentJob.course_id);
       setReviewDialog({ open: false, status: 'approved', comment: '' });
     } catch (e) {
       console.error('Review submit failed', e);
@@ -640,6 +728,89 @@ export default function AIGeneratePage() {
             </div>
           )}
 
+          {selectedDocIds.length > 0 && selectedNotReadyCount === 0 && (
+            <section className="rounded-xl border border-border bg-card p-4" aria-live="polite">
+              <div className="flex items-start gap-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  {compatibilityLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Layers3 className="h-5 w-5" />}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-sm font-semibold text-foreground">Тематическая проверка источников</h3>
+                  {compatibilityLoading ? (
+                    <p className="mt-1 text-sm text-muted-foreground">Сравниваем содержание выбранных документов...</p>
+                  ) : compatibilityError ? (
+                    <p className="mt-1 text-sm text-destructive">{compatibilityError}</p>
+                  ) : compatibility && !compatibility.requires_decision ? (
+                    <p className="mt-1 text-sm text-success">
+                      Документы образуют одну тематическую группу. Можно проектировать единый курс.
+                    </p>
+                  ) : compatibility ? (
+                    <div className="mt-2 space-y-4">
+                      <div className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/10 p-3 text-sm text-foreground">
+                        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
+                        <p>
+                          Выбраны материалы из разных предметных областей. Случайное объединение даст нелогичную структуру и слабые тесты. Выберите одну группу или объясните, зачем темы должны быть в одном курсе.
+                        </p>
+                      </div>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        {compatibility.clusters.map((cluster, index) => (
+                          <div key={cluster.id} className="rounded-lg border border-border bg-background p-3">
+                            <div className="text-xs font-semibold uppercase text-muted-foreground">Группа {index + 1}</div>
+                            <div className="mt-1 text-sm font-semibold text-foreground line-clamp-2">{cluster.label}</div>
+                            <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
+                              {cluster.documents.map((document) => (
+                                <li key={document.id} className="truncate" title={document.filename}>• {document.title}</li>
+                              ))}
+                            </ul>
+                            <button
+                              type="button"
+                              onClick={() => useCompatibilityCluster(cluster)}
+                              className="mt-3 w-full rounded-lg border border-primary/30 px-3 py-2 text-xs font-medium text-primary transition-colors hover:bg-primary/5"
+                            >
+                              Создать курс по этой группе
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                      <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border p-3">
+                        <input
+                          type="radio"
+                          name="source-strategy"
+                          checked={sourceStrategy === 'intentional_combination'}
+                          onChange={() => setSourceStrategy('intentional_combination')}
+                          className="mt-1 h-4 w-4 text-primary focus:ring-primary"
+                        />
+                        <span>
+                          <span className="block text-sm font-medium text-foreground">Объединить темы в один курс осознанно</span>
+                          <span className="mt-0.5 block text-xs text-muted-foreground">Материалы останутся разделены по урокам, а общая цель свяжет модули курса.</span>
+                        </span>
+                      </label>
+                      {sourceStrategy === 'intentional_combination' && (
+                        <div>
+                          <label className="mb-1 block text-xs font-semibold text-muted-foreground" htmlFor="combination-goal">
+                            Общая учебная цель
+                          </label>
+                          <textarea
+                            id="combination-goal"
+                            value={combinationGoal}
+                            onChange={(event) => setCombinationGoal(event.target.value)}
+                            rows={3}
+                            maxLength={2000}
+                            placeholder="Например: подготовить руководителей филиалов к запуску новой точки, объединив требования безопасности и стандарт бренда."
+                            className="w-full resize-y rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none transition-colors focus:border-primary"
+                          />
+                          <div className={`mt-1 text-xs ${combinationGoal.trim().length >= 20 ? 'text-success' : 'text-muted-foreground'}`}>
+                            Опишите ожидаемый результат не менее чем 20 символами.
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            </section>
+          )}
+
           {/* Config */}
           <div className="rounded-2xl border border-border bg-card p-5 space-y-4">
             <h3 className="font-bold text-foreground font-display">Настройки генерации</h3>
@@ -801,6 +972,26 @@ export default function AIGeneratePage() {
                 <ReviewBadge status={courseMeta.review_status} />
               </div>
               <p className="text-sm text-muted-foreground line-clamp-2">{courseMeta.description}</p>
+              {preview?.source_documents?.length > 0 && (
+                <div className="rounded-lg border border-border bg-muted/30 p-3">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                    <FileText className="h-3.5 w-3.5 text-primary" />
+                    Источники курса
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {preview.source_documents.map((document: any) => (
+                      <span key={document.id} className="max-w-full truncate rounded-md border border-border bg-background px-2 py-1 text-xs text-muted-foreground" title={document.filename}>
+                        {document.title}
+                      </span>
+                    ))}
+                  </div>
+                  {preview.source_strategy === 'intentional_combination' && preview.source_combination_goal && (
+                    <p className="mt-2 border-t border-border pt-2 text-xs text-muted-foreground">
+                      <span className="font-medium text-foreground">Общая учебная цель:</span> {preview.source_combination_goal}
+                    </p>
+                  )}
+                </div>
+              )}
 
               {/* Reviewer info */}
               {courseMeta.review_status !== 'pending' && courseMeta.reviewer && (

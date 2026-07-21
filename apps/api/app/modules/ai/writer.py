@@ -7,6 +7,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+from dataclasses import asdict, dataclass
 from typing import Callable
 
 from app.modules.ai.llm_client import LLMClient, create_llm
@@ -16,6 +17,33 @@ from app.ml_prompts import get_renderer
 
 logger = logging.getLogger(__name__)
 MAX_CHUNK_CHARS = 24_000
+
+
+@dataclass(frozen=True)
+class RetrievedChunk:
+    chunk_id: str
+    doc_id: str
+    doc_name: str
+    headings: list[str]
+    text: str
+    query: str
+    distance: float
+
+
+def resolve_lesson_doc_ids(
+    lesson_doc_ids: list[str],
+    selected_doc_ids: list[str],
+) -> list[str]:
+    """Validate Architect output against the selected source boundary."""
+    selected = set(selected_doc_ids)
+    resolved = list(dict.fromkeys(doc_id for doc_id in lesson_doc_ids if doc_id in selected))
+    if resolved:
+        return resolved
+    if len(selected_doc_ids) == 1:
+        return list(selected_doc_ids)
+    raise ValueError(
+        "Architect did not provide valid source_doc_ids for a lesson in a multi-document course"
+    )
 
 
 def _load_generation_prompt() -> str:
@@ -53,7 +81,7 @@ async def _retrieve_and_rerank(
     n_results: int = 15,
     top_n: int = 10,
     similarity_threshold: float = 0.45,
-) -> list[tuple[str, str]]:
+) -> list[RetrievedChunk]:
     """Multi-query retrieval + deduplication + ranking."""
     where = None
     if doc_ids:
@@ -70,7 +98,7 @@ async def _retrieve_and_rerank(
         provider = EmbeddingsProvider()
         query_embeddings = await provider.embed(queries)
 
-    best_chunks: dict[str, tuple[float, list[str], str]] = {}
+    best_chunks: dict[str, RetrievedChunk] = {}
 
     for qe, query_text in zip(query_embeddings, queries):
         results = await store.query(
@@ -85,35 +113,36 @@ async def _retrieve_and_rerank(
         metadatas = results.get("metadatas", [[]])[0]
 
         for doc_text, dist, meta in zip(documents, distances, metadatas):
-            if doc_text and (doc_text not in best_chunks or dist < best_chunks[doc_text][0]):
+            if doc_text and (doc_text not in best_chunks or dist < best_chunks[doc_text].distance):
                 headings_raw = (meta or {}).get("headings", "[]")
                 try:
                     headings = json.loads(headings_raw)
                 except (json.JSONDecodeError, TypeError):
                     headings = []
-                best_chunks[doc_text] = (dist, headings, query_text)
+                best_chunks[doc_text] = RetrievedChunk(
+                    chunk_id=str((meta or {}).get("chunk_id", "")),
+                    doc_id=str((meta or {}).get("doc_id", "")),
+                    doc_name=str((meta or {}).get("doc_name", "")),
+                    headings=headings,
+                    text=doc_text,
+                    query=query_text,
+                    distance=float(dist),
+                )
 
     if not best_chunks:
         return []
 
-    ranked = sorted(best_chunks.items(), key=lambda x: x[1][0])
+    ranked = sorted(best_chunks.values(), key=lambda chunk: chunk.distance)
     pre_filter_ranked = ranked
-    ranked = [
-        (t, (d, h, q))
-        for t, (d, h, q) in ranked
-        if d < similarity_threshold
-    ]
+    ranked = [chunk for chunk in ranked if chunk.distance < similarity_threshold]
     if not ranked and pre_filter_ranked:
-        ranked = pre_filter_ranked
-
-    formatted = []
-    for text, (_dist, headings, query) in ranked[:top_n]:
-        if headings:
-            heading_ctx = " > ".join(headings)
-            formatted.append((f"[Context: {heading_ctx}]\n{text}", query))
-        else:
-            formatted.append((text, query))
-    return formatted
+        logger.warning(
+            "No source chunks met the relevance threshold for lesson %s (best distance %.3f)",
+            lesson_title,
+            pre_filter_ranked[0].distance,
+        )
+        return []
+    return ranked[:top_n]
 
 
 async def write_lesson(
@@ -129,6 +158,7 @@ async def write_lesson(
     language: str = "ru",
     sibling_lessons: list[str] | None = None,
     embeddings_provider=None,
+    require_sources: bool = False,
 ) -> LessonContent:
     """Generate grounded content for a single lesson (3-step pipeline)."""
     # Step 1: Deterministic query generation
@@ -145,6 +175,11 @@ async def write_lesson(
     )
 
     if not formatted_chunks:
+        if require_sources:
+            raise ValueError(
+                f"No relevant source fragments found for lesson '{lesson_title}'. "
+                "Adjust the structure or source documents instead of generating from general knowledge."
+            )
         # No chunks found — still generate content from LLM using general knowledge
         objectives_text = "\n".join(f"- {o}" for o in objectives) if objectives else "- (none)"
         lang_names = {"ru": "Русский", "kk": "Қазақша", "en": "English"}
@@ -177,7 +212,10 @@ Length: 1500-2500 words."""
         )
 
     # Step 3: Generate
-    chunks_text = "\n\n---\n\n".join(text for text, _query in formatted_chunks)
+    chunks_text = "\n\n---\n\n".join(
+        f"[Source: {chunk.doc_name}; context: {' > '.join(chunk.headings)}]\n{chunk.text}"
+        for chunk in formatted_chunks
+    )
     objectives_text = "\n".join(f"- {o}" for o in objectives) if objectives else "- (none)"
 
     lang_names = {"ru": "Русский", "kk": "Қазақша", "en": "English"}
@@ -208,7 +246,8 @@ IMPORTANT: Write the ENTIRE lesson content in {language} ({lang_name})."""
         title=lesson_title,
         objectives=objectives,
         content=response.content,
-        source_chunks=[text for text, _query in formatted_chunks],
+        source_chunks=[chunk.text for chunk in formatted_chunks],
+        source_references=[asdict(chunk) for chunk in formatted_chunks],
     )
 
 
@@ -246,6 +285,7 @@ async def write_course(
             objectives = [obj.text for obj in lesson.objectives]
             lesson_headings = lesson.relevant_headings if lesson.relevant_headings else None
 
+            lesson_doc_ids = resolve_lesson_doc_ids(lesson.source_doc_ids, doc_ids or [])
             content = await write_lesson(
                 llm=llm,
                 store=store,
@@ -253,12 +293,13 @@ async def write_course(
                 objectives=objectives,
                 module_title=module.title,
                 course_title=structure.title,
-                doc_ids=doc_ids,
+                doc_ids=lesson_doc_ids,
                 tenant_id=tenant_id,
                 relevant_headings=lesson_headings,
                 language=language,
                 sibling_lessons=[t for t in sibling_titles if t != lesson.title],
                 embeddings_provider=embeddings_provider,
+                require_sources=bool(doc_ids),
             )
             lesson_contents.append(content)
 

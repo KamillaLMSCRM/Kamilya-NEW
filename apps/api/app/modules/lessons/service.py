@@ -90,8 +90,15 @@ async def update_lesson(db: AsyncSession, lesson_id: UUID, tenant_id: UUID, data
     lesson = result.scalar_one_or_none()
     if not lesson:
         raise ValueError("Lesson not found")
-    for field, value in data.model_dump(exclude_unset=True).items():
+    changes = data.model_dump(exclude_unset=True)
+    source_affecting_change = any(
+        field in changes and changes[field] != getattr(lesson, field)
+        for field in ("title", "content")
+    )
+    for field, value in changes.items():
         setattr(lesson, field, value)
+    if lesson.source_document_ids and source_affecting_change:
+        lesson.source_validation_status = "needs_review"
     await db.flush()
     return lesson
 

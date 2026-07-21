@@ -1,5 +1,6 @@
 import logging
-from fastapi import Request, FastAPI, status, HTTPException
+
+from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import ValidationError
@@ -49,12 +50,18 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> JSONRe
         message = str(detail)
     else:
         message = str(detail)
+    content = {
+        "error": _error_code_for_status(exc.status_code),
+        "message": message,
+    }
+    # Keep machine-readable context for product flows that need more than a
+    # human message (for example, document compatibility groups). Existing
+    # clients remain compatible with the stable error/message envelope.
+    if isinstance(detail, (dict, list)):
+        content["details"] = detail
     return JSONResponse(
         status_code=exc.status_code,
-        content={
-            "error": _error_code_for_status(exc.status_code),
-            "message": message,
-        },
+        content=content,
         headers=_cors_headers(request),
     )
 

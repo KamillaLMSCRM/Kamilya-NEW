@@ -62,6 +62,8 @@ logs/
 Thumbs.db
 
 # Testing
+.coverage
+coverage.xml
 coverage/
 .nyc_output/
 tests/load/*.csv

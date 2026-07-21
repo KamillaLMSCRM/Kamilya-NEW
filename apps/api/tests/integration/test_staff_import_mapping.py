@@ -55,7 +55,7 @@ async def test_mappings_student_forbidden(client, make_tenant, make_user):
 @pytest.mark.asyncio
 async def test_mappings_create_list_get_delete(client, make_tenant, make_user):
     tenant = await make_tenant(name="Acme", slug="acme-m1")
-    admin = await make_user(tenant, role="admin", email="a@m1.example")
+    admin = await make_user(tenant, role="methodologist", email="a@m1.example")
     token = await _login(client, admin)
 
     headers = {"Authorization": f"Bearer {token}"}
@@ -105,7 +105,7 @@ async def test_mappings_create_list_get_delete(client, make_tenant, make_user):
 @pytest.mark.asyncio
 async def test_mappings_default_flag_demotes_previous(client, make_tenant, make_user):
     tenant = await make_tenant(name="Acme", slug="acme-m2")
-    admin = await make_user(tenant, role="admin", email="a@m2.example")
+    admin = await make_user(tenant, role="methodologist", email="a@m2.example")
     token = await _login(client, admin)
     headers = {"Authorization": f"Bearer {token}"}
 
@@ -138,7 +138,7 @@ async def test_mappings_default_flag_demotes_previous(client, make_tenant, make_
 @pytest.mark.asyncio
 async def test_mappings_name_conflict_409(client, make_tenant, make_user):
     tenant = await make_tenant(name="Acme", slug="acme-m3")
-    admin = await make_user(tenant, role="admin", email="a@m3.example")
+    admin = await make_user(tenant, role="methodologist", email="a@m3.example")
     token = await _login(client, admin)
     headers = {"Authorization": f"Bearer {token}"}
 
@@ -161,8 +161,8 @@ async def test_mappings_name_conflict_409(client, make_tenant, make_user):
 async def test_mappings_tenant_isolation(client, make_tenant, make_user):
     tenant_a = await make_tenant(name="A", slug="a-m")
     tenant_b = await make_tenant(name="B", slug="b-m")
-    admin_a = await make_user(tenant_a, role="admin", email="a@a-m.example")
-    admin_b = await make_user(tenant_b, role="admin", email="a@b-m.example")
+    admin_a = await make_user(tenant_a, role="methodologist", email="a@a-m.example")
+    admin_b = await make_user(tenant_b, role="methodologist", email="a@b-m.example")
 
     headers_a = {"Authorization": f"Bearer {await _login(client, admin_a)}"}
     headers_b = {"Authorization": f"Bearer {await _login(client, admin_b)}"}
@@ -197,7 +197,7 @@ async def test_mappings_tenant_isolation(client, make_tenant, make_user):
 @pytest.mark.asyncio
 async def test_mappings_update(client, make_tenant, make_user):
     tenant = await make_tenant(name="Acme", slug="acme-m4")
-    admin = await make_user(tenant, role="admin", email="a@m4.example")
+    admin = await make_user(tenant, role="methodologist", email="a@m4.example")
     token = await _login(client, admin)
     headers = {"Authorization": f"Bearer {token}"}
 
@@ -235,7 +235,7 @@ async def test_preview_accepts_mapping_id_form_field(
 ):
     """End-to-end: save mapping → use mapping_id in preview."""
     tenant = await make_tenant(name="Acme", slug="acme-m5")
-    admin = await make_user(tenant, role="admin", email="a@m5.example")
+    admin = await make_user(tenant, role="methodologist", email="a@m5.example")
     token = await _login(client, admin)
     headers = {"Authorization": f"Bearer {token}"}
 

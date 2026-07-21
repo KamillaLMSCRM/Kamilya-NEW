@@ -4,10 +4,10 @@ from __future__ import annotations
 import logging
 import secrets
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import argon2
-from sqlalchemy import desc, func, select, text, update
+from sqlalchemy import desc, func, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,11 +17,9 @@ from app.models.user_roles import UserRole
 from app.models.users import User, UserInvitation
 from app.modules.admin.superadmin.schemas import (
     AdminCreate,
-    AdminResponse,
     AdminUpdate,
     TenantCreate,
     TenantLeadInfo,
-    TenantResponse,
     TenantStats,
     TenantUpdate,
     TenantUsageInfo,
@@ -160,10 +158,10 @@ class SuperadminService:
             last_activity_at=last_activity,
         )
 
-    async def get_tenant_usage(self, tenant_id: uuid.UUID) -> TenantUsageInfo | None:
+    async def get_tenant_usage(self, tenant_id: uuid.UUID) -> TenantUsageInfo:
         usage = await self.db.get(TenantUsage, tenant_id)
         if usage is None:
-            return None
+            return TenantUsageInfo()
         return TenantUsageInfo(
             ai_course_generations_used=int(usage.ai_course_generations_used or 0),
             jd_course_generations_used=int(usage.jd_course_generations_used or 0),
@@ -187,7 +185,7 @@ class SuperadminService:
     async def _unique_slug(self, requested_slug: str) -> str:
         base = requested_slug.strip("-")[:60] or "tenant"
         candidate = base
-        suffix = 1
+        suffix = 0
         while True:
             exists = (
                 await self.db.execute(select(Tenant.id).where(Tenant.slug == candidate))
@@ -201,7 +199,7 @@ class SuperadminService:
 
     async def create_tenant(self, payload: TenantCreate) -> Tenant:
         # Slug uniqueness is enforced by DB unique index; catch and re-raise.
-        now = datetime.now(timezone.utc).replace(microsecond=0)
+        now = datetime.now(UTC).replace(microsecond=0)
         slug = await self._unique_slug(payload.slug)
         settings = {
             **(payload.notes and {"superadmin_notes": payload.notes} or {}),
@@ -449,7 +447,7 @@ class SuperadminService:
                 invited_by=superadmin_id,
                 token=secrets.token_urlsafe(32),
                 status="pending",
-                expires_at=datetime.now(timezone.utc).replace(microsecond=0)
+                expires_at=datetime.now(UTC).replace(microsecond=0)
                 + timedelta(days=3),
             )
             self.db.add(invite)

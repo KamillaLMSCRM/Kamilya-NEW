@@ -12,6 +12,7 @@ class LessonContent:
     objectives: list[str] = field(default_factory=list)
     content: str = ""
     source_chunks: list[str] = field(default_factory=list)
+    source_references: list[dict] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         return asdict(self)

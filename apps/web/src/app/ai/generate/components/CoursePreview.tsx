@@ -26,6 +26,8 @@ import {
   RefreshCw,
   Save,
   XCircle,
+  FileText,
+  AlertTriangle,
 } from "lucide-react";
 
 
@@ -251,6 +253,38 @@ export function CoursePreviewTree({
                                   <p className="text-xs text-muted-foreground line-clamp-3 mt-1 whitespace-pre-line">
                                     {l.content_preview}
                                   </p>
+                                )}
+                                {l.source_references?.length > 0 && (
+                                  <details className="mt-2 rounded-md border border-border bg-background px-2.5 py-2">
+                                    <summary className="flex cursor-pointer list-none items-center gap-1.5 text-[11px] font-medium text-primary">
+                                      <FileText className="h-3 w-3" />
+                                      Источники урока ({new Set(l.source_references.map((reference: any) => reference.doc_id)).size})
+                                    </summary>
+                                    <ul className="mt-2 space-y-1.5 text-[11px] text-muted-foreground">
+                                      {Array.from(
+                                        new Map(
+                                          l.source_references.map((reference: any) => [
+                                            `${reference.doc_id}:${(reference.headings || []).join('>')}`,
+                                            reference,
+                                          ]),
+                                        ).values(),
+                                      ).map((reference: any, sourceIndex: number) => (
+                                        <li key={`${reference.chunk_id || reference.doc_id}-${sourceIndex}`} className="flex items-start gap-1.5">
+                                          <span className="mt-1 h-1 w-1 shrink-0 rounded-full bg-primary" />
+                                          <span>
+                                            <span className="font-medium text-foreground">{reference.doc_name}</span>
+                                            {reference.headings?.length ? ` — ${reference.headings.join(' → ')}` : ''}
+                                          </span>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </details>
+                                )}
+                                {l.source_validation_status === 'needs_review' && (
+                                  <div className="mt-2 flex items-start gap-1.5 rounded-md border border-warning/30 bg-warning/10 px-2.5 py-2 text-[11px] text-warning">
+                                    <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
+                                    Текст изменён после автоматической проверки источников. Проверьте соответствие перед одобрением курса.
+                                  </div>
                                 )}
                                 <div className="flex flex-wrap items-center gap-2 mt-1.5">
                                   {l.duration_seconds ? (

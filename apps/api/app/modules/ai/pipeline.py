@@ -38,6 +38,10 @@ class GenerationState:
     assessment: CourseAssessment | None = None
     started_at: float = field(default_factory=time.time)
     errors: list[str] = field(default_factory=list)
+    source_document_ids: list[str] = field(default_factory=list)
+    source_strategy: str = "single_topic"
+    source_combination_goal: str = ""
+    source_analysis: dict = field(default_factory=dict)
 
 
 async def _update_job_db(job_id: str, tenant_id: UUID | str | None = None, **kwargs):
@@ -74,6 +78,10 @@ async def _save_generation_to_db(
                 status="draft",
                 created_by=user_id,
                 ai_generated=True,
+                source_document_ids=state.source_document_ids,
+                source_strategy=state.source_strategy,
+                source_combination_goal=state.source_combination_goal or None,
+                source_analysis=state.source_analysis,
             )
             session.add(course)
             await session.flush()
@@ -93,6 +101,10 @@ async def _save_generation_to_db(
             )
             course.status = "draft"
             course.ai_generated = True
+            course.source_document_ids = state.source_document_ids
+            course.source_strategy = state.source_strategy
+            course.source_combination_goal = state.source_combination_goal or None
+            course.source_analysis = state.source_analysis
             # Regeneration replaces the draft's previous learning structure.
             # Database cascades remove lessons/quizzes below each module.
             await session.execute(
@@ -122,6 +134,11 @@ async def _save_generation_to_db(
                 for les_idx, (struct_les, content_les) in enumerate(
                     zip(struct_mod.lessons, content_mod.lessons)
                 ):
+                    actual_source_ids = list(dict.fromkeys(
+                        str(reference.get("doc_id"))
+                        for reference in content_les.source_references
+                        if reference.get("doc_id")
+                    ))
                     lesson = Lesson(
                         tenant_id=tenant_id,
                         module_id=module.id,
@@ -130,6 +147,9 @@ async def _save_generation_to_db(
                         content=content_les.content if hasattr(content_les, 'content') else "",
                         order_index=les_idx,
                         ai_generated=True,
+                        source_document_ids=actual_source_ids,
+                        source_references=list(content_les.source_references),
+                        source_validation_status="verified",
                     )
                     session.add(lesson)
                     await session.flush()
@@ -274,6 +294,9 @@ async def run_generation_pipeline(
     course_id: str | None = None,
     tenant_id: UUID | None = None,
     user_id: UUID | None = None,
+    source_strategy: str = "single_topic",
+    combination_goal: str = "",
+    source_analysis: dict | None = None,
 ) -> GenerationState:
     """
     Full generation pipeline:
@@ -283,7 +306,14 @@ async def run_generation_pipeline(
     4. Run Assessment Agent (questions for each lesson)
     5. Save results to DB
     """
-    state = GenerationState(job_id=job_id, course_id=course_id)
+    state = GenerationState(
+        job_id=job_id,
+        course_id=course_id,
+        source_document_ids=list(documents),
+        source_strategy=source_strategy,
+        source_combination_goal=combination_goal.strip(),
+        source_analysis=dict(source_analysis or {}),
+    )
 
     try:
         # Stage 1: Ingestion вЂ” actually ingest documents into vector store
@@ -350,6 +380,9 @@ async def run_generation_pipeline(
             guidance=guidance,
             on_message=lambda msg: asyncio.create_task(_update_job_db(job_id, tenant_id=tenant_id, message=f"Architect: {msg}")),
             tenant_id=str(tenant_id) if tenant_id else None,
+            target_audience=target_audience,
+            source_strategy=source_strategy,
+            combination_goal=combination_goal,
         )
 
         state.structure = structure

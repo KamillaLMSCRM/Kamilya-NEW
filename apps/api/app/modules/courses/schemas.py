@@ -32,6 +32,10 @@ class CourseResponse(BaseModel):
     ai_generated: bool = False
     source_instruction_id: UUID | None = None
     source_instruction_version_at: datetime | None = None
+    source_document_ids: list[str] = Field(default_factory=list)
+    source_strategy: Literal["single_topic", "intentional_combination"] = "single_topic"
+    source_combination_goal: str | None = None
+    source_analysis: dict = Field(default_factory=dict)
     created_by: UUID | None = None
     created_at: datetime
     updated_at: datetime
@@ -53,6 +57,21 @@ class CourseReviewRequest(BaseModel):
     comment: str | None = Field(default=None, max_length=2000)
 
 
+class CoursePreviewSourceDocument(BaseModel):
+    id: UUID
+    title: str
+    filename: str
+
+
+class CoursePreviewSourceReference(BaseModel):
+    chunk_id: str = ""
+    doc_id: str
+    doc_name: str
+    headings: list[str] = Field(default_factory=list)
+    query: str = ""
+    distance: float | None = None
+
+
 class CoursePreviewLesson(BaseModel):
     id: UUID
     title: str
@@ -64,6 +83,9 @@ class CoursePreviewLesson(BaseModel):
     quiz_id: UUID | None = None
     quiz_title: str | None = None
     quiz_question_count: int = 0
+    source_document_ids: list[str] = Field(default_factory=list)
+    source_references: list[CoursePreviewSourceReference] = Field(default_factory=list)
+    source_validation_status: Literal["not_applicable", "verified", "needs_review"] = "not_applicable"
 
 
 class CoursePreviewModule(BaseModel):
@@ -71,7 +93,7 @@ class CoursePreviewModule(BaseModel):
     title: str
     description: str = ""
     order_index: int
-    lessons: list[CoursePreviewLesson] = []
+    lessons: list[CoursePreviewLesson] = Field(default_factory=list)
 
 
 class CoursePreviewResponse(BaseModel):
@@ -82,7 +104,11 @@ class CoursePreviewResponse(BaseModel):
     modules_count: int
     lessons_count: int
     quizzes_count: int
-    modules: list[CoursePreviewModule] = []
+    source_strategy: Literal["single_topic", "intentional_combination"] = "single_topic"
+    source_combination_goal: str | None = None
+    source_documents: list[CoursePreviewSourceDocument] = Field(default_factory=list)
+    source_analysis: dict = Field(default_factory=dict)
+    modules: list[CoursePreviewModule] = Field(default_factory=list)
 
 
 class CoursePreviewRequest(BaseModel):

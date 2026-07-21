@@ -1,9 +1,9 @@
 """Rate limiting middleware — Redis-based token bucket."""
 from __future__ import annotations
 
-import time
 import logging
-from typing import Callable
+import time
+from collections.abc import Callable
 
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -118,6 +118,13 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self.limiter = RateLimiter(redis_url)
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
+        from app.core.config import get_settings
+
+        # Rate-limit behavior has focused unit coverage. Integration tests use
+        # many logins from one synthetic IP and must remain deterministic.
+        if get_settings().APP_ENV == "test":
+            return await call_next(request)
+
         # Fast-path: skip rate limiting for docs/health
         if request.url.path in ("/health", "/api/v1/health", "/docs", "/redoc", "/openapi.json"):
             return await call_next(request)

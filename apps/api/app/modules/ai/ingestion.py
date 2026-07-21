@@ -328,11 +328,11 @@ class VectorStore:
         # and is also safe-looking for auditors. emb_str is a list of floats from
         # the embedding model, not user input, so the bind value is well-typed.
         sql = text(f"""
-            SELECT text, doc_name, headings,
-                   1 - (embedding <=> CAST(:emb AS vector)) as distance
+            SELECT id, text, doc_id, doc_name, headings,
+                   embedding <=> CAST(:emb AS vector) as distance
             FROM document_embeddings
             {where_clause}
-            ORDER BY distance
+            ORDER BY distance ASC
             LIMIT :n
         """)
         params["emb"] = emb_str
@@ -342,9 +342,14 @@ class VectorStore:
             result = await session.execute(sql, params)
             rows = result.fetchall()
 
-        documents = [[row[0] for row in rows]]
-        metadatas = [[{"doc_name": row[1], "headings": row[2]} for row in rows]]
-        distances = [[row[3] for row in rows]]
+        documents = [[row[1] for row in rows]]
+        metadatas = [[{
+            "chunk_id": str(row[0]),
+            "doc_id": str(row[2]),
+            "doc_name": row[3],
+            "headings": row[4],
+        } for row in rows]]
+        distances = [[row[5] for row in rows]]
 
         return {"documents": documents, "metadatas": metadatas, "distances": distances}
 
@@ -412,10 +417,9 @@ class EmbeddingsProvider:
     Chain (June 2026):
       1. Qwen self-hosted (primary)
       2. Voyage voyage-4-lite via ResilientEmbeddingsClient (fallback if Qwen down)
-      3. Hash-based deterministic embedding (last resort — non-semantic, but
-         keeps ingestion alive if both cloud providers are down)
-
     Used by retrieval (Architect, Writer) and by DocumentIngestion.
+    If both providers fail, indexing fails explicitly. Synthetic vectors are
+    not valid for semantic retrieval or document compatibility decisions.
     """
 
     def __init__(self, qwen_url: str | None = None):
@@ -435,37 +439,17 @@ class EmbeddingsProvider:
             self._client = ResilientEmbeddingsClient.from_settings()
         return self._client
 
-    def _hash_embedding(self, text: str, dim: int | None = None) -> list[float]:
-        """Deterministic hash-based embedding (last-resort, non-semantic).
-
-        Uses a seeded random generator so the same text always produces
-        the same vector. All values are explicitly clamped to a finite
-        range — the previous bit-shuffle implementation could emit
-        NaN/inf for some bit patterns, which Postgres pgvector rejects
-        with a cryptic DataError and which used to mark the whole
-        document as embedding_status='failed' (see bug 2026-06-26).
-        """
-        import hashlib
-        import random
-        if dim is None:
-            from app.core.config import get_settings
-            dim = get_settings().EMBEDDING_DIMENSIONS
-        seed = int.from_bytes(hashlib.sha256(text.encode("utf-8")).digest()[:8], "big")
-        rng = random.Random(seed)
-        # Each component in [-1.0, 1.0). Never NaN, never inf.
-        return [rng.uniform(-1.0, 1.0) for _ in range(dim)]
-
     async def embed(self, texts: list[str]) -> list[list[float]]:
-        """Get embeddings with automatic failover Qwen → Voyage → hash."""
+        """Get embeddings with automatic failover from Qwen to Voyage."""
         from app.modules.ai.llm_client import AllProvidersFailedError
         try:
             return await self._get_client().embed_documents(texts)
         except AllProvidersFailedError:
             logger.error(
                 "[EMBED_FAILOVER] All cloud embedding providers failed; "
-                "using hash-based fallback (non-semantic)"
+                "document cannot be indexed semantically"
             )
-            return [self._hash_embedding(t) for t in texts]
+            raise
 
     async def embed_query(self, text: str) -> list[float]:
         """Embed a single query."""
@@ -475,9 +459,9 @@ class EmbeddingsProvider:
         except AllProvidersFailedError:
             logger.error(
                 "[EMBED_FAILOVER] All cloud embedding providers failed; "
-                "using hash-based fallback (non-semantic)"
+                "semantic query cannot be executed"
             )
-            return self._hash_embedding(text)
+            raise
 
 
 class DocumentIngestion:

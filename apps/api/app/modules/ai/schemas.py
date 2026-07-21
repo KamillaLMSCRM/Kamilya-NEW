@@ -1,5 +1,5 @@
 """AI Generation — schemas"""
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, model_validator
 from uuid import UUID
 from datetime import datetime
 from typing import Optional, List, Literal
@@ -7,11 +7,43 @@ from typing import Optional, List, Literal
 
 class AIGenerateRequest(BaseModel):
     course_id: UUID | None = None
-    documents: List[str] = Field(default=[], description="Document IDs or text content")
-    target_audience: str = Field(default="", description="Target audience description")
+    documents: List[UUID] = Field(min_length=1, max_length=20, description="Source document IDs")
+    target_audience: str = Field(default="", max_length=2000, description="Target audience description")
     num_modules: int = Field(default=3, ge=1, le=10)
-    language: str = Field(default="ru")
-    tone: str = Field(default="professional")
+    language: Literal["ru", "kk", "en"] = "ru"
+    tone: str = Field(default="professional", max_length=100)
+    source_strategy: Literal["single_topic", "intentional_combination"] = "single_topic"
+    combination_goal: str = Field(default="", max_length=2000)
+
+    @model_validator(mode="after")
+    def validate_combination_goal(self):
+        if self.source_strategy == "intentional_combination" and len(self.combination_goal.strip()) < 20:
+            raise ValueError("combination_goal must explain the shared learning goal (at least 20 characters)")
+        return self
+
+
+class DocumentCompatibilityRequest(BaseModel):
+    documents: List[UUID] = Field(min_length=1, max_length=20)
+
+
+class CompatibilityDocument(BaseModel):
+    id: UUID
+    title: str
+    filename: str
+
+
+class CompatibilityCluster(BaseModel):
+    id: str
+    label: str
+    cohesion: float
+    documents: list[CompatibilityDocument]
+
+
+class DocumentCompatibilityResponse(BaseModel):
+    status: Literal["compatible", "mixed", "incompatible"]
+    score: float
+    requires_decision: bool
+    clusters: list[CompatibilityCluster]
 
 
 class AIJobResponse(BaseModel):

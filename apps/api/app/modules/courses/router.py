@@ -11,6 +11,7 @@ from app.core.db import get_db
 from app.models.users import User
 from app.models.courses import Course
 from app.models.enrollment import Enrollment
+from app.models.document import Document
 from app.modules.courses.schemas import (
     CourseCreate,
     CourseUpdate,
@@ -21,6 +22,7 @@ from app.modules.courses.schemas import (
     CourseReviewRequest,
     CourseReviewer,
     CoursePreviewRequest,
+    CoursePreviewSourceDocument,
 )
 from app.modules.audit.service import log_action
 from app.modules.courses.access import AUTHORING_ROLES, require_course_access
@@ -182,6 +184,33 @@ async def get_course_preview(
         for qid, cnt in counts_rows:
             quiz_q_counts[qid] = int(cnt)
 
+    source_documents: list[CoursePreviewSourceDocument] = []
+    source_ids: list[UUID] = []
+    for value in course.source_document_ids or []:
+        try:
+            source_ids.append(UUID(str(value)))
+        except (TypeError, ValueError):
+            continue
+    if source_ids:
+        source_rows = (
+            await db.execute(
+                select(Document).where(
+                    Document.tenant_id == user.tenant_id,
+                    Document.id.in_(source_ids),
+                )
+            )
+        ).scalars().all()
+        source_by_id = {document.id: document for document in source_rows}
+        source_documents = [
+            CoursePreviewSourceDocument(
+                id=document_id,
+                title=source_by_id[document_id].title,
+                filename=source_by_id[document_id].filename,
+            )
+            for document_id in source_ids
+            if document_id in source_by_id
+        ]
+
     # Build response — content preview is the first N chars of plain text.
     preview_modules: list[CoursePreviewModule] = []
     total_lessons = 0
@@ -204,6 +233,9 @@ async def get_course_preview(
                 quiz_id=quiz.id if quiz else None,
                 quiz_title=quiz.title if quiz else None,
                 quiz_question_count=quiz_q_counts.get(quiz.id, 0) if quiz else 0,
+                source_document_ids=list(l.source_document_ids or []),
+                source_references=list(l.source_references or []),
+                source_validation_status=l.source_validation_status,
             ))
             total_lessons += 1
             if quiz:
@@ -224,6 +256,10 @@ async def get_course_preview(
         modules_count=len(preview_modules),
         lessons_count=total_lessons,
         quizzes_count=total_quizzes,
+        source_strategy=course.source_strategy,
+        source_combination_goal=course.source_combination_goal,
+        source_documents=source_documents,
+        source_analysis=course.source_analysis or {},
         modules=preview_modules,
     )
 
@@ -253,6 +289,23 @@ async def review_course(
     course.reviewed_by = user.id
     course.reviewed_at = datetime.now(timezone.utc)
     course.review_comment = req.comment
+    if req.review_status == "approved":
+        from sqlalchemy import update
+        from app.modules.lessons.models import Lesson, Module
+
+        module_ids = select(Module.id).where(
+            Module.course_id == course.id,
+            Module.tenant_id == user.tenant_id,
+        )
+        await db.execute(
+            update(Lesson)
+            .where(
+                Lesson.tenant_id == user.tenant_id,
+                Lesson.module_id.in_(module_ids),
+                Lesson.source_validation_status == "needs_review",
+            )
+            .values(source_validation_status="verified")
+        )
     await db.flush()
     await db.refresh(course)
     await log_action(

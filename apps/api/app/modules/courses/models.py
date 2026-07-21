@@ -27,6 +27,10 @@ class Course(Base):
         index=True,
     )
     source_instruction_version_at = Column(DateTime(timezone=True), nullable=True)
+    source_document_ids = Column(JSONB, nullable=False, default=list, server_default="[]")
+    source_strategy = Column(Text, nullable=False, default="single_topic", server_default="single_topic")
+    source_combination_goal = Column(Text, nullable=True)
+    source_analysis = Column(JSONB, nullable=False, default=dict, server_default="{}")
 
     # Review / approval workflow (methodologist sign-off).
     # See alembic 0027_add_course_review_fields.py for the migration.
@@ -41,4 +45,8 @@ class Course(Base):
         CheckConstraint("status IN ('draft', 'published', 'archived')", name="ck_course_status"),
         CheckConstraint("delivery_type IN ('native', 'scorm')", name="ck_course_delivery_type"),
         CheckConstraint("review_status IN ('pending', 'approved', 'needs_changes')", name="ck_course_review_status"),
+        CheckConstraint(
+            "source_strategy IN ('single_topic', 'intentional_combination')",
+            name="ck_course_source_strategy",
+        ),
     )

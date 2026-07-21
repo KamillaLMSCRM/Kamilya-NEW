@@ -26,6 +26,10 @@ from app.modules.auth import auth_sessions
 from app.modules.auth.auth_sessions import _dumps, _memory_store
 from app.core.rate_limit import RateLimitMiddleware
 
+WEBHOOK_HEADERS = {
+    "X-Telegram-Bot-Api-Secret-Token": "test-telegram-webhook-secret"
+}
+
 
 # --- shared rate limit disabler (matches existing test_integration.py) ---
 def _disable_rate_limit():
@@ -167,7 +171,11 @@ class TestTelegramWebhook:
 
     def test_start_command_does_not_500(self, client):
         """The /start branch responds 200 before touching the DB."""
-        resp = client.post("/api/v1/telegram/webhook", json=_telegram_update("/start"))
+        resp = client.post(
+            "/api/v1/telegram/webhook",
+            json=_telegram_update("/start"),
+            headers=WEBHOOK_HEADERS,
+        )
         assert resp.status_code == 200
         assert resp.json() == {"ok": True}
 
@@ -192,6 +200,7 @@ class TestTelegramWebhook:
                 resp = client.post(
                     "/api/v1/telegram/webhook",
                     json=_telegram_update("123456"),
+                    headers=WEBHOOK_HEADERS,
                 )
                 assert resp.status_code == 200
                 assert send.call_count == 1
@@ -260,6 +269,7 @@ class TestTelegramWebhook:
                     resp = client.post(
                         "/api/v1/telegram/webhook",
                         json=_telegram_update(code),
+                        headers=WEBHOOK_HEADERS,
                     )
             finally:
                 app.dependency_overrides.clear()

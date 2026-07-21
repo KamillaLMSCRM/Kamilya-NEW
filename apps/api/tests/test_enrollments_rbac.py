@@ -34,7 +34,9 @@ class TestEnrollmentRoleGating:
         tenant = await make_tenant(name="Tenant T")
         methodologist = await make_user(tenant, role="methodologist")
         student = await make_user(tenant, role="student")
-        course = await make_course(tenant, methodologist, title="T's Course")
+        course = await make_course(
+            tenant, methodologist, title="T's Course", status="published"
+        )
 
         r = await client.post(
             f"/api/v1/courses/{course.id}/enrollments",

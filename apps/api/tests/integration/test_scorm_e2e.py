@@ -138,7 +138,7 @@ async def test_scorm12_import_happy_path(
     yield_reset = True
 
     tenant = await make_tenant(name="AcmeSCORM", slug="acme-scorm")
-    admin = await make_user(tenant, role="admin", email="a@scorm.example")
+    admin = await make_user(tenant, role="methodologist", email="a@scorm.example")
     learner = await make_user(tenant, role="student", email="l@scorm.example")
     token = await _login(client, admin)
     headers = {"Authorization": f"Bearer {token}"}
@@ -245,7 +245,7 @@ async def test_scorm2004_rejected_with_clear_error(
     reset_storage_for_tests()
 
     tenant = await make_tenant(name="Acme2", slug="acme-2004")
-    admin = await make_user(tenant, role="admin", email="a@2004.example")
+    admin = await make_user(tenant, role="methodologist", email="a@2004.example")
     token = await _login(client, admin)
     headers = {"Authorization": f"Bearer {token}"}
 
@@ -256,14 +256,14 @@ async def test_scorm2004_rejected_with_clear_error(
     )
     assert resp.status_code == 400, resp.text
     # Detail should mention SCORM 1.2 specifically
-    detail = resp.json().get("detail", "")
+    detail = resp.json().get("message", "")
     assert "SCORM 1.2" in detail or "1.2" in detail
 
 
 @pytest.mark.asyncio
 async def test_scorm_non_zip_rejected(client, make_tenant, make_user):
     tenant = await make_tenant(name="Acme3", slug="acme-nz")
-    admin = await make_user(tenant, role="admin", email="a@nz.example")
+    admin = await make_user(tenant, role="methodologist", email="a@nz.example")
     token = await _login(client, admin)
     headers = {"Authorization": f"Bearer {token}"}
 
@@ -274,7 +274,7 @@ async def test_scorm_non_zip_rejected(client, make_tenant, make_user):
         files={"file": ("course.zip", b"this is not a zip", "application/zip")},
     )
     assert resp.status_code == 400
-    detail = resp.json().get("detail", "")
+    detail = resp.json().get("message", "")
     assert "valid ZIP" in detail or "ZIP" in detail
 
 
@@ -291,8 +291,8 @@ async def test_scorm12_launch_requires_tenant_match(
 
     tenant_a = await make_tenant(name="A", slug="a-scorm")
     tenant_b = await make_tenant(name="B", slug="b-scorm")
-    admin_a = await make_user(tenant_a, role="admin", email="a@a-scorm.example")
-    admin_b = await make_user(tenant_b, role="admin", email="a@b-scorm.example")
+    admin_a = await make_user(tenant_a, role="methodologist", email="a@a-scorm.example")
+    admin_b = await make_user(tenant_b, role="methodologist", email="a@b-scorm.example")
 
     headers_a = {"Authorization": f"Bearer {await _login(client, admin_a)}"}
 
@@ -328,8 +328,7 @@ async def test_scorm12_in_progress_does_not_complete(
     reset_storage_for_tests()
 
     tenant = await make_tenant(name="Acme4", slug="acme-inprog")
-    admin = await make_tenant  # noqa: F841 - just here to avoid lint
-    admin = await make_user(tenant, role="admin", email="a@ip.example")
+    admin = await make_user(tenant, role="methodologist", email="a@ip.example")
     learner = await make_user(tenant, role="student", email="l@ip.example")
     token = await _login(client, admin)
     headers = {"Authorization": f"Bearer {token}"}

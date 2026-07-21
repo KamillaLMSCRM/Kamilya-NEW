@@ -1,7 +1,7 @@
 from uuid import uuid4
-from sqlalchemy import Column, Text, Integer, Boolean, TIMESTAMP, ForeignKey, func
+from sqlalchemy import Boolean, CheckConstraint, Column, ForeignKey, Integer, Text, TIMESTAMP, func
 from sqlalchemy.orm import relationship
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from app.core.db import Base
 
 
@@ -34,11 +34,26 @@ class Lesson(Base):
     duration_seconds = Column(Integer, nullable=True)
     order_index = Column(Integer, nullable=False, default=0)
     ai_generated = Column(Boolean, nullable=False, default=False)
+    source_document_ids = Column(JSONB, nullable=False, default=list, server_default="[]")
+    source_references = Column(JSONB, nullable=False, default=list, server_default="[]")
+    source_validation_status = Column(
+        Text,
+        nullable=False,
+        default="not_applicable",
+        server_default="not_applicable",
+    )
     published_at = Column(TIMESTAMP(timezone=True), nullable=True)
     created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
     updated_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
 
     module = relationship("Module", back_populates="lessons")
+
+    __table_args__ = (
+        CheckConstraint(
+            "source_validation_status IN ('not_applicable', 'verified', 'needs_review')",
+            name="ck_lesson_source_validation_status",
+        ),
+    )
 
 
 class ContentBlock(Base):

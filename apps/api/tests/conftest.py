@@ -17,7 +17,6 @@ be added later if integration flows need them.
 
 from __future__ import annotations
 
-import asyncio
 import os
 from typing import AsyncIterator, Callable
 from uuid import UUID, uuid4
@@ -35,21 +34,9 @@ os.environ.setdefault("APP_ENV", "test")
 os.environ.setdefault("DATABASE_URL", "postgresql+asyncpg://lms:lms_test_password@localhost:5432/kamilya_lms_test")
 os.environ.setdefault("JWT_SECRET", "test_jwt_secret_for_ci_only_min_length_32")
 os.environ.setdefault("JWT_AUDIENCE", "kamilya-lms")
+os.environ.setdefault("TELEGRAM_WEBHOOK_SECRET", "test-telegram-webhook-secret")
 os.environ.setdefault("PROVIDER_KEY_ENCRYPTION_KEY", "ZGV2X2tleV9tdXN0X2JlXzMyX2J5dGVzX2xvbmc=")
 os.environ.setdefault("MASTER_ENCRYPTION_KEY", "ZGV2X2tleV9tdXN0X2JlXzMyX2J5dGVzX2xvbmc=")
-
-
-@pytest.fixture(scope="session")
-def event_loop():
-    """Session-scoped event loop for the test run.
-
-    pytest-asyncio's default behavior creates a per-test loop, which breaks
-    SQLAlchemy async engine reuse. We provide one loop for the whole session
-    and rely on the transactional-rollback fixture below to isolate tests.
-    """
-    loop = asyncio.new_event_loop()
-    yield loop
-    loop.close()
 
 
 @pytest_asyncio.fixture(scope="function")
@@ -65,7 +52,10 @@ async def db_session() -> AsyncIterator[AsyncSession]:
 
     async with engine.connect() as connection:
         await connection.begin()
-        async with async_session_factory(bind=connection) as session:
+        async with async_session_factory(
+            bind=connection,
+            join_transaction_mode="create_savepoint",
+        ) as session:
             yield session
         await connection.rollback()
 
@@ -204,6 +194,9 @@ def make_course(db_session: AsyncSession) -> Callable[..., "any"]:
             description=overrides.get("description", ""),
             status=overrides.get("status", "draft"),
             created_by=creator.id,
+            delivery_type=overrides.get("delivery_type", "native"),
+            ai_generated=overrides.get("ai_generated", False),
+            review_status=overrides.get("review_status", "pending"),
         )
         db_session.add(course)
         await db_session.flush()

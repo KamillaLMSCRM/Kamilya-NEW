@@ -47,7 +47,7 @@ async def test_superadmin_delete_requires_confirm_slug(
         headers=headers,
     )
     assert resp.status_code == 400, resp.text
-    assert "confirm_slug" in resp.json()["detail"]
+    assert "confirm_slug" in resp.json()["message"]
 
 
 @pytest.mark.asyncio
@@ -64,7 +64,7 @@ async def test_superadmin_delete_rejects_mismatched_confirm_slug(
         headers=headers,
     )
     assert resp.status_code == 400, resp.text
-    assert "mismatch" in resp.json()["detail"]
+    assert "mismatch" in resp.json()["message"]
 
 
 @pytest.mark.asyncio
@@ -98,7 +98,7 @@ async def test_superadmin_cannot_delete_kamilya_prod_tenant(
         headers=headers,
     )
     assert resp.status_code == 403, resp.text
-    assert "protected" in resp.json()["detail"].lower()
+    assert "protected" in resp.json()["message"].lower()
 
 
 @pytest.mark.asyncio

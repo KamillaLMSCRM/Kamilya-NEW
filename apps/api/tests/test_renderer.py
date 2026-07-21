@@ -235,7 +235,7 @@ def test_router_quiz_regen_module_template():
 
 
 def test_router_uses_renderer():
-    """router.py imports get_renderer and uses it for all 5 inline system prompts.
+    """router.py keeps templates for chat, planning, and quiz generation.
 
     Integration check: a regression in any of the 5 prompt calls (or missing
     import) would break router.py imports — exactly what we want to catch.
@@ -244,8 +244,9 @@ def test_router_uses_renderer():
 
     src = Path(router_module.__file__).read_text(encoding="utf-8")
     assert "from app.ml_prompts import get_renderer" in src
-    # All 5 templates must be referenced at least once
-    assert src.count('get_renderer().render("router/') >= 5
+    # Lesson rewriting moved to the grounded Writer pipeline; four router
+    # templates remain for chat, module planning, and quiz generation.
+    assert src.count('get_renderer().render("router/') >= 4
 
 
 # ── cross-cutting ─────────────────────────────────────────────────────────

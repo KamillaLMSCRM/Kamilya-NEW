@@ -19,13 +19,12 @@ import asyncio
 import os
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import httpx
 from argon2 import PasswordHasher
-
 
 ROOT = Path(__file__).resolve().parents[1]
 API_BASE = os.getenv("SMOKE_API_BASE", "https://kamilya-lms-api.onrender.com/api/v1")
@@ -55,7 +54,7 @@ async def seed_smoke_user() -> tuple[str, str, str]:
     from app.models.user_roles import UserRole
     from app.models.users import User
 
-    suffix = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+    suffix = datetime.now(UTC).strftime("%Y%m%d%H%M%S")
     tenant_id = uuid4()
     user_id = uuid4()
     tenant_slug = f"ai-smoke-{suffix}.kml.kz"
@@ -84,7 +83,7 @@ async def seed_smoke_user() -> tuple[str, str, str]:
                 password_hash=PasswordHasher().hash(password),
                 first_name="AI",
                 last_name="Smoke",
-                role="teacher",
+                role="methodologist",
                 is_active=True,
                 status="active",
             )
@@ -95,13 +94,25 @@ async def seed_smoke_user() -> tuple[str, str, str]:
                 id=uuid4(),
                 user_id=user_id,
                 tenant_id=tenant_id,
-                role="teacher",
+                role="methodologist",
             )
         )
         await session.commit()
 
-    print(f"seed tenant_id={tenant_id} user_id={user_id} email={email}")
+    print(f"seed tenant_id={tenant_id} user_id={user_id}")
     return str(tenant_id), email, password
+
+
+async def cleanup_smoke_tenant(tenant_id: str) -> None:
+    """Delete every row created by this smoke through the production service."""
+    sys.path.insert(0, str(ROOT / "apps" / "api"))
+
+    from app.core.db import async_session_factory
+    from app.modules.admin.superadmin.service import SuperadminService
+
+    async with async_session_factory() as session:
+        await SuperadminService(session).delete_tenant(UUID(tenant_id))
+    print(f"cleanup tenant_id={tenant_id} ok")
 
 
 def require_ok(resp: httpx.Response, label: str) -> dict:
@@ -216,7 +227,7 @@ async def run_api_smoke(email: str, password: str) -> None:
             "Темы: осмотр рабочего места, средства индивидуальной защиты, "
             "опасные ситуации, остановка работ, регистрация инцидентов.\n"
             "Практика: разобрать три ситуации и выбрать безопасное действие."
-        ).encode("utf-8")
+        ).encode()
         uploaded = require_ok(
             await client.post(
                 f"{API_BASE}/documents/upload",
@@ -293,8 +304,16 @@ async def run_api_smoke(email: str, password: str) -> None:
 
 async def main() -> None:
     load_env()
-    _, email, password = await seed_smoke_user()
-    await run_api_smoke(email, password)
+    if os.getenv("CONFIRM_PRODUCTION_SMOKE") != "1":
+        raise RuntimeError(
+            "Set CONFIRM_PRODUCTION_SMOKE=1 to create a temporary production tenant"
+        )
+
+    tenant_id, email, password = await seed_smoke_user()
+    try:
+        await run_api_smoke(email, password)
+    finally:
+        await cleanup_smoke_tenant(tenant_id)
 
 
 if __name__ == "__main__":

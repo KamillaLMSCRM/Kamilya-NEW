@@ -21,6 +21,10 @@ from app.modules.ai.schemas import (
     AIChatResponse,
     AIRegenerateModuleRequest,
     AIRegenerateLessonRequest,
+    DocumentCompatibilityRequest,
+    DocumentCompatibilityResponse,
+    CompatibilityCluster,
+    CompatibilityDocument,
 )
 from app.modules.ai.job_service import create_ai_job, get_ai_job, update_ai_job
 from app.modules.ai.pipeline import run_generation_pipeline
@@ -40,6 +44,43 @@ router = APIRouter(
 _running_tasks: dict[str, asyncio.Task] = {}
 
 
+def _compatibility_response(analysis) -> DocumentCompatibilityResponse:
+    return DocumentCompatibilityResponse(
+        status=analysis.status,
+        score=analysis.score,
+        requires_decision=analysis.requires_decision,
+        clusters=[
+            CompatibilityCluster(
+                id=cluster.id,
+                label=cluster.label,
+                cohesion=cluster.cohesion,
+                documents=[
+                    CompatibilityDocument(
+                        id=document.doc_id,
+                        title=document.title,
+                        filename=document.filename,
+                    )
+                    for document in cluster.documents
+                ],
+            )
+            for cluster in analysis.clusters
+        ],
+    )
+
+
+@router.post("/document-compatibility", response_model=DocumentCompatibilityResponse)
+async def document_compatibility(
+    req: DocumentCompatibilityRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_role("superadmin", "methodologist")),
+):
+    """Analyze whether selected source documents belong in one course."""
+    from app.modules.ai.source_analysis import analyze_document_set
+
+    analysis = await analyze_document_set(db, user.tenant_id, req.documents)
+    return _compatibility_response(analysis)
+
+
 def _job_course_uuid(course_id) -> UUID | None:
     if course_id is None:
         return None
@@ -57,6 +98,19 @@ async def generate_course(
     """Start AI course generation (returns job_id for polling/WebSocket)."""
     from app.core.demo_limits import check_ai_generation_quota
     from app.core.trial_limits import reserve_ai_course_generation
+    from app.modules.ai.source_analysis import analyze_document_set
+
+    analysis = await analyze_document_set(db, user.tenant_id, req.documents)
+    analysis_payload = _compatibility_response(analysis).model_dump(mode="json")
+    if analysis.requires_decision and req.source_strategy != "intentional_combination":
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "mixed_document_topics",
+                "message": "Selected documents belong to different thematic groups",
+                "analysis": analysis_payload,
+            },
+        )
     await check_ai_generation_quota(db, user.id, user.tenant_id)
     if req.course_id is None:
         await reserve_ai_course_generation(db, user.tenant_id)
@@ -76,10 +130,13 @@ async def generate_course(
         user_id=user.id,
         course_id=req.course_id,
         params={
-            "documents": req.documents,
+            "documents": [str(document_id) for document_id in req.documents],
             "target_audience": req.target_audience,
             "num_modules": req.num_modules,
             "language": req.language,
+            "source_strategy": req.source_strategy,
+            "combination_goal": req.combination_goal.strip(),
+            "source_analysis": analysis_payload,
         },
     )
     await db.commit()
@@ -101,13 +158,16 @@ async def generate_course(
     try:
         generate_course_task.delay(
             job_id=str(job.id),
-            documents=req.documents,
+            documents=[str(document_id) for document_id in req.documents],
             target_audience=req.target_audience,
             num_modules=req.num_modules,
             language=req.language,
             course_id=str(req.course_id) if req.course_id else None,
             tenant_id=str(user.tenant_id) if user.tenant_id else None,
             user_id=str(user.id),
+            source_strategy=req.source_strategy,
+            combination_goal=req.combination_goal.strip(),
+            source_analysis=analysis_payload,
         )
     except Exception as exc:
         logger.exception("Could not enqueue AI generation job %s", job.id)
@@ -434,6 +494,52 @@ async def chat(
 # ── Regenerate module / lesson ──────────────────────────────────────────
 
 
+async def _rewrite_grounded_lesson(
+    *,
+    lesson,
+    module,
+    course,
+    guidance: str,
+    language: str,
+    llm,
+    tenant_id: UUID,
+) -> None:
+    """Rewrite a generated lesson without escaping its persisted sources."""
+    from app.modules.ai.ingestion import EmbeddingsProvider, VectorStore
+    from app.modules.ai.writer import write_lesson
+
+    source_ids = list(lesson.source_document_ids or course.source_document_ids or [])
+    if not source_ids:
+        raise ValueError("Lesson has no source documents and cannot be regenerated safely")
+    headings = list(dict.fromkeys(
+        heading
+        for reference in (lesson.source_references or [])
+        for heading in (reference.get("headings") or [])
+    ))
+    objectives = [guidance.strip()] if guidance.strip() else [f"Explain {lesson.title} from the approved sources"]
+    generated = await write_lesson(
+        llm=llm,
+        store=VectorStore(),
+        lesson_title=lesson.title,
+        objectives=objectives,
+        module_title=module.title,
+        course_title=course.title,
+        doc_ids=[str(source_id) for source_id in source_ids],
+        tenant_id=str(tenant_id),
+        relevant_headings=headings or None,
+        language=language,
+        embeddings_provider=EmbeddingsProvider(),
+        require_sources=True,
+    )
+    lesson.content = generated.content
+    lesson.source_references = generated.source_references
+    lesson.source_document_ids = list(dict.fromkeys(
+        reference["doc_id"] for reference in generated.source_references if reference.get("doc_id")
+    ))
+    lesson.ai_generated = True
+    lesson.source_validation_status = "verified"
+
+
 async def _regenerate_module_job(
     job_id: str,
     module_id: UUID,
@@ -535,29 +641,15 @@ async def _regenerate_module_job(
                     except (TypeError, ValueError):
                         pass
 
-                # Reuse writer to generate new content for this lesson.
-                course_topic = course.title
-                lesson_topic = old_l.title
-                # Writer expects str content. We ask for a full rewrite.
-                rewrite_prompt = (
-                    f"Ты автор учебного контента. Перепиши урок «{lesson_topic}» "
-                    f"в рамках курса «{course_topic}» (модуль «{module.title}»).\n"
-                    f"Описание: {new_plan.get('description') or '(нет)'}.\n"
-                    f"Дополнительно от методолога: {guidance or '(нет)'}.\n\n"
-                    f"Длительность: ~{old_l.duration_seconds // 60 if old_l.duration_seconds else 10} минут.\n\n"
-                    "Верни ТОЛЬКО текст урока (без заголовка, без markdown-обёрток). "
-                    "Структура: краткое введение → основные разделы с подзаголовками → практический пример → резюме."
+                await _rewrite_grounded_lesson(
+                    lesson=old_l,
+                    module=module,
+                    course=course,
+                    guidance=guidance,
+                    language=language,
+                    llm=llm,
+                    tenant_id=tenant_id,
                 )
-                content_resp = await llm.ainvoke(
-                    [
-                        {"role": "system", "content": get_renderer().render("router/system_writer_lesson_regen_module.md")},
-                        {"role": "user", "content": rewrite_prompt},
-                    ]
-                )
-                new_content = (content_resp.content or "").strip()
-                if new_content:
-                    old_l.content = new_content
-                    old_l.ai_generated = True
 
                 # Regenerate quiz for this lesson (delete old, create new).
                 old_quizzes = (await session.execute(
@@ -668,24 +760,15 @@ async def _regenerate_lesson_job(
             )).scalar_one()
 
             llm = await ResilientLLMClient.from_settings_async(temperature=0.7, max_tokens=2000)
-            rewrite_prompt = (
-                f"Ты автор LMS-уроков. Перепиши урок «{lesson.title}» "
-                f"в рамках курса «{course.title}» (модуль «{module.title}»).\n"
-                f"Длительность: ~{lesson.duration_seconds // 60 if lesson.duration_seconds else 10} минут.\n"
-                f"Дополнительно от методолога: {guidance or '(нет)'}.\n\n"
-                "Верни ТОЛЬКО текст урока (без заголовка, без markdown-обёрток). "
-                "Структура: краткое введение → основные разделы с подзаголовками → практический пример → резюме."
+            await _rewrite_grounded_lesson(
+                lesson=lesson,
+                module=module,
+                course=course,
+                guidance=guidance,
+                language="ru",
+                llm=llm,
+                tenant_id=tenant_id,
             )
-            resp = await llm.ainvoke(
-                [
-                    {"role": "system", "content": get_renderer().render("router/system_writer_lesson_regen.md")},
-                    {"role": "user", "content": rewrite_prompt},
-                ]
-            )
-            new_content = (resp.content or "").strip()
-            if new_content:
-                lesson.content = new_content
-                lesson.ai_generated = True
 
             await update_ai_job(session, job_id, progress=60,
                                 stage="assessment", message="Обновляем тест…")

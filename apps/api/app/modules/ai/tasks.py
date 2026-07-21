@@ -25,6 +25,9 @@ try:
         course_id: str | None = None,
         tenant_id: str | None = None,
         user_id: str | None = None,
+        source_strategy: str = "single_topic",
+        combination_goal: str = "",
+        source_analysis: dict | None = None,
     ):
         """Celery task to run the full generation pipeline."""
         logger.info(f"Starting generation task for job {job_id}")
@@ -46,6 +49,9 @@ try:
                     course_id=course_id,
                     tenant_id=UUID(tenant_id) if tenant_id else None,
                     user_id=UUID(user_id) if user_id else None,
+                    source_strategy=source_strategy,
+                    combination_goal=combination_goal,
+                    source_analysis=source_analysis,
                 )
             )
 

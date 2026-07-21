@@ -23,6 +23,9 @@ class ModuleResponse(BaseModel):
     description: str
     order_index: int
     ai_generated: bool
+    source_document_ids: list[str] = Field(default_factory=list)
+    source_references: list[dict] = Field(default_factory=list)
+    source_validation_status: str = "not_applicable"
     created_at: datetime
     updated_at: datetime
     model_config = {"from_attributes": True}
