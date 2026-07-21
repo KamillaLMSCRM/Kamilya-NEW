@@ -151,7 +151,7 @@ Recommended free trial:
 - 1 normal AI course generation;
 - 1 job-instruction course generation;
 - up to 10 learners;
-- up to 3 system users: admin, methodologist, teacher;
+- up to 3 system users across tenant administrators and methodologists;
 - 14 days trial duration;
 - certificate generation enabled for pilot learners;
 - Supabase Storage enabled;

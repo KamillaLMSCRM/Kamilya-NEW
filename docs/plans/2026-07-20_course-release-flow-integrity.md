@@ -22,7 +22,7 @@
 - Проверять status курса в manual enrollment service.
 - Фильтровать learner dashboard по `Course.status=published`.
 - Ограничить student-доступ к course/structure/lesson flow действующим
-  enrollment опубликованного курса; methodologist/teacher сохраняют authoring
+  enrollment опубликованного курса; methodologist сохраняют authoring
   access.
 - Для AI-generated course требовать `review_status=approved` перед publish.
 

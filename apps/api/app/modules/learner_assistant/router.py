@@ -37,7 +37,7 @@ async def _assert_course_access(db: AsyncSession, course_id: UUID, user: User) -
     course = result.scalar_one_or_none()
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
-    if user.role in {"admin", "org_admin", "teacher", "methodologist", "superadmin"}:
+    if user.role in {"admin", "org_admin", "methodologist", "superadmin"}:
         return course
     enrolled = await db.scalar(
         select(Enrollment.id).where(

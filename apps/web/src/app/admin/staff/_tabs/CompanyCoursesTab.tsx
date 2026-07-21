@@ -33,7 +33,6 @@ import { toast } from '@/components/ui/Toast';
 
 const COMPANY_COURSES_OWNERS = new Set([
   'methodologist',
-  'teacher',
   'admin',
   'org_admin',
   'superadmin',

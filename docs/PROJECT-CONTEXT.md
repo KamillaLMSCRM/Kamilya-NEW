@@ -51,7 +51,7 @@ C:\Kamilya New\Kamilya-NEW
 |---|---|
 | `superadmin` | Platform operator, tenant-level oversight |
 | `admin`, `org_admin` | Tenant infrastructure, integrations, team/system users |
-| `methodologist`, `teacher` | Learning content, staff/course rules, assignments |
+| `methodologist` | Learning content, staff/course rules, assignments |
 | `student` | Learner only |
 
 Important route ownership:
@@ -59,7 +59,7 @@ Important route ownership:
 - `/admin/team` - tenant system users only.
 - `/admin/super/*` - platform/superadmin.
 - `/admin/staff` - staff structure, rules, imports.
-- `/assignments` - direct learner-course assignment for `methodologist` / `teacher`.
+- `/assignments` - direct learner-course assignment for `methodologist`.
 - `/admin/enrollments` - legacy redirect to `/assignments`.
 - `/student`, `/my-courses`, `/my-quizzes`, `/certificates` - learner surfaces.
 

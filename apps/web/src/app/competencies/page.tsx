@@ -15,7 +15,7 @@ type Detail = Item & { position_ids: string[]; course_ids: string[] };
 export default function CompetenciesPage() {
   const { t } = useT();
   const role = useAuthStore((state) => state.user?.role);
-  const allowed = ['admin', 'org_admin', 'methodologist', 'teacher'].includes(role || '');
+  const allowed = ['admin', 'org_admin', 'methodologist'].includes(role || '');
   const [items, setItems] = useState<Item[]>([]);
   const [positions, setPositions] = useState<LinkItem[]>([]);
   const [courses, setCourses] = useState<LinkItem[]>([]);

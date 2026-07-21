@@ -11,7 +11,7 @@ from app.modules.cohorts.models import Cohort, CohortCourse, CohortMember
 from app.modules.cohorts.schemas import CohortApplyResult, CohortCreate, CohortDetail, CohortLinks, CohortProgress, CohortSummary, LearnerCohort
 
 router = APIRouter(prefix="/cohorts", tags=["cohorts"], dependencies=[Depends(require_tenant_user())])
-MANAGER_ROLES = ("methodologist", "teacher")
+MANAGER_ROLES = ("methodologist",)
 
 
 async def _get(db: AsyncSession, cohort_id: UUID, tenant_id: UUID) -> Cohort:

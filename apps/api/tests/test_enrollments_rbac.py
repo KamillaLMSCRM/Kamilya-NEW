@@ -1,6 +1,6 @@
 """RBAC tests for course assignment access.
 
-Direct user→course assignment belongs to methodologist/teacher, not tenant
+Direct user→course assignment belongs to methodologist, not tenant
 administration. Students must NOT be able to enroll/remove/list arbitrary
 enrollments — they keep the self-enrollment path (`POST /v1/courses/{id}/enroll`)
 instead.
@@ -11,7 +11,7 @@ These tests verify role gating on:
   - DELETE /v1/courses/enrollments/{id}  (remove)
   - GET    /v1/admin/export/enrollments  (CSV export)
 
-Teachers/methodologists can use these endpoints. Tenant admins and students
+Methodologists can use these endpoints. Tenant admins and students
 must get 403.
 """
 from __future__ import annotations
@@ -26,24 +26,24 @@ def _bulk_enroll_payload(user_ids: list[str]) -> dict:
 
 
 class TestEnrollmentRoleGating:
-    """Enrollments are methodologist/teacher-owned, not tenant-admin-owned."""
+    """Enrollments are methodologist-owned, not tenant-admin-owned."""
 
-    async def test_teacher_can_bulk_enroll(
+    async def test_methodologist_can_bulk_enroll(
         self, client, make_tenant, make_user, make_course, auth_headers
     ):
         tenant = await make_tenant(name="Tenant T")
-        teacher = await make_user(tenant, role="teacher")
+        methodologist = await make_user(tenant, role="methodologist")
         student = await make_user(tenant, role="student")
-        course = await make_course(tenant, teacher, title="T's Course")
+        course = await make_course(tenant, methodologist, title="T's Course")
 
         r = await client.post(
             f"/api/v1/courses/{course.id}/enrollments",
             json=_bulk_enroll_payload([str(student.id)]),
-            headers=auth_headers(teacher),
+            headers=auth_headers(methodologist),
         )
 
         assert r.status_code == 201, (
-            f"Teacher must be able to bulk-enroll. Got {r.status_code}: {r.text}"
+            f"Methodologist must be able to bulk-enroll. Got {r.status_code}: {r.text}"
         )
         body = r.json()
         assert len(body) == 1
@@ -102,21 +102,21 @@ class TestEnrollmentRoleGating:
             f"Got {r.status_code}: {r.text}"
         )
 
-    async def test_teacher_can_list_enrollments(
+    async def test_methodologist_can_list_enrollments(
         self, client, make_tenant, make_user, make_course, auth_headers
     ):
         tenant = await make_tenant(name="Tenant L")
-        teacher = await make_user(tenant, role="teacher")
-        course = await make_course(tenant, teacher, title="L's Course")
+        methodologist = await make_user(tenant, role="methodologist")
+        course = await make_course(tenant, methodologist, title="L's Course")
 
         r = await client.get(
             f"/api/v1/courses/{course.id}/enrollments",
-            headers=auth_headers(teacher),
+            headers=auth_headers(methodologist),
         )
 
         # 200 + empty list is acceptable. Anything other than 403/401/200 is wrong.
         assert r.status_code == 200, (
-            f"Teacher must be able to list enrollments. Got {r.status_code}: {r.text}"
+            f"Methodologist must be able to list enrollments. Got {r.status_code}: {r.text}"
         )
 
     async def test_student_cannot_list_enrollments(
@@ -173,19 +173,19 @@ class TestEnrollmentRoleGating:
             f"Tenant admin must NOT export enrollments CSV. Got {r.status_code}: {r.text}"
         )
 
-    async def test_teacher_can_export_enrollments_csv(
+    async def test_methodologist_can_export_enrollments_csv(
         self, client, make_tenant, make_user, auth_headers
     ):
         tenant = await make_tenant(name="Tenant E")
-        teacher = await make_user(tenant, role="teacher")
+        methodologist = await make_user(tenant, role="methodologist")
 
         r = await client.get(
             "/api/v1/admin/export/enrollments",
-            headers=auth_headers(teacher),
+            headers=auth_headers(methodologist),
         )
 
         assert r.status_code == 200, (
-            f"Teacher must be able to export enrollments CSV. "
+            f"Methodologist must be able to export enrollments CSV. "
             f"Got {r.status_code}: {r.text}"
         )
         assert "text/csv" in r.headers.get("content-type", "")

@@ -14,7 +14,7 @@ type Option = { id: string; title: string };
 export default function AnnouncementsPage() {
   const { t } = useT();
   const role = useAuthStore((state) => state.user?.role);
-  const allowed = ['admin', 'org_admin', 'methodologist', 'teacher'].includes(role || '');
+  const allowed = ['admin', 'org_admin', 'methodologist'].includes(role || '');
   const [items, setItems] = useState<Announcement[]>([]);
   const [courses, setCourses] = useState<Option[]>([]);
   const [title, setTitle] = useState('');

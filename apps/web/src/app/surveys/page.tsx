@@ -15,7 +15,7 @@ type LearnerSurvey = { id: string; course_id: string; course_title: string; titl
 export default function SurveysPage() {
   const { t } = useT();
   const role = useAuthStore((state) => state.user?.role);
-  const manager = ['admin', 'org_admin', 'methodologist', 'teacher'].includes(role || '');
+  const manager = ['admin', 'org_admin', 'methodologist'].includes(role || '');
   const [items, setItems] = useState<Survey[]>([]);
   const [learnerItems, setLearnerItems] = useState<LearnerSurvey[]>([]);
   const [courses, setCourses] = useState<{ id: string; title: string }[]>([]);

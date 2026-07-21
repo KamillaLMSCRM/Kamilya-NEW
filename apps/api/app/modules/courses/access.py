@@ -11,7 +11,7 @@ from app.models.users import User
 from app.modules.lessons.models import Lesson, Module
 
 
-AUTHORING_ROLES = {"methodologist", "teacher", "superadmin"}
+AUTHORING_ROLES = {"methodologist", "superadmin"}
 
 
 async def require_course_access(

@@ -13,7 +13,7 @@ type PathSummary = { id: string; title: string; description: string; status: 'dr
 type PathDetail = PathSummary & { courses: { course_id: string; title: string; order_index: number; required: boolean }[] };
 type LearnerPath = { id: string; title: string; description: string; total_courses: number; completed_courses: number; progress_percent: number };
 type Course = { id: string; title: string; status: string };
-const MANAGER_ROLES = ['admin', 'org_admin', 'methodologist', 'teacher'];
+const MANAGER_ROLES = ['admin', 'org_admin', 'methodologist'];
 
 export default function LearningPathsPage() {
   const { t } = useT();

@@ -16,7 +16,7 @@ from app.modules.announcements.models import Announcement
 from app.modules.announcements.schemas import AnnouncementCreate, AnnouncementSendResult, AnnouncementSummary
 
 router = APIRouter(prefix="/announcements", tags=["announcements"], dependencies=[Depends(require_tenant_user())])
-MANAGER_ROLES = ("methodologist", "teacher")
+MANAGER_ROLES = ("methodologist",)
 
 
 def _summary(item: Announcement) -> AnnouncementSummary:

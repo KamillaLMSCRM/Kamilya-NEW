@@ -6,7 +6,7 @@
  * См. ADR-0012 — ролевая модель admin vs methodologist. Владение
  * этой вкладкой:
  *
- *   methodologist / teacher  — основной владелец (управляет
+ *   methodologist  — основной владелец (управляет
  *                              контентом штатки и правилами привязок)
  *   admin / org_admin         — могут редактировать для удобства
  *   superadmin                — платформенный bypass
@@ -45,12 +45,11 @@ import { toast } from '@/components/ui/Toast';
 
 // ── RBAC — ADR-0012 ──────────────────────────────────────────────
 
-// Владелец learning-content domain. Methodologist и teacher здесь
+// Владелец learning-content domain. Methodologist и methodologist здесь
 // равнозначны (см. ADR-0012 §1). Admin для удобства (он же хозяин
 // tenant'а), superadmin — платформенный bypass.
 const STAFF_RULES_OWNERS = new Set([
   'methodologist',
-  'teacher',
   'admin',
   'org_admin',
   'superadmin',
@@ -288,7 +287,7 @@ export default function RulesTab() {
             администратору для назначения прав.
           </p>
           <p className="text-[11px] text-muted-foreground pt-2">
-            Роли: methodologist, teacher, admin, org_admin, superadmin.
+            Роли: methodologist, admin, org_admin, superadmin.
             См. <code className="text-foreground">docs/adr/0012-rbac-admin-vs-methodologist.md</code>.
           </p>
         </CardContent>

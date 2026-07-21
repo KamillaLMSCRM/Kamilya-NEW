@@ -29,7 +29,7 @@ export default function CoursesPage() {
 
   const canManage =
     user?.role === 'methodologist' ||
-    user?.role === 'teacher';
+    user?.role === 'methodologist';
 
   useEffect(() => {
     fetchCourses();

@@ -13,7 +13,7 @@ from app.modules.competencies.schemas import CompetencyCreate, CompetencyDetail,
 from app.modules.positions.models import Position
 
 router = APIRouter(prefix="/competencies", tags=["competencies"], dependencies=[Depends(require_tenant_user())])
-MANAGER_ROLES = ("methodologist", "teacher")
+MANAGER_ROLES = ("methodologist",)
 
 
 async def _get(db: AsyncSession, competency_id: UUID, tenant_id: UUID) -> Competency:

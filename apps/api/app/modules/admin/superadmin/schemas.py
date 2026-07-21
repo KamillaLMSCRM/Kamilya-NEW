@@ -15,7 +15,7 @@ from pydantic import BaseModel, EmailStr, Field, field_validator
 
 PLAN_NAMES = Literal["free", "trial", "pro", "enterprise"]
 TENANT_STATUSES = Literal["active", "trial", "suspended", "archived"]
-ADMIN_ROLES = Literal["admin", "org_admin", "teacher"]
+ADMIN_ROLES = Literal["admin", "org_admin", "methodologist"]
 
 
 # ── Tenant ────────────────────────────────────────────────────────────

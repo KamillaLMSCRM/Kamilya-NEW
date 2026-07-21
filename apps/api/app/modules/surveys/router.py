@@ -11,7 +11,7 @@ from app.modules.surveys.models import Survey, SurveyResponse
 from app.modules.surveys.schemas import LearnerSurvey, SurveyAnswerSubmit, SurveyCreate, SurveyDetail, SurveyQuestion, SurveySummary
 
 router = APIRouter(prefix="/surveys", tags=["surveys"], dependencies=[Depends(require_tenant_user())])
-MANAGER_ROLES = ("methodologist", "teacher")
+MANAGER_ROLES = ("methodologist",)
 
 
 def _summary(item: Survey) -> SurveySummary:

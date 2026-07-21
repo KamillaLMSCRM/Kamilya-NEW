@@ -34,12 +34,12 @@ Three intertwined UX issues in the Personnel/Admin section:
 ### 1. `users` API: only non-student CRUD
 
 `/v1/users` is renamed `/v1/team` and serves **only** the
-team-management surface: teacher, admin, org_admin, superadmin.
+team-management surface: methodologist, admin, org_admin, superadmin.
 
 - `GET /v1/team` filters `role NOT IN ('student',)` by default. New
   `?include_students=true` opt-in for admin (rarely used; we keep
   `/v1/admin/students` as a separate read-only list).
-- `POST /v1/team` accepts `role` only from `{teacher, admin,
+- `POST /v1/team` accepts `role` only from `{methodologist, admin,
   org_admin}`. The `superadmin` role is platform-level and cannot
   be assigned from a tenant context.
 - Bulk-invite (`POST /v1/team/invitations/bulk`) only sends to
@@ -138,7 +138,7 @@ not in sidebar because it duplicates the tree view.
 ## Alternatives considered
 
 - **Drop `/admin/team` entirely, rely on `/admin/staff` tree.**
-  Rejected — CRUD for teacher/admin org-level is still needed
+  Rejected — CRUD for methodologist/admin org-level is still needed
   (invite, deactivate, change role). Tree is read-only.
 - **Make `Position.department` a true FK now, not later.**
   Rejected for v1.0 — the backfill is risky and we already have

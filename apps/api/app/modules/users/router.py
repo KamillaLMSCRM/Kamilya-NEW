@@ -99,11 +99,11 @@ async def list_all_users(
                     "(learning-manager only).",
     ),
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("admin", "org_admin", "superadmin", "methodologist", "teacher")),
+    user: User = Depends(require_role("admin", "org_admin", "superadmin", "methodologist")),
 ):
     """List users (the team-management surface — ADR-0011).
 
-    Admin/org_admin/superadmin for team management; methodologist/teacher
+    Admin/org_admin/superadmin for team management; methodologist
     are included so the learning team can pick learner assignees.
 
     By default students (role='student') are excluded — they're auto-
@@ -114,7 +114,7 @@ async def list_all_users(
     entities (typically <300 employees), small enough to not blow up
     the response.
     """
-    if include_students and user.role not in ("superadmin", "methodologist", "teacher"):
+    if include_students and user.role not in ("superadmin", "methodologist"):
         raise HTTPException(
             status_code=403,
             detail="include_students=true requires a learning manager role",
@@ -123,7 +123,7 @@ async def list_all_users(
     effective_role = role
     if not include_students and role is None:
         # Default: exclude students from the listing. Audit §2.1 /
-        # ADR-0011 — the /admin/team surface is for managing teachers,
+        # ADR-0011 — the /admin/team surface is for managing methodologists,
         # org_admins, and admins only. Students have their own surface
         # at /v1/students (read-only) and are provisioned via the
         # Telegram/kiosk flows.
@@ -282,7 +282,7 @@ async def change_user_role(
 async def bulk_invite_users(
     payload: InvitationBulkCreateRequest,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("superadmin", "methodologist", "teacher")),
+    user: User = Depends(require_role("superadmin", "methodologist")),
 ):
     """Bulk-create user invitations (Phase 1).
 
@@ -344,7 +344,7 @@ async def list_invitations(
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("superadmin", "methodologist", "teacher")),
+    user: User = Depends(require_role("superadmin", "methodologist")),
 ):
     """List invitations for current tenant."""
     from sqlalchemy import desc, func as sqlfunc
@@ -390,7 +390,7 @@ async def list_invitations(
 async def resend_user_invitation(
     invitation_id: UUID,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("superadmin", "methodologist", "teacher")),
+    user: User = Depends(require_role("superadmin", "methodologist")),
 ):
     """Re-invite: create new row with fresh token, mark old as superseded.
 

@@ -13,7 +13,7 @@ router = APIRouter(prefix="/demo", tags=["demo"])
 @router.get("/usage")
 async def get_usage(
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("admin", "org_admin", "superadmin", "teacher", "student")),
+    user: User = Depends(require_role("admin", "org_admin", "superadmin", "methodologist", "student")),
 ):
     """Return current usage counters for the demo sandbox tenant.
 

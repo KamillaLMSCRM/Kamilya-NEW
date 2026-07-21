@@ -26,7 +26,7 @@ const REASON_LABELS: Record<string, string> = {
 
 const ROLE_LABELS: Record<string, string> = {
   student: 'Студент',
-  teacher: 'Преподаватель',
+  methodologist: 'Методист',
   admin: 'Администратор',
   org_admin: 'Админ организации',
 };

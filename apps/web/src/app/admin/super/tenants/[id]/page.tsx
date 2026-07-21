@@ -10,7 +10,7 @@ import { toast } from '@/components/ui/Toast';
 
 const PLAN_KEYS = ['free', 'trial', 'pro', 'enterprise'] as const;
 const STATUS_KEYS = ['active', 'trial', 'suspended', 'archived'] as const;
-const ROLE_KEYS = ['admin', 'org_admin', 'teacher'] as const;
+const ROLE_KEYS = ['admin', 'org_admin', 'methodologist'] as const;
 const SLUG_PATTERN = /^[a-z0-9-]+$/;
 
 function normalizeSlug(value: string) {
@@ -141,7 +141,7 @@ export default function TenantDetailPage({ params }: { params: { id: string } })
   });
   const [addingAdmin, setAddingAdmin] = useState(false);
 
-  const [impersonateRole, setImpersonateRole] = useState<'admin' | 'org_admin' | 'teacher'>('admin');
+  const [impersonateRole, setImpersonateRole] = useState<'admin' | 'org_admin' | 'methodologist'>('admin');
   const [impersonating, setImpersonating] = useState(false);
 
   const fetchAll = useCallback(async () => {

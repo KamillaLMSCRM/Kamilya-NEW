@@ -221,7 +221,7 @@ export default function CoursePlayerPage() {
       if (courseRes.ok) setCourse(await courseRes.json());
 
       const userRole = user?.role;
-      const bypass = userRole === 'admin' || userRole === 'superadmin' || userRole === 'teacher' || userRole === 'org_admin';
+      const bypass = userRole === 'admin' || userRole === 'superadmin' || userRole === 'methodologist' || userRole === 'org_admin';
       if (bypass) {
         setEnrolled(true);
       } else if (userRole === 'student') {

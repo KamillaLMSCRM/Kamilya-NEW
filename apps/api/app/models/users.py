@@ -34,7 +34,7 @@ class User(Base):
 
     __table_args__ = (
         CheckConstraint("status IN ('active', 'inactive', 'banned')", name="ck_user_status"),
-        CheckConstraint("role IN ('superadmin', 'admin', 'org_admin', 'methodologist', 'teacher', 'student')", name="ck_user_role"),
+        CheckConstraint("role IN ('superadmin', 'admin', 'org_admin', 'methodologist', 'student')", name="ck_user_role"),
         Index("uq_user_telegram", "tenant_id", "telegram_id", unique=True, postgresql_where="telegram_id IS NOT NULL"),
         Index("uq_users_tenant_personnel", "tenant_id", "personnel_number", unique=True, postgresql_where="personnel_number IS NOT NULL"),
         {"extend_existing": True},

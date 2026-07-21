@@ -13,7 +13,7 @@ Endpoints (all under /admin/staff/import/mappings):
   PATCH  /{mapping_id}      update name / mapping_json / is_default
   DELETE /{mapping_id}      delete mapping
 
-Auth: admin / org_admin / methodologist / teacher.
+Auth: admin / org_admin / methodologist.
 Tenant scope: from JWT, never from URL/body.
 """
 from __future__ import annotations
@@ -47,7 +47,7 @@ router = APIRouter(
     tags=["staff-import"],
 )
 
-_MAPPING_ROLES = ("superadmin", "methodologist", "teacher")
+_MAPPING_ROLES = ("superadmin", "methodologist")
 
 
 @router.get("", response_model=list[StaffImportMappingResponse])

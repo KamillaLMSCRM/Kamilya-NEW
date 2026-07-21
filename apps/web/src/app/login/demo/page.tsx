@@ -29,7 +29,7 @@ const ROLES: RoleCard[] = [
     redirect: '/dashboard',
   },
   {
-    role: 'teacher',
+    role: 'methodologist',
     title: 'Методолог',
     description: 'Создание и редактирование курсов, просмотр прогресса студентов',
     icon: <BookOpen className="w-8 h-8" />,

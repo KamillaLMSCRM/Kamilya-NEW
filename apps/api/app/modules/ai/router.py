@@ -777,7 +777,7 @@ async def regenerate_module(
     module_id: UUID,
     req: AIRegenerateModuleRequest,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("superadmin", "methodologist", "teacher")),
+    user: User = Depends(require_role("superadmin", "methodologist")),
 ):
     """Rewrite a module and all its lessons (and their quizzes).
 
@@ -821,7 +821,7 @@ async def regenerate_lesson(
     lesson_id: UUID,
     req: AIRegenerateLessonRequest,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("superadmin", "methodologist", "teacher")),
+    user: User = Depends(require_role("superadmin", "methodologist")),
 ):
     """Rewrite a single lesson (and optionally its quiz)."""
     from app.modules.lessons.models import Module, Lesson

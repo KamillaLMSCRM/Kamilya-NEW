@@ -14,6 +14,6 @@ class UserRole(Base):
     created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
 
     __table_args__ = (
-        CheckConstraint("role IN ('superadmin', 'admin', 'org_admin', 'methodologist', 'teacher', 'student')", name="ck_user_role_role"),
+        CheckConstraint("role IN ('superadmin', 'admin', 'org_admin', 'methodologist', 'student')", name="ck_user_role_role"),
         UniqueConstraint("user_id", "tenant_id", "role", name="uq_user_role"),
     )

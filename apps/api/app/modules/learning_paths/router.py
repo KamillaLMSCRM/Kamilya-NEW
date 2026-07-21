@@ -26,7 +26,7 @@ router = APIRouter(
     dependencies=[Depends(require_tenant_user())],
 )
 
-PATH_MANAGER_ROLES = ("methodologist", "teacher")
+PATH_MANAGER_ROLES = ("methodologist",)
 
 
 async def _get_path(db: AsyncSession, path_id: UUID, tenant_id: UUID) -> LearningPath:

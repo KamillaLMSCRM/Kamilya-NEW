@@ -27,7 +27,7 @@ router = APIRouter(
 )
 
 # Roles: tenant admin / org_admin / methodologist own the dashboard.
-# Excluded: student (irrelevant), teacher (no admin view), superadmin
+# Excluded: student (irrelevant), methodologist (no admin view), superadmin
 # (no tenant scope).
 _ONBOARDING_ROLES = ("admin", "org_admin", "methodologist", "superadmin")
 

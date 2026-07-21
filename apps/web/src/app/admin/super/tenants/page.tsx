@@ -66,7 +66,7 @@ interface TenantCreateResult {
 
 const PLAN_KEYS = ['free', 'trial', 'pro', 'enterprise'] as const;
 const STATUS_KEYS = ['active', 'trial', 'suspended', 'archived'] as const;
-const ADMIN_ROLE_KEYS = ['admin', 'org_admin', 'teacher'] as const;
+const ADMIN_ROLE_KEYS = ['admin', 'org_admin', 'methodologist'] as const;
 const SLUG_PATTERN = /^[a-z0-9-]+$/;
 const CYRILLIC_TO_LATIN: Record<string, string> = {
   а: 'a',
@@ -727,7 +727,7 @@ export default function SuperAdminTenants() {
                     >
                       <option value="admin">Администратор</option>
                       <option value="org_admin">HR/орг. админ</option>
-                      <option value="teacher">Методолог</option>
+                      <option value="methodologist">Методолог</option>
                     </select>
                   </div>
                   <label className="flex items-end gap-2 rounded border border-border px-3 py-2 text-sm">

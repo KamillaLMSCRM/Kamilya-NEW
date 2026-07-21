@@ -35,7 +35,7 @@ _ph = argon2.PasswordHasher()
 # Roles a superadmin can grant via the admin-management UI. We do NOT
 # allow creating *other* superadmins from here — that's a deliberate
 # privilege-escalation guard. Use direct DB access for that.
-GRANTABLE_ROLES = {"admin", "org_admin", "teacher"}
+GRANTABLE_ROLES = {"admin", "org_admin", "methodologist"}
 
 TENANT_DELETE_SQL = [
     """
@@ -127,7 +127,7 @@ class SuperadminService:
         # Users
         user_count_q = select(func.count(User.id)).where(User.tenant_id == tenant_id)
         active_user_q = user_count_q.where(User.is_active.is_(True))
-        admin_role_q = user_count_q.where(User.role.in_(["admin", "org_admin", "teacher"]))
+        admin_role_q = user_count_q.where(User.role.in_(["admin", "org_admin", "methodologist"]))
         user_count = (await self.db.execute(user_count_q)).scalar() or 0
         active_user_count = (await self.db.execute(active_user_q)).scalar() or 0
         admin_count = (await self.db.execute(admin_role_q)).scalar() or 0
@@ -370,7 +370,7 @@ class SuperadminService:
             select(User)
             .where(
                 User.tenant_id == tenant_id,
-                User.role.in_(["admin", "org_admin", "teacher"]),
+                User.role.in_(["admin", "org_admin", "methodologist"]),
             )
             .order_by(User.created_at.asc())
         )

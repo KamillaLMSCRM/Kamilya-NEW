@@ -407,8 +407,7 @@
     "invite": "Пригласить",
     "surname": "Фамилия",
     "roleStudent": "Обучающийся",
-    "roleTeacher": "Методист",
-    "roleTeacherLegacy": "Методист (старая роль)",
+    "roleMethodologist": "Методист",
     "roleAdmin": "Админ",
     "roleOrgAdmin": "Орг. админ",
     "roleSuperadmin": "Суперадмин",
@@ -603,7 +602,7 @@
       "superadmin": "Суперадмин",
       "admin": "Администратор",
       "org_admin": "Орг. администратор",
-      "teacher": "Методист",
+      "methodologist": "Методист",
       "student": "Обучающийся"
     }
   },
@@ -816,7 +815,7 @@
     "roles": {
       "admin": "Админ",
       "org_admin": "Орг-админ",
-      "teacher": "Методист",
+      "methodologist": "Методист",
       "superadmin": "Суперадмин"
     }
   },

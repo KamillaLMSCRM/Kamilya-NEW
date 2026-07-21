@@ -51,10 +51,10 @@ async def global_enrollment_stats(
 # Direct user→course assignment is a learning-content/methodologist
 # concern (TZ_COURSE_ASSIGNMENT_ACCESS_v1 §1.2 level-4 manual override),
 # not tenant administration. Tenant admins manage org/team structure;
-# methodologist/teacher manages learning trajectories. Students keep the
+# methodologist manages learning trajectories. Students keep the
 # self-enrollment path below; everyone else is rejected.
 
-_ENROLLMENT_MANAGER_ROLES = ("methodologist", "teacher")
+_ENROLLMENT_MANAGER_ROLES = ("methodologist",)
 
 
 @router.get("/{course_id}/enrollments", response_model=list[EnrollmentResponse])

@@ -471,13 +471,6 @@ DEMO_USERS = {
         "last_name": "Демо",
         "role": "admin",
     },
-    "teacher": {
-        "telegram_id": 900000002,
-        "email": "teacher@demo.kml",
-        "first_name": "Айгуль",
-        "last_name": "Методологова",
-        "role": "teacher",
-    },
     "methodologist": {
         "telegram_id": 900000004,
         "email": "methodologist@demo.kml",
@@ -517,7 +510,7 @@ async def demo_login(req: DemoLoginRequest, response: Response, db=Depends(get_d
     """Login as a demo user for the given role. Creates user/tenant if needed.
 
     Production gate (audit §4.8):
-    - teacher/student: always allowed (safe — no privilege escalation).
+    - methodologist/student: always allowed (safe — no privilege escalation).
     - admin/superadmin: REJECTED in production. Was previously gated by
       ALLOW_ADMIN_DEMO / ALLOW_SUPERADMIN_DEMO env vars, but those were
       temporary opt-ins for E2E testing. E2E tests now exist (see

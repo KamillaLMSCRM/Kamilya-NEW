@@ -12,7 +12,7 @@ ph = PasswordHasher()
 
 # Roles visible on the team-management surface (ADR-0011).
 # Students are auto-provisioned via Telegram/kiosk and not managed here.
-TEAM_ROLES = ("methodologist", "teacher", "admin", "org_admin")
+TEAM_ROLES = ("methodologist", "admin", "org_admin")
 
 
 async def list_users(
@@ -167,7 +167,7 @@ async def change_role(
     db: AsyncSession, user_id: UUID, tenant_id: UUID, new_role: str
 ) -> User | None:
     """Change user role."""
-    valid_roles = ["student", "methodologist", "teacher", "admin", "org_admin"]
+    valid_roles = ["student", "methodologist", "admin", "org_admin"]
     if new_role not in valid_roles:
         raise ValueError(f"Invalid role. Must be one of: {valid_roles}")
 

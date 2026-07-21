@@ -337,8 +337,8 @@ class ImpersonateRequest(BaseModel):
     """Optional — defaults to impersonating as 'admin'."""
     role: str = Field(
         default="admin",
-        description="Role to assume inside the tenant. Must be one of admin|org_admin|teacher.",
-        pattern="^(admin|org_admin|teacher)$",
+        description="Role to assume inside the tenant. Must be one of admin|org_admin|methodologist.",
+        pattern="^(admin|org_admin|methodologist)$",
     )
 
 

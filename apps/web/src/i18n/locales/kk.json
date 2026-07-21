@@ -387,8 +387,7 @@
     "invite": "Шақыру",
     "surname": "Тегі",
     "roleStudent": "Оқушы",
-    "roleTeacher": "Әдіскер",
-    "roleTeacherLegacy": "Әдіскер (ескі рөл)",
+    "roleMethodologist": "Әдіскер",
     "roleAdmin": "Әкімші",
     "roleOrgAdmin": "Ұйым әкімшісі",
     "roleSuperadmin": "Суперәкімші",
@@ -583,7 +582,7 @@
       "superadmin": "Суперәкімші",
       "admin": "Әкімші",
       "org_admin": "Ұйым әкімшісі",
-      "teacher": "Әдіскер",
+      "methodologist": "Әдіскер",
       "student": "Оқушы"
     }
   },
@@ -796,7 +795,7 @@
     "roles": {
       "admin": "Әкімші",
       "org_admin": "Ұйым әкімшісі",
-      "teacher": "Әдіскер",
+      "methodologist": "Әдіскер",
       "superadmin": "Суперадмин"
     }
   },

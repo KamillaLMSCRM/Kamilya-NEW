@@ -73,7 +73,6 @@ def test_positions_routes_require_learning_content_role() -> None:
         assert (
             "superadmin",
             "methodologist",
-            "teacher",
         ) in closure_values, route.path
 
 

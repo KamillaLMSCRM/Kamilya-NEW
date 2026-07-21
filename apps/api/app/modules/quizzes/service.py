@@ -116,7 +116,7 @@ async def _is_quiz_expired(
     """Return True if deferral window expired (no lesson completion in time).
 
     If user never completed the lesson, deferral hasn't started — quiz is NOT
-    considered expired (teacher may have shared quiz without forced progression).
+    considered expired (methodologist may have shared quiz without forced progression).
     """
     from app.models.progress import Progress
     progress_result = await db.execute(
@@ -150,7 +150,7 @@ async def grade_quiz(
     if await _is_quiz_expired(db, quiz, user_id, tenant_id):
         raise ValueError(
             f"Quiz deferral window expired ({quiz.deferral_days} days). "
-            "Contact your teacher to re-open."
+            "Contact your methodologist to re-open."
         )
 
     # Check attempt limit

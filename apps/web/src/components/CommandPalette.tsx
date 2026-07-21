@@ -45,9 +45,9 @@ export default function CommandPalette() {
   ];
 
   // Quizzes are content-domain tools. Direct course assignments are stricter:
-  // methodologist/teacher owns learner trajectories; tenant admin does not.
-  const canManageContent = user?.role && ['admin', 'superadmin', 'org_admin', 'teacher'].includes(user.role);
-  const canManageAssignments = user?.role && ['methodologist', 'teacher'].includes(user.role);
+  // methodologist owns learner trajectories; tenant admin does not.
+  const canManageContent = user?.role && ['admin', 'superadmin', 'org_admin', 'methodologist'].includes(user.role);
+  const canManageAssignments = user?.role && ['methodologist'].includes(user.role);
   const canManageTenant = user?.role && ['admin', 'superadmin'].includes(user.role);
 
   if (canManageAssignments) {

@@ -245,7 +245,7 @@
     "showReview": "Show Answers",
     "hideReview": "Hide Answers",
     "expired": "Expired",
-    "expiredHint": "The {days}-day deferral after the lesson has expired. Contact your teacher to re-open the test.",
+    "expiredHint": "The {days}-day deferral after the lesson has expired. Contact your methodologist to re-open the test.",
     "notAvailable": "Unavailable",
     "days": "days",
     "attempts": "Attempts",
@@ -387,8 +387,7 @@
     "invite": "Invite",
     "surname": "Surname",
     "roleStudent": "Learner",
-    "roleTeacher": "Methodologist",
-    "roleTeacherLegacy": "Methodologist (legacy role)",
+    "roleMethodologist": "Methodologist",
     "roleAdmin": "Admin",
     "roleOrgAdmin": "Org admin",
     "roleSuperadmin": "Superadmin",
@@ -583,7 +582,7 @@
       "superadmin": "Superadmin",
       "admin": "Administrator",
       "org_admin": "Org. administrator",
-      "teacher": "Methodologist",
+      "methodologist": "Methodologist",
       "student": "Learner"
     }
   },
@@ -796,7 +795,7 @@
     "roles": {
       "admin": "Admin",
       "org_admin": "Org admin",
-      "teacher": "Methodologist",
+      "methodologist": "Methodologist",
       "superadmin": "Superadmin"
     }
   },

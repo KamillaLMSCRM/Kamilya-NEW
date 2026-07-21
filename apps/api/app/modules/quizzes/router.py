@@ -66,7 +66,7 @@ async def _require_quiz_access(db: AsyncSession, quiz_id: UUID, user: User) -> Q
 @router.get("", response_model=list[QuizResponse])
 async def list_quizzes(
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("superadmin", "methodologist", "teacher")),
+    user: User = Depends(require_role("superadmin", "methodologist")),
 ):
     """List all quizzes for the current tenant.
 
@@ -86,7 +86,7 @@ async def list_quizzes(
 @router.get("/grouped", response_model=QuizGroupedResponse)
 async def list_quizzes_grouped(
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("superadmin", "methodologist", "teacher")),
+    user: User = Depends(require_role("superadmin", "methodologist")),
 ):
     """List quizzes grouped by course → module → lesson → quiz.
 
@@ -397,7 +397,7 @@ async def list_attempts(
 async def quiz_stats(
     quiz_id: UUID,
     db: AsyncSession = Depends(get_db),
-    user=Depends(require_role("superadmin", "methodologist", "teacher")),
+    user=Depends(require_role("superadmin", "methodologist")),
 ):
     """Get quiz statistics (admin view)."""
     await _require_quiz_tenant(db, quiz_id, user.tenant_id)
@@ -411,7 +411,7 @@ async def quiz_stats(
 async def create_quiz(
     req: QuizCreate,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("superadmin", "methodologist", "teacher")),
+    user: User = Depends(require_role("superadmin", "methodologist")),
 ):
     """Create a new quiz."""
     from uuid import uuid4
@@ -434,7 +434,7 @@ async def create_quiz(
 async def generate_quiz(
     req: QuizGenerateRequest,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("superadmin", "methodologist", "teacher")),
+    user: User = Depends(require_role("superadmin", "methodologist")),
 ):
     """AI-generate a draft quiz from a lesson's content.
 
@@ -491,7 +491,7 @@ async def update_quiz(
     quiz_id: UUID,
     req: QuizUpdate,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("superadmin", "methodologist", "teacher")),
+    user: User = Depends(require_role("superadmin", "methodologist")),
 ):
     """Update quiz settings."""
     quiz = await db.get(Quiz, quiz_id)
@@ -513,7 +513,7 @@ async def update_quiz(
 async def delete_quiz(
     quiz_id: UUID,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("superadmin", "methodologist", "teacher")),
+    user: User = Depends(require_role("superadmin", "methodologist")),
 ):
     """Delete a quiz and all its questions/choices."""
     quiz = await db.get(Quiz, quiz_id)
@@ -537,7 +537,7 @@ async def create_question(
     quiz_id: UUID,
     req: QuestionCreate,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("superadmin", "methodologist", "teacher")),
+    user: User = Depends(require_role("superadmin", "methodologist")),
 ):
     """Add a question to a quiz with optional choices."""
     from uuid import uuid4
@@ -575,7 +575,7 @@ async def update_question(
     question_id: UUID,
     req: QuestionUpdate,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("superadmin", "methodologist", "teacher")),
+    user: User = Depends(require_role("superadmin", "methodologist")),
 ):
     """Update a question's properties."""
     quiz = await db.get(Quiz, quiz_id)
@@ -603,7 +603,7 @@ async def delete_question(
     quiz_id: UUID,
     question_id: UUID,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("superadmin", "methodologist", "teacher")),
+    user: User = Depends(require_role("superadmin", "methodologist")),
 ):
     """Delete a question and its choices."""
     quiz = await db.get(Quiz, quiz_id)
@@ -629,7 +629,7 @@ async def create_choice(
     question_id: UUID,
     req: QuizChoiceCreate,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("superadmin", "methodologist", "teacher")),
+    user: User = Depends(require_role("superadmin", "methodologist")),
 ):
     """Add a choice to a question."""
     from uuid import uuid4
@@ -658,7 +658,7 @@ async def update_choice(
     choice_id: UUID,
     req: QuizChoiceUpdate,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("superadmin", "methodologist", "teacher")),
+    user: User = Depends(require_role("superadmin", "methodologist")),
 ):
     """Update a choice."""
     quiz = await db.get(Quiz, quiz_id)
@@ -686,7 +686,7 @@ async def delete_choice(
     question_id: UUID,
     choice_id: UUID,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("superadmin", "methodologist", "teacher")),
+    user: User = Depends(require_role("superadmin", "methodologist")),
 ):
     """Delete a choice."""
     quiz = await db.get(Quiz, quiz_id)

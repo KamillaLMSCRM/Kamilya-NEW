@@ -148,7 +148,7 @@ PositionCourse. Новый сотрудник поэтому может полу
 ### P0. Обычный pipeline записывает автора курса как обучающегося
 
 После standalone generation pipeline автоматически создаёт enrollment для
-`user_id`, создавшего курс. В production это обычно methodologist/teacher, а не
+`user_id`, создавшего курс. В production это обычно methodologist, а не
 student. Это противоречит разделению системных пользователей и обучающихся.
 
 **Решение:** удалить production auto-enrollment автора. Для demo использовать

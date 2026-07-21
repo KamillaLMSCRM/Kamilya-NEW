@@ -27,7 +27,7 @@ const API_PREFIX = '/api/v1';
 
 /* ─── helpers ──────────────────────────────────────────────── */
 
-async function loginAs(role: 'student' | 'teacher' | 'admin'): Promise<string> {
+async function loginAs(role: 'student' | 'methodologist' | 'admin'): Promise<string> {
   const ctx = await request.newContext({ baseURL: API_BASE });
   const r = await ctx.post(`${API_PREFIX}/auth/demo-login`, { data: { role } });
   expect(r.ok()).toBeTruthy();
@@ -50,8 +50,8 @@ function authedCtx(token: string) {
 
 /* ─── 1. Course creation ──────────────────────────────────── */
 
-test('teacher can create a course with module + lesson', async () => {
-  const token = await loginAs('teacher');
+test('methodologist can create a course with module + lesson', async () => {
+  const token = await loginAs('methodologist');
   const ctx = await authedCtx(token);
   try {
     // Create course.
@@ -99,25 +99,25 @@ test('teacher can create a course with module + lesson', async () => {
 /* ─── 2. Enrollment + quiz taking ────────────────────────── */
 
 test('student can enroll and submit a quiz attempt', async () => {
-  const teacherToken = await loginAs('teacher');
+  const methodologistToken = await loginAs('methodologist');
   const studentToken = await loginAs('student');
 
-  const teacherCtx = await authedCtx(teacherToken);
+  const methodologistCtx = await authedCtx(methodologistToken);
   try {
-    // Teacher creates a course + module + lesson + quiz.
-    const courseRes = await teacherCtx.post(`${API_PREFIX}/courses`, {
+    // Methodologist creates a course + module + lesson + quiz.
+    const courseRes = await methodologistCtx.post(`${API_PREFIX}/courses`, {
       data: { title: 'Quiz Test Course', status: 'draft' },
     });
     expect(courseRes.ok()).toBeTruthy();
     const course = await courseRes.json();
 
     // Module + lesson.
-    const moduleRes = await teacherCtx.post(`${API_PREFIX}/courses/${course.id}/modules`, {
+    const moduleRes = await methodologistCtx.post(`${API_PREFIX}/courses/${course.id}/modules`, {
       data: { title: 'M1', order_index: 0 },
     });
     expect(moduleRes.ok()).toBeTruthy();
     const mod = await moduleRes.json();
-    const lessonRes = await teacherCtx.post(
+    const lessonRes = await methodologistCtx.post(
       `${API_PREFIX}/courses/${course.id}/modules/${mod.id}/lessons`,
       { data: { title: 'L1', order_index: 0 } }
     );
@@ -127,14 +127,14 @@ test('student can enroll and submit a quiz attempt', async () => {
     const lesson = await lessonRes.json();
 
     // Quiz with one question.
-    const quizRes = await teacherCtx.post(`${API_PREFIX}/quizzes`, {
+    const quizRes = await methodologistCtx.post(`${API_PREFIX}/quizzes`, {
       data: { lesson_id: lesson.id, title: 'E2E Quiz', pass_score: 50 },
     });
     expect(quizRes.ok()).toBeTruthy();
     const quiz = await quizRes.json();
 
     // Add a question.
-    const questionRes = await teacherCtx.post(
+    const questionRes = await methodologistCtx.post(
       `${API_PREFIX}/quizzes/${quiz.id}/questions`,
       { data: { text: 'What is 2+2?', type: 'single_choice', points: 1 } }
     );
@@ -142,11 +142,11 @@ test('student can enroll and submit a quiz attempt', async () => {
     const question = await questionRes.json();
 
     // Add choices and mark one correct.
-    await teacherCtx.post(
+    await methodologistCtx.post(
       `${API_PREFIX}/quizzes/${quiz.id}/questions/${question.id}/choices`,
       { data: { text: '4', is_correct: true, order_index: 0 } }
     );
-    await teacherCtx.post(
+    await methodologistCtx.post(
       `${API_PREFIX}/quizzes/${quiz.id}/questions/${question.id}/choices`,
       { data: { text: '5', is_correct: false, order_index: 1 } }
     );
@@ -183,7 +183,7 @@ test('student can enroll and submit a quiz attempt', async () => {
       await studentCtx.dispose();
     }
   } finally {
-    await teacherCtx.dispose();
+    await methodologistCtx.dispose();
   }
 });
 

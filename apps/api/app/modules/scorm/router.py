@@ -340,7 +340,7 @@ async def import_scorm_package(
     title: str | None = Form(default=None),
     status: str = Form(default="draft"),
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("superadmin", "methodologist", "teacher")),
+    user: User = Depends(require_role("superadmin", "methodologist")),
 ):
     from app.core.trial_limits import assert_can_create_courses
 

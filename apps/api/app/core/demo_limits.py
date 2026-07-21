@@ -7,7 +7,7 @@ single point that enforces those limits.
 
 Limits (configurable via env if you want different numbers in prod):
 
-  * users:            max 3 (the fixed admin/teacher/student demo trio)
+  * users:            max 3 (the fixed admin/methodologist/student demo trio)
   * courses:          max 5
   * documents:        max 2
   * ai_generation:    1 per user per UTC day (Redis-backed counter)

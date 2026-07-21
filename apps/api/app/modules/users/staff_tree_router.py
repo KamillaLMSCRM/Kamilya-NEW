@@ -18,7 +18,7 @@ router = APIRouter(prefix="/admin/staff", tags=["staff-tree"])
 @router.get("/tree")
 async def get_staff_tree_legacy(
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("superadmin", "methodologist", "teacher")),
+    user: User = Depends(require_role("superadmin", "methodologist")),
 ):
     """DEPRECATED alias for `/admin/staff/structure` (ADR-0011).
 

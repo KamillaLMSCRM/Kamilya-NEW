@@ -28,7 +28,7 @@ from app.modules.courses.access import (
     require_module_access,
 )
 
-AUTHOR_ROLES = ("methodologist", "teacher", "superadmin")
+AUTHOR_ROLES = ("methodologist", "superadmin")
 
 router = APIRouter(
     dependencies=[Depends(require_tenant_user())],

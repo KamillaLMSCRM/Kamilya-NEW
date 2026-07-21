@@ -16,7 +16,7 @@ type Progress = { total_assignments: number; assigned: number; in_progress: numb
 export default function CohortsPage() {
   const { t } = useT();
   const role = useAuthStore((state) => state.user?.role);
-  const manager = ['admin', 'org_admin', 'methodologist', 'teacher'].includes(role || '');
+  const manager = ['admin', 'org_admin', 'methodologist'].includes(role || '');
   const [items, setItems] = useState<Cohort[]>([]);
   const [users, setUsers] = useState<Option[]>([]);
   const [courses, setCourses] = useState<Option[]>([]);

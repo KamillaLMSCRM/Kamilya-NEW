@@ -198,7 +198,7 @@ async def count_active_system_users(db: AsyncSession, tenant_id: Any) -> int:
             select(func.count(User.id)).where(
                 User.tenant_id == tenant_id,
                 User.is_active == True,  # noqa: E712
-                User.role.in_(("admin", "org_admin", "teacher", "methodologist")),
+                User.role.in_(("admin", "org_admin", "methodologist")),
             )
         )
         or 0

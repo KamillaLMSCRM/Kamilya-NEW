@@ -253,10 +253,7 @@ export default function AdminTeamPage() {
                       >
                         {/* ADR-0011: only team-managed roles. Students are provisioned via
                             Telegram-bot or /admin/staff import and never appear here. */}
-                        <option value="methodologist">{t('users.roleTeacher')}</option>
-                        {user.role === 'teacher' ? (
-                          <option value="teacher">{t('users.roleTeacherLegacy')}</option>
-                        ) : null}
+                        <option value="methodologist">{t('users.roleMethodologist')}</option>
                         <option value="org_admin">{t('users.roleOrgAdmin')}</option>
                         <option value="admin">{t('users.roleAdmin')}</option>
                       </select>
@@ -383,7 +380,7 @@ export default function AdminTeamPage() {
             >
               {/* ADR-0011: students are not team-managed. Backend will 400
                   if 'student' is sent here. */}
-              <option value="methodologist">{t('users.roleTeacher')}</option>
+              <option value="methodologist">{t('users.roleMethodologist')}</option>
               <option value="org_admin">{t('users.roleOrgAdmin')}</option>
               <option value="admin">{t('users.roleAdmin')}</option>
             </select>

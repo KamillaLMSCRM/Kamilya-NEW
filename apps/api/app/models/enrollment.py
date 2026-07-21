@@ -19,7 +19,7 @@ class Enrollment(Base):
     enrolled_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     completed_at = Column(DateTime(timezone=True), nullable=True)
     # How this enrollment came to exist. 'manual' = via /assignments
-    # (ad-hoc by methodologist/teacher). 'position' = materialized from
+    # (ad-hoc by methodologist). 'position' = materialized from
     # PositionCourse. 'department' = materialized from DepartmentCourse.
     # The recompute_enrollments kernel only manages 'position' and
     # 'department' rows; 'manual' is user-driven and never auto-removed.

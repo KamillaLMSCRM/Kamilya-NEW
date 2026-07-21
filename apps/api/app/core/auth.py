@@ -17,13 +17,7 @@ logger = logging.getLogger(__name__)
 settings = get_settings()
 security = HTTPBearer()
 
-ROLES = ['superadmin', 'admin', 'org_admin', 'methodologist', 'teacher', 'student']
-
-# The product uses both names for the learning-content owner. Older tenants
-# were provisioned with `teacher`, while the product language and some routes
-# use `methodologist`. Keep the alias at the authorization boundary so route
-# declarations do not silently deny one of the two valid learning roles.
-LEARNING_CONTENT_ROLES = frozenset(('methodologist', 'teacher'))
+ROLES = ['superadmin', 'admin', 'org_admin', 'methodologist', 'student']
 
 
 def _json_safe_jwt_payload(data: dict) -> dict:
@@ -238,12 +232,7 @@ def require_role(*allowed_roles: str):
             raise ValueError(f"Invalid role: {role}. Allowed: {ROLES}")
 
     async def role_checker(user: User = Depends(get_current_active_user)) -> User:
-        role_allowed = user.role in allowed_roles
-        learning_alias_allowed = (
-            user.role in LEARNING_CONTENT_ROLES
-            and bool(LEARNING_CONTENT_ROLES.intersection(allowed_roles))
-        )
-        if not role_allowed and not learning_alias_allowed:
+        if user.role not in allowed_roles:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"Requires one of roles: {allowed_roles}"

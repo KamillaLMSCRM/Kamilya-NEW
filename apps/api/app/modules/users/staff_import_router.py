@@ -169,7 +169,7 @@ def _parse_mapping(mapping: str | None) -> dict[str, str] | None:
 async def create_manual_staff(
     payload: ManualStaffCreateRequest,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("superadmin", "methodologist", "teacher")),
+    user: User = Depends(require_role("superadmin", "methodologist")),
 ):
     """Create one learner manually without uploading a staff file."""
     if not user.tenant_id:
@@ -225,7 +225,7 @@ async def import_staff_preview(
     sheet_name: str = Form(""),
     mapping_id: str = Form(""),
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("superadmin", "methodologist", "teacher")),
+    user: User = Depends(require_role("superadmin", "methodologist")),
 ):
     """Parse uploaded file (xlsx/csv) and return a preview of what would change.
 
@@ -306,7 +306,7 @@ async def import_staff_commit(
     sheet_name: str = Form(""),
     mapping_id: str = Form(""),
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("superadmin", "methodologist", "teacher")),
+    user: User = Depends(require_role("superadmin", "methodologist")),
 ):
     """Parse uploaded file and apply changes (create new users, update existing, auto-create positions).
 
@@ -442,7 +442,7 @@ class ApplyRulesStatusResponse(BaseModel):
 @router.get("/apply-rules/status/{task_id}", response_model=ApplyRulesStatusResponse)
 async def get_apply_rules_status(
     task_id: str,
-    user: User = Depends(require_role("superadmin", "methodologist", "teacher")),
+    user: User = Depends(require_role("superadmin", "methodologist")),
 ):
     """Return the current state of an apply-rules task.
 

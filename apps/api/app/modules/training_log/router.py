@@ -42,7 +42,7 @@ router = APIRouter(
 # Roles allowed to read the training log. Per ADR-0012 the training log is
 # an admin/HR concern: tenant_admin and org_admin manage the people side,
 # methodologist owns learning trajectories (so they also benefit). Excluded:
-# student, teacher (no HR view), superadmin (separate superadmin log if needed).
+# student, methodologist (no HR view), superadmin (separate superadmin log if needed).
 _TRAINING_LOG_ROLES = ("admin", "org_admin", "methodologist", "superadmin")
 
 

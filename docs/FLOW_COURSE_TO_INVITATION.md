@@ -38,17 +38,17 @@
 | `POST /auth/demo-login` | public (demo only) | — |
 | `POST /ai/generate-course` | Bearer | any tenant user |
 | `GET /ai/jobs/{id}` | Bearer | any tenant user |
-| `POST /courses` | Bearer | superadmin, admin, org_admin, teacher |
-| `POST /courses/{id}/review` | Bearer | superadmin, admin, org_admin, teacher |
-| `POST /courses/{id}/publish` | Bearer | superadmin, admin, org_admin, teacher |
+| `POST /courses` | Bearer | superadmin, methodologist |
+| `POST /courses/{id}/review` | Bearer | superadmin, methodologist |
+| `POST /courses/{id}/publish` | Bearer | superadmin, methodologist |
 | `POST /courses/{id}/complete` | Bearer | any tenant user (student self-completes) |
-| `POST /admin/staff/import/preview` | Bearer | superadmin, admin, org_admin, **methodologist** |
-| `POST /admin/staff/import/commit` | Bearer | superadmin, admin, org_admin, **methodologist** |
-| `GET /admin/staff/apply-rules/status/{tid}` | Bearer | superadmin, admin, org_admin, methodologist |
-| `POST /positions/{id}/courses` | Bearer | methodologist, admin, superadmin |
-| `DELETE /positions/{id}/courses/{cid}` | Bearer | methodologist, admin, superadmin |
+| `POST /admin/staff/import/preview` | Bearer | superadmin, methodologist |
+| `POST /admin/staff/import/commit` | Bearer | superadmin, methodologist |
+| `GET /admin/staff/apply-rules/status/{tid}` | Bearer | superadmin, methodologist |
+| `POST /positions/{id}/courses` | Bearer | superadmin, methodologist |
+| `DELETE /positions/{id}/courses/{cid}` | Bearer | superadmin, methodologist |
 | `POST /positions/{id}/assign/{uid}` | Bearer | any tenant user (TBD: should be methodologist per ADR §3) |
-| `POST /users/invitations/bulk` | Bearer | superadmin, admin, org_admin, **methodologist** |
+| `POST /users/invitations/bulk` | Bearer | superadmin, methodologist |
 | `GET /invitations/{token}` | public (token) | — |
 | `POST /invitations/{token}/accept` | public (token) | — |
 

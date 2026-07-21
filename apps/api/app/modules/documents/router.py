@@ -154,7 +154,7 @@ def _hydrate(doc: Document) -> DocumentResponse:
 @router.get("", response_model=list[DocumentResponse])
 async def list_documents(
     db: AsyncSession = Depends(get_db),
-    user=Depends(require_role("superadmin", "methodologist", "teacher")),
+    user=Depends(require_role("superadmin", "methodologist")),
 ):
     result = await db.execute(
         select(Document)
@@ -169,7 +169,7 @@ async def list_documents(
 async def get_document(
     doc_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    user=Depends(require_role("superadmin", "methodologist", "teacher")),
+    user=Depends(require_role("superadmin", "methodologist")),
 ):
     result = await db.execute(
         select(Document).where(Document.id == doc_id, Document.tenant_id == user.tenant_id)
@@ -187,7 +187,7 @@ async def upload_document(
     description: str = Form(""),
     category: str = Form("general"),
     db: AsyncSession = Depends(get_db),
-    user=Depends(require_role("superadmin", "methodologist", "teacher")),
+    user=Depends(require_role("superadmin", "methodologist")),
 ):
     if category not in {"general", "job_instruction"}:
         raise HTTPException(status_code=422, detail="Unsupported document category")
@@ -327,7 +327,7 @@ async def upload_document(
 async def download_document(
     document_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    user=Depends(require_role("superadmin", "methodologist", "teacher")),
+    user=Depends(require_role("superadmin", "methodologist")),
 ):
     result = await db.execute(
         select(Document).where(
@@ -355,7 +355,7 @@ async def download_document(
 async def delete_document(
     document_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    user=Depends(require_role("superadmin", "methodologist", "teacher")),
+    user=Depends(require_role("superadmin", "methodologist")),
 ):
     result = await db.execute(
         select(Document).where(Document.id == document_id, Document.tenant_id == user.tenant_id)

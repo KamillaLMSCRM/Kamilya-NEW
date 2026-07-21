@@ -67,7 +67,7 @@ router = APIRouter(
     tags=["positions"],
     dependencies=[
         Depends(require_tenant_user()),
-        Depends(require_role("superadmin", "methodologist", "teacher")),
+        Depends(require_role("superadmin", "methodologist")),
     ],
 )
 

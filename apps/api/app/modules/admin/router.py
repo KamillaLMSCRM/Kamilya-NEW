@@ -41,7 +41,7 @@ async def stats(
 @router.get("/trial-usage", response_model=TrialUsage)
 async def trial_usage(
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("admin", "org_admin", "methodologist", "teacher")),
+    user: User = Depends(require_role("admin", "org_admin", "methodologist")),
 ):
     """Get tenant-facing trial limits and current usage."""
     try:
@@ -72,8 +72,8 @@ async def export_courses(
 
 # ADR-0012: enrollment CSV export is part of the methodologist's content
 # domain (manual assignment workflow), not pure tenant infrastructure.
-# Methodologist/teacher needs the export for compliance/handoff to HR.
-_ENROLLMENT_REPORT_ROLES = ("methodologist", "teacher")
+# Methodologist needs the export for compliance/handoff to HR.
+_ENROLLMENT_REPORT_ROLES = ("methodologist",)
 
 
 @router.get("/export/enrollments")
@@ -81,7 +81,7 @@ async def export_enrollments(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role(*_ENROLLMENT_REPORT_ROLES)),
 ):
-    """Export enrollments to CSV (methodologist/teacher only)."""
+    """Export enrollments to CSV (methodologist only)."""
     csv_data = await export_enrollments_csv(db, user.tenant_id)
     return _csv_response(csv_data, "enrollments.csv")
 
