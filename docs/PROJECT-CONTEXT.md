@@ -1,7 +1,7 @@
 # Kamilya LMS - Project Context
 
 > Living document. No secrets in this file.
-> Updated: 2026-07-16.
+> Updated: 2026-07-21.
 
 ## Source Of Truth
 
@@ -13,7 +13,9 @@
 | VPS services | `docs/VPS_CONNECTION_GUIDE.md` |
 | Deployment | `DEPLOY.md` |
 | Tenant registration/trial | `docs/product/tenant-registration-trial-flow.md` |
-| Current next steps | `docs/NEXT_STEPS_2026-07-01.md` |
+| User workflows | `docs/USER_DOCUMENTATION_RU.md` |
+| AI course release | `docs/methodologist-course-release-guide-ru.md` |
+| Source governance release record | `docs/plans/done/2026-07-21_document-source-governance.md` |
 | Agent rules | `AGENTS.md` |
 
 ## Repositories
@@ -39,7 +41,8 @@ C:\Kamilya New\Kamilya-NEW
 | Transactional email | Resend, `no-reply@notify.kml.kz` | `EMAIL_PROVIDER=resend`; domain `notify.kml.kz` |
 | DB | Supabase project `ducegbxphkgffgozkchw` | Pooler `aws-1-eu-central-1.pooler.supabase.com` |
 | Storage | Supabase bucket `Kamilya LMS` | Certificates and files |
-| Worker | VPS `173.249.51.164`, `kamilya-worker.service` | Celery apply-rules |
+| Queue/cache | VPS `173.249.51.164`, Valkey TLS `6380` | Celery broker/result backend, OTP, rate limits and progress |
+| Worker | VPS `173.249.51.164`, `kamilya-worker.service` | Celery AI, ingestion and apply-rules tasks |
 | Docling | `docling.kml.kz` | VPS service |
 | WhatsApp gateway | `wa.kml.kz` | VPS service |
 
@@ -100,11 +103,9 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 
 ## Current Production DB State
 
-As of 2026-07-16:
+As of 2026-07-21:
 
-- Production Supabase schema: `0063` (verified before the isolated HostKZ test).
-- Repository schema head: `0065`; migrations `0064`-`0065` were validated only
-  on the isolated HostKZ test database and have not been applied to Supabase.
+- Production Supabase schema and repository head: `0068`.
 - RLS/FORCE RLS enabled for tenant-scoped tables with `tenant_id`.
 - Runtime app and worker connect as `lms_app`.
 - `provider_keys` is intentionally excluded from generic tenant RLS migration because `tenant_id IS NULL` represents global platform keys.
@@ -117,19 +118,31 @@ Job-instruction source model:
 - the source file is stored through the configured storage backend and downloaded through a tenant-scoped API;
 - generation uses a separate `jd_course_generations_used` trial counter.
 
+Ordinary AI course source model:
+
+- selected documents are checked by `POST /api/v1/ai/document-compatibility` before generation;
+- mixed source sets require selecting one cluster or an intentional-combination goal;
+- courses persist selected sources, strategy, goal and compatibility analysis;
+- lessons persist source documents, retrieved references and validation status;
+- manual lesson edits require renewed source review before release;
+- content generation does not fall back to general LLM knowledge when relevant source chunks are absent.
+
 ## Current Production Deploy
 
-As of 2026-07-20:
+As of 2026-07-21:
 
-- GitHub `master` latest backend-relevant commit: `194f682 fix(db): reconcile legacy generated content before RLS`.
-- Render service `srv-d8rp8ej7uimc73fglid0` is live on commit `194f682`.
+- GitHub `master`: `2545eb3 fix(ci): align Poetry runtime dependencies`.
+- Render service `srv-d8rp8ej7uimc73fglid0` runs backend revision `5bc86c6`; later master commits are documentation and CI dependency metadata only.
 - Render runs `PYTHONPATH=. alembic upgrade head` as a pre-deploy command from `apps/api`.
-- Production PostgreSQL is at Alembic revision `0065`; the new tenant-scoped tables have RLS enabled and forced.
-- Vercel production deployment for `app.kml.kz` is green.
+- Production PostgreSQL is at Alembic revision `0068`.
+- Vercel production deployment for `app.kml.kz` is green on the source-governance frontend revision.
 - `/`, `/health`, and `/api/v1/health` return 200.
 - Email OTP request endpoint returns a neutral success response for unknown emails and sends OTP for known tenant users.
 - First tenant-flow production smoke passed: AI course generation, assignment, learner completion and certificate issue.
 - Smoke evidence: AI job `64891564-5bb5-4648-ba40-c3ec04d40621`, course `7e434b25-1057-42b0-ac64-ed56daa6b041`, certificate `KML-2026-5DE383`.
+- Source-governance release gate passed: backend `356 passed`, frontend `41 passed`, frontend typecheck/build passed, and GitHub Actions run `29820432047` succeeded.
+- VPS Celery worker is active on revision `5bc86c6` with `ai.generate_course`, `ai.ingest_document` and `positions.apply_course_rules` registered.
+- Production had no successfully indexed documents at release time, so semantic clustering was verified against real local PostgreSQL/pgvector rather than existing production content.
 
 ## Tenant Acquisition Status
 
@@ -159,6 +172,10 @@ Not finished:
 - Course completion must require lessons and required quiz checks.
 - Empty generated quiz records must not block course completion.
 - AI generation must not block indefinitely on optional LLM review.
+- Documents from unrelated subject areas must not be silently mixed into one AI course.
+- Generated lessons must remain traceable to the selected tenant documents.
+- Missing source material must stop grounded generation instead of invoking general LLM knowledge.
+- Manual lesson edits invalidate automatic source verification until regeneration or explicit methodologist approval.
 - Certificate issue is backend-owned and idempotent.
 - Tenant filtering and RLS are mandatory for tenant-scoped data.
 

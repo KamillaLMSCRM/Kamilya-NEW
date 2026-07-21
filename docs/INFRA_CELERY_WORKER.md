@@ -1,5 +1,7 @@
 # Celery Worker на VPS — пошаговая инструкция
 
+> **Исторический runbook первоначальной установки (2026-06-29).** Разделы про Upstash больше не описывают production. Текущий broker — Valkey на VPS с TLS; актуальное состояние и проверки находятся в [отчёте о миграции](reports/2026-07-14_valkey-vps-migration.md), [VPS guide](VPS_CONNECTION_GUIDE.md) и [DEPLOY.md](../DEPLOY.md). Не выполняйте команды Upstash из этого файла как текущую инструкцию.
+
 **Дата:** 2026-06-29
 **VPS:** `173.249.51.164` (Ubuntu 24.04.4 LTS, kernel 6.8.0-124)
 **Hostname:** `vmi3311535`

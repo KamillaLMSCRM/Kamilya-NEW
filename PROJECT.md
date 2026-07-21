@@ -1,7 +1,7 @@
 # Kamilya LMS Core
 
-> Актуализировано: 2026-07-02.
-> Статус: beta, первый production tenant-flow пройден end-to-end; количественные и временные trial limits enforced, остаются billing и superadmin commercial control.
+> Актуализировано: 2026-07-21.
+> Статус: beta, первый production tenant-flow пройден end-to-end; trial limits, управление источниками AI-курса и фоновые задачи работают в production. Billing и полный commercial control суперадмина остаются незавершёнными.
 
 ## Видение Продукта
 
@@ -22,7 +22,7 @@ Kamilya LMS - корпоративная система обучения для 
 |---|---|
 | `superadmin` | Платформа: tenant list, tenant state, global provider keys, platform diagnostics |
 | `admin`, `org_admin` | Tenant-инфраструктура: настройки, интеграции, kiosk, системные пользователи |
-| `methodologist`, `teacher` | Обучение: курсы, quiz, staff structure, правила, `/assignments` |
+| `methodologist` | Обучение: курсы, тесты, штат, должности, правила, назначения и журнал обучения |
 | `student` | Личный кабинет, прохождение курсов/тестов, сертификаты |
 
 Принятые правила:
@@ -57,6 +57,20 @@ Kamilya LMS - корпоративная система обучения для 
 
 Manual removal разрешен только для `source='manual'`; rule-driven назначения удаляются через изменение правил и пересчет.
 
+## AI Courses And Source Governance
+
+Обычный AI-курс создаётся только из выбранных документов tenant-а:
+
+1. После выбора документов система проверяет их тематическую совместимость по embeddings.
+2. Однородный набор используется целиком. Неоднородный набор делится на тематические группы.
+3. Методолог выбирает одну группу либо явно объединяет группы и формулирует общую учебную цель.
+4. Backend повторяет проверку до списания trial-лимита и постановки Celery-задачи.
+5. Для каждого урока сохраняются документы и фрагменты-источники.
+6. При отсутствии релевантного материала генерация останавливается; общие знания LLM не подмешиваются.
+7. Ручное изменение урока требует новой проверки источников или явного одобрения методологом.
+
+Миграция `0068` хранит source strategy и анализ на курсе, а provenance и validation status — на уроках. Подробности: [управление источниками AI-курса](./docs/plans/done/2026-07-21_document-source-governance.md).
+
 ## Superadmin
 
 Superadmin surface должен отвечать на вопрос "что происходит на платформе":
@@ -77,8 +91,8 @@ Tenant list уже показывает фактические user/course count
 | Backend | FastAPI, SQLAlchemy async, Alembic |
 | DB | Supabase Postgres + pgvector |
 | Storage | Supabase Storage, bucket `Kamilya LMS` |
-| Queue | Upstash Redis |
-| Worker | Celery на VPS как `kamilya-worker.service` |
+| Queue/cache | Valkey на VPS, TLS `6380`, AOF и `noeviction` |
+| Worker | Celery на VPS как `kamilya-worker.service`; AI, ingestion и apply-rules tasks |
 | API hosting | Render service `kamilya-lms-api` |
 | Web hosting | Vercel project `web` |
 | AI | Qwen over DGX/VPS tunnel, DeepSeek/Voyage fallback |
@@ -90,9 +104,9 @@ Runtime и migrations разделены:
 - `DATABASE_URL` - runtime connection через `lms_app`, без `BYPASSRLS`.
 - `MIGRATION_DATABASE_URL` - admin connection для Alembic DDL.
 
-Supabase на 2026-07-02:
+Supabase на 2026-07-21:
 
-- Alembic version: `0045`.
+- Alembic version: `0068`.
 - Tenant tables with `tenant_id`: RLS enabled and FORCE RLS enabled.
 - `provider_keys` исключена из общей tenant policy, потому что `tenant_id IS NULL` используется для global platform key.
 - Production Render и VPS worker обновлены на `lms_app` runtime connection.
@@ -106,12 +120,13 @@ Supabase на 2026-07-02:
 - `/register-tenant` создает trial tenant: 14 дней, 1 normal AI course, 1 job-instruction course, 10 learners, 3 system users.
 - Billing UI и superadmin lead management не завершены. Trial limits (количество и окончание периода) enforced на backend; login/dashboard остаются доступны для upgrade/support. См. `docs/NEXT_STEPS_2026-07-01.md`.
 
-Production smoke 2026-07-02:
+Production evidence:
 
-- Backend live commit: `2990f2f fix: ignore empty ai quizzes in completion`.
 - AI job: `64891564-5bb5-4648-ba40-c3ec04d40621`.
 - Generated course: `7e434b25-1057-42b0-ac64-ed56daa6b041`.
 - Certificate issued: `KML-2026-5DE383`.
+- Source-governance backend revision: `5bc86c6`; production DB revision: `0068`.
+- Release gate: backend `356 passed`, frontend `41 passed`, typecheck/build passed, GitHub Actions `29820432047` succeeded.
 
 Подробности: [docs/supabase-audit-2026-07-01.md](./docs/supabase-audit-2026-07-01.md).
 
@@ -123,6 +138,7 @@ Production smoke 2026-07-02:
 | Backend | `https://kamilya-lms-api.onrender.com` on Render |
 | DB | Supabase pooler `aws-1-eu-central-1.pooler.supabase.com` |
 | Storage | Supabase Storage bucket `Kamilya LMS` |
+| Queue/cache | Valkey on VPS `173.249.51.164`, TLS `6380` |
 | Worker | VPS `173.249.51.164`, systemd `kamilya-worker` |
 | Docling | VPS service behind `docling.kml.kz` |
 | WhatsApp gateway | VPS service behind `wa.kml.kz` |
@@ -138,6 +154,7 @@ Production smoke 2026-07-02:
 - RLS/app role: [docs/adr/0004-rls-force-and-app-role.md](./docs/adr/0004-rls-force-and-app-role.md)
 - Supabase audit: [docs/supabase-audit-2026-07-01.md](./docs/supabase-audit-2026-07-01.md)
 - Tenant registration/trial: [docs/product/tenant-registration-trial-flow.md](./docs/product/tenant-registration-trial-flow.md)
-- Current next steps: [docs/NEXT_STEPS_2026-07-01.md](./docs/NEXT_STEPS_2026-07-01.md)
+- User guide: [docs/USER_DOCUMENTATION_RU.md](./docs/USER_DOCUMENTATION_RU.md)
+- Methodologist release guide: [docs/methodologist-course-release-guide-ru.md](./docs/methodologist-course-release-guide-ru.md)
 
 Old audits and large TZ files remain historical/spec references. Short completed plans should be removed once their result is reflected here or in ADR/audit docs.

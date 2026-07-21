@@ -1,6 +1,6 @@
 # Kamilya LMS Production Deployment
 
-Актуально на 2026-07-01.
+Актуально на 2026-07-21.
 
 ## Production Topology
 
@@ -10,7 +10,7 @@
 | API | Render, service `kamilya-lms-api`, id `srv-d8rp8ej7uimc73fglid0` |
 | DB | Supabase Postgres, pooler `aws-1-eu-central-1.pooler.supabase.com` |
 | Storage | Supabase Storage, bucket `Kamilya LMS` |
-| Redis | Upstash Redis |
+| Queue/cache | Valkey on VPS `173.249.51.164`, TLS port `6380` |
 | Worker | VPS `173.249.51.164`, systemd `kamilya-worker` |
 | Docling | VPS service, `docling.kml.kz` |
 | WhatsApp gateway | VPS service, `wa.kml.kz` |
@@ -103,7 +103,7 @@ python -m alembic -c alembic.ini upgrade head
 Current production state after 2026-07-01 cutover:
 
 ```text
-0043 (head)
+0068 (head)
 ```
 
 ## Frontend Deploy On Vercel
@@ -149,7 +149,17 @@ systemctl restart kamilya-worker
 systemctl is-active kamilya-worker
 ```
 
-The worker env is `/opt/kamilya-worker/apps/api/.env`. It must use the same `DATABASE_URL` / `MIGRATION_DATABASE_URL` split as Render.
+The worker env is `/opt/kamilya-worker/apps/api/.env`. It must use the same `DATABASE_URL` / `MIGRATION_DATABASE_URL` split and `REDIS_URL` as Render. Valkey is exposed only through TLS with certificate verification enabled; do not replace it with a plaintext URL.
+
+Queue/cache checks:
+
+```bash
+systemctl status valkey-server
+systemctl status valkey-certbot-renew.timer
+redis-cli --tls -u "$REDIS_URL" PING
+```
+
+Valkey uses AOF persistence, `appendfsync everysec` and `maxmemory-policy noeviction`. Monitor memory, rejected writes, queue length and certificate renewal before releases that increase AI load.
 
 ## Rollback
 

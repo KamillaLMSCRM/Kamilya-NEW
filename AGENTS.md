@@ -1,5 +1,14 @@
 # AGENTS.md — Инструкции для AI-агента
 
+> **Текущая точка входа (2026-07-21):** сначала прочитать
+> [`docs/CODEX_HANDOFF.md`](./docs/CODEX_HANDOFF.md), затем
+> [`PROJECT.md`](./PROJECT.md), [`docs/PROJECT-CONTEXT.md`](./docs/PROJECT-CONTEXT.md),
+> [`docs/PROJECT_INTERNAL_DOCUMENTATION.md`](./docs/PROJECT_INTERNAL_DOCUMENTATION.md)
+> и [`docs/LESSONS.md`](./docs/LESSONS.md). `TZ.md`, старые 12-недельные планы и
+> исторические отчёты не являются источником текущего production-состояния.
+> Каноническая learning-content роль — только `methodologist`; legacy `teacher`
+> удалена и не должна восстанавливаться без нового ADR и реального продуктового основания.
+
 > Этот файл — entry point для AI-агента средней мощности (Qwen 3.5 / DeepSeek V3 / Claude Sonnet 4),
 > который будет реализовывать LMS.
 
@@ -72,7 +81,10 @@ TL;DR, что было сломано, какие коммиты, prod state, TO
 **Kamilya LMS Core v1.0** — полноценный LMS-модуль, заменяющий Chamilo 2.0.
 Не форк, не обёртка. Собственный продукт.
 
-**Главный документ:** [`TZ.md`](./TZ.md) — читай ПЕРВЫМ, в нём 18 разделов с деталями.
+**Текущий продуктовый источник:** [`PROJECT.md`](./PROJECT.md) и
+[`docs/CODEX_HANDOFF.md`](./docs/CODEX_HANDOFF.md). [`TZ.md`](./TZ.md) —
+историческая спецификация раннего этапа; использовать только для поиска исходного
+намерения и обязательно сверять с кодом, ADR и production.
 
 **Архитектурные решения:** [`docs/adr/`](./docs/adr/) — 3 ADR уже есть, новые решения добавляй туда.
 
@@ -272,7 +284,7 @@ apps/web/src/features/<feature>/
 - Tokens: access in memory (15min), refresh in httpOnly cookie (30 days)
 - RBAC: `Depends(require_role(...))` на каждом protected endpoint.
   **Распределение ролей — по ADR-0012**: `admin`/`org_admin` владеет
-  tenant-инфраструктурой, `methodologist`/`teacher` владеет контентом
+  tenant-инфраструктурой, `methodologist` владеет контентом
   и конфигурацией штатки. **Не давай обоим доступ ко всему**: для
   каждого нового endpoint'а определи, к какому домену он относится,
   и используй минимально-нужный список ролей.
