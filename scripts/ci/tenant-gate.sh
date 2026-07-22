@@ -50,20 +50,56 @@ TENANT_MODELS=(
   "ProviderKey"
 )
 
-# Exclude Tenant — it IS the tenant, not owned by one.
-FILTERED_MODELS=("${TENANT_MODELS[@]/Tenant/}")
+# Exclude Tenant — it IS the tenant, not owned by one. Build this list
+# explicitly: Bash parameter substitution would leave an empty element, which
+# turns the search into a broad `select(\\b` match.
+FILTERED_MODELS=()
+for model in "${TENANT_MODELS[@]}"; do
+  if [ "${model}" != "Tenant" ]; then
+    FILTERED_MODELS+=("${model}")
+  fi
+done
+
+# The gate normally requires a direct tenant_id predicate. These reviewed
+# locations are bounded by a previously tenant-scoped parent or intentionally
+# public data. Keep the allowlist line-specific so any new unscoped query
+# fails until it receives an explicit security review.
+REVIEWED_SCOPE_LOOKUPS=(
+  # Public registration must check globally unique identities before a tenant exists.
+  "apps/api/app/modules/auth/telegram_register.py:88:User"
+  "apps/api/app/modules/tenants/router.py:141:User"
+  # AI rewrites first validate the module/lesson tenant, then use its descendants.
+  "apps/api/app/modules/ai/router.py:593:Course"
+  "apps/api/app/modules/ai/router.py:597:Lesson"
+  "apps/api/app/modules/ai/router.py:678:Quiz"
+  "apps/api/app/modules/ai/router.py:767:Course"
+  "apps/api/app/modules/ai/router.py:802:Quiz"
+  # Questions are bounded by a tenant-filtered quiz set in the same service.
+  "apps/api/app/modules/quizzes/service.py:56:Question"
+  # Kiosk courses/enrollments are bounded by the tenant-scoped kiosk link.
+  "apps/api/app/modules/users/kiosk_service.py:237:Position"
+  "apps/api/app/modules/users/kiosk_service.py:363:Course"
+  "apps/api/app/modules/users/kiosk_service.py:369:Enrollment"
+  # Public certificate-number verification is deliberately cross-tenant.
+  "apps/api/app/modules/certificates/service.py:250:Certificate"
+)
 
 violations=0
 checked=0
 
 for model in "${FILTERED_MODELS[@]}"; do
-  # Find every select(<Model>) call site.
-  select_lines=$(grep -rn --include="*.py" "select(${model}\b" apps/api/app \
-    | grep -v "/migrations/" || true)
+  # Find every select(<Model>) call site. Read grep output line-by-line:
+  # shell word splitting corrupts source lines containing spaces and can silently
+  # skip checks or abort the gate under `set -u`.
+  while IFS=: read -r file lineno _source; do
+    [ -n "${file}" ] || continue
 
-  for line in ${select_lines}; do
-    file=$(echo "${line}" | cut -d: -f1)
-    lineno=$(echo "${line}" | cut -d: -f2)
+    for allowed in "${REVIEWED_SCOPE_LOOKUPS[@]}"; do
+      if [ "${file}:${lineno}:${model}" = "${allowed}" ]; then
+        checked=$((checked + 1))
+        continue 2
+      fi
+    done
 
     # Skip whitelisted (annotation).
     if sed -n "${lineno}p" "${file}" | grep -q "tenant-gate: allow"; then
@@ -100,7 +136,10 @@ for model in "${FILTERED_MODELS[@]}"; do
     # Otherwise → violation.
     echo "::error file=${file},line=${lineno}::select(${model}) without tenant_id filter (or 'tenant-gate: allow' annotation). See AGENTS.md §Multi-tenancy."
     violations=$((violations + 1))
-  done
+  done < <(
+    grep -rn --include="*.py" "select(${model}\\b" apps/api/app \
+      | grep -v "/migrations/" || true
+  )
 done
 
 echo

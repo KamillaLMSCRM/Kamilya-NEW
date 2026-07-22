@@ -5,6 +5,7 @@ import { useT } from '@/i18n/useT';
 import { useAuthStore } from '@/store/authStore';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { toast } from '@/components/ui/Toast';
+import { getRoleHome } from '@/lib/rolePolicy';
 
 interface TopBarProps {
   title?: string;
@@ -36,18 +37,12 @@ export default function TopBar({ title, onMenuClick }: TopBarProps) {
   const tenantName = user?.tenant?.name?.trim();
   const assignedRoles = user?.roles?.length ? user.roles : user?.role ? [user.role] : [];
 
-  const roleHome = (role: string) => {
-    if (role === 'student') return '/student';
-    if (role === 'admin' || role === 'org_admin') return '/admin';
-    return '/dashboard';
-  };
-
   const handleRoleSwitch = async (role: string) => {
     if (!user || role === user.role || isSwitchingRole) return;
     setIsSwitchingRole(true);
     try {
       await switchRole(role);
-      window.location.assign(roleHome(role));
+      window.location.assign(getRoleHome(role));
     } catch {
       toast.error(t('topbar.roleSwitchError'));
     } finally {

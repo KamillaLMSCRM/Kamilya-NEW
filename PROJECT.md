@@ -27,6 +27,9 @@ Kamilya LMS - корпоративная система обучения для 
 
 Принятые правила:
 
+- Один системный пользователь tenant-а может иметь несколько назначенных ролей;
+  в сессии активна одна выбранная рабочая роль. Навигация и API оценивают
+  активную роль, а не объединение всех прав аккаунта.
 - Students не смешиваются с системными пользователями tenant-а.
 - `/admin/team` - только команда администрирования/обучения tenant-а.
 - `/assignments` - ручные назначения курсов обучающимся; это не admin-функция.
@@ -151,6 +154,7 @@ Production evidence:
 - Deployment: [DEPLOY.md](./DEPLOY.md)
 - VPS: [docs/VPS_CONNECTION_GUIDE.md](./docs/VPS_CONNECTION_GUIDE.md)
 - RBAC: [docs/adr/0012-rbac-admin-vs-methodologist.md](./docs/adr/0012-rbac-admin-vs-methodologist.md)
+- Auth/session: [docs/adr/0008-auth-strategy.md](./docs/adr/0008-auth-strategy.md)
 - RLS/app role: [docs/adr/0004-rls-force-and-app-role.md](./docs/adr/0004-rls-force-and-app-role.md)
 - Supabase audit: [docs/supabase-audit-2026-07-01.md](./docs/supabase-audit-2026-07-01.md)
 - Tenant registration/trial: [docs/product/tenant-registration-trial-flow.md](./docs/product/tenant-registration-trial-flow.md)

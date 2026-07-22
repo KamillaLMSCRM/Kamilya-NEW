@@ -19,6 +19,25 @@ settings = get_settings()
 security = HTTPBearer(auto_error=False)
 
 ROLES = ['superadmin', 'admin', 'org_admin', 'methodologist', 'student']
+TENANT_CONTEXT_UNAVAILABLE = "Tenant security context unavailable"
+
+
+async def _set_tenant_security_context(db: AsyncSession, tenant_id: str) -> None:
+    """Establish the transaction-local tenant RLS context or stop the request."""
+    try:
+        await db.execute(text("SELECT set_current_tenant(:tid)"), {"tid": tenant_id})
+    except Exception:
+        logger.exception("Failed to establish tenant database security context")
+        # PostgreSQL statement errors leave the transaction aborted. Roll back
+        # explicitly so the connection returns to the pool in a clean state.
+        try:
+            await db.rollback()
+        except Exception:
+            logger.exception("Failed to roll back rejected tenant-context transaction")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=TENANT_CONTEXT_UNAVAILABLE,
+        ) from None
 
 
 def _json_safe_jwt_payload(data: dict) -> dict:
@@ -151,26 +170,16 @@ async def get_current_user(
     if not user_id:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token payload")
 
-    # Set tenant context for RLS
+    # Tenant-scoped and impersonated requests must establish RLS context before
+    # any ORM access. A missing function, rejected statement, or unavailable DB
+    # is a hard security boundary failure, not a recoverable filtering concern.
     if tenant_id:
-        try:
-            await db.execute(text("SELECT set_current_tenant(:tid)"), {"tid": tenant_id})
-        except Exception as exc:
-            # Fallback: rely on ORM filtering if RLS not available.
-            # Logged as warning — silent failure previously (audit §2.4).
-            logger.warning(
-                "set_current_tenant failed for tenant_id=%s; falling back to ORM filter: %s",
-                tenant_id,
-                exc,
-            )
+        await _set_tenant_security_context(db, tenant_id)
 
     result = await db.execute(select(User).where(User.id == UUID(user_id)))
     user = result.scalar_one_or_none()
     if not user or not user.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found or inactive")
-
-    if user.role == "superadmin" and user.tenant_id is None:
-        await db.execute(text("SELECT set_config('app.is_superadmin', 'true', true)"))
 
     # Role is always from DB, never from JWT (JWT role is just for fast checks)
     # UNLESS this is an impersonation token — in that case, the real sub is
@@ -178,11 +187,31 @@ async def get_current_user(
     # behave like a tenant admin so all the require_tenant_user() checks
     # and ORM filters see the impersonated tenant context.
     if payload.get("impersonated_tenant"):
+        if user.role != "superadmin" or user.tenant_id is not None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid impersonation token",
+            )
+        impersonated_tenant = UUID(payload["impersonated_tenant"])
+        if tenant_id != str(impersonated_tenant):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid impersonation tenant context",
+            )
         return _ImpersonatedUser(
             real_user=user,
-            tenant_id=UUID(payload["impersonated_tenant"]),
+            tenant_id=impersonated_tenant,
             role=payload.get("impersonated_role", "admin"),
         )
+
+    if user.role == "superadmin" and user.tenant_id is None:
+        if tenant_id:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid platform token tenant context",
+            )
+        await db.execute(text("SELECT set_config('app.is_superadmin', 'true', true)"))
+
     active_role = payload.get("active_role")
     if active_role and active_role != user.role:
         assigned = await db.execute(

@@ -11,12 +11,9 @@ import { Button, Input } from '@/components/ui';
 import { toast } from '@/components/ui/Toast';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
+import { getRoleHome } from '@/lib/rolePolicy';
 
 type LoginMode = 'email' | 'telegram';
-
-function getRoleHome(role?: string | null) {
-  return role === 'student' ? '/student' : '/dashboard';
-}
 
 export default function LoginPage() {
   const router = useRouter();

@@ -10,6 +10,7 @@ import { Logo } from '@/components/brand/Logo';
 import { toast } from '@/components/ui/Toast';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
+import { getRoleHome } from '@/lib/rolePolicy';
 
 type TenantIntent = 'try' | 'demo' | 'buy';
 
@@ -101,7 +102,7 @@ export default function TenantRegisterPage() {
       toast.success('Trial создан', {
         description: `${data.tenant_name}: 1 обычный AI-курс и 1 курс по должностной инструкции доступны бесплатно.`,
       });
-      router.push('/dashboard');
+      router.push(getRoleHome(data.user?.role));
     } catch (err: any) {
       const detail = err?.response?.data?.detail;
       const messageText =

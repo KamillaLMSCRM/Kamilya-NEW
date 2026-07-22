@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
+import { getRoleHome } from '@/lib/rolePolicy';
 
 /**
  * Root page (`/`) — редиректит в зависимости от auth-статуса:
@@ -25,7 +26,7 @@ export default function Home() {
     if (!initialized) return;
     // После initialize() user либо заполнится, либо останется null
     if (user) {
-      router.replace(user.role === 'student' ? '/student' : '/dashboard');
+      router.replace(getRoleHome(user.role));
     } else {
       router.replace('/login');
     }

@@ -273,27 +273,26 @@ class TestQuizzesCrossTenant:
 
 
 class TestEnrollmentsCrossTenant:
-    """Tenant B's admin must NOT see tenant A's enrollment lists."""
+    """Tenant B's methodologist must NOT see tenant A's enrollment lists."""
 
     async def test_list_enrollments_returns_404_for_other_tenant_course(
         self, client, make_tenant, make_user, make_course, auth_headers
     ):
         tenant_a = await make_tenant()
-        user_a = await make_user(tenant_a, role="admin")
+        user_a = await make_user(tenant_a, role="methodologist")
         course = await make_course(tenant_a, user_a)
 
         tenant_b = await make_tenant()
-        user_b = await make_user(tenant_b, role="admin")
+        user_b = await make_user(tenant_b, role="methodologist")
 
         r = await client.get(
-            f"/api/v1/enrollments/{course.id}/enrollments",
+            f"/api/v1/courses/{course.id}/enrollments",
             headers=auth_headers(user_b),
         )
 
-        # Either 404 (course not visible to B) or 200 with empty list (course visible
-        # via some other means but no enrollments) is acceptable. 403 would leak
-        # existence, so we explicitly forbid it.
-        assert r.status_code != 403, "403 leaks course existence to other tenant"
+        assert r.status_code == 404, (
+            f"Cross-tenant course lookup must be hidden as 404. Got {r.status_code}: {r.text}"
+        )
 
 
 # ===========================================================================

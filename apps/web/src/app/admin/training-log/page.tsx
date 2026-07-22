@@ -17,6 +17,7 @@ import { useT } from '@/i18n/useT';
 import { toast } from '@/components/ui/Toast';
 import { api } from '@/lib/api';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { canAccessRoute } from '@/lib/rolePolicy';
 
 /**
  * Training log — единый журнал обучения (P0.3 first-tenant hardening).
@@ -199,7 +200,7 @@ export default function AdminTrainingLogPage() {
   }, [accessToken, lang, queryString, t]);
 
   // Auth gate: training-log is admin/HR work, not student work.
-  if (user && !['admin', 'org_admin', 'methodologist', 'superadmin'].includes(user.role)) {
+  if (user && !canAccessRoute(user.role, '/admin/training-log')) {
     return (
       <div className="p-8 text-center text-muted-foreground">
         {t('trainingLog.forbidden')}

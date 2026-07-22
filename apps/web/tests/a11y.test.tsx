@@ -15,6 +15,7 @@ expect.extend(toHaveNoViolations as any);
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), prefetch: vi.fn() }),
   usePathname: () => "/",
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 import { Modal } from "@/components/ui/modal";

@@ -11,6 +11,7 @@ import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
 import { DemoLimitProvider } from '@/components/demo/DemoLimitProvider';
 import { DemoBanner } from '@/components/demo/DemoBanner';
+import { getAuthRedirect } from '@/lib/rolePolicy';
 
 const SidebarContext = createContext({ collapsed: false });
 
@@ -22,7 +23,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const { t } = useT();
-  const { user, initialize } = useAuthStore();
+  const { user, accessToken, initialized, initialize } = useAuthStore();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   // Track active generation to surface a toast when it finishes (so a user
@@ -35,30 +36,16 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     initialize();
   }, [initialize]);
 
-  // Redirect-to-login guard. MUST wait for `initialized` from the auth
-  // store, otherwise this fires on every fresh mount of Layout with
-  // accessToken=null in the Zustand store (because the store was
-  // initialised before the in-memory lib/auth token was populated),
-  // and we send the user back to /login even when they have a valid
-  // session that was just minted by /login polling.
-  //
-  // Fix for 2026-06-29 login-bounce bug — see docs/LOGIN_BUG_REPORT_2026-06-29.md.
+  const authRedirect = getAuthRedirect({
+    initialized,
+    accessToken,
+    role: user?.role,
+    pathname,
+  });
+
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const state = useAuthStore.getState();
-    // eslint-disable-next-line no-console
-    console.log('[layout-guard] tick', {
-      initialized: state.initialized,
-      hasAccessToken: !!state.accessToken,
-      pathname,
-    });
-    if (!state.initialized) return;  // wait for /auth/refresh to settle
-    if (!state.accessToken) {
-      // eslint-disable-next-line no-console
-      console.log('[layout-guard] REDIRECT to /login');
-      router.push('/login');
-    }
-  }, [router, pathname]);
+    if (authRedirect) router.replace(authRedirect);
+  }, [authRedirect, router]);
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -113,13 +100,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     return () => clearInterval(interval);
   }, [t]);
 
-  // Hooks must be called unconditionally on every render — keep them
-  // above any early-return so React's order-of-hooks rule is satisfied.
-  // (pathname is already declared at the top of the component for the
-  // redirect-to-login guard.)
-  const isSuperadmin = user?.role === 'superadmin' && user.tenant == null;
-
-  if (!user) {
+  if (!initialized || !accessToken || !user || authRedirect) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
@@ -129,87 +110,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           />
           <p className="text-muted-foreground text-sm">{t('common.loading')}</p>
         </div>
-      </div>
-    );
-  }
-
-  // Platform superadmin (tenant_id IS NULL → user.tenant is null on the
-  // frontend) should only see platform-level pages. Anything else is a
-  // tenant-scoped page that would return 403 on every API call.
-  // Whitelist the platform paths they ARE allowed to visit; redirect
-  // everything else to /admin/super.
-  const SUPERADMIN_ALLOWED_PREFIXES = [
-    '/admin/super',
-    '/admin/providers',
-    '/superadmin',     // login form (already public, but defense in depth)
-  ];
-  if (
-    isSuperadmin &&
-    pathname &&
-    !SUPERADMIN_ALLOWED_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + '/'))
-  ) {
-    if (typeof window !== 'undefined') {
-      router.replace('/admin/super');
-    }
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <p className="text-muted-foreground text-sm">Redirecting…</p>
-      </div>
-    );
-  }
-
-  // Inverse guard: tenant user (not superadmin) trying to reach a
-  // platform-level page → back to their dashboard.
-  if (
-    !isSuperadmin &&
-    pathname &&
-    (pathname.startsWith('/admin/super') || pathname.startsWith('/admin/providers'))
-  ) {
-    if (typeof window !== 'undefined') {
-      router.replace('/dashboard');
-    }
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <p className="text-muted-foreground text-sm">Redirecting…</p>
-      </div>
-    );
-  }
-
-  // Tenant admins own company administration and compliance oversight. They
-  // do not author courses, manage learners, or make learning assignments.
-  // Keep direct URLs consistent with the role-aware sidebar instead of
-  // allowing a stale bookmark to open a learning-management screen.
-  const isTenantAdmin = user.role === 'admin' || user.role === 'org_admin';
-  const TENANT_ADMIN_BLOCKED_PREFIXES = [
-    '/ai',
-    '/learning-paths',
-    '/cohorts',
-    '/competencies',
-    '/surveys',
-    '/announcements',
-    '/courses',
-    '/quizzes',
-    '/documents',
-    '/staff',
-    '/positions',
-    '/assignments',
-    '/admin/staff',
-    '/admin/quizzes',
-    '/admin/invitations',
-    '/my-courses',
-    '/my-quizzes',
-  ];
-  if (
-    isTenantAdmin &&
-    pathname &&
-    TENANT_ADMIN_BLOCKED_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + '/'))
-  ) {
-    if (typeof window !== 'undefined') {
-      router.replace('/admin');
-    }
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <p className="text-muted-foreground text-sm">Переходим в панель компании...</p>
       </div>
     );
   }

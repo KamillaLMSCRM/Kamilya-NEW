@@ -63,7 +63,10 @@ async def list_enrollments(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role(*_ENROLLMENT_MANAGER_ROLES)),
 ):
-    return await get_enrolled_users(db, course_id, user.tenant_id)
+    try:
+        return await get_enrolled_users(db, course_id, user.tenant_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @router.post("/{course_id}/enrollments", response_model=list[EnrollmentResponse], status_code=201)

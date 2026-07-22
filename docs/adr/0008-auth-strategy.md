@@ -1,106 +1,162 @@
-# ADR-0008: Authentication strategy — JWT + httpOnly refresh cookie
+# ADR-0008: Authentication strategy — JWT, refresh cookie, and active role
 
-- **Status:** Accepted (after 2026-06-28 hardening)
+- **Status:** Accepted
 - **Date:** 2026-06-28
-- **Context:** AGENTS.md §Authz, audit §4.1, §4.2
+- **Last consolidated:** 2026-07-21
+- **Context:** Browser-session security, tenant context propagation, and
+  multi-role tenant sessions
 
 ## Decision
 
-We use **JWT access tokens + httpOnly refresh cookies** for session
-management. The previous design (access token in localStorage + non-
-httpOnly cookie) was replaced due to multiple XSS-exfiltration risks
-flagged in audit §4.1.
+Kamilya LMS uses a short-lived JWT access token with a browser refresh cookie.
+The access token stays in memory; the refresh token is not exposed to
+JavaScript. The browser application and current API are cross-site, so cookie
+attributes must reflect that deployment topology.
 
-### Token storage
+## Token storage and session transport
 
-| Token | Lifetime | Storage | Where |
-|-------|----------|---------|-------|
-| Access | 15 min | In-memory only (Zustand store) | Browser process memory |
-| Refresh | 30 days | httpOnly + Secure + SameSite=Strict cookie | Path: `/api/v1/auth` only |
+| Token | Runtime lifetime | Storage | Runtime transport |
+|---|---|---|---|
+| Access | 15 minutes | In-memory frontend auth state | Authorization bearer header |
+| Refresh | 30 days | Browser cookie; never readable by JavaScript | Cookie path /api/v1/auth |
 
-The access token is **never** written to localStorage, sessionStorage,
-or non-httpOnly cookies. JS code cannot read the refresh token at all.
+The current auth router sets the refresh cookie with all of the following
+attributes:
 
-### Token claims
+- HttpOnly
+- Secure
+- SameSite=None
+- Partitioned
+- Path=/api/v1/auth
 
-Required claims (validated by `decode_token`):
-- `sub` — user UUID
-- `tenant_id` — UUID or null (superadmin)
-- `roles` — list of role strings
-- `exp` — expiry (15 min from issue for access, 30 days for refresh)
-- `iat`, `nbf`, `jti` — standard JWT claims
-- `aud` = `kamilya-lms` — service identifier
-- `iss` = `kamilya-lms` — issuer identifier
+SameSite=Strict is not the current behavior and must not be described as the
+CSRF control. Because the cookie is eligible for the cross-site browser/API
+flow, origin and CORS controls around auth requests remain part of the
+deployment security boundary. Scoping the cookie to the auth path reduces its
+send surface but does not replace request-origin controls.
 
-Algorithm is **HS256** (explicit allow-list). JWT_SECRET must be ≥32
-chars; the `Settings` validator rejects shorter secrets at startup.
+The access token is never stored in localStorage, sessionStorage, or a
+non-HttpOnly cookie.
 
-### Authentication flows
+## Token contents and validation
 
-1. **Login** (`POST /api/v1/auth/login`):
-   - Validate credentials.
-   - Issue access token (15 min) and refresh token (30 days).
-   - Set refresh token as httpOnly cookie.
-   - Return access token in JSON body.
+The token encoder adds standard claims exp, iat, nbf, and jti; time claims are
+NumericDate integers. It sets the configured audience and issuer. The decoder
+uses a one-algorithm allow-list from application settings and requires valid
+sub, exp, iat, aud, and iss claims.
 
-2. **Telegram bot auth** (`POST /api/v1/auth/check-code`):
-   - User pastes the 6-digit code in the web UI.
-   - On verification, issue access token. No refresh token here
-     (telegram sessions are short-lived by design; if the user
-     closes the tab they re-link via Telegram).
+Session payloads use these application claims where applicable:
 
-3. **Refresh** (`POST /api/v1/auth/refresh`):
-   - Reads refresh token from httpOnly cookie (preferred) or
-     request body (legacy compatibility).
-   - Rotates the refresh token (returns a new pair). Old refresh
-     token is no longer accepted — JWT signature changed.
+- sub: user identifier;
+- tenant_id: tenant identifier, or null for a platform superadmin;
+- roles: assigned-role snapshot in access tokens;
+- active_role: the selected tenant working mode;
+- type=refresh: refresh-token marker.
 
-4. **Logout** (`POST /api/v1/auth/logout`):
-   - Blacklists the refresh token (deletes session row).
-   - Clears the cookie.
+An access decision is never made from the client payload alone. The current
+user is loaded from the database and role guards evaluate the active role.
+Tenant context is established through the database set_current_tenant(...)
+function before tenant-scoped access.
 
-### Defense-in-depth
+## Authentication and session flows
 
-- **CSRF:** SameSite=Strict cookie + refresh cookie scoped to
-  `/api/v1/auth/*` paths only. Cross-origin requests won't carry
-  the cookie.
-- **Token theft via XSS:** Access token is in memory only; refresh
-  token is httpOnly. An XSS payload can call /refresh once before
-  re-login is forced.
-- **Replay:** Refresh tokens are stateless JWTs but rotation on
-  each use means a stolen token stops working after one successful
-  refresh.
-- **Algorithm confusion:** `decode_token` explicit `[HS256]`
-  allow-list. Config validator rejects non-HMAC algorithms and
-  'none'. `aud` and `iss` claims validated against settings.
+### Password and email OTP login
 
-### Tenant context propagation
+The password login and email-OTP verification flows issue an access token and
+a refresh token, set the refresh cookie, and return the session payload needed
+by the frontend.
 
-On every authenticated request, `get_current_user` calls
-`set_current_tenant(tenant_id)` (Postgres `set_config('app.tenant_id')`).
-After migration 0033 (FORCE ROW LEVEL SECURITY + lms_app role),
-this context becomes mandatory — queries without it return zero rows
-from RLS-protected tables.
+### Telegram code login
 
-## Alternatives considered
+A verified Telegram code also issues both an access token and a refresh token,
+sets the same refresh cookie, and returns the user session payload. The older
+description of Telegram as an access-token-only, short-lived browser session is
+obsolete.
 
-- **Session cookies with server-side state.** More secure but
-  requires a sticky-session deployment; horizontal scaling adds
-  Redis session store complexity. JWT chosen for statelessness.
-- **Refresh token rotation in DB (revocation list).** Stronger but
-  adds a DB hit on every refresh. Current design relies on JWT
-  signature rotation (compromise of secret = all tokens can be
-  minted by attacker, which is true anyway with stateless JWT).
-- **Short-lived access tokens (5 min) instead of 15.** Marginal
-  security gain at significant UX cost (more frequent /refresh
-  round-trips). 15 min is the sweet spot.
+### Refresh
 
-## Open items
+POST /api/v1/auth/refresh prefers the refresh cookie and accepts a request body
+token only for legacy compatibility. It validates the refresh-token type and
+current user, then issues a fresh access/refresh pair and refreshes the cookie.
 
-- **Refresh-token fingerprint binding.** A stolen refresh cookie +
-  access token could be used from another browser. Mitigation:
-  bind refresh to user-agent / IP hash. Not implemented in v1;
-  the httpOnly cookie + SameSite=Strict + 30-day rotation gives
-  adequate baseline.
-- **MFA for superadmin login.** Currently email/password only. Add
-  TOTP or WebAuthn in v1.1.
+The current implementation is stateless at refresh validation: it validates
+the JWT and user rather than a server-side refresh-session record. Therefore,
+documentation must not claim that issuing a replacement token alone makes an
+older refresh token unusable. Any stronger single-use rotation or server-side
+revocation requirement needs a dedicated runtime change.
+
+### Logout
+
+POST /api/v1/auth/logout clears the browser refresh cookie. It also performs
+the existing best-effort refresh-token blacklist cleanup when a token is
+available; this cleanup is not equivalent to server-side validation on every
+refresh.
+
+## Active role and multi-role sessions
+
+The multi-role product policy is defined by ADR-0012.
+
+- A new tenant login starts with users.role, the primary role.
+- POST /api/v1/auth/switch-role accepts only a role returned from the account's
+  current user_roles assignment set.
+- A successful switch issues new access and refresh tokens with the requested
+  active_role, sets the refresh cookie, and returns an updated user payload.
+- Refresh reads the token's active role and preserves it when it remains among
+  the account's assigned roles.
+- require_role(...) evaluates one active role, not the union of all assigned
+  roles.
+
+Current request validation explicitly checks a non-primary active_role against
+user_roles before presenting that active mode to role guards. ADR-0012 requires
+the selected mode to be assignment-backed in all cases; applying that
+requirement uniformly, including the primary-role path, is backend conformance
+work rather than a documentation exception.
+
+## Tenant context propagation
+
+On an authenticated tenant request, get_current_user invokes
+set_current_tenant(tenant_id) for the database session. With FORCE RLS and the
+lms_app runtime role (ADR-0004), this context is required for tenant-scoped
+visibility.
+
+A platform superadmin has no ordinary tenant context. Platform APIs must use
+their dedicated authorization paths; tenant work is performed through the
+explicit impersonation flow rather than by treating superadmin as an unscoped
+tenant role.
+
+## Acceptance criteria for auth changes
+
+1. Every browser login flow that claims session persistence returns an access
+   token and sets the refresh cookie with the current attributes.
+2. A full browser reload followed by refresh restores a valid session.
+3. Refresh works from the cookie; the legacy body fallback remains covered only
+   while it is supported.
+4. A role switch rejects an unassigned role, rotates the session, refreshes the
+   cookie, and updates the active role in the frontend payload.
+5. Refresh preserves an assigned active role, and tenant authorization uses the
+   active role rather than an aggregate role union.
+6. Authenticated tenant requests establish tenant context and cross-tenant
+   resource access returns 404.
+7. Tests must assert the actual cookie attributes. Do not assert
+   SameSite=Strict, omit Partitioned, or treat Telegram as access-only.
+
+## Open decisions
+
+- **Stateful refresh revocation / single-use rotation.** The current stateless
+  refresh validation does not invalidate an older signed refresh token merely
+  because a replacement was issued. Product and security owners must decide
+  whether v1 requires a server-side session or deny-list check at refresh time.
+- **Uniform primary-role assignment validation.** ADR-0012 requires every
+  selected mode to be assignment-backed; the current primary-role path should
+  be brought to the same verification standard in a backend task.
+- **MFA for superadmin login.** TOTP or WebAuthn remains a future platform
+  security decision.
+
+## Cross-references
+
+- [ADR-0003](./0003-multitenant.md): tenant isolation
+- [ADR-0004](./0004-rls-force-and-app-role.md): FORCE RLS and `lms_app`
+- [ADR-0012](./0012-rbac-admin-vs-methodologist.md): role ownership, active role, and role-matrix tests
+- `apps/api/app/core/auth.py`
+- `apps/api/app/modules/auth/router.py`
+- `apps/api/app/modules/auth/service.py`

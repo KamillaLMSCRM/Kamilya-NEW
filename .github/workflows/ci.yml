@@ -31,12 +31,11 @@ env:
 
 jobs:
   # ---------------------------------------------------------------------------
-  # Backend lint + tenant-security gate
+  # Backend lint (legacy warn-only debt)
   # ---------------------------------------------------------------------------
   backend-lint:
-    name: Backend lint + tenant gate
+    name: Backend lint (legacy warn-only)
     runs-on: ubuntu-latest
-    continue-on-error: true  # legacy lint debt is tracked separately; don't block P0 CI
     defaults:
       run:
         working-directory: apps/api
@@ -70,22 +69,28 @@ jobs:
         continue-on-error: true
         run: poetry run ruff format --check .
 
-      # -----------------------------------------------------------------------
-      # Tenant-id security gate
-      # -----------------------------------------------------------------------
-      # Enforces AGENTS.md §Multi-tenancy: every ORM query that touches a
-      # tenant-scoped table must include a `tenant_id` filter, unless the
-      # call site is whitelisted (superadmin endpoints, system jobs).
-      #
-      # The script greps for `select(` on tenant models and checks that the
-      # surrounding query includes `tenant_id`. False positives are managed
-      # via an inline `# tenant-gate: allow` comment.
-      # -----------------------------------------------------------------------
+  # ---------------------------------------------------------------------------
+  # Release contract and tenant-isolation gates (blocking)
+  # ---------------------------------------------------------------------------
+  release-security-gates:
+    name: Release and tenant security gates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Shell script quality gate
+        run: bash scripts/ci/shell-quality-gate.sh
+
       - name: Tenant-id security gate
-        continue-on-error: true
-        run: |
-          set -euo pipefail
-          bash ../../scripts/ci/tenant-gate.sh
+        run: bash scripts/ci/tenant-gate.sh
+
+      - name: Alembic and Celery release contract
+        run: python scripts/ci/release-contract-gate.py
 
   # ---------------------------------------------------------------------------
   # Backend unit tests + syntax compile (fast-fail gate, no Postgres needed)

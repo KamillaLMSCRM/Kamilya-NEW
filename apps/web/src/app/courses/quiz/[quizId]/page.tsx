@@ -7,6 +7,7 @@ import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
 import { toast } from '@/components/ui/Toast';
 import { CheckCircle2, XCircle, Circle, Lightbulb } from 'lucide-react';
+import { getRoleHome } from '@/lib/rolePolicy';
 
 interface QuizChoice {
   id: string;
@@ -69,10 +70,6 @@ interface QuizAttempt {
   passed: boolean;
   started_at: string;
   completed_at: string | null;
-}
-
-function getRoleHome(role?: string | null) {
-  return role === 'student' ? '/student' : '/dashboard';
 }
 
 export default function QuizPlayerPage() {

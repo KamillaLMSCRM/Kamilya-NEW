@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardHeader, CardTitle, CardContent, Button, Input } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
 import { api } from '@/lib/api';
+import { getRoleHome } from '@/lib/rolePolicy';
 
 interface PublicInvitation {
   email: string;
@@ -30,10 +31,6 @@ const ROLE_LABELS: Record<string, string> = {
   admin: 'Администратор',
   org_admin: 'Админ организации',
 };
-
-function getRoleHome(role?: string | null) {
-  return role === 'student' ? '/student' : '/dashboard';
-}
 
 export default function AcceptInvitePage() {
   return (

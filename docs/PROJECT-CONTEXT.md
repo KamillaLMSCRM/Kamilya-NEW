@@ -9,6 +9,7 @@
 |---|---|
 | Product/current behavior | `PROJECT.md` |
 | RBAC admin vs methodologist | `docs/adr/0012-rbac-admin-vs-methodologist.md` |
+| Auth session and active role | `docs/adr/0008-auth-strategy.md` |
 | Supabase/RLS/runtime cutover | `docs/supabase-audit-2026-07-01.md` |
 | VPS services | `docs/VPS_CONNECTION_GUIDE.md` |
 | Deployment | `DEPLOY.md` |
@@ -65,6 +66,10 @@ Important route ownership:
 - `/assignments` - direct learner-course assignment for `methodologist`.
 - `/admin/enrollments` - legacy redirect to `/assignments`.
 - `/student`, `/my-courses`, `/my-quizzes`, `/certificates` - learner surfaces.
+
+One tenant account may have several assigned roles. The top bar selects one
+active working role; API guards and navigation use that active role rather than
+the union of account permissions. See ADR-0012 and ADR-0008.
 
 ## Env Model
 

@@ -4,41 +4,50 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, Query
-from uuid import UUID, uuid4
 from datetime import datetime, timezone
+from uuid import UUID, uuid4
+
+from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect
+from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.core.auth import get_current_user, decode_token, require_role, require_tenant_user
+from app.core.auth import (
+    get_current_active_user,
+    get_current_user,
+    require_role,
+    require_tenant_user,
+)
 from app.core.db import get_db
 from app.models.users import User
+from app.ml_prompts import get_renderer
+from app.modules.ai.job_service import create_ai_job, get_ai_job, update_ai_job
+from app.modules.ai.llm_client import ResilientLLMClient, create_llm
+from app.modules.ai.pipeline import run_generation_pipeline
 from app.modules.ai.schemas import (
-    AIGenerateRequest,
-    AIJobResponse,
     AIChatRequest,
     AIChatResponse,
-    AIRegenerateModuleRequest,
+    AIGenerateRequest,
+    AIJobResponse,
     AIRegenerateLessonRequest,
-    DocumentCompatibilityRequest,
-    DocumentCompatibilityResponse,
+    AIRegenerateModuleRequest,
     CompatibilityCluster,
     CompatibilityDocument,
+    DocumentCompatibilityRequest,
+    DocumentCompatibilityResponse,
 )
-from app.modules.ai.job_service import create_ai_job, get_ai_job, update_ai_job
-from app.modules.ai.pipeline import run_generation_pipeline
-from app.modules.ai.llm_client import ResilientLLMClient, create_llm
 from app.modules.courses.models import Course
-from app.ml_prompts import get_renderer
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/ai",
     tags=["ai-generation"],
-    dependencies=[Depends(require_tenant_user())],
 )
+tenant_router = APIRouter(dependencies=[Depends(require_tenant_user())])
+
+require_ai_job_access = require_role("methodologist", "superadmin")
 
 # Store running tasks for cancellation
 _running_tasks: dict[str, asyncio.Task] = {}
@@ -68,7 +77,7 @@ def _compatibility_response(analysis) -> DocumentCompatibilityResponse:
     )
 
 
-@router.post("/document-compatibility", response_model=DocumentCompatibilityResponse)
+@tenant_router.post("/document-compatibility", response_model=DocumentCompatibilityResponse)
 async def document_compatibility(
     req: DocumentCompatibilityRequest,
     db: AsyncSession = Depends(get_db),
@@ -93,7 +102,7 @@ def _job_course_uuid(course_id) -> UUID | None:
 async def generate_course(
     req: AIGenerateRequest,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_ai_job_access),
 ):
     """Start AI course generation (returns job_id for polling/WebSocket)."""
     from app.core.demo_limits import check_ai_generation_quota
@@ -196,18 +205,16 @@ async def generate_course(
 @router.get("/jobs", response_model=list[AIJobResponse])
 async def list_jobs(
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_ai_job_access),
 ):
     """List AI jobs for current tenant."""
     from sqlalchemy import select
     from app.models.ai_job import AIJob
 
-    stmt = (
-        select(AIJob)
-        .where(AIJob.tenant_id == user.tenant_id)
-        .order_by(AIJob.created_at.desc())
-        .limit(20)
-    )
+    stmt = select(AIJob)
+    if user.tenant_id is not None:
+        stmt = stmt.where(AIJob.tenant_id == user.tenant_id)
+    stmt = stmt.order_by(AIJob.created_at.desc()).limit(20)
     result = await db.execute(stmt)
     jobs = result.scalars().all()
 
@@ -229,7 +236,7 @@ async def list_jobs(
 async def get_job(
     job_id: str,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_ai_job_access),
 ):
     """Get job status (for polling)."""
     job = await get_ai_job(db, job_id, tenant_id=str(user.tenant_id) if user.tenant_id else None)
@@ -251,7 +258,7 @@ async def get_job(
 async def cancel_generation(
     job_id: str,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_ai_job_access),
 ):
     """Cancel a running generation job."""
     job = await get_ai_job(db, job_id, tenant_id=str(user.tenant_id) if user.tenant_id else None)
@@ -277,48 +284,63 @@ async def cancel_generation(
 @router.websocket("/ws/jobs/{job_id}")
 async def job_progress_ws(websocket: WebSocket, job_id: str, token: str = Query(None)):
     """WebSocket endpoint for real-time job progress updates. Requires JWT via query param."""
-    # Authenticate via token query param
     if not token:
         await websocket.close(code=4001, reason="Missing token")
         return
 
-    try:
-        payload = decode_token(token)
-    except Exception:
-        await websocket.close(code=4003, reason="Invalid token")
-        return
+    from app.core.db import async_session_factory
 
-    user_id = payload.get("sub")
-    tenant_id = payload.get("tenant_id")
-    if not user_id or not tenant_id:
-        await websocket.close(code=4003, reason="Invalid token payload")
-        return
+    credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
+
+    async with async_session_factory() as session:
+        try:
+            user = await get_current_user(credentials=credentials, db=session)
+            user = await get_current_active_user(user=user, db=session)
+            await require_ai_job_access(user)
+        except HTTPException:
+            await websocket.close(code=4003, reason="AI job access denied")
+            return
+
+        tenant_scope = str(user.tenant_id) if user.tenant_id is not None else None
+        job = await get_ai_job(session, job_id, tenant_id=tenant_scope)
+        if not job:
+            await websocket.close(code=4004, reason="Job not found")
+            return
 
     await websocket.accept()
 
     try:
         while True:
-            from app.core.db import async_session_factory
+            await websocket.send_json({
+                "job_id": job.id,
+                "status": job.status,
+                "stage": job.stage,
+                "progress": job.progress,
+                "message": job.message or "",
+            })
+
+            if job.status in ("completed", "failed", "cancelled"):
+                break
+
+            await asyncio.sleep(2)
             async with async_session_factory() as session:
-                job = await get_ai_job(session, job_id, tenant_id=str(tenant_id) if tenant_id else None)
+                try:
+                    polling_user = await get_current_user(credentials=credentials, db=session)
+                    polling_user = await get_current_active_user(user=polling_user, db=session)
+                    await require_ai_job_access(polling_user)
+                except HTTPException:
+                    await websocket.send_json({"error": "AI job access denied"})
+                    break
+
+                polling_tenant_scope = (
+                    str(polling_user.tenant_id)
+                    if polling_user.tenant_id is not None
+                    else None
+                )
+                job = await get_ai_job(session, job_id, tenant_id=polling_tenant_scope)
                 if not job:
                     await websocket.send_json({"error": "Job not found"})
                     break
-
-                # Belt-and-braces: query is already tenant-scoped, but in
-                # case the JWT tenant_id is None (superadmin) we accept.
-                await websocket.send_json({
-                    "job_id": job.id,
-                    "status": job.status,
-                    "stage": job.stage,
-                    "progress": job.progress,
-                    "message": job.message or "",
-                })
-
-                if job.status in ("completed", "failed", "cancelled"):
-                    break
-
-            await asyncio.sleep(2)
 
     except WebSocketDisconnect:
         pass
@@ -404,7 +426,7 @@ async def _fetch_target_context(
     return ""
 
 
-@router.post("/chat", response_model=AIChatResponse)
+@tenant_router.post("/chat", response_model=AIChatResponse)
 async def chat(
     req: AIChatRequest,
     db: AsyncSession = Depends(get_db),
@@ -855,7 +877,7 @@ async def _regenerate_lesson_job(
             _running_tasks.pop(job_id, None)
 
 
-@router.post("/regenerate-module/{module_id}", response_model=AIJobResponse, status_code=202)
+@tenant_router.post("/regenerate-module/{module_id}", response_model=AIJobResponse, status_code=202)
 async def regenerate_module(
     module_id: UUID,
     req: AIRegenerateModuleRequest,
@@ -899,7 +921,7 @@ async def regenerate_module(
     )
 
 
-@router.post("/regenerate-lesson/{lesson_id}", response_model=AIJobResponse, status_code=202)
+@tenant_router.post("/regenerate-lesson/{lesson_id}", response_model=AIJobResponse, status_code=202)
 async def regenerate_lesson(
     lesson_id: UUID,
     req: AIRegenerateLessonRequest,
@@ -938,3 +960,6 @@ async def regenerate_lesson(
         created_at=job.created_at, progress=0, stage="queued",
         message="Перегенерация урока запущена",
     )
+
+
+router.include_router(tenant_router)

@@ -114,9 +114,6 @@ export default function StudentDashboardPage() {
           <Card>
             <CardContent className="flex flex-col items-center gap-3 p-8 text-center">
               <p className="text-muted-foreground">{t('student.noCourses')}</p>
-              <Link href="/courses" className="text-sm font-medium text-primary hover:underline">
-                {t('student.browseCourses')}
-              </Link>
             </CardContent>
           </Card>
         ) : (

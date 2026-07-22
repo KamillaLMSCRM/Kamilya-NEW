@@ -9,6 +9,15 @@ from app.models.courses import Course
 async def get_enrolled_users(db: AsyncSession, course_id: UUID, tenant_id: UUID):
     """List users enrolled in a course."""
     from app.models.enrollment import Enrollment
+    course_exists = await db.scalar(
+        select(Course.id).where(
+            Course.id == course_id,
+            Course.tenant_id == tenant_id,
+        )
+    )
+    if course_exists is None:
+        raise ValueError("Course not found")
+
     result = await db.execute(
         select(Enrollment).where(
             Enrollment.course_id == course_id,
