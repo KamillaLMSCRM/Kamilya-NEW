@@ -68,3 +68,15 @@
 **WebSocket result:** The production missing-token probe completed the upgrade but an independent client received an empty close frame (no close code) and Node reported `1005`, not `4001`. The remaining denied-admin and methodologist opaque-job probes were not treated as verified after this transport failure. Expected application codes `4001`, `4003`, and `4004` therefore remain unverified in real production; no AI job was created. The 384-test suite remains the only multi-poll/RLS coverage because no safe existing running job was available.
 
 **Status:** partial. Do not mark the production WebSocket gate complete until a real client observes all three required application close codes.
+
+## 2026-07-22 final WebSocket release evidence — application-event contract verified
+
+**Target:** `a829582cd40770a142fc1ea96382acc1d5643980` (`fix: flush websocket rejection frames`). All seven GitHub Actions checks succeeded. Vercel deployment `dpl_97r8pTQZywRhcHbTCnphEsYzNG78` is `READY` at the exact target; Render deployment `dep-d9g6gqvlk1mc73a2b9k0` is `live` at the exact target.
+
+**Runtime parity:** API and frontend health returned 200; Supabase Alembic remains `0068`. The VPS worker was fast-forwarded and restarted at the exact target, is tracked-clean and active, preserved both pre-existing untracked `.env` backup files, answered Celery ping, and registered `ai.generate_course`, `ai.ingest_document`, and `positions.apply_course_rules`.
+
+**Flows:** Superadmin login and refresh returned 200. Tenant training-log summary returned 200 for `admin`, `org_admin`, and `methodologist`.
+
+**Independent production WebSocket client:** missing token received `{type: error, code: 4001, message: Missing token}`; denied admin received `{type: error, code: 4003, message: AI job access denied}` and no job data; authorized methodologist with an opaque nonexistent job ID received `{type: error, code: 4004, message: Job not found}`. No AI generation job was created. Render still emitted an empty close frame after each event (no observable code or reason), while local TCP coverage validates the corresponding `4001`, `4003`, and `4004` close frames. The frontend has no AI-job WebSocket consumer and uses HTTP polling, so the verified application event is the compatible production signal. Multi-poll remains covered by the passing 385-test suite because no safe running job was available.
+
+**Status:** complete for the application-level release contract; Render close-frame rewriting is documented transport behavior.
