@@ -56,3 +56,15 @@
 - A public WebSocket attempt with the admin token closed abnormally (1006) rather than returning the expected application 4003 close code. No AI job was created and multi-poll/RLS WebSocket behavior remains unverified; this must be investigated before treating that portion of the release gate as complete.
 
 **Status:** provider revisions, database revision, API/frontend availability, worker revision, and the listed HTTP authorization checks are verified. The WebSocket authorization/multi-poll gate remains incomplete.
+
+## 2026-07-22 follow-up release evidence — close-code transport verification incomplete
+
+**Target:** `62095663dc762018ca9e9be4b2b43a60ce8ed4b7` (`fix: deliver websocket authorization close codes`).
+
+**Verified:** All seven GitHub Actions checks succeeded. Vercel deployment `dpl_4CjSgb19bxAcgWryYTDBVbaKQrqU` is `READY` at the exact target. Render deployment `dep-d9g64g61a83c73avrks0` is `live` at the exact target. API and frontend health both returned 200; Supabase Alembic remains `0068`. Superadmin login and refresh returned 200; tenant training-log summary returned 200 for `admin`, `org_admin`, and `methodologist`; admin AI-jobs access returned 403.
+
+**Worker:** The VPS worker fast-forwarded to the exact target with no dependency-file delta, restarted, is active and tracked-clean, preserved both pre-existing untracked `.env` backups, and answered Celery ping with `ai.generate_course`, `ai.ingest_document`, and `positions.apply_course_rules` registered.
+
+**WebSocket result:** The production missing-token probe completed the upgrade but an independent client received an empty close frame (no close code) and Node reported `1005`, not `4001`. The remaining denied-admin and methodologist opaque-job probes were not treated as verified after this transport failure. Expected application codes `4001`, `4003`, and `4004` therefore remain unverified in real production; no AI job was created. The 384-test suite remains the only multi-poll/RLS coverage because no safe existing running job was available.
+
+**Status:** partial. Do not mark the production WebSocket gate complete until a real client observes all three required application close codes.

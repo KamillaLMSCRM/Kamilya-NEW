@@ -169,3 +169,62 @@ Close the confirmed authorization gap for AI course generation and job access wi
 - Do not introduce per-user AI job ownership policy without an ADR.
 - Keep tenant filtering as defense in depth; cross-tenant job identifiers must resolve as not found.
 - Keep retry, Voyage, and ingestion changes out of this task.
+
+## Second production follow-up - real TCP close-frame delivery (2026-07-22)
+
+### Transport correction plan
+
+1. Use Graphify to select the WebSocket authorization and transport path, then inspect the deployed implementation, installed FastAPI/Starlette/Uvicorn/WebSockets versions, and production protocol selection.
+2. Reproduce missing-token, denied-role, and scoped-not-found closes through a real Uvicorn TCP server bound to an ephemeral port and a real `websockets` client; compare immediate close, event-loop yield, and application-message sequencing where needed.
+3. Add a failing real-network regression against the actual AI WebSocket route, apply the smallest transport-compatible fix, and retain the fresh-session polling/RLS tests.
+4. Run focused and broader relevant tests plus lint/compile/diff gates, refresh Graphify, and inspect the final scoped changes without committing, pushing, deploying, or changing the database.
+
+### Transport correction step 1 report - production and local diagnosis
+
+**Graphify selected:** `apps/api/app/modules/ai/router.py`, `apps/api/tests/test_ai_jobs_rbac.py`, `apps/api/app/core/auth.py`, `apps/api/app/core/db.py`, and `apps/api/app/modules/ai/job_service.py`.
+
+**Installed/deployed stack:** FastAPI 0.115.14, Starlette 0.46.2, Uvicorn 0.32.1, and websockets 14.2. Production starts Uvicorn with its default `auto` WebSocket selection, which resolves to Uvicorn's `websockets` protocol; `wsproto` is not installed.
+
+**Reproduced:** a read-only real `websockets` client probe against deployed commit `62095663` upgraded successfully and received an empty 1005 close for the missing-token path. The same immediate accept-and-close implementation delivered 4001/4003/4004 correctly through a local real Uvicorn TCP server on an ephemeral port.
+
+**Root cause boundary:** Uvicorn's actual ASGI transport waits for its handshake-completed event before writing either an application frame or close frame, so an event-loop-only yield does not correct a missing handshake wait. The discrepancy occurs beyond the local Uvicorn transport on the Render edge's immediate post-upgrade close path. A dependency/backend adjustment is unsupported by the installed stack and not indicated by the local wire behavior. The selected compatibility barrier is a generic application data frame before the close frame.
+
+**Status:** done.
+
+### Transport correction step 2 report - failing real-network regression
+
+**Changed:** added a real Uvicorn server regression using a pre-bound ephemeral TCP socket and the installed `websockets` client. It covers missing token (4001), denied admin active role (4003), and scoped not-found (4004), and asserts that denied paths perform no job lookup.
+
+**Red check:** the real-network test failed against the deployed implementation because its first receive observed the immediate close instead of an application error event.
+
+**Status:** done.
+
+### Transport correction step 3 report - compatibility barrier
+
+**Changed:** the shared rejection helper now sends a generic `{type, code, message}` error event after upgrade and before the unchanged application close frame. It contains no job data. Denied roles still stop before lookup, tenant-scoped not-found remains indistinguishable from cross-tenant access, and the fresh-session polling/RLS flow is unchanged.
+
+**Green check:** the real-TCP close matrix, TestClient close matrix, and tenant/platform multi-iteration polling checks passed together (6 passed).
+
+**Status:** done.
+
+### Transport correction step 4 report - verification
+
+**Passed:**
+
+- `pytest tests/test_ai_jobs_rbac.py -q` - 24 passed.
+- Focused AI/source/RBAC suite - 76 passed.
+- `pytest tests/test_integration.py -q` - 13 passed.
+- `ruff check tests/test_ai_jobs_rbac.py` - passed.
+- Critical router lint (`E9,F63,F7,F82`) - passed.
+- `python -m compileall -q app/modules/ai/router.py tests/test_ai_jobs_rbac.py` - passed.
+- Scoped `git diff --check` - passed.
+
+**Known repository lint debt:** unrestricted whole-file router lint reports 45 pre-existing findings outside this change; no unrelated cleanup was performed.
+
+**Environment-limited:** the document-compatibility and superadmin-lifecycle DB-backed integration files stop during fixture setup because local PostgreSQL rejects the configured test login. No environment or database configuration was changed.
+
+**Graphify:** refreshed after the implementation; `graphify-out/` remains untracked.
+
+**Final inspection:** no connection receives job data before authorization. Missing token and denied role never query a job; not-found lookup remains tenant-scoped; tenant and platform polling sessions still re-establish their DB security context on every iteration.
+
+**Status:** done.

@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
+import json
+import socket
 from datetime import UTC, datetime
 from inspect import signature
 from types import SimpleNamespace
@@ -9,8 +12,11 @@ from unittest.mock import ANY, AsyncMock, patch
 from uuid import uuid4
 
 import pytest
+import uvicorn
+import websockets
 from fastapi import FastAPI, HTTPException, WebSocketDisconnect
 from fastapi.testclient import TestClient
+from websockets.exceptions import ConnectionClosed
 
 AI_JOB_HANDLERS = (
     "generate_course",
@@ -333,10 +339,101 @@ def test_websocket_client_observes_application_close_codes(
         TestClient(test_app) as client,
     ):
         with client.websocket_connect(path) as websocket:
+            error_message = websocket.receive_json()
             with pytest.raises(WebSocketDisconnect) as caught:
                 websocket.receive_json()
 
+    assert error_message == {
+        "type": "error",
+        "code": expected_code,
+        "message": expected_reason,
+    }
     assert caught.value.code == expected_code
     assert caught.value.reason == expected_reason
     if expected_code != 4004:
         lookup.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_websocket_tcp_client_observes_application_close_codes():
+    """Exercise Uvicorn's real WebSocket protocol rather than TestClient ASGI events."""
+    from app.modules.ai import router as ai_router
+
+    test_app = FastAPI()
+    test_app.add_api_websocket_route(
+        "/v1/ai/ws/jobs/{job_id}",
+        ai_router.job_progress_ws,
+    )
+    admin = SimpleNamespace(role="admin", tenant_id=uuid4())
+    methodologist = SimpleNamespace(role="methodologist", tenant_id=uuid4())
+
+    async def authenticate(*, credentials, db):
+        if credentials.credentials == "admin-token":
+            return admin
+        return methodologist
+
+    lookup = AsyncMock(return_value=None)
+    listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    listener.bind(("127.0.0.1", 0))
+    listener.listen()
+    port = listener.getsockname()[1]
+    server = uvicorn.Server(
+        uvicorn.Config(
+            test_app,
+            host="127.0.0.1",
+            port=port,
+            lifespan="off",
+            log_level="critical",
+            ws="websockets",
+        )
+    )
+    server.install_signal_handlers = lambda: None
+
+    with (
+        patch("app.core.db.async_session_factory", return_value=_SessionContext(AsyncMock())),
+        patch.object(ai_router, "get_current_user", AsyncMock(side_effect=authenticate)),
+        patch.object(ai_router, "get_current_active_user", AsyncMock(side_effect=lambda user, db: user)),
+        patch.object(ai_router, "get_ai_job", lookup),
+    ):
+        server_task = asyncio.create_task(server.serve(sockets=[listener]))
+        try:
+            for _ in range(200):
+                if server.started:
+                    break
+                if server_task.done():
+                    await server_task
+                await asyncio.sleep(0.01)
+            else:
+                pytest.fail("Uvicorn did not start")
+
+            cases = (
+                ("", 4001, "Missing token"),
+                ("?token=admin-token", 4003, "AI job access denied"),
+                ("?token=methodologist-token", 4004, "Job not found"),
+            )
+            for query, expected_code, expected_reason in cases:
+                uri = f"ws://127.0.0.1:{port}/v1/ai/ws/jobs/job-1{query}"
+                async with websockets.connect(uri) as websocket:
+                    error_message = json.loads(await websocket.recv())
+                    with pytest.raises(ConnectionClosed) as caught:
+                        await websocket.recv()
+
+                assert error_message == {
+                    "type": "error",
+                    "code": expected_code,
+                    "message": expected_reason,
+                }
+                assert caught.value.rcvd is not None
+                assert caught.value.rcvd.code == expected_code
+                assert caught.value.rcvd.reason == expected_reason
+        finally:
+            server.should_exit = True
+            await asyncio.wait_for(server_task, timeout=5)
+            listener.close()
+
+    lookup.assert_awaited_once_with(
+        ANY,
+        "job-1",
+        tenant_id=str(methodologist.tenant_id),
+    )

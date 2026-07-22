@@ -69,11 +69,11 @@ REVIEWED_SCOPE_LOOKUPS=(
   "apps/api/app/modules/auth/telegram_register.py:88:User"
   "apps/api/app/modules/tenants/router.py:141:User"
   # AI rewrites first validate the module/lesson tenant, then use its descendants.
-  "apps/api/app/modules/ai/router.py:616:Course"
-  "apps/api/app/modules/ai/router.py:620:Lesson"
-  "apps/api/app/modules/ai/router.py:701:Quiz"
-  "apps/api/app/modules/ai/router.py:804:Course"
-  "apps/api/app/modules/ai/router.py:825:Quiz"
+  "apps/api/app/modules/ai/router.py:621:Course"
+  "apps/api/app/modules/ai/router.py:625:Lesson"
+  "apps/api/app/modules/ai/router.py:706:Quiz"
+  "apps/api/app/modules/ai/router.py:809:Course"
+  "apps/api/app/modules/ai/router.py:830:Quiz"
   # Questions are bounded by a tenant-filtered quiz set in the same service.
   "apps/api/app/modules/quizzes/service.py:56:Question"
   # Kiosk courses/enrollments are bounded by the tenant-scoped kiosk link.

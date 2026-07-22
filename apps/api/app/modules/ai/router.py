@@ -287,8 +287,13 @@ async def _close_ws_with_application_code(
     code: int,
     reason: str,
 ) -> None:
-    """Complete the upgrade so real clients receive the application close frame."""
+    """Flush a generic error event before the application close frame."""
     await websocket.accept()
+    await websocket.send_json({
+        "type": "error",
+        "code": code,
+        "message": reason,
+    })
     await websocket.close(code=code, reason=reason)
 
 
