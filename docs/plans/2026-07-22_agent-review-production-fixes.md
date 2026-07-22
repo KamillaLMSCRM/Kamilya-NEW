@@ -30,3 +30,19 @@ Reports will be appended immediately after each step completes.
 **Checks:** Backend `381 passed`; frontend `75 passed`; TypeScript typecheck passed; Next.js production build passed; tenant gate checked 144 queries with 0 violations; shell gate checked all 8 tracked scripts; release contract verified 66 Alembic revisions with head `0068` and all expected Celery tasks; CI YAML parsed successfully; `git diff --check` passed. Ruff remains a documented non-blocking legacy-debt job in CI; the full suite reports pre-existing findings, while syntax compilation and all blocking gates pass.
 
 **Status:** done.
+
+### Step 3 — commit and publish
+
+**What happened:** Normalized the reviewed index while leaving `graphify-out/` untracked, created release commit `2a76e063e03d88c098eee98c006d1ad3aa3268d9`, and pushed `master`. The initial Windows credential and repository-scoped token lacked the required access; an authorized `github_token` from `.env` was used only through an in-memory Git HTTP header, without writing it to the remote URL or Git configuration.
+
+**Checks:** `origin/master` resolved to the exact release commit and GitHub Actions run `29894942720` completed successfully.
+
+**Status:** done.
+
+### Step 4 — production verification and WebSocket follow-up
+
+**What happened:** Vercel, Render, Supabase, and the independently deployed Celery worker were brought to and verified against release commit `2a76e06`. Real-client verification then exposed one remaining transport defect: pre-upgrade WebSocket rejection hid application close codes behind client code `1006`. The endpoint now completes the upgrade solely to deliver the intended `4001`, `4003`, or `4004` close frame; authorization and tenant-scoped lookup still occur before any data delivery. The line-specific tenant-gate review entries were updated for the resulting source movement.
+
+**Checks so far:** Follow-up backend suite `384 passed`; real-client close-code coverage passed for missing token, denied admin, and not-found; fresh-session multi-poll RLS tests remained green; tenant gate checked 144 queries with 0 violations; shell and release-contract gates passed. Production redeployment and exact follow-up flow verification remain outstanding.
+
+**Status:** in progress.

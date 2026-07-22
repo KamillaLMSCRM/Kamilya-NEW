@@ -281,11 +281,26 @@ async def cancel_generation(
     return {"status": "cancelled"}
 
 
+async def _close_ws_with_application_code(
+    websocket: WebSocket,
+    *,
+    code: int,
+    reason: str,
+) -> None:
+    """Complete the upgrade so real clients receive the application close frame."""
+    await websocket.accept()
+    await websocket.close(code=code, reason=reason)
+
+
 @router.websocket("/ws/jobs/{job_id}")
 async def job_progress_ws(websocket: WebSocket, job_id: str, token: str = Query(None)):
     """WebSocket endpoint for real-time job progress updates. Requires JWT via query param."""
     if not token:
-        await websocket.close(code=4001, reason="Missing token")
+        await _close_ws_with_application_code(
+            websocket,
+            code=4001,
+            reason="Missing token",
+        )
         return
 
     from app.core.db import async_session_factory
@@ -298,13 +313,21 @@ async def job_progress_ws(websocket: WebSocket, job_id: str, token: str = Query(
             user = await get_current_active_user(user=user, db=session)
             await require_ai_job_access(user)
         except HTTPException:
-            await websocket.close(code=4003, reason="AI job access denied")
+            await _close_ws_with_application_code(
+                websocket,
+                code=4003,
+                reason="AI job access denied",
+            )
             return
 
         tenant_scope = str(user.tenant_id) if user.tenant_id is not None else None
         job = await get_ai_job(session, job_id, tenant_id=tenant_scope)
         if not job:
-            await websocket.close(code=4004, reason="Job not found")
+            await _close_ws_with_application_code(
+                websocket,
+                code=4004,
+                reason="Job not found",
+            )
             return
 
     await websocket.accept()

@@ -2,7 +2,7 @@
 
 Date: 2026-07-21
 
-Status: completed with WebSocket polling correction
+Status: completed with WebSocket close-code correction
 
 ## Scope
 
@@ -108,6 +108,57 @@ Close the confirmed authorization gap for AI course generation and job access wi
 **Graphify:** refreshed with `graphify update .`; `graphify-out/` remains untracked.
 
 **Final inspection:** pre-accept authorization and tenant 404 behavior remain intact; polling revalidates active-role access and establishes fresh transaction-local RLS context; no session remains open during the polling delay.
+
+**Status:** done.
+
+## Production follow-up - observable WebSocket close codes (2026-07-22)
+
+### Follow-up plan
+
+1. Use Graphify and the actual AI router/TestClient patterns to confirm how pre-upgrade close calls are observed by a real ASGI WebSocket client.
+2. Add a FastAPI/Starlette TestClient regression for missing token, denied role, and tenant-scoped not-found close codes; capture the failing pre-fix behavior.
+3. Preserve authorization and job lookup before data delivery, but complete the WebSocket upgrade before sending the documented application close frame.
+4. Retain and run the fresh-session polling/RLS regressions, focused AI/RBAC tests, relevant broader tests, lint/compile checks, Graphify refresh, and final scoped diff inspection.
+
+### Follow-up step 1 report - root cause and selected context
+
+**Graphify selected:** `apps/api/app/modules/ai/router.py`, `apps/api/tests/test_ai_jobs_rbac.py`, `apps/api/app/main.py`, and `apps/api/tests/test_integration.py`.
+
+**Confirmed:** Starlette treats `websocket.close()` before `websocket.accept()` as an HTTP WebSocket denial rather than a WebSocket close frame. Real clients therefore do not receive application codes 4001/4003/4004. Authentication and tenant-scoped lookup ordering are otherwise correct.
+
+**Status:** done.
+
+### Follow-up step 2 report - failing client regression
+
+**Changed:** added a real FastAPI/Starlette TestClient regression covering missing token (4001), denied admin role (4003), and tenant-scoped not-found (4004). The denied-role case also asserts that no job lookup occurs.
+
+**Red check:** `pytest tests/test_ai_jobs_rbac.py -k client_observes_application_close_codes -q` failed all three cases because `websocket_connect()` received a close event before an accept event; the application codes were not delivered after a completed WebSocket upgrade.
+
+**Status:** done.
+
+### Follow-up step 3 report - handshake sequencing fix
+
+**Changed:** rejection paths now use one helper that accepts the WebSocket only after the missing-token, role-denial, or scoped not-found decision has been made, then immediately sends the documented application close frame. Denied roles still stop before job lookup, and authorized tenant users still receive the same 4004 for nonexistent and cross-tenant jobs.
+
+**Green check:** the real-client close-code tests and both fresh-session polling/RLS paths passed (`5 passed`).
+
+**Status:** done.
+
+### Follow-up step 4 report - verification
+
+**Passed:**
+
+- Real-client close codes plus fresh-session RLS polling: 5 passed.
+- Focused AI/source/RBAC suite: 75 passed.
+- Full selected TestClient integration file: 13 passed, with two unrelated Pydantic deprecation warnings.
+- `ruff check tests/test_ai_jobs_rbac.py` - passed.
+- Critical router lint (`E9,F63,F7,F82`) - passed.
+- `python -m compileall -q app/modules/ai/router.py tests/test_ai_jobs_rbac.py` - passed.
+- Scoped `git diff --check` - passed.
+
+**Graphify:** refreshed after implementation; `graphify-out/` remains untracked.
+
+**Final inspection:** missing token, denied role, and scoped not-found paths now deliver 4001/4003/4004 after upgrade. No rejected connection receives job data; denied roles never query the job; nonexistent and cross-tenant jobs remain indistinguishable; fresh-session polling authentication/RLS behavior is unchanged.
 
 **Status:** done.
 

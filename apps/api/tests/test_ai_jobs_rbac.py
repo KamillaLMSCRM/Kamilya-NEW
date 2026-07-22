@@ -9,7 +9,8 @@ from unittest.mock import ANY, AsyncMock, patch
 from uuid import uuid4
 
 import pytest
-from fastapi import HTTPException
+from fastapi import FastAPI, HTTPException, WebSocketDisconnect
+from fastapi.testclient import TestClient
 
 AI_JOB_HANDLERS = (
     "generate_course",
@@ -168,7 +169,7 @@ def _running_job(job_id: str = "job-1"):
 
 
 @pytest.mark.asyncio
-async def test_websocket_rejects_disallowed_active_role_before_accept():
+async def test_websocket_rejects_disallowed_active_role_without_job_lookup():
     from app.modules.ai import router as ai_router
 
     websocket = AsyncMock()
@@ -181,12 +182,12 @@ async def test_websocket_rejects_disallowed_active_role_before_accept():
     ):
         await ai_router.job_progress_ws(websocket, "job-1", token="valid-token")
 
-    websocket.accept.assert_not_awaited()
+    websocket.accept.assert_awaited_once()
     websocket.close.assert_awaited_once_with(code=4003, reason="AI job access denied")
 
 
 @pytest.mark.asyncio
-async def test_websocket_cross_tenant_job_is_not_found_before_accept():
+async def test_websocket_cross_tenant_job_is_not_found_without_disclosure():
     from app.modules.ai import router as ai_router
 
     websocket = AsyncMock()
@@ -207,7 +208,7 @@ async def test_websocket_cross_tenant_job_is_not_found_before_accept():
         "other-tenant-job",
         tenant_id=str(tenant_id),
     )
-    websocket.accept.assert_not_awaited()
+    websocket.accept.assert_awaited_once()
     websocket.close.assert_awaited_once_with(code=4004, reason="Job not found")
 
 
@@ -295,3 +296,47 @@ async def test_websocket_reestablishes_security_context_for_each_poll(
     ]
     assert not any(getattr(session, "is_open", False) for session in sessions)
     assert websocket.send_json.await_args_list[-1].args[0]["status"] == "completed"
+
+
+@pytest.mark.parametrize(
+    ("token", "role", "expected_code", "expected_reason"),
+    (
+        (None, None, 4001, "Missing token"),
+        ("valid-token", "admin", 4003, "AI job access denied"),
+        ("valid-token", "methodologist", 4004, "Job not found"),
+    ),
+)
+def test_websocket_client_observes_application_close_codes(
+    token: str | None,
+    role: str | None,
+    expected_code: int,
+    expected_reason: str,
+):
+    from app.modules.ai import router as ai_router
+
+    test_app = FastAPI()
+    test_app.add_api_websocket_route(
+        "/v1/ai/ws/jobs/{job_id}",
+        ai_router.job_progress_ws,
+    )
+    user = SimpleNamespace(role=role, tenant_id=uuid4())
+    lookup = AsyncMock(return_value=None)
+    path = "/v1/ai/ws/jobs/job-1"
+    if token:
+        path = f"{path}?token={token}"
+
+    with (
+        patch("app.core.db.async_session_factory", return_value=_SessionContext(AsyncMock())),
+        patch.object(ai_router, "get_current_user", AsyncMock(return_value=user)),
+        patch.object(ai_router, "get_current_active_user", AsyncMock(return_value=user)),
+        patch.object(ai_router, "get_ai_job", lookup),
+        TestClient(test_app) as client,
+    ):
+        with client.websocket_connect(path) as websocket:
+            with pytest.raises(WebSocketDisconnect) as caught:
+                websocket.receive_json()
+
+    assert caught.value.code == expected_code
+    assert caught.value.reason == expected_reason
+    if expected_code != 4004:
+        lookup.assert_not_awaited()
