@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import re
 import unicodedata
 from datetime import UTC, datetime, timedelta
@@ -31,6 +32,7 @@ from app.modules.tenants.schemas import (
 
 router = APIRouter(prefix="/tenants", tags=["tenants"])
 public_router = APIRouter(prefix="/public", tags=["public"])
+logger = logging.getLogger(__name__)
 _ph = argon2.PasswordHasher()
 
 TRIAL_DAYS = 14
@@ -263,7 +265,6 @@ async def register_tenant(
         user_agent=request.headers.get("user-agent"),
     )
 
-    await EmailService().send_trial_started(to_email=payload.email, company_name=payload.company_name)
     await db.commit()
 
     await db.execute(text("SELECT set_config('app.tenant_id', :tenant_id, true)"), {"tenant_id": str(tenant.id)})
@@ -272,6 +273,20 @@ async def register_tenant(
     await db.refresh(lead)
 
     user_payload = await build_user_payload(db, user)
+
+    # Workspace activation is the primary transaction. A notification-provider
+    # outage must not roll it back or turn a successful registration into a 500.
+    try:
+        await EmailService().send_trial_started(
+            to_email=payload.email,
+            company_name=payload.company_name,
+        )
+    except Exception:
+        logger.exception(
+            "trial-started email failed tenant_id=%s",
+            tenant.id,
+        )
+
     return TenantRegisterResponse(
         tenant_id=tenant.id,
         tenant_slug=tenant.slug,

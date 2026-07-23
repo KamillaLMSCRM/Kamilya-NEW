@@ -11,6 +11,7 @@ import { toast } from '@/components/ui/Toast';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 import { getRoleHome } from '@/lib/rolePolicy';
+import { getTenantRegistrationError } from '@/lib/tenantRegistrationError';
 import { useT } from '@/i18n/useT';
 
 type TenantIntent = 'try' | 'demo' | 'buy';
@@ -106,12 +107,7 @@ export default function TenantRegisterPage() {
       });
       router.push(getRoleHome(data.user?.role));
     } catch (err: any) {
-      const detail = err?.response?.data?.detail;
-      const messageText =
-        (typeof detail === 'object' && detail?.message) ||
-        (typeof detail === 'string' && detail) ||
-        err?.message ||
-        'Не удалось создать trial. Попробуйте еще раз.';
+      const messageText = getTenantRegistrationError(err);
       setError(messageText);
       toast.error('Ошибка регистрации', { description: messageText });
     } finally {
