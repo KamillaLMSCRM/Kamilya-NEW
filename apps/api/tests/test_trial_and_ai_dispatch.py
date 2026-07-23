@@ -162,3 +162,18 @@ async def test_jd_generation_uses_separate_trial_counter(monkeypatch):
 
     await trial_limits.release_jd_course_generation(db, tenant_id)
     assert usage.jd_course_generations_used == 0
+
+
+@pytest.mark.asyncio
+async def test_failed_ai_generation_releases_trial_counter():
+    from app.core import trial_limits
+
+    tenant_id = uuid4()
+    usage = TenantUsage(tenant_id=tenant_id, ai_course_generations_used=1)
+    db = FakeUsageDB(usage)
+
+    await trial_limits.release_ai_course_generation(db, tenant_id)
+    assert usage.ai_course_generations_used == 0
+
+    await trial_limits.release_ai_course_generation(db, tenant_id)
+    assert usage.ai_course_generations_used == 0

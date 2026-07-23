@@ -521,8 +521,26 @@ async def run_generation_pipeline(
         state.message = f"Error: {str(e)}"
         state.errors.append(str(e))
         await _update_job_db(job_id, tenant_id=tenant_id, status="failed", message=state.message, errors=[str(e)])
+        if tenant_id and not state.course_id:
+            try:
+                from sqlalchemy import text
+                from app.core.trial_limits import release_ai_course_generation
+                from app.modules.ai.budget import refund_llm_budget
+
+                async with async_session_factory() as session:
+                    await session.execute(
+                        text("SELECT set_current_tenant(:tid)"),
+                        {"tid": str(tenant_id)},
+                    )
+                    await release_ai_course_generation(session, tenant_id)
+                    await refund_llm_budget(session, str(tenant_id), "generate_course")
+                    await session.commit()
+            except Exception:
+                logger.exception(
+                    "Could not refund failed generation reservation for job %s",
+                    job_id,
+                )
         logger.error(f"Generation pipeline failed for job {job_id}: {e}")
 
     return state
-
 

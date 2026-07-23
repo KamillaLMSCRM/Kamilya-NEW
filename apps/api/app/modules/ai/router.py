@@ -106,7 +106,10 @@ async def generate_course(
 ):
     """Start AI course generation (returns job_id for polling/WebSocket)."""
     from app.core.demo_limits import check_ai_generation_quota
-    from app.core.trial_limits import reserve_ai_course_generation
+    from app.core.trial_limits import (
+        release_ai_course_generation,
+        reserve_ai_course_generation,
+    )
     from app.modules.ai.source_analysis import analyze_document_set
 
     analysis = await analyze_document_set(db, user.tenant_id, req.documents)
@@ -161,6 +164,11 @@ async def generate_course(
             stage="failed",
             message="AI worker is unavailable",
         )
+        if req.course_id is None:
+            await release_ai_course_generation(db, user.tenant_id)
+        if user.tenant_id:
+            from app.modules.ai.budget import refund_llm_budget
+            await refund_llm_budget(db, str(user.tenant_id), "generate_course")
         await db.commit()
         raise HTTPException(status_code=503, detail="AI worker is unavailable")
 
@@ -188,6 +196,11 @@ async def generate_course(
             stage="failed",
             message="AI job could not be queued",
         )
+        if req.course_id is None:
+            await release_ai_course_generation(db, user.tenant_id)
+        if user.tenant_id:
+            from app.modules.ai.budget import refund_llm_budget
+            await refund_llm_budget(db, str(user.tenant_id), "generate_course")
         await db.commit()
         raise HTTPException(status_code=503, detail="AI job could not be queued") from exc
 

@@ -245,6 +245,18 @@ async def reserve_ai_course_generation(db: AsyncSession, tenant_id: Any) -> None
     await db.flush()
 
 
+async def release_ai_course_generation(db: AsyncSession, tenant_id: Any) -> None:
+    """Return a reserved trial generation when no course was produced."""
+    usage = await db.get(TenantUsage, tenant_id)
+    if not usage:
+        return
+    usage.ai_course_generations_used = max(
+        0,
+        int(usage.ai_course_generations_used or 0) - 1,
+    )
+    await db.flush()
+
+
 async def assert_can_create_jd_course(
     db: AsyncSession,
     tenant_id: Any,
