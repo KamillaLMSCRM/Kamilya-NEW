@@ -12,6 +12,7 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 DOCLING_URL = os.getenv("DOCLING_URL", "http://173.249.51.164:8600")
+DOCLING_API_KEY = os.getenv("DOCLING_API_KEY", "")
 
 
 class DocumentConverter:
@@ -36,8 +37,17 @@ class DocumentConverter:
             import httpx
             with open(file_path, "rb") as f:
                 files = {"file": (filename, f, "application/octet-stream")}
+                headers = (
+                    {"X-Docling-Key": DOCLING_API_KEY}
+                    if DOCLING_API_KEY
+                    else None
+                )
                 async with httpx.AsyncClient(timeout=300) as client:
-                    resp = await client.post(f"{self.base_url}/convert", files=files)
+                    resp = await client.post(
+                        f"{self.base_url}/convert",
+                        files=files,
+                        headers=headers,
+                    )
                     resp.raise_for_status()
                     data = resp.json()
                     return {

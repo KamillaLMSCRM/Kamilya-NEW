@@ -15,6 +15,7 @@ SERVICE_PATH = (
 
 def _load_service(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.delenv("DOCLING_OCR_LANGUAGES", raising=False)
+    monkeypatch.delenv("DOCLING_API_KEY", raising=False)
     spec = importlib.util.spec_from_file_location("docling_service_main_test", SERVICE_PATH)
     assert spec and spec.loader
     module = importlib.util.module_from_spec(spec)
@@ -32,7 +33,7 @@ def test_pdf_converter_enables_multilingual_ocr(monkeypatch: pytest.MonkeyPatch)
     class InputFormat:
         PDF = "pdf"
 
-    class EasyOcrOptions:
+    class TesseractCliOcrOptions:
         def __init__(self, **kwargs):
             self.kwargs = kwargs
 
@@ -49,7 +50,7 @@ def test_pdf_converter_enables_multilingual_ocr(monkeypatch: pytest.MonkeyPatch)
             self.format_options = format_options
 
     base_models.InputFormat = InputFormat
-    pipeline_options.EasyOcrOptions = EasyOcrOptions
+    pipeline_options.TesseractCliOcrOptions = TesseractCliOcrOptions
     pipeline_options.PdfPipelineOptions = PdfPipelineOptions
     document_converter.DocumentConverter = DocumentConverter
     document_converter.PdfFormatOption = PdfFormatOption
@@ -64,8 +65,7 @@ def test_pdf_converter_enables_multilingual_ocr(monkeypatch: pytest.MonkeyPatch)
     assert pdf_options.kwargs["do_ocr"] is True
     assert pdf_options.kwargs["do_table_structure"] is True
     assert pdf_options.kwargs["ocr_options"].kwargs == {
-        "lang": ["ru", "en"],
-        "download_enabled": True,
+        "lang": ["kaz", "rus", "eng"],
     }
 
 
@@ -78,7 +78,23 @@ async def test_health_reports_ocr_configuration(monkeypatch: pytest.MonkeyPatch)
         "service": "docling",
         "ocr": {
             "enabled": True,
-            "engine": "easyocr",
-            "languages": ["ru", "en"],
+            "engine": "tesseract-cli",
+            "languages": ["kaz", "rus", "eng"],
         },
     }
+
+
+@pytest.mark.asyncio
+async def test_convert_rejects_invalid_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DOCLING_API_KEY", "expected-key")
+    spec = importlib.util.spec_from_file_location(
+        "docling_service_main_auth_test", SERVICE_PATH
+    )
+    assert spec and spec.loader
+    service = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(service)
+
+    with pytest.raises(service.HTTPException) as exc_info:
+        await service.convert_document(file=None, x_docling_key="wrong-key")
+
+    assert exc_info.value.status_code == 401

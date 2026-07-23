@@ -10,6 +10,7 @@ ExecStart=/opt/docling-service/.venv/bin/python main.py
 Restart=always
 RestartSec=5
 Environment=PYTHONUNBUFFERED=1
+EnvironmentFile=-/opt/docling-service/.env
 
 [Install]
 WantedBy=multi-user.target

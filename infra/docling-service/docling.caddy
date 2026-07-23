@@ -1,0 +1,14 @@
+docling.kml.kz {
+	encode zstd gzip
+
+	request_body {
+		max_size 55MB
+	}
+
+	reverse_proxy 127.0.0.1:8600 {
+		transport http {
+			read_timeout 5m
+			write_timeout 5m
+		}
+	}
+}

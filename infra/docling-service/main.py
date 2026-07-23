@@ -1,10 +1,11 @@
 """Docling microservice — runs on VPS as HTTP API."""
 import os
+import secrets
 import tempfile
 import logging
 from pathlib import Path
 
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, Header, HTTPException
 from fastapi.responses import JSONResponse
 import uvicorn
 
@@ -17,16 +18,20 @@ app = FastAPI(title="Docling Converter", version="1.0")
 _converter = None
 OCR_LANGUAGES = [
     language.strip()
-    for language in os.getenv("DOCLING_OCR_LANGUAGES", "ru,en").split(",")
+    for language in os.getenv("DOCLING_OCR_LANGUAGES", "kaz,rus,eng").split(",")
     if language.strip()
 ]
+DOCLING_API_KEY = os.getenv("DOCLING_API_KEY", "")
 
 
 def get_converter():
     global _converter
     if _converter is None:
         from docling.datamodel.base_models import InputFormat
-        from docling.datamodel.pipeline_options import EasyOcrOptions, PdfPipelineOptions
+        from docling.datamodel.pipeline_options import (
+            PdfPipelineOptions,
+            TesseractCliOcrOptions,
+        )
         from docling.document_converter import (
             DocumentConverter as DoclingConverter,
             PdfFormatOption,
@@ -35,9 +40,8 @@ def get_converter():
         pdf_options = PdfPipelineOptions(
             do_ocr=True,
             do_table_structure=True,
-            ocr_options=EasyOcrOptions(
+            ocr_options=TesseractCliOcrOptions(
                 lang=OCR_LANGUAGES,
-                download_enabled=True,
             ),
         )
         _converter = DoclingConverter(
@@ -46,7 +50,7 @@ def get_converter():
             }
         )
         logger.info(
-            "Docling converter loaded with OCR enabled (engine=easyocr, languages=%s)",
+            "Docling converter loaded with OCR enabled (engine=tesseract-cli, languages=%s)",
             ",".join(OCR_LANGUAGES),
         )
     return _converter
@@ -59,15 +63,24 @@ async def health():
         "service": "docling",
         "ocr": {
             "enabled": True,
-            "engine": "easyocr",
+            "engine": "tesseract-cli",
             "languages": OCR_LANGUAGES,
         },
     }
 
 
 @app.post("/convert")
-async def convert_document(file: UploadFile = File(...)):
+async def convert_document(
+    file: UploadFile = File(...),
+    x_docling_key: str | None = Header(default=None),
+):
     """Convert uploaded document to markdown."""
+    if DOCLING_API_KEY and (
+        x_docling_key is None
+        or not secrets.compare_digest(x_docling_key, DOCLING_API_KEY)
+    ):
+        raise HTTPException(status_code=401, detail="Invalid Docling API key")
+
     suffix = Path(file.filename or "doc").suffix or ".pdf"
     with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
         content = await file.read()
