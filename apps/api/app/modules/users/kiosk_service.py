@@ -24,7 +24,7 @@ from datetime import datetime, timedelta, timezone
 from uuid import UUID, uuid4
 
 from fastapi import HTTPException
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -48,6 +48,30 @@ logger = logging.getLogger(__name__)
 def _generate_kiosk_token() -> str:
     """24-char URL-safe token. ~144 bits entropy (still infeasible to brute force)."""
     return secrets.token_urlsafe(16)
+
+
+async def establish_public_kiosk_tenant_context(
+    db: AsyncSession,
+    token: str,
+) -> UUID | None:
+    """Resolve an opaque kiosk token, then enable normal tenant RLS.
+
+    Public kiosk requests have no JWT and therefore no tenant context. The
+    database function exposes only the matching tenant UUID; all subsequent
+    reads still run through the regular tenant policies.
+    """
+    result = await db.execute(
+        text("SELECT lookup_kiosk_tenant_by_token(:token)"),
+        {"token": token},
+    )
+    tenant_id = result.scalar_one_or_none()
+    if tenant_id is None:
+        return None
+    await db.execute(
+        text("SELECT set_current_tenant(:tenant_id)"),
+        {"tenant_id": str(tenant_id)},
+    )
+    return tenant_id
 
 
 # ── Admin CRUD ──────────────────────────────────────────────────

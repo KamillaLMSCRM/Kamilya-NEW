@@ -30,6 +30,7 @@ from app.modules.users.kiosk_service import (
     update_kiosk_link,
     delete_kiosk_link,
     list_kiosk_access_logs,
+    establish_public_kiosk_tenant_context,
     get_public_kiosk,
     identify_at_kiosk,
 )
@@ -283,6 +284,14 @@ async def view_kiosk(
     db: AsyncSession = Depends(get_db),
 ):
     """Public view of a kiosk (no auth). Worker sees the welcome screen."""
+    tenant_id = await establish_public_kiosk_tenant_context(db, token)
+    if tenant_id is None:
+        return {
+            "name": "",
+            "tenant_name": "",
+            "valid": False,
+            "reason_if_invalid": "kiosk_not_found",
+        }
     result = await get_public_kiosk(db, token)
     return result
 
@@ -299,6 +308,9 @@ async def identify_kiosk(
     No auth required. The kiosk URL is the public credential (it's printed
     on a wall); personnel_number is the per-user credential.
     """
+    tenant_id = await establish_public_kiosk_tenant_context(db, token)
+    if tenant_id is None:
+        raise HTTPException(status_code=404, detail="Kiosk not found")
     result = await identify_at_kiosk(
         db,
         token,
