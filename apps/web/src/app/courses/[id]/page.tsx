@@ -354,21 +354,31 @@ export default function CoursePlayerPage() {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) {
-        const detail = await res.json().catch(() => null);
-        const reason = detail?.detail?.reason;
+        const payload = await res.json().catch(() => null);
+        // The API normalizes structured FastAPI errors to
+        // { error, message, details }. Keep accepting the legacy `detail`
+        // shape as well so this flow remains compatible during rollouts.
+        const details = payload?.details ?? payload?.detail;
+        const reason = typeof details === 'object' && details !== null
+          ? details.reason
+          : undefined;
         if (reason === 'lessons_incomplete') {
           toast.error(t('common.saveFailed'), {
-            description: `${detail.detail.completed_lessons}/${detail.detail.total_lessons}`,
+            description: `${details.completed_lessons}/${details.total_lessons}`,
           });
           return;
         }
         if (reason === 'quizzes_incomplete') {
           toast.error(t('common.saveFailed'), {
-            description: `${detail.detail.passed_quizzes}/${detail.detail.total_quizzes}`,
+            description: `${details.passed_quizzes}/${details.total_quizzes}`,
           });
           return;
         }
-        const message = typeof detail?.detail === 'string' ? detail.detail : `HTTP ${res.status}`;
+        const message = typeof payload?.message === 'string'
+          ? payload.message
+          : typeof payload?.detail === 'string'
+            ? payload.detail
+            : `HTTP ${res.status}`;
         throw new Error(message);
       }
       const data: { certificate_id?: string; status?: string } = await res.json().catch(() => ({}));
