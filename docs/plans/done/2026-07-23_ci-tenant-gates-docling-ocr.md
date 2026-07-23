@@ -23,9 +23,9 @@ The saved VPS password is rejected and no local private key is available.
 **What changed:** Added direct tenant predicates to AI rewrite, kiosk,
 certificate, and quiz queries. Replaced the line-number CI allowlist with
 review annotations located at the three genuinely pre-tenant/public lookups.
-Configured Docling PDF conversion with `do_ocr=True`, EasyOCR `ru,en`, table
-recognition, and an OCR-capable dependency extra. Health now exposes the OCR
-engine and language configuration.
+Configured Docling PDF conversion with `do_ocr=True`, Tesseract CLI
+`kaz,rus,eng`, and table recognition. Health now exposes the OCR engine and
+language configuration.
 
 **Checks:** `tenant-gate.sh` reports 142 checked queries and zero violations.
 The Docling configuration has hermetic unit coverage.
@@ -45,16 +45,26 @@ the GitHub workflow provisions its own pgvector PostgreSQL container.
 
 ## Step 4 — publish and production
 
-**What changed:** Pushed `afab37a`. GitHub Actions run `30008558066`
-completed successfully across all seven jobs, including the pgvector-backed
-pytest/coverage job. Render deployment `dep-d9h0t1rtqb8s73ed6a40` is live on
-that revision and `/health` returns HTTP 200.
+**What changed:** Corrected the VPS target to the credentials selected by
+`VPS_URL` and `vps_root_password`. Backed up the previous service and Caddy
+configuration under `/opt/kamilya-backups/docling-20260723-150131`. Added the
+`docling.kml.kz` Caddy virtual host and obtained a valid public TLS certificate.
+Installed Tesseract with Kazakh, Russian, and English language data. Protected
+`/convert` with a shared API key while leaving `/health` public. Configured
+Render to use `https://docling.kml.kz` and the matching key.
 
-**Production exception:** The standalone Docling service cannot yet receive
-the OCR revision. Its public hostname fails TLS negotiation and the saved VPS
-password is rejected; no valid private key is present on this workstation.
-The repository-side OCR configuration is tested, but production OCR must not
-be reported as enabled until VPS access is restored, dependencies are installed,
-the service is restarted, and an image-only PDF smoke test returns its text.
+During the Render environment update, diagnosed a replace-all pagination
+failure that had omitted variables after the first 20 entries. Recovered the
+original production values from the still-running Render instance, including
+the existing master encryption key, and restored all 45 service variables.
 
-**Status:** ⚠️ partial — API/CI complete; Docling VPS access required
+**Checks:** Commit `d94ad20` passed GitHub Actions run `30010487198`. Render
+deployment `dep-d9h1fi3bc2fs739g99og` is live and API health returns `ok`.
+Docling and Caddy are active. Public Docling health reports
+`tesseract-cli` with `kaz,rus,eng`; unauthenticated conversion returns HTTP 401.
+An authenticated three-page image-only PDF returned all English, Russian, and
+Kazakh marker text, including `ҚАУІПСІЗДІК`, with all three pages detected.
+The conversion completed on CPU in approximately 31 seconds and the service
+used about 1.2 GiB RAM.
+
+**Status:** ✅ done
