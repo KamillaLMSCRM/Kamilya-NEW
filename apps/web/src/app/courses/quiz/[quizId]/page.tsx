@@ -164,9 +164,10 @@ export default function QuizPlayerPage() {
         // Refresh attempts
         const attemptsRes = await fetch(`${API_URL}/v1/quizzes/${quizId}/attempts`, { headers: { Authorization: `Bearer ${token}` } });
         if (attemptsRes.ok) setAttempts(await attemptsRes.json());
-        toast.success(data.passed ? 'Тест пройден!' : 'Тест завершён', {
-          description: `Результат: ${data.score_percent ?? 0}%`,
-        });
+        toast.dismiss();
+        toast.success(
+          `${data.passed ? 'Тест пройден!' : 'Тест завершён'} Результат: ${data.score_percent ?? 0}%`,
+        );
       } else {
         const err = await res.json();
         toast.error(t('common.saveFailed'), { description: err.detail || 'Ошибка отправки' });
