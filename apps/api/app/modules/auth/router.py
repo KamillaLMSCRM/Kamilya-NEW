@@ -164,7 +164,13 @@ async def login(req: LoginRequest, request: Request, response: Response, db=Depe
     await db.commit()
     # Set refresh token as httpOnly cookie; access token still returned in body.
     _set_refresh_cookie(response, refresh_token)
-    return TokenResponse(access_token=access_token, refresh_token=refresh_token, expires_in=900)
+    user_payload = await build_user_payload(db, user)
+    return TokenResponse(
+        access_token=access_token,
+        refresh_token=refresh_token,
+        expires_in=900,
+        user=user_payload,
+    )
 
 
 @router.post("/refresh", response_model=TokenResponse)

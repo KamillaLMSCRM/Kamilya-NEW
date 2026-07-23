@@ -55,3 +55,36 @@ async def test_registration_succeeds_when_trial_email_provider_fails(
     assert tenant.status == "trial"
     assert user.role == "admin"
     assert user.tenant_id == tenant.id
+
+
+@pytest.mark.asyncio
+async def test_password_login_returns_frontend_user_payload(
+    client,
+    make_tenant,
+    make_user,
+):
+    tenant = await make_tenant(name="QA Password Login")
+    user = await make_user(
+        tenant,
+        role="methodologist",
+        email=f"qa-methodologist-{uuid4().hex[:12]}@example.com",
+        first_name="Мадина",
+        last_name="QA",
+        password="QA-Methodologist-2026!",
+    )
+
+    response = await client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": user.email,
+            "password": "QA-Methodologist-2026!",
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["access_token"]
+    assert payload["user"]["user_id"] == str(user.id)
+    assert payload["user"]["tenant_id"] == str(tenant.id)
+    assert payload["user"]["role"] == "methodologist"
+    assert payload["user"]["full_name"] == "Мадина QA"

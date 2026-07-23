@@ -14,14 +14,15 @@ import { useAuthStore } from '@/store/authStore';
 import { getRoleHome } from '@/lib/rolePolicy';
 import { useT } from '@/i18n/useT';
 
-type LoginMode = 'email' | 'telegram';
+type LoginMode = 'password' | 'email' | 'telegram';
 
 export default function LoginPage() {
   const router = useRouter();
   const { t } = useT();
   const { login, accessToken } = useAuthStore();
-  const [mode, setMode] = useState<LoginMode>('email');
+  const [mode, setMode] = useState<LoginMode>('password');
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [emailCode, setEmailCode] = useState('');
   const [emailCodeSent, setEmailCodeSent] = useState(false);
   const [telegramCode, setTelegramCode] = useState('');
@@ -104,6 +105,37 @@ export default function LoginPage() {
     }
   }
 
+  async function loginWithPassword(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError('');
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail || !normalizedEmail.includes('@') || password.length < 8) {
+      setError(t('auth.invalidCredentials'));
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await api.post('/v1/auth/login', {
+        email: normalizedEmail,
+        password,
+      });
+      if (!res.data.user) {
+        throw new Error('Authenticated user payload is missing');
+      }
+      login(res.data.access_token, res.data.user);
+      router.push(getRoleHome(res.data.user.role));
+    } catch (err: any) {
+      const message =
+        (typeof err?.response?.data?.detail === 'string' && err.response.data.detail) ||
+        t('auth.invalidCredentials');
+      setError(message);
+      toast.error(t('auth.loginFailed'), { description: message });
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function verifyEmailCode(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError('');
@@ -169,7 +201,16 @@ export default function LoginPage() {
           <h1 className="text-xl font-semibold">Вход в Kamilya LMS</h1>
         </div>
 
-        <div className="mb-5 grid grid-cols-2 rounded-md border border-input bg-muted p-1">
+        <div className="mb-5 grid grid-cols-3 rounded-md border border-input bg-muted p-1">
+          <button
+            type="button"
+            onClick={() => switchMode('password')}
+            className={`inline-flex h-10 items-center justify-center gap-2 rounded-md text-sm font-medium transition-colors ${
+              mode === 'password' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            {t('auth.password')}
+          </button>
           <button
             type="button"
             onClick={() => switchMode('email')}
@@ -178,7 +219,7 @@ export default function LoginPage() {
             }`}
           >
             <Mail className="h-4 w-4" aria-hidden="true" />
-            Email
+            {t('auth.emailCode')}
           </button>
           <button
             type="button"
@@ -198,7 +239,41 @@ export default function LoginPage() {
           </div>
         )}
 
-        {mode === 'email' ? (
+        {mode === 'password' ? (
+          <form onSubmit={loginWithPassword} className="space-y-4">
+            <div>
+              <label htmlFor="password-login-email" className="mb-1 block text-sm font-medium">
+                {t('auth.email')}
+              </label>
+              <Input
+                id="password-login-email"
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                autoComplete="email"
+                placeholder="hr@company.kz"
+                required
+              />
+            </div>
+            <div>
+              <label htmlFor="password-login-password" className="mb-1 block text-sm font-medium">
+                {t('auth.password')}
+              </label>
+              <Input
+                id="password-login-password"
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                autoComplete="current-password"
+                required
+              />
+              <p className="mt-1 text-xs text-muted-foreground">{t('auth.passwordLoginHint')}</p>
+            </div>
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? t('auth.loggingIn') : t('auth.loginButton')}
+            </Button>
+          </form>
+        ) : mode === 'email' ? (
           <div className="space-y-5">
             {!emailCodeSent ? (
               <form onSubmit={requestEmailCode} className="space-y-4">
