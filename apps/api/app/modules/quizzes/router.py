@@ -227,7 +227,7 @@ async def list_enrolled_quizzes(
     )
     lesson_rows = lessons_q.fetchall()
     lesson_ids = [r[0] for r in lesson_rows]
-    lesson_map = {r[0]: {"title": r[1], "module_title": r[2], "course_id": str(r[3])} for r in lesson_rows}
+    lesson_map = {str(r[0]): {"title": r[1], "module_title": r[2], "course_id": str(r[3])} for r in lesson_rows}
 
     if not lesson_ids:
         return []
