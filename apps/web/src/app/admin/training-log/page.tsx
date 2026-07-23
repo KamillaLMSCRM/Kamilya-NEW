@@ -18,6 +18,11 @@ import { toast } from '@/components/ui/Toast';
 import { api } from '@/lib/api';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { canAccessRoute } from '@/lib/rolePolicy';
+import {
+  buildTrainingLogFilterQuery,
+  buildTrainingLogPageQuery,
+  type TrainingLogFilters,
+} from './query';
 
 /**
  * Training log — единый журнал обучения (P0.3 first-tenant hardening).
@@ -77,16 +82,7 @@ interface TrainingLogSummary {
   completed: number;
 }
 
-interface Filters {
-  course_id?: string;
-  department_id?: string;
-  position_id?: string;
-  status?: 'assigned' | 'in_progress' | 'completed';
-  delivery_type?: 'native' | 'scorm';
-  date_from?: string;
-  date_to?: string;
-  search?: string;
-}
+type Filters = TrainingLogFilters;
 
 // Mirrors backend TrainingLogFilter.status Literal (no `overdue`).
 const STATUS_OPTIONS: Array<{ value: string; label: string }> = [
@@ -116,25 +112,21 @@ export default function AdminTrainingLogPage() {
   const [limit, setLimit] = useState(100);
   const [offset, setOffset] = useState(0);
 
-  // We trigger re-fetches by bumping this counter whenever filters change.
-  // It also doubles as a debounce key for the search box.
   const [searchInput, setSearchInput] = useState('');
-  const [searchDebounceKey, setSearchDebounceKey] = useState(0);
+  const [debouncedSearch, setDebouncedSearch] = useState('');
 
   useEffect(() => {
-    const id = setTimeout(() => setSearchDebounceKey((k) => k + 1), 350);
+    const id = setTimeout(() => setDebouncedSearch(searchInput), 350);
     return () => clearTimeout(id);
   }, [searchInput]);
 
   const queryString = useMemo(() => {
-    const params = new URLSearchParams();
-    Object.entries(filters).forEach(([k, v]) => {
-      if (v) params.set(k, String(v));
-    });
-    params.set('limit', String(limit));
-    params.set('offset', String(offset));
-    return params.toString();
-  }, [filters, limit, offset, searchDebounceKey]);
+    return buildTrainingLogPageQuery(filters, debouncedSearch, limit, offset);
+  }, [debouncedSearch, filters, limit, offset]);
+
+  const summaryQueryString = useMemo(() => (
+    buildTrainingLogFilterQuery(filters, debouncedSearch).toString()
+  ), [debouncedSearch, filters]);
 
   const fetchPage = useCallback(async () => {
     if (!accessToken) return;
@@ -163,15 +155,16 @@ export default function AdminTrainingLogPage() {
 
   useEffect(() => {
     if (!accessToken) return;
-    api.get<TrainingLogSummary>('/v1/admin/training-log/summary')
+    const suffix = summaryQueryString ? `?${summaryQueryString}` : '';
+    api.get<TrainingLogSummary>(`/v1/admin/training-log/summary${suffix}`)
       .then((res) => setSummary(res.data))
       .catch(() => setSummary(null));
-  }, [accessToken]);
+  }, [accessToken, summaryQueryString]);
 
   // Reset pagination when filters change (typical table UX).
   useEffect(() => {
     setOffset(0);
-  }, [filters, searchDebounceKey]);
+  }, [debouncedSearch, filters]);
 
   const exportCsv = useCallback(async () => {
     if (!accessToken) return;

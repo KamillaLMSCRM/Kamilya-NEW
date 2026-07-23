@@ -167,9 +167,10 @@ async def stream_training_log_as_csv(
 async def get_training_log_summary(
     db: AsyncSession,
     tenant_id: UUID,
+    f: TrainingLogFilter | None = None,
 ) -> TrainingLogSummary:
     """Return status counts using the same repository status semantics as the table."""
-    f = TrainingLogFilter()
+    f = f or TrainingLogFilter()
     assigned = await count_training_log(db, tenant_id, f.model_copy(update={"status": "assigned"}))
     in_progress = await count_training_log(db, tenant_id, f.model_copy(update={"status": "in_progress"}))
     completed = await count_training_log(db, tenant_id, f.model_copy(update={"status": "completed"}))

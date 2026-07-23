@@ -15,7 +15,7 @@ type NestedKeyOf<T> = T extends object
 export type TranslationKey = NestedKeyOf<typeof ru>;
 
 /** Interpolate `{key}` placeholders in a translation string. */
-function interpolate(template: string, params?: Record<string, string | number>): string {
+export function interpolate(template: string, params?: Record<string, string | number>): string {
   if (!params) return template;
   return template.replace(/\{(\w+)\}/g, (_, name) => {
     const v = params[name];

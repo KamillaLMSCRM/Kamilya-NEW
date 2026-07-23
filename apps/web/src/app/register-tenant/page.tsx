@@ -11,6 +11,7 @@ import { toast } from '@/components/ui/Toast';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 import { getRoleHome } from '@/lib/rolePolicy';
+import { useT } from '@/i18n/useT';
 
 type TenantIntent = 'try' | 'demo' | 'buy';
 
@@ -51,6 +52,7 @@ function formatKzPhone(value: string): string {
 }
 
 export default function TenantRegisterPage() {
+  const { t } = useT();
   const router = useRouter();
   const login = useAuthStore((state) => state.login);
   const [companyName, setCompanyName] = useState('');
@@ -253,7 +255,7 @@ export default function TenantRegisterPage() {
                     aria-describedby="password-hint"
                   />
                   <p id="password-hint" className="mt-1 text-xs text-muted-foreground">
-                    Minimum 8 characters
+                    {t('auth.passwordMinHint')}
                   </p>
                 </div>
               </div>

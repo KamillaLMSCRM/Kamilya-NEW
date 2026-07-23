@@ -6,6 +6,7 @@ import { Card, CardHeader, CardTitle, CardContent, Badge } from '@/components/ui
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
 import { Check, Circle, ChevronRight } from 'lucide-react';
+import { isAdminOnboardingActionable } from '@/lib/adminOnboarding';
 
 interface OnboardingStep {
   id: string;
@@ -144,11 +145,31 @@ export function OnboardingChecklist() {
         <ul className="mt-3 space-y-1" role="list">
           {status.steps.map((step) => (
             <li key={step.id}>
-              <Link
-                href={step.href}
-                className="group flex items-center gap-3 rounded-lg px-3 py-2 text-sm hover:bg-muted transition-colors"
-                aria-current={step.done ? 'false' : 'step'}
-              >
+              {isAdminOnboardingActionable(step) ? (
+                <Link
+                  href={step.href}
+                  className="group flex items-center gap-3 rounded-lg px-3 py-2 text-sm hover:bg-muted transition-colors"
+                  aria-current={step.done ? 'false' : 'step'}
+                >
+                  <StepContent step={step} />
+                </Link>
+              ) : (
+                <div className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm" aria-label={t('onboarding.methodologistRequired')}>
+                  <StepContent step={step} />
+                  <span className="text-xs text-muted-foreground">{t('onboarding.methodologistRequired')}</span>
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
+      </CardContent>
+    </Card>
+  );
+}
+
+function StepContent({ step }: { step: OnboardingStep }) {
+  return (
+    <>
                 <span
                   className={
                     'flex h-6 w-6 shrink-0 items-center justify-center rounded-full border ' +
@@ -182,11 +203,6 @@ export function OnboardingChecklist() {
                 {!step.done && (
                   <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                 )}
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </CardContent>
-    </Card>
+    </>
   );
 }

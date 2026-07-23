@@ -186,6 +186,98 @@ async def test_training_log_csv_export(client, db_session, make_tenant, make_use
 
 
 @pytest.mark.asyncio
+async def test_training_log_search_and_csv_share_tenant_scoped_filter(
+    client, db_session, make_tenant, make_user, make_course
+):
+    """A name/email/personnel-number search must narrow both table and CSV."""
+    tenant = await make_tenant(name="Acme", slug="acme-search")
+    admin = await make_user(tenant, role="methodologist", email="admin@search.example")
+    matching = await make_user(
+        tenant,
+        role="student",
+        email="qa.ux@acme.example",
+        first_name="QA",
+        last_name="UX",
+    )
+    matching.personnel_number = "QA-UX-20260723-001"
+    non_matching = await make_user(
+        tenant,
+        role="student",
+        email="other@acme.example",
+        first_name="Other",
+        last_name="Employee",
+    )
+    course = await make_course(tenant, admin, title="Search course")
+    await _enroll(db_session, matching, course)
+    await _enroll(db_session, non_matching, course)
+    await db_session.flush()
+
+    token = await _login(client, admin)
+    headers = {"Authorization": f"Bearer {token}"}
+    for search in ("QA", "qa.ux@acme.example", "QA-UX-20260723-001"):
+        page = await client.get(
+            "/api/v1/admin/training-log",
+            params={"search": search},
+            headers=headers,
+        )
+        assert page.status_code == 200, page.text
+        assert page.headers["cache-control"] == "no-store"
+        assert page.json()["total"] == 1
+        assert page.json()["items"][0]["user_id"] == str(matching.id)
+
+    export = await client.get(
+        "/api/v1/admin/training-log",
+        params={"search": "QA-UX-20260723-001", "format": "csv"},
+        headers=headers,
+    )
+    rows = list(csv.DictReader(io.StringIO(export.content.decode("utf-8-sig")), delimiter=";"))
+    assert len(rows) == 1
+    assert rows[0]["Табельный номер"] == "QA-UX-20260723-001"
+
+
+@pytest.mark.asyncio
+async def test_training_log_summary_matches_filters_and_fresh_enrollment_state(
+    client, db_session, make_tenant, make_user, make_course
+):
+    """The summary is filtered like the table and must not retain stale status counts."""
+    tenant = await make_tenant(name="Acme", slug="acme-summary")
+    admin = await make_user(tenant, role="methodologist", email="admin@summary.example")
+    student = await make_user(tenant, role="student", email="student@summary.example")
+    course = await make_course(tenant, admin, title="Summary course")
+    token = await _login(client, admin)
+    headers = {"Authorization": f"Bearer {token}"}
+
+    before = await client.get("/api/v1/admin/training-log/summary", headers=headers)
+    assert before.status_code == 200
+    assert before.headers["cache-control"] == "no-store"
+    assert before.json() == {"total": 0, "assigned": 0, "in_progress": 0, "completed": 0}
+
+    enrollment = await _enroll(db_session, student, course)
+    after_assignment = await client.get(
+        "/api/v1/admin/training-log/summary?course_id=" + str(course.id), headers=headers
+    )
+    table_after_assignment = await client.get(
+        "/api/v1/admin/training-log?course_id=" + str(course.id), headers=headers
+    )
+    assert after_assignment.json() == {"total": 1, "assigned": 1, "in_progress": 0, "completed": 0}
+    assert table_after_assignment.json()["total"] == after_assignment.json()["total"]
+
+    from datetime import datetime, timezone
+
+    enrollment.status = "completed"
+    enrollment.completed_at = datetime.now(timezone.utc)
+    await db_session.flush()
+    after_completion = await client.get(
+        "/api/v1/admin/training-log/summary?course_id=" + str(course.id), headers=headers
+    )
+    table_after_completion = await client.get(
+        "/api/v1/admin/training-log?course_id=" + str(course.id), headers=headers
+    )
+    assert after_completion.json() == {"total": 1, "assigned": 0, "in_progress": 0, "completed": 1}
+    assert table_after_completion.json()["total"] == after_completion.json()["total"]
+
+
+@pytest.mark.asyncio
 async def test_training_log_pagination(client, db_session, make_tenant, make_user, make_course):
     tenant = await make_tenant(name="Acme", slug="acme-p")
     admin = await make_user(tenant, role="methodologist", email="admin@p.example")

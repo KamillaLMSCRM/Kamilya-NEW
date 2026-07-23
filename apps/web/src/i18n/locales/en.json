@@ -85,6 +85,9 @@
     "accountCreated": "Account created! Please login.",
     "passwordMin": "Minimum 8 characters",
     "passwordMinHint": "Password must be at least 8 characters long",
+    "telegramPrerequisite": "Telegram must already be linked to your account before you can sign in.",
+    "telegramInstructions": "Open the Kamilya LMS bot and send it the six-digit code shown here. The code expires in 5 minutes.",
+    "telegramRecovery": "If the code expires or the bot does not respond, request a new code or sign in by email.",
     "company": "Company"
   },
   "landing": {
@@ -980,8 +983,8 @@
       "dateTo": "Date to"
     },
     "summary": {
-      "total": "Total rows: {{count}}",
-      "showing": "Showing {{from}}–{{to}}"
+      "total": "Total rows: {count}",
+      "showing": "Showing {from}–{to}"
     },
     "table": {
       "fullName": "Employee",
@@ -1035,6 +1038,10 @@
     "emailRequired": "Enter a valid email",
     "created": "Invitation created",
     "createError": "Could not create invitation",
+    "demoUnavailable": "Employee invitations are unavailable in the demo",
+    "demoHint": "The demo is a shared sandbox, so it cannot create employee accounts or invitation links.",
+    "permissionError": "Your current role or tenant access does not permit this action.",
+    "serverError": "The invitation service is temporarily unavailable. Please try again later.",
     "linksTitle": "Links to send",
     "manualDeliveryHint": "The link is not sent automatically. Send it through your work channel.",
     "copy": "Copy link",
@@ -1053,11 +1060,12 @@
   "onboarding": {
     "title": "Get your LMS ready",
     "subtitle": "Walk through these steps — each one helps employees get value from the LMS faster.",
-    "progress": "{{done}} of {{total}}",
+    "progress": "{done} of {total}",
     "trial": "Trial",
-    "trialDays": "{{days}} days",
+    "trialDays": "{days} days",
     "users": "users",
     "allSetTitle": "All set — every step is done",
-    "allSetSubtitle": "New employees will land in the training log automatically."
+    "allSetSubtitle": "New employees will land in the training log automatically.",
+    "methodologistRequired": "This step is completed by a methodologist. Switch roles or contact a methodologist."
   }
 }

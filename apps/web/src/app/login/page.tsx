@@ -12,11 +12,13 @@ import { toast } from '@/components/ui/Toast';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 import { getRoleHome } from '@/lib/rolePolicy';
+import { useT } from '@/i18n/useT';
 
 type LoginMode = 'email' | 'telegram';
 
 export default function LoginPage() {
   const router = useRouter();
+  const { t } = useT();
   const { login, accessToken } = useAuthStore();
   const [mode, setMode] = useState<LoginMode>('email');
   const [email, setEmail] = useState('');
@@ -257,9 +259,14 @@ export default function LoginPage() {
         ) : (
           <div className="space-y-6">
             {!telegramCode ? (
-              <Button type="button" className="w-full" onClick={generateTelegramCode} disabled={loading}>
-                {loading ? 'Генерируем...' : 'Получить Telegram-код'}
-              </Button>
+              <>
+                <p className="rounded-md border border-border bg-muted/30 p-3 text-sm text-muted-foreground">
+                  {t('auth.telegramPrerequisite')}
+                </p>
+                <Button type="button" className="w-full" onClick={generateTelegramCode} disabled={loading}>
+                  {loading ? 'Генерируем...' : 'Получить Telegram-код'}
+                </Button>
+              </>
             ) : (
               <>
                 <div className="text-center">
@@ -288,6 +295,10 @@ export default function LoginPage() {
                   Код действителен: <span className="font-medium">{timeLeft}</span>
                 </div>
 
+                <p className="rounded-md border border-border bg-muted/30 p-3 text-sm text-muted-foreground">
+                  {t('auth.telegramInstructions')}
+                </p>
+
                 <div className="text-center">
                   <a
                     href="https://t.me/kamilla_lms_bot"
@@ -309,6 +320,7 @@ export default function LoginPage() {
                   <RefreshCw className="h-4 w-4" aria-hidden="true" />
                   Получить новый код
                 </button>
+                <p className="text-center text-xs text-muted-foreground">{t('auth.telegramRecovery')}</p>
               </>
             )}
           </div>

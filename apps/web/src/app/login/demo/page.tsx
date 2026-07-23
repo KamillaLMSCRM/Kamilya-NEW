@@ -6,6 +6,7 @@ import { useAuthStore } from '@/store/authStore';
 import { clearStoredAuth } from '@/lib/auth';
 import { api } from '@/lib/api';
 import { Logo } from '@/components/brand/Logo';
+import { DEMO_ADMIN_COPY } from '@/lib/demoRoleCopy';
 import { Shield, BookOpen, GraduationCap, ArrowLeft, KeyRound } from 'lucide-react';
 
 interface RoleCard {
@@ -22,11 +23,11 @@ const ROLES: RoleCard[] = [
   {
     role: 'admin',
     title: 'Администратор',
-    description: 'Управление курсами, пользователями и настройками платформы',
+    description: DEMO_ADMIN_COPY.description,
     icon: <Shield className="w-8 h-8" />,
     color: 'text-primary',
     bg: 'bg-primary/10 hover:bg-primary/15 border-primary/20',
-    redirect: '/dashboard',
+    redirect: DEMO_ADMIN_COPY.redirect,
   },
   {
     role: 'methodologist',
