@@ -70,7 +70,7 @@ class Settings(BaseSettings):
     MINIO_BUCKET: str = "lms-content"
     MINIO_USE_SSL: bool = False
 
-    # Qwen (via Cloudflare tunnel) — primary LLM + embeddings provider
+    # Qwen (via Cloudflare tunnel) — fallback LLM + primary embeddings provider
     QWEN_API_URL: str = "https://qwen.kml.kz/v1"
     QWEN_EMBEDDING_URL: str = "https://qwen-embed.kml.kz/v1"
     EMBEDDING_URL: str = "https://qwen-embed.kml.kz/v1"
@@ -81,8 +81,8 @@ class Settings(BaseSettings):
     LLM_API_KEY: str = ""
     LLM_MODEL: str = "cyankiwi/Qwen3.6-35B-A3B-AWQ-4bit"
 
-    # DeepSeek — LLM fallback (cost). Activated only when DEEPSEEK_API_KEY is set
-    # and the primary Qwen endpoint fails. Pricing (per 1M tokens, June 2026):
+    # DeepSeek — primary managed LLM. Activated when DEEPSEEK_API_KEY is set;
+    # Qwen remains the fallback. Pricing (per 1M tokens, July 2026):
     #   deepseek-v4-flash  $0.14 in / $0.28 out
     #   deepseek-v4-pro    $0.435 in / $0.87 out
     # Endpoint is OpenAI-compatible (https://api.deepseek.com/v1).

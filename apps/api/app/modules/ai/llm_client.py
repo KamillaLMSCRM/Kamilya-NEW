@@ -3,10 +3,10 @@
 Chain architecture (June 2026):
 
   LLM chain:
-    1. Qwen self-hosted (Qwen3.6-35B-A3B-AWQ-4bit via Cloudflare tunnel)
-       → primary, free, low latency
-    2. DeepSeek v4-flash via direct DeepSeek API (api.deepseek.com/v1)
-       → fallback when Qwen is down. $0.14/M in, $0.28/M out.
+    1. DeepSeek v4-flash via direct DeepSeek API (api.deepseek.com/v1)
+       → primary, reliable managed API. $0.14/M in, $0.28/M out.
+    2. Qwen self-hosted (Qwen3.6-35B-A3B-AWQ-4bit via Cloudflare tunnel)
+       → fallback, free
 
   Embeddings chain:
     1. Qwen self-hosted (Qwen3-Embedding-8B)
@@ -371,18 +371,19 @@ class ResilientLLMClient:
         """Build the production chain from env-only settings.
 
         Order:
-          1. Qwen self-hosted (always present)
-          2. DeepSeek (only if DEEPSEEK_API_KEY is set in env)
+          1. DeepSeek (only if DEEPSEEK_API_KEY is set in env)
+          2. Qwen self-hosted (always present)
 
         Does NOT consult the provider_keys table — used by tests and
         legacy callers that don't pass a DB session. Production code
         should use `from_settings_async()` to also pick up keys stored
         in the superadmin-managed provider_keys table.
         """
-        providers: list[LLMProviderConfig] = [_qwen_llm_provider()]
+        providers: list[LLMProviderConfig] = []
         deepseek = _deepseek_llm_provider()
         if deepseek is not None:
             providers.append(deepseek)
+        providers.append(_qwen_llm_provider())
         return cls(
             providers,
             temperature=temperature,
@@ -412,7 +413,7 @@ class ResilientLLMClient:
 
         s = get_settings()
         qwen = _qwen_llm_provider()  # always present
-        providers: list[LLMProviderConfig] = [qwen]
+        providers: list[LLMProviderConfig] = []
 
         deepseek_key = await _resolve_db_key("deepseek", s.DEEPSEEK_API_KEY)
         if deepseek_key:
@@ -431,6 +432,7 @@ class ResilientLLMClient:
             else:
                 cfg = replace(cfg, api_key=deepseek_key)
             providers.append(cfg)
+        providers.append(qwen)
 
         return cls(
             providers,

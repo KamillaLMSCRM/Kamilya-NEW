@@ -24,6 +24,7 @@ from app.modules.ai.llm_client import (
     ResilientLLMClient,
     _LLMResponse,
 )
+from app.modules.ai import llm_client
 
 
 def _make_client(name: str, *, succeed_after: int = 0, fail_with: Exception | None = None) -> LLMClient:
@@ -155,6 +156,39 @@ def test_resilient_llm_provider_names():
         ]
     )
     assert chain.provider_names == ["qwen-self-hosted", "deepseek"]
+
+
+def test_settings_chain_prefers_deepseek_when_configured(monkeypatch):
+    deepseek = LLMProviderConfig(
+        name="deepseek", base_url="https://deepseek.test", api_key="key", model="flash"
+    )
+    qwen = LLMProviderConfig(
+        name="qwen-self-hosted", base_url="https://qwen.test", api_key="key", model="qwen"
+    )
+    monkeypatch.setattr(llm_client, "_deepseek_llm_provider", lambda: deepseek)
+    monkeypatch.setattr(llm_client, "_qwen_llm_provider", lambda: qwen)
+
+    chain = ResilientLLMClient.from_settings()
+
+    assert chain.provider_names == ["deepseek", "qwen-self-hosted"]
+
+
+@pytest.mark.asyncio
+async def test_async_settings_chain_prefers_db_deepseek_key(monkeypatch):
+    qwen = LLMProviderConfig(
+        name="qwen-self-hosted", base_url="https://qwen.test", api_key="key", model="qwen"
+    )
+    monkeypatch.setattr(llm_client, "_qwen_llm_provider", lambda: qwen)
+    monkeypatch.setattr(llm_client, "_deepseek_llm_provider", lambda: None)
+
+    async def resolve_key(provider, env_key):
+        return "db-deepseek-key"
+
+    monkeypatch.setattr(llm_client, "_resolve_db_key", resolve_key)
+
+    chain = await ResilientLLMClient.from_settings_async()
+
+    assert chain.provider_names == ["deepseek", "qwen-self-hosted"]
 
 
 # ---------------------------------------------------------------------------
