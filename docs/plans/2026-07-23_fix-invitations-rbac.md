@@ -1,6 +1,6 @@
 # Fix methodologist invitation RBAC
 
-**Status:** completed; production verification pending deployment
+**Status:** completed and production-verified
 **Date:** 2026-07-23
 **Scope:** Restore the canonical methodologist workflow for listing and creating learner invitations without weakening tenant isolation or changing unrelated admin/training-log work.
 
@@ -42,9 +42,14 @@ web `npm.cmd test -- --run` passed (10 files, 91 tests); Windows-compatible
 outside the component callback and prevented Demo tenants from making the history
 request that had produced the confusing `403`.
 
+**Production verification:** Vercel and Render deployed revision `5675f2b`.
+In an authenticated Demo methodologist session, `/admin/invitations` rendered the
+explicit sandbox explanation, no invitation-create control, an empty local history,
+and no error notification. The non-Demo mutation path remains integration-tested.
+
 **Remaining risk:** A non-Demo production methodologist account is not currently
 available for destructive invite creation. Non-Demo behavior is therefore covered
-by integration tests; the Demo behavior will be smoke-tested after deployment.
+by integration tests rather than a production write.
 
 **Production smoke after deployment:** (1) sign in to an isolated non-Demo tenant as active `methodologist`; (2) open `/admin/invitations` and confirm `GET /api/v1/users/invitations?per_page=100` is `200`; (3) create a disposable student invite and copy its URL; (4) reload and confirm history contains it; (5) open URL in a clean browser context, accept it, and confirm the student session; (6) resend an expired invite and confirm the old URL is rejected while the new URL works; (7) use a second tenant methodologist against the first tenant invitation ID and confirm `404`.
 

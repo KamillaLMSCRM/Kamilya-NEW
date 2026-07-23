@@ -48,4 +48,12 @@ Integration review also corrected the existing onboarding progress/trial templat
 from double to single braces and added regression assertions for rendered RU/KK/EN
 copy. The package build script itself remains POSIX-only on Windows; pre-existing
 lint warnings remain outside this scope.
-**Status:** done; production verification pending deployment
+**Production verification:** On revision `5675f2b`, the Demo admin selector
+described organization settings rather than course creation and landed on
+`/admin`. The admin checklist rendered methodologist-owned steps as non-links with
+the hand-off explanation, while kiosk and training-log steps remained actionable.
+The progress label rendered `6 из 7`. The login flow showed the Telegram
+prerequisite, bot destination, five-minute expiry, new-code action, and email
+fallback. The Kazakhstan tenant form used `ТОО`, `.kz`, `+7`, and `БИН/ИИН`, had
+localized password guidance, and contained no Russia references.
+**Status:** done and production-verified

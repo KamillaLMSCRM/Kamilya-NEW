@@ -70,7 +70,7 @@ tenant isolation, role ownership, invitation/auth flows, or unrelated localizati
 
 ### Step 4
 
-- Status: completed; production verification pending deployment
+- Status: completed and production-verified
 - Passed after starting the local pgvector/PostgreSQL service and migrating an
   isolated `kamilya_lms_test` database: combined invitation and training-log suite
   (24 tests), backend `compileall`, frontend `npm.cmd test -- --run` (10 files,
@@ -84,3 +84,7 @@ tenant isolation, role ownership, invitation/auth flows, or unrelated localizati
   editing and was refreshed with `graphify . --update --code-only`. A normal
   update first stopped because document semantic extraction has no configured LLM
   key; code-only indexing completed successfully.
+- Production verification on revision `5675f2b`: searching for
+  `QA-UX-20260723-001` reduced the table from two rows to the single matching
+  employee, changed the filtered summary/total to one, rendered `Показаны 1–1`,
+  and exposed no placeholder braces or browser errors.
