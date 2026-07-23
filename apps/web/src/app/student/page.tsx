@@ -12,6 +12,7 @@ interface EnrolledCourse {
   title: string;
   description: string;
   status: string;
+  enrollment_status: string;
   progress_percent: number;
   total_lessons: number;
   completed_lessons: number;
@@ -123,7 +124,7 @@ export default function StudentDashboardPage() {
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between mb-2">
                     <h3 className="font-medium line-clamp-2">{course.title}</h3>
-                    {course.progress_percent === 100 ? (
+                    {course.enrollment_status === 'completed' ? (
                       <Badge variant="default" className="flex items-center gap-1 bg-success/15 text-success">
                         <CheckCircle2 className="w-3 h-3" />
                       </Badge>
@@ -146,15 +147,15 @@ export default function StudentDashboardPage() {
                   </div>
 
                   <div className="flex gap-2">
-                    <a href={`/courses/${course.course_id}`} className="flex-1">
+                    <Link href={`/courses/${course.course_id}`} className="flex-1">
                       <Button variant="outline" className="w-full" size="sm">
                         {course.progress_percent === 0 ? t('courses.startCourse') : t('courses.continueCourse')}
                       </Button>
-                    </a>
-                    {course.progress_percent === 100 && (
-                      <a href="/certificates">
+                    </Link>
+                    {course.enrollment_status === 'completed' && (
+                      <Link href="/certificates">
                         <Button size="sm">{t('courses.viewCertificate')}</Button>
-                      </a>
+                      </Link>
                     )}
                   </div>
                 </CardContent>

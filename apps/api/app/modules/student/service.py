@@ -82,6 +82,7 @@ async def get_student_dashboard(db: AsyncSession, user_id: UUID, tenant_id: UUID
             "title": course.title,
             "description": course.description or "",
             "status": course.status,
+            "enrollment_status": enrollment.status,
             "delivery_type": getattr(course, "delivery_type", "native"),
             "progress_percent": progress_percent,
             "total_lessons": total_lessons,
@@ -104,7 +105,7 @@ async def get_student_dashboard(db: AsyncSession, user_id: UUID, tenant_id: UUID
     certificates_count = cert_count_result.scalar() or 0
 
     total_progress = round((completed_lessons_all / total_lessons_all * 100) if total_lessons_all > 0 else 0)
-    completed_courses = sum(1 for c in enrolled_courses if c["progress_percent"] == 100)
+    completed_courses = sum(1 for c in enrolled_courses if c["enrollment_status"] == "completed")
 
     return {
         "user_id": user_id,

@@ -229,10 +229,10 @@ export default function CoursePlayerPage() {
         if (dashboardRes.ok) {
           const dashboard = await dashboardRes.json();
           const enrolledCourse = (dashboard.enrolled_courses || []).find(
-            (item: { course_id: string }) => item.course_id === courseId
+            (item: { course_id: string; enrollment_status?: string }) => item.course_id === courseId
           );
           setEnrolled(Boolean(enrolledCourse));
-          setCourseCompleted(enrolledCourse?.progress_percent === 100);
+          setCourseCompleted(enrolledCourse?.enrollment_status === 'completed');
         } else {
           setEnrolled(false);
         }

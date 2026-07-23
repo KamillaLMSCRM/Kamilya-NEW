@@ -22,6 +22,7 @@ class EnrolledCourse(BaseModel):
     title: str
     description: str
     status: str
+    enrollment_status: str
     progress_percent: int = 0
     total_lessons: int = 0
     completed_lessons: int = 0
