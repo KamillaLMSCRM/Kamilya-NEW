@@ -45,4 +45,16 @@ the GitHub workflow provisions its own pgvector PostgreSQL container.
 
 ## Step 4 — publish and production
 
-**Status:** 🚧 in progress
+**What changed:** Pushed `afab37a`. GitHub Actions run `30008558066`
+completed successfully across all seven jobs, including the pgvector-backed
+pytest/coverage job. Render deployment `dep-d9h0t1rtqb8s73ed6a40` is live on
+that revision and `/health` returns HTTP 200.
+
+**Production exception:** The standalone Docling service cannot yet receive
+the OCR revision. Its public hostname fails TLS negotiation and the saved VPS
+password is rejected; no valid private key is present on this workstation.
+The repository-side OCR configuration is tested, but production OCR must not
+be reported as enabled until VPS access is restored, dependencies are installed,
+the service is restarted, and an image-only PDF smoke test returns its text.
+
+**Status:** ⚠️ partial — API/CI complete; Docling VPS access required
