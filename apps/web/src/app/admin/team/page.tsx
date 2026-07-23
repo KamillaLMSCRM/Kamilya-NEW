@@ -47,7 +47,6 @@ export default function AdminTeamPage() {
   // never be created from this tenant-level surface.
   const [newUser, setNewUser] = useState<NewUserForm>(createEmptyNewUser);
   const [createFormKey, setCreateFormKey] = useState(0);
-  const [createFormUnlocked, setCreateFormUnlocked] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [teamError, setTeamError] = useState('');
   const [matchedAccount, setMatchedAccount] = useState<User | null>(null);
@@ -119,7 +118,6 @@ export default function AdminTeamPage() {
     setCreateError('');
     setNewUser(createEmptyNewUser());
     setMatchedAccount(null);
-    setCreateFormUnlocked(false);
     setCreateFormKey((key) => key + 1);
     setShowCreateModal(true);
   };
@@ -130,7 +128,6 @@ export default function AdminTeamPage() {
       setCreateError('');
       setNewUser(createEmptyNewUser());
       setMatchedAccount(null);
-      setCreateFormUnlocked(false);
       setCreateFormKey((key) => key + 1);
     }
   };
@@ -413,8 +410,6 @@ export default function AdminTeamPage() {
               data-lpignore="true"
               data-1p-ignore="true"
               data-form-type="other"
-              readOnly={!createFormUnlocked}
-              onFocus={() => setCreateFormUnlocked(true)}
               value={newUser.email}
               onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
             />
@@ -437,8 +432,6 @@ export default function AdminTeamPage() {
               autoComplete="off"
               data-lpignore="true"
               data-1p-ignore="true"
-              readOnly={!createFormUnlocked}
-              onFocus={() => setCreateFormUnlocked(true)}
               value={newUser.first_name}
               onChange={(e) => setNewUser({ ...newUser, first_name: e.target.value })}
             />
@@ -450,8 +443,6 @@ export default function AdminTeamPage() {
               autoComplete="off"
               data-lpignore="true"
               data-1p-ignore="true"
-              readOnly={!createFormUnlocked}
-              onFocus={() => setCreateFormUnlocked(true)}
               value={newUser.last_name}
               onChange={(e) => setNewUser({ ...newUser, last_name: e.target.value })}
             />
@@ -481,8 +472,6 @@ export default function AdminTeamPage() {
               data-lpignore="true"
               data-1p-ignore="true"
               data-form-type="other"
-              readOnly={!createFormUnlocked}
-              onFocus={() => setCreateFormUnlocked(true)}
               value={newUser.password}
               onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
             />
