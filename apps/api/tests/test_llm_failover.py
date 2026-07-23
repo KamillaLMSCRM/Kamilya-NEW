@@ -191,6 +191,39 @@ async def test_async_settings_chain_prefers_db_deepseek_key(monkeypatch):
     assert chain.provider_names == ["deepseek", "qwen-self-hosted"]
 
 
+def test_embeddings_settings_chain_prefers_voyage(monkeypatch):
+    voyage = LLMProviderConfig(
+        name="voyage", base_url="https://voyage.test", api_key="key", model="voyage"
+    )
+    qwen = LLMProviderConfig(
+        name="qwen-self-hosted", base_url="https://qwen.test", api_key="key", model="qwen"
+    )
+    monkeypatch.setattr(llm_client, "_voyage_embed_provider", lambda: voyage)
+    monkeypatch.setattr(llm_client, "_qwen_embed_provider", lambda: qwen)
+
+    chain = ResilientEmbeddingsClient.from_settings()
+
+    assert chain.provider_names == ["voyage", "qwen-self-hosted"]
+
+
+@pytest.mark.asyncio
+async def test_async_embeddings_chain_prefers_db_voyage_key(monkeypatch):
+    qwen = LLMProviderConfig(
+        name="qwen-self-hosted", base_url="https://qwen.test", api_key="key", model="qwen"
+    )
+    monkeypatch.setattr(llm_client, "_qwen_embed_provider", lambda: qwen)
+    monkeypatch.setattr(llm_client, "_voyage_embed_provider", lambda: None)
+
+    async def resolve_key(provider, env_key):
+        return "db-voyage-key"
+
+    monkeypatch.setattr(llm_client, "_resolve_db_key", resolve_key)
+
+    chain = await ResilientEmbeddingsClient.from_settings_async()
+
+    assert chain.provider_names == ["voyage", "qwen-self-hosted"]
+
+
 # ---------------------------------------------------------------------------
 # Embeddings chain tests (same structure, separate surface)
 # ---------------------------------------------------------------------------

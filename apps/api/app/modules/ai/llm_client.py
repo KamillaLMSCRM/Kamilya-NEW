@@ -9,10 +9,10 @@ Chain architecture (June 2026):
        → fallback, free
 
   Embeddings chain:
-    1. Qwen self-hosted (Qwen3-Embedding-8B)
-       → primary, free
-    2. Voyage voyage-4-lite via direct Voyage API (api.voyageai.com/v1)
-       → fallback when Qwen is down. Free up to 200M tokens / account.
+    1. Voyage voyage-4-lite via direct Voyage API (api.voyageai.com/v1)
+       → primary managed embeddings. Free up to 200M tokens / account.
+    2. Qwen self-hosted (Qwen3-Embedding-8B)
+       → fallback, free
 
 OpenRouter is intentionally NOT part of the v1 chain. To add a premium
 tier later (Claude Haiku for reviewer), extend the providers list at
@@ -542,8 +542,8 @@ class ResilientEmbeddingsClient:
     """Embeddings client with automatic failover across providers.
 
     Chain:
-      1. Qwen self-hosted (always present)
-      2. Voyage (only if VOYAGE_API_KEY is set)
+      1. Voyage (only if VOYAGE_API_KEY is set)
+      2. Qwen self-hosted (always present)
     """
 
     def __init__(
@@ -565,10 +565,11 @@ class ResilientEmbeddingsClient:
     @classmethod
     def from_settings(cls, max_retries_per_provider: int = 2) -> "ResilientEmbeddingsClient":
         """Build the embeddings chain from env-only settings (tests/legacy)."""
-        providers: list[LLMProviderConfig] = [_qwen_embed_provider()]
+        providers: list[LLMProviderConfig] = []
         voyage = _voyage_embed_provider()
         if voyage is not None:
             providers.append(voyage)
+        providers.append(_qwen_embed_provider())
         return cls(providers, max_retries_per_provider=max_retries_per_provider)
 
     @classmethod
@@ -584,7 +585,7 @@ class ResilientEmbeddingsClient:
         from dataclasses import replace
 
         s = get_settings()
-        providers: list[LLMProviderConfig] = [_qwen_embed_provider()]
+        providers: list[LLMProviderConfig] = []
 
         voyage_key = await _resolve_db_key("voyage", s.VOYAGE_API_KEY)
         if voyage_key:
@@ -600,6 +601,7 @@ class ResilientEmbeddingsClient:
             else:
                 cfg = replace(cfg, api_key=voyage_key)
             providers.append(cfg)
+        providers.append(_qwen_embed_provider())
 
         return cls(providers, max_retries_per_provider=max_retries_per_provider)
 

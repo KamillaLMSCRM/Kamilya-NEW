@@ -70,7 +70,7 @@ class Settings(BaseSettings):
     MINIO_BUCKET: str = "lms-content"
     MINIO_USE_SSL: bool = False
 
-    # Qwen (via Cloudflare tunnel) — fallback LLM + primary embeddings provider
+    # Qwen (via Cloudflare tunnel) — fallback LLM and embeddings provider
     QWEN_API_URL: str = "https://qwen.kml.kz/v1"
     QWEN_EMBEDDING_URL: str = "https://qwen-embed.kml.kz/v1"
     EMBEDDING_URL: str = "https://qwen-embed.kml.kz/v1"
@@ -90,10 +90,10 @@ class Settings(BaseSettings):
     DEEPSEEK_BASE_URL: str = "https://api.deepseek.com/v1"
     DEEPSEEK_MODEL: str = "deepseek-v4-flash"
 
-    # Voyage AI — embeddings fallback. Endpoint is OpenAI-compatible
+    # Voyage AI — primary managed embeddings provider. Endpoint is OpenAI-compatible
     # (https://api.voyageai.com/v1). Free tier: 200M tokens per account for
     # voyage-4-lite/voyage-4/voyage-context-3. Activated only when
-    # VOYAGE_API_KEY is set and Qwen embeddings fail.
+    # VOYAGE_API_KEY is set; Qwen embeddings remain the fallback.
     #   voyage-4-lite        $0.02/M  (free up to 200M)
     #   voyage-4             $0.06/M  (free up to 200M)
     #   voyage-multilingual-2 $0.12/M (free up to 50M)
