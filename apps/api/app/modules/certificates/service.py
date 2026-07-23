@@ -106,6 +106,7 @@ async def issue_certificate(
         select(Certificate).where(
             Certificate.user_id == user_id,
             Certificate.course_id == course_id,
+            Certificate.tenant_id == tenant_id,
         )
     )
     existing = existing_result.scalar_one_or_none()
@@ -254,6 +255,7 @@ async def get_pdf_url(
 async def verify_certificate(db: AsyncSession, certificate_number: str) -> dict | None:
     """Verify a certificate by number (public endpoint)."""
     result = await db.execute(
+        # tenant-gate: allow - public lookup by globally unique certificate number.
         select(Certificate).where(Certificate.certificate_number == certificate_number)
     )
     cert = result.scalar_one_or_none()

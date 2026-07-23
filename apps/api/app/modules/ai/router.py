@@ -418,7 +418,9 @@ async def _fetch_course_summary(db: AsyncSession, course_id: UUID, tenant_id: UU
     ]
     for m in modules:
         lessons_q = await db.execute(
-            select(Lesson).where(Lesson.module_id == m.id).order_by(Lesson.order_index)
+            select(Lesson)
+            .where(Lesson.module_id == m.id, Lesson.tenant_id == tenant_id)
+            .order_by(Lesson.order_index)
         )
         lessons = lessons_q.scalars().all()
         lines.append(f"  Модуль {m.order_index+1}: {m.title}")
@@ -442,7 +444,9 @@ async def _fetch_target_context(
         if not m or m.course_id != course_id or m.tenant_id != tenant_id:
             return ""
         lessons_q = await db.execute(
-            select(Lesson).where(Lesson.module_id == m.id).order_by(Lesson.order_index)
+            select(Lesson)
+            .where(Lesson.module_id == m.id, Lesson.tenant_id == tenant_id)
+            .order_by(Lesson.order_index)
         )
         lessons = lessons_q.scalars().all()
         body = [f"Фокус: модуль «{m.title}» (id={target_id})", f"Описание: {m.description or '(пусто)'}"]
@@ -634,11 +638,16 @@ async def _regenerate_module_job(
 
             course = (
                 await session.execute(
-                    select(Course).where(Course.id == module.course_id)
+                    select(Course).where(
+                        Course.id == module.course_id,
+                        Course.tenant_id == tenant_id,
+                    )
                 )
             ).scalar_one()
             old_lessons_q = await session.execute(
-                select(Lesson).where(Lesson.module_id == module_id).order_by(Lesson.order_index)
+                select(Lesson)
+                .where(Lesson.module_id == module_id, Lesson.tenant_id == tenant_id)
+                .order_by(Lesson.order_index)
             )
             old_lessons = old_lessons_q.scalars().all()
 
@@ -719,7 +728,10 @@ async def _regenerate_module_job(
 
                 # Regenerate quiz for this lesson (delete old, create new).
                 old_quizzes = (await session.execute(
-                    select(Quiz).where(Quiz.lesson_id == old_l.id)
+                    select(Quiz).where(
+                        Quiz.lesson_id == old_l.id,
+                        Quiz.tenant_id == tenant_id,
+                    )
                 )).scalars().all()
                 for q in old_quizzes:
                     await session.delete(q)
@@ -822,7 +834,10 @@ async def _regenerate_lesson_job(
                 raise ValueError("Lesson not found")
             module = await session.get(Module, lesson.module_id)
             course = (await session.execute(
-                select(Course).where(Course.id == module.course_id)
+                select(Course).where(
+                    Course.id == module.course_id,
+                    Course.tenant_id == tenant_id,
+                )
             )).scalar_one()
 
             llm = await ResilientLLMClient.from_settings_async(temperature=0.7, max_tokens=2000)
@@ -843,7 +858,10 @@ async def _regenerate_lesson_job(
             if regenerate_quiz:
                 # delete old quizzes (cascade clears questions/choices)
                 old_qs = (await session.execute(
-                    select(Quiz).where(Quiz.lesson_id == lesson.id)
+                    select(Quiz).where(
+                        Quiz.lesson_id == lesson.id,
+                        Quiz.tenant_id == tenant_id,
+                    )
                 )).scalars().all()
                 for q in old_qs:
                     await session.delete(q)

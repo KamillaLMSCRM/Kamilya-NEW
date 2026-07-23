@@ -85,6 +85,7 @@ async def register_by_telegram(
 
     # 1. telegram_id must be globally unique across all tenants
     existing = (
+        # tenant-gate: allow - globally unique Telegram ID check before tenant selection.
         await db.execute(select(User).where(User.telegram_id == req.telegram_id))
     ).scalar_one_or_none()
     if existing is not None:

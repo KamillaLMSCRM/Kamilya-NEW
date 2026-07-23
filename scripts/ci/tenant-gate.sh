@@ -60,30 +60,6 @@ for model in "${TENANT_MODELS[@]}"; do
   fi
 done
 
-# The gate normally requires a direct tenant_id predicate. These reviewed
-# locations are bounded by a previously tenant-scoped parent or intentionally
-# public data. Keep the allowlist line-specific so any new unscoped query
-# fails until it receives an explicit security review.
-REVIEWED_SCOPE_LOOKUPS=(
-  # Public registration must check globally unique identities before a tenant exists.
-  "apps/api/app/modules/auth/telegram_register.py:88:User"
-  "apps/api/app/modules/tenants/router.py:141:User"
-  # AI rewrites first validate the module/lesson tenant, then use its descendants.
-  "apps/api/app/modules/ai/router.py:621:Course"
-  "apps/api/app/modules/ai/router.py:625:Lesson"
-  "apps/api/app/modules/ai/router.py:706:Quiz"
-  "apps/api/app/modules/ai/router.py:809:Course"
-  "apps/api/app/modules/ai/router.py:830:Quiz"
-  # Questions are bounded by a tenant-filtered quiz set in the same service.
-  "apps/api/app/modules/quizzes/service.py:56:Question"
-  # Kiosk courses/enrollments are bounded by the tenant-scoped kiosk link.
-  "apps/api/app/modules/users/kiosk_service.py:237:Position"
-  "apps/api/app/modules/users/kiosk_service.py:363:Course"
-  "apps/api/app/modules/users/kiosk_service.py:369:Enrollment"
-  # Public certificate-number verification is deliberately cross-tenant.
-  "apps/api/app/modules/certificates/service.py:250:Certificate"
-)
-
 violations=0
 checked=0
 
@@ -93,13 +69,6 @@ for model in "${FILTERED_MODELS[@]}"; do
   # skip checks or abort the gate under `set -u`.
   while IFS=: read -r file lineno _source; do
     [ -n "${file}" ] || continue
-
-    for allowed in "${REVIEWED_SCOPE_LOOKUPS[@]}"; do
-      if [ "${file}:${lineno}:${model}" = "${allowed}" ]; then
-        checked=$((checked + 1))
-        continue 2
-      fi
-    done
 
     # Skip whitelisted (annotation).
     if sed -n "${lineno}p" "${file}" | grep -q "tenant-gate: allow"; then

@@ -140,6 +140,7 @@ async def register_tenant(
     db: AsyncSession = Depends(get_db),
 ):
     existing_user = (
+        # tenant-gate: allow - globally unique email check before a tenant exists.
         await db.execute(select(User.id).where(User.email == payload.email))
     ).scalar_one_or_none()
     if existing_user is not None:

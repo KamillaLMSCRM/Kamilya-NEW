@@ -261,7 +261,10 @@ async def get_public_kiosk(db: AsyncSession, token: str) -> dict:
     pos_name = None
     if link.scope_position_id:
         pos_result = await db.execute(
-            select(Position).where(Position.id == link.scope_position_id)
+            select(Position).where(
+                Position.id == link.scope_position_id,
+                Position.tenant_id == link.tenant_id,
+            )
         )
         pos = pos_result.scalar_one_or_none()
         pos_name = pos.name if pos else None
@@ -406,7 +409,10 @@ async def identify_at_kiosk(
     courses_data: list[dict] = [] 
     if course_ids:
         course_result = await db.execute(
-            select(Course).where(Course.id.in_(course_ids))
+            select(Course).where(
+                Course.id.in_(course_ids),
+                Course.tenant_id == link.tenant_id,
+            )
         )
         courses = course_result.scalars().all()
         for c in courses:
@@ -415,6 +421,7 @@ async def identify_at_kiosk(
                 select(Enrollment).where(
                     Enrollment.user_id == user.id,
                     Enrollment.course_id == c.id,
+                    Enrollment.tenant_id == link.tenant_id,
                 )
             )
             enr = enr_status_result.scalar_one_or_none()
@@ -439,7 +446,12 @@ async def identify_at_kiosk(
     # Get position name for display
     pos_name = None
     if user.position_id:
-        pos_result = await db.execute(select(Position).where(Position.id == user.position_id))
+        pos_result = await db.execute(
+            select(Position).where(
+                Position.id == user.position_id,
+                Position.tenant_id == link.tenant_id,
+            )
+        )
         pos = pos_result.scalar_one_or_none()
         pos_name = pos.name if pos else None
 

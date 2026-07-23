@@ -15,20 +15,54 @@ app = FastAPI(title="Docling Converter", version="1.0")
 
 # Lazy load converter
 _converter = None
+OCR_LANGUAGES = [
+    language.strip()
+    for language in os.getenv("DOCLING_OCR_LANGUAGES", "ru,en").split(",")
+    if language.strip()
+]
 
 
 def get_converter():
     global _converter
     if _converter is None:
-        from docling.document_converter import DocumentConverter as DoclingConverter
-        _converter = DoclingConverter()
-        logger.info("Docling converter loaded")
+        from docling.datamodel.base_models import InputFormat
+        from docling.datamodel.pipeline_options import EasyOcrOptions, PdfPipelineOptions
+        from docling.document_converter import (
+            DocumentConverter as DoclingConverter,
+            PdfFormatOption,
+        )
+
+        pdf_options = PdfPipelineOptions(
+            do_ocr=True,
+            do_table_structure=True,
+            ocr_options=EasyOcrOptions(
+                lang=OCR_LANGUAGES,
+                download_enabled=True,
+            ),
+        )
+        _converter = DoclingConverter(
+            format_options={
+                InputFormat.PDF: PdfFormatOption(pipeline_options=pdf_options),
+            }
+        )
+        logger.info(
+            "Docling converter loaded with OCR enabled (engine=easyocr, languages=%s)",
+            ",".join(OCR_LANGUAGES),
+        )
     return _converter
 
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "service": "docling"}
+    return {
+        "status": "ok",
+        "service": "docling",
+        "ocr": {
+            "enabled": True,
+            "engine": "easyocr",
+            "languages": OCR_LANGUAGES,
+        },
+    }
 
 
 @app.post("/convert")

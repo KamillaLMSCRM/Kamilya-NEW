@@ -54,7 +54,10 @@ async def get_quizzes_with_questions(
     # Query 2 — all questions across these quizzes, ordered.
     questions_result = await db.execute(
         select(Question)
-        .where(Question.quiz_id.in_(valid_quiz_ids))
+        .where(
+            Question.quiz_id.in_(valid_quiz_ids),
+            Question.tenant_id == tenant_id,
+        )
         .order_by(Question.quiz_id, Question.order_index)
     )
     questions = questions_result.scalars().all()

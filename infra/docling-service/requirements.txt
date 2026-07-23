@@ -1,4 +1,4 @@
-docling>=2.0
+docling[easyocr]>=2.0
 fastapi
 uvicorn[standard]
 httpx
