@@ -167,7 +167,7 @@ export default function QuizPlayerPage() {
         if (attemptsRes.ok) setAttempts(await attemptsRes.json());
         toast.dismiss();
         toast.success(
-          `${data.passed ? 'Тест пройден!' : 'Тест завершён'} Результат: ${data.score_percent ?? 0}%`,
+          `${data.passed ? 'Тест пройден!' : 'Тест завершён'} Результат: ${data.attempt.score_percent}%`,
         );
       } else {
         const err = await res.json();
