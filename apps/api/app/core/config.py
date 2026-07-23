@@ -101,6 +101,12 @@ class Settings(BaseSettings):
     VOYAGE_BASE_URL: str = "https://api.voyageai.com/v1"
     VOYAGE_MODEL: str = "voyage-4-lite"
 
+    # Cohere managed embeddings fallback. Its API uses the native v2
+    # /embed schema rather than the OpenAI-compatible /embeddings schema.
+    COHERE_API_KEY: str = ""
+    COHERE_BASE_URL: str = "https://api.cohere.com/v2"
+    COHERE_EMBED_MODEL: str = "embed-v4.0"
+
     # Telegram Bot
     TELEGRAM_BOT_TOKEN: str = ""
     # If empty, the server generates a random secret at startup

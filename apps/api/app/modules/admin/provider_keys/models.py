@@ -31,6 +31,7 @@ class ProviderName(str, enum.Enum):
 
     DEEPSEEK = "deepseek"
     VOYAGE = "voyage"
+    COHERE = "cohere"
     # Future: OPENROUTER = "openrouter"
 
 
@@ -48,7 +49,7 @@ class ProviderKey(Base):
         # Postgres treats NULLs as distinct in standard UNIQUE, so we use a
         # partial unique index instead — see migration 0028.
         CheckConstraint(
-            "provider IN ('deepseek', 'voyage')",
+            "provider IN ('deepseek', 'voyage', 'cohere')",
             name="ck_provider_keys_provider",
         ),
     )

@@ -19,7 +19,11 @@ from app.modules.admin.provider_keys.schemas import (
     ProviderKeyTestResult,
     ProviderKeyUpdate,
 )
-from app.modules.ai.llm_client import _deepseek_llm_provider, _voyage_embed_provider
+from app.modules.ai.llm_client import (
+    _cohere_embed_provider,
+    _deepseek_llm_provider,
+    _voyage_embed_provider,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -232,6 +236,51 @@ class ProviderKeyService:
                     resp = await client.post(
                         f"{cfg.base_url}/embeddings",
                         json={"model": cfg.model, "input": ["ping"]},
+                        headers={"Authorization": f"Bearer {cfg.api_key}"},
+                    )
+                latency_ms = int((time.perf_counter() - started) * 1000)
+                if resp.status_code == 200:
+                    return ProviderKeyTestResult(
+                        ok=True, latency_ms=latency_ms,
+                        provider=provider, error=None,
+                    )
+                if resp.status_code in (401, 403):
+                    return ProviderKeyTestResult(
+                        ok=False, latency_ms=latency_ms,
+                        provider=provider, error=f"auth failed ({resp.status_code})",
+                    )
+                return ProviderKeyTestResult(
+                    ok=False, latency_ms=latency_ms,
+                    provider=provider,
+                    error=f"unexpected status {resp.status_code}",
+                )
+            if provider == "cohere":
+                cfg = _cohere_embed_provider()
+                from app.core.config import get_settings
+                s = get_settings()
+                if cfg is None:
+                    from app.modules.ai.llm_client import LLMProviderConfig
+                    cfg = LLMProviderConfig(
+                        name="cohere",
+                        base_url=s.COHERE_BASE_URL,
+                        api_key=api_key,
+                        model=s.COHERE_EMBED_MODEL,
+                        timeout=15.0,
+                        endpoint="/embed",
+                    )
+                else:
+                    from dataclasses import replace
+                    cfg = replace(cfg, api_key=api_key)
+                async with httpx.AsyncClient(timeout=cfg.timeout) as client:
+                    resp = await client.post(
+                        f"{cfg.base_url}/embed",
+                        json={
+                            "model": cfg.model,
+                            "texts": ["ping"],
+                            "input_type": "search_document",
+                            "embedding_types": ["float"],
+                            "output_dimension": 1024,
+                        },
                         headers={"Authorization": f"Bearer {cfg.api_key}"},
                     )
                 latency_ms = int((time.perf_counter() - started) * 1000)

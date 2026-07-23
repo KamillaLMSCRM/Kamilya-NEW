@@ -58,6 +58,12 @@ services:
         value: "https://api.voyageai.com/v1"
       - key: VOYAGE_MODEL
         value: "voyage-4-lite"
+      - key: COHERE_API_KEY
+        sync: false
+      - key: COHERE_BASE_URL
+        value: "https://api.cohere.com/v2"
+      - key: COHERE_EMBED_MODEL
+        value: "embed-v4.0"
       - key: TELEGRAM_BOT_TOKEN
         sync: false
       - key: EMAIL_PROVIDER

@@ -179,6 +179,21 @@ def _voyage_embed_provider() -> LLMProviderConfig | None:
     )
 
 
+def _cohere_embed_provider() -> LLMProviderConfig | None:
+    """Return Cohere provider only if API key is configured."""
+    s = get_settings()
+    if not s.COHERE_API_KEY:
+        return None
+    return LLMProviderConfig(
+        name="cohere",
+        base_url=s.COHERE_BASE_URL,
+        api_key=s.COHERE_API_KEY,
+        model=s.COHERE_EMBED_MODEL,
+        timeout=30.0,
+        endpoint="/embed",
+    )
+
+
 # ---------------------------------------------------------------------------
 # Low-level provider client
 # ---------------------------------------------------------------------------
@@ -492,11 +507,11 @@ class EmbeddingsClient(_BaseProviderClient):
     def __init__(self, config: LLMProviderConfig | None = None, max_retries: int = 2):
         if config is None:
             config = _qwen_embed_provider()
-        # Always POST to /embeddings, regardless of the LLMProviderConfig's
-        # default endpoint. Without this override every embedding request
-        # would 4xx because _request would hit /chat/completions.
+        # OpenAI-compatible providers use /embeddings. Cohere has a native
+        # v2 /embed endpoint and a different request/response schema.
         from dataclasses import replace
-        config = replace(config, endpoint="/embeddings")
+        endpoint = "/embed" if config.name == "cohere" else "/embeddings"
+        config = replace(config, endpoint=endpoint)
         super().__init__(config=config, max_retries=max_retries)
         self.expected_dimensions = get_settings().EMBEDDING_DIMENSIONS
 
@@ -525,15 +540,29 @@ class EmbeddingsClient(_BaseProviderClient):
         ]
 
     async def _embed(self, texts: list[str], input_type: str) -> list[list[float]]:
-        payload: dict[str, Any] = {
-            "model": self.config.model,
-            "input": texts,
-        }
+        if self.config.name == "cohere":
+            payload: dict[str, Any] = {
+                "model": self.config.model,
+                "texts": texts,
+                "input_type": (
+                    "search_document" if input_type == "document" else "search_query"
+                ),
+                "embedding_types": ["float"],
+                "output_dimension": 1024,
+            }
+        else:
+            payload = {
+                "model": self.config.model,
+                "input": texts,
+            }
         if self.config.name == "voyage":
             payload["input_type"] = input_type
 
         data = await self._request(payload)
-        embeddings = [item["embedding"] for item in data["data"]]
+        if self.config.name == "cohere":
+            embeddings = data["embeddings"]["float"]
+        else:
+            embeddings = [item["embedding"] for item in data["data"]]
         return self._validate_embeddings(embeddings)
 
     async def embed_documents(self, texts: list[str]) -> list[list[float]]:
@@ -549,7 +578,8 @@ class ResilientEmbeddingsClient:
 
     Chain:
       1. Voyage (only if VOYAGE_API_KEY is set)
-      2. Qwen self-hosted (always present)
+      2. Cohere (only if COHERE_API_KEY is set)
+      3. Qwen self-hosted (always present)
     """
 
     def __init__(
@@ -575,6 +605,9 @@ class ResilientEmbeddingsClient:
         voyage = _voyage_embed_provider()
         if voyage is not None:
             providers.append(voyage)
+        cohere = _cohere_embed_provider()
+        if cohere is not None:
+            providers.append(cohere)
         providers.append(_qwen_embed_provider())
         return cls(providers, max_retries_per_provider=max_retries_per_provider)
 
@@ -606,6 +639,21 @@ class ResilientEmbeddingsClient:
                 )
             else:
                 cfg = replace(cfg, api_key=voyage_key)
+            providers.append(cfg)
+        cohere_key = await _resolve_db_key("cohere", s.COHERE_API_KEY)
+        if cohere_key:
+            cfg = _cohere_embed_provider()
+            if cfg is None:
+                cfg = LLMProviderConfig(
+                    name="cohere",
+                    base_url=s.COHERE_BASE_URL,
+                    api_key=cohere_key,
+                    model=s.COHERE_EMBED_MODEL,
+                    timeout=30.0,
+                    endpoint="/embed",
+                )
+            else:
+                cfg = replace(cfg, api_key=cohere_key)
             providers.append(cfg)
         providers.append(_qwen_embed_provider())
 

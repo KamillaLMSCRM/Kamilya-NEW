@@ -656,7 +656,8 @@
     "loadError": "Failed to load keys",
     "providersList": {
       "deepseek": "DeepSeek (LLM fallback)",
-      "voyage": "Voyage (Embeddings fallback)"
+      "voyage": "Voyage (Embeddings primary)",
+      "cohere": "Cohere (Embeddings fallback)"
     },
     "superadminOnly": "Superadmin only"
   },

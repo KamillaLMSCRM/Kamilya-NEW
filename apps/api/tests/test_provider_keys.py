@@ -319,3 +319,30 @@ async def test_test_key_auth_failure(db_session, spy, monkeypatch):
     assert result.ok is False
     assert "auth failed" in (result.error or "")
     assert result.provider == "voyage"
+
+
+@pytest.mark.asyncio
+async def test_cohere_key_probe_uses_native_embed_api(db_session, spy, monkeypatch):
+    svc = ProviderKeyService(db_session)
+    created = await svc.create_key(
+        ProviderKeyCreate(provider="cohere", api_key="cohere-test-key-12345"),
+        uuid.uuid4(),
+    )
+
+    fake_resp = MagicMock()
+    fake_resp.status_code = 200
+    fake_client = AsyncMock()
+    fake_client.__aenter__ = AsyncMock(return_value=fake_client)
+    fake_client.__aexit__ = AsyncMock(return_value=None)
+    fake_client.post = AsyncMock(return_value=fake_resp)
+    monkeypatch.setattr("httpx.AsyncClient", lambda *a, **kw: fake_client)
+
+    result = await svc.test_key(created.id)
+
+    assert result.ok is True
+    assert result.provider == "cohere"
+    url = fake_client.post.await_args.args[0]
+    payload = fake_client.post.await_args.kwargs["json"]
+    assert url == "https://api.cohere.com/v2/embed"
+    assert payload["input_type"] == "search_document"
+    assert payload["output_dimension"] == 1024

@@ -676,7 +676,8 @@
     "loadError": "Не удалось загрузить список ключей",
     "providersList": {
       "deepseek": "DeepSeek (LLM fallback)",
-      "voyage": "Voyage (Embeddings fallback)"
+      "voyage": "Voyage (Embeddings primary)",
+      "cohere": "Cohere (Embeddings fallback)"
     },
     "superadminOnly": "Только для суперадмина"
   },

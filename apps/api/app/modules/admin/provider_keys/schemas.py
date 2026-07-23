@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field, field_validator
 class ProviderKeyCreate(BaseModel):
     """POST /v1/admin/provider-keys — create a new key."""
 
-    provider: str = Field(..., description="One of: 'deepseek', 'voyage'")
+    provider: str = Field(..., description="One of: 'deepseek', 'voyage', 'cohere'")
     api_key: str = Field(..., min_length=8, max_length=512)
     label: str | None = Field(None, max_length=128)
     is_active: bool = True
@@ -18,7 +18,7 @@ class ProviderKeyCreate(BaseModel):
     @field_validator("provider")
     @classmethod
     def validate_provider(cls, v: str) -> str:
-        allowed = {"deepseek", "voyage"}
+        allowed = {"deepseek", "voyage", "cohere"}
         if v not in allowed:
             raise ValueError(f"provider must be one of {sorted(allowed)}")
         return v

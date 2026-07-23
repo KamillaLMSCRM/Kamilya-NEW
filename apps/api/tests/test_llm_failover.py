@@ -199,6 +199,7 @@ def test_embeddings_settings_chain_prefers_voyage(monkeypatch):
         name="qwen-self-hosted", base_url="https://qwen.test", api_key="key", model="qwen"
     )
     monkeypatch.setattr(llm_client, "_voyage_embed_provider", lambda: voyage)
+    monkeypatch.setattr(llm_client, "_cohere_embed_provider", lambda: None)
     monkeypatch.setattr(llm_client, "_qwen_embed_provider", lambda: qwen)
 
     chain = ResilientEmbeddingsClient.from_settings()
@@ -216,13 +217,67 @@ async def test_async_embeddings_chain_prefers_db_voyage_key(monkeypatch):
     monkeypatch.setattr(llm_client, "_voyage_embed_provider", lambda: None)
 
     async def resolve_key(provider, env_key):
-        return "db-voyage-key"
+        return "db-voyage-key" if provider == "voyage" else ""
 
     monkeypatch.setattr(llm_client, "_resolve_db_key", resolve_key)
 
     chain = await ResilientEmbeddingsClient.from_settings_async()
 
     assert chain.provider_names == ["voyage", "qwen-self-hosted"]
+
+
+def test_embeddings_settings_chain_places_cohere_between_voyage_and_qwen(monkeypatch):
+    voyage = LLMProviderConfig(
+        name="voyage", base_url="https://voyage.test", api_key="key", model="voyage"
+    )
+    cohere = LLMProviderConfig(
+        name="cohere", base_url="https://cohere.test", api_key="key", model="embed-v4.0"
+    )
+    qwen = LLMProviderConfig(
+        name="qwen-self-hosted", base_url="https://qwen.test", api_key="key", model="qwen"
+    )
+    monkeypatch.setattr(llm_client, "_voyage_embed_provider", lambda: voyage)
+    monkeypatch.setattr(llm_client, "_cohere_embed_provider", lambda: cohere)
+    monkeypatch.setattr(llm_client, "_qwen_embed_provider", lambda: qwen)
+
+    chain = ResilientEmbeddingsClient.from_settings()
+
+    assert chain.provider_names == ["voyage", "cohere", "qwen-self-hosted"]
+
+
+@pytest.mark.asyncio
+async def test_async_embeddings_chain_uses_db_cohere_key(monkeypatch):
+    qwen = LLMProviderConfig(
+        name="qwen-self-hosted", base_url="https://qwen.test", api_key="key", model="qwen"
+    )
+    monkeypatch.setattr(llm_client, "_qwen_embed_provider", lambda: qwen)
+    monkeypatch.setattr(llm_client, "_voyage_embed_provider", lambda: None)
+    monkeypatch.setattr(llm_client, "_cohere_embed_provider", lambda: None)
+
+    async def resolve_key(provider, env_key):
+        return "db-cohere-key" if provider == "cohere" else ""
+
+    monkeypatch.setattr(llm_client, "_resolve_db_key", resolve_key)
+
+    chain = await ResilientEmbeddingsClient.from_settings_async()
+
+    assert chain.provider_names == ["cohere", "qwen-self-hosted"]
+
+
+@pytest.mark.asyncio
+async def test_ingestion_embeddings_provider_uses_async_key_resolution(monkeypatch):
+    from app.modules.ai.ingestion import EmbeddingsProvider
+
+    fake_client = AsyncMock()
+    fake_client.embed_documents.return_value = [[0.5] * 4096]
+    factory = AsyncMock(return_value=fake_client)
+    monkeypatch.setattr(ResilientEmbeddingsClient, "from_settings_async", factory)
+
+    result = await EmbeddingsProvider().embed(["safety"])
+
+    factory.assert_awaited_once()
+    fake_client.embed_documents.assert_awaited_once_with(["safety"])
+    assert len(result[0]) == 4096
 
 
 # ---------------------------------------------------------------------------
@@ -307,6 +362,39 @@ async def test_embeddings_client_zero_pads_smaller_provider_vectors(monkeypatch)
     assert len(result[0]) == 4096
     assert result[0][:1024] == [0.1] * 1024
     assert result[0][1024:] == [0.0] * (4096 - 1024)
+
+
+@pytest.mark.asyncio
+async def test_cohere_embeddings_use_native_v2_schema(monkeypatch):
+    client = EmbeddingsClient(
+        LLMProviderConfig(
+            name="cohere",
+            base_url="https://api.cohere.test/v2",
+            api_key="key",
+            model="embed-v4.0",
+        ),
+        max_retries=0,
+    )
+    captured = {}
+
+    async def mock_request(payload):
+        captured.update(payload)
+        return {"embeddings": {"float": [[0.25] * 1024]}}
+
+    monkeypatch.setattr(client, "_request", mock_request)
+
+    result = await client.embed_query("warehouse safety")
+
+    assert client.config.endpoint == "/embed"
+    assert captured == {
+        "model": "embed-v4.0",
+        "texts": ["warehouse safety"],
+        "input_type": "search_query",
+        "embedding_types": ["float"],
+        "output_dimension": 1024,
+    }
+    assert len(result) == 4096
+    assert result[:1024] == [0.25] * 1024
 
 
 @pytest.mark.asyncio

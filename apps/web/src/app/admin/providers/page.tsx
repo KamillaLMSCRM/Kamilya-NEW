@@ -8,7 +8,7 @@ import { toast } from '@/components/ui/Toast';
 
 interface ProviderKey {
   id: string;
-  provider: 'deepseek' | 'voyage';
+  provider: 'deepseek' | 'voyage' | 'cohere';
   label: string | null;
   is_active: boolean;
   key_preview: string;
@@ -31,7 +31,7 @@ export default function AdminProvidersPage() {
   const [testingId, setTestingId] = useState<string | null>(null);
 
   // New-key form state
-  const [newProvider, setNewProvider] = useState<'deepseek' | 'voyage'>('deepseek');
+  const [newProvider, setNewProvider] = useState<'deepseek' | 'voyage' | 'cohere'>('deepseek');
   const [newApiKey, setNewApiKey] = useState('');
   const [newLabel, setNewLabel] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -272,11 +272,12 @@ export default function AdminProvidersPage() {
             <select
               className="w-full rounded border border-border bg-bg-primary px-3 py-2 text-sm"
               value={newProvider}
-              onChange={(e) => setNewProvider(e.target.value as 'deepseek' | 'voyage')}
+              onChange={(e) => setNewProvider(e.target.value as 'deepseek' | 'voyage' | 'cohere')}
               disabled={submitting}
             >
               <option value="deepseek">{providerLabel('deepseek')}</option>
               <option value="voyage">{providerLabel('voyage')}</option>
+              <option value="cohere">{providerLabel('cohere')}</option>
             </select>
           </div>
           <div>

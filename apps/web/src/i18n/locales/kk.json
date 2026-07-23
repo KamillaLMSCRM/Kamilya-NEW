@@ -656,7 +656,8 @@
     "loadError": "Кілттерді жүктеу мүмкін болмады",
     "providersList": {
       "deepseek": "DeepSeek (LLM резервтік)",
-      "voyage": "Voyage (Эмбеддинг резервтік)"
+      "voyage": "Voyage (негізгі эмбеддингтер)",
+      "cohere": "Cohere (эмбеддингтер резерві)"
     },
     "superadminOnly": "Тек суперадминге арналған"
   },

@@ -425,7 +425,7 @@ class EmbeddingsProvider:
 
     def __init__(self, qwen_url: str | None = None):
         # The legacy qwen_url arg is honored for tests but in production the
-        # chain is built from settings (Qwen + optional Voyage).
+        # chain is built from settings (Voyage -> Cohere -> Qwen).
         from app.core.config import get_settings
         if qwen_url is None:
             qwen_url = get_settings().QWEN_EMBEDDING_URL
@@ -434,17 +434,18 @@ class EmbeddingsProvider:
         # and we don't spin up an httpx client until needed.
         self._client = None
 
-    def _get_client(self):
+    async def _get_client(self):
         if self._client is None:
             from app.modules.ai.llm_client import ResilientEmbeddingsClient
-            self._client = ResilientEmbeddingsClient.from_settings()
+            self._client = await ResilientEmbeddingsClient.from_settings_async()
         return self._client
 
     async def embed(self, texts: list[str]) -> list[list[float]]:
         """Get embeddings with automatic failover from Qwen to Voyage."""
         from app.modules.ai.llm_client import AllProvidersFailedError
         try:
-            return await self._get_client().embed_documents(texts)
+            client = await self._get_client()
+            return await client.embed_documents(texts)
         except AllProvidersFailedError:
             logger.error(
                 "[EMBED_FAILOVER] All cloud embedding providers failed; "
@@ -456,7 +457,8 @@ class EmbeddingsProvider:
         """Embed a single query."""
         from app.modules.ai.llm_client import AllProvidersFailedError
         try:
-            return await self._get_client().embed_query(text)
+            client = await self._get_client()
+            return await client.embed_query(text)
         except AllProvidersFailedError:
             logger.error(
                 "[EMBED_FAILOVER] All cloud embedding providers failed; "
