@@ -223,9 +223,9 @@ async def test_resilient_embeddings_falls_over_to_voyage():
 
 
 @pytest.mark.asyncio
-async def test_embeddings_client_rejects_wrong_dimensions(monkeypatch):
+async def test_embeddings_client_zero_pads_smaller_provider_vectors(monkeypatch):
     client = EmbeddingsClient(
-        LLMProviderConfig(name="qwen", base_url="http://mock", api_key="y", model="z"),
+        LLMProviderConfig(name="voyage", base_url="http://mock", api_key="y", model="z"),
         max_retries=0,
     )
 
@@ -234,11 +234,30 @@ async def test_embeddings_client_rejects_wrong_dimensions(monkeypatch):
 
     monkeypatch.setattr(client, "_request", mock_request)
 
+    result = await client.embed_documents(["hello"])
+
+    assert len(result[0]) == 4096
+    assert result[0][:1024] == [0.1] * 1024
+    assert result[0][1024:] == [0.0] * (4096 - 1024)
+
+
+@pytest.mark.asyncio
+async def test_embeddings_client_rejects_oversized_vectors(monkeypatch):
+    client = EmbeddingsClient(
+        LLMProviderConfig(name="qwen", base_url="http://mock", api_key="y", model="z"),
+        max_retries=0,
+    )
+
+    async def mock_request(payload):
+        return {"data": [{"embedding": [0.1] * 4097}]}
+
+    monkeypatch.setattr(client, "_request", mock_request)
+
     with pytest.raises(ProviderFailedError) as exc:
         await client.embed_documents(["hello"])
 
-    assert "expected 4096" in str(exc.value)
-    assert "1024" in str(exc.value)
+    assert "at most 4096" in str(exc.value)
+    assert "4097" in str(exc.value)
 
 
 @pytest.mark.asyncio
@@ -253,7 +272,7 @@ async def test_resilient_embeddings_falls_over_on_wrong_dimensions(monkeypatch):
     )
 
     async def mock_qwen_request(payload):
-        return {"data": [{"embedding": [0.1] * 1024}]}
+        return {"data": [{"embedding": [0.1] * 4097}]}
 
     async def mock_voyage_request(payload):
         return {"data": [{"embedding": [0.2] * 4096}]}

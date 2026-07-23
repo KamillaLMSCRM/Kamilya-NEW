@@ -493,17 +493,28 @@ class EmbeddingsClient(_BaseProviderClient):
         self.expected_dimensions = get_settings().EMBEDDING_DIMENSIONS
 
     def _validate_embeddings(self, embeddings: list[list[float]]) -> list[list[float]]:
-        """Reject provider responses that cannot fit the pgvector schema."""
-        bad_dims = sorted({len(emb) for emb in embeddings if len(emb) != self.expected_dimensions})
-        if bad_dims:
+        """Adapt smaller embeddings to the fixed pgvector schema.
+
+        Voyage 4 returns 1024 dimensions by default while the primary Qwen
+        model and the database column use 4096. Zero-padding preserves cosine
+        similarity and Euclidean distances, so the fallback remains semantic
+        without requiring a destructive pgvector migration.
+        """
+        oversized_dims = sorted(
+            {len(embedding) for embedding in embeddings if len(embedding) > self.expected_dimensions}
+        )
+        if oversized_dims:
             raise ProviderFailedError(
                 self.config.name,
                 ValueError(
                     f"embedding dimensions mismatch: expected "
-                    f"{self.expected_dimensions}, got {bad_dims}"
+                    f"at most {self.expected_dimensions}, got {oversized_dims}"
                 ),
             )
-        return embeddings
+        return [
+            embedding + [0.0] * (self.expected_dimensions - len(embedding))
+            for embedding in embeddings
+        ]
 
     async def _embed(self, texts: list[str], input_type: str) -> list[list[float]]:
         payload: dict[str, Any] = {
