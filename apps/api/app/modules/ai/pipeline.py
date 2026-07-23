@@ -217,13 +217,13 @@ async def _save_generation_to_db(
 
                                     session.add(QuizChoice(
                                         question_id=question.id,
-                                        text="Р’РµСЂРЅРѕ",
+                                        text="Верно",
                                         is_correct=tf.is_true,
                                         order_index=0,
                                     ))
                                     session.add(QuizChoice(
                                         question_id=question.id,
-                                        text="РќРµРІРµСЂРЅРѕ",
+                                        text="Неверно",
                                         is_correct=not tf.is_true,
                                         order_index=1,
                                     ))
@@ -237,7 +237,7 @@ async def _save_generation_to_db(
                                             text=f"{mq.instruction}: {pair.left} в†’ ?",
                                             type="multiple_choice",
                                             points=1,
-                                            explanation=f"РџСЂР°РІРёР»СЊРЅС‹Р№ РѕС‚РІРµС‚: {pair.right}",
+                                            explanation=f"Правильный ответ: {pair.right}",
                                             order_index=q_idx,
                                         )
                                         session.add(question)
@@ -319,7 +319,7 @@ async def run_generation_pipeline(
         # Stage 1: Ingestion вЂ” actually ingest documents into vector store
         state.stage = "ingestion"
         state.progress = 5
-        state.message = "РџСЂРѕРІРµСЂРєР° СЌРјР±РµРґРґРёРЅРіРѕРІ РґРѕРєСѓРјРµРЅС‚РѕРІ..."
+        state.message = "Проверка эмбеддингов документов..."
         await _update_job_db(job_id, tenant_id=tenant_id, status="running", stage="ingestion", progress=5, message=state.message)
 
         # Documents are ingested at upload time into pgvector.
@@ -356,7 +356,7 @@ async def run_generation_pipeline(
         await _check_cancelled_async(job_id, tenant_id=tenant_id)
         state.stage = "architect"
         state.progress = 10
-        state.message = "РџСЂРѕРµРєС‚РёСЂРѕРІР°РЅРёРµ СЃС‚СЂСѓРєС‚СѓСЂС‹ РєСѓСЂСЃР°..."
+        state.message = "Проектирование структуры курса..."
         await _update_job_db(job_id, tenant_id=tenant_id, stage="architect", progress=10, message=state.message)
 
         llm = await ResilientLLMClient.from_settings_async()
@@ -387,14 +387,14 @@ async def run_generation_pipeline(
 
         state.structure = structure
         state.progress = 25
-        state.message = f"РЎС‚СЂСѓРєС‚СѓСЂР° СЃРїСЂРѕРµРєС‚РёСЂРѕРІР°РЅР°: {len(structure.modules)} РјРѕРґСѓР»РµР№"
+        state.message = f"Структура спроектирована: {len(structure.modules)} модулей"
         await _update_job_db(job_id, tenant_id=tenant_id, progress=25, message=state.message)
 
         # Stage 3: Content Generation (Writer)
         await _check_cancelled_async(job_id, tenant_id=tenant_id)
         state.stage = "content_generation"
         state.progress = 30
-        state.message = "Р“РµРЅРµСЂР°С†РёСЏ РєРѕРЅС‚РµРЅС‚Р° СѓСЂРѕРєРѕРІ..."
+        state.message = "Генерация контента уроков..."
         await _update_job_db(job_id, tenant_id=tenant_id, stage="content_generation", progress=30, message=state.message)
 
         total_lessons = sum(len(m.lessons) for m in structure.modules)
@@ -419,14 +419,14 @@ async def run_generation_pipeline(
 
         state.content = content
         state.progress = 70
-        state.message = "РљРѕРЅС‚РµРЅС‚ СЃРіРµРЅРµСЂРёСЂРѕРІР°РЅ"
+        state.message = "Контент сгенерирован"
         await _update_job_db(job_id, tenant_id=tenant_id, progress=70, message=state.message)
 
         # Stage 3.5: Review content quality
         await _check_cancelled_async(job_id, tenant_id=tenant_id)
         state.stage = "review"
         state.progress = 72
-        state.message = "РџСЂРѕРІРµСЂРєР° РєР°С‡РµСЃС‚РІР° РєРѕРЅС‚РµРЅС‚Р°..."
+        state.message = "Проверка качества контента..."
         await _update_job_db(job_id, tenant_id=tenant_id, stage="review", progress=72, message=state.message)
 
         reviewer = ReviewerAgent(llm_client=llm)
@@ -458,17 +458,17 @@ async def run_generation_pipeline(
                     })
 
         if low_quality_lessons:
-            state.message = f"РџСЂРѕРІРµСЂРєР°: {len(low_quality_lessons)} СѓСЂРѕРєРѕРІ РЅРёР¶Рµ РїРѕСЂРѕРіР° РєР°С‡РµСЃС‚РІР°"
+            state.message = f"Проверка: {len(low_quality_lessons)} уроков ниже порога качества"
             await _update_job_db(job_id, tenant_id=tenant_id, message=state.message)
         else:
-            state.message = "РљР°С‡РµСЃС‚РІРѕ РєРѕРЅС‚РµРЅС‚Р° РїСЂРѕРІРµСЂРµРЅРѕ"
+            state.message = "Качество контента проверено"
             await _update_job_db(job_id, tenant_id=tenant_id, message=state.message)
 
         # Stage 4: Assessment Generation
         await _check_cancelled_async(job_id, tenant_id=tenant_id)
         state.stage = "assessment"
         state.progress = 75
-        state.message = "Р“РµРЅРµСЂР°С†РёСЏ С‚РµСЃС‚РѕРІ..."
+        state.message = "Генерация тестов..."
         await _update_job_db(job_id, tenant_id=tenant_id, stage="assessment", progress=75, message=state.message)
 
         assessments_done = 0
@@ -488,13 +488,13 @@ async def run_generation_pipeline(
 
         state.assessment = assessment
         state.progress = 95
-        state.message = "РўРµСЃС‚С‹ СЃРіРµРЅРµСЂРёСЂРѕРІР°РЅС‹"
+        state.message = "Тесты сгенерированы"
         await _update_job_db(job_id, tenant_id=tenant_id, progress=95, message=state.message)
 
         # Stage 5: Save to DB
         state.stage = "saving"
         state.progress = 98
-        state.message = "РЎРѕС…СЂР°РЅРµРЅРёРµ СЂРµР·СѓР»СЊС‚Р°С‚РѕРІ..."
+        state.message = "Сохранение результатов..."
         await _update_job_db(job_id, tenant_id=tenant_id, stage="saving", progress=98, message=state.message)
 
         if tenant_id and user_id:
@@ -502,7 +502,7 @@ async def run_generation_pipeline(
 
         state.status = "completed"
         state.progress = 100
-        state.message = "РљСѓСЂСЃ СѓСЃРїРµС€РЅРѕ СЃРіРµРЅРµСЂРёСЂРѕРІР°РЅ!"
+        state.message = "Курс успешно сгенерирован!"
         await _update_job_db(
             job_id,
             tenant_id=tenant_id,
