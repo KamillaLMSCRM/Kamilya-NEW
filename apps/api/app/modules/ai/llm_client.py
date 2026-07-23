@@ -221,9 +221,15 @@ class _BaseProviderClient:
 
             if resp.status_code == 429:
                 last_exc = httpx.HTTPStatusError("429", request=resp.request, response=resp)
-                wait = min(2 ** attempt, 8)
+                retry_after = resp.headers.get("retry-after")
+                try:
+                    server_wait = float(retry_after) if retry_after else 0.0
+                except ValueError:
+                    server_wait = 0.0
+                wait = max(server_wait, min(2 ** attempt, 60))
                 logger.warning(f"[{self.config.name}] 429 rate limited, waiting {wait}s")
-                await asyncio.sleep(wait)
+                if attempt < self.max_retries:
+                    await asyncio.sleep(wait)
                 continue
             if resp.status_code in (502, 503, 504):
                 last_exc = httpx.HTTPStatusError(
@@ -563,7 +569,7 @@ class ResilientEmbeddingsClient:
             )
 
     @classmethod
-    def from_settings(cls, max_retries_per_provider: int = 2) -> "ResilientEmbeddingsClient":
+    def from_settings(cls, max_retries_per_provider: int = 6) -> "ResilientEmbeddingsClient":
         """Build the embeddings chain from env-only settings (tests/legacy)."""
         providers: list[LLMProviderConfig] = []
         voyage = _voyage_embed_provider()
@@ -574,7 +580,7 @@ class ResilientEmbeddingsClient:
 
     @classmethod
     async def from_settings_async(
-        cls, max_retries_per_provider: int = 2
+        cls, max_retries_per_provider: int = 6
     ) -> "ResilientEmbeddingsClient":
         """Build the embeddings chain from env + provider_keys table.
 
@@ -699,7 +705,7 @@ def create_embeddings(
 ) -> ResilientEmbeddingsClient:
     """Factory for the embeddings client.
 
-    Production: returns ResilientEmbeddingsClient (Qwen → Voyage).
+    Production: returns ResilientEmbeddingsClient (Voyage → Qwen).
     Legacy args (base_url/api_key/model) are honored for tests.
     """
     if base_url is not None:

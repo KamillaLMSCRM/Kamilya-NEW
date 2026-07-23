@@ -204,6 +204,7 @@ def test_embeddings_settings_chain_prefers_voyage(monkeypatch):
     chain = ResilientEmbeddingsClient.from_settings()
 
     assert chain.provider_names == ["voyage", "qwen-self-hosted"]
+    assert all(client.max_retries == 6 for client in chain._clients)
 
 
 @pytest.mark.asyncio

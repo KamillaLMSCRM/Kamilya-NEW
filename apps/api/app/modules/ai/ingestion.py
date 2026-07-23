@@ -416,7 +416,8 @@ class EmbeddingsProvider:
 
     Chain (June 2026):
       1. Qwen self-hosted (primary)
-      2. Voyage voyage-4-lite via ResilientEmbeddingsClient (fallback if Qwen down)
+      1. Voyage voyage-4-lite via ResilientEmbeddingsClient (managed primary)
+      2. Qwen self-hosted embeddings (fallback)
     Used by retrieval (Architect, Writer) and by DocumentIngestion.
     If both providers fail, indexing fails explicitly. Synthetic vectors are
     not valid for semantic retrieval or document compatibility decisions.
