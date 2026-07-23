@@ -185,6 +185,8 @@ def test_router_methodology_review_template():
     assert "ассистент методолога LMS Kamilya" in output
     assert "APPLY_LESSON" in output
     assert "UUID" in output
+    assert "В материалах курса этого нет" in output
+    assert "размеры штрафов" in output
     assert len(output) > 300
 
 

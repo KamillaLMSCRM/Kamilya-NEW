@@ -421,8 +421,11 @@ async def _fetch_course_summary(db: AsyncSession, course_id: UUID, tenant_id: UU
             select(Lesson).where(Lesson.module_id == m.id).order_by(Lesson.order_index)
         )
         lessons = lessons_q.scalars().all()
-        lesson_titles = [f'"{l.title}"' for l in lessons]
-        lines.append(f"  Модуль {m.order_index+1}: {m.title} — уроки: {', '.join(lesson_titles) or '(нет)'}")
+        lines.append(f"  Модуль {m.order_index+1}: {m.title}")
+        for lesson in lessons:
+            lesson_content = (lesson.content or "").strip()
+            lines.append(f'    Урок «{lesson.title}»:')
+            lines.append(lesson_content[:2000] or "(содержание отсутствует)")
 
     return "\n".join(lines)
 
