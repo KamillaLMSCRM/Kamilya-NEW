@@ -573,7 +573,7 @@ export default function CoursePlayerPage() {
                     <div>
                       <h3 className="font-semibold text-foreground">{lessonQuiz.title}</h3>
                       <p className="text-sm text-muted-foreground">
-                        {t('quiz.score')}: {lessonQuiz.pass_score}%
+                        {t('quiz.passScore')}: {lessonQuiz.pass_score}%
                         {lessonQuiz.time_limit && ` · ${lessonQuiz.time_limit} ${t('common.minutes')}`}
                         {` · ${t('quiz.attempts')}: ${lessonQuiz.attempt_limit}`}
                       </p>

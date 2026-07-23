@@ -234,7 +234,7 @@ async def _save_generation_to_db(
                                     for pair in mq.pairs:
                                         question = Question(
                                             quiz_id=quiz.id,
-                                            text=f"{mq.instruction}: {pair.left} в†’ ?",
+                                            text=f"{mq.instruction}: {pair.left} → ?",
                                             type="multiple_choice",
                                             points=1,
                                             explanation=f"Правильный ответ: {pair.right}",

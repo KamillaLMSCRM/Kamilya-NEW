@@ -379,6 +379,25 @@ async def identify_at_kiosk(
     )
     course_ids.update(row[0] for row in enr_result.all())
 
+    # Enrollment.status remains "enrolled" while lesson progress is recorded.
+    # Treat any completed lesson as a started course so the kiosk resume badge
+    # matches the course player.
+    started_course_ids: set[UUID] = set()
+    if course_ids:
+        from app.models.progress import Progress
+
+        progress_result = await db.execute(
+            select(Progress.course_id)
+            .where(
+                Progress.tenant_id == link.tenant_id,
+                Progress.user_id == user.id,
+                Progress.course_id.in_(course_ids),
+                Progress.completed.is_(True),
+            )
+            .distinct()
+        )
+        started_course_ids.update(row[0] for row in progress_result.all())
+
     # Fetch course details
     # Importing Course triggers SQLAlchemy to resolve the "Module" relationship string
     # in Course's model, so we also import Module to make sure it's registered.
@@ -403,7 +422,7 @@ async def identify_at_kiosk(
             if enr:
                 if enr.completed_at:
                     status = "completed"
-                elif enr.status != "enrolled":
+                elif enr.status != "enrolled" or c.id in started_course_ids:
                     status = "in_progress"
 
             courses_data.append({
