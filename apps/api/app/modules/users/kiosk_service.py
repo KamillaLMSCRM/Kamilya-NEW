@@ -84,8 +84,11 @@ async def create_kiosk_link(
         expires_at=expires_at,
     )
     db.add(link)
-    await db.commit()
-    await db.refresh(link)
+    # Keep the request transaction open. Tenant RLS context is installed with
+    # transaction-local set_config() during authentication, so committing here
+    # would clear it before the router builds the response. The request-scoped
+    # get_db dependency performs the final commit.
+    await db.flush()
 
     base = (base_url or "https://app.kml.kz").rstrip("/")
     return {

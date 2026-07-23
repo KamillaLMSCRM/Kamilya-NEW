@@ -70,9 +70,11 @@ export default function AdminKiosksPage() {
 
   const fetchPositions = useCallback(async () => {
     try {
-      const res = await api.get('/v1/positions');
+      const res = await api.get('/v1/admin/kiosks/scope-positions');
       setPositions(Array.isArray(res.data) ? res.data : []);
-    } catch {}
+    } catch {
+      toast.error('Не удалось загрузить должности для ограничения киоска');
+    }
   }, []);
 
   const fetchAccessLogs = useCallback(async () => {

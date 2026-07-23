@@ -79,6 +79,12 @@ class KioskAccessLogResponse(BaseModel):
     created_at: datetime
 
 
+class KioskScopePositionResponse(BaseModel):
+    id: UUID
+    name: str
+    department: str | None = None
+
+
 def _to_response(link, base_url: str, scope_position_name: str | None = None) -> dict:
     base = (base_url or "https://app.kml.kz").rstrip("/")
     return {
@@ -106,6 +112,21 @@ async def create_kiosk(
     settings = get_settings()
     base_url = getattr(settings, "PUBLIC_URL", None)
 
+    pos_name = None
+    if payload.scope_position_id:
+        from app.modules.positions.models import Position
+
+        result = await db.execute(
+            Position.__table__.select().where(
+                Position.id == payload.scope_position_id,
+                Position.tenant_id == user.tenant_id,
+            )
+        )
+        position = result.first()
+        if position is None:
+            raise HTTPException(status_code=404, detail="Position not found")
+        pos_name = position.name
+
     link_data = await create_kiosk_link(
         db,
         tenant_id=user.tenant_id,
@@ -117,17 +138,33 @@ async def create_kiosk(
         base_url=base_url,
     )
 
-    # Look up scope position name if set
-    pos_name = None
-    if link_data["scope_position_id"]:
-        from app.modules.positions.models import Position
-        pos = await db.get(Position, link_data["scope_position_id"])
-        pos_name = pos.name if pos else None
+    return {
+        **link_data,
+        "scope_position_name": pos_name,
+    }
 
-    # Fetch full link for response (has created_at)
-    from app.models.kiosk_link import KioskLink
-    link = await db.get(KioskLink, link_data["id"])
-    return _to_response(link, base_url, pos_name)
+
+@admin_router.get("/scope-positions", response_model=list[KioskScopePositionResponse])
+async def list_kiosk_scope_positions(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_role("admin", "org_admin", "superadmin")),
+):
+    """List the tenant positions an administrator may use to scope a kiosk."""
+    from app.modules.positions.models import Position
+
+    result = await db.execute(
+        Position.__table__.select()
+        .where(Position.tenant_id == user.tenant_id)
+        .order_by(Position.name.asc())
+    )
+    return [
+        {
+            "id": row.id,
+            "name": row.name,
+            "department": row.department,
+        }
+        for row in result
+    ]
 
 
 @admin_router.get("", response_model=list[KioskLinkResponse])
