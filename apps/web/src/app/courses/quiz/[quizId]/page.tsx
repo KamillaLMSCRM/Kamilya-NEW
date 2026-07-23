@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams } from 'next/navigation';
+import Link from 'next/link';
 import { Card, CardContent, Button, Badge } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
@@ -252,9 +253,9 @@ export default function QuizPlayerPage() {
                 {canAttempt && !result.passed && (
                   <Button onClick={handleRetry}>{t('quiz.tryAgain')}</Button>
                 )}
-                <a href={getRoleHome(user?.role)}>
+                <Link href={getRoleHome(user?.role)}>
                   <Button variant="outline">{t('nav.dashboard')}</Button>
-                </a>
+                </Link>
               </div>
             </CardContent>
           </Card>
