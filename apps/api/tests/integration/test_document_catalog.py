@@ -20,7 +20,7 @@ async def test_documents_endpoints_deny_non_methodologist_roles(
     document = await make_document(tenant, owner)
     caller = await make_user(tenant, role=role)
     method, path = {
-        "list": ("GET", "/api/v1/documents"),
+        "list": ("GET", "/api/v1/documents/catalog"),
         "get": ("GET", f"/api/v1/documents/{document.id}"),
         "download": ("GET", f"/api/v1/documents/{document.id}/download"),
         "delete": ("DELETE", f"/api/v1/documents/{document.id}"),
@@ -35,7 +35,7 @@ async def test_documents_catalog_denies_superadmin_without_tenant_context(client
     superadmin = await make_superadmin()
 
     response = await client.get(
-        "/api/v1/documents",
+        "/api/v1/documents/catalog",
         headers=auth_headers(superadmin),
     )
 
@@ -63,7 +63,7 @@ async def test_documents_endpoints_allow_methodologist(
     user = await make_user(tenant, role="methodologist")
     document = await make_document(tenant, user)
     method, path = {
-        "list": ("GET", "/api/v1/documents"),
+        "list": ("GET", "/api/v1/documents/catalog"),
         "get": ("GET", f"/api/v1/documents/{document.id}"),
         "download": ("GET", f"/api/v1/documents/{document.id}/download"),
         "delete": ("DELETE", f"/api/v1/documents/{document.id}"),
@@ -86,13 +86,27 @@ async def test_documents_catalog_allows_methodologist_and_hides_internal_metadat
         index_status="ready",
     )
 
-    response = await client.get("/api/v1/documents", headers=auth_headers(user))
+    response = await client.get("/api/v1/documents/catalog", headers=auth_headers(user))
 
     assert response.status_code == 200
     body = response.json()
     assert body["page"] == {"next_cursor": None, "has_more": False, "limit": 25}
     assert [item["id"] for item in body["items"]] == [str(document.id)]
     assert INTERNAL_FIELDS.isdisjoint(body["items"][0])
+
+
+async def test_legacy_documents_list_remains_safe_array(client, make_tenant, make_user, make_document, auth_headers):
+    tenant = await make_tenant()
+    user = await make_user(tenant, role="methodologist")
+    document = await make_document(tenant, user)
+
+    response = await client.get("/api/v1/documents", headers=auth_headers(user))
+
+    assert response.status_code == 200
+    body = response.json()
+    assert isinstance(body, list)
+    assert [item["id"] for item in body] == [str(document.id)]
+    assert INTERNAL_FIELDS.isdisjoint(body[0])
 
 
 @pytest.mark.parametrize("path_suffix", ["", "/download"])
@@ -162,7 +176,7 @@ async def test_catalog_uses_stable_cursor_when_sort_keys_tie(
     ]
 
     first = await client.get(
-        "/api/v1/documents?limit=2&sort=created_desc",
+        "/api/v1/documents/catalog?limit=2&sort=created_desc",
         headers=auth_headers(user),
     )
     assert first.status_code == 200
@@ -171,7 +185,7 @@ async def test_catalog_uses_stable_cursor_when_sort_keys_tie(
     assert first_body["page"]["next_cursor"]
 
     second = await client.get(
-        "/api/v1/documents",
+        "/api/v1/documents/catalog",
         params={
             "limit": 2,
             "sort": "created_desc",
@@ -219,7 +233,7 @@ async def test_catalog_filters_q_category_index_status_used_and_sort(
     await db_session.flush()
 
     response = await client.get(
-        "/api/v1/documents",
+        "/api/v1/documents/catalog",
         params={
             "q": "cashier",
             "category": "job_instruction",
@@ -249,11 +263,11 @@ async def test_catalog_defaults_to_active_and_methodologist_can_query_recovery(
     )
 
     default_response = await client.get(
-        "/api/v1/documents",
+        "/api/v1/documents/catalog",
         headers=auth_headers(methodologist),
     )
     recovery_response = await client.get(
-        "/api/v1/documents?lifecycle_status=delete_failed",
+        "/api/v1/documents/catalog?lifecycle_status=delete_failed",
         headers=auth_headers(methodologist),
     )
 
@@ -261,13 +275,91 @@ async def test_catalog_defaults_to_active_and_methodologist_can_query_recovery(
     assert [item["id"] for item in recovery_response.json()["items"]] == [str(failed.id)]
 
 
+async def test_catalog_latest_ignores_newer_version_outside_lifecycle_scope(
+    client, make_tenant, make_user, make_document, auth_headers
+):
+    tenant = await make_tenant()
+    methodologist = await make_user(tenant, role="methodologist")
+    active = await make_document(tenant, methodologist, version=1)
+    await make_document(
+        tenant,
+        methodologist,
+        name="pending-delete-v2.md",
+        source_family_id=active.source_family_id,
+        version=2,
+        lifecycle_status="deletion_pending",
+    )
+
+    response = await client.get(
+        "/api/v1/documents/catalog",
+        headers=auth_headers(methodologist),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["items"][0]["id"] == str(active.id)
+    assert response.json()["items"][0]["is_latest"] is True
+
+
 async def test_catalog_rejects_tampered_cursor(client, make_tenant, make_user, auth_headers):
     tenant = await make_tenant()
     user = await make_user(tenant, role="methodologist")
 
     response = await client.get(
-        "/api/v1/documents?cursor=not-a-signed-cursor",
+        "/api/v1/documents/catalog?cursor=not-a-signed-cursor",
         headers=auth_headers(user),
     )
 
     assert response.status_code == 422
+
+
+@pytest.mark.parametrize("role", ["admin", "org_admin", "student", "superadmin"])
+async def test_document_upload_denies_non_methodologist_roles(client, make_tenant, make_user, auth_headers, role):
+    tenant = await make_tenant()
+    caller = await make_user(tenant, role=role)
+
+    response = await client.post(
+        "/api/v1/documents/upload",
+        files={"file": ("source.txt", b"safe source text", "text/plain")},
+        headers=auth_headers(caller),
+    )
+
+    assert response.status_code == 403
+
+
+async def test_document_upload_allows_methodologist_without_external_services(
+    client,
+    monkeypatch,
+    tmp_path,
+    make_tenant,
+    make_user,
+    auth_headers,
+):
+    from app.modules.ai import ingestion
+    from app.modules.documents import router as documents_router
+
+    class StorageStub:
+        def put_bytes(self, key, content, content_type):
+            assert key.startswith(f"tenants/{tenant.id}/documents/")
+            assert content == b"safe source text"
+            assert content_type == "text/plain"
+
+    class IngestionStub:
+        async def ingest_file(self, file_path, doc_id, tenant_id):
+            assert tenant_id == str(tenant.id)
+            return {"chunks": 1, "embeddings_written": 1}
+
+    tenant = await make_tenant()
+    methodologist = await make_user(tenant, role="methodologist")
+    monkeypatch.setattr(documents_router, "UPLOAD_DIR", str(tmp_path))
+    monkeypatch.setattr(documents_router, "get_storage", lambda: StorageStub())
+    monkeypatch.setattr(ingestion, "DocumentIngestion", IngestionStub)
+
+    response = await client.post(
+        "/api/v1/documents/upload",
+        files={"file": ("source.txt", b"safe source text", "text/plain")},
+        headers=auth_headers(methodologist),
+    )
+
+    assert response.status_code == 201
+    assert response.json()["embedding_status"] == "success"
+    assert INTERNAL_FIELDS.isdisjoint(response.json())

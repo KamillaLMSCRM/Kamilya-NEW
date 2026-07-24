@@ -35,10 +35,10 @@ class DocumentIndexResponse(BaseModel):
     status: DocumentIndexStatus
     error_code: str | None = None
     message: str | None = None
-    chunks_total: int | None = None
-    chunks_indexed: int | None = None
+    chunks_total: int | None = Field(default=None, ge=0)
+    chunks_indexed: int | None = Field(default=None, ge=0)
     indexed_at: datetime | None = None
-    revision: int
+    revision: int = Field(gt=0)
 
 
 class DocumentUsageSummary(BaseModel):
@@ -56,7 +56,7 @@ class DocumentCatalogItem(BaseModel):
     description: str = ""
     category: DocumentCategory
     index: DocumentIndexResponse
-    version: int
+    version: int = Field(gt=0)
     is_latest: bool
     lifecycle_status: DocumentLifecycleStatus
     created_at: datetime

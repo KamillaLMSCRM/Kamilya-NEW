@@ -216,6 +216,7 @@ async def list_catalog(
         select(latest.id).where(
             latest.tenant_id == tenant_id,
             latest.source_family_id == Document.source_family_id,
+            latest.lifecycle_status == filters.lifecycle_status,
             latest.version > Document.version,
         )
     )

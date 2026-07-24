@@ -160,8 +160,25 @@ def _hydrate(doc: Document) -> DocumentResponse:
     return resp
 
 
-@router.get("", response_model=DocumentCatalogResponse)
+@router.get("", response_model=list[DocumentResponse], deprecated=True)
 async def list_documents(
+    db: AsyncSession = Depends(get_db),
+    user=Depends(require_role("methodologist")),
+):
+    """Compatibility list for the current frontend; use /catalog for new clients."""
+    result = await db.execute(
+        select(Document)
+        .where(
+            Document.tenant_id == user.tenant_id,
+            Document.lifecycle_status == "active",
+        )
+        .order_by(Document.created_at.desc(), Document.id.desc())
+    )
+    return [_hydrate(document) for document in result.scalars().all()]
+
+
+@router.get("/catalog", response_model=DocumentCatalogResponse)
+async def catalog_documents(
     q: Annotated[str | None, Query(max_length=200)] = None,
     category: DocumentCategory | None = None,
     index_status: DocumentIndexStatus | None = None,

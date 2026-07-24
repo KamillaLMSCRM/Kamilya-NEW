@@ -72,6 +72,25 @@ class Document(Base):
             "content_sha256 IS NULL OR content_sha256 ~ '^[0-9a-f]{64}$'",
             name="ck_documents_content_sha256",
         ),
+        CheckConstraint(
+            "index_status IN ('processing', 'ready', 'partial', 'failed')",
+            name="ck_documents_index_status",
+        ),
+        CheckConstraint("version > 0", name="ck_documents_version_positive"),
+        CheckConstraint(
+            "index_revision > 0",
+            name="ck_documents_index_revision_positive",
+        ),
+        CheckConstraint(
+            "(index_chunks_total IS NULL OR index_chunks_total >= 0) "
+            "AND (index_chunks_indexed IS NULL OR index_chunks_indexed >= 0)",
+            name="ck_documents_index_chunks_nonnegative",
+        ),
+        CheckConstraint(
+            "index_chunks_total IS NULL OR index_chunks_indexed IS NULL "
+            "OR index_chunks_indexed <= index_chunks_total",
+            name="ck_documents_index_chunks_order",
+        ),
         UniqueConstraint(
             "tenant_id",
             "source_family_id",
@@ -82,11 +101,25 @@ class Document(Base):
             "ix_documents_tenant_family_version",
             "tenant_id",
             "source_family_id",
-            "version",
+            version.desc(),
         ),
         Index(
             "ix_documents_tenant_content_sha256",
             "tenant_id",
             "content_sha256",
+        ),
+        Index(
+            "ix_documents_tenant_category_created_id",
+            "tenant_id",
+            "category",
+            created_at.desc(),
+            "id",
+        ),
+        Index(
+            "ix_documents_tenant_lifecycle_created_id",
+            "tenant_id",
+            "lifecycle_status",
+            created_at.desc(),
+            "id",
         ),
     )

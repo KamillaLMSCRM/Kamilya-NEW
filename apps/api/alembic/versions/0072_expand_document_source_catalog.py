@@ -81,6 +81,33 @@ def upgrade() -> None:
         "documents",
         "content_sha256 IS NULL OR content_sha256 ~ '^[0-9a-f]{64}$'",
     )
+    op.create_check_constraint(
+        "ck_documents_index_status",
+        "documents",
+        "index_status IN ('processing', 'ready', 'partial', 'failed')",
+    )
+    op.create_check_constraint(
+        "ck_documents_version_positive",
+        "documents",
+        "version > 0",
+    )
+    op.create_check_constraint(
+        "ck_documents_index_revision_positive",
+        "documents",
+        "index_revision > 0",
+    )
+    op.create_check_constraint(
+        "ck_documents_index_chunks_nonnegative",
+        "documents",
+        "(index_chunks_total IS NULL OR index_chunks_total >= 0) "
+        "AND (index_chunks_indexed IS NULL OR index_chunks_indexed >= 0)",
+    )
+    op.create_check_constraint(
+        "ck_documents_index_chunks_order",
+        "documents",
+        "index_chunks_total IS NULL OR index_chunks_indexed IS NULL "
+        "OR index_chunks_indexed <= index_chunks_total",
+    )
     op.execute(
         "CREATE INDEX ix_documents_tenant_category_created_id ON documents (tenant_id, category, created_at DESC, id)"
     )
@@ -126,6 +153,11 @@ def downgrade() -> None:
     op.drop_constraint("uq_documents_tenant_family_version", "documents", type_="unique")
     op.drop_index("ix_documents_tenant_family_version", table_name="documents")
     op.drop_index("ix_documents_tenant_category_created_id", table_name="documents")
+    op.drop_constraint("ck_documents_index_chunks_order", "documents", type_="check")
+    op.drop_constraint("ck_documents_index_chunks_nonnegative", "documents", type_="check")
+    op.drop_constraint("ck_documents_index_revision_positive", "documents", type_="check")
+    op.drop_constraint("ck_documents_version_positive", "documents", type_="check")
+    op.drop_constraint("ck_documents_index_status", "documents", type_="check")
     op.drop_constraint("ck_documents_content_sha256", "documents", type_="check")
     op.drop_constraint("ck_documents_lifecycle_status", "documents", type_="check")
     op.drop_column("documents", "indexed_at")

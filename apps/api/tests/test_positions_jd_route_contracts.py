@@ -6,9 +6,16 @@ handler while FastAPI still starts successfully.  These assertions keep the
 public JD endpoints unique and bound to the intended function.
 """
 
+import inspect
+
 from fastapi.routing import APIRoute
 
-from app.modules.positions.jd_router import router as jd_router
+from app.modules.positions.jd_router import (
+    router as jd_router,
+)
+from app.modules.positions.jd_router import (
+    upload_position_instruction,
+)
 from app.modules.positions.models import DepartmentCourse, Position
 from app.modules.positions.recommendations_router import router as recommendations_router
 from app.modules.positions.router import router as positions_router
@@ -23,9 +30,7 @@ def _handlers(path: str, method: str) -> list[str]:
     return [
         route.endpoint.__name__
         for route in routes
-        if isinstance(route, APIRoute)
-        and route.path == path
-        and method in route.methods
+        if isinstance(route, APIRoute) and route.path == path and method in route.methods
     ]
 
 
@@ -48,32 +53,37 @@ def test_job_description_routes_have_one_intended_handler_each() -> None:
         assert _handlers(path, method) == [endpoint_name], (path, method)
 
 
+def _role_dependency_closure(route: APIRoute) -> list[object]:
+    role_dependencies = [
+        dependency.dependency for dependency in route.dependencies if dependency.dependency.__name__ == "role_checker"
+    ]
+    assert len(role_dependencies) == 1, route.path
+    return [cell.cell_contents for cell in (role_dependencies[0].__closure__ or ())]
+
+
 def test_positions_routes_require_learning_content_role() -> None:
-    routes = [
+    shared_routes = [
         *positions_router.routes,
-        *jd_router.routes,
         *recommendations_router.routes,
     ]
 
-    for route in routes:
+    for route in shared_routes:
         if not isinstance(route, APIRoute):
             continue
 
-        role_dependencies = [
-            dependency.dependency
-            for dependency in route.dependencies
-            if dependency.dependency.__name__ == "role_checker"
-        ]
-        assert len(role_dependencies) == 1, route.path
-
-        closure_values = [
-            cell.cell_contents
-            for cell in (role_dependencies[0].__closure__ or ())
-        ]
         assert (
             "superadmin",
             "methodologist",
-        ) in closure_values, route.path
+        ) in _role_dependency_closure(route), route.path
+
+
+def test_jd_router_closes_direct_document_upload_rbac_bypass() -> None:
+    """The direct Python call skips upload_document's FastAPI dependency."""
+    assert "await upload_document(" in inspect.getsource(upload_position_instruction)
+
+    for route in jd_router.routes:
+        if isinstance(route, APIRoute):
+            assert ("methodologist",) in _role_dependency_closure(route), route.path
 
 
 def test_instruction_source_column_belongs_to_position_model() -> None:

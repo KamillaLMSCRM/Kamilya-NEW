@@ -618,3 +618,21 @@ Production browser QA подтвердил role-based sidebar, Command Palette,
 разделение methodologist/admin dashboard. Формально Gate 1 остаётся открытым
 только до принятия владельцем продукта названий `Обзор`, `Контент`,
 `Персонал и обучение` и `Настройки организации`.
+
+## Отчёт о backend foundation Wave 2.1
+
+Статус: локальная implementation-ветка подготовлена, без merge, push и deploy;
+integration DB validation остаётся обязательной до интеграции.
+
+Expand-compatible API rollout:
+
+- deprecated `GET /documents` временно сохраняет массив safe
+  `DocumentResponse` для текущих экранов `/documents` и AI generation;
+- новый cursor-paginated catalog публикуется как `GET /documents/catalog`;
+- frontend отдельным commit переключается на `/catalog`, после чего legacy
+  endpoint удаляется или меняет contract отдельной волной;
+- `is_latest` сравнивает версии только внутри запрошенного lifecycle scope;
+- documents upload и прямой JD upload flow fail-closed ограничены ролью
+  `methodologist`;
+- migration и ORM согласованы по index/version/chunk constraints и catalog
+  indexes; nullable hash contract сохранён.
