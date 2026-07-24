@@ -1,8 +1,12 @@
-export const APP_ROLES = ['admin', 'org_admin', 'methodologist', 'student', 'superadmin'] as const;
+import {
+  APP_ROLES,
+  ROLE_HOMES,
+  canAccessRegisteredRoute,
+  isAppRole,
+} from '@/lib/routeRegistry';
 
-export type AppRole = (typeof APP_ROLES)[number];
-
-type RouteMatcher = (pathname: string) => boolean;
+export { APP_ROLES, isAppRole };
+export type { AppRole } from '@/lib/routeRegistry';
 
 export interface AuthRedirectInput {
   initialized: boolean;
@@ -11,92 +15,8 @@ export interface AuthRedirectInput {
   pathname: string;
 }
 
-function exact(path: string): RouteMatcher {
-  return (pathname) => pathname === path;
-}
-
-function prefix(path: string): RouteMatcher {
-  return (pathname) => pathname === path || pathname.startsWith(`${path}/`);
-}
-
-function learnerCourseRoute(pathname: string): boolean {
-  return pathname.startsWith('/courses/') && !pathname.includes('/edit');
-}
-
-const ROLE_POLICY: Record<AppRole, { home: string; routes: readonly RouteMatcher[] }> = {
-  admin: {
-    home: '/admin',
-    routes: [
-      exact('/admin'),
-      prefix('/admin/team'),
-      prefix('/admin/users'),
-      prefix('/admin/kiosks'),
-      prefix('/admin/settings/integrations'),
-      prefix('/admin/certificates/settings'),
-      prefix('/admin/training-log'),
-      exact('/settings'),
-    ],
-  },
-  org_admin: {
-    home: '/admin',
-    routes: [
-      exact('/admin'),
-      prefix('/admin/team'),
-      prefix('/admin/users'),
-      prefix('/admin/kiosks'),
-      prefix('/admin/settings/integrations'),
-      prefix('/admin/certificates/settings'),
-      prefix('/admin/training-log'),
-      exact('/settings'),
-    ],
-  },
-  methodologist: {
-    home: '/dashboard',
-    routes: [
-      exact('/dashboard'),
-      prefix('/ai'),
-      exact('/learning-paths'),
-      exact('/cohorts'),
-      exact('/competencies'),
-      exact('/surveys'),
-      exact('/announcements'),
-      prefix('/courses'),
-      prefix('/quizzes'),
-      prefix('/documents'),
-      exact('/staff'),
-      prefix('/positions'),
-      prefix('/assignments'),
-      prefix('/admin/staff'),
-      prefix('/admin/quizzes'),
-      prefix('/admin/invitations'),
-      prefix('/admin/training-log'),
-      prefix('/admin/enrollments'),
-    ],
-  },
-  student: {
-    home: '/student',
-    routes: [
-      exact('/student'),
-      exact('/my-courses'),
-      exact('/my-quizzes'),
-      prefix('/certificates'),
-      exact('/learning-paths'),
-      exact('/surveys'),
-      learnerCourseRoute,
-    ],
-  },
-  superadmin: {
-    home: '/admin/super',
-    routes: [prefix('/admin/super'), prefix('/admin/providers')],
-  },
-};
-
-export function isAppRole(role: string | null | undefined): role is AppRole {
-  return typeof role === 'string' && (APP_ROLES as readonly string[]).includes(role);
-}
-
 export function getRoleHome(role: string | null | undefined): string {
-  return isAppRole(role) ? ROLE_POLICY[role].home : '/login';
+  return isAppRole(role) ? ROLE_HOMES[role] : '/login';
 }
 
 export function getRoutePath(route: string): string {
@@ -106,7 +26,7 @@ export function getRoutePath(route: string): string {
 export function canAccessRoute(role: string | null | undefined, route: string): boolean {
   if (!isAppRole(role)) return false;
   const pathname = getRoutePath(route);
-  return ROLE_POLICY[role].routes.some((matches) => matches(pathname));
+  return canAccessRegisteredRoute(role, pathname);
 }
 
 export function getAuthRedirect({ initialized, accessToken, role, pathname }: AuthRedirectInput): string | null {

@@ -547,3 +547,44 @@ tenant isolation.
 
 До закрытия этого пункта Gate 0 нельзя считать полностью пройденным. Волна 1
 может начинаться только после визуальной проверки ключевых изменённых экранов.
+
+## Отчёт об исполнении волны 1
+
+Статус: реализация завершена в рабочей ветке, ожидает ревью интегратора. Gate 1
+не отмечен пройденным.
+
+Результат:
+
+- добавлен типизированный `routeRegistry` с единой матрицей ролей, capabilities,
+  канонических routes и metadata навигации;
+- `Sidebar`, `CommandPalette` и direct-route guard используют один registry;
+- active working role проверяется изолированно: capabilities нескольких
+  назначенных ролей не объединяются;
+- methodologist получает dashboard, authoring, персонал, приглашения
+  обучающихся, назначения и журнал обучения;
+- admin/org_admin получают только tenant settings, системную команду, киоски,
+  интеграции и шаблон сертификата; учебные routes и журнал обучения скрыты и
+  блокируются direct UI guard;
+- student получает только learner surfaces, superadmin — platform surfaces;
+- navigation использует `/staff`, `/invitations`, `/training-log` и
+  `/quizzes?section=assignments`; legacy routes остаются совместимыми, но не
+  используются новым меню;
+- кнопка вторичных действий карточки курса получила локализованное доступное
+  имя с названием конкретного курса;
+- исправлен подтверждённый production-дефект invitation history: статический
+  `GET /users/invitations` теперь регистрируется до динамического
+  `GET /users/{user_id}` и больше не попадает в admin-only user-detail guard;
+- backend invitation contract подтверждён тестами: реальный methodologist
+  request достигает invitation handler, а admin/org_admin/student не получают
+  learning capability.
+
+Проверки исполнителя:
+
+- полный frontend Vitest: `21` suites, `120/120` тестов;
+- invitation backend contract: `6/6` тестов;
+- frontend TypeScript typecheck пройден;
+- production `next build` пройден, собрано `46` страниц;
+- `git diff --check` пройден.
+
+Gate 1 остаётся непройденным до ревью интегратора и требуемого navigation/browser
+QA.

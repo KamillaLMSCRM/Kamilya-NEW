@@ -26,6 +26,7 @@
     "refresh": "Refresh",
     "retry": "Retry",
     "actions": "Actions",
+    "actionsFor": "Actions for course “{title}”",
     "optional": "optional",
     "required": "required",
     "active": "Active",
@@ -587,6 +588,7 @@
     "tryAgain": "Try again"
   },
   "sidebar": {
+    "overview": "OVERVIEW",
     "generation": "COURSE GENERATION",
     "courses": "Courses",
     "admin": "Management",
@@ -598,6 +600,8 @@
     "platform": "AI platform",
     "logo": "Kamilya LMS",
     "content": "CONTENT",
+    "workforce": "PEOPLE AND LEARNING",
+    "tenant": "ORGANIZATION SETTINGS",
     "staff": "STAFF",
     "courseManagement": "COURSE MANAGEMENT",
     "learning": "LEARNING",

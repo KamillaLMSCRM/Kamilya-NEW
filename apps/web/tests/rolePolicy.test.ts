@@ -10,17 +10,20 @@ describe('role route policy', () => {
   it.each([
     ['admin', '/admin', true],
     ['admin', '/admin/team', true],
-    ['admin', '/admin/training-log', true],
+    ['admin', '/admin/training-log', false],
     ['admin', '/courses', false],
     ['admin', '/assignments', false],
     ['org_admin', '/admin/kiosks', true],
-    ['org_admin', '/admin/training-log', true],
+    ['org_admin', '/admin/training-log', false],
     ['org_admin', '/documents', false],
     ['methodologist', '/courses', true],
     ['methodologist', '/admin/staff', true],
+    ['methodologist', '/invitations', true],
+    ['methodologist', '/admin/invitations', true],
     ['methodologist', '/assignments', true],
     ['methodologist', '/admin/training-log', true],
     ['methodologist', '/admin/team', false],
+    ['admin', '/invitations', false],
     ['student', '/student', true],
     ['student', '/my-courses', true],
     ['student', '/courses/course-1', true],
@@ -74,8 +77,8 @@ describe('auth redirect policy', () => {
   });
 
   it.each([
-    ['admin', null],
-    ['org_admin', null],
+    ['admin', '/admin'],
+    ['org_admin', '/admin'],
     ['methodologist', null],
     ['student', '/student'],
     ['superadmin', '/admin/super'],
@@ -84,7 +87,7 @@ describe('auth redirect policy', () => {
       initialized: true,
       accessToken: 'access-token',
       role,
-      pathname: '/admin/training-log',
+      pathname: '/training-log',
     })).toBe(expected);
   });
 });

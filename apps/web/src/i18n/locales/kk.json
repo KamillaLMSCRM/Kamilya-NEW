@@ -26,6 +26,7 @@
     "refresh": "Жаңарту",
     "retry": "Қайталау",
     "actions": "Әрекеттер",
+    "actionsFor": "«{title}» курсының әрекеттері",
     "optional": "міндетті емес",
     "required": "міндетті",
     "active": "Белсенді",
@@ -587,6 +588,7 @@
     "tryAgain": "Қайталап көріңіз"
   },
   "sidebar": {
+    "overview": "ШОЛУ",
     "generation": "КУРСТАР ГЕНЕРАЦИЯСЫ",
     "courses": "Курстар",
     "admin": "Басқару",
@@ -598,6 +600,8 @@
     "platform": "AI-платформа",
     "logo": "Kamilya LMS",
     "content": "КОНТЕНТ",
+    "workforce": "ҚЫЗМЕТКЕРЛЕР ЖӘНЕ ОҚЫТУ",
+    "tenant": "ҰЙЫМ БАПТАУЛАРЫ",
     "staff": "ПЕРСОНАЛ",
     "courseManagement": "КУРСТАРДЫ БАСҚАРУ",
     "learning": "ОҚЫТУ",

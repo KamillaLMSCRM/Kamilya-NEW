@@ -155,6 +155,59 @@ async def list_all_users(
     )
 
 
+@router.get("/invitations", response_model=InvitationListResponse)
+async def list_invitations(
+    status: str | None = Query(None, description="Filter by status: pending|accepted|expired|revoked|superseded"),
+    page: int = Query(1, ge=1),
+    per_page: int = Query(20, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_role("superadmin", "methodologist")),
+):
+    """List invitations for current tenant.
+
+    This static route must remain above ``/{user_id}``: Starlette resolves
+    routes in registration order, and otherwise "invitations" is treated as a
+    user id before UUID validation or this learning-role dependency can run.
+    """
+    from sqlalchemy import desc, func as sqlfunc
+
+    query = select(UserInvitation).where(UserInvitation.tenant_id == user.tenant_id)
+    count_query = select(sqlfunc.count(UserInvitation.id)).where(
+        UserInvitation.tenant_id == user.tenant_id
+    )
+
+    if status:
+        query = query.where(UserInvitation.status == status)
+        count_query = count_query.where(UserInvitation.status == status)
+
+    total_result = await db.execute(count_query)
+    total = total_result.scalar() or 0
+
+    query = query.order_by(desc(UserInvitation.created_at)).offset((page - 1) * per_page).limit(per_page)
+    result = await db.execute(query)
+    rows = result.scalars().all()
+
+    return InvitationListResponse(
+        items=[
+            InvitationListItem(
+                id=row.id,
+                email=row.email,
+                role=row.role,
+                status=row.status,
+                invited_by=row.invited_by,
+                created_at=row.created_at,
+                expires_at=row.expires_at,
+                accepted_at=row.accepted_at,
+                user_id=row.user_id,
+            )
+            for row in rows
+        ],
+        total=total,
+        page=page,
+        per_page=per_page,
+    )
+
+
 @router.get("/{user_id}", response_model=UserResponse)
 async def get_user_detail(
     user_id: UUID,
@@ -394,54 +447,6 @@ async def bulk_invite_users(
             {"input": i["input"], "reason": i["reason"]}
             for i in result["invalid"]
         ],
-    )
-
-
-@router.get("/invitations", response_model=InvitationListResponse)
-async def list_invitations(
-    status: str | None = Query(None, description="Filter by status: pending|accepted|expired|revoked|superseded"),
-    page: int = Query(1, ge=1),
-    per_page: int = Query(20, ge=1, le=100),
-    db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("superadmin", "methodologist")),
-):
-    """List invitations for current tenant."""
-    from sqlalchemy import desc, func as sqlfunc
-
-    query = select(UserInvitation).where(UserInvitation.tenant_id == user.tenant_id)
-    count_query = select(sqlfunc.count(UserInvitation.id)).where(
-        UserInvitation.tenant_id == user.tenant_id
-    )
-
-    if status:
-        query = query.where(UserInvitation.status == status)
-        count_query = count_query.where(UserInvitation.status == status)
-
-    total_result = await db.execute(count_query)
-    total = total_result.scalar() or 0
-
-    query = query.order_by(desc(UserInvitation.created_at)).offset((page - 1) * per_page).limit(per_page)
-    result = await db.execute(query)
-    rows = result.scalars().all()
-
-    return InvitationListResponse(
-        items=[
-            InvitationListItem(
-                id=r.id,
-                email=r.email,
-                role=r.role,
-                status=r.status,
-                invited_by=r.invited_by,
-                created_at=r.created_at,
-                expires_at=r.expires_at,
-                accepted_at=r.accepted_at,
-                user_id=r.user_id,
-            )
-            for r in rows
-        ],
-        total=total,
-        page=page,
-        per_page=per_page,
     )
 
 

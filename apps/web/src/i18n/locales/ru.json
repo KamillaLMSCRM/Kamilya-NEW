@@ -26,6 +26,7 @@
     "refresh": "Обновить",
     "retry": "Повторить",
     "actions": "Действия",
+    "actionsFor": "Действия для курса «{title}»",
     "optional": "необязательно",
     "required": "обязательно",
     "active": "Активен",
@@ -607,6 +608,7 @@
     "tryAgain": "Попробуйте снова"
   },
   "sidebar": {
+    "overview": "ОБЗОР",
     "generation": "ГЕНЕРАЦИЯ КУРСОВ",
     "courses": "Курсы",
     "admin": "Управление",
@@ -618,6 +620,8 @@
     "platform": "AI-платформа",
     "logo": "Kamilya LMS",
     "content": "КОНТЕНТ",
+    "workforce": "ПЕРСОНАЛ И ОБУЧЕНИЕ",
+    "tenant": "НАСТРОЙКИ ОРГАНИЗАЦИИ",
     "staff": "ПЕРСОНАЛ",
     "courseManagement": "УПРАВЛЕНИЕ КУРСАМИ",
     "learning": "ОБУЧЕНИЕ",

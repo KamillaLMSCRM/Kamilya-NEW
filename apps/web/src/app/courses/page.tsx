@@ -391,8 +391,8 @@ export default function CoursesPage() {
                     <details className="group/actions relative">
                       <summary
                         className="flex min-h-11 min-w-11 cursor-pointer list-none items-center justify-center rounded-xl border border-border text-muted-foreground transition-colors hover:text-foreground [&::-webkit-details-marker]:hidden"
-                        aria-label={t('common.actions')}
-                        title={t('common.actions')}
+                        aria-label={t('common.actionsFor', { title: course.title })}
+                        title={t('common.actionsFor', { title: course.title })}
                       >
                         <MoreVertical className="h-4 w-4" aria-hidden="true" />
                       </summary>
