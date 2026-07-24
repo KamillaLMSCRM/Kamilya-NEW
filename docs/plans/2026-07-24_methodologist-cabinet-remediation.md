@@ -374,7 +374,12 @@ Registry хранит:
 - AI wizard использует selector существующих источников и compact upload, но не
   второй файловый менеджер.
 
-Перед реализацией требуется отдельная схема API и UX-прототип.
+Статус на 2026-07-24: implementation design подготовлен и проверен по
+production UI и текущему коду. Канонический документ:
+[`docs/design/2026-07-24_wave-2.1-unified-source-library.md`](../design/2026-07-24_wave-2.1-unified-source-library.md).
+В нём зафиксированы API/DTO, expand/backfill/contract rollout, crash-safe
+удаление через durable job, permission/RLS matrix, desktop/mobile wireframes,
+порядок безопасных коммитов и Gate 2.1. Product code Wave 2.1 ещё не реализован.
 
 ### D2. Карточка должности как агрегат квалификации
 
