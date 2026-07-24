@@ -468,10 +468,11 @@ tenant isolation.
 - [x] Мастер-план составлен.
 - [x] Исполнитель A завершил волну 0A.
 - [x] Исполнитель B завершил волну 0B.
-- [ ] Gate 0 пройден интегратором: код и автоматические проверки пройдены,
-  браузерный smoke на полном локальном стеке ещё не выполнен.
-- [ ] Волна 1 завершена.
-- [ ] Gate 1 пройден.
+- [x] Gate 0 пройден интегратором: код, автоматические проверки и production
+  browser smoke на реальном тестовом tenant подтверждены 2026-07-24.
+- [x] Волна 1 завершена и развернута в production.
+- [ ] Gate 1: технические критерии пройдены; осталось явное принятие владельцем
+  продукта названий групп меню.
 - [ ] Волна 2 завершена.
 - [ ] Gate 2 пройден.
 - [ ] Волна 3 завершена.
@@ -540,18 +541,29 @@ tenant isolation.
 - `git diff --check` пройден;
 - рабочее дерево чистое.
 
-Не завершено:
+Production browser smoke интегратора 2026-07-24:
 
-- Playwright/browser smoke на desktop, tablet и mobile с работающими API и БД;
-- production deploy и production smoke — в этой волне не выполнялись.
+- `/courses`: карточки и действия не создают горизонтальное переполнение;
+- `/cohorts`: пустое состояние отображается без ошибки контракта;
+- `/admin/quizzes/assign`: legacy URL переводит в действующий flow назначения;
+- `/admin/training-log`: desktop-таблица и mobile cards читаемы;
+- `/admin/invitations`: ошибка доступа была воспроизведена и перенесена в
+  Wave 1 как подтверждённый backend routing defect;
+- sidebar открывается на mobile, desktop-only control скрыт;
+- destructive и рассылочные действия в production не выполнялись.
 
-До закрытия этого пункта Gate 0 нельзя считать полностью пройденным. Волна 1
-может начинаться только после визуальной проверки ключевых изменённых экранов.
+Gate 0 пройден.
 
 ## Отчёт об исполнении волны 1
 
-Статус: реализация завершена в рабочей ветке, ожидает ревью интегратора. Gate 1
-не отмечен пройденным.
+Статус: реализация интегрирована в `master`, проверена локально и развернута в
+production. Техническая часть Gate 1 пройдена; формальная отметка остаётся
+открытой до явного принятия владельцем продукта названий групп меню.
+
+Коммиты:
+
+- `5d2f4a7 feat(web): unify role route capabilities`;
+- `f29d4e0 fix(admin): align dashboard with tenant role`.
 
 Результат:
 
@@ -576,15 +588,28 @@ tenant isolation.
   `GET /users/{user_id}` и больше не попадает в admin-only user-detail guard;
 - backend invitation contract подтверждён тестами: реальный methodologist
   request достигает invitation handler, а admin/org_admin/student не получают
-  learning capability.
+  learning capability;
+- production `/invitations` загружает историю без прежнего `403`;
+- direct `/training-log` в рабочем режиме admin возвращает пользователя на
+  `/admin`;
+- `/admin` больше не показывает учебные KPI, методологический onboarding,
+  штат, журнал или назначения: там остаются plan usage, системная команда,
+  киоски, настройки, интеграции и шаблон сертификата;
+- общий export users удалён с admin dashboard, поскольку текущий backend
+  экспортирует всех tenant users, включая learners.
 
 Проверки исполнителя:
 
-- полный frontend Vitest: `21` suites, `120/120` тестов;
+- полный frontend Vitest после follow-up: `22` suites, `127/127` тестов;
 - invitation backend contract: `6/6` тестов;
 - frontend TypeScript typecheck пройден;
 - production `next build` пройден, собрано `46` страниц;
-- `git diff --check` пройден.
+- `git diff --check` пройден;
+- GitHub CI для обоих production-коммитов завершён успешно;
+- Vercel production и Render API deploy подтверждены как успешные.
 
-Gate 1 остаётся непройденным до ревью интегратора и требуемого navigation/browser
-QA.
+Production browser QA подтвердил role-based sidebar, Command Palette,
+канонические URL, direct-route guard, доступное имя secondary course action и
+разделение methodologist/admin dashboard. Формально Gate 1 остаётся открытым
+только до принятия владельцем продукта названий `Обзор`, `Контент`,
+`Персонал и обучение` и `Настройки организации`.
