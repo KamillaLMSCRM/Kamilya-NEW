@@ -286,6 +286,12 @@
   },
   "admin": {
     "title": "Admin Dashboard",
+    "subtitle": "Manage the organization, system team, and connected services.",
+    "quickActions": "Quick actions",
+    "systemTeam": "System team",
+    "systemTeamDescription": "Administrators and methodologists with assigned working roles in the system.",
+    "emptySystemTeam": "There are no users in the system team yet.",
+    "viewSystemTeam": "Open system team",
     "stats": {
       "totalUsers": "Users",
       "activeUsers": "active",
