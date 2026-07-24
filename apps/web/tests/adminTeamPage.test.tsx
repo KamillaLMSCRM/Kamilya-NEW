@@ -18,7 +18,19 @@ const existingUser = {
 
 describe('tenant team modal', () => {
   beforeEach(() => {
-    useAuthStore.setState({ accessToken: 'test-token' });
+    useAuthStore.setState({
+      accessToken: 'test-token',
+      user: {
+        user_id: existingUser.id,
+        tenant_id: 'tenant-123',
+        tenant: { id: 'tenant-123', name: 'Test company' },
+        telegram_id: '',
+        role: 'admin',
+        roles: ['admin'],
+        full_name: 'Tenant Owner',
+        email: existingUser.email,
+      },
+    });
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       if (init?.method === 'POST') {
         return new Response(JSON.stringify({
@@ -64,5 +76,7 @@ describe('tenant team modal', () => {
         }),
       );
     });
+    expect(useAuthStore.getState().user?.role).toBe('admin');
+    expect(useAuthStore.getState().user?.roles).toEqual(['admin', 'methodologist']);
   });
 });

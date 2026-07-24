@@ -29,15 +29,10 @@ auth store, TopBar, and role policy for focused inspection.
 
 **Status:** complete
 
-Verified 39 backend unit tests, 100 frontend tests, frontend typecheck, lint,
-and a production Next.js build. Database-backed backend integration tests could
-not start because the local PostgreSQL test endpoint refused the connection;
-the failure was captured separately from code regressions. User documentation
-was updated, and Graphify was refreshed in code-only mode.
-
 Added backend schema regression coverage, pure frontend request-shaping tests,
 localized role-copy assertions, and a rendered modal scenario that verifies
-stable fields and the existing-account role endpoint.
+stable fields, the existing-account role endpoint, and immediate auth-state
+refresh when the current user assigns a role to their own account.
 
 ## Step 3 — implementation
 
@@ -51,8 +46,20 @@ eight-character requirement for new accounts.
 
 ## Step 4 — local verification
 
-**Status:** in progress
+**Status:** complete
+
+Verified 39 backend unit tests, 100 frontend tests, frontend typecheck, lint,
+and a production Next.js build. Database-backed backend integration tests could
+not start because the local PostgreSQL test endpoint refused the connection;
+the failure was captured separately from code regressions. User documentation
+was updated, and Graphify was refreshed in code-only mode.
 
 ## Step 5 — production verification
 
-**Status:** pending
+**Status:** in progress
+
+The first production pass confirmed the fixed stable modal and successful
+methodologist assignment without a 422. It also exposed that a self-assignment
+did not refresh the current browser's assigned-role list until session refresh.
+The follow-up updates auth state from the successful assignment response so the
+top-bar working-mode selector appears immediately.

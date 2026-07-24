@@ -58,6 +58,8 @@ export default function AdminTeamPage() {
   const [isLookingUpAccount, setIsLookingUpAccount] = useState(false);
 
   const token = useAuthStore((s) => s.accessToken);
+  const authUser = useAuthStore((s) => s.user);
+  const setAuthUser = useAuthStore((s) => s.setUser);
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
   const listedAccount = users.find(
     (user) => user.email?.trim().toLowerCase() === newUser.email.trim().toLowerCase(),
@@ -226,6 +228,13 @@ export default function AdminTeamPage() {
         body: JSON.stringify(submission.body),
       });
       if (res.ok) {
+        const savedUser: User = await res.json();
+        if (existingAccount && authUser?.user_id === existingAccount.id) {
+          setAuthUser({
+            ...authUser,
+            roles: savedUser.roles?.length ? savedUser.roles : [savedUser.role],
+          });
+        }
         setShowCreateModal(false);
         setNewUser(createEmptyNewUser());
         await fetchUsers();
