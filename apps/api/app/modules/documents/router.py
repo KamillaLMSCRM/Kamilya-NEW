@@ -1,11 +1,14 @@
 """Documents — API router with MIME validation."""
+
 import json
 import logging
-import uuid
 import os
+import uuid
+from datetime import UTC, datetime
+from typing import Annotated, Literal
 from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Response
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Response, UploadFile
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,7 +16,14 @@ from app.core.auth import require_role, require_tenant_user
 from app.core.db import get_db
 from app.core.storage import get_storage
 from app.models.document import Document
-from app.modules.documents.schemas import DocumentResponse
+from app.modules.documents.schemas import (
+    DocumentCatalogResponse,
+    DocumentCategory,
+    DocumentIndexStatus,
+    DocumentLifecycleStatus,
+    DocumentResponse,
+)
+from app.modules.documents.service import CatalogFilters, CatalogSort, list_catalog
 
 router = APIRouter(
     prefix="/documents",
@@ -89,9 +99,7 @@ def _validate_text_content(content: bytes) -> bool:
     if not sample:
         return False
 
-    printable_count = sum(
-        1 for b in sample if b in (0x09, 0x0A, 0x0D) or 0x20 <= b <= 0x7E or b >= 0x80
-    )
+    printable_count = sum(1 for b in sample if b in (0x09, 0x0A, 0x0D) or 0x20 <= b <= 0x7E or b >= 0x80)
     ratio = printable_count / len(sample)
     return ratio >= TEXT_PRINTABLE_MIN_RATIO
 
@@ -135,6 +143,7 @@ def _load_short_summary(doc_id: str, filename: str | None = None) -> tuple[bool,
         stem = os.path.splitext(os.path.basename(filename))[0]
         # Strip leading numeric prefix like "02_" or "2-"
         import re
+
         stem = re.sub(r"^\d+[_\-\.\s]+", "", stem)
         stem = stem.replace("_", " ").replace("-", " ").strip()
         if stem:
@@ -151,29 +160,51 @@ def _hydrate(doc: Document) -> DocumentResponse:
     return resp
 
 
-@router.get("", response_model=list[DocumentResponse])
+@router.get("", response_model=DocumentCatalogResponse)
 async def list_documents(
+    q: Annotated[str | None, Query(max_length=200)] = None,
+    category: DocumentCategory | None = None,
+    index_status: DocumentIndexStatus | None = None,
+    lifecycle_status: DocumentLifecycleStatus = "active",
+    used: bool | None = None,
+    created_from: datetime | None = None,
+    created_to: datetime | None = None,
+    sort: CatalogSort = "created_desc",
+    cursor: str | None = None,
+    limit: Annotated[int, Query(ge=1, le=100)] = 25,
+    include: Literal["usages_summary"] | None = None,
     db: AsyncSession = Depends(get_db),
-    user=Depends(require_role("superadmin", "methodologist")),
+    user=Depends(require_role("methodologist")),
 ):
-    result = await db.execute(
-        select(Document)
-        .where(Document.tenant_id == user.tenant_id)
-        .order_by(Document.created_at.desc())
-    )
-    docs = result.scalars().all()
-    return [_hydrate(d) for d in docs] if docs else []
+    try:
+        return await list_catalog(
+            db,
+            user.tenant_id,
+            CatalogFilters(
+                q=q,
+                category=category,
+                index_status=index_status,
+                lifecycle_status=lifecycle_status,
+                used=used,
+                created_from=created_from,
+                created_to=created_to,
+                sort=sort,
+                cursor=cursor,
+                limit=limit,
+                include_usages_summary=include == "usages_summary",
+            ),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.get("/{doc_id}", response_model=DocumentResponse)
 async def get_document(
     doc_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    user=Depends(require_role("superadmin", "methodologist")),
+    user=Depends(require_role("methodologist")),
 ):
-    result = await db.execute(
-        select(Document).where(Document.id == doc_id, Document.tenant_id == user.tenant_id)
-    )
+    result = await db.execute(select(Document).where(Document.id == doc_id, Document.tenant_id == user.tenant_id))
     doc = result.scalar_one_or_none()
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
@@ -187,18 +218,19 @@ async def upload_document(
     description: str = Form(""),
     category: str = Form("general"),
     db: AsyncSession = Depends(get_db),
-    user=Depends(require_role("superadmin", "methodologist")),
+    user=Depends(require_role("methodologist")),
 ):
     if category not in {"general", "job_instruction"}:
         raise HTTPException(status_code=422, detail="Unsupported document category")
     from app.core.demo_limits import assert_can_create_document
+
     await assert_can_create_document(db, user.tenant_id)
     content = await file.read()
     file_size = len(content)
 
     # File size check
     if file_size > MAX_FILE_SIZE:
-        raise HTTPException(status_code=413, detail=f"File too large. Maximum size: {MAX_FILE_SIZE // (1024*1024)}MB")
+        raise HTTPException(status_code=413, detail=f"File too large. Maximum size: {MAX_FILE_SIZE // (1024 * 1024)}MB")
 
     if file_size == 0:
         raise HTTPException(status_code=400, detail="Empty file")
@@ -208,15 +240,12 @@ async def upload_document(
     if content_type not in ALLOWED_MIME_TYPES:
         raise HTTPException(
             status_code=400,
-            detail=f"File type '{content_type}' not allowed. Supported: PDF, DOCX, DOC, TXT, CSV, XLS, XLSX"
+            detail=f"File type '{content_type}' not allowed. Supported: PDF, DOCX, DOC, TXT, CSV, XLS, XLSX",
         )
 
     # Magic bytes validation
     if not validate_magic_bytes(content, content_type):
-        raise HTTPException(
-            status_code=400,
-            detail="File content does not match declared type"
-        )
+        raise HTTPException(status_code=400, detail="File content does not match declared type")
 
     # General library uploads remain idempotent by filename. Job instructions
     # are versioned source files, so two uploads with the same filename must
@@ -261,6 +290,9 @@ async def upload_document(
         description=description,
         category=category,
         embedding_status="pending",
+        source_family_id=doc_id,
+        lifecycle_status="active",
+        index_status="processing",
     )
     db.add(doc)
     await db.flush()
@@ -268,6 +300,7 @@ async def upload_document(
     # Ingest into pgvector immediately (persistent embeddings)
     try:
         from app.modules.ai.ingestion import DocumentIngestion
+
         ingestion = DocumentIngestion()
         result = await ingestion.ingest_file(file_path, doc_id=str(doc_id), tenant_id=str(user.tenant_id))
         # IMPORTANT: judge success on embeddings_written (real pgvector rows),
@@ -279,24 +312,34 @@ async def upload_document(
         if chunks == 0:
             doc.embedding_status = "failed"
             doc.embedding_error = "Ingestion produced 0 chunks (file may be empty or unsupported)"
+            doc.index_status = "failed"
+            doc.index_message = doc.embedding_error
         elif embeddings_written == 0:
             doc.embedding_status = "failed"
             doc.embedding_error = (
                 f"All {chunks} embeddings were malformed and dropped — "
                 f"document is not usable for AI generation. Try re-uploading."
             )
+            doc.index_status = "failed"
+            doc.index_message = doc.embedding_error
         elif embeddings_written < chunks:
             # Partial — some chunks had good embeddings, some didn't.
             # Mark as success so the doc is at least usable, but record
             # how many were lost.
             doc.embedding_status = "success"
             doc.embedding_error = (
-                f"Partial: {embeddings_written}/{chunks} chunks embedded; "
-                f"the rest were malformed and dropped."
+                f"Partial: {embeddings_written}/{chunks} chunks embedded; the rest were malformed and dropped."
             )
+            doc.index_status = "partial"
+            doc.index_message = doc.embedding_error
         else:
             doc.embedding_status = "success"
             doc.embedding_error = None
+            doc.index_status = "ready"
+            doc.index_message = None
+        doc.index_chunks_total = chunks
+        doc.index_chunks_indexed = embeddings_written
+        doc.indexed_at = datetime.now(UTC)
         # Filename can contain sensitive info (e.g. "2025_salary_review.docx").
         # Log only the doc id, not the filename (audit §6.5).
         logger.info(
@@ -309,6 +352,8 @@ async def upload_document(
     except Exception as e:
         doc.embedding_status = "failed"
         doc.embedding_error = str(e)[:500]
+        doc.index_status = "failed"
+        doc.index_message = doc.embedding_error
         # Filename still excluded from logs (PII risk).
         logger.error("[UPLOAD] Ingestion failed for doc_id=%s: %s", doc.id, e)
     finally:
@@ -327,7 +372,7 @@ async def upload_document(
 async def download_document(
     document_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    user=Depends(require_role("superadmin", "methodologist")),
+    user=Depends(require_role("methodologist")),
 ):
     result = await db.execute(
         select(Document).where(
@@ -355,11 +400,9 @@ async def download_document(
 async def delete_document(
     document_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    user=Depends(require_role("superadmin", "methodologist")),
+    user=Depends(require_role("methodologist")),
 ):
-    result = await db.execute(
-        select(Document).where(Document.id == document_id, Document.tenant_id == user.tenant_id)
-    )
+    result = await db.execute(select(Document).where(Document.id == document_id, Document.tenant_id == user.tenant_id))
     doc = result.scalar_one_or_none()
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
