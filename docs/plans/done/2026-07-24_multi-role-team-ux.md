@@ -56,10 +56,17 @@ was updated, and Graphify was refreshed in code-only mode.
 
 ## Step 5 — production verification
 
-**Status:** in progress
+**Status:** complete
 
 The first production pass confirmed the fixed stable modal and successful
 methodologist assignment without a 422. It also exposed that a self-assignment
 did not refresh the current browser's assigned-role list until session refresh.
 The follow-up updates auth state from the successful assignment response so the
 top-bar working-mode selector appears immediately.
+
+Production verification completed on `app.kml.kz`: the account kept its single
+profile, displayed both administrator and methodologist roles, exposed the
+top-bar **Рабочий режим** selector, switched to the methodologist dashboard, and
+switched back to the administrator dashboard. GitHub CI passed, the frontend
+deployment reached READY with the production alias, and Render served backend
+commit `260c15d`.
