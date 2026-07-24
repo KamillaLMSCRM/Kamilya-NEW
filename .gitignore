@@ -45,6 +45,8 @@ Dockerfile.cache
 .env.development.local
 .env.test.local
 .env.production.local
+# One-off exported secret snapshots received outside Git.
+doc_*.env
 
 # IDE
 .vscode/
