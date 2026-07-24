@@ -4,6 +4,11 @@ import { useState, useEffect, useCallback } from 'react';
 import { Card, CardHeader, CardTitle, CardContent, Button, Badge, Table, Modal, Input } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
+import {
+  buildTeamMemberSubmission,
+  getAssignableTeamRoles,
+  TEAM_ROLES,
+} from '@/lib/teamMemberForm';
 
 interface User {
   id: string;
@@ -50,20 +55,32 @@ export default function AdminTeamPage() {
   const [isCreating, setIsCreating] = useState(false);
   const [teamError, setTeamError] = useState('');
   const [matchedAccount, setMatchedAccount] = useState<User | null>(null);
+  const [isLookingUpAccount, setIsLookingUpAccount] = useState(false);
 
   const token = useAuthStore((s) => s.accessToken);
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
-  const existingAccount = users.find(
+  const listedAccount = users.find(
     (user) => user.email?.trim().toLowerCase() === newUser.email.trim().toLowerCase(),
-  ) || matchedAccount;
+  );
+  const matchedExactAccount = matchedAccount?.email?.trim().toLowerCase()
+    === newUser.email.trim().toLowerCase()
+    ? matchedAccount
+    : null;
+  const existingAccount = listedAccount || matchedExactAccount;
+  const existingRoles = existingAccount
+    ? (existingAccount.roles?.length ? existingAccount.roles : [existingAccount.role])
+    : [];
+  const assignableRoles = getAssignableTeamRoles(existingRoles);
 
   useEffect(() => {
-    if (!showCreateModal || !token || !newUser.email.includes('@')) {
+    if (!showCreateModal || !token || !newUser.email.includes('@') || listedAccount) {
       setMatchedAccount(null);
+      setIsLookingUpAccount(false);
       return;
     }
     const normalizedEmail = newUser.email.trim().toLowerCase();
     const controller = new AbortController();
+    setIsLookingUpAccount(true);
     const timer = window.setTimeout(async () => {
       try {
         const params = new URLSearchParams({ search: normalizedEmail, per_page: '5' });
@@ -71,7 +88,10 @@ export default function AdminTeamPage() {
           headers: { Authorization: `Bearer ${token}` },
           signal: controller.signal,
         });
-        if (!response.ok) return;
+        if (!response.ok) {
+          setMatchedAccount(null);
+          return;
+        }
         const data = await response.json();
         const exact = (data.users || []).find(
           (candidate: User) => candidate.email?.trim().toLowerCase() === normalizedEmail,
@@ -81,13 +101,22 @@ export default function AdminTeamPage() {
         if (!(error instanceof DOMException && error.name === 'AbortError')) {
           setMatchedAccount(null);
         }
+      } finally {
+        if (!controller.signal.aborted) setIsLookingUpAccount(false);
       }
     }, 350);
     return () => {
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [API_URL, newUser.email, showCreateModal, token]);
+  }, [API_URL, listedAccount, newUser.email, showCreateModal, token]);
+
+  useEffect(() => {
+    if (!existingAccount || assignableRoles.includes(newUser.role as any)) return;
+    if (assignableRoles[0]) {
+      setNewUser((current) => ({ ...current, role: assignableRoles[0] }));
+    }
+  }, [assignableRoles, existingAccount, newUser.role]);
 
   const fetchUsers = useCallback(async () => {
     if (!token) return;
@@ -118,6 +147,7 @@ export default function AdminTeamPage() {
     setCreateError('');
     setNewUser(createEmptyNewUser());
     setMatchedAccount(null);
+    setIsLookingUpAccount(false);
     setCreateFormKey((key) => key + 1);
     setShowCreateModal(true);
   };
@@ -128,6 +158,7 @@ export default function AdminTeamPage() {
       setCreateError('');
       setNewUser(createEmptyNewUser());
       setMatchedAccount(null);
+      setIsLookingUpAccount(false);
       setCreateFormKey((key) => key + 1);
     }
   };
@@ -181,18 +212,18 @@ export default function AdminTeamPage() {
       if (!newUser.last_name.trim()) { setCreateError(t('users.teamPage.errors.lastNameRequired')); return; }
       if (newUser.password.length < 8) { setCreateError(t('users.teamPage.errors.passwordMin')); return; }
     }
+    if (existingAccount && !assignableRoles.includes(newUser.role as any)) {
+      setCreateError(t('users.teamPage.errors.roleAlreadyAssigned'));
+      return;
+    }
 
     setIsCreating(true);
     try {
-      const res = await fetch(`${API_URL}/v1/users`, {
+      const submission = buildTeamMemberSubmission(newUser, existingAccount);
+      const res = await fetch(`${API_URL}${submission.path}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          ...newUser,
-          email: newUser.email.trim().toLowerCase(),
-          first_name: newUser.first_name.trim(),
-          last_name: newUser.last_name.trim(),
-        }),
+        body: JSON.stringify(submission.body),
       });
       if (res.ok) {
         setShowCreateModal(false);
@@ -414,8 +445,12 @@ export default function AdminTeamPage() {
               onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
             />
             {existingAccount ? (
-              <span className="mt-1 block text-xs font-medium text-primary">
+              <span className="mt-1 block text-xs font-medium text-primary" aria-live="polite">
                 {t('users.teamPage.roleWillBeAdded', { name: `${existingAccount.first_name} ${existingAccount.last_name}` })}
+              </span>
+            ) : isLookingUpAccount ? (
+              <span className="mt-1 block text-xs text-muted-foreground" aria-live="polite">
+                {t('users.teamPage.lookingUpAccount')}
               </span>
             ) : (
               <span className="mt-1 block text-xs text-muted-foreground">
@@ -423,8 +458,6 @@ export default function AdminTeamPage() {
               </span>
             )}
           </label>
-          {!existingAccount && (
-            <>
           <label className="block">
             <span className="text-sm text-foreground mb-1 block">{t('users.name')}</span>
             <Input
@@ -432,7 +465,8 @@ export default function AdminTeamPage() {
               autoComplete="off"
               data-lpignore="true"
               data-1p-ignore="true"
-              value={newUser.first_name}
+              value={existingAccount?.first_name ?? newUser.first_name}
+              disabled={!!existingAccount}
               onChange={(e) => setNewUser({ ...newUser, first_name: e.target.value })}
             />
           </label>
@@ -443,12 +477,11 @@ export default function AdminTeamPage() {
               autoComplete="off"
               data-lpignore="true"
               data-1p-ignore="true"
-              value={newUser.last_name}
+              value={existingAccount?.last_name ?? newUser.last_name}
+              disabled={!!existingAccount}
               onChange={(e) => setNewUser({ ...newUser, last_name: e.target.value })}
             />
           </label>
-            </>
-          )}
           <label className="block">
             <span className="text-sm text-foreground mb-1 block">{t('users.role')}</span>
             <select
@@ -456,14 +489,21 @@ export default function AdminTeamPage() {
               onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
               className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-card"
             >
-              {/* ADR-0011: students are not team-managed. Backend will 400
-                  if 'student' is sent here. */}
-              <option value="methodologist">{t('users.roleMethodologist')}</option>
-              <option value="org_admin">{t('users.roleOrgAdmin')}</option>
-              <option value="admin">{t('users.roleAdmin')}</option>
+              {TEAM_ROLES.map((role) => (
+                <option key={role} value={role} disabled={existingRoles.includes(role)}>
+                  {role === 'methodologist'
+                    ? t('users.roleMethodologist')
+                    : role === 'org_admin'
+                      ? t('users.roleOrgAdmin')
+                      : t('users.roleAdmin')}
+                </option>
+              ))}
             </select>
+            <span className="mt-1 block text-xs text-muted-foreground">
+              {t(`users.teamPage.roleDescriptions.${newUser.role}` as any)}
+            </span>
           </label>
-          {!existingAccount && <label className="block">
+          <label className="block">
             <span className="text-sm text-foreground mb-1 block">{t('users.password')}</span>
             <Input
               name={`team_member_password_${createFormKey}`}
@@ -472,13 +512,26 @@ export default function AdminTeamPage() {
               data-lpignore="true"
               data-1p-ignore="true"
               data-form-type="other"
-              value={newUser.password}
+              value={existingAccount ? '' : newUser.password}
+              disabled={!!existingAccount}
+              placeholder={existingAccount ? t('users.teamPage.passwordUnchanged') : undefined}
               onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
             />
-          </label>}
+          </label>
+          {existingAccount && (
+            <p className="rounded-lg bg-primary/5 px-3 py-2 text-xs text-muted-foreground">
+              {t('users.teamPage.switchRoleHint')}
+            </p>
+          )}
           {createError && <p className="text-sm text-destructive">{createError}</p>}
-          <Button type="submit" className="w-full" disabled={isCreating}>
-            {isCreating ? t('users.teamPage.creating') : t('users.createButton')}
+          <Button
+            type="submit"
+            className="w-full"
+            disabled={isCreating || isLookingUpAccount || (existingAccount != null && assignableRoles.length === 0)}
+          >
+            {isCreating
+              ? t(existingAccount ? 'users.teamPage.addingRole' : 'users.teamPage.creating')
+              : t(existingAccount ? 'users.teamPage.addRoleButton' : 'users.createButton')}
           </Button>
           </form>
         </CardContent>

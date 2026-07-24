@@ -1,5 +1,5 @@
 """User management schemas"""
-from pydantic import BaseModel, Field, EmailStr
+from pydantic import BaseModel, Field, EmailStr, field_validator
 from uuid import UUID
 from datetime import datetime
 
@@ -11,6 +11,17 @@ class UserCreate(BaseModel):
     role: str = "student"
     password: str | None = Field(default=None, min_length=8)
     is_active: bool = True
+
+    @field_validator("password", mode="before")
+    @classmethod
+    def empty_password_is_missing(cls, value: object) -> object:
+        """Let the router distinguish role assignment from account creation.
+
+        The team form historically sent empty hidden fields while adding a
+        role to an existing account. New accounts still require an eight
+        character password through the field constraint and router check.
+        """
+        return None if value == "" else value
 
 
 class UserUpdate(BaseModel):

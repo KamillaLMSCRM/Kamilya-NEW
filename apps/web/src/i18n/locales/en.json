@@ -380,11 +380,22 @@
       "newMember": "New team member",
       "existingAccountHint": "If this email already belongs to a member of this company, the selected role will be added to that account. The password and profile will not change.",
       "roleWillBeAdded": "Account found: {name}. The selected role will be added without creating another user.",
+      "lookingUpAccount": "Checking whether this account already exists in the company…",
+      "passwordUnchanged": "The current password will not change",
+      "switchRoleHint": "After the role is added, the user can switch working modes in the top bar without signing in again.",
+      "addRoleButton": "Add role",
+      "addingRole": "Adding role…",
+      "roleDescriptions": {
+        "methodologist": "Creates courses and tests and manages materials, assignments, and learning results.",
+        "admin": "Manages the company team, settings, integrations, and kiosks.",
+        "org_admin": "Organizational administration role. It currently has the same access area as company administrator."
+      },
       "errors": {
         "emailRequired": "Enter email",
         "firstNameRequired": "Enter first name",
         "lastNameRequired": "Enter last name",
         "passwordMin": "Password must be at least 8 characters",
+        "roleAlreadyAssigned": "This role is already assigned to the account",
         "emailExists": "A user with this email already exists in the tenant team",
         "limitReached": "User limit reached: {current} of {limit}",
         "limitExceeded": "The user limit for the current plan has been reached",
@@ -398,8 +409,8 @@
     "surname": "Surname",
     "roleStudent": "Learner",
     "roleMethodologist": "Methodologist",
-    "roleAdmin": "Admin",
-    "roleOrgAdmin": "Org admin",
+    "roleAdmin": "Company administrator",
+    "roleOrgAdmin": "Organizational administrator",
     "roleSuperadmin": "Superadmin",
     "roleInstructor": "Instructor",
     "active": "Active"
