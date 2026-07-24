@@ -20,7 +20,7 @@ function NavLink({ item, isActive, collapsed, onNavigate }: { item: NavItem; isA
     <Link
       href={item.href}
       onClick={onNavigate}
-      title={collapsed ? item.label : undefined}
+      title={item.label}
       aria-current={isActive ? 'page' : undefined}
       className={cn(
         'group relative flex items-center rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200',
@@ -284,7 +284,7 @@ label: t('providers.title'),
       <button
         type="button"
         onClick={onToggle}
-        className="absolute -right-3 top-20 z-40 flex h-6 w-6 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-sm hover:text-foreground hover:border-border transition-colors"
+        className="absolute -right-3 top-20 z-40 hidden h-10 w-10 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:border-border hover:text-foreground md:flex"
         title={collapsed ? t('sidebar.expand') : t('sidebar.collapse')}
         aria-label={collapsed ? t('sidebar.expand') : t('sidebar.collapse')}
         aria-expanded={!collapsed}

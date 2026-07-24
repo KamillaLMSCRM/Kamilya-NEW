@@ -23,6 +23,7 @@ import {
   buildTrainingLogPageQuery,
   type TrainingLogFilters,
 } from './query';
+import { TRAINING_LOG_COLUMN_CLASS as columnClass } from './presentation';
 
 /**
  * Training log — единый журнал обучения (P0.3 first-tenant hardening).
@@ -211,7 +212,7 @@ export default function AdminTrainingLogPage() {
   };
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6">
       <header className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-semibold text-foreground">
@@ -340,38 +341,55 @@ export default function AdminTrainingLogPage() {
               )}
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <>
+              <div className="divide-y divide-border md:hidden" data-testid="training-log-mobile-list">
+                {items.map((row, idx) => (
+                  <article key={`${row.user_id}-${row.course_id}-${idx}`} className="space-y-3 p-4">
+                    <div>
+                      <h2 className="font-medium text-foreground">{row.full_name}</h2>
+                      <button type="button" className="mt-1 text-left text-sm text-primary hover:underline" onClick={() => router.push(`/courses/${row.course_id}`)}>{row.course_title}</button>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant={row.computed_status === 'completed' ? 'default' : 'secondary'}>
+                        {row.computed_status === 'completed' ? t('trainingLog.badge.completed') : row.computed_status === 'in_progress' ? t('trainingLog.badge.inProgress') : t('trainingLog.badge.assigned')}
+                      </Badge>
+                      <span className="text-sm tabular-nums text-muted-foreground">{t('trainingLog.table.progress')}: {row.progress_percent}%</span>
+                    </div>
+                  </article>
+                ))}
+              </div>
+              <div className="hidden overflow-x-auto md:block">
               <Table>
-                <thead>
+                <thead className="sticky top-0 z-10 bg-card">
                   <tr className="text-left text-xs font-medium text-muted-foreground">
-                    <th className="px-4 py-3">{t('trainingLog.table.fullName')}</th>
-                    <th className="px-4 py-3">{t('trainingLog.table.personnelNumber')}</th>
-                    <th className="px-4 py-3">{t('trainingLog.table.department')}</th>
-                    <th className="px-4 py-3">{t('trainingLog.table.position')}</th>
-                    <th className="px-4 py-3">{t('trainingLog.table.course')}</th>
-                    <th className="px-4 py-3">{t('trainingLog.table.type')}</th>
-                    <th className="px-4 py-3">{t('trainingLog.table.status')}</th>
-                    <th className="px-4 py-3">{t('trainingLog.table.progress')}</th>
-                    <th className="px-4 py-3">{t('trainingLog.table.score')}</th>
-                    <th className="px-4 py-3">{t('trainingLog.table.completedAt')}</th>
-                    <th className="px-4 py-3">{t('trainingLog.table.certificate')}</th>
+                    <th className={columnClass.fullName}>{t('trainingLog.table.fullName')}</th>
+                    <th className={columnClass.personnelNumber}>{t('trainingLog.table.personnelNumber')}</th>
+                    <th className={columnClass.department}>{t('trainingLog.table.department')}</th>
+                    <th className={columnClass.position}>{t('trainingLog.table.position')}</th>
+                    <th className={columnClass.course}>{t('trainingLog.table.course')}</th>
+                    <th className={columnClass.type}>{t('trainingLog.table.type')}</th>
+                    <th className={columnClass.status}>{t('trainingLog.table.status')}</th>
+                    <th className={columnClass.progress}>{t('trainingLog.table.progress')}</th>
+                    <th className={columnClass.score}>{t('trainingLog.table.score')}</th>
+                    <th className={columnClass.completedAt}>{t('trainingLog.table.completedAt')}</th>
+                    <th className={columnClass.certificate}>{t('trainingLog.table.certificate')}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {items.map((row, idx) => (
                     <tr key={`${row.user_id}-${row.course_id}-${idx}`} className="border-t border-border">
-                      <td className="px-4 py-3">
+                      <td className={columnClass.fullName}>
                         <div className="font-medium text-foreground">{row.full_name}</div>
                         {row.email && (
                           <div className="text-xs text-muted-foreground">{row.email}</div>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-sm text-muted-foreground">
+                      <td className={`${columnClass.personnelNumber} text-sm text-muted-foreground`}>
                         {row.personnel_number || '—'}
                       </td>
-                      <td className="px-4 py-3 text-sm">{row.department_name || '—'}</td>
-                      <td className="px-4 py-3 text-sm">{row.position_name || '—'}</td>
-                      <td className="px-4 py-3">
+                      <td className={`${columnClass.department} text-sm`}>{row.department_name || '—'}</td>
+                      <td className={`${columnClass.position} text-sm`}>{row.position_name || '—'}</td>
+                      <td className={columnClass.course}>
                         <button
                           type="button"
                           className="text-left text-sm text-primary hover:underline"
@@ -380,14 +398,14 @@ export default function AdminTrainingLogPage() {
                           {row.course_title}
                         </button>
                       </td>
-                      <td className="px-4 py-3">
+                      <td className={columnClass.type}>
                         <Badge variant={row.delivery_type === 'scorm' ? 'outline' : 'default'}>
                           {row.delivery_type === 'scorm'
                             ? t('trainingLog.badge.scorm')
                             : t('trainingLog.badge.native')}
                         </Badge>
                       </td>
-                      <td className="px-4 py-3">
+                      <td className={columnClass.status}>
                         <Badge
                           variant={row.computed_status === 'completed' ? 'default' : 'secondary'}
                         >
@@ -398,16 +416,16 @@ export default function AdminTrainingLogPage() {
                               : t('trainingLog.badge.assigned')}
                         </Badge>
                       </td>
-                      <td className="px-4 py-3 text-sm tabular-nums">
+                      <td className={`${columnClass.progress} text-sm tabular-nums`}>
                         {row.progress_percent}%
                       </td>
-                      <td className="px-4 py-3 text-sm tabular-nums">
+                      <td className={`${columnClass.score} text-sm tabular-nums`}>
                         {row.best_score !== null ? `${row.best_score}%` : '—'}
                       </td>
-                      <td className="px-4 py-3 text-sm text-muted-foreground">
+                      <td className={`${columnClass.completedAt} text-sm text-muted-foreground`}>
                         {row.completed_at ? formatDate(row.completed_at) : '—'}
                       </td>
-                      <td className="px-4 py-3 text-sm">
+                      <td className={`${columnClass.certificate} text-sm`}>
                         {row.certificate_number ? (
                           <span className="text-primary">{row.certificate_number}</span>
                         ) : (
@@ -419,6 +437,7 @@ export default function AdminTrainingLogPage() {
                 </tbody>
               </Table>
             </div>
+            </>
           )}
         </CardContent>
       </Card>

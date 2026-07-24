@@ -138,7 +138,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           >
             <DemoBanner />
             <TopBar onMenuClick={() => setMobileSidebarOpen(true)} />
-            <div className="p-6">{children}</div>
+            <div className="px-4 py-6 md:px-6">{children}</div>
           </main>
         </div>
       </SidebarContext.Provider>

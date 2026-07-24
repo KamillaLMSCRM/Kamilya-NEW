@@ -7,6 +7,7 @@ import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 import { useT, type TranslationKey } from '@/i18n/useT';
 import { toast } from '@/components/ui/Toast';
+import { LoadError } from '@/components/ui/LoadError';
 
 interface Invitation { id: string; email: string; role: string; status: string; created_at: string; expires_at: string; accepted_at: string | null; }
 const statusVariant = (status: string) => status === 'accepted' ? 'default' : status === 'pending' ? 'outline' : 'secondary';
@@ -31,6 +32,7 @@ export default function InvitationsPage() {
   const [email, setEmail] = useState('');
   const [items, setItems] = useState<Invitation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [inviteUrls, setInviteUrls] = useState<Array<{ email: string; invite_url: string }>>([]);
 
@@ -42,11 +44,14 @@ export default function InvitationsPage() {
       return;
     }
     setLoading(true);
+    setLoadError(null);
     try {
       const response = await api.get('/v1/users/invitations?per_page=100');
       setItems(response.data.items || []);
     } catch (error: any) {
-      toast.error(t('invitations.loadError'), { description: describeError(error, t('invitations.loadError'), t) });
+      const message = describeError(error, t('invitations.loadError'), t);
+      setLoadError(message);
+      toast.error(t('invitations.loadError'), { description: message });
     } finally { setLoading(false); }
   }, [isDemoTenant, token, t]);
   useEffect(() => { load(); }, [load]);
@@ -69,7 +74,7 @@ export default function InvitationsPage() {
   const copy = async (url: string) => { await navigator.clipboard.writeText(url); toast.success(t('invitations.copied')); };
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 p-6">
+    <div className="mx-auto max-w-5xl space-y-6">
       <header><h1 className="text-2xl font-semibold text-foreground">{t('invitations.title')}</h1><p className="mt-1 text-sm text-muted-foreground">{t('invitations.subtitle')}</p></header>
       {isDemoTenant ? <Card className="border-warning/30 bg-warning/5"><CardHeader><CardTitle>{t('invitations.demoUnavailable')}</CardTitle></CardHeader><CardContent><p className="text-sm text-muted-foreground">{t('invitations.demoHint')}</p></CardContent></Card> : <Card><CardHeader><CardTitle>{t('invitations.createTitle')}</CardTitle></CardHeader><CardContent className="flex flex-col gap-3 sm:flex-row">
         <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') createInvitation(); }} placeholder={t('invitations.emailPlaceholder')} aria-label={t('invitations.emailLabel')} />
@@ -80,7 +85,7 @@ export default function InvitationsPage() {
         <p className="text-xs text-muted-foreground">{t('invitations.manualDeliveryHint')}</p>
       </CardContent></Card>}
       <Card><CardHeader className="flex flex-row items-center justify-between gap-3"><CardTitle>{t('invitations.listTitle')}</CardTitle><Button variant="outline" size="sm" onClick={load} disabled={loading} title={t('invitations.refresh')}><RefreshCw className="h-4 w-4" aria-hidden="true" /><span className="sr-only">{t('invitations.refresh')}</span></Button></CardHeader><CardContent>
-        {loading ? <p className="text-sm text-muted-foreground">{t('common.loading')}</p> : items.length === 0 ? <p className="py-6 text-center text-sm text-muted-foreground">{t('invitations.empty')}</p> : <div className="divide-y divide-border">{items.map((item) => <div key={item.id} className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center"><div className="min-w-0 flex-1"><p className="truncate font-medium text-foreground">{item.email}</p><p className="text-xs text-muted-foreground">{t('invitations.expiresAt')}: {new Date(item.expires_at).toLocaleDateString()}</p></div><Badge variant={statusVariant(item.status) as any}>{t(`invitations.status.${item.status}` as any) || item.status}</Badge>{item.status === 'pending' && <Button variant="outline" size="sm" onClick={() => resend(item.id)}><RefreshCw className="h-4 w-4" aria-hidden="true" />{t('invitations.resend')}</Button>}</div>)}</div>}
+        {loading ? <p className="text-sm text-muted-foreground">{t('common.loading')}</p> : loadError ? <LoadError title={t('invitations.loadError')} message={loadError} retryLabel={t('common.retry')} onRetry={load} /> : items.length === 0 ? <p className="py-6 text-center text-sm text-muted-foreground">{t('invitations.empty')}</p> : <div className="divide-y divide-border">{items.map((item) => <div key={item.id} className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center"><div className="min-w-0 flex-1"><p className="truncate font-medium text-foreground">{item.email}</p><p className="text-xs text-muted-foreground">{t('invitations.expiresAt')}: {new Date(item.expires_at).toLocaleDateString()}</p></div><Badge variant={statusVariant(item.status) as any}>{t(`invitations.status.${item.status}` as any) || item.status}</Badge>{item.status === 'pending' && <Button variant="outline" size="sm" onClick={() => resend(item.id)}><RefreshCw className="h-4 w-4" aria-hidden="true" />{t('invitations.resend')}</Button>}</div>)}</div>}
       </CardContent></Card>
     </div>
   );

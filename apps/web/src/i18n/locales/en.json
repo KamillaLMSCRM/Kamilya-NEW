@@ -25,6 +25,7 @@
     "import": "Import",
     "refresh": "Refresh",
     "retry": "Retry",
+    "actions": "Actions",
     "optional": "optional",
     "required": "required",
     "active": "Active",

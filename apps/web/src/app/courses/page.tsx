@@ -8,6 +8,8 @@ import { useT } from '@/i18n/useT';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { toast } from '@/components/ui/Toast';
 import { api } from '@/lib/api';
+import { MoreVertical, Trash2 } from 'lucide-react';
+import { LoadError } from '@/components/ui/LoadError';
 
 export default function CoursesPage() {
   const { user } = useAuthStore();
@@ -15,6 +17,7 @@ export default function CoursesPage() {
   const { confirm, dialog } = useConfirm();
   const [courses, setCourses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [showScormImport, setShowScormImport] = useState(false);
   const [title, setTitle] = useState('');
@@ -36,6 +39,8 @@ export default function CoursesPage() {
   }, [search, statusFilter]);
 
   const fetchCourses = async () => {
+    setLoading(true);
+    setLoadError(null);
     try {
       const params = new URLSearchParams();
       if (search) params.set('q', search);
@@ -43,6 +48,7 @@ export default function CoursesPage() {
       const res = await api.get(`/v1/courses?${params}`);
       setCourses(Array.isArray(res.data) ? res.data : []);
     } catch (err: any) {
+      setLoadError(err?.response?.data?.detail || err?.message || t('common.loadFailed'));
       toast.error(t('common.loadFailed'), {
         description: err?.response?.data?.detail || err?.message,
       });
@@ -273,6 +279,13 @@ export default function CoursesPage() {
             aria-label={t('common.loading')}
           />
         </div>
+      ) : loadError ? (
+        <LoadError
+          title={t('common.loadFailed')}
+          message={loadError}
+          retryLabel={t('common.retry')}
+          onRetry={fetchCourses}
+        />
       ) : courses.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-border py-12 text-center">
           <div className="text-muted-foreground mb-3">
@@ -302,7 +315,7 @@ export default function CoursesPage() {
           )}
         </div>
       ) : (
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr))]">
           {courses.map((course, i) => (
             <article
               key={course.id}
@@ -357,11 +370,17 @@ export default function CoursesPage() {
                 )}
 
                 {canManage && (
-                  <div className="mt-4 flex items-center gap-2">
+                  <div className="mt-4 grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_44px] items-center gap-2">
+                    <Link
+                      href={`/courses/${course.id}/edit`}
+                      className="flex min-h-11 items-center justify-center rounded-xl border border-border px-3 py-2 text-center text-xs font-medium text-muted-foreground transition-colors hover:border-border hover:text-foreground"
+                    >
+                      {t('common.edit')}
+                    </Link>
                     <button
                       type="button"
                       onClick={() => handlePublish(course.id, course.status)}
-                      className={`flex-1 rounded-xl px-3 py-2 text-xs font-medium transition-colors ${
+                      className={`min-h-11 min-w-0 rounded-xl px-2 py-2 text-xs font-medium transition-colors ${
                         course.status === 'published'
                           ? 'bg-muted text-foreground hover:bg-muted'
                           : 'bg-primary/10 text-primary hover:bg-primary/20'
@@ -369,21 +388,26 @@ export default function CoursesPage() {
                     >
                       {course.status === 'published' ? t('courses.unpublish') : t('courses.publish')}
                     </button>
-                    <Link
-                      href={`/courses/${course.id}/edit`}
-                      className="rounded-xl border border-border px-3 py-2 text-xs font-medium text-muted-foreground hover:border-border hover:text-foreground transition-colors"
-                    >
-                      {t('common.edit')}
-                    </Link>
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(course.id)}
-                      disabled={deletingId === course.id}
-                      className="rounded-xl px-3 py-2 text-xs font-medium text-destructive hover:text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-50"
-                      aria-label={t('dialogs.delete')}
-                    >
-                      {deletingId === course.id ? '…' : '✕'}
-                    </button>
+                    <details className="group/actions relative">
+                      <summary
+                        className="flex min-h-11 min-w-11 cursor-pointer list-none items-center justify-center rounded-xl border border-border text-muted-foreground transition-colors hover:text-foreground [&::-webkit-details-marker]:hidden"
+                        aria-label={t('common.actions')}
+                        title={t('common.actions')}
+                      >
+                        <MoreVertical className="h-4 w-4" aria-hidden="true" />
+                      </summary>
+                      <div className="absolute bottom-full right-0 z-20 mb-2 min-w-40 rounded-xl border border-border bg-card p-1 shadow-card-lg">
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(course.id)}
+                          disabled={deletingId === course.id}
+                          className="flex min-h-10 w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-50"
+                        >
+                          <Trash2 className="h-4 w-4" aria-hidden="true" />
+                          {deletingId === course.id ? '…' : t('dialogs.delete')}
+                        </button>
+                      </div>
+                    </details>
                   </div>
                 )}
               </div>
