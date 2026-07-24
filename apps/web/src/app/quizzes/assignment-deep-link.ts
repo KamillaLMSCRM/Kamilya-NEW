@@ -13,8 +13,8 @@ export function firstQuizForAssignments<TQuiz extends QuizLike>(
   grouped: GroupedQuizzes<TQuiz>,
 ): TQuiz | null {
   for (const course of grouped.courses) {
-    for (const module of course.modules) {
-      for (const lesson of module.lessons) {
+    for (const courseModule of course.modules) {
+      for (const lesson of courseModule.lessons) {
         if (lesson.quiz) return lesson.quiz;
       }
     }
