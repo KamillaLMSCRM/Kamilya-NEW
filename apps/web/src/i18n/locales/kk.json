@@ -153,6 +153,7 @@
     "editCourse": "Курс өзгерту",
     "courseTitle": "Курс атауы",
     "courseDescription": "Сипаттама",
+    "selectCourseCount": "Курсты таңдаңыз ({count})",
     "status": "Мәртебе",
     "draft": "Жоба",
     "published": "Жарияланған",

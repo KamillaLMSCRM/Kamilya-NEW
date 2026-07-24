@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Card, CardContent, Button, Badge, Input } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
 import { getAccessToken } from '@/lib/auth';
@@ -9,6 +9,7 @@ import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { toast } from '@/components/ui/Toast';
 import { CheckCircle2, Circle, Lightbulb, ChevronRight, ChevronDown } from 'lucide-react';
 import { QuizAssignPanel } from '@/features/quiz-assignments';
+import { firstQuizForAssignments } from './assignment-deep-link';
 
 interface QuizChoice {
   id: string;
@@ -78,6 +79,8 @@ export default function QuizzesAdminPage() {
   const [grouped, setGrouped] = useState<QuizGroupedResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedQuiz, setSelectedQuiz] = useState<Quiz | null>(null);
+  const assignmentDeepLinkHandled = useRef(false);
+  const assignmentScrollPending = useRef(false);
   const [editing, setEditing] = useState(false);
   // Cascade selector state — Course → Module → Lesson. Replaces the old
   // free-form "Lesson ID (UUID)" input that forced methodologists to
@@ -180,6 +183,24 @@ export default function QuizzesAdminPage() {
       )
     );
   }, [grouped]);
+
+  useEffect(() => {
+    if (!grouped || assignmentDeepLinkHandled.current) return;
+    if (new URLSearchParams(window.location.search).get('section') !== 'assignments') return;
+
+    assignmentDeepLinkHandled.current = true;
+    const firstQuiz = firstQuizForAssignments(grouped);
+    if (firstQuiz) {
+      assignmentScrollPending.current = true;
+      setSelectedQuiz(firstQuiz);
+    }
+  }, [grouped]);
+
+  useEffect(() => {
+    if (!selectedQuiz || !assignmentScrollPending.current) return;
+    assignmentScrollPending.current = false;
+    document.getElementById('assignments')?.scrollIntoView({ block: 'start' });
+  }, [selectedQuiz]);
 
   // Resolve the course currently selected in the create-quiz cascade
   // from the server-provided tree. Replaces the old `previews[course_id]`
@@ -1144,7 +1165,7 @@ export default function QuizzesAdminPage() {
                 назначил кому надо → видно кто прошёл, кто нет.
                 refreshKey === quiz.id гарантирует, что при выборе другого
                 теста панель перезагружает данные. */}
-            <div className="pt-2">
+            <div id="assignments" className="scroll-mt-6 pt-2">
               <QuizAssignPanel quizId={selectedQuiz.id} refreshKey={selectedQuiz.id} />
             </div>
           </div>

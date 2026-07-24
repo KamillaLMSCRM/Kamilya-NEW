@@ -153,6 +153,7 @@
     "editCourse": "Редактировать курс",
     "courseTitle": "Название курса",
     "courseDescription": "Описание",
+    "selectCourseCount": "Выберите курс ({count})",
     "status": "Статус",
     "draft": "Черновик",
     "published": "Опубликован",

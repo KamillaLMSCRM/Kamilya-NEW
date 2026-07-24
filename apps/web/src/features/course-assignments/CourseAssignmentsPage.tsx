@@ -293,8 +293,7 @@ export default function EnrollmentsPage() {
               className="w-full border rounded-md px-3 py-2 text-sm"
             >
               <option value="">
-                {t('courses.status')}: {t('common.all')} (
-                {filteredCourses.length})
+                {t('courses.selectCourseCount', { count: filteredCourses.length })}
               </option>
               {filteredCourses.map((c) => (
                 <option key={c.id} value={c.id}>

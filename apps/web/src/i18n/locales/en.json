@@ -153,6 +153,7 @@
     "editCourse": "Edit Course",
     "courseTitle": "Course Title",
     "courseDescription": "Description",
+    "selectCourseCount": "Select a course ({count})",
     "status": "Status",
     "draft": "Draft",
     "published": "Published",

@@ -30,6 +30,21 @@ async def _get(db: AsyncSession, announcement_id: UUID, tenant_id: UUID) -> Anno
     return item
 
 
+def _recipient_query(tenant_id: UUID, course_id: UUID | None):
+    query = select(User.email).where(
+        User.tenant_id == tenant_id,
+        User.is_active.is_(True),
+        User.status == "active",
+        User.email.is_not(None),
+    )
+    if course_id:
+        query = query.join(
+            Enrollment,
+            (Enrollment.user_id == User.id) & (Enrollment.tenant_id == tenant_id),
+        ).where(Enrollment.course_id == course_id)
+    return query
+
+
 @router.get("", response_model=list[AnnouncementSummary])
 async def list_announcements(db: AsyncSession = Depends(get_db), user=Depends(require_role(*MANAGER_ROLES))):
     result = await db.execute(select(Announcement).where(Announcement.tenant_id == user.tenant_id).order_by(Announcement.created_at.desc()))
@@ -59,9 +74,7 @@ async def send_announcement(announcement_id: UUID, db: AsyncSession = Depends(ge
     course_title = None
     if item.course_id:
         course_title = (await db.execute(select(Course.title).where(Course.id == item.course_id, Course.tenant_id == user.tenant_id))).scalar_one_or_none()
-    query = select(User.email).join(Enrollment, Enrollment.user_id == User.id).where(User.tenant_id == user.tenant_id, User.is_active.is_(True), User.email.is_not(None))
-    if item.course_id:
-        query = query.where(Enrollment.course_id == item.course_id)
+    query = _recipient_query(user.tenant_id, item.course_id)
     emails = sorted({email.strip().lower() for email in (await db.execute(query)).scalars().all() if email and email.strip()})
     sent = failed = 0
     service = EmailService()
