@@ -10,7 +10,7 @@ set -euo pipefail
 # pgvector is bundled with the pgvector/pgvector:pg16 image but must be
 # enabled per-database. Without this, alembic upgrade head fails when
 # migration 0018 creates document_embeddings.
-psql -v ON_ERROR_STOP=1 --username "${POSTGRES_USER}" --dbname "${POSTGRES_DB}" <<-EOSQL
+psql -v ON_ERROR_STOP=1 --username "${POSTGRES_USER}" --dbname "${POSTGRES_DB}" <<-'EOSQL'
     CREATE EXTENSION IF NOT EXISTS vector;
 EOSQL
 
@@ -19,7 +19,7 @@ EOSQL
 # whatever role DATABASE_URL points at (we recommend 'lms' in dev).
 # NOBYPASSRLS is critical: it ensures FORCE ROW LEVEL SECURITY applies
 # to this role, so the tenant_id filter on every table is mandatory.
-psql -v ON_ERROR_STOP=1 --username "${POSTGRES_USER}" --dbname "${POSTGRES_DB}" <<-EOSQL
+psql -v ON_ERROR_STOP=1 --username "${POSTGRES_USER}" --dbname "${POSTGRES_DB}" <<-'EOSQL'
     DO $$
     BEGIN
         IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'lms_app') THEN
