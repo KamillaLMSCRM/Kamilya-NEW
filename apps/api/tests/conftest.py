@@ -294,17 +294,35 @@ def make_document(db_session: AsyncSession) -> Callable[..., "any"]:
         title: str | None = None,
         **overrides,
     ) -> "Document":
-        doc = Document(
-            id=overrides.get("id", uuid4()),
-            tenant_id=tenant.id,
-            uploaded_by=uploader.id,
-            title=title or name,
-            filename=name,
-            content_type=overrides.get("content_type", "text/markdown"),
-            size=overrides.get("size_bytes", overrides.get("size", 1024)),
-            s3_key=overrides.get("s3_key", f"tenants/{tenant.id}/{uuid4()}"),
-            embedding_status=overrides.get("embedding_status", "pending"),
-        )
+        document_id = overrides.get("id", uuid4())
+        values = {
+            "id": document_id,
+            "tenant_id": tenant.id,
+            "uploaded_by": uploader.id,
+            "title": title or name,
+            "filename": name,
+            "content_type": overrides.get("content_type", "text/markdown"),
+            "size": overrides.get("size_bytes", overrides.get("size", 1024)),
+            "s3_key": overrides.get("s3_key", f"tenants/{tenant.id}/{uuid4()}"),
+            "description": overrides.get("description", ""),
+            "category": overrides.get("category", "general"),
+            "embedding_status": overrides.get("embedding_status", "pending"),
+            "embedding_error": overrides.get("embedding_error"),
+            "source_family_id": overrides.get("source_family_id", document_id),
+            "version": overrides.get("version", 1),
+            "content_sha256": overrides.get("content_sha256"),
+            "lifecycle_status": overrides.get("lifecycle_status", "active"),
+            "index_status": overrides.get("index_status", "processing"),
+            "index_error_code": overrides.get("index_error_code"),
+            "index_message": overrides.get("index_message"),
+            "index_chunks_total": overrides.get("index_chunks_total"),
+            "index_chunks_indexed": overrides.get("index_chunks_indexed"),
+            "index_revision": overrides.get("index_revision", 1),
+            "indexed_at": overrides.get("indexed_at"),
+        }
+        if "created_at" in overrides:
+            values["created_at"] = overrides["created_at"]
+        doc = Document(**values)
         db_session.add(doc)
         await db_session.flush()
         return doc

@@ -192,7 +192,7 @@ class TestDocumentsCrossTenant:
 
         assert r.status_code == 200
         body = r.json()
-        names = [d["filename"] for d in body]
+        names = [d["filename"] for d in body["items"]]
         assert "b-1.md" in names
         assert "a-1.md" not in names
         assert "a-2.md" not in names
