@@ -684,11 +684,7 @@ Expand-compatible API rollout:
 - локальный PostgreSQL 16 используется только как тестовая БД; Supabase и
   production не изменялись.
 
-До закрытия Gate 2.1 остаются:
-
-- запустить tenant hash backfill после production-деплоя и проверить его result;
-- выполнить production smoke после выкладки API, worker и frontend одной
-  согласованной ревизии.
+Gate 2.1 закрыт технически после production-деплоя и проверки backfill.
 
 ## Production follow-up 2026-07-25
 
@@ -715,3 +711,27 @@ Production-инвентаризация обнаружила 10 историче
 для которых Supabase Storage отвечает `404 Object not found`. Их hash нельзя
 восстановить из метаданных: после hotfix они должны быть явно помечены как
 недоступные и заменены новой загрузкой исходного файла.
+
+### Итоговая production-проверка Gate 2.1
+
+Проверено 2026-07-25:
+
+- GitHub Actions run `30147933903` завершён успешно;
+- Vercel deployment `dpl_46SExQ9xzP1vQjseRMyCz5433mNX` имеет статус `READY`;
+- Render deployment `dep-d9i5nbjrjlhs73edc36g` имеет статус `live`;
+- Render API и Celery worker работают на commit
+  `955764e6a230384a17e6617f0f6c7f5d115330c6`;
+- production database находится на Alembic revision `0072`;
+- worker зарегистрировал `documents.cleanup`, `documents.hash_backfill`,
+  `documents.reindex` и остальные ожидаемые задачи;
+- четыре tenant-scoped hash-backfill задания последовательно обработали
+  `4 + 3 + 2 + 1` документов без `Future attached to a different loop`;
+- все четыре maintenance job завершились как `failed` с progress `100` и
+  точным количеством ошибок, а не с ложным статусом успеха;
+- все 10 записей без исходного blob помечены
+  `index_status=failed`, `index_error_code=source_blob_missing`;
+- API health возвращает `ok`, `https://app.kml.kz/login` отвечает HTTP `200`.
+
+Для этих 10 тестовых документов дальнейшая автоматическая миграция невозможна:
+нужно загрузить исходные файлы повторно как новые версии или удалить
+неактуальные записи через защищённый cleanup flow.
