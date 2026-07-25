@@ -153,6 +153,15 @@ async def test_document_hash_backfill_hashes_available_blobs_and_reports_missing
         b"legacy approved source"
     ).hexdigest()
     assert stored_missing.content_sha256 is None
+    assert stored_missing.embedding_status == "failed"
+    assert stored_missing.embedding_error == "Source file is unavailable"
+    assert stored_missing.index_status == "failed"
+    assert stored_missing.index_error_code == "source_blob_missing"
+    assert stored_missing.index_message == (
+        "Source file is unavailable. Upload a new version."
+    )
     assert result["updated"] == 1
     assert result["failed"] == 1
-    assert stored_job.status == "completed"
+    assert stored_job.status == "failed"
+    assert stored_job.stage == "failed"
+    assert stored_job.errors == result["failures"]

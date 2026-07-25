@@ -673,7 +673,7 @@ Expand-compatible API rollout:
 
 Проверено:
 
-- полный backend suite на PostgreSQL 16: `494/494` тестов;
+- полный backend suite на PostgreSQL 16: `495/495` тестов;
 - frontend Vitest: `23` suites, `130/130` тестов;
 - frontend TypeScript: `tsc --noEmit` passed;
 - production Next.js build: успешно собрано `46` страниц;
@@ -689,3 +689,29 @@ Expand-compatible API rollout:
 - запустить tenant hash backfill после production-деплоя и проверить его result;
 - выполнить production smoke после выкладки API, worker и frontend одной
   согласованной ревизии.
+
+## Production follow-up 2026-07-25
+
+Первый production deploy Wave 2.1 дошёл до одной ревизии API/frontend/worker,
+но обязательный hash backfill выявил два эксплуатационных дефекта:
+
+- worker `.env` не содержал `STORAGE_BACKEND=supabase`, поэтому document tasks
+  использовали локальный диск VPS;
+- каждая Celery task создавала новый asyncio event loop, но SQLAlchemy engine
+  сохранял pooled connections от предыдущего loop. Последовательные jobs
+  получали `Future attached to a different loop`.
+
+Исправлено:
+
+- worker storage configuration приведена к Render и проверена как
+  `supabase(bucket=Kamilya LMS)`;
+- общий Celery async runner освобождает SQLAlchemy engine до закрытия loop;
+- hash backfill при отсутствующем blob переводит документ в
+  `failed/source_blob_missing` и завершает maintenance job как `failed`, а не
+  сообщает ложный успех;
+- regression tests и полный backend suite: `495/495`.
+
+Production-инвентаризация обнаружила 10 исторических тестовых document rows,
+для которых Supabase Storage отвечает `404 Object not found`. Их hash нельзя
+восстановить из метаданных: после hotfix они должны быть явно помечены как
+недоступные и заменены новой загрузкой исходного файла.

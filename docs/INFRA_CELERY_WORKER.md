@@ -163,6 +163,10 @@ ls -la .venv/bin/celery
 - `MASTER_ENCRYPTION_KEY` (для telegram_id_at_rest если используется)
 - `LLM_API_URL` / `QWEN_API_URL`
 - `EMBEDDING_URL` / `QWEN_EMBEDDING_URL`
+- `SUPABASE_URL`
+- `SUPABASE_KEY`
+- `SUPABASE_BUCKET=Kamilya LMS`
+- `STORAGE_BACKEND=supabase`
 - `APP_ENV=production`
 
 С твоей Windows-машины (PowerShell):
@@ -177,13 +181,14 @@ scp -i C:\Users\Askar\.ssh\id_vm `
 cd /opt/kamilya-worker/apps/api
 chmod 600 .env
 head -3 .env
-.venv/bin/python -c "from app.core.config import get_settings; s=get_settings(); print('DATABASE_URL ok' if s.DATABASE_URL else 'missing'); print('REDIS_URL ok' if s.REDIS_URL else 'missing')"
+.venv/bin/python -c "from app.core.config import get_settings; s=get_settings(); print('DATABASE_URL ok' if s.DATABASE_URL else 'missing'); print('REDIS_URL ok' if s.REDIS_URL else 'missing'); print('storage ok' if s.STORAGE_BACKEND == 'supabase' and s.SUPABASE_URL and s.SUPABASE_KEY else 'storage misconfigured')"
 ```
 
 Ожидаемо:
 ```
 DATABASE_URL ok
 REDIS_URL ok
+storage ok
 ```
 
 ---

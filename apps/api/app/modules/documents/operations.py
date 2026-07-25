@@ -349,6 +349,15 @@ async def run_document_hash_backfill(job_id: str, tenant_id: UUID) -> dict:
                     continue
                 blob = get_storage().get_bytes(document.s3_key)
                 if blob is None:
+                    document.embedding_status = "failed"
+                    document.embedding_error = "Source file is unavailable"
+                    document.index_status = "failed"
+                    document.index_error_code = "source_blob_missing"
+                    document.index_message = (
+                        "Source file is unavailable. Upload a new version."
+                    )
+                    document.updated_at = datetime.now(UTC)
+                    await session.commit()
                     raise RuntimeError("Source file is unavailable")
                 document.content_sha256 = hashlib.sha256(blob).hexdigest()
                 await session.commit()
@@ -380,16 +389,22 @@ async def run_document_hash_backfill(job_id: str, tenant_id: UUID) -> dict:
         if not job:
             raise RuntimeError("Document hash backfill job disappeared")
         now = datetime.now(UTC)
-        job.status = "completed"
-        job.stage = "completed"
+        has_failures = bool(failures)
+        job.status = "failed" if has_failures else "completed"
+        job.stage = "failed" if has_failures else "completed"
         job.progress = 100
-        job.message = "Document hash backfill completed"
+        job.message = (
+            f"Document hash backfill completed with {len(failures)} failure(s)"
+            if has_failures
+            else "Document hash backfill completed"
+        )
         job.result = {
             "scanned": total,
             "updated": updated,
             "failed": len(failures),
             "failures": failures,
         }
+        job.errors = failures or None
         job.updated_at = now
         job.completed_at = now
         await session.commit()

@@ -213,6 +213,11 @@ tests/          дополнительные тестовые сценарии
 
 `api.kml.kz` не является production API source of truth. Production backend находится на Render.
 
+Celery worker обязан иметь не только Supabase credentials, но и
+`STORAGE_BACKEND=supabase`. Иначе `get_storage()` безопасно переключается на
+локальный диск VPS, а document reindex/cleanup/hash-backfill не видят blobs,
+загруженные через Render.
+
 HostKZ `2 vCPU / 2 GiB / 50 GiB` был изолированным тестовым PostgreSQL-контуром. Production API и worker на него не переключались; Supabase остаётся production DB.
 
 Последняя подтверждённая release-проверка source governance:

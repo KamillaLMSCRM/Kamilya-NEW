@@ -3,9 +3,35 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Awaitable
 from uuid import UUID
 
 logger = logging.getLogger(__name__)
+
+
+def _run_async[T](awaitable: Awaitable[T]) -> T:
+    """Run one Celery coroutine without leaking pooled DB connections.
+
+    Celery tasks are synchronous entrypoints. Each invocation gets its own
+    event loop, so SQLAlchemy connections created in that loop must be disposed
+    before the loop closes. Otherwise the next task can reuse a Future bound to
+    the previous loop.
+    """
+
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        return loop.run_until_complete(awaitable)
+    finally:
+        try:
+            from app.core.db import engine
+
+            loop.run_until_complete(engine.dispose())
+        except Exception:
+            logger.exception("Could not dispose the async database engine")
+        finally:
+            asyncio.set_event_loop(None)
+            loop.close()
 
 try:
     from app.core.celery_app import celery_app
@@ -33,10 +59,7 @@ try:
         logger.info(f"Starting generation task for job {job_id}")
 
         try:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
-            result = loop.run_until_complete(
+            result = _run_async(
                 run_generation_pipeline(
                     job_id=job_id,
                     documents=documents,
@@ -55,8 +78,6 @@ try:
                 )
             )
 
-            loop.close()
-
             logger.info(f"Generation task complete for job {job_id}: {result.status}")
             return {
                 "job_id": job_id,
@@ -67,7 +88,7 @@ try:
 
         except Exception as e:
             logger.error(f"Generation task failed for job {job_id}: {e}")
-            self.retry(exc=e, countdown=60)
+            raise self.retry(exc=e, countdown=60) from e
 
     @celery_app.task(name="ai.ingest_document")
     def ingest_document_task(file_path: str, doc_id: str | None = None, tenant_id: str | None = None):
@@ -76,13 +97,10 @@ try:
 
         logger.info(f"Ingesting document: {file_path}")
 
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-
         ingestion = DocumentIngestion()
-        result = loop.run_until_complete(ingestion.ingest_file(file_path, doc_id, tenant_id=tenant_id))
-
-        loop.close()
+        result = _run_async(
+            ingestion.ingest_file(file_path, doc_id, tenant_id=tenant_id)
+        )
 
         logger.info(f"Document ingested: {result['doc_id']} ({result['chunks']} chunks)")
         return result
@@ -92,10 +110,8 @@ try:
         """Remove a tombstoned document and all of its persisted artifacts."""
         from app.modules.documents.cleanup import run_document_cleanup
 
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
         try:
-            return loop.run_until_complete(
+            return _run_async(
                 run_document_cleanup(
                     job_id=job_id,
                     document_id=UUID(document_id),
@@ -107,8 +123,6 @@ try:
                 exc=exc,
                 countdown=min(60 * (self.request.retries + 1), 300),
             ) from exc
-        finally:
-            loop.close()
 
     @celery_app.task(bind=True, name="documents.reindex", max_retries=5)
     def document_reindex_task(
@@ -121,10 +135,8 @@ try:
         """Rebuild a document index from the persisted source blob."""
         from app.modules.documents.operations import run_document_reindex
 
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
         try:
-            return loop.run_until_complete(
+            return _run_async(
                 run_document_reindex(
                     job_id=job_id,
                     document_id=UUID(document_id),
@@ -137,18 +149,14 @@ try:
                 exc=exc,
                 countdown=min(60 * (self.request.retries + 1), 300),
             ) from exc
-        finally:
-            loop.close()
 
     @celery_app.task(bind=True, name="documents.hash_backfill", max_retries=3)
     def document_hash_backfill_task(self, job_id: str, tenant_id: str):
         """Populate missing document content hashes for one tenant."""
         from app.modules.documents.operations import run_document_hash_backfill
 
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
         try:
-            return loop.run_until_complete(
+            return _run_async(
                 run_document_hash_backfill(
                     job_id=job_id,
                     tenant_id=UUID(tenant_id),
@@ -159,8 +167,6 @@ try:
                 exc=exc,
                 countdown=min(60 * (self.request.retries + 1), 300),
             ) from exc
-        finally:
-            loop.close()
 
 except Exception:
     # Redis/Celery not available — tasks won't run

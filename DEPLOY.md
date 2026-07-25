@@ -149,7 +149,13 @@ systemctl restart kamilya-worker
 systemctl is-active kamilya-worker
 ```
 
-The worker env is `/opt/kamilya-worker/apps/api/.env`. It must use the same `DATABASE_URL` / `MIGRATION_DATABASE_URL` split and `REDIS_URL` as Render. Valkey is exposed only through TLS with certificate verification enabled; do not replace it with a plaintext URL.
+The worker env is `/opt/kamilya-worker/apps/api/.env`. It must use the same
+`DATABASE_URL` / `MIGRATION_DATABASE_URL` split, `REDIS_URL`,
+`SUPABASE_URL`, `SUPABASE_KEY`, `SUPABASE_BUCKET` and
+`STORAGE_BACKEND=supabase` as Render. Without storage parity, document
+ingestion, reindex, cleanup and hash backfill run against the VPS local disk
+instead of the production bucket. Valkey is exposed only through TLS with
+certificate verification enabled; do not replace it with a plaintext URL.
 
 Queue/cache checks:
 
