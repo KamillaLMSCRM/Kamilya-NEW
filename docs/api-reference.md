@@ -320,9 +320,13 @@ GET /api/v1/certificates/{number}/verify
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/api/v1/documents/` | List documents |
-| POST | `/api/v1/documents/upload` | Upload document |
-| DELETE | `/api/v1/documents/{id}` | Delete document |
+| GET | `/api/v1/documents/catalog` | Cursor-paginated tenant source catalog with filters |
+| GET | `/api/v1/documents/{id}/usages` | Blocking positions, courses, lessons and active AI jobs |
+| GET | `/api/v1/documents/` | Deprecated compatibility array |
+| POST | `/api/v1/documents/upload` | Upload, hash and index a source document; exact duplicate returns 409 |
+| POST | `/api/v1/documents/{id}/reindex` | Durable asynchronous index rebuild |
+| POST | `/api/v1/documents/maintenance/hash-backfill` | Durable tenant-scoped SHA-256 backfill |
+| DELETE | `/api/v1/documents/{id}` | Protected asynchronous delete: 202, 409 or 423 |
 
 #### Upload Document
 
@@ -333,7 +337,17 @@ Content-Type: multipart/form-data
 
 file: [binary]
 description: "Учебный материал"
+category: "general"
+new_version_of: "optional-document-uuid"
 ```
+
+New uploads persist a lowercase SHA-256 digest. An exact tenant-local content
+match returns `409 duplicate_document` with the existing document summary.
+`new_version_of` creates the next version in the selected source family; it
+does not bypass exact-duplicate detection.
+
+Reindex and deletion return a durable `job_id` that can be polled through
+`GET /api/v1/ai/jobs/{job_id}`.
 
 ---
 

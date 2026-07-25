@@ -106,7 +106,8 @@ async def generate_instruction_course(
             Document.id == pos.instruction_document_id,
             Document.tenant_id == user.tenant_id,
             Document.category == "job_instruction",
-        )
+            Document.lifecycle_status == "active",
+        ).with_for_update()
     )
     if not instruction:
         raise HTTPException(status_code=422, detail="Job instruction is invalid")

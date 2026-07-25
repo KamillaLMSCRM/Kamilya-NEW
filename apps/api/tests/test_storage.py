@@ -1,9 +1,10 @@
 """Tests for storage abstraction — local and Supabase backends."""
-import os
-import pytest
+
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
+
+import pytest
 
 from app.core.storage import (
     LocalStorageBackend,
@@ -11,7 +12,6 @@ from app.core.storage import (
     get_storage,
     reset_storage_for_tests,
 )
-
 
 # ── Local backend ───────────────────────────────────────────
 
@@ -28,6 +28,15 @@ def test_local_get_missing_returns_none(tmp_path: Path):
     backend = LocalStorageBackend(tmp_path)
     assert backend.get_bytes("nope/missing.pdf") is None
     assert backend.exists("nope/missing.pdf") is False
+
+
+def test_local_delete_is_idempotent(tmp_path: Path):
+    backend = LocalStorageBackend(tmp_path)
+    backend.put_bytes("tenant/document.pdf", b"data")
+
+    assert backend.delete_bytes("tenant/document.pdf") is True
+    assert backend.delete_bytes("tenant/document.pdf") is True
+    assert backend.exists("tenant/document.pdf") is False
 
 
 def test_local_normalizes_path_traversal(tmp_path: Path):
@@ -135,6 +144,16 @@ def test_supabase_exists_checks_list():
         )
         assert backend.exists("t/cert.pdf") is True
         assert backend.exists("t/missing.pdf") is False
+
+
+def test_supabase_delete_calls_remove():
+    client, bucket = _make_mock_supabase_client()
+    with patch("supabase.create_client", return_value=client):
+        backend = SupabaseStorageBackend(
+            url="https://x.supabase.co", key="key", bucket="certs"
+        )
+        assert backend.delete_bytes("t/cert.pdf") is True
+        bucket.remove.assert_called_once_with(["t/cert.pdf"])
 
 
 def test_supabase_constructor_requires_url_and_key():

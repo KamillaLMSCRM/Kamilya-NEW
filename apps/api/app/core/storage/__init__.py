@@ -7,12 +7,12 @@ Two backends:
 The active backend is chosen via STORAGE_BACKEND env var. Failures to reach
 Supabase in dev are not fatal — they fall back to local with a warning log.
 """
+
 from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import BinaryIO
 
 from app.core.config import get_settings
 
@@ -35,6 +35,11 @@ class StorageBackend(ABC):
     @abstractmethod
     def exists(self, key: str) -> bool:
         """Check if a key exists."""
+        ...
+
+    @abstractmethod
+    def delete_bytes(self, key: str) -> bool:
+        """Delete a blob. Missing keys are treated as already deleted."""
         ...
 
     @abstractmethod
@@ -82,6 +87,14 @@ class LocalStorageBackend(StorageBackend):
 
     def exists(self, key: str) -> bool:
         return self._path(key).exists()
+
+    def delete_bytes(self, key: str) -> bool:
+        target = self._path(key)
+        try:
+            target.unlink()
+        except FileNotFoundError:
+            return True
+        return True
 
     def get_url(self, key: str, expires_in: int = 300) -> str | None:
         # Local backend has no direct URL — caller must use the download endpoint
@@ -147,6 +160,11 @@ class SupabaseStorageBackend(StorageBackend):
         except Exception as e:
             logger.warning(f"Supabase exists check failed for {key}: {e}")
             return False
+
+    def delete_bytes(self, key: str) -> bool:
+        client = self._get_client()
+        client.storage.from_(self.bucket).remove([key])
+        return True
 
     def get_url(self, key: str, expires_in: int = 300) -> str | None:
         try:

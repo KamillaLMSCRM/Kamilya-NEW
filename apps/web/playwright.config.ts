@@ -31,7 +31,7 @@ const config: PlaywrightTestConfig = {
     },
   ],
 
-  webServer: {
+  webServer: process.env.PLAYWRIGHT_SKIP_WEBSERVER ? undefined : {
     command: 'npm run dev',
     url: 'http://localhost:3000',
     cwd: '<rootDir>',

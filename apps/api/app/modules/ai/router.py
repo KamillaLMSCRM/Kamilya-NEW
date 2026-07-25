@@ -112,7 +112,12 @@ async def generate_course(
     )
     from app.modules.ai.source_analysis import analyze_document_set
 
-    analysis = await analyze_document_set(db, user.tenant_id, req.documents)
+    analysis = await analyze_document_set(
+        db,
+        user.tenant_id,
+        req.documents,
+        lock_for_update=True,
+    )
     analysis_payload = _compatibility_response(analysis).model_dump(mode="json")
     if analysis.requires_decision and req.source_strategy != "intentional_combination":
         raise HTTPException(

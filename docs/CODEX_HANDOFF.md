@@ -1,6 +1,6 @@
 # Kamilya LMS: handoff для нового Codex
 
-Дата: 2026-07-21
+Дата: 2026-07-24
 
 Назначение: безопасно продолжить разработку на другом компьютере без восстановления контекста из длинной истории чата.
 
@@ -100,7 +100,7 @@ Kamilya LMS — multi-tenant SaaS для корпоративного обуче
 
 ### Обычный AI-курс
 
-1. Методолог загружает документы и ждёт успешной индексации.
+1. Методолог загружает документы в единую библиотеку источников и ждёт полной или частичной успешной индексации.
 2. Выбирает документы одного будущего курса.
 3. Система анализирует тематическую совместимость.
 4. При разных темах методолог выбирает одну группу либо явно объединяет группы с общей учебной целью.
@@ -113,7 +113,33 @@ Kamilya LMS — multi-tenant SaaS для корпоративного обуче
 
 API анализа: `POST /api/v1/ai/document-compatibility`.
 
-Миграция: `0068_course_source_governance.py`.
+Каталог источников: `GET /api/v1/documents/catalog`. Оба frontend-экрана — библиотека
+`/documents` и мастер `/ai/generate` — используют этот контракт. Новая генерация
+принимает только `active` документы со статусом `ready` или `partial`, не более 20
+источников на курс.
+
+Удаление источника защищено:
+
+- `GET /api/v1/documents/{id}/usages` показывает блокирующие связи;
+- `409` запрещает удаление используемого документа;
+- `423` запрещает удаление во время индексации;
+- `202` переводит свободный документ в `deletion_pending` и создаёт durable
+  `document_cleanup` AI job;
+- Celery worker идемпотентно удаляет embeddings, blob, summary и metadata;
+- повторный DELETE переотправляет тот же job, а ошибка очереди переводит запись в
+  восстановимый `delete_failed`.
+
+Source library также реализует:
+
+- SHA-256 каждого нового upload и `409 duplicate_document` для точной копии;
+- явное семейство версий через form field `new_version_of`;
+- durable `POST /documents/{id}/reindex` с revision guard;
+- tenant-scoped `POST /documents/maintenance/hash-backfill` для старых blob;
+- UI-вкладки `active`, `delete_failed`, `deletion_pending` с повторной отправкой
+  cleanup job.
+
+Миграции: `0068_course_source_governance.py`,
+`0072_expand_document_source_catalog.py`.
 
 Подробности: `docs/plans/done/2026-07-21_document-source-governance.md`.
 

@@ -45,10 +45,13 @@ class DocumentUsageSummary(BaseModel):
     total: int = 0
     courses: int = 0
     positions: int = 0
+    lessons: int = 0
+    active_jobs: int = 0
 
 
 class DocumentCatalogItem(BaseModel):
     id: UUID
+    source_family_id: UUID
     title: str
     filename: str
     content_type: str
@@ -59,6 +62,9 @@ class DocumentCatalogItem(BaseModel):
     version: int = Field(gt=0)
     is_latest: bool
     lifecycle_status: DocumentLifecycleStatus
+    deletion_error_code: str | None = None
+    deletion_error_message: str | None = None
+    deletion_job_id: str | None = None
     created_at: datetime
     updated_at: datetime
     usages_summary: DocumentUsageSummary | None = None
@@ -73,3 +79,61 @@ class DocumentCatalogPage(BaseModel):
 class DocumentCatalogResponse(BaseModel):
     items: list[DocumentCatalogItem]
     page: DocumentCatalogPage
+
+
+DocumentUsageType = Literal[
+    "position_instruction",
+    "course_instruction",
+    "course_source",
+    "lesson_source",
+    "active_ai_job",
+]
+
+
+class DocumentUsageItem(BaseModel):
+    type: DocumentUsageType
+    id: str
+    title: str
+    status: str | None = None
+    route: str
+    blocks_delete: bool = True
+
+
+class DocumentUsageDetailSummary(BaseModel):
+    total: int = 0
+    positions: int = 0
+    courses: int = 0
+    lessons: int = 0
+    active_jobs: int = 0
+
+
+class DocumentUsagePage(BaseModel):
+    next_cursor: str | None = None
+    has_more: bool
+    limit: int = Field(ge=1, le=100)
+
+
+class DocumentUsageResponse(BaseModel):
+    summary: DocumentUsageDetailSummary
+    items: list[DocumentUsageItem]
+    page: DocumentUsagePage
+
+
+class DocumentDeleteAccepted(BaseModel):
+    document_id: UUID
+    lifecycle_status: Literal["deletion_pending"]
+    job_id: str
+    status_url: str
+
+
+class DocumentReindexAccepted(BaseModel):
+    document_id: UUID
+    index_status: Literal["processing"]
+    revision: int = Field(gt=0)
+    job_id: str
+    status_url: str
+
+
+class DocumentHashBackfillAccepted(BaseModel):
+    job_id: str
+    status_url: str

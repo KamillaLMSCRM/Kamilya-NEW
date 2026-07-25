@@ -86,3 +86,31 @@ async def test_mixed_document_topics_are_reported_and_block_generation(
     detail = response_body["details"]
     assert detail["code"] == "mixed_document_topics"
     assert detail["analysis"]["requires_decision"] is True
+
+
+@pytest.mark.asyncio
+async def test_document_pending_deletion_cannot_enter_new_generation(
+    client,
+    auth_headers,
+    make_tenant,
+    make_user,
+    make_document,
+):
+    tenant = await make_tenant()
+    methodologist = await make_user(tenant, role="methodologist")
+    document = await make_document(
+        tenant,
+        methodologist,
+        embedding_status="success",
+        index_status="ready",
+        lifecycle_status="deletion_pending",
+    )
+
+    response = await client.post(
+        "/api/v1/ai/document-compatibility",
+        json={"documents": [str(document.id)]},
+        headers=auth_headers(methodologist),
+    )
+
+    assert response.status_code == 404
+    assert "documents_not_found" in response.text

@@ -5,6 +5,10 @@ import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
 import { api } from '@/lib/api';
+import {
+  type DocumentCatalogResponse,
+  type DocumentIndexStatus,
+} from '@/lib/documentCatalog';
 import { toast } from '@/components/ui/Toast';
 import {
   FileText,
@@ -22,7 +26,6 @@ import {
   MessageSquare,
   ChevronRight,
   XCircle,
-  Trash2,
   Rocket,
   AlertTriangle,
   Layers3,
@@ -40,6 +43,7 @@ interface Document {
   embedding_error?: string | null;
   short_summary?: string | null;
   summary_ready?: boolean;
+  index_status: DocumentIndexStatus;
 }
 
 interface AIGenerationJob {
@@ -98,6 +102,8 @@ export default function AIGeneratePage() {
   const [uploadingCount, setUploadingCount] = useState(0);
   const [uploadingFiles, setUploadingFiles] = useState<string[]>([]);
   const [uploadError, setUploadError] = useState('');
+  const [documentLoadError, setDocumentLoadError] = useState('');
+  const [catalogHasMore, setCatalogHasMore] = useState(false);
   const [compatibility, setCompatibility] = useState<DocumentCompatibility | null>(null);
   const [compatibilityLoading, setCompatibilityLoading] = useState(false);
   const [compatibilityError, setCompatibilityError] = useState('');
@@ -156,7 +162,7 @@ export default function AIGeneratePage() {
 
   const selectedDocuments = documents.filter((doc) => selectedDocIds.includes(doc.id));
   const selectedNotReadyCount = selectedDocuments.filter((doc) => doc.embedding_status !== 'success').length;
-  const failedDocumentsCount = documents.filter((doc) => doc.embedding_status === 'failed').length;
+  const failedDocumentsCount = documents.filter((doc) => doc.index_status === 'failed').length;
   const hasResolvedSourceDecision = !compatibility?.requires_decision
     || (sourceStrategy === 'intentional_combination' && combinationGoal.trim().length >= 20);
   const canGenerate = selectedDocIds.length > 0
@@ -166,16 +172,18 @@ export default function AIGeneratePage() {
     && hasResolvedSourceDecision;
   const uploading = uploadingCount > 0;
 
-  const documentStatusLabel = (status: Document['embedding_status']) => {
-    if (status === 'success') return 'Готов';
+  const documentStatusLabel = (status: DocumentIndexStatus) => {
+    if (status === 'ready') return 'Готов';
+    if (status === 'partial') return 'Готов частично';
     if (status === 'failed') return 'Ошибка';
     return 'Обработка';
   };
 
-  const documentStatusClass = (status: Document['embedding_status']) => {
-    if (status === 'success') return 'bg-success/10 text-success border-success/30';
+  const documentStatusClass = (status: DocumentIndexStatus) => {
+    if (status === 'ready') return 'bg-success/10 text-success border-success/30';
+    if (status === 'partial') return 'bg-warning/10 text-warning border-warning/30';
     if (status === 'failed') return 'bg-destructive/10 text-destructive border-destructive/30';
-    return 'bg-warning/10 text-warning border-warning/30';
+    return 'bg-primary/10 text-primary border-primary/30';
   };
 
   useEffect(() => { fetchDocuments(); restoreActiveJob(); }, []);
@@ -242,10 +250,31 @@ export default function AIGeneratePage() {
   };
 
   const fetchDocuments = async () => {
+    setDocumentLoadError('');
     try {
-      const res = await api.get('/v1/documents');
-      setDocuments(Array.isArray(res.data) ? res.data : []);
-    } catch {}
+      const res = await api.get<DocumentCatalogResponse>(
+        '/v1/documents/catalog?lifecycle_status=active&limit=100'
+      );
+      setDocuments(res.data.items.map((document) => ({
+        id: document.id,
+        title: document.title,
+        filename: document.filename,
+        content_type: document.content_type,
+        size: document.size,
+        description: document.description,
+        embedding_status: document.index.status === 'ready' || document.index.status === 'partial'
+          ? 'success'
+          : document.index.status === 'failed' ? 'failed' : 'pending',
+        embedding_error: document.index.message,
+        short_summary: document.description || null,
+        summary_ready: false,
+        index_status: document.index.status,
+      })));
+      setCatalogHasMore(res.data.page.has_more);
+    } catch (error) {
+      console.error('Document catalog load failed', error);
+      setDocumentLoadError('Не удалось загрузить библиотеку документов. Повторите попытку.');
+    }
   };
 
   const handleDrop = async (e: React.DragEvent) => {
@@ -291,6 +320,10 @@ export default function AIGeneratePage() {
   const toggleDoc = (id: string) => {
     const doc = documents.find((item) => item.id === id);
     if (doc && doc.embedding_status !== 'success') return;
+    if (!selectedDocIds.includes(id) && selectedDocIds.length >= 20) {
+      toast.warning('Можно выбрать не более 20 документов для одного курса.');
+      return;
+    }
     setSelectedDocIds(prev => prev.includes(id) ? prev.filter(d => d !== id) : [...prev, id]);
     setSourceStrategy('single_topic');
     setCombinationGoal('');
@@ -300,22 +333,6 @@ export default function AIGeneratePage() {
     setSelectedDocIds(cluster.documents.map((document) => document.id));
     setSourceStrategy('single_topic');
     setCombinationGoal('');
-  };
-
-  const deleteDocument = async (doc: Document) => {
-    const previousDocuments = documents;
-    const previousSelected = selectedDocIds;
-    setDocuments((items) => items.filter((item) => item.id !== doc.id));
-    setSelectedDocIds((ids) => ids.filter((id) => id !== doc.id));
-    try {
-      await api.delete(`/v1/documents/${doc.id}`);
-      toast.success('Документ удалён', { description: doc.title });
-    } catch (e: any) {
-      setDocuments(previousDocuments);
-      setSelectedDocIds(previousSelected);
-      const message = e?.response?.data?.detail || e?.message || 'Попробуйте ещё раз.';
-      toast.error('Не удалось удалить документ', { description: message });
-    }
   };
 
   const handleGenerate = async () => {
@@ -643,6 +660,19 @@ export default function AIGeneratePage() {
             </div>
           )}
 
+          {documentLoadError && (
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              <span>{documentLoadError}</span>
+              <button
+                type="button"
+                onClick={() => void fetchDocuments()}
+                className="shrink-0 rounded-lg border border-destructive/30 px-2 py-1 font-medium hover:bg-destructive/10"
+              >
+                Повторить
+              </button>
+            </div>
+          )}
+
           {/* Documents list */}
           {documents.length > 0 && (
             <div className="space-y-2">
@@ -656,7 +686,11 @@ export default function AIGeneratePage() {
                 return (
                   <div
                     key={doc.id}
-                    title={doc.embedding_status === 'failed' ? doc.embedding_error || 'Документ не прошел индексацию' : undefined}
+                    title={doc.index_status === 'failed'
+                      ? doc.embedding_error || 'Документ не прошел индексацию'
+                      : doc.index_status === 'partial'
+                        ? doc.embedding_error || 'Часть фрагментов не проиндексирована'
+                        : undefined}
                     className={`flex items-center gap-3 rounded-xl border p-3 transition-all ${
                       isSelected
                         ? 'border-primary bg-primary/5'
@@ -676,19 +710,19 @@ export default function AIGeneratePage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 min-w-0">
                         <div className="text-sm font-medium text-foreground truncate">{doc.title}</div>
-                        <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-medium ${documentStatusClass(doc.embedding_status)}`}>
-                          {documentStatusLabel(doc.embedding_status)}
+                        <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-medium ${documentStatusClass(doc.index_status)}`}>
+                          {documentStatusLabel(doc.index_status)}
                         </span>
                       </div>
                       {doc.short_summary ? (
                         <div className="text-xs text-primary/80 truncate italic">
                           {doc.summary_ready ? '📄 ' : '⚠️ '}{doc.short_summary}
                         </div>
-                      ) : doc.embedding_status === 'failed' ? (
+                      ) : doc.index_status === 'failed' ? (
                         <div className="text-xs text-destructive truncate">
                           {doc.embedding_error || 'Документ нужно загрузить повторно или проверить формат.'}
                         </div>
-                      ) : doc.embedding_status === 'pending' ? (
+                      ) : doc.index_status === 'processing' ? (
                         <div className="text-xs text-warning truncate">
                           Индексация еще идет. Обновите список через несколько секунд.
                         </div>
@@ -697,32 +731,26 @@ export default function AIGeneratePage() {
                       ) : null}
                     </div>
                     <div className="text-xs text-muted-foreground shrink-0 max-w-[180px] truncate">{doc.filename}</div>
-                    {doc.embedding_status === 'failed' && (
-                      <button
-                        type="button"
-                        onClick={() => void deleteDocument(doc)}
-                        className="shrink-0 inline-flex h-8 w-8 items-center justify-center rounded-lg border border-destructive/30 text-destructive transition-colors hover:bg-destructive/10"
-                        title="Удалить документ с ошибкой"
-                        aria-label={`Удалить документ ${doc.title}`}
-                      >
-                        <Trash2 className="h-4 w-4" aria-hidden="true" />
-                      </button>
-                    )}
                   </div>
                 );
               })}
               {failedDocumentsCount > 0 && (
                 <div className="flex items-start justify-between gap-3 rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
                   <span>
-                    Есть документы с ошибкой индексации. Они исключены из генерации. Удалите проблемный документ и загрузите его повторно после проверки формата.
+                    Есть документы с ошибкой индексации. Они исключены из генерации. Откройте библиотеку документов, чтобы проверить связи, удалить или загрузить источник повторно.
                   </span>
                   <button
                     type="button"
-                    onClick={() => void fetchDocuments()}
+                    onClick={() => router.push('/documents')}
                     className="shrink-0 rounded-lg border border-destructive/30 px-2 py-1 font-medium transition-colors hover:bg-destructive/10"
                   >
-                    Обновить
+                    Документы
                   </button>
+                </div>
+              )}
+              {catalogHasMore && (
+                <div className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+                  Показаны первые 100 документов. Используйте раздел «Документы», чтобы найти и упорядочить остальные источники.
                 </div>
               )}
             </div>

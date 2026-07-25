@@ -87,7 +87,85 @@ try:
         logger.info(f"Document ingested: {result['doc_id']} ({result['chunks']} chunks)")
         return result
 
+    @celery_app.task(bind=True, name="documents.cleanup", max_retries=5)
+    def document_cleanup_task(self, job_id: str, document_id: str, tenant_id: str):
+        """Remove a tombstoned document and all of its persisted artifacts."""
+        from app.modules.documents.cleanup import run_document_cleanup
+
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            return loop.run_until_complete(
+                run_document_cleanup(
+                    job_id=job_id,
+                    document_id=UUID(document_id),
+                    tenant_id=UUID(tenant_id),
+                )
+            )
+        except Exception as exc:
+            raise self.retry(
+                exc=exc,
+                countdown=min(60 * (self.request.retries + 1), 300),
+            ) from exc
+        finally:
+            loop.close()
+
+    @celery_app.task(bind=True, name="documents.reindex", max_retries=5)
+    def document_reindex_task(
+        self,
+        job_id: str,
+        document_id: str,
+        tenant_id: str,
+        revision: int,
+    ):
+        """Rebuild a document index from the persisted source blob."""
+        from app.modules.documents.operations import run_document_reindex
+
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            return loop.run_until_complete(
+                run_document_reindex(
+                    job_id=job_id,
+                    document_id=UUID(document_id),
+                    tenant_id=UUID(tenant_id),
+                    revision=revision,
+                )
+            )
+        except Exception as exc:
+            raise self.retry(
+                exc=exc,
+                countdown=min(60 * (self.request.retries + 1), 300),
+            ) from exc
+        finally:
+            loop.close()
+
+    @celery_app.task(bind=True, name="documents.hash_backfill", max_retries=3)
+    def document_hash_backfill_task(self, job_id: str, tenant_id: str):
+        """Populate missing document content hashes for one tenant."""
+        from app.modules.documents.operations import run_document_hash_backfill
+
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            return loop.run_until_complete(
+                run_document_hash_backfill(
+                    job_id=job_id,
+                    tenant_id=UUID(tenant_id),
+                )
+            )
+        except Exception as exc:
+            raise self.retry(
+                exc=exc,
+                countdown=min(60 * (self.request.retries + 1), 300),
+            ) from exc
+        finally:
+            loop.close()
+
 except Exception:
     # Redis/Celery not available — tasks won't run
     generate_course_task = None
     ingest_document_task = None
+    document_cleanup_task = None
+    document_reindex_task = None
+    document_hash_backfill_task = None

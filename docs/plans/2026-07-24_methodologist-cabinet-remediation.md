@@ -621,8 +621,9 @@ Production browser QA подтвердил role-based sidebar, Command Palette,
 
 ## Отчёт о backend foundation Wave 2.1
 
-Статус: локальная implementation-ветка подготовлена, без merge, push и deploy;
-integration DB validation остаётся обязательной до интеграции.
+Статус: локальная реализация подготовлена без push и deploy. Полный backend
+suite выполнен на локальном PostgreSQL 16; Supabase и production не
+изменялись.
 
 Expand-compatible API rollout:
 
@@ -636,3 +637,55 @@ Expand-compatible API rollout:
   `methodologist`;
 - migration и ORM согласованы по index/version/chunk constraints и catalog
   indexes; nullable hash contract сохранён.
+
+## Отчёт о Wave 2.1 — frontend cutover и защищённое удаление
+
+Статус на 2026-07-24: реализовано локально, без push и production deploy.
+
+Реализовано:
+
+- `/documents` и `/ai/generate` переведены с deprecated массива на
+  `GET /documents/catalog`;
+- библиотека получила поиск, category/index filters, cursor pagination,
+  отдельные loading/error/empty states и usage counters;
+- AI-мастер теперь только выбирает источники, а просмотр связей и защищённое
+  удаление выполняются в единой библиотеке `/documents`;
+- AI-мастер допускает `ready` и `partial`, блокирует `processing`/`failed` и
+  ограничивает выбор двадцатью источниками;
+- `GET /documents/{id}/usages` агрегирует должности, прямые источники курсов,
+  lesson provenance и активные AI jobs с tenant predicates;
+- DELETE возвращает `409` для используемого документа, `423` во время
+  индексации и `202` после атомарного tombstone;
+- повторный DELETE использует тот же durable job;
+- Celery cleanup идемпотентно удаляет `document_embeddings`, storage blob,
+  summary и metadata; enqueue/storage failures оставляют `delete_failed`;
+- новые генерации и курс по ДИ исключают tombstoned документы и сериализуются
+  row lock с началом удаления.
+- каждый новый upload получает SHA-256; точная tenant-local копия возвращает
+  `409 duplicate_document` независимо от имени файла;
+- явная загрузка новой версии сохраняет `source_family_id` и атомарно увеличивает
+  `version`;
+- durable reindex использует revision guard и повторно строит embeddings и
+  summary из сохранённого blob;
+- tenant-scoped hash backfill идемпотентно заполняет SHA-256 legacy-документов;
+- вкладки `delete_failed` и `deletion_pending` позволяют повторно отправить
+  cleanup job после ошибки очереди или разрыва между commit и dispatch.
+
+Проверено:
+
+- полный backend suite на PostgreSQL 16: `494/494` тестов;
+- frontend Vitest: `23` suites, `130/130` тестов;
+- frontend TypeScript: `tsc --noEmit` passed;
+- production Next.js build: успешно собрано `46` страниц;
+- Playwright UI QA библиотеки документов: `3/3` сценария на desktop
+  `1440x900`, tablet `820x1180` и mobile `390x844`; найденный tablet overflow
+  исправлен и повторно проверен;
+- Ruff для новых backend-модулей и `compileall`: passed;
+- локальный PostgreSQL 16 используется только как тестовая БД; Supabase и
+  production не изменялись.
+
+До закрытия Gate 2.1 остаются:
+
+- запустить tenant hash backfill после production-деплоя и проверить его result;
+- выполнить production smoke после выкладки API, worker и frontend одной
+  согласованной ревизии.

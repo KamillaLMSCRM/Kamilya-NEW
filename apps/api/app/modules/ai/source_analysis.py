@@ -150,19 +150,21 @@ async def analyze_document_set(
     db: AsyncSession,
     tenant_id: UUID,
     document_ids: list[UUID],
+    *,
+    lock_for_update: bool = False,
 ) -> CompatibilityAnalysis:
     unique_ids = list(dict.fromkeys(document_ids))
     if not unique_ids:
         raise HTTPException(status_code=422, detail={"code": "documents_required"})
 
-    documents = (
-        await db.execute(
-            select(Document).where(
-                Document.tenant_id == tenant_id,
-                Document.id.in_(unique_ids),
-            )
-        )
-    ).scalars().all()
+    document_query = select(Document).where(
+        Document.tenant_id == tenant_id,
+        Document.id.in_(unique_ids),
+        Document.lifecycle_status == "active",
+    )
+    if lock_for_update:
+        document_query = document_query.with_for_update()
+    documents = (await db.execute(document_query)).scalars().all()
     by_id = {document.id: document for document in documents}
     missing = [str(document_id) for document_id in unique_ids if document_id not in by_id]
     if missing:

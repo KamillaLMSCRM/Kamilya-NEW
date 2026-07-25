@@ -12,10 +12,12 @@ from typing import Literal
 from uuid import UUID
 
 from sqlalchemy import String, and_, cast, exists, func, literal, or_, select, union
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
 from app.core.config import get_settings
+from app.models.ai_job import AIJob
 from app.models.document import Document
 from app.modules.courses.models import Course
 from app.modules.documents.schemas import (
@@ -23,6 +25,10 @@ from app.modules.documents.schemas import (
     DocumentCatalogPage,
     DocumentCatalogResponse,
     DocumentIndexResponse,
+    DocumentUsageDetailSummary,
+    DocumentUsageItem,
+    DocumentUsagePage,
+    DocumentUsageResponse,
     DocumentUsageSummary,
 )
 from app.modules.lessons.models import Lesson, Module
@@ -44,6 +50,21 @@ class CatalogFilters:
     cursor: str | None = None
     limit: int = 25
     include_usages_summary: bool = False
+
+
+def _usage_cursor(index: int) -> str:
+    return _sign_cursor({"sort": "document_usages", "value": index, "id": str(UUID(int=0))})
+
+
+def _decode_usage_cursor(cursor: str) -> int:
+    value, _ = _decode_cursor(cursor, "document_usages")
+    try:
+        index = int(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Invalid document usage cursor") from exc
+    if index < 0:
+        raise ValueError("Invalid document usage cursor")
+    return index
 
 
 def _jsonb_contains_document(column):
@@ -77,7 +98,16 @@ def _usage_expressions(tenant_id: UUID):
             _jsonb_contains_document(Lesson.source_document_ids),
         )
     )
-    return position_usage, direct_course_usage, lesson_usage
+    active_job_usage = exists(
+        select(AIJob.id).where(
+            AIJob.tenant_id == tenant_id,
+            AIJob.status.in_(("pending", "running")),
+            cast(AIJob.params, JSONB)["documents"].contains(
+                func.jsonb_build_array(cast(Document.id, String))
+            ),
+        )
+    )
+    return position_usage, direct_course_usage, lesson_usage, active_job_usage
 
 
 def _usage_counts(tenant_id: UUID):
@@ -115,7 +145,32 @@ def _usage_counts(tenant_id: UUID):
     )
     course_ids = union(direct_courses, lesson_courses).subquery()
     course_count = select(func.count()).select_from(course_ids).scalar_subquery()
-    return position_count, course_count
+    lesson_count = (
+        select(func.count(Lesson.id))
+        .join(Module, Module.id == Lesson.module_id)
+        .join(Course, Course.id == Module.course_id)
+        .where(
+            Lesson.tenant_id == tenant_id,
+            Module.tenant_id == tenant_id,
+            Course.tenant_id == tenant_id,
+            _jsonb_contains_document(Lesson.source_document_ids),
+        )
+        .correlate(Document)
+        .scalar_subquery()
+    )
+    active_job_count = (
+        select(func.count(AIJob.id))
+        .where(
+            AIJob.tenant_id == tenant_id,
+            AIJob.status.in_(("pending", "running")),
+            cast(AIJob.params, JSONB)["documents"].contains(
+                func.jsonb_build_array(cast(Document.id, String))
+            ),
+        )
+        .correlate(Document)
+        .scalar_subquery()
+    )
+    return position_count, course_count, lesson_count, active_job_count
 
 
 def _escape_search(value: str) -> str:
@@ -140,7 +195,7 @@ def _sign_cursor(payload: dict[str, str | int]) -> str:
     return f"{encoded.decode()}.{base64.urlsafe_b64encode(signature).rstrip(b'=').decode()}"
 
 
-def _decode_cursor(cursor: str, sort: CatalogSort) -> tuple[str | int, UUID]:
+def _decode_cursor(cursor: str, sort: str) -> tuple[str | int, UUID]:
     try:
         encoded_text, signature_text = cursor.split(".", 1)
         encoded = encoded_text.encode()
@@ -159,13 +214,162 @@ def _decode_cursor(cursor: str, sort: CatalogSort) -> tuple[str | int, UUID]:
         document_id = UUID(payload["id"])
         if sort.startswith("created_"):
             datetime.fromisoformat(str(value))
-        elif sort == "size_desc":
+        elif sort in {"size_desc", "document_usages"}:
             value = int(value)
         elif not isinstance(value, str):
             raise ValueError("invalid title cursor")
         return value, document_id
     except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
         raise ValueError("Invalid catalog cursor") from exc
+
+
+async def list_document_usages(
+    db: AsyncSession,
+    tenant_id: UUID,
+    document_id: UUID,
+    *,
+    cursor: str | None = None,
+    limit: int = 25,
+) -> DocumentUsageResponse:
+    """Return every tenant-scoped product object that currently uses a document."""
+
+    items: list[DocumentUsageItem] = []
+
+    positions = (
+        await db.execute(
+            select(Position.id, Position.name).where(
+                Position.tenant_id == tenant_id,
+                Position.instruction_document_id == document_id,
+            )
+        )
+    ).all()
+    items.extend(
+        DocumentUsageItem(
+            type="position_instruction",
+            id=str(position_id),
+            title=name,
+            status="active",
+            route="/positions",
+        )
+        for position_id, name in positions
+    )
+
+    direct_courses = (
+        await db.execute(
+            select(
+                Course.id,
+                Course.title,
+                Course.status,
+                Course.source_instruction_id,
+                Course.source_document_ids,
+            ).where(
+                Course.tenant_id == tenant_id,
+                or_(
+                    Course.source_instruction_id == document_id,
+                    Course.source_document_ids.op("@>")(
+                        func.jsonb_build_array(str(document_id))
+                    ),
+                ),
+            )
+        )
+    ).all()
+    course_usage_ids = {str(row[0]) for row in direct_courses}
+    for course_id, title, status, instruction_id, source_ids in direct_courses:
+        if instruction_id == document_id:
+            items.append(
+                DocumentUsageItem(
+                    type="course_instruction",
+                    id=str(course_id),
+                    title=title,
+                    status=status,
+                    route=f"/courses/{course_id}",
+                )
+            )
+        if str(document_id) in {str(value) for value in (source_ids or [])}:
+            items.append(
+                DocumentUsageItem(
+                    type="course_source",
+                    id=str(course_id),
+                    title=title,
+                    status=status,
+                    route=f"/courses/{course_id}",
+                )
+            )
+
+    lesson_rows = (
+        await db.execute(
+            select(Lesson.id, Lesson.title, Course.id, Course.status)
+            .join(Module, Module.id == Lesson.module_id)
+            .join(Course, Course.id == Module.course_id)
+            .where(
+                Lesson.tenant_id == tenant_id,
+                Module.tenant_id == tenant_id,
+                Course.tenant_id == tenant_id,
+                Lesson.source_document_ids.op("@>")(
+                    func.jsonb_build_array(str(document_id))
+                ),
+            )
+        )
+    ).all()
+    course_usage_ids.update(str(row[2]) for row in lesson_rows)
+    items.extend(
+        DocumentUsageItem(
+            type="lesson_source",
+            id=str(lesson_id),
+            title=lesson_title,
+            status=course_status,
+            route=f"/courses/{course_id}/edit",
+        )
+        for lesson_id, lesson_title, course_id, course_status in lesson_rows
+    )
+
+    active_jobs = (
+        await db.execute(
+            select(AIJob.id, AIJob.stage, AIJob.message).where(
+                AIJob.tenant_id == tenant_id,
+                AIJob.status.in_(("pending", "running")),
+                cast(AIJob.params, JSONB)["documents"].contains([str(document_id)]),
+            )
+        )
+    ).all()
+    items.extend(
+        DocumentUsageItem(
+            type="active_ai_job",
+            id=job_id,
+            title=message or "AI generation",
+            status=stage,
+            route="/ai/generate",
+        )
+        for job_id, stage, message in active_jobs
+    )
+
+    order = {
+        "position_instruction": 0,
+        "course_instruction": 1,
+        "course_source": 2,
+        "lesson_source": 3,
+        "active_ai_job": 4,
+    }
+    items.sort(key=lambda item: (order[item.type], item.title.casefold(), item.id))
+    start = _decode_usage_cursor(cursor) if cursor else 0
+    page_items = items[start : start + limit]
+    next_index = start + len(page_items)
+    has_more = next_index < len(items)
+    return DocumentUsageResponse(
+        summary=DocumentUsageDetailSummary(
+            total=len(items),
+            positions=sum(item.type == "position_instruction" for item in items),
+            courses=len(course_usage_ids),
+            lessons=sum(item.type == "lesson_source" for item in items),
+            active_jobs=sum(item.type == "active_ai_job" for item in items),
+        ),
+        items=page_items,
+        page=DocumentUsagePage(
+            next_cursor=_usage_cursor(next_index) if has_more else None,
+            has_more=has_more,
+            limit=limit,
+        ),
+    )
 
 
 def _cursor_predicate(sort: CatalogSort, value: str | int, document_id: UUID):
@@ -208,9 +412,10 @@ async def list_catalog(
     """Return a tenant-scoped, deterministic catalog page."""
 
     if filters.include_usages_summary:
-        position_count, course_count = _usage_counts(tenant_id)
+        position_count, course_count, lesson_count, active_job_count = _usage_counts(tenant_id)
     else:
         position_count, course_count = literal(0), literal(0)
+        lesson_count, active_job_count = literal(0), literal(0)
     latest = aliased(Document)
     is_latest = ~exists(
         select(latest.id).where(
@@ -224,6 +429,8 @@ async def list_catalog(
         Document,
         position_count.label("position_count"),
         course_count.label("course_count"),
+        lesson_count.label("lesson_count"),
+        active_job_count.label("active_job_count"),
         is_latest.label("is_latest"),
     ).where(
         Document.tenant_id == tenant_id,
@@ -260,17 +467,20 @@ async def list_catalog(
     page_rows = rows[: filters.limit]
 
     items = []
-    for document, positions, courses, latest_flag in page_rows:
+    for document, positions, courses, lessons, active_jobs, latest_flag in page_rows:
         usage_summary = None
         if filters.include_usages_summary:
             usage_summary = DocumentUsageSummary(
-                total=int(positions) + int(courses),
+                total=int(positions) + int(courses) + int(lessons) + int(active_jobs),
                 positions=int(positions),
                 courses=int(courses),
+                lessons=int(lessons),
+                active_jobs=int(active_jobs),
             )
         items.append(
             DocumentCatalogItem(
                 id=document.id,
+                source_family_id=document.source_family_id,
                 title=document.title,
                 filename=document.filename,
                 content_type=document.content_type,
@@ -289,6 +499,9 @@ async def list_catalog(
                 version=document.version,
                 is_latest=bool(latest_flag),
                 lifecycle_status=document.lifecycle_status,
+                deletion_error_code=document.deletion_error_code,
+                deletion_error_message=document.deletion_error_message,
+                deletion_job_id=document.deletion_job_id,
                 created_at=document.created_at,
                 updated_at=document.updated_at,
                 usages_summary=usage_summary,

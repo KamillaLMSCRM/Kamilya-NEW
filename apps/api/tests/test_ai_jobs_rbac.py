@@ -98,7 +98,12 @@ async def test_generate_course_keeps_document_analysis_tenant_scoped():
             await generate_course(request, db=db, user=user)
 
     assert caught.value.status_code == 404
-    analyze.assert_awaited_once_with(db, tenant_id, [document_id])
+    analyze.assert_awaited_once_with(
+        db,
+        tenant_id,
+        [document_id],
+        lock_for_update=True,
+    )
 
 
 @pytest.mark.asyncio
