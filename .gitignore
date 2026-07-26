@@ -109,6 +109,7 @@ graphify-out/
 
 # Playwright session storage and report outputs (per-machine, never commit)
 .playwright/
+.playwright-cli/
 .playwright-sidebar.png
 .reports/
 
