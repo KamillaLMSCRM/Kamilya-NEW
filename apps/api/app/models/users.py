@@ -1,5 +1,5 @@
 from uuid import uuid4
-from sqlalchemy import Column, Text, BigInteger, Boolean, TIMESTAMP, DateTime, CheckConstraint, Index, ForeignKey, func
+from sqlalchemy import Column, Text, BigInteger, Boolean, TIMESTAMP, Date, DateTime, CheckConstraint, Index, ForeignKey, func
 from sqlalchemy.dialects.postgresql import UUID
 from app.core.db import Base
 
@@ -16,6 +16,8 @@ class User(Base):
     tenant_id = Column(UUID(as_uuid=True), nullable=True, index=True)
     email = Column(Text, index=True, nullable=True)
     personnel_number = Column(Text, nullable=True, index=True)  # табельный/employee ID (optional, unique per tenant)
+    phone = Column(Text, nullable=True)
+    hire_date = Column(Date, nullable=True)
     telegram_id = Column(BigInteger, nullable=True)
     password_hash = Column(Text, nullable=True)
     first_name = Column(Text, nullable=False)

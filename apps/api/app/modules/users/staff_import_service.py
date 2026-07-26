@@ -33,7 +33,7 @@ import io
 import logging
 import re
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -58,7 +58,8 @@ def normalize_staff_lookup(value: Any) -> str:
     return _normalize_staff_text(value).casefold()
 
 
-def _normalized_row_values(row: Any) -> dict[str, str | None]:
+def _normalized_row_values(row: Any) -> dict[str, str | date | None]:
+    raw_hire_date = _normalize_staff_text(getattr(row, "hire_date", ""))
     return {
         "personnel_number": _normalize_staff_text(getattr(row, "personnel_number", "")),
         "first_name": _normalize_staff_text(getattr(row, "first_name", "")),
@@ -67,6 +68,7 @@ def _normalized_row_values(row: Any) -> dict[str, str | None]:
         "position": _normalize_staff_text(getattr(row, "position", "")),
         "email": _normalize_staff_text(getattr(row, "email", "")).lower() or None,
         "phone": _normalize_staff_text(getattr(row, "phone", "")) or None,
+        "hire_date": date.fromisoformat(raw_hire_date) if raw_hire_date else None,
     }
 
 
@@ -149,6 +151,8 @@ class _ProjectedStaffUser:
     first_name: str
     last_name: str
     email: str | None
+    phone: str | None
+    hire_date: date | None
     position_ref: object
     existing_user_id: str | None
 
@@ -740,12 +744,23 @@ async def build_preview(
                 first_name=(existing.first_name or "").strip(),
                 last_name=(existing.last_name or "").strip(),
                 email=(existing.email or "").strip().lower() or None,
+                phone=existing.phone,
+                hire_date=existing.hire_date,
                 position_ref=existing.position_id,
                 existing_user_id=str(existing.id),
             )
 
         notes: list[str] = []
         if projected is not None:
+            # Missing optional columns mean "leave the stored value unchanged".
+            # A regular import must not erase employment data simply because a
+            # narrower spreadsheet was uploaded later.
+            if values["email"] is None:
+                values["email"] = projected.email
+            if values["phone"] is None:
+                values["phone"] = projected.phone
+            if values["hire_date"] is None:
+                values["hire_date"] = projected.hire_date
             if projected.first_name != values["first_name"]:
                 notes.append(
                     f"имя: «{projected.first_name}» → «{values['first_name']}»"
@@ -757,6 +772,14 @@ async def build_preview(
             if projected.email != values["email"]:
                 notes.append(
                     f"email: «{projected.email or '—'}» → «{values['email'] or '—'}»"
+                )
+            if projected.phone != values["phone"]:
+                notes.append(
+                    f"телефон: «{projected.phone or '—'}» → «{values['phone'] or '—'}»"
+                )
+            if projected.hire_date != values["hire_date"]:
+                notes.append(
+                    f"дата приёма: «{projected.hire_date or '—'}» → «{values['hire_date'] or '—'}»"
                 )
             if projected.position_ref != position_ref:
                 notes.append(
@@ -803,6 +826,8 @@ async def build_preview(
             first_name=values["first_name"] or "",
             last_name=values["last_name"] or "",
             email=values["email"],
+            phone=values["phone"],
+            hire_date=values["hire_date"],
             position_ref=position_ref,
             existing_user_id=projected.existing_user_id if projected else None,
         )
@@ -897,6 +922,14 @@ async def commit_import(
             positions_by_key.setdefault((department_key, position_key), pos)
 
         if existing:
+            # Keep previously stored optional values when the import omits
+            # their columns or leaves the cells blank.
+            if values["email"] is None:
+                values["email"] = existing.email
+            if values["phone"] is None:
+                values["phone"] = existing.phone
+            if values["hire_date"] is None:
+                values["hire_date"] = existing.hire_date
             # Check if anything actually changes
             changed = False
             if (existing.first_name or "").strip() != values["first_name"]:
@@ -908,8 +941,11 @@ async def commit_import(
             if (existing.email or "").strip().lower() != (values["email"] or ""):
                 existing.email = values["email"]
                 changed = True
-            if (getattr(existing, "phone", "") or "") != (values["phone"] or ""):
-                # Add phone column if doesn't exist (skip for now if not in model)
+            if (existing.phone or "") != (values["phone"] or ""):
+                existing.phone = values["phone"]
+                changed = True
+            if existing.hire_date != values["hire_date"]:
+                existing.hire_date = values["hire_date"]
                 changed = True
             # Position changed — that's also a trigger for apply-rules
             position_changed = False
@@ -932,6 +968,8 @@ async def commit_import(
                 tenant_id=tenant_id,
                 personnel_number=values["personnel_number"],
                 email=values["email"],
+                phone=values["phone"],
+                hire_date=values["hire_date"],
                 first_name=values["first_name"] or "",
                 last_name=values["last_name"] or "",
                 role="student",  # bulk import always creates students; HR promotes separately

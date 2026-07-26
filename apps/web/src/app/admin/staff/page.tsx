@@ -2,15 +2,14 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Building2, FileText, Network, Upload, Users } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent, Button, Badge, Table } from "@/components/ui";
 import { useAuthStore } from "@/store/authStore";
 import { useT } from "@/i18n/useT";
 import { toast } from "@/components/ui/Toast";
 import { api } from "@/lib/api";
 import { ApplyRulesProgress } from "@/components/ui/ApplyRulesProgress";
-import RulesTab from "./_tabs/RulesTab";
-import CompanyCoursesTab from "./_tabs/CompanyCoursesTab";
 
 interface PreviewItem {
   row_number: number;
@@ -90,37 +89,39 @@ const ACTION_COLORS: Record<string, string> = {
 
 export default function AdminStaffPage() {
   const { t } = useT();
-  const accessToken = useAuthStore((s) => s.accessToken);
+  const router = useRouter();
   const search = useSearchParams();
 
-  // ADR-0011: tab state.
-  //   'import'             = Excel/CSV preview + commit (B1a apply-rules polling).
-  //   'structure'          = the department/position/employee tree (formerly /admin/employees).
-  //   'rules'              = B2: edit «course bindings» per position/department.
-  //   'company-courses'    = level-1 batch-attach (TZ_COURSE_ASSIGNMENT_ACCESS_v1 §1.1).
-  // Default from query string so deep-links land on the right tab
-  // (used by /admin page quick-link, the sidebar, Cmd-K, and the
-  // legacy /admin/employees redirect).
-  type Tab = "import" | "structure" | "rules" | "company-courses";
+  // URL-backed tabs keep refresh, Back/Forward and copied links stable.
+  type Tab = "import" | "structure";
   const queryTab = search?.get("tab");
-  // Alias: 'company' (old sidebar name) → 'company-courses'. Keeps old
-  // links working without a 404 / tab-reset-to-import.
-  const normalisedTab: string | null = queryTab === "company" ? "company-courses" : queryTab;
-  // Студенту вкладки «Импорт», «Структура», «Правила» не нужны — он
+  const normalisedTab: string | null = queryTab;
+  // Студенту вкладки «Импорт» и «Структура» не нужны — он
   // потребитель контента, ничего не настраивает (см. ADR-0012).
-  // Страница /admin/staff — это admin/methodologist surface. Если
+  // Страница /admin/staff — это методологический surface. Если
   // зашёл студент — показываем понятное «нет доступа».
   const userRole = useAuthStore((s) => s.user?.role ?? "");
-  const isStaffOwnersRole = ["methodologist", "admin", "superadmin"].includes(userRole);
-  const allowedTabs: Tab[] = ["import", "structure"]; // 'rules'/'company-courses' добавим если isStaffOwnersRole
-  if (isStaffOwnersRole) allowedTabs.push("rules");
-  if (isStaffOwnersRole) allowedTabs.push("company-courses");
-  const initialTab: Tab =
-    (normalisedTab === "structure" || normalisedTab === "rules" || normalisedTab === "company-courses") &&
-    allowedTabs.includes(normalisedTab as Tab)
-      ? (normalisedTab as Tab)
-      : "import";
+  const isStaffOwnersRole = userRole === "methodologist";
+  const initialTab: Tab = normalisedTab === "import" ? "import" : "structure";
   const [tab, setTab] = useState<Tab>(initialTab);
+
+  useEffect(() => {
+    if (queryTab === "rules") {
+      router.replace("/training-rules?scope=department");
+      return;
+    }
+    if (queryTab === "company" || queryTab === "company-courses") {
+      router.replace("/training-rules?scope=organization");
+      return;
+    }
+    setTab(queryTab === "import" ? "import" : "structure");
+  }, [queryTab, router]);
+
+  const selectTab = (nextTab: Tab) => {
+    const params = new URLSearchParams(search?.toString());
+    params.set("tab", nextTab);
+    router.replace(`/staff?${params.toString()}`);
+  };
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -350,10 +351,10 @@ export default function AdminStaffPage() {
       const payload = Object.fromEntries(Object.entries(manualForm).map(([key, value]) => [key, value.trim()]));
       const res = await api.post("/v1/admin/staff/manual", payload);
       const r = res.data;
-      toast.success(r.created > 0 ? "Сотрудник добавлен в штатное расписание" : "Данные сотрудника обновлены");
+      toast.success(r.created > 0 ? t("staffPage.manualAdded") : t("staffPage.manualUpdated"));
       setApplyTaskId(r.apply_rules_task_id ?? null);
       setStructureRefreshKey((value) => value + 1);
-      setTab("structure");
+      selectTab("structure");
       setManualOpen(false);
       resetManualForm();
     } catch (err: any) {
@@ -365,10 +366,10 @@ export default function AdminStaffPage() {
   };
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6">
+    <div className="mx-auto max-w-6xl space-y-6 px-4 py-5 sm:p-6">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">📋 Штатное расписание</h1>
-        <p className="text-sm text-muted-foreground mt-1">Импорт сотрудников из Excel/CSV и просмотр оргструктуры.</p>
+        <h1 className="flex items-center gap-2 text-2xl font-bold text-foreground"><Users className="h-6 w-6 shrink-0" aria-hidden="true" />{t("staffPage.title")}</h1>
+        <p className="text-sm text-muted-foreground mt-1">{t("staffPage.subtitle")}</p>
       </div>
 
       {!isStaffOwnersRole ? (
@@ -377,12 +378,9 @@ export default function AdminStaffPage() {
         // настраивают ничего ни в одном из доменов.
         <Card>
           <CardContent className="p-6 text-center space-y-2">
-            <div className="text-4xl">🚫</div>
-            <h3 className="text-lg font-bold text-foreground">Нет доступа к странице «Штатное расписание»</h3>
-            <p className="text-sm text-muted-foreground">
-              Эта страница для администратора тенанта и методолога. Если ты — обучающийся, перейди в «Мои курсы» через
-              меню.
-            </p>
+            <Users className="h-8 w-8 text-muted-foreground" aria-hidden="true" />
+            <h3 className="text-lg font-bold text-foreground">{t("staffPage.accessDenied")}</h3>
+            <p className="text-sm text-muted-foreground">{t("staffPage.methodologistOnly")}</p>
           </CardContent>
         </Card>
       ) : (
@@ -402,9 +400,7 @@ export default function AdminStaffPage() {
                 <div className="mb-5 flex items-start justify-between gap-4">
                   <div>
                     <h2 className="text-xl font-bold text-foreground">Новый сотрудник</h2>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      Сотрудник появится в структуре и получит курсы по своей должности и отделу.
-                    </p>
+                    <p className="mt-1 text-sm text-muted-foreground">{t("staffPage.manualRuleInheritance")}</p>
                   </div>
                   <button
                     type="button"
@@ -488,62 +484,38 @@ export default function AdminStaffPage() {
                     Отмена
                   </Button>
                   <Button type="button" onClick={handleManualCreate} disabled={manualSaving}>
-                    {manualSaving ? "Сохраняю..." : "Добавить"}
+                    {manualSaving ? "Сохраняю…" : "Добавить"}
                   </Button>
                 </div>
               </div>
             </div>
           )}
 
-          {/* ADR-0011 + ADR-0012: tabs combine import + structure + rules on one page */}
+          {/* ADR-0011 + ADR-0012: import and structure are one URL-backed workspace. */}
           <div role="tablist" className="flex border-b border-border">
             <button
               role="tab"
               aria-selected={tab === "import"}
-              onClick={() => setTab("import")}
-              className={`px-4 py-2 text-sm font-medium transition-colors ${
+              onClick={() => selectTab("import")}
+              className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors ${
                 tab === "import"
                   ? "border-b-2 border-primary text-primary"
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              📥 Импорт
+              <Upload className="h-4 w-4" aria-hidden="true" />{t("staffPage.tabs.import")}
             </button>
             <button
               role="tab"
               aria-selected={tab === "structure"}
-              onClick={() => setTab("structure")}
-              className={`px-4 py-2 text-sm font-medium transition-colors ${
+              onClick={() => selectTab("structure")}
+              className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors ${
                 tab === "structure"
                   ? "border-b-2 border-primary text-primary"
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              🌳 Структура
-            </button>
-            <button
-              role="tab"
-              aria-selected={tab === "rules"}
-              onClick={() => setTab("rules")}
-              className={`px-4 py-2 text-sm font-medium transition-colors ${
-                tab === "rules"
-                  ? "border-b-2 border-primary text-primary"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              📐 Привязка курсов
-            </button>
-            <button
-              role="tab"
-              aria-selected={tab === "company-courses"}
-              onClick={() => setTab("company-courses")}
-              className={`px-4 py-2 text-sm font-medium transition-colors ${
-                tab === "company-courses"
-                  ? "border-b-2 border-primary text-primary"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              🏢 Курсы компании
+              <Network className="h-4 w-4" aria-hidden="true" />{t("staffPage.tabs.structure")}
             </button>
           </div>
 
@@ -556,7 +528,7 @@ export default function AdminStaffPage() {
               {/* Format help */}
               <Card>
                 <CardHeader>
-                  <CardTitle>📄 Файл штатного расписания</CardTitle>
+                  <CardTitle className="flex items-center gap-2"><FileText className="h-5 w-5" aria-hidden="true" />{t("staffPage.fileTitle")}</CardTitle>
                 </CardHeader>
                 <CardContent className="text-sm text-foreground space-y-2">
                   <div>
@@ -580,7 +552,7 @@ export default function AdminStaffPage() {
               {/* Upload + preview */}
               <Card>
                 <CardHeader>
-                  <CardTitle>1️⃣ Загрузка штатки</CardTitle>
+                  <CardTitle className="flex items-center gap-2"><Upload className="h-5 w-5" aria-hidden="true" />{t("staffPage.uploadTitle")}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <input
@@ -637,7 +609,7 @@ export default function AdminStaffPage() {
                   )}
                   {selectedFile && (
                     <div className="flex items-center gap-2 text-sm text-foreground">
-                      <span>📎 {(selectedFile.size / 1024).toFixed(1)} КБ</span>
+                      <span>{(selectedFile.size / 1024).toFixed(1)} КБ</span>
                     </div>
                   )}
                   {preview?.sheets && preview.sheets.length > 1 && (
@@ -662,7 +634,7 @@ export default function AdminStaffPage() {
                   )}
                   <div className="flex gap-2">
                     <Button onClick={handlePreview} disabled={!selectedFile || loading} variant="outline">
-                      {loading ? "Читаю..." : "Предпросмотр"}
+                      {loading ? "Читаю…" : "Предпросмотр"}
                     </Button>
                     <Button onClick={handleReset} disabled={!selectedFile} variant="outline">
                       Сбросить
@@ -761,7 +733,7 @@ export default function AdminStaffPage() {
                               ((!columnMapping.first_name || !columnMapping.last_name) && !columnMapping.full_name)
                             }
                           >
-                            {loading ? "Проверяю..." : "Проверить с этим сопоставлением"}
+                            {loading ? "Проверяю…" : "Проверить с этим сопоставлением"}
                           </Button>
                           <Button onClick={handleReset} variant="outline">
                             Выбрать другой файл
@@ -934,7 +906,7 @@ export default function AdminStaffPage() {
                           }
                         >
                           {committing
-                            ? "Применяю..."
+                            ? "Применяю…"
                             : `✅ Применить (${preview.summary.create} + ${preview.summary.update})`}
                         </Button>
                       </div>
@@ -946,8 +918,6 @@ export default function AdminStaffPage() {
           )}
 
           {tab === "structure" && <StructureTab refreshKey={structureRefreshKey} />}
-          {tab === "rules" && <RulesTab />}
-          {tab === "company-courses" && <CompanyCoursesTab />}
         </>
       )}
     </div>
@@ -961,9 +931,6 @@ interface StructureEmployee {
   full_name: string;
   personnel_number: string | null;
   is_active: boolean;
-  assigned_courses: number;
-  completed_courses: number;
-  ready_percent: number;
 }
 
 interface StructurePosition {
@@ -972,7 +939,6 @@ interface StructurePosition {
   department: string;
   department_slug: string | null;
   employee_count: number;
-  ready_percent: number;
   employees: StructureEmployee[];
 }
 
@@ -982,7 +948,6 @@ interface StructureDepartment {
   slug: string;
   position_count: number;
   employee_count: number;
-  ready_percent: number;
   positions: StructurePosition[];
 }
 
@@ -992,13 +957,11 @@ interface StructureResponse {
     total_employees: number;
     total_departments: number;
     total_positions: number;
-    overall_ready_percent: number;
-    total_assigned_courses: number;
-    total_completed_courses: number;
   };
 }
 
 function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
+  const { t } = useT();
   const [data, setData] = useState<StructureResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
@@ -1039,7 +1002,7 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
   };
 
   if (loading) {
-    return <div className="p-6 text-muted-foreground">Загружаю структуру...</div>;
+    return <div className="p-6 text-muted-foreground">Загружаю структуру…</div>;
   }
   if (loadError) {
     return (
@@ -1048,8 +1011,8 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
         className="flex flex-col items-center gap-4 rounded-md border border-destructive/30 bg-destructive/5 p-6 text-center"
       >
         <div>
-          <p className="font-medium text-foreground">Не удалось загрузить структуру штата</p>
-          <p className="mt-1 text-sm text-muted-foreground">Проверьте соединение и повторите запрос.</p>
+          <p className="font-medium text-foreground">{t("staffPage.structureLoadError")}</p>
+          <p className="mt-1 text-sm text-muted-foreground">{t("staffPage.retryHint")}</p>
         </div>
         <Button type="button" variant="outline" onClick={() => setRetryKey((value) => value + 1)}>
           Повторить
@@ -1060,8 +1023,8 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
   if (!data || data.departments.length === 0) {
     return (
       <div className="p-6 text-center text-muted-foreground">
-        <p>Нет ни одного сотрудника.</p>
-        <p className="text-sm mt-2">Используйте вкладку «Импорт» чтобы загрузить штатку из Excel/CSV.</p>
+        <p>{t("staffPage.structureEmpty")}</p>
+        <p className="text-sm mt-2">{t("staffPage.structureEmptyHint")}</p>
       </div>
     );
   }
@@ -1069,7 +1032,7 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
   return (
     <div className="space-y-4">
       {/* Summary cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         <div className="rounded-lg bg-primary/10 p-3 text-center">
           <div className="text-2xl font-bold text-primary">{data.summary.total_employees}</div>
           <div className="text-xs text-primary">Сотрудников</div>
@@ -1082,11 +1045,15 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
           <div className="text-2xl font-bold text-foreground">{data.summary.total_positions}</div>
           <div className="text-xs text-foreground">Должностей</div>
         </div>
-        <div className="rounded-lg bg-success/10 p-3 text-center">
-          <div className="text-2xl font-bold text-success">{data.summary.overall_ready_percent}%</div>
-          <div className="text-xs text-success">Готово</div>
-        </div>
       </div>
+
+      <Link
+        href="/training-log"
+        className="inline-flex min-h-10 items-center gap-2 rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-sm font-medium text-primary hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <FileText className="h-4 w-4 shrink-0" aria-hidden="true" />
+        <span>{t("staffPage.openTrainingLog")}</span>
+      </Link>
 
       {/* Department tree */}
       <Card>
@@ -1103,7 +1070,7 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
                     className="flex w-full items-center gap-3 px-4 py-3 hover:bg-muted/40 transition-colors text-left"
                   >
                     <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-primary/10 text-xs font-bold text-primary">
-                      🏢
+                      <Building2 className="h-4 w-4" aria-hidden="true" />
                     </span>
                     <span className="flex-1 min-w-0">
                       <div className="text-sm font-semibold text-foreground">{dept.name}</div>
@@ -1111,7 +1078,6 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
                         {dept.position_count} должностей · {dept.employee_count} сотрудников
                       </div>
                     </span>
-                    <span className="text-xs font-medium text-muted-foreground">{dept.ready_percent}%</span>
                   </button>
                   {isOpen && (
                     <ul className="bg-muted/30 divide-y divide-border">
@@ -1129,7 +1095,7 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
                                 {pos.name}
                               </Link>
                               <div className="text-xs text-muted-foreground mt-0.5">
-                                {pos.employee_count} сотрудников · {pos.ready_percent}% готово
+                                {pos.employee_count} сотрудников
                               </div>
                               {pos.employees.length > 0 && (
                                 <ul className="mt-2 space-y-1">
@@ -1144,9 +1110,6 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
                                         {emp.personnel_number && (
                                           <span className="text-muted-foreground ml-1">({emp.personnel_number})</span>
                                         )}
-                                      </span>
-                                      <span className="ml-auto text-muted-foreground">
-                                        {emp.completed_courses}/{emp.assigned_courses} курсов
                                       </span>
                                     </li>
                                   ))}

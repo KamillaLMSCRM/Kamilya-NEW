@@ -12,7 +12,14 @@ from app.modules.positions.models import Position
 from app.modules.users.staff_import_service import ParsedFile, ParsedRow, commit_import
 
 
-def _parsed(personnel_number: str, department: str, position: str) -> ParsedFile:
+def _parsed(
+    personnel_number: str,
+    department: str,
+    position: str,
+    *,
+    phone: str | None = None,
+    hire_date: str | None = None,
+) -> ParsedFile:
     return ParsedFile(
         rows=[
             ParsedRow(
@@ -22,6 +29,8 @@ def _parsed(personnel_number: str, department: str, position: str) -> ParsedFile
                 last_name="Learner",
                 department=department,
                 position=position,
+                phone=phone,
+                hire_date=hire_date,
             )
         ],
         invalid_rows=[],
@@ -65,7 +74,13 @@ async def test_import_writes_idempotent_tenant_scoped_department_position_user(
     first = await _commit(
         db_session,
         tenant_a.id,
-        _parsed(" P-001 ", " Sales   Operations ", " Account   Manager "),
+        _parsed(
+            " P-001 ",
+            " Sales   Operations ",
+            " Account   Manager ",
+            phone="+7 777 000 00 01",
+            hire_date="2026-07-01",
+        ),
     )
     repeat = await _commit(
         db_session,
@@ -105,6 +120,9 @@ async def test_import_writes_idempotent_tenant_scoped_department_position_user(
         assert learner is not None
         assert position.department_id == department.id
         assert learner.position_id == position.id
+        if tenant.id == tenant_a.id:
+            assert learner.phone == "+7 777 000 00 01"
+            assert learner.hire_date.isoformat() == "2026-07-01"
 
         assert await db_session.scalar(
             select(func.count()).select_from(Department).where(

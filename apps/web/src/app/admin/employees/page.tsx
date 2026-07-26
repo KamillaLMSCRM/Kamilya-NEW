@@ -20,7 +20,7 @@ export default function AdminEmployeesRedirect() {
 
   return (
     <div className="p-6 text-muted-foreground">
-      Перенаправляю в <a className="text-primary underline" href="/staff?tab=structure">Штатное расписание → Структура</a>…
+      Перенаправляю в <a className="text-primary underline" href="/staff?tab=structure">Сотрудники и структура</a>…
     </div>
   );
 }
