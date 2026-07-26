@@ -34,5 +34,6 @@ describe("methodologist information architecture", () => {
     expect(rulesSource).toContain('api.post(`/v1/departments/${pending.departmentId}/courses`');
     expect(rulesSource).toContain('api.delete(`/v1/departments/${pending.departmentId}/courses/${pending.courseId}`');
     expect(rulesSource).toContain('pending.operation === "detach" ? "danger" : "warning"');
+    expect(rulesSource).toContain('className="min-w-0 overflow-hidden"');
   });
 });
