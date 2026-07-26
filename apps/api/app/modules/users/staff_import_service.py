@@ -286,9 +286,13 @@ def _suggest_field_for_header(raw: str) -> str | None:
     direct = COLUMN_ALIASES.get(normalized)
     if direct:
         return direct
+    tokens = set(re.findall(r"[a-zа-яё0-9]+", normalized))
+    if "id" in tokens:
+        return "personnel_number"
+    if any(token == "тел" or token.startswith("телефон") for token in tokens):
+        return "phone"
     compact = re.sub(r"[\s_\-№#./]+", "", normalized)
     rules: list[tuple[str, str]] = [
-        ("personnel_number", "id", ""),
         ("personnel_number", "таб", ""),
         ("personnel_number", "таб", "номер"),
         ("personnel_number", "employee", "id"),
@@ -315,7 +319,6 @@ def _suggest_field_for_header(raw: str) -> str | None:
         ("position", "position", ""),
         ("email", "email", ""),
         ("email", "mail", ""),
-        ("phone", "тел", ""),
         ("phone", "phone", ""),
         ("hire_date", "при", "дат"),
         ("hire_date", "hire", "date"),
@@ -423,6 +426,20 @@ def _xlsx_sheet_candidates(wb) -> list[dict[str, Any]]:
                 if any(cell is not None and str(cell).strip() for cell in row)
             ]
             score = _sheet_score(ws.title, raw_columns, sample_rows)
+            column_map = _build_column_map(raw_columns)
+            missing_required = sorted(_missing_required_fields(column_map))
+            normalized_sheet = _normalize_header(ws.title)
+            is_reference_sheet = any(
+                marker in normalized_sheet
+                for marker in ("отдел", "department", "долж", "position")
+            )
+            sheet_kind = (
+                "employees"
+                if not missing_required
+                else "reference"
+                if is_reference_sheet
+                else "needs_mapping"
+            )
             if best is None or score > best["score"]:
                 best = {
                     "sheet_name": ws.title,
@@ -430,7 +447,10 @@ def _xlsx_sheet_candidates(wb) -> list[dict[str, Any]]:
                     "score": score,
                     "raw_columns": raw_columns,
                     "sample_rows": sample_rows,
-                    "suggested_mapping": _suggested_mapping_from_column_map(_build_column_map(raw_columns)),
+                    "suggested_mapping": _suggested_mapping_from_column_map(column_map),
+                    "missing_required_columns": missing_required,
+                    "is_importable": not missing_required,
+                    "sheet_kind": sheet_kind,
                 }
         if best:
             candidates.append(best)

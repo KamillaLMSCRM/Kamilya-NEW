@@ -26,6 +26,23 @@ describe("methodologist information architecture", () => {
     expect(staffSource).not.toContain("CompanyCoursesTab");
   });
 
+  it("keeps multi-sheet import reviewable and opens the resulting structure", () => {
+    expect(staffSource).toContain("const [sheets, setSheets]");
+    expect(staffSource).toContain('sheet.sheet_kind === "reference"');
+    expect(staffSource).toContain('sheet.sheet_kind === "needs_mapping"');
+    expect(staffSource).toContain("setMappingDirty(true)");
+    expect(staffSource).toContain("setStructureRefreshKey((value) => value + 1)");
+    expect(staffSource).toContain('selectTab("structure")');
+    expect(staffSource).toContain("overflow-x-auto overflow-y-auto");
+  });
+
+  it("keeps large structures searchable and separately collapsible by position", () => {
+    expect(staffSource).toContain("const [expandedPositions");
+    expect(staffSource).toContain("const [query, setQuery]");
+    expect(staffSource).toContain("filteredDepartments");
+    expect(staffSource).toContain("togglePosition(pos.id)");
+  });
+
   it("keeps structure free of training progress metrics and requires preview before rules mutations", () => {
     expect(staffSource).not.toMatch(/ready_percent|overall_ready_percent|assigned_courses|completed_courses/);
     expect(staffSource).toContain('href="/training-log"');

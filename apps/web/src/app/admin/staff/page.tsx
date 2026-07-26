@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Building2, FileText, Network, Upload, Users } from "lucide-react";
+import { Building2, ChevronDown, ChevronRight, FileText, Network, Search, Upload, Users } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent, Button, Badge, Table } from "@/components/ui";
 import { useAuthStore } from "@/store/authStore";
 import { useT } from "@/i18n/useT";
@@ -46,13 +46,7 @@ interface PreviewResponse {
   suggested_mapping?: Record<string, string>;
   sheet_name?: string | null;
   header_row?: number;
-  sheets?: Array<{
-    sheet_name: string;
-    header_row: number;
-    score: number;
-    raw_columns: string[];
-    suggested_mapping: Record<string, string>;
-  }>;
+  sheets?: StaffSheet[];
   limit_warning?: {
     code?: string;
     resource?: string;
@@ -61,6 +55,17 @@ interface PreviewResponse {
     requested?: number;
     message?: string;
   } | null;
+}
+
+interface StaffSheet {
+  sheet_name: string;
+  header_row: number;
+  score: number;
+  raw_columns: string[];
+  suggested_mapping: Record<string, string>;
+  sheet_kind?: "employees" | "reference" | "needs_mapping";
+  is_importable?: boolean;
+  missing_required_columns?: string[];
 }
 
 const STAFF_FIELDS = [
@@ -128,6 +133,8 @@ export default function AdminStaffPage() {
   const [preview, setPreview] = useState<PreviewResponse | null>(null);
   const [columnMapping, setColumnMapping] = useState<Record<string, string>>({});
   const [selectedSheetName, setSelectedSheetName] = useState("");
+  const [sheets, setSheets] = useState<StaffSheet[]>([]);
+  const [mappingDirty, setMappingDirty] = useState(false);
   const [loading, setLoading] = useState(false);
   const [committing, setCommitting] = useState(false);
   const [manualOpen, setManualOpen] = useState(false);
@@ -196,6 +203,8 @@ export default function AdminStaffPage() {
     setPreview(null);
     setColumnMapping({});
     setSelectedSheetName("");
+    setSheets([]);
+    setMappingDirty(false);
   };
 
   const handlePreview = async () => {
@@ -217,6 +226,8 @@ export default function AdminStaffPage() {
         headers: { "Content-Type": "multipart/form-data" },
       });
       setPreview(res.data);
+      setSheets(Array.isArray(res.data?.sheets) ? res.data.sheets : []);
+      setMappingDirty(false);
       if (res.data?.suggested_mapping) {
         setColumnMapping((current) => ({ ...res.data.suggested_mapping, ...current }));
       }
@@ -259,6 +270,10 @@ export default function AdminStaffPage() {
       toast.error(preview.limit_warning.message);
       return;
     }
+    if (mappingDirty) {
+      toast.error("Сначала повторно проверьте изменённое сопоставление колонок.");
+      return;
+    }
 
     if (
       !confirm(
@@ -299,6 +314,11 @@ export default function AdminStaffPage() {
       setApplyTaskId(tid);
       setSelectedFile(null);
       setPreview(null);
+      setSelectedSheetName("");
+      setSheets([]);
+      setMappingDirty(false);
+      setStructureRefreshKey((value) => value + 1);
+      selectTab("structure");
       if (fileInputRef.current) fileInputRef.current.value = "";
     } catch (err: any) {
       const detail = err?.response?.data?.detail || "Ошибка применения";
@@ -313,6 +333,8 @@ export default function AdminStaffPage() {
     setPreview(null);
     setColumnMapping({});
     setSelectedSheetName("");
+    setSheets([]);
+    setMappingDirty(false);
     setApplyTaskId(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
@@ -364,6 +386,9 @@ export default function AdminStaffPage() {
       setManualSaving(false);
     }
   };
+
+  const selectedSheet = sheets.find((sheet) => sheet.sheet_name === selectedSheetName);
+  const selectedSheetBlocked = selectedSheet?.sheet_kind === "reference";
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 px-4 py-5 sm:p-6">
@@ -561,6 +586,7 @@ export default function AdminStaffPage() {
                     accept=".xlsx,.csv"
                     onChange={handleFileSelect}
                     className="sr-only"
+                    aria-label="Выбрать файл штатного расписания"
                   />
                   <div className="flex flex-wrap items-center gap-3">
                     <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()}>
@@ -608,32 +634,56 @@ export default function AdminStaffPage() {
                     </div>
                   )}
                   {selectedFile && (
-                    <div className="flex items-center gap-2 text-sm text-foreground">
-                      <span>{(selectedFile.size / 1024).toFixed(1)} КБ</span>
+                    <div className="space-y-2">
+                      <p className="text-xs text-muted-foreground">
+                        Импортируется один лист сотрудников. Остальные листы используются только как справочные и не
+                        импортируются.
+                      </p>
+                      <div className="flex items-center gap-2 text-sm text-foreground">
+                        <span>{(selectedFile.size / 1024).toFixed(1)} КБ</span>
+                      </div>
                     </div>
                   )}
-                  {preview?.sheets && preview.sheets.length > 1 && (
+                  {sheets.length > 1 && (
                     <div className="max-w-md space-y-1">
-                      <label className="text-xs font-semibold text-muted-foreground">Лист с сотрудниками</label>
+                      <label htmlFor="staff-sheet-select" className="text-xs font-semibold text-muted-foreground">
+                        Лист с сотрудниками
+                      </label>
                       <select
-                        value={selectedSheetName || preview.sheet_name || ""}
+                        id="staff-sheet-select"
+                        value={selectedSheetName || preview?.sheet_name || ""}
                         onChange={(e) => {
                           setSelectedSheetName(e.target.value);
                           setPreview(null);
                           setColumnMapping({});
+                          setMappingDirty(false);
                         }}
                         className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm outline-none focus:border-primary"
                       >
-                        {preview.sheets.map((sheet) => (
-                          <option key={sheet.sheet_name} value={sheet.sheet_name}>
-                            {sheet.sheet_name} · заголовки в строке {sheet.header_row}
-                          </option>
-                        ))}
+                        {sheets.map((sheet) => {
+                          const reference = sheet.sheet_kind === "reference";
+                          const needsMapping = sheet.sheet_kind === "needs_mapping";
+                          return (
+                            <option key={sheet.sheet_name} value={sheet.sheet_name} disabled={reference}>
+                              {sheet.sheet_name} · заголовки в строке {sheet.header_row}
+                              {reference
+                                ? " · справочный лист, не импортируется"
+                                : needsMapping
+                                  ? " · требует сопоставления"
+                                  : ""}
+                            </option>
+                          );
+                        })}
                       </select>
+                      {selectedSheetBlocked && (
+                        <p className="text-xs text-destructive">
+                          Это справочный лист. Выберите лист сотрудников или лист, требующий сопоставления.
+                        </p>
+                      )}
                     </div>
                   )}
                   <div className="flex gap-2">
-                    <Button onClick={handlePreview} disabled={!selectedFile || loading} variant="outline">
+                    <Button onClick={handlePreview} disabled={!selectedFile || loading || selectedSheetBlocked} variant="outline">
                       {loading ? "Читаю…" : "Предпросмотр"}
                     </Button>
                     <Button onClick={handleReset} disabled={!selectedFile} variant="outline">
@@ -646,16 +696,23 @@ export default function AdminStaffPage() {
               {/* Preview results */}
               {preview && (
                 <>
-                  {preview.missing_required_columns && preview.missing_required_columns.length > 0 && (
+                  {preview.raw_columns && preview.raw_columns.length > 0 && (
                     <Card>
                       <CardHeader>
-                        <CardTitle>2️⃣ Сопоставьте колонки</CardTitle>
+                        <CardTitle>Сопоставление колонок</CardTitle>
                       </CardHeader>
                       <CardContent className="space-y-4">
-                        <div className="rounded-xl border border-warning/30 bg-warning/10 p-3 text-sm text-warning">
-                          Мы не смогли автоматически распознать все обязательные поля. Выберите, какая колонка файла
-                          чему соответствует.
-                        </div>
+                        {preview.missing_required_columns && preview.missing_required_columns.length > 0 ? (
+                          <div className="rounded-xl border border-warning/30 bg-warning/10 p-3 text-sm text-warning">
+                            Мы не смогли автоматически распознать все обязательные поля. Выберите, какая колонка файла
+                            чему соответствует.
+                          </div>
+                        ) : (
+                          <div className="rounded-xl border border-border bg-muted/40 p-3 text-sm text-muted-foreground">
+                            Проверьте автоматически выбранные колонки. При изменении сопоставления повторная проверка
+                            обязательна до применения импорта.
+                          </div>
+                        )}
                         {preview.sheet_name && (
                           <div className="rounded-xl border border-border bg-muted/40 p-3 text-sm text-muted-foreground">
                             Анализируем лист «{preview.sheet_name}», строка заголовков: {preview.header_row || 1}.
@@ -679,6 +736,7 @@ export default function AdminStaffPage() {
                                     else delete next[field.key];
                                     return next;
                                   });
+                                  setMappingDirty(true);
                                 }}
                                 className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm outline-none focus:border-primary"
                               >
@@ -729,6 +787,7 @@ export default function AdminStaffPage() {
                             disabled={
                               !selectedFile ||
                               loading ||
+                              selectedSheetBlocked ||
                               ["personnel_number", "department", "position"].some((key) => !columnMapping[key]) ||
                               ((!columnMapping.first_name || !columnMapping.last_name) && !columnMapping.full_name)
                             }
@@ -748,10 +807,10 @@ export default function AdminStaffPage() {
                       {/* Summary */}
                       <Card>
                         <CardHeader>
-                          <CardTitle>2️⃣ Предпросмотр изменений</CardTitle>
+                          <CardTitle>Предпросмотр изменений</CardTitle>
                         </CardHeader>
                         <CardContent>
-                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                          <div className="grid grid-cols-1 gap-3 mb-4 sm:grid-cols-2 lg:grid-cols-4">
                             <div className="rounded-lg bg-success/10 p-3 text-center">
                               <div className="text-2xl font-bold text-success">{preview.summary.create}</div>
                               <div className="text-xs text-success">Создать</div>
@@ -783,6 +842,12 @@ export default function AdminStaffPage() {
                             </div>
                           )}
 
+                          {mappingDirty && (
+                            <div className="rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm text-warning mb-4">
+                              Сопоставление изменено. Повторно проверьте его перед применением.
+                            </div>
+                          )}
+
                           {preview.new_positions.length > 0 && (
                             <details className="mb-4 text-sm">
                               <summary className="cursor-pointer text-foreground font-medium">
@@ -804,10 +869,10 @@ export default function AdminStaffPage() {
                       {preview.items.length > 0 && (
                         <Card>
                           <CardHeader>
-                            <CardTitle>3️⃣ Строки ({preview.items.length})</CardTitle>
+                            <CardTitle>Строки файла ({preview.items.length})</CardTitle>
                           </CardHeader>
                           <CardContent className="p-0">
-                            <div className="max-h-96 overflow-y-auto">
+                            <div className="max-h-96 overflow-x-auto overflow-y-auto">
                               <Table>
                                 <thead className="sticky top-0 bg-muted">
                                   <tr>
@@ -861,10 +926,10 @@ export default function AdminStaffPage() {
                       {preview.invalid_rows && preview.invalid_rows.length > 0 && (
                         <Card>
                           <CardHeader>
-                            <CardTitle>⚠️ Ошибки в файле ({preview.invalid_rows.length})</CardTitle>
+                            <CardTitle>Ошибки в файле ({preview.invalid_rows.length})</CardTitle>
                           </CardHeader>
                           <CardContent className="p-0">
-                            <div className="max-h-64 overflow-y-auto">
+                            <div className="max-h-64 overflow-x-auto overflow-y-auto">
                               <Table>
                                 <thead className="sticky top-0 bg-muted">
                                   <tr>
@@ -900,6 +965,7 @@ export default function AdminStaffPage() {
                           disabled={
                             committing ||
                             loading ||
+                            mappingDirty ||
                             !!preview.limit_warning ||
                             (preview.invalid_rows && preview.invalid_rows.length > 0) ||
                             (preview.summary.create === 0 && preview.summary.update === 0)
@@ -907,7 +973,7 @@ export default function AdminStaffPage() {
                         >
                           {committing
                             ? "Применяю…"
-                            : `✅ Применить (${preview.summary.create} + ${preview.summary.update})`}
+                            : `Применить (${preview.summary.create} + ${preview.summary.update})`}
                         </Button>
                       </div>
                     </>
@@ -967,6 +1033,8 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
   const [loadError, setLoadError] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
   const [expandedDepts, setExpandedDepts] = useState<Set<string>>(new Set());
+  const [expandedPositions, setExpandedPositions] = useState<Set<string>>(new Set());
+  const [query, setQuery] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -1001,6 +1069,32 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
     });
   };
 
+  const togglePosition = (positionId: string) => {
+    setExpandedPositions((prev) => {
+      const next = new Set(prev);
+      if (next.has(positionId)) next.delete(positionId);
+      else next.add(positionId);
+      return next;
+    });
+  };
+
+  const filteredDepartments = useMemo(() => {
+    if (!data) return [];
+    const needle = query.trim().toLocaleLowerCase();
+    if (!needle) return data.departments;
+
+    return data.departments.flatMap((department) => {
+      if (department.name.toLocaleLowerCase().includes(needle)) return [department];
+      const positions = department.positions.filter((position) => {
+        if (position.name.toLocaleLowerCase().includes(needle)) return true;
+        return position.employees.some((employee) =>
+          `${employee.full_name} ${employee.personnel_number ?? ""}`.toLocaleLowerCase().includes(needle),
+        );
+      });
+      return positions.length > 0 ? [{ ...department, positions }] : [];
+    });
+  }, [data, query]);
+
   if (loading) {
     return <div className="p-6 text-muted-foreground">Загружаю структуру…</div>;
   }
@@ -1032,7 +1126,7 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
   return (
     <div className="space-y-4">
       {/* Summary cards */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div className="rounded-lg bg-primary/10 p-3 text-center">
           <div className="text-2xl font-bold text-primary">{data.summary.total_employees}</div>
           <div className="text-xs text-primary">Сотрудников</div>
@@ -1055,12 +1149,34 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
         <span>{t("staffPage.openTrainingLog")}</span>
       </Link>
 
+      <label className="relative block w-full sm:max-w-md">
+        <span className="sr-only">Поиск по структуре</span>
+        <Search
+          className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+          aria-hidden="true"
+        />
+        <input
+          type="search"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Найти сотрудника, должность или отдел…"
+          aria-label="Поиск по структуре"
+          className="w-full rounded-md border border-border bg-background px-9 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        />
+      </label>
+
+      {filteredDepartments.length === 0 && (
+        <div className="rounded-md border border-border p-6 text-center text-sm text-muted-foreground">
+          Поиск не дал результатов.
+        </div>
+      )}
+
       {/* Department tree */}
-      <Card>
+      {filteredDepartments.length > 0 && <Card>
         <CardContent className="p-0">
           <ul className="divide-y divide-border">
-            {data.departments.map((dept) => {
-              const isOpen = expandedDepts.has(dept.slug);
+            {filteredDepartments.map((dept) => {
+              const isOpen = expandedDepts.has(dept.slug) || query.trim().length > 0;
               return (
                 <li key={dept.slug}>
                   <button
@@ -1084,41 +1200,57 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
                       {dept.positions.length === 0 && (
                         <li className="px-4 py-3 pl-14 text-xs text-muted-foreground italic">Нет должностей</li>
                       )}
-                      {dept.positions.map((pos) => (
+                      {dept.positions.map((pos) => {
+                        const positionOpen = expandedPositions.has(pos.id) || query.trim().length > 0;
+                        return (
                         <li key={pos.id} className="px-4 py-3 pl-14">
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="flex-1 min-w-0">
-                              <Link
-                                href={`/positions/${pos.id}`}
-                                className="inline-flex rounded-sm text-sm font-medium text-foreground hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                              >
-                                {pos.name}
-                              </Link>
-                              <div className="text-xs text-muted-foreground mt-0.5">
-                                {pos.employee_count} сотрудников
-                              </div>
-                              {pos.employees.length > 0 && (
-                                <ul className="mt-2 space-y-1">
-                                  {pos.employees.map((emp) => (
-                                    <li key={emp.id} className="text-xs flex items-center gap-2">
-                                      <span
-                                        className={
-                                          emp.is_active ? "text-foreground" : "text-muted-foreground line-through"
-                                        }
-                                      >
-                                        {emp.full_name}
-                                        {emp.personnel_number && (
-                                          <span className="text-muted-foreground ml-1">({emp.personnel_number})</span>
-                                        )}
-                                      </span>
-                                    </li>
-                                  ))}
-                                </ul>
+                          <div className="flex min-w-0 items-start gap-3">
+                            <button
+                              type="button"
+                              onClick={() => togglePosition(pos.id)}
+                              aria-expanded={positionOpen}
+                              className="flex min-w-0 flex-1 items-start gap-2 rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            >
+                              {positionOpen ? (
+                                <ChevronDown className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                              ) : (
+                                <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                               )}
-                            </div>
+                              <span className="min-w-0">
+                                <span className="block truncate text-sm font-medium text-foreground">{pos.name}</span>
+                                <span className="mt-0.5 block text-xs text-muted-foreground">
+                                  {pos.employee_count} сотрудников
+                                </span>
+                              </span>
+                            </button>
+                            <Link
+                              href={`/positions/${pos.id}`}
+                              className="shrink-0 rounded-sm text-sm font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            >
+                              Открыть
+                            </Link>
                           </div>
+                          {positionOpen && pos.employees.length > 0 && (
+                            <ul className="mt-2 space-y-1 pl-6">
+                              {pos.employees.map((emp) => (
+                                <li key={emp.id} className="flex items-center gap-2 text-xs">
+                                  <span
+                                    className={
+                                      emp.is_active ? "text-foreground" : "text-muted-foreground line-through"
+                                    }
+                                  >
+                                    {emp.full_name}
+                                    {emp.personnel_number && (
+                                      <span className="ml-1 text-muted-foreground">({emp.personnel_number})</span>
+                                    )}
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
                         </li>
-                      ))}
+                        );
+                      })}
                     </ul>
                   )}
                 </li>
@@ -1126,7 +1258,7 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
             })}
           </ul>
         </CardContent>
-      </Card>
+      </Card>}
     </div>
   );
 }
