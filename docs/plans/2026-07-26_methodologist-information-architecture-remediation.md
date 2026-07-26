@@ -2,7 +2,7 @@
 
 Date: 2026-07-26
 Owner: Codex
-Status: in progress
+Status: WP1-WP2 released; WP3 pending
 
 ## Goal
 
@@ -392,4 +392,22 @@ hierarchy test and 53 combined organization-rule/import tests.
 
 ### Step 5 - integration and production QA
 
-**Status:** pending
+**What was verified:**
+
+- GitHub Actions completed successfully for the reviewed frontend revision;
+- Render deployed the organization-rule API and migrations `0076` and `0077`;
+- Vercel production alias `app.kml.kz` served the reviewed frontend revision;
+- production health returned `ok`, and unauthenticated organization-rule and
+  preview requests returned `401` rather than `404`;
+- demo methodologist production QA confirmed:
+  - Staff contains only `Structure` and `Import`;
+  - the structure shows organization facts and links to Training log, without
+    course-completion percentages;
+  - Training Rules has organization, department and read-only position scopes;
+  - position rows deep-link to the position qualification card;
+- production mobile QA at 360 px initially found a CSS Grid overflow
+  (`scrollWidth=406`); the reviewed fix changed the base grid track to
+  `minmax(0, 1fr)`, after which both body and document `scrollWidth` equal
+  `360`.
+
+**Status:** done for WP1-WP2
