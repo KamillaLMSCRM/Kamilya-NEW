@@ -65,7 +65,7 @@ class TrainingLogRow(BaseModel):
 
     # Enrollment
     enrollment_status: str  # raw: enrolled / completed
-    enrollment_source: str  # manual / position / department
+    enrollment_source: str  # manual / position / department / cohort / learning_path
     enrolled_at: datetime | None = None
     completed_at: datetime | None = None
 

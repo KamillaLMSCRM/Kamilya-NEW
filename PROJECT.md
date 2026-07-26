@@ -34,7 +34,9 @@ Kamilya LMS - корпоративная система обучения для 
 - `/admin/team` - только команда администрирования/обучения tenant-а.
 - `/assignments` - ручные назначения курсов обучающимся; это не admin-функция.
 - `/admin/enrollments` - legacy redirect на `/assignments`.
-- Tenant admin не определяет индивидуальные траектории обучения.
+- Tenant admin не создаёт и не назначает программы обучения.
+- `/learning-paths` - рабочее место методолога для версионируемых программ,
+  упорядоченных курсов и назначения аудитории.
 - Manual enrollment разрешен только для активных `student` того же tenant.
 
 Канон RBAC: [docs/adr/0012-rbac-admin-vs-methodologist.md](./docs/adr/0012-rbac-admin-vs-methodologist.md).
@@ -44,9 +46,12 @@ Kamilya LMS - корпоративная система обучения для 
 1. Обучающийся открывает invite link `/accept-invite?token=...`.
 2. После принятия приглашения `student` попадает на `/student`.
 3. `/student`, `/my-courses`, `/my-quizzes` показывают назначенные курсы и quiz.
-4. Course player не завершает курс, пока не закрыты уроки и обязательные quiz.
-5. После успешного completion backend idempotent выдает сертификат.
-6. Сертификаты доступны через `/certificates`; PDF хранится в Supabase Storage.
+4. `/learning-paths` показывает только назначенные обучающемуся программы и
+   открывает курсы по правилам их последовательности.
+5. Course player не завершает курс, пока не закрыты уроки и обязательные quiz.
+6. После успешного completion backend idempotent выдает сертификат и
+   пересчитывает доступные шаги назначенных программ.
+7. Сертификаты доступны через `/certificates`; PDF хранится в Supabase Storage.
 
 ## Assignment Model
 

@@ -589,6 +589,19 @@ async def _complete_course_for_user(db: AsyncSession, course_id: UUID, user: Use
     if not was_already_completed:
         enrollment.status = "completed"
         enrollment.completed_at = datetime.now(timezone.utc)
+        # A completed required step can unlock the next course in one or more
+        # assigned learning programs. Keep this in the same transaction as the
+        # completion so learners never observe a completed step without the
+        # newly available course enrollment.
+        from app.modules.learning_paths.service import (
+            sync_learning_path_enrollments_after_course_completion,
+        )
+
+        await sync_learning_path_enrollments_after_course_completion(
+            db,
+            tenant_id=user.tenant_id,
+            user_id=user.id,
+        )
 
     cert = await issue_certificate(
         db=db,

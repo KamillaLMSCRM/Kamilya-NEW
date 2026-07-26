@@ -79,6 +79,8 @@ const SOURCE_LABELS: Record<string, string> = {
   manual: 'Вручную',
   position: 'Должность',
   department: 'Отдел',
+  cohort: 'Группа',
+  learning_path: 'Программа обучения',
 };
 
 // ── component ─────────────────────────────────────────────
