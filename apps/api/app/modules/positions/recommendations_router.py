@@ -19,6 +19,7 @@ from app.models.ai_job import AIJob
 from app.modules.positions.models import Position, PositionCourse
 
 logger = logging.getLogger(__name__)
+from app.modules.positions import qualification_service
 from app.modules.positions.schemas import (
     PositionCreate,
     PositionUpdate,
@@ -67,7 +68,7 @@ router = APIRouter(
     tags=["positions"],
     dependencies=[
         Depends(require_tenant_user()),
-        Depends(require_role("superadmin", "methodologist")),
+        Depends(require_role("methodologist")),
     ],
 )
 
@@ -244,8 +245,13 @@ async def suggest_courses(
 
     Best-effort: if the LLM fails, returns [] with no error.
     """
-    pos = await db.get(Position, position_id)
-    if not pos or pos.tenant_id != user.tenant_id:
+    pos = await db.scalar(
+        select(Position).where(
+            Position.id == position_id,
+            Position.tenant_id == user.tenant_id,
+        )
+    )
+    if not pos:
         raise HTTPException(status_code=404, detail="Position not found")
 
     jd_text = f"""Должность: {pos.name}
@@ -337,9 +343,12 @@ async def create_courses_from_suggestions(
     can then go to /ai/generate/ to fill in the actual content, or edit
     the course directly.
     """
-    pos = await db.get(Position, position_id)
-    if not pos or pos.tenant_id != user.tenant_id:
-        raise HTTPException(status_code=404, detail="Position not found")
+    pos = await qualification_service.prepare_external_change(
+        db,
+        position_id,
+        user.tenant_id,
+        user.id,
+    )
 
     if not payload.items:
         raise HTTPException(status_code=400, detail="items is empty")
@@ -368,7 +377,14 @@ async def create_courses_from_suggestions(
         ))
         created_refs.append(CreatedCourseRef(id=str(course_id), title=item.title.strip()))
 
-    await db.commit()
+    await db.flush()
+    await qualification_service.record_external_change(
+        db,
+        pos,
+        user.id,
+        "training_update",
+        "Created recommended courses",
+    )
 
     return CreateCoursesResponse(
         created=created_refs,
@@ -546,12 +562,19 @@ async def restore_jd_version(
     This creates a NEW auto-snapshot of the current values (so the
     restore is itself reversible) and overwrites with the version's content.
     """
-    pos = await db.get(Position, position_id)
-    if not pos or pos.tenant_id != user.tenant_id:
-        raise HTTPException(status_code=404, detail="Position not found")
+    pos = await qualification_service.prepare_external_change(
+        db,
+        position_id,
+        user.tenant_id,
+        user.id,
+    )
 
     ver = await db.get(PositionJDVersion, version_id)
-    if not ver or ver.position_id != position_id:
+    if (
+        not ver
+        or ver.position_id != position_id
+        or ver.tenant_id != user.tenant_id
+    ):
         raise HTTPException(status_code=404, detail="Version not found")
 
     # Snapshot current BEFORE restoring
@@ -567,8 +590,14 @@ async def restore_jd_version(
 
     pos.responsibilities = ver.responsibilities
     pos.requirements = ver.requirements
-    await db.commit()
-    await db.refresh(pos)
+    await db.flush()
+    await qualification_service.record_external_change(
+        db,
+        pos,
+        user.id,
+        "instruction_restore",
+        f"Restored job instruction version {version_id}",
+    )
 
     course_ids = await _get_course_ids(db, pos.id)
     return JDRestoreResponse(
@@ -730,7 +759,10 @@ async def get_onboarding_quiz(
         raise HTTPException(status_code=404, detail="Position not found")
 
     result = await db.execute(
-        select(PositionQuiz).where(PositionQuiz.position_id == position_id)
+        select(PositionQuiz).where(
+            PositionQuiz.position_id == position_id,
+            PositionQuiz.tenant_id == user.tenant_id,
+        )
     )
     qz = result.scalar_one_or_none()
     if not qz:
@@ -791,9 +823,12 @@ async def save_onboarding_quiz(
     - every question has exactly one is_correct: true choice
     - at least one question total
     """
-    pos = await db.get(Position, position_id)
-    if not pos or pos.tenant_id != user.tenant_id:
-        raise HTTPException(status_code=404, detail="Position not found")
+    pos = await qualification_service.prepare_external_change(
+        db,
+        position_id,
+        user.tenant_id,
+        user.id,
+    )
 
     # Normalize + validate
     clean_questions: list[dict] = []
@@ -822,7 +857,10 @@ async def save_onboarding_quiz(
 
     # Upsert
     result = await db.execute(
-        select(PositionQuiz).where(PositionQuiz.position_id == position_id)
+        select(PositionQuiz).where(
+            PositionQuiz.position_id == position_id,
+            PositionQuiz.tenant_id == user.tenant_id,
+        )
     )
     qz = result.scalar_one_or_none()
 
@@ -845,8 +883,14 @@ async def save_onboarding_quiz(
         )
         db.add(qz)
 
-    await db.commit()
+    await db.flush()
     await db.refresh(qz)
+    await qualification_service.record_external_change(
+        db,
+        pos,
+        user.id,
+        "onboarding_quiz_update",
+    )
 
     return PositionQuizResponse(
         id=qz.id,
@@ -876,17 +920,29 @@ async def delete_onboarding_quiz(
     user: User = Depends(get_current_user),
 ):
     """Remove the onboarding quiz for a position."""
-    pos = await db.get(Position, position_id)
-    if not pos or pos.tenant_id != user.tenant_id:
-        raise HTTPException(status_code=404, detail="Position not found")
+    pos = await qualification_service.prepare_external_change(
+        db,
+        position_id,
+        user.tenant_id,
+        user.id,
+    )
 
     result = await db.execute(
-        select(PositionQuiz).where(PositionQuiz.position_id == position_id)
+        select(PositionQuiz).where(
+            PositionQuiz.position_id == position_id,
+            PositionQuiz.tenant_id == user.tenant_id,
+        )
     )
     qz = result.scalar_one_or_none()
     if not qz:
         raise HTTPException(status_code=404, detail="Onboarding quiz not found")
 
     await db.delete(qz)
-    await db.commit()
+    await db.flush()
+    await qualification_service.record_external_change(
+        db,
+        pos,
+        user.id,
+        "onboarding_quiz_delete",
+    )
     return None

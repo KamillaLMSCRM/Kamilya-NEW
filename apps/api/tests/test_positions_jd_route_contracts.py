@@ -71,10 +71,7 @@ def test_positions_routes_require_learning_content_role() -> None:
         if not isinstance(route, APIRoute):
             continue
 
-        assert (
-            "superadmin",
-            "methodologist",
-        ) in _role_dependency_closure(route), route.path
+        assert ("methodologist",) in _role_dependency_closure(route), route.path
 
 
 def test_jd_router_closes_direct_document_upload_rbac_bypass() -> None:

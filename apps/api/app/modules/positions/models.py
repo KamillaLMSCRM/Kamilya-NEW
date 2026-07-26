@@ -167,7 +167,9 @@ class PositionQuiz(Base):
       ...
     ]
 
-    is_active toggles whether this quiz is auto-assigned on onboarding.
+    `is_active` marks the template as available for future publishing. The
+    current product does not convert or auto-assign this template as an
+    executable Quiz.
     """
     __tablename__ = "position_quizzes"
     __table_args__ = {'extend_existing': True}

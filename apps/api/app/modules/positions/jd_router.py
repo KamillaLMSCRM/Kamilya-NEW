@@ -17,6 +17,7 @@ from app.models.enrollment import Enrollment
 from app.modules.positions.models import Position, PositionCourse
 
 logger = logging.getLogger(__name__)
+from app.modules.positions import qualification_service
 from app.modules.positions.schemas import (
     PositionCreate,
     PositionUpdate,
@@ -189,6 +190,12 @@ async def upload_position_instruction(
         user=user,
     )
 
+    pos = await qualification_service.prepare_external_change(
+        db,
+        position_id,
+        user.tenant_id,
+        user.id,
+    )
     if pos.responsibilities or pos.requirements:
         db.add(
             PositionJDVersion(
@@ -209,6 +216,13 @@ async def upload_position_instruction(
             setattr(pos, field, value)
 
     await db.flush()
+    await qualification_service.record_external_change(
+        db,
+        pos,
+        user.id,
+        "instruction_update",
+        f"Uploaded {file.filename or 'job instruction'}",
+    )
     return await _position_response(db, pos)
 
 
@@ -345,12 +359,19 @@ async def restore_jd_version(
     This creates a NEW auto-snapshot of the current values (so the
     restore is itself reversible) and overwrites with the version's content.
     """
-    pos = await db.get(Position, position_id)
-    if not pos or pos.tenant_id != user.tenant_id:
-        raise HTTPException(status_code=404, detail="Position not found")
+    pos = await qualification_service.prepare_external_change(
+        db,
+        position_id,
+        user.tenant_id,
+        user.id,
+    )
 
     ver = await db.get(PositionJDVersion, version_id)
-    if not ver or ver.position_id != position_id:
+    if (
+        not ver
+        or ver.position_id != position_id
+        or ver.tenant_id != user.tenant_id
+    ):
         raise HTTPException(status_code=404, detail="Version not found")
 
     # Snapshot current BEFORE restoring
@@ -366,8 +387,14 @@ async def restore_jd_version(
 
     pos.responsibilities = ver.responsibilities
     pos.requirements = ver.requirements
-    await db.commit()
-    await db.refresh(pos)
+    await db.flush()
+    await qualification_service.record_external_change(
+        db,
+        pos,
+        user.id,
+        "instruction_restore",
+        f"Restored job instruction version {version_id}",
+    )
 
     course_ids = await _get_course_ids(db, pos.id)
     return JDRestoreResponse(

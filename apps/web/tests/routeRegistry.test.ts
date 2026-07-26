@@ -3,6 +3,7 @@ import {
   CAPABILITIES,
   ROLE_CAPABILITIES,
   ROUTES,
+  canAccessRegisteredRoute,
   getNavigationRoutes,
   hasCapability,
 } from '@/lib/routeRegistry';
@@ -54,5 +55,13 @@ describe('route and capability registry', () => {
       section: 'workforce',
     });
     expect(getNavigationRoutes('admin', 'sidebar').some(({ id }) => id === 'invitations')).toBe(false);
+  });
+
+  it('keeps position qualification cards on the methodologist surface', () => {
+    const cardPath = '/positions/420155dd-d2e3-43f1-ab16-108d8e5e4901';
+
+    expect(canAccessRegisteredRoute('methodologist', cardPath)).toBe(true);
+    expect(canAccessRegisteredRoute('admin', cardPath)).toBe(false);
+    expect(canAccessRegisteredRoute('org_admin', cardPath)).toBe(false);
   });
 });

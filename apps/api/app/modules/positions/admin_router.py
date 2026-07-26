@@ -15,7 +15,7 @@ endpoints next to it without dragging in a `users/staff` dependency.
 from uuid import UUID
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import require_role
@@ -65,7 +65,7 @@ class StructureResponse(BaseModel):
 @router.get("/structure", response_model=StructureResponse)
 async def get_staff_structure(
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("superadmin", "methodologist")),
+    user: User = Depends(require_role("methodologist")),
 ):
     """Return nested tree: departments → positions → employees with progress.
 
@@ -96,20 +96,30 @@ async def get_staff_structure(
     for emp in employees:
         employees_by_pos.setdefault(emp.position_id, []).append(emp)
 
-    # 3. Position courses count.
+    # 3. Required position-course rules. Keep course ids so materialized
+    # enrollments can be de-duplicated against their source rules.
     pc_result = await db.execute(
-        select(PositionCourse.position_id, func.count(PositionCourse.course_id))
-        .where(PositionCourse.position_id.in_([p.id for p, _ in pos_with_dept] or [UUID("00000000-0000-0000-0000-000000000000")]))
-        .group_by(PositionCourse.position_id)
+        select(PositionCourse.position_id, PositionCourse.course_id).where(
+            PositionCourse.tenant_id == user.tenant_id,
+            PositionCourse.required.is_(True),
+            PositionCourse.position_id.in_(
+                [p.id for p, _ in pos_with_dept]
+                or [UUID("00000000-0000-0000-0000-000000000000")]
+            ),
+        )
     )
-    pc_count_by_pos = {row[0]: row[1] for row in pc_result.all()}
+    required_courses_by_pos: dict[UUID, set[UUID]] = {}
+    for position_id, course_id in pc_result.all():
+        required_courses_by_pos.setdefault(position_id, set()).add(course_id)
 
     # 4. Enrollments.
     user_ids = [e.id for e in employees]
     enr_result = await db.execute(
         select(Enrollment.user_id, Enrollment.course_id, Enrollment.completed_at)
         .where(
-            Enrollment.user_id.in_(user_ids) if user_ids else Enrollment.user_id == None,
+            Enrollment.user_id.in_(user_ids)
+            if user_ids
+            else Enrollment.user_id.is_(None),
             Enrollment.tenant_id == user.tenant_id,
         )
     )
@@ -146,15 +156,20 @@ async def get_staff_structure(
         dept_node.position_count += 1
 
         pos_employees = employees_by_pos.get(pos.id, [])
-        required_courses = pc_count_by_pos.get(pos.id, 0)
+        required_courses = required_courses_by_pos.get(pos.id, set())
 
         emp_nodes: list[EmployeeNode] = []
         pos_completed_sum = 0
         pos_assigned_sum = 0
         for emp in pos_employees:
             enr = enrollments_by_user.get(emp.id, [])
-            assigned = required_courses + len(enr)
-            completed = sum(1 for _, is_done in enr if is_done)
+            enrollment_course_ids = {course_id for course_id, _ in enr}
+            assigned_course_ids = required_courses | enrollment_course_ids
+            completed_course_ids = {
+                course_id for course_id, is_done in enr if is_done
+            }
+            assigned = len(assigned_course_ids)
+            completed = len(completed_course_ids & assigned_course_ids)
             ready_pct = int(completed * 100 / assigned) if assigned > 0 else 0
             pos_assigned_sum += assigned
             pos_completed_sum += completed

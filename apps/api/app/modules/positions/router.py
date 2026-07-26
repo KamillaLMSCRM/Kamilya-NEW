@@ -19,6 +19,7 @@ from app.modules.positions.assignment_service import recompute_enrollments
 from app.modules.positions.batch_service import (
     recompute_position_holders,
 )
+from app.modules.positions import qualification_service
 from app.modules.positions.models import Position, PositionCourse
 
 logger = logging.getLogger(__name__)
@@ -38,7 +39,7 @@ router = APIRouter(
     tags=["positions"],
     dependencies=[
         Depends(require_tenant_user()),
-        Depends(require_role("superadmin", "methodologist")),
+        Depends(require_role("methodologist")),
     ],
 )
 
@@ -47,21 +48,50 @@ router = APIRouter(
 
 
 
-async def _sync_courses(db: AsyncSession, position_id: UUID, course_ids: list[UUID] | None, tenant_id: UUID | None = None):
-    """Replace all position_courses for a position.
-
-    `tenant_id` is required by the NOT NULL constraint on
-    position_courses.tenant_id; we resolve it from the caller because
-    the model otherwise has no way to derive it (smoke 2026-06-30).
-    """
+async def _sync_courses(
+    db: AsyncSession,
+    position_id: UUID,
+    course_ids: list[UUID] | None,
+    tenant_id: UUID,
+):
+    """Replace position course rules after validating tenant ownership."""
     if course_ids is None:
         return
-    await db.execute(delete(PositionCourse).where(PositionCourse.position_id == position_id))
-    for cid in course_ids:
+    unique_course_ids = list(dict.fromkeys(course_ids))
+    if len(unique_course_ids) != len(course_ids):
+        raise HTTPException(
+            status_code=422,
+            detail={"code": "duplicate_course_ids"},
+        )
+    if unique_course_ids:
+        valid_course_ids = set(
+            (
+                await db.scalars(
+                    select(Course.id).where(
+                        Course.tenant_id == tenant_id,
+                        Course.id.in_(unique_course_ids),
+                    )
+                )
+            ).all()
+        )
+        if valid_course_ids != set(unique_course_ids):
+            raise HTTPException(
+                status_code=422,
+                detail={"code": "courses_outside_tenant"},
+            )
+
+    await db.execute(
+        delete(PositionCourse).where(
+            PositionCourse.position_id == position_id,
+            PositionCourse.tenant_id == tenant_id,
+        )
+    )
+    for cid in unique_course_ids:
         db.add(PositionCourse(
             position_id=position_id,
             course_id=cid,
             tenant_id=tenant_id,
+            required=True,
         ))
 
 
@@ -207,8 +237,10 @@ async def get_position(
     user: User = Depends(get_current_user),
 ):
     result = await db.execute(
-        select(Position)
-        .where(Position.id == position_id, Position.tenant_id == user.tenant_id)
+        select(Position).where(
+            Position.id == position_id,
+            Position.tenant_id == user.tenant_id,
+        )
     )
     pos = result.scalar_one_or_none()
     if not pos:
@@ -285,13 +317,12 @@ async def update_position(
     enrollments, removing a course removes in-progress enrollments
     (completed are kept). P1-4 (asymmetric add-only) is resolved.
     """
-    result = await db.execute(
-        select(Position)
-        .where(Position.id == position_id, Position.tenant_id == user.tenant_id)
+    pos = await qualification_service.prepare_external_change(
+        db,
+        position_id,
+        user.tenant_id,
+        user.id,
     )
-    pos = result.scalar_one_or_none()
-    if not pos:
-        raise HTTPException(status_code=404, detail="Position not found")
 
     for field, value in req.model_dump(exclude_unset=True, exclude={"course_ids"}).items():
         # Auto-snapshot JD BEFORE overwriting, so we always have the previous
@@ -309,13 +340,24 @@ async def update_position(
 
     re_enrolled = 0
     if req.course_ids is not None:
-        await _sync_courses(db, pos.id, req.course_ids)
+        await _sync_courses(
+            db,
+            pos.id,
+            req.course_ids,
+            tenant_id=user.tenant_id,
+        )
         # Symmetric add+remove: run recompute on every holder. The
         # kernel handles both directions in one pass.
         batch = await recompute_position_holders(db, pos.id, user.tenant_id)
         re_enrolled = batch.added
 
     await db.flush()
+    await qualification_service.record_external_change(
+        db,
+        pos,
+        user.id,
+        "profile_update" if req.course_ids is None else "position_update",
+    )
     return await _position_response(db, pos, re_enrolled=re_enrolled)
 
 
@@ -383,7 +425,7 @@ async def attach_course_to_position(
     position_id: UUID,
     body: _PositionCourseItem,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("methodologist", "superadmin")),
+    user: User = Depends(require_role("methodologist")),
 ):
     """Attach a single course to a Position (B1c).
 
@@ -395,18 +437,30 @@ async def attach_course_to_position(
     for every holder of this position. The recompute is fan-outed via
     `recompute_position_holders` (see batch_service.py).
     """
-    pos = await db.get(Position, position_id)
-    if pos is None or pos.tenant_id != user.tenant_id:
-        raise HTTPException(status_code=404, detail="Position not found")
+    pos = await qualification_service.prepare_external_change(
+        db,
+        position_id,
+        user.tenant_id,
+        user.id,
+    )
 
-    # Idempotent insert. ON CONFLICT in the model handles the case
-    # where (position_id, course_id) already exists.
+    course_exists = await db.scalar(
+        select(Course.id).where(
+            Course.id == body.course_id,
+            Course.tenant_id == user.tenant_id,
+        )
+    )
+    if course_exists is None:
+        raise HTTPException(status_code=404, detail="Course not found")
+
     existing = await db.scalar(
         select(PositionCourse).where(
             PositionCourse.position_id == position_id,
             PositionCourse.course_id == body.course_id,
+            PositionCourse.tenant_id == user.tenant_id,
         )
     )
+    changed = existing is None or existing.required != body.required
     if existing is None:
         db.add(
             PositionCourse(
@@ -425,6 +479,13 @@ async def attach_course_to_position(
     # Fan-out: re-derive every holder's enrollments from the rules.
     batch = await recompute_position_holders(db, position_id, user.tenant_id)
     await db.flush()
+    if changed:
+        await qualification_service.record_external_change(
+            db,
+            pos,
+            user.id,
+            "training_update",
+        )
 
     course_ids = await _get_course_ids(db, position_id)
     return PositionResponse(
@@ -450,7 +511,7 @@ async def detach_course_from_position(
     position_id: UUID,
     course_id: UUID,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("methodologist", "superadmin")),
+    user: User = Depends(require_role("methodologist")),
 ):
     """Detach a single course from a Position (B1c).
 
@@ -458,14 +519,18 @@ async def detach_course_from_position(
     are kept; in-progress enrollments from this position are removed
     (B1a's symmetric add/remove semantics).
     """
-    pos = await db.get(Position, position_id)
-    if pos is None or pos.tenant_id != user.tenant_id:
-        raise HTTPException(status_code=404, detail="Position not found")
+    pos = await qualification_service.prepare_external_change(
+        db,
+        position_id,
+        user.tenant_id,
+        user.id,
+    )
 
     binding = await db.scalar(
         select(PositionCourse).where(
             PositionCourse.position_id == position_id,
             PositionCourse.course_id == course_id,
+            PositionCourse.tenant_id == user.tenant_id,
         )
     )
     if binding is None:
@@ -477,6 +542,12 @@ async def detach_course_from_position(
     # Fan-out recompute — same shape as attach.
     batch = await recompute_position_holders(db, position_id, user.tenant_id)
     await db.flush()
+    await qualification_service.record_external_change(
+        db,
+        pos,
+        user.id,
+        "training_update",
+    )
 
     course_ids = await _get_course_ids(db, position_id)
     return PositionResponse(
@@ -629,22 +700,28 @@ async def bulk_create_positions(
 
     for idx, item in enumerate(payload.items):
         try:
-            if not item.name.strip():
-                raise ValueError("name is empty")
-            pos_id = uuid.uuid4()
-            db.add(Position(
-                id=pos_id,
-                tenant_id=user.tenant_id,
-                name=item.name.strip(),
-                department=item.department.strip(),
-                level=item.level.strip(),
-                responsibilities=item.responsibilities.strip(),
-                requirements=item.requirements.strip(),
-                employee_count=0,
-            ))
-            if item.course_ids:
-                await _sync_courses(db, pos_id, item.course_ids)
-            await db.flush()
+            async with db.begin_nested():
+                if not item.name.strip():
+                    raise ValueError("name is empty")
+                pos_id = uuid.uuid4()
+                db.add(Position(
+                    id=pos_id,
+                    tenant_id=user.tenant_id,
+                    name=item.name.strip(),
+                    department=item.department.strip(),
+                    level=item.level.strip(),
+                    responsibilities=item.responsibilities.strip(),
+                    requirements=item.requirements.strip(),
+                    employee_count=0,
+                ))
+                if item.course_ids:
+                    await _sync_courses(
+                        db,
+                        pos_id,
+                        item.course_ids,
+                        tenant_id=user.tenant_id,
+                    )
+                await db.flush()
             created.append(BulkPositionCreated(index=idx, id=pos_id, name=item.name.strip()))
         except Exception as e:
             failed.append(BulkPositionFailed(
@@ -652,8 +729,6 @@ async def bulk_create_positions(
                 name=item.name,
                 error=f"{type(e).__name__}: {e}",
             ))
-            # Roll back this savepoint but keep going for the rest
-            await db.rollback()
 
     await db.commit()
     return BulkPositionResponse(created=created, failed=failed)
