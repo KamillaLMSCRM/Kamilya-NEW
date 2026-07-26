@@ -8,14 +8,16 @@ from app.models.courses import Course
 from app.modules.positions.batch_service import (
     recompute_department_members,
     recompute_position_holders,
+    recompute_tenant_members,
 )
 from app.modules.positions.models import DepartmentCourse, PositionCourse
+from app.modules.training_rules.models import OrganizationCourseRule
 
 
 async def _bound_rule_ids(
     db: AsyncSession,
     course: Course,
-) -> tuple[list[UUID], list[UUID]]:
+) -> tuple[list[UUID], list[UUID], bool]:
     position_result = await db.execute(
         select(PositionCourse.position_id).where(
             PositionCourse.course_id == course.id,
@@ -28,9 +30,16 @@ async def _bound_rule_ids(
             DepartmentCourse.tenant_id == course.tenant_id,
         )
     )
+    organization_rule_id = await db.scalar(
+        select(OrganizationCourseRule.id).where(
+            OrganizationCourseRule.course_id == course.id,
+            OrganizationCourseRule.tenant_id == course.tenant_id,
+        )
+    )
     return (
         list(position_result.scalars().all()),
         list(department_result.scalars().all()),
+        organization_rule_id is not None,
     )
 
 
@@ -41,7 +50,7 @@ async def activate_course_assignments(db: AsyncSession, course: Course) -> None:
     bindings from the same source document for the same position. Completed
     enrollments remain protected by the assignment kernel.
     """
-    position_ids, department_ids = await _bound_rule_ids(db, course)
+    position_ids, department_ids, has_organization_rule = await _bound_rule_ids(db, course)
 
     if course.source_instruction_id is not None and position_ids:
         prior_course_ids = select(Course.id).where(
@@ -62,12 +71,16 @@ async def activate_course_assignments(db: AsyncSession, course: Course) -> None:
         await recompute_position_holders(db, position_id, course.tenant_id)
     for department_id in department_ids:
         await recompute_department_members(db, department_id, course.tenant_id)
+    if has_organization_rule:
+        await recompute_tenant_members(db, course.tenant_id)
 
 
 async def refresh_course_assignments(db: AsyncSession, course: Course) -> None:
     """Recompute affected users after a course leaves published state."""
-    position_ids, department_ids = await _bound_rule_ids(db, course)
+    position_ids, department_ids, has_organization_rule = await _bound_rule_ids(db, course)
     for position_id in position_ids:
         await recompute_position_holders(db, position_id, course.tenant_id)
     for department_id in department_ids:
         await recompute_department_members(db, department_id, course.tenant_id)
+    if has_organization_rule:
+        await recompute_tenant_members(db, course.tenant_id)

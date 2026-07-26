@@ -36,6 +36,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import require_role
 from app.core.db import get_db
+from app.models.courses import Course
 from app.models.department import Department
 from app.models.users import User
 from app.modules.positions.batch_service import recompute_department_members
@@ -102,6 +103,24 @@ async def _get_course_rows(db: AsyncSession, department_id: UUID) -> list[Depart
         DepartmentCourseRow(course_id=row[0], required=row[1])
         for row in result.all()
     ]
+
+
+async def _require_assignable_course(
+    db: AsyncSession,
+    tenant_id: UUID,
+    course_id: UUID,
+) -> Course:
+    """Return a tenant-owned published course or fail without leaking IDs."""
+    course = await db.scalar(
+        select(Course).where(
+            Course.id == course_id,
+            Course.tenant_id == tenant_id,
+            Course.status == "published",
+        )
+    )
+    if course is None:
+        raise HTTPException(status_code=404, detail="Published course not found")
+    return course
 
 
 async def _resolve_department(
@@ -245,7 +264,7 @@ async def attach_course_to_department(
     department_id: str,
     body: DepartmentCourseItem,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("admin", "methodologist", "superadmin")),
+    user: User = Depends(require_role("methodologist")),
 ):
     """Attach a course to a Department (B1c).
 
@@ -281,6 +300,7 @@ async def attach_course_to_department(
         # 404 not 403 — see security-review §1.3.
         raise HTTPException(status_code=404, detail="Department not found")
     department_id = dept.id  # canonical UUID for the rest of the flow
+    await _require_assignable_course(db, user.tenant_id, body.course_id)
 
     # Idempotent upsert. We avoid touching unique-constraint ON CONFLICT
     # because SQLAlchemy doesn't carry the constraint name into the
@@ -332,7 +352,7 @@ async def detach_course_from_department(
     department_id: str,
     course_id: UUID,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("admin", "methodologist", "superadmin")),
+    user: User = Depends(require_role("methodologist")),
 ):
     """Detach a course from a Department (B1c).
 
@@ -474,7 +494,7 @@ async def _list_tenant_departments(
 @router.get("", response_model=DepartmentListResponse)
 async def list_departments(
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("admin", "methodologist", "superadmin")),
+    user: User = Depends(require_role("methodologist")),
 ):
     """List all departments in the caller's tenant with their
     course_ids. Used by the «Курсы компании» tab to compute the
@@ -523,11 +543,12 @@ async def list_departments(
     "/attach-courses-all",
     response_model=BatchLevelOneResponse,
     status_code=200,
+    deprecated=True,
 )
 async def attach_courses_to_all_departments(
     body: AttachAllRequest,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("admin", "methodologist", "superadmin")),
+    user: User = Depends(require_role("methodologist")),
 ):
     """Level-1 attach: bind every course in `body.course_ids` to
     every Department in the caller's tenant.
@@ -563,6 +584,9 @@ async def attach_courses_to_all_departments(
             status_code=400,
             detail="Level-1 attach requires a tenant context",
         )
+
+    for course_id in body.course_ids:
+        await _require_assignable_course(db, user.tenant_id, course_id)
 
     departments = await _list_tenant_departments(db, user.tenant_id)
     if not departments:
@@ -626,11 +650,12 @@ async def attach_courses_to_all_departments(
 @router.delete(
     "/detach-courses-all",
     response_model=BatchLevelOneResponse,
+    deprecated=True,
 )
 async def detach_courses_from_all_departments(
     body: DetachAllRequest,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("admin", "methodologist", "superadmin")),
+    user: User = Depends(require_role("methodologist")),
 ):
     """Level-1 detach: remove `body.course_ids` from every Department
     in the caller's tenant.

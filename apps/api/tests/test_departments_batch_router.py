@@ -27,6 +27,7 @@ kernel itself is tested in test_batch_service.py and test_assignment_service.py.
 """
 from __future__ import annotations
 
+import sys
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch, call
 from uuid import uuid4
@@ -36,6 +37,15 @@ from fastapi import HTTPException
 
 from app.modules.positions.batch_service import BatchResult
 
+
+@pytest.fixture(autouse=True)
+def _published_course(monkeypatch):
+    """Keep batch-binding tests focused on fan-out, not course validation."""
+    monkeypatch.setattr(
+        sys.modules["app.modules.departments.router"],
+        "_require_assignable_course",
+        AsyncMock(return_value=MagicMock()),
+    )
 
 # ── helpers ─────────────────────────────────────────────────
 

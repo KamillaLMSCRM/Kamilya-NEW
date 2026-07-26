@@ -14,6 +14,7 @@ mutation, idempotency, RBAC behaviour expressed as the role check).
 """
 from __future__ import annotations
 
+import sys
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
@@ -25,6 +26,15 @@ from app.modules.positions.models import DepartmentCourse
 from app.models.department import Department
 from app.modules.departments.router import DepartmentCourseItem
 
+
+@pytest.fixture(autouse=True)
+def _published_course(monkeypatch):
+    """Existing binding tests are not course-catalog tests."""
+    monkeypatch.setattr(
+        sys.modules["app.modules.departments.router"],
+        "_require_assignable_course",
+        AsyncMock(return_value=MagicMock()),
+    )
 
 # ── helpers ─────────────────────────────────────────────────
 

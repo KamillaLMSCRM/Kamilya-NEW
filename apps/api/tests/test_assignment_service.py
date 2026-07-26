@@ -31,6 +31,8 @@ def _make_user_mock(tenant_id):
     user = MagicMock()
     user.tenant_id = tenant_id
     user.position_id = uuid4()  # default: has a position
+    user.role = "student"
+    user.is_active = True
     return user
 
 
@@ -41,7 +43,13 @@ def _make_position_mock(department_id=None):
     return pos
 
 
-def _setup_db_with_position(tenant_id, position_rules_rows, current_rows, department_id=None):
+def _setup_db_with_position(
+    tenant_id,
+    position_rules_rows,
+    current_rows,
+    department_id=None,
+    organization_rules_rows=None,
+):
     """Standard mock setup: user has a position, with optional department.
 
     Returns the configured db mock.
@@ -65,6 +73,8 @@ def _setup_db_with_position(tenant_id, position_rules_rows, current_rows, depart
     # Build the execute chain
     pos_rows = MagicMock()
     pos_rows.all = MagicMock(return_value=position_rules_rows)
+    org_rows = MagicMock()
+    org_rows.all = MagicMock(return_value=organization_rules_rows or [])
     cur_rows = MagicMock()
     cur_rows.all = MagicMock(return_value=current_rows)
 
@@ -78,10 +88,10 @@ def _setup_db_with_position(tenant_id, position_rules_rows, current_rows, depart
         dept_rows.all = MagicMock(return_value=[])
         # Order: 1) position rules, 2) department rules, 3) current,
         # 4) optional delete.
-        db.execute = AsyncMock(side_effect=[pos_rows, dept_rows, cur_rows, delete_result])
+        db.execute = AsyncMock(side_effect=[pos_rows, dept_rows, org_rows, cur_rows, delete_result])
     else:
         # No department query — only position + current + optional delete.
-        db.execute = AsyncMock(side_effect=[pos_rows, cur_rows, delete_result])
+        db.execute = AsyncMock(side_effect=[pos_rows, org_rows, cur_rows, delete_result])
 
     db.add = MagicMock()
     db.flush = AsyncMock()
@@ -288,10 +298,12 @@ async def test_user_without_position_no_changes():
         return MagicMock()
     db.get = AsyncMock(side_effect=async_get)
 
-    # Only the current-enrollments query runs.
+    # Organization rules are evaluated even without a position.
+    org_rows = MagicMock()
+    org_rows.all = MagicMock(return_value=[])
     cur_rows = MagicMock()
     cur_rows.all = MagicMock(return_value=[(uuid4(), "manual", "enrolled")])
-    db.execute = AsyncMock(side_effect=[cur_rows])
+    db.execute = AsyncMock(side_effect=[org_rows, cur_rows])
     db.add = MagicMock()
     db.flush = AsyncMock()
 
@@ -333,7 +345,9 @@ async def test_department_and_position_overlap_position_wins():
     dept_rows.all = MagicMock(return_value=[(shared_course,)])
     cur_rows = MagicMock()
     cur_rows.all = MagicMock(return_value=[])
-    db.execute = AsyncMock(side_effect=[pos_rows, dept_rows, cur_rows])
+    org_rows = MagicMock()
+    org_rows.all = MagicMock(return_value=[])
+    db.execute = AsyncMock(side_effect=[pos_rows, dept_rows, org_rows, cur_rows])
 
     db.add = MagicMock()
     db.flush = AsyncMock()

@@ -170,6 +170,7 @@ async def test_instruction_publication_replaces_prior_binding_and_recomputes():
     deletion = MagicMock()
     db = AsyncMock()
     db.execute.side_effect = [positions, departments, deletion]
+    db.scalar = AsyncMock(return_value=None)
 
     with (
         patch(

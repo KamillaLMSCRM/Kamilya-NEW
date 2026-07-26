@@ -44,14 +44,18 @@ class BatchResult:
     added: int = 0
     removed: int = 0
     skipped_manual: int = 0
+    skipped_protected: int = 0
     protected_completed: int = 0
+    updated: int = 0
 
     def merge(self, other: RecomputeResult) -> None:
         self.users_processed += 1
         self.added += other.added
         self.removed += other.removed
         self.skipped_manual += other.skipped_manual
+        self.skipped_protected += other.skipped_protected
         self.protected_completed += other.protected_completed
+        self.updated += other.updated
 
     def to_dict(self) -> dict:
         return {
@@ -59,7 +63,9 @@ class BatchResult:
             "added": self.added,
             "removed": self.removed,
             "skipped_manual": self.skipped_manual,
+            "skipped_protected": self.skipped_protected,
             "protected_completed": self.protected_completed,
+            "updated": self.updated,
         }
 
 
@@ -130,6 +136,24 @@ async def recompute_department_members(
     return result
 
 
+async def recompute_tenant_members(
+    db: AsyncSession,
+    tenant_id: UUID,
+) -> BatchResult:
+    """Recompute all tenant users after an organization rule changes."""
+    result = BatchResult()
+    user_result = await db.execute(
+        select(User.id).where(
+            User.tenant_id == tenant_id,
+            User.role == "student",
+            User.is_active.is_(True),
+        )
+    )
+    for user_id in user_result.scalars().all():
+        result.merge(await recompute_enrollments(db, user_id))
+    return result
+
+
 async def apply_rules_for_users(
     db: AsyncSession,
     user_ids: Sequence[UUID],
@@ -144,11 +168,12 @@ async def apply_rules_for_users(
         outcome = await recompute_enrollments(db, user_id)
         result.merge(outcome)
     logger.info(
-        "apply_rules_for_users: users=%d added=%d removed=%d skipped_manual=%d protected_completed=%d",
+        "apply_rules_for_users: users=%d added=%d removed=%d skipped_manual=%d skipped_protected=%d protected_completed=%d",
         result.users_processed,
         result.added,
         result.removed,
         result.skipped_manual,
+        result.skipped_protected,
         result.protected_completed,
     )
     return result

@@ -65,6 +65,7 @@ from app.modules.positions.recommendations_router import router as positions_rec
 from app.modules.positions.admin_router import router as positions_admin_router
 from app.modules.positions.qualification_router import router as positions_qualification_router
 from app.modules.departments.router import router as departments_router
+from app.modules.training_rules.router import router as training_rules_router
 from app.modules.integrations.router import router as integrations_router
 from app.modules.learner_assistant.router import router as learner_assistant_router
 from app.modules.training_log.router import router as training_log_router
@@ -234,6 +235,7 @@ app.include_router(positions_recommendations_router, prefix=f"{settings.API_PREF
 app.include_router(positions_admin_router, prefix=f"{settings.API_PREFIX}", tags=["positions"])
 app.include_router(positions_qualification_router, prefix=f"{settings.API_PREFIX}", tags=["positions"])
 app.include_router(departments_router, prefix=f"{settings.API_PREFIX}", tags=["departments"])
+app.include_router(training_rules_router, prefix=f"{settings.API_PREFIX}", tags=["training-rules"])
 app.include_router(integrations_router, prefix=f"{settings.API_PREFIX}", tags=["integrations"])
 app.include_router(learner_assistant_router, prefix=f"{settings.API_PREFIX}", tags=["learner-assistant"])
 app.include_router(training_log_router, prefix=f"{settings.API_PREFIX}", tags=["admin"])

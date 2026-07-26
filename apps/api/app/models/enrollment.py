@@ -18,9 +18,8 @@ class Enrollment(Base):
     status = Column(String, nullable=False, default="enrolled")
     enrolled_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     completed_at = Column(DateTime(timezone=True), nullable=True)
-    # How this enrollment came to exist. 'manual' = via /assignments
-    # (ad-hoc by methodologist). 'position' = materialized from
-    # PositionCourse. 'department' = materialized from DepartmentCourse.
-    # The recompute_enrollments kernel only manages 'position' and
-    # 'department' rows; 'manual' is user-driven and never auto-removed.
+    # How this enrollment came to exist. The rule kernel manages only
+    # position, department and organization rows. Manual, cohort,
+    # learning_path and future unknown sources are protected from rule
+    # recomputation.
     source = Column(Text, nullable=False, default="manual", server_default="manual")
