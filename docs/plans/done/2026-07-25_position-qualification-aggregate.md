@@ -1,7 +1,7 @@
 # Wave 2.2 — карточка должности как агрегат квалификации
 
 Дата начала: 2026-07-25  
-Статус: in progress  
+Статус: done  
 Владелец интеграции: Codex  
 Исходный план: `docs/plans/2026-07-24_methodologist-cabinet-remediation.md`, D2.
 
@@ -79,7 +79,7 @@
    backend изменений.
 5. Проверить production revision и основной пользовательский flow.
 
-**Статус:** in progress. Документация и migration dry run завершены; commit, deploy и production verification ожидают browser QA.
+**Статус:** completed. Реализация опубликована, миграция применена, API/frontend/worker и production role flow проверены.
 
 ## Результаты локальной проверки
 
@@ -90,4 +90,9 @@
 - TypeScript: `tsc --noEmit` — успешно.
 - Next.js production build: успешно; остаются существующие предупреждения lint вне текущего scope.
 - Browser QA: desktop `1440x900`, tablet `820x1180`, mobile `390x844` — успешно; body overflow отсутствует, вкладки имеют изолированный horizontal scroll.
-- Production revision: pending.
+- GitHub CI: run `30200320968` — success.
+- Vercel: deployment `dpl_AhfDZJU44E2dGdtyjxFovidDTGvm` — `READY`, revision `5165a77b44b9ca733635e0675d0c5d5a81c23ef2`.
+- Render API: deployment `dep-d9iv2brtqb8s739g2mn0` — `live`, та же revision.
+- Production Alembic: `0073`.
+- VPS Celery worker: `active`, revision `5165a77b44b9ca733635e0675d0c5d5a81c23ef2`.
+- Production browser QA: реестр загрузил 26 должностей; карточка и шесть вкладок открываются без application errors; активный `admin` не имеет доступа к `/positions` и перенаправляется в `/admin`.
