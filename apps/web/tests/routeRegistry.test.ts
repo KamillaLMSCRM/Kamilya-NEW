@@ -56,6 +56,19 @@ describe('route and capability registry', () => {
     expect(getNavigationRoutes('admin', 'sidebar').some(({ id }) => id === 'invitations')).toBe(false);
   });
 
+  it('keeps unfinished communication modules routable but out of navigation', () => {
+    const sidebar = getNavigationRoutes('methodologist', 'sidebar').map(({ id }) => id);
+    const commands = getNavigationRoutes('methodologist', 'commandPalette').map(({ id }) => id);
+
+    expect(sidebar).not.toContain('surveys-manage');
+    expect(sidebar).not.toContain('announcements');
+    expect(commands).not.toContain('surveys-manage');
+    expect(commands).not.toContain('announcements');
+    expect(canAccessRegisteredRoute('methodologist', '/surveys')).toBe(true);
+    expect(canAccessRegisteredRoute('methodologist', '/announcements')).toBe(true);
+    expect(canAccessRegisteredRoute('student', '/surveys')).toBe(true);
+  });
+
   it('keeps position qualification cards on the methodologist surface', () => {
     const cardPath = '/positions/420155dd-d2e3-43f1-ab16-108d8e5e4901';
 

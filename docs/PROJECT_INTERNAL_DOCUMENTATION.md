@@ -78,7 +78,7 @@ npm run dev
 | `superadmin` | Платформа, tenant-ы, провайдеры AI, impersonation, операционный контроль |
 | `admin` | Администратор tenant: команда, настройки, доступы, отчёты |
 | `methodologist` | Курсы, тесты, должности, программы обучения, назначения, cohorts, компетенции |
-| `student` | Обучение, тесты, сертификаты, AI-помощник, surveys после завершения |
+| `student` | Обучение, тесты, программы обучения, сертификаты, AI-помощник |
 
 `methodologist` — единственная learning-content роль. Она владеет курсами,
 тестами и назначениями, но не tenant-инфраструктурой.
@@ -237,8 +237,8 @@ Kiosk — отдельный режим входа по QR/ссылке. Product
 - CSV export;
 - `/admin` — агрегированные trial-лимиты и tenant-сводка для администратора;
 - `/competencies` — связь компетенций с должностями и курсами;
-- `/announcements` — ручные уведомления через Resend/log provider;
-- `/surveys` — feedback после завершения курса.
+- `/announcements` и `/surveys` — сохранённые коммуникационные модули,
+  временно скрытые из навигации до выполнения продуктового backlog.
 
 ## 7. Новые продуктовые модули
 
@@ -279,11 +279,16 @@ Kiosk — отдельный режим входа по QR/ссылке. Product
 
 ### Announcements
 
-Таблица `announcements`, ручной delivery через Resend/log provider. Миграция `0058`.
+Таблица `announcements`, ручной delivery через Resend/log provider. Миграция
+`0058`. Раздел скрыт из sidebar и command palette; условия возврата описаны в
+`docs/backlog/2026-07-26_communications-modules.md`.
 
 ### Surveys
 
-Таблицы `surveys`, `survey_responses`. Опрос доступен только после `Enrollment.status=completed`; один ответ на пользователя и опрос. Миграция `0059`.
+Таблицы `surveys`, `survey_responses`. Опрос доступен только после
+`Enrollment.status=completed`; один ответ на пользователя и опрос. Миграция
+`0059`. Раздел скрыт из навигации вместе с learner entry point до появления
+аналитики ответов и завершённого manager flow.
 
 ### Cohorts
 
