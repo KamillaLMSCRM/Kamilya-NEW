@@ -5,6 +5,8 @@ import { canAccessRegisteredRoute, getNavigationRoutes } from "@/lib/routeRegist
 
 const staffSource = readFileSync(resolve(process.cwd(), "src/app/admin/staff/page.tsx"), "utf8");
 const rulesSource = readFileSync(resolve(process.cwd(), "src/features/training-rules/TrainingRulesPage.tsx"), "utf8");
+const topBarSource = readFileSync(resolve(process.cwd(), "src/components/layout/TopBar.tsx"), "utf8");
+const languageSwitcherSource = readFileSync(resolve(process.cwd(), "src/components/LanguageSwitcher.tsx"), "utf8");
 
 describe("methodologist information architecture", () => {
   it("registers rules for the active methodologist only", () => {
@@ -34,6 +36,8 @@ describe("methodologist information architecture", () => {
     expect(staffSource).toContain("setStructureRefreshKey((value) => value + 1)");
     expect(staffSource).toContain('selectTab("structure")');
     expect(staffSource).toContain("overflow-x-auto overflow-y-auto");
+    expect(staffSource).toContain("Для имени сотрудника укажите либо отдельные колонки");
+    expect(staffSource).toContain('field.key === "first_name" || field.key === "last_name"');
   });
 
   it("keeps large structures searchable and separately collapsible by position", () => {
@@ -41,6 +45,14 @@ describe("methodologist information architecture", () => {
     expect(staffSource).toContain("const [query, setQuery]");
     expect(staffSource).toContain("filteredDepartments");
     expect(staffSource).toContain("togglePosition(pos.id)");
+  });
+
+  it("keeps the shared top bar within a phone viewport", () => {
+    expect(topBarSource).toContain("px-3 sm:px-6");
+    expect(topBarSource).toContain("w-28 rounded-lg");
+    expect(topBarSource).toContain("hidden h-9 w-9");
+    expect(languageSwitcherSource).toContain("sm:gap-2 sm:px-2.5");
+    expect(languageSwitcherSource).toContain("hidden h-4 w-4");
   });
 
   it("keeps structure free of training progress metrics and requires preview before rules mutations", () => {

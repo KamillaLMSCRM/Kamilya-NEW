@@ -72,7 +72,7 @@ const STAFF_FIELDS = [
   { key: "personnel_number", label: "Табельный номер", required: true },
   { key: "first_name", label: "Имя", required: true },
   { key: "last_name", label: "Фамилия", required: true },
-  { key: "full_name", label: "ФИО", required: false },
+  { key: "full_name", label: "ФИО (вместо имени и фамилии)", required: false },
   { key: "department", label: "Отдел", required: true },
   { key: "position", label: "Должность", required: true },
   { key: "email", label: "Email", required: false },
@@ -718,37 +718,47 @@ export default function AdminStaffPage() {
                             Анализируем лист «{preview.sheet_name}», строка заголовков: {preview.header_row || 1}.
                           </div>
                         )}
+                        <p className="text-sm text-muted-foreground">
+                          Для имени сотрудника укажите либо отдельные колонки «Имя» и «Фамилия», либо одну колонку «ФИО».
+                        </p>
 
                         <div className="grid gap-3 md:grid-cols-2">
-                          {STAFF_FIELDS.map((field) => (
-                            <label key={field.key} className="space-y-1">
-                              <span className="text-xs font-semibold text-muted-foreground">
-                                {field.label}
-                                {field.required ? " *" : ""}
-                              </span>
-                              <select
-                                value={columnMapping[field.key] || ""}
-                                onChange={(e) => {
-                                  const value = e.target.value;
-                                  setColumnMapping((current) => {
-                                    const next = { ...current };
-                                    if (value) next[field.key] = value;
-                                    else delete next[field.key];
-                                    return next;
-                                  });
-                                  setMappingDirty(true);
-                                }}
-                                className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm outline-none focus:border-primary"
-                              >
-                                <option value="">Не использовать</option>
-                                {(preview.raw_columns || []).map((column) => (
-                                  <option key={`${field.key}-${column}`} value={column}>
-                                    {column}
-                                  </option>
-                                ))}
-                              </select>
-                            </label>
-                          ))}
+                          {STAFF_FIELDS.map((field) => {
+                            const fullNameMapped = Boolean(columnMapping.full_name);
+                            const required =
+                              field.required &&
+                              !(fullNameMapped && (field.key === "first_name" || field.key === "last_name"));
+
+                            return (
+                              <label key={field.key} className="space-y-1">
+                                <span className="text-xs font-semibold text-muted-foreground">
+                                  {field.label}
+                                  {required ? " *" : ""}
+                                </span>
+                                <select
+                                  value={columnMapping[field.key] || ""}
+                                  onChange={(e) => {
+                                    const value = e.target.value;
+                                    setColumnMapping((current) => {
+                                      const next = { ...current };
+                                      if (value) next[field.key] = value;
+                                      else delete next[field.key];
+                                      return next;
+                                    });
+                                    setMappingDirty(true);
+                                  }}
+                                  className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm outline-none focus:border-primary"
+                                >
+                                  <option value="">Не использовать</option>
+                                  {(preview.raw_columns || []).map((column) => (
+                                    <option key={`${field.key}-${column}`} value={column}>
+                                      {column}
+                                    </option>
+                                  ))}
+                                </select>
+                              </label>
+                            );
+                          })}
                         </div>
 
                         {(preview.sample_rows || []).length > 0 && (

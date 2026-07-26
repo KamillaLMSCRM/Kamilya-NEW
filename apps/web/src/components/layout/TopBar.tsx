@@ -108,7 +108,7 @@ export default function TopBar({ title, onMenuClick }: TopBarProps) {
         </div>
       )}
 
-      <div className="flex h-16 items-center justify-between px-4 sm:px-6">
+      <div className="flex h-16 items-center justify-between px-3 sm:px-6">
       {/* Left: Page title and tenant context */}
       <div className="flex min-w-0 items-center gap-3">
         <button
@@ -137,7 +137,7 @@ export default function TopBar({ title, onMenuClick }: TopBarProps) {
       </div>
 
       {/* Right: Actions */}
-      <div className="flex items-center gap-2 sm:gap-3">
+      <div className="flex min-w-0 items-center gap-1.5 sm:gap-3">
         {assignedRoles.length > 1 && !isImpersonating && (
           <label className="flex items-center gap-2">
             <span className="sr-only">{t('topbar.activeRole')}</span>
@@ -145,7 +145,7 @@ export default function TopBar({ title, onMenuClick }: TopBarProps) {
               value={user?.role || ''}
               disabled={isSwitchingRole}
               onChange={(event) => void handleRoleSwitch(event.target.value)}
-              className="h-10 w-32 rounded-lg border border-border bg-card px-2 text-sm font-medium text-foreground disabled:opacity-60 sm:w-44 sm:px-3"
+              className="h-10 w-28 rounded-lg border border-border bg-card px-2 text-sm font-medium text-foreground disabled:opacity-60 sm:w-44 sm:px-3"
               title={t('topbar.activeRole')}
             >
               {assignedRoles.map((role) => (
@@ -220,7 +220,7 @@ export default function TopBar({ title, onMenuClick }: TopBarProps) {
 
         {/* Avatar — name shown in Sidebar footer, TopBar only shows initials */}
         <div
-          className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary"
+          className="hidden h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary sm:flex"
           aria-label={user?.full_name || 'User'}
           title={user?.full_name}
         >
