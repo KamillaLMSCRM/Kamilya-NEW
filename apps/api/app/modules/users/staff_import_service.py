@@ -19,10 +19,10 @@ CSV columns (case-insensitive, Russian OR English):
 - hire_date (optional, ISO format preferred)
 
 Logic:
-- User matched by personnel_number (case-insensitive) within tenant
-- Position auto-created if (department, position) doesn't exist in tenant
-- If user exists: update first_name, last_name, email, phone; don't change position
-  (position assignment is a separate workflow)
+- User matched by normalized personnel_number within tenant
+- Department is resolved/created before Position
+- Position is resolved by normalized name inside that Department
+- If user exists: update the imported profile and assign the resolved position
 - If new: create with status='inactive', is_active=true (HR-managed)
   (password_hash=NULL - no self-service login)
 """
@@ -41,10 +41,116 @@ from openpyxl import load_workbook
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.department import Department
 from app.models.users import User
 from app.modules.positions.models import Position
 
 logger = logging.getLogger(__name__)
+
+
+def _normalize_staff_text(value: Any) -> str:
+    """Trim and collapse whitespace while preserving display casing."""
+    return re.sub(r"\s+", " ", str(value or "").strip())
+
+
+def normalize_staff_lookup(value: Any) -> str:
+    """Return the shared case-insensitive key used by staff hierarchy flows."""
+    return _normalize_staff_text(value).casefold()
+
+
+def _normalized_row_values(row: Any) -> dict[str, str | None]:
+    return {
+        "personnel_number": _normalize_staff_text(getattr(row, "personnel_number", "")),
+        "first_name": _normalize_staff_text(getattr(row, "first_name", "")),
+        "last_name": _normalize_staff_text(getattr(row, "last_name", "")),
+        "department": _normalize_staff_text(getattr(row, "department", "")),
+        "position": _normalize_staff_text(getattr(row, "position", "")),
+        "email": _normalize_staff_text(getattr(row, "email", "")).lower() or None,
+        "phone": _normalize_staff_text(getattr(row, "phone", "")) or None,
+    }
+
+
+async def _load_staff_indexes(
+    db: AsyncSession,
+    tenant_id: UUID,
+) -> tuple[dict[str, User], dict[str, Department], dict[UUID, Department], dict[tuple[str, str], Position]]:
+    """Load tenant-scoped users and hierarchy, including legacy text fallback."""
+    users_result = await db.execute(
+        select(User).where(
+            User.tenant_id == tenant_id,
+            User.personnel_number.is_not(None),
+        )
+    )
+    users_by_pn: dict[str, User] = {}
+    for user in users_result.scalars().all():
+        if user.tenant_id != tenant_id:
+            continue
+        key = normalize_staff_lookup(user.personnel_number)
+        if key:
+            users_by_pn.setdefault(key, user)
+
+    departments_result = await db.execute(
+        select(Department).where(Department.tenant_id == tenant_id)
+    )
+    departments_by_slug: dict[str, Department] = {}
+    departments_by_id: dict[UUID, Department] = {}
+    for department in departments_result.scalars().all():
+        if department.tenant_id != tenant_id:
+            continue
+        for key in (
+            normalize_staff_lookup(department.slug),
+            normalize_staff_lookup(department.name),
+        ):
+            if key:
+                departments_by_slug.setdefault(key, department)
+        departments_by_id[department.id] = department
+
+    positions_result = await db.execute(
+        select(Position).where(Position.tenant_id == tenant_id)
+    )
+    positions_by_key: dict[tuple[str, str], Position] = {}
+    for position in positions_result.scalars().all():
+        if position.tenant_id != tenant_id:
+            continue
+        position_key = normalize_staff_lookup(position.name)
+        if not position_key:
+            continue
+
+        department = departments_by_id.get(position.department_id)
+        if department is not None:
+            positions_by_key.setdefault((str(department.id), position_key), position)
+
+        # Legacy rows may have only Position.department. Keep this fallback
+        # for reads and use it to backfill the canonical FK when written.
+        legacy_department_key = normalize_staff_lookup(position.department)
+        if legacy_department_key:
+            positions_by_key.setdefault((legacy_department_key, position_key), position)
+
+    return users_by_pn, departments_by_slug, departments_by_id, positions_by_key
+
+
+def _find_position(
+    positions_by_key: dict[tuple[str, str], Position],
+    department_key: str,
+    department: Department | None,
+    position_key: str,
+) -> Position | None:
+    if department is not None:
+        position = positions_by_key.get((str(department.id), position_key))
+        if position is not None:
+            return position
+    return positions_by_key.get((department_key, position_key))
+
+
+@dataclass
+class _ProjectedStaffUser:
+    """Preview state after applying the preceding row for one personnel number."""
+
+    first_name: str
+    last_name: str
+    email: str | None
+    position_ref: object
+    existing_user_id: str | None
 
 
 # ── Column mapping ──────────────────────────────────────────────
@@ -594,112 +700,124 @@ async def build_preview(
 ) -> PreviewResult:
     """Match parsed rows against existing users/positions/departments, return preview."""
 
-    # Load all existing users in tenant (by personnel_number)
-    users_result = await db.execute(
-        select(User).where(
-            User.tenant_id == tenant_id,
-            User.personnel_number.is_not(None),
-        )
+    users_by_pn, departments_by_slug, _, positions_by_key = await _load_staff_indexes(
+        db, tenant_id
     )
-    users_by_pn: dict[str, User] = {
-        (u.personnel_number or "").lower(): u for u in users_result.scalars().all()
-    }
-
-    # Load all existing positions in tenant
-    pos_result = await db.execute(
-        select(Position).where(Position.tenant_id == tenant_id)
-    )
-    positions = pos_result.scalars().all()
-    # Index by (department, position) lower-cased
-    pos_by_dp: dict[tuple[str, str], Position] = {
-        ((p.department or "").strip().lower(), (p.name or "").strip().lower()): p
-        for p in positions
-    }
-    # Also unique departments
-    existing_departments: set[str] = {(p.department or "").strip().lower() for p in positions}
 
     items: list[PreviewItem] = []
-    new_positions: set[tuple[str, str]] = set()  # (dept, position) — new
+    new_positions: dict[tuple[str, str], tuple[str, str]] = {}
+    new_departments: dict[str, str] = {}
+    projected_users: dict[str, _ProjectedStaffUser] = {}
 
     for row in parsed.rows:
-        pn_norm = row.personnel_number.lower()
+        values = _normalized_row_values(row)
+        pn_norm = normalize_staff_lookup(values["personnel_number"])
         existing = users_by_pn.get(pn_norm)
 
-        dp_key = (row.department.lower(), row.position.lower())
-        if dp_key not in pos_by_dp and dp_key not in new_positions:
-            new_positions.add(dp_key)
+        department_key = normalize_staff_lookup(values["department"])
+        department = departments_by_slug.get(department_key)
+        position_key = normalize_staff_lookup(values["position"])
+        position = _find_position(
+            positions_by_key, department_key, department, position_key
+        )
+        if department is None and department_key:
+            new_departments.setdefault(department_key, values["department"] or "")
+        if position is None and department_key and position_key:
+            new_positions.setdefault(
+                (department_key, position_key),
+                (values["department"] or "", values["position"] or ""),
+            )
+
+        position_ref: object = (
+            position.id
+            if position is not None
+            else ("new", department_key, position_key)
+        )
+        projected = projected_users.get(pn_norm)
+        is_repeated_row = projected is not None
+        if projected is None and existing is not None:
+            projected = _ProjectedStaffUser(
+                first_name=(existing.first_name or "").strip(),
+                last_name=(existing.last_name or "").strip(),
+                email=(existing.email or "").strip().lower() or None,
+                position_ref=existing.position_id,
+                existing_user_id=str(existing.id),
+            )
 
         notes: list[str] = []
+        if projected is not None:
+            if projected.first_name != values["first_name"]:
+                notes.append(
+                    f"имя: «{projected.first_name}» → «{values['first_name']}»"
+                )
+            if projected.last_name != values["last_name"]:
+                notes.append(
+                    f"фамилия: «{projected.last_name}» → «{values['last_name']}»"
+                )
+            if projected.email != values["email"]:
+                notes.append(
+                    f"email: «{projected.email or '—'}» → «{values['email'] or '—'}»"
+                )
+            if projected.position_ref != position_ref:
+                notes.append(
+                    f"новая должность: «{values['position']}» (отдел «{values['department']}»)"
+                )
 
-        if existing:
-            # Will update - check what changes
-            if (existing.first_name or "").strip() != row.first_name:
-                notes.append(f"имя: «{existing.first_name}» → «{row.first_name}»")
-            if (existing.last_name or "").strip() != row.last_name:
-                notes.append(f"фамилия: «{existing.last_name}» → «{row.last_name}»")
-            if (existing.email or "").strip().lower() != (row.email or "").strip().lower():
-                notes.append(f"email: «{existing.email or '—'}» → «{row.email or '—'}»")
-            if (existing.position_id is None) and dp_key in pos_by_dp:
-                notes.append(f"новая должность: «{row.position}» (отдел «{row.department}»)")
-
-            # Skip if no changes
-            if not notes:
-                items.append(PreviewItem(
-                    row_number=row.row_number,
-                    personnel_number=row.personnel_number,
-                    first_name=row.first_name,
-                    last_name=row.last_name,
-                    department=row.department,
-                    position=row.position,
-                    email=row.email,
-                    phone=row.phone,
-                    action="skip",
-                    existing_user_id=str(existing.id),
-                    notes=["Без изменений"],
-                ))
-            else:
-                items.append(PreviewItem(
-                    row_number=row.row_number,
-                    personnel_number=row.personnel_number,
-                    first_name=row.first_name,
-                    last_name=row.last_name,
-                    department=row.department,
-                    position=row.position,
-                    email=row.email,
-                    phone=row.phone,
-                    action="update",
-                    existing_user_id=str(existing.id),
-                    notes=notes,
-                ))
-        else:
-            # Will create new
-            if dp_key in new_positions:
-                notes.append(f"новая должность: «{row.position}» в «{row.department}»")
             items.append(PreviewItem(
                 row_number=row.row_number,
-                personnel_number=row.personnel_number,
-                first_name=row.first_name,
-                last_name=row.last_name,
-                department=row.department,
-                position=row.position,
-                email=row.email,
-                phone=row.phone,
+                personnel_number=values["personnel_number"] or "",
+                first_name=values["first_name"] or "",
+                last_name=values["last_name"] or "",
+                department=values["department"] or "",
+                position=values["position"] or "",
+                email=values["email"],
+                phone=values["phone"],
+                action="update" if notes else "skip",
+                existing_user_id=projected.existing_user_id,
+                notes=notes or [
+                    "Повторный ряд: без изменений"
+                    if is_repeated_row
+                    else "Без изменений"
+                ],
+            ))
+        else:
+            if position is None:
+                notes.append(
+                    f"новая должность: «{values['position']}» в «{values['department']}»"
+                )
+            items.append(PreviewItem(
+                row_number=row.row_number,
+                personnel_number=values["personnel_number"] or "",
+                first_name=values["first_name"] or "",
+                last_name=values["last_name"] or "",
+                department=values["department"] or "",
+                position=values["position"] or "",
+                email=values["email"],
+                phone=values["phone"],
                 action="create",
                 existing_user_id=None,
                 notes=notes,
             ))
+
+        projected_users[pn_norm] = _ProjectedStaffUser(
+            first_name=values["first_name"] or "",
+            last_name=values["last_name"] or "",
+            email=values["email"],
+            position_ref=position_ref,
+            existing_user_id=projected.existing_user_id if projected else None,
+        )
 
     summary = {
         "create": sum(1 for i in items if i.action == "create"),
         "update": sum(1 for i in items if i.action == "update"),
         "skip": sum(1 for i in items if i.action == "skip"),
         "new_positions": len(new_positions),
-        "new_departments": len({d for d, _ in new_positions if d not in existing_departments}),
+        "new_departments": len(new_departments),
     }
     return PreviewResult(
         items=items,
-        new_positions=sorted([f"{dept} / {pos}" for dept, pos in new_positions]),
-        new_departments=sorted({dept for dept, _ in new_positions if dept not in existing_departments}),
+        new_positions=sorted([f"{dept} / {pos}" for dept, pos in new_positions.values()]),
+        new_departments=sorted(new_departments.values()),
         summary=summary,
     )
 
@@ -716,74 +834,81 @@ async def commit_import(
 
     Returns {created: N, updated: M, skipped: K, positions_created: P}.
     """
-    # Preload existing
-    users_result = await db.execute(
-        select(User).where(
-            User.tenant_id == tenant_id,
-            User.personnel_number.is_not(None),
-        )
+    users_by_pn, departments_by_slug, departments_by_id, positions_by_key = (
+        await _load_staff_indexes(db, tenant_id)
     )
-    users_by_pn: dict[str, User] = {
-        (u.personnel_number or "").lower(): u for u in users_result.scalars().all()
-    }
-
-    pos_result = await db.execute(
-        select(Position).where(Position.tenant_id == tenant_id)
-    )
-    positions = pos_result.scalars().all()
-    pos_by_dp: dict[tuple[str, str], Position] = {
-        ((p.department or "").strip().lower(), (p.name or "").strip().lower()): p
-        for p in positions
-    }
 
     created = 0
     updated = 0
     skipped = 0
     positions_created = 0
-    # B1b: track user_ids that need apply-rules after commit. The
-    # caller (staff_import_router) dispatches the Celery task with
-    # this list. We can't apply-rules inline here because staff_import
-    # is run in the HTTP request thread and apply-rules is potentially
-    # long; Celery is the right boundary (per AGENTS.md §Celery
-    # guidance — long-running task, not a request thread).
+    # Track users that need rule recomputation after the hierarchy write.
+    # The recomputation itself runs inline after the import commit below.
     affected_user_ids: list[UUID] = []
 
     for row in parsed.rows:
-        pn_norm = row.personnel_number.lower()
+        values = _normalized_row_values(row)
+        pn_norm = normalize_staff_lookup(values["personnel_number"])
         existing = users_by_pn.get(pn_norm)
 
-        # Resolve/create position
-        dp_key = (row.department.lower(), row.position.lower())
-        pos = pos_by_dp.get(dp_key)
-        if not pos:
+        # Resolve/create the canonical Department before Position.
+        department_key = normalize_staff_lookup(values["department"])
+        department = departments_by_slug.get(department_key)
+        if department is None:
+            department = Department(
+                id=uuid4(),
+                tenant_id=tenant_id,
+                name=values["department"] or "",
+                slug=department_key,
+                description="",
+            )
+            db.add(department)
+            await db.flush()
+            departments_by_slug[department_key] = department
+            departments_by_id[department.id] = department
+
+        position_key = normalize_staff_lookup(values["position"])
+        pos = _find_position(
+            positions_by_key, department_key, department, position_key
+        )
+        if pos is None:
             pos = Position(
                 id=uuid4(),
                 tenant_id=tenant_id,
-                name=row.position.strip(),
-                department=row.department.strip(),
+                name=values["position"] or "",
+                department=department.name,
                 level="",
                 responsibilities="",
                 requirements="",
                 employee_count=0,
+                department_id=department.id,
             )
             db.add(pos)
             await db.flush()
-            pos_by_dp[dp_key] = pos
+            positions_by_key[(str(department.id), position_key)] = pos
+            positions_by_key.setdefault((department_key, position_key), pos)
             positions_created += 1
+        else:
+            # Legacy positions retain their text column for compatibility,
+            # but all rows touched by a new write get the canonical FK.
+            pos.department_id = department.id
+            pos.department = department.name
+            positions_by_key[(str(department.id), position_key)] = pos
+            positions_by_key.setdefault((department_key, position_key), pos)
 
         if existing:
             # Check if anything actually changes
             changed = False
-            if (existing.first_name or "").strip() != row.first_name:
-                existing.first_name = row.first_name
+            if (existing.first_name or "").strip() != values["first_name"]:
+                existing.first_name = values["first_name"]
                 changed = True
-            if (existing.last_name or "").strip() != row.last_name:
-                existing.last_name = row.last_name
+            if (existing.last_name or "").strip() != values["last_name"]:
+                existing.last_name = values["last_name"]
                 changed = True
-            if (existing.email or "").strip().lower() != (row.email or "").strip().lower():
-                existing.email = row.email
+            if (existing.email or "").strip().lower() != (values["email"] or ""):
+                existing.email = values["email"]
                 changed = True
-            if (existing.phone or "") != (row.phone or ""):
+            if (getattr(existing, "phone", "") or "") != (values["phone"] or ""):
                 # Add phone column if doesn't exist (skip for now if not in model)
                 changed = True
             # Position changed — that's also a trigger for apply-rules
@@ -805,10 +930,10 @@ async def commit_import(
             user = User(
                 id=uuid4(),
                 tenant_id=tenant_id,
-                personnel_number=row.personnel_number,
-                email=row.email,
-                first_name=row.first_name,
-                last_name=row.last_name,
+                personnel_number=values["personnel_number"],
+                email=values["email"],
+                first_name=values["first_name"] or "",
+                last_name=values["last_name"] or "",
                 role="student",  # bulk import always creates students; HR promotes separately
                 is_active=True,
                 position_id=pos.id,
@@ -933,13 +1058,13 @@ async def create_manual_staff_member(
     """Create one HR-managed learner without uploading a staff file."""
     row = ParsedRow(
         row_number=1,
-        personnel_number=personnel_number.strip(),
-        first_name=first_name.strip(),
-        last_name=last_name.strip(),
-        department=department.strip(),
-        position=position.strip(),
-        email=(email or "").strip().lower() or None,
-        phone=(phone or "").strip() or None,
+        personnel_number=_normalize_staff_text(personnel_number),
+        first_name=_normalize_staff_text(first_name),
+        last_name=_normalize_staff_text(last_name),
+        department=_normalize_staff_text(department),
+        position=_normalize_staff_text(position),
+        email=_normalize_staff_text(email).lower() or None,
+        phone=_normalize_staff_text(phone) or None,
     )
 
     parsed = ParsedFile(
