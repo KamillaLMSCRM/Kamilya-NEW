@@ -2,7 +2,7 @@
 
 Date: 2026-07-26
 Owner: Codex
-Status: in progress
+Status: completed
 
 ## Product decision
 
@@ -72,5 +72,20 @@ merge/hide decisions with P0-P2 priorities.
 - TypeScript: `tsc --noEmit` passed;
 - Next.js production build: passed;
 - `git diff --check`: passed.
+
+**Status:** done
+
+### Step 5 - production verification
+
+**What changed:**
+
+- release commit `62ad9293df93ba747a7c8854fca107aa0bda2896`
+  was pushed to `origin/master`;
+- GitHub Actions CI completed successfully;
+- Vercel deployment `dpl_BEUu4PpnSg9zyMXvKjaLLAL9ciEp` reached `READY`
+  and serves `app.kml.kz`;
+- production demo-methodologist QA confirmed that Feedback and Notifications
+  are absent from the sidebar while all retained methodologist entries remain;
+- frontend and backend health endpoints returned HTTP 200.
 
 **Status:** done
