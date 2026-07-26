@@ -66,7 +66,7 @@ interface TenantCreateResult {
 
 const PLAN_KEYS = ['free', 'trial', 'pro', 'enterprise'] as const;
 const STATUS_KEYS = ['active', 'trial', 'suspended', 'archived'] as const;
-const ADMIN_ROLE_KEYS = ['admin', 'org_admin', 'methodologist'] as const;
+const ADMIN_ROLE_KEYS = ['admin', 'methodologist'] as const;
 const SLUG_PATTERN = /^[a-z0-9-]+$/;
 const CYRILLIC_TO_LATIN: Record<string, string> = {
   а: 'a',
@@ -726,7 +726,6 @@ export default function SuperAdminTenants() {
                       onChange={(e) => setForm({ ...form, first_admin_role: e.target.value as any })}
                     >
                       <option value="admin">Администратор</option>
-                      <option value="org_admin">HR/орг. админ</option>
                       <option value="methodologist">Методолог</option>
                     </select>
                   </div>

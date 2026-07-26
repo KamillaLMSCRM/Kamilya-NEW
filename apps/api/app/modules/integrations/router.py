@@ -11,7 +11,7 @@ Endpoints:
   PUT    /integrations/telegram           — set Telegram bot token
   POST   /integrations/telegram/test      — call getMe to verify token
 
-All endpoints require admin role (tenant_admin or org_admin). Tenants
+All endpoints require the tenant admin role. Tenants
 only see/modify their own integrations — row-level isolation via JWT
 tenant_id.
 """
@@ -43,7 +43,7 @@ from . import wa_gateway_client
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/integrations", tags=["integrations"])
 
-ADMIN_ROLES = ("admin", "org_admin", "superadmin")
+ADMIN_ROLES = ("admin", "superadmin")
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────

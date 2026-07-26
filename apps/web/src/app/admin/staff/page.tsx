@@ -111,7 +111,7 @@ export default function AdminStaffPage() {
   // Страница /admin/staff — это admin/methodologist surface. Если
   // зашёл студент — показываем понятное «нет доступа».
   const userRole = useAuthStore((s) => s.user?.role ?? "");
-  const isStaffOwnersRole = ["methodologist", "admin", "org_admin", "superadmin"].includes(userRole);
+  const isStaffOwnersRole = ["methodologist", "admin", "superadmin"].includes(userRole);
   const allowedTabs: Tab[] = ["import", "structure"]; // 'rules'/'company-courses' добавим если isStaffOwnersRole
   if (isStaffOwnersRole) allowedTabs.push("rules");
   if (isStaffOwnersRole) allowedTabs.push("company-courses");

@@ -336,12 +336,10 @@ export default function AdminTeamPage() {
                           <Badge key={role} variant={role === user.role ? 'default' : 'outline'}>
                             {role === 'methodologist'
                               ? t('users.roleMethodologist')
-                              : role === 'org_admin'
-                                ? t('users.roleOrgAdmin')
-                                : t('users.roleAdmin')}
+                              : t('users.roleAdmin')}
                           </Badge>
                         ))}
-                        {(user.roles?.length || 1) < 3 && (
+                        {(user.roles?.length || 1) < TEAM_ROLES.length && (
                           <label>
                             <span className="sr-only">{t('users.addRole')}</span>
                             <select
@@ -357,9 +355,6 @@ export default function AdminTeamPage() {
                               <option value="">+ {t('users.addRole')}</option>
                               {!user.roles?.includes('methodologist') && user.role !== 'methodologist' && (
                                 <option value="methodologist">{t('users.roleMethodologist')}</option>
-                              )}
-                              {!user.roles?.includes('org_admin') && user.role !== 'org_admin' && (
-                                <option value="org_admin">{t('users.roleOrgAdmin')}</option>
                               )}
                               {!user.roles?.includes('admin') && user.role !== 'admin' && (
                                 <option value="admin">{t('users.roleAdmin')}</option>
@@ -502,9 +497,7 @@ export default function AdminTeamPage() {
                 <option key={role} value={role} disabled={existingRoles.includes(role)}>
                   {role === 'methodologist'
                     ? t('users.roleMethodologist')
-                    : role === 'org_admin'
-                      ? t('users.roleOrgAdmin')
-                      : t('users.roleAdmin')}
+                    : t('users.roleAdmin')}
                 </option>
               ))}
             </select>

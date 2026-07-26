@@ -29,7 +29,6 @@ const ROLE_LABELS: Record<string, string> = {
   student: 'Студент',
   methodologist: 'Методист',
   admin: 'Администратор',
-  org_admin: 'Админ организации',
 };
 
 export default function AcceptInvitePage() {

@@ -23,7 +23,7 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 @router.get("/dashboard", response_model=AdminDashboard)
 async def dashboard(
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("admin", "org_admin", "superadmin")),
+    user: User = Depends(require_role("admin", "superadmin")),
 ):
     """Get admin dashboard (admin only)."""
     return await get_admin_dashboard(db, user.tenant_id)
@@ -32,7 +32,7 @@ async def dashboard(
 @router.get("/stats", response_model=TenantStats)
 async def stats(
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("admin", "org_admin", "superadmin")),
+    user: User = Depends(require_role("admin", "superadmin")),
 ):
     """Get tenant statistics (admin only)."""
     return await get_tenant_stats(db, user.tenant_id)
@@ -41,7 +41,7 @@ async def stats(
 @router.get("/trial-usage", response_model=TrialUsage)
 async def trial_usage(
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("admin", "org_admin", "methodologist")),
+    user: User = Depends(require_role("admin", "methodologist")),
 ):
     """Get tenant-facing trial limits and current usage."""
     try:
@@ -53,7 +53,7 @@ async def trial_usage(
 @router.get("/export/users")
 async def export_users(
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("admin", "org_admin", "superadmin")),
+    user: User = Depends(require_role("admin", "superadmin")),
 ):
     """Export users to CSV (admin only)."""
     csv_data = await export_users_csv(db, user.tenant_id)
@@ -63,7 +63,7 @@ async def export_users(
 @router.get("/export/courses")
 async def export_courses(
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("admin", "org_admin", "superadmin")),
+    user: User = Depends(require_role("admin", "superadmin")),
 ):
     """Export courses to CSV (admin only)."""
     csv_data = await export_courses_csv(db, user.tenant_id)
@@ -89,7 +89,7 @@ async def export_enrollments(
 @router.get("/export/quiz-results")
 async def export_quiz_results(
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("admin", "org_admin", "superadmin")),
+    user: User = Depends(require_role("admin", "superadmin")),
 ):
     """Export quiz results to CSV (admin only)."""
     csv_data = await export_quiz_results_csv(db, user.tenant_id)

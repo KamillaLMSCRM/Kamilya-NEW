@@ -108,11 +108,11 @@ async def list_all_users(
                     "(learning-manager only).",
     ),
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("admin", "org_admin", "superadmin", "methodologist")),
+    user: User = Depends(require_role("admin", "superadmin", "methodologist")),
 ):
     """List users (the team-management surface — ADR-0011).
 
-    Admin/org_admin/superadmin for team management; methodologist
+    Admin/superadmin for team management; methodologist
     are included so the learning team can pick learner assignees.
 
     By default students (role='student') are excluded — they're auto-
@@ -133,7 +133,7 @@ async def list_all_users(
     if not include_students and role is None:
         # Default: exclude students from the listing. Audit §2.1 /
         # ADR-0011 — the /admin/team surface is for managing methodologists,
-        # org_admins, and admins only. Students have their own surface
+        # and admins only. Students have their own surface
         # at /v1/students (read-only) and are provisioned via the
         # Telegram/kiosk flows.
         effective_role = "non_student"  # sentinel — handled in service
@@ -212,7 +212,7 @@ async def list_invitations(
 async def get_user_detail(
     user_id: UUID,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("admin", "org_admin", "superadmin")),
+    user: User = Depends(require_role("admin", "superadmin")),
 ):
     """Get user details (admin only)."""
     target = await get_user(db, user_id, user.tenant_id)
@@ -225,7 +225,7 @@ async def get_user_detail(
 async def create_new_user(
     req: UserCreate,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("admin", "org_admin", "superadmin")),
+    user: User = Depends(require_role("admin", "superadmin")),
 ):
     """Create a new team user (admin only).
 
@@ -294,7 +294,7 @@ async def update_user_detail(
     user_id: UUID,
     req: UserUpdate,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("admin", "org_admin", "superadmin")),
+    user: User = Depends(require_role("admin", "superadmin")),
 ):
     """Update user profile/status fields (admin only).
 
@@ -314,7 +314,7 @@ async def add_user_role(
     user_id: UUID,
     req: RoleAssignmentRequest,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("admin", "org_admin", "superadmin")),
+    user: User = Depends(require_role("admin", "superadmin")),
 ):
     """Assign an additional team role without creating another account."""
     from app.modules.users.service import TEAM_ROLES
@@ -334,7 +334,7 @@ async def add_user_role(
 async def deactivate_user(
     user_id: UUID,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("admin", "org_admin", "superadmin")),
+    user: User = Depends(require_role("admin", "superadmin")),
 ):
     """Deactivate user (admin only)."""
     success = await delete_user(db, user_id, user.tenant_id)
@@ -347,7 +347,7 @@ async def reset_user_password(
     user_id: UUID,
     req: PasswordReset,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("admin", "org_admin", "superadmin")),
+    user: User = Depends(require_role("admin", "superadmin")),
 ):
     """Reset user password (admin only)."""
     success = await reset_password(db, user_id, user.tenant_id, req.new_password)
@@ -361,7 +361,7 @@ async def change_user_role(
     user_id: UUID,
     role: str = Query(...),
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("admin", "org_admin", "superadmin")),
+    user: User = Depends(require_role("admin", "superadmin")),
 ):
     """Change user role (admin only).
 

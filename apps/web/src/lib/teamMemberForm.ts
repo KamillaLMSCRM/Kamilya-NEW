@@ -1,4 +1,4 @@
-export const TEAM_ROLES = ['methodologist', 'org_admin', 'admin'] as const;
+export const TEAM_ROLES = ['methodologist', 'admin'] as const;
 
 export type TeamRole = (typeof TEAM_ROLES)[number];
 

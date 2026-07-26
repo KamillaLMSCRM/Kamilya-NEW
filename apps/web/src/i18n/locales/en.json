@@ -361,7 +361,6 @@
       "student": "Learner",
       "instructor": "Instructor",
       "admin": "Admin",
-      "orgAdmin": "Org Admin",
       "superadmin": "Superadmin"
     },
     "createUser": "New User",
@@ -396,8 +395,7 @@
       "addingRole": "Adding role…",
       "roleDescriptions": {
         "methodologist": "Creates courses and tests and manages materials, assignments, and learning results.",
-        "admin": "Manages the company team, settings, integrations, and kiosks.",
-        "org_admin": "Organizational administration role. It currently has the same access area as company administrator."
+        "admin": "Manages the company team, settings, integrations, and kiosks."
       },
       "errors": {
         "emailRequired": "Enter email",
@@ -419,7 +417,6 @@
     "roleStudent": "Learner",
     "roleMethodologist": "Methodologist",
     "roleAdmin": "Company administrator",
-    "roleOrgAdmin": "Organizational administrator",
     "roleSuperadmin": "Superadmin",
     "roleInstructor": "Instructor",
     "active": "Active"
@@ -677,7 +674,6 @@
     "userRole": {
       "superadmin": "Superadmin",
       "admin": "Administrator",
-      "org_admin": "Org. administrator",
       "methodologist": "Methodologist",
       "student": "Learner"
     }
@@ -891,7 +887,6 @@
     },
     "roles": {
       "admin": "Admin",
-      "org_admin": "Org admin",
       "methodologist": "Methodologist",
       "superadmin": "Superadmin"
     }

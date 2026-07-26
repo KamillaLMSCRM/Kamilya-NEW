@@ -26,10 +26,10 @@ router = APIRouter(
     tags=["admin"],
 )
 
-# Roles: tenant admin / org_admin / methodologist own the dashboard.
-# Excluded: student (irrelevant), methodologist (no admin view), superadmin
-# (no tenant scope).
-_ONBOARDING_ROLES = ("admin", "org_admin", "methodologist", "superadmin")
+# Tenant admin and methodologist can read onboarding state for their active
+# tenant. Superadmin is accepted but receives the explicit no-tenant response.
+# Students are excluded.
+_ONBOARDING_ROLES = ("admin", "methodologist", "superadmin")
 
 
 @router.get("", response_model=OnboardingStatus)

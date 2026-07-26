@@ -79,7 +79,7 @@ async def test_methodologist_invitation_list_request_reaches_static_handler(
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("role", ["admin", "org_admin", "student"])
+@pytest.mark.parametrize("role", ["admin", "student"])
 async def test_non_learning_roles_cannot_list_learner_invitations(role):
     checker = _role_dependency("/users/invitations", "GET")
     with pytest.raises(HTTPException) as caught:

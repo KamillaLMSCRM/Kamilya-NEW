@@ -355,7 +355,7 @@ apps/web/src/features/<feature>/
 - Required claims: `sub`, `tenant_id`, `role`, `iat`, `exp`, `aud`
 - Tokens: access in memory (15min), refresh in httpOnly cookie (30 days)
 - RBAC: `Depends(require_role(...))` на каждом protected endpoint.
-  **Распределение ролей — по ADR-0012**: `admin`/`org_admin` владеет
+  **Распределение ролей — по ADR-0012**: `admin` владеет
   tenant-инфраструктурой, `methodologist` владеет контентом
   и конфигурацией штатки. **Не давай обоим доступ ко всему**: для
   каждого нового endpoint'а определи, к какому домену он относится,

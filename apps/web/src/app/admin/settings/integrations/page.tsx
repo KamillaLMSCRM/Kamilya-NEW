@@ -8,7 +8,7 @@
  * (ADR-0010). Страница показывает текущее состояние каждого канала и
  * предоставляет UI для настройки / тестирования.
  *
- * Только admin / org_admin / superadmin (role check в backend).
+ * Только admin / superadmin (role check в backend).
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';

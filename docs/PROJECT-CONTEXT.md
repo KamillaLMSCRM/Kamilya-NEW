@@ -54,7 +54,7 @@ C:\Kamilya New\Kamilya-NEW
 | Role | Product meaning |
 |---|---|
 | `superadmin` | Platform operator, tenant-level oversight |
-| `admin`, `org_admin` | Tenant infrastructure, integrations, team/system users |
+| `admin` | Tenant infrastructure, integrations, team/system users |
 | `methodologist` | Learning content, staff/course rules, assignments |
 | `student` | Learner only |
 

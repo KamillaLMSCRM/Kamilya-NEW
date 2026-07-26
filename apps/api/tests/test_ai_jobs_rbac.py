@@ -32,7 +32,6 @@ AI_JOB_HANDLERS = (
         ("methodologist", True),
         ("superadmin", True),
         ("admin", False),
-        ("org_admin", False),
         ("student", False),
     ],
 )

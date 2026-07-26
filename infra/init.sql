@@ -45,7 +45,7 @@ CREATE TABLE user_roles (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    role TEXT NOT NULL CHECK (role IN ('superadmin', 'admin', 'org_admin', 'teacher', 'student')),
+    role TEXT NOT NULL CHECK (role IN ('superadmin', 'admin', 'methodologist', 'student')),
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     CONSTRAINT uq_user_role UNIQUE (user_id, tenant_id, role)
 );

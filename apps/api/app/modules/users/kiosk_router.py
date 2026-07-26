@@ -106,7 +106,7 @@ def _to_response(link, base_url: str, scope_position_name: str | None = None) ->
 async def create_kiosk(
     payload: KioskLinkCreate,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("admin", "org_admin", "superadmin")),
+    user: User = Depends(require_role("admin", "superadmin")),
 ):
     """Create a new kiosk link."""
     from app.core.config import get_settings
@@ -148,7 +148,7 @@ async def create_kiosk(
 @admin_router.get("/scope-positions", response_model=list[KioskScopePositionResponse])
 async def list_kiosk_scope_positions(
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("admin", "org_admin", "superadmin")),
+    user: User = Depends(require_role("admin", "superadmin")),
 ):
     """List the tenant positions an administrator may use to scope a kiosk."""
     from app.modules.positions.models import Position
@@ -171,7 +171,7 @@ async def list_kiosk_scope_positions(
 @admin_router.get("", response_model=list[KioskLinkResponse])
 async def list_kiosks(
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("admin", "org_admin", "superadmin")),
+    user: User = Depends(require_role("admin", "superadmin")),
 ):
     """List all kiosk links for current tenant, newest first."""
     from app.core.config import get_settings
@@ -202,7 +202,7 @@ async def kiosk_access_logs(
     kiosk_id: UUID | None = Query(default=None),
     limit: int = Query(default=50, ge=1, le=200),
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("admin", "org_admin", "superadmin")),
+    user: User = Depends(require_role("admin", "superadmin")),
 ):
     """Latest kiosk identify attempts for current tenant."""
     return await list_kiosk_access_logs(db, user.tenant_id, kiosk_id=kiosk_id, limit=limit)
@@ -213,7 +213,7 @@ async def update_kiosk(
     kiosk_id: UUID,
     payload: KioskLinkUpdate,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("admin", "org_admin", "superadmin")),
+    user: User = Depends(require_role("admin", "superadmin")),
 ):
     """Toggle active, edit name/location/position scope."""
     from app.core.config import get_settings
@@ -238,7 +238,7 @@ async def update_kiosk(
 async def delete_kiosk(
     kiosk_id: UUID,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("admin", "org_admin", "superadmin")),
+    user: User = Depends(require_role("admin", "superadmin")),
 ):
     """Delete a kiosk link."""
     ok = await delete_kiosk_link(db, user.tenant_id, kiosk_id)

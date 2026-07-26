@@ -60,7 +60,7 @@ async def get_trial_usage(db: AsyncSession, tenant_id: UUID) -> dict:
             select(func.count(User.id)).where(
                 User.tenant_id == tenant_id,
                 User.is_active == True,
-                User.role.in_(("admin", "org_admin", "methodologist")),
+                User.role.in_(("admin", "methodologist")),
             )
         )
     ).scalar() or 0

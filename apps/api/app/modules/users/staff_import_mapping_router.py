@@ -13,7 +13,7 @@ Endpoints (all under /admin/staff/import/mappings):
   PATCH  /{mapping_id}      update name / mapping_json / is_default
   DELETE /{mapping_id}      delete mapping
 
-Auth: admin / org_admin / methodologist.
+Auth: admin / methodologist.
 Tenant scope: from JWT, never from URL/body.
 """
 from __future__ import annotations

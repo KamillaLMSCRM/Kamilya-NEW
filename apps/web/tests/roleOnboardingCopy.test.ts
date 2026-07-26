@@ -24,10 +24,9 @@ describe('role onboarding copy', () => {
 
   it.each([['RU', ru], ['KK', kk]] as const)('explains team roles and role switching in %s', (_, locale) => {
     expect(locale.users.roleAdmin).not.toMatch(/^(Админ|Әкімші)$/);
-    expect(locale.users.teamPage.roleDescriptions.methodologist).toBeTruthy();
-    expect(locale.users.teamPage.roleDescriptions.admin).toBeTruthy();
-    expect(locale.users.teamPage.roleDescriptions.org_admin).toBeTruthy();
-    expect(locale.users.teamPage.switchRoleHint).toBeTruthy();
+      expect(locale.users.teamPage.roleDescriptions.methodologist).toBeTruthy();
+      expect(locale.users.teamPage.roleDescriptions.admin).toBeTruthy();
+      expect(locale.users.teamPage.switchRoleHint).toBeTruthy();
     expect(locale.users.teamPage.addRoleButton).toBeTruthy();
   });
 });

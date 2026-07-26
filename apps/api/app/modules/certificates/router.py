@@ -26,7 +26,7 @@ router = APIRouter(prefix="/certificates", tags=["certificates"])
 @router.get("/settings", response_model=CertificateSettings)
 async def get_settings(
     db: AsyncSession = Depends(get_db),
-    user=Depends(require_role("admin", "org_admin")),
+    user=Depends(require_role("admin")),
 ):
     """Get tenant certificate template/settings."""
     return await get_certificate_settings(db, user.tenant_id)
@@ -36,7 +36,7 @@ async def get_settings(
 async def save_settings(
     payload: CertificateSettings,
     db: AsyncSession = Depends(get_db),
-    user=Depends(require_role("admin", "org_admin")),
+    user=Depends(require_role("admin")),
 ):
     """Save tenant certificate template/settings."""
     try:

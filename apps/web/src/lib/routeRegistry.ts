@@ -1,6 +1,6 @@
 import type { TranslationKey } from '@/i18n/useT';
 
-export const APP_ROLES = ['admin', 'org_admin', 'methodologist', 'student', 'superadmin'] as const;
+export const APP_ROLES = ['admin', 'methodologist', 'student', 'superadmin'] as const;
 export type AppRole = (typeof APP_ROLES)[number];
 
 export const CAPABILITIES = [
@@ -20,7 +20,6 @@ export type Capability = (typeof CAPABILITIES)[number];
 
 export const ROLE_CAPABILITIES: Record<AppRole, readonly Capability[]> = {
   admin: ['configure_tenant', 'manage_accounts'],
-  org_admin: ['configure_tenant', 'manage_accounts'],
   methodologist: [
     'manage_content',
     'manage_staff',
@@ -36,7 +35,6 @@ export const ROLE_CAPABILITIES: Record<AppRole, readonly Capability[]> = {
 
 export const ROLE_HOMES: Record<AppRole, string> = {
   admin: '/admin',
-  org_admin: '/admin',
   methodologist: '/dashboard',
   student: '/student',
   superadmin: '/admin/super',

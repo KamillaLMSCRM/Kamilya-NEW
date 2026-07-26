@@ -10,7 +10,7 @@ import pytest
 INTERNAL_FIELDS = {"tenant_id", "uploaded_by", "s3_key"}
 
 
-@pytest.mark.parametrize("role", ["admin", "org_admin", "student", "superadmin"])
+@pytest.mark.parametrize("role", ["admin", "student", "superadmin"])
 @pytest.mark.parametrize(
     "operation",
     ["list", "get", "download", "usages", "reindex", "backfill", "delete"],
@@ -330,7 +330,7 @@ async def test_catalog_rejects_tampered_cursor(client, make_tenant, make_user, a
     assert response.status_code == 422
 
 
-@pytest.mark.parametrize("role", ["admin", "org_admin", "student", "superadmin"])
+@pytest.mark.parametrize("role", ["admin", "student", "superadmin"])
 async def test_document_upload_denies_non_methodologist_roles(client, make_tenant, make_user, auth_headers, role):
     tenant = await make_tenant()
     caller = await make_user(tenant, role=role)

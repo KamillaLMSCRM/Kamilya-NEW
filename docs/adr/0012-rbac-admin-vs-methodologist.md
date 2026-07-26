@@ -26,9 +26,9 @@ ADR, product workflow, authorization policy, and UX.
 
 | Term | Meaning |
 |---|---|
-| **System user** | A tenant-side operator: `admin`, `org_admin`, or `methodologist`. System users manage the LMS; they are distinct from learners. |
+| **System user** | A tenant-side operator: `admin` or `methodologist`. System users manage the LMS; they are distinct from learners. |
 | **Learner** | A user operating in the `student` role. Learners take assigned training and never manage the tenant or learning configuration. |
-| **Tenant admin** | `admin` or `org_admin`, responsible for the tenant workspace and its operational infrastructure. |
+| **Tenant admin** | `admin`, responsible for the tenant workspace and its operational infrastructure. |
 | **Methodologist** | `methodologist`, the single learning-content role responsible for learning design, staff-learning configuration, and learner trajectories. |
 | **Platform superadmin** | `superadmin`, a platform operator with no ordinary tenant context. Platform operations are performed through dedicated platform routes or impersonation. |
 | **Active role** | The one tenant role selected for the current session. It is the role evaluated by API guards and reflected in navigation. |
@@ -41,7 +41,7 @@ Tenant administration and learning management are separate domains.
 
 | Domain | Owner | Included responsibilities | Explicitly excluded |
 |---|---|---|---|
-| Tenant infrastructure | `admin`, `org_admin` | Tenant settings and branding, system-team accounts, kiosk links, integrations, plan/billing-facing controls, operational configuration | Course authoring, documents, quizzes, staff-learning rules, direct learner assignment |
+| Tenant infrastructure | `admin` | Tenant settings and branding, system-team accounts, kiosk links, integrations, plan/billing-facing controls, operational configuration | Course authoring, documents, quizzes, staff-learning rules, direct learner assignment |
 | Learning content and workforce learning configuration | `methodologist` | Documents, AI/manual/SCORM courses, review and publication, lessons, quizzes, positions, departments, staff import and structure, learning rules, cohorts, paths, competencies, surveys, announcements, direct assignments, training results | Tenant settings, integrations, kiosk administration, system-team administration |
 | Learning consumption | `student` | Assigned courses, quizzes, certificates, learner-only learning-path and survey views | Any tenant or learning configuration |
 | Platform operations | `superadmin` | Tenant lifecycle, global provider keys, platform diagnostics, controlled impersonation | Acting as an unscoped tenant user in the tenant UI |
@@ -75,7 +75,7 @@ boundary; sidebar visibility, page guards, and redirects must agree with it.
 
 | Active role | UI surfaces | Key API capabilities | Redirect target / boundary |
 |---|---|---|---|
-| `admin`, `org_admin` | `/admin`, `/admin/team`, `/admin/kiosks`, `/settings`, `/admin/settings/integrations`, certificate-template settings, `/admin/training-log` | Manage system users and their assigned tenant roles; manage tenant settings, kiosk links, and integrations; read the shared training log only (no learning-content, learner-assignment, or workforce-learning mutations) | Role switch lands on `/admin`. Direct navigation to learning-management routes returns to `/admin`. |
+| `admin` | `/admin`, `/admin/team`, `/admin/kiosks`, `/settings`, `/admin/settings/integrations`, certificate-template settings, `/admin/training-log` | Manage system users and their assigned tenant roles; manage tenant settings, kiosk links, and integrations; read the shared training log only (no learning-content, learner-assignment, or workforce-learning mutations) | Role switch lands on `/admin`. Direct navigation to learning-management routes returns to `/admin`. |
 | `methodologist` | `/ai/generate`, `/courses`, `/documents`, `/quizzes`, `/staff`, `/positions`, `/assignments`, `/learning-paths`, `/cohorts`, `/competencies`, `/surveys`, `/announcements`, `/admin/training-log` | Create/review/publish learning content; configure workforce learning; manage rules and direct assignments; access learning results | Role switch lands on `/dashboard`. Legacy `/admin/enrollments` redirects to `/assignments`; `/admin/employees` redirects to staff structure. |
 | `student` | `/student`, `/my-courses`, `/my-quizzes`, `/certificates`, learner-specific paths and surveys | Read and complete assigned learning; submit learner responses; retrieve own certificates | Role switch lands on `/student`. Management routes must not be actionable. |
 | `superadmin` | `/admin/super/*`, `/admin/providers` | Platform tenant lifecycle, global provider configuration, diagnostics, and controlled impersonation | Platform users are redirected away from tenant surfaces to `/admin/super`; tenant users are redirected away from platform surfaces to their dashboard. |
@@ -97,7 +97,7 @@ The following legacy locations are not ownership exceptions:
 
 New endpoints must choose an ownership domain before implementation.
 
-- A tenant-infrastructure mutation is admin-only (`admin`/`org_admin`), with
+- A tenant-infrastructure mutation is admin-only (`admin`), with
   platform-only exceptions handled through dedicated `superadmin` routes.
 - A learning-content or workforce-learning mutation is methodologist-only.
 - Learner mutations are restricted to the learner's own assigned learning.
@@ -152,7 +152,7 @@ sidebar item.
 
 1. Each active role sees its canonical navigation and does not see actionable
    mutations from the other tenant domain.
-2. Switching between assigned `admin`/`org_admin`, `methodologist`, and
+2. Switching between assigned `admin`, `methodologist`, and
    `student` roles changes navigation and lands on the matrix target.
 3. Direct entry to a blocked tenant-admin learning route and a tenant-user
    platform route redirects according to this ADR.

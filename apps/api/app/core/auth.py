@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 settings = get_settings()
 security = HTTPBearer(auto_error=False)
 
-ROLES = ['superadmin', 'admin', 'org_admin', 'methodologist', 'student']
+ROLES = ['superadmin', 'admin', 'methodologist', 'student']
 TENANT_CONTEXT_UNAVAILABLE = "Tenant security context unavailable"
 
 
@@ -306,7 +306,7 @@ def require_role(*allowed_roles: str):
     return role_checker
 
 
-def require_admin(user: User = Depends(require_role("admin", "org_admin", "superadmin"))) -> User:
+def require_admin(user: User = Depends(require_role("admin", "superadmin"))) -> User:
     return user
 
 

@@ -25,7 +25,7 @@ async def test_methodologist_passes_invitation_role_guard():
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("role", ["admin", "org_admin", "student"])
+@pytest.mark.parametrize("role", ["admin", "student"])
 async def test_non_owning_roles_are_forbidden_from_invitation_mutations(role):
     checker = require_role("methodologist")
 

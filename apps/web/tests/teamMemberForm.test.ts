@@ -34,7 +34,7 @@ describe('team member submission', () => {
     });
   });
 
-  it('does not offer a role that the account already has', () => {
-    expect(getAssignableTeamRoles(['admin', 'methodologist'])).toEqual(['org_admin']);
-  });
+    it('does not offer a role that the account already has', () => {
+      expect(getAssignableTeamRoles(['admin', 'methodologist'])).toEqual([]);
+    });
 });

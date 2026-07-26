@@ -40,10 +40,10 @@ router = APIRouter(
 )
 
 # Roles allowed to read the training log. Per ADR-0012 the training log is
-# an admin/HR concern: admin and org_admin manage the people side, while the
-# methodologist owns learning trajectories. Superadmin is accepted but receives
+# a shared governance/learning concern: admin manages tenant operations, while
+# the methodologist owns learning trajectories. Superadmin is accepted but receives
 # an empty result without tenant context. Students are excluded.
-_TRAINING_LOG_ROLES = ("admin", "org_admin", "methodologist", "superadmin")
+_TRAINING_LOG_ROLES = ("admin", "methodologist", "superadmin")
 
 
 @router.get("/summary", response_model=TrainingLogSummary)

@@ -47,9 +47,9 @@ Python `urllib` + `asyncpg` против prod.
 
 | Endpoint | Auth | Role |
 |---|---|---|
-| `POST /v1/users/invitations/bulk` | Bearer | admin, org_admin, superadmin, **methodologist** |
-| `GET /v1/users/invitations` | Bearer | admin, org_admin, superadmin, methodologist |
-| `POST /v1/users/invitations/{id}/resend` | Bearer | admin, org_admin, superadmin, methodologist |
+| `POST /v1/users/invitations/bulk` | Bearer | superadmin, **methodologist** |
+| `GET /v1/users/invitations` | Bearer | superadmin, methodologist |
+| `POST /v1/users/invitations/{id}/resend` | Bearer | superadmin, methodologist |
 | `GET /v1/invitations/{token}` | **public** (no auth) | — |
 | `POST /v1/invitations/{token}/accept` | **public** (no auth) | — |
 

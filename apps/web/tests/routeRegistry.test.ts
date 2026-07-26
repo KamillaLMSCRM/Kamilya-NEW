@@ -10,11 +10,10 @@ import {
 
 describe('route and capability registry', () => {
   it('defines every product role against typed capabilities', () => {
-    expect(Object.keys(ROLE_CAPABILITIES)).toEqual([
-      'admin',
-      'org_admin',
-      'methodologist',
-      'student',
+      expect(Object.keys(ROLE_CAPABILITIES)).toEqual([
+        'admin',
+        'methodologist',
+        'student',
       'superadmin',
     ]);
     expect(Object.values(ROLE_CAPABILITIES).flat().every((capability) => CAPABILITIES.includes(capability))).toBe(true);
@@ -60,8 +59,7 @@ describe('route and capability registry', () => {
   it('keeps position qualification cards on the methodologist surface', () => {
     const cardPath = '/positions/420155dd-d2e3-43f1-ab16-108d8e5e4901';
 
-    expect(canAccessRegisteredRoute('methodologist', cardPath)).toBe(true);
-    expect(canAccessRegisteredRoute('admin', cardPath)).toBe(false);
-    expect(canAccessRegisteredRoute('org_admin', cardPath)).toBe(false);
-  });
+      expect(canAccessRegisteredRoute('methodologist', cardPath)).toBe(true);
+      expect(canAccessRegisteredRoute('admin', cardPath)).toBe(false);
+    });
 });

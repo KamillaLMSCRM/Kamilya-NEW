@@ -13,9 +13,6 @@ describe('role route policy', () => {
     ['admin', '/admin/training-log', false],
     ['admin', '/courses', false],
     ['admin', '/assignments', false],
-    ['org_admin', '/admin/kiosks', true],
-    ['org_admin', '/admin/training-log', false],
-    ['org_admin', '/documents', false],
     ['methodologist', '/courses', true],
     ['methodologist', '/admin/staff', true],
     ['methodologist', '/invitations', true],
@@ -41,7 +38,6 @@ describe('role route policy', () => {
 
   it('uses role-specific home routes', () => {
     expect(getRoleHome('admin')).toBe('/admin');
-    expect(getRoleHome('org_admin')).toBe('/admin');
     expect(getRoleHome('methodologist')).toBe('/dashboard');
     expect(getRoleHome('student')).toBe('/student');
     expect(getRoleHome('superadmin')).toBe('/admin/super');
@@ -78,7 +74,6 @@ describe('auth redirect policy', () => {
 
   it.each([
     ['admin', '/admin'],
-    ['org_admin', '/admin'],
     ['methodologist', null],
     ['student', '/student'],
     ['superadmin', '/admin/super'],
