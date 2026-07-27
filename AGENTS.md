@@ -64,9 +64,21 @@ HTTP 200 или зелёный deploy сам по себе не закрывае
 - Миграции только additive/expand-compatible, если нет отдельного плана
   безопасного cutover.
 
-Graphify использовать для широкого исследования связей кода, если команда
-доступна и индекс актуален. Для текстовой документации использовать обычный
-поиск. Graphify — индекс, а не источник правды.
+Graphify обязателен для исследования кода как для основного агента, так и для
+subagents:
+
+1. перед чтением исходников выполнить scoped-запрос `graphify query`;
+2. для связи компонентов использовать `graphify path`, для отдельного понятия
+   `graphify explain`;
+3. проверить вывод Graphify по реальным исходникам и тестам;
+4. после изменения кода выполнить `graphify update .`;
+5. если индекс отсутствует, построить локальный code-only индекс командой
+   `graphify . --code-only --no-viz`.
+
+Для поиска текста в документации использовать обычный поиск. Graphify является
+индексом связей, а не источником правды. Недоступность Graphify считается
+блокером исследования кода: агент должен сообщить оркестратору, а не молча
+переходить к полному ручному обходу.
 
 ## План и агенты
 
@@ -160,3 +172,17 @@ Worker на отдельном VPS не обновляется автомати�
 
 Старый audit, execution report, agent prompt или ТЗ удаляется после переноса
 полезного результата в канонический документ.
+
+## graphify
+
+This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
+
+When the user types `/graphify`, use the installed graphify skill or instructions before doing anything else.
+
+Rules:
+- For codebase questions, first run `graphify query "<question>"` when graphify-out/graph.json exists. Use `graphify path "<A>" "<B>"` for relationships and `graphify explain "<concept>"` for focused concepts. These return a scoped subgraph, usually much smaller than GRAPH_REPORT.md or raw grep output.
+- If graphify-out/graph.json is absent, run `graphify . --code-only --no-viz` before exploring code. This applies to every subagent and isolated worktree.
+- Dirty graphify-out/ files are expected after hooks or incremental updates; dirty graph files are not a reason to skip graphify. Only skip graphify if the task is about stale or incorrect graph output, or the user explicitly says not to use it.
+- If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
+- Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
+- After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).
