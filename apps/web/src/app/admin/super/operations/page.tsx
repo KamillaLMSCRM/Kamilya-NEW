@@ -181,4 +181,3 @@ export default function SuperadminOperationsPage() {
 function Metric({ label, value, danger = false }: { label: string; value: string | number; danger?: boolean }) {
   return <div className="flex items-center justify-between gap-3"><span className="text-muted-foreground">{label}</span><strong className={danger ? 'text-red-700' : 'text-foreground'}>{value}</strong></div>;
 }
-

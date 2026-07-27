@@ -1,6 +1,6 @@
 # ADR-0013: Cohorts are reusable audiences
 
-**Status:** accepted  
+**Status:** accepted
 **Date:** 2026-07-27
 
 ## Context
