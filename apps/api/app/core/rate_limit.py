@@ -199,16 +199,48 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         try:
             config = await self.limiter.get_rate_limit_config(path)
-            if tenant_id:
-                key = f"rate_limit:{path}:tenant:{tenant_id}"
-            else:
-                # Auth-less endpoints (login, refresh, register): key by IP
-                # so a single attacker IP can't drain the bucket. Once the
-                # user authenticates we switch to per-tenant bucketing.
+            if is_public_auth or not tenant_id:
+                # Public authentication must always use the network identity.
+                # Never trust a tenant_id peeked from an unsigned JWT here:
+                # attackers could forge it to split a brute-force quota.
                 key = f"rate_limit:{path}:ip:{client_ip}"
-            is_allowed, info = await self.limiter.check_rate_limit(
-                key, config.requests_per_minute, 60
+            else:
+                key = f"rate_limit:{path}:tenant:{tenant_id}"
+
+            checks = (
+                ("burst", config.burst_size, 10),
+                ("minute", config.requests_per_minute, 60),
+                ("hour", config.requests_per_hour, 3600),
             )
+            results: list[tuple[str, bool, dict]] = []
+            for window_name, limit, window_seconds in checks:
+                allowed, window_info = await self.limiter.check_rate_limit(
+                    f"{key}:{window_name}",
+                    limit,
+                    window_seconds,
+                )
+                results.append((window_name, allowed, window_info))
+
+            unavailable = next(
+                (window_info for _, _, window_info in results if window_info.get("unavailable")),
+                None,
+            )
+            denied = next(
+                (window_info for _, allowed, window_info in results if not allowed),
+                None,
+            )
+            minute_info = next(
+                window_info for window_name, _, window_info in results if window_name == "minute"
+            )
+            if unavailable is not None:
+                is_allowed = False
+                info = unavailable
+            elif denied is not None:
+                is_allowed = False
+                info = denied
+            else:
+                is_allowed = True
+                info = minute_info
         except Exception:
             # A configuration or Redis failure must not disable brute-force
             # protection on public auth endpoints. Other routes remain

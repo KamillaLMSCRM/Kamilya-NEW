@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import time
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from starlette.requests import Request
@@ -60,7 +60,10 @@ class FailingRedis(FakeRedis):
         return FailingPipeline(self)
 
 
-def _request(path: str) -> Request:
+def _request(path: str, *, authorization: str | None = None) -> Request:
+    headers = []
+    if authorization is not None:
+        headers.append((b"authorization", authorization.encode()))
     return Request(
         {
             "type": "http",
@@ -70,7 +73,7 @@ def _request(path: str) -> Request:
             "path": path,
             "raw_path": path.encode(),
             "query_string": b"",
-            "headers": [],
+            "headers": headers,
             "client": ("127.0.0.1", 1234),
             "server": ("testserver", 443),
         }
@@ -168,3 +171,34 @@ async def test_non_auth_route_stays_available_on_valkey_outage():
 
     assert internal_response.status_code == 200
     assert calls == ["/api/v1/internal/task"]
+
+
+@pytest.mark.asyncio
+async def test_public_auth_ignores_forged_tenant_and_enforces_all_windows():
+    middleware = RateLimitMiddleware(lambda scope, receive, send: None)
+    middleware.limiter.check_rate_limit = AsyncMock(
+        side_effect=[
+            (True, {"remaining": 1, "reset": 10, "limit": 3, "current": 1}),
+            (True, {"remaining": 4, "reset": 60, "limit": 5, "current": 1}),
+            (True, {"remaining": 19, "reset": 3600, "limit": 20, "current": 1}),
+        ]
+    )
+    settings = SimpleNamespace(APP_ENV="production")
+
+    async def call_next(request):
+        return Response("ok")
+
+    forged_jwt = "e30.eyJ0ZW5hbnRfaWQiOiJmb3JnZWQtdGVuYW50In0.signature"
+    with patch("app.core.config.get_settings", return_value=settings):
+        response = await middleware.dispatch(
+            _request("/api/v1/auth/login", authorization=f"Bearer {forged_jwt}"),
+            call_next,
+        )
+
+    assert response.status_code == 200
+    assert middleware.limiter.check_rate_limit.await_count == 3
+    assert middleware.limiter.check_rate_limit.await_args_list == [
+        (("rate_limit:/api/v1/auth/login:ip:127.0.0.1:burst", 3, 10),),
+        (("rate_limit:/api/v1/auth/login:ip:127.0.0.1:minute", 5, 60),),
+        (("rate_limit:/api/v1/auth/login:ip:127.0.0.1:hour", 20, 3600),),
+    ]
