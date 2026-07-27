@@ -189,6 +189,17 @@ async def _usage_after_tenant_lock(db: AsyncSession, tenant_id: Any) -> TenantUs
     return usage
 
 
+async def _locked_trial_limits(db: AsyncSession, tenant_id: Any) -> TrialLimits | None:
+    """Validate access and hold the tenant lock for the caller transaction."""
+    await assert_tenant_access(db, tenant_id)
+    locked_tenant = await _lock_tenant_row(db, tenant_id)
+    if locked_tenant is not None:
+        if not _is_trial_tenant(locked_tenant):
+            return None
+        return _limits_from_tenant(locked_tenant)
+    return await _get_trial_limits(db, tenant_id)
+
+
 async def count_courses(db: AsyncSession, tenant_id: Any) -> int:
     from app.models.courses import Course
 
@@ -243,8 +254,7 @@ async def count_active_system_users(db: AsyncSession, tenant_id: Any) -> int:
 
 
 async def assert_can_create_courses(db: AsyncSession, tenant_id: Any, requested: int = 1) -> None:
-    await assert_tenant_access(db, tenant_id)
-    limits = await _get_trial_limits(db, tenant_id)
+    limits = await _locked_trial_limits(db, tenant_id)
     if not limits or limits.max_courses_total is None:
         return
     current = await count_courses(db, tenant_id)
@@ -253,8 +263,7 @@ async def assert_can_create_courses(db: AsyncSession, tenant_id: Any, requested:
 
 
 async def assert_can_create_ai_course(db: AsyncSession, tenant_id: Any, requested: int = 1) -> None:
-    await assert_tenant_access(db, tenant_id)
-    limits = await _get_trial_limits(db, tenant_id)
+    limits = await _locked_trial_limits(db, tenant_id)
     if not limits:
         return
     await assert_can_create_courses(db, tenant_id, requested)
@@ -269,15 +278,10 @@ async def assert_can_create_ai_course(db: AsyncSession, tenant_id: Any, requeste
 
 
 async def reserve_ai_course_generation(db: AsyncSession, tenant_id: Any) -> None:
-    locked_tenant = await _lock_tenant_row(db, tenant_id)
-    limits = (
-        _limits_from_tenant(locked_tenant)
-        if locked_tenant is not None and _is_trial_tenant(locked_tenant)
-        else await _get_trial_limits(db, tenant_id)
-    )
+    await assert_can_create_ai_course(db, tenant_id, 1)
+    limits = await _get_trial_limits(db, tenant_id)
     if not limits:
         return
-    await assert_can_create_ai_course(db, tenant_id, 1)
     usage = await _usage_after_tenant_lock(db, tenant_id)
     usage.ai_course_generations_used = int(usage.ai_course_generations_used or 0) + 1
     await db.flush()
@@ -301,8 +305,7 @@ async def assert_can_create_jd_course(
     tenant_id: Any,
     requested: int = 1,
 ) -> None:
-    await assert_tenant_access(db, tenant_id)
-    limits = await _get_trial_limits(db, tenant_id)
+    limits = await _locked_trial_limits(db, tenant_id)
     if not limits:
         return
     await assert_can_create_courses(db, tenant_id, requested)
@@ -320,15 +323,10 @@ async def assert_can_create_jd_course(
 
 
 async def reserve_jd_course_generation(db: AsyncSession, tenant_id: Any) -> None:
-    locked_tenant = await _lock_tenant_row(db, tenant_id)
-    limits = (
-        _limits_from_tenant(locked_tenant)
-        if locked_tenant is not None and _is_trial_tenant(locked_tenant)
-        else await _get_trial_limits(db, tenant_id)
-    )
+    await assert_can_create_jd_course(db, tenant_id)
+    limits = await _get_trial_limits(db, tenant_id)
     if not limits:
         return
-    await assert_can_create_jd_course(db, tenant_id)
     usage = await _usage_after_tenant_lock(db, tenant_id)
     usage.jd_course_generations_used = int(usage.jd_course_generations_used or 0) + 1
     await db.flush()
@@ -347,8 +345,7 @@ async def release_jd_course_generation(db: AsyncSession, tenant_id: Any) -> None
 
 
 async def assert_can_create_learners(db: AsyncSession, tenant_id: Any, requested: int = 1) -> None:
-    await assert_tenant_access(db, tenant_id)
-    limits = await _get_trial_limits(db, tenant_id)
+    limits = await _locked_trial_limits(db, tenant_id)
     if not limits or limits.max_students is None:
         return
     current = await count_active_students(db, tenant_id)
@@ -357,8 +354,7 @@ async def assert_can_create_learners(db: AsyncSession, tenant_id: Any, requested
 
 
 async def assert_can_create_system_users(db: AsyncSession, tenant_id: Any, requested: int = 1) -> None:
-    await assert_tenant_access(db, tenant_id)
-    limits = await _get_trial_limits(db, tenant_id)
+    limits = await _locked_trial_limits(db, tenant_id)
     if not limits or limits.system_users_limit is None:
         return
     current = await count_active_system_users(db, tenant_id)

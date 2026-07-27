@@ -197,3 +197,32 @@ async def test_trial_usage_lock_is_a_row_lock():
     assert locked is tenant
     statement = db.execute.await_args.args[0]
     assert statement._for_update_arg is not None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("guard_name", "tenant_overrides"),
+    [
+        ("assert_can_create_courses", {"max_courses_per_month": 1}),
+        ("assert_can_create_learners", {"settings": {"trial_limits": {"max_students": 1}}}),
+        ("assert_can_create_system_users", {"settings": {"trial_limits": {"system_users_limit": 1}}}),
+    ],
+)
+async def test_capacity_guards_lock_tenant_before_count(guard_name, tenant_overrides):
+    """All capacity checks must keep the tenant lock for the route transaction."""
+    from sqlalchemy.ext.asyncio import AsyncSession
+
+    from app.core import trial_limits
+
+    tenant = _tenant(**tenant_overrides)
+    db = AsyncMock(spec=AsyncSession)
+    db.get.side_effect = lambda model, _tenant_id: tenant if model is Tenant else None
+    db.scalar.return_value = 0
+    result = Mock()
+    result.scalar_one_or_none.return_value = tenant
+    db.execute.return_value = result
+
+    await getattr(trial_limits, guard_name)(db, tenant.id)
+
+    statement = db.execute.await_args.args[0]
+    assert statement._for_update_arg is not None
