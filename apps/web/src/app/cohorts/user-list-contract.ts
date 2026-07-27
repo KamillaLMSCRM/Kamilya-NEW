@@ -17,6 +17,12 @@ export type CohortUserOption = {
   name: string;
 };
 
+export const COHORT_MANAGER_ROLE = 'methodologist' as const;
+
+export function cohortMemberPayload(userIds: string[]) {
+  return { user_ids: [...new Set(userIds)] };
+}
+
 export function cohortUserOptions(response: UserListResponse): CohortUserOption[] {
   return response.users.map((user) => ({
     id: user.id,

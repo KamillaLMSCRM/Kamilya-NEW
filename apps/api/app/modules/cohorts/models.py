@@ -1,5 +1,7 @@
 import uuid
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Text, UUID, UniqueConstraint, func
+
+from sqlalchemy import UUID, Boolean, Column, DateTime, ForeignKey, Text, UniqueConstraint, func
+
 from app.core.db import Base
 
 
@@ -24,6 +26,12 @@ class CohortMember(Base):
 
 
 class CohortCourse(Base):
+    """Legacy storage kept for old rows; new cohort flows never write it.
+
+    Courses belong to assignments and learning programs. This table remains
+    only so an additive audience migration does not destroy historical data.
+    """
+
     __tablename__ = "cohort_courses"
     __table_args__ = (UniqueConstraint("tenant_id", "cohort_id", "course_id", name="uq_cohort_course"),)
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
