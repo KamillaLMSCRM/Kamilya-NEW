@@ -31,6 +31,7 @@ from app.modules.admin.superadmin.schemas import (
     TenantUpdate,
 )
 from app.modules.admin.superadmin.service import SuperadminService
+from app.modules.admin.superadmin.operations import router as operations_router
 from app.modules.audit.service import log_action
 
 router = APIRouter(
@@ -465,3 +466,8 @@ async def impersonate_tenant(
             "impersonated_role": req.role,
         },
     )
+
+
+# Keep operational endpoints inside the already protected superadmin router.
+# The implementation and all contracts live in operations.py.
+router.include_router(operations_router)
