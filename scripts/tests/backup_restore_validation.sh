@@ -34,11 +34,16 @@ env BACKUP_DIR="${TMP_DIR}/backups" BACKUP_PASSPHRASE_FILE="${PASSFILE}" \
   DB_HOST=db DB_PORT=5432 DB_NAME=kamilya DB_USER=lms \
   "${BACKUP_SCRIPT}" --dry-run >"${TMP_DIR}/backup.out"
 grep -F 'passphrase-file validation passed' "${TMP_DIR}/backup.out" >/dev/null
+env BACKUP_DIR="${TMP_DIR}/backups" BACKUP_PASSPHRASE_FILE="${PASSFILE}" \
+  DB_HOST=db DB_PORT=5432 DB_NAME=kamilya DB_USER='postgres.project-ref' \
+  "${BACKUP_SCRIPT}" --dry-run >/dev/null
 
 assert_failure env BACKUP_DIR="${TMP_DIR}/backups" DB_HOST=db DB_PORT=5432 DB_NAME=kamilya DB_USER=lms \
   "${BACKUP_SCRIPT}" --dry-run
 assert_failure env BACKUP_DIR="${TMP_DIR}/backups" BACKUP_PASSPHRASE_FILE="${PASSFILE}" \
   DB_HOST=db DB_PORT=5432 DB_NAME='bad name' DB_USER=lms "${BACKUP_SCRIPT}" --dry-run
+assert_failure env BACKUP_DIR="${TMP_DIR}/backups" BACKUP_PASSPHRASE_FILE="${PASSFILE}" \
+  DB_HOST=db DB_PORT=5432 DB_NAME=kamilya DB_USER='bad:user' "${BACKUP_SCRIPT}" --dry-run
 chmod 644 -- "${PASSFILE}"
 assert_failure env BACKUP_DIR="${TMP_DIR}/backups" BACKUP_PASSPHRASE_FILE="${PASSFILE}" \
   DB_HOST=db DB_PORT=5432 DB_NAME=kamilya DB_USER=lms "${BACKUP_SCRIPT}" --dry-run

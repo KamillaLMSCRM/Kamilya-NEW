@@ -136,7 +136,7 @@ done
 [[ "${TARGET_DB}" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || die "target database must be a simple PostgreSQL identifier"
 [[ "${PRODUCTION_DB_NAME}" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || die "PRODUCTION_DB_NAME must be a simple PostgreSQL identifier"
 [[ "${DB_PORT}" =~ ^[0-9]+$ ]] || die "DB_PORT must be numeric"
-[[ "${DB_USER}" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || die "DB_USER must be a simple PostgreSQL identifier"
+[[ "${DB_USER}" =~ ^[A-Za-z_][A-Za-z0-9_.-]*$ ]] || die "DB_USER contains unsupported characters"
 [[ "${BACKUP_PBKDF2_ITERATIONS}" =~ ^[1-9][0-9]+$ ]] || die "BACKUP_PBKDF2_ITERATIONS must be numeric"
 (( BACKUP_PBKDF2_ITERATIONS >= 100000 )) || die "BACKUP_PBKDF2_ITERATIONS must be at least 100000"
 validate_passphrase_file

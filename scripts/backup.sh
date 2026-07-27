@@ -109,7 +109,7 @@ validate_passphrase_file
 [[ "${MIN_VALID_BACKUPS}" =~ ^[1-9][0-9]*$ ]] || die "MIN_VALID_BACKUPS must be a positive integer"
 [[ "${DB_PORT}" =~ ^[0-9]+$ ]] || die "DB_PORT must be numeric"
 [[ "${DB_NAME}" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || die "DB_NAME must be a simple PostgreSQL identifier"
-[[ "${DB_USER}" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || die "DB_USER must be a simple PostgreSQL identifier"
+[[ "${DB_USER}" =~ ^[A-Za-z_][A-Za-z0-9_.-]*$ ]] || die "DB_USER contains unsupported characters"
 [[ -z "${MC_ALIAS:-}" || -n "${MC_TARGET:-}" ]] || die "MC_TARGET is required when MC_ALIAS is set"
 
 require_command() {
