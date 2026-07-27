@@ -119,11 +119,14 @@ notify_state_change() {
 
   if ((${#failures[@]} == 0)); then
     if [[ -n "${previous_state}" ]]; then
-      send_email '[RECOVERED] Kamilya LMS production checks' \
-        "All production checks are healthy on $(hostname)." || true
+      if send_email '[RECOVERED] Kamilya LMS production checks' \
+        "All production checks are healthy on $(hostname)."; then
+        : >"${state_file}"
+        printf '%s' "${now}" >"${sent_file}"
+      fi
+      return
     fi
     : >"${state_file}"
-    printf '%s' "${now}" >"${sent_file}"
     return
   fi
 
@@ -134,8 +137,9 @@ notify_state_change() {
 UTC: $(date -u +%Y-%m-%dT%H:%M:%SZ)
 
 ${current_state}"
-    send_email '[ALERT] Kamilya LMS production checks failed' "${body}" || true
-    printf '%s' "${now}" >"${sent_file}"
+    if send_email '[ALERT] Kamilya LMS production checks failed' "${body}"; then
+      printf '%s' "${now}" >"${sent_file}"
+    fi
   fi
 }
 
