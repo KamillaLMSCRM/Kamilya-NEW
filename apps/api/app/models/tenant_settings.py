@@ -15,6 +15,7 @@ class TenantSettings(Base):
     default_language = Column(Text, nullable=False, default="ru")
     self_enrollment = Column(Text, nullable=False, default="false")
     quiz_pass_threshold = Column(Text, nullable=False, default="80")
+    invite_expiry_days = Column(Integer, nullable=False, default=3)
     # Per-tenant monthly LLM budget in USD cents (audit §6.3).
     # Default 5000 = $50/month. Set to 0 to disable the gate entirely
     # (call sites will skip the check when this is 0).
@@ -25,5 +26,9 @@ class TenantSettings(Base):
 
     __table_args__ = (
         CheckConstraint("default_language IN ('ru', 'kk', 'en')", name="ck_tenant_lang"),
+        CheckConstraint(
+            "invite_expiry_days BETWEEN 1 AND 30",
+            name="ck_tenant_invite_expiry",
+        ),
         CheckConstraint("monthly_llm_budget_usd_cents >= 0", name="ck_tenant_llm_budget_nonneg"),
     )
