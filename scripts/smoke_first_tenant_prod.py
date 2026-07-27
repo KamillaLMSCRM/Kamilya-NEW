@@ -549,6 +549,7 @@ async def run_journey() -> None:
             )
             assert jd_position["instruction_embedding_status"] == "success"
             position_name = str(jd_position["name"])
+            position_department_id = str(jd_position["department_id"])
             jd_job = await request_json(
                 client,
                 "POST",
@@ -621,8 +622,8 @@ async def run_journey() -> None:
                     "personnel_number": f"MANUAL-{suffix}",
                     "first_name": "Manual",
                     "last_name": "Learner",
-                    "department": "Creative",
-                    "position": position_name,
+                    "department_id": position_department_id,
+                    "position_id": position_id,
                     "email": manual_email,
                 },
             )
@@ -630,9 +631,9 @@ async def run_journey() -> None:
             users = await request_json(
                 client,
                 "GET",
-                "/users?per_page=100",
+                "/users?per_page=100&include_students=true",
                 label="user list after manual create",
-                headers=auth(admin_token),
+                headers=auth(methodologist_token),
             )
             manual_user = next(
                 user for user in users["users"] if user["email"] == manual_email

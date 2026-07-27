@@ -20,6 +20,7 @@ def _position(tenant_id=None, pos_id=None):
     position.tenant_id = tenant_id or uuid4()
     position.name = "Backend Engineer"
     position.department = "Backend"
+    position.department_id = None
     position.level = "Senior"
     position.responsibilities = "Build services"
     position.requirements = "Python"

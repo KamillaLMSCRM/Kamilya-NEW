@@ -1,6 +1,7 @@
-from pydantic import BaseModel, Field
-from uuid import UUID
 from datetime import datetime
+from uuid import UUID
+
+from pydantic import BaseModel, Field
 
 
 class PositionCreate(BaseModel):
@@ -25,6 +26,7 @@ class PositionResponse(BaseModel):
     id: UUID
     tenant_id: UUID
     name: str
+    department_id: UUID | None = None
     # nullable on the Pydantic side: positions created via the staff-
     # import wizard with no department supplied (or via legacy inserts)
     # have department IS NULL. The ORM model has a default '' but the

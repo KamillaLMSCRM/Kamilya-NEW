@@ -80,6 +80,8 @@ def test_jd_router_closes_direct_document_upload_rbac_bypass() -> None:
     assert "await upload_document(" in source
     # Direct Python calls do not let FastAPI replace Form(None) defaults.
     assert "new_version_of=None" in source
+    assert 'for field in ("level", "responsibilities", "requirements")' in source
+    assert 'for field in ("name", "department"' not in source
 
     for route in jd_router.routes:
         if isinstance(route, APIRoute):

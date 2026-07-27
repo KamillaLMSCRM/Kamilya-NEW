@@ -11,15 +11,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import get_current_user, require_role, require_tenant_user
 from app.core.db import get_db
-from app.models.document import Document
 from app.models.ai_job import AIJob
+from app.models.department import Department
+from app.models.document import Document
 from app.models.users import User
 from app.modules.courses.models import Course
+from app.modules.positions import qualification_service
 from app.modules.positions.assignment_service import recompute_enrollments
 from app.modules.positions.batch_service import (
     recompute_position_holders,
 )
-from app.modules.positions import qualification_service
 from app.modules.positions.models import Position, PositionCourse
 
 logger = logging.getLogger(__name__)
@@ -42,6 +43,34 @@ router = APIRouter(
         Depends(require_role("methodologist")),
     ],
 )
+
+
+async def _resolve_or_create_department(
+    db: AsyncSession,
+    tenant_id: UUID,
+    name: str,
+) -> Department | None:
+    display_name = " ".join(name.split())
+    if not display_name:
+        return None
+
+    slug = display_name.casefold()
+    department = await db.scalar(
+        select(Department).where(
+            Department.tenant_id == tenant_id,
+            Department.slug == slug,
+        )
+    )
+    if department is None:
+        department = Department(
+            tenant_id=tenant_id,
+            name=display_name,
+            slug=slug,
+            description="",
+        )
+        db.add(department)
+        await db.flush()
+    return department
 
 
 # ── Helpers ──────────────────────────────────────────────────
@@ -187,6 +216,7 @@ async def _position_response(
         id=pos.id,
         tenant_id=pos.tenant_id,
         name=pos.name,
+        department_id=pos.department_id,
         department=pos.department,
         level=pos.level,
         responsibilities=pos.responsibilities,
@@ -285,10 +315,16 @@ async def create_position(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    department = await _resolve_or_create_department(
+        db,
+        user.tenant_id,
+        req.department,
+    )
     pos = Position(
         tenant_id=user.tenant_id,
         name=req.name,
-        department=req.department,
+        department=department.name if department else "",
+        department_id=department.id if department else None,
         level=req.level,
         responsibilities=req.responsibilities,
         requirements=req.requirements,
@@ -324,7 +360,17 @@ async def update_position(
         user.id,
     )
 
-    for field, value in req.model_dump(exclude_unset=True, exclude={"course_ids"}).items():
+    updates = req.model_dump(exclude_unset=True, exclude={"course_ids"})
+    if "department" in updates:
+        department = await _resolve_or_create_department(
+            db,
+            user.tenant_id,
+            updates["department"] or "",
+        )
+        updates["department"] = department.name if department else ""
+        pos.department_id = department.id if department else None
+
+    for field, value in updates.items():
         # Auto-snapshot JD BEFORE overwriting, so we always have the previous
         # values if responsibilities or requirements change.
         if field in ("responsibilities", "requirements") and getattr(pos, field) != value:
@@ -492,6 +538,7 @@ async def attach_course_to_position(
         id=pos.id,
         tenant_id=pos.tenant_id,
         name=pos.name,
+        department_id=pos.department_id,
         department=pos.department,
         level=pos.level,
         responsibilities=pos.responsibilities,
@@ -554,6 +601,7 @@ async def detach_course_from_position(
         id=pos.id,
         tenant_id=pos.tenant_id,
         name=pos.name,
+        department_id=pos.department_id,
         department=pos.department,
         level=pos.level,
         responsibilities=pos.responsibilities,
@@ -704,11 +752,17 @@ async def bulk_create_positions(
                 if not item.name.strip():
                     raise ValueError("name is empty")
                 pos_id = uuid.uuid4()
+                department = await _resolve_or_create_department(
+                    db,
+                    user.tenant_id,
+                    item.department,
+                )
                 db.add(Position(
                     id=pos_id,
                     tenant_id=user.tenant_id,
                     name=item.name.strip(),
-                    department=item.department.strip(),
+                    department=department.name if department else "",
+                    department_id=department.id if department else None,
                     level=item.level.strip(),
                     responsibilities=item.responsibilities.strip(),
                     requirements=item.requirements.strip(),

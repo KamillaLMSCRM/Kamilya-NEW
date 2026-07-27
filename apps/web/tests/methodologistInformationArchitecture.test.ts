@@ -40,6 +40,14 @@ describe("methodologist information architecture", () => {
     expect(staffSource).toContain('field.key === "first_name" || field.key === "last_name"');
   });
 
+  it("uses canonical department and position ids for manual employees", () => {
+    expect(staffSource).toContain('api.get<{ departments: DepartmentOption[] }>("/v1/departments")');
+    expect(staffSource).toContain('api.get<PositionOption[]>("/v1/positions")');
+    expect(staffSource).toContain("department_id: manualForm.department_id || undefined");
+    expect(staffSource).toContain("position_id: manualForm.position_id || undefined");
+    expect(staffSource).toContain("position.department_id === manualForm.department_id");
+  });
+
   it("keeps large structures searchable and separately collapsible by position", () => {
     expect(staffSource).toContain("const [expandedPositions");
     expect(staffSource).toContain("const [query, setQuery]");

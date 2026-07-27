@@ -603,7 +603,7 @@ async def restore_jd_version(
     return JDRestoreResponse(
         position=PositionResponse(
             id=pos.id, tenant_id=pos.tenant_id, name=pos.name,
-            department=pos.department, level=pos.level,
+            department_id=pos.department_id, department=pos.department, level=pos.level,
             responsibilities=pos.responsibilities, requirements=pos.requirements,
             course_ids=course_ids, employee_count=pos.employee_count,
             created_at=pos.created_at,

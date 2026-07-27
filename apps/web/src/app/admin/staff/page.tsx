@@ -68,6 +68,18 @@ interface StaffSheet {
   missing_required_columns?: string[];
 }
 
+interface DepartmentOption {
+  id: string;
+  name: string;
+}
+
+interface PositionOption {
+  id: string;
+  name: string;
+  department: string | null;
+  department_id: string | null;
+}
+
 const STAFF_FIELDS = [
   { key: "personnel_number", label: "Табельный номер", required: true },
   { key: "first_name", label: "Имя", required: true },
@@ -139,6 +151,9 @@ export default function AdminStaffPage() {
   const [committing, setCommitting] = useState(false);
   const [manualOpen, setManualOpen] = useState(false);
   const [manualSaving, setManualSaving] = useState(false);
+  const [manualOptionsLoading, setManualOptionsLoading] = useState(false);
+  const [departmentOptions, setDepartmentOptions] = useState<DepartmentOption[]>([]);
+  const [positionOptions, setPositionOptions] = useState<PositionOption[]>([]);
   const [structureRefreshKey, setStructureRefreshKey] = useState(0);
   const [manualForm, setManualForm] = useState({
     personnel_number: "",
@@ -146,6 +161,8 @@ export default function AdminStaffPage() {
     last_name: "",
     email: "",
     phone: "",
+    department_id: "",
+    position_id: "",
     department: "",
     position: "",
   });
@@ -175,6 +192,38 @@ export default function AdminStaffPage() {
     fetchSavedMappings();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (!manualOpen || !isStaffOwnersRole) return;
+
+    let active = true;
+    setManualOptionsLoading(true);
+    Promise.all([
+      api.get<{ departments: DepartmentOption[] }>("/v1/departments"),
+      api.get<PositionOption[]>("/v1/positions"),
+    ])
+      .then(([departmentsResponse, positionsResponse]) => {
+        if (!active) return;
+        setDepartmentOptions(departmentsResponse.data.departments ?? []);
+        setPositionOptions(positionsResponse.data ?? []);
+      })
+      .catch((error: any) => {
+        if (!active) return;
+        const detail = error?.response?.data?.detail;
+        toast.error(
+          typeof detail === "string"
+            ? detail
+            : detail?.message || t("staffPage.manualHierarchyLoadError"),
+        );
+      })
+      .finally(() => {
+        if (active) setManualOptionsLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [manualOpen, isStaffOwnersRole, t]);
 
   const handleSaveCurrentMapping = async () => {
     if (Object.keys(columnMapping).length === 0) {
@@ -350,6 +399,8 @@ export default function AdminStaffPage() {
       last_name: "",
       email: "",
       phone: "",
+      department_id: "",
+      position_id: "",
       department: "",
       position: "",
     });
@@ -360,17 +411,28 @@ export default function AdminStaffPage() {
       "personnel_number",
       "first_name",
       "last_name",
-      "department",
-      "position",
     ];
-    if (requiredFields.some((field) => !manualForm[field].trim())) {
+    const hierarchyMissing =
+      (!manualForm.department_id && !manualForm.department.trim()) ||
+      (!manualForm.position_id && !manualForm.position.trim());
+    if (requiredFields.some((field) => !manualForm[field].trim()) || hierarchyMissing) {
       toast.error("Заполните табельный номер, имя, фамилию, отдел и должность");
       return;
     }
 
     setManualSaving(true);
     try {
-      const payload = Object.fromEntries(Object.entries(manualForm).map(([key, value]) => [key, value.trim()]));
+      const payload = {
+        personnel_number: manualForm.personnel_number.trim(),
+        first_name: manualForm.first_name.trim(),
+        last_name: manualForm.last_name.trim(),
+        email: manualForm.email.trim() || undefined,
+        phone: manualForm.phone.trim() || undefined,
+        department_id: manualForm.department_id || undefined,
+        position_id: manualForm.position_id || undefined,
+        department: manualForm.department_id ? undefined : manualForm.department.trim(),
+        position: manualForm.position_id ? undefined : manualForm.position.trim(),
+      };
       const res = await api.post("/v1/admin/staff/manual", payload);
       const r = res.data;
       toast.success(r.created > 0 ? t("staffPage.manualAdded") : t("staffPage.manualUpdated"));
@@ -389,6 +451,17 @@ export default function AdminStaffPage() {
 
   const selectedSheet = sheets.find((sheet) => sheet.sheet_name === selectedSheetName);
   const selectedSheetBlocked = selectedSheet?.sheet_kind === "reference";
+  const selectedDepartment = departmentOptions.find(
+    (department) => department.id === manualForm.department_id,
+  );
+  const filteredPositionOptions = positionOptions.filter(
+    (position) =>
+      position.department_id === manualForm.department_id ||
+      (!position.department_id &&
+        Boolean(selectedDepartment) &&
+        (position.department || "").trim().toLocaleLowerCase() ===
+          selectedDepartment!.name.trim().toLocaleLowerCase()),
+  );
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 px-4 py-5 sm:p-6">
@@ -477,21 +550,65 @@ export default function AdminStaffPage() {
                   </label>
                   <label className="space-y-1">
                     <span className="text-sm font-medium">Отдел *</span>
-                    <input
-                      value={manualForm.department}
-                      onChange={(e) => handleManualChange("department", e.target.value)}
+                    <select
+                      value={manualForm.department_id}
+                      onChange={(e) =>
+                        setManualForm((current) => ({
+                          ...current,
+                          department_id: e.target.value,
+                          department: "",
+                          position_id: "",
+                          position: "",
+                        }))
+                      }
+                      disabled={manualOptionsLoading}
                       className="w-full rounded-lg border border-border bg-card px-3 py-2 outline-none focus:border-primary"
-                      placeholder="Например, Отдел продаж"
-                    />
+                    >
+                      <option value="">{t("staffPage.manualNewDepartment")}</option>
+                      {departmentOptions.map((department) => (
+                        <option key={department.id} value={department.id}>
+                          {department.name}
+                        </option>
+                      ))}
+                    </select>
+                    {!manualForm.department_id && (
+                      <input
+                        value={manualForm.department}
+                        onChange={(e) => handleManualChange("department", e.target.value)}
+                        className="w-full rounded-lg border border-border bg-card px-3 py-2 outline-none focus:border-primary"
+                        placeholder={t("staffPage.manualDepartmentName")}
+                      />
+                    )}
                   </label>
                   <label className="space-y-1">
                     <span className="text-sm font-medium">Должность *</span>
-                    <input
-                      value={manualForm.position}
-                      onChange={(e) => handleManualChange("position", e.target.value)}
+                    <select
+                      value={manualForm.position_id}
+                      onChange={(e) =>
+                        setManualForm((current) => ({
+                          ...current,
+                          position_id: e.target.value,
+                          position: "",
+                        }))
+                      }
+                      disabled={manualOptionsLoading || !manualForm.department_id}
                       className="w-full rounded-lg border border-border bg-card px-3 py-2 outline-none focus:border-primary"
-                      placeholder="Например, Менеджер по продажам"
-                    />
+                    >
+                      <option value="">{t("staffPage.manualNewPosition")}</option>
+                      {filteredPositionOptions.map((position) => (
+                        <option key={position.id} value={position.id}>
+                          {position.name}
+                        </option>
+                      ))}
+                    </select>
+                    {!manualForm.position_id && (
+                      <input
+                        value={manualForm.position}
+                        onChange={(e) => handleManualChange("position", e.target.value)}
+                        className="w-full rounded-lg border border-border bg-card px-3 py-2 outline-none focus:border-primary"
+                        placeholder={t("staffPage.manualPositionName")}
+                      />
+                    )}
                   </label>
                   <label className="space-y-1 md:col-span-2">
                     <span className="text-sm font-medium">Телефон</span>

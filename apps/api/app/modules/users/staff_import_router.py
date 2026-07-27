@@ -7,8 +7,9 @@ Endpoints:
 - POST /admin/staff/import/commit            same payload structure → applies changes, returns counts
 - GET  /admin/staff/apply-rules/status/{tid} poll Celery task state (B1c)
 """
-import logging
 import json
+import logging
+from uuid import UUID
 
 from celery.result import AsyncResult
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
@@ -19,7 +20,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.auth import require_role
 from app.core.celery_app import celery_app
 from app.core.db import get_db
+from app.models.department import Department
 from app.models.users import User
+from app.modules.positions.models import Position
 from app.modules.users.staff_import_service import (
     ParsedFile,
     PreviewResult,
@@ -89,8 +92,10 @@ class ManualStaffCreateRequest(BaseModel):
     personnel_number: str = Field(..., min_length=1, max_length=64)
     first_name: str = Field(..., min_length=1, max_length=120)
     last_name: str = Field(..., min_length=1, max_length=120)
-    department: str = Field(..., min_length=1, max_length=160)
-    position: str = Field(..., min_length=1, max_length=160)
+    department_id: UUID | None = None
+    position_id: UUID | None = None
+    department: str | None = Field(default=None, min_length=1, max_length=160)
+    position: str | None = Field(default=None, min_length=1, max_length=160)
     email: str | None = Field(default=None, max_length=320)
     phone: str | None = Field(default=None, max_length=64)
 
@@ -102,6 +107,93 @@ class ManualStaffCreateResponse(BaseModel):
     positions_created: int
     apply_rules_task_id: str | None = None
     affected_user_count: int = 0
+
+
+async def _resolve_manual_hierarchy(
+    db: AsyncSession,
+    tenant_id: UUID,
+    payload: ManualStaffCreateRequest,
+) -> tuple[str, str]:
+    """Resolve explicit hierarchy IDs to canonical names.
+
+    Free-text names remain available only for an intentional "create new"
+    choice in the UI and for backwards-compatible API clients.
+    """
+    department: Department | None = None
+    position: Position | None = None
+
+    if payload.department_id is not None:
+        department = await db.scalar(
+            select(Department).where(
+                Department.id == payload.department_id,
+                Department.tenant_id == tenant_id,
+            )
+        )
+        if department is None:
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "code": "department_not_found",
+                    "message": "Выбранный отдел не найден в этой компании.",
+                },
+            )
+
+    if payload.position_id is not None:
+        position = await db.scalar(
+            select(Position).where(
+                Position.id == payload.position_id,
+                Position.tenant_id == tenant_id,
+            )
+        )
+        if position is None:
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "code": "position_not_found",
+                    "message": "Выбранная должность не найдена в этой компании.",
+                },
+            )
+
+        if department is not None and position.department_id not in (None, department.id):
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "code": "position_department_mismatch",
+                    "message": "Выбранная должность относится к другому отделу.",
+                },
+            )
+
+        if position.department_id is not None and department is None:
+            department = await db.scalar(
+                select(Department).where(
+                    Department.id == position.department_id,
+                    Department.tenant_id == tenant_id,
+                )
+            )
+
+        if department is not None and position.department_id is None:
+            position.department_id = department.id
+            position.department = department.name
+
+    department_name = (
+        department.name
+        if department is not None
+        else (position.department if position is not None else payload.department or "")
+    ).strip()
+    position_name = (
+        position.name if position is not None else payload.position or ""
+    ).strip()
+
+    if not department_name or not position_name:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "code": "manual_hierarchy_required",
+                "message": "Выберите отдел и должность либо явно создайте новые.",
+            },
+        )
+
+    return department_name, position_name
 
 
 def _parsed_file_to_response(parsed: ParsedFile, preview: PreviewResult | None = None) -> dict:
@@ -187,6 +279,12 @@ async def create_manual_staff(
 
         await assert_can_create_learners(db, user.tenant_id, requested=1)
 
+    department_name, position_name = await _resolve_manual_hierarchy(
+        db,
+        user.tenant_id,
+        payload,
+    )
+
     try:
         result = await create_manual_staff_member(
             db,
@@ -194,8 +292,8 @@ async def create_manual_staff(
             personnel_number=payload.personnel_number,
             first_name=payload.first_name,
             last_name=payload.last_name,
-            department=payload.department,
-            position=payload.position,
+            department=department_name,
+            position=position_name,
             email=payload.email,
             phone=payload.phone,
         )
