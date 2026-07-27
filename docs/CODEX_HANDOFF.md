@@ -1,347 +1,157 @@
-# Kamilya LMS: handoff для нового Codex
+# Kamilya LMS: handoff для следующего Codex
 
-Дата: 2026-07-24
+**Обновлено:** 2026-07-27
+**Рабочая папка:** `C:\Kamilya New\Kamilya-NEW`
+**Репозиторий:** `KamillaLMSCRM/Kamilya-NEW`, branch `master`
 
-Назначение: безопасно продолжить разработку на другом компьютере без восстановления контекста из длинной истории чата.
+## Сначала прочитать
 
-## 1. Первые действия нового агента
+1. [`AGENTS.md`](../AGENTS.md)
+2. [`PROJECT.md`](../PROJECT.md)
+3. [`PROJECT-CONTEXT.md`](PROJECT-CONTEXT.md)
+4. [`PRODUCTION_READINESS.md`](PRODUCTION_READINESS.md)
+5. [`PRODUCT_BACKLOG.md`](PRODUCT_BACKLOG.md)
+6. [`PROJECT_INTERNAL_DOCUMENTATION.md`](PROJECT_INTERNAL_DOCUMENTATION.md)
+7. [`LESSONS.md`](LESSONS.md)
 
-До любых изменений:
+Не использовать старые commit reports, ТЗ и переписку как описание текущего
+production. Они удалены из рабочего дерева и при необходимости доступны в Git
+history.
 
-1. Открыть корень клона `Kamilya-NEW` как workspace.
-2. Проверить `git status -sb`, `git branch --show-current` и `git log -5 --oneline`.
-3. Убедиться, что рабочая ветка основана на актуальном `origin/master`.
-4. Прочитать документы в следующем порядке:
-   - `AGENTS.md`;
-   - `PROJECT.md`;
-   - этот файл;
-   - `docs/PROJECT-CONTEXT.md`;
-   - `docs/PROJECT_INTERNAL_DOCUMENTATION.md`;
-   - `docs/LESSONS.md`;
-   - `docs/DOCUMENTATION_INDEX.md`;
-   - релевантные ADR в `docs/adr/`.
-5. Сверить документацию с фактическим кодом перед архитектурными выводами.
-6. Не читать и не печатать значения `.env`, если для задачи достаточно имён переменных.
+## Текущее состояние
 
-Стартовый промпт для новой задачи:
+| Контур | Состояние |
+|---|---|
+| `master` | `25f473c714d3879b81cc57bad7974cff598fc666` |
+| CI | success, run `30215627222` |
+| Vercel | production `READY`, commit `25f473c` |
+| Render API | live, commit `58d5511` |
+| Production DB | Alembic `0078`, совпадает с repository head |
+| Celery worker | active, но устарел: `5165a77` |
 
-```text
-Работай в репозитории Kamilya-NEW. До любых изменений прочитай AGENTS.md,
-PROJECT.md, docs/CODEX_HANDOFF.md, docs/PROJECT-CONTEXT.md,
-docs/PROJECT_INTERNAL_DOCUMENTATION.md, docs/LESSONS.md и ADR по затронутому
-домену. Затем проверь git status, последние коммиты и фактическую реализацию.
-Кратко сформулируй архитектуру, роли, основные продуктовые флоу, production
-состояние и риски. Не изменяй код до этой сверки. Не выводи секреты из .env.
-```
+Главный P0: обновить worker до совместимого release commit и пройти
+production smoke organization/department/position rules. После этого нужны
+backup restore drill, минимальные alerts и полный synthetic tenant journey.
+Подробности: [`PRODUCTION_READINESS.md`](PRODUCTION_READINESS.md).
 
-## 2. Что представляет собой продукт
+## Продуктовая модель
 
-Kamilya LMS — multi-tenant SaaS для корпоративного обучения компаний Казахстана.
-
-Основной цикл:
+Kamilya LMS:
 
 ```text
 документы компании
-  -> методологическая подготовка
-  -> AI/ручной курс и тест
+  -> ingestion/AI
+  -> курс и тест
   -> публикация
-  -> назначение сотрудникам
-  -> прохождение курса и теста
+  -> правило или ручное назначение
+  -> обучение
+  -> тест
   -> сертификат
-  -> журнал обучения и контроль результатов
+  -> журнал обучения
 ```
 
-Это собственный продукт, не форк Chamilo. Исторические сравнения с Chamilo используются как продуктовый reference, но не определяют архитектуру.
+### Роли
 
-## 3. Канонические роли
+- `superadmin`: платформа и tenants;
+- `admin`: организация tenant, системные пользователи, интеграции;
+- `methodologist`: контент, сотрудники, правила, назначения и результаты;
+- `student`: обучение.
 
-| Роль | Ответственность |
-|---|---|
-| `superadmin` | Платформа, tenant CRUD, глобальные AI-провайдеры, operational oversight |
-| `admin` | Настройки tenant, интеграции, системные пользователи, kiosk links, инфраструктура кабинета |
-| `methodologist` | Штат и должности, документы, курсы, тесты, публикация, назначения, cohorts, результаты обучения |
-| `student` | Только прохождение назначенного обучения, тестов и получение сертификатов |
+`teacher` и `org_admin` удалены. Не восстанавливать их для обратной
+совместимости: реальных пользователей этих ролей нет.
 
-Роль `teacher` удалена. Не добавлять compatibility alias: реальных production-пользователей с этой ролью нет.
+Один пользователь может иметь несколько ролей, но использует одну active role.
+Не объединять capability всех ролей.
 
-Один tenant-пользователь может иметь несколько ролей через `user_roles`. В JWT активна одна выбранная рабочая роль. Новый аккаунт для того же email не создаётся, plan slot повторно не расходуется.
+### Канонические поверхности
 
-Критические границы:
+- `/admin/team`: только системная команда tenant;
+- `/staff`: сотрудники, структура, импорт;
+- `/training-rules`: правила организации/отделов/должностей;
+- `/positions`: должность, инструкция и профиль квалификации;
+- `/assignments`: ручное назначение;
+- `/training-log`: прохождение и доказательства;
+- `/documents`: библиотека источников;
+- `/ai/generate`: генерация с выбранными источниками.
 
-- системные пользователи и обучающиеся — разные продуктовые сущности;
-- `/admin/team` не показывает студентов;
-- администратор не управляет курсами, тестами, обучающимися и назначениями;
-- `/assignments` принадлежит методологу;
-- `/admin/enrollments` — только legacy redirect на `/assignments`;
-- kiosk links принадлежат администратору, журнал и контроль обучения — методологу.
+Tenant admin не занимается курсами, тестами, обучающимися и назначениями.
 
-Канон: `docs/adr/0012-rbac-admin-vs-methodologist.md`.
+## Техническая архитектура
 
-## 4. Основные продуктовые флоу
+- `apps/api`: FastAPI, SQLAlchemy async, Alembic, PostgreSQL/pgvector.
+- `apps/web`: Next.js 14, React, TypeScript.
+- DB/storage: Supabase production.
+- Queue/cache: Valkey TLS на VPS.
+- Worker: Celery на VPS.
+- Email: Resend.
+- Document conversion: Docling.
+- AI jobs: Celery; provider fallback определяется модулем.
 
-### Регистрация и вход tenant
+Tenant isolation требует одновременно:
 
-- Self-service trial: `/register-tenant`.
-- Создаются tenant, первый `admin`, lead и trial usage.
-- Основной вход: email OTP через Resend.
-- Telegram code flow поддерживается при настроенном боте.
-- После входа пользователь должен попасть в интерфейс своей активной роли.
-- Название tenant отображается в верхней панели кабинета.
+1. `tenant_id`;
+2. backend ownership checks;
+3. RLS policy;
+4. FORCE RLS;
+5. runtime DB role без `BYPASSRLS`;
+6. cross-tenant test.
 
-Подробности: `docs/architecture/2026-07-10_tenant-auth-email-telegram-resend.md`.
+## Локальные секреты
 
-### Штат и должности
+- Файл: `.env` в корне репозитория.
+- Файл игнорируется Git.
+- Значения не печатать в чат, docs или test output.
+- В `.env` есть доступы к production DB, Render, Vercel, GitHub, Supabase,
+  Resend и VPS.
+- Перед добавлением переменной сверять `.env.example`.
 
-- Владелец флоу: `methodologist`.
-- Excel/CSV проходит preview, выбор листа, mapping колонок и подтверждение до commit.
-- В многолистовом XLSX импортируется один лист сотрудников. Справочные листы
-  отделов/должностей классифицируются отдельно и не должны молча считаться
-  импортированными.
-- Поддерживается ручное добавление сотрудника без файла.
-- Commit создаёт каноническую структуру `Department -> Position -> User`, после
-  чего UI открывает её визуализацию.
-- Обязательные курсы должности настраиваются в карточке должности, а не в
-  штатном расписании.
-- Пересчёт правил создаёт недостающие enrollments идемпотентно и не сбрасывает завершённое обучение.
-
-### Обычный AI-курс
-
-1. Методолог загружает документы в единую библиотеку источников и ждёт полной или частичной успешной индексации.
-2. Выбирает документы одного будущего курса.
-3. Система анализирует тематическую совместимость.
-4. При разных темах методолог выбирает одну группу либо явно объединяет группы с общей учебной целью.
-5. Backend повторяет проверку до расходования trial quota и dispatch задачи.
-6. Architect привязывает к каждому уроку документы из выбранного набора.
-7. Writer извлекает контент только из этих источников.
-8. Если релевантного материала нет, генерация останавливается; общие знания LLM не подмешиваются.
-9. Методолог проверяет курс, тесты и provenance, одобряет и публикует курс.
-10. Ручная правка урока устанавливает `source_validation_status=needs_review` до повторной grounded-генерации или явного одобрения.
-
-API анализа: `POST /api/v1/ai/document-compatibility`.
-
-Каталог источников: `GET /api/v1/documents/catalog`. Оба frontend-экрана — библиотека
-`/documents` и мастер `/ai/generate` — используют этот контракт. Новая генерация
-принимает только `active` документы со статусом `ready` или `partial`, не более 20
-источников на курс.
-
-Удаление источника защищено:
-
-- `GET /api/v1/documents/{id}/usages` показывает блокирующие связи;
-- `409` запрещает удаление используемого документа;
-- `423` запрещает удаление во время индексации;
-- `202` переводит свободный документ в `deletion_pending` и создаёт durable
-  `document_cleanup` AI job;
-- Celery worker идемпотентно удаляет embeddings, blob, summary и metadata;
-- повторный DELETE переотправляет тот же job, а ошибка очереди переводит запись в
-  восстановимый `delete_failed`.
-
-Source library также реализует:
-
-- SHA-256 каждого нового upload и `409 duplicate_document` для точной копии;
-- явное семейство версий через form field `new_version_of`;
-- durable `POST /documents/{id}/reindex` с revision guard;
-- tenant-scoped `POST /documents/maintenance/hash-backfill` для старых blob;
-- UI-вкладки `active`, `delete_failed`, `deletion_pending` с повторной отправкой
-  cleanup job.
-
-Миграции: `0068_course_source_governance.py`,
-`0072_expand_document_source_catalog.py`.
-
-Подробности: `docs/plans/done/2026-07-21_document-source-governance.md`.
-
-### Курс по должностной инструкции
-
-- Методолог загружает утверждённую инструкцию в карточке должности.
-- Система хранит исходный файл, индексирует его и извлекает обязанности/требования.
-- Генерация создаёт один редактируемый draft, связанный с версией источника.
-- Повторный запуск не создаёт дубль и не списывает quota повторно после технической ошибки.
-- Новая версия инструкции не меняет опубликованный курс незаметно: создаётся новая версия курса.
-- После публикации новая версия становится актуальной для правила должности; завершённые результаты старой версии сохраняются.
-
-### Публикация и назначения
-
-- AI-курс нельзя публиковать до методологического одобрения.
-- Draft нельзя назначать и он не виден обучающемуся.
-- Назначения бывают `manual`, `position`, `department` и `cohort`.
-- Повторное применение правил/cohort не создаёт дубли.
-- Прямое удаление разрешено только для `source=manual`; rule-driven назначение меняется через правило.
-
-### Обучающийся
-
-- Invite link ведёт к принятию приглашения и student session.
-- `/student` и `/my-courses` показывают назначенные курсы.
-- Course completion требует завершения уроков и обязательных тестов.
-- Пустая AI quiz-запись не должна блокировать завершение.
-- Сертификат выдаётся backend идемпотентно и доступен как PDF.
-- Поддерживаются native courses и SCORM 1.2.
-
-### Контроль результатов
-
-- `/admin/training-log` — единый журнал native и SCORM для методолога.
-- CSV экспортируется в UTF-8 BOM с `sep=;` и человекочитаемыми русскими заголовками для Excel.
-- Сертификаты, статусы и результаты не должны вычисляться только на frontend.
-
-## 5. Архитектура репозитория
-
-```text
-apps/api/       FastAPI, SQLAlchemy async, Alembic, Celery
-apps/web/       Next.js 14 App Router, TypeScript, Tailwind
-packages/       общие Python-пакеты/типы
-docs/           канонические документы, ADR, планы, отчёты
-scripts/        CI и эксплуатационные утилиты
-tests/          дополнительные тестовые сценарии
-```
-
-Ключевые области:
-
-- backend auth/RBAC: `apps/api/app/core/auth.py` и auth modules;
-- AI pipeline: `apps/api/app/modules/ai/`;
-- source analysis: `apps/api/app/modules/ai/source_analysis.py`;
-- courses/lessons/quizzes: соответствующие modules в `apps/api/app/modules/`;
-- frontend navigation: `apps/web/src/components/layout/Sidebar.tsx`;
-- frontend API: `apps/web/src/lib/api.ts`;
-- auth state: `apps/web/src/store/authStore`;
-- migrations: `apps/api/alembic/versions/`.
-
-## 6. Production на момент handoff
-
-| Компонент | Состояние |
-|---|---|
-| Frontend | Vercel, `https://app.kml.kz` |
-| Backend | Render, `https://kamilya-lms-api.onrender.com` |
-| PostgreSQL | Supabase + pgvector, Alembic `0068` |
-| Storage | Supabase Storage, bucket `Kamilya LMS` |
-| Queue/cache | Valkey на VPS `173.249.51.164`, TLS `6380`, AOF, `noeviction` |
-| Worker | `kamilya-worker.service` на VPS, revision `5bc86c6` |
-| Document conversion | `docling.kml.kz` |
-| Email | Resend, sender `no-reply@notify.kml.kz` |
-| AI | Qwen primary; DeepSeek LLM fallback; Voyage embeddings fallback |
-
-`api.kml.kz` не является production API source of truth. Production backend находится на Render.
-
-Celery worker обязан иметь не только Supabase credentials, но и
-`STORAGE_BACKEND=supabase`. Иначе `get_storage()` безопасно переключается на
-локальный диск VPS, а document reindex/cleanup/hash-backfill не видят blobs,
-загруженные через Render.
-
-HostKZ `2 vCPU / 2 GiB / 50 GiB` был изолированным тестовым PostgreSQL-контуром. Production API и worker на него не переключались; Supabase остаётся production DB.
-
-Последняя подтверждённая release-проверка source governance:
-
-- backend: `356 passed`;
-- frontend: `41 passed`;
-- TypeScript и Next production build: passed;
-- GitHub Actions run `29820432047`: succeeded;
-- production DB: `0068`;
-- worker: active/ready, зарегистрированы `ai.generate_course`, `ai.ingest_document`, `positions.apply_course_rules`.
-
-На момент релиза в production не было успешно проиндексированных документов/chunks для semantic smoke. Кластеризация и серверная блокировка проверены integration-тестом на реальной локальной PostgreSQL/pgvector. Не выдавать это за production semantic E2E на пользовательских данных.
-
-## 7. Секреты и доступы
-
-Локальный `.env` находится в корне репозитория и игнорируется Git. Пользователь переносит его отдельно.
-
-Типы необходимых секретов без значений:
-
-- `DATABASE_URL`, `MIGRATION_DATABASE_URL`;
-- Supabase URL/key/bucket;
-- `REDIS_URL` и TLS settings;
-- JWT/encryption secrets;
-- Resend API key и sender settings;
-- Render/Vercel/GitHub deployment tokens;
-- AI provider keys и endpoints;
-- VPS credentials/keys.
-
-Правила:
-
-- не печатать значения в чат, логи и документацию;
-- runtime DB использует `lms_app` без `BYPASSRLS`;
-- migrations используют отдельный admin URL;
-- GitHub push выполнять token header с отключённым Credential Manager;
-- автор Git-коммитов: `Kamilla LMS CRM <kamilla_lms_crm@proton.me>`.
-
-## 8. Установка на новом компьютере
-
-Требуется Python 3.12, Poetry 1.8.x, Node.js 20+ и Git.
-
-```powershell
-git clone https://github.com/KamillaLMSCRM/Kamilya-NEW.git "C:\Kamilya New\Kamilya-NEW"
-cd "C:\Kamilya New\Kamilya-NEW\apps\api"
-poetry install --with dev
-
-cd "C:\Kamilya New\Kamilya-NEW\apps\web"
-npm install
-```
-
-Не переносить `node_modules`, `.next`, `.venv`, Poetry/npm caches и build artifacts.
-
-После отдельного копирования `.env`:
-
-```powershell
-cd "C:\Kamilya New\Kamilya-NEW"
-git check-ignore .env
-git status --short --ignored
-```
-
-`.env` должен быть ignored и не должен появляться как tracked/untracked change.
-
-## 9. Проверки перед завершением задачи
+## Проверки
 
 Backend:
 
 ```powershell
-cd apps\api
-poetry run python -m compileall app tests
-poetry run pytest tests -q
+cd "C:\Kamilya New\Kamilya-NEW\apps\api"
+.\.venv\Scripts\python.exe -m pytest
+.\.venv\Scripts\python.exe -m alembic heads
 ```
 
 Frontend:
 
 ```powershell
-cd apps\web
+cd "C:\Kamilya New\Kamilya-NEW\apps\web"
 npm test
 npm run typecheck
+$env:NEXT_TELEMETRY_DISABLED='1'
 npx next build
 ```
 
-DB-dependent suite требует PostgreSQL/pgvector. CI поднимает `pgvector/pgvector:pg16` и Redis service container. Нельзя объявлять DB-интеграцию проверенной, если тесты фактически упали на `ConnectionRefused`.
+Перед release:
 
-Для UI-изменений нужны browser screenshots и проверка desktop/mobile. Для production deploy отдельно проверяются provider revision, DB revision, worker revision и поведение, а не только HTTP health.
+1. проверить worktree;
+2. прогнать focused tests и полный suite по риску;
+3. проверить migration head;
+4. push в `master`;
+5. дождаться CI;
+6. проверить Vercel, Render, worker и DB revision независимо;
+7. пройти production smoke.
 
-## 10. Незавершённые продуктовые блоки
+HTTP health не доказывает, что worker, migrations и пользовательский flow
+актуальны.
 
-Подтверждённые открытые вопросы:
+## Git
 
-1. Trial onboarding wizard.
-2. Billing и upgrade request UI.
-3. Полный superadmin commercial control: lead pipeline, activation и operational diagnostics.
-4. Очистка исторических `queued/running` AI jobs от ранних smoke-запусков.
-5. Production semantic E2E на реально проиндексированных документах.
-6. Ручной staging/production QA SCORM 1.2 с реальными пакетами iSpring/Articulate.
-7. Полная mobile QA-матрица критических ролей и флоу.
-8. Мониторинг Valkey: память, rejected writes, queue length, AOF restore и TLS certificate renewal.
+- Commit author: `kamilla_lms_crm@proton.me`.
+- Push выполнять токеном из `.env`, без Git Credential Manager.
+- Не коммитить `.env`, Playwright artifacts и локальные outputs.
+- Не откатывать чужие незакоммиченные изменения.
+- История выполненных работ хранится в Git, а не в папке с устаревшими
+  финальными отчётами.
 
-Не считать все файлы в `docs/plans/` актуальным backlog: часть старых планов исторически не перенесена в `done`. Перед продолжением конкретного пункта сверять его с `PROJECT.md`, кодом, production и Git history.
+## Следующий порядок работ
 
-## 11. Правила продолжения
-
-- Один существенный эпик — один план в `docs/plans/YYYY-MM-DD_<slug>.md`.
-- После выполнения и проверки план переносится в `docs/plans/done/`.
-- Не сохранять поддержку legacy-роли или endpoint без реальных данных и продуктового основания.
-- Не смешивать admin и methodologist ownership ради обхода 403.
-- Не ослаблять tenant filters или RLS ради прохождения теста.
-- Не выполнять production/DNS/DB изменения без явного запроса пользователя.
-- Не пушить через Git Credential Manager; использовать токен из локального `.env` через временный HTTP authorization header.
-- Перед финальным ответом проверять newest user request, `git status`, tests и фактическое состояние deployment.
-
-## 12. Что переносится вне Git
-
-Пользователь отдельно переносит `.env`.
-
-При необходимости отдельно переносятся только проверенные пользовательские настройки Codex:
-
-- `%USERPROFILE%\.codex\AGENTS.md`;
-- `%USERPROFILE%\.codex\config.toml` после проверки абсолютных путей;
-- используемые personal skills.
-
-Не переносить в проект и Git `auth.json`, `.sandbox-secrets`, SQLite state, логи, кэши и сырые session transcripts. История чата не является источником истины; этот handoff и канонические документы должны быть достаточны для новой задачи.
+1. Закрыть P0 из `PRODUCTION_READINESS.md`.
+2. Только после release parity выполнять полный production synthetic flow.
+3. После первого tenant брать P1 из `PRODUCT_BACKLOG.md` по одному
+   каноническому workflow.
+4. Любое изменение UI обновляет пользовательское руководство.
+5. Любое долговечное архитектурное решение получает ADR.

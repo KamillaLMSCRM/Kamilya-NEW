@@ -1,192 +1,152 @@
-# Kamilya LMS - Project Context
+# Kamilya LMS: текущий контекст проекта
 
-> Living document. No secrets in this file.
-> Updated: 2026-07-21.
+> Living document. Значения секретов здесь не хранятся.
+> Обновлено: 2026-07-27.
 
-## Source Of Truth
+## Источники правды
 
-| Area | Source |
+| Область | Документ |
 |---|---|
-| Product/current behavior | `PROJECT.md` |
-| RBAC admin vs methodologist | `docs/adr/0012-rbac-admin-vs-methodologist.md` |
-| Auth session and active role | `docs/adr/0008-auth-strategy.md` |
-| Supabase/RLS/runtime cutover | `docs/supabase-audit-2026-07-01.md` |
-| VPS services | `docs/VPS_CONNECTION_GUIDE.md` |
-| Deployment | `DEPLOY.md` |
-| Tenant registration/trial | `docs/product/tenant-registration-trial-flow.md` |
-| User workflows | `docs/USER_DOCUMENTATION_RU.md` |
-| AI course release | `docs/methodologist-course-release-guide-ru.md` |
-| Source governance release record | `docs/plans/done/2026-07-21_document-source-governance.md` |
-| Agent rules | `AGENTS.md` |
+| Продукт и функциональные границы | [`PROJECT.md`](../PROJECT.md) |
+| Текущий production и release-gates | [`PRODUCTION_READINESS.md`](PRODUCTION_READINESS.md) |
+| Открытый backlog | [`PRODUCT_BACKLOG.md`](PRODUCT_BACKLOG.md) |
+| Роли admin/methodologist | [`ADR-0012`](adr/0012-rbac-admin-vs-methodologist.md) |
+| Auth/session/active role | [`ADR-0008`](adr/0008-auth-strategy.md) |
+| Пользовательские сценарии | [`USER_DOCUMENTATION_RU.md`](USER_DOCUMENTATION_RU.md) |
+| Внутренняя архитектура | [`PROJECT_INTERNAL_DOCUMENTATION.md`](PROJECT_INTERNAL_DOCUMENTATION.md) |
+| Эксплуатация worker | [`INFRA_CELERY_WORKER.md`](INFRA_CELERY_WORKER.md) |
+| Доступ и сервисы VPS | [`VPS_CONNECTION_GUIDE.md`](VPS_CONNECTION_GUIDE.md) |
+| Правила для агентов | [`AGENTS.md`](../AGENTS.md) |
 
-## Repositories
+Старые планы, аудиты, отчёты веток и ТЗ не являются источниками текущего
+поведения.
 
-| Repo | Purpose |
+## Репозиторий и сервисы
+
+| Контур | Текущее размещение |
 |---|---|
-| `KamillaLMSCRM/Kamilya-NEW` | Main LMS monorepo |
-| `KamillaLMSCRM/kamilya-landing` | Separate marketing site, private |
+| Monorepo | `KamillaLMSCRM/Kamilya-NEW`, branch `master` |
+| Frontend | Next.js, Vercel, `https://app.kml.kz` |
+| API | FastAPI, Render, `https://kamilya-lms-api.onrender.com` |
+| PostgreSQL/pgvector | Supabase production |
+| Object storage | Supabase Storage |
+| Broker/cache | Valkey TLS на VPS |
+| Background jobs | Celery worker на VPS |
+| Email | Resend, домен `notify.kml.kz` |
+| Telegram | Kamilya bot/auth flow |
+| Document conversion | Docling на VPS |
 
-Local current checkout in this session:
+Production БД пока не перенесена в Казахстан. HostKZ использовался как
+изолированный тестовый контур и не является текущим production.
 
-```text
-C:\Kamilya New\Kamilya-NEW
-```
+## Проверенная release-картина
 
-## Domains And Services
+На 2026-07-27:
 
-| Service | URL / ID | Notes |
-|---|---|---|
-| Frontend app | `https://app.kml.kz` | Vercel, Next.js |
-| Marketing | `https://www.kml.kz` | Separate landing repo |
-| Backend API | `https://kamilya-lms-api.onrender.com` | Render service `srv-d8rp8ej7uimc73fglid0` |
-| Transactional email | Resend, `no-reply@notify.kml.kz` | `EMAIL_PROVIDER=resend`; domain `notify.kml.kz` |
-| DB | Supabase project `ducegbxphkgffgozkchw` | Pooler `aws-1-eu-central-1.pooler.supabase.com` |
-| Storage | Supabase bucket `Kamilya LMS` | Certificates and files |
-| Queue/cache | VPS `173.249.51.164`, Valkey TLS `6380` | Celery broker/result backend, OTP, rate limits and progress |
-| Worker | VPS `173.249.51.164`, `kamilya-worker.service` | Celery AI, ingestion and apply-rules tasks |
-| Docling | `docling.kml.kz` | VPS service |
-| WhatsApp gateway | `wa.kml.kz` | VPS service |
+- `master`: `25f473c714d3879b81cc57bad7974cff598fc666`;
+- GitHub Actions run `30215627222`: success;
+- Vercel production: `READY`, commit `25f473c`;
+- Render API: live, commit `58d5511`;
+- после `58d5511` backend не менялся;
+- production Alembic: `0078`, repository head: `0078`;
+- Celery worker активен, но находится на старой ревизии `5165a77`.
 
-`api.kml.kz` is not the production API source of truth. Use the Render URL unless DNS is intentionally changed.
+Из-за несовпадения worker с API текущий релиз нельзя считать готовым для
+первого реального tenant. Полный список gate находится в
+[`PRODUCTION_READINESS.md`](PRODUCTION_READINESS.md).
 
-## Roles
+## Роли
 
-| Role | Product meaning |
+| Роль | Ответственность |
 |---|---|
-| `superadmin` | Platform operator, tenant-level oversight |
-| `admin` | Tenant infrastructure, integrations, team/system users |
-| `methodologist` | Learning content, staff/course rules, assignments |
-| `student` | Learner only |
+| `superadmin` | Платформа, tenants, AI providers, операционные действия |
+| `admin` | Организация tenant, системная команда, интеграции и доступы |
+| `methodologist` | Источники, курсы, тесты, сотрудники, правила обучения, назначения, результаты |
+| `student` | Обучение, тесты, программы и сертификаты |
 
-Important route ownership:
+Удалённые роли `teacher` и `org_admin` не поддерживаются. Один пользователь
+может иметь несколько назначенных ролей, но в сессии выбирает одну активную
+роль. Навигация и API не объединяют полномочия всех ролей.
 
-- `/admin/team` - tenant system users only.
-- `/admin/super/*` - platform/superadmin.
-- `/admin/staff` - staff structure, rules, imports.
-- `/assignments` - direct learner-course assignment for `methodologist`.
-- `/admin/enrollments` - legacy redirect to `/assignments`.
-- `/student`, `/my-courses`, `/my-quizzes`, `/certificates` - learner surfaces.
+Канонические границы:
 
-One tenant account may have several assigned roles. The top bar selects one
-active working role; API guards and navigation use that active role rather than
-the union of account permissions. See ADR-0012 and ADR-0008.
+- tenant admin не создаёт курсы, тесты, обучающихся и назначения;
+- methodologist владеет staff import, приглашениями и журналом обучения;
+- `/admin/team` содержит только системную команду tenant;
+- `/admin/enrollments` является legacy redirect, а не отдельной функцией;
+- superadmin не получает tenant-возможности без контролируемого tenant context.
 
-## Env Model
+## Основные продуктовые потоки
 
-Backend runtime:
+### Регистрация tenant
 
-```env
-DATABASE_URL=...lms_app...
-MIGRATION_DATABASE_URL=...postgres...
-REDIS_URL=...
-SUPABASE_URL=...
-SUPABASE_KEY=...
-SUPABASE_BUCKET=Kamilya LMS
-STORAGE_BACKEND=supabase
-PUBLIC_URL=https://app.kml.kz
-EMAIL_PROVIDER=resend
-RESEND_API_KEY=...
-EMAIL_FROM=Kamilya LMS <no-reply@notify.kml.kz>
-```
+1. Компания заполняет `/register-tenant`.
+2. Создаются tenant, первый `admin` и trial limits.
+3. Вход выполняется по email OTP через Resend или настроенному Telegram-flow.
+4. Администратор создаёт системного пользователя с ролью `methodologist`.
 
-Rules:
+### Подготовка структуры
 
-- `DATABASE_URL` must use `lms_app` without `BYPASSRLS`.
-- `MIGRATION_DATABASE_URL` is used by Alembic for schema changes.
-- Render and VPS worker both need the same DB URL split.
-- `.env` is ignored by git and may contain secrets.
-- Do not copy secrets into docs or chat.
-- `RESEND_API_KEY` is backend-only and currently set in Render env.
+1. Методолог открывает `Сотрудники и структура`.
+2. Сотрудники добавляются вручную или через Excel/CSV preview и mapping.
+3. Backend нормализует `Department -> Position -> User`.
+4. После commit отображается организационная структура.
+5. Правила организации, отдела и должности материализуют назначения через
+   общий recompute kernel.
 
-Frontend:
+### Курс из документов
 
-```env
-NEXT_PUBLIC_API_URL=https://kamilya-lms-api.onrender.com/api
-NEXT_PUBLIC_SUPABASE_URL=...
-NEXT_PUBLIC_SUPABASE_ANON_KEY=...
-```
+1. Методолог загружает документы в каноническую библиотеку.
+2. Ingestion извлекает текст и embeddings.
+3. Совместимость источников проверяется до генерации.
+4. Методолог выбирает один смысловой кластер либо явно задаёт цель объединения.
+5. AI job создаёт draft курса и тестов с трассировкой к источникам.
+6. Методолог проверяет, редактирует и публикует курс.
 
-## Current Production DB State
+### Должностная инструкция
 
-As of 2026-07-21:
+1. Инструкция привязывается к должности.
+2. Из неё создаётся отдельный grounded-курс с provenance/version.
+3. Курс входит в профиль квалификации должности.
+4. Назначения пересчитываются для сотрудников этой должности.
 
-- Production Supabase schema and repository head: `0068`.
-- RLS/FORCE RLS enabled for tenant-scoped tables with `tenant_id`.
-- Runtime app and worker connect as `lms_app`.
-- `provider_keys` is intentionally excluded from generic tenant RLS migration because `tenant_id IS NULL` represents global platform keys.
+### Доставка и подтверждение
 
-Job-instruction source model:
+1. Курс или программа назначается вручную, группе либо правилом.
+2. Обучающийся принимает приглашение.
+3. Проходит уроки и обязательные тесты.
+4. Backend сохраняет прогресс и завершает курс идемпотентно.
+5. При выполнении условий выдаётся сертификат.
+6. Журнал обучения показывает назначение, прогресс, результат и доказательство.
 
-- `documents.category` distinguishes `general` and `job_instruction` sources;
-- `positions.instruction_document_id` points to the current instruction;
-- `courses.source_instruction_id` and `source_instruction_version_at` preserve course provenance;
-- the source file is stored through the configured storage backend and downloaded through a tenant-scoped API;
-- generation uses a separate `jd_course_generations_used` trial counter.
+## Ключевые технические инварианты
 
-Ordinary AI course source model:
+- Каждая tenant-сущность имеет `tenant_id`, backend-проверку и RLS/FORCE RLS.
+- Runtime использует роль БД без `BYPASSRLS`; миграции используют отдельный URL.
+- Course/user/position/document IDs валидируются в текущем tenant.
+- Завершённое обучение не удаляется при изменении автоматического правила.
+- Повторный recompute не создаёт дублирующее назначение.
+- Сертификат создаётся backend и идемпотентно.
+- Несвязанные документы не смешиваются в один курс молча.
+- При отсутствии релевантного источника grounded generation останавливается.
+- Секреты хранятся только в `.env` и provider secrets.
 
-- selected documents are checked by `POST /api/v1/ai/document-compatibility` before generation;
-- mixed source sets require selecting one cluster or an intentional-combination goal;
-- courses persist selected sources, strategy, goal and compatibility analysis;
-- lessons persist source documents, retrieved references and validation status;
-- manual lesson edits require renewed source review before release;
-- content generation does not fall back to general LLM knowledge when relevant source chunks are absent.
+## Локальная среда и секреты
 
-## Current Production Deploy
+- Локальный `.env` находится в корне репозитория и игнорируется Git.
+- Runtime и migration DB URLs разделены.
+- Render, Vercel, GitHub, Resend, Supabase и VPS credentials не печатаются в
+  документацию или логи задачи.
+- Перед добавлением новой переменной проверяется `.env.example`; значения не
+  коммитятся.
 
-As of 2026-07-21:
+## Правило документации
 
-- GitHub `master`: `2545eb3 fix(ci): align Poetry runtime dependencies`.
-- Render service `srv-d8rp8ej7uimc73fglid0` runs backend revision `5bc86c6`; later master commits are documentation and CI dependency metadata only.
-- Render runs `PYTHONPATH=. alembic upgrade head` as a pre-deploy command from `apps/api`.
-- Production PostgreSQL is at Alembic revision `0068`.
-- Vercel production deployment for `app.kml.kz` is green on the source-governance frontend revision.
-- `/`, `/health`, and `/api/v1/health` return 200.
-- Email OTP request endpoint returns a neutral success response for unknown emails and sends OTP for known tenant users.
-- First tenant-flow production smoke passed: AI course generation, assignment, learner completion and certificate issue.
-- Smoke evidence: AI job `64891564-5bb5-4648-ba40-c3ec04d40621`, course `7e434b25-1057-42b0-ac64-ed56daa6b041`, certificate `KML-2026-5DE383`.
-- Source-governance release gate passed: backend `356 passed`, frontend `41 passed`, frontend typecheck/build passed, and GitHub Actions run `29820432047` succeeded.
-- VPS Celery worker is active on revision `5bc86c6` with `ai.generate_course`, `ai.ingest_document` and `positions.apply_course_rules` registered.
-- Production had no successfully indexed documents at release time, so semantic clustering was verified against real local PostgreSQL/pgvector rather than existing production content.
+После изменения поведения:
 
-## Tenant Acquisition Status
-
-Implemented:
-
-- `/register-tenant` self-service trial registration.
-- Trial storage: `tenant_leads`, `tenant_usage`, and trial fields on `tenants`.
-- Email OTP login with Resend provider support.
-
-Implemented:
-
-- Backend enforcement количественных trial limits и окончания trial-периода для tenant-scoped операций.
-- AI generation dispatch через Celery/Redis; production worker должен быть поднят и мониториться.
-
-Not finished:
-
-- Trial onboarding wizard.
-- Billing/upgrade request UI.
-- Superadmin lead pipeline and tenant activation workflow.
-- Cleanup for historical queued/running AI jobs from pre-fix smoke runs.
-
-## Product Invariants
-
-- Students are never mixed into tenant admin team management.
-- System users and learners are different product concepts even if both are rows in `users`.
-- Direct manual assignment is learning-content work, not tenant-admin work.
-- Course completion must require lessons and required quiz checks.
-- Empty generated quiz records must not block course completion.
-- AI generation must not block indefinitely on optional LLM review.
-- Documents from unrelated subject areas must not be silently mixed into one AI course.
-- Generated lessons must remain traceable to the selected tenant documents.
-- Missing source material must stop grounded generation instead of invoking general LLM knowledge.
-- Manual lesson edits invalidate automatic source verification until regeneration or explicit methodologist approval.
-- Certificate issue is backend-owned and idempotent.
-- Tenant filtering and RLS are mandatory for tenant-scoped data.
-
-## Documentation Hygiene
-
-- Keep `PROJECT.md` and this file current after product/infra changes.
-- Keep ADRs for durable decisions.
-- Keep large `TZ_*` files only while they are still active specs or referenced by code/ADR.
-- Remove completed short `docs/plans/*` files once outcomes are reflected in product docs.
+1. обновить `PROJECT.md` или внутреннюю документацию;
+2. обновить пользовательское руководство, если меняется UI/flow;
+3. обновить ADR, если меняется долговечное архитектурное решение;
+4. обновить `PRODUCTION_READINESS.md`, если меняется release gate;
+5. обновить `PRODUCT_BACKLOG.md`, если задача открыта или закрыта;
+6. не создавать отдельный исторический отчёт, дублирующий эти документы.

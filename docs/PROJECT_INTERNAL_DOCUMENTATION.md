@@ -1,7 +1,7 @@
 # Kamilya LMS: внутренняя документация проекта
 
 **Статус:** рабочая документация проекта
-**Дата актуализации:** 2026-07-21
+**Дата актуализации:** 2026-07-27
 **Репозиторий:** `KamillaLMSCRM/Kamilya-NEW`
 
 ## 1. Назначение продукта
@@ -286,7 +286,7 @@ Kiosk — отдельный режим входа по QR/ссылке. Product
 
 Таблица `announcements`, ручной delivery через Resend/log provider. Миграция
 `0058`. Раздел скрыт из sidebar и command palette; условия возврата описаны в
-`docs/backlog/2026-07-26_communications-modules.md`.
+[`PRODUCT_BACKLOG.md`](PRODUCT_BACKLOG.md).
 
 ### Surveys
 
@@ -315,7 +315,13 @@ Kiosk — отдельный режим входа по QR/ссылке. Product
 0066 канонизация methodologist и удаление прежнего технического alias
 0067 восстановление primary-ролей пользователей после канонизации RBAC
 0068 тематический контроль, provenance и статусы проверки источников AI-курса
+0069-0072 provider, kiosk, quiz и source-catalog hardening
+0073 версии квалификационных требований должности
+0074 удаление org_admin
 0075 версии и назначения программ обучения
+0076 правила обучения на уровне организации
+0077 employment profile сотрудника
+0078 tenant guard назначений программ обучения
 ```
 
 Перед production deploy:

@@ -1,8 +1,17 @@
 # Авторизация тенантов: email, Telegram и Resend
 
 **Проект:** Kamilya LMS  
-**Статус:** фактическая реализация на 10.07.2026.  
+**Статус:** актуализировано по реализации 27.07.2026.
 **Назначение:** самостоятельная инструкция для переноса схемы в другой multi-tenant проект.
+
+Перед первым production tenant остаются два обязательных security gate:
+
+- удалить логирование значения Telegram auth code;
+- не отключать rate limiting публичных auth/registration endpoints при
+  недоступности Valkey.
+
+Фактический статус gate ведётся в
+[`PRODUCTION_READINESS.md`](../PRODUCTION_READINESS.md).
 
 ## 1. Архитектура
 
@@ -423,4 +432,3 @@ invite link       -> employee/student onboarding session
 - Приглашения сейчас копируются вручную, без автоматического email delivery.
 - In-memory Redis fallback допустим локально, но не является надёжным production storage.
 - Legacy /register сохраняет второй путь создания тенанта и требует отдельного решения по удалению или миграции.
-

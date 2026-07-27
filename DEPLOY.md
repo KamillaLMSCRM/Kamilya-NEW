@@ -1,6 +1,9 @@
 # Kamilya LMS Production Deployment
 
-Актуально на 2026-07-21.
+Актуально на 2026-07-27.
+
+Текущие release blockers ведутся в
+[`docs/PRODUCTION_READINESS.md`](docs/PRODUCTION_READINESS.md).
 
 ## Production Topology
 
@@ -100,10 +103,10 @@ python -m alembic -c alembic.ini current
 python -m alembic -c alembic.ini upgrade head
 ```
 
-Current production state after 2026-07-01 cutover:
+Current production state:
 
 ```text
-0068 (head)
+0078 (head)
 ```
 
 ## Frontend Deploy On Vercel
@@ -140,14 +143,21 @@ systemctl status kamilya-worker
 journalctl -u kamilya-worker -f
 ```
 
-Deployment/update:
+Deployment/update выполняется только на выбранный release SHA:
 
 ```bash
 cd /opt/kamilya-worker
-git pull origin master
-systemctl restart kamilya-worker
-systemctl is-active kamilya-worker
+git fetch origin master
+git checkout --detach <release_sha>
+poetry install --only main --no-interaction
+poetry run python -m compileall -q app
+systemctl restart kamilya-worker.service
+systemctl is-active kamilya-worker.service
 ```
+
+Не использовать слепой `git pull`: frontend/API docs-only commit и worker могут
+иметь разные зависимости. Полная процедура, smoke и rollback описаны в
+[`docs/INFRA_CELERY_WORKER.md`](docs/INFRA_CELERY_WORKER.md).
 
 The worker env is `/opt/kamilya-worker/apps/api/.env`. It must use the same
 `DATABASE_URL` / `MIGRATION_DATABASE_URL` split, `REDIS_URL`,
@@ -177,8 +187,10 @@ Render:
 
 VPS worker:
 
-1. Restore the latest `/opt/kamilya-worker/apps/api/.env.bak.*`.
-2. Restart `kamilya-worker`.
+1. Переключить checkout на записанный предыдущий SHA.
+2. Восстановить зависимости для этого SHA.
+3. Restart `kamilya-worker.service`.
+4. Проверить ping, registered tasks и прикладной smoke.
 
 Database:
 

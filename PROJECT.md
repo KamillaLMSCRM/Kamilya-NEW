@@ -1,169 +1,164 @@
-# Kamilya LMS Core
+# Kamilya LMS
 
-> Актуализировано: 2026-07-21.
-> Статус: beta, первый production tenant-flow пройден end-to-end; trial limits, управление источниками AI-курса и фоновые задачи работают в production. Billing и полный commercial control суперадмина остаются незавершёнными.
+Kamilya LMS — multi-tenant платформа корпоративного обучения:
 
-## Видение Продукта
+```text
+документы компании
+  -> курс и тест
+  -> назначение
+  -> обучение
+  -> проверка знаний
+  -> сертификат
+  -> журнал обучения
+```
 
-Kamilya LMS - корпоративная система обучения для компаний Казахстана. Система заменяет ручной onboarding и разрозненные курсы единым процессом:
+Продукт рассчитан на tenant-компании, где администратор управляет организацией
+и доступами, методолог управляет обучением, а сотрудник проходит назначенные
+курсы.
 
-1. Компания заводит tenant.
-   Self-service trial registration уже доступна через `/register-tenant`: HR оставляет данные компании, tenant создается в `trial` статусе, первый пользователь получает роль `admin`.
-2. Админ tenant-а настраивает пользователей, интеграции, kiosk-ссылки и окружение.
-3. Методолог управляет курсами, тестами, должностями, отделами и правилами назначения.
-4. Обучающийся получает ссылку/доступ, проходит курсы и тесты.
-5. Система автоматически выдает сертификат и сохраняет PDF.
+## Роли
 
-Ключевая идея: LMS должна понимать оргструктуру. Курсы назначаются не только вручную, но и через правила "отдел -> курс", "должность -> курс", плюс ручное назначение конкретному обучающемуся.
-
-## Роли И Границы
-
-| Роль | Зона ответственности |
+| Роль | Ответственность |
 |---|---|
-| `superadmin` | Платформа: tenant list, tenant state, global provider keys, platform diagnostics |
-| `admin` | Tenant-инфраструктура: настройки, интеграции, kiosk, системные пользователи |
-| `methodologist` | Обучение: курсы, тесты, штат, должности, правила, назначения и журнал обучения |
-| `student` | Личный кабинет, прохождение курсов/тестов, сертификаты |
+| `superadmin` | Платформа, tenants, providers и операционные действия |
+| `admin` | Системная команда tenant, интеграции, организационные настройки |
+| `methodologist` | Документы, курсы, тесты, сотрудники, правила, назначения и результаты |
+| `student` | Курсы, тесты, программы и сертификаты |
 
-Принятые правила:
+`teacher` и `org_admin` удалены. Tenant admin не управляет курсами, тестами,
+обучающимися или назначениями.
 
-- Один системный пользователь tenant-а может иметь несколько назначенных ролей;
-  в сессии активна одна выбранная рабочая роль. Навигация и API оценивают
-  активную роль, а не объединение всех прав аккаунта.
-- Students не смешиваются с системными пользователями tenant-а.
-- `/admin/team` - только команда администрирования/обучения tenant-а.
-- `/assignments` - ручные назначения курсов обучающимся; это не admin-функция.
-- `/admin/enrollments` - legacy redirect на `/assignments`.
-- Tenant admin не создаёт и не назначает программы обучения.
-- `/learning-paths` - рабочее место методолога для версионируемых программ,
-  упорядоченных курсов и назначения аудитории.
-- Manual enrollment разрешен только для активных `student` того же tenant.
+Пользователь может иметь несколько назначенных ролей, но в сессии выбирает
+одну active role. UI и API не объединяют полномочия всех ролей.
 
-Канон RBAC: [docs/adr/0012-rbac-admin-vs-methodologist.md](./docs/adr/0012-rbac-admin-vs-methodologist.md).
+## Основные модули
 
-## Learner Flow
+### Источники и AI
 
-1. Обучающийся открывает invite link `/accept-invite?token=...`.
-2. После принятия приглашения `student` попадает на `/student`.
-3. `/student`, `/my-courses`, `/my-quizzes` показывают назначенные курсы и quiz.
-4. `/learning-paths` показывает только назначенные обучающемуся программы и
-   открывает курсы по правилам их последовательности.
-5. Course player не завершает курс, пока не закрыты уроки и обязательные quiz.
-6. После успешного completion backend idempotent выдает сертификат и
-   пересчитывает доступные шаги назначенных программ.
-7. Сертификаты доступны через `/certificates`; PDF хранится в Supabase Storage.
+- библиотека документов tenant;
+- извлечение текста, chunking и embeddings;
+- проверка совместимости выбранных источников;
+- AI generation в Celery;
+- provenance уроков и проверка grounding;
+- отдельный flow курса по должностной инструкции.
 
-## Assignment Model
+Несвязанные документы не смешиваются автоматически. Методолог выбирает один
+смысловой кластер либо явно задаёт общую цель объединения.
 
-Источники назначения:
+### Курсы и тесты
 
-- `department` - через правила отдела.
-- `position` - через правила должности.
-- `manual` - прямое назначение через `/assignments`.
+- draft, review и publish;
+- уроки и материалы;
+- конструктор тестов;
+- порог прохождения и попытки;
+- SCORM 1.2 import/launch как дополнительный flow.
 
-`enrollments` - runtime truth о том, какие курсы реально доступны обучающемуся. Rule tables являются источником пересчета, но UI обучающегося и сертификаты опираются на `enrollments`.
+SCORM 2004 не поддерживается и не должен заявляться.
 
-Manual removal разрешен только для `source='manual'`; rule-driven назначения удаляются через изменение правил и пересчет.
+### Сотрудники и квалификации
 
-## AI Courses And Source Governance
+- ручное добавление сотрудника;
+- Excel/CSV preview, mapping и import;
+- каноническая структура `Department -> Position -> User`;
+- должностная инструкция;
+- профиль квалификации и компетенции.
 
-Обычный AI-курс создаётся только из выбранных документов tenant-а:
+### Доставка обучения
 
-1. После выбора документов система проверяет их тематическую совместимость по embeddings.
-2. Однородный набор используется целиком. Неоднородный набор делится на тематические группы.
-3. Методолог выбирает одну группу либо явно объединяет группы и формулирует общую учебную цель.
-4. Backend повторяет проверку до списания trial-лимита и постановки Celery-задачи.
-5. Для каждого урока сохраняются документы и фрагменты-источники.
-6. При отсутствии релевантного материала генерация останавливается; общие знания LLM не подмешиваются.
-7. Ручное изменение урока требует новой проверки источников или явного одобрения методологом.
+- ручное назначение;
+- reusable audiences/groups;
+- последовательные learning programs;
+- автоматические правила организации, отдела и должности;
+- приглашения и история доставки.
 
-Миграция `0068` хранит source strategy и анализ на курсе, а provenance и validation status — на уроках. Подробности: [управление источниками AI-курса](./docs/plans/done/2026-07-21_document-source-governance.md).
+При пересечении правил создаётся одно enrollment. Завершённые, ручные,
+group/program grants не удаляются автоматическим recompute.
 
-## Superadmin
+### Обучающийся и доказательства
 
-Superadmin surface должен отвечать на вопрос "что происходит на платформе":
+- assigned courses and programs;
+- уроки и сохранение прогресса;
+- обязательные тесты;
+- backend-owned completion;
+- idempotent certificate issue;
+- журнал обучения и экспорт.
 
-- список tenant-ов;
-- active/total users;
-- published/total courses;
-- tenant details;
-- platform/provider configuration.
-
-Tenant list уже показывает фактические user/course counters. Дальше нужно довести tenant detail, impersonation и operational diagnostics.
-
-## Техническая Архитектура
+## Техническая архитектура
 
 | Слой | Реализация |
 |---|---|
-| Frontend | Next.js 14 App Router, TypeScript, Tailwind |
+| Frontend | Next.js 14, React, TypeScript |
 | Backend | FastAPI, SQLAlchemy async, Alembic |
-| DB | Supabase Postgres + pgvector |
-| Storage | Supabase Storage, bucket `Kamilya LMS` |
-| Queue/cache | Valkey на VPS, TLS `6380`, AOF и `noeviction` |
-| Worker | Celery на VPS как `kamilya-worker.service`; AI, ingestion и apply-rules tasks |
-| API hosting | Render service `kamilya-lms-api` |
-| Web hosting | Vercel project `web` |
-| AI | Qwen over DGX/VPS tunnel, DeepSeek/Voyage fallback |
+| Database | PostgreSQL + pgvector |
+| Production DB/storage | Supabase |
+| Queue/cache | Valkey TLS на VPS |
+| Background jobs | Celery worker на VPS |
+| API hosting | Render |
+| Web hosting | Vercel |
+| Email | Resend |
+| Document conversion | Docling |
 
-## Database And Security
+Monorepo:
 
-Runtime и migrations разделены:
+```text
+apps/api/       FastAPI backend
+apps/web/       Next.js frontend
+packages/       shared Python package
+infra/          local/infra helpers
+docs/           current product, architecture and operations docs
+```
 
-- `DATABASE_URL` - runtime connection через `lms_app`, без `BYPASSRLS`.
-- `MIGRATION_DATABASE_URL` - admin connection для Alembic DDL.
+## Tenant isolation
 
-Supabase на 2026-07-21:
+Для каждой tenant-scoped сущности обязательны:
 
-- Alembic version: `0068`.
-- Tenant tables with `tenant_id`: RLS enabled and FORCE RLS enabled.
-- `provider_keys` исключена из общей tenant policy, потому что `tenant_id IS NULL` используется для global platform key.
-- Production Render и VPS worker обновлены на `lms_app` runtime connection.
+1. `tenant_id`;
+2. backend ownership validation;
+3. PostgreSQL RLS policy;
+4. FORCE RLS;
+5. runtime DB role без `BYPASSRLS`;
+6. cross-tenant integration test.
 
-## Auth And Tenant Acquisition
+`DATABASE_URL` используется приложением. `MIGRATION_DATABASE_URL` используется
+только для Alembic и административных операций.
 
-- `/login` поддерживает два режима: email OTP и Telegram code flow.
-- Email OTP: `POST /api/v1/auth/email/request-code` и `POST /api/v1/auth/email/verify-code`.
-- Production transactional email: Resend, sender `Kamilya LMS <no-reply@notify.kml.kz>`.
-- Resend sending domain: `notify.kml.kz`; DKIM/SPF/return-path/DMARC verified in DNS as of 2026-07-02.
-- `/register-tenant` создает trial tenant: 14 дней, 1 normal AI course, 1 job-instruction course, 10 learners, 3 system users.
-- Billing UI и superadmin lead management не завершены. Trial limits (количество и окончание периода) enforced на backend; login/dashboard остаются доступны для upgrade/support. См. `docs/NEXT_STEPS_2026-07-01.md`.
+## Trial
 
-Production evidence:
+Self-service registration создаёт tenant и первого `admin`. Вход поддерживает
+email OTP через Resend и Telegram flow.
 
-- AI job: `64891564-5bb5-4648-ba40-c3ec04d40621`.
-- Generated course: `7e434b25-1057-42b0-ac64-ed56daa6b041`.
-- Certificate issued: `KML-2026-5DE383`.
-- Source-governance backend revision: `5bc86c6`; production DB revision: `0068`.
-- Release gate: backend `356 passed`, frontend `41 passed`, typecheck/build passed, GitHub Actions `29820432047` succeeded.
+Текущий trial:
 
-Подробности: [docs/supabase-audit-2026-07-01.md](./docs/supabase-audit-2026-07-01.md).
+- 14 дней;
+- 1 обычный AI-курс;
+- 1 курс по должностной инструкции;
+- до 10 обучающихся;
+- до 3 системных пользователей.
 
-## Production Infra
+Лимиты и окончание периода должны проверяться backend, а не только UI.
+Полноценный автоматический billing не является обязательным для первого
+контролируемого пилота; активация может выполняться superadmin вручную.
 
-| Компонент | Где |
-|---|---|
-| Frontend | `https://app.kml.kz` on Vercel |
-| Backend | `https://kamilya-lms-api.onrender.com` on Render |
-| DB | Supabase pooler `aws-1-eu-central-1.pooler.supabase.com` |
-| Storage | Supabase Storage bucket `Kamilya LMS` |
-| Queue/cache | Valkey on VPS `173.249.51.164`, TLS `6380` |
-| Worker | VPS `173.249.51.164`, systemd `kamilya-worker` |
-| Docling | VPS service behind `docling.kml.kz` |
-| WhatsApp gateway | VPS service behind `wa.kml.kz` |
+## Production
 
-`api.kml.kz` не является production API source of truth; production API сейчас Render URL.
+Текущие commit, deploy, DB revision и release blockers не дублируются здесь.
+Источник правды:
+
+- [`docs/PROJECT-CONTEXT.md`](docs/PROJECT-CONTEXT.md);
+- [`docs/PRODUCTION_READINESS.md`](docs/PRODUCTION_READINESS.md).
+
+На 2026-07-27 первый реальный tenant заблокирован до обновления Celery worker,
+restore drill и минимальной наблюдаемости.
 
 ## Документация
 
-- Product/current state: this file and [docs/PROJECT-CONTEXT.md](./docs/PROJECT-CONTEXT.md)
-- Deployment: [DEPLOY.md](./DEPLOY.md)
-- VPS: [docs/VPS_CONNECTION_GUIDE.md](./docs/VPS_CONNECTION_GUIDE.md)
-- RBAC: [docs/adr/0012-rbac-admin-vs-methodologist.md](./docs/adr/0012-rbac-admin-vs-methodologist.md)
-- Auth/session: [docs/adr/0008-auth-strategy.md](./docs/adr/0008-auth-strategy.md)
-- RLS/app role: [docs/adr/0004-rls-force-and-app-role.md](./docs/adr/0004-rls-force-and-app-role.md)
-- Supabase audit: [docs/supabase-audit-2026-07-01.md](./docs/supabase-audit-2026-07-01.md)
-- Tenant registration/trial: [docs/product/tenant-registration-trial-flow.md](./docs/product/tenant-registration-trial-flow.md)
-- User guide: [docs/USER_DOCUMENTATION_RU.md](./docs/USER_DOCUMENTATION_RU.md)
-- Methodologist release guide: [docs/methodologist-course-release-guide-ru.md](./docs/methodologist-course-release-guide-ru.md)
+- [Индекс](docs/DOCUMENTATION_INDEX.md)
+- [Контекст проекта](docs/PROJECT-CONTEXT.md)
+- [Production readiness](docs/PRODUCTION_READINESS.md)
+- [Product backlog](docs/PRODUCT_BACKLOG.md)
+- [Внутренняя документация](docs/PROJECT_INTERNAL_DOCUMENTATION.md)
+- [Руководство пользователя](docs/USER_DOCUMENTATION_RU.md)
+- [ADR](docs/adr/)
 
-Old audits and large TZ files remain historical/spec references. Short completed plans should be removed once their result is reflected here or in ADR/audit docs.
+Исторические отчёты и ТЗ доступны в Git history и не хранятся рядом с
+действующей документацией.

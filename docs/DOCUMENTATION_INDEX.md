@@ -1,23 +1,40 @@
 # Документация Kamilya LMS
 
+Этот индекс содержит только действующие документы. История решений и
+выполненных работ доступна в Git, но не используется как описание текущего
+production.
+
+## Начать отсюда
+
+- [Контекст проекта и production](PROJECT-CONTEXT.md)
+- [Готовность первого production-тенанта](PRODUCTION_READINESS.md)
+- [Актуальный продуктовый backlog](PRODUCT_BACKLOG.md)
+- [Внутренняя документация](PROJECT_INTERNAL_DOCUMENTATION.md)
 - [Handoff для нового Codex или другого компьютера](CODEX_HANDOFF.md)
 
-## Для пользователей
+## Пользователям
 
 - [Руководство пользователя](USER_DOCUMENTATION_RU.md)
-- [Выпуск и назначение курса: памятка методолога](methodologist-course-release-guide-ru.md)
+- [Руководство методолога: выпуск и назначение курса](methodologist-course-release-guide-ru.md)
+- [Авторизация tenant: email, Telegram и Resend](architecture/2026-07-10_tenant-auth-email-telegram-resend.md)
+- [Регистрация tenant и trial](product/tenant-registration-trial-flow.md)
 
-## Для команды проекта
+## Разработчикам
 
-- [Внутренняя документация проекта](PROJECT_INTERNAL_DOCUMENTATION.md)
-- [Текущий контекст проекта и production](PROJECT-CONTEXT.md)
-- [Архитектура авторизации tenant](architecture/2026-07-10_tenant-auth-email-telegram-resend.md)
-- [Управление источниками AI-курса](plans/done/2026-07-21_document-source-governance.md)
-- [ADR](adr/)
-- [Планы и отчёты](plans/)
-- [API reference](api-reference.md)
-- [Lessons learned](LESSONS.md)
+- [Описание продукта](../PROJECT.md)
+- [Live OpenAPI](https://kamilya-lms-api.onrender.com/docs)
+- [Архитектурные решения](adr/)
+- [Celery worker](INFRA_CELERY_WORKER.md)
+- [VPS и сервисы](VPS_CONNECTION_GUIDE.md)
+- [Уроки проекта](LESSONS.md)
 
-## Правило актуальности
+## Правила актуальности
 
-Новые product-facing изменения сначала отражаются во внутренней документации, затем в пользовательском руководстве. Секреты и реальные доступы в документацию не добавляются.
+1. Текущее состояние production фиксируется только в
+   `PROJECT-CONTEXT.md` и `PRODUCTION_READINESS.md`.
+2. Открытые продуктовые задачи фиксируются только в `PRODUCT_BACKLOG.md`.
+3. Выполненный эпик обновляет продуктовую или эксплуатационную документацию;
+   отдельный датированный «финальный отчёт» не создаётся.
+4. Исторические ТЗ и отчёты удаляются из рабочего дерева. При необходимости
+   они доступны через Git history.
+5. Секреты, пароли, токены и значения `.env` в документацию не добавляются.
