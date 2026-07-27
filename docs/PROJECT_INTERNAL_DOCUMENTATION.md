@@ -96,6 +96,16 @@ npm run dev
 3. Создаётся tenant, первый admin и trial-лимиты.
 4. Вход выполняется email OTP через Resend либо Telegram-потоком, если он настроен.
 5. После входа пользователь должен попасть в tenant dashboard, а не в student dashboard.
+6. Admin получает один governance-шаг: добавить активного methodologist в
+   системную команду.
+7. Methodologist получает отдельные шаги: добавить обучающегося, подготовить
+   документ, создать курс, назначить обучение, создать invitation link и
+   проверить завершённое обучение в журнале.
+
+Onboarding status вычисляется backend по tenant-scoped данным. Admin не видит
+learning-шаги, methodologist не видит governance-шаг. Trial state возвращает
+срок и отдельные счётчики. Исчерпание ресурса даёт состояние `limited`, а
+истечение периода — `support_required`.
 
 ### 6.2 Подготовка персонала
 
@@ -223,7 +233,8 @@ Position
 - программы обучения (`/learning-paths`): прямые и групповые назначения
   материализуют только доступные сейчас курсы в `enrollments` с
   `source=learning_path`;
-- cohorts (`/cohorts`), где кнопка **Apply assignments** материализует `user × course` в `enrollments` с `source=cohort`.
+- cohorts (`/cohorts`) хранят только reusable audience. Cohort выбирается в
+  программе или другом assignment rule, но сам не хранит и не применяет курсы.
 
 Материализация идемпотентна: повторное применение не создаёт дублей, существующее завершённое обучение не сбрасывается.
 
@@ -247,7 +258,9 @@ Kiosk — отдельный режим входа по QR/ссылке. Product
 - summary: assigned, in progress, completed;
 - CSV export с локализованными пользовательскими заголовками, UTF-8 BOM и
   разделителем `;` для корректного открытия в русской версии Excel;
-- `/admin` — агрегированные trial-лимиты и tenant-сводка для администратора;
+- `/admin` — governance-сводка и системная команда для администратора;
+- trial status и role onboarding берутся из
+  `/api/v1/admin/onboarding-status`, без второго дублирующего запроса;
 - `/competencies` — связь компетенций с должностями и курсами;
 - `/announcements` и `/surveys` — сохранённые коммуникационные модули,
   временно скрытые из навигации до выполнения продуктового backlog.
@@ -304,7 +317,27 @@ Kiosk — отдельный режим входа по QR/ссылке. Product
 
 ### Cohorts
 
-Таблицы `cohorts`, `cohort_members`, `cohort_courses`. Миграция `0060`. Назначения создаются отдельным apply endpoint, а не при каждом изменении UI.
+Таблицы `cohorts`, `cohort_members`, `cohort_courses` появились в миграции
+`0060`. Текущий продуктовый контракт использует только `cohorts` и
+`cohort_members`: группа является сохранённой аудиторией сотрудников.
+`cohort_courses` сохранена только для expand-compatible чтения старых данных.
+API изменения course links отклоняет, endpoints apply/progress не являются
+рабочим продуктовым flow. Новые назначения создаются из курса, программы или
+правила.
+
+### Operational console
+
+`/admin/super/operations` и
+`/api/v1/admin/super/operations/*` доступны только `superadmin`.
+
+- summary содержит агрегированные AI queue/running/failure, индексацию и
+  cleanup документов, состояние DB pool и runtime процесса;
+- tenant names, email, filenames и job messages не возвращаются;
+- synthetic cleanup по умолчанию выполняет dry-run;
+- удаление допускается только для `is_demo=true`, фиксированного test-prefix,
+  возраста не менее 24 часов и после точного typed confirmation;
+- cleanup ограничен 100 tenant за один запуск и повторно проверяет guards перед
+  каждым удалением.
 
 ## 8. Миграции и deploy
 

@@ -73,8 +73,8 @@
       "description": "The course was assigned by a department rule. Change it in training rules."
     },
     "cohort": {
-      "label": "Via group",
-      "description": "The assignment was created for an employee group. Manage the group audience and its learning scenario."
+      "label": "Legacy group rule",
+      "description": "This historical assignment came from the former group rule. Its result is retained; new delivery starts from a program or rule."
     },
     "learningPath": {
       "label": "By program",

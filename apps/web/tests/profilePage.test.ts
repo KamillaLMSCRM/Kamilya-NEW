@@ -12,7 +12,8 @@ describe('common profile contract', () => {
     expect(profileSource).toContain("api.patch('/v1/users/me'");
     expect(profileSource).toContain('first_name');
     expect(profileSource).toContain('last_name');
-    expect(profileSource).toContain('settings.profile');
+    expect(profileSource).toContain('nav.myProfile');
+    expect(profileSource).toContain('readOnly');
   });
 
   it('keeps personal profile fields out of tenant settings', () => {
@@ -26,6 +27,6 @@ describe('common profile contract', () => {
 
   it('provides a visible profile entry from the top bar', () => {
     expect(topBarSource).toContain('href="/profile"');
-    expect(topBarSource).toContain('settings.profile');
+    expect(topBarSource).toContain('nav.myProfile');
   });
 });

@@ -61,6 +61,11 @@
 
 ### Наблюдаемость
 
+- Superadmin console `/admin/super/operations` показывает агрегаты AI queue,
+  документов, DB pool и процесса без tenant PII.
+- Cleanup synthetic tenants выполняет dry-run по умолчанию и допускает
+  удаление только demo tenant с фиксированным test-prefix, возрастом не менее
+  24 часов и typed confirmation.
 - `kamilya-ops-check.timer` active/enabled, запуск каждые 5 минут.
 - Проверяются worker unit, Valkey unit, API, frontend, возраст backup,
   заполнение диска и реальный Celery inspect ping.
@@ -119,6 +124,7 @@
 
 ## Открытый P1
 
-Продуктовые улучшения ведутся только в
-[`PRODUCT_BACKLOG.md`](PRODUCT_BACKLOG.md). Они не смешиваются с закрытыми
-операционными P0 выше.
+Автоматическая отправка invitation link через Resend намеренно не входит в
+этот release: методолог создаёт ссылку и передаёт её вручную. Остальные
+продуктовые улучшения ведутся только в
+[`PRODUCT_BACKLOG.md`](PRODUCT_BACKLOG.md).

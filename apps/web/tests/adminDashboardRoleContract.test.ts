@@ -8,16 +8,16 @@ const source = readFileSync(resolve(process.cwd(), 'src/app/admin/page.tsx'), 'u
 describe('tenant admin dashboard role contract', () => {
   it('does not request or render learning-management dashboard data', () => {
     expect(source).not.toContain('/v1/admin/stats');
-    expect(source).not.toContain('OnboardingChecklist');
+    expect(source).toContain('OnboardingChecklist');
     expect(source).not.toContain('/staff?tab=');
     expect(source).not.toContain('/courses');
     expect(source).not.toContain('/assignments');
     expect(source).not.toContain('/training-log');
   });
 
-  it('loads only the system-team preview and tenant plan usage', () => {
+  it('loads only the system-team preview and avoids a duplicate trial request', () => {
     expect(source).toContain('/v1/users?per_page=5');
-    expect(source).toContain('/v1/admin/trial-usage');
+    expect(source).not.toContain('/v1/admin/trial-usage');
     expect(source).not.toContain('include_students=true');
   });
 
