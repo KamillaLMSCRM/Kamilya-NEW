@@ -60,7 +60,8 @@ export type NavigationIcon =
   | 'settings'
   | 'kiosk'
   | 'log'
-  | 'building';
+  | 'building'
+  | 'activity';
 
 type MatchKind = 'exact' | 'prefix' | 'learner-course';
 
@@ -114,6 +115,7 @@ export const ROUTES: readonly AppRoute[] = [
   { id: 'surveys-learn', href: '/surveys', capability: 'learn' },
 
   { id: 'platform', href: '/admin/super', capability: 'manage_platform', match: 'prefix', labelKey: 'superadmin.tenants.title', section: 'platform', icon: 'building', order: 10, sidebar: true, commandPalette: true },
+  { id: 'platform-operations', href: '/admin/super/operations', capability: 'manage_platform', match: 'prefix', labelKey: 'superadmin.operations.navLabel', section: 'platform', icon: 'activity', order: 15, sidebar: true, commandPalette: true },
   { id: 'providers', href: '/admin/providers', capability: 'manage_platform', match: 'prefix', labelKey: 'providers.title', section: 'platform', icon: 'settings', order: 20, sidebar: true, commandPalette: true },
 ];
 

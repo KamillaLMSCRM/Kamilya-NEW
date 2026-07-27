@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
   Award,
+  Activity,
   BookOpen,
   BriefcaseBusiness,
   Building2,
@@ -63,6 +64,7 @@ const ICONS: Record<NavigationIcon, LucideIcon> = {
   kiosk: Monitor,
   log: Map,
   building: Building2,
+  activity: Activity,
 };
 
 interface SidebarProps {
