@@ -186,6 +186,7 @@ async def upload_position_instruction(
         title=f"Должностная инструкция: {pos.name}",
         description=f"Действующая должностная инструкция для должности {pos.name}",
         category="job_instruction",
+        new_version_of=None,
         db=db,
         user=user,
     )

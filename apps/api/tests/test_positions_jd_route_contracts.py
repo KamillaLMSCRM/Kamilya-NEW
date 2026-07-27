@@ -76,7 +76,10 @@ def test_positions_routes_require_learning_content_role() -> None:
 
 def test_jd_router_closes_direct_document_upload_rbac_bypass() -> None:
     """The direct Python call skips upload_document's FastAPI dependency."""
-    assert "await upload_document(" in inspect.getsource(upload_position_instruction)
+    source = inspect.getsource(upload_position_instruction)
+    assert "await upload_document(" in source
+    # Direct Python calls do not let FastAPI replace Form(None) defaults.
+    assert "new_version_of=None" in source
 
     for route in jd_router.routes:
         if isinstance(route, APIRoute):
