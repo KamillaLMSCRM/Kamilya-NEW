@@ -634,18 +634,25 @@ export default function AIGeneratePage() {
       <h1 className="text-2xl font-bold text-foreground font-display">{t('ai.title')}</h1>
 
       {/* Step indicator */}
-      <div className="flex items-center gap-4">
+      <div className="grid grid-cols-3 gap-2 sm:flex sm:items-center sm:gap-4">
         {stepConfig.map((s, i) => (
-          <div key={s.key} className="flex items-center gap-2">
+          <div
+            key={s.key}
+            className="flex min-w-0 flex-col items-center gap-1 text-center sm:flex-row sm:gap-2 sm:text-left"
+          >
             <div className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold ${
               step === s.key ? 'bg-primary text-white' : 'bg-muted text-muted-foreground'
             }`}>
               {s.num}
             </div>
-            <span className={`text-sm font-medium ${step === s.key ? 'text-foreground' : 'text-muted-foreground'}`}>
+            <span className={`text-xs font-medium leading-tight sm:text-sm ${
+              step === s.key ? 'text-foreground' : 'text-muted-foreground'
+            }`}>
               {s.label}
             </span>
-            {i < stepConfig.length - 1 && <div className="w-8 h-px bg-muted ml-2" />}
+            {i < stepConfig.length - 1 && (
+              <div className="ml-2 hidden h-px w-8 bg-muted sm:block" />
+            )}
           </div>
         ))}
       </div>
