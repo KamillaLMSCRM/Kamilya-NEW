@@ -14,7 +14,7 @@ from app.modules.admin.superadmin.operations import (
     SyntheticCleanupRequest,
     _is_allowed_synthetic_tenant,
 )
-from app.modules.admin.superadmin.router import router
+from app.main import app
 
 
 def _tenant(*, slug: str, is_demo: bool) -> Tenant:
@@ -28,9 +28,9 @@ def _tenant(*, slug: str, is_demo: bool) -> Tenant:
 
 
 def test_operations_router_is_registered_inside_superadmin_router():
-    paths = {route.path for route in router.routes[-1].original_router.routes}
-    assert "/operations/summary" in paths
-    assert "/operations/cleanup-synthetic" in paths
+    paths = app.openapi()["paths"]
+    assert "/api/v1/admin/super/operations/summary" in paths
+    assert "/api/v1/admin/super/operations/cleanup-synthetic" in paths
 
 
 def test_cleanup_guard_requires_demo_flag_and_fixed_prefix():
