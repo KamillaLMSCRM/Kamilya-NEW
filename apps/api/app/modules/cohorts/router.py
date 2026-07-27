@@ -121,7 +121,16 @@ async def replace_members(
         raise HTTPException(status_code=422, detail="Duplicate members are not allowed")
     valid_users = (
         set(
-            (await db.execute(select(User.id).where(User.tenant_id == user.tenant_id, User.id.in_(payload.user_ids))))
+            (
+                await db.execute(
+                    select(User.id).where(
+                        User.tenant_id == user.tenant_id,
+                        User.id.in_(payload.user_ids),
+                        User.role == "student",
+                        User.is_active.is_(True),
+                    )
+                )
+            )
             .scalars()
             .all()
         )

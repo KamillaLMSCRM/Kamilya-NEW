@@ -21,12 +21,12 @@ class OnboardingStep(BaseModel):
     """
 
     id: Literal[
-        "profile",
+        "team",
         "staff_import",
         "documents",
         "first_course",
         "first_assignment",
-        "kiosk_or_invite",
+        "invitation",
         "training_log",
     ]
     label: str
@@ -34,6 +34,8 @@ class OnboardingStep(BaseModel):
     href: str
     # Optional context: number of users, courses etc. for the step badge.
     badge: str | None = None
+    # Ownership is explicit so each role sees only the work it can complete.
+    owner: Literal["admin", "methodologist"] = "methodologist"
 
     model_config = ConfigDict(extra="forbid")
 
@@ -51,6 +53,11 @@ class OnboardingStatus(BaseModel):
     plan: str | None = None
     max_users: int | None = None
     active_users: int | None = None
+    role: Literal["admin", "methodologist", "superadmin"] | None = None
+    trial_state: Literal["active", "nearing_expiry", "expired", "not_trial"] = "not_trial"
+    trial_access_state: Literal["available", "limited", "support_required", "not_applicable"] = "not_applicable"
+    trial_exhausted_limits: list[str] = Field(default_factory=list)
+    trial_usage: dict[str, dict[str, int | None]] = Field(default_factory=dict)
 
 
 class OnboardingMessage(BaseModel):

@@ -48,6 +48,7 @@ describe('training-log responsive presentation', () => {
       'department',
       'position',
       'type',
+      'source',
       'score',
       'completedAt',
       'certificate',

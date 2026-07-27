@@ -13,6 +13,7 @@ import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { toast } from '@/components/ui/Toast';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
+import { getAssignmentSourceInfo } from '@/lib/assignmentSource';
 
 interface Course {
   id: string;
@@ -75,14 +76,6 @@ const STATUS_BADGE_VARIANT: Record<string, 'default' | 'outline' | 'secondary'> 
   in_progress: 'secondary',
   completed: 'default',
 };
-const SOURCE_LABELS: Record<string, string> = {
-  manual: 'Вручную',
-  position: 'Должность',
-  department: 'Отдел',
-  cohort: 'Группа',
-  learning_path: 'Программа обучения',
-};
-
 // ── component ─────────────────────────────────────────────
 
 export default function EnrollmentsPage() {
@@ -179,8 +172,11 @@ export default function EnrollmentsPage() {
   };
 
   const handleUnenroll = async (enrollment: Enrollment) => {
-    if (enrollment.source !== 'manual') {
-      toast.info('Это назначение управляется правилами отдела или должности');
+    const sourceInfo = getAssignmentSourceInfo(enrollment.source);
+    if (sourceInfo.managedByRule) {
+      toast.info(t(sourceInfo.labelKey), {
+        description: t(sourceInfo.descriptionKey),
+      });
       return;
     }
     const ok = await confirm({
@@ -363,6 +359,7 @@ export default function EnrollmentsPage() {
                     <tbody>
                       {filteredEnrollments.map((e) => {
                         const u = usersById.get(e.user_id);
+                        const sourceInfo = getAssignmentSourceInfo(e.source);
                         return (
                           <tr key={e.id} className="border-t">
                             <td className="p-2 text-sm">
@@ -393,18 +390,23 @@ export default function EnrollmentsPage() {
                               </Badge>
                             </td>
                             <td className="p-2">
-                              <Badge variant={e.source === 'manual' ? 'outline' : 'secondary'}>
-                                {SOURCE_LABELS[e.source] || e.source}
-                              </Badge>
+                              <span title={t(sourceInfo.descriptionKey)}>
+                                <Badge variant={sourceInfo.managedByRule ? 'secondary' : 'outline'}>
+                                  {t(sourceInfo.labelKey)}
+                                </Badge>
+                              </span>
+                              <p className="mt-1 max-w-56 text-xs text-muted-foreground">
+                                {t(sourceInfo.descriptionKey)}
+                              </p>
                             </td>
                             <td className="p-2">
                               <Button
                                 variant="outline"
                                 size="sm"
                                 onClick={() => handleUnenroll(e)}
-                                disabled={e.source !== 'manual'}
+                                disabled={sourceInfo.managedByRule}
                               >
-                                {e.source === 'manual' ? t('common.delete') : 'Через правила'}
+                                {sourceInfo.managedByRule ? t('assignmentSources.managedByRule') : t('common.delete')}
                               </Button>
                             </td>
                           </tr>

@@ -18,7 +18,10 @@ export default function SettingsPage() {
 
   return (
     <div className="max-w-3xl space-y-6">
-      <h1 className="text-2xl font-bold text-foreground font-display">{t('settings.title')}</h1>
+      <div>
+        <h1 className="text-2xl font-bold text-foreground font-display">{t('settings.organizationTitle')}</h1>
+        <p className="mt-1 text-sm text-muted-foreground">{t('settings.organizationSubtitle')}</p>
+      </div>
       <Card>
         <CardContent className="space-y-4 p-6">
           <div className="flex items-start gap-3">
@@ -28,12 +31,12 @@ export default function SettingsPage() {
               <p className="mt-1 text-sm text-muted-foreground">{user?.tenant?.slug || ''}</p>
             </div>
           </div>
-          <p className="text-sm text-muted-foreground">{t('settings.security')}</p>
+          <p className="text-sm text-muted-foreground">{t('settings.organizationSubtitle')}</p>
         </CardContent>
       </Card>
 
       <section aria-labelledby="tenant-settings-links" className="space-y-3">
-        <h2 id="tenant-settings-links" className="text-lg font-semibold text-foreground">{t('settings.title')}</h2>
+        <h2 id="tenant-settings-links" className="text-lg font-semibold text-foreground">{t('settings.sectionsTitle')}</h2>
         <div className="grid gap-3 sm:grid-cols-2">
           {links.map(({ href, label, icon: Icon }) => (
             <Link key={href} href={href} className="flex min-h-16 items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 text-sm font-medium text-foreground transition-colors hover:border-primary/50 hover:bg-muted">

@@ -223,8 +223,8 @@ export default function TopBar({ title, onMenuClick }: TopBarProps) {
         <Link
           href="/profile"
           className="hidden h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary transition-colors hover:bg-primary/20 sm:flex"
-          aria-label={t('settings.profile')}
-          title={t('settings.profile')}
+          aria-label={t('nav.myProfile')}
+          title={t('nav.myProfile')}
         >
           {user?.full_name?.[0] || '?'}
         </Link>

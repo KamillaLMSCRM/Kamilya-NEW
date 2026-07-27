@@ -78,7 +78,7 @@ export interface AppRoute {
 }
 
 export const ROUTES: readonly AppRoute[] = [
-  { id: 'profile', href: '/profile', capability: 'manage_profile', labelKey: 'settings.profile' },
+  { id: 'profile', href: '/profile', capability: 'manage_profile', labelKey: 'nav.myProfile' },
   { id: 'methodologist-dashboard', href: '/dashboard', capability: 'manage_content', labelKey: 'nav.dashboard', section: 'overview', icon: 'dashboard', order: 10, sidebar: true, commandPalette: true },
   { id: 'ai-generation', href: '/ai/generate', capability: 'manage_content', match: 'prefix', labelKey: 'nav.aiGeneration', section: 'content', icon: 'sparkles', order: 20, sidebar: true, commandPalette: true },
   { id: 'courses', href: '/courses', capability: 'manage_content', match: 'prefix', labelKey: 'nav.courses', section: 'content', icon: 'book', order: 30, sidebar: true, commandPalette: true },

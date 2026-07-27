@@ -214,6 +214,8 @@ async def generate_course(
         status="pending",
         course_id=req.course_id,
         created_at=job.created_at,
+        updated_at=job.updated_at,
+        started_at=job.started_at,
         progress=0,
         stage="queued",
         message="Job queued",
@@ -242,6 +244,8 @@ async def list_jobs(
             status=j.status,
             course_id=_job_course_uuid(j.course_id),
             created_at=j.created_at,
+            updated_at=j.updated_at,
+            started_at=j.started_at,
             progress=j.progress,
             stage=j.stage,
             message=j.message or "",
@@ -266,6 +270,8 @@ async def get_job(
         status=job.status,
         course_id=_job_course_uuid(job.course_id),
         created_at=job.created_at,
+        updated_at=job.updated_at,
+        started_at=job.started_at,
         progress=job.progress,
         stage=job.stage,
         message=job.message or "",
@@ -983,7 +989,8 @@ async def regenerate_module(
 
     return AIJobResponse(
         id=job.id, status="pending", course_id=module.course_id,
-        created_at=job.created_at, progress=0, stage="queued",
+        created_at=job.created_at, updated_at=job.updated_at,
+        started_at=job.started_at, progress=0, stage="queued",
         message="Перегенерация модуля запущена",
     )
 
@@ -1024,7 +1031,8 @@ async def regenerate_lesson(
 
     return AIJobResponse(
         id=job.id, status="pending", course_id=module.course_id,
-        created_at=job.created_at, progress=0, stage="queued",
+        created_at=job.created_at, updated_at=job.updated_at,
+        started_at=job.started_at, progress=0, stage="queued",
         message="Перегенерация урока запущена",
     )
 

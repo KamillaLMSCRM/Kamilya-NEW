@@ -24,6 +24,7 @@ import {
   type TrainingLogFilters,
 } from './query';
 import { TRAINING_LOG_COLUMN_CLASS as columnClass } from './presentation';
+import { getAssignmentSourceInfo } from '@/lib/assignmentSource';
 
 /**
  * Training log — единый журнал обучения (P0.3 first-tenant hardening).
@@ -343,7 +344,9 @@ export default function AdminTrainingLogPage() {
           ) : (
             <>
               <div className="divide-y divide-border md:hidden" data-testid="training-log-mobile-list">
-                {items.map((row, idx) => (
+                {items.map((row, idx) => {
+                  const sourceInfo = getAssignmentSourceInfo(row.enrollment_source);
+                  return (
                   <article key={`${row.user_id}-${row.course_id}-${idx}`} className="space-y-3 p-4">
                     <div>
                       <h2 className="font-medium text-foreground">{row.full_name}</h2>
@@ -355,8 +358,12 @@ export default function AdminTrainingLogPage() {
                       </Badge>
                       <span className="text-sm tabular-nums text-muted-foreground">{t('trainingLog.table.progress')}: {row.progress_percent}%</span>
                     </div>
+                    <p className="text-xs text-muted-foreground">
+                      {t('assignmentSources.title')}: {t(sourceInfo.labelKey)}. {t(sourceInfo.descriptionKey)}
+                    </p>
                   </article>
-                ))}
+                  );
+                })}
               </div>
               <div className="hidden overflow-x-auto md:block">
               <Table>
@@ -369,6 +376,7 @@ export default function AdminTrainingLogPage() {
                     <th className={columnClass.course}>{t('trainingLog.table.course')}</th>
                     <th className={columnClass.type}>{t('trainingLog.table.type')}</th>
                     <th className={columnClass.status}>{t('trainingLog.table.status')}</th>
+                    <th className={columnClass.source}>{t('assignmentSources.title')}</th>
                     <th className={columnClass.progress}>{t('trainingLog.table.progress')}</th>
                     <th className={columnClass.score}>{t('trainingLog.table.score')}</th>
                     <th className={columnClass.completedAt}>{t('trainingLog.table.completedAt')}</th>
@@ -376,7 +384,9 @@ export default function AdminTrainingLogPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {items.map((row, idx) => (
+                  {items.map((row, idx) => {
+                    const sourceInfo = getAssignmentSourceInfo(row.enrollment_source);
+                    return (
                     <tr key={`${row.user_id}-${row.course_id}-${idx}`} className="border-t border-border">
                       <td className={columnClass.fullName}>
                         <div className="font-medium text-foreground">{row.full_name}</div>
@@ -416,6 +426,18 @@ export default function AdminTrainingLogPage() {
                               : t('trainingLog.badge.assigned')}
                         </Badge>
                       </td>
+                      <td className={columnClass.source}>
+                        <details>
+                          <summary className="cursor-help list-none">
+                            <Badge variant={sourceInfo.managedByRule ? 'secondary' : 'outline'}>
+                              {t(sourceInfo.labelKey)}
+                            </Badge>
+                          </summary>
+                          <p className="mt-1 min-w-52 text-xs text-muted-foreground">
+                            {t(sourceInfo.descriptionKey)}
+                          </p>
+                        </details>
+                      </td>
                       <td className={`${columnClass.progress} text-sm tabular-nums`}>
                         {row.progress_percent}%
                       </td>
@@ -433,7 +455,8 @@ export default function AdminTrainingLogPage() {
                         )}
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </Table>
             </div>

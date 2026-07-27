@@ -22,6 +22,11 @@ import {
 
 import { toast } from '@/components/ui/Toast';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
+import {
+  AsyncOperationStatus,
+  resolveAsyncOperationState,
+  type AsyncOperation,
+} from '@/components/ui/AsyncOperationStatus';
 import { useT } from '@/i18n/useT';
 import { api } from '@/lib/api';
 import {
@@ -37,10 +42,17 @@ import {
 
 const PAGE_SIZE = 25;
 
+interface DocumentBackgroundOperation {
+  document: DocumentCatalogItem;
+  jobId: string;
+  job: AsyncOperation;
+}
+
 export default function DocumentsPage() {
   const { t } = useT();
   const { confirm, dialog } = useConfirm();
   const fileRef = useRef<HTMLInputElement>(null);
+  const pollingJobRef = useRef<string | null>(null);
   const [documents, setDocuments] = useState<DocumentCatalogItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -66,6 +78,8 @@ export default function DocumentsPage() {
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState<DocumentCategory>('general');
   const [uploading, setUploading] = useState(false);
+  const [uploadStartedAt, setUploadStartedAt] = useState<string | null>(null);
+  const [backgroundOperation, setBackgroundOperation] = useState<DocumentBackgroundOperation | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [reindexingId, setReindexingId] = useState<string | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
@@ -135,6 +149,7 @@ export default function DocumentsPage() {
   const handleUpload = async () => {
     if (!selectedFile) return;
     setUploading(true);
+    setUploadStartedAt(new Date().toISOString());
     const formData = new FormData();
     formData.append('file', selectedFile);
     formData.append('title', title.trim() || selectedFile.name);
@@ -159,31 +174,43 @@ export default function DocumentsPage() {
       });
     } finally {
       setUploading(false);
+      setUploadStartedAt(null);
     }
   };
 
-  const pollDocumentJob = async (jobId: string, successMessage: string) => {
-    for (let attempt = 0; attempt < 60; attempt += 1) {
-      await new Promise((resolve) => window.setTimeout(resolve, 2000));
-      try {
-        const response = await api.get(`/v1/ai/jobs/${jobId}`);
-        if (response.data.status === 'completed') {
-          toast.success(successMessage);
-          await fetchDocuments();
-          return;
+  const pollDocumentJob = async (
+    jobId: string,
+    document: DocumentCatalogItem,
+    successMessage: string,
+  ) => {
+    if (pollingJobRef.current === jobId) return;
+    pollingJobRef.current = jobId;
+    try {
+      for (let attempt = 0; attempt < 60; attempt += 1) {
+        await new Promise((resolve) => window.setTimeout(resolve, 2000));
+        try {
+          const response = await api.get(`/v1/ai/jobs/${jobId}`);
+          setBackgroundOperation({ document, jobId, job: response.data });
+          if (response.data.status === 'completed') {
+            toast.success(successMessage);
+            await fetchDocuments();
+            return;
+          }
+          if (['failed', 'cancelled'].includes(response.data.status)) {
+            toast.error(t('documents.backgroundJobFailed'), {
+              description: response.data.message || t('documents.retry'),
+            });
+            await fetchDocuments();
+            return;
+          }
+        } catch (error) {
+          console.error('Document job polling failed', error);
         }
-        if (['failed', 'cancelled'].includes(response.data.status)) {
-          toast.error(t('documents.backgroundJobFailed'), {
-            description: response.data.message || t('documents.retry'),
-          });
-          await fetchDocuments();
-          return;
-        }
-      } catch (error) {
-        console.error('Document job polling failed', error);
       }
+      await fetchDocuments();
+    } finally {
+      if (pollingJobRef.current === jobId) pollingJobRef.current = null;
     }
-    await fetchDocuments();
   };
 
   const handleReindex = async (document: DocumentCatalogItem) => {
@@ -206,8 +233,21 @@ export default function DocumentsPage() {
             }
           : item
       )));
+      const startedAt = new Date().toISOString();
+      setBackgroundOperation({
+        document,
+        jobId: response.data.job_id,
+        job: {
+          status: 'pending',
+          stage: 'queued',
+          progress: 0,
+          message: t('documents.reindexStarted'),
+          created_at: startedAt,
+          updated_at: startedAt,
+        },
+      });
       toast.success(t('documents.reindexStarted'), { description: document.title });
-      void pollDocumentJob(response.data.job_id, t('documents.reindexCompleted'));
+      void pollDocumentJob(response.data.job_id, document, t('documents.reindexCompleted'));
     } catch (error) {
       toast.error(t('documents.reindexFailed'), {
         description: documentDeleteError(error),
@@ -215,6 +255,20 @@ export default function DocumentsPage() {
     } finally {
       setReindexingId(null);
     }
+  };
+
+  const retryBackgroundOperation = () => {
+    if (!backgroundOperation) return;
+    const state = resolveAsyncOperationState(backgroundOperation.job);
+    if (state === 'stalled') {
+      void pollDocumentJob(
+        backgroundOperation.jobId,
+        backgroundOperation.document,
+        t('documents.reindexCompleted'),
+      );
+      return;
+    }
+    void handleReindex(backgroundOperation.document);
   };
 
   const handleDownload = async (document: DocumentCatalogItem) => {
@@ -298,6 +352,47 @@ export default function DocumentsPage() {
           {t('documents.upload')}
         </button>
       </header>
+
+      {uploading && uploadStartedAt && (
+        <AsyncOperationStatus
+          operation={{
+            status: 'running',
+            message: selectedFile?.name,
+            created_at: uploadStartedAt,
+            updated_at: uploadStartedAt,
+          }}
+          title={t('documents.uploading')}
+          labels={{
+            queued: t('asyncOperation.queued'),
+            running: t('asyncOperation.running'),
+            completed: t('asyncOperation.completed'),
+            failed: t('asyncOperation.failed'),
+            cancelled: t('asyncOperation.cancelled'),
+            stalled: t('asyncOperation.stalled'),
+          }}
+        />
+      )}
+
+      {backgroundOperation && (
+        <AsyncOperationStatus
+          operation={backgroundOperation.job}
+          title={`${t('documents.reindex')}: ${backgroundOperation.document.title}`}
+          labels={{
+            queued: t('asyncOperation.queued'),
+            running: t('asyncOperation.running'),
+            completed: t('asyncOperation.completed'),
+            failed: t('asyncOperation.failed'),
+            cancelled: t('asyncOperation.cancelled'),
+            stalled: t('asyncOperation.stalled'),
+          }}
+          retryLabel={
+            resolveAsyncOperationState(backgroundOperation.job) === 'stalled'
+              ? t('asyncOperation.checkAgain')
+              : t('asyncOperation.retry')
+          }
+          onRetry={retryBackgroundOperation}
+        />
+      )}
 
       <div className="flex flex-wrap gap-1 border-b border-border pb-3" role="tablist" aria-label={t('documents.libraryViews')}>
         {([

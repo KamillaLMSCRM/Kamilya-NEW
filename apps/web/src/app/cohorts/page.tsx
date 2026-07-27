@@ -107,7 +107,13 @@ export default function CohortsPage() {
   if (loadState === 'error') return <div className="space-y-3 p-6"><p className="text-sm text-destructive">{t('cohorts.loadFailed')}</p><Button variant="outline" onClick={load}>{t('common.retry')}</Button></div>;
 
   return <div className="mx-auto max-w-7xl space-y-6 p-6">
-    <div><h1 className="text-2xl font-bold">{t('cohorts.title')}</h1></div>
+    <div>
+      <h1 className="text-2xl font-bold">{t('cohorts.title')}</h1>
+      <p className="mt-1 text-sm text-muted-foreground">{t('cohorts.subtitle')}</p>
+      <p className="mt-2 rounded-lg border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+        {t('cohorts.audienceHint')}
+      </p>
+    </div>
     <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
       <Card><CardContent className="space-y-3 p-4">
         <Button className="w-full gap-2" onClick={resetEditor}><Plus className="h-4 w-4" />{t('cohorts.new')}</Button>

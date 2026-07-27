@@ -2,6 +2,7 @@ export const TRAINING_LOG_COLUMN_CLASS = {
   fullName: 'px-4 py-3',
   course: 'px-4 py-3',
   status: 'px-4 py-3',
+  source: 'hidden px-4 py-3 lg:table-cell',
   progress: 'px-4 py-3',
   personnelNumber: 'hidden px-4 py-3 lg:table-cell',
   department: 'hidden px-4 py-3 lg:table-cell',

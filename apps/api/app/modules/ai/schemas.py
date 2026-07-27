@@ -51,6 +51,8 @@ class AIJobResponse(BaseModel):
     status: str
     course_id: UUID | None
     created_at: datetime
+    updated_at: datetime
+    started_at: datetime | None = None
     progress: int = 0
     stage: str = ""
     message: str = ""

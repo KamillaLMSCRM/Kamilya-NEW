@@ -51,7 +51,6 @@ export default function ProfilePage() {
       const response = await api.patch('/v1/users/me', {
         first_name: firstName.trim(),
         last_name: lastName.trim(),
-        email: email.trim() || null,
       });
       if (user) {
         setUser({
@@ -73,7 +72,7 @@ export default function ProfilePage() {
   return (
     <div className="max-w-2xl space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-foreground font-display">{t('settings.profile')}</h1>
+        <h1 className="text-2xl font-bold text-foreground font-display">{t('nav.myProfile')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{user?.tenant?.name || ''}</p>
       </div>
 
@@ -103,7 +102,8 @@ export default function ProfilePage() {
                 <label htmlFor="profile-email" className="mb-1 block text-sm font-medium text-foreground">
                   {t('auth.email')}
                 </label>
-                <Input id="profile-email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} />
+                <Input id="profile-email" type="email" value={email} readOnly className="bg-muted" />
+                <p className="mt-1 text-xs text-muted-foreground">{t('settings.emailLocked')}</p>
               </div>
               <Button onClick={() => void saveProfile()} disabled={saving}>
                 {saving ? t('common.loading') : t('common.save')}

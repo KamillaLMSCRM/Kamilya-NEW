@@ -158,7 +158,15 @@ export default function Sidebar({ collapsed, mobileOpen = false, onToggle, onClo
       </nav>
 
       <div className="border-t border-border p-3">
-        <div className={cn('flex items-center gap-3 rounded-xl px-3 py-2', collapsed && 'justify-center px-0')}>
+        <Link
+          href="/profile"
+          className={cn(
+            'flex min-h-11 items-center gap-3 rounded-xl px-3 py-2 transition-colors hover:bg-muted',
+            collapsed && 'justify-center px-0',
+          )}
+          title={collapsed ? t('nav.myProfile') : undefined}
+          aria-label={t('nav.myProfile')}
+        >
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary" aria-hidden>
             {user?.full_name?.[0] || '?'}
           </div>
@@ -170,7 +178,7 @@ export default function Sidebar({ collapsed, mobileOpen = false, onToggle, onClo
               </div>
             </div>
           )}
-        </div>
+        </Link>
         <button
           type="button"
           onClick={async () => {

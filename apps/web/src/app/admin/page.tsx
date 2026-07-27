@@ -15,6 +15,7 @@ import { Badge, Card, CardContent, CardHeader, CardTitle, Table } from '@/compon
 import { useAuthStore } from '@/store/authStore';
 import { useT, type TranslationKey } from '@/i18n/useT';
 import { getNavigationRoutes } from '@/lib/routeRegistry';
+import { OnboardingChecklist } from '@/components/admin/OnboardingChecklist';
 
 interface UserItem {
   id: string;
@@ -22,23 +23,6 @@ interface UserItem {
   first_name: string;
   last_name: string;
   role: string;
-}
-
-interface TrialUsageItem {
-  used: number;
-  limit: number | null;
-  remaining: number | null;
-}
-
-interface TrialUsage {
-  plan: string;
-  status: string;
-  trial_ends_at: string | null;
-  days_left: number | null;
-  ai_courses: TrialUsageItem;
-  jd_courses: TrialUsageItem;
-  learners: TrialUsageItem;
-  system_users: TrialUsageItem;
 }
 
 const ADMIN_ACTION_IDS = new Set([
@@ -58,31 +42,24 @@ const ACTION_ICONS: Record<string, LucideIcon> = {
 };
 
 export default function AdminDashboardPage() {
-  const { t, lang } = useT();
+  const { t } = useT();
   const token = useAuthStore((state) => state.accessToken);
   const role = useAuthStore((state) => state.user?.role);
   const [users, setUsers] = useState<UserItem[]>([]);
-  const [trialUsage, setTrialUsage] = useState<TrialUsage | null>(null);
   const [loading, setLoading] = useState(true);
   const apiUrl = process.env.NEXT_PUBLIC_API_URL;
 
   const fetchData = useCallback(async () => {
     if (!token) return;
     try {
-      const [usersResponse, trialUsageResponse] = await Promise.all([
-        fetch(`${apiUrl}/v1/users?per_page=5`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
-        fetch(`${apiUrl}/v1/admin/trial-usage`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
-      ]);
+      const usersResponse = await fetch(`${apiUrl}/v1/users?per_page=5`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
       if (usersResponse.ok) {
         const data = await usersResponse.json();
         setUsers(data.users || []);
       }
-      if (trialUsageResponse.ok) setTrialUsage(await trialUsageResponse.json());
     } finally {
       setLoading(false);
     }
@@ -97,21 +74,6 @@ export default function AdminDashboardPage() {
     [role],
   );
 
-  const formatLimit = (item: TrialUsageItem) => (
-    item.limit == null ? `${item.used} / ${t('admin.trial.unlimited')}` : `${item.used} / ${item.limit}`
-  );
-
-  const trialItems = trialUsage ? [
-    { label: t('admin.trial.aiCourse'), value: formatLimit(trialUsage.ai_courses), left: trialUsage.ai_courses.remaining },
-    { label: t('admin.trial.jdCourse'), value: formatLimit(trialUsage.jd_courses), left: trialUsage.jd_courses.remaining },
-    { label: t('admin.trial.learners'), value: formatLimit(trialUsage.learners), left: trialUsage.learners.remaining },
-    { label: t('admin.trial.systemUsers'), value: formatLimit(trialUsage.system_users), left: trialUsage.system_users.remaining },
-  ] : [];
-
-  const formatDate = (value: string) => new Date(value).toLocaleDateString(
-    lang === 'kk' ? 'kk-KZ' : lang === 'en' ? 'en-US' : 'ru-RU',
-  );
-
   if (loading) return <div className="py-8 text-center text-sm text-muted-foreground">{t('common.loading')}</div>;
 
   return (
@@ -121,43 +83,7 @@ export default function AdminDashboardPage() {
         <p className="mt-1 text-sm text-muted-foreground">{t('admin.subtitle')}</p>
       </div>
 
-      {trialUsage && (
-        <Card>
-          <CardContent className="p-4 sm:p-5">
-            <div className="flex flex-col gap-5">
-              <div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant={trialUsage.status === 'trial' ? 'secondary' : 'outline'}>
-                    {trialUsage.plan}
-                  </Badge>
-                  <h2 className="text-lg font-semibold text-foreground">{t('admin.trial.title')}</h2>
-                </div>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {trialUsage.trial_ends_at
-                    ? t('admin.trial.daysRemaining', {
-                      days: trialUsage.days_left ?? 0,
-                      date: formatDate(trialUsage.trial_ends_at),
-                    })
-                    : t('admin.trial.endDateMissing')}
-                </p>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                {trialItems.map((item) => (
-                  <div key={item.label} className="rounded-xl border border-border bg-muted/30 p-3">
-                    <div className="text-xs text-muted-foreground">{item.label}</div>
-                    <div className="mt-1 text-base font-semibold text-foreground">{item.value}</div>
-                    {item.left != null && (
-                      <div className="mt-0.5 text-xs text-muted-foreground">
-                        {t('admin.trial.remaining')}: {item.left}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      <OnboardingChecklist />
 
       <section aria-labelledby="admin-quick-actions">
         <h2 id="admin-quick-actions" className="mb-3 text-lg font-semibold text-foreground">

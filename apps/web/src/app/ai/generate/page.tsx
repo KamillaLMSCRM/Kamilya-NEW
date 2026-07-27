@@ -11,6 +11,10 @@ import {
 } from '@/lib/documentCatalog';
 import { toast } from '@/components/ui/Toast';
 import {
+  AsyncOperationStatus,
+  resolveAsyncOperationState,
+} from '@/components/ui/AsyncOperationStatus';
+import {
   FileText,
   Building2,
   PenLine,
@@ -50,6 +54,9 @@ interface AIGenerationJob {
   id: string;
   status: string;
   course_id: string | null;
+  created_at: string;
+  updated_at: string;
+  started_at?: string | null;
   progress: number;
   stage: string;
   message: string;
@@ -424,6 +431,24 @@ export default function AIGeneratePage() {
     }
   };
 
+  const refreshCurrentJob = async () => {
+    if (!currentJob) return;
+    try {
+      const response = await api.get(`/v1/ai/jobs/${currentJob.id}`);
+      setCurrentJob(response.data);
+    } catch (error: any) {
+      toast.error(t('common.loadFailed'), {
+        description: error?.response?.data?.detail || error?.message,
+      });
+    }
+  };
+
+  const retryGeneration = async () => {
+    localStorage.removeItem('ai_active_job_id');
+    setCurrentJob(null);
+    await handleGenerate();
+  };
+
   const publishCourse = async () => {
     if (!currentJob?.course_id) return;
     setPublishSubmitting(true);
@@ -580,7 +605,7 @@ export default function AIGeneratePage() {
 
   // Poll job status
   useEffect(() => {
-    if (!currentJob || currentJob.status === 'completed' || currentJob.status === 'failed') return;
+    if (!currentJob || ['completed', 'failed', 'cancelled'].includes(currentJob.status)) return;
     const interval = setInterval(async () => {
       try {
         const res = await api.get(`/v1/ai/jobs/${currentJob.id}`);
@@ -895,20 +920,31 @@ export default function AIGeneratePage() {
       {/* STEP 2: Generation progress */}
       {step === 'generate' && currentJob && (
         <div className="space-y-6">
-          {/* Progress bar */}
-          <div className="rounded-2xl border border-border bg-card p-6">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-sm font-bold text-foreground">{t('ai.progress')}</span>
-              <span className="text-sm font-bold text-primary">{currentJob.progress}%</span>
-            </div>
-            <div className="h-2 bg-muted rounded-full overflow-hidden">
-              <div
-                className="h-full bg-gradient-to-r from-primary to-gold-500 rounded-full transition-all duration-500"
-                style={{ width: `${currentJob.progress}%` }}
-              />
-            </div>
-            <p className="text-xs text-muted-foreground mt-2">{currentJob.message}</p>
-          </div>
+          <AsyncOperationStatus
+            operation={currentJob}
+            title={t('ai.progress')}
+            stageLabel={STAGES.find((stage) => stage.key === currentJob.stage)?.label}
+            labels={{
+              queued: t('asyncOperation.queued'),
+              running: t('asyncOperation.running'),
+              completed: t('asyncOperation.completed'),
+              failed: t('asyncOperation.failed'),
+              cancelled: t('asyncOperation.cancelled'),
+              stalled: t('asyncOperation.stalled'),
+            }}
+            retryLabel={
+              resolveAsyncOperationState(currentJob) === 'stalled'
+                ? t('asyncOperation.checkAgain')
+                : t('asyncOperation.retry')
+            }
+            cancelLabel={t('asyncOperation.cancel')}
+            onRetry={
+              resolveAsyncOperationState(currentJob) === 'stalled'
+                ? () => void refreshCurrentJob()
+                : () => void retryGeneration()
+            }
+            onCancel={() => void handleCancel()}
+          />
 
           {/* Stages */}
           <div className="space-y-2">
@@ -942,17 +978,6 @@ export default function AIGeneratePage() {
             })}
           </div>
 
-          {/* Cancel button */}
-          {currentJob.status === 'running' && (
-            <button
-              onClick={handleCancel}
-              className="w-full rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive hover:bg-destructive/15 transition-colors flex items-center justify-center gap-2"
-            >
-              <XCircle className="w-4 h-4" />
-              Отменить генерацию
-            </button>
-          )}
-
           {currentJob.status === 'completed' && currentJob.course_id && (
             <button
               onClick={() => router.push(`/courses/${currentJob.course_id}/edit`)}
@@ -962,17 +987,6 @@ export default function AIGeneratePage() {
             </button>
           )}
 
-          {currentJob.status === 'failed' && (
-            <div className="rounded-2xl border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
-              Ошибка: {currentJob.message}
-            </div>
-          )}
-
-          {currentJob.status === 'cancelled' && (
-            <div className="rounded-2xl border border-border bg-muted p-4 text-sm text-foreground">
-              Генерация отменена
-            </div>
-          )}
         </div>
       )}
 

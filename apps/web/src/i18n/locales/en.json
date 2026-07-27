@@ -46,6 +46,45 @@
     "minutes": "min",
     "hours": "h"
   },
+  "asyncOperation": {
+    "queued": "Queued",
+    "running": "In progress",
+    "completed": "Completed",
+    "failed": "Failed",
+    "cancelled": "Cancelled",
+    "stalled": "No recent updates",
+    "retry": "Retry",
+    "checkAgain": "Check again",
+    "cancel": "Cancel"
+  },
+  "assignmentSources": {
+    "title": "Assignment source",
+    "managedByRule": "Managed by rule",
+    "manual": {
+      "label": "Manual",
+      "description": "A methodologist assigned the course directly. This assignment can be removed on this page."
+    },
+    "position": {
+      "label": "By position",
+      "description": "The course was assigned by a position rule. Change the rule in the position card or training rules."
+    },
+    "department": {
+      "label": "By department",
+      "description": "The course was assigned by a department rule. Change it in training rules."
+    },
+    "cohort": {
+      "label": "Via group",
+      "description": "The assignment was created for an employee group. Manage the group audience and its learning scenario."
+    },
+    "learningPath": {
+      "label": "By program",
+      "description": "The course is part of a learning program assigned to the employee. Change the program or its audience."
+    },
+    "unknown": {
+      "label": "System rule",
+      "description": "The assignment was created automatically. Check training rules and the employee's learning program."
+    }
+  },
   "nav": {
     "home": "Home",
     "dashboard": "Dashboard",
@@ -58,6 +97,7 @@
     "login": "Login",
     "register": "Register",
     "myDashboard": "My Dashboard",
+    "myProfile": "My profile",
     "aiGeneration": "AI Generation",
     "userManagement": "User Management",
     "positions": "Positions",
@@ -198,7 +238,7 @@
     "delete": "Delete"
   },
   "cohorts": {
-    "title": "Learning groups", "subtitle": "Combine employees and courses into learning cohorts", "learnerHint": "Your learning groups will appear here", "new": "New group", "name": "Name", "namePlaceholder": "For example, onboarding 2026", "description": "Description", "members": "members", "courses": "courses", "create": "Create group", "save": "Save group", "apply": "Apply assignments", "progress": "Progress", "empty": "No groups yet", "created": "Group created", "saved": "Group saved", "applied": "Assignments added: {count}", "loadFailed": "Could not load groups", "saveFailed": "Could not save", "applyFailed": "Could not apply assignments"
+    "title": "Employee groups", "subtitle": "Build an audience once and reuse it when assigning learning programs.", "audienceHint": "A group stores employees only. Courses are assigned through learning programs or rules.", "learnerHint": "Your learning groups will appear here", "new": "New group", "name": "Name", "namePlaceholder": "For example, new managers 2026", "description": "Description", "members": "members", "create": "Create group", "save": "Save members", "empty": "No groups yet", "created": "Group created", "saved": "Group members saved", "loadFailed": "Could not load groups", "saveFailed": "Could not save"
   },
   "surveys": {
     "title": "Feedback", "managerSubtitle": "Collect feedback after course completion", "learnerSubtitle": "Rate a course you completed", "name": "Survey name", "namePlaceholder": "For example, course feedback", "course": "Course", "selectCourse": "Select a course", "question": "Question", "questionPlaceholder": "How useful was the course?", "create": "Create survey", "questions": "questions", "empty": "No surveys yet", "noPending": "No surveys available", "alreadySubmitted": "Response already submitted", "created": "Survey created", "submitted": "Thank you for your feedback", "loadFailed": "Could not load surveys", "saveFailed": "Could not save", "submitFailed": "Could not submit response"
@@ -534,6 +574,9 @@
   },
   "settings": {
     "title": "Settings",
+    "organizationTitle": "Organization settings",
+    "organizationSubtitle": "Manage the system team, access points, and connected channels.",
+    "sectionsTitle": "Settings sections",
     "profile": "Profile",
     "notifications": "Notifications",
     "security": "Security",
@@ -544,6 +587,7 @@
     "saved": "Settings saved",
     "saveError": "Could not save settings",
     "loadError": "Could not load profile",
+    "emailLocked": "Email is used to sign in. Changing it requires verification and is currently handled by support.",
     "languageHelp": "Choose interface language",
     "languageChanged": "Language changed: {lang}",
     "telegram": "Telegram",
@@ -1209,12 +1253,26 @@
   "onboarding": {
     "title": "Get your LMS ready",
     "subtitle": "Walk through these steps — each one helps employees get value from the LMS faster.",
+    "adminTitle": "Organization setup",
+    "adminSubtitle": "Add a methodologist who will manage the learning workflow.",
+    "methodologistTitle": "Launch learning",
+    "methodologistSubtitle": "Prepare employees, sources, a course, an assignment, and result tracking.",
     "progress": "{done} of {total}",
     "trial": "Trial",
     "trialDays": "{days} days",
     "users": "users",
     "allSetTitle": "All set — every step is done",
-    "allSetSubtitle": "New employees will land in the training log automatically.",
+    "allSetSubtitle": "The core workflow for your role is configured.",
     "methodologistRequired": "This step is completed by a methodologist. Switch roles or contact a methodologist."
+  },
+  "trialStatus": {
+    "active": "Trial active",
+    "nearingExpiry": "Trial ending soon",
+    "expired": "Trial ended",
+    "expiredHint": "Contact support to continue using the platform.",
+    "nearingHint": "Contact support before the trial ends.",
+    "exhaustedPrefix": "Exhausted limits: ",
+    "exhaustedSuffix": ". Those operations are unavailable; all other features remain available.",
+    "contact": "Contact support"
   }
 }

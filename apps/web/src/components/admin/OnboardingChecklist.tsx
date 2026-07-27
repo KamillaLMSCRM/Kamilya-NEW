@@ -7,6 +7,8 @@ import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
 import { Check, Circle, ChevronRight } from 'lucide-react';
 import { isAdminOnboardingActionable } from '@/lib/adminOnboarding';
+import { TrialStatusPanel, type TrialLimitSnapshot, type TrialState, type TrialAccessState } from '@/components/onboarding/TrialStatusPanel';
+import { getOnboardingHref, getVisibleOnboardingSteps } from '@/components/onboarding/onboardingModel';
 
 interface OnboardingStep {
   id: string;
@@ -14,6 +16,7 @@ interface OnboardingStep {
   done: boolean;
   href: string;
   badge: string | null;
+  owner?: 'admin' | 'methodologist';
 }
 
 interface OnboardingStatus {
@@ -24,18 +27,24 @@ interface OnboardingStatus {
   plan: string | null;
   max_users: number | null;
   active_users: number;
+  role: 'admin' | 'methodologist' | 'superadmin' | null;
+  trial_state: TrialState;
+  trial_access_state: TrialAccessState;
+  trial_exhausted_limits: string[];
+  trial_usage: Record<string, TrialLimitSnapshot>;
 }
 
 /**
- * OnboardingChecklist — P0.6 first-tenant hardening.
+ * Role-specific onboarding based on real tenant state.
  *
- * Reads /v1/admin/onboarding-status and renders 7 steps derived from
+ * Reads /v1/admin/onboarding-status and renders role-owned steps derived from
  * real DB state. Hidden once everything is done (admin shouldn't see
  * it forever — only when it adds value).
  */
 export function OnboardingChecklist() {
   const { t } = useT();
   const token = useAuthStore((s) => s.accessToken);
+  const role = useAuthStore((s) => s.user?.role);
   const [status, setStatus] = useState<OnboardingStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -69,47 +78,47 @@ export function OnboardingChecklist() {
     return null; // Don't render anything until we know
   }
 
-  // If all steps done, show a small "you're all set" panel.
-  if (status.completed) {
-    return (
-      <Card>
-        <CardContent className="p-4 flex items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary">
-            <Check className="h-5 w-5" />
-          </div>
-          <div className="flex-1">
-            <div className="font-medium text-foreground">
-              {t('onboarding.allSetTitle')}
-            </div>
-            <div className="text-sm text-muted-foreground">
-              {t('onboarding.allSetSubtitle')}
-            </div>
-          </div>
-          {status.trial_days_remaining != null && status.trial_days_remaining > 0 && (
-            <Badge variant="secondary">
-              {t('onboarding.trialDays', { days: status.trial_days_remaining })}
-            </Badge>
-          )}
-        </CardContent>
-      </Card>
-    );
-  }
-
-  const doneCount = status.steps.filter((s) => s.done).length;
-  const totalCount = status.steps.length;
+  const visibleSteps = getVisibleOnboardingSteps(status.steps, role);
+  if (visibleSteps.length === 0) return null;
+  const visibleCompleted = visibleSteps.every((step) => step.done);
+  const doneCount = visibleSteps.filter((s) => s.done).length;
+  const totalCount = visibleSteps.length;
   const percent = Math.round((doneCount / totalCount) * 100);
 
   return (
-    <Card>
+    <div className="space-y-4">
+      <TrialStatusPanel
+        state={status.trial_state || 'not_trial'}
+        accessState={status.trial_access_state || 'not_applicable'}
+        daysRemaining={status.trial_days_remaining}
+        exhaustedLimits={status.trial_exhausted_limits || []}
+        usage={status.trial_usage || {}}
+      />
+      {visibleCompleted ? (
+        <Card>
+          <CardContent className="flex items-center gap-3 p-4">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary">
+              <Check className="h-5 w-5" />
+            </div>
+            <div className="flex-1">
+              <div className="font-medium text-foreground">{t('onboarding.allSetTitle')}</div>
+              <div className="text-sm text-muted-foreground">{t('onboarding.allSetSubtitle')}</div>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
-          <CardTitle>{t('onboarding.title')}</CardTitle>
+          <CardTitle>
+            {role === 'admin' ? t('onboarding.adminTitle') : t('onboarding.methodologistTitle')}
+          </CardTitle>
           <Badge variant="outline">
             {t('onboarding.progress', { done: doneCount, total: totalCount })}
           </Badge>
         </div>
         <p className="mt-1 text-sm text-muted-foreground">
-          {t('onboarding.subtitle')}
+          {role === 'admin' ? t('onboarding.adminSubtitle') : t('onboarding.methodologistSubtitle')}
         </p>
       </CardHeader>
       <CardContent className="space-y-1">
@@ -122,48 +131,34 @@ export function OnboardingChecklist() {
           />
         </div>
 
-        {/* Trial info */}
-        {status.trial_days_remaining != null && status.trial_days_remaining > 0 && (
-          <div className="mt-3 rounded-md border border-border bg-muted/30 px-3 py-2 text-sm">
-            <span className="text-muted-foreground">{t('onboarding.trial')}</span>{' '}
-            <span className="font-medium text-foreground">
-              {t('onboarding.trialDays', { days: status.trial_days_remaining })}
-            </span>
-            {status.max_users != null && (
-              <>
-                {' · '}
-                <span className="text-muted-foreground">{t('onboarding.users')}</span>{' '}
-                <span className="font-medium text-foreground">
-                  {status.active_users} / {status.max_users}
-                </span>
-              </>
-            )}
-          </div>
-        )}
-
         {/* Steps */}
         <ul className="mt-3 space-y-1" role="list">
-          {status.steps.map((step) => (
+          {visibleSteps.map((step) => (
             <li key={step.id}>
-              {isAdminOnboardingActionable(step) ? (
+              {role === 'admin' && isAdminOnboardingActionable({ href: getOnboardingHref(step, role) }) ? (
                 <Link
-                  href={step.href}
+                  href={getOnboardingHref(step, role)}
                   className="group flex items-center gap-3 rounded-lg px-3 py-2 text-sm hover:bg-muted transition-colors"
                   aria-current={step.done ? 'false' : 'step'}
                 >
                   <StepContent step={step} />
                 </Link>
-              ) : (
-                <div className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm" aria-label={t('onboarding.methodologistRequired')}>
+              ) : role === 'methodologist' ? (
+                <Link
+                  href={getOnboardingHref(step, role)}
+                  className="group flex items-center gap-3 rounded-lg px-3 py-2 text-sm hover:bg-muted transition-colors"
+                  aria-current={step.done ? 'false' : 'step'}
+                >
                   <StepContent step={step} />
-                  <span className="text-xs text-muted-foreground">{t('onboarding.methodologistRequired')}</span>
-                </div>
-              )}
+                </Link>
+              ) : null}
             </li>
           ))}
         </ul>
       </CardContent>
-    </Card>
+        </Card>
+      )}
+    </div>
   );
 }
 

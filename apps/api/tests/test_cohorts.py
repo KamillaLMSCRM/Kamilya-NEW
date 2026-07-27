@@ -34,6 +34,7 @@ async def test_cohort_members_are_tenant_scoped_and_courses_are_not_materialized
     tenant_b = await make_tenant(name="Tenant B")
     methodologist_a = await make_user(tenant_a, role="methodologist")
     member_a = await make_user(tenant_a, role="student")
+    admin_a = await make_user(tenant_a, role="admin")
     member_b = await make_user(tenant_b, role="student")
 
     created = await client.post("/api/v1/cohorts", json={"name": "Safety"}, headers=auth_headers(methodologist_a))
@@ -45,6 +46,13 @@ async def test_cohort_members_are_tenant_scoped_and_courses_are_not_materialized
         headers=auth_headers(methodologist_a),
     )
     assert foreign.status_code == 422
+
+    non_learner = await client.put(
+        f"/api/v1/cohorts/{cohort_id}/members",
+        json={"user_ids": [str(admin_a.id)]},
+        headers=auth_headers(methodologist_a),
+    )
+    assert non_learner.status_code == 422
 
     saved = await client.put(
         f"/api/v1/cohorts/{cohort_id}/members",

@@ -7,6 +7,7 @@ import { useT } from '@/i18n/useT';
 import { ChevronRight } from 'lucide-react';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
+import { OnboardingChecklist } from '@/components/admin/OnboardingChecklist';
 
 interface Stat {
   label: string;
@@ -156,6 +157,8 @@ export default function DashboardPage() {
           {t('dashboard.newCourse')}
         </Link>
       </div>
+
+      <OnboardingChecklist />
 
       {/* Stat cards */}
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
