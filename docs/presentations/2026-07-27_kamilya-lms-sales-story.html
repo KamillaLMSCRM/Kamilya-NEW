@@ -1,0 +1,444 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#10141f">
+  <title>Kamilya LMS — от документа до подтверждённого обучения</title>
+  <style>
+    :root {
+      --ink: #111827;
+      --muted: #687386;
+      --blue: #2563eb;
+      --blue-soft: #eaf1ff;
+      --gold: #b8872e;
+      --line: #dfe4ec;
+      --paper: #ffffff;
+      --canvas: #f3f5f8;
+      --dark: #10141f;
+      --dark-2: #1b2433;
+      --shadow: 0 22px 60px rgba(15, 23, 42, .16);
+    }
+
+    * { box-sizing: border-box; }
+    html, body { width: 100%; min-height: 100%; margin: 0; }
+    body {
+      overflow: hidden;
+      color: var(--ink);
+      background: var(--dark);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    button { font: inherit; }
+    button:focus-visible { outline: 3px solid #8db2ff; outline-offset: 3px; }
+
+    .deck { position: relative; width: 100vw; height: 100vh; overflow: hidden; background: var(--canvas); }
+    .slide {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: auto minmax(0, 1fr) auto;
+      width: 100%;
+      min-width: 0;
+      padding: clamp(18px, 3vw, 42px) clamp(18px, 5vw, 84px) clamp(16px, 2.6vw, 32px);
+      opacity: 0;
+      transform: translateX(28px) scale(.99);
+      pointer-events: none;
+      transition: opacity .5s ease, transform .6s cubic-bezier(.22, .8, .25, 1);
+    }
+    .slide.active { opacity: 1; transform: none; pointer-events: auto; }
+    .slide.exit { opacity: 0; transform: translateX(-28px) scale(.99); }
+
+    .slide-header, .slide-footer { display: flex; align-items: center; justify-content: space-between; gap: 18px; }
+    .brand { display: inline-flex; align-items: center; gap: 10px; color: var(--ink); font-size: 14px; font-weight: 750; letter-spacing: 0; }
+    .brand-mark { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 8px; color: #fff; background: #315fae; font-size: 18px; font-weight: 800; }
+    .brand b { color: var(--gold); }
+    .brand span { color: #3165cf; }
+    .kicker { color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+    .slide-number { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+
+    .slide-body { display: grid; align-items: center; width: 100%; min-width: 0; min-height: 0; padding: clamp(18px, 3vh, 38px) 0; }
+    .story { display: grid; grid-template-columns: minmax(270px, .78fr) minmax(0, 1.55fr); align-items: center; gap: clamp(24px, 5vw, 86px); width: min(1320px, 100%); max-width: 100%; margin: 0 auto; }
+    .story, .cover-layout, .story-copy, .cover-copy { min-width: 0; }
+    .story-copy { max-width: 470px; }
+    .eyebrow { display: inline-flex; align-items: center; min-height: 27px; margin-bottom: 16px; padding: 0 10px; border: 1px solid #cbd8f6; border-radius: 999px; color: var(--blue); background: var(--blue-soft); font-size: 10px; font-weight: 750; }
+    h1, h2, h3, p { margin: 0; }
+    h1 { max-width: 850px; font-size: clamp(32px, 5vw, 74px); line-height: 1.02; letter-spacing: 0; }
+    h2 { margin-bottom: 14px; font-size: clamp(25px, 3vw, 48px); line-height: 1.06; letter-spacing: 0; }
+    .lead { margin-top: 18px; color: var(--muted); font-size: clamp(14px, 1.45vw, 19px); line-height: 1.5; }
+    .proof { display: grid; gap: 10px; margin-top: 25px; }
+    .proof-row { display: grid; grid-template-columns: 20px 1fr; gap: 9px; align-items: start; color: #344054; font-size: 12px; line-height: 1.4; }
+    .proof-row::before { content: ""; width: 11px; height: 11px; margin-top: 3px; border: 3px solid var(--blue); border-radius: 50%; }
+    .proof-row strong { color: var(--ink); }
+    .note { margin-top: 20px; padding-left: 13px; border-left: 3px solid var(--gold); color: #7a6a4a; font-size: 11px; line-height: 1.45; }
+
+    .screen-wrap { min-width: 0; overflow: hidden; border: 1px solid #d5dbe5; border-radius: 12px; background: #e9edf3; box-shadow: var(--shadow); transform: translateY(14px); opacity: 0; transition: transform .7s .12s cubic-bezier(.22, .8, .25, 1), opacity .55s .12s ease; }
+    .active .screen-wrap { transform: none; opacity: 1; }
+    .browser-bar { display: flex; align-items: center; gap: 8px; height: 29px; padding: 0 11px; border-bottom: 1px solid #d4dbe4; background: #f7f8fa; }
+    .browser-dot { width: 7px; height: 7px; border-radius: 50%; background: #b8c0cd; }
+    .browser-url { min-width: 0; margin-left: 8px; overflow: hidden; color: #7d8795; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+    .screen { display: block; width: 100%; height: auto; aspect-ratio: 16 / 10; object-fit: cover; object-position: top left; background: #fff; }
+    .screen-caption { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 34px; padding: 0 12px; color: #607086; background: #fff; font-size: 10px; }
+    .screen-caption strong { color: #2b3a50; }
+    .screen-caption span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    .cover { background: var(--dark); color: #f8fafc; }
+    .cover .brand, .cover .slide-number { color: #e6ebf4; }
+    .cover .brand b { color: #e1b45d; }
+    .cover .brand span { color: #79a6ff; }
+    .cover .slide-body { padding-top: 0; }
+    .cover-layout { display: grid; grid-template-columns: minmax(290px, .8fr) minmax(0, 1.2fr); align-items: center; gap: clamp(30px, 6vw, 110px); width: min(1320px, 100%); margin: 0 auto; }
+    .cover-copy { max-width: 590px; }
+    .cover h1 { color: #fff; }
+    .cover .lead { max-width: 500px; color: #b9c4d5; }
+    .cover .eyebrow { border-color: #304469; color: #9cbcff; background: #172847; }
+    .cover .proof-row { color: #b9c4d5; }
+    .cover .proof-row strong { color: #f8fafc; }
+    .cover .note { color: #b9c4d5; border-color: #dcae55; }
+    .cover .screen-wrap { border-color: #364257; box-shadow: 0 24px 70px rgba(0,0,0,.35); }
+
+    .outcome { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 25px; }
+    .outcome-item { min-height: 88px; padding: 13px; border: 1px solid var(--line); border-radius: 10px; background: #fff; }
+    .outcome-item strong { display: block; margin-bottom: 6px; color: var(--blue); font-size: 21px; }
+    .outcome-item span { color: var(--muted); font-size: 10px; line-height: 1.35; }
+
+    .pilot-steps { display: grid; gap: 9px; margin-top: 22px; counter-reset: pilot-step; }
+    .pilot-step {
+      display: grid;
+      grid-template-columns: 28px 1fr;
+      gap: 10px;
+      align-items: center;
+      color: #344054;
+      font-size: 12px;
+      line-height: 1.35;
+      counter-increment: pilot-step;
+    }
+    .pilot-step::before {
+      content: counter(pilot-step);
+      display: grid;
+      place-items: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      color: #fff;
+      background: var(--blue);
+      font-size: 11px;
+      font-weight: 800;
+    }
+    .cta-row { display: flex; align-items: center; gap: 13px; margin-top: 24px; }
+    .cta-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 46px;
+      padding: 0 22px;
+      border: 1px solid var(--blue);
+      border-radius: 8px;
+      color: #fff;
+      background: var(--blue);
+      box-shadow: 0 10px 24px rgba(37, 99, 235, .24);
+      font-size: 13px;
+      font-weight: 750;
+      text-decoration: none;
+      transition: transform .2s ease, box-shadow .2s ease, background .2s ease;
+    }
+    .cta-link:hover { transform: translateY(-2px); background: #1d4ed8; box-shadow: 0 14px 28px rgba(37, 99, 235, .3); }
+    .cta-link:focus-visible { outline: 3px solid #8db2ff; outline-offset: 3px; }
+    .cta-note { color: var(--muted); font-size: 10px; line-height: 1.4; }
+
+    .slide-footer { padding-top: 8px; }
+    .progress { width: min(290px, 36vw); height: 4px; overflow: hidden; border-radius: 99px; background: #dfe4ec; }
+    .progress span { display: block; width: 0; height: 100%; background: var(--blue); transition: width .5s ease; }
+    .controls { display: flex; align-items: center; gap: 8px; }
+    .control { display: grid; place-items: center; width: 35px; height: 31px; border: 1px solid #cfd6e2; border-radius: 8px; color: #42526a; background: rgba(255,255,255,.8); cursor: pointer; }
+    .control:hover { border-color: var(--blue); color: var(--blue); }
+    .cover .control { border-color: #3b4a64; color: #dbe5f5; background: #182131; }
+    .dots { display: flex; align-items: center; gap: 5px; }
+    .dot { width: 6px; height: 6px; padding: 0; border: 0; border-radius: 50%; background: #c2cad6; cursor: pointer; }
+    .dot.active { width: 18px; border-radius: 99px; background: var(--blue); }
+
+    .overview { position: absolute; inset: 0; z-index: 10; display: none; overflow: auto; padding: 34px; background: rgba(16,20,31,.97); }
+    .overview.open { display: block; }
+    .overview h2 { color: #fff; }
+    .overview-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; max-width: 1280px; margin: 24px auto; }
+    .overview-card { padding: 14px; border: 1px solid #35435a; border-radius: 10px; color: #fff; background: #1b2433; text-align: left; cursor: pointer; }
+    .overview-card:hover, .overview-card.active { border-color: #75a2ff; }
+    .overview-card img { display: block; width: 100%; aspect-ratio: 16 / 10; object-fit: cover; border-radius: 6px; }
+    .overview-card b { display: block; margin-top: 10px; font-size: 12px; }
+    .overview-card span { display: block; margin-top: 4px; color: #aebbd0; font-size: 10px; }
+    .close-overview { float: right; }
+
+    @media (max-width: 850px) {
+      body { overflow: auto; }
+      .deck { min-height: 100dvh; height: auto; overflow: hidden; }
+      .slide { position: relative; min-height: 100dvh; height: auto; padding: 18px 16px 14px; }
+      .slide:not(.active) { display: none; }
+      .story, .cover-layout { grid-template-columns: 1fr; gap: 18px; align-items: start; }
+      .slide-body { align-items: start; padding: 22px 0 18px; }
+      .story-copy, .cover-copy { max-width: none; }
+      h1, h2 { overflow-wrap: anywhere; }
+      h1 { font-size: clamp(31px, 10vw, 48px); }
+      h2 { font-size: clamp(26px, 8vw, 38px); }
+      .lead { margin-top: 12px; font-size: 14px; }
+      .proof { grid-template-columns: 1fr 1fr; gap: 8px 14px; margin-top: 14px; }
+      .proof-row { font-size: 10px; }
+      .note { margin-top: 13px; font-size: 10px; }
+      .screen-wrap { width: 100%; transform: none; }
+      .active .screen-wrap { transform: none; }
+      .screen-caption { min-height: 31px; padding: 0 9px; font-size: 9px; }
+      .screen-caption span { display: none; }
+      .outcome { margin-top: 14px; }
+      .outcome-item { min-height: 70px; padding: 9px; }
+      .outcome-item strong { font-size: 17px; }
+      .outcome-item span { font-size: 9px; }
+      .pilot-steps { margin-top: 14px; }
+      .pilot-step { font-size: 10px; }
+      .pilot-step::before { width: 24px; height: 24px; }
+      .cta-row { align-items: flex-start; flex-direction: column; gap: 8px; margin-top: 16px; }
+      .cta-link { width: 100%; min-height: 44px; }
+      .slide-footer { padding-top: 4px; }
+      .kicker { font-size: 9px; }
+      .browser-bar { height: 23px; }
+      .browser-dot { width: 5px; height: 5px; }
+      .browser-url { font-size: 7px; }
+    }
+    @media (max-width: 430px) {
+      .slide-header { gap: 8px; }
+      .brand { font-size: 12px; }
+      .brand-mark { width: 27px; height: 27px; font-size: 15px; }
+      .slide-number { font-size: 10px; }
+      .proof { display: none; }
+      .screen-wrap { border-radius: 9px; }
+      .screen { aspect-ratio: 16 / 10; }
+      .progress { display: none; }
+      .control { width: 31px; height: 29px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
+    }
+  </style>
+</head>
+<body>
+  <main class="deck" id="deck" aria-label="Kamilya LMS sales story">
+    <section class="slide cover active" data-title="Ваша база знаний становится обучением" data-chapter="Старт">
+      <header class="slide-header">
+        <div class="brand"><span class="brand-mark">K</span><span><b>Kamilya</b> LMS</span></div>
+        <div class="slide-number">01 / 09</div>
+      </header>
+      <div class="slide-body">
+        <div class="cover-layout">
+          <div class="cover-copy">
+            <div class="eyebrow">Показываем реальный продукт</div>
+            <h1>От документа до подтверждённого обучения</h1>
+            <p class="lead">Kamilya LMS собирает в одну понятную цепочку документы компании, курсы, тесты, назначения, прогресс и журнал обучения.</p>
+            <div class="proof">
+              <div class="proof-row"><span><strong>Методолог</strong> управляет учебным контентом и назначениями.</span></div>
+              <div class="proof-row"><span><strong>Обучающийся</strong> проходит курс в своём кабинете.</span></div>
+            </div>
+            <p class="note">Все данные на скриншотах синтетические. Экраны сняты в production demo 27.07.2026.</p>
+          </div>
+          <div class="screen-wrap">
+            <div class="browser-bar"><i class="browser-dot"></i><i class="browser-dot"></i><i class="browser-dot"></i><span class="browser-url">https://app.kml.kz/login/demo</span></div>
+            <img class="screen" src="assets/2026-07-27-sales-story/01-demo-role-picker.png" alt="Реальный экран выбора роли Kamilya LMS">
+            <div class="screen-caption"><strong>Начинаем с нужной роли</strong><span>Реальный demo-экран</span></div>
+          </div>
+        </div>
+      </div>
+      <footer class="slide-footer"><span class="kicker">Корпоративное обучение без разрыва между контентом и контролем</span><span></span></footer>
+    </section>
+
+    <section class="slide" data-title="Методолог видит рабочую систему" data-chapter="Роль">
+      <header class="slide-header"><div class="brand"><span class="brand-mark">K</span><span><b>Kamilya</b> LMS</span></div><div class="slide-number">02 / 09</div></header>
+      <div class="slide-body"><div class="story">
+        <div class="story-copy"><div class="eyebrow">Шаг 1 · Методолог</div><h2>Один кабинет для всей учебной работы</h2><p class="lead">Не нужно собирать обучение из таблиц, чатов и разрозненных файлов. Методолог сразу видит курсы, документы, группы, сотрудников, назначения и журнал.</p><div class="proof"><div class="proof-row"><span><strong>Контент</strong> и <strong>обучение</strong> собраны в одной навигации.</span></div><div class="proof-row"><span>Администратор организации не смешивается с учебными задачами.</span></div></div></div>
+        <div class="screen-wrap"><div class="browser-bar"><i class="browser-dot"></i><i class="browser-dot"></i><i class="browser-dot"></i><span class="browser-url">https://app.kml.kz/courses</span></div><img class="screen" src="assets/2026-07-27-sales-story/02-courses.png" alt="Реальный кабинет методолога со списком курсов"><div class="screen-caption"><strong>Курсы · Демо-организация</strong><span>7 курсов · черновики и опубликованные</span></div></div>
+      </div></div>
+      <footer class="slide-footer"><div class="progress"><span></span></div><div class="controls"></div></footer>
+    </section>
+
+    <section class="slide" data-title="Документы становятся библиотекой источников" data-chapter="Источники">
+      <header class="slide-header"><div class="brand"><span class="brand-mark">K</span><span><b>Kamilya</b> LMS</span></div><div class="slide-number">03 / 09</div></header>
+      <div class="slide-body"><div class="story">
+        <div class="story-copy"><div class="eyebrow">Шаг 2 · Источники</div><h2>Документы компании — в единой библиотеке</h2><p class="lead">Положения, инструкции, брендбуки и внутренние регламенты становятся управляемыми источниками для курсов и должностных инструкций.</p><div class="outcome"><div class="outcome-item"><strong>1</strong><span>источник истины для учебного контента</span></div><div class="outcome-item"><strong>v1</strong><span>версия и статус индексации рядом</span></div><div class="outcome-item"><strong>→</strong><span>понятно, где документ используется</span></div></div></div>
+        <div class="screen-wrap"><div class="browser-bar"><i class="browser-dot"></i><i class="browser-dot"></i><i class="browser-dot"></i><span class="browser-url">https://app.kml.kz/documents</span></div><img class="screen" src="assets/2026-07-27-sales-story/04-documents.png" alt="Реальная библиотека документов Kamilya LMS"><div class="screen-caption"><strong>Документы · библиотека источников</strong><span>Индексация и использование в одном месте</span></div></div>
+      </div></div>
+      <footer class="slide-footer"><div class="progress"><span></span></div><div class="controls"></div></footer>
+    </section>
+
+    <section class="slide" data-title="AI собирает первый вариант курса" data-chapter="AI">
+      <header class="slide-header"><div class="brand"><span class="brand-mark">K</span><span><b>Kamilya</b> LMS</span></div><div class="slide-number">04 / 09</div></header>
+      <div class="slide-body"><div class="story">
+        <div class="story-copy"><div class="eyebrow">Шаг 3 · AI-генерация</div><h2>Из выбранных источников — в структуру курса</h2><p class="lead">Методолог выбирает документы, задаёт аудиторию, количество модулей и язык. AI готовит черновик, который остаётся под контролем специалиста.</p><div class="proof"><div class="proof-row"><span><strong>Русский или казахский</strong> выбирается при генерации.</span></div><div class="proof-row"><span>Курс не публикуется сам: его проверяют и редактируют.</span></div></div><p class="note">Показанный экран содержит реальный статус demo-документа, включая ошибку индексации. Это намеренно не скрыто: система показывает, почему источник нельзя использовать.</p></div>
+        <div class="screen-wrap"><div class="browser-bar"><i class="browser-dot"></i><i class="browser-dot"></i><i class="browser-dot"></i><span class="browser-url">https://app.kml.kz/ai/generate</span></div><img class="screen" src="assets/2026-07-27-sales-story/03-ai-generate.png" alt="Реальный экран AI-генерации курса Kamilya LMS"><div class="screen-caption"><strong>AI Генерация курса · документы → настройки</strong><span>Статус источника виден до запуска</span></div></div>
+      </div></div>
+      <footer class="slide-footer"><div class="progress"><span></span></div><div class="controls"></div></footer>
+    </section>
+
+    <section class="slide" data-title="Черновик превращается в рабочий курс" data-chapter="Контент">
+      <header class="slide-header"><div class="brand"><span class="brand-mark">K</span><span><b>Kamilya</b> LMS</span></div><div class="slide-number">05 / 09</div></header>
+      <div class="slide-body"><div class="story">
+        <div class="story-copy"><div class="eyebrow">Шаг 4 · Проверка</div><h2>Методолог проверяет, редактирует и публикует</h2><p class="lead">AI ускоряет первый проход, а решение остаётся у человека: можно открыть курс, поправить уроки, добавить тест и только затем опубликовать.</p><div class="proof"><div class="proof-row"><span>Статусы <strong>черновик / опубликован</strong> видны прямо в списке.</span></div><div class="proof-row"><span>Тесты создаются в отдельном конструкторе и привязываются к урокам.</span></div></div></div>
+        <div class="screen-wrap"><div class="browser-bar"><i class="browser-dot"></i><i class="browser-dot"></i><i class="browser-dot"></i><span class="browser-url">https://app.kml.kz/courses</span></div><img class="screen" src="assets/2026-07-27-sales-story/02-courses.png" alt="Реальный список курсов со статусами черновика и публикации"><div class="screen-caption"><strong>Курс готов к публикации</strong><span>Редактировать · опубликовать · снять с публикации</span></div></div>
+      </div></div>
+      <footer class="slide-footer"><div class="progress"><span></span></div><div class="controls"></div></footer>
+    </section>
+
+    <section class="slide" data-title="Назначаем обучение нужным сотрудникам" data-chapter="Доставка">
+      <header class="slide-header"><div class="brand"><span class="brand-mark">K</span><span><b>Kamilya</b> LMS</span></div><div class="slide-number">06 / 09</div></header>
+      <div class="slide-body"><div class="story">
+        <div class="story-copy"><div class="eyebrow">Шаг 5 · Назначение</div><h2>Курс доходит до конкретной аудитории</h2><p class="lead">Выбираем опубликованный курс и отмечаем сотрудников. Для повторного использования можно собрать cohort-аудиторию, а правила должности помогают автоматизировать назначения.</p><div class="proof"><div class="proof-row"><span><strong>Группы</strong> — это аудитории, а не отдельная копия курса.</span></div><div class="proof-row"><span>Ссылку-приглашение методолог передаёт сотруднику вручную.</span></div></div><p class="note">Автоматическая отправка через Resend пока не заявляется. В текущем продукте ссылка создаётся в интерфейсе и копируется для передачи.</p></div>
+        <div class="screen-wrap"><div class="browser-bar"><i class="browser-dot"></i><i class="browser-dot"></i><i class="browser-dot"></i><span class="browser-url">https://app.kml.kz/assignments</span></div><img class="screen" src="assets/2026-07-27-sales-story/05-assignments.png" alt="Реальный экран назначения курсов сотрудникам"><div class="screen-caption"><strong>Обучающиеся — назначения на курсы</strong><span>Курс слева · аудитория справа</span></div></div>
+      </div></div>
+      <footer class="slide-footer"><div class="progress"><span></span></div><div class="controls"></div></footer>
+    </section>
+
+    <section class="slide" data-title="Сотрудник проходит обучение в своём кабинете" data-chapter="Обучение">
+      <header class="slide-header"><div class="brand"><span class="brand-mark">K</span><span><b>Kamilya</b> LMS</span></div><div class="slide-number">07 / 09</div></header>
+      <div class="slide-body"><div class="story">
+        <div class="story-copy"><div class="eyebrow">Шаг 6 · Обучающийся</div><h2>Обучение начинается с одного понятного экрана</h2><p class="lead">Сотрудник видит назначенные курсы, возвращается к прогрессу, проходит уроки и тесты. Отдельные кабинеты не перегружают его методологическими настройками.</p><div class="proof"><div class="proof-row"><span>В роли обучающегося доступны <strong>курсы, тесты и сертификаты</strong>.</span></div><div class="proof-row"><span>Результат прохождения подтверждается сервером, а не только интерфейсом.</span></div></div><p class="note">В production demo этот аккаунт сейчас не имеет активного назначения, поэтому экран честно показывает пустое состояние.</p></div>
+        <div class="screen-wrap"><div class="browser-bar"><i class="browser-dot"></i><i class="browser-dot"></i><i class="browser-dot"></i><span class="browser-url">https://app.kml.kz/my-courses</span></div><img class="screen" src="assets/2026-07-27-sales-story/07-learner-dashboard.png" alt="Реальный кабинет обучающегося Kamilya LMS"><div class="screen-caption"><strong>Мои курсы · кабинет обучающегося</strong><span>Пустое состояние также объясняет следующий шаг</span></div></div>
+      </div></div>
+      <footer class="slide-footer"><div class="progress"><span></span></div><div class="controls"></div></footer>
+    </section>
+
+    <section class="slide" data-title="Результат становится доказательством" data-chapter="Доказательства">
+      <header class="slide-header"><div class="brand"><span class="brand-mark">K</span><span><b>Kamilya</b> LMS</span></div><div class="slide-number">08 / 09</div></header>
+      <div class="slide-body"><div class="story">
+        <div class="story-copy"><div class="eyebrow">Шаг 7 · Журнал и сертификат</div><h2>Руководитель видит не обещание, а результат</h2><p class="lead">Журнал собирает назначения, статус, прогресс, лучший балл, источник назначения и завершение. После успешного курса сотрудник получает сертификат в своём кабинете.</p><div class="outcome"><div class="outcome-item"><strong>100%</strong><span>прогресс завершённого обучения</span></div><div class="outcome-item"><strong>1</strong><span>назначение остаётся в журнале</span></div><div class="outcome-item"><strong>CSV</strong><span>результаты можно выгрузить</span></div></div><p class="note">Сертификат Kamilya LMS — продуктовый сертификат прохождения. Презентация не заявляет ЭЦП, юридическую значимость или замену обязательного журнала инструктажей.</p></div>
+        <div class="screen-wrap"><div class="browser-bar"><i class="browser-dot"></i><i class="browser-dot"></i><i class="browser-dot"></i><span class="browser-url">https://app.kml.kz/training-log</span></div><img class="screen" src="assets/2026-07-27-sales-story/06-training-log.png" alt="Реальный журнал обучения с прогрессом и статусами"><div class="screen-caption"><strong>Журнал обучения · контроль результата</strong><span>2 записи · 1 завершён · 100% прогресс</span></div></div>
+      </div></div>
+      <footer class="slide-footer"><div class="progress"><span></span></div><div class="controls"></div></footer>
+    </section>
+
+    <section class="slide" data-title="Запустите пилот на своём процессе" data-chapter="Пилот">
+      <header class="slide-header"><div class="brand"><span class="brand-mark">K</span><span><b>Kamilya</b> LMS</span></div><div class="slide-number">09 / 09</div></header>
+      <div class="slide-body"><div class="story">
+        <div class="story-copy">
+          <div class="eyebrow">Следующий шаг</div>
+          <h2>Проверьте Kamilya LMS на одном реальном процессе</h2>
+          <p class="lead">Берём ваши документы и одну аудиторию. Вместе проходим путь от источников до курса, назначения и подтверждённого результата.</p>
+          <div class="pilot-steps">
+            <div class="pilot-step"><span><strong>Выбираем</strong> один процесс или должность.</span></div>
+            <div class="pilot-step"><span><strong>Создаём и проверяем</strong> первый курс.</span></div>
+            <div class="pilot-step"><span><strong>Назначаем</strong> тестовой группе и смотрим журнал.</span></div>
+          </div>
+          <div class="cta-row">
+            <a class="cta-link" href="https://app.kml.kz/register-tenant" target="_blank" rel="noopener noreferrer">Запустить пилот</a>
+            <span class="cta-note">Результат оценивается в вашем рабочем кабинете.</span>
+          </div>
+        </div>
+        <div class="screen-wrap"><div class="browser-bar"><i class="browser-dot"></i><i class="browser-dot"></i><i class="browser-dot"></i><span class="browser-url">https://app.kml.kz/certificates</span></div><img class="screen" src="assets/2026-07-27-sales-story/09-certificates.png" alt="Реальный экран сертификатов и проверки сертификата Kamilya LMS"><div class="screen-caption"><strong>Сертификаты · кабинет обучающегося</strong><span>Получение и проверка результата в одном месте</span></div></div>
+      </div></div>
+      <footer class="slide-footer"><div class="progress"><span></span></div><div class="controls"></div></footer>
+    </section>
+
+    <div class="overview" id="overview" aria-hidden="true"><button class="control close-overview" id="closeOverview" title="Закрыть обзор">×</button><h2>Путь Kamilya LMS</h2><div class="overview-grid" id="overviewGrid"></div></div>
+  </main>
+
+  <script>
+    (() => {
+      const deck = document.getElementById('deck');
+      const slides = [...document.querySelectorAll('.slide')];
+      const overview = document.getElementById('overview');
+      const overviewGrid = document.getElementById('overviewGrid');
+      const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const params = new URLSearchParams(location.search);
+      const initialSlide = Math.max(0, Math.min(slides.length - 1, Number(params.get('slide') || 1) - 1));
+      let current = 0;
+      let hasRendered = false;
+      let autoplay = !reduceMotion && params.get('autoplay') !== '0';
+      let timer = null;
+      let startX = 0;
+      let moved = false;
+      const duration = 6400;
+
+      const esc = (value) => String(value).replace(/[&<>'"]/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char]));
+      function controlsHtml() {
+        return '<button class="control prev" title="Предыдущий экран" aria-label="Предыдущий экран">←</button>' +
+          '<button class="control play" title="Пауза или автопоказ" aria-label="Пауза или автопоказ">' + (autoplay ? 'Ⅱ' : '▶') + '</button>' +
+          '<button class="control next" title="Следующий экран" aria-label="Следующий экран">→</button>' +
+          '<button class="control overview-button" title="Обзор экранов" aria-label="Обзор экранов">▦</button>';
+      }
+      function buildNavigation() {
+        document.querySelectorAll('.controls').forEach((node) => { node.innerHTML = controlsHtml(); });
+        document.querySelectorAll('.dots').forEach((node) => node.remove());
+        const dots = document.createElement('div');
+        dots.className = 'dots';
+        slides.forEach((slide, index) => {
+          const button = document.createElement('button');
+          button.className = 'dot';
+          button.title = slide.dataset.title;
+          button.setAttribute('aria-label', `${index + 1}. ${slide.dataset.title}`);
+          button.addEventListener('click', () => show(index));
+          dots.appendChild(button);
+        });
+        document.querySelectorAll('.slide-footer').forEach((footer) => footer.appendChild(dots.cloneNode(true)));
+        document.querySelectorAll('.prev').forEach((button) => button.addEventListener('click', () => show(current - 1)));
+        document.querySelectorAll('.next').forEach((button) => button.addEventListener('click', () => show(current + 1)));
+        document.querySelectorAll('.play').forEach((button) => button.addEventListener('click', toggleAutoplay));
+        document.querySelectorAll('.overview-button').forEach((button) => button.addEventListener('click', openOverview));
+      }
+      function updateUrl() {
+        const next = new URL(location.href);
+        next.searchParams.set('slide', String(current + 1));
+        if (autoplay) next.searchParams.set('autoplay', '1'); else next.searchParams.set('autoplay', '0');
+        history.replaceState({}, '', next);
+      }
+      function show(index) {
+        const next = Math.max(0, Math.min(slides.length - 1, index));
+        if (hasRendered && next === current && slides[current].classList.contains('active')) return;
+        const previous = current;
+        current = next;
+        slides[previous].classList.remove('active');
+        slides[previous].classList.add('exit');
+        slides[current].classList.remove('exit');
+        requestAnimationFrame(() => slides[current].classList.add('active'));
+        slides.forEach((slide, index2) => {
+          slide.querySelectorAll('.dot').forEach((dot) => dot.classList.toggle('active', index2 === current));
+          const progress = slide.querySelector('.progress span');
+          if (progress) progress.style.width = `${((current + 1) / slides.length) * 100}%`;
+          const number = slide.querySelector('.slide-number');
+          if (number) number.textContent = `${String(current + 1).padStart(2, '0')} / ${String(slides.length).padStart(2, '0')}`;
+        });
+        updateUrl();
+        schedule();
+        hasRendered = true;
+      }
+      function schedule() {
+        clearTimeout(timer);
+        if (autoplay && current < slides.length - 1) timer = setTimeout(() => show(current + 1), duration);
+      }
+      function toggleAutoplay() { autoplay = !autoplay; buildNavigation(); updateUrl(); schedule(); }
+      function openOverview() { overview.classList.add('open'); overview.setAttribute('aria-hidden', 'false'); }
+      function closeOverview() { overview.classList.remove('open'); overview.setAttribute('aria-hidden', 'true'); }
+      function buildOverview() {
+        slides.forEach((slide, index) => {
+          const card = document.createElement('button');
+          card.className = 'overview-card';
+          card.innerHTML = `<img src="${slide.querySelector('img').getAttribute('src')}" alt=""><b>${String(index + 1).padStart(2, '0')} · ${esc(slide.dataset.title)}</b><span>${esc(slide.dataset.chapter)}</span>`;
+          card.addEventListener('click', () => { closeOverview(); show(index); });
+          overviewGrid.appendChild(card);
+        });
+      }
+
+      buildNavigation();
+      buildOverview();
+      document.getElementById('closeOverview').addEventListener('click', closeOverview);
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') { closeOverview(); return; }
+        if (event.key === 'ArrowRight' || event.key === 'PageDown') { event.preventDefault(); show(current + 1); }
+        if (event.key === 'ArrowLeft' || event.key === 'PageUp') { event.preventDefault(); show(current - 1); }
+        if (event.key === 'Home') { event.preventDefault(); show(0); }
+        if (event.key === 'End') { event.preventDefault(); show(slides.length - 1); }
+        if (event.key === ' ') { event.preventDefault(); toggleAutoplay(); }
+        if (event.key.toLowerCase() === 'o') openOverview();
+      });
+      deck.addEventListener('pointerdown', (event) => { startX = event.clientX; moved = false; });
+      deck.addEventListener('pointermove', (event) => { if (Math.abs(event.clientX - startX) > 12) moved = true; });
+      deck.addEventListener('pointerup', (event) => { const distance = event.clientX - startX; if (moved && Math.abs(distance) > 50) show(current + (distance < 0 ? 1 : -1)); });
+      show(initialSlide);
+      schedule();
+    })();
+  </script>
+</body>
+</html>
