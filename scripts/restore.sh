@@ -25,6 +25,9 @@ BACKUP_PASSPHRASE_FILE="${BACKUP_PASSPHRASE_FILE:-}"
 BACKUP_PBKDF2_ITERATIONS="${BACKUP_PBKDF2_ITERATIONS:-600000}"
 LOG_DIR="${LOG_DIR:-}"
 TEMP_FILES=()
+EXCLUDED_EXTENSIONS=()
+EXCLUDED_SCHEMA_DATA=()
+REQUIRED_ROLES=()
 
 usage() {
   cat <<EOF
@@ -40,6 +43,13 @@ Options:
   --log-dir <dir>            Log directory (required unless LOG_DIR is set)
   --dry-run                  Validate arguments and encrypted archive only
   --yes                      Skip non-production confirmation prompt
+  --exclude-extension <name> Exclude a platform-owned extension and its
+                             comment from a portable restore (repeatable)
+  --portable-supabase        Restore LMS data outside Supabase while excluding
+                             Supabase Vault objects/data and ensuring the
+                             schema-only lms_app role exists as NOLOGIN
+  --ensure-role <name>       Create a missing schema dependency as a NOLOGIN
+                             PostgreSQL role (repeatable)
   --allow-production         Enable the production target gate; still requires
                              --yes and RESTORE_PRODUCTION_CONFIRMATION=I_UNDERSTAND
   --help
@@ -113,6 +123,22 @@ while (($# > 0)); do
       LOG_DIR=$2
       shift 2
       ;;
+    --exclude-extension)
+      (($# >= 2)) || die "--exclude-extension requires a value"
+      EXCLUDED_EXTENSIONS+=("$2")
+      shift 2
+      ;;
+    --portable-supabase)
+      EXCLUDED_EXTENSIONS+=("supabase_vault")
+      EXCLUDED_SCHEMA_DATA+=("vault")
+      REQUIRED_ROLES+=("lms_app")
+      shift
+      ;;
+    --ensure-role)
+      (($# >= 2)) || die "--ensure-role requires a value"
+      REQUIRED_ROLES+=("$2")
+      shift
+      ;;
     --dry-run) DRY_RUN=1; shift ;;
     --yes) ASSUME_YES=1; shift ;;
     --allow-production) ALLOW_PRODUCTION=1; shift ;;
@@ -139,6 +165,15 @@ done
 [[ "${DB_USER}" =~ ^[A-Za-z_][A-Za-z0-9_.-]*$ ]] || die "DB_USER contains unsupported characters"
 [[ "${BACKUP_PBKDF2_ITERATIONS}" =~ ^[1-9][0-9]+$ ]] || die "BACKUP_PBKDF2_ITERATIONS must be numeric"
 (( BACKUP_PBKDF2_ITERATIONS >= 100000 )) || die "BACKUP_PBKDF2_ITERATIONS must be at least 100000"
+for extension in "${EXCLUDED_EXTENSIONS[@]}"; do
+  [[ "${extension}" =~ ^[A-Za-z_][A-Za-z0-9_.-]*$ ]] || die "excluded extension contains unsupported characters"
+done
+for schema in "${EXCLUDED_SCHEMA_DATA[@]}"; do
+  [[ "${schema}" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || die "excluded schema contains unsupported characters"
+done
+for role in "${REQUIRED_ROLES[@]}"; do
+  [[ "${role}" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || die "required role contains unsupported characters"
+done
 validate_passphrase_file
 
 if [[ "${TARGET_DB}" == "${PRODUCTION_DB_NAME}" ]]; then
@@ -177,10 +212,57 @@ if (( ASSUME_YES == 0 )); then
 fi
 
 printf 'Restoring verified encrypted archive %s into explicitly selected target %s on %s:%s\n' "${BACKUP_FILE}" "${TARGET_DB}" "${DB_HOST}" "${DB_PORT}"
+for role in "${REQUIRED_ROLES[@]}"; do
+  role_exists="$(psql \
+    --host="${DB_HOST}" \
+    --port="${DB_PORT}" \
+    --username="${DB_USER}" \
+    --dbname="${TARGET_DB}" \
+    --tuples-only \
+    --no-align \
+    --command "SELECT 1 FROM pg_roles WHERE rolname = '${role}';")"
+  if [[ "${role_exists//[[:space:]]/}" != "1" ]]; then
+    psql \
+      --host="${DB_HOST}" \
+      --port="${DB_PORT}" \
+      --username="${DB_USER}" \
+      --dbname="${TARGET_DB}" \
+      --command "CREATE ROLE \"${role}\" NOLOGIN;"
+    printf 'Created missing schema dependency role as NOLOGIN: %s\n' "${role}"
+  fi
+done
 make_temp_file "${LOG_DIR}/.kamilya-restore.XXXXXX.dump"
 openssl enc -d -aes-256-cbc -pbkdf2 -iter "${BACKUP_PBKDF2_ITERATIONS}" -md sha256 \
   -pass "file:${BACKUP_PASSPHRASE_FILE}" \
   -in "${BACKUP_FILE}" -out "${TEMP_FILE}"
+readonly DECRYPTED_DUMP="${TEMP_FILE}"
+TOC_FILE=''
+if ((${#EXCLUDED_EXTENSIONS[@]} > 0 || ${#EXCLUDED_SCHEMA_DATA[@]} > 0)); then
+  make_temp_file "${LOG_DIR}/.kamilya-restore-toc.XXXXXX.list"
+  TOC_FILE="${TEMP_FILE}"
+  pg_restore --list "${DECRYPTED_DUMP}" >"${TOC_FILE}"
+  for extension in "${EXCLUDED_EXTENSIONS[@]}"; do
+    make_temp_file "${LOG_DIR}/.kamilya-restore-toc.XXXXXX.list"
+    awk -v ext="${extension}" \
+      'index($0, " EXTENSION - " ext " ") == 0 && index($0, " COMMENT - EXTENSION " ext " ") == 0' \
+      "${TOC_FILE}" >"${TEMP_FILE}"
+    TOC_FILE="${TEMP_FILE}"
+    printf 'Portable restore excludes platform extension: %s\n' "${extension}"
+  done
+  for schema in "${EXCLUDED_SCHEMA_DATA[@]}"; do
+    make_temp_file "${LOG_DIR}/.kamilya-restore-toc.XXXXXX.list"
+    awk -v schema="${schema}" \
+      'index($0, " TABLE DATA " schema " ") == 0' \
+      "${TOC_FILE}" >"${TEMP_FILE}"
+    TOC_FILE="${TEMP_FILE}"
+    printf 'Portable restore excludes platform-owned data schema: %s\n' "${schema}"
+  done
+fi
+
+RESTORE_ARGS=()
+if [[ -n "${TOC_FILE}" ]]; then
+  RESTORE_ARGS+=("--use-list=${TOC_FILE}")
+fi
 pg_restore \
   --host="${DB_HOST}" \
   --port="${DB_PORT}" \
@@ -192,7 +274,8 @@ pg_restore \
   --if-exists \
   --exit-on-error \
   --single-transaction \
-  "${TEMP_FILE}"
+  "${RESTORE_ARGS[@]}" \
+  "${DECRYPTED_DUMP}"
 
 table_count="$(psql --host="${DB_HOST}" --port="${DB_PORT}" --username="${DB_USER}" --dbname="${TARGET_DB}" --tuples-only --no-align --command "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public';")"
 table_count="${table_count//[[:space:]]/}"

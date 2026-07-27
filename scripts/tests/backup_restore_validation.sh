@@ -65,6 +65,10 @@ assert_failure env DB_HOST=db DB_PORT=5432 DB_USER=lms PRODUCTION_DB_NAME=kamily
 assert_failure env DB_HOST=db DB_PORT=5432 DB_USER=lms PRODUCTION_DB_NAME=kamilya \
   BACKUP_PASSPHRASE_FILE="${PASSFILE}" LOG_DIR="${TMP_DIR}/logs" \
   "${RESTORE_SCRIPT}" --backup-file "${TMP_DIR}/invalid.dump.gz" --target-db staging --dry-run
+assert_failure env DB_HOST=db DB_PORT=5432 DB_USER=lms PRODUCTION_DB_NAME=kamilya \
+  BACKUP_PASSPHRASE_FILE="${PASSFILE}" LOG_DIR="${TMP_DIR}/logs" \
+  "${RESTORE_SCRIPT}" --backup-file "${TMP_DIR}/invalid.dump.enc" --target-db staging \
+  --exclude-extension 'bad extension' --dry-run
 
 if find "${TMP_DIR}/logs" -maxdepth 1 -type f -name '.kamilya-restore-verify.*' -print -quit | grep -q .; then
   printf 'FAIL: temporary plaintext restore file was not removed\n' >&2
@@ -74,6 +78,9 @@ assert_contains "${BACKUP_SCRIPT}" 'openssl enc -aes-256-cbc -pbkdf2'
 assert_contains "${BACKUP_SCRIPT}" 'BACKUP_PASSPHRASE_FILE'
 assert_contains "${BACKUP_SCRIPT}" '.dump.enc'
 assert_contains "${RESTORE_SCRIPT}" '--target-db'
+assert_contains "${RESTORE_SCRIPT}" '--exclude-extension'
+assert_contains "${RESTORE_SCRIPT}" '--portable-supabase'
+assert_contains "${RESTORE_SCRIPT}" '--ensure-role'
 assert_contains "${RESTORE_SCRIPT}" 'RESTORE_PRODUCTION_CONFIRMATION'
 assert_contains "${RESTORE_SCRIPT}" 'trap cleanup EXIT'
 
