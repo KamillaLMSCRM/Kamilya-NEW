@@ -44,12 +44,13 @@ Production БД пока не перенесена в Казахстан. HostKZ
 
 На 2026-07-27:
 
-- проверенный application baseline: `a10786c6d2c0b4cfa31385e7613d6390452c32cd`;
-- GitHub CI `30262132014`: success;
-- GitHub production smoke `30262131946`: success;
-- Vercel production: `READY`; docs-only HEAD может иметь новый deployment,
-  application-код соответствует `a10786c`;
-- Render API: live, commit `a10786c`;
+- проверенный release HEAD: `256c20a5cf68fe24772a0794fe49c2ca60fe49d6`;
+- GitHub CI `30276564175`: success;
+- GitHub production smoke `30276562779`: success;
+- Vercel production deployment `dpl_2m3zsLQPMSgFFZJtFES4MykUDNMP`: `READY`,
+  commit `256c20a`;
+- Render API deployment `dep-d9jmbqb7uimc739rvr8g`: live, commit `522c12f`;
+  последующие commits меняли только тест и frontend;
 - production Alembic: `0078`, repository head: `0078`;
 - Celery worker active/enabled на `a10786c`, реальный Celery ping passed;
 - ежедневный encrypted backup и пятиминутный watchdog активны;

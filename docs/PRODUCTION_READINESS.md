@@ -11,11 +11,11 @@
 
 | Контур | Состояние | Подтверждение |
 |---|---|---|
-| Application baseline | PASS | Проверенный runtime-код: `a10786c6d2c0b4cfa31385e7613d6390452c32cd`; последующие docs-only commits не меняют эту baseline |
-| CI | PASS | GitHub Actions `30262132014`, полный pipeline |
-| External smoke | PASS | GitHub Actions `30262131946`, API и frontend |
-| Frontend | PASS | Vercel production `READY`; docs-only HEAD может иметь новый deployment, application-код соответствует `a10786c` |
-| API | PASS | Render deploy `dep-d9jk39b7uimc739ohgjg`, `live`, commit `a10786c` |
+| Application baseline | PASS | Проверенный release HEAD: `256c20a5cf68fe24772a0794fe49c2ca60fe49d6`; последующие docs-only commits не меняют эту baseline |
+| CI | PASS | GitHub Actions `30276564175`, полный pipeline |
+| External smoke | PASS | GitHub Actions `30276562779`, API и frontend |
+| Frontend | PASS | Vercel deployment `dpl_2m3zsLQPMSgFFZJtFES4MykUDNMP`, `READY`, commit `256c20a` |
+| API | PASS | Render deploy `dep-d9jmbqb7uimc739rvr8g`, `live`, commit `522c12f`; последующие commits меняли только тест и frontend |
 | Worker | PASS | `/opt/kamilya-worker` на `a10786c`, unit active/enabled, Celery ping отвечает |
 | Database | PASS | production PostgreSQL 17.6, Alembic `0078` |
 
@@ -78,7 +78,8 @@
 
 ## Проверки кода и production-flow
 
-- Финальный полный CI на `a10786c` passed.
+- Финальный полный CI на `256c20a` passed: backend `607`, frontend `169`,
+  coverage `57.33%`, typecheck и production build.
 - Focused backend P0 suites: 26 тестов канонической структуры штата и 17
   тестов invitation/SCORM contracts passed.
 - Frontend architecture tests, typecheck и production build passed.
