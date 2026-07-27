@@ -1,0 +1,15 @@
+[Unit]
+Description=Kamilya LMS production watchdog
+After=network-online.target kamilya-worker.service valkey-server.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+EnvironmentFile=/etc/kamilya/ops.env
+ExecStart=/opt/kamilya-worker/scripts/ops/healthcheck.sh
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/kamilya-ops

@@ -1,0 +1,53 @@
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, patch
+from uuid import uuid4
+
+import pytest
+from fastapi import Request, Response
+
+from app.modules.auth.router import logout
+from app.modules.auth.schemas import RefreshRequest
+
+
+@pytest.mark.asyncio
+async def test_logout_audits_owner_of_valid_refresh_token():
+    user = SimpleNamespace(id=uuid4(), tenant_id=uuid4())
+    query_result = SimpleNamespace(scalar_one_or_none=lambda: user)
+    db = AsyncMock()
+    db.execute.return_value = query_result
+    request = Request(
+        {
+            "type": "http",
+            "method": "POST",
+            "path": "/api/v1/auth/logout",
+            "headers": [],
+            "client": ("127.0.0.1", 1234),
+        }
+    )
+    response = Response()
+    token = "valid-refresh-token"
+
+    with (
+        patch(
+            "app.modules.auth.router.decode_token",
+            return_value={"type": "refresh", "sub": str(user.id)},
+        ) as decode,
+        patch(
+            "app.modules.auth.router.blacklist_refresh_token",
+            new=AsyncMock(),
+        ) as blacklist,
+        patch("app.modules.auth.router.log_action", new=AsyncMock()) as audit,
+    ):
+        result = await logout(
+            RefreshRequest(refresh_token=token),
+            request,
+            response,
+            db,
+        )
+
+    assert result == {"status": "ok"}
+    decode.assert_called_once_with(token)
+    blacklist.assert_awaited_once_with(db, token)
+    audit.assert_awaited_once()
+    assert audit.await_args.args[:4] == (db, user.tenant_id, "logout", "user")
+    db.commit.assert_awaited_once()

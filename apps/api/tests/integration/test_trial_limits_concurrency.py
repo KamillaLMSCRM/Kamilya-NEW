@@ -6,10 +6,11 @@ from uuid import uuid4
 
 import pytest
 
+from app.models.users import User  # noqa: F401
+
 # Register both sides of Course.modules before SQLAlchemy configures mappers.
 from app.modules.courses.models import Course  # noqa: F401
 from app.modules.lessons.models import Module  # noqa: F401
-from app.models.users import User  # noqa: F401
 
 
 async def _set_tenant_context(session, tenant_id):
@@ -127,7 +128,6 @@ async def test_parallel_learner_creates_do_not_exceed_last_trial_slot():
     from app.core.db import async_session_factory
     from app.core.trial_limits import TrialLimitExceeded, assert_can_create_learners
     from app.models.tenants import Tenant
-    from app.models.users import User
 
     tenant_id = uuid4()
     async with async_session_factory() as setup:

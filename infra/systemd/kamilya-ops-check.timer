@@ -1,0 +1,11 @@
+[Unit]
+Description=Run Kamilya LMS production watchdog every five minutes
+
+[Timer]
+OnBootSec=2m
+OnUnitInactiveSec=5m
+RandomizedDelaySec=30s
+Unit=kamilya-ops-check.service
+
+[Install]
+WantedBy=timers.target

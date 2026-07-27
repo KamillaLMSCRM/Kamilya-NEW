@@ -4,7 +4,7 @@ from sqlalchemy import select, text
 from starlette.responses import JSONResponse
 from datetime import datetime, timezone
 from uuid import UUID
-from app.core.auth import create_access_token, create_refresh_token, get_current_user
+from app.core.auth import create_access_token, create_refresh_token, decode_token, get_current_user
 from app.core.config import get_settings
 from app.core.db import get_db
 from app.core.email import EmailService
