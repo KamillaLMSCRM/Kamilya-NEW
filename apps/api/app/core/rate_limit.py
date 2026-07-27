@@ -68,25 +68,39 @@ PUBLIC_AUTH_ENDPOINTS = frozenset(
 class RateLimiter:
     """Redis-based rate limiter using sliding window."""
 
-    def __init__(self, redis_url: str = "redis://localhost:6379/1"):
+    def __init__(
+        self,
+        redis_url: str = "redis://localhost:6379/1",
+        unavailable_retry_seconds: float = 5.0,
+    ):
         self.redis_url = redis_url
+        self.unavailable_retry_seconds = unavailable_retry_seconds
         self._redis = None
         self._available = True
+        self._retry_after = 0.0
+
+    def _mark_unavailable(self) -> None:
+        self._available = False
+        self._redis = None
+        self._retry_after = time.monotonic() + self.unavailable_retry_seconds
 
     async def _get_redis(self):
-        if not self._available:
+        if not self._available and time.monotonic() < self._retry_after:
             return None
         if self._redis is not None:
             return self._redis
         try:
             import redis.asyncio as aioredis
-            self._redis = aioredis.from_url(self.redis_url, decode_responses=True)
-            await self._redis.ping()
-            return self._redis
+
+            client = aioredis.from_url(self.redis_url, decode_responses=True)
+            await client.ping()
+            self._redis = client
+            self._available = True
+            self._retry_after = 0.0
+            return client
         except Exception:
             logger.warning("Valkey unavailable; rate limiting state cannot be read")
-            self._available = False
-            self._redis = None
+            self._mark_unavailable()
             return None
 
     async def check_rate_limit(
@@ -131,6 +145,7 @@ class RateLimiter:
             }
         except Exception:
             logger.warning("Valkey rate limit check failed; limiter state unavailable")
+            self._mark_unavailable()
             return False, {
                 "remaining": 0,
                 "reset": int(time.time() + window_seconds),

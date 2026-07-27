@@ -1,6 +1,7 @@
 """Unit coverage for Valkey-backed rate limiting and degraded behavior."""
 from __future__ import annotations
 
+import time
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -42,6 +43,11 @@ class FakeRedis:
 
     def pipeline(self):
         return FakePipeline(self)
+
+
+class RecoveringRedis(FakeRedis):
+    async def ping(self):
+        return True
 
 
 class FailingPipeline(FakePipeline):
@@ -90,6 +96,7 @@ async def test_rate_limiter_enforces_normal_window():
 async def test_rate_limiter_rejects_when_valkey_is_unavailable(caplog):
     limiter = RateLimiter()
     limiter._available = False
+    limiter._retry_after = time.monotonic() + 60
 
     allowed, info = await limiter.check_rate_limit("test", max_requests=5, window_seconds=60)
 
@@ -111,10 +118,27 @@ async def test_rate_limiter_rejects_when_valkey_operation_fails(caplog):
 
 
 @pytest.mark.asyncio
+async def test_rate_limiter_reconnects_after_unavailable_cooldown():
+    limiter = RateLimiter(unavailable_retry_seconds=5)
+    limiter._available = False
+    limiter._retry_after = time.monotonic() - 1
+    recovered = RecoveringRedis()
+
+    with patch("redis.asyncio.from_url", return_value=recovered):
+        allowed, info = await limiter.check_rate_limit("test", max_requests=5, window_seconds=60)
+
+    assert allowed is True
+    assert info["current"] == 1
+    assert limiter._available is True
+    assert limiter._redis is recovered
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("path", sorted(PUBLIC_AUTH_ENDPOINTS))
 async def test_every_public_auth_endpoint_fails_closed_on_valkey_outage(path):
     middleware = RateLimitMiddleware(lambda scope, receive, send: None)
     middleware.limiter._available = False
+    middleware.limiter._retry_after = time.monotonic() + 60
     settings = SimpleNamespace(APP_ENV="production")
 
     async def call_next(request):
@@ -131,6 +155,7 @@ async def test_every_public_auth_endpoint_fails_closed_on_valkey_outage(path):
 async def test_non_auth_route_stays_available_on_valkey_outage():
     middleware = RateLimitMiddleware(lambda scope, receive, send: None)
     middleware.limiter._available = False
+    middleware.limiter._retry_after = time.monotonic() + 60
     settings = SimpleNamespace(APP_ENV="production")
     calls = []
 
