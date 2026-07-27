@@ -32,6 +32,13 @@ RATE_LIMITS: dict[str, RateLimitConfig] = {
     "/api/v1/auth/register": RateLimitConfig(requests_per_minute=3, requests_per_hour=10, burst_size=2),
     "/api/v1/auth/refresh": RateLimitConfig(requests_per_minute=10, requests_per_hour=100, burst_size=5),
     "/api/v1/auth/check-code": RateLimitConfig(requests_per_minute=30, requests_per_hour=120, burst_size=15),
+    "/api/v1/auth/superadmin-login": RateLimitConfig(requests_per_minute=5, requests_per_hour=20, burst_size=3),
+    "/api/v1/auth/register-by-telegram": RateLimitConfig(requests_per_minute=3, requests_per_hour=10, burst_size=2),
+    "/api/v1/auth/demo-login": RateLimitConfig(requests_per_minute=3, requests_per_hour=10, burst_size=2),
+    "/api/v1/tenants/register": RateLimitConfig(requests_per_minute=3, requests_per_hour=10, burst_size=2),
+    "/api/v1/auth/generate-code": RateLimitConfig(requests_per_minute=10, requests_per_hour=60, burst_size=5),
+    "/api/v1/auth/email/request-code": RateLimitConfig(requests_per_minute=5, requests_per_hour=20, burst_size=3),
+    "/api/v1/auth/email/verify-code": RateLimitConfig(requests_per_minute=10, requests_per_hour=60, burst_size=5),
     "/api/v1/ai/generate-course": RateLimitConfig(requests_per_minute=2, requests_per_hour=10, burst_size=1),
     "/api/v1/quizzes": RateLimitConfig(requests_per_minute=30, requests_per_hour=500, burst_size=10),
     "/api/v1/documents/upload": RateLimitConfig(requests_per_minute=10, requests_per_hour=100, burst_size=5),
@@ -47,9 +54,13 @@ PUBLIC_AUTH_ENDPOINTS = frozenset(
         "/api/v1/auth/register",
         "/api/v1/auth/refresh",
         "/api/v1/auth/check-code",
+        "/api/v1/auth/superadmin-login",
+        "/api/v1/auth/register-by-telegram",
+        "/api/v1/auth/demo-login",
         "/api/v1/auth/generate-code",
         "/api/v1/auth/email/request-code",
         "/api/v1/auth/email/verify-code",
+        "/api/v1/tenants/register",
     }
 )
 
@@ -130,8 +141,12 @@ class RateLimiter:
 
     async def get_rate_limit_config(self, path: str) -> RateLimitConfig:
         """Get rate limit config for a path."""
+        exact_config = RATE_LIMITS.get(path)
+        if exact_config is not None:
+            return exact_config
+
         for pattern, config in RATE_LIMITS.items():
-            if pattern != "default" and path.startswith(pattern):
+            if pattern != "default" and pattern not in PUBLIC_AUTH_ENDPOINTS and path.startswith(pattern):
                 return config
         return RATE_LIMITS["default"]
 

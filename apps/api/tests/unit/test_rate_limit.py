@@ -8,7 +8,11 @@ import pytest
 from starlette.requests import Request
 from starlette.responses import Response
 
-from app.core.rate_limit import RateLimiter, RateLimitMiddleware
+from app.core.rate_limit import PUBLIC_AUTH_ENDPOINTS, RATE_LIMITS, RateLimiter, RateLimitMiddleware
+
+
+def test_every_public_auth_endpoint_has_an_explicit_rate_limit():
+    assert PUBLIC_AUTH_ENDPOINTS <= RATE_LIMITS.keys()
 
 
 class FakePipeline:
@@ -107,7 +111,24 @@ async def test_rate_limiter_rejects_when_valkey_operation_fails(caplog):
 
 
 @pytest.mark.asyncio
-async def test_public_auth_fails_closed_but_internal_route_stays_available():
+@pytest.mark.parametrize("path", sorted(PUBLIC_AUTH_ENDPOINTS))
+async def test_every_public_auth_endpoint_fails_closed_on_valkey_outage(path):
+    middleware = RateLimitMiddleware(lambda scope, receive, send: None)
+    middleware.limiter._available = False
+    settings = SimpleNamespace(APP_ENV="production")
+
+    async def call_next(request):
+        return Response("ok")
+
+    with patch("app.core.config.get_settings", return_value=settings):
+        response = await middleware.dispatch(_request(path), call_next)
+
+    assert response.status_code == 503
+    assert response.headers["Retry-After"] == "5"
+
+
+@pytest.mark.asyncio
+async def test_non_auth_route_stays_available_on_valkey_outage():
     middleware = RateLimitMiddleware(lambda scope, receive, send: None)
     middleware.limiter._available = False
     settings = SimpleNamespace(APP_ENV="production")
@@ -118,10 +139,7 @@ async def test_public_auth_fails_closed_but_internal_route_stays_available():
         return Response("ok")
 
     with patch("app.core.config.get_settings", return_value=settings):
-        public_response = await middleware.dispatch(_request("/api/v1/auth/login"), call_next)
         internal_response = await middleware.dispatch(_request("/api/v1/internal/task"), call_next)
 
-    assert public_response.status_code == 503
-    assert public_response.headers["Retry-After"] == "5"
     assert internal_response.status_code == 200
     assert calls == ["/api/v1/internal/task"]
