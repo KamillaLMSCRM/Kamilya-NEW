@@ -46,9 +46,9 @@ Tenant administration and learning management are separate domains.
 | Learning consumption | `student` | Assigned courses, quizzes, certificates, learner-only learning-path and survey views | Any tenant or learning configuration |
 | Platform operations | `superadmin` | Tenant lifecycle, global provider keys, platform diagnostics, controlled impersonation | Acting as an unscoped tenant user in the tenant UI |
 
-Read-only operational reporting may be shared only when the surface is named in
-the matrix below. Shared reads do not grant either role the other role's write
-capabilities.
+Operational reporting belongs to the role that owns the underlying workflow.
+The tenant admin dashboard may show tenant-level service and plan summaries,
+but learner-level training results remain methodologist-owned.
 
 ### 2. One account, several assigned roles
 
@@ -75,14 +75,15 @@ boundary; sidebar visibility, page guards, and redirects must agree with it.
 
 | Active role | UI surfaces | Key API capabilities | Redirect target / boundary |
 |---|---|---|---|
-| `admin` | `/admin`, `/admin/team`, `/admin/kiosks`, `/settings`, `/admin/settings/integrations`, certificate-template settings, `/admin/training-log` | Manage system users and their assigned tenant roles; manage tenant settings, kiosk links, and integrations; read the shared training log only (no learning-content, learner-assignment, or workforce-learning mutations) | Role switch lands on `/admin`. Direct navigation to learning-management routes returns to `/admin`. |
-| `methodologist` | `/ai/generate`, `/courses`, `/documents`, `/quizzes`, `/staff`, `/positions`, `/assignments`, `/learning-paths`, `/cohorts`, `/competencies`, `/surveys`, `/announcements`, `/admin/training-log` | Create/review/publish learning content; configure workforce learning; manage rules and direct assignments; access learning results | Role switch lands on `/dashboard`. Legacy `/admin/enrollments` redirects to `/assignments`; `/admin/employees` redirects to staff structure. |
+| `admin` | `/admin`, `/admin/team`, `/admin/kiosks`, `/settings`, `/admin/settings/integrations`, certificate-template settings | Manage system users and their assigned tenant roles; manage tenant settings, kiosk links, and integrations | Role switch lands on `/admin`. Direct navigation to learning-management or learner-result routes returns to `/admin`. |
+| `methodologist` | `/ai/generate`, `/courses`, `/documents`, `/quizzes`, `/staff`, `/positions`, `/assignments`, `/learning-paths`, `/cohorts`, `/competencies`, `/surveys`, `/announcements`, `/training-log` | Create/review/publish learning content; configure workforce learning; manage rules and direct assignments; access learning results | Role switch lands on `/dashboard`. Legacy `/admin/enrollments` redirects to `/assignments`; `/admin/employees` redirects to staff structure. |
 | `student` | `/student`, `/my-courses`, `/my-quizzes`, `/certificates`, learner-specific paths and surveys | Read and complete assigned learning; submit learner responses; retrieve own certificates | Role switch lands on `/student`. Management routes must not be actionable. |
 | `superadmin` | `/admin/super/*`, `/admin/providers` | Platform tenant lifecycle, global provider configuration, diagnostics, and controlled impersonation | Platform users are redirected away from tenant surfaces to `/admin/super`; tenant users are redirected away from platform surfaces to their dashboard. |
 
-`/admin/training-log` is an explicit shared read-only reporting surface for
-tenant admins and methodologists. It does not make learner assignment or course
-configuration an admin capability.
+`/training-log` is the methodologist-owned UI surface. The API keeps the
+historical path `/api/v1/admin/training-log`, but the path name does not make
+the function tenant-admin-owned. UI capabilities must not infer ownership from
+this legacy API prefix.
 
 The following legacy locations are not ownership exceptions:
 

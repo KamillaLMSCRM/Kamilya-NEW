@@ -27,7 +27,7 @@
 | Компонент | Состояние | Комментарий |
 |---|---|---|
 | `valkey-server` / `valkey` | active | Broker, result backend, OTP/rate-limit/cache |
-| `kamilya-worker.service` | active, enabled | Checkout `a5edcc2`, Celery ping отвечает |
+| `kamilya-worker.service` | active, enabled | Checkout `a10786c`, Celery ping отвечает |
 | Disk `/` | 59% used, около 30 GB free | Нужен alert по заполнению |
 | `kamilya-backup.timer` | active, enabled | Ежедневный encrypted PostgreSQL backup |
 | `kamilya-ops-check.timer` | active, enabled | Watchdog каждые 5 минут |
@@ -107,7 +107,7 @@ HostKZ server был заказан как недельный тестовый �
 - Не считать active unit доказательством работоспособности business-flow.
 - Не отключать Supabase во время тестового переноса.
 
-## Перед первым tenant
+## Перед подключением нового production-тенанта
 
 Обязательные действия находятся в
 [`PRODUCTION_READINESS.md`](PRODUCTION_READINESS.md):

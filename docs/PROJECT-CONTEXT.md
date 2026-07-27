@@ -44,19 +44,22 @@ Production БД пока не перенесена в Казахстан. HostKZ
 
 На 2026-07-27:
 
-- проверенный application baseline: `a5edcc264ade3acf4b40a6dcbcd9ffca2f9f4944`;
-- GitHub CI `30248028415`: success;
-- GitHub production smoke `30248028427`: success;
-- Vercel production: `READY`, application baseline `a5edcc2`;
-- Render API: live, commit `a5edcc2`;
+- проверенный application baseline: `a10786c6d2c0b4cfa31385e7613d6390452c32cd`;
+- GitHub CI `30262132014`: success;
+- GitHub production smoke `30262131946`: success;
+- Vercel production: `READY`, commit `a10786c`;
+- Render API: live, commit `a10786c`;
 - production Alembic: `0078`, repository head: `0078`;
-- Celery worker active на `a5edcc2`, реальный Celery ping passed;
+- Celery worker active/enabled на `a10786c`, реальный Celery ping passed;
 - ежедневный encrypted backup и пятиминутный watchdog активны;
-- реальный backup/portable restore drill PostgreSQL 17 + pgvector passed.
+- реальный backup/portable restore drill PostgreSQL 17 + pgvector passed;
+- полный production synthetic tenant journey от регистрации до сертификата и
+  журнала обучения passed; synthetic tenant и storage objects удалены.
 
-Технический P0 закрыт. Перед первым контролируемым pilot остаётся прикладной
-synthetic tenant journey и условные gates для отдельно продаваемых возможностей.
-Полный список находится в [`PRODUCTION_READINESS.md`](PRODUCTION_READINESS.md).
+Технический и прикладной P0 закрыты для контролируемого первого pilot.
+Отдельные условные gates сохраняются для SCORM, kiosk, KZ data residency и
+заявленной массовой нагрузки. Полный список находится в
+[`PRODUCTION_READINESS.md`](PRODUCTION_READINESS.md).
 
 ## Роли
 

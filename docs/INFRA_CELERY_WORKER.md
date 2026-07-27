@@ -24,9 +24,10 @@ Worker выполняет:
 ## Текущий известный статус
 
 На 2026-07-27 unit active/enabled, checkout
-`a5edcc264ade3acf4b40a6dcbcd9ffca2f9f4944`, production API и worker
+`a10786c6d2c0b4cfa31385e7613d6390452c32cd`, production API и worker
 синхронизированы. Production DB находится на `0078`; реальный Celery inspect
-ping отвечает.
+ping отвечает. Полный production synthetic tenant journey с обычной и
+должностной AI-генерацией пройден на этом release.
 
 ## Проверка без изменения сервера
 

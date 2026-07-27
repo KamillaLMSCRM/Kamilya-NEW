@@ -23,19 +23,19 @@ history.
 
 | Контур | Состояние |
 |---|---|
-| Проверенный application baseline | `a5edcc264ade3acf4b40a6dcbcd9ffca2f9f4944`; актуальный docs HEAD проверять через `git rev-parse HEAD` |
-| CI | success, run `30248028415` |
-| Production smoke | success, run `30248028427` |
-| Vercel | production `READY`, application baseline `a5edcc2` |
-| Render API | live, deploy `dep-d9jh01n41pts73clnefg`, commit `a5edcc2` |
+| Проверенный application baseline | `a10786c6d2c0b4cfa31385e7613d6390452c32cd`; актуальный docs HEAD проверять через `git rev-parse HEAD` |
+| CI | success, run `30262132014` |
+| Production smoke | GitHub run `30262131946` success; полный synthetic tenant journey также passed |
+| Vercel | production `READY`, deploy `dpl_DtsUxvR2ChbkKHv3RWRaXCr5yZSg`, commit `a10786c` |
+| Render API | live, deploy `dep-d9jk39b7uimc739ohgjg`, commit `a10786c` |
 | Production DB | Alembic `0078`, совпадает с repository head |
-| Celery worker | active, commit `a5edcc2`, Celery ping passed |
+| Celery worker | active/enabled, commit `a10786c`, Celery ping passed |
 | Backup | encrypted daily timer active; real backup and restore drill passed |
 | Monitoring | VPS watchdog and GitHub production smoke active |
 
-Технический P0 закрыт. Перед подключением конкретного первого клиента остаётся
-прикладной synthetic tenant journey и условные gates для заявляемых клиенту
-SCORM/kiosk/KZ-data/capacity возможностей. Подробности:
+Технический P0 и прикладной synthetic tenant journey закрыты. Перед
+подключением конкретного клиента остаются только условные gates для реально
+заявляемых SCORM/kiosk/KZ-data/capacity возможностей. Подробности:
 [`PRODUCTION_READINESS.md`](PRODUCTION_READINESS.md).
 
 ## Продуктовая модель
@@ -153,8 +153,8 @@ HTTP health не доказывает, что worker, migrations и пользо
 
 ## Следующий порядок работ
 
-1. Закрыть P0 из `PRODUCTION_READINESS.md`.
-2. Только после release parity выполнять полный production synthetic flow.
+1. Сверить release parity с `PRODUCTION_READINESS.md`.
+2. Пройти клиентскую приёмку на отдельном tenant с его реальными документами.
 3. После первого tenant брать P1 из `PRODUCT_BACKLOG.md` по одному
    каноническому workflow.
 4. Любое изменение UI обновляет пользовательское руководство.

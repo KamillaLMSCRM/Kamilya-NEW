@@ -11,12 +11,12 @@
 
 | Контур | Состояние | Подтверждение |
 |---|---|---|
-| Application baseline | PASS | Проверенный runtime-код: `a5edcc264ade3acf4b40a6dcbcd9ffca2f9f4944`; последующие docs-only commits не меняют эту baseline |
-| CI | PASS | GitHub Actions `30248028415`, полный pipeline |
-| External smoke | PASS | GitHub Actions `30248028427`, API и frontend |
-| Frontend | PASS | Vercel production `READY`, application baseline `a5edcc2` |
-| API | PASS | Render deploy `dep-d9jh01n41pts73clnefg`, `live`, commit `a5edcc2` |
-| Worker | PASS | `/opt/kamilya-worker` на `a5edcc2`, unit active, Celery ping отвечает |
+| Application baseline | PASS | Проверенный runtime-код: `a10786c6d2c0b4cfa31385e7613d6390452c32cd`; последующие docs-only commits не меняют эту baseline |
+| CI | PASS | GitHub Actions `30262132014`, полный pipeline |
+| External smoke | PASS | GitHub Actions `30262131946`, API и frontend |
+| Frontend | PASS | Vercel production `READY`, deploy `dpl_DtsUxvR2ChbkKHv3RWRaXCr5yZSg`, commit `a10786c` |
+| API | PASS | Render deploy `dep-d9jk39b7uimc739ohgjg`, `live`, commit `a10786c` |
+| Worker | PASS | `/opt/kamilya-worker` на `a10786c`, unit active/enabled, Celery ping отвечает |
 | Database | PASS | production PostgreSQL 17.6, Alembic `0078` |
 
 ## Закрытые P0
@@ -71,33 +71,38 @@
   при сбое открывает или обновляет incident issue, при восстановлении закрывает.
 - Legacy `kamilya-trial-expiry.timer` отключён.
 
-## Проверки кода
+## Проверки кода и production-flow
 
-- Backend suite: 575 tests passed до финальных rate-limit изменений.
-- Финальные rate-limit tests: 18 passed; Ruff и mypy passed.
-- Финальный полный CI на `a5edcc2` passed.
-- Frontend: 146 tests passed, typecheck passed, production build passed.
+- Финальный полный CI на `a10786c` passed.
+- Focused backend P0 suites: 26 тестов канонической структуры штата и 17
+  тестов invitation/SCORM contracts passed.
+- Frontend architecture tests, typecheck и production build passed.
 - Tenant/release/shell security gates passed.
 - Graphify code graph обновлён после изменений.
 
-## Обязательный smoke первого пилота
+## Production-приёмка первого пилота
 
-Технический P0 не заменяет прикладную приёмку. Перед выдачей доступа конкретному
-клиенту на отдельном тестовом tenant нужно пройти:
+27 июля 2026 года на production пройден удаляемый synthetic tenant journey:
 
 1. регистрацию компании, email OTP, повторный вход и logout;
-2. создание methodologist как второй роли/пользователя;
-3. загрузку и индексацию двух небольших документов;
-4. одну обычную AI-генерацию и одну генерацию по должностной инструкции;
-5. review, публикацию курса и теста;
-6. ручное добавление сотрудника и один XLSX import;
-7. автоматическое правило и ручное назначение без дублей;
-8. приглашение, прохождение уроков/теста, завершение и сертификат;
-9. запись в журнале обучения и человекочитаемый CSV/XLSX export;
-10. проверку backend-enforcement trial-лимитов.
+2. создание и вход `methodologist`;
+3. загрузку и индексацию документа;
+4. обычную AI-генерацию и генерацию по должностной инструкции;
+5. review и публикацию обоих курсов;
+6. ручное добавление сотрудника с каноническими `department_id`/`position_id`;
+7. XLSX preview/commit;
+8. правило должности и ручное назначение с проверкой идемпотентности;
+9. приглашение обучающегося и принятие ссылки;
+10. прохождение семи уроков и шести тестов;
+11. завершение курса, проверку и скачивание сертификата;
+12. JSON-журнал и Excel-совместимый CSV с русскими заголовками;
+13. enforcement trial-лимитов `1/1` для обычного и должностного AI-курса,
+    трёх обучающихся и двух системных пользователей;
+14. удаление synthetic tenant и двух storage objects.
 
-Результат фиксируется в этом документе как дата и итог, без создания нового
-«финального отчёта».
+Все этапы завершились `PASS`. Это закрывает прикладной P0 для контролируемого
+первого пилота; условные gates ниже остаются обязательными только если
+соответствующая возможность продаётся клиенту.
 
 ## Условные launch-gates
 
