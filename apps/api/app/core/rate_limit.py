@@ -38,6 +38,21 @@ RATE_LIMITS: dict[str, RateLimitConfig] = {
     "default": RateLimitConfig(requests_per_minute=60, requests_per_hour=1000, burst_size=20),
 }
 
+# These endpoints can be called before a user has an authenticated session.
+# When Valkey is unavailable they must fail closed so an outage cannot turn
+# brute-force protection off. Authenticated/internal routes keep operating.
+PUBLIC_AUTH_ENDPOINTS = frozenset(
+    {
+        "/api/v1/auth/login",
+        "/api/v1/auth/register",
+        "/api/v1/auth/refresh",
+        "/api/v1/auth/check-code",
+        "/api/v1/auth/generate-code",
+        "/api/v1/auth/email/request-code",
+        "/api/v1/auth/email/verify-code",
+    }
+)
+
 
 class RateLimiter:
     """Redis-based rate limiter using sliding window."""
@@ -57,8 +72,8 @@ class RateLimiter:
             self._redis = aioredis.from_url(self.redis_url, decode_responses=True)
             await self._redis.ping()
             return self._redis
-        except (ImportError, Exception) as e:
-            logger.warning(f"Redis not available ({e}), rate limiting DISABLED (fail-closed)")
+        except Exception:
+            logger.warning("Valkey unavailable; rate limiting state cannot be read")
             self._available = False
             self._redis = None
             return None
@@ -72,8 +87,13 @@ class RateLimiter:
         """
         redis = await self._get_redis()
         if redis is None:
-            # Fail-open: allow request if Redis unavailable (no rate limiting)
-            return True, {"remaining": max_requests, "reset": int(time.time() + window_seconds), "limit": max_requests, "current": 0}
+            return False, {
+                "remaining": 0,
+                "reset": int(time.time() + window_seconds),
+                "limit": max_requests,
+                "current": 0,
+                "unavailable": True,
+            }
 
         try:
             now = time.time()
@@ -98,9 +118,15 @@ class RateLimiter:
                 "limit": max_requests,
                 "current": current_count,
             }
-        except Exception as e:
-            logger.warning(f"Redis rate limit check failed ({e}), allowing request")
-            return True, {"remaining": max_requests, "reset": int(time.time() + window_seconds), "limit": max_requests, "current": 0}
+        except Exception:
+            logger.warning("Valkey rate limit check failed; limiter state unavailable")
+            return False, {
+                "remaining": 0,
+                "reset": int(time.time() + window_seconds),
+                "limit": max_requests,
+                "current": 0,
+                "unavailable": True,
+            }
 
     async def get_rate_limit_config(self, path: str) -> RateLimitConfig:
         """Get rate limit config for a path."""
@@ -139,6 +165,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         # endpoints (login, register) this stays empty and we fall back
         # to IP-only. See audit §4.5.
         tenant_id = _peek_tenant_id_from_request(request)
+        is_public_auth = path in PUBLIC_AUTH_ENDPOINTS
 
         try:
             config = await self.limiter.get_rate_limit_config(path)
@@ -153,7 +180,27 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 key, config.requests_per_minute, 60
             )
         except Exception:
-            is_allowed = True  # fail-open
+            # A configuration or Redis failure must not disable brute-force
+            # protection on public auth endpoints. Other routes remain
+            # available while the limiter is degraded.
+            is_allowed = not is_public_auth
+            info["unavailable"] = True
+
+        if is_public_auth and info.get("unavailable"):
+            retry_after = 5
+            return JSONResponse(
+                status_code=503,
+                content={"detail": "Authentication service temporarily unavailable"},
+                headers={
+                    "Retry-After": str(retry_after),
+                    "X-RateLimit-Limit": str(info.get("limit", 0)),
+                    "X-RateLimit-Remaining": "0",
+                    "X-RateLimit-Reset": str(info.get("reset", 0)),
+                },
+            )
+
+        if info.get("unavailable") and not is_public_auth:
+            is_allowed = True
 
         if not is_allowed:
             logger.warning(

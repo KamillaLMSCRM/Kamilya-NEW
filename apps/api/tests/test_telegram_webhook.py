@@ -14,6 +14,7 @@ tests pass on broken code.
 """
 from __future__ import annotations
 
+import logging
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
@@ -22,9 +23,9 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
+from app.core.rate_limit import RateLimitMiddleware
 from app.modules.auth import auth_sessions
 from app.modules.auth.auth_sessions import _dumps, _memory_store
-from app.core.rate_limit import RateLimitMiddleware
 
 WEBHOOK_HEADERS = {
     "X-Telegram-Bot-Api-Secret-Token": "test-telegram-webhook-secret"
@@ -147,6 +148,19 @@ def patched_redis(fake_redis):
 
 
 class TestTelegramWebhook:
+    def test_generate_code_never_logs_one_time_code(self, client, caplog):
+        generated_code = "123456"
+        with patch(
+            "app.modules.auth.router.generate_auth_code",
+            new=AsyncMock(return_value=(generated_code, 300)),
+        ):
+            with caplog.at_level(logging.INFO):
+                response = client.post("/api/v1/auth/generate-code")
+
+        assert response.status_code == 200
+        assert response.json()["code"] == generated_code
+        assert generated_code not in caplog.text
+
     @pytest.mark.asyncio
     async def test_auth_sessions_fall_back_when_redis_operations_fail(self):
         async def _get():

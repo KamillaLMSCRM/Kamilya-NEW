@@ -439,12 +439,12 @@ async def generate_code():
     logger = logging.getLogger(__name__)
     try:
         code, expires_in = await generate_auth_code()
-        logger.info(f"Generated auth code: {code}")
         return GenerateCodeResponse(code=code, expires_in=expires_in)
-    except Exception as e:
-        logger.exception(f"Error generating auth code: {e}")
+    except Exception:
+        # Never include a one-time code or provider details in application logs.
+        logger.exception("Error generating auth code")
         from fastapi import HTTPException
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Unable to generate authentication code") from None
 
 
 @router.post("/check-code")
