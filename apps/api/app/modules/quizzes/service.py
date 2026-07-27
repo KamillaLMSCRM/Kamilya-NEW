@@ -8,19 +8,34 @@ from sqlalchemy import select, func
 from app.modules.quizzes.models import Quiz, Question, QuizChoice, QuizAttempt
 
 
-async def get_quiz_with_questions(db: AsyncSession, quiz_id: UUID, tenant_id: UUID):
+async def get_quiz_with_questions(
+    db: AsyncSession,
+    quiz_id: UUID,
+    tenant_id: UUID,
+    *,
+    include_correct_answers: bool = True,
+):
     """Get quiz with all questions and choices (single quiz).
 
     Convenience wrapper around get_quizzes_with_questions for the common
     single-quiz case. Returns the first item from the batched call, or
     None if no quiz matches.
     """
-    results = await get_quizzes_with_questions(db, [quiz_id], tenant_id)
+    results = await get_quizzes_with_questions(
+        db,
+        [quiz_id],
+        tenant_id,
+        include_correct_answers=include_correct_answers,
+    )
     return results[0] if results else None
 
 
 async def get_quizzes_with_questions(
-    db: AsyncSession, quiz_ids: Iterable[UUID], tenant_id: UUID
+    db: AsyncSession,
+    quiz_ids: Iterable[UUID],
+    tenant_id: UUID,
+    *,
+    include_correct_answers: bool = True,
 ) -> list[dict]:
     """Fetch many quizzes (with their questions+choices) in 3 batched queries.
 
@@ -56,7 +71,6 @@ async def get_quizzes_with_questions(
         select(Question)
         .where(
             Question.quiz_id.in_(valid_quiz_ids),
-            Question.tenant_id == tenant_id,
         )
         .order_by(Question.quiz_id, Question.order_index)
     )
@@ -102,7 +116,7 @@ async def get_quizzes_with_questions(
                             "id": c.id,
                             "text": c.text,
                             "order_index": c.order_index,
-                            "is_correct": c.is_correct,
+                            "is_correct": c.is_correct if include_correct_answers else False,
                         }
                         for c in choices_by_qid.get(q.id, [])
                     ],

@@ -40,6 +40,7 @@ async def get_trial_usage(db: AsyncSession, tenant_id: UUID) -> dict:
             select(func.count(Course.id)).where(
                 Course.tenant_id == tenant_id,
                 Course.ai_generated == True,
+                Course.source_instruction_id.is_(None),
             )
         )
     ).scalar() or 0

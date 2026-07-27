@@ -217,6 +217,7 @@ async def count_ai_courses(db: AsyncSession, tenant_id: Any) -> int:
             select(func.count(Course.id)).where(
                 Course.tenant_id == tenant_id,
                 Course.ai_generated == True,  # noqa: E712
+                Course.source_instruction_id.is_(None),
             )
         )
         or 0

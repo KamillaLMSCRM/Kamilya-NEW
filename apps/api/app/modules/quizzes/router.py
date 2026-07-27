@@ -331,7 +331,12 @@ async def get_quiz_by_lesson(
     quiz = result.scalar_one_or_none()
     if not quiz:
         raise HTTPException(status_code=404, detail="No quiz for this lesson")
-    return await get_quiz_with_questions(db, quiz.id, user.tenant_id)
+    return await get_quiz_with_questions(
+        db,
+        quiz.id,
+        user.tenant_id,
+        include_correct_answers=user.role in {"methodologist", "superadmin"},
+    )
 
 
 @router.get("/{quiz_id}", response_model=QuizResponse)
@@ -340,9 +345,14 @@ async def get_quiz(
     db: AsyncSession = Depends(get_db),
     user=Depends(get_current_user),
 ):
-    """Get quiz with questions (without correct answers)."""
+    """Get a quiz, exposing answer keys only to authoring roles."""
     await _require_quiz_access(db, quiz_id, user)
-    quiz = await get_quiz_with_questions(db, quiz_id, user.tenant_id)
+    quiz = await get_quiz_with_questions(
+        db,
+        quiz_id,
+        user.tenant_id,
+        include_correct_answers=user.role in {"methodologist", "superadmin"},
+    )
     if not quiz:
         raise HTTPException(status_code=404, detail="Quiz not found")
     return quiz
