@@ -1,14 +1,14 @@
 """Regression tests for trial access and durable AI dispatch wiring."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from inspect import signature
+from unittest.mock import AsyncMock, Mock
 from uuid import uuid4
 
 import pytest
 from fastapi import HTTPException
 
-from app.models.tenants import Tenant
-from app.models.tenants import TenantUsage
+from app.models.tenants import Tenant, TenantUsage
 
 
 class FakeTenantDB:
@@ -20,7 +20,7 @@ class FakeTenantDB:
 
 
 def _tenant(**overrides) -> Tenant:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     values = {
         "id": uuid4(),
         "name": "Trial tenant",
@@ -46,7 +46,7 @@ async def test_active_trial_allows_tenant_access():
 async def test_expired_trial_returns_machine_readable_error():
     from app.core.trial_limits import assert_tenant_access
 
-    tenant = _tenant(trial_ends_at=datetime.now(timezone.utc) - timedelta(seconds=1))
+    tenant = _tenant(trial_ends_at=datetime.now(UTC) - timedelta(seconds=1))
 
     with pytest.raises(HTTPException) as caught:
         await assert_tenant_access(FakeTenantDB(tenant), tenant.id)
@@ -60,8 +60,8 @@ async def test_paid_period_overrides_expired_trial():
     from app.core.trial_limits import assert_tenant_access
 
     tenant = _tenant(
-        trial_ends_at=datetime.now(timezone.utc) - timedelta(days=1),
-        paid_until=datetime.now(timezone.utc) + timedelta(days=30),
+        trial_ends_at=datetime.now(UTC) - timedelta(days=1),
+        paid_until=datetime.now(UTC) + timedelta(days=30),
     )
     await assert_tenant_access(FakeTenantDB(tenant), tenant.id)
 
@@ -84,7 +84,7 @@ async def test_role_gate_checks_trial_access_for_mutations():
     """All role-protected mutation routes share the billing boundary."""
     from app.core.auth import get_current_active_user
 
-    tenant = _tenant(trial_ends_at=datetime.now(timezone.utc) - timedelta(seconds=1))
+    tenant = _tenant(trial_ends_at=datetime.now(UTC) - timedelta(seconds=1))
     user = type("User", (), {"is_active": True, "tenant_id": tenant.id})()
 
     with pytest.raises(HTTPException) as caught:
@@ -177,3 +177,23 @@ async def test_failed_ai_generation_releases_trial_counter():
 
     await trial_limits.release_ai_course_generation(db, tenant_id)
     assert usage.ai_course_generations_used == 0
+
+
+@pytest.mark.asyncio
+async def test_trial_usage_lock_is_a_row_lock():
+    """The production reservation primitive must serialize on Tenant."""
+    from sqlalchemy.ext.asyncio import AsyncSession
+
+    from app.core import trial_limits
+
+    tenant = _tenant()
+    db = AsyncMock(spec=AsyncSession)
+    result = Mock()
+    result.scalar_one_or_none.return_value = tenant
+    db.execute.return_value = result
+
+    locked = await trial_limits._lock_tenant_row(db, tenant.id)
+
+    assert locked is tenant
+    statement = db.execute.await_args.args[0]
+    assert statement._for_update_arg is not None

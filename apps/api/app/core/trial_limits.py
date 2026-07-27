@@ -7,15 +7,15 @@ prospect environment; trial tenants are real company tenants created via
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any, Literal
 
 from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql import Select
 
 from app.models.tenants import Tenant, TenantUsage
-
 
 TrialResource = Literal["courses", "ai_courses", "jd_courses", "learners", "system_users"]
 
@@ -82,14 +82,14 @@ def is_trial_expired(tenant: Tenant, now: datetime | None = None) -> bool:
     """
     if not _is_trial_tenant(tenant) or tenant.trial_ends_at is None:
         return False
-    current = now or datetime.now(timezone.utc)
+    current = now or datetime.now(UTC)
     trial_end = tenant.trial_ends_at
     if trial_end.tzinfo is None:
-        trial_end = trial_end.replace(tzinfo=timezone.utc)
+        trial_end = trial_end.replace(tzinfo=UTC)
     if tenant.paid_until is not None:
         paid_until = tenant.paid_until
         if paid_until.tzinfo is None:
-            paid_until = paid_until.replace(tzinfo=timezone.utc)
+            paid_until = paid_until.replace(tzinfo=UTC)
         if paid_until > current:
             return False
     return trial_end <= current
@@ -150,6 +150,43 @@ async def _get_trial_limits(db: AsyncSession, tenant_id: Any) -> TrialLimits | N
     if not _is_trial_tenant(tenant):
         return None
     return _limits_from_tenant(tenant)
+
+
+async def _lock_tenant_row(
+    db: AsyncSession,
+    tenant_id: Any,
+    *,
+    require_exists: bool = True,
+) -> Tenant | None:
+    """Serialize usage mutations for one tenant in PostgreSQL.
+
+    ``TenantUsage`` is lazily created, so locking that row cannot protect the
+    first reservation. The tenant row always exists and is the common lock
+    for reserve and release. Small unit-test doubles use the fallback path;
+    real ``AsyncSession`` instances always take the row-lock path.
+    """
+    if not isinstance(db, AsyncSession):
+        return None
+
+    result = await db.execute(_tenant_lock_statement(tenant_id))
+    tenant = result.scalar_one_or_none()
+    if tenant is None and require_exists:
+        await assert_tenant_access(db, tenant_id)
+    return tenant
+
+
+def _tenant_lock_statement(tenant_id: Any) -> Select[Any]:
+    return select(Tenant).where(Tenant.id == tenant_id).with_for_update()
+
+
+async def _usage_after_tenant_lock(db: AsyncSession, tenant_id: Any) -> TenantUsage:
+    usage = await db.get(TenantUsage, tenant_id)
+    if usage:
+        return usage
+    usage = TenantUsage(tenant_id=tenant_id)
+    db.add(usage)
+    await db.flush()
+    return usage
 
 
 async def count_courses(db: AsyncSession, tenant_id: Any) -> int:
@@ -232,21 +269,23 @@ async def assert_can_create_ai_course(db: AsyncSession, tenant_id: Any, requeste
 
 
 async def reserve_ai_course_generation(db: AsyncSession, tenant_id: Any) -> None:
-    limits = await _get_trial_limits(db, tenant_id)
+    locked_tenant = await _lock_tenant_row(db, tenant_id)
+    limits = (
+        _limits_from_tenant(locked_tenant)
+        if locked_tenant is not None and _is_trial_tenant(locked_tenant)
+        else await _get_trial_limits(db, tenant_id)
+    )
     if not limits:
         return
     await assert_can_create_ai_course(db, tenant_id, 1)
-    usage = await db.get(TenantUsage, tenant_id)
-    if not usage:
-        usage = TenantUsage(tenant_id=tenant_id)
-        db.add(usage)
-        await db.flush()
+    usage = await _usage_after_tenant_lock(db, tenant_id)
     usage.ai_course_generations_used = int(usage.ai_course_generations_used or 0) + 1
     await db.flush()
 
 
 async def release_ai_course_generation(db: AsyncSession, tenant_id: Any) -> None:
     """Return a reserved trial generation when no course was produced."""
+    await _lock_tenant_row(db, tenant_id, require_exists=False)
     usage = await db.get(TenantUsage, tenant_id)
     if not usage:
         return
@@ -281,20 +320,22 @@ async def assert_can_create_jd_course(
 
 
 async def reserve_jd_course_generation(db: AsyncSession, tenant_id: Any) -> None:
-    limits = await _get_trial_limits(db, tenant_id)
+    locked_tenant = await _lock_tenant_row(db, tenant_id)
+    limits = (
+        _limits_from_tenant(locked_tenant)
+        if locked_tenant is not None and _is_trial_tenant(locked_tenant)
+        else await _get_trial_limits(db, tenant_id)
+    )
     if not limits:
         return
     await assert_can_create_jd_course(db, tenant_id)
-    usage = await db.get(TenantUsage, tenant_id)
-    if not usage:
-        usage = TenantUsage(tenant_id=tenant_id)
-        db.add(usage)
-        await db.flush()
+    usage = await _usage_after_tenant_lock(db, tenant_id)
     usage.jd_course_generations_used = int(usage.jd_course_generations_used or 0) + 1
     await db.flush()
 
 
 async def release_jd_course_generation(db: AsyncSession, tenant_id: Any) -> None:
+    await _lock_tenant_row(db, tenant_id, require_exists=False)
     usage = await db.get(TenantUsage, tenant_id)
     if not usage:
         return
