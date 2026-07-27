@@ -16,6 +16,7 @@
 | Внутренняя архитектура | [`PROJECT_INTERNAL_DOCUMENTATION.md`](PROJECT_INTERNAL_DOCUMENTATION.md) |
 | Эксплуатация worker | [`INFRA_CELERY_WORKER.md`](INFRA_CELERY_WORKER.md) |
 | Доступ и сервисы VPS | [`VPS_CONNECTION_GUIDE.md`](VPS_CONNECTION_GUIDE.md) |
+| Backup и restore | [`BACKUP_RESTORE_RUNBOOK.md`](BACKUP_RESTORE_RUNBOOK.md) |
 | Правила для агентов | [`AGENTS.md`](../AGENTS.md) |
 
 Старые планы, аудиты, отчёты веток и ТЗ не являются источниками текущего
@@ -43,17 +44,19 @@ Production БД пока не перенесена в Казахстан. HostKZ
 
 На 2026-07-27:
 
-- `master`: `25f473c714d3879b81cc57bad7974cff598fc666`;
-- GitHub Actions run `30215627222`: success;
-- Vercel production: `READY`, commit `25f473c`;
-- Render API: live, commit `58d5511`;
-- после `58d5511` backend не менялся;
+- проверенный application baseline: `a5edcc264ade3acf4b40a6dcbcd9ffca2f9f4944`;
+- GitHub CI `30248028415`: success;
+- GitHub production smoke `30248028427`: success;
+- Vercel production: `READY`, application baseline `a5edcc2`;
+- Render API: live, commit `a5edcc2`;
 - production Alembic: `0078`, repository head: `0078`;
-- Celery worker активен, но находится на старой ревизии `5165a77`.
+- Celery worker active на `a5edcc2`, реальный Celery ping passed;
+- ежедневный encrypted backup и пятиминутный watchdog активны;
+- реальный backup/portable restore drill PostgreSQL 17 + pgvector passed.
 
-Из-за несовпадения worker с API текущий релиз нельзя считать готовым для
-первого реального tenant. Полный список gate находится в
-[`PRODUCTION_READINESS.md`](PRODUCTION_READINESS.md).
+Технический P0 закрыт. Перед первым контролируемым pilot остаётся прикладной
+synthetic tenant journey и условные gates для отдельно продаваемых возможностей.
+Полный список находится в [`PRODUCTION_READINESS.md`](PRODUCTION_READINESS.md).
 
 ## Роли
 

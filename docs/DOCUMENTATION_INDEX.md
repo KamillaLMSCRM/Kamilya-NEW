@@ -26,6 +26,7 @@ production.
 - [Архитектурные решения](adr/)
 - [Celery worker](INFRA_CELERY_WORKER.md)
 - [VPS и сервисы](VPS_CONNECTION_GUIDE.md)
+- [Backup и restore](BACKUP_RESTORE_RUNBOOK.md)
 - [Уроки проекта](LESSONS.md)
 
 ## Правила актуальности

@@ -31,9 +31,10 @@
 
 ## P1: эксплуатация
 
-1. Release manifest для frontend/API/worker/DB.
-2. Синтетический E2E smoke после каждого релиза.
-3. Наблюдаемость очереди, worker, backup, email и AI.
+1. Синтетический business E2E после релиза: tenant, methodologist, source,
+   generation, assignment, learner, certificate и training log.
+2. Метрики queue depth, job age, task failure rate, CPU/RAM и DB connections.
+3. Delivery monitoring для email и AI jobs с tenant-safe диагностикой.
 4. Безопасная очистка старых test tenants и зависших jobs.
 
 ## P2: расширение продукта

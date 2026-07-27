@@ -27,14 +27,16 @@
 | Компонент | Состояние | Комментарий |
 |---|---|---|
 | `valkey-server` / `valkey` | active | Broker, result backend, OTP/rate-limit/cache |
-| `kamilya-worker.service` | active, enabled | Checkout `5165a77`; устарел относительно текущего API и требует release update |
+| `kamilya-worker.service` | active, enabled | Checkout `a5edcc2`, Celery ping отвечает |
 | Disk `/` | 59% used, около 30 GB free | Нужен alert по заполнению |
-| App backup timer/cron | не найден | Restore readiness не подтверждена |
-| `kamilya-trial-expiry.timer` | enabled, inactive | Legacy unit, ссылается на старый checkout |
+| `kamilya-backup.timer` | active, enabled | Ежедневный encrypted PostgreSQL backup |
+| `kamilya-ops-check.timer` | active, enabled | Watchdog каждые 5 минут |
+| `kamilya-trial-expiry.timer` | disabled, inactive | Legacy unit отключён |
 
-Состояние Docling, WhatsApp gateway, WireGuard и legacy API в эту проверку не
-входило. Перед использованием каждого сервиса нужен отдельный health и
-прикладной smoke; старый отчёт не считается доказательством.
+Реальный backup и portable restore drill PostgreSQL 17 + pgvector пройдены
+2026-07-27. Состояние Docling, WhatsApp gateway, WireGuard и legacy API в эту
+проверку не входило. Перед использованием каждого сервиса нужен отдельный
+health и прикладной smoke; старый отчёт не считается доказательством.
 
 ## Быстрая read-only проверка
 
@@ -42,12 +44,26 @@
 systemctl is-active valkey-server || systemctl is-active valkey
 systemctl is-active kamilya-worker.service
 systemctl is-enabled kamilya-worker.service
+systemctl is-active kamilya-backup.timer kamilya-ops-check.timer
 git -C /opt/kamilya-worker status --short
 git -C /opt/kamilya-worker rev-parse HEAD
 df -h /
 systemctl list-timers --all
 journalctl -u kamilya-worker.service -n 100 --no-pager
 ```
+
+Backup/restore:
+
+```bash
+systemctl status kamilya-backup.timer --no-pager
+systemctl status kamilya-ops-check.timer --no-pager
+find /opt/kamilya-backups -maxdepth 1 -type f \
+  -name 'kamilya_*.dump.enc' -printf '%f %s bytes mode=%m\n'
+```
+
+Не выводить `/etc/kamilya/backup.env`, `/etc/kamilya/backup.pgpass`,
+`/etc/kamilya/backup.pass` и `/etc/kamilya/ops.env`. Они root-only и содержат
+credentials.
 
 Для worker используется отдельный
 [`INFRA_CELERY_WORKER.md`](INFRA_CELERY_WORKER.md).

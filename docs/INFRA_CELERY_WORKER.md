@@ -23,9 +23,10 @@ Worker выполняет:
 
 ## Текущий известный статус
 
-На 2026-07-27 unit активен и отвечает на Celery ping, но checkout остаётся на
-`5165a77`. API работает на `58d5511`, а production DB на `0078`. Worker должен
-быть обновлён до совместимого релиза до первого реального tenant.
+На 2026-07-27 unit active/enabled, checkout
+`a5edcc264ade3acf4b40a6dcbcd9ffca2f9f4944`, production API и worker
+синхронизированы. Production DB находится на `0078`; реальный Celery inspect
+ping отвечает.
 
 ## Проверка без изменения сервера
 
@@ -63,8 +64,10 @@ celery -A app.core.celery_app:celery_app inspect registered
 cd /opt/kamilya-worker
 git fetch origin master
 git checkout --detach <release_sha>
-poetry install --only main --no-interaction
-poetry run python -m compileall -q app
+/opt/kamilya-worker/apps/api/.venv/bin/pip install \
+  -r /opt/kamilya-worker/apps/api/requirements.txt
+cd /opt/kamilya-worker/apps/api
+.venv/bin/python -m compileall -q app
 systemctl restart kamilya-worker.service
 systemctl is-active kamilya-worker.service
 journalctl -u kamilya-worker.service -n 100 --no-pager
@@ -97,21 +100,18 @@ journalctl -u kamilya-worker.service -n 100 --no-pager
 
 ## Monitoring
 
-До первого tenant нужны alerts:
+Минимальный production watchdog установлен:
 
-- unit inactive;
-- heartbeat отсутствует;
-- очередь растёт;
-- job остаётся queued/running дольше установленного порога;
-- task failure rate;
-- Valkey недоступен;
-- VPS disk/memory pressure.
+- `kamilya-ops-check.timer` запускается каждые 5 минут;
+- проверяет worker unit, Valkey, API/frontend, backup age, disk и Celery ping;
+- alert/recovery отправляются через Resend;
+- GitHub production smoke выполняется каждые 15 минут и на push в `master`.
 
-Один `systemctl is-active` вручную не является мониторингом.
+Метрики queue depth, job age, task failure rate и memory pressure остаются P1
+наблюдаемости. Один `systemctl is-active` вручную не заменяет watchdog.
 
 ## Legacy unit
 
-На VPS найден `kamilya-trial-expiry.timer`, который enabled, но inactive и
-ссылается на старый `/root/Kamilya-LMS/backend`. Текущий API проверяет trial
-expiration во время tenant-scoped операций. Legacy unit надо удалить после
-подтверждения, что отдельная синхронизация статуса больше не требуется.
+Legacy `kamilya-trial-expiry.timer`, ссылавшийся на старый
+`/root/Kamilya-LMS/backend`, отключён. Trial expiration проверяется backend во
+время tenant-scoped операций.

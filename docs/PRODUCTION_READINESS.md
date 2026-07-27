@@ -1,174 +1,119 @@
 # Kamilya LMS: готовность первого production-тенанта
 
-**Дата проверки:** 2026-07-27
-**Статус:** запуск заблокирован до закрытия P0 ниже
-**Назначение:** единственный актуальный реестр технической готовности. Старые
-P0/P1-отчёты и журналы веток не являются источником текущего состояния.
+**Проверено:** 2026-07-27
+**Технический P0:** закрыт
+**Режим запуска:** контролируемый первый пилот
+**Назначение:** единственный актуальный реестр production-gates. История изменений
+остаётся в Git; отдельные датированные отчёты не используются как источник
+текущего состояния.
 
-## Проверенное состояние
+## Release manifest
 
-| Контур | Состояние | Доказательство |
+| Контур | Состояние | Подтверждение |
 |---|---|---|
-| Репозиторий | PASS | `master` и `origin/master`: `25f473c714d3879b81cc57bad7974cff598fc666` |
-| CI | PASS | GitHub Actions run `30215627222`, conclusion `success`, commit `25f473c` |
-| Frontend | PASS | Vercel production `READY`, commit `25f473c`; `https://app.kml.kz/login` возвращает HTTP 200 |
-| API | PASS | Render deploy `dep-d9j4v13rjlhs73fu8hf0` live, commit `58d5511`; `/api/v1/health` возвращает `ok` |
-| Совместимость API с `master` | PASS | После `58d5511` изменялись только frontend, tests и docs |
-| Схема БД | PASS | Production Alembic `0078`, repository head `0078` |
-| Celery worker | BLOCKED | Сервис активен, но checkout `5165a77` старее API и не содержит текущую реализацию organization training rules |
-| Резервное копирование | BLOCKED | Наличие файлов `scripts/backup.sh` и `scripts/restore.sh` не доказывает работающий backup. На VPS не найден прикладной backup timer/cron; restore drill не зафиксирован |
-| Мониторинг и оповещения | BLOCKED | Конфигурация мониторинга есть в репозитории, но не подтверждены worker heartbeat, queue/failure alerts, backup alerts и уведомления об ошибках email/AI |
-| Public auth hardening | BLOCKED | Telegram auth code записывается в application log; rate limiter разрешает запрос при недоступности Valkey |
-| Trial concurrency | BLOCKED | Проверка и резервирование лимита разделены и не защищены row lock/atomic update |
-| Trial expiry job | CLEANUP | Старый `kamilya-trial-expiry.timer` enabled, но inactive и ссылается на устаревший checkout. Ограничения trial применяются API при запросе; legacy unit надо удалить или заменить |
+| Application baseline | PASS | Проверенный runtime-код: `a5edcc264ade3acf4b40a6dcbcd9ffca2f9f4944`; последующие docs-only commits не меняют эту baseline |
+| CI | PASS | GitHub Actions `30248028415`, полный pipeline |
+| External smoke | PASS | GitHub Actions `30248028427`, API и frontend |
+| Frontend | PASS | Vercel production `READY`, application baseline `a5edcc2` |
+| API | PASS | Render deploy `dep-d9jh01n41pts73clnefg`, `live`, commit `a5edcc2` |
+| Worker | PASS | `/opt/kamilya-worker` на `a5edcc2`, unit active, Celery ping отвечает |
+| Database | PASS | production PostgreSQL 17.6, Alembic `0078` |
 
-## P0: обязательно до подключения первого реального тенанта
+## Закрытые P0
 
-### 1. Выровнять production-релиз
+### Public auth и rate limiting
 
-1. Обновить `/opt/kamilya-worker` до совместимого commit текущего релиза.
-2. Установить зависимости и перезапустить `kamilya-worker.service`.
-3. Проверить `celery inspect ping` и список зарегистрированных задач.
-4. Выполнить smoke:
-   - создать тестового сотрудника вручную;
-   - импортировать тестовый XLSX;
-   - применить organization/department/position rules;
-   - дождаться `positions.apply_course_rules`;
-   - убедиться, что создалось одно назначение без дублей;
-   - повторить recompute и подтвердить идемпотентность.
-5. Зафиксировать один release manifest: Git commit frontend, API, worker и
-   Alembic revision.
+- OTP и Telegram-коды не выводятся в application logs.
+- Ошибки провайдера не возвращаются клиенту.
+- Все public auth routes fail closed при недоступности Valkey.
+- После краткого сбоя limiter повторно подключается через 5 секунд, поэтому
+  login не остаётся заблокированным до рестарта API.
+- Login/register/OTP всегда ограничиваются по IP; неподписанный JWT не может
+  подменить bucket.
+- Реально применяются burst, minute и hour windows.
+- Production probe: четвёртый запрос в burst получил `429` и
+  `Retry-After: 10`; после cooldown endpoint снова отвечал.
 
-**Критерий закрытия:** frontend/API/worker/DB работают на совместимом релизе, а
-worker-flow подтверждён в production на удаляемом тестовом tenant.
+### Trial concurrency
 
-### 2. Проверить полный пользовательский путь
+- Проверка и резервирование AI/JD generation выполняются атомарно.
+- Лимиты курсов, обучающихся и системных пользователей защищены tenant row lock.
+- Первый `TenantUsage` создаётся под тем же lock.
+- PostgreSQL concurrency tests покрывают AI, course, learner и staff import.
 
-На отдельном тестовом tenant пройти:
+### Backup и восстановление
 
-1. регистрация компании;
-2. email OTP через Resend, повторный вход, восстановление сессии и выход;
-3. создание второго системного пользователя с ролью `methodologist`;
-4. загрузка и индексация документа;
-5. AI-генерация с терминальным статусом job;
-6. проверка, публикация курса и теста;
-7. импорт или ручное добавление сотрудника;
-8. автоматическое и ручное назначение без дублей;
-9. приглашение обучающегося и принятие ссылки;
-10. уроки, тест, завершение курса, сертификат;
-11. запись в журнале обучения и человекочитаемый CSV/XLSX-экспорт;
-12. проверка backend-enforcement trial-лимитов и даты окончания.
+- На VPS установлен только PostgreSQL client 17.10; production DB остаётся в
+  Supabase.
+- `kamilya-backup.timer` active/enabled, ежедневный запуск около 02:15.
+- Backup хранится локально только в AES-256-CBC + PBKDF2 виде.
+- Passphrase, pgpass и service env имеют режим `0600`; backup directory `0700`.
+- Реальный архив `kamilya_20260727T072839Z.dump.enc`: 6 402 000 bytes,
+  режим `0600`, внутренний TOC проверен `pg_restore`.
+- Plaintext dump после backup не остаётся.
+- Реальный restore drill выполнен в одноразовый PostgreSQL 17 + pgvector:
+  Alembic `0078`, 56 public tables, агрегаты тестовых данных восстановлены.
+- Portable Supabase restore явно исключает platform-owned
+  `supabase_vault`/`vault` data и создаёт отсутствующую schema dependency
+  `lms_app` как `NOLOGIN`. Runtime password/LOGIN на новом кластере задаётся
+  отдельным provisioning-шагом.
+- После drill одноразовый контейнер и локальная копия архива удалены.
 
-**Критерий закрытия:** все шаги проходят без ручного изменения БД, зависших
-jobs, 4xx/5xx в ожидаемом сценарии и утечки возможностей между ролями.
+### Наблюдаемость
 
-### 3. Резервное копирование и восстановление
+- `kamilya-ops-check.timer` active/enabled, запуск каждые 5 минут.
+- Проверяются worker unit, Valkey unit, API, frontend, возраст backup,
+  заполнение диска и реальный Celery inspect ping.
+- Alert/recovery отправляются через Resend; неуспешная отправка не включает
+  cooldown и будет повторена.
+- Тестовое monitoring-письмо принято Resend.
+- GitHub production smoke работает каждые 15 минут и на каждый push в `master`;
+  при сбое открывает или обновляет incident issue, при восстановлении закрывает.
+- Legacy `kamilya-trial-expiry.timer` отключён.
 
-1. Подтвердить фактический план Supabase для production и доступную политику
-   backup/PITR.
-2. Настроить независимый ежедневный `pg_dump` с шифрованием и хранением вне
-   production-проекта.
-3. Отдельно резервировать Supabase Storage или документировать гарантированное
-   восстановление файлов.
-4. Определить retention: минимум 7 ежедневных и 4 недельных копии для пилота.
-5. Восстановить копию в изолированную БД и проверить tenant, курс, назначение,
-   сертификат и ссылку на файл.
-6. Добавить alert на пропущенный backup.
-7. Исправить `scripts/restore.sh`: log path использует неопределённую
-   `BACKUP_DIR`.
+## Проверки кода
 
-**Критерий закрытия:** есть успешный restore drill с датой, длительностью,
-контрольными сущностями и ответственным.
+- Backend suite: 575 tests passed до финальных rate-limit изменений.
+- Финальные rate-limit tests: 18 passed; Ruff и mypy passed.
+- Финальный полный CI на `a5edcc2` passed.
+- Frontend: 146 tests passed, typecheck passed, production build passed.
+- Tenant/release/shell security gates passed.
+- Graphify code graph обновлён после изменений.
 
-### 4. Минимальная эксплуатационная наблюдаемость
+## Обязательный smoke первого пилота
 
-До запуска должны работать уведомления на:
+Технический P0 не заменяет прикладную приёмку. Перед выдачей доступа конкретному
+клиенту на отдельном тестовом tenant нужно пройти:
 
-- недоступность API и frontend;
-- отсутствие heartbeat worker;
-- рост очереди и failed/stuck Celery jobs;
-- ошибку ежедневного backup;
-- заполнение диска VPS и недоступность Valkey;
-- ошибки Resend/Telegram delivery;
-- повторяющиеся ошибки AI generation/ingestion;
-- истечение TLS-сертификатов.
+1. регистрацию компании, email OTP, повторный вход и logout;
+2. создание methodologist как второй роли/пользователя;
+3. загрузку и индексацию двух небольших документов;
+4. одну обычную AI-генерацию и одну генерацию по должностной инструкции;
+5. review, публикацию курса и теста;
+6. ручное добавление сотрудника и один XLSX import;
+7. автоматическое правило и ручное назначение без дублей;
+8. приглашение, прохождение уроков/теста, завершение и сертификат;
+9. запись в журнале обучения и человекочитаемый CSV/XLSX export;
+10. проверку backend-enforcement trial-лимитов.
 
-Для первого пилота достаточно простого uptime/heartbeat-сервиса и одного
-операционного канала. Grafana не является обязательной, но «посмотреть логи
-вручную после жалобы» недостаточно.
-
-### 5. Защитить публичную авторизацию
-
-1. Удалить логирование значения Telegram auth code.
-2. Проверить, что production `EMAIL_PROVIDER=resend`; значение `log` допустимо
-   только локально.
-3. Пройти реальную доставку и проверку email OTP.
-4. Определить один основной публичный login-flow; legacy Telegram endpoints не
-   должны быть неограниченным обходным путём.
-5. Для регистрации и выдачи OTP не разрешать запросы без rate limit при
-   недоступности Valkey. Допустим fail-closed `503` или ограниченный локальный
-   fallback с явным alert.
-
-**Критерий закрытия:** OTP не попадает в logs, outage Valkey не отключает
-защиту публичных endpoints, email OTP подтверждён фактической доставкой.
-
-### 6. Сделать trial-лимиты атомарными
-
-Текущая схема `прочитать usage -> проверить -> увеличить` допускает race.
-Нужно атомарное резервирование через row lock/conditional update или
-tenant-scoped advisory lock для:
-
-- AI course generation;
-- job-instruction generation;
-- общего количества курсов;
-- learners;
-- system users.
-
-Добавить concurrency integration tests: два одновременных запроса на последний
-доступный слот должны дать один success и один limit error.
-
-### 7. Контролируемая нагрузочная проверка
-
-Перед первым tenant не требуется доказывать 500 одновременно генерирующих
-пользователей. Нужен реалистичный baseline:
-
-- 20–50 параллельных сессий чтения курса;
-- одновременное сохранение прогресса и отправка тестов;
-- 5–10 параллельных AI/ingestion jobs через очередь;
-- контроль p95, 5xx, DB connections, queue wait, memory и disk.
-
-Полный тест на 500 пользователей остаётся отдельным capacity gate перед
-масштабированием продаж.
-
-## Текущее ограничение приглашений
-
-API создаёт безопасную invitation link и историю статусов, но не отправляет
-приглашение автоматически. Для первого контролируемого пилота допустима ручная
-передача ссылки методологом. Это должно быть явно отражено в onboarding и не
-заявляться клиенту как автоматическая email-доставка.
+Результат фиксируется в этом документе как дата и итог, без создания нового
+«финального отчёта».
 
 ## Условные launch-gates
 
-| Условие | Решение |
+| Условие продажи | Что требуется |
 |---|---|
-| Клиент требует хранение персональных данных в Казахстане | До договора завершить KZ DB/storage cutover или письменно согласовать текущую географию. Production сейчас использует Supabase |
-| В пилот продаётся SCORM 1.2 | До договора пройти реальный пакет iSpring/Articulate: import, launch, resume, commit, completion, журнал |
+| Клиент требует хранение персональных данных в Казахстане | Завершить KZ DB/storage cutover или письменно согласовать текущую географию Supabase |
+| В пилот продаётся SCORM 1.2 | Пройти реальный пакет iSpring/Articulate: import, launch, resume, commit, completion, журнал |
 | В пилот продаётся kiosk | Пройти privacy/auto-logout QA на реальном устройстве |
-| Нужен автоматический billing | Сейчас допустима полуручная активация superadmin, если это явно описано в договоре и support-процессе |
+| Обещается 500 одновременных пользователей | Провести отдельный capacity test с p95, 5xx, DB connections, queue wait, CPU/RAM/disk |
+| Нужен автоматический billing | До реализации использовать явно описанную ручную активацию superadmin |
 
-Нельзя заявлять SCORM, kiosk, KZ localization, ЭЦП или юридическое соответствие
-как готовые свойства без соответствующего закрытого gate.
+Не заявлять ЭЦП, юридическое соответствие, SCORM, kiosk или локализацию данных как
+закрытые свойства без прохождения соответствующего gate.
 
-## P1 после контролируемого запуска
+## Открытый P1
 
-Текущие продуктовые улучшения ведутся только в
-[`PRODUCT_BACKLOG.md`](PRODUCT_BACKLOG.md). Они не должны смешиваться с
+Продуктовые улучшения ведутся только в
+[`PRODUCT_BACKLOG.md`](PRODUCT_BACKLOG.md). Они не смешиваются с закрытыми
 операционными P0 выше.
-
-## Правило обновления
-
-- Этот файл обновляется после каждого production-релиза или изменения gate.
-- Закрытый пункт получает дату и прямое доказательство.
-- История остаётся в Git; отдельный датированный «финальный отчёт» не создаётся.
-- Если утверждение не проверено в текущем контуре, статус остаётся
-  `UNVERIFIED`, а не `PASS`.

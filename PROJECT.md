@@ -147,8 +147,10 @@ email OTP через Resend и Telegram flow.
 - [`docs/PROJECT-CONTEXT.md`](docs/PROJECT-CONTEXT.md);
 - [`docs/PRODUCTION_READINESS.md`](docs/PRODUCTION_READINESS.md).
 
-На 2026-07-27 первый реальный tenant заблокирован до обновления Celery worker,
-restore drill и минимальной наблюдаемости.
+На 2026-07-27 технический P0 закрыт: API/frontend/worker синхронизированы,
+encrypted backup/restore drill и минимальная наблюдаемость работают. Перед
+выдачей доступа конкретному первому tenant обязателен прикладной synthetic
+tenant journey из production-readiness.
 
 ## Документация
 

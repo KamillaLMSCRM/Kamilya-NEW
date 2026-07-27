@@ -13,6 +13,7 @@
 5. [`PRODUCT_BACKLOG.md`](PRODUCT_BACKLOG.md)
 6. [`PROJECT_INTERNAL_DOCUMENTATION.md`](PROJECT_INTERNAL_DOCUMENTATION.md)
 7. [`LESSONS.md`](LESSONS.md)
+8. [`BACKUP_RESTORE_RUNBOOK.md`](BACKUP_RESTORE_RUNBOOK.md)
 
 Не использовать старые commit reports, ТЗ и переписку как описание текущего
 production. Они удалены из рабочего дерева и при необходимости доступны в Git
@@ -22,17 +23,20 @@ history.
 
 | Контур | Состояние |
 |---|---|
-| `master` | `25f473c714d3879b81cc57bad7974cff598fc666` |
-| CI | success, run `30215627222` |
-| Vercel | production `READY`, commit `25f473c` |
-| Render API | live, commit `58d5511` |
+| Проверенный application baseline | `a5edcc264ade3acf4b40a6dcbcd9ffca2f9f4944`; актуальный docs HEAD проверять через `git rev-parse HEAD` |
+| CI | success, run `30248028415` |
+| Production smoke | success, run `30248028427` |
+| Vercel | production `READY`, application baseline `a5edcc2` |
+| Render API | live, deploy `dep-d9jh01n41pts73clnefg`, commit `a5edcc2` |
 | Production DB | Alembic `0078`, совпадает с repository head |
-| Celery worker | active, но устарел: `5165a77` |
+| Celery worker | active, commit `a5edcc2`, Celery ping passed |
+| Backup | encrypted daily timer active; real backup and restore drill passed |
+| Monitoring | VPS watchdog and GitHub production smoke active |
 
-Главный P0: обновить worker до совместимого release commit и пройти
-production smoke organization/department/position rules. После этого нужны
-backup restore drill, минимальные alerts и полный synthetic tenant journey.
-Подробности: [`PRODUCTION_READINESS.md`](PRODUCTION_READINESS.md).
+Технический P0 закрыт. Перед подключением конкретного первого клиента остаётся
+прикладной synthetic tenant journey и условные gates для заявляемых клиенту
+SCORM/kiosk/KZ-data/capacity возможностей. Подробности:
+[`PRODUCTION_READINESS.md`](PRODUCTION_READINESS.md).
 
 ## Продуктовая модель
 
