@@ -136,11 +136,16 @@ def fetch_otp_from_vps(email: str) -> str:
         raise RuntimeError("VPS_URL is required to verify the real email OTP flow")
     target = host if "@" in host else f"root@{host}"
     key = f"auth:email:{email.lower().strip()}"
-    command = (
-        "value=$(valkey-cli --raw GET "
-        + shlex.quote(key)
-        + '); test -n "$value" && printf \'%s\' "$value"'
+    python = "/opt/kamilya-worker/apps/api/.venv/bin/python"
+    redis_reader = (
+        "import os,sys;"
+        "from dotenv import load_dotenv;"
+        "from redis import Redis;"
+        "load_dotenv('/opt/kamilya-worker/apps/api/.env');"
+        "value=Redis.from_url(os.environ['REDIS_URL']).get(sys.argv[1]);"
+        "sys.stdout.buffer.write(value or b'')"
     )
+    command = f"{python} -c {shlex.quote(redis_reader)} {shlex.quote(key)}"
     completed = subprocess.run(
         [
             "ssh",
