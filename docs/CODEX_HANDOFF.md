@@ -26,7 +26,7 @@ history.
 | Проверенный application baseline | `a10786c6d2c0b4cfa31385e7613d6390452c32cd`; актуальный docs HEAD проверять через `git rev-parse HEAD` |
 | CI | success, run `30262132014` |
 | Production smoke | GitHub run `30262131946` success; полный synthetic tenant journey также passed |
-| Vercel | production `READY`, deploy `dpl_DtsUxvR2ChbkKHv3RWRaXCr5yZSg`, commit `a10786c` |
+| Vercel | production `READY`; docs-only HEAD может иметь новый deployment, application-код соответствует `a10786c` |
 | Render API | live, deploy `dep-d9jk39b7uimc739ohgjg`, commit `a10786c` |
 | Production DB | Alembic `0078`, совпадает с repository head |
 | Celery worker | active/enabled, commit `a10786c`, Celery ping passed |

@@ -14,7 +14,7 @@
 | Application baseline | PASS | Проверенный runtime-код: `a10786c6d2c0b4cfa31385e7613d6390452c32cd`; последующие docs-only commits не меняют эту baseline |
 | CI | PASS | GitHub Actions `30262132014`, полный pipeline |
 | External smoke | PASS | GitHub Actions `30262131946`, API и frontend |
-| Frontend | PASS | Vercel production `READY`, deploy `dpl_DtsUxvR2ChbkKHv3RWRaXCr5yZSg`, commit `a10786c` |
+| Frontend | PASS | Vercel production `READY`; docs-only HEAD может иметь новый deployment, application-код соответствует `a10786c` |
 | API | PASS | Render deploy `dep-d9jk39b7uimc739ohgjg`, `live`, commit `a10786c` |
 | Worker | PASS | `/opt/kamilya-worker` на `a10786c`, unit active/enabled, Celery ping отвечает |
 | Database | PASS | production PostgreSQL 17.6, Alembic `0078` |
