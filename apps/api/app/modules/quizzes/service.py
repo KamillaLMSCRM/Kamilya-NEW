@@ -68,6 +68,7 @@ async def get_quizzes_with_questions(
 
     # Query 2 — all questions across these quizzes, ordered.
     questions_result = await db.execute(
+        # tenant-gate: allow - ids come only from the tenant-scoped Quiz query above.
         select(Question)
         .where(
             Question.quiz_id.in_(valid_quiz_ids),
