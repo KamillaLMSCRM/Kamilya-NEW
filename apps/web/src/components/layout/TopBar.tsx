@@ -6,6 +6,7 @@ import { useAuthStore } from '@/store/authStore';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { toast } from '@/components/ui/Toast';
 import { getRoleHome } from '@/lib/rolePolicy';
+import Link from 'next/link';
 
 interface TopBarProps {
   title?: string;
@@ -219,13 +220,14 @@ export default function TopBar({ title, onMenuClick }: TopBarProps) {
         </div>
 
         {/* Avatar — name shown in Sidebar footer, TopBar only shows initials */}
-        <div
-          className="hidden h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary sm:flex"
-          aria-label={user?.full_name || 'User'}
-          title={user?.full_name}
+        <Link
+          href="/profile"
+          className="hidden h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary transition-colors hover:bg-primary/20 sm:flex"
+          aria-label={t('settings.profile')}
+          title={t('settings.profile')}
         >
           {user?.full_name?.[0] || '?'}
-        </div>
+        </Link>
 
         {/* Super admin switch — only visible to tenant users whose
             telegram_id is also bound to the platform superadmin row.

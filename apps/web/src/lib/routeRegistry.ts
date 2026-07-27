@@ -4,6 +4,7 @@ export const APP_ROLES = ['admin', 'methodologist', 'student', 'superadmin'] as 
 export type AppRole = (typeof APP_ROLES)[number];
 
 export const CAPABILITIES = [
+  'manage_profile',
   'manage_content',
   'manage_staff',
   'manage_learners',
@@ -19,8 +20,9 @@ export const CAPABILITIES = [
 export type Capability = (typeof CAPABILITIES)[number];
 
 export const ROLE_CAPABILITIES: Record<AppRole, readonly Capability[]> = {
-  admin: ['configure_tenant', 'manage_accounts'],
+  admin: ['manage_profile', 'configure_tenant', 'manage_accounts'],
   methodologist: [
+    'manage_profile',
     'manage_content',
     'manage_staff',
     'manage_learners',
@@ -29,8 +31,8 @@ export const ROLE_CAPABILITIES: Record<AppRole, readonly Capability[]> = {
     'view_training_log',
     'manage_communications',
   ],
-  student: ['learn'],
-  superadmin: ['manage_platform'],
+  student: ['manage_profile', 'learn'],
+  superadmin: ['manage_profile', 'manage_platform'],
 };
 
 export const ROLE_HOMES: Record<AppRole, string> = {
@@ -76,6 +78,7 @@ export interface AppRoute {
 }
 
 export const ROUTES: readonly AppRoute[] = [
+  { id: 'profile', href: '/profile', capability: 'manage_profile', labelKey: 'settings.profile' },
   { id: 'methodologist-dashboard', href: '/dashboard', capability: 'manage_content', labelKey: 'nav.dashboard', section: 'overview', icon: 'dashboard', order: 10, sidebar: true, commandPalette: true },
   { id: 'ai-generation', href: '/ai/generate', capability: 'manage_content', match: 'prefix', labelKey: 'nav.aiGeneration', section: 'content', icon: 'sparkles', order: 20, sidebar: true, commandPalette: true },
   { id: 'courses', href: '/courses', capability: 'manage_content', match: 'prefix', labelKey: 'nav.courses', section: 'content', icon: 'book', order: 30, sidebar: true, commandPalette: true },

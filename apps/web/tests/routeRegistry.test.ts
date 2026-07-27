@@ -20,6 +20,7 @@ describe('route and capability registry', () => {
   });
 
   it('keeps active working modes isolated instead of unioning assigned roles', () => {
+    expect(hasCapability('student', 'manage_profile')).toBe(true);
     expect(hasCapability('admin', 'manage_content')).toBe(false);
     expect(hasCapability('admin', 'manage_learners')).toBe(false);
     expect(hasCapability('admin', 'view_training_log')).toBe(false);
@@ -54,6 +55,15 @@ describe('route and capability registry', () => {
       section: 'workforce',
     });
     expect(getNavigationRoutes('admin', 'sidebar').some(({ id }) => id === 'invitations')).toBe(false);
+  });
+
+  it('exposes a common profile to every authenticated working mode', () => {
+    for (const role of ['admin', 'methodologist', 'student']) {
+      expect(canAccessRegisteredRoute(role, '/profile')).toBe(true);
+    }
+    expect(canAccessRegisteredRoute('superadmin', '/profile')).toBe(true);
+    expect(canAccessRegisteredRoute('admin', '/settings')).toBe(true);
+    expect(canAccessRegisteredRoute('methodologist', '/settings')).toBe(false);
   });
 
   it('keeps unfinished communication modules routable but out of navigation', () => {
