@@ -19,6 +19,11 @@ production.
 - [Авторизация tenant: email, Telegram и Resend](architecture/2026-07-10_tenant-auth-email-telegram-resend.md)
 - [Регистрация tenant и trial](product/tenant-registration-trial-flow.md)
 
+## Продажи и демонстрации
+
+- [Сценарий живой демонстрации](presentations/2026-07-28_live-product-demo-runbook-ru.md)
+- [Интерактивные презентации](presentations/README.md)
+
 ## Разработчикам
 
 - [Описание продукта](../PROJECT.md)
