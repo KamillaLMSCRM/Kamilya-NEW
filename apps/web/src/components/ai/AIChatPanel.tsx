@@ -91,7 +91,7 @@ export function AIChatPanel({
       }
       setMessages(focused);
     }
-  }, [open, focusLessonId, focusLessonTitle, focusModuleId, focusModuleTitle]);
+  }, [open, focusLessonId, focusLessonTitle, focusModuleId, focusModuleTitle, t]);
 
   useEffect(() => {
     if (scrollRef.current) {

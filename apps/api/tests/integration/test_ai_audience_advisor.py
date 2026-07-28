@@ -87,6 +87,30 @@ async def test_audience_advisor_hides_course_across_tenants(
     assert response.status_code == 404
 
 
+async def test_typed_audience_question_uses_structure_without_explicit_intent(
+    client, make_tenant, make_user, make_course, auth_headers
+):
+    tenant = await make_tenant(name="Typed Audience Tenant")
+    methodologist = await make_user(tenant, role="methodologist")
+    course = await make_course(tenant, methodologist, title="Information security")
+
+    with patch(
+        "app.modules.ai.router.ResilientLLMClient.from_settings_async",
+        new=AsyncMock(return_value=None),
+    ):
+        response = await client.post(
+            "/api/v1/ai/chat",
+            headers=auth_headers(methodologist),
+            json={
+                "course_id": str(course.id),
+                "message": "Кому его назначить? Посмотри по моей структуре",
+            },
+        )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["audience_recommendation"] is not None
+
+
 async def test_published_course_gets_navigation_only_not_assignment_command(
     client, make_tenant, make_user, make_course, auth_headers
 ):

@@ -97,7 +97,14 @@ async def _load_positions(db: AsyncSession, tenant_id: UUID) -> tuple[list[Scope
             Position.requirements,
             func.count(User.id),
         )
-        .outerjoin(User, (User.position_id == Position.id) & (User.role == "student") & User.is_active.is_(True) & (User.status == "active"))
+        .outerjoin(
+            User,
+            (User.position_id == Position.id)
+            & (User.tenant_id == tenant_id)
+            & (User.role == "student")
+            & User.is_active.is_(True)
+            & (User.status == "active"),
+        )
         .where(Position.tenant_id == tenant_id)
         .group_by(Position.id, Position.name, Position.department_id, Position.department)
         .order_by(Position.name)
@@ -126,8 +133,18 @@ async def _load_positions(db: AsyncSession, tenant_id: UUID) -> tuple[list[Scope
 async def _load_departments(db: AsyncSession, tenant_id: UUID) -> list[ScopeCandidate]:
     rows = await db.execute(
         select(Department.id, Department.name, Department.description, func.count(User.id))
-        .outerjoin(Position, Position.department_id == Department.id)
-        .outerjoin(User, (User.position_id == Position.id) & (User.role == "student") & User.is_active.is_(True) & (User.status == "active"))
+        .outerjoin(
+            Position,
+            (Position.department_id == Department.id) & (Position.tenant_id == tenant_id),
+        )
+        .outerjoin(
+            User,
+            (User.position_id == Position.id)
+            & (User.tenant_id == tenant_id)
+            & (User.role == "student")
+            & User.is_active.is_(True)
+            & (User.status == "active"),
+        )
         .where(Department.tenant_id == tenant_id)
         .group_by(Department.id, Department.name)
         .order_by(Department.name)
@@ -359,16 +376,41 @@ def _llm_select_scopes(snapshot: AudienceSnapshot, response: str) -> list[ScopeC
     refs = payload.get("selected_refs")
     if not isinstance(refs, list):
         return []
-    selected: list[ScopeCandidate] = []
+    explicit_primary = [
+        candidate for candidate in snapshot.candidates if candidate.priority == "primary"
+    ]
+    selected: list[ScopeCandidate] = list(explicit_primary)
     primary_refs = set(payload.get("primary_refs") or [])
     secondary_refs = set(payload.get("secondary_refs") or [])
     for ref in refs:
         if not isinstance(ref, str) or ref not in by_ref or by_ref[ref] in selected:
             continue
         item = by_ref[ref]
-        item.priority = "primary" if ref in primary_refs or ref not in secondary_refs else "secondary"
+        item.priority = (
+            "primary"
+            if item.priority == "primary" or ref in primary_refs or ref not in secondary_refs
+            else "secondary"
+        )
         selected.append(item)
     return selected
+
+
+_AUDIENCE_QUESTION_PATTERNS = (
+    re.compile(r"\bкому\b.{0,80}\b(?:назнач|подход|рекоменд)", re.IGNORECASE),
+    re.compile(r"\b(?:каким|какие)\b.{0,50}\b(?:отдел|должност|групп)", re.IGNORECASE),
+    re.compile(r"\bцелевая\s+аудитория\b", re.IGNORECASE),
+    re.compile(r"\bwho\b.{0,80}\b(?:assign|audience|course\s+for|suitable)", re.IGNORECASE),
+    re.compile(r"\bwhich\b.{0,50}\b(?:department|position|team|group)", re.IGNORECASE),
+    re.compile(r"\btarget\s+audience\b", re.IGNORECASE),
+    re.compile(r"\bкімге\b.{0,80}\b(?:тағайын|арнал|сәйкес)", re.IGNORECASE),
+    re.compile(r"\bқай\b.{0,50}\b(?:бөлім|лауазым|топ)", re.IGNORECASE),
+)
+
+
+def is_audience_recommendation_question(message: str) -> bool:
+    """Recognize only explicit audience questions typed without the quick action."""
+    compact = " ".join(message.split())
+    return any(pattern.search(compact) for pattern in _AUDIENCE_QUESTION_PATTERNS)
 
 
 def _public_scopes(scopes: list[ScopeCandidate]):
@@ -479,7 +521,7 @@ async def recommend_audience(db: AsyncSession, tenant_id: UUID, course_id: UUID,
 
     warnings = list(snapshot.warnings)
     if used_fallback:
-        warnings.append("Рекомендация построена по явным связям структуры компании")
+        warnings.append("deterministic_explicit_links")
     return AudienceRecommendation(
         course_status=_course_status(snapshot.course),
         recommended_scopes=_public_scopes(selected),
@@ -493,10 +535,13 @@ async def recommend_audience(db: AsyncSession, tenant_id: UUID, course_id: UUID,
 def audience_prompt_reply(recommendation, language: str = "ru") -> str:
     """Human-readable status without leaking internal draft/review fields."""
     if language == "en":
-        status = "published" if recommendation.course_status == "published" else "not published"
-        return f"The course is {status}. I found {recommendation.matched_employee_count} matching employees; {recommendation.already_enrolled_count} already have an enrollment. Review the suggested scopes below and complete assignment on the standard screen."
+        if recommendation.course_status == "published":
+            return f"The course is published. I found {recommendation.matched_employee_count} matching employees; {recommendation.already_enrolled_count} already have an enrollment. Review the suggested scopes below and complete assignment on the standard screen."
+        return f"The course is not published yet. I found {recommendation.matched_employee_count} matching employees; {recommendation.already_enrolled_count} already have an enrollment. Review the suggested scopes now, then publish the course before opening assignment."
     if language == "kk":
-        status = "жарияланған" if recommendation.course_status == "published" else "әлі жарияланбаған"
-        return f"Курс {status}. Сәйкес келетін қызметкерлер: {recommendation.matched_employee_count}; бұрын тағайындалғаны: {recommendation.already_enrolled_count}. Тізімді тексеріп, тағайындауды стандартты экранда аяқтаңыз."
-    status = "опубликован" if recommendation.course_status == "published" else "ещё не опубликован"
-    return f"Курс {status}. Подходящих сотрудников: {recommendation.matched_employee_count}; уже назначено: {recommendation.already_enrolled_count}. Проверьте аудиторию и завершите назначение на стандартном экране."
+        if recommendation.course_status == "published":
+            return f"Курс жарияланған. Сәйкес келетін қызметкерлер: {recommendation.matched_employee_count}; бұрын тағайындалғаны: {recommendation.already_enrolled_count}. Тізімді тексеріп, тағайындауды стандартты экранда аяқтаңыз."
+        return f"Курс әлі жарияланбаған. Сәйкес келетін қызметкерлер: {recommendation.matched_employee_count}; бұрын тағайындалғаны: {recommendation.already_enrolled_count}. Аудиторияны қазір тексеріп, тағайындау экранына өтпес бұрын курсты жариялаңыз."
+    if recommendation.course_status == "published":
+        return f"Курс опубликован. Подходящих сотрудников: {recommendation.matched_employee_count}; уже назначено: {recommendation.already_enrolled_count}. Проверьте аудиторию и завершите назначение на стандартном экране."
+    return f"Курс ещё не опубликован. Подходящих сотрудников: {recommendation.matched_employee_count}; уже назначено: {recommendation.already_enrolled_count}. Проверьте аудиторию сейчас, затем опубликуйте курс перед переходом к назначению."

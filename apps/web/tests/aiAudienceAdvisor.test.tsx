@@ -2,6 +2,31 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const fetchMock = vi.hoisted(() => vi.fn());
+const tMock = vi.hoisted(() => (
+  key: string,
+  params?: Record<string, string | number>
+) => {
+  const labels: Record<string, string> = {
+    'aiAssistant.audienceQuestion': 'Who is this course for?',
+    'aiAssistant.primary': 'Priority audience',
+    'aiAssistant.secondary': 'Additional audience',
+    'aiAssistant.matched': `Matching employees: ${params?.count ?? '{count}'}`,
+    'aiAssistant.alreadyAssigned': `Already assigned: ${params?.count ?? '{count}'}`,
+    'aiAssistant.published': 'Course published',
+    'aiAssistant.notPublished': 'Course not published yet',
+    'aiAssistant.reviewHint': 'Assignment is completed after publication.',
+    'aiAssistant.openAssignments': 'Go to assignments',
+    'aiAssistant.organization': 'Whole organization',
+    'aiAssistant.department': 'Department',
+    'aiAssistant.position': 'Position',
+    'aiAssistant.cohort': 'Group',
+    'aiAssistant.confidence.high': 'High confidence',
+    'aiAssistant.confidence.medium': 'Medium confidence',
+    'aiAssistant.confidence.low': 'Low confidence',
+    'common.close': 'Close',
+  };
+  return labels[key] ?? key;
+});
 
 vi.mock('@/store/authStore', () => ({
   useAuthStore: (selector: (state: { accessToken: string }) => unknown) => selector({ accessToken: 'test-token' }),
@@ -10,28 +35,7 @@ vi.mock('@/store/authStore', () => ({
 vi.mock('@/i18n/useT', () => ({
   useT: () => ({
     lang: 'en',
-    t: (key: string, params?: Record<string, string | number>) => {
-      const labels: Record<string, string> = {
-        'aiAssistant.audienceQuestion': 'Who is this course for?',
-        'aiAssistant.primary': 'Priority audience',
-        'aiAssistant.secondary': 'Additional audience',
-        'aiAssistant.matched': `Matching employees: ${params?.count ?? '{count}'}`,
-        'aiAssistant.alreadyAssigned': `Already assigned: ${params?.count ?? '{count}'}`,
-        'aiAssistant.published': 'Course published',
-        'aiAssistant.notPublished': 'Course not published yet',
-        'aiAssistant.reviewHint': 'Assignment is completed after publication.',
-        'aiAssistant.openAssignments': 'Go to assignments',
-        'aiAssistant.organization': 'Whole organization',
-        'aiAssistant.department': 'Department',
-        'aiAssistant.position': 'Position',
-        'aiAssistant.cohort': 'Group',
-        'aiAssistant.confidence.high': 'High confidence',
-        'aiAssistant.confidence.medium': 'Medium confidence',
-        'aiAssistant.confidence.low': 'Low confidence',
-        'common.close': 'Close',
-      };
-      return labels[key] ?? key;
-    },
+    t: tMock,
   }),
 }));
 

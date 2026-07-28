@@ -509,7 +509,12 @@ async def chat(
             detail=f"target_id is required when context='{req.context}'",
         )
 
-    if req.intent == "audience_recommendation":
+    from app.modules.ai.audience_advisor import is_audience_recommendation_question
+
+    audience_intent = req.intent == "audience_recommendation" or (
+        req.intent is None and is_audience_recommendation_question(req.message)
+    )
+    if audience_intent:
         if user.role != "methodologist":
             raise HTTPException(status_code=403, detail="Methodologist role required")
         if req.context != "course":
