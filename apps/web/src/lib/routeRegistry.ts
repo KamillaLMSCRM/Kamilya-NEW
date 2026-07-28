@@ -93,7 +93,7 @@ export const ROUTES: readonly AppRoute[] = [
   { id: 'staff', href: '/staff?tab=structure', capability: 'manage_staff', labelKey: 'nav.staffSchedule', section: 'workforce', icon: 'users', order: 110, sidebar: true, commandPalette: true },
   { id: 'training-rules', href: '/training-rules?scope=organization', capability: 'manage_staff', labelKey: 'nav.trainingRules', section: 'workforce', icon: 'assignment', order: 112, sidebar: true, commandPalette: true },
   { id: 'invitations', href: '/invitations', capability: 'manage_learners', labelKey: 'invitations.navLabel', section: 'workforce', icon: 'users', order: 115, sidebar: true, commandPalette: true },
-  { id: 'positions', href: '/positions', capability: 'manage_qualifications', match: 'prefix', labelKey: 'nav.positions', section: 'workforce', icon: 'briefcase', order: 120, sidebar: true, commandPalette: true },
+  { id: 'positions', href: '/positions', capability: 'manage_qualifications', match: 'prefix' },
   { id: 'course-assignments', href: '/assignments', capability: 'manage_assignments', match: 'prefix', labelKey: 'courses.enrollments', section: 'workforce', icon: 'assignment', order: 130, sidebar: true, commandPalette: true },
   { id: 'quiz-assignments', href: '/quizzes?section=assignments', capability: 'manage_assignments', labelKey: 'quizAssignments.navLabel', section: 'workforce', icon: 'quiz', order: 140, sidebar: true, commandPalette: true },
   { id: 'training-log', href: '/training-log', capability: 'view_training_log', match: 'prefix', labelKey: 'nav.trainingLog', section: 'overview', icon: 'log', order: 150, sidebar: true, commandPalette: true },

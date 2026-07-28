@@ -74,4 +74,22 @@ describe("methodologist information architecture", () => {
     expect(rulesSource).toContain('className="min-w-0 overflow-hidden"');
     expect(rulesSource).toContain('grid-cols-[minmax(0,1fr)]');
   });
+
+  it("opens qualification cards from staff structure without a duplicate positions menu", () => {
+    const sidebar = getNavigationRoutes("methodologist", "sidebar").map((route) => route.id);
+    const commands = getNavigationRoutes("methodologist", "commandPalette").map((route) => route.id);
+
+    expect(sidebar).toContain("staff");
+    expect(sidebar).not.toContain("positions");
+    expect(commands).not.toContain("positions");
+    expect(staffSource).toContain('href={`/positions/${pos.id}`}');
+  });
+
+  it("uses an accessible employee modal and a shared Kazakhstan phone mask", () => {
+    expect(staffSource).toContain('aria-labelledby="manual-employee-title"');
+    expect(staffSource).toContain('className="inline-flex h-11 w-11');
+    expect(staffSource).toContain('formatKzPhone(e.target.value)');
+    expect(staffSource).toContain('maxLength={18}');
+    expect(staffSource).toContain('isCompleteKzPhone(manualForm.phone)');
+  });
 });

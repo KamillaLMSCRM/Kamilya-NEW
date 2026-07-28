@@ -1275,6 +1275,7 @@
       "manualDepartmentName": "Название нового отдела",
       "manualNewPosition": "Создать новую должность",
       "manualPositionName": "Название новой должности",
+      "manualPhoneInvalid": "Введите телефон полностью в формате +7 (777) 000-00-00",
     "fileTitle": "Файл сотрудников",
     "uploadTitle": "Загрузка сотрудников",
     "structureLoadError": "Не удалось загрузить структуру",

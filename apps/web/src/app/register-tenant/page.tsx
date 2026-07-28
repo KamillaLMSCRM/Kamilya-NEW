@@ -12,6 +12,7 @@ import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 import { getRoleHome } from '@/lib/rolePolicy';
 import { getTenantRegistrationError } from '@/lib/tenantRegistrationError';
+import { formatKzPhone } from '@/lib/kzPhone';
 import { useT } from '@/i18n/useT';
 
 type TenantIntent = 'try' | 'demo' | 'buy';
@@ -23,34 +24,6 @@ const intentOptions: Array<{ value: TenantIntent; label: string; hint: string }>
 ];
 
 const employeeRanges = ['1-10', '11-50', '51-200', '201-1000', '1000+'];
-
-function formatKzPhone(value: string): string {
-  const digits = value.replace(/\D/g, '');
-  let local = digits;
-
-  if (local.startsWith('8')) {
-    local = local.slice(1);
-  } else if (local.startsWith('7')) {
-    local = local.slice(1);
-  }
-
-  local = local.slice(0, 10);
-  const parts = [
-    local.slice(0, 3),
-    local.slice(3, 6),
-    local.slice(6, 8),
-    local.slice(8, 10),
-  ];
-
-  if (!local) return '';
-  let formatted = '+7';
-  if (parts[0]) formatted += ` (${parts[0]}`;
-  if (parts[0]?.length === 3) formatted += ')';
-  if (parts[1]) formatted += ` ${parts[1]}`;
-  if (parts[2]) formatted += `-${parts[2]}`;
-  if (parts[3]) formatted += `-${parts[3]}`;
-  return formatted;
-}
 
 export default function TenantRegisterPage() {
   const { t } = useT();
@@ -268,6 +241,7 @@ export default function TenantRegisterPage() {
                     autoComplete="tel"
                     inputMode="tel"
                     placeholder="+7 (777) 000-00-00"
+                    maxLength={18}
                   />
                 </div>
                 <div>

@@ -142,13 +142,13 @@ export default function Sidebar({ collapsed, mobileOpen = false, onToggle, onClo
                       title={label}
                       aria-current={active ? 'page' : undefined}
                       className={cn(
-                        'group relative flex items-center rounded-xl px-3 py-2.5 text-sm font-medium transition-colors',
+                        'group relative flex min-h-11 items-center rounded-xl px-3 py-2 text-sm font-medium transition-colors',
                         collapsed && 'justify-center px-0',
                         active ? 'bg-primary/10 text-primary shadow-sm' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
                       )}
                     >
                       <Icon className="h-5 w-5 shrink-0" aria-hidden />
-                      {!collapsed && <span className="ml-3 truncate">{label}</span>}
+                      {!collapsed && <span className="ml-3 min-w-0 whitespace-normal break-words leading-5">{label}</span>}
                       {active && <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r bg-primary" aria-hidden />}
                     </Link>
                   </li>

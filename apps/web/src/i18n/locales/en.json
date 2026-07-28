@@ -1231,6 +1231,7 @@
       "manualDepartmentName": "New department name",
       "manualNewPosition": "Create a new position",
       "manualPositionName": "New position name",
+      "manualPhoneInvalid": "Enter the complete phone number in the format +7 (777) 000-00-00",
     "fileTitle": "Employee file",
     "uploadTitle": "Upload employees",
     "structureLoadError": "Could not load the structure",

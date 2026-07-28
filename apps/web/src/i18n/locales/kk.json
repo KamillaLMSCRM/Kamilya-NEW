@@ -1231,6 +1231,7 @@
       "manualDepartmentName": "Жаңа бөлімнің атауы",
       "manualNewPosition": "Жаңа лауазым құру",
       "manualPositionName": "Жаңа лауазымның атауы",
+      "manualPhoneInvalid": "Телефонды +7 (777) 000-00-00 форматында толық енгізіңіз",
     "fileTitle": "Қызметкерлер файлы",
     "uploadTitle": "Қызметкерлерді жүктеу",
     "structureLoadError": "Құрылымды жүктеу мүмкін болмады",

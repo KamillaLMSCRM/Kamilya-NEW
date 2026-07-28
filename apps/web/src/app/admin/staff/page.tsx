@@ -3,12 +3,13 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Building2, ChevronDown, ChevronRight, FileText, Network, Search, Upload, Users } from "lucide-react";
+import { Building2, ChevronDown, ChevronRight, FileText, Network, Search, Upload, Users, X } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent, Button, Badge, Table } from "@/components/ui";
 import { useAuthStore } from "@/store/authStore";
 import { useT } from "@/i18n/useT";
 import { toast } from "@/components/ui/Toast";
 import { api } from "@/lib/api";
+import { formatKzPhone, isCompleteKzPhone } from "@/lib/kzPhone";
 import { ApplyRulesProgress } from "@/components/ui/ApplyRulesProgress";
 
 interface PreviewItem {
@@ -421,6 +422,10 @@ export default function AdminStaffPage() {
       toast.error("Заполните табельный номер, имя, фамилию, отдел и должность");
       return;
     }
+    if (manualForm.phone && !isCompleteKzPhone(manualForm.phone)) {
+      toast.error(t("staffPage.manualPhoneInvalid"));
+      return;
+    }
 
     setManualSaving(true);
     try {
@@ -496,19 +501,25 @@ export default function AdminStaffPage() {
 
           {manualOpen && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-              <div className="w-full max-w-2xl rounded-xl bg-card p-6 shadow-xl">
+              <div
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="manual-employee-title"
+                className="w-full max-w-2xl rounded-xl bg-card p-6 shadow-xl"
+              >
                 <div className="mb-5 flex items-start justify-between gap-4">
                   <div>
-                    <h2 className="text-xl font-bold text-foreground">Новый сотрудник</h2>
+                    <h2 id="manual-employee-title" className="text-xl font-bold text-foreground">Новый сотрудник</h2>
                     <p className="mt-1 text-sm text-muted-foreground">{t("staffPage.manualRuleInheritance")}</p>
                   </div>
                   <button
                     type="button"
                     onClick={() => setManualOpen(false)}
-                    className="rounded-lg px-2 py-1 text-muted-foreground hover:bg-muted"
-                    aria-label="Закрыть"
+                    className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    aria-label={t("common.close")}
+                    title={t("common.close")}
                   >
-                    ×
+                    <X className="h-5 w-5" aria-hidden="true" />
                   </button>
                 </div>
 
@@ -615,10 +626,14 @@ export default function AdminStaffPage() {
                   <label className="space-y-1 md:col-span-2">
                     <span className="text-sm font-medium">Телефон</span>
                     <input
+                      type="tel"
                       value={manualForm.phone}
-                      onChange={(e) => handleManualChange("phone", e.target.value)}
+                      onChange={(e) => handleManualChange("phone", formatKzPhone(e.target.value))}
+                      inputMode="tel"
+                      autoComplete="tel"
+                      maxLength={18}
                       className="w-full rounded-lg border border-border bg-card px-3 py-2 outline-none focus:border-primary"
-                      placeholder="+7 777 000 00 00"
+                      placeholder="+7 (777) 000-00-00"
                     />
                   </label>
                 </div>
@@ -1363,15 +1378,19 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
                           {positionOpen && pos.employees.length > 0 && (
                             <ul className="mt-2 space-y-1 pl-6">
                               {pos.employees.map((emp) => (
-                                <li key={emp.id} className="flex items-center gap-2 text-xs">
+                                <li key={emp.id} className="flex min-w-0 items-center gap-2">
                                   <span
                                     className={
-                                      emp.is_active ? "text-foreground" : "text-muted-foreground line-through"
+                                      emp.is_active
+                                        ? "min-w-0 text-base font-semibold text-primary"
+                                        : "min-w-0 text-base font-semibold text-muted-foreground line-through"
                                     }
                                   >
                                     {emp.full_name}
                                     {emp.personnel_number && (
-                                      <span className="ml-1 text-muted-foreground">({emp.personnel_number})</span>
+                                      <span className="ml-2 whitespace-nowrap text-xs font-normal text-muted-foreground">
+                                        {emp.personnel_number}
+                                      </span>
                                     )}
                                   </span>
                                 </li>
