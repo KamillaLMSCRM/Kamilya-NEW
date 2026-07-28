@@ -271,6 +271,12 @@ export default function DocumentsPage() {
     void handleReindex(backgroundOperation.document);
   };
 
+  const firstBackgroundError = backgroundOperation?.job.errors?.[0];
+  const backgroundErrorCode = (
+    typeof firstBackgroundError === 'string' ? null : firstBackgroundError?.code
+  ) || backgroundOperation?.document.index.error_code;
+  const sourceBlobMissing = backgroundErrorCode === 'source_blob_missing';
+
   const handleDownload = async (document: DocumentCatalogItem) => {
     setDownloadingId(document.id);
     try {
@@ -386,11 +392,18 @@ export default function DocumentsPage() {
             stalled: t('asyncOperation.stalled'),
           }}
           retryLabel={
-            resolveAsyncOperationState(backgroundOperation.job) === 'stalled'
+            sourceBlobMissing
+              ? t('documents.uploadNewVersion')
+              : resolveAsyncOperationState(backgroundOperation.job) === 'stalled'
               ? t('asyncOperation.checkAgain')
               : t('asyncOperation.retry')
           }
-          onRetry={retryBackgroundOperation}
+          retryIcon={sourceBlobMissing ? 'upload' : 'retry'}
+          onRetry={
+            sourceBlobMissing
+              ? () => openUpload(backgroundOperation.document)
+              : retryBackgroundOperation
+          }
         />
       )}
 
@@ -762,22 +775,36 @@ function DocumentRow({
         </button>
         {isActive && (
           <>
-            <button
-              type="button"
-              disabled={reindexing || document.index.status === 'processing'}
-              onClick={onReindex}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-40"
-              title={t('documents.reindex')}
-              aria-label={`${t('documents.reindex')}: ${document.title}`}
-            >
-              {reindexing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCw className="h-4 w-4" />}
-            </button>
+            {document.index.error_code !== 'source_blob_missing' && (
+              <button
+                type="button"
+                disabled={reindexing || document.index.status === 'processing'}
+                onClick={onReindex}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-40"
+                title={t('documents.reindex')}
+                aria-label={`${t('documents.reindex')}: ${document.title}`}
+              >
+                {reindexing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCw className="h-4 w-4" />}
+              </button>
+            )}
             <button
               type="button"
               onClick={onUploadVersion}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-              title={t('documents.uploadNewVersion')}
-              aria-label={`${t('documents.uploadNewVersion')}: ${document.title}`}
+              className={`inline-flex h-9 w-9 items-center justify-center rounded-lg transition-colors ${
+                document.index.error_code === 'source_blob_missing'
+                  ? 'bg-primary/10 text-primary hover:bg-primary/20'
+                  : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+              }`}
+              title={
+                document.index.error_code === 'source_blob_missing'
+                  ? t('documents.restoreSource')
+                  : t('documents.uploadNewVersion')
+              }
+              aria-label={`${
+                document.index.error_code === 'source_blob_missing'
+                  ? t('documents.restoreSource')
+                  : t('documents.uploadNewVersion')
+              }: ${document.title}`}
             >
               <Upload className="h-4 w-4" />
             </button>
@@ -825,6 +852,16 @@ function StatusBadge({ document, t }: { document: DocumentCatalogItem; t: (key: 
         title={document.deletion_error_message || undefined}
       >
         {t('documents.deletionFailedStatus')}
+      </span>
+    );
+  }
+  if (document.index.error_code === 'source_blob_missing') {
+    return (
+      <span
+        className="inline-flex rounded-full border border-destructive/30 bg-destructive/10 px-2 py-1 text-xs font-medium text-destructive"
+        title={t('documents.sourceMissingHint')}
+      >
+        {t('documents.sourceMissing')}
       </span>
     );
   }

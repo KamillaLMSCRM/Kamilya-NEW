@@ -20,6 +20,10 @@ from app.models.document import Document
 logger = logging.getLogger(__name__)
 
 
+class DocumentSourceMissingError(RuntimeError):
+    """The persisted source blob no longer exists."""
+
+
 async def _set_tenant(session, tenant_id: UUID) -> None:
     await session.execute(
         text("SELECT set_current_tenant(:tenant_id)"),
@@ -76,6 +80,7 @@ async def _mark_reindex_failed(
     job_id: str,
     revision: int,
     message: str,
+    error_code: str = "reindex_failed",
 ) -> None:
     async with async_session_factory() as session:
         await _set_tenant(session, tenant_id)
@@ -100,7 +105,7 @@ async def _mark_reindex_failed(
             document.embedding_status = "failed"
             document.embedding_error = message[:1000]
             document.index_status = "failed"
-            document.index_error_code = "reindex_failed"
+            document.index_error_code = error_code
             document.index_message = message[:1000]
             document.index_chunks_total = None
             document.index_chunks_indexed = None
@@ -108,7 +113,7 @@ async def _mark_reindex_failed(
             job.status = "failed"
             job.stage = "failed"
             job.message = message[:1000]
-            job.errors = [{"code": "reindex_failed", "message": message[:1000]}]
+            job.errors = [{"code": error_code, "message": message[:1000]}]
             job.updated_at = now
             job.completed_at = now
         await session.commit()
@@ -184,7 +189,9 @@ async def run_document_reindex(
 
         blob = get_storage().get_bytes(storage_key)
         if blob is None:
-            raise RuntimeError("Document source file is unavailable")
+            raise DocumentSourceMissingError(
+                "Source file is unavailable. Upload a new version."
+            )
 
         suffix = Path(filename or "").suffix
         with tempfile.NamedTemporaryFile(
@@ -273,6 +280,22 @@ async def run_document_reindex(
             job.completed_at = now
             await session.commit()
             return job.result
+    except DocumentSourceMissingError as exc:
+        logger.warning(
+            "Document source is missing document_id=%s revision=%s job_id=%s",
+            document_id,
+            revision,
+            job_id,
+        )
+        await _mark_reindex_failed(
+            tenant_id,
+            document_id,
+            job_id,
+            revision,
+            str(exc),
+            error_code="source_blob_missing",
+        )
+        raise
     except Exception as exc:
         logger.exception(
             "Document reindex failed document_id=%s revision=%s job_id=%s",

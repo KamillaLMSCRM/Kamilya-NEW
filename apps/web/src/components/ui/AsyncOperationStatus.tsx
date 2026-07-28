@@ -7,6 +7,7 @@ import {
   Clock3,
   Loader2,
   RotateCw,
+  Upload,
   XCircle,
 } from 'lucide-react';
 
@@ -25,6 +26,7 @@ export interface AsyncOperation {
   message?: string | null;
   updated_at?: string | null;
   created_at?: string | null;
+  errors?: Array<{ code: string; message?: string | null } | string> | null;
 }
 
 export const resolveAsyncOperationState = (
@@ -57,6 +59,7 @@ interface AsyncOperationStatusProps {
   onRetry?: () => void;
   onCancel?: () => void;
   stalledAfterMs?: number;
+  retryIcon?: 'retry' | 'upload';
 }
 
 const stateStyles: Record<AsyncOperationState, string> = {
@@ -78,6 +81,7 @@ export function AsyncOperationStatus({
   onRetry,
   onCancel,
   stalledAfterMs = 120_000,
+  retryIcon = 'retry',
 }: AsyncOperationStatusProps) {
   const [now, setNow] = useState(() => Date.now());
   const state = useMemo(
@@ -106,6 +110,7 @@ export function AsyncOperationStatus({
         : state === 'queued'
           ? Clock3
           : Loader2;
+  const RetryIcon = retryIcon === 'upload' ? Upload : RotateCw;
 
   return (
     <section
@@ -147,7 +152,7 @@ export function AsyncOperationStatus({
                   onClick={onRetry}
                   className="inline-flex min-h-10 items-center gap-2 rounded-md border border-current/30 px-3 py-2 text-sm font-medium hover:bg-background/60"
                 >
-                  <RotateCw className="h-4 w-4" aria-hidden="true" />
+                  <RetryIcon className="h-4 w-4" aria-hidden="true" />
                   {retryLabel}
                 </button>
               )}

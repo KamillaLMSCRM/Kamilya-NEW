@@ -8,6 +8,7 @@ import pytest
 
 from app.core.storage import (
     LocalStorageBackend,
+    StorageUnavailableError,
     SupabaseStorageBackend,
     get_storage,
     reset_storage_for_tests,
@@ -99,14 +100,28 @@ def test_supabase_get_bytes_returns_downloaded():
         bucket.download.assert_called_once_with("t/cert.pdf")
 
 
-def test_supabase_get_bytes_returns_none_on_error():
+def test_supabase_get_bytes_returns_none_when_object_is_missing():
+    class MissingObjectError(Exception):
+        code = "not_found"
+
+    client, bucket = _make_mock_supabase_client()
+    bucket.download.side_effect = MissingObjectError("Object not found")
+    with patch("supabase.create_client", return_value=client):
+        backend = SupabaseStorageBackend(
+            url="https://x.supabase.co", key="key", bucket="certs"
+        )
+        assert backend.get_bytes("t/cert.pdf") is None
+
+
+def test_supabase_get_bytes_raises_when_storage_is_unavailable():
     client, bucket = _make_mock_supabase_client()
     bucket.download.side_effect = Exception("network down")
     with patch("supabase.create_client", return_value=client):
         backend = SupabaseStorageBackend(
             url="https://x.supabase.co", key="key", bucket="certs"
         )
-        assert backend.get_bytes("t/cert.pdf") is None
+        with pytest.raises(StorageUnavailableError):
+            backend.get_bytes("t/cert.pdf")
 
 
 def test_supabase_get_url_returns_signed_url_new_api():

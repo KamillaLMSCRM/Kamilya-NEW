@@ -19,6 +19,16 @@ from app.core.config import get_settings
 logger = logging.getLogger(__name__)
 
 
+class StorageUnavailableError(RuntimeError):
+    """Raised when the storage provider cannot confirm object state."""
+
+
+def _is_missing_object_error(exc: Exception) -> bool:
+    code = str(getattr(exc, "code", "") or "").lower()
+    status = getattr(exc, "statusCode", None) or getattr(exc, "status_code", None)
+    return code in {"not_found", "404", "no_such_key"} or status == 404
+
+
 class StorageBackend(ABC):
     """Abstract storage backend."""
 
@@ -146,8 +156,13 @@ class SupabaseStorageBackend(StorageBackend):
             client = self._get_client()
             return client.storage.from_(self.bucket).download(key)
         except Exception as e:
+            if _is_missing_object_error(e):
+                logger.info("Supabase object is missing: %s", key)
+                return None
             logger.warning(f"Supabase download failed for {key}: {e}")
-            return None
+            raise StorageUnavailableError(
+                "Supabase Storage is temporarily unavailable"
+            ) from e
 
     def exists(self, key: str) -> bool:
         try:

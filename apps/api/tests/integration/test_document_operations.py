@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 from uuid import uuid4
 
+import pytest
 from sqlalchemy import select
 
 
@@ -87,6 +88,81 @@ async def test_document_reindex_worker_completes_and_is_idempotent(
     assert stored.index_chunks_total == 3
     assert stored.index_chunks_indexed == 3
     assert stored_job.status == "completed"
+
+
+async def test_document_reindex_marks_missing_source_as_terminal_recovery(
+    db_session,
+    monkeypatch,
+    make_tenant,
+    make_user,
+    make_document,
+):
+    from app.models.ai_job import AIJob
+    from app.models.document import Document
+    from app.modules.documents import operations
+
+    class SessionContext:
+        async def __aenter__(self):
+            return db_session
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+    class MissingStorageStub:
+        def get_bytes(self, key):
+            return None
+
+    monkeypatch.setattr(operations, "async_session_factory", lambda: SessionContext())
+    monkeypatch.setattr(operations, "get_storage", lambda: MissingStorageStub())
+
+    tenant = await make_tenant()
+    methodologist = await make_user(tenant, role="methodologist")
+    document = await make_document(
+        tenant,
+        methodologist,
+        embedding_status="pending",
+        index_status="processing",
+        index_revision=3,
+    )
+    job = AIJob(
+        id=f"reindex-{uuid4()}",
+        tenant_id=tenant.id,
+        user_id=methodologist.id,
+        status="pending",
+        stage="queued",
+        params={
+            "action": "document_reindex",
+            "document_id": str(document.id),
+            "revision": 3,
+        },
+    )
+    db_session.add(job)
+    await db_session.flush()
+
+    with pytest.raises(operations.DocumentSourceMissingError):
+        await operations.run_document_reindex(
+            job.id,
+            document.id,
+            tenant.id,
+            3,
+        )
+
+    stored = await db_session.scalar(
+        select(Document).where(Document.id == document.id)
+    )
+    stored_job = await db_session.scalar(select(AIJob).where(AIJob.id == job.id))
+    assert stored.index_status == "failed"
+    assert stored.index_error_code == "source_blob_missing"
+    assert stored.index_message == (
+        "Source file is unavailable. Upload a new version."
+    )
+    assert stored_job.status == "failed"
+    assert stored_job.errors == [
+        {
+            "code": "source_blob_missing",
+            "message": "Source file is unavailable. Upload a new version.",
+        }
+    ]
 
 
 async def test_document_hash_backfill_hashes_available_blobs_and_reports_missing(

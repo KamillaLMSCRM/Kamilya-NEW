@@ -249,6 +249,7 @@ async def list_jobs(
             progress=j.progress,
             stage=j.stage,
             message=j.message or "",
+            errors=j.errors,
         )
         for j in jobs
     ]
@@ -275,6 +276,7 @@ async def get_job(
         progress=job.progress,
         stage=job.stage,
         message=job.message or "",
+        errors=job.errors,
     )
 
 

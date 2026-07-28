@@ -52,4 +52,24 @@ describe('AsyncOperationStatus', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
     expect(retry).toHaveBeenCalledOnce();
   });
+
+  it('supports an upload recovery action for a terminal source error', () => {
+    const upload = vi.fn();
+    render(
+      <AsyncOperationStatus
+        operation={{
+          status: 'failed',
+          errors: [{ code: 'source_blob_missing' }],
+        }}
+        title="Document indexing"
+        labels={labels}
+        retryLabel="Upload new version"
+        retryIcon="upload"
+        onRetry={upload}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Upload new version' }));
+    expect(upload).toHaveBeenCalledOnce();
+  });
 });

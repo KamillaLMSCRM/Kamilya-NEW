@@ -56,6 +56,7 @@ class AIJobResponse(BaseModel):
     progress: int = 0
     stage: str = ""
     message: str = ""
+    errors: list[dict[str, str] | str] | None = None
 
 
 class AIJobProgress(BaseModel):
