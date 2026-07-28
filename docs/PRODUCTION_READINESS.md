@@ -14,7 +14,7 @@
 | Application baseline | PASS | Проверенный release HEAD: `fe6ff6c2e914ed05cd7c05bbe1b29e5b2d4cc2e7` |
 | CI | PASS | GitHub Actions `30352487058`, полный pipeline: backend `625 passed`, coverage `57.57%` |
 | External smoke | PASS | GitHub Actions `30352486895`, API и frontend |
-| Frontend | PASS | Vercel production deployment `2tZoCGURNydq1q46BFKb8DsUwQ8Z`, commit `fe6ff6c` |
+| Frontend | PASS | Vercel production status `success`; проверенное дерево `apps/web` соответствует application baseline `fe6ff6c`. Последующие docs-only commits приложение не меняют |
 | API | PASS | Render deploy `dep-d9k8kv61egvs7381jo80`, `live`, commit `fe6ff6c` |
 | Worker | PASS | `/opt/kamilya-worker` на `a10786c`, unit active/enabled, Celery ping отвечает |
 | Database | PASS | production PostgreSQL 17.6, Alembic `0078` |

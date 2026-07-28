@@ -48,8 +48,8 @@ Production БД пока не перенесена в Казахстан. HostKZ
   `fe6ff6c2e914ed05cd7c05bbe1b29e5b2d4cc2e7`;
 - GitHub CI `30352487058`: success, backend `625 passed`;
 - GitHub production smoke `30352486895`: success;
-- Vercel production deployment `2tZoCGURNydq1q46BFKb8DsUwQ8Z`,
-  commit `fe6ff6c`;
+- Vercel production status: success; дерево `apps/web` соответствует
+  application baseline `fe6ff6c`, последующий docs-only HEAD его не меняет;
 - Render API deployment `dep-d9k8kv61egvs7381jo80`: live,
   commit `fe6ff6c`;
 - production Alembic: `0078`, repository head: `0078`;
