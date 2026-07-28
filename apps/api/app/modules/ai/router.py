@@ -509,6 +509,26 @@ async def chat(
             detail=f"target_id is required when context='{req.context}'",
         )
 
+    if req.intent == "audience_recommendation":
+        if user.role != "methodologist":
+            raise HTTPException(status_code=403, detail="Methodologist role required")
+        if req.context != "course":
+            raise HTTPException(status_code=400, detail="Audience recommendation requires course context")
+        from app.modules.ai.audience_advisor import audience_prompt_reply, recommend_audience
+
+        llm = None
+        try:
+            llm = await ResilientLLMClient.from_settings_async(temperature=0.1, max_tokens=900)
+        except Exception:
+            logger.warning("Could not initialize audience recommendation LLM; using fallback", exc_info=True)
+        recommendation = await recommend_audience(db, user.tenant_id, req.course_id, llm=llm)
+        if recommendation is None:
+            raise HTTPException(status_code=404, detail="Course not found")
+        return AIChatResponse(
+            reply=audience_prompt_reply(recommendation, language=req.language),
+            audience_recommendation=recommendation,
+        )
+
     summary = await _fetch_course_summary(db, req.course_id, user.tenant_id)
     if not summary:
         raise HTTPException(status_code=404, detail="Course not found")

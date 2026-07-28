@@ -78,6 +78,34 @@ class AIChatRequest(BaseModel):
     context: Literal["course", "module", "lesson"] = "course"
     target_id: Optional[UUID] = None  # required when context=module|lesson
     message: str = Field(..., min_length=1, max_length=2000)
+    language: Literal["ru", "kk", "en"] = "ru"
+    intent: Literal["course_review", "content_revision", "audience_recommendation"] | None = None
+
+
+class AudienceRecommendationScope(BaseModel):
+    type: Literal["organization", "department", "position", "cohort"]
+    id: UUID | None = None
+    name: str
+    employee_count: int = Field(ge=0)
+    priority: Literal["primary", "secondary"]
+    confidence: Literal["high", "medium", "low"]
+    reasons: list[str] = Field(default_factory=list)
+
+
+class AudienceRecommendation(BaseModel):
+    """Validated, aggregate-only audience advice.
+
+    This is deliberately a recommendation contract, not an assignment
+    command. ``assignment_url`` is a navigation hint for published courses;
+    it never carries a write action or a preselected mutation payload.
+    """
+
+    course_status: Literal["draft", "review", "published", "archived"]
+    recommended_scopes: list[AudienceRecommendationScope] = Field(default_factory=list)
+    matched_employee_count: int = Field(ge=0)
+    already_enrolled_count: int = Field(ge=0)
+    data_warnings: list[str] = Field(default_factory=list)
+    assignment_url: str | None = None
 
 
 class AIChatResponse(BaseModel):
@@ -91,6 +119,7 @@ class AIChatResponse(BaseModel):
     apply_lesson_id: Optional[UUID] = None
     apply_lesson_content: Optional[str] = None
     apply_lesson_title_hint: Optional[str] = None  # parsed "[APPLY_LESSON:title=...]" hint, optional
+    audience_recommendation: AudienceRecommendation | None = None
     model_config = ConfigDict(protected_namespaces=())
 
 

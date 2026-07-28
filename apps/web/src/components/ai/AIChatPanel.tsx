@@ -14,6 +14,26 @@ interface ChatMessage {
   apply_lesson_content?: string;
   apply_lesson_title_hint?: string;
   applied_lesson_id?: string;
+  audience_recommendation?: AudienceRecommendation;
+}
+
+interface AudienceScope {
+  type: 'organization' | 'department' | 'position' | 'cohort';
+  id?: string | null;
+  name: string;
+  employee_count: number;
+  priority: 'primary' | 'secondary';
+  confidence: 'high' | 'medium' | 'low';
+  reasons: string[];
+}
+
+interface AudienceRecommendation {
+  course_status: 'draft' | 'review' | 'published' | 'archived';
+  recommended_scopes: AudienceScope[];
+  matched_employee_count: number;
+  already_enrolled_count: number;
+  data_warnings: string[];
+  assignment_url?: string | null;
 }
 
 interface AIChatPanelProps {
@@ -40,7 +60,7 @@ export function AIChatPanel({
   focusModuleTitle,
   onLessonApplied,
 }: AIChatPanelProps) {
-  const { t } = useT();
+  const { t, lang } = useT();
   const token = useAuthStore((s) => s.accessToken);
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -79,9 +99,9 @@ export function AIChatPanel({
     }
   }, [messages]);
 
-  const sendMessage = async () => {
-    if (!input.trim() || !token) return;
-    const userText = input.trim();
+  const sendMessage = async (messageOverride?: string, intent?: 'audience_recommendation') => {
+    const userText = (messageOverride ?? input).trim();
+    if (!userText || !token) return;
     setInput('');
     setMessages((prev) => [...prev, { role: 'user', content: userText }]);
     setSending(true);
@@ -105,6 +125,8 @@ export function AIChatPanel({
           context,
           target_id,
           message: userText,
+          language: lang,
+          intent,
         }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -117,6 +139,7 @@ export function AIChatPanel({
           apply_lesson_id: data.apply_lesson_id,
           apply_lesson_content: data.apply_lesson_content,
           apply_lesson_title_hint: data.apply_lesson_title_hint,
+          audience_recommendation: data.audience_recommendation,
         },
       ]);
     } catch (e) {
@@ -128,6 +151,74 @@ export function AIChatPanel({
     } finally {
       setSending(false);
     }
+  };
+
+  const scopeLabel: Record<AudienceScope['type'], string> = {
+    organization: t('aiAssistant.organization'),
+    department: t('aiAssistant.department'),
+    position: t('aiAssistant.position'),
+    cohort: t('aiAssistant.cohort'),
+  };
+
+  const renderAudienceRecommendation = (recommendation: AudienceRecommendation) => {
+    const primary = recommendation.recommended_scopes.filter((scope) => scope.priority === 'primary');
+    const secondary = recommendation.recommended_scopes.filter((scope) => scope.priority === 'secondary');
+    const renderScopes = (scopes: AudienceScope[]) => scopes.map((scope) => (
+      <div key={`${scope.type}-${scope.id ?? scope.name}`} className="rounded-md border border-border p-2 space-y-1">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <div className="text-xs text-muted-foreground">{scopeLabel[scope.type]}</div>
+            <div className="font-medium truncate">{scope.name}</div>
+          </div>
+          <Badge variant="secondary">{scope.employee_count}</Badge>
+        </div>
+        <div className="text-xs text-muted-foreground">{t('aiAssistant.confidence.' + scope.confidence as any)}</div>
+        {scope.reasons.length > 0 && (
+          <ul className="text-xs text-muted-foreground list-disc pl-4 space-y-0.5">
+            {scope.reasons.map((reason) => <li key={reason}>{reason}</li>)}
+          </ul>
+        )}
+      </div>
+    ));
+
+    return (
+      <div className="w-full border border-primary/30 rounded-lg p-3 space-y-3 bg-background" data-testid="audience-recommendation">
+        <div className="flex flex-wrap gap-2 text-xs">
+          <Badge variant="secondary">{recommendation.course_status === 'published' ? t('aiAssistant.published') : t('aiAssistant.notPublished')}</Badge>
+          <Badge variant="outline">{t('aiAssistant.matched', { count: recommendation.matched_employee_count })}</Badge>
+          <Badge variant="outline">{t('aiAssistant.alreadyAssigned', { count: recommendation.already_enrolled_count })}</Badge>
+        </div>
+        {primary.length > 0 && (
+          <section className="space-y-2">
+            <h3 className="text-sm font-semibold">{t('aiAssistant.primary')}</h3>
+            {renderScopes(primary)}
+          </section>
+        )}
+        {secondary.length > 0 && (
+          <section className="space-y-2">
+            <h3 className="text-sm font-semibold">{t('aiAssistant.secondary')}</h3>
+            {renderScopes(secondary)}
+          </section>
+        )}
+        {recommendation.data_warnings.length > 0 && (
+          <section className="rounded-md bg-muted/50 p-2 space-y-1">
+            <h3 className="text-xs font-semibold">{t('aiAssistant.warnings')}</h3>
+            {recommendation.data_warnings.map((warning) => <p className="text-xs text-muted-foreground" key={warning}>{warning}</p>)}
+          </section>
+        )}
+        {recommendation.course_status !== 'published' && (
+          <p className="text-xs text-muted-foreground">{t('aiAssistant.reviewHint')}</p>
+        )}
+        {recommendation.assignment_url && recommendation.course_status === 'published' && (
+          <a
+            href={recommendation.assignment_url}
+            className="inline-flex items-center justify-center rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+          >
+            {t('aiAssistant.openAssignments')}
+          </a>
+        )}
+      </div>
+    );
   };
 
   const applySuggestion = async (msg: ChatMessage) => {
@@ -182,6 +273,16 @@ export function AIChatPanel({
         </header>
 
         <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3">
+          {messages.length <= 1 && (
+            <button
+              type="button"
+              className="w-full text-left rounded-lg border border-primary/30 px-3 py-2 text-sm hover:bg-muted"
+              onClick={() => sendMessage(t('aiAssistant.audienceQuestion'), 'audience_recommendation')}
+              disabled={sending}
+            >
+              {t('aiAssistant.audienceQuestion')}
+            </button>
+          )}
           {messages.map((m, i) => (
             <div
               key={i}
@@ -218,6 +319,7 @@ export function AIChatPanel({
                   )}
                 </div>
               )}
+              {m.role === 'assistant' && m.audience_recommendation && renderAudienceRecommendation(m.audience_recommendation)}
             </div>
           ))}
           {sending && (

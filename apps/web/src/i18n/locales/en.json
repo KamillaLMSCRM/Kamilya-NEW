@@ -214,6 +214,25 @@
     "subtitle": "Here's what's happening today",
     "newCourse": "New course"
   },
+  "aiAssistant": {
+    "title": "AI assistant",
+    "audienceQuestion": "Who is this course for?",
+    "primary": "Priority audience",
+    "secondary": "Additional audience",
+    "matched": "Matching employees: {count}",
+    "alreadyAssigned": "Already assigned: {count}",
+    "why": "Why",
+    "warnings": "Consider",
+    "published": "Course published",
+    "notPublished": "Course not published yet",
+    "reviewHint": "You can review the audience now. Assignment is completed on the standard screen after publication.",
+    "openAssignments": "Go to assignments",
+    "organization": "Whole organization",
+    "department": "Department",
+    "position": "Position",
+    "cohort": "Group",
+    "confidence": { "high": "High confidence", "medium": "Medium confidence", "low": "Low confidence" }
+  },
   "courses": {
     "title": "Courses",
     "createCourse": "Create Course",
