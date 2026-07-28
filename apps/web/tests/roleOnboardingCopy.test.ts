@@ -19,7 +19,7 @@ describe('role onboarding copy', () => {
 
   it.each([['RU', ru], ['KK', kk]] as const)('renders onboarding progress without braces in %s', (_, locale) => {
     expect(interpolate(locale.onboarding.progress, { done: 6, total: 7 })).not.toContain('{');
-    expect(interpolate(locale.onboarding.trialDays, { days: 14 })).not.toContain('{');
+    expect(interpolate(locale.onboarding.trialDays, { daysText: '14 days' })).not.toContain('{');
   });
 
   it.each([['RU', ru], ['KK', kk]] as const)('explains team roles and role switching in %s', (_, locale) => {

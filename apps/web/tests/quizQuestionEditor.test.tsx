@@ -27,6 +27,7 @@ vi.mock('@/i18n/useT', () => ({
       'quiz.points': 'баллов',
       'quiz.title': 'Тест',
     }[key] ?? key),
+    tp: (key: string, count: number) => `${count} ${key}`,
   }),
 }));
 vi.mock('@/components/ui/ConfirmDialog', () => ({

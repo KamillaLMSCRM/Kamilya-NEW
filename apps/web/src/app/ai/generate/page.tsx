@@ -94,7 +94,7 @@ const STAGES = [
 ];
 
 export default function AIGeneratePage() {
-  const { t } = useT();
+  const { t, tp } = useT();
   const router = useRouter();
   const token = useAuthStore((s) => s.accessToken);
 
@@ -709,7 +709,7 @@ export default function AIGeneratePage() {
           {documents.length > 0 && (
             <div className="space-y-2">
               <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">
-                Загруженные документы ({selectedDocIds.length} выбрано)
+                Загруженные документы ({tp('common.counts.document', selectedDocIds.length)} выбрано)
               </div>
               {documents.map(doc => {
                 const isReady = doc.embedding_status === 'success';
@@ -914,7 +914,7 @@ export default function AIGeneratePage() {
             disabled={!canGenerate}
             className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-medium text-white hover:bg-primary/90 transition-colors disabled:opacity-50"
           >
-            {t('ai.generate')} ({selectedDocIds.length} документов)
+            {t('ai.generate')} ({tp('common.counts.document', selectedDocIds.length)})
           </button>
           {selectedDocIds.length > 0 && selectedNotReadyCount > 0 && (
             <div className="text-center text-xs text-warning">
@@ -1089,11 +1089,11 @@ export default function AIGeneratePage() {
               </h4>
               {preview && (
                 <div className="flex gap-3 text-xs text-muted-foreground">
-                  <span>{preview.modules_count} модулей</span>
+                  <span>{tp('common.counts.module', preview.modules_count)}</span>
                   <span>·</span>
-                  <span>{preview.lessons_count} уроков</span>
+                  <span>{tp('common.counts.lesson', preview.lessons_count)}</span>
                   <span>·</span>
-                  <span>{preview.quizzes_count} тестов</span>
+                  <span>{tp('common.counts.test', preview.quizzes_count)}</span>
                 </div>
               )}
             </div>

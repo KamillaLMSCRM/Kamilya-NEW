@@ -67,7 +67,7 @@ export function QuizAssignPanel({ quizId, refreshKey }: QuizAssignPanelProps) {
   const token = useAuthStore((s) => s.accessToken);
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
   const { confirm, dialog } = useConfirm();
-  const { t } = useT();
+  const { t, tp } = useT();
 
   const [mode, setMode] = useState<Mode>('users');
 
@@ -168,7 +168,9 @@ export function QuizAssignPanel({ quizId, refreshKey }: QuizAssignPanelProps) {
       const staleCount = data.filter((p) => p.employee_count_stale).length;
       if (staleCount > 0) {
         toast.error(
-          t('quizAssignments.employeeCountStale', { count: staleCount }),
+          t('quizAssignments.employeeCountStale', {
+            countText: tp('common.counts.position', staleCount),
+          }),
           // Long-lived toast — 8 seconds — so the message isn't missed.
           { duration: 8000 }
         );
@@ -178,7 +180,7 @@ export function QuizAssignPanel({ quizId, refreshKey }: QuizAssignPanelProps) {
     } finally {
       setLoadingPositions(false);
     }
-  }, [token, API_URL, t]);
+  }, [token, API_URL, t, tp]);
 
   // Per-position manual recalc. Called when the methodologist clicks
   // the "↻" badge next to a stale count. Cheaper than a full reload —
@@ -513,7 +515,9 @@ export function QuizAssignPanel({ quizId, refreshKey }: QuizAssignPanelProps) {
               <Mail size={14} className="text-amber-600 mt-0.5 shrink-0" />
               <div className="flex-1">
                 <div className="font-medium text-amber-900 dark:text-amber-200">
-                  {t('quizAssignments.pendingUsersTitle', { count: pendingUsers.length })}
+                  {t('quizAssignments.pendingUsersTitle', {
+                    countText: tp('common.counts.employee', pendingUsers.length),
+                  })}
                 </div>
                 <div className="text-amber-800/80 dark:text-amber-300/80">
                   {t('quizAssignments.pendingUsersHint')}

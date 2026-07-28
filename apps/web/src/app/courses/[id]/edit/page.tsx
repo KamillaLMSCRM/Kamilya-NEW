@@ -51,7 +51,7 @@ interface Course {
 export default function CourseEditPage() {
   const params = useParams();
   const courseId = params?.id as string;
-  const { t } = useT();
+  const { t, tp } = useT();
     const { confirm, dialog } = useConfirm();
   const token = useAuthStore((s) => s.accessToken);
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -418,7 +418,7 @@ export default function CourseEditPage() {
                   ) : (
                     <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
                       <h3 className="min-w-0 flex-1 text-base font-semibold leading-6">{mod.title}</h3>
-                      <Badge variant="outline">{mod.lessons.length} {t('courses.lessons')}</Badge>
+                      <Badge variant="outline">{tp('common.counts.lesson', mod.lessons.length)}</Badge>
                       <Button variant="ghost" size="sm" className="h-9" onClick={() => { setEditingModuleId(mod.id); setEditModuleTitle(mod.title); }}>
                         <Pencil className="mr-1.5 h-4 w-4" />
                         {t('common.edit')}

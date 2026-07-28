@@ -31,7 +31,7 @@ interface DashboardData {
 }
 
 export default function StudentDashboardPage() {
-  const { t } = useT();
+  const { t, tp } = useT();
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const token = useAuthStore((s) => s.accessToken);
@@ -135,7 +135,12 @@ export default function StudentDashboardPage() {
 
                   <div className="mb-3">
                     <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                      <span>{t('courses.lessonsCount', { done: course.completed_lessons, total: course.total_lessons })}</span>
+                      <span>
+                        {t('courses.lessonsCount', {
+                          done: course.completed_lessons,
+                          totalText: tp('common.counts.lessonTotal', course.total_lessons),
+                        })}
+                      </span>
                       <span>{course.progress_percent}%</span>
                     </div>
                     <div className="h-2 bg-muted rounded">

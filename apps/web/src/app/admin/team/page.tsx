@@ -39,7 +39,7 @@ const createEmptyNewUser = (): NewUserForm => ({
 });
 
 export default function AdminTeamPage() {
-  const { t } = useT();
+  const { t, tp } = useT();
   const [users, setUsers] = useState<User[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -393,7 +393,7 @@ export default function AdminTeamPage() {
 
       <div className="flex justify-between items-center">
         <span className="text-sm text-muted-foreground">
-          {t('users.totalCount', { total })}
+          {t('users.totalCount', { totalText: tp('common.counts.user', total) })}
         </span>
         <div className="flex gap-2">
           <Button

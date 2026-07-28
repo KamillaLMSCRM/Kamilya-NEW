@@ -61,7 +61,7 @@ interface AssistantMessage {
 export default function CoursePlayerPage() {
   const params = useParams();
   const courseId = params?.id as string;
-  const { t } = useT();
+  const { t, tp } = useT();
   const router = useRouter();
   const [course, setCourse] = useState<Course | null>(null);
   const [modules, setModules] = useState<Module[]>([]);
@@ -532,7 +532,10 @@ export default function CoursePlayerPage() {
             <div className="h-2 bg-primary rounded transition-all" style={{ width: `${progressPercent}%` }} />
           </div>
           <p className="text-xs text-muted-foreground mt-1">
-            {t('courses.lessonsCount', { done: completedCount, total: totalLessons })} ({progressPercent}%)
+            {t('courses.lessonsCount', {
+              done: completedCount,
+              totalText: tp('common.counts.lessonTotal', totalLessons),
+            })} ({progressPercent}%)
           </p>
         </div>
         <div className="flex-1 overflow-y-auto p-4 space-y-3">

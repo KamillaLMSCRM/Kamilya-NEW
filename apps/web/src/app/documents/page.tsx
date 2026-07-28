@@ -49,7 +49,7 @@ interface DocumentBackgroundOperation {
 }
 
 export default function DocumentsPage() {
-  const { t } = useT();
+  const { t, tp } = useT();
   const { confirm, dialog } = useConfirm();
   const fileRef = useRef<HTMLInputElement>(null);
   const pollingJobRef = useRef<string | null>(null);
@@ -250,7 +250,10 @@ export default function DocumentsPage() {
       void pollDocumentJob(response.data.job_id, document, t('documents.reindexCompleted'));
     } catch (error) {
       toast.error(t('documents.reindexFailed'), {
-        description: documentDeleteError(error),
+        description: documentDeleteError(
+          error,
+          (count) => tp('common.counts.object', count)
+        ),
       });
     } finally {
       setReindexingId(null);
@@ -334,7 +337,10 @@ export default function DocumentsPage() {
         await openUsages(document);
       }
       toast.error(t('documents.deleteFailed'), {
-        description: documentDeleteError(error),
+        description: documentDeleteError(
+          error,
+          (count) => tp('common.counts.object', count)
+        ),
         duration: 7000,
       });
     } finally {

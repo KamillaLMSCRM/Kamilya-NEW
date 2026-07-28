@@ -105,7 +105,7 @@ const ACTION_COLORS: Record<string, string> = {
 };
 
 export default function AdminStaffPage() {
-  const { t } = useT();
+  const { t, tp } = useT();
   const router = useRouter();
   const search = useSearchParams();
 
@@ -308,7 +308,9 @@ export default function AdminStaffPage() {
     if (!selectedFile) return;
     if (!preview) return;
     if (preview.invalid_rows && preview.invalid_rows.length > 0) {
-      toast.error(`В файле ${preview.invalid_rows.length} строк с ошибками. Исправьте и попробуйте снова.`);
+      toast.error(
+        `В файле ${tp('common.counts.row', preview.invalid_rows.length)} с ошибками. Исправьте и попробуйте снова.`
+      );
       return;
     }
     if (preview.summary.create === 0 && preview.summary.update === 0) {
@@ -958,7 +960,7 @@ export default function AdminStaffPage() {
 
                           {preview.summary.invalid_rows && preview.summary.invalid_rows > 0 && (
                             <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive mb-4">
-                              ⚠️ В файле <strong>{preview.summary.invalid_rows}</strong> строк с ошибками — исправьте и
+                              ⚠️ В файле <strong>{tp('common.counts.row', preview.summary.invalid_rows)}</strong> с ошибками — исправьте и
                               перезагрузите. Commit будет заблокирован.
                             </div>
                           )}
@@ -1154,7 +1156,7 @@ interface StructureResponse {
 }
 
 function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
-  const { t } = useT();
+  const { t, tp } = useT();
   const [data, setData] = useState<StructureResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
@@ -1318,7 +1320,8 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
                     <span className="flex-1 min-w-0">
                       <div className="text-sm font-semibold text-foreground">{dept.name}</div>
                       <div className="text-xs text-muted-foreground">
-                        {dept.position_count} должностей · {dept.employee_count} сотрудников
+                        {tp('common.counts.position', dept.position_count)} ·{' '}
+                        {tp('common.counts.employee', dept.employee_count)}
                       </div>
                     </span>
                   </button>
@@ -1346,7 +1349,7 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
                               <span className="min-w-0">
                                 <span className="block truncate text-sm font-medium text-foreground">{pos.name}</span>
                                 <span className="mt-0.5 block text-xs text-muted-foreground">
-                                  {pos.employee_count} сотрудников
+                                  {tp('common.counts.employee', pos.employee_count)}
                                 </span>
                               </span>
                             </button>

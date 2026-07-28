@@ -43,7 +43,7 @@ export function TrialStatusPanel({
   exhaustedLimits,
   usage,
 }: TrialStatusPanelProps) {
-  const { t } = useT();
+  const { t, tp } = useT();
   if (state === 'not_trial') return null;
 
   const isSupportRequired = accessState === 'support_required';
@@ -77,7 +77,7 @@ export function TrialStatusPanel({
                   ? t('trialStatus.expiredHint')
                   : isNearing
                     ? t('trialStatus.nearingHint')
-                    : t('onboarding.trialDays', { days: daysRemaining ?? 0 })}
+                    : tp('common.counts.day', daysRemaining ?? 0)}
               </p>
             </div>
           </div>

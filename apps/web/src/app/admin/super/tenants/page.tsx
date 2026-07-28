@@ -164,11 +164,11 @@ function formatDate(value: string | null) {
   }).format(new Date(value));
 }
 
-function trialDaysLeft(value: string | null) {
+function trialDaysLeft(value: string | null, formatDays: (count: number) => string) {
   if (!value) return '—';
   const days = Math.ceil((new Date(value).getTime() - Date.now()) / 86_400_000);
-  if (days < 0) return `${Math.abs(days)} дн. назад`;
-  return `${days} дн.`;
+  if (days < 0) return `${formatDays(Math.abs(days))} назад`;
+  return formatDays(days);
 }
 
 function defaultTrialEndDate() {
@@ -196,7 +196,7 @@ function defaultCreateForm() {
 }
 
 export default function SuperAdminTenants() {
-  const { t } = useT();
+  const { t, tp } = useT();
   const token = useAuthStore((s) => s.accessToken);
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
   const [tenants, setTenants] = useState<Tenant[]>([]);
@@ -448,7 +448,12 @@ export default function SuperAdminTenants() {
                         </div>
                       </td>
                       <td className="px-3 py-2 text-sm text-text-secondary">
-                        <div className="font-medium text-text-primary">{trialDaysLeft(tnt.trial_ends_at)}</div>
+                        <div className="font-medium text-text-primary">
+                          {trialDaysLeft(
+                            tnt.trial_ends_at,
+                            (days) => tp('common.counts.day', days)
+                          )}
+                        </div>
                         <div className="text-xs text-text-tertiary">
                           {t('superadmin.tenants.trialUntil', { date: formatDate(tnt.trial_ends_at) })}
                         </div>
@@ -471,7 +476,10 @@ export default function SuperAdminTenants() {
                         <div className="text-xs text-text-tertiary">
                           {t('superadmin.tenants.publishedOfTotal', {
                             published: tnt.stats?.published_course_count ?? 0,
-                            total: tnt.stats?.course_count ?? 0,
+                            totalText: tp(
+                              'common.counts.courseTotal',
+                              tnt.stats?.course_count ?? 0
+                            ),
                           })}
                         </div>
                       </td>

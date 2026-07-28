@@ -79,7 +79,7 @@ function instructionVariant(position: Position): "default" | "secondary" | "dest
 }
 
 export default function PositionsPage() {
-  const { t } = useT();
+  const { t, tp } = useT();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [positions, setPositions] = useState<Position[]>([]);
   const [loading, setLoading] = useState(true);
@@ -370,9 +370,14 @@ export default function PositionsPage() {
                     <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
                       <span className="inline-flex items-center gap-1">
                         <FileText className="h-3.5 w-3.5" aria-hidden="true" />
-                        {position.course_ids?.length ?? 0} курсов
+                        {tp('common.counts.course', position.course_ids?.length ?? 0)}
                       </span>
-                      <span>{position.current_employee_count ?? position.employee_count ?? 0} сотрудников</span>
+                      <span>
+                        {tp(
+                          'common.counts.employee',
+                          position.current_employee_count ?? position.employee_count ?? 0
+                        )}
+                      </span>
                       {position.instruction_filename && (
                         <span className="inline-flex max-w-full items-center gap-1 truncate">
                           <FileUp className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />

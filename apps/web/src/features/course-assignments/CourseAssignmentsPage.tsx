@@ -79,7 +79,7 @@ const STATUS_BADGE_VARIANT: Record<string, 'default' | 'outline' | 'secondary'> 
 // ── component ─────────────────────────────────────────────
 
 export default function EnrollmentsPage() {
-  const { t } = useT();
+  const { t, tp } = useT();
   const { confirm, dialog } = useConfirm();
   const [courses, setCourses] = useState<Course[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -158,7 +158,7 @@ export default function EnrollmentsPage() {
       }
       const created = await res.json();
       if (Array.isArray(created) && created.length > 0) {
-        toast.success(`Назначено обучающихся: ${created.length}`);
+        toast.success(`Назначено: ${tp('common.counts.learner', created.length)}`);
       } else {
         toast.info('Новых назначений нет: выбранные обучающиеся уже назначены или недоступны');
       }
@@ -438,7 +438,7 @@ export default function EnrollmentsPage() {
             </div>
             <p className="text-sm text-muted-foreground">
               {selectedCourse
-                ? `Доступно обучающихся: ${availableUsers.length} из ${users.length}`
+                ? `Доступно: ${availableUsers.length} из ${tp('common.counts.learnerTotal', users.length)}`
                 : 'Сначала выберите курс слева'}
             </p>
             <SearchInput

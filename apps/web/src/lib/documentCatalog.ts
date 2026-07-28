@@ -89,12 +89,21 @@ export const isDocumentSelectable = (document: DocumentCatalogItem) =>
   document.lifecycle_status === 'active'
   && (document.index.status === 'ready' || document.index.status === 'partial');
 
-export const documentDeleteError = (error: any): string => {
+const defaultObjectCount = (count: number) => {
+  const forms = { one: 'объект', few: 'объекта', many: 'объектов', other: 'объекта' };
+  const category = new Intl.PluralRules('ru').select(count);
+  return `${count} ${forms[category as keyof typeof forms] ?? forms.other}`;
+};
+
+export const documentDeleteError = (
+  error: any,
+  formatObjectCount: (count: number) => string = defaultObjectCount
+): string => {
   const detail = error?.response?.data?.details ?? error?.response?.data?.detail;
   if (detail?.code === 'document_in_use') {
     const count = Number(detail?.summary?.total || 0);
     return count > 0
-      ? `Документ используется в ${count} объектах. Сначала отвяжите его от должностей, курсов, уроков или дождитесь завершения AI-задачи.`
+      ? `Документ используется: ${formatObjectCount(count)}. Сначала отвяжите его от должностей, курсов, уроков или дождитесь завершения AI-задачи.`
       : 'Документ используется в других объектах.';
   }
   if (detail?.code === 'document_processing') {

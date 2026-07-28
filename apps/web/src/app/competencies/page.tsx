@@ -14,7 +14,7 @@ type LinkItem = { id: string; name: string };
 type Detail = Item & { position_ids: string[]; course_ids: string[] };
 
 export default function CompetenciesPage() {
-  const { t } = useT();
+  const { t, tp } = useT();
   const role = useAuthStore((state) => state.user?.role);
   const allowed = role === "methodologist";
   const [items, setItems] = useState<Item[]>([]);
@@ -120,7 +120,8 @@ export default function CompetenciesPage() {
               >
                 <div className="truncate font-medium">{item.name}</div>
                 <div className="mt-1 text-xs text-muted-foreground">
-                  {item.position_count} {t("competencies.positions")} · {item.course_count} {t("competencies.courses")}
+                  {tp('common.counts.position', item.position_count)} ·{' '}
+                  {tp('common.counts.course', item.course_count)}
                 </div>
               </button>
             ))}

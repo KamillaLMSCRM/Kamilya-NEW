@@ -15,7 +15,10 @@ vi.mock('next/navigation', () => ({
 }));
 
 vi.mock('@/i18n/useT', () => ({
-  useT: () => ({ t: (key: string) => key }),
+  useT: () => ({
+    t: (key: string) => key,
+    tp: (key: string, count: number) => `${count} ${key}`,
+  }),
 }));
 
 vi.mock('@/components/ui/ConfirmDialog', () => ({

@@ -117,7 +117,7 @@ function addDaysIso(days: number) {
 
 export default function TenantDetailPage({ params }: { params: { id: string } }) {
   const { id } = params;
-  const { t } = useT();
+  const { t, tp } = useT();
   const token = useAuthStore((s) => s.accessToken);
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
   const router = useRouter();
@@ -468,7 +468,9 @@ export default function TenantDetailPage({ params }: { params: { id: string } })
                 disabled={saving}
                 onClick={() => patchTenant({ plan: 'pro', status: 'active', paid_until: addDaysIso(30) })}
               >
-                {t('superadmin.tenants.launch.activatePaid', { days: 30 })}
+                {t('superadmin.tenants.launch.activatePaid', {
+                  daysText: tp('common.counts.day', 30),
+                })}
               </Button>
               <Button
                 type="button"
@@ -477,7 +479,9 @@ export default function TenantDetailPage({ params }: { params: { id: string } })
                 disabled={saving}
                 onClick={() => patchTenant({ status: 'trial', plan: 'trial', trial_ends_at: addDaysIso(14) })}
               >
-                {t('superadmin.tenants.launch.extendTrial', { days: 14 })}
+                {t('superadmin.tenants.launch.extendTrial', {
+                  daysText: tp('common.counts.day', 14),
+                })}
               </Button>
               <Button
                 type="button"

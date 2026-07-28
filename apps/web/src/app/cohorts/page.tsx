@@ -19,7 +19,7 @@ type Option = { id: string; name: string };
 type Detail = Cohort & { user_ids: string[] };
 
 export default function CohortsPage() {
-  const { t } = useT();
+  const { t, tp } = useT();
   const role = useAuthStore((state) => state.user?.role);
   const canManage = role === COHORT_MANAGER_ROLE;
   const [items, setItems] = useState<Cohort[]>([]);
@@ -119,7 +119,9 @@ export default function CohortsPage() {
         <Button className="w-full gap-2" onClick={resetEditor}><Plus className="h-4 w-4" />{t('cohorts.new')}</Button>
         {items.map((item) => <button key={item.id} onClick={() => open(item)} className={`w-full rounded-lg border p-3 text-left ${selected?.id === item.id ? 'border-primary bg-primary/5' : 'border-border'}`}>
           <div className="truncate font-medium">{item.name}</div>
-          <div className="mt-1 text-xs text-muted-foreground">{item.member_count} {t('cohorts.members')}</div>
+          <div className="mt-1 text-xs text-muted-foreground">
+            {tp('common.counts.participant', item.member_count)}
+          </div>
         </button>)}
         {!items.length && <p className="p-3 text-sm text-muted-foreground">{t('cohorts.empty')}</p>}
       </CardContent></Card>

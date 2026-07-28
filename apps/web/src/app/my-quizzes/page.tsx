@@ -24,7 +24,7 @@ interface EnrolledQuiz {
 }
 
 export default function MyQuizzesPage() {
-  const { t } = useT();
+  const { t, tp } = useT();
   const [quizzes, setQuizzes] = useState<EnrolledQuiz[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -84,12 +84,15 @@ export default function MyQuizzesPage() {
                     {q.module_title} → {q.lesson_title}
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    {t('quiz.passScore')}: {q.pass_score}% · {t('quiz.deferralDays')}: {q.deferral_days} {t('quiz.days')}
+                    {t('quiz.passScore')}: {q.pass_score}% · {t('quiz.deferralDays')}:{' '}
+                    {tp('common.counts.day', q.deferral_days)}
                     {q.attempts_count > 0 && ` · ${t('quiz.attempts')}: ${q.attempts_count}/${q.attempt_limit}`}
                   </div>
                   {q.is_expired && (
                     <div className="text-xs text-destructive mt-1">
-                      {t('quiz.expiredHint', { days: q.deferral_days })}
+                      {t('quiz.expiredHint', {
+                        daysText: tp('common.counts.day', q.deferral_days),
+                      })}
                     </div>
                   )}
                 </div>
@@ -99,7 +102,14 @@ export default function MyQuizzesPage() {
                   <Badge variant="outline">{t('student.pendingBadge')}</Badge>
                 )}
                 {q.is_expired ? (
-                  <Button size="sm" disabled aria-disabled="true" title={t('quiz.expiredHint', { days: q.deferral_days })}>
+                  <Button
+                    size="sm"
+                    disabled
+                    aria-disabled="true"
+                    title={t('quiz.expiredHint', {
+                      daysText: tp('common.counts.day', q.deferral_days),
+                    })}
+                  >
                     <Play className="w-4 h-4 mr-1" aria-hidden="true" /> {t('quiz.notAvailable')}
                   </Button>
                 ) : (

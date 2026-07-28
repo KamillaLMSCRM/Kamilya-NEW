@@ -17,6 +17,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Card, CardContent, Badge } from '@/components/ui';
+import { useT } from '@/i18n/useT';
 import { api } from '@/lib/api';
 
 type TaskState =
@@ -47,6 +48,7 @@ interface Props {
 const TERMINAL_STATES = new Set<TaskState>(['SUCCESS', 'FAILURE', 'REVOKED']);
 
 export function ApplyRulesProgress({ taskId, onSettled }: Props) {
+  const { tp } = useT();
   const [status, setStatus] = useState<StatusResponse | null>(null);
   const [stopped, setStopped] = useState(false);
   const onSettledRef = useRef(onSettled);
@@ -110,11 +112,11 @@ export function ApplyRulesProgress({ taskId, onSettled }: Props) {
               Применено правил
             </div>
             <div className="text-xs text-muted-foreground">
-              {result?.users_processed ?? 0} пользователей · записано{' '}
+              {tp('common.counts.user', result?.users_processed ?? 0)} · записано{' '}
               {result?.added ?? 0} · убрано {result?.removed ?? 0}
               {result?.failed_user_ids && result.failed_user_ids.length > 0 && (
                 <span className="text-warning ml-2">
-                  ошибок: {result.failed_user_ids.length}
+                  {tp('common.counts.error', result.failed_user_ids.length)}
                 </span>
               )}
             </div>

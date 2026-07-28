@@ -20,7 +20,7 @@ interface EnrolledCourse {
 }
 
 export default function MyCoursesPage() {
-  const { t } = useT();
+  const { t, tp } = useT();
   const [courses, setCourses] = useState<EnrolledCourse[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'active' | 'completed'>('all');
@@ -103,7 +103,9 @@ export default function MyCoursesPage() {
 
                 <div className="mb-3">
                   <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                    <span>{course.completed_lessons}/{course.total_lessons} уроков</span>
+                    <span>
+                      {course.completed_lessons} из {tp('common.counts.lessonTotal', course.total_lessons)}
+                    </span>
                     <span>{course.progress_percent}%</span>
                   </div>
                   <div className="h-2 bg-muted rounded">

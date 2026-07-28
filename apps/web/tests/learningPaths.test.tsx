@@ -18,7 +18,10 @@ vi.mock('@/store/authStore', () => ({
 vi.mock('@/lib/api', () => ({ api: apiMock }));
 
 vi.mock('@/i18n/useT', () => ({
-  useT: () => ({ t: translate }),
+  useT: () => ({
+    t: translate,
+    tp: (key: string, count: number) => `${count} ${key}`,
+  }),
 }));
 
 const courseA = { id: 'course-a', title: 'Course A', status: 'published' };
@@ -237,7 +240,7 @@ describe('learning programs UI', () => {
 
     await waitFor(() => expect(apiMock.get).toHaveBeenCalled());
     expect(screen.getByRole('heading', { name: 'Onboarding' })).toBeInTheDocument();
-    expect(screen.getByText('1/2 learningPaths.requiredCourses')).toBeInTheDocument();
+    expect(screen.getByText('1 из 2 common.counts.courseTotal · learningPaths.required')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'learningPaths.reviewCourse' })).toHaveAttribute('href', '/courses/course-a');
     expect(screen.getByRole('link', { name: 'learningPaths.startCourse' })).toHaveAttribute('href', '/courses/course-b');
     expect(screen.queryByRole('link', { name: /Locked course/ })).not.toBeInTheDocument();

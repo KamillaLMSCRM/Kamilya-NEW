@@ -101,7 +101,7 @@ function questionTypeLabel(type: string) {
 }
 
 export default function QuizzesAdminPage() {
-  const { t } = useT();
+  const { t, tp } = useT();
     const { confirm, dialog } = useConfirm();
   const [grouped, setGrouped] = useState<QuizGroupedResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -368,7 +368,9 @@ export default function QuizzesAdminPage() {
       setShowCreateQuiz(false);
       setAiGuidance('');
       await fetchGrouped();
-      toast.success(`Тест создан: ${added} из ${aiDraft.questions.length} вопросов добавлено`);
+      toast.success(
+        `Тест создан: добавлено ${added} из ${tp('common.counts.question', aiDraft.questions.length)}`
+      );
     } catch (e) {
       toast.error(`Не удалось сохранить: ${(e as Error).message}`);
     } finally {
@@ -770,7 +772,7 @@ export default function QuizzesAdminPage() {
                 </Button>
                 {aiDraft && (
                   <p className="text-xs text-muted-foreground mt-2">
-                    Черновик готов ({aiDraft.questions.length} вопросов
+                    Черновик готов ({tp('common.counts.question', aiDraft.questions.length)}
                     {aiDraft.latency_ms ? `, ${(aiDraft.latency_ms / 1000).toFixed(1)}с` : ''}).
                     Прокрутите вниз, чтобы посмотреть и сохранить.
                   </p>
@@ -815,7 +817,7 @@ export default function QuizzesAdminPage() {
               </button>
             </div>
             <p className="text-xs text-muted-foreground">
-              {aiDraft.questions.length} вопросов
+              {tp('common.counts.question', aiDraft.questions.length)}
               {aiDraft.latency_ms ? `, сгенерировано за ${(aiDraft.latency_ms / 1000).toFixed(1)}с` : ''}.
               AI мог ошибиться в формулировках или фактах — обязательно проверьте каждый вопрос.
             </p>
@@ -1051,7 +1053,11 @@ export default function QuizzesAdminPage() {
                   <div className="min-w-0">
                     <h3 className="truncate text-lg font-semibold leading-7 text-foreground sm:text-xl">{selectedQuiz.title}</h3>
                     <div className="mt-2 text-sm text-muted-foreground">
-                      {selectedQuiz.questions.length} вопросов · {selectedQuiz.questions.reduce((a, q) => a + q.points, 0)} баллов
+                      {tp('common.counts.question', selectedQuiz.questions.length)} ·{' '}
+                      {tp(
+                        'common.counts.point',
+                        selectedQuiz.questions.reduce((a, q) => a + q.points, 0)
+                      )}
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-2">
@@ -1169,7 +1175,9 @@ export default function QuizzesAdminPage() {
                       <div className="min-w-0">
                         <div className="mb-3 flex flex-wrap items-start gap-2">
                           <span className="min-w-0 flex-1 text-base font-medium leading-6 text-foreground">{q.text}</span>
-                          <Badge variant="secondary" className="bg-primary/10 text-primary">{q.points} {t('quiz.points')}</Badge>
+                          <Badge variant="secondary" className="bg-primary/10 text-primary">
+                            {tp('common.counts.point', q.points)}
+                          </Badge>
                           <Badge variant="outline" className="border-border bg-card text-muted-foreground">{questionTypeLabel(q.type)}</Badge>
                         </div>
                         <div className="space-y-2">

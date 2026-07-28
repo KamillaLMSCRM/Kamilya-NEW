@@ -76,7 +76,7 @@ interface QuizAttempt {
 export default function QuizPlayerPage() {
   const params = useParams();
   const quizId = params?.quizId as string;
-  const { t } = useT();
+  const { t, tp } = useT();
   const token = useAuthStore((s) => s.accessToken);
   const user = useAuthStore((s) => s.user);
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -340,7 +340,9 @@ export default function QuizPlayerPage() {
                       </span>
                       <div>
                         <p className="font-medium">{i + 1}. {q.text}</p>
-                        <p className="text-xs text-muted-foreground">{q.points} {t('quiz.points')}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {tp('common.counts.point', q.points)}
+                        </p>
                       </div>
                     </div>
                     <div className="space-y-1 ml-8">
