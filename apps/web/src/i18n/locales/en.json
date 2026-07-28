@@ -216,6 +216,22 @@
   },
   "aiAssistant": {
     "title": "AI assistant",
+    "dialogLabel": "Methodologist AI assistant",
+    "intro": "Methodologist AI assistant. Ask about the course structure, request lesson rewrites, or add content.",
+    "focusLesson": "Review focus: lesson “{title}”. Ask anything — I can rewrite text, check completeness, or add examples.",
+    "focusModule": "Review focus: module “{title}”.",
+    "emptyReply": "The assistant returned an empty response.",
+    "errorToast": "AI chat error",
+    "errorReply": "Could not get a response. Please try again.",
+    "thinking": "AI is thinking…",
+    "lessonSuggestion": "Lesson replacement suggestion",
+    "lessonSuggestionWithTitle": "Lesson replacement suggestion: “{title}”",
+    "applied": "Applied",
+    "applyLesson": "Apply to lesson",
+    "lessonUpdated": "Lesson updated",
+    "applyError": "Could not apply the edit",
+    "lessonPlaceholder": "Ask AI to rewrite this lesson…",
+    "chatPlaceholder": "Ask AI…",
     "audienceQuestion": "Who is this course for?",
     "primary": "Priority audience",
     "secondary": "Additional audience",
@@ -231,7 +247,26 @@
     "department": "Department",
     "position": "Position",
     "cohort": "Group",
-    "confidence": { "high": "High confidence", "medium": "Medium confidence", "low": "Low confidence" }
+    "confidence": { "high": "High confidence", "medium": "Medium confidence", "low": "Low confidence" },
+    "reason": {
+      "organization_rule": "An organization-wide training rule is linked to this course.",
+      "organization_structure": "This is the whole organization scope.",
+      "position_structure": "The position exists in the company structure.",
+      "department_structure": "The department exists in the company structure.",
+      "cohort_structure": "The cohort exists in the company structure.",
+      "position_rule": "An explicit position training rule is linked to this course.",
+      "department_rule": "An explicit department training rule is linked to this course.",
+      "competency_link": "The position is linked through a course competency.",
+      "instruction_source": "The course was created from this position instruction."
+    },
+    "warning": {
+      "no_explicit_links": "No explicit position, department, or competency link was found.",
+      "missing_position_rule_target": "A position rule points to an unavailable position.",
+      "missing_department_rule_target": "A department rule points to an unavailable department.",
+      "missing_competency_position_target": "A competency link points to an unavailable position.",
+      "missing_instruction_position_target": "The source instruction is not linked to an available position.",
+      "deterministic_explicit_links": "The recommendation uses explicit structure links because the AI ranking was unavailable."
+    }
   },
   "courses": {
     "title": "Courses",

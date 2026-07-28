@@ -76,17 +76,17 @@ export function AIChatPanel({
       if (focusLessonId && focusLessonTitle) {
         focused.push({
           role: 'assistant',
-          content: `Фокус рецензии: урок «${focusLessonTitle}». Спрашивай что угодно — могу переписать текст, проверить полноту, добавить примеры.`,
+          content: t('aiAssistant.focusLesson', { title: focusLessonTitle }),
         });
       } else if (focusModuleId && focusModuleTitle) {
         focused.push({
           role: 'assistant',
-          content: `Фокус рецензии: модуль «${focusModuleTitle}».`,
+          content: t('aiAssistant.focusModule', { title: focusModuleTitle }),
         });
       } else {
         focused.push({
           role: 'assistant',
-          content: 'AI-помощник методолога. Спрашивай про структуру курса, проси переписать уроки, добавить контент.',
+          content: t('aiAssistant.intro'),
         });
       }
       setMessages(focused);
@@ -112,7 +112,9 @@ export function AIChatPanel({
         : focusModuleId
         ? 'module'
         : 'course';
-      const target_id = focusLessonId || focusModuleId || null;
+      const isAudienceIntent = intent === 'audience_recommendation';
+      const requestContext = isAudienceIntent ? 'course' : context;
+      const target_id = isAudienceIntent ? null : focusLessonId || focusModuleId || null;
 
       const res = await fetch(`${API_URL}/v1/ai/chat`, {
         method: 'POST',
@@ -122,7 +124,7 @@ export function AIChatPanel({
         },
         body: JSON.stringify({
           course_id: courseId,
-          context,
+          context: requestContext,
           target_id,
           message: userText,
           language: lang,
@@ -135,7 +137,7 @@ export function AIChatPanel({
         ...prev,
         {
           role: 'assistant',
-          content: data.reply || '(пустой ответ)',
+          content: data.reply || t('aiAssistant.emptyReply'),
           apply_lesson_id: data.apply_lesson_id,
           apply_lesson_content: data.apply_lesson_content,
           apply_lesson_title_hint: data.apply_lesson_title_hint,
@@ -143,10 +145,10 @@ export function AIChatPanel({
         },
       ]);
     } catch (e) {
-      toast.error('Ошибка AI-чата');
+      toast.error(t('aiAssistant.errorToast'));
       setMessages((prev) => [
         ...prev,
-        { role: 'assistant', content: '⚠️ Не удалось получить ответ. Попробуй ещё раз.' },
+        { role: 'assistant', content: t('aiAssistant.errorReply') },
       ]);
     } finally {
       setSending(false);
@@ -159,6 +161,9 @@ export function AIChatPanel({
     position: t('aiAssistant.position'),
     cohort: t('aiAssistant.cohort'),
   };
+
+  const reasonLabel = (code: string) => t(`aiAssistant.reason.${code}` as any);
+  const warningLabel = (code: string) => t(`aiAssistant.warning.${code}` as any);
 
   const renderAudienceRecommendation = (recommendation: AudienceRecommendation) => {
     const primary = recommendation.recommended_scopes.filter((scope) => scope.priority === 'primary');
@@ -175,7 +180,7 @@ export function AIChatPanel({
         <div className="text-xs text-muted-foreground">{t('aiAssistant.confidence.' + scope.confidence as any)}</div>
         {scope.reasons.length > 0 && (
           <ul className="text-xs text-muted-foreground list-disc pl-4 space-y-0.5">
-            {scope.reasons.map((reason) => <li key={reason}>{reason}</li>)}
+            {scope.reasons.map((reason) => <li key={reason}>{reasonLabel(reason)}</li>)}
           </ul>
         )}
       </div>
@@ -203,7 +208,7 @@ export function AIChatPanel({
         {recommendation.data_warnings.length > 0 && (
           <section className="rounded-md bg-muted/50 p-2 space-y-1">
             <h3 className="text-xs font-semibold">{t('aiAssistant.warnings')}</h3>
-            {recommendation.data_warnings.map((warning) => <p className="text-xs text-muted-foreground" key={warning}>{warning}</p>)}
+            {recommendation.data_warnings.map((warning) => <p className="text-xs text-muted-foreground" key={warning}>{warningLabel(warning)}</p>)}
           </section>
         )}
         {recommendation.course_status !== 'published' && (
@@ -239,10 +244,10 @@ export function AIChatPanel({
           m === msg ? { ...m, applied_lesson_id: msg.apply_lesson_id } : m
         )
       );
-      toast.success('Урок обновлён');
+      toast.success(t('aiAssistant.lessonUpdated'));
       onLessonApplied?.();
     } catch (e) {
-      toast.error('Не удалось применить правку');
+      toast.error(t('aiAssistant.applyError'));
     }
   };
 
@@ -260,12 +265,12 @@ export function AIChatPanel({
       <aside
         className="fixed right-0 top-0 bottom-0 w-[480px] max-w-[90vw] bg-background border-l border-border shadow-xl z-50 flex flex-col"
         role="dialog"
-        aria-label="AI-помощник методолога"
+        aria-label={t('aiAssistant.dialogLabel')}
       >
         <header className="flex items-center justify-between px-4 py-3 border-b border-border">
           <div className="flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-primary" />
-            <h2 className="font-semibold">AI-помощник</h2>
+            <h2 className="font-semibold">{t('aiAssistant.title')}</h2>
           </div>
           <Button variant="ghost" size="sm" onClick={onClose}>
             <X className="w-4 h-4" />
@@ -304,17 +309,18 @@ export function AIChatPanel({
               {m.role === 'assistant' && m.apply_lesson_id && m.apply_lesson_content && (
                 <div className="bg-background border border-primary/40 rounded-lg p-3 max-w-[90%] space-y-2">
                   <div className="text-xs font-medium text-primary">
-                    ✏️ Предложение замены урока
-                    {m.apply_lesson_title_hint ? `: «${m.apply_lesson_title_hint}»` : ''}
+                    {m.apply_lesson_title_hint
+                      ? t('aiAssistant.lessonSuggestionWithTitle', { title: m.apply_lesson_title_hint })
+                      : t('aiAssistant.lessonSuggestion')}
                   </div>
                   <pre className="text-xs whitespace-pre-wrap max-h-40 overflow-y-auto bg-muted/50 p-2 rounded">
                     {m.apply_lesson_content}
                   </pre>
                   {m.applied_lesson_id === m.apply_lesson_id ? (
-                    <Badge variant="secondary">✓ Применено</Badge>
+                    <Badge variant="secondary">{t('aiAssistant.applied')}</Badge>
                   ) : (
                     <Button size="sm" variant="default" onClick={() => applySuggestion(m)}>
-                      Применить к уроку
+                      {t('aiAssistant.applyLesson')}
                     </Button>
                   )}
                 </div>
@@ -323,7 +329,7 @@ export function AIChatPanel({
             </div>
           ))}
           {sending && (
-            <div className="text-sm text-muted-foreground">AI думает…</div>
+            <div className="text-sm text-muted-foreground">{t('aiAssistant.thinking')}</div>
           )}
         </div>
 
@@ -340,8 +346,8 @@ export function AIChatPanel({
               onChange={(e) => setInput(e.target.value)}
               placeholder={
                 focusLessonId
-                  ? 'Попроси AI переписать этот урок…'
-                  : 'Спросить AI…'
+                  ? t('aiAssistant.lessonPlaceholder')
+                  : t('aiAssistant.chatPlaceholder')
               }
               disabled={sending}
               autoFocus

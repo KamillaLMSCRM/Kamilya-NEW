@@ -83,6 +83,7 @@ class AIChatRequest(BaseModel):
 
 
 class AudienceRecommendationScope(BaseModel):
+    """Aggregate audience scope; ``reasons`` contains stable i18n codes."""
     type: Literal["organization", "department", "position", "cohort"]
     id: UUID | None = None
     name: str
@@ -104,6 +105,7 @@ class AudienceRecommendation(BaseModel):
     recommended_scopes: list[AudienceRecommendationScope] = Field(default_factory=list)
     matched_employee_count: int = Field(ge=0)
     already_enrolled_count: int = Field(ge=0)
+    # Stable warning codes; clients localize them instead of receiving prose.
     data_warnings: list[str] = Field(default_factory=list)
     assignment_url: str | None = None
 

@@ -9,6 +9,7 @@ vi.mock('@/store/authStore', () => ({
 
 vi.mock('@/i18n/useT', () => ({
   useT: () => ({
+    lang: 'en',
     t: (key: string, params?: Record<string, string | number>) => {
       const labels: Record<string, string> = {
         'aiAssistant.audienceQuestion': 'Who is this course for?',
@@ -93,5 +94,33 @@ describe('AI audience recommendation card', () => {
     await waitFor(() => expect(screen.getByTestId('audience-recommendation')).toBeInTheDocument());
     expect(screen.queryByRole('link', { name: 'Go to assignments' })).not.toBeInTheDocument();
     expect(screen.getByText('Assignment is completed after publication.')).toBeInTheDocument();
+  });
+
+  it('uses course context for the audience quick action even when the panel is lesson-focused', async () => {
+    fetchMock.mockResolvedValue(response({
+      course_status: 'draft',
+      recommended_scopes: [],
+      matched_employee_count: 0,
+      already_enrolled_count: 0,
+      data_warnings: [],
+      assignment_url: null,
+    }));
+
+    render(
+      <AIChatPanel
+        open
+        onClose={vi.fn()}
+        courseId="course-1"
+        focusLessonId="lesson-1"
+        focusLessonTitle="Contact handling"
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Who is this course for?' }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    const request = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(request.intent).toBe('audience_recommendation');
+    expect(request.context).toBe('course');
+    expect(request.target_id).toBeNull();
   });
 });

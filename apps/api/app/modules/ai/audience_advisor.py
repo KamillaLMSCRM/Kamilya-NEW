@@ -16,6 +16,7 @@ from uuid import UUID
 
 from sqlalchemy import and_, distinct, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.models.courses import Course
 from app.models.department import Department
@@ -23,6 +24,7 @@ from app.models.enrollment import Enrollment
 from app.models.users import User
 from app.modules.cohorts.models import Cohort, CohortMember
 from app.modules.competencies.models import Competency, CompetencyCourse, PositionCompetency
+from app.modules.lessons.models import Module
 from app.modules.positions.models import DepartmentCourse, Position, PositionCourse
 from app.modules.training_rules.models import OrganizationCourseRule
 
@@ -40,6 +42,7 @@ class ScopeCandidate:
     confidence: str = "medium"
     reasons: list[str] = field(default_factory=list)
     position_ids: set[UUID] = field(default_factory=set)
+    semantic_context: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass
@@ -49,6 +52,14 @@ class AudienceSnapshot:
     warnings: list[str]
     already_enrolled_count: int
     active_student_count: int
+    course_context: dict[str, Any] = field(default_factory=dict)
+
+
+MAX_CANDIDATES = 40
+MAX_LLM_PAYLOAD_CHARS = 18000
+MAX_MODULES = 6
+MAX_LESSONS_PER_MODULE = 3
+MAX_SEMANTIC_FIELD_CHARS = 240
 
 
 def _course_status(course: Course) -> str:
@@ -77,7 +88,15 @@ def _find_candidate(candidates: list[ScopeCandidate], scope_type: str, scope_id:
 
 async def _load_positions(db: AsyncSession, tenant_id: UUID) -> tuple[list[ScopeCandidate], dict[UUID, ScopeCandidate]]:
     rows = await db.execute(
-        select(Position.id, Position.name, Position.department_id, Position.department, func.count(User.id))
+        select(
+            Position.id,
+            Position.name,
+            Position.department_id,
+            Position.department,
+            Position.responsibilities,
+            Position.requirements,
+            func.count(User.id),
+        )
         .outerjoin(User, (User.position_id == Position.id) & (User.role == "student") & User.is_active.is_(True) & (User.status == "active"))
         .where(Position.tenant_id == tenant_id)
         .group_by(Position.id, Position.name, Position.department_id, Position.department)
@@ -85,7 +104,7 @@ async def _load_positions(db: AsyncSession, tenant_id: UUID) -> tuple[list[Scope
     )
     candidates: list[ScopeCandidate] = []
     by_id: dict[UUID, ScopeCandidate] = {}
-    for position_id, name, _department_id, _legacy_department, count in rows.all():
+    for position_id, name, _department_id, _legacy_department, responsibilities, requirements, count in rows.all():
         item = ScopeCandidate(
             ref=f"position_{len(candidates) + 1}",
             type="position",
@@ -94,7 +113,11 @@ async def _load_positions(db: AsyncSession, tenant_id: UUID) -> tuple[list[Scope
             employee_count=int(count or 0),
             position_ids={position_id},
         )
-        item.reasons.append("Связь с должностью в структуре компании")
+        item.reasons.append("position_structure")
+        item.semantic_context = {
+            "responsibilities": responsibilities or "",
+            "requirements": requirements or "",
+        }
         candidates.append(item)
         by_id[position_id] = item
     return candidates, by_id
@@ -102,7 +125,7 @@ async def _load_positions(db: AsyncSession, tenant_id: UUID) -> tuple[list[Scope
 
 async def _load_departments(db: AsyncSession, tenant_id: UUID) -> list[ScopeCandidate]:
     rows = await db.execute(
-        select(Department.id, Department.name, func.count(User.id))
+        select(Department.id, Department.name, Department.description, func.count(User.id))
         .outerjoin(Position, Position.department_id == Department.id)
         .outerjoin(User, (User.position_id == Position.id) & (User.role == "student") & User.is_active.is_(True) & (User.status == "active"))
         .where(Department.tenant_id == tenant_id)
@@ -110,7 +133,7 @@ async def _load_departments(db: AsyncSession, tenant_id: UUID) -> list[ScopeCand
         .order_by(Department.name)
     )
     items: list[ScopeCandidate] = []
-    for index, (department_id, name, count) in enumerate(rows.all(), start=1):
+    for index, (department_id, name, description, count) in enumerate(rows.all(), start=1):
         items.append(
             ScopeCandidate(
                 ref=f"department_{index}",
@@ -118,7 +141,8 @@ async def _load_departments(db: AsyncSession, tenant_id: UUID) -> list[ScopeCand
                 id=department_id,
                 name=name,
                 employee_count=int(count or 0),
-                reasons=["Связь с отделом в структуре компании"],
+                reasons=["department_structure"],
+                semantic_context={"description": description or ""},
             )
         )
     return items
@@ -126,7 +150,7 @@ async def _load_departments(db: AsyncSession, tenant_id: UUID) -> list[ScopeCand
 
 async def _load_cohorts(db: AsyncSession, tenant_id: UUID) -> list[ScopeCandidate]:
     rows = await db.execute(
-        select(Cohort.id, Cohort.name, func.count(distinct(User.id)))
+        select(Cohort.id, Cohort.name, Cohort.description, func.count(distinct(User.id)))
         .outerjoin(CohortMember, (CohortMember.cohort_id == Cohort.id) & (CohortMember.tenant_id == tenant_id))
         .outerjoin(User, and_(User.id == CohortMember.user_id, *_active_student_filter(tenant_id)))
         .where(Cohort.tenant_id == tenant_id, Cohort.is_active.is_(True))
@@ -140,14 +164,33 @@ async def _load_cohorts(db: AsyncSession, tenant_id: UUID) -> list[ScopeCandidat
             id=cohort_id,
             name=name,
             employee_count=int(count or 0),
-            reasons=["Доступная группа сотрудников; связь с курсом не подтверждена правилом"],
+            reasons=["cohort_structure"],
+            semantic_context={"description": description or ""},
         )
-        for index, (cohort_id, name, count) in enumerate(rows.all(), start=1)
+        for index, (cohort_id, name, description, count) in enumerate(rows.all(), start=1)
     ]
 
 
+def _course_context(course: Course) -> dict[str, Any]:
+    modules: list[dict[str, Any]] = []
+    for module in (course.modules or [])[:MAX_MODULES]:
+        lessons = [
+            {
+                "title": lesson.title or "",
+                "content": lesson.content or "",
+            }
+            for lesson in (module.lessons or [])[:MAX_LESSONS_PER_MODULE]
+        ]
+        modules.append({"title": module.title or "", "description": module.description or "", "lessons": lessons})
+    return {"title": course.title or "", "description": course.description or "", "modules": modules}
+
+
 async def build_audience_snapshot(db: AsyncSession, tenant_id: UUID, course_id: UUID) -> AudienceSnapshot | None:
-    course = await db.scalar(select(Course).where(Course.id == course_id, Course.tenant_id == tenant_id))
+    course = await db.scalar(
+        select(Course)
+        .options(selectinload(Course.modules).selectinload(Module.lessons))
+        .where(Course.id == course_id, Course.tenant_id == tenant_id)
+    )
     if course is None:
         return None
 
@@ -181,27 +224,33 @@ async def build_audience_snapshot(db: AsyncSession, tenant_id: UUID, course_id: 
         )
     )
     active_total = int(await db.scalar(select(func.count(User.id)).where(*_active_student_filter(tenant_id))) or 0)
-    if org_rule:
-        add_candidate(
-            ScopeCandidate("organization", "organization", None, "Вся организация", active_total),
-            primary=True,
-            reason="Для курса существует правило обучения всей организации",
-        )
+    add_candidate(
+        ScopeCandidate("organization", "organization", None, "Вся организация", active_total),
+        primary=bool(org_rule),
+        reason="organization_rule" if org_rule else "organization_structure",
+        confidence="high" if org_rule else "medium",
+    )
+    for position in positions:
+        add_candidate(position, primary=False, reason="position_structure", confidence="medium")
+    for department in departments:
+        add_candidate(department, primary=False, reason="department_structure", confidence="medium")
+    for cohort in cohorts:
+        add_candidate(cohort, primary=False, reason="cohort_structure", confidence="low")
 
     for position_id, in (await db.execute(select(PositionCourse.position_id).where(PositionCourse.tenant_id == tenant_id, PositionCourse.course_id == course_id))).all():
         position = positions_by_id.get(position_id)
         if position:
-            add_candidate(position, primary=True, reason="Курс уже связан с этой должностью через правило обучения")
+            add_candidate(position, primary=True, reason="position_rule")
         else:
-            warnings.append("Одно из правил должности ссылается на недоступную должность")
+            warnings.append("missing_position_rule_target")
 
     department_by_id = {item.id: item for item in departments}
     for department_id, in (await db.execute(select(DepartmentCourse.department_id).where(DepartmentCourse.tenant_id == tenant_id, DepartmentCourse.course_id == course_id))).all():
         department = department_by_id.get(department_id)
         if department:
-            add_candidate(department, primary=True, reason="Курс уже связан с этим отделом через правило обучения")
+            add_candidate(department, primary=True, reason="department_rule")
         else:
-            warnings.append("Одно из правил отдела ссылается на недоступный отдел")
+            warnings.append("missing_department_rule_target")
 
     competency_rows = await db.execute(
         select(Competency.name, Position.id, Position.name)
@@ -215,12 +264,12 @@ async def build_audience_snapshot(db: AsyncSession, tenant_id: UUID, course_id: 
             Position.tenant_id == tenant_id,
         )
     )
-    for competency_name, position_id, _position_name in competency_rows.all():
+    for _competency_name, position_id, _position_name in competency_rows.all():
         position = positions_by_id.get(position_id)
         if position:
-            add_candidate(position, primary=True, reason=f"Должность связана с компетенцией «{competency_name}» курса")
+            add_candidate(position, primary=True, reason="competency_link")
         else:
-            warnings.append(f"Компетенция «{competency_name}» связана с недоступной должностью")
+            warnings.append("missing_competency_position_target")
 
     if course.source_instruction_id is not None:
         instruction_positions = await db.execute(
@@ -232,18 +281,12 @@ async def build_audience_snapshot(db: AsyncSession, tenant_id: UUID, course_id: 
         for (position_id,) in instruction_positions.all():
             position = positions_by_id.get(position_id)
             if position:
-                add_candidate(position, primary=True, reason="Курс создан из должностной инструкции этой должности")
+                add_candidate(position, primary=True, reason="instruction_source")
+            else:
+                warnings.append("missing_instruction_position_target")
 
-    if not candidates:
-        add_candidate(
-            ScopeCandidate("organization", "organization", None, "Вся организация", active_total),
-            primary=False,
-            reason="Явных связей курса с должностями или отделами не найдено; показана проверка по всей организации",
-            confidence="low",
-        )
-        if cohorts:
-            candidates.extend(cohorts)
-        warnings.append("Для уверенной рекомендации не хватает явных связей курса с должностями, отделами или компетенциями")
+    if not any(candidate.priority == "primary" for candidate in candidates):
+        warnings.append("no_explicit_links")
 
     enrolled = int(
         await db.scalar(
@@ -261,6 +304,7 @@ async def build_audience_snapshot(db: AsyncSession, tenant_id: UUID, course_id: 
         warnings=list(dict.fromkeys(warnings)),
         already_enrolled_count=enrolled,
         active_student_count=active_total,
+        course_context=_course_context(course),
     )
 
 
@@ -359,6 +403,47 @@ def _redact_sensitive_text(value: str | None) -> str:
     return text[:4000]
 
 
+def _bounded_semantic_context(snapshot: AudienceSnapshot) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    course_context = {
+        "title": _redact_sensitive_text(snapshot.course_context.get("title"))[:MAX_SEMANTIC_FIELD_CHARS],
+        "description": _redact_sensitive_text(snapshot.course_context.get("description"))[:MAX_SEMANTIC_FIELD_CHARS],
+        "modules": [],
+    }
+    for module in snapshot.course_context.get("modules", []):
+        course_context["modules"].append(
+            {
+                "title": _redact_sensitive_text(module.get("title"))[:MAX_SEMANTIC_FIELD_CHARS],
+                "description": _redact_sensitive_text(module.get("description"))[:MAX_SEMANTIC_FIELD_CHARS],
+                "lessons": [
+                    {
+                        "title": _redact_sensitive_text(lesson.get("title"))[:MAX_SEMANTIC_FIELD_CHARS],
+                        "content": _redact_sensitive_text(lesson.get("content"))[:MAX_SEMANTIC_FIELD_CHARS],
+                    }
+                    for lesson in module.get("lessons", [])[:MAX_LESSONS_PER_MODULE]
+                ],
+            }
+        )
+
+    ordered = sorted(snapshot.candidates, key=lambda item: item.priority != "primary")
+    options: list[dict[str, Any]] = []
+    for item in ordered[:MAX_CANDIDATES]:
+        semantic = {
+            key: _redact_sensitive_text(value)[:MAX_SEMANTIC_FIELD_CHARS]
+            for key, value in item.semantic_context.items()
+        }
+        options.append(
+            {
+                "ref": item.ref,
+                "type": item.type,
+                "name": _redact_sensitive_text(item.name)[:MAX_SEMANTIC_FIELD_CHARS],
+                "employee_count": item.employee_count,
+                "evidence": item.reasons,
+                "context": semantic,
+            }
+        )
+    return course_context, options
+
+
 async def recommend_audience(db: AsyncSession, tenant_id: UUID, course_id: UUID, llm=None):
     """Return an aggregate recommendation. The optional LLM only ranks known scopes."""
     snapshot = await build_audience_snapshot(db, tenant_id, course_id)
@@ -368,18 +453,19 @@ async def recommend_audience(db: AsyncSession, tenant_id: UUID, course_id: UUID,
     used_fallback = True
     if llm is not None and snapshot.candidates:
         try:
-            options = [
-                {"ref": item.ref, "type": item.type, "name": item.name, "employee_count": item.employee_count, "evidence": item.reasons}
-                for item in snapshot.candidates
-            ]
-            course = snapshot.course
+            course_context, options = _bounded_semantic_context(snapshot)
+            prompt_payload: dict[str, Any] = {"course": course_context, "candidates": []}
+            for option in options:
+                candidate_payload = {**prompt_payload, "candidates": [*prompt_payload["candidates"], option]}
+                encoded = json.dumps(candidate_payload, ensure_ascii=False)
+                if len(encoded) > MAX_LLM_PAYLOAD_CHARS and prompt_payload["candidates"]:
+                    break
+                prompt_payload = candidate_payload
             prompt = (
                 "Choose audience scopes only from the supplied options. Never invent a scope, name, id, or count. "
                 "Return JSON only: {selected_refs:[], primary_refs:[], secondary_refs:[]}. "
                 "Prefer explicit rule/competency evidence over semantic guesses.\n"
-                f"Course title: {_redact_sensitive_text(course.title)}\n"
-                f"Course description: {_redact_sensitive_text(course.description)}\n"
-                f"Options: {json.dumps(options, ensure_ascii=False)}"
+                f"Bounded context: {json.dumps(prompt_payload, ensure_ascii=False)}"
             )
             response = await llm.ainvoke([{"role": "system", "content": "You are a cautious HR learning recommendation formatter."}, {"role": "user", "content": prompt}])
             llm_selected = _llm_select_scopes(snapshot, (response.content or "").strip())
