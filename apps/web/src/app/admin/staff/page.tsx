@@ -409,6 +409,11 @@ export default function AdminStaffPage() {
     });
   };
 
+  const closeManualModal = () => {
+    setManualOpen(false);
+    resetManualForm();
+  };
+
   const handleManualCreate = async () => {
     const requiredFields: Array<keyof typeof manualForm> = [
       "personnel_number",
@@ -500,7 +505,7 @@ export default function AdminStaffPage() {
           </div>
 
           {manualOpen && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 sm:items-center">
               <div
                 role="dialog"
                 aria-modal="true"
@@ -514,7 +519,7 @@ export default function AdminStaffPage() {
                   </div>
                   <button
                     type="button"
-                    onClick={() => setManualOpen(false)}
+                    onClick={closeManualModal}
                     className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     aria-label={t("common.close")}
                     title={t("common.close")}
@@ -639,7 +644,7 @@ export default function AdminStaffPage() {
                 </div>
 
                 <div className="mt-6 flex justify-end gap-2">
-                  <Button type="button" variant="outline" onClick={() => setManualOpen(false)}>
+                  <Button type="button" variant="outline" onClick={closeManualModal}>
                     Отмена
                   </Button>
                   <Button type="button" onClick={handleManualCreate} disabled={manualSaving}>
@@ -1389,7 +1394,7 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
                                     {emp.full_name}
                                     {emp.personnel_number && (
                                       <span className="ml-2 whitespace-nowrap text-xs font-normal text-muted-foreground">
-                                        {emp.personnel_number}
+                                        · {emp.personnel_number}
                                       </span>
                                     )}
                                   </span>

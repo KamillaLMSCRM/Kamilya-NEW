@@ -88,6 +88,8 @@ describe("methodologist information architecture", () => {
   it("uses an accessible employee modal and a shared Kazakhstan phone mask", () => {
     expect(staffSource).toContain('aria-labelledby="manual-employee-title"');
     expect(staffSource).toContain('className="inline-flex h-11 w-11');
+    expect(staffSource).toContain("items-start justify-center overflow-y-auto");
+    expect(staffSource).toContain("onClick={closeManualModal}");
     expect(staffSource).toContain('formatKzPhone(e.target.value)');
     expect(staffSource).toContain('maxLength={18}');
     expect(staffSource).toContain('isCompleteKzPhone(manualForm.phone)');
