@@ -8,12 +8,6 @@
 
 1. Автоматическая отправка invitation link через Resend, история, повторная
    отправка и причина недоставки. Сейчас ссылка передаётся вручную.
-2. Провести controlled rollout и read-only production smoke AI-рекомендаций
-   аудитории курса на тестовом tenant. Реализация уже находится в `master`;
-   помощник не создаёт назначения, финальное действие остаётся на
-   `/assignments`. План и критерии smoke:
-   [2026-07-28_methodologist-ai-audience-advisor.md](plans/2026-07-28_methodologist-ai-audience-advisor.md).
-
 ## P1: эксплуатация
 
 1. Добавить host CPU/RAM/disk и Celery worker health к текущей агрегированной

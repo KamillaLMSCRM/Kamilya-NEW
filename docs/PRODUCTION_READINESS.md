@@ -1,6 +1,6 @@
 # Kamilya LMS: готовность первого production-тенанта
 
-**Проверено:** 2026-07-27
+**Проверено:** 2026-07-28
 **Технический P0:** закрыт
 **Режим запуска:** контролируемый первый пилот
 **Назначение:** единственный актуальный реестр production-gates. История изменений
@@ -11,11 +11,11 @@
 
 | Контур | Состояние | Подтверждение |
 |---|---|---|
-| Application baseline | PASS | Проверенный release HEAD: `256c20a5cf68fe24772a0794fe49c2ca60fe49d6`; последующие docs-only commits не меняют эту baseline |
-| CI | PASS | GitHub Actions `30276564175`, полный pipeline |
-| External smoke | PASS | GitHub Actions `30276562779`, API и frontend |
-| Frontend | PASS | Vercel deployment `dpl_2m3zsLQPMSgFFZJtFES4MykUDNMP`, `READY`, commit `256c20a` |
-| API | PASS | Render deploy `dep-d9jmbqb7uimc739rvr8g`, `live`, commit `522c12f`; последующие commits меняли только тест и frontend |
+| Application baseline | PASS | Проверенный release HEAD: `fe6ff6c2e914ed05cd7c05bbe1b29e5b2d4cc2e7` |
+| CI | PASS | GitHub Actions `30352487058`, полный pipeline: backend `625 passed`, coverage `57.57%` |
+| External smoke | PASS | GitHub Actions `30352486895`, API и frontend |
+| Frontend | PASS | Vercel production deployment `2tZoCGURNydq1q46BFKb8DsUwQ8Z`, commit `fe6ff6c` |
+| API | PASS | Render deploy `dep-d9k8kv61egvs7381jo80`, `live`, commit `fe6ff6c` |
 | Worker | PASS | `/opt/kamilya-worker` на `a10786c`, unit active/enabled, Celery ping отвечает |
 | Database | PASS | production PostgreSQL 17.6, Alembic `0078` |
 
@@ -76,10 +76,26 @@
   при сбое открывает или обновляет incident issue, при восстановлении закрывает.
 - Legacy `kamilya-trial-expiry.timer` отключён.
 
+### AI-рекомендация аудитории курса
+
+- AI-помощник методолога на экране редактора курса принимает явное действие
+  **«Кому подходит этот курс?»** и распознаёт эквивалентный свободный вопрос.
+- Backend строит tenant-scoped read-only снимок курса, структуры, групп,
+  компетенций, правил и существующих назначений без ФИО и контактов сотрудников.
+- Ответ содержит только существующие агрегированные области аудитории,
+  численность, основания и ограничения данных.
+- Для черновика переход к назначению недоступен. Для опубликованного курса
+  помощник возвращает только ссылку на канонический `/assignments`; назначение
+  выполняет методолог на этом экране.
+- Production smoke на тестовом черновике вернул 47 подходящих сотрудников и
+  0 существующих назначений. После запроса в БД осталось 0 `enrollments`,
+  `position_courses`, `department_courses` и `organization_course_rules` для
+  курса. Render request log подтвердил `POST /api/v1/ai/chat` с HTTP 200.
+
 ## Проверки кода и production-flow
 
-- Финальный полный CI на `256c20a` passed: backend `607`, frontend `169`,
-  coverage `57.33%`, typecheck и production build.
+- Финальный полный CI на `fe6ff6c` passed: backend `625`, coverage `57.57%`,
+  typecheck, lint и release/tenant security gates.
 - Focused backend P0 suites: 26 тестов канонической структуры штата и 17
   тестов invitation/SCORM contracts passed.
 - Frontend architecture tests, typecheck и production build passed.

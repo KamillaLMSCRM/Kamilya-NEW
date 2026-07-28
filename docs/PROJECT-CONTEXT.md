@@ -1,7 +1,7 @@
 # Kamilya LMS: текущий контекст проекта
 
 > Living document. Значения секретов здесь не хранятся.
-> Обновлено: 2026-07-27.
+> Обновлено: 2026-07-28.
 
 ## Источники правды
 
@@ -42,21 +42,24 @@ Production БД пока не перенесена в Казахстан. HostKZ
 
 ## Проверенная release-картина
 
-На 2026-07-27:
+На 2026-07-28:
 
-- проверенный release HEAD: `256c20a5cf68fe24772a0794fe49c2ca60fe49d6`;
-- GitHub CI `30276564175`: success;
-- GitHub production smoke `30276562779`: success;
-- Vercel production deployment `dpl_2m3zsLQPMSgFFZJtFES4MykUDNMP`: `READY`,
-  commit `256c20a`;
-- Render API deployment `dep-d9jmbqb7uimc739rvr8g`: live, commit `522c12f`;
-  последующие commits меняли только тест и frontend;
+- проверенный application HEAD:
+  `fe6ff6c2e914ed05cd7c05bbe1b29e5b2d4cc2e7`;
+- GitHub CI `30352487058`: success, backend `625 passed`;
+- GitHub production smoke `30352486895`: success;
+- Vercel production deployment `2tZoCGURNydq1q46BFKb8DsUwQ8Z`,
+  commit `fe6ff6c`;
+- Render API deployment `dep-d9k8kv61egvs7381jo80`: live,
+  commit `fe6ff6c`;
 - production Alembic: `0078`, repository head: `0078`;
 - Celery worker active/enabled на `a10786c`, реальный Celery ping passed;
 - ежедневный encrypted backup и пятиминутный watchdog активны;
 - реальный backup/portable restore drill PostgreSQL 17 + pgvector passed;
 - полный production synthetic tenant journey от регистрации до сертификата и
   журнала обучения passed; synthetic tenant и storage objects удалены.
+- AI-рекомендация аудитории курса прошла read-only production smoke:
+  агрегаты совпали со структурой, запрос не создал назначений или правил.
 
 Технический и прикладной P0 закрыты для контролируемого первого pilot.
 Отдельные условные gates сохраняются для SCORM, kiosk, KZ data residency и
@@ -112,6 +115,9 @@ Production БД пока не перенесена в Казахстан. HostKZ
 4. Методолог выбирает один смысловой кластер либо явно задаёт цель объединения.
 5. AI job создаёт draft курса и тестов с трассировкой к источникам.
 6. Методолог проверяет, редактирует и публикует курс.
+7. В редакторе AI-помощник может дать read-only рекомендацию аудитории по
+   текущей структуре tenant. Рекомендация не создаёт назначения или правила;
+   для опубликованного курса она только ведёт на `/assignments`.
 
 ### Должностная инструкция
 
