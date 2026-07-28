@@ -78,12 +78,20 @@ class QuestionCreate(BaseModel):
     choices: list[QuizChoiceCreate] = []
 
 
+class QuizChoiceUpsert(BaseModel):
+    id: UUID | None = None
+    text: str
+    is_correct: bool = False
+    order_index: int
+
+
 class QuestionUpdate(BaseModel):
     text: str | None = None
     type: str | None = None
     points: int | None = None
     explanation: str | None = None
     order_index: int | None = None
+    choices: list[QuizChoiceUpsert] | None = None
 
 
 # --- Submission schemas ---

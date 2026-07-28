@@ -2,12 +2,25 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
-import { Card, CardContent, Button, Input, Badge } from '@/components/ui';
+import { Card, CardContent, Button, Input, Badge, Modal } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { toast } from '@/components/ui/Toast';
-import { ChevronLeft, ChevronUp, ChevronDown, X, Plus, Sparkles, Bot, CheckCircle2, Rocket } from 'lucide-react';
+import {
+  Bot,
+  CheckCircle2,
+  ChevronDown,
+  ChevronLeft,
+  ChevronUp,
+  FileText,
+  LoaderCircle,
+  Pencil,
+  Rocket,
+  Sparkles,
+  Trash2,
+  X,
+} from 'lucide-react';
 import { AIChatPanel } from '@/components/ai/AIChatPanel';
 
 interface Lesson {
@@ -52,7 +65,10 @@ export default function CourseEditPage() {
   const [newLessonTitle, setNewLessonTitle] = useState('');
   const [addingLessonToModule, setAddingLessonToModule] = useState<string | null>(null);
   const [editingLessonId, setEditingLessonId] = useState<string | null>(null);
+  const [editLessonTitle, setEditLessonTitle] = useState('');
   const [editLessonContent, setEditLessonContent] = useState('');
+  const [loadingLessonId, setLoadingLessonId] = useState<string | null>(null);
+  const [savingLesson, setSavingLesson] = useState(false);
   const [releaseAction, setReleaseAction] = useState<'approve' | 'publish' | null>(null);
 
   // AI chat panel state — opens as a slide-over from the right.
@@ -199,29 +215,60 @@ export default function CourseEditPage() {
 
   const handleEditLessonContent = async (lessonId: string) => {
     if (!token) return;
+    setLoadingLessonId(lessonId);
     try {
       const res = await fetch(`${API_URL}/v1/lessons/${lessonId}`, {
         method: 'GET',
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (res.ok) {
-        const data = await res.json();
-        setEditingLessonId(lessonId);
-        setEditLessonContent(data.content || '');
+      if (!res.ok) {
+        const payload = await res.json().catch(() => null);
+        throw new Error(payload?.message || payload?.detail || `HTTP ${res.status}`);
       }
-    } catch (e) {
-      console.error('Failed to load lesson', e);
+      const data = await res.json();
+      setEditingLessonId(lessonId);
+      setEditLessonTitle(data.title || '');
+      setEditLessonContent(data.content || '');
+    } catch (error) {
+      toast.error('Не удалось открыть урок', { description: (error as Error).message });
+    } finally {
+      setLoadingLessonId(null);
     }
   };
 
   const handleSaveLessonContent = async () => {
-    if (!editingLessonId || !token) return;
-    await fetch(`${API_URL}/v1/lessons/${editingLessonId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ content: editLessonContent }),
-    });
-    setEditingLessonId(null);
+    if (!editingLessonId || !token || !editLessonTitle.trim()) return;
+    setSavingLesson(true);
+    try {
+      const res = await fetch(`${API_URL}/v1/lessons/${editingLessonId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          title: editLessonTitle.trim(),
+          content: editLessonContent,
+        }),
+      });
+      if (!res.ok) {
+        const payload = await res.json().catch(() => null);
+        throw new Error(payload?.message || payload?.detail || `HTTP ${res.status}`);
+      }
+      setModules((prev) =>
+        prev.map((module) => ({
+          ...module,
+          lessons: module.lessons.map((lesson) =>
+            lesson.id === editingLessonId
+              ? { ...lesson, title: editLessonTitle.trim() }
+              : lesson
+          ),
+        }))
+      );
+      toast.success('Урок сохранён');
+      setEditingLessonId(null);
+    } catch (error) {
+      toast.error('Не удалось сохранить урок', { description: (error as Error).message });
+    } finally {
+      setSavingLesson(false);
+    }
   };
 
   const releaseRequest = async (path: string, body?: object) => {
@@ -276,7 +323,7 @@ export default function CourseEditPage() {
   if (!course) return <div className="p-6">{t('common.error')}</div>;
 
   return (
-    <div className="max-w-4xl mx-auto p-6 space-y-6">
+    <div className="mx-auto max-w-6xl space-y-6 px-4 py-5 sm:p-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <a href={`/courses/${courseId}`} className="flex items-center gap-1 text-sm text-primary hover:underline">
@@ -357,10 +404,10 @@ export default function CourseEditPage() {
             <Card key={mod.id}>
               <CardContent className="p-4 space-y-3">
                 {/* Module header */}
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <div className="flex flex-col gap-0.5">
-                    <Button variant="ghost" size="sm" className="h-5 px-1" onClick={() => handleMoveModule(mod.id, 'up')} disabled={modIdx === 0}><ChevronUp className="w-3 h-3" /></Button>
-                    <Button variant="ghost" size="sm" className="h-5 px-1" onClick={() => handleMoveModule(mod.id, 'down')} disabled={modIdx === modules.length - 1}><ChevronDown className="w-3 h-3" /></Button>
+                    <Button aria-label="Переместить модуль выше" variant="ghost" size="sm" className="h-5 px-1" onClick={() => handleMoveModule(mod.id, 'up')} disabled={modIdx === 0}><ChevronUp className="w-3 h-3" aria-hidden="true" /></Button>
+                    <Button aria-label="Переместить модуль ниже" variant="ghost" size="sm" className="h-5 px-1" onClick={() => handleMoveModule(mod.id, 'down')} disabled={modIdx === modules.length - 1}><ChevronDown className="w-3 h-3" aria-hidden="true" /></Button>
                   </div>
                   {editingModuleId === mod.id ? (
                     <div className="flex gap-2 flex-1">
@@ -369,13 +416,15 @@ export default function CourseEditPage() {
                       <Button variant="outline" size="sm" onClick={() => setEditingModuleId(null)}>{t('common.cancel')}</Button>
                     </div>
                   ) : (
-                    <div className="flex items-center gap-2 flex-1">
-                      <h3 className="font-semibold">{mod.title}</h3>
+                    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+                      <h3 className="min-w-0 flex-1 text-base font-semibold leading-6">{mod.title}</h3>
                       <Badge variant="outline">{mod.lessons.length} {t('courses.lessons')}</Badge>
-                      <Button variant="ghost" size="sm" onClick={() => { setEditingModuleId(mod.id); setEditModuleTitle(mod.title); }}>
+                      <Button variant="ghost" size="sm" className="h-9" onClick={() => { setEditingModuleId(mod.id); setEditModuleTitle(mod.title); }}>
+                        <Pencil className="mr-1.5 h-4 w-4" />
                         {t('common.edit')}
                       </Button>
-                      <Button variant="ghost" size="sm" className="text-destructive" onClick={() => handleDeleteModule(mod.id)}>
+                      <Button variant="ghost" size="sm" className="h-9 text-destructive" onClick={() => handleDeleteModule(mod.id)}>
+                        <Trash2 className="mr-1.5 h-4 w-4" />
                         {t('common.delete')}
                       </Button>
                     </div>
@@ -383,24 +432,37 @@ export default function CourseEditPage() {
                 </div>
 
                 {/* Lessons */}
-                <div className="ml-8 space-y-1">
+                <div className="space-y-2 sm:ml-8">
                   {mod.lessons.map((lesson, lessonIdx) => (
-                    <div key={lesson.id} className="bg-muted rounded">
-                      <div className="flex items-center gap-2 p-2 text-sm">
+                    <div key={lesson.id} className="rounded-md border border-border/70 bg-muted/35">
+                      <div className="flex flex-wrap items-center gap-2 p-3 text-sm">
                         <div className="flex flex-col gap-0.5">
-                          <Button variant="ghost" className="h-4 px-1 text-xs" onClick={() => handleMoveLesson(lesson.id, mod.id, 'up')} disabled={lessonIdx === 0}><ChevronUp className="w-3 h-3" /></Button>
-                          <Button variant="ghost" className="h-4 px-1 text-xs" onClick={() => handleMoveLesson(lesson.id, mod.id, 'down')} disabled={lessonIdx === mod.lessons.length - 1}><ChevronDown className="w-3 h-3" /></Button>
+                          <Button aria-label="Переместить урок выше" variant="ghost" className="h-4 px-1 text-xs" onClick={() => handleMoveLesson(lesson.id, mod.id, 'up')} disabled={lessonIdx === 0}><ChevronUp className="w-3 h-3" aria-hidden="true" /></Button>
+                          <Button aria-label="Переместить урок ниже" variant="ghost" className="h-4 px-1 text-xs" onClick={() => handleMoveLesson(lesson.id, mod.id, 'down')} disabled={lessonIdx === mod.lessons.length - 1}><ChevronDown className="w-3 h-3" aria-hidden="true" /></Button>
                         </div>
-                        <span className="flex-1">{lesson.title}</span>
+                        <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+                        <span className="min-w-[220px] flex-1 text-sm font-medium leading-5">{lesson.title}</span>
                         <Badge variant="outline" className="text-xs">{lesson.content_type}</Badge>
-                        <Button variant="ghost" size="sm" className="text-primary text-xs" onClick={() => handleEditLessonContent(lesson.id)}>
-                          Контент
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-9 text-sm"
+                          disabled={loadingLessonId !== null}
+                          onClick={() => handleEditLessonContent(lesson.id)}
+                        >
+                          {loadingLessonId === lesson.id ? (
+                            <LoaderCircle className="mr-1.5 h-4 w-4 animate-spin" />
+                          ) : (
+                            <Pencil className="mr-1.5 h-4 w-4" />
+                          )}
+                          Редактировать
                         </Button>
                         <Button
                           variant="ghost"
                           size="sm"
                           className="text-primary text-xs"
                           title="AI-помощник по этому уроку"
+                          aria-label={`Открыть AI-помощника для урока «${lesson.title}»`}
                           onClick={() => {
                             setChatFocus({
                               lessonId: lesson.id,
@@ -409,26 +471,12 @@ export default function CourseEditPage() {
                             setChatOpen(true);
                           }}
                         >
-                          <Bot className="w-3 h-3" />
+                          <Bot className="w-3 h-3" aria-hidden="true" />
                         </Button>
-                        <Button variant="ghost" size="sm" className="text-destructive text-xs" onClick={() => handleDeleteLesson(lesson.id, mod.id)}>
-                          <X className="w-3 h-3" />
+                        <Button aria-label={`Удалить урок «${lesson.title}»`} variant="ghost" size="sm" className="text-destructive text-xs" onClick={() => handleDeleteLesson(lesson.id, mod.id)}>
+                          <X className="w-3 h-3" aria-hidden="true" />
                         </Button>
                       </div>
-                      {editingLessonId === lesson.id && (
-                        <div className="px-2 pb-3 space-y-2 border-t border-border pt-2">
-                          <textarea
-                            value={editLessonContent}
-                            onChange={(e) => setEditLessonContent(e.target.value)}
-                            className="w-full min-h-[200px] rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-primary font-mono"
-                            placeholder="Markdown контент урока..."
-                          />
-                          <div className="flex gap-2">
-                            <Button size="sm" onClick={handleSaveLessonContent}>{t('common.save')}</Button>
-                            <Button variant="outline" size="sm" onClick={() => setEditingLessonId(null)}>{t('common.cancel')}</Button>
-                          </div>
-                        </div>
-                      )}
                     </div>
                   ))}
 
@@ -457,6 +505,57 @@ export default function CourseEditPage() {
         </div>
       )}
 {dialog}
+
+      <Modal
+        open={Boolean(editingLessonId)}
+        onClose={() => {
+          if (!savingLesson) setEditingLessonId(null);
+        }}
+        title="Редактирование урока"
+        description="Измените название и содержание. Форматирование Markdown сохранится."
+        dismissable={false}
+        className="max-h-[calc(100dvh-1.5rem)] w-[calc(100%-1.5rem)] max-w-5xl overscroll-contain overflow-y-auto p-5 sm:p-6"
+      >
+        <div className="space-y-5">
+          <label className="block space-y-2">
+            <span className="text-sm font-medium text-foreground">Название урока</span>
+            <Input
+              value={editLessonTitle}
+              onChange={(event) => setEditLessonTitle(event.target.value)}
+              name="lesson-title"
+              autoComplete="off"
+              placeholder="Например, Введение в информационную безопасность…"
+            />
+          </label>
+          <label className="block space-y-2">
+            <span className="text-sm font-medium text-foreground">Содержание урока</span>
+            <textarea
+              value={editLessonContent}
+              onChange={(event) => setEditLessonContent(event.target.value)}
+              name="lesson-content"
+              autoComplete="off"
+              className="min-h-[52vh] w-full resize-y rounded-md border border-input bg-background px-4 py-3 text-base leading-7 text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20"
+              placeholder="Введите содержание урока…"
+            />
+          </label>
+          <div className="flex flex-col-reverse gap-2 border-t border-border pt-4 sm:flex-row sm:justify-end">
+            <Button
+              variant="outline"
+              onClick={() => setEditingLessonId(null)}
+              disabled={savingLesson}
+            >
+              {t('common.cancel')}
+            </Button>
+            <Button
+              onClick={handleSaveLessonContent}
+              disabled={savingLesson || !editLessonTitle.trim()}
+            >
+              {savingLesson && <LoaderCircle className="mr-1.5 h-4 w-4 animate-spin" />}
+              {savingLesson ? t('common.saving') : t('common.save')}
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       <AIChatPanel
         open={chatOpen}

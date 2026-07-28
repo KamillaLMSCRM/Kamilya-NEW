@@ -1,13 +1,24 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Card, CardContent, Button, Badge, Input } from '@/components/ui';
+import { Card, CardContent, Button, Badge, Input, Modal } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
 import { getAccessToken } from '@/lib/auth';
 import { useT } from '@/i18n/useT';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { toast } from '@/components/ui/Toast';
-import { CheckCircle2, Circle, Lightbulb, ChevronRight, ChevronDown } from 'lucide-react';
+import {
+  CheckCircle2,
+  ChevronDown,
+  ChevronRight,
+  Circle,
+  Lightbulb,
+  LoaderCircle,
+  Pencil,
+  Plus,
+  Trash2,
+  X,
+} from 'lucide-react';
 import { QuizAssignPanel } from '@/features/quiz-assignments';
 import { firstQuizForAssignments } from './assignment-deep-link';
 
@@ -73,6 +84,22 @@ interface QuizGroupedResponse {
   orphans: OrphanQuiz[];
 }
 
+const EMPTY_QUESTION = { text: '', type: 'MCQ', points: 1, explanation: '' };
+const EMPTY_CHOICES = () => [
+  { text: '', is_correct: true },
+  { text: '', is_correct: false },
+  { text: '', is_correct: false },
+  { text: '', is_correct: false },
+];
+
+function questionTypeLabel(type: string) {
+  if (type === 'MCQ') return 'Один вариант';
+  if (type === 'multiple_choice') return 'Несколько вариантов';
+  if (type === 'true_false') return 'Верно / неверно';
+  if (type === 'matching') return 'Сопоставление';
+  return type;
+}
+
 export default function QuizzesAdminPage() {
   const { t } = useT();
     const { confirm, dialog } = useConfirm();
@@ -97,15 +124,14 @@ export default function QuizzesAdminPage() {
     time_limit: '',
     attempt_limit: 3,
   });
-  const [newQuestion, setNewQuestion] = useState({ text: '', type: 'MCQ', points: 1, explanation: '' });
-  const [newChoices, setNewChoices] = useState<Array<{ text: string; is_correct: boolean }>>([
-    { text: '', is_correct: false },
-    { text: '', is_correct: false },
-    { text: '', is_correct: false },
-    { text: '', is_correct: false },
-  ]);
+  const [newQuestion, setNewQuestion] = useState(EMPTY_QUESTION);
+  const [newChoices, setNewChoices] = useState<Array<{ id?: string; text: string; is_correct: boolean }>>(
+    EMPTY_CHOICES
+  );
   const [showCreateQuiz, setShowCreateQuiz] = useState(false);
-  const [showAddQuestion, setShowAddQuestion] = useState(false);
+  const [questionEditorMode, setQuestionEditorMode] = useState<'create' | 'edit' | null>(null);
+  const [editingQuestionId, setEditingQuestionId] = useState<string | null>(null);
+  const [savingQuestion, setSavingQuestion] = useState(false);
   // Inline edit form for pass_score / attempt_limit / time_limit.
   // Previously these were visible-only ("readonly" labels) — adding
   // the edit form is the change requested in the 2026-06-26 review.
@@ -350,37 +376,124 @@ export default function QuizzesAdminPage() {
     }
   };
 
-  const handleAddQuestion = async () => {
-    if (!token || !selectedQuiz || !newQuestion.text) return;
-    const res = await fetch(`${API_URL}/v1/quizzes/${selectedQuiz.id}/questions`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token || getAccessToken()}` },
-      body: JSON.stringify({
-        ...newQuestion,
-        order_index: selectedQuiz.questions.length,
-        choices: newChoices.filter((c) => c.text.trim()).map((c, i) => ({
-          text: c.text,
-          is_correct: c.is_correct,
-          order_index: i,
+  const applyUpdatedQuiz = useCallback((updated: Quiz) => {
+    setSelectedQuiz(updated);
+    setGrouped((current) => {
+      if (!current) return current;
+      return {
+        ...current,
+        courses: current.courses.map((course) => ({
+          ...course,
+          modules: course.modules.map((module) => ({
+            ...module,
+            lessons: module.lessons.map((lesson) =>
+              lesson.quiz?.id === updated.id ? { ...lesson, quiz: updated } : lesson
+            ),
+          })),
         })),
-      }),
+        orphans: current.orphans.map((orphan) =>
+          orphan.quiz.id === updated.id ? { ...orphan, quiz: updated } : orphan
+        ),
+      };
     });
-    if (res.ok) {
-      const quiz = await res.json();
-      setSelectedQuiz(quiz);
-      setShowAddQuestion(false);
-      setNewQuestion({ text: '', type: 'MCQ', points: 1, explanation: '' });
-      setNewChoices([
-        { text: '', is_correct: false },
-        { text: '', is_correct: false },
-        { text: '', is_correct: false },
-        { text: '', is_correct: false },
-      ]);
+  }, []);
+
+  const closeQuestionEditor = () => {
+    if (savingQuestion) return;
+    setQuestionEditorMode(null);
+    setEditingQuestionId(null);
+  };
+
+  const openCreateQuestionEditor = () => {
+    setNewQuestion(EMPTY_QUESTION);
+    setNewChoices(EMPTY_CHOICES());
+    setEditingQuestionId(null);
+    setQuestionEditorMode('create');
+  };
+
+  const openEditQuestionEditor = (question: Question) => {
+    setNewQuestion({
+      text: question.text,
+      type: question.type,
+      points: question.points,
+      explanation: question.explanation || '',
+    });
+    setNewChoices(
+      question.choices.length > 0
+        ? [...question.choices]
+            .sort((left, right) => left.order_index - right.order_index)
+            .map((choice) => ({
+              id: choice.id,
+              text: choice.text,
+              is_correct: choice.is_correct,
+            }))
+        : EMPTY_CHOICES()
+    );
+    setEditingQuestionId(question.id);
+    setQuestionEditorMode('edit');
+  };
+
+  const handleSaveQuestion = async () => {
+    if (!token || !selectedQuiz || !questionEditorMode || !newQuestion.text.trim()) return;
+    const choices = newChoices
+      .filter((choice) => choice.text.trim())
+      .map((choice, index) => ({
+        ...(choice.id ? { id: choice.id } : {}),
+        text: choice.text.trim(),
+        is_correct: choice.is_correct,
+        order_index: index,
+      }));
+    if (choices.length < 2) {
+      toast.error('Добавьте минимум два варианта ответа');
+      return;
+    }
+    if (!choices.some((choice) => choice.is_correct)) {
+      toast.error('Отметьте правильный вариант ответа');
+      return;
+    }
+
+    setSavingQuestion(true);
+    try {
+      const isEditing = questionEditorMode === 'edit' && editingQuestionId;
+      const url = isEditing
+        ? `${API_URL}/v1/quizzes/${selectedQuiz.id}/questions/${editingQuestionId}`
+        : `${API_URL}/v1/quizzes/${selectedQuiz.id}/questions`;
+      const res = await fetch(url, {
+        method: isEditing ? 'PUT' : 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token || getAccessToken()}`,
+        },
+        body: JSON.stringify({
+          text: newQuestion.text.trim(),
+          type: newQuestion.type,
+          points: Math.max(1, newQuestion.points),
+          explanation: newQuestion.explanation.trim() || null,
+          order_index: isEditing
+            ? selectedQuiz.questions.find((question) => question.id === editingQuestionId)
+                ?.order_index ?? 0
+            : selectedQuiz.questions.length,
+          choices,
+        }),
+      });
+      if (!res.ok) {
+        const payload = await res.json().catch(() => null);
+        throw new Error(payload?.message || payload?.detail || `HTTP ${res.status}`);
+      }
+      const updated = await res.json();
+      applyUpdatedQuiz(updated);
+      setQuestionEditorMode(null);
+      setEditingQuestionId(null);
+      toast.success(isEditing ? 'Вопрос обновлён' : 'Вопрос добавлен');
+    } catch (error) {
+      toast.error('Не удалось сохранить вопрос', { description: (error as Error).message });
+    } finally {
+      setSavingQuestion(false);
     }
   };
 
   const handleDeleteQuestion = async (questionId: string) => {
-        if (!token || !selectedQuiz) return;
+    if (!token || !selectedQuiz) return;
     const ok = await confirm({
       title: t('dialogs.confirmDeleteQuestion'),
       variant: 'danger',
@@ -393,12 +506,17 @@ export default function QuizzesAdminPage() {
     });
     if (res.ok) {
       const quiz = await res.json();
-      setSelectedQuiz(quiz);
+      applyUpdatedQuiz(quiz);
+      return;
     }
+    const payload = await res.json().catch(() => null);
+    toast.error('Не удалось удалить вопрос', {
+      description: payload?.message || payload?.detail || `HTTP ${res.status}`,
+    });
   };
 
   const handleDeleteQuiz = async (quizId: string) => {
-        if (!token) return;
+    if (!token) return;
     const ok = await confirm({
       title: t('dialogs.confirmDeleteQuiz'),
       variant: 'danger',
@@ -412,7 +530,12 @@ export default function QuizzesAdminPage() {
     if (res.ok) {
       setSelectedQuiz(null);
       await fetchGrouped();
+      return;
     }
+    const payload = await res.json().catch(() => null);
+    toast.error('Не удалось удалить тест', {
+      description: payload?.message || payload?.detail || `HTTP ${res.status}`,
+    });
   };
 
   // Start editing pass_score / time_limit / attempt_limit for the
@@ -455,34 +578,11 @@ export default function QuizzesAdminPage() {
         body: JSON.stringify(body),
       });
       if (!res.ok) {
-        const err = await res.json().catch(() => ({ detail: 'Unknown error' }));
-        throw new Error(err.detail || `HTTP ${res.status}`);
+        const err = await res.json().catch(() => null);
+        throw new Error(err?.message || err?.detail || `HTTP ${res.status}`);
       }
       const updated = await res.json();
-      // Keep the selected detail in sync without a full tree refetch.
-      setSelectedQuiz(updated);
-      // Patch the in-memory tree so the list panel reflects the new
-      // pass_score / time_limit / attempt_limit immediately.
-      setGrouped((g) => {
-        if (!g) return g;
-        return {
-          ...g,
-          courses: g.courses.map((c) => ({
-            ...c,
-            modules: c.modules.map((m) => ({
-              ...m,
-              lessons: m.lessons.map((l) =>
-                l.quiz && l.quiz.id === updated.id
-                  ? { ...l, quiz: updated }
-                  : l
-              ),
-            })),
-          })),
-          orphans: g.orphans.map((o) =>
-            o.quiz.id === updated.id ? { ...o, quiz: updated } : o
-          ),
-        };
-      });
+      applyUpdatedQuiz(updated);
       setEditingSettings(false);
       toast.success('Параметры теста сохранены');
     } catch (e) {
@@ -506,7 +606,7 @@ export default function QuizzesAdminPage() {
               page where the methodologist authors quiz questions. The
               subtitle clarifies the workflow: pick a lesson → write/AI the
               questions → save. */}
-          <h1 className="text-[26px] font-semibold tracking-normal text-foreground">Конструктор тестов</h1>
+          <h1 className="text-2xl font-bold leading-8 text-foreground">Конструктор тестов</h1>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
             Создание и редактирование тестов. Выберите урок → добавьте вопросы вручную или сгенерируйте черновик из контента урока с помощью AI.
           </p>
@@ -949,7 +1049,7 @@ export default function QuizzesAdminPage() {
               <CardContent className="p-5">
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div className="min-w-0">
-                    <h3 className="truncate text-xl font-semibold leading-7 text-foreground">{selectedQuiz.title}</h3>
+                    <h3 className="truncate text-lg font-semibold leading-7 text-foreground sm:text-xl">{selectedQuiz.title}</h3>
                     <div className="mt-2 text-sm text-muted-foreground">
                       {selectedQuiz.questions.length} вопросов · {selectedQuiz.questions.reduce((a, q) => a + q.points, 0)} баллов
                     </div>
@@ -1032,15 +1132,15 @@ export default function QuizzesAdminPage() {
                   ) : (
                     <>
                       <div className="rounded-md border border-border/70 bg-muted/30 px-4 py-3">
-                        <div className="text-xs text-muted-foreground">{t('quiz.passScore')}</div>
+                        <div className="text-sm text-muted-foreground">{t('quiz.passScore')}</div>
                         <div className="mt-1 text-lg font-semibold tabular-nums">{selectedQuiz.pass_score}%</div>
                       </div>
                       <div className="rounded-md border border-border/70 bg-muted/30 px-4 py-3">
-                        <div className="text-xs text-muted-foreground">{t('quiz.timeLeft')}</div>
+                        <div className="text-sm text-muted-foreground">{t('quiz.timeLeft')}</div>
                         <div className="mt-1 text-lg font-semibold tabular-nums">{selectedQuiz.time_limit ? `${selectedQuiz.time_limit} мин` : '∞'}</div>
                       </div>
                       <div className="rounded-md border border-border/70 bg-muted/30 px-4 py-3">
-                        <div className="text-xs text-muted-foreground">Попыток</div>
+                        <div className="text-sm text-muted-foreground">Попыток</div>
                         <div className="mt-1 text-lg font-semibold tabular-nums">{selectedQuiz.attempt_limit}</div>
                       </div>
                     </>
@@ -1053,75 +1153,16 @@ export default function QuizzesAdminPage() {
             <div className="space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <h4 className="text-base font-semibold text-foreground">Вопросы</h4>
-                <Button size="sm" className="h-9" onClick={() => setShowAddQuestion(!showAddQuestion)}>
-                  + {t('common.create')} вопрос
+                <Button size="sm" className="h-9" onClick={openCreateQuestionEditor}>
+                  <Plus className="mr-1.5 h-4 w-4" />
+                  {t('common.create')} вопрос
                 </Button>
               </div>
-
-              {showAddQuestion && (
-                <Card className="border-primary/40">
-                  <CardContent className="p-4 space-y-3">
-                    <Input
-                      placeholder="Текст вопроса"
-                      value={newQuestion.text}
-                      onChange={(e) => setNewQuestion((p) => ({ ...p, text: e.target.value }))}
-                    />
-                    <div className="grid grid-cols-3 gap-3">
-                      <select
-                        value={newQuestion.type}
-                        onChange={(e) => setNewQuestion((p) => ({ ...p, type: e.target.value }))}
-                        className="border rounded px-2 py-1 text-sm"
-                      >
-                        <option value="MCQ">MCQ (выбор)</option>
-                        <option value="true_false">True/False</option>
-                        <option value="matching">Matching</option>
-                      </select>
-                      <Input
-                        type="number"
-                        placeholder="Баллы"
-                        value={newQuestion.points}
-                        onChange={(e) => setNewQuestion((p) => ({ ...p, points: parseInt(e.target.value) || 1 }))}
-                      />
-                    </div>
-                    <Input
-                      placeholder="Объяснение (опционально)"
-                      value={newQuestion.explanation}
-                      onChange={(e) => setNewQuestion((p) => ({ ...p, explanation: e.target.value }))}
-                    />
-                    <div className="space-y-2">
-                      <p className="text-sm font-medium">Варианты ответов:</p>
-                      {newChoices.map((c, i) => (
-                        <div key={i} className="flex items-center gap-2">
-                          <input
-                            type="radio"
-                            name="correct-choice"
-                            checked={c.is_correct}
-                            onChange={() => {
-                              setNewChoices((prev) => prev.map((ch, j) => ({ ...ch, is_correct: j === i })));
-                            }}
-                          />
-                          <Input
-                            placeholder={`Вариант ${i + 1}`}
-                            value={c.text}
-                            onChange={(e) => {
-                              setNewChoices((prev) => prev.map((ch, j) => j === i ? { ...ch, text: e.target.value } : ch));
-                            }}
-                          />
-                        </div>
-                      ))}
-                    </div>
-                    <div className="flex gap-2">
-                      <Button onClick={handleAddQuestion}>{t('common.create')}</Button>
-                      <Button variant="outline" onClick={() => setShowAddQuestion(false)}>{t('common.cancel')}</Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
 
               {selectedQuiz.questions.map((q, i) => (
                 <Card key={q.id} className="border-border/70 shadow-none">
                   <CardContent className="p-0">
-                    <div className="grid grid-cols-[44px_minmax(0,1fr)_auto] gap-4 px-4 py-4">
+                    <div className="grid grid-cols-[36px_minmax(0,1fr)] gap-3 px-4 py-4 lg:grid-cols-[44px_minmax(0,1fr)_auto] lg:gap-4">
                       <div className="flex h-7 w-7 items-center justify-center rounded-full border border-border bg-muted text-sm font-medium tabular-nums text-muted-foreground">
                         {i + 1}
                       </div>
@@ -1129,7 +1170,7 @@ export default function QuizzesAdminPage() {
                         <div className="mb-3 flex flex-wrap items-start gap-2">
                           <span className="min-w-0 flex-1 text-base font-medium leading-6 text-foreground">{q.text}</span>
                           <Badge variant="secondary" className="bg-primary/10 text-primary">{q.points} {t('quiz.points')}</Badge>
-                          <Badge variant="outline" className="border-border bg-card text-muted-foreground">{q.type}</Badge>
+                          <Badge variant="outline" className="border-border bg-card text-muted-foreground">{questionTypeLabel(q.type)}</Badge>
                         </div>
                         <div className="space-y-2">
                           {q.choices.map((c) => (
@@ -1140,20 +1181,32 @@ export default function QuizzesAdminPage() {
                           ))}
                         </div>
                         {q.explanation && (
-                          <div className="mt-3 flex items-start gap-2 rounded-md bg-primary/5 px-3 py-2 text-xs leading-5 text-primary">
+                          <div className="mt-3 flex items-start gap-2 rounded-md bg-primary/5 px-3 py-2 text-sm leading-5 text-primary">
                             <Lightbulb className="mt-0.5 h-4 w-4 shrink-0" />
                             <span>{q.explanation}</span>
                           </div>
                         )}
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                        onClick={() => handleDeleteQuestion(q.id)}
-                      >
-                        {t('common.delete')}
-                      </Button>
+                      <div className="col-start-2 flex flex-wrap justify-end gap-2 lg:col-start-auto lg:flex-col">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-9"
+                          onClick={() => openEditQuestionEditor(q)}
+                        >
+                          <Pencil className="mr-1.5 h-4 w-4" />
+                          {t('common.edit')}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-9 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                          onClick={() => handleDeleteQuestion(q.id)}
+                        >
+                          <Trash2 className="mr-1.5 h-4 w-4" />
+                          {t('common.delete')}
+                        </Button>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -1177,7 +1230,200 @@ export default function QuizzesAdminPage() {
           </Card>
         )}
       </div>
-{dialog}
+
+      <Modal
+        open={questionEditorMode !== null}
+        onClose={closeQuestionEditor}
+        title={questionEditorMode === 'edit' ? 'Редактирование вопроса' : 'Новый вопрос'}
+        description="Сформулируйте вопрос, настройте баллы и отметьте правильные ответы."
+        dismissable={false}
+        className="max-h-[calc(100dvh-1.5rem)] w-[calc(100%-1.5rem)] max-w-4xl overscroll-contain overflow-y-auto p-5 sm:p-6"
+      >
+        <div className="space-y-5">
+          <label className="block space-y-2">
+            <span className="text-sm font-medium text-foreground">Текст вопроса</span>
+            <textarea
+              value={newQuestion.text}
+              onChange={(event) =>
+                setNewQuestion((current) => ({ ...current, text: event.target.value }))
+              }
+              name="question-text"
+              autoComplete="off"
+              className="min-h-28 w-full resize-y rounded-md border border-input bg-background px-4 py-3 text-base leading-6 text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20"
+              placeholder="Например, Какое действие сотрудник должен выполнить первым?…"
+            />
+          </label>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="block space-y-2">
+              <span className="text-sm font-medium text-foreground">Тип вопроса</span>
+              <select
+                value={newQuestion.type}
+                name="question-type"
+                onChange={(event) =>
+                  setNewQuestion((current) => ({ ...current, type: event.target.value }))
+                }
+                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+              >
+                <option value="MCQ">Один правильный вариант</option>
+                <option value="multiple_choice">Несколько правильных вариантов</option>
+                <option value="true_false">Верно / неверно</option>
+                {newQuestion.type === 'matching' && (
+                  <option value="matching" disabled>
+                    Сопоставление (редактор пока недоступен)
+                  </option>
+                )}
+              </select>
+            </label>
+            <label className="block space-y-2">
+              <span className="text-sm font-medium text-foreground">Баллы за правильный ответ</span>
+              <Input
+                type="number"
+                name="question-points"
+                autoComplete="off"
+                min={1}
+                max={100}
+                value={newQuestion.points}
+                onChange={(event) =>
+                  setNewQuestion((current) => ({
+                    ...current,
+                    points: Math.max(1, parseInt(event.target.value, 10) || 1),
+                  }))
+                }
+              />
+            </label>
+          </div>
+
+          <label className="block space-y-2">
+            <span className="text-sm font-medium text-foreground">
+              Пояснение после ответа <span className="font-normal text-muted-foreground">(необязательно)</span>
+            </span>
+            <textarea
+              value={newQuestion.explanation}
+              onChange={(event) =>
+                setNewQuestion((current) => ({ ...current, explanation: event.target.value }))
+              }
+              name="question-explanation"
+              autoComplete="off"
+              className="min-h-24 w-full resize-y rounded-md border border-input bg-background px-4 py-3 text-sm leading-6 text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20"
+              placeholder="Например, этот шаг обязателен согласно внутренней политике…"
+            />
+          </label>
+
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-semibold text-foreground">Варианты ответа</h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {newQuestion.type === 'multiple_choice'
+                    ? 'Отметьте все правильные варианты.'
+                    : 'Отметьте один правильный вариант.'}
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-9"
+                onClick={() =>
+                  setNewChoices((current) => [
+                    ...current,
+                    { text: '', is_correct: false },
+                  ])
+                }
+              >
+                <Plus className="mr-1.5 h-4 w-4" />
+                Добавить вариант
+              </Button>
+            </div>
+            <div className="space-y-3">
+              {newChoices.map((choice, index) => (
+                <div
+                  key={index}
+                  className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-md border border-border/70 bg-muted/20 p-3"
+                >
+                  <input
+                    type={newQuestion.type === 'multiple_choice' ? 'checkbox' : 'radio'}
+                    id={`correct-choice-${index}`}
+                    name="correct-choice"
+                    aria-label={`Отметить вариант ${index + 1} правильным`}
+                    checked={choice.is_correct}
+                    onChange={() =>
+                      setNewChoices((current) =>
+                        current.map((item, itemIndex) => ({
+                          ...item,
+                          is_correct:
+                            newQuestion.type === 'multiple_choice'
+                              ? itemIndex === index
+                                ? !item.is_correct
+                                : item.is_correct
+                              : itemIndex === index,
+                        }))
+                      )
+                    }
+                    className="h-4 w-4 accent-primary"
+                  />
+                  <Input
+                    name={`choice-${index + 1}`}
+                    autoComplete="off"
+                    placeholder={`Вариант ${index + 1}…`}
+                    value={choice.text}
+                    onChange={(event) =>
+                      setNewChoices((current) =>
+                        current.map((item, itemIndex) =>
+                          itemIndex === index ? { ...item, text: event.target.value } : item
+                        )
+                      )
+                    }
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-9 w-9 p-0 text-muted-foreground hover:text-destructive"
+                    aria-label={`Удалить вариант ${index + 1}`}
+                    disabled={newChoices.length <= 2}
+                    onClick={() =>
+                      setNewChoices((current) => {
+                        const next = current.filter((_, itemIndex) => itemIndex !== index);
+                        if (!next.some((item) => item.is_correct) && next.length > 0) {
+                          next[0] = { ...next[0], is_correct: true };
+                        }
+                        return next;
+                      })
+                    }
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex flex-col-reverse gap-2 border-t border-border pt-4 sm:flex-row sm:justify-end">
+            <Button variant="outline" onClick={closeQuestionEditor} disabled={savingQuestion}>
+              {t('common.cancel')}
+            </Button>
+            <Button
+              onClick={handleSaveQuestion}
+              disabled={
+                savingQuestion ||
+                !newQuestion.text.trim() ||
+                newQuestion.type === 'matching'
+              }
+            >
+              {savingQuestion && <LoaderCircle className="mr-1.5 h-4 w-4 animate-spin" />}
+              {savingQuestion
+                ? t('common.saving')
+                : questionEditorMode === 'edit'
+                  ? t('common.save')
+                  : `${t('common.create')} вопрос`}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {dialog}
     </div>
   );
 }

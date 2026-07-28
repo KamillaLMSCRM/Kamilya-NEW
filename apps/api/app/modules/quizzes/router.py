@@ -8,7 +8,7 @@ from sqlalchemy.orm import selectinload
 
 from app.core.auth import get_current_user, require_role
 from app.core.db import get_db
-from app.modules.quizzes.models import Quiz, Question, QuizChoice
+from app.modules.quizzes.models import Quiz, Question, QuizAttempt, QuizChoice
 from app.models.users import User
 from app.modules.quizzes.schemas import (
     QuizResponse,
@@ -61,6 +61,28 @@ async def _require_quiz_access(db: AsyncSession, quiz_id: UUID, user: User) -> Q
         return quiz
     await require_lesson_access(db, quiz.lesson_id, user)
     return quiz
+
+
+async def _ensure_quiz_has_no_attempts(
+    db: AsyncSession,
+    quiz_id: UUID,
+    tenant_id: UUID,
+) -> None:
+    """Keep completed assessment history immutable."""
+    result = await db.execute(
+        select(QuizAttempt.id).where(
+            QuizAttempt.quiz_id == quiz_id,
+            QuizAttempt.tenant_id == tenant_id,
+        ).limit(1)
+    )
+    if result.scalar_one_or_none() is not None:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Тест уже проходили обучающиеся. Его вопросы и параметры нельзя "
+                "изменять; создайте новую версию теста."
+            ),
+        )
 
 
 @router.get("", response_model=list[QuizResponse])
@@ -507,6 +529,7 @@ async def update_quiz(
     quiz = await db.get(Quiz, quiz_id)
     if not quiz or quiz.tenant_id != user.tenant_id:
         raise HTTPException(status_code=404, detail="Quiz not found")
+    await _ensure_quiz_has_no_attempts(db, quiz_id, user.tenant_id)
     if req.title is not None:
         quiz.title = req.title
     if req.pass_score is not None:
@@ -529,6 +552,7 @@ async def delete_quiz(
     quiz = await db.get(Quiz, quiz_id)
     if not quiz or quiz.tenant_id != user.tenant_id:
         raise HTTPException(status_code=404, detail="Quiz not found")
+    await _ensure_quiz_has_no_attempts(db, quiz_id, user.tenant_id)
     # Delete questions and choices first (cascade should handle, but be explicit)
     questions = await db.execute(select(Question).where(Question.quiz_id == quiz_id))
     for q in questions.scalars().all():
@@ -554,6 +578,7 @@ async def create_question(
     quiz = await db.get(Quiz, quiz_id)
     if not quiz or quiz.tenant_id != user.tenant_id:
         raise HTTPException(status_code=404, detail="Quiz not found")
+    await _ensure_quiz_has_no_attempts(db, quiz_id, user.tenant_id)
     question = Question(
         id=uuid4(),
         quiz_id=quiz_id,
@@ -591,6 +616,7 @@ async def update_question(
     quiz = await db.get(Quiz, quiz_id)
     if not quiz or quiz.tenant_id != user.tenant_id:
         raise HTTPException(status_code=404, detail="Quiz not found")
+    await _ensure_quiz_has_no_attempts(db, quiz_id, user.tenant_id)
     question = await db.get(Question, question_id)
     if not question or question.quiz_id != quiz_id:
         raise HTTPException(status_code=404, detail="Question not found")
@@ -600,10 +626,63 @@ async def update_question(
         question.type = req.type
     if req.points is not None:
         question.points = req.points
-    if req.explanation is not None:
+    if "explanation" in req.model_fields_set:
         question.explanation = req.explanation
     if req.order_index is not None:
         question.order_index = req.order_index
+    if req.choices is not None:
+        from uuid import uuid4
+
+        if len(req.choices) < 2:
+            raise HTTPException(
+                status_code=422,
+                detail="Question must have at least two choices",
+            )
+        if not any(choice.is_correct for choice in req.choices):
+            raise HTTPException(
+                status_code=422,
+                detail="Question must have at least one correct choice",
+            )
+        supplied_choice_ids = [
+            choice.id for choice in req.choices if choice.id is not None
+        ]
+        if len(supplied_choice_ids) != len(set(supplied_choice_ids)):
+            raise HTTPException(status_code=422, detail="Choice IDs must be unique")
+
+        existing_choices_result = await db.execute(
+            select(QuizChoice).where(QuizChoice.question_id == question_id)
+        )
+        existing_choices = {
+            choice.id: choice for choice in existing_choices_result.scalars().all()
+        }
+        retained_choice_ids = set()
+        for index, choice_req in enumerate(req.choices):
+            if choice_req.id is not None:
+                choice = existing_choices.get(choice_req.id)
+                if choice is None:
+                    raise HTTPException(
+                        status_code=422,
+                        detail="Choice does not belong to this question",
+                    )
+                choice.text = choice_req.text
+                choice.is_correct = choice_req.is_correct
+                choice.order_index = choice_req.order_index
+                retained_choice_ids.add(choice.id)
+            else:
+                db.add(
+                    QuizChoice(
+                        id=uuid4(),
+                        question_id=question_id,
+                        text=choice_req.text,
+                        is_correct=choice_req.is_correct,
+                        order_index=choice_req.order_index
+                        if choice_req.order_index is not None
+                        else index,
+                    )
+                )
+        for choice_id, choice in existing_choices.items():
+            if choice_id not in retained_choice_ids:
+                await db.delete(choice)
     await db.flush()
     return await get_quiz_with_questions(db, quiz_id, user.tenant_id)
 
@@ -619,6 +698,7 @@ async def delete_question(
     quiz = await db.get(Quiz, quiz_id)
     if not quiz or quiz.tenant_id != user.tenant_id:
         raise HTTPException(status_code=404, detail="Quiz not found")
+    await _ensure_quiz_has_no_attempts(db, quiz_id, user.tenant_id)
     question = await db.get(Question, question_id)
     if not question or question.quiz_id != quiz_id:
         raise HTTPException(status_code=404, detail="Question not found")
@@ -646,6 +726,7 @@ async def create_choice(
     quiz = await db.get(Quiz, quiz_id)
     if not quiz or quiz.tenant_id != user.tenant_id:
         raise HTTPException(status_code=404, detail="Quiz not found")
+    await _ensure_quiz_has_no_attempts(db, quiz_id, user.tenant_id)
     question = await db.get(Question, question_id)
     if not question or question.quiz_id != quiz_id:
         raise HTTPException(status_code=404, detail="Question not found")
@@ -674,6 +755,7 @@ async def update_choice(
     quiz = await db.get(Quiz, quiz_id)
     if not quiz or quiz.tenant_id != user.tenant_id:
         raise HTTPException(status_code=404, detail="Quiz not found")
+    await _ensure_quiz_has_no_attempts(db, quiz_id, user.tenant_id)
     question = await db.get(Question, question_id)
     if not question or question.quiz_id != quiz_id:
         raise HTTPException(status_code=404, detail="Question not found")
@@ -702,6 +784,7 @@ async def delete_choice(
     quiz = await db.get(Quiz, quiz_id)
     if not quiz or quiz.tenant_id != user.tenant_id:
         raise HTTPException(status_code=404, detail="Quiz not found")
+    await _ensure_quiz_has_no_attempts(db, quiz_id, user.tenant_id)
     question = await db.get(Question, question_id)
     if not question or question.quiz_id != quiz_id:
         raise HTTPException(status_code=404, detail="Question not found")
