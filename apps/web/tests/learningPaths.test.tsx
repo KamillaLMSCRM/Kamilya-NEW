@@ -87,6 +87,99 @@ describe('learning programs UI', () => {
     fireEvent.click(screen.getByRole('tab', { name: 'learningPaths.audience.departments' }));
 
     expect(screen.getByText('HR')).toBeInTheDocument();
+    const departmentCheckbox = screen.getByRole('checkbox', { name: 'HR' });
+    expect(departmentCheckbox).toBeEnabled();
+    fireEvent.click(departmentCheckbox);
+    expect(departmentCheckbox).toBeChecked();
+  });
+
+  it('publishes a new program and assigns the audience selected in the draft', async () => {
+    apiMock.get.mockImplementation((url: string) => {
+      if (url === '/v1/learning-paths') return Promise.resolve({ data: [] });
+      if (url.startsWith('/v1/courses')) return Promise.resolve({ data: [courseA] });
+      if (url.startsWith('/v1/users')) {
+        return Promise.resolve({
+          data: {
+            users: [{
+              id: 'learner-1',
+              first_name: 'Learner',
+              last_name: 'One',
+              email: 'learner@example.kz',
+            }],
+          },
+        });
+      }
+      if (url === '/v1/learning-paths/program-1/assignments') {
+        return Promise.resolve({ data: [] });
+      }
+      return Promise.resolve({ data: [] });
+    });
+    apiMock.post.mockImplementation((url: string) => {
+      if (url === '/v1/learning-paths') {
+        return Promise.resolve({
+          data: {
+            id: 'program-1',
+            title: 'Onboarding',
+            description: '',
+            status: 'draft',
+            course_count: 0,
+            courses: [],
+          },
+        });
+      }
+      if (url === '/v1/learning-paths/program-1/publish') {
+        return Promise.resolve({
+          data: {
+            id: 'program-1',
+            title: 'Onboarding',
+            description: '',
+            status: 'published',
+            course_count: 1,
+            courses: [{ course_id: 'course-a', title: 'Course A', required: true, order_index: 0 }],
+          },
+        });
+      }
+      if (url === '/v1/learning-paths/program-1/assignments') {
+        return Promise.resolve({ data: { created: 1 } });
+      }
+      return Promise.reject(new Error(`Unexpected POST ${url}`));
+    });
+    apiMock.put.mockResolvedValue({
+      data: {
+        id: 'program-1',
+        title: 'Onboarding',
+        description: '',
+        status: 'draft',
+        course_count: 1,
+        courses: [{ course_id: 'course-a', title: 'Course A', required: true, order_index: 0 }],
+      },
+    });
+
+    render(<LearningPathsPage />);
+    await waitFor(() => expect(screen.getAllByRole('button', { name: /learningPaths\.new/ }).length).toBeGreaterThan(0));
+    fireEvent.click(screen.getAllByRole('button', { name: /learningPaths\.new/ })[0]);
+    fireEvent.change(screen.getByLabelText('learningPaths.name'), { target: { value: 'Onboarding' } });
+
+    fireEvent.click(screen.getByRole('tab', { name: /learningPaths\.stage\.content/ }));
+    fireEvent.click((await screen.findAllByRole('button', { name: /learningPaths\.add/ }))[0]);
+
+    fireEvent.click(screen.getByRole('tab', { name: /learningPaths\.stage\.audience/ }));
+    const learnerCheckbox = screen.getByRole('checkbox', { name: /Learner One/ });
+    expect(learnerCheckbox).toBeEnabled();
+    fireEvent.click(learnerCheckbox);
+
+    fireEvent.click(screen.getByRole('tab', { name: /learningPaths\.stage\.review/ }));
+    const publishButton = screen.getByRole('button', { name: 'learningPaths.publishAndAssign' });
+    expect(publishButton).toBeEnabled();
+    fireEvent.click(publishButton);
+
+    await waitFor(() => {
+      expect(apiMock.post).toHaveBeenCalledWith('/v1/learning-paths/program-1/publish');
+      expect(apiMock.post).toHaveBeenCalledWith(
+        '/v1/learning-paths/program-1/assignments',
+        expect.objectContaining({ user_ids: ['learner-1'] }),
+      );
+    });
   });
 
   it('keeps publish disabled until the draft has a name and a required course', async () => {

@@ -241,7 +241,9 @@ export default function LearningPathsPage() {
     });
   };
 
-  const persistDraft = async (): Promise<string | null> => {
+  const persistDraft = async (
+    options: { notify?: boolean } = {},
+  ): Promise<string | null> => {
     if (!title.trim()) return null;
     setSaving(true);
     try {
@@ -271,7 +273,9 @@ export default function LearningPathsPage() {
         applyDetail(response.data);
         updatePathList(response.data);
       }
-      toast.success(t('learningPaths.saved'));
+      if (options.notify !== false) {
+        toast.success(t('learningPaths.saved'));
+      }
       return id;
     } catch (error) {
       toast.error(t('learningPaths.saveFailed'), { description: errorDescription(error) });
@@ -281,9 +285,25 @@ export default function LearningPathsPage() {
     }
   };
 
+  const assignmentPayload = () => ({
+    user_ids: selectedAudience.learners,
+    cohort_ids: selectedAudience.cohorts,
+    department_ids: selectedAudience.departments,
+    position_ids: selectedAudience.positions,
+    starts_at: startsAt ? new Date(`${startsAt}T00:00:00`).toISOString() : null,
+    due_at: dueAt ? new Date(`${dueAt}T23:59:59`).toISOString() : null,
+  });
+
+  const assignAudience = async (pathId: string) => {
+    await api.post(`/v1/learning-paths/${pathId}/assignments`, assignmentPayload());
+    const response = await api.get<Assignment[]>(`/v1/learning-paths/${pathId}/assignments`);
+    setAssignments(asList<Assignment>(response.data));
+    setSelectedAudience({ learners: [], cohorts: [], departments: [], positions: [] });
+  };
+
   const publish = async () => {
-    if (!selected || !title.trim() || steps.length === 0) return;
-    const id = await persistDraft();
+    if (!title.trim() || steps.length === 0 || !steps.some((step) => step.required)) return;
+    const id = await persistDraft({ notify: false });
     if (!id) return;
     setSaving(true);
     try {
@@ -295,7 +315,19 @@ export default function LearningPathsPage() {
         setSelected((current) => current ? { ...current, status: 'published', published_at: new Date().toISOString() } : current);
         setPaths((items) => items.map((item) => item.id === id ? { ...item, status: 'published', published_at: new Date().toISOString() } : item));
       }
-      toast.success(t('learningPaths.published'));
+      if (totalSelectedAudience > 0) {
+        try {
+          await assignAudience(id);
+          toast.success(t('learningPaths.publishedAndAssigned'));
+        } catch (error) {
+          setStage('audience');
+          toast.error(t('learningPaths.publishedButAssignmentFailed'), {
+            description: errorDescription(error),
+          });
+        }
+      } else {
+        toast.success(t('learningPaths.published'));
+      }
     } catch (error) {
       toast.error(t('learningPaths.publishFailed'), { description: errorDescription(error) });
     } finally {
@@ -351,19 +383,9 @@ export default function LearningPathsPage() {
 
   const assign = async () => {
     if (!selected || selected.status !== 'published') return;
-    const body = {
-      user_ids: selectedAudience.learners,
-      cohort_ids: selectedAudience.cohorts,
-      department_ids: selectedAudience.departments,
-      position_ids: selectedAudience.positions,
-      starts_at: startsAt ? new Date(`${startsAt}T00:00:00`).toISOString() : null,
-      due_at: dueAt ? new Date(`${dueAt}T23:59:59`).toISOString() : null,
-    };
     setSaving(true);
     try {
-      await api.post(`/v1/learning-paths/${selected.id}/assignments`, body);
-      const response = await api.get<Assignment[]>(`/v1/learning-paths/${selected.id}/assignments`);
-      setAssignments(asList<Assignment>(response.data));
+      await assignAudience(selected.id);
       toast.success(t('learningPaths.assigned'));
     } catch (error) {
       toast.error(t('learningPaths.assignFailed'), { description: errorDescription(error) });
@@ -400,11 +422,10 @@ export default function LearningPathsPage() {
 
   const isDraft = !selected || selected.status === 'draft';
   const canPublish = Boolean(
-    selected
-    && title.trim()
+    title.trim()
     && steps.length > 0
     && steps.some((step) => step.required)
-    && selected.status === 'draft',
+    && (!selected || selected.status === 'draft'),
   );
   const filteredCourses = courses.filter((course) => course.title.toLowerCase().includes(courseSearch.toLowerCase()));
   const currentAudience = audience[audienceTab].filter((item) => optionLabel(item).toLowerCase().includes(audienceSearch.toLowerCase()));
@@ -481,7 +502,7 @@ export default function LearningPathsPage() {
             <div className="mt-8 flex flex-col-reverse gap-3 border-t pt-5 sm:flex-row sm:items-center sm:justify-between">
               <Button variant="ghost" onClick={() => setEditing(false)}>{t('learningPaths.closeEditor')}</Button>
               <div className="flex flex-col gap-3 sm:flex-row">
-                {isDraft && <Button variant="outline" onClick={persistDraft} disabled={saving || !title.trim()} className="gap-2"><Save className="h-4 w-4" aria-hidden="true" />{t('learningPaths.saveDraft')}</Button>}
+                {isDraft && <Button variant="outline" onClick={() => void persistDraft()} disabled={saving || !title.trim()} className="gap-2"><Save className="h-4 w-4" aria-hidden="true" />{t('learningPaths.saveDraft')}</Button>}
                 {stage !== 'basic' && <Button variant="ghost" onClick={() => setStage(STAGES[STAGES.indexOf(stage) - 1])}>{t('learningPaths.back')}</Button>}
                 {stage !== 'review' && <Button onClick={() => setStage(STAGES[STAGES.indexOf(stage) + 1])}>{t('learningPaths.next')}</Button>}
               </div>
@@ -513,12 +534,174 @@ function ContentStage({ courses, steps, search, setSearch, onToggle, onRemove, o
 
 function AudienceStage({ selected, audienceTab, setAudienceTab, options, selectedIds, search, setSearch, onToggle, startsAt, dueAt, setStartsAt, setDueAt, assignments, onCancel, onAssign, saving, totalSelected, t }: { selected: PathDetail | null; audienceTab: AudienceTab; setAudienceTab: (value: AudienceTab) => void; options: AudienceOption[]; selectedIds: string[]; search: string; setSearch: (value: string) => void; onToggle: (id: string) => void; startsAt: string; dueAt: string; setStartsAt: (value: string) => void; setDueAt: (value: string) => void; assignments: Assignment[]; onCancel: (id: string) => void; onAssign: () => void; saving: boolean; totalSelected: number; t: (key: never, params?: Record<string, string | number>) => string }) {
   const published = selected?.status === 'published';
-  return <div className="space-y-5"><div><h3 className="text-lg font-semibold">{t('learningPaths.stage.audience' as never)}</h3><p className="mt-1 text-sm text-muted-foreground">{t('learningPaths.audienceHint' as never)}</p></div>{!published && <div className="flex gap-3 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"><Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" /><span>{t('learningPaths.assignmentPublishRequired' as never)}</span></div>}<div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_280px]"><div className="min-w-0"><div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4" role="tablist">{AUDIENCE_TABS.map((tab) => <button key={tab} type="button" role="tab" aria-selected={audienceTab === tab} onClick={() => { setAudienceTab(tab); setSearch(''); }} className={`rounded-md border px-3 py-2 text-sm ${audienceTab === tab ? 'border-primary bg-primary/5 text-primary' : 'border-border text-muted-foreground'}`}>{t(`learningPaths.audience.${tab}` as never)}</button>)}</div><div className="relative mb-3"><Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" aria-hidden="true" /><Input className="pl-9" value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t('learningPaths.searchAudience' as never)} aria-label={t('learningPaths.searchAudience' as never)} disabled={!published} /></div><div className="max-h-[320px] space-y-2 overflow-y-auto pr-1">{options.map((option) => <label key={option.id} className={`flex min-w-0 items-center gap-3 rounded-md border p-3 ${published ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}`}><input type="checkbox" checked={selectedIds.includes(option.id)} onChange={() => onToggle(option.id)} disabled={!published} /><span className="min-w-0 truncate text-sm" title={optionLabel(option)}>{optionLabel(option)}</span></label>)}{!options.length && <p className="py-6 text-sm text-muted-foreground">{t('learningPaths.noAudience' as never)}</p>}</div></div><aside className="rounded-md border p-4"><h4 className="font-medium">{t('learningPaths.assignmentSettings' as never)}</h4><div className="mt-4 space-y-3"><label className="block space-y-1 text-sm">{t('learningPaths.startsAt' as never)}<Input type="date" value={startsAt} onChange={(event) => setStartsAt(event.target.value)} disabled={!published} /></label><label className="block space-y-1 text-sm">{t('learningPaths.dueAt' as never)}<Input type="date" value={dueAt} onChange={(event) => setDueAt(event.target.value)} disabled={!published} /></label></div><p className="mt-4 text-sm text-muted-foreground">{t('learningPaths.selectedAudience' as never, { count: totalSelected })}</p><Button className="mt-4 w-full gap-2" onClick={onAssign} disabled={!published || saving || totalSelected === 0}><Send className="h-4 w-4" aria-hidden="true" />{t('learningPaths.assign' as never)}</Button></aside></div>{published && <div className="border-t pt-5"><h4 className="mb-3 font-medium">{t('learningPaths.currentAssignments' as never)}</h4>{assignments.length ? <div className="space-y-2">{assignments.map((assignment) => <div key={assignment.id} className="flex flex-col gap-3 rounded-md border p-3 text-sm sm:flex-row sm:items-center sm:justify-between"><div className="min-w-0"><div className="truncate font-medium">{assignment.user_name || assignment.user_email || assignment.user_id || assignment.id}</div>{assignment.user_name && assignment.user_email && <div className="truncate text-xs text-muted-foreground">{assignment.user_email}</div>}<div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground"><Badge variant={assignment.status === 'active' ? 'default' : 'secondary'}>{t(`learningPaths.assignmentStatus.${assignment.status || 'active'}` as never)}</Badge>{assignment.due_at && <span>{t('learningPaths.until' as never)} {dateLabel(assignment.due_at)}</span>}</div></div>{assignment.status === 'active' && <Button type="button" size="sm" variant="ghost" onClick={() => onCancel(assignment.id)} disabled={saving}>{t('learningPaths.cancelAssignment' as never)}</Button>}</div>)}</div> : <p className="text-sm text-muted-foreground">{t('learningPaths.noAssignments' as never)}</p>}</div>}</div>;
+  const canSelectAudience = !selected || selected.status !== 'archived';
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <h3 className="text-lg font-semibold">{t('learningPaths.stage.audience' as never)}</h3>
+        <p className="mt-1 text-sm text-muted-foreground">{t('learningPaths.audienceBuilderHint' as never)}</p>
+      </div>
+      {!published && (
+        <div className="flex gap-3 rounded-md border border-primary/25 bg-primary/5 p-4 text-sm text-foreground">
+          <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+          <span>{t('learningPaths.assignmentAfterPublishHint' as never)}</span>
+        </div>
+      )}
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
+        <div className="min-w-0">
+          <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4" role="tablist">
+            {AUDIENCE_TABS.map((tab) => (
+              <button
+                key={tab}
+                type="button"
+                role="tab"
+                aria-selected={audienceTab === tab}
+                onClick={() => {
+                  setAudienceTab(tab);
+                  setSearch('');
+                }}
+                className={`rounded-md border px-3 py-2 text-sm ${
+                  audienceTab === tab
+                    ? 'border-primary bg-primary/5 text-primary'
+                    : 'border-border text-muted-foreground'
+                }`}
+              >
+                {t(`learningPaths.audience.${tab}` as never)}
+              </button>
+            ))}
+          </div>
+          <div className="relative mb-3">
+            <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" aria-hidden="true" />
+            <Input
+              className="pl-9"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder={t('learningPaths.searchAudience' as never)}
+              aria-label={t('learningPaths.searchAudience' as never)}
+              disabled={!canSelectAudience}
+            />
+          </div>
+          <div className="max-h-[320px] space-y-2 overflow-y-auto pr-1">
+            {options.map((option) => (
+              <label
+                key={option.id}
+                className={`flex min-w-0 items-center gap-3 rounded-md border p-3 ${
+                  canSelectAudience ? 'cursor-pointer hover:bg-muted/40' : 'cursor-not-allowed opacity-60'
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedIds.includes(option.id)}
+                  onChange={() => onToggle(option.id)}
+                  disabled={!canSelectAudience}
+                />
+                <span className="min-w-0 truncate text-sm" title={optionLabel(option)}>
+                  {optionLabel(option)}
+                </span>
+              </label>
+            ))}
+            {!options.length && (
+              <p className="py-6 text-sm text-muted-foreground">{t('learningPaths.noAudience' as never)}</p>
+            )}
+          </div>
+        </div>
+        <aside className="rounded-md border p-4">
+          <h4 className="font-medium">{t('learningPaths.assignmentSettings' as never)}</h4>
+          <div className="mt-4 space-y-3">
+            <label className="block space-y-1 text-sm">
+              {t('learningPaths.startsAt' as never)}
+              <Input
+                type="date"
+                value={startsAt}
+                onChange={(event) => setStartsAt(event.target.value)}
+                disabled={!canSelectAudience}
+              />
+            </label>
+            <label className="block space-y-1 text-sm">
+              {t('learningPaths.dueAt' as never)}
+              <Input
+                type="date"
+                value={dueAt}
+                onChange={(event) => setDueAt(event.target.value)}
+                disabled={!canSelectAudience}
+              />
+            </label>
+          </div>
+          <p className="mt-4 text-sm text-muted-foreground">
+            {t('learningPaths.selectedAudience' as never, { count: totalSelected })}
+          </p>
+          {published ? (
+            <Button
+              className="mt-4 w-full gap-2"
+              onClick={onAssign}
+              disabled={saving || totalSelected === 0}
+            >
+              <Send className="h-4 w-4" aria-hidden="true" />
+              {t('learningPaths.assign' as never)}
+            </Button>
+          ) : (
+            <p className="mt-4 rounded-md bg-muted/50 p-3 text-xs text-muted-foreground">
+              {t('learningPaths.assignmentQueuedHint' as never)}
+            </p>
+          )}
+        </aside>
+      </div>
+      {published && (
+        <div className="border-t pt-5">
+          <h4 className="mb-3 font-medium">{t('learningPaths.currentAssignments' as never)}</h4>
+          {assignments.length ? (
+            <div className="space-y-2">
+              {assignments.map((assignment) => (
+                <div
+                  key={assignment.id}
+                  className="flex flex-col gap-3 rounded-md border p-3 text-sm sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div className="min-w-0">
+                    <div className="truncate font-medium">
+                      {assignment.user_name || assignment.user_email || assignment.user_id || assignment.id}
+                    </div>
+                    {assignment.user_name && assignment.user_email && (
+                      <div className="truncate text-xs text-muted-foreground">{assignment.user_email}</div>
+                    )}
+                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                      <Badge variant={assignment.status === 'active' ? 'default' : 'secondary'}>
+                        {t(`learningPaths.assignmentStatus.${assignment.status || 'active'}` as never)}
+                      </Badge>
+                      {assignment.due_at && (
+                        <span>{t('learningPaths.until' as never)} {dateLabel(assignment.due_at)}</span>
+                      )}
+                    </div>
+                  </div>
+                  {assignment.status === 'active' && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => onCancel(assignment.id)}
+                      disabled={saving}
+                    >
+                      {t('learningPaths.cancelAssignment' as never)}
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">{t('learningPaths.noAssignments' as never)}</p>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function ReviewStage({ selected, title, description, sequencingMode, steps, totalSelectedAudience, canPublish, onPublish, saving, t }: { selected: PathDetail | null; title: string; description: string; sequencingMode: SequencingMode; steps: CourseStep[]; totalSelectedAudience: number; canPublish: boolean; onPublish: () => void; saving: boolean; t: (key: never, params?: Record<string, string | number>) => string }) {
   const checks = [{ label: t('learningPaths.validation.name' as never), valid: Boolean(title.trim()) }, { label: t('learningPaths.validation.courses' as never), valid: steps.length > 0 }, { label: t('learningPaths.validationRequired' as never), valid: steps.some((step) => step.required) }, { label: t('learningPaths.validation.order' as never), valid: steps.length > 0 }];
-  return <div className="space-y-6"><div><h3 className="text-lg font-semibold">{t('learningPaths.stage.review' as never)}</h3><p className="mt-1 text-sm text-muted-foreground">{t('learningPaths.reviewHint' as never)}</p></div><div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]"><div className="space-y-4"><div><p className="text-sm text-muted-foreground">{t('learningPaths.name' as never)}</p><p className="font-medium">{title || t('learningPaths.notSet' as never)}</p></div><div><p className="text-sm text-muted-foreground">{t('learningPaths.purpose' as never)}</p><p>{description || t('learningPaths.notSet' as never)}</p></div><div><p className="text-sm text-muted-foreground">{t('learningPaths.sequencingMode' as never)}</p><p>{t(`learningPaths.${sequencingMode === 'linear' ? 'sequential' : 'freeOrder'}` as never)}</p></div><div><p className="text-sm text-muted-foreground">{t('learningPaths.sequence' as never)}</p><ol className="mt-2 space-y-2">{steps.map((step, index) => <li key={step.course_id} className="flex items-center gap-3 rounded-md border p-3"><span className="font-semibold text-primary">{index + 1}</span><span className="min-w-0 truncate">{step.title}</span><span className="ml-auto text-xs text-muted-foreground">{step.required ? t('learningPaths.required' as never) : t('learningPaths.optional' as never)}</span></li>)}</ol></div></div><aside className="rounded-md border p-4"><h4 className="font-medium">{t('learningPaths.readyToPublish' as never)}</h4><ul className="mt-3 space-y-3 text-sm">{checks.map((check) => <li key={check.label} className="flex items-center gap-2">{check.valid ? <CheckCircle2 className="h-4 w-4 text-green-600" aria-hidden="true" /> : <Circle className="h-4 w-4 text-muted-foreground" aria-hidden="true" />}<span>{check.label}</span></li>)}<li className="flex items-center gap-2 text-muted-foreground"><Users className="h-4 w-4" aria-hidden="true" />{t('learningPaths.selectedAudience' as never, { count: totalSelectedAudience })}</li></ul>{selected?.status === 'published' ? <p className="mt-5 text-sm text-muted-foreground">{t('learningPaths.publishedImmutable' as never)}</p> : <Button className="mt-5 w-full gap-2" onClick={onPublish} disabled={!canPublish || saving}><Send className="h-4 w-4" aria-hidden="true" />{t('learningPaths.publish' as never)}</Button>}</aside></div></div>;
+  const publishLabel = totalSelectedAudience > 0
+    ? t('learningPaths.publishAndAssign' as never)
+    : t('learningPaths.publish' as never);
+  return <div className="space-y-6"><div><h3 className="text-lg font-semibold">{t('learningPaths.stage.review' as never)}</h3><p className="mt-1 text-sm text-muted-foreground">{t('learningPaths.reviewHint' as never)}</p></div><div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]"><div className="space-y-4"><div><p className="text-sm text-muted-foreground">{t('learningPaths.name' as never)}</p><p className="font-medium">{title || t('learningPaths.notSet' as never)}</p></div><div><p className="text-sm text-muted-foreground">{t('learningPaths.purpose' as never)}</p><p>{description || t('learningPaths.notSet' as never)}</p></div><div><p className="text-sm text-muted-foreground">{t('learningPaths.sequencingMode' as never)}</p><p>{t(`learningPaths.${sequencingMode === 'linear' ? 'sequential' : 'freeOrder'}` as never)}</p></div><div><p className="text-sm text-muted-foreground">{t('learningPaths.sequence' as never)}</p><ol className="mt-2 space-y-2">{steps.map((step, index) => <li key={step.course_id} className="flex items-center gap-3 rounded-md border p-3"><span className="font-semibold text-primary">{index + 1}</span><span className="min-w-0 truncate">{step.title}</span><span className="ml-auto text-xs text-muted-foreground">{step.required ? t('learningPaths.required' as never) : t('learningPaths.optional' as never)}</span></li>)}</ol></div></div><aside className="rounded-md border p-4"><h4 className="font-medium">{t('learningPaths.readyToPublish' as never)}</h4><ul className="mt-3 space-y-3 text-sm">{checks.map((check) => <li key={check.label} className="flex items-center gap-2">{check.valid ? <CheckCircle2 className="h-4 w-4 text-green-600" aria-hidden="true" /> : <Circle className="h-4 w-4 text-muted-foreground" aria-hidden="true" />}<span>{check.label}</span></li>)}<li className="flex items-center gap-2 text-muted-foreground"><Users className="h-4 w-4" aria-hidden="true" />{t('learningPaths.selectedAudience' as never, { count: totalSelectedAudience })}</li></ul>{selected?.status === 'published' ? <p className="mt-5 text-sm text-muted-foreground">{t('learningPaths.publishedImmutable' as never)}</p> : <Button className="mt-5 w-full gap-2" onClick={onPublish} disabled={!canPublish || saving}><Send className="h-4 w-4" aria-hidden="true" />{publishLabel}</Button>}</aside></div></div>;
 }
 
 function LearnerView({ programs, t }: { programs: LearnerProgram[]; t: (key: never, params?: Record<string, string | number>) => string }) {

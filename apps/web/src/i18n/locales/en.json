@@ -250,6 +250,12 @@
     "title": "Competency matrix", "subtitle": "Link competencies to positions and courses", "new": "New competency", "name": "Name", "namePlaceholder": "For example, customer focus", "description": "Description", "descriptionPlaceholder": "What should the employee be able to do?", "positions": "Positions", "courses": "Courses", "create": "Create", "save": "Save", "empty": "No competencies yet", "created": "Competency created", "saved": "Matrix saved", "loadFailed": "Could not load the matrix", "saveFailed": "Could not save", "forbidden": "This section is available to methodologists and administrators"
   },
   "learningPaths": {
+    "audienceBuilderHint": "Select the people or groups who should receive this program",
+    "assignmentAfterPublishHint": "Select people or groups now. Assignments will be created immediately after the program is published.",
+    "assignmentQueuedHint": "The selected audience will be assigned during publication.",
+    "publishAndAssign": "Publish and assign",
+    "publishedAndAssigned": "Program published and assigned",
+    "publishedButAssignmentFailed": "Program was published, but assignment failed",
     "assignmentStatus": { "active": "Active", "completed": "Completed", "cancelled": "Cancelled" },
     "validationRequired": "At least one required course is added",
     "cancelConfirmTitle": "Cancel this program assignment?",
