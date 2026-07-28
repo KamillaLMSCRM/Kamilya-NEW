@@ -392,6 +392,7 @@ API изменения course links отклоняет, endpoints apply/progress
 0076 правила обучения на уровне организации
 0077 employment profile сотрудника
 0078 tenant guard назначений программ обучения
+0079 нормализация legacy-отделов из текстовых значений должностей
 ```
 
 Перед production deploy:

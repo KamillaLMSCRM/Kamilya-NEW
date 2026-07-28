@@ -486,7 +486,9 @@ async def _list_tenant_departments(
     this endpoint is the rare batch operation.
     """
     result = await db.execute(
-        select(Department).where(Department.tenant_id == tenant_id)
+        select(Department)
+        .where(Department.tenant_id == tenant_id)
+        .order_by(func.lower(Department.name), Department.id)
     )
     return list(result.scalars().all())
 
