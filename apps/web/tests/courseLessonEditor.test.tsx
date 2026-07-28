@@ -114,7 +114,8 @@ describe('course lesson editor', () => {
 
     const dialog = await screen.findByRole('dialog', { name: 'Редактирование урока' });
     expect(dialog.className).toContain('max-w-5xl');
-    expect(dialog.className).toContain('overflow-y-auto');
+    expect(dialog.className).toContain('overflow-hidden');
+    expect(dialog.className).toContain('flex-col');
     expect(fetchMock).toHaveBeenCalledWith(
       expect.stringContaining('/v1/lessons/lesson-1'),
       expect.objectContaining({ method: 'GET' }),
@@ -122,6 +123,8 @@ describe('course lesson editor', () => {
     const contentEditor = within(dialog).getByRole('textbox', { name: 'Содержание урока' });
     expect(contentEditor.className).toContain('text-base');
     expect(contentEditor.className).toContain('leading-7');
+    expect(contentEditor.className).toContain('flex-1');
+    expect(contentEditor.className).toContain('resize-none');
     expect(contentEditor.className).not.toContain('font-mono');
 
     fireEvent.change(within(dialog).getByRole('textbox', { name: 'Название урока' }), {

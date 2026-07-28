@@ -514,10 +514,10 @@ export default function CourseEditPage() {
         title="Редактирование урока"
         description="Измените название и содержание. Форматирование Markdown сохранится."
         dismissable={false}
-        className="max-h-[calc(100dvh-1.5rem)] w-[calc(100%-1.5rem)] max-w-5xl overscroll-contain overflow-y-auto p-5 sm:p-6"
+        className="flex h-[calc(100dvh-1rem)] max-h-[900px] w-[calc(100%-1rem)] max-w-5xl flex-col overflow-hidden p-4 sm:h-[calc(100dvh-1.5rem)] sm:w-[calc(100%-1.5rem)] sm:p-6"
       >
-        <div className="space-y-5">
-          <label className="block space-y-2">
+        <div className="flex min-h-0 flex-1 flex-col gap-4">
+          <label className="block shrink-0 space-y-2">
             <span className="text-sm font-medium text-foreground">Название урока</span>
             <Input
               value={editLessonTitle}
@@ -527,18 +527,18 @@ export default function CourseEditPage() {
               placeholder="Например, Введение в информационную безопасность…"
             />
           </label>
-          <label className="block space-y-2">
+          <label className="flex min-h-0 flex-1 flex-col gap-2">
             <span className="text-sm font-medium text-foreground">Содержание урока</span>
             <textarea
               value={editLessonContent}
               onChange={(event) => setEditLessonContent(event.target.value)}
               name="lesson-content"
               autoComplete="off"
-              className="min-h-[52vh] w-full resize-y rounded-md border border-input bg-background px-4 py-3 text-base leading-7 text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20"
+              className="min-h-[180px] w-full flex-1 resize-none rounded-md border border-input bg-background px-4 py-3 text-base leading-7 text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20"
               placeholder="Введите содержание урока…"
             />
           </label>
-          <div className="flex flex-col-reverse gap-2 border-t border-border pt-4 sm:flex-row sm:justify-end">
+          <div className="flex shrink-0 flex-col-reverse gap-2 border-t border-border bg-background pt-4 sm:flex-row sm:justify-end">
             <Button
               variant="outline"
               onClick={() => setEditingLessonId(null)}
