@@ -38,6 +38,7 @@ def upgrade() -> None:
             '',
             NULL
         FROM positions AS p
+        JOIN tenants AS t ON t.id = p.tenant_id
         WHERE p.department IS NOT NULL
           AND trim(p.department) <> ''
         GROUP BY p.tenant_id, lower(trim(p.department))

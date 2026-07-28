@@ -14,5 +14,6 @@ def test_department_repair_migration_normalizes_legacy_positions():
     assert 'down_revision = "0078"' in content
     assert "ON CONFLICT (tenant_id, slug) DO NOTHING" in content
     assert "lower(trim(p.department))" in content
+    assert "JOIN tenants AS t ON t.id = p.tenant_id" in content
     assert "department_id = d.id" in content
     assert "d.tenant_id = p.tenant_id" in content
