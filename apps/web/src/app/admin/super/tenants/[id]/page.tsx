@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Card, CardHeader, CardTitle, CardContent, Button, Badge, Table, Modal, Input } from '@/components/ui';
+import { Card, CardHeader, CardTitle, CardContent, Button, Badge, Table, Modal, DateInput, Input } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
 import { toast } from '@/components/ui/Toast';
@@ -601,20 +601,20 @@ export default function TenantDetailPage({ params }: { params: { id: string } })
               <label className="block text-sm font-medium mb-1">
                 {t('superadmin.tenants.subscription.trialEndsAt')}
               </label>
-              <Input
-                type="date"
+              <DateInput
                 value={editForm.trial_ends_at || ''}
-                onChange={(e) => setEditForm({ ...editForm, trial_ends_at: e.target.value })}
+                onChange={(value) => setEditForm({ ...editForm, trial_ends_at: value })}
+                aria-label={t('superadmin.tenants.subscription.trialEndsAt')}
               />
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">
                 {t('superadmin.tenants.subscription.paidUntil')}
               </label>
-              <Input
-                type="date"
+              <DateInput
                 value={editForm.paid_until || ''}
-                onChange={(e) => setEditForm({ ...editForm, paid_until: e.target.value })}
+                onChange={(value) => setEditForm({ ...editForm, paid_until: value })}
+                aria-label={t('superadmin.tenants.subscription.paidUntil')}
               />
             </div>
             <div>

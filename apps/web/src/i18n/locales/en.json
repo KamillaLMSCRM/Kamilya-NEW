@@ -45,6 +45,11 @@
     "tryLater": "Try again later",
     "minutes": "min",
     "hours": "h",
+    "date": {
+      "placeholder": "dd/mm/yyyy",
+      "select": "Choose date",
+      "invalid": "Enter a valid date in dd/mm/yyyy format"
+    },
     "counts": {
       "lesson": { "one": "{count} lesson", "few": "{count} lessons", "many": "{count} lessons", "other": "{count} lessons" },
       "lessonTotal": { "one": "{count} lesson", "few": "{count} lessons", "many": "{count} lessons", "other": "{count} lessons" },

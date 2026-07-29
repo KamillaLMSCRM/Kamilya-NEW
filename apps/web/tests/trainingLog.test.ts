@@ -36,14 +36,19 @@ describe('training-log responsive presentation', () => {
     );
 
     expect(source).toContain('data-testid="training-log-mobile-list"');
-    expect(source).toContain('md:hidden');
-    expect(source).toContain('hidden overflow-x-auto md:block');
+    expect(source).toContain('lg:hidden');
+    expect(source).toContain('tableClassName="w-max min-w-[1740px]"');
+    expect(source).toContain('training-log-table-scroll');
     expect(source).toContain('sticky top-0');
+    expect(TRAINING_LOG_COLUMN_CLASS.fullName).toContain('sticky left-0');
   });
 
-  it('uses one named visibility contract for table headers and cells', () => {
-    const tabletColumns = ['fullName', 'course', 'status', 'progress'] as const;
-    const desktopOnlyColumns = [
+  it('uses one named width contract for table headers and cells', () => {
+    const columns = [
+      'fullName',
+      'course',
+      'status',
+      'progress',
       'personnelNumber',
       'department',
       'position',
@@ -54,12 +59,9 @@ describe('training-log responsive presentation', () => {
       'certificate',
     ] as const;
 
-    tabletColumns.forEach((column) => {
+    columns.forEach((column) => {
+      expect(TRAINING_LOG_COLUMN_CLASS[column]).toContain('min-w-');
       expect(TRAINING_LOG_COLUMN_CLASS[column]).not.toContain('hidden');
-    });
-    desktopOnlyColumns.forEach((column) => {
-      expect(TRAINING_LOG_COLUMN_CLASS[column]).toContain('hidden');
-      expect(TRAINING_LOG_COLUMN_CLASS[column]).toContain('lg:table-cell');
     });
 
     const source = fs.readFileSync(

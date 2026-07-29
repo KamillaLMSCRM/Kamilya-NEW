@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
-import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Input, Modal, Table } from '@/components/ui';
+import { Badge, Button, Card, CardContent, CardHeader, CardTitle, DateInput, Input, Modal, Table } from '@/components/ui';
 import { toast } from '@/components/ui/Toast';
 import { useT } from '@/i18n/useT';
 import { useAuthStore } from '@/store/authStore';
@@ -653,10 +653,10 @@ export default function SuperAdminTenants() {
                 <div className="grid grid-cols-3 gap-3">
                   <div>
                     <label className="block text-sm font-medium mb-1">Окончание trial</label>
-                    <Input
-                      type="date"
+                    <DateInput
                       value={form.trial_ends_at}
-                      onChange={(e) => setForm({ ...form, trial_ends_at: e.target.value })}
+                      onChange={(value) => setForm({ ...form, trial_ends_at: value })}
+                      aria-label="Окончание trial"
                     />
                   </div>
                   <div>

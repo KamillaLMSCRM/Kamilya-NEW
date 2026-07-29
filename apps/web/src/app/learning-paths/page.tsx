@@ -22,7 +22,7 @@ import {
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
-import { Badge, Button, Card, CardContent, Input } from '@/components/ui';
+import { Badge, Button, Card, CardContent, DateInput, Input } from '@/components/ui';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { toast } from '@/components/ui/Toast';
 
@@ -615,19 +615,17 @@ function AudienceStage({ selected, audienceTab, setAudienceTab, options, selecte
           <div className="mt-4 space-y-3">
             <label className="block space-y-1 text-sm">
               {t('learningPaths.startsAt' as never)}
-              <Input
-                type="date"
+              <DateInput
                 value={startsAt}
-                onChange={(event) => setStartsAt(event.target.value)}
+                onChange={setStartsAt}
                 disabled={!canSelectAudience}
               />
             </label>
             <label className="block space-y-1 text-sm">
               {t('learningPaths.dueAt' as never)}
-              <Input
-                type="date"
+              <DateInput
                 value={dueAt}
-                onChange={(event) => setDueAt(event.target.value)}
+                onChange={setDueAt}
                 disabled={!canSelectAudience}
               />
             </label>

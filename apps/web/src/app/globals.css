@@ -88,6 +88,27 @@
   background: hsl(var(--muted-foreground));
 }
 
+/* Wide operational tables need an obvious horizontal affordance on Windows. */
+.training-log-table-scroll {
+  max-height: 60vh;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: auto;
+  scrollbar-color: hsl(var(--muted-foreground) / 0.6) hsl(var(--muted));
+  scrollbar-gutter: stable;
+}
+.training-log-table-scroll::-webkit-scrollbar {
+  height: 10px;
+}
+.training-log-table-scroll::-webkit-scrollbar-track {
+  background: hsl(var(--muted));
+}
+.training-log-table-scroll::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.6);
+  border: 2px solid hsl(var(--muted));
+  border-radius: 999px;
+}
+
 /* Grain texture overlay */
 .grain::before {
   content: '';

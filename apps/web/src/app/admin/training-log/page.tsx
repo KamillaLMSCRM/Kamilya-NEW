@@ -11,6 +11,7 @@ import {
   Badge,
   Table,
   Input,
+  DateInput,
 } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
@@ -343,7 +344,7 @@ export default function AdminTrainingLogPage() {
             </div>
           ) : (
             <>
-              <div className="divide-y divide-border md:hidden" data-testid="training-log-mobile-list">
+              <div className="divide-y divide-border lg:hidden" data-testid="training-log-mobile-list">
                 {items.map((row, idx) => {
                   const sourceInfo = getAssignmentSourceInfo(row.enrollment_source);
                   return (
@@ -365,8 +366,10 @@ export default function AdminTrainingLogPage() {
                   );
                 })}
               </div>
-              <div className="hidden overflow-x-auto md:block">
-              <Table>
+              <Table
+                className="training-log-table-scroll hidden max-w-full rounded-none border-0 lg:block"
+                tableClassName="w-max min-w-[1740px]"
+              >
                 <thead className="sticky top-0 z-10 bg-card">
                   <tr className="text-left text-xs font-medium text-muted-foreground">
                     <th className={columnClass.fullName}>{t('trainingLog.table.fullName')}</th>
@@ -402,7 +405,8 @@ export default function AdminTrainingLogPage() {
                       <td className={columnClass.course}>
                         <button
                           type="button"
-                          className="text-left text-sm text-primary hover:underline"
+                          className="line-clamp-3 text-left text-sm text-primary hover:underline"
+                          title={row.course_title}
                           onClick={() => router.push(`/courses/${row.course_id}`)}
                         >
                           {row.course_title}
@@ -459,7 +463,6 @@ export default function AdminTrainingLogPage() {
                   })}
                 </tbody>
               </Table>
-            </div>
             </>
           )}
         </CardContent>
@@ -515,10 +518,10 @@ function DateField(props: {
       <label className="block text-xs font-medium text-muted-foreground mb-1">
         {props.label}
       </label>
-      <Input
-        type="date"
+      <DateInput
         value={props.value}
-        onChange={(e) => props.onChange(e.target.value)}
+        onChange={props.onChange}
+        aria-label={props.label}
       />
     </div>
   );

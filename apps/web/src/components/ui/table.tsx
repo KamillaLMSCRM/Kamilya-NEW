@@ -10,15 +10,16 @@ interface TypedTableProps {
 interface ChildrenTableProps {
   children: React.ReactNode;
   className?: string;
+  tableClassName?: string;
 }
 
 export function Table({ columns, data, onRowClick }: TypedTableProps): JSX.Element;
-export function Table({ children, className }: ChildrenTableProps): JSX.Element;
-export function Table({ columns, data, onRowClick, children, className }: any) {
+export function Table({ children, className, tableClassName }: ChildrenTableProps): JSX.Element;
+export function Table({ columns, data, onRowClick, children, className, tableClassName }: any) {
   if (children) {
     return (
       <div className={cn('overflow-x-auto rounded-md border', className)}>
-        <table className="min-w-full divide-y divide-border">
+        <table className={cn('min-w-full divide-y divide-border', tableClassName)}>
           {children}
         </table>
       </div>

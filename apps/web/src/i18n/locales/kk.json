@@ -45,6 +45,11 @@
     "tryLater": "Кейінірек көріңіз",
     "minutes": "мин",
     "hours": "сағ",
+    "date": {
+      "placeholder": "кк/аа/жжжж",
+      "select": "Күнді таңдау",
+      "invalid": "Күнді кк/аа/жжжж форматында дұрыс енгізіңіз"
+    },
     "counts": {
       "lesson": { "one": "{count} сабақ", "few": "{count} сабақ", "many": "{count} сабақ", "other": "{count} сабақ" },
       "lessonTotal": { "one": "{count} сабақ", "few": "{count} сабақ", "many": "{count} сабақ", "other": "{count} сабақ" },

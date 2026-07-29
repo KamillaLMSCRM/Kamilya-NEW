@@ -45,6 +45,11 @@
     "tryLater": "Попробуйте позже",
     "minutes": "мин",
     "hours": "ч",
+    "date": {
+      "placeholder": "дд/мм/гггг",
+      "select": "Выбрать дату",
+      "invalid": "Введите корректную дату в формате дд/мм/гггг"
+    },
     "counts": {
       "lesson": { "one": "{count} урок", "few": "{count} урока", "many": "{count} уроков", "other": "{count} урока" },
       "lessonTotal": { "one": "{count} урока", "few": "{count} уроков", "many": "{count} уроков", "other": "{count} уроков" },
