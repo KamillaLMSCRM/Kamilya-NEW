@@ -8,7 +8,7 @@ import { useT } from '@/i18n/useT';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { toast } from '@/components/ui/Toast';
 import { api } from '@/lib/api';
-import { MoreVertical, Trash2 } from 'lucide-react';
+import { GraduationCap, MoreVertical, Trash2 } from 'lucide-react';
 import { LoadError } from '@/components/ui/LoadError';
 
 export default function CoursesPage() {
@@ -370,7 +370,17 @@ export default function CoursesPage() {
                 )}
 
                 {canManage && (
-                  <div className="mt-4 grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_44px] items-center gap-2">
+                  <>
+                    {course.status === 'published' && (
+                      <Link
+                        href={`/assignments?course_id=${course.id}`}
+                        className="mt-4 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+                      >
+                        <GraduationCap className="h-4 w-4" aria-hidden="true" />
+                        Назначить сотрудникам
+                      </Link>
+                    )}
+                    <div className="mt-2 grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_44px] items-center gap-2">
                     <Link
                       href={`/courses/${course.id}/edit`}
                       className="flex min-h-11 items-center justify-center rounded-xl border border-border px-3 py-2 text-center text-xs font-medium text-muted-foreground transition-colors hover:border-border hover:text-foreground"
@@ -409,6 +419,7 @@ export default function CoursesPage() {
                       </div>
                     </details>
                   </div>
+                  </>
                 )}
               </div>
             </article>

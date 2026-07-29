@@ -44,17 +44,36 @@ describe('route and capability registry', () => {
     expect(hrefs).not.toContain('/admin/invitations');
     expect(hrefs).not.toContain('/admin/training-log');
     expect(hrefs).not.toContain('/admin/quizzes/assign');
-    expect(hrefs).toContain('/quizzes?section=assignments');
+    expect(ROUTES.some((route) => route.id === 'quiz-assignments')).toBe(false);
+    expect(hrefs).not.toContain('/quizzes?section=assignments');
   });
 
-  it('puts the methodologist dashboard first and learner invitations in workforce', () => {
+  it('keeps contextual workforce tools out of global navigation', () => {
     const routes = getNavigationRoutes('methodologist', 'sidebar');
     expect(routes[0].href).toBe('/dashboard');
-    expect(routes.find(({ id }) => id === 'invitations')).toMatchObject({
-      href: '/invitations',
-      section: 'workforce',
-    });
+    const hiddenContextualRoutes = [
+      'competencies',
+      'training-rules',
+      'invitations',
+      'course-assignments',
+    ];
+    expect(routes.map(({ id }) => id)).not.toEqual(expect.arrayContaining(hiddenContextualRoutes));
+    expect(getNavigationRoutes('methodologist', 'commandPalette').map(({ id }) => id))
+      .not.toEqual(expect.arrayContaining(hiddenContextualRoutes));
     expect(getNavigationRoutes('admin', 'sidebar').some(({ id }) => id === 'invitations')).toBe(false);
+  });
+
+  it('keeps hidden contextual routes reachable through their capabilities', () => {
+    const contextualRoutes = [
+      ['competencies', '/competencies'],
+      ['training-rules', '/training-rules'],
+      ['invitations', '/invitations'],
+      ['course-assignments', '/assignments'],
+    ] as const;
+
+    for (const [, pathname] of contextualRoutes) {
+      expect(canAccessRegisteredRoute('methodologist', pathname)).toBe(true);
+    }
   });
 
   it('exposes a common profile to every authenticated working mode', () => {

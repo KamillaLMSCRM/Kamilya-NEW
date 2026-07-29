@@ -1,6 +1,20 @@
 from uuid import uuid4
-from sqlalchemy import Column, Text, BigInteger, Boolean, TIMESTAMP, Date, DateTime, CheckConstraint, Index, ForeignKey, func
+
+from sqlalchemy import (
+    TIMESTAMP,
+    BigInteger,
+    Boolean,
+    CheckConstraint,
+    Column,
+    Date,
+    DateTime,
+    ForeignKey,
+    Index,
+    Text,
+    func,
+)
 from sqlalchemy.dialects.postgresql import UUID
+
 from app.core.db import Base
 
 # Force positions table to be loaded before User resolves ForeignKey("positions.id")
@@ -33,6 +47,11 @@ class User(Base):
     @property
     def roles(self) -> list[str]:
         return [self.role]
+
+    @property
+    def has_login_access(self) -> bool:
+        """Whether the user has a password or Telegram login configured."""
+        return bool(self.password_hash) or self.telegram_id is not None
 
     __table_args__ = (
         CheckConstraint("status IN ('active', 'inactive', 'banned')", name="ck_user_status"),

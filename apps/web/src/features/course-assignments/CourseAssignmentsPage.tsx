@@ -1,6 +1,8 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { Copy, KeyRound } from 'lucide-react';
 import {
   Card,
   CardContent,
@@ -31,6 +33,7 @@ interface User {
   // для лучшего UX в поиске.
   personnel_number?: string | null;
   position_name?: string | null;
+  has_login_access?: boolean;
 }
 
 interface Enrollment {
@@ -40,6 +43,11 @@ interface Enrollment {
   status: string; // 'enrolled' | 'in_progress' | 'completed'
   source: 'manual' | 'position' | 'department' | string;
   enrolled_at: string;
+}
+
+interface AccessLink {
+  email: string;
+  invite_url: string;
 }
 
 // UI-фильтры по статусу (frontend-side, потому что /courses/{id}/enrollments
@@ -88,6 +96,9 @@ export default function EnrollmentsPage() {
   const [loading, setLoading] = useState(true);
   const [enrolling, setEnrolling] = useState(false);
   const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
+  const [accessLinks, setAccessLinks] = useState<AccessLink[]>([]);
+  const searchParams = useSearchParams();
+  const preselectionApplied = useRef(false);
   const token = useAuthStore((s) => s.accessToken);
   const userRole = useAuthStore((s) => s.user?.role);
   const canManageAssignments = userRole === 'methodologist';
@@ -114,7 +125,7 @@ export default function EnrollmentsPage() {
       ]);
       if (coursesRes.ok) {
         const data = await coursesRes.json();
-        setCourses(Array.isArray(data) ? data : []);
+        setCourses(Array.isArray(data) ? data.filter((course) => course.status === 'published') : []);
       }
       if (usersRes.ok) {
         const data = await usersRes.json();
@@ -129,7 +140,7 @@ export default function EnrollmentsPage() {
     fetchData();
   }, [fetchData]);
 
-  const fetchEnrollments = async (courseId: string) => {
+  const fetchEnrollments = useCallback(async (courseId: string) => {
     setSelectedCourse(courseId);
     setSelectedUsers(new Set());
     setStatusFilter('all'); // сброс при смене курса
@@ -138,10 +149,44 @@ export default function EnrollmentsPage() {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (res.ok) setEnrollments(await res.json());
-  };
+  }, [API_URL, token]);
+
+  useEffect(() => {
+    if (loading || preselectionApplied.current) return;
+    const courseId = searchParams.get('course_id') || searchParams.get('course');
+    const userId = searchParams.get('user_id') || searchParams.get('user');
+    if (courseId && courses.some((course) => course.id === courseId)) {
+      void fetchEnrollments(courseId);
+    }
+    if (userId && users.some((user) => user.id === userId)) {
+      setSelectedUsers(new Set([userId]));
+      const user = users.find((item) => item.id === userId);
+      setUserSearch(user ? `${user.first_name} ${user.last_name}`.trim() : '');
+    }
+    preselectionApplied.current = true;
+  }, [courses, fetchEnrollments, loading, searchParams, users]);
 
   const handleEnroll = async () => {
     if (!selectedCourse || selectedUsers.size === 0) return;
+    const selected = users.filter((user) => selectedUsers.has(user.id));
+    const course = courses.find((item) => item.id === selectedCourse);
+    const withoutAccess = selected.filter((user) => user.has_login_access === false);
+    const withoutEmail = withoutAccess.filter((user) => !user.email);
+    const ok = await confirm({
+      title: 'Назначить обучение?',
+      message: [
+        `${course?.title || 'Выбранный курс'} получат ${tp('common.counts.learner', selected.length)}.`,
+        withoutAccess.length > 0
+          ? `Для ${tp('common.counts.learner', withoutAccess.length)} без настроенного входа будут подготовлены ссылки активации.`
+          : '',
+        withoutEmail.length > 0
+          ? `${tp('common.counts.learner', withoutEmail.length)} без email получат курс, но способ входа нужно настроить отдельно.`
+          : '',
+      ].filter(Boolean).join(' '),
+      variant: 'info',
+      confirmLabel: 'Назначить',
+    });
+    if (!ok) return;
     setEnrolling(true);
     try {
       const res = await fetch(`${API_URL}/v1/courses/${selectedCourse}/enrollments`, {
@@ -161,6 +206,80 @@ export default function EnrollmentsPage() {
         toast.success(`Назначено: ${tp('common.counts.learner', created.length)}`);
       } else {
         toast.info('Новых назначений нет: выбранные обучающиеся уже назначены или недоступны');
+      }
+
+      const emailsForAccess = withoutAccess
+        .map((user) => user.email?.trim().toLowerCase())
+        .filter((email): email is string => Boolean(email));
+      if (emailsForAccess.length > 0) {
+        try {
+          const invitationRes = await fetch(`${API_URL}/v1/users/invitations/bulk`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              items: emailsForAccess.map((email) => ({ email })),
+            }),
+          });
+          if (!invitationRes.ok) {
+            const err = await invitationRes.json().catch(() => ({}));
+            throw new Error(err?.detail || 'Не удалось подготовить ссылки доступа');
+          }
+          const invitations = await invitationRes.json();
+          const nextAccessLinks: AccessLink[] = (invitations.created || []).map(
+            (item: AccessLink) => ({
+              email: item.email,
+              invite_url: item.invite_url,
+            }),
+          );
+          const pendingEmails = new Set<string>(
+            (invitations.skipped_existing || [])
+              .filter((item: { reason?: string }) => item.reason === 'pending_invite_exists')
+              .map((item: { email: string }) => item.email),
+          );
+          if (pendingEmails.size > 0) {
+            const listRes = await fetch(`${API_URL}/v1/users/invitations?per_page=100`, {
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            if (listRes.ok) {
+              const invitationList = await listRes.json();
+              const pendingRows = (invitationList.items || []).filter(
+                (item: { email: string; status: string }) =>
+                  item.status === 'pending' && pendingEmails.has(item.email.toLowerCase()),
+              );
+              for (const pending of pendingRows) {
+                const resendRes = await fetch(
+                  `${API_URL}/v1/users/invitations/${pending.id}/resend`,
+                  {
+                    method: 'POST',
+                    headers: { Authorization: `Bearer ${token}` },
+                  },
+                );
+                if (resendRes.ok) {
+                  const resent = await resendRes.json();
+                  nextAccessLinks.push({
+                    email: pending.email,
+                    invite_url: resent.invite_url,
+                  });
+                }
+              }
+            }
+          }
+          setAccessLinks(
+            nextAccessLinks,
+          );
+        } catch (invitationError: any) {
+          toast.error('Курс назначен, но ссылки доступа не созданы', {
+            description: invitationError?.message,
+          });
+        }
+      }
+      if (withoutEmail.length > 0) {
+        toast.info('Есть сотрудники без email', {
+          description: 'Курс назначен, но ссылку доступа для них создать нельзя.',
+        });
       }
       setSelectedUsers(new Set());
       await fetchEnrollments(selectedCourse);
@@ -222,8 +341,7 @@ export default function EnrollmentsPage() {
     return m;
   }, [users]);
 
-  // Записи на курс (левая таблица) — фильтруем по статусу и поиску
-  // по ФИО/email/табельному.
+  // Назначения обучения фильтруются по статусу и данным сотрудника.
   const filteredEnrollments = useMemo(() => {
     return enrollments
       .filter((e) => statusFilter === 'all' || e.status === statusFilter)
@@ -248,6 +366,11 @@ export default function EnrollmentsPage() {
     );
   }, [users, userSearch, enrolledUserIds]);
 
+  const copyAccessLink = async (url: string) => {
+    await navigator.clipboard.writeText(url);
+    toast.success('Ссылка доступа скопирована');
+  };
+
   // ── render ────────────────────────────────────────────
 
   if (!canManageAssignments) {
@@ -269,9 +392,40 @@ export default function EnrollmentsPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">
-        Обучающиеся — назначения на курсы
-      </h1>
+      <div>
+        <h1 className="text-2xl font-bold">Назначения обучения</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Выберите опубликованный курс и сотрудников. Назначение тестов отдельно не требуется:
+          тесты уроков становятся доступны вместе с курсом.
+        </p>
+      </div>
+
+      {accessLinks.length > 0 && (
+        <Card className="border-primary/30 bg-primary/5">
+          <CardContent className="space-y-3 p-4">
+            <div className="flex items-start gap-3">
+              <KeyRound className="mt-0.5 h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
+              <div>
+                <h2 className="font-semibold">Ссылки доступа для новых обучающихся</h2>
+                <p className="text-sm text-muted-foreground">
+                  Передайте сотрудникам их персональные ссылки. Назначенный курс уже сохранён.
+                </p>
+              </div>
+            </div>
+            <div className="space-y-2">
+              {accessLinks.map((item) => (
+                <div key={item.email} className="flex flex-col gap-2 rounded-md border border-border bg-background p-3 sm:flex-row sm:items-center">
+                  <span className="min-w-0 flex-1 truncate text-sm font-medium">{item.email}</span>
+                  <Button variant="outline" size="sm" onClick={() => copyAccessLink(item.invite_url)}>
+                    <Copy className="h-4 w-4" aria-hidden="true" />
+                    Скопировать ссылку
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid lg:grid-cols-2 gap-6">
         {/* ── LEFT: course selector + enrolled users ─────── */}
@@ -286,8 +440,12 @@ export default function EnrollmentsPage() {
             />
 
             <select
+              aria-label="Курс для назначения"
               value={selectedCourse}
-              onChange={(e) => fetchEnrollments(e.target.value)}
+              onChange={(e) => {
+                setAccessLinks([]);
+                void fetchEnrollments(e.target.value);
+              }}
               className="w-full border rounded-md px-3 py-2 text-sm"
             >
               <option value="">
@@ -433,7 +591,7 @@ export default function EnrollmentsPage() {
               >
                 {enrolling
                   ? t('common.loading')
-                  : `${t('courses.enrollments')} (${selectedUsers.size})`}
+                  : `Назначить (${selectedUsers.size})`}
               </Button>
             </div>
             <p className="text-sm text-muted-foreground">
@@ -479,6 +637,11 @@ export default function EnrollmentsPage() {
                         {user.email}
                         {user.personnel_number && ` · ${user.personnel_number}`}
                       </div>
+                      {user.has_login_access === false && (
+                        <div className="mt-1 text-xs font-medium text-warning">
+                          После назначения будет создана ссылка доступа
+                        </div>
+                      )}
                     </div>
                   </label>
                 ))

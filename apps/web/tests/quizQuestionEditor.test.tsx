@@ -34,7 +34,6 @@ vi.mock('@/components/ui/ConfirmDialog', () => ({
   useConfirm: () => ({ confirm: vi.fn().mockResolvedValue(false), dialog: null }),
 }));
 vi.mock('@/components/ui/Toast', () => ({ toast: toastMock }));
-vi.mock('@/features/quiz-assignments', () => ({ QuizAssignPanel: () => null }));
 
 import QuizzesAdminPage from '@/app/quizzes/page';
 

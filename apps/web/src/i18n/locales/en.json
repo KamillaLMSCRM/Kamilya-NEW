@@ -279,7 +279,7 @@
     "status": "Status",
     "draft": "Draft",
     "published": "Published",
-    "enrollments": "Enrollments",
+    "enrollments": "Learning assignments",
     "lessons": "Lessons",
     "modules": "Modules",
     "publish": "Publish",
@@ -1085,7 +1085,7 @@
     }
   },
   "quizAssignments": {
-    "navLabel": "Assign quiz",
+    "navLabel": "Course quizzes",
     "title": "Assignments",
     "assignHeading": "Assign to employees",
     "assignDescription": "Pick employees or positions from the list and optionally set a due date. After assignment the quiz will appear in their \"My quizzes\" section.",

@@ -3,9 +3,9 @@
 Phase 1 of employee onboarding epic (docs/plans/employee-onboarding.md).
 
 Key behaviors:
-- Bulk create: dedupe + validate emails, check tenant conflicts, create user_invitations
-  + create pending User rows (is_active=false, no password) so position-courses /
-  enrollments can FK to them
+- Bulk create: dedupe + validate emails, check tenant conflicts, create
+  user_invitations. A new email gets a pending User; an imported staff User
+  without password/Telegram access is reused instead of duplicated.
 - Resend: create a new row with fresh token, mark old as 'superseded'
 - Accept: validate token + expiry, set user password + activate, mark invitation
   'accepted', issue JWT for auto-login
@@ -17,12 +17,12 @@ from __future__ import annotations
 
 import re
 import secrets
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
 from argon2 import PasswordHasher
 from fastapi import HTTPException
-from sqlalchemy import select, text
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import create_access_token, create_refresh_token
@@ -108,14 +108,20 @@ async def bulk_create_invitations(
     if not valid_emails:
         return {"created": [], "skipped_existing": [], "invalid": invalid}
 
-    # 2. Check existing users in this tenant
+    # 2. Check existing users in this tenant. Keep the tenant predicate on
+    # the query so an email in another tenant can never be attached here.
     existing_users_result = await db.execute(
-        select(User.email).where(
+        select(User).where(
             User.tenant_id == tenant_id,
-            User.email.in_(valid_emails),
-        )
+            func.lower(User.email).in_(valid_emails),
+        ).order_by(User.created_at.asc(), User.id.asc())
     )
-    existing_emails: set[str] = {row[0].lower() for row in existing_users_result.all()}
+    existing_users_by_email: dict[str, list[User]] = {}
+    for existing_user in existing_users_result.scalars().all():
+        if existing_user.email:
+            existing_users_by_email.setdefault(
+                _normalize_email(existing_user.email), []
+            ).append(existing_user)
 
     # 3. Check pending invitations in this tenant
     pending_inv_result = await db.execute(
@@ -131,11 +137,18 @@ async def bulk_create_invitations(
     to_create: list[str] = []
     skipped: list[dict] = []
     for email in valid_emails:
-        if email in existing_emails:
-            skipped.append({"email": email, "reason": "already_in_tenant"})
-            continue
         if email in pending_emails:
             skipped.append({"email": email, "reason": "pending_invite_exists"})
+            continue
+        existing_users = existing_users_by_email.get(email, [])
+        if existing_users:
+            if any(existing_user.has_login_access for existing_user in existing_users):
+                skipped.append({"email": email, "reason": "already_has_access"})
+                continue
+            if any(existing_user.role == "student" for existing_user in existing_users):
+                to_create.append(email)
+                continue
+            skipped.append({"email": email, "reason": "already_in_tenant"})
             continue
         to_create.append(email)
 
@@ -144,26 +157,46 @@ async def bulk_create_invitations(
 
     # 5. Create pending User + UserInvitation rows
     expiry_days = await _get_tenant_invite_expiry_days(db, tenant_id)
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     expires_at = now + timedelta(days=expiry_days)
 
     created: list[dict] = []
-    pn_map = personnel_numbers or {}
+    pn_map = {
+        _normalize_email(email): number
+        for email, number in (personnel_numbers or {}).items()
+    }
     for email in to_create:
-        user_id = uuid4()
-        pn = pn_map.get(email)
-        db.add(User(
-            id=user_id,
-            tenant_id=tenant_id,
-            email=email,
-            personnel_number=pn,
-            first_name="",
-            last_name="",
-            role=default_role,
-            is_active=False,
-            password_hash=None,
-            status="inactive",  # user accepted invite → "active"
-        ))
+        existing_users = existing_users_by_email.get(email, [])
+        existing_student = next(
+            (
+                user for user in existing_users
+                if user.role == "student" and not user.has_login_access
+            ),
+            None,
+        )
+        if existing_student:
+            user_id = existing_student.id
+            first_name = existing_student.first_name
+            last_name = existing_student.last_name
+            # Preserve staff data imported before login was configured.
+            pn = existing_student.personnel_number or pn_map.get(email)
+        else:
+            user_id = uuid4()
+            first_name = ""
+            last_name = ""
+            pn = pn_map.get(email)
+            db.add(User(
+                id=user_id,
+                tenant_id=tenant_id,
+                email=email,
+                personnel_number=pn,
+                first_name=first_name,
+                last_name=last_name,
+                role=default_role,
+                is_active=False,
+                password_hash=None,
+                status="inactive",
+            ))
 
         token = _generate_token()
         invitation_id = uuid4()
@@ -171,8 +204,8 @@ async def bulk_create_invitations(
             id=invitation_id,
             tenant_id=tenant_id,
             email=email,
-            first_name="",
-            last_name="",
+            first_name=first_name,
+            last_name=last_name,
             personnel_number=pn,
             role=default_role,
             invited_by=invited_by,
@@ -220,7 +253,7 @@ async def resend_invitation(
         raise HTTPException(status_code=500, detail="Invitation has no associated user")
 
     expiry_days = await _get_tenant_invite_expiry_days(db, tenant_id)
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     expires_at = now + timedelta(days=expiry_days)
     new_token = _generate_token()
     new_id = uuid4()
@@ -269,7 +302,7 @@ async def get_public_invitation(db: AsyncSession, token: str, tenant_lookup=None
             "email": "",
             "tenant_name": "",
             "role": "",
-            "expires_at": datetime.min.replace(tzinfo=timezone.utc),
+            "expires_at": datetime.min.replace(tzinfo=UTC),
             "valid": False,
             "reason_if_invalid": "invitation_not_found",
             "requires_personnel_number": False,
@@ -314,7 +347,7 @@ async def get_public_invitation(db: AsyncSession, token: str, tenant_lookup=None
             "reason_if_invalid": "revoked",
             "requires_personnel_number": requires_pn,
         }
-    if inv.status == "expired" or inv.expires_at < datetime.now(timezone.utc):
+    if inv.status == "expired" or inv.expires_at < datetime.now(UTC):
         # Lazy-expire: if status was still 'pending' but past expiry, flip it.
         if inv.status == "pending":
             inv.status = "expired"
@@ -372,7 +405,7 @@ async def accept_invitation(
             "superseded": "Приглашение заменено новым — проверьте почту/мессенджер",
         }
         raise HTTPException(status_code=410, detail=reasons.get(inv.status, f"Статус: {inv.status}"))
-    if inv.expires_at < datetime.now(timezone.utc):
+    if inv.expires_at < datetime.now(UTC):
         inv.status = "expired"
         await db.commit()
         raise HTTPException(status_code=410, detail="Срок действия приглашения истёк")
@@ -407,11 +440,11 @@ async def accept_invitation(
     user.password_hash = ph.hash(password)
     user.is_active = True
     user.status = "active"
-    user.last_login = datetime.now(timezone.utc)
+    user.last_login = datetime.now(UTC)
 
     # Mark invitation accepted + audit fields
     inv.status = "accepted"
-    inv.accepted_at = datetime.now(timezone.utc)
+    inv.accepted_at = datetime.now(UTC)
     if accepted_ip:
         inv.accepted_ip = accepted_ip[:64]  # cap to avoid overflow
     if accepted_user_agent:

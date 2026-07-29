@@ -87,15 +87,14 @@ export const ROUTES: readonly AppRoute[] = [
   { id: 'documents', href: '/documents', capability: 'manage_content', match: 'prefix', labelKey: 'nav.documents', section: 'content', icon: 'document', order: 50, sidebar: true, commandPalette: true },
   { id: 'learning-paths-manage', href: '/learning-paths', capability: 'manage_content', labelKey: 'learningPaths.title', section: 'content', icon: 'route', order: 60, sidebar: true, commandPalette: true },
   { id: 'cohorts', href: '/cohorts', capability: 'manage_staff', labelKey: 'cohorts.title', section: 'workforce', icon: 'users', order: 70, sidebar: true, commandPalette: true },
-  { id: 'competencies', href: '/competencies', capability: 'manage_qualifications', labelKey: 'competencies.title', section: 'workforce', icon: 'target', order: 80, sidebar: true, commandPalette: true },
+  { id: 'competencies', href: '/competencies', capability: 'manage_qualifications', labelKey: 'competencies.title', section: 'workforce', icon: 'target', order: 80, sidebar: false, commandPalette: false },
   { id: 'surveys-manage', href: '/surveys', capability: 'manage_communications' },
   { id: 'announcements', href: '/announcements', capability: 'manage_communications' },
   { id: 'staff', href: '/staff?tab=structure', capability: 'manage_staff', labelKey: 'nav.staffSchedule', section: 'workforce', icon: 'users', order: 110, sidebar: true, commandPalette: true },
-  { id: 'training-rules', href: '/training-rules?scope=organization', capability: 'manage_staff', labelKey: 'nav.trainingRules', section: 'workforce', icon: 'assignment', order: 112, sidebar: true, commandPalette: true },
-  { id: 'invitations', href: '/invitations', capability: 'manage_learners', labelKey: 'invitations.navLabel', section: 'workforce', icon: 'users', order: 115, sidebar: true, commandPalette: true },
+  { id: 'training-rules', href: '/training-rules?scope=organization', capability: 'manage_staff', labelKey: 'nav.trainingRules', section: 'workforce', icon: 'assignment', order: 112, sidebar: false, commandPalette: false },
+  { id: 'invitations', href: '/invitations', capability: 'manage_learners', labelKey: 'invitations.navLabel', section: 'workforce', icon: 'users', order: 115, sidebar: false, commandPalette: false },
   { id: 'positions', href: '/positions', capability: 'manage_qualifications', match: 'prefix' },
-  { id: 'course-assignments', href: '/assignments', capability: 'manage_assignments', match: 'prefix', labelKey: 'courses.enrollments', section: 'workforce', icon: 'assignment', order: 130, sidebar: true, commandPalette: true },
-  { id: 'quiz-assignments', href: '/quizzes?section=assignments', capability: 'manage_assignments', labelKey: 'quizAssignments.navLabel', section: 'workforce', icon: 'quiz', order: 140, sidebar: true, commandPalette: true },
+  { id: 'course-assignments', href: '/assignments', capability: 'manage_assignments', match: 'prefix', labelKey: 'courses.enrollments', section: 'workforce', icon: 'assignment', order: 130, sidebar: false, commandPalette: false },
   { id: 'training-log', href: '/training-log', capability: 'view_training_log', match: 'prefix', labelKey: 'nav.trainingLog', section: 'overview', icon: 'log', order: 150, sidebar: true, commandPalette: true },
 
   { id: 'tenant-dashboard', href: '/admin', capability: 'configure_tenant', labelKey: 'nav.admin', section: 'overview', icon: 'dashboard', order: 10, sidebar: true, commandPalette: true },
@@ -123,7 +122,7 @@ export const LEGACY_ROUTES: readonly Pick<AppRoute, 'href' | 'capability' | 'mat
   { href: '/admin/staff', capability: 'manage_staff', match: 'prefix' },
   { href: '/admin/invitations', capability: 'manage_learners', match: 'prefix' },
   { href: '/admin/training-log', capability: 'view_training_log', match: 'prefix' },
-  { href: '/admin/quizzes/assign', capability: 'manage_assignments', match: 'prefix' },
+  { href: '/admin/quizzes/assign', capability: 'manage_content', match: 'prefix' },
   { href: '/admin/enrollments', capability: 'manage_assignments', match: 'prefix' },
 ];
 

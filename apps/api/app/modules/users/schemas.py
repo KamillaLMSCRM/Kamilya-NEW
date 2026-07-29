@@ -1,7 +1,8 @@
 """User management schemas"""
-from pydantic import BaseModel, Field, EmailStr, field_validator
-from uuid import UUID
 from datetime import datetime
+from uuid import UUID
+
+from pydantic import BaseModel, Field, field_validator
 
 
 class UserCreate(BaseModel):
@@ -53,6 +54,7 @@ class UserResponse(BaseModel):
     is_active: bool
     position_id: UUID | None = None
     telegram_id: int | None = None
+    has_login_access: bool = False
     last_login: datetime | None = None
     created_at: datetime
     # Optional tenant context — populated by routers that load Tenant.
@@ -100,7 +102,7 @@ class InvitationCreated(BaseModel):
 class InvitationSkipped(BaseModel):
     """Email not invited because of a conflict."""
     email: str
-    reason: str  # 'already_in_tenant' | 'pending_invite_exists' | 'email_taken_other_tenant'
+    reason: str  # 'already_has_access' | 'already_in_tenant' | 'pending_invite_exists' | 'email_taken_other_tenant'
 
 
 class InvitationInvalid(BaseModel):

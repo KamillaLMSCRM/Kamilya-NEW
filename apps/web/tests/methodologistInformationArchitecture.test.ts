@@ -12,11 +12,9 @@ describe("methodologist information architecture", () => {
   it("registers rules for the active methodologist only", () => {
     expect(canAccessRegisteredRoute("methodologist", "/training-rules")).toBe(true);
     expect(canAccessRegisteredRoute("admin", "/training-rules")).toBe(false);
-    expect(getNavigationRoutes("methodologist", "sidebar").find((route) => route.id === "training-rules")).toMatchObject({
-      href: "/training-rules?scope=organization",
-      capability: "manage_staff",
-    });
+    expect(getNavigationRoutes("methodologist", "sidebar").some((route) => route.id === "training-rules")).toBe(false);
     expect(getNavigationRoutes("admin", "sidebar").some((route) => route.id === "training-rules")).toBe(false);
+    expect(staffSource).toContain('href={`/training-rules?scope=department&department_id=${dept.id}`}');
   });
 
   it("keeps staff tabs URL-backed and preserves legacy rule links", () => {
@@ -82,7 +80,8 @@ describe("methodologist information architecture", () => {
     expect(sidebar).toContain("staff");
     expect(sidebar).not.toContain("positions");
     expect(commands).not.toContain("positions");
-    expect(staffSource).toContain('href={`/positions/${pos.id}`}');
+    expect(staffSource).toContain('href={`/positions/${pos.id}?tab=training`}');
+    expect(staffSource).toContain('href={`/assignments?user_id=${emp.id}`}');
   });
 
   it("uses an accessible employee modal and a shared Kazakhstan phone mask", () => {

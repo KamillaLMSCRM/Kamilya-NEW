@@ -70,6 +70,7 @@ export default function TrainingRulesPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const queryScope = searchParams.get("scope");
+  const queryDepartmentId = searchParams.get("department_id");
   const [scope, setScope] = useState<Scope>(() => {
     return SCOPES.includes(queryScope as Scope) ? (queryScope as Scope) : "organization";
   });
@@ -108,16 +109,22 @@ export default function TrainingRulesPage() {
       ]);
       setCourses(courseList(courseResponse.data));
       setOrganizationRules(organizationResponse.data.rules ?? []);
-      setDepartments(departmentResponse.data.departments ?? []);
+      const nextDepartments = departmentResponse.data.departments ?? [];
+      setDepartments(nextDepartments);
       setPositions(positionResponse.data ?? []);
-      setDepartmentId((current) => current || departmentResponse.data.departments?.[0]?.id || "");
+      setDepartmentId((current) => {
+        if (queryDepartmentId && nextDepartments.some((item) => item.id === queryDepartmentId)) {
+          return queryDepartmentId;
+        }
+        return current || nextDepartments[0]?.id || "";
+      });
     } catch (error: any) {
       const detail = error?.response?.data?.detail;
       toast.error(typeof detail === "string" ? detail : t("trainingRulesPage.loadError"));
     } finally {
       setLoading(false);
     }
-  }, [role, t]);
+  }, [queryDepartmentId, role, t]);
 
   useEffect(() => {
     void load();

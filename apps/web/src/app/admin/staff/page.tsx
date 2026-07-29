@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Building2, ChevronDown, ChevronRight, FileText, Network, Search, Upload, Users, X } from "lucide-react";
+import { BookOpenCheck, Building2, ChevronDown, ChevronRight, FileText, GraduationCap, Network, Search, Upload, Users, X } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent, Button, Badge, Table } from "@/components/ui";
 import { useAuthStore } from "@/store/authStore";
 import { useT } from "@/i18n/useT";
@@ -1328,23 +1328,34 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
               const isOpen = expandedDepts.has(dept.slug) || query.trim().length > 0;
               return (
                 <li key={dept.slug}>
-                  <button
-                    type="button"
-                    onClick={() => toggleDept(dept.slug)}
-                    aria-expanded={isOpen}
-                    className="flex w-full items-center gap-3 px-4 py-3 hover:bg-muted/40 transition-colors text-left"
-                  >
-                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-primary/10 text-xs font-bold text-primary">
-                      <Building2 className="h-4 w-4" aria-hidden="true" />
-                    </span>
-                    <span className="flex-1 min-w-0">
-                      <div className="text-sm font-semibold text-foreground">{dept.name}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {tp('common.counts.position', dept.position_count)} ·{' '}
-                        {tp('common.counts.employee', dept.employee_count)}
-                      </div>
-                    </span>
-                  </button>
+                  <div className="flex min-w-0 items-center gap-2 px-4 py-3 hover:bg-muted/40 transition-colors">
+                    <button
+                      type="button"
+                      onClick={() => toggleDept(dept.slug)}
+                      aria-expanded={isOpen}
+                      className="flex min-w-0 flex-1 items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-primary/10 text-xs font-bold text-primary">
+                        <Building2 className="h-4 w-4" aria-hidden="true" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-semibold text-foreground">{dept.name}</span>
+                        <span className="block text-xs text-muted-foreground">
+                          {tp('common.counts.position', dept.position_count)} ·{' '}
+                          {tp('common.counts.employee', dept.employee_count)}
+                        </span>
+                      </span>
+                    </button>
+                    {dept.id && (
+                      <Link
+                        href={`/training-rules?scope=department&department_id=${dept.id}`}
+                        className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-md border border-border px-2.5 text-xs font-medium text-foreground hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      >
+                        <BookOpenCheck className="h-4 w-4" aria-hidden="true" />
+                        <span className="hidden sm:inline">Обязательные курсы</span>
+                      </Link>
+                    )}
+                  </div>
                   {isOpen && (
                     <ul className="bg-muted/30 divide-y divide-border">
                       {dept.positions.length === 0 && (
@@ -1374,16 +1385,16 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
                               </span>
                             </button>
                             <Link
-                              href={`/positions/${pos.id}`}
+                              href={`/positions/${pos.id}?tab=training`}
                               className="shrink-0 rounded-sm text-sm font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                             >
-                              Открыть
+                              Профиль и обучение
                             </Link>
                           </div>
                           {positionOpen && pos.employees.length > 0 && (
                             <ul className="mt-2 space-y-1 pl-6">
                               {pos.employees.map((emp) => (
-                                <li key={emp.id} className="flex min-w-0 items-center gap-2">
+                                <li key={emp.id} className="flex min-w-0 items-center justify-between gap-3 rounded-md px-2 py-1.5 hover:bg-background">
                                   <span
                                     className={
                                       emp.is_active
@@ -1398,6 +1409,16 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
                                       </span>
                                     )}
                                   </span>
+                                  {emp.is_active && (
+                                    <Link
+                                      href={`/assignments?user_id=${emp.id}`}
+                                      className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-md border border-border px-2.5 text-xs font-medium text-primary hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                    >
+                                      <GraduationCap className="h-4 w-4" aria-hidden="true" />
+                                      <span className="hidden sm:inline">Назначить обучение</span>
+                                      <span className="sm:hidden">Назначить</span>
+                                    </Link>
+                                  )}
                                 </li>
                               ))}
                             </ul>
