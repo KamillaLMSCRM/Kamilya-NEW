@@ -1,6 +1,6 @@
 # Kamilya LMS Production Deployment
 
-Актуально на 2026-07-27.
+Актуально на 2026-07-29.
 
 Текущие release blockers ведутся в
 [`docs/PRODUCTION_READINESS.md`](docs/PRODUCTION_READINESS.md).
@@ -117,7 +117,7 @@ SQL-only objects such as `document_embeddings`.
 Current production state:
 
 ```text
-0078 (head)
+0079 (head)
 ```
 
 ## Frontend Deploy On Vercel

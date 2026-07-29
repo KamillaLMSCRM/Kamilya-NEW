@@ -1,7 +1,7 @@
 # Kamilya LMS: текущий контекст проекта
 
 > Living document. Значения секретов здесь не хранятся.
-> Обновлено: 2026-07-28.
+> Обновлено: 2026-07-29.
 
 ## Источники правды
 
@@ -42,18 +42,20 @@ Production БД пока не перенесена в Казахстан. HostKZ
 
 ## Проверенная release-картина
 
-На 2026-07-28:
+На 2026-07-29:
 
 - проверенный application HEAD:
-  `fe6ff6c2e914ed05cd7c05bbe1b29e5b2d4cc2e7`;
-- GitHub CI `30352487058`: success, backend `625 passed`;
-- GitHub production smoke `30352486895`: success;
-- Vercel production status: success; дерево `apps/web` соответствует
-  application baseline `fe6ff6c`, последующий docs-only HEAD его не меняет;
-- Render API deployment `dep-d9k8kv61egvs7381jo80`: live,
-  commit `fe6ff6c`;
-- production Alembic: `0078`, repository head: `0078`;
-- Celery worker active/enabled на `a10786c`, реальный Celery ping passed;
+  `f3df397c9a326964b17d4d8aa9370ecbb5995547`;
+- GitHub CI `30456058225`: success; локально backend `639 passed`, frontend
+  `204 passed`, typecheck и production build прошли;
+- GitHub production smoke `30456057602`: success;
+- Vercel production deployment `dpl_5q2sAXiLorhCNHGRukv8yFArGn15`:
+  `READY`, commit `f3df397`;
+- Render API deployment `dep-d9l0098u01pc73ekuif0`: live,
+  commit `f3df397`;
+- production Alembic: `0079`, repository head: `0079`;
+- Celery worker active/enabled на `f3df397`, реальный Celery ping passed,
+  обязательные задачи зарегистрированы, после release ошибок в журнале нет;
 - ежедневный encrypted backup и пятиминутный watchdog активны;
 - реальный backup/portable restore drill PostgreSQL 17 + pgvector passed;
 - полный production synthetic tenant journey от регистрации до сертификата и

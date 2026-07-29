@@ -1,6 +1,6 @@
 # Kamilya LMS: готовность первого production-тенанта
 
-**Проверено:** 2026-07-28
+**Проверено:** 2026-07-29
 **Технический P0:** закрыт
 **Режим запуска:** контролируемый первый пилот
 **Назначение:** единственный актуальный реестр production-gates. История изменений
@@ -11,13 +11,13 @@
 
 | Контур | Состояние | Подтверждение |
 |---|---|---|
-| Application baseline | PASS | Проверенный release HEAD: `fe6ff6c2e914ed05cd7c05bbe1b29e5b2d4cc2e7` |
-| CI | PASS | GitHub Actions `30352487058`, полный pipeline: backend `625 passed`, coverage `57.57%` |
-| External smoke | PASS | GitHub Actions `30352486895`, API и frontend |
-| Frontend | PASS | Vercel production status `success`; проверенное дерево `apps/web` соответствует application baseline `fe6ff6c`. Последующие docs-only commits приложение не меняют |
-| API | PASS | Render deploy `dep-d9k8kv61egvs7381jo80`, `live`, commit `fe6ff6c` |
-| Worker | PASS | `/opt/kamilya-worker` на `a10786c`, unit active/enabled, Celery ping отвечает |
-| Database | PASS | production PostgreSQL 17.6, Alembic `0078` |
+| Application baseline | PASS | Проверенный release HEAD: `f3df397c9a326964b17d4d8aa9370ecbb5995547` |
+| CI | PASS | GitHub Actions `30456058225`; локально backend `639 passed`, frontend `204 passed`, typecheck и production build прошли |
+| External smoke | PASS | GitHub Actions `30456057602`, API и frontend |
+| Frontend | PASS | Vercel deployment `dpl_5q2sAXiLorhCNHGRukv8yFArGn15` в состоянии `READY`, commit `f3df397` |
+| API | PASS | Render deploy `dep-d9l0098u01pc73ekuif0`, build/pre-deploy/deploy succeeded, commit `f3df397`; health отвечает |
+| Worker | PASS | `/opt/kamilya-worker` на `f3df397`, unit active/enabled, Celery ping отвечает, обязательные задачи зарегистрированы |
+| Database | PASS | production PostgreSQL 17.6, Alembic `0079` |
 
 ## Закрытые P0
 
@@ -94,8 +94,9 @@
 
 ## Проверки кода и production-flow
 
-- Финальный полный CI на `fe6ff6c` passed: backend `625`, coverage `57.57%`,
-  typecheck, lint и release/tenant security gates.
+- Финальный CI на `f3df397` passed. Локальная полная проверка этого release:
+  backend `639 passed`, frontend `204 passed`, typecheck и production build;
+  release/tenant security gates также прошли.
 - Focused backend P0 suites: 26 тестов канонической структуры штата и 17
   тестов invitation/SCORM contracts passed.
 - Frontend architecture tests, typecheck и production build passed.

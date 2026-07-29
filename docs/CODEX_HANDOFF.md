@@ -1,6 +1,6 @@
 # Kamilya LMS: handoff для следующего Codex
 
-**Обновлено:** 2026-07-27
+**Обновлено:** 2026-07-29
 **Рабочая папка:** `C:\Kamilya New\Kamilya-NEW`
 **Репозиторий:** `KamillaLMSCRM/Kamilya-NEW`, branch `master`
 
@@ -23,13 +23,13 @@ history.
 
 | Контур | Состояние |
 |---|---|
-| Проверенный application baseline | `a10786c6d2c0b4cfa31385e7613d6390452c32cd`; актуальный docs HEAD проверять через `git rev-parse HEAD` |
-| CI | success, run `30262132014` |
-| Production smoke | GitHub run `30262131946` success; полный synthetic tenant journey также passed |
-| Vercel | production `READY`; docs-only HEAD может иметь новый deployment, application-код соответствует `a10786c` |
-| Render API | live, deploy `dep-d9jk39b7uimc739ohgjg`, commit `a10786c` |
-| Production DB | Alembic `0078`, совпадает с repository head |
-| Celery worker | active/enabled, commit `a10786c`, Celery ping passed |
+| Проверенный application baseline | `f3df397c9a326964b17d4d8aa9370ecbb5995547`; актуальный docs HEAD проверять через `git rev-parse HEAD` |
+| CI | success, run `30456058225`; локально backend `639 passed`, frontend `204 passed`, typecheck/build passed |
+| Production smoke | GitHub run `30456057602` success; полный synthetic tenant journey на этом release отдельно не повторялся |
+| Vercel | production `READY`, deployment `dpl_5q2sAXiLorhCNHGRukv8yFArGn15`, commit `f3df397` |
+| Render API | live, deploy `dep-d9l0098u01pc73ekuif0`, commit `f3df397` |
+| Production DB | Alembic `0079`, совпадает с repository head |
+| Celery worker | active/enabled, commit `f3df397`, Celery ping passed, обязательные задачи зарегистрированы |
 | Backup | encrypted daily timer active; real backup and restore drill passed |
 | Monitoring | VPS watchdog and GitHub production smoke active |
 

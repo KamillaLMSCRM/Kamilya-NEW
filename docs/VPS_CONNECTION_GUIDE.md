@@ -1,6 +1,6 @@
 # Kamilya LMS: VPS и подключённые сервисы
 
-**Обновлено:** 2026-07-27
+**Обновлено:** 2026-07-29
 **Правило:** этот документ описывает только подтверждённое текущее состояние.
 Значения паролей, ключей и URL с credentials не приводятся.
 
@@ -22,12 +22,12 @@
 Не печатать значения переменных и не добавлять их в команды, попадающие в
 логи.
 
-## Проверенное 2026-07-27
+## Проверенное 2026-07-29
 
 | Компонент | Состояние | Комментарий |
 |---|---|---|
 | `valkey-server` / `valkey` | active | Broker, result backend, OTP/rate-limit/cache |
-| `kamilya-worker.service` | active, enabled | Checkout `a10786c`, Celery ping отвечает |
+| `kamilya-worker.service` | active, enabled | Checkout `f3df397`, Celery ping отвечает, после release нет ошибок в журнале |
 | Disk `/` | 59% used, около 30 GB free | Нужен alert по заполнению |
 | `kamilya-backup.timer` | active, enabled | Ежедневный encrypted PostgreSQL backup |
 | `kamilya-ops-check.timer` | active, enabled | Watchdog каждые 5 минут |

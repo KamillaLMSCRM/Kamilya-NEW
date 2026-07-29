@@ -1,6 +1,6 @@
 # Kamilya LMS Celery worker
 
-**Обновлено:** 2026-07-27
+**Обновлено:** 2026-07-29
 **Назначение:** текущий runbook worker. Исторические инструкции Upstash и старых
 checkout удалены.
 
@@ -25,11 +25,14 @@ Worker выполняет:
 
 ## Текущий известный статус
 
-На 2026-07-27 unit active/enabled, checkout
-`a10786c6d2c0b4cfa31385e7613d6390452c32cd`, production API и worker
-синхронизированы. Production DB находится на `0078`; реальный Celery inspect
-ping отвечает. Полный production synthetic tenant journey с обычной и
-должностной AI-генерацией пройден на этом release.
+На 2026-07-29 unit active/enabled, checkout
+`f3df397c9a326964b17d4d8aa9370ecbb5995547`, production API и worker
+синхронизированы. Production DB находится на `0079`; реальный Celery inspect
+ping отвечает. Worker зарегистрировал обязательные задачи генерации,
+перегенерации, индексации документов и применения правил. После выкладки в
+журнале unit не обнаружены `ERROR`, `CRITICAL` или traceback. GitHub CI и
+внешний production smoke для release прошли; полный synthetic tenant journey
+на этом release отдельно не повторялся.
 
 ## Проверка без изменения сервера
 
