@@ -2,7 +2,7 @@
 
 P0.6 first-tenant hardening.
 
-Returns the 7-step onboarding status for the current tenant. Frontend
+Returns the role-specific onboarding status for the current tenant. Frontend
 uses it to render the "Подготовить компанию" widget on the admin
 dashboard.
 """

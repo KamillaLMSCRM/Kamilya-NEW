@@ -1,6 +1,6 @@
 """Onboarding status service — compute step flags from existing tables.
 
-Single SQL per count (7 short queries, all indexed). The queries are
+Single SQL per count (6 short queries, all indexed). The queries are
 intentionally simple: we don't need sub-millisecond because this
 endpoint is called once per page load (admin dashboard) and the rows
 are tiny for a fresh tenant.
@@ -28,7 +28,7 @@ async def compute_onboarding_status(
     tenant_id: UUID,
     role: str | None = None,
 ) -> OnboardingStatus:
-    """Compute the 7-step onboarding status for a tenant.
+    """Compute the role-specific onboarding status for a tenant.
 
     Each step queries an existing table. We tolerate missing rows
     (e.g. tenant_settings not yet seeded) by treating them as "not done".
@@ -37,7 +37,7 @@ async def compute_onboarding_status(
     from app.models.document import Document
     from app.models.enrollment import Enrollment
     from app.models.tenants import Tenant
-    from app.models.users import User, UserInvitation
+    from app.models.users import User
 
     # Tenant + trial info
     tenant = await db.get(Tenant, tenant_id)
@@ -132,15 +132,7 @@ async def compute_onboarding_status(
     )
     first_assignment_done = enrollments_count > 0
 
-    # 6) Invitation — a tenant invitation exists, regardless of lifecycle state.
-    invitations_count = await _count(
-        db,
-        select(func.count(UserInvitation.id)).where(
-            UserInvitation.tenant_id == tenant_id,
-        ),
-    )
-
-    # 7) Training log — only real learning completion makes this step done.
+    # 6) Training log — only real learning completion makes this step done.
     completed_enrollments_count = await _count(
         db,
         select(func.count(Enrollment.id)).where(
@@ -188,18 +180,10 @@ async def compute_onboarding_status(
         ),
         OnboardingStep(
             id="first_assignment",
-            label="Назначить курс сотрудникам",
+            label="Открыть опубликованный курс и назначить сотрудникам",
             done=first_assignment_done,
-            href="/assignments",
+            href="/courses",
             badge=f"{enrollments_count} назн." if enrollments_count else None,
-            owner="methodologist",
-        ),
-        OnboardingStep(
-            id="invitation",
-            label="Отправить приглашение обучающемуся",
-            done=invitations_count > 0,
-            href="/invitations",
-            badge=f"{invitations_count} пригл." if invitations_count else None,
             owner="methodologist",
         ),
         OnboardingStep(

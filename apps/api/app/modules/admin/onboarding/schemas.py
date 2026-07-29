@@ -26,7 +26,6 @@ class OnboardingStep(BaseModel):
         "documents",
         "first_course",
         "first_assignment",
-        "invitation",
         "training_log",
     ]
     label: str

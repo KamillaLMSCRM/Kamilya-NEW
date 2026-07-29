@@ -85,7 +85,6 @@ async def test_onboarding_partial_progress(client, db_session, make_tenant, make
     # Others should NOT be done:
     assert by_id["documents"]["done"] is False
     assert by_id["first_assignment"]["done"] is False  # no enrollment yet
-    assert by_id["invitation"]["done"] is False
     assert by_id["training_log"]["done"] is False
 
 
@@ -135,45 +134,11 @@ async def test_onboarding_first_assignment_done_when_enrollment_exists(
 
 
 @pytest.mark.asyncio
-async def test_onboarding_invitation_done_when_tenant_invitation_exists(
-    client, db_session, make_tenant, make_user
-):
-    tenant = await make_tenant(name="Invitation", slug="invitation-onb")
-    admin = await make_user(tenant, role="admin", email="a@invitation.example")
-    methodologist = await make_user(tenant, role="methodologist", email="m@invitation.example")
-    from app.models.users import UserInvitation
-
-    invitation = UserInvitation(
-        id=uuid4(),
-        tenant_id=tenant.id,
-        email="learner@invitation.example",
-        first_name="Learner",
-        last_name="One",
-        role="student",
-        invited_by=admin.id,
-        token="invitation-token-123",
-        status="pending",
-        expires_at=datetime.now(UTC) + timedelta(days=7),
-    )
-    db_session.add(invitation)
-    await db_session.flush()
-
-    token = await _login(client, methodologist)
-    resp = await client.get(
-        "/api/v1/admin/onboarding-status",
-        headers={"Authorization": f"Bearer {token}"},
-    )
-    body = resp.json()
-    by_id = {s["id"]: s for s in body["steps"]}
-    assert by_id["invitation"]["done"] is True
-
-
-@pytest.mark.asyncio
 async def test_onboarding_tenant_isolation(client, db_session, make_tenant, make_user, make_course):
     tenant_a = await make_tenant(name="A", slug="a-onb")
     tenant_b = await make_tenant(name="B", slug="b-onb")
     admin_a = await make_user(tenant_a, role="admin", email="a@a.example")
-    admin_b = await make_user(tenant_b, role="admin", email="a@b.example")
+    await make_user(tenant_b, role="admin", email="a@b.example")
     methodologist_b = await make_user(tenant_b, role="methodologist", email="m@b.example")
     await make_course(tenant_a, admin_a, title="CA")
     # Add a second user to tenant A so staff_import_done there
@@ -274,13 +239,16 @@ async def test_onboarding_exposes_exact_role_owned_steps_and_canonical_links(
         "documents",
         "first_course",
         "first_assignment",
-        "invitation",
         "training_log",
     }
     assert methodologist_steps["first_course"]["owner"] == "methodologist"
-    assert methodologist_steps["invitation"]["owner"] == "methodologist"
-    assert methodologist_steps["invitation"]["href"] == "/invitations"
+    assert methodologist_steps["first_assignment"]["owner"] == "methodologist"
+    assert methodologist_steps["first_assignment"]["href"] == "/courses"
     assert methodologist_steps["training_log"]["href"] == "/training-log"
+    assert all(
+        step["href"] not in {"/assignments", "/invitations"}
+        for step in methodologist_steps.values()
+    )
 
 
 @pytest.mark.asyncio

@@ -6,8 +6,7 @@ const steps = [
   { id: 'staff_import', href: '/staff?tab=import', owner: 'methodologist' as const },
   { id: 'documents', href: '/documents', owner: 'methodologist' as const },
   { id: 'first_course', href: '/ai/generate', owner: 'methodologist' as const },
-  { id: 'first_assignment', href: '/assignments', owner: 'methodologist' as const },
-  { id: 'invitation', href: '/invitations', owner: 'methodologist' as const },
+  { id: 'first_assignment', href: '/courses', owner: 'methodologist' as const },
   { id: 'training_log', href: '/training-log', owner: 'methodologist' as const },
 ];
 
@@ -19,10 +18,11 @@ describe('role-specific onboarding', () => {
 
   it('keeps learning setup steps on the methodologist surface', () => {
     expect(getVisibleOnboardingSteps(steps, 'methodologist').map((step) => step.id)).toEqual([
-      'staff_import', 'documents', 'first_course', 'first_assignment', 'invitation', 'training_log',
+      'staff_import', 'documents', 'first_course', 'first_assignment', 'training_log',
     ]);
-    expect(getOnboardingHref(steps[5], 'methodologist')).toBe('/invitations');
-    expect(getOnboardingHref(steps[6], 'methodologist')).toBe('/training-log');
+    expect(getOnboardingHref(steps[4], 'methodologist')).toBe('/courses');
+    expect(getOnboardingHref(steps[5], 'methodologist')).toBe('/training-log');
+    expect(steps.some((step) => ['/assignments', '/invitations'].includes(step.href))).toBe(false);
   });
 
   it('does not expose tenant onboarding to a superadmin without tenant context', () => {
