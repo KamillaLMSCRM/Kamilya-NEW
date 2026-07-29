@@ -103,6 +103,17 @@ python -m alembic -c alembic.ini current
 python -m alembic -c alembic.ini upgrade head
 ```
 
+Production DDL has no best-effort HTTP startup path:
+
+- Render owns migrations through `preDeployCommand`;
+- the API Docker command runs `alembic upgrade head` before Uvicorn and fails
+  closed;
+- `app.main` must not invoke Alembic from FastAPI lifespan.
+
+Do not apply raw `alembic check` autogenerate suggestions until the tracked
+ORM/history drift is reconciled; the current historical schema includes
+SQL-only objects such as `document_embeddings`.
+
 Current production state:
 
 ```text

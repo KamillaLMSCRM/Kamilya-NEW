@@ -17,6 +17,8 @@ checkout удалены.
 Worker выполняет:
 
 - `ai.generate_course`;
+- `ai.regenerate_module`;
+- `ai.regenerate_lesson`;
 - `ai.ingest_document`;
 - document cleanup/reindex jobs;
 - `positions.apply_course_rules`.
@@ -45,6 +47,10 @@ journalctl -u kamilya-worker.service -n 100 --no-pager
 celery -A app.core.celery_app:celery_app inspect ping
 celery -A app.core.celery_app:celery_app inspect registered
 ```
+
+В списке registered обязательны `ai.generate_course`,
+`ai.regenerate_module`, `ai.regenerate_lesson`, `ai.ingest_document` и
+`positions.apply_course_rules`.
 
 Не выводить environment unit и значения `.env`.
 

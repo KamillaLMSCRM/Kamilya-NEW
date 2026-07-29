@@ -18,6 +18,8 @@ EXPECTED_TASK_MODULES = {
 EXPECTED_TASK_NAMES = {
     "ai.generate_course",
     "ai.ingest_document",
+    "ai.regenerate_lesson",
+    "ai.regenerate_module",
     "positions.apply_course_rules",
 }
 
@@ -145,10 +147,25 @@ def check_celery_contract() -> str:
     return f"Celery contract OK ({', '.join(sorted(EXPECTED_TASK_NAMES))})"
 
 
+def check_migration_owner() -> str:
+    render_blueprint = (REPO_ROOT / "render.yaml").read_text(encoding="utf-8")
+    dockerfile = (REPO_ROOT / "apps" / "api" / "Dockerfile").read_text(encoding="utf-8")
+    app_main = (REPO_ROOT / "apps" / "api" / "app" / "main.py").read_text(encoding="utf-8")
+
+    if "preDeployCommand: PYTHONPATH=. alembic upgrade head" not in render_blueprint:
+        raise ValueError("Migration owner error: Render pre-deploy migration is missing")
+    if "alembic upgrade head &&" not in dockerfile:
+        raise ValueError("Migration owner error: Docker startup is not fail-closed")
+    if "_run_migrations" in app_main or "alembic upgrade" in app_main:
+        raise ValueError("Migration owner error: HTTP application startup must not run migrations")
+    return "migration ownership OK (Render pre-deploy and fail-closed Docker startup)"
+
+
 def main() -> int:
     try:
         print(f"release-contract-gate: {check_alembic_chain()}")
         print(f"release-contract-gate: {check_celery_contract()}")
+        print(f"release-contract-gate: {check_migration_owner()}")
     except ValueError as error:
         print(f"release-contract-gate: {error}", file=sys.stderr)
         return 1

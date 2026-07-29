@@ -14,6 +14,10 @@
    operational console.
 2. Delivery monitoring для email с tenant-safe диагностикой.
 3. Безопасная очистка зависших jobs после определения retry/retention policy.
+4. Сверить ORM metadata с исторической схемой из 77 Alembic revisions:
+   описать SQL-only `document_embeddings`, согласовать типы, индексы,
+   внешние ключи и nullable/default. До завершения сверки не применять
+   autogenerate output: текущий drift содержит разрушительные remove-операции.
 
 ## P2: расширение продукта
 

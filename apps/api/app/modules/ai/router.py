@@ -9,7 +9,7 @@ from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect
 from fastapi.security import HTTPAuthorizationCredentials
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -20,6 +20,7 @@ from app.core.auth import (
     require_tenant_user,
 )
 from app.core.db import get_db
+from app.models.ai_job import AIJob
 from app.models.users import User
 from app.ml_prompts import get_renderer
 from app.modules.ai.job_service import create_ai_job, get_ai_job, update_ai_job
@@ -49,8 +50,52 @@ tenant_router = APIRouter(dependencies=[Depends(require_tenant_user())])
 
 require_ai_job_access = require_role("methodologist", "superadmin")
 
-# Store running tasks for cancellation
-_running_tasks: dict[str, asyncio.Task] = {}
+
+async def _set_regeneration_job_state(
+    job_id: str,
+    tenant_id: UUID,
+    **values,
+) -> bool:
+    """Persist worker progress without holding locks during LLM calls."""
+    from app.core.db import async_session_factory
+
+    values["updated_at"] = datetime.now(timezone.utc)
+    async with async_session_factory() as job_session:
+        result = await job_session.execute(
+            update(AIJob)
+            .where(
+                AIJob.id == job_id,
+                AIJob.tenant_id == tenant_id,
+                AIJob.status != "cancelled",
+            )
+            .values(**values)
+        )
+        await job_session.commit()
+        return bool(result.rowcount)
+
+
+async def _finish_regeneration_job(
+    session: AsyncSession,
+    job_id: str,
+    tenant_id: UUID,
+    **values,
+) -> bool:
+    """Commit regenerated content only while the job remains active."""
+    values["updated_at"] = datetime.now(timezone.utc)
+    result = await session.execute(
+        update(AIJob)
+        .where(
+            AIJob.id == job_id,
+            AIJob.tenant_id == tenant_id,
+            AIJob.status != "cancelled",
+        )
+        .values(**values)
+    )
+    if not result.rowcount:
+        await session.rollback()
+        return False
+    await session.commit()
+    return True
 
 
 def _compatibility_response(analysis) -> DocumentCompatibilityResponse:
@@ -178,18 +223,21 @@ async def generate_course(
         raise HTTPException(status_code=503, detail="AI worker is unavailable")
 
     try:
-        generate_course_task.delay(
-            job_id=str(job.id),
-            documents=[str(document_id) for document_id in req.documents],
-            target_audience=req.target_audience,
-            num_modules=req.num_modules,
-            language=req.language,
-            course_id=str(req.course_id) if req.course_id else None,
-            tenant_id=str(user.tenant_id) if user.tenant_id else None,
-            user_id=str(user.id),
-            source_strategy=req.source_strategy,
-            combination_goal=req.combination_goal.strip(),
-            source_analysis=analysis_payload,
+        generate_course_task.apply_async(
+            task_id=str(job.id),
+            kwargs={
+                "job_id": str(job.id),
+                "documents": [str(document_id) for document_id in req.documents],
+                "target_audience": req.target_audience,
+                "num_modules": req.num_modules,
+                "language": req.language,
+                "course_id": str(req.course_id) if req.course_id else None,
+                "tenant_id": str(user.tenant_id) if user.tenant_id else None,
+                "user_id": str(user.id),
+                "source_strategy": req.source_strategy,
+                "combination_goal": req.combination_goal.strip(),
+                "source_analysis": analysis_payload,
+            },
         )
     except Exception as exc:
         logger.exception("Could not enqueue AI generation job %s", job.id)
@@ -291,18 +339,30 @@ async def cancel_generation(
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
 
-    if job.status in ("completed", "failed", "cancelled"):
+    if job.status == "cancelled":
+        return {"status": "cancelled"}
+    if job.status in ("completed", "failed"):
         raise HTTPException(status_code=400, detail="Job already finished")
 
-    # Cancel the actual asyncio task
-    task = _running_tasks.get(job_id)
-    if task and not task.done():
-        task.cancel()
-        logger.info(f"Cancelled task for job {job_id}")
-    else:
-        # Task not found in memory (server restarted), just update DB
-        await update_ai_job(db, job_id, tenant_id=str(user.tenant_id) if user.tenant_id else None, status="cancelled", message="Cancelled by user")
-        await db.commit()
+    # Persist the terminal state before signalling any execution backend. A
+    # worker that is already running observes this state at its next checkpoint.
+    await update_ai_job(
+        db,
+        job_id,
+        tenant_id=str(user.tenant_id) if user.tenant_id else None,
+        status="cancelled",
+        stage="cancelled",
+        message="Cancelled by user",
+        completed_at=datetime.now(timezone.utc),
+    )
+    await db.commit()
+
+    try:
+        from app.core.celery_app import celery_app
+
+        celery_app.control.revoke(job_id, terminate=False)
+    except Exception:
+        logger.warning("Could not revoke Celery task %s; DB cancellation remains authoritative", job_id, exc_info=True)
 
     return {"status": "cancelled"}
 
@@ -662,13 +722,17 @@ async def _regenerate_module_job(
     from app.core.db import async_session_factory
     from app.modules.lessons.models import Module, Lesson
     from app.modules.quizzes.models import Quiz, Question, QuizChoice
-    from app.modules.ai.pipeline import run_writer, run_assessment
-    from app.modules.ai.ingestion import VectorStore
-
     async with async_session_factory() as session:
         try:
-            await update_ai_job(session, job_id, status="running", stage="architect",
-                                progress=10, message="Анализируем модуль…")
+            if not await _set_regeneration_job_state(
+                job_id,
+                tenant_id,
+                status="running",
+                stage="architect",
+                progress=10,
+                message="Анализируем модуль…",
+            ):
+                return {"job_id": job_id, "status": "cancelled"}
 
             module = await session.get(Module, module_id)
             if not module or module.tenant_id != tenant_id:
@@ -741,12 +805,18 @@ async def _regenerate_module_job(
                 ]
 
             await session.flush()
-            await update_ai_job(session, job_id, stage="content_generation",
-                                progress=30, message="Переписываем уроки…")
+            if not await _set_regeneration_job_state(
+                job_id,
+                tenant_id,
+                stage="content_generation",
+                progress=30,
+                message="Переписываем уроки…",
+            ):
+                await session.rollback()
+                return {"job_id": job_id, "status": "cancelled"}
 
-            store = VectorStore()
             # Rewrite each lesson sequentially using existing run_writer contract.
-            for old_l, new_plan in zip(old_lessons, new_lessons_plan):
+            for old_l, new_plan in zip(old_lessons, new_lessons_plan, strict=True):
                 old_l.title = (new_plan.get("title") or old_l.title).strip()[:255]
                 if "duration_minutes" in new_plan:
                     try:
@@ -763,6 +833,9 @@ async def _regenerate_module_job(
                     llm=llm,
                     tenant_id=tenant_id,
                 )
+                if not await _set_regeneration_job_state(job_id, tenant_id):
+                    await session.rollback()
+                    return {"job_id": job_id, "status": "cancelled"}
 
                 # Regenerate quiz for this lesson (delete old, create new).
                 old_quizzes = (await session.execute(
@@ -833,20 +906,39 @@ async def _regenerate_module_job(
 
                 await session.flush()
 
-            await update_ai_job(session, job_id, status="completed",
-                                progress=100, stage="saving", message="Модуль переписан")
-            await session.commit()
+            completed = await _finish_regeneration_job(
+                session,
+                job_id,
+                tenant_id,
+                status="completed",
+                progress=100,
+                stage="saving",
+                message="Модуль переписан",
+                completed_at=datetime.now(timezone.utc),
+            )
+            return {
+                "job_id": job_id,
+                "status": "completed" if completed else "cancelled",
+            }
+        except asyncio.CancelledError:
+            await session.rollback()
+            return {"job_id": job_id, "status": "cancelled"}
         except Exception as e:
             logger.error(f"Module regeneration failed: {e}", exc_info=True)
+            await session.rollback()
             try:
-                await update_ai_job(session, job_id, status="failed",
-                                    progress=0, stage="failed",
-                                    message=f"Ошибка: {str(e)[:300]}")
-                await session.commit()
+                await _set_regeneration_job_state(
+                    job_id,
+                    tenant_id,
+                    status="failed",
+                    progress=0,
+                    stage="failed",
+                    message=f"Ошибка: {str(e)[:300]}",
+                    completed_at=datetime.now(timezone.utc),
+                )
             except Exception:
-                pass
-        finally:
-            _running_tasks.pop(job_id, None)
+                logger.exception("Could not persist failed module regeneration job %s", job_id)
+            raise
 
 
 async def _regenerate_lesson_job(
@@ -864,8 +956,15 @@ async def _regenerate_lesson_job(
 
     async with async_session_factory() as session:
         try:
-            await update_ai_job(session, job_id, status="running", stage="content_generation",
-                                progress=20, message="Переписываем урок…")
+            if not await _set_regeneration_job_state(
+                job_id,
+                tenant_id,
+                status="running",
+                stage="content_generation",
+                progress=20,
+                message="Переписываем урок…",
+            ):
+                return {"job_id": job_id, "status": "cancelled"}
 
             lesson = await session.get(Lesson, lesson_id)
             if not lesson or lesson.tenant_id != tenant_id:
@@ -889,8 +988,15 @@ async def _regenerate_lesson_job(
                 tenant_id=tenant_id,
             )
 
-            await update_ai_job(session, job_id, progress=60,
-                                stage="assessment", message="Обновляем тест…")
+            if not await _set_regeneration_job_state(
+                job_id,
+                tenant_id,
+                progress=60,
+                stage="assessment",
+                message="Обновляем тест…",
+            ):
+                await session.rollback()
+                return {"job_id": job_id, "status": "cancelled"}
             await session.flush()
 
             if regenerate_quiz:
@@ -925,7 +1031,7 @@ async def _regenerate_lesson_job(
                 try:
                     questions = _json.loads(assess_text)
                 except Exception:
-                    logger.warning(f"Lesson regen — bad JSON for quiz, skipping")
+                    logger.warning("Lesson regen — bad JSON for quiz, skipping")
                     questions = []
 
                 if isinstance(questions, list) and questions:
@@ -961,20 +1067,39 @@ async def _regenerate_lesson_job(
                                 order_index=ci,
                             ))
 
-            await update_ai_job(session, job_id, status="completed",
-                                progress=100, stage="saving", message="Урок переписан")
-            await session.commit()
+            completed = await _finish_regeneration_job(
+                session,
+                job_id,
+                tenant_id,
+                status="completed",
+                progress=100,
+                stage="saving",
+                message="Урок переписан",
+                completed_at=datetime.now(timezone.utc),
+            )
+            return {
+                "job_id": job_id,
+                "status": "completed" if completed else "cancelled",
+            }
+        except asyncio.CancelledError:
+            await session.rollback()
+            return {"job_id": job_id, "status": "cancelled"}
         except Exception as e:
             logger.error(f"Lesson regeneration failed: {e}", exc_info=True)
+            await session.rollback()
             try:
-                await update_ai_job(session, job_id, status="failed",
-                                    progress=0, stage="failed",
-                                    message=f"Ошибка: {str(e)[:300]}")
-                await session.commit()
+                await _set_regeneration_job_state(
+                    job_id,
+                    tenant_id,
+                    status="failed",
+                    progress=0,
+                    stage="failed",
+                    message=f"Ошибка: {str(e)[:300]}",
+                    completed_at=datetime.now(timezone.utc),
+                )
             except Exception:
-                pass
-        finally:
-            _running_tasks.pop(job_id, None)
+                logger.exception("Could not persist failed lesson regeneration job %s", job_id)
+            raise
 
 
 @tenant_router.post("/regenerate-module/{module_id}", response_model=AIJobResponse, status_code=202)
@@ -1002,17 +1127,42 @@ async def regenerate_module(
     )
     await db.commit()
 
-    task = asyncio.create_task(
-        _regenerate_module_job(
-            job_id=job.id,
-            module_id=module_id,
-            guidance=req.guidance,
-            language=req.language,
-            tenant_id=user.tenant_id,
-            user_id=user.id,
+    from app.modules.ai.tasks import regenerate_module_task
+
+    if regenerate_module_task is None:
+        await update_ai_job(
+            db,
+            job.id,
+            tenant_id=str(user.tenant_id),
+            status="failed",
+            stage="failed",
+            message="AI worker is unavailable",
         )
-    )
-    _running_tasks[job.id] = task
+        await db.commit()
+        raise HTTPException(status_code=503, detail="AI worker is unavailable")
+    try:
+        regenerate_module_task.apply_async(
+            task_id=str(job.id),
+            kwargs={
+                "job_id": str(job.id),
+                "module_id": str(module_id),
+                "guidance": req.guidance,
+                "language": req.language,
+                "tenant_id": str(user.tenant_id),
+                "user_id": str(user.id),
+            },
+        )
+    except Exception as exc:
+        await update_ai_job(
+            db,
+            job.id,
+            tenant_id=str(user.tenant_id),
+            status="failed",
+            stage="failed",
+            message="AI job could not be queued",
+        )
+        await db.commit()
+        raise HTTPException(status_code=503, detail="AI job could not be queued") from exc
 
     return AIJobResponse(
         id=job.id, status="pending", course_id=module.course_id,
@@ -1044,17 +1194,42 @@ async def regenerate_lesson(
     )
     await db.commit()
 
-    task = asyncio.create_task(
-        _regenerate_lesson_job(
-            job_id=job.id,
-            lesson_id=lesson_id,
-            guidance=req.guidance,
-            regenerate_quiz=req.regenerate_quiz,
-            tenant_id=user.tenant_id,
-            user_id=user.id,
+    from app.modules.ai.tasks import regenerate_lesson_task
+
+    if regenerate_lesson_task is None:
+        await update_ai_job(
+            db,
+            job.id,
+            tenant_id=str(user.tenant_id),
+            status="failed",
+            stage="failed",
+            message="AI worker is unavailable",
         )
-    )
-    _running_tasks[job.id] = task
+        await db.commit()
+        raise HTTPException(status_code=503, detail="AI worker is unavailable")
+    try:
+        regenerate_lesson_task.apply_async(
+            task_id=str(job.id),
+            kwargs={
+                "job_id": str(job.id),
+                "lesson_id": str(lesson_id),
+                "guidance": req.guidance,
+                "regenerate_quiz": req.regenerate_quiz,
+                "tenant_id": str(user.tenant_id),
+                "user_id": str(user.id),
+            },
+        )
+    except Exception as exc:
+        await update_ai_job(
+            db,
+            job.id,
+            tenant_id=str(user.tenant_id),
+            status="failed",
+            stage="failed",
+            message="AI job could not be queued",
+        )
+        await db.commit()
+        raise HTTPException(status_code=503, detail="AI job could not be queued") from exc
 
     return AIJobResponse(
         id=job.id, status="pending", course_id=module.course_id,

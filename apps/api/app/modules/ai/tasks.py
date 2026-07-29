@@ -90,6 +90,66 @@ try:
             logger.error(f"Generation task failed for job {job_id}: {e}")
             raise self.retry(exc=e, countdown=60) from e
 
+    @celery_app.task(bind=True, name="ai.regenerate_module", max_retries=2)
+    def regenerate_module_task(
+        self,
+        job_id: str,
+        module_id: str,
+        guidance: str,
+        language: str,
+        tenant_id: str,
+        user_id: str,
+    ):
+        """Run module regeneration in the durable worker queue."""
+        from app.modules.ai.router import _regenerate_module_job
+
+        try:
+            return _run_async(
+                _regenerate_module_job(
+                    job_id=job_id,
+                    module_id=UUID(module_id),
+                    guidance=guidance,
+                    language=language,
+                    tenant_id=UUID(tenant_id),
+                    user_id=UUID(user_id),
+                )
+            )
+        except asyncio.CancelledError:
+            return {"job_id": job_id, "status": "cancelled"}
+        except Exception as exc:
+            logger.error("Module regeneration failed for job %s: %s", job_id, exc)
+            raise self.retry(exc=exc, countdown=60) from exc
+
+    @celery_app.task(bind=True, name="ai.regenerate_lesson", max_retries=2)
+    def regenerate_lesson_task(
+        self,
+        job_id: str,
+        lesson_id: str,
+        guidance: str,
+        regenerate_quiz: bool,
+        tenant_id: str,
+        user_id: str,
+    ):
+        """Run lesson regeneration in the durable worker queue."""
+        from app.modules.ai.router import _regenerate_lesson_job
+
+        try:
+            return _run_async(
+                _regenerate_lesson_job(
+                    job_id=job_id,
+                    lesson_id=UUID(lesson_id),
+                    guidance=guidance,
+                    regenerate_quiz=regenerate_quiz,
+                    tenant_id=UUID(tenant_id),
+                    user_id=UUID(user_id),
+                )
+            )
+        except asyncio.CancelledError:
+            return {"job_id": job_id, "status": "cancelled"}
+        except Exception as exc:
+            logger.error("Lesson regeneration failed for job %s: %s", job_id, exc)
+            raise self.retry(exc=exc, countdown=60) from exc
+
     @celery_app.task(name="ai.ingest_document")
     def ingest_document_task(file_path: str, doc_id: str | None = None, tenant_id: str | None = None):
         """Celery task to ingest a single document."""
@@ -171,6 +231,8 @@ try:
 except Exception:
     # Redis/Celery not available — tasks won't run
     generate_course_task = None
+    regenerate_module_task = None
+    regenerate_lesson_task = None
     ingest_document_task = None
     document_cleanup_task = None
     document_reindex_task = None

@@ -12,13 +12,17 @@ Offline mode (`alembic upgrade --sql`) still works as before — produces
 SQL only, no DB connection.
 """
 import asyncio
-from alembic import context
+
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
-from app.core.db import Base
+from alembic import context
 from app.core.config import get_settings
+from app.core.db import Base
+from app.models.registry import load_all_models
+
+load_all_models()
 
 config = context.config
 if config.config_file_name is not None:

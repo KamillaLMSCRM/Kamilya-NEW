@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import html
 import json
+import logging
 import mimetypes
 import re
 import zipfile
@@ -38,6 +39,7 @@ router = APIRouter(
     prefix="/scorm",
     tags=["scorm"],
 )
+logger = logging.getLogger(__name__)
 
 MAX_SCORM_ZIP_BYTES = 250 * 1024 * 1024
 MAX_SCORM_FILES = 5000
@@ -382,40 +384,49 @@ async def import_scorm_package(
 
     digest = hashlib.sha256(data).hexdigest()[:16]
     storage_key = f"scorm/{user.tenant_id}/{course.id}/{digest}.zip"
-    get_storage().put_bytes(storage_key, data, content_type="application/zip")
+    storage = get_storage()
+    storage.put_bytes(storage_key, data, content_type="application/zip")
 
-    package = ScormPackage(
-        tenant_id=user.tenant_id,
-        course_id=course.id,
-        version=manifest["version"],
-        title=course_title,
-        entrypoint=manifest["entrypoint"],
-        storage_key=storage_key,
-        manifest_json={**manifest, "original_filename": filename, "sha256": hashlib.sha256(data).hexdigest()},
-        uploaded_by=user.id,
-    )
-    db.add(package)
-    await db.flush()
-    await db.refresh(package)
+    try:
+        package = ScormPackage(
+            tenant_id=user.tenant_id,
+            course_id=course.id,
+            version=manifest["version"],
+            title=course_title,
+            entrypoint=manifest["entrypoint"],
+            storage_key=storage_key,
+            manifest_json={**manifest, "original_filename": filename, "sha256": hashlib.sha256(data).hexdigest()},
+            uploaded_by=user.id,
+        )
+        db.add(package)
+        await db.flush()
+        await db.refresh(package)
 
-    await log_action(
-        db,
-        user.tenant_id,
-        "import",
-        "scorm_package",
-        resource_id=str(package.id),
-        user_id=user.id,
-        details={
-            "course_id": str(course.id),
-            "filename": filename,
-            "version": package.version,
-            "entrypoint": package.entrypoint,
-            "size_bytes": len(data),
-        },
-        ip_address=request.client.host if request.client else None,
-        user_agent=request.headers.get("user-agent"),
-    )
-    await db.commit()
+        await log_action(
+            db,
+            user.tenant_id,
+            "import",
+            "scorm_package",
+            resource_id=str(package.id),
+            user_id=user.id,
+            details={
+                "course_id": str(course.id),
+                "filename": filename,
+                "version": package.version,
+                "entrypoint": package.entrypoint,
+                "size_bytes": len(data),
+            },
+            ip_address=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent"),
+        )
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        try:
+            storage.delete_bytes(storage_key)
+        except Exception:
+            logger.exception("Could not remove orphaned SCORM object %s", storage_key)
+        raise
     return {"course_id": course.id, "package": package}
 
 

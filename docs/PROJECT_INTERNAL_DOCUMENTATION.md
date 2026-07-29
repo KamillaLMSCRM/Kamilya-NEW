@@ -450,6 +450,19 @@ API изменения course links отклоняет, endpoints apply/progress
 
 Render и Vercel deploy green не заменяют проверку миграций и ручной happy path.
 
+Владельцы DDL определены явно:
+
+- Render выполняет `alembic upgrade head` в `preDeployCommand`;
+- Docker API выполняет миграцию до запуска Uvicorn и завершает startup с
+  ошибкой, если миграция не прошла;
+- HTTP lifespan приложения миграции не запускает.
+
+`app/models/registry.py` загружает все ORM-модули для Alembic. Registry
+проверяется тестом на полноту, но это не означает автоматическое равенство
+исторической БД и ORM. На 2026-07-29 `alembic check` обнаруживает накопленный
+schema drift, включая SQL-only `document_embeddings`; применять предлагаемые
+remove-операции без отдельной сверки запрещено.
+
 ## 9. Проверки
 
 Минимальный gate:

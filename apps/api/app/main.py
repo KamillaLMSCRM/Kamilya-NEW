@@ -1,7 +1,5 @@
 import logging
 import os
-import subprocess
-import sys
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -137,39 +135,12 @@ elif settings.DEBUG:
 async def lifespan(app: FastAPI):
     """Startup/shutdown lifecycle."""
     # --- startup ---
-    _run_migrations()
     # Wire stdout/logger into the in-memory ring buffer so /v1/admin/debug/logs
     # can return recent lines without scraping Render Dashboard.
     from app.core import debug_log_buffer
     debug_log_buffer.install()
     yield
     # --- shutdown ---
-
-
-def _run_migrations():
-    """Run alembic migrations on startup (Render doesn't do this automatically)."""
-    import traceback
-    try:
-        venv_bin = os.path.dirname(sys.executable)
-        alembic_bin = os.path.join(venv_bin, "alembic")
-        if not os.path.exists(alembic_bin):
-            alembic_bin = os.path.join(venv_bin, "alembic.exe")
-        result = subprocess.run(
-            [alembic_bin, "-c", "alembic.ini", "upgrade", "head"],
-            cwd=os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
-            capture_output=True, text=True, timeout=60,
-        )
-        if result.returncode != 0:
-            print(f"[alembic] FAILED stdout={result.stdout[:500]} stderr={result.stderr[:500]}", flush=True)
-            logger.warning("Alembic warning: %s", result.stderr[:500])
-        else:
-            print("[alembic] OK", flush=True)
-            logger.info("Alembic migrations OK")
-    except Exception as e:
-        print(f"[alembic] EXC {e.__class__.__name__}: {e}", flush=True)
-        print(traceback.format_exc(), flush=True)
-        logger.error("Alembic error (non-fatal): %s", e)
-
 
 app = FastAPI(
     title=settings.APP_NAME,

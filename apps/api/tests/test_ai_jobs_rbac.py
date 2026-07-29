@@ -141,6 +141,54 @@ async def test_cross_tenant_job_id_is_not_found(handler_name: str):
     lookup.assert_awaited_once_with(db, "other-tenant-job", tenant_id=str(tenant_id))
 
 
+@pytest.mark.asyncio
+async def test_cancel_generation_persists_terminal_state_and_revokes_worker_task():
+    from app.modules.ai import router as ai_router
+
+    tenant_id = uuid4()
+    user = SimpleNamespace(tenant_id=tenant_id, role="methodologist")
+    db = AsyncMock()
+    job = SimpleNamespace(id="job-1", status="running")
+    update_job = AsyncMock(return_value=job)
+
+    with (
+        patch.object(ai_router, "get_ai_job", AsyncMock(return_value=job)),
+        patch.object(ai_router, "update_ai_job", update_job),
+        patch("app.core.celery_app.celery_app.control.revoke") as revoke,
+    ):
+        result = await ai_router.cancel_generation(job.id, db=db, user=user)
+
+    assert result == {"status": "cancelled"}
+    update_job.assert_awaited_once()
+    assert update_job.await_args.kwargs["status"] == "cancelled"
+    assert update_job.await_args.kwargs["stage"] == "cancelled"
+    db.commit.assert_awaited_once()
+    revoke.assert_called_once_with(job.id, terminate=False)
+
+
+@pytest.mark.asyncio
+async def test_cancel_generation_is_idempotent_for_cancelled_job():
+    from app.modules.ai import router as ai_router
+
+    tenant_id = uuid4()
+    user = SimpleNamespace(tenant_id=tenant_id, role="methodologist")
+    db = AsyncMock()
+    job = SimpleNamespace(id="job-1", status="cancelled")
+    update_job = AsyncMock()
+
+    with (
+        patch.object(ai_router, "get_ai_job", AsyncMock(return_value=job)),
+        patch.object(ai_router, "update_ai_job", update_job),
+        patch("app.core.celery_app.celery_app.control.revoke") as revoke,
+    ):
+        result = await ai_router.cancel_generation(job.id, db=db, user=user)
+
+    assert result == {"status": "cancelled"}
+    update_job.assert_not_awaited()
+    db.commit.assert_not_awaited()
+    revoke.assert_not_called()
+
+
 class _SessionContext:
     def __init__(self, session):
         self.session = session

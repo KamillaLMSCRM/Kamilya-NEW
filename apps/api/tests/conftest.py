@@ -31,7 +31,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 # load the test DATABASE_URL / JWT_SECRET at import time.
 # ---------------------------------------------------------------------------
 os.environ.setdefault("APP_ENV", "test")
-os.environ.setdefault("DATABASE_URL", "postgresql+asyncpg://lms:lms_test_password@localhost:5432/kamilya_lms_test")
+os.environ.setdefault(
+    "DATABASE_URL",
+    "postgresql+asyncpg://lms:lms_dev_password_2026@localhost:5432/kamilya_lms",
+)
+os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
 os.environ.setdefault("JWT_SECRET", "test_jwt_secret_for_ci_only_min_length_32")
 os.environ.setdefault("JWT_AUDIENCE", "kamilya-lms")
 os.environ.setdefault("TELEGRAM_WEBHOOK_SECRET", "test-telegram-webhook-secret")

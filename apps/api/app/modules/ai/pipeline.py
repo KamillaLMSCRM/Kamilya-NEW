@@ -258,16 +258,6 @@ async def _save_generation_to_db(
         await session.commit()
         logger.info(f"Saved generation results to DB for course {state.course_id}")
 
-
-def _check_cancelled(job_id: str):
-    """Raise CancelledError if job was cancelled in DB."""
-    import asyncio
-    from app.modules.ai.router import _running_tasks
-    # If task was cancelled via asyncio, this will be raised
-    # Also check DB status
-    # (synchronous check вЂ” the actual task.cancel() sets CancelledError)
-
-
 async def _check_cancelled_async(job_id: str, tenant_id: UUID | str | None = None):
     """Async check: raise CancelledError if job status is 'cancelled' in DB."""
     from app.modules.ai.job_service import get_ai_job
