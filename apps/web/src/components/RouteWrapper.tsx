@@ -2,6 +2,7 @@
 
 import { usePathname } from 'next/navigation';
 import Layout from '@/components/layout/Layout';
+import { isPublicRoute } from '@/lib/routeRegistry';
 
 const publicRoutes = ['/', '/register', '/register-tenant'];
 // Platform superadmin login lives outside any tenant layout — no sidebar,
@@ -11,7 +12,9 @@ const publicPrefixes = ['/login', '/accept-invite', '/kiosk', '/superadmin'];
 
 export default function RouteWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const isPublic = publicRoutes.includes(pathname) || publicPrefixes.some((p) => pathname.startsWith(p));
+  const isPublic = publicRoutes.includes(pathname)
+    || publicPrefixes.some((p) => pathname.startsWith(p))
+    || isPublicRoute(pathname);
 
   if (isPublic) {
     return <>{children}</>;

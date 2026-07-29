@@ -1,8 +1,10 @@
 """Certificate model"""
 import uuid
-from datetime import datetime, timezone
-from sqlalchemy import Column, String, Integer, Boolean, DateTime, Text, ForeignKey, JSON
+from datetime import UTC, datetime
+
+from sqlalchemy import JSON, Column, DateTime, ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import UUID
+
 from app.core.db import Base
 
 
@@ -14,7 +16,32 @@ class Certificate(Base):
     user_id = Column(UUID(as_uuid=True), nullable=False, index=True)
     course_id = Column(UUID(as_uuid=True), ForeignKey("courses.id", ondelete="cascade"), nullable=False, index=True)
     certificate_number = Column(String(50), nullable=False, unique=True)
-    issued_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    issued_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
     expires_at = Column(DateTime(timezone=True), nullable=True)
+    revoked_at = Column(DateTime(timezone=True), nullable=True)
+    revoked_reason = Column(Text, nullable=True)
+    template_version = Column(String(20), nullable=False, default="v3", server_default="v3")
+    pdf_sha256 = Column(String(64), nullable=True)
     pdf_path = Column(Text, nullable=True)
     metadata_ = Column("metadata", JSON, nullable=True)
+
+    @property
+    def status(self) -> str:
+        if self.revoked_at is not None:
+            return "revoked"
+        now = datetime.now(UTC)
+        expires_at = self.expires_at
+        if expires_at is not None:
+            if expires_at.tzinfo is None:
+                expires_at = expires_at.replace(tzinfo=UTC)
+            if expires_at <= now:
+                return "expired"
+        return "active"
+
+    @property
+    def user_name(self) -> str:
+        return str((self.metadata_ or {}).get("user_name", ""))
+
+    @property
+    def course_title(self) -> str:
+        return str((self.metadata_ or {}).get("course_title", ""))

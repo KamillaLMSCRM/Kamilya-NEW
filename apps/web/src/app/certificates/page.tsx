@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { Card, CardHeader, CardTitle, CardContent, Button, Badge } from '@/components/ui';
+import { useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
+import { Download, ExternalLink, FileCheck2, Loader2 } from 'lucide-react';
+
+import { Badge, Button, Card, CardContent } from '@/components/ui';
+import { toast } from '@/components/ui/Toast';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
-import { toast } from '@/components/ui/Toast';
-import { CheckCircle2, Download, Loader2 } from 'lucide-react';
-import Link from 'next/link';
 
 interface Certificate {
   id: string;
@@ -14,10 +15,13 @@ interface Certificate {
   certificate_number: string;
   issued_at: string;
   expires_at: string | null;
+  status: 'active' | 'expired' | 'revoked';
+  user_name: string;
+  course_title: string;
 }
 
 export default function CertificatesPage() {
-  const { t } = useT();
+  const { t, lang } = useT();
   const [certificates, setCertificates] = useState<Certificate[]>([]);
   const [loading, setLoading] = useState(true);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
@@ -30,7 +34,8 @@ export default function CertificatesPage() {
       const res = await fetch(`${API_URL}/v1/certificates`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (res.ok) setCertificates(await res.json());
+      if (!res.ok) throw new Error(`Certificate request failed (${res.status})`);
+      setCertificates(await res.json());
     } catch {
       toast.error(t('common.loadFailed') || 'Failed to load certificates');
     } finally {
@@ -39,7 +44,7 @@ export default function CertificatesPage() {
   }, [token, API_URL, t]);
 
   useEffect(() => {
-    fetchCertificates();
+    void fetchCertificates();
   }, [fetchCertificates]);
 
   const handleDownload = async (cert: Certificate) => {
@@ -53,7 +58,7 @@ export default function CertificatesPage() {
         if (res.status === 404) {
           toast.error(t('certificates.invalid'));
         } else {
-          toast.error(t('common.saveFailed') || 'Download failed');
+          toast.error(t('certificates.downloadFailed'));
         }
         return;
       }
@@ -66,25 +71,42 @@ export default function CertificatesPage() {
       a.click();
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
-      toast.success(t('toast.courseCompleted') || 'Downloaded');
+      toast.success(t('certificates.downloaded'));
     } catch (e) {
       console.error('Certificate download failed', e);
-      toast.error(t('common.saveFailed') || 'Download failed');
+      toast.error(t('certificates.downloadFailed'));
     } finally {
       setDownloadingId(null);
     }
   };
 
-  if (loading) return <div className="p-6">{t('common.loading')}</div>;
+  const formatDate = (value: string) => new Intl.DateTimeFormat(lang).format(new Date(value));
+  const statusLabel = (status: Certificate['status']) => {
+    if (status === 'active') return t('certificateVerification.active');
+    if (status === 'expired') return t('certificateVerification.expired');
+    return t('certificateVerification.revoked');
+  };
+
+  if (loading) {
+    return (
+      <div className="flex min-h-48 items-center justify-center gap-2 p-6 text-sm text-muted-foreground">
+        <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+        {t('common.loading')}
+      </div>
+    );
+  }
 
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-6">
-      <h1 className="text-2xl font-bold">{t('certificates.title')}</h1>
+    <div className="mx-auto max-w-5xl space-y-6 p-4 sm:p-6">
+      <div>
+        <h1 className="text-2xl font-bold">{t('certificates.title')}</h1>
+        <p className="mt-1 text-sm text-muted-foreground">{t('certificates.description')}</p>
+      </div>
 
       {certificates.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center gap-4 p-8 text-center">
-            <CheckCircle2 className="h-12 w-12 text-muted-foreground/50" aria-hidden="true" />
+            <FileCheck2 className="h-12 w-12 text-muted-foreground/50" aria-hidden="true" />
             <p className="max-w-md text-muted-foreground">{t('certificates.noCertificates')}</p>
             <Link href="/my-courses" className="text-sm font-medium text-primary hover:underline">
               {t('certificates.browseCourses')}
@@ -95,20 +117,43 @@ export default function CertificatesPage() {
         <div className="space-y-4">
           {certificates.map((cert) => (
             <Card key={cert.id}>
-              <CardContent className="p-4 flex items-center justify-between">
-                <div>
-                  <div className="font-medium">{cert.certificate_number}</div>
-                  <div className="text-sm text-muted-foreground">
-                    {t('certificates.issuedAt')}: {new Date(cert.issued_at).toLocaleDateString('ru')}
+              <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h2 className="break-words text-base font-semibold">
+                      {cert.course_title || t('certificates.courseFallback')}
+                    </h2>
+                    <Badge
+                      variant={cert.status === 'revoked' ? 'destructive' : 'outline'}
+                      className={
+                        cert.status === 'active'
+                          ? 'border-success/40 bg-success/10 text-success'
+                          : cert.status === 'expired'
+                            ? 'border-warning/50 bg-warning/10 text-warning-foreground'
+                            : undefined
+                      }
+                    >
+                      {statusLabel(cert.status)}
+                    </Badge>
                   </div>
-                  {cert.expires_at && (
-                    <div className="text-sm text-muted-foreground">
-                      {t('certificates.expiresAt')}: {new Date(cert.expires_at).toLocaleDateString('ru')}
-                    </div>
-                  )}
+                  <p className="mt-1 break-all font-mono text-xs text-muted-foreground">
+                    {cert.certificate_number}
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-sm text-muted-foreground">
+                    <span>{t('certificates.issuedAt')}: {formatDate(cert.issued_at)}</span>
+                    {cert.expires_at && (
+                      <span>{t('certificates.expiresAt')}: {formatDate(cert.expires_at)}</span>
+                    )}
+                  </div>
                 </div>
-                <div className="flex gap-2">
-                  <Badge variant="outline">PDF</Badge>
+                <div className="flex flex-col gap-2 sm:min-w-48">
+                  <Link
+                    href={`/verify/certificate/${encodeURIComponent(cert.certificate_number)}`}
+                    className="inline-flex h-9 items-center justify-center rounded-md border border-input px-3 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  >
+                    <ExternalLink className="mr-2 h-4 w-4" aria-hidden="true" />
+                    {t('certificates.openVerification')}
+                  </Link>
                   <Button
                     size="sm"
                     onClick={() => handleDownload(cert)}
@@ -128,61 +173,12 @@ export default function CertificatesPage() {
         </div>
       )}
 
-      <div className="mt-8">
-        <h2 className="text-lg font-semibold mb-4">{t('certificates.verify')}</h2>
-        <Card>
-          <CardContent className="p-4">
-            <VerifyCertificateForm />
-          </CardContent>
-        </Card>
-      </div>
-    </div>
-  );
-}
-
-function VerifyCertificateForm() {
-  const { t } = useT();
-  const [number, setNumber] = useState('');
-  const [result, setResult] = useState<any>(null);
-  const [error, setError] = useState('');
-  const API_URL = process.env.NEXT_PUBLIC_API_URL;
-
-  const handleVerify = async () => {
-    setError('');
-    setResult(null);
-    if (!number.trim()) return;
-    const res = await fetch(`${API_URL}/v1/certificates/verify/${encodeURIComponent(number.trim())}`);
-    if (res.ok) {
-      setResult(await res.json());
-    } else {
-      setError(t('certificates.invalid'));
-    }
-  };
-
-  return (
-    <div className="space-y-3">
-      <p className="text-sm text-muted-foreground">{t('certificates.verifyHint')}</p>
-      <div className="flex flex-col gap-2 sm:flex-row">
-      <input
-        type="text"
-        value={number}
-        onChange={(e) => setNumber(e.target.value)}
-        onKeyDown={(e) => { if (e.key === 'Enter') handleVerify(); }}
-        placeholder={t('certificates.verifyPlaceholder')}
-        className="flex-1 border rounded px-3 py-2"
-      />
-      <Button onClick={handleVerify} disabled={!number.trim()}>{t('certificates.verifyButton')}</Button>
-      </div>
-      {result && (
-        <div className="w-full mt-2 flex items-center gap-2 p-2 bg-success/10 rounded text-sm">
-          <CheckCircle2 className="w-4 h-4 text-success" /> {t('certificates.valid')}. {result.user_name}, {result.course_title}
-        </div>
-      )}
-      {error && (
-        <div className="w-full mt-2 p-2 bg-destructive/10 rounded text-sm text-destructive">
-          {error}
-        </div>
-      )}
+      <p className="text-sm text-muted-foreground">
+        {t('certificates.publicVerificationHint')}{' '}
+        <Link href="/verify/certificate" className="font-medium text-primary hover:underline">
+          {t('certificates.verify')}
+        </Link>
+      </p>
     </div>
   );
 }

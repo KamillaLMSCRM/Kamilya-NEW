@@ -27,6 +27,11 @@ async def test_ai_draft_reaches_certificate_and_training_log_for_selected_group(
     from app.modules.quizzes.models import Question, QuizChoice
 
     tenant = await make_tenant(name="Pilot Tenant", slug="pilot-native-e2e")
+    admin = await make_user(
+        tenant,
+        role="admin",
+        email="admin@pilot.example",
+    )
     methodologist = await make_user(
         tenant,
         role="methodologist",
@@ -89,6 +94,39 @@ async def test_ai_draft_reaches_certificate_and_training_log_for_selected_group(
     await db_session.flush()
 
     methodologist_headers = auth_headers(methodologist)
+    admin_headers = auth_headers(admin)
+
+    certificate_settings = {
+        "organization_name": "Pilot Tenant Learning Center",
+        "signer_name": "Pilot Director",
+        "signer_title": "Director",
+        "validity_months": 12,
+        "footer_note": "Internal training record",
+        "verification_base_url": "https://example.invalid",
+        "show_verification_url": True,
+    }
+    settings_update = await client.put(
+        "/api/v1/certificates/settings",
+        headers=admin_headers,
+        json=certificate_settings,
+    )
+    assert settings_update.status_code == 200, settings_update.text
+    assert (
+        settings_update.json()["verification_base_url"]
+        == "https://app.kml.kz/verify/certificate"
+    )
+    preview = await client.post(
+        "/api/v1/certificates/settings/preview",
+        headers=admin_headers,
+        json={
+            "settings": certificate_settings,
+            "sample_user_name": "Preview Learner",
+            "sample_course_title": "Preview Course",
+        },
+    )
+    assert preview.status_code == 200, preview.text
+    assert preview.headers["content-type"].startswith("application/pdf")
+    assert preview.content.startswith(b"%PDF")
 
     blocked_publish = await client.post(
         f"/api/v1/courses/{course.id}/publish",
@@ -166,6 +204,19 @@ async def test_ai_draft_reaches_certificate_and_training_log_for_selected_group(
     )
     assert learner_certificates.status_code == 200, learner_certificates.text
     assert len(learner_certificates.json()) == 1
+    certificate_id = learner_certificates.json()[0]["id"]
+    assert learner_certificates.json()[0]["status"] == "active"
+
+    same_tenant_other_learner = await client.get(
+        f"/api/v1/certificates/{certificate_id}",
+        headers=auth_headers(learners[1]),
+    )
+    assert same_tenant_other_learner.status_code == 404
+    methodologist_certificate = await client.get(
+        f"/api/v1/certificates/{certificate_id}",
+        headers=methodologist_headers,
+    )
+    assert methodologist_certificate.status_code == 200
 
     verification = await client.get(
         "/api/v1/certificates/verify/"
@@ -173,7 +224,12 @@ async def test_ai_draft_reaches_certificate_and_training_log_for_selected_group(
     )
     assert verification.status_code == 200, verification.text
     assert verification.json()["valid"] is True
+    assert verification.json()["status"] == "active"
     assert verification.json()["course_title"] == course.title
+    assert (
+        verification.json()["organization_name"]
+        == "Pilot Tenant Learning Center"
+    )
 
     training_log = await client.get(
         f"/api/v1/admin/training-log?course_id={course.id}",
@@ -202,3 +258,20 @@ async def test_ai_draft_reaches_certificate_and_training_log_for_selected_group(
         )
         assert certificates.status_code == 200, certificates.text
         assert certificates.json() == []
+
+    revocation = await client.post(
+        f"/api/v1/certificates/{certificate_id}/revoke",
+        headers=methodologist_headers,
+        json={"reason": "Issued during integration verification"},
+    )
+    assert revocation.status_code == 200, revocation.text
+    assert revocation.json()["status"] == "revoked"
+    assert revocation.json()["valid"] is False
+
+    revoked_verification = await client.get(
+        "/api/v1/certificates/verify/"
+        + completion_body["certificate_number"],
+    )
+    assert revoked_verification.status_code == 200
+    assert revoked_verification.json()["status"] == "revoked"
+    assert revoked_verification.json()["valid"] is False

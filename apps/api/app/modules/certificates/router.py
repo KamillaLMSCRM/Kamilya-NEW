@@ -1,32 +1,48 @@
 """Certificate API router"""
+from typing import Annotated
 from uuid import UUID
+
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import Response, RedirectResponse
+from fastapi.responses import RedirectResponse, Response
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import get_current_user, require_role
 from app.core.db import get_db
 from app.core.storage import get_storage
-from app.modules.certificates.schemas import CertificateResponse, CertificateSettings
+from app.models.users import User
+from app.modules.audit.service import log_action
+from app.modules.certificates.schemas import (
+    CertificatePreviewRequest,
+    CertificateResponse,
+    CertificateRevocationRequest,
+    CertificateSettings,
+    CertificateVerificationResponse,
+)
 from app.modules.certificates.service import (
-    issue_certificate,
-    get_user_certificates,
     get_certificate,
     get_certificate_settings,
+    get_pdf_url,
+    get_user_certificates,
+    issue_certificate,
+    read_pdf_bytes,
+    render_certificate_preview,
+    revoke_certificate,
     update_certificate_settings,
     verify_certificate,
-    read_pdf_bytes,
-    get_pdf_url,
 )
 
 router = APIRouter(prefix="/certificates", tags=["certificates"])
+Database = Annotated[AsyncSession, Depends(get_db)]
+CurrentUser = Annotated[User, Depends(get_current_user)]
+AdminUser = Annotated[User, Depends(require_role("admin"))]
+MethodologistUser = Annotated[User, Depends(require_role("methodologist"))]
 
 
 @router.get("/settings", response_model=CertificateSettings)
 async def get_settings(
-    db: AsyncSession = Depends(get_db),
-    user=Depends(require_role("admin")),
+    db: Database,
+    user: AdminUser,
 ):
     """Get tenant certificate template/settings."""
     return await get_certificate_settings(db, user.tenant_id)
@@ -35,20 +51,49 @@ async def get_settings(
 @router.put("/settings", response_model=CertificateSettings)
 async def save_settings(
     payload: CertificateSettings,
-    db: AsyncSession = Depends(get_db),
-    user=Depends(require_role("admin")),
+    db: Database,
+    user: AdminUser,
 ):
     """Save tenant certificate template/settings."""
     try:
-        return await update_certificate_settings(db, user.tenant_id, payload)
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        settings = await update_certificate_settings(db, user.tenant_id, payload)
+        await log_action(
+            db,
+            user.tenant_id,
+            "certificate.settings.updated",
+            "certificate_settings",
+            user_id=user.id,
+            details={
+                "validity_months": settings.validity_months,
+                "show_verification_url": settings.show_verification_url,
+            },
+        )
+        return settings
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.post("/settings/preview")
+async def preview_settings(
+    payload: CertificatePreviewRequest,
+    _user: AdminUser,
+):
+    """Render unsaved certificate settings with the production PDF renderer."""
+    pdf_bytes = render_certificate_preview(payload)
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": 'inline; filename="certificate-preview.pdf"',
+            "Cache-Control": "no-store",
+        },
+    )
 
 
 @router.get("", response_model=list[CertificateResponse])
 async def list_certificates(
-    db: AsyncSession = Depends(get_db),
-    user=Depends(get_current_user),
+    db: Database,
+    user: CurrentUser,
 ):
     """Get current user's certificates."""
     return await get_user_certificates(db, user.id, user.tenant_id)
@@ -57,8 +102,8 @@ async def list_certificates(
 @router.post("/{course_id}/issue", response_model=CertificateResponse, status_code=201)
 async def issue_course_certificate(
     course_id: UUID,
-    db: AsyncSession = Depends(get_db),
-    user=Depends(get_current_user),
+    db: Database,
+    user: CurrentUser,
 ):
     """Issue certificate for completing a course (enforces completion)."""
     try:
@@ -71,14 +116,17 @@ async def issue_course_certificate(
             course_title="",
         )
         return cert
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
-@router.get("/verify/{certificate_number}")
+@router.get(
+    "/verify/{certificate_number}",
+    response_model=CertificateVerificationResponse,
+)
 async def verify_cert(
     certificate_number: str,
-    db: AsyncSession = Depends(get_db),
+    db: Database,
 ):
     """Verify a certificate (public endpoint)."""
     # Certificate verification is intentionally public, including for users
@@ -91,15 +139,55 @@ async def verify_cert(
     return result
 
 
+@router.post(
+    "/{cert_id}/revoke",
+    response_model=CertificateVerificationResponse,
+)
+async def revoke_cert(
+    cert_id: UUID,
+    payload: CertificateRevocationRequest,
+    db: Database,
+    user: MethodologistUser,
+):
+    """Irreversibly revoke a tenant certificate and retain the audit reason."""
+    try:
+        cert = await revoke_certificate(
+            db,
+            cert_id,
+            user.tenant_id,
+            payload.reason,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    await log_action(
+        db,
+        user.tenant_id,
+        "certificate.revoked",
+        "certificate",
+        resource_id=cert.id,
+        user_id=user.id,
+        details={"reason": cert.revoked_reason},
+    )
+    result = await verify_certificate(db, cert.certificate_number)
+    if not result:
+        raise HTTPException(status_code=404, detail="Certificate not found")
+    return result
+
+
+def _can_access_certificate(user, cert) -> bool:
+    return cert.user_id == user.id or user.role == "methodologist"
+
+
 @router.get("/{cert_id}", response_model=CertificateResponse)
 async def get_cert(
     cert_id: UUID,
-    db: AsyncSession = Depends(get_db),
-    user=Depends(get_current_user),
+    db: Database,
+    user: CurrentUser,
 ):
     """Get a specific certificate."""
     cert = await get_certificate(db, cert_id, user.tenant_id)
-    if not cert:
+    if not cert or not _can_access_certificate(user, cert):
         raise HTTPException(status_code=404, detail="Certificate not found")
     return cert
 
@@ -107,8 +195,8 @@ async def get_cert(
 @router.get("/{cert_id}/download")
 async def download_certificate_pdf(
     cert_id: UUID,
-    db: AsyncSession = Depends(get_db),
-    user=Depends(get_current_user),
+    db: Database,
+    user: CurrentUser,
 ):
     """Download certificate as PDF.
 
@@ -117,7 +205,7 @@ async def download_certificate_pdf(
     - Local backend: stream the PDF bytes directly.
     """
     cert = await get_certificate(db, cert_id, user.tenant_id)
-    if not cert:
+    if not cert or not _can_access_certificate(user, cert):
         raise HTTPException(status_code=404, detail="Certificate not found")
 
     storage = get_storage()

@@ -42,6 +42,12 @@ export const ROLE_HOMES: Record<AppRole, string> = {
   superadmin: '/admin/super',
 };
 
+export const PUBLIC_ROUTE_PREFIXES = ['/verify/certificate'] as const;
+
+export function isPublicRoute(pathname: string): boolean {
+  return PUBLIC_ROUTE_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+}
+
 export type NavigationSection = 'overview' | 'content' | 'workforce' | 'learning' | 'tenant' | 'platform';
 export type NavigationIcon =
   | 'dashboard'

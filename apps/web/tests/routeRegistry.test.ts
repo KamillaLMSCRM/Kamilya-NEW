@@ -6,6 +6,7 @@ import {
   canAccessRegisteredRoute,
   getNavigationRoutes,
   hasCapability,
+  isPublicRoute,
 } from '@/lib/routeRegistry';
 
 describe('route and capability registry', () => {
@@ -96,6 +97,13 @@ describe('route and capability registry', () => {
     expect(canAccessRegisteredRoute('methodologist', '/surveys')).toBe(true);
     expect(canAccessRegisteredRoute('methodologist', '/announcements')).toBe(true);
     expect(canAccessRegisteredRoute('student', '/surveys')).toBe(true);
+  });
+
+  it('recognizes only the public certificate verification surface', () => {
+    expect(isPublicRoute('/verify/certificate')).toBe(true);
+    expect(isPublicRoute('/verify/certificate/KML-2026-123456')).toBe(true);
+    expect(isPublicRoute('/certificates')).toBe(false);
+    expect(isPublicRoute('/admin/certificates/settings')).toBe(false);
   });
 
   it('keeps position qualification cards on the methodologist surface', () => {
