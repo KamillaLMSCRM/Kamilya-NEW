@@ -659,7 +659,6 @@ async def upload_document(
             failed_job.completed_at = now
         await db.commit()
 
-    await db.refresh(doc)
     return _hydrate(doc, indexing_job_id=job.id)
 
 
