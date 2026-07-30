@@ -1,39 +1,43 @@
 'use client';
 
-import { Suspense, useEffect, useState, useCallback } from 'react';
+import { FormEvent, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { AlertTriangle, BookOpen, Building2, Mail, ShieldCheck, UserRound } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Card, CardHeader, CardTitle, CardContent, Button, Input } from '@/components/ui';
-import { useAuthStore } from '@/store/authStore';
+
+import { Logo } from '@/components/brand/Logo';
+import { Button, Card, CardContent, CardHeader, CardTitle, Input } from '@/components/ui';
 import { api } from '@/lib/api';
 import { getRoleHome } from '@/lib/rolePolicy';
+import { useAuthStore } from '@/store/authStore';
 
 interface PublicInvitation {
-  email: string;
+  masked_email: string;
   tenant_name: string;
   role: string;
+  first_name: string;
+  last_name: string;
+  position_name: string | null;
+  course_titles: string[];
   expires_at: string;
   valid: boolean;
   reason_if_invalid: string | null;
-  requires_personnel_number: boolean;
 }
 
 const REASON_LABELS: Record<string, string> = {
   invitation_not_found: 'Приглашение не найдено. Проверьте ссылку или попросите методолога прислать новую.',
-  already_accepted: 'Это приглашение уже принято. Войдите в систему.',
-  superseded: 'Приглашение заменено новым. Проверьте, нет ли более свежей ссылки.',
-  revoked: 'Приглашение отозвано. Свяжитесь с методологом.',
-  expired: 'Срок действия приглашения истёк. Попросите методолога прислать новое.',
+  already_accepted: 'Это приглашение уже принято. Войдите в систему по коду из email.',
+  superseded: 'Приглашение заменено новым. Используйте последнюю полученную ссылку.',
+  revoked: 'Приглашение отозвано. Обратитесь к методологу вашей организации.',
+  expired: 'Срок действия приглашения истёк. Попросите методолога создать новое.',
 };
 
-const ROLE_LABELS: Record<string, string> = {
-  student: 'Студент',
-  methodologist: 'Методист',
-  admin: 'Администратор',
-};
+function normalizeCode(value: string): string {
+  return value.replace(/\D/g, '').slice(0, 6);
+}
 
 export default function AcceptInvitePage() {
   return (
-    <Suspense fallback={<div className="p-8 text-center text-muted-foreground">Загрузка...</div>}>
+    <Suspense fallback={<LoadingState />}>
       <AcceptInviteForm />
     </Suspense>
   );
@@ -43,44 +47,56 @@ function AcceptInviteForm() {
   const router = useRouter();
   const params = useSearchParams();
   const token = params.get('token');
-
   const { login, accessToken } = useAuthStore();
 
   const [invitation, setInvitation] = useState<PublicInvitation | null>(null);
   const [loadingInvitation, setLoadingInvitation] = useState(true);
-
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [password, setPassword] = useState('');
-  const [password2, setPassword2] = useState('');
-  const [personnelNumber, setPersonnelNumber] = useState('');
+  const [code, setCode] = useState('');
+  const [codeSent, setCodeSent] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [showIdentityHelp, setShowIdentityHelp] = useState(false);
+  const [retryAt, setRetryAt] = useState(0);
+  const [secondsLeft, setSecondsLeft] = useState(0);
 
-  // Redirect if already logged in (defensive — shouldn't happen on this page)
   useEffect(() => {
-    if (accessToken) router.push(getRoleHome(useAuthStore.getState().user?.role));
+    if (accessToken) {
+      router.replace(getRoleHome(useAuthStore.getState().user?.role));
+    }
   }, [accessToken, router]);
 
-  // Fetch invitation details on mount
+  useEffect(() => {
+    if (!retryAt) {
+      setSecondsLeft(0);
+      return;
+    }
+    const update = () => setSecondsLeft(Math.max(0, Math.ceil((retryAt - Date.now()) / 1000)));
+    update();
+    const timer = window.setInterval(update, 1000);
+    return () => window.clearInterval(timer);
+  }, [retryAt]);
+
   useEffect(() => {
     if (!token) {
       setLoadingInvitation(false);
       return;
     }
-    (async () => {
+    void (async () => {
       try {
-        const res = await api.get(`/v1/invitations/${encodeURIComponent(token)}`);
-        setInvitation(res.data);
-      } catch (err: any) {
+        const response = await api.get(`/v1/invitations/${encodeURIComponent(token)}`);
+        setInvitation(response.data);
+      } catch {
         setInvitation({
-          email: '',
+          masked_email: '',
           tenant_name: '',
           role: '',
+          first_name: '',
+          last_name: '',
+          position_name: null,
+          course_titles: [],
           expires_at: new Date().toISOString(),
           valid: false,
           reason_if_invalid: 'invitation_not_found',
-          requires_personnel_number: false,
         });
       } finally {
         setLoadingInvitation(false);
@@ -88,217 +104,240 @@ function AcceptInviteForm() {
     })();
   }, [token]);
 
-  const handleSubmit = useCallback(async () => {
-    setError('');
-    if (!token) { setError('Ссылка не содержит токен'); return; }
-    if (firstName.trim().length < 1) { setError('Введите имя'); return; }
-    if (lastName.trim().length < 1) { setError('Введите фамилию'); return; }
-    if (invitation?.requires_personnel_number && !personnelNumber.trim()) {
-      setError('Введите табельный номер — это требует HR для безопасности');
-      return;
-    }
-    if (password.length < 8) { setError('Пароль должен быть минимум 8 символов'); return; }
-    if (password !== password2) { setError('Пароли не совпадают'); return; }
+  const fullName = useMemo(
+    () => `${invitation?.first_name || ''} ${invitation?.last_name || ''}`.trim(),
+    [invitation?.first_name, invitation?.last_name],
+  );
 
+  const requestCode = useCallback(async () => {
+    if (!token || submitting || secondsLeft > 0) return;
+    setError('');
     setSubmitting(true);
     try {
-      const res = await api.post(`/v1/invitations/${encodeURIComponent(token)}/accept`, {
-        first_name: firstName.trim(),
-        last_name: lastName.trim(),
-        password,
-        ...(invitation?.requires_personnel_number
-          ? { personnel_number: personnelNumber.trim() }
-          : {}),
-      });
-      const { access_token, user_id, tenant_id, role } = res.data;
-
-      // Fetch user profile to build AuthUser shape
-      try {
-        const meRes = await api.get('/v1/users/me');
-        const me = meRes.data;
-        const authUser = {
-          user_id,
-          tenant_id,
-          tenant: { id: tenant_id, name: invitation?.tenant_name || '', slug: undefined },
-          telegram_id: me.telegram_id ? String(me.telegram_id) : '',
-          role,
-          full_name: `${me.first_name || ''} ${me.last_name || ''}`.trim() || `${firstName} ${lastName}`,
-          email: me.email || invitation?.email || null,
-        };
-        login(access_token, authUser);
-      } catch {
-        // Fallback: store what we have
-        const fallbackUser = {
-          user_id,
-          tenant_id,
-          tenant: { id: tenant_id, name: invitation?.tenant_name || '', slug: undefined },
-          telegram_id: '',
-          role,
-          full_name: `${firstName} ${lastName}`,
-          email: invitation?.email || null,
-        };
-        login(access_token, fallbackUser);
-      }
-
-      router.push(getRoleHome(role));
-    } catch (err: any) {
-      const detail = err?.response?.data?.detail || 'Не удалось принять приглашение';
-      setError(typeof detail === 'string' ? detail : JSON.stringify(detail));
+      const response = await api.post(
+        `/v1/invitations/${encodeURIComponent(token)}/request-code`,
+      );
+      const retryAfter = Number(response.data.retry_after || 60);
+      setRetryAt(Date.now() + retryAfter * 1000);
+      setCodeSent(true);
+    } catch (requestError: any) {
+      setError(requestError?.response?.data?.detail || 'Не удалось отправить код. Попробуйте позже.');
     } finally {
       setSubmitting(false);
     }
-  }, [token, firstName, lastName, password, password2, invitation, login, router]);
+  }, [secondsLeft, submitting, token]);
 
-  // ── Render ──────────────────────────────────────────────────────────
+  const verifyCode = useCallback(async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!token || submitting) return;
+    if (code.length !== 6) {
+      setError('Введите шестизначный код из письма.');
+      return;
+    }
+    setError('');
+    setSubmitting(true);
+    try {
+      const response = await api.post(
+        `/v1/invitations/${encodeURIComponent(token)}/accept`,
+        { code },
+      );
+      login(response.data.access_token, response.data.user);
+      router.replace(response.data.next_url || getRoleHome(response.data.role));
+    } catch (verifyError: any) {
+      setError(verifyError?.response?.data?.detail || 'Код неверный или истёк.');
+    } finally {
+      setSubmitting(false);
+    }
+  }, [code, login, router, submitting, token]);
 
-  if (loadingInvitation) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background p-4">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-      </div>
-    );
-  }
-
+  if (loadingInvitation) return <LoadingState />;
   if (!token) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background p-4">
-        <Card className="max-w-md w-full">
-          <CardContent className="pt-6 text-center space-y-3">
-            <div className="text-5xl">🔗</div>
-            <h1 className="text-xl font-bold text-foreground">Ссылка неполная</h1>
-            <p className="text-sm text-muted-foreground">
-              Откройте ссылку из приглашения целиком — она должна содержать токен после <code className="bg-muted px-1 rounded">?token=...</code>
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+      <UnavailableState
+        title="Ссылка неполная"
+        message="Откройте полную ссылку из приглашения. В ней должен быть защищённый токен доступа."
+      />
     );
   }
-
-  if (!invitation || !invitation.valid) {
+  if (!invitation?.valid) {
     const reason = invitation?.reason_if_invalid || 'invitation_not_found';
-    const label = REASON_LABELS[reason] || 'Приглашение недоступно';
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background p-4">
-        <Card className="max-w-md w-full">
-          <CardContent className="pt-6 text-center space-y-3">
-            <div className="text-5xl">⚠️</div>
-            <h1 className="text-xl font-bold text-foreground">Приглашение недоступно</h1>
-            <p className="text-sm text-muted-foreground">{label}</p>
-            <Button
-              variant="outline"
-              onClick={() => router.push('/login')}
-              className="w-full"
-            >
-              На страницу входа
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
+      <UnavailableState
+        title="Приглашение недоступно"
+        message={REASON_LABELS[reason] || 'Обратитесь к методологу вашей организации.'}
+      />
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <Card className="max-w-md w-full">
-        <CardHeader>
-          <CardTitle>
-            <div className="flex items-center gap-2">
-              <span className="text-2xl">🎉</span>
-              <span>Добро пожаловать в {invitation.tenant_name}</span>
+    <div className="min-h-screen bg-muted/30 px-4 py-8 sm:py-12">
+      <main className="mx-auto w-full max-w-xl">
+        <div className="mb-6 flex justify-center">
+          <Logo variant="full" size={40} />
+        </div>
+
+        <Card className="overflow-hidden border-border shadow-card">
+          <CardHeader className="border-b bg-card px-5 py-5 sm:px-7">
+            <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-md bg-primary/10 text-primary">
+              <ShieldCheck className="h-6 w-6" aria-hidden="true" />
             </div>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="rounded-lg border border-success/30 bg-success/10 p-3 text-sm">
-            <div className="flex items-center gap-2 text-success">
-              <span>✉️</span>
-              <span className="font-semibold">{invitation.email}</span>
+            <CardTitle className="text-2xl">Вас пригласили пройти обучение</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Проверьте данные и подтвердите доступ кодом из рабочей почты.
+            </p>
+          </CardHeader>
+
+          <CardContent className="space-y-6 px-5 py-6 sm:px-7">
+            <section className="space-y-4 rounded-md border bg-muted/20 p-4" aria-label="Данные приглашения">
+              <div className="flex items-start gap-3">
+                <Building2 className="mt-0.5 h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
+                <div>
+                  <p className="text-xs text-muted-foreground">Организация</p>
+                  <p className="font-semibold text-foreground">{invitation.tenant_name}</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <UserRound className="mt-0.5 h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
+                <div>
+                  <p className="text-xs text-muted-foreground">Сотрудник</p>
+                  <p className="font-semibold text-foreground">{fullName}</p>
+                  {invitation.position_name && (
+                    <p className="text-sm text-muted-foreground">{invitation.position_name}</p>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <Mail className="mt-0.5 h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
+                <div>
+                  <p className="text-xs text-muted-foreground">Email для подтверждения</p>
+                  <p className="font-medium text-foreground">{invitation.masked_email}</p>
+                </div>
+              </div>
+            </section>
+
+            {invitation.course_titles.length > 0 && (
+              <section aria-labelledby="assigned-training-title">
+                <div className="mb-2 flex items-center gap-2">
+                  <BookOpen className="h-5 w-5 text-primary" aria-hidden="true" />
+                  <h2 id="assigned-training-title" className="font-semibold">Назначенное обучение</h2>
+                </div>
+                <ul className="space-y-2">
+                  {invitation.course_titles.map((title) => (
+                    <li key={title} className="rounded-md border px-3 py-2 text-sm text-foreground">
+                      {title}
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+
+            {!codeSent ? (
+              <Button className="h-11 w-full" onClick={requestCode} disabled={submitting}>
+                <Mail className="h-4 w-4" aria-hidden="true" />
+                {submitting ? 'Отправляем код...' : 'Получить код'}
+              </Button>
+            ) : (
+              <form className="space-y-4" onSubmit={verifyCode}>
+                <div>
+                  <label htmlFor="invitation-code" className="mb-1.5 block text-sm font-medium">
+                    Код из письма
+                  </label>
+                  <Input
+                    id="invitation-code"
+                    value={code}
+                    onChange={(event) => setCode(normalizeCode(event.target.value))}
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    placeholder="000000"
+                    aria-describedby="invitation-code-hint"
+                    className="h-12 text-center text-xl tracking-[0.3em]"
+                    autoFocus
+                  />
+                  <p id="invitation-code-hint" className="mt-1.5 text-xs text-muted-foreground">
+                    Код действует 5 минут и подтверждает доступ к указанному email.
+                  </p>
+                </div>
+                <Button type="submit" className="h-11 w-full" disabled={submitting || code.length !== 6}>
+                  <ShieldCheck className="h-4 w-4" aria-hidden="true" />
+                  {submitting ? 'Проверяем...' : 'Подтвердить и начать обучение'}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  onClick={requestCode}
+                  disabled={submitting || secondsLeft > 0}
+                >
+                  {secondsLeft > 0 ? `Отправить повторно через ${secondsLeft} с` : 'Отправить код повторно'}
+                </Button>
+              </form>
+            )}
+
+            {error && (
+              <div role="alert" className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+                {error}
+              </div>
+            )}
+
+            <div className="border-t pt-4">
+              <button
+                type="button"
+                className="text-sm font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                onClick={() => setShowIdentityHelp((current) => !current)}
+                aria-expanded={showIdentityHelp}
+              >
+                Данные или email указаны неверно
+              </button>
+              {showIdentityHelp && (
+                <div className="mt-3 flex gap-2 rounded-md bg-warning/10 p-3 text-sm text-foreground">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" aria-hidden="true" />
+                  <p>
+                    Не продолжайте активацию. Попросите методолога исправить карточку сотрудника
+                    и создать новое приглашение.
+                  </p>
+                </div>
+              )}
             </div>
-            <div className="text-success/80 mt-1 text-xs">
-              Роль: {ROLE_LABELS[invitation.role] || invitation.role} ·
-              {' '}Ссылка действует до{' '}
-              {new Date(invitation.expires_at).toLocaleDateString('ru-RU', {
-                day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit',
+
+            <p className="text-center text-xs text-muted-foreground">
+              Приглашение действует до{' '}
+              {new Date(invitation.expires_at).toLocaleString('ru-RU', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
               })}
-            </div>
+            </p>
+          </CardContent>
+        </Card>
+      </main>
+    </div>
+  );
+}
+
+function LoadingState() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-muted/30 p-4">
+      <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" aria-label="Загрузка" />
+    </div>
+  );
+}
+
+function UnavailableState({ title, message }: { title: string; message: string }) {
+  const router = useRouter();
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-muted/30 p-4">
+      <Card className="w-full max-w-md">
+        <CardContent className="space-y-4 p-6 text-center">
+          <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-md bg-warning/10 text-warning">
+            <AlertTriangle className="h-6 w-6" aria-hidden="true" />
           </div>
-
-          <p className="text-sm text-muted-foreground">
-            Заполните имя, фамилию и задайте пароль — и вы в системе.
-          </p>
-
-          <label className="block">
-            <span className="block text-xs font-semibold text-muted-foreground mb-1">Имя</span>
-            <Input
-              value={firstName}
-              onChange={(e) => setFirstName(e.target.value)}
-              placeholder="Иван"
-              autoFocus
-            />
-          </label>
-          <label className="block">
-            <span className="block text-xs font-semibold text-muted-foreground mb-1">Фамилия</span>
-            <Input
-              value={lastName}
-              onChange={(e) => setLastName(e.target.value)}
-              placeholder="Иванов"
-            />
-          </label>
-          {invitation?.requires_personnel_number && (
-            <label className="block">
-              <span className="block text-xs font-semibold text-muted-foreground mb-1">
-                Табельный номер <span className="text-destructive">*</span>
-              </span>
-              <Input
-                value={personnelNumber}
-                onChange={(e) => setPersonnelNumber(e.target.value)}
-                placeholder="T-1042"
-                autoComplete="off"
-              />
-              <span className="block text-[11px] text-muted-foreground mt-1">
-                HR указал табельный номер для этого приглашения. Введите его для подтверждения.
-              </span>
-            </label>
-          )}
-          <label className="block">
-            <span className="block text-xs font-semibold text-muted-foreground mb-1">Пароль (минимум 8 символов)</span>
-            <Input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              autoComplete="new-password"
-            />
-          </label>
-          <label className="block">
-            <span className="block text-xs font-semibold text-muted-foreground mb-1">Повторите пароль</span>
-            <Input
-              type="password"
-              value={password2}
-              onChange={(e) => setPassword2(e.target.value)}
-              placeholder="••••••••"
-              autoComplete="new-password"
-            />
-          </label>
-
-          {error && (
-            <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-2 text-sm text-destructive">
-              {error}
-            </div>
-          )}
-
-          <Button
-            onClick={handleSubmit}
-            disabled={submitting}
-            className="w-full"
-          >
-            {submitting ? 'Создаём аккаунт...' : 'Войти в систему'}
+          <h1 className="text-xl font-semibold">{title}</h1>
+          <p className="text-sm text-muted-foreground">{message}</p>
+          <Button variant="outline" className="w-full" onClick={() => router.push('/login')}>
+            Перейти на страницу входа
           </Button>
-
-          <p className="text-xs text-muted-foreground text-center">
-            Принимая приглашение, вы соглашаетесь с правилами использования платформы.
-          </p>
         </CardContent>
       </Card>
     </div>

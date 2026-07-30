@@ -398,7 +398,9 @@ async def verify_email_code(req: EmailCodeVerifyRequest, response: Response, db=
     if not user or not user.is_active or (user.email or "").lower() != normalized_email:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired code")
 
-    user.last_login = datetime.now(timezone.utc)
+    verified_at = datetime.now(timezone.utc)
+    user.last_login = verified_at
+    user.email_verified_at = verified_at
     await db.flush()
     user_payload = await build_user_payload(db, user)
 

@@ -16,7 +16,15 @@ from app.modules.users.invitations_service import (
 from app.modules.users.schemas import UserResponse
 
 
-def _user(*, tenant_id, email, password_hash=None, telegram_id=None, role="student"):
+def _user(
+    *,
+    tenant_id,
+    email,
+    password_hash=None,
+    telegram_id=None,
+    email_verified_at=None,
+    role="student",
+):
     return User(
         id=uuid4(),
         tenant_id=tenant_id,
@@ -31,6 +39,7 @@ def _user(*, tenant_id, email, password_hash=None, telegram_id=None, role="stude
         status="active",
         password_hash=password_hash,
         telegram_id=telegram_id,
+        email_verified_at=email_verified_at,
     )
 
 
@@ -106,7 +115,9 @@ async def test_pending_invitation_is_still_skipped_for_existing_staff_user():
 
 
 @pytest.mark.asyncio
-async def test_acceptance_still_activates_the_existing_staff_user():
+async def test_acceptance_activates_existing_staff_without_rewriting_hr_identity(
+    monkeypatch,
+):
     tenant_id = uuid4()
     user = _user(tenant_id=tenant_id, email="employee@example.kz")
     invitation = UserInvitation(
@@ -125,8 +136,42 @@ async def test_acceptance_still_activates_the_existing_staff_user():
     )
     token_result = MagicMock()
     token_result.scalar_one_or_none.return_value = invitation
+    tenant_context_result = MagicMock()
+    course_id = uuid4()
+    course_result = MagicMock()
+    course_result.scalars.return_value.all.return_value = [course_id]
+    user_payload = {
+        "id": str(user.id),
+        "tenant_id": str(tenant_id),
+        "email": user.email,
+        "first_name": user.first_name,
+        "last_name": user.last_name,
+        "role": "student",
+        "roles": ["student"],
+        "is_active": True,
+    }
+    monkeypatch.setattr(
+        "app.modules.users.invitations_service.consume_email_code",
+        AsyncMock(
+            return_value={
+                "user_id": str(user.id),
+                "tenant_id": str(tenant_id),
+                "role": "student",
+            }
+        ),
+    )
+    monkeypatch.setattr(
+        "app.modules.auth.service.build_user_payload",
+        AsyncMock(return_value=user_payload),
+    )
+    monkeypatch.setattr(
+        "app.modules.audit.service.log_action",
+        AsyncMock(),
+    )
     db = SimpleNamespace(
-        execute=AsyncMock(side_effect=[token_result, MagicMock()]),
+        execute=AsyncMock(
+            side_effect=[token_result, tenant_context_result, course_result]
+        ),
         get=AsyncMock(return_value=user),
         commit=AsyncMock(),
     )
@@ -134,17 +179,20 @@ async def test_acceptance_still_activates_the_existing_staff_user():
     result = await accept_invitation(
         db,
         invitation.token,
-        first_name=user.first_name,
-        last_name=user.last_name,
-        password="Password123!",
-        personnel_number=user.personnel_number,
+        code="123456",
     )
 
     assert result["user_id"] == user.id
-    assert user.password_hash
+    assert result["next_url"] == f"/courses/{course_id}"
+    assert user.first_name == "Айжан"
+    assert user.last_name == "Ахметова"
+    assert user.personnel_number == "EMP-007"
+    assert user.password_hash is None
+    assert user.email_verified_at is not None
     assert user.is_active is True
     assert user.status == "active"
     assert invitation.status == "accepted"
+    assert invitation.verification_method == "email_otp"
     db.commit.assert_awaited_once()
 
 
@@ -175,3 +223,17 @@ def test_user_response_reports_no_login_access_for_imported_staff():
     response = UserResponse.model_validate(source)
 
     assert response.has_login_access is False
+
+
+def test_user_response_reports_verified_email_login_access():
+    source = _user(
+        tenant_id=uuid4(),
+        email="employee@example.kz",
+        email_verified_at=datetime.now(UTC),
+    )
+    source.created_at = datetime.now(UTC)
+
+    response = UserResponse.model_validate(source)
+
+    assert response.has_login_access is True
+    assert "email_verified_at" not in response.model_dump()

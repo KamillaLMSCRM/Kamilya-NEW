@@ -7,11 +7,12 @@ Key behaviors:
   user_invitations. A new email gets a pending User; an imported staff User
   without password/Telegram access is reused instead of duplicated.
 - Resend: create a new row with fresh token, mark old as 'superseded'
-- Accept: validate token + expiry, set user password + activate, mark invitation
-  'accepted', issue JWT for auto-login
+- Request code: send a scoped email OTP to the HR-managed address.
+- Accept: validate token + email OTP, activate the existing learner identity,
+  mark the invitation accepted, and issue JWTs for passwordless auto-login.
 
-Email is NOT sent — methodologist copies the invite_url and delivers manually
-(see Email Strategy in design doc).
+The initial invite URL may be delivered by any configured notification channel.
+Identity activation itself always verifies control of the stored email address.
 """
 from __future__ import annotations
 
@@ -20,16 +21,22 @@ import secrets
 from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
-from argon2 import PasswordHasher
 from fastapi import HTTPException
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import create_access_token, create_refresh_token
+from app.core.email import EmailService
+from app.models.enrollment import Enrollment
 from app.models.tenant_settings import TenantSettings
 from app.models.users import User, UserInvitation
-
-ph = PasswordHasher()
+from app.modules.auth.email_otp import (
+    consume_email_code,
+    create_invitation_email_code,
+    invalidate_email_code,
+)
+from app.modules.courses.models import Course
+from app.modules.positions.models import Position
 
 # Conservative email regex — not RFC-perfect but rejects obvious garbage.
 EMAIL_RE = re.compile(r"^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$")
@@ -81,10 +88,9 @@ async def bulk_create_invitations(
 ) -> dict:
     """Process a list of emails, create invitations + pending User rows.
 
-    personnel_numbers: optional {email: personnel_number} map. When present,
-    each invitation stores the personnel_number on its row — the accept form
-    then requires the user to enter it as soft 2FA verification. Useful when
-    HR has imported a staff list (with personnel_number) before issuing invites.
+    personnel_numbers: optional {email: personnel_number} map. The value remains
+    HR-owned identity metadata and is never requested from the learner during
+    activation.
 
     Returns: {created: [...], skipped_existing: [...], invalid: [...]}
     """
@@ -285,189 +291,306 @@ async def resend_invitation(
     }
 
 
-async def get_public_invitation(db: AsyncSession, token: str, tenant_lookup=None) -> dict:
-    """Resolve token → {email, tenant_name, role, expires_at, valid, reason_if_invalid,
-    requires_personnel_number}.
+def _mask_email(email: str) -> str:
+    local, separator, domain = email.partition("@")
+    if not separator:
+        return ""
+    visible = local[:1]
+    return f"{visible}{'*' * max(3, len(local) - 1)}@{domain}"
 
-    No auth — anyone with the token can view. Used by /accept-invite page on load.
-    Returns dict; HTTPException is NOT raised (so frontend can show the user
-    a friendly "link expired" message).
-    """
-    result = await db.execute(
-        select(UserInvitation).where(UserInvitation.token == token)
-    )
-    inv = result.scalar_one_or_none()
-    if not inv:
-        return {
-            "email": "",
-            "tenant_name": "",
-            "role": "",
-            "expires_at": datetime.min.replace(tzinfo=UTC),
-            "valid": False,
-            "reason_if_invalid": "invitation_not_found",
-            "requires_personnel_number": False,
-        }
 
-    await _set_invitation_tenant_context(db, inv.tenant_id)
-
-    # Look up tenant name
-    from app.models.tenants import Tenant  # local import to avoid circular
-    tenant_result = await db.execute(select(Tenant).where(Tenant.id == inv.tenant_id))
-    tenant = tenant_result.scalar_one_or_none()
-    tenant_name = tenant.name if tenant else "Unknown"
-    requires_pn = bool(inv.personnel_number)
-
-    if inv.status == "accepted":
-        return {
-            "email": inv.email,
-            "tenant_name": tenant_name,
-            "role": inv.role,
-            "expires_at": inv.expires_at,
-            "valid": False,
-            "reason_if_invalid": "already_accepted",
-            "requires_personnel_number": requires_pn,
-        }
-    if inv.status == "superseded":
-        return {
-            "email": inv.email,
-            "tenant_name": tenant_name,
-            "role": inv.role,
-            "expires_at": inv.expires_at,
-            "valid": False,
-            "reason_if_invalid": "superseded",
-            "requires_personnel_number": requires_pn,
-        }
-    if inv.status == "revoked":
-        return {
-            "email": inv.email,
-            "tenant_name": tenant_name,
-            "role": inv.role,
-            "expires_at": inv.expires_at,
-            "valid": False,
-            "reason_if_invalid": "revoked",
-            "requires_personnel_number": requires_pn,
-        }
-    if inv.status == "expired" or inv.expires_at < datetime.now(UTC):
-        # Lazy-expire: if status was still 'pending' but past expiry, flip it.
-        if inv.status == "pending":
-            inv.status = "expired"
-            await db.commit()
-        return {
-            "email": inv.email,
-            "tenant_name": tenant_name,
-            "role": inv.role,
-            "expires_at": inv.expires_at,
-            "valid": False,
-            "reason_if_invalid": "expired",
-            "requires_personnel_number": requires_pn,
-        }
-
+def _public_invitation_payload(
+    inv: UserInvitation | None,
+    *,
+    tenant_name: str = "",
+    user: User | None = None,
+    position_name: str | None = None,
+    course_titles: list[str] | None = None,
+    valid: bool,
+    reason: str | None,
+) -> dict:
+    email = inv.email if inv else ""
     return {
-        "email": inv.email,
+        "masked_email": _mask_email(email),
         "tenant_name": tenant_name,
-        "role": inv.role,
-        "expires_at": inv.expires_at,
-        "valid": True,
-        "reason_if_invalid": None,
-        "requires_personnel_number": requires_pn,
+        "role": inv.role if inv else "",
+        "first_name": (user.first_name if user else "") or (inv.first_name if inv else ""),
+        "last_name": (user.last_name if user else "") or (inv.last_name if inv else ""),
+        "position_name": position_name,
+        "course_titles": course_titles or [],
+        "expires_at": inv.expires_at if inv else datetime.min.replace(tzinfo=UTC),
+        "valid": valid,
+        "reason_if_invalid": reason,
     }
 
 
-async def accept_invitation(
-    db: AsyncSession,
-    token: str,
-    first_name: str,
-    last_name: str,
-    password: str,
-    personnel_number: str | None = None,
-    accepted_ip: str | None = None,
-    accepted_user_agent: str | None = None,
-) -> dict:
-    """Validate token, set user password, activate user, issue JWT.
-
-    Raises HTTPException on failure. Returns {user_id, tenant_id, role, access_token}.
-
-    If invitation.personnel_number is set (HR provided it), the caller MUST
-    supply matching personnel_number — soft 2FA check.
-    """
+async def _get_pending_invitation(db: AsyncSession, token: str) -> UserInvitation:
     result = await db.execute(
         select(UserInvitation).where(UserInvitation.token == token)
     )
     inv = result.scalar_one_or_none()
     if not inv:
-        raise HTTPException(status_code=404, detail="Invitation not found")
+        raise HTTPException(status_code=404, detail="Приглашение не найдено")
     await _set_invitation_tenant_context(db, inv.tenant_id)
     if inv.status != "pending":
         reasons = {
             "accepted": "Это приглашение уже принято",
             "expired": "Срок действия приглашения истёк",
             "revoked": "Приглашение отозвано",
-            "superseded": "Приглашение заменено новым — проверьте почту/мессенджер",
+            "superseded": "Приглашение заменено новым",
         }
-        raise HTTPException(status_code=410, detail=reasons.get(inv.status, f"Статус: {inv.status}"))
+        raise HTTPException(
+            status_code=410,
+            detail=reasons.get(inv.status, f"Статус приглашения: {inv.status}"),
+        )
     if inv.expires_at < datetime.now(UTC):
         inv.status = "expired"
         await db.commit()
         raise HTTPException(status_code=410, detail="Срок действия приглашения истёк")
     if not inv.user_id:
-        raise HTTPException(status_code=500, detail="Invitation has no associated user")
+        raise HTTPException(status_code=500, detail="Приглашение не связано с сотрудником")
+    return inv
 
-    # Soft 2FA: if invitation has personnel_number, verify it matches
-    if inv.personnel_number:
-        if not personnel_number:
-            raise HTTPException(
-                status_code=422,
-                detail="Это приглашение требует ввод табельного номера",
-            )
-        if personnel_number.strip().lower() != inv.personnel_number.strip().lower():
-            raise HTTPException(
-                status_code=403,
-                detail="Табельный номер не совпадает. Проверьте правильность или обратитесь к HR.",
-            )
 
-    # Activate user
+async def get_public_invitation(db: AsyncSession, token: str, tenant_lookup=None) -> dict:
+    """Return read-only HR identity and assigned-course context for a token."""
+    result = await db.execute(
+        select(UserInvitation).where(UserInvitation.token == token)
+    )
+    inv = result.scalar_one_or_none()
+    if not inv:
+        return _public_invitation_payload(
+            None,
+            valid=False,
+            reason="invitation_not_found",
+        )
+
+    await _set_invitation_tenant_context(db, inv.tenant_id)
+
+    from app.models.tenants import Tenant  # local import to avoid circular
+
+    tenant = (
+        await db.execute(select(Tenant).where(Tenant.id == inv.tenant_id))
+    ).scalar_one_or_none()
+    tenant_name = tenant.name if tenant else "Kamilya LMS"
+    user = await db.get(User, inv.user_id) if inv.user_id else None
+    position_name = None
+    if user and user.position_id:
+        position_name = (
+            await db.execute(
+                select(Position.name).where(
+                    Position.id == user.position_id,
+                    Position.tenant_id == inv.tenant_id,
+                )
+            )
+        ).scalar_one_or_none()
+    course_titles: list[str] = []
+    if user:
+        course_titles = list(
+            (
+                await db.execute(
+                    select(Course.title)
+                    .join(Enrollment, Enrollment.course_id == Course.id)
+                    .where(
+                        Enrollment.tenant_id == inv.tenant_id,
+                        Enrollment.user_id == user.id,
+                        Course.tenant_id == inv.tenant_id,
+                        Course.status == "published",
+                    )
+                    .order_by(Enrollment.enrolled_at.desc(), Course.title.asc())
+                )
+            ).scalars().all()
+        )
+
+    reason_by_status = {
+        "accepted": "already_accepted",
+        "superseded": "superseded",
+        "revoked": "revoked",
+        "expired": "expired",
+    }
+    if inv.status in reason_by_status:
+        return _public_invitation_payload(
+            inv,
+            tenant_name=tenant_name,
+            user=user,
+            position_name=position_name,
+            course_titles=course_titles,
+            valid=False,
+            reason=reason_by_status[inv.status],
+        )
+    if inv.expires_at < datetime.now(UTC):
+        if inv.status == "pending":
+            inv.status = "expired"
+            await db.commit()
+        return _public_invitation_payload(
+            inv,
+            tenant_name=tenant_name,
+            user=user,
+            position_name=position_name,
+            course_titles=course_titles,
+            valid=False,
+            reason="expired",
+        )
+
+    return _public_invitation_payload(
+        inv,
+        tenant_name=tenant_name,
+        user=user,
+        position_name=position_name,
+        course_titles=course_titles,
+        valid=True,
+        reason=None,
+    )
+
+
+async def request_invitation_code(db: AsyncSession, token: str) -> dict:
+    inv = await _get_pending_invitation(db, token)
     user = await db.get(User, inv.user_id)
-    if not user:
-        raise HTTPException(status_code=500, detail="Associated user not found")
-    if user.tenant_id != inv.tenant_id:
-        raise HTTPException(status_code=500, detail="Tenant mismatch")
+    if not user or user.tenant_id != inv.tenant_id:
+        raise HTTPException(status_code=500, detail="Сотрудник приглашения не найден")
+    if not user.email or _normalize_email(user.email) != _normalize_email(inv.email):
+        raise HTTPException(status_code=409, detail="Email сотрудника изменён. Запросите новое приглашение")
 
-    user.first_name = first_name.strip()
-    user.last_name = last_name.strip()
-    if inv.personnel_number and not user.personnel_number:
-        # Persist on user too (for future kiosk auth, etc.)
-        user.personnel_number = inv.personnel_number.strip()
-    user.password_hash = ph.hash(password)
+    from app.models.tenants import Tenant
+
+    tenant = (
+        await db.execute(select(Tenant).where(Tenant.id == inv.tenant_id))
+    ).scalar_one_or_none()
+    tenant_name = tenant.name if tenant else "Kamilya LMS"
+    learner_name = f"{user.first_name} {user.last_name}".strip() or "Сотрудник"
+    email_service = EmailService()
+    if not email_service.delivery_ready():
+        raise HTTPException(
+            status_code=503,
+            detail="Отправка email временно недоступна. Обратитесь к методологу",
+        )
+    code, expires_in, created = await create_invitation_email_code(
+        email=inv.email,
+        user_id=str(user.id),
+        tenant_id=str(inv.tenant_id),
+        role=inv.role,
+        invitation_id=str(inv.id),
+    )
+    if created:
+        try:
+            await email_service.send_invitation_code(
+                to_email=inv.email,
+                code=code,
+                company_name=tenant_name,
+                learner_name=learner_name,
+            )
+        except Exception as exc:
+            await invalidate_email_code(
+                email=inv.email,
+                purpose="invitation",
+                subject_id=str(inv.id),
+            )
+            raise HTTPException(
+                status_code=503,
+                detail="Не удалось отправить код. Попробуйте ещё раз",
+            ) from exc
+    return {
+        "ok": True,
+        "expires_in": expires_in,
+        "retry_after": min(60, expires_in),
+    }
+
+
+async def accept_invitation(
+    db: AsyncSession,
+    token: str,
+    code: str,
+    accepted_ip: str | None = None,
+    accepted_user_agent: str | None = None,
+) -> dict:
+    """Activate the HR-managed identity after a scoped email OTP check."""
+    inv = await _get_pending_invitation(db, token)
+    otp = await consume_email_code(
+        email=inv.email,
+        code=code.strip(),
+        purpose="invitation",
+        subject_id=str(inv.id),
+    )
+    if not otp or otp.get("user_id") != str(inv.user_id):
+        raise HTTPException(status_code=401, detail="Неверный или просроченный код")
+
+    user = await db.get(User, inv.user_id)
+    if not user or user.tenant_id != inv.tenant_id:
+        raise HTTPException(status_code=500, detail="Сотрудник приглашения не найден")
+    if not user.first_name.strip() or not user.last_name.strip():
+        raise HTTPException(
+            status_code=409,
+            detail="В карточке сотрудника не заполнены ФИО. Обратитесь к методологу",
+        )
+    if not user.email or _normalize_email(user.email) != _normalize_email(inv.email):
+        raise HTTPException(status_code=409, detail="Email сотрудника изменён. Запросите новое приглашение")
+
+    accepted_at = datetime.now(UTC)
     user.is_active = True
     user.status = "active"
-    user.last_login = datetime.now(UTC)
+    user.email_verified_at = accepted_at
+    user.last_login = accepted_at
 
-    # Mark invitation accepted + audit fields
     inv.status = "accepted"
-    inv.accepted_at = datetime.now(UTC)
+    inv.accepted_at = accepted_at
+    inv.verification_method = "email_otp"
     if accepted_ip:
-        inv.accepted_ip = accepted_ip[:64]  # cap to avoid overflow
+        inv.accepted_ip = accepted_ip[:64]
     if accepted_user_agent:
         inv.accepted_user_agent = accepted_user_agent[:500]
 
-    await db.commit()
+    from app.modules.audit.service import log_action
+    from app.modules.auth.service import build_user_payload
 
-    # Issue JWT for auto-login
+    user_payload = await build_user_payload(db, user)
+    roles = user_payload["roles"]
+    active_role = user_payload["role"]
     access_token = create_access_token({
         "sub": str(user.id),
         "tenant_id": str(user.tenant_id),
-        "roles": [user.role],
+        "roles": roles,
+        "active_role": active_role,
     })
     refresh_token = create_refresh_token({
         "sub": str(user.id),
         "tenant_id": str(user.tenant_id),
-        "roles": [user.role],
+        "active_role": active_role,
     })
+    course_ids = list(
+        (
+            await db.execute(
+                select(Enrollment.course_id)
+                .join(Course, Course.id == Enrollment.course_id)
+                .where(
+                    Enrollment.tenant_id == user.tenant_id,
+                    Enrollment.user_id == user.id,
+                    Course.tenant_id == user.tenant_id,
+                    Course.status == "published",
+                )
+                .order_by(Enrollment.enrolled_at.desc())
+            )
+        ).scalars().all()
+    )
+    await log_action(
+        db,
+        user.tenant_id,
+        "invitation.accept.email_otp",
+        "user_invitation",
+        resource_id=str(inv.id),
+        user_id=user.id,
+        ip_address=accepted_ip,
+        user_agent=accepted_user_agent,
+    )
+    await db.commit()
+
+    next_url = f"/courses/{course_ids[0]}" if len(course_ids) == 1 else "/student"
 
     return {
         "user_id": user.id,
         "tenant_id": user.tenant_id,
-        "role": user.role,
+        "role": active_role,
         "access_token": access_token,
         "refresh_token": refresh_token,
+        "user": user_payload,
+        "next_url": next_url,
     }

@@ -1,6 +1,7 @@
 """Rate limiting middleware — Redis-based token bucket."""
 from __future__ import annotations
 
+import hashlib
 import logging
 import time
 from collections.abc import Callable
@@ -39,6 +40,7 @@ RATE_LIMITS: dict[str, RateLimitConfig] = {
     "/api/v1/auth/generate-code": RateLimitConfig(requests_per_minute=10, requests_per_hour=60, burst_size=5),
     "/api/v1/auth/email/request-code": RateLimitConfig(requests_per_minute=5, requests_per_hour=20, burst_size=3),
     "/api/v1/auth/email/verify-code": RateLimitConfig(requests_per_minute=10, requests_per_hour=60, burst_size=5),
+    "/api/v1/invitations/": RateLimitConfig(requests_per_minute=10, requests_per_hour=60, burst_size=5),
     "/api/v1/ai/generate-course": RateLimitConfig(requests_per_minute=2, requests_per_hour=10, burst_size=1),
     "/api/v1/quizzes": RateLimitConfig(requests_per_minute=30, requests_per_hour=500, burst_size=10),
     "/api/v1/documents/upload": RateLimitConfig(requests_per_minute=10, requests_per_hour=100, burst_size=5),
@@ -63,6 +65,20 @@ PUBLIC_AUTH_ENDPOINTS = frozenset(
         "/api/v1/tenants/register",
     }
 )
+PUBLIC_AUTH_PREFIXES = ("/api/v1/invitations/",)
+
+
+def _is_public_auth_path(path: str) -> bool:
+    return path in PUBLIC_AUTH_ENDPOINTS or path.startswith(PUBLIC_AUTH_PREFIXES)
+
+
+def _rate_limit_bucket_path(path: str) -> str:
+    if path.startswith("/api/v1/invitations/"):
+        token = path.removeprefix("/api/v1/invitations/").split("/", 1)[0]
+        token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()[:16]
+        action = "request-code" if path.endswith("/request-code") else "accept" if path.endswith("/accept") else "view"
+        return f"/api/v1/invitations/{token_hash}/{action}"
+    return path
 
 
 class RateLimiter:
@@ -195,7 +211,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         # endpoints (login, register) this stays empty and we fall back
         # to IP-only. See audit §4.5.
         tenant_id = _peek_tenant_id_from_request(request)
-        is_public_auth = path in PUBLIC_AUTH_ENDPOINTS
+        is_public_auth = _is_public_auth_path(path)
 
         try:
             config = await self.limiter.get_rate_limit_config(path)
@@ -203,7 +219,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 # Public authentication must always use the network identity.
                 # Never trust a tenant_id peeked from an unsigned JWT here:
                 # attackers could forge it to split a brute-force quota.
-                key = f"rate_limit:{path}:ip:{client_ip}"
+                key = f"rate_limit:{_rate_limit_bucket_path(path)}:ip:{client_ip}"
             else:
                 key = f"rate_limit:{path}:tenant:{tenant_id}"
 

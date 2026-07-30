@@ -2,28 +2,33 @@
 
 Used by /accept-invite page to:
 - View invitation details (GET /invitations/{token})
-- Accept invitation and create password (POST /invitations/{token}/accept)
+- Send a scoped email OTP (POST /invitations/{token}/request-code)
+- Accept invitation after OTP verification (POST /invitations/{token}/accept)
 
 Public — anyone with the token can call. Token is 32-char URL-safe (~190 bits entropy).
-Rate-limited by token uniqueness; brute force infeasible.
+Rate-limited by network identity and a hashed token bucket.
 """
-from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException, Body, Request, Response
+import logging
+
+from fastapi import APIRouter, Body, Depends, HTTPException, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_db
 from app.modules.auth.router import _set_refresh_cookie
+from app.modules.users.invitations_service import (
+    accept_invitation,
+    get_public_invitation,
+    request_invitation_code,
+)
 from app.modules.users.schemas import (
-    InvitationPublicView,
     InvitationAcceptRequest,
     InvitationAcceptResponse,
-)
-from app.modules.users.invitations_service import (
-    get_public_invitation,
-    accept_invitation,
+    InvitationCodeResponse,
+    InvitationPublicView,
 )
 
 router = APIRouter(prefix="/invitations", tags=["invitations"])
+logger = logging.getLogger(__name__)
 
 
 @router.get("/{token}", response_model=InvitationPublicView)
@@ -37,6 +42,15 @@ async def view_invitation(
     return result
 
 
+@router.post("/{token}/request-code", response_model=InvitationCodeResponse)
+async def request_invitation_email_code(
+    token: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """Send a one-time code to the HR-managed invitation email."""
+    return await request_invitation_code(db, token)
+
+
 @router.post("/{token}/accept", response_model=InvitationAcceptResponse)
 async def accept_invitation_endpoint(
     token: str,
@@ -45,10 +59,10 @@ async def accept_invitation_endpoint(
     response: Response = None,
     db: AsyncSession = Depends(get_db),
 ):
-    """Accept invitation: set password, activate user, issue JWT.
+    """Accept invitation after email OTP verification and issue JWTs.
 
-    No auth required — token is the credential. After success, frontend
-    stores the access_token and redirects to /dashboard.
+    The invitation token identifies the HR-managed learner record. The scoped
+    email code proves control of the stored address before activation.
 
     Captures client IP and User-Agent for audit. HR can review
     accepted_ip / accepted_user_agent in /users/invitations to spot
@@ -68,10 +82,7 @@ async def accept_invitation_endpoint(
         result = await accept_invitation(
             db,
             token=token,
-            first_name=payload.first_name,
-            last_name=payload.last_name,
-            password=payload.password,
-            personnel_number=payload.personnel_number,
+            code=payload.code,
             accepted_ip=ip,
             accepted_user_agent=ua,
         )
@@ -80,5 +91,9 @@ async def accept_invitation_endpoint(
         return result
     except HTTPException:
         raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Accept failed: {e}")
+    except Exception as exc:
+        logger.exception("Invitation acceptance failed")
+        raise HTTPException(
+            status_code=500,
+            detail="Не удалось принять приглашение",
+        ) from exc

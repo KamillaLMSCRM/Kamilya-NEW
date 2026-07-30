@@ -41,6 +41,7 @@ class User(Base):
     position_id = Column(UUID(as_uuid=True), ForeignKey("positions.id", ondelete="SET NULL"), nullable=True)
     last_login = Column(DateTime(timezone=True), nullable=True)
     status = Column(Text, nullable=False, default="active")
+    email_verified_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
     updated_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
 
@@ -50,8 +51,12 @@ class User(Base):
 
     @property
     def has_login_access(self) -> bool:
-        """Whether the user has a password or Telegram login configured."""
-        return bool(self.password_hash) or self.telegram_id is not None
+        """Whether the user has a verified passwordless or external login."""
+        return (
+            bool(self.password_hash)
+            or self.telegram_id is not None
+            or self.email_verified_at is not None
+        )
 
     __table_args__ = (
         CheckConstraint("status IN ('active', 'inactive', 'banned')", name="ck_user_status"),
@@ -100,4 +105,5 @@ class UserInvitation(Base):
     # Audit fields (Stage 1a patch)
     accepted_ip = Column(Text, nullable=True)  # IP of accept request — for HR audit if magic link leaked
     accepted_user_agent = Column(Text, nullable=True)  # UA of accept request
+    verification_method = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())

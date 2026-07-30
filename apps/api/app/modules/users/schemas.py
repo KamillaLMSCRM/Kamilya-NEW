@@ -130,6 +130,7 @@ class InvitationListItem(BaseModel):
     accepted_at: datetime | None = None
     accepted_ip: str | None = None
     accepted_user_agent: str | None = None
+    verification_method: str | None = None
     user_id: UUID | None = None
 
 
@@ -150,21 +151,27 @@ class InvitationResendResponse(BaseModel):
 
 class InvitationPublicView(BaseModel):
     """Public view of an invitation (no auth). Used by /accept-invite page."""
-    email: str
+    masked_email: str
     tenant_name: str
     role: str
+    first_name: str
+    last_name: str
+    position_name: str | None = None
+    course_titles: list[str] = Field(default_factory=list)
     expires_at: datetime
     valid: bool
     reason_if_invalid: str | None = None
-    requires_personnel_number: bool = False  # True if HR set personnel_number (soft 2FA)
 
 
 class InvitationAcceptRequest(BaseModel):
     """Body of POST /invitations/{token}/accept (public)."""
-    first_name: str = Field(..., min_length=1, max_length=100)
-    last_name: str = Field(..., min_length=1, max_length=100)
-    password: str = Field(..., min_length=8, max_length=128)
-    personnel_number: str | None = Field(default=None, max_length=64)  # required only if invitation has it
+    code: str = Field(..., min_length=6, max_length=6, pattern=r"^\d{6}$")
+
+
+class InvitationCodeResponse(BaseModel):
+    ok: bool = True
+    expires_in: int = 300
+    retry_after: int = 60
 
 
 class InvitationAcceptResponse(BaseModel):
@@ -175,3 +182,5 @@ class InvitationAcceptResponse(BaseModel):
     access_token: str
     refresh_token: str | None = None
     token_type: str = "bearer"
+    user: dict
+    next_url: str = "/student"

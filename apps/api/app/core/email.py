@@ -7,13 +7,20 @@ import httpx
 
 from app.core.config import get_settings
 
-
 logger = logging.getLogger(__name__)
 
 
 class EmailService:
-    async def send_login_code(self, *, to_email: str, code: str) -> None:
+    @staticmethod
+    def delivery_ready() -> bool:
+        """Return whether transactional email can actually leave the service."""
         settings = get_settings()
+        return (
+            settings.EMAIL_PROVIDER.lower().strip() == "resend"
+            and bool(settings.RESEND_API_KEY)
+        )
+
+    async def send_login_code(self, *, to_email: str, code: str) -> None:
         subject = "Kamilya LMS login code"
         text = (
             f"Your Kamilya LMS login code is {code}.\n\n"
@@ -38,6 +45,31 @@ class EmailService:
         )
         await self._send(to_email=to_email, subject=subject, text=text, html=html)
 
+    async def send_invitation_code(
+        self,
+        *,
+        to_email: str,
+        code: str,
+        company_name: str,
+        learner_name: str,
+    ) -> None:
+        safe_company = escape(company_name)
+        safe_name = escape(learner_name)
+        subject = f"{company_name}: код подтверждения приглашения"
+        text = (
+            f"{learner_name}, подтвердите доступ к обучению в {company_name}.\n\n"
+            f"Код: {code}\n\n"
+            "Код действует 5 минут. Никому не сообщайте его."
+        )
+        html = (
+            f"<p>{safe_name}, подтвердите доступ к обучению в "
+            f"<strong>{safe_company}</strong>.</p>"
+            "<p>Код подтверждения:</p>"
+            f"<p style=\"font-size:28px;font-weight:700;letter-spacing:4px\">{code}</p>"
+            "<p>Код действует 5 минут. Никому не сообщайте его.</p>"
+        )
+        await self._send(to_email=to_email, subject=subject, text=text, html=html)
+
     async def send_announcement(self, *, to_email: str, company_name: str, title: str, body: str, course_title: str | None = None) -> None:
         subject = f"{company_name}: {title}"
         context = f"\nCourse: {course_title}" if course_title else ""
@@ -55,7 +87,7 @@ class EmailService:
             await self._send_resend(to_email=to_email, subject=subject, text=text, html=html)
             return
 
-        logger.info("email queued provider=log to=%s subject=%s body=%s", to_email, subject, text)
+        logger.info("email queued provider=log to=%s subject=%s", to_email, subject)
 
     async def _send_resend(self, *, to_email: str, subject: str, text: str, html: str) -> None:
         settings = get_settings()
