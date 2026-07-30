@@ -90,7 +90,11 @@ async def build_course_release_snapshot(
         questions = (
             await db.execute(
                 select(Question)
-                .where(Question.quiz_id.in_(quiz_ids))
+                .join(Quiz, Quiz.id == Question.quiz_id)
+                .where(
+                    Question.quiz_id.in_(quiz_ids),
+                    Quiz.tenant_id == course.tenant_id,
+                )
                 .order_by(Question.quiz_id, Question.order_index, Question.id)
             )
         ).scalars().all()

@@ -136,6 +136,11 @@ async def test_publish_approved_ai_course_activates_assignments():
     tenant_id = uuid4()
     user = _user(role="methodologist", tenant_id=tenant_id)
     course = _course(tenant_id=tenant_id, review_status="approved", ai_generated=True)
+    release = MagicMock()
+    release.id = uuid4()
+    release.version = 1
+    release.snapshot_sha256 = "a" * 64
+    release.published_at = None
     db = AsyncMock()
     db.execute.return_value = _scalar_result(course)
     request = MagicMock()
@@ -143,6 +148,10 @@ async def test_publish_approved_ai_course_activates_assignments():
     request.headers.get.return_value = "pytest"
 
     with (
+        patch(
+            "app.modules.courses.release_service.create_course_release",
+            new=AsyncMock(return_value=release),
+        ) as create_release,
         patch("app.modules.courses.router.activate_course_assignments", new=AsyncMock()) as activate,
         patch("app.modules.courses.router.log_action", new=AsyncMock()),
         patch("app.modules.courses.router._hydrate_reviewer", new=AsyncMock(return_value=None)),
@@ -151,6 +160,7 @@ async def test_publish_approved_ai_course_activates_assignments():
 
     assert result is course
     assert course.status == "published"
+    create_release.assert_awaited_once_with(db, course, published_by=user.id)
     activate.assert_awaited_once_with(db, course)
 
 

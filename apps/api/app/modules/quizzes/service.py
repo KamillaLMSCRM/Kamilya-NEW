@@ -189,7 +189,11 @@ async def grade_quiz(
     questions = (
         await db.execute(
             select(Question)
-            .where(Question.quiz_id == quiz_id)
+            .join(Quiz, Quiz.id == Question.quiz_id)
+            .where(
+                Question.quiz_id == quiz_id,
+                Quiz.tenant_id == tenant_id,
+            )
             .order_by(Question.order_index, Question.id)
         )
     ).scalars().all()
