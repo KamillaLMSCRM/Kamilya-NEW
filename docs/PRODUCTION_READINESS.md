@@ -1,6 +1,6 @@
 # Kamilya LMS: готовность первого production-тенанта
 
-**Проверено:** 2026-07-29
+**Проверено:** 2026-07-30
 **Технический P0:** закрыт
 **Режим запуска:** контролируемый первый пилот
 **Назначение:** единственный актуальный реестр production-gates. История изменений
@@ -11,13 +11,13 @@
 
 | Контур | Состояние | Подтверждение |
 |---|---|---|
-| Application baseline | PASS | Проверенный release HEAD: `f3df397c9a326964b17d4d8aa9370ecbb5995547` |
-| CI | PASS | GitHub Actions `30456058225`; локально backend `639 passed`, frontend `204 passed`, typecheck и production build прошли |
-| External smoke | PASS | GitHub Actions `30456057602`, API и frontend |
-| Frontend | PASS | Vercel deployment `dpl_5q2sAXiLorhCNHGRukv8yFArGn15` в состоянии `READY`, commit `f3df397` |
-| API | PASS | Render deploy `dep-d9l0098u01pc73ekuif0`, build/pre-deploy/deploy succeeded, commit `f3df397`; health отвечает |
-| Worker | PASS | `/opt/kamilya-worker` на `f3df397`, unit active/enabled, Celery ping отвечает, обязательные задачи зарегистрированы |
-| Database | PASS | production PostgreSQL 17.6, Alembic `0079` |
+| Application baseline | PASS | Feature release `af867c93640eced8cf8adabc7b339f82edbef928` |
+| CI | PASS | GitHub Actions `30536944500`: secrets, frontend, backend unit/full tests, mypy и release/tenant-security gates |
+| External smoke | PASS | GitHub Actions `30536944463`, API и frontend |
+| Frontend | PASS | Vercel production `dpl_HYVfvDnNMESvnDew8evN4JRV6d8p` в состоянии `READY`, alias `app.kml.kz`, commit `af867c9` |
+| API | PASS | Render deploy `dep-d9livhvavr4c739719bg`, build/pre-deploy/deploy succeeded, commit `af867c9`; health отвечает |
+| Worker | NOT TOUCHED | Invitation OTP выполняется синхронно; worker остаётся на отдельно проверяемой revision из [`INFRA_CELERY_WORKER.md`](INFRA_CELERY_WORKER.md) |
+| Database | PASS | production PostgreSQL 17.6, Alembic `0082`; обе новые колонки присутствуют |
 
 ## Закрытые P0
 
@@ -33,6 +33,20 @@
 - Реально применяются burst, minute и hour windows.
 - Production probe: четвёртый запрос в burst получил `429` и
   `Retry-After: 10`; после cooldown endpoint снова отвечал.
+
+### Активация приглашения обучающегося
+
+- Публичный view не раскрывает полный email и показывает кадровые ФИО,
+  должность и назначенные опубликованные курсы только для чтения.
+- Invitation OTP отделён от обычного login OTP, привязан к invitation ID,
+  действует пять минут и удаляется после пяти неверных попыток.
+- Resend принимает production-запрос отправки кода; при ошибке доставки код
+  удаляется, а API возвращает контролируемый `503`.
+- После успешной проверки фиксируются `email_verified_at`,
+  `verification_method=email_otp`, IP и User-Agent; существующая карточка
+  сотрудника активируется без создания дубля и изменения кадровых данных.
+- Production smoke: public view `200`, полный email отсутствует, identity и
+  один назначенный курс возвращены, request-code `200` с TTL 300 секунд.
 
 ### Trial concurrency
 
