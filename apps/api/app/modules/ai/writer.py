@@ -19,6 +19,17 @@ logger = logging.getLogger(__name__)
 MAX_CHUNK_CHARS = 24_000
 
 
+class UnsupportedLessonSourceError(ValueError):
+    """Raised when a source-bound lesson cannot be grounded in selected documents."""
+
+    def __init__(self, lesson_title: str):
+        self.lesson_title = lesson_title
+        super().__init__(
+            f"No relevant source fragments found for lesson '{lesson_title}'. "
+            "Adjust the structure or source documents instead of generating from general knowledge."
+        )
+
+
 @dataclass(frozen=True)
 class RetrievedChunk:
     chunk_id: str
@@ -176,10 +187,7 @@ async def write_lesson(
 
     if not formatted_chunks:
         if require_sources:
-            raise ValueError(
-                f"No relevant source fragments found for lesson '{lesson_title}'. "
-                "Adjust the structure or source documents instead of generating from general knowledge."
-            )
+            raise UnsupportedLessonSourceError(lesson_title)
         # No chunks found — still generate content from LLM using general knowledge
         objectives_text = "\n".join(f"- {o}" for o in objectives) if objectives else "- (none)"
         lang_names = {"ru": "Русский", "kk": "Қазақша", "en": "English"}

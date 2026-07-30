@@ -16,7 +16,7 @@ from app.modules.ai.assessment_schema import CourseAssessment, LessonAssessment
 from app.modules.ai.llm_client import LLMClient, ResilientLLMClient, create_llm
 from app.modules.ai.ingestion import VectorStore, DocumentIngestion, EmbeddingsProvider
 from app.modules.ai.architect import run_architect, create_architect_tools
-from app.modules.ai.writer import write_lesson, write_course
+from app.modules.ai.writer import UnsupportedLessonSourceError, write_lesson, write_course
 from app.modules.ai.assessment import generate_lesson_assessment, generate_course_assessment
 from app.modules.ai.reviewer import ReviewerAgent
 from app.core.db import async_session_factory
@@ -387,25 +387,98 @@ async def run_generation_pipeline(
         state.message = "Генерация контента уроков..."
         await _update_job_db(job_id, tenant_id=tenant_id, stage="content_generation", progress=30, message=state.message)
 
-        total_lessons = sum(len(m.lessons) for m in structure.modules)
-        lessons_done = 0
+        async def write_grounded_course(
+            course_structure: CourseStructure,
+        ) -> tuple[CourseContent, int]:
+            total = sum(len(module.lessons) for module in course_structure.modules)
+            completed = 0
 
-        async def on_lesson_progress(msg: str):
-            nonlocal lessons_done
-            lessons_done += 1
-            pct = 30 + int(lessons_done / total_lessons * 40) if total_lessons > 0 else 70
-            await _update_job_db(job_id, tenant_id=tenant_id, progress=min(pct, 70), message=msg)
+            async def on_lesson_progress(msg: str):
+                nonlocal completed
+                completed += 1
+                pct = 30 + int(completed / total * 40) if total > 0 else 70
+                await _update_job_db(
+                    job_id,
+                    tenant_id=tenant_id,
+                    progress=min(pct, 70),
+                    message=msg,
+                )
 
-        content = await write_course(
-            llm=llm,
-            store=store,
-            structure=structure,
-            doc_ids=documents if documents else None,
-            language=language,
-            on_progress=on_lesson_progress,
-            embeddings_provider=embeddings_provider,
-            tenant_id=str(tenant_id) if tenant_id else None,
-        )
+            generated = await write_course(
+                llm=llm,
+                store=store,
+                structure=course_structure,
+                doc_ids=documents if documents else None,
+                language=language,
+                on_progress=on_lesson_progress,
+                embeddings_provider=embeddings_provider,
+                tenant_id=str(tenant_id) if tenant_id else None,
+            )
+            return generated, total
+
+        try:
+            content, total_lessons = await write_grounded_course(structure)
+        except UnsupportedLessonSourceError as exc:
+            state.stage = "architect_recovery"
+            state.progress = 28
+            state.message = (
+                "Перестраиваем план: один из уроков не подтверждается выбранными источниками"
+            )
+            await _update_job_db(
+                job_id,
+                tenant_id=tenant_id,
+                stage=state.stage,
+                progress=state.progress,
+                message=state.message,
+            )
+            recovery_guidance = "\n\n".join(
+                part
+                for part in (
+                    guidance,
+                    (
+                        "The previous outline included a lesson that could not be grounded "
+                        f"in the selected documents: '{exc.lesson_title}'. Redesign the whole "
+                        "outline using only topics explicitly supported by document headings "
+                        "and retrieved source text. Do not add legal background, industry "
+                        "practice, compliance duties, rates, limits, or procedures unless they "
+                        "are present in the selected sources. Every lesson must name precise "
+                        "source_doc_ids and relevant_headings."
+                    ),
+                )
+                if part
+            )
+            structure = await run_architect(
+                llm=llm,
+                tools=tools,
+                goals=goals,
+                course_hours=course_hours,
+                num_modules=num_modules,
+                language=language,
+                guidance=recovery_guidance,
+                on_message=lambda msg: asyncio.create_task(
+                    _update_job_db(
+                        job_id,
+                        tenant_id=tenant_id,
+                        message=f"Architect recovery: {msg}",
+                    )
+                ),
+                tenant_id=str(tenant_id) if tenant_id else None,
+                target_audience=target_audience,
+                source_strategy=source_strategy,
+                combination_goal=combination_goal,
+            )
+            state.structure = structure
+            state.stage = "content_generation"
+            state.progress = 30
+            state.message = "Новый план подтверждён источниками. Генерация уроков..."
+            await _update_job_db(
+                job_id,
+                tenant_id=tenant_id,
+                stage=state.stage,
+                progress=state.progress,
+                message=state.message,
+            )
+            content, total_lessons = await write_grounded_course(structure)
 
         state.content = content
         state.progress = 70

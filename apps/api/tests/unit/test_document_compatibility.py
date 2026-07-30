@@ -9,7 +9,12 @@ from app.modules.ai.source_analysis import (
     analyze_profiles,
     cosine_similarity,
 )
-from app.modules.ai.writer import _retrieve_and_rerank, resolve_lesson_doc_ids, write_lesson
+from app.modules.ai.writer import (
+    UnsupportedLessonSourceError,
+    _retrieve_and_rerank,
+    resolve_lesson_doc_ids,
+    write_lesson,
+)
 from app.modules.lessons.models import Lesson
 from app.modules.lessons.schemas import LessonUpdate
 from app.modules.lessons.service import update_lesson
@@ -151,7 +156,10 @@ async def test_document_grounded_lesson_never_uses_general_knowledge_fallback() 
         async def ainvoke(self, messages):
             raise AssertionError("LLM must not be called without relevant sources")
 
-    with pytest.raises(ValueError, match="No relevant source fragments"):
+    with pytest.raises(
+        UnsupportedLessonSourceError,
+        match="No relevant source fragments",
+    ) as exc_info:
         await write_lesson(
             llm=_NeverCalledLLM(),
             store=_Store(0.9),
@@ -164,6 +172,7 @@ async def test_document_grounded_lesson_never_uses_general_knowledge_fallback() 
             embeddings_provider=_Embeddings(),
             require_sources=True,
         )
+    assert exc_info.value.lesson_title == "Порядок эвакуации"
 
 
 @pytest.mark.asyncio
