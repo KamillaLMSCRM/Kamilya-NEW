@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import copy
 import json
 import logging
 import re
@@ -82,6 +83,7 @@ async def generate_lesson_assessment(
     llm: LLMClient,
     lesson_content: LessonContent,
     language: str = "ru",
+    compact: bool = False,
 ) -> LessonAssessment:
     """Generate grounded assessment for a single lesson."""
     lang_names = {"ru": "Русский", "kk": "Қазақша", "en": "English"}
@@ -92,6 +94,25 @@ async def generate_lesson_assessment(
         + f" Write ALL content in {language} ({lang_name})."
     )
 
+    question_plan = (
+        "- Exactly 3 single choice questions (4 options, ONE correct)\n"
+        "- Do not add true/false or matching questions"
+        if compact
+        else (
+            "- 3-5 single choice questions (4 options, ONE correct)\n"
+            "- 2-3 true/false statements\n"
+            "- 1 matching question with 4-6 pairs"
+        )
+    )
+    output_schema = ASSESSMENT_JSON_SCHEMA
+    if compact:
+        output_schema = copy.deepcopy(ASSESSMENT_JSON_SCHEMA)
+        output_schema["properties"]["mcq"]["minItems"] = 3
+        output_schema["properties"]["mcq"]["maxItems"] = 3
+        output_schema["properties"]["true_false"]["minItems"] = 0
+        output_schema["properties"]["true_false"]["maxItems"] = 0
+        output_schema["properties"]["matching"]["minItems"] = 0
+        output_schema["properties"]["matching"]["maxItems"] = 0
     user_prompt = f"""Create assessment questions for this lesson.
 
 **Lesson**: {lesson_content.title}
@@ -99,12 +120,10 @@ async def generate_lesson_assessment(
 **Content**: {lesson_content.content[:8000]}
 
 Generate:
-- 3-5 single choice questions (4 options, ONE correct)
-- 2-3 true/false statements
-- 1 matching question with 4-6 pairs
+{question_plan}
 
 Output ONLY valid JSON matching this schema:
-{json.dumps(ASSESSMENT_JSON_SCHEMA, indent=2, ensure_ascii=False)}"""
+{json.dumps(output_schema, indent=2, ensure_ascii=False)}"""
 
     for attempt in range(MAX_ASSESSMENT_RETRIES + 1):
         try:
@@ -152,6 +171,7 @@ async def generate_course_assessment(
     course_content,
     language: str = "ru",
     on_progress: Callable | None = None,
+    compact: bool = False,
 ) -> CourseAssessment:
     """Generate assessments for all lessons sequentially."""
     assessments = []
@@ -165,7 +185,12 @@ async def generate_course_assessment(
                 result = on_progress(f"Generating assessment {num}/{total}: {lesson.title}")
                 if hasattr(result, '__await__'):
                     await result
-            a = await generate_lesson_assessment(llm, lesson, language=language)
+            a = await generate_lesson_assessment(
+                llm,
+                lesson,
+                language=language,
+                compact=compact,
+            )
             assessments.append(a)
             if num < total:
                 await asyncio.sleep(5)

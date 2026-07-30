@@ -19,6 +19,12 @@ class Course(Base):
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
     published_at = Column(DateTime(timezone=True), nullable=True)
+    current_release_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("content_releases.id", ondelete="RESTRICT", use_alter=True),
+        nullable=True,
+        index=True,
+    )
     ai_generated = Column(Boolean, nullable=False, default=False)
     source_instruction_id = Column(
         UUID(as_uuid=True),

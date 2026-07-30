@@ -24,6 +24,45 @@ from app.core.db import async_session_factory
 logger = logging.getLogger(__name__)
 
 
+async def _selected_document_profile(
+    document_ids: list[str],
+    tenant_id: UUID | str | None,
+) -> dict:
+    if not document_ids or not tenant_id:
+        return {"all_job_instructions": False, "total_chunks": 0}
+    from sqlalchemy import select, text
+    from app.models.document import Document
+
+    parsed_ids = []
+    for document_id in document_ids:
+        try:
+            parsed_ids.append(UUID(str(document_id)))
+        except ValueError:
+            continue
+    if not parsed_ids:
+        return {"all_job_instructions": False, "total_chunks": 0}
+    async with async_session_factory() as session:
+        await session.execute(
+            text("SELECT set_current_tenant(:tid)"),
+            {"tid": str(tenant_id)},
+        )
+        documents = (
+            await session.execute(
+                select(Document).where(
+                    Document.id.in_(parsed_ids),
+                    Document.tenant_id == UUID(str(tenant_id)),
+                )
+            )
+        ).scalars().all()
+    return {
+        "all_job_instructions": (
+            len(documents) == len(parsed_ids)
+            and all(document.category == "job_instruction" for document in documents)
+        ),
+        "total_chunks": sum(document.index_chunks_total or 0 for document in documents),
+    }
+
+
 @dataclass
 class GenerationState:
     """Tracks progress of course generation."""
@@ -359,6 +398,20 @@ async def run_generation_pipeline(
             vector_store=store,
             tenant_id=str(tenant_id) if tenant_id else None,
         )
+        document_profile = await _selected_document_profile(documents, tenant_id)
+        effective_guidance = guidance
+        if document_profile["all_job_instructions"]:
+            compact_instruction = (
+                "This source is a job instruction. Build a concise onboarding course, "
+                "not a general professional or legal curriculum. Use no more than two "
+                "lessons per module and no more than six lessons in total. Group related "
+                "duties together. Do not create standalone lessons about legislation, "
+                "industry regulation, safety, ethics, or qualifications unless the "
+                "instruction contains enough operational detail to teach and test them."
+            )
+            effective_guidance = "\n\n".join(
+                part for part in (guidance, compact_instruction) if part
+            )
 
         structure = await run_architect(
             llm=llm,
@@ -367,7 +420,7 @@ async def run_generation_pipeline(
             course_hours=course_hours,
             num_modules=num_modules,
             language=language,
-            guidance=guidance,
+            guidance=effective_guidance,
             on_message=lambda msg: asyncio.create_task(_update_job_db(job_id, tenant_id=tenant_id, message=f"Architect: {msg}")),
             tenant_id=str(tenant_id) if tenant_id else None,
             target_audience=target_audience,
@@ -434,7 +487,7 @@ async def run_generation_pipeline(
             recovery_guidance = "\n\n".join(
                 part
                 for part in (
-                    guidance,
+                    effective_guidance,
                     (
                         "The previous outline included a lesson that could not be grounded "
                         f"in the selected documents: '{exc.lesson_title}'. Redesign the whole "
@@ -547,6 +600,7 @@ async def run_generation_pipeline(
             course_content=content,
             language=language,
             on_progress=on_assessment_progress,
+            compact=document_profile["all_job_instructions"],
         )
 
         state.assessment = assessment

@@ -366,6 +366,8 @@ async def publish_course(
     course = result.scalar_one_or_none()
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
+    if course.status == "published":
+        raise HTTPException(status_code=409, detail="Course is already published")
     if course.ai_generated and course.review_status != "approved":
         raise HTTPException(
             status_code=409,
@@ -376,14 +378,22 @@ async def publish_course(
             status_code=409,
             detail="Job-instruction course generation is not complete",
         )
+    from app.modules.courses.release_service import create_course_release
+
+    release = await create_course_release(db, course, published_by=user.id)
     course.status = "published"
-    course.published_at = datetime.now(timezone.utc)
+    course.published_at = release.published_at or datetime.now(timezone.utc)
     await db.flush()
     await activate_course_assignments(db, course)
     await db.refresh(course)
     await log_action(
         db, user.tenant_id, "publish", "course",
         resource_id=str(course.id), user_id=user.id,
+        details={
+            "content_release_id": str(release.id),
+            "content_release_version": release.version,
+            "snapshot_sha256": release.snapshot_sha256,
+        },
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent"),
     )
@@ -472,6 +482,11 @@ async def delete_course(
     course = result.scalar_one_or_none()
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
+    if course.current_release_id is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="Published course evidence cannot be deleted; archive the course instead",
+        )
     await log_action(
         db, user.tenant_id, "delete", "course",
         resource_id=str(course.id), user_id=user.id,

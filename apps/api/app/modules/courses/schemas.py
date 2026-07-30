@@ -40,6 +40,7 @@ class CourseResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     published_at: datetime | None = None
+    current_release_id: UUID | None = None
 
     # Approval workflow fields (methodologist sign-off).
     review_status: Literal["pending", "approved", "needs_changes"] = "pending"

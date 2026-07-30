@@ -111,6 +111,8 @@ class QuizAttemptResponse(BaseModel):
     id: UUID
     quiz_id: UUID
     user_id: UUID
+    enrollment_id: UUID | None = None
+    content_release_id: UUID | None = None
     score_percent: int
     total_points: int
     earned_points: int
@@ -119,6 +121,7 @@ class QuizAttemptResponse(BaseModel):
     started_at: datetime
     completed_at: datetime | None = None
     time_spent_seconds: int | None = None
+    evidence_sha256: str | None = None
     model_config = {"from_attributes": True}
 
 

@@ -1,11 +1,12 @@
 """Quiz service — grading and attempt management"""
 from typing import Iterable
-from uuid import UUID
+from uuid import UUID, uuid4
 from datetime import datetime, timezone, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 
 from app.modules.quizzes.models import Quiz, Question, QuizChoice, QuizAttempt
+from app.modules.courses.release_service import canonical_json_sha256
 
 
 async def get_quiz_with_questions(
@@ -159,8 +160,10 @@ async def grade_quiz(
     answers: list[dict],
     time_spent_seconds: int | None = None,
 ) -> dict:
-    """Grade a quiz submission and return results."""
-    quiz = await db.get(Quiz, quiz_id)
+    """Grade one complete, tenant-scoped quiz submission and preserve evidence."""
+    quiz = await db.scalar(
+        select(Quiz).where(Quiz.id == quiz_id, Quiz.tenant_id == tenant_id)
+    )
     if not quiz:
         raise ValueError("Quiz not found")
 
@@ -183,42 +186,83 @@ async def grade_quiz(
     if attempt_count >= quiz.attempt_limit:
         raise ValueError(f"Attempt limit reached ({quiz.attempt_limit})")
 
-    # Grade each answer
+    questions = (
+        await db.execute(
+            select(Question)
+            .where(Question.quiz_id == quiz_id)
+            .order_by(Question.order_index, Question.id)
+        )
+    ).scalars().all()
+    if not questions:
+        raise ValueError("Quiz has no questions")
+
+    expected_question_ids = {question.id for question in questions}
+    submitted_question_ids = []
+    normalized_answers: dict[UUID, list[UUID]] = {}
+    for answer in answers:
+        try:
+            question_id = UUID(str(answer.get("question_id")))
+            selected_ids = [
+                UUID(str(choice_id))
+                for choice_id in answer.get("selected_choice_ids", [])
+            ]
+        except (TypeError, ValueError) as exc:
+            raise ValueError("Quiz submission contains an invalid identifier") from exc
+        if question_id in normalized_answers:
+            raise ValueError("Each quiz question must be answered exactly once")
+        if len(selected_ids) != len(set(selected_ids)):
+            raise ValueError("A choice cannot be selected more than once")
+        submitted_question_ids.append(question_id)
+        normalized_answers[question_id] = selected_ids
+
+    if set(submitted_question_ids) != expected_question_ids:
+        missing = len(expected_question_ids - set(submitted_question_ids))
+        unknown = len(set(submitted_question_ids) - expected_question_ids)
+        raise ValueError(
+            f"Submit every quiz question exactly once (missing={missing}, unknown={unknown})"
+        )
+
+    all_choices = []
+    if expected_question_ids:
+        all_choices = (
+            await db.execute(
+                select(QuizChoice)
+                .where(QuizChoice.question_id.in_(expected_question_ids))
+                .order_by(QuizChoice.question_id, QuizChoice.order_index, QuizChoice.id)
+            )
+        ).scalars().all()
+    choices_by_question: dict[UUID, list[QuizChoice]] = {
+        question_id: [] for question_id in expected_question_ids
+    }
+    for choice in all_choices:
+        choices_by_question.setdefault(choice.question_id, []).append(choice)
+
+    # Grade each answer against the complete server-side quiz definition.
     total_points = 0
     earned_points = 0
     graded_answers = []
 
-    for answer in answers:
-        question_id = answer.get("question_id")
-        selected_ids = answer.get("selected_choice_ids", [])
-
-        question = await db.get(Question, question_id)
-        if not question:
-            continue
-
+    for question in questions:
+        question_id = question.id
+        selected_ids = normalized_answers[question_id]
         total_points += question.points
+        question_choices = choices_by_question.get(question_id, [])
+        valid_choice_ids = {choice.id for choice in question_choices}
+        selected_set = set(selected_ids)
+        if not selected_set.issubset(valid_choice_ids):
+            raise ValueError("A selected choice does not belong to its question")
+        correct_ids = {
+            choice.id for choice in question_choices if choice.is_correct
+        }
 
-        # Get correct choices
-        correct_result = await db.execute(
-            select(QuizChoice.id).where(
-                QuizChoice.question_id == question_id,
-                QuizChoice.is_correct == True,
-            )
-        )
-        correct_ids = set(correct_result.scalars().all())
-
-        # Get selected choices
-        selected_set = set(UUID(str(sid)) for sid in selected_ids)
-
-        # Check if correct
         is_correct = correct_ids == selected_set
         if is_correct:
             earned_points += question.points
 
         graded_answers.append({
             "question_id": str(question_id),
-            "selected_choice_ids": [str(sid) for sid in selected_ids],
-            "correct_choice_ids": [str(cid) for cid in correct_ids],
+            "selected_choice_ids": sorted(str(choice_id) for choice_id in selected_set),
+            "correct_choice_ids": sorted(str(choice_id) for choice_id in correct_ids),
             "is_correct": is_correct,
             "points_earned": question.points if is_correct else 0,
             "points_possible": question.points,
@@ -228,18 +272,119 @@ async def grade_quiz(
     score_percent = round((earned_points / total_points * 100) if total_points > 0 else 0)
     passed = score_percent >= quiz.pass_score
 
-    # Create attempt
+    from app.models.enrollment import Enrollment
+    from app.modules.courses.models import Course
+    from app.modules.courses.release_models import ContentRelease
+    from app.modules.lessons.models import Lesson, Module
+
+    course = await db.scalar(
+        select(Course)
+        .join(Module, Module.course_id == Course.id)
+        .join(Lesson, Lesson.module_id == Module.id)
+        .where(
+            Lesson.id == quiz.lesson_id,
+            Course.tenant_id == tenant_id,
+            Module.tenant_id == tenant_id,
+            Lesson.tenant_id == tenant_id,
+        )
+    )
+    if not course:
+        raise ValueError("Quiz course not found")
+    enrollment = await db.scalar(
+        select(Enrollment).where(
+            Enrollment.course_id == course.id,
+            Enrollment.user_id == user_id,
+            Enrollment.tenant_id == tenant_id,
+        )
+    )
+    content_release_id = (
+        enrollment.content_release_id
+        if enrollment and enrollment.content_release_id
+        else course.current_release_id
+    )
+    release_sha256 = None
+    if content_release_id:
+        release_sha256 = await db.scalar(
+            select(ContentRelease.snapshot_sha256).where(
+                ContentRelease.id == content_release_id,
+                ContentRelease.course_id == course.id,
+                ContentRelease.tenant_id == tenant_id,
+            )
+        )
+        if not release_sha256:
+            raise ValueError("Course release evidence is inconsistent")
+
+    completed_at = datetime.now(timezone.utc)
+    attempt_id = uuid4()
+    evidence_snapshot = {
+        "schema_version": 1,
+        "attempt": {
+            "id": str(attempt_id),
+            "tenant_id": str(tenant_id),
+            "user_id": str(user_id),
+            "enrollment_id": str(enrollment.id) if enrollment else None,
+            "course_id": str(course.id),
+            "content_release_id": (
+                str(content_release_id) if content_release_id else None
+            ),
+            "content_release_sha256": release_sha256,
+            "quiz_id": str(quiz.id),
+            "started_at": completed_at.isoformat(),
+            "completed_at": completed_at.isoformat(),
+            "time_spent_seconds": time_spent_seconds,
+            "score_percent": score_percent,
+            "total_points": total_points,
+            "earned_points": earned_points,
+            "passed": passed,
+        },
+        "quiz": {
+            "id": str(quiz.id),
+            "title": quiz.title,
+            "pass_score": quiz.pass_score,
+            "time_limit": quiz.time_limit,
+            "attempt_limit": quiz.attempt_limit,
+            "deferral_days": quiz.deferral_days,
+            "questions": [
+                {
+                    "id": str(question.id),
+                    "text": question.text,
+                    "type": question.type,
+                    "points": question.points,
+                    "explanation": question.explanation,
+                    "order_index": question.order_index,
+                    "choices": [
+                        {
+                            "id": str(choice.id),
+                            "text": choice.text,
+                            "is_correct": bool(choice.is_correct),
+                            "order_index": choice.order_index,
+                        }
+                        for choice in choices_by_question.get(question.id, [])
+                    ],
+                }
+                for question in questions
+            ],
+        },
+        "graded_answers": graded_answers,
+    }
+    evidence_sha256 = canonical_json_sha256(evidence_snapshot)
+
     attempt = QuizAttempt(
+        id=attempt_id,
         quiz_id=quiz_id,
         user_id=user_id,
         tenant_id=tenant_id,
+        enrollment_id=enrollment.id if enrollment else None,
+        content_release_id=content_release_id,
         score_percent=score_percent,
         total_points=total_points,
         earned_points=earned_points,
         passed=passed,
         answers=graded_answers,
-        started_at=datetime.now(timezone.utc),
-        completed_at=datetime.now(timezone.utc),
+        evidence_snapshot=evidence_snapshot,
+        evidence_sha256=evidence_sha256,
+        started_at=completed_at,
+        completed_at=completed_at,
         time_spent_seconds=time_spent_seconds,
     )
     db.add(attempt)

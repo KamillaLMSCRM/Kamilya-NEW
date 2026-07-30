@@ -151,6 +151,43 @@ async def test_retrieval_does_not_fallback_to_irrelevant_fragment() -> None:
 
 
 @pytest.mark.asyncio
+async def test_retrieval_uses_lexical_fallback_inside_selected_ocr_document() -> None:
+    class _OcrStore(_Store):
+        async def get_all_chunks(self, **kwargs):
+            return [
+                (
+                    "Порядок предоставления микрокредита и заключения договора.",
+                    {
+                        "doc_id": "doc-1",
+                        "doc_name": "Правила.pdf",
+                        "headings": '["ПОРЯДОК ПРЕДОСТАВЛЕНИЯ МИКРОКРЕДИТА"]',
+                    },
+                ),
+                (
+                    "Текст о внутреннем распорядке.",
+                    {
+                        "doc_id": "doc-1",
+                        "doc_name": "Правила.pdf",
+                        "headings": '["ПРОЧЕЕ"]',
+                    },
+                ),
+            ]
+
+    chunks = await _retrieve_and_rerank(
+        _OcrStore(0.96),
+        ["Общие положения правил предоставления микрокредитов"],
+        "Общие положения правил предоставления микрокредитов",
+        doc_ids=["doc-1"],
+        tenant_id=str(uuid4()),
+        embeddings_provider=_Embeddings(),
+    )
+
+    assert len(chunks) == 1
+    assert chunks[0].doc_id == "doc-1"
+    assert chunks[0].query == "lexical_source_fallback"
+
+
+@pytest.mark.asyncio
 async def test_document_grounded_lesson_never_uses_general_knowledge_fallback() -> None:
     class _NeverCalledLLM:
         async def ainvoke(self, messages):

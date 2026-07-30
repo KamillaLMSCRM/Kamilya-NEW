@@ -26,6 +26,7 @@ MODEL_MODULES = (
     "app.modules.cohorts.models",
     "app.modules.competencies.models",
     "app.modules.courses.models",
+    "app.modules.courses.release_models",
     "app.modules.integrations.models",
     "app.modules.learner_assistant.models",
     "app.modules.learning_paths.models",

@@ -147,6 +147,53 @@ async def _retrieve_and_rerank(
     pre_filter_ranked = ranked
     ranked = [chunk for chunk in ranked if chunk.distance < similarity_threshold]
     if not ranked and pre_filter_ranked:
+        lexical_chunks: list[RetrievedChunk] = []
+        if doc_ids and hasattr(store, "get_all_chunks"):
+            # OCR-heavy scans can produce good text but poor vector similarity.
+            # A deterministic token-overlap fallback stays inside the explicitly
+            # selected documents and never substitutes general knowledge.
+            query_tokens = {
+                token
+                for query in queries
+                for token in re.findall(r"[0-9A-Za-zА-Яа-яЁё]{4,}", query.lower())
+            }
+            scored = []
+            for text_value, metadata in await store.get_all_chunks(
+                doc_ids=doc_ids,
+                tenant_id=tenant_id,
+            ):
+                headings_raw = (metadata or {}).get("headings", "[]")
+                try:
+                    headings = json.loads(headings_raw)
+                except (json.JSONDecodeError, TypeError):
+                    headings = []
+                haystack = f"{' '.join(headings)} {text_value}".lower()
+                matched = {token for token in query_tokens if token in haystack}
+                if matched:
+                    scored.append(
+                        (
+                            len(matched),
+                            len(text_value or ""),
+                            RetrievedChunk(
+                                chunk_id=str((metadata or {}).get("chunk_id", "")),
+                                doc_id=str((metadata or {}).get("doc_id", "")),
+                                doc_name=str((metadata or {}).get("doc_name", "")),
+                                headings=headings,
+                                text=text_value,
+                                query="lexical_source_fallback",
+                                distance=1.0,
+                            ),
+                        )
+                    )
+            scored.sort(key=lambda item: (-item[0], -item[1], item[2].doc_id))
+            lexical_chunks = [item[2] for item in scored[:top_n]]
+        if lexical_chunks:
+            logger.info(
+                "Using %d lexical source chunks for OCR-heavy lesson %s",
+                len(lexical_chunks),
+                lesson_title,
+            )
+            return lexical_chunks
         logger.warning(
             "No source chunks met the relevance threshold for lesson %s (best distance %.3f)",
             lesson_title,

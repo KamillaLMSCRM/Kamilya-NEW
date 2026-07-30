@@ -1,6 +1,6 @@
 """Quiz API router"""
 from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, or_
 from sqlalchemy.sql import true
@@ -384,6 +384,7 @@ async def get_quiz(
 async def submit_quiz(
     quiz_id: UUID,
     req: QuizSubmission,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     user=Depends(get_current_user),
 ):
@@ -404,11 +405,34 @@ async def submit_quiz(
             from app.modules.quizzes.assignment_service import update_assignment_status
             await update_assignment_status(
                 db, quiz_id, user.id, user.tenant_id,
-                result["attempt"]["score_percent"],
+                result["attempt"].score_percent,
                 result["passed"],
             )
         except Exception:
             pass
+        from app.modules.audit.service import log_action
+
+        await log_action(
+            db,
+            user.tenant_id,
+            "submit",
+            "quiz_attempt",
+            resource_id=result["attempt"].id,
+            user_id=user.id,
+            details={
+                "quiz_id": str(quiz_id),
+                "content_release_id": (
+                    str(result["attempt"].content_release_id)
+                    if result["attempt"].content_release_id
+                    else None
+                ),
+                "evidence_sha256": result["attempt"].evidence_sha256,
+                "score_percent": result["attempt"].score_percent,
+                "passed": result["attempt"].passed,
+            },
+            ip_address=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent"),
+        )
         return QuizResultResponse(**result)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

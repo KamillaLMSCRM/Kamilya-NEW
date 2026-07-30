@@ -2,7 +2,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, DateTime, String, Text
+from sqlalchemy import Column, DateTime, ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 
 from app.core.db import Base
@@ -15,6 +15,12 @@ class Enrollment(Base):
     course_id = Column(UUID(as_uuid=True), nullable=False, index=True)
     user_id = Column(UUID(as_uuid=True), nullable=False, index=True)
     tenant_id = Column(UUID(as_uuid=True), nullable=False, index=True)
+    content_release_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("content_releases.id", ondelete="RESTRICT"),
+        nullable=True,
+        index=True,
+    )
     status = Column(String, nullable=False, default="enrolled")
     enrolled_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     completed_at = Column(DateTime(timezone=True), nullable=True)

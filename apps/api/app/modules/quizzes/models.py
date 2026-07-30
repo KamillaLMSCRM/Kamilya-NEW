@@ -2,7 +2,7 @@
 import uuid
 from datetime import datetime, timezone
 from sqlalchemy import Column, String, Integer, Boolean, DateTime, Text, ForeignKey, JSON
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from app.core.db import Base
 
 
@@ -50,11 +50,25 @@ class QuizAttempt(Base):
     quiz_id = Column(UUID(as_uuid=True), ForeignKey("quizzes.id", ondelete="cascade"), nullable=False, index=True)
     user_id = Column(UUID(as_uuid=True), nullable=False, index=True)
     tenant_id = Column(UUID(as_uuid=True), nullable=False, index=True)
+    enrollment_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("enrollments.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    content_release_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("content_releases.id", ondelete="RESTRICT"),
+        nullable=True,
+        index=True,
+    )
     score_percent = Column(Integer, nullable=False, default=0)
     total_points = Column(Integer, nullable=False, default=0)
     earned_points = Column(Integer, nullable=False, default=0)
     passed = Column(Boolean, nullable=False, default=False)
     answers = Column(JSON, nullable=False, default=list)
+    evidence_snapshot = Column(JSONB, nullable=True)
+    evidence_sha256 = Column(String(64), nullable=True)
     started_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     completed_at = Column(DateTime(timezone=True), nullable=True)
     time_spent_seconds = Column(Integer, nullable=True)
