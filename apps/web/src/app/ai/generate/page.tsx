@@ -306,7 +306,7 @@ export default function AIGeneratePage() {
     }
   };
 
-  const uploadFile = async (file: File) => {
+  const uploadFile = useCallback(async (file: File) => {
     setUploadingCount((count) => count + 1);
     setUploadingFiles((files) => [...files, file.name]);
     setUploadError('');
@@ -327,7 +327,7 @@ export default function AIGeneratePage() {
       setUploadingCount((count) => Math.max(0, count - 1));
       setUploadingFiles((files) => files.filter((name) => name !== file.name));
     }
-  }, []);
+  }, [fetchDocuments]);
 
   const handleFileInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
