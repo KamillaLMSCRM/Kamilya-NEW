@@ -94,25 +94,19 @@ async def generate_lesson_assessment(
         + f" Write ALL content in {language} ({lang_name})."
     )
 
+    question_count = 3 if compact else 5
     question_plan = (
-        "- Exactly 3 single choice questions (4 options, ONE correct)\n"
+        f"- Exactly {question_count} single choice questions "
+        "(4 options, ONE correct)\n"
         "- Do not add true/false or matching questions"
-        if compact
-        else (
-            "- 3-5 single choice questions (4 options, ONE correct)\n"
-            "- 2-3 true/false statements\n"
-            "- 1 matching question with 4-6 pairs"
-        )
     )
-    output_schema = ASSESSMENT_JSON_SCHEMA
-    if compact:
-        output_schema = copy.deepcopy(ASSESSMENT_JSON_SCHEMA)
-        output_schema["properties"]["mcq"]["minItems"] = 3
-        output_schema["properties"]["mcq"]["maxItems"] = 3
-        output_schema["properties"]["true_false"]["minItems"] = 0
-        output_schema["properties"]["true_false"]["maxItems"] = 0
-        output_schema["properties"]["matching"]["minItems"] = 0
-        output_schema["properties"]["matching"]["maxItems"] = 0
+    output_schema = copy.deepcopy(ASSESSMENT_JSON_SCHEMA)
+    output_schema["properties"]["mcq"]["minItems"] = question_count
+    output_schema["properties"]["mcq"]["maxItems"] = question_count
+    output_schema["properties"]["true_false"]["minItems"] = 0
+    output_schema["properties"]["true_false"]["maxItems"] = 0
+    output_schema["properties"]["matching"]["minItems"] = 0
+    output_schema["properties"]["matching"]["maxItems"] = 0
     user_prompt = f"""Create assessment questions for this lesson.
 
 **Lesson**: {lesson_content.title}
