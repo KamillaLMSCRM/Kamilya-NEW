@@ -209,7 +209,7 @@ async def _save_generation_to_db(
                                 quiz = Quiz(
                                     tenant_id=tenant_id,
                                     lesson_id=lesson.id,
-                                    title=f"Quiz: {struct_les.title}",
+                                    title=struct_les.title,
                                     pass_score=80,
                                     attempt_limit=3,
                                 )

@@ -206,7 +206,7 @@ def test_normalize_draft_clamps_to_num_questions():
     }
     out = _normalize_draft(payload, num_questions=5)
     assert len(out["questions"]) == 5
-    assert out["suggested_title"] == "Quiz: T"
+    assert out["suggested_title"] == "T"
     assert out["suggested_pass_score"] == 80
 
 

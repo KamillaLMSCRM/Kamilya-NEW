@@ -67,7 +67,7 @@ def _build_generate_prompt(
         "ФОРМАТ ОТВЕТА — строго JSON без markdown-обёрток и без пояснений до/после. "
         "Верни ТОЛЬКО валидный JSON-объект следующей формы:\n"
         "{\n"
-        '  "title": "Quiz: <краткое название теста, до 80 символов>",\n'
+        '  "title": "<краткое название теста без префикса Quiz/Тест, до 80 символов>",\n'
         '  "pass_score": <целое 50-95, рекомендуемый проходной>,\n'
         '  "questions": [\n'
         "    {\n"
@@ -225,8 +225,12 @@ def _normalize_draft(payload: dict[str, Any], num_questions: int) -> dict[str, A
     to `num_questions` so the UI gets exactly what it asked for even
     if the model over/under-shoots."""
     title = (payload.get("title") or "").strip()
+    for prefix in ("quiz:", "тест:"):
+        if title.casefold().startswith(prefix):
+            title = title[len(prefix):].strip()
+            break
     if not title:
-        title = "Quiz: без названия"
+        title = "Тест без названия"
     if len(title) > 80:
         title = title[:77] + "…"
 

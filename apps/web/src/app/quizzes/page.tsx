@@ -592,7 +592,7 @@ export default function QuizzesAdminPage() {
           </p>
         </div>
         <Button onClick={() => setShowCreateQuiz(!showCreateQuiz)} className="h-11 px-5">
-          {t('common.create')} {t('quiz.title')}
+          {t('quiz.create')}
         </Button>
       </div>
 
@@ -600,7 +600,7 @@ export default function QuizzesAdminPage() {
       {showCreateQuiz && (
         <Card>
           <CardContent className="p-4 space-y-3">
-            <h3 className="font-semibold">{t('common.create')} {t('quiz.title')}</h3>
+            <h3 className="font-semibold">{t('quiz.create')}</h3>
             {/* Cascade selector: Курс → Модуль → Урок.
                 The old free-form Lesson ID input was a usability dead end
                 — methodologists had no way to discover the UUID. We now

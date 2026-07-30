@@ -372,6 +372,7 @@
   },
   "quiz": {
     "title": "Quiz",
+    "create": "Create test",
     "question": "Question",
     "of": "of",
     "points": "points",
