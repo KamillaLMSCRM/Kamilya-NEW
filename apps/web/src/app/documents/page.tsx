@@ -118,6 +118,16 @@ export default function DocumentsPage() {
     return () => window.clearTimeout(timer);
   }, [fetchDocuments]);
 
+  const hasProcessingDocuments = documents.some(
+    (document) => document.index.status === 'processing'
+  );
+
+  useEffect(() => {
+    if (!hasProcessingDocuments) return;
+    const timer = window.setInterval(() => void fetchDocuments(), 3000);
+    return () => window.clearInterval(timer);
+  }, [fetchDocuments, hasProcessingDocuments]);
+
   const resetUpload = () => {
     setShowUpload(false);
     setVersionSource(null);

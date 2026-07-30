@@ -9,12 +9,14 @@ on port 8600.
 Install the converter and Kazakhstan OCR languages:
 
 ```sh
-apt-get install -y tesseract-ocr tesseract-ocr-kaz tesseract-ocr-rus tesseract-ocr-eng
+apt-get install -y libreoffice-writer tesseract-ocr tesseract-ocr-kaz tesseract-ocr-rus tesseract-ocr-eng
 python -m pip install -r requirements.txt
 ```
 
 PDF conversion explicitly enables Tesseract CLI OCR with `kaz,rus,eng`.
 Override the comma-separated language list with `DOCLING_OCR_LANGUAGES`.
+Legacy `.doc` files are converted to `.docx` with headless LibreOffice before
+Docling processes them.
 
 ## Authentication
 

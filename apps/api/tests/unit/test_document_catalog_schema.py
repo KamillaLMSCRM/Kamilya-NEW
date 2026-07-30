@@ -6,7 +6,7 @@ from fastapi.routing import APIRoute
 from sqlalchemy.dialects import postgresql
 
 from app.models.document import Document
-from app.modules.documents.router import router as documents_router
+from app.modules.documents.router import MAX_FILE_SIZE, router as documents_router
 from app.modules.documents.schemas import DocumentResponse
 from app.modules.documents.service import CatalogFilters, list_catalog
 
@@ -53,6 +53,10 @@ def test_public_document_dto_and_upload_route_are_fail_closed() -> None:
     )
     closure_values = [cell.cell_contents for cell in (role_dependency.__closure__ or ())]
     assert ("methodologist",) in closure_values
+
+
+def test_default_document_limit_accepts_normal_scanned_policies() -> None:
+    assert MAX_FILE_SIZE >= 13 * 1024 * 1024
 
 
 async def test_latest_subquery_uses_requested_lifecycle_scope() -> None:

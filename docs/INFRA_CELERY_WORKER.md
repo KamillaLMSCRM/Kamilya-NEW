@@ -11,6 +11,9 @@ checkout удалены.
 - Unit: `kamilya-worker.service`.
 - Broker/result backend: Valkey по TLS.
 - Database: тот же runtime `DATABASE_URL`, что у API.
+- Document conversion: локальный `http://127.0.0.1:8600` с тем же
+  `DOCLING_API_KEY`, что у Docling service; timeout не менее 900 секунд для
+  OCR больших сканированных PDF.
 - Code: совместимый commit release, а не обязательно последний docs-only
   commit.
 
@@ -90,7 +93,8 @@ journalctl -u kamilya-worker.service -n 100 --no-pager
 
 На удаляемом test tenant:
 
-1. загрузить небольшой документ и дождаться terminal ingestion status;
+1. загрузить небольшой документ, убедиться, что HTTP upload завершается сразу,
+   и дождаться terminal ingestion status фоновой задачи;
 2. запустить одну AI generation и дождаться terminal status;
 3. создать organization training rule;
 4. добавить или импортировать сотрудника;

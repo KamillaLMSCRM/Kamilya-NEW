@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 DOCLING_URL = os.getenv("DOCLING_URL", "http://173.249.51.164:8600")
 DOCLING_API_KEY = os.getenv("DOCLING_API_KEY", "")
+DOCLING_TIMEOUT_SECONDS = float(os.getenv("DOCLING_TIMEOUT_SECONDS", "900"))
 
 
 class DocumentConverter:
@@ -42,7 +43,7 @@ class DocumentConverter:
                     if DOCLING_API_KEY
                     else None
                 )
-                async with httpx.AsyncClient(timeout=300) as client:
+                async with httpx.AsyncClient(timeout=DOCLING_TIMEOUT_SECONDS) as client:
                     resp = await client.post(
                         f"{self.base_url}/convert",
                         files=files,
@@ -60,7 +61,7 @@ class DocumentConverter:
                         },
                     }
         except Exception as e:
-            logger.warning(f"Remote Docling unavailable ({e}), using local fallback")
+            logger.warning("Remote Docling conversion failed: %s", e)
 
         # Local fallback
         return await _local_convert(file_path)
@@ -69,10 +70,12 @@ class DocumentConverter:
 async def _local_convert(file_path: str) -> dict:
     """Local fallback — try docling import, then basic text read."""
     ext = Path(file_path).suffix.lower()
-    if ext in (".txt", ".md"):
+    if ext in (".txt", ".md", ".csv"):
         content = Path(file_path).read_text(encoding="utf-8")
     else:
-        content = f"[Document: {os.path.basename(file_path)} — Docling service unavailable]"
+        raise RuntimeError(
+            f"Document conversion is unavailable for {ext or 'this file type'}"
+        )
     return {
         "markdown": content,
         "metadata": {"filename": os.path.basename(file_path), "size": os.path.getsize(file_path)},

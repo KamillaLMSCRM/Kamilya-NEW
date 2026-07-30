@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import importlib.util
+import io
+import json
 import sys
 from pathlib import Path
 from types import ModuleType
 
 import pytest
+from starlette.datastructures import UploadFile
 
 
 SERVICE_PATH = (
@@ -98,3 +101,65 @@ async def test_convert_rejects_invalid_api_key(monkeypatch: pytest.MonkeyPatch) 
         await service.convert_document(file=None, x_docling_key="wrong-key")
 
     assert exc_info.value.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_convert_legacy_doc_uses_libreoffice_before_docling(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = _load_service(monkeypatch)
+    converted_inputs: list[Path] = []
+
+    class Completed:
+        returncode = 0
+        stderr = ""
+
+    def fake_run(args, **kwargs):
+        output_dir = Path(args[args.index("--outdir") + 1])
+        source = Path(args[-1])
+        (output_dir / f"{source.stem}.docx").write_bytes(b"PK converted")
+        return Completed()
+
+    class Document:
+        tables = []
+        pages = {1: object()}
+
+        def export_to_markdown(self):
+            return "# Expert appraiser"
+
+    class Converter:
+        def convert(self, path):
+            converted_inputs.append(Path(path))
+            return type("Result", (), {"document": Document()})()
+
+    monkeypatch.setattr(service.shutil, "which", lambda command: "/usr/bin/libreoffice")
+    monkeypatch.setattr(service.subprocess, "run", fake_run)
+    monkeypatch.setattr(service, "get_converter", lambda: Converter())
+
+    response = await service.convert_document(
+        file=UploadFile(filename="expert.doc", file=io.BytesIO(b"legacy-doc")),
+        x_docling_key=None,
+    )
+    payload = json.loads(response.body)
+
+    assert payload["markdown"] == "# Expert appraiser"
+    assert payload["pages"] == 1
+    assert len(converted_inputs) == 1
+    assert converted_inputs[0].suffix == ".docx"
+    assert not converted_inputs[0].exists()
+
+
+@pytest.mark.asyncio
+async def test_convert_legacy_doc_fails_honestly_without_libreoffice(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = _load_service(monkeypatch)
+    monkeypatch.setattr(service.shutil, "which", lambda command: None)
+
+    with pytest.raises(service.HTTPException) as exc_info:
+        await service.convert_document(
+            file=UploadFile(filename="expert.doc", file=io.BytesIO(b"legacy-doc")),
+            x_docling_key=None,
+        )
+
+    assert exc_info.value.status_code == 503

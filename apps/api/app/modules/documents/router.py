@@ -19,7 +19,6 @@ from app.core.storage import get_storage
 from app.models.ai_job import AIJob
 from app.models.document import Document
 from app.modules.ai.job_service import create_ai_job
-from app.modules.documents.operations import apply_ingestion_result
 from app.modules.documents.schemas import (
     DocumentCatalogResponse,
     DocumentCategory,
@@ -44,7 +43,6 @@ router = APIRouter(
     dependencies=[Depends(require_tenant_user())],
 )
 
-UPLOAD_DIR = "./uploads/documents"
 SUMMARIES_DIR = "./summaries"
 
 logger = logging.getLogger(__name__)
@@ -61,10 +59,10 @@ ALLOWED_MIME_TYPES = {
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": b"PK",
 }
 
-# Per ADR-0005: 10 MB cap. Documented decision; supersedes the 50 MB
-# guidance in AGENTS.md (which was carried over from a pre-product spec
-# and not validated against real uploads).
-MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
+# Scanned policies and instructions routinely exceed 10 MB. Keep the limit
+# configurable while accepting normal business documents by default.
+MAX_FILE_SIZE_MB = int(os.getenv("MAX_DOCUMENT_SIZE_MB", "50"))
+MAX_FILE_SIZE = MAX_FILE_SIZE_MB * 1024 * 1024
 
 # Heuristic thresholds for text-content validation (audit §4.7):
 # a binary blob declared as text/plain must NOT pass. We accept UTF-8
@@ -164,12 +162,19 @@ def _load_short_summary(doc_id: str, filename: str | None = None) -> tuple[bool,
     return False, None
 
 
-def _hydrate(doc: Document) -> DocumentResponse:
+def _hydrate(
+    doc: Document,
+    *,
+    indexing_job_id: str | None = None,
+) -> DocumentResponse:
     """Attach short_summary/summary_ready to a Document instance."""
     resp = DocumentResponse.model_validate(doc)
     ready, short = _load_short_summary(str(doc.id), doc.filename)
     resp.summary_ready = ready
     resp.short_summary = short
+    resp.indexing_job_id = indexing_job_id
+    if indexing_job_id:
+        resp.status_url = f"/api/v1/ai/jobs/{indexing_job_id}"
     return resp
 
 
@@ -575,12 +580,6 @@ async def upload_document(
         logger.exception("Could not persist document blob %s", doc_id)
         raise HTTPException(status_code=503, detail="Document storage is unavailable") from exc
 
-    # Save file temporarily for ingestion, then embed into pgvector
-    file_path = os.path.join(UPLOAD_DIR, str(user.tenant_id), f"{doc_id}{ext}")
-    os.makedirs(os.path.dirname(file_path), exist_ok=True)
-    with open(file_path, "wb") as f:
-        f.write(content)
-
     doc = Document(
         id=doc_id,
         tenant_id=user.tenant_id,
@@ -598,10 +597,22 @@ async def upload_document(
         content_sha256=content_sha256,
         lifecycle_status="active",
         index_status="processing",
+        index_revision=1,
     )
     db.add(doc)
+    job = await create_ai_job(
+        db,
+        tenant_id=user.tenant_id,
+        user_id=user.id,
+        params={
+            "action": "document_reindex",
+            "document_id": str(doc_id),
+            "revision": 1,
+        },
+    )
     try:
-        await db.flush()
+        await db.commit()
+        logger.info("Persisted document upload doc_id=%s job_id=%s", doc_id, job.id)
     except Exception:
         try:
             get_storage().delete_bytes(s3_key)
@@ -609,40 +620,47 @@ async def upload_document(
             logger.exception("Could not remove orphaned document blob %s", doc_id)
         raise
 
-    # Ingest into pgvector immediately (persistent embeddings)
     try:
-        from app.modules.ai.ingestion import DocumentIngestion
-
-        ingestion = DocumentIngestion()
-        result = await ingestion.ingest_file(file_path, doc_id=str(doc_id), tenant_id=str(user.tenant_id))
-        apply_ingestion_result(doc, result)
-        # Filename can contain sensitive info (e.g. "2025_salary_review.docx").
-        # Log only the doc id, not the filename (audit §6.5).
-        logger.info(
-            "[UPLOAD] Ingested doc_id=%s chunks=%d embeddings_written=%d status=%s",
-            doc.id,
-            doc.index_chunks_total,
-            doc.index_chunks_indexed,
-            doc.embedding_status,
+        _dispatch_document_reindex(
+            job.id,
+            doc_id,
+            user.tenant_id,
+            1,
         )
-    except Exception as e:
-        doc.embedding_status = "failed"
-        doc.embedding_error = str(e)[:500]
-        doc.index_status = "failed"
-        doc.index_error_code = "ingestion_failed"
-        doc.index_message = doc.embedding_error
-        # Filename still excluded from logs (PII risk).
-        logger.error("[UPLOAD] Ingestion failed for doc_id=%s: %s", doc.id, e)
-    finally:
-        # Clean up temp file (Render ephemeral disk)
-        try:
-            os.remove(file_path)
-        except OSError:
-            pass
-        await db.flush()
-        await db.refresh(doc)
+        logger.info("Queued document indexing doc_id=%s job_id=%s", doc_id, job.id)
+    except Exception:
+        logger.exception("Could not enqueue initial document indexing job %s", job.id)
+        stored_doc = await db.scalar(
+            select(Document)
+            .where(
+                Document.id == doc_id,
+                Document.tenant_id == user.tenant_id,
+            )
+            .with_for_update()
+        )
+        failed_job = await db.scalar(
+            select(AIJob)
+            .where(AIJob.id == job.id, AIJob.tenant_id == user.tenant_id)
+            .with_for_update()
+        )
+        now = datetime.now(UTC)
+        if stored_doc:
+            stored_doc.embedding_status = "failed"
+            stored_doc.embedding_error = "Document indexing worker is unavailable"
+            stored_doc.index_status = "failed"
+            stored_doc.index_error_code = "index_enqueue_failed"
+            stored_doc.index_message = "Document indexing worker is unavailable"
+        if failed_job:
+            failed_job.status = "failed"
+            failed_job.stage = "failed"
+            failed_job.message = "Document indexing worker is unavailable"
+            failed_job.errors = [{"code": "index_enqueue_failed"}]
+            failed_job.updated_at = now
+            failed_job.completed_at = now
+        await db.commit()
 
-    return _hydrate(doc)
+    await db.refresh(doc)
+    return _hydrate(doc, indexing_job_id=job.id)
 
 
 @router.get("/{document_id}/download")

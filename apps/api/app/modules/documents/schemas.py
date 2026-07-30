@@ -28,6 +28,8 @@ class DocumentResponse(BaseModel):
     # Populated by router._hydrate when educational summary is available.
     summary_ready: bool = False
     short_summary: str | None = None
+    indexing_job_id: str | None = None
+    status_url: str | None = None
     model_config = {"from_attributes": True}
 
 

@@ -193,8 +193,6 @@ export default function AIGeneratePage() {
     return 'bg-primary/10 text-primary border-primary/30';
   };
 
-  useEffect(() => { fetchDocuments(); restoreActiveJob(); }, []);
-
   useEffect(() => {
     if (selectedDocIds.length === 0 || selectedNotReadyCount > 0) {
       setCompatibility(null);
@@ -225,7 +223,7 @@ export default function AIGeneratePage() {
     };
   }, [selectedDocIds, selectedNotReadyCount]);
 
-  const restoreActiveJob = async () => {
+  const restoreActiveJob = useCallback(async () => {
     const savedJobId = localStorage.getItem('ai_active_job_id');
     if (!savedJobId) return;
     try {
@@ -254,9 +252,9 @@ export default function AIGeneratePage() {
         localStorage.removeItem('ai_active_job_id');
       }
     }
-  };
+  }, []);
 
-  const fetchDocuments = async () => {
+  const fetchDocuments = useCallback(async () => {
     setDocumentLoadError('');
     try {
       const res = await api.get<DocumentCatalogResponse>(
@@ -282,7 +280,22 @@ export default function AIGeneratePage() {
       console.error('Document catalog load failed', error);
       setDocumentLoadError('Не удалось загрузить библиотеку документов. Повторите попытку.');
     }
-  };
+  }, []);
+
+  const hasProcessingDocuments = documents.some(
+    (document) => document.index_status === 'processing'
+  );
+
+  useEffect(() => {
+    void fetchDocuments();
+    void restoreActiveJob();
+  }, [fetchDocuments, restoreActiveJob]);
+
+  useEffect(() => {
+    if (!hasProcessingDocuments) return;
+    const timer = window.setInterval(() => void fetchDocuments(), 3000);
+    return () => window.clearInterval(timer);
+  }, [fetchDocuments, hasProcessingDocuments]);
 
   const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
@@ -314,7 +327,7 @@ export default function AIGeneratePage() {
       setUploadingCount((count) => Math.max(0, count - 1));
       setUploadingFiles((files) => files.filter((name) => name !== file.name));
     }
-  };
+  }, []);
 
   const handleFileInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);

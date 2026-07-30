@@ -352,7 +352,6 @@ async def test_document_upload_allows_methodologist_without_external_services(
     make_user,
     auth_headers,
 ):
-    from app.modules.ai import ingestion
     from app.modules.documents import router as documents_router
 
     class StorageStub:
@@ -361,16 +360,17 @@ async def test_document_upload_allows_methodologist_without_external_services(
             assert content == b"safe source text"
             assert content_type == "text/plain"
 
-    class IngestionStub:
-        async def ingest_file(self, file_path, doc_id, tenant_id):
-            assert tenant_id == str(tenant.id)
-            return {"chunks": 1, "embeddings_written": 1}
-
     tenant = await make_tenant()
     methodologist = await make_user(tenant, role="methodologist")
-    monkeypatch.setattr(documents_router, "UPLOAD_DIR", str(tmp_path))
     monkeypatch.setattr(documents_router, "get_storage", lambda: StorageStub())
-    monkeypatch.setattr(ingestion, "DocumentIngestion", IngestionStub)
+    dispatched = []
+    monkeypatch.setattr(
+        documents_router,
+        "_dispatch_document_reindex",
+        lambda job_id, document_id, tenant_id, revision: dispatched.append(
+            (job_id, str(document_id), str(tenant_id), revision)
+        ),
+    )
 
     response = await client.post(
         "/api/v1/documents/upload",
@@ -379,7 +379,17 @@ async def test_document_upload_allows_methodologist_without_external_services(
     )
 
     assert response.status_code == 201
-    assert response.json()["embedding_status"] == "success"
+    assert response.json()["embedding_status"] == "pending"
+    assert response.json()["indexing_job_id"]
+    assert response.json()["status_url"].endswith(response.json()["indexing_job_id"])
+    assert dispatched == [
+        (
+            response.json()["indexing_job_id"],
+            response.json()["id"],
+            str(tenant.id),
+            1,
+        )
+    ]
     assert INTERNAL_FIELDS.isdisjoint(response.json())
 
 
@@ -397,7 +407,6 @@ async def test_document_upload_hashes_content_and_rejects_exact_duplicate(
     from sqlalchemy import select
 
     from app.models.document import Document
-    from app.modules.ai import ingestion
     from app.modules.documents import router as documents_router
 
     class StorageStub:
@@ -407,15 +416,17 @@ async def test_document_upload_hashes_content_and_rejects_exact_duplicate(
         def delete_bytes(self, key):
             return True
 
-    class IngestionStub:
-        async def ingest_file(self, file_path, doc_id, tenant_id):
-            return {"chunks": 1, "embeddings_written": 1}
-
     tenant = await make_tenant()
     methodologist = await make_user(tenant, role="methodologist")
-    monkeypatch.setattr(documents_router, "UPLOAD_DIR", str(tmp_path))
     monkeypatch.setattr(documents_router, "get_storage", lambda: StorageStub())
-    monkeypatch.setattr(ingestion, "DocumentIngestion", IngestionStub)
+    dispatched = []
+    monkeypatch.setattr(
+        documents_router,
+        "_dispatch_document_reindex",
+        lambda job_id, document_id, tenant_id, revision: dispatched.append(
+            (job_id, str(document_id), str(tenant_id), revision)
+        ),
+    )
     content = b"same approved policy text"
 
     first = await client.post(
@@ -454,7 +465,6 @@ async def test_document_upload_creates_explicit_next_version(
     from sqlalchemy import select
 
     from app.models.document import Document
-    from app.modules.ai import ingestion
     from app.modules.documents import router as documents_router
 
     class StorageStub:
@@ -464,15 +474,17 @@ async def test_document_upload_creates_explicit_next_version(
         def delete_bytes(self, key):
             return True
 
-    class IngestionStub:
-        async def ingest_file(self, file_path, doc_id, tenant_id):
-            return {"chunks": 2, "embeddings_written": 2}
-
     tenant = await make_tenant()
     methodologist = await make_user(tenant, role="methodologist")
-    monkeypatch.setattr(documents_router, "UPLOAD_DIR", str(tmp_path))
     monkeypatch.setattr(documents_router, "get_storage", lambda: StorageStub())
-    monkeypatch.setattr(ingestion, "DocumentIngestion", IngestionStub)
+    dispatched = []
+    monkeypatch.setattr(
+        documents_router,
+        "_dispatch_document_reindex",
+        lambda job_id, document_id, tenant_id, revision: dispatched.append(
+            (job_id, str(document_id), str(tenant_id), revision)
+        ),
+    )
     first = await client.post(
         "/api/v1/documents/upload",
         data={"title": "Safety policy", "category": "job_instruction"},
