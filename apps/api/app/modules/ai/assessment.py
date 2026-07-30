@@ -135,29 +135,35 @@ Output ONLY valid JSON matching this schema:
             )
             data = _parse_json_response(response.content)
             logger.debug("[ASSESSMENT_OK] attempt %d keys=%s", attempt + 1, list(data.keys()))
-            break
+            assessment = LessonAssessment.from_dict({
+                "lesson_title": lesson_content.title,
+                **data,
+            })
+            issues = _validate_assessment(assessment)
+            if len(assessment.mcq) != question_count:
+                issues.append(
+                    f"MCQ count is {len(assessment.mcq)} "
+                    f"(expected exactly {question_count})"
+                )
+            if assessment.true_false:
+                issues.append("true_false questions are not allowed")
+            if assessment.matching:
+                issues.append("matching questions are not allowed")
+            if issues:
+                raise ValueError("; ".join(issues))
+            return assessment
         except (json.JSONDecodeError, ValueError) as e:
-            logger.warning("[ASSESSMENT_PARSE] attempt %d failed: %s", attempt + 1, e)
+            logger.warning("[ASSESSMENT_CONTRACT] attempt %d failed: %s", attempt + 1, e)
             if attempt < MAX_ASSESSMENT_RETRIES:
-                # Self-correction: send broken JSON back to LLM
                 user_prompt = (
-                    f"Your JSON has a syntax error: {e}\n\n"
+                    f"Your assessment does not match the required contract: {e}\n\n"
                     f"Here is your output:\n{response.content[:3000]}\n\n"
-                    f"Fix the JSON syntax and output ONLY the corrected valid JSON. No explanation."
+                    f"Return exactly {question_count} single choice questions, "
+                    "no true/false or matching questions. "
+                    "Output ONLY corrected valid JSON. No explanation."
                 )
                 continue
             raise
-
-    assessment = LessonAssessment.from_dict({
-        "lesson_title": lesson_content.title,
-        **data,
-    })
-
-    issues = _validate_assessment(assessment)
-    if issues:
-        logger.warning(f"Validation issues for '{lesson_content.title}': {issues}")
-
-    return assessment
 
 
 async def generate_course_assessment(

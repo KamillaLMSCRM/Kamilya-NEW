@@ -48,3 +48,51 @@ async def test_standard_assessment_requests_five_mcq_questions_only():
     assert len(result.mcq) == 5
     assert result.true_false == []
     assert result.matching == []
+
+
+@pytest.mark.asyncio
+async def test_standard_assessment_retries_an_incomplete_result():
+    class FakeLLM:
+        calls = 0
+
+        async def ainvoke(self, messages):
+            self.calls += 1
+            if self.calls == 1:
+                return SimpleNamespace(
+                    content='{"mcq": [], "true_false": [], "matching": []}'
+                )
+            options = [
+                {"text": "Верный ответ", "is_correct": True},
+                {"text": "Неверный ответ 1", "is_correct": False},
+                {"text": "Неверный ответ 2", "is_correct": False},
+                {"text": "Неверный ответ 3", "is_correct": False},
+            ]
+            questions = [
+                {
+                    "question": f"Вопрос {index}",
+                    "options": options,
+                    "explanation": "Объяснение",
+                }
+                for index in range(1, 6)
+            ]
+            return SimpleNamespace(
+                content=(
+                    '{"mcq": '
+                    + __import__("json").dumps(questions, ensure_ascii=False)
+                    + ', "true_false": [], "matching": []}'
+                )
+            )
+
+    llm = FakeLLM()
+    result = await generate_lesson_assessment(
+        llm,
+        LessonContent(
+            title="Порядок рассмотрения заявления",
+            content="Содержание урока",
+            source_references=[],
+        ),
+        language="ru",
+    )
+
+    assert llm.calls == 2
+    assert len(result.mcq) == 5
