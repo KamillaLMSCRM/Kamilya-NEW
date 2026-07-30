@@ -283,7 +283,13 @@ export default function CourseEditPage() {
     });
     if (!response.ok) {
       const payload = await response.json().catch(() => null);
-      throw new Error(payload?.detail || 'Не удалось изменить статус курса');
+      throw new Error(
+        payload?.message
+        || payload?.details?.message
+        || payload?.detail?.message
+        || payload?.detail
+        || 'Не удалось изменить статус курса',
+      );
     }
     return response.json() as Promise<Course>;
   };

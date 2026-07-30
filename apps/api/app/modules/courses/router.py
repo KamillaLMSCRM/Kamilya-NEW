@@ -371,12 +371,23 @@ async def publish_course(
     if course.ai_generated and course.review_status != "approved":
         raise HTTPException(
             status_code=409,
-            detail="AI-generated course must be approved before publication",
+            detail={
+                "code": "course_review_required",
+                "message": (
+                    "Перед публикацией AI-курс должен быть проверен "
+                    "и одобрен методологом"
+                ),
+            },
         )
     if course.source_instruction_id is not None and not course.ai_generated:
         raise HTTPException(
             status_code=409,
-            detail="Job-instruction course generation is not complete",
+            detail={
+                "code": "instruction_course_incomplete",
+                "message": (
+                    "Генерация курса по должностной инструкции ещё не завершена"
+                ),
+            },
         )
     from app.modules.courses.release_service import create_course_release
 

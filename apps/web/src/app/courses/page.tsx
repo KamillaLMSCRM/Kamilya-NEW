@@ -30,9 +30,14 @@ export default function CoursesPage() {
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  const canManage =
-    user?.role === 'methodologist' ||
-    user?.role === 'methodologist';
+  const canManage = user?.role === 'methodologist';
+
+  const apiErrorMessage = (error: any, fallback: string) =>
+    error?.response?.data?.message
+    || error?.response?.data?.detail?.message
+    || error?.response?.data?.detail
+    || error?.message
+    || fallback;
 
   useEffect(() => {
     fetchCourses();
@@ -48,9 +53,9 @@ export default function CoursesPage() {
       const res = await api.get(`/v1/courses?${params}`);
       setCourses(Array.isArray(res.data) ? res.data : []);
     } catch (err: any) {
-      setLoadError(err?.response?.data?.detail || err?.message || t('common.loadFailed'));
+      setLoadError(apiErrorMessage(err, t('common.loadFailed')));
       toast.error(t('common.loadFailed'), {
-        description: err?.response?.data?.detail || err?.message,
+        description: apiErrorMessage(err, t('common.loadFailed')),
       });
     } finally {
       setLoading(false);
@@ -71,7 +76,7 @@ export default function CoursesPage() {
       fetchCourses();
     } catch (err: any) {
       toast.error(t('common.saveFailed'), {
-        description: err?.response?.data?.detail || err?.message,
+        description: apiErrorMessage(err, t('common.saveFailed')),
       });
     }
   };
@@ -112,7 +117,7 @@ export default function CoursesPage() {
       fetchCourses();
     } catch (err: any) {
       toast.error(t('common.saveFailed'), {
-        description: err?.response?.data?.detail || err?.message,
+        description: apiErrorMessage(err, t('common.saveFailed')),
       });
     }
   };
@@ -349,6 +354,13 @@ export default function CoursesPage() {
                       AI
                     </span>
                   )}
+                  {course.ai_generated
+                    && course.status !== 'published'
+                    && course.review_status !== 'approved' && (
+                    <span className="text-[11px] font-semibold rounded-full px-2.5 py-1 text-warning bg-warning/10 backdrop-blur-sm">
+                      {t('courses.reviewRequired')}
+                    </span>
+                  )}
                   {course.delivery_type === 'scorm' && (
                     <span className="text-[11px] font-semibold rounded-full px-2.5 py-1 text-foreground bg-card/80 backdrop-blur-sm">
                       SCORM
@@ -387,17 +399,28 @@ export default function CoursesPage() {
                     >
                       {t('common.edit')}
                     </Link>
-                    <button
-                      type="button"
-                      onClick={() => handlePublish(course.id, course.status)}
-                      className={`min-h-11 min-w-0 rounded-xl px-2 py-2 text-xs font-medium transition-colors ${
-                        course.status === 'published'
-                          ? 'bg-muted text-foreground hover:bg-muted'
-                          : 'bg-primary/10 text-primary hover:bg-primary/20'
-                      }`}
-                    >
-                      {course.status === 'published' ? t('courses.unpublish') : t('courses.publish')}
-                    </button>
+                    {course.ai_generated
+                      && course.status !== 'published'
+                      && course.review_status !== 'approved' ? (
+                      <Link
+                        href={`/courses/${course.id}/edit`}
+                        className="flex min-h-11 min-w-0 items-center justify-center rounded-xl bg-warning/10 px-2 py-2 text-center text-xs font-medium text-warning transition-colors hover:bg-warning/20"
+                      >
+                        {t('courses.reviewCourse')}
+                      </Link>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handlePublish(course.id, course.status)}
+                        className={`min-h-11 min-w-0 rounded-xl px-2 py-2 text-xs font-medium transition-colors ${
+                          course.status === 'published'
+                            ? 'bg-muted text-foreground hover:bg-muted'
+                            : 'bg-primary/10 text-primary hover:bg-primary/20'
+                        }`}
+                      >
+                        {course.status === 'published' ? t('courses.unpublish') : t('courses.publish')}
+                      </button>
+                    )}
                     <details className="group/actions relative">
                       <summary
                         className="flex min-h-11 min-w-11 cursor-pointer list-none items-center justify-center rounded-xl border border-border text-muted-foreground transition-colors hover:text-foreground [&::-webkit-details-marker]:hidden"

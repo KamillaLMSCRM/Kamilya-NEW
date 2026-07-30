@@ -21,6 +21,7 @@ export default function LoginPage() {
   const { t } = useT();
   const { login, accessToken } = useAuthStore();
   const [mode, setMode] = useState<LoginMode>('password');
+  const [passwordEmail, setPasswordEmail] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [emailCode, setEmailCode] = useState('');
@@ -108,7 +109,7 @@ export default function LoginPage() {
   async function loginWithPassword(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError('');
-    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedEmail = passwordEmail.trim().toLowerCase();
     if (!normalizedEmail || !normalizedEmail.includes('@') || password.length < 8) {
       setError(t('auth.invalidCredentials'));
       return;
@@ -248,8 +249,8 @@ export default function LoginPage() {
               <Input
                 id="password-login-email"
                 type="email"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
+                value={passwordEmail}
+                onChange={(event) => setPasswordEmail(event.target.value)}
                 autoComplete="email"
                 placeholder="hr@company.kz"
                 required
@@ -276,17 +277,18 @@ export default function LoginPage() {
         ) : mode === 'email' ? (
           <div className="space-y-5">
             {!emailCodeSent ? (
-              <form onSubmit={requestEmailCode} className="space-y-4">
+              <form onSubmit={requestEmailCode} className="space-y-4" autoComplete="off">
                 <div>
                   <label htmlFor="email-login" className="mb-1 block text-sm font-medium">
                     Рабочий email
                   </label>
                   <Input
                     id="email-login"
+                    name="email-otp"
                     type="email"
                     value={email}
                     onChange={(event) => setEmail(event.target.value)}
-                    autoComplete="email"
+                    autoComplete="off"
                     placeholder="hr@company.kz"
                     required
                   />

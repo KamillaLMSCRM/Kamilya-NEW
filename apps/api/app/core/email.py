@@ -21,15 +21,15 @@ class EmailService:
         )
 
     async def send_login_code(self, *, to_email: str, code: str) -> None:
-        subject = "Kamilya LMS login code"
+        subject = "Kamilya LMS: код для входа"
         text = (
-            f"Your Kamilya LMS login code is {code}.\n\n"
-            "The code expires in 5 minutes. If you did not request it, ignore this email."
+            f"Ваш код для входа в Kamilya LMS: {code}.\n\n"
+            "Код действует 5 минут. Если вы не запрашивали код, просто проигнорируйте это письмо."
         )
         html = (
-            "<p>Your Kamilya LMS login code:</p>"
+            "<p>Ваш код для входа в Kamilya LMS:</p>"
             f"<p style=\"font-size:28px;font-weight:700;letter-spacing:4px\">{code}</p>"
-            "<p>The code expires in 5 minutes. If you did not request it, ignore this email.</p>"
+            "<p>Код действует 5 минут. Если вы не запрашивали код, просто проигнорируйте это письмо.</p>"
         )
         await self._send(to_email=to_email, subject=subject, text=text, html=html)
 

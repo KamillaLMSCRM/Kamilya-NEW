@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
 import { toast } from '@/components/ui/Toast';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { CheckCircle2, ChevronRight, ChevronLeft, Clock, AlertTriangle } from 'lucide-react';
 import { clearAuth } from '@/lib/auth';
 import { useIdleTimeout } from '@/lib/useIdleTimeout';
@@ -63,6 +63,8 @@ export default function CoursePlayerPage() {
   const courseId = params?.id as string;
   const { t, tp } = useT();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const requestedLessonId = searchParams.get('lessonId');
   const [course, setCourse] = useState<Course | null>(null);
   const [modules, setModules] = useState<Module[]>([]);
   const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
@@ -146,7 +148,7 @@ export default function CoursePlayerPage() {
 
   useEffect(() => {
     if (courseId) fetchData();
-  }, [courseId]);
+  }, [courseId, requestedLessonId]);
 
   useEffect(() => {
     if (selectedLesson) {
@@ -255,8 +257,11 @@ export default function CoursePlayerPage() {
       }
 
       if (allLessons.length > 0) {
+        const requestedLesson = requestedLessonId
+          ? allLessons.find((lesson) => lesson.id === requestedLessonId)
+          : undefined;
         const first = allLessons.find((l) => !completedIds.has(l.id));
-        setSelectedLesson(first || allLessons[0]);
+        setSelectedLesson(requestedLesson || first || allLessons[0]);
       }
     } catch (e) {
       console.error(e);
@@ -621,7 +626,7 @@ export default function CoursePlayerPage() {
                       )}
 
                       <div className="flex gap-2">
-                        <Link href={`/courses/quiz/${lessonQuiz.id}`}>
+                        <Link href={`/courses/quiz/${lessonQuiz.id}?courseId=${encodeURIComponent(courseId)}&lessonId=${encodeURIComponent(selectedLesson.id)}`}>
                           <Button>{t('quiz.startQuiz')} <ChevronRight className="w-4 h-4 ml-1" /></Button>
                         </Link>
                         <Button variant="outline" onClick={handleNextLesson}>

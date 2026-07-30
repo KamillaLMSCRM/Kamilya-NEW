@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Card, CardContent, Button, Badge } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
@@ -73,9 +73,22 @@ interface QuizAttempt {
   completed_at: string | null;
 }
 
+interface CourseLesson {
+  id: string;
+  title: string;
+  order_index: number;
+}
+
+interface CourseModule {
+  lessons: CourseLesson[];
+}
+
 export default function QuizPlayerPage() {
   const params = useParams();
   const quizId = params?.quizId as string;
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const parentCourseId = searchParams.get('courseId');
   const { t, tp } = useT();
   const token = useAuthStore((s) => s.accessToken);
   const user = useAuthStore((s) => s.user);
@@ -89,26 +102,35 @@ export default function QuizPlayerPage() {
   const [result, setResult] = useState<QuizResult | null>(null);
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const [attempts, setAttempts] = useState<QuizAttempt[]>([]);
+  const [courseModules, setCourseModules] = useState<CourseModule[]>([]);
   const [showReview, setShowReview] = useState(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   const fetchQuiz = useCallback(async () => {
     if (!quizId || !token) return;
     try {
-      const [quizRes, attemptsRes] = await Promise.all([
+      const requests: Promise<Response>[] = [
         fetch(`${API_URL}/v1/quizzes/${quizId}`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`${API_URL}/v1/quizzes/${quizId}/attempts`, { headers: { Authorization: `Bearer ${token}` } }),
-      ]);
+      ];
+      if (parentCourseId) {
+        requests.push(fetch(`${API_URL}/v1/courses/${parentCourseId}/structure`, { headers: { Authorization: `Bearer ${token}` } }));
+      }
+      const [quizRes, attemptsRes, structureRes] = await Promise.all(requests);
       if (quizRes.ok) {
         const data = await quizRes.json();
         setQuiz(data);
         if (data.time_limit) setTimeLeft(data.time_limit * 60);
       }
       if (attemptsRes.ok) setAttempts(await attemptsRes.json());
+      if (structureRes?.ok) {
+        const structure = await structureRes.json();
+        setCourseModules(structure.modules || []);
+      }
     } finally {
       setLoading(false);
     }
-  }, [quizId, token, API_URL]);
+  }, [quizId, token, API_URL, parentCourseId]);
 
   useEffect(() => {
     fetchQuiz();
@@ -203,6 +225,16 @@ export default function QuizPlayerPage() {
   const attemptsUsed = attempts.length;
   const canAttempt = attemptsUsed < quiz.attempt_limit;
   const gradedAnswers = result?.attempt.answers || [];
+  const lessonId = quiz.lesson_id;
+  const orderedLessons = courseModules.flatMap((module) => module.lessons || []);
+  const currentLessonIndex = orderedLessons.findIndex((lesson) => lesson.id === lessonId);
+  const nextLesson = currentLessonIndex >= 0 ? orderedLessons[currentLessonIndex + 1] : undefined;
+  const courseHref = parentCourseId
+    ? `/courses/${parentCourseId}?lessonId=${encodeURIComponent(lessonId)}`
+    : null;
+  const nextLessonHref = parentCourseId && nextLesson
+    ? `/courses/${parentCourseId}?lessonId=${encodeURIComponent(nextLesson.id)}`
+    : null;
 
   return (
     <div className="min-h-screen bg-muted">
@@ -253,9 +285,25 @@ export default function QuizPlayerPage() {
                 {canAttempt && !result.passed && (
                   <Button onClick={handleRetry}>{t('quiz.tryAgain')}</Button>
                 )}
-                <Link href={getRoleHome(user?.role)}>
-                  <Button variant="outline">{t('nav.dashboard')}</Button>
-                </Link>
+                {courseHref ? (
+                  <Link href={courseHref}>
+                    <Button variant="outline">{t('courses.backToCourse')}</Button>
+                  </Link>
+                ) : (
+                  <Button variant="outline" onClick={() => router.back()}>
+                    {t('courses.backToCourse')}
+                  </Button>
+                )}
+                {result.passed && nextLessonHref && (
+                  <Link href={nextLessonHref}>
+                    <Button>{t('courses.nextLesson')}</Button>
+                  </Link>
+                )}
+                {!courseHref && (
+                  <Link href={getRoleHome(user?.role)}>
+                    <Button variant="outline">{t('nav.dashboard')}</Button>
+                  </Link>
+                )}
               </div>
             </CardContent>
           </Card>

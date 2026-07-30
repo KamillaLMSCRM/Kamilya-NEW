@@ -126,6 +126,7 @@ async def test_publish_rejects_unapproved_ai_course():
             await publish_course(course.id, request=request, db=db, user=user)
 
     assert exc.value.status_code == 409
+    assert exc.value.detail["code"] == "course_review_required"
     activate.assert_not_awaited()
 
 

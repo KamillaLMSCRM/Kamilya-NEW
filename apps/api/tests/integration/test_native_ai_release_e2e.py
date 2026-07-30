@@ -133,7 +133,10 @@ async def test_ai_draft_reaches_certificate_and_training_log_for_selected_group(
         headers=methodologist_headers,
     )
     assert blocked_publish.status_code == 409, blocked_publish.text
-    assert "must be approved" in blocked_publish.json()["message"]
+    assert (
+        blocked_publish.json()["details"]["code"]
+        == "course_review_required"
+    )
 
     review = await client.post(
         f"/api/v1/courses/{course.id}/review",
