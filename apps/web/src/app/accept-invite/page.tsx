@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { FormEvent, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, BookOpen, Building2, Mail, ShieldCheck, UserRound } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
@@ -48,6 +48,7 @@ function AcceptInviteForm() {
   const params = useSearchParams();
   const token = params.get('token');
   const { login, accessToken } = useAuthStore();
+  const completingInvitation = useRef(false);
 
   const [invitation, setInvitation] = useState<PublicInvitation | null>(null);
   const [loadingInvitation, setLoadingInvitation] = useState(true);
@@ -60,7 +61,7 @@ function AcceptInviteForm() {
   const [secondsLeft, setSecondsLeft] = useState(0);
 
   useEffect(() => {
-    if (accessToken) {
+    if (accessToken && !completingInvitation.current) {
       router.replace(getRoleHome(useAuthStore.getState().user?.role));
     }
   }, [accessToken, router]);
@@ -141,6 +142,7 @@ function AcceptInviteForm() {
         `/v1/invitations/${encodeURIComponent(token)}/accept`,
         { code },
       );
+      completingInvitation.current = true;
       login(response.data.access_token, response.data.user);
       router.replace(response.data.next_url || getRoleHome(response.data.role));
     } catch (verifyError: any) {

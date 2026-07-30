@@ -54,9 +54,9 @@ async def request_invitation_email_code(
 @router.post("/{token}/accept", response_model=InvitationAcceptResponse)
 async def accept_invitation_endpoint(
     token: str,
+    request: Request,
+    response: Response,
     payload: InvitationAcceptRequest = Body(...),
-    request: Request = None,  # for IP/UA capture
-    response: Response = None,
     db: AsyncSession = Depends(get_db),
 ):
     """Accept invitation after email OTP verification and issue JWTs.
@@ -69,14 +69,11 @@ async def accept_invitation_endpoint(
     suspicious accepts (different IP/UA than expected).
     """
     # Extract client IP — handle X-Forwarded-For (Render proxy)
-    ip = None
-    if request is not None:
-        if request.client and request.client.host:
-            ip = request.client.host
-        xff = request.headers.get("x-forwarded-for")
-        if xff:
-            ip = xff.split(",")[0].strip()
-    ua = request.headers.get("user-agent", "") if request is not None else None
+    ip = request.client.host if request.client and request.client.host else None
+    xff = request.headers.get("x-forwarded-for")
+    if xff:
+        ip = xff.split(",")[0].strip()
+    ua = request.headers.get("user-agent", "")
 
     try:
         result = await accept_invitation(
@@ -86,7 +83,7 @@ async def accept_invitation_endpoint(
             accepted_ip=ip,
             accepted_user_agent=ua,
         )
-        if response is not None and result.get("refresh_token"):
+        if result.get("refresh_token"):
             _set_refresh_cookie(response, result["refresh_token"])
         return result
     except HTTPException:

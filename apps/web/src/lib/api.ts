@@ -2,7 +2,6 @@ import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import {
   getAccessToken,
   clearStoredAuth,
-  restoreSession,
   setAuth,
   AuthUser,
 } from '@/lib/auth';
@@ -27,6 +26,13 @@ api.interceptors.request.use((config) => {
 // N components fire 401s in parallel. The first request triggers the
 // refresh; all other 401s in the same tick await the same promise.
 let _refreshInFlight: Promise<boolean> | null = null;
+
+export function isPublicAuthenticationRequest(url?: string): boolean {
+  if (!url) return false;
+  const normalized = url.toLowerCase();
+  return normalized.includes('/auth/')
+    || normalized.includes('/v1/invitations/');
+}
 
 async function _refresh(): Promise<boolean> {
   if (_refreshInFlight) return _refreshInFlight;
@@ -70,13 +76,8 @@ api.interceptors.response.use(
     // no token) and the OLD interceptor immediately redirected to /login
     // without ever attempting to refresh the session.
     if (status === 401 && original && !original._retried) {
-      const isAuthEndpoint = original.url?.includes('/auth/refresh')
-        || original.url?.includes('/auth/login')
-        || original.url?.includes('/auth/superadmin-login')
-        || original.url?.includes('/auth/check-code')
-        || original.url?.includes('/auth/demo-login')
-        || original.url?.includes('/auth/logout');
-      if (!isAuthEndpoint) {
+      const isPublicAuthEndpoint = isPublicAuthenticationRequest(original.url);
+      if (!isPublicAuthEndpoint) {
         original._retried = true;
         const ok = await _refresh();
         if (ok) {
@@ -95,7 +96,7 @@ api.interceptors.response.use(
       }
     }
 
-    if (status === 401) {
+    if (status === 401 && !isPublicAuthenticationRequest(original?.url)) {
       clearStoredAuth();
       if (typeof window !== 'undefined') {
         window.location.href = '/login';

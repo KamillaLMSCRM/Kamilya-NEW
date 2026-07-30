@@ -45,6 +45,10 @@
 - После успешной проверки фиксируются `email_verified_at`,
   `verification_method=email_otp`, IP и User-Agent; существующая карточка
   сотрудника активируется без создания дубля и изменения кадровых данных.
+- `401` публичных email/invitation OTP не запускает общий session refresh,
+  logout или redirect на `/login`; ошибка остаётся в исходной форме.
+- Контрактный тест подтверждает выдачу refresh-cookie с `HttpOnly`, `Secure`,
+  `SameSite=None`, `Partitioned` и `Path=/api/v1/auth`.
 - Production smoke: public view `200`, полный email отсутствует, identity и
   один назначенный курс возвращены, request-code `200` с TTL 300 секунд.
 
