@@ -70,6 +70,31 @@ class EmailService:
         )
         await self._send(to_email=to_email, subject=subject, text=text, html=html)
 
+    async def send_training_confirmation_code(
+        self,
+        *,
+        to_email: str,
+        code: str,
+        company_name: str,
+    ) -> None:
+        """Send the purpose-bound learner confirmation code."""
+
+        safe_company = escape(company_name)
+        subject = "Kamilya LMS: подтверждение прохождения обучения"
+        text = (
+            f"Подтвердите действие в Kamilya LMS для организации «{company_name}».\n\n"
+            f"Одноразовый код: {code}\n\n"
+            "Код действует 5 минут и предназначен только для этого подтверждения. "
+            "Никому не сообщайте код. Если вы не запрашивали подтверждение, проигнорируйте письмо."
+        )
+        html = (
+            f"<p>Подтвердите действие в Kamilya LMS для организации «<strong>{safe_company}</strong>».</p>"
+            f'<p style="font-size:28px;font-weight:700;letter-spacing:4px">{code}</p>'
+            "<p>Код действует 5 минут и предназначен только для этого подтверждения. "
+            "Никому не сообщайте код.</p>"
+        )
+        await self._send(to_email=to_email, subject=subject, text=text, html=html)
+
     async def send_announcement(self, *, to_email: str, company_name: str, title: str, body: str, course_title: str | None = None) -> None:
         subject = f"{company_name}: {title}"
         context = f"\nCourse: {course_title}" if course_title else ""

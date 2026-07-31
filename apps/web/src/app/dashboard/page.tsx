@@ -27,7 +27,7 @@ interface PipelineJob {
 export default function DashboardPage() {
   const { user } = useAuthStore();
   const { t } = useT();
-  const [stats, setStats] = useState<{ totalCourses: number; publishedCourses: number; totalEnrollments: number; completedEnrollments: number } | null>(null);
+  const [stats, setStats] = useState<{ totalCourses: number; publishedCourses: number; totalEnrollments: number; completedEnrollments: number; totalEmployees: number } | null>(null);
   const [pipelineJobs, setPipelineJobs] = useState<PipelineJob[]>([]);
   const [recentCourses, setRecentCourses] = useState<any[]>([]);
 
@@ -39,9 +39,10 @@ export default function DashboardPage() {
 
   const fetchStats = async () => {
     try {
-      const [coursesRes, enrollmentsRes] = await Promise.all([
+      const [coursesRes, enrollmentsRes, employeesRes] = await Promise.all([
         api.get('/v1/courses'),
         api.get('/v1/enrollments/stats').catch(() => null),
+        api.get('/v1/users?page=1&per_page=1&role=student&is_active=true&include_students=true').catch(() => null),
       ]);
       const courses = coursesRes.data;
       setStats({
@@ -49,6 +50,7 @@ export default function DashboardPage() {
         publishedCourses: Array.isArray(courses) ? courses.filter((c: any) => c.status === 'published').length : 0,
         totalEnrollments: enrollmentsRes?.data?.total ?? 0,
         completedEnrollments: enrollmentsRes?.data?.completed ?? 0,
+        totalEmployees: employeesRes?.data?.total ?? 0,
       });
     } catch (err: any) {
       toast.error(t('common.loadFailed'), {
@@ -113,7 +115,7 @@ export default function DashboardPage() {
     },
     {
       label: t('dashboard.employees'),
-      value: stats?.totalEnrollments ?? '—',
+      value: stats?.totalEmployees ?? '—',
       delta: stats?.completedEnrollments
         ? t('dashboard.employeesDone', { count: stats.completedEnrollments })
         : undefined,

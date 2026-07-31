@@ -48,6 +48,11 @@ from app.models.enrollment import Enrollment
 from app.models.users import User
 from app.modules.courses.models import Course as CourseModel
 from app.modules.positions.models import Position
+from app.modules.training_evidence.models import (
+    TrainingEvidenceEvent,
+    TrainingEvidenceLegalHold,
+    TrainingEvidenceStepUpConfirmation,
+)
 from app.modules.training_log.schemas import TrainingLogFilter
 
 logger = logging.getLogger(__name__)
@@ -310,6 +315,133 @@ async def count_training_log(
     return int(result.scalar() or 0)
 
 
+async def _load_evidence_read_model(
+    db: AsyncSession,
+    tenant_id: UUID,
+    rows,
+) -> dict[UUID, dict[str, Any]]:
+    """Batch-load evidence for a page; never issue one query per row.
+
+    Events are reduced per enrollment and procedure type. The latest event in
+    each correction/revocation chain is exposed, while the list preserves
+    both ``training`` and ``knowledge_check`` when both exist.
+    """
+    enrollment_ids = {row["enrollment_id"] for row in rows}
+    if not enrollment_ids:
+        return {}
+    events = list(
+        (
+            await db.scalars(
+                select(TrainingEvidenceEvent).where(
+                    TrainingEvidenceEvent.tenant_id == tenant_id,
+                    TrainingEvidenceEvent.enrollment_id.in_(enrollment_ids),
+                )
+            )
+        ).all()
+    )
+    if not events:
+        return {enrollment_id: {"items": []} for enrollment_id in enrollment_ids}
+
+    event_ids = [event.id for event in events]
+    confirmations = list(
+        (
+            await db.scalars(
+                select(TrainingEvidenceStepUpConfirmation).where(
+                    TrainingEvidenceStepUpConfirmation.tenant_id == tenant_id,
+                    TrainingEvidenceStepUpConfirmation.event_id.in_(event_ids),
+                )
+            )
+        ).all()
+    )
+    holds = list(
+        (
+            await db.scalars(
+                select(TrainingEvidenceLegalHold).where(
+                    TrainingEvidenceLegalHold.tenant_id == tenant_id,
+                    TrainingEvidenceLegalHold.event_id.in_(event_ids),
+                )
+            )
+        ).all()
+    )
+    by_id = {event.id: event for event in events}
+    confirmations_by_event: dict[UUID, list[TrainingEvidenceStepUpConfirmation]] = {}
+    for confirmation in confirmations:
+        confirmations_by_event.setdefault(confirmation.event_id, []).append(confirmation)
+    holds_by_event: dict[UUID, list[TrainingEvidenceLegalHold]] = {}
+    for hold in holds:
+        holds_by_event.setdefault(hold.event_id, []).append(hold)
+
+    def event_key(event: TrainingEvidenceEvent):
+        return (event.occurred_at or event.created_at, event.created_at, str(event.id))
+
+    def event_chain(event: TrainingEvidenceEvent) -> list[TrainingEvidenceEvent]:
+        chain: list[TrainingEvidenceEvent] = []
+        current: TrainingEvidenceEvent | None = event
+        seen: set[UUID] = set()
+        while current is not None and current.id not in seen:
+            seen.add(current.id)
+            chain.append(current)
+            current = by_id.get(current.related_event_id) if current.related_event_id else None
+        return chain
+
+    grouped: dict[UUID, dict[str, list[TrainingEvidenceEvent]]] = {}
+    for event in events:
+        grouped.setdefault(event.enrollment_id, {}).setdefault(event.procedure_type, []).append(event)
+
+    result: dict[UUID, dict[str, Any]] = {}
+    for enrollment_id, procedures in grouped.items():
+        items: list[dict[str, Any]] = []
+        latest_events: list[tuple[TrainingEvidenceEvent, dict[str, Any]]] = []
+        for procedure_type, procedure_events in procedures.items():
+            latest = max(procedure_events, key=event_key)
+            chain = event_chain(latest)
+            chain_ids = {item.id for item in chain}
+            root = chain[-1]
+            required = isinstance(root.payload_snapshot, dict) and isinstance(
+                root.payload_snapshot.get("confirmation"), dict
+            )
+            confirmed = any(confirmations_by_event.get(event_id) for event_id in chain_ids)
+            active_hold = False
+            for event_id in chain_ids:
+                event_holds = sorted(
+                    holds_by_event.get(event_id, []),
+                    key=lambda hold: (hold.occurred_at or hold.created_at, hold.created_at, str(hold.id)),
+                )
+                if event_holds and event_holds[-1].action == "placed":
+                    active_hold = True
+                    break
+            revoked = any(item.record_type == "revocation" for item in chain)
+            if active_hold:
+                evidence_state = "legal_hold"
+            elif revoked:
+                evidence_state = "revoked"
+            elif required and not confirmed:
+                evidence_state = "forming"
+            else:
+                evidence_state = "ready"
+            confirmation_status = (
+                "not_required" if not required else "confirmed" if confirmed else "pending"
+            )
+            item = {
+                "event_id": latest.id,
+                "procedure_type": procedure_type,
+                "confirmation_status": confirmation_status,
+                "evidence_state": evidence_state,
+            }
+            items.append(item)
+            latest_events.append((latest, item))
+        items.sort(key=lambda item: (item["procedure_type"], str(item["event_id"])))
+        _, latest_item = max(latest_events, key=lambda pair: event_key(pair[0]))
+        result[enrollment_id] = {
+            "items": items,
+            "latest_evidence_event_id": latest_item["event_id"],
+            "evidence_procedure_type": latest_item["procedure_type"],
+            "evidence_confirmation_status": latest_item["confirmation_status"],
+            "evidence_state": latest_item["evidence_state"],
+        }
+    return result
+
+
 async def list_training_log(
     db: AsyncSession,
     tenant_id: UUID,
@@ -370,6 +502,8 @@ async def list_training_log(
             CourseModel.delivery_type,
             Enrollment.status.label("enrollment_status"),
             Enrollment.source.label("enrollment_source"),
+            Enrollment.id.label("enrollment_id"),
+            Enrollment.content_release_id.label("content_release_id"),
             Enrollment.enrolled_at,
             Enrollment.completed_at,
             # Activity aggregates from the LEFT-JOINed subqueries.
@@ -418,8 +552,9 @@ async def list_training_log(
     if not rows:
         return []
 
+    evidence_by_enrollment = await _load_evidence_read_model(db, tenant_id, rows)
+
     # Batch-fetch extra fields: best quiz score, certificate, kiosk last-seen.
-    user_course_pairs = [(r["user_id"], r["course_id"]) for r in rows]
     user_ids = {r["user_id"] for r in rows}
     course_ids = {r["course_id"] for r in rows}
 
@@ -575,6 +710,16 @@ async def list_training_log(
 
         quiz_info = quiz_by_pair.get((r["user_id"], r["course_id"]), {})
         cert_info = cert_by_pair.get((r["user_id"], r["course_id"]), {})
+        evidence_info = evidence_by_enrollment.get(
+            r["enrollment_id"],
+            {
+                "items": [],
+                "latest_evidence_event_id": None,
+                "evidence_procedure_type": None,
+                "evidence_confirmation_status": "not_required",
+                "evidence_state": "incomplete",
+            },
+        )
         result.append({
             "user_id": r["user_id"],
             "full_name": (r["full_name"] or "").strip() or "—",
@@ -589,6 +734,8 @@ async def list_training_log(
             "delivery_type": r["delivery_type"],
             "enrollment_status": r["enrollment_status"],
             "enrollment_source": r["enrollment_source"],
+            "enrollment_id": r["enrollment_id"],
+            "content_release_id": r["content_release_id"],
             "enrolled_at": r["enrolled_at"],
             "completed_at": r["completed_at"],
             "computed_status": computed_status,
@@ -599,6 +746,13 @@ async def list_training_log(
             "certificate_number": cert_info.get("certificate_number"),
             "certificate_issued_at": cert_info.get("certificate_issued_at"),
             "kiosk_last_seen_at": kiosk_by_user.get(r["user_id"]),
+            "latest_evidence_event_id": evidence_info.get("latest_evidence_event_id"),
+            "evidence_procedure_type": evidence_info.get("evidence_procedure_type"),
+            "evidence_confirmation_status": evidence_info.get(
+                "evidence_confirmation_status", "not_required"
+            ),
+            "evidence_state": evidence_info.get("evidence_state", "incomplete"),
+            "evidence_events": evidence_info.get("items", []),
         })
     return result
 

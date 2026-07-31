@@ -18,12 +18,13 @@ be added later if integration flows need them.
 from __future__ import annotations
 
 import os
-from typing import AsyncIterator, Callable
+from collections.abc import AsyncIterator, Callable
+from typing import Any
 from uuid import UUID, uuid4
 
-import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 # ---------------------------------------------------------------------------
@@ -33,7 +34,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 os.environ.setdefault("APP_ENV", "test")
 os.environ.setdefault(
     "DATABASE_URL",
-    "postgresql+asyncpg://lms:lms_dev_password_2026@localhost:5432/kamilya_lms",
+    "postgresql+asyncpg://lms:lms_dev_password_2026@localhost:5432/kamilya_lms",  # pragma: allowlist secret
 )
 os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
 os.environ.setdefault("JWT_SECRET", "test_jwt_secret_for_ci_only_min_length_32")
@@ -96,7 +97,29 @@ async def client(db_session: AsyncSession) -> AsyncIterator[AsyncClient]:
 
 
 @pytest_asyncio.fixture
-def make_tenant(db_session: AsyncSession) -> Callable[..., "any"]:
+def set_current_tenant(db_session: AsyncSession) -> Callable[..., Any]:
+    """Return a helper that sets transaction-local RLS context for factories.
+
+    Accepts either a Tenant-like object or a tenant UUID. The context is
+    transaction-local, so each factory call must set it immediately before its
+    tenant-scoped INSERT/flush; this also makes switching tenants in one test
+    explicit and deterministic.
+    """
+
+    async def _set(tenant_or_id: Any) -> None:
+        tenant_id = getattr(tenant_or_id, "id", tenant_or_id)
+        if tenant_id is None:
+            raise ValueError("tenant context requires a tenant or tenant id")
+        await db_session.execute(
+            text("SELECT set_current_tenant(:tid)"),
+            {"tid": str(tenant_id)},
+        )
+
+    return _set
+
+
+@pytest_asyncio.fixture
+def make_tenant(db_session: AsyncSession) -> Callable[..., Any]:
     """Return an async factory: make_tenant(name=..., slug=..., is_demo=False) -> Tenant."""
     from app.models.tenants import Tenant
 
@@ -118,18 +141,22 @@ def make_tenant(db_session: AsyncSession) -> Callable[..., "any"]:
 
 
 @pytest_asyncio.fixture
-def make_user(db_session: AsyncSession) -> Callable[..., "any"]:
+def make_user(
+    db_session: AsyncSession,
+    set_current_tenant: Callable[..., Any],
+) -> Callable[..., Any]:
     """Return an async factory: make_user(tenant, role='student', email=...) -> User.
 
     Default password is 'Password123!'. Use `password_hash=` to override.
     """
     from argon2 import PasswordHasher
+
     from app.models.users import User
 
     ph = PasswordHasher()
 
     async def _factory(
-        tenant: "any",
+        tenant: Any,
         role: str = "student",
         email: str | None = None,
         first_name: str = "Test",
@@ -137,6 +164,7 @@ def make_user(db_session: AsyncSession) -> Callable[..., "any"]:
         password: str | None = None,
         **overrides,
     ) -> User:
+        await set_current_tenant(tenant)
         user = User(
             id=overrides.get("id", uuid4()),
             tenant_id=tenant.id,
@@ -155,14 +183,16 @@ def make_user(db_session: AsyncSession) -> Callable[..., "any"]:
 
 
 @pytest_asyncio.fixture
-def make_superadmin(db_session: AsyncSession) -> Callable[..., "any"]:
+def make_superadmin(db_session: AsyncSession) -> Callable[..., Any]:
     """Return an async factory for platform superadmin (tenant_id=None)."""
     from argon2 import PasswordHasher
+
     from app.models.users import User
 
     ph = PasswordHasher()
 
     async def _factory(email: str | None = None, **overrides) -> User:
+        await db_session.execute(text("SELECT set_config('app.is_superadmin', 'true', true)"))
         user = User(
             id=overrides.get("id", uuid4()),
             tenant_id=None,  # superadmin does NOT belong to any tenant
@@ -181,16 +211,20 @@ def make_superadmin(db_session: AsyncSession) -> Callable[..., "any"]:
 
 
 @pytest_asyncio.fixture
-def make_course(db_session: AsyncSession) -> Callable[..., "any"]:
+def make_course(
+    db_session: AsyncSession,
+    set_current_tenant: Callable[..., Any],
+) -> Callable[..., Any]:
     """Return an async factory: make_course(tenant, creator, title=...) -> Course."""
     from app.models.courses import Course
 
     async def _factory(
-        tenant: "any",
-        creator: "any",
+        tenant: Any,
+        creator: Any,
         title: str = "Test Course",
         **overrides,
     ) -> Course:
+        await set_current_tenant(tenant)
         course = Course(
             id=overrides.get("id", uuid4()),
             tenant_id=tenant.id,
@@ -210,14 +244,18 @@ def make_course(db_session: AsyncSession) -> Callable[..., "any"]:
 
 
 @pytest_asyncio.fixture
-def make_module(db_session: AsyncSession) -> Callable[..., "any"]:
+def make_module(
+    db_session: AsyncSession,
+    set_current_tenant: Callable[..., Any],
+) -> Callable[..., Any]:
     """Return an async factory: make_module(course, title=...) -> Module.
 
     Module lives in app.modules.lessons.models (not app.models.courses).
     """
     from app.modules.lessons.models import Module
 
-    async def _factory(course: "any", title: str = "Test Module", **overrides) -> "Module":
+    async def _factory(course: Any, title: str = "Test Module", **overrides) -> Module:
+        await set_current_tenant(course.tenant_id)
         mod = Module(
             id=overrides.get("id", uuid4()),
             tenant_id=course.tenant_id,
@@ -234,11 +272,15 @@ def make_module(db_session: AsyncSession) -> Callable[..., "any"]:
 
 
 @pytest_asyncio.fixture
-def make_lesson(db_session: AsyncSession) -> Callable[..., "any"]:
+def make_lesson(
+    db_session: AsyncSession,
+    set_current_tenant: Callable[..., Any],
+) -> Callable[..., Any]:
     """Return an async factory: make_lesson(module, title=...) -> Lesson."""
     from app.modules.lessons.models import Lesson
 
-    async def _factory(module: "any", title: str = "Test Lesson", **overrides) -> "Lesson":
+    async def _factory(module: Any, title: str = "Test Lesson", **overrides) -> Lesson:
+        await set_current_tenant(module.tenant_id)
         lesson = Lesson(
             id=overrides.get("id", uuid4()),
             tenant_id=module.tenant_id,
@@ -256,7 +298,10 @@ def make_lesson(db_session: AsyncSession) -> Callable[..., "any"]:
 
 
 @pytest_asyncio.fixture
-def make_quiz(db_session: AsyncSession) -> Callable[..., "any"]:
+def make_quiz(
+    db_session: AsyncSession,
+    set_current_tenant: Callable[..., Any],
+) -> Callable[..., Any]:
     """Return an async factory: make_quiz(lesson, title=...) -> Quiz.
 
     Uses pass_score (the real column name) — Quiz has lesson_id directly,
@@ -264,7 +309,8 @@ def make_quiz(db_session: AsyncSession) -> Callable[..., "any"]:
     """
     from app.modules.quizzes.models import Quiz
 
-    async def _factory(lesson: "any", title: str = "Test Quiz", **overrides) -> "Quiz":
+    async def _factory(lesson: Any, title: str = "Test Quiz", **overrides) -> Quiz:
+        await set_current_tenant(lesson.tenant_id)
         quiz = Quiz(
             id=overrides.get("id", uuid4()),
             tenant_id=lesson.tenant_id,
@@ -283,7 +329,10 @@ def make_quiz(db_session: AsyncSession) -> Callable[..., "any"]:
 
 
 @pytest_asyncio.fixture
-def make_document(db_session: AsyncSession) -> Callable[..., "any"]:
+def make_document(
+    db_session: AsyncSession,
+    set_current_tenant: Callable[..., Any],
+) -> Callable[..., Any]:
     """Return an async factory: make_document(tenant, uploader, name=...) -> Document.
 
     Document lives in app.models.document. Real columns: title, filename,
@@ -292,12 +341,13 @@ def make_document(db_session: AsyncSession) -> Callable[..., "any"]:
     from app.models.document import Document
 
     async def _factory(
-        tenant: "any",
-        uploader: "any",
+        tenant: Any,
+        uploader: Any,
         name: str = "test.md",
         title: str | None = None,
         **overrides,
-    ) -> "Document":
+    ) -> Document:
+        await set_current_tenant(tenant)
         document_id = overrides.get("id", uuid4())
         values = {
             "id": document_id,
@@ -351,8 +401,9 @@ def make_access_token(
     Uses the same `create_access_token` helper the app uses in production so
     signature, audience, and algorithm are identical to real flows.
     """
-    from app.core.auth import create_access_token
     from datetime import timedelta
+
+    from app.core.auth import create_access_token
 
     payload = {
         "sub": str(user_id),
@@ -374,7 +425,7 @@ def auth_headers():
             r = await client.get("/api/v1/admin/...", headers=auth_headers(user))
     """
 
-    def _make(user: "any") -> dict[str, str]:
+    def _make(user: Any) -> dict[str, str]:
         token = make_access_token(user.id, user.tenant_id, role=user.role)
         return {"Authorization": f"Bearer {token}"}
 

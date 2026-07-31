@@ -1,11 +1,31 @@
 # Kamilya LMS: готовность первого production-тенанта
 
-**Проверено:** 2026-07-30
-**Технический P0:** закрыт
-**Режим запуска:** контролируемый первый пилот
+**Проверено:** 2026-07-31
+**Технический P0 baseline:** закрыт
+**Режим запуска:** dev/test и контролируемая демонстрация; коммерческий tenant
+не запускается до отдельного KZ DB/storage gate
 **Назначение:** единственный актуальный реестр production-gates. История изменений
 остаётся в Git; отдельные датированные отчёты не используются как источник
 текущего состояния.
+
+## Не выпущенный development candidate
+
+В рабочем дереве поверх `655060b` реализован юридический evidence-контур:
+
+1. append-only события обучения и проверки знаний, correction, revocation и
+   legal hold;
+2. purpose-bound email OTP для подтверждения конкретного результата;
+3. learner own-read API и возобновление незавершённого подтверждения;
+4. индивидуальные и групповые PDF/ZIP из журнала методолога;
+5. Alembic `0083` с tenant RLS/FORCE RLS.
+
+На общей dev Supabase пройдены upgrade/rollback/upgrade миграции, 60 focused
+integration tests evidence-контура и 16 release/evidence tests. Backend unit:
+110 тестов. Frontend: 216 тестов, typecheck, production build и
+desktop/mobile visual QA. Это
+подтверждение development candidate, а не deployment evidence. До выпуска
+обязательны commit, CI, согласованный deploy API/web, применение `0083` в
+целевом контуре и smoke реального OTP/email.
 
 ## Release manifest
 
@@ -17,7 +37,7 @@
 | Frontend | PASS | Vercel production `dpl_HYVfvDnNMESvnDew8evN4JRV6d8p` в состоянии `READY`, alias `app.kml.kz`, commit `af867c9` |
 | API | PASS | Render deploy `dep-d9livhvavr4c739719bg`, build/pre-deploy/deploy succeeded, commit `af867c9`; health отвечает |
 | Worker | NOT TOUCHED | Invitation OTP выполняется синхронно; worker остаётся на отдельно проверяемой revision из [`INFRA_CELERY_WORKER.md`](INFRA_CELERY_WORKER.md) |
-| Database | PASS | production PostgreSQL 17.6, Alembic `0082`; обе новые колонки присутствуют |
+| Database baseline | PASS (dev) | shared dev/test PostgreSQL 17.6 на Supabase, Alembic `0083`; коммерческий KZ PostgreSQL остаётся отдельным release gate |
 
 ## Закрытые P0
 
@@ -168,28 +188,19 @@
 подтверждает технический flow, но не заменяет содержательное одобрение
 ломбардом и профильным юристом.
 
-### Certificate P0 release gate
+### Сертификаты
 
-В исходном коде от 29 июля 2026 года подготовлены версия PDF-шаблона `v3`,
-неизменяемый снимок данных выдачи, SHA-256 PDF, статусы срока/отзыва, реальный
-предпросмотр настроек и публичный маршрут `/verify/certificate/{number}`.
-Локально пройдены backend suite, frontend tests/typecheck/build и визуальная
-проверка длинного PDF и публичной страницы.
-
-Эта доработка не считается подтверждённой на production, пока не выполнены:
-
-1. миграция Alembic `0080`;
-2. deploy API и frontend из одного согласованного commit;
-3. smoke администратора: настройки → PDF-предпросмотр → сохранение;
-4. выдача тестового сертификата → скачивание PDF → открытие QR/ссылки без
-   авторизации;
-5. проверка статусов `active`, `expired`, `revoked` и tenant-аудита отзыва.
+Baseline содержит версионированный PDF-шаблон, снимок данных выдачи, SHA-256
+PDF, статусы срока/отзыва, предпросмотр настроек и публичную проверку по
+номеру. Сертификат подтверждает внутренний результат Kamilya, но сам по себе
+не является ЭЦП, государственной аттестацией или решением о допуске.
 
 ## Условные launch-gates
 
 | Условие продажи | Что требуется |
 |---|---|
-| Клиент требует хранение персональных данных в Казахстане | Завершить KZ DB/storage cutover или письменно согласовать текущую географию Supabase |
+| Коммерческий клиент загружает персональные данные | Создать отдельные KZ PostgreSQL/object storage, выполнить backup/restore и cutover smoke; общий Supabase оставить dev/test |
+| Клиент использует внутреннюю аттестацию или допуск | Утвердить tenant-положение и форму, реализовать отдельный workflow решения комиссии/уполномоченного лица; результат теста не превращать в допуск |
 | В пилот продаётся SCORM 1.2 | Пройти реальный пакет iSpring/Articulate: import, launch, resume, commit, completion, журнал |
 | В пилот продаётся kiosk | Пройти privacy/auto-logout QA на реальном устройстве |
 | Обещается 500 одновременных пользователей | Провести отдельный capacity test с p95, 5xx, DB connections, queue wait, CPU/RAM/disk |

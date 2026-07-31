@@ -143,10 +143,13 @@ async def bulk_create_invitations(
     to_create: list[str] = []
     skipped: list[dict] = []
     for email in valid_emails:
+        existing_users = existing_users_by_email.get(email, [])
+        if len(existing_users) > 1:
+            skipped.append({"email": email, "reason": "duplicate_email_identity"})
+            continue
         if email in pending_emails:
             skipped.append({"email": email, "reason": "pending_invite_exists"})
             continue
-        existing_users = existing_users_by_email.get(email, [])
         if existing_users:
             if any(existing_user.has_login_access for existing_user in existing_users):
                 skipped.append({"email": email, "reason": "already_has_access"})
@@ -232,6 +235,114 @@ async def bulk_create_invitations(
     await db.commit()
 
     return {"created": created, "skipped_existing": skipped, "invalid": invalid}
+
+
+async def create_or_refresh_user_invitation(
+    db: AsyncSession,
+    tenant_id: UUID,
+    invited_by: UUID,
+    user_id: UUID,
+    base_url: str | None = None,
+) -> dict:
+    """Create a fresh activation link for one exact learner identity.
+
+    Course assignment already operates on ``user_id``. Keeping the same
+    identifier here prevents an invitation from being attached to another
+    historical row that happens to share the email address.
+    """
+    user_result = await db.execute(
+        select(User).where(
+            User.id == user_id,
+            User.tenant_id == tenant_id,
+        )
+    )
+    target = user_result.scalar_one_or_none()
+    if target is None:
+        raise HTTPException(status_code=404, detail="Сотрудник не найден")
+    if target.role != "student":
+        raise HTTPException(
+            status_code=409,
+            detail="Ссылка активации доступна только для обучающегося",
+        )
+    email = _normalize_email(target.email or "")
+    if not _is_valid_email(email):
+        raise HTTPException(
+            status_code=422,
+            detail="У сотрудника не указан корректный email",
+        )
+    if target.has_login_access:
+        raise HTTPException(
+            status_code=409,
+            detail="У сотрудника уже настроен вход",
+        )
+
+    identities_result = await db.execute(
+        select(User.id).where(
+            User.tenant_id == tenant_id,
+            func.lower(func.btrim(User.email)) == email,
+        )
+    )
+    identity_ids = list(identities_result.scalars().all())
+    if identity_ids != [target.id]:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Email связан с несколькими профилями сотрудников. "
+                "Объедините дубли перед созданием ссылки."
+            ),
+        )
+
+    pending_result = await db.execute(
+        select(UserInvitation).where(
+            UserInvitation.tenant_id == tenant_id,
+            func.lower(func.btrim(UserInvitation.email)) == email,
+            UserInvitation.status == "pending",
+        )
+    )
+    pending = pending_result.scalar_one_or_none()
+    if pending is not None and pending.user_id != target.id:
+        raise HTTPException(
+            status_code=409,
+            detail="Ожидающее приглашение связано с другим профилем сотрудника",
+        )
+
+    expiry_days = await _get_tenant_invite_expiry_days(db, tenant_id)
+    now = datetime.now(UTC)
+    expires_at = now + timedelta(days=expiry_days)
+    token = _generate_token()
+    invitation_id = uuid4()
+    superseded_old_id: UUID | None = None
+
+    if pending is not None:
+        superseded_old_id = pending.id
+        pending.status = "superseded"
+        pending.superseded_by = invitation_id
+        # Release the partial unique index before inserting the replacement.
+        await db.flush()
+
+    db.add(UserInvitation(
+        id=invitation_id,
+        tenant_id=tenant_id,
+        email=email,
+        first_name=target.first_name,
+        last_name=target.last_name,
+        personnel_number=target.personnel_number,
+        role="student",
+        invited_by=invited_by,
+        token=token,
+        status="pending",
+        expires_at=expires_at,
+        user_id=target.id,
+    ))
+    await db.commit()
+
+    return {
+        "email": email,
+        "invitation_id": invitation_id,
+        "invite_url": _build_invite_url(token, base_url),
+        "expires_at": expires_at,
+        "superseded_old_id": superseded_old_id,
+    }
 
 
 async def resend_invitation(

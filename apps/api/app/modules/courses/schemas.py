@@ -52,6 +52,14 @@ class CourseResponse(BaseModel):
     model_config = {'from_attributes': True}
 
 
+class CourseCompletionResponse(BaseModel):
+    status: Literal["completed", "already_completed"]
+    course_id: UUID
+    certificate_number: str | None = None
+    certificate_id: UUID
+    training_evidence_event_id: UUID
+
+
 class CourseReviewRequest(BaseModel):
     """Body for POST /courses/{id}/review."""
     review_status: Literal["approved", "needs_changes"]

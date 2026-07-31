@@ -131,6 +131,7 @@ class QuizResultResponse(BaseModel):
     total_questions: int
     passed: bool
     message: str
+    training_evidence_event_id: UUID
 
 
 # --- AI generation schemas (2026-06-26) -------------------------------

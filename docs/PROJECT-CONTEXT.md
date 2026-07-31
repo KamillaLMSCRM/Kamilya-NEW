@@ -1,7 +1,7 @@
 # Kamilya LMS: текущий контекст проекта
 
 > Living document. Значения секретов здесь не хранятся.
-> Обновлено: 2026-07-30.
+> Обновлено: 2026-07-31.
 
 ## Источники правды
 
@@ -29,16 +29,45 @@
 | Monorepo | `KamillaLMSCRM/Kamilya-NEW`, branch `master` |
 | Frontend | Next.js, Vercel, `https://app.kml.kz` |
 | API | FastAPI, Render, `https://kamilya-lms-api.onrender.com` |
-| PostgreSQL/pgvector | Supabase production |
-| Object storage | Supabase Storage |
+| PostgreSQL/pgvector | Supabase, общий dev/test и controlled-pilot контур |
+| Object storage | Supabase Storage, общий dev/test и controlled-pilot контур |
 | Broker/cache | Valkey TLS на VPS |
 | Background jobs | Celery worker на VPS |
 | Email | Resend, домен `notify.kml.kz` |
 | Telegram | Kamilya bot/auth flow |
 | Document conversion | Docling на VPS |
 
-Production БД пока не перенесена в Казахстан. HostKZ использовался как
-изолированный тестовый контур и не является текущим production.
+Текущая Supabase используется для разработки, интеграционных тестов и
+контролируемой демонстрации. Реальные данные коммерческого клиента в этот
+контур не загружаются. Для первого клиента до запуска создаётся отдельный
+PostgreSQL и object storage в Казахстане; параметры подключения, backup,
+restore и cutover проходят отдельный release-gate.
+
+## Текущий development candidate
+
+Рабочее дерево после baseline `655060b` содержит новый контур доказательств
+внутреннего обучения. Он ещё не закоммичен и не развёрнут:
+
+- Alembic `0083` создаёт tenant-scoped append-only события, подтверждения и
+  legal hold с RLS/FORCE RLS;
+- завершение опубликованного курса и отправка теста создают идемпотентные
+  события, связанные с immutable `ContentRelease`;
+- обучающийся подтверждает конкретное событие шестизначным purpose-bound
+  email OTP; это повторная аутентификация и подтверждение действия, не ЭЦП;
+- методолог видит статус в журнале и формирует индивидуальный PDF/ZIP или
+  групповой PDF/ZIP;
+- одинаковое состояние доказательства повторно формирует идентичные ZIP,
+  manifest и SHA-256; PDF явно показывает отзыв и legal hold;
+- step-up блокирует подтверждение при отзыве в любой точке цепочки
+  original/correction;
+- повторное открытие завершённого курса восстанавливает незавершённое
+  подтверждение по `enrollment_id`.
+
+На dev Supabase проверены миграция `0082 -> 0083`, rollback `0083 -> 0082`,
+повторный upgrade и 60 focused integration tests. Backend unit: 110 тестов;
+frontend: 216 тестов, typecheck и production build. Production-состоянием этот
+candidate станет только после commit, CI, согласованного deploy API/web и
+отдельного smoke.
 
 ## Проверенная release-картина
 
@@ -139,8 +168,9 @@ Production БД пока не перенесена в Казахстан. HostKZ
    только состав аудитории.
 3. При подтверждении ручного назначения backend создаёт Enrollment, а для
    существующего сотрудника без подтверждённого способа входа создаёт связанную
-   `UserInvitation` без второго `User`. UI показывает персональную ссылку
-   активации для передачи через рабочий канал.
+   `UserInvitation` без второго `User`. Ссылка создаётся строго по выбранному
+   `user_id`; нормализованный email уникален внутри тенанта. UI показывает
+   персональную ссылку активации для передачи через рабочий канал.
 4. Обучающийся открывает ссылку, проверяет кадровые данные в режиме чтения и
    подтверждает рабочий email шестизначным OTP. ФИО, табельный номер и пароль
    повторно не вводятся. Неверный или истёкший код показывает ошибку на том же

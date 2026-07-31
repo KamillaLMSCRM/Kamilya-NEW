@@ -81,14 +81,10 @@ describe('contextual course assignment flow', () => {
       if (init?.method === 'POST' && url.endsWith('/v1/courses/course-1/enrollments')) {
         return Promise.resolve(jsonResponse([{ id: 'enrollment-1' }]));
       }
-      if (init?.method === 'POST' && url.endsWith('/v1/users/invitations/bulk')) {
+      if (init?.method === 'POST' && url.endsWith('/v1/users/user-1/invitation-link')) {
         return Promise.resolve(jsonResponse({
-          created: [{
-            email: 'aliya@example.kz',
-            invite_url: 'https://app.kml.kz/accept-invite?token=test',
-          }],
-          skipped_existing: [],
-          invalid: [],
+          email: 'aliya@example.kz',
+          invite_url: 'https://app.kml.kz/accept-invite?token=test',
         }));
       }
       throw new Error(`Unexpected request: ${url} ${init?.method || 'GET'}`);
@@ -120,7 +116,7 @@ describe('contextual course assignment flow', () => {
     ));
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
-        expect.stringContaining('/v1/users/invitations/bulk'),
+        expect.stringContaining('/v1/users/user-1/invitation-link'),
         expect.objectContaining({ method: 'POST' }),
       );
     });

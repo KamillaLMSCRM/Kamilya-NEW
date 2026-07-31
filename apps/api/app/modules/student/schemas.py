@@ -1,7 +1,8 @@
 """Student dashboard schemas"""
-from pydantic import BaseModel
-from uuid import UUID
 from datetime import datetime
+from uuid import UUID
+
+from pydantic import BaseModel
 
 
 class LessonProgress(BaseModel):
@@ -18,6 +19,7 @@ class ModuleProgress(BaseModel):
 
 
 class EnrolledCourse(BaseModel):
+    enrollment_id: UUID
     course_id: UUID
     title: str
     description: str

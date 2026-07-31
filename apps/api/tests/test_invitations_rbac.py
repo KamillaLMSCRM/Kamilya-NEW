@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import ANY, AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
@@ -68,6 +68,45 @@ async def test_methodologist_can_create_student_invitation_in_non_demo_tenant():
     create.assert_awaited_once()
     assert response.created[0].email == "learner@example.kz"
     assert response.created[0].invite_url.endswith("token=test")
+
+
+@pytest.mark.asyncio
+async def test_methodologist_creates_link_for_exact_selected_user_id():
+    from app.modules.users.router import create_user_invitation_link
+
+    user = _user()
+    target_user_id = uuid4()
+    db = AsyncMock()
+    expected = {
+        "email": "learner@example.kz",
+        "invitation_id": uuid4(),
+        "invite_url": "https://app.kml.kz/accept-invite?token=exact",
+        "expires_at": "2026-08-03T00:00:00Z",
+        "superseded_old_id": None,
+    }
+
+    with (
+        patch("app.core.demo_limits.assert_can_send_invite", new=AsyncMock()) as demo_guard,
+        patch(
+            "app.modules.users.router.create_or_refresh_user_invitation",
+            new=AsyncMock(return_value=expected),
+        ) as create,
+    ):
+        response = await create_user_invitation_link(
+            user_id=target_user_id,
+            db=db,
+            user=user,
+        )
+
+    demo_guard.assert_awaited_once_with(db, user.tenant_id)
+    create.assert_awaited_once_with(
+        db,
+        tenant_id=user.tenant_id,
+        invited_by=user.id,
+        user_id=target_user_id,
+        base_url=ANY,
+    )
+    assert response["invite_url"].endswith("token=exact")
 
 
 @pytest.mark.asyncio

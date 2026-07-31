@@ -175,12 +175,12 @@ export default function EnrollmentsPage() {
     const ok = await confirm({
       title: 'Назначить обучение?',
       message: [
-        `${course?.title || 'Выбранный курс'} получат ${tp('common.counts.learner', selected.length)}.`,
+        `${course?.title || 'Выбранный курс'} будет назначен. Выбрано: ${tp('common.counts.learner', selected.length)}.`,
         withoutAccess.length > 0
-          ? `Для ${tp('common.counts.learner', withoutAccess.length)} без настроенного входа будут подготовлены ссылки активации.`
+          ? `Ссылки активации будут подготовлены: ${tp('common.counts.learner', withoutAccess.length)}.`
           : '',
         withoutEmail.length > 0
-          ? `${tp('common.counts.learner', withoutEmail.length)} без email получат курс, но способ входа нужно настроить отдельно.`
+          ? `Без email: ${tp('common.counts.learner', withoutEmail.length)}. Для них способ входа нужно настроить отдельно.`
           : '',
       ].filter(Boolean).join(' '),
       variant: 'info',
@@ -208,68 +208,40 @@ export default function EnrollmentsPage() {
         toast.info('Новых назначений нет: выбранные обучающиеся уже назначены или недоступны');
       }
 
-      const emailsForAccess = withoutAccess
-        .map((user) => user.email?.trim().toLowerCase())
-        .filter((email): email is string => Boolean(email));
-      if (emailsForAccess.length > 0) {
+      const usersForAccess = withoutAccess.filter((user) => Boolean(user.email?.trim()));
+      if (usersForAccess.length > 0) {
         try {
-          const invitationRes = await fetch(`${API_URL}/v1/users/invitations/bulk`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({
-              items: emailsForAccess.map((email) => ({ email })),
-            }),
-          });
-          if (!invitationRes.ok) {
-            const err = await invitationRes.json().catch(() => ({}));
-            throw new Error(err?.detail || 'Не удалось подготовить ссылки доступа');
-          }
-          const invitations = await invitationRes.json();
-          const nextAccessLinks: AccessLink[] = (invitations.created || []).map(
-            (item: AccessLink) => ({
-              email: item.email,
-              invite_url: item.invite_url,
-            }),
-          );
-          const pendingEmails = new Set<string>(
-            (invitations.skipped_existing || [])
-              .filter((item: { reason?: string }) => item.reason === 'pending_invite_exists')
-              .map((item: { email: string }) => item.email),
-          );
-          if (pendingEmails.size > 0) {
-            const listRes = await fetch(`${API_URL}/v1/users/invitations?per_page=100`, {
-              headers: { Authorization: `Bearer ${token}` },
-            });
-            if (listRes.ok) {
-              const invitationList = await listRes.json();
-              const pendingRows = (invitationList.items || []).filter(
-                (item: { email: string; status: string }) =>
-                  item.status === 'pending' && pendingEmails.has(item.email.toLowerCase()),
+          const invitationResults = await Promise.allSettled(
+            usersForAccess.map(async (targetUser) => {
+              const invitationRes = await fetch(
+                `${API_URL}/v1/users/${targetUser.id}/invitation-link`,
+                {
+                  method: 'POST',
+                  headers: { Authorization: `Bearer ${token}` },
+                },
               );
-              for (const pending of pendingRows) {
-                const resendRes = await fetch(
-                  `${API_URL}/v1/users/invitations/${pending.id}/resend`,
-                  {
-                    method: 'POST',
-                    headers: { Authorization: `Bearer ${token}` },
-                  },
-                );
-                if (resendRes.ok) {
-                  const resent = await resendRes.json();
-                  nextAccessLinks.push({
-                    email: pending.email,
-                    invite_url: resent.invite_url,
-                  });
-                }
+              if (!invitationRes.ok) {
+                const err = await invitationRes.json().catch(() => ({}));
+                throw new Error(err?.detail || `Не удалось подготовить ссылку для ${targetUser.email}`);
               }
+              return await invitationRes.json() as AccessLink;
+            }),
+          );
+          const nextAccessLinks: AccessLink[] = [];
+          const failedMessages: string[] = [];
+          for (const result of invitationResults) {
+            if (result.status === 'fulfilled') {
+              nextAccessLinks.push(result.value);
+            } else {
+              failedMessages.push(result.reason?.message || 'Не удалось подготовить ссылку доступа');
             }
           }
-          setAccessLinks(
-            nextAccessLinks,
-          );
+          setAccessLinks(nextAccessLinks);
+          if (failedMessages.length > 0) {
+            toast.error('Часть ссылок доступа не создана', {
+              description: failedMessages.join(' '),
+            });
+          }
         } catch (invitationError: any) {
           toast.error('Курс назначен, но ссылки доступа не созданы', {
             description: invitationError?.message,

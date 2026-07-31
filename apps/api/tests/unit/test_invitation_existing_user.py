@@ -7,11 +7,13 @@ from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
 import pytest
+from fastapi import HTTPException
 
 from app.models.users import User, UserInvitation
 from app.modules.users.invitations_service import (
     accept_invitation,
     bulk_create_invitations,
+    create_or_refresh_user_invitation,
 )
 from app.modules.users.schemas import UserResponse
 
@@ -55,6 +57,32 @@ def _bulk_db(*, existing_users=(), pending_invitations=()):
     db = SimpleNamespace(
         execute=AsyncMock(side_effect=[existing_result, pending_result, settings_result]),
         add=MagicMock(side_effect=added.append),
+        commit=AsyncMock(),
+    )
+    return db, added
+
+
+def _exact_invitation_db(*, target, identity_ids, pending=None):
+    user_result = MagicMock()
+    user_result.scalar_one_or_none.return_value = target
+    identities_result = MagicMock()
+    identities_result.scalars.return_value.all.return_value = identity_ids
+    pending_result = MagicMock()
+    pending_result.scalar_one_or_none.return_value = pending
+    settings_result = MagicMock()
+    settings_result.scalar_one_or_none.return_value = None
+    added = []
+    db = SimpleNamespace(
+        execute=AsyncMock(
+            side_effect=[
+                user_result,
+                identities_result,
+                pending_result,
+                settings_result,
+            ]
+        ),
+        add=MagicMock(side_effect=added.append),
+        flush=AsyncMock(),
         commit=AsyncMock(),
     )
     return db, added
@@ -111,6 +139,76 @@ async def test_pending_invitation_is_still_skipped_for_existing_staff_user():
     assert result["created"] == []
     assert result["skipped_existing"] == [{"email": existing.email, "reason": "pending_invite_exists"}]
     assert added == []
+    db.commit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_exact_user_invitation_refresh_stays_bound_to_selected_user():
+    tenant_id = uuid4()
+    target = _user(tenant_id=tenant_id, email="employee@example.kz")
+    pending = UserInvitation(
+        id=uuid4(),
+        tenant_id=tenant_id,
+        email=target.email,
+        first_name=target.first_name,
+        last_name=target.last_name,
+        personnel_number=target.personnel_number,
+        role="student",
+        invited_by=uuid4(),
+        token="old-token",
+        status="pending",
+        expires_at=datetime.now(UTC) + timedelta(days=1),
+        user_id=target.id,
+    )
+    db, added = _exact_invitation_db(
+        target=target,
+        identity_ids=[target.id],
+        pending=pending,
+    )
+
+    result = await create_or_refresh_user_invitation(
+        db,
+        tenant_id=tenant_id,
+        invited_by=uuid4(),
+        user_id=target.id,
+        base_url="https://app.kml.kz",
+    )
+
+    created = next(item for item in added if isinstance(item, UserInvitation))
+    assert created.user_id == target.id
+    assert created.email == target.email
+    assert result["email"] == target.email
+    assert result["superseded_old_id"] == pending.id
+    assert pending.status == "superseded"
+    db.flush.assert_awaited_once()
+    db.commit.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_exact_user_invitation_rejects_duplicate_email_identity():
+    tenant_id = uuid4()
+    target = _user(tenant_id=tenant_id, email="employee@example.kz")
+    duplicate_id = uuid4()
+    user_result = MagicMock()
+    user_result.scalar_one_or_none.return_value = target
+    identities_result = MagicMock()
+    identities_result.scalars.return_value.all.return_value = [target.id, duplicate_id]
+    db = SimpleNamespace(
+        execute=AsyncMock(side_effect=[user_result, identities_result]),
+        add=MagicMock(),
+        commit=AsyncMock(),
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        await create_or_refresh_user_invitation(
+            db,
+            tenant_id=tenant_id,
+            invited_by=uuid4(),
+            user_id=target.id,
+        )
+
+    assert getattr(exc_info.value, "status_code", None) == 409
+    db.add.assert_not_called()
     db.commit.assert_not_awaited()
 
 

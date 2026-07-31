@@ -63,6 +63,13 @@ class User(Base):
         CheckConstraint("role IN ('superadmin', 'admin', 'methodologist', 'student')", name="ck_user_role"),
         Index("uq_user_telegram", "tenant_id", "telegram_id", unique=True, postgresql_where="telegram_id IS NOT NULL"),
         Index("uq_users_tenant_personnel", "tenant_id", "personnel_number", unique=True, postgresql_where="personnel_number IS NOT NULL"),
+        Index(
+            "uq_users_tenant_email_ci",
+            "tenant_id",
+            func.lower(func.btrim(email)),
+            unique=True,
+            postgresql_where="tenant_id IS NOT NULL AND email IS NOT NULL AND btrim(email) <> ''",
+        ),
         {"extend_existing": True},
     )
 

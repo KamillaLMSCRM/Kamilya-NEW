@@ -16,6 +16,7 @@ production.
 
 - [Руководство пользователя](USER_DOCUMENTATION_RU.md)
 - [Руководство методолога: выпуск и назначение курса](methodologist-course-release-guide-ru.md)
+- [Пакет локальных документов для первого ломбарда](customer/pawnshop/README.md)
 - [Авторизация tenant: email, Telegram и Resend](architecture/2026-07-10_tenant-auth-email-telegram-resend.md)
 - [Регистрация tenant и trial](product/tenant-registration-trial-flow.md)
 
@@ -29,6 +30,7 @@ production.
 - [Описание продукта](../PROJECT.md)
 - [Live OpenAPI](https://kamilya-lms-api.onrender.com/docs)
 - [Архитектурные решения](adr/)
+- [ADR-0015: события обучения и подтверждение результата](adr/0015-training-evidence-and-step-up-confirmation.md)
 - [Celery worker](INFRA_CELERY_WORKER.md)
 - [VPS и сервисы](VPS_CONNECTION_GUIDE.md)
 - [Backup и restore](BACKUP_RESTORE_RUNBOOK.md)

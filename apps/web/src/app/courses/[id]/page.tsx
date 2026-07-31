@@ -11,6 +11,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { CheckCircle2, ChevronRight, ChevronLeft, Clock, AlertTriangle } from 'lucide-react';
 import { clearAuth } from '@/lib/auth';
 import { useIdleTimeout } from '@/lib/useIdleTimeout';
+import { EvidenceConfirmationPanel } from '@/features/training-evidence/EvidenceConfirmationPanel';
 
 interface Lesson {
   id: string;
@@ -72,6 +73,7 @@ export default function CoursePlayerPage() {
   const [completedLessons, setCompletedLessons] = useState<Set<string>>(new Set());
   const [enrolled, setEnrolled] = useState<boolean | null>(null);
   const [courseCompleted, setCourseCompleted] = useState(false);
+  const [completionEvidenceEventId, setCompletionEvidenceEventId] = useState<string | null>(null);
   const [enrolling, setEnrolling] = useState(false);
   const [lessonQuiz, setLessonQuiz] = useState<QuizInfo | null>(null);
   const [quizAttempts, setQuizAttempts] = useState<QuizAttempt[]>([]);
@@ -231,10 +233,26 @@ export default function CoursePlayerPage() {
         if (dashboardRes.ok) {
           const dashboard = await dashboardRes.json();
           const enrolledCourse = (dashboard.enrolled_courses || []).find(
-            (item: { course_id: string; enrollment_status?: string }) => item.course_id === courseId
+            (item: { course_id: string; enrollment_id?: string; enrollment_status?: string }) => item.course_id === courseId
           );
           setEnrolled(Boolean(enrolledCourse));
-          setCourseCompleted(enrolledCourse?.enrollment_status === 'completed');
+          const isCompleted = enrolledCourse?.enrollment_status === 'completed';
+          setCourseCompleted(isCompleted);
+          if (isCompleted && enrolledCourse?.enrollment_id) {
+            const evidenceParams = new URLSearchParams({
+              enrollment_id: enrolledCourse.enrollment_id,
+              procedure_type: 'training',
+              limit: '1',
+            });
+            const evidenceRes = await fetch(
+              `${API_URL}/v1/training-evidence/events/mine?${evidenceParams.toString()}`,
+              { headers },
+            );
+            if (evidenceRes.ok) {
+              const evidenceEvents: Array<{ id: string }> = await evidenceRes.json();
+              setCompletionEvidenceEventId(evidenceEvents[0]?.id || null);
+            }
+          }
         } else {
           setEnrolled(false);
         }
@@ -386,7 +404,7 @@ export default function CoursePlayerPage() {
             : `HTTP ${res.status}`;
         throw new Error(message);
       }
-      const data: { certificate_id?: string; status?: string } = await res.json().catch(() => ({}));
+      const data: { certificate_id?: string; status?: string; training_evidence_event_id?: string } = await res.json().catch(() => ({}));
       toast.success(t('toast.courseCompleted'));
       if (data.certificate_id) {
         toast.success(t('toast.certificateIssued'), {
@@ -397,7 +415,12 @@ export default function CoursePlayerPage() {
           },
         });
       }
-      router.push('/courses');
+      if (data.training_evidence_event_id) {
+        setCompletionEvidenceEventId(data.training_evidence_event_id);
+        setCourseCompleted(true);
+      } else {
+        router.push('/courses');
+      }
     } catch (e) {
       console.error('Course completion failed', e);
       toast.error(t('common.saveFailed'), {
@@ -470,13 +493,29 @@ export default function CoursePlayerPage() {
   if (courseCompleted) {
     return (
       <div className="min-h-screen bg-muted flex items-center justify-center">
-        <div className="bg-card rounded-lg shadow-md p-8 max-w-md w-full text-center">
+        <div className="bg-card rounded-lg shadow-md p-6 sm:p-8 max-w-2xl w-full space-y-5">
           <CheckCircle2 className="w-16 h-16 text-success mx-auto mb-4" aria-hidden="true" />
-          <h2 className="text-xl font-bold mb-2">{course.title}</h2>
-          <p className="text-muted-foreground mb-6">{t('courses.courseComplete')}</p>
-          <Link href="/courses" className="bg-primary text-white px-6 py-2 rounded hover:bg-primary inline-block">
-            {t('courses.backToCourses')}
-          </Link>
+          <div className="text-center">
+            <h2 className="text-xl font-bold mb-2">{course.title}</h2>
+            <p className="text-muted-foreground">{t('courses.courseComplete')}</p>
+          </div>
+          {completionEvidenceEventId ? (
+            <EvidenceConfirmationPanel
+              eventId={completionEvidenceEventId}
+              activityTitle={course.title}
+              activityKind="course"
+              continueHref="/courses"
+              continueLabel={t('courses.backToCourses')}
+              resultHref="/certificates"
+              resultLabel={t('courses.viewCertificate')}
+            />
+          ) : (
+            <div className="text-center">
+              <Link href="/courses" className="bg-primary text-white px-6 py-2 rounded hover:bg-primary inline-block">
+                {t('courses.backToCourses')}
+              </Link>
+            </div>
+          )}
         </div>
       </div>
     );

@@ -1,41 +1,44 @@
 """User management API router"""
-from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import func, select
 from typing import Optional
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import get_current_user, require_role, require_tenant_user
 from app.core.db import get_db
+from app.models.users import User, UserInvitation
+from app.modules.users.invitations_service import (
+    bulk_create_invitations,
+    create_or_refresh_user_invitation,
+    resend_invitation,
+)
 from app.modules.users.schemas import (
-    UserCreate,
-    UserUpdate,
-    UserResponse,
-    UserListResponse,
-    PasswordReset,
-    RoleAssignmentRequest,
     InvitationBulkCreateRequest,
     InvitationBulkCreateResponse,
     InvitationListItem,
     InvitationListResponse,
     InvitationResendResponse,
+    PasswordReset,
+    RoleAssignmentRequest,
+    UserCreate,
+    UserInvitationLinkResponse,
+    UserListResponse,
+    UserResponse,
+    UserUpdate,
 )
 from app.modules.users.service import (
-    list_users,
-    get_user,
-    create_user,
-    update_user,
-    delete_user,
-    reset_password,
-    change_role,
     assign_role,
+    change_role,
+    create_user,
+    delete_user,
     get_role_map,
+    get_user,
+    list_users,
+    reset_password,
+    update_user,
 )
-from app.modules.users.invitations_service import (
-    bulk_create_invitations,
-    resend_invitation,
-)
-from app.models.users import User, UserInvitation
 
 router = APIRouter(
     prefix="/users",
@@ -169,7 +172,8 @@ async def list_invitations(
     routes in registration order, and otherwise "invitations" is treated as a
     user id before UUID validation or this learning-role dependency can run.
     """
-    from sqlalchemy import desc, func as sqlfunc
+    from sqlalchemy import desc
+    from sqlalchemy import func as sqlfunc
 
     query = select(UserInvitation).where(UserInvitation.tenant_id == user.tenant_id)
     count_query = select(sqlfunc.count(UserInvitation.id)).where(
@@ -388,6 +392,30 @@ async def change_user_role(
 
 
 # ── Invitations (Phase 1 of employee onboarding epic) ──────────────
+
+
+@router.post(
+    "/{user_id}/invitation-link",
+    response_model=UserInvitationLinkResponse,
+)
+async def create_user_invitation_link(
+    user_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_role("superadmin", "methodologist")),
+):
+    """Create or refresh an activation link for the selected employee."""
+    from app.core.config import get_settings
+    from app.core.demo_limits import assert_can_send_invite
+
+    await assert_can_send_invite(db, user.tenant_id)
+    settings = get_settings()
+    return await create_or_refresh_user_invitation(
+        db,
+        tenant_id=user.tenant_id,
+        invited_by=user.id,
+        user_id=user_id,
+        base_url=getattr(settings, "PUBLIC_URL", None),
+    )
 
 
 @router.post("/invitations/bulk", response_model=InvitationBulkCreateResponse)

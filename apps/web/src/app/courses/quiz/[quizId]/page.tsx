@@ -9,6 +9,7 @@ import { useT } from '@/i18n/useT';
 import { toast } from '@/components/ui/Toast';
 import { CheckCircle2, XCircle, Circle, Lightbulb } from 'lucide-react';
 import { getRoleHome } from '@/lib/rolePolicy';
+import { EvidenceConfirmationPanel } from '@/features/training-evidence/EvidenceConfirmationPanel';
 
 interface QuizChoice {
   id: string;
@@ -63,6 +64,7 @@ interface QuizResult {
   total_questions: number;
   passed: boolean;
   message: string;
+  training_evidence_event_id?: string;
 }
 
 interface QuizAttempt {
@@ -105,6 +107,13 @@ export default function QuizPlayerPage() {
   const [courseModules, setCourseModules] = useState<CourseModule[]>([]);
   const [showReview, setShowReview] = useState(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const getChoiceLabel = (question: Question, choice: QuizChoice, index: number) => {
+    if (question.type === 'true_false') {
+      return t(index === 0 ? 'quiz.true' : 'quiz.false');
+    }
+    return choice.text;
+  };
 
   const fetchQuiz = useCallback(async () => {
     if (!quizId || !token) return;
@@ -309,6 +318,18 @@ export default function QuizPlayerPage() {
           </Card>
         )}
 
+        {result?.training_evidence_event_id && (
+          <EvidenceConfirmationPanel
+            eventId={result.training_evidence_event_id}
+            activityTitle={quiz.title}
+            activityKind="quiz"
+            continueHref={nextLessonHref || courseHref || '/courses'}
+            continueLabel={nextLessonHref ? t('courses.nextLesson') : t('evidenceConfirmation.continue')}
+            resultHref={courseHref || getRoleHome(user?.role)}
+            resultLabel={t('evidenceConfirmation.result')}
+          />
+        )}
+
         {/* Question Navigation */}
         {!result && (
           <div className="flex flex-wrap gap-2">
@@ -347,7 +368,7 @@ export default function QuizPlayerPage() {
                 {t('quiz.points')}: {currentQ.points} · {currentQ.type}
               </p>
               <div className="space-y-2">
-                {currentQ.choices.map((choice) => {
+                {currentQ.choices.map((choice, choiceIndex) => {
                   const isSelected = (answers[currentQ.id] || []).includes(choice.id);
                   return (
                     <label
@@ -363,7 +384,7 @@ export default function QuizPlayerPage() {
                         onChange={() => handleSelect(currentQ.id, choice.id, currentQ.type)}
                         className="shrink-0"
                       />
-                      <span>{choice.text}</span>
+                      <span>{getChoiceLabel(currentQ, choice, choiceIndex)}</span>
                     </label>
                   );
                 })}
@@ -394,7 +415,7 @@ export default function QuizPlayerPage() {
                       </div>
                     </div>
                     <div className="space-y-1 ml-8">
-                      {q.choices.map((c) => {
+                      {q.choices.map((c, choiceIndex) => {
                         const wasSelected = graded?.selected_choice_ids.includes(c.id) ?? false;
                         const isCorrectChoice = graded?.correct_choice_ids.includes(c.id) ?? false;
                         return (
@@ -404,7 +425,7 @@ export default function QuizPlayerPage() {
                             <span>
                               {isCorrectChoice ? <CheckCircle2 className="w-4 h-4" /> : wasSelected ? <XCircle className="w-4 h-4" /> : <Circle className="w-4 h-4" />}
                             </span>
-                            <span>{c.text}</span>
+                            <span>{getChoiceLabel(q, c, choiceIndex)}</span>
                           </div>
                         );
                       })}

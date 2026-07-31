@@ -26,6 +26,7 @@ from app.modules.positions.models import Position
 from app.modules.users.staff_import_service import (
     ParsedFile,
     PreviewResult,
+    StaffEmailConflictError,
     build_preview,
     commit_import,
     create_manual_staff_member,
@@ -297,6 +298,8 @@ async def create_manual_staff(
             email=payload.email,
             phone=payload.phone,
         )
+    except StaffEmailConflictError as e:
+        raise HTTPException(status_code=409, detail=str(e)) from e
     except Exception as e:
         msg = str(e)
         if "uq_users_tenant_personnel" in msg or "duplicate key" in msg.lower():
@@ -347,8 +350,9 @@ async def import_staff_preview(
     if mapping_id and not effective_mapping:
         from uuid import UUID
 
-        from app.models.staff_import_mapping import StaffImportMapping
         from sqlalchemy import select
+
+        from app.models.staff_import_mapping import StaffImportMapping
 
         try:
             mid = UUID(mapping_id)
@@ -384,7 +388,10 @@ async def import_staff_preview(
         return _parsed_file_to_response(parsed, None)
 
     # Build preview (matches against DB)
-    preview = await build_preview(db, user.tenant_id, parsed)
+    try:
+        preview = await build_preview(db, user.tenant_id, parsed)
+    except StaffEmailConflictError as e:
+        raise HTTPException(status_code=409, detail=str(e)) from e
 
     # Inject invalid_rows count into summary so HR sees parse errors too
     preview.summary["invalid_rows"] = len(parsed.invalid_rows)
@@ -426,8 +433,9 @@ async def import_staff_commit(
     if mapping_id and not effective_mapping:
         from uuid import UUID
 
-        from app.models.staff_import_mapping import StaffImportMapping
         from sqlalchemy import select
+
+        from app.models.staff_import_mapping import StaffImportMapping
 
         try:
             mid = UUID(mapping_id)
@@ -487,6 +495,8 @@ async def import_staff_commit(
             requested=int(preview.summary.get("create") or 0),
         )
         result = await commit_import(db, user.tenant_id, parsed)
+    except StaffEmailConflictError as e:
+        raise HTTPException(status_code=409, detail=str(e)) from e
     except HTTPException:
         await db.rollback()
         raise

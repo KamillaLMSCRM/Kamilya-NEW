@@ -13,6 +13,7 @@ import {
   Input,
   DateInput,
 } from '@/components/ui';
+import { Check, FileDown, Package, RefreshCw, Square, SquareCheck } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
 import { toast } from '@/components/ui/Toast';
@@ -26,6 +27,7 @@ import {
 } from './query';
 import { TRAINING_LOG_COLUMN_CLASS as columnClass } from './presentation';
 import { getAssignmentSourceInfo } from '@/lib/assignmentSource';
+import { downloadGroupEvidence, downloadIndividualEvidence, type EvidenceExportFormat } from '@/features/training-evidence/exportApi';
 
 /**
  * Training log — единый журнал обучения (P0.3 first-tenant hardening).
@@ -58,6 +60,17 @@ interface TrainingLogRow {
   enrollment_source: string;
   enrolled_at: string | null;
   completed_at: string | null;
+  enrollment_id: string;
+  latest_evidence_event_id: string | null;
+  evidence_procedure_type: string | null;
+  evidence_confirmation_status: 'not_required' | 'pending' | 'confirmed';
+  evidence_state: 'forming' | 'ready' | 'incomplete' | 'revoked' | 'legal_hold';
+  evidence_events: Array<{
+    event_id: string;
+    procedure_type: string;
+    confirmation_status: 'not_required' | 'pending' | 'confirmed';
+    evidence_state: 'forming' | 'ready' | 'incomplete' | 'revoked' | 'legal_hold';
+  }>;
   // Computed by backend (2026-07-09): honest status from real activity data.
   // `overdue` was removed because enrollments have no deadline column —
   // would have been a misleading filter. UI drops the option too.
@@ -114,6 +127,8 @@ export default function AdminTrainingLogPage() {
   const [error, setError] = useState<string | null>(null);
   const [limit, setLimit] = useState(100);
   const [offset, setOffset] = useState(0);
+  const [selectedEvidenceIds, setSelectedEvidenceIds] = useState<Set<string>>(new Set());
+  const [exportingKey, setExportingKey] = useState<string | null>(null);
 
   const [searchInput, setSearchInput] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -211,6 +226,42 @@ export default function AdminTrainingLogPage() {
     setFilters({});
     setSearchInput('');
     setOffset(0);
+    setSelectedEvidenceIds(new Set());
+  };
+
+  const isMethodologist = user?.role === 'methodologist';
+  const exportableRows = items.filter((row) => canExportEvidence(row));
+  const allExportableSelected = exportableRows.length > 0
+    && exportableRows.every((row) => selectedEvidenceIds.has(row.latest_evidence_event_id as string));
+
+  const toggleEvidenceSelection = (eventId: string) => {
+    setSelectedEvidenceIds((current) => {
+      const next = new Set(current);
+      if (next.has(eventId)) next.delete(eventId);
+      else next.add(eventId);
+      return next;
+    });
+  };
+
+  const toggleAllEvidenceSelection = () => {
+    setSelectedEvidenceIds((current) => {
+      if (allExportableSelected) return new Set();
+      return new Set(exportableRows.map((row) => row.latest_evidence_event_id as string));
+    });
+  };
+
+  const exportEvidence = async (eventIds: string[], format: EvidenceExportFormat, key: string) => {
+    if (!isMethodologist || eventIds.length === 0) return;
+    setExportingKey(key);
+    try {
+      if (eventIds.length === 1) await downloadIndividualEvidence(eventIds[0], format);
+      else await downloadGroupEvidence(eventIds, format);
+      toast.success(t('trainingLog.evidence.exportSuccess'));
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || t('trainingLog.evidence.exportFailed'));
+    } finally {
+      setExportingKey(null);
+    }
   };
 
   return (
@@ -224,7 +275,7 @@ export default function AdminTrainingLogPage() {
             {t('trainingLog.subtitle')}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2">
           <Button
             type="button"
             variant="outline"
@@ -235,6 +286,28 @@ export default function AdminTrainingLogPage() {
           <Button type="button" onClick={exportCsv} disabled={loading || total === 0}>
             {t('trainingLog.export.csv')}
           </Button>
+          {isMethodologist && selectedEvidenceIds.size > 0 && (
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={exportingKey !== null}
+                onClick={() => void exportEvidence(Array.from(selectedEvidenceIds), 'pdf', 'group-pdf')}
+              >
+                <FileDown className="mr-2 h-4 w-4" aria-hidden="true" />
+                {t('trainingLog.evidence.groupPdf')}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={exportingKey !== null}
+                onClick={() => void exportEvidence(Array.from(selectedEvidenceIds), 'zip', 'group-zip')}
+              >
+                <Package className="mr-2 h-4 w-4" aria-hidden="true" />
+                {t('trainingLog.evidence.groupZip')}
+              </Button>
+            </>
+          )}
         </div>
       </header>
 
@@ -358,20 +431,55 @@ export default function AdminTrainingLogPage() {
                         {row.computed_status === 'completed' ? t('trainingLog.badge.completed') : row.computed_status === 'in_progress' ? t('trainingLog.badge.inProgress') : t('trainingLog.badge.assigned')}
                       </Badge>
                       <span className="text-sm tabular-nums text-muted-foreground">{t('trainingLog.table.progress')}: {row.progress_percent}%</span>
+                      {row.latest_evidence_event_id && (
+                        <EvidenceStatusBadge row={row} t={t} />
+                      )}
                     </div>
                     <p className="text-xs text-muted-foreground">
                       {t('assignmentSources.title')}: {t(sourceInfo.labelKey)}. {t(sourceInfo.descriptionKey)}
                     </p>
+                    {isMethodologist && canExportEvidence(row) && (
+                      <div className="flex flex-wrap gap-2">
+                        <EvidenceDownloadButton
+                          label={t('trainingLog.evidence.pdf')}
+                          icon={<FileDown className="h-4 w-4" aria-hidden="true" />}
+                          busy={exportingKey === `${row.latest_evidence_event_id}-pdf`}
+                          disabled={exportingKey !== null}
+                          onClick={() => void exportEvidence([row.latest_evidence_event_id as string], 'pdf', `${row.latest_evidence_event_id}-pdf`)}
+                        />
+                        <EvidenceDownloadButton
+                          label={t('trainingLog.evidence.zip')}
+                          icon={<Package className="h-4 w-4" aria-hidden="true" />}
+                          busy={exportingKey === `${row.latest_evidence_event_id}-zip`}
+                          disabled={exportingKey !== null}
+                          onClick={() => void exportEvidence([row.latest_evidence_event_id as string], 'zip', `${row.latest_evidence_event_id}-zip`)}
+                        />
+                      </div>
+                    )}
                   </article>
                   );
                 })}
               </div>
               <Table
                 className="training-log-table-scroll hidden max-w-full rounded-none border-0 lg:block"
-                tableClassName="w-max min-w-[1740px]"
+                tableClassName="w-max min-w-[2160px]"
               >
                 <thead className="sticky top-0 z-10 bg-card">
                   <tr className="text-left text-xs font-medium text-muted-foreground">
+                    {isMethodologist && (
+                      <th className="w-12 min-w-12 px-3 py-3">
+                        <button
+                          type="button"
+                          onClick={toggleAllEvidenceSelection}
+                          disabled={exportableRows.length === 0}
+                          className="rounded p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          aria-label={allExportableSelected ? t('trainingLog.evidence.clearSelection') : t('trainingLog.evidence.selectAll')}
+                          title={allExportableSelected ? t('trainingLog.evidence.clearSelection') : t('trainingLog.evidence.selectAll')}
+                        >
+                          {allExportableSelected ? <SquareCheck className="h-4 w-4 text-primary" aria-hidden="true" /> : <Square className="h-4 w-4" aria-hidden="true" />}
+                        </button>
+                      </th>
+                    )}
                     <th className={columnClass.fullName}>{t('trainingLog.table.fullName')}</th>
                     <th className={columnClass.personnelNumber}>{t('trainingLog.table.personnelNumber')}</th>
                     <th className={columnClass.department}>{t('trainingLog.table.department')}</th>
@@ -379,11 +487,13 @@ export default function AdminTrainingLogPage() {
                     <th className={columnClass.course}>{t('trainingLog.table.course')}</th>
                     <th className={columnClass.type}>{t('trainingLog.table.type')}</th>
                     <th className={columnClass.status}>{t('trainingLog.table.status')}</th>
+                    <th className="w-44 min-w-44 px-4 py-3">{t('trainingLog.table.evidence')}</th>
                     <th className={columnClass.source}>{t('assignmentSources.title')}</th>
                     <th className={columnClass.progress}>{t('trainingLog.table.progress')}</th>
                     <th className={columnClass.score}>{t('trainingLog.table.score')}</th>
                     <th className={columnClass.completedAt}>{t('trainingLog.table.completedAt')}</th>
                     <th className={columnClass.certificate}>{t('trainingLog.table.certificate')}</th>
+                    {isMethodologist && <th className="w-44 min-w-44 px-4 py-3">{t('trainingLog.table.actions')}</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -391,6 +501,21 @@ export default function AdminTrainingLogPage() {
                     const sourceInfo = getAssignmentSourceInfo(row.enrollment_source);
                     return (
                     <tr key={`${row.user_id}-${row.course_id}-${idx}`} className="border-t border-border">
+                      {isMethodologist && (
+                        <td className="w-12 min-w-12 px-3 py-3 align-top">
+                          {canExportEvidence(row) ? (
+                            <button
+                              type="button"
+                              onClick={() => toggleEvidenceSelection(row.latest_evidence_event_id as string)}
+                              className="rounded p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                              aria-label={selectedEvidenceIds.has(row.latest_evidence_event_id as string) ? t('trainingLog.evidence.deselect') : t('trainingLog.evidence.select')}
+                              title={selectedEvidenceIds.has(row.latest_evidence_event_id as string) ? t('trainingLog.evidence.deselect') : t('trainingLog.evidence.select')}
+                            >
+                              {selectedEvidenceIds.has(row.latest_evidence_event_id as string) ? <Check className="h-4 w-4 text-primary" aria-hidden="true" /> : <Square className="h-4 w-4" aria-hidden="true" />}
+                            </button>
+                          ) : <span className="text-muted-foreground">—</span>}
+                        </td>
+                      )}
                       <td className={columnClass.fullName}>
                         <div className="font-medium text-foreground">{row.full_name}</div>
                         {row.email && (
@@ -430,6 +555,9 @@ export default function AdminTrainingLogPage() {
                               : t('trainingLog.badge.assigned')}
                         </Badge>
                       </td>
+                      <td className="w-44 min-w-44 px-4 py-3 align-top">
+                        {row.latest_evidence_event_id ? <EvidenceStatusBadge row={row} t={t} /> : <span className="text-sm text-muted-foreground">—</span>}
+                      </td>
                       <td className={columnClass.source}>
                         <details>
                           <summary className="cursor-help list-none">
@@ -458,6 +586,28 @@ export default function AdminTrainingLogPage() {
                           <span className="text-muted-foreground">—</span>
                         )}
                       </td>
+                      {isMethodologist && (
+                        <td className="w-44 min-w-44 px-4 py-3 align-top">
+                          {canExportEvidence(row) ? (
+                            <div className="flex gap-1">
+                              <EvidenceIconButton
+                                label={t('trainingLog.evidence.pdf')}
+                                icon={<FileDown className="h-4 w-4" aria-hidden="true" />}
+                                busy={exportingKey === `${row.latest_evidence_event_id}-pdf`}
+                                disabled={exportingKey !== null}
+                                onClick={() => void exportEvidence([row.latest_evidence_event_id as string], 'pdf', `${row.latest_evidence_event_id}-pdf`)}
+                              />
+                              <EvidenceIconButton
+                                label={t('trainingLog.evidence.zip')}
+                                icon={<Package className="h-4 w-4" aria-hidden="true" />}
+                                busy={exportingKey === `${row.latest_evidence_event_id}-zip`}
+                                disabled={exportingKey !== null}
+                                onClick={() => void exportEvidence([row.latest_evidence_event_id as string], 'zip', `${row.latest_evidence_event_id}-zip`)}
+                              />
+                            </div>
+                          ) : <span className="text-xs text-muted-foreground">{t('trainingLog.evidence.unavailable')}</span>}
+                        </td>
+                      )}
                     </tr>
                     );
                   })}
@@ -468,6 +618,76 @@ export default function AdminTrainingLogPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+function canExportEvidence(row: TrainingLogRow): boolean {
+  return Boolean(
+    row.latest_evidence_event_id
+    && row.evidence_confirmation_status === 'confirmed'
+    && row.evidence_state === 'ready'
+  );
+}
+
+function EvidenceStatusBadge({ row, t }: { row: TrainingLogRow; t: ReturnType<typeof useT>['t'] }) {
+  const label = row.evidence_state === 'legal_hold'
+    ? t('trainingLog.evidence.legalHold')
+    : row.evidence_state === 'revoked'
+      ? t('trainingLog.evidence.revoked')
+      : row.evidence_confirmation_status === 'pending'
+        ? t('trainingLog.evidence.pending')
+        : row.evidence_confirmation_status === 'confirmed'
+          ? t('trainingLog.evidence.confirmed')
+          : t('trainingLog.evidence.incomplete');
+  const variant = row.evidence_state === 'revoked' ? 'destructive' : row.evidence_confirmation_status === 'confirmed' && row.evidence_state === 'ready' ? 'default' : 'secondary';
+  return <Badge variant={variant}>{label}</Badge>;
+}
+
+function EvidenceIconButton({
+  label,
+  icon,
+  busy,
+  disabled,
+  onClick,
+}: {
+  label: string;
+  icon: React.ReactNode;
+  busy: boolean;
+  disabled: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      disabled={disabled}
+      onClick={onClick}
+      className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-input text-foreground hover:bg-accent disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      {busy ? <RefreshCw className="h-4 w-4 animate-spin" aria-hidden="true" /> : icon}
+    </button>
+  );
+}
+
+function EvidenceDownloadButton({
+  label,
+  icon,
+  busy,
+  disabled,
+  onClick,
+}: {
+  label: string;
+  icon: React.ReactNode;
+  busy: boolean;
+  disabled: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <Button type="button" variant="outline" size="sm" disabled={disabled} onClick={onClick}>
+      {busy ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" /> : icon}
+      <span className="ml-2">{label}</span>
+    </Button>
   );
 }
 

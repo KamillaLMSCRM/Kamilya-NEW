@@ -2,8 +2,8 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
-from uuid import uuid4
 from unittest.mock import AsyncMock, patch
+from uuid import uuid4
 
 import pytest
 
@@ -13,10 +13,40 @@ from app.modules.positions.models import Position
 from app.modules.users.staff_import_service import (
     ParsedFile,
     ParsedRow,
+    StaffEmailConflictError,
     build_preview,
     commit_import,
     create_manual_staff_member,
 )
+
+
+@pytest.mark.asyncio
+async def test_manual_staff_rejects_email_owned_by_another_personnel_record():
+    tenant_id = uuid4()
+    existing = User(
+        id=uuid4(),
+        tenant_id=tenant_id,
+        personnel_number="EMP-001",
+        email="employee@example.kz",
+        first_name="Existing",
+        last_name="Employee",
+        role="student",
+        is_active=True,
+        status="active",
+    )
+    db = _MemorySession(users=[existing])
+
+    with pytest.raises(StaffEmailConflictError):
+        await create_manual_staff_member(
+            db,
+            tenant_id,
+            personnel_number="EMP-002",
+            first_name="New",
+            last_name="Employee",
+            department="HR",
+            position="Specialist",
+            email="EMPLOYEE@example.kz",
+        )
 
 
 class _ScalarResult:
@@ -89,6 +119,21 @@ async def _commit(db, tenant_id, parsed):
     ):
         result = await commit_import(db, tenant_id, parsed)
     return result
+
+
+async def _manual(db, tenant_id, **kwargs):
+    fake_apply = AsyncMock(return_value=SimpleNamespace(added=0, removed=0))
+    with patch(
+        "app.modules.positions.batch_service.apply_rules_for_users",
+        fake_apply,
+    ), patch(
+        "app.core.redis_progress.new_task_id", return_value="staff-task"
+    ), patch("app.core.redis_progress.init_task", new=AsyncMock()), patch(
+        "app.core.redis_progress.mark_started", new=AsyncMock()
+    ), patch("app.core.redis_progress.increment_done", new=AsyncMock()), patch(
+        "app.core.redis_progress.mark_success", new=AsyncMock()
+    ):
+        return await create_manual_staff_member(db, tenant_id, **kwargs)
 
 
 @pytest.mark.asyncio
@@ -335,7 +380,7 @@ async def test_manual_add_creates_and_reuses_canonical_hierarchy():
     tenant_id = uuid4()
     db = _MemorySession()
 
-    first = await create_manual_staff_member(
+    first = await _manual(
         db,
         tenant_id,
         personnel_number=" P-900 ",
@@ -348,7 +393,7 @@ async def test_manual_add_creates_and_reuses_canonical_hierarchy():
     assert db.users[0].position_id == db.positions[0].id
     assert db.positions[0].department_id == db.departments[0].id
 
-    repeat = await create_manual_staff_member(
+    repeat = await _manual(
         db,
         tenant_id,
         personnel_number="p-900",

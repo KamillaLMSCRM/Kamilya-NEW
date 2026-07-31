@@ -406,7 +406,9 @@
     "submitQuiz": "Submit answers",
     "nextQuestion": "Next question",
     "prevQuestion": "Previous question",
-    "result": "Score: {score}%"
+    "result": "Score: {score}%",
+    "true": "True",
+    "false": "False"
   },
   "certificates": {
     "title": "My Certificates",
@@ -1388,10 +1390,12 @@
       "course": "Course",
       "type": "Type",
       "status": "Status",
+      "evidence": "Evidence",
       "progress": "Progress",
       "score": "Best score",
       "completedAt": "Completed",
-      "certificate": "Certificate"
+      "certificate": "Certificate",
+      "actions": "Actions"
     },
     "badge": {
       "native": "Native",
@@ -1404,6 +1408,24 @@
       "csv": "Download CSV",
       "success": "Export started"
     },
+    "evidence": {
+      "pending": "Awaiting confirmation",
+      "confirmed": "Confirmed",
+      "incomplete": "Package not ready",
+      "revoked": "Revoked",
+      "legalHold": "Legal hold",
+      "pdf": "PDF",
+      "zip": "ZIP",
+      "groupPdf": "Group PDF",
+      "groupZip": "Group ZIP",
+      "unavailable": "Export will be available after confirmation",
+      "exportSuccess": "File prepared",
+      "exportFailed": "Could not download the package",
+      "select": "Select result",
+      "deselect": "Deselect result",
+      "selectAll": "Select ready results",
+      "clearSelection": "Clear selection"
+    },
     "errors": {
       "loadFailed": "Failed to load training log",
       "exportFailed": "Failed to export CSV"
@@ -1411,6 +1433,33 @@
     "empty": "No rows match the selected filters",
     "emptyFilteredHint": "Try removing the status filter, widening the date range, or selecting another course type.",
     "emptyHint": "Records appear after courses are assigned to employees."
+  },
+  "evidenceConfirmation": {
+    "title": "Record the result",
+    "subtitle": "Confirm the completed action with the code from the email.",
+    "activity": "Material",
+    "procedure": "Result type",
+    "procedureCourse": "Course completion",
+    "procedureQuiz": "Quiz result",
+    "date": "Date",
+    "release": "Material version",
+    "releaseHash": "Version hash SHA-256",
+    "releaseUnavailable": "Unavailable in the current projection",
+    "statement": "Confirmation statement",
+    "statementUnavailable": "The exact confirmation statement is not included in the current result projection. The code is still verified by the server for this event.",
+    "status": { "pending": "Awaiting confirmation", "confirmed": "Confirmed" },
+    "explanation": "A one-time code will be sent to the address linked to your account.",
+    "requestCode": "Get a code",
+    "requesting": "Sending code…",
+    "codeLabel": "Code from email",
+    "codeHelp": "Enter 6 digits. The code is valid for a limited time.",
+    "confirm": "Confirm action",
+    "verifying": "Checking…",
+    "retryAfter": "Another request will be available in {seconds} sec.",
+    "continue": "Continue learning",
+    "result": "Back to result",
+    "loading": "Loading result details…",
+    "errors": { "load": "Could not load result details", "request": "Could not send the code", "verify": "Could not confirm the action" }
   },
   "kiosk": {
     "printSheet": {

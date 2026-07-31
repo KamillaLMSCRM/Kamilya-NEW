@@ -37,7 +37,7 @@ describe('training-log responsive presentation', () => {
 
     expect(source).toContain('data-testid="training-log-mobile-list"');
     expect(source).toContain('lg:hidden');
-    expect(source).toContain('tableClassName="w-max min-w-[1740px]"');
+    expect(source).toContain('tableClassName="w-max min-w-[2160px]"');
     expect(source).toContain('training-log-table-scroll');
     expect(source).toContain('sticky top-0');
     expect(TRAINING_LOG_COLUMN_CLASS.fullName).toContain('sticky left-0');

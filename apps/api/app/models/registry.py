@@ -38,6 +38,7 @@ MODEL_MODULES = (
     "app.modules.scorm.models",
     "app.modules.surveys.models",
     "app.modules.training_rules.models",
+    "app.modules.training_evidence.models",
 )
 
 

@@ -1,13 +1,14 @@
 """Student dashboard service"""
 from uuid import UUID
+
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
 
 from app.models.courses import Course
-from app.modules.lessons.models import Module, Lesson
 from app.models.enrollment import Enrollment
 from app.models.progress import Progress
 from app.modules.certificates.models import Certificate
+from app.modules.lessons.models import Lesson, Module
 
 
 async def get_student_dashboard(db: AsyncSession, user_id: UUID, tenant_id: UUID) -> dict:
@@ -56,7 +57,7 @@ async def get_student_dashboard(db: AsyncSession, user_id: UUID, tenant_id: UUID
             .where(
                 Module.course_id.in_(enrolled_course_ids),
                 Progress.user_id == user_id,
-                Progress.completed == True,
+                Progress.completed,
             )
             .group_by(Module.course_id)
         )
@@ -78,6 +79,7 @@ async def get_student_dashboard(db: AsyncSession, user_id: UUID, tenant_id: UUID
             progress_percent = round((completed_lessons / total_lessons * 100) if total_lessons > 0 else 0)
 
         enrolled_courses.append({
+            "enrollment_id": enrollment.id,
             "course_id": course.id,
             "title": course.title,
             "description": course.description or "",

@@ -12,6 +12,7 @@ from app.models.users import User
 from app.models.courses import Course
 from app.models.enrollment import Enrollment
 from app.models.document import Document
+from app.modules.audit.service import log_action
 from app.modules.courses.schemas import (
     CourseCreate,
     CourseUpdate,
@@ -23,8 +24,8 @@ from app.modules.courses.schemas import (
     CourseReviewer,
     CoursePreviewRequest,
     CoursePreviewSourceDocument,
+    CourseCompletionResponse,
 )
-from app.modules.audit.service import log_action
 from app.modules.courses.access import AUTHORING_ROLES, require_course_access
 from app.modules.courses.publication_service import (
     activate_course_assignments,
@@ -514,6 +515,7 @@ async def _complete_course_for_user(db: AsyncSession, course_id: UUID, user: Use
     from app.models.progress import Progress
     from app.modules.audit.service import log_action
     from app.modules.certificates.service import issue_certificate
+    from app.modules.courses.release_models import ContentRelease
     from app.modules.lessons.models import Lesson, Module
     from app.modules.quizzes.models import Quiz, QuizAttempt, Question
 
@@ -529,7 +531,8 @@ async def _complete_course_for_user(db: AsyncSession, course_id: UUID, user: Use
     course_result = await db.execute(
         select(Course).where(Course.id == course_id, Course.tenant_id == user.tenant_id)
     )
-    if not course_result.scalar_one_or_none():
+    course = course_result.scalar_one_or_none()
+    if not course:
         raise HTTPException(status_code=404, detail="Course not found")
 
     total_lessons = await db.scalar(
@@ -600,16 +603,43 @@ async def _complete_course_for_user(db: AsyncSession, course_id: UUID, user: Use
             },
         )
 
+    release_id = enrollment.content_release_id if enrollment else None
+    if release_id is None:
+        release_id = course.current_release_id
+    if release_id is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Course must have an immutable ContentRelease before completion",
+        )
+
+    release = await db.scalar(
+        select(ContentRelease).where(
+            ContentRelease.id == release_id,
+            ContentRelease.course_id == course.id,
+            ContentRelease.tenant_id == user.tenant_id,
+        )
+    )
+    if release is None:
+        raise HTTPException(
+            status_code=409,
+            detail="Course completion release evidence is unavailable",
+        )
+
     if not enrollment:
         enrollment = Enrollment(
             course_id=course_id,
             user_id=user.id,
             tenant_id=user.tenant_id,
+            content_release_id=release_id,
             status="enrolled",
             source="manual",
         )
         db.add(enrollment)
         await db.flush()
+    elif enrollment.content_release_id is None:
+        # Bind legacy enrollments to the immutable release used for this
+        # completion before creating its evidence record.
+        enrollment.content_release_id = release_id
 
     was_already_completed = enrollment.status == "completed"
     if not was_already_completed:
@@ -648,16 +678,27 @@ async def _complete_course_for_user(db: AsyncSession, course_id: UUID, user: Use
         details={"certificate_number": cert_number, "certificate_id": cert_id},
     )
 
+    from app.modules.training_evidence.workflow import record_course_completion
+
+    evidence_event = await record_course_completion(
+        db,
+        user=user,
+        course=course,
+        enrollment=enrollment,
+        certificate=cert,
+    )
+
     await db.commit()
     return {
         "status": "already_completed" if was_already_completed else "completed",
         "course_id": str(course_id),
         "certificate_number": cert_number,
         "certificate_id": cert_id,
+        "training_evidence_event_id": evidence_event.id,
     }
 
 
-@router.post("/{course_id}/complete")
+@router.post("/{course_id}/complete", response_model=CourseCompletionResponse)
 async def complete_course(
     course_id: UUID,
     db: AsyncSession = Depends(get_db),

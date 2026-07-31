@@ -86,8 +86,12 @@ group/program grants не удаляются автоматическим recomp
 - неизменяемый снимок опубликованной версии курса;
 - привязка назначения и тестовой попытки к конкретной версии курса;
 - полный снимок вопросов, ответов и результата попытки с SHA-256;
+- append-only событие завершения курса и проверки знаний с отдельными
+  исправлениями, отзывом и legal hold;
+- подтверждение результата сотрудником через purpose-bound email OTP с
+  фиксацией точного текста и версии объекта;
 - idempotent certificate issue;
-- журнал обучения и экспорт.
+- журнал обучения, индивидуальный акт и групповой evidence package в PDF/ZIP.
 
 Kamilya фиксирует технические доказательства внутреннего обучения, но не
 называет обычный тест государственной аттестацией, допуском к работе или
@@ -101,7 +105,8 @@ Kamilya фиксирует технические доказательства �
 | Frontend | Next.js 14, React, TypeScript |
 | Backend | FastAPI, SQLAlchemy async, Alembic |
 | Database | PostgreSQL + pgvector |
-| Production DB/storage | Supabase |
+| Shared dev/pilot DB and storage | Supabase |
+| Commercial tenant DB | Отдельный PostgreSQL на VPS в Казахстане, до запуска не создан |
 | Queue/cache | Valkey TLS на VPS |
 | Background jobs | Celery worker на VPS |
 | API hosting | Render |

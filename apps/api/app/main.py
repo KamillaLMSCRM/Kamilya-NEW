@@ -51,7 +51,8 @@ from app.modules.demo.router import router as demo_router
 from app.modules.auth.superadmin_login import router as superadmin_login_router
 from app.modules.users.router import router as users_router
 from app.modules.users.invitations_router import router as invitations_public_router
-from app.modules.users.kiosk_router import admin_router as kiosks_admin_router, public_router as kiosks_public_router
+from app.modules.users.kiosk_router import admin_router as kiosks_admin_router
+from app.modules.users.kiosk_router import public_router as kiosks_public_router
 from app.modules.users.staff_import_router import router as staff_import_router
 from app.modules.users.staff_import_mapping_router import router as staff_import_mapping_router
 from app.modules.auth.telegram import router as telegram_router
@@ -67,6 +68,9 @@ from app.modules.training_rules.router import router as training_rules_router
 from app.modules.integrations.router import router as integrations_router
 from app.modules.learner_assistant.router import router as learner_assistant_router
 from app.modules.training_log.router import router as training_log_router
+from app.modules.training_evidence.export_router import router as training_evidence_export_router
+from app.modules.training_evidence.router import router as training_evidence_router
+from app.modules.training_evidence.step_up_router import router as training_evidence_step_up_router
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -210,6 +214,9 @@ app.include_router(training_rules_router, prefix=f"{settings.API_PREFIX}", tags=
 app.include_router(integrations_router, prefix=f"{settings.API_PREFIX}", tags=["integrations"])
 app.include_router(learner_assistant_router, prefix=f"{settings.API_PREFIX}", tags=["learner-assistant"])
 app.include_router(training_log_router, prefix=f"{settings.API_PREFIX}", tags=["admin"])
+app.include_router(training_evidence_router, prefix=f"{settings.API_PREFIX}", tags=["training-evidence"])
+app.include_router(training_evidence_step_up_router, prefix=f"{settings.API_PREFIX}", tags=["training-evidence"])
+app.include_router(training_evidence_export_router, prefix=f"{settings.API_PREFIX}", tags=["training-evidence"])
 
 # Suppress Render health check spam in logs
 class HealthCheckFilter(logging.Filter):

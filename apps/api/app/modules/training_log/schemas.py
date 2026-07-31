@@ -39,6 +39,15 @@ class TrainingLogFilter(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+class TrainingLogEvidenceItem(BaseModel):
+    """Latest evidence record for one procedure type on this enrollment."""
+
+    event_id: UUID
+    procedure_type: str
+    confirmation_status: Literal["not_required", "pending", "confirmed"]
+    evidence_state: Literal["forming", "ready", "incomplete", "revoked", "legal_hold"]
+
+
 class TrainingLogRow(BaseModel):
     """One flat row of the training log.
 
@@ -68,6 +77,17 @@ class TrainingLogRow(BaseModel):
     enrollment_source: str  # manual / position / department / cohort / learning_path
     enrolled_at: datetime | None = None
     completed_at: datetime | None = None
+
+    # Evidence read model. One enrollment can have both training and
+    # knowledge_check events; ``evidence_events`` preserves both types while
+    # the four scalar fields expose the newest event for compact table views.
+    enrollment_id: UUID
+    content_release_id: UUID | None = None
+    latest_evidence_event_id: UUID | None = None
+    evidence_procedure_type: str | None = None
+    evidence_confirmation_status: Literal["not_required", "pending", "confirmed"] = "not_required"
+    evidence_state: Literal["forming", "ready", "incomplete", "revoked", "legal_hold"] = "incomplete"
+    evidence_events: list[TrainingLogEvidenceItem] = Field(default_factory=list)
 
     # Computed (derived in repository, surfaced for UI badge):
     #   assigned    = no completion AND no progress/attempt
@@ -118,26 +138,22 @@ class TrainingLogCSVResponse(BaseModel):
     contract for tests. The endpoint returns raw CSV with UTF-8 BOM."""
 
     fields: list[str] = [
-        "user_id",
         "full_name",
         "email",
         "personnel_number",
-        "department_id",
         "department_name",
-        "position_id",
         "position_name",
-        "course_id",
         "course_title",
         "delivery_type",
-        "enrollment_status",
         "enrollment_source",
         "enrolled_at",
         "completed_at",
+        "evidence_procedure_type",
+        "evidence_confirmation_status",
+        "evidence_state",
         "progress_percent",
         "best_score",
         "quiz_attempts_count",
-        "certificate_id",
         "certificate_number",
         "certificate_issued_at",
-        "kiosk_last_seen_at",
     ]

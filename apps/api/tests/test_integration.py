@@ -186,4 +186,7 @@ class TestDatabaseConfig:
 
         from app.core.config import get_settings
         url = get_settings().DATABASE_URL
-        assert url == os.environ["DATABASE_URL"]
+        expected = os.environ["DATABASE_URL"]
+        if expected.startswith("postgres://"):
+            expected = expected.replace("postgres://", "postgresql+asyncpg://", 1)
+        assert url == expected

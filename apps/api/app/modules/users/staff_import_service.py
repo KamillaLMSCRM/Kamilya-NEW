@@ -33,7 +33,7 @@ import io
 import logging
 import re
 from dataclasses import dataclass, field
-from datetime import date, datetime, timezone
+from datetime import date
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -75,21 +75,30 @@ def _normalized_row_values(row: Any) -> dict[str, str | date | None]:
 async def _load_staff_indexes(
     db: AsyncSession,
     tenant_id: UUID,
-) -> tuple[dict[str, User], dict[str, Department], dict[UUID, Department], dict[tuple[str, str], Position]]:
+) -> tuple[
+    dict[str, User],
+    dict[str, list[User]],
+    dict[str, Department],
+    dict[UUID, Department],
+    dict[tuple[str, str], Position],
+]:
     """Load tenant-scoped users and hierarchy, including legacy text fallback."""
     users_result = await db.execute(
         select(User).where(
             User.tenant_id == tenant_id,
-            User.personnel_number.is_not(None),
         )
     )
     users_by_pn: dict[str, User] = {}
+    users_by_email: dict[str, list[User]] = {}
     for user in users_result.scalars().all():
         if user.tenant_id != tenant_id:
             continue
         key = normalize_staff_lookup(user.personnel_number)
         if key:
             users_by_pn.setdefault(key, user)
+        email_key = normalize_staff_lookup(user.email)
+        if email_key:
+            users_by_email.setdefault(email_key, []).append(user)
 
     departments_result = await db.execute(
         select(Department).where(Department.tenant_id == tenant_id)
@@ -128,7 +137,46 @@ async def _load_staff_indexes(
         if legacy_department_key:
             positions_by_key.setdefault((legacy_department_key, position_key), position)
 
-    return users_by_pn, departments_by_slug, departments_by_id, positions_by_key
+    return (
+        users_by_pn,
+        users_by_email,
+        departments_by_slug,
+        departments_by_id,
+        positions_by_key,
+    )
+
+
+class StaffEmailConflictError(ValueError):
+    """Raised when one tenant email would identify two staff records."""
+
+    def __init__(self, email: str):
+        self.email = email
+        super().__init__(f"Email уже используется другим сотрудником: {email}")
+
+
+def _assert_unique_staff_emails(
+    parsed: ParsedFile,
+    users_by_pn: dict[str, User],
+    users_by_email: dict[str, list[User]],
+) -> None:
+    planned_email_owner: dict[str, str] = {}
+    for row in parsed.rows:
+        values = _normalized_row_values(row)
+        email = normalize_staff_lookup(values["email"])
+        if not email:
+            continue
+        pn = normalize_staff_lookup(values["personnel_number"])
+        existing_by_pn = users_by_pn.get(pn)
+        existing_email_owners = users_by_email.get(email, [])
+        if len(existing_email_owners) > 1 or any(
+            owner.id != getattr(existing_by_pn, "id", None)
+            for owner in existing_email_owners
+        ):
+            raise StaffEmailConflictError(email)
+        previous_pn = planned_email_owner.get(email)
+        if previous_pn is not None and previous_pn != pn:
+            raise StaffEmailConflictError(email)
+        planned_email_owner[email] = pn
 
 
 def _find_position(
@@ -323,9 +371,9 @@ def _suggest_field_for_header(raw: str) -> str | None:
         ("hire_date", "при", "дат"),
         ("hire_date", "hire", "date"),
     ]
-    for field, a, b in rules:
+    for canonical_field, a, b in rules:
         if a in compact and (not b or b in compact):
-            return field
+            return canonical_field
     return None
 
 
@@ -335,10 +383,10 @@ def _build_column_map(raw_columns: list[str], mapping: dict[str, str] | None = N
     column_map: dict[str, str] = {}
     used_fields: set[str] = set()
 
-    for field, raw in manual.items():
-        if field in ALL_FIELDS and raw in raw_columns and field not in used_fields:
-            column_map[raw] = field
-            used_fields.add(field)
+    for canonical_field, raw in manual.items():
+        if canonical_field in ALL_FIELDS and raw in raw_columns and canonical_field not in used_fields:
+            column_map[raw] = canonical_field
+            used_fields.add(canonical_field)
 
     for raw in raw_columns:
         if raw in column_map:
@@ -724,9 +772,14 @@ async def build_preview(
 ) -> PreviewResult:
     """Match parsed rows against existing users/positions/departments, return preview."""
 
-    users_by_pn, departments_by_slug, _, positions_by_key = await _load_staff_indexes(
-        db, tenant_id
-    )
+    (
+        users_by_pn,
+        users_by_email,
+        departments_by_slug,
+        _,
+        positions_by_key,
+    ) = await _load_staff_indexes(db, tenant_id)
+    _assert_unique_staff_emails(parsed, users_by_pn, users_by_email)
 
     items: list[PreviewItem] = []
     new_positions: dict[tuple[str, str], tuple[str, str]] = {}
@@ -879,9 +932,14 @@ async def commit_import(
 
     Returns {created: N, updated: M, skipped: K, positions_created: P}.
     """
-    users_by_pn, departments_by_slug, departments_by_id, positions_by_key = (
-        await _load_staff_indexes(db, tenant_id)
-    )
+    (
+        users_by_pn,
+        users_by_email,
+        departments_by_slug,
+        departments_by_id,
+        positions_by_key,
+    ) = await _load_staff_indexes(db, tenant_id)
+    _assert_unique_staff_emails(parsed, users_by_pn, users_by_email)
 
     created = 0
     updated = 0

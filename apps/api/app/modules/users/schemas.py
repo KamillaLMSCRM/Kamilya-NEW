@@ -149,6 +149,15 @@ class InvitationResendResponse(BaseModel):
     superseded_old_id: UUID
 
 
+class UserInvitationLinkResponse(BaseModel):
+    """Fresh activation link bound to one exact tenant learner identity."""
+    email: str
+    invitation_id: UUID
+    invite_url: str
+    expires_at: datetime
+    superseded_old_id: UUID | None = None
+
+
 class InvitationPublicView(BaseModel):
     """Public view of an invitation (no auth). Used by /accept-invite page."""
     masked_email: str

@@ -410,6 +410,13 @@ async def submit_quiz(
             )
         except Exception:
             pass
+        from app.modules.training_evidence.workflow import record_quiz_submission
+
+        evidence_event = await record_quiz_submission(
+            db,
+            user=user,
+            attempt=result["attempt"],
+        )
         from app.modules.audit.service import log_action
 
         await log_action(
@@ -433,7 +440,7 @@ async def submit_quiz(
             ip_address=request.client.host if request.client else None,
             user_agent=request.headers.get("user-agent"),
         )
-        return QuizResultResponse(**result)
+        return QuizResultResponse(**result, training_evidence_event_id=evidence_event.id)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 

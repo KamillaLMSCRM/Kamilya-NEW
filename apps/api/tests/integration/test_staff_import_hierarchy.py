@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from openpyxl import Workbook
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 
 from app.models.department import Department
 from app.models.users import User
@@ -15,6 +15,7 @@ from app.modules.positions.models import Position
 from app.modules.users.staff_import_service import (
     ParsedFile,
     ParsedRow,
+    StaffEmailConflictError,
     build_preview,
     commit_import,
     parse_upload,
@@ -26,6 +27,7 @@ def _parsed(
     department: str,
     position: str,
     *,
+    email: str | None = None,
     phone: str | None = None,
     hire_date: str | None = None,
 ) -> ParsedFile:
@@ -38,6 +40,7 @@ def _parsed(
                 last_name="Learner",
                 department=department,
                 position=position,
+                email=email,
                 phone=phone,
                 hire_date=hire_date,
             )
@@ -50,6 +53,10 @@ def _parsed(
 
 
 async def _commit(db_session, tenant_id, parsed):
+    await db_session.execute(
+        text("SELECT set_current_tenant(:tenant_id)"),
+        {"tenant_id": str(tenant_id)},
+    )
     with patch(
         "app.modules.positions.batch_service.apply_rules_for_users",
         new=AsyncMock(return_value=SimpleNamespace(added=0, removed=0)),
@@ -111,6 +118,10 @@ async def test_import_writes_idempotent_tenant_scoped_department_position_user(
     assert other_tenant["positions_created"] == 1
 
     for tenant in (tenant_a, tenant_b):
+        await db_session.execute(
+            text("SELECT set_current_tenant(:tenant_id)"),
+            {"tenant_id": str(tenant.id)},
+        )
         department = await db_session.scalar(
             select(Department).where(Department.tenant_id == tenant.id)
         )
@@ -200,3 +211,33 @@ async def test_multisheet_preview_commit_matches_staff_structure(
         for department in structure.departments
         for position in department.positions
     ) == 2
+
+
+@pytest.mark.asyncio
+async def test_staff_import_rejects_duplicate_normalized_email_inside_tenant(
+    db_session,
+    make_tenant,
+):
+    tenant = await make_tenant(name="Unique staff email")
+    await _commit(
+        db_session,
+        tenant.id,
+        _parsed(
+            "EMP-001",
+            "HR",
+            "Specialist",
+            email="employee@example.kz",
+        ),
+    )
+
+    with pytest.raises(StaffEmailConflictError):
+        await _commit(
+            db_session,
+            tenant.id,
+            _parsed(
+                "EMP-002",
+                "HR",
+                "Manager",
+                email=" EMPLOYEE@example.kz ",
+            ),
+        )
