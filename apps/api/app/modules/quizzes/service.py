@@ -304,16 +304,12 @@ async def grade_quiz(
     if enrollment is None:
         raise ValueError("Course enrollment is required before quiz submission")
 
-    if enrollment.content_release_id is None and course.current_release_id is None:
+    if enrollment.content_release_id is None:
         release = await ensure_course_release(db, course)
         enrollment.content_release_id = release.id
         await db.flush()
 
-    content_release_id = (
-        enrollment.content_release_id
-        if enrollment.content_release_id
-        else course.current_release_id
-    )
+    content_release_id = enrollment.content_release_id
     release_sha256 = None
     if content_release_id:
         release_sha256 = await db.scalar(

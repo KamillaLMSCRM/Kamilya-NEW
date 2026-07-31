@@ -284,6 +284,76 @@ async def test_legacy_published_course_is_bound_to_release_before_assignment_and
 
 
 @pytest.mark.asyncio
+async def test_legacy_existing_enrollment_is_repaired_at_quiz_submission(
+    client,
+    db_session,
+    auth_headers,
+    make_tenant,
+    make_user,
+    make_course,
+    make_module,
+    make_lesson,
+    make_quiz,
+):
+    from app.models.enrollment import Enrollment
+
+    tenant = await make_tenant(name="Legacy enrollment tenant")
+    author = await make_user(
+        tenant,
+        role="methodologist",
+        email="author@legacy-enrollment.example",
+    )
+    learner = await make_user(
+        tenant,
+        role="student",
+        email="learner@legacy-enrollment.example",
+    )
+    course, quiz, questions, choices = await _curriculum(
+        db_session,
+        make_course,
+        make_module,
+        make_lesson,
+        make_quiz,
+        tenant,
+        author,
+    )
+    course.status = "published"
+    enrollment = Enrollment(
+        tenant_id=tenant.id,
+        course_id=course.id,
+        user_id=learner.id,
+        status="in_progress",
+        source="manual",
+    )
+    db_session.add(enrollment)
+    await db_session.flush()
+    assert enrollment.content_release_id is None
+
+    submitted = await client.post(
+        f"/api/v1/quizzes/{quiz.id}/submit",
+        headers=auth_headers(learner),
+        json={
+            "answers": [
+                {
+                    "question_id": str(questions[0].id),
+                    "selected_choice_ids": [str(choices[0].id)],
+                },
+                {
+                    "question_id": str(questions[1].id),
+                    "selected_choice_ids": [str(choices[2].id)],
+                },
+            ],
+        },
+    )
+    assert submitted.status_code == 200, submitted.text
+    await db_session.refresh(enrollment)
+    assert enrollment.content_release_id is not None
+    assert submitted.json()["attempt"]["content_release_id"] == str(
+        enrollment.content_release_id
+    )
+
+
+@pytest.mark.asyncio
 async def test_quiz_submission_rejects_partial_and_cross_question_answers(
     client,
     db_session,
