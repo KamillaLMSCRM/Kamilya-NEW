@@ -198,6 +198,92 @@ async def test_publish_binds_enrollment_and_attempt_to_immutable_release(
 
 
 @pytest.mark.asyncio
+async def test_legacy_published_course_is_bound_to_release_before_assignment_and_quiz(
+    client,
+    db_session,
+    auth_headers,
+    make_tenant,
+    make_user,
+    make_course,
+    make_module,
+    make_lesson,
+    make_quiz,
+):
+    """Published pre-release courses must not fail at the first real quiz."""
+    from app.models.enrollment import Enrollment
+    from app.modules.courses.release_models import ContentRelease
+
+    tenant = await make_tenant(name="Legacy release tenant")
+    author = await make_user(
+        tenant,
+        role="methodologist",
+        email="author@legacy-release.example",
+    )
+    learner = await make_user(
+        tenant,
+        role="student",
+        email="learner@legacy-release.example",
+    )
+    course, quiz, questions, choices = await _curriculum(
+        db_session,
+        make_course,
+        make_module,
+        make_lesson,
+        make_quiz,
+        tenant,
+        author,
+    )
+    course.status = "published"
+    course.current_release_id = None
+    await db_session.flush()
+
+    assigned = await client.post(
+        f"/api/v1/courses/{course.id}/enrollments",
+        headers=auth_headers(author),
+        json={"user_ids": [str(learner.id)]},
+    )
+    assert assigned.status_code == 201, assigned.text
+    await db_session.refresh(course)
+    assert course.current_release_id is not None
+
+    release = await db_session.scalar(
+        select(ContentRelease).where(ContentRelease.id == course.current_release_id)
+    )
+    enrollment = await db_session.scalar(
+        select(Enrollment).where(
+            Enrollment.course_id == course.id,
+            Enrollment.user_id == learner.id,
+        )
+    )
+    assert release is not None
+    assert enrollment is not None
+    assert enrollment.content_release_id == release.id
+
+    submitted = await client.post(
+        f"/api/v1/quizzes/{quiz.id}/submit",
+        headers=auth_headers(learner),
+        json={
+            "answers": [
+                {
+                    "question_id": str(questions[0].id),
+                    "selected_choice_ids": [str(choices[0].id)],
+                },
+                {
+                    "question_id": str(questions[1].id),
+                    "selected_choice_ids": [str(choices[2].id)],
+                },
+            ],
+            "time_spent_seconds": 15,
+        },
+    )
+    assert submitted.status_code == 200, submitted.text
+    body = submitted.json()
+    assert body["passed"] is True
+    assert body["attempt"]["content_release_id"] == str(release.id)
+    assert body["training_evidence_event_id"]
+
+
+@pytest.mark.asyncio
 async def test_quiz_submission_rejects_partial_and_cross_question_answers(
     client,
     db_session,

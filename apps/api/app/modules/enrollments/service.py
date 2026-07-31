@@ -1,14 +1,17 @@
-"""Enrollments — service"""
-from uuid import UUID
+"""Enrollments — API service."""
+from uuid import UUID, uuid4
+
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
-from app.modules.lessons.models import Module, Lesson
+
 from app.models.courses import Course
+from app.models.enrollment import Enrollment
+from app.models.users import User
+from app.modules.courses.release_service import ensure_course_release
 
 
 async def get_enrolled_users(db: AsyncSession, course_id: UUID, tenant_id: UUID):
     """List users enrolled in a course."""
-    from app.models.enrollment import Enrollment
     course_exists = await db.scalar(
         select(Course.id).where(
             Course.id == course_id,
@@ -48,10 +51,6 @@ async def enroll_users(db: AsyncSession, course_id: UUID, tenant_id: UUID, user_
       - users that aren't `is_active=True` AND `status='active'`
       - users already enrolled in this course
     """
-    from app.models.enrollment import Enrollment
-    from app.models.users import User
-    from uuid import uuid4
-
     if not user_ids:
         return []
 
@@ -65,6 +64,7 @@ async def enroll_users(db: AsyncSession, course_id: UUID, tenant_id: UUID, user_
         raise ValueError("Course not found")
     if course.status != "published":
         raise ValueError("Course must be published before assignment")
+    release = await ensure_course_release(db, course)
 
     # 1 round-trip: load all candidate users with their status
     # + tenant. We do this in one query (not N+1) so the cost
@@ -113,6 +113,7 @@ async def enroll_users(db: AsyncSession, course_id: UUID, tenant_id: UUID, user_
             course_id=course_id,
             user_id=uid,
             tenant_id=tenant_id,
+            content_release_id=release.id,
             status="enrolled",
             source="manual",
         )
@@ -126,10 +127,6 @@ async def enroll_users(db: AsyncSession, course_id: UUID, tenant_id: UUID, user_
 
 async def self_enroll(db: AsyncSession, course_id: UUID, user_id: UUID, tenant_id: UUID):
     """Self-enrollment — student enrolls themselves in a course."""
-    from app.models.enrollment import Enrollment
-    from app.models.courses import Course
-    from uuid import uuid4
-
     # Check course exists and is published
     course_result = await db.execute(
         select(Course).where(Course.id == course_id, Course.tenant_id == tenant_id)
@@ -139,6 +136,7 @@ async def self_enroll(db: AsyncSession, course_id: UUID, user_id: UUID, tenant_i
         raise ValueError("Course not found")
     if course.status != "published":
         raise ValueError("Course is not published")
+    release = await ensure_course_release(db, course)
 
     # Check for existing enrollment
     existing = await db.execute(
@@ -156,6 +154,7 @@ async def self_enroll(db: AsyncSession, course_id: UUID, user_id: UUID, tenant_i
         course_id=course_id,
         user_id=user_id,
         tenant_id=tenant_id,
+        content_release_id=release.id,
         status="enrolled",
     )
     db.add(enrollment)
@@ -164,7 +163,6 @@ async def self_enroll(db: AsyncSession, course_id: UUID, user_id: UUID, tenant_i
 
 
 async def unenroll(db: AsyncSession, enrollment_id: UUID, tenant_id: UUID) -> None:
-    from app.models.enrollment import Enrollment
     result = await db.execute(
         select(Enrollment).where(Enrollment.id == enrollment_id, Enrollment.tenant_id == tenant_id)
     )
@@ -179,7 +177,6 @@ async def unenroll(db: AsyncSession, enrollment_id: UUID, tenant_id: UUID) -> No
 
 async def get_course_enrollment_stats(db: AsyncSession, course_id: UUID, tenant_id: UUID) -> dict:
     """Get enrollment statistics for a course."""
-    from app.models.enrollment import Enrollment
     total_result = await db.execute(
         select(func.count(Enrollment.id)).where(
             Enrollment.course_id == course_id,

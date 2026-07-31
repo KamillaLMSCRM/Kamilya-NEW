@@ -328,3 +328,50 @@ async def create_course_release(
     course.current_release_id = release.id
     await db.flush()
     return release
+
+
+async def ensure_course_release(
+    db: AsyncSession,
+    course: Course,
+    *,
+    published_by: UUID | None = None,
+) -> ContentRelease:
+    """Return the immutable release for a published course.
+
+    Courses published before release evidence was introduced can legitimately
+    have ``current_release_id = NULL``. Locking the course row makes the repair
+    idempotent when assignment and learner requests arrive concurrently. The
+    snapshot is built from the exact published content that is about to become
+    evidence-bearing; it is never synthesized from a partial quiz payload.
+    """
+    if course.status != "published":
+        raise ValueError("Course must be published before creating a release")
+
+    locked_course = await db.scalar(
+        select(Course)
+        .where(
+            Course.id == course.id,
+            Course.tenant_id == course.tenant_id,
+        )
+        .with_for_update()
+    )
+    if locked_course is None:
+        raise ValueError("Course not found")
+
+    if locked_course.current_release_id is not None:
+        release = await db.scalar(
+            select(ContentRelease).where(
+                ContentRelease.id == locked_course.current_release_id,
+                ContentRelease.course_id == locked_course.id,
+                ContentRelease.tenant_id == locked_course.tenant_id,
+            )
+        )
+        if release is None:
+            raise ValueError("Course release evidence is inconsistent")
+        return release
+
+    return await create_course_release(
+        db,
+        locked_course,
+        published_by=published_by,
+    )

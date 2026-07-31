@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 
 from app.modules.quizzes.models import Quiz, Question, QuizChoice, QuizAttempt
-from app.modules.courses.release_service import canonical_json_sha256
+from app.modules.courses.release_service import canonical_json_sha256, ensure_course_release
 
 
 async def get_quiz_with_questions(
@@ -301,9 +301,17 @@ async def grade_quiz(
             Enrollment.tenant_id == tenant_id,
         )
     )
+    if enrollment is None:
+        raise ValueError("Course enrollment is required before quiz submission")
+
+    if enrollment.content_release_id is None and course.current_release_id is None:
+        release = await ensure_course_release(db, course)
+        enrollment.content_release_id = release.id
+        await db.flush()
+
     content_release_id = (
         enrollment.content_release_id
-        if enrollment and enrollment.content_release_id
+        if enrollment.content_release_id
         else course.current_release_id
     )
     release_sha256 = None
