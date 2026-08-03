@@ -1,8 +1,24 @@
-# Docling production service
+# Document converter service
 
-Docling runs on the VPS selected by `VPS_URL`. The public endpoint is
+Docling and the local MarkItDown adapter run on the VPS selected by `VPS_URL`. The public endpoint is
 `https://docling.kml.kz`; Caddy terminates TLS and proxies to the local service
 on port 8600.
+
+## Conversion routing
+
+- PDF files: Docling is primary because it provides OCR, layout, and table
+  extraction. MarkItDown is only a degraded fallback for digital PDF text.
+- Image files: Docling is primary and remains the only route because OCR is
+  required.
+- DOCX, XLS, and XLSX: MarkItDown 0.1.6 is primary; Docling is the fallback.
+- Legacy DOC: LibreOffice converts it to DOCX first, then the Office route is
+  used.
+
+MarkItDown is instantiated with plugins disabled and is called only with a
+local temporary path through `convert_local`. The endpoint does not accept
+URLs or perform network conversion. Every response keeps `markdown`, `pages`,
+`tables`, and `filename`, and also reports `engine`, `engine_version`,
+`fallback_used`, and `warnings`.
 
 ## OCR dependencies
 

@@ -130,7 +130,7 @@ Kamilya фиксирует технические доказательства �
 | API hosting | Render |
 | Web hosting | Vercel |
 | Email | Resend |
-| Document conversion | Docling |
+| Document conversion | Local hybrid service: Docling OCR/layout + MarkItDown Office fast path; LibreOffice for legacy `.doc` |
 
 Monorepo:
 

@@ -22,3 +22,13 @@ async def test_plain_text_document_keeps_local_fallback(tmp_path) -> None:
     converted = await _local_convert(str(source))
 
     assert converted["markdown"] == "# Approved policy"
+    assert converted["metadata"] == {
+        "filename": "policy.md",
+        "size": len("# Approved policy"),
+        "pages": 0,
+        "tables": 0,
+        "engine": "plain_text",
+        "engine_version": None,
+        "fallback_used": False,
+        "warnings": [],
+    }

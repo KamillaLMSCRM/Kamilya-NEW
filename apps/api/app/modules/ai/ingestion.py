@@ -58,6 +58,10 @@ class DocumentConverter:
                             "size": os.path.getsize(file_path),
                             "pages": data.get("pages", 0),
                             "tables": data.get("tables", 0),
+                            "engine": data.get("engine", "docling"),
+                            "engine_version": data.get("engine_version"),
+                            "fallback_used": bool(data.get("fallback_used", False)),
+                            "warnings": list(data.get("warnings") or []),
                         },
                     }
         except Exception as e:
@@ -78,7 +82,16 @@ async def _local_convert(file_path: str) -> dict:
         )
     return {
         "markdown": content,
-        "metadata": {"filename": os.path.basename(file_path), "size": os.path.getsize(file_path)},
+        "metadata": {
+            "filename": os.path.basename(file_path),
+            "size": os.path.getsize(file_path),
+            "pages": 0,
+            "tables": 0,
+            "engine": "plain_text",
+            "engine_version": None,
+            "fallback_used": False,
+            "warnings": [],
+        },
     }
 
 
@@ -512,7 +525,13 @@ class DocumentIngestion:
         # Step 1: Convert to markdown
         converted = await self.converter.convert(file_path)
         markdown = converted["markdown"]
-        print(f"[INGEST] converted {len(markdown)} chars", flush=True)
+        conversion_metadata = dict(converted.get("metadata") or {})
+        print(
+            f"[INGEST] converted {len(markdown)} chars "
+            f"engine={conversion_metadata.get('engine', 'unknown')} "
+            f"fallback={conversion_metadata.get('fallback_used', False)}",
+            flush=True,
+        )
 
         # Step 2: Chunk
         chunks = self.chunker.chunk_markdown(markdown, doc_id, filename)
@@ -568,6 +587,7 @@ class DocumentIngestion:
             "chunks": len(chunks),
             "summary": summary,
             "embeddings_written": embeddings_written,
+            "conversion": conversion_metadata,
         }
 
     async def ingest_files(self, file_paths: list[str]) -> list[dict]:

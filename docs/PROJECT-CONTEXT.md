@@ -35,7 +35,7 @@
 | Background jobs | Celery worker на VPS |
 | Email | Resend, домен `notify.kml.kz` |
 | Telegram | Kamilya bot/auth flow |
-| Document conversion | Docling на VPS |
+| Document conversion | Гибридный локальный сервис на VPS: Docling для PDF/OCR, MarkItDown для DOCX/XLS/XLSX, LibreOffice для старого `.doc` |
 
 Текущая Supabase используется для разработки, интеграционных тестов и
 контролируемой демонстрации. Реальные данные коммерческого клиента в этот

@@ -286,6 +286,7 @@ async def run_document_reindex(
                 "chunks": document.index_chunks_total,
                 "embeddings_written": document.index_chunks_indexed,
                 "index_status": document.index_status,
+                "conversion": result.get("conversion", {}),
             }
             job.updated_at = now
             job.completed_at = now
