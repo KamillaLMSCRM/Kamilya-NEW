@@ -49,6 +49,22 @@ describe('route and capability registry', () => {
     expect(hrefs).not.toContain('/quizzes?section=assignments');
   });
 
+  it('makes confirmation procedures discoverable for methodologists without giving admins access', () => {
+    const methodologistSidebar = getNavigationRoutes('methodologist', 'sidebar');
+    const procedureRoute = methodologistSidebar.find((route) => route.id === 'training-procedures');
+
+    expect(procedureRoute).toMatchObject({
+      href: '/training-procedures',
+      section: 'workforce',
+      sidebar: true,
+      commandPalette: true,
+      capability: 'configure_training_procedures',
+    });
+    expect(getNavigationRoutes('admin', 'sidebar').some((route) => route.id === 'training-procedures')).toBe(false);
+    expect(canAccessRegisteredRoute('methodologist', '/training-procedures')).toBe(true);
+    expect(canAccessRegisteredRoute('admin', '/training-procedures')).toBe(false);
+  });
+
   it('keeps contextual workforce tools out of global navigation', () => {
     const routes = getNavigationRoutes('methodologist', 'sidebar');
     expect(routes[0].href).toBe('/dashboard');

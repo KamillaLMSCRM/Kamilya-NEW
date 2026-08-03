@@ -1,7 +1,8 @@
 import json
-from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
+
 from pydantic import field_validator, model_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -109,12 +110,10 @@ class Settings(BaseSettings):
 
     # Telegram Bot
     TELEGRAM_BOT_TOKEN: str = ""
-    # If empty, the server generates a random secret at startup
-    # (apps/api/app/core/config.py autogenerate logic). The webhook
-    # endpoint always requires the X-Telegram-Bot-Api-Secret-Token
-    # header to match. To set up the webhook with Telegram, call
-    # setWebhook with the same secret — the secret is logged on
-    # startup so you can copy it.
+    # Must be configured explicitly in every environment where Telegram is
+    # enabled. The webhook endpoint requires the matching
+    # X-Telegram-Bot-Api-Secret-Token header; the server never logs or
+    # autogenerates this secret.
     TELEGRAM_WEBHOOK_SECRET: str = ""
 
     # Email

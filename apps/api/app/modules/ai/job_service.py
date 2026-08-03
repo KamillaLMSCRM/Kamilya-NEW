@@ -2,7 +2,8 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -27,7 +28,7 @@ async def create_ai_job(
         progress=0,
         message="Job queued",
         params=params,
-        created_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
     )
     db.add(job)
     await db.flush()
@@ -62,9 +63,13 @@ async def update_ai_job(
     job = await get_ai_job(db, job_id, tenant_id=tenant_id)
     if not job:
         return None
+    # Recovery/cancellation is terminal. Late worker callbacks must not
+    # resurrect the job or overwrite its diagnostics/result.
+    if job.status == "cancelled" and kwargs.get("status") != "cancelled":
+        return job
     for k, v in kwargs.items():
         setattr(job, k, v)
-    job.updated_at = datetime.now(timezone.utc)
+    job.updated_at = datetime.now(UTC)
     await db.flush()
     return job
 

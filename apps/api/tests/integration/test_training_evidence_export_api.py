@@ -11,7 +11,6 @@ from uuid import uuid4
 import pytest
 import pytest_asyncio
 from pypdf import PdfReader
-from sqlalchemy import select
 
 from app.modules.courses.release_models import ContentRelease
 from app.modules.courses.release_service import canonical_json_sha256
@@ -304,163 +303,34 @@ async def test_group_export_rejects_malformed_event_id(client, complete_event, a
     assert response.status_code == 422
 
 
-async def test_group_export_keeps_individual_decisions(
-    client,
-    db_session,
-    complete_event,
-    make_user,
-    auth_headers,
+async def test_group_export_cannot_claim_decision_via_generic_correction(
+    client, complete_event, auth_headers
 ):
-    from app.models.enrollment import Enrollment
-    from app.modules.evidence_export import build_group_evidence_package
-    from app.modules.quizzes.models import QuizAttempt
-    from app.modules.training_evidence.export_service import build_group_evidence_input
-
-    tenant, methodologist, learner_one, event_one, release, enrollment_one = complete_event
-    now = datetime.now(UTC)
-    event_one_decided = await record_event(
-        db_session,
-        tenant_id=tenant.id,
-        actor_user_id=methodologist.id,
-        user_id=learner_one.id,
-        procedure_type=event_one.procedure_type,
-        enrollment_id=enrollment_one.id,
-        content_release_id=release.id,
-        record_type="correction",
-        related_event_id=event_one.id,
-        reason="Record the individual admission decision.",
-        payload_snapshot={
-            **event_one.payload_snapshot,
-            "decision": {
-                "outcome": "admitted",
-                "decided_at": now.isoformat(),
-                "decided_by": str(methodologist.id),
-                "rationale": "Passed the individual check.",
-            },
+    tenant, methodologist, learner, event, _, _ = complete_event
+    correction = await client.post(
+        f"/api/v1/training-evidence/events/{event.id}/corrections",
+        headers=auth_headers(methodologist),
+        json={
+            "user_id": str(learner.id),
+            "procedure_type": "knowledge_check",
+            "payload_snapshot": {"decision": {"outcome": "admitted"}},
+            "reason": "Attempt to manufacture an admission decision",
         },
     )
-    await confirm_step_up(
-        db_session,
-        tenant_id=tenant.id,
-        event_id=event_one_decided.id,
-        user_id=learner_one.id,
-        action_text="Confirm individual result",
-        object_version="content-release:v1",
-        reauth_method="email_otp",
-        ip_address="192.0.2.10",
-        user_agent="evidence-test/1.0",
-    )
-
-    learner_two = await make_user(
-        tenant,
-        role="student",
-        email=f"learner-{uuid4().hex[:8]}@evidence.example",
-        first_name="Dana",
-        last_name="Sarsenova",
-        personnel_number="EMP-008",
-    )
-    enrollment_two = Enrollment(
-        id=uuid4(),
-        tenant_id=tenant.id,
-        course_id=enrollment_one.course_id,
-        user_id=learner_two.id,
-        content_release_id=release.id,
-        status="enrolled",
-        source="position",
-        enrolled_at=now,
-    )
-    db_session.add(enrollment_two)
-    await db_session.flush()
-
-    attempt_one = await db_session.scalar(
-        select(QuizAttempt).where(QuizAttempt.enrollment_id == enrollment_one.id)
-    )
-    assert attempt_one is not None
-    attempt_two_id = uuid4()
-    attempt_two_snapshot = json.loads(json.dumps(attempt_one.evidence_snapshot))
-    attempt_two_snapshot["attempt"].update(
-        {
-            "id": str(attempt_two_id),
-            "user_id": str(learner_two.id),
-            "enrollment_id": str(enrollment_two.id),
-        }
-    )
-    attempt_two = QuizAttempt(
-        id=attempt_two_id,
-        tenant_id=tenant.id,
-        user_id=learner_two.id,
-        quiz_id=attempt_one.quiz_id,
-        enrollment_id=enrollment_two.id,
-        content_release_id=release.id,
-        score_percent=70,
-        total_points=attempt_one.total_points,
-        earned_points=attempt_one.earned_points,
-        passed=False,
-        answers=attempt_one.answers,
-        evidence_snapshot=attempt_two_snapshot,
-        evidence_sha256=canonical_json_sha256(attempt_two_snapshot),
-        started_at=now - timedelta(minutes=10),
-        completed_at=now,
-        time_spent_seconds=attempt_one.time_spent_seconds,
-    )
-    db_session.add(attempt_two)
-    await db_session.flush()
-
-    event_two = await record_event(
-        db_session,
-        tenant_id=tenant.id,
-        actor_user_id=methodologist.id,
-        user_id=learner_two.id,
-        procedure_type=event_one.procedure_type,
-        enrollment_id=enrollment_two.id,
-        content_release_id=release.id,
-        payload_snapshot={
-            "procedure": event_one.payload_snapshot["procedure"],
-            "decision": {
-                "outcome": "rejected",
-                "decided_at": now.isoformat(),
-                "decided_by": str(methodologist.id),
-                "rationale": "Score below the threshold.",
-            },
-        },
-    )
-    await confirm_step_up(
-        db_session,
-        tenant_id=tenant.id,
-        event_id=event_two.id,
-        user_id=learner_two.id,
-        action_text="Confirm individual result",
-        object_version="content-release:v1",
-        reauth_method="email_otp",
-        ip_address="192.0.2.11",
-        user_agent="evidence-test/1.0",
-    )
-    await db_session.flush()
+    assert correction.status_code == 422, correction.text
+    assert correction.json()["details"]["code"] == "system_evidence_workflow_required"
 
     response = await client.post(
         "/api/v1/training-evidence/exports/group",
         headers=auth_headers(methodologist),
-        json={"event_ids": [str(event_one_decided.id), str(event_two.id)]},
+        json={"event_ids": [str(event.id)]},
     )
     assert response.status_code == 200, response.text
     with zipfile.ZipFile(io.BytesIO(response.content)) as archive:
         manifest = json.loads(archive.read("manifest.json"))
         assert "group-protocol.pdf" in archive.namelist()
-
-    outcomes = {
-        record["employee"]["id"]: record["decision"]["outcome"]
-        for record in manifest["records"]
-    }
-    assert outcomes[str(learner_one.id)] == "admitted"
-    assert outcomes[str(learner_two.id)] == "rejected"
     assert manifest.get("decision") is None
-
-    group_input = await build_group_evidence_input(
-        db_session, tenant.id, [event_one_decided.id, event_two.id]
-    )
-    public_manifest = build_group_evidence_package(group_input, public=True).manifest
-    assert all("decision" not in record for record in public_manifest["records"])
-    assert public_manifest.get("decision") is None
+    assert all("decision" not in record for record in manifest["records"])
 
 
 @pytest_asyncio.fixture

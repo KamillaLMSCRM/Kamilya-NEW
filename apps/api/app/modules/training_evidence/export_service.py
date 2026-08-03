@@ -152,9 +152,21 @@ async def _load_event_chain(
             _incomplete(event_id, ["valid_event_chain"], message="Evidence event chain is too long.")
 
     chain.sort(key=_event_order)
-    expected = (root.user_id, root.enrollment_id, root.content_release_id, root.procedure_type)
+    expected = (
+        root.user_id,
+        root.enrollment_id,
+        root.content_release_id,
+        root.training_procedure_id,
+        root.procedure_type,
+    )
     for item in chain:
-        if (item.user_id, item.enrollment_id, item.content_release_id, item.procedure_type) != expected:
+        if (
+            item.user_id,
+            item.enrollment_id,
+            item.content_release_id,
+            item.training_procedure_id,
+            item.procedure_type,
+        ) != expected:
             _incomplete(event_id, ["consistent_event_chain"], message="Evidence event chain contains inconsistent links.")
     return root, chain
 

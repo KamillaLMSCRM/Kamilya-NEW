@@ -13,7 +13,7 @@ import {
   Input,
   DateInput,
 } from '@/components/ui';
-import { Check, FileDown, Package, RefreshCw, Square, SquareCheck } from 'lucide-react';
+import { Check, FileDown, Link2, Package, RefreshCw, Square, SquareCheck } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
 import { toast } from '@/components/ui/Toast';
@@ -28,6 +28,7 @@ import {
 import { TRAINING_LOG_COLUMN_CLASS as columnClass } from './presentation';
 import { getAssignmentSourceInfo } from '@/lib/assignmentSource';
 import { downloadGroupEvidence, downloadIndividualEvidence, type EvidenceExportFormat } from '@/features/training-evidence/exportApi';
+import { EvidenceShareDialog } from '@/features/training-evidence/EvidenceShareDialog';
 
 /**
  * Training log — единый журнал обучения (P0.3 first-tenant hardening).
@@ -129,6 +130,7 @@ export default function AdminTrainingLogPage() {
   const [offset, setOffset] = useState(0);
   const [selectedEvidenceIds, setSelectedEvidenceIds] = useState<Set<string>>(new Set());
   const [exportingKey, setExportingKey] = useState<string | null>(null);
+  const [shareEventIds, setShareEventIds] = useState<string[] | null>(null);
 
   const [searchInput, setSearchInput] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -305,6 +307,14 @@ export default function AdminTrainingLogPage() {
               >
                 <Package className="mr-2 h-4 w-4" aria-hidden="true" />
                 {t('trainingLog.evidence.groupZip')}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShareEventIds(Array.from(selectedEvidenceIds))}
+              >
+                <Link2 className="mr-2 h-4 w-4" aria-hidden="true" />
+                {t('trainingLog.evidence.shareButton')}
               </Button>
             </>
           )}
@@ -604,6 +614,13 @@ export default function AdminTrainingLogPage() {
                                 disabled={exportingKey !== null}
                                 onClick={() => void exportEvidence([row.latest_evidence_event_id as string], 'zip', `${row.latest_evidence_event_id}-zip`)}
                               />
+                              <EvidenceIconButton
+                                label={t('trainingLog.evidence.shareButton')}
+                                icon={<Link2 className="h-4 w-4" aria-hidden="true" />}
+                                busy={false}
+                                disabled={exportingKey !== null}
+                                onClick={() => setShareEventIds([row.latest_evidence_event_id as string])}
+                              />
                             </div>
                           ) : <span className="text-xs text-muted-foreground">{t('trainingLog.evidence.unavailable')}</span>}
                         </td>
@@ -617,6 +634,11 @@ export default function AdminTrainingLogPage() {
           )}
         </CardContent>
       </Card>
+      <EvidenceShareDialog
+        open={shareEventIds !== null}
+        eventIds={shareEventIds || []}
+        onClose={() => setShareEventIds(null)}
+      />
     </div>
   );
 }

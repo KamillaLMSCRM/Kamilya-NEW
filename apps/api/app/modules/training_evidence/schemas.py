@@ -28,9 +28,22 @@ class EvidenceCorrectionCreate(BaseModel):
     user_id: UUID
     enrollment_id: UUID | None = None
     content_release_id: UUID | None = None
+    training_procedure_id: UUID | None = None
     procedure_type: ProcedureType
     payload_snapshot: dict[str, Any] = Field(min_length=1)
     reason: str = Field(min_length=1, max_length=2000)
+
+
+class EvidenceEventCreate(BaseModel):
+    """Methodologist-controlled original event; server owns timestamps and snapshots."""
+
+    user_id: UUID
+    enrollment_id: UUID | None = None
+    content_release_id: UUID | None = None
+    training_procedure_id: UUID | None = None
+    procedure_type: ProcedureType
+    source_event_key: str | None = Field(default=None, min_length=1, max_length=255)
+    payload_snapshot: dict[str, Any] = Field(min_length=1)
 
 
 class EvidenceRevocationCreate(BaseModel):
@@ -48,6 +61,7 @@ class EvidenceEventResponse(BaseModel):
     user_id: UUID
     enrollment_id: UUID | None
     content_release_id: UUID | None
+    training_procedure_id: UUID | None
     procedure_type: str
     source_event_key: str | None
     record_type: str
@@ -73,6 +87,7 @@ class LearnerEvidenceEventResponse(BaseModel):
     id: UUID
     enrollment_id: UUID | None
     content_release_id: UUID | None
+    training_procedure_id: UUID | None
     procedure_type: str
     record_type: str
     related_event_id: UUID | None

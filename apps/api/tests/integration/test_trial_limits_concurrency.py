@@ -60,6 +60,7 @@ async def test_parallel_ai_reservations_do_not_exceed_trial_limit():
 
     async def attempt() -> bool:
         async with async_session_factory() as session:
+            await _set_tenant_context(session, tenant_id)
             try:
                 await reserve_ai_course_generation(session, tenant_id)
                 await session.commit()
@@ -73,6 +74,7 @@ async def test_parallel_ai_reservations_do_not_exceed_trial_limit():
         assert sum(results) == 1
 
         async with async_session_factory() as check:
+            await _set_tenant_context(check, tenant_id)
             usage = await check.get(TenantUsage, tenant_id)
             assert usage is not None
             assert usage.ai_course_generations_used == 1

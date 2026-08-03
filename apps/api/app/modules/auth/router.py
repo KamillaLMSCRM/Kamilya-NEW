@@ -1,29 +1,44 @@
+import logging
+from datetime import datetime, timezone
+from uuid import UUID
+
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel
 from sqlalchemy import select, text
 from starlette.responses import JSONResponse
-from datetime import datetime, timezone
-from uuid import UUID
+
 from app.core.auth import create_access_token, create_refresh_token, decode_token, get_current_user
 from app.core.config import get_settings
 from app.core.db import get_db
 from app.core.email import EmailService
-from app.modules.auth.schemas import LoginRequest, RefreshRequest, RoleSwitchRequest, TokenResponse, UserCreate, UserResponse
-from app.modules.auth.service import (
-    authenticate_user,
-    create_user_and_tokens,
-    refresh_access_token,
-    blacklist_refresh_token,
-    build_user_payload,
-    get_user_roles,
-)
-from app.modules.auth.auth_sessions import generate_auth_code, check_code
-from app.modules.auth.email_otp import create_email_code, consume_email_code
-from app.modules.audit.service import log_action
 from app.models.tenants import Tenant
 from app.models.users import User
+from app.modules.audit.service import log_action
+from app.modules.auth.auth_sessions import (
+    AuthSessionStoreUnavailableError,
+    check_code,
+    generate_auth_code,
+)
+from app.modules.auth.email_otp import consume_email_code, create_email_code
+from app.modules.auth.schemas import (
+    LoginRequest,
+    RefreshRequest,
+    RoleSwitchRequest,
+    TokenResponse,
+    UserCreate,
+)
+from app.modules.auth.service import (
+    authenticate_user,
+    blacklist_refresh_token,
+    build_user_payload,
+    create_user_and_tokens,
+    get_user_roles,
+    refresh_access_token,
+)
+from app.modules.auth.telegram import is_telegram_login_enabled
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -130,14 +145,12 @@ def _read_refresh_cookie_or_body(request: Request, body_token: str | None) -> st
 
 @router.post("/login", response_model=TokenResponse)
 async def login(req: LoginRequest, request: Request, response: Response, db=Depends(get_db)):
-    import logging
-    logger = logging.getLogger(__name__)
     try:
         user, access_token, refresh_token = await authenticate_user(db, req.email, req.password)
     except HTTPException:
         raise
-    except Exception as e:
-        logger.exception(f"authenticate_user failed: {e}")
+    except Exception:
+        logger.error("authenticate_user_failed")
         raise
     try:
         # The regular email login intentionally supports the legacy/platform
@@ -158,8 +171,8 @@ async def login(req: LoginRequest, request: Request, response: Response, db=Depe
             ip_address=request.client.host if request.client else None,
             user_agent=request.headers.get("user-agent"),
         )
-    except Exception as e:
-        logger.exception(f"log_action failed: {e}")
+    except Exception:
+        logger.error("login_audit_failed")
         raise
     await db.commit()
     # Set refresh token as httpOnly cookie; access token still returned in body.
@@ -341,6 +354,18 @@ class EmailCodeResponse(BaseModel):
     expires_in: int = 300
 
 
+class AuthCapabilitiesResponse(BaseModel):
+    telegram_login_enabled: bool
+
+
+@router.get("/capabilities", response_model=AuthCapabilitiesResponse)
+async def auth_capabilities() -> AuthCapabilitiesResponse:
+    """Return safe, public capability flags for the login screen."""
+    return AuthCapabilitiesResponse(
+        telegram_login_enabled=is_telegram_login_enabled(),
+    )
+
+
 async def _lookup_login_user_by_email(db, email: str) -> dict | None:
     result = await db.execute(
         text(
@@ -437,16 +462,27 @@ async def verify_email_code(req: EmailCodeVerifyRequest, response: Response, db=
 @router.post("/generate-code", response_model=GenerateCodeResponse)
 async def generate_code():
     """Generate a 6-digit code for Telegram bot authentication."""
-    import logging
-    logger = logging.getLogger(__name__)
+    if not is_telegram_login_enabled():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={
+                "code": "telegram_unavailable",
+                "message": "Telegram login is temporarily unavailable.",
+            },
+        )
+
     try:
         code, expires_in = await generate_auth_code()
         return GenerateCodeResponse(code=code, expires_in=expires_in)
+    except AuthSessionStoreUnavailableError:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Authentication service temporarily unavailable",
+        ) from None
     except Exception:
         # Never include a one-time code or provider details in application logs.
-        logger.exception("Error generating auth code")
-        from fastapi import HTTPException
-        raise HTTPException(status_code=500, detail="Unable to generate authentication code") from None
+        logger.error("telegram_auth_code_generation_failed")
+        raise HTTPException(status_code=503, detail="Authentication service temporarily unavailable") from None
 
 
 @router.post("/check-code")
@@ -459,7 +495,6 @@ async def check_auth_code(req: CheckCodeRequest, response: Response):
     the in-memory store) would log the user out. Mirrors what /auth/login
     does for the email/password flow.
     """
-    from starlette.responses import JSONResponse
 
     try:
         result = await check_code(req.code)
@@ -467,6 +502,14 @@ async def check_auth_code(req: CheckCodeRequest, response: Response):
         return JSONResponse(content={"verified": False, "error": "check_error"})
 
     error = result.get("error")
+    if error == "unavailable":
+        return JSONResponse(
+            status_code=503,
+            content={
+                "verified": False,
+                "error": "Authentication service temporarily unavailable",
+            },
+        )
     if error == "not_found":
         return JSONResponse(content={"verified": False, "error": "Code not found"})
     if error == "expired":
@@ -570,7 +613,6 @@ async def demo_login(req: DemoLoginRequest, response: Response, db=Depends(get_d
       apps/web/tests/e2e/) so the opt-in escape hatch is removed.
     """
     import logging
-    from app.core.config import get_settings
     settings = get_settings()
     logger = logging.getLogger(__name__)
 
@@ -688,6 +730,6 @@ async def demo_login(req: DemoLoginRequest, response: Response, db=Depends(get_d
 
     except HTTPException:
         raise
-    except Exception as e:
-        logger.exception(f"demo_login failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        logger.error("demo_login_failed")
+        raise HTTPException(status_code=500, detail="Demo login failed")

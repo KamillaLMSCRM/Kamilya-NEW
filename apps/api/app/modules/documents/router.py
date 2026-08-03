@@ -273,7 +273,7 @@ async def backfill_document_hashes(
             .where(AIJob.id == job.id, AIJob.tenant_id == user.tenant_id)
             .with_for_update()
         )
-        if failed_job:
+        if failed_job and failed_job.status not in {"completed", "cancelled"}:
             now = datetime.now(UTC)
             failed_job.status = "failed"
             failed_job.stage = "failed"
@@ -454,7 +454,7 @@ async def reindex_document(
             document.index_status = "failed"
             document.index_error_code = "reindex_enqueue_failed"
             document.index_message = "Document reindex worker is unavailable"
-        if failed_job:
+        if failed_job and failed_job.status not in {"completed", "cancelled"}:
             failed_job.status = "failed"
             failed_job.stage = "failed"
             failed_job.message = "Document reindex worker is unavailable"
@@ -650,7 +650,7 @@ async def upload_document(
             stored_doc.index_status = "failed"
             stored_doc.index_error_code = "index_enqueue_failed"
             stored_doc.index_message = "Document indexing worker is unavailable"
-        if failed_job:
+        if failed_job and failed_job.status not in {"completed", "cancelled"}:
             failed_job.status = "failed"
             failed_job.stage = "failed"
             failed_job.message = "Document indexing worker is unavailable"
@@ -829,7 +829,7 @@ async def delete_document(
             doc.lifecycle_status = "delete_failed"
             doc.deletion_error_code = "cleanup_enqueue_failed"
             doc.deletion_error_message = "Document cleanup worker is unavailable"
-        if failed_job:
+        if failed_job and failed_job.status not in {"completed", "cancelled"}:
             failed_job.status = "failed"
             failed_job.stage = "failed"
             failed_job.message = "Document cleanup worker is unavailable"

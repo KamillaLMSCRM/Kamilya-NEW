@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { useAuthStore } from '@/store/authStore';
 import { Button, Input } from '@/components/ui';
@@ -14,6 +14,8 @@ import { LoadError } from '@/components/ui/LoadError';
 export default function CoursesPage() {
   const { user } = useAuthStore();
   const { t } = useT();
+  const tRef = useRef(t);
+  tRef.current = t;
   const { confirm, dialog } = useConfirm();
   const [courses, setCourses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -39,11 +41,7 @@ export default function CoursesPage() {
     || error?.message
     || fallback;
 
-  useEffect(() => {
-    fetchCourses();
-  }, [search, statusFilter]);
-
-  const fetchCourses = async () => {
+  const fetchCourses = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
     try {
@@ -53,14 +51,18 @@ export default function CoursesPage() {
       const res = await api.get(`/v1/courses?${params}`);
       setCourses(Array.isArray(res.data) ? res.data : []);
     } catch (err: any) {
-      setLoadError(apiErrorMessage(err, t('common.loadFailed')));
-      toast.error(t('common.loadFailed'), {
-        description: apiErrorMessage(err, t('common.loadFailed')),
+      setLoadError(apiErrorMessage(err, tRef.current('common.loadFailed')));
+      toast.error(tRef.current('common.loadFailed'), {
+        description: apiErrorMessage(err, tRef.current('common.loadFailed')),
       });
     } finally {
       setLoading(false);
     }
-  };
+  }, [search, statusFilter]);
+
+  useEffect(() => {
+    fetchCourses();
+  }, [fetchCourses]);
 
   const handleCreate = async () => {
     if (!title.trim()) {

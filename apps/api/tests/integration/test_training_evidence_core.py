@@ -15,6 +15,7 @@ from app.modules.training_evidence.models import (
 )
 from app.modules.training_evidence.schemas import (
     EvidenceCorrectionCreate,
+    EvidenceEventCreate,
     EvidenceRevocationCreate,
     LegalHoldCreate,
 )
@@ -111,7 +112,7 @@ async def test_database_trigger_rejects_cross_tenant_event_owner(
         await savepoint.rollback()
 
 
-async def test_correction_and_revocation_are_new_linked_records(
+async def test_system_correction_fails_closed_and_revocation_remains_linked(
     client, db_session, make_tenant, make_user, auth_headers
 ):
     tenant = await make_tenant(name="Correction tenant")
@@ -128,11 +129,8 @@ async def test_correction_and_revocation_are_new_linked_records(
             "reason": "Исправлена дата завершения",
         },
     )
-    assert correction.status_code == 201, correction.text
-    assert correction.json()["record_type"] == "correction"
-    assert correction.json()["related_event_id"] == str(original.id)
-    assert correction.json()["reason"] == "Исправлена дата завершения"
-    assert "Исправлена" in correction.json()["reason"]
+    assert correction.status_code == 422, correction.text
+    assert correction.json()["details"]["code"] == "system_evidence_workflow_required"
 
     revocation = await client.post(
         f"/api/v1/training-evidence/events/{original.id}/revocations",
@@ -152,7 +150,7 @@ async def test_correction_and_revocation_are_new_linked_records(
             )
         ).all()
     )
-    assert len(rows) == 3
+    assert len(rows) == 2
     assert rows[0].record_type == "original"
     assert rows[0].payload_snapshot["result"] == "passed"
 
@@ -324,10 +322,11 @@ async def test_student_cannot_list_correct_or_hold(
     assert hold_response.status_code == 403
 
 
-async def test_raw_create_and_unverified_confirmation_routes_are_absent_from_openapi():
+async def test_manual_create_route_is_controlled_and_does_not_accept_client_timestamps():
     paths = app.openapi()["paths"]
-    assert "post" not in paths["/api/v1/training-evidence/events"]
+    assert "post" in paths["/api/v1/training-evidence/events"]
     assert "post" not in paths["/api/v1/training-evidence/events/{event_id}/step-up-confirmations"]
+    assert "occurred_at" not in EvidenceEventCreate.model_fields
 
 
 async def test_public_mutation_schemas_do_not_accept_client_timestamps():

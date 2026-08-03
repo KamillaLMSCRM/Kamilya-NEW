@@ -30,8 +30,8 @@ async def _get_redis():
         _redis_client = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
         await _redis_client.ping()
         return _redis_client
-    except Exception as exc:
-        logger.warning("Redis unavailable for email OTP (%s), using in-memory fallback", exc)
+    except Exception:
+        logger.warning("email_otp_redis_unavailable")
         _redis_client = None
         return None
 

@@ -69,8 +69,11 @@ SCORM 2004 не поддерживается и не должен заявлят
 - reusable audiences/groups;
 - последовательные learning programs;
 - автоматические правила организации, отдела и должности;
-- invitation links и история их состояния; передача ссылки сотруднику пока
-  выполняется методологом вручную;
+- invitation links и история их состояния; bulk-создание ставит доставку
+  ссылки в Celery и сохраняет `pending/sent/failed`, provider message id,
+  время/число попыток и безопасную причину ошибки;
+- copyable activation link остаётся manual fallback при недоступном email
+  provider или broker, но не является единственным способом доставки;
 - активация ссылки через одноразовый код на кадровый email без повторного ввода
   ФИО, табельного номера и пароля.
 
@@ -93,10 +96,25 @@ group/program grants не удаляются автоматическим recomp
 - idempotent certificate issue;
 - журнал обучения, индивидуальный акт и групповой evidence package в PDF/ZIP.
 
-Kamilya фиксирует технические доказательства внутреннего обучения, но не
-называет обычный тест государственной аттестацией, допуском к работе или
-документом, подписанным ЭЦП. Для процедур со специальной формой применяются
-утверждённые клиентом локальные акты и требования профильного НПА.
+Tenant methodologist также управляет versioned процедурами `acknowledgement`,
+`internal_attestation` и `admission_decision`. Draft можно редактировать и
+удалять; activation требует approval/basis/retention metadata, а для
+аттестации и допуска — правил комиссии или уполномоченного решения. Эта
+конфигурация не создаёт само решение.
+
+Готовый evidence package можно материализовать в неизменяемые PDF/ZIP bytes и
+передать по restricted link с SHA-256, expiry не более 31 дня, лимитом
+скачиваний, revoke, Redis rate limit и access log без публичного PII.
+
+Retention-контур содержит tenant policies, legal hold и bounded dry-run/manual
+purge. Persistent cursor не даёт старым заблокированным цепочкам навсегда
+скрывать более новые кандидаты. Scheduled purge и backup retention остаются
+backlog.
+
+Kamilya фиксирует технические доказательства внутреннего обучения. OTP не является ЭЦП, а обычный тест, completion или generic correction не создают
+`training`, `knowledge_check`, аттестацию либо допуск. Аттестация и допуск
+остаются fail-closed до отдельного фактического workflow комиссии или
+уполномоченного решения по утверждённой форме клиента.
 
 ## Техническая архитектура
 
@@ -171,10 +189,11 @@ email OTP через Resend и Telegram flow.
 - [`docs/PROJECT-CONTEXT.md`](docs/PROJECT-CONTEXT.md);
 - [`docs/PRODUCTION_READINESS.md`](docs/PRODUCTION_READINESS.md).
 
-На 2026-07-27 технический P0 закрыт: API/frontend/worker синхронизированы,
-encrypted backup/restore drill и минимальная наблюдаемость работают. Перед
-выдачей доступа конкретному первому tenant обязателен прикладной synthetic
-tenant journey из production-readiness.
+Исторический pre-P1 baseline и его проверки описаны в production-readiness.
+Deployment текущего P1-контура рабочего дерева не подтверждён: до отдельной
+проверки нельзя переносить на него прежние commit, CI, API/web/worker, DB revision или
+production smoke evidence. KZ infrastructure и реальный pawnshop acceptance
+test отложены.
 
 ## Документация
 

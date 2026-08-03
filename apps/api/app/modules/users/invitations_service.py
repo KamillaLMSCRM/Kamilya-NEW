@@ -26,7 +26,7 @@ from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import create_access_token, create_refresh_token
-from app.core.email import EmailService
+from app.core.email import EmailDeliveryError, EmailService
 from app.models.enrollment import Enrollment
 from app.models.tenant_settings import TenantSettings
 from app.models.users import User, UserInvitation
@@ -40,6 +40,27 @@ from app.modules.positions.models import Position
 
 # Conservative email regex — not RFC-perfect but rejects obvious garbage.
 EMAIL_RE = re.compile(r"^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$")
+
+TRANSIENT_DELIVERY_CATEGORIES = frozenset(
+    {
+        "provider_timeout",
+        "provider_unreachable",
+        "provider_rate_limited",
+        "provider_unavailable",
+    }
+)
+
+
+class TransientInvitationDeliveryError(RuntimeError):
+    """Safe marker used by the Celery task to request a bounded retry."""
+
+    def __init__(self, category: str) -> None:
+        self.category = category
+        super().__init__(category)
+
+
+def is_transient_delivery_category(category: str | None) -> bool:
+    return category in TRANSIENT_DELIVERY_CATEGORIES
 
 
 def _normalize_email(email: str) -> str:
@@ -66,10 +87,109 @@ async def _get_tenant_invite_expiry_days(db: AsyncSession, tenant_id: UUID) -> i
     return 3
 
 
+async def _get_tenant_invite_language(db: AsyncSession, tenant_id: UUID) -> str:
+    """Read the tenant email language and keep an explicit safe fallback."""
+    result = await db.execute(
+        select(TenantSettings.default_language).where(
+            TenantSettings.tenant_id == tenant_id
+        )
+    )
+    language = result.scalar_one_or_none()
+    return language if language in {"ru", "kk", "en"} else "ru"
+
+
 def _build_invite_url(token: str, base_url: str | None = None) -> str:
     """Build the invite URL. Falls back to kml.kz if no base_url configured."""
     base = (base_url or "https://app.kml.kz").rstrip("/")
     return f"{base}/accept-invite?token={token}"
+
+
+def _delivery_payload(invitation: UserInvitation) -> dict:
+    return {
+        "delivery_status": invitation.delivery_status,
+        "delivery_message_id": invitation.delivery_message_id,
+        "delivery_last_attempt_at": invitation.delivery_last_attempt_at,
+        "delivery_attempt_count": invitation.delivery_attempt_count,
+        "delivery_failure_category": invitation.delivery_failure_category,
+        "delivery_failure_message": invitation.delivery_failure_message,
+    }
+
+
+async def attempt_invitation_delivery(
+    db: AsyncSession,
+    *,
+    tenant_id: UUID,
+    invitation_id: UUID,
+    invite_url: str,
+    retry_transient: bool = False,
+) -> dict:
+    """Attempt one link delivery after its invitation row is committed.
+
+    A provider failure is recorded on the invitation and never raised back to
+    the batch caller, so valid invitation creation remains durable.
+    """
+    # Invitation creation commits before delivery; restore the transaction-
+    # local tenant context before querying or updating the new row.
+    await _set_invitation_tenant_context(db, tenant_id)
+    result = await db.execute(
+        select(UserInvitation).where(
+            UserInvitation.id == invitation_id,
+            UserInvitation.tenant_id == tenant_id,
+        )
+    )
+    invitation = result.scalar_one_or_none()
+    if invitation is None:
+        raise HTTPException(status_code=404, detail="Invitation not found")
+
+    if not EmailService.delivery_ready():
+        invitation.delivery_failure_category = "provider_unconfigured"
+        invitation.delivery_failure_message = (
+            "Automatic email delivery is not configured; use the activation link manually."
+        )
+        await db.commit()
+        return _delivery_payload(invitation)
+
+    invitation.delivery_last_attempt_at = datetime.now(UTC)
+    invitation.delivery_attempt_count = (invitation.delivery_attempt_count or 0) + 1
+    invitation.delivery_failure_category = None
+    invitation.delivery_failure_message = None
+
+    try:
+        from app.models.tenants import Tenant
+
+        tenant_name = (
+            await db.execute(select(Tenant.name).where(Tenant.id == tenant_id))
+        ).scalar_one_or_none() or "Kamilya LMS"
+        language = await _get_tenant_invite_language(db, tenant_id)
+        learner_name = f"{invitation.first_name} {invitation.last_name}".strip()
+        if not learner_name:
+            learner_name = {"ru": "Сотрудник", "kk": "Қызметкер", "en": "Learner"}[language]
+        message_id = await EmailService().send_invitation_link(
+            to_email=invitation.email,
+            invite_url=invite_url,
+            company_name=tenant_name,
+            learner_name=learner_name,
+            language=language,
+        )
+    except EmailDeliveryError as exc:
+        invitation.delivery_status = "pending" if (
+            retry_transient and is_transient_delivery_category(exc.category)
+        ) else "failed"
+        invitation.delivery_failure_category = exc.category[:64]
+        invitation.delivery_failure_message = exc.message[:500]
+        if retry_transient and is_transient_delivery_category(exc.category):
+            await db.commit()
+            raise TransientInvitationDeliveryError(exc.category) from exc
+    except Exception:
+        invitation.delivery_status = "failed"
+        invitation.delivery_failure_category = "internal_error"
+        invitation.delivery_failure_message = "The invitation email could not be sent."
+    else:
+        invitation.delivery_status = "sent"
+        invitation.delivery_message_id = message_id
+
+    await db.commit()
+    return _delivery_payload(invitation)
 
 
 async def _set_invitation_tenant_context(db: AsyncSession, tenant_id: UUID) -> None:
@@ -396,6 +516,7 @@ async def resend_invitation(
 
     return {
         "invitation_id": new_id,
+        "email": old.email,
         "invite_url": _build_invite_url(new_token, base_url),
         "expires_at": expires_at,
         "superseded_old_id": old.id,

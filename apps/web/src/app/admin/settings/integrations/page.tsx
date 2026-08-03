@@ -12,6 +12,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import Image from 'next/image';
 import {
   Card,
   CardContent,
@@ -411,9 +412,12 @@ function PendingView({
 
       {status.qr ? (
         <div className="rounded-md border border-border bg-white p-4 inline-block">
-          <img
+          <Image
             src={`data:image/png;base64,${status.qr}`}
             alt="WhatsApp QR code"
+            width={256}
+            height={256}
+            unoptimized
             className="w-64 h-64 block"
           />
           <p className="text-xs text-muted-foreground mt-2 text-center max-w-xs">

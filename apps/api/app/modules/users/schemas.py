@@ -97,6 +97,12 @@ class InvitationCreated(BaseModel):
     invite_url: str
     expires_at: datetime
     personnel_number: str | None = None  # included if HR provided one (used as soft 2FA)
+    delivery_status: str = "pending"
+    delivery_message_id: str | None = None
+    delivery_last_attempt_at: datetime | None = None
+    delivery_attempt_count: int = 0
+    delivery_failure_category: str | None = None
+    delivery_failure_message: str | None = None
 
 
 class InvitationSkipped(BaseModel):
@@ -132,6 +138,12 @@ class InvitationListItem(BaseModel):
     accepted_user_agent: str | None = None
     verification_method: str | None = None
     user_id: UUID | None = None
+    delivery_status: str = "pending"
+    delivery_message_id: str | None = None
+    delivery_last_attempt_at: datetime | None = None
+    delivery_attempt_count: int = 0
+    delivery_failure_category: str | None = None
+    delivery_failure_message: str | None = None
 
 
 class InvitationListResponse(BaseModel):
@@ -147,6 +159,13 @@ class InvitationResendResponse(BaseModel):
     invite_url: str
     expires_at: datetime
     superseded_old_id: UUID
+    email: str
+    delivery_status: str = "pending"
+    delivery_message_id: str | None = None
+    delivery_last_attempt_at: datetime | None = None
+    delivery_attempt_count: int = 0
+    delivery_failure_category: str | None = None
+    delivery_failure_message: str | None = None
 
 
 class UserInvitationLinkResponse(BaseModel):
@@ -156,6 +175,12 @@ class UserInvitationLinkResponse(BaseModel):
     invite_url: str
     expires_at: datetime
     superseded_old_id: UUID | None = None
+    delivery_status: str = "pending"
+    delivery_message_id: str | None = None
+    delivery_last_attempt_at: datetime | None = None
+    delivery_attempt_count: int = 0
+    delivery_failure_category: str | None = None
+    delivery_failure_message: str | None = None
 
 
 class InvitationPublicView(BaseModel):

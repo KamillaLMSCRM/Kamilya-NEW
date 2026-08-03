@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import Image from 'next/image';
 import { Card, CardHeader, CardTitle, CardContent, Button, Badge, Table, Modal, Input } from '@/components/ui';
 import QRCode from 'qrcode';
 import { useAuthStore } from '@/store/authStore';
@@ -238,7 +239,7 @@ export default function AdminKiosksPage() {
                       <div className="font-medium text-foreground">{k.name}</div>
                       <div className="flex items-center gap-1 mt-1">
                         {qrByKioskId[k.id] && (
-                          <img src={qrByKioskId[k.id]} alt="" className="h-14 w-14 rounded border border-border bg-white p-1" />
+                          <Image src={qrByKioskId[k.id]} alt="" width={56} height={56} unoptimized className="h-14 w-14 rounded border border-border bg-white p-1" />
                         )}
                         <input
                           readOnly

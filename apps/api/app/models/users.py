@@ -10,6 +10,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Index,
+    Integer,
     Text,
     func,
 )
@@ -80,7 +81,7 @@ class UserInvitation(Base):
     Lifecycle:
       1. Methodologist/admin POSTs /users/invitations/bulk with email list
       2. New row created: status='pending', token generated, expires_at = now + tenant.invite_expiry_days
-      3. Methodologist copies invite URL, sends manually via Slack/Telegram/etc.
+      3. API attempts email delivery when Resend is ready; copy link remains a fallback.
       4. User clicks link → /accept-invite?token=... → POST /invitations/{token}/accept with password
       5. On accept: user.password_hash set, is_active=true, status='active';
          invitation.status='accepted', accepted_at=now, user_id set
@@ -113,4 +114,10 @@ class UserInvitation(Base):
     accepted_ip = Column(Text, nullable=True)  # IP of accept request — for HR audit if magic link leaked
     accepted_user_agent = Column(Text, nullable=True)  # UA of accept request
     verification_method = Column(Text, nullable=True)
+    delivery_status = Column(Text, nullable=False, default="pending", server_default="pending")
+    delivery_message_id = Column(Text, nullable=True)
+    delivery_last_attempt_at = Column(DateTime(timezone=True), nullable=True)
+    delivery_attempt_count = Column(Integer, nullable=False, default=0, server_default="0")
+    delivery_failure_category = Column(Text, nullable=True)
+    delivery_failure_message = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())

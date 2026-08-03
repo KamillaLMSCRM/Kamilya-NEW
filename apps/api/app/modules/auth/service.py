@@ -1,19 +1,30 @@
-from datetime import datetime, timedelta, timezone
-from uuid import UUID, uuid4
 import hashlib
+from datetime import datetime, timezone
+from uuid import UUID, uuid4
 
 import argon2
-from sqlalchemy import select, delete, text
-from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import HTTPException, status
+from sqlalchemy import delete, select, text
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import create_access_token, create_refresh_token, decode_token
 from app.models.tenants import Tenant
-from app.models.users import User
 from app.models.user_roles import UserRole
 from app.models.user_sessions import UserSession
+from app.models.users import User
 
 ph = argon2.PasswordHasher()
+
+
+def verify_current_password(user: User, password: str) -> bool:
+    """Verify a password for an already authenticated user without issuing tokens."""
+    if not user.password_hash or not user.is_active:
+        return False
+    try:
+        ph.verify(user.password_hash, password)
+    except (argon2.exceptions.VerifyMismatchError, argon2.exceptions.VerificationError):
+        return False
+    return True
 
 
 def _hash_token(token: str) -> str:

@@ -1,9 +1,10 @@
 """Celery app configuration"""
-import ssl
 import os
+import ssl
 
 from celery import Celery
 from celery.signals import worker_process_init
+
 from app.core.config import get_settings
 
 settings = get_settings()
@@ -37,6 +38,7 @@ celery_app = Celery(
     include=[
         "app.modules.ai.tasks",
         "app.modules.positions.tasks",
+        "app.modules.users.tasks",
     ],
 )
 

@@ -11,7 +11,7 @@ const toastMock = vi.hoisted(() => ({
 
 vi.stubGlobal('fetch', fetchMock);
 vi.mock('next/navigation', () => ({
-  useSearchParams: () => new URLSearchParams('course_id=course-1&user_id=user-1'),
+  useSearchParams: () => new URLSearchParams('courseId=course-1&employeeId=user-1'),
 }));
 vi.mock('@/store/authStore', () => ({
   useAuthStore: (selector: (state: any) => unknown) => selector({

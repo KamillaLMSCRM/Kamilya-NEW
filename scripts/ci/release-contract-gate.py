@@ -14,6 +14,7 @@ CELERY_APP = REPO_ROOT / "apps" / "api" / "app" / "core" / "celery_app.py"
 EXPECTED_TASK_MODULES = {
     "app.modules.ai.tasks",
     "app.modules.positions.tasks",
+    "app.modules.users.tasks",
 }
 EXPECTED_TASK_NAMES = {
     "ai.generate_course",
@@ -21,6 +22,7 @@ EXPECTED_TASK_NAMES = {
     "ai.regenerate_lesson",
     "ai.regenerate_module",
     "positions.apply_course_rules",
+    "users.deliver_invitation",
 }
 
 

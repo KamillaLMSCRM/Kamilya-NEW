@@ -89,6 +89,7 @@ export default function CoursePlayerPage() {
   const token = useAuthStore((s) => s.accessToken);
   const user = useAuthStore((s) => s.user);
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
+  const selectedLessonId = selectedLesson?.id;
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -149,21 +150,17 @@ export default function CoursePlayerPage() {
   }, [token, API_URL]);
 
   useEffect(() => {
-    if (courseId) fetchData();
-  }, [courseId, requestedLessonId]);
-
-  useEffect(() => {
     if (selectedLesson) {
       fetchQuizForLesson(selectedLesson.id);
     }
   }, [selectedLesson, fetchQuizForLesson]);
 
   useEffect(() => {
-    if (!token || !courseId || !selectedLesson || course?.delivery_type === 'scorm') return;
+    if (!token || !courseId || !selectedLessonId || course?.delivery_type === 'scorm') return;
     let cancelled = false;
     const loadMessages = async () => {
       try {
-        const res = await fetch(`${API_URL}/v1/learner/assistant/messages?course_id=${courseId}&lesson_id=${selectedLesson.id}`, {
+        const res = await fetch(`${API_URL}/v1/learner/assistant/messages?course_id=${courseId}&lesson_id=${selectedLessonId}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (!res.ok) return;
@@ -181,7 +178,7 @@ export default function CoursePlayerPage() {
     return () => {
       cancelled = true;
     };
-  }, [token, courseId, selectedLesson?.id, course?.delivery_type, API_URL]);
+  }, [token, courseId, selectedLessonId, course?.delivery_type, API_URL]);
 
   useEffect(() => {
     if (course?.delivery_type !== 'scorm' || !token || !courseId) return;
@@ -211,7 +208,7 @@ export default function CoursePlayerPage() {
     };
   }, [course?.delivery_type, token, courseId, API_URL]);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       const headers: Record<string, string> = {};
       if (token) headers.Authorization = `Bearer ${token}`;
@@ -286,7 +283,11 @@ export default function CoursePlayerPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [API_URL, courseId, requestedLessonId, token, user]);
+
+  useEffect(() => {
+    if (courseId) fetchData();
+  }, [courseId, fetchData]);
 
   const handleEnroll = async () => {
     if (!token || !courseId) return;

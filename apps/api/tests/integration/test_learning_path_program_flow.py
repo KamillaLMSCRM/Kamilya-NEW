@@ -243,12 +243,14 @@ async def test_learning_program_assignment_rejects_cross_tenant_learner(
     db_session,
     make_tenant,
     make_user,
+    set_current_tenant,
 ):
     owner_tenant = await make_tenant(name="Assignment owner")
     other_tenant = await make_tenant(name="Assignment outsider")
     methodologist = await make_user(owner_tenant, role="methodologist")
     outsider = await make_user(other_tenant, role="student")
     path_id = uuid4()
+    await set_current_tenant(owner_tenant)
     db_session.add(
         LearningPath(
             id=path_id,

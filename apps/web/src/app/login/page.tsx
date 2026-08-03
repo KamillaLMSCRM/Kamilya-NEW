@@ -27,18 +27,54 @@ export default function LoginPage() {
   const [emailCode, setEmailCode] = useState('');
   const [emailCodeSent, setEmailCodeSent] = useState(false);
   const [telegramCode, setTelegramCode] = useState('');
+  const [telegramEnabled, setTelegramEnabled] = useState(false);
   const [expiresAt, setExpiresAt] = useState(0);
   const [timeLeft, setTimeLeft] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setErrorState] = useState('');
   const [copied, setCopied] = useState(false);
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
+
+  const setError = useCallback((value: unknown) => {
+    if (
+      value &&
+      typeof value === 'object' &&
+      (value as { code?: string }).code === 'telegram_unavailable'
+    ) {
+      setErrorState(t('auth.telegramUnavailable'));
+      return;
+    }
+    setErrorState(typeof value === 'string' ? value : t('auth.loginFailed'));
+  }, [t]);
 
   useEffect(() => {
     if (accessToken) {
       router.push(getRoleHome(useAuthStore.getState().user?.role));
     }
   }, [accessToken, router]);
+
+  useEffect(() => {
+    let mounted = true;
+    api
+      .get('/v1/auth/capabilities')
+      .then((res) => {
+        if (mounted) setTelegramEnabled(res.data?.telegram_login_enabled === true);
+      })
+      .catch(() => {
+        if (mounted) setTelegramEnabled(false);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!telegramEnabled && mode === 'telegram') {
+      setMode('password');
+      setTelegramCode('');
+      if (pollingRef.current) clearInterval(pollingRef.current);
+    }
+  }, [mode, telegramEnabled]);
 
   useEffect(() => {
     if (!expiresAt) return;
@@ -79,7 +115,7 @@ export default function LoginPage() {
         }
       }
     }, 5000);
-  }, [login, router]);
+  }, [login, router, setError]);
 
   async function requestEmailCode(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -172,6 +208,11 @@ export default function LoginPage() {
       setExpiresAt(Date.now() / 1000 + res.data.expires_in);
       startTelegramPolling(res.data.code);
     } catch (err: any) {
+      const details = err?.response?.data?.details;
+      if (details?.code === 'telegram_unavailable') {
+        setError(details);
+        return;
+      }
       setError(err?.response?.data?.detail || 'Ошибка генерации кода.');
     } finally {
       setLoading(false);
@@ -202,7 +243,7 @@ export default function LoginPage() {
           <h1 className="text-xl font-semibold">Вход в Kamilya LMS</h1>
         </div>
 
-        <div className="mb-5 grid grid-cols-3 rounded-md border border-input bg-muted p-1">
+        <div className={`mb-5 grid rounded-md border border-input bg-muted p-1 ${telegramEnabled ? 'grid-cols-3' : 'grid-cols-2'}`}>
           <button
             type="button"
             onClick={() => switchMode('password')}
@@ -222,16 +263,18 @@ export default function LoginPage() {
             <Mail className="h-4 w-4" aria-hidden="true" />
             {t('auth.emailCode')}
           </button>
-          <button
-            type="button"
-            onClick={() => switchMode('telegram')}
-            className={`inline-flex h-10 items-center justify-center gap-2 rounded-md text-sm font-medium transition-colors ${
-              mode === 'telegram' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            <MessageCircle className="h-4 w-4" aria-hidden="true" />
-            Telegram
-          </button>
+          {telegramEnabled && (
+            <button
+              type="button"
+              onClick={() => switchMode('telegram')}
+              className={`inline-flex h-10 items-center justify-center gap-2 rounded-md text-sm font-medium transition-colors ${
+                mode === 'telegram' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <MessageCircle className="h-4 w-4" aria-hidden="true" />
+              Telegram
+            </button>
+          )}
         </div>
 
         {error && (

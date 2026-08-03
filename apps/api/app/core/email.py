@@ -10,6 +10,22 @@ from app.core.config import get_settings
 logger = logging.getLogger(__name__)
 
 
+def _subject_component(value: str, *, fallback: str) -> str:
+    """Keep tenant-controlled text on one bounded email subject line."""
+
+    normalized = " ".join(value.splitlines()).strip()
+    return (normalized or fallback)[:160]
+
+
+class EmailDeliveryError(RuntimeError):
+    """Provider failure with a safe, non-payload error description."""
+
+    def __init__(self, category: str, message: str) -> None:
+        super().__init__(message)
+        self.category = category
+        self.message = message
+
+
 class EmailService:
     @staticmethod
     def delivery_ready() -> bool:
@@ -70,6 +86,60 @@ class EmailService:
         )
         await self._send(to_email=to_email, subject=subject, text=text, html=html)
 
+    async def send_invitation_link(
+        self,
+        *,
+        to_email: str,
+        invite_url: str,
+        company_name: str,
+        learner_name: str,
+        language: str = "ru",
+    ) -> str | None:
+        """Send the initial activation link and return the provider message id."""
+        language = language if language in {"ru", "kk", "en"} else "ru"
+        subject_company = _subject_component(company_name, fallback="Kamilya LMS")
+        safe_company = escape(company_name)
+        safe_name = escape(learner_name)
+        safe_url = escape(invite_url, quote=True)
+        if language == "kk":
+            subject = f"{subject_company}: Kamilya LMS жүйесіне шақыру"
+            text = (
+                f"{learner_name}, сізге {company_name} ұйымының Kamilya LMS жүйесіне шақыруы жіберілді.\n\n"
+                f"Жүйеге кіруді белсендіру үшін мына сілтемені ашыңыз: {invite_url}\n\n"
+                "Сілтеменің жарамдылық мерзімі ұйымның шақыру саясатына сәйкес шектеулі."
+            )
+            html = (
+                f"<p>{safe_name}, сізге <strong>{safe_company}</strong> ұйымының "
+                "Kamilya LMS жүйесіне шақыруы жіберілді.</p>"
+                f'<p><a href="{safe_url}">Шақыруды ашу және қолжетімділікті белсендіру</a></p>'
+                "<p>Сілтеменің жарамдылық мерзімі ұйымның шақыру саясатына сәйкес шектеулі.</p>"
+            )
+        elif language == "en":
+            subject = f"{subject_company}: invitation to Kamilya LMS"
+            text = (
+                f"{learner_name}, {company_name} has invited you to Kamilya LMS.\n\n"
+                f"Open this activation link to continue: {invite_url}\n\n"
+                "This activation link expires according to your organization's invitation policy."
+            )
+            html = (
+                f"<p>{safe_name}, <strong>{safe_company}</strong> has invited you to Kamilya LMS.</p>"
+                f'<p><a href="{safe_url}">Open the activation link</a></p>'
+                "<p>This activation link expires according to your organization's invitation policy.</p>"
+            )
+        else:
+            subject = f"{subject_company}: приглашение в Kamilya LMS"
+            text = (
+                f"{learner_name}, организация {company_name} пригласила вас в Kamilya LMS.\n\n"
+                f"Откройте ссылку активации, чтобы продолжить: {invite_url}\n\n"
+                "Срок действия ссылки активации ограничен и определяется политикой приглашений вашей организации."
+            )
+            html = (
+                f"<p>{safe_name}, организация <strong>{safe_company}</strong> пригласила вас в Kamilya LMS.</p>"
+                f'<p><a href="{safe_url}">Открыть ссылку активации</a></p>'
+                "<p>Срок действия ссылки активации ограничен и определяется политикой приглашений вашей организации.</p>"
+            )
+        return await self._send(to_email=to_email, subject=subject, text=text, html=html)
+
     async def send_training_confirmation_code(
         self,
         *,
@@ -104,17 +174,19 @@ class EmailService:
             html += f"<p><strong>Course:</strong> {escape(course_title)}</p>"
         await self._send(to_email=to_email, subject=subject, text=text, html=html)
 
-    async def _send(self, *, to_email: str, subject: str, text: str, html: str) -> None:
+    async def _send(self, *, to_email: str, subject: str, text: str, html: str) -> str | None:
         settings = get_settings()
         provider = settings.EMAIL_PROVIDER.lower().strip()
 
         if provider == "resend" and settings.RESEND_API_KEY:
-            await self._send_resend(to_email=to_email, subject=subject, text=text, html=html)
-            return
+            return await self._send_resend(
+                to_email=to_email, subject=subject, text=text, html=html
+            )
 
-        logger.info("email queued provider=log to=%s subject=%s", to_email, subject)
+        logger.info("email_queued", extra={"provider": "log"})
+        return None
 
-    async def _send_resend(self, *, to_email: str, subject: str, text: str, html: str) -> None:
+    async def _send_resend(self, *, to_email: str, subject: str, text: str, html: str) -> str | None:
         settings = get_settings()
         payload = {
             "from": settings.EMAIL_FROM,
@@ -127,8 +199,34 @@ class EmailService:
             "Authorization": f"Bearer {settings.RESEND_API_KEY}",
             "Content-Type": "application/json",
         }
-        async with httpx.AsyncClient(timeout=10) as client:
-            response = await client.post("https://api.resend.com/emails", json=payload, headers=headers)
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                response = await client.post(
+                    "https://api.resend.com/emails", json=payload, headers=headers
+                )
+        except httpx.TimeoutException as exc:
+            raise EmailDeliveryError(
+                "provider_timeout", "The email provider did not respond in time."
+            ) from exc
+        except httpx.RequestError as exc:
+            raise EmailDeliveryError(
+                "provider_unreachable", "The email provider could not be reached."
+            ) from exc
         if response.status_code >= 400:
-            logger.error("resend send failed status=%s body=%s", response.status_code, response.text[:500])
-            response.raise_for_status()
+            logger.error("resend send failed status=%s", response.status_code)
+            if response.status_code == 429:
+                category = "provider_rate_limited"
+            elif response.status_code >= 500:
+                category = "provider_unavailable"
+            else:
+                category = "provider_rejected"
+            raise EmailDeliveryError(
+                category,
+                f"The email provider rejected the message (HTTP {response.status_code}).",
+            )
+        try:
+            response_data = response.json()
+        except ValueError:
+            return None
+        message_id = response_data.get("id") if isinstance(response_data, dict) else None
+        return str(message_id) if message_id else None

@@ -1,7 +1,7 @@
 # Kamilya LMS: текущий контекст проекта
 
 > Living document. Значения секретов здесь не хранятся.
-> Обновлено: 2026-07-31.
+> Обновлено: 2026-08-03.
 
 ## Источники правды
 
@@ -62,14 +62,25 @@ restore и cutover проходят отдельный release-gate.
   original/correction;
 - повторное открытие завершённого курса восстанавливает незавершённое
   подтверждение по `enrollment_id`.
+- bulk invitations коммитятся до доставки и ставят по одной tenant-safe Celery
+  задаче; lifecycle сохраняет `pending/sent/failed`, provider message id,
+  время/число попыток и безопасную категорию/текст ошибки;
+- Telegram auth sessions используют Redis Lua allocate/verify/consume;
+  подтверждённая сессия атомарно удаляется при первом consume, а production
+  при Redis outage работает fail-closed без process-memory fallback;
+- migrations `0086-0089` добавляют versioned tenant procedures, restricted
+  materialized evidence shares, retention policies/persistent cursor/manual
+  purge и fail-closed gate для regulated procedure types.
 
-На dev Supabase проверены миграция `0082 -> 0083`, rollback `0083 -> 0082`,
+Для предыдущего evidence baseline на dev Supabase проверены миграция
+`0082 -> 0083`, rollback `0083 -> 0082`,
 повторный upgrade и 60 focused integration tests. Backend unit: 110 тестов;
 frontend: 216 тестов, typecheck и production build. Production-состоянием этот
-candidate станет только после commit, CI, согласованного deploy API/web и
-отдельного smoke.
+candidate стал production-состоянием только после отдельного release. Новый
+P1 поверх него в этом документе не имеет deployment evidence: нужны commit,
+CI, согласованный deploy API/web/worker, migrations и отдельный business smoke.
 
-## Проверенная release-картина
+## Последняя проверенная pre-P1 release-картина
 
 На 2026-07-29:
 
@@ -91,6 +102,10 @@ candidate станет только после commit, CI, согласован�
   журнала обучения passed; synthetic tenant и storage objects удалены.
 - AI-рекомендация аудитории курса прошла read-only production smoke:
   агрегаты совпали со структурой, запрос не создал назначений или правил.
+
+Эти пункты являются историческим evidence предыдущего baseline и не
+подтверждают deployment текущих invitation/Telegram/procedures/share/retention
+изменений рабочего дерева.
 
 Технический и прикладной P0 закрыты для контролируемого первого pilot.
 Отдельные условные gates сохраняются для SCORM, kiosk, KZ data residency и
@@ -169,8 +184,9 @@ candidate станет только после commit, CI, согласован�
 3. При подтверждении ручного назначения backend создаёт Enrollment, а для
    существующего сотрудника без подтверждённого способа входа создаёт связанную
    `UserInvitation` без второго `User`. Ссылка создаётся строго по выбранному
-   `user_id`; нормализованный email уникален внутри тенанта. UI показывает
-   персональную ссылку активации для передачи через рабочий канал.
+   `user_id`; нормализованный email уникален внутри тенанта. Bulk endpoint
+   ставит доставку ссылки в Celery. UI показывает delivery status и сохраняет
+   персональную ссылку для manual fallback при недоступном provider/broker.
 4. Обучающийся открывает ссылку, проверяет кадровые данные в режиме чтения и
    подтверждает рабочий email шестизначным OTP. ФИО, табельный номер и пароль
    повторно не вводятся. Неверный или истёкший код показывает ошибку на том же
@@ -186,6 +202,24 @@ candidate станет только после commit, CI, согласован�
    документ.
 8. Журнал обучения показывает назначение, его источник, прогресс, результат и
    доказательство.
+
+### Процедуры, restricted share и retention
+
+1. Methodologist создаёт versioned tenant procedure в `draft`, заполняет
+   approval, legal/local basis, confirmation method и retention metadata.
+2. `internal_attestation` нельзя активировать без snapshot rules состава,
+   quorum и записи решения; `admission_decision` — без authority, записи
+   решения и effective date. Это configuration gate, не workflow решения.
+3. Generic evidence create/correction отклоняет `training`, `knowledge_check`,
+   `internal_attestation` и `admission_decision`: system и regulated события
+   создаются только соответствующим доверенным workflow.
+4. Evidence share материализует точные PDF/ZIP bytes, SHA-256 и source event
+   ids; ссылка имеет expiry <= 31 дня, download cap, revoke, Redis rate limit и
+   non-PII access log.
+5. Retention policy задаётся по procedure type. Dry-run/manual purge ограничен
+   `max_roots <= 100`, использует persistent tenant cursor и не удаляет active
+   legal hold или активную share-ссылку.
+6. Scheduled purge и backup retention остаются backlog.
 
 Сертификат формируется в A4 landscape, содержит номер, даты, QR-код и
 каноническую ссылку `/verify/certificate/{number}`. Публичная проверка не требует

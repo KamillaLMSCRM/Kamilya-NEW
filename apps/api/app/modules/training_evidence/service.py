@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Mapping
+from copy import deepcopy
 from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
@@ -22,6 +23,26 @@ from app.modules.training_evidence.models import (
     TrainingEvidenceLegalHold,
     TrainingEvidenceStepUpConfirmation,
 )
+from app.modules.training_procedures.models import TrainingProcedure
+
+_REGULATED_PROCEDURE_TYPES = {"acknowledgement", "internal_attestation", "admission_decision"}
+_SYSTEM_PROCEDURE_TYPES = {"training", "knowledge_check"}
+
+
+def _correction_workflow_error(procedure_type: str) -> HTTPException:
+    if procedure_type in _SYSTEM_PROCEDURE_TYPES:
+        code = "system_evidence_workflow_required"
+        message = "Training and knowledge-check evidence is corrected by the trusted learning workflow"
+    elif procedure_type in {"internal_attestation", "admission_decision"}:
+        code = "regulated_evidence_workflow_required"
+        message = "Attestation and admission evidence requires a dedicated regulated workflow"
+    else:
+        code = "acknowledgement_correction_required"
+        message = "Generic corrections are limited to acknowledgement evidence"
+    return HTTPException(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        detail={"code": code, "message": message},
+    )
 
 
 def _event_requires_confirmation(event: TrainingEvidenceEvent) -> bool:
@@ -108,6 +129,7 @@ def _learner_event_response(
         id=event.id,
         enrollment_id=event.enrollment_id,
         content_release_id=event.content_release_id,
+        training_procedure_id=event.training_procedure_id,
         procedure_type=event.procedure_type,
         record_type=event.record_type,
         related_event_id=event.related_event_id,
@@ -143,6 +165,7 @@ def _source_event_matches(
     user_id: UUID,
     enrollment_id: UUID | None,
     content_release_id: UUID | None,
+    training_procedure_id: UUID | None,
     procedure_type: str,
     record_type: str,
     related_event_id: UUID | None,
@@ -155,6 +178,7 @@ def _source_event_matches(
         and existing.user_id == user_id
         and existing.enrollment_id == enrollment_id
         and existing.content_release_id == content_release_id
+        and existing.training_procedure_id == training_procedure_id
         and existing.procedure_type == procedure_type
         and existing.record_type == record_type == "original"
         and existing.related_event_id is None
@@ -355,6 +379,7 @@ async def record_event(
     source_event_key: str | None = None,
     enrollment_id: UUID | None = None,
     content_release_id: UUID | None = None,
+    training_procedure_id: UUID | None = None,
     record_type: str = "original",
     related_event_id: UUID | None = None,
     reason: str | None = None,
@@ -368,12 +393,23 @@ async def record_event(
         content_release_id=content_release_id,
     )
     await _tenant_user(db, tenant_id, actor_user_id)
+    payload_snapshot = deepcopy(payload_snapshot)
     if record_type != "original":
         if related_event_id is None:
             raise HTTPException(status_code=422, detail="Related event is required")
         parent = await get_event(db, tenant_id, related_event_id)
+        if record_type == "correction":
+            # Generic corrections are a controlled clerical operation for
+            # acknowledgements only. Other evidence has its own trusted workflow.
+            if procedure_type != "acknowledgement":
+                raise _correction_workflow_error(procedure_type)
+            if parent.procedure_type != "acknowledgement":
+                raise _correction_workflow_error(parent.procedure_type)
         if parent.procedure_type != procedure_type:
             raise HTTPException(status_code=422, detail="Procedure type must match related event")
+        if training_procedure_id is not None and training_procedure_id != parent.training_procedure_id:
+            raise HTTPException(status_code=422, detail="Correction must keep the original training procedure")
+        training_procedure_id = parent.training_procedure_id
         if (
             parent.user_id != user_id
             or parent.enrollment_id != enrollment_id
@@ -385,8 +421,110 @@ async def record_event(
             )
         if not reason:
             raise HTTPException(status_code=422, detail="Reason is required")
+        parent_snapshot = parent.payload_snapshot if isinstance(parent.payload_snapshot, Mapping) else {}
+        # Generic correction payloads may describe the factual change, but
+        # server-owned procedure, commission and decision evidence must not be
+        # replaced by caller-controlled JSON.
+        payload_snapshot.pop("procedure", None)
+        payload_snapshot.pop("training_procedure", None)
+        payload_snapshot.pop("commission", None)
+        payload_snapshot.pop("decision", None)
+        if training_procedure_id is not None:
+            procedure_snapshot = parent_snapshot.get("training_procedure") or parent_snapshot.get("procedure")
+            if isinstance(procedure_snapshot, Mapping):
+                procedure_snapshot = deepcopy(dict(procedure_snapshot))
+                payload_snapshot["procedure"] = procedure_snapshot
+                payload_snapshot["training_procedure"] = deepcopy(procedure_snapshot)
+        else:
+            payload_snapshot.pop("training_procedure", None)
     elif related_event_id is not None or reason is not None:
         raise HTTPException(status_code=422, detail="Original event cannot link a correction or reason")
+
+    if record_type == "original":
+        if procedure_type in _REGULATED_PROCEDURE_TYPES:
+            if training_procedure_id is None:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail={"code": "training_procedure_required", "message": "An active training procedure is required"},
+                )
+            procedure = await db.scalar(
+                select(TrainingProcedure).where(
+                    TrainingProcedure.id == training_procedure_id,
+                    TrainingProcedure.tenant_id == tenant_id,
+                    TrainingProcedure.status == "active",
+                )
+            )
+            if procedure is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail={"code": "training_procedure_not_found", "message": "Active training procedure not found"},
+                )
+            if procedure.procedure_type != procedure_type:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail={
+                        "code": "training_procedure_type_mismatch",
+                        "message": "Training procedure type must match the evidence procedure type",
+                    },
+                )
+            procedure_snapshot: dict[str, Any] = {
+                "id": str(procedure.id),
+                "code": procedure.code,
+                "version": str(procedure.version),
+                "title": procedure.title,
+                "type": procedure.procedure_type,
+                "procedure_type": procedure.procedure_type,
+                "confirmation_method": procedure.confirmation_method,
+                "approval_reference": procedure.approval_reference,
+                "approval_date": procedure.approval_date.isoformat() if procedure.approval_date else None,
+                "approved_by_name": procedure.approved_by_name,
+                "legal_basis": procedure.legal_basis,
+                "local_basis": procedure.local_basis,
+                "retention_class": procedure.retention_class,
+                "retention_days": procedure.retention_days,
+            }
+            if procedure.procedure_type == "internal_attestation":
+                if "commission" in payload_snapshot or "decision" in payload_snapshot:
+                    raise HTTPException(
+                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                        detail={
+                            "code": "regulated_evidence_workflow_required",
+                            "message": "Commission evidence requires the dedicated attestation workflow",
+                        },
+                    )
+                procedure_snapshot["commission_snapshot_rules"] = deepcopy(procedure.commission_snapshot_rules)
+            if procedure.procedure_type == "admission_decision":
+                if "commission" in payload_snapshot or "decision" in payload_snapshot:
+                    raise HTTPException(
+                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                        detail={
+                            "code": "regulated_evidence_workflow_required",
+                            "message": "Admission evidence requires the dedicated decision workflow",
+                        },
+                    )
+                procedure_snapshot["authorized_decision_rules"] = deepcopy(procedure.authorized_decision_rules)
+            if procedure.procedure_type == "acknowledgement":
+                # Commission and decision records require their dedicated
+                # regulated workflows and must never enter the export chain
+                # through the generic acknowledgement endpoint.
+                payload_snapshot.pop("commission", None)
+                payload_snapshot.pop("decision", None)
+            # `procedure` is the canonical export contract. Keep the explicit
+            # training_procedure copy for consumers that need to distinguish a
+            # definition snapshot from a course/procedure display object.
+            payload_snapshot["procedure"] = deepcopy(procedure_snapshot)
+            payload_snapshot["training_procedure"] = procedure_snapshot
+        elif procedure_type in _SYSTEM_PROCEDURE_TYPES:
+            if training_procedure_id is not None:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail={"code": "training_procedure_not_allowed", "message": "System evidence cannot use a training procedure"},
+                )
+            payload_snapshot.pop("training_procedure", None)
+            payload_snapshot.pop("commission", None)
+            payload_snapshot.pop("decision", None)
+        else:
+            raise HTTPException(status_code=422, detail="Unsupported evidence procedure type")
 
     payload_sha256 = canonical_json_sha256(payload_snapshot)
     if source_event_key:
@@ -403,6 +541,7 @@ async def record_event(
                 user_id=user_id,
                 enrollment_id=enrollment_id,
                 content_release_id=content_release_id,
+                training_procedure_id=training_procedure_id,
                 procedure_type=procedure_type,
                 record_type=record_type,
                 related_event_id=related_event_id,
@@ -419,6 +558,7 @@ async def record_event(
         user_id=user_id,
         enrollment_id=enrollment_id,
         content_release_id=content_release_id,
+        training_procedure_id=training_procedure_id,
         procedure_type=procedure_type,
         source_event_key=source_event_key,
         record_type=record_type,
@@ -452,6 +592,7 @@ async def record_event(
                 user_id=user_id,
                 enrollment_id=enrollment_id,
                 content_release_id=content_release_id,
+                training_procedure_id=training_procedure_id,
                 procedure_type=procedure_type,
                 record_type=record_type,
                 related_event_id=related_event_id,

@@ -1,14 +1,17 @@
 # Авторизация тенантов: email, Telegram и Resend
 
 **Проект:** Kamilya LMS  
-**Статус:** актуализировано по реализации 30.07.2026.
+**Статус:** актуализировано по текущей реализации 03.08.2026; deployment не подтверждён.
 **Назначение:** самостоятельная инструкция для переноса схемы в другой multi-tenant проект.
 
-Перед первым production tenant остаются два обязательных security gate:
+Текущий код закрывает два прежних design gap:
 
-- удалить логирование значения Telegram auth code;
-- не отключать rate limiting публичных auth/registration endpoints при
-  недоступности Valkey.
+- auth session logs не содержат значение Telegram code или user payload;
+- production auth и public share работают fail-closed при недоступности
+  Redis/Valkey, а process-memory fallback разрешён только локально.
+
+Перед выпуском эти свойства всё равно проверяются фактическим multi-instance
+smoke вместе с API/web/worker revision и Redis connectivity.
 
 Фактический статус gate ведётся в
 [`PRODUCTION_READINESS.md`](../PRODUCTION_READINESS.md).
@@ -137,7 +140,10 @@ Payload содержит email, user_id, tenant_id, роль, created_at, expire
 - успешная проверка удаляет запись;
 - неверный код не раскрывает наличие email.
 
-Текущий process-local in-memory fallback допустим для локальной разработки. Для production с несколькими API replicas он ненадёжен: storage не общий и очищается после рестарта. В новом проекте лучше общий Redis либо fail-closed для auth.
+Process-local in-memory fallback допустим только при
+`APP_ENV=development|test`. В production Redis обязателен: request/verify/check
+не переходят на память и возвращают unavailable/false. Это fail-closed policy
+для нескольких API replicas.
 
 ### Проверка кода
 
@@ -208,14 +214,15 @@ sequenceDiagram
     participant B as Telegram bot
     U->>W: Получить Telegram-код
     W->>A: POST /auth/generate-code
-    A->>R: auth:code:<code>, TTL 5 минут
+    A->>R: atomic allocate pending key, TTL 5 минут
     A-->>W: code + expires_in
     U->>B: Отправляет 6 цифр
     B->>A: POST /telegram/webhook
     A->>A: Проверить webhook secret и telegram_id
-    A->>R: verified + user_data
+    A->>R: atomic pending -> verified
     loop каждые 5 секунд
       W->>A: POST /auth/check-code
+      A->>R: atomic consume verified (GET + DEL)
     end
     A-->>W: Access JWT + refresh cookie + user
 ~~~
@@ -233,11 +240,14 @@ Endpoint: POST /api/v1/auth/generate-code.
 Redis keys:
 
 ~~~text
-auth:code:<code>
-auth:latest_code
+auth:code:<code>:pending
+auth:code:<code>:verified
 ~~~
 
-Cooldown — 25 секунд, TTL — 5 минут. Frontend показывает таймер и опрашивает POST /api/v1/auth/check-code раз в 5 секунд.
+Allocation Lua script резервирует код сразу против обеих lifecycle keys.
+Webhook Lua script переносит payload из pending в verified через `SET NX` с
+оставшимся TTL, поэтому duplicate webhook не заменяет первый payload. TTL —
+5 минут. Frontend показывает таймер и опрашивает POST /api/v1/auth/check-code.
 
 ### Webhook
 
@@ -269,7 +279,12 @@ Endpoint: POST /api/v1/auth/check-code.
 { "verified": false }
 ~~~
 
-После подтверждения возвращаются verified=true, access token и user payload. После выдачи запись удаляется, поэтому код одноразовый.
+После подтверждения Lua script читает verified payload и удаляет key в одной
+атомарной операции. Только первый polling consumer получает verified=true,
+access token и user payload; повторный consume возвращает `not_found`.
+
+Если Redis недоступен, development/test может использовать process-memory
+store. Production возвращает `unavailable` и не создаёт session из памяти.
 
 Если один Telegram ID привязан к нескольким пользователям, текущая реализация предпочитает tenant-scoped активного пользователя, затем superadmin. Для нового проекта лучше запретить неоднозначные привязки или добавить явный выбор tenant.
 
@@ -287,8 +302,15 @@ Endpoint: POST /api/v1/auth/check-code.
 https://app.example.com/accept-invite?token=<url-safe-token>
 ~~~
 
-Текущий flow передаёт первоначальную ссылку вручную; автоматической отправки
-самой ссылки через Resend нет.
+Bulk flow сначала коммитит pending User/UserInvitation, затем ставит отдельную
+Celery task `users.deliver_invitation` для каждой новой записи. Task повторно
+устанавливает tenant context, блокирует row и ограниченно retry-ит только
+transient provider errors. Lifecycle хранит `pending/sent/failed`, provider
+message id, время/число попыток и безопасную категорию/сообщение ошибки.
+
+Activation URL возвращается сразу и остаётся manual fallback, если email
+provider не настроен или broker недоступен. Ручная передача больше не является
+единственным штатным способом доставки.
 
 После открытия ссылки backend возвращает только кадровые данные в режиме чтения
 и маскированный email. Полный адрес из публичного ответа исключён. Пользователь
@@ -299,6 +321,29 @@ https://app.example.com/accept-invite?token=<url-safe-token>
 `verification_method=email_otp`, IP и User-Agent, отмечает приглашение
 `accepted` и выдаёт JWT с refresh-cookie. Имя, фамилия, табельный номер и пароль
 на публичном экране не вводятся.
+
+## 7.1 Procedures, evidence share и retention
+
+Tenant methodologist управляет versioned procedure definitions со статусами
+`draft/active/retired`. Activation требует approval, basis и retention fields.
+Для `internal_attestation` обязательны members/quorum/decision record, для
+`admission_decision` — authority/decision record/effective date.
+
+Procedure definition не проводит комиссию и не создаёт evidence. Generic
+create/correction не может создать `training`, `knowledge_check`,
+`internal_attestation` или `admission_decision`. Аттестация и допуск остаются
+fail-closed до отдельного фактического workflow решения. OTP не является ЭЦП.
+
+Restricted evidence share материализует точные PDF/ZIP bytes и SHA-256 один
+раз. Token хранится как hash; expiry не превышает 31 день, download cap — 100,
+package size — 25 MiB. Revoke, Redis rate limit, integrity check и non-PII
+access log применяются до/при каждом public download.
+
+Retention policy задаётся по procedure type. Manual purge имеет dry-run,
+typed confirmation и `max_roots <= 100`. Persistent tenant cursor
+`(last_occurred_at, last_root_id)` продвигается после bounded scan; active legal
+hold, более новая chain или active share не удаляются. Scheduled purge и backup
+retention остаются backlog.
 
 ## 8. JWT, refresh и frontend session
 
@@ -382,6 +427,10 @@ PUBLIC_URL=https://app.example.com
 | apps/api/app/core/email.py | EmailService, Resend/log adapters |
 | apps/api/app/core/auth.py | JWT и current-user checks |
 | apps/api/app/modules/users/invitations_service.py | invite token и auto-login |
+| apps/api/app/modules/users/tasks.py | Celery delivery invitation link и bounded retry |
+| apps/api/app/modules/training_procedures/ | tenant procedure CRUD и activation gate |
+| apps/api/app/modules/training_evidence/share_service.py | immutable restricted share |
+| apps/api/app/modules/training_retention/ | policies и manual purge API |
 | apps/web/src/app/register-tenant/page.tsx | регистрация компании |
 | apps/web/src/app/login/page.tsx | email и Telegram UI |
 | apps/web/src/lib/auth.ts | in-memory access, refresh, logout |
@@ -431,14 +480,23 @@ invite link       -> employee/student onboarding session
 | refresh после reload | новый access, тот же tenant |
 | logout после истечения access | refresh отозван и cookie очищена |
 | invite accepted | правильный User/tenant и auto-login |
+| bulk invite | durable row, queued task, sent/provider id либо recorded error + manual link |
 | Resend 4xx/5xx | key не раскрыт, ошибка наблюдаема |
-| Redis недоступен | поведение соответствует production policy |
+| Telegram Redis недоступен в production | unavailable, session не создана |
+| повторный Telegram consume | payload не выдаётся второй раз |
+| regulated generic correction | 422, событие аттестации/допуска не создано |
+| expired/revoked/exhausted share | generic 404, bytes не выдаются |
+| retention dry-run | cursor/budget/result без удаления |
 
 ## 13. Ограничения текущей версии
 
 - Регистрация тенанта активирует его сразу; обязательной email verification нет.
 - Telegram trial использует общий бот; dedicated bot per tenant — отдельная интеграция.
-- Первоначальная ссылка приглашения копируется вручную; Resend доставляет OTP
-  активации, но пока не отправляет саму ссылку.
-- In-memory Redis fallback допустим локально, но не является надёжным production storage.
+- Bulk invitation link доставляется Celery/Resend; copyable URL сохраняется как
+  manual fallback при сбое provider или broker.
+- In-memory Redis fallback допустим только в development/test; production
+  работает fail-closed.
+- Scheduled purge и backup retention ещё не автоматизированы.
+- KZ infrastructure и реальный pawnshop acceptance test отложены.
+- Текущий P1 не имеет deployment/production evidence до отдельного release.
 - Legacy /register сохраняет второй путь создания тенанта и требует отдельного решения по удалению или миграции.

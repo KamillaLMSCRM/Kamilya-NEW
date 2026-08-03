@@ -18,59 +18,62 @@ except ImportError:
 
 # Must be imported BEFORE router imports so SQLAlchemy sees 'positions' table
 # before resolving User.position_id ForeignKey
-from app.modules.positions.models import Position  # noqa: F401
-from app.modules.positions.qualification_models import PositionQualificationVersion  # noqa: F401
-
 from app.core.config import get_settings
 from app.core.errors import register_error_handlers
 from app.core.rate_limit import RateLimitMiddleware
 from app.core.security import SecurityHeadersMiddleware
-from app.modules.auth.router import router as auth_router
-from app.modules.courses.router import router as courses_router
-from app.modules.scorm.router import router as scorm_router
-from app.modules.lessons.router import router as lessons_router
-from app.modules.ai.router import router as ai_router
-from app.modules.enrollments.router import router as enrollments_router, stats_router as enrollments_stats_router
-from app.modules.progress.router import router as progress_router
-from app.modules.documents.router import router as documents_router
-from app.modules.quizzes.router import router as quizzes_router
-from app.modules.quizzes.assignment_router import router as quiz_assignments_router
-from app.modules.certificates.router import router as certificates_router
-from app.modules.student.router import router as student_router
-from app.modules.learning_paths.router import router as learning_paths_router
-from app.modules.competencies.router import router as competencies_router
-from app.modules.announcements.router import router as announcements_router
-from app.modules.surveys.router import router as surveys_router
-from app.modules.cohorts.router import router as cohorts_router
-from app.modules.audit.router import router as audit_router
-from app.modules.admin.router import router as admin_router
-from app.modules.admin.provider_keys.router import router as provider_keys_router
-from app.modules.admin.superadmin.router import router as superadmin_router
 from app.modules.admin.onboarding.router import router as onboarding_router
-from app.modules.demo.router import router as demo_router
+from app.modules.admin.provider_keys.router import router as provider_keys_router
+from app.modules.admin.router import router as admin_router
+from app.modules.admin.superadmin.router import router as superadmin_router
+from app.modules.ai.router import router as ai_router
+from app.modules.announcements.router import router as announcements_router
+from app.modules.audit.router import router as audit_router
+from app.modules.auth.router import router as auth_router
 from app.modules.auth.superadmin_login import router as superadmin_login_router
-from app.modules.users.router import router as users_router
-from app.modules.users.invitations_router import router as invitations_public_router
-from app.modules.users.kiosk_router import admin_router as kiosks_admin_router
-from app.modules.users.kiosk_router import public_router as kiosks_public_router
-from app.modules.users.staff_import_router import router as staff_import_router
-from app.modules.users.staff_import_mapping_router import router as staff_import_mapping_router
 from app.modules.auth.telegram import router as telegram_router
 from app.modules.auth.telegram_register import router as telegram_register_router
-from app.modules.tenants.router import public_router as tenants_public_router, router as tenants_router
-from app.modules.positions.router import router as positions_router
-from app.modules.positions.jd_router import router as positions_jd_router
-from app.modules.positions.recommendations_router import router as positions_recommendations_router
-from app.modules.positions.admin_router import router as positions_admin_router
-from app.modules.positions.qualification_router import router as positions_qualification_router
+from app.modules.certificates.router import router as certificates_router
+from app.modules.cohorts.router import router as cohorts_router
+from app.modules.competencies.router import router as competencies_router
+from app.modules.courses.router import router as courses_router
+from app.modules.demo.router import router as demo_router
 from app.modules.departments.router import router as departments_router
-from app.modules.training_rules.router import router as training_rules_router
+from app.modules.documents.router import router as documents_router
+from app.modules.enrollments.router import router as enrollments_router
+from app.modules.enrollments.router import stats_router as enrollments_stats_router
 from app.modules.integrations.router import router as integrations_router
 from app.modules.learner_assistant.router import router as learner_assistant_router
-from app.modules.training_log.router import router as training_log_router
+from app.modules.learning_paths.router import router as learning_paths_router
+from app.modules.lessons.router import router as lessons_router
+from app.modules.positions.admin_router import router as positions_admin_router
+from app.modules.positions.jd_router import router as positions_jd_router
+from app.modules.positions.models import Position  # noqa: F401
+from app.modules.positions.qualification_models import PositionQualificationVersion  # noqa: F401
+from app.modules.positions.qualification_router import router as positions_qualification_router
+from app.modules.positions.recommendations_router import router as positions_recommendations_router
+from app.modules.positions.router import router as positions_router
+from app.modules.progress.router import router as progress_router
+from app.modules.quizzes.assignment_router import router as quiz_assignments_router
+from app.modules.quizzes.router import router as quizzes_router
+from app.modules.scorm.router import router as scorm_router
+from app.modules.student.router import router as student_router
+from app.modules.surveys.router import router as surveys_router
+from app.modules.tenants.router import public_router as tenants_public_router
+from app.modules.tenants.router import router as tenants_router
 from app.modules.training_evidence.export_router import router as training_evidence_export_router
 from app.modules.training_evidence.router import router as training_evidence_router
 from app.modules.training_evidence.step_up_router import router as training_evidence_step_up_router
+from app.modules.training_log.router import router as training_log_router
+from app.modules.training_procedures.router import router as training_procedures_router
+from app.modules.training_retention.router import router as training_retention_router
+from app.modules.training_rules.router import router as training_rules_router
+from app.modules.users.invitations_router import router as invitations_public_router
+from app.modules.users.kiosk_router import admin_router as kiosks_admin_router
+from app.modules.users.kiosk_router import public_router as kiosks_public_router
+from app.modules.users.router import router as users_router
+from app.modules.users.staff_import_mapping_router import router as staff_import_mapping_router
+from app.modules.users.staff_import_router import router as staff_import_router
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -85,9 +88,9 @@ settings = get_settings()
 if settings.SENTRY_DSN:
     try:
         import sentry_sdk
+        from sentry_sdk.integrations.asyncpg import AsyncpgIntegration
         from sentry_sdk.integrations.fastapi import FastApiIntegration
         from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
-        from sentry_sdk.integrations.asyncpg import AsyncpgIntegration
 
         sentry_sdk.init(
             dsn=settings.SENTRY_DSN,
@@ -217,6 +220,8 @@ app.include_router(training_log_router, prefix=f"{settings.API_PREFIX}", tags=["
 app.include_router(training_evidence_router, prefix=f"{settings.API_PREFIX}", tags=["training-evidence"])
 app.include_router(training_evidence_step_up_router, prefix=f"{settings.API_PREFIX}", tags=["training-evidence"])
 app.include_router(training_evidence_export_router, prefix=f"{settings.API_PREFIX}", tags=["training-evidence"])
+app.include_router(training_procedures_router, prefix=f"{settings.API_PREFIX}", tags=["training-procedures"])
+app.include_router(training_retention_router, prefix=f"{settings.API_PREFIX}", tags=["training-retention"])
 
 # Suppress Render health check spam in logs
 class HealthCheckFilter(logging.Filter):

@@ -3,13 +3,14 @@ from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import get_current_user, require_role, require_tenant_user
 from app.core.db import get_db
 from app.models.users import User, UserInvitation
 from app.modules.users.invitations_service import (
+    attempt_invitation_delivery,
     bulk_create_invitations,
     create_or_refresh_user_invitation,
     resend_invitation,
@@ -203,6 +204,12 @@ async def list_invitations(
                 expires_at=row.expires_at,
                 accepted_at=row.accepted_at,
                 user_id=row.user_id,
+                delivery_status=row.delivery_status,
+                delivery_message_id=row.delivery_message_id,
+                delivery_last_attempt_at=row.delivery_last_attempt_at,
+                delivery_attempt_count=row.delivery_attempt_count,
+                delivery_failure_category=row.delivery_failure_category,
+                delivery_failure_message=row.delivery_failure_message,
             )
             for row in rows
         ],
@@ -409,13 +416,22 @@ async def create_user_invitation_link(
 
     await assert_can_send_invite(db, user.tenant_id)
     settings = get_settings()
-    return await create_or_refresh_user_invitation(
+    result = await create_or_refresh_user_invitation(
         db,
         tenant_id=user.tenant_id,
         invited_by=user.id,
         user_id=user_id,
         base_url=getattr(settings, "PUBLIC_URL", None),
     )
+    result.update(
+        await attempt_invitation_delivery(
+            db,
+            tenant_id=user.tenant_id,
+            invitation_id=result["invitation_id"],
+            invite_url=result["invite_url"],
+        )
+    )
+    return result
 
 
 @router.post("/invitations/bulk", response_model=InvitationBulkCreateResponse)
@@ -431,10 +447,12 @@ async def bulk_invite_users(
     here and surfaced as a 403.
 
     Body: { items: [{email}, ...] } (max 200 per request)
-    Response: {created: [{email, invitation_id, invite_url, expires_at}], skipped_existing, invalid}
+    Response: {created: [{email, invitation_id, invite_url, expires_at, delivery_status}], skipped_existing, invalid}
 
-    Email is NOT sent — methodologist copies invite_url and sends manually
-    (Slack/Telegram/corp email). See design doc for rationale.
+    Invitations are committed before delivery tasks are queued. The response
+    returns promptly with ``pending`` delivery status; the activation link is
+    always available as a manual fallback. A single-user invitation link and
+    resend keep their synchronous delivery behavior.
 
     All invited users default to role='student' (security: bulk can't create
     privileged roles). For admin/methodologist invites, use POST /users.
@@ -446,6 +464,8 @@ async def bulk_invite_users(
     await assert_can_create_learners(db, user.tenant_id, requested=len(payload.items))
     settings = get_settings()
     base_url = getattr(settings, "PUBLIC_URL", None)
+    from app.modules.users.tasks import deliver_invitation_task
+    queue_unavailable_ids: list[UUID] = []
 
     raw_emails = [item.email for item in payload.items]
     result = await bulk_create_invitations(
@@ -457,6 +477,45 @@ async def bulk_invite_users(
         default_role="student",
     )
 
+    for created in result["created"]:
+        try:
+            deliver_invitation_task.apply_async(
+                args=[str(user.tenant_id), str(created["invitation_id"])],
+                retry=False,
+            )
+        except Exception:
+            # The invitation is durable even when the broker is unavailable.
+            # Keep the response honest and preserve the copyable link.
+            created.update(
+                {
+                    "delivery_status": "pending",
+                    "delivery_failure_category": "queue_unavailable",
+                    "delivery_failure_message": (
+                        "Automatic email delivery is temporarily unavailable; "
+                        "use the activation link manually."
+                    ),
+                }
+            )
+            queue_unavailable_ids.append(created["invitation_id"])
+
+    if queue_unavailable_ids:
+        await db.execute(
+            update(UserInvitation)
+            .where(
+                UserInvitation.tenant_id == user.tenant_id,
+                UserInvitation.id.in_(queue_unavailable_ids),
+            )
+            .values(
+                delivery_status="pending",
+                delivery_failure_category="queue_unavailable",
+                delivery_failure_message=(
+                    "Automatic email delivery is temporarily unavailable; "
+                    "use the activation link manually."
+                ),
+            )
+        )
+        await db.commit()
+
     return InvitationBulkCreateResponse(
         created=[
             {
@@ -464,6 +523,12 @@ async def bulk_invite_users(
                 "invitation_id": c["invitation_id"],
                 "invite_url": c["invite_url"],
                 "expires_at": c["expires_at"],
+                "delivery_status": c.get("delivery_status", "pending"),
+                "delivery_message_id": c.get("delivery_message_id"),
+                "delivery_last_attempt_at": c.get("delivery_last_attempt_at"),
+                "delivery_attempt_count": c.get("delivery_attempt_count", 0),
+                "delivery_failure_category": c.get("delivery_failure_category"),
+                "delivery_failure_message": c.get("delivery_failure_message"),
             }
             for c in result["created"]
         ],
@@ -498,5 +563,13 @@ async def resend_user_invitation(
         tenant_id=user.tenant_id,
         invitation_id=invitation_id,
         base_url=base_url,
+    )
+    result.update(
+        await attempt_invitation_delivery(
+            db,
+            tenant_id=user.tenant_id,
+            invitation_id=result["invitation_id"],
+            invite_url=result["invite_url"],
+        )
     )
     return result

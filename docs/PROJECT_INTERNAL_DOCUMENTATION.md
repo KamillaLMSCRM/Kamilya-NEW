@@ -99,13 +99,39 @@ npm run dev
 6. Admin получает один governance-шаг: добавить активного methodologist в
    системную команду.
 7. Methodologist получает отдельные шаги: добавить обучающегося, подготовить
-   документ, создать курс, назначить обучение, создать invitation link и
+   документ, создать курс, назначить обучение, отправить invitation link и
    проверить завершённое обучение в журнале.
 
 Onboarding status вычисляется backend по tenant-scoped данным. Admin не видит
 learning-шаги, methodologist не видит governance-шаг. Trial state возвращает
 срок и отдельные счётчики. Исчерпание ресурса даёт состояние `limited`, а
 истечение периода — `support_required`.
+
+#### Telegram auth session lifecycle
+
+`apps/api/app/modules/auth/auth_sessions.py` хранит browser-to-bot flow в общем
+Redis, а не в API-process memory:
+
+```text
+auth:code:<code>:pending
+auth:code:<code>:verified
+```
+
+- allocation Lua script резервирует сразу обе lifecycle keys и не допускает
+  повторного кода, пока существует pending или verified state;
+- webhook Lua script создаёт verified payload с оставшимся TTL через `SET NX`
+  и удаляет pending; повторная доставка webhook не перезаписывает первый
+  authoritative payload;
+- polling Lua script атомарно читает и удаляет verified key. Только первый
+  consumer получает user payload; следующий получает `not_found`;
+- TTL auth code — 300 секунд;
+- process-local `_memory_store` разрешён только при
+  `APP_ENV=development|test`;
+- в production ошибка Redis возвращает unavailable/false и не создаёт session:
+  authentication fail-closed.
+
+Логи содержат только безопасные event names вроде
+`auth_sessions_redis_unavailable`; auth code и user payload не печатаются.
 
 ### 6.2 Подготовка персонала
 
@@ -131,7 +157,39 @@ learning-шаги, methodologist не видит governance-шаг. Trial state 
 **Назначить обучение** у сотрудника — на `/assignments?user_id=...`.
 Группы обучения ведутся в `/cohorts`.
 
-### 6.2.1 Каноническая карточка квалификационных требований должности
+### 6.2.1 Invitation delivery и activation
+
+Bulk endpoint `POST /v1/users/invitations/bulk` принимает не более 200 email и
+всегда создаёт только learner role. Service нормализует и дедуплицирует email,
+проверяет tenant-local existing identity/pending invite и переиспользует
+импортированного `User(role=student)` без login access вместо создания дубля.
+
+Invitation rows и pending users коммитятся до внешней доставки. После commit
+router ставит отдельную `users.deliver_invitation` Celery task для каждой новой
+записи. Поэтому отказ broker/provider не откатывает приглашение и не теряет
+copyable activation URL.
+
+Task открывает новую DB session, устанавливает tenant context, блокирует
+invitation row `FOR UPDATE` и проверяет terminal state. Duplicate broker
+delivery пропускается для accepted/sent/permanent-failed invitation. Только
+transient provider categories получают bounded Celery autoretry с backoff,
+jitter и `max_retries=3`.
+
+На `UserInvitation` сохраняются:
+
+- `delivery_status`: `pending`, `sent` или `failed`;
+- `delivery_message_id` внешнего provider;
+- `delivery_last_attempt_at` и `delivery_attempt_count`;
+- `delivery_failure_category` и ограниченное безопасное сообщение;
+- обычный invitation lifecycle `pending/accepted/expired/revoked/superseded`.
+
+Если email delivery не настроен или queue dispatch недоступен, backend пишет
+`provider_unconfigured` либо `queue_unavailable`, а UI продолжает показывать
+activation link для manual fallback. Это резервный путь, не единственная
+доставка. Resend по-прежнему отдельно доставляет invitation-bound OTP после
+открытия ссылки.
+
+### 6.2.2 Каноническая карточка квалификационных требований должности
 
 Канонический экран методолога для настройки должности:
 `/positions/{position_id}`. Отдельный реестр `/positions` сохранён как
@@ -425,6 +483,73 @@ Kiosk — отдельный режим входа по QR/ссылке. Product
 - `/announcements` и `/surveys` — сохранённые коммуникационные модули,
   временно скрытые из навигации до выполнения продуктового backlog.
 
+### 6.7.1 Tenant procedures и fail-closed evidence gate
+
+`/training-procedures` — methodologist-only CRUD для versioned tenant
+definitions. Поддерживаются `acknowledgement`, `internal_attestation` и
+`admission_decision`; состояния — `draft`, `active`, `retired`.
+
+- edit/delete разрешены только для draft;
+- один procedure code может иметь только одну active version;
+- activation требует approval reference/date/approved by, legal или local
+  basis, retention class и retention days;
+- internal attestation дополнительно требует members, quorum и decision record;
+- admission decision требует authority, decision record и effective date.
+
+Procedure является конфигурацией и сама не создаёт evidence event. Generic
+`POST /training-evidence/events` и correction router отклоняют `training`,
+`knowledge_check`, `internal_attestation` и `admission_decision`. Первые два
+типа создаёт trusted learning workflow; последние два остаются fail-closed до
+отдельного фактического workflow комиссии/уполномоченного решения.
+
+OTP или step-up confirmation подтверждает purpose-bound действие, но не ЭЦП.
+Completion, quiz result и correction не являются аттестацией или допуском.
+
+### 6.7.2 Restricted evidence share
+
+Methodologist формирует share из одного или нескольких event ids. Service один
+раз строит точные PDF/ZIP bytes и сохраняет их вместе с SHA-256, content type,
+public filename и source event ids. Публичный download не пересобирает пакет,
+поэтому выдаваемое содержимое остаётся immutable для данной share.
+
+Ограничения share:
+
+- token хранится только как SHA-256;
+- expiry находится в будущем и не превышает 31 день;
+- `max_downloads` — от 1 до 100;
+- package size — не более 25 MiB;
+- revoke делает ссылку недоступной;
+- Redis rate limit — 20 запросов с hashed IP за 60 секунд;
+- unavailable limiter закрывает public endpoint с `503`;
+- перед выдачей проверяется SHA-256 package bytes;
+- access log хранит outcome и download count без публичного PII.
+
+Expired, revoked, exhausted или corrupted share возвращает одинаковый generic
+`404 Share unavailable`, чтобы не раскрывать внутреннее состояние.
+
+### 6.7.3 Retention cursor и manual purge
+
+`/training-retention` управляет одной tenant policy на каждый procedure type.
+Active policy требует legal или local basis. Удаление active policy запрещено.
+
+Purge сначала запускается как dry-run. Execute требует точный typed token
+`PURGE_TRAINING_EVIDENCE`, повторное browser confirmation, прямую Argon2-проверку
+текущего пароля уже аутентифицированного методолога и `max_roots` от 1 до 100.
+Проверка не выпускает новые JWT, не меняет login-сессию и закрыта для OTP-only
+аккаунтов без password credential. DB SECURITY DEFINER function дополнительно
+проверяет tenant context, confirmation token и root limit.
+
+Таблица `training_evidence_retention_cursors` хранит per-tenant
+`last_occurred_at` и `last_root_id`. Каждый bounded call продвигает cursor;
+после конца выборки следующий проход начинает цикл заново. Scan budget равен
+`min(max_roots * 10, 1000)`, чтобы active hold, более новая chain или active
+share не занимали весь deletion budget и не скрывали новые eligible roots.
+
+Result возвращает `scan_budget`, `roots_scanned`, `truncated`, eligible/purged
+roots, удалённые events/confirmations/hold history/shares и reason counts.
+Legal hold остаётся DB-level blocker. Scheduled purge, operational schedule и
+backup retention не реализованы и остаются backlog.
+
 ## 7. Новые продуктовые модули
 
 ### Программы обучения
@@ -530,6 +655,12 @@ API изменения course links отклоняет, endpoints apply/progress
 0077 employment profile сотрудника
 0078 tenant guard назначений программ обучения
 0079 нормализация legacy-отделов из текстовых значений должностей
+0081-0084 immutable content/evidence baseline и последующие evidence changes
+0085 invitation delivery lifecycle
+0086 tenant training procedures
+0087 restricted training evidence shares
+0088 retention policies, cursor и controlled purge
+0089 procedure gate для regulated evidence types
 ```
 
 Перед production deploy:
@@ -541,6 +672,11 @@ API изменения course links отклоняет, endpoints apply/progress
 5. только затем раскатывать production.
 
 Render и Vercel deploy green не заменяют проверку миграций и ручной happy path.
+
+Текущий P1 рабочего дерева не имеет deployment evidence. До отдельной проверки
+нельзя переносить на него исторические API/web/worker revisions, migration
+state или production smoke. KZ PostgreSQL/object storage и реальный pawnshop
+acceptance test отложены.
 
 Владельцы DDL определены явно:
 
@@ -579,6 +715,7 @@ npx next build
 
 - Сначала читать `AGENTS.md`, `docs/LESSONS.md`, ADR и текущий код.
 - Не добавлять legacy-дубли экранов без миграционного плана.
-- Не описывать в marketing/user docs функцию, которой нет в production-коде.
+- Разделять current code, deployment evidence и backlog; не описывать
+  development candidate как уже выпущенный production-контур.
 - Для каждой новой tenant-фичи добавлять RLS, миграцию, API, UI и focused test.
 - Коммиты и push выполнять автором `kamilla_lms_crm@proton.me`; GitHub token использовать через `http.extraheader`, не через Credential Manager.

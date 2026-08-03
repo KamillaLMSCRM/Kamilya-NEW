@@ -6,7 +6,7 @@
 #   3. Tenant security gate (custom script): every select() on tenant tables
 #      filters by tenant_id OR is whitelisted. Fails PR if violated.
 #   4. Tests:     pytest with coverage on app/modules/. fail-under=50 baseline.
-#   5. Frontend:  tsc --noEmit + next lint (warn-only for now)
+#   5. Frontend:  tsc --noEmit + next lint
 #   6. Secrets:   detect-secrets scan on changed files
 #
 # See AGENTS.md §Mandatory skill loading and §Security checklist for the
@@ -304,7 +304,6 @@ jobs:
         run: npm run typecheck
 
       - name: next lint
-        continue-on-error: true
         run: npm run lint --if-present
 
   # ---------------------------------------------------------------------------

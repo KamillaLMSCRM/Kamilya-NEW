@@ -6,28 +6,29 @@
 
 ## P1: доказательства внутреннего обучения
 
-1. Tenant-настраиваемые процедуры ознакомления и внутренней аттестации.
-   Термин **аттестация** разрешать только при выбранном tenant-положении,
-   утверждённой форме, составе комиссии и правилах решения.
-2. Отдельное решение о допуске к работе, когда оно требуется процедурой.
-   Успешный тест не должен автоматически выдавать допуск.
-3. Операционное применение tenant retention policy: сроки по классам данных,
-   legal-hold UI, purge worker, отчёт исполнения и backup retention.
-4. Закрытая проверка evidence package по одноразовой/ограниченной ссылке, если
-   клиенту требуется передавать акт вне tenant. Публичный PII не раскрывать.
-5. Для первого ломбарда: шаблоны программ по финансовым продуктам,
+1. Реализовать отдельный фактический workflow комиссии для внутренней
+   аттестации. Tenant procedure уже хранит утверждение, состав/quorum и правило
+   решения, но не исполняет заседание и не создаёт regulated evidence.
+2. Реализовать отдельный workflow уполномоченного решения о допуске. Успешный
+   тест, completion и generic correction не должны выдавать допуск.
+3. Добавить scheduled retention purge, отчёт исполнения, retry/alerting и
+   backup retention. Tenant policies, legal hold, persistent cursor и bounded
+   dry-run/manual purge уже реализованы в development candidate.
+4. Для первого ломбарда: шаблоны программ по финансовым продуктам,
    информационной безопасности и ПОД/ФТ после проверки локальных актов.
    Внутренний тест Kamilya не заменяет официальный тест АФМ.
 
 Уже реализовано в development candidate: append-only training/knowledge-check
 events, correction/revocation/legal hold core, purpose-bound OTP, learner
-own-read, индивидуальный и групповой PDF/ZIP, статусы в журнале.
+own-read, индивидуальный и групповой PDF/ZIP, tenant procedures, restricted
+evidence share и manual retention purge. OTP не является ЭЦП.
 
 ## P1: первый рабочий день tenant
 
-1. Автоматическая отправка первоначального invitation link через Resend,
-   история, повторная отправка и причина недоставки. OTP-активация по
-   кадровому email уже реализована; сама ссылка пока передаётся вручную.
+Bulk invitation delivery через Celery, lifecycle/provider id/errors и manual
+fallback уже реализованы в development candidate. В backlog остаются
+операционный delivery monitoring, worker parity и production smoke после
+фактического deploy.
 ## P1: эксплуатация
 
 1. Добавить host CPU/RAM/disk и Celery worker health к текущей агрегированной
@@ -48,7 +49,9 @@ own-read, индивидуальный и групповой PDF/ZIP, стату
    delivery-модели, статусов и privacy.
 5. Группировка навигации `Квалификации` и `Контроль и результаты` после
    устранения дублирующих route ownership.
-6. KZ localization: БД, object storage, backup и договорные формулировки.
+6. KZ localization: БД, object storage, backup и договорные формулировки;
+   реальный pawnshop acceptance test выполнять только после готовности этого
+   контура и локальных процедур клиента.
 7. Полная матрица компетенций: оценка фактического уровня сотрудника,
    подтверждающие материалы, история оценки и gap-анализ относительно
    требований должности. До этого компетенции остаются частью карточки

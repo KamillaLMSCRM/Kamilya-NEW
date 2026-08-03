@@ -210,7 +210,8 @@ async def test_qualification_mutations_create_immutable_versions_and_audit(
 
 @pytest.mark.asyncio
 async def test_qualification_tenant_scope_and_input_validation(
-    client, db_session, make_tenant, make_user, make_course, auth_headers
+    client, db_session, make_tenant, make_user, make_course, auth_headers,
+    set_current_tenant,
 ):
     from app.modules.competencies.models import Competency
     from app.modules.positions.models import Position
@@ -223,7 +224,11 @@ async def test_qualification_tenant_scope_and_input_validation(
     course_b = await make_course(tenant_b, method_b, title="B course")
     competency_a = Competency(id=uuid4(), tenant_id=tenant_a.id, name="A competency", description="")
     position_b = Position(id=uuid4(), tenant_id=tenant_b.id, name="B position", department="", level="")
-    db_session.add_all([competency_a, position_b])
+    await set_current_tenant(tenant_a)
+    db_session.add(competency_a)
+    await db_session.flush()
+    await set_current_tenant(tenant_b)
+    db_session.add(position_b)
     await db_session.flush()
 
     hidden = await client.get(

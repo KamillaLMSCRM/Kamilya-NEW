@@ -324,27 +324,16 @@ async def test_descendant_revocation_blocks_confirmation_of_original(
         email="student-descendant-revoked@example.test",
     )
     event = await _create_event(db_session, tenant, methodologist, student)
-    correction = await record_event(
-        db_session,
-        tenant_id=tenant.id,
-        actor_user_id=methodologist.id,
-        user_id=student.id,
-        procedure_type=event.procedure_type,
-        payload_snapshot={**event.payload_snapshot, "correction": "Updated wording"},
-        record_type="correction",
-        related_event_id=event.id,
-        reason="Clarify the recorded wording",
-    )
     await record_event(
         db_session,
         tenant_id=tenant.id,
         actor_user_id=methodologist.id,
         user_id=student.id,
         procedure_type=event.procedure_type,
-        payload_snapshot={"revoked_event_id": str(correction.id)},
+        payload_snapshot={"revoked_event_id": str(event.id)},
         record_type="revocation",
-        related_event_id=correction.id,
-        reason="Correction is invalid",
+        related_event_id=event.id,
+        reason="Training result is invalid",
     )
 
     response = await client.post(

@@ -153,8 +153,8 @@ export default function EnrollmentsPage() {
 
   useEffect(() => {
     if (loading || preselectionApplied.current) return;
-    const courseId = searchParams.get('course_id') || searchParams.get('course');
-    const userId = searchParams.get('user_id') || searchParams.get('user');
+    const courseId = searchParams.get('courseId') || searchParams.get('course_id') || searchParams.get('course');
+    const userId = searchParams.get('employeeId') || searchParams.get('user_id') || searchParams.get('user');
     if (courseId && courses.some((course) => course.id === courseId)) {
       void fetchEnrollments(courseId);
     }

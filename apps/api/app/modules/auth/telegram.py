@@ -1,19 +1,31 @@
 """Telegram bot webhook handler."""
+import hmac
+import logging
+
 import httpx
-from fastapi import APIRouter, Request, HTTPException, Depends
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.db import get_db
-from app.modules.auth.auth_sessions import verify_code
-from app.models.users import User
 from app.models.user_roles import UserRole
+from app.models.users import User
+from app.modules.auth.auth_sessions import verify_code
 
 settings = get_settings()
 router = APIRouter(prefix="/telegram", tags=["telegram"])
+logger = logging.getLogger(__name__)
 
 TELEGRAM_API = f"https://api.telegram.org/bot{settings.TELEGRAM_BOT_TOKEN}"
+
+
+def is_telegram_login_enabled() -> bool:
+    """Return whether the server can complete the Telegram login flow."""
+    return bool(
+        settings.TELEGRAM_BOT_TOKEN.strip()
+        and settings.TELEGRAM_WEBHOOK_SECRET.strip()
+    )
 
 
 async def send_telegram_message(chat_id: int, text: str):
@@ -46,19 +58,17 @@ async def handle_telegram_webhook(request: Request, db: AsyncSession = Depends(g
     after which the secret_token becomes the value Telegram sends
     back in the X-Telegram-Bot-Api-Secret-Token header.
     """
-    if not settings.TELEGRAM_WEBHOOK_SECRET:
+    if not is_telegram_login_enabled():
         # Fail closed: refuse traffic if the server is not configured.
         # Don't leak this in the response — pretend the URL doesn't exist.
-        import logging
-        logging.getLogger(__name__).error(
-            "Telegram webhook called but TELEGRAM_WEBHOOK_SECRET is not "
-            "configured. Set it in Render env to enable Telegram login."
+        logger.warning(
+            "telegram_webhook_rejected",
+            extra={"reason": "integration_not_configured"},
         )
         raise HTTPException(status_code=404, detail="Not Found")
 
     provided = request.headers.get("X-Telegram-Bot-Api-Secret-Token", "")
     # Constant-time compare avoids leaking length / prefix.
-    import hmac
     if not hmac.compare_digest(provided, settings.TELEGRAM_WEBHOOK_SECRET):
         raise HTTPException(status_code=404, detail="Not Found")
 
@@ -84,7 +94,6 @@ async def handle_telegram_webhook(request: Request, db: AsyncSession = Depends(g
 
     # Validate 6-digit code format
     if not text.isdigit() or len(text) != 6:
-        print(f"[telegram-webhook] non-code message from telegram_id={telegram_id}: text={text!r}", flush=True)
         await send_telegram_message(
             chat_id,
             "❌ Неверный формат кода.\n"
@@ -92,7 +101,6 @@ async def handle_telegram_webhook(request: Request, db: AsyncSession = Depends(g
         )
         return {"ok": True}
 
-    print(f"[telegram-webhook] received code from telegram_id={telegram_id}: code={text}", flush=True)
 
     # Find user by telegram_id. Multiple users can share a telegram_id
     # across tenants (e.g. a superadmin platform row plus per-tenant
@@ -121,7 +129,6 @@ async def handle_telegram_webhook(request: Request, db: AsyncSession = Depends(g
     user = candidates[0] if candidates else None
 
     if not user:
-        print(f"[telegram-webhook] no User row found for telegram_id={telegram_id}", flush=True)
         await send_telegram_message(
             chat_id,
             "⚠️ Ваш Telegram не привязан к аккаунту Kamilya LMS.\n"
@@ -169,7 +176,6 @@ async def handle_telegram_webhook(request: Request, db: AsyncSession = Depends(g
     }
 
     success = await verify_code(text, telegram_id, user_data)
-    print(f"[telegram-webhook] verify_code({text!r}, tg={telegram_id}, user_id={user.id}) -> {success}", flush=True)
 
     if success:
         await send_telegram_message(

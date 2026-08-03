@@ -253,7 +253,7 @@ async def test_onboarding_exposes_exact_role_owned_steps_and_canonical_links(
 
 @pytest.mark.asyncio
 async def test_onboarding_exhausted_active_trial_is_limited_not_support_required(
-    client, make_tenant, make_user, db_session
+    client, make_tenant, make_user, db_session, set_current_tenant
 ):
     from app.models.tenants import TenantUsage
 
@@ -265,6 +265,7 @@ async def test_onboarding_exhausted_active_trial_is_limited_not_support_required
         settings={"trial_limits": {"ai_course_generations_limit": 1}},
     )
     tenant.trial_ends_at = datetime.now(UTC) + timedelta(days=10)
+    await set_current_tenant(tenant)
     db_session.add(TenantUsage(tenant_id=tenant.id, ai_course_generations_used=1))
     await db_session.flush()
     admin = await make_user(tenant, role="admin", email="admin@limited.example")
@@ -282,7 +283,7 @@ async def test_onboarding_exhausted_active_trial_is_limited_not_support_required
 
 @pytest.mark.asyncio
 async def test_onboarding_marks_expired_and_exhausted_trial_as_support_required(
-    client, make_tenant, make_user, db_session
+    client, make_tenant, make_user, db_session, set_current_tenant
 ):
     from app.models.tenants import TenantUsage
 
@@ -301,6 +302,7 @@ async def test_onboarding_marks_expired_and_exhausted_trial_as_support_required(
         },
     )
     tenant.trial_ends_at = datetime.now(UTC) - timedelta(minutes=1)
+    await set_current_tenant(tenant)
     db_session.add(
         TenantUsage(
             tenant_id=tenant.id,

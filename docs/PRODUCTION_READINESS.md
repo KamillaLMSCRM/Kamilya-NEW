@@ -1,6 +1,6 @@
 # Kamilya LMS: готовность первого production-тенанта
 
-**Проверено:** 2026-07-31
+**Проверено:** 2026-08-03 по текущим исходникам; deploy не выполнялся
 **Технический P0 baseline:** закрыт
 **Режим запуска:** dev/test и контролируемая демонстрация; коммерческий tenant
 не запускается до отдельного KZ DB/storage gate
@@ -10,24 +10,33 @@
 
 ## Не выпущенный development candidate
 
-В рабочем дереве поверх `655060b` реализован юридический evidence-контур:
+В рабочем дереве поверх выпущенного baseline реализован P1-контур:
 
 1. append-only события обучения и проверки знаний, correction, revocation и
    legal hold;
 2. purpose-bound email OTP для подтверждения конкретного результата;
 3. learner own-read API и возобновление незавершённого подтверждения;
 4. индивидуальные и групповые PDF/ZIP из журнала методолога;
-5. Alembic `0083` с tenant RLS/FORCE RLS.
+5. tenant procedures с activation gates для acknowledgement/attestation/admission;
+6. restricted immutable evidence share с expiry/download cap/revoke/rate limit;
+7. retention policies, persistent cursor и bounded dry-run/manual purge;
+8. bulk invitation Celery delivery с lifecycle/provider id/errors и manual fallback;
+9. Telegram Redis Lua one-time atomic consume и production fail-closed.
 
-На общей dev Supabase пройдены upgrade/rollback/upgrade миграции, 60 focused
+Для предыдущего evidence baseline на общей dev Supabase пройдены
+upgrade/rollback/upgrade миграции, 60 focused
 integration tests evidence-контура и 16 release/evidence tests. Backend unit:
 110 тестов. Frontend: 216 тестов, typecheck, production build и
 desktop/mobile visual QA. Это
 подтверждение development candidate, а не deployment evidence. До выпуска
-обязательны commit, CI, согласованный deploy API/web, применение `0083` в
-целевом контуре и smoke реального OTP/email.
+обязательны commit, CI, согласованный deploy API/web/worker, применение текущих
+migrations в целевом контуре и smoke invitation delivery, Telegram, procedure,
+share и retention. Старые release ids не являются evidence текущего P1.
 
-## Release manifest
+## Последний проверенный pre-P1 release manifest
+
+Manifest ниже сохранён как исторический baseline. Он не подтверждает текущие
+изменения рабочего дерева и не должен использоваться как P1 deployment evidence.
 
 | Контур | Состояние | Подтверждение |
 |---|---|---|
@@ -36,7 +45,7 @@ desktop/mobile visual QA. Это
 | External smoke | PASS | GitHub Actions `30536944463`, API и frontend |
 | Frontend | PASS | Vercel production `dpl_HYVfvDnNMESvnDew8evN4JRV6d8p` в состоянии `READY`, alias `app.kml.kz`, commit `af867c9` |
 | API | PASS | Render deploy `dep-d9livhvavr4c739719bg`, build/pre-deploy/deploy succeeded, commit `af867c9`; health отвечает |
-| Worker | NOT TOUCHED | Invitation OTP выполняется синхронно; worker остаётся на отдельно проверяемой revision из [`INFRA_CELERY_WORKER.md`](INFRA_CELERY_WORKER.md) |
+| Worker | NOT TOUCHED | Историческая отдельно проверяемая revision из [`INFRA_CELERY_WORKER.md`](INFRA_CELERY_WORKER.md); новая invitation task ещё не подтверждена в production |
 | Database baseline | PASS (dev) | shared dev/test PostgreSQL 17.6 на Supabase, Alembic `0083`; коммерческий KZ PostgreSQL остаётся отдельным release gate |
 
 ## Закрытые P0
@@ -209,10 +218,16 @@ PDF, статусы срока/отзыва, предпросмотр настр
 Не заявлять ЭЦП, юридическое соответствие, SCORM, kiosk или локализацию данных как
 закрытые свойства без прохождения соответствующего gate.
 
-## Открытый P1
+## Открытые P1 release gates
 
-Автоматическая отправка первоначального invitation link через Resend намеренно
-не входит в этот release: методолог создаёт ссылку и передаёт её вручную.
-Resend используется для OTP после открытия ссылки. Остальные продуктовые
-улучшения ведутся только в
-[`PRODUCT_BACKLOG.md`](PRODUCT_BACKLOG.md).
+Автоматическая bulk delivery invitation link уже реализована в коде через
+Celery. Invitation сохраняется до queue dispatch; lifecycle/provider id/errors
+наблюдаемы, а copyable link остаётся manual fallback. До фактического deploy
+не подтверждены worker registration/parity, broker/provider behavior и
+end-to-end delivery smoke.
+
+Также остаются открытыми scheduled purge, backup retention, отдельные
+commission/authorized-decision workflows, KZ PostgreSQL/object storage и
+реальный pawnshop acceptance test. OTP не ЭЦП; generic correction, completion
+и quiz не создают training/knowledge/attestation/admission вне своих trusted
+workflows. Остальной backlog ведётся в [`PRODUCT_BACKLOG.md`](PRODUCT_BACKLOG.md).

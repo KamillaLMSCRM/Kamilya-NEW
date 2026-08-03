@@ -14,18 +14,24 @@ tests pass on broken code.
 """
 from __future__ import annotations
 
+import json as _json
 import logging
+import time
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from fastapi.testclient import TestClient
 
-from app.main import app
 from app.core.rate_limit import RateLimitMiddleware
+from app.main import app
 from app.modules.auth import auth_sessions
-from app.modules.auth.auth_sessions import _dumps, _memory_store
+from app.modules.auth.auth_sessions import (
+    AuthSessionStoreUnavailableError,
+    _dumps,
+    _memory_store,
+)
 
 WEBHOOK_HEADERS = {
     "X-Telegram-Bot-Api-Secret-Token": "test-telegram-webhook-secret"
@@ -41,6 +47,17 @@ def _disable_rate_limit():
         return response
 
     return mock.patch.object(RateLimitMiddleware, "dispatch", fake_dispatch)
+
+
+def _set_telegram_integration(monkeypatch, enabled: bool) -> None:
+    from app.modules.auth.telegram import settings
+
+    monkeypatch.setattr(settings, "TELEGRAM_BOT_TOKEN", "test-bot-token" if enabled else "")
+    monkeypatch.setattr(
+        settings,
+        "TELEGRAM_WEBHOOK_SECRET",
+        "test-telegram-webhook-secret" if enabled else "",
+    )
 
 
 def _telegram_update(text: str, telegram_id: int = 349746594) -> dict:
@@ -79,8 +96,7 @@ def _fake_tenant_row(tenant_id, *, slug="kamilya-demo", name="Kamilya Demo"):
 
 
 class FakeRedis:
-    """Minimal Redis stub: GET / SETEX / DELETE. Stored values are
-    raw strings, mirroring redis-py's default when decode_responses=True."""
+    """Minimal Redis stub for the auth-session lifecycle scripts."""
 
     def __init__(self):
         self.store: dict[str, str] = {}
@@ -90,6 +106,43 @@ class FakeRedis:
 
     async def setex(self, key, ttl, value):
         self.store[key] = value
+
+    async def set(self, key, value, *, ex=None, nx=False):
+        if nx and key in self.store:
+            return None
+        self.store[key] = value
+        return True
+
+    async def eval(self, script, numkeys, *args):
+        keys = args[:numkeys]
+        argv = args[numkeys:]
+
+        if "kamilya-auth-allocate-v1" in script:
+            pending_key, verified_key = keys
+            if pending_key in self.store or verified_key in self.store:
+                return 0
+            self.store[pending_key] = argv[0]
+            return 1
+
+        if "kamilya-auth-verify-v1" in script:
+            pending_key, verified_key = keys
+            if verified_key in self.store:
+                return 2
+            if pending_key not in self.store:
+                return 0
+            self.store[verified_key] = argv[0]
+            self.store.pop(pending_key, None)
+            return 1
+
+        if "kamilya-auth-consume-v1" in script:
+            pending_key, verified_key = keys
+            if verified_key in self.store:
+                return [1, self.store.pop(verified_key)]
+            if pending_key in self.store:
+                return [0, "pending"]
+            return [0, "not_found"]
+
+        raise AssertionError("Unexpected Lua script")
 
     async def delete(self, key):
         self.store.pop(key, None)
@@ -104,10 +157,16 @@ class FakeRedis:
 
 
 class FailingRedis(FakeRedis):
+    async def eval(self, script, numkeys, *args):
+        raise RuntimeError("max requests limit exceeded")
+
     async def get(self, key):
         raise RuntimeError("max requests limit exceeded")
 
     async def setex(self, key, ttl, value):
+        raise RuntimeError("max requests limit exceeded")
+
+    async def set(self, key, value, *, ex=None, nx=False):
         raise RuntimeError("max requests limit exceeded")
 
     async def delete(self, key):
@@ -115,7 +174,8 @@ class FailingRedis(FakeRedis):
 
 
 @pytest.fixture
-def client():
+def client(monkeypatch):
+    _set_telegram_integration(monkeypatch, True)
     c = TestClient(app)
     with _disable_rate_limit():
         yield c
@@ -148,7 +208,28 @@ def patched_redis(fake_redis):
 
 
 class TestTelegramWebhook:
-    def test_generate_code_never_logs_one_time_code(self, client, caplog):
+    def test_capabilities_expose_only_safe_enabled_flag(self, client, monkeypatch):
+        _set_telegram_integration(monkeypatch, True)
+
+        response = client.get("/api/v1/auth/capabilities")
+
+        assert response.status_code == 200
+        assert response.json() == {"telegram_login_enabled": True}
+        assert "test-bot-token" not in response.text
+        assert "test-telegram-webhook-secret" not in response.text
+
+    def test_capabilities_hide_telegram_when_incomplete(self, client, monkeypatch):
+        _set_telegram_integration(monkeypatch, False)
+        from app.modules.auth.telegram import settings
+        monkeypatch.setattr(settings, "TELEGRAM_BOT_TOKEN", "test-bot-token")
+
+        response = client.get("/api/v1/auth/capabilities")
+
+        assert response.status_code == 200
+        assert response.json() == {"telegram_login_enabled": False}
+
+    def test_generate_code_never_logs_one_time_code(self, client, caplog, monkeypatch):
+        _set_telegram_integration(monkeypatch, True)
         generated_code = "123456"
         with patch(
             "app.modules.auth.router.generate_auth_code",
@@ -160,6 +241,75 @@ class TestTelegramWebhook:
         assert response.status_code == 200
         assert response.json()["code"] == generated_code
         assert generated_code not in caplog.text
+
+    def test_generate_code_returns_503_when_session_store_is_unavailable(self, client, monkeypatch):
+        _set_telegram_integration(monkeypatch, True)
+        with patch(
+            "app.modules.auth.router.generate_auth_code",
+            new=AsyncMock(side_effect=AuthSessionStoreUnavailableError),
+        ):
+            response = client.post("/api/v1/auth/generate-code")
+
+        assert response.status_code == 503
+        assert response.json()["message"] == "Authentication service temporarily unavailable"
+
+    def test_check_code_returns_503_when_session_store_is_unavailable(self, client):
+        with patch(
+            "app.modules.auth.router.check_code",
+            new=AsyncMock(return_value={"verified": False, "error": "unavailable"}),
+        ):
+            response = client.post(
+                "/api/v1/auth/check-code",
+                json={"code": "123456"},
+            )
+
+        assert response.status_code == 503
+        assert response.json() == {
+            "verified": False,
+            "error": "Authentication service temporarily unavailable",
+        }
+
+    def test_generate_code_fails_closed_when_telegram_is_disabled(
+        self, client, caplog, monkeypatch
+    ):
+        _set_telegram_integration(monkeypatch, False)
+        from app.modules.auth.telegram import settings
+        monkeypatch.setattr(settings, "TELEGRAM_BOT_TOKEN", "test-bot-token")
+        generated_code = "654321"
+        generator = AsyncMock(return_value=(generated_code, 300))
+
+        with patch("app.modules.auth.router.generate_auth_code", new=generator):
+            with caplog.at_level(logging.INFO):
+                response = client.post("/api/v1/auth/generate-code")
+
+        assert response.status_code == 503
+        assert response.json()["details"]["code"] == "telegram_unavailable"
+        assert generated_code not in caplog.text
+        generator.assert_not_awaited()
+
+    def test_webhook_does_not_log_raw_message_or_code(
+        self, client, caplog, capsys, monkeypatch
+    ):
+        _set_telegram_integration(monkeypatch, True)
+        raw_message = "private Telegram message 654321"
+
+        with patch(
+            "app.modules.auth.telegram.send_telegram_message",
+            AsyncMock(return_value=None),
+        ):
+            with caplog.at_level(logging.INFO):
+                response = client.post(
+                    "/api/v1/telegram/webhook",
+                    json=_telegram_update(raw_message),
+                    headers=WEBHOOK_HEADERS,
+                )
+
+        captured = capsys.readouterr()
+        assert response.status_code == 200
+        assert raw_message not in caplog.text
+        assert raw_message not in captured.out + captured.err
+        assert "654321" not in caplog.text
+        assert "654321" not in captured.out + captured.err
 
     @pytest.mark.asyncio
     async def test_auth_sessions_fall_back_when_redis_operations_fail(self):
@@ -252,9 +402,12 @@ class TestTelegramWebhook:
             tenant_row = _fake_tenant_row(tenant_id)
 
             # Mock DB:
-            user_q = MagicMock(); user_q.scalars.return_value.all.return_value = [user]
-            role_q = MagicMock(); role_q.scalar_one_or_none.return_value = None
-            tenant_q = MagicMock(); tenant_q.scalar_one_or_none.return_value = tenant_row
+            user_q = MagicMock()
+            user_q.scalars.return_value.all.return_value = [user]
+            role_q = MagicMock()
+            role_q.scalar_one_or_none.return_value = None
+            tenant_q = MagicMock()
+            tenant_q.scalar_one_or_none.return_value = tenant_row
 
             fake_db = AsyncMock()
             fake_db.execute.side_effect = [user_q, role_q, tenant_q]
@@ -265,9 +418,9 @@ class TestTelegramWebhook:
             from app.core.db import get_db
             app.dependency_overrides[get_db] = fake_get_db_override
 
-            # Pre-create the auth session in fake_redis under the code we send.
+            # Pre-create the pending auth session under the code we send.
             import time
-            patched_redis.store[f"auth:code:{code}"] = _dumps({
+            patched_redis.store[auth_sessions._pending_key(code)] = _dumps({
                 "code": code,
                 "created_at": time.time(),
                 "expires_at": time.time() + 300,
@@ -294,7 +447,8 @@ class TestTelegramWebhook:
             # HTTP path would 500. The 200 + the fact that the session
             # was rewritten with user_data is the assertion.
 
-            stored = patched_redis.store.get(f"auth:code:{code}")
+            assert auth_sessions._pending_key(code) not in patched_redis.store
+            stored = patched_redis.store.get(auth_sessions._verified_key(code))
             assert stored is not None
             # The session was rewritten with verified=True + user_data.
             assert '"verified": true' in stored or '"verified":true' in stored
@@ -310,9 +464,6 @@ class TestSessionEncoder:
     """Direct unit tests for the UUID-aware encoder."""
 
     def test_uuid_serialised_as_string(self):
-        from uuid import UUID
-        import json as _json
-
         out = _dumps({"tenant_id": UUID("12345678-1234-5678-1234-567812345678")})
         parsed = _json.loads(out)
         assert parsed["tenant_id"] == "12345678-1234-5678-1234-567812345678"
@@ -332,10 +483,6 @@ class TestSessionEncoder:
     def test_round_trip_with_real_session_shape(self):
         """The exact shape verify_code writes to Redis: verified=True,
         user_data with UUID tenant_id. _dumps must not raise."""
-        from uuid import UUID
-        import json as _json
-        import time
-
         session = {
             "code": "111111",
             "created_at": time.time(),

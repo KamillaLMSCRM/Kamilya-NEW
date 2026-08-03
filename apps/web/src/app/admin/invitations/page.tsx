@@ -9,8 +9,18 @@ import { useT, type TranslationKey } from '@/i18n/useT';
 import { toast } from '@/components/ui/Toast';
 import { LoadError } from '@/components/ui/LoadError';
 
-interface Invitation { id: string; email: string; role: string; status: string; created_at: string; expires_at: string; accepted_at: string | null; }
+interface DeliveryFields {
+  delivery_status: 'pending' | 'sent' | 'failed';
+  delivery_message_id: string | null;
+  delivery_last_attempt_at: string | null;
+  delivery_attempt_count: number;
+  delivery_failure_category: string | null;
+  delivery_failure_message: string | null;
+}
+interface Invitation extends DeliveryFields { id: string; email: string; role: string; status: string; created_at: string; expires_at: string; accepted_at: string | null; }
+interface InviteLink extends DeliveryFields { email: string; invite_url: string; }
 const statusVariant = (status: string) => status === 'accepted' ? 'default' : status === 'pending' ? 'outline' : 'secondary';
+const deliveryVariant = (status: string) => status === 'sent' ? 'default' : status === 'failed' ? 'destructive' : 'outline';
 const describeError = (
   error: any,
   fallback: string,
@@ -34,7 +44,7 @@ export default function InvitationsPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [inviteUrls, setInviteUrls] = useState<Array<{ email: string; invite_url: string }>>([]);
+  const [inviteUrls, setInviteUrls] = useState<InviteLink[]>([]);
 
   const load = useCallback(async () => {
     if (!token) return;
@@ -62,13 +72,13 @@ export default function InvitationsPage() {
     setSubmitting(true);
     try {
       const response = await api.post('/v1/users/invitations/bulk', { items: [{ email: value }] });
-      setInviteUrls((response.data.created || []).map((item: any) => ({ email: item.email, invite_url: item.invite_url })));
+      setInviteUrls((response.data.created || []).map((item: InviteLink) => item));
       setEmail(''); await load(); toast.success(t('invitations.created'));
     } catch (error: any) { toast.error(t('invitations.createError'), { description: describeError(error, t('invitations.createError'), t) }); }
     finally { setSubmitting(false); }
   };
   const resend = async (id: string) => {
-    try { const response = await api.post(`/v1/users/invitations/${id}/resend`); setInviteUrls([{ email: t('invitations.resentEmail'), invite_url: response.data.invite_url }]); await load(); toast.success(t('invitations.resent')); }
+    try { const response = await api.post(`/v1/users/invitations/${id}/resend`); setInviteUrls([{ ...response.data, email: response.data.email || t('invitations.resentEmail') }]); await load(); toast.success(t('invitations.resent')); }
     catch (error: any) { toast.error(t('invitations.resendError'), { description: describeError(error, t('invitations.resendError'), t) }); }
   };
   const copy = async (url: string) => { await navigator.clipboard.writeText(url); toast.success(t('invitations.copied')); };
@@ -81,11 +91,11 @@ export default function InvitationsPage() {
         <Button onClick={createInvitation} disabled={submitting || !email.trim()}><Send className="h-4 w-4" aria-hidden="true" />{submitting ? t('invitations.creating') : t('invitations.createButton')}</Button>
       </CardContent></Card>}
       {inviteUrls.length > 0 && <Card className="border-success/30 bg-success/5"><CardHeader><CardTitle>{t('invitations.linksTitle')}</CardTitle></CardHeader><CardContent className="space-y-3">
-        {inviteUrls.map((item) => <div key={`${item.email}-${item.invite_url}`} className="flex flex-col gap-2 sm:flex-row sm:items-center"><span className="text-sm font-medium">{item.email}</span><Input readOnly value={item.invite_url} className="font-mono text-xs" /><Button variant="outline" size="sm" onClick={() => copy(item.invite_url)} title={t('invitations.copy')}><Copy className="h-4 w-4" aria-hidden="true" /><span className="sr-only">{t('invitations.copy')}</span></Button></div>)}
+        {inviteUrls.map((item) => <div key={`${item.email}-${item.invite_url}`} className="space-y-2 border-b border-border/60 pb-3 last:border-0 last:pb-0"><div className="flex flex-col gap-2 sm:flex-row sm:items-center"><span className="text-sm font-medium sm:min-w-48">{item.email}</span><Input readOnly value={item.invite_url} className="font-mono text-xs" /><Button variant="outline" size="sm" onClick={() => copy(item.invite_url)} title={t('invitations.copy')}><Copy className="h-4 w-4" aria-hidden="true" /><span className="sr-only">{t('invitations.copy')}</span></Button></div><div className="flex flex-wrap items-center gap-2 text-xs"><Badge variant={deliveryVariant(item.delivery_status) as any}>{t(`invitations.delivery.${item.delivery_status}` as TranslationKey)}</Badge>{item.delivery_status === 'sent' ? <span className="text-muted-foreground">{t('invitations.deliveryAccepted')}</span> : item.delivery_status === 'failed' ? <span className="text-destructive">{item.delivery_failure_message || t('invitations.deliveryFailureHint')}</span> : <span className="text-muted-foreground">{t('invitations.deliveryPendingHint')}</span>}</div></div>)}
         <p className="text-xs text-muted-foreground">{t('invitations.manualDeliveryHint')}</p>
       </CardContent></Card>}
       <Card><CardHeader className="flex flex-row items-center justify-between gap-3"><CardTitle>{t('invitations.listTitle')}</CardTitle><Button variant="outline" size="sm" onClick={load} disabled={loading} title={t('invitations.refresh')}><RefreshCw className="h-4 w-4" aria-hidden="true" /><span className="sr-only">{t('invitations.refresh')}</span></Button></CardHeader><CardContent>
-        {loading ? <p className="text-sm text-muted-foreground">{t('common.loading')}</p> : loadError ? <LoadError title={t('invitations.loadError')} message={loadError} retryLabel={t('common.retry')} onRetry={load} /> : items.length === 0 ? <p className="py-6 text-center text-sm text-muted-foreground">{t('invitations.empty')}</p> : <div className="divide-y divide-border">{items.map((item) => <div key={item.id} className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center"><div className="min-w-0 flex-1"><p className="truncate font-medium text-foreground">{item.email}</p><p className="text-xs text-muted-foreground">{t('invitations.expiresAt')}: {new Date(item.expires_at).toLocaleDateString()}</p></div><Badge variant={statusVariant(item.status) as any}>{t(`invitations.status.${item.status}` as any) || item.status}</Badge>{item.status === 'pending' && <Button variant="outline" size="sm" onClick={() => resend(item.id)}><RefreshCw className="h-4 w-4" aria-hidden="true" />{t('invitations.resend')}</Button>}</div>)}</div>}
+        {loading ? <p className="text-sm text-muted-foreground">{t('common.loading')}</p> : loadError ? <LoadError title={t('invitations.loadError')} message={loadError} retryLabel={t('common.retry')} onRetry={load} /> : items.length === 0 ? <p className="py-6 text-center text-sm text-muted-foreground">{t('invitations.empty')}</p> : <div className="divide-y divide-border">{items.map((item) => <div key={item.id} className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center"><div className="min-w-0 flex-1"><p className="truncate font-medium text-foreground">{item.email}</p><p className="text-xs text-muted-foreground">{t('invitations.expiresAt')}: {new Date(item.expires_at).toLocaleDateString()}</p>{item.delivery_status === 'failed' && <p className="mt-1 text-xs text-destructive">{item.delivery_failure_message || t('invitations.deliveryFailureHint')}</p>}</div><div className="flex flex-wrap items-center gap-2"><Badge variant={statusVariant(item.status) as any}>{t(`invitations.status.${item.status}` as any) || item.status}</Badge><Badge variant={deliveryVariant(item.delivery_status) as any}>{t(`invitations.delivery.${item.delivery_status}` as TranslationKey)}</Badge>{(item.status === 'pending' || item.delivery_status === 'failed') && <Button variant="outline" size="sm" onClick={() => resend(item.id)}><RefreshCw className="h-4 w-4" aria-hidden="true" />{t('invitations.resend')}</Button>}</div></div>)}</div>}
       </CardContent></Card>
     </div>
   );

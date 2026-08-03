@@ -100,6 +100,9 @@ async def _mark_reindex_failed(
             )
             .with_for_update()
         )
+        if job and job.status == "cancelled":
+            await session.rollback()
+            return
         now = datetime.now(UTC)
         if document and document.index_revision == revision:
             document.embedding_status = "failed"
@@ -109,7 +112,7 @@ async def _mark_reindex_failed(
             document.index_message = message[:1000]
             document.index_chunks_total = None
             document.index_chunks_indexed = None
-        if job and job.status != "completed":
+        if job and job.status not in {"completed", "cancelled"}:
             job.status = "failed"
             job.stage = "failed"
             job.message = message[:1000]
@@ -146,6 +149,8 @@ async def run_document_reindex(
             )
             if not job:
                 raise RuntimeError("Document reindex job not found")
+            if job.status == "cancelled":
+                return {"job_id": job_id, "status": "cancelled"}
             if job.status == "completed":
                 return job.result or {
                     "document_id": str(document_id),
@@ -217,6 +222,9 @@ async def run_document_reindex(
                 .where(AIJob.id == job_id, AIJob.tenant_id == tenant_id)
                 .with_for_update()
             )
+            if job and job.status == "cancelled":
+                await session.rollback()
+                return {"job_id": job_id, "status": "cancelled"}
             if not document or document.index_revision != revision:
                 raise RuntimeError("Document reindex revision changed")
             await session.execute(
@@ -263,6 +271,9 @@ async def run_document_reindex(
                 raise RuntimeError("Document reindex revision changed before completion")
             if not job:
                 raise RuntimeError("Document reindex job not found before completion")
+            if job.status == "cancelled":
+                await session.rollback()
+                return {"job_id": job_id, "status": "cancelled"}
             apply_ingestion_result(document, result)
             now = datetime.now(UTC)
             job.status = "completed"
@@ -331,6 +342,8 @@ async def run_document_hash_backfill(job_id: str, tenant_id: UUID) -> dict:
         )
         if not job:
             raise RuntimeError("Document hash backfill job not found")
+        if job.status == "cancelled":
+            return {"job_id": job_id, "status": "cancelled"}
         if job.status == "completed":
             return job.result or {"updated": 0, "failed": 0}
         document_ids = list(
@@ -397,6 +410,9 @@ async def run_document_hash_backfill(job_id: str, tenant_id: UUID) -> dict:
                 .with_for_update()
             )
             if job:
+                if job.status == "cancelled":
+                    await session.rollback()
+                    return {"job_id": job_id, "status": "cancelled"}
                 job.progress = 5 + int(90 * index / max(total, 1))
                 job.message = f"Hashed {index}/{total} document(s)"
                 job.updated_at = datetime.now(UTC)
@@ -411,6 +427,8 @@ async def run_document_hash_backfill(job_id: str, tenant_id: UUID) -> dict:
         )
         if not job:
             raise RuntimeError("Document hash backfill job disappeared")
+        if job.status == "cancelled":
+            return {"job_id": job_id, "status": "cancelled"}
         now = datetime.now(UTC)
         has_failures = bool(failures)
         job.status = "failed" if has_failures else "completed"

@@ -48,11 +48,14 @@ async def _mark_cleanup_failed(
                 AIJob.tenant_id == tenant_id,
             ).with_for_update()
         )
+        if job and job.status == "cancelled":
+            await session.rollback()
+            return
         if document and document.deletion_job_id == job_id:
             document.lifecycle_status = "delete_failed"
             document.deletion_error_code = code
             document.deletion_error_message = message[:1000]
-        if job and job.status != "completed":
+        if job and job.status not in {"completed", "cancelled"}:
             now = datetime.now(UTC)
             job.status = "failed"
             job.stage = "failed"
@@ -77,6 +80,8 @@ async def run_document_cleanup(job_id: str, document_id: UUID, tenant_id: UUID) 
             )
             if not job:
                 raise RuntimeError("Document cleanup job not found")
+            if job.status == "cancelled":
+                return {"job_id": job_id, "status": "cancelled"}
             if job.status == "completed":
                 return job.result or {"document_id": str(document_id), "deleted": True}
 
@@ -135,6 +140,9 @@ async def run_document_cleanup(job_id: str, document_id: UUID, tenant_id: UUID) 
             except FileNotFoundError:
                 pass
 
+            if job.status == "cancelled":
+                await session.rollback()
+                return {"job_id": job_id, "status": "cancelled"}
             job.progress = 90
             job.message = "Removing document metadata"
             await session.delete(document)

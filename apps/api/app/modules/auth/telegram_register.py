@@ -165,8 +165,8 @@ async def register_by_telegram(
                 "tenant_slug": candidate_slug,
             },
         )
-    except Exception as e:
-        logger.exception(f"log_action failed: {e}")
+    except Exception:
+        logger.error("telegram_registration_audit_failed")
         # Don't fail the registration if audit write fails — log and continue.
 
     await db.commit()

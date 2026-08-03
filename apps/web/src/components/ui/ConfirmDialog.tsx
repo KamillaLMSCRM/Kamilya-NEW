@@ -144,12 +144,12 @@ export function useConfirm() {
   const handleClose = useCallback(() => {
     state.resolve?.(false);
     setState({ open: false, opts: null, resolve: null });
-  }, [state.resolve]);
+  }, [state]);
 
   const handleConfirm = useCallback(() => {
     state.resolve?.(true);
     setState({ open: false, opts: null, resolve: null });
-  }, [state.resolve]);
+  }, [state]);
 
   const dialog = state.opts ? (
     <ConfirmDialog

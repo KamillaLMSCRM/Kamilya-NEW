@@ -107,6 +107,7 @@ export default function QuizPlayerPage() {
   const [courseModules, setCourseModules] = useState<CourseModule[]>([]);
   const [showReview, setShowReview] = useState(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const handleSubmitRef = useRef<() => void>(() => undefined);
 
   const getChoiceLabel = (question: Question, choice: QuizChoice, index: number) => {
     if (question.type === 'true_false') {
@@ -146,19 +147,20 @@ export default function QuizPlayerPage() {
   }, [fetchQuiz]);
 
   // Timer
+  const timerActive = timeLeft !== null && timeLeft > 0 && !result;
   useEffect(() => {
-    if (timeLeft === null || timeLeft <= 0 || result) return;
+    if (!timerActive) return;
     timerRef.current = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev !== null && prev <= 1) {
-          handleSubmit();
+          handleSubmitRef.current();
           return 0;
         }
         return prev !== null ? prev - 1 : null;
       });
     }, 1000);
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
-  }, [timeLeft !== null && !result]);
+  }, [timerActive]);
 
   const handleSelect = (questionId: string, choiceId: string, type: string) => {
     setAnswers((prev) => {
@@ -208,6 +210,8 @@ export default function QuizPlayerPage() {
       setSubmitting(false);
     }
   };
+
+  handleSubmitRef.current = handleSubmit;
 
   const handleRetry = () => {
     setQuiz(null);

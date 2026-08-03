@@ -9,7 +9,7 @@ from __future__ import annotations
 from typing import Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import require_role, require_tenant_user
@@ -17,6 +17,7 @@ from app.core.db import get_db
 from app.models.users import User
 from app.modules.training_evidence.schemas import (
     EvidenceCorrectionCreate,
+    EvidenceEventCreate,
     EvidenceEventResponse,
     EvidenceRevocationCreate,
     LearnerEvidenceEventResponse,
@@ -93,6 +94,45 @@ async def list_training_evidence(
     )
 
 
+@router.post("/events", response_model=EvidenceEventResponse, status_code=201)
+async def create_training_evidence(
+    payload: EvidenceEventCreate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_role(*_EVIDENCE_WRITERS)),
+):
+    """Create one acknowledgement with server-controlled procedure binding."""
+
+    if payload.procedure_type in {"training", "knowledge_check"}:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "code": "system_evidence_workflow_required",
+                "message": "Training and knowledge-check evidence is created by the trusted learning workflow",
+            },
+        )
+    if payload.procedure_type in {"internal_attestation", "admission_decision"}:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "code": "regulated_evidence_workflow_required",
+                "message": "Attestation and admission evidence requires a dedicated regulated workflow",
+            },
+        )
+
+    return await record_event(
+        db,
+        tenant_id=user.tenant_id,
+        actor_user_id=user.id,
+        user_id=payload.user_id,
+        enrollment_id=payload.enrollment_id,
+        content_release_id=payload.content_release_id,
+        training_procedure_id=payload.training_procedure_id,
+        procedure_type=payload.procedure_type,
+        source_event_key=payload.source_event_key,
+        payload_snapshot=payload.payload_snapshot,
+    )
+
+
 @router.get("/events/{event_id}", response_model=EvidenceEventResponse)
 async def get_training_evidence(
     event_id: UUID,
@@ -109,7 +149,23 @@ async def correct_training_evidence(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role(*_EVIDENCE_WRITERS)),
 ):
-    await get_event(db, user.tenant_id, event_id)
+    parent = await get_event(db, user.tenant_id, event_id)
+    if parent.procedure_type in {"training", "knowledge_check"}:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "code": "system_evidence_workflow_required",
+                "message": "Training and knowledge-check evidence is corrected by the trusted learning workflow",
+            },
+        )
+    if parent.procedure_type in {"internal_attestation", "admission_decision"}:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "code": "regulated_evidence_workflow_required",
+                "message": "Attestation and admission evidence requires a dedicated regulated workflow",
+            },
+        )
     return await record_event(
         db,
         tenant_id=user.tenant_id,
@@ -117,6 +173,7 @@ async def correct_training_evidence(
         user_id=payload.user_id,
         enrollment_id=payload.enrollment_id,
         content_release_id=payload.content_release_id,
+        training_procedure_id=payload.training_procedure_id,
         procedure_type=payload.procedure_type,
         payload_snapshot=payload.payload_snapshot,
         record_type="correction",

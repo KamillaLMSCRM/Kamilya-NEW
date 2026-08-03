@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
@@ -31,13 +31,7 @@ export default function DashboardPage() {
   const [pipelineJobs, setPipelineJobs] = useState<PipelineJob[]>([]);
   const [recentCourses, setRecentCourses] = useState<any[]>([]);
 
-  useEffect(() => {
-    fetchStats();
-    fetchPipeline();
-    fetchRecentCourses();
-  }, []);
-
-  const fetchStats = async () => {
+  const fetchStats = useCallback(async () => {
     try {
       const [coursesRes, enrollmentsRes, employeesRes] = await Promise.all([
         api.get('/v1/courses'),
@@ -57,25 +51,31 @@ export default function DashboardPage() {
         description: err?.response?.data?.detail || err?.message,
       });
     }
-  };
+  }, [t]);
 
-  const fetchPipeline = async () => {
+  const fetchPipeline = useCallback(async () => {
     try {
       const res = await api.get('/v1/ai/jobs');
       if (Array.isArray(res.data)) {
         setPipelineJobs(res.data.filter((j: any) => j.status !== 'completed').slice(0, 5));
       }
     } catch {}
-  };
+  }, []);
 
-  const fetchRecentCourses = async () => {
+  const fetchRecentCourses = useCallback(async () => {
     try {
       const res = await api.get('/v1/courses');
       if (Array.isArray(res.data)) {
         setRecentCourses(res.data.slice(0, 4));
       }
     } catch {}
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchStats();
+    fetchPipeline();
+    fetchRecentCourses();
+  }, [fetchStats, fetchPipeline, fetchRecentCourses]);
 
   const statCards: Stat[] = [
     {
