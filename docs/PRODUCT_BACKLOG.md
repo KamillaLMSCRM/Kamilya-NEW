@@ -1,6 +1,6 @@
 # Kamilya LMS: актуальный продуктовый backlog
 
-**Дата:** 2026-07-31
+**Дата:** 2026-08-03
 **Область:** открытые продуктовые и UX-задачи. Выполненные эпики здесь не
 хранятся.
 
@@ -13,32 +13,37 @@
    тест, completion и generic correction не должны выдавать допуск.
 3. Добавить scheduled retention purge, отчёт исполнения, retry/alerting и
    backup retention. Tenant policies, legal hold, persistent cursor и bounded
-   dry-run/manual purge уже реализованы в development candidate.
+   dry-run/manual purge уже реализованы.
 4. Для первого ломбарда: шаблоны программ по финансовым продуктам,
    информационной безопасности и ПОД/ФТ после проверки локальных актов.
    Внутренний тест Kamilya не заменяет официальный тест АФМ.
 
-Уже реализовано в development candidate: append-only training/knowledge-check
+Уже реализовано: append-only training/knowledge-check
 events, correction/revocation/legal hold core, purpose-bound OTP, learner
 own-read, индивидуальный и групповой PDF/ZIP, tenant procedures, restricted
 evidence share и manual retention purge. OTP не является ЭЦП.
 
 ## P1: первый рабочий день tenant
 
-Bulk invitation delivery через Celery, lifecycle/provider id/errors и manual
-fallback уже реализованы в development candidate. В backlog остаются
-операционный delivery monitoring, worker parity и production smoke после
-фактического deploy.
+Bulk invitation delivery через Celery, lifecycle/provider id/errors, manual
+fallback, worker parity и production smoke реализованы. В backlog остаётся
+операционный delivery monitoring.
 ## P1: эксплуатация
 
-1. Добавить host CPU/RAM/disk и Celery worker health к текущей агрегированной
-   operational console.
+1. Добавить host CPU/RAM/disk и состояние трёх Celery worker к агрегированной
+   operational console. Пятиминутный watchdog и queue-depth alert уже работают.
 2. Delivery monitoring для email с tenant-safe диагностикой.
 3. Безопасная очистка зависших jobs после определения retry/retention policy.
 4. Сверить ORM metadata с исторической схемой из 77 Alembic revisions:
    описать SQL-only `document_embeddings`, согласовать типы, индексы,
    внешние ключи и nullable/default. До завершения сверки не применять
    autogenerate output: текущий drift содержит разрушительные remove-операции.
+5. Добавить oldest-job age, task failure rate, provider 429/timeout и разрез
+   queue depth по tenant без раскрытия tenant PII.
+6. Ввести tenant-fair admission control для массовой AI-генерации: лимит
+   активных задач tenant, позиция в очереди, ожидаемое время и отмена queued job.
+7. Провести отдельный capacity acceptance на реальных многостраничных сканах и
+   платный прогон 10 генераций; текущая оценка 50 задач не является SLA.
 
 ## P2: расширение продукта
 

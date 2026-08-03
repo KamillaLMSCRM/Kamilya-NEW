@@ -8,7 +8,12 @@ checkout удалены.
 
 - Host: основной VPS Kamilya.
 - Checkout: `/opt/kamilya-worker`.
-- Unit: `kamilya-worker.service`.
+- Units:
+  - `kamilya-worker.service`: `notifications`, `maintenance` and legacy
+    `celery`, concurrency 1;
+  - `kamilya-worker-documents.service`: `documents`, concurrency 1;
+  - `kamilya-worker-ai.service`: `ai`, prefork concurrency 2 and
+    `max-tasks-per-child=20`.
 - Broker/result backend: Valkey по TLS.
 - Database: тот же runtime `DATABASE_URL`, что у API.
 - Document conversion: локальный `http://127.0.0.1:8600` с тем же
@@ -17,35 +22,36 @@ checkout удалены.
 - Code: совместимый commit release, а не обязательно последний docs-only
   commit.
 
-Worker выполняет:
+Маршрутизация задач:
 
-- `ai.generate_course`;
-- `ai.regenerate_module`;
-- `ai.regenerate_lesson`;
-- `ai.ingest_document`;
-- document cleanup/reindex jobs;
-- `positions.apply_course_rules`;
-- `users.deliver_invitation`.
+- `ai`: генерация курса, модуля, урока и оценочных материалов;
+- `documents`: первичная индексация и переиндексация документов;
+- `notifications`: доставка приглашений;
+- `maintenance`: очистка документов, backfill хешей и применение правил
+  обучения;
+- `celery`: временно сохраняется только для безопасного дренирования старых
+  сообщений.
 
 ## Текущий известный статус
 
-На 2026-08-03 unit active/enabled, checkout
-`b7d843df27cbd6ed853d84361eb8e83bf4d3a00e`, production API и worker
-синхронизированы. Общая dev/test Supabase находится на `0089`; реальный Celery
-inspect ping отвечает. Worker зарегистрировал обязательные задачи генерации,
-перегенерации, индексации документов, применения правил и доставки приглашений
-`users.deliver_invitation`. После рестарта unit не перезапускался аварийно;
-GitHub CI и внешний production smoke для release прошли. Полный клиентский
-journey на этом release сознательно оставлен для согласованной приёмки.
+На 2026-08-03 три unit active/enabled, checkout находится на application release
+`3364344c`. Общая dev/test Supabase находится на Alembic `0089`; Celery inspect
+показывает три узла `fast`, `documents` и `ai` с ожидаемыми очередями. Production
+API Render live на `3364344c`, frontend Vercel READY, GitHub CI и внешний smoke
+прошли. Полный клиентский journey остаётся отдельной согласованной приёмкой.
 
 ## Проверка без изменения сервера
 
 ```bash
-systemctl is-active kamilya-worker.service
-systemctl is-enabled kamilya-worker.service
+systemctl is-active kamilya-worker.service \
+  kamilya-worker-documents.service kamilya-worker-ai.service
+systemctl is-enabled kamilya-worker.service \
+  kamilya-worker-documents.service kamilya-worker-ai.service
 git -C /opt/kamilya-worker status --short
 git -C /opt/kamilya-worker rev-parse HEAD
-journalctl -u kamilya-worker.service -n 100 --no-pager
+journalctl -u kamilya-worker.service \
+  -u kamilya-worker-documents.service -u kamilya-worker-ai.service \
+  -n 100 --no-pager
 ```
 
 Из virtualenv worker:
@@ -53,6 +59,8 @@ journalctl -u kamilya-worker.service -n 100 --no-pager
 ```bash
 celery -A app.core.celery_app:celery_app inspect ping
 celery -A app.core.celery_app:celery_app inspect registered
+celery -A app.core.celery_app:celery_app inspect active_queues
+celery -A app.core.celery_app:celery_app inspect stats
 ```
 
 В списке registered обязательны `ai.generate_course`,
@@ -82,9 +90,13 @@ git checkout --detach <release_sha>
   -r /opt/kamilya-worker/apps/api/requirements.txt
 cd /opt/kamilya-worker/apps/api
 .venv/bin/python -m compileall -q app
-systemctl restart kamilya-worker.service
-systemctl is-active kamilya-worker.service
-journalctl -u kamilya-worker.service -n 100 --no-pager
+systemctl restart kamilya-worker.service \
+  kamilya-worker-documents.service kamilya-worker-ai.service
+systemctl is-active kamilya-worker.service \
+  kamilya-worker-documents.service kamilya-worker-ai.service
+journalctl -u kamilya-worker.service \
+  -u kamilya-worker-documents.service -u kamilya-worker-ai.service \
+  -n 100 --no-pager
 ```
 
 Не использовать `git reset --hard`. Если checkout грязный, остановиться и
@@ -106,10 +118,10 @@ journalctl -u kamilya-worker.service -n 100 --no-pager
 
 ## Rollback
 
-1. Остановить worker.
+1. Остановить все три worker unit.
 2. Переключить checkout на записанный предыдущий SHA.
 3. Восстановить зависимости для этого SHA.
-4. Запустить unit и повторить ping/registered.
+4. Запустить все unit и повторить ping/registered/active_queues.
 5. Не откатывать БД автоматически. Если новый worker требовал необратимую
    migration, нужен отдельный DB rollback plan.
 
@@ -118,12 +130,44 @@ journalctl -u kamilya-worker.service -n 100 --no-pager
 Минимальный production watchdog установлен:
 
 - `kamilya-ops-check.timer` запускается каждые 5 минут;
-- проверяет worker unit, Valkey, API/frontend, backup age, disk и Celery ping;
+- проверяет все три worker unit, Valkey, API/frontend, backup age, disk, Celery
+  ping и глубину очередей;
 - alert/recovery отправляются через Resend;
 - GitHub production smoke выполняется каждые 15 минут и на push в `master`.
 
-Метрики queue depth, job age, task failure rate и memory pressure остаются P1
-наблюдаемости. Один `systemctl is-active` вручную не заменяет watchdog.
+Queue depth проверяется для `ai`, `documents`, `notifications`, `maintenance` и
+legacy `celery`; порог предупреждения по умолчанию равен 50 сообщениям. Метрики
+возраста старейшей задачи, task failure rate, provider throttling и memory
+pressure остаются P1 наблюдаемости. Один `systemctl is-active` вручную не
+заменяет watchdog.
+
+## Проверенная пропускная способность и пределы
+
+- VPS: 4 vCPU, 7.8 GiB RAM, swap отсутствует. После запуска трёх worker и
+  converter доступно около 5.3 GiB; Docling остаётся самым тяжёлым процессом.
+- Converter: `CONVERTER_MAX_CONCURRENCY=1`, ожидание слота 30 секунд, upload не
+  более 50 MiB. На синтетической серии 50 одновременных digital PDF все 50
+  запросов завершились HTTP 200 за 2.219 секунды; p50 1.175 секунды, p95 2.060
+  секунды. Это проверка лёгкого text-layer маршрута, не 50 OCR-сканов.
+- Реальные smoke: DOCX и XLSX прошли через MarkItDown; digital PDF через
+  MarkItDown; два image-only/low-text PDF через Docling OCR. OCR остаётся
+  последовательным и масштабируется прежде всего с количеством и сложностью
+  страниц.
+- Document worker обрабатывает один документ одновременно. Поэтому burst 10-50
+  документов увеличивает время ожидания, но не создаёт 10-50 копий Docling в
+  памяти.
+- AI worker обрабатывает максимум две генерации одновременно. Внутренние этапы
+  одной генерации выполняются последовательно, что ограничивает одновременное
+  давление на LLM-провайдера.
+- Историческая выборка dev/test из 29 завершённых генераций: среднее 509.5 с,
+  медиана 504.1 с, p90 836.1 с, максимум 1290.2 с. При двух AI слотах и пустой
+  очереди ориентир для 10 задач составляет около 42 минут по среднему или 70
+  минут по p90; для 50 задач — около 3.5 или 5.8 часа соответственно. Это
+  оценка пропускной способности по тестовым данным, а не SLA.
+
+Увеличивать AI concurrency выше 2 на текущем VPS без измерения provider 429,
+CPU/RAM и DB pool нельзя. Следующий этап capacity acceptance должен использовать
+реальные многостраничные сканы и согласованный платный запуск 10 генераций.
 
 ## Legacy unit
 

@@ -32,10 +32,10 @@
 | PostgreSQL/pgvector | Supabase, общий dev/test и controlled-pilot контур |
 | Object storage | Supabase Storage, общий dev/test и controlled-pilot контур |
 | Broker/cache | Valkey TLS на VPS |
-| Background jobs | Celery worker на VPS |
+| Background jobs | Три Celery worker на VPS: AI, documents и notifications/maintenance |
 | Email | Resend, домен `notify.kml.kz` |
 | Telegram | Kamilya bot/auth flow |
-| Document conversion | Гибридный локальный сервис на VPS: Docling для PDF/OCR, MarkItDown для DOCX/XLS/XLSX, LibreOffice для старого `.doc` |
+| Document conversion | Ограниченный локальный сервис: MarkItDown для Office/PDF с текстом, Docling для сканов/OCR, LibreOffice для старого `.doc` |
 
 Текущая Supabase используется для разработки, интеграционных тестов и
 контролируемой демонстрации. Реальные данные коммерческого клиента в этот
@@ -43,73 +43,30 @@
 PostgreSQL и object storage в Казахстане; параметры подключения, backup,
 restore и cutover проходят отдельный release-gate.
 
-## Текущий development candidate
+## Текущий проверенный release
 
-Рабочее дерево после baseline `655060b` содержит новый контур доказательств
-внутреннего обучения. Он ещё не закоммичен и не развёрнут:
+На 2026-08-03 application release `3364344c` находится в production:
 
-- Alembic `0083` создаёт tenant-scoped append-only события, подтверждения и
-  legal hold с RLS/FORCE RLS;
-- завершение опубликованного курса и отправка теста создают идемпотентные
-  события, связанные с immutable `ContentRelease`;
-- обучающийся подтверждает конкретное событие шестизначным purpose-bound
-  email OTP; это повторная аутентификация и подтверждение действия, не ЭЦП;
-- методолог видит статус в журнале и формирует индивидуальный PDF/ZIP или
-  групповой PDF/ZIP;
-- одинаковое состояние доказательства повторно формирует идентичные ZIP,
-  manifest и SHA-256; PDF явно показывает отзыв и legal hold;
-- step-up блокирует подтверждение при отзыве в любой точке цепочки
-  original/correction;
-- повторное открытие завершённого курса восстанавливает незавершённое
-  подтверждение по `enrollment_id`.
-- bulk invitations коммитятся до доставки и ставят по одной tenant-safe Celery
-  задаче; lifecycle сохраняет `pending/sent/failed`, provider message id,
-  время/число попыток и безопасную категорию/текст ошибки;
-- Telegram auth sessions используют Redis Lua allocate/verify/consume;
-  подтверждённая сессия атомарно удаляется при первом consume, а production
-  при Redis outage работает fail-closed без process-memory fallback;
-- migrations `0086-0089` добавляют versioned tenant procedures, restricted
-  materialized evidence shares, retention policies/persistent cursor/manual
-  purge и fail-closed gate для regulated procedure types.
+- GitHub CI `30812286079` passed;
+- Vercel deployment `dpl_8Hs6FoVQFaUYkFZwujKmFDp2ZEcs` READY;
+- Render deployment `dep-d9o8f3oae00c73auv15g` live, health HTTP 200;
+- VPS checkout `/opt/kamilya-worker` на `3364344c`;
+- три Celery nodes `fast`, `documents`, `ai` отвечают и потребляют только свои
+  очереди; AI concurrency 2, document concurrency 1;
+- converter routing `1.2`: digital PDF/Office идут через MarkItDown, сканы
+  через Docling OCR; тяжёлая конвертация ограничена одним процессом;
+- watchdog каждые пять минут проверяет сервисы, три worker и глубину очередей;
+- dev/test Supabase остаётся текущей БД; KZ DB/storage для коммерческого клиента
+  является отдельным release gate.
 
-Для предыдущего evidence baseline на dev Supabase проверены миграция
-`0082 -> 0083`, rollback `0083 -> 0082`,
-повторный upgrade и 60 focused integration tests. Backend unit: 110 тестов;
-frontend: 216 тестов, typecheck и production build. Production-состоянием этот
-candidate стал production-состоянием только после отдельного release. Новый
-P1 поверх него в этом документе не имеет deployment evidence: нужны commit,
-CI, согласованный deploy API/web/worker, migrations и отдельный business smoke.
-
-## Последняя проверенная pre-P1 release-картина
-
-На 2026-07-29:
-
-- проверенный application HEAD:
-  `f3df397c9a326964b17d4d8aa9370ecbb5995547`;
-- GitHub CI `30456058225`: success; локально backend `639 passed`, frontend
-  `204 passed`, typecheck и production build прошли;
-- GitHub production smoke `30456057602`: success;
-- Vercel production deployment `dpl_5q2sAXiLorhCNHGRukv8yFArGn15`:
-  `READY`, commit `f3df397`;
-- Render API deployment `dep-d9l0098u01pc73ekuif0`: live,
-  commit `f3df397`;
-- production Alembic: `0079`, repository head: `0079`;
-- Celery worker active/enabled на `f3df397`, реальный Celery ping passed,
-  обязательные задачи зарегистрированы, после release ошибок в журнале нет;
-- ежедневный encrypted backup и пятиминутный watchdog активны;
-- реальный backup/portable restore drill PostgreSQL 17 + pgvector passed;
-- полный production synthetic tenant journey от регистрации до сертификата и
-  журнала обучения passed; synthetic tenant и storage objects удалены.
-- AI-рекомендация аудитории курса прошла read-only production smoke:
-  агрегаты совпали со структурой, запрос не создал назначений или правил.
-
-Эти пункты являются историческим evidence предыдущего baseline и не
-подтверждают deployment текущих invitation/Telegram/procedures/share/retention
-изменений рабочего дерева.
+Проверка 50 одновременных digital-PDF запросов к converter прошла без ошибок.
+Это не подтверждает SLA для 50 многостраничных сканов или 50 одновременных
+генераций курсов. Проверенные пределы и расчёты находятся в
+[`INFRA_CELERY_WORKER.md`](INFRA_CELERY_WORKER.md).
 
 Технический и прикладной P0 закрыты для контролируемого первого pilot.
-Отдельные условные gates сохраняются для SCORM, kiosk, KZ data residency и
-заявленной массовой нагрузки. Полный список находится в
+Отдельные условные gates сохраняются для SCORM, kiosk, KZ data residency и SLA
+массовой нагрузки. Полный список находится в
 [`PRODUCTION_READINESS.md`](PRODUCTION_READINESS.md).
 
 ## Роли

@@ -11,8 +11,8 @@ DB/storage gate и приёмкой клиента
 
 ## Текущий production release
 
-P1-контур выпущен в production на commit
-`c57178c5fa60da599a0787632ca680622fdd53d8`:
+P1-контур и bounded document/AI pipeline выпущены в production на application
+commit `3364344c`:
 
 1. append-only события обучения и проверки знаний, correction, revocation и
    legal hold;
@@ -24,11 +24,15 @@ P1-контур выпущен в production на commit
 7. retention policies, persistent cursor и bounded dry-run/manual purge;
 8. bulk invitation Celery delivery с lifecycle/provider id/errors и manual fallback;
 9. Telegram Redis Lua one-time atomic consume и production fail-closed.
-10. локальный гибридный конвертер документов: Docling для PDF/OCR,
-    MarkItDown 0.1.6 для DOCX/XLS/XLSX и LibreOffice для старого `.doc`.
+10. локальный гибридный конвертер документов: MarkItDown 0.1.6 для Office и
+    PDF с текстовым слоем, Docling для сканов/OCR и LibreOffice для старого
+    `.doc`;
+11. изолированные очереди `ai`, `documents`, `notifications`, `maintenance` и
+    три Celery worker с AI concurrency 2 и последовательной индексацией.
 
 Общая dev/test Supabase обновлена до Alembic `0089`. GitHub CI, внешний smoke,
-Render API, Vercel frontend и VPS Celery worker проверены на одном release SHA.
+Render API, Vercel frontend и VPS Celery workers проверены на application
+release `3364344c`.
 Telegram webhook защищён отдельным secret token, Telegram API сообщает нулевую
 очередь и отсутствие ошибки webhook, а public auth capabilities возвращает
 `telegram_login_enabled=true`. Полная прикладная приёмка ломбарда с его
@@ -42,13 +46,13 @@ Manifest относится только к указанному SHA. Более
 
 | Контур | Состояние | Подтверждение |
 |---|---|---|
-| Application release | PASS | `c57178c5fa60da599a0787632ca680622fdd53d8` |
-| CI | PASS | GitHub Actions `30804122638`: frontend, backend, mypy, secrets и security gates |
-| External smoke | PASS | GitHub Actions `30804122476`, API и frontend |
-| Frontend | PASS | Vercel production `dpl_2VrYoVycmz2omn24xLaDPHtX5cj3`, состояние `READY`, exact release SHA |
-| API | PASS | Render deploy `dep-d9o6nlfqj5pc7384bhdg`, состояние `live`, exact release SHA; health `200` |
-| Worker | PASS | `/opt/kamilya-worker` на exact release SHA, `kamilya-worker.service` active, Celery ping отвечает, `documents.reindex` и `users.deliver_invitation` зарегистрированы |
-| Document converter | PASS | `docling.service` active; Docling `2.106.0`, MarkItDown `0.1.6`, LibreOffice available; authenticated DOCX/XLSX/PDF smoke сохранил контрольный текст и подтвердил ожидаемую маршрутизацию |
+| Application release | PASS | `3364344c` |
+| CI | PASS | GitHub Actions `30812286079`: frontend, backend, mypy, secrets и security gates |
+| External smoke | PASS | GitHub Actions `30812286204`; после Render rollout API health отдельно подтверждён HTTP 200 |
+| Frontend | PASS | Vercel production `dpl_8Hs6FoVQFaUYkFZwujKmFDp2ZEcs`, состояние `READY`, exact application release |
+| API | PASS | Render deploy `dep-d9o8f3oae00c73auv15g`, состояние `live`, exact application release; health `200` |
+| Worker | PASS | `/opt/kamilya-worker` на exact application release; `fast`, `documents`, `ai` active/enabled; Celery ping и active queues соответствуют routing |
+| Document converter | PASS | `docling.service` active; routing `1.2`, Docling `2.106.0`, MarkItDown `0.1.6`, LibreOffice available; DOCX/XLSX/digital-PDF/OCR smoke и 50-request digital-PDF test passed |
 | Telegram | PASS | Webhook `https://kamilya-lms-api.onrender.com/api/v1/telegram/webhook`, secret token настроен, pending updates `0`, ошибок нет |
 | Database baseline | PASS (dev) | shared dev/test Supabase, Alembic `0089`; коммерческий KZ PostgreSQL остаётся отдельным release gate |
 
@@ -145,10 +149,11 @@ Manifest относится только к указанному SHA. Более
 
 ## Проверки кода и production-flow
 
-- Финальный CI на `c57178c` passed: GitHub Actions `30804122638`; отдельный
-  production smoke `30804122476` также passed.
-- Перед release локально пройдены backend suites: 860 тестов суммарно по
-  разбитым запускам; frontend: 237 тестов, typecheck, lint и production build.
+- Финальный CI application release `3364344c` passed: GitHub Actions
+  `30812286079`; production smoke `30812286204` также passed. После завершения
+  Render rollout API health отдельно вернул HTTP 200.
+- Для bounded pipeline локально пройдены 157 unit tests, 38 focused tests и 3
+  реальных document-operation integration tests на dev/test Supabase.
 - На общей dev/test Supabase дополнительно пройдены критические DB/RLS suites;
   direct RLS assertion выполняется под runtime-ролью `lms_app`, а фабрики
   создают fixture-данные через владельца миграций.
@@ -157,6 +162,10 @@ Manifest относится только к указанному SHA. Более
 - Frontend architecture tests, typecheck и production build passed.
 - Tenant/release/shell security gates passed.
 - Graphify code graph обновлён после изменений.
+- На VPS проверены routing и concurrency трёх Celery worker, authenticated
+  converter smoke для DOCX/XLSX/digital PDF/scan, 50-request digital-PDF load,
+  embedding batch из 50 фрагментов и две параллельные короткие LLM операции.
+  Эти проверки не являются SLA для 50 OCR-сканов или 50 полных генераций.
 
 ## Production-приёмка первого пилота
 

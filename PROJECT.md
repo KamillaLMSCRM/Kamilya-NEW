@@ -38,7 +38,7 @@ Kamilya LMS — multi-tenant платформа корпоративного о�
 - библиотека документов tenant;
 - извлечение текста, chunking и embeddings;
 - проверка совместимости выбранных источников;
-- AI generation в Celery;
+- AI generation в выделенной Celery queue с двумя параллельными worker slots;
 - provenance уроков и проверка grounding;
 - отдельный flow курса по должностной инструкции.
 
@@ -126,11 +126,11 @@ Kamilya фиксирует технические доказательства �
 | Shared dev/pilot DB and storage | Supabase |
 | Commercial tenant DB | Отдельный PostgreSQL на VPS в Казахстане, до запуска не создан |
 | Queue/cache | Valkey TLS на VPS |
-| Background jobs | Celery worker на VPS |
+| Background jobs | Изолированные Celery workers `ai`, `documents`, `notifications/maintenance` на VPS |
 | API hosting | Render |
 | Web hosting | Vercel |
 | Email | Resend |
-| Document conversion | Local hybrid service: Docling OCR/layout + MarkItDown Office fast path; LibreOffice for legacy `.doc` |
+| Document conversion | Local bounded hybrid service: MarkItDown for Office/text-layer PDF, Docling for scans/OCR, LibreOffice for legacy `.doc` |
 
 Monorepo:
 
