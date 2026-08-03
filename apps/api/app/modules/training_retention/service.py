@@ -123,7 +123,7 @@ async def purge(
 ) -> RetentionPurgeResponse:
     if not payload.dry_run and payload.confirmation_token != PURGE_CONFIRMATION_TOKEN:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail={"code": "confirmation_required", "message": "The server confirmation phrase is required"},
         )
     if not payload.dry_run:
