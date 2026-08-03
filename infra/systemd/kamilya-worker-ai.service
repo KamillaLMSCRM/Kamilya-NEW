@@ -1,0 +1,25 @@
+[Unit]
+Description=Kamilya LMS AI generation Celery worker
+After=network-online.target valkey-server.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/kamilya-worker/apps/api
+Environment=PYTHONPATH=/opt/kamilya-worker/apps/api
+Environment=APP_ENV=production
+Environment=CELERY_WORKER_POOL=prefork
+EnvironmentFile=/opt/kamilya-worker/apps/api/.env
+ExecStart=/opt/kamilya-worker/apps/api/.venv/bin/celery \
+  -A app.core.celery_app:celery_app worker \
+  --loglevel=info --pool=prefork --concurrency=2 \
+  --max-tasks-per-child=20 --hostname=ai@%H -Q ai
+Restart=always
+RestartSec=5
+TimeoutStopSec=1800
+StandardOutput=append:/var/log/kamilya-worker-ai.log
+StandardError=append:/var/log/kamilya-worker-ai.log
+
+[Install]
+WantedBy=multi-user.target

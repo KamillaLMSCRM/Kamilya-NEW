@@ -1,4 +1,5 @@
 """Celery app configuration"""
+
 import os
 import ssl
 
@@ -51,8 +52,34 @@ celery_app.conf.update(
     task_track_started=True,
     task_acks_late=True,
     worker_prefetch_multiplier=1,
+    task_default_queue="maintenance",
+    task_create_missing_queues=True,
+    task_routes={
+        "ai.generate_course": {"queue": "ai"},
+        "ai.regenerate_module": {"queue": "ai"},
+        "ai.regenerate_lesson": {"queue": "ai"},
+        "ai.ingest_document": {"queue": "documents"},
+        "documents.reindex": {"queue": "documents"},
+        "documents.cleanup": {"queue": "maintenance"},
+        "documents.hash_backfill": {"queue": "maintenance"},
+        "positions.apply_course_rules": {"queue": "maintenance"},
+        "users.deliver_invitation": {"queue": "notifications"},
+    },
+    task_annotations={
+        "ai.generate_course": {
+            "soft_time_limit": 1200,
+            "time_limit": 1500,
+        },
+        "documents.reindex": {
+            "soft_time_limit": 900,
+            "time_limit": 1200,
+        },
+    },
     task_soft_time_limit=300,
     task_time_limit=600,
+    broker_connection_retry_on_startup=True,
+    broker_transport_options={"visibility_timeout": 3600},
+    result_expires=86400,
     # Upstash uses rediss:// — Celery 5.6+ requires explicit ssl options
     # for the redis broker/backend when REDIS_URL starts with rediss://.
     # Pass ssl.CERT_REQUIRED as the int value (don't pass the string
@@ -99,9 +126,7 @@ def _reset_db_engine_after_fork(**kwargs) -> None:
         # if the engine wasn't actually used.
         import logging
 
-        logging.getLogger(__name__).warning(
-            "worker_process_init: engine reset failed; continuing", exc_info=True
-        )
+        logging.getLogger(__name__).warning("worker_process_init: engine reset failed; continuing", exc_info=True)
 
 
 # When run as `celery ... -P solo` (single-threaded, no fork), the

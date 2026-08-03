@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import asyncio
 import importlib.util
 import io
 import json
 import sys
+import threading
+import time
 from pathlib import Path
 from types import ModuleType
 
@@ -16,6 +19,16 @@ SERVICE_PATH = Path(__file__).resolve().parents[4] / "infra" / "docling-service"
 def _load_service(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.delenv("DOCLING_OCR_LANGUAGES", raising=False)
     monkeypatch.delenv("DOCLING_API_KEY", raising=False)
+    for name in (
+        "CONVERTER_MAX_UPLOAD_BYTES",
+        "CONVERTER_MAX_CONCURRENCY",
+        "CONVERTER_QUEUE_WAIT_TIMEOUT_SECONDS",
+        "CONVERTER_UPLOAD_CHUNK_BYTES",
+        "CONVERTER_PDF_SAMPLE_PAGES",
+        "CONVERTER_PDF_MIN_EMBEDDED_TEXT_CHARS",
+        "CONVERTER_PDF_MIN_TEXT_PAGE_RATIO",
+    ):
+        monkeypatch.delenv(name, raising=False)
     spec = importlib.util.spec_from_file_location("docling_service_main_test", SERVICE_PATH)
     assert spec and spec.loader
     module = importlib.util.module_from_spec(spec)
@@ -78,7 +91,7 @@ async def test_health_reports_ocr_configuration(monkeypatch: pytest.MonkeyPatch)
     assert await service.health() == {
         "status": "ok",
         "service": "docling",
-        "routing_version": "1.1",
+        "routing_version": "1.2",
         "engines": {
             "docling": "docling-version",
             "markitdown": "markitdown-version",
@@ -88,6 +101,11 @@ async def test_health_reports_ocr_configuration(monkeypatch: pytest.MonkeyPatch)
             "enabled": True,
             "engine": "tesseract-cli",
             "languages": ["kaz", "rus", "eng"],
+        },
+        "limits": {
+            "max_upload_bytes": 50 * 1024 * 1024,
+            "max_concurrency": 1,
+            "queue_wait_timeout_seconds": 30.0,
         },
     }
 
@@ -235,13 +253,21 @@ async def test_docx_falls_back_to_docling_without_internal_error(
 
 
 @pytest.mark.asyncio
-async def test_pdf_uses_docling_primary(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_digital_pdf_uses_markitdown_without_docling(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     service = _load_service(monkeypatch)
-    monkeypatch.setattr(service, "_docling_convert", lambda path: ("# OCR text", 1, 0))
     monkeypatch.setattr(
         service,
-        "_markitdown_convert",
-        lambda path: (_ for _ in ()).throw(AssertionError("fallback must not run")),
+        "_profile_pdf",
+        lambda path: {
+            "profile": "digital_text",
+            "is_digital": True,
+            "pages": 2,
+            "routing_reason": "embedded-text-sufficient",
+        },
+    )
+    monkeypatch.setattr(service, "_markitdown_convert", lambda path: "# Digital text")
+    monkeypatch.setattr(
+        service, "_docling_convert", lambda path: (_ for _ in ()).throw(AssertionError("Docling must not run"))
     )
 
     response = await service.convert_document(
@@ -250,8 +276,127 @@ async def test_pdf_uses_docling_primary(monkeypatch: pytest.MonkeyPatch) -> None
     )
     payload = json.loads(response.body)
 
-    assert payload["engine"] == "docling"
+    assert payload["engine"] == "markitdown"
     assert payload["fallback_used"] is False
+    assert payload["profile"] == "digital_text"
+    assert payload["routing_reason"] == "digital-pdf-markitdown-primary"
+
+
+@pytest.mark.asyncio
+async def test_scanned_pdf_uses_docling_ocr(monkeypatch: pytest.MonkeyPatch) -> None:
+    service = _load_service(monkeypatch)
+    monkeypatch.setattr(
+        service,
+        "_profile_pdf",
+        lambda path: {
+            "profile": "scanned_or_low_text",
+            "is_digital": False,
+            "pages": 3,
+            "routing_reason": "embedded-text-insufficient",
+        },
+    )
+    monkeypatch.setattr(service, "_docling_convert", lambda path: ("# OCR text", 3, 1))
+    monkeypatch.setattr(
+        service, "_markitdown_convert", lambda path: (_ for _ in ()).throw(AssertionError("fallback must not run"))
+    )
+
+    response = await service.convert_document(
+        file=UploadFile(filename="scan.pdf", file=io.BytesIO(b"pdf")),
+        x_docling_key=None,
+    )
+    payload = json.loads(response.body)
+
+    assert payload["engine"] == "docling"
+    assert payload["profile"] == "scanned_or_low_text"
+    assert payload["routing_reason"] == "scanned-pdf-docling-ocr"
+
+
+def test_pdf_profile_uses_embedded_text_without_docling(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    service = _load_service(monkeypatch)
+    fake_pypdf = ModuleType("pypdf")
+
+    class Page:
+        def __init__(self, text: str):
+            self.text = text
+
+        def extract_text(self):
+            return self.text
+
+    class PdfReader:
+        def __init__(self, path, strict=False):
+            self.pages = [Page("Embedded policy text " * 10), Page("Embedded policy text " * 10)]
+
+    fake_pypdf.PdfReader = PdfReader
+    monkeypatch.setitem(sys.modules, "pypdf", fake_pypdf)
+    pdf_path = tmp_path / "digital.pdf"
+    pdf_path.write_bytes(b"not parsed by fake reader")
+
+    profile = service._profile_pdf(str(pdf_path))
+
+    assert profile["is_digital"] is True
+    assert profile["profile"] == "digital_text"
+    assert profile["pages"] == 2
+    assert profile["routing_reason"] == "embedded-text-sufficient"
+
+
+@pytest.mark.asyncio
+async def test_upload_size_limit_returns_413_and_cleans_temp(monkeypatch: pytest.MonkeyPatch) -> None:
+    service = _load_service(monkeypatch)
+    monkeypatch.setattr(service, "MAX_UPLOAD_BYTES", 3)
+
+    with pytest.raises(service.HTTPException) as exc_info:
+        await service.convert_document(
+            file=UploadFile(filename="large.txt", file=io.BytesIO(b"1234")),
+            x_docling_key=None,
+        )
+
+    assert exc_info.value.status_code == 413
+
+
+@pytest.mark.asyncio
+async def test_conversion_queue_timeout_returns_503_with_retry_after(monkeypatch: pytest.MonkeyPatch) -> None:
+    service = _load_service(monkeypatch)
+    service._conversion_slots = asyncio.Semaphore(0)
+    monkeypatch.setattr(service, "QUEUE_WAIT_TIMEOUT_SECONDS", 0.01)
+
+    with pytest.raises(service.HTTPException) as exc_info:
+        await service.convert_document(
+            file=UploadFile(filename="queued.txt", file=io.BytesIO(b"queued")),
+            x_docling_key=None,
+        )
+
+    assert exc_info.value.status_code == 503
+    assert exc_info.value.headers == {"Retry-After": "1"}
+
+
+@pytest.mark.asyncio
+async def test_blocking_conversion_runs_off_event_loop(monkeypatch: pytest.MonkeyPatch) -> None:
+    service = _load_service(monkeypatch)
+    started = threading.Event()
+
+    def slow_conversion(**kwargs):
+        started.set()
+        time.sleep(0.05)
+        return service._payload(
+            filename=kwargs["filename"],
+            markdown="# Converted",
+            engine="markitdown",
+            engine_version="0.1.6",
+        )
+
+    monkeypatch.setattr(service, "_convert_sync", slow_conversion)
+    conversion = asyncio.create_task(
+        service.convert_document(
+            file=UploadFile(filename="policy.docx", file=io.BytesIO(b"docx")),
+            x_docling_key=None,
+        )
+    )
+    assert await asyncio.to_thread(started.wait, 1) is True
+
+    health_payload = await service.health()
+    await conversion
+
+    assert health_payload["status"] == "ok"
 
 
 @pytest.mark.asyncio

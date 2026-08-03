@@ -62,6 +62,8 @@ class DocumentConverter:
                             "engine_version": data.get("engine_version"),
                             "fallback_used": bool(data.get("fallback_used", False)),
                             "warnings": list(data.get("warnings") or []),
+                            "profile": data.get("profile"),
+                            "routing_reason": data.get("routing_reason"),
                         },
                     }
         except Exception as e:

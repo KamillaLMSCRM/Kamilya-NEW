@@ -7,7 +7,7 @@ umask 077
 
 API_HEALTH_URL="${API_HEALTH_URL:-https://kamilya-lms-api.onrender.com/api/v1/health}"
 WEB_HEALTH_URL="${WEB_HEALTH_URL:-https://app.kml.kz/login}"
-WORKER_SERVICE="${WORKER_SERVICE:-kamilya-worker.service}"
+WORKER_SERVICES="${WORKER_SERVICES:-kamilya-worker.service,kamilya-worker-documents.service,kamilya-worker-ai.service}"
 VALKEY_SERVICE="${VALKEY_SERVICE:-valkey-server.service}"
 BACKUP_DIR="${BACKUP_DIR:-/opt/kamilya-backups}"
 BACKUP_MAX_AGE_HOURS="${BACKUP_MAX_AGE_HOURS:-30}"
@@ -17,6 +17,8 @@ ALERT_COOLDOWN_SECONDS="${ALERT_COOLDOWN_SECONDS:-21600}"
 CELERY_BIN="${CELERY_BIN:-/opt/kamilya-worker/apps/api/.venv/bin/celery}"
 CELERY_APP="${CELERY_APP:-app.core.celery_app:celery_app}"
 CELERY_WORKDIR="${CELERY_WORKDIR:-/opt/kamilya-worker/apps/api}"
+EXPECTED_CELERY_NODES="${EXPECTED_CELERY_NODES:-3}"
+CELERY_QUEUE_MAX_DEPTH="${CELERY_QUEUE_MAX_DEPTH:-50}"
 
 failures=()
 
@@ -32,6 +34,8 @@ require_integer() {
 require_integer BACKUP_MAX_AGE_HOURS "${BACKUP_MAX_AGE_HOURS}"
 require_integer DISK_MAX_PERCENT "${DISK_MAX_PERCENT}"
 require_integer ALERT_COOLDOWN_SECONDS "${ALERT_COOLDOWN_SECONDS}"
+require_integer EXPECTED_CELERY_NODES "${EXPECTED_CELERY_NODES}"
+require_integer CELERY_QUEUE_MAX_DEPTH "${CELERY_QUEUE_MAX_DEPTH}"
 
 check_service() {
   local service=$1
@@ -76,14 +80,35 @@ check_disk() {
 }
 
 check_worker_ping() {
+  local output node_count
   if [[ ! -x "${CELERY_BIN}" ]]; then
     failures+=("Celery executable is missing")
     return
   fi
-  (
+  output="$(
     cd "${CELERY_WORKDIR}"
-    timeout 20 "${CELERY_BIN}" -A "${CELERY_APP}" inspect ping --timeout 8
-  ) >/dev/null 2>&1 || failures+=("Celery worker did not answer ping")
+    timeout 20 "${CELERY_BIN}" -A "${CELERY_APP}" inspect ping --timeout 8 --json
+  )" 2>/dev/null || {
+    failures+=("Celery workers did not answer ping")
+    return
+  }
+  node_count="$(python3 -c 'import json,sys; print(len(json.load(sys.stdin)))' <<<"${output}" 2>/dev/null || printf '0')"
+  (( node_count >= EXPECTED_CELERY_NODES )) ||
+    failures+=("only ${node_count}/${EXPECTED_CELERY_NODES} Celery workers answered ping")
+}
+
+check_queue_depth() {
+  local output
+  output="$(
+    cd "${CELERY_WORKDIR}"
+    PYTHONPATH="${CELERY_WORKDIR}" \
+      .venv/bin/python /opt/kamilya-worker/scripts/ops/queue_depth.py \
+      --max-depth "${CELERY_QUEUE_MAX_DEPTH}"
+  )" 2>/dev/null || {
+    failures+=("${output:-Celery queue depth could not be checked}")
+    return
+  }
+  [[ -z "${output}" ]] || failures+=("${output}")
 }
 
 send_email() {
@@ -143,13 +168,17 @@ ${current_state}"
   fi
 }
 
-check_service "${WORKER_SERVICE}"
+IFS=',' read -r -a worker_services <<<"${WORKER_SERVICES}"
+for worker_service in "${worker_services[@]}"; do
+  check_service "${worker_service}"
+done
 check_service "${VALKEY_SERVICE}"
 check_url API "${API_HEALTH_URL}"
 check_url frontend "${WEB_HEALTH_URL}"
 check_backup_age
 check_disk
 check_worker_ping
+check_queue_depth
 notify_state_change
 
 if ((${#failures[@]} > 0)); then

@@ -16,6 +16,8 @@ class _Response:
             "engine_version": "0.1.6",
             "fallback_used": True,
             "warnings": ["Primary converter failed"],
+            "profile": "office",
+            "routing_reason": "office-docling-fallback",
         }
 
 
@@ -50,4 +52,6 @@ async def test_remote_converter_preserves_engine_metadata(tmp_path, monkeypatch)
         "engine_version": "0.1.6",
         "fallback_used": True,
         "warnings": ["Primary converter failed"],
+        "profile": "office",
+        "routing_reason": "office-docling-fallback",
     }

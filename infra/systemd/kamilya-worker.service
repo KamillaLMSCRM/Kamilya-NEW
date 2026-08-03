@@ -1,0 +1,25 @@
+[Unit]
+Description=Kamilya LMS fast Celery worker
+After=network-online.target valkey-server.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/kamilya-worker/apps/api
+Environment=PYTHONPATH=/opt/kamilya-worker/apps/api
+Environment=APP_ENV=production
+Environment=CELERY_WORKER_POOL=solo
+EnvironmentFile=/opt/kamilya-worker/apps/api/.env
+ExecStart=/opt/kamilya-worker/apps/api/.venv/bin/celery \
+  -A app.core.celery_app:celery_app worker \
+  --loglevel=info --pool=solo --concurrency=1 \
+  --hostname=fast@%H -Q notifications,maintenance,celery
+Restart=always
+RestartSec=5
+TimeoutStopSec=600
+StandardOutput=append:/var/log/kamilya-worker-fast.log
+StandardError=append:/var/log/kamilya-worker-fast.log
+
+[Install]
+WantedBy=multi-user.target

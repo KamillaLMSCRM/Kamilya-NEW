@@ -1,0 +1,25 @@
+[Unit]
+Description=Kamilya LMS document indexing Celery worker
+After=network-online.target valkey-server.service docling.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/kamilya-worker/apps/api
+Environment=PYTHONPATH=/opt/kamilya-worker/apps/api
+Environment=APP_ENV=production
+Environment=CELERY_WORKER_POOL=solo
+EnvironmentFile=/opt/kamilya-worker/apps/api/.env
+ExecStart=/opt/kamilya-worker/apps/api/.venv/bin/celery \
+  -A app.core.celery_app:celery_app worker \
+  --loglevel=info --pool=solo --concurrency=1 \
+  --hostname=documents@%H -Q documents
+Restart=always
+RestartSec=5
+TimeoutStopSec=1500
+StandardOutput=append:/var/log/kamilya-worker-documents.log
+StandardError=append:/var/log/kamilya-worker-documents.log
+
+[Install]
+WantedBy=multi-user.target
