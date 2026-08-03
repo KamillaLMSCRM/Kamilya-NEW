@@ -12,7 +12,7 @@ DB/storage gate и приёмкой клиента
 ## Текущий production release
 
 P1-контур выпущен в production на commit
-`b7d843df27cbd6ed853d84361eb8e83bf4d3a00e`:
+`c57178c5fa60da599a0787632ca680622fdd53d8`:
 
 1. append-only события обучения и проверки знаний, correction, revocation и
    legal hold;
@@ -24,6 +24,8 @@ P1-контур выпущен в production на commit
 7. retention policies, persistent cursor и bounded dry-run/manual purge;
 8. bulk invitation Celery delivery с lifecycle/provider id/errors и manual fallback;
 9. Telegram Redis Lua one-time atomic consume и production fail-closed.
+10. локальный гибридный конвертер документов: Docling для PDF/OCR,
+    MarkItDown 0.1.6 для DOCX/XLS/XLSX и LibreOffice для старого `.doc`.
 
 Общая dev/test Supabase обновлена до Alembic `0089`. GitHub CI, внешний smoke,
 Render API, Vercel frontend и VPS Celery worker проверены на одном release SHA.
@@ -40,12 +42,13 @@ Manifest относится только к указанному SHA. Более
 
 | Контур | Состояние | Подтверждение |
 |---|---|---|
-| Application release | PASS | `b7d843df27cbd6ed853d84361eb8e83bf4d3a00e` |
-| CI | PASS | GitHub Actions `30797757218`: frontend, backend, mypy, secrets и security gates |
-| External smoke | PASS | GitHub Actions `30797757189`, API и frontend |
-| Frontend | PASS | Vercel production `dpl_6a9z3PGCTH5WRuJf5u5FZ4aeZXMd`, состояние `READY`, alias `app.kml.kz`, exact release SHA |
-| API | PASS | Render deploy `dep-d9o59hjncjis73bab7l0`, состояние `live`, exact release SHA; health `200` |
-| Worker | PASS | `/opt/kamilya-worker` на exact release SHA, `kamilya-worker.service` active, Celery ping отвечает, `users.deliver_invitation` зарегистрирована |
+| Application release | PASS | `c57178c5fa60da599a0787632ca680622fdd53d8` |
+| CI | PASS | GitHub Actions `30804122638`: frontend, backend, mypy, secrets и security gates |
+| External smoke | PASS | GitHub Actions `30804122476`, API и frontend |
+| Frontend | PASS | Vercel production `dpl_2VrYoVycmz2omn24xLaDPHtX5cj3`, состояние `READY`, exact release SHA |
+| API | PASS | Render deploy `dep-d9o6nlfqj5pc7384bhdg`, состояние `live`, exact release SHA; health `200` |
+| Worker | PASS | `/opt/kamilya-worker` на exact release SHA, `kamilya-worker.service` active, Celery ping отвечает, `documents.reindex` и `users.deliver_invitation` зарегистрированы |
+| Document converter | PASS | `docling.service` active; Docling `2.106.0`, MarkItDown `0.1.6`, LibreOffice available; authenticated DOCX/XLSX/PDF smoke сохранил контрольный текст и подтвердил ожидаемую маршрутизацию |
 | Telegram | PASS | Webhook `https://kamilya-lms-api.onrender.com/api/v1/telegram/webhook`, secret token настроен, pending updates `0`, ошибок нет |
 | Database baseline | PASS (dev) | shared dev/test Supabase, Alembic `0089`; коммерческий KZ PostgreSQL остаётся отдельным release gate |
 
@@ -142,8 +145,8 @@ Manifest относится только к указанному SHA. Более
 
 ## Проверки кода и production-flow
 
-- Финальный CI на `b7d843d` passed: GitHub Actions `30797757218`; отдельный
-  production smoke `30797757189` также passed.
+- Финальный CI на `c57178c` passed: GitHub Actions `30804122638`; отдельный
+  production smoke `30804122476` также passed.
 - Перед release локально пройдены backend suites: 860 тестов суммарно по
   разбитым запускам; frontend: 237 тестов, typecheck, lint и production build.
 - На общей dev/test Supabase дополнительно пройдены критические DB/RLS suites;
