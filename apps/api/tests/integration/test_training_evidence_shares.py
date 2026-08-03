@@ -5,7 +5,7 @@ from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.exc import DBAPIError
 
 from app.modules.training_evidence import share_service
@@ -97,6 +97,10 @@ async def test_share_row_is_invisible_after_switching_tenant_context(
     db_session.add(share)
     await db_session.flush()
 
+    # CI seeds fixtures through the database owner. Switch to the restricted
+    # production role before the direct visibility assertion so FORCE RLS is
+    # exercised instead of being bypassed by the PostgreSQL superuser.
+    await db_session.execute(text("SET LOCAL ROLE lms_app"))
     await set_current_tenant(tenant_b)
     visible = await db_session.scalar(
         select(TrainingEvidenceShare).where(TrainingEvidenceShare.id == share.id)

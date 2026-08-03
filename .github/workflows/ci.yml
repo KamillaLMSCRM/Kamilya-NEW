@@ -200,9 +200,7 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     env:
-      # Tests must use the restricted runtime role so FORCE RLS assertions are
-      # meaningful. Alembic keeps the privileged owner URL below.
-      DATABASE_URL: postgresql+asyncpg://lms_app:lms_app_test_password@localhost:5432/kamilya_lms_test
+      DATABASE_URL: postgresql+asyncpg://lms:lms_test_password@localhost:5432/kamilya_lms_test
       MIGRATION_DATABASE_URL: postgresql+asyncpg://lms:lms_test_password@localhost:5432/kamilya_lms_test
       REDIS_URL: redis://localhost:6379/0
       JWT_SECRET: test_jwt_secret_for_ci_only_min_length_32
