@@ -1,6 +1,6 @@
 # Kamilya LMS Celery worker
 
-**Обновлено:** 2026-07-29
+**Обновлено:** 2026-08-03
 **Назначение:** текущий runbook worker. Исторические инструкции Upstash и старых
 checkout удалены.
 
@@ -24,18 +24,19 @@ Worker выполняет:
 - `ai.regenerate_lesson`;
 - `ai.ingest_document`;
 - document cleanup/reindex jobs;
-- `positions.apply_course_rules`.
+- `positions.apply_course_rules`;
+- `users.deliver_invitation`.
 
 ## Текущий известный статус
 
-На 2026-07-29 unit active/enabled, checkout
-`f3df397c9a326964b17d4d8aa9370ecbb5995547`, production API и worker
-синхронизированы. Production DB находится на `0079`; реальный Celery inspect
-ping отвечает. Worker зарегистрировал обязательные задачи генерации,
-перегенерации, индексации документов и применения правил. После выкладки в
-журнале unit не обнаружены `ERROR`, `CRITICAL` или traceback. GitHub CI и
-внешний production smoke для release прошли; полный synthetic tenant journey
-на этом release отдельно не повторялся.
+На 2026-08-03 unit active/enabled, checkout
+`b7d843df27cbd6ed853d84361eb8e83bf4d3a00e`, production API и worker
+синхронизированы. Общая dev/test Supabase находится на `0089`; реальный Celery
+inspect ping отвечает. Worker зарегистрировал обязательные задачи генерации,
+перегенерации, индексации документов, применения правил и доставки приглашений
+`users.deliver_invitation`. После рестарта unit не перезапускался аварийно;
+GitHub CI и внешний production smoke для release прошли. Полный клиентский
+journey на этом release сознательно оставлен для согласованной приёмки.
 
 ## Проверка без изменения сервера
 
@@ -56,7 +57,7 @@ celery -A app.core.celery_app:celery_app inspect registered
 
 В списке registered обязательны `ai.generate_course`,
 `ai.regenerate_module`, `ai.regenerate_lesson`, `ai.ingest_document` и
-`positions.apply_course_rules`.
+`positions.apply_course_rules`, а также `users.deliver_invitation`.
 
 Не выводить environment unit и значения `.env`.
 

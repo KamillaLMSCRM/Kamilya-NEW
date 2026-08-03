@@ -1,16 +1,18 @@
 # Kamilya LMS: готовность первого production-тенанта
 
-**Проверено:** 2026-08-03 по текущим исходникам; deploy не выполнялся
+**Проверено:** 2026-08-03 по исходникам, CI и production-контурам
 **Технический P0 baseline:** закрыт
-**Режим запуска:** dev/test и контролируемая демонстрация; коммерческий tenant
-не запускается до отдельного KZ DB/storage gate
+**Режим запуска:** dev/test и контролируемая демонстрация; подключение первого
+коммерческого tenant с персональными данными остаётся за отдельным KZ
+DB/storage gate и приёмкой клиента
 **Назначение:** единственный актуальный реестр production-gates. История изменений
 остаётся в Git; отдельные датированные отчёты не используются как источник
 текущего состояния.
 
-## Не выпущенный development candidate
+## Текущий production release
 
-В рабочем дереве поверх выпущенного baseline реализован P1-контур:
+P1-контур выпущен в production на commit
+`b7d843df27cbd6ed853d84361eb8e83bf4d3a00e`:
 
 1. append-only события обучения и проверки знаний, correction, revocation и
    legal hold;
@@ -23,30 +25,29 @@
 8. bulk invitation Celery delivery с lifecycle/provider id/errors и manual fallback;
 9. Telegram Redis Lua one-time atomic consume и production fail-closed.
 
-Для предыдущего evidence baseline на общей dev Supabase пройдены
-upgrade/rollback/upgrade миграции, 60 focused
-integration tests evidence-контура и 16 release/evidence tests. Backend unit:
-110 тестов. Frontend: 216 тестов, typecheck, production build и
-desktop/mobile visual QA. Это
-подтверждение development candidate, а не deployment evidence. До выпуска
-обязательны commit, CI, согласованный deploy API/web/worker, применение текущих
-migrations в целевом контуре и smoke invitation delivery, Telegram, procedure,
-share и retention. Старые release ids не являются evidence текущего P1.
+Общая dev/test Supabase обновлена до Alembic `0089`. GitHub CI, внешний smoke,
+Render API, Vercel frontend и VPS Celery worker проверены на одном release SHA.
+Telegram webhook защищён отдельным secret token, Telegram API сообщает нулевую
+очередь и отсутствие ошибки webhook, а public auth capabilities возвращает
+`telegram_login_enabled=true`. Полная прикладная приёмка ломбарда с его
+пользователями и документами сознательно отложена до согласованного клиентского
+теста; технический release evidence не подменяет эту приёмку.
 
-## Последний проверенный pre-P1 release manifest
+## Проверенный release manifest
 
-Manifest ниже сохранён как исторический baseline. Он не подтверждает текущие
-изменения рабочего дерева и не должен использоваться как P1 deployment evidence.
+Manifest относится только к указанному SHA. Более новый commit требует новой
+сверки каждого контура.
 
 | Контур | Состояние | Подтверждение |
 |---|---|---|
-| Application baseline | PASS | Feature release `af867c93640eced8cf8adabc7b339f82edbef928` |
-| CI | PASS | GitHub Actions `30536944500`: secrets, frontend, backend unit/full tests, mypy и release/tenant-security gates |
-| External smoke | PASS | GitHub Actions `30536944463`, API и frontend |
-| Frontend | PASS | Vercel production `dpl_HYVfvDnNMESvnDew8evN4JRV6d8p` в состоянии `READY`, alias `app.kml.kz`, commit `af867c9` |
-| API | PASS | Render deploy `dep-d9livhvavr4c739719bg`, build/pre-deploy/deploy succeeded, commit `af867c9`; health отвечает |
-| Worker | NOT TOUCHED | Историческая отдельно проверяемая revision из [`INFRA_CELERY_WORKER.md`](INFRA_CELERY_WORKER.md); новая invitation task ещё не подтверждена в production |
-| Database baseline | PASS (dev) | shared dev/test PostgreSQL 17.6 на Supabase, Alembic `0083`; коммерческий KZ PostgreSQL остаётся отдельным release gate |
+| Application release | PASS | `b7d843df27cbd6ed853d84361eb8e83bf4d3a00e` |
+| CI | PASS | GitHub Actions `30797757218`: frontend, backend, mypy, secrets и security gates |
+| External smoke | PASS | GitHub Actions `30797757189`, API и frontend |
+| Frontend | PASS | Vercel production `dpl_6a9z3PGCTH5WRuJf5u5FZ4aeZXMd`, состояние `READY`, alias `app.kml.kz`, exact release SHA |
+| API | PASS | Render deploy `dep-d9o59hjncjis73bab7l0`, состояние `live`, exact release SHA; health `200` |
+| Worker | PASS | `/opt/kamilya-worker` на exact release SHA, `kamilya-worker.service` active, Celery ping отвечает, `users.deliver_invitation` зарегистрирована |
+| Telegram | PASS | Webhook `https://kamilya-lms-api.onrender.com/api/v1/telegram/webhook`, secret token настроен, pending updates `0`, ошибок нет |
+| Database baseline | PASS (dev) | shared dev/test Supabase, Alembic `0089`; коммерческий KZ PostgreSQL остаётся отдельным release gate |
 
 ## Закрытые P0
 
@@ -141,9 +142,13 @@ Manifest ниже сохранён как исторический baseline. О�
 
 ## Проверки кода и production-flow
 
-- Финальный CI на `f3df397` passed. Локальная полная проверка этого release:
-  backend `639 passed`, frontend `204 passed`, typecheck и production build;
-  release/tenant security gates также прошли.
+- Финальный CI на `b7d843d` passed: GitHub Actions `30797757218`; отдельный
+  production smoke `30797757189` также passed.
+- Перед release локально пройдены backend suites: 860 тестов суммарно по
+  разбитым запускам; frontend: 237 тестов, typecheck, lint и production build.
+- На общей dev/test Supabase дополнительно пройдены критические DB/RLS suites;
+  direct RLS assertion выполняется под runtime-ролью `lms_app`, а фабрики
+  создают fixture-данные через владельца миграций.
 - Focused backend P0 suites: 26 тестов канонической структуры штата и 17
   тестов invitation/SCORM contracts passed.
 - Frontend architecture tests, typecheck и production build passed.
