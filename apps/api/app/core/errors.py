@@ -59,10 +59,13 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> JSONRe
     # clients remain compatible with the stable error/message envelope.
     if isinstance(detail, (dict, list)):
         content["details"] = detail
+    headers = _cors_headers(request)
+    if exc.headers:
+        headers.update(exc.headers)
     return JSONResponse(
         status_code=exc.status_code,
         content=content,
-        headers=_cors_headers(request),
+        headers=headers,
     )
 
 

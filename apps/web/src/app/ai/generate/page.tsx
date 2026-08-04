@@ -77,7 +77,8 @@ function parseRetryAfterSeconds(error: any): number | null {
   const headerValue = Number(error?.response?.headers?.['retry-after']);
   if (Number.isFinite(headerValue) && headerValue > 0) return Math.ceil(headerValue);
 
-  const detailValue = Number(error?.response?.data?.detail?.retry_after_seconds);
+  const detail = error?.response?.data?.details ?? error?.response?.data?.detail;
+  const detailValue = Number(detail?.retry_after_seconds);
   if (Number.isFinite(detailValue) && detailValue > 0) return Math.ceil(detailValue);
   return null;
 }
