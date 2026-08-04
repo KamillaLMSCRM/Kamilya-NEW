@@ -1,7 +1,7 @@
 # Kamilya LMS: текущий контекст проекта
 
 > Living document. Значения секретов здесь не хранятся.
-> Обновлено: 2026-08-03.
+> Обновлено: 2026-08-04.
 
 ## Источники правды
 
@@ -45,14 +45,16 @@ restore и cutover проходят отдельный release-gate.
 
 ## Текущий проверенный release
 
-На 2026-08-03 application release `3364344c` находится в production:
+На 2026-08-04 application release `fe0f3c97` находится в production:
 
-- GitHub CI `30812286079` passed;
-- Vercel deployment `dpl_8Hs6FoVQFaUYkFZwujKmFDp2ZEcs` READY;
-- Render deployment `dep-d9o8f3oae00c73auv15g` live, health HTTP 200;
-- VPS checkout `/opt/kamilya-worker` на `3364344c`;
+- GitHub CI `30887126262` passed;
+- Vercel deployment `dpl_CZL46iTkg5hzgMmZ2vx5vLrfL5aZ` READY;
+- Render deployment `dep-d9op3n5bedkc73de1l80` live, health HTTP 200;
+- VPS checkout `/opt/kamilya-worker` на `fe0f3c97`;
 - три Celery nodes `fast`, `documents`, `ai` отвечают и потребляют только свои
   очереди; AI concurrency 2, document concurrency 1;
+- API допускает не более двух активных AI-задач на tenant; третья получает
+  стабильный `429` с `Retry-After`, а UI показывает очередь только своей компании;
 - converter routing `1.2`: digital PDF/Office идут через MarkItDown, сканы
   через Docling OCR; тяжёлая конвертация ограничена одним процессом;
 - watchdog каждые пять минут проверяет сервисы, три worker и глубину очередей;

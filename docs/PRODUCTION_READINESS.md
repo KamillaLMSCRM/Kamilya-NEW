@@ -1,6 +1,6 @@
 # Kamilya LMS: готовность первого production-тенанта
 
-**Проверено:** 2026-08-03 по исходникам, CI и production-контурам
+**Проверено:** 2026-08-04 по исходникам, CI и production-контурам
 **Технический P0 baseline:** закрыт
 **Режим запуска:** dev/test и контролируемая демонстрация; подключение первого
 коммерческого tenant с персональными данными остаётся за отдельным KZ
@@ -12,7 +12,7 @@ DB/storage gate и приёмкой клиента
 ## Текущий production release
 
 P1-контур и bounded document/AI pipeline выпущены в production на application
-commit `3364344c`:
+commit `fe0f3c97`:
 
 1. append-only события обучения и проверки знаний, correction, revocation и
    legal hold;
@@ -29,10 +29,13 @@ commit `3364344c`:
     `.doc`;
 11. изолированные очереди `ai`, `documents`, `notifications`, `maintenance` и
     три Celery worker с AI concurrency 2 и последовательной индексацией.
+12. tenant-fair admission для AI-генерации: не более двух `pending/running`
+    задач на компанию, атомарная проверка до списания лимитов, tenant-relative
+    позиция/ETA в UI и стабильный `429` с `Retry-After`.
 
 Общая dev/test Supabase обновлена до Alembic `0089`. GitHub CI, внешний smoke,
 Render API, Vercel frontend и VPS Celery workers проверены на application
-release `3364344c`.
+release `fe0f3c97`.
 Telegram webhook защищён отдельным secret token, Telegram API сообщает нулевую
 очередь и отсутствие ошибки webhook, а public auth capabilities возвращает
 `telegram_login_enabled=true`. Полная прикладная приёмка ломбарда с его
@@ -46,11 +49,11 @@ Manifest относится только к указанному SHA. Более
 
 | Контур | Состояние | Подтверждение |
 |---|---|---|
-| Application release | PASS | `3364344c` |
-| CI | PASS | GitHub Actions `30812286079`: frontend, backend, mypy, secrets и security gates |
-| External smoke | PASS | GitHub Actions `30812286204`; после Render rollout API health отдельно подтверждён HTTP 200 |
-| Frontend | PASS | Vercel production `dpl_8Hs6FoVQFaUYkFZwujKmFDp2ZEcs`, состояние `READY`, exact application release |
-| API | PASS | Render deploy `dep-d9o8f3oae00c73auv15g`, состояние `live`, exact application release; health `200` |
+| Application release | PASS | `fe0f3c97` |
+| CI | PASS | GitHub Actions `30887126262`: frontend, backend, mypy, secrets и security gates |
+| External smoke | PASS | GitHub Actions `30887126231`; после Render rollout API health отдельно подтверждён HTTP 200 |
+| Frontend | PASS | Vercel production `dpl_CZL46iTkg5hzgMmZ2vx5vLrfL5aZ`, состояние `READY`, exact application release |
+| API | PASS | Render deploy `dep-d9op3n5bedkc73de1l80`, состояние `live`, exact application release; health `200`; tenant admission smoke вернул `429`, код `tenant_ai_job_limit_reached`, `2/2` и `Retry-After: 510` |
 | Worker | PASS | `/opt/kamilya-worker` на exact application release; `fast`, `documents`, `ai` active/enabled; Celery ping и active queues соответствуют routing |
 | Document converter | PASS | `docling.service` active; routing `1.2`, Docling `2.106.0`, MarkItDown `0.1.6`, LibreOffice available; DOCX/XLSX/digital-PDF/OCR smoke и 50-request digital-PDF test passed |
 | Telegram | PASS | Webhook `https://kamilya-lms-api.onrender.com/api/v1/telegram/webhook`, secret token настроен, pending updates `0`, ошибок нет |
@@ -149,10 +152,11 @@ Manifest относится только к указанному SHA. Более
 
 ## Проверки кода и production-flow
 
-- Финальный CI application release `3364344c` passed: GitHub Actions
-  `30812286079`; production smoke `30812286204` также passed. После завершения
+- Финальный CI application release `fe0f3c97` passed: GitHub Actions
+  `30887126262`; production smoke `30887126231` также passed. После завершения
   Render rollout API health отдельно вернул HTTP 200.
-- Для bounded pipeline локально пройдены 157 unit tests, 38 focused tests и 3
+- Для bounded pipeline локально пройдены 166 unit tests, 196 focused backend
+  tests, 237 frontend tests и 3
   реальных document-operation integration tests на dev/test Supabase.
 - На общей dev/test Supabase дополнительно пройдены критические DB/RLS suites;
   direct RLS assertion выполняется под runtime-ролью `lms_app`, а фабрики

@@ -1,6 +1,6 @@
 # Kamilya LMS Celery worker
 
-**Обновлено:** 2026-08-03
+**Обновлено:** 2026-08-04
 **Назначение:** текущий runbook worker. Исторические инструкции Upstash и старых
 checkout удалены.
 
@@ -34,10 +34,10 @@ checkout удалены.
 
 ## Текущий известный статус
 
-На 2026-08-03 три unit active/enabled, checkout находится на application release
-`3364344c`. Общая dev/test Supabase находится на Alembic `0089`; Celery inspect
+На 2026-08-04 три unit active/enabled, checkout находится на application release
+`fe0f3c97`. Общая dev/test Supabase находится на Alembic `0089`; Celery inspect
 показывает три узла `fast`, `documents` и `ai` с ожидаемыми очередями. Production
-API Render live на `3364344c`, frontend Vercel READY, GitHub CI и внешний smoke
+API Render live на `fe0f3c97`, frontend Vercel READY, GitHub CI и внешний smoke
 прошли. Полный клиентский journey остаётся отдельной согласованной приёмкой.
 
 ## Проверка без изменения сервера

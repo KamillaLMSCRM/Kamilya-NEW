@@ -1,6 +1,6 @@
 # Kamilya LMS: VPS и подключённые сервисы
 
-**Обновлено:** 2026-08-03
+**Обновлено:** 2026-08-04
 **Правило:** этот документ описывает только подтверждённое текущее состояние.
 Значения паролей, ключей и URL с credentials не приводятся.
 
@@ -22,13 +22,15 @@
 Не печатать значения переменных и не добавлять их в команды, попадающие в
 логи.
 
-## Проверенное 2026-08-03
+## Проверенное 2026-08-04
 
 | Компонент | Состояние | Комментарий |
 |---|---|---|
 | `valkey-server` / `valkey` | active | Broker, result backend, OTP/rate-limit/cache |
-| `kamilya-worker.service` | active, enabled | Checkout `b7d843d`, Celery ping отвечает, `users.deliver_invitation` зарегистрирована |
-| Disk `/` | 60% used, около 30 GB free | Watchdog должен контролировать заполнение |
+| `kamilya-worker.service` | active, enabled | Checkout `fe0f3c97`, очереди `notifications`, `maintenance`, `celery` |
+| `kamilya-worker-documents.service` | active, enabled | Checkout `fe0f3c97`, очередь `documents`, concurrency 1 |
+| `kamilya-worker-ai.service` | active, enabled | Checkout `fe0f3c97`, очередь `ai`, concurrency 2 |
+| Disk `/` | 61% used, около 29 GB free | Watchdog должен контролировать заполнение |
 | `kamilya-backup.timer` | active, enabled | Ежедневный encrypted PostgreSQL backup |
 | `kamilya-ops-check.timer` | active, enabled | Watchdog каждые 5 минут |
 | `kamilya-trial-expiry.timer` | disabled, inactive | Legacy unit отключён |
