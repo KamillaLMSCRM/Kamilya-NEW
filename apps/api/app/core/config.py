@@ -171,6 +171,23 @@ class Settings(BaseSettings):
     CELERY_BROKER_URL: str = "redis://localhost:6379/0"
     CELERY_RESULT_BACKEND: str = "redis://localhost:6379/0"
 
+    # Transactional tenant admission for course-generation jobs. Queue
+    # position is tenant-relative; Celery has no reliable global position.
+    AI_MAX_ACTIVE_JOBS_PER_TENANT: int = 2
+    AI_WORKER_CONCURRENCY: int = 2
+    AI_ESTIMATED_JOB_SECONDS: int = 510
+
+    @field_validator(
+        "AI_MAX_ACTIVE_JOBS_PER_TENANT",
+        "AI_WORKER_CONCURRENCY",
+        "AI_ESTIMATED_JOB_SECONDS",
+    )
+    @classmethod
+    def validate_positive_ai_capacity(cls, value: int) -> int:
+        if value < 1:
+            raise ValueError("AI capacity settings must be greater than zero")
+        return value
+
     # Storage
     CERTIFICATE_STORAGE_DIR: str = "storage/certificates"
 

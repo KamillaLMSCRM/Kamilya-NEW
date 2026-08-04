@@ -1,6 +1,6 @@
 # Kamilya LMS: актуальный продуктовый backlog
 
-**Дата:** 2026-08-03
+**Дата:** 2026-08-04
 **Область:** открытые продуктовые и UX-задачи. Выполненные эпики здесь не
 хранятся.
 
@@ -40,8 +40,6 @@ fallback, worker parity и production smoke реализованы. В backlog �
    autogenerate output: текущий drift содержит разрушительные remove-операции.
 5. Добавить oldest-job age, task failure rate, provider 429/timeout и разрез
    queue depth по tenant без раскрытия tenant PII.
-6. Ввести tenant-fair admission control для массовой AI-генерации: лимит
-   активных задач tenant, позиция в очереди, ожидаемое время и отмена queued job.
 7. Провести отдельный capacity acceptance на реальных многостраничных сканах и
    платный прогон 10 генераций; текущая оценка 50 задач не является SLA.
 

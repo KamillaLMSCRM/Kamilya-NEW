@@ -39,6 +39,8 @@ Kamilya LMS — multi-tenant платформа корпоративного о�
 - извлечение текста, chunking и embeddings;
 - проверка совместимости выбранных источников;
 - AI generation в выделенной Celery queue с двумя параллельными worker slots;
+- не более двух `pending/running` генераций на tenant, с атомарным admission,
+  tenant-relative позицией, ориентировочным ожиданием и отменой queued job;
 - provenance уроков и проверка grounding;
 - отдельный flow курса по должностной инструкции.
 

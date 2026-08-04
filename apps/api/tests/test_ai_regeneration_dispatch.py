@@ -13,6 +13,11 @@ def _job(course_id):
     return SimpleNamespace(
         id="job-1",
         course_id=course_id,
+        status="pending",
+        progress=0,
+        stage="queued",
+        message="Job queued",
+        errors=None,
         created_at=now,
         updated_at=now,
         started_at=None,
@@ -35,7 +40,18 @@ async def test_module_regeneration_is_dispatched_to_celery_with_job_task_id():
     task = SimpleNamespace(apply_async=Mock())
 
     with (
-        patch("app.modules.ai.router.create_ai_job", AsyncMock(return_value=_job(course_id))),
+        patch("app.modules.ai.router.create_admitted_ai_job", AsyncMock(return_value=_job(course_id))),
+        patch(
+            "app.modules.ai.router.build_ai_job_queue_metadata",
+            AsyncMock(
+                return_value={
+                    "queue_position": 1,
+                    "estimated_wait_seconds": 0,
+                    "tenant_active_jobs": 1,
+                    "tenant_active_limit": 2,
+                }
+            ),
+        ),
         patch("app.modules.ai.tasks.regenerate_module_task", task),
     ):
         response = await regenerate_module(
@@ -77,7 +93,18 @@ async def test_lesson_regeneration_is_dispatched_to_celery_with_job_task_id():
     task = SimpleNamespace(apply_async=Mock())
 
     with (
-        patch("app.modules.ai.router.create_ai_job", AsyncMock(return_value=_job(course_id))),
+        patch("app.modules.ai.router.create_admitted_ai_job", AsyncMock(return_value=_job(course_id))),
+        patch(
+            "app.modules.ai.router.build_ai_job_queue_metadata",
+            AsyncMock(
+                return_value={
+                    "queue_position": 1,
+                    "estimated_wait_seconds": 0,
+                    "tenant_active_jobs": 1,
+                    "tenant_active_limit": 2,
+                }
+            ),
+        ),
         patch("app.modules.ai.tasks.regenerate_lesson_task", task),
     ):
         response = await regenerate_lesson(

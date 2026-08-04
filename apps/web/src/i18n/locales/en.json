@@ -85,7 +85,8 @@
     "stalled": "No recent updates",
     "retry": "Retry",
     "checkAgain": "Check again",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "cancelQueued": "Cancel queued job"
   },
   "assignmentSources": {
     "title": "Assignment source",
@@ -649,7 +650,14 @@
     "assessment": "Generating Assessments",
     "saving": "Saving",
     "completed": "Complete!",
-    "failed": "Failed"
+    "failed": "Failed",
+    "queueTitle": "Waiting to start generation",
+    "queuePosition": "Position in your company queue: {position}",
+    "estimatedWait": "Estimated wait: {minutes} min.",
+    "queueEstimateHint": "This estimate is based on previous jobs and is not a guaranteed completion time.",
+    "activeJobs": "Active AI jobs: {active}/{limit}",
+    "admissionLimit": "Your company is already running the maximum number of AI jobs. Cancel one or wait for it to finish.",
+    "admissionRetryAfter": "Try again in approximately {minutes} min."
   },
   "documents": {
     "title": "Documents",

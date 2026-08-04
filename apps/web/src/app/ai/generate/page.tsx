@@ -60,6 +60,26 @@ interface AIGenerationJob {
   progress: number;
   stage: string;
   message: string;
+  queue_position: number | null;
+  estimated_wait_seconds: number | null;
+  tenant_active_jobs: number | null;
+  tenant_active_limit: number | null;
+}
+
+function selectOldestActiveJob(jobs: AIGenerationJob[]): AIGenerationJob | null {
+  const activeJobs = jobs
+    .filter((job) => job.status === 'pending' || job.status === 'running')
+    .sort((left, right) => Date.parse(left.created_at) - Date.parse(right.created_at));
+  return activeJobs[0] ?? null;
+}
+
+function parseRetryAfterSeconds(error: any): number | null {
+  const headerValue = Number(error?.response?.headers?.['retry-after']);
+  if (Number.isFinite(headerValue) && headerValue > 0) return Math.ceil(headerValue);
+
+  const detailValue = Number(error?.response?.data?.detail?.retry_after_seconds);
+  if (Number.isFinite(detailValue) && detailValue > 0) return Math.ceil(detailValue);
+  return null;
 }
 
 interface CompatibilityDocument {
@@ -116,6 +136,8 @@ export default function AIGeneratePage() {
   const [compatibilityError, setCompatibilityError] = useState('');
   const [sourceStrategy, setSourceStrategy] = useState<'single_topic' | 'intentional_combination'>('single_topic');
   const [combinationGoal, setCombinationGoal] = useState('');
+  const [admissionError, setAdmissionError] = useState(false);
+  const [admissionRetryAfter, setAdmissionRetryAfter] = useState<number | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   // Result-step state: preview of the generated course + approval.
@@ -225,7 +247,20 @@ export default function AIGeneratePage() {
 
   const restoreActiveJob = useCallback(async () => {
     const savedJobId = localStorage.getItem('ai_active_job_id');
-    if (!savedJobId) return;
+    if (!savedJobId) {
+      try {
+        const res = await api.get<AIGenerationJob[]>('/v1/ai/jobs');
+        const activeJob = selectOldestActiveJob(res.data);
+        if (activeJob) {
+          localStorage.setItem('ai_active_job_id', activeJob.id);
+          setCurrentJob(activeJob);
+          setStep('generate');
+        }
+      } catch {
+        // A missing list is non-blocking; the page remains usable for a new job.
+      }
+      return;
+    }
     try {
       const res = await api.get(`/v1/ai/jobs/${savedJobId}`);
       const status = res.data.status;
@@ -357,6 +392,8 @@ export default function AIGeneratePage() {
 
   const handleGenerate = async () => {
     if (!canGenerate) return;
+    setAdmissionError(false);
+    setAdmissionRetryAfter(null);
     try {
       const res = await api.post('/v1/ai/generate-course', {
         documents: selectedDocIds,
@@ -372,6 +409,11 @@ export default function AIGeneratePage() {
     } catch (e: any) {
       console.error('Generation failed', e);
       const detail = e?.response?.data?.details ?? e?.response?.data?.detail;
+      if (e?.response?.status === 429 && detail?.code === 'tenant_ai_job_limit_reached') {
+        setAdmissionError(true);
+        setAdmissionRetryAfter(parseRetryAfterSeconds(e));
+        return;
+      }
       if (detail?.code === 'mixed_document_topics' && detail.analysis) {
         setCompatibility(detail.analysis);
         setStep('documents');
@@ -671,6 +713,18 @@ export default function AIGeneratePage() {
       </div>
 
       {/* STEP 1: Documents */}
+      {admissionError && (
+        <div className="mb-4 rounded-lg border border-warning/40 bg-warning/10 p-4 text-sm text-foreground" role="alert">
+          <p className="font-medium">{t('ai.admissionLimit')}</p>
+          {admissionRetryAfter !== null && (
+            <p className="mt-1 text-muted-foreground">
+              {t('ai.admissionRetryAfter', {
+                minutes: Math.max(1, Math.ceil(admissionRetryAfter / 60)),
+              })}
+            </p>
+          )}
+        </div>
+      )}
       {step === 'documents' && (
         <div className="space-y-4">
           {/* Upload zone */}
@@ -957,7 +1011,7 @@ export default function AIGeneratePage() {
                 ? t('asyncOperation.checkAgain')
                 : t('asyncOperation.retry')
             }
-            cancelLabel={t('asyncOperation.cancel')}
+            cancelLabel={currentJob.status === 'pending' ? t('asyncOperation.cancelQueued') : t('asyncOperation.cancel')}
             onRetry={
               resolveAsyncOperationState(currentJob) === 'stalled'
                 ? () => void refreshCurrentJob()
@@ -965,6 +1019,35 @@ export default function AIGeneratePage() {
             }
             onCancel={() => void handleCancel()}
           />
+
+          {resolveAsyncOperationState(currentJob) === 'queued' && (
+            <div className="rounded-lg border border-border bg-muted/20 p-4" aria-live="polite">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <h3 className="text-sm font-semibold">{t('ai.queueTitle')}</h3>
+                {(currentJob.tenant_active_limit ?? 0) > 0 && (
+                  <span className="text-xs text-muted-foreground">
+                    {t('ai.activeJobs', {
+                      active: currentJob.tenant_active_jobs ?? 0,
+                      limit: currentJob.tenant_active_limit ?? 0,
+                    })}
+                  </span>
+                )}
+              </div>
+              <div className="mt-2 flex flex-wrap gap-x-6 gap-y-1 text-sm">
+                {currentJob.queue_position != null && (
+                  <span>{t('ai.queuePosition', { position: currentJob.queue_position })}</span>
+                )}
+                {currentJob.estimated_wait_seconds != null && (
+                  <span>
+                    {t('ai.estimatedWait', {
+                      minutes: Math.max(1, Math.ceil(currentJob.estimated_wait_seconds / 60)),
+                    })}
+                  </span>
+                )}
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">{t('ai.queueEstimateHint')}</p>
+            </div>
+          )}
 
           {/* Stages */}
           <div className="space-y-2">

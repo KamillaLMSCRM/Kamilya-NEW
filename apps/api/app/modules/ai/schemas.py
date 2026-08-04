@@ -57,6 +57,10 @@ class AIJobResponse(BaseModel):
     stage: str = ""
     message: str = ""
     errors: list[dict[str, str] | str] | None = None
+    queue_position: int | None = Field(default=None, ge=1)
+    estimated_wait_seconds: int | None = Field(default=None, ge=0)
+    tenant_active_jobs: int | None = Field(default=None, ge=0)
+    tenant_active_limit: int | None = Field(default=None, ge=1)
 
 
 class AIJobProgress(BaseModel):

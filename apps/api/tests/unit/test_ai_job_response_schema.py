@@ -46,3 +46,24 @@ def test_ai_job_response_keeps_structured_and_legacy_errors():
         {"code": "source_blob_missing", "message": "Upload a new version"}
     ]
     assert legacy.errors == ["Provider unavailable"]
+
+
+def test_ai_job_response_uses_flat_queue_metadata_contract():
+    now = datetime(2026, 7, 28, 8, 0, tzinfo=UTC)
+    response = AIJobResponse(
+        id="job-queued",
+        status="pending",
+        course_id=None,
+        created_at=now,
+        updated_at=now,
+        queue_position=3,
+        estimated_wait_seconds=510,
+        tenant_active_jobs=2,
+        tenant_active_limit=2,
+    )
+
+    assert response.queue_position == 3
+    assert response.estimated_wait_seconds == 510
+    assert response.tenant_active_jobs == 2
+    assert response.tenant_active_limit == 2
+    assert "queue_metadata" not in response.model_dump()

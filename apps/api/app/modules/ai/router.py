@@ -19,11 +19,18 @@ from app.core.auth import (
     require_role,
     require_tenant_user,
 )
+from app.core.config import get_settings
 from app.core.db import get_db
+from app.ml_prompts import get_renderer
 from app.models.ai_job import AIJob
 from app.models.users import User
-from app.ml_prompts import get_renderer
-from app.modules.ai.job_service import create_ai_job, get_ai_job, update_ai_job
+from app.modules.ai.job_service import (
+    AIJobAdmissionLimitReachedError,
+    build_ai_job_queue_metadata,
+    create_admitted_ai_job,
+    get_ai_job,
+    update_ai_job,
+)
 from app.modules.ai.llm_client import ResilientLLMClient, create_llm
 from app.modules.ai.pipeline import run_generation_pipeline
 from app.modules.ai.schemas import (
@@ -143,6 +150,53 @@ def _job_course_uuid(course_id) -> UUID | None:
     return UUID(str(course_id))
 
 
+def _admission_http_error(exc: AIJobAdmissionLimitReachedError) -> HTTPException:
+    settings = get_settings()
+    retry_after = settings.AI_ESTIMATED_JOB_SECONDS
+    return HTTPException(
+        status_code=429,
+        detail={
+            "code": exc.code,
+            "message": "Tenant AI job limit reached",
+            "current": exc.active_count,
+            "limit": exc.active_limit,
+            "retry_after_seconds": retry_after,
+        },
+        headers={"Retry-After": str(retry_after)},
+    )
+
+
+async def _job_response(
+    db: AsyncSession,
+    job: AIJob,
+    *,
+    message: str | None = None,
+    queue_metadata: dict[str, int | None] | None = None,
+) -> AIJobResponse:
+    settings = get_settings()
+    if queue_metadata is None:
+        queue_metadata = await build_ai_job_queue_metadata(
+            db,
+            job,
+            active_limit=settings.AI_MAX_ACTIVE_JOBS_PER_TENANT,
+            worker_concurrency=settings.AI_WORKER_CONCURRENCY,
+            historical_estimate_seconds=settings.AI_ESTIMATED_JOB_SECONDS,
+        )
+    return AIJobResponse(
+        id=job.id,
+        status=job.status,
+        course_id=_job_course_uuid(job.course_id),
+        created_at=job.created_at,
+        updated_at=job.updated_at,
+        started_at=job.started_at,
+        progress=job.progress,
+        stage=job.stage,
+        message=message if message is not None else (job.message or ""),
+        errors=job.errors,
+        **queue_metadata,
+    )
+
+
 @router.post("/generate-course", response_model=AIJobResponse, status_code=202)
 async def generate_course(
     req: AIGenerateRequest,
@@ -174,6 +228,28 @@ async def generate_course(
             },
         )
     await check_ai_generation_quota(db, user.id, user.tenant_id)
+
+    settings = get_settings()
+    try:
+        job = await create_admitted_ai_job(
+            db=db,
+            tenant_id=user.tenant_id,
+            user_id=user.id,
+            course_id=req.course_id,
+            params={
+                "documents": [str(document_id) for document_id in req.documents],
+                "target_audience": req.target_audience,
+                "num_modules": req.num_modules,
+                "language": req.language,
+                "source_strategy": req.source_strategy,
+                "combination_goal": req.combination_goal.strip(),
+                "source_analysis": analysis_payload,
+            },
+            active_limit=settings.AI_MAX_ACTIVE_JOBS_PER_TENANT,
+        )
+    except AIJobAdmissionLimitReachedError as exc:
+        raise _admission_http_error(exc) from exc
+
     if req.course_id is None:
         await reserve_ai_course_generation(db, user.tenant_id)
 
@@ -186,20 +262,12 @@ async def generate_course(
             db, str(user.tenant_id), operation="generate_course",
         )
 
-    job = await create_ai_job(
-        db=db,
-        tenant_id=user.tenant_id,
-        user_id=user.id,
-        course_id=req.course_id,
-        params={
-            "documents": [str(document_id) for document_id in req.documents],
-            "target_audience": req.target_audience,
-            "num_modules": req.num_modules,
-            "language": req.language,
-            "source_strategy": req.source_strategy,
-            "combination_goal": req.combination_goal.strip(),
-            "source_analysis": analysis_payload,
-        },
+    queue_metadata = await build_ai_job_queue_metadata(
+        db,
+        job,
+        active_limit=settings.AI_MAX_ACTIVE_JOBS_PER_TENANT,
+        worker_concurrency=settings.AI_WORKER_CONCURRENCY,
+        historical_estimate_seconds=settings.AI_ESTIMATED_JOB_SECONDS,
     )
     await db.commit()
 
@@ -257,16 +325,11 @@ async def generate_course(
         await db.commit()
         raise HTTPException(status_code=503, detail="AI job could not be queued") from exc
 
-    return AIJobResponse(
-        id=job.id,
-        status="pending",
-        course_id=req.course_id,
-        created_at=job.created_at,
-        updated_at=job.updated_at,
-        started_at=job.started_at,
-        progress=0,
-        stage="queued",
+    return await _job_response(
+        db,
+        job,
         message="Job queued",
+        queue_metadata=queue_metadata,
     )
 
 
@@ -314,18 +377,7 @@ async def get_job(
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
 
-    return AIJobResponse(
-        id=job.id,
-        status=job.status,
-        course_id=_job_course_uuid(job.course_id),
-        created_at=job.created_at,
-        updated_at=job.updated_at,
-        started_at=job.started_at,
-        progress=job.progress,
-        stage=job.stage,
-        message=job.message or "",
-        errors=job.errors,
-    )
+    return await _job_response(db, job)
 
 
 @router.post("/jobs/{job_id}/cancel")
@@ -1120,10 +1172,25 @@ async def regenerate_module(
     if not module or module.tenant_id != user.tenant_id:
         raise HTTPException(status_code=404, detail="Module not found")
 
-    job = await create_ai_job(
-        db=db, tenant_id=user.tenant_id, user_id=user.id, course_id=module.course_id,
-        params={"action": "regenerate_module", "module_id": str(module_id),
-                "guidance": req.guidance, "language": req.language},
+    settings = get_settings()
+    try:
+        job = await create_admitted_ai_job(
+            db=db,
+            tenant_id=user.tenant_id,
+            user_id=user.id,
+            course_id=module.course_id,
+            params={"action": "regenerate_module", "module_id": str(module_id),
+                    "guidance": req.guidance, "language": req.language},
+            active_limit=settings.AI_MAX_ACTIVE_JOBS_PER_TENANT,
+        )
+    except AIJobAdmissionLimitReachedError as exc:
+        raise _admission_http_error(exc) from exc
+    queue_metadata = await build_ai_job_queue_metadata(
+        db,
+        job,
+        active_limit=settings.AI_MAX_ACTIVE_JOBS_PER_TENANT,
+        worker_concurrency=settings.AI_WORKER_CONCURRENCY,
+        historical_estimate_seconds=settings.AI_ESTIMATED_JOB_SECONDS,
     )
     await db.commit()
 
@@ -1164,11 +1231,11 @@ async def regenerate_module(
         await db.commit()
         raise HTTPException(status_code=503, detail="AI job could not be queued") from exc
 
-    return AIJobResponse(
-        id=job.id, status="pending", course_id=module.course_id,
-        created_at=job.created_at, updated_at=job.updated_at,
-        started_at=job.started_at, progress=0, stage="queued",
+    return await _job_response(
+        db,
+        job,
         message="Перегенерация модуля запущена",
+        queue_metadata=queue_metadata,
     )
 
 
@@ -1187,10 +1254,25 @@ async def regenerate_lesson(
         raise HTTPException(status_code=404, detail="Lesson not found")
     module = await db.get(Module, lesson.module_id)
 
-    job = await create_ai_job(
-        db=db, tenant_id=user.tenant_id, user_id=user.id, course_id=module.course_id,
-        params={"action": "regenerate_lesson", "lesson_id": str(lesson_id),
-                "guidance": req.guidance, "regenerate_quiz": req.regenerate_quiz},
+    settings = get_settings()
+    try:
+        job = await create_admitted_ai_job(
+            db=db,
+            tenant_id=user.tenant_id,
+            user_id=user.id,
+            course_id=module.course_id,
+            params={"action": "regenerate_lesson", "lesson_id": str(lesson_id),
+                    "guidance": req.guidance, "regenerate_quiz": req.regenerate_quiz},
+            active_limit=settings.AI_MAX_ACTIVE_JOBS_PER_TENANT,
+        )
+    except AIJobAdmissionLimitReachedError as exc:
+        raise _admission_http_error(exc) from exc
+    queue_metadata = await build_ai_job_queue_metadata(
+        db,
+        job,
+        active_limit=settings.AI_MAX_ACTIVE_JOBS_PER_TENANT,
+        worker_concurrency=settings.AI_WORKER_CONCURRENCY,
+        historical_estimate_seconds=settings.AI_ESTIMATED_JOB_SECONDS,
     )
     await db.commit()
 
@@ -1231,11 +1313,11 @@ async def regenerate_lesson(
         await db.commit()
         raise HTTPException(status_code=503, detail="AI job could not be queued") from exc
 
-    return AIJobResponse(
-        id=job.id, status="pending", course_id=module.course_id,
-        created_at=job.created_at, updated_at=job.updated_at,
-        started_at=job.started_at, progress=0, stage="queued",
+    return await _job_response(
+        db,
+        job,
         message="Перегенерация урока запущена",
+        queue_metadata=queue_metadata,
     )
 
 
