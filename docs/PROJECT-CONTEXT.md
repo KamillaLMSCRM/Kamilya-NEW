@@ -17,6 +17,7 @@
 | Эксплуатация worker | [`INFRA_CELERY_WORKER.md`](INFRA_CELERY_WORKER.md) |
 | Доступ и сервисы VPS | [`VPS_CONNECTION_GUIDE.md`](VPS_CONNECTION_GUIDE.md) |
 | Backup и restore | [`BACKUP_RESTORE_RUNBOOK.md`](BACKUP_RESTORE_RUNBOOK.md) |
+| OCR и KZ infrastructure migration | [`INFRA_KZ_OCR_MIGRATION_ANALYSIS.md`](INFRA_KZ_OCR_MIGRATION_ANALYSIS.md) |
 | Правила для агентов | [`AGENTS.md`](../AGENTS.md) |
 
 Старые планы, аудиты, отчёты веток и ТЗ не являются источниками текущего
