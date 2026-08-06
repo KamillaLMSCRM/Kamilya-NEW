@@ -160,6 +160,40 @@ async def _analyze_jd_content(content: bytes, filename: str) -> dict:
     }
 
 
+async def _analyze_instruction_for_upload(content: bytes, filename: str) -> dict:
+    """Analyze when possible, but let the document pipeline handle legacy DOC.
+
+    python-docx cannot read the binary Word 97-2003 format.  The document
+    ingestion service can convert that format with LibreOffice and index it,
+    so an upload must not fail before it reaches that pipeline.  The explicit
+    /analyze-jd endpoint remains strict and continues to report extraction
+    failures to its caller.
+    """
+    try:
+        return await _analyze_jd_content(content, filename)
+    except HTTPException as exc:
+        is_legacy_doc = os.path.splitext(filename or "")[1].lower() == ".doc"
+        is_local_extraction_failure = (
+            exc.status_code == 400
+            and exc.detail == "Could not extract text from file"
+        )
+        if not (is_legacy_doc and is_local_extraction_failure):
+            raise
+
+        logger.info(
+            "Deferring legacy DOC analysis to the asynchronous document pipeline: %s",
+            filename,
+        )
+        return {
+            "name": "",
+            "department": "",
+            "level": "",
+            "responsibilities": "",
+            "requirements": "",
+            "issues": [],
+        }
+
+
 @router.post("/{position_id}/instruction", response_model=PositionResponse)
 async def upload_position_instruction(
     position_id: UUID,
@@ -178,7 +212,7 @@ async def upload_position_instruction(
         raise HTTPException(status_code=404, detail="Position not found")
 
     content = await file.read()
-    analysis = await _analyze_jd_content(content, file.filename or "")
+    analysis = await _analyze_instruction_for_upload(content, file.filename or "")
 
     await file.seek(0)
     document = await upload_document(
