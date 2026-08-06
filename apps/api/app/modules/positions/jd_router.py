@@ -10,7 +10,12 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy import select, delete, func, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.auth import get_current_user, require_role, require_tenant_user
+from app.core.auth import (
+    _set_tenant_security_context,
+    get_current_user,
+    require_role,
+    require_tenant_user,
+)
 from app.core.db import get_db
 from app.models.users import User
 from app.models.enrollment import Enrollment
@@ -194,6 +199,14 @@ async def _analyze_instruction_for_upload(content: bytes, filename: str) -> dict
         }
 
 
+async def _restore_tenant_context_after_document_upload(
+    db: AsyncSession,
+    tenant_id: UUID,
+) -> None:
+    """Restore SET LOCAL tenant context cleared by upload_document's commit."""
+    await _set_tenant_security_context(db, str(tenant_id))
+
+
 @router.post("/{position_id}/instruction", response_model=PositionResponse)
 async def upload_position_instruction(
     position_id: UUID,
@@ -224,6 +237,7 @@ async def upload_position_instruction(
         db=db,
         user=user,
     )
+    await _restore_tenant_context_after_document_upload(db, user.tenant_id)
 
     pos = await qualification_service.prepare_external_change(
         db,
