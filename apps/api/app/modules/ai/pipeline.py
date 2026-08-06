@@ -3,7 +3,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import math
 import os
+import re
 import time
 from datetime import datetime, timezone
 from typing import Callable
@@ -22,6 +24,12 @@ from app.modules.ai.reviewer import ReviewerAgent
 from app.core.db import async_session_factory
 
 logger = logging.getLogger(__name__)
+
+
+def _estimate_lesson_duration_seconds(content: str | None) -> int:
+    """Estimate focused reading time at 150 words/minute, with a 2-minute floor."""
+    word_count = len(re.findall(r"\b[\w-]+\b", content or "", flags=re.UNICODE))
+    return max(2, math.ceil(word_count / 150)) * 60
 
 
 async def _selected_document_profile(
@@ -184,6 +192,9 @@ async def _save_generation_to_db(
                         title=struct_les.title,
                         content_type="text",
                         content=content_les.content if hasattr(content_les, 'content') else "",
+                        duration_seconds=_estimate_lesson_duration_seconds(
+                            content_les.content if hasattr(content_les, "content") else ""
+                        ),
                         order_index=les_idx,
                         ai_generated=True,
                         source_document_ids=actual_source_ids,
@@ -660,4 +671,3 @@ async def run_generation_pipeline(
         logger.error(f"Generation pipeline failed for job {job_id}: {e}")
 
     return state
-
