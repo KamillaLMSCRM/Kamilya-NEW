@@ -507,7 +507,23 @@ When ready to output the final course structure, output ONLY the JSON code block
     # Inject document list into conversation so LLM knows what's available
     messages.append({"role": "user", "content": f"Here are the available documents:\n{doc_list_result}\n\nAnalyze these documents and design the course."})
 
+    # Reserve the last two calls for producing (and, if necessary, repairing)
+    # the final JSON. Without this guard an otherwise healthy model can spend
+    # every iteration exploring with tools and the loop raises immediately
+    # after the final tool result, never asking it to synthesize an answer.
+    finalization_window = min(2, max_iterations)
     for iteration in range(max_iterations):
+        if iteration >= max_iterations - finalization_window:
+            messages.append(
+                {
+                    "role": "user",
+                    "content": (
+                        "The tool exploration budget is exhausted. Do not use any more tools. "
+                        "Using the evidence already collected, output the final course structure "
+                        "now as the required JSON code block. No commentary."
+                    ),
+                }
+            )
         response = await llm.ainvoke(messages)
         content = response.content
 
