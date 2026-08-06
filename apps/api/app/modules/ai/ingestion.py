@@ -403,10 +403,27 @@ class VectorStore:
 
         async with async_session_factory() as session:
             await self._set_tenant_context(session, tenant_id)
-            result = await session.execute(text(f"SELECT text, doc_id, doc_name, headings FROM document_embeddings {where}"), params)
+            result = await session.execute(
+                text(
+                    f"SELECT id, text, doc_id, doc_name, headings "
+                    f"FROM document_embeddings {where}"
+                ),
+                params,
+            )
             rows = result.fetchall()
 
-        return [(row[0], {"doc_id": row[1], "doc_name": row[2], "headings": row[3]}) for row in rows]
+        return [
+            (
+                row[1],
+                {
+                    "chunk_id": str(row[0]),
+                    "doc_id": str(row[2]),
+                    "doc_name": row[3],
+                    "headings": row[4],
+                },
+            )
+            for row in rows
+        ]
 
 
 class Summarizer:

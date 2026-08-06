@@ -300,6 +300,12 @@ durable jobs текущего tenant и не выдаётся за глобал�
 - курс: `source_document_ids`, `source_strategy`, `source_combination_goal`, `source_analysis`;
 - урок: `source_document_ids`, `source_references`, `source_validation_status`.
 
+Векторный и OCR-ориентированный lexical retrieval сохраняют в каждой ссылке
+реальный `document_embeddings.id` как `chunk_id`. Lexical fallback пропускает
+фрагмент без `chunk_id` или `doc_id`; такой фрагмент не может сделать урок
+`verified`. Это позволяет проверить ссылку урока до конкретной tenant-scoped
+строки индекса, а не только до имени исходного документа.
+
 Ручное изменение названия или содержания урока устанавливает `source_validation_status=needs_review`. Grounded-регенерация возвращает `verified`; одобрение курса методологом фиксирует явную проверку оставшихся изменений.
 
 Публикация является единственной границей доступности курса:

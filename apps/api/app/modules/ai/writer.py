@@ -162,6 +162,14 @@ async def _retrieve_and_rerank(
                 doc_ids=doc_ids,
                 tenant_id=tenant_id,
             ):
+                chunk_id = str((metadata or {}).get("chunk_id", ""))
+                doc_id = str((metadata or {}).get("doc_id", ""))
+                if not chunk_id or not doc_id:
+                    logger.warning(
+                        "Skipping untraceable lexical source chunk for lesson %s",
+                        lesson_title,
+                    )
+                    continue
                 headings_raw = (metadata or {}).get("headings", "[]")
                 try:
                     headings = json.loads(headings_raw)
@@ -175,8 +183,8 @@ async def _retrieve_and_rerank(
                             len(matched),
                             len(text_value or ""),
                             RetrievedChunk(
-                                chunk_id=str((metadata or {}).get("chunk_id", "")),
-                                doc_id=str((metadata or {}).get("doc_id", "")),
+                                chunk_id=chunk_id,
+                                doc_id=doc_id,
                                 doc_name=str((metadata or {}).get("doc_name", "")),
                                 headings=headings,
                                 text=text_value,
