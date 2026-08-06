@@ -541,28 +541,34 @@ class EmbeddingsClient(_BaseProviderClient):
 
     async def _embed(self, texts: list[str], input_type: str) -> list[list[float]]:
         if self.config.name == "cohere":
-            payload: dict[str, Any] = {
-                "model": self.config.model,
-                "texts": texts,
-                "input_type": (
-                    "search_document" if input_type == "document" else "search_query"
-                ),
-                "embedding_types": ["float"],
-                "output_dimension": 1024,
-            }
-        else:
-            payload = {
-                "model": self.config.model,
-                "input": texts,
-            }
+            # Cohere v2 accepts at most 96 texts per request. Document
+            # ingestion commonly produces larger batches, so preserve input
+            # order while splitting at the provider's hard limit.
+            embeddings: list[list[float]] = []
+            for offset in range(0, len(texts), 96):
+                batch = texts[offset : offset + 96]
+                payload: dict[str, Any] = {
+                    "model": self.config.model,
+                    "texts": batch,
+                    "input_type": (
+                        "search_document" if input_type == "document" else "search_query"
+                    ),
+                    "embedding_types": ["float"],
+                    "output_dimension": 1024,
+                }
+                data = await self._request(payload)
+                embeddings.extend(data["embeddings"]["float"])
+            return self._validate_embeddings(embeddings)
+
+        payload = {
+            "model": self.config.model,
+            "input": texts,
+        }
         if self.config.name == "voyage":
             payload["input_type"] = input_type
 
         data = await self._request(payload)
-        if self.config.name == "cohere":
-            embeddings = data["embeddings"]["float"]
-        else:
-            embeddings = [item["embedding"] for item in data["data"]]
+        embeddings = [item["embedding"] for item in data["data"]]
         return self._validate_embeddings(embeddings)
 
     async def embed_documents(self, texts: list[str]) -> list[list[float]]:

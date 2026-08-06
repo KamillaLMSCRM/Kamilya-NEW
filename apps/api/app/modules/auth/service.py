@@ -4,7 +4,7 @@ from uuid import UUID, uuid4
 
 import argon2
 from fastapi import HTTPException, status
-from sqlalchemy import delete, select, text
+from sqlalchemy import delete, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import create_access_token, create_refresh_token, decode_token
@@ -206,7 +206,16 @@ async def authenticate_user(db: AsyncSession, email: str, password: str) -> tupl
         # remain rejected instead of guessing a tenant context.
         await db.execute(text("SELECT set_config('app.auth_lookup', 'true', true)"))
         result = await db.execute(
-            select(User).where(User.email == email)
+            select(User)
+            .outerjoin(Tenant, User.tenant_id == Tenant.id)
+            .where(
+                User.email == email,
+                User.is_active.is_(True),
+                or_(
+                    User.tenant_id.is_(None),
+                    Tenant.status.notin_(("archived", "suspended")),
+                ),
+            )
         )
         matches = result.scalars().all()
         user = matches[0] if len(matches) == 1 else None

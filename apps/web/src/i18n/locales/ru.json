@@ -718,7 +718,7 @@
     "uploading": "Загрузка...",
     "uploadedAt": "Загружен",
     "dragDropHint": "Перетащите файл сюда или нажмите для выбора",
-    "allowedTypes": "PDF, DOCX, TXT, CSV, XLS, XLSX",
+    "allowedTypes": "PDF, DOC, DOCX, TXT, MD, CSV, XLS, XLSX",
     "maxSize": "Макс. {size} МБ",
     "alreadyUploaded": "Файл уже загружен",
     "subtitle": "Единая библиотека источников для курсов и должностных инструкций",

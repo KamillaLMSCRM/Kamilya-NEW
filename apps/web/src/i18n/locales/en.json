@@ -674,7 +674,7 @@
     "uploading": "Uploading...",
     "uploadedAt": "Uploaded",
     "dragDropHint": "Drag file here or click to select",
-    "allowedTypes": "PDF, DOCX, TXT, CSV, XLS, XLSX",
+    "allowedTypes": "PDF, DOC, DOCX, TXT, MD, CSV, XLS, XLSX",
     "maxSize": "Max {size} MB",
     "alreadyUploaded": "Already uploaded",
     "subtitle": "A shared source library for courses and job instructions",

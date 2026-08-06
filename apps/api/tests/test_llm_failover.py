@@ -398,6 +398,37 @@ async def test_cohere_embeddings_use_native_v2_schema(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_cohere_embeddings_split_requests_at_provider_batch_limit(monkeypatch):
+    client = EmbeddingsClient(
+        LLMProviderConfig(
+            name="cohere",
+            base_url="https://api.cohere.test/v2",
+            api_key="key",
+            model="embed-v4.0",
+        ),
+        max_retries=0,
+    )
+    batch_sizes: list[int] = []
+
+    async def mock_request(payload):
+        batch_sizes.append(len(payload["texts"]))
+        return {
+            "embeddings": {
+                "float": [[float(len(batch_sizes))] * 1024 for _ in payload["texts"]]
+            }
+        }
+
+    monkeypatch.setattr(client, "_request", mock_request)
+
+    result = await client.embed_documents([f"chunk-{index}" for index in range(99)])
+
+    assert batch_sizes == [96, 3]
+    assert len(result) == 99
+    assert result[0][0] == 1.0
+    assert result[-1][0] == 2.0
+
+
+@pytest.mark.asyncio
 async def test_embeddings_client_rejects_oversized_vectors(monkeypatch):
     client = EmbeddingsClient(
         LLMProviderConfig(name="qwen", base_url="http://mock", api_key="y", model="z"),

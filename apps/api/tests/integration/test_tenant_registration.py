@@ -88,3 +88,38 @@ async def test_password_login_returns_frontend_user_payload(
     assert payload["user"]["tenant_id"] == str(tenant.id)
     assert payload["user"]["role"] == "methodologist"
     assert payload["user"]["full_name"] == "Мадина QA"
+
+
+@pytest.mark.asyncio
+async def test_password_login_ignores_inactive_duplicate_from_archived_tenant(
+    client,
+    make_tenant,
+    make_user,
+):
+    email = f"qa-reused-email-{uuid4().hex[:12]}@example.com"
+    password = "QA-Active-Login-2026!"
+    active_tenant = await make_tenant(name="QA Active Tenant")
+    active_user = await make_user(
+        active_tenant,
+        role="admin",
+        email=email,
+        password=password,
+    )
+    archived_tenant = await make_tenant(
+        name="QA Archived Tenant",
+        status="archived",
+    )
+    await make_user(
+        archived_tenant,
+        role="admin",
+        email=email,
+        is_active=False,
+    )
+
+    response = await client.post(
+        "/api/v1/auth/login",
+        json={"email": email, "password": password},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["user"]["user_id"] == str(active_user.id)

@@ -6,6 +6,10 @@ import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
 import { api } from '@/lib/api';
 import {
+  selectOldestActiveCourseJob,
+  type AIGenerationJob,
+} from '@/lib/aiGenerationJobs';
+import {
   type DocumentCatalogResponse,
   type DocumentIndexStatus,
 } from '@/lib/documentCatalog';
@@ -48,29 +52,6 @@ interface Document {
   short_summary?: string | null;
   summary_ready?: boolean;
   index_status: DocumentIndexStatus;
-}
-
-interface AIGenerationJob {
-  id: string;
-  status: string;
-  course_id: string | null;
-  created_at: string;
-  updated_at: string;
-  started_at?: string | null;
-  progress: number;
-  stage: string;
-  message: string;
-  queue_position: number | null;
-  estimated_wait_seconds: number | null;
-  tenant_active_jobs: number | null;
-  tenant_active_limit: number | null;
-}
-
-function selectOldestActiveJob(jobs: AIGenerationJob[]): AIGenerationJob | null {
-  const activeJobs = jobs
-    .filter((job) => job.status === 'pending' || job.status === 'running')
-    .sort((left, right) => Date.parse(left.created_at) - Date.parse(right.created_at));
-  return activeJobs[0] ?? null;
 }
 
 function parseRetryAfterSeconds(error: any): number | null {
@@ -251,7 +232,7 @@ export default function AIGeneratePage() {
     if (!savedJobId) {
       try {
         const res = await api.get<AIGenerationJob[]>('/v1/ai/jobs');
-        const activeJob = selectOldestActiveJob(res.data);
+        const activeJob = selectOldestActiveCourseJob(res.data);
         if (activeJob) {
           localStorage.setItem('ai_active_job_id', activeJob.id);
           setCurrentJob(activeJob);
