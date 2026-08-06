@@ -121,6 +121,8 @@ def test_writer_system_prompt_template():
     assert "Markdown" in output
     assert "TARGET LANGUAGE" in output
     assert "anti-repetition" in output
+    assert "ANY other lesson in the course" in output
+    assert "must not recap the course" in output
     assert len(output) > 500
 
 
@@ -131,6 +133,7 @@ def test_writer_uses_renderer():
     assert "Course Content Writer" in GENERATION_PROMPT
     assert "Markdown" in GENERATION_PROMPT
     assert "anti-repetition" in GENERATION_PROMPT
+    assert "ANY other lesson in the course" in GENERATION_PROMPT
 
 
 # ── reviewer.py ───────────────────────────────────────────────────────────

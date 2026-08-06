@@ -3,6 +3,16 @@ from uuid import uuid4
 import pytest
 from pydantic import ValidationError
 
+from app.modules.ai.architect_schema import (
+    CourseStructure,
+    LearningObjective,
+)
+from app.modules.ai.architect_schema import (
+    Lesson as ArchitectLesson,
+)
+from app.modules.ai.architect_schema import (
+    Module as ArchitectModule,
+)
 from app.modules.ai.schemas import AIGenerateRequest
 from app.modules.ai.source_analysis import (
     DocumentVectorProfile,
@@ -13,8 +23,10 @@ from app.modules.ai.writer import (
     UnsupportedLessonSourceError,
     _retrieve_and_rerank,
     resolve_lesson_doc_ids,
+    write_course,
     write_lesson,
 )
+from app.modules.ai.writer_schema import LessonContent
 from app.modules.lessons.models import Lesson
 from app.modules.lessons.schemas import LessonUpdate
 from app.modules.lessons.service import update_lesson
@@ -34,11 +46,13 @@ def test_cosine_similarity_handles_zero_vector() -> None:
 
 
 def test_related_documents_form_one_complete_link_cluster() -> None:
-    result = analyze_profiles([
-        _profile("Пожарная безопасность", [1.0, 0.0, 0.0]),
-        _profile("Инструкция по эвакуации", [0.95, 0.1, 0.0]),
-        _profile("План противопожарных действий", [0.9, 0.15, 0.0]),
-    ])
+    result = analyze_profiles(
+        [
+            _profile("Пожарная безопасность", [1.0, 0.0, 0.0]),
+            _profile("Инструкция по эвакуации", [0.95, 0.1, 0.0]),
+            _profile("План противопожарных действий", [0.9, 0.15, 0.0]),
+        ]
+    )
 
     assert result.status == "compatible"
     assert result.requires_decision is False
@@ -46,11 +60,13 @@ def test_related_documents_form_one_complete_link_cluster() -> None:
 
 
 def test_unrelated_documents_are_split_and_require_decision() -> None:
-    result = analyze_profiles([
-        _profile("Пожарная безопасность", [1.0, 0.0, 0.0]),
-        _profile("Бренд и реклама", [0.0, 1.0, 0.0]),
-        _profile("Продажи", [0.0, 0.9, 0.1]),
-    ])
+    result = analyze_profiles(
+        [
+            _profile("Пожарная безопасность", [1.0, 0.0, 0.0]),
+            _profile("Бренд и реклама", [0.0, 1.0, 0.0]),
+            _profile("Продажи", [0.0, 0.9, 0.1]),
+        ]
+    )
 
     assert result.status == "incompatible"
     assert result.requires_decision is True
@@ -109,12 +125,16 @@ class _Store:
     async def query(self, **kwargs):
         return {
             "documents": [["Подтвержденный фрагмент"]],
-            "metadatas": [[{
-                "chunk_id": "chunk-1",
-                "doc_id": "doc-1",
-                "doc_name": "Инструкция.pdf",
-                "headings": '["Раздел 1"]',
-            }]],
+            "metadatas": [
+                [
+                    {
+                        "chunk_id": "chunk-1",
+                        "doc_id": "doc-1",
+                        "doc_name": "Инструкция.pdf",
+                        "headings": '["Раздел 1"]',
+                    }
+                ]
+            ],
             "distances": [[self.distance]],
         }
 
@@ -191,6 +211,44 @@ async def test_retrieval_uses_lexical_fallback_inside_selected_ocr_document() ->
 
 
 @pytest.mark.asyncio
+async def test_lexical_fallback_prefers_authoritative_heading_boundary() -> None:
+    class _OcrStore(_Store):
+        async def get_all_chunks(self, **kwargs):
+            return [
+                (
+                    "Общие положения и порядок выплаты вознаграждения " * 20,
+                    {
+                        "chunk_id": "wrong-long-chunk",
+                        "doc_id": "doc-1",
+                        "doc_name": "Правила.pdf",
+                        "headings": '["5. ПОРЯДОК ВЫПЛАТЫ ВОЗНАГРАЖДЕНИЯ"]',
+                    },
+                ),
+                (
+                    "Общие положения определяют область применения правил.",
+                    {
+                        "chunk_id": "right-section-chunk",
+                        "doc_id": "doc-1",
+                        "doc_name": "Правила.pdf",
+                        "headings": '["1. ОБЩИЕ ПОЛОЖЕНИЯ"]',
+                    },
+                ),
+            ]
+
+    chunks = await _retrieve_and_rerank(
+        _OcrStore(0.96),
+        ["Общие положения"],
+        "Общие положения",
+        doc_ids=["doc-1"],
+        tenant_id=str(uuid4()),
+        embeddings_provider=_Embeddings(),
+        preferred_headings=["1. ОБЩИЕ ПОЛОЖЕНИЯ"],
+    )
+
+    assert [chunk.chunk_id for chunk in chunks] == ["right-section-chunk"]
+
+
+@pytest.mark.asyncio
 async def test_retrieval_rejects_untraceable_lexical_fallback() -> None:
     class _UntraceableOcrStore(_Store):
         async def get_all_chunks(self, **kwargs):
@@ -240,6 +298,94 @@ async def test_document_grounded_lesson_never_uses_general_knowledge_fallback() 
             require_sources=True,
         )
     assert exc_info.value.lesson_title == "Порядок эвакуации"
+
+
+@pytest.mark.asyncio
+async def test_write_lesson_exposes_heading_and_course_wide_scope_to_writer() -> None:
+    class _CapturingLLM:
+        def __init__(self) -> None:
+            self.prompt = ""
+
+        async def ainvoke(self, messages):
+            self.prompt = messages[0]["content"]
+            return type("Response", (), {"content": "# Заключительные положения"})()
+
+    llm = _CapturingLLM()
+    await write_lesson(
+        llm=llm,
+        store=_Store(0.2),
+        lesson_title="Заключительные положения",
+        objectives=["Применять заключительные положения"],
+        module_title="Завершение",
+        course_title="Правила",
+        doc_ids=["doc-1"],
+        tenant_id=str(uuid4()),
+        relevant_headings=["13. ЗАКЛЮЧИТЕЛЬНЫЕ ПОЛОЖЕНИЯ"],
+        sibling_lessons=["Общие положения", "Порядок обращений"],
+        embeddings_provider=_Embeddings(),
+        require_sources=True,
+    )
+
+    assert "AUTHORITATIVE SOURCE HEADING BOUNDARIES" in llm.prompt
+    assert "13. ЗАКЛЮЧИТЕЛЬНЫЕ ПОЛОЖЕНИЯ" in llm.prompt
+    assert "OTHER LESSONS IN COURSE" in llm.prompt
+    assert "Общие положения" in llm.prompt
+    assert "Порядок обращений" in llm.prompt
+
+
+@pytest.mark.asyncio
+async def test_write_course_passes_lessons_from_other_modules_as_siblings(
+    monkeypatch,
+) -> None:
+    captured: dict[str, list[str]] = {}
+
+    async def _capture_write_lesson(**kwargs):
+        captured[kwargs["lesson_title"]] = kwargs["sibling_lessons"]
+        return LessonContent(
+            title=kwargs["lesson_title"],
+            objectives=kwargs["objectives"],
+            content="# Content",
+        )
+
+    monkeypatch.setattr(
+        "app.modules.ai.writer.write_lesson",
+        _capture_write_lesson,
+    )
+    structure = CourseStructure(
+        title="Правила",
+        modules=[
+            ArchitectModule(
+                title="Начало",
+                lessons=[
+                    ArchitectLesson(
+                        title="Общие положения",
+                        objectives=[LearningObjective(text="Знать общие положения")],
+                        source_doc_ids=["doc-1"],
+                    )
+                ],
+            ),
+            ArchitectModule(
+                title="Завершение",
+                lessons=[
+                    ArchitectLesson(
+                        title="Заключительные положения",
+                        objectives=[LearningObjective(text="Применять заключительные положения")],
+                        source_doc_ids=["doc-1"],
+                    )
+                ],
+            ),
+        ],
+    )
+
+    await write_course(
+        llm=object(),
+        store=object(),
+        structure=structure,
+        doc_ids=["doc-1"],
+    )
+
+    assert captured["Общие положения"] == ["Заключительные положения"]
+    assert captured["Заключительные положения"] == ["Общие положения"]
 
 
 @pytest.mark.asyncio

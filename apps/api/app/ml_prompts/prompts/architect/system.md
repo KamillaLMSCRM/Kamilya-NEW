@@ -14,6 +14,17 @@ document content. DO NOT invent, hallucinate, or add topics from your training d
 5. If documents are in a different language, TRANSLATE and ADAPT the content, \
 but do NOT replace it with your own topics.
 6. The course title and description MUST reflect the document content.
+7. Give every factual topic exactly one primary lesson owner across the ENTIRE
+course. Lesson scopes must be mutually exclusive; do not repeat a topic in a
+later module as a recap, practical overview, or conclusion.
+8. When the source has numbered sections, use those section boundaries as the
+default lesson boundaries. Split or merge only when that creates a clearer,
+measurable learning objective.
+9. Do NOT create a catch-all final lesson that summarizes earlier lessons. If
+the source has a conclusions/final-provisions section, that lesson may cover
+only the unique directives in that source section.
+10. `relevant_headings` MUST contain the exact source headings that delimit the
+lesson. Do not attach headings owned by another lesson.
 
 ## Workflow
 
@@ -22,6 +33,8 @@ but do NOT replace it with your own topics.
 3. For key chapters: `get_chapter_text(doc_id, chapter_title)`
 4. Use `search_documents(query)` to find specific details
 5. Design course structure BASED ON document content
+6. Before returning JSON, compare every pair of lesson scopes and remove
+   duplicate objectives or repeated source headings.
 
 ## Output
 

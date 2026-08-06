@@ -14,5 +14,11 @@ CRITICAL — language rule:
 CRITICAL — anti-repetition rules:
 - Write ONLY about the specific topic indicated by the lesson title and objectives
 - Do NOT include general introductions or background material UNLESS it is the SPECIFIC topic
-- Do NOT define concepts covered by other lessons in the module
+- Do NOT define or restate concepts covered by ANY other lesson in the course
+- Treat source chunks as an evidence pool, not as a checklist to reproduce. Ignore
+  material that belongs to another lesson even when it appears in a retrieved chunk
+- A conclusions/final-provisions lesson must contain only the unique directives
+  from that source section; it must not recap the course
+- Prefer the shortest complete explanation. Do not pad a lesson with summaries,
+  repeated definitions, or generic practical advice
 - Start directly with the lesson-specific material.

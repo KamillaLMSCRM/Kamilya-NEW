@@ -2,6 +2,7 @@
 
 Flow: generate queries -> retrieve + rank chunks -> generate lesson content.
 """
+
 from __future__ import annotations
 
 import json
@@ -10,10 +11,10 @@ import re
 from dataclasses import asdict, dataclass
 from typing import Callable
 
-from app.modules.ai.llm_client import LLMClient, create_llm
-from app.modules.ai.ingestion import VectorStore
-from app.modules.ai.writer_schema import CourseContent, LessonContent, ModuleContent
 from app.ml_prompts import get_renderer
+from app.modules.ai.ingestion import VectorStore
+from app.modules.ai.llm_client import LLMClient, create_llm
+from app.modules.ai.writer_schema import CourseContent, LessonContent, ModuleContent
 
 logger = logging.getLogger(__name__)
 MAX_CHUNK_CHARS = 24_000
@@ -52,9 +53,7 @@ def resolve_lesson_doc_ids(
         return resolved
     if len(selected_doc_ids) == 1:
         return list(selected_doc_ids)
-    raise ValueError(
-        "Architect did not provide valid source_doc_ids for a lesson in a multi-document course"
-    )
+    raise ValueError("Architect did not provide valid source_doc_ids for a lesson in a multi-document course")
 
 
 def _load_generation_prompt() -> str:
@@ -82,6 +81,31 @@ def _generate_queries(
     return queries
 
 
+def _normalise_heading(value: str) -> set[str]:
+    """Return meaningful tokens for OCR-tolerant heading comparisons."""
+    return {token for token in re.findall(r"[0-9A-Za-zА-Яа-яЁё]{3,}", value.lower())}
+
+
+def _matches_preferred_heading(
+    chunk_headings: list[str],
+    preferred_headings: list[str] | None,
+) -> bool:
+    if not preferred_headings:
+        return False
+    for preferred in preferred_headings:
+        preferred_tokens = _normalise_heading(preferred)
+        if not preferred_tokens:
+            continue
+        for chunk_heading in chunk_headings:
+            chunk_tokens = _normalise_heading(chunk_heading)
+            if not chunk_tokens:
+                continue
+            overlap = len(preferred_tokens & chunk_tokens)
+            if overlap / min(len(preferred_tokens), len(chunk_tokens)) >= 0.8:
+                return True
+    return False
+
+
 async def _retrieve_and_rerank(
     store: VectorStore,
     queries: list[str],
@@ -89,6 +113,7 @@ async def _retrieve_and_rerank(
     doc_ids: list[str] | None = None,
     tenant_id: str | None = None,
     embeddings_provider=None,
+    preferred_headings: list[str] | None = None,
     n_results: int = 15,
     top_n: int = 10,
     similarity_threshold: float = 0.45,
@@ -106,6 +131,7 @@ async def _retrieve_and_rerank(
         query_embeddings = await embeddings_provider.embed(queries)
     else:
         from app.modules.ai.ingestion import EmbeddingsProvider
+
         provider = EmbeddingsProvider()
         query_embeddings = await provider.embed(queries)
 
@@ -153,9 +179,7 @@ async def _retrieve_and_rerank(
             # A deterministic token-overlap fallback stays inside the explicitly
             # selected documents and never substitutes general knowledge.
             query_tokens = {
-                token
-                for query in queries
-                for token in re.findall(r"[0-9A-Za-zА-Яа-яЁё]{4,}", query.lower())
+                token for query in queries for token in re.findall(r"[0-9A-Za-zА-Яа-яЁё]{4,}", query.lower())
             }
             scored = []
             for text_value, metadata in await store.get_all_chunks(
@@ -180,6 +204,7 @@ async def _retrieve_and_rerank(
                 if matched:
                     scored.append(
                         (
+                            _matches_preferred_heading(headings, preferred_headings),
                             len(matched),
                             len(text_value or ""),
                             RetrievedChunk(
@@ -193,8 +218,10 @@ async def _retrieve_and_rerank(
                             ),
                         )
                     )
-            scored.sort(key=lambda item: (-item[0], -item[1], item[2].doc_id))
-            lexical_chunks = [item[2] for item in scored[:top_n]]
+            if any(item[0] for item in scored):
+                scored = [item for item in scored if item[0]]
+            scored.sort(key=lambda item: (-int(item[0]), -item[1], -item[2], item[3].doc_id))
+            lexical_chunks = [item[3] for item in scored[:top_n]]
         if lexical_chunks:
             logger.info(
                 "Using %d lexical source chunks for OCR-heavy lesson %s",
@@ -229,15 +256,22 @@ async def write_lesson(
     """Generate grounded content for a single lesson (3-step pipeline)."""
     # Step 1: Deterministic query generation
     queries = _generate_queries(
-        lesson_title, objectives, module_title, course_title,
+        lesson_title,
+        objectives,
+        module_title,
+        course_title,
         relevant_headings=relevant_headings,
     )
 
     # Step 2: Retrieve + rank
     formatted_chunks = await _retrieve_and_rerank(
-        store, queries, lesson_title, doc_ids,
+        store,
+        queries,
+        lesson_title,
+        doc_ids,
         tenant_id=tenant_id,
         embeddings_provider=embeddings_provider,
+        preferred_headings=relevant_headings,
     )
 
     if not formatted_chunks:
@@ -276,8 +310,7 @@ Length: 1500-2500 words."""
 
     # Step 3: Generate
     chunks_text = "\n\n---\n\n".join(
-        f"[Source: {chunk.doc_name}; context: {' > '.join(chunk.headings)}]\n{chunk.text}"
-        for chunk in formatted_chunks
+        f"[Source: {chunk.doc_name}; context: {' > '.join(chunk.headings)}]\n{chunk.text}" for chunk in formatted_chunks
     )
     objectives_text = "\n".join(f"- {o}" for o in objectives) if objectives else "- (none)"
 
@@ -287,7 +320,17 @@ Length: 1500-2500 words."""
     sibling_block = ""
     if sibling_lessons:
         sibling_list = "\n".join(f"- {t}" for t in sibling_lessons)
-        sibling_block = f"\n\nOTHER LESSONS IN MODULE (do NOT cover their topics):\n{sibling_list}"
+        sibling_block = f"\n\nOTHER LESSONS IN COURSE (do NOT cover their topics):\n{sibling_list}"
+
+    headings_block = ""
+    if relevant_headings:
+        headings_list = "\n".join(f"- {heading}" for heading in relevant_headings)
+        headings_block = (
+            "\n\nAUTHORITATIVE SOURCE HEADING BOUNDARIES:\n"
+            f"{headings_list}\n"
+            "Retrieved OCR chunks can contain text that spills across section or page "
+            "boundaries. Use only material belonging to these headings."
+        )
 
     prompt = f"""{GENERATION_PROMPT}
 
@@ -296,7 +339,7 @@ Module: {module_title}
 Course: {course_title}
 Target Language: {language} ({lang_name})
 Objectives:
-{objectives_text}{sibling_block}
+{objectives_text}{headings_block}{sibling_block}
 
 Source material:
 {chunks_text}
@@ -327,21 +370,21 @@ async def write_course(
     """Generate content for all lessons sequentially."""
     modules = []
     total_lessons = sum(len(m.lessons) for m in structure.modules)
+    all_lesson_titles = [lesson.title for course_module in structure.modules for lesson in course_module.lessons]
     lesson_num = 0
 
     for module in structure.modules:
         lesson_contents = []
-        sibling_titles = [l.title for l in module.lessons]
-
         for lesson in module.lessons:
             lesson_num += 1
             if on_progress:
                 result = on_progress(f"Writing lesson {lesson_num}/{total_lessons}: {lesson.title}")
-                if hasattr(result, '__await__'):
+                if hasattr(result, "__await__"):
                     await result
 
             # Check for cancellation
             import asyncio
+
             if asyncio.current_task() and asyncio.current_task().cancelled():
                 raise asyncio.CancelledError()
 
@@ -360,7 +403,7 @@ async def write_course(
                 tenant_id=tenant_id,
                 relevant_headings=lesson_headings,
                 language=language,
-                sibling_lessons=[t for t in sibling_titles if t != lesson.title],
+                sibling_lessons=[t for t in all_lesson_titles if t != lesson.title],
                 embeddings_provider=embeddings_provider,
                 require_sources=bool(doc_ids),
             )
