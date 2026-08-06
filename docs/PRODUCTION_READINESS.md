@@ -1,6 +1,6 @@
 # Kamilya LMS: готовность первого production-тенанта
 
-**Проверено:** 2026-08-04 по исходникам, CI и production-контурам
+**Проверено:** 2026-08-06 по исходникам, CI и production-контурам
 **Технический P0 baseline:** закрыт
 **Режим запуска:** dev/test и контролируемая демонстрация; подключение первого
 коммерческого tenant с персональными данными остаётся за отдельным KZ
@@ -12,7 +12,7 @@ DB/storage gate и приёмкой клиента
 ## Текущий production release
 
 P1-контур и bounded document/AI pipeline выпущены в production на application
-commit `fe0f3c97`:
+commit `c4a5eb8bf58989eff4f4338272dc68941bd416bd`:
 
 1. append-only события обучения и проверки знаний, correction, revocation и
    legal hold;
@@ -34,8 +34,8 @@ commit `fe0f3c97`:
     позиция/ETA в UI и стабильный `429` с `Retry-After`.
 
 Общая dev/test Supabase обновлена до Alembic `0089`. GitHub CI, внешний smoke,
-Render API, Vercel frontend и VPS Celery workers проверены на application
-release `fe0f3c97`.
+Render API, Vercel frontend и VPS Celery workers проверены на exact application
+release.
 Telegram webhook защищён отдельным secret token, Telegram API сообщает нулевую
 очередь и отсутствие ошибки webhook, а public auth capabilities возвращает
 `telegram_login_enabled=true`. Полная прикладная приёмка ломбарда с его
@@ -49,12 +49,12 @@ Manifest относится только к указанному SHA. Более
 
 | Контур | Состояние | Подтверждение |
 |---|---|---|
-| Application release | PASS | `fe0f3c97` |
-| CI | PASS | GitHub Actions `30887126262`: frontend, backend, mypy, secrets и security gates |
-| External smoke | PASS | GitHub Actions `30887126231`; после Render rollout API health отдельно подтверждён HTTP 200 |
-| Frontend | PASS | Vercel production `dpl_CZL46iTkg5hzgMmZ2vx5vLrfL5aZ`, состояние `READY`, exact application release |
-| API | PASS | Render deploy `dep-d9op3n5bedkc73de1l80`, состояние `live`, exact application release; health `200`; tenant admission smoke вернул `429`, код `tenant_ai_job_limit_reached`, `2/2` и `Retry-After: 510` |
-| Worker | PASS | `/opt/kamilya-worker` на exact application release; `fast`, `documents`, `ai` active/enabled; Celery ping и active queues соответствуют routing |
+| Application release | PASS | `c4a5eb8bf58989eff4f4338272dc68941bd416bd` |
+| CI | PASS | GitHub Actions `31092967471`: frontend, backend, mypy, secrets и security gates |
+| External smoke | PASS | GitHub Actions `31092967755`; после Render rollout те же API/login endpoints отдельно подтверждены HTTP 200 |
+| Frontend | PASS | Vercel production `dpl_AYjE7QGd1n9hRv5tARDfvYx1WUAP`, состояние `READY`, exact application release |
+| API | PASS | Render deploy `dep-d9q623bm8hqs73e1r40g`, состояние `live`, exact application release; health `200` |
+| Worker | PASS | `/opt/kamilya-worker` на exact application release; `fast`, `documents`, `ai` active/enabled; Celery ping, registration и active queues соответствуют routing |
 | Document converter | PASS | `docling.service` active; routing `1.2`, Docling `2.106.0`, MarkItDown `0.1.6`, LibreOffice available; DOCX/XLSX/digital-PDF/OCR smoke и 50-request digital-PDF test passed |
 | Telegram | PASS | Webhook `https://kamilya-lms-api.onrender.com/api/v1/telegram/webhook`, secret token настроен, pending updates `0`, ошибок нет |
 | Database baseline | PASS (dev) | shared dev/test Supabase, Alembic `0089`; коммерческий KZ PostgreSQL остаётся отдельным release gate |
@@ -152,9 +152,12 @@ Manifest относится только к указанному SHA. Более
 
 ## Проверки кода и production-flow
 
-- Финальный CI application release `fe0f3c97` passed: GitHub Actions
-  `30887126262`; production smoke `30887126231` также passed. После завершения
-  Render rollout API health отдельно вернул HTTP 200.
+- Финальный CI application release passed: GitHub Actions `31092967471`;
+  production smoke `31092967755` также passed. После завершения Render rollout
+  API health и frontend login отдельно вернули HTTP 200.
+- Локально на том же application release прошли 903 backend tests; 36 focused
+  AI/document tests отдельно подтвердили границы заголовков и course-wide
+  anti-repetition contract.
 - Для bounded pipeline локально пройдены 166 unit tests, 196 focused backend
   tests, 237 frontend tests и 3
   реальных document-operation integration tests на dev/test Supabase.

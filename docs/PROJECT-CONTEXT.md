@@ -1,7 +1,7 @@
 # Kamilya LMS: текущий контекст проекта
 
 > Living document. Значения секретов здесь не хранятся.
-> Обновлено: 2026-08-04.
+> Обновлено: 2026-08-06.
 
 ## Источники правды
 
@@ -45,18 +45,22 @@ restore и cutover проходят отдельный release-gate.
 
 ## Текущий проверенный release
 
-На 2026-08-04 application release `fe0f3c97` находится в production:
+На 2026-08-06 application release
+`c4a5eb8bf58989eff4f4338272dc68941bd416bd` находится в production:
 
-- GitHub CI `30887126262` passed;
-- Vercel deployment `dpl_CZL46iTkg5hzgMmZ2vx5vLrfL5aZ` READY;
-- Render deployment `dep-d9op3n5bedkc73de1l80` live, health HTTP 200;
-- VPS checkout `/opt/kamilya-worker` на `fe0f3c97`;
+- GitHub CI `31092967471` passed; production smoke `31092967755` passed;
+- Vercel deployment `dpl_AYjE7QGd1n9hRv5tARDfvYx1WUAP` READY;
+- Render deployment `dep-d9q623bm8hqs73e1r40g` live, health HTTP 200;
+- VPS checkout `/opt/kamilya-worker` на exact application release;
 - три Celery nodes `fast`, `documents`, `ai` отвечают и потребляют только свои
   очереди; AI concurrency 2, document concurrency 1;
 - API допускает не более двух активных AI-задач на tenant; третья получает
   стабильный `429` с `Retry-After`, а UI показывает очередь только своей компании;
 - converter routing `1.2`: digital PDF/Office идут через MarkItDown, сканы
   через Docling OCR; тяжёлая конвертация ограничена одним процессом;
+- Architect/Writer удерживают взаимно исключающие границы уроков по всему
+  курсу, а OCR lexical fallback приоритетно использует точные заголовки
+  разделов;
 - watchdog каждые пять минут проверяет сервисы, три worker и глубину очередей;
 - dev/test Supabase остаётся текущей БД; KZ DB/storage для коммерческого клиента
   является отдельным release gate.
