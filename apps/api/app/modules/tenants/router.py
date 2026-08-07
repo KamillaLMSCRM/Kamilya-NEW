@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import json
 import logging
 import re
 import unicodedata
 from datetime import UTC, datetime, timedelta
+from typing import Annotated
 from uuid import uuid4
 
 import argon2
@@ -14,8 +16,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.auth import create_access_token, create_refresh_token
 from app.core.db import get_db
 from app.core.email import EmailService
-from app.models.tenants import Tenant, TenantLead, TenantUsage
 from app.models.tenant_settings import TenantSettings
+from app.models.tenants import Tenant, TenantLead, TenantUsage
 from app.models.user_roles import UserRole
 from app.models.users import User
 from app.modules.audit.service import log_action
@@ -29,7 +31,6 @@ from app.modules.tenants.schemas import (
     TrialLimits,
 )
 
-
 router = APIRouter(prefix="/tenants", tags=["tenants"])
 public_router = APIRouter(prefix="/public", tags=["public"])
 logger = logging.getLogger(__name__)
@@ -41,15 +42,52 @@ TRIAL_SYSTEM_USERS = 3
 TRIAL_AI_COURSES = 1
 TRIAL_JD_COURSES = 1
 
-CYRILLIC_TRANSLIT = str.maketrans({
-    "а": "a", "ә": "a", "б": "b", "в": "v", "г": "g", "ғ": "g", "д": "d",
-    "е": "e", "ё": "e", "ж": "zh", "з": "z", "и": "i", "й": "i", "к": "k",
-    "қ": "k", "л": "l", "м": "m", "н": "n", "ң": "n", "о": "o", "ө": "o",
-    "п": "p", "р": "r", "с": "s", "т": "t", "у": "u", "ұ": "u", "ү": "u",
-    "ф": "f", "х": "h", "һ": "h", "ц": "ts", "ч": "ch", "ш": "sh",
-    "щ": "sch", "ъ": "", "ы": "y", "і": "i", "ь": "", "э": "e", "ю": "yu",
-    "я": "ya",
-})
+CYRILLIC_TRANSLIT = str.maketrans(
+    {
+        "а": "a",
+        "ә": "a",
+        "б": "b",
+        "в": "v",
+        "г": "g",
+        "ғ": "g",
+        "д": "d",
+        "е": "e",
+        "ё": "e",
+        "ж": "zh",
+        "з": "z",
+        "и": "i",
+        "й": "i",
+        "к": "k",
+        "қ": "k",
+        "л": "l",
+        "м": "m",
+        "н": "n",
+        "ң": "n",
+        "о": "o",
+        "ө": "o",
+        "п": "p",
+        "р": "r",
+        "с": "s",
+        "т": "t",
+        "у": "u",
+        "ұ": "u",
+        "ү": "u",
+        "ф": "f",
+        "х": "h",
+        "һ": "h",
+        "ц": "ts",
+        "ч": "ch",
+        "ш": "sh",
+        "щ": "sch",
+        "ъ": "",
+        "ы": "y",
+        "і": "i",
+        "ь": "",
+        "э": "e",
+        "ю": "yu",
+        "я": "ya",
+    }
+)
 
 
 def _slugify(name: str) -> str:
@@ -80,10 +118,36 @@ def _build_public_lead_message(payload: PublicLeadRequest) -> str | None:
         "utm_medium": payload.utm_medium,
         "utm_campaign": payload.utm_campaign,
         "referrer": payload.referrer,
+        "source_section": payload.source_section,
+        "plan": payload.plan,
+        "roi_employees": payload.roi_employees,
+        "roi_industry": payload.roi_industry,
+        "roi_employee_band": payload.roi_employee_band,
+        "roi_formula_version": payload.roi_formula_version,
     }
     compact = {key: value for key, value in metadata.items() if value}
     if compact:
-        parts.append(f"Landing metadata: {compact}")
+        parts.append(f"Landing metadata: {json.dumps(compact, ensure_ascii=False, sort_keys=True)}")
+    return "\n\n".join(parts) if parts else None
+
+
+def _tenant_registration_attribution(payload: TenantRegisterRequest) -> dict[str, str]:
+    metadata = {
+        "utm_source": payload.utm_source,
+        "utm_medium": payload.utm_medium,
+        "utm_campaign": payload.utm_campaign,
+        "utm_content": payload.utm_content,
+        "utm_term": payload.utm_term,
+        "referrer": payload.referrer,
+    }
+    return {key: value for key, value in metadata.items() if value}
+
+
+def _build_tenant_registration_message(payload: TenantRegisterRequest) -> str | None:
+    parts = [payload.message.strip()] if payload.message else []
+    attribution = _tenant_registration_attribution(payload)
+    if attribution:
+        parts.append(f"Landing attribution: {json.dumps(attribution, ensure_ascii=False, sort_keys=True)}")
     return "\n\n".join(parts) if parts else None
 
 
@@ -107,7 +171,7 @@ async def _unique_slug(db: AsyncSession, company_name: str) -> str:
 @public_router.post("/leads", response_model=PublicLeadResponse, status_code=status.HTTP_201_CREATED)
 async def submit_public_lead(
     payload: PublicLeadRequest,
-    db: AsyncSession = Depends(get_db),
+    db: Annotated[AsyncSession, Depends(get_db)],
 ):
     if payload.website:
         return PublicLeadResponse(id=uuid4(), ok=True)
@@ -137,7 +201,7 @@ async def register_tenant(
     payload: TenantRegisterRequest,
     request: Request,
     response: Response,
-    db: AsyncSession = Depends(get_db),
+    db: Annotated[AsyncSession, Depends(get_db)],
 ):
     existing_user = (
         # tenant-gate: allow - globally unique email check before a tenant exists.
@@ -157,11 +221,13 @@ async def register_tenant(
     trial_ends_at = now + timedelta(days=TRIAL_DAYS)
     first_name, last_name = _split_contact_name(payload.contact_name)
 
+    attribution = _tenant_registration_attribution(payload)
     settings = {
         "registration": {
             "source": "landing",
             "intent": payload.intent,
             "preferred_language": payload.preferred_language,
+            "attribution": attribution,
         },
         "trial_limits": {
             "ai_course_generations_limit": TRIAL_AI_COURSES,
@@ -234,20 +300,24 @@ async def register_tenant(
         intent=payload.intent,
         status="trial_active",
         source="landing",
-        message=payload.message,
+        message=_build_tenant_registration_message(payload),
     )
     db.add(lead)
     await db.flush()
 
-    access_token = create_access_token({
-        "sub": str(user.id),
-        "tenant_id": tenant.id,
-        "roles": ["admin"],
-    })
-    refresh_token = create_refresh_token({
-        "sub": str(user.id),
-        "tenant_id": tenant.id,
-    })
+    access_token = create_access_token(
+        {
+            "sub": str(user.id),
+            "tenant_id": tenant.id,
+            "roles": ["admin"],
+        }
+    )
+    refresh_token = create_refresh_token(
+        {
+            "sub": str(user.id),
+            "tenant_id": tenant.id,
+        }
+    )
     _set_refresh_cookie(response, refresh_token)
 
     await log_action(
@@ -261,6 +331,7 @@ async def register_tenant(
             "source": "landing",
             "intent": payload.intent,
             "lead_id": str(lead.id),
+            "attribution": attribution,
         },
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent"),

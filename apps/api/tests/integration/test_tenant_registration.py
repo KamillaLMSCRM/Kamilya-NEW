@@ -5,7 +5,7 @@ from uuid import uuid4
 import pytest
 from sqlalchemy import select
 
-from app.models.tenants import Tenant
+from app.models.tenants import Tenant, TenantLead
 from app.models.users import User
 
 
@@ -34,6 +34,12 @@ async def test_registration_succeeds_when_trial_email_provider_fails(
             "password": "QA-registration-pass-2026!",
             "preferred_language": "ru",
             "intent": "try",
+            "utm_source": "google",
+            "utm_medium": "cpc",
+            "utm_campaign": "kz_lms",
+            "utm_content": "hero",
+            "utm_term": "lms система",
+            "referrer": "https://www.kml.kz/ru?utm_source=google",
         },
     )
 
@@ -42,19 +48,58 @@ async def test_registration_succeeds_when_trial_email_provider_fails(
     assert payload["role"] == "admin"
     assert payload["user"]["email"] == email
 
-    tenant = (
-        await db_session.execute(
-            select(Tenant).where(Tenant.id == payload["tenant_id"])
-        )
-    ).scalar_one()
-    user = (
-        await db_session.execute(
-            select(User).where(User.id == payload["user_id"])
-        )
-    ).scalar_one()
+    tenant = (await db_session.execute(select(Tenant).where(Tenant.id == payload["tenant_id"]))).scalar_one()
+    user = (await db_session.execute(select(User).where(User.id == payload["user_id"]))).scalar_one()
     assert tenant.status == "trial"
+    assert tenant.settings["registration"]["attribution"] == {
+        "utm_source": "google",
+        "utm_medium": "cpc",
+        "utm_campaign": "kz_lms",
+        "utm_content": "hero",
+        "utm_term": "lms система",
+        "referrer": "https://www.kml.kz/ru?utm_source=google",
+    }
     assert user.role == "admin"
     assert user.tenant_id == tenant.id
+    lead = (await db_session.execute(select(TenantLead).where(TenantLead.id == payload["lead_id"]))).scalar_one()
+    assert "Landing attribution:" in (lead.message or "")
+    assert '"utm_campaign": "kz_lms"' in (lead.message or "")
+
+
+@pytest.mark.asyncio
+async def test_public_lead_keeps_landing_context_and_roi_attribution(client, db_session):
+    suffix = uuid4().hex[:12]
+    response = await client.post(
+        "/api/v1/public/leads",
+        json={
+            "name": "Айдана QA",
+            "company": f"QA Landing {suffix}",
+            "email": f"qa-landing-{suffix}@example.com",
+            "companySize": 75,
+            "industry": "finance",
+            "interest": "roi_calc",
+            "locale": "ru",
+            "utm_source": "google",
+            "utm_medium": "cpc",
+            "utm_campaign": "kz_lms",
+            "referrer": "https://www.kml.kz/ru?utm_source=google",
+            "source_section": "roi",
+            "plan": "corporate",
+            "roi_employees": 75,
+            "roi_industry": "finance",
+            "roi_employee_band": "51-100",
+            "roi_formula_version": "lead-assessment-v1",
+        },
+    )
+
+    assert response.status_code == 201
+    lead = (await db_session.execute(select(TenantLead).where(TenantLead.id == response.json()["id"]))).scalar_one()
+    assert lead.status == "lead_submitted"
+    assert lead.source == "landing_form"
+    assert lead.employee_count_range == "75"
+    assert '"source_section": "roi"' in (lead.message or "")
+    assert '"roi_employees": 75' in (lead.message or "")
+    assert '"roi_formula_version": "lead-assessment-v1"' in (lead.message or "")
 
 
 @pytest.mark.asyncio

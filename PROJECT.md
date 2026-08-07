@@ -163,6 +163,11 @@ docs/           current product, architecture and operations docs
 Self-service registration создаёт tenant и первого `admin`. Вход поддерживает
 email OTP через Resend и Telegram flow.
 
+Регистрация с публичного лендинга принимает `utm_source`, `utm_medium`,
+`utm_campaign`, `utm_content`, `utm_term` и `referrer`. Атрибуция сохраняется в
+`tenant.settings.registration.attribution`, сообщении `TenantLead` и audit event
+`tenant.trial.started`; значения ограничиваются backend-схемой по длине.
+
 Текущий trial:
 
 - 14 дней;

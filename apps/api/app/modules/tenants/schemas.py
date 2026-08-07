@@ -6,7 +6,6 @@ from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
-
 TenantIntent = Literal["try", "demo", "buy"]
 EmployeeCountRange = Literal["1-10", "11-50", "51-200", "201-1000", "1000+"]
 
@@ -23,6 +22,12 @@ class TenantRegisterRequest(BaseModel):
     intent: TenantIntent = "try"
     billing_identifier: str | None = Field(None, max_length=64)
     message: str | None = Field(None, max_length=2000)
+    utm_source: str | None = Field(None, max_length=100)
+    utm_medium: str | None = Field(None, max_length=100)
+    utm_campaign: str | None = Field(None, max_length=100)
+    utm_content: str | None = Field(None, max_length=100)
+    utm_term: str | None = Field(None, max_length=100)
+    referrer: str | None = Field(None, max_length=500)
 
     @field_validator("email")
     @classmethod
@@ -60,7 +65,7 @@ class PublicLeadRequest(BaseModel):
     company: str = Field(..., min_length=2, max_length=200)
     email: EmailStr
     phone: str | None = Field(None, max_length=50)
-    companySize: int | None = Field(None, ge=1, le=100000)
+    companySize: int | None = Field(None, ge=1, le=100000)  # noqa: N815
     industry: str | None = Field(None, max_length=80)
     interest: str = Field(..., max_length=40)
     message: str | None = Field(None, max_length=1000)
@@ -69,6 +74,12 @@ class PublicLeadRequest(BaseModel):
     utm_medium: str | None = Field(None, max_length=100)
     utm_campaign: str | None = Field(None, max_length=100)
     referrer: str | None = Field(None, max_length=500)
+    source_section: str | None = Field(None, max_length=100)
+    plan: str | None = Field(None, max_length=100)
+    roi_employees: int | None = Field(None, ge=1, le=100000)
+    roi_industry: str | None = Field(None, max_length=100)
+    roi_employee_band: str | None = Field(None, max_length=50)
+    roi_formula_version: str | None = Field(None, max_length=50)
     website: str | None = Field(None, max_length=0)
 
     @field_validator("email")

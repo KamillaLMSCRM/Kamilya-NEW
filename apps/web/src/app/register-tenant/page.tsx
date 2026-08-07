@@ -13,6 +13,7 @@ import { useAuthStore } from '@/store/authStore';
 import { getRoleHome } from '@/lib/rolePolicy';
 import { getTenantRegistrationError } from '@/lib/tenantRegistrationError';
 import { formatKzPhone } from '@/lib/kzPhone';
+import { extractTenantAttribution } from '@/lib/tenantAttribution';
 import { useT } from '@/i18n/useT';
 
 type TenantIntent = 'try' | 'demo' | 'buy';
@@ -60,6 +61,7 @@ export default function TenantRegisterPage() {
 
     setLoading(true);
     try {
+      const attribution = extractTenantAttribution(window.location.search, document.referrer);
       const { data } = await api.post('/v1/tenants/register', {
         company_name: companyName.trim(),
         contact_name: contactName.trim(),
@@ -72,6 +74,7 @@ export default function TenantRegisterPage() {
         intent,
         billing_identifier: billingIdentifier.trim() || null,
         message: message.trim() || null,
+        ...attribution,
       });
 
       login(data.access_token, data.user);
