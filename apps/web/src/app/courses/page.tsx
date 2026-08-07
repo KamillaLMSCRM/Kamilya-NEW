@@ -8,7 +8,7 @@ import { useT } from '@/i18n/useT';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { toast } from '@/components/ui/Toast';
 import { api } from '@/lib/api';
-import { GraduationCap, MoreVertical, Trash2 } from 'lucide-react';
+import { GraduationCap, MoreVertical, ShieldCheck, Trash2 } from 'lucide-react';
 import { LoadError } from '@/components/ui/LoadError';
 
 export default function CoursesPage() {
@@ -160,6 +160,27 @@ export default function CoursesPage() {
           </div>
         )}
       </div>
+
+      {canManage && (
+        <section className="overflow-hidden rounded-2xl border border-primary/20 bg-gradient-to-r from-primary/15 via-card to-accent/10 p-5 shadow-card">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex min-w-0 items-start gap-3">
+              <span className="rounded-xl bg-primary/10 p-2 text-primary"><ShieldCheck className="h-5 w-5" aria-hidden="true" /></span>
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-wide text-primary">{t('courses.blueprint.badge')}</div>
+                <h2 className="mt-1 font-bold text-foreground">{t('courses.blueprint.offerTitle')}</h2>
+                <p className="mt-1 text-sm text-muted-foreground">{t('courses.blueprint.offerDescription')}</p>
+              </div>
+            </div>
+            <Link
+              href="/courses/templates/kz-finance-information-security"
+              className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+            >
+              {t('courses.blueprint.open')}
+            </Link>
+          </div>
+        </section>
+      )}
 
       {/* Filters */}
       <div className="flex gap-3">
@@ -368,6 +389,11 @@ export default function CoursesPage() {
                       SCORM
                     </span>
                   )}
+                  {course.source_analysis?.blueprint?.id && (
+                    <span className="text-[11px] font-semibold rounded-full px-2.5 py-1 text-primary bg-card/80 backdrop-blur-sm">
+                      {t('courses.blueprint.badge')}
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -385,6 +411,15 @@ export default function CoursesPage() {
 
                 {canManage && (
                   <>
+                    {course.status !== 'published' && course.source_analysis?.blueprint?.id && (
+                      <Link
+                        href={`/courses/templates/${course.source_analysis.blueprint.id}?course_id=${course.id}`}
+                        className="mt-4 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-primary/30 bg-primary/5 px-3 py-2 text-sm font-medium text-primary transition-colors hover:bg-primary/10"
+                      >
+                        <ShieldCheck className="h-4 w-4" aria-hidden="true" />
+                        {t('courses.blueprint.open')}
+                      </Link>
+                    )}
                     {course.status === 'published' && (
                       <Link
                         href={`/assignments?course_id=${course.id}`}

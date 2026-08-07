@@ -286,6 +286,26 @@ async def review_course(
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
 
+    if req.review_status == "approved":
+        from app.modules.courses.blueprint_service import (
+            BlueprintContentConflictError,
+            assert_blueprint_ready_for_approval,
+        )
+
+        try:
+            assert_blueprint_ready_for_approval(course)
+        except BlueprintContentConflictError as error:
+            blueprint_marker = (course.source_analysis or {}).get("blueprint") or {}
+            blueprint_id = str(blueprint_marker.get("id") or "")
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "code": "blueprint_adaptation_incomplete",
+                    "message": error.message,
+                    "adaptation_url": f"/courses/templates/{blueprint_id}?course_id={course.id}",
+                },
+            ) from error
+
     course.review_status = req.review_status
     course.reviewed_by = user.id
     course.reviewed_at = datetime.now(timezone.utc)
@@ -369,6 +389,33 @@ async def publish_course(
         raise HTTPException(status_code=404, detail="Course not found")
     if course.status == "published":
         raise HTTPException(status_code=409, detail="Course is already published")
+    blueprint_marker = (course.source_analysis or {}).get("blueprint") or {}
+    if blueprint_marker:
+        from app.modules.courses.blueprint_service import (
+            BlueprintContentConflictError,
+            assert_blueprint_ready_for_approval,
+        )
+
+        try:
+            assert_blueprint_ready_for_approval(course)
+        except BlueprintContentConflictError as error:
+            blueprint_id = str(blueprint_marker.get("id") or "")
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "code": "blueprint_adaptation_incomplete",
+                    "message": error.message,
+                    "adaptation_url": f"/courses/templates/{blueprint_id}?course_id={course.id}",
+                },
+            ) from error
+        if course.review_status != "approved":
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "code": "course_review_required",
+                    "message": "Перед публикацией отраслевой курс должен быть проверен и одобрен методологом",
+                },
+            )
     if course.ai_generated and course.review_status != "approved":
         raise HTTPException(
             status_code=409,

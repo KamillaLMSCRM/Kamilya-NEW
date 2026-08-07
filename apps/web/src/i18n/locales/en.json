@@ -324,7 +324,36 @@
     "lessonContent": "Lesson content",
     "moduleTitle": "Module title",
     "aiBadge": "AI",
-    "delete": "Delete"
+    "delete": "Delete",
+    "blueprint": {
+      "badge": "70% of the course is ready",
+      "offerTitle": "Ready information-security course for a financial organization",
+      "offerDescription": "Start with a reviewed baseline structure and complete it with your company's internal rules.",
+      "open": "Adapt template",
+      "pageTitle": "Adapt an industry course",
+      "pageSubtitle": "The baseline is created immediately. Complete your organization's required rules, review the course, and only then publish it.",
+      "basePart": "Ready baseline",
+      "tenantPart": "Company adaptation",
+      "readiness": "Readiness",
+      "courseName": "Course name",
+      "documents": "Internal documents",
+      "documentsHint": "Select uploaded documents as sources for methodologist review. Their text is not inserted automatically without review.",
+      "noDocuments": "No suitable documents yet",
+      "uploadDocuments": "Upload documents",
+      "checklist": "Required adaptation",
+      "checklistHint": "Every item is required for approval. An empty item keeps the course in draft.",
+      "createDraft": "Create adapted draft",
+      "updateDraft": "Update adaptation",
+      "creating": "Creating course...",
+      "created": "Course draft created",
+      "updated": "Adaptation updated",
+      "loadFailed": "Could not load the industry template",
+      "saveFailed": "Could not create the course",
+      "existing": "This template already exists. Opening the existing draft.",
+      "limitationTitle": "Before publishing",
+      "manualEditWarning": "After manually editing lessons, continue in the editor: the wizard will not overwrite your changes.",
+      "back": "Back to courses"
+    }
   },
   "cohorts": {
     "title": "Employee groups", "subtitle": "Build an audience once and reuse it when assigning learning programs.", "audienceHint": "A group stores employees only. Courses are assigned through learning programs or rules.", "learnerHint": "Your learning groups will appear here", "new": "New group", "name": "Name", "namePlaceholder": "For example, new managers 2026", "description": "Description", "members": "members", "create": "Create group", "save": "Save members", "empty": "No groups yet", "created": "Group created", "saved": "Group members saved", "loadFailed": "Could not load groups", "saveFailed": "Could not save"

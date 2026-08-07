@@ -37,6 +37,7 @@ from app.modules.certificates.router import router as certificates_router
 from app.modules.cohorts.router import router as cohorts_router
 from app.modules.competencies.router import router as competencies_router
 from app.modules.courses.router import router as courses_router
+from app.modules.courses.blueprints_router import router as course_blueprints_router
 from app.modules.demo.router import router as demo_router
 from app.modules.departments.router import router as departments_router
 from app.modules.documents.router import router as documents_router
@@ -174,6 +175,7 @@ register_error_handlers(app)
 
 app.include_router(auth_router, prefix=f"{settings.API_PREFIX}")
 app.include_router(courses_router, prefix=f"{settings.API_PREFIX}", tags=["courses"])
+app.include_router(course_blueprints_router, prefix=f"{settings.API_PREFIX}")
 app.include_router(scorm_router, prefix=f"{settings.API_PREFIX}", tags=["scorm"])
 app.include_router(lessons_router, prefix=f"{settings.API_PREFIX}", tags=["lessons"])
 app.include_router(ai_router, prefix=f"{settings.API_PREFIX}", tags=["ai-generation"])

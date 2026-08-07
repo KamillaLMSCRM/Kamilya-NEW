@@ -31,6 +31,7 @@ production.
 - [Live OpenAPI](https://kamilya-lms-api.onrender.com/docs)
 - [Архитектурные решения](adr/)
 - [ADR-0015: события обучения и подтверждение результата](adr/0015-training-evidence-and-step-up-confirmation.md)
+- [ADR-0017: версионированные отраслевые заготовки курсов](adr/0017-versioned-industry-course-blueprints.md)
 - [Celery worker](INFRA_CELERY_WORKER.md)
 - [VPS и сервисы](VPS_CONNECTION_GUIDE.md)
 - [Backup и restore](BACKUP_RESTORE_RUNBOOK.md)
