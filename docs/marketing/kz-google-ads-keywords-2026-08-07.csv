@@ -25,3 +25,11 @@ KZ Search — Industry pilot,Lombard and MFO,курс для сотрудник�
 KZ Search — Industry pilot,Lombard and MFO,обучение сотрудников МФО,Exact,Industry,P3,Demo and ABM only,No autocomplete signal; validate separately
 KZ Search — Product differentiator,Document to course,создание курса из PDF,Exact,Feature,P3,Planner only,Use as differentiator rather than primary demand
 KZ Search — Product differentiator,Document to course,генерация курса из документа,Exact,Feature,P3,Planner only,Use as differentiator rather than primary demand
+KZ Search — LMS,LMS category,LMS платформа,Phrase,Commercial,P1,Test first,Highest range but declining and ambiguous; strict negatives required
+KZ Search — LMS,LMS category,платформа LMS,Phrase,Commercial,P1,Test first,Medium competition and category intent
+KZ Search — Employee training,Employee platform,платформа для обучения персонала,Phrase,Commercial,P1,Test first,Planner expansion with direct product fit
+KZ Search — Employee training,Corporate training,корпоративное обучение сотрудников,Phrase,Commercial,P1,Test first,High competition and positive quarterly signal
+KZ Search — Employee training,Corporate training,платформа для корпоративного обучения,Phrase,Commercial,P1,Test first,Positive yearly signal and strong product fit
+KZ Search — Onboarding and control,Onboarding,онбординг сотрудников,Phrase,Commercial,P1,Test first,Commercial signal with visible bid range
+KZ Search — Onboarding and control,Knowledge control,проверка знаний сотрудников,Phrase,Commercial,P1,Test first,Positive quarterly and yearly signal
+KZ Search — Employee training,Automation,автоматизация обучения персонала,Exact,Commercial,P1,Test carefully,High competition and volatile bid range
