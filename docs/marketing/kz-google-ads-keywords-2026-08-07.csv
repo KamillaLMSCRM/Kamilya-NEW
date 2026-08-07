@@ -1,0 +1,27 @@
+Campaign,Ad group,Keyword,Match type,Intent,Priority,Status,Notes
+KZ Search — Employee training,Employee platform,платформа для обучения сотрудников,Phrase,Commercial,P1,Test first,Direct fit with the product value
+KZ Search — Employee training,Employee platform,онлайн платформа для обучения сотрудников,Phrase,Commercial,P1,Test first,Direct fit with the product value
+KZ Search — Employee training,Employee system,система обучения персонала,Phrase,Commercial,P1,Test first,Core business wording
+KZ Search — Employee training,Employee system,система обучения персонала в организации,Phrase,Commercial,P1,Test first,Organizational decision-maker wording
+KZ Search — Employee training,Employee system,система обучения и развития персонала,Phrase,Commercial,P1,Test first,HR and management wording
+KZ Search — LMS,LMS category,LMS система управления обучением,Phrase,Commercial,P1,Test first,Use phrase match due LMS ambiguity
+KZ Search — LMS,LMS category,LMS система обучения,Phrase,Commercial,P1,Test first,Use phrase match due LMS ambiguity
+KZ Search — LMS,LMS category,LMS для бизнеса,Phrase,Commercial,P1,Test first,B2B qualifier
+KZ Search — LMS,LMS Kazakhstan,LMS Казахстан,Exact,Commercial,P2,Validate first,Local-market intent
+KZ Search — LMS,LMS Kazakhstan,LMS в Казахстане,Exact,Commercial,P2,Validate first,Local-market intent
+KZ Search — Onboarding and control,Onboarding,онбординг новых сотрудников,Phrase,Commercial,P2,Validate first,Employee adaptation use case
+KZ Search — Onboarding and control,Onboarding,онбординг и адаптация сотрудников,Phrase,Commercial,P2,Validate first,Employee adaptation use case
+KZ Search — Onboarding and control,Onboarding,платформа для адаптации сотрудников,Phrase,Commercial,P2,Validate first,Platform intent
+KZ Search — Onboarding and control,Knowledge control,тестирование персонала онлайн,Phrase,Commercial,P2,Validate first,Functional buying intent
+KZ Search — Onboarding and control,Knowledge control,система тестирования сотрудников,Phrase,Commercial,P2,Validate first,Functional buying intent
+KZ Search — Onboarding and control,Knowledge control,учёт обучения сотрудников,Phrase,Commercial,P2,Validate first,Training compliance use case
+KZ Search — Employee training,Online learning,онлайн обучение сотрудников,Phrase,Commercial,P2,Validate first,Broader wording; qualify leads
+KZ Search — Employee training,Online learning,дистанционное обучение сотрудников,Phrase,Commercial,P2,Validate first,Broader wording; qualify leads
+KZ Search — Commercial hypotheses,Purchase intent,система обучения сотрудников купить,Phrase,Commercial,P3,Planner only,No stable autocomplete signal
+KZ Search — Commercial hypotheses,Purchase intent,платформа обучения персонала купить,Phrase,Commercial,P3,Planner only,No stable autocomplete signal
+KZ Search — Commercial hypotheses,Automation,автоматизация обучения сотрудников,Phrase,Commercial,P3,Planner only,No stable autocomplete signal
+KZ Search — Industry pilot,Lombard and MFO,обучение сотрудников ломбарда,Exact,Industry,P3,Demo and ABM only,No autocomplete signal; validate separately
+KZ Search — Industry pilot,Lombard and MFO,курс для сотрудников ломбарда,Exact,Industry,P3,Demo and ABM only,No autocomplete signal; validate separately
+KZ Search — Industry pilot,Lombard and MFO,обучение сотрудников МФО,Exact,Industry,P3,Demo and ABM only,No autocomplete signal; validate separately
+KZ Search — Product differentiator,Document to course,создание курса из PDF,Exact,Feature,P3,Planner only,Use as differentiator rather than primary demand
+KZ Search — Product differentiator,Document to course,генерация курса из документа,Exact,Feature,P3,Planner only,Use as differentiator rather than primary demand

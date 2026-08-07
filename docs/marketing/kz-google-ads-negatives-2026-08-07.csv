@@ -1,0 +1,21 @@
+Negative keyword,Reason,Level
+школа,Consumer and school education,Campaign
+университет,Higher education intent,Campaign
+студент,Student intent,Campaign
+школьник,School learner intent,Campaign
+учитель,Teacher job/course intent,Campaign
+репетитор,Tutoring intent,Campaign
+дети,Children education intent,Campaign
+курсовая,Academic assignment intent,Campaign
+диплом,Academic assignment intent,Campaign
+вакансия,Job-seeking intent,Campaign
+работа,Job-seeking intent,Campaign
+бесплатно,Free product/course intent,Campaign
+бесплатные курсы,Free course intent,Campaign
+создать онлайн школу,Course-creator intent,Campaign
+учебный центр,Offline training-center intent,Campaign
+Moodle,Alternative open-source implementation,Campaign
+LMS 901,Automotive product,Campaign
+Audi,Automotive product,Campaign
+автомобиль,Automotive product,Campaign
+запчасти,Automotive product,Campaign
