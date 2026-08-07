@@ -13,7 +13,7 @@ from app.modules.ai.schemas import AIGenerateRequest
 
 
 @pytest.mark.asyncio
-async def test_full_tenant_queue_rejects_before_trial_or_budget_charge(monkeypatch):
+async def test_full_tenant_queue_maps_submission_limit_to_http_429(monkeypatch):
     tenant_id = uuid4()
     user = SimpleNamespace(id=uuid4(), tenant_id=tenant_id)
     request = AIGenerateRequest(documents=[uuid4()])
@@ -26,9 +26,7 @@ async def test_full_tenant_queue_rejects_before_trial_or_budget_charge(monkeypat
 
     analyze = AsyncMock(return_value=analysis)
     check_quota = AsyncMock()
-    reserve_trial = AsyncMock()
-    charge_budget = AsyncMock()
-    admit = AsyncMock(
+    submit = AsyncMock(
         side_effect=AIJobAdmissionLimitReachedError(
             tenant_id=tenant_id,
             active_count=2,
@@ -38,9 +36,7 @@ async def test_full_tenant_queue_rejects_before_trial_or_budget_charge(monkeypat
 
     monkeypatch.setattr("app.modules.ai.source_analysis.analyze_document_set", analyze)
     monkeypatch.setattr("app.core.demo_limits.check_ai_generation_quota", check_quota)
-    monkeypatch.setattr("app.core.trial_limits.reserve_ai_course_generation", reserve_trial)
-    monkeypatch.setattr("app.modules.ai.budget.check_and_charge_llm_budget", charge_budget)
-    monkeypatch.setattr(router, "create_admitted_ai_job", admit)
+    monkeypatch.setattr(router, "submit_ai_job", submit)
 
     with pytest.raises(HTTPException) as error:
         await router.generate_course(request, db=SimpleNamespace(), user=user)
@@ -55,5 +51,3 @@ async def test_full_tenant_queue_rejects_before_trial_or_budget_charge(monkeypat
     }
     assert error.value.headers == {"Retry-After": "510"}
     check_quota.assert_awaited_once()
-    reserve_trial.assert_not_awaited()
-    charge_budget.assert_not_awaited()

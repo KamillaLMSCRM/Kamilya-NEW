@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 from datetime import datetime, timezone
 from uuid import UUID, uuid4
@@ -11,7 +10,6 @@ from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSock
 from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from app.core.auth import (
     get_current_active_user,
@@ -26,13 +24,13 @@ from app.models.ai_job import AIJob
 from app.models.users import User
 from app.modules.ai.job_service import (
     AIJobAdmissionLimitReachedError,
+    AIJobSubmissionUnavailableError,
     build_ai_job_queue_metadata,
-    create_admitted_ai_job,
     get_ai_job,
+    submit_ai_job,
     update_ai_job,
 )
-from app.modules.ai.llm_client import ResilientLLMClient, create_llm
-from app.modules.ai.pipeline import run_generation_pipeline
+from app.modules.ai.llm_client import ResilientLLMClient
 from app.modules.ai.schemas import (
     AIChatRequest,
     AIChatResponse,
@@ -205,10 +203,6 @@ async def generate_course(
 ):
     """Start AI course generation (returns job_id for polling/WebSocket)."""
     from app.core.demo_limits import check_ai_generation_quota
-    from app.core.trial_limits import (
-        release_ai_course_generation,
-        reserve_ai_course_generation,
-    )
     from app.modules.ai.source_analysis import analyze_document_set
 
     analysis = await analyze_document_set(
@@ -231,8 +225,8 @@ async def generate_course(
 
     settings = get_settings()
     try:
-        job = await create_admitted_ai_job(
-            db=db,
+        job, queue_metadata = await submit_ai_job(
+            db,
             tenant_id=user.tenant_id,
             user_id=user.id,
             course_id=req.course_id,
@@ -245,55 +239,8 @@ async def generate_course(
                 "combination_goal": req.combination_goal.strip(),
                 "source_analysis": analysis_payload,
             },
-            active_limit=settings.AI_MAX_ACTIVE_JOBS_PER_TENANT,
-        )
-    except AIJobAdmissionLimitReachedError as exc:
-        raise _admission_http_error(exc) from exc
-
-    if req.course_id is None:
-        await reserve_ai_course_generation(db, user.tenant_id)
-
-    # Per-tenant LLM cost gate (audit §6.3). Raises 429 if monthly
-    # budget exceeded. Default budget is $50/month per tenant; see
-    # tenant_settings.monthly_llm_budget_usd_cents.
-    from app.modules.ai.budget import check_and_charge_llm_budget
-    if user.tenant_id:
-        await check_and_charge_llm_budget(
-            db, str(user.tenant_id), operation="generate_course",
-        )
-
-    queue_metadata = await build_ai_job_queue_metadata(
-        db,
-        job,
-        active_limit=settings.AI_MAX_ACTIVE_JOBS_PER_TENANT,
-        worker_concurrency=settings.AI_WORKER_CONCURRENCY,
-        historical_estimate_seconds=settings.AI_ESTIMATED_JOB_SECONDS,
-    )
-    await db.commit()
-
-    from app.modules.ai.tasks import generate_course_task
-
-    if generate_course_task is None:
-        await update_ai_job(
-            db,
-            job.id,
-            tenant_id=str(user.tenant_id) if user.tenant_id else None,
-            status="failed",
-            stage="failed",
-            message="AI worker is unavailable",
-        )
-        if req.course_id is None:
-            await release_ai_course_generation(db, user.tenant_id)
-        if user.tenant_id:
-            from app.modules.ai.budget import refund_llm_budget
-            await refund_llm_budget(db, str(user.tenant_id), "generate_course")
-        await db.commit()
-        raise HTTPException(status_code=503, detail="AI worker is unavailable")
-
-    try:
-        generate_course_task.apply_async(
-            task_id=str(job.id),
-            kwargs={
+            task_name="generate_course",
+            task_kwargs=lambda job: {
                 "job_id": str(job.id),
                 "documents": [str(document_id) for document_id in req.documents],
                 "target_audience": req.target_audience,
@@ -306,24 +253,16 @@ async def generate_course(
                 "combination_goal": req.combination_goal.strip(),
                 "source_analysis": analysis_payload,
             },
+            active_limit=settings.AI_MAX_ACTIVE_JOBS_PER_TENANT,
+            worker_concurrency=settings.AI_WORKER_CONCURRENCY,
+            historical_estimate_seconds=settings.AI_ESTIMATED_JOB_SECONDS,
+            generation=True,
+            reserve_course_generation=req.course_id is None,
         )
-    except Exception as exc:
-        logger.exception("Could not enqueue AI generation job %s", job.id)
-        await update_ai_job(
-            db,
-            job.id,
-            tenant_id=str(user.tenant_id) if user.tenant_id else None,
-            status="failed",
-            stage="failed",
-            message="AI job could not be queued",
-        )
-        if req.course_id is None:
-            await release_ai_course_generation(db, user.tenant_id)
-        if user.tenant_id:
-            from app.modules.ai.budget import refund_llm_budget
-            await refund_llm_budget(db, str(user.tenant_id), "generate_course")
-        await db.commit()
-        raise HTTPException(status_code=503, detail="AI job could not be queued") from exc
+    except AIJobAdmissionLimitReachedError as exc:
+        raise _admission_http_error(exc) from exc
+    except AIJobSubmissionUnavailableError as exc:
+        raise HTTPException(status_code=503, detail=exc.detail) from exc
 
     return await _job_response(
         db,
@@ -562,8 +501,6 @@ async def _fetch_target_context(
 ) -> str:
     """If the user picked a specific lesson/module as focus, fetch its content."""
     from app.modules.lessons.models import Module, Lesson
-    from app.modules.quizzes.models import Quiz
-
     if context == "module":
         m = await db.get(Module, target_id)
         if not m or m.course_id != course_id or m.tenant_id != tenant_id:
@@ -1174,43 +1111,15 @@ async def regenerate_module(
 
     settings = get_settings()
     try:
-        job = await create_admitted_ai_job(
-            db=db,
+        job, queue_metadata = await submit_ai_job(
+            db,
             tenant_id=user.tenant_id,
             user_id=user.id,
             course_id=module.course_id,
             params={"action": "regenerate_module", "module_id": str(module_id),
                     "guidance": req.guidance, "language": req.language},
-            active_limit=settings.AI_MAX_ACTIVE_JOBS_PER_TENANT,
-        )
-    except AIJobAdmissionLimitReachedError as exc:
-        raise _admission_http_error(exc) from exc
-    queue_metadata = await build_ai_job_queue_metadata(
-        db,
-        job,
-        active_limit=settings.AI_MAX_ACTIVE_JOBS_PER_TENANT,
-        worker_concurrency=settings.AI_WORKER_CONCURRENCY,
-        historical_estimate_seconds=settings.AI_ESTIMATED_JOB_SECONDS,
-    )
-    await db.commit()
-
-    from app.modules.ai.tasks import regenerate_module_task
-
-    if regenerate_module_task is None:
-        await update_ai_job(
-            db,
-            job.id,
-            tenant_id=str(user.tenant_id),
-            status="failed",
-            stage="failed",
-            message="AI worker is unavailable",
-        )
-        await db.commit()
-        raise HTTPException(status_code=503, detail="AI worker is unavailable")
-    try:
-        regenerate_module_task.apply_async(
-            task_id=str(job.id),
-            kwargs={
+            task_name="regenerate_module",
+            task_kwargs=lambda job: {
                 "job_id": str(job.id),
                 "module_id": str(module_id),
                 "guidance": req.guidance,
@@ -1218,18 +1127,14 @@ async def regenerate_module(
                 "tenant_id": str(user.tenant_id),
                 "user_id": str(user.id),
             },
+            active_limit=settings.AI_MAX_ACTIVE_JOBS_PER_TENANT,
+            worker_concurrency=settings.AI_WORKER_CONCURRENCY,
+            historical_estimate_seconds=settings.AI_ESTIMATED_JOB_SECONDS,
         )
-    except Exception as exc:
-        await update_ai_job(
-            db,
-            job.id,
-            tenant_id=str(user.tenant_id),
-            status="failed",
-            stage="failed",
-            message="AI job could not be queued",
-        )
-        await db.commit()
-        raise HTTPException(status_code=503, detail="AI job could not be queued") from exc
+    except AIJobAdmissionLimitReachedError as exc:
+        raise _admission_http_error(exc) from exc
+    except AIJobSubmissionUnavailableError as exc:
+        raise HTTPException(status_code=503, detail=exc.detail) from exc
 
     return await _job_response(
         db,
@@ -1256,43 +1161,15 @@ async def regenerate_lesson(
 
     settings = get_settings()
     try:
-        job = await create_admitted_ai_job(
-            db=db,
+        job, queue_metadata = await submit_ai_job(
+            db,
             tenant_id=user.tenant_id,
             user_id=user.id,
             course_id=module.course_id,
             params={"action": "regenerate_lesson", "lesson_id": str(lesson_id),
                     "guidance": req.guidance, "regenerate_quiz": req.regenerate_quiz},
-            active_limit=settings.AI_MAX_ACTIVE_JOBS_PER_TENANT,
-        )
-    except AIJobAdmissionLimitReachedError as exc:
-        raise _admission_http_error(exc) from exc
-    queue_metadata = await build_ai_job_queue_metadata(
-        db,
-        job,
-        active_limit=settings.AI_MAX_ACTIVE_JOBS_PER_TENANT,
-        worker_concurrency=settings.AI_WORKER_CONCURRENCY,
-        historical_estimate_seconds=settings.AI_ESTIMATED_JOB_SECONDS,
-    )
-    await db.commit()
-
-    from app.modules.ai.tasks import regenerate_lesson_task
-
-    if regenerate_lesson_task is None:
-        await update_ai_job(
-            db,
-            job.id,
-            tenant_id=str(user.tenant_id),
-            status="failed",
-            stage="failed",
-            message="AI worker is unavailable",
-        )
-        await db.commit()
-        raise HTTPException(status_code=503, detail="AI worker is unavailable")
-    try:
-        regenerate_lesson_task.apply_async(
-            task_id=str(job.id),
-            kwargs={
+            task_name="regenerate_lesson",
+            task_kwargs=lambda job: {
                 "job_id": str(job.id),
                 "lesson_id": str(lesson_id),
                 "guidance": req.guidance,
@@ -1300,18 +1177,14 @@ async def regenerate_lesson(
                 "tenant_id": str(user.tenant_id),
                 "user_id": str(user.id),
             },
+            active_limit=settings.AI_MAX_ACTIVE_JOBS_PER_TENANT,
+            worker_concurrency=settings.AI_WORKER_CONCURRENCY,
+            historical_estimate_seconds=settings.AI_ESTIMATED_JOB_SECONDS,
         )
-    except Exception as exc:
-        await update_ai_job(
-            db,
-            job.id,
-            tenant_id=str(user.tenant_id),
-            status="failed",
-            stage="failed",
-            message="AI job could not be queued",
-        )
-        await db.commit()
-        raise HTTPException(status_code=503, detail="AI job could not be queued") from exc
+    except AIJobAdmissionLimitReachedError as exc:
+        raise _admission_http_error(exc) from exc
+    except AIJobSubmissionUnavailableError as exc:
+        raise HTTPException(status_code=503, detail=exc.detail) from exc
 
     return await _job_response(
         db,

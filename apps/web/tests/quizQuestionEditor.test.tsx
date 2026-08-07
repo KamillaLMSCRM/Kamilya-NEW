@@ -1,7 +1,12 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const fetchMock = vi.hoisted(() => vi.fn());
+const apiMock = vi.hoisted(() => ({
+  get: vi.fn(),
+  post: vi.fn(),
+  put: vi.fn(),
+  delete: vi.fn(),
+}));
 const authMock = vi.hoisted(() => ({
   accessToken: 'test-token',
   initialize: vi.fn().mockResolvedValue(undefined),
@@ -15,6 +20,7 @@ vi.mock('@/store/authStore', () => ({
   useAuthStore: (selector: (state: typeof authMock) => unknown) => selector(authMock),
 }));
 vi.mock('@/lib/auth', () => ({ getAccessToken: () => 'test-token' }));
+vi.mock('@/lib/api', () => ({ api: apiMock }));
 vi.mock('@/i18n/useT', () => ({
   useT: () => ({
     t: (key: string) => ({
@@ -76,14 +82,7 @@ const grouped = {
   orphans: [],
 };
 
-function jsonResponse(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  });
-}
-
-function setupFetch(updatedQuiz = quiz, groupedQuiz = quiz) {
+function setupApi(updatedQuiz = quiz, groupedQuiz = quiz) {
   const groupedResponse = {
     ...grouped,
     courses: grouped.courses.map((course) => ({
@@ -94,18 +93,9 @@ function setupFetch(updatedQuiz = quiz, groupedQuiz = quiz) {
       })),
     })),
   };
-  fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
-    const url = String(input);
-    if (url.includes('/v1/quizzes/grouped')) return jsonResponse(groupedResponse);
-    if (init?.method === 'POST' && url.endsWith('/v1/quizzes/quiz-1/questions')) {
-      return jsonResponse(updatedQuiz);
-    }
-    if (init?.method === 'PUT' && url.endsWith('/v1/quizzes/quiz-1/questions/question-1')) {
-      return jsonResponse(updatedQuiz);
-    }
-    return jsonResponse({ detail: 'Unexpected request' }, 404);
-  });
-  vi.stubGlobal('fetch', fetchMock);
+  apiMock.get.mockResolvedValue({ data: groupedResponse });
+  apiMock.post.mockResolvedValue({ data: updatedQuiz });
+  apiMock.put.mockResolvedValue({ data: updatedQuiz });
 }
 
 async function selectQuiz() {
@@ -120,10 +110,6 @@ describe('quiz question editor', () => {
     authMock.accessToken = 'test-token';
   });
 
-  afterEach(() => {
-    vi.unstubAllGlobals();
-  });
-
   it('opens a create modal and POSTs the question with choices', async () => {
     const createdQuestion = {
       ...initialQuestion,
@@ -134,7 +120,7 @@ describe('quiz question editor', () => {
         { id: 'choice-4', text: 'Нет', is_correct: false, order_index: 1 },
       ],
     };
-    setupFetch({ ...quiz, questions: [createdQuestion] });
+    setupApi({ ...quiz, questions: [createdQuestion] });
     render(<QuizzesAdminPage />);
     await selectQuiz();
 
@@ -158,11 +144,11 @@ describe('quiz question editor', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: 'Создать вопрос' }));
 
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
-    const postCall = fetchMock.mock.calls.find(([, init]) => init?.method === 'POST');
-    expect(postCall).toBeDefined();
-    const body = JSON.parse((postCall?.[1] as RequestInit).body as string);
-    expect(body).toMatchObject({ text: 'Новый вопрос', type: 'MCQ', points: 2 });
-    expect(body.choices).toEqual([
+    expect(toastMock.success).toHaveBeenCalledWith('Вопрос добавлен');
+    expect(apiMock.post).toHaveBeenCalledWith('/v1/quizzes/quiz-1/questions', expect.objectContaining({
+      text: 'Новый вопрос', type: 'MCQ', points: 2,
+    }));
+    expect(apiMock.post.mock.calls[0][1].choices).toEqual([
       { text: 'Да', is_correct: true, order_index: 0 },
       { text: 'Нет', is_correct: false, order_index: 1 },
     ]);
@@ -177,7 +163,7 @@ describe('quiz question editor', () => {
         { id: 'choice-2', text: 'Обновлённый неправильный ответ', is_correct: false, order_index: 1 },
       ],
     };
-    setupFetch({ ...quiz, questions: [updatedQuestion] });
+    setupApi({ ...quiz, questions: [updatedQuestion] });
     render(<QuizzesAdminPage />);
     await selectQuiz();
 
@@ -194,11 +180,11 @@ describe('quiz question editor', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: 'Сохранить' }));
 
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
-    const putCall = fetchMock.mock.calls.find(([, init]) => init?.method === 'PUT');
-    expect(putCall).toBeDefined();
-    const body = JSON.parse((putCall?.[1] as RequestInit).body as string);
-    expect(body).toMatchObject({ text: 'Обновлённый вопрос', type: 'MCQ', points: 1 });
-    expect(body.choices).toEqual([
+    expect(toastMock.success).toHaveBeenCalledWith('Вопрос обновлён');
+    expect(apiMock.put).toHaveBeenCalledWith('/v1/quizzes/quiz-1/questions/question-1', expect.objectContaining({
+      text: 'Обновлённый вопрос', type: 'MCQ', points: 1,
+    }));
+    expect(apiMock.put.mock.calls[0][1].choices).toEqual([
       { id: 'choice-1', text: 'Обновлённый правильный ответ', is_correct: true, order_index: 0 },
       { id: 'choice-2', text: 'Старый неправильный ответ', is_correct: false, order_index: 1 },
     ]);
@@ -213,7 +199,7 @@ describe('quiz question editor', () => {
       ...quiz,
       questions: [multipleChoiceQuestion],
     };
-    setupFetch(multipleChoiceQuiz, multipleChoiceQuiz);
+    setupApi(multipleChoiceQuiz, multipleChoiceQuiz);
     render(<QuizzesAdminPage />);
     await selectQuiz();
 
@@ -229,8 +215,7 @@ describe('quiz question editor', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: 'Сохранить' }));
 
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
-    const putCall = fetchMock.mock.calls.find(([, init]) => init?.method === 'PUT');
-    const body = JSON.parse((putCall?.[1] as RequestInit).body as string);
+    const body = apiMock.put.mock.calls[0][1];
     expect(body.type).toBe('multiple_choice');
     expect(body.choices.map((choice: { is_correct: boolean }) => choice.is_correct)).toEqual([
       true,

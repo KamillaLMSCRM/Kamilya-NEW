@@ -288,12 +288,28 @@ tenant-scoped admission. По умолчанию один tenant может им
 переиндексация и cleanup документов работают в отдельной очереди и не должны
 останавливаться из-за двух генераций курса.
 
+Генерация курса и регенерация модуля/урока отправляются через единый
+`submit_ai_job` в `ai.job_service`. Этот интерфейс владеет admission, расчётом
+queue metadata, commit до отправки, Celery dispatch и переводом durable job в
+`failed` при недоступной очереди. Только создание курса включает trial
+reservation и LLM budget charge; при ошибке dispatch они компенсируются.
+Router сохраняет только HTTP/RBAC, анализ входа и преобразование доменных
+ошибок в `429/503`. Celery является внешней границей и скрыт dispatcher-
+адаптером; PostgreSQL остаётся прямой транзакционной зависимостью сервиса.
+
 `AIJobResponse` содержит `tenant_active_jobs`, `tenant_active_limit`,
 `queue_position` и `estimated_wait_seconds`. Позиция считается только среди
 durable jobs текущего tenant и не выдаётся за глобальную позицию внутри Redis
 или Celery. ETA основан на двух AI worker slots и историческом ориентире 510
 секунд на задачу; это эксплуатационная оценка, не SLA. Отмена остаётся
 идемпотентной, а поздний callback worker не может воскресить `cancelled` job.
+
+Frontend `/ai/generate` хранит переходы активной job
+`documents -> generate -> review` в reducer/hook workflow. Восстановление из
+`localStorage`, polling, cancel, retry и очистка terminal job находятся за этим
+интерфейсом, а progress/queue/stages отображает отдельная presentation panel.
+Экран `/quizzes` использует общий authenticated HTTP client `web/src/lib/api.ts`;
+он не реализует собственное чтение bearer token и refresh/error transport.
 
 Трассируемость сохраняется на двух уровнях:
 

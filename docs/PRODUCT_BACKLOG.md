@@ -45,21 +45,11 @@ fallback, worker parity и production smoke реализованы. В backlog �
 
 ## P1: безопасный рефакторинг без изменения поведения
 
-1. Углубить `ai.job_service` до единого интерфейса отправки AI-задачи:
-   admission, quota/budget reservation, commit, Celery dispatch и compensation
-   при недоступной очереди. Перевести на него генерацию курса, регенерацию
-   модуля и урока; в router оставить transport/RBAC. Проверять через fake
-   dispatcher и тестовую PostgreSQL-транзакцию, не вынося гипотетический
-   repository interface; endpoint tests сократить до transport/RBAC contracts.
-2. Перевести `/quizzes` с прямых `fetch` и ручного bearer/error handling на
-   существующий `web/src/lib/api.ts`, сохранив endpoints и payloads. Не
-   добавлять отдельный feature adapter, пока он не скрывает реальный
-   quiz-authoring workflow: pass-through wrapper является неглубоким модулем.
-3. Разделить AI generation и staff frontend не по размеру файлов, а по
-   workflow-интерфейсам: state transitions + действия за небольшим hook/reducer
-   interface, presentation panels без orchestration. Тестировать наблюдаемые
-   состояния loading/error/cancel/retry/review, а не внутренние `useState` и
-   формат HTTP-запросов.
+1. Продолжить разделение frontend по workflow-интерфейсам: после вынесенного
+   polling/cancel/retry контура AI generation отделить review/regeneration, а
+   затем применить тот же подход к staff import. Делить по state transitions и
+   пользовательским действиям, а не по размеру файлов; тестировать наблюдаемые
+   loading/error/cancel/retry/review состояния.
 
 Не менять в рамках этой работы канонический
 `positions.assignment_service.recompute_enrollments` и не дробить общий

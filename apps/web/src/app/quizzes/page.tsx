@@ -1,9 +1,11 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import axios from 'axios';
 import { Card, CardContent, Button, Badge, Input, Modal } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
 import { getAccessToken } from '@/lib/auth';
+import { api } from '@/lib/api';
 import { useT } from '@/i18n/useT';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { toast } from '@/components/ui/Toast';
@@ -98,6 +100,16 @@ function questionTypeLabel(type: string) {
   return type;
 }
 
+function apiErrorMessage(error: unknown) {
+  if (axios.isAxiosError(error)) {
+    const payload = error.response?.data as { message?: string; detail?: string } | undefined;
+    if (payload?.message || payload?.detail) return payload.message || payload.detail;
+    if (error.response?.status) return `HTTP ${error.response.status}`;
+    return error.message;
+  }
+  return (error as Error).message;
+}
+
 export default function QuizzesAdminPage() {
   const { t, tp } = useT();
     const { confirm, dialog } = useConfirm();
@@ -169,27 +181,23 @@ export default function QuizzesAdminPage() {
   useEffect(() => {
     initialize();
   }, [initialize]);
-  const API_URL = process.env.NEXT_PUBLIC_API_URL;
-
   // Single request fetches the entire cascade tree (course → module →
   // lesson → quiz) plus orphans. Replaces the previous two-request flow
   // (`/v1/courses` + lazy `/v1/courses/{id}/preview`) which left quizzes
   // in a misleading "orphan" bucket until previews loaded.
   const fetchGrouped = useCallback(async () => {
-    // Fallback to localStorage in case Zustand hasn't been initialized
-    // yet (e.g. direct page load bypassing Layout's useEffect).
-    const authToken = token || getAccessToken();
-    if (!authToken) return;
+    if (!(token || getAccessToken())) return;
     setLoading(true);
     try {
-      const res = await fetch(`${API_URL}/v1/quizzes/grouped`, {
-        headers: { Authorization: `Bearer ${authToken}` },
-      });
-      if (res.ok) setGrouped(await res.json());
+      const res = await api.get<QuizGroupedResponse>('/v1/quizzes/grouped');
+      setGrouped(res.data);
+    } catch {
+      // Preserve the previous non-blocking initial load behavior. The shared
+      // client still handles refresh/logout and the page remains usable.
     } finally {
       setLoading(false);
     }
-  }, [token, API_URL]);
+  }, [token]);
 
   useEffect(() => { fetchGrouped(); }, [fetchGrouped]);
 
@@ -217,19 +225,15 @@ export default function QuizzesAdminPage() {
 
   const handleCreateQuiz = async () => {
     if (!token || !newQuiz.lesson_id || !newQuiz.title) return;
-    const res = await fetch(`${API_URL}/v1/quizzes`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token || getAccessToken()}` },
-      body: JSON.stringify({
+    try {
+      const res = await api.post<Quiz>('/v1/quizzes', {
         lesson_id: newQuiz.lesson_id,
         title: newQuiz.title,
         pass_score: newQuiz.pass_score,
         time_limit: newQuiz.time_limit ? parseInt(newQuiz.time_limit) : null,
         attempt_limit: newQuiz.attempt_limit,
-      }),
-    });
-    if (res.ok) {
-      const quiz = await res.json();
+      });
+      const quiz = res.data;
       setSelectedQuiz(quiz);
       setShowCreateQuiz(false);
       setNewQuiz({
@@ -243,9 +247,8 @@ export default function QuizzesAdminPage() {
       });
       // Refresh the tree so the new quiz appears under the chosen lesson.
       await fetchGrouped();
-    } else {
-      const err = await res.json().catch(() => ({ detail: 'Unknown error' }));
-      toast.error(`Не удалось создать тест: ${err.detail || `HTTP ${res.status}`}`);
+    } catch (error) {
+      toast.error(`Не удалось создать тест: ${apiErrorMessage(error)}`);
     }
   };
 
@@ -256,22 +259,14 @@ export default function QuizzesAdminPage() {
     if (!token || !newQuiz.lesson_id) return;
     setAiGenerating(true);
     try {
-      const res = await fetch(`${API_URL}/v1/quizzes/generate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token || getAccessToken()}` },
-        body: JSON.stringify({
+      const res = await api.post('/v1/quizzes/generate', {
           lesson_id: newQuiz.lesson_id,
           num_questions: 8,
           difficulty: aiDifficulty,
           language: 'ru',
           guidance: aiGuidance.trim() || null,
-        }),
       });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ detail: 'Unknown error' }));
-        throw new Error(err.detail || `HTTP ${res.status}`);
-      }
-      const draft = await res.json();
+      const draft = res.data;
       setAiDraft(draft);
       // Pre-fill the create form with the AI's suggested values so the
       // methodologist can tweak before saving.
@@ -281,7 +276,7 @@ export default function QuizzesAdminPage() {
         pass_score: draft.suggested_pass_score,
       }));
     } catch (e) {
-      toast.error(`AI-генерация не удалась: ${(e as Error).message}`);
+      toast.error(`AI-генерация не удалась: ${apiErrorMessage(e)}`);
     } finally {
       setAiGenerating(false);
     }
@@ -301,31 +296,21 @@ export default function QuizzesAdminPage() {
     setAiGenerating(true);
     try {
       // 1. Create the empty quiz shell.
-      const createRes = await fetch(`${API_URL}/v1/quizzes`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token || getAccessToken()}` },
-        body: JSON.stringify({
+      const createRes = await api.post<Quiz>('/v1/quizzes', {
           lesson_id: newQuiz.lesson_id,
           title: newQuiz.title || aiDraft.suggested_title,
           pass_score: newQuiz.pass_score,
           time_limit: newQuiz.time_limit ? parseInt(newQuiz.time_limit) : null,
           attempt_limit: newQuiz.attempt_limit,
-        }),
       });
-      if (!createRes.ok) {
-        const err = await createRes.json().catch(() => ({ detail: 'Unknown error' }));
-        throw new Error(err.detail || `HTTP ${createRes.status}`);
-      }
-      const quiz = await createRes.json();
+      const quiz = createRes.data;
 
       // 2. Add each question. Failures here leave a partial quiz — the
       // methodologist can edit/clean it up via the regular UI.
       let added = 0;
       for (const q of aiDraft.questions) {
-        const qRes = await fetch(`${API_URL}/v1/quizzes/${quiz.id}/questions`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token || getAccessToken()}` },
-          body: JSON.stringify({
+        try {
+          await api.post(`/v1/quizzes/${quiz.id}/questions`, {
             text: q.text,
             type: q.type,
             points: q.points,
@@ -336,9 +321,13 @@ export default function QuizzesAdminPage() {
               is_correct: c.is_correct,
               order_index: i,
             })),
-          }),
-        });
-        if (qRes.ok) added++;
+          });
+          added++;
+        } catch (error) {
+          // fetch() used to continue after an HTTP error but abort after a
+          // transport failure. Axios rejects for both, so distinguish them.
+          if (!axios.isAxiosError(error) || !error.response) throw error;
+        }
       }
 
       // 3. Refresh everything.
@@ -350,7 +339,7 @@ export default function QuizzesAdminPage() {
         `Тест создан: добавлено ${added} из ${tp('common.counts.question', aiDraft.questions.length)}`
       );
     } catch (e) {
-      toast.error(`Не удалось сохранить: ${(e as Error).message}`);
+      toast.error(`Не удалось сохранить: ${apiErrorMessage(e)}`);
     } finally {
       setAiGenerating(false);
     }
@@ -435,16 +424,7 @@ export default function QuizzesAdminPage() {
     setSavingQuestion(true);
     try {
       const isEditing = questionEditorMode === 'edit' && editingQuestionId;
-      const url = isEditing
-        ? `${API_URL}/v1/quizzes/${selectedQuiz.id}/questions/${editingQuestionId}`
-        : `${API_URL}/v1/quizzes/${selectedQuiz.id}/questions`;
-      const res = await fetch(url, {
-        method: isEditing ? 'PUT' : 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token || getAccessToken()}`,
-        },
-        body: JSON.stringify({
+      const payload = {
           text: newQuestion.text.trim(),
           type: newQuestion.type,
           points: Math.max(1, newQuestion.points),
@@ -454,19 +434,17 @@ export default function QuizzesAdminPage() {
                 ?.order_index ?? 0
             : selectedQuiz.questions.length,
           choices,
-        }),
-      });
-      if (!res.ok) {
-        const payload = await res.json().catch(() => null);
-        throw new Error(payload?.message || payload?.detail || `HTTP ${res.status}`);
-      }
-      const updated = await res.json();
+      };
+      const res = isEditing
+        ? await api.put<Quiz>(`/v1/quizzes/${selectedQuiz.id}/questions/${editingQuestionId}`, payload)
+        : await api.post<Quiz>(`/v1/quizzes/${selectedQuiz.id}/questions`, payload);
+      const updated = res.data;
       applyUpdatedQuiz(updated);
       setQuestionEditorMode(null);
       setEditingQuestionId(null);
       toast.success(isEditing ? 'Вопрос обновлён' : 'Вопрос добавлен');
     } catch (error) {
-      toast.error('Не удалось сохранить вопрос', { description: (error as Error).message });
+      toast.error('Не удалось сохранить вопрос', { description: apiErrorMessage(error) });
     } finally {
       setSavingQuestion(false);
     }
@@ -480,19 +458,14 @@ export default function QuizzesAdminPage() {
       confirmLabel: t('dialogs.delete'),
     });
     if (!ok) return;
-    const res = await fetch(`${API_URL}/v1/quizzes/${selectedQuiz.id}/questions/${questionId}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token || getAccessToken()}` },
-    });
-    if (res.ok) {
-      const quiz = await res.json();
+    try {
+      const res = await api.delete<Quiz>(`/v1/quizzes/${selectedQuiz.id}/questions/${questionId}`);
+      const quiz = res.data;
       applyUpdatedQuiz(quiz);
       return;
+    } catch (error) {
+      toast.error('Не удалось удалить вопрос', { description: apiErrorMessage(error) });
     }
-    const payload = await res.json().catch(() => null);
-    toast.error('Не удалось удалить вопрос', {
-      description: payload?.message || payload?.detail || `HTTP ${res.status}`,
-    });
   };
 
   const handleDeleteQuiz = async (quizId: string) => {
@@ -503,19 +476,14 @@ export default function QuizzesAdminPage() {
       confirmLabel: t('dialogs.delete'),
     });
     if (!ok) return;
-    const res = await fetch(`${API_URL}/v1/quizzes/${quizId}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token || getAccessToken()}` },
-    });
-    if (res.ok) {
+    try {
+      await api.delete(`/v1/quizzes/${quizId}`);
       setSelectedQuiz(null);
       await fetchGrouped();
       return;
+    } catch (error) {
+      toast.error('Не удалось удалить тест', { description: apiErrorMessage(error) });
     }
-    const payload = await res.json().catch(() => null);
-    toast.error('Не удалось удалить тест', {
-      description: payload?.message || payload?.detail || `HTTP ${res.status}`,
-    });
   };
 
   // Start editing pass_score / time_limit / attempt_limit for the
@@ -552,21 +520,13 @@ export default function QuizzesAdminPage() {
         }
         body.time_limit = n;
       }
-      const res = await fetch(`${API_URL}/v1/quizzes/${selectedQuiz.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token || getAccessToken()}` },
-        body: JSON.stringify(body),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => null);
-        throw new Error(err?.message || err?.detail || `HTTP ${res.status}`);
-      }
-      const updated = await res.json();
+      const res = await api.put<Quiz>(`/v1/quizzes/${selectedQuiz.id}`, body);
+      const updated = res.data;
       applyUpdatedQuiz(updated);
       setEditingSettings(false);
       toast.success('Параметры теста сохранены');
     } catch (e) {
-      toast.error(`Не удалось сохранить: ${(e as Error).message}`);
+      toast.error(`Не удалось сохранить: ${apiErrorMessage(e)}`);
     } finally {
       setSavingSettings(false);
     }

@@ -6,18 +6,11 @@ import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
 import { api } from '@/lib/api';
 import {
-  selectOldestActiveCourseJob,
-  type AIGenerationJob,
-} from '@/lib/aiGenerationJobs';
-import {
   type DocumentCatalogResponse,
   type DocumentIndexStatus,
 } from '@/lib/documentCatalog';
 import { toast } from '@/components/ui/Toast';
-import {
-  AsyncOperationStatus,
-  resolveAsyncOperationState,
-} from '@/components/ui/AsyncOperationStatus';
+import { resolveAsyncOperationState } from '@/components/ui/AsyncOperationStatus';
 import {
   FileText,
   Building2,
@@ -39,6 +32,8 @@ import {
   Layers3,
 } from 'lucide-react';
 import { ReviewBadge, CoursePreviewTree } from './components/CoursePreview';
+import { GenerationProgressPanel } from '@/features/ai-generation/GenerationProgressPanel';
+import { useGenerationWorkflow } from '@/features/ai-generation/useGenerationWorkflow';
 
 interface Document {
   id: string;
@@ -100,13 +95,22 @@ export default function AIGeneratePage() {
   const router = useRouter();
   const token = useAuthStore((s) => s.accessToken);
 
-  const [step, setStep] = useState<Step>('documents');
+  const [pageStep, setPageStep] = useState<Step>('documents');
   const [documents, setDocuments] = useState<Document[]>([]);
   const [selectedDocIds, setSelectedDocIds] = useState<string[]>([]);
   const [targetAudience, setTargetAudience] = useState('');
   const [numModules, setNumModules] = useState(3);
   const [language, setLanguage] = useState('ru');
-  const [currentJob, setCurrentJob] = useState<AIGenerationJob | null>(null);
+  const {
+    currentJob,
+    step: workflowStep,
+    restoreActiveJob,
+    startJob,
+    refreshJob,
+    cancelJob,
+    prepareRetry,
+  } = useGenerationWorkflow();
+  const step = currentJob ? workflowStep : pageStep;
   const [dragOver, setDragOver] = useState(false);
   const [uploadingCount, setUploadingCount] = useState(0);
   const [uploadingFiles, setUploadingFiles] = useState<string[]>([]);
@@ -227,50 +231,6 @@ export default function AIGeneratePage() {
     };
   }, [selectedDocIds, selectedNotReadyCount]);
 
-  const restoreActiveJob = useCallback(async () => {
-    const savedJobId = localStorage.getItem('ai_active_job_id');
-    if (!savedJobId) {
-      try {
-        const res = await api.get<AIGenerationJob[]>('/v1/ai/jobs');
-        const activeJob = selectOldestActiveCourseJob(res.data);
-        if (activeJob) {
-          localStorage.setItem('ai_active_job_id', activeJob.id);
-          setCurrentJob(activeJob);
-          setStep('generate');
-        }
-      } catch {
-        // A missing list is non-blocking; the page remains usable for a new job.
-      }
-      return;
-    }
-    try {
-      const res = await api.get(`/v1/ai/jobs/${savedJobId}`);
-      const status = res.data.status;
-      if (status === 'running' || status === 'pending') {
-        setCurrentJob(res.data);
-        setStep('generate');
-      } else if (status === 'completed' && res.data.course_id) {
-        setCurrentJob(res.data);
-        setStep('review');
-        localStorage.removeItem('ai_active_job_id');
-      } else if (status === 'failed' || status === 'cancelled') {
-        setCurrentJob(res.data);
-        setStep('generate');
-        localStorage.removeItem('ai_active_job_id');
-      } else {
-        // Backend confirmed terminal state — safe to drop reference
-        localStorage.removeItem('ai_active_job_id');
-      }
-    } catch (err: any) {
-      // Transient network error — keep the id in localStorage and try again
-      // on the next polling tick (Layout.tsx also polls globally). Only drop
-      // if the backend confirms 404 (job truly gone).
-      if (err?.response?.status === 404) {
-        localStorage.removeItem('ai_active_job_id');
-      }
-    }
-  }, []);
-
   const fetchDocuments = useCallback(async () => {
     setDocumentLoadError('');
     try {
@@ -385,9 +345,7 @@ export default function AIGeneratePage() {
         source_strategy: sourceStrategy,
         combination_goal: sourceStrategy === 'intentional_combination' ? combinationGoal.trim() : '',
       });
-      setCurrentJob(res.data);
-      localStorage.setItem('ai_active_job_id', res.data.id);
-      setStep('generate');
+      startJob(res.data);
     } catch (e: any) {
       console.error('Generation failed', e);
       const detail = e?.response?.data?.details ?? e?.response?.data?.detail;
@@ -398,7 +356,7 @@ export default function AIGeneratePage() {
       }
       if (detail?.code === 'mixed_document_topics' && detail.analysis) {
         setCompatibility(detail.analysis);
-        setStep('documents');
+        setPageStep('documents');
         toast.error('Документы относятся к разным темам', {
           description: 'Выберите одну тематическую группу или задайте общую учебную цель.',
         });
@@ -409,18 +367,6 @@ export default function AIGeneratePage() {
           ? detail
           : detail?.message || e?.response?.data?.message || 'Проверьте документы и повторите попытку.',
       });
-    }
-  };
-
-  const handleCancel = async () => {
-    if (!currentJob) return;
-    try {
-      await api.post(`/v1/ai/jobs/${currentJob.id}/cancel`);
-      localStorage.removeItem('ai_active_job_id');
-      setCurrentJob(null);
-      setStep('documents');
-    } catch (e) {
-      console.error('Cancel failed', e);
     }
   };
 
@@ -468,21 +414,9 @@ export default function AIGeneratePage() {
     }
   };
 
-  const refreshCurrentJob = async () => {
-    if (!currentJob) return;
-    try {
-      const response = await api.get(`/v1/ai/jobs/${currentJob.id}`);
-      setCurrentJob(response.data);
-    } catch (error: any) {
-      toast.error(t('common.loadFailed'), {
-        description: error?.response?.data?.detail || error?.message,
-      });
-    }
-  };
-
   const retryGeneration = async () => {
-    localStorage.removeItem('ai_active_job_id');
-    setCurrentJob(null);
+    setPageStep('generate');
+    prepareRetry();
     await handleGenerate();
   };
 
@@ -639,26 +573,6 @@ export default function AIGeneratePage() {
       setEditSaving(false);
     }
   };
-
-  // Poll job status
-  useEffect(() => {
-    if (!currentJob || ['completed', 'failed', 'cancelled'].includes(currentJob.status)) return;
-    const interval = setInterval(async () => {
-      try {
-        const res = await api.get(`/v1/ai/jobs/${currentJob.id}`);
-        setCurrentJob(res.data);
-        if (res.data.status === 'completed') {
-          localStorage.removeItem('ai_active_job_id');
-          setStep('review');
-        } else if (res.data.status === 'failed' || res.data.status === 'cancelled') {
-          localStorage.removeItem('ai_active_job_id');
-        }
-      } catch {}
-    }, 3000);
-    return () => clearInterval(interval);
-  }, [currentJob]);
-
-  const getStageIndex = (stageKey: string) => STAGES.findIndex(s => s.key === stageKey);
 
   const stepConfig = [
     { key: 'documents', label: 'Документы', num: 1 },
@@ -976,92 +890,23 @@ export default function AIGeneratePage() {
       {/* STEP 2: Generation progress */}
       {step === 'generate' && currentJob && (
         <div className="space-y-6">
-          <AsyncOperationStatus
-            operation={currentJob}
+          <GenerationProgressPanel
+            job={currentJob}
+            stages={STAGES}
             title={t('ai.progress')}
-            stageLabel={STAGES.find((stage) => stage.key === currentJob.stage)?.label}
-            labels={{
-              queued: t('asyncOperation.queued'),
-              running: t('asyncOperation.running'),
-              completed: t('asyncOperation.completed'),
-              failed: t('asyncOperation.failed'),
-              cancelled: t('asyncOperation.cancelled'),
-              stalled: t('asyncOperation.stalled'),
-            }}
-            retryLabel={
-              resolveAsyncOperationState(currentJob) === 'stalled'
-                ? t('asyncOperation.checkAgain')
-                : t('asyncOperation.retry')
-            }
-            cancelLabel={currentJob.status === 'pending' ? t('asyncOperation.cancelQueued') : t('asyncOperation.cancel')}
-            onRetry={
-              resolveAsyncOperationState(currentJob) === 'stalled'
-                ? () => void refreshCurrentJob()
-                : () => void retryGeneration()
-            }
-            onCancel={() => void handleCancel()}
+            labels={{ queued: t('asyncOperation.queued'), running: t('asyncOperation.running'), completed: t('asyncOperation.completed'), failed: t('asyncOperation.failed'), cancelled: t('asyncOperation.cancelled'), stalled: t('asyncOperation.stalled') }}
+            retryLabel={t('asyncOperation.retry')}
+            checkAgainLabel={t('asyncOperation.checkAgain')}
+            cancelLabel={t('asyncOperation.cancel')}
+            cancelQueuedLabel={t('asyncOperation.cancelQueued')}
+            queueTitle={t('ai.queueTitle')}
+            activeJobs={t('ai.activeJobs', { active: currentJob.tenant_active_jobs ?? 0, limit: currentJob.tenant_active_limit ?? 0 })}
+            queuePosition={t('ai.queuePosition', { position: currentJob.queue_position ?? 0 })}
+            estimatedWait={t('ai.estimatedWait', { minutes: Math.max(1, Math.ceil((currentJob.estimated_wait_seconds ?? 0) / 60)) })}
+            queueEstimateHint={t('ai.queueEstimateHint')}
+            onRetry={resolveAsyncOperationState(currentJob) === 'stalled' ? () => void refreshJob().catch((error: any) => toast.error(t('common.loadFailed'), { description: error?.response?.data?.detail || error?.message })) : () => void retryGeneration()}
+            onCancel={() => void cancelJob().catch((error) => console.error('Cancel failed', error))}
           />
-
-          {resolveAsyncOperationState(currentJob) === 'queued' && (
-            <div className="rounded-lg border border-border bg-muted/20 p-4" aria-live="polite">
-              <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <h3 className="text-sm font-semibold">{t('ai.queueTitle')}</h3>
-                {(currentJob.tenant_active_limit ?? 0) > 0 && (
-                  <span className="text-xs text-muted-foreground">
-                    {t('ai.activeJobs', {
-                      active: currentJob.tenant_active_jobs ?? 0,
-                      limit: currentJob.tenant_active_limit ?? 0,
-                    })}
-                  </span>
-                )}
-              </div>
-              <div className="mt-2 flex flex-wrap gap-x-6 gap-y-1 text-sm">
-                {currentJob.queue_position != null && (
-                  <span>{t('ai.queuePosition', { position: currentJob.queue_position })}</span>
-                )}
-                {currentJob.estimated_wait_seconds != null && (
-                  <span>
-                    {t('ai.estimatedWait', {
-                      minutes: Math.max(1, Math.ceil(currentJob.estimated_wait_seconds / 60)),
-                    })}
-                  </span>
-                )}
-              </div>
-              <p className="mt-2 text-xs text-muted-foreground">{t('ai.queueEstimateHint')}</p>
-            </div>
-          )}
-
-          {/* Stages */}
-          <div className="space-y-2">
-            {STAGES.map((stage, i) => {
-              const isAllDone = currentJob.stage === 'completed' || currentJob.status === 'completed';
-              const currentIdx = getStageIndex(currentJob.stage);
-              const stageIdx = getStageIndex(stage.key);
-              const isActive = !isAllDone && currentJob.stage === stage.key;
-              const isDone = isAllDone || stageIdx < currentIdx;
-
-              return (
-                <div
-                  key={stage.key}
-                  className={`flex items-center gap-3 rounded-xl border p-3 transition-all ${
-                    isActive ? 'border-primary bg-primary/5 shadow-sm' :
-                    isDone ? 'border-success/40 bg-success/10' :
-                    'border-border opacity-50'
-                  }`}
-                >
-                  <div className={`${isDone ? 'text-success' : isActive ? stage.color : 'text-muted-foreground'}`}>
-                    {isDone ? <CheckCircle2 className="w-5 h-5" /> : <stage.icon className="w-5 h-5" />}
-                  </div>
-                  <span className={`text-sm font-medium ${isDone ? 'text-success' : isActive ? 'text-foreground' : 'text-muted-foreground'}`}>
-                    {stage.label}
-                  </span>
-                  {isActive && (
-                    <div className="ml-auto h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                  )}
-                </div>
-              );
-            })}
-          </div>
 
           {currentJob.status === 'completed' && currentJob.course_id && (
             <button
