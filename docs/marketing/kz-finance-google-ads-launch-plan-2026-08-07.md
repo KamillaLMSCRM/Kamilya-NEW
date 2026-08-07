@@ -52,7 +52,12 @@ exact и более близкие варианты. Для низкого B2B-�
   добавления keywords и изменения ставок.
 - Auto-tagging: включить, чтобы получать `gclid`.
 - Кампания, все RSA и keywords импортируются paused.
-- Дневной бюджет и стратегия ставок не задаются до согласования владельцем.
+- Согласованный средний дневной бюджет: `$5`. Для обычного daily budget это
+  допускает расход до `$10` в отдельный день и до `$152` за месяц. Поэтому для
+  фиксированного 14-дневного теста рекомендуется campaign total budget `$70`
+  с заданными датами старта и завершения; итоговый лимит требует отдельного
+  подтверждения владельца до создания кампании.
+- Стратегия ставок не задаётся до финальной проверки настроек аккаунта.
 - Основная конверсия: `lead_form_success` после HTTP success от backend.
 - `lead_form_open` и `lead_form_submit` — только secondary/diagnostic, в bidding
   не включаются.
@@ -96,23 +101,25 @@ client adapter; env `NEXT_PUBLIC_GOOGLE_ADS_ID` и
   value `0`, count `One`, enhanced conversions выключены;
 - [x] production bundle содержит ID и label созданной conversion action;
 - [x] тестовая заявка с UTM и тестовым GCLID дошла в production lead storage;
-- [ ] Tag Assistant показывает ровно одну conversion после успешной заявки;
+- [ ] Tag Assistant вне управляемой Codex browser-сессии показывает ровно одну
+  conversion после успешной заявки;
 - [x] PII отсутствует в локальных analytics events, dataLayer и Google event;
 - [ ] advertiser verification не запрошена либо успешно завершена;
 - [ ] в аккаунте подтверждены Search only, выключенные Display expansion и
   Search partners, а география использует Presence, не interest;
 - [ ] после импорта нет broad match: только exact/phrase; parent campaign
   paused, AG1–AG4 и AG1b enabled только под ней, AG5 и его keywords paused;
-- [ ] дневной лимит и максимальный тестовый расход отдельно подтверждены
-  владельцем;
+- [x] средний дневной бюджет `$5` подтверждён владельцем;
+- [ ] campaign total budget `$70` для 14-дневного теста подтверждён владельцем;
 - [ ] кампания вручную переведена из paused только после всех проверок.
 
 Production smoke 2026-08-07: Render работает на backend commit `3618685`,
 Supabase — на Alembic revision `0091`, Vercel landing — на commit `ab3e1a5`.
 Тестовая заявка сохранила UTM, GCLID и consent metadata. До согласия и успешного
 ответа Google tag отсутствовал; после успеха на странице появился один tag.
-Отдельная проверка через Tag Assistant остаётся обязательной: Google Ads UI
-в текущем браузере заблокирован расширением ad blocker.
+Отдельная проверка через Tag Assistant остаётся обязательной вне управляемой
+Codex browser-сессии: предупреждение Google Ads появилось из-за автоматизации
+браузера, а не из-за включённого пользователем ad blocker.
 
 ## Первые 14 дней
 
@@ -143,5 +150,7 @@ Supabase — на Alembic revision `0091`, Vercel landing — на commit `ab3e1
 - [Рекомендации по RSA и количеству объявлений](https://support.google.com/google-ads/answer/12159014?hl=en)
 - [Keyword matching options](https://support.google.com/google-ads/answer/7478529?hl=en-t)
 - [Consent mode](https://support.google.com/google-ads/answer/10000067?hl=en)
+- [Average daily budget и spending limits](https://support.google.com/google-ads/answer/10486637?hl=en)
+- [Campaign total budgets](https://support.google.com/google-ads/answer/10486938?hl=en)
 - [Политика финансовых продуктов и услуг](https://support.google.com/adspolicy/answer/2464998?hl=en)
 - [Advertiser verification для организаций Казахстана](https://support.google.com/adspolicy/answer/9872280?co=GENIE.CountryCode%3DKZ&hl=en)
