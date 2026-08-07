@@ -117,7 +117,16 @@ def _build_public_lead_message(payload: PublicLeadRequest) -> str | None:
         "utm_source": payload.utm_source,
         "utm_medium": payload.utm_medium,
         "utm_campaign": payload.utm_campaign,
+        "utm_content": payload.utm_content,
+        "utm_term": payload.utm_term,
+        "gclid": payload.gclid,
         "referrer": payload.referrer,
+        "landing_page": payload.landing_page,
+        "attribution_captured_at": payload.attribution_captured_at.isoformat()
+        if payload.attribution_captured_at
+        else None,
+        "consent_version": payload.consent_version,
+        "consented_at": payload.consented_at.isoformat() if payload.consented_at else None,
         "source_section": payload.source_section,
         "plan": payload.plan,
         "roi_employees": payload.roi_employees,

@@ -82,7 +82,14 @@ async def test_public_lead_keeps_landing_context_and_roi_attribution(client, db_
             "utm_source": "google",
             "utm_medium": "cpc",
             "utm_campaign": "kz_lms",
+            "utm_content": "finance_hero",
+            "utm_term": "проверка знаний сотрудников",
+            "gclid": "test-gclid-123",
             "referrer": "https://www.kml.kz/ru?utm_source=google",
+            "landing_page": "https://www.kml.kz/ru/finance?utm_source=google",
+            "attribution_captured_at": "2026-08-07T16:00:00Z",
+            "consent_version": "privacy-2026-08-07",
+            "consented_at": "2026-08-07T16:01:00Z",
             "source_section": "roi",
             "plan": "corporate",
             "roi_employees": 75,
@@ -98,6 +105,10 @@ async def test_public_lead_keeps_landing_context_and_roi_attribution(client, db_
     assert lead.source == "landing_form"
     assert lead.employee_count_range == "75"
     assert '"source_section": "roi"' in (lead.message or "")
+    assert '"utm_content": "finance_hero"' in (lead.message or "")
+    assert '"utm_term": "проверка знаний сотрудников"' in (lead.message or "")
+    assert '"gclid": "test-gclid-123"' in (lead.message or "")
+    assert '"consent_version": "privacy-2026-08-07"' in (lead.message or "")
     assert '"roi_employees": 75' in (lead.message or "")
     assert '"roi_formula_version": "lead-assessment-v1"' in (lead.message or "")
 

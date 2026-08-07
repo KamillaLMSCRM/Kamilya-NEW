@@ -73,7 +73,14 @@ class PublicLeadRequest(BaseModel):
     utm_source: str | None = Field(None, max_length=100)
     utm_medium: str | None = Field(None, max_length=100)
     utm_campaign: str | None = Field(None, max_length=100)
+    utm_content: str | None = Field(None, max_length=100)
+    utm_term: str | None = Field(None, max_length=100)
+    gclid: str | None = Field(None, max_length=200)
     referrer: str | None = Field(None, max_length=500)
+    landing_page: str | None = Field(None, max_length=1000)
+    attribution_captured_at: datetime | None = None
+    consent_version: str | None = Field(None, min_length=1, max_length=50)
+    consented_at: datetime | None = None
     source_section: str | None = Field(None, max_length=100)
     plan: str | None = Field(None, max_length=100)
     roi_employees: int | None = Field(None, ge=1, le=100000)
