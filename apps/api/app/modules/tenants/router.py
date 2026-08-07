@@ -185,26 +185,38 @@ async def submit_public_lead(
     if payload.website:
         return PublicLeadResponse(id=uuid4(), ok=True)
 
-    # Keep the public RLS exception transaction-local and endpoint-controlled.
-    # The matching policy still restricts inserts to NULL-tenant landing leads.
-    await db.execute(text("SELECT set_config('app.public_lead_insert', 'true', true)"))
-
-    lead = TenantLead(
-        tenant_id=None,
-        company_name=payload.company.strip(),
-        contact_name=payload.name.strip(),
-        email=payload.email,
-        phone=payload.phone.strip() if payload.phone else None,
-        employee_count_range=str(payload.companySize) if payload.companySize else None,
-        preferred_language=payload.locale,
-        intent=payload.interest,
-        status="lead_submitted",
-        source="landing_form",
-        message=_build_public_lead_message(payload),
-    )
-    db.add(lead)
-    await db.flush()
-    lead_id = lead.id
+    # A bounded SECURITY DEFINER function is used because the production
+    # transaction pooler cannot reliably carry session RLS context between
+    # separate statements. The function hardcodes tenant_id/source/status and
+    # is executable only by the application role.
+    lead_id = (
+        await db.execute(
+            text(
+                """
+                SELECT insert_public_tenant_lead(
+                    CAST(:company_name AS text),
+                    CAST(:contact_name AS text),
+                    CAST(:email AS text),
+                    CAST(:phone AS text),
+                    CAST(:employee_count_range AS text),
+                    CAST(:preferred_language AS text),
+                    CAST(:intent AS text),
+                    CAST(:message AS text)
+                )
+                """
+            ),
+            {
+                "company_name": payload.company.strip(),
+                "contact_name": payload.name.strip(),
+                "email": payload.email,
+                "phone": payload.phone.strip() if payload.phone else None,
+                "employee_count_range": str(payload.companySize) if payload.companySize else None,
+                "preferred_language": payload.locale,
+                "intent": payload.interest,
+                "message": _build_public_lead_message(payload),
+            },
+        )
+    ).scalar_one()
     await db.commit()
     return PublicLeadResponse(id=lead_id, ok=True)
 
