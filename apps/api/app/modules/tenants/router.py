@@ -185,6 +185,10 @@ async def submit_public_lead(
     if payload.website:
         return PublicLeadResponse(id=uuid4(), ok=True)
 
+    # Keep the public RLS exception transaction-local and endpoint-controlled.
+    # The matching policy still restricts inserts to NULL-tenant landing leads.
+    await db.execute(text("SELECT set_config('app.public_lead_insert', 'true', true)"))
+
     lead = TenantLead(
         tenant_id=None,
         company_name=payload.company.strip(),

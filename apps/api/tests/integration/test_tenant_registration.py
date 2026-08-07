@@ -3,7 +3,7 @@ from __future__ import annotations
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import select, text
 
 from app.models.tenants import Tenant, TenantLead
 from app.models.users import User
@@ -111,6 +111,10 @@ async def test_public_lead_keeps_landing_context_and_roi_attribution(client, db_
     assert '"consent_version": "privacy-2026-08-07"' in (lead.message or "")
     assert '"roi_employees": 75' in (lead.message or "")
     assert '"roi_formula_version": "lead-assessment-v1"' in (lead.message or "")
+    public_lead_context = (
+        await db_session.execute(text("SELECT current_setting('app.public_lead_insert', true)"))
+    ).scalar_one()
+    assert public_lead_context == "true"
 
 
 @pytest.mark.asyncio
