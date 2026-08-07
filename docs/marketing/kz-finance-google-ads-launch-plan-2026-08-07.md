@@ -90,14 +90,14 @@ client adapter; env `NEXT_PUBLIC_GOOGLE_ADS_ID` и
 
 Запуск разрешён только когда выполнены все пункты:
 
-- [ ] backend с расширенным lead contract развёрнут и smoke подтверждён;
-- [ ] landing с session attribution и явным согласием развёрнут;
+- [x] backend с расширенным lead contract развёрнут и smoke подтверждён;
+- [x] landing с session attribution и явным согласием развёрнут;
 - [x] Google Ads conversion action `Kamilya | Finance lead form` создана,
   value `0`, count `One`, enhanced conversions выключены;
-- [ ] production bundle содержит ID и label созданной conversion action;
-- [ ] тестовая заявка с UTM и тестовым GCLID дошла в production lead storage;
+- [x] production bundle содержит ID и label созданной conversion action;
+- [x] тестовая заявка с UTM и тестовым GCLID дошла в production lead storage;
 - [ ] Tag Assistant показывает ровно одну conversion после успешной заявки;
-- [ ] PII отсутствует в локальных analytics events, dataLayer и Google event;
+- [x] PII отсутствует в локальных analytics events, dataLayer и Google event;
 - [ ] advertiser verification не запрошена либо успешно завершена;
 - [ ] в аккаунте подтверждены Search only, выключенные Display expansion и
   Search partners, а география использует Presence, не interest;
@@ -106,6 +106,13 @@ client adapter; env `NEXT_PUBLIC_GOOGLE_ADS_ID` и
 - [ ] дневной лимит и максимальный тестовый расход отдельно подтверждены
   владельцем;
 - [ ] кампания вручную переведена из paused только после всех проверок.
+
+Production smoke 2026-08-07: Render работает на backend commit `3618685`,
+Supabase — на Alembic revision `0091`, Vercel landing — на commit `ab3e1a5`.
+Тестовая заявка сохранила UTM, GCLID и consent metadata. До согласия и успешного
+ответа Google tag отсутствовал; после успеха на странице появился один tag.
+Отдельная проверка через Tag Assistant остаётся обязательной: Google Ads UI
+в текущем браузере заблокирован расширением ad blocker.
 
 ## Первые 14 дней
 
