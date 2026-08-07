@@ -1,6 +1,6 @@
 # Kamilya LMS: готовность первого production-тенанта
 
-**Проверено:** 2026-08-06 по исходникам, CI и production-контурам
+**Проверено:** 2026-08-07 по исходникам, CI и production-контурам
 **Технический P0 baseline:** закрыт
 **Режим запуска:** dev/test и контролируемая демонстрация; подключение первого
 коммерческого tenant с персональными данными остаётся за отдельным KZ
@@ -8,6 +8,35 @@ DB/storage gate и приёмкой клиента
 **Назначение:** единственный актуальный реестр production-gates. История изменений
 остаётся в Git; отдельные датированные отчёты не используются как источник
 текущего состояния.
+
+## Acquisition release 2026-08-07
+
+Application patch `4d5cc7e9c8f9ccc9f196ae08276a5f47d650c1a7` сохраняет
+рекламную атрибуцию от публичного лендинга до trial-регистрации и lead:
+
+- `utm_source`, `utm_medium`, `utm_campaign`, `utm_content`, `utm_term` и
+  `referrer` проходят через `app.kml.kz/register-tenant`;
+- атрибуция регистрации сохраняется в tenant settings, `TenantLead` и audit;
+- demo/pricing/ROI lead сохраняет CTA section, plan и контекст оценки;
+- backend ограничивает длину каждого публичного поля; production validation
+  smoke подтвердил новые `utm_content` и `source_section` без создания данных.
+
+Release evidence:
+
+| Контур | Состояние | Подтверждение |
+|---|---|---|
+| Application CI | PASS | GitHub Actions `31166627289`: все 7 jobs passed |
+| External smoke | PASS | GitHub Actions `31166627743` |
+| Frontend | PASS | Vercel `dpl_9gwdhcPPXrgyW5yy3JLzRh98bU3M`, `READY`, alias `app.kml.kz`, exact application patch |
+| API | PASS | Render `dep-d9qqi0c9v7es73ffqg60`, `live`, exact application patch; health `ok` |
+| Landing | PASS | отдельный repo commit `a7b83855693642186d43ad9b35c79d9b2dd503d6`, Vercel `dpl_8zoX4aLGoDntNFvutwxpTQGLdNpn`, `READY`, aliases `kml.kz`/`www.kml.kz` |
+| Landing QA | PASS | RU/KK, privacy, canonical/hreflang, JSON-LD, UTM CTA и отсутствие снятых legal/commercial claims проверены в production |
+
+Для Vercel frontend и Render API commit-hook не создал deployment после push,
+хотя Git integrations и auto-deploy включены. Оба deployment были запущены
+через официальные API на точный проверенный SHA. Причину пропуска webhook нужно
+наблюдать на следующем release; это не изменило содержимое текущего релиза.
+Worker-код этим patch не затрагивался и не переразворачивался.
 
 ## Текущий production release
 
