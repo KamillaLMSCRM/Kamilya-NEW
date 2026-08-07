@@ -1,6 +1,6 @@
 # Kamilya LMS: актуальный продуктовый backlog
 
-**Дата:** 2026-08-04
+**Дата:** 2026-08-07
 **Область:** открытые продуктовые и UX-задачи. Выполненные эпики здесь не
 хранятся.
 
@@ -43,6 +43,29 @@ fallback, worker parity и production smoke реализованы. В backlog �
 7. Провести отдельный capacity acceptance на реальных многостраничных сканах и
    платный прогон 10 генераций; текущая оценка 50 задач не является SLA.
 
+## P1: безопасный рефакторинг без изменения поведения
+
+1. Углубить `ai.job_service` до единого интерфейса отправки AI-задачи:
+   admission, quota/budget reservation, commit, Celery dispatch и compensation
+   при недоступной очереди. Перевести на него генерацию курса, регенерацию
+   модуля и урока; в router оставить transport/RBAC. Проверять через fake
+   dispatcher и тестовую PostgreSQL-транзакцию, не вынося гипотетический
+   repository interface; endpoint tests сократить до transport/RBAC contracts.
+2. Перевести `/quizzes` с прямых `fetch` и ручного bearer/error handling на
+   существующий `web/src/lib/api.ts`, сохранив endpoints и payloads. Не
+   добавлять отдельный feature adapter, пока он не скрывает реальный
+   quiz-authoring workflow: pass-through wrapper является неглубоким модулем.
+3. Разделить AI generation и staff frontend не по размеру файлов, а по
+   workflow-интерфейсам: state transitions + действия за небольшим hook/reducer
+   interface, presentation panels без orchestration. Тестировать наблюдаемые
+   состояния loading/error/cancel/retry/review, а не внутренние `useState` и
+   формат HTTP-запросов.
+
+Не менять в рамках этой работы канонический
+`positions.assignment_service.recompute_enrollments` и не дробить общий
+`web/src/lib/api.ts`: оба уже дают leverage и locality через компактный
+interface.
+
 ## P2: расширение продукта
 
 1. SCORM 1.2 UX после проверки реальных пакетов; SCORM 2004 не заявлять.
@@ -62,6 +85,15 @@ fallback, worker parity и production smoke реализованы. В backlog �
 8. Самостоятельные assessment-кампании создавать отдельной сущностью только
    после определения аудитории, попыток, сроков и отчётности. Тесты уроков
    отдельно от курса не назначать.
+
+## P2: локальность staff import
+
+Отделить CSV/XLSX parsing adapters и их общий parser contract от
+tenant-scoped preview/commit. Сохранить `commit_import` как application
+interface и существующее переиспользование из `create_manual_staff_member`;
+не дублировать hierarchy, email-conflict и apply-rules правила. Общий parser
+contract прогонять для обоих форматов, а DB/RLS поведение проверять через
+существующие integration tests `commit_import`.
 
 ## Не возвращать
 
