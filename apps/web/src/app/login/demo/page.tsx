@@ -6,8 +6,8 @@ import { useAuthStore } from '@/store/authStore';
 import { clearStoredAuth } from '@/lib/auth';
 import { api } from '@/lib/api';
 import { Logo } from '@/components/brand/Logo';
-import { DEMO_ADMIN_COPY } from '@/lib/demoRoleCopy';
-import { Shield, BookOpen, GraduationCap, ArrowLeft, KeyRound } from 'lucide-react';
+import { PUBLIC_DEMO_ROLE_IDS } from '@/lib/demoRoleCopy';
+import { BookOpen, GraduationCap, ArrowLeft, KeyRound } from 'lucide-react';
 
 interface RoleCard {
   role: string;
@@ -21,16 +21,7 @@ interface RoleCard {
 
 const ROLES: RoleCard[] = [
   {
-    role: 'admin',
-    title: 'Администратор',
-    description: DEMO_ADMIN_COPY.description,
-    icon: <Shield className="w-8 h-8" />,
-    color: 'text-primary',
-    bg: 'bg-primary/10 hover:bg-primary/15 border-primary/20',
-    redirect: DEMO_ADMIN_COPY.redirect,
-  },
-  {
-    role: 'methodologist',
+    role: PUBLIC_DEMO_ROLE_IDS[0],
     title: 'Методолог',
     description: 'Создание и редактирование курсов, просмотр прогресса студентов',
     icon: <BookOpen className="w-8 h-8" />,
@@ -39,7 +30,7 @@ const ROLES: RoleCard[] = [
     redirect: '/courses',
   },
   {
-    role: 'student',
+    role: PUBLIC_DEMO_ROLE_IDS[1],
     title: 'Обучающийся',
     description: 'Прохождение курсов, тестов и получение сертификатов',
     icon: <GraduationCap className="w-8 h-8" />,

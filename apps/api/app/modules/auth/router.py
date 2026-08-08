@@ -36,6 +36,7 @@ from app.modules.auth.service import (
     refresh_access_token,
 )
 from app.modules.auth.telegram import is_telegram_login_enabled
+from app.modules.demo.service import ensure_demo_student_course
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 logger = logging.getLogger(__name__)
@@ -640,9 +641,20 @@ async def demo_login(req: DemoLoginRequest, response: Response, db=Depends(get_d
             result = await db.execute(select(Tenant).where(Tenant.slug == DEMO_TENANT_SLUG))
             tenant = result.scalar_one_or_none()
             if tenant is None:
-                tenant = Tenant(name="Демо-организация", slug=DEMO_TENANT_SLUG, status="active")
+                tenant = Tenant(
+                    name="Демо-организация",
+                    slug=DEMO_TENANT_SLUG,
+                    status="active",
+                    is_demo=True,
+                )
                 db.add(tenant)
                 await db.flush()
+
+        # The reserved demo slug is always a sandbox. Repair legacy rows that
+        # predate the explicit flag so demo limits and cleanup remain active.
+        if target_tenant_slug == DEMO_TENANT_SLUG and not tenant.is_demo:
+            tenant.is_demo = True
+            await db.flush()
 
         # The demo tenant may be created or resolved without an authenticated
         # request context. Establish the tenant scope before reading or
@@ -689,6 +701,18 @@ async def demo_login(req: DemoLoginRequest, response: Response, db=Depends(get_d
             )
             db.add(user)
             await db.flush()
+
+        if req.role == "student":
+            course_id = await ensure_demo_student_course(
+                db,
+                tenant_id=tenant.id,
+                student_id=user.id,
+            )
+            if course_id is None:
+                raise HTTPException(
+                    status_code=503,
+                    detail="Demo course is temporarily unavailable",
+                )
 
         access_token = create_access_token({
             "sub": str(user.id),

@@ -1,13 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import ru from '@/i18n/locales/ru.json';
 import kk from '@/i18n/locales/kk.json';
-import { DEMO_ADMIN_COPY } from '@/lib/demoRoleCopy';
+import { DEMO_ADMIN_COPY, PUBLIC_DEMO_ROLE_IDS } from '@/lib/demoRoleCopy';
 import { interpolate } from '@/i18n/useT';
 
 describe('role onboarding copy', () => {
   it('describes the demo administrator without methodologist-owned course work', () => {
     expect(DEMO_ADMIN_COPY.description).not.toContain('курс');
     expect(DEMO_ADMIN_COPY.redirect).toBe('/admin');
+  });
+
+  it('does not advertise production-blocked privileged demo roles', () => {
+    expect(PUBLIC_DEMO_ROLE_IDS).toEqual(['methodologist', 'student']);
+    expect(PUBLIC_DEMO_ROLE_IDS).not.toContain('admin');
+    expect(PUBLIC_DEMO_ROLE_IDS).not.toContain('superadmin');
   });
 
   it.each([['RU', ru], ['KK', kk]] as const)('provides complete Telegram and password guidance in %s', (_, locale) => {
