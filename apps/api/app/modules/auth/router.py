@@ -287,8 +287,12 @@ async def logout(req: RefreshRequest, request: Request, response: Response, db=D
         except Exception:
             user = None
     if user is not None:
+        # AuditLog.tenant_id is NOT NULL, while a platform superadmin has no
+        # tenant. Keep platform events in the established sentinel scope so
+        # the audit insert cannot roll back refresh-session revocation.
+        audit_tenant_id = user.tenant_id or UUID(int=0)
         await log_action(
-            db, user.tenant_id, "logout", "user",
+            db, audit_tenant_id, "logout", "user",
             resource_id=str(user.id), user_id=user.id,
             ip_address=request.client.host if request.client else None,
             user_agent=request.headers.get("user-agent"),

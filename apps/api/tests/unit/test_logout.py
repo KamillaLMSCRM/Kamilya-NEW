@@ -1,6 +1,6 @@
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from fastapi import Request, Response
@@ -81,4 +81,39 @@ async def test_logout_clears_cookie_when_refresh_token_is_invalid():
     assert result == {"status": "ok"}
     assert "kamilya_refresh=" in response.headers["set-cookie"]
     assert "Max-Age=0" in response.headers["set-cookie"]
+    db.commit.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_superadmin_logout_uses_platform_audit_scope():
+    user = SimpleNamespace(id=uuid4(), tenant_id=None)
+    query_result = SimpleNamespace(scalar_one_or_none=lambda: user)
+    db = AsyncMock()
+    db.execute.return_value = query_result
+    request = Request(
+        {
+            "type": "http",
+            "method": "POST",
+            "path": "/api/v1/auth/logout",
+            "headers": [],
+            "client": ("127.0.0.1", 1234),
+        }
+    )
+    response = Response()
+    token = "valid-platform-refresh-token"
+
+    with (
+        patch(
+            "app.modules.auth.router.decode_token",
+            return_value={"type": "refresh", "sub": str(user.id), "platform": True},
+        ),
+        patch("app.modules.auth.router.blacklist_refresh_token", new=AsyncMock()) as blacklist,
+        patch("app.modules.auth.router.log_action", new=AsyncMock()) as audit,
+    ):
+        result = await logout(RefreshRequest(refresh_token=token), request, response, db)
+
+    assert result == {"status": "ok"}
+    blacklist.assert_awaited_once_with(db, token)
+    audit.assert_awaited_once()
+    assert audit.await_args.args[:4] == (db, UUID(int=0), "logout", "user")
     db.commit.assert_awaited_once()
