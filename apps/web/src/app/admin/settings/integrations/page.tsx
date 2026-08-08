@@ -654,10 +654,11 @@ function TelegramPanel({
   const [testing, setTesting] = useState(false);
 
   const isConfigured = summary?.is_active ?? false;
+  const isTokenValid = /^\d+:[A-Za-z0-9_-]+$/.test(botToken);
 
   const handleSave = async () => {
     if (!token) return;
-    if (!botToken || !/^\d+:[A-Za-z0-9_-]+$/.test(botToken)) {
+    if (!isTokenValid) {
       toast.error(t('integrations.telegram.invalidToken'));
       return;
     }
@@ -724,8 +725,14 @@ function TelegramPanel({
           />
         </Field>
 
+        {isConfigured && !botToken && (
+          <p className="text-xs text-emerald-700">
+            {t('integrations.telegram.savedHint')}
+          </p>
+        )}
+
         <div className="flex gap-2">
-          <Button onClick={handleSave} disabled={submitting || testing}>
+          <Button onClick={handleSave} disabled={submitting || testing || !isTokenValid}>
             {submitting ? t('common.saving') : t('common.save')}
           </Button>
           <Button

@@ -1344,6 +1344,7 @@
       "botToken": "Bot Token",
       "invalidToken": "Invalid token format. Should look like 1234567890:AAFm5j3tPy-...",
       "saved": "Telegram bot saved",
+      "savedHint": "Token saved. Enter a new token only to replace it.",
       "saveFirst": "Save token first",
       "test": "Test token",
       "testing": "Testing...",

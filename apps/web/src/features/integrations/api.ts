@@ -12,6 +12,15 @@ function auth(token: string): HeadersInit {
   return { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
 }
 
+function apiErrorMessage(body: unknown, status: number): string {
+  if (body && typeof body === 'object') {
+    const payload = body as { detail?: unknown; message?: unknown };
+    if (typeof payload.detail === 'string' && payload.detail) return payload.detail;
+    if (typeof payload.message === 'string' && payload.message) return payload.message;
+  }
+  return `HTTP ${status}`;
+}
+
 // ── WhatsApp ──────────────────────────────────────────────────────────────
 
 export interface WhatsAppStatus {
@@ -132,7 +141,7 @@ export async function testTelegram(token: string): Promise<{ ok: boolean; detail
     headers: auth(token),
   });
   const body = await res.json().catch(() => ({ ok: false, detail: `HTTP ${res.status}` }));
-  if (!res.ok) throw new Error(body.detail || `HTTP ${res.status}`);
+  if (!res.ok) throw new Error(apiErrorMessage(body, res.status));
   return body;
 }
 

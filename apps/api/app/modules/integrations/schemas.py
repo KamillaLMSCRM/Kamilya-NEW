@@ -1,10 +1,9 @@
 """Pydantic schemas for tenant_integrations API."""
 
-from uuid import UUID
-from datetime import datetime
-from pydantic import BaseModel, Field, EmailStr
+from datetime import UTC, datetime
 from typing import Literal, Optional
 
+from pydantic import BaseModel, EmailStr, Field
 
 Channel = Literal["smtp", "telegram", "whatsapp"]
 
@@ -54,8 +53,9 @@ class SMTPConfigUpdate(BaseModel):
 
 class TelegramConfig(BaseModel):
     """Telegram bot token — created by the tenant via @BotFather."""
-    bot_token: str = Field(..., min_length=20, max_length=200,
-                           pattern=r"^\d+:[A-Za-z0-9_-]+$")
+    bot_token: str = Field(
+        ..., min_length=20, max_length=200, pattern=r"^\d+:[A-Za-z0-9_-]+$"
+    )
 
 
 # ── Common ───────────────────────────────────────────────────────────────
@@ -77,7 +77,7 @@ class TestResult(BaseModel):
     """Result of a test connection."""
     ok: bool
     detail: str = ""
-    timestamp: datetime
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class WhatsAppInitResult(BaseModel):
