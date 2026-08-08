@@ -860,6 +860,7 @@
     "enrollSuccess": "Сіз курсқа жазылдыңыз",
     "enrollError": "Жазылу мүмкін болмады",
     "courseCompleted": "Курс аяқталды! Құттықтаймыз!",
+    "coursePreviewCompleted": "Курсты алдын ала қарау аяқталды",
     "certificateIssued": "Сертификат берілді",
     "viewCertificate": "Сертификатты көру",
     "positionUpdated": "Лауазым жаңартылды",

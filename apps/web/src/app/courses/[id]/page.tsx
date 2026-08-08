@@ -88,6 +88,9 @@ export default function CoursePlayerPage() {
   const [kioskWarningSeconds, setKioskWarningSeconds] = useState<number | null>(null);
   const token = useAuthStore((s) => s.accessToken);
   const user = useAuthStore((s) => s.user);
+  const isPrivilegedPreview = user?.role === 'admin'
+    || user?.role === 'superadmin'
+    || user?.role === 'methodologist';
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
   const selectedLessonId = selectedLesson?.id;
 
@@ -310,7 +313,7 @@ export default function CoursePlayerPage() {
   };
 
   const handleMarkComplete = async (lessonId: string) => {
-    if (token) {
+    if (token && !isPrivilegedPreview) {
       try {
         await fetch(`${API_URL}/v1/progress/lessons/${lessonId}`, {
           method: 'PUT',
@@ -368,6 +371,11 @@ export default function CoursePlayerPage() {
   // Finalizes course: calls /complete, auto-issue cert happens server-side.
   // Shows a toast with a "View certificate" action if a cert was issued.
   const finalizeCourseCompletion = async () => {
+    if (isPrivilegedPreview) {
+      toast.success(t('toast.coursePreviewCompleted'));
+      router.push('/courses');
+      return;
+    }
     if (!token || !courseId) {
       router.push('/courses');
       return;
@@ -669,9 +677,11 @@ export default function CoursePlayerPage() {
                         <Link href={`/courses/quiz/${lessonQuiz.id}?courseId=${encodeURIComponent(courseId)}&lessonId=${encodeURIComponent(selectedLesson.id)}`}>
                           <Button>{t('quiz.startQuiz')} <ChevronRight className="w-4 h-4 ml-1" /></Button>
                         </Link>
-                        <Button variant="outline" onClick={handleNextLesson}>
-                          {t('courses.nextLesson')}
-                        </Button>
+                        {isPrivilegedPreview && (
+                          <Button variant="outline" onClick={handleNextLesson}>
+                            {t('courses.nextLesson')}
+                          </Button>
+                        )}
                       </div>
                     </>
                   )}

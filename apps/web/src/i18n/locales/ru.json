@@ -904,6 +904,7 @@
     "enrollSuccess": "Вы записаны на курс",
     "enrollError": "Не удалось записаться",
     "courseCompleted": "Курс пройден! Поздравляем!",
+    "coursePreviewCompleted": "Предпросмотр курса завершён",
     "certificateIssued": "Сертификат выдан",
     "viewCertificate": "Посмотреть сертификат",
     "positionUpdated": "Должность обновлена",

@@ -749,6 +749,6 @@ async def _complete_course_for_user(db: AsyncSession, course_id: UUID, user: Use
 async def complete_course(
     course_id: UUID,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_role("student")),
 ):
     return await _complete_course_for_user(db, course_id, user)

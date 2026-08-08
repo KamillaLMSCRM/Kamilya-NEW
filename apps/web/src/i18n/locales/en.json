@@ -860,6 +860,7 @@
     "enrollSuccess": "Enrolled",
     "enrollError": "Could not enroll",
     "courseCompleted": "Course complete! Congratulations!",
+    "coursePreviewCompleted": "Course preview complete",
     "certificateIssued": "Certificate issued",
     "viewCertificate": "View certificate",
     "positionUpdated": "Position updated",
