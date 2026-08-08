@@ -234,7 +234,7 @@ async def _save_generation_to_db(
                                     question = Question(
                                         quiz_id=quiz.id,
                                         text=mcq.question,
-                                        type="multiple_choice",
+                                        type="MCQ",
                                         points=1,
                                         explanation=mcq.explanation,
                                         order_index=q_idx,
@@ -285,7 +285,7 @@ async def _save_generation_to_db(
                                         question = Question(
                                             quiz_id=quiz.id,
                                             text=f"{mq.instruction}: {pair.left} → ?",
-                                            type="multiple_choice",
+                                            type="MCQ",
                                             points=1,
                                             explanation=f"Правильный ответ: {pair.right}",
                                             order_index=q_idx,

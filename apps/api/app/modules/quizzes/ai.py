@@ -210,7 +210,9 @@ def _normalize_question(q: dict[str, Any], idx: int) -> dict[str, Any] | None:
 
     return {
         "text": text,
-        "type": str(q.get("type") or "MCQ"),
+        # This generator deliberately normalizes to exactly one correct
+        # answer, so the persisted interaction must be a radio-style MCQ.
+        "type": "MCQ",
         "points": points,
         "explanation": explanation,
         "order_index": idx,

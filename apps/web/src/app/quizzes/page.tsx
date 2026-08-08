@@ -93,8 +93,8 @@ const EMPTY_CHOICES = () => [
 ];
 
 function questionTypeLabel(type: string) {
-  if (type === 'MCQ') return 'Один вариант';
-  if (type === 'multiple_choice') return 'Несколько вариантов';
+  if (type === 'MCQ') return 'Один правильный ответ';
+  if (type === 'multiple_choice') return 'Несколько правильных ответов';
   if (type === 'true_false') return 'Верно / неверно';
   if (type === 'matching') return 'Сопоставление';
   return type;
@@ -903,7 +903,7 @@ export default function QuizzesAdminPage() {
             ) : (
               <div className="max-h-[calc(100vh-280px)] space-y-1 overflow-y-auto p-3">
                 {grouped?.courses.map((course) => {
-                  const isOpen = openCourses[course.id] ?? true;
+                  const isOpen = openCourses[course.id] ?? false;
                   const moduleRows = course.modules
                     .map((m) => ({
                       module: m,
@@ -916,6 +916,8 @@ export default function QuizzesAdminPage() {
                     <div key={course.id} className="rounded-md border border-border/60 bg-background">
                       <button
                         type="button"
+                        aria-expanded={isOpen}
+                        aria-controls={`quiz-course-${course.id}`}
                         className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm font-medium text-foreground hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         onClick={() => setOpenCourses((p) => ({ ...p, [course.id]: !isOpen }))}
                       >
@@ -924,7 +926,7 @@ export default function QuizzesAdminPage() {
                         <Badge variant="outline" className="border-border bg-card text-muted-foreground">{quizCount}</Badge>
                       </button>
                       {isOpen && (
-                        <div className="space-y-2 px-3 pb-3">
+                        <div id={`quiz-course-${course.id}`} className="space-y-2 px-3 pb-3">
                           {moduleRows.map(({ module, lessons }) => (
                             <div key={module.id}>
                               <div className="px-1 py-1.5 text-[11px] font-semibold uppercase leading-4 tracking-wide text-muted-foreground">
@@ -998,28 +1000,24 @@ export default function QuizzesAdminPage() {
                       )}
                     </div>
                   </div>
-                  <div className="flex flex-wrap gap-2">
+                </div>
+                <section className="mt-5" aria-labelledby="quiz-settings-heading">
+                  <div className="mb-3 flex min-h-9 flex-wrap items-center justify-between gap-3">
+                    <h4 id="quiz-settings-heading" className="text-sm font-semibold text-foreground">
+                      Параметры теста
+                    </h4>
                     {!editingSettings && (
                       <Button
-                        variant="outline"
                         size="sm"
                         className="h-9"
                         onClick={() => startEditSettings(selectedQuiz)}
                       >
+                        <Pencil className="mr-1.5 h-4 w-4" />
                         Изменить параметры
                       </Button>
                     )}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-9 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                      onClick={() => handleDeleteQuiz(selectedQuiz.id)}
-                    >
-                      {t('common.delete')}
-                    </Button>
                   </div>
-                </div>
-                <div className="mt-5 grid grid-cols-1 gap-3 text-sm md:grid-cols-3">
+                  <div className="grid grid-cols-1 gap-3 text-sm md:grid-cols-3">
                   {editingSettings ? (
                     <>
                       <label className="flex flex-col gap-1">
@@ -1089,7 +1087,27 @@ export default function QuizzesAdminPage() {
                       </div>
                     </>
                   )}
-                </div>
+                  </div>
+                </section>
+                <section
+                  className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-border/70 pt-4"
+                  aria-labelledby="quiz-danger-heading"
+                >
+                  <div>
+                    <h4 id="quiz-danger-heading" className="text-sm font-medium text-foreground">Удаление теста</h4>
+                    <p className="mt-1 text-xs text-muted-foreground">Удалит тест и все его вопросы без возможности восстановления.</p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-9 border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    aria-label="Удалить тест"
+                    onClick={() => handleDeleteQuiz(selectedQuiz.id)}
+                  >
+                    <Trash2 className="mr-1.5 h-4 w-4" />
+                    Удалить тест
+                  </Button>
+                </section>
               </CardContent>
             </Card>
 

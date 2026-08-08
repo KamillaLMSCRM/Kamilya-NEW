@@ -99,6 +99,10 @@ function setupApi(updatedQuiz = quiz, groupedQuiz = quiz) {
 }
 
 async function selectQuiz() {
+  const courseToggle = await screen.findByRole('button', { name: /Курс 1/ });
+  if (courseToggle.getAttribute('aria-expanded') === 'false') {
+    fireEvent.click(courseToggle);
+  }
   await screen.findByText('Урок 1');
   fireEvent.click(screen.getByText('Урок 1'));
   await screen.findByRole('heading', { name: 'Тест урока' });
@@ -221,5 +225,52 @@ describe('quiz question editor', () => {
       true,
       true,
     ]);
+  });
+
+  it('starts course groups collapsed and exposes their state accessibly', async () => {
+    setupApi();
+    render(<QuizzesAdminPage />);
+
+    const courseToggle = await screen.findByRole('button', { name: /Курс 1/ });
+    expect(courseToggle).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByText('Урок 1')).not.toBeInTheDocument();
+
+    fireEvent.click(courseToggle);
+
+    expect(courseToggle).toHaveAttribute('aria-expanded', 'true');
+    expect(await screen.findByText('Урок 1')).toBeInTheDocument();
+  });
+
+  it('names multiple-select questions by correct-answer semantics', async () => {
+    const multipleChoiceQuiz = {
+      ...quiz,
+      questions: [{
+        ...initialQuestion,
+        type: 'multiple_choice',
+        choices: initialQuestion.choices.map((choice) => ({ ...choice, is_correct: true })),
+      }],
+    };
+    setupApi(multipleChoiceQuiz, multipleChoiceQuiz);
+    render(<QuizzesAdminPage />);
+    await selectQuiz();
+
+    expect(screen.getByText('Несколько правильных ответов')).toBeInTheDocument();
+    expect(screen.queryByText('Несколько вариантов')).not.toBeInTheDocument();
+  });
+
+  it('keeps the destructive action outside the colored settings control', async () => {
+    setupApi();
+    render(<QuizzesAdminPage />);
+    await selectQuiz();
+
+    const settingsButton = screen.getByRole('button', { name: 'Изменить параметры' });
+    const deleteButton = screen.getByRole('button', { name: 'Удалить тест' });
+    expect(settingsButton.className).toContain('bg-primary');
+    expect(settingsButton.parentElement).not.toBe(deleteButton.parentElement);
+
+    fireEvent.click(settingsButton);
+
+    expect(screen.getByRole('button', { name: 'Удалить тест' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Изменить параметры' })).not.toBeInTheDocument();
   });
 });

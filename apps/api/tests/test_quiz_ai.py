@@ -163,6 +163,21 @@ def test_normalize_question_with_multiple_correct_keeps_only_first():
     assert len(correct) == 1
 
 
+def test_normalize_ai_question_uses_single_answer_type_after_correction():
+    q = {
+        "text": "Q",
+        "type": "multiple_choice",
+        "choices": [
+            {"text": "a", "is_correct": True},
+            {"text": "b", "is_correct": True},
+            {"text": "c", "is_correct": False},
+        ],
+    }
+    out = _normalize_question(q, 0)
+    assert out is not None
+    assert out["type"] == "MCQ"
+
+
 def test_normalize_question_with_no_choices_returns_none():
     q = {"text": "Q", "choices": []}
     assert _normalize_question(q, 0) is None
