@@ -7,7 +7,7 @@ import { clearStoredAuth } from '@/lib/auth';
 import { api } from '@/lib/api';
 import { Logo } from '@/components/brand/Logo';
 import { PUBLIC_DEMO_ROLE_IDS } from '@/lib/demoRoleCopy';
-import { BookOpen, GraduationCap, ArrowLeft, KeyRound } from 'lucide-react';
+import { BookOpen, GraduationCap, ArrowLeft } from 'lucide-react';
 
 interface RoleCard {
   role: string;
@@ -106,23 +106,14 @@ export default function DemoLoginPage() {
           ))}
         </div>
 
-        <div className="mt-8 pt-6 border-t border-border text-center space-y-3">
+        <div className="mt-8 pt-6 border-t border-border text-center">
           <a
-            href="/superadmin/login"
-            className="inline-flex items-center gap-1.5 text-sm text-warning hover:text-warning/80 transition-colors"
+            href="/login"
+            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-primary transition-colors"
           >
-            <KeyRound className="w-4 h-4" />
-            Вход для оператора платформы (суперадмин)
+            <ArrowLeft className="w-4 h-4" />
+            Назад к входу через Telegram
           </a>
-          <div>
-            <a
-              href="/login"
-              className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-primary transition-colors"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Назад к входу через Telegram
-            </a>
-          </div>
         </div>
       </main>
     </div>

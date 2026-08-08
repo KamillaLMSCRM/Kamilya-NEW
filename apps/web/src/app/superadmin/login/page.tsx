@@ -68,6 +68,7 @@ export default function SuperadminLoginPage() {
 
         <form
           onSubmit={handleSubmit}
+          autoComplete="off"
           className="space-y-4 bg-card border border-border rounded-xl p-6 shadow-sm"
         >
           <div>
@@ -76,12 +77,12 @@ export default function SuperadminLoginPage() {
             </label>
             <Input
               id="email"
+              name="platform-operator-email"
               type="email"
               required
-              autoComplete="email"
+              autoComplete="off"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="admin@kml.kz"
             />
           </div>
           <div>
@@ -90,10 +91,11 @@ export default function SuperadminLoginPage() {
             </label>
             <Input
               id="password"
+              name="platform-operator-password"
               type="password"
               required
               minLength={8}
-              autoComplete="current-password"
+              autoComplete="off"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
@@ -117,7 +119,7 @@ export default function SuperadminLoginPage() {
 
         <div className="mt-6 text-center space-y-2">
           <p className="text-xs text-muted-foreground">
-            Этот вход предназначен только для оператора платформы (Askar).
+            Этот вход предназначен только для уполномоченного оператора платформы.
             Пользователи тенанта входят через{' '}
             <Link href="/login" className="text-primary hover:underline">
               Telegram
