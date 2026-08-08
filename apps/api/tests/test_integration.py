@@ -49,11 +49,11 @@ class TestAuthEndpoint:
 
     @pytest.mark.asyncio
     async def test_register_missing_fields_rejected(self):
-        """Register without required fields should get 422."""
+        """The retired legacy registration endpoint is unavailable."""
         client = TestClient(app)
         with _disable_rate_limit(client):
             resp = client.post("/api/v1/auth/register", json={})
-            assert resp.status_code == 422
+            assert resp.status_code == 410
 
     @pytest.mark.asyncio
     async def test_check_code_missing_required(self):

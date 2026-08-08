@@ -162,6 +162,15 @@ Manifest относится только к указанному SHA. Более
 - Реально применяются burst, minute и hour windows.
 - Production probe: четвёртый запрос в burst получил `429` и
   `Retry-After: 10`; после cooldown endpoint снова отвечал.
+- Refresh credentials выдаются только в `HttpOnly` cookie; JSON-ответы содержат
+  только короткоживущий access token. В БД хранится SHA-256 хеш refresh token,
+  а не сам credential.
+- Каждая refresh-сессия находится в tenant-scoped allowlist. Обновление
+  атомарно потребляет старую запись и создаёт новую; повторное использование
+  старого token и refresh после logout получают `401`. Платформенный
+  superadmin использует отдельный подписанный `platform` claim и RLS-контекст.
+- Post-deploy smoke для каждого релиза auth-кода: login -> reload -> refresh ->
+  повтор старой cookie (`401`) -> logout -> refresh текущей cookie (`401`).
 
 ### Активация приглашения обучающегося
 
@@ -357,7 +366,18 @@ PDF, статусы срока/отзыва, предпросмотр настр
 Не заявлять ЭЦП, юридическое соответствие, SCORM, kiosk или локализацию данных как
 закрытые свойства без прохождения соответствующего gate.
 
+SCORM ingress must enforce a request-body limit no larger than
+`MAX_SCORM_ZIP_BYTES`. Application defaults also cap ZIP file count, total and
+per-entry uncompressed bytes, compression ratio, and manifest bytes; see
+`apps/api/.env.example`.
+
 ## Открытые P1 release gates
+
+AI course generation uses a durable, tenant-scoped execution claim. Duplicate
+broker deliveries are skipped; a failed generation is terminal and is not
+automatically replayed because a replay after provider work could duplicate
+cost or draft content. Operations must use the existing job diagnostics and
+an explicit user/superadmin recovery action after the root cause is resolved.
 
 Автоматическая bulk delivery invitation link уже реализована в коде через
 Celery. Invitation сохраняется до queue dispatch; lifecycle/provider id/errors

@@ -85,6 +85,7 @@ async def accept_invitation_endpoint(
         )
         if result.get("refresh_token"):
             _set_refresh_cookie(response, result["refresh_token"])
+        result.pop("refresh_token", None)
         return result
     except HTTPException:
         raise

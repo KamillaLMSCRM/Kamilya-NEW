@@ -32,6 +32,40 @@ def _hash_token(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
 
 
+async def _set_session_context(db: AsyncSession, tenant_id: str | UUID | None, *, platform: bool = False) -> None:
+    if tenant_id is not None:
+        await db.execute(text("SELECT set_current_tenant(:tid)"), {"tid": str(tenant_id)})
+    elif platform:
+        await db.execute(text("SELECT set_config('app.is_superadmin', 'true', true)"))
+    else:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
+
+
+async def issue_refresh_session(
+    db: AsyncSession, user: User, refresh_token: str, *, user_agent: str | None = None, ip_address: str | None = None
+) -> None:
+    """Persist only a hash of a newly issued refresh credential."""
+    payload = decode_token(refresh_token)
+    if (
+        payload.get("type") != "refresh"
+        or payload.get("sub") != str(user.id)
+        or payload.get("tenant_id") != (str(user.tenant_id) if user.tenant_id is not None else None)
+    ):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
+    if user.tenant_id is None and (user.role != "superadmin" or payload.get("platform") is not True):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh session owner")
+    await _set_session_context(db, user.tenant_id, platform=user.tenant_id is None)
+    db.add(UserSession(
+        user_id=user.id,
+        tenant_id=user.tenant_id,
+        refresh_token=_hash_token(refresh_token),
+        expires_at=datetime.fromtimestamp(payload["exp"], timezone.utc),
+        user_agent=(user_agent or "")[:500] or None,
+        ip_address=(ip_address or "")[:64] or None,
+    ))
+    await db.flush()
+
+
 async def get_user_roles(db: AsyncSession, user: User) -> list[str]:
     """Return assigned roles with the user's primary role first."""
     if user.tenant_id is None:
@@ -252,6 +286,7 @@ async def authenticate_user(db: AsyncSession, email: str, password: str) -> tupl
         "sub": str(user.id),
         "tenant_id": user.tenant_id,
         "active_role": active_role,
+        "platform": user.tenant_id is None and user.role == "superadmin",
     })
     return user, access_token, refresh_token
 
@@ -269,12 +304,23 @@ async def refresh_access_token(db: AsyncSession, refresh_token: str) -> tuple[st
     user_id = UUID(payload["sub"])
     tenant_id = payload.get("tenant_id")
 
-    if tenant_id:
-        await db.execute(text("SELECT set_current_tenant(:tid)"), {"tid": tenant_id})
+    await _set_session_context(db, tenant_id, platform=payload.get("platform") is True)
 
-    # Stateless refresh: verify JWT is valid and user exists
+    token_hash = _hash_token(refresh_token)
+    session = (await db.execute(
+        select(UserSession).where(
+            UserSession.refresh_token == token_hash,
+            UserSession.user_id == user_id,
+            UserSession.tenant_id.is_(None) if tenant_id is None else UserSession.tenant_id == UUID(tenant_id),
+        ).with_for_update()
+    )).scalar_one_or_none()
+    if not session or session.expires_at <= datetime.now(timezone.utc):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
+
     user = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
-    if not user or not user.is_active:
+    if not user or not user.is_active or user.tenant_id != (UUID(tenant_id) if tenant_id else None):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+    if user.tenant_id is None and user.role != "superadmin":
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
 
     roles = await get_user_roles(db, user)
@@ -291,14 +337,25 @@ async def refresh_access_token(db: AsyncSession, refresh_token: str) -> tuple[st
         "sub": str(user.id),
         "tenant_id": user.tenant_id,
         "active_role": active_role,
+        "platform": user.tenant_id is None and user.role == "superadmin",
     })
+    await db.delete(session)
+    await issue_refresh_session(db, user, new_refresh)
     user_payload = await build_user_payload(db, user, telegram_id=None, active_role=active_role)
     return new_access, new_refresh, user_payload
 
 
 async def blacklist_refresh_token(db: AsyncSession, refresh_token: str) -> None:
     """Delete the session by hashed token lookup."""
+    payload = decode_token(refresh_token)
+    if payload.get("type") != "refresh":
+        return
+    await _set_session_context(db, payload.get("tenant_id"), platform=payload.get("platform") is True)
     token_hash = _hash_token(refresh_token)
     await db.execute(
-        delete(UserSession).where(UserSession.refresh_token == token_hash)
+        delete(UserSession).where(
+            UserSession.refresh_token == token_hash,
+            UserSession.user_id == UUID(payload["sub"]),
+            UserSession.tenant_id.is_(None) if payload.get("tenant_id") is None else UserSession.tenant_id == UUID(payload["tenant_id"]),
+        )
     )

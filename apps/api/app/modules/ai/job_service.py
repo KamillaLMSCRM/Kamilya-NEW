@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any, Literal, Protocol
 
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import and_, func, or_, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.ai_job import AIJob
@@ -281,6 +281,48 @@ async def update_ai_job(
     job.updated_at = datetime.now(UTC)
     await db.flush()
     return job
+
+
+async def claim_generation_execution(
+    db: AsyncSession, job_id: str, tenant_id: str | None = None
+) -> bool:
+    """Atomically claim one pending generation delivery.
+
+    Celery is at-least-once. The durable job row is the execution seam: only
+    the delivery that changes ``pending`` to ``running`` may call providers.
+    """
+    if tenant_id is None:
+        raise ValueError("tenant_id is required for worker generation execution")
+    await db.execute(text("SELECT set_current_tenant(:tid)"), {"tid": tenant_id})
+    predicates = [AIJob.id == job_id, AIJob.status == "pending", AIJob.tenant_id == tenant_id]
+    result = await db.execute(
+        update(AIJob).where(*predicates).values(
+            status="running",
+            stage="ingestion",
+            started_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
+        )
+    )
+    await db.commit()
+    return bool(result.rowcount)
+
+
+async def fail_claimed_generation_execution(
+    db: AsyncSession, job_id: str, message: str, tenant_id: str | None = None
+) -> bool:
+    """Terminally fail only the execution this worker previously claimed."""
+    if tenant_id is None:
+        raise ValueError("tenant_id is required for worker generation execution")
+    await db.execute(text("SELECT set_current_tenant(:tid)"), {"tid": tenant_id})
+    predicates = [AIJob.id == job_id, AIJob.status == "running", AIJob.tenant_id == tenant_id]
+    result = await db.execute(
+        update(AIJob).where(*predicates).values(
+            status="failed", stage="failed", message=message,
+            updated_at=datetime.now(UTC), completed_at=datetime.now(UTC),
+        )
+    )
+    await db.commit()
+    return bool(result.rowcount)
 
 
 async def get_user_jobs(

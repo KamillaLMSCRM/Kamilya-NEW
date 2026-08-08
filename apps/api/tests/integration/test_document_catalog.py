@@ -121,6 +121,8 @@ async def test_legacy_documents_list_remains_safe_array(client, make_tenant, mak
     response = await client.get("/api/v1/documents", headers=auth_headers(user))
 
     assert response.status_code == 200
+    assert response.headers["Deprecation"] == "true"
+    assert "documents/catalog" in response.headers["Link"]
     body = response.json()
     assert isinstance(body, list)
     assert [item["id"] for item in body] == [str(document.id)]

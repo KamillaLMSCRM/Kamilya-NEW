@@ -25,14 +25,13 @@ from app.modules.auth.schemas import (
     RefreshRequest,
     RoleSwitchRequest,
     TokenResponse,
-    UserCreate,
 )
 from app.modules.auth.service import (
     authenticate_user,
     blacklist_refresh_token,
     build_user_payload,
-    create_user_and_tokens,
     get_user_roles,
+    issue_refresh_session,
     refresh_access_token,
 )
 from app.modules.auth.telegram import is_telegram_login_enabled
@@ -175,13 +174,13 @@ async def login(req: LoginRequest, request: Request, response: Response, db=Depe
     except Exception:
         logger.error("login_audit_failed")
         raise
+    await issue_refresh_session(db, user, refresh_token, user_agent=request.headers.get("user-agent"), ip_address=request.client.host if request.client else None)
     await db.commit()
-    # Set refresh token as httpOnly cookie; access token still returned in body.
+    # Set refresh token as httpOnly cookie only after its allowlist row is durable.
     _set_refresh_cookie(response, refresh_token)
     user_payload = await build_user_payload(db, user)
     return TokenResponse(
         access_token=access_token,
-        refresh_token=refresh_token,
         expires_in=900,
         user=user_payload,
     )
@@ -201,11 +200,11 @@ async def refresh(req: RefreshRequest, request: Request, response: Response, db=
         import logging
         logging.getLogger(__name__).exception("/refresh failed")
         _clear_refresh_cookie(response)
-        raise HTTPException(status_code=401, detail="Invalid refresh token")
+        raise HTTPException(status_code=401, detail="Invalid refresh token") from None
+    await db.commit()
     _set_refresh_cookie(response, new_refresh)
     return TokenResponse(
         access_token=new_access,
-        refresh_token=new_refresh,
         expires_in=900,
         user=user_payload,
     )
@@ -214,6 +213,7 @@ async def refresh(req: RefreshRequest, request: Request, response: Response, db=
 @router.post("/switch-role", response_model=TokenResponse)
 async def switch_role(
     req: RoleSwitchRequest,
+    request: Request,
     response: Response,
     db=Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -241,11 +241,21 @@ async def switch_role(
         "tenant_id": user.tenant_id,
         "active_role": req.role,
     })
+    prior_refresh = _read_refresh_cookie_or_body(request, None)
+    if prior_refresh:
+        try:
+            await blacklist_refresh_token(db, prior_refresh)
+        except HTTPException:
+            # A stale/invalid cookie must not prevent an authenticated user
+            # from selecting another role. The replacement session below is
+            # still allowlisted before it is returned.
+            pass
     user_payload = await build_user_payload(db, user, active_role=req.role)
+    await issue_refresh_session(db, user, refresh_token)
+    await db.commit()
     _set_refresh_cookie(response, refresh_token)
     return TokenResponse(
         access_token=access_token,
-        refresh_token=refresh_token,
         expires_in=900,
         user=user_payload,
     )
@@ -266,16 +276,16 @@ async def logout(req: RefreshRequest, request: Request, response: Response, db=D
     refresh_token = _read_refresh_cookie_or_body(request, req.refresh_token)
     user = None
     if refresh_token:
-        # Best-effort decode — if the token is malformed/expired/revoked
-        # we still want to clear the cookie. Don't raise.
+        # Best-effort revocation — malformed or expired credentials must not
+        # prevent the browser cookie from being cleared.
         try:
             payload = decode_token(refresh_token)
             if payload.get("type") == "refresh":
+                await blacklist_refresh_token(db, refresh_token)
                 user_id = UUID(payload["sub"])
                 user = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
         except Exception:
             user = None
-        await blacklist_refresh_token(db, refresh_token)
     if user is not None:
         await log_action(
             db, user.tenant_id, "logout", "user",
@@ -288,39 +298,10 @@ async def logout(req: RefreshRequest, request: Request, response: Response, db=D
     return {"status": "ok"}
 
 
-@router.post("/register", response_model=TokenResponse)
-async def register(req: UserCreate, request: Request, response: Response, db=Depends(get_db)):
-    result = await db.execute(select(Tenant).where(Tenant.slug == req.email.split("@")[-1]))
-    tenant = result.scalar_one_or_none()
-    if not tenant:
-        # Auto-create a new tenant from the email domain. The id is
-        # server-generated (uuid4); we never trust the client to
-        # provide a tenant_id. Lesson 17 cross-cutting rule: trust
-        # the JWT for tenant_id, derive from email domain for new
-        # tenants, never from request body.
-        from uuid import uuid4
-        domain = req.email.split("@")[-1]
-        tenant = Tenant(
-            id=uuid4(),
-            name=domain,
-            slug=domain,
-            status="trial",
-        )
-        db.add(tenant)
-        await db.flush()
-
-    user, access_token, refresh_token = await create_user_and_tokens(
-        db, tenant.id, req.email, req.first_name, req.last_name, password=req.password, role="student"
-    )
-    await log_action(
-        db, tenant.id, "register", "user",
-        resource_id=str(user.id), user_id=user.id,
-        ip_address=request.client.host if request.client else None,
-        user_agent=request.headers.get("user-agent"),
-    )
-    await db.commit()
-    _set_refresh_cookie(response, refresh_token)
-    return TokenResponse(access_token=access_token, refresh_token=refresh_token, expires_in=900)
+@router.post("/register", include_in_schema=False)
+async def register() -> None:
+    """Retired: tenant membership is invitation-bound, trials use /tenants/register."""
+    raise HTTPException(status_code=410, detail="Use the tenant trial or invitation flow")
 
 
 # ── Telegram Bot Auth ──────────────────────────────────────────────────
@@ -441,7 +422,7 @@ async def verify_email_code(req: EmailCodeVerifyRequest, response: Response, db=
         "tenant_id": user.tenant_id,
         "active_role": user_payload["role"],
     })
-    _set_refresh_cookie(response, refresh_token)
+    await issue_refresh_session(db, user, refresh_token)
     await log_action(
         db,
         user.tenant_id,
@@ -451,10 +432,10 @@ async def verify_email_code(req: EmailCodeVerifyRequest, response: Response, db=
         user_id=user.id,
     )
     await db.commit()
+    _set_refresh_cookie(response, refresh_token)
     return {
         "verified": True,
         "access_token": access_token,
-        "refresh_token": refresh_token,
         "expires_in": 900,
         "user": user_payload,
     }
@@ -487,7 +468,7 @@ async def generate_code():
 
 
 @router.post("/check-code")
-async def check_auth_code(req: CheckCodeRequest, response: Response):
+async def check_auth_code(req: CheckCodeRequest, response: Response, db=Depends(get_db)):
     """Poll for code verification status. Returns JWT when verified.
 
     On a successful verification we also mint a refresh token and set it
@@ -547,12 +528,19 @@ async def check_auth_code(req: CheckCodeRequest, response: Response):
         "tenant_id": user_data["tenant_id"],
         "active_role": user_data["role"],
     })
+    from types import SimpleNamespace
+    user = SimpleNamespace(
+        id=UUID(user_data["user_id"]),
+        tenant_id=UUID(user_data["tenant_id"]) if user_data["tenant_id"] else None,
+        role=user_data["role"],
+    )
+    await issue_refresh_session(db, user, refresh_token)
+    await db.commit()
     _set_refresh_cookie(response, refresh_token)
 
     return {
         "verified": True,
         "access_token": access_token,
-        "refresh_token": refresh_token,
         "user": user_data,
     }
 
@@ -744,16 +732,17 @@ async def demo_login(req: DemoLoginRequest, response: Response, db=Depends(get_d
             "tenant_id": str(user.tenant_id),
             "active_role": user.role,
         })
+        await issue_refresh_session(db, user, refresh_token)
+        await db.commit()
         _set_refresh_cookie(response, refresh_token)
 
         return {
             "access_token": access_token,
-            "refresh_token": refresh_token,
             "user": user_data,
         }
 
     except HTTPException:
         raise
     except Exception:
-        logger.error("demo_login_failed")
-        raise HTTPException(status_code=500, detail="Demo login failed")
+        logger.exception("demo_login_failed")
+        raise HTTPException(status_code=500, detail="Demo login failed") from None

@@ -648,7 +648,15 @@ async def run_generation_pipeline(
         state.status = "failed"
         state.message = f"Error: {str(e)}"
         state.errors.append(str(e))
-        await _update_job_db(job_id, tenant_id=tenant_id, status="failed", message=state.message, errors=[str(e)])
+        await _update_job_db(
+            job_id,
+            tenant_id=tenant_id,
+            status="failed",
+            stage="failed",
+            message=state.message,
+            errors=[str(e)],
+            completed_at=datetime.now(timezone.utc),
+        )
         if tenant_id and not state.course_id:
             try:
                 from sqlalchemy import text

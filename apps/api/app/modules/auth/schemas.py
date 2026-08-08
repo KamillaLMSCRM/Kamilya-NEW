@@ -56,7 +56,6 @@ class UserResponse(BaseModel):
 
 class TokenResponse(BaseModel):
     access_token: str
-    refresh_token: str
     token_type: str = 'bearer'
     expires_in: int
     # Optional. Free-form shape that mirrors what /check-code returns

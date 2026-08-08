@@ -37,7 +37,7 @@ try:
     from app.core.celery_app import celery_app
     from app.modules.ai.pipeline import run_generation_pipeline
 
-    @celery_app.task(bind=True, name="ai.generate_course", max_retries=2)
+    @celery_app.task(bind=True, name="ai.generate_course")
     def generate_course_task(
         self,
         job_id: str,
@@ -59,6 +59,17 @@ try:
         logger.info(f"Starting generation task for job {job_id}")
 
         try:
+            from app.core.db import async_session_factory
+            from app.modules.ai.job_service import claim_generation_execution
+
+            async def claim() -> bool:
+                async with async_session_factory() as session:
+                    return await claim_generation_execution(session, job_id, tenant_id)
+
+            if not _run_async(claim()):
+                logger.info("Skipping duplicate or terminal generation delivery for job %s", job_id)
+                return {"job_id": job_id, "status": "skipped"}
+
             result = _run_async(
                 run_generation_pipeline(
                     job_id=job_id,
@@ -78,6 +89,16 @@ try:
                 )
             )
 
+            if result.status == "failed":
+                # ``run_generation_pipeline`` owns durable diagnostics and
+                # terminal state. Never replay provider work automatically.
+                return {
+                    "job_id": job_id,
+                    "status": "failed",
+                    "message": result.message,
+                    "progress": result.progress,
+                }
+
             logger.info(f"Generation task complete for job {job_id}: {result.status}")
             return {
                 "job_id": job_id,
@@ -88,7 +109,18 @@ try:
 
         except Exception as e:
             logger.error(f"Generation task failed for job {job_id}: {e}")
-            raise self.retry(exc=e, countdown=60) from e
+            # The pipeline may already have called providers before an error.
+            # Without durable stage artifacts, replaying it can duplicate cost
+            # or drafts, so leave it terminal for explicit user recovery.
+            from app.core.db import async_session_factory
+            from app.modules.ai.job_service import fail_claimed_generation_execution
+
+            async def fail_claimed() -> bool:
+                async with async_session_factory() as session:
+                    return await fail_claimed_generation_execution(session, job_id, str(e), tenant_id)
+
+            _run_async(fail_claimed())
+            return {"job_id": job_id, "status": "failed", "message": str(e)}
 
     @celery_app.task(bind=True, name="ai.regenerate_module", max_retries=2)
     def regenerate_module_task(

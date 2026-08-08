@@ -51,3 +51,34 @@ async def test_logout_audits_owner_of_valid_refresh_token():
     audit.assert_awaited_once()
     assert audit.await_args.args[:4] == (db, user.tenant_id, "logout", "user")
     db.commit.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_logout_clears_cookie_when_refresh_token_is_invalid():
+    db = AsyncMock()
+    request = Request(
+        {
+            "type": "http",
+            "method": "POST",
+            "path": "/api/v1/auth/logout",
+            "headers": [],
+            "client": ("127.0.0.1", 1234),
+        }
+    )
+    response = Response()
+
+    with patch(
+        "app.modules.auth.router.decode_token",
+        side_effect=ValueError("malformed"),
+    ):
+        result = await logout(
+            RefreshRequest(refresh_token="invalid-refresh-token"),
+            request,
+            response,
+            db,
+        )
+
+    assert result == {"status": "ok"}
+    assert "kamilya_refresh=" in response.headers["set-cookie"]
+    assert "Max-Age=0" in response.headers["set-cookie"]
+    db.commit.assert_awaited_once()

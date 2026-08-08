@@ -1,0 +1,78 @@
+"""Contracts for durable, at-least-once AI generation delivery."""
+
+from __future__ import annotations
+
+import asyncio
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, Mock
+from uuid import uuid4
+
+import pytest
+
+from app.modules.ai import job_service
+
+
+@pytest.mark.asyncio
+async def test_claim_generation_execution_is_atomic_and_commits():
+    db = AsyncMock()
+    db.execute.return_value = Mock(rowcount=1)
+
+    tenant_id = uuid4()
+    claimed = await job_service.claim_generation_execution(db, "job-1", tenant_id)
+
+    assert claimed is True
+    db.commit.assert_awaited_once()
+    assert len(db.execute.await_args_list) == 2
+    context_statement = db.execute.await_args_list[0].args[0]
+    assert "set_current_tenant" in str(context_statement)
+    assert db.execute.await_args_list[0].args[1] == {"tid": tenant_id}
+    statement = db.execute.await_args_list[1].args[0]
+    compiled = str(statement.compile(compile_kwargs={"literal_binds": True}))
+    assert "ai_jobs.status = 'pending'" in compiled
+    assert "UPDATE ai_jobs" in compiled
+
+
+@pytest.mark.parametrize("rowcount", [0, None])
+async def test_claim_generation_execution_rejects_duplicate_or_terminal_delivery(rowcount):
+    db = AsyncMock()
+    db.execute.return_value = Mock(rowcount=rowcount)
+
+    assert await job_service.claim_generation_execution(db, "job-1", uuid4()) is False
+    db.commit.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_claim_generation_execution_fails_closed_without_tenant_context():
+    with pytest.raises(ValueError, match="tenant_id is required"):
+        await job_service.claim_generation_execution(AsyncMock(), "job-1")
+
+
+def test_failed_pipeline_result_is_terminal_and_not_retried(monkeypatch):
+    from app.core import db as db_module
+    from app.modules.ai import tasks
+
+    class Session:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return False
+
+    class Factory:
+        def __call__(self):
+            return Session()
+
+    async def claimed(*args, **kwargs):
+        return True
+
+    async def failed_pipeline(**kwargs):
+        return SimpleNamespace(status="failed", message="provider failed", progress=42)
+
+    monkeypatch.setattr(db_module, "async_session_factory", Factory())
+    monkeypatch.setattr(job_service, "claim_generation_execution", claimed)
+    monkeypatch.setattr(tasks, "run_generation_pipeline", failed_pipeline)
+    monkeypatch.setattr(tasks, "_run_async", lambda awaitable: asyncio.run(awaitable))
+
+    result = tasks.generate_course_task.run(job_id="job-1", documents=[], tenant_id=str(uuid4()), user_id=str(uuid4()))
+
+    assert result == {"job_id": "job-1", "status": "failed", "message": "provider failed", "progress": 42}

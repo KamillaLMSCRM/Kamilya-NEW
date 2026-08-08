@@ -51,7 +51,6 @@ class TenantRegisterResponse(BaseModel):
     user_id: UUID
     role: str
     access_token: str
-    refresh_token: str
     expires_in: int
     user: dict
     trial_started_at: datetime

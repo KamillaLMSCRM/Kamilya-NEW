@@ -25,6 +25,7 @@ from app.core.auth import create_access_token, create_refresh_token
 from app.core.db import get_db
 from app.models.users import User
 from app.modules.audit.service import log_action
+from app.modules.auth.service import issue_refresh_session
 
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -92,7 +93,6 @@ class SuperadminLoginRequest(BaseModel):
 
 class SuperadminLoginResponse(BaseModel):
     access_token: str
-    refresh_token: str
     expires_in: int = 900
     user: dict
 
@@ -166,6 +166,7 @@ async def superadmin_login(
     refresh_token = create_refresh_token({
         "sub": str(user.id),
         "tenant_id": None,
+        "platform": True,
     })
 
     # AuditLog.tenant_id is NOT NULL — use a sentinel UUID for
@@ -178,18 +179,17 @@ async def superadmin_login(
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent"),
     )
-    await db.commit()
-
     # Same httpOnly refresh-cookie contract as /auth/login and /auth/check-code.
     # Without this, the in-memory access token is the only session anchor and
     # any page reload would log the superadmin out.
     # Duplicated from app.modules.auth.router._set_refresh_cookie to avoid a
     # circular import (router.py imports superadmin_login_router at startup).
+    await issue_refresh_session(db, user, refresh_token, user_agent=request.headers.get("user-agent"), ip_address=request.client.host if request.client else None)
+    await db.commit()
     _set_refresh_cookie(response, refresh_token)
 
     return SuperadminLoginResponse(
         access_token=access_token,
-        refresh_token=refresh_token,
         user={
             "user_id": str(user.id),
             "tenant_id": None,

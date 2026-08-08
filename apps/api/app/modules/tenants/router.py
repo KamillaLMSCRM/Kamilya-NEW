@@ -22,7 +22,7 @@ from app.models.user_roles import UserRole
 from app.models.users import User
 from app.modules.audit.service import log_action
 from app.modules.auth.router import _set_refresh_cookie
-from app.modules.auth.service import build_user_payload
+from app.modules.auth.service import build_user_payload, issue_refresh_session
 from app.modules.tenants.schemas import (
     PublicLeadRequest,
     PublicLeadResponse,
@@ -343,7 +343,7 @@ async def register_tenant(
             "tenant_id": tenant.id,
         }
     )
-    _set_refresh_cookie(response, refresh_token)
+    await issue_refresh_session(db, user, refresh_token, user_agent=request.headers.get("user-agent"), ip_address=request.client.host if request.client else None)
 
     await log_action(
         db,
@@ -363,6 +363,7 @@ async def register_tenant(
     )
 
     await db.commit()
+    _set_refresh_cookie(response, refresh_token)
 
     await db.execute(text("SELECT set_config('app.tenant_id', :tenant_id, true)"), {"tenant_id": str(tenant.id)})
     await db.refresh(tenant)
@@ -392,7 +393,6 @@ async def register_tenant(
         user_id=user.id,
         role="admin",
         access_token=access_token,
-        refresh_token=refresh_token,
         expires_in=900,
         user=user_payload,
         trial_started_at=tenant.trial_started_at,

@@ -4,6 +4,10 @@ import jwt
 import app.core.auth as auth_module
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
+from fastapi import HTTPException
+from fastapi.security import HTTPAuthorizationCredentials
+from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 
 @pytest.fixture(autouse=True)
@@ -32,6 +36,7 @@ def test_create_access_token_has_required_claims():
     assert "jti" in payload
     assert payload["sub"] == data["sub"]
     assert payload["roles"] == data["roles"]
+    assert payload["type"] == "access"
 
 
 def test_create_refresh_token_has_type_claim():
@@ -73,3 +78,41 @@ def test_create_access_token_custom_expiry():
     expire_ts = payload["exp"]
     now_ts = datetime.now(timezone.utc).timestamp()
     assert expire_ts > now_ts + 3600  # 1 hour = 3600 seconds
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "token_factory",
+    [
+        lambda data: auth_module.create_refresh_token(data),
+        lambda data: auth_module.create_scoped_token(
+            data, token_type="scorm_launch", expires_delta=timedelta(minutes=5)
+        ),
+    ],
+)
+async def test_non_access_tokens_are_rejected_before_user_lookup(token_factory):
+    token = token_factory({"sub": str(uuid4()), "tenant_id": str(uuid4())})
+    db = SimpleNamespace(execute=AsyncMock(), rollback=AsyncMock())
+    credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
+
+    with pytest.raises(HTTPException, match="Invalid access token") as exc_info:
+        await auth_module.get_current_user(credentials=credentials, db=db)
+
+    assert exc_info.value.status_code == 401
+    db.execute.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_access_token_is_accepted_by_protected_dependency():
+    user_id, tenant_id = uuid4(), uuid4()
+    token = auth_module.create_access_token({"sub": str(user_id), "tenant_id": str(tenant_id)})
+    user = SimpleNamespace(id=user_id, tenant_id=tenant_id, role="student", is_active=True)
+
+    class Result:
+        def scalar_one_or_none(self):
+            return user
+
+    db = SimpleNamespace(execute=AsyncMock(side_effect=[object(), Result()]), rollback=AsyncMock())
+    credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
+
+    assert await auth_module.get_current_user(credentials=credentials, db=db) is user

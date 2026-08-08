@@ -1,7 +1,9 @@
 """Unit tests for auth module — schemas and token logic."""
 import pytest
+from fastapi import Response
 
 from app.modules.auth.schemas import LoginRequest, TokenResponse, UserCreate
+from app.modules.auth.router import _set_refresh_cookie
 
 
 class TestAuthSchemas:
@@ -19,17 +21,25 @@ class TestAuthSchemas:
             LoginRequest(email="", password="Test123!")
 
     def test_token_response_fields(self) -> None:
-        """TokenResponse should have access_token and refresh_token."""
-        token = TokenResponse(access_token="at123", refresh_token="rt123", token_type="bearer", expires_in=900)
+        """Browser responses expose only the short-lived access token."""
+        token = TokenResponse(access_token="at123", token_type="bearer", expires_in=900)
         assert token.access_token == "at123"
-        assert token.refresh_token == "rt123"
+        assert "refresh_token" not in token.model_dump()
         assert token.token_type == "bearer"
         assert token.expires_in == 900
 
     def test_token_response_default_token_type(self) -> None:
         """token_type defaults to bearer."""
-        token = TokenResponse(access_token="at", refresh_token="rt", expires_in=600)
+        token = TokenResponse(access_token="at", expires_in=600)
         assert token.token_type == "bearer"
+
+    def test_refresh_cookie_is_httponly_and_not_in_response_model(self) -> None:
+        response = Response()
+        _set_refresh_cookie(response, "test-refresh-token")
+        cookie = response.headers["set-cookie"].lower()
+        assert "httponly" in cookie
+        assert "secure" in cookie
+        assert "refresh_token" not in TokenResponse(access_token="at", expires_in=900).model_dump()
 
     def test_login_request_email_validation(self) -> None:
         """Invalid email should fail."""

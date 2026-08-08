@@ -35,7 +35,7 @@ async def test_tenant_context_failure_rolls_back_and_rejects_before_user_query()
 
     with patch(
         "app.core.auth.decode_token",
-        return_value={"sub": str(user_id), "tenant_id": str(tenant_id)},
+        return_value={"sub": str(user_id), "tenant_id": str(tenant_id), "type": "access"},
     ):
         with pytest.raises(HTTPException) as exc_info:
             await get_current_user(credentials=_credentials(), db=db)
@@ -117,6 +117,7 @@ async def test_normal_tenant_path_sets_context_before_loading_user():
             "sub": str(user.id),
             "tenant_id": str(tenant_id),
             "active_role": "student",
+            "type": "access",
         },
     ):
         result = await get_current_user(credentials=_credentials(), db=db)
@@ -143,7 +144,7 @@ async def test_platform_superadmin_path_enables_superadmin_context():
 
     with patch(
         "app.core.auth.decode_token",
-        return_value={"sub": str(user.id), "tenant_id": None},
+        return_value={"sub": str(user.id), "tenant_id": None, "type": "access"},
     ):
         result = await get_current_user(credentials=_credentials(), db=db)
 
@@ -176,6 +177,7 @@ async def test_impersonation_uses_target_tenant_without_superadmin_rls_bypass():
             "tenant_id": str(target_tenant_id),
             "impersonated_tenant": str(target_tenant_id),
             "impersonated_role": "methodologist",
+            "type": "access",
         },
     ):
         result = await get_current_user(credentials=_credentials(), db=db)

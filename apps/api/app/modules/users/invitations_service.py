@@ -772,7 +772,7 @@ async def accept_invitation(
         inv.accepted_user_agent = accepted_user_agent[:500]
 
     from app.modules.audit.service import log_action
-    from app.modules.auth.service import build_user_payload
+    from app.modules.auth.service import build_user_payload, issue_refresh_session
 
     user_payload = await build_user_payload(db, user)
     roles = user_payload["roles"]
@@ -788,6 +788,7 @@ async def accept_invitation(
         "tenant_id": str(user.tenant_id),
         "active_role": active_role,
     })
+    await issue_refresh_session(db, user, refresh_token, user_agent=accepted_user_agent, ip_address=accepted_ip)
     course_ids = list(
         (
             await db.execute(

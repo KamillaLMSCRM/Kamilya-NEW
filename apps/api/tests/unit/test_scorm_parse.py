@@ -14,15 +14,15 @@ Covers edge cases that real SCORM packages hit:
 - Resource href pointing to a nested directory
 - Resource href that doesn't exist in the zip → entrypoint_exists=False
 """
+
 from __future__ import annotations
 
 import io
 import zipfile
-from xml.etree import ElementTree as ET
 
 import pytest
 
-from app.modules.scorm.router import _parse_manifest
+from app.modules.scorm.router import _parse_manifest, _read_scorm_upload, _safe_zip_names
 
 
 def _make_zip(manifest_xml: str, extra_files: list[tuple[str, bytes]] | None = None) -> bytes:
@@ -33,6 +33,40 @@ def _make_zip(manifest_xml: str, extra_files: list[tuple[str, bytes]] | None = N
         for name, content in extra_files or []:
             zf.writestr(name, content)
     return buf.getvalue()
+
+
+def test_zip_metadata_rejects_excessive_uncompressed_size(monkeypatch):
+    data = _make_zip(_scorm12_manifest(), [("large.bin", b"x" * 32)])
+    monkeypatch.setattr("app.modules.scorm.router.MAX_SCORM_ENTRY_BYTES", 16)
+    with zipfile.ZipFile(io.BytesIO(data)) as zf:
+        with pytest.raises(Exception, match="uncompressed size"):
+            _safe_zip_names(zf)
+
+
+def test_zip_metadata_rejects_high_compression_ratio(monkeypatch):
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("imsmanifest.xml", _scorm12_manifest())
+        zf.writestr("index.html", b"A" * 4096)
+    monkeypatch.setattr("app.modules.scorm.router.MAX_SCORM_COMPRESSION_RATIO", 2)
+    with zipfile.ZipFile(io.BytesIO(buf.getvalue())) as zf:
+        with pytest.raises(Exception, match="compression ratio"):
+            _safe_zip_names(zf)
+
+
+@pytest.mark.asyncio
+async def test_streamed_upload_stops_before_reading_past_size_limit(monkeypatch):
+    class Upload:
+        def __init__(self):
+            self.reads = 0
+
+        async def read(self, _size):
+            self.reads += 1
+            return b"x" * 8 if self.reads == 1 else b""
+
+    monkeypatch.setattr("app.modules.scorm.router.MAX_SCORM_ZIP_BYTES", 4)
+    with pytest.raises(Exception, match="too large"):
+        await _read_scorm_upload(Upload(), None)
 
 
 def _zip_with_manifest(
@@ -224,9 +258,7 @@ def test_resource_href_with_hash_fragment():
 def test_resource_href_in_subdirectory():
     """When the manifest lives in a subdir and references `content/index.html`,
     the entrypoint should be `content/index.html` (relative to archive root)."""
-    sub_manifest = _scorm12_manifest("content/index.html").replace(
-        "<manifest identifier=", "<manifest identifier="
-    )
+    sub_manifest = _scorm12_manifest("content/index.html").replace("<manifest identifier=", "<manifest identifier=")
     # Build a ZIP with manifest.xml at root and content/index.html inside
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w") as zf:

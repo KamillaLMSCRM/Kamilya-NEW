@@ -194,6 +194,7 @@ class VectorStore:
             dropped = 0
             inserted = 0
             last_doc_id = ""
+            rows: list[dict] = []
             for chunk, emb in zip(chunks, embeddings):
                 # Sanity-check the vector: reject NaN/inf in any component.
                 # If the provider returned garbage, skip the chunk rather
@@ -235,23 +236,19 @@ class VectorStore:
                 chunk_id = hashlib.md5(
                     f"{last_doc_id}|{chunk['text']}".encode()
                 ).hexdigest()
-                await session.execute(
-                    text(
-                        """INSERT INTO document_embeddings (id, tenant_id, doc_id, text, headings, doc_name, embedding)
-                           VALUES (:id, :tenant_id, :doc_id, :text, :headings, :doc_name, :embedding)
-                           ON CONFLICT (id) DO NOTHING"""
-                    ),
-                    {
-                        "id": chunk_id,
-                        "tenant_id": tenant_id,
-                        "doc_id": last_doc_id,
-                        "text": chunk["text"],
-                        "headings": meta.get("headings", ""),
-                        "doc_name": meta.get("doc_name", ""),
-                        "embedding": str(emb),
-                    }
-                )
+                rows.append({
+                    "id": chunk_id, "tenant_id": tenant_id, "doc_id": last_doc_id,
+                    "text": chunk["text"], "headings": meta.get("headings", ""),
+                    "doc_name": meta.get("doc_name", ""), "embedding": str(emb),
+                })
                 inserted += 1
+            insert_stmt = text(
+                """INSERT INTO document_embeddings (id, tenant_id, doc_id, text, headings, doc_name, embedding)
+                   VALUES (:id, :tenant_id, :doc_id, :text, :headings, :doc_name, :embedding)
+                   ON CONFLICT (id) DO NOTHING"""
+            )
+            for start in range(0, len(rows), 100):
+                await session.execute(insert_stmt, rows[start:start + 100])
             # IMPORTANT: explicit flush before the SELECT below. Without it,
             # SQLAlchemy's text() SELECT inside the same session may not see
             # the freshly-INSERTed rows in asyncpg — the unit-of-work

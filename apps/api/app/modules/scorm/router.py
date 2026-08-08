@@ -5,6 +5,7 @@ import html
 import json
 import logging
 import mimetypes
+import os
 import re
 import zipfile
 from datetime import datetime, timedelta, timezone
@@ -19,7 +20,7 @@ from fastapi.responses import HTMLResponse, Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.auth import create_access_token, decode_token, get_current_user, require_role
+from app.core.auth import create_scoped_token, decode_token, get_current_user, require_role
 from app.core.db import get_db
 from app.core.storage import get_storage
 from app.models.courses import Course
@@ -41,13 +42,19 @@ router = APIRouter(
 )
 logger = logging.getLogger(__name__)
 
-MAX_SCORM_ZIP_BYTES = 250 * 1024 * 1024
-MAX_SCORM_FILES = 5000
+MAX_SCORM_ZIP_BYTES = int(os.getenv("MAX_SCORM_ZIP_BYTES", str(250 * 1024 * 1024)))
+MAX_SCORM_FILES = int(os.getenv("MAX_SCORM_FILES", "5000"))
+MAX_SCORM_UNCOMPRESSED_BYTES = int(os.getenv("MAX_SCORM_UNCOMPRESSED_BYTES", str(500 * 1024 * 1024)))
+MAX_SCORM_ENTRY_BYTES = int(os.getenv("MAX_SCORM_ENTRY_BYTES", str(100 * 1024 * 1024)))
+MAX_SCORM_COMPRESSION_RATIO = int(os.getenv("MAX_SCORM_COMPRESSION_RATIO", "100"))
+MAX_SCORM_MANIFEST_BYTES = int(os.getenv("MAX_SCORM_MANIFEST_BYTES", str(2 * 1024 * 1024)))
+SCORM_READ_CHUNK_BYTES = 1024 * 1024
 SCORM_LAUNCH_TOKEN_MINUTES = 180
 
 
 def _safe_zip_names(zf: zipfile.ZipFile) -> list[str]:
     names: list[str] = []
+    total_uncompressed = 0
     for info in zf.infolist():
         raw = info.filename.replace("\\", "/").strip()
         if not raw or raw.endswith("/"):
@@ -55,10 +62,36 @@ def _safe_zip_names(zf: zipfile.ZipFile) -> list[str]:
         path = PurePosixPath(raw)
         if path.is_absolute() or ".." in path.parts:
             raise HTTPException(status_code=400, detail="SCORM ZIP contains unsafe file paths")
+        if info.file_size > MAX_SCORM_ENTRY_BYTES:
+            raise HTTPException(status_code=400, detail="SCORM ZIP entry exceeds the allowed uncompressed size")
+        total_uncompressed += info.file_size
+        if total_uncompressed > MAX_SCORM_UNCOMPRESSED_BYTES:
+            raise HTTPException(status_code=400, detail="SCORM ZIP exceeds the allowed uncompressed size")
+        if info.file_size and info.compress_size == 0:
+            raise HTTPException(status_code=400, detail="SCORM ZIP contains an invalid compressed entry")
+        if info.compress_size and info.file_size / info.compress_size > MAX_SCORM_COMPRESSION_RATIO:
+            raise HTTPException(status_code=400, detail="SCORM ZIP compression ratio is too high")
         names.append(raw)
     if len(names) > MAX_SCORM_FILES:
         raise HTTPException(status_code=400, detail=f"SCORM ZIP contains more than {MAX_SCORM_FILES} files")
     return names
+
+
+async def _read_scorm_upload(file: UploadFile, content_length: str | None) -> bytes:
+    if content_length:
+        try:
+            if int(content_length) > MAX_SCORM_ZIP_BYTES:
+                raise HTTPException(status_code=413, detail="SCORM ZIP is too large")
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid Content-Length") from None
+    chunks: list[bytes] = []
+    total = 0
+    while chunk := await file.read(SCORM_READ_CHUNK_BYTES):
+        total += len(chunk)
+        if total > MAX_SCORM_ZIP_BYTES:
+            raise HTTPException(status_code=413, detail="SCORM ZIP is too large")
+        chunks.append(chunk)
+    return b"".join(chunks)
 
 
 def _text_of(root: ET.Element, xpath: str, ns: dict[str, str]) -> str | None:
@@ -74,10 +107,17 @@ def _parse_manifest(zf: zipfile.ZipFile, names: list[str]) -> dict[str, Any]:
     if not manifest_name:
         raise HTTPException(status_code=400, detail="SCORM package must contain imsmanifest.xml")
 
+    manifest_info = zf.getinfo(manifest_name)
+    if manifest_info.file_size > MAX_SCORM_MANIFEST_BYTES:
+        raise HTTPException(status_code=400, detail="SCORM manifest exceeds the allowed size")
     try:
-        root = ET.fromstring(zf.read(manifest_name))
+        with zf.open(manifest_info) as manifest_file:
+            manifest_bytes = manifest_file.read(MAX_SCORM_MANIFEST_BYTES + 1)
+        if len(manifest_bytes) > MAX_SCORM_MANIFEST_BYTES:
+            raise HTTPException(status_code=400, detail="SCORM manifest exceeds the allowed size")
+        root = ET.fromstring(manifest_bytes)
     except ET.ParseError:
-        raise HTTPException(status_code=400, detail="imsmanifest.xml is not valid XML")
+        raise HTTPException(status_code=400, detail="imsmanifest.xml is not valid XML") from None
 
     ns = {
         "imscp": "http://www.imsproject.org/xsd/imscp_rootv1p1p2",
@@ -203,7 +243,7 @@ def _safe_asset_url(package: ScormPackage, token: str, entrypoint: str) -> str:
 
 
 def _make_launch_token(user: User, package: ScormPackage) -> str:
-    return create_access_token(
+    return create_scoped_token(
         {
             "sub": str(user.id),
             "tenant_id": str(user.tenant_id),
@@ -211,6 +251,7 @@ def _make_launch_token(user: User, package: ScormPackage) -> str:
             "package_id": str(package.id),
             "course_id": str(package.course_id),
         },
+        token_type="scorm_launch",
         expires_delta=timedelta(minutes=SCORM_LAUNCH_TOKEN_MINUTES),
     )
 
@@ -352,18 +393,16 @@ async def import_scorm_package(
     if not filename.lower().endswith(".zip"):
         raise HTTPException(status_code=400, detail="Upload a SCORM .zip package")
 
-    data = await file.read()
+    data = await _read_scorm_upload(file, request.headers.get("content-length"))
     if not data:
         raise HTTPException(status_code=400, detail="SCORM ZIP is empty")
-    if len(data) > MAX_SCORM_ZIP_BYTES:
-        raise HTTPException(status_code=413, detail="SCORM ZIP is too large")
 
     try:
         with zipfile.ZipFile(BytesIO(data)) as zf:
             names = _safe_zip_names(zf)
             manifest = _parse_manifest(zf, names)
     except zipfile.BadZipFile:
-        raise HTTPException(status_code=400, detail="Uploaded file is not a valid ZIP")
+        raise HTTPException(status_code=400, detail="Uploaded file is not a valid ZIP") from None
     _assert_scorm_12(manifest["version"])
 
     await assert_can_create_courses(db, user.tenant_id)

@@ -214,7 +214,6 @@ class InvitationAcceptResponse(BaseModel):
     tenant_id: UUID
     role: str
     access_token: str
-    refresh_token: str | None = None
     token_type: str = "bearer"
     user: dict
     next_url: str = "/student"

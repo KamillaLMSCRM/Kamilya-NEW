@@ -263,6 +263,10 @@ async def test_acceptance_activates_existing_staff_without_rewriting_hr_identity
         AsyncMock(return_value=user_payload),
     )
     monkeypatch.setattr(
+        "app.modules.auth.service.issue_refresh_session",
+        AsyncMock(),
+    )
+    monkeypatch.setattr(
         "app.modules.audit.service.log_action",
         AsyncMock(),
     )

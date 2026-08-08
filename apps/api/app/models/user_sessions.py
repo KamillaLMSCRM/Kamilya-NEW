@@ -9,7 +9,7 @@ class UserSession(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=True, index=True)
     refresh_token = Column(Text, nullable=False, index=True)
     expires_at = Column(TIMESTAMP(timezone=True), nullable=False)
     user_agent = Column(Text, nullable=True)

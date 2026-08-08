@@ -97,8 +97,34 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None) -> s
     to_encode["iat"] = int(now.timestamp())
     to_encode["nbf"] = int(now.timestamp())
     to_encode["jti"] = str(uuid4())
+    # Access tokens are the only JWTs accepted by get_current_user().  Do not
+    # let callers accidentally mint a capability token that is also reusable
+    # as a general API credential.
+    to_encode["type"] = "access"
     # aud/iss claims — required for validation on decode (see decode_token).
     # Callers may override them via the data dict, but defaults are always set.
+    to_encode.setdefault("aud", settings.JWT_AUDIENCE)
+    to_encode.setdefault("iss", settings.JWT_ISSUER)
+    return jwt.encode(to_encode, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
+
+
+def create_scoped_token(
+    data: dict, *, token_type: str, expires_delta: timedelta
+) -> str:
+    """Mint a JWT for one narrowly validated capability, never API access."""
+    if token_type == "access":
+        raise ValueError("Use create_access_token for access credentials")
+    to_encode = _json_safe_jwt_payload(data)
+    now = datetime.now(UTC)
+    to_encode.update(
+        {
+            "exp": int((now + expires_delta).timestamp()),
+            "iat": int(now.timestamp()),
+            "nbf": int(now.timestamp()),
+            "jti": str(uuid4()),
+            "type": token_type,
+        }
+    )
     to_encode.setdefault("aud", settings.JWT_AUDIENCE)
     to_encode.setdefault("iss", settings.JWT_ISSUER)
     return jwt.encode(to_encode, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
@@ -165,6 +191,8 @@ async def get_current_user(
         )
     token = credentials.credentials
     payload = decode_token(token)
+    if payload.get("type") != "access":
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid access token")
     user_id = payload.get("sub")
     tenant_id = payload.get("tenant_id")
     if not user_id:

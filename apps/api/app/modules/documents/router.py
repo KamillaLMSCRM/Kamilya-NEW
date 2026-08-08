@@ -180,10 +180,13 @@ def _hydrate(
 
 @router.get("", response_model=list[DocumentResponse], deprecated=True)
 async def list_documents(
+    response: Response,
     db: AsyncSession = Depends(get_db),
     user=Depends(require_role("methodologist")),
 ):
     """Compatibility list for the current frontend; use /catalog for new clients."""
+    response.headers["Deprecation"] = "true"
+    response.headers["Link"] = '</api/v1/documents/catalog>; rel="successor-version"'
     result = await db.execute(
         select(Document)
         .where(
@@ -191,6 +194,7 @@ async def list_documents(
             Document.lifecycle_status == "active",
         )
         .order_by(Document.created_at.desc(), Document.id.desc())
+        .limit(100)
     )
     return [_hydrate(document) for document in result.scalars().all()]
 
