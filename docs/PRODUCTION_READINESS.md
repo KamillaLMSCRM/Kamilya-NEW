@@ -1,6 +1,6 @@
 # Kamilya LMS: готовность первого production-тенанта
 
-**Проверено:** 2026-08-07 по исходникам, CI и production-контурам
+**Проверено:** 2026-08-08 по исходникам, CI и production-контурам
 **Технический P0 baseline:** закрыт
 **Режим запуска:** dev/test и контролируемая демонстрация; подключение первого
 коммерческого tenant с персональными данными остаётся за отдельным KZ
@@ -8,6 +8,34 @@ DB/storage gate и приёмкой клиента
 **Назначение:** единственный актуальный реестр production-gates. История изменений
 остаётся в Git; отдельные датированные отчёты не используются как источник
 текущего состояния.
+
+## Demo reliability release 2026-08-08
+
+Application patch `09612c270ae620226351c4d0444887c6be19faf4` устраняет
+расхождение между фиксированным demo-обучающимся и очищаемыми sandbox-данными:
+
+- `student` demo-login под блокировкой строки идемпотентно проверяет наличие
+  назначения на опубликованный курс;
+- при отсутствии назначения выбирается established опубликованный курс tenant,
+  создаётся immutable release для legacy-курса и одно enrollment;
+- если в demo-tenant нет ни одного опубликованного курса, вход закрывается
+  явным `503`, а не открывает пустой кабинет;
+- публичный экран предлагает только разрешённые production-роли
+  `methodologist` и `student`; запрещённая backend роль `admin` больше не ведёт
+  пользователя к ожидаемому `404`.
+
+Release evidence:
+
+| Контур | Состояние | Подтверждение |
+|---|---|---|
+| Application CI | PASS | GitHub Actions `31233221911` |
+| Frontend | PASS | Vercel `dpl_Afzc1MtrfNPDuNG5mknmb5AyRjLN`, `READY`, exact patch |
+| API | PASS | Render `dep-d9r8k4lbedkc73feri9g`, `live`, exact patch |
+| Production data repair | PASS | demo student назначен на «Охрана труда для офисных сотрудников»; повторный dashboard вернул один enrollment и четыре урока |
+| Browser smoke | PASS | `/login/demo` не показывает admin, student открывает `/my-courses`, видит курс и первый урок с AI-ассистентом |
+
+Локально прошли 927 backend tests, 249 frontend tests, TypeScript typecheck и
+Next.js production build. Исправление не меняет миграции или worker-код.
 
 ## Acquisition release 2026-08-07
 
