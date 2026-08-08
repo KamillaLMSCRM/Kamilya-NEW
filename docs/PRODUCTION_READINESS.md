@@ -9,6 +9,38 @@ DB/storage gate и приёмкой клиента
 остаётся в Git; отдельные датированные отчёты не используются как источник
 текущего состояния.
 
+## Platform operator login hardening 2026-08-08
+
+Application patch `472e5fb1e98f5542bc63b1366512d8410138c8a6` закрывает
+публичное раскрытие операторского входа:
+
+- `/login/demo` больше не содержит ссылку или текст о superadmin;
+- `/superadmin/login` доступен только по прямому служебному URL, получает
+  `noindex, nofollow, nocache` и не содержит имени оператора;
+- приложение инициализирует email и password пустыми и отключает
+  автозаполнение формы. Значения, которые Chrome всё же показывает из
+  локального хранилища паролей, не передаются приложением;
+- рабочая production-пара из локальных `SUPERADMIN_EMAIL` и
+  `SUPERADMIN_PASSWORD` проверена без раскрытия значений: API вернул `200`,
+  браузер перешёл на `/admin/super`, после smoke сессия завершена;
+- tenant-admin credentials и сохранённая браузером устаревшая пара не являются
+  реквизитами платформенного superadmin и закономерно получают `401`.
+
+Штатный вход оператора: открыть прямой URL
+`https://app.kml.kz/superadmin/login`, использовать актуальные значения
+`SUPERADMIN_EMAIL` и `SUPERADMIN_PASSWORD` из локального `.env`. Эти значения
+не коммитятся и не должны появляться в документации, скриншотах или браузерной
+консоли.
+
+Release evidence:
+
+| Контур | Состояние | Подтверждение |
+|---|---|---|
+| Application CI | PASS | GitHub Actions `31233974461` |
+| Production smoke | PASS | GitHub Actions `31233974447` |
+| Frontend | PASS | Vercel `dpl_3NguzZwuTjvDDjFYfRnmzJSvFso6`, `READY`, alias `app.kml.kz`, exact patch |
+| Browser regression | PASS | публичная ссылка отсутствует; operator form пустая и noindex; реальный вход и logout успешны |
+
 ## Demo reliability release 2026-08-08
 
 Application patch `09612c270ae620226351c4d0444887c6be19faf4` устраняет
