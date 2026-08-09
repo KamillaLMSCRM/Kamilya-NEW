@@ -43,11 +43,56 @@ interface Enrollment {
   status: string; // 'enrolled' | 'in_progress' | 'completed'
   source: 'manual' | 'position' | 'department' | string;
   enrolled_at: string;
+  notification_status?: 'pending' | 'claimed' | 'retry' | 'delivered' | 'dead' | null;
+  notification_attempt_count?: number;
+  notification_delivered_at?: string | null;
+  notification_error?: string | null;
 }
 
 interface AccessLink {
   email: string;
   invite_url: string;
+}
+
+interface EnrollmentAccess {
+  enrollment_id: string;
+  user_id: string;
+  access_kind: 'course_access' | 'account_activation' | 'access_without_email';
+  state: 'available' | 'needs_activation' | 'blocked';
+  access_url: string | null;
+  expires_at?: string | null;
+  message: string;
+}
+
+interface NoEmailAccessIssue {
+  enrollment_id: string;
+  access_url: string;
+  temporary_pin: string;
+  expires_at: string;
+}
+
+interface VisibleNoEmailAccess extends NoEmailAccessIssue {
+  learner_name: string;
+}
+
+interface RecurringLearningRule {
+  id: string;
+  course_id: string;
+  user_id: string;
+  cadence_days: number;
+  due_days: number;
+  status: 'draft' | 'active' | 'inactive';
+  next_run_at: string | null;
+  last_run_at: string | null;
+}
+
+interface RecurringOccurrence {
+  id: string;
+  rule_id: string;
+  scheduled_for: string;
+  due_at: string;
+  completed_at: string | null;
+  status: 'assigned' | 'overdue' | 'completed' | 'completed_late' | 'skipped';
 }
 
 // UI-фильтры по статусу (frontend-side, потому что /courses/{id}/enrollments
@@ -97,6 +142,15 @@ export default function EnrollmentsPage() {
   const [enrolling, setEnrolling] = useState(false);
   const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
   const [accessLinks, setAccessLinks] = useState<AccessLink[]>([]);
+  const [issuedNoEmailAccess, setIssuedNoEmailAccess] = useState<VisibleNoEmailAccess | null>(null);
+  const [accessStates, setAccessStates] = useState<Record<string, EnrollmentAccess>>({});
+  const [recurringRules, setRecurringRules] = useState<RecurringLearningRule[]>([]);
+  const [recurringOccurrences, setRecurringOccurrences] = useState<RecurringOccurrence[]>([]);
+  const [recurringCourseId, setRecurringCourseId] = useState('');
+  const [recurringUserId, setRecurringUserId] = useState('');
+  const [cadenceDays, setCadenceDays] = useState(180);
+  const [dueDays, setDueDays] = useState(14);
+  const [savingRule, setSavingRule] = useState(false);
   const searchParams = useSearchParams();
   const preselectionApplied = useRef(false);
   const token = useAuthStore((s) => s.accessToken);
@@ -140,6 +194,25 @@ export default function EnrollmentsPage() {
     fetchData();
   }, [fetchData]);
 
+  const fetchRecurringRules = useCallback(async () => {
+    if (!token || !canManageAssignments) return;
+    try {
+      const headers = { Authorization: `Bearer ${token}` };
+      const [rulesResponse, occurrencesResponse] = await Promise.all([
+        fetch(`${API_URL}/v1/learning-cycles`, { headers }),
+        fetch(`${API_URL}/v1/learning-cycles/occurrences`, { headers }),
+      ]);
+      if (rulesResponse.ok) setRecurringRules(await rulesResponse.json());
+      if (occurrencesResponse.ok) setRecurringOccurrences(await occurrencesResponse.json());
+    } catch {
+      // The assignments workflow remains usable if the preview API is absent.
+    }
+  }, [API_URL, canManageAssignments, token]);
+
+  useEffect(() => {
+    void fetchRecurringRules();
+  }, [fetchRecurringRules]);
+
   const fetchEnrollments = useCallback(async (courseId: string) => {
     setSelectedCourse(courseId);
     setSelectedUsers(new Set());
@@ -148,8 +221,19 @@ export default function EnrollmentsPage() {
     const res = await fetch(`${API_URL}/v1/courses/${courseId}/enrollments`, {
       headers: { Authorization: `Bearer ${token}` },
     });
-    if (res.ok) setEnrollments(await res.json());
-  }, [API_URL, token]);
+    if (res.ok) {
+      const items = await res.json() as Enrollment[];
+      setEnrollments(items);
+      const noEmail = items.filter((item) => !users.find((user) => user.id === item.user_id)?.email);
+      const states = await Promise.all(noEmail.map(async (item) => {
+        const response = await fetch(`${API_URL}/v1/courses/enrollments/${item.id}/access`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        return response.ok ? await response.json() as EnrollmentAccess : null;
+      }));
+      setAccessStates(Object.fromEntries(states.filter(Boolean).map((state) => [state!.enrollment_id, state!] as const)));
+    }
+  }, [API_URL, token, users]);
 
   useEffect(() => {
     if (loading || preselectionApplied.current) return;
@@ -171,16 +255,12 @@ export default function EnrollmentsPage() {
     const selected = users.filter((user) => selectedUsers.has(user.id));
     const course = courses.find((item) => item.id === selectedCourse);
     const withoutAccess = selected.filter((user) => user.has_login_access === false);
-    const withoutEmail = withoutAccess.filter((user) => !user.email);
     const ok = await confirm({
       title: 'Назначить обучение?',
       message: [
         `${course?.title || 'Выбранный курс'} будет назначен. Выбрано: ${tp('common.counts.learner', selected.length)}.`,
         withoutAccess.length > 0
           ? `Ссылки активации будут подготовлены: ${tp('common.counts.learner', withoutAccess.length)}.`
-          : '',
-        withoutEmail.length > 0
-          ? `Без email: ${tp('common.counts.learner', withoutEmail.length)}. Для них способ входа нужно настроить отдельно.`
           : '',
       ].filter(Boolean).join(' '),
       variant: 'info',
@@ -208,50 +288,8 @@ export default function EnrollmentsPage() {
         toast.info('Новых назначений нет: выбранные обучающиеся уже назначены или недоступны');
       }
 
-      const usersForAccess = withoutAccess.filter((user) => Boolean(user.email?.trim()));
-      if (usersForAccess.length > 0) {
-        try {
-          const invitationResults = await Promise.allSettled(
-            usersForAccess.map(async (targetUser) => {
-              const invitationRes = await fetch(
-                `${API_URL}/v1/users/${targetUser.id}/invitation-link`,
-                {
-                  method: 'POST',
-                  headers: { Authorization: `Bearer ${token}` },
-                },
-              );
-              if (!invitationRes.ok) {
-                const err = await invitationRes.json().catch(() => ({}));
-                throw new Error(err?.detail || `Не удалось подготовить ссылку для ${targetUser.email}`);
-              }
-              return await invitationRes.json() as AccessLink;
-            }),
-          );
-          const nextAccessLinks: AccessLink[] = [];
-          const failedMessages: string[] = [];
-          for (const result of invitationResults) {
-            if (result.status === 'fulfilled') {
-              nextAccessLinks.push(result.value);
-            } else {
-              failedMessages.push(result.reason?.message || 'Не удалось подготовить ссылку доступа');
-            }
-          }
-          setAccessLinks(nextAccessLinks);
-          if (failedMessages.length > 0) {
-            toast.error('Часть ссылок доступа не создана', {
-              description: failedMessages.join(' '),
-            });
-          }
-        } catch (invitationError: any) {
-          toast.error('Курс назначен, но ссылки доступа не созданы', {
-            description: invitationError?.message,
-          });
-        }
-      }
-      if (withoutEmail.length > 0) {
-        toast.info('Есть сотрудники без email', {
-          description: 'Курс назначен, но ссылку доступа для них создать нельзя.',
-        });
+      if (withoutAccess.length > 0) {
+        toast.info('Назначение сохранено: настройте доступ у сотрудника в списке назначений.');
       }
       setSelectedUsers(new Set());
       await fetchEnrollments(selectedCourse);
@@ -343,6 +381,133 @@ export default function EnrollmentsPage() {
     toast.success('Ссылка доступа скопирована');
   };
 
+  const handleAssignmentAccess = async (enrollment: Enrollment, learner?: User) => {
+    const response = await fetch(`${API_URL}/v1/courses/enrollments/${enrollment.id}/access`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!response.ok) {
+      toast.error('Не удалось получить состояние доступа');
+      return;
+    }
+    const access = await response.json() as EnrollmentAccess;
+    if (access.access_kind === 'access_without_email') {
+      if (access.state === 'available') {
+        const approved = await confirm({
+          title: 'Перевыпустить доступ?',
+          message: 'Действующая ссылка и PIN будут отозваны. Новый PIN показывается только один раз.',
+          variant: 'danger',
+          confirmLabel: 'Перевыпустить',
+        });
+        if (!approved) return;
+      }
+      const issued = await fetch(`${API_URL}/v1/courses/enrollments/${enrollment.id}/access-without-email`, {
+        method: 'POST', headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!issued.ok) {
+        toast.error('Не удалось подготовить доступ без email');
+        return;
+      }
+      const credential = await issued.json() as NoEmailAccessIssue;
+      setAccessStates((current) => ({ ...current, [enrollment.id]: {
+        enrollment_id: enrollment.id, user_id: enrollment.user_id,
+        access_kind: 'access_without_email', state: 'available', access_url: null,
+        expires_at: credential.expires_at, message: 'Защищённый доступ активен',
+      } }));
+      setIssuedNoEmailAccess({
+        ...credential,
+        learner_name: learner ? `${learner.first_name} ${learner.last_name}`.trim() : enrollment.user_id,
+      });
+      try {
+        await navigator.clipboard.writeText(`${credential.access_url}\nPIN: ${credential.temporary_pin}`);
+        toast.success('Ссылка и временный PIN скопированы', { description: 'Передайте ссылку и PIN сотруднику раздельно.' });
+      } catch {
+        toast.info('Скопируйте ссылку и PIN из блока вверху страницы.');
+      }
+      return;
+    }
+    if (access.access_url) {
+      await copyAccessLink(access.access_url);
+      return;
+    }
+    if (!learner) return;
+    const invitationRes = await fetch(`${API_URL}/v1/users/${learner.id}/invitation-link`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!invitationRes.ok) {
+      const error = await invitationRes.json().catch(() => ({}));
+      toast.error('Не удалось подготовить активацию', { description: error?.detail });
+      return;
+    }
+    const invitation = await invitationRes.json() as AccessLink;
+    setAccessLinks([invitation]);
+    toast.success('Ссылка активации подготовлена');
+  };
+
+  const resendNotification = async (enrollment: Enrollment) => {
+    const response = await fetch(`${API_URL}/v1/courses/enrollments/${enrollment.id}/notification/resend`, {
+      method: 'POST', headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!response.ok) {
+      toast.error('Не удалось повторно отправить уведомление');
+      return;
+    }
+    toast.success('Уведомление поставлено на повторную отправку');
+    await fetchEnrollments(selectedCourse);
+  };
+
+  const createRecurringRule = async () => {
+    if (!recurringCourseId || !recurringUserId) return;
+    setSavingRule(true);
+    try {
+      const response = await fetch(`${API_URL}/v1/learning-cycles`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          course_id: recurringCourseId,
+          user_id: recurringUserId,
+          cadence_days: cadenceDays,
+          due_days: dueDays,
+        }),
+      });
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error?.detail || 'Не удалось сохранить правило');
+      }
+      toast.success('Черновик повторного обучения сохранён');
+      await fetchRecurringRules();
+    } catch (error: any) {
+      toast.error('Не удалось сохранить правило', { description: error?.message });
+    } finally {
+      setSavingRule(false);
+    }
+  };
+
+  const deactivateRecurringRule = async (ruleId: string) => {
+    const response = await fetch(`${API_URL}/v1/learning-cycles/${ruleId}/deactivate`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (response.ok) await fetchRecurringRules();
+    else toast.error('Не удалось остановить правило');
+  };
+
+  const activateRecurringRule = async (ruleId: string) => {
+    const response = await fetch(`${API_URL}/v1/learning-cycles/${ruleId}/activate`, {
+      method: 'POST', headers: { Authorization: `Bearer ${token}` },
+    });
+    if (response.ok) {
+      toast.success('Повторное обучение запущено');
+      await fetchRecurringRules();
+    } else {
+      const error = await response.json().catch(() => ({}));
+      toast.error('Не удалось запустить правило', { description: error?.detail });
+    }
+  };
+
   // ── render ────────────────────────────────────────────
 
   if (!canManageAssignments) {
@@ -378,9 +543,9 @@ export default function EnrollmentsPage() {
             <div className="flex items-start gap-3">
               <KeyRound className="mt-0.5 h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
               <div>
-                <h2 className="font-semibold">Ссылки доступа для новых обучающихся</h2>
+                <h2 className="font-semibold">Ссылка активации аккаунта</h2>
                 <p className="text-sm text-muted-foreground">
-                  Передайте сотрудникам их персональные ссылки. Назначенный курс уже сохранён.
+                  Это отдельный шаг от назначения курса. Назначенный курс уже сохранён.
                 </p>
               </div>
             </div>
@@ -395,6 +560,22 @@ export default function EnrollmentsPage() {
                 </div>
               ))}
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {issuedNoEmailAccess && (
+        <Card className="border-primary/30 bg-primary/5">
+          <CardContent className="space-y-2 p-4">
+            <h2 className="font-semibold">Доступ сотрудника без email</h2>
+            <p className="text-sm text-muted-foreground">
+              {issuedNoEmailAccess.learner_name}. PIN показывается только сейчас; передайте его отдельно от ссылки.
+            </p>
+            <p className="break-all text-sm">{issuedNoEmailAccess.access_url}</p>
+            <p className="font-mono text-lg">PIN: {issuedNoEmailAccess.temporary_pin}</p>
+            <p className="text-xs text-muted-foreground">
+              Действует до {new Date(issuedNoEmailAccess.expires_at).toLocaleString()}.
+            </p>
           </CardContent>
         </Card>
       )}
@@ -483,6 +664,8 @@ export default function EnrollmentsPage() {
                         <th className="text-left p-2">{t('users.name')}</th>
                         <th className="text-left p-2">{t('courses.status')}</th>
                         <th className="text-left p-2">Источник</th>
+                        <th className="text-left p-2">Доступ</th>
+                        <th className="text-left p-2">Уведомление</th>
                         <th className="text-left p-2">Действие</th>
                       </tr>
                     </thead>
@@ -528,6 +711,33 @@ export default function EnrollmentsPage() {
                               <p className="mt-1 max-w-56 text-xs text-muted-foreground">
                                 {t(sourceInfo.descriptionKey)}
                               </p>
+                            </td>
+                            <td className="p-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => void handleAssignmentAccess(e, u)}
+                              >
+                                {u && !u.email
+                                  ? accessStates[e.id]?.state === 'available' ? 'Перевыпустить доступ' : 'Создать доступ'
+                                  : 'Получить ссылку'}
+                              </Button>
+                              {u && !u.email && accessStates[e.id]?.expires_at && (
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                  Активен до {new Date(accessStates[e.id].expires_at!).toLocaleString()}
+                                </p>
+                              )}
+                            </td>
+                            <td className="p-2">
+                              {e.notification_status ? (
+                                <div className="space-y-1">
+                                  <Badge variant={e.notification_status === 'delivered' ? 'default' : e.notification_status === 'dead' ? 'outline' : 'secondary'}>
+                                    {{ pending: 'Ожидает', claimed: 'Отправляется', retry: 'Повтор', delivered: 'Доставлено', dead: 'Не доставлено' }[e.notification_status]}
+                                  </Badge>
+                                  {e.notification_error && <p className="text-xs text-muted-foreground">{e.notification_error}</p>}
+                                  <Button variant="outline" size="sm" onClick={() => void resendNotification(e)}>Отправить повторно</Button>
+                                </div>
+                              ) : <span className="text-xs text-muted-foreground">Не требуется</span>}
                             </td>
                             <td className="p-2">
                               <Button
@@ -622,6 +832,77 @@ export default function EnrollmentsPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardContent className="space-y-4 p-4">
+          <div>
+            <h2 className="font-semibold">Повторное обучение</h2>
+            <p className="text-sm text-muted-foreground">
+              Каждый запуск создаёт отдельный период обучения со своим прогрессом,
+              попытками тестов, сроком и сертификатом. Поддерживаются опубликованные
+              обычные курсы; SCORM пока недоступен для повторных циклов.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-end gap-3">
+            <label className="text-sm">
+              Курс
+              <select className="mt-1 block min-w-52 rounded border bg-background px-2 py-1" value={recurringCourseId} onChange={(event) => setRecurringCourseId(event.target.value)}>
+                <option value="">Выберите курс</option>
+                {courses.map((course) => <option key={course.id} value={course.id}>{course.title}</option>)}
+              </select>
+            </label>
+            <label className="text-sm">
+              Обучающийся
+              <select className="mt-1 block min-w-52 rounded border bg-background px-2 py-1" value={recurringUserId} onChange={(event) => setRecurringUserId(event.target.value)}>
+                <option value="">Выберите обучающегося</option>
+                {users.map((learner) => <option key={learner.id} value={learner.id}>{learner.first_name} {learner.last_name}</option>)}
+              </select>
+            </label>
+            <label className="text-sm">
+              Периодичность, дней
+              <input className="mt-1 block w-32 rounded border bg-background px-2 py-1" type="number" min={1} max={3660} value={cadenceDays} onChange={(event) => setCadenceDays(Number(event.target.value))} />
+            </label>
+            <label className="text-sm">
+              Срок выполнения, дней
+              <input className="mt-1 block w-32 rounded border bg-background px-2 py-1" type="number" min={0} max={365} value={dueDays} onChange={(event) => setDueDays(Number(event.target.value))} />
+            </label>
+            <Button variant="outline" onClick={() => void createRecurringRule()} disabled={savingRule || !recurringCourseId || !recurringUserId}>
+              Сохранить черновик
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">Можно выбрать сотрудника, который уже проходил этот курс: черновик не меняет его текущее назначение.</p>
+          <div className="space-y-2">
+            {recurringRules.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Правил пока нет.</p>
+            ) : recurringRules.map((rule) => {
+              const course = courses.find((item) => item.id === rule.course_id);
+              const learner = users.find((item) => item.id === rule.user_id);
+              const occurrence = recurringOccurrences.find((item) => item.rule_id === rule.id);
+              const occurrenceLabel = occurrence ? ({
+                assigned: 'Назначено', overdue: 'Просрочено', completed: 'Завершено',
+                completed_late: 'Завершено с опозданием', skipped: 'Пропущено',
+              } as const)[occurrence.status] : null;
+              return (
+                <div key={rule.id} className="flex flex-wrap items-center justify-between gap-3 rounded border p-3">
+                  <div>
+                    <p className="text-sm font-medium">{course?.title || rule.course_id} · {learner ? `${learner.first_name} ${learner.last_name}` : rule.user_id}</p>
+                    <p className="text-xs text-muted-foreground">Каждые {rule.cadence_days} дн., срок {rule.due_days} дн. · Следующий запуск: {rule.next_run_at ? new Date(rule.next_run_at).toLocaleString() : 'не запланирован'}</p>
+                    {occurrence && <p className={`mt-1 text-xs ${occurrence.status === 'overdue' || occurrence.status === 'completed_late' ? 'font-medium text-destructive' : 'text-muted-foreground'}`}>
+                      Последний период: {occurrenceLabel}. Срок: {new Date(occurrence.due_at).toLocaleString()}.
+                      {occurrence.completed_at ? ` Завершено: ${new Date(occurrence.completed_at).toLocaleString()}.` : ''}
+                    </p>}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline">{rule.status === 'draft' ? 'Черновик' : rule.status === 'active' ? 'Активно' : 'Остановлено'}</Badge>
+                    {rule.status === 'active' && <Button size="sm" variant="outline" onClick={() => void deactivateRecurringRule(rule.id)}>Остановить</Button>}
+                    {rule.status !== 'active' && <Button size="sm" onClick={() => void activateRecurringRule(rule.id)}>Запустить</Button>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
 
       {dialog}
     </div>

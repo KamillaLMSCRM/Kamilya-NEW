@@ -31,6 +31,19 @@ describe('route and capability registry', () => {
     expect(hasCapability('methodologist', 'configure_tenant')).toBe(false);
   });
 
+  it('keeps the canonical training log as read-only reporting for tenant admins', () => {
+    expect(canAccessRegisteredRoute('methodologist', '/training-log')).toBe(true);
+    expect(canAccessRegisteredRoute('admin', '/training-log')).toBe(true);
+    expect(getNavigationRoutes('admin', 'sidebar').some((route) => route.id === 'training-log')).toBe(true);
+  });
+
+  it('exposes isolated candidate assessment only to the methodologist', () => {
+    expect(canAccessRegisteredRoute('methodologist', '/candidate-assessments')).toBe(true);
+    expect(canAccessRegisteredRoute('admin', '/candidate-assessments')).toBe(false);
+    expect(canAccessRegisteredRoute('student', '/candidate-assessments')).toBe(false);
+    expect(getNavigationRoutes('methodologist', 'sidebar').some((route) => route.id === 'candidate-assessments')).toBe(true);
+  });
+
   it('uses the same ordered registry for sidebar and command palette', () => {
     for (const role of Object.keys(ROLE_CAPABILITIES)) {
       const sidebar = getNavigationRoutes(role, 'sidebar').map(({ id }) => id);
@@ -115,9 +128,12 @@ describe('route and capability registry', () => {
     expect(canAccessRegisteredRoute('student', '/surveys')).toBe(true);
   });
 
-  it('recognizes only the public certificate verification surface', () => {
+  it('recognizes the bounded public verification and temporary-access surfaces', () => {
     expect(isPublicRoute('/verify/certificate')).toBe(true);
     expect(isPublicRoute('/verify/certificate/KML-2026-123456')).toBe(true);
+    expect(isPublicRoute('/access/opaque-token')).toBe(true);
+    expect(isPublicRoute('/candidate-assessment/opaque-token')).toBe(true);
+    expect(isPublicRoute('/candidate-assessments')).toBe(false);
     expect(isPublicRoute('/certificates')).toBe(false);
     expect(isPublicRoute('/admin/certificates/settings')).toBe(false);
   });

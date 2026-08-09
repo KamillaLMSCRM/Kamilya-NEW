@@ -10,7 +10,7 @@ describe('role route policy', () => {
   it.each([
     ['admin', '/admin', true],
     ['admin', '/admin/team', true],
-    ['admin', '/admin/training-log', false],
+    ['admin', '/admin/training-log', true],
     ['admin', '/courses', false],
     ['admin', '/assignments', false],
     ['methodologist', '/courses', true],
@@ -18,9 +18,11 @@ describe('role route policy', () => {
     ['methodologist', '/invitations', true],
     ['methodologist', '/admin/invitations', true],
     ['methodologist', '/assignments', true],
+    ['methodologist', '/candidate-assessments', true],
     ['methodologist', '/admin/training-log', true],
     ['methodologist', '/admin/team', false],
     ['admin', '/invitations', false],
+    ['admin', '/candidate-assessments', false],
     ['student', '/student', true],
     ['student', '/my-courses', true],
     ['student', '/courses/course-1', true],
@@ -73,7 +75,7 @@ describe('auth redirect policy', () => {
   });
 
   it.each([
-    ['admin', '/admin'],
+    ['admin', null],
     ['methodologist', null],
     ['student', '/student'],
     ['superadmin', '/admin/super'],

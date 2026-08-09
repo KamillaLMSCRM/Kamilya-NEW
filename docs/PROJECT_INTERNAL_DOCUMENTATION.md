@@ -446,8 +446,29 @@ sidebar и command palette. Точки входа передают `course_id` �
 email. Нормализованный email уникален внутри тенанта на уровне БД. Повторный
 email при ручном добавлении или импорте штатки возвращает конфликт вместо
 создания второго профиля. UI показывает персональную ссылку активации.
-Сотрудник без email получает назначение, но требует отдельной настройки
-способа входа.
+Для сотрудника без email методолог явно выпускает
+`AssignmentAccessCredential` через назначение. В БД хранится SHA-256 opaque
+token и Argon2-хеш шестизначного PIN; исходные значения показываются один раз.
+Обмен выдаёт короткоживущий access JWT, привязанный к credential и enrollment.
+Каждый authenticated request повторно проверяет credential, поэтому reissue,
+expiry, отмена назначения или блокировка сотрудника немедленно отзывают уже
+открытый сеанс. Kiosk и общий табельный номер в этом flow не используются.
+
+Ручное назначение с email в той же транзакции создаёт запись
+`course_assignment_notification_outbox`; отправка начинается только после
+commit. Активный сотрудник получает прямую ссылку на курс, неактивный — заранее
+подготовленную activation link. Provider request использует стабильный
+`Idempotency-Key=course-assignment/<outbox_id>`. Глобальный bounded recovery
+доступен только отдельной роли `lms_recovery`; общий `lms_app` не может читать
+очередь или вызывать due-inventory function.
+
+Pre-employment assessment хранится отдельно в campaign/candidate/credential/
+attempt таблицах и не создаёт `User`, `Enrollment`, `Certificate` или training
+evidence. Кампания фиксирует approved quiz snapshot опубликованного release;
+public API удаляет ключи ответов, а сервер проверяет целостность snapshot и
+оценивает ответы. Контакт необязателен: методолог может передать opaque link и
+PIN вручную. Consent, retention, CSV и обезличивание относятся только к этому
+изолированному контуру.
 
 Публичный экран приглашения отдаёт только маскированный email и кадровые данные
 в режиме чтения. `POST /invitations/{token}/request-code` создаёт отдельный от
@@ -763,6 +784,13 @@ API изменения course links отклоняет, endpoints apply/progress
 0087 restricted training evidence shares
 0088 retention policies, cursor и controlled purge
 0089 procedure gate для regulated evidence types
+0090-0094 public lead RLS и durable LMS -> CRM outbox
+0095 quiz review state: изменения урока требуют явной проверки теста
+0096 защищённый доступ к назначению без email
+0097 durable outbox email-уведомлений о назначении курса
+0098 tenant-scoped черновики повторных циклов; materialization fail-closed
+0099 изолированный контур оценки кандидатов
+0100-0101 table-safe ownership/evidence trigger hotfix для candidate domain
 ```
 
 Перед production deploy:
@@ -821,3 +849,13 @@ npx next build
   development candidate как уже выпущенный production-контур.
 - Для каждой новой tenant-фичи добавлять RLS, миграцию, API, UI и focused test.
 - Коммиты и push выполнять автором `kamilla_lms_crm@proton.me`; GitHub token использовать через `http.extraheader`, не через Credential Manager.
+# Candidate-assessment retention policy
+
+Candidate PII and per-attempt evidence are retained only until
+`assessment_candidates.retention_until`. Revision 0102 adds an hourly bounded,
+idempotent enforcement path. Submitted evidence is deliberately deleted rather
+than weakened in place: the immutable-evidence trigger remains intact. Only a
+campaign-level, non-identifying aggregate is preserved. Global discovery and
+mutation are encapsulated in a `SECURITY DEFINER` function executable solely by
+`lms_candidate_retention`; the normal `lms_app` role cannot execute it or
+enumerate tenants.

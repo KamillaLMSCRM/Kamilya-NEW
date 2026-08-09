@@ -44,9 +44,7 @@ def _add_months(dt: datetime, months: int) -> datetime:
         dt.day,
         [
             31,
-            29
-            if year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)
-            else 28,
+            29 if year % 4 == 0 and (year % 100 != 0 or year % 400 == 0) else 28,
             31,
             30,
             31,
@@ -112,11 +110,7 @@ def _certificate_snapshot(cert: Certificate) -> tuple[str, str, dict, str]:
     if not verification_url and settings.get("show_verification_url", True):
         base = str(settings.get("verification_base_url") or "").rstrip("/")
         if base:
-            separator = (
-                "?verify="
-                if (getattr(cert, "template_version", "v2") or "v2") == "v2"
-                else "/"
-            )
+            separator = "?verify=" if (getattr(cert, "template_version", "v2") or "v2") == "v2" else "/"
             verification_url = f"{base}{separator}{cert.certificate_number}"
     return user_name, course_title, settings, verification_url
 
@@ -142,11 +136,7 @@ def render_certificate_preview(payload: CertificatePreviewRequest) -> bytes:
     """Render unsaved settings without creating database or storage records."""
     issued_at = datetime.now(UTC)
     settings = payload.settings
-    expires_at = (
-        _add_months(issued_at, settings.validity_months)
-        if settings.validity_months
-        else None
-    )
+    expires_at = _add_months(issued_at, settings.validity_months) if settings.validity_months else None
     preview_number = f"KML-{issued_at.year}-PREVIEW"
     return render_certificate_pdf(
         user_name=payload.sample_user_name,
@@ -191,33 +181,39 @@ async def issue_certificate(
     tenant_id: UUID,
     user_name: str = "",
     course_title: str = "",
+    enrollment_id: UUID | None = None,
 ) -> Certificate:
     """Issue one immutable certificate after the enrollment is completed."""
-    existing_result = await db.execute(
-        select(Certificate).where(
-            Certificate.user_id == user_id,
-            Certificate.course_id == course_id,
-            Certificate.tenant_id == tenant_id,
-        )
-    )
-    existing = existing_result.scalar_one_or_none()
-    if existing:
-        return existing
-
     from app.models.enrollment import Enrollment
 
-    enrollment_result = await db.execute(
-        select(Enrollment).where(
-            Enrollment.user_id == user_id,
-            Enrollment.course_id == course_id,
-            Enrollment.tenant_id == tenant_id,
+    if enrollment_id is not None:
+        enrollment = await db.scalar(
+            select(Enrollment).where(
+                Enrollment.id == enrollment_id,
+                Enrollment.user_id == user_id,
+                Enrollment.course_id == course_id,
+                Enrollment.tenant_id == tenant_id,
+            )
         )
-    )
-    enrollment = enrollment_result.scalar_one_or_none()
+    else:
+        from app.modules.enrollments.context import current_enrollment
+
+        enrollment = await current_enrollment(db, tenant_id=tenant_id, user_id=user_id, course_id=course_id)
     if not enrollment:
         raise ValueError("Not enrolled in this course")
     if enrollment.status != "completed":
         raise ValueError("Course is not completed yet")
+    certificate_enrollment_id = enrollment.id if enrollment.recurring_assignment_id else None
+    existing = await db.scalar(
+        select(Certificate).where(
+            Certificate.user_id == user_id,
+            Certificate.course_id == course_id,
+            Certificate.tenant_id == tenant_id,
+            Certificate.enrollment_id == certificate_enrollment_id,
+        )
+    )
+    if existing:
+        return existing
 
     if not user_name or not course_title:
         from app.models.courses import Course
@@ -226,9 +222,7 @@ async def issue_certificate(
         if not user_name:
             user = await db.get(User, user_id)
             if user:
-                user_name = (
-                    f"{user.first_name} {user.last_name}".strip() or user.email
-                )
+                user_name = f"{user.first_name} {user.last_name}".strip() or user.email
         if not course_title:
             course = await db.get(Course, course_id)
             if course:
@@ -236,16 +230,13 @@ async def issue_certificate(
 
     issued_at = datetime.now(UTC)
     settings = await get_certificate_settings(db, tenant_id)
-    expires_at = (
-        _add_months(issued_at, settings.validity_months)
-        if settings.validity_months
-        else None
-    )
+    expires_at = _add_months(issued_at, settings.validity_months) if settings.validity_months else None
     certificate_number = generate_certificate_number()
     cert = Certificate(
         tenant_id=tenant_id,
         user_id=user_id,
         course_id=course_id,
+        enrollment_id=certificate_enrollment_id,
         certificate_number=certificate_number,
         issued_at=issued_at,
         expires_at=expires_at,
@@ -361,9 +352,7 @@ async def verify_certificate(
     certificate_number: str,
 ) -> dict | None:
     result = await db.execute(
-        select(Certificate).where(
-            Certificate.certificate_number == certificate_number.strip().upper()
-        )
+        select(Certificate).where(Certificate.certificate_number == certificate_number.strip().upper())
     )
     cert = result.scalar_one_or_none()
     if not cert:
@@ -379,9 +368,7 @@ async def verify_certificate(
         "expires_at": cert.expires_at,
         "user_name": cert.user_name,
         "course_title": cert.course_title,
-        "organization_name": str(
-            settings.get("organization_name") or "Kamilya LMS"
-        ),
+        "organization_name": str(settings.get("organization_name") or "Kamilya LMS"),
         # The operational reason stays in tenant audit data and is not public.
         "revoked_reason": None,
     }

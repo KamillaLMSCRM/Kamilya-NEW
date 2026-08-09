@@ -27,6 +27,7 @@ class _StatusResponse:
 
 class _FakeAsyncClient:
     payload: dict[str, object] | None = None
+    headers: dict[str, str] | None = None
 
     def __init__(self, *args, **kwargs) -> None:
         pass
@@ -40,6 +41,7 @@ class _FakeAsyncClient:
     async def post(self, _url, *, json, headers):
         self.payload = json
         type(self).payload = json
+        type(self).headers = headers
         return _FakeResponse()
 
 
@@ -101,6 +103,34 @@ async def test_initial_invitation_link_returns_resend_message_id(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_course_assignment_uses_stable_provider_idempotency_key(monkeypatch):
+    monkeypatch.setattr(
+        "app.core.email.get_settings",
+        lambda: SimpleNamespace(
+            EMAIL_PROVIDER="resend",
+            RESEND_API_KEY="test-key",
+            EMAIL_FROM="Kamilya LMS <noreply@example.kz>",
+        ),
+    )
+    _FakeAsyncClient.headers = None
+    monkeypatch.setattr("app.core.email.httpx.AsyncClient", _FakeAsyncClient)
+
+    message_id = await EmailService().send_course_assignment(
+        to_email="learner@example.kz",
+        company_name="Test company",
+        learner_name="Learner",
+        course_title="Safety",
+        access_url="https://app.kml.kz/courses/123",
+        activation_required=False,
+        idempotency_key="course-assignment/00000000-0000-0000-0000-000000000001",
+    )
+
+    assert message_id == "msg_test_123"
+    assert _FakeAsyncClient.headers is not None
+    assert _FakeAsyncClient.headers["Idempotency-Key"] == ("course-assignment/00000000-0000-0000-0000-000000000001")
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("language", "subject_fragment", "text_fragment"),
     [
@@ -138,7 +168,11 @@ async def test_invitation_link_uses_tenant_language_and_russian_fallback(
     assert text_fragment in payload["text"]
     assert "ЭЦП" not in payload["text"]
     assert "EDS" not in payload["text"]
-    assert "activation" in payload["text"].lower() or "активац" in payload["text"].lower() or "белсендіру" in payload["text"]
+    assert (
+        "activation" in payload["text"].lower()
+        or "активац" in payload["text"].lower()
+        or "белсендіру" in payload["text"]
+    )
 
 
 @pytest.mark.asyncio
@@ -157,15 +191,15 @@ async def test_invitation_link_escapes_html_context(monkeypatch):
     await EmailService().send_invitation_link(
         to_email="learner@example.kz",
         invite_url='https://app.kml.kz/accept-invite?token="quoted"&x=1',
-        company_name='<Company & Co>',
-        learner_name='<Learner>',
+        company_name="<Company & Co>",
+        learner_name="<Learner>",
         language="ru",
     )
 
     html = _FakeAsyncClient.payload["html"]
     assert "&lt;Company &amp; Co&gt;" in html
     assert "&lt;Learner&gt;" in html
-    assert '&quot;quoted&quot;' in html
+    assert "&quot;quoted&quot;" in html
     assert "<Company" not in html
 
 
@@ -207,9 +241,7 @@ async def test_resend_rejection_is_sanitized_and_does_not_log_provider_payload(m
     ("status_code", "category"),
     [(429, "provider_rate_limited"), (500, "provider_unavailable"), (503, "provider_unavailable")],
 )
-async def test_resend_transient_provider_statuses_are_classified_for_retry(
-    monkeypatch, status_code, category
-):
+async def test_resend_transient_provider_statuses_are_classified_for_retry(monkeypatch, status_code, category):
     class StatusClient(_FakeAsyncClient):
         async def post(self, _url, *, json, headers):
             return _StatusResponse(status_code)

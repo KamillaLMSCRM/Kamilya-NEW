@@ -1,35 +1,34 @@
+from datetime import UTC, datetime
+from uuid import UUID
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
-from uuid import UUID
-from datetime import datetime, timezone
-from typing import Optional
 
 from app.core.auth import get_current_user, require_role, require_tenant_user
 from app.core.db import get_db
-from app.models.users import User
 from app.models.courses import Course
-from app.models.enrollment import Enrollment
 from app.models.document import Document
+from app.models.enrollment import Enrollment
+from app.models.users import User
 from app.modules.audit.service import log_action
-from app.modules.courses.schemas import (
-    CourseCreate,
-    CourseUpdate,
-    CourseResponse,
-    CoursePreviewResponse,
-    CoursePreviewModule,
-    CoursePreviewLesson,
-    CourseReviewRequest,
-    CourseReviewer,
-    CoursePreviewRequest,
-    CoursePreviewSourceDocument,
-    CourseCompletionResponse,
-)
 from app.modules.courses.access import AUTHORING_ROLES, require_course_access
 from app.modules.courses.publication_service import (
     activate_course_assignments,
     refresh_course_assignments,
+)
+from app.modules.courses.schemas import (
+    CourseCompletionResponse,
+    CourseCreate,
+    CoursePreviewLesson,
+    CoursePreviewModule,
+    CoursePreviewResponse,
+    CoursePreviewSourceDocument,
+    CourseResponse,
+    CourseReviewer,
+    CourseReviewRequest,
+    CourseUpdate,
 )
 
 router = APIRouter(
@@ -39,7 +38,7 @@ router = APIRouter(
 )
 
 
-async def _hydrate_reviewer(db: AsyncSession, course: Course) -> Optional[CourseReviewer]:
+async def _hydrate_reviewer(db: AsyncSession, course: Course) -> CourseReviewer | None:
     """Resolve the reviewer user record into a small embed (best-effort).
     Returns None if there is no reviewer on this course."""
     if not course.reviewed_by:
@@ -52,8 +51,8 @@ async def _hydrate_reviewer(db: AsyncSession, course: Course) -> Optional[Course
 
 @router.get("", response_model=list[CourseResponse])
 async def list_courses(
-    status: Optional[str] = Query(None, description="Filter by status: draft, published, archived"),
-    q: Optional[str] = Query(None, description="Search in title and description"),
+    status: str | None = Query(None, description="Filter by status: draft, published, archived"),
+    q: str | None = Query(None, description="Search in title and description"),
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
@@ -73,9 +72,7 @@ async def list_courses(
         query = query.where(Course.status == status)
     if q:
         search = f"%{q}%"
-        query = query.where(
-            (Course.title.ilike(search)) | (Course.description.ilike(search))
-        )
+        query = query.where((Course.title.ilike(search)) | (Course.description.ilike(search)))
     query = query.order_by(Course.created_at.desc())
     query = query.offset((page - 1) * per_page).limit(per_page)
     result = await db.execute(query)
@@ -109,8 +106,12 @@ async def create_course(
     await db.flush()
     await db.refresh(course)
     await log_action(
-        db, user.tenant_id, "create", "course",
-        resource_id=str(course.id), user_id=user.id,
+        db,
+        user.tenant_id,
+        "create",
+        "course",
+        resource_id=str(course.id),
+        user_id=user.id,
         details={"title": course.title},
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent"),
@@ -144,17 +145,14 @@ async def get_course_preview(
     Designed so the methodologist can sanity-check what the AI produced
     without needing to open every lesson in the editor.
     """
-    from app.modules.lessons.models import Module, Lesson
-    from app.modules.quizzes.models import Quiz, Question
+    from app.modules.lessons.models import Module
+    from app.modules.quizzes.models import Question, Quiz
 
     course = (
         await db.execute(
             select(Course)
             .where(Course.id == course_id, Course.tenant_id == user.tenant_id)
-            .options(
-                selectinload(Course.modules)
-                .selectinload(Module.lessons)
-            )
+            .options(selectinload(Course.modules).selectinload(Module.lessons))
         )
     ).scalar_one_or_none()
     if not course:
@@ -169,10 +167,10 @@ async def get_course_preview(
     quiz_q_counts: dict[UUID, int] = {}
     if lesson_ids:
         quizzes_rows = (
-            await db.execute(
-                select(Quiz).where(Quiz.lesson_id.in_(lesson_ids), Quiz.tenant_id == user.tenant_id)
-            )
-        ).scalars().all()
+            (await db.execute(select(Quiz).where(Quiz.lesson_id.in_(lesson_ids), Quiz.tenant_id == user.tenant_id)))
+            .scalars()
+            .all()
+        )
         for q in quizzes_rows:
             quiz_by_lesson[q.lesson_id] = q
         counts_rows = (
@@ -194,13 +192,17 @@ async def get_course_preview(
             continue
     if source_ids:
         source_rows = (
-            await db.execute(
-                select(Document).where(
-                    Document.tenant_id == user.tenant_id,
-                    Document.id.in_(source_ids),
+            (
+                await db.execute(
+                    select(Document).where(
+                        Document.tenant_id == user.tenant_id,
+                        Document.id.in_(source_ids),
+                    )
                 )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         source_by_id = {document.id: document for document in source_rows}
         source_documents = [
             CoursePreviewSourceDocument(
@@ -223,31 +225,35 @@ async def get_course_preview(
             preview_text = (l.content or "").strip()
             if len(preview_text) > max_chars:
                 preview_text = preview_text[:max_chars].rstrip() + "…"
-            lessons_out.append(CoursePreviewLesson(
-                id=l.id,
-                title=l.title,
-                content_type=l.content_type,
-                content_preview=preview_text,
-                duration_seconds=l.duration_seconds,
-                order_index=l.order_index,
-                has_quiz=quiz is not None,
-                quiz_id=quiz.id if quiz else None,
-                quiz_title=quiz.title if quiz else None,
-                quiz_question_count=quiz_q_counts.get(quiz.id, 0) if quiz else 0,
-                source_document_ids=list(l.source_document_ids or []),
-                source_references=list(l.source_references or []),
-                source_validation_status=l.source_validation_status,
-            ))
+            lessons_out.append(
+                CoursePreviewLesson(
+                    id=l.id,
+                    title=l.title,
+                    content_type=l.content_type,
+                    content_preview=preview_text,
+                    duration_seconds=l.duration_seconds,
+                    order_index=l.order_index,
+                    has_quiz=quiz is not None,
+                    quiz_id=quiz.id if quiz else None,
+                    quiz_title=quiz.title if quiz else None,
+                    quiz_question_count=quiz_q_counts.get(quiz.id, 0) if quiz else 0,
+                    source_document_ids=list(l.source_document_ids or []),
+                    source_references=list(l.source_references or []),
+                    source_validation_status=l.source_validation_status,
+                )
+            )
             total_lessons += 1
             if quiz:
                 total_quizzes += 1
-        preview_modules.append(CoursePreviewModule(
-            id=m.id,
-            title=m.title,
-            description=m.description,
-            order_index=m.order_index,
-            lessons=lessons_out,
-        ))
+        preview_modules.append(
+            CoursePreviewModule(
+                id=m.id,
+                title=m.title,
+                description=m.description,
+                order_index=m.order_index,
+                lessons=lessons_out,
+            )
+        )
 
     return CoursePreviewResponse(
         id=course.id,
@@ -279,9 +285,7 @@ async def review_course(
     and review_comment. Designed for the AI-generation review step where
     the methodologist validates the AI's output before it goes to staff.
     """
-    result = await db.execute(
-        select(Course).where(Course.id == course_id, Course.tenant_id == user.tenant_id)
-    )
+    result = await db.execute(select(Course).where(Course.id == course_id, Course.tenant_id == user.tenant_id))
     course = result.scalar_one_or_none()
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
@@ -308,10 +312,11 @@ async def review_course(
 
     course.review_status = req.review_status
     course.reviewed_by = user.id
-    course.reviewed_at = datetime.now(timezone.utc)
+    course.reviewed_at = datetime.now(UTC)
     course.review_comment = req.comment
     if req.review_status == "approved":
         from sqlalchemy import update
+
         from app.modules.lessons.models import Lesson, Module
 
         module_ids = select(Module.id).where(
@@ -330,8 +335,12 @@ async def review_course(
     await db.flush()
     await db.refresh(course)
     await log_action(
-        db, user.tenant_id, "review", "course",
-        resource_id=str(course.id), user_id=user.id,
+        db,
+        user.tenant_id,
+        "review",
+        "course",
+        resource_id=str(course.id),
+        user_id=user.id,
         details={
             "review_status": req.review_status,
             "has_comment": bool(req.comment and req.comment.strip()),
@@ -352,9 +361,7 @@ async def update_course(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role("superadmin", "methodologist")),
 ):
-    result = await db.execute(
-        select(Course).where(Course.id == course_id, Course.tenant_id == user.tenant_id)
-    )
+    result = await db.execute(select(Course).where(Course.id == course_id, Course.tenant_id == user.tenant_id))
     course = result.scalar_one_or_none()
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
@@ -363,8 +370,12 @@ async def update_course(
     await db.flush()
     await db.refresh(course)
     await log_action(
-        db, user.tenant_id, "update", "course",
-        resource_id=str(course.id), user_id=user.id,
+        db,
+        user.tenant_id,
+        "update",
+        "course",
+        resource_id=str(course.id),
+        user_id=user.id,
         details=req.model_dump(exclude_unset=True),
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent"),
@@ -381,14 +392,34 @@ async def publish_course(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role("superadmin", "methodologist")),
 ):
-    result = await db.execute(
-        select(Course).where(Course.id == course_id, Course.tenant_id == user.tenant_id)
-    )
+    result = await db.execute(select(Course).where(Course.id == course_id, Course.tenant_id == user.tenant_id))
     course = result.scalar_one_or_none()
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
     if course.status == "published":
         raise HTTPException(status_code=409, detail="Course is already published")
+    from app.modules.lessons.models import Lesson, Module
+    from app.modules.quizzes.models import Quiz
+
+    stale_quiz = await db.scalar(
+        select(Quiz.id)
+        .join(Lesson, Lesson.id == Quiz.lesson_id)
+        .join(Module, Module.id == Lesson.module_id)
+        .where(
+            Module.course_id == course.id,
+            Quiz.tenant_id == user.tenant_id,
+            Quiz.review_status == "needs_review",
+        )
+        .limit(1)
+    )
+    if stale_quiz:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "quiz_review_required",
+                "message": "Перед публикацией проверьте тесты, отмеченные после изменения урока.",
+            },
+        )
     blueprint_marker = (course.source_analysis or {}).get("blueprint") or {}
     if blueprint_marker:
         from app.modules.courses.blueprint_service import (
@@ -421,10 +452,7 @@ async def publish_course(
             status_code=409,
             detail={
                 "code": "course_review_required",
-                "message": (
-                    "Перед публикацией AI-курс должен быть проверен "
-                    "и одобрен методологом"
-                ),
+                "message": ("Перед публикацией AI-курс должен быть проверен " "и одобрен методологом"),
             },
         )
     if course.source_instruction_id is not None and not course.ai_generated:
@@ -432,22 +460,24 @@ async def publish_course(
             status_code=409,
             detail={
                 "code": "instruction_course_incomplete",
-                "message": (
-                    "Генерация курса по должностной инструкции ещё не завершена"
-                ),
+                "message": ("Генерация курса по должностной инструкции ещё не завершена"),
             },
         )
     from app.modules.courses.release_service import create_course_release
 
     release = await create_course_release(db, course, published_by=user.id)
     course.status = "published"
-    course.published_at = release.published_at or datetime.now(timezone.utc)
+    course.published_at = release.published_at or datetime.now(UTC)
     await db.flush()
     await activate_course_assignments(db, course)
     await db.refresh(course)
     await log_action(
-        db, user.tenant_id, "publish", "course",
-        resource_id=str(course.id), user_id=user.id,
+        db,
+        user.tenant_id,
+        "publish",
+        "course",
+        resource_id=str(course.id),
+        user_id=user.id,
         details={
             "content_release_id": str(release.id),
             "content_release_version": release.version,
@@ -468,9 +498,7 @@ async def unpublish_course(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role("superadmin", "methodologist")),
 ):
-    result = await db.execute(
-        select(Course).where(Course.id == course_id, Course.tenant_id == user.tenant_id)
-    )
+    result = await db.execute(select(Course).where(Course.id == course_id, Course.tenant_id == user.tenant_id))
     course = result.scalar_one_or_none()
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
@@ -480,8 +508,12 @@ async def unpublish_course(
     await refresh_course_assignments(db, course)
     await db.refresh(course)
     await log_action(
-        db, user.tenant_id, "unpublish", "course",
-        resource_id=str(course.id), user_id=user.id,
+        db,
+        user.tenant_id,
+        "unpublish",
+        "course",
+        resource_id=str(course.id),
+        user_id=user.id,
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent"),
     )
@@ -499,9 +531,7 @@ async def duplicate_course(
 ):
     from app.core.trial_limits import assert_can_create_courses
 
-    result = await db.execute(
-        select(Course).where(Course.id == course_id, Course.tenant_id == user.tenant_id)
-    )
+    result = await db.execute(select(Course).where(Course.id == course_id, Course.tenant_id == user.tenant_id))
     course = result.scalar_one_or_none()
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
@@ -517,8 +547,12 @@ async def duplicate_course(
     await db.flush()
     await db.refresh(new_course)
     await log_action(
-        db, user.tenant_id, "duplicate", "course",
-        resource_id=str(new_course.id), user_id=user.id,
+        db,
+        user.tenant_id,
+        "duplicate",
+        "course",
+        resource_id=str(new_course.id),
+        user_id=user.id,
         details={"original_id": str(course.id), "title": new_course.title},
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent"),
@@ -535,9 +569,7 @@ async def delete_course(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role("superadmin", "methodologist")),
 ):
-    result = await db.execute(
-        select(Course).where(Course.id == course_id, Course.tenant_id == user.tenant_id)
-    )
+    result = await db.execute(select(Course).where(Course.id == course_id, Course.tenant_id == user.tenant_id))
     course = result.scalar_one_or_none()
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
@@ -547,8 +579,12 @@ async def delete_course(
             detail="Published course evidence cannot be deleted; archive the course instead",
         )
     await log_action(
-        db, user.tenant_id, "delete", "course",
-        resource_id=str(course.id), user_id=user.id,
+        db,
+        user.tenant_id,
+        "delete",
+        "course",
+        resource_id=str(course.id),
+        user_id=user.id,
         details={"title": course.title},
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent"),
@@ -563,48 +599,48 @@ async def _complete_course_for_user(db: AsyncSession, course_id: UUID, user: Use
     from app.modules.audit.service import log_action
     from app.modules.certificates.service import issue_certificate
     from app.modules.courses.release_models import ContentRelease
+    from app.modules.enrollments.context import current_enrollment
     from app.modules.lessons.models import Lesson, Module
-    from app.modules.quizzes.models import Quiz, QuizAttempt, Question
+    from app.modules.quizzes.models import Question, Quiz, QuizAttempt
 
-    result = await db.execute(
-        select(Enrollment).where(
-            Enrollment.course_id == course_id,
-            Enrollment.user_id == user.id,
-            Enrollment.tenant_id == user.tenant_id,
-        )
-    )
-    enrollment = result.scalar_one_or_none()
+    enrollment = await current_enrollment(db, tenant_id=user.tenant_id, user_id=user.id, course_id=course_id)
 
-    course_result = await db.execute(
-        select(Course).where(Course.id == course_id, Course.tenant_id == user.tenant_id)
-    )
+    course_result = await db.execute(select(Course).where(Course.id == course_id, Course.tenant_id == user.tenant_id))
     course = course_result.scalar_one_or_none()
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
 
-    total_lessons = await db.scalar(
-        select(func.count(Lesson.id))
-        .join(Module, Lesson.module_id == Module.id)
-        .where(
-            Module.course_id == course_id,
-            Module.tenant_id == user.tenant_id,
-            Lesson.tenant_id == user.tenant_id,
+    total_lessons = (
+        await db.scalar(
+            select(func.count(Lesson.id))
+            .join(Module, Lesson.module_id == Module.id)
+            .where(
+                Module.course_id == course_id,
+                Module.tenant_id == user.tenant_id,
+                Lesson.tenant_id == user.tenant_id,
+            )
         )
-    ) or 0
+        or 0
+    )
     if total_lessons == 0:
         raise HTTPException(status_code=400, detail="Course has no lessons")
 
-    completed_lessons = await db.scalar(
-        select(func.count(func.distinct(Progress.lesson_id)))
-        .join(Lesson, Progress.lesson_id == Lesson.id)
-        .join(Module, Lesson.module_id == Module.id)
-        .where(
-            Module.course_id == course_id,
-            Progress.user_id == user.id,
-            Progress.tenant_id == user.tenant_id,
-            Progress.completed == True,
+    completed_lessons = (
+        await db.scalar(
+            select(func.count(func.distinct(Progress.lesson_id)))
+            .join(Lesson, Progress.lesson_id == Lesson.id)
+            .join(Module, Lesson.module_id == Module.id)
+            .where(
+                Module.course_id == course_id,
+                Progress.user_id == user.id,
+                Progress.tenant_id == user.tenant_id,
+                Progress.completed.is_(True),
+                Progress.enrollment_id
+                == (enrollment.id if enrollment and enrollment.recurring_assignment_id else None),
+            )
         )
-    ) or 0
+        or 0
+    )
     if completed_lessons < total_lessons:
         raise HTTPException(
             status_code=400,
@@ -615,31 +651,38 @@ async def _complete_course_for_user(db: AsyncSession, course_id: UUID, user: Use
             },
         )
 
-    total_quizzes = await db.scalar(
-        select(func.count(func.distinct(Quiz.id)))
-        .join(Lesson, Quiz.lesson_id == Lesson.id)
-        .join(Module, Lesson.module_id == Module.id)
-        .join(Question, Question.quiz_id == Quiz.id)
-        .where(
-            Module.course_id == course_id,
-            Module.tenant_id == user.tenant_id,
-            Quiz.tenant_id == user.tenant_id,
+    total_quizzes = (
+        await db.scalar(
+            select(func.count(func.distinct(Quiz.id)))
+            .join(Lesson, Quiz.lesson_id == Lesson.id)
+            .join(Module, Lesson.module_id == Module.id)
+            .join(Question, Question.quiz_id == Quiz.id)
+            .where(
+                Module.course_id == course_id,
+                Module.tenant_id == user.tenant_id,
+                Quiz.tenant_id == user.tenant_id,
+            )
         )
-    ) or 0
-    passed_quizzes = await db.scalar(
-        select(func.count(func.distinct(QuizAttempt.quiz_id)))
-        .join(Quiz, QuizAttempt.quiz_id == Quiz.id)
-        .join(Lesson, Quiz.lesson_id == Lesson.id)
-        .join(Module, Lesson.module_id == Module.id)
-        .join(Question, Question.quiz_id == Quiz.id)
-        .where(
-            Module.course_id == course_id,
-            Quiz.tenant_id == user.tenant_id,
-            QuizAttempt.user_id == user.id,
-            QuizAttempt.tenant_id == user.tenant_id,
-            QuizAttempt.passed == True,
+        or 0
+    )
+    passed_quizzes = (
+        await db.scalar(
+            select(func.count(func.distinct(QuizAttempt.quiz_id)))
+            .join(Quiz, QuizAttempt.quiz_id == Quiz.id)
+            .join(Lesson, Quiz.lesson_id == Lesson.id)
+            .join(Module, Lesson.module_id == Module.id)
+            .join(Question, Question.quiz_id == Quiz.id)
+            .where(
+                Module.course_id == course_id,
+                Quiz.tenant_id == user.tenant_id,
+                QuizAttempt.user_id == user.id,
+                QuizAttempt.tenant_id == user.tenant_id,
+                QuizAttempt.passed.is_(True),
+                QuizAttempt.enrollment_id == (enrollment.id if enrollment else None),
+            )
         )
-    ) or 0
+        or 0
+    )
     if passed_quizzes < total_quizzes:
         raise HTTPException(
             status_code=400,
@@ -691,7 +734,7 @@ async def _complete_course_for_user(db: AsyncSession, course_id: UUID, user: Use
     was_already_completed = enrollment.status == "completed"
     if not was_already_completed:
         enrollment.status = "completed"
-        enrollment.completed_at = datetime.now(timezone.utc)
+        enrollment.completed_at = datetime.now(UTC)
         # A completed required step can unlock the next course in one or more
         # assigned learning programs. Keep this in the same transaction as the
         # completion so learners never observe a completed step without the
@@ -711,6 +754,7 @@ async def _complete_course_for_user(db: AsyncSession, course_id: UUID, user: Use
         user_id=user.id,
         course_id=course_id,
         tenant_id=user.tenant_id,
+        enrollment_id=enrollment.id,
     )
     cert_number = cert.certificate_number
     cert_id = str(cert.id)
@@ -734,6 +778,18 @@ async def _complete_course_for_user(db: AsyncSession, course_id: UUID, user: Use
         enrollment=enrollment,
         certificate=cert,
     )
+
+    if enrollment.recurring_assignment_id:
+        from app.modules.learning_cycles.models import RecurringLearningAssignment
+
+        occurrence = await db.scalar(
+            select(RecurringLearningAssignment).where(
+                RecurringLearningAssignment.id == enrollment.recurring_assignment_id,
+                RecurringLearningAssignment.tenant_id == user.tenant_id,
+            )
+        )
+        if occurrence is not None:
+            occurrence.status = "completed"
 
     await db.commit()
     return {

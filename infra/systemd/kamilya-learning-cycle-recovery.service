@@ -1,0 +1,11 @@
+[Unit]
+Description=Materialize due Kamilya recurring learning rules
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/kamilya-worker/apps/api
+Environment=PYTHONPATH=/opt/kamilya-worker/apps/api
+Environment=APP_ENV=production
+EnvironmentFile=/opt/kamilya-worker/apps/api/.env
+ExecStart=/opt/kamilya-worker/apps/api/.venv/bin/python -m app.modules.learning_cycles.recovery

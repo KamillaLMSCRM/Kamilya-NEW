@@ -1,12 +1,14 @@
 """Quiz service — grading and attempt management"""
-from typing import Iterable
-from uuid import UUID, uuid4
-from datetime import datetime, timezone, timedelta
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
 
-from app.modules.quizzes.models import Quiz, Question, QuizChoice, QuizAttempt
+from collections.abc import Iterable
+from datetime import UTC, datetime, timedelta
+from uuid import UUID, uuid4
+
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.modules.courses.release_service import canonical_json_sha256, ensure_course_release
+from app.modules.quizzes.models import Question, Quiz, QuizAttempt, QuizChoice
 
 
 async def get_quiz_with_questions(
@@ -15,6 +17,7 @@ async def get_quiz_with_questions(
     tenant_id: UUID,
     *,
     include_correct_answers: bool = True,
+    include_explanations: bool = True,
 ):
     """Get quiz with all questions and choices (single quiz).
 
@@ -27,6 +30,7 @@ async def get_quiz_with_questions(
         [quiz_id],
         tenant_id,
         include_correct_answers=include_correct_answers,
+        include_explanations=include_explanations,
     )
     return results[0] if results else None
 
@@ -37,6 +41,7 @@ async def get_quizzes_with_questions(
     tenant_id: UUID,
     *,
     include_correct_answers: bool = True,
+    include_explanations: bool = True,
 ) -> list[dict]:
     """Fetch many quizzes (with their questions+choices) in 3 batched queries.
 
@@ -97,59 +102,72 @@ async def get_quizzes_with_questions(
 
     out: list[dict] = []
     for quiz in quizzes:
-        out.append({
-            "id": quiz.id,
-            "lesson_id": quiz.lesson_id,
-            "title": quiz.title,
-            "pass_score": quiz.pass_score,
-            "time_limit": quiz.time_limit,
-            "attempt_limit": quiz.attempt_limit,
-            "deferral_days": quiz.deferral_days,
-            "questions": [
-                {
-                    "id": q.id,
-                    "text": q.text,
-                    "type": q.type,
-                    "points": q.points,
-                    "explanation": q.explanation,
-                    "order_index": q.order_index,
-                    "choices": [
-                        {
-                            "id": c.id,
-                            "text": c.text,
-                            "order_index": c.order_index,
-                            "is_correct": c.is_correct if include_correct_answers else False,
-                        }
-                        for c in choices_by_qid.get(q.id, [])
-                    ],
-                }
-                for q in questions_by_quiz.get(quiz.id, [])
-            ],
-        })
+        out.append(
+            {
+                "id": quiz.id,
+                "lesson_id": quiz.lesson_id,
+                "title": quiz.title,
+                "pass_score": quiz.pass_score,
+                "time_limit": quiz.time_limit,
+                "attempt_limit": quiz.attempt_limit,
+                "deferral_days": quiz.deferral_days,
+                "review_status": quiz.review_status,
+                "questions": [
+                    {
+                        "id": q.id,
+                        "text": q.text,
+                        "type": q.type,
+                        "points": q.points,
+                        "explanation": q.explanation if include_explanations else None,
+                        "order_index": q.order_index,
+                        "choices": [
+                            {
+                                "id": c.id,
+                                "text": c.text,
+                                "order_index": c.order_index,
+                                "is_correct": c.is_correct if include_correct_answers else False,
+                            }
+                            for c in choices_by_qid.get(q.id, [])
+                        ],
+                    }
+                    for q in questions_by_quiz.get(quiz.id, [])
+                ],
+            }
+        )
     return out
 
 
-async def _is_quiz_expired(
-    db: AsyncSession, quiz: Quiz, user_id: UUID, tenant_id: UUID
-) -> bool:
+async def _is_quiz_expired(db: AsyncSession, quiz: Quiz, user_id: UUID, tenant_id: UUID) -> bool:
     """Return True if deferral window expired (no lesson completion in time).
 
     If user never completed the lesson, deferral hasn't started — quiz is NOT
     considered expired (methodologist may have shared quiz without forced progression).
     """
     from app.models.progress import Progress
+    from app.modules.enrollments.context import current_enrollment
+    from app.modules.lessons.models import Lesson, Module
+
+    course_id = await db.scalar(
+        select(Module.course_id).join(Lesson, Lesson.module_id == Module.id).where(Lesson.id == quiz.lesson_id)
+    )
+    enrollment = (
+        await current_enrollment(db, tenant_id=tenant_id, user_id=user_id, course_id=course_id) if course_id else None
+    )
+    progress_enrollment_id = enrollment.id if enrollment and enrollment.recurring_assignment_id else None
+
     progress_result = await db.execute(
         select(Progress).where(
             Progress.user_id == user_id,
             Progress.lesson_id == quiz.lesson_id,
             Progress.tenant_id == tenant_id,
+            Progress.enrollment_id == progress_enrollment_id,
         )
     )
     progress = progress_result.scalar_one_or_none()
     if not progress or not progress.completed_at:
         return False
     deadline = progress.completed_at + timedelta(days=quiz.deferral_days)
-    return datetime.now(timezone.utc) > deadline
+    return datetime.now(UTC) > deadline
 
 
 async def grade_quiz(
@@ -161,42 +179,31 @@ async def grade_quiz(
     time_spent_seconds: int | None = None,
 ) -> dict:
     """Grade one complete, tenant-scoped quiz submission and preserve evidence."""
-    quiz = await db.scalar(
-        select(Quiz).where(Quiz.id == quiz_id, Quiz.tenant_id == tenant_id)
-    )
+    quiz = await db.scalar(select(Quiz).where(Quiz.id == quiz_id, Quiz.tenant_id == tenant_id))
     if not quiz:
         raise ValueError("Quiz not found")
 
     # Enforce deferral window
     if await _is_quiz_expired(db, quiz, user_id, tenant_id):
         raise ValueError(
-            f"Quiz deferral window expired ({quiz.deferral_days} days). "
-            "Contact your methodologist to re-open."
+            f"Quiz deferral window expired ({quiz.deferral_days} days). " "Contact your methodologist to re-open."
         )
-
-    # Check attempt limit
-    attempt_count_result = await db.execute(
-        select(func.count(QuizAttempt.id)).where(
-            QuizAttempt.quiz_id == quiz_id,
-            QuizAttempt.user_id == user_id,
-            QuizAttempt.tenant_id == tenant_id,
-        )
-    )
-    attempt_count = attempt_count_result.scalar() or 0
-    if attempt_count >= quiz.attempt_limit:
-        raise ValueError(f"Attempt limit reached ({quiz.attempt_limit})")
 
     questions = (
-        await db.execute(
-            select(Question)
-            .join(Quiz, Quiz.id == Question.quiz_id)
-            .where(
-                Question.quiz_id == quiz_id,
-                Quiz.tenant_id == tenant_id,
+        (
+            await db.execute(
+                select(Question)
+                .join(Quiz, Quiz.id == Question.quiz_id)
+                .where(
+                    Question.quiz_id == quiz_id,
+                    Quiz.tenant_id == tenant_id,
+                )
+                .order_by(Question.order_index, Question.id)
             )
-            .order_by(Question.order_index, Question.id)
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     if not questions:
         raise ValueError("Quiz has no questions")
 
@@ -206,10 +213,7 @@ async def grade_quiz(
     for answer in answers:
         try:
             question_id = UUID(str(answer.get("question_id")))
-            selected_ids = [
-                UUID(str(choice_id))
-                for choice_id in answer.get("selected_choice_ids", [])
-            ]
+            selected_ids = [UUID(str(choice_id)) for choice_id in answer.get("selected_choice_ids", [])]
         except (TypeError, ValueError) as exc:
             raise ValueError("Quiz submission contains an invalid identifier") from exc
         if question_id in normalized_answers:
@@ -222,22 +226,22 @@ async def grade_quiz(
     if set(submitted_question_ids) != expected_question_ids:
         missing = len(expected_question_ids - set(submitted_question_ids))
         unknown = len(set(submitted_question_ids) - expected_question_ids)
-        raise ValueError(
-            f"Submit every quiz question exactly once (missing={missing}, unknown={unknown})"
-        )
+        raise ValueError(f"Submit every quiz question exactly once (missing={missing}, unknown={unknown})")
 
     all_choices = []
     if expected_question_ids:
         all_choices = (
-            await db.execute(
-                select(QuizChoice)
-                .where(QuizChoice.question_id.in_(expected_question_ids))
-                .order_by(QuizChoice.question_id, QuizChoice.order_index, QuizChoice.id)
+            (
+                await db.execute(
+                    select(QuizChoice)
+                    .where(QuizChoice.question_id.in_(expected_question_ids))
+                    .order_by(QuizChoice.question_id, QuizChoice.order_index, QuizChoice.id)
+                )
             )
-        ).scalars().all()
-    choices_by_question: dict[UUID, list[QuizChoice]] = {
-        question_id: [] for question_id in expected_question_ids
-    }
+            .scalars()
+            .all()
+        )
+    choices_by_question: dict[UUID, list[QuizChoice]] = {question_id: [] for question_id in expected_question_ids}
     for choice in all_choices:
         choices_by_question.setdefault(choice.question_id, []).append(choice)
 
@@ -255,28 +259,27 @@ async def grade_quiz(
         selected_set = set(selected_ids)
         if not selected_set.issubset(valid_choice_ids):
             raise ValueError("A selected choice does not belong to its question")
-        correct_ids = {
-            choice.id for choice in question_choices if choice.is_correct
-        }
+        correct_ids = {choice.id for choice in question_choices if choice.is_correct}
 
         is_correct = correct_ids == selected_set
         if is_correct:
             earned_points += question.points
 
-        graded_answers.append({
-            "question_id": str(question_id),
-            "selected_choice_ids": sorted(str(choice_id) for choice_id in selected_set),
-            "correct_choice_ids": sorted(str(choice_id) for choice_id in correct_ids),
-            "is_correct": is_correct,
-            "points_earned": question.points if is_correct else 0,
-            "points_possible": question.points,
-        })
+        graded_answers.append(
+            {
+                "question_id": str(question_id),
+                "selected_choice_ids": sorted(str(choice_id) for choice_id in selected_set),
+                "correct_choice_ids": sorted(str(choice_id) for choice_id in correct_ids),
+                "is_correct": is_correct,
+                "points_earned": question.points if is_correct else 0,
+                "points_possible": question.points,
+            }
+        )
 
     # Calculate score
     score_percent = round((earned_points / total_points * 100) if total_points > 0 else 0)
     passed = score_percent >= quiz.pass_score
 
-    from app.models.enrollment import Enrollment
     from app.modules.courses.models import Course
     from app.modules.courses.release_models import ContentRelease
     from app.modules.lessons.models import Lesson, Module
@@ -294,15 +297,25 @@ async def grade_quiz(
     )
     if not course:
         raise ValueError("Quiz course not found")
-    enrollment = await db.scalar(
-        select(Enrollment).where(
-            Enrollment.course_id == course.id,
-            Enrollment.user_id == user_id,
-            Enrollment.tenant_id == tenant_id,
-        )
-    )
+    from app.modules.enrollments.context import current_enrollment
+
+    enrollment = await current_enrollment(db, tenant_id=tenant_id, user_id=user_id, course_id=course.id)
     if enrollment is None:
         raise ValueError("Course enrollment is required before quiz submission")
+
+    attempt_count = (
+        await db.scalar(
+            select(func.count(QuizAttempt.id)).where(
+                QuizAttempt.quiz_id == quiz_id,
+                QuizAttempt.user_id == user_id,
+                QuizAttempt.tenant_id == tenant_id,
+                QuizAttempt.enrollment_id == enrollment.id,
+            )
+        )
+        or 0
+    )
+    if attempt_count >= quiz.attempt_limit:
+        raise ValueError(f"Attempt limit reached ({quiz.attempt_limit})")
 
     if enrollment.content_release_id is None:
         release = await ensure_course_release(db, course)
@@ -322,7 +335,7 @@ async def grade_quiz(
         if not release_sha256:
             raise ValueError("Course release evidence is inconsistent")
 
-    completed_at = datetime.now(timezone.utc)
+    completed_at = datetime.now(UTC)
     attempt_id = uuid4()
     evidence_snapshot = {
         "schema_version": 1,
@@ -332,9 +345,7 @@ async def grade_quiz(
             "user_id": str(user_id),
             "enrollment_id": str(enrollment.id) if enrollment else None,
             "course_id": str(course.id),
-            "content_release_id": (
-                str(content_release_id) if content_release_id else None
-            ),
+            "content_release_id": (str(content_release_id) if content_release_id else None),
             "content_release_sha256": release_sha256,
             "quiz_id": str(quiz.id),
             "started_at": completed_at.isoformat(),
@@ -399,27 +410,36 @@ async def grade_quiz(
     await db.flush()
     await db.refresh(attempt)
 
-    correct_count = sum(1 for a in graded_answers if a["is_correct"])
-
     return {
         "attempt": attempt,
-        "correct_answers": correct_count,
-        "total_questions": len(graded_answers),
         "passed": passed,
         "message": f"{'Поздравляем! Вы прошли тест.' if passed else 'Тест не пройден. Попробуйте ещё раз.'}",
     }
 
 
-async def get_user_attempts(
-    db: AsyncSession, quiz_id: UUID, user_id: UUID, tenant_id: UUID
-) -> list[QuizAttempt]:
-    """Get all attempts by a user for a quiz (with tenant isolation)."""
+async def get_user_attempts(db: AsyncSession, quiz_id: UUID, user_id: UUID, tenant_id: UUID) -> list[QuizAttempt]:
+    """Get attempts for the learner's current course occurrence."""
+    from app.modules.enrollments.context import current_enrollment
+    from app.modules.lessons.models import Lesson, Module
+
+    course_id = await db.scalar(
+        select(Module.course_id)
+        .join(Lesson, Lesson.module_id == Module.id)
+        .join(Quiz, Quiz.lesson_id == Lesson.id)
+        .where(Quiz.id == quiz_id, Quiz.tenant_id == tenant_id)
+    )
+    enrollment = (
+        await current_enrollment(db, tenant_id=tenant_id, user_id=user_id, course_id=course_id)
+        if course_id
+        else None
+    )
     result = await db.execute(
         select(QuizAttempt)
         .where(
             QuizAttempt.quiz_id == quiz_id,
             QuizAttempt.user_id == user_id,
             QuizAttempt.tenant_id == tenant_id,
+            QuizAttempt.enrollment_id == (enrollment.id if enrollment else None),
         )
         .order_by(QuizAttempt.started_at.desc())
     )

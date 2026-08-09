@@ -29,8 +29,11 @@ Required backend env:
 ```env
 DATABASE_URL=postgres://lms_app.<project-ref>:<password>@aws-1-eu-central-1.pooler.supabase.com:5432/postgres
 MIGRATION_DATABASE_URL=postgres://postgres.<project-ref>:<password>@aws-1-eu-central-1.pooler.supabase.com:5432/postgres
+ASSIGNMENT_RECOVERY_DATABASE_URL=postgres://lms_recovery.<project-ref>:<password>@aws-1-eu-central-1.pooler.supabase.com:5432/postgres
+CANDIDATE_RETENTION_DATABASE_URL=postgres://lms_candidate_retention.<project-ref>:<password>@aws-1-eu-central-1.pooler.supabase.com:5432/postgres
 REDIS_URL=...
 JWT_SECRET=...
+ASSIGNMENT_ACCESS_SESSION_MINUTES=240  # no-email assignment access; 30–480 minutes, no refresh cookie
 SUPABASE_URL=...
 SUPABASE_KEY=...
 SUPABASE_BUCKET=Kamilya LMS
@@ -46,6 +49,8 @@ Rules:
 
 - `DATABASE_URL` is runtime only and must use `lms_app`.
 - `MIGRATION_DATABASE_URL` is for Alembic and may use admin DB role.
+- `ASSIGNMENT_RECOVERY_DATABASE_URL` is used only by the bounded assignment-email recovery timer. It must use the dedicated `lms_recovery` role, which has schema usage and execute permission only on the global due-inventory function; never reuse it in the web API.
+- `CANDIDATE_RETENTION_DATABASE_URL` is used only by the hourly candidate-retention timer. It must use `lms_candidate_retention`, which receives schema usage and execute permission only on the bounded enforcement function. Never give this role table access and never reuse it in the API.
 - Supabase service role key stays backend-only.
 - Frontend must never receive service role secrets.
 - `RESEND_API_KEY` stays backend-only. Do not expose it in frontend env or docs.

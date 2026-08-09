@@ -47,6 +47,7 @@ interface Quiz {
   time_limit: number | null;
   attempt_limit: number;
   deferral_days: number;
+  review_status: 'approved' | 'needs_review';
   questions: Question[];
 }
 
@@ -532,6 +533,17 @@ export default function QuizzesAdminPage() {
     }
   };
 
+  const handleApproveQuiz = async () => {
+    if (!selectedQuiz || !token) return;
+    try {
+      const response = await api.post<Quiz>(`/v1/quizzes/${selectedQuiz.id}/approve`);
+      applyUpdatedQuiz(response.data);
+      toast.success('Тест одобрен для публикации и обучения');
+    } catch (error) {
+      toast.error(`Не удалось одобрить тест: ${apiErrorMessage(error)}`);
+    }
+  };
+
   // (Removed dev-only "Load quiz by ID" handler — the grouped list panel
 // is the only supported way to pick a quiz now. Methodologists don't
 // have access to UUIDs without opening the database.)
@@ -999,7 +1011,17 @@ export default function QuizzesAdminPage() {
                         selectedQuiz.questions.reduce((a, q) => a + q.points, 0)
                       )}
                     </div>
+                    {selectedQuiz.review_status === 'needs_review' && (
+                      <div className="mt-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+                        Урок изменён после создания теста. Проверьте вопросы или создайте AI-черновик заново, затем явно одобрите этот тест.
+                      </div>
+                    )}
                   </div>
+                  {selectedQuiz.review_status === 'needs_review' && (
+                    <Button size="sm" onClick={handleApproveQuiz}>
+                      Одобрить после проверки
+                    </Button>
+                  )}
                 </div>
                 <section className="mt-5" aria-labelledby="quiz-settings-heading">
                   <div className="mb-3 flex min-h-9 flex-wrap items-center justify-between gap-3">

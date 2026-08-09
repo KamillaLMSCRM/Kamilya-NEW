@@ -6,19 +6,19 @@ Endpoints:
 - GET /api/v1/admin/training-log                 list (JSON Page[T])
 - GET /api/v1/admin/training-log?format=csv      CSV stream
 """
+
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
+from fastapi import APIRouter, Depends, Query, Request, Response
 from fastapi.responses import StreamingResponse
-from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.auth import get_current_user, require_role
+from app.core.auth import require_role
 from app.core.db import get_db
 from app.models.users import User
 from app.modules.training_log.schemas import (
@@ -28,8 +28,8 @@ from app.modules.training_log.schemas import (
 )
 from app.modules.training_log.service import (
     get_training_log_page,
-    stream_training_log_as_csv,
     get_training_log_summary,
+    stream_training_log_as_csv,
 )
 
 logger = logging.getLogger(__name__)
@@ -39,10 +39,8 @@ router = APIRouter(
     tags=["admin"],
 )
 
-# Roles allowed to read the training log. Per ADR-0012 the training log is
-# a shared governance/learning concern: admin manages tenant operations, while
-# the methodologist owns learning trajectories. Superadmin is accepted but receives
-# an empty result without tenant context. Students are excluded.
+# Tenant admins may read/export reporting, while evidence management remains
+# methodologist-only in its separate API and UI flows.
 _TRAINING_LOG_ROLES = ("admin", "methodologist", "superadmin")
 
 
@@ -130,9 +128,7 @@ async def list_training_log(
             media_type="text/csv; charset=utf-8",
             headers={
                 "Content-Disposition": (
-                    'attachment; filename="training-log-'
-                    + datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
-                    + '.csv"'
+                    'attachment; filename="training-log-' + datetime.now(UTC).strftime("%Y%m%d-%H%M%S") + '.csv"'
                 ),
                 # No caching — training log is a live view.
                 "Cache-Control": "no-store",

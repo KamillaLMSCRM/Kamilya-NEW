@@ -139,7 +139,8 @@
     "staffSchedule": "Қызметкерлер және құрылым",
     "kiosks": "Киосктер",
     "trainingLog": "Оқу журналы",
-    "trainingRules": "Оқу ережелері"
+    "trainingRules": "Оқу ережелері",
+    "candidateAssessments": "Кандидаттарды бағалау"
   },
   "auth": {
     "login": "Кіру",

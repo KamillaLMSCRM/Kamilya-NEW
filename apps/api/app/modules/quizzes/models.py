@@ -1,8 +1,11 @@
 """Quiz models"""
+
 import uuid
-from datetime import datetime, timezone
-from sqlalchemy import Column, String, Integer, Boolean, DateTime, Text, ForeignKey, JSON
+from datetime import UTC, datetime
+
+from sqlalchemy import JSON, Boolean, Column, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
+
 from app.core.db import Base
 
 
@@ -17,7 +20,10 @@ class Quiz(Base):
     time_limit = Column(Integer, nullable=True)
     attempt_limit = Column(Integer, nullable=False, default=3)
     deferral_days = Column(Integer, nullable=False, default=7)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    review_status = Column(String, nullable=False, default="approved", server_default="approved")
+    reviewed_by = Column(UUID(as_uuid=True), nullable=True)
+    reviewed_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
 
 class Question(Base):
@@ -69,6 +75,6 @@ class QuizAttempt(Base):
     answers = Column(JSON, nullable=False, default=list)
     evidence_snapshot = Column(JSONB, nullable=True)
     evidence_sha256 = Column(String(64), nullable=True)
-    started_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    started_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
     completed_at = Column(DateTime(timezone=True), nullable=True)
     time_spent_seconds = Column(Integer, nullable=True)

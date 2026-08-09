@@ -7,7 +7,7 @@ import { Card, CardContent, Button, Badge } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
 import { toast } from '@/components/ui/Toast';
-import { CheckCircle2, XCircle, Circle, Lightbulb } from 'lucide-react';
+import { CheckCircle2, XCircle } from 'lucide-react';
 import { getRoleHome } from '@/lib/rolePolicy';
 import { EvidenceConfirmationPanel } from '@/features/training-evidence/EvidenceConfirmationPanel';
 
@@ -37,15 +37,6 @@ interface Quiz {
   questions: Question[];
 }
 
-interface GradedAnswer {
-  question_id: string;
-  selected_choice_ids: string[];
-  correct_choice_ids: string[];
-  is_correct: boolean;
-  points_earned: number;
-  points_possible: number;
-}
-
 interface QuizResult {
   attempt: {
     id: string;
@@ -55,13 +46,10 @@ interface QuizResult {
     total_points: number;
     earned_points: number;
     passed: boolean;
-    answers: GradedAnswer[];
     started_at: string;
     completed_at: string | null;
     time_spent_seconds: number | null;
   };
-  correct_answers: number;
-  total_questions: number;
   passed: boolean;
   message: string;
   training_evidence_event_id?: string;
@@ -91,7 +79,7 @@ export default function QuizPlayerPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const parentCourseId = searchParams.get('courseId');
-  const { t, tp } = useT();
+  const { t } = useT();
   const token = useAuthStore((s) => s.accessToken);
   const user = useAuthStore((s) => s.user);
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -105,7 +93,6 @@ export default function QuizPlayerPage() {
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const [attempts, setAttempts] = useState<QuizAttempt[]>([]);
   const [courseModules, setCourseModules] = useState<CourseModule[]>([]);
-  const [showReview, setShowReview] = useState(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const handleSubmitRef = useRef<() => void>(() => undefined);
 
@@ -193,7 +180,6 @@ export default function QuizPlayerPage() {
       if (res.ok) {
         const data = await res.json();
         setResult(data);
-        setShowReview(true);
         if (timerRef.current) clearInterval(timerRef.current);
         // Refresh attempts
         const attemptsRes = await fetch(`${API_URL}/v1/quizzes/${quizId}/attempts`, { headers: { Authorization: `Bearer ${token}` } });
@@ -218,7 +204,6 @@ export default function QuizPlayerPage() {
     setResult(null);
     setAnswers({});
     setCurrentIdx(0);
-    setShowReview(false);
     setLoading(true);
     fetchQuiz();
   };
@@ -237,7 +222,6 @@ export default function QuizPlayerPage() {
   const answeredCount = Object.keys(answers).length;
   const attemptsUsed = attempts.length;
   const canAttempt = attemptsUsed < quiz.attempt_limit;
-  const gradedAnswers = result?.attempt.answers || [];
   const lessonId = quiz.lesson_id;
   const orderedLessons = courseModules.flatMap((module) => module.lessons || []);
   const currentLessonIndex = orderedLessons.findIndex((lesson) => lesson.id === lessonId);
@@ -289,12 +273,9 @@ export default function QuizPlayerPage() {
               </div>
               <p className="text-lg font-semibold">{result.message}</p>
               <p className="text-sm text-muted-foreground">
-                {result.correct_answers} / {result.total_questions} {t('quiz.correct')} · {result.attempt.score_percent}%
+                {result.attempt.score_percent}%
               </p>
               <div className="flex gap-3 justify-center mt-4">
-                <Button variant="outline" onClick={() => setShowReview(!showReview)}>
-                  {showReview ? t('quiz.hideReview') : t('quiz.showReview')}
-                </Button>
                 {canAttempt && !result.passed && (
                   <Button onClick={handleRetry}>{t('quiz.tryAgain')}</Button>
                 )}
@@ -359,7 +340,7 @@ export default function QuizPlayerPage() {
         )}
 
         {/* Question Display */}
-        {currentQ && !showReview && (
+        {currentQ && !result && (
           <Card>
             <CardContent className="p-6 space-y-4">
               <div className="flex items-start gap-2">
@@ -397,54 +378,6 @@ export default function QuizPlayerPage() {
           </Card>
         )}
 
-        {/* Review Mode — show all questions with correct/incorrect */}
-        {showReview && result && (
-          <div className="space-y-4">
-            <h2 className="text-lg font-semibold">{t('quiz.review')}</h2>
-            {quiz.questions.map((q, i) => {
-              const graded = gradedAnswers.find((a) => a.question_id === q.id);
-              const isCorrect = graded?.is_correct ?? false;
-              return (
-                <Card key={q.id} className={isCorrect ? 'border-success/40' : 'border-destructive/40'}>
-                  <CardContent className="p-4 space-y-3">
-                    <div className="flex items-start gap-2">
-                      <span className={`shrink-0 ${isCorrect ? 'text-success' : 'text-destructive'}`}>
-                        {isCorrect ? <CheckCircle2 className="w-5 h-5" /> : <XCircle className="w-5 h-5" />}
-                      </span>
-                      <div>
-                        <p className="font-medium">{i + 1}. {q.text}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {tp('common.counts.point', q.points)}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="space-y-1 ml-8">
-                      {q.choices.map((c, choiceIndex) => {
-                        const wasSelected = graded?.selected_choice_ids.includes(c.id) ?? false;
-                        const isCorrectChoice = graded?.correct_choice_ids.includes(c.id) ?? false;
-                        return (
-                          <div key={c.id} className={`flex items-center gap-2 text-sm py-1 px-2 rounded ${
-                            isCorrectChoice ? 'bg-success/15 text-success' : wasSelected ? 'bg-destructive/15 text-destructive' : 'text-muted-foreground'
-                          }`}>
-                            <span>
-                              {isCorrectChoice ? <CheckCircle2 className="w-4 h-4" /> : wasSelected ? <XCircle className="w-4 h-4" /> : <Circle className="w-4 h-4" />}
-                            </span>
-                            <span>{getChoiceLabel(q, c, choiceIndex)}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                    {q.explanation && (
-                      <div className="ml-8 mt-2 flex items-center gap-2 p-3 bg-primary/10 text-sm text-primary rounded">
-                        <Lightbulb className="w-4 h-4 shrink-0" /> {q.explanation}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        )}
 
         {/* Submit / Navigation */}
         {!result && (

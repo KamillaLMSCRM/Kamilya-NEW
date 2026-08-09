@@ -17,6 +17,8 @@ from app.core.celery_app import celery_app
         ("documents.hash_backfill", "maintenance"),
         ("positions.apply_course_rules", "maintenance"),
         ("users.deliver_invitation", "notifications"),
+        ("enrollments.deliver_assignment_notification", "notifications"),
+        ("enrollments.recover_assignment_notifications", "notifications"),
     ],
 )
 def test_background_tasks_have_explicit_queues(task_name: str, expected_queue: str) -> None:

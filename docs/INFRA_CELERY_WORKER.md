@@ -1,5 +1,16 @@
 # Kamilya LMS Celery worker
 
+## Повторное обучение
+
+Задачи `learning_cycles.materialize` и `learning_cycles.recover_due` направляются в
+очередь `maintenance`. Установите и включите
+`kamilya-learning-cycle-recovery.timer`: oneshot-сервис каждую минуту вызывает
+`python -m app.modules.learning_cycles.recovery`. Он выбирает не более 100
+просроченных правил за запуск; уникальность occurrence и блокировка правила делают
+повторные тики идемпотентными. Уведомление о новом назначении фиксируется в outbox
+в той же транзакции, отправляется только после commit и восстанавливается отдельным
+assignment-notification timer при недоступности брокера.
+
 **Обновлено:** 2026-08-04
 **Назначение:** текущий runbook worker. Исторические инструкции Upstash и старых
 checkout удалены.
@@ -66,7 +77,9 @@ celery -A app.core.celery_app:celery_app inspect stats
 В списке registered обязательны `ai.generate_course`,
 `ai.regenerate_module`, `ai.regenerate_lesson`, `ai.ingest_document` и
 `positions.apply_course_rules`, `users.deliver_invitation`,
-`crm.deliver_lead_outbox` и `crm.recover_lead_outbox`.
+`crm.deliver_lead_outbox`, `crm.recover_lead_outbox`,
+`enrollments.deliver_assignment_notification` и
+`enrollments.recover_assignment_notifications`.
 
 ### CRM lead outbox recovery
 
@@ -88,10 +101,73 @@ timer. Он раз в минуту запускает bounded Python recovery н
 ```bash
 systemctl is-active kamilya-crm-outbox-recovery.timer
 systemctl is-enabled kamilya-crm-outbox-recovery.timer
+```
+
+### Course-assignment email recovery
+
+Course-assignment email has an independent durable outbox. Install and enable
+`kamilya-assignment-notification-recovery.service` and `.timer`; the timer runs
+the bounded database recovery entry point every minute and does not depend on
+the Celery broker. Release verification must confirm the timer is active and
+enabled, task `enrollments.deliver_assignment_notification` is registered on
+the notifications worker, and a duplicate recovery run sends no duplicate
+message. Assignment sends pass `course-assignment/<outbox_id>` as Resend's
+stable `Idempotency-Key`; recovery must run within the provider's documented
+24-hour deduplication window. The timer requires
+`ASSIGNMENT_RECOVERY_DATABASE_URL` for the dedicated `lms_recovery`
+`NOSUPERUSER NOBYPASSRLS` role. The shared API role `lms_app` must not have
+execute permission on the cross-tenant due-inventory function.
+
+```bash
+systemctl is-active kamilya-assignment-notification-recovery.timer
+systemctl is-enabled kamilya-assignment-notification-recovery.timer
 celery -A app.core.celery_app:celery_app inspect registered
 ```
 
 Не выводить environment unit и значения `.env`.
+
+### Candidate-assessment retention
+
+Before applying Alembic revision 0102, provision the login with an admin
+connection (Supabase SQL editor or the migration connection). Keep its password
+in the production secret store; do not place it in SQL history or repository
+files:
+
+```sql
+CREATE ROLE lms_candidate_retention LOGIN
+  NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS;
+-- Set the login password through the provider secret-management workflow.
+```
+
+Revision 0102 fails closed if this role is absent or has `SUPERUSER` or
+`BYPASSRLS`. The migration itself revokes table/function defaults and grants
+only `USAGE` on `public` plus `EXECUTE` on the bounded retention function.
+Configure `CANDIDATE_RETENTION_DATABASE_URL` only after the migration succeeds.
+
+Install and enable `kamilya-candidate-retention.service` and `.timer`. The
+broker-independent timer runs hourly, with a bounded batch of at most 100
+candidates, through `CANDIDATE_RETENTION_DATABASE_URL`. That URL must use the
+dedicated `lms_candidate_retention` role. The role has no table access and may
+execute only `enforce_expired_candidate_retention(integer)`; `lms_app` must not
+execute that cross-tenant function.
+
+For each expired candidate, the transaction revokes credentials, removes
+attempt answer/snapshot evidence, redacts name/contact/consent, and retains only
+campaign-level counts (`candidates_redacted`, submitted/passed attempts, and
+the score sum). It retains no candidate identifier in the aggregate. Repeated
+runs skip `status='deleted'` rows and therefore do not double-count.
+
+```bash
+systemctl daemon-reload
+systemctl enable --now kamilya-candidate-retention.timer
+systemctl is-active kamilya-candidate-retention.timer
+systemctl is-enabled kamilya-candidate-retention.timer
+```
+
+Do not log candidate rows or database URLs. A failed run is retried by the
+persistent timer. A manual smoke may run the oneshot service twice; the second
+run must report zero after the test candidate has been handled. Never call the
+function with a limit above 100 and never expose the recovery URL to the API.
 
 ## Обновление worker
 

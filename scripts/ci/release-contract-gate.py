@@ -15,6 +15,9 @@ EXPECTED_TASK_MODULES = {
     "app.modules.ai.tasks",
     "app.modules.positions.tasks",
     "app.modules.users.tasks",
+    "app.modules.enrollments.notification_tasks",
+    "app.modules.candidate_assessments.retention_tasks",
+    "app.modules.tenants.tasks",
 }
 EXPECTED_TASK_NAMES = {
     "ai.generate_course",
@@ -23,6 +26,11 @@ EXPECTED_TASK_NAMES = {
     "ai.regenerate_module",
     "positions.apply_course_rules",
     "users.deliver_invitation",
+    "enrollments.deliver_assignment_notification",
+    "enrollments.recover_assignment_notifications",
+    "candidate_assessments.enforce_retention",
+    "crm.deliver_lead_outbox",
+    "crm.recover_lead_outbox",
 }
 
 

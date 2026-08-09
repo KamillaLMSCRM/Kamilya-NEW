@@ -10,15 +10,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.db import get_db
-from app.models.users import User
 from app.models.user_roles import UserRole
+from app.models.users import User
 
 logger = logging.getLogger(__name__)
 
 settings = get_settings()
 security = HTTPBearer(auto_error=False)
 
-ROLES = ['superadmin', 'admin', 'methodologist', 'student']
+ROLES = ["superadmin", "admin", "methodologist", "student"]
 TENANT_CONTEXT_UNAVAILABLE = "Tenant security context unavailable"
 
 
@@ -70,7 +70,7 @@ def _json_safe_jwt_payload(data: dict) -> dict:
     enforces the contract once.
     """
     from uuid import UUID
-    from datetime import datetime
+
     out: dict = {}
     for k, v in data.items():
         if isinstance(v, UUID):
@@ -78,9 +78,7 @@ def _json_safe_jwt_payload(data: dict) -> dict:
         elif isinstance(v, dict):
             out[k] = _json_safe_jwt_payload(v)
         elif isinstance(v, (list, tuple)):
-            out[k] = [
-                (str(x) if isinstance(x, UUID) else x) for x in v
-            ]
+            out[k] = [(str(x) if isinstance(x, UUID) else x) for x in v]
         else:
             out[k] = v
     return out
@@ -108,9 +106,7 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None) -> s
     return jwt.encode(to_encode, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
 
 
-def create_scoped_token(
-    data: dict, *, token_type: str, expires_delta: timedelta
-) -> str:
+def create_scoped_token(data: dict, *, token_type: str, expires_delta: timedelta) -> str:
     """Mint a JWT for one narrowly validated capability, never API access."""
     if token_type == "access":
         raise ValueError("Use create_access_token for access credentials")
@@ -203,6 +199,43 @@ async def get_current_user(
     # is a hard security boundary failure, not a recoverable filtering concern.
     if tenant_id:
         await _set_tenant_security_context(db, tenant_id)
+
+    # Access issued through the no-email assignment flow is revocable.  Bind
+    # every request to the still-active credential and enrollment so reissue,
+    # expiry, unenrollment, or learner reassignment immediately invalidates an
+    # already-exchanged bearer token.
+    if payload.get("auth_method") == "assignment_access":
+        credential_id = payload.get("assignment_access_credential_id")
+        enrollment_id = payload.get("assignment_access_enrollment_id")
+        if not tenant_id or not credential_id or not enrollment_id:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid assignment access")
+        try:
+            credential_uuid = UUID(credential_id)
+            enrollment_uuid = UUID(enrollment_id)
+            tenant_uuid = UUID(tenant_id)
+            user_uuid = UUID(user_id)
+        except (TypeError, ValueError):
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid assignment access") from None
+        from app.models.assignment_access import AssignmentAccessCredential
+        from app.models.enrollment import Enrollment
+
+        active_credential = await db.scalar(
+            select(AssignmentAccessCredential.id)
+            .join(Enrollment, Enrollment.id == AssignmentAccessCredential.enrollment_id)
+            .where(
+                AssignmentAccessCredential.id == credential_uuid,
+                AssignmentAccessCredential.tenant_id == tenant_uuid,
+                AssignmentAccessCredential.user_id == user_uuid,
+                AssignmentAccessCredential.enrollment_id == enrollment_uuid,
+                AssignmentAccessCredential.revoked_at.is_(None),
+                AssignmentAccessCredential.expires_at > datetime.now(UTC),
+                Enrollment.tenant_id == tenant_uuid,
+                Enrollment.user_id == user_uuid,
+                Enrollment.status.in_(("enrolled", "in_progress")),
+            )
+        )
+        if active_credential is None:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Assignment access revoked")
 
     result = await db.execute(select(User).where(User.id == UUID(user_id)))
     user = result.scalar_one_or_none()
@@ -297,10 +330,7 @@ class _ImpersonatedUser:
         return getattr(self._user, name)
 
     def __repr__(self):
-        return (
-            f"<ImpersonatedUser id={self._user.id} "
-            f"as={self.role} in tenant={self.tenant_id}>"
-        )
+        return f"<ImpersonatedUser id={self._user.id} " f"as={self.role} in tenant={self.tenant_id}>"
 
 
 async def get_current_active_user(
@@ -325,10 +355,7 @@ def require_role(*allowed_roles: str):
 
     async def role_checker(user: User = Depends(get_current_active_user)) -> User:
         if user.role not in allowed_roles:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Requires one of roles: {allowed_roles}"
-            )
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=f"Requires one of roles: {allowed_roles}")
         return user
 
     return role_checker
@@ -354,6 +381,7 @@ def require_tenant_user():
     Superadmin should use the /admin/super/* endpoints instead, which
     explicitly take a tenant_id path param.
     """
+
     async def checker(
         user: User = Depends(get_current_active_user),
     ) -> User:

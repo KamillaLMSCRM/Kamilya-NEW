@@ -8,6 +8,7 @@ Covers:
 - pagination: limit/offset
 - auth: 401 for unauthenticated, 403 for non-admin role (student)
 """
+
 from __future__ import annotations
 
 import csv
@@ -91,6 +92,28 @@ async def test_training_log_happy_path(client, db_session, make_tenant, make_use
     assert row["delivery_type"] == "native"
     assert row["enrollment_status"] == "enrolled"
     assert row["progress_percent"] == 0
+
+
+@pytest.mark.asyncio
+async def test_tenant_admin_can_read_and_export_training_report(
+    client, db_session, make_tenant, make_user, make_course
+):
+    tenant = await make_tenant(name="Admin report", slug="admin-report")
+    admin = await make_user(tenant, role="admin", email="viewer@admin-report.example")
+    learner = await make_user(tenant, role="student", email="learner@admin-report.example")
+    course = await make_course(tenant, admin, title="Required training")
+    await _enroll(db_session, learner, course)
+    token = await _login(client, admin)
+    headers = {"Authorization": f"Bearer {token}"}
+
+    page = await client.get("/api/v1/admin/training-log", headers=headers)
+    assert page.status_code == 200, page.text
+    assert page.json()["total"] == 1
+
+    exported = await client.get("/api/v1/admin/training-log?format=csv", headers=headers)
+    assert exported.status_code == 200, exported.text
+    assert exported.headers["content-type"].startswith("text/csv")
+    assert "Required training" in exported.text
 
 
 @pytest.mark.asyncio
@@ -256,9 +279,7 @@ async def test_training_log_summary_matches_filters_and_fresh_enrollment_state(
     after_assignment = await client.get(
         "/api/v1/admin/training-log/summary?course_id=" + str(course.id), headers=headers
     )
-    table_after_assignment = await client.get(
-        "/api/v1/admin/training-log?course_id=" + str(course.id), headers=headers
-    )
+    table_after_assignment = await client.get("/api/v1/admin/training-log?course_id=" + str(course.id), headers=headers)
     assert after_assignment.json() == {"total": 1, "assigned": 1, "in_progress": 0, "completed": 0}
     assert table_after_assignment.json()["total"] == after_assignment.json()["total"]
 
@@ -270,9 +291,7 @@ async def test_training_log_summary_matches_filters_and_fresh_enrollment_state(
     after_completion = await client.get(
         "/api/v1/admin/training-log/summary?course_id=" + str(course.id), headers=headers
     )
-    table_after_completion = await client.get(
-        "/api/v1/admin/training-log?course_id=" + str(course.id), headers=headers
-    )
+    table_after_completion = await client.get("/api/v1/admin/training-log?course_id=" + str(course.id), headers=headers)
     assert after_completion.json() == {"total": 1, "assigned": 0, "in_progress": 0, "completed": 1}
     assert table_after_completion.json()["total"] == after_completion.json()["total"]
 
@@ -327,9 +346,7 @@ async def test_training_log_superadmin_no_tenant_returns_empty(client, db_sessio
 
 
 @pytest.mark.asyncio
-async def test_training_log_status_assigned_no_progress(
-    client, db_session, make_tenant, make_user, make_course
-):
+async def test_training_log_status_assigned_no_progress(client, db_session, make_tenant, make_user, make_course):
     """A row with an enrollment but no lesson progress AND no SCORM attempt
     must come back as computed_status='assigned' (not in_progress)."""
     tenant = await make_tenant(name="Acme", slug="acme-assigned")
@@ -439,17 +456,13 @@ async def test_training_log_status_assigned_excludes_started(
 
 
 @pytest.mark.asyncio
-async def test_training_log_status_in_progress_scorm_attempt(
-    client, db_session, make_tenant, make_user, make_course
-):
+async def test_training_log_status_in_progress_scorm_attempt(client, db_session, make_tenant, make_user, make_course):
     """SCORM course with a scorm_attempt row but no completed_at →
     computed_status='in_progress'."""
     tenant = await make_tenant(name="Acme", slug="acme-sip")
     admin = await make_user(tenant, role="methodologist", email="admin@sip.example")
     student = await make_user(tenant, role="student", email="stu@sip.example")
-    course = await make_course(
-        tenant, admin, title="Sip1", delivery_type="scorm"
-    )
+    course = await make_course(tenant, admin, title="Sip1", delivery_type="scorm")
     await _enroll(db_session, student, course)
 
     # Add a scorm_attempt to simulate a started SCORM attempt.
@@ -499,9 +512,7 @@ async def test_training_log_status_in_progress_scorm_attempt(
 
 
 @pytest.mark.asyncio
-async def test_training_log_status_overdue_returns_422(
-    client, db_session, make_tenant, make_user
-):
+async def test_training_log_status_overdue_returns_422(client, db_session, make_tenant, make_user):
     """status=overdue was removed (no deadline column on enrollments). The
     Pydantic Literal must reject it with 422, not silently ignore."""
     tenant = await make_tenant(name="Acme", slug="acme-od")
@@ -520,9 +531,7 @@ async def test_training_log_status_overdue_returns_422(
 
 
 @pytest.mark.asyncio
-async def test_training_log_progress_percent_zero_lessons(
-    client, db_session, make_tenant, make_user, make_course
-):
+async def test_training_log_progress_percent_zero_lessons(client, db_session, make_tenant, make_user, make_course):
     """Native course with no lessons at all: progress_percent = 0 (not a
     divide-by-zero crash). Regression for the round() in repository."""
     tenant = await make_tenant(name="Acme", slug="acme-nol")

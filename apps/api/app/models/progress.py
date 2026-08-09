@@ -1,15 +1,17 @@
 """Progress model"""
+
 import uuid
-from datetime import datetime, timezone
-from sqlalchemy import Boolean, Column, DateTime, Index, Integer, UniqueConstraint
+from datetime import UTC, datetime
+
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Index, Integer
 from sqlalchemy.dialects.postgresql import UUID
+
 from app.core.db import Base
 
 
 class Progress(Base):
     __tablename__ = "progress"
     __table_args__ = (
-        UniqueConstraint("tenant_id", "user_id", "lesson_id", name="uq_progress_tenant_user_lesson"),
         Index("ix_progress_tenant_user_course_completed", "tenant_id", "user_id", "course_id", "completed"),
     )
 
@@ -18,9 +20,12 @@ class Progress(Base):
     lesson_id = Column(UUID(as_uuid=True), nullable=False, index=True)
     course_id = Column(UUID(as_uuid=True), nullable=False, index=True)
     tenant_id = Column(UUID(as_uuid=True), nullable=False, index=True)
+    enrollment_id = Column(
+        UUID(as_uuid=True), ForeignKey("enrollments.id", ondelete="RESTRICT"), nullable=True, index=True
+    )
     completed = Column(Boolean, default=False)
     completion_percent = Column(Integer, default=0)
     percent = Column(Integer, default=0)
     time_spent = Column(Integer, default=0)
     completed_at = Column(DateTime(timezone=True), nullable=True)
-    last_accessed_at = Column("last_at", DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    last_accessed_at = Column("last_at", DateTime(timezone=True), default=lambda: datetime.now(UTC))

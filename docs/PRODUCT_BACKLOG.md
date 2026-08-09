@@ -78,9 +78,17 @@ interface.
    подтверждающие материалы, история оценки и gap-анализ относительно
    требований должности. До этого компетенции остаются частью карточки
    должности, а не отдельным пунктом меню.
-8. Самостоятельные assessment-кампании создавать отдельной сущностью только
-   после определения аудитории, попыток, сроков и отчётности. Тесты уроков
-   отдельно от курса не назначать.
+8. Довести recurring learning cycles по
+   [ADR-0019](adr/0019-recurring-learning-cycles.md) в следующем порядке:
+   1. сначала сделать completion, attempt, progress, certificate и training
+      log однозначно enrollment-instance based без изменения текущего
+      поведения;
+   2. поверх уже реализованных tenant-scoped draft rules добавить immutable
+      dated instance, participant и per-user override/audit;
+   3. добавить scheduler, idempotent reminder ledger, notification queue,
+      stale-claim recovery и operational smoke;
+   4. включить course cycles, затем program cycles, и только после этого
+      добавить cycle/overdue read model в training log.
 
 ## P2: локальность staff import
 

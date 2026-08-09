@@ -1,8 +1,10 @@
 """Quiz schemas"""
-from pydantic import BaseModel, Field
-from uuid import UUID
+
 from datetime import datetime
-from typing import Optional, Literal
+from typing import Literal
+from uuid import UUID
+
+from pydantic import BaseModel, Field
 
 
 class QuizChoiceResponse(BaseModel):
@@ -32,6 +34,7 @@ class QuizResponse(BaseModel):
     time_limit: int | None = None
     attempt_limit: int
     deferral_days: int = 7
+    review_status: Literal["approved", "needs_review"] = "approved"
     questions: list[QuestionResponse] = []
     model_config = {"from_attributes": True}
 
@@ -117,18 +120,14 @@ class QuizAttemptResponse(BaseModel):
     total_points: int
     earned_points: int
     passed: bool
-    answers: list[dict]
     started_at: datetime
     completed_at: datetime | None = None
     time_spent_seconds: int | None = None
-    evidence_sha256: str | None = None
     model_config = {"from_attributes": True}
 
 
 class QuizResultResponse(BaseModel):
     attempt: QuizAttemptResponse
-    correct_answers: int
-    total_questions: int
     passed: bool
     message: str
     training_evidence_event_id: UUID
@@ -215,11 +214,13 @@ class QuizWithLocation(QuizResponse):
     deleted out from under it). The UI should highlight these so
     methodologists can clean up.
     """
+
     location: "QuizLocation | None" = None
 
 
 class QuizLocation(BaseModel):
     """Path from quiz up to its course — used to render cascade UI."""
+
     course_id: UUID
     course_title: str
     course_status: str  # draft / published / archived
@@ -243,6 +244,7 @@ class QuizGroupedResponse(BaseModel):
     or whose lesson_id is null. Surfaced so the methodologist sees real
     orphans (not "everything before preview loaded").
     """
+
     courses: list["GroupedCourse"]
     orphans: list["OrphanQuiz"] = []
 
@@ -274,6 +276,7 @@ class OrphanQuiz(BaseModel):
     Surfaced separately so UI can warn the methodologist instead of
     silently dropping the quiz.
     """
+
     quiz: QuizResponse
     lesson_id: UUID | None  # None if FK is null, otherwise points to non-existent lesson
 

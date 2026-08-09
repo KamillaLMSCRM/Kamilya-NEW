@@ -1,0 +1,11 @@
+[Unit]
+Description=Enforce expired Kamilya candidate-assessment retention
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/kamilya-worker/apps/api
+Environment=PYTHONPATH=/opt/kamilya-worker/apps/api
+Environment=APP_ENV=production
+EnvironmentFile=/opt/kamilya-worker/apps/api/.env
+ExecStart=/opt/kamilya-worker/apps/api/.venv/bin/python -m app.modules.candidate_assessments.retention_recovery

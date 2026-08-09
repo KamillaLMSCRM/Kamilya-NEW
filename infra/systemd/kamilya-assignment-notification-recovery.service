@@ -1,0 +1,11 @@
+[Unit]
+Description=Recover due Kamilya course-assignment notifications
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/kamilya-worker/apps/api
+Environment=PYTHONPATH=/opt/kamilya-worker/apps/api
+Environment=APP_ENV=production
+EnvironmentFile=/opt/kamilya-worker/apps/api/.env
+ExecStart=/opt/kamilya-worker/apps/api/.venv/bin/python -m app.modules.enrollments.notification_recovery

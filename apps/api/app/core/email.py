@@ -31,10 +31,7 @@ class EmailService:
     def delivery_ready() -> bool:
         """Return whether transactional email can actually leave the service."""
         settings = get_settings()
-        return (
-            settings.EMAIL_PROVIDER.lower().strip() == "resend"
-            and bool(settings.RESEND_API_KEY)
-        )
+        return settings.EMAIL_PROVIDER.lower().strip() == "resend" and bool(settings.RESEND_API_KEY)
 
     async def send_login_code(self, *, to_email: str, code: str) -> None:
         subject = "Kamilya LMS: код для входа"
@@ -44,7 +41,7 @@ class EmailService:
         )
         html = (
             "<p>Ваш код для входа в Kamilya LMS:</p>"
-            f"<p style=\"font-size:28px;font-weight:700;letter-spacing:4px\">{code}</p>"
+            f'<p style="font-size:28px;font-weight:700;letter-spacing:4px">{code}</p>'
             "<p>Код действует 5 минут. Если вы не запрашивали код, просто проигнорируйте это письмо.</p>"
         )
         await self._send(to_email=to_email, subject=subject, text=text, html=html)
@@ -81,7 +78,7 @@ class EmailService:
             f"<p>{safe_name}, подтвердите доступ к обучению в "
             f"<strong>{safe_company}</strong>.</p>"
             "<p>Код подтверждения:</p>"
-            f"<p style=\"font-size:28px;font-weight:700;letter-spacing:4px\">{code}</p>"
+            f'<p style="font-size:28px;font-weight:700;letter-spacing:4px">{code}</p>'
             "<p>Код действует 5 минут. Никому не сообщайте его.</p>"
         )
         await self._send(to_email=to_email, subject=subject, text=text, html=html)
@@ -140,6 +137,29 @@ class EmailService:
             )
         return await self._send(to_email=to_email, subject=subject, text=text, html=html)
 
+    async def send_course_assignment(
+        self,
+        *,
+        to_email: str,
+        company_name: str,
+        learner_name: str,
+        course_title: str,
+        access_url: str,
+        activation_required: bool,
+        idempotency_key: str,
+    ) -> str | None:
+        subject = f"{_subject_component(company_name, fallback='Kamilya LMS')}: назначен курс"
+        action = "Активируйте доступ и откройте курс" if activation_required else "Откройте назначенный курс"
+        text = f"{learner_name}, {company_name} назначила вам курс «{course_title}».\n\n{action}: {access_url}"
+        html = f'<p>{escape(learner_name)}, организация <strong>{escape(company_name)}</strong> назначила вам курс <strong>{escape(course_title)}</strong>.</p><p><a href="{escape(access_url, quote=True)}">{action}</a></p>'
+        return await self._send(
+            to_email=to_email,
+            subject=subject,
+            text=text,
+            html=html,
+            idempotency_key=idempotency_key,
+        )
+
     async def send_training_confirmation_code(
         self,
         *,
@@ -165,7 +185,9 @@ class EmailService:
         )
         await self._send(to_email=to_email, subject=subject, text=text, html=html)
 
-    async def send_announcement(self, *, to_email: str, company_name: str, title: str, body: str, course_title: str | None = None) -> None:
+    async def send_announcement(
+        self, *, to_email: str, company_name: str, title: str, body: str, course_title: str | None = None
+    ) -> None:
         subject = f"{company_name}: {title}"
         context = f"\nCourse: {course_title}" if course_title else ""
         text = f"{body}{context}\n\nKamilya LMS"
@@ -174,19 +196,39 @@ class EmailService:
             html += f"<p><strong>Course:</strong> {escape(course_title)}</p>"
         await self._send(to_email=to_email, subject=subject, text=text, html=html)
 
-    async def _send(self, *, to_email: str, subject: str, text: str, html: str) -> str | None:
+    async def _send(
+        self,
+        *,
+        to_email: str,
+        subject: str,
+        text: str,
+        html: str,
+        idempotency_key: str | None = None,
+    ) -> str | None:
         settings = get_settings()
         provider = settings.EMAIL_PROVIDER.lower().strip()
 
         if provider == "resend" and settings.RESEND_API_KEY:
             return await self._send_resend(
-                to_email=to_email, subject=subject, text=text, html=html
+                to_email=to_email,
+                subject=subject,
+                text=text,
+                html=html,
+                idempotency_key=idempotency_key,
             )
 
         logger.info("email_queued", extra={"provider": "log"})
         return None
 
-    async def _send_resend(self, *, to_email: str, subject: str, text: str, html: str) -> str | None:
+    async def _send_resend(
+        self,
+        *,
+        to_email: str,
+        subject: str,
+        text: str,
+        html: str,
+        idempotency_key: str | None = None,
+    ) -> str | None:
         settings = get_settings()
         payload = {
             "from": settings.EMAIL_FROM,
@@ -199,19 +241,15 @@ class EmailService:
             "Authorization": f"Bearer {settings.RESEND_API_KEY}",
             "Content-Type": "application/json",
         }
+        if idempotency_key:
+            headers["Idempotency-Key"] = idempotency_key
         try:
             async with httpx.AsyncClient(timeout=10) as client:
-                response = await client.post(
-                    "https://api.resend.com/emails", json=payload, headers=headers
-                )
+                response = await client.post("https://api.resend.com/emails", json=payload, headers=headers)
         except httpx.TimeoutException as exc:
-            raise EmailDeliveryError(
-                "provider_timeout", "The email provider did not respond in time."
-            ) from exc
+            raise EmailDeliveryError("provider_timeout", "The email provider did not respond in time.") from exc
         except httpx.RequestError as exc:
-            raise EmailDeliveryError(
-                "provider_unreachable", "The email provider could not be reached."
-            ) from exc
+            raise EmailDeliveryError("provider_unreachable", "The email provider could not be reached.") from exc
         if response.status_code >= 400:
             logger.error("resend send failed status=%s", response.status_code)
             if response.status_code == 429:

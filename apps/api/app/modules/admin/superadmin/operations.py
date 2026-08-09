@@ -6,6 +6,7 @@ tenant-owned payloads. Cleanup is deliberately narrower than the existing
 tenant deletion service: a tenant must be explicitly marked as a demo tenant,
 match one of the fixed synthetic prefixes, and be older than the safety floor.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -66,6 +67,11 @@ REQUIRED_CELERY_TASKS = (
     "documents.reindex",
     "positions.apply_course_rules",
     "users.deliver_invitation",
+    "enrollments.deliver_assignment_notification",
+    "enrollments.recover_assignment_notifications",
+    "learning_cycles.materialize",
+    "learning_cycles.recover_due",
+    "candidate_assessments.enforce_retention",
     "crm.deliver_lead_outbox",
     "crm.recover_lead_outbox",
 )
@@ -270,9 +276,7 @@ def _job_activity_key(job: AIJob) -> tuple[datetime, datetime]:
 def _is_allowed_synthetic_tenant(tenant: Tenant) -> bool:
     """Return true only for explicitly demo-marked, fixed-prefix tenants."""
 
-    return bool(tenant.is_demo) and any(
-        tenant.slug.startswith(prefix) for prefix in ALLOWED_SYNTHETIC_SLUG_PREFIXES
-    )
+    return bool(tenant.is_demo) and any(tenant.slug.startswith(prefix) for prefix in ALLOWED_SYNTHETIC_SLUG_PREFIXES)
 
 
 def _pool_summary() -> DatabasePoolSummary:
@@ -289,6 +293,7 @@ def _pool_summary() -> DatabasePoolSummary:
             return int(getter())
         except Exception:
             return None
+
     configured_size = getattr(settings, "DB_POOL_SIZE", None)
     configured_overflow = getattr(settings, "DB_MAX_OVERFLOW", None)
     capacity = (
@@ -309,11 +314,13 @@ def _pool_summary() -> DatabasePoolSummary:
     )
 
 
-def _runtime_summaries() -> tuple[
-    HostRuntimeSummary,
-    ProcessRuntimeSummary,
-    FilesystemRuntimeSummary,
-]:
+def _runtime_summaries() -> (
+    tuple[
+        HostRuntimeSummary,
+        ProcessRuntimeSummary,
+        FilesystemRuntimeSummary,
+    ]
+):
     """Collect local metrics without returning host identity or filesystem paths."""
 
     process = None
@@ -372,9 +379,7 @@ def _inspect_celery_worker() -> CeleryWorkerSummary:
     """Inspect workers and retain only the code-owned required task names."""
 
     try:
-        registered = celery_app.control.inspect(
-            timeout=CELERY_INSPECT_TIMEOUT_SECONDS
-        ).registered()
+        registered = celery_app.control.inspect(timeout=CELERY_INSPECT_TIMEOUT_SECONDS).registered()
     except Exception:
         return _unavailable_celery_summary()
 
@@ -388,21 +393,13 @@ def _inspect_celery_worker() -> CeleryWorkerSummary:
         for task_name in task_names
         if isinstance(task_name, str)
     }
-    registered_required = [
-        task_name
-        for task_name in REQUIRED_CELERY_TASKS
-        if task_name in registered_tasks
-    ]
+    registered_required = [task_name for task_name in REQUIRED_CELERY_TASKS if task_name in registered_tasks]
     return CeleryWorkerSummary(
         status="available",
         reachable=True,
         worker_count=len(registered),
         registered_required_tasks=registered_required,
-        missing_required_tasks=[
-            task_name
-            for task_name in REQUIRED_CELERY_TASKS
-            if task_name not in registered_tasks
-        ],
+        missing_required_tasks=[task_name for task_name in REQUIRED_CELERY_TASKS if task_name not in registered_tasks],
     )
 
 
@@ -423,15 +420,7 @@ class SuperadminOperationsService:
     async def _tenant_ids(self) -> list[uuid.UUID]:
         """Return tenant IDs through the established platform-admin boundary."""
 
-        return list(
-            (
-                await self.db.execute(
-                    select(Tenant.id).order_by(Tenant.id.asc())
-                )
-            )
-            .scalars()
-            .all()
-        )
+        return list((await self.db.execute(select(Tenant.id).order_by(Tenant.id.asc()))).scalars().all())
 
     async def _set_tenant_context(self, tenant_id: uuid.UUID) -> None:
         """Scope a tenant-scoped table that lacks a platform-wide policy."""
@@ -455,34 +444,20 @@ class SuperadminOperationsService:
             row = (
                 await self.db.execute(
                     select(
-                        func.count(AIJob.id)
-                        .filter(AIJob.status == "pending")
-                        .label("queued_count"),
-                        func.min(AIJob.created_at)
-                        .filter(AIJob.status == "pending")
-                        .label("oldest_queued"),
-                        func.count(AIJob.id)
-                        .filter(AIJob.status == "running")
-                        .label("running_count"),
-                        func.min(AIJob.created_at)
-                        .filter(AIJob.status == "running")
-                        .label("oldest_running"),
-                        func.count(AIJob.id)
-                        .filter(AIJob.status.in_(("failed", "error")))
-                        .label("failed_count"),
+                        func.count(AIJob.id).filter(AIJob.status == "pending").label("queued_count"),
+                        func.min(AIJob.created_at).filter(AIJob.status == "pending").label("oldest_queued"),
+                        func.count(AIJob.id).filter(AIJob.status == "running").label("running_count"),
+                        func.min(AIJob.created_at).filter(AIJob.status == "running").label("oldest_running"),
+                        func.count(AIJob.id).filter(AIJob.status.in_(("failed", "error"))).label("failed_count"),
                     )
                 )
             ).one()
             queued_count += int(row.queued_count or 0)
             running_count += int(row.running_count or 0)
             failed_count += int(row.failed_count or 0)
-            if row.oldest_queued is not None and (
-                oldest_queued is None or row.oldest_queued < oldest_queued
-            ):
+            if row.oldest_queued is not None and (oldest_queued is None or row.oldest_queued < oldest_queued):
                 oldest_queued = row.oldest_queued
-            if row.oldest_running is not None and (
-                oldest_running is None or row.oldest_running < oldest_running
-            ):
+            if row.oldest_running is not None and (oldest_running is None or row.oldest_running < oldest_running):
                 oldest_running = row.oldest_running
 
         return (
@@ -517,9 +492,7 @@ class SuperadminOperationsService:
             )
             if not dry_run:
                 query = query.with_for_update(skip_locked=True)
-            candidates.extend(
-                list((await self.db.execute(query)).scalars().all())
-            )
+            candidates.extend(list((await self.db.execute(query)).scalars().all()))
 
         candidates.sort(key=_job_activity_key)
         truncated = len(candidates) > MAX_STALE_AI_JOB_RECOVERY
@@ -544,16 +517,10 @@ class SuperadminOperationsService:
             )
         ).one()
         failed_index_count = (
-            await self.db.execute(
-                select(func.count(Document.id)).where(Document.index_status == "failed")
-            )
+            await self.db.execute(select(func.count(Document.id)).where(Document.index_status == "failed"))
         ).scalar_one()
         failed_embedding_count = (
-            await self.db.execute(
-                select(func.count(Document.id)).where(
-                    Document.embedding_status == "failed"
-                )
-            )
+            await self.db.execute(select(func.count(Document.id)).where(Document.embedding_status == "failed"))
         ).scalar_one()
         cleanup_pending_count, oldest_cleanup_pending = (
             await self.db.execute(
@@ -563,18 +530,12 @@ class SuperadminOperationsService:
             )
         ).one()
         cleanup_failed_count = (
-            await self.db.execute(
-                select(func.count(Document.id)).where(
-                    Document.lifecycle_status == "delete_failed"
-                )
-            )
+            await self.db.execute(select(func.count(Document.id)).where(Document.lifecycle_status == "delete_failed"))
         ).scalar_one()
 
         host, process, filesystem = _runtime_summaries()
         celery = await _celery_worker_summary()
-        crm_outbox = (
-            await self.db.execute(text("SELECT * FROM crm_lead_outbox_summary()"))
-        ).mappings().one()
+        crm_outbox = (await self.db.execute(text("SELECT * FROM crm_lead_outbox_summary()"))).mappings().one()
 
         return OperationsSummary(
             generated_at=now,
@@ -592,9 +553,7 @@ class SuperadminOperationsService:
                 cleanup_pending_count=int(cleanup_pending_count or 0),
                 cleanup_failed_count=int(cleanup_failed_count or 0),
                 oldest_indexing_age_seconds=_age_seconds(oldest_indexing, now),
-                oldest_cleanup_pending_age_seconds=_age_seconds(
-                    oldest_cleanup_pending, now
-                ),
+                oldest_cleanup_pending_age_seconds=_age_seconds(oldest_cleanup_pending, now),
             ),
             database=_pool_summary(),
             process=process,
@@ -623,26 +582,23 @@ class SuperadminOperationsService:
         confirm_token: str | None = None,
     ) -> CRMLeadOutboxRequeueResponse:
         if not 1 <= limit <= MAX_CRM_OUTBOX_REQUEUE_LIMIT:
-            raise ValueError(
-                f"limit must be between 1 and {MAX_CRM_OUTBOX_REQUEUE_LIMIT}"
-            )
-        if not dry_run and (
-            not confirm or confirm_token != CRM_OUTBOX_REQUEUE_CONFIRM_TOKEN
-        ):
+            raise ValueError(f"limit must be between 1 and {MAX_CRM_OUTBOX_REQUEUE_LIMIT}")
+        if not dry_run and (not confirm or confirm_token != CRM_OUTBOX_REQUEUE_CONFIRM_TOKEN):
             raise ValueError(
                 "CRM lead requeue requires confirm=true and the exact "
                 f"confirm_token={CRM_OUTBOX_REQUEUE_CONFIRM_TOKEN}"
             )
 
         row = (
-            await self.db.execute(
-                text(
-                    "SELECT * FROM crm_requeue_dead_lead_outbox("
-                    ":limit, :execute)"
-                ),
-                {"limit": limit, "execute": not dry_run},
+            (
+                await self.db.execute(
+                    text("SELECT * FROM crm_requeue_dead_lead_outbox(" ":limit, :execute)"),
+                    {"limit": limit, "execute": not dry_run},
+                )
             )
-        ).mappings().one()
+            .mappings()
+            .one()
+        )
         if not dry_run:
             await self.db.commit()
         return CRMLeadOutboxRequeueResponse(
@@ -661,22 +617,15 @@ class SuperadminOperationsService:
         confirm_token: str | None = None,
     ) -> SyntheticCleanupResponse:
         if min_age_hours < MIN_CLEANUP_AGE_HOURS:
+            raise ValueError(f"min_age_hours must be at least {MIN_CLEANUP_AGE_HOURS}")
+        if not dry_run and (not confirm or confirm_token != CLEANUP_CONFIRM_TOKEN):
             raise ValueError(
-                f"min_age_hours must be at least {MIN_CLEANUP_AGE_HOURS}"
-            )
-        if not dry_run and (
-            not confirm or confirm_token != CLEANUP_CONFIRM_TOKEN
-        ):
-            raise ValueError(
-                "Destructive cleanup requires confirm=true and the exact "
-                f"confirm_token={CLEANUP_CONFIRM_TOKEN}"
+                "Destructive cleanup requires confirm=true and the exact " f"confirm_token={CLEANUP_CONFIRM_TOKEN}"
             )
 
         now = datetime.now(UTC)
         cutoff = now - timedelta(hours=min_age_hours)
-        prefix_filter = or_(
-            *(Tenant.slug.like(f"{prefix}%") for prefix in ALLOWED_SYNTHETIC_SLUG_PREFIXES)
-        )
+        prefix_filter = or_(*(Tenant.slug.like(f"{prefix}%") for prefix in ALLOWED_SYNTHETIC_SLUG_PREFIXES))
         candidates = list(
             (
                 await self.db.execute(
@@ -689,7 +638,9 @@ class SuperadminOperationsService:
                     .order_by(Tenant.created_at.asc())
                     .limit(MAX_CLEANUP_CANDIDATES + 1)
                 )
-            ).scalars().all()
+            )
+            .scalars()
+            .all()
         )
         truncated = len(candidates) > MAX_CLEANUP_CANDIDATES
         candidates = candidates[:MAX_CLEANUP_CANDIDATES]
@@ -799,12 +750,9 @@ class SuperadminOperationsService:
 
         if not MIN_STALE_AI_JOB_AGE_HOURS <= min_age_hours <= MAX_STALE_AI_JOB_AGE_HOURS:
             raise ValueError(
-                f"min_age_hours must be between {MIN_STALE_AI_JOB_AGE_HOURS} and "
-                f"{MAX_STALE_AI_JOB_AGE_HOURS}"
+                f"min_age_hours must be between {MIN_STALE_AI_JOB_AGE_HOURS} and " f"{MAX_STALE_AI_JOB_AGE_HOURS}"
             )
-        if not dry_run and (
-            not confirm or confirm_token != STALE_AI_JOB_RECOVERY_CONFIRM_TOKEN
-        ):
+        if not dry_run and (not confirm or confirm_token != STALE_AI_JOB_RECOVERY_CONFIRM_TOKEN):
             raise ValueError(
                 "Stale AI job recovery requires confirm=true and the exact "
                 f"confirm_token={STALE_AI_JOB_RECOVERY_CONFIRM_TOKEN}"

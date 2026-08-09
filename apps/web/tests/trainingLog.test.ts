@@ -28,6 +28,13 @@ describe('training-log request and count text', () => {
   });
 });
 
+describe('training-log ownership', () => {
+  it('uses one canonical read-only reporting screen and keeps evidence actions methodologist-only', () => {
+    const source = fs.readFileSync(path.join(process.cwd(), 'src/app/admin/training-log/page.tsx'), 'utf8');
+    expect(source).toContain('user?.role === \'methodologist\'');
+  });
+});
+
 describe('training-log responsive presentation', () => {
   it('keeps a mobile card list and a sticky desktop table header', () => {
     const source = fs.readFileSync(

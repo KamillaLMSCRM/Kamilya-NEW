@@ -202,6 +202,8 @@ jobs:
     env:
       DATABASE_URL: postgresql+asyncpg://lms:lms_test_password@localhost:5432/kamilya_lms_test
       MIGRATION_DATABASE_URL: postgresql+asyncpg://lms:lms_test_password@localhost:5432/kamilya_lms_test
+      ASSIGNMENT_RECOVERY_DATABASE_URL: postgresql+asyncpg://lms_recovery:lms_recovery_test_password@localhost:5432/kamilya_lms_test
+      CANDIDATE_RETENTION_DATABASE_URL: postgresql+asyncpg://lms_candidate_retention:lms_candidate_retention_test_password@localhost:5432/kamilya_lms_test
       REDIS_URL: redis://localhost:6379/0
       JWT_SECRET: test_jwt_secret_for_ci_only_min_length_32
       JWT_AUDIENCE: kamilya-lms
@@ -244,6 +246,14 @@ jobs:
                       BEGIN
                           IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'lms_app') THEN
                               CREATE ROLE lms_app LOGIN PASSWORD 'lms_app_test_password'
+                                  NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS;
+                          END IF;
+                          IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'lms_recovery') THEN
+                              CREATE ROLE lms_recovery LOGIN PASSWORD 'lms_recovery_test_password'
+                                  NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS;
+                          END IF;
+                          IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'lms_candidate_retention') THEN
+                              CREATE ROLE lms_candidate_retention LOGIN PASSWORD 'lms_candidate_retention_test_password'
                                   NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS;
                           END IF;
                       END

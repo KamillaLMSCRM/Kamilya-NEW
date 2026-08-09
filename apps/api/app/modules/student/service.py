@@ -1,4 +1,5 @@
 """Student dashboard service"""
+
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -38,6 +39,7 @@ async def get_student_dashboard(db: AsyncSession, user_id: UUID, tenant_id: UUID
     # Single grouped query: total + completed lessons per course.
     # LEFT JOIN to include courses with 0 lessons (still enrolled).
     totals_by_course: dict[UUID, tuple[int, int]] = {}
+    completed_by_instance: dict[tuple[UUID, UUID | None], int] = {}
     if enrolled_course_ids:
         # Total lessons per course (one row per course).
         totals_query = (
@@ -51,7 +53,7 @@ async def get_student_dashboard(db: AsyncSession, user_id: UUID, tenant_id: UUID
 
         # Completed lessons per course.
         completed_query = (
-            select(Module.course_id, func.count(Progress.id).label("completed"))
+            select(Module.course_id, Progress.enrollment_id, func.count(Progress.id).label("completed"))
             .join(Lesson, Lesson.module_id == Module.id)
             .join(Progress, Progress.lesson_id == Lesson.id)
             .where(
@@ -59,12 +61,10 @@ async def get_student_dashboard(db: AsyncSession, user_id: UUID, tenant_id: UUID
                 Progress.user_id == user_id,
                 Progress.completed,
             )
-            .group_by(Module.course_id)
+            .group_by(Module.course_id, Progress.enrollment_id)
         )
         for row in (await db.execute(completed_query)).all():
-            if row.course_id not in totals_by_course:
-                totals_by_course[row.course_id] = [0, 0]
-            totals_by_course[row.course_id][1] = row.completed
+            completed_by_instance[(row.course_id, row.enrollment_id)] = row.completed
 
     enrolled_courses = []
     total_lessons_all = 0
@@ -75,24 +75,28 @@ async def get_student_dashboard(db: AsyncSession, user_id: UUID, tenant_id: UUID
             total_lessons, completed_lessons = 1, 1 if enrollment.status == "completed" else 0
             progress_percent = 100 if enrollment.status == "completed" else 0
         else:
-            total_lessons, completed_lessons = totals_by_course.get(course.id, [0, 0])
+            total_lessons = totals_by_course.get(course.id, [0, 0])[0]
+            progress_key = enrollment.id if enrollment.recurring_assignment_id else None
+            completed_lessons = completed_by_instance.get((course.id, progress_key), 0)
             progress_percent = round((completed_lessons / total_lessons * 100) if total_lessons > 0 else 0)
 
-        enrolled_courses.append({
-            "enrollment_id": enrollment.id,
-            "course_id": course.id,
-            "title": course.title,
-            "description": course.description or "",
-            "status": course.status,
-            "enrollment_status": enrollment.status,
-            "delivery_type": getattr(course, "delivery_type", "native"),
-            "progress_percent": progress_percent,
-            "total_lessons": total_lessons,
-            "completed_lessons": completed_lessons,
-            "enrolled_at": enrollment.enrolled_at,
-            "last_accessed_at": None,
-            "thumbnail_url": course.thumbnail_url,
-        })
+        enrolled_courses.append(
+            {
+                "enrollment_id": enrollment.id,
+                "course_id": course.id,
+                "title": course.title,
+                "description": course.description or "",
+                "status": course.status,
+                "enrollment_status": enrollment.status,
+                "delivery_type": getattr(course, "delivery_type", "native"),
+                "progress_percent": progress_percent,
+                "total_lessons": total_lessons,
+                "completed_lessons": completed_lessons,
+                "enrolled_at": enrollment.enrolled_at,
+                "last_accessed_at": None,
+                "thumbnail_url": course.thumbnail_url,
+            }
+        )
 
         total_lessons_all += total_lessons
         completed_lessons_all += completed_lessons
@@ -121,28 +125,24 @@ async def get_student_dashboard(db: AsyncSession, user_id: UUID, tenant_id: UUID
     }
 
 
-async def get_course_progress_detail(
-    db: AsyncSession, user_id: UUID, course_id: UUID, tenant_id: UUID
-) -> dict:
+async def get_course_progress_detail(db: AsyncSession, user_id: UUID, course_id: UUID, tenant_id: UUID) -> dict:
     """Get detailed course progress with modules and lessons."""
     course = await db.get(Course, course_id)
     if not course:
         return None
 
+    from app.modules.enrollments.context import current_enrollment
+
+    enrollment = await current_enrollment(db, tenant_id=tenant_id, user_id=user_id, course_id=course_id)
+    progress_enrollment_id = enrollment.id if enrollment and enrollment.recurring_assignment_id else None
     # Get modules
-    modules_result = await db.execute(
-        select(Module)
-        .where(Module.course_id == course_id)
-        .order_by(Module.order_index)
-    )
+    modules_result = await db.execute(select(Module).where(Module.course_id == course_id).order_by(Module.order_index))
     modules = modules_result.scalars().all()
 
     modules_progress = []
     for module in modules:
         lessons_result = await db.execute(
-            select(Lesson)
-            .where(Lesson.module_id == module.id)
-            .order_by(Lesson.order_index)
+            select(Lesson).where(Lesson.module_id == module.id).order_by(Lesson.order_index)
         )
         lessons = lessons_result.scalars().all()
 
@@ -153,22 +153,27 @@ async def get_course_progress_detail(
                     Progress.user_id == user_id,
                     Progress.lesson_id == lesson.id,
                     Progress.tenant_id == tenant_id,
+                    Progress.enrollment_id == progress_enrollment_id,
                 )
             )
             progress = progress_result.scalar_one_or_none()
 
-            lessons_progress.append({
-                "lesson_id": lesson.id,
-                "title": lesson.title,
-                "completed": progress.completed if progress else False,
-                "progress_percent": progress.completion_percent if progress else 0,
-            })
+            lessons_progress.append(
+                {
+                    "lesson_id": lesson.id,
+                    "title": lesson.title,
+                    "completed": progress.completed if progress else False,
+                    "progress_percent": progress.completion_percent if progress else 0,
+                }
+            )
 
-        modules_progress.append({
-            "module_id": module.id,
-            "title": module.title,
-            "lessons": lessons_progress,
-        })
+        modules_progress.append(
+            {
+                "module_id": module.id,
+                "title": module.title,
+                "lessons": lessons_progress,
+            }
+        )
 
     return {
         "course_id": course.id,

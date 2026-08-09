@@ -139,7 +139,8 @@
     "staffSchedule": "Сотрудники и структура",
     "kiosks": "Киоски",
     "trainingLog": "Журнал обучения",
-    "trainingRules": "Правила обучения"
+    "trainingRules": "Правила обучения",
+    "candidateAssessments": "Оценка кандидатов"
   },
   "auth": {
     "login": "Вход",

@@ -14,6 +14,7 @@ Key behaviors:
 The initial invite URL may be delivered by any configured notification channel.
 Identity activation itself always verifies control of the stored email address.
 """
+
 from __future__ import annotations
 
 import re
@@ -78,9 +79,7 @@ def _generate_token() -> str:
 
 async def _get_tenant_invite_expiry_days(db: AsyncSession, tenant_id: UUID) -> int:
     """Read tenant_settings.invite_expiry_days; default 3 if row absent."""
-    result = await db.execute(
-        select(TenantSettings).where(TenantSettings.tenant_id == tenant_id)
-    )
+    result = await db.execute(select(TenantSettings).where(TenantSettings.tenant_id == tenant_id))
     settings = result.scalar_one_or_none()
     if settings and settings.invite_expiry_days:
         return settings.invite_expiry_days
@@ -89,11 +88,7 @@ async def _get_tenant_invite_expiry_days(db: AsyncSession, tenant_id: UUID) -> i
 
 async def _get_tenant_invite_language(db: AsyncSession, tenant_id: UUID) -> str:
     """Read the tenant email language and keep an explicit safe fallback."""
-    result = await db.execute(
-        select(TenantSettings.default_language).where(
-            TenantSettings.tenant_id == tenant_id
-        )
-    )
+    result = await db.execute(select(TenantSettings.default_language).where(TenantSettings.tenant_id == tenant_id))
     language = result.scalar_one_or_none()
     return language if language in {"ru", "kk", "en"} else "ru"
 
@@ -172,9 +167,9 @@ async def attempt_invitation_delivery(
             language=language,
         )
     except EmailDeliveryError as exc:
-        invitation.delivery_status = "pending" if (
-            retry_transient and is_transient_delivery_category(exc.category)
-        ) else "failed"
+        invitation.delivery_status = (
+            "pending" if (retry_transient and is_transient_delivery_category(exc.category)) else "failed"
+        )
         invitation.delivery_failure_category = exc.category[:64]
         invitation.delivery_failure_message = exc.message[:500]
         if retry_transient and is_transient_delivery_category(exc.category):
@@ -237,17 +232,17 @@ async def bulk_create_invitations(
     # 2. Check existing users in this tenant. Keep the tenant predicate on
     # the query so an email in another tenant can never be attached here.
     existing_users_result = await db.execute(
-        select(User).where(
+        select(User)
+        .where(
             User.tenant_id == tenant_id,
             func.lower(User.email).in_(valid_emails),
-        ).order_by(User.created_at.asc(), User.id.asc())
+        )
+        .order_by(User.created_at.asc(), User.id.asc())
     )
     existing_users_by_email: dict[str, list[User]] = {}
     for existing_user in existing_users_result.scalars().all():
         if existing_user.email:
-            existing_users_by_email.setdefault(
-                _normalize_email(existing_user.email), []
-            ).append(existing_user)
+            existing_users_by_email.setdefault(_normalize_email(existing_user.email), []).append(existing_user)
 
     # 3. Check pending invitations in this tenant
     pending_inv_result = await db.execute(
@@ -290,17 +285,11 @@ async def bulk_create_invitations(
     expires_at = now + timedelta(days=expiry_days)
 
     created: list[dict] = []
-    pn_map = {
-        _normalize_email(email): number
-        for email, number in (personnel_numbers or {}).items()
-    }
+    pn_map = {_normalize_email(email): number for email, number in (personnel_numbers or {}).items()}
     for email in to_create:
         existing_users = existing_users_by_email.get(email, [])
         existing_student = next(
-            (
-                user for user in existing_users
-                if user.role == "student" and not user.has_login_access
-            ),
+            (user for user in existing_users if user.role == "student" and not user.has_login_access),
             None,
         )
         if existing_student:
@@ -314,57 +303,65 @@ async def bulk_create_invitations(
             first_name = ""
             last_name = ""
             pn = pn_map.get(email)
-            db.add(User(
-                id=user_id,
-                tenant_id=tenant_id,
-                email=email,
-                personnel_number=pn,
-                first_name=first_name,
-                last_name=last_name,
-                role=default_role,
-                is_active=False,
-                password_hash=None,
-                status="inactive",
-            ))
+            db.add(
+                User(
+                    id=user_id,
+                    tenant_id=tenant_id,
+                    email=email,
+                    personnel_number=pn,
+                    first_name=first_name,
+                    last_name=last_name,
+                    role=default_role,
+                    is_active=False,
+                    password_hash=None,
+                    status="inactive",
+                )
+            )
 
         token = _generate_token()
         invitation_id = uuid4()
-        db.add(UserInvitation(
-            id=invitation_id,
-            tenant_id=tenant_id,
-            email=email,
-            first_name=first_name,
-            last_name=last_name,
-            personnel_number=pn,
-            role=default_role,
-            invited_by=invited_by,
-            token=token,
-            status="pending",
-            expires_at=expires_at,
-            user_id=user_id,
-        ))
+        db.add(
+            UserInvitation(
+                id=invitation_id,
+                tenant_id=tenant_id,
+                email=email,
+                first_name=first_name,
+                last_name=last_name,
+                personnel_number=pn,
+                role=default_role,
+                invited_by=invited_by,
+                token=token,
+                status="pending",
+                expires_at=expires_at,
+                user_id=user_id,
+            )
+        )
 
-        created.append({
-            "email": email,
-            "invitation_id": invitation_id,
-            "invite_url": _build_invite_url(token, base_url),
-            "expires_at": expires_at,
-            "personnel_number": pn,
-        })
+        created.append(
+            {
+                "email": email,
+                "invitation_id": invitation_id,
+                "invite_url": _build_invite_url(token, base_url),
+                "expires_at": expires_at,
+                "personnel_number": pn,
+            }
+        )
 
     await db.commit()
 
     return {"created": created, "skipped_existing": skipped, "invalid": invalid}
 
 
-async def create_or_refresh_user_invitation(
+async def prepare_user_invitation(
     db: AsyncSession,
     tenant_id: UUID,
     invited_by: UUID,
     user_id: UUID,
     base_url: str | None = None,
+    *,
+    reuse_valid: bool = True,
 ) -> dict:
-    """Create a fresh activation link for one exact learner identity.
+    """Create or reuse activation in the caller's transaction; never commit.
 
     Course assignment already operates on ``user_id``. Keeping the same
     identifier here prevents an invitation from being attached to another
@@ -406,10 +403,7 @@ async def create_or_refresh_user_invitation(
     if identity_ids != [target.id]:
         raise HTTPException(
             status_code=409,
-            detail=(
-                "Email связан с несколькими профилями сотрудников. "
-                "Объедините дубли перед созданием ссылки."
-            ),
+            detail=("Email связан с несколькими профилями сотрудников. " "Объедините дубли перед созданием ссылки."),
         )
 
     pending_result = await db.execute(
@@ -426,8 +420,17 @@ async def create_or_refresh_user_invitation(
             detail="Ожидающее приглашение связано с другим профилем сотрудника",
         )
 
-    expiry_days = await _get_tenant_invite_expiry_days(db, tenant_id)
     now = datetime.now(UTC)
+    if pending is not None and reuse_valid and pending.expires_at > now:
+        return {
+            "email": email,
+            "invitation_id": pending.id,
+            "invite_url": _build_invite_url(pending.token, base_url),
+            "expires_at": pending.expires_at,
+            "superseded_old_id": None,
+        }
+
+    expiry_days = await _get_tenant_invite_expiry_days(db, tenant_id)
     expires_at = now + timedelta(days=expiry_days)
     token = _generate_token()
     invitation_id = uuid4()
@@ -440,22 +443,22 @@ async def create_or_refresh_user_invitation(
         # Release the partial unique index before inserting the replacement.
         await db.flush()
 
-    db.add(UserInvitation(
-        id=invitation_id,
-        tenant_id=tenant_id,
-        email=email,
-        first_name=target.first_name,
-        last_name=target.last_name,
-        personnel_number=target.personnel_number,
-        role="student",
-        invited_by=invited_by,
-        token=token,
-        status="pending",
-        expires_at=expires_at,
-        user_id=target.id,
-    ))
-    await db.commit()
-
+    db.add(
+        UserInvitation(
+            id=invitation_id,
+            tenant_id=tenant_id,
+            email=email,
+            first_name=target.first_name,
+            last_name=target.last_name,
+            personnel_number=target.personnel_number,
+            role="student",
+            invited_by=invited_by,
+            token=token,
+            status="pending",
+            expires_at=expires_at,
+            user_id=target.id,
+        )
+    )
     return {
         "email": email,
         "invitation_id": invitation_id,
@@ -463,6 +466,19 @@ async def create_or_refresh_user_invitation(
         "expires_at": expires_at,
         "superseded_old_id": superseded_old_id,
     }
+
+
+async def create_or_refresh_user_invitation(
+    db: AsyncSession,
+    tenant_id: UUID,
+    invited_by: UUID,
+    user_id: UUID,
+    base_url: str | None = None,
+) -> dict:
+    """Create a fresh activation link and commit the standalone action."""
+    result = await prepare_user_invitation(db, tenant_id, invited_by, user_id, base_url, reuse_valid=False)
+    await db.commit()
+    return result
 
 
 async def resend_invitation(
@@ -495,19 +511,21 @@ async def resend_invitation(
     new_token = _generate_token()
     new_id = uuid4()
 
-    db.add(UserInvitation(
-        id=new_id,
-        tenant_id=old.tenant_id,
-        email=old.email,
-        first_name=old.first_name,
-        last_name=old.last_name,
-        role=old.role,
-        invited_by=old.invited_by,
-        token=new_token,
-        status="pending",
-        expires_at=expires_at,
-        user_id=old.user_id,
-    ))
+    db.add(
+        UserInvitation(
+            id=new_id,
+            tenant_id=old.tenant_id,
+            email=old.email,
+            first_name=old.first_name,
+            last_name=old.last_name,
+            role=old.role,
+            invited_by=old.invited_by,
+            token=new_token,
+            status="pending",
+            expires_at=expires_at,
+            user_id=old.user_id,
+        )
+    )
 
     old.status = "superseded"
     old.superseded_by = new_id
@@ -557,9 +575,7 @@ def _public_invitation_payload(
 
 
 async def _get_pending_invitation(db: AsyncSession, token: str) -> UserInvitation:
-    result = await db.execute(
-        select(UserInvitation).where(UserInvitation.token == token)
-    )
+    result = await db.execute(select(UserInvitation).where(UserInvitation.token == token))
     inv = result.scalar_one_or_none()
     if not inv:
         raise HTTPException(status_code=404, detail="Приглашение не найдено")
@@ -586,9 +602,7 @@ async def _get_pending_invitation(db: AsyncSession, token: str) -> UserInvitatio
 
 async def get_public_invitation(db: AsyncSession, token: str, tenant_lookup=None) -> dict:
     """Return read-only HR identity and assigned-course context for a token."""
-    result = await db.execute(
-        select(UserInvitation).where(UserInvitation.token == token)
-    )
+    result = await db.execute(select(UserInvitation).where(UserInvitation.token == token))
     inv = result.scalar_one_or_none()
     if not inv:
         return _public_invitation_payload(
@@ -601,9 +615,7 @@ async def get_public_invitation(db: AsyncSession, token: str, tenant_lookup=None
 
     from app.models.tenants import Tenant  # local import to avoid circular
 
-    tenant = (
-        await db.execute(select(Tenant).where(Tenant.id == inv.tenant_id))
-    ).scalar_one_or_none()
+    tenant = (await db.execute(select(Tenant).where(Tenant.id == inv.tenant_id))).scalar_one_or_none()
     tenant_name = tenant.name if tenant else "Kamilya LMS"
     user = await db.get(User, inv.user_id) if inv.user_id else None
     position_name = None
@@ -631,7 +643,9 @@ async def get_public_invitation(db: AsyncSession, token: str, tenant_lookup=None
                     )
                     .order_by(Enrollment.enrolled_at.desc(), Course.title.asc())
                 )
-            ).scalars().all()
+            )
+            .scalars()
+            .all()
         )
 
     reason_by_status = {
@@ -685,9 +699,7 @@ async def request_invitation_code(db: AsyncSession, token: str) -> dict:
 
     from app.models.tenants import Tenant
 
-    tenant = (
-        await db.execute(select(Tenant).where(Tenant.id == inv.tenant_id))
-    ).scalar_one_or_none()
+    tenant = (await db.execute(select(Tenant).where(Tenant.id == inv.tenant_id))).scalar_one_or_none()
     tenant_name = tenant.name if tenant else "Kamilya LMS"
     learner_name = f"{user.first_name} {user.last_name}".strip() or "Сотрудник"
     email_service = EmailService()
@@ -777,17 +789,21 @@ async def accept_invitation(
     user_payload = await build_user_payload(db, user)
     roles = user_payload["roles"]
     active_role = user_payload["role"]
-    access_token = create_access_token({
-        "sub": str(user.id),
-        "tenant_id": str(user.tenant_id),
-        "roles": roles,
-        "active_role": active_role,
-    })
-    refresh_token = create_refresh_token({
-        "sub": str(user.id),
-        "tenant_id": str(user.tenant_id),
-        "active_role": active_role,
-    })
+    access_token = create_access_token(
+        {
+            "sub": str(user.id),
+            "tenant_id": str(user.tenant_id),
+            "roles": roles,
+            "active_role": active_role,
+        }
+    )
+    refresh_token = create_refresh_token(
+        {
+            "sub": str(user.id),
+            "tenant_id": str(user.tenant_id),
+            "active_role": active_role,
+        }
+    )
     await issue_refresh_session(db, user, refresh_token, user_agent=accepted_user_agent, ip_address=accepted_ip)
     course_ids = list(
         (
@@ -802,7 +818,9 @@ async def accept_invitation(
                 )
                 .order_by(Enrollment.enrolled_at.desc())
             )
-        ).scalars().all()
+        )
+        .scalars()
+        .all()
     )
     await log_action(
         db,

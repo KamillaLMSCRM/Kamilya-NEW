@@ -75,6 +75,15 @@ describe('contextual course assignment flow', () => {
           }],
         }));
       }
+      if (!init?.method && url.endsWith('/v1/learning-cycles')) {
+        return Promise.resolve(jsonResponse([]));
+      }
+      if (!init?.method && url.endsWith('/v1/learning-cycles/occurrences')) {
+        return Promise.resolve(jsonResponse([]));
+      }
+      if (init?.method === 'POST' && url.endsWith('/v1/learning-cycles')) {
+        return Promise.resolve(jsonResponse({ id: 'rule-1', status: 'draft' }, 201));
+      }
       if (!init?.method && url.endsWith('/v1/courses/course-1/enrollments')) {
         return Promise.resolve(jsonResponse([]));
       }
@@ -102,7 +111,57 @@ describe('contextual course assignment flow', () => {
     expect(screen.getByText('После назначения будет создана ссылка доступа')).toBeInTheDocument();
   });
 
-  it('confirms the assignment and creates an access link for a learner without login', async () => {
+  it('shows recurring learning controls with independent occurrence semantics', async () => {
+    render(<CourseAssignmentsPage />);
+
+    expect(await screen.findByText('Повторное обучение')).toBeInTheDocument();
+    expect(screen.getByText(/Каждый запуск создаёт отдельный период/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Запустить' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Сохранить черновик' })).toBeDisabled();
+    expect(screen.getByText(/уже проходил этот курс/)).toBeInTheDocument();
+  });
+
+  it('saves only a recurring draft from the assignments page', async () => {
+    render(<CourseAssignmentsPage />);
+
+    fireEvent.change(await screen.findByRole('combobox', { name: 'Курс' }), {
+      target: { value: 'course-1' },
+    });
+    fireEvent.change(screen.getByRole('combobox', { name: 'Обучающийся' }), {
+      target: { value: 'user-1' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить черновик' }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining('/v1/learning-cycles'),
+      expect.objectContaining({ method: 'POST' }),
+    ));
+    expect(screen.queryByRole('button', { name: 'Запустить' })).not.toBeInTheDocument();
+  });
+
+  it('renders overdue and completed-late occurrence reporting', async () => {
+    fetchMock.mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/v1/courses?')) return Promise.resolve(jsonResponse([{ id: 'course-1', title: 'Охрана труда', status: 'published' }]));
+      if (url.includes('/v1/users?')) return Promise.resolve(jsonResponse({ users: [{ id: 'user-1', first_name: 'Алия', last_name: 'Садыкова', email: 'a@example.kz', role: 'student' }, { id: 'user-2', first_name: 'Бек', last_name: 'Иманов', email: 'b@example.kz', role: 'student' }] }));
+      if (url.endsWith('/v1/courses/course-1/enrollments')) return Promise.resolve(jsonResponse([]));
+      if (url.endsWith('/v1/learning-cycles/occurrences')) return Promise.resolve(jsonResponse([
+        { id: 'o1', rule_id: 'r1', scheduled_for: '2026-01-01T00:00:00Z', due_at: '2026-01-10T00:00:00Z', completed_at: null, status: 'overdue' },
+        { id: 'o2', rule_id: 'r2', scheduled_for: '2026-01-01T00:00:00Z', due_at: '2026-01-10T00:00:00Z', completed_at: '2026-01-12T00:00:00Z', status: 'completed_late' },
+      ]));
+      if (url.endsWith('/v1/learning-cycles')) return Promise.resolve(jsonResponse([
+        { id: 'r1', course_id: 'course-1', user_id: 'user-1', cadence_days: 180, due_days: 14, status: 'active', next_run_at: null, last_run_at: null },
+        { id: 'r2', course_id: 'course-1', user_id: 'user-2', cadence_days: 180, due_days: 14, status: 'active', next_run_at: null, last_run_at: null },
+      ]));
+      throw new Error(`Unexpected request: ${url}`);
+    });
+    render(<CourseAssignmentsPage />);
+    expect(await screen.findByText(/Последний период: Просрочено/)).toBeInTheDocument();
+    expect(await screen.findByText(/Последний период: Завершено с опозданием/)).toBeInTheDocument();
+    expect(screen.getByText(/Завершено: 12/)).toBeInTheDocument();
+  });
+
+  it('keeps account activation separate from course assignment', async () => {
     render(<CourseAssignmentsPage />);
 
     const assignButton = await screen.findByRole('button', { name: 'Назначить (1)' });
@@ -114,13 +173,46 @@ describe('contextual course assignment flow', () => {
         confirmLabel: 'Назначить',
       }),
     ));
-    await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith(
-        expect.stringContaining('/v1/users/user-1/invitation-link'),
-        expect.objectContaining({ method: 'POST' }),
-      );
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining('/v1/courses/course-1/enrollments'),
+      expect.objectContaining({ method: 'POST' }),
+    ));
+    expect(fetchMock).not.toHaveBeenCalledWith(
+      expect.stringContaining('/v1/users/user-1/invitation-link'),
+      expect.anything(),
+    );
+  });
+
+  it('retrieves access from the persistent assignment action after reload', async () => {
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (!init?.method && url.includes('/v1/courses?')) return Promise.resolve(jsonResponse([{ id: 'course-1', title: 'Охрана труда', status: 'published' }]));
+      if (!init?.method && url.includes('/v1/users?')) return Promise.resolve(jsonResponse({ users: [{ id: 'user-1', first_name: 'Алия', last_name: 'Садыкова', email: 'aliya@example.kz', role: 'student' }] }));
+      if (!init?.method && url.endsWith('/v1/courses/course-1/enrollments')) return Promise.resolve(jsonResponse([{ id: 'enrollment-1', user_id: 'user-1', course_id: 'course-1', status: 'enrolled', source: 'manual', enrolled_at: '2026-01-01T00:00:00Z' }]));
+      if (!init?.method && url.endsWith('/v1/courses/enrollments/enrollment-1/access')) return Promise.resolve(jsonResponse({ enrollment_id: 'enrollment-1', user_id: 'user-1', access_kind: 'account_activation', state: 'available', access_url: 'https://app.kml.kz/accept-invite?token=test', message: 'ready' }));
+      throw new Error(`Unexpected request: ${url}`);
     });
-    expect(await screen.findByText('Ссылки доступа для новых обучающихся')).toBeInTheDocument();
-    expect(screen.getByText('aliya@example.kz')).toBeInTheDocument();
+    Object.assign(navigator, { clipboard: { writeText: vi.fn().mockResolvedValue(undefined) } });
+    render(<CourseAssignmentsPage />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Получить ссылку' }));
+    await waitFor(() => expect(navigator.clipboard.writeText).toHaveBeenCalledWith('https://app.kml.kz/accept-invite?token=test'));
+  });
+
+  it('shows durable notification failure and exposes explicit resend', async () => {
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (!init?.method && url.includes('/v1/courses?')) return Promise.resolve(jsonResponse([{ id: 'course-1', title: 'Охрана труда', status: 'published' }]));
+      if (!init?.method && url.includes('/v1/users?')) return Promise.resolve(jsonResponse({ users: [{ id: 'user-1', first_name: 'Алия', last_name: 'Садыкова', email: 'aliya@example.kz', role: 'student' }] }));
+      if (!init?.method && url.endsWith('/v1/courses/course-1/enrollments')) return Promise.resolve(jsonResponse([{ id: 'enrollment-1', user_id: 'user-1', course_id: 'course-1', status: 'enrolled', source: 'manual', enrolled_at: '2026-01-01T00:00:00Z', notification_status: 'dead', notification_error: 'provider_rejected' }]));
+      if (init?.method === 'POST' && url.endsWith('/v1/courses/enrollments/enrollment-1/notification/resend')) return Promise.resolve(jsonResponse({ enrollment_id: 'enrollment-1', notification_id: 'notification-1', status: 'pending' }));
+      throw new Error(`Unexpected request: ${url} ${init?.method || 'GET'}`);
+    });
+    render(<CourseAssignmentsPage />);
+    expect(await screen.findByText('Не доставлено')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Отправить повторно' }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining('/notification/resend'),
+      expect.objectContaining({ method: 'POST' }),
+    ));
   });
 });

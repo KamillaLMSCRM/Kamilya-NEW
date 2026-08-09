@@ -1,7 +1,7 @@
 import json
 from functools import lru_cache
 
-from pydantic import field_validator, model_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -29,12 +29,20 @@ class Settings(BaseSettings):
     # operational checklist after migration.
     DATABASE_URL: str = "postgresql+asyncpg://lms:lms_dev_password_2026@localhost:5432/kamilya_lms"
     MIGRATION_DATABASE_URL: str = ""
+    ASSIGNMENT_RECOVERY_DATABASE_URL: str = ""
+    CANDIDATE_RETENTION_DATABASE_URL: str = ""
     DB_POOL_SIZE: int = 5
     DB_MAX_OVERFLOW: int = 5
     DB_POOL_TIMEOUT: int = 10
     DB_POOL_RECYCLE_SECONDS: int = 1800
 
-    @field_validator("DATABASE_URL", "MIGRATION_DATABASE_URL", mode="before")
+    @field_validator(
+        "DATABASE_URL",
+        "MIGRATION_DATABASE_URL",
+        "ASSIGNMENT_RECOVERY_DATABASE_URL",
+        "CANDIDATE_RETENTION_DATABASE_URL",
+        mode="before",
+    )
     @classmethod
     def fix_database_url(cls, v):
         if isinstance(v, str) and v.startswith("postgres://"):
@@ -63,6 +71,11 @@ class Settings(BaseSettings):
     JWT_ISSUER: str = "kamilya-lms"  # claimed in 'iss'; validated on every decode
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30
+    # No-email assignment sessions remain memory-only access tokens: unlike a
+    # normal login they never receive a refresh cookie. Keep the bounded TTL
+    # long enough to complete a course without turning the copied credential
+    # into a long-lived session.
+    ASSIGNMENT_ACCESS_SESSION_MINUTES: int = Field(default=240, ge=30, le=480)
 
     # MinIO / S3
     MINIO_ENDPOINT: str = "localhost:9000"
@@ -161,7 +174,7 @@ class Settings(BaseSettings):
         if len(self.JWT_SECRET) < 32:
             raise ValueError(
                 f"JWT_SECRET must be at least 32 characters (got {len(self.JWT_SECRET)}). "
-                "Generate one with: python -c \"import secrets; print(secrets.token_urlsafe(48))\""
+                'Generate one with: python -c "import secrets; print(secrets.token_urlsafe(48))"'
             )
         if self.JWT_ALGORITHM not in ("HS256", "HS384", "HS512"):
             raise ValueError(
@@ -175,14 +188,8 @@ class Settings(BaseSettings):
             and not self.CRM_WEBHOOK_URL.lower().startswith("https://")
         ):
             raise ValueError("CRM_WEBHOOK_URL must use HTTPS in production")
-        if (
-            self.APP_ENV.lower() == "production"
-            and self.CRM_WEBHOOK_SECRET
-            and len(self.CRM_WEBHOOK_SECRET) < 32
-        ):
-            raise ValueError(
-                "CRM_WEBHOOK_SECRET must be at least 32 characters in production"
-            )
+        if self.APP_ENV.lower() == "production" and self.CRM_WEBHOOK_SECRET and len(self.CRM_WEBHOOK_SECRET) < 32:
+            raise ValueError("CRM_WEBHOOK_SECRET must be at least 32 characters in production")
         return self
 
     # Celery
@@ -238,6 +245,6 @@ class Settings(BaseSettings):
     KAMILYA_BACKEND_SECRET: str = ""
 
 
-@lru_cache()
+@lru_cache
 def get_settings() -> Settings:
     return Settings()

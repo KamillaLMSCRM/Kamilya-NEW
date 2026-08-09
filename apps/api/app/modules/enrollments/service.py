@@ -1,4 +1,5 @@
 """Enrollments — API service."""
+
 from uuid import UUID, uuid4
 
 from sqlalchemy import func, select
@@ -6,8 +7,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.courses import Course
 from app.models.enrollment import Enrollment
-from app.models.users import User
+from app.models.users import User, UserInvitation
 from app.modules.courses.release_service import ensure_course_release
+from app.modules.enrollments.notification_outbox import (
+    PostgresAssignmentNotificationStore,
+    queue_manual_enrollment_notification,
+)
 
 
 async def get_enrolled_users(db: AsyncSession, course_id: UUID, tenant_id: UUID):
@@ -27,10 +32,114 @@ async def get_enrolled_users(db: AsyncSession, course_id: UUID, tenant_id: UUID)
             Enrollment.tenant_id == tenant_id,
         )
     )
-    return result.scalars().all()
+    enrollments = list(result.scalars().all())
+    statuses = await PostgresAssignmentNotificationStore(db).statuses(tenant_id=tenant_id, course_id=course_id)
+    for enrollment in enrollments:
+        delivery = statuses.get(enrollment.id)
+        enrollment.notification_status = delivery.status if delivery else None
+        enrollment.notification_attempt_count = delivery.attempt_count if delivery else 0
+        enrollment.notification_delivered_at = delivery.delivered_at if delivery else None
+        enrollment.notification_error = delivery.last_error_category if delivery else None
+    return enrollments
 
 
-async def enroll_users(db: AsyncSession, course_id: UUID, tenant_id: UUID, user_ids: list[UUID]):
+async def get_enrollment_access(
+    db: AsyncSession, enrollment_id: UUID, tenant_id: UUID, *, base_url: str | None
+) -> dict | None:
+    """Return the durable access state for an assigned learner.
+
+    Account activation is intentionally separate from course-assignment
+    notification.  The current product has no secure second factor for
+    employees without email, so this endpoint must fail closed instead of
+    delegating to the personnel-number kiosk flow.
+    """
+    result = await db.execute(
+        select(Enrollment, User)
+        .join(User, User.id == Enrollment.user_id)
+        .where(Enrollment.id == enrollment_id, Enrollment.tenant_id == tenant_id)
+    )
+    row = result.one_or_none()
+    if row is None:
+        return None
+    enrollment, learner = row
+
+    if not learner.email or not learner.email.strip():
+        from app.models.assignment_access import AssignmentAccessCredential
+
+        active_credential = await db.execute(
+            select(AssignmentAccessCredential.id, AssignmentAccessCredential.expires_at).where(
+                AssignmentAccessCredential.enrollment_id == enrollment.id,
+                AssignmentAccessCredential.revoked_at.is_(None),
+                AssignmentAccessCredential.expires_at > func.now(),
+            )
+        )
+        credential_row = active_credential.one_or_none()
+        return {
+            "enrollment_id": enrollment.id,
+            "user_id": learner.id,
+            "access_kind": "access_without_email",
+            "state": "available" if credential_row else "blocked",
+            "access_url": None,
+            "expires_at": credential_row[1] if credential_row else None,
+            "message": (
+                "A protected link and PIN can be issued for this learner."
+                if not credential_row
+                else "A protected link is active. Reissue to revoke it and create a new PIN."
+            ),
+        }
+
+    base = (base_url or "https://app.kml.kz").rstrip("/")
+    if learner.has_login_access:
+        return {
+            "enrollment_id": enrollment.id,
+            "user_id": learner.id,
+            "access_kind": "course_access",
+            "state": "available",
+            "access_url": f"{base}/courses/{enrollment.course_id}",
+            "expires_at": None,
+            "message": "The learner can open the assigned course with the existing account.",
+        }
+
+    invitation = await db.scalar(
+        select(UserInvitation)
+        .where(
+            UserInvitation.tenant_id == tenant_id,
+            UserInvitation.user_id == learner.id,
+            UserInvitation.status == "pending",
+            UserInvitation.expires_at > func.now(),
+        )
+        .order_by(UserInvitation.created_at.desc())
+        .limit(1)
+    )
+    if invitation is None:
+        return {
+            "enrollment_id": enrollment.id,
+            "user_id": learner.id,
+            "access_kind": "account_activation",
+            "state": "needs_activation",
+            "access_url": None,
+            "message": "Account activation has not been prepared. Course notification is separate.",
+        }
+
+    return {
+        "enrollment_id": enrollment.id,
+        "user_id": learner.id,
+        "access_kind": "account_activation",
+        "state": "available",
+        "access_url": f"{base}/accept-invite?token={invitation.token}",
+        "expires_at": invitation.expires_at,
+        "message": "Copy the activation link or create a fresh one if it has expired.",
+    }
+
+
+async def enroll_users(
+    db: AsyncSession,
+    course_id: UUID,
+    tenant_id: UUID,
+    user_ids: list[UUID],
+    *,
+    assigned_by: UUID | None = None,
+):
     """Bulk enroll users with tenant + status validation (P1-5).
 
     Per TZ §7 P1-5: pre-fix code didn't validate that the user
@@ -103,6 +212,7 @@ async def enroll_users(db: AsyncSession, course_id: UUID, tenant_id: UUID, user_
                 Enrollment.course_id == course_id,
                 Enrollment.user_id == uid,
                 Enrollment.tenant_id == tenant_id,
+                Enrollment.recurring_assignment_id.is_(None),
             )
         )
         if existing.scalar_one_or_none():
@@ -122,15 +232,49 @@ async def enroll_users(db: AsyncSession, course_id: UUID, tenant_id: UUID, user_
 
     if enrollments:
         await db.flush()
+        for enrollment in enrollments:
+            learner = users_by_id[enrollment.user_id]
+            if assigned_by is None:
+                continue
+            if learner.email and learner.email.strip() and not learner.has_login_access:
+                from app.core.config import get_settings
+                from app.modules.users.invitations_service import prepare_user_invitation
+
+                await prepare_user_invitation(
+                    db,
+                    tenant_id,
+                    assigned_by,
+                    learner.id,
+                    get_settings().PUBLIC_URL,
+                    reuse_valid=True,
+                )
+            notification_id = await queue_manual_enrollment_notification(
+                db,
+                tenant_id=tenant_id,
+                enrollment_id=enrollment.id,
+                assigned_by=assigned_by,
+            )
+            enrollment.notification_outbox_id = notification_id
     return enrollments
+
+
+async def resend_enrollment_notification(db: AsyncSession, *, tenant_id: UUID, enrollment_id: UUID) -> UUID | None:
+    enrollment = await db.scalar(
+        select(Enrollment.id).where(
+            Enrollment.id == enrollment_id,
+            Enrollment.tenant_id == tenant_id,
+            Enrollment.source.in_(("manual", "recurring")),
+        )
+    )
+    if enrollment is None:
+        return None
+    return await PostgresAssignmentNotificationStore(db).requeue(tenant_id=tenant_id, enrollment_id=enrollment_id)
 
 
 async def self_enroll(db: AsyncSession, course_id: UUID, user_id: UUID, tenant_id: UUID):
     """Self-enrollment — student enrolls themselves in a course."""
     # Check course exists and is published
-    course_result = await db.execute(
-        select(Course).where(Course.id == course_id, Course.tenant_id == tenant_id)
-    )
+    course_result = await db.execute(select(Course).where(Course.id == course_id, Course.tenant_id == tenant_id))
     course = course_result.scalar_one_or_none()
     if not course:
         raise ValueError("Course not found")
@@ -144,6 +288,7 @@ async def self_enroll(db: AsyncSession, course_id: UUID, user_id: UUID, tenant_i
             Enrollment.course_id == course_id,
             Enrollment.user_id == user_id,
             Enrollment.tenant_id == tenant_id,
+            Enrollment.recurring_assignment_id.is_(None),
         )
     )
     if existing.scalar_one_or_none():
@@ -169,9 +314,7 @@ async def unenroll(db: AsyncSession, enrollment_id: UUID, tenant_id: UUID) -> No
     enrollment = result.scalar_one_or_none()
     if enrollment:
         if enrollment.source != "manual":
-            raise ValueError(
-                "Rule-driven enrollments must be changed through department or position rules"
-            )
+            raise ValueError("Rule-driven enrollments must be changed through department or position rules")
         await db.delete(enrollment)
 
 

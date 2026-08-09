@@ -15,18 +15,16 @@ This keeps the page render bounded: even for a tenant with 10k users × 50 cours
 the query plan should stay under 1s on the indexes we have
 (ix_enrollments_tenant_user / ix_progress_tenant_user_course_completed).
 """
+
 from __future__ import annotations
 
 import logging
-from datetime import datetime
 from typing import Any
 from uuid import UUID
 
 from sqlalchemy import (
     Boolean,
     Column,
-    DateTime,
-    Float,
     Integer,
     MetaData,
     Table,
@@ -42,12 +40,10 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.courses import Course  # re-export wrapper
 from app.models.department import Department
 from app.models.enrollment import Enrollment
 from app.models.users import User
 from app.modules.courses.models import Course as CourseModel
-from app.modules.positions.models import Position
 from app.modules.training_evidence.models import (
     TrainingEvidenceEvent,
     TrainingEvidenceLegalHold,
@@ -68,6 +64,7 @@ _quiz_attempts = Table(
     Column("quiz_id", PG_UUID),
     Column("user_id", PG_UUID),
     Column("tenant_id", PG_UUID),
+    Column("enrollment_id", PG_UUID),
     Column("score_percent", Integer),
     Column("passed", Boolean),
 )
@@ -136,6 +133,7 @@ def _build_activity_subqueries():
         Column("course_id", PG_UUID),
         Column("lesson_id", PG_UUID),
         Column("completed", Boolean),
+        Column("enrollment_id", PG_UUID),
     )
     _scorm_attempts = Table(
         "scorm_attempts",
@@ -162,13 +160,16 @@ def _build_activity_subqueries():
         select(
             _progress.c.user_id.label("user_id"),
             _progress.c.course_id.label("course_id"),
+            _progress.c.enrollment_id.label("enrollment_id"),
             func.coalesce(
                 func.sum(case((_progress.c.completed.is_(True), 1), else_=0)),
                 0,
-            ).cast(Integer).label("completed_lessons"),
+            )
+            .cast(Integer)
+            .label("completed_lessons"),
             func.bool_or(_progress.c.completed).label("has_progress"),
         )
-        .group_by(_progress.c.user_id, _progress.c.course_id)
+        .group_by(_progress.c.user_id, _progress.c.course_id, _progress.c.enrollment_id)
         .subquery()
     )
 
@@ -254,22 +255,29 @@ async def count_training_log(
                 Enrollment.completed_at.is_(None),
                 or_(
                     select(1)
-                    .select_from(Table("progress", MetaData(),
-                                        Column("user_id", PG_UUID),
-                                        Column("course_id", PG_UUID),
-                                        Column("completed", Boolean)))
+                    .select_from(
+                        Table(
+                            "progress",
+                            MetaData(),
+                            Column("user_id", PG_UUID),
+                            Column("course_id", PG_UUID),
+                            Column("completed", Boolean),
+                            Column("enrollment_id", PG_UUID),
+                        )
+                    )
                     .where(
                         and_(
                             text("progress.user_id = users.id"),
                             text("progress.course_id = courses.id"),
                             text("progress.completed = TRUE"),
+                            text("((enrollments.recurring_assignment_id IS NULL AND progress.enrollment_id IS NULL) OR progress.enrollment_id = enrollments.id)"),
                         )
                     )
                     .exists(),
                     select(1)
-                    .select_from(Table("scorm_attempts", MetaData(),
-                                        Column("user_id", PG_UUID),
-                                        Column("course_id", PG_UUID)))
+                    .select_from(
+                        Table("scorm_attempts", MetaData(), Column("user_id", PG_UUID), Column("course_id", PG_UUID))
+                    )
                     .where(
                         and_(
                             text("scorm_attempts.user_id = users.id"),
@@ -285,22 +293,29 @@ async def count_training_log(
             and_(
                 Enrollment.completed_at.is_(None),
                 ~select(1)
-                .select_from(Table("progress", MetaData(),
-                                    Column("user_id", PG_UUID),
-                                    Column("course_id", PG_UUID),
-                                    Column("completed", Boolean)))
+                .select_from(
+                    Table(
+                        "progress",
+                        MetaData(),
+                        Column("user_id", PG_UUID),
+                        Column("course_id", PG_UUID),
+                        Column("completed", Boolean),
+                        Column("enrollment_id", PG_UUID),
+                    )
+                )
                 .where(
                     and_(
                         text("progress.user_id = users.id"),
                         text("progress.course_id = courses.id"),
                         text("progress.completed = TRUE"),
+                        text("((enrollments.recurring_assignment_id IS NULL AND progress.enrollment_id IS NULL) OR progress.enrollment_id = enrollments.id)"),
                     )
                 )
                 .exists(),
                 ~select(1)
-                .select_from(Table("scorm_attempts", MetaData(),
-                                    Column("user_id", PG_UUID),
-                                    Column("course_id", PG_UUID)))
+                .select_from(
+                    Table("scorm_attempts", MetaData(), Column("user_id", PG_UUID), Column("course_id", PG_UUID))
+                )
                 .where(
                     and_(
                         text("scorm_attempts.user_id = users.id"),
@@ -419,9 +434,7 @@ async def _load_evidence_read_model(
                 evidence_state = "forming"
             else:
                 evidence_state = "ready"
-            confirmation_status = (
-                "not_required" if not required else "confirmed" if confirmed else "pending"
-            )
+            confirmation_status = "not_required" if not required else "confirmed" if confirmed else "pending"
             item = {
                 "event_id": latest.id,
                 "procedure_type": procedure_type,
@@ -523,6 +536,13 @@ async def list_training_log(
             and_(
                 native_activity.c.user_id == User.id,
                 native_activity.c.course_id == CourseModel.id,
+                or_(
+                    native_activity.c.enrollment_id == Enrollment.id,
+                    and_(
+                        Enrollment.recurring_assignment_id.is_(None),
+                        native_activity.c.enrollment_id.is_(None),
+                    ),
+                ),
             ),
         )
         .outerjoin(
@@ -563,12 +583,13 @@ async def list_training_log(
         select(
             _quiz_attempts.c.user_id.label("user_id"),
             _quiz_attempts.c.quiz_id.label("quiz_id"),
+            _quiz_attempts.c.enrollment_id.label("enrollment_id"),
             func.max(_quiz_attempts.c.score_percent).label("best_score"),
             func.count(_quiz_attempts.c.id).label("attempts_count"),
         )
         .where(_quiz_attempts.c.tenant_id == tenant_id)
         .where(_quiz_attempts.c.user_id.in_(user_ids))
-        .group_by(_quiz_attempts.c.user_id, _quiz_attempts.c.quiz_id)
+        .group_by(_quiz_attempts.c.user_id, _quiz_attempts.c.quiz_id, _quiz_attempts.c.enrollment_id)
         .subquery()
     )
 
@@ -600,9 +621,9 @@ async def list_training_log(
             _quiz_modules.c.course_id.label("course_id"),
         )
         .select_from(
-            _quizzes
-            .join(_quiz_lessons, _quiz_lessons.c.id == _quizzes.c.lesson_id)
-            .join(_quiz_modules, _quiz_modules.c.id == _quiz_lessons.c.module_id)
+            _quizzes.join(_quiz_lessons, _quiz_lessons.c.id == _quizzes.c.lesson_id).join(
+                _quiz_modules, _quiz_modules.c.id == _quiz_lessons.c.module_id
+            )
         )
         .where(_quizzes.c.tenant_id == tenant_id)
         .where(_quiz_modules.c.course_id.in_(course_ids))
@@ -613,6 +634,7 @@ async def list_training_log(
         select(
             quiz_course_stmt.c.course_id.label("course_id"),
             quiz_stats_stmt.c.user_id.label("user_id"),
+            quiz_stats_stmt.c.enrollment_id.label("enrollment_id"),
             func.max(quiz_stats_stmt.c.best_score).label("best_score"),
             func.sum(quiz_stats_stmt.c.attempts_count).label("attempts_count"),
         )
@@ -624,11 +646,12 @@ async def list_training_log(
         .group_by(
             quiz_course_stmt.c.course_id,
             quiz_stats_stmt.c.user_id,
+            quiz_stats_stmt.c.enrollment_id,
         )
     )
     quiz_rows = (await db.execute(quiz_join_stmt)).mappings().all()
     quiz_by_pair = {
-        (r["user_id"], r["course_id"]): {
+        (r["user_id"], r["course_id"], r["enrollment_id"]): {
             "best_score": r["best_score"],
             "quiz_attempts_count": int(r["attempts_count"] or 0),
         }
@@ -639,6 +662,7 @@ async def list_training_log(
     cert_stmt = select(
         Certificate.user_id,
         Certificate.course_id,
+        Certificate.enrollment_id,
         Certificate.id.label("certificate_id"),
         Certificate.certificate_number,
         Certificate.issued_at,
@@ -649,7 +673,7 @@ async def list_training_log(
     )
     cert_rows = (await db.execute(cert_stmt)).mappings().all()
     cert_by_pair = {
-        (r["user_id"], r["course_id"]): {
+        (r["user_id"], r["course_id"], r["enrollment_id"]): {
             "certificate_id": r["certificate_id"],
             "certificate_number": r["certificate_number"],
             "certificate_issued_at": r["issued_at"],
@@ -708,8 +732,9 @@ async def list_training_log(
                 progress_percent = 0
             computed_status = "in_progress" if has_native_progress else "assigned"
 
-        quiz_info = quiz_by_pair.get((r["user_id"], r["course_id"]), {})
-        cert_info = cert_by_pair.get((r["user_id"], r["course_id"]), {})
+        cycle_key = r["enrollment_id"] if r["enrollment_source"] == "recurring" else None
+        quiz_info = quiz_by_pair.get((r["user_id"], r["course_id"], cycle_key), {})
+        cert_info = cert_by_pair.get((r["user_id"], r["course_id"], cycle_key), {})
         evidence_info = evidence_by_enrollment.get(
             r["enrollment_id"],
             {
@@ -720,40 +745,40 @@ async def list_training_log(
                 "evidence_state": "incomplete",
             },
         )
-        result.append({
-            "user_id": r["user_id"],
-            "full_name": (r["full_name"] or "").strip() or "—",
-            "email": r["email"],
-            "personnel_number": r["personnel_number"],
-            "department_id": r["department_id"],
-            "department_name": r["department_name"],
-            "position_id": r["position_id"],
-            "position_name": r["position_name"],
-            "course_id": r["course_id"],
-            "course_title": r["course_title"],
-            "delivery_type": r["delivery_type"],
-            "enrollment_status": r["enrollment_status"],
-            "enrollment_source": r["enrollment_source"],
-            "enrollment_id": r["enrollment_id"],
-            "content_release_id": r["content_release_id"],
-            "enrolled_at": r["enrolled_at"],
-            "completed_at": r["completed_at"],
-            "computed_status": computed_status,
-            "progress_percent": progress_percent,
-            "best_score": quiz_info.get("best_score"),
-            "quiz_attempts_count": quiz_info.get("quiz_attempts_count", 0),
-            "certificate_id": cert_info.get("certificate_id"),
-            "certificate_number": cert_info.get("certificate_number"),
-            "certificate_issued_at": cert_info.get("certificate_issued_at"),
-            "kiosk_last_seen_at": kiosk_by_user.get(r["user_id"]),
-            "latest_evidence_event_id": evidence_info.get("latest_evidence_event_id"),
-            "evidence_procedure_type": evidence_info.get("evidence_procedure_type"),
-            "evidence_confirmation_status": evidence_info.get(
-                "evidence_confirmation_status", "not_required"
-            ),
-            "evidence_state": evidence_info.get("evidence_state", "incomplete"),
-            "evidence_events": evidence_info.get("items", []),
-        })
+        result.append(
+            {
+                "user_id": r["user_id"],
+                "full_name": (r["full_name"] or "").strip() or "—",
+                "email": r["email"],
+                "personnel_number": r["personnel_number"],
+                "department_id": r["department_id"],
+                "department_name": r["department_name"],
+                "position_id": r["position_id"],
+                "position_name": r["position_name"],
+                "course_id": r["course_id"],
+                "course_title": r["course_title"],
+                "delivery_type": r["delivery_type"],
+                "enrollment_status": r["enrollment_status"],
+                "enrollment_source": r["enrollment_source"],
+                "enrollment_id": r["enrollment_id"],
+                "content_release_id": r["content_release_id"],
+                "enrolled_at": r["enrolled_at"],
+                "completed_at": r["completed_at"],
+                "computed_status": computed_status,
+                "progress_percent": progress_percent,
+                "best_score": quiz_info.get("best_score"),
+                "quiz_attempts_count": quiz_info.get("quiz_attempts_count", 0),
+                "certificate_id": cert_info.get("certificate_id"),
+                "certificate_number": cert_info.get("certificate_number"),
+                "certificate_issued_at": cert_info.get("certificate_issued_at"),
+                "kiosk_last_seen_at": kiosk_by_user.get(r["user_id"]),
+                "latest_evidence_event_id": evidence_info.get("latest_evidence_event_id"),
+                "evidence_procedure_type": evidence_info.get("evidence_procedure_type"),
+                "evidence_confirmation_status": evidence_info.get("evidence_confirmation_status", "not_required"),
+                "evidence_state": evidence_info.get("evidence_state", "incomplete"),
+                "evidence_events": evidence_info.get("items", []),
+            }
+        )
     return result
 
 

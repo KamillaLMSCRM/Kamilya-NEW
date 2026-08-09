@@ -12,6 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 # formatter because JSON is awkward to read in a terminal.
 try:
     from pythonjsonlogger import jsonlogger
+
     _HAS_JSON_LOGGER = True
 except ImportError:
     _HAS_JSON_LOGGER = False
@@ -33,18 +34,22 @@ from app.modules.auth.router import router as auth_router
 from app.modules.auth.superadmin_login import router as superadmin_login_router
 from app.modules.auth.telegram import router as telegram_router
 from app.modules.auth.telegram_register import router as telegram_register_router
+from app.modules.candidate_assessments.router import public_router as candidate_assessment_public_router
+from app.modules.candidate_assessments.router import router as candidate_assessments_router
 from app.modules.certificates.router import router as certificates_router
 from app.modules.cohorts.router import router as cohorts_router
 from app.modules.competencies.router import router as competencies_router
-from app.modules.courses.router import router as courses_router
 from app.modules.courses.blueprints_router import router as course_blueprints_router
+from app.modules.courses.router import router as courses_router
 from app.modules.demo.router import router as demo_router
 from app.modules.departments.router import router as departments_router
 from app.modules.documents.router import router as documents_router
+from app.modules.enrollments.router import public_access_router as assignment_access_router
 from app.modules.enrollments.router import router as enrollments_router
 from app.modules.enrollments.router import stats_router as enrollments_stats_router
 from app.modules.integrations.router import router as integrations_router
 from app.modules.learner_assistant.router import router as learner_assistant_router
+from app.modules.learning_cycles.router import router as learning_cycles_router
 from app.modules.learning_paths.router import router as learning_paths_router
 from app.modules.lessons.router import router as lessons_router
 from app.modules.positions.admin_router import router as positions_admin_router
@@ -106,18 +111,14 @@ if settings.SENTRY_DSN:
             ],
             # Don't send health-check pings to Sentry — they're noise.
             before_send_transaction=lambda event, hint: (
-                None
-                if event.get("transaction") in ("/api/v1/health", "GET /api/v1/health")
-                else event
+                None if event.get("transaction") in ("/api/v1/health", "GET /api/v1/health") else event
             ),
             # PII: scrub Authorization header, cookies, password fields.
             send_default_pii=False,
         )
         logger.info("Sentry initialized (env=%s)", settings.APP_ENV)
     except ImportError:
-        logger.warning(
-            "SENTRY_DSN is set but sentry-sdk is not installed; skipping"
-        )
+        logger.warning("SENTRY_DSN is set but sentry-sdk is not installed; skipping")
 
 
 # Structured JSON logging in production. In dev/staging we keep the
@@ -146,9 +147,11 @@ async def lifespan(app: FastAPI):
     # Wire stdout/logger into the in-memory ring buffer so /v1/admin/debug/logs
     # can return recent lines without scraping Render Dashboard.
     from app.core import debug_log_buffer
+
     debug_log_buffer.install()
     yield
     # --- shutdown ---
+
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -181,6 +184,10 @@ app.include_router(lessons_router, prefix=f"{settings.API_PREFIX}", tags=["lesso
 app.include_router(ai_router, prefix=f"{settings.API_PREFIX}", tags=["ai-generation"])
 app.include_router(enrollments_router, prefix=f"{settings.API_PREFIX}", tags=["enrollments"])
 app.include_router(enrollments_stats_router, prefix=f"{settings.API_PREFIX}", tags=["enrollments"])
+app.include_router(learning_cycles_router, prefix=f"{settings.API_PREFIX}", tags=["learning-cycles"])
+app.include_router(assignment_access_router, prefix=f"{settings.API_PREFIX}", tags=["assignment-access"])
+app.include_router(candidate_assessments_router, prefix=f"{settings.API_PREFIX}", tags=["candidate-assessments"])
+app.include_router(candidate_assessment_public_router, prefix=f"{settings.API_PREFIX}", tags=["candidate-assessment"])
 app.include_router(progress_router, prefix=f"{settings.API_PREFIX}", tags=["progress"])
 app.include_router(documents_router, prefix=f"{settings.API_PREFIX}", tags=["documents"])
 app.include_router(quizzes_router, prefix=f"{settings.API_PREFIX}", tags=["quizzes"])
@@ -225,10 +232,12 @@ app.include_router(training_evidence_export_router, prefix=f"{settings.API_PREFI
 app.include_router(training_procedures_router, prefix=f"{settings.API_PREFIX}", tags=["training-procedures"])
 app.include_router(training_retention_router, prefix=f"{settings.API_PREFIX}", tags=["training-retention"])
 
+
 # Suppress Render health check spam in logs
 class HealthCheckFilter(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
         return "health" not in record.getMessage().lower()
+
 
 logging.getLogger("uvicorn.access").addFilter(HealthCheckFilter())
 

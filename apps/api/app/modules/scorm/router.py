@@ -8,7 +8,7 @@ import mimetypes
 import os
 import re
 import zipfile
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from io import BytesIO
 from pathlib import PurePosixPath
 from typing import Any
@@ -165,16 +165,16 @@ def _parse_manifest(zf: zipfile.ZipFile, names: list[str]) -> dict[str, Any]:
         elif "1.2" in lowered or "1,2" in lowered:
             version = "scorm_1_2"
     if version == "unknown":
+
         def _walk(el: ET.Element) -> bool:
             tag = el.tag if isinstance(el.tag, str) else ""
             if "adlcp_v1p3" in tag or "adlcp2004" in tag:
                 return True
             for attr_key in el.attrib:
-                if isinstance(attr_key, str) and (
-                    "adlcp_v1p3" in attr_key or "adlcp2004" in attr_key
-                ):
+                if isinstance(attr_key, str) and ("adlcp_v1p3" in attr_key or "adlcp2004" in attr_key):
                     return True
             return any(_walk(child) for child in list(el))
+
         version = "scorm_2004" if _walk(root) else "scorm_1_2"
 
     manifest_dir = str(PurePosixPath(manifest_name).parent)
@@ -237,9 +237,7 @@ def _safe_asset_url(package: ScormPackage, token: str, entrypoint: str) -> str:
     (`&quot;`) cannot terminate it.
     """
     _assert_safe_asset_path(entrypoint)
-    return (
-        f"/api/v1/scorm/packages/{package.id}/assets-token/{token}/{entrypoint}"
-    )
+    return f"/api/v1/scorm/packages/{package.id}/assets-token/{token}/{entrypoint}"
 
 
 def _make_launch_token(user: User, package: ScormPackage) -> str:
@@ -334,14 +332,9 @@ async def _complete_from_scorm(db: AsyncSession, attempt: ScormAttempt, user_id:
     course = await db.get(Course, attempt.course_id)
     if not user or not course or user.tenant_id != attempt.tenant_id:
         raise HTTPException(status_code=404, detail="SCORM user/course not found")
-    result = await db.execute(
-        select(Enrollment).where(
-            Enrollment.user_id == user.id,
-            Enrollment.course_id == course.id,
-            Enrollment.tenant_id == attempt.tenant_id,
-        )
-    )
-    enrollment = result.scalar_one_or_none()
+    from app.modules.enrollments.context import current_enrollment
+
+    enrollment = await current_enrollment(db, tenant_id=attempt.tenant_id, user_id=user.id, course_id=course.id)
     if not enrollment:
         enrollment = Enrollment(
             user_id=user.id,
@@ -354,7 +347,7 @@ async def _complete_from_scorm(db: AsyncSession, attempt: ScormAttempt, user_id:
         await db.flush()
     if enrollment.status != "completed":
         enrollment.status = "completed"
-        enrollment.completed_at = datetime.now(timezone.utc)
+        enrollment.completed_at = datetime.now(UTC)
     cert = await issue_certificate(
         db=db,
         user_id=user.id,
@@ -362,17 +355,13 @@ async def _complete_from_scorm(db: AsyncSession, attempt: ScormAttempt, user_id:
         tenant_id=attempt.tenant_id,
         user_name=f"{user.first_name} {user.last_name}".strip() or user.email or "",
         course_title=course.title,
+        enrollment_id=enrollment.id,
     )
     return {"certificate_id": str(cert.id), "certificate_number": cert.certificate_number}
 
 
 def _is_scorm_completed(cmi: dict[str, Any]) -> bool:
-    status = (
-        cmi.get("cmi.core.lesson_status")
-        or cmi.get("lesson_status")
-        or cmi.get("cmi.lesson_status")
-        or ""
-    )
+    status = cmi.get("cmi.core.lesson_status") or cmi.get("lesson_status") or cmi.get("cmi.lesson_status") or ""
     return str(status).lower() in {"completed", "passed"}
 
 
@@ -651,12 +640,12 @@ async def commit_scorm_attempt(
     attempt.lesson_location = cmi.get("cmi.core.lesson_location") or attempt.lesson_location
     attempt.total_time = cmi.get("cmi.core.total_time") or attempt.total_time
     attempt.suspend_data = cmi.get("cmi.suspend_data") or attempt.suspend_data
-    attempt.last_commit_at = datetime.now(timezone.utc)
+    attempt.last_commit_at = datetime.now(UTC)
 
     cert_data: dict[str, str | None] = {"certificate_id": None, "certificate_number": None}
     completed = _is_scorm_completed(attempt.cmi_json)
     if completed and attempt.completed_at is None:
-        attempt.completed_at = datetime.now(timezone.utc)
+        attempt.completed_at = datetime.now(UTC)
         cert_data = await _complete_from_scorm(db, attempt, payload["sub"])
 
     await db.commit()

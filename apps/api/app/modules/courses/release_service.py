@@ -41,74 +41,98 @@ async def build_course_release_snapshot(
     version: int,
 ) -> dict[str, Any]:
     modules = (
-        await db.execute(
-            select(Module)
-            .where(Module.course_id == course.id, Module.tenant_id == course.tenant_id)
-            .order_by(Module.order_index, Module.id)
+        (
+            await db.execute(
+                select(Module)
+                .where(Module.course_id == course.id, Module.tenant_id == course.tenant_id)
+                .order_by(Module.order_index, Module.id)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     module_ids = [module.id for module in modules]
 
     lessons = []
     if module_ids:
         lessons = (
-            await db.execute(
-                select(Lesson)
-                .where(
-                    Lesson.module_id.in_(module_ids),
-                    Lesson.tenant_id == course.tenant_id,
+            (
+                await db.execute(
+                    select(Lesson)
+                    .where(
+                        Lesson.module_id.in_(module_ids),
+                        Lesson.tenant_id == course.tenant_id,
+                    )
+                    .order_by(Lesson.module_id, Lesson.order_index, Lesson.id)
                 )
-                .order_by(Lesson.module_id, Lesson.order_index, Lesson.id)
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
     lesson_ids = [lesson.id for lesson in lessons]
 
     blocks = []
     quizzes = []
     if lesson_ids:
         blocks = (
-            await db.execute(
-                select(ContentBlock)
-                .where(ContentBlock.lesson_id.in_(lesson_ids))
-                .order_by(ContentBlock.lesson_id, ContentBlock.order_index, ContentBlock.id)
-            )
-        ).scalars().all()
-        quizzes = (
-            await db.execute(
-                select(Quiz)
-                .where(
-                    Quiz.lesson_id.in_(lesson_ids),
-                    Quiz.tenant_id == course.tenant_id,
+            (
+                await db.execute(
+                    select(ContentBlock)
+                    .where(ContentBlock.lesson_id.in_(lesson_ids))
+                    .order_by(ContentBlock.lesson_id, ContentBlock.order_index, ContentBlock.id)
                 )
-                .order_by(Quiz.lesson_id, Quiz.created_at, Quiz.id)
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
+        quizzes = (
+            (
+                await db.execute(
+                    select(Quiz)
+                    .where(
+                        Quiz.lesson_id.in_(lesson_ids),
+                        Quiz.tenant_id == course.tenant_id,
+                    )
+                    .order_by(Quiz.lesson_id, Quiz.created_at, Quiz.id)
+                )
+            )
+            .scalars()
+            .all()
+        )
 
     quiz_ids = [quiz.id for quiz in quizzes]
     questions = []
     if quiz_ids:
         questions = (
-            await db.execute(
-                select(Question)
-                .join(Quiz, Quiz.id == Question.quiz_id)
-                .where(
-                    Question.quiz_id.in_(quiz_ids),
-                    Quiz.tenant_id == course.tenant_id,
+            (
+                await db.execute(
+                    select(Question)
+                    .join(Quiz, Quiz.id == Question.quiz_id)
+                    .where(
+                        Question.quiz_id.in_(quiz_ids),
+                        Quiz.tenant_id == course.tenant_id,
+                    )
+                    .order_by(Question.quiz_id, Question.order_index, Question.id)
                 )
-                .order_by(Question.quiz_id, Question.order_index, Question.id)
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
     question_ids = [question.id for question in questions]
 
     choices = []
     if question_ids:
         choices = (
-            await db.execute(
-                select(QuizChoice)
-                .where(QuizChoice.question_id.in_(question_ids))
-                .order_by(QuizChoice.question_id, QuizChoice.order_index, QuizChoice.id)
+            (
+                await db.execute(
+                    select(QuizChoice)
+                    .where(QuizChoice.question_id.in_(question_ids))
+                    .order_by(QuizChoice.question_id, QuizChoice.order_index, QuizChoice.id)
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
 
     blocks_by_lesson: dict[UUID, list[ContentBlock]] = {}
     for block in blocks:
@@ -142,26 +166,34 @@ async def build_course_release_snapshot(
                 continue
         if parsed_ids:
             documents = (
-                await db.execute(
-                    select(Document)
-                    .where(
-                        Document.id.in_(parsed_ids),
-                        Document.tenant_id == course.tenant_id,
+                (
+                    await db.execute(
+                        select(Document)
+                        .where(
+                            Document.id.in_(parsed_ids),
+                            Document.tenant_id == course.tenant_id,
+                        )
+                        .order_by(Document.source_family_id, Document.version, Document.id)
                     )
-                    .order_by(Document.source_family_id, Document.version, Document.id)
                 )
-            ).scalars().all()
+                .scalars()
+                .all()
+            )
 
     scorm_packages = (
-        await db.execute(
-            select(ScormPackage)
-            .where(
-                ScormPackage.course_id == course.id,
-                ScormPackage.tenant_id == course.tenant_id,
+        (
+            await db.execute(
+                select(ScormPackage)
+                .where(
+                    ScormPackage.course_id == course.id,
+                    ScormPackage.tenant_id == course.tenant_id,
+                )
+                .order_by(ScormPackage.created_at, ScormPackage.id)
             )
-            .order_by(ScormPackage.created_at, ScormPackage.id)
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
 
     def choice_payload(choice: QuizChoice) -> dict[str, Any]:
         return {
@@ -180,10 +212,7 @@ async def build_course_release_snapshot(
             "explanation": question.explanation,
             "order_index": question.order_index,
             "pool_group": question.pool_group,
-            "choices": [
-                choice_payload(choice)
-                for choice in choices_by_question.get(question.id, [])
-            ],
+            "choices": [choice_payload(choice) for choice in choices_by_question.get(question.id, [])],
         }
 
     def quiz_payload(quiz: Quiz) -> dict[str, Any]:
@@ -194,10 +223,8 @@ async def build_course_release_snapshot(
             "time_limit": quiz.time_limit,
             "attempt_limit": quiz.attempt_limit,
             "deferral_days": quiz.deferral_days,
-            "questions": [
-                question_payload(question)
-                for question in questions_by_quiz.get(quiz.id, [])
-            ],
+            "review_status": quiz.review_status,
+            "questions": [question_payload(question) for question in questions_by_quiz.get(quiz.id, [])],
         }
 
     def lesson_payload(lesson: Lesson) -> dict[str, Any]:
@@ -221,10 +248,7 @@ async def build_course_release_snapshot(
                 }
                 for block in blocks_by_lesson.get(lesson.id, [])
             ],
-            "quizzes": [
-                quiz_payload(quiz)
-                for quiz in quizzes_by_lesson.get(lesson.id, [])
-            ],
+            "quizzes": [quiz_payload(quiz) for quiz in quizzes_by_lesson.get(lesson.id, [])],
         }
 
     return {
@@ -237,15 +261,9 @@ async def build_course_release_snapshot(
             "description": course.description,
             "delivery_type": course.delivery_type,
             "ai_generated": bool(course.ai_generated),
-            "source_instruction_id": (
-                str(course.source_instruction_id)
-                if course.source_instruction_id
-                else None
-            ),
+            "source_instruction_id": (str(course.source_instruction_id) if course.source_instruction_id else None),
             "source_instruction_version_at": (
-                course.source_instruction_version_at.isoformat()
-                if course.source_instruction_version_at
-                else None
+                course.source_instruction_version_at.isoformat() if course.source_instruction_version_at else None
             ),
             "source_document_ids": _uuid_strings(course.source_document_ids),
             "source_strategy": course.source_strategy,
@@ -253,9 +271,7 @@ async def build_course_release_snapshot(
             "source_analysis": course.source_analysis or {},
             "review_status": course.review_status,
             "reviewed_by": str(course.reviewed_by) if course.reviewed_by else None,
-            "reviewed_at": (
-                course.reviewed_at.isoformat() if course.reviewed_at else None
-            ),
+            "reviewed_at": (course.reviewed_at.isoformat() if course.reviewed_at else None),
             "review_comment": course.review_comment,
         },
         "source_documents": [
@@ -278,10 +294,7 @@ async def build_course_release_snapshot(
                 "title": module.title,
                 "description": module.description,
                 "order_index": module.order_index,
-                "lessons": [
-                    lesson_payload(lesson)
-                    for lesson in lessons_by_module.get(module.id, [])
-                ],
+                "lessons": [lesson_payload(lesson) for lesson in lessons_by_module.get(module.id, [])],
             }
             for module in modules
         ],
@@ -291,9 +304,7 @@ async def build_course_release_snapshot(
                 "version": package.version,
                 "title": package.title,
                 "entrypoint": package.entrypoint,
-                "original_filename": (package.manifest_json or {}).get(
-                    "original_filename"
-                ),
+                "original_filename": (package.manifest_json or {}).get("original_filename"),
                 "content_sha256": (package.manifest_json or {}).get("sha256"),
             }
             for package in scorm_packages

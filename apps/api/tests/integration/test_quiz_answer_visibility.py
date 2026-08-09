@@ -50,6 +50,7 @@ async def test_quiz_answers_are_hidden_from_learners(
         text="Which choice is correct?",
         type="MCQ",
         points=1,
+        explanation="Only authors may read this explanation.",
         order_index=0,
     )
     db_session.add(question)
@@ -94,3 +95,5 @@ async def test_quiz_answers_are_hidden_from_learners(
         assert response.status_code == 200, response.text
         choices = response.json()["questions"][0]["choices"]
         assert [choice["is_correct"] for choice in choices] == expected_correct
+        explanation = response.json()["questions"][0]["explanation"]
+        assert explanation == ("Only authors may read this explanation." if role == "methodologist" else None)

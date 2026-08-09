@@ -11,6 +11,7 @@ export const CAPABILITIES = [
   'manage_qualifications',
   'manage_assignments',
   'view_training_log',
+  'view_training_reports',
   'manage_communications',
   'configure_training_procedures',
   'configure_tenant',
@@ -21,7 +22,7 @@ export const CAPABILITIES = [
 export type Capability = (typeof CAPABILITIES)[number];
 
 export const ROLE_CAPABILITIES: Record<AppRole, readonly Capability[]> = {
-  admin: ['manage_profile', 'configure_tenant', 'manage_accounts'],
+  admin: ['manage_profile', 'configure_tenant', 'manage_accounts', 'view_training_reports'],
   methodologist: [
     'manage_profile',
     'manage_content',
@@ -30,6 +31,7 @@ export const ROLE_CAPABILITIES: Record<AppRole, readonly Capability[]> = {
     'manage_qualifications',
     'manage_assignments',
     'view_training_log',
+    'view_training_reports',
     'manage_communications',
     'configure_training_procedures',
   ],
@@ -44,7 +46,11 @@ export const ROLE_HOMES: Record<AppRole, string> = {
   superadmin: '/admin/super',
 };
 
-export const PUBLIC_ROUTE_PREFIXES = ['/verify/certificate'] as const;
+export const PUBLIC_ROUTE_PREFIXES = [
+  '/verify/certificate',
+  '/access',
+  '/candidate-assessment',
+] as const;
 
 export function isPublicRoute(pathname: string): boolean {
   return PUBLIC_ROUTE_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
@@ -103,9 +109,10 @@ export const ROUTES: readonly AppRoute[] = [
   { id: 'training-procedures', href: '/training-procedures', capability: 'configure_training_procedures', labelKey: 'trainingProceduresPage.navLabel', section: 'workforce', icon: 'assignment', order: 113, sidebar: true, commandPalette: true },
   { id: 'training-retention', href: '/training-retention', capability: 'configure_training_procedures', labelKey: 'trainingRetentionPage.navLabel', section: 'workforce', icon: 'assignment', order: 114, sidebar: true, commandPalette: true },
   { id: 'invitations', href: '/invitations', capability: 'manage_learners', labelKey: 'invitations.navLabel', section: 'workforce', icon: 'users', order: 115, sidebar: false, commandPalette: false },
+  { id: 'candidate-assessments', href: '/candidate-assessments', capability: 'manage_learners', labelKey: 'nav.candidateAssessments', section: 'workforce', icon: 'users', order: 118, sidebar: true, commandPalette: true },
   { id: 'positions', href: '/positions', capability: 'manage_qualifications', match: 'prefix' },
   { id: 'course-assignments', href: '/assignments', capability: 'manage_assignments', match: 'prefix', labelKey: 'courses.enrollments', section: 'workforce', icon: 'assignment', order: 130, sidebar: false, commandPalette: false },
-  { id: 'training-log', href: '/training-log', capability: 'view_training_log', match: 'prefix', labelKey: 'nav.trainingLog', section: 'overview', icon: 'log', order: 150, sidebar: true, commandPalette: true },
+  { id: 'training-log', href: '/training-log', capability: 'view_training_reports', match: 'prefix', labelKey: 'nav.trainingLog', section: 'overview', icon: 'log', order: 150, sidebar: true, commandPalette: true },
 
   { id: 'tenant-dashboard', href: '/admin', capability: 'configure_tenant', labelKey: 'nav.admin', section: 'overview', icon: 'dashboard', order: 10, sidebar: true, commandPalette: true },
   { id: 'team', href: '/admin/team', capability: 'manage_accounts', match: 'prefix', labelKey: 'nav.userManagement', section: 'tenant', icon: 'users', order: 20, sidebar: true, commandPalette: true },
@@ -131,7 +138,7 @@ export const ROUTES: readonly AppRoute[] = [
 export const LEGACY_ROUTES: readonly Pick<AppRoute, 'href' | 'capability' | 'match'>[] = [
   { href: '/admin/staff', capability: 'manage_staff', match: 'prefix' },
   { href: '/admin/invitations', capability: 'manage_learners', match: 'prefix' },
-  { href: '/admin/training-log', capability: 'view_training_log', match: 'prefix' },
+  { href: '/admin/training-log', capability: 'view_training_reports', match: 'prefix' },
   { href: '/admin/quizzes/assign', capability: 'manage_content', match: 'prefix' },
   { href: '/admin/enrollments', capability: 'manage_assignments', match: 'prefix' },
 ];

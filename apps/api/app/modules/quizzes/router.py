@@ -1,52 +1,53 @@
 """Quiz API router"""
+
+from datetime import UTC, datetime
 from uuid import UUID
+
 from fastapi import APIRouter, Depends, HTTPException, Request
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, or_
-from sqlalchemy.sql import true
 from sqlalchemy.orm import selectinload
+from sqlalchemy.sql import true
 
 from app.core.auth import get_current_user, require_role
 from app.core.db import get_db
-from app.modules.quizzes.models import Quiz, Question, QuizAttempt, QuizChoice
 from app.models.users import User
+from app.modules.courses.access import AUTHORING_ROLES, require_lesson_access
+from app.modules.quizzes.ai import generate_quiz_draft as build_quiz_draft
+from app.modules.quizzes.models import Question, Quiz, QuizAttempt, QuizChoice
 from app.modules.quizzes.schemas import (
-    QuizResponse,
-    QuizSubmission,
-    QuizAttemptResponse,
-    QuizResultResponse,
-    QuizCreate,
-    QuizUpdate,
+    GroupedCourse,
+    GroupedLesson,
+    GroupedModule,
+    OrphanQuiz,
     QuestionCreate,
     QuestionUpdate,
+    QuizAttemptResponse,
     QuizChoiceCreate,
     QuizChoiceUpdate,
+    QuizCreate,
     QuizGenerateRequest,
     QuizGenerateResponse,
     QuizGroupedResponse,
-    GroupedCourse,
-    GroupedModule,
-    GroupedLesson,
-    OrphanQuiz,
+    QuizResponse,
+    QuizResultResponse,
+    QuizSubmission,
+    QuizUpdate,
 )
 from app.modules.quizzes.service import (
+    get_quiz_stats,
     get_quiz_with_questions,
     get_quizzes_with_questions,
-    grade_quiz,
     get_user_attempts,
-    get_quiz_stats,
+    grade_quiz,
 )
-from app.modules.quizzes.ai import generate_quiz_draft
-from app.modules.courses.access import AUTHORING_ROLES, require_lesson_access
 
 router = APIRouter(prefix="/quizzes", tags=["quizzes"])
 
 
 async def _require_quiz_tenant(db: AsyncSession, quiz_id: UUID, tenant_id: UUID) -> Quiz:
     """Resolve a quiz only inside the caller's tenant boundary."""
-    result = await db.execute(
-        select(Quiz).where(Quiz.id == quiz_id, Quiz.tenant_id == tenant_id)
-    )
+    result = await db.execute(select(Quiz).where(Quiz.id == quiz_id, Quiz.tenant_id == tenant_id))
     quiz = result.scalar_one_or_none()
     if quiz is None:
         raise HTTPException(status_code=404, detail="Quiz not found")
@@ -60,6 +61,8 @@ async def _require_quiz_access(db: AsyncSession, quiz_id: UUID, user: User) -> Q
             raise HTTPException(status_code=404, detail="Quiz not found")
         return quiz
     await require_lesson_access(db, quiz.lesson_id, user)
+    if quiz.review_status == "needs_review" and user.role not in AUTHORING_ROLES:
+        raise HTTPException(status_code=409, detail="Quiz is awaiting methodologist review")
     return quiz
 
 
@@ -70,10 +73,12 @@ async def _ensure_quiz_has_no_attempts(
 ) -> None:
     """Keep completed assessment history immutable."""
     result = await db.execute(
-        select(QuizAttempt.id).where(
+        select(QuizAttempt.id)
+        .where(
             QuizAttempt.quiz_id == quiz_id,
             QuizAttempt.tenant_id == tenant_id,
-        ).limit(1)
+        )
+        .limit(1)
     )
     if result.scalar_one_or_none() is not None:
         raise HTTPException(
@@ -96,11 +101,7 @@ async def list_quizzes(
     each issuing 3 queries). Now uses get_quizzes_with_questions() to
     batch into 3 total queries regardless of quiz count.
     """
-    result = await db.execute(
-        select(Quiz)
-        .where(Quiz.tenant_id == user.tenant_id)
-        .order_by(Quiz.created_at.desc())
-    )
+    result = await db.execute(select(Quiz).where(Quiz.tenant_id == user.tenant_id).order_by(Quiz.created_at.desc()))
     quiz_ids = [q.id for q in result.scalars().all()]
     return await get_quizzes_with_questions(db, quiz_ids, user.tenant_id)
 
@@ -129,7 +130,7 @@ async def list_quizzes_grouped(
     WHERE clauses; total response size is O(quizzes) per tenant.
     """
     from app.modules.courses.models import Course
-    from app.modules.lessons.models import Module, Lesson
+    from app.modules.lessons.models import Module
 
     # Query 1: full tree with quizzes joined
     # Use selectinload for module→lesson to avoid N+1 on lessons.
@@ -146,22 +147,21 @@ async def list_quizzes_grouped(
     # Pre-fetch quizzes for all lessons in one query, then batch-fetch
     # their questions+choices in 2 more queries (total 3) instead of 3
     # per quiz. See get_quizzes_with_questions().
-    lesson_ids: list[UUID] = [
-        lesson.id
-        for course in courses
-        for module in course.modules
-        for lesson in module.lessons
-    ]
+    lesson_ids: list[UUID] = [lesson.id for course in courses for module in course.modules for lesson in module.lessons]
     quizzes_by_lesson: dict[UUID, dict] = {}
     if lesson_ids:
         quizzes_rows = (
-            await db.execute(
-                select(Quiz).where(
-                    Quiz.lesson_id.in_(lesson_ids),
-                    Quiz.tenant_id == user.tenant_id,
+            (
+                await db.execute(
+                    select(Quiz).where(
+                        Quiz.lesson_id.in_(lesson_ids),
+                        Quiz.tenant_id == user.tenant_id,
+                    )
                 )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         quiz_ids = [q.id for q in quizzes_rows]
         quiz_data_list = await get_quizzes_with_questions(db, quiz_ids, user.tenant_id)
         for quiz_data in quiz_data_list:
@@ -175,37 +175,45 @@ async def list_quizzes_grouped(
             grouped_lessons: list[GroupedLesson] = []
             for lesson in sorted(module.lessons, key=lambda l: (l.order_index, l.title)):
                 quiz = quizzes_by_lesson.get(lesson.id)
-                grouped_lessons.append(GroupedLesson(
-                    id=lesson.id,
-                    title=lesson.title,
-                    order_index=lesson.order_index,
-                    quiz=quiz,
-                ))
-            grouped_modules.append(GroupedModule(
-                id=module.id,
-                title=module.title,
-                order_index=module.order_index,
-                lessons=grouped_lessons,
-            ))
-        grouped_courses.append(GroupedCourse(
-            id=course.id,
-            title=course.title,
-            status=course.status,
-            modules=grouped_modules,
-        ))
+                grouped_lessons.append(
+                    GroupedLesson(
+                        id=lesson.id,
+                        title=lesson.title,
+                        order_index=lesson.order_index,
+                        quiz=quiz,
+                    )
+                )
+            grouped_modules.append(
+                GroupedModule(
+                    id=module.id,
+                    title=module.title,
+                    order_index=module.order_index,
+                    lessons=grouped_lessons,
+                )
+            )
+        grouped_courses.append(
+            GroupedCourse(
+                id=course.id,
+                title=course.title,
+                status=course.status,
+                modules=grouped_modules,
+            )
+        )
 
     # Query 2: orphan quizzes (lesson_id null OR lesson_id pointing to a
     # lesson that doesn't exist anymore). These surface separately so
     # the methodologist sees them and can either re-link or delete.
     # We exclude quizzes already accounted for in the tree above.
     orphan_quizzes_result = await db.execute(
-        select(Quiz).where(
+        select(Quiz)
+        .where(
             Quiz.tenant_id == user.tenant_id,
             or_(
                 Quiz.lesson_id.is_(None),
                 Quiz.lesson_id.notin_(lesson_ids) if lesson_ids else true(),
             ),
-        ).order_by(Quiz.created_at.desc())
+        )
+        .order_by(Quiz.created_at.desc())
     )
     orphan_quizzes = orphan_quizzes_result.scalars().all()
     orphans: list[OrphanQuiz] = []
@@ -223,9 +231,9 @@ async def list_enrolled_quizzes(
     user: User = Depends(get_current_user),
 ):
     """List quizzes from courses the user is enrolled in, with attempt status."""
-    from app.modules.enrollments.models import Enrollment
     from app.modules.courses.models import Course
-    from app.modules.lessons.models import Module, Lesson
+    from app.modules.enrollments.models import Enrollment
+    from app.modules.lessons.models import Lesson, Module
     from app.modules.quizzes.models import QuizAttempt
 
     enrollments = await db.execute(
@@ -238,9 +246,16 @@ async def list_enrolled_quizzes(
             Course.status == "published",
         )
     )
-    course_ids = [r[0] for r in enrollments.fetchall()]
+    course_ids = list(dict.fromkeys(r[0] for r in enrollments.fetchall()))
     if not course_ids:
         return []
+    from app.modules.enrollments.context import current_enrollment
+
+    current_by_course = {
+        course_id: await current_enrollment(db, tenant_id=user.tenant_id, user_id=user.id, course_id=course_id)
+        for course_id in course_ids
+    }
+    current_ids = [item.id for item in current_by_course.values() if item]
 
     lessons_q = await db.execute(
         select(Lesson.id, Lesson.title, Module.title.label("module_title"), Module.course_id)
@@ -255,7 +270,11 @@ async def list_enrolled_quizzes(
         return []
 
     quizzes_q = await db.execute(
-        select(Quiz).where(Quiz.lesson_id.in_(lesson_ids), Quiz.tenant_id == user.tenant_id)
+        select(Quiz).where(
+            Quiz.lesson_id.in_(lesson_ids),
+            Quiz.tenant_id == user.tenant_id,
+            Quiz.review_status == "approved",
+        )
     )
     quizzes = {str(q.lesson_id): q for q in quizzes_q.scalars().all()}
     if not quizzes:
@@ -273,6 +292,7 @@ async def list_enrolled_quizzes(
             QuizAttempt.user_id == user.id,
             QuizAttempt.tenant_id == user.tenant_id,
             QuizAttempt.quiz_id.in_([q.id for q in quizzes.values()]),
+            QuizAttempt.enrollment_id.in_(current_ids),
         )
         .group_by(QuizAttempt.quiz_id, QuizAttempt.score_percent, QuizAttempt.passed, QuizAttempt.completed_at)
         .order_by(QuizAttempt.completed_at.desc())
@@ -299,12 +319,16 @@ async def list_enrolled_quizzes(
             attempt_map[qid]["attempts_count"] = (attempt_map[qid].get("attempts_count") or 0) + a[4]
 
     out = []
+    from datetime import datetime, timedelta
+
     from app.models.progress import Progress
-    from datetime import datetime, timezone, timedelta
-    now = datetime.now(timezone.utc)
+
+    now = datetime.now(UTC)
     for lid, quiz in quizzes.items():
         li = lesson_map.get(lid, {})
         att = attempt_map.get(str(quiz.id))
+        current = current_by_course.get(UUID(li.get("course_id"))) if li.get("course_id") else None
+        progress_enrollment_id = current.id if current and current.recurring_assignment_id else None
 
         # Compute is_expired from progress.completed_at + deferral_days
         is_expired = False
@@ -313,27 +337,30 @@ async def list_enrolled_quizzes(
                 Progress.user_id == user.id,
                 Progress.lesson_id == quiz.lesson_id,
                 Progress.tenant_id == user.tenant_id,
+                Progress.enrollment_id == progress_enrollment_id,
             )
         )
         prog_completed_at = prog_result.scalar_one_or_none()
         if prog_completed_at and quiz.deferral_days > 0:
             is_expired = now > prog_completed_at + timedelta(days=quiz.deferral_days)
 
-        out.append({
-            "quiz_id": str(quiz.id),
-            "quiz_title": quiz.title,
-            "lesson_title": li.get("title", ""),
-            "module_title": li.get("module_title", ""),
-            "course_id": li.get("course_id", ""),
-            "pass_score": quiz.pass_score,
-            "deferral_days": quiz.deferral_days,
-            "attempt_limit": quiz.attempt_limit,
-            "score_percent": att["score_percent"] if att else None,
-            "passed": att["passed"] if att else False,
-            "completed_at": att["completed_at"] if att else None,
-            "attempts_count": att["attempts_count"] if att else 0,
-            "is_expired": is_expired,
-        })
+        out.append(
+            {
+                "quiz_id": str(quiz.id),
+                "quiz_title": quiz.title,
+                "lesson_title": li.get("title", ""),
+                "module_title": li.get("module_title", ""),
+                "course_id": li.get("course_id", ""),
+                "pass_score": quiz.pass_score,
+                "deferral_days": quiz.deferral_days,
+                "attempt_limit": quiz.attempt_limit,
+                "score_percent": att["score_percent"] if att else None,
+                "passed": att["passed"] if att else False,
+                "completed_at": att["completed_at"] if att else None,
+                "attempts_count": att["attempts_count"] if att else 0,
+                "is_expired": is_expired,
+            }
+        )
 
     out.sort(key=lambda x: (x["passed"], x.get("completed_at") or ""))
     return out
@@ -358,6 +385,7 @@ async def get_quiz_by_lesson(
         quiz.id,
         user.tenant_id,
         include_correct_answers=user.role in {"methodologist", "superadmin"},
+        include_explanations=user.role in {"methodologist", "superadmin"},
     )
 
 
@@ -374,6 +402,7 @@ async def get_quiz(
         quiz_id,
         user.tenant_id,
         include_correct_answers=user.role in {"methodologist", "superadmin"},
+        include_explanations=user.role in {"methodologist", "superadmin"},
     )
     if not quiz:
         raise HTTPException(status_code=404, detail="Quiz not found")
@@ -403,8 +432,12 @@ async def submit_quiz(
         # Update quiz assignment status if exists
         try:
             from app.modules.quizzes.assignment_service import update_assignment_status
+
             await update_assignment_status(
-                db, quiz_id, user.id, user.tenant_id,
+                db,
+                quiz_id,
+                user.id,
+                user.tenant_id,
                 result["attempt"].score_percent,
                 result["passed"],
             )
@@ -429,9 +462,7 @@ async def submit_quiz(
             details={
                 "quiz_id": str(quiz_id),
                 "content_release_id": (
-                    str(result["attempt"].content_release_id)
-                    if result["attempt"].content_release_id
-                    else None
+                    str(result["attempt"].content_release_id) if result["attempt"].content_release_id else None
                 ),
                 "evidence_sha256": result["attempt"].evidence_sha256,
                 "score_percent": result["attempt"].score_percent,
@@ -478,6 +509,7 @@ async def create_quiz(
 ):
     """Create a new quiz."""
     from uuid import uuid4
+
     quiz = Quiz(
         id=uuid4(),
         lesson_id=req.lesson_id,
@@ -520,7 +552,7 @@ async def generate_quiz(
     content = (lesson.content or "").strip()
 
     try:
-        draft = await generate_quiz_draft(
+        draft = await build_quiz_draft(
             lesson_title=title,
             lesson_content=content,
             num_questions=req.num_questions,
@@ -547,6 +579,34 @@ async def generate_quiz(
         model_used=draft.get("model_used"),
         latency_ms=draft.get("latency_ms"),
     )
+
+
+@router.post("/{quiz_id}/approve", response_model=QuizResponse)
+async def approve_quiz_after_lesson_review(
+    quiz_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_role("superadmin", "methodologist")),
+):
+    """Explicitly approve the existing quiz after reviewing changed lesson content."""
+    quiz = await _require_quiz_tenant(db, quiz_id, user.tenant_id)
+    quiz.review_status = "approved"
+    quiz.reviewed_by = user.id
+    quiz.reviewed_at = datetime.now(UTC)
+    await db.flush()
+    return await get_quiz_with_questions(db, quiz.id, user.tenant_id)
+
+
+@router.post("/{quiz_id}/regenerate-draft", response_model=QuizGenerateResponse)
+async def regenerate_quiz_draft(
+    quiz_id: UUID,
+    req: QuizGenerateRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_role("superadmin", "methodologist")),
+):
+    quiz = await _require_quiz_tenant(db, quiz_id, user.tenant_id)
+    if req.lesson_id != quiz.lesson_id:
+        raise HTTPException(status_code=400, detail="Draft lesson must match the quiz lesson")
+    return await generate_quiz(req, db, user)
 
 
 @router.put("/{quiz_id}", response_model=QuizResponse)
@@ -606,6 +666,7 @@ async def create_question(
 ):
     """Add a question to a quiz with optional choices."""
     from uuid import uuid4
+
     quiz = await db.get(Quiz, quiz_id)
     if not quiz or quiz.tenant_id != user.tenant_id:
         raise HTTPException(status_code=404, detail="Quiz not found")
@@ -674,18 +735,12 @@ async def update_question(
                 status_code=422,
                 detail="Question must have at least one correct choice",
             )
-        supplied_choice_ids = [
-            choice.id for choice in req.choices if choice.id is not None
-        ]
+        supplied_choice_ids = [choice.id for choice in req.choices if choice.id is not None]
         if len(supplied_choice_ids) != len(set(supplied_choice_ids)):
             raise HTTPException(status_code=422, detail="Choice IDs must be unique")
 
-        existing_choices_result = await db.execute(
-            select(QuizChoice).where(QuizChoice.question_id == question_id)
-        )
-        existing_choices = {
-            choice.id: choice for choice in existing_choices_result.scalars().all()
-        }
+        existing_choices_result = await db.execute(select(QuizChoice).where(QuizChoice.question_id == question_id))
+        existing_choices = {choice.id: choice for choice in existing_choices_result.scalars().all()}
         retained_choice_ids = set()
         for index, choice_req in enumerate(req.choices):
             if choice_req.id is not None:
@@ -706,9 +761,7 @@ async def update_question(
                         question_id=question_id,
                         text=choice_req.text,
                         is_correct=choice_req.is_correct,
-                        order_index=choice_req.order_index
-                        if choice_req.order_index is not None
-                        else index,
+                        order_index=choice_req.order_index if choice_req.order_index is not None else index,
                     )
                 )
         for choice_id, choice in existing_choices.items():
@@ -754,6 +807,7 @@ async def create_choice(
 ):
     """Add a choice to a question."""
     from uuid import uuid4
+
     quiz = await db.get(Quiz, quiz_id)
     if not quiz or quiz.tenant_id != user.tenant_id:
         raise HTTPException(status_code=404, detail="Quiz not found")

@@ -1,0 +1,11 @@
+[Unit]
+Description=Run Kamilya candidate-retention enforcement hourly
+
+[Timer]
+OnBootSec=10min
+OnUnitActiveSec=1h
+Persistent=true
+RandomizedDelaySec=5min
+
+[Install]
+WantedBy=timers.target

@@ -139,7 +139,8 @@
     "staffSchedule": "Employees and structure",
     "kiosks": "Kiosks",
     "trainingLog": "Training log",
-    "trainingRules": "Training rules"
+    "trainingRules": "Training rules",
+    "candidateAssessments": "Candidate assessments"
   },
   "auth": {
     "login": "Login",

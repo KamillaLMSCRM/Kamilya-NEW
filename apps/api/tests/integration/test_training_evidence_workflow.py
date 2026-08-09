@@ -369,12 +369,18 @@ async def test_quiz_submission_route_creates_knowledge_check_evidence(
     )
 
     assert response.status_code == 200, response.text
-    attempt_id = response.json()["attempt"]["id"]
+    response_body = response.json()
+    attempt_id = response_body["attempt"]["id"]
+    assert set(response_body) == {"attempt", "passed", "message", "training_evidence_event_id"}
+    assert "answers" not in response_body["attempt"]
+    assert "correct_choice_ids" not in response.text
+    assert "is_correct" not in response.text
+    assert "explanation" not in response.text
     event = await db_session.scalar(
         select(TrainingEvidenceEvent).where(TrainingEvidenceEvent.source_event_key == f"quiz-attempt:{attempt_id}")
     )
     assert event is not None
-    assert response.json()["training_evidence_event_id"] == str(event.id)
+    assert response_body["training_evidence_event_id"] == str(event.id)
     assert event.procedure_type == "knowledge_check"
     assert event.enrollment_id == enrollment.id
     assert event.content_release_id == release.id

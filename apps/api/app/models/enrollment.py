@@ -1,6 +1,7 @@
 """Enrollment model"""
+
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import Column, DateTime, ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import UUID
@@ -21,8 +22,14 @@ class Enrollment(Base):
         nullable=True,
         index=True,
     )
+    recurring_assignment_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("recurring_learning_assignments.id", ondelete="RESTRICT"),
+        nullable=True,
+        index=True,
+    )
     status = Column(String, nullable=False, default="enrolled")
-    enrolled_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    enrolled_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
     completed_at = Column(DateTime(timezone=True), nullable=True)
     # How this enrollment came to exist. The rule kernel manages only
     # position, department and organization rows. Manual, cohort,

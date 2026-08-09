@@ -1,21 +1,34 @@
 """Lessons module — service layer"""
+
 from uuid import UUID
-from typing import List
+
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.modules.lessons.models import Module, Lesson, ContentBlock
-from app.modules.lessons.schemas import ModuleCreate, ModuleUpdate, LessonCreate, LessonUpdate
 from app.models.courses import Course
+from app.modules.lessons.models import ContentBlock, Lesson, Module
+from app.modules.lessons.schemas import LessonCreate, LessonUpdate, ModuleCreate, ModuleUpdate
 
 
-async def list_modules(db: AsyncSession, course_id: UUID, tenant_id: UUID) -> List[Module]:
+async def _mark_lesson_quizzes_needs_review(db: AsyncSession, lesson_id: UUID, tenant_id: UUID) -> None:
+    from app.modules.quizzes.models import Quiz
+
+    await db.execute(
+        update(Quiz)
+        .where(Quiz.lesson_id == lesson_id, Quiz.tenant_id == tenant_id)
+        .values(review_status="needs_review", reviewed_by=None, reviewed_at=None)
+    )
+
+
+async def list_modules(db: AsyncSession, course_id: UUID, tenant_id: UUID) -> list[Module]:
     result = await db.execute(
-        select(Module).where(
+        select(Module)
+        .where(
             Module.course_id == course_id,
             Module.tenant_id == tenant_id,
-        ).order_by(Module.order_index)
+        )
+        .order_by(Module.order_index)
     )
     return result.scalars().all()
 
@@ -56,12 +69,14 @@ async def delete_module(db: AsyncSession, module_id: UUID, tenant_id: UUID) -> N
     await db.delete(module)
 
 
-async def list_lessons(db: AsyncSession, module_id: UUID, tenant_id: UUID) -> List[Lesson]:
+async def list_lessons(db: AsyncSession, module_id: UUID, tenant_id: UUID) -> list[Lesson]:
     result = await db.execute(
-        select(Lesson).where(
+        select(Lesson)
+        .where(
             Lesson.module_id == module_id,
             Lesson.tenant_id == tenant_id,
-        ).order_by(Lesson.order_index)
+        )
+        .order_by(Lesson.order_index)
     )
     return result.scalars().all()
 
@@ -92,13 +107,14 @@ async def update_lesson(db: AsyncSession, lesson_id: UUID, tenant_id: UUID, data
         raise ValueError("Lesson not found")
     changes = data.model_dump(exclude_unset=True)
     source_affecting_change = any(
-        field in changes and changes[field] != getattr(lesson, field)
-        for field in ("title", "content")
+        field in changes and changes[field] != getattr(lesson, field) for field in ("title", "content")
     )
     for field, value in changes.items():
         setattr(lesson, field, value)
     if lesson.source_document_ids and source_affecting_change:
         lesson.source_validation_status = "needs_review"
+    if source_affecting_change:
+        await _mark_lesson_quizzes_needs_review(db, lesson.id, tenant_id)
     await db.flush()
     return lesson
 
@@ -115,16 +131,12 @@ async def reorder_items(db: AsyncSession, item_type: str, ids_order: list[UUID],
     """Reorder modules or lessons by array of IDs in order. Validates tenant ownership."""
     model = Module if item_type == "module" else Lesson
     for index, item_id in enumerate(ids_order):
-        result = await db.execute(
-            select(model).where(model.id == item_id, model.tenant_id == tenant_id)
-        )
+        result = await db.execute(select(model).where(model.id == item_id, model.tenant_id == tenant_id))
         item = result.scalar_one_or_none()
         if not item:
             raise ValueError(f"{item_type.title()} not found or access denied")
         await db.execute(
-            update(model)
-            .where(model.id == item_id, model.tenant_id == tenant_id)
-            .values(order_index=index)
+            update(model).where(model.id == item_id, model.tenant_id == tenant_id).values(order_index=index)
         )
 
 
@@ -133,10 +145,7 @@ async def get_course_structure(db: AsyncSession, course_id: UUID, tenant_id: UUI
     result = await db.execute(
         select(Course)
         .where(Course.id == course_id, Course.tenant_id == tenant_id)
-        .options(
-            selectinload(Course.modules)
-            .selectinload(Module.lessons)
-        )
+        .options(selectinload(Course.modules).selectinload(Module.lessons))
     )
     course = result.scalar_one_or_none()
     if not course:
@@ -150,25 +159,30 @@ async def get_course_structure(db: AsyncSession, course_id: UUID, tenant_id: UUI
 async def list_content_blocks(db: AsyncSession, lesson_id: UUID, tenant_id: UUID) -> list[ContentBlock]:
     """List content blocks for a lesson."""
     from app.modules.lessons.models import Lesson
+
     lesson = await db.get(Lesson, lesson_id)
     if not lesson or lesson.tenant_id != tenant_id:
         return []
     result = await db.execute(
-        select(ContentBlock)
-        .where(ContentBlock.lesson_id == lesson_id)
-        .order_by(ContentBlock.order_index)
+        select(ContentBlock).where(ContentBlock.lesson_id == lesson_id).order_by(ContentBlock.order_index)
     )
     return result.scalars().all()
 
 
 async def create_content_block(
-    db: AsyncSession, lesson_id: UUID, tenant_id: UUID,
-    block_type: str, content: str | None = None,
-    order_index: int = 0, metadata_: str | None = None,
+    db: AsyncSession,
+    lesson_id: UUID,
+    tenant_id: UUID,
+    block_type: str,
+    content: str | None = None,
+    order_index: int = 0,
+    metadata_: str | None = None,
 ) -> ContentBlock:
     """Create a content block for a lesson."""
-    from app.modules.lessons.models import Lesson
     from uuid import uuid4
+
+    from app.modules.lessons.models import Lesson
+
     lesson = await db.get(Lesson, lesson_id)
     if not lesson or lesson.tenant_id != tenant_id:
         raise ValueError("Lesson not found")
@@ -181,13 +195,17 @@ async def create_content_block(
         metadata_=metadata_,
     )
     db.add(block)
+    await _mark_lesson_quizzes_needs_review(db, lesson_id, tenant_id)
     await db.flush()
     return block
 
 
 async def update_content_block(
-    db: AsyncSession, block_id: UUID, tenant_id: UUID,
-    content: str | None = None, order_index: int | None = None,
+    db: AsyncSession,
+    block_id: UUID,
+    tenant_id: UUID,
+    content: str | None = None,
+    order_index: int | None = None,
     metadata_: str | None = None,
 ) -> ContentBlock | None:
     """Update a content block."""
@@ -195,15 +213,21 @@ async def update_content_block(
     if not block:
         return None
     from app.modules.lessons.models import Lesson
+
     lesson = await db.get(Lesson, block.lesson_id)
     if not lesson or lesson.tenant_id != tenant_id:
         return None
-    if content is not None:
+    learner_visible_change = False
+    if content is not None and content != block.content:
         block.content = content
-    if order_index is not None:
+        learner_visible_change = True
+    if order_index is not None and order_index != block.order_index:
         block.order_index = order_index
+        learner_visible_change = True
     if metadata_ is not None:
         block.metadata_ = metadata_
+    if learner_visible_change:
+        await _mark_lesson_quizzes_needs_review(db, lesson.id, tenant_id)
     await db.flush()
     return block
 
@@ -214,25 +238,29 @@ async def delete_content_block(db: AsyncSession, block_id: UUID, tenant_id: UUID
     if not block:
         return False
     from app.modules.lessons.models import Lesson
+
     lesson = await db.get(Lesson, block.lesson_id)
     if not lesson or lesson.tenant_id != tenant_id:
         return False
+    await _mark_lesson_quizzes_needs_review(db, lesson.id, tenant_id)
     await db.delete(block)
     return True
 
 
 async def reorder_content_blocks(db: AsyncSession, lesson_id: UUID, ids_order: list[UUID], tenant_id: UUID) -> None:
     """Reorder content blocks within a lesson."""
-    from app.modules.lessons.models import Lesson
     from sqlalchemy import update as sa_update
+
+    from app.modules.lessons.models import Lesson
+
     lesson = await db.get(Lesson, lesson_id)
     if not lesson or lesson.tenant_id != tenant_id:
         raise ValueError("Lesson not found")
+    changed = False
     for index, block_id in enumerate(ids_order):
         block = await db.get(ContentBlock, block_id)
-        if block and block.lesson_id == lesson_id:
-            await db.execute(
-                sa_update(ContentBlock)
-                .where(ContentBlock.id == block_id)
-                .values(order_index=index)
-            )
+        if block and block.lesson_id == lesson_id and block.order_index != index:
+            changed = True
+            await db.execute(sa_update(ContentBlock).where(ContentBlock.id == block_id).values(order_index=index))
+    if changed:
+        await _mark_lesson_quizzes_needs_review(db, lesson_id, tenant_id)
