@@ -39,7 +39,26 @@ describe('finance course blueprint contract', () => {
 
   it('shows legal limitations before the save action', () => {
     expect(blueprintPage.indexOf('blueprint.limitations')).toBeLessThan(
-      blueprintPage.indexOf('onClick={save}'),
+      blueprintPage.indexOf('void save(true)'),
     );
+  });
+
+  it('uses a guided required flow and de-emphasises optional documents', () => {
+    expect(blueprintPage).toContain('adaptationSteps.map');
+    expect(blueprintPage).toContain('firstMissingAnswer');
+    expect(blueprintPage).toContain("t('courses.blueprint.whyLabel')");
+    expect(blueprintPage).toContain("t('courses.blueprint.showExample')");
+    expect(blueprintPage).toContain("t('courses.blueprint.documentsOptional')");
+    expect(blueprintPage).toContain('disabled={saving || !allRequiredComplete}');
+    expect(blueprintPage).toContain('onClick={() => void save(false)}');
+    expect(blueprintPage).toContain('aria-required={item.required}');
+  });
+
+  it('explains the 70 percent promise and approval gate in Russian', () => {
+    expect(ru.courses.blueprint.introTitle).toBe('Курс готов на 70%');
+    expect(ru.courses.blueprint.introBody).toContain('8 действующих правил');
+    expect(ru.courses.blueprint.introNotice).toContain('одобрение');
+    expect(ru.courses.blueprint.documentsOptional).toContain('необязательно');
+    expect(ru.courses.blueprint.finalHint).toContain('одобрите');
   });
 });

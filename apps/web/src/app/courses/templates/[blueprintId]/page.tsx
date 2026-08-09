@@ -3,13 +3,20 @@
 import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { ArrowLeft, BookOpenCheck, CheckCircle2, FileText, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, Check, ChevronLeft, ChevronRight, Info, ShieldCheck } from 'lucide-react';
 
 import { Button, Input } from '@/components/ui';
 import { LoadError } from '@/components/ui/LoadError';
 import { toast } from '@/components/ui/Toast';
 import { useT } from '@/i18n/useT';
 import { api } from '@/lib/api';
+import {
+  adaptationResumeStep,
+  adaptationSteps,
+  completedAnswerCount,
+  firstIncompleteStep,
+  firstMissingAnswer,
+} from '@/lib/blueprintAdaptation';
 import {
   isDocumentSelectable,
   type DocumentCatalogItem,
@@ -72,6 +79,8 @@ function FinanceBlueprintPageContent() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [currentStep, setCurrentStep] = useState(0);
+  const [validationError, setValidationError] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -98,10 +107,13 @@ function FinanceBlueprintPageContent() {
         setDocuments(documentsResult.value.data.items.filter(isDocumentSelectable));
       }
       if (adaptationResult.status === 'fulfilled' && adaptationResult.value) {
-        setAnswers(adaptationResult.value.data.answers || {});
+        const restoredAnswers = adaptationResult.value.data.answers || {};
+        setAnswers(restoredAnswers);
+        setCurrentStep(adaptationResumeStep(blueprintResponse.data.checklist, restoredAnswers));
         setSelectedDocumentIds(adaptationResult.value.data.source_document_ids || []);
       } else {
         setAnswers({});
+        setCurrentStep(0);
         setSelectedDocumentIds([]);
       }
     } catch (error) {
@@ -117,7 +129,7 @@ function FinanceBlueprintPageContent() {
   }, [load]);
 
   const completedCount = useMemo(
-    () => blueprint?.checklist.filter((item) => Boolean(answers[item.id]?.trim())).length || 0,
+    () => blueprint ? completedAnswerCount(blueprint.checklist, answers) : 0,
     [answers, blueprint],
   );
   const readiness = blueprint
@@ -127,6 +139,32 @@ function FinanceBlueprintPageContent() {
           + Math.round(blueprint.customization_percent * completedCount / blueprint.checklist.length),
       )
     : 0;
+  const requiredCount = blueprint?.checklist.filter((item) => item.required).length || 0;
+  const allRequiredComplete = requiredCount > 0 && completedCount === requiredCount;
+  const activeStep = adaptationSteps[currentStep];
+  const activeItems = blueprint?.checklist.filter((item) => activeStep.itemIds.includes(item.id)) || [];
+
+  const firstMissingId = (stepIndex: number) => {
+    return firstMissingAnswer(adaptationSteps[stepIndex], blueprint?.checklist || [], answers);
+  };
+
+  const focusField = (fieldId: string) => {
+    window.requestAnimationFrame(() => {
+      document.getElementById(`blueprint-answer-${fieldId}`)?.focus();
+    });
+  };
+
+  const continueToNextStep = () => {
+    const missingId = firstMissingId(currentStep);
+    if (missingId) {
+      setValidationError(t('courses.blueprint.completeCurrentStep'));
+      focusField(missingId);
+      return;
+    }
+    setValidationError('');
+    setCurrentStep((step) => Math.min(step + 1, adaptationSteps.length - 1));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   const toggleDocument = (documentId: string) => {
     setSelectedDocumentIds((current) => (
@@ -136,8 +174,16 @@ function FinanceBlueprintPageContent() {
     ));
   };
 
-  const save = async () => {
+  const save = async (requireComplete: boolean) => {
     if (!blueprint) return;
+    const incompleteStep = firstIncompleteStep(blueprint.checklist, answers);
+    if (requireComplete && incompleteStep >= 0) {
+      setCurrentStep(incompleteStep);
+      setValidationError(t('courses.blueprint.completeAllRequired'));
+      const missingId = firstMissingId(incompleteStep);
+      if (missingId) focusField(missingId);
+      return;
+    }
     setSaving(true);
     const payload = {
       locale: blueprint.locale,
@@ -217,77 +263,170 @@ function FinanceBlueprintPageContent() {
         </div>
       </header>
 
-      <section className="grid gap-4 sm:grid-cols-3">
-        <div className="rounded-2xl border bg-card p-5"><BookOpenCheck className="h-5 w-5 text-primary" /><div className="mt-3 text-2xl font-bold">{blueprint.lesson_count}</div><div className="text-sm text-muted-foreground">{t('courses.lessons')}</div></div>
-        <div className="rounded-2xl border bg-card p-5"><CheckCircle2 className="h-5 w-5 text-primary" /><div className="mt-3 text-2xl font-bold">{blueprint.quiz_question_count}</div><div className="text-sm text-muted-foreground">{t('quiz.question')}</div></div>
-        <div className="rounded-2xl border bg-card p-5"><FileText className="h-5 w-5 text-primary" /><div className="mt-3 text-2xl font-bold">v{blueprint.version}</div><div className="text-sm text-muted-foreground">{t('courses.blueprint.basePart')}</div></div>
-      </section>
-
-      <section className="rounded-2xl border bg-card p-6 shadow-card">
-        <label className="block text-sm font-semibold" htmlFor="blueprint-course-title">{t('courses.blueprint.courseName')}</label>
-        <Input id="blueprint-course-title" className="mt-2" value={title} onChange={(event) => setTitle(event.target.value)} />
-      </section>
-
-      <section className="rounded-2xl border bg-card p-6 shadow-card">
-        <h2 className="text-lg font-bold">{t('courses.blueprint.checklist')}</h2>
-        <p className="mt-1 text-sm text-muted-foreground">{t('courses.blueprint.checklistHint')}</p>
-        <div className="mt-5 grid gap-4 lg:grid-cols-2">
-          {blueprint.checklist.map((item, index) => (
-            <label key={item.id} className="rounded-2xl border border-border p-4 focus-within:border-primary">
-              <span className="flex items-start gap-3">
-                <span className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${answers[item.id]?.trim() ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>
-                  {answers[item.id]?.trim() ? '✓' : index + 1}
-                </span>
-                <span>
-                  <span className="block font-semibold">{item.title}</span>
-                  <span className="mt-1 block text-xs text-muted-foreground">{item.description}</span>
-                </span>
-              </span>
-              <textarea
-                value={answers[item.id] || ''}
-                onChange={(event) => setAnswers((current) => ({ ...current, [item.id]: event.target.value }))}
-                placeholder={item.answer_placeholder}
-                rows={4}
-                maxLength={4000}
-                className="mt-4 w-full resize-y rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
-              />
-            </label>
-          ))}
+      <section className="rounded-2xl border border-primary/20 bg-primary/5 p-5 sm:p-6">
+        <div className="flex items-start gap-3">
+          <Info className="mt-0.5 h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
+          <div>
+            <h2 className="font-bold">{t('courses.blueprint.introTitle')}</h2>
+            <p className="mt-1 text-sm text-foreground">{t('courses.blueprint.introBody')}</p>
+            <p className="mt-2 text-sm text-muted-foreground">{t('courses.blueprint.introNotice')}</p>
+            <p className="mt-2 text-xs text-muted-foreground">{t('courses.blueprint.introMicrocopy')}</p>
+          </div>
         </div>
       </section>
 
       <section className="rounded-2xl border bg-card p-6 shadow-card">
-        <h2 className="text-lg font-bold">{t('courses.blueprint.documents')}</h2>
-        <p className="mt-1 text-sm text-muted-foreground">{t('courses.blueprint.documentsHint')}</p>
-        {documents.length ? (
-          <div className="mt-4 grid gap-3 md:grid-cols-2">
-            {documents.map((document) => (
-              <label key={document.id} className="flex cursor-pointer items-start gap-3 rounded-xl border p-3 hover:border-primary/50">
-                <input type="checkbox" className="mt-1" checked={selectedDocumentIds.includes(document.id)} onChange={() => toggleDocument(document.id)} />
-                <span className="min-w-0"><span className="block truncate text-sm font-medium">{document.title}</span><span className="block truncate text-xs text-muted-foreground">{document.filename} · v{document.version}</span></span>
-              </label>
-            ))}
-          </div>
-        ) : (
-          <div className="mt-4 rounded-xl border border-dashed p-5 text-sm text-muted-foreground">
-            {t('courses.blueprint.noDocuments')}{' '}
-            <Link href="/documents" className="font-medium text-primary hover:underline">{t('courses.blueprint.uploadDocuments')}</Link>
-          </div>
-        )}
+        <label className="block text-sm font-semibold" htmlFor="blueprint-course-title">{t('courses.blueprint.courseNameOptional')}</label>
+        <p className="mt-1 text-xs text-muted-foreground">{t('courses.blueprint.courseNameHint')}</p>
+        <Input id="blueprint-course-title" className="mt-2" value={title} onChange={(event) => setTitle(event.target.value)} />
       </section>
 
-      <section className="rounded-2xl border border-warning/30 bg-warning/5 p-5">
+      <nav aria-label={t('courses.blueprint.adaptationSteps')} className="grid gap-3 sm:grid-cols-3">
+        {adaptationSteps.map((step, index) => {
+          const complete = !firstMissingId(index);
+          const active = index === currentStep;
+          return (
+            <button
+              key={step.id}
+              type="button"
+              onClick={() => {
+                if (index <= currentStep || complete) {
+                  setCurrentStep(index);
+                  setValidationError('');
+                }
+              }}
+              className={`min-w-0 rounded-2xl border p-4 text-left transition ${active ? 'border-primary bg-primary/5 shadow-sm' : complete ? 'border-success/40 bg-success/5' : 'border-border bg-card'}`}
+              aria-current={active ? 'step' : undefined}
+            >
+              <span className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
+                <span className={`flex h-6 w-6 items-center justify-center rounded-full ${complete ? 'bg-success text-white' : active ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
+                  {complete ? <Check className="h-4 w-4" aria-hidden="true" /> : index + 1}
+                </span>
+                {t('courses.blueprint.stepProgress', { current: index + 1, total: adaptationSteps.length })}
+              </span>
+              <span className="mt-2 block font-semibold">{t(step.titleKey as never)}</span>
+            </button>
+          );
+        })}
+      </nav>
+
+      <section className="rounded-2xl border bg-card p-5 shadow-card sm:p-6">
+        <div className="flex flex-col gap-2 border-b border-border pb-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h2 className="text-xl font-bold">{t(activeStep.titleKey as never)}</h2>
+            <p className="mt-1 text-sm text-muted-foreground">{t(activeStep.descriptionKey as never)}</p>
+          </div>
+          <span className="text-sm font-medium text-primary">
+            {t('courses.blueprint.completedRules', { completed: completedCount, total: requiredCount })}
+          </span>
+        </div>
+        <div className="mt-5 space-y-4">
+          {activeItems.map((item) => (
+            <div key={item.id} className="rounded-2xl border border-border p-4 focus-within:border-primary sm:p-5">
+              <label className="block" htmlFor={`blueprint-answer-${item.id}`}>
+                <span className="flex flex-wrap items-center gap-2">
+                  <span className="font-semibold">{t(`courses.blueprint.fields.${item.id}.label` as never)}</span>
+                  <span className="rounded-full bg-warning/10 px-2 py-0.5 text-xs font-medium text-warning-foreground">{t('courses.blueprint.requiredLabel')}</span>
+                </span>
+                <span className="mt-2 block text-sm text-muted-foreground">
+                  <strong className="font-medium text-foreground">{t('courses.blueprint.whyLabel')}:</strong>{' '}
+                  {t(`courses.blueprint.fields.${item.id}.help` as never)}
+                </span>
+              </label>
+              <details className="mt-3 rounded-xl bg-muted/40 px-3 py-2 text-sm">
+                <summary className="cursor-pointer font-medium text-primary">{t('courses.blueprint.showExample')}</summary>
+                <p className="mt-2 text-muted-foreground">{t(`courses.blueprint.fields.${item.id}.example` as never)}</p>
+              </details>
+              <textarea
+                id={`blueprint-answer-${item.id}`}
+                required={item.required}
+                aria-required={item.required}
+                value={answers[item.id] || ''}
+                onChange={(event) => {
+                  setAnswers((current) => ({ ...current, [item.id]: event.target.value }));
+                  setValidationError('');
+                }}
+                placeholder={t('courses.blueprint.answerPrompt')}
+                rows={3}
+                maxLength={4000}
+                className="mt-4 w-full resize-y rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+              />
+              <p className="mt-2 text-xs text-muted-foreground">{t('courses.blueprint.notApplicableHint')}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {currentStep === adaptationSteps.length - 1 && (
+        <section className="rounded-2xl border border-dashed bg-muted/20 p-5 sm:p-6">
+          <h2 className="text-lg font-bold">{t('courses.blueprint.documentsOptional')}</h2>
+          <p className="mt-1 text-sm text-muted-foreground">{t('courses.blueprint.documentsOptionalHint')}</p>
+          {documents.length ? (
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              {documents.map((document) => (
+                <label key={document.id} className="flex cursor-pointer items-start gap-3 rounded-xl border bg-card p-3 hover:border-primary/50">
+                  <input type="checkbox" className="mt-1" checked={selectedDocumentIds.includes(document.id)} onChange={() => toggleDocument(document.id)} />
+                  <span className="min-w-0"><span className="block truncate text-sm font-medium">{document.title}</span><span className="block truncate text-xs text-muted-foreground">{document.filename} · v{document.version}</span></span>
+                </label>
+              ))}
+            </div>
+          ) : (
+            <div className="mt-4 rounded-xl border border-dashed bg-card p-5 text-sm text-muted-foreground">
+              {t('courses.blueprint.noDocumentsOptional')}{' '}
+              <Link href="/documents" className="font-medium text-primary hover:underline">{t('courses.blueprint.uploadDocuments')}</Link>
+            </div>
+          )}
+        </section>
+      )}
+
+      {currentStep === adaptationSteps.length - 1 && <section className="rounded-2xl border border-warning/30 bg-warning/5 p-5">
         <h2 className="font-bold">{t('courses.blueprint.limitationTitle')}</h2>
         <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
           {blueprint.limitations.map((limitation) => <li key={limitation}>• {limitation}</li>)}
           {courseId && <li>• {t('courses.blueprint.manualEditWarning')}</li>}
         </ul>
-      </section>
+      </section>}
 
-      <div className="sticky bottom-4 flex justify-end">
-        <Button onClick={save} disabled={saving || !title.trim()} className="min-h-12 px-6 shadow-lg">
-          {saving ? t('courses.blueprint.creating') : courseId ? t('courses.blueprint.updateDraft') : t('courses.blueprint.createDraft')}
-        </Button>
+      <div className="sticky bottom-3 rounded-2xl border bg-card/95 p-3 shadow-lg backdrop-blur sm:bottom-4 sm:flex sm:items-center sm:justify-between sm:gap-4">
+        <div className="mb-3 text-xs text-muted-foreground sm:mb-0">
+          {currentStep === adaptationSteps.length - 1 ? t('courses.blueprint.finalHint') : t('courses.blueprint.stepHint')}
+          {validationError && <p role="alert" className="mt-1 font-medium text-destructive">{validationError}</p>}
+        </div>
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:shrink-0">
+          {!allRequiredComplete && (
+            <Button
+              type="button"
+              variant="ghost"
+              className="col-span-2 sm:col-span-1"
+              disabled={saving}
+              onClick={() => void save(false)}
+            >
+              {courseId ? t('courses.blueprint.savePartialUpdate') : t('courses.blueprint.savePartialDraft')}
+            </Button>
+          )}
+          <Button
+            type="button"
+            variant="outline"
+            disabled={currentStep === 0 || saving}
+            onClick={() => {
+              setValidationError('');
+              setCurrentStep((step) => Math.max(0, step - 1));
+            }}
+          >
+            <ChevronLeft className="mr-1 h-4 w-4" aria-hidden="true" />
+            {t('courses.blueprint.previous')}
+          </Button>
+          {currentStep < adaptationSteps.length - 1 ? (
+            <Button type="button" onClick={continueToNextStep} disabled={saving}>
+              {t('courses.blueprint.next')}
+              <ChevronRight className="ml-1 h-4 w-4" aria-hidden="true" />
+            </Button>
+          ) : (
+            <Button onClick={() => void save(true)} disabled={saving || !allRequiredComplete}>
+              {saving ? t('courses.blueprint.creating') : courseId ? t('courses.blueprint.updateDraft') : t('courses.blueprint.createDraft')}
+            </Button>
+          )}
+        </div>
       </div>
     </div>
   );
