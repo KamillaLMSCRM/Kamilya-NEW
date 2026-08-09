@@ -144,6 +144,7 @@ async def test_publish_approved_ai_course_activates_assignments():
     release.published_at = None
     db = AsyncMock()
     db.execute.return_value = _scalar_result(course)
+    db.scalar.return_value = None
     request = MagicMock()
     request.client.host = "127.0.0.1"
     request.headers.get.return_value = "pytest"

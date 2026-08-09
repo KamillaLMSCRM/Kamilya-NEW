@@ -160,7 +160,9 @@ async def test_publish_binds_enrollment_and_attempt_to_immutable_release(
     body = submitted.json()
     assert body["attempt"]["score_percent"] == 100
     assert body["attempt"]["content_release_id"] == release_id
-    assert len(body["attempt"]["evidence_sha256"]) == 64
+    # Learner responses do not expose internal evidence hashes; the durable
+    # hash remains verifiable in the tenant-scoped evidence record below.
+    assert "evidence_sha256" not in body["attempt"]
 
     attempt = await db_session.scalar(
         select(QuizAttempt).where(QuizAttempt.id == body["attempt"]["id"])

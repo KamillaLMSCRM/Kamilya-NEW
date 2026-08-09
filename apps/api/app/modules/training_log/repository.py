@@ -732,9 +732,9 @@ async def list_training_log(
                 progress_percent = 0
             computed_status = "in_progress" if has_native_progress else "assigned"
 
-        cycle_key = r["enrollment_id"] if r["enrollment_source"] == "recurring" else None
-        quiz_info = quiz_by_pair.get((r["user_id"], r["course_id"], cycle_key), {})
-        cert_info = cert_by_pair.get((r["user_id"], r["course_id"], cycle_key), {})
+        quiz_info = quiz_by_pair.get((r["user_id"], r["course_id"], r["enrollment_id"]), {})
+        certificate_key = r["enrollment_id"] if r["enrollment_source"] == "recurring" else None
+        cert_info = cert_by_pair.get((r["user_id"], r["course_id"], certificate_key), {})
         evidence_info = evidence_by_enrollment.get(
             r["enrollment_id"],
             {

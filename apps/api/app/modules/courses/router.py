@@ -398,6 +398,33 @@ async def publish_course(
         raise HTTPException(status_code=404, detail="Course not found")
     if course.status == "published":
         raise HTTPException(status_code=409, detail="Course is already published")
+    blueprint_marker = (course.source_analysis or {}).get("blueprint") or {}
+    if blueprint_marker:
+        from app.modules.courses.blueprint_service import (
+            BlueprintContentConflictError,
+            assert_blueprint_ready_for_approval,
+        )
+
+        try:
+            assert_blueprint_ready_for_approval(course)
+        except BlueprintContentConflictError as error:
+            blueprint_id = str(blueprint_marker.get("id") or "")
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "code": "blueprint_adaptation_incomplete",
+                    "message": error.message,
+                    "adaptation_url": f"/courses/templates/{blueprint_id}?course_id={course.id}",
+                },
+            ) from error
+    if (course.ai_generated or blueprint_marker) and course.review_status != "approved":
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "course_review_required",
+                "message": "Перед публикацией курс должен быть проверен и одобрен методологом",
+            },
+        )
     from app.modules.lessons.models import Lesson, Module
     from app.modules.quizzes.models import Quiz
 
@@ -418,41 +445,6 @@ async def publish_course(
             detail={
                 "code": "quiz_review_required",
                 "message": "Перед публикацией проверьте тесты, отмеченные после изменения урока.",
-            },
-        )
-    blueprint_marker = (course.source_analysis or {}).get("blueprint") or {}
-    if blueprint_marker:
-        from app.modules.courses.blueprint_service import (
-            BlueprintContentConflictError,
-            assert_blueprint_ready_for_approval,
-        )
-
-        try:
-            assert_blueprint_ready_for_approval(course)
-        except BlueprintContentConflictError as error:
-            blueprint_id = str(blueprint_marker.get("id") or "")
-            raise HTTPException(
-                status_code=409,
-                detail={
-                    "code": "blueprint_adaptation_incomplete",
-                    "message": error.message,
-                    "adaptation_url": f"/courses/templates/{blueprint_id}?course_id={course.id}",
-                },
-            ) from error
-        if course.review_status != "approved":
-            raise HTTPException(
-                status_code=409,
-                detail={
-                    "code": "course_review_required",
-                    "message": "Перед публикацией отраслевой курс должен быть проверен и одобрен методологом",
-                },
-            )
-    if course.ai_generated and course.review_status != "approved":
-        raise HTTPException(
-            status_code=409,
-            detail={
-                "code": "course_review_required",
-                "message": ("Перед публикацией AI-курс должен быть проверен " "и одобрен методологом"),
             },
         )
     if course.source_instruction_id is not None and not course.ai_generated:

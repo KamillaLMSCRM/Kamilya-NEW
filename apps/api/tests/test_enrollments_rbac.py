@@ -102,11 +102,15 @@ class TestEnrollmentRoleGating:
         assert r.status_code == 200, f"Methodologist must be able to list enrollments. Got {r.status_code}: {r.text}"
 
     async def test_methodologist_can_retrieve_persistent_assignment_access(
-        self, client, make_tenant, make_user, make_course, auth_headers
+        self, client, db_session, make_tenant, make_user, make_course, auth_headers
     ):
         tenant = await make_tenant(name="Tenant access")
         methodologist = await make_user(tenant, role="methodologist")
         learner = await make_user(tenant, role="student", email=None)
+        # The shared factory generates an email for falsey values. Clear it so
+        # this scenario exercises the no-email assignment-access branch.
+        learner.email = None
+        await db_session.flush()
         course = await make_course(tenant, methodologist, title="Access", status="published")
         created = await client.post(
             f"/api/v1/courses/{course.id}/enrollments",

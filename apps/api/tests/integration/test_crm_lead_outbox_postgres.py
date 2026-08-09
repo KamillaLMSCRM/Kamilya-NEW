@@ -134,6 +134,11 @@ async def test_runtime_role_cannot_read_outbox_payload_table_directly():
 
     try:
         async with async_session_factory() as session:
+            # Fixtures and migrations connect as the privileged `lms` role in
+            # CI.  Exercise the restricted production runtime role instead:
+            # the outbox grants only SECURITY DEFINER functions to lms_app,
+            # never direct table access to its payload bytes.
+            await session.execute(text("SET LOCAL ROLE lms_app"))
             with pytest.raises(exc.ProgrammingError):
                 await session.execute(
                     text(
