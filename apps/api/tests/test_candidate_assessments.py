@@ -138,6 +138,8 @@ def test_0100_repairs_already_migrated_polymorphic_trigger() -> None:
     source = Path("alembic/versions/0100_candidate_ownership_trigger_hotfix.py").read_text(encoding="utf-8")
     assert 'down_revision = "0099"' in source
     assert "DROP FUNCTION IF EXISTS validate_candidate_assessment_ownership()" in source
+    assert source.count("CREATE OR REPLACE FUNCTION validate_candidate_") == 3
+    assert "CREATE OR REPLACE FUNCTION validate_assessment_candidate_ownership" in source
     assert "validate_candidate_campaign_ownership" in source
     assert "validate_candidate_attempt_ownership" in source
 
@@ -146,6 +148,7 @@ def test_0101_repairs_already_migrated_evidence_trigger() -> None:
     source = Path("alembic/versions/0101_candidate_evidence_trigger_hotfix.py").read_text(encoding="utf-8")
     assert 'down_revision = "0100"' in source
     assert "DROP FUNCTION IF EXISTS protect_candidate_assessment_evidence()" in source
+    assert source.count("CREATE OR REPLACE FUNCTION protect_candidate_") == 2
     assert "protect_candidate_campaign_snapshot" in source
     assert "protect_candidate_attempt_evidence" in source
 

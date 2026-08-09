@@ -18,7 +18,7 @@ def upgrade() -> None:
     op.execute("DROP FUNCTION IF EXISTS protect_candidate_assessment_evidence()")
     op.execute(
         """
-        CREATE FUNCTION protect_candidate_campaign_snapshot() RETURNS trigger
+        CREATE OR REPLACE FUNCTION protect_candidate_campaign_snapshot() RETURNS trigger
         LANGUAGE plpgsql SET search_path = public, pg_temp AS $$
         BEGIN
             IF (NEW.content_release_id, NEW.assessment_snapshot, NEW.snapshot_sha256)
@@ -33,7 +33,7 @@ def upgrade() -> None:
     )
     op.execute(
         """
-        CREATE FUNCTION protect_candidate_attempt_evidence() RETURNS trigger
+        CREATE OR REPLACE FUNCTION protect_candidate_attempt_evidence() RETURNS trigger
         LANGUAGE plpgsql SET search_path = public, pg_temp AS $$
         BEGIN
             IF OLD.status = 'submitted' AND NEW IS DISTINCT FROM OLD THEN

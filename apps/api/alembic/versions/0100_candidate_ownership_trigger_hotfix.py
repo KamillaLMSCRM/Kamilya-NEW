@@ -24,7 +24,7 @@ def upgrade() -> None:
 
     op.execute(
         """
-        CREATE FUNCTION validate_candidate_campaign_ownership() RETURNS trigger
+        CREATE OR REPLACE FUNCTION validate_candidate_campaign_ownership() RETURNS trigger
         LANGUAGE plpgsql SET search_path = public, pg_temp AS $$
         BEGIN
             IF NOT EXISTS (
@@ -51,7 +51,7 @@ def upgrade() -> None:
     )
     op.execute(
         """
-        CREATE FUNCTION validate_assessment_candidate_ownership() RETURNS trigger
+        CREATE OR REPLACE FUNCTION validate_assessment_candidate_ownership() RETURNS trigger
         LANGUAGE plpgsql SET search_path = public, pg_temp AS $$
         BEGIN
             IF NOT EXISTS (
@@ -66,7 +66,7 @@ def upgrade() -> None:
     )
     op.execute(
         """
-        CREATE FUNCTION validate_candidate_credential_ownership() RETURNS trigger
+        CREATE OR REPLACE FUNCTION validate_candidate_credential_ownership() RETURNS trigger
         LANGUAGE plpgsql SET search_path = public, pg_temp AS $$
         BEGIN
             IF NOT EXISTS (
@@ -87,7 +87,7 @@ def upgrade() -> None:
     )
     op.execute(
         """
-        CREATE FUNCTION validate_candidate_attempt_ownership() RETURNS trigger
+        CREATE OR REPLACE FUNCTION validate_candidate_attempt_ownership() RETURNS trigger
         LANGUAGE plpgsql SET search_path = public, pg_temp AS $$
         BEGIN
             IF NOT EXISTS (
