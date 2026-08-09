@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import json
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import select, text
 
 from app.models.tenants import Tenant, TenantLead
 from app.models.users import User
@@ -21,6 +22,11 @@ async def test_registration_succeeds_when_trial_email_provider_fails(
     monkeypatch.setattr(
         "app.modules.tenants.router.EmailService.send_trial_started",
         fail_email,
+    )
+    dispatched: list[str] = []
+    monkeypatch.setattr(
+        "app.modules.tenants.router.deliver_lead_outbox_task.apply_async",
+        lambda *, args: dispatched.append(args[0]),
     )
     suffix = uuid4().hex[:12]
     email = f"qa-registration-{suffix}@example.com"
@@ -64,10 +70,44 @@ async def test_registration_succeeds_when_trial_email_provider_fails(
     lead = (await db_session.execute(select(TenantLead).where(TenantLead.id == payload["lead_id"]))).scalar_one()
     assert "Landing attribution:" in (lead.message or "")
     assert '"utm_campaign": "kz_lms"' in (lead.message or "")
+    claimed = (
+        await db_session.execute(
+            text("SELECT * FROM crm_claim_lead_outbox(:id)"),
+            {"id": lead.id},
+        )
+    ).mappings().one()
+    event = json.loads(bytes(claimed["payload_bytes"]))
+    assert event["lead_id"] == str(lead.id)
+    assert event["intent"] == "try"
+    assert event["utm"]["campaign"] == "kz_lms"
+    assert event["utm_campaign"] == "kz_lms"
+    assert "billing_identifier" not in event
+    assert dispatched == [str(lead.id)]
+    await db_session.execute(
+        text(
+            "SELECT crm_finalize_lead_outbox("
+            ":id, :token, 'defer', NULL, 'test_cleanup')"
+        ),
+        {"id": lead.id, "token": claimed["claim_token"]},
+    )
 
 
 @pytest.mark.asyncio
-async def test_public_lead_keeps_landing_context_and_roi_attribution(client, db_session):
+async def test_public_lead_keeps_landing_context_and_roi_attribution(
+    client,
+    db_session,
+    monkeypatch,
+):
+    dispatched: list[str] = []
+
+    def fail_broker_dispatch(*, args):
+        dispatched.append(args[0])
+        raise RuntimeError("broker unavailable")
+
+    monkeypatch.setattr(
+        "app.modules.tenants.router.deliver_lead_outbox_task.apply_async",
+        fail_broker_dispatch,
+    )
     suffix = uuid4().hex[:12]
     response = await client.post(
         "/api/v1/public/leads",
@@ -100,6 +140,9 @@ async def test_public_lead_keeps_landing_context_and_roi_attribution(client, db_
     )
 
     assert response.status_code == 201
+    await db_session.execute(
+        text("SELECT set_config('app.is_superadmin', 'true', true)")
+    )
     lead = (await db_session.execute(select(TenantLead).where(TenantLead.id == response.json()["id"]))).scalar_one()
     assert lead.status == "lead_submitted"
     assert lead.source == "landing_form"
@@ -111,6 +154,38 @@ async def test_public_lead_keeps_landing_context_and_roi_attribution(client, db_
     assert '"consent_version": "privacy-2026-08-07"' in (lead.message or "")
     assert '"roi_employees": 75' in (lead.message or "")
     assert '"roi_formula_version": "lead-assessment-v1"' in (lead.message or "")
+    claimed = (
+        await db_session.execute(
+            text("SELECT * FROM crm_claim_lead_outbox(:id)"),
+            {"id": lead.id},
+        )
+    ).mappings().one()
+    event = json.loads(bytes(claimed["payload_bytes"]))
+    assert event["event_id"] == f"lmslead_{lead.id.hex}"
+    assert event["lead_id"] == str(lead.id)
+    assert event["intent"] == "demo"
+    assert event["interest"] == "roi_calc"
+    assert event["industry"] == "finance"
+    assert event["utm"] == {
+        "source": "google",
+        "medium": "cpc",
+        "campaign": "kz_lms",
+        "content": "finance_hero",
+        "term": "проверка знаний сотрудников",
+    }
+    assert event["utm_source"] == "google"
+    assert event["utm_campaign"] == "kz_lms"
+    assert event["utm_content"] == "finance_hero"
+    assert event["consent_version"] == "privacy-2026-08-07"
+    assert event["roi_employees"] == 75
+    assert dispatched == [str(lead.id)]
+    await db_session.execute(
+        text(
+            "SELECT crm_finalize_lead_outbox("
+            ":id, :token, 'defer', NULL, 'test_cleanup')"
+        ),
+        {"id": lead.id, "token": claimed["claim_token"]},
+    )
 
 
 @pytest.mark.asyncio

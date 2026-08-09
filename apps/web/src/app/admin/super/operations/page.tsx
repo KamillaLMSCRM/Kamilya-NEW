@@ -14,6 +14,7 @@ import {
   RefreshCw,
   Server,
   ShieldAlert,
+  Send,
   Trash2,
 } from 'lucide-react';
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Input } from '@/components/ui';
@@ -31,16 +32,20 @@ type OperationsSummary = {
   host: { cpu_percent: number | null };
   filesystem: { total_bytes: number | null; free_bytes: number | null; used_percent: number | null };
   celery: { status: 'available' | 'unavailable'; reachable: boolean; worker_count: number; registered_required_tasks: string[]; missing_required_tasks: string[] };
+  crm_lead_outbox: { pending_count: number; retry_count: number; claimed_count: number; dead_count: number; delivered_count: number; oldest_due_age_seconds: AgeSeconds };
 };
 
 type CleanupResult = { tenant_id: string; slug: string; created_at: string; age_hours: number; action: 'would_delete' | 'deleted' | 'skipped' | 'failed'; reason?: string | null };
 type CleanupPreview = { dry_run: boolean; min_age_hours: number; allowed_slug_prefixes: string[]; matched_count: number; deleted_count: number; skipped_count: number; failed_count: number; truncated: boolean; results: CleanupResult[] };
 type StaleAIJobRecovery = { dry_run: boolean; min_age_hours: number; terminal_status: 'cancelled'; eligible_count: number; queued_count: number; running_count: number; recovered_count: number; skipped_count: number; truncated: boolean; oldest_age_seconds: AgeSeconds; newest_age_seconds: AgeSeconds };
+type CRMLeadRequeue = { dry_run: boolean; limit: number; eligible_count: number; requeued_count: number };
 
 const CONFIRM_TOKEN = 'CLEANUP_SYNTHETIC_TENANTS';
 const MIN_AGE_HOURS = 24;
 const STALE_AI_JOB_CONFIRM_TOKEN = 'RECOVER_STALE_AI_JOBS';
 const STALE_AI_JOB_MIN_AGE_HOURS = 24;
+const CRM_REQUEUE_CONFIRM_TOKEN = 'REQUEUE_FAILED_CRM_LEADS';
+const CRM_REQUEUE_LIMIT = 20;
 
 function formatAge(value: AgeSeconds, never: string, units: { seconds: string; minutes: string; hours: string; days: string }) {
   if (value === null || value === undefined) return never;
@@ -90,6 +95,7 @@ export default function SuperadminOperationsPage() {
   const [summary, setSummary] = useState<OperationsSummary | null>(null);
   const [preview, setPreview] = useState<CleanupPreview | null>(null);
   const [staleRecovery, setStaleRecovery] = useState<StaleAIJobRecovery | null>(null);
+  const [crmRequeue, setCRMRequeue] = useState<CRMLeadRequeue | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -100,6 +106,8 @@ export default function SuperadminOperationsPage() {
   const [cleaning, setCleaning] = useState(false);
   const [recoveryConfirmation, setRecoveryConfirmation] = useState('');
   const [recovering, setRecovering] = useState(false);
+  const [crmConfirmation, setCRMConfirmation] = useState('');
+  const [requeuingCRM, setRequeuingCRM] = useState(false);
   const hasSuccessfulSummary = useRef(false);
 
   const apiFetch = useCallback(async (path: string, init?: RequestInit) => {
@@ -116,14 +124,16 @@ export default function SuperadminOperationsPage() {
     if (manual) setRefreshing(true); else setLoading(true);
     setError(null);
     try {
-      const [nextSummary, nextPreview] = await Promise.all([
+      const [nextSummary, nextPreview, nextCRMRequeue] = await Promise.all([
         apiFetch('/admin/super/operations/summary'),
         apiFetch('/admin/super/operations/cleanup-synthetic', { method: 'POST', body: JSON.stringify({ dry_run: true, min_age_hours: MIN_AGE_HOURS }) }),
+        apiFetch('/admin/super/operations/requeue-failed-crm-leads', { method: 'POST', body: JSON.stringify({ dry_run: true, limit: CRM_REQUEUE_LIMIT }) }),
       ]);
       const nextStaleRecovery = await apiFetch('/admin/super/operations/recover-stale-ai-jobs', { method: 'POST', body: JSON.stringify({ dry_run: true, min_age_hours: STALE_AI_JOB_MIN_AGE_HOURS }) });
       setSummary(nextSummary);
       setPreview(nextPreview);
       setStaleRecovery(nextStaleRecovery);
+      setCRMRequeue(nextCRMRequeue);
       hasSuccessfulSummary.current = true;
       setLastUpdatedAt(new Date().toISOString());
       setStale(false);
@@ -188,6 +198,19 @@ export default function SuperadminOperationsPage() {
     } finally { setRecovering(false); }
   };
 
+  const executeCRMRequeue = async () => {
+    if (crmConfirmation !== CRM_REQUEUE_CONFIRM_TOKEN || !crmRequeue || crmRequeue.eligible_count === 0) return;
+    setRequeuingCRM(true);
+    try {
+      await apiFetch('/admin/super/operations/requeue-failed-crm-leads', { method: 'POST', body: JSON.stringify({ dry_run: false, limit: CRM_REQUEUE_LIMIT, confirm: true, confirm_token: crmConfirmation }) });
+      toast.success(t('superadmin.operations.crmOutbox.success'));
+      setCRMConfirmation('');
+      await loadAll(true);
+    } catch (cause) {
+      toast.error(t('superadmin.operations.crmOutbox.error'), { description: cause instanceof Error ? cause.message : undefined });
+    } finally { setRequeuingCRM(false); }
+  };
+
   if (loading && !summary) {
     return <main className="mx-auto max-w-7xl space-y-6 p-6"><div className="flex items-center gap-3 text-muted-foreground"><RefreshCw className="h-5 w-5 animate-spin" />{t('superadmin.operations.loading')}</div><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">{[1, 2, 3, 4].map((item) => <Card key={item} className="h-36 animate-pulse bg-muted/30"><span className="sr-only">{item}</span></Card>)}</div></main>;
   }
@@ -210,6 +233,7 @@ export default function SuperadminOperationsPage() {
           <Card className={healthTone(summary.host.cpu_percent === null)}><CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-lg"><Cpu className="h-5 w-5" />{t('superadmin.operations.host.title')}</CardTitle></CardHeader><CardContent className="space-y-2 text-sm"><Metric label={t('superadmin.operations.host.cpu')} value={formatPercent(summary.host.cpu_percent, t('superadmin.operations.unavailable'))} /></CardContent></Card>
           <Card className={healthTone(summary.filesystem.used_percent === null)}><CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-lg"><HardDrive className="h-5 w-5" />{t('superadmin.operations.filesystem.title')}</CardTitle></CardHeader><CardContent className="space-y-2 text-sm"><Metric label={t('superadmin.operations.filesystem.used')} value={formatPercent(summary.filesystem.used_percent, t('superadmin.operations.unavailable'))} /><Metric label={t('superadmin.operations.filesystem.total')} value={formatBytes(summary.filesystem.total_bytes, t('superadmin.operations.unavailable'))} /><Metric label={t('superadmin.operations.filesystem.free')} value={formatBytes(summary.filesystem.free_bytes, t('superadmin.operations.unavailable'))} /></CardContent></Card>
           <Card className={healthTone(!summary.celery.reachable || summary.celery.missing_required_tasks.length > 0)}><CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-lg"><Server className="h-5 w-5" />{t('superadmin.operations.celery.title')}</CardTitle></CardHeader><CardContent className="space-y-2 text-sm"><Metric label={t('superadmin.operations.celery.status')} value={summary.celery.reachable ? t('superadmin.operations.celery.available') : t('superadmin.operations.celery.unavailable')} danger={!summary.celery.reachable} /><Metric label={t('superadmin.operations.celery.workers')} value={summary.celery.worker_count} /><TaskList label={t('superadmin.operations.celery.registered')} tasks={summary.celery.registered_required_tasks} empty={t('superadmin.operations.none')} /><TaskList label={t('superadmin.operations.celery.missing')} tasks={summary.celery.missing_required_tasks} empty={t('superadmin.operations.none')} danger={summary.celery.missing_required_tasks.length > 0} /></CardContent></Card>
+          <Card className={healthTone(summary.crm_lead_outbox.dead_count > 0)}><CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-lg"><Send className="h-5 w-5" />{t('superadmin.operations.crmOutbox.title')}</CardTitle></CardHeader><CardContent className="space-y-2 text-sm"><Metric label={t('superadmin.operations.crmOutbox.pending')} value={summary.crm_lead_outbox.pending_count + summary.crm_lead_outbox.retry_count + summary.crm_lead_outbox.claimed_count} /><Metric label={t('superadmin.operations.crmOutbox.delivered')} value={summary.crm_lead_outbox.delivered_count} /><Metric label={t('superadmin.operations.crmOutbox.dead')} value={summary.crm_lead_outbox.dead_count} danger={summary.crm_lead_outbox.dead_count > 0} /><Metric label={t('superadmin.operations.crmOutbox.oldest')} value={formatAge(summary.crm_lead_outbox.oldest_due_age_seconds, t('quiz.notAvailable'), timeUnits)} /></CardContent></Card>
         </section>
         <p className="text-xs text-muted-foreground">{t('superadmin.operations.lastUpdated', { date: formatDate(lastUpdatedAt || summary.generated_at, locale, t('quiz.notAvailable')) })}</p>
       </>}
@@ -228,6 +252,12 @@ export default function SuperadminOperationsPage() {
         <div className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4"><Metric label={t('superadmin.operations.staleRecovery.eligible')} value={staleRecovery?.eligible_count ?? 0} /><Metric label={t('superadmin.operations.staleRecovery.queued')} value={staleRecovery?.queued_count ?? 0} /><Metric label={t('superadmin.operations.staleRecovery.running')} value={staleRecovery?.running_count ?? 0} /><Metric label={t('superadmin.operations.staleRecovery.oldest')} value={formatAge(staleRecovery?.oldest_age_seconds ?? null, t('quiz.notAvailable'), timeUnits)} /></div>
         <div className="rounded-md border border-blue-200 bg-blue-50 p-4 text-sm text-blue-950"><p className="font-medium">{t('superadmin.operations.staleRecovery.warning')}</p><p className="mt-1">{t('superadmin.operations.staleRecovery.guard')}</p></div>
         <div className="space-y-3 rounded-md border border-blue-300 p-4" role="group" aria-labelledby="stale-recovery-confirm-title"><h2 id="stale-recovery-confirm-title" className="font-semibold">{t('superadmin.operations.staleRecovery.confirmTitle')}</h2><p className="text-sm text-muted-foreground">{t('superadmin.operations.staleRecovery.confirmDescription', { token: STALE_AI_JOB_CONFIRM_TOKEN })}</p><Input value={recoveryConfirmation} onChange={(event) => setRecoveryConfirmation(event.target.value)} placeholder={STALE_AI_JOB_CONFIRM_TOKEN} aria-label={t('superadmin.operations.staleRecovery.confirmInput')} autoComplete="off" /><Button variant="outline" disabled={recoveryConfirmation !== STALE_AI_JOB_CONFIRM_TOKEN || !staleRecovery || staleRecovery.eligible_count === 0 || staleRecovery.truncated || recovering} onClick={() => void executeStaleRecovery()}>{recovering ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <ShieldAlert className="mr-2 h-4 w-4" />}{t('superadmin.operations.staleRecovery.confirm')}</Button></div>
+      </CardContent></Card>
+
+      <Card className="border-violet-200"><CardHeader><CardTitle className="flex items-center gap-2"><Send className="h-5 w-5 text-violet-600" />{t('superadmin.operations.crmOutbox.requeueTitle')}</CardTitle><p className="text-sm text-muted-foreground">{t('superadmin.operations.crmOutbox.description')}</p></CardHeader><CardContent className="space-y-4">
+        <div className="flex flex-wrap items-center gap-3"><Badge variant="secondary"><Eye className="mr-1 h-3 w-3" />{t('superadmin.operations.crmOutbox.previewOnly')}</Badge><span className="text-sm">{t('superadmin.operations.crmOutbox.eligible', { count: crmRequeue?.eligible_count ?? 0 })}</span></div>
+        <div className="rounded-md border border-violet-200 bg-violet-50 p-4 text-sm text-violet-950">{t('superadmin.operations.crmOutbox.guard', { limit: CRM_REQUEUE_LIMIT })}</div>
+        <div className="space-y-3 rounded-md border border-violet-300 p-4" role="group" aria-labelledby="crm-requeue-confirm-title"><h2 id="crm-requeue-confirm-title" className="font-semibold">{t('superadmin.operations.crmOutbox.confirmTitle')}</h2><p className="text-sm text-muted-foreground">{t('superadmin.operations.crmOutbox.confirmDescription', { token: CRM_REQUEUE_CONFIRM_TOKEN })}</p><Input value={crmConfirmation} onChange={(event) => setCRMConfirmation(event.target.value)} placeholder={CRM_REQUEUE_CONFIRM_TOKEN} aria-label={t('superadmin.operations.crmOutbox.confirmInput')} autoComplete="off" /><Button variant="outline" disabled={crmConfirmation !== CRM_REQUEUE_CONFIRM_TOKEN || !crmRequeue || crmRequeue.eligible_count === 0 || requeuingCRM} onClick={() => void executeCRMRequeue()}>{requeuingCRM ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}{t('superadmin.operations.crmOutbox.confirm')}</Button></div>
       </CardContent></Card>
     </main>
   );

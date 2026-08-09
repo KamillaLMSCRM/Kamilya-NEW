@@ -3,15 +3,17 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, patch
+from uuid import uuid4
 
 import pytest
-from sqlalchemy import select, update
+from sqlalchemy import select, text, update
 
 from app.models.ai_job import AIJob
 from app.models.document import Document
 from app.models.tenants import Tenant
 from app.modules.admin.superadmin.operations import (
     CLEANUP_CONFIRM_TOKEN,
+    CRM_OUTBOX_REQUEUE_CONFIRM_TOKEN,
     STALE_AI_JOB_RECOVERY_CONFIRM_TOKEN,
     SuperadminOperationsService,
 )
@@ -41,6 +43,107 @@ async def test_operations_summary_is_superadmin_only(client, make_tenant, make_u
         headers={"Authorization": f"Bearer {token}"},
     )
     assert response.status_code == 403
+
+    requeue_response = await client.post(
+        "/api/v1/admin/super/operations/requeue-failed-crm-leads",
+        headers={"Authorization": f"Bearer {token}"},
+        json={},
+    )
+    assert requeue_response.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_crm_outbox_summary_and_bounded_requeue(
+    client,
+    db_session,
+    make_superadmin,
+):
+    suffix = uuid4().hex
+    lead_id = (
+        await db_session.execute(
+            text(
+                "SELECT insert_public_tenant_lead("
+                ":company, :contact, :email, NULL, NULL, 'ru', "
+                "'demo', NULL, '{}'::jsonb)"
+            ),
+            {
+                "company": "Private CRM Company",
+                "contact": "Private CRM Contact",
+                "email": f"private-crm-{suffix}@example.test",
+            },
+        )
+    ).scalar_one()
+    claimed = (
+        await db_session.execute(
+            text("SELECT * FROM crm_claim_lead_outbox(:id)"),
+            {"id": lead_id},
+        )
+    ).mappings().one()
+    assert (
+        await db_session.execute(
+            text(
+                "SELECT crm_finalize_lead_outbox("
+                ":id, :token, 'terminal', 422, 'terminal_http')"
+            ),
+            {"id": lead_id, "token": claimed["claim_token"]},
+        )
+    ).scalar_one()
+
+    superadmin = await make_superadmin()
+    token = await _login(client, superadmin, password="SuperPass123!")
+    await db_session.execute(
+        text("SELECT set_config('app.is_superadmin', 'true', true)")
+    )
+    summary = (
+        await db_session.execute(text("SELECT * FROM crm_lead_outbox_summary()"))
+    ).mappings().one()
+    assert summary["dead_count"] >= 1
+    assert "Private CRM Company" not in str(dict(summary))
+    assert f"private-crm-{suffix}@example.test" not in str(dict(summary))
+
+    preview = await client.post(
+        "/api/v1/admin/super/operations/requeue-failed-crm-leads",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"limit": 1},
+    )
+    assert preview.status_code == 200, preview.text
+    assert preview.json()["dry_run"] is True
+    assert preview.json()["eligible_count"] == 1
+    assert preview.json()["requeued_count"] == 0
+
+    rejected = await client.post(
+        "/api/v1/admin/super/operations/requeue-failed-crm-leads",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"dry_run": False, "limit": 1, "confirm": True},
+    )
+    assert rejected.status_code == 400
+
+    applied = await client.post(
+        "/api/v1/admin/super/operations/requeue-failed-crm-leads",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "dry_run": False,
+            "limit": 1,
+            "confirm": True,
+            "confirm_token": CRM_OUTBOX_REQUEUE_CONFIRM_TOKEN,
+        },
+    )
+    assert applied.status_code == 200, applied.text
+    assert applied.json()["requeued_count"] == 1
+
+    reclaimed = (
+        await db_session.execute(
+            text("SELECT * FROM crm_claim_lead_outbox(:id)"),
+            {"id": lead_id},
+        )
+    ).mappings().one()
+    await db_session.execute(
+        text(
+            "SELECT crm_finalize_lead_outbox("
+            ":id, :token, 'defer', NULL, 'test_cleanup')"
+        ),
+        {"id": lead_id, "token": reclaimed["claim_token"]},
+    )
 
 
 @pytest.mark.asyncio

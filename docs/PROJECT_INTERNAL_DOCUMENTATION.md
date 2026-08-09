@@ -107,6 +107,26 @@ learning-шаги, methodologist не видит governance-шаг. Trial state 
 срок и отдельные счётчики. Исчерпание ресурса даёт состояние `limited`, а
 истечение периода — `support_required`.
 
+#### Доставка лидов в операторскую CRM
+
+Публичная заявка и trial-регистрация атомарно создают `TenantLead` и одну
+запись `crm_lead_outbox`. В outbox сохраняются точные JSON bytes события
+`lead.submitted`; повторная доставка подписывает те же bytes, а не собирает
+payload заново. HTTP-вызов CRM выполняется только после commit через очередь
+`notifications`.
+
+Таблица outbox закрыта `RLS/FORCE RLS` без прямого доступа `lms_app`.
+Worker использует только ограниченные `SECURITY DEFINER` claim/finalize/due
+функции с claim token. `2xx` завершает доставку, `429/5xx/network` получают
+bounded retry, остальные `4xx` становятся terminal. Пустые CRM URL/secret
+откладывают доставку без потери лида и без расходования retry budget.
+
+Немедленная Celery-задача является ускорением. Минутный systemd timer запускает
+bounded recovery sweep, поэтому сбой broker в момент приёма формы не оставляет
+запись навсегда без доставки. Superadmin operations показывает только
+агрегаты и предоставляет dry-run-first bounded requeue terminal-записей без
+контактных данных. Полный контракт зафиксирован в ADR-0018.
+
 #### Telegram auth session lifecycle
 
 `apps/api/app/modules/auth/auth_sessions.py` хранит browser-to-bot flow в общем

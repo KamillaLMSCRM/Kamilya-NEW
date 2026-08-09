@@ -122,6 +122,10 @@ class Settings(BaseSettings):
     RESEND_API_KEY: str = ""
     EMAIL_FROM: str = "Kamilya LMS <no-reply@notify.kml.kz>"
 
+    # CRM webhook is deliberately optional: absent configuration keeps durable
+    # lead events observable and pending, never rejects public lead capture.
+    CRM_WEBHOOK_URL: str = ""
+    CRM_WEBHOOK_SECRET: str = ""
 
     # Observability (audit §9.4)
     # Sentry DSN — leave empty to disable Sentry entirely. When set,
@@ -151,7 +155,7 @@ class Settings(BaseSettings):
         return v
 
     @model_validator(mode="after")
-    def validate_jwt_secret(self):
+    def validate_security_settings(self):
         if not self.JWT_SECRET:
             raise ValueError("JWT_SECRET is required. Set it in .env or environment variables.")
         if len(self.JWT_SECRET) < 32:
@@ -164,6 +168,20 @@ class Settings(BaseSettings):
                 f"JWT_ALGORITHM='{self.JWT_ALGORITHM}' is not allowed. "
                 "Only symmetric HMAC algorithms are permitted (HS256/HS384/HS512). "
                 "Asymmetric keys (RS256, ES256) and 'none' are rejected."
+            )
+        if (
+            self.APP_ENV.lower() == "production"
+            and self.CRM_WEBHOOK_URL
+            and not self.CRM_WEBHOOK_URL.lower().startswith("https://")
+        ):
+            raise ValueError("CRM_WEBHOOK_URL must use HTTPS in production")
+        if (
+            self.APP_ENV.lower() == "production"
+            and self.CRM_WEBHOOK_SECRET
+            and len(self.CRM_WEBHOOK_SECRET) < 32
+        ):
+            raise ValueError(
+                "CRM_WEBHOOK_SECRET must be at least 32 characters in production"
             )
         return self
 

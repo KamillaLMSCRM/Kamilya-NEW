@@ -66,6 +66,8 @@ REQUIRED_CELERY_TASKS = (
     "documents.reindex",
     "positions.apply_course_rules",
     "users.deliver_invitation",
+    "crm.deliver_lead_outbox",
+    "crm.recover_lead_outbox",
 )
 
 
@@ -126,6 +128,15 @@ class CeleryWorkerSummary(BaseModel):
     missing_required_tasks: list[str] = Field(default_factory=list)
 
 
+class CRMLeadOutboxOperationsSummary(BaseModel):
+    pending_count: int
+    retry_count: int
+    claimed_count: int
+    dead_count: int
+    delivered_count: int
+    oldest_due_age_seconds: int | None = None
+
+
 class OperationsSummary(BaseModel):
     generated_at: datetime
     ai_jobs: AIJobOperationsSummary
@@ -135,6 +146,7 @@ class OperationsSummary(BaseModel):
     host: HostRuntimeSummary
     filesystem: FilesystemRuntimeSummary
     celery: CeleryWorkerSummary
+    crm_lead_outbox: CRMLeadOutboxOperationsSummary
 
 
 class SyntheticCleanupRequest(BaseModel):
@@ -212,6 +224,29 @@ class StaleAIJobRecoveryResponse(BaseModel):
     truncated: bool
     oldest_age_seconds: int | None = None
     newest_age_seconds: int | None = None
+
+
+CRM_OUTBOX_REQUEUE_CONFIRM_TOKEN = "REQUEUE_FAILED_CRM_LEADS"
+DEFAULT_CRM_OUTBOX_REQUEUE_LIMIT = 20
+MAX_CRM_OUTBOX_REQUEUE_LIMIT = 100
+
+
+class CRMLeadOutboxRequeueRequest(BaseModel):
+    dry_run: bool = True
+    limit: int = Field(
+        default=DEFAULT_CRM_OUTBOX_REQUEUE_LIMIT,
+        ge=1,
+        le=MAX_CRM_OUTBOX_REQUEUE_LIMIT,
+    )
+    confirm: bool = False
+    confirm_token: str | None = Field(default=None, max_length=64)
+
+
+class CRMLeadOutboxRequeueResponse(BaseModel):
+    dry_run: bool
+    limit: int
+    eligible_count: int
+    requeued_count: int
 
 
 def _age_seconds(when: datetime | None, now: datetime) -> int | None:
@@ -537,6 +572,9 @@ class SuperadminOperationsService:
 
         host, process, filesystem = _runtime_summaries()
         celery = await _celery_worker_summary()
+        crm_outbox = (
+            await self.db.execute(text("SELECT * FROM crm_lead_outbox_summary()"))
+        ).mappings().one()
 
         return OperationsSummary(
             generated_at=now,
@@ -563,6 +601,55 @@ class SuperadminOperationsService:
             host=host,
             filesystem=filesystem,
             celery=celery,
+            crm_lead_outbox=CRMLeadOutboxOperationsSummary(
+                pending_count=int(crm_outbox["pending_count"] or 0),
+                retry_count=int(crm_outbox["retry_count"] or 0),
+                claimed_count=int(crm_outbox["claimed_count"] or 0),
+                dead_count=int(crm_outbox["dead_count"] or 0),
+                delivered_count=int(crm_outbox["delivered_count"] or 0),
+                oldest_due_age_seconds=_age_seconds(
+                    crm_outbox["oldest_due_at"],
+                    now,
+                ),
+            ),
+        )
+
+    async def requeue_failed_crm_leads(
+        self,
+        *,
+        dry_run: bool,
+        limit: int,
+        confirm: bool = False,
+        confirm_token: str | None = None,
+    ) -> CRMLeadOutboxRequeueResponse:
+        if not 1 <= limit <= MAX_CRM_OUTBOX_REQUEUE_LIMIT:
+            raise ValueError(
+                f"limit must be between 1 and {MAX_CRM_OUTBOX_REQUEUE_LIMIT}"
+            )
+        if not dry_run and (
+            not confirm or confirm_token != CRM_OUTBOX_REQUEUE_CONFIRM_TOKEN
+        ):
+            raise ValueError(
+                "CRM lead requeue requires confirm=true and the exact "
+                f"confirm_token={CRM_OUTBOX_REQUEUE_CONFIRM_TOKEN}"
+            )
+
+        row = (
+            await self.db.execute(
+                text(
+                    "SELECT * FROM crm_requeue_dead_lead_outbox("
+                    ":limit, :execute)"
+                ),
+                {"limit": limit, "execute": not dry_run},
+            )
+        ).mappings().one()
+        if not dry_run:
+            await self.db.commit()
+        return CRMLeadOutboxRequeueResponse(
+            dry_run=dry_run,
+            limit=limit,
+            eligible_count=int(row["eligible_count"] or 0),
+            requeued_count=int(row["requeued_count"] or 0),
         )
 
     async def cleanup_synthetic_tenants(
@@ -847,6 +934,30 @@ async def recover_stale_ai_jobs(
         return await SuperadminOperationsService(db).recover_stale_ai_jobs(
             dry_run=payload.dry_run,
             min_age_hours=payload.min_age_hours,
+            confirm=payload.confirm,
+            confirm_token=payload.confirm_token,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post(
+    "/requeue-failed-crm-leads",
+    response_model=CRMLeadOutboxRequeueResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def requeue_failed_crm_leads(
+    payload: CRMLeadOutboxRequeueRequest | None = None,
+    user: User = Depends(require_role("superadmin")),  # noqa: B008
+    db: AsyncSession = Depends(get_db),  # noqa: B008
+) -> CRMLeadOutboxRequeueResponse:
+    """Preview or requeue a bounded batch of terminal CRM deliveries."""
+
+    payload = payload or CRMLeadOutboxRequeueRequest()
+    try:
+        return await SuperadminOperationsService(db).requeue_failed_crm_leads(
+            dry_run=payload.dry_run,
+            limit=payload.limit,
             confirm=payload.confirm,
             confirm_token=payload.confirm_token,
         )

@@ -26,7 +26,7 @@ checkout удалены.
 
 - `ai`: генерация курса, модуля, урока и оценочных материалов;
 - `documents`: первичная индексация и переиндексация документов;
-- `notifications`: доставка приглашений;
+- `notifications`: доставка приглашений и подписанных CRM lead events;
 - `maintenance`: очистка документов, backfill хешей и применение правил
   обучения;
 - `celery`: временно сохраняется только для безопасного дренирования старых
@@ -65,7 +65,31 @@ celery -A app.core.celery_app:celery_app inspect stats
 
 В списке registered обязательны `ai.generate_course`,
 `ai.regenerate_module`, `ai.regenerate_lesson`, `ai.ingest_document` и
-`positions.apply_course_rules`, а также `users.deliver_invitation`.
+`positions.apply_course_rules`, `users.deliver_invitation`,
+`crm.deliver_lead_outbox` и `crm.recover_lead_outbox`.
+
+### CRM lead outbox recovery
+
+После release с миграцией `0094` установить checked-in units
+`infra/systemd/kamilya-crm-outbox-recovery.service` и `.timer` в
+`/etc/systemd/system/`, затем выполнить `systemctl daemon-reload` и включить
+timer. Он раз в минуту запускает bounded Python recovery напрямую, без Celery,
+поэтому недоступный broker не накапливает по сообщению на каждую минуту простоя.
+Один запуск обрабатывает не более 20 due rows.
+
+В `.env` worker/API должны быть одинаковые `CRM_WEBHOOK_URL` и
+`CRM_WEBHOOK_SECRET`; значение secret совпадает с `LMS_WEBHOOK_SECRET` CRM и
+в production содержит не менее 32 случайных символов.
+Значения не выводить в логи или команды проверки. До настройки события остаются
+в deferred retry, а приём публичной заявки продолжает работать.
+
+Проверка:
+
+```bash
+systemctl is-active kamilya-crm-outbox-recovery.timer
+systemctl is-enabled kamilya-crm-outbox-recovery.timer
+celery -A app.core.celery_app:celery_app inspect registered
+```
 
 Не выводить environment unit и значения `.env`.
 

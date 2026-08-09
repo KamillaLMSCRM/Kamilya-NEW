@@ -373,6 +373,15 @@ per-entry uncompressed bytes, compression ratio, and manifest bytes; see
 
 ## Открытые P1 release gates
 
+Durable LMS→CRM lead outbox подготовлен миграцией `0094`: публичный lead и
+outbox фиксируются одной транзакцией, payload подписывается по exact bytes,
+retry ограничен, а superadmin видит только агрегаты. До production release
+обязательны: применённая `0094`, одинаковый webhook secret в LMS/CRM,
+зарегистрированные `crm.deliver_lead_outbox`/`crm.recover_lead_outbox`,
+active/enabled минутный recovery timer и smoke
+`landing submit -> CRM company/contact/deal/task` с повторной доставкой того же
+`event_id` без дубля. До этой проверки рабочий код нельзя описывать как live.
+
 AI course generation uses a durable, tenant-scoped execution claim. Duplicate
 broker deliveries are skipped; a failed generation is terminal and is not
 automatically replayed because a replay after provider work could duplicate

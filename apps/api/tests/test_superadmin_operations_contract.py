@@ -13,6 +13,7 @@ from app.models.tenants import Tenant
 from app.modules.admin.superadmin import operations
 from app.modules.admin.superadmin.operations import (
     CLEANUP_CONFIRM_TOKEN,
+    CRM_OUTBOX_REQUEUE_CONFIRM_TOKEN,
     DEFAULT_STALE_AI_JOB_AGE_HOURS,
     MAX_STALE_AI_JOB_AGE_HOURS,
     MIN_CLEANUP_AGE_HOURS,
@@ -20,6 +21,7 @@ from app.modules.admin.superadmin.operations import (
     REQUIRED_CELERY_TASKS,
     STALE_AI_JOB_RECOVERY_CONFIRM_TOKEN,
     STALE_AI_JOB_TERMINAL_STATUS,
+    CRMLeadOutboxRequeueRequest,
     StaleAIJobRecoveryRequest,
     SyntheticCleanupRequest,
     _inspect_celery_worker,
@@ -43,6 +45,7 @@ def test_operations_router_is_registered_inside_superadmin_router():
     assert "/api/v1/admin/super/operations/summary" in paths
     assert "/api/v1/admin/super/operations/cleanup-synthetic" in paths
     assert "/api/v1/admin/super/operations/recover-stale-ai-jobs" in paths
+    assert "/api/v1/admin/super/operations/requeue-failed-crm-leads" in paths
 
 
 def test_cleanup_guard_requires_demo_flag_and_fixed_prefix():
@@ -85,6 +88,20 @@ def test_stale_ai_job_recovery_is_dry_run_and_bounded():
         StaleAIJobRecoveryRequest(min_age_hours=MIN_STALE_AI_JOB_AGE_HOURS - 1)
     with pytest.raises(ValidationError):
         StaleAIJobRecoveryRequest(min_age_hours=MAX_STALE_AI_JOB_AGE_HOURS + 1)
+
+
+def test_crm_outbox_requeue_is_dry_run_and_requires_explicit_confirmation():
+    payload = CRMLeadOutboxRequeueRequest()
+    assert payload.dry_run is True
+    assert payload.limit == 20
+    assert payload.confirm is False
+    assert payload.confirm_token is None
+    assert CRM_OUTBOX_REQUEUE_CONFIRM_TOKEN not in payload.model_dump_json()
+
+    with pytest.raises(ValidationError):
+        CRMLeadOutboxRequeueRequest(limit=0)
+    with pytest.raises(ValidationError):
+        CRMLeadOutboxRequeueRequest(limit=101)
 
 
 def test_runtime_summary_is_safe_and_gracefully_allows_missing_metrics():

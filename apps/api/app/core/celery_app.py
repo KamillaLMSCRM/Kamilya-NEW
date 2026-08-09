@@ -40,6 +40,7 @@ celery_app = Celery(
         "app.modules.ai.tasks",
         "app.modules.positions.tasks",
         "app.modules.users.tasks",
+        "app.modules.tenants.tasks",
     ],
 )
 
@@ -64,6 +65,8 @@ celery_app.conf.update(
         "documents.hash_backfill": {"queue": "maintenance"},
         "positions.apply_course_rules": {"queue": "maintenance"},
         "users.deliver_invitation": {"queue": "notifications"},
+        "crm.deliver_lead_outbox": {"queue": "notifications"},
+        "crm.recover_lead_outbox": {"queue": "notifications"},
     },
     task_annotations={
         "ai.generate_course": {

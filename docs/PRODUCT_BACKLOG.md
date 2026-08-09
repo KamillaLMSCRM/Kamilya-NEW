@@ -44,6 +44,10 @@ fallback, worker parity и production smoke реализованы. В backlog �
    queue depth по tenant без раскрытия tenant PII.
 7. Провести отдельный capacity acceptance на реальных многостраничных сканах и
    платный прогон 10 генераций; текущая оценка 50 задач не является SLA.
+8. Выпустить и принять durable LMS→CRM lead outbox: migration/API/worker parity,
+   минутный recovery timer, общий secret и end-to-end smoke с идемпотентным
+   повтором. После подтверждения перенести evidence в `PRODUCTION_READINESS.md`
+   и удалить этот пункт.
 
 ## P1: безопасный рефакторинг без изменения поведения
 

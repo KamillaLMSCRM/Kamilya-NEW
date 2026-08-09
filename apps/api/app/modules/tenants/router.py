@@ -6,10 +6,18 @@ import re
 import unicodedata
 from datetime import UTC, datetime, timedelta
 from typing import Annotated
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import argon2
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    HTTPException,
+    Request,
+    Response,
+    status,
+)
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -30,6 +38,7 @@ from app.modules.tenants.schemas import (
     TenantRegisterResponse,
     TrialLimits,
 )
+from app.modules.tenants.tasks import deliver_lead_outbox_task
 
 router = APIRouter(prefix="/tenants", tags=["tenants"])
 public_router = APIRouter(prefix="/public", tags=["public"])
@@ -140,6 +149,61 @@ def _build_public_lead_message(payload: PublicLeadRequest) -> str | None:
     return "\n\n".join(parts) if parts else None
 
 
+def _public_lead_crm_metadata(payload: PublicLeadRequest) -> dict[str, object]:
+    utm = {
+        key: value
+        for key, value in {
+            "source": payload.utm_source,
+            "medium": payload.utm_medium,
+            "campaign": payload.utm_campaign,
+            "content": payload.utm_content,
+            "term": payload.utm_term,
+        }.items()
+        if value is not None
+    }
+    metadata: dict[str, object | None] = {
+        "industry": payload.industry,
+        "companySize": payload.companySize,
+        "utm": utm or None,
+        "utm_source": payload.utm_source,
+        "utm_medium": payload.utm_medium,
+        "utm_campaign": payload.utm_campaign,
+        "utm_content": payload.utm_content,
+        "utm_term": payload.utm_term,
+        "gclid": payload.gclid,
+        "referrer": payload.referrer,
+        "landing_page": payload.landing_page,
+        "attribution_captured_at": (
+            payload.attribution_captured_at.isoformat()
+            if payload.attribution_captured_at
+            else None
+        ),
+        "consent_version": payload.consent_version,
+        "consented_at": (
+            payload.consented_at.isoformat() if payload.consented_at else None
+        ),
+        "source_section": payload.source_section,
+        "plan": payload.plan,
+        "roi_employees": payload.roi_employees,
+        "roi_industry": payload.roi_industry,
+        "roi_employee_band": payload.roi_employee_band,
+        "roi_formula_version": payload.roi_formula_version,
+    }
+    return {key: value for key, value in metadata.items() if value is not None}
+
+
+def _dispatch_crm_lead_outbox(event_id: UUID) -> None:
+    """Accelerate delivery without coupling acceptance to the broker."""
+
+    try:
+        deliver_lead_outbox_task.apply_async(args=[str(event_id)])
+    except Exception:
+        logger.warning(
+            "crm.lead_outbox.dispatch_deferred event_id=%s",
+            event_id,
+        )
+
+
 def _tenant_registration_attribution(payload: TenantRegisterRequest) -> dict[str, str]:
     metadata = {
         "utm_source": payload.utm_source,
@@ -180,6 +244,7 @@ async def _unique_slug(db: AsyncSession, company_name: str) -> str:
 @public_router.post("/leads", response_model=PublicLeadResponse, status_code=status.HTTP_201_CREATED)
 async def submit_public_lead(
     payload: PublicLeadRequest,
+    background_tasks: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     if payload.website:
@@ -201,7 +266,7 @@ async def submit_public_lead(
                     CAST(:employee_count_range AS text),
                     CAST(:preferred_language AS text),
                     CAST(:intent AS text),
-                    CAST(:message AS text)
+                    CAST(:message AS text), CAST(:metadata AS jsonb)
                 )
                 """
             ),
@@ -214,10 +279,16 @@ async def submit_public_lead(
                 "preferred_language": payload.locale,
                 "intent": payload.interest,
                 "message": _build_public_lead_message(payload),
+                "metadata": json.dumps(
+                    _public_lead_crm_metadata(payload),
+                    ensure_ascii=False,
+                    sort_keys=True,
+                ),
             },
         )
     ).scalar_one()
     await db.commit()
+    background_tasks.add_task(_dispatch_crm_lead_outbox, lead_id)
     return PublicLeadResponse(id=lead_id, ok=True)
 
 
@@ -226,6 +297,7 @@ async def register_tenant(
     payload: TenantRegisterRequest,
     request: Request,
     response: Response,
+    background_tasks: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     existing_user = (
@@ -329,6 +401,54 @@ async def register_tenant(
     )
     db.add(lead)
     await db.flush()
+    registration_utm = {
+        key: value
+        for key, value in {
+            "source": payload.utm_source,
+            "medium": payload.utm_medium,
+            "campaign": payload.utm_campaign,
+            "content": payload.utm_content,
+            "term": payload.utm_term,
+        }.items()
+        if value is not None
+    }
+    registration_metadata = {
+        key: value
+        for key, value in {
+            "billing_identifier": (
+                payload.billing_identifier
+                if payload.billing_identifier
+                and len(payload.billing_identifier) <= 20
+                else None
+            ),
+            "utm": registration_utm or None,
+            "utm_source": payload.utm_source,
+            "utm_medium": payload.utm_medium,
+            "utm_campaign": payload.utm_campaign,
+            "utm_content": payload.utm_content,
+            "utm_term": payload.utm_term,
+            "referrer": payload.referrer,
+            "plan": "trial",
+        }.items()
+        if value is not None
+    }
+    outbox_event_id = (
+        await db.execute(
+            text(
+                "SELECT crm_enqueue_tenant_lead_outbox("
+                ":lead_id, :tenant_id, CAST(:metadata AS jsonb))"
+            ),
+            {
+                "lead_id": lead.id,
+                "tenant_id": tenant.id,
+                "metadata": json.dumps(
+                    registration_metadata,
+                    ensure_ascii=False,
+                    sort_keys=True,
+                ),
+            },
+        )
+    ).scalar_one()
 
     access_token = create_access_token(
         {
@@ -363,6 +483,7 @@ async def register_tenant(
     )
 
     await db.commit()
+    background_tasks.add_task(_dispatch_crm_lead_outbox, outbox_event_id)
     _set_refresh_cookie(response, refresh_token)
 
     await db.execute(text("SELECT set_config('app.tenant_id', :tenant_id, true)"), {"tenant_id": str(tenant.id)})
