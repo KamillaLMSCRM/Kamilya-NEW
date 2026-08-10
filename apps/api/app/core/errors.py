@@ -1,6 +1,7 @@
 import logging
 
 from fastapi import FastAPI, HTTPException, Request, status
+from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import ValidationError
@@ -11,6 +12,7 @@ logger = logging.getLogger(__name__)
 def _cors_headers(request: Request) -> dict:
     """Return CORS headers based on the request Origin."""
     from app.core.config import get_settings
+
     settings = get_settings()
     origin = request.headers.get("origin", "")
     headers = {
@@ -57,7 +59,7 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> JSONRe
     # Keep machine-readable context for product flows that need more than a
     # human message (for example, document compatibility groups). Existing
     # clients remain compatible with the stable error/message envelope.
-    if isinstance(detail, (dict, list)):
+    if isinstance(detail, dict | list):
         content["details"] = detail
     headers = _cors_headers(request)
     if exc.headers:
@@ -84,9 +86,7 @@ def _error_code_for_status(status_code: int) -> str:
     }.get(status_code, "error")
 
 
-async def validation_error_handler(
-    request: Request, exc: RequestValidationError | ValidationError
-) -> JSONResponse:
+async def validation_error_handler(request: Request, exc: RequestValidationError | ValidationError) -> JSONResponse:
     """Handle pydantic / FastAPI request validation errors (NOT HTTPException).
 
     Important: this handler is also triggered by FastAPI for 422 responses,
@@ -105,6 +105,11 @@ async def validation_error_handler(
         details = exc.errors()
     else:
         details = []
+
+    # Pydantic includes the original exception in ``ctx.error`` for
+    # value-error validators. Starlette's JSONResponse cannot serialize an
+    # exception object, which would turn an intended 422 into a 500.
+    details = jsonable_encoder(details, custom_encoder={BaseException: str})
 
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
