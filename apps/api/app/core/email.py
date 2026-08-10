@@ -50,11 +50,13 @@ class EmailService:
         subject = "Kamilya LMS trial started"
         text = (
             f"Trial workspace for {company_name} has been created.\n\n"
-            "You can sign in to Kamilya LMS with your email login code."
+            "You can sign in to Kamilya LMS with your email login code.\n\n"
+            "Contact: askar@kml.kz · +7 707 275 0007"
         )
         html = (
             f"<p>Trial workspace for <strong>{company_name}</strong> has been created.</p>"
             "<p>You can sign in to Kamilya LMS with your email login code.</p>"
+            "<p>Contact: <a href=\"mailto:askar@kml.kz\">askar@kml.kz</a> · +7 707 275 0007</p>"
         )
         await self._send(to_email=to_email, subject=subject, text=text, html=html)
 

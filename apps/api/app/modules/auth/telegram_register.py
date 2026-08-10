@@ -20,15 +20,18 @@ Error codes (HTTP 409):
                         different company name (or use the existing one).
 """
 import re
+from datetime import UTC, datetime
+from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_db
-from app.models.tenants import Tenant
+from app.core.legal_versions import CURRENT_PRIVACY_CONSENT_VERSION, CURRENT_TERMS_VERSION
+from app.models.tenants import RegistrationLegalAcceptance, Tenant
 from app.models.users import User
 from app.modules.audit.service import log_action
 
@@ -57,10 +60,38 @@ def _slugify(name: str) -> str:
 
 
 class TelegramRegisterRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     company: str = Field(..., min_length=1, max_length=200)
     telegram_id: int = Field(..., gt=0, description="Numeric Telegram user ID")
     first_name: str = Field(..., min_length=1, max_length=100)
     last_name: str = Field(..., min_length=1, max_length=100)
+    privacy_consent_version: str = Field(..., min_length=1, max_length=80)
+    privacy_consent_locale: Literal["ru"]
+    privacy_consent_surface: str = Field(..., min_length=1, max_length=80)
+    terms_version: str = Field(..., min_length=1, max_length=80)
+
+    @field_validator("privacy_consent_version", "privacy_consent_surface", "terms_version")
+    @classmethod
+    def normalize_evidence_value(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("must not be blank")
+        return normalized
+
+    @field_validator("privacy_consent_version")
+    @classmethod
+    def require_current_privacy_version(cls, value: str) -> str:
+        if value != CURRENT_PRIVACY_CONSENT_VERSION:
+            raise ValueError("is not the current privacy consent version")
+        return value
+
+    @field_validator("terms_version")
+    @classmethod
+    def require_current_terms_version(cls, value: str) -> str:
+        if value != CURRENT_TERMS_VERSION:
+            raise ValueError("is not the current terms version")
+        return value
 
 
 class TelegramRegisterResponse(BaseModel):
@@ -77,7 +108,7 @@ class TelegramRegisterResponse(BaseModel):
 async def register_by_telegram(
     req: TelegramRegisterRequest,
     request: Request,
-    db: AsyncSession = Depends(get_db),
+    db: Annotated[AsyncSession, Depends(get_db)],
 ):
     """Public self-service registration. No auth required."""
     import logging
@@ -147,6 +178,20 @@ async def register_by_telegram(
     )
     db.add(user)
     await db.flush()
+
+    received_at = datetime.now(UTC)
+    db.add(
+        RegistrationLegalAcceptance(
+            tenant_id=tenant.id,
+            user_id=user.id,
+            privacy_consent_version=req.privacy_consent_version,
+            privacy_consent_at=received_at,
+            privacy_consent_locale=req.privacy_consent_locale,
+            privacy_consent_surface="telegram_registration",
+            terms_version=req.terms_version,
+            terms_accepted_at=received_at,
+        )
+    )
 
     # 4. Audit
     try:

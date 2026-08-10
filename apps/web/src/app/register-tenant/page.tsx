@@ -15,6 +15,7 @@ import { getTenantRegistrationError } from '@/lib/tenantRegistrationError';
 import { formatKzPhone } from '@/lib/kzPhone';
 import { extractTenantAttribution } from '@/lib/tenantAttribution';
 import { useT } from '@/i18n/useT';
+import { PublicLegalFooter } from '@/components/legal/PublicLegalFooter';
 
 type TenantIntent = 'try' | 'demo' | 'buy';
 
@@ -42,13 +43,17 @@ export default function TenantRegisterPage() {
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [privacyAccepted, setPrivacyAccepted] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   const canSubmit = useMemo(() => {
     return companyName.trim().length >= 2
       && contactName.trim().length >= 2
       && email.trim().length > 3
-      && password.length >= 8;
-  }, [companyName, contactName, email, password]);
+      && password.length >= 8
+      && privacyAccepted
+      && termsAccepted;
+  }, [companyName, contactName, email, password, privacyAccepted, termsAccepted]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -74,6 +79,10 @@ export default function TenantRegisterPage() {
         intent,
         billing_identifier: billingIdentifier.trim() || null,
         message: message.trim() || null,
+        privacy_consent_version: '2026-08-10',
+        privacy_consent_locale: 'ru',
+        privacy_consent_surface: 'tenant_registration',
+        terms_version: '2026-08-10',
         ...attribution,
       });
 
@@ -150,6 +159,7 @@ export default function TenantRegisterPage() {
                   Доступ откроется сразу после отправки формы.
                 </p>
               </div>
+
               <Building2 className="h-6 w-6 text-primary" aria-hidden="true" />
             </div>
           </CardHeader>
@@ -330,6 +340,18 @@ export default function TenantRegisterPage() {
                 />
               </div>
 
+              <fieldset className="space-y-3 rounded-md border border-input p-3">
+                <legend className="px-1 text-sm font-medium">Подтверждения</legend>
+                <label htmlFor="privacy-acceptance" className="flex items-start gap-2 text-sm">
+                  <input id="privacy-acceptance" type="checkbox" checked={privacyAccepted} onChange={(event) => setPrivacyAccepted(event.target.checked)} required aria-required="true" className="mt-1" />
+                  <span><span aria-hidden="true" className="mr-1 text-destructive">*</span>Я подтверждаю согласие на обработку персональных данных согласно <Link href="/legal/privacy" className="text-primary underline">Уведомлению о конфиденциальности</Link>.</span>
+                </label>
+                <label htmlFor="terms-acceptance" className="flex items-start gap-2 text-sm">
+                  <input id="terms-acceptance" type="checkbox" checked={termsAccepted} onChange={(event) => setTermsAccepted(event.target.checked)} required aria-required="true" className="mt-1" />
+                  <span><span aria-hidden="true" className="mr-1 text-destructive">*</span>Я ознакомился(ась) и принимаю <Link href="/legal/terms" className="text-primary underline">Условия сайта и пробного доступа</Link> от имени организации.</span>
+                </label>
+              </fieldset>
+
               <Button type="submit" className="w-full" disabled={loading || !canSubmit} aria-busy={loading}>
                 {loading ? 'Создаем trial...' : 'Создать trial'}
               </Button>
@@ -347,6 +369,7 @@ export default function TenantRegisterPage() {
           </CardContent>
         </Card>
       </div>
+      <PublicLegalFooter />
     </main>
   );
 }

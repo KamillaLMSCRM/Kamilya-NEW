@@ -6,7 +6,12 @@ from uuid import uuid4
 import pytest
 from sqlalchemy import select, text
 
-from app.models.tenants import Tenant, TenantLead
+from app.core.legal_versions import (
+    CURRENT_PRIVACY_CONSENT_VERSION,
+    CURRENT_PUBLIC_LEAD_CONSENT_VERSION,
+    CURRENT_TERMS_VERSION,
+)
+from app.models.tenants import RegistrationLegalAcceptance, Tenant, TenantLead
 from app.models.users import User
 
 
@@ -46,6 +51,10 @@ async def test_registration_succeeds_when_trial_email_provider_fails(
             "utm_content": "hero",
             "utm_term": "lms система",
             "referrer": "https://www.kml.kz/ru?utm_source=google",
+            "privacy_consent_version": CURRENT_PRIVACY_CONSENT_VERSION,
+            "privacy_consent_locale": "ru",
+            "privacy_consent_surface": "forged-client-value",
+            "terms_version": CURRENT_TERMS_VERSION,
         },
     )
 
@@ -67,6 +76,18 @@ async def test_registration_succeeds_when_trial_email_provider_fails(
     }
     assert user.role == "admin"
     assert user.tenant_id == tenant.id
+    acceptance = (
+        await db_session.execute(
+            select(RegistrationLegalAcceptance).where(RegistrationLegalAcceptance.user_id == user.id)
+        )
+    ).scalar_one()
+    assert acceptance.tenant_id == tenant.id
+    assert acceptance.privacy_consent_version == CURRENT_PRIVACY_CONSENT_VERSION
+    assert acceptance.privacy_consent_locale == "ru"
+    assert acceptance.privacy_consent_surface == "tenant_registration"
+    assert acceptance.terms_version == CURRENT_TERMS_VERSION
+    assert acceptance.privacy_consent_at is not None
+    assert acceptance.terms_accepted_at is not None
     lead = (await db_session.execute(select(TenantLead).where(TenantLead.id == payload["lead_id"]))).scalar_one()
     assert "Landing attribution:" in (lead.message or "")
     assert '"utm_campaign": "kz_lms"' in (lead.message or "")
@@ -90,6 +111,40 @@ async def test_registration_succeeds_when_trial_email_provider_fails(
         ),
         {"id": lead.id, "token": claimed["claim_token"]},
     )
+
+
+@pytest.mark.asyncio
+async def test_registration_legal_acceptance_rejects_cross_tenant_user(
+    db_session,
+    make_tenant,
+    make_user,
+):
+    tenant_a = await make_tenant(name="QA Legal Acceptance A")
+    tenant_b = await make_tenant(name="QA Legal Acceptance B")
+    user_b = await make_user(tenant_b, email=f"qa-legal-{uuid4().hex[:12]}@example.com")
+    await db_session.execute(text("SELECT set_config('app.tenant_id', :tenant_id, true)"), {"tenant_id": str(tenant_a.id)})
+
+    with pytest.raises(Exception, match="registration legal acceptance tenant ownership mismatch"):
+        await db_session.execute(
+            text(
+                """
+                INSERT INTO registration_legal_acceptances (
+                    id, tenant_id, user_id, privacy_consent_version,
+                    privacy_consent_locale, privacy_consent_surface, terms_version
+                ) VALUES (
+                    :id, :tenant_id, :user_id, :privacy_version,
+                    'ru', 'tenant_registration', :terms_version
+                )
+                """
+            ),
+            {
+                "id": uuid4(),
+                "tenant_id": tenant_a.id,
+                "user_id": user_b.id,
+                "privacy_version": CURRENT_PRIVACY_CONSENT_VERSION,
+                "terms_version": CURRENT_TERMS_VERSION,
+            },
+        )
 
 
 @pytest.mark.asyncio
@@ -128,8 +183,7 @@ async def test_public_lead_keeps_landing_context_and_roi_attribution(
             "referrer": "https://www.kml.kz/ru?utm_source=google",
             "landing_page": "https://www.kml.kz/ru/finance?utm_source=google",
             "attribution_captured_at": "2026-08-07T16:00:00Z",
-            "consent_version": "privacy-2026-08-07",
-            "consented_at": "2026-08-07T16:01:00Z",
+            "consent_version": CURRENT_PUBLIC_LEAD_CONSENT_VERSION,
             "source_section": "roi",
             "plan": "corporate",
             "roi_employees": 75,
@@ -151,7 +205,8 @@ async def test_public_lead_keeps_landing_context_and_roi_attribution(
     assert '"utm_content": "finance_hero"' in (lead.message or "")
     assert '"utm_term": "проверка знаний сотрудников"' in (lead.message or "")
     assert '"gclid": "test-gclid-123"' in (lead.message or "")
-    assert '"consent_version": "privacy-2026-08-07"' in (lead.message or "")
+    assert f'"consent_version": "{CURRENT_PUBLIC_LEAD_CONSENT_VERSION}"' in (lead.message or "")
+    assert '"consented_at": "2026-08-07T16:01:00+00:00"' not in (lead.message or "")
     assert '"roi_employees": 75' in (lead.message or "")
     assert '"roi_formula_version": "lead-assessment-v1"' in (lead.message or "")
     claimed = (
@@ -176,7 +231,8 @@ async def test_public_lead_keeps_landing_context_and_roi_attribution(
     assert event["utm_source"] == "google"
     assert event["utm_campaign"] == "kz_lms"
     assert event["utm_content"] == "finance_hero"
-    assert event["consent_version"] == "privacy-2026-08-07"
+    assert event["consent_version"] == CURRENT_PUBLIC_LEAD_CONSENT_VERSION
+    assert event["consented_at"] != "2026-08-07T16:01:00+00:00"
     assert event["roi_employees"] == 75
     assert dispatched == [str(lead.id)]
     await db_session.execute(

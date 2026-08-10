@@ -25,7 +25,7 @@ from app.core.auth import create_access_token, create_refresh_token
 from app.core.db import get_db
 from app.core.email import EmailService
 from app.models.tenant_settings import TenantSettings
-from app.models.tenants import Tenant, TenantLead, TenantUsage
+from app.models.tenants import RegistrationLegalAcceptance, Tenant, TenantLead, TenantUsage
 from app.models.user_roles import UserRole
 from app.models.users import User
 from app.modules.audit.service import log_action
@@ -116,7 +116,7 @@ def _split_contact_name(name: str) -> tuple[str, str]:
     return parts[0], " ".join(parts[1:])
 
 
-def _build_public_lead_message(payload: PublicLeadRequest) -> str | None:
+def _build_public_lead_message(payload: PublicLeadRequest, *, consent_received_at: datetime) -> str | None:
     parts: list[str] = []
     if payload.message:
         parts.append(payload.message.strip())
@@ -135,7 +135,7 @@ def _build_public_lead_message(payload: PublicLeadRequest) -> str | None:
         if payload.attribution_captured_at
         else None,
         "consent_version": payload.consent_version,
-        "consented_at": payload.consented_at.isoformat() if payload.consented_at else None,
+        "consented_at": consent_received_at.isoformat(),
         "source_section": payload.source_section,
         "plan": payload.plan,
         "roi_employees": payload.roi_employees,
@@ -149,7 +149,7 @@ def _build_public_lead_message(payload: PublicLeadRequest) -> str | None:
     return "\n\n".join(parts) if parts else None
 
 
-def _public_lead_crm_metadata(payload: PublicLeadRequest) -> dict[str, object]:
+def _public_lead_crm_metadata(payload: PublicLeadRequest, *, consent_received_at: datetime) -> dict[str, object]:
     utm = {
         key: value
         for key, value in {
@@ -179,9 +179,7 @@ def _public_lead_crm_metadata(payload: PublicLeadRequest) -> dict[str, object]:
             else None
         ),
         "consent_version": payload.consent_version,
-        "consented_at": (
-            payload.consented_at.isoformat() if payload.consented_at else None
-        ),
+        "consented_at": consent_received_at.isoformat(),
         "source_section": payload.source_section,
         "plan": payload.plan,
         "roi_employees": payload.roi_employees,
@@ -250,6 +248,8 @@ async def submit_public_lead(
     if payload.website:
         return PublicLeadResponse(id=uuid4(), ok=True)
 
+    consent_received_at = datetime.now(UTC)
+
     # A bounded SECURITY DEFINER function is used because the production
     # transaction pooler cannot reliably carry session RLS context between
     # separate statements. The function hardcodes tenant_id/source/status and
@@ -278,9 +278,9 @@ async def submit_public_lead(
                 "employee_count_range": str(payload.companySize) if payload.companySize else None,
                 "preferred_language": payload.locale,
                 "intent": payload.interest,
-                "message": _build_public_lead_message(payload),
+                "message": _build_public_lead_message(payload, consent_received_at=consent_received_at),
                 "metadata": json.dumps(
-                    _public_lead_crm_metadata(payload),
+                    _public_lead_crm_metadata(payload, consent_received_at=consent_received_at),
                     ensure_ascii=False,
                     sort_keys=True,
                 ),
@@ -376,6 +376,21 @@ async def register_tenant(
     )
     db.add(user)
     await db.flush()
+
+    # Receipt timestamps are server-owned. The API surface is fixed per route
+    # so a caller cannot replay evidence as having been collected elsewhere.
+    db.add(
+        RegistrationLegalAcceptance(
+            tenant_id=tenant.id,
+            user_id=user.id,
+            privacy_consent_version=payload.privacy_consent_version,
+            privacy_consent_at=now,
+            privacy_consent_locale=payload.privacy_consent_locale,
+            privacy_consent_surface="tenant_registration",
+            terms_version=payload.terms_version,
+            terms_accepted_at=now,
+        )
+    )
 
     db.add(UserRole(id=uuid4(), user_id=user.id, tenant_id=tenant.id, role="admin"))
     usage = TenantUsage(

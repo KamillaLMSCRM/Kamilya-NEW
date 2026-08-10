@@ -4,13 +4,52 @@ from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+
+from app.core.legal_versions import (
+    CURRENT_PRIVACY_CONSENT_VERSION,
+    CURRENT_PUBLIC_LEAD_CONSENT_VERSION,
+    CURRENT_TERMS_VERSION,
+)
 
 TenantIntent = Literal["try", "demo", "buy"]
 EmployeeCountRange = Literal["1-10", "11-50", "51-200", "201-1000", "1000+"]
 
 
-class TenantRegisterRequest(BaseModel):
+class PublicRegistrationLegalAcceptance(BaseModel):
+    """Versioned legal acceptance supplied only by public self-registration."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    privacy_consent_version: str = Field(..., min_length=1, max_length=80)
+    privacy_consent_locale: Literal["ru"]
+    privacy_consent_surface: str = Field(..., min_length=1, max_length=80)
+    terms_version: str = Field(..., min_length=1, max_length=80)
+
+    @field_validator("privacy_consent_version", "privacy_consent_surface", "terms_version")
+    @classmethod
+    def normalize_evidence_value(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("must not be blank")
+        return normalized
+
+    @field_validator("privacy_consent_version")
+    @classmethod
+    def require_current_privacy_version(cls, value: str) -> str:
+        if value != CURRENT_PRIVACY_CONSENT_VERSION:
+            raise ValueError("is not the current privacy consent version")
+        return value
+
+    @field_validator("terms_version")
+    @classmethod
+    def require_current_terms_version(cls, value: str) -> str:
+        if value != CURRENT_TERMS_VERSION:
+            raise ValueError("is not the current terms version")
+        return value
+
+
+class TenantRegisterRequest(PublicRegistrationLegalAcceptance):
     company_name: str = Field(..., min_length=2, max_length=200)
     contact_name: str = Field(..., min_length=2, max_length=160)
     email: EmailStr
@@ -60,6 +99,8 @@ class TenantRegisterResponse(BaseModel):
 
 
 class PublicLeadRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     name: str = Field(..., min_length=2, max_length=100)
     company: str = Field(..., min_length=2, max_length=200)
     email: EmailStr
@@ -78,8 +119,7 @@ class PublicLeadRequest(BaseModel):
     referrer: str | None = Field(None, max_length=500)
     landing_page: str | None = Field(None, max_length=1000)
     attribution_captured_at: datetime | None = None
-    consent_version: str | None = Field(None, min_length=1, max_length=50)
-    consented_at: datetime | None = None
+    consent_version: str = Field(..., min_length=1, max_length=50)
     source_section: str | None = Field(None, max_length=100)
     plan: str | None = Field(None, max_length=100)
     roi_employees: int | None = Field(None, ge=1, le=100000)
@@ -92,6 +132,13 @@ class PublicLeadRequest(BaseModel):
     @classmethod
     def normalize_public_email(cls, value: str) -> str:
         return value.lower().strip()
+
+    @field_validator("consent_version")
+    @classmethod
+    def require_current_lead_consent_version(cls, value: str) -> str:
+        if value.strip() != CURRENT_PUBLIC_LEAD_CONSENT_VERSION:
+            raise ValueError("is not the current public lead consent version")
+        return CURRENT_PUBLIC_LEAD_CONSENT_VERSION
 
 
 class PublicLeadResponse(BaseModel):

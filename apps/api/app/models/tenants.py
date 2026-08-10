@@ -1,6 +1,8 @@
 from uuid import uuid4
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, Text, TIMESTAMP, func
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+
+from sqlalchemy import TIMESTAMP, Boolean, Column, DateTime, ForeignKey, Integer, Text, func
+from sqlalchemy.dialects.postgresql import JSONB, UUID
+
 from app.core.db import Base
 
 
@@ -47,6 +49,23 @@ class TenantLead(Base):
     message = Column(Text, nullable=True)
     created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
     updated_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+
+
+class RegistrationLegalAcceptance(Base):
+    """Immutable evidence of a public workspace administrator's acceptance."""
+
+    __tablename__ = "registration_legal_acceptances"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="RESTRICT"), nullable=False, unique=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, unique=True)
+    privacy_consent_version = Column(Text, nullable=False)
+    privacy_consent_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
+    privacy_consent_locale = Column(Text, nullable=False)
+    privacy_consent_surface = Column(Text, nullable=False)
+    terms_version = Column(Text, nullable=False)
+    terms_accepted_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
+    created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
 
 
 class TenantUsage(Base):

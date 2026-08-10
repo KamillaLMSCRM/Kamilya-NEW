@@ -8,6 +8,7 @@ import { useT } from '@/i18n/useT';
 import { toast } from '@/components/ui/Toast';
 import { Logo } from '@/components/brand/Logo';
 import { api } from '@/lib/api';
+import { PublicLegalFooter } from '@/components/legal/PublicLegalFooter';
 
 type Step = 'form' | 'success';
 
@@ -22,6 +23,9 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [createdTenant, setCreatedTenant] = useState<{ slug: string; name: string } | null>(null);
+  const [privacyAccepted, setPrivacyAccepted] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const canSubmit = company.trim().length >= 2 && firstName.trim().length >= 1 && lastName.trim().length >= 1 && telegramId.trim().length > 0 && privacyAccepted && termsAccepted;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,6 +45,10 @@ export default function RegisterPage() {
         telegram_id: tid,
         first_name: firstName.trim(),
         last_name: lastName.trim(),
+        privacy_consent_version: '2026-08-10',
+        privacy_consent_locale: 'ru',
+        privacy_consent_surface: 'telegram_registration',
+        terms_version: '2026-08-10',
       });
 
       setCreatedTenant({ slug: res.data.tenant_slug, name: res.data.tenant_name });
@@ -61,7 +69,7 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-primary/5 to-background py-12">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-primary/5 to-background py-12">
       <main
         id="main-content"
         tabIndex={-1}
@@ -118,6 +126,12 @@ export default function RegisterPage() {
                   placeholder="ТОО Acme Meat"
                 />
               </div>
+
+              <fieldset className="space-y-3 rounded-md border border-input p-3">
+                <legend className="px-1 text-sm font-medium">Подтверждения</legend>
+                <label htmlFor="telegram-privacy-acceptance" className="flex items-start gap-2 text-sm"><input id="telegram-privacy-acceptance" type="checkbox" checked={privacyAccepted} onChange={(event) => setPrivacyAccepted(event.target.checked)} required aria-required="true" className="mt-1" /><span><span aria-hidden="true" className="mr-1 text-destructive">*</span>Я согласен(на) на обработку персональных данных согласно <Link href="/legal/privacy" className="text-primary underline">Уведомлению о конфиденциальности</Link>.</span></label>
+                <label htmlFor="telegram-terms-acceptance" className="flex items-start gap-2 text-sm"><input id="telegram-terms-acceptance" type="checkbox" checked={termsAccepted} onChange={(event) => setTermsAccepted(event.target.checked)} required aria-required="true" className="mt-1" /><span><span aria-hidden="true" className="mr-1 text-destructive">*</span>Я принимаю <Link href="/legal/terms" className="text-primary underline">Условия сайта и пробного доступа</Link> от имени организации.</span></label>
+              </fieldset>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -184,7 +198,7 @@ export default function RegisterPage() {
               <Button
                 type="submit"
                 className="w-full"
-                disabled={loading}
+                disabled={loading || !canSubmit}
                 aria-busy={loading}
               >
                 {loading ? 'Создаём…' : 'Создать организацию'}
@@ -255,6 +269,7 @@ export default function RegisterPage() {
           </>
         )}
       </main>
+      <PublicLegalFooter />
     </div>
   );
 }

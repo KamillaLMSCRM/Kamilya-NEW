@@ -9,6 +9,7 @@ import { Logo } from '@/components/brand/Logo';
 import { getRoleHome } from '@/lib/rolePolicy';
 import { useAuthStore } from '@/store/authStore';
 import type { AuthUser } from '@/lib/auth';
+import { PublicLegalFooter } from '@/components/legal/PublicLegalFooter';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
 
@@ -71,6 +72,7 @@ export default function AssignmentAccessPage() {
           </CardContent>
         </Card>
       </main>
+      <PublicLegalFooter />
     </div>
   );
 }

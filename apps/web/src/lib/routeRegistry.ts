@@ -50,6 +50,7 @@ export const PUBLIC_ROUTE_PREFIXES = [
   '/verify/certificate',
   '/access',
   '/candidate-assessment',
+  '/legal',
 ] as const;
 
 export function isPublicRoute(pathname: string): boolean {

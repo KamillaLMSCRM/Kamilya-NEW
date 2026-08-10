@@ -13,6 +13,7 @@ import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 import { getRoleHome } from '@/lib/rolePolicy';
 import { useT } from '@/i18n/useT';
+import { PublicLegalFooter } from '@/components/legal/PublicLegalFooter';
 
 type LoginMode = 'password' | 'email' | 'telegram';
 
@@ -233,7 +234,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-primary/5 to-background px-4 py-10">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-primary/5 to-background px-4 py-10">
       <SkipLink />
       <main id="main-content" className="w-full max-w-md rounded-lg bg-card p-8 shadow-card">
         <div className="mb-7 text-center">
@@ -460,6 +461,7 @@ export default function LoginPage() {
           </div>
         </div>
       </main>
+      <PublicLegalFooter />
     </div>
   );
 }

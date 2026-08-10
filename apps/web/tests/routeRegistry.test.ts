@@ -133,6 +133,8 @@ describe('route and capability registry', () => {
     expect(isPublicRoute('/verify/certificate/KML-2026-123456')).toBe(true);
     expect(isPublicRoute('/access/opaque-token')).toBe(true);
     expect(isPublicRoute('/candidate-assessment/opaque-token')).toBe(true);
+    expect(isPublicRoute('/legal/privacy')).toBe(true);
+    expect(isPublicRoute('/legal/terms/kk')).toBe(true);
     expect(isPublicRoute('/candidate-assessments')).toBe(false);
     expect(isPublicRoute('/certificates')).toBe(false);
     expect(isPublicRoute('/admin/certificates/settings')).toBe(false);

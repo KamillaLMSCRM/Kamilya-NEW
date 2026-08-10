@@ -5,6 +5,7 @@ import { AlertTriangle, BookOpen, Building2, Mail, ShieldCheck, UserRound } from
 import { useRouter, useSearchParams } from 'next/navigation';
 
 import { Logo } from '@/components/brand/Logo';
+import { PublicLegalFooter } from '@/components/legal/PublicLegalFooter';
 import { Button, Card, CardContent, CardHeader, CardTitle, Input } from '@/components/ui';
 import { api } from '@/lib/api';
 import { getRoleHome } from '@/lib/rolePolicy';
@@ -314,6 +315,7 @@ function AcceptInviteForm() {
           </CardContent>
         </Card>
       </main>
+      <PublicLegalFooter />
     </div>
   );
 }
@@ -329,7 +331,7 @@ function LoadingState() {
 function UnavailableState({ title, message }: { title: string; message: string }) {
   const router = useRouter();
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/30 p-4">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-muted/30 p-4">
       <Card className="w-full max-w-md">
         <CardContent className="space-y-4 p-6 text-center">
           <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-md bg-warning/10 text-warning">
@@ -342,6 +344,7 @@ function UnavailableState({ title, message }: { title: string; message: string }
           </Button>
         </CardContent>
       </Card>
+      <PublicLegalFooter />
     </div>
   );
 }

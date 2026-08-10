@@ -52,7 +52,7 @@ class TrialLimitExceeded(HTTPException):
             "current": current,
             "requested": requested,
             "message": message,
-            "cta": {"text": "Связаться с Kamilya LMS", "href": "mailto:support@kml.kz"},
+            "cta": {"text": "Связаться с Kamilya LMS", "href": "mailto:askar@kml.kz"},
         }
         super().__init__(status_code=403, detail=payload)
 
@@ -121,7 +121,7 @@ async def assert_tenant_access(db: AsyncSession, tenant_id: Any) -> None:
             detail={
                 "code": "trial_expired",
                 "message": "Trial period has ended. Contact Kamilya LMS to continue.",
-                "cta": {"text": "Связаться с Kamilya LMS", "href": "mailto:support@kml.kz"},
+                "cta": {"text": "Связаться с Kamilya LMS", "href": "mailto:askar@kml.kz"},
             },
         )
 
