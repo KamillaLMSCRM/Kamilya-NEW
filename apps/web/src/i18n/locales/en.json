@@ -137,10 +137,11 @@
     "companyCourses": "Company-wide courses",
     "certificateSettings": "Certificate settings",
     "staffSchedule": "Employees and structure",
-    "kiosks": "Kiosks",
+    "kiosks": "Shared kiosk",
     "trainingLog": "Training log",
     "trainingRules": "Training rules",
-    "candidateAssessments": "Candidate assessments"
+    "candidateAssessments": "Candidate testing",
+    "assignmentsAndAccess": "Assignments and access"
   },
   "auth": {
     "login": "Login",
@@ -1478,9 +1479,9 @@
     "openPosition": "Open position card"
   },
   "trainingProceduresPage": {
-    "title": "Confirmation procedures",
-    "navLabel": "Confirmation procedures",
-    "subtitle": "Configure acknowledgement, internal attestation and a separate admission decision procedure.",
+    "title": "Training confirmation",
+    "navLabel": "Training confirmation",
+    "subtitle": "Configure how the organization records employee acknowledgement, internal knowledge checks and a separate work-admission decision.",
     "evidenceBoundary": "Configuring a procedure does not confirm that the action has occurred. OTP confirms entry of a one-time code and is not a digital signature. Commission composition and decision rules are configured in advance; the actual attestation or separate admission decision is recorded in its dedicated workflow. A test result is not, by itself, an admission decision.",
     "catalog": "Procedure catalog",
     "empty": "No procedures have been configured yet.",
@@ -1524,9 +1525,9 @@
     "confirmations": { "manual_record": "Manual record", "email_otp": "One-time code from email (OTP)" }
   },
   "trainingRetentionPage": {
-    "title": "Evidence retention",
-    "navLabel": "Evidence retention",
-    "subtitle": "Configure tenant retention periods and safely preview or execute evidence cleanup.",
+    "title": "Result retention periods",
+    "navLabel": "Result retention periods",
+    "subtitle": "Set how long training, test and confirmation results are retained. The system provides a safe preview before deletion.",
     "warning": "Purge is irreversible. An active legal hold in a correction or revocation chain blocks cleanup. Backup retention is managed separately by infrastructure.",
     "policies": "Retention policies",
     "empty": "No retention policies configured yet.",

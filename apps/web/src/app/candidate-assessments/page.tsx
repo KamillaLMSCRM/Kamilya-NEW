@@ -76,7 +76,7 @@ export default function CandidateAssessmentsPage() {
   }
 
   return <div className="space-y-6 p-6">
-    <div><h1 className="text-2xl font-bold">Оценка кандидатов</h1><p className="text-sm text-muted-foreground">Отдельный контур до найма: кандидаты не создаются как сотрудники или обучающиеся.</p></div>
+    <div><h1 className="text-2xl font-bold">Тестирование кандидатов</h1><p className="text-sm text-muted-foreground">Проведите тест до найма по персональной ссылке и PIN. Кандидат не добавляется в штат и список обучающихся.</p></div>
     <Card><CardHeader><CardTitle>Новая кампания</CardTitle></CardHeader><CardContent>
       <form className="grid gap-3 sm:grid-cols-3" onSubmit={create}>
         <Input aria-label="Название кампании" placeholder="Название" value={title} onChange={(e) => setTitle(e.target.value)} />

@@ -112,7 +112,7 @@ export const ROUTES: readonly AppRoute[] = [
   { id: 'invitations', href: '/invitations', capability: 'manage_learners', labelKey: 'invitations.navLabel', section: 'workforce', icon: 'users', order: 115, sidebar: false, commandPalette: false },
   { id: 'candidate-assessments', href: '/candidate-assessments', capability: 'manage_learners', labelKey: 'nav.candidateAssessments', section: 'workforce', icon: 'users', order: 118, sidebar: true, commandPalette: true },
   { id: 'positions', href: '/positions', capability: 'manage_qualifications', match: 'prefix' },
-  { id: 'course-assignments', href: '/assignments', capability: 'manage_assignments', match: 'prefix', labelKey: 'courses.enrollments', section: 'workforce', icon: 'assignment', order: 130, sidebar: false, commandPalette: false },
+  { id: 'course-assignments', href: '/assignments', capability: 'manage_assignments', match: 'prefix', labelKey: 'nav.assignmentsAndAccess', section: 'workforce', icon: 'assignment', order: 120, sidebar: true, commandPalette: true },
   { id: 'training-log', href: '/training-log', capability: 'view_training_reports', match: 'prefix', labelKey: 'nav.trainingLog', section: 'overview', icon: 'log', order: 150, sidebar: true, commandPalette: true },
 
   { id: 'tenant-dashboard', href: '/admin', capability: 'configure_tenant', labelKey: 'nav.admin', section: 'overview', icon: 'dashboard', order: 10, sidebar: true, commandPalette: true },

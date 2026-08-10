@@ -6,7 +6,6 @@ import {
   ArrowLeft,
   BookOpenCheck,
   BriefcaseBusiness,
-  Check,
   ClipboardCheck,
   FileClock,
   FileText,
@@ -54,7 +53,8 @@ const TABS: Array<{
   { id: "instruction", label: "Должностная инструкция", icon: FileText },
   { id: "competencies", label: "Компетенции", icon: ClipboardCheck },
   { id: "training", label: "Обязательное обучение", icon: BookOpenCheck },
-  { id: "onboarding", label: "Onboarding-тест", icon: Check },
+  // The legacy position quiz editor stays hidden until it has a real
+  // assignment, learner-delivery and reporting flow.
   { id: "history", label: "История версий", icon: History },
 ];
 
@@ -549,7 +549,7 @@ export function PositionQualificationCard({ positionId }: Props) {
               Профиль должности
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Базовые требования используются в ДИ, AI-рекомендациях и onboarding-тесте.
+              Базовые требования используются в должностной инструкции и AI-рекомендациях.
             </p>
           </div>
           <div className="grid gap-5 rounded-lg border border-border bg-card p-5 lg:grid-cols-2">

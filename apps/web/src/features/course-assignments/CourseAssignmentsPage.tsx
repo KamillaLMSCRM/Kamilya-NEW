@@ -530,10 +530,13 @@ export default function EnrollmentsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Назначения обучения</h1>
+        <h1 className="text-2xl font-bold">Назначения и доступ</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Выберите опубликованный курс и сотрудников. Назначение тестов отдельно не требуется:
-          тесты уроков становятся доступны вместе с курсом.
+          Назначайте опубликованные курсы сотрудникам. Если у сотрудника нет email, после назначения
+          выдайте ему персональную ссылку и шестизначный PIN через кнопку «Доступ без email».
+        </p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Тесты уроков становятся доступны вместе с курсом — назначать их отдельно не нужно.
         </p>
       </div>
 

@@ -7,6 +7,10 @@ const staffSource = readFileSync(resolve(process.cwd(), "src/app/admin/staff/pag
 const rulesSource = readFileSync(resolve(process.cwd(), "src/features/training-rules/TrainingRulesPage.tsx"), "utf8");
 const topBarSource = readFileSync(resolve(process.cwd(), "src/components/layout/TopBar.tsx"), "utf8");
 const languageSwitcherSource = readFileSync(resolve(process.cwd(), "src/components/LanguageSwitcher.tsx"), "utf8");
+const qualificationCardSource = readFileSync(
+  resolve(process.cwd(), "src/features/positions/PositionQualificationCard.tsx"),
+  "utf8",
+);
 
 describe("methodologist information architecture", () => {
   it("registers rules for the active methodologist only", () => {
@@ -82,6 +86,20 @@ describe("methodologist information architecture", () => {
     expect(commands).not.toContain("positions");
     expect(staffSource).toContain('href={`/positions/${pos.id}?tab=training`}');
     expect(staffSource).toContain('href={`/assignments?user_id=${emp.id}`}');
+  });
+
+  it("makes course assignment and no-email access discoverable to a methodologist", () => {
+    const sidebar = getNavigationRoutes("methodologist", "sidebar");
+    const assignments = sidebar.find((route) => route.id === "course-assignments");
+
+    expect(assignments).toBeDefined();
+    expect(assignments?.labelKey).toBe("nav.assignmentsAndAccess");
+    expect(getNavigationRoutes("admin", "sidebar").some((route) => route.id === "course-assignments")).toBe(false);
+  });
+
+  it("does not advertise the unfinished position onboarding quiz as a usable flow", () => {
+    expect(qualificationCardSource).not.toContain('{ id: "onboarding", label: "Onboarding-тест"');
+    expect(qualificationCardSource).not.toContain("AI-рекомендациях и onboarding-тесте");
   });
 
   it("uses an accessible employee modal and a shared Kazakhstan phone mask", () => {

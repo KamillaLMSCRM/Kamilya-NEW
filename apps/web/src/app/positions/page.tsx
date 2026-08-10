@@ -225,7 +225,7 @@ export default function PositionsPage() {
           </p>
           <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">{t("positions.title")}</h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-            Реестр должностей. Откройте карточку, чтобы настроить профиль, ДИ, компетенции, обучение и onboarding-тест.
+            Реестр должностей. Откройте карточку, чтобы настроить профиль, должностную инструкцию, компетенции и обязательное обучение.
           </p>
         </div>
         <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
