@@ -1,9 +1,10 @@
-field,value,rule
+﻿field,value,rule
 utm_source,google,fixed
 utm_medium,cpc,fixed
 utm_campaign,kz_finance_search_ru,fixed for first campaign
 utm_content,ag_<cluster>_rsa_<variant>,unique per ad group and RSA
 utm_term,{keyword},Google ValueTrack keyword value
+final_url,defined only on RSA; keyword Final URL left blank,one canonical URL preserves both RSA variant and ValueTrack keyword attribution
 gclid,automatic,Google auto-tagging must remain enabled
 landing_page,automatic,first finance landing URL stored in current browser session
 source_section,finance_hero or finance_final_cta,CTA that opened the lead form
