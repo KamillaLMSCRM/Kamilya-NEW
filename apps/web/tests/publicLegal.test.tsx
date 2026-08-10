@@ -8,7 +8,7 @@ describe('public legal content', () => {
   it('shows the controlled operator details and the B2B-only trial boundary', () => {
     render(<LegalDocument language="ru" kind="terms" />);
 
-    expect(screen.getAllByText(/Document\.KZ/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Document\. KZ/).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/080340022947/).length).toBeGreaterThan(0);
     expect(screen.getByText(/не являются публичной офертой/i)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'askar@kml.kz' })).toHaveAttribute('href', 'mailto:askar@kml.kz');
@@ -28,7 +28,7 @@ describe('public legal content', () => {
     render(<PublicLegalFooter />);
 
     expect(screen.getByText(/БИН 080340022947/)).toBeInTheDocument();
-    expect(screen.getByText(/Радостовца, дом № 152Л-32/)).toBeInTheDocument();
+    expect(screen.getByText(/Радостовца, дом 152Л, 050060/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Уведомление о конфиденциальности' })).toHaveAttribute('href', '/legal/privacy');
     expect(screen.getByRole('link', { name: 'Условия сайта и пробного доступа' })).toHaveAttribute('href', '/legal/terms');
     expect(screen.getByRole('link', { name: 'Қазақша' })).toHaveAttribute('href', '/legal/privacy/kk');

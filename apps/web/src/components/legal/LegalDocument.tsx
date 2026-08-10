@@ -7,8 +7,8 @@ type Language = 'ru' | 'kk';
 type DocumentKind = 'privacy' | 'terms';
 type Section = { title: string; body: string };
 
-const company = 'Товарищество с ограниченной ответственностью "Document.KZ"';
-const details = 'БИН 080340022947; Алматинская область, Бостандыкский район, г. Алматы, ул. Радостовца, дом № 152Л-32';
+const company = 'Товарищество с ограниченной ответственностью "Document. KZ"';
+const details = 'БИН 080340022947; Казахстан, город Алматы, Бостандыкский район, улица Радостовца, дом 152Л, 050060';
 
 const copy: Record<Language, Record<DocumentKind, { title: string; sections: Section[]; updated: string }>> = {
   ru: {
