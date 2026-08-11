@@ -133,8 +133,7 @@ def test_cyrillic_regression_has_normal_text_and_no_mojibake():
     with zipfile.ZipFile(io.BytesIO(package.zip_bytes)) as archive:
         manifest_text = archive.read("manifest.json").decode("utf-8")
         pdf_text = "\n".join(
-            page.extract_text() or ""
-            for page in PdfReader(io.BytesIO(archive.read("individual-act.pdf"))).pages
+            page.extract_text() or "" for page in PdfReader(io.BytesIO(archive.read("individual-act.pdf"))).pages
         )
 
     combined_text = f"{manifest_text}\n{pdf_text}"
@@ -152,6 +151,25 @@ def test_long_text_and_cyrillic_render_as_pdf():
     assert len(pdf) > 1_000
     reader = PdfReader(io.BytesIO(pdf))
     assert "Акт результата обучения" in "\n".join(page.extract_text() or "" for page in reader.pages)
+
+
+def test_individual_pdf_uses_human_labels_and_kazakhstan_dates():
+    data = _individual()
+    data.assignment.group_or_rule = "position"
+    pdf = render_individual_act_pdf(data)
+    text = "\n".join(page.extract_text() or "" for page in PdfReader(io.BytesIO(pdf)).pages)
+
+    for expected in (
+        "Проверка знаний",
+        "Встроенный курс Kamilya",
+        "По должности",
+        "Правило должности",
+        "31.07.2026 13:00 (Алматы)",
+        "детали включены в архив доказательств",
+    ):
+        assert expected in text
+    for internal_value in ("knowledge_check", "native", "manifest.json", "2026-07-31T08:00"):
+        assert internal_value not in text
 
 
 def test_course_without_quiz_attempts_renders_as_pdf():
@@ -177,6 +195,18 @@ def test_group_protocol_pdf_is_readable():
     text = "\n".join(page.extract_text() or "" for page in reader.pages)
     assert "Групповой протокол результатов" in text
     assert "Әлия Ахметова" in text
+    for expected in ("Проверка знаний", "Сотрудник", "Статус", "Баллы", "Завершено", "Подтверждение", "Решение"):
+        assert expected in text
+    for internal_value in ("knowledge_check", "employee", "completed", "confirmation", "decision"):
+        assert internal_value not in text
+
+
+def test_answer_count_in_pdf_uses_correct_russian_form():
+    data = _individual()
+    data.attempts[0].answers = [{"question_id": str(index)} for index in range(5)]
+    pdf = render_individual_act_pdf(data)
+    text = "\n".join(page.extract_text() or "" for page in PdfReader(io.BytesIO(pdf)).pages)
+    assert "5 ответов; детали включены в архив доказательств" in text
 
 
 def test_group_package_includes_only_optional_sections_that_are_passed():

@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import PurePosixPath
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from fpdf import FPDF
 
@@ -26,6 +27,38 @@ FONT_DIR = __import__("pathlib").Path(__file__).resolve().parents[2] / "assets" 
 _CONTROL_CHARS = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
 _ZIP_EPOCH = (1980, 1, 1, 0, 0, 0)
 _PDF_EPOCH = datetime(1980, 1, 1, tzinfo=UTC)
+_KAZAKHSTAN_TIMEZONE = ZoneInfo("Asia/Almaty")
+_PROCEDURE_TYPE_LABELS = {
+    "training": "Обучение",
+    "knowledge_check": "Проверка знаний",
+    "acknowledgement": "Ознакомление",
+    "internal_attestation": "Внутренняя аттестация",
+    "admission_decision": "Решение о допуске",
+}
+_PROCEDURE_PURPOSE_LABELS = {
+    "course_completion": "Завершение курса",
+    "quiz_completion": "Завершение тестирования",
+}
+_DELIVERY_TYPE_LABELS = {
+    "native": "Встроенный курс Kamilya",
+    "scorm_1_2": "SCORM 1.2",
+}
+_ASSIGNMENT_SOURCE_LABELS = {
+    "manual": "Вручную",
+    "cohort": "По группе сотрудников",
+    "department": "По подразделению",
+    "position": "По должности",
+    "learning_path": "По программе обучения",
+    "recurring": "По периодическому правилу",
+}
+_ASSIGNMENT_RULE_LABELS = {
+    "manual": "Прямое назначение",
+    "cohort": "Правило группы сотрудников",
+    "department": "Правило подразделения",
+    "position": "Правило должности",
+    "learning_path": "Программа обучения",
+    "recurring": "Периодическое правило",
+}
 
 
 def _jsonable(value: Any) -> Any:
@@ -60,6 +93,41 @@ def _iso(value: Any) -> str | None:
     return value.isoformat() if isinstance(value, datetime) else str(value)
 
 
+def _human_datetime(value: Any) -> str | None:
+    if value is None or value == "":
+        return None
+    parsed = value
+    if isinstance(value, str):
+        try:
+            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            return value
+    if not isinstance(parsed, datetime):
+        return str(parsed)
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
+    local = parsed.astimezone(_KAZAKHSTAN_TIMEZONE)
+    return f"{local:%d.%m.%Y %H:%M} (Алматы)"
+
+
+def _human_label(value: Any, labels: dict[str, str]) -> Any:
+    if value is None:
+        return None
+    return labels.get(str(value), value)
+
+
+def _answer_count_text(count: int) -> str:
+    last_two = count % 100
+    last = count % 10
+    if last == 1 and last_two != 11:
+        noun = "ответ"
+    elif last in {2, 3, 4} and last_two not in {12, 13, 14}:
+        noun = "ответа"
+    else:
+        noun = "ответов"
+    return f"{count} {noun}; детали включены в архив доказательств"
+
+
 def _public_employee(employee: dict[str, Any]) -> dict[str, Any]:
     return {"display_name": "Сотрудник"}
 
@@ -75,29 +143,19 @@ def _public_attempt(attempt: dict[str, Any]) -> dict[str, Any]:
 
 
 def _public_confirmation(confirmation: dict[str, Any]) -> dict[str, Any]:
-    result = {
-        key: confirmation[key]
-        for key in ("confirmed", "method", "confirmed_at")
-        if key in confirmation
-    }
+    result = {key: confirmation[key] for key in ("confirmed", "method", "confirmed_at") if key in confirmation}
     if result.get("method") == "otp":
         result["method_note"] = "Одноразовый код (OTP), не ЭЦП."
     return result
 
 
 def _public_assignment(assignment: dict[str, Any]) -> dict[str, Any]:
-    return {
-        key: assignment[key]
-        for key in ("source", "assigned_at", "due_at")
-        if key in assignment
-    }
+    return {key: assignment[key] for key in ("source", "assigned_at", "due_at") if key in assignment}
 
 
 def _public_course(course: dict[str, Any]) -> dict[str, Any]:
     return {
-        key: course[key]
-        for key in ("title", "delivery_type", "release_version", "release_sha256")
-        if key in course
+        key: course[key] for key in ("title", "delivery_type", "release_version", "release_sha256") if key in course
     }
 
 
@@ -213,7 +271,7 @@ def _field(pdf: FPDF, label: str, value: Any) -> None:
 def _attempt_lines(attempt: AttemptEvidence) -> list[tuple[str, Any]]:
     return [
         ("Попытка", attempt.id),
-        ("Завершена", _iso(attempt.completed_at)),
+        ("Завершена", _human_datetime(attempt.completed_at)),
         ("Порог", f"{attempt.threshold_percent}%" if attempt.threshold_percent is not None else None),
         ("Результат", f"{attempt.score_percent}%" if attempt.score_percent is not None else None),
         ("Итог", "Пройдено" if attempt.passed is True else "Не пройдено" if attempt.passed is False else None),
@@ -235,14 +293,20 @@ def render_individual_act_pdf(input_data: IndividualEvidenceInput, *, public: bo
     pdf.set_font("Ubuntu", "B", 20)
     pdf.set_text_color(30, 58, 138)
     pdf.cell(0, 10, "Акт результата обучения", new_x="LMARGIN", new_y="NEXT")
-    _paragraph(pdf, "Документ фиксирует результат внутренней процедуры в Kamilya LMS. Он не заменяет специальную форму, аттестацию или иной документ, установленный НПА.", italic=True)
+    _paragraph(
+        pdf,
+        "Документ фиксирует результат внутренней процедуры в Kamilya LMS. Он не заменяет специальную форму, аттестацию или иной документ, установленный НПА.",
+        italic=True,
+    )
 
     _heading(pdf, "1. Организация и процедура")
     _field(pdf, "Организация", tenant.get("name"))
     _field(pdf, "Процедура", procedure.get("title"))
-    _field(pdf, "Тип процедуры", procedure.get("type"))
-    _field(pdf, "Код / версия", " / ".join(str(item) for item in (procedure.get("code"), procedure.get("version")) if item))
-    _field(pdf, "Назначение", procedure.get("purpose"))
+    _field(pdf, "Тип процедуры", _human_label(procedure.get("type"), _PROCEDURE_TYPE_LABELS))
+    _field(
+        pdf, "Код / версия", " / ".join(str(item) for item in (procedure.get("code"), procedure.get("version")) if item)
+    )
+    _field(pdf, "Назначение", _human_label(procedure.get("purpose"), _PROCEDURE_PURPOSE_LABELS))
 
     _heading(pdf, "2. Сотрудник")
     _field(pdf, "ФИО", employee.get("display_name") or employee.get("full_name"))
@@ -255,7 +319,7 @@ def render_individual_act_pdf(input_data: IndividualEvidenceInput, *, public: bo
     if course:
         _heading(pdf, "3. Курс и публикация")
         _field(pdf, "Курс", course.get("title"))
-        _field(pdf, "Формат", course.get("delivery_type"))
+        _field(pdf, "Формат", _human_label(course.get("delivery_type"), _DELIVERY_TYPE_LABELS))
         _field(pdf, "Версия публикации", course.get("release_version"))
         _field(pdf, "Хэш публикации SHA-256", course.get("release_sha256"))
 
@@ -263,21 +327,33 @@ def render_individual_act_pdf(input_data: IndividualEvidenceInput, *, public: bo
     if data.get("assignment"):
         _heading(pdf, f"{section_number}. Назначение")
         assignment = data["assignment"]
-        _field(pdf, "Источник", assignment.get("source"))
-        _field(pdf, "Назначено", assignment.get("assigned_at"))
-        _field(pdf, "Срок", assignment.get("due_at"))
-        _field(pdf, "Правило / группа", assignment.get("group_or_rule"))
+        _field(pdf, "Источник", _human_label(assignment.get("source"), _ASSIGNMENT_SOURCE_LABELS))
+        _field(pdf, "Назначено", _human_datetime(assignment.get("assigned_at")))
+        _field(pdf, "Срок", _human_datetime(assignment.get("due_at")))
+        _field(
+            pdf,
+            "Правило / группа",
+            _human_label(assignment.get("group_or_rule"), _ASSIGNMENT_RULE_LABELS),
+        )
         section_number += 1
 
     _heading(pdf, f"{section_number}. Попытки и результат")
-    attempts = input_data.attempts if not public else [AttemptEvidence.model_validate(_public_attempt(item)) for item in input_data.attempts]
+    attempts = (
+        input_data.attempts
+        if not public
+        else [AttemptEvidence.model_validate(_public_attempt(item)) for item in input_data.attempts]
+    )
     if attempts:
         for index, attempt in enumerate(attempts, 1):
             _heading(pdf, f"Попытка {index}", level=2)
             for label, value in _attempt_lines(attempt):
                 _field(pdf, label, value)
             if not public and attempt.answers:
-                _field(pdf, "Ответы", f"{len(attempt.answers)} записей сохранено в manifest.json")
+                _field(
+                    pdf,
+                    "Ответы",
+                    _answer_count_text(len(attempt.answers)),
+                )
     else:
         _paragraph(pdf, "Попытки не переданы в экспорт.")
     section_number += 1
@@ -289,7 +365,7 @@ def render_individual_act_pdf(input_data: IndividualEvidenceInput, *, public: bo
         method = confirmation.get("method")
         method_text = "Одноразовый код (OTP), не ЭЦП." if method == "otp" else method
         _field(pdf, "Способ", method_text)
-        _field(pdf, "Дата", confirmation.get("confirmed_at"))
+        _field(pdf, "Дата", _human_datetime(confirmation.get("confirmed_at")))
         if not public:
             _field(pdf, "Текст подтверждения", confirmation.get("statement"))
             _field(pdf, "Ссылка на событие", confirmation.get("evidence_reference"))
@@ -299,7 +375,7 @@ def render_individual_act_pdf(input_data: IndividualEvidenceInput, *, public: bo
         _heading(pdf, f"{section_number}. Коррекции и аннулирование")
         for correction in data["corrections"]:
             _field(pdf, correction.get("kind", "Запись"), correction.get("reason"))
-            _field(pdf, "Дата", correction.get("recorded_at"))
+            _field(pdf, "Дата", _human_datetime(correction.get("recorded_at")))
             _field(pdf, "Замещает хэш", correction.get("supersedes_sha256"))
         section_number += 1
 
@@ -317,7 +393,7 @@ def render_individual_act_pdf(input_data: IndividualEvidenceInput, *, public: bo
         for hold in data.get("legal_holds", []):
             action = "Установлено" if hold.get("action") == "placed" else "Снято"
             _field(pdf, action, hold.get("reason"))
-            _field(pdf, "Дата", hold.get("occurred_at"))
+            _field(pdf, "Дата", _human_datetime(hold.get("occurred_at")))
             _field(pdf, "Ответственный", hold.get("acted_by"))
         section_number += 1
 
@@ -326,14 +402,14 @@ def render_individual_act_pdf(input_data: IndividualEvidenceInput, *, public: bo
         commission = data["commission"]
         _field(pdf, "Члены", "; ".join(commission.get("members", [])))
         _field(pdf, "Основание", commission.get("basis"))
-        _field(pdf, "Дата назначения", commission.get("appointed_at"))
+        _field(pdf, "Дата назначения", _human_datetime(commission.get("appointed_at")))
         section_number += 1
 
     if not public and data.get("decision"):
         _heading(pdf, f"{section_number}. Решение")
         decision = data["decision"]
         _field(pdf, "Результат", decision.get("outcome"))
-        _field(pdf, "Дата", decision.get("decided_at"))
+        _field(pdf, "Дата", _human_datetime(decision.get("decided_at")))
         _field(pdf, "Принял", decision.get("decided_by"))
         _field(pdf, "Обоснование", decision.get("rationale"))
 
@@ -346,17 +422,17 @@ def _record_summary(record: GroupRecordEvidence, *, public: bool) -> dict[str, A
     return {
         "employee": _public_employee(employee) if public else employee,
         "status": (
-            "Пройдено" if latest and latest.passed is True else
-            "Не пройдено" if latest and latest.passed is False else
-            "Нет результата"
+            "Пройдено"
+            if latest and latest.passed is True
+            else "Не пройдено"
+            if latest and latest.passed is False
+            else "Нет результата"
         ),
         "score_percent": latest.score_percent if latest else None,
-        "completed_at": _iso(latest.completed_at) if latest else None,
+        "completed_at": _human_datetime(latest.completed_at) if latest else None,
         "confirmed": record.confirmation.confirmed if record.confirmation else None,
         "decision": (
-            record.decision.model_dump(mode="json", exclude_none=True)
-            if record.decision and not public
-            else None
+            record.decision.model_dump(mode="json", exclude_none=True) if record.decision and not public else None
         ),
     }
 
@@ -368,37 +444,26 @@ def render_group_protocol_pdf(input_data: GroupEvidenceInput, *, public: bool = 
     pdf.set_font("Ubuntu", "B", 20)
     pdf.set_text_color(30, 58, 138)
     pdf.cell(0, 10, "Групповой протокол результатов", new_x="LMARGIN", new_y="NEXT")
-    _paragraph(pdf, "Протокол сформирован из переданных записей Kamilya LMS. Он не является специальной формой, установленной НПА.", italic=True)
+    _paragraph(
+        pdf,
+        "Протокол сформирован из переданных записей Kamilya LMS. Он не является специальной формой, установленной НПА.",
+        italic=True,
+    )
     _heading(pdf, "Процедура")
     _field(pdf, "Организация", data["tenant"]["name"])
     _field(pdf, "Процедура", data["procedure"]["title"])
-    _field(pdf, "Тип", data["procedure"]["type"])
+    _field(pdf, "Тип", _human_label(data["procedure"]["type"], _PROCEDURE_TYPE_LABELS))
     if data.get("course"):
         _field(pdf, "Курс", data["course"].get("title"))
         _field(pdf, "Версия публикации", data["course"].get("release_version"))
 
     _heading(pdf, "Результаты сотрудников")
     headers = ["Сотрудник", "Статус", "Баллы", "Завершено", "Подтверждение"]
-    widths = [56, 31, 20, 43, 28]
     pdf.set_font("Ubuntu", "B", 8)
     if public:
-        headers = [
-            "employee",
-            "status",
-            "score",
-            "completed",
-            "confirmation",
-        ]
         widths = [48, 29, 18, 43, 36]
     else:
-        headers = [
-            "employee",
-            "status",
-            "score",
-            "completed",
-            "confirmation",
-            "decision",
-        ]
+        headers.append("Решение")
         widths = [40, 24, 16, 34, 29, 31]
     pdf.set_fill_color(232, 238, 250)
     for header, width in zip(headers, widths, strict=True):
