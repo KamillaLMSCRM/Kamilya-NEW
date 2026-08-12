@@ -14,11 +14,23 @@ class AIGenerateRequest(BaseModel):
     tone: str = Field(default="professional", max_length=100)
     source_strategy: Literal["single_topic", "intentional_combination"] = "single_topic"
     combination_goal: str = Field(default="", max_length=2000)
+    reuse_reason: Literal[
+        "different_audience",
+        "different_language",
+        "different_depth",
+        "updated_revision",
+        "recurring_training",
+        "other",
+    ] | None = None
 
     @model_validator(mode="after")
     def validate_combination_goal(self):
         if self.source_strategy == "intentional_combination" and len(self.combination_goal.strip()) < 20:
             raise ValueError("combination_goal must explain the shared learning goal (at least 20 characters)")
+        if self.course_id is not None and self.reuse_reason is not None:
+            raise ValueError(
+                "reuse_reason is only valid when creating a new independent course"
+            )
         return self
 
 

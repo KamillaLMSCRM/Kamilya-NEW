@@ -109,6 +109,13 @@ class Document(Base):
             "content_sha256",
         ),
         Index(
+            "uq_documents_active_tenant_content_sha256",
+            "tenant_id",
+            "content_sha256",
+            unique=True,
+            postgresql_where=(lifecycle_status == "active"),
+        ),
+        Index(
             "ix_documents_tenant_category_created_id",
             "tenant_id",
             "category",

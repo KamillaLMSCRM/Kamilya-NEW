@@ -54,6 +54,7 @@ try:
         source_strategy: str = "single_topic",
         combination_goal: str = "",
         source_analysis: dict | None = None,
+        reuse_reason: str | None = None,
     ):
         """Celery task to run the full generation pipeline."""
         logger.info(f"Starting generation task for job {job_id}")
@@ -86,6 +87,7 @@ try:
                     source_strategy=source_strategy,
                     combination_goal=combination_goal,
                     source_analysis=source_analysis,
+                    reuse_reason=reuse_reason,
                 )
             )
 

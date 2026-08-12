@@ -10,7 +10,8 @@ from typing import Annotated, Literal
 from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Response, UploadFile
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import require_role, require_tenant_user
@@ -46,6 +47,43 @@ router = APIRouter(
 SUMMARIES_DIR = "./summaries"
 
 logger = logging.getLogger(__name__)
+
+
+def _duplicate_document_detail(document: Document) -> dict:
+    return {
+        "code": "duplicate_document",
+        "message": "This exact file already exists in the document library.",
+        "existing": {
+            "id": str(document.id),
+            "title": document.title,
+            "filename": document.filename,
+            "version": document.version,
+            "route": f"/documents?q={quote(document.title)}",
+        },
+    }
+
+
+def _is_active_document_hash_unique_violation(exc: IntegrityError) -> bool:
+    """Identify only the database backstop for same-tenant active hashes."""
+    current = getattr(exc, "orig", None)
+    visited: set[int] = set()
+    while current is not None and id(current) not in visited:
+        visited.add(id(current))
+        constraint_name = getattr(current, "constraint_name", None)
+        if constraint_name is None:
+            constraint_name = getattr(
+                getattr(current, "diag", None),
+                "constraint_name",
+                None,
+            )
+        if constraint_name == "uq_documents_active_tenant_content_sha256":
+            return True
+        current = getattr(current, "__cause__", None) or getattr(
+            current,
+            "__context__",
+            None,
+        )
+    return False
 
 # Allowed MIME types and their magic bytes
 ALLOWED_MIME_TYPES = {
@@ -533,17 +571,7 @@ async def upload_document(
     if duplicate:
         raise HTTPException(
             status_code=409,
-            detail={
-                "code": "duplicate_document",
-                "message": "This exact file already exists in the document library.",
-                "existing": {
-                    "id": str(duplicate.id),
-                    "title": duplicate.title,
-                    "filename": duplicate.filename,
-                    "version": duplicate.version,
-                    "route": f"/documents?q={quote(duplicate.title)}",
-                },
-            },
+            detail=_duplicate_document_detail(duplicate),
         )
 
     doc_id = uuid.uuid4()
@@ -578,12 +606,6 @@ async def upload_document(
     ext = os.path.splitext(file.filename or "")[1]
     s3_key = f"tenants/{user.tenant_id}/documents/{doc_id}{ext}"
 
-    try:
-        get_storage().put_bytes(s3_key, content, content_type)
-    except Exception as exc:
-        logger.exception("Could not persist document blob %s", doc_id)
-        raise HTTPException(status_code=503, detail="Document storage is unavailable") from exc
-
     doc = Document(
         id=doc_id,
         tenant_id=user.tenant_id,
@@ -604,24 +626,69 @@ async def upload_document(
         index_revision=1,
     )
     db.add(doc)
-    job = await create_ai_job(
-        db,
-        tenant_id=user.tenant_id,
-        user_id=user.id,
-        params={
-            "action": "document_reindex",
-            "document_id": str(doc_id),
-            "revision": 1,
-        },
-    )
+    blob_persisted = False
     try:
+        # Reserve the database row before writing object storage. Under a
+        # concurrent exact upload, the partial unique index makes the loser
+        # fail here without ever creating an orphan blob.
+        job = await create_ai_job(
+            db,
+            tenant_id=user.tenant_id,
+            user_id=user.id,
+            params={
+                "action": "document_reindex",
+                "document_id": str(doc_id),
+                "revision": 1,
+            },
+        )
+        try:
+            get_storage().put_bytes(s3_key, content, content_type)
+            blob_persisted = True
+        except Exception as exc:
+            await db.rollback()
+            logger.exception("Could not persist document blob %s", doc_id)
+            raise HTTPException(
+                status_code=503,
+                detail="Document storage is unavailable",
+            ) from exc
         await db.commit()
         logger.info("Persisted document upload doc_id=%s job_id=%s", doc_id, job.id)
+    except IntegrityError as exc:
+        if not _is_active_document_hash_unique_violation(exc):
+            if blob_persisted:
+                try:
+                    get_storage().delete_bytes(s3_key)
+                except Exception:
+                    logger.exception("Could not remove orphaned document blob %s", doc_id)
+            raise
+        await db.rollback()
+        # Rollback clears the transaction-local RLS setting. Re-establish it
+        # before retrieving the winner so this compensation remains tenant-safe.
+        await db.execute(text("SELECT set_current_tenant(:tid)"), {"tid": str(user.tenant_id)})
+        duplicate = await db.scalar(
+            select(Document)
+            .where(
+                Document.tenant_id == user.tenant_id,
+                Document.content_sha256 == content_sha256,
+                Document.lifecycle_status == "active",
+            )
+            .order_by(Document.created_at.desc())
+            .limit(1)
+        )
+        if duplicate:
+            raise HTTPException(
+                status_code=409,
+                detail=_duplicate_document_detail(duplicate),
+            ) from exc
+        # The named constraint was reported but no row is visible after
+        # tenant-scoped re-read; never report a duplicate without a survivor.
+        raise
     except Exception:
-        try:
-            get_storage().delete_bytes(s3_key)
-        except Exception:
-            logger.exception("Could not remove orphaned document blob %s", doc_id)
+        if blob_persisted:
+            try:
+                get_storage().delete_bytes(s3_key)
+            except Exception:
+                logger.exception("Could not remove orphaned document blob %s", doc_id)
         raise
 
     try:

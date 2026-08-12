@@ -455,6 +455,119 @@ async def test_document_upload_hashes_content_and_rejects_exact_duplicate(
     assert stored.version == 1
 
 
+async def test_document_upload_allows_identical_content_in_different_tenants(
+    client,
+    monkeypatch,
+    make_tenant,
+    make_user,
+    auth_headers,
+):
+    from app.modules.documents import router as documents_router
+
+    class StorageStub:
+        def put_bytes(self, key, content, content_type):
+            return key
+
+        def delete_bytes(self, key):
+            return True
+
+    first_tenant = await make_tenant()
+    second_tenant = await make_tenant()
+    first_user = await make_user(first_tenant, role="methodologist")
+    second_user = await make_user(second_tenant, role="methodologist")
+    monkeypatch.setattr(documents_router, "get_storage", lambda: StorageStub())
+    monkeypatch.setattr(documents_router, "_dispatch_document_reindex", lambda *args: None)
+    content = b"shared policy bytes across isolated tenants"
+
+    first = await client.post(
+        "/api/v1/documents/upload",
+        files={"file": ("policy.txt", content, "text/plain")},
+        headers=auth_headers(first_user),
+    )
+    second = await client.post(
+        "/api/v1/documents/upload",
+        files={"file": ("policy.txt", content, "text/plain")},
+        headers=auth_headers(second_user),
+    )
+
+    assert first.status_code == 201
+    assert second.status_code == 201
+
+
+async def test_database_serializes_concurrent_active_document_hash_inserts():
+    import asyncio
+    from uuid import uuid4
+
+    from sqlalchemy import text
+    from sqlalchemy.exc import IntegrityError
+
+    from app.core.db import engine
+
+    tenant_id = uuid4()
+    first_id = uuid4()
+    second_id = uuid4()
+    content_hash = "a" * 64
+
+    async def insert_document(connection, document_id):
+        await connection.execute(
+            text(
+                """
+                INSERT INTO documents (
+                    id, tenant_id, uploaded_by, title, filename, content_type,
+                    file_size, s3_key, content_sha256, lifecycle_status
+                ) VALUES (
+                    :id, :tenant_id, :uploaded_by, :title, :filename,
+                    'text/plain', 1, :s3_key, :content_sha256, 'active'
+                )
+                """
+            ),
+            {
+                "id": str(document_id),
+                "tenant_id": str(tenant_id),
+                "uploaded_by": str(uuid4()),
+                "title": f"Race {document_id}",
+                "filename": f"{document_id}.txt",
+                "s3_key": f"test/document-race/{document_id}",
+                "content_sha256": content_hash,
+            },
+        )
+
+    second_task = None
+    try:
+        async with engine.connect() as first, engine.connect() as second:
+            first_tx = await first.begin()
+            second_tx = await second.begin()
+            await first.execute(
+                text("SELECT set_current_tenant(:tenant_id)"),
+                {"tenant_id": str(tenant_id)},
+            )
+            await second.execute(
+                text("SELECT set_current_tenant(:tenant_id)"),
+                {"tenant_id": str(tenant_id)},
+            )
+            await insert_document(first, first_id)
+            second_task = asyncio.create_task(insert_document(second, second_id))
+            await asyncio.sleep(0.1)
+            assert not second_task.done()
+            await first_tx.commit()
+            with pytest.raises(IntegrityError):
+                await second_task
+            await second_tx.rollback()
+    finally:
+        if second_task and not second_task.done():
+            second_task.cancel()
+            await asyncio.gather(second_task, return_exceptions=True)
+        async with engine.begin() as cleanup:
+            await cleanup.execute(
+                text("SELECT set_current_tenant(:tenant_id)"),
+                {"tenant_id": str(tenant_id)},
+            )
+            await cleanup.execute(
+                text("DELETE FROM documents WHERE id IN (:first_id, :second_id)"),
+                {"first_id": str(first_id), "second_id": str(second_id)},
+            )
+
+
 async def test_document_upload_creates_explicit_next_version(
     client,
     db_session,

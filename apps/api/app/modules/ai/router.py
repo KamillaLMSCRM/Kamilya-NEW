@@ -8,7 +8,7 @@ from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect
 from fastapi.security import HTTPAuthorizationCredentials
-from sqlalchemy import select, update
+from sqlalchemy import or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import (
@@ -164,6 +164,29 @@ def _admission_http_error(exc: AIJobAdmissionLimitReachedError) -> HTTPException
     )
 
 
+async def _existing_courses_for_source_documents(
+    db: AsyncSession,
+    tenant_id: UUID,
+    document_ids: list[UUID],
+) -> list[dict[str, str]]:
+    """Return only the current tenant's courses that already cite a source."""
+    document_values = [str(document_id) for document_id in document_ids]
+    source_matches = [Course.source_document_ids.contains([document_id]) for document_id in document_values]
+    statement = (
+        select(Course.id, Course.title, Course.status)
+        .where(
+            Course.tenant_id == tenant_id,
+            or_(Course.source_instruction_id.in_(document_ids), *source_matches),
+        )
+        .order_by(Course.created_at.desc())
+    )
+    rows = (await db.execute(statement)).all()
+    return [
+        {"id": str(course_id), "title": title, "status": status}
+        for course_id, title, status in rows
+    ]
+
+
 async def _job_response(
     db: AsyncSession,
     job: AIJob,
@@ -221,15 +244,34 @@ async def generate_course(
                 "analysis": analysis_payload,
             },
         )
+    # Reuse acknowledgement applies only when creating another course. An
+    # explicit course_id is the existing draft-regeneration contract and must
+    # continue to update that draft even when it cites the same sources.
+    if req.course_id is None and not req.reuse_reason:
+        existing_courses = await _existing_courses_for_source_documents(
+            db, user.tenant_id, req.documents
+        )
+        if existing_courses:
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "code": "source_documents_already_used",
+                    "message": "Selected source documents are already linked to existing courses",
+                    "existing_courses": existing_courses,
+                },
+            )
     await check_ai_generation_quota(db, user.id, user.tenant_id)
 
     settings = get_settings()
+    # A reuse acknowledgement always starts a distinct draft; it must never
+    # mutate the course that caused the reuse warning.
+    target_course_id = None if req.reuse_reason else req.course_id
     try:
         job, queue_metadata = await submit_ai_job(
             db,
             tenant_id=user.tenant_id,
             user_id=user.id,
-            course_id=req.course_id,
+            course_id=target_course_id,
             params={
                 "documents": [str(document_id) for document_id in req.documents],
                 "target_audience": req.target_audience,
@@ -238,6 +280,7 @@ async def generate_course(
                 "source_strategy": req.source_strategy,
                 "combination_goal": req.combination_goal.strip(),
                 "source_analysis": analysis_payload,
+                "reuse_reason": req.reuse_reason,
             },
             task_name="generate_course",
             task_kwargs=lambda job: {
@@ -246,18 +289,19 @@ async def generate_course(
                 "target_audience": req.target_audience,
                 "num_modules": req.num_modules,
                 "language": req.language,
-                "course_id": str(req.course_id) if req.course_id else None,
+                "course_id": str(target_course_id) if target_course_id else None,
                 "tenant_id": str(user.tenant_id) if user.tenant_id else None,
                 "user_id": str(user.id),
                 "source_strategy": req.source_strategy,
                 "combination_goal": req.combination_goal.strip(),
                 "source_analysis": analysis_payload,
+                "reuse_reason": req.reuse_reason,
             },
             active_limit=settings.AI_MAX_ACTIVE_JOBS_PER_TENANT,
             worker_concurrency=settings.AI_WORKER_CONCURRENCY,
             historical_estimate_seconds=settings.AI_ESTIMATED_JOB_SECONDS,
             generation=True,
-            reserve_course_generation=req.course_id is None,
+            reserve_course_generation=target_course_id is None,
         )
     except AIJobAdmissionLimitReachedError as exc:
         raise _admission_http_error(exc) from exc

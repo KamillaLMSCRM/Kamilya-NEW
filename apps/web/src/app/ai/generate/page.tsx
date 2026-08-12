@@ -34,6 +34,11 @@ import {
 import { ReviewBadge, CoursePreviewTree } from './components/CoursePreview';
 import { GenerationProgressPanel } from '@/features/ai-generation/GenerationProgressPanel';
 import { useGenerationWorkflow } from '@/features/ai-generation/useGenerationWorkflow';
+import {
+  SourceReuseDialog,
+  type ReusedSourceCourse,
+  type ReuseReason,
+} from '@/features/ai-generation/SourceReuseDialog';
 
 interface Document {
   id: string;
@@ -124,6 +129,12 @@ export default function AIGeneratePage() {
   const [combinationGoal, setCombinationGoal] = useState('');
   const [admissionError, setAdmissionError] = useState(false);
   const [admissionRetryAfter, setAdmissionRetryAfter] = useState<number | null>(null);
+  const [generationSubmitting, setGenerationSubmitting] = useState(false);
+  const [reuseDialog, setReuseDialog] = useState<{
+    open: boolean;
+    courses: ReusedSourceCourse[];
+    reason: ReuseReason | null;
+  }>({ open: false, courses: [], reason: null });
   const fileRef = useRef<HTMLInputElement>(null);
 
   // Result-step state: preview of the generated course + approval.
@@ -332,10 +343,11 @@ export default function AIGeneratePage() {
     setCombinationGoal('');
   };
 
-  const handleGenerate = async () => {
-    if (!canGenerate) return;
+  const handleGenerate = async (reuseReason?: ReuseReason) => {
+    if (!canGenerate || generationSubmitting) return;
     setAdmissionError(false);
     setAdmissionRetryAfter(null);
+    setGenerationSubmitting(true);
     try {
       const res = await api.post('/v1/ai/generate-course', {
         documents: selectedDocIds,
@@ -344,7 +356,9 @@ export default function AIGeneratePage() {
         language,
         source_strategy: sourceStrategy,
         combination_goal: sourceStrategy === 'intentional_combination' ? combinationGoal.trim() : '',
+        ...(reuseReason ? { reuse_reason: reuseReason } : {}),
       });
+      setReuseDialog({ open: false, courses: [], reason: null });
       startJob(res.data);
     } catch (e: any) {
       console.error('Generation failed', e);
@@ -362,11 +376,17 @@ export default function AIGeneratePage() {
         });
         return;
       }
+      if (detail?.code === 'source_documents_already_used' && Array.isArray(detail.existing_courses)) {
+        setReuseDialog({ open: true, courses: detail.existing_courses, reason: null });
+        return;
+      }
       toast.error('Не удалось запустить генерацию', {
         description: typeof detail === 'string'
           ? detail
           : detail?.message || e?.response?.data?.message || 'Проверьте документы и повторите попытку.',
       });
+    } finally {
+      setGenerationSubmitting(false);
     }
   };
 
@@ -873,11 +893,11 @@ export default function AIGeneratePage() {
           </div>
 
           <button
-            onClick={handleGenerate}
-            disabled={!canGenerate}
+            onClick={() => void handleGenerate()}
+            disabled={!canGenerate || generationSubmitting}
             className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-medium text-white hover:bg-primary/90 transition-colors disabled:opacity-50"
           >
-            {t('ai.generate')} ({tp('common.counts.document', selectedDocIds.length)})
+            {generationSubmitting ? <><Loader2 className="mr-2 inline h-4 w-4 animate-spin" />Запуск генерации...</> : <>{t('ai.generate')} ({tp('common.counts.document', selectedDocIds.length)})</>}
           </button>
           {selectedDocIds.length > 0 && selectedNotReadyCount > 0 && (
             <div className="text-center text-xs text-warning">
@@ -1208,6 +1228,17 @@ export default function AIGeneratePage() {
             </button>
           </div>
         </div>
+      )}
+
+      {reuseDialog.open && (
+        <SourceReuseDialog
+          courses={reuseDialog.courses}
+          reason={reuseDialog.reason}
+          submitting={generationSubmitting}
+          onReasonChange={(reason) => setReuseDialog((dialog) => ({ ...dialog, reason }))}
+          onCancel={() => setReuseDialog({ open: false, courses: [], reason: null })}
+          onConfirm={(reason) => void handleGenerate(reason)}
+        />
       )}
 
       {/* Review confirmation dialog */}

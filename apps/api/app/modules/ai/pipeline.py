@@ -89,6 +89,7 @@ class GenerationState:
     source_strategy: str = "single_topic"
     source_combination_goal: str = ""
     source_analysis: dict = field(default_factory=dict)
+    reuse_reason: str | None = None
 
 
 async def _update_job_db(job_id: str, tenant_id: UUID | str | None = None, **kwargs):
@@ -128,7 +129,11 @@ async def _save_generation_to_db(
                 source_document_ids=state.source_document_ids,
                 source_strategy=state.source_strategy,
                 source_combination_goal=state.source_combination_goal or None,
-                source_analysis=state.source_analysis,
+                source_analysis=(
+                    {**state.source_analysis, "reuse_reason": state.reuse_reason}
+                    if state.reuse_reason
+                    else state.source_analysis
+                ),
             )
             session.add(course)
             await session.flush()
@@ -151,7 +156,11 @@ async def _save_generation_to_db(
             course.source_document_ids = state.source_document_ids
             course.source_strategy = state.source_strategy
             course.source_combination_goal = state.source_combination_goal or None
-            course.source_analysis = state.source_analysis
+            course.source_analysis = (
+                {**state.source_analysis, "reuse_reason": state.reuse_reason}
+                if state.reuse_reason
+                else state.source_analysis
+            )
             # Regeneration replaces the draft's previous learning structure.
             # Database cascades remove lessons/quizzes below each module.
             await session.execute(
@@ -337,6 +346,7 @@ async def run_generation_pipeline(
     source_strategy: str = "single_topic",
     combination_goal: str = "",
     source_analysis: dict | None = None,
+    reuse_reason: str | None = None,
 ) -> GenerationState:
     """
     Full generation pipeline:
@@ -353,6 +363,7 @@ async def run_generation_pipeline(
         source_strategy=source_strategy,
         source_combination_goal=combination_goal.strip(),
         source_analysis=dict(source_analysis or {}),
+        reuse_reason=reuse_reason,
     )
 
     try:

@@ -6,7 +6,8 @@ from fastapi.routing import APIRoute
 from sqlalchemy.dialects import postgresql
 
 from app.models.document import Document
-from app.modules.documents.router import MAX_FILE_SIZE, router as documents_router
+from app.modules.documents.router import MAX_FILE_SIZE
+from app.modules.documents.router import router as documents_router
 from app.modules.documents.schemas import DocumentResponse
 from app.modules.documents.service import CatalogFilters, list_catalog
 
@@ -28,14 +29,17 @@ def test_document_model_declares_catalog_constraints_and_indexes() -> None:
     } <= index_names
 
 
-def test_nullable_hash_has_no_unique_or_not_null_contract() -> None:
+def test_nullable_hash_has_active_tenant_unique_index_contract() -> None:
     hash_column = Document.__table__.c.content_sha256
 
     assert hash_column.nullable is True
-    assert not any(
-        constraint.name and "content_sha256" in constraint.name and "unique" in constraint.name
-        for constraint in Document.__table__.constraints
+    active_hash_unique_index = next(
+        index
+        for index in Document.__table__.indexes
+        if index.name == "uq_documents_active_tenant_content_sha256"
     )
+    assert active_hash_unique_index.unique is True
+    assert active_hash_unique_index.dialect_options["postgresql"]["where"] is not None
 
 
 def test_public_document_dto_and_upload_route_are_fail_closed() -> None:

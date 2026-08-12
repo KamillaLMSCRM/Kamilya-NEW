@@ -85,6 +85,41 @@ async def test_generation_updates_existing_course_without_duplicate_insert(monke
 
 
 @pytest.mark.asyncio
+async def test_new_course_persists_reuse_reason_in_source_provenance(monkeypatch):
+    from app.modules.ai import pipeline
+
+    tenant_id = uuid4()
+    placeholder = Course(
+        id=uuid4(),
+        tenant_id=tenant_id,
+        title="Unused",
+        description="",
+        status="draft",
+        created_by=uuid4(),
+    )
+    session = FakeSession(placeholder)
+    monkeypatch.setattr(pipeline, "async_session_factory", lambda: session)
+
+    state = GenerationState(
+        job_id="job-reuse",
+        structure=CourseStructure(title="Different audience course"),
+        content=CourseContent(title="Different audience course"),
+        source_analysis={"status": "compatible"},
+        reuse_reason="different_audience",
+    )
+
+    await _save_generation_to_db(state, tenant_id, placeholder.created_by)
+
+    created = next(value for value in session.added if isinstance(value, Course))
+    assert created.source_analysis == {
+        "status": "compatible",
+        "reuse_reason": "different_audience",
+    }
+    assert created.status == "draft"
+    assert created.id != placeholder.id
+
+
+@pytest.mark.asyncio
 async def test_generated_single_answer_questions_are_saved_as_mcq(monkeypatch):
     from app.modules.ai import pipeline
 
