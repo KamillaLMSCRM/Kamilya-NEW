@@ -1,14 +1,17 @@
 from pathlib import Path
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
 import pytest
+from fastapi import HTTPException
 
+from app.models.users import User
 from app.modules.candidate_assessments.models import (
     AssessmentCandidate,
     CandidateAssessmentAttempt,
     CandidateAssessmentCampaign,
 )
+from app.modules.candidate_assessments.router import create_campaign as create_campaign_route
 from app.modules.candidate_assessments.schemas import CampaignCreate, CandidateCreate
 from app.modules.candidate_assessments.service import (
     assessment_from_release,
@@ -62,6 +65,24 @@ def test_public_snapshot_never_discloses_correctness_and_grades_server_side() ->
     assert result["score_percent"] == 100
     assert result["passed"] is True
     assert len(result["answers_sha256"]) == 64
+
+
+def test_legacy_published_release_without_quiz_review_status_remains_usable() -> None:
+    release = _release()
+    release["modules"][0]["lessons"][0]["quizzes"][0].pop("review_status")
+
+    snapshot = assessment_from_release(release)
+
+    assert snapshot["quizzes"][0]["title"] == "Test"
+    assert len(snapshot["quizzes"][0]["questions"]) == 1
+
+
+def test_release_with_explicitly_unapproved_quiz_is_rejected() -> None:
+    release = _release()
+    release["modules"][0]["lessons"][0]["quizzes"][0]["review_status"] = "needs_review"
+
+    with pytest.raises(ValueError, match="no approved assessment questions"):
+        assessment_from_release(release)
 
 
 def test_grading_requires_exactly_one_complete_question_set() -> None:
@@ -185,6 +206,34 @@ async def test_cross_tenant_release_is_not_disclosed_when_creating_campaign() ->
     statement = str(db.scalar.await_args.args[0])
     assert "content_releases.id" in statement
     assert "content_releases.tenant_id" in statement
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("message", "expected_status"),
+    [
+        ("Content release not found", 404),
+        ("Release has no approved assessment questions", 422),
+    ],
+)
+async def test_campaign_route_distinguishes_missing_release_from_unusable_release(
+    message: str, expected_status: int
+) -> None:
+    payload = CampaignCreate(
+        content_release_id=uuid4(),
+        title="Private assessment",
+        expires_at="2030-01-01T00:00:00Z",
+    )
+    user = User(id=uuid4(), tenant_id=uuid4(), role="methodologist", email="methodologist@example.test")
+    with patch(
+        "app.modules.candidate_assessments.router.service.create_campaign",
+        AsyncMock(side_effect=ValueError(message)),
+    ):
+        with pytest.raises(HTTPException) as exc_info:
+            await create_campaign_route(payload, AsyncMock(), user)
+
+    assert exc_info.value.status_code == expected_status
+    assert exc_info.value.detail == message
 
 
 def test_results_csv_neutralizes_spreadsheet_formulas() -> None:

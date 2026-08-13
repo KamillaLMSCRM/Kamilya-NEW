@@ -8,6 +8,17 @@ type Campaign = { id: string; title: string; status: string; expires_at: string 
 type Course = { id: string; title: string; status: string; current_release_id: string | null };
 type IssuedAccess = { access_url: string; temporary_pin: string };
 
+function campaignCreationError(error: unknown) {
+  const message = (error as { response?: { data?: { message?: string } } })?.response?.data?.message;
+  if (message === 'Release has no approved assessment questions') {
+    return 'В опубликованной версии курса нет одобренных вопросов. Проверьте тесты и опубликуйте новую версию курса.';
+  }
+  if (message === 'Content release not found') {
+    return 'Опубликованная версия курса не найдена. Обновите страницу и выберите курс снова.';
+  }
+  return 'Не удалось создать кампанию для выбранного курса.';
+}
+
 export default function CandidateAssessmentsPage() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
@@ -39,7 +50,7 @@ export default function CandidateAssessmentsPage() {
         attempt_limit: 1, retention_days: 180,
       });
       setReleaseId(''); setTitle(''); setFeedback('Кампания создана. Запустите её перед приглашением кандидата.'); await load();
-    } catch { setError('Не удалось создать кампанию для выбранного курса.'); }
+    } catch (requestError) { setError(campaignCreationError(requestError)); }
   }
 
   async function invite(campaignId: string) {

@@ -27,4 +27,19 @@ describe('candidate assessments manager page', () => {
     }));
     expect(await screen.findByText(/PIN: 123456/)).toBeInTheDocument();
   });
+
+  it('explains when the selected published release has no approved questions', async () => {
+    apiMock.post.mockRejectedValueOnce({
+      response: { data: { message: 'Release has no approved assessment questions' } },
+    });
+    render(<CandidateAssessmentsPage />);
+    await screen.findByRole('option', { name: 'Кассовая дисциплина' });
+    fireEvent.change(screen.getByLabelText('Название кампании'), { target: { value: 'Проверка кассира' } });
+    fireEvent.change(screen.getByLabelText('Опубликованный курс'), { target: { value: 'r1' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Создать' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'В опубликованной версии курса нет одобренных вопросов. Проверьте тесты и опубликуйте новую версию курса.',
+    );
+  });
 });

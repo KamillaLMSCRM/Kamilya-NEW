@@ -33,11 +33,18 @@ def token_hash(token: str) -> str:
 
 
 def assessment_from_release(snapshot: dict[str, Any]) -> dict[str, Any]:
+    """Build an assessment from an immutable published course release.
+
+    Releases created before quiz review state was introduced do not contain
+    ``review_status``. Those releases were already accepted by the publish
+    workflow, so a missing field is treated as approved. An explicit current
+    value such as ``needs_review`` remains excluded.
+    """
     quizzes = []
     for module in snapshot.get("modules", []):
         for lesson in module.get("lessons", []):
             for quiz in lesson.get("quizzes", []):
-                if quiz.get("review_status") != "approved":
+                if quiz.get("review_status", "approved") != "approved":
                     continue
                 quizzes.append(
                     {

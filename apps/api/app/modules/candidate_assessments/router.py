@@ -68,7 +68,8 @@ async def create_campaign(
     try:
         return _campaign_payload(await service.create_campaign(db, user.tenant_id, user.id, payload))
     except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        status_code = 404 if str(exc) == "Content release not found" else 422
+        raise HTTPException(status_code=status_code, detail=str(exc)) from exc
 
 
 @router.patch("/{campaign_id}")
