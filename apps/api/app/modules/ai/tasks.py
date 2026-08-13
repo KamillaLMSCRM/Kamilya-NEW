@@ -1,4 +1,5 @@
 """Celery tasks for AI course generation."""
+
 from __future__ import annotations
 
 import asyncio
@@ -32,6 +33,7 @@ def _run_async[T](awaitable: Awaitable[T]) -> T:
         finally:
             asyncio.set_event_loop(None)
             loop.close()
+
 
 try:
     from app.core.celery_app import celery_app
@@ -110,7 +112,8 @@ try:
             }
 
         except Exception as e:
-            logger.error(f"Generation task failed for job {job_id}: {e}")
+            error_message = str(e)
+            logger.error(f"Generation task failed for job {job_id}: {error_message}")
             # The pipeline may already have called providers before an error.
             # Without durable stage artifacts, replaying it can duplicate cost
             # or drafts, so leave it terminal for explicit user recovery.
@@ -119,10 +122,10 @@ try:
 
             async def fail_claimed() -> bool:
                 async with async_session_factory() as session:
-                    return await fail_claimed_generation_execution(session, job_id, str(e), tenant_id)
+                    return await fail_claimed_generation_execution(session, job_id, error_message, tenant_id)
 
             _run_async(fail_claimed())
-            return {"job_id": job_id, "status": "failed", "message": str(e)}
+            return {"job_id": job_id, "status": "failed", "message": error_message}
 
     @celery_app.task(bind=True, name="ai.regenerate_module", max_retries=2)
     def regenerate_module_task(
@@ -192,9 +195,7 @@ try:
         logger.info(f"Ingesting document: {file_path}")
 
         ingestion = DocumentIngestion()
-        result = _run_async(
-            ingestion.ingest_file(file_path, doc_id, tenant_id=tenant_id)
-        )
+        result = _run_async(ingestion.ingest_file(file_path, doc_id, tenant_id=tenant_id))
 
         logger.info(f"Document ingested: {result['doc_id']} ({result['chunks']} chunks)")
         return result

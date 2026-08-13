@@ -1,7 +1,7 @@
 """Enrollments — schemas"""
 
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -9,6 +9,19 @@ from pydantic import BaseModel, Field
 
 class EnrollmentCreate(BaseModel):
     user_ids: list[UUID]
+    delivery_mode: Literal["email", "personal_link"] = "email"
+    link_expires_at: datetime | None = None
+    completion_window_minutes: int | None = Field(default=None, ge=1, le=1440)
+    due_at: datetime | None = None
+
+
+class PersonalLinkEnrollmentCreate(BaseModel):
+    """One learner, one assignment, one revealed protected link."""
+
+    user_id: UUID
+    link_expires_at: datetime | None = None
+    completion_window_minutes: int | None = Field(default=None, ge=1, le=1440)
+    due_at: datetime | None = None
 
 
 class EnrollmentResponse(BaseModel):
@@ -52,9 +65,49 @@ class EnrollmentNotificationResponse(BaseModel):
 
 class AssignmentAccessIssueResponse(BaseModel):
     enrollment_id: UUID
+    user_id: UUID
     access_url: str
     temporary_pin: str
     expires_at: datetime
+    delivery_mode: str = "personal_link"
+    completion_window_minutes: int | None = None
+    completion_window_started_at: datetime | None = None
+    completion_window_expires_at: datetime | None = None
+    due_at: datetime | None = None
+
+
+class EnrollmentAccessPolicyRequest(BaseModel):
+    delivery_mode: Literal["email", "personal_link"] = "personal_link"
+    link_expires_at: datetime | None = None
+    completion_window_minutes: int | None = Field(default=None, ge=1, le=1440)
+    due_at: datetime | None = None
+
+
+class EnrollmentAccessPolicyExtendRequest(BaseModel):
+    link_expires_at: datetime | None = None
+    completion_window_minutes: int | None = Field(default=None, ge=1, le=1440)
+    due_at: datetime | None = None
+    reason: str = Field(min_length=1, max_length=500)
+
+
+class EnrollmentAccessPolicyRevokeRequest(BaseModel):
+    reason: str = Field(min_length=1, max_length=500)
+
+
+class EnrollmentAccessPolicyResponse(BaseModel):
+    enrollment_id: UUID
+    delivery_mode: str
+    link_expires_at: datetime | None = None
+    completion_window_minutes: int | None = None
+    completion_window_started_at: datetime | None = None
+    completion_window_expires_at: datetime | None = None
+    due_at: datetime | None = None
+    state: str
+
+
+class AssignmentAccessWindowResponse(BaseModel):
+    server_now: datetime
+    access_policy: EnrollmentAccessPolicyResponse
 
 
 class AssignmentAccessExchangeRequest(BaseModel):
@@ -65,3 +118,6 @@ class AssignmentAccessExchangeResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     user: dict[str, Any]
+    assigned_course_id: UUID
+    enrollment_id: UUID
+    access_policy: EnrollmentAccessPolicyResponse

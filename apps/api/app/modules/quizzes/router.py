@@ -61,6 +61,27 @@ async def _require_quiz_access(db: AsyncSession, quiz_id: UUID, user: User) -> Q
             raise HTTPException(status_code=404, detail="Quiz not found")
         return quiz
     await require_lesson_access(db, quiz.lesson_id, user)
+    from app.modules.enrollments.access_service import (
+        AssignmentWindowExpiredError,
+        assignment_window_error,
+        require_active_enrollment_window,
+    )
+    from app.modules.lessons.models import Lesson, Module
+
+    course_id = await db.scalar(
+        select(Module.course_id).join(Lesson, Lesson.module_id == Module.id).where(Lesson.id == quiz.lesson_id)
+    )
+    if course_id is not None:
+        try:
+            await require_active_enrollment_window(
+                db,
+                user_id=user.id,
+                tenant_id=user.tenant_id,
+                course_id=course_id,
+                enrollment_id=getattr(user, "assignment_access_enrollment_id", None),
+            )
+        except AssignmentWindowExpiredError as exc:
+            raise assignment_window_error(exc) from exc
     if quiz.review_status == "needs_review" and user.role not in AUTHORING_ROLES:
         raise HTTPException(status_code=409, detail="Quiz is awaiting methodologist review")
     return quiz

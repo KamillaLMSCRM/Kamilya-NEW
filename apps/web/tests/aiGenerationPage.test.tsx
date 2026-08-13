@@ -36,4 +36,34 @@ describe('/ai/generate job workflow parity', () => {
     expect(localStorage.getItem('ai_active_job_id')).toBeNull();
     expect(screen.getByText(/Перетащите документы/)).toBeInTheDocument();
   });
+
+  it('shows the existing document instead of a generic upload failure for an exact duplicate', async () => {
+    localStorage.clear();
+    apiMock.post.mockRejectedValueOnce({
+      response: {
+        data: {
+          detail: {
+            code: 'duplicate_document',
+            existing: {
+              id: 'document-1',
+              title: 'Правила ИБ',
+              filename: 'rules.pdf',
+              version: 2,
+            },
+          },
+        },
+      },
+    });
+
+    const { container } = render(<AIGeneratePage />);
+    await screen.findByText(/Перетащите документы/);
+    const input = container.querySelector('input[type="file"]');
+    expect(input).not.toBeNull();
+    fireEvent.change(input!, {
+      target: { files: [new File(['same file'], 'renamed-rules.pdf', { type: 'application/pdf' })] },
+    });
+
+    expect(await screen.findByText('Этот файл уже есть в библиотеке: «Правила ИБ», версия 2.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Открыть существующий документ' })).toBeInTheDocument();
+  });
 });

@@ -30,6 +30,7 @@ from app.modules.courses.schemas import (
     CourseReviewRequest,
     CourseUpdate,
 )
+from app.modules.enrollments.schemas import AssignmentAccessWindowResponse
 
 router = APIRouter(
     prefix="/courses",
@@ -119,6 +120,24 @@ async def create_course(
     await db.commit()
     course.reviewer = None
     return course
+
+
+@router.get("/{course_id}/access-window", response_model=AssignmentAccessWindowResponse | None)
+async def get_course_access_window(
+    course_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Return only timer state for the exact enrollment bound to a link JWT."""
+    from app.modules.enrollments.access_service import get_assignment_access_window
+
+    return await get_assignment_access_window(
+        db,
+        user_id=user.id,
+        tenant_id=user.tenant_id,
+        course_id=course_id,
+        enrollment_id=getattr(user, "assignment_access_enrollment_id", None),
+    )
 
 
 @router.get("/{course_id}", response_model=CourseResponse)
@@ -591,10 +610,25 @@ async def _complete_course_for_user(db: AsyncSession, course_id: UUID, user: Use
     from app.modules.audit.service import log_action
     from app.modules.certificates.service import issue_certificate
     from app.modules.courses.release_models import ContentRelease
+    from app.modules.enrollments.access_service import (
+        AssignmentWindowExpiredError,
+        assignment_window_error,
+        require_active_enrollment_window,
+    )
     from app.modules.enrollments.context import current_enrollment
     from app.modules.lessons.models import Lesson, Module
     from app.modules.quizzes.models import Question, Quiz, QuizAttempt
 
+    try:
+        await require_active_enrollment_window(
+            db,
+            user_id=user.id,
+            tenant_id=user.tenant_id,
+            course_id=course_id,
+            enrollment_id=getattr(user, "assignment_access_enrollment_id", None),
+        )
+    except AssignmentWindowExpiredError as exc:
+        raise assignment_window_error(exc) from exc
     enrollment = await current_enrollment(db, tenant_id=user.tenant_id, user_id=user.id, course_id=course_id)
 
     course_result = await db.execute(select(Course).where(Course.id == course_id, Course.tenant_id == user.tenant_id))

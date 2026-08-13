@@ -10,6 +10,7 @@ import {
   Badge,
   Table,
   SearchInput,
+  Input,
 } from '@/components/ui';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { toast } from '@/components/ui/Toast';
@@ -57,7 +58,7 @@ interface AccessLink {
 interface EnrollmentAccess {
   enrollment_id: string;
   user_id: string;
-  access_kind: 'course_access' | 'account_activation' | 'access_without_email';
+  access_kind: 'course_access' | 'account_activation' | 'access_without_email' | 'personal_link';
   state: 'available' | 'needs_activation' | 'blocked';
   access_url: string | null;
   expires_at?: string | null;
@@ -68,7 +69,9 @@ interface NoEmailAccessIssue {
   enrollment_id: string;
   access_url: string;
   temporary_pin: string;
-  expires_at: string;
+  expires_at?: string;
+  link_expires_at?: string;
+  completion_window_minutes?: number | null;
 }
 
 interface VisibleNoEmailAccess extends NoEmailAccessIssue {
@@ -98,6 +101,7 @@ interface RecurringOccurrence {
 // UI-фильтры по статусу (frontend-side, потому что /courses/{id}/enrollments
 // возвращает все записи разом — фильтрация дешевле клиентом).
 type StatusFilter = 'all' | 'enrolled' | 'in_progress' | 'completed';
+type DeliveryMode = 'email' | 'personal_link';
 
 // ── helpers ────────────────────────────────────────────────
 
@@ -162,6 +166,10 @@ export default function EnrollmentsPage() {
   const [userSearch, setUserSearch] = useState('');
   const [courseSearch, setCourseSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [deliveryMode, setDeliveryMode] = useState<DeliveryMode>('email');
+  const [completionWindowMinutes, setCompletionWindowMinutes] = useState<number | null>(null);
+  const [linkValidityDays, setLinkValidityDays] = useState(7);
+  const [dueAt, setDueAt] = useState('');
 
   const fetchData = useCallback(async () => {
     if (!token || !canManageAssignments) return;
@@ -255,11 +263,21 @@ export default function EnrollmentsPage() {
     const selected = users.filter((user) => selectedUsers.has(user.id));
     const course = courses.find((item) => item.id === selectedCourse);
     const withoutAccess = selected.filter((user) => user.has_login_access === false);
+    const personalLink = deliveryMode === 'personal_link';
+    if (personalLink && selectedUsers.size !== 1) {
+      toast.info('Персональный доступ создаётся по одному сотруднику', {
+        description: 'Выберите одного человека, чтобы одноразовый PIN не потерялся и не попал другому адресату.',
+      });
+      return;
+    }
+    const dueAtIso = personalLink && dueAt ? new Date(dueAt).toISOString() : null;
     const ok = await confirm({
       title: 'Назначить обучение?',
       message: [
         `${course?.title || 'Выбранный курс'} будет назначен. Выбрано: ${tp('common.counts.learner', selected.length)}.`,
-        withoutAccess.length > 0
+        personalLink
+          ? 'Для каждого сотрудника будет создана персональная ссылка и PIN.'
+          : withoutAccess.length > 0
           ? `Ссылки активации будут подготовлены: ${tp('common.counts.learner', withoutAccess.length)}.`
           : '',
       ].filter(Boolean).join(' '),
@@ -269,13 +287,49 @@ export default function EnrollmentsPage() {
     if (!ok) return;
     setEnrolling(true);
     try {
+      if (personalLink) {
+        const selectedUserId = Array.from(selectedUsers)[0];
+        const linkExpiresAt = new Date(Date.now() + linkValidityDays * 24 * 60 * 60 * 1000).toISOString();
+        const response = await fetch(`${API_URL}/v1/courses/${selectedCourse}/personal-link-enrollment`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            user_id: selectedUserId,
+            link_expires_at: linkExpiresAt,
+            completion_window_minutes: completionWindowMinutes,
+            due_at: dueAtIso,
+          }),
+        });
+        if (!response.ok) {
+          const error = await response.json().catch(() => ({}));
+          throw new Error(error?.detail || 'Не удалось создать назначение и персональный доступ');
+        }
+        const credential = await response.json() as NoEmailAccessIssue;
+        const learner = usersById.get(selectedUserId);
+        setIssuedNoEmailAccess({
+          ...credential,
+          learner_name: learner ? `${learner.first_name} ${learner.last_name}`.trim() : selectedUserId,
+        });
+        toast.success('Курс назначен, персональная ссылка и PIN готовы');
+        setSelectedUsers(new Set());
+        await fetchEnrollments(selectedCourse);
+        return;
+      }
       const res = await fetch(`${API_URL}/v1/courses/${selectedCourse}/enrollments`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ user_ids: Array.from(selectedUsers) }),
+        body: JSON.stringify({
+          user_ids: Array.from(selectedUsers),
+          delivery_mode: deliveryMode,
+          completion_window_minutes: personalLink ? completionWindowMinutes : null,
+          due_at: dueAtIso,
+        }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -288,7 +342,7 @@ export default function EnrollmentsPage() {
         toast.info('Новых назначений нет: выбранные обучающиеся уже назначены или недоступны');
       }
 
-      if (withoutAccess.length > 0) {
+      if (!personalLink && withoutAccess.length > 0) {
         toast.info('Назначение сохранено: настройте доступ у сотрудника в списке назначений.');
       }
       setSelectedUsers(new Set());
@@ -390,7 +444,7 @@ export default function EnrollmentsPage() {
       return;
     }
     const access = await response.json() as EnrollmentAccess;
-    if (access.access_kind === 'access_without_email') {
+    if (access.access_kind === 'access_without_email' || access.access_kind === 'personal_link') {
       if (access.state === 'available') {
         const approved = await confirm({
           title: 'Перевыпустить доступ?',
@@ -400,8 +454,10 @@ export default function EnrollmentsPage() {
         });
         if (!approved) return;
       }
-      const issued = await fetch(`${API_URL}/v1/courses/enrollments/${enrollment.id}/access-without-email`, {
-        method: 'POST', headers: { Authorization: `Bearer ${token}` },
+      const issued = await fetch(`${API_URL}/v1/courses/enrollments/${enrollment.id}/access-link`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ delivery_mode: 'personal_link' }),
       });
       if (!issued.ok) {
         toast.error('Не удалось подготовить доступ без email');
@@ -410,19 +466,13 @@ export default function EnrollmentsPage() {
       const credential = await issued.json() as NoEmailAccessIssue;
       setAccessStates((current) => ({ ...current, [enrollment.id]: {
         enrollment_id: enrollment.id, user_id: enrollment.user_id,
-        access_kind: 'access_without_email', state: 'available', access_url: null,
+        access_kind: access.access_kind, state: 'available', access_url: null,
         expires_at: credential.expires_at, message: 'Защищённый доступ активен',
       } }));
       setIssuedNoEmailAccess({
         ...credential,
         learner_name: learner ? `${learner.first_name} ${learner.last_name}`.trim() : enrollment.user_id,
       });
-      try {
-        await navigator.clipboard.writeText(`${credential.access_url}\nPIN: ${credential.temporary_pin}`);
-        toast.success('Ссылка и временный PIN скопированы', { description: 'Передайте ссылку и PIN сотруднику раздельно.' });
-      } catch {
-        toast.info('Скопируйте ссылку и PIN из блока вверху страницы.');
-      }
       return;
     }
     if (access.access_url) {
@@ -532,8 +582,8 @@ export default function EnrollmentsPage() {
       <div>
         <h1 className="text-2xl font-bold">Назначения и доступ</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Назначайте опубликованные курсы сотрудникам. Если у сотрудника нет email, после назначения
-          выдайте ему персональную ссылку и шестизначный PIN через кнопку «Доступ без email».
+          Назначайте опубликованные курсы сотрудникам и явно выбирайте способ доступа: email либо
+          персональная ссылка и PIN для открытия на телефоне без обычного входа.
         </p>
         <p className="mt-1 text-sm text-muted-foreground">
           Тесты уроков становятся доступны вместе с курсом — назначать их отдельно не нужно.
@@ -570,14 +620,35 @@ export default function EnrollmentsPage() {
       {issuedNoEmailAccess && (
         <Card className="border-primary/30 bg-primary/5">
           <CardContent className="space-y-2 p-4">
-            <h2 className="font-semibold">Доступ сотрудника без email</h2>
+            <h2 className="font-semibold">Персональный доступ сотрудника</h2>
             <p className="text-sm text-muted-foreground">
               {issuedNoEmailAccess.learner_name}. PIN показывается только сейчас; передайте его отдельно от ссылки.
             </p>
             <p className="break-all text-sm">{issuedNoEmailAccess.access_url}</p>
             <p className="font-mono text-lg">PIN: {issuedNoEmailAccess.temporary_pin}</p>
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" variant="outline" size="sm" onClick={() => void copyAccessLink(issuedNoEmailAccess.access_url)}>
+                <Copy className="mr-2 h-4 w-4" aria-hidden="true" />
+                Копировать ссылку
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={async () => {
+                  await navigator.clipboard.writeText(issuedNoEmailAccess.temporary_pin);
+                  toast.success('PIN скопирован');
+                }}
+              >
+                <KeyRound className="mr-2 h-4 w-4" aria-hidden="true" />
+                Копировать PIN
+              </Button>
+            </div>
             <p className="text-xs text-muted-foreground">
-              Действует до {new Date(issuedNoEmailAccess.expires_at).toLocaleString()}.
+              Действует до {new Date(issuedNoEmailAccess.link_expires_at || issuedNoEmailAccess.expires_at || '').toLocaleString()}.
+              {issuedNoEmailAccess.completion_window_minutes
+                ? ` После первого входа на прохождение отводится ${issuedNoEmailAccess.completion_window_minutes} минут.`
+                : ''}
             </p>
           </CardContent>
         </Card>
@@ -772,6 +843,7 @@ export default function EnrollmentsPage() {
                 onClick={handleEnroll}
                 disabled={
                   !selectedCourse || selectedUsers.size === 0 || enrolling
+                  || (deliveryMode === 'personal_link' && selectedUsers.size !== 1)
                 }
               >
                 {enrolling
@@ -779,6 +851,76 @@ export default function EnrollmentsPage() {
                   : `Назначить (${selectedUsers.size})`}
               </Button>
             </div>
+            <fieldset className="space-y-3 rounded-md border border-border p-3">
+              <legend className="px-1 text-sm font-medium">Как сотрудник получит доступ</legend>
+              <label className="flex items-start gap-2 text-sm">
+                <input
+                  type="radio"
+                  name="delivery-mode"
+                  value="email"
+                  checked={deliveryMode === 'email'}
+                  onChange={() => setDeliveryMode('email')}
+                />
+                <span><b>Email</b><span className="block text-xs text-muted-foreground">Отправим приглашение или уведомление на кадровый email.</span></span>
+              </label>
+              <label className="flex items-start gap-2 text-sm">
+                <input
+                  type="radio"
+                  name="delivery-mode"
+                  value="personal_link"
+                  checked={deliveryMode === 'personal_link'}
+                  onChange={() => setDeliveryMode('personal_link')}
+                />
+                <span><b>Персональная ссылка и PIN</b><span className="block text-xs text-muted-foreground">Подходит для телефона и не требует обычного входа или наличия email.</span></span>
+              </label>
+              {deliveryMode === 'personal_link' && (
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <label className="text-sm">
+                    Время на прохождение после первого входа, минут
+                    <Input
+                      className="mt-1"
+                      type="number"
+                      aria-label="Время на прохождение после первого входа, минут"
+                      min={1}
+                      max={1440}
+                      value={completionWindowMinutes ?? ''}
+                      placeholder="Без ограничения"
+                      onChange={(event) => setCompletionWindowMinutes(event.target.value ? Number(event.target.value) : null)}
+                    />
+                    <span className="mt-1 block text-xs text-muted-foreground">Таймер запускается, когда сотрудник впервые открыл назначение.</span>
+                  </label>
+                  <label className="text-sm">
+                    Ссылка действительна, дней
+                    <Input
+                      className="mt-1"
+                      type="number"
+                      aria-label="Ссылка действительна, дней"
+                      min={1}
+                      max={31}
+                      value={linkValidityDays}
+                      onChange={(event) => setLinkValidityDays(Number(event.target.value))}
+                    />
+                    <span className="mt-1 block text-xs text-muted-foreground">Это срок входа по ссылке, а не время прохождения курса.</span>
+                  </label>
+                  <label className="text-sm">
+                    Завершить до (необязательно)
+                    <Input
+                      className="mt-1"
+                      type="datetime-local"
+                      aria-label="Завершить до"
+                      value={dueAt}
+                      onChange={(event) => setDueAt(event.target.value)}
+                    />
+                    <span className="mt-1 block text-xs text-muted-foreground">Абсолютный крайний срок действует вместе с таймером после первого входа.</span>
+                  </label>
+                </div>
+              )}
+              {deliveryMode === 'personal_link' && selectedUsers.size > 1 && (
+                <p className="text-sm text-warning" role="alert">
+                  Для персональной ссылки выберите одного сотрудника: PIN показывается только один раз.
+                </p>
+              )}
+            </fieldset>
             <p className="text-sm text-muted-foreground">
               {selectedCourse
                 ? `Доступно: ${availableUsers.length} из ${tp('common.counts.learnerTotal', users.length)}`

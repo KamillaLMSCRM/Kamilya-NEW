@@ -205,11 +205,17 @@ export default function CourseEditPage() {
     reordered[modIdx] = { ...reordered[modIdx], lessons };
     setModules(reordered);
     if (token) {
-      await fetch(`${API_URL}/v1/modules/${moduleId}/reorder`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify(lessons.map((l) => l.id)),
-      });
+      try {
+        const response = await fetch(`${API_URL}/v1/lessons/${moduleId}/reorder`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify(lessons.map((l) => l.id)),
+        });
+        if (!response.ok) throw new Error('Lesson reorder failed');
+      } catch {
+        setModules(modules);
+        toast.error('Не удалось изменить порядок уроков. Попробуйте ещё раз.');
+      }
     }
   };
 

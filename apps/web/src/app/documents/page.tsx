@@ -31,6 +31,7 @@ import { useT } from '@/i18n/useT';
 import { api } from '@/lib/api';
 import {
   documentDeleteError,
+  getDuplicateDocumentConflict,
   type DocumentCatalogItem,
   type DocumentCatalogResponse,
   type DocumentCategory,
@@ -174,11 +175,12 @@ export default function DocumentsPage() {
       toast.success(t('documents.uploadSuccess'));
       await fetchDocuments();
     } catch (error: any) {
-      const detail = error?.response?.data?.details ?? error?.response?.data?.detail;
-      if (detail?.code === 'duplicate_document' && detail.existing) {
-        setDuplicateConflict(detail.existing);
+      const duplicate = getDuplicateDocumentConflict(error);
+      if (duplicate) {
+        setDuplicateConflict(duplicate);
         return;
       }
+      const detail = error?.response?.data?.details ?? error?.response?.data?.detail;
       toast.error(t('documents.uploadFailed'), {
         description: typeof detail === 'string' ? detail : t('documents.uploadFailedHint'),
       });

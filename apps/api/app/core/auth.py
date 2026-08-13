@@ -5,7 +5,7 @@ from uuid import UUID, uuid4
 import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from sqlalchemy import select, text
+from sqlalchemy import or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
@@ -204,6 +204,7 @@ async def get_current_user(
     # every request to the still-active credential and enrollment so reissue,
     # expiry, unenrollment, or learner reassignment immediately invalidates an
     # already-exchanged bearer token.
+    assignment_access_enrollment_id: UUID | None = None
     if payload.get("auth_method") == "assignment_access":
         credential_id = payload.get("assignment_access_credential_id")
         enrollment_id = payload.get("assignment_access_enrollment_id")
@@ -216,6 +217,7 @@ async def get_current_user(
             user_uuid = UUID(user_id)
         except (TypeError, ValueError):
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid assignment access") from None
+        assignment_access_enrollment_id = enrollment_uuid
         from app.models.assignment_access import AssignmentAccessCredential
         from app.models.enrollment import Enrollment
 
@@ -228,7 +230,14 @@ async def get_current_user(
                 AssignmentAccessCredential.user_id == user_uuid,
                 AssignmentAccessCredential.enrollment_id == enrollment_uuid,
                 AssignmentAccessCredential.revoked_at.is_(None),
-                AssignmentAccessCredential.expires_at > datetime.now(UTC),
+                # ``expires_at`` protects only the initial public PIN
+                # exchange. New credentials record first_exchanged_at; the
+                # fallback keeps short-lived sessions issued before migration
+                # 0108 valid until their prior link expiry.
+                or_(
+                    AssignmentAccessCredential.first_exchanged_at.is_not(None),
+                    AssignmentAccessCredential.expires_at > datetime.now(UTC),
+                ),
                 Enrollment.tenant_id == tenant_uuid,
                 Enrollment.user_id == user_uuid,
                 Enrollment.status.in_(("enrolled", "in_progress")),
@@ -287,7 +296,9 @@ async def get_current_user(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Selected role is no longer assigned",
             )
-        return _ActiveRoleUser(user, active_role)
+        user = _ActiveRoleUser(user, active_role)
+    if assignment_access_enrollment_id is not None:
+        return _AssignmentAccessUser(user, assignment_access_enrollment_id)
     return user
 
 
@@ -331,6 +342,19 @@ class _ImpersonatedUser:
 
     def __repr__(self):
         return f"<ImpersonatedUser id={self._user.id} " f"as={self.role} in tenant={self.tenant_id}>"
+
+
+class _AssignmentAccessUser:
+    """A student view carrying the exact enrollment bound into the JWT."""
+
+    __slots__ = ("_user", "assignment_access_enrollment_id")
+
+    def __init__(self, user: User, enrollment_id: UUID):
+        self._user = user
+        self.assignment_access_enrollment_id = enrollment_id
+
+    def __getattr__(self, name):
+        return getattr(self._user, name)
 
 
 async def get_current_active_user(

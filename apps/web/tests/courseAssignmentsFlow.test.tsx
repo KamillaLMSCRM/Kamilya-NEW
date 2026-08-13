@@ -183,6 +183,67 @@ describe('contextual course assignment flow', () => {
     );
   });
 
+  it('lets the methodologist explicitly choose a personal link and completion window', async () => {
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (!init?.method && url.includes('/v1/courses?')) return Promise.resolve(jsonResponse([{ id: 'course-1', title: 'Охрана труда', status: 'published' }]));
+      if (!init?.method && url.includes('/v1/users?')) return Promise.resolve(jsonResponse({ users: [{ id: 'user-1', first_name: 'Алия', last_name: 'Садыкова', email: 'aliya@example.kz', role: 'student', has_login_access: true }] }));
+      if (!init?.method && url.endsWith('/v1/learning-cycles')) return Promise.resolve(jsonResponse([]));
+      if (!init?.method && url.endsWith('/v1/learning-cycles/occurrences')) return Promise.resolve(jsonResponse([]));
+      if (!init?.method && url.endsWith('/v1/courses/course-1/enrollments')) return Promise.resolve(jsonResponse([]));
+      if (init?.method === 'POST' && url.endsWith('/v1/courses/course-1/personal-link-enrollment')) return Promise.resolve(jsonResponse({
+        enrollment_id: 'enrollment-1', user_id: 'user-1', access_url: 'https://app.kml.kz/access/opaque', temporary_pin: '123456', expires_at: '2026-08-20T00:00:00Z', completion_window_minutes: 30,
+      }, 201));
+      throw new Error(`Unexpected request: ${url} ${init?.method || 'GET'}`);
+    });
+
+    render(<CourseAssignmentsPage />);
+    expect(await screen.findByRole('checkbox')).toBeChecked();
+    fireEvent.click(screen.getByRole('radio', { name: /Персональная ссылка и PIN/i }));
+    fireEvent.change(screen.getByLabelText('Время на прохождение после первого входа, минут'), { target: { value: '30' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Назначить (1)' }));
+
+    await waitFor(() => {
+      const assignmentCall = fetchMock.mock.calls.find(([input, init]) => (
+        String(input).endsWith('/v1/courses/course-1/personal-link-enrollment') && init?.method === 'POST'
+      ));
+      expect(assignmentCall).toBeDefined();
+      expect(JSON.parse(String(assignmentCall?.[1]?.body))).toEqual(expect.objectContaining({
+        user_id: 'user-1',
+        completion_window_minutes: 30,
+        due_at: null,
+      }));
+    });
+    expect(fetchMock).not.toHaveBeenCalledWith(
+      expect.stringContaining('/v1/courses/enrollments/enrollment-1/access-link'),
+      expect.anything(),
+    );
+    expect(await screen.findByText('PIN: 123456')).toBeInTheDocument();
+  });
+
+  it('requires personal-link credentials to be issued one learner at a time', async () => {
+    fetchMock.mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/v1/courses?')) return Promise.resolve(jsonResponse([{ id: 'course-1', title: 'Охрана труда', status: 'published' }]));
+      if (url.includes('/v1/users?')) return Promise.resolve(jsonResponse({ users: [
+        { id: 'user-1', first_name: 'Алия', last_name: 'Садыкова', email: null, role: 'student' },
+        { id: 'user-2', first_name: 'Бек', last_name: 'Иманов', email: null, role: 'student' },
+      ] }));
+      if (url.endsWith('/v1/learning-cycles')) return Promise.resolve(jsonResponse([]));
+      if (url.endsWith('/v1/learning-cycles/occurrences')) return Promise.resolve(jsonResponse([]));
+      if (url.endsWith('/v1/courses/course-1/enrollments')) return Promise.resolve(jsonResponse([]));
+      throw new Error(`Unexpected request: ${url}`);
+    });
+
+    render(<CourseAssignmentsPage />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Очистить' }));
+    fireEvent.click(await screen.findByRole('checkbox', { name: 'Бек Иманов' }));
+    fireEvent.click(screen.getByRole('radio', { name: /Персональная ссылка и PIN/i }));
+
+    expect(screen.getByRole('button', { name: 'Назначить (2)' })).toBeDisabled();
+    expect(screen.getByRole('alert')).toHaveTextContent('выберите одного сотрудника');
+  });
+
   it('retrieves access from the persistent assignment action after reload', async () => {
     fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);

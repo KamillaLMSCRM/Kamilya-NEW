@@ -8,6 +8,7 @@ import { api } from '@/lib/api';
 import {
   type DocumentCatalogResponse,
   type DocumentIndexStatus,
+  getDuplicateDocumentConflict,
 } from '@/lib/documentCatalog';
 import { toast } from '@/components/ui/Toast';
 import { resolveAsyncOperationState } from '@/components/ui/AsyncOperationStatus';
@@ -120,6 +121,10 @@ export default function AIGeneratePage() {
   const [uploadingCount, setUploadingCount] = useState(0);
   const [uploadingFiles, setUploadingFiles] = useState<string[]>([]);
   const [uploadError, setUploadError] = useState('');
+  const [duplicateDocument, setDuplicateDocument] = useState<{
+    title: string;
+    version: number;
+  } | null>(null);
   const [documentLoadError, setDocumentLoadError] = useState('');
   const [catalogHasMore, setCatalogHasMore] = useState(false);
   const [compatibility, setCompatibility] = useState<DocumentCompatibility | null>(null);
@@ -298,6 +303,7 @@ export default function AIGeneratePage() {
     setUploadingCount((count) => count + 1);
     setUploadingFiles((files) => [...files, file.name]);
     setUploadError('');
+    setDuplicateDocument(null);
     const formData = new FormData();
     formData.append('file', file);
     formData.append('title', file.name.replace(/\.[^/.]+$/, ''));
@@ -307,7 +313,11 @@ export default function AIGeneratePage() {
       });
       await fetchDocuments();
     } catch (e) {
-      console.error('Upload failed', e);
+      const duplicate = getDuplicateDocumentConflict(e);
+      if (duplicate) {
+        setDuplicateDocument({ title: duplicate.title, version: duplicate.version });
+        return;
+      }
       const message = 'Документ не загрузился. Проверьте формат файла и попробуйте ещё раз.';
       setUploadError(message);
       toast.error('Ошибка загрузки документа', { description: message });
@@ -672,6 +682,21 @@ export default function AIGeneratePage() {
           {uploadError && (
             <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
               {uploadError}
+            </div>
+          )}
+
+          {duplicateDocument && (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-warning/40 bg-warning/10 px-3 py-2 text-sm text-foreground">
+              <span>
+                Этот файл уже есть в библиотеке: «{duplicateDocument.title}», версия {duplicateDocument.version}.
+              </span>
+              <button
+                type="button"
+                onClick={() => router.push(`/documents?q=${encodeURIComponent(duplicateDocument.title)}`)}
+                className="shrink-0 rounded-lg border border-warning/50 bg-background px-3 py-1.5 font-medium hover:bg-muted"
+              >
+                Открыть существующий документ
+              </button>
             </div>
           )}
 

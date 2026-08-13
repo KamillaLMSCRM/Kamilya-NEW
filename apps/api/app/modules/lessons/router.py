@@ -1,31 +1,51 @@
 """Lessons module — API router"""
+
+from typing import List
 from uuid import UUID
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import List
 
 from app.core.auth import get_current_user, require_role, require_tenant_user
 from app.core.db import get_db
-from app.modules.lessons.schemas import (
-    ModuleCreate, ModuleUpdate, ModuleResponse,
-    LessonCreate, LessonUpdate, LessonResponse,
-    CourseStructureResponse, ModuleWithLessonsResponse,
-    ContentBlockCreate, ContentBlockResponse,
-)
-from app.modules.lessons.service import (
-    list_modules, create_module, update_module, delete_module,
-    list_lessons, create_lesson as create_lesson_service, update_lesson, delete_lesson,
-    reorder_items, get_course_structure,
-    list_content_blocks, create_content_block, update_content_block,
-    delete_content_block, reorder_content_blocks,
-)
-from app.modules.lessons.models import Module
 from app.models.courses import Course
 from app.modules.courses.access import (
     require_course_access,
     require_lesson_access,
     require_module_access,
+)
+from app.modules.lessons.models import Module
+from app.modules.lessons.schemas import (
+    ContentBlockCreate,
+    ContentBlockResponse,
+    CourseStructureResponse,
+    LessonCreate,
+    LessonResponse,
+    LessonUpdate,
+    ModuleCreate,
+    ModuleResponse,
+    ModuleUpdate,
+)
+from app.modules.lessons.service import (
+    create_content_block,
+    create_module,
+    delete_content_block,
+    delete_lesson,
+    delete_module,
+    get_course_structure,
+    list_content_blocks,
+    list_lessons,
+    list_modules,
+    reorder_content_blocks,
+    reorder_items,
+    reorder_lessons_in_module,
+    update_content_block,
+    update_lesson,
+    update_module,
+)
+from app.modules.lessons.service import (
+    create_lesson as create_lesson_service,
 )
 
 AUTHOR_ROLES = ("methodologist", "superadmin")
@@ -154,7 +174,17 @@ async def reorder_lessons(
     db: AsyncSession = Depends(get_db),
     user=Depends(require_role(*AUTHOR_ROLES)),
 ):
-    await reorder_items(db, "lesson", ids_order, user.tenant_id)
+    try:
+        await reorder_lessons_in_module(
+            db,
+            module_id=module_id,
+            ids_order=ids_order,
+            tenant_id=user.tenant_id,
+        )
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail="Module not found") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     return {"status": "ok"}
 
 
@@ -191,7 +221,9 @@ async def create_lesson_content_block(
 ):
     try:
         block = await create_content_block(
-            db, lesson_id, user.tenant_id,
+            db,
+            lesson_id,
+            user.tenant_id,
             block_type=data.block_type,
             content=data.content,
             order_index=data.order_index,
@@ -210,7 +242,9 @@ async def update_lesson_content_block(
     user=Depends(require_role(*AUTHOR_ROLES)),
 ):
     block = await update_content_block(
-        db, block_id, user.tenant_id,
+        db,
+        block_id,
+        user.tenant_id,
         content=data.content,
         order_index=data.order_index,
         metadata_=data.metadata,

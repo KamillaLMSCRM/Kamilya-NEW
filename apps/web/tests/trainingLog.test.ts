@@ -50,6 +50,17 @@ describe('training-log responsive presentation', () => {
     expect(TRAINING_LOG_COLUMN_CLASS.fullName).toContain('sticky left-0');
   });
 
+  it('shows the returned signed-scan workflow in both responsive presentations for eligible evidence', () => {
+    const source = fs.readFileSync(
+      path.join(process.cwd(), 'src/app/admin/training-log/page.tsx'),
+      'utf8',
+    );
+
+    expect(source).toContain('useSignedScanLedgers');
+    expect(source).toContain('canAttachSignedScan(row)');
+    expect(source.match(/signedScanControl\(row\.latest_evidence_event_id/g)).toHaveLength(2);
+  });
+
   it('uses one named width contract for table headers and cells', () => {
     const columns = [
       'fullName',

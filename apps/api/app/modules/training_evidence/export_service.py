@@ -167,7 +167,9 @@ async def _load_event_chain(
             item.training_procedure_id,
             item.procedure_type,
         ) != expected:
-            _incomplete(event_id, ["consistent_event_chain"], message="Evidence event chain contains inconsistent links.")
+            _incomplete(
+                event_id, ["consistent_event_chain"], message="Evidence event chain contains inconsistent links."
+            )
     return root, chain
 
 
@@ -201,7 +203,9 @@ async def _load_tenant_context(
         _incomplete(event_id, ["enrollment_content_release"])
 
     if root.content_release_id is not None and enrollment.content_release_id not in (None, root.content_release_id):
-        _incomplete(event_id, ["consistent_content_release"], message="Event and enrollment point to different releases.")
+        _incomplete(
+            event_id, ["consistent_content_release"], message="Event and enrollment point to different releases."
+        )
     release_id = root.content_release_id or enrollment.content_release_id
     if release_id is None:
         missing.append("content_release")
@@ -220,9 +224,7 @@ async def _load_tenant_context(
     if canonical_json_sha256(release.snapshot) != release.snapshot_sha256:
         _incomplete(event_id, ["valid_content_release_hash"], message="Published release evidence hash is invalid.")
 
-    course = await db.scalar(
-        select(Course).where(Course.id == release.course_id, Course.tenant_id == tenant_id)
-    )
+    course = await db.scalar(select(Course).where(Course.id == release.course_id, Course.tenant_id == tenant_id))
     if course is None:
         missing.append("course")
         _incomplete(event_id, missing)
@@ -275,14 +277,14 @@ async def _load_attempts(
         _incomplete(event_id, ["completed_quiz_attempt"])
 
     quiz_ids = {row.quiz_id for row in rows}
-    quizzes = {
-        quiz.id: quiz
-        for quiz in (
-            await db.scalars(
-                select(Quiz).where(Quiz.id.in_(quiz_ids), Quiz.tenant_id == tenant_id)
-            )
-        ).all()
-    } if quiz_ids else {}
+    quizzes = (
+        {
+            quiz.id: quiz
+            for quiz in (await db.scalars(select(Quiz).where(Quiz.id.in_(quiz_ids), Quiz.tenant_id == tenant_id))).all()
+        }
+        if quiz_ids
+        else {}
+    )
     attempts: list[AttemptEvidence] = []
     invalid: list[str] = []
     for row in rows:
@@ -368,6 +370,8 @@ async def _build_server_parts(
     db: AsyncSession,
     tenant_id: UUID,
     event_id: UUID,
+    *,
+    require_confirmation: bool = True,
 ) -> tuple[IndividualEvidenceInput, TrainingEvidenceEvent, list[TrainingEvidenceEvent]]:
     root, chain = await _load_event_chain(db, tenant_id, event_id)
     tenant, user, enrollment, release, course, position, department_name = await _load_tenant_context(
@@ -375,15 +379,17 @@ async def _build_server_parts(
     )
     if root.recorded_by_user_id is None:
         _incomplete(event_id, ["recorded_by_user"])
-    if root.procedure_type not in {"acknowledgement", "training", "knowledge_check", "internal_attestation", "admission_decision"}:
+    if root.procedure_type not in {
+        "acknowledgement",
+        "training",
+        "knowledge_check",
+        "internal_attestation",
+        "admission_decision",
+    }:
         _incomplete(event_id, ["procedure_type"])
 
     effective_event = next(
-        (
-            item
-            for item in reversed(chain)
-            if item.record_type in {"original", "correction"}
-        ),
+        (item for item in reversed(chain) if item.record_type in {"original", "correction"}),
         root,
     )
     procedure, commission, decision = _procedure_and_decision(effective_event, course, event_id)
@@ -413,14 +419,12 @@ async def _build_server_parts(
             )
         ).all()
     )
-    if not confirmations:
+    if require_confirmation and not confirmations:
         _incomplete(event_id, ["step_up_confirmation"])
-    latest_confirmation = confirmations[0]
+    latest_confirmation = confirmations[0] if confirmations else None
 
     related_events = [item for item in chain if item.id != root.id]
-    actor_ids = {
-        item.recorded_by_user_id for item in related_events if item.recorded_by_user_id is not None
-    }
+    actor_ids = {item.recorded_by_user_id for item in related_events if item.recorded_by_user_id is not None}
     actor_ids.add(root.recorded_by_user_id)
     holds = list(
         (
@@ -435,14 +439,16 @@ async def _build_server_parts(
         ).all()
     )
     actor_ids.update(item.acted_by_user_id for item in holds)
-    actors = {
-        actor.id: actor
-        for actor in (
-            await db.scalars(
-                select(User).where(User.tenant_id == tenant_id, User.id.in_(actor_ids))
-            )
-        ).all()
-    } if actor_ids else {}
+    actors = (
+        {
+            actor.id: actor
+            for actor in (
+                await db.scalars(select(User).where(User.tenant_id == tenant_id, User.id.in_(actor_ids)))
+            ).all()
+        }
+        if actor_ids
+        else {}
+    )
     if root.recorded_by_user_id not in actors:
         _incomplete(event_id, ["recorded_by_user"])
     if any(item.acted_by_user_id not in actors for item in holds):
@@ -456,7 +462,8 @@ async def _build_server_parts(
             reason=item.reason or "",
             actor=(
                 f"{actors[item.recorded_by_user_id].first_name} {actors[item.recorded_by_user_id].last_name}"
-                if item.recorded_by_user_id in actors else None
+                if item.recorded_by_user_id in actors
+                else None
             ),
             supersedes_sha256=root.payload_sha256,
             replacement_reference=str(item.id),
@@ -471,7 +478,8 @@ async def _build_server_parts(
             reason=item.reason,
             acted_by=(
                 f"{actors[item.acted_by_user_id].first_name} {actors[item.acted_by_user_id].last_name}"
-                if item.acted_by_user_id in actors else None
+                if item.acted_by_user_id in actors
+                else None
             ),
             occurred_at=item.occurred_at,
             payload_sha256=item.payload_sha256,
@@ -490,19 +498,21 @@ async def _build_server_parts(
         revoked=any(item.record_type == "revocation" for item in related_events),
         legal_hold_active=any(item.action == "placed" for item in latest_hold_by_event.values()),
     )
-    mapped_confirmation = ConfirmationEvidence(
-        confirmed=True,
-        method={
-            "email_otp": "otp",
-            "telegram": "other",
-            "sso": "other",
-            "password": "password",  # pragma: allowlist secret
-        }.get(latest_confirmation.reauth_method, "other"),
-        confirmed_at=latest_confirmation.confirmed_at,
-        statement=latest_confirmation.action_text,
-        actor=f"{user.first_name} {user.last_name}",
-        evidence_reference=str(latest_confirmation.id),
-    )
+    mapped_confirmation = None
+    if latest_confirmation is not None:
+        mapped_confirmation = ConfirmationEvidence(
+            confirmed=True,
+            method={
+                "email_otp": "otp",
+                "telegram": "other",
+                "sso": "other",
+                "password": "password",  # pragma: allowlist secret
+            }.get(latest_confirmation.reauth_method, "other"),
+            confirmed_at=latest_confirmation.confirmed_at,
+            statement=latest_confirmation.action_text,
+            actor=f"{user.first_name} {user.last_name}",
+            evidence_reference=str(latest_confirmation.id),
+        )
     individual = ServerIndividualEvidenceInput(
         tenant=TenantEvidence(id=str(tenant.id), name=tenant.name, slug=tenant.slug),
         employee=EmployeeEvidence(
@@ -541,18 +551,63 @@ async def _build_server_parts(
     return individual, root, chain
 
 
-async def build_individual_evidence_input(
-    db: AsyncSession, tenant_id: UUID, event_id: UUID
-) -> IndividualEvidenceInput:
+async def build_individual_evidence_input(db: AsyncSession, tenant_id: UUID, event_id: UUID) -> IndividualEvidenceInput:
     """Build an export input exclusively from tenant-scoped database state."""
 
     result, _, _ = await _build_server_parts(db, tenant_id, event_id)
     return result
 
 
-async def build_group_evidence_input(
-    db: AsyncSession, tenant_id: UUID, event_ids: list[UUID]
-) -> GroupEvidenceInput:
+async def build_learner_individual_evidence_input(
+    db: AsyncSession,
+    tenant_id: UUID,
+    user_id: UUID,
+    event_id: UUID,
+) -> IndividualEvidenceInput:
+    """Build a learner-owned result act without exposing audit-only data.
+
+    A learner can receive their individual proof of completion before a
+    separate email-OTP confirmation exists. This is a result document, not an
+    electronic signature or a complete methodologist audit package.
+    """
+
+    event = await db.scalar(
+        select(TrainingEvidenceEvent).where(
+            TrainingEvidenceEvent.id == event_id,
+            TrainingEvidenceEvent.tenant_id == tenant_id,
+            TrainingEvidenceEvent.user_id == user_id,
+        )
+    )
+    if event is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Evidence event not found")
+    if (
+        event.record_type != "original"
+        or event.procedure_type not in {"training", "knowledge_check"}
+        or event.enrollment_id is None
+    ):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Learner result document is unavailable")
+
+    complete, _, _ = await _build_server_parts(
+        db,
+        tenant_id,
+        event_id,
+        require_confirmation=False,
+    )
+    # Construct a base schema rather than returning the server-only subclass:
+    # this omits hashes, legal holds, corrections and every attempt answer.
+    return IndividualEvidenceInput(
+        tenant=complete.tenant,
+        employee=EmployeeEvidence(full_name=complete.employee.full_name),
+        procedure=complete.procedure,
+        course=(complete.course.model_copy(update={"release_sha256": None}) if complete.course is not None else None),
+        assignment=complete.assignment,
+        attempts=[item.model_copy(update={"answers": []}) for item in complete.attempts],
+        confirmation=None,
+        generated_at=complete.generated_at,
+    )
+
+
+async def build_group_evidence_input(db: AsyncSession, tenant_id: UUID, event_ids: list[UUID]) -> GroupEvidenceInput:
     if not event_ids:
         raise HTTPException(status_code=422, detail="At least one event ID is required")
     if len(event_ids) > 200:
@@ -604,9 +659,5 @@ async def build_group_evidence_input(
         records=records,
         commission=first.commission,
         decision=None,
-        generated_at=max(
-            item.generated_at
-            for item in individual_inputs
-            if item.generated_at is not None
-        ),
+        generated_at=max(item.generated_at for item in individual_inputs if item.generated_at is not None),
     )

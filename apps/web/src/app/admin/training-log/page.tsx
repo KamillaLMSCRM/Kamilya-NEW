@@ -29,6 +29,7 @@ import { TRAINING_LOG_COLUMN_CLASS as columnClass } from './presentation';
 import { getAssignmentSourceInfo } from '@/lib/assignmentSource';
 import { downloadGroupEvidence, downloadIndividualEvidence, type EvidenceExportFormat } from '@/features/training-evidence/exportApi';
 import { EvidenceShareDialog } from '@/features/training-evidence/EvidenceShareDialog';
+import { SignedScanControl, useSignedScanLedgers } from '@/features/training-evidence/SignedScanControl';
 
 /**
  * Training log — единый журнал обучения (P0.3 first-tenant hardening).
@@ -120,6 +121,7 @@ export default function AdminTrainingLogPage() {
   const router = useRouter();
   const accessToken = useAuthStore((s) => s.accessToken);
   const user = useAuthStore((s) => s.user);
+  const isMethodologist = user?.role === 'methodologist';
 
   const [filters, setFilters] = useState<Filters>({});
   const [page, setPage] = useState<TrainingLogPage | null>(null);
@@ -212,6 +214,13 @@ export default function AdminTrainingLogPage() {
     }
   }, [accessToken, lang, queryString, t]);
 
+  const signedScanEventIds = useMemo(() => (
+    isMethodologist
+      ? Array.from(new Set((page?.items ?? []).flatMap((row) => canAttachSignedScan(row) ? [row.latest_evidence_event_id as string] : [])))
+      : []
+  ), [isMethodologist, page?.items]);
+  const signedScanLedgers = useSignedScanLedgers(signedScanEventIds, Boolean(isMethodologist && accessToken));
+
   // Auth gate: training-log is admin/HR work, not student work.
   if (user && !canAccessRoute(user.role, '/admin/training-log')) {
     return (
@@ -231,7 +240,6 @@ export default function AdminTrainingLogPage() {
     setSelectedEvidenceIds(new Set());
   };
 
-  const isMethodologist = user?.role === 'methodologist';
   const exportableRows = items.filter((row) => canExportEvidence(row));
   const allExportableSelected = exportableRows.length > 0
     && exportableRows.every((row) => selectedEvidenceIds.has(row.latest_evidence_event_id as string));
@@ -265,6 +273,18 @@ export default function AdminTrainingLogPage() {
       setExportingKey(null);
     }
   };
+
+  const signedScanControl = (eventId: string) => (
+    <SignedScanControl
+      eventId={eventId}
+      ledger={signedScanLedgers.ledgers[eventId]}
+      loading={signedScanLedgers.loadingEventIds.has(eventId)}
+      uploading={signedScanLedgers.uploadingEventIds.has(eventId)}
+      error={signedScanLedgers.errors[eventId]}
+      onRetry={() => void signedScanLedgers.refresh(eventId)}
+      onUpload={(file) => signedScanLedgers.upload(eventId, file)}
+    />
+  );
 
   return (
     <div className="space-y-6">
@@ -448,6 +468,7 @@ export default function AdminTrainingLogPage() {
                     <p className="text-xs text-muted-foreground">
                       {t('assignmentSources.title')}: {t(sourceInfo.labelKey)}. {t(sourceInfo.descriptionKey)}
                     </p>
+                    {isMethodologist && canAttachSignedScan(row) && signedScanControl(row.latest_evidence_event_id as string)}
                     {isMethodologist && canExportEvidence(row) && (
                       <div className="flex flex-wrap gap-2">
                         <EvidenceDownloadButton
@@ -497,7 +518,7 @@ export default function AdminTrainingLogPage() {
                     <th className={columnClass.course}>{t('trainingLog.table.course')}</th>
                     <th className={columnClass.type}>{t('trainingLog.table.type')}</th>
                     <th className={columnClass.status}>{t('trainingLog.table.status')}</th>
-                    <th className="w-44 min-w-44 px-4 py-3">{t('trainingLog.table.evidence')}</th>
+                    <th className="w-72 min-w-72 px-4 py-3">{t('trainingLog.table.evidence')}</th>
                     <th className={columnClass.source}>{t('assignmentSources.title')}</th>
                     <th className={columnClass.progress}>{t('trainingLog.table.progress')}</th>
                     <th className={columnClass.score}>{t('trainingLog.table.score')}</th>
@@ -565,8 +586,13 @@ export default function AdminTrainingLogPage() {
                               : t('trainingLog.badge.assigned')}
                         </Badge>
                       </td>
-                      <td className="w-44 min-w-44 px-4 py-3 align-top">
-                        {row.latest_evidence_event_id ? <EvidenceStatusBadge row={row} t={t} /> : <span className="text-sm text-muted-foreground">—</span>}
+                      <td className="w-72 min-w-72 px-4 py-3 align-top">
+                        {row.latest_evidence_event_id ? (
+                          <div className="space-y-2">
+                            <EvidenceStatusBadge row={row} t={t} />
+                            {isMethodologist && canAttachSignedScan(row) && signedScanControl(row.latest_evidence_event_id as string)}
+                          </div>
+                        ) : <span className="text-sm text-muted-foreground">—</span>}
                       </td>
                       <td className={columnClass.source}>
                         <details>
@@ -648,6 +674,13 @@ function canExportEvidence(row: TrainingLogRow): boolean {
     row.latest_evidence_event_id
     && row.evidence_confirmation_status === 'confirmed'
     && row.evidence_state === 'ready'
+  );
+}
+
+function canAttachSignedScan(row: TrainingLogRow): boolean {
+  return Boolean(
+    row.latest_evidence_event_id
+    && (row.evidence_procedure_type === 'training' || row.evidence_procedure_type === 'knowledge_check')
   );
 }
 

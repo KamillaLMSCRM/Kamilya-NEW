@@ -1,4 +1,5 @@
 """Central course access policy for authoring and learner flows."""
+
 from uuid import UUID
 
 from fastapi import HTTPException
@@ -9,7 +10,6 @@ from app.models.courses import Course
 from app.models.enrollment import Enrollment
 from app.models.users import User
 from app.modules.lessons.models import Lesson, Module
-
 
 AUTHORING_ROLES = {"methodologist", "superadmin"}
 
@@ -50,6 +50,22 @@ async def require_course_access(
     )
     if enrollment_result.scalar_one_or_none() is None:
         raise HTTPException(status_code=404, detail="Course not found")
+    from app.modules.enrollments.access_service import (
+        AssignmentWindowExpiredError,
+        assignment_window_error,
+        require_active_enrollment_window,
+    )
+
+    try:
+        await require_active_enrollment_window(
+            db,
+            user_id=user.id,
+            tenant_id=user.tenant_id,
+            course_id=course.id,
+            enrollment_id=getattr(user, "assignment_access_enrollment_id", None),
+        )
+    except AssignmentWindowExpiredError as exc:
+        raise assignment_window_error(exc) from exc
     return course
 
 

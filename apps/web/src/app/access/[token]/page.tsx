@@ -6,7 +6,6 @@ import { useParams, useRouter } from 'next/navigation';
 
 import { Button, Card, CardContent, CardHeader, CardTitle, Input } from '@/components/ui';
 import { Logo } from '@/components/brand/Logo';
-import { getRoleHome } from '@/lib/rolePolicy';
 import { useAuthStore } from '@/store/authStore';
 import type { AuthUser } from '@/lib/auth';
 import { PublicLegalFooter } from '@/components/legal/PublicLegalFooter';
@@ -37,9 +36,14 @@ export default function AssignmentAccessPage() {
         body: JSON.stringify({ pin }),
       });
       if (!response.ok) throw new Error();
-      const data = await response.json() as { access_token: string; user: AuthUser };
+      const data = await response.json() as {
+        access_token: string;
+        user: AuthUser;
+        assigned_course_id: string;
+        enrollment_id: string;
+      };
       login(data.access_token, data.user);
-      router.replace(getRoleHome(data.user.role));
+      router.replace(`/courses/${encodeURIComponent(data.assigned_course_id)}`);
     } catch {
       // This intentionally remains generic: the endpoint does not reveal link state.
       setError('Ссылка или PIN недействительны. Проверьте данные или запросите новую ссылку у методолога.');

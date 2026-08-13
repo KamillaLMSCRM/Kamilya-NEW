@@ -55,6 +55,21 @@ const structure = {
   }],
 };
 
+const structureWithTwoLessons = {
+  modules: [{
+    ...structure.modules[0],
+    lessons: [
+      ...structure.modules[0].lessons,
+      {
+        id: 'lesson-2',
+        title: 'Практика',
+        content_type: 'text',
+        order_index: 1,
+      },
+    ],
+  }],
+};
+
 const lesson = {
   id: 'lesson-1',
   title: 'Введение',
@@ -70,10 +85,10 @@ function jsonResponse(body: unknown, status = 200) {
   });
 }
 
-function setupFetch(patchStatus = 200) {
+function setupFetch(patchStatus = 200, courseStructure = structure) {
   fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
-    if (url.includes('/v1/courses/course-1/structure')) return jsonResponse(structure);
+    if (url.includes('/v1/courses/course-1/structure')) return jsonResponse(courseStructure);
     if (url.endsWith('/v1/courses/course-1')) return jsonResponse(course);
     if (url.includes('/v1/lessons/lesson-1') && init?.method !== 'PATCH') {
       return jsonResponse(lesson);
@@ -164,5 +179,23 @@ describe('course lesson editor', () => {
     await waitFor(() => expect(toastMock.error).toHaveBeenCalled());
     expect(screen.getByRole('dialog', { name: 'Редактирование урока' })).toBeInTheDocument();
     expect(within(screen.getByRole('dialog')).getByDisplayValue('# Исправленный текст')).toBeInTheDocument();
+  });
+
+  it('persists a lesson move through the published lessons reorder route', async () => {
+    setupFetch(200, structureWithTwoLessons);
+    render(<CourseEditPage />);
+
+    await screen.findByText('Практика');
+    fireEvent.click(screen.getAllByRole('button', { name: 'Переместить урок ниже' })[0]);
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining('/v1/lessons/module-1/reorder'),
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify(['lesson-2', 'lesson-1']),
+        }),
+      );
+    });
   });
 });

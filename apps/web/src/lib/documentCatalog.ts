@@ -55,6 +55,13 @@ export interface DocumentCatalogResponse {
   };
 }
 
+export interface DuplicateDocumentConflict {
+  id: string;
+  title: string;
+  filename: string;
+  version: number;
+}
+
 export type DocumentUsageType =
   | 'position_instruction'
   | 'course_instruction'
@@ -121,4 +128,18 @@ export const documentDeleteError = (
   if (typeof detail === 'string') return detail;
   if (typeof detail?.message === 'string') return detail.message;
   return error?.message || 'Повторите попытку.';
+};
+
+export const getDuplicateDocumentConflict = (error: any): DuplicateDocumentConflict | null => {
+  const detail = error?.response?.data?.details ?? error?.response?.data?.detail;
+  const existing = detail?.code === 'duplicate_document' ? detail.existing : null;
+  if (
+    typeof existing?.id !== 'string'
+    || typeof existing?.title !== 'string'
+    || typeof existing?.filename !== 'string'
+    || typeof existing?.version !== 'number'
+  ) {
+    return null;
+  }
+  return existing;
 };

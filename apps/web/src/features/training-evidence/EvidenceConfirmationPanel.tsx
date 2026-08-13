@@ -1,10 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AlertCircle, CheckCircle2, Clock3, Mail, RefreshCw, ShieldCheck } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Clock3, Download, Mail, RefreshCw, ShieldCheck } from 'lucide-react';
 import { Button, Card, CardContent, CardHeader, CardTitle, Input } from '@/components/ui';
 import { api } from '@/lib/api';
 import { useT } from '@/i18n/useT';
+import { useAuthStore } from '@/store/authStore';
 
 export interface LearnerEvidenceEvent {
   id: string;
@@ -57,6 +58,7 @@ export function EvidenceConfirmationPanel({
   onConfirmed,
 }: EvidenceConfirmationPanelProps) {
   const { t } = useT();
+  const learnerEmail = useAuthStore((state) => state.user?.email ?? null);
   const [event, setEvent] = useState<LearnerEvidenceEvent | null>(null);
   const [loading, setLoading] = useState(true);
   const [requesting, setRequesting] = useState(false);
@@ -66,6 +68,7 @@ export function EvidenceConfirmationPanel({
   const [retryAfter, setRetryAfter] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [confirmed, setConfirmed] = useState(false);
+  const [downloading, setDownloading] = useState(false);
 
   const loadEvent = useCallback(async () => {
     setLoading(true);
@@ -120,6 +123,29 @@ export function EvidenceConfirmationPanel({
       setError(requestError?.response?.data?.message || t('evidenceConfirmation.errors.verify'));
     } finally {
       setVerifying(false);
+    }
+  };
+
+  const downloadEvidence = async () => {
+    setDownloading(true);
+    setError(null);
+    try {
+      const response = await api.get<Blob>(
+        `/v1/training-evidence/events/mine/${eventId}/export`,
+        { params: { format: 'pdf' }, responseType: 'blob' },
+      );
+      const url = URL.createObjectURL(response.data);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `kamilya-training-evidence-${eventId}.pdf`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+    } catch (requestError: any) {
+      setError(requestError?.response?.data?.message || 'Не удалось скачать подтверждение прохождения.');
+    } finally {
+      setDownloading(false);
     }
   };
 
@@ -230,7 +256,24 @@ export function EvidenceConfirmationPanel({
           <span className={confirmed ? 'text-success' : 'text-muted-foreground'}>{statusText}</span>
         </div>
 
-        {!confirmed && (
+        <div className="rounded-md border border-border bg-muted/30 p-4">
+          <p className="text-sm text-muted-foreground">
+            Скачайте индивидуальное подтверждение прохождения. Его можно распечатать,
+            подписать вручную и передать в головной офис.
+          </p>
+          <Button
+            className="mt-3"
+            type="button"
+            variant="outline"
+            onClick={() => void downloadEvidence()}
+            disabled={downloading}
+          >
+            <Download className="mr-2 h-4 w-4" aria-hidden="true" />
+            {downloading ? 'Подготовка PDF…' : 'Скачать подтверждение прохождения'}
+          </Button>
+        </div>
+
+        {!confirmed && learnerEmail && (
           <div className="space-y-3 rounded-md border border-border p-4">
             <p className="text-sm text-muted-foreground">{t('evidenceConfirmation.explanation')}</p>
             {!challengeId ? (
@@ -266,6 +309,14 @@ export function EvidenceConfirmationPanel({
             )}
             {retryAfter !== null && <p className="text-xs text-muted-foreground">{t('evidenceConfirmation.retryAfter', { seconds: retryAfter })}</p>}
             {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
+          </div>
+        )}
+
+        {!confirmed && !learnerEmail && (
+          <div className="rounded-md border border-border p-4 text-sm text-muted-foreground">
+            Электронное подтверждение недоступно, потому что у сотрудника нет email. Скачайте PDF,
+            подпишите его вручную и передайте в головной офис; зафиксированный системой результат
+            прохождения при этом сохраняется.
           </div>
         )}
 

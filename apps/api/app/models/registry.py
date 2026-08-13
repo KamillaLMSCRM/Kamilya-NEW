@@ -9,6 +9,7 @@ MODEL_MODULES = (
     "app.models.department",
     "app.models.document",
     "app.models.enrollment",
+    "app.models.enrollment_access_policy",
     "app.models.course_assignment_notification",
     "app.models.generated_content",
     "app.models.kiosk_link",

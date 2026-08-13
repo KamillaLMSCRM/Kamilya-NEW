@@ -59,7 +59,7 @@ const lesson = {
   order_index: 0,
 };
 
-function setupFetch() {
+function setupFetch(accessWindow: unknown = null) {
   fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
     if (url.endsWith('/v1/courses/course-1')) return jsonResponse(course);
@@ -69,6 +69,7 @@ function setupFetch() {
     if (url.endsWith('/v1/progress/courses/course-1/completed-ids')) {
       return jsonResponse({ completed_lesson_ids: ['lesson-1'] });
     }
+    if (url.endsWith('/v1/courses/course-1/access-window')) return jsonResponse(accessWindow);
     if (url.endsWith('/v1/student/dashboard')) {
       return jsonResponse({ enrolled_courses: [{ course_id: 'course-1', enrollment_status: 'in_progress' }] });
     }
@@ -125,5 +126,54 @@ describe('course player role modes', () => {
     await screen.findByText('Проверка урока');
     expect(screen.getByRole('button', { name: 'Начать тест' })).toBeEnabled();
     expect(screen.queryByRole('button', { name: 'Следующий урок' })).not.toBeInTheDocument();
+  });
+
+  it('shows a server-anchored assignment countdown that survives page reloads', async () => {
+    setupFetch({
+      server_now: '2026-08-13T09:00:00Z',
+      access_policy: {
+        enrollment_id: 'enrollment-1',
+        delivery_mode: 'personal_link',
+        completion_window_started_at: '2026-08-13T09:00:00Z',
+        completion_window_expires_at: '2026-08-13T09:30:00Z',
+        due_at: null,
+        state: 'available',
+      },
+    });
+    useAuthStore.setState({
+      accessToken: 'assignment-token',
+      user: { id: 'student-1', role: 'student' } as never,
+      initialized: true,
+    });
+
+    render(<CoursePlayerPage />);
+
+    expect(await screen.findByRole('timer')).toHaveTextContent('Оставшееся время на курс и тест');
+    expect(screen.getByRole('timer')).toHaveTextContent(/00:29:5\d|00:30:00/);
+    expect(screen.getByText('Таймер не сбрасывается при обновлении страницы.')).toBeInTheDocument();
+  });
+
+  it('blocks learner actions when the assignment window is expired', async () => {
+    setupFetch({
+      server_now: '2026-08-13T09:31:00Z',
+      access_policy: {
+        enrollment_id: 'enrollment-1',
+        delivery_mode: 'personal_link',
+        completion_window_started_at: '2026-08-13T09:00:00Z',
+        completion_window_expires_at: '2026-08-13T09:30:00Z',
+        due_at: null,
+        state: 'expired',
+      },
+    });
+    useAuthStore.setState({
+      accessToken: 'assignment-token',
+      user: { id: 'student-1', role: 'student' } as never,
+      initialized: true,
+    });
+
+    render(<CoursePlayerPage />);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Время, отведённое на прохождение, истекло');
+    expect(screen.getByRole('button', { name: 'Начать тест' })).toBeDisabled();
   });
 });

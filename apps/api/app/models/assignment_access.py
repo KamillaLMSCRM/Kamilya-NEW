@@ -18,7 +18,11 @@ class AssignmentAccessCredential(Base):
     user_id = Column(UUID(as_uuid=True), nullable=False, index=True)
     token_hash = Column(Text, nullable=False, unique=True)
     pin_hash = Column(Text, nullable=False)
+    # ``expires_at`` limits only the one-time public link/PIN exchange.  A
+    # bearer token issued after that exchange is bounded by its JWT lifetime
+    # and the enrollment policy, not by the link's expiry.
     expires_at = Column(DateTime(timezone=True), nullable=False)
+    first_exchanged_at = Column(DateTime(timezone=True), nullable=True)
     revoked_at = Column(DateTime(timezone=True), nullable=True)
     revoked_reason = Column(Text, nullable=True)
     failed_attempts = Column(Integer, nullable=False, default=0, server_default="0")

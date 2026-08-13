@@ -59,6 +59,20 @@ interface AssistantMessage {
   content: string;
 }
 
+interface AssignmentAccessPolicy {
+  enrollment_id: string;
+  delivery_mode: 'personal_link';
+  completion_window_started_at: string | null;
+  completion_window_expires_at: string | null;
+  due_at: string | null;
+  state: 'available' | 'expired' | 'revoked';
+}
+
+interface AssignmentAccessWindow {
+  server_now: string;
+  access_policy: AssignmentAccessPolicy;
+}
+
 export default function CoursePlayerPage() {
   const params = useParams();
   const courseId = params?.id as string;
@@ -86,6 +100,9 @@ export default function CoursePlayerPage() {
   const [assistantLoading, setAssistantLoading] = useState(false);
   const [kioskSession, setKioskSession] = useState(false);
   const [kioskWarningSeconds, setKioskWarningSeconds] = useState<number | null>(null);
+  const [assignmentAccessPolicy, setAssignmentAccessPolicy] = useState<AssignmentAccessPolicy | null>(null);
+  const [assignmentDeadlineMs, setAssignmentDeadlineMs] = useState<number | null>(null);
+  const [assignmentRemainingSeconds, setAssignmentRemainingSeconds] = useState<number | null>(null);
   const token = useAuthStore((s) => s.accessToken);
   const user = useAuthStore((s) => s.user);
   const isPrivilegedPreview = user?.role === 'admin'
@@ -120,6 +137,19 @@ export default function CoursePlayerPage() {
   useEffect(() => {
     setKioskWarningSeconds(warningSeconds);
   }, [warningSeconds]);
+
+  useEffect(() => {
+    if (assignmentDeadlineMs === null) {
+      setAssignmentRemainingSeconds(null);
+      return;
+    }
+    const update = () => {
+      setAssignmentRemainingSeconds(Math.max(0, Math.ceil((assignmentDeadlineMs - Date.now()) / 1000)));
+    };
+    update();
+    const timer = window.setInterval(update, 1000);
+    return () => window.clearInterval(timer);
+  }, [assignmentDeadlineMs]);
 
   const fetchQuizForLesson = useCallback(async (lessonId: string) => {
     if (!token) return;
@@ -216,11 +246,34 @@ export default function CoursePlayerPage() {
       const headers: Record<string, string> = {};
       if (token) headers.Authorization = `Bearer ${token}`;
 
-      const [courseRes, structRes, progressRes] = await Promise.all([
+      const [courseRes, structRes, progressRes, accessWindowRes] = await Promise.all([
         fetch(`${API_URL}/v1/courses/${courseId}`, { headers }),
         fetch(`${API_URL}/v1/courses/${courseId}/structure`, { headers }),
         fetch(`${API_URL}/v1/progress/courses/${courseId}/completed-ids`, { headers }),
+        fetch(`${API_URL}/v1/courses/${courseId}/access-window`, { headers }),
       ]);
+
+      if (accessWindowRes.ok) {
+        const accessWindow: AssignmentAccessWindow | null = await accessWindowRes.json();
+        if (accessWindow) {
+          const policy = accessWindow.access_policy;
+          setAssignmentAccessPolicy(policy);
+          const serverNowMs = Date.parse(accessWindow.server_now);
+          const deadlines = [policy.completion_window_expires_at, policy.due_at]
+            .filter((value): value is string => Boolean(value))
+            .map((value) => Date.parse(value))
+            .filter((value) => Number.isFinite(value));
+          if (deadlines.length > 0 && Number.isFinite(serverNowMs)) {
+            const remainingMs = Math.min(...deadlines) - serverNowMs;
+            setAssignmentDeadlineMs(Date.now() + Math.max(0, remainingMs));
+          } else {
+            setAssignmentDeadlineMs(null);
+          }
+        } else {
+          setAssignmentAccessPolicy(null);
+          setAssignmentDeadlineMs(null);
+        }
+      }
 
       if (courseRes.ok) setCourse(await courseRes.json());
 
@@ -313,6 +366,7 @@ export default function CoursePlayerPage() {
   };
 
   const handleMarkComplete = async (lessonId: string) => {
+    if (assignmentAccessBlocked) return;
     if (token && !isPrivilegedPreview) {
       try {
         await fetch(`${API_URL}/v1/progress/lessons/${lessonId}`, {
@@ -348,6 +402,7 @@ export default function CoursePlayerPage() {
   };
 
   const handleNextLesson = () => {
+    if (assignmentAccessBlocked) return;
     if (!selectedLesson) return;
     const next = findNextLesson(selectedLesson.id);
     if (next) {
@@ -440,7 +495,7 @@ export default function CoursePlayerPage() {
 
   const handleAssistantSend = async () => {
     const message = assistantInput.trim();
-    if (!message || !token || !selectedLesson) return;
+    if (!message || !token || !selectedLesson || assignmentAccessBlocked) return;
     setAssistantInput('');
     setAssistantMessages((prev) => [...prev, { role: 'user', content: message }]);
     setAssistantLoading(true);
@@ -469,8 +524,12 @@ export default function CoursePlayerPage() {
   const totalLessons = modules.reduce((acc, m) => acc + m.lessons.length, 0);
   const completedCount = completedLessons.size;
   const progressPercent = totalLessons > 0 ? Math.round((completedCount / totalLessons) * 100) : 0;
+  const assignmentAccessBlocked = assignmentAccessPolicy?.state === 'expired'
+    || assignmentAccessPolicy?.state === 'revoked'
+    || assignmentRemainingSeconds === 0;
 
   if (loading) return <div className="p-6">{t('common.loading')}</div>;
+  if (!course && assignmentAccessBlocked) return <AssignmentAccessExpired />;
   if (!course) return <div className="p-6">{t('errors.notFound')}</div>;
 
   const kioskSessionNotice = kioskSession && kioskWarningSeconds !== null ? (
@@ -599,7 +658,9 @@ export default function CoursePlayerPage() {
                 <div
                   key={lesson.id}
                   className={`text-sm p-2 rounded cursor-pointer flex items-center gap-2 ${selectedLesson?.id === lesson.id ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-muted text-foreground'}`}
-                  onClick={() => setSelectedLesson(lesson)}
+                  onClick={() => {
+                    if (!assignmentAccessBlocked) setSelectedLesson(lesson);
+                  }}
                 >
                   <span className={`w-4 h-4 rounded-full border flex-shrink-0 flex items-center justify-center text-xs ${completedLessons.has(lesson.id) ? 'bg-success text-white border-success' : 'border-border'}`}>
                     {completedLessons.has(lesson.id) && <CheckCircle2 className="w-3 h-3" />}
@@ -614,6 +675,9 @@ export default function CoursePlayerPage() {
 
       {/* Center — lesson content + quiz */}
       <div className="flex-1 p-8">
+        {assignmentAccessPolicy && (
+          <AssignmentAccessTimer remainingSeconds={assignmentRemainingSeconds} blocked={assignmentAccessBlocked} />
+        )}
         {selectedLesson ? (
           <div className="mx-auto grid max-w-6xl gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
             <div className="min-w-0">
@@ -674,9 +738,13 @@ export default function CoursePlayerPage() {
                       )}
 
                       <div className="flex gap-2">
-                        <Link href={`/courses/quiz/${lessonQuiz.id}?courseId=${encodeURIComponent(courseId)}&lessonId=${encodeURIComponent(selectedLesson.id)}`}>
-                          <Button>{t('quiz.startQuiz')} <ChevronRight className="w-4 h-4 ml-1" /></Button>
-                        </Link>
+                        {assignmentAccessBlocked ? (
+                          <Button disabled>{t('quiz.startQuiz')} <ChevronRight className="w-4 h-4 ml-1" /></Button>
+                        ) : (
+                          <Link href={`/courses/quiz/${lessonQuiz.id}?courseId=${encodeURIComponent(courseId)}&lessonId=${encodeURIComponent(selectedLesson.id)}`}>
+                            <Button>{t('quiz.startQuiz')} <ChevronRight className="w-4 h-4 ml-1" /></Button>
+                          </Link>
+                        )}
                         {isPrivilegedPreview && (
                           <Button variant="outline" onClick={handleNextLesson}>
                             {t('courses.nextLesson')}
@@ -689,7 +757,7 @@ export default function CoursePlayerPage() {
               )}
 
               {!lessonCompleted ? (
-                <Button onClick={() => handleMarkComplete(selectedLesson.id)}>
+                <Button onClick={() => handleMarkComplete(selectedLesson.id)} disabled={assignmentAccessBlocked}>
                   {t('courses.markComplete')} <CheckCircle2 className="w-4 h-4 ml-1" />
                 </Button>
               ) : !hasQuiz ? (
@@ -697,7 +765,7 @@ export default function CoursePlayerPage() {
                   <span className="flex items-center gap-2 text-success font-medium">
                     <CheckCircle2 className="w-5 h-5" aria-hidden="true" /> {t('courses.markComplete')}
                   </span>
-                  <Button variant="outline" onClick={handleNextLesson}>
+                  <Button variant="outline" onClick={handleNextLesson} disabled={assignmentAccessBlocked}>
                     {t('courses.nextLesson')} <ChevronRight className="w-4 h-4 ml-1" />
                   </Button>
                 </div>
@@ -706,7 +774,7 @@ export default function CoursePlayerPage() {
                   <span className="flex items-center gap-2 text-success font-medium">
                     <CheckCircle2 className="w-5 h-5" aria-hidden="true" /> {t('quiz.passed')}
                   </span>
-                  <Button variant="outline" onClick={handleNextLesson}>
+                  <Button variant="outline" onClick={handleNextLesson} disabled={assignmentAccessBlocked}>
                     {t('courses.nextLesson')} <ChevronRight className="w-4 h-4 ml-1" />
                   </Button>
                 </div>
@@ -741,6 +809,7 @@ export default function CoursePlayerPage() {
               <div className="mt-3 space-y-2">
                 <textarea
                   value={assistantInput}
+                  disabled={assignmentAccessBlocked}
                   onChange={(e) => setAssistantInput(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
@@ -751,7 +820,7 @@ export default function CoursePlayerPage() {
                   placeholder="Что непонятно в этом уроке?"
                   className="min-h-[84px] w-full resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
                 />
-                <Button onClick={handleAssistantSend} disabled={assistantLoading || !assistantInput.trim()} className="w-full">
+                <Button onClick={handleAssistantSend} disabled={assignmentAccessBlocked || assistantLoading || !assistantInput.trim()} className="w-full">
                   Спросить
                 </Button>
               </div>
@@ -765,6 +834,52 @@ export default function CoursePlayerPage() {
       </div>
     </div>
   );
+}
+
+function AssignmentAccessTimer({
+  remainingSeconds,
+  blocked,
+}: {
+  remainingSeconds: number | null;
+  blocked: boolean;
+}) {
+  if (blocked) {
+    return (
+      <div className="mx-auto mb-5 max-w-6xl rounded-xl border border-destructive/30 bg-destructive/10 p-4" role="alert">
+        <p className="font-semibold text-destructive">Время, отведённое на прохождение, истекло</p>
+        <p className="mt-1 text-sm text-muted-foreground">Материалы и тестирование закрыты. Обратитесь к методисту, чтобы получить новое окно доступа.</p>
+      </div>
+    );
+  }
+  if (remainingSeconds === null) return null;
+  return (
+    <div className="mx-auto mb-5 flex max-w-6xl items-center justify-between gap-4 rounded-xl border border-warning/30 bg-warning/10 p-4" role="timer" aria-live="polite">
+      <div>
+        <p className="font-semibold text-foreground">Оставшееся время на курс и тест</p>
+        <p className="text-sm text-muted-foreground">Таймер не сбрасывается при обновлении страницы.</p>
+      </div>
+      <span className="font-mono text-xl font-bold tabular-nums text-warning-foreground">{formatRemainingTime(remainingSeconds)}</span>
+    </div>
+  );
+}
+
+function AssignmentAccessExpired() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-muted p-6">
+      <div className="max-w-lg rounded-xl border border-destructive/30 bg-card p-8 text-center shadow-sm" role="alert">
+        <AlertTriangle className="mx-auto h-12 w-12 text-destructive" aria-hidden="true" />
+        <h1 className="mt-4 text-xl font-bold">Время прохождения истекло</h1>
+        <p className="mt-2 text-muted-foreground">Эта персональная сессия больше не даёт доступ к курсу и тесту. Запросите у методиста новое окно доступа.</p>
+      </div>
+    </div>
+  );
+}
+
+function formatRemainingTime(seconds: number): string {
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const remainder = seconds % 60;
+  return [hours, minutes, remainder].map((part) => String(part).padStart(2, '0')).join(':');
 }
 
 function simpleMarkdown(text: string): string {

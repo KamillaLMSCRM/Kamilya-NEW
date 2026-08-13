@@ -9,7 +9,7 @@ from __future__ import annotations
 from typing import Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import require_role, require_tenant_user
@@ -23,6 +23,8 @@ from app.modules.training_evidence.schemas import (
     LearnerEvidenceEventResponse,
     LegalHoldCreate,
     LegalHoldResponse,
+    SignedScanLedgerResponse,
+    SignedScanResponse,
     StepUpConfirmationResponse,
 )
 from app.modules.training_evidence.service import (
@@ -35,6 +37,7 @@ from app.modules.training_evidence.service import (
     list_step_up_confirmations,
     record_event,
 )
+from app.modules.training_evidence.signed_scan_service import append_signed_scan, list_signed_scans
 
 router = APIRouter(
     prefix="/training-evidence",
@@ -42,6 +45,23 @@ router = APIRouter(
     dependencies=[Depends(require_tenant_user())],
 )
 _EVIDENCE_WRITERS = ("methodologist",)
+
+
+def _signed_scan_response(scan) -> SignedScanResponse:
+    return SignedScanResponse(
+        id=scan.id,
+        event_id=scan.event_id,
+        enrollment_id=scan.enrollment_id,
+        user_id=scan.user_id,
+        status="received",
+        original_filename=scan.original_filename,
+        content_type=scan.content_type,
+        size_bytes=scan.size_bytes,
+        sha256=scan.sha256,
+        uploaded_by_user_id=scan.uploaded_by_user_id,
+        uploaded_at=scan.uploaded_at,
+        created_at=scan.created_at,
+    )
 
 
 @router.get("/events/mine", response_model=list[LearnerEvidenceEventResponse])
@@ -140,6 +160,43 @@ async def get_training_evidence(
     user: User = Depends(require_role(*_EVIDENCE_WRITERS)),
 ):
     return await get_event(db, user.tenant_id, event_id)
+
+
+@router.post(
+    "/events/{event_id}/signed-scans",
+    response_model=SignedScanResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def attach_returned_signed_scan(
+    event_id: UUID,
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_role(*_EVIDENCE_WRITERS)),
+):
+    """Append a returned hand-signed copy; it never mutates the result event."""
+
+    scan = await append_signed_scan(
+        db,
+        tenant_id=user.tenant_id,
+        uploader_user_id=user.id,
+        event_id=event_id,
+        file=file,
+    )
+    return _signed_scan_response(scan)
+
+
+@router.get("/events/{event_id}/signed-scans", response_model=SignedScanLedgerResponse)
+async def get_returned_signed_scans(
+    event_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_role(*_EVIDENCE_WRITERS)),
+):
+    event, scans = await list_signed_scans(db, tenant_id=user.tenant_id, event_id=event_id)
+    return SignedScanLedgerResponse(
+        event_id=event.id,
+        status="received" if scans else "awaiting_signed_copy",
+        scans=[_signed_scan_response(scan) for scan in scans],
+    )
 
 
 @router.post("/events/{event_id}/corrections", response_model=EvidenceEventResponse, status_code=201)

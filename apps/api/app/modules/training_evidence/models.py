@@ -160,3 +160,39 @@ class TrainingEvidenceShareAccessLog(Base):
     download_count_after = Column(Integer, nullable=True)
     occurred_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))
     created_at = Column(DateTime(timezone=True), nullable=False, server_default="now()")
+
+
+class TrainingEvidenceSignedScan(Base):
+    """Immutable record of a hand-signed copy returned for one learner event."""
+
+    __tablename__ = "training_evidence_signed_scans"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="RESTRICT"), nullable=False, index=True)
+    event_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("training_evidence_events.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    enrollment_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("enrollments.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True)
+    status = Column(Text, nullable=False, default="received", server_default="received")
+    original_filename = Column(Text, nullable=False)
+    content_type = Column(Text, nullable=False)
+    size_bytes = Column(Integer, nullable=False)
+    sha256 = Column(Text, nullable=False)
+    storage_key = Column(Text, nullable=False, unique=True)
+    uploaded_by_user_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    uploaded_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default="now()")

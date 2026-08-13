@@ -22,6 +22,7 @@ RecordType = Literal["original", "correction", "revocation"]
 ReauthMethod = Literal["email_otp", "telegram", "sso", "password"]
 HoldAction = Literal["placed", "released"]
 EvidenceConfirmationStatus = Literal["not_required", "pending", "confirmed"]
+SignedCopyStatus = Literal["awaiting_signed_copy", "received"]
 
 
 class EvidenceCorrectionCreate(BaseModel):
@@ -132,3 +133,28 @@ class LegalHoldResponse(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class SignedScanResponse(BaseModel):
+    """Metadata only. The storage key is an internal implementation detail."""
+
+    id: UUID
+    event_id: UUID
+    enrollment_id: UUID
+    user_id: UUID
+    status: Literal["received"]
+    original_filename: str
+    content_type: str
+    size_bytes: int
+    sha256: str
+    uploaded_by_user_id: UUID
+    uploaded_at: datetime
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class SignedScanLedgerResponse(BaseModel):
+    event_id: UUID
+    status: SignedCopyStatus
+    scans: list[SignedScanResponse] = Field(default_factory=list)

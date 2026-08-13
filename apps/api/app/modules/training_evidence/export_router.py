@@ -32,6 +32,7 @@ from app.modules.training_evidence.export_schemas import (
 from app.modules.training_evidence.export_service import (
     build_group_evidence_input,
     build_individual_evidence_input,
+    build_learner_individual_evidence_input,
 )
 from app.modules.training_evidence.models import TrainingEvidenceShare
 from app.modules.training_evidence.share_schemas import (
@@ -81,6 +82,28 @@ def _share_url(request: Request, tenant_id: UUID, token: str) -> str:
             tenant_id=str(tenant_id),
             token=token,
         )
+    )
+
+
+@router.get("/events/mine/{event_id}/export")
+async def export_my_training_evidence(
+    event_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    tenant_user: User = Depends(require_tenant_user()),
+    user: User = Depends(require_role("student")),
+):
+    """Download only the authenticated learner's own individual result PDF."""
+
+    evidence = await build_learner_individual_evidence_input(
+        db,
+        tenant_user.tenant_id,
+        user.id,
+        event_id,
+    )
+    return _download(
+        render_individual_act_pdf(evidence),
+        media_type="application/pdf",
+        filename=_safe_filename("my-training-result", event_id, extension="pdf"),
     )
 
 
@@ -193,10 +216,12 @@ async def revoke_training_evidence_share(
     user: User = Depends(require_role("methodologist")),
 ):
     share = await db.scalar(
-        select(TrainingEvidenceShare).where(
+        select(TrainingEvidenceShare)
+        .where(
             TrainingEvidenceShare.id == share_id,
             TrainingEvidenceShare.tenant_id == tenant_user.tenant_id,
-        ).with_for_update()
+        )
+        .with_for_update()
     )
     if share is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Share not found")

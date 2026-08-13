@@ -140,6 +140,36 @@ async def reorder_items(db: AsyncSession, item_type: str, ids_order: list[UUID],
         )
 
 
+async def reorder_lessons_in_module(
+    db: AsyncSession,
+    *,
+    module_id: UUID,
+    ids_order: list[UUID],
+    tenant_id: UUID,
+) -> None:
+    """Reorder exactly the complete lesson set belonging to one module."""
+    if len(ids_order) != len(set(ids_order)):
+        raise ValueError("Lesson order contains duplicate IDs")
+    module = await db.scalar(
+        select(Module.id).where(Module.id == module_id, Module.tenant_id == tenant_id).with_for_update()
+    )
+    if module is None:
+        raise LookupError("Module not found")
+    lessons = list(
+        (
+            await db.scalars(
+                select(Lesson).where(Lesson.module_id == module_id, Lesson.tenant_id == tenant_id).with_for_update()
+            )
+        ).all()
+    )
+    by_id = {lesson.id: lesson for lesson in lessons}
+    if len(ids_order) != len(lessons) or set(ids_order) != set(by_id):
+        raise ValueError("Lesson order must contain every lesson from the selected module exactly once")
+    for index, lesson_id in enumerate(ids_order):
+        by_id[lesson_id].order_index = index
+    await db.flush()
+
+
 async def get_course_structure(db: AsyncSession, course_id: UUID, tenant_id: UUID):
     """Get full course structure with modules and lessons (eagerly loaded)."""
     result = await db.execute(

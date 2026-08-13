@@ -63,7 +63,17 @@ async def get_enrollment_access(
         return None
     enrollment, learner = row
 
-    if not learner.email or not learner.email.strip():
+    from app.models.enrollment_access_policy import EnrollmentAccessPolicy
+
+    policy = await db.scalar(
+        select(EnrollmentAccessPolicy).where(
+            EnrollmentAccessPolicy.enrollment_id == enrollment.id,
+            EnrollmentAccessPolicy.tenant_id == tenant_id,
+        )
+    )
+
+    has_email = bool((learner.email or "").strip())
+    if (policy is not None and policy.delivery_mode == "personal_link") or not has_email:
         from app.models.assignment_access import AssignmentAccessCredential
 
         active_credential = await db.execute(
@@ -77,7 +87,7 @@ async def get_enrollment_access(
         return {
             "enrollment_id": enrollment.id,
             "user_id": learner.id,
-            "access_kind": "access_without_email",
+            "access_kind": "personal_link" if has_email else "access_without_email",
             "state": "available" if credential_row else "blocked",
             "access_url": None,
             "expires_at": credential_row[1] if credential_row else None,
@@ -139,6 +149,10 @@ async def enroll_users(
     user_ids: list[UUID],
     *,
     assigned_by: UUID | None = None,
+    delivery_mode: str = "email",
+    link_expires_at=None,
+    completion_window_minutes: int | None = None,
+    due_at=None,
 ):
     """Bulk enroll users with tenant + status validation (P1-5).
 
@@ -232,8 +246,22 @@ async def enroll_users(
 
     if enrollments:
         await db.flush()
+        from app.modules.enrollments.access_service import upsert_access_policy
+
         for enrollment in enrollments:
             learner = users_by_id[enrollment.user_id]
+            await upsert_access_policy(
+                db,
+                enrollment=enrollment,
+                delivery_mode=delivery_mode,
+                link_expires_at=link_expires_at,
+                completion_window_minutes=completion_window_minutes,
+                due_at=due_at,
+            )
+            if delivery_mode == "personal_link":
+                # The methodologist explicitly chose a copied secure link, so
+                # no invitation/outbox email is prepared for this enrollment.
+                continue
             if assigned_by is None:
                 continue
             if learner.email and learner.email.strip() and not learner.has_login_access:

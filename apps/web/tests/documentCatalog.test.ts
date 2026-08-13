@@ -1,5 +1,6 @@
 import {
   documentDeleteError,
+  getDuplicateDocumentConflict,
   isDocumentSelectable,
   type DocumentCatalogItem,
 } from '@/lib/documentCatalog';
@@ -62,5 +63,28 @@ describe('document catalog UI contract', () => {
 
     expect(documentDeleteError(error)).toContain('3');
     expect(documentDeleteError(error)).toContain('Сначала отвяжите');
+  });
+
+  it('recognizes an exact-file conflict returned by the upload API', () => {
+    expect(getDuplicateDocumentConflict({
+      response: {
+        data: {
+          detail: {
+            code: 'duplicate_document',
+            existing: {
+              id: 'document-1',
+              title: 'Правила ИБ',
+              filename: 'rules.pdf',
+              version: 2,
+            },
+          },
+        },
+      },
+    })).toEqual({
+      id: 'document-1',
+      title: 'Правила ИБ',
+      filename: 'rules.pdf',
+      version: 2,
+    });
   });
 });

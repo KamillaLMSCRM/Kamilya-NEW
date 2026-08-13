@@ -30,6 +30,8 @@ async def _make_complete_event(
     *,
     tenant_name: str = "Export tenant",
     procedure_type: str = "knowledge_check",
+    with_confirmation: bool = True,
+    answer_marker: str = "a",
 ):
     from app.models.enrollment import Enrollment
     from app.modules.quizzes.models import QuizAttempt
@@ -88,7 +90,7 @@ async def _make_complete_event(
 
     attempt_id = uuid4()
     completed_at = datetime.now(UTC)
-    graded_answers = [{"question_id": "q-1", "answer": "a", "is_correct": True}]
+    graded_answers = [{"question_id": "q-1", "answer": answer_marker, "is_correct": True}]
     attempt_snapshot = {
         "schema_version": 1,
         "attempt": {
@@ -139,17 +141,18 @@ async def _make_complete_event(
             }
         },
     )
-    await confirm_step_up(
-        db_session,
-        tenant_id=tenant.id,
-        event_id=event.id,
-        user_id=learner.id,
-        action_text="Подтверждаю результат проверки знаний, версия 1.0",
-        object_version="content-release:v1",
-        reauth_method="email_otp",
-        ip_address="192.0.2.10",
-        user_agent="evidence-test/1.0",
-    )
+    if with_confirmation:
+        await confirm_step_up(
+            db_session,
+            tenant_id=tenant.id,
+            event_id=event.id,
+            user_id=learner.id,
+            action_text="Подтверждаю результат проверки знаний, версия 1.0",
+            object_version="content-release:v1",
+            reauth_method="email_otp",
+            ip_address="192.0.2.10",
+            user_agent="evidence-test/1.0",
+        )
     await db_session.flush()
     return tenant, methodologist, learner, event, release, enrollment
 
@@ -203,8 +206,7 @@ async def test_individual_export_builds_server_owned_zip_and_state(
 
     with zipfile.ZipFile(io.BytesIO(response.content)) as archive:
         pdf_text = "\n".join(
-            page.extract_text() or ""
-            for page in PdfReader(io.BytesIO(archive.read("individual-act.pdf"))).pages
+            page.extract_text() or "" for page in PdfReader(io.BytesIO(archive.read("individual-act.pdf"))).pages
         )
     assert "Состояние доказательства" in pdf_text
     assert "Юридическое удержание: Активно" in pdf_text
@@ -222,9 +224,166 @@ async def test_pdf_format_is_streamed_without_public_mode(client, complete_event
     assert "public" not in response.headers["content-disposition"].lower()
 
 
-async def test_missing_mandatory_evidence_returns_409(
-    client, db_session, make_tenant, make_user, auth_headers
+async def test_learner_owned_pdf_hides_answers_and_audit_only_data(
+    client,
+    db_session,
+    make_tenant,
+    make_user,
+    make_course,
+    make_module,
+    make_lesson,
+    make_quiz,
+    auth_headers,
 ):
+    tenant, methodologist, learner, event, _, _ = await _make_complete_event(
+        db_session,
+        make_tenant,
+        make_user,
+        make_course,
+        make_module,
+        make_lesson,
+        make_quiz,
+        with_confirmation=False,
+        answer_marker="SECRET-CORRECT-ANSWER-MUST-NOT-LEAK",
+    )
+
+    response = await client.get(
+        f"/api/v1/training-evidence/events/mine/{event.id}/export",
+        headers=auth_headers(learner),
+    )
+    assert response.status_code == 200, response.text
+    assert response.headers["content-type"].startswith("application/pdf")
+    pdf_text = "\n".join(page.extract_text() or "" for page in PdfReader(io.BytesIO(response.content)).pages)
+    assert "SECRET-CORRECT-ANSWER-MUST-NOT-LEAK" not in pdf_text
+    assert "Ответы" not in pdf_text
+    assert "Состояние доказательства" not in pdf_text
+    assert "Хэш публикации SHA-256" not in pdf_text
+    assert "Подтверждение" not in pdf_text
+    assert methodologist.email not in pdf_text
+
+
+async def test_learner_owned_pdf_returns_indistinguishable_404_for_foreign_event(
+    client,
+    db_session,
+    make_tenant,
+    make_user,
+    make_course,
+    make_module,
+    make_lesson,
+    make_quiz,
+    auth_headers,
+):
+    tenant, _, learner, own_event, _, _ = await _make_complete_event(
+        db_session, make_tenant, make_user, make_course, make_module, make_lesson, make_quiz
+    )
+    _, _, other_learner, foreign_event, _, _ = await _make_complete_event(
+        db_session,
+        make_tenant,
+        make_user,
+        make_course,
+        make_module,
+        make_lesson,
+        make_quiz,
+        tenant_name="Other learner event tenant",
+    )
+    assert tenant.id != other_learner.tenant_id
+    foreign = await client.get(
+        f"/api/v1/training-evidence/events/mine/{foreign_event.id}/export",
+        headers=auth_headers(learner),
+    )
+    missing = await client.get(
+        f"/api/v1/training-evidence/events/mine/{uuid4()}/export",
+        headers=auth_headers(learner),
+    )
+    assert foreign.status_code == missing.status_code == 404
+    assert foreign.json() == missing.json()
+    assert own_event.id != foreign_event.id
+
+
+async def test_methodologist_uploads_signed_copy_and_cross_tenant_cannot_read_it(
+    client,
+    db_session,
+    make_tenant,
+    make_user,
+    make_course,
+    make_module,
+    make_lesson,
+    make_quiz,
+    auth_headers,
+    monkeypatch,
+):
+    from app.modules.training_evidence import signed_scan_service
+
+    tenant, methodologist, _, event, _, _ = await _make_complete_event(
+        db_session,
+        make_tenant,
+        make_user,
+        make_course,
+        make_module,
+        make_lesson,
+        make_quiz,
+        with_confirmation=False,
+    )
+
+    class StorageStub:
+        def __init__(self):
+            self.objects: dict[str, bytes] = {}
+
+        def put_bytes(self, key, content, content_type):
+            assert content_type == "application/pdf"
+            self.objects[key] = content
+            return key
+
+        def delete_bytes(self, key):
+            self.objects.pop(key, None)
+            return True
+
+    storage = StorageStub()
+    monkeypatch.setattr(signed_scan_service, "get_storage", lambda: storage)
+
+    initial = await client.get(
+        f"/api/v1/training-evidence/events/{event.id}/signed-scans",
+        headers=auth_headers(methodologist),
+    )
+    assert initial.status_code == 200, initial.text
+    assert initial.json() == {
+        "event_id": str(event.id),
+        "status": "awaiting_signed_copy",
+        "scans": [],
+    }
+
+    uploaded = await client.post(
+        f"/api/v1/training-evidence/events/{event.id}/signed-scans",
+        headers=auth_headers(methodologist),
+        files={"file": ("signed-result.pdf", b"%PDF-1.7\nhand-signed", "application/pdf")},
+    )
+    assert uploaded.status_code == 201, uploaded.text
+    body = uploaded.json()
+    assert body["event_id"] == str(event.id)
+    assert body["status"] == "received"
+    assert body["original_filename"] == "signed-result.pdf"
+    assert "storage_key" not in body
+    assert list(storage.objects.values()) == [b"%PDF-1.7\nhand-signed"]
+
+    ledger = await client.get(
+        f"/api/v1/training-evidence/events/{event.id}/signed-scans",
+        headers=auth_headers(methodologist),
+    )
+    assert ledger.status_code == 200, ledger.text
+    assert ledger.json()["status"] == "received"
+    assert len(ledger.json()["scans"]) == 1
+
+    other_tenant = await make_tenant(name="Signed scan outsider")
+    outsider = await make_user(other_tenant, role="methodologist")
+    forbidden = await client.get(
+        f"/api/v1/training-evidence/events/{event.id}/signed-scans",
+        headers=auth_headers(outsider),
+    )
+    assert forbidden.status_code == 404
+    assert tenant.id != other_tenant.id
+
+
+async def test_missing_mandatory_evidence_returns_409(client, db_session, make_tenant, make_user, auth_headers):
     tenant = await make_tenant(name="Incomplete export")
     methodologist = await make_user(tenant, role="methodologist", email="incomplete-method@evidence.example")
     learner = await make_user(tenant, role="student", email="incomplete-learner@evidence.example")
@@ -303,9 +462,7 @@ async def test_group_export_rejects_malformed_event_id(client, complete_event, a
     assert response.status_code == 422
 
 
-async def test_group_export_cannot_claim_decision_via_generic_correction(
-    client, complete_event, auth_headers
-):
+async def test_group_export_cannot_claim_decision_via_generic_correction(client, complete_event, auth_headers):
     tenant, methodologist, learner, event, _, _ = complete_event
     correction = await client.post(
         f"/api/v1/training-evidence/events/{event.id}/corrections",

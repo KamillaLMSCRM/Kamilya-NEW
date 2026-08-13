@@ -5,6 +5,7 @@ from app.modules.training_evidence.models import (
     TrainingEvidenceLegalHold,
     TrainingEvidenceShare,
     TrainingEvidenceShareAccessLog,
+    TrainingEvidenceSignedScan,
     TrainingEvidenceStepUpConfirmation,
 )
 
@@ -13,5 +14,6 @@ __all__ = [
     "TrainingEvidenceLegalHold",
     "TrainingEvidenceShare",
     "TrainingEvidenceShareAccessLog",
+    "TrainingEvidenceSignedScan",
     "TrainingEvidenceStepUpConfirmation",
 ]
