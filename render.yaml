@@ -74,6 +74,8 @@ services:
         sync: false
       - key: EMAIL_FROM
         value: "Kamilya LMS <no-reply@notify.kml.kz>"
+      - key: PUBLIC_LEAD_NOTIFICATION_EMAIL
+        value: "askar0007amirkhanov@gmail.com"
       - key: CORS_ORIGINS
         value: '["https://app.kml.kz","https://www.kml.kz","https://web-inky-three-48.vercel.app","https://web-natt1inhm-kamillalmscrms-projects.vercel.app"]'
       - key: SUPABASE_URL

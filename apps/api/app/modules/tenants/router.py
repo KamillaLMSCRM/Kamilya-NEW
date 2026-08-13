@@ -22,8 +22,9 @@ from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import create_access_token, create_refresh_token
+from app.core.config import get_settings
 from app.core.db import get_db
-from app.core.email import EmailService
+from app.core.email import EmailDeliveryError, EmailService, PublicLeadNotification
 from app.models.tenant_settings import TenantSettings
 from app.models.tenants import RegistrationLegalAcceptance, Tenant, TenantLead, TenantUsage
 from app.models.user_roles import UserRole
@@ -202,6 +203,26 @@ def _dispatch_crm_lead_outbox(event_id: UUID) -> None:
         )
 
 
+async def _send_public_lead_notification(notification: PublicLeadNotification) -> None:
+    """Send a best-effort operator copy without changing lead acceptance."""
+
+    recipient = get_settings().PUBLIC_LEAD_NOTIFICATION_EMAIL.strip()
+    if not recipient:
+        return
+    try:
+        await EmailService().send_public_lead_notification(
+            to_email=recipient,
+            notification=notification,
+        )
+    except Exception as exc:
+        category = exc.category if isinstance(exc, EmailDeliveryError) else type(exc).__name__
+        logger.warning(
+            "public_lead.notification_email.failed lead_id=%s category=%s",
+            notification.lead_id,
+            category,
+        )
+
+
 def _tenant_registration_attribution(payload: TenantRegisterRequest) -> dict[str, str]:
     metadata = {
         "utm_source": payload.utm_source,
@@ -289,6 +310,38 @@ async def submit_public_lead(
     ).scalar_one()
     await db.commit()
     background_tasks.add_task(_dispatch_crm_lead_outbox, lead_id)
+    background_tasks.add_task(
+        _send_public_lead_notification,
+        PublicLeadNotification(
+            lead_id=lead_id,
+            received_at=consent_received_at,
+            name=payload.name.strip(),
+            company=payload.company.strip(),
+            email=str(payload.email),
+            phone=payload.phone.strip() if payload.phone else None,
+            company_size=payload.companySize,
+            industry=payload.industry,
+            interest=payload.interest,
+            message=payload.message,
+            locale=payload.locale,
+            utm_source=payload.utm_source,
+            utm_medium=payload.utm_medium,
+            utm_campaign=payload.utm_campaign,
+            utm_content=payload.utm_content,
+            utm_term=payload.utm_term,
+            gclid=payload.gclid,
+            referrer=payload.referrer,
+            landing_page=payload.landing_page,
+            attribution_captured_at=payload.attribution_captured_at,
+            consent_version=payload.consent_version,
+            source_section=payload.source_section,
+            plan=payload.plan,
+            roi_employees=payload.roi_employees,
+            roi_industry=payload.roi_industry,
+            roi_employee_band=payload.roi_employee_band,
+            roi_formula_version=payload.roi_formula_version,
+        ),
+    )
     return PublicLeadResponse(id=lead_id, ok=True)
 
 

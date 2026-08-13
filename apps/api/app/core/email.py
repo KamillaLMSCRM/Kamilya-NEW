@@ -1,13 +1,94 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass, fields
+from datetime import datetime
 from html import escape
+from uuid import UUID
 
 import httpx
 
 from app.core.config import get_settings
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True, slots=True)
+class PublicLeadNotification:
+    """Immutable, bounded copy of a successfully stored public application."""
+
+    lead_id: UUID
+    received_at: datetime
+    name: str
+    company: str
+    email: str
+    phone: str | None = None
+    company_size: int | None = None
+    industry: str | None = None
+    interest: str | None = None
+    message: str | None = None
+    locale: str | None = None
+    utm_source: str | None = None
+    utm_medium: str | None = None
+    utm_campaign: str | None = None
+    utm_content: str | None = None
+    utm_term: str | None = None
+    gclid: str | None = None
+    referrer: str | None = None
+    landing_page: str | None = None
+    attribution_captured_at: datetime | None = None
+    consent_version: str | None = None
+    source_section: str | None = None
+    plan: str | None = None
+    roi_employees: int | None = None
+    roi_industry: str | None = None
+    roi_employee_band: str | None = None
+    roi_formula_version: str | None = None
+
+
+_PUBLIC_LEAD_LABELS = {
+    "lead_id": "ID заявки",
+    "received_at": "Получена",
+    "name": "Имя",
+    "company": "Компания",
+    "email": "Email",
+    "phone": "Телефон",
+    "company_size": "Количество сотрудников",
+    "industry": "Сфера",
+    "interest": "Интерес",
+    "message": "Комментарий",
+    "locale": "Язык",
+    "utm_source": "UTM source",
+    "utm_medium": "UTM medium",
+    "utm_campaign": "UTM campaign",
+    "utm_content": "UTM content",
+    "utm_term": "UTM term",
+    "gclid": "Google Click ID",
+    "referrer": "Источник перехода",
+    "landing_page": "Страница заявки",
+    "attribution_captured_at": "Атрибуция зафиксирована",
+    "consent_version": "Версия согласия",
+    "source_section": "Раздел формы",
+    "plan": "План",
+    "roi_employees": "Сотрудников в расчёте",
+    "roi_industry": "Сфера в расчёте",
+    "roi_employee_band": "Диапазон сотрудников",
+    "roi_formula_version": "Версия расчёта",
+}
+
+
+def _public_lead_rows(notification: PublicLeadNotification) -> list[tuple[str, str]]:
+    rows: list[tuple[str, str]] = []
+    for field in fields(notification):
+        value = getattr(notification, field.name)
+        if isinstance(value, datetime):
+            rendered = value.isoformat()
+        elif value is None or value == "":
+            rendered = "—"
+        else:
+            rendered = str(value)
+        rows.append((_PUBLIC_LEAD_LABELS[field.name], rendered))
+    return rows
 
 
 def _subject_component(value: str, *, fallback: str) -> str:
@@ -59,6 +140,33 @@ class EmailService:
             "<p>Contact: <a href=\"mailto:askar@kml.kz\">askar@kml.kz</a> · +7 707 275 0007</p>"
         )
         await self._send(to_email=to_email, subject=subject, text=text, html=html)
+
+    async def send_public_lead_notification(
+        self,
+        *,
+        to_email: str,
+        notification: PublicLeadNotification,
+    ) -> str | None:
+        """Send the complete stored lead copy to the configured operator."""
+
+        rows = _public_lead_rows(notification)
+        subject = "Kamilya LMS: новая заявка с сайта"
+        text = "Новая заявка Kamilya LMS\n\n" + "\n".join(f"{label}: {value}" for label, value in rows)
+        html_rows = "".join(
+            "<tr>"
+            f'<th style="text-align:left;vertical-align:top;padding:6px 12px 6px 0">{escape(label)}</th>'
+            f'<td style="padding:6px 0;white-space:pre-wrap">{escape(value)}</td>'
+            "</tr>"
+            for label, value in rows
+        )
+        html = "<h2>Новая заявка Kamilya LMS</h2>" '<table style="border-collapse:collapse">' f"{html_rows}" "</table>"
+        return await self._send(
+            to_email=to_email,
+            subject=subject,
+            text=text,
+            html=html,
+            idempotency_key=f"public-lead-notification/{notification.lead_id}",
+        )
 
     async def send_invitation_code(
         self,

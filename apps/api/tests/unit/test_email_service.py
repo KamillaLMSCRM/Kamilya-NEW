@@ -1,8 +1,15 @@
+from datetime import UTC, datetime
 from types import SimpleNamespace
+from uuid import UUID
 
 import pytest
 
-from app.core.email import EmailDeliveryError, EmailService, _subject_component
+from app.core.email import (
+    EmailDeliveryError,
+    EmailService,
+    PublicLeadNotification,
+    _subject_component,
+)
 
 
 class _FakeResponse:
@@ -51,6 +58,81 @@ def test_tenant_name_cannot_inject_an_email_subject_line():
     assert subject_part == "Tenant Bcc: hidden@example.kz"
     assert "\r" not in subject_part
     assert "\n" not in subject_part
+
+
+@pytest.mark.asyncio
+async def test_public_lead_notification_contains_full_application_and_escapes_html(monkeypatch):
+    monkeypatch.setattr(
+        "app.core.email.get_settings",
+        lambda: SimpleNamespace(
+            EMAIL_PROVIDER="resend",
+            RESEND_API_KEY="test-key",
+            EMAIL_FROM="Kamilya LMS <noreply@example.kz>",
+        ),
+    )
+    _FakeAsyncClient.payload = None
+    _FakeAsyncClient.headers = None
+    monkeypatch.setattr("app.core.email.httpx.AsyncClient", _FakeAsyncClient)
+
+    notification = PublicLeadNotification(
+        lead_id=UUID("00000000-0000-0000-0000-000000000123"),
+        received_at=datetime(2026, 8, 13, 14, 30, tzinfo=UTC),
+        name="Аскар <script>alert(1)</script>",
+        company="ТОО Финанс & Партнёры",
+        email="lead@example.kz",
+        phone="+7 707 123 45 67",
+        company_size=75,
+        industry="finance",
+        interest="demo",
+        message="Нужна демонстрация",
+        locale="ru",
+        utm_source="google",
+        utm_medium="cpc",
+        utm_campaign="kz_finance_search_ru",
+        utm_content="ag_knowledge_rsa_a",
+        utm_term="обучение сотрудников",
+        gclid="test-gclid",
+        referrer="https://google.kz/",
+        landing_page="https://kml.kz/ru/finance",
+        attribution_captured_at=datetime(2026, 8, 13, 14, 25, tzinfo=UTC),
+        consent_version="privacy-terms-2026-08-10",
+        source_section="finance_hero",
+        plan="corporate",
+        roi_employees=75,
+        roi_industry="finance",
+        roi_employee_band="51-100",
+        roi_formula_version="lead-assessment-v1",
+    )
+
+    await EmailService().send_public_lead_notification(
+        to_email="askar0007amirkhanov@gmail.com",
+        notification=notification,
+    )
+
+    payload = _FakeAsyncClient.payload
+    assert payload is not None
+    assert payload["to"] == ["askar0007amirkhanov@gmail.com"]
+    assert payload["subject"] == "Kamilya LMS: новая заявка с сайта"
+    for expected in (
+        "00000000-0000-0000-0000-000000000123",
+        "Аскар <script>alert(1)</script>",
+        "ТОО Финанс & Партнёры",
+        "lead@example.kz",
+        "+7 707 123 45 67",
+        "kz_finance_search_ru",
+        "ag_knowledge_rsa_a",
+        "обучение сотрудников",
+        "test-gclid",
+        "privacy-terms-2026-08-10",
+        "lead-assessment-v1",
+    ):
+        assert expected in payload["text"]
+    assert "&lt;script&gt;alert(1)&lt;/script&gt;" in payload["html"]
+    assert "<script>alert(1)</script>" not in payload["html"]
+    assert _FakeAsyncClient.headers is not None
+    assert _FakeAsyncClient.headers["Idempotency-Key"] == (
+        "public-lead-notification/00000000-0000-0000-0000-000000000123"
+    )
 
 
 @pytest.mark.asyncio
