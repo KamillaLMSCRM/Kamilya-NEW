@@ -9,6 +9,35 @@ DB/storage gate и приёмкой клиента
 остаётся в Git; отдельные датированные отчёты не используются как источник
 текущего состояния.
 
+## Временная доставка публичных заявок оператору 2026-08-13
+
+Application patch `01373b14dad8ce338753956ae161cece8ec902c5` добавляет
+вторичный канал уведомления о публичной заявке:
+
+- после commit `TenantLead` и durable CRM outbox полная копия заявки
+  отправляется через Resend на адрес из `PUBLIC_LEAD_NOTIFICATION_EMAIL`;
+- письмо включает контактные и анкетные поля, UTM/GCLID, ROI-контекст, версию
+  согласия, серверное время приёма и ID заявки;
+- HTML экранируется, а стабильный provider idempotency key строится из ID
+  заявки;
+- недоступность почтового провайдера не меняет успешный ответ формы и не
+  удаляет сохранённый lead; Google Sheets не используется.
+
+Release evidence:
+
+| Контур | Состояние | Подтверждение |
+|---|---|---|
+| Application CI | PASS | GitHub Actions `31695562054`; все jobs passed, включая PostgreSQL migrations/tests |
+| API | PASS | Render deploy `dep-d9uqlj7qj5pc738931c0`, `live`, exact application patch |
+| Database | PASS | Production Alembic `0108 (head)` после pre-deploy |
+| Configuration | PASS | Render хранит точный временный Gmail-получатель; значение проверено без вывода секретов |
+| API smoke | PASS | health `ok`; пустой публичный lead получил `422` без создания записи |
+| Email provider smoke | PASS | синтетическое письмо с явной отметкой «не заявка клиента» принято Resend; получение в Gmail проверяется владельцем адреса |
+
+Этот канал является временным и best-effort. Источниками истины остаются
+PostgreSQL и durable CRM outbox; после принятия операторского интерфейса CRM
+пересылка отключается пустым значением переменной окружения.
+
 ## Platform operator login hardening 2026-08-08
 
 Application patch `472e5fb1e98f5542bc63b1366512d8410138c8a6` закрывает
