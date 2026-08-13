@@ -359,7 +359,18 @@ async def test_broker_failure_after_commit_does_not_lose_assignment():
             side_effect=RuntimeError("broker down"),
         ),
     ):
-        result = await router.create_enrollments(uuid4(), SimpleNamespace(user_ids=[uuid4()]), db, user)
+        result = await router.create_enrollments(
+            uuid4(),
+            SimpleNamespace(
+                user_ids=[uuid4()],
+                delivery_mode="email",
+                link_expires_at=None,
+                completion_window_minutes=None,
+                due_at=None,
+            ),
+            db,
+            user,
+        )
     assert result == [enrollment]
     db.commit.assert_awaited_once()
 
@@ -373,8 +384,10 @@ async def test_active_email_learner_gets_configured_course_url_without_invitatio
     learner = SimpleNamespace(id=enrollment.user_id, email="active@example.test", has_login_access=True)
     row_result = MagicMock()
     row_result.one_or_none.return_value = (enrollment, learner)
-    db = SimpleNamespace(execute=AsyncMock(return_value=row_result), scalar=AsyncMock())
+    db = SimpleNamespace(execute=AsyncMock(return_value=row_result), scalar=AsyncMock(return_value=None))
     access = await get_enrollment_access(db, enrollment_id, tenant_id, base_url="https://tenant.example/")
     assert access["access_kind"] == "course_access"
     assert access["access_url"] == f"https://tenant.example/courses/{course_id}"
-    db.scalar.assert_not_awaited()
+    # Access policy must be read even for an email-capable learner because a
+    # methodologist may explicitly choose personal-link delivery for them.
+    db.scalar.assert_awaited_once()
