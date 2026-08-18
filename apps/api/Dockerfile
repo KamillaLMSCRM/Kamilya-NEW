@@ -7,19 +7,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends gcc libpq-dev \
 
 RUN pip install --no-cache-dir poetry && poetry config virtualenvs.in-project true
 
-COPY pyproject.toml poetry.lock* ./
-RUN poetry install --no-interaction --no-ansi --without dev
+COPY apps/api/pyproject.toml apps/api/poetry.lock* ./
+COPY packages /packages
+RUN poetry install --no-interaction --no-ansi --without dev --no-root
 
-COPY . .
-
-# Copy shared packages for in-repo path dependency (packages/ → ml_pipeline/ with Jinja2 prompt templates).
-# Poetry installs packages via path = "../../packages" in editable mode, but the runtime files
-# still need to exist on disk inside the container.
-# NOTE: build context must be the repo root (e.g. `docker build -f apps/api/Dockerfile .`)
-# so that ../../packages resolves to /packages inside the container.
-COPY ../../packages /packages
+COPY apps/api/ .
 
 ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/app
 EXPOSE 8000
 
 # Run migrations before starting uvicorn. Uses sh -c so `&&` works in CMD.
