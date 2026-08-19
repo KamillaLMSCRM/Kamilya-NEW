@@ -106,6 +106,8 @@ def test_broker_independent_hourly_timer_and_ci_role_contract() -> None:
     ci = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
     assert "app.modules.candidate_assessments.retention_recovery" in service
     assert "celery" not in service.lower()
+    assert "/usr/bin/docker exec kamilya-runtime-worker-ops-1" in service
+    assert "/opt/kamilya-worker" not in service
     assert "OnUnitActiveSec=1h" in timer
     assert "Persistent=true" in timer
     assert "RandomizedDelaySec=5min" in timer
