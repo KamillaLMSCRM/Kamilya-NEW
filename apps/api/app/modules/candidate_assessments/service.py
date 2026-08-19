@@ -32,6 +32,26 @@ def token_hash(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
 
 
+def issue_access_token(tenant_id: UUID) -> str:
+    """Bind an opaque candidate credential to its tenant routing context.
+
+    The UUID prefix is not an authorization claim. It only lets the public
+    exchange endpoint establish the candidate tenant's RLS context before it
+    validates the full random token hash against the credential row.
+    """
+    return f"{tenant_id}.{secrets.token_urlsafe(32)}"
+
+
+def tenant_from_access_token(token: str) -> UUID | None:
+    prefix, separator, opaque = token.partition(".")
+    if not separator or not opaque:
+        return None
+    try:
+        return UUID(prefix)
+    except (TypeError, ValueError):
+        return None
+
+
 def assessment_from_release(snapshot: dict[str, Any]) -> dict[str, Any]:
     """Build an assessment from an immutable published course release.
 
@@ -181,7 +201,7 @@ async def add_candidate(db: AsyncSession, campaign_id: UUID, tenant_id: UUID, da
     )
     db.add(candidate)
     await db.flush()
-    token, pin = secrets.token_urlsafe(32), f"{secrets.randbelow(1_000_000):06d}"
+    token, pin = issue_access_token(tenant_id), f"{secrets.randbelow(1_000_000):06d}"
     expires_at = min(campaign.expires_at, datetime.now(UTC) + LINK_TTL)
     db.add(
         CandidateAccessCredential(
@@ -203,7 +223,19 @@ async def add_candidate(db: AsyncSession, campaign_id: UUID, tenant_id: UUID, da
 
 
 async def establish_context(db: AsyncSession, token: str) -> UUID | None:
-    return await db.scalar(text("SELECT lookup_candidate_assessment_tenant(:hash)"), {"hash": token_hash(token)})
+    tenant_id = tenant_from_access_token(token)
+    if tenant_id is None:
+        return None
+    await db.execute(text("SELECT set_current_tenant(:tid)"), {"tid": str(tenant_id)})
+    resolved_tenant = await db.scalar(
+        select(CandidateAccessCredential.tenant_id).where(
+            CandidateAccessCredential.tenant_id == tenant_id,
+            CandidateAccessCredential.token_hash == token_hash(token),
+            CandidateAccessCredential.revoked_at.is_(None),
+            CandidateAccessCredential.expires_at > datetime.now(UTC),
+        )
+    )
+    return tenant_id if resolved_tenant == tenant_id else None
 
 
 async def exchange(db: AsyncSession, token: str, pin: str, consent: bool) -> dict[str, Any] | None:
