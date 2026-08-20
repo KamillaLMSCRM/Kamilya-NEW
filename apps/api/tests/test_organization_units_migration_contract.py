@@ -79,6 +79,15 @@ def test_migration_keeps_force_rls_and_runtime_grants_closed():
     assert "NULLIF(current_setting('app.tenant_id', true), '')::uuid" in source
 
 
+def test_migration_temporarily_unforces_rls_for_owner_backfill():
+    source = _source()
+    disable = source.index("ALTER TABLE departments NO FORCE ROW LEVEL SECURITY")
+    backfill = source.index("UPDATE departments")
+    restore = source.index("ALTER TABLE departments FORCE ROW LEVEL SECURITY", backfill)
+
+    assert disable < backfill < restore
+
+
 def test_downgrade_refuses_to_erase_canonical_organization_semantics():
     source = _source()
 

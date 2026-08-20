@@ -57,6 +57,14 @@ def upgrade() -> None:
         sa.Column("legacy_root", sa.Boolean(), nullable=False, server_default=sa.true()),
     )
 
+    # Production owns this table with the non-BYPASSRLS migration role while
+    # the legacy table already has FORCE RLS. Without temporarily restoring
+    # normal owner semantics, the backfill UPDATE sees zero rows and the
+    # following CHECK validation fails against untouched physical rows.
+    # Alembic runs the revision transactionally, so any later failure restores
+    # FORCE RLS together with the rest of the revision.
+    op.execute("ALTER TABLE departments NO FORCE ROW LEVEL SECURITY")
+
     # Preserve every existing ID and meaning. Classification as a branch is a
     # tenant-specific approval decision, so all historical roots stay marked
     # as compatibility departments at this point.
