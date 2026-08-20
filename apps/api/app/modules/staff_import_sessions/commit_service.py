@@ -224,7 +224,12 @@ async def commit_approved_import_session(
         resolved_units[proposal.external_key] = unit
         await db.flush()
 
-    positions_result = await db.execute(select(Position).where(Position.tenant_id == tenant_id).with_for_update())
+    # Position eagerly joins its optional department.  PostgreSQL rejects a
+    # blanket FOR UPDATE across the nullable side of that outer join, so lock
+    # only the position rows that this commit reconciles.
+    positions_result = await db.execute(
+        select(Position).where(Position.tenant_id == tenant_id).with_for_update(of=Position)
+    )
     positions = list(positions_result.scalars().all())
     positions_by_external = {position.external_key: position for position in positions if position.external_key}
     resolved_positions: dict[str, Position] = {}
