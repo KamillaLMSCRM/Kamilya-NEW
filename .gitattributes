@@ -1,3 +1,4 @@
 # Keep repository shell gates portable across Windows and Linux runners.
 *.sh text eol=lf
+poetry.lock text eol=lf
 graphify-out/graph.json merge=graphify
