@@ -278,6 +278,61 @@ async def test_completed_assignment_enrollment_blocks_learning_mutations() -> No
     assert exc_info.value.code == "assignment_enrollment_not_active"
 
 
+@pytest.mark.asyncio
+async def test_completed_assignment_enrollment_keeps_exact_read_access() -> None:
+    from app.models.enrollment import Enrollment
+    from app.modules.enrollments.access_service import require_assignment_enrollment_read_access
+
+    tenant_id, user_id, course_id, enrollment_id = uuid4(), uuid4(), uuid4(), uuid4()
+    enrollment = Enrollment(
+        id=enrollment_id,
+        tenant_id=tenant_id,
+        user_id=user_id,
+        course_id=course_id,
+        status="completed",
+        source="manual",
+    )
+
+    class CompletedDb:
+        def __init__(self):
+            self.calls = 0
+
+        async def scalar(self, _statement):
+            self.calls += 1
+            return enrollment if self.calls == 1 else None
+
+    resolved = await require_assignment_enrollment_read_access(
+        CompletedDb(),
+        user_id=user_id,
+        tenant_id=tenant_id,
+        course_id=course_id,
+        enrollment_id=enrollment_id,
+    )
+    assert resolved is enrollment
+
+
+def test_personal_link_completion_certificate_is_bound_to_explicit_enrollment() -> None:
+    from pathlib import Path
+
+    service = Path("app/modules/certificates/service.py").read_text(encoding="utf-8")
+    router = Path("app/modules/certificates/router.py").read_text(encoding="utf-8")
+    assert "enrollment_id is not None or enrollment.recurring_assignment_id" in service
+    assert 'getattr(user, "assignment_access_enrollment_id", None) is not None' in router
+    assert "Certificate is issued by course completion" in router
+
+
+def test_assignment_bound_secondary_learner_surfaces_are_scoped() -> None:
+    from pathlib import Path
+
+    surveys = Path("app/modules/surveys/router.py").read_text(encoding="utf-8")
+    assistant = Path("app/modules/learner_assistant/router.py").read_text(encoding="utf-8")
+    scorm = Path("app/modules/scorm/router.py").read_text(encoding="utf-8")
+    assert surveys.count("Enrollment.id == assignment_enrollment_id") >= 2
+    assert "return await require_course_access(db, course_id, user)" in assistant
+    assert 'payload.get("assignment_access_enrollment_id")' in scorm
+    assert "attempt.enrollment_id != enrollment_id" in scorm
+
+
 def test_assignment_result_surfaces_are_scoped_to_exact_enrollment() -> None:
     from pathlib import Path
 

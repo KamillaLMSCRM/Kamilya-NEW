@@ -53,11 +53,11 @@ async def require_course_access(
     from app.modules.enrollments.access_service import (
         AssignmentWindowExpiredError,
         assignment_window_error,
-        require_active_enrollment_window,
+        require_assignment_enrollment_read_access,
     )
 
     try:
-        await require_active_enrollment_window(
+        await require_assignment_enrollment_read_access(
             db,
             user_id=user.id,
             tenant_id=user.tenant_id,

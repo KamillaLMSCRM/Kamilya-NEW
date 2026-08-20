@@ -203,7 +203,12 @@ async def issue_certificate(
         raise ValueError("Not enrolled in this course")
     if enrollment.status != "completed":
         raise ValueError("Course is not completed yet")
-    certificate_enrollment_id = enrollment.id if enrollment.recurring_assignment_id else None
+    # Completion flows pass an explicit enrollment and need an artifact bound
+    # to that exact attempt (including one-time personal-link assignments).
+    # Legacy/manual account issuance keeps the historical one-per-course rule.
+    certificate_enrollment_id = (
+        enrollment.id if enrollment_id is not None or enrollment.recurring_assignment_id else None
+    )
     existing = await db.scalar(
         select(Certificate).where(
             Certificate.user_id == user_id,

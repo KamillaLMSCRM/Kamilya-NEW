@@ -16,13 +16,14 @@ from app.modules.progress.service import (
 )
 
 
-async def _require_window_for_lesson(db, lesson_id, user):
+async def _require_window_for_lesson(db, lesson_id, user, *, active_only: bool):
     from sqlalchemy import select
 
     from app.modules.enrollments.access_service import (
         AssignmentWindowExpiredError,
         assignment_window_error,
         require_active_enrollment_window,
+        require_assignment_enrollment_read_access,
     )
     from app.modules.lessons.models import Lesson, Module
 
@@ -32,7 +33,8 @@ async def _require_window_for_lesson(db, lesson_id, user):
     if course_id is None:
         return
     try:
-        await require_active_enrollment_window(
+        guard = require_active_enrollment_window if active_only else require_assignment_enrollment_read_access
+        await guard(
             db,
             user_id=user.id,
             tenant_id=user.tenant_id,
@@ -56,7 +58,7 @@ async def get_lesson_progress_endpoint(
     db: AsyncSession = Depends(get_db),
     user=Depends(get_current_user),
 ):
-    await _require_window_for_lesson(db, lesson_id, user)
+    await _require_window_for_lesson(db, lesson_id, user, active_only=False)
     return await get_lesson_progress(db, user.id, lesson_id, user.tenant_id)
 
 
@@ -67,7 +69,7 @@ async def update_lesson_progress_endpoint(
     db: AsyncSession = Depends(get_db),
     user=Depends(get_current_user),
 ):
-    await _require_window_for_lesson(db, lesson_id, user)
+    await _require_window_for_lesson(db, lesson_id, user, active_only=True)
     progress = await update_lesson_progress(db, user.id, lesson_id, user.tenant_id, req.completed)
     if progress is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lesson not found")
@@ -83,11 +85,11 @@ async def get_course_progress_endpoint(
     from app.modules.enrollments.access_service import (
         AssignmentWindowExpiredError,
         assignment_window_error,
-        require_active_enrollment_window,
+        require_assignment_enrollment_read_access,
     )
 
     try:
-        await require_active_enrollment_window(
+        await require_assignment_enrollment_read_access(
             db,
             user_id=user.id,
             tenant_id=user.tenant_id,
@@ -109,11 +111,11 @@ async def get_completed_lesson_ids_endpoint(
     from app.modules.enrollments.access_service import (
         AssignmentWindowExpiredError,
         assignment_window_error,
-        require_active_enrollment_window,
+        require_assignment_enrollment_read_access,
     )
 
     try:
-        await require_active_enrollment_window(
+        await require_assignment_enrollment_read_access(
             db,
             user_id=user.id,
             tenant_id=user.tenant_id,

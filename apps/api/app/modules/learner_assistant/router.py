@@ -10,9 +10,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.auth import get_current_user, require_tenant_user
 from app.core.db import get_db
 from app.models.courses import Course
-from app.models.enrollment import Enrollment
 from app.models.users import User
 from app.modules.ai.llm_client import ResilientLLMClient
+from app.modules.courses.access import require_course_access
 from app.modules.learner_assistant.models import LearnerAssistantMessage
 from app.modules.learner_assistant.schemas import (
     LearnerAssistantChatRequest,
@@ -31,27 +31,12 @@ router = APIRouter(
 
 
 async def _assert_course_access(db: AsyncSession, course_id: UUID, user: User) -> Course:
-    result = await db.execute(
-        select(Course).where(Course.id == course_id, Course.tenant_id == user.tenant_id)
-    )
-    course = result.scalar_one_or_none()
-    if not course:
-        raise HTTPException(status_code=404, detail="Course not found")
-    if user.role in {"admin", "methodologist", "superadmin"}:
-        return course
-    enrolled = await db.scalar(
-        select(Enrollment.id).where(
-            Enrollment.course_id == course_id,
-            Enrollment.user_id == user.id,
-            Enrollment.tenant_id == user.tenant_id,
-        )
-    )
-    if not enrolled:
-        raise HTTPException(status_code=403, detail="Course is not assigned to this learner")
-    return course
+    return await require_course_access(db, course_id, user)
 
 
-async def _build_context(db: AsyncSession, course: Course, lesson_id: UUID | None, tenant_id: UUID) -> tuple[str, list[str]]:
+async def _build_context(
+    db: AsyncSession, course: Course, lesson_id: UUID | None, tenant_id: UUID
+) -> tuple[str, list[str]]:
     sources = [f"Курс: {course.title}"]
     lines = [
         f"Курс: {course.title}",
@@ -65,17 +50,17 @@ async def _build_context(db: AsyncSession, course: Course, lesson_id: UUID | Non
         if not module or module.course_id != course.id:
             raise HTTPException(status_code=404, detail="Lesson is not part of this course")
         sources.append(f"Урок: {lesson.title}")
-        lines.extend([
-            f"Модуль: {module.title}",
-            f"Текущий урок: {lesson.title}",
-            "",
-            "Материал урока:",
-            (lesson.content or "")[:7000],
-        ])
-    else:
-        modules_q = await db.execute(
-            select(Module).where(Module.course_id == course.id).order_by(Module.order_index)
+        lines.extend(
+            [
+                f"Модуль: {module.title}",
+                f"Текущий урок: {lesson.title}",
+                "",
+                "Материал урока:",
+                (lesson.content or "")[:7000],
+            ]
         )
+    else:
+        modules_q = await db.execute(select(Module).where(Module.course_id == course.id).order_by(Module.order_index))
         modules = modules_q.scalars().all()
         for module in modules[:6]:
             lessons_q = await db.execute(
@@ -129,38 +114,41 @@ async def learner_chat(
         "Вместо этого объясняй принцип, термин или где перечитать материал. "
         "Пиши на языке вопроса обучающегося."
     )
-    user_prompt = (
-        f"Материалы курса:\n{context}\n\n"
-        f"Вопрос обучающегося:\n{req.message}"
-    )
+    user_prompt = f"Материалы курса:\n{context}\n\n" f"Вопрос обучающегося:\n{req.message}"
 
-    db.add(LearnerAssistantMessage(
-        tenant_id=user.tenant_id,
-        user_id=user.id,
-        course_id=req.course_id,
-        lesson_id=req.lesson_id,
-        role="user",
-        content=req.message,
-    ))
+    db.add(
+        LearnerAssistantMessage(
+            tenant_id=user.tenant_id,
+            user_id=user.id,
+            course_id=req.course_id,
+            lesson_id=req.lesson_id,
+            role="user",
+            content=req.message,
+        )
+    )
 
     llm = await ResilientLLMClient.from_settings_async(temperature=0.2, max_tokens=900)
     try:
-        resp = await llm.ainvoke([
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ])
+        resp = await llm.ainvoke(
+            [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ]
+        )
         reply = (resp.content or "").strip() or "Не получилось сформировать ответ."
     except Exception as e:
         logger.error("Learner assistant failed: %s", e, exc_info=True)
         raise HTTPException(status_code=502, detail="AI assistant is unavailable, try again")
 
-    db.add(LearnerAssistantMessage(
-        tenant_id=user.tenant_id,
-        user_id=user.id,
-        course_id=req.course_id,
-        lesson_id=req.lesson_id,
-        role="assistant",
-        content=reply,
-    ))
+    db.add(
+        LearnerAssistantMessage(
+            tenant_id=user.tenant_id,
+            user_id=user.id,
+            course_id=req.course_id,
+            lesson_id=req.lesson_id,
+            role="assistant",
+            content=reply,
+        )
+    )
     await db.commit()
     return {"reply": reply, "sources": sources}

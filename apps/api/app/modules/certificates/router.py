@@ -111,6 +111,11 @@ async def issue_course_certificate(
     user: CurrentUser,
 ):
     """Issue certificate for completing a course (enforces completion)."""
+    if getattr(user, "assignment_access_enrollment_id", None) is not None:
+        # Personal-link completion already issues the exact-enrollment
+        # certificate atomically.  This legacy/manual endpoint must not let a
+        # scoped bearer mint a certificate for another own course.
+        raise HTTPException(status_code=403, detail="Certificate is issued by course completion")
     try:
         cert = await issue_certificate(
             db=db,

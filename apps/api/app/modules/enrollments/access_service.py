@@ -378,6 +378,50 @@ async def require_active_enrollment_window(
     return enrollment
 
 
+async def require_assignment_enrollment_read_access(
+    db: AsyncSession,
+    *,
+    user_id: UUID,
+    tenant_id: UUID,
+    course_id: UUID,
+    enrollment_id: UUID | None,
+) -> Enrollment | None:
+    """Authorize reads for the exact enrollment carried by an assignment JWT.
+
+    Ordinary authenticated learners keep the existing account-session behavior.
+    A personal-link session, however, may only read its exact enrollment.  Once
+    that enrollment is completed, result/course reads remain available for the
+    remaining JWT lifetime, while every learning mutation continues to use
+    :func:`require_active_enrollment_window` and is rejected.
+    """
+    if enrollment_id is None:
+        return None
+    enrollment = await db.scalar(
+        select(Enrollment).where(
+            Enrollment.id == enrollment_id,
+            Enrollment.tenant_id == tenant_id,
+            Enrollment.user_id == user_id,
+            Enrollment.course_id == course_id,
+            Enrollment.status.in_(("enrolled", "in_progress", "completed")),
+        )
+    )
+    if enrollment is None:
+        raise AssignmentWindowExpiredError("assignment_enrollment_not_active", datetime.now(UTC))
+    policy = await get_access_policy(db, enrollment_id=enrollment.id, tenant_id=tenant_id)
+    if policy is None or policy.delivery_mode != "personal_link":
+        return enrollment
+    if policy.revoked_at:
+        raise AssignmentWindowExpiredError("assignment_access_revoked", policy.revoked_at)
+    if enrollment.status == "completed":
+        return enrollment
+    now = datetime.now(UTC)
+    if policy.due_at and policy.due_at <= now:
+        raise AssignmentWindowExpiredError("assignment_due_at_expired", policy.due_at)
+    if policy.completion_window_expires_at and policy.completion_window_expires_at <= now:
+        raise AssignmentWindowExpiredError("assignment_completion_window_expired", policy.completion_window_expires_at)
+    return enrollment
+
+
 async def get_assignment_access_window(
     db: AsyncSession,
     *,

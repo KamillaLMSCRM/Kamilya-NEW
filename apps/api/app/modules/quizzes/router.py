@@ -54,7 +54,13 @@ async def _require_quiz_tenant(db: AsyncSession, quiz_id: UUID, tenant_id: UUID)
     return quiz
 
 
-async def _require_quiz_access(db: AsyncSession, quiz_id: UUID, user: User) -> Quiz:
+async def _require_quiz_access(
+    db: AsyncSession,
+    quiz_id: UUID,
+    user: User,
+    *,
+    active_only: bool = False,
+) -> Quiz:
     quiz = await _require_quiz_tenant(db, quiz_id, user.tenant_id)
     if quiz.lesson_id is None:
         if user.role not in AUTHORING_ROLES:
@@ -65,6 +71,7 @@ async def _require_quiz_access(db: AsyncSession, quiz_id: UUID, user: User) -> Q
         AssignmentWindowExpiredError,
         assignment_window_error,
         require_active_enrollment_window,
+        require_assignment_enrollment_read_access,
     )
     from app.modules.lessons.models import Lesson, Module
 
@@ -73,7 +80,8 @@ async def _require_quiz_access(db: AsyncSession, quiz_id: UUID, user: User) -> Q
     )
     if course_id is not None:
         try:
-            await require_active_enrollment_window(
+            guard = require_active_enrollment_window if active_only else require_assignment_enrollment_read_access
+            await guard(
                 db,
                 user_id=user.id,
                 tenant_id=user.tenant_id,
@@ -443,7 +451,7 @@ async def submit_quiz(
     user=Depends(get_current_user),
 ):
     """Submit quiz answers and get graded results."""
-    await _require_quiz_access(db, quiz_id, user)
+    await _require_quiz_access(db, quiz_id, user, active_only=True)
     try:
         answers_dicts = [a.model_dump() for a in req.answers]
         result = await grade_quiz(

@@ -27,8 +27,13 @@ class ScormAttempt(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     tenant_id = Column(UUID(as_uuid=True), nullable=False, index=True)
     course_id = Column(UUID(as_uuid=True), ForeignKey("courses.id", ondelete="CASCADE"), nullable=False, index=True)
-    package_id = Column(UUID(as_uuid=True), ForeignKey("scorm_packages.id", ondelete="CASCADE"), nullable=False, index=True)
+    package_id = Column(
+        UUID(as_uuid=True), ForeignKey("scorm_packages.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    enrollment_id = Column(
+        UUID(as_uuid=True), ForeignKey("enrollments.id", ondelete="RESTRICT"), nullable=True, index=True
+    )
     lesson_status = Column(Text, nullable=True)
     success_status = Column(Text, nullable=True)
     completion_status = Column(Text, nullable=True)
@@ -40,4 +45,3 @@ class ScormAttempt(Base):
     started_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
     last_commit_at = Column(DateTime(timezone=True), nullable=True)
     completed_at = Column(DateTime(timezone=True), nullable=True)
-
