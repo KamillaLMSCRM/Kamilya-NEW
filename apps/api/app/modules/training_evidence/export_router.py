@@ -94,6 +94,13 @@ async def export_my_training_evidence(
 ):
     """Download only the authenticated learner's own individual result PDF."""
 
+    from app.modules.training_evidence.service import get_learner_event
+
+    event = await get_learner_event(db, tenant_user.tenant_id, user.id, event_id)
+    assignment_enrollment_id = getattr(user, "assignment_access_enrollment_id", None)
+    if assignment_enrollment_id is not None and event.enrollment_id != assignment_enrollment_id:
+        raise HTTPException(status_code=404, detail="Evidence event not found")
+
     evidence = await build_learner_individual_evidence_input(
         db,
         tenant_user.tenant_id,

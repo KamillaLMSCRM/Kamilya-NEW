@@ -96,7 +96,12 @@ async def list_certificates(
     user: CurrentUser,
 ):
     """Get current user's certificates."""
-    return await get_user_certificates(db, user.id, user.tenant_id)
+    return await get_user_certificates(
+        db,
+        user.id,
+        user.tenant_id,
+        enrollment_id=getattr(user, "assignment_access_enrollment_id", None),
+    )
 
 
 @router.post("/{course_id}/issue", response_model=CertificateResponse, status_code=201)
@@ -176,7 +181,12 @@ async def revoke_cert(
 
 
 def _can_access_certificate(user, cert) -> bool:
-    return cert.user_id == user.id or user.role == "methodologist"
+    if user.role == "methodologist":
+        return True
+    if cert.user_id != user.id:
+        return False
+    assignment_enrollment_id = getattr(user, "assignment_access_enrollment_id", None)
+    return assignment_enrollment_id is None or cert.enrollment_id == assignment_enrollment_id
 
 
 @router.get("/{cert_id}", response_model=CertificateResponse)

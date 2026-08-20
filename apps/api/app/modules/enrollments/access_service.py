@@ -358,6 +358,12 @@ async def require_active_enrollment_window(
         criteria.append(Enrollment.id == enrollment_id)
     enrollment = await db.scalar(select(Enrollment).where(*criteria).order_by(Enrollment.enrolled_at.desc()).limit(1))
     if enrollment is None:
+        if enrollment_id is not None:
+            # Assignment-access sessions are bound to one exact, still-active
+            # enrollment.  Authentication may remain valid after completion
+            # solely so the learner can download result artifacts; learning
+            # mutations must stop at this guard.
+            raise AssignmentWindowExpiredError("assignment_enrollment_not_active", datetime.now(UTC))
         return None
     policy = await get_access_policy(db, enrollment_id=enrollment.id, tenant_id=tenant_id)
     if policy is None or policy.delivery_mode != "personal_link":

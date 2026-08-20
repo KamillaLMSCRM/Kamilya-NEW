@@ -259,8 +259,10 @@ async def get_user_certificates(
     db: AsyncSession,
     user_id: UUID,
     tenant_id: UUID,
+    *,
+    enrollment_id: UUID | None = None,
 ) -> list[Certificate]:
-    result = await db.execute(
+    query = (
         select(Certificate)
         .where(
             Certificate.user_id == user_id,
@@ -268,6 +270,9 @@ async def get_user_certificates(
         )
         .order_by(Certificate.issued_at.desc())
     )
+    if enrollment_id is not None:
+        query = query.where(Certificate.enrollment_id == enrollment_id)
+    result = await db.execute(query)
     return list(result.scalars().all())
 
 

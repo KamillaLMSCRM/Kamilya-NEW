@@ -74,6 +74,11 @@ async def list_my_training_evidence(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role("student")),
 ):
+    assignment_enrollment_id = getattr(user, "assignment_access_enrollment_id", None)
+    if assignment_enrollment_id is not None:
+        if enrollment_id is not None and enrollment_id != assignment_enrollment_id:
+            raise HTTPException(status_code=404, detail="Evidence event not found")
+        enrollment_id = assignment_enrollment_id
     return await list_learner_events(
         db,
         user.tenant_id,
@@ -92,7 +97,11 @@ async def get_my_training_evidence(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role("student")),
 ):
-    return await get_learner_event(db, user.tenant_id, user.id, event_id)
+    event = await get_learner_event(db, user.tenant_id, user.id, event_id)
+    assignment_enrollment_id = getattr(user, "assignment_access_enrollment_id", None)
+    if assignment_enrollment_id is not None and event.enrollment_id != assignment_enrollment_id:
+        raise HTTPException(status_code=404, detail="Evidence event not found")
+    return event
 
 
 @router.get("/events", response_model=list[EvidenceEventResponse])

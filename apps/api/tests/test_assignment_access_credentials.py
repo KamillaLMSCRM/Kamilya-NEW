@@ -260,6 +260,36 @@ async def test_window_guard_filters_by_exact_enrollment_bound_to_assignment_toke
 
 
 @pytest.mark.asyncio
+async def test_completed_assignment_enrollment_blocks_learning_mutations() -> None:
+    from app.modules.enrollments.access_service import AssignmentWindowExpiredError, require_active_enrollment_window
+
+    class CompletedDb:
+        async def scalar(self, _statement):
+            return None
+
+    with pytest.raises(AssignmentWindowExpiredError) as exc_info:
+        await require_active_enrollment_window(
+            CompletedDb(),
+            user_id=uuid4(),
+            tenant_id=uuid4(),
+            course_id=uuid4(),
+            enrollment_id=uuid4(),
+        )
+    assert exc_info.value.code == "assignment_enrollment_not_active"
+
+
+def test_assignment_result_surfaces_are_scoped_to_exact_enrollment() -> None:
+    from pathlib import Path
+
+    certificates = Path("app/modules/certificates/router.py").read_text(encoding="utf-8")
+    evidence = Path("app/modules/training_evidence/router.py").read_text(encoding="utf-8")
+    courses = Path("app/modules/courses/router.py").read_text(encoding="utf-8")
+    assert "cert.enrollment_id == assignment_enrollment_id" in certificates
+    assert "event.enrollment_id != assignment_enrollment_id" in evidence
+    assert "Enrollment.id == assignment_enrollment_id" in courses
+
+
+@pytest.mark.asyncio
 async def test_expired_assignment_window_raises_structured_expiry_code() -> None:
     from app.models.enrollment import Enrollment
     from app.models.enrollment_access_policy import EnrollmentAccessPolicy

@@ -12,7 +12,13 @@ from app.modules.certificates.models import Certificate
 from app.modules.lessons.models import Lesson, Module
 
 
-async def get_student_dashboard(db: AsyncSession, user_id: UUID, tenant_id: UUID) -> dict:
+async def get_student_dashboard(
+    db: AsyncSession,
+    user_id: UUID,
+    tenant_id: UUID,
+    *,
+    enrollment_id: UUID | None = None,
+) -> dict:
     """Get student dashboard data.
 
     Optimization (audit §5.2): replaced N+1 (2 queries per enrolled
@@ -21,7 +27,7 @@ async def get_student_dashboard(db: AsyncSession, user_id: UUID, tenant_id: UUID
     completed_lessons) for ALL enrolled courses in one round-trip.
     """
     # Get enrolled courses
-    enrollments_result = await db.execute(
+    enrollment_query = (
         select(Enrollment, Course)
         .join(Course, Enrollment.course_id == Course.id)
         .where(
@@ -32,6 +38,9 @@ async def get_student_dashboard(db: AsyncSession, user_id: UUID, tenant_id: UUID
         )
         .order_by(Enrollment.enrolled_at.desc())
     )
+    if enrollment_id is not None:
+        enrollment_query = enrollment_query.where(Enrollment.id == enrollment_id)
+    enrollments_result = await db.execute(enrollment_query)
     enrollments = enrollments_result.all()
 
     enrolled_course_ids = [course.id for _e, course in enrollments]
@@ -102,12 +111,13 @@ async def get_student_dashboard(db: AsyncSession, user_id: UUID, tenant_id: UUID
         completed_lessons_all += completed_lessons
 
     # Count certificates
-    cert_count_result = await db.execute(
-        select(func.count(Certificate.id)).where(
-            Certificate.user_id == user_id,
-            Certificate.tenant_id == tenant_id,
-        )
+    certificate_query = select(func.count(Certificate.id)).where(
+        Certificate.user_id == user_id,
+        Certificate.tenant_id == tenant_id,
     )
+    if enrollment_id is not None:
+        certificate_query = certificate_query.where(Certificate.enrollment_id == enrollment_id)
+    cert_count_result = await db.execute(certificate_query)
     certificates_count = cert_count_result.scalar() or 0
 
     total_progress = round((completed_lessons_all / total_lessons_all * 100) if total_lessons_all > 0 else 0)

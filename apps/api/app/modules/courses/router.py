@@ -67,6 +67,9 @@ async def list_courses(
             & (Enrollment.user_id == user.id)
             & (Enrollment.tenant_id == user.tenant_id),
         ).where(Course.status == "published")
+        assignment_enrollment_id = getattr(user, "assignment_access_enrollment_id", None)
+        if assignment_enrollment_id is not None:
+            query = query.where(Enrollment.id == assignment_enrollment_id)
     elif user.role not in AUTHORING_ROLES:
         raise HTTPException(status_code=403, detail="Course authoring role required")
     if status:

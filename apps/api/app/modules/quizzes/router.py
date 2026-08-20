@@ -257,7 +257,7 @@ async def list_enrolled_quizzes(
     from app.modules.lessons.models import Lesson, Module
     from app.modules.quizzes.models import QuizAttempt
 
-    enrollments = await db.execute(
+    enrollment_query = (
         select(Enrollment.course_id)
         .join(Course, Course.id == Enrollment.course_id)
         .where(
@@ -267,6 +267,10 @@ async def list_enrolled_quizzes(
             Course.status == "published",
         )
     )
+    assignment_enrollment_id = getattr(user, "assignment_access_enrollment_id", None)
+    if assignment_enrollment_id is not None:
+        enrollment_query = enrollment_query.where(Enrollment.id == assignment_enrollment_id)
+    enrollments = await db.execute(enrollment_query)
     course_ids = list(dict.fromkeys(r[0] for r in enrollments.fetchall()))
     if not course_ids:
         return []
