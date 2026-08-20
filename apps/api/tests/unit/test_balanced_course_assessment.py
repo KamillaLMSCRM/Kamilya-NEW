@@ -6,7 +6,13 @@ from app.modules.ai.assessment import generate_lesson_assessment
 from app.modules.ai.writer_schema import LessonContent
 
 
-def _questions(topic: str, fact: str, source_quote: str, count: int = 5) -> list[dict]:
+def _questions(
+    topic: str,
+    fact: str,
+    source_quote: str,
+    count: int = 5,
+    source_quote_id: str = "E01",
+) -> list[dict]:
     options = [
         {"text": fact, "is_correct": True},
         {"text": "Посторонний вариант 1", "is_correct": False},
@@ -19,6 +25,7 @@ def _questions(topic: str, fact: str, source_quote: str, count: int = 5) -> list
             "options": options,
             "explanation": f"Материал связывает {topic} с {fact}.",
             "source_quote": source_quote,
+            "source_quote_id": source_quote_id,
         }
         for index in range(1, count + 1)
     ]
@@ -31,6 +38,9 @@ async def test_standard_assessment_requests_five_mcq_questions_only():
             prompt = messages[-1]["content"]
             assert "Exactly 5 single choice questions" in prompt
             assert "Do not add true/false or matching questions" in prompt
+            assert "ALLOWED_EVIDENCE_BANK" in prompt
+            assert '"source_quote_id"' in prompt
+            assert '"E01"' in prompt
             questions = _questions(
                 "выдачу микрокредита",
                 "проверки заявления",
@@ -76,7 +86,7 @@ async def test_standard_assessment_retries_an_incomplete_result():
             assert "Рассмотрение заявления начинается с проверки документов" in retry_prompt
             assert "base every question only on the lesson content" in retry_prompt.lower()
             assert "Here is your output" not in retry_prompt
-            assert '"source_quote"' in retry_prompt
+            assert '"source_quote_id"' in retry_prompt
             questions = _questions(
                 "рассмотрение заявления",
                 "проверки документов",
@@ -221,6 +231,7 @@ async def test_standard_assessment_validates_quotes_against_prompt_bounded_sourc
                 "секретный порядок",
                 "архивным приложением",
                 "Секретный порядок определяется архивным приложением.",
+                source_quote_id="E99",
             )
             return SimpleNamespace(
                 content=(
@@ -231,7 +242,7 @@ async def test_standard_assessment_validates_quotes_against_prompt_bounded_sourc
             )
 
     llm = FakeLLM()
-    with pytest.raises(ValueError, match="source evidence is not in lesson data"):
+    with pytest.raises(ValueError, match="unknown source evidence id"):
         await generate_lesson_assessment(
             llm,
             LessonContent(
@@ -247,3 +258,35 @@ async def test_standard_assessment_validates_quotes_against_prompt_bounded_sourc
         )
 
     assert llm.calls == 5
+
+
+@pytest.mark.asyncio
+async def test_standard_assessment_resolves_authoritative_quote_from_evidence_id():
+    class FakeLLM:
+        async def ainvoke(self, messages):
+            questions = _questions(
+                "выдачу микрокредита",
+                "проверки заявления",
+                "Модель попыталась подменить цитату.",
+            )
+            return SimpleNamespace(
+                content=(
+                    '{"mcq": '
+                    + __import__("json").dumps(questions, ensure_ascii=False)
+                    + ', "true_false": [], "matching": []}'
+                )
+            )
+
+    result = await generate_lesson_assessment(
+        FakeLLM(),
+        LessonContent(
+            title="Правила выдачи микрокредита",
+            content="Выдача микрокредита выполняется после проверки заявления.",
+            source_references=[],
+        ),
+        language="ru",
+    )
+
+    assert result.mcq[0].source_quote == (
+        "Выдача микрокредита выполняется после проверки заявления."
+    )

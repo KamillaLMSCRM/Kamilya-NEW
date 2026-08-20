@@ -33,10 +33,7 @@ async def test_compact_assessment_requests_only_three_mcq_questions():
                                     "Должностная инструкция устанавливает обязанности "
                                     "кассира по приёму наличных средств."
                                 ),
-                                "source_quote": (
-                                    "Кассир принимает наличные средства и выполняет "
-                                    "перечисленные обязанности."
-                                ),
+                                "source_quote_id": "E01",
                             }
                             for index in range(1, 4)
                         ],

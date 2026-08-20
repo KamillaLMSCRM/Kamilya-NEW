@@ -617,8 +617,15 @@ async def run_generation_pipeline(
             pct = 75 + int(assessments_done / total_lessons * 20) if total_lessons > 0 else 95
             await _update_job_db(job_id, tenant_id=tenant_id, progress=min(pct, 95), message=msg)
 
+        # Assessment JSON needs deterministic schema/evidence compliance.
+        # Do not reuse the more creative writer client (temperature 0.7):
+        # Qwen may paraphrase server-owned evidence IDs/answer excerpts.
+        assessment_llm = await ResilientLLMClient.from_settings_async(
+            temperature=0.2,
+            max_tokens=4096,
+        )
         assessment = await generate_course_assessment(
-            llm=llm,
+            llm=assessment_llm,
             course_content=content,
             language=language,
             on_progress=on_assessment_progress,
