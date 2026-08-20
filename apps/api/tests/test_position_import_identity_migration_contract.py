@@ -12,3 +12,12 @@ def test_0114_adds_stable_tenant_position_identity() -> None:
     assert "uq_positions_tenant_external_key" in source
     assert "position organization unit tenant mismatch" in source
     assert "0114 downgrade refused" in source
+
+
+def test_position_backfill_temporarily_unforces_rls() -> None:
+    source = MIGRATION.read_text(encoding="utf-8")
+    disable = source.index("ALTER TABLE positions NO FORCE ROW LEVEL SECURITY")
+    backfill = source.index("UPDATE positions")
+    restore = source.index("ALTER TABLE positions FORCE ROW LEVEL SECURITY", backfill)
+
+    assert disable < backfill < restore

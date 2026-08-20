@@ -29,6 +29,11 @@ def upgrade() -> None:
         ),
     )
     op.add_column("positions", sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.true()))
+    # ``positions`` already uses FORCE RLS in production and is owned by the
+    # non-BYPASSRLS migration role. Restore normal owner semantics only for
+    # this transactional whole-table backfill, then force RLS again before
+    # the revision completes.
+    op.execute("ALTER TABLE positions NO FORCE ROW LEVEL SECURITY")
     op.execute(
         "UPDATE positions SET normalized_name = lower(regexp_replace(btrim(name), '\\s+', ' ', 'g'))"
     )
@@ -82,6 +87,7 @@ def upgrade() -> None:
         FOR EACH ROW EXECUTE FUNCTION validate_position_import_identity()
         """
     )
+    op.execute("ALTER TABLE positions FORCE ROW LEVEL SECURITY")
 
 
 def downgrade() -> None:
