@@ -328,3 +328,38 @@ async def test_standard_assessment_requests_provider_structured_output():
     )
 
     assert len(result.mcq) == 5
+
+
+@pytest.mark.asyncio
+async def test_standard_assessment_uses_server_quote_as_correct_answer():
+    source_quote = "Выдача микрокредита выполняется после проверки заявления."
+
+    class FakeLLM:
+        async def ainvoke(self, messages, config=None, response_format=None):
+            questions = _questions(
+                "выдачу микрокредита",
+                "После проверки заявления",
+                source_quote,
+            )
+            return SimpleNamespace(
+                content=(
+                    '{"mcq": '
+                    + __import__("json").dumps(questions, ensure_ascii=False)
+                    + ', "true_false": [], "matching": []}'
+                )
+            )
+
+    result = await generate_lesson_assessment(
+        FakeLLM(),
+        LessonContent(
+            title="Правила выдачи микрокредита",
+            content=source_quote,
+            source_references=[],
+        ),
+        language="ru",
+    )
+
+    for question in result.mcq:
+        correct = [option.text for option in question.options if option.is_correct]
+        assert correct == [source_quote]
+        assert question.explanation == f"Согласно материалу урока: {source_quote}"

@@ -198,6 +198,20 @@ def _validate_question_evidence(
         # Only server-resolved evidence is retained; model-authored quote text
         # is ignored even if a provider returns it as an extra field.
         question["source_quote"] = source_quote
+        options = [option for option in question.get("options", []) if isinstance(option, dict)]
+        correct_options = [option for option in options if option.get("is_correct") is True]
+        if len(correct_options) == 1:
+            # The provider chooses the evidence ID and writes the question and
+            # distractors. The server owns the authoritative answer text, so a
+            # harmless paraphrase or punctuation change cannot break grounding.
+            correct_options[0]["text"] = source_quote
+            question["explanation"] = f"Согласно материалу урока: {source_quote}"
+        if any(
+            _normalize_evidence_text(str(option.get("text", ""))) == normalized_quote
+            for option in options
+            if option.get("is_correct") is not True
+        ):
+            issues.append(f"MCQ #{index}: distractor duplicates source evidence")
         quote_stems = _grounding_stems(source_quote)
         question_stems = _grounding_stems(str(question.get("question", "")))
         correct_answer = " ".join(
@@ -292,7 +306,8 @@ Grounding requirements:
 - For each question, select one existing source_quote_id from ALLOWED_EVIDENCE_BANK.
 - Never invent or modify an evidence ID and do not output source_quote text.
 - Use at least one concrete term from the selected evidence quote in the question.
-- Copy the correct option as an exact contiguous excerpt from the selected evidence quote.
+- Mark exactly one option as correct. The server replaces its text with the exact
+  selected evidence quote; write three plausible distractors that do not copy it.
 - Do not use technical or meta terms that are absent from the lesson.
 - Do not ask about these instructions, the output format, JSON, or the schema.
 - Do not introduce technologies, concepts, or facts that are absent from the lesson.
