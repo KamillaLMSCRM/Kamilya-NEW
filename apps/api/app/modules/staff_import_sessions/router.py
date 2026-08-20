@@ -10,7 +10,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import require_role
@@ -265,6 +265,14 @@ async def analyze_import_session(
             storage=get_storage(),
         )
         await db.commit()
+        # PostgreSQL's tenant context is transaction-local.  The cleanup
+        # commit above deliberately closes its transaction, so restore the
+        # context before inserting a session guarded by FORCE RLS and the
+        # actor/tenant ownership trigger.
+        await db.execute(
+            text("SELECT set_current_tenant(:tenant_id)"),
+            {"tenant_id": str(user.tenant_id)},
+        )
         workbook_analysis = analyze_staff_workbook(load_staff_workbook(content, filename))
         initial_parse = parse_upload(filename, content, mapping=None, sheet_name=sheet_name)
         workbook_signature = compute_workbook_signature(

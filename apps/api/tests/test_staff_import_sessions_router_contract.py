@@ -48,3 +48,13 @@ def test_approved_mapping_becomes_a_hint_not_an_approval_bypass() -> None:
     assert "status.HTTP_409_CONFLICT" in source
     assert "approve_import_session" in source
     assert "save_proposal" in source
+
+
+def test_cleanup_commit_restores_transaction_local_tenant_context() -> None:
+    source = ROUTER.read_text(encoding="utf-8")
+    cleanup_call = source.index("await cleanup_expired_import_sources(")
+    cleanup_commit = source.index("await db.commit()", cleanup_call)
+    context_restore = source.index('text("SELECT set_current_tenant(:tenant_id)")', cleanup_commit)
+    session_insert = source.index("record = await create_import_session(", context_restore)
+
+    assert cleanup_call < cleanup_commit < context_restore < session_insert
