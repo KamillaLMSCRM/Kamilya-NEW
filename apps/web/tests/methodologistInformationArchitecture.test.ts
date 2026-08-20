@@ -42,6 +42,14 @@ describe("methodologist information architecture", () => {
     expect(staffSource).toContain('field.key === "first_name" || field.key === "last_name"');
   });
 
+  it("accepts legacy Excel staffing files and explains branch section rows", () => {
+    expect(staffSource).toContain('accept=".xls,.xlsx,.csv"');
+    expect(staffSource).toContain("Старые штатные");
+    expect(staffSource).toContain("с адресами филиалов");
+    expect(staffSource).toContain("Сотрудник /");
+    expect(staffSource).toContain("ФИО / full_name");
+  });
+
   it("uses canonical department and position ids for manual employees", () => {
     expect(staffSource).toContain('api.get<{ departments: DepartmentOption[] }>("/v1/departments")');
     expect(staffSource).toContain('api.get<PositionOption[]>("/v1/positions")');

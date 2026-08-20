@@ -16,16 +16,20 @@ Endpoints (all under /admin/staff/import/mappings):
 Auth: admin / methodologist.
 Tenant scope: from JWT, never from URL/body.
 """
+
 from __future__ import annotations
 
 import logging
+from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import require_role
 from app.core.db import get_db
+from app.models.staff_import_mapping import StaffImportMapping
 from app.models.users import User
 from app.modules.users.staff_import_mapping_schemas import (
     StaffImportMappingCreate,
@@ -48,12 +52,14 @@ router = APIRouter(
 )
 
 _MAPPING_ROLES = ("superadmin", "methodologist")
+DbSession = Annotated[AsyncSession, Depends(get_db)]
+MappingUser = Annotated[User, Depends(require_role(*_MAPPING_ROLES))]
 
 
 @router.get("", response_model=list[StaffImportMappingResponse])
 async def list_staff_import_mappings(
-    db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role(*_MAPPING_ROLES)),
+    db: DbSession,
+    user: MappingUser,
 ):
     """List all saved column mappings for the current tenant.
 
@@ -68,8 +74,8 @@ async def list_staff_import_mappings(
 @router.post("", response_model=StaffImportMappingResponse, status_code=status.HTTP_201_CREATED)
 async def create_staff_import_mapping(
     body: StaffImportMappingCreate,
-    db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role(*_MAPPING_ROLES)),
+    db: DbSession,
+    user: MappingUser,
 ):
     if user.tenant_id is None:
         raise HTTPException(status_code=400, detail="superadmin cannot save mappings")
@@ -84,23 +90,20 @@ async def create_staff_import_mapping(
         )
         await db.commit()
         return m
-    except MappingNameConflict:
+    except MappingNameConflict as exc:
         await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"Mapping with name «{body.name}» already exists for this tenant",
-        )
+            detail="A mapping with this name or workbook template already exists for this tenant",
+        ) from exc
 
 
 @router.get("/{mapping_id}", response_model=StaffImportMappingResponse)
 async def get_staff_import_mapping(
     mapping_id: UUID,
-    db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role(*_MAPPING_ROLES)),
+    db: DbSession,
+    user: MappingUser,
 ):
-    from app.models.staff_import_mapping import StaffImportMapping
-    from sqlalchemy import select
-
     if user.tenant_id is None:
         raise HTTPException(status_code=404, detail="Mapping not found")
     result = await db.execute(
@@ -119,8 +122,8 @@ async def get_staff_import_mapping(
 async def update_staff_import_mapping(
     mapping_id: UUID,
     body: StaffImportMappingUpdate,
-    db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role(*_MAPPING_ROLES)),
+    db: DbSession,
+    user: MappingUser,
 ):
     if user.tenant_id is None:
         raise HTTPException(status_code=404, detail="Mapping not found")
@@ -131,8 +134,8 @@ async def update_staff_import_mapping(
         await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"Mapping with name «{e}» already exists for this tenant",
-        )
+            detail="A mapping with this name or workbook template already exists for this tenant",
+        ) from e
     if m is None:
         raise HTTPException(status_code=404, detail="Mapping not found")
     await db.commit()
@@ -142,8 +145,8 @@ async def update_staff_import_mapping(
 @router.delete("/{mapping_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_staff_import_mapping(
     mapping_id: UUID,
-    db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role(*_MAPPING_ROLES)),
+    db: DbSession,
+    user: MappingUser,
 ):
     if user.tenant_id is None:
         raise HTTPException(status_code=404, detail="Mapping not found")

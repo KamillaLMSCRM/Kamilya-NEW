@@ -23,9 +23,10 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import literal, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.department import Department
 from app.models.users import User
 from app.modules.positions.assignment_service import (
     RecomputeResult,
@@ -104,7 +105,15 @@ async def recompute_department_members(
     result = BatchResult()
     pos_result = await db.execute(
         select(Position.id).where(
-            Position.department_id == department_id,
+            Position.department_id.in_(
+                select(Department.id)
+                .where(
+                    Department.tenant_id == tenant_id,
+                    Department.parent_id == department_id,
+                    Department.is_active.is_(True),
+                )
+                .union_all(select(literal(department_id)))
+            ),
             Position.tenant_id == tenant_id,
         )
     )

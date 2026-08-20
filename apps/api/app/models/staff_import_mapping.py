@@ -8,6 +8,7 @@ This is the same shape that /admin/staff/import/preview already
 accepts via the `mapping` form field, so we don't need any conversion
 when reusing — just JSON-serialize the dict into `mapping_json`.
 """
+
 from __future__ import annotations
 
 import uuid
@@ -31,6 +32,11 @@ class StaffImportMapping(Base):
     tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
     name = Column(Text, nullable=False)
     mapping_json = Column(JSONB, nullable=False, default=dict, server_default=func.text("'{}'::jsonb"))
+    workbook_signature = Column(Text, nullable=True)
+    profile_json = Column(JSONB, nullable=False, default=dict, server_default=func.text("'{}'::jsonb"))
+    schema_version = Column(Text, nullable=False, default="adaptive-v1", server_default="adaptive-v1")
+    approved_at = Column(DateTime(timezone=True), nullable=True)
+    approved_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), nullable=True)
     is_default = Column(Boolean, nullable=False, default=False, server_default=func.false())
     # No FK on created_by — circular import with app.models.users
     created_by = Column(UUID(as_uuid=True), nullable=False)

@@ -52,6 +52,7 @@ from app.modules.learner_assistant.router import router as learner_assistant_rou
 from app.modules.learning_cycles.router import router as learning_cycles_router
 from app.modules.learning_paths.router import router as learning_paths_router
 from app.modules.lessons.router import router as lessons_router
+from app.modules.organization_units.router import router as organization_units_router
 from app.modules.positions.admin_router import router as positions_admin_router
 from app.modules.positions.jd_router import router as positions_jd_router
 from app.modules.positions.models import Position  # noqa: F401
@@ -63,6 +64,7 @@ from app.modules.progress.router import router as progress_router
 from app.modules.quizzes.assignment_router import router as quiz_assignments_router
 from app.modules.quizzes.router import router as quizzes_router
 from app.modules.scorm.router import router as scorm_router
+from app.modules.staff_import_sessions.router import router as staff_import_sessions_router
 from app.modules.student.router import router as student_router
 from app.modules.surveys.router import router as surveys_router
 from app.modules.tenants.router import public_router as tenants_public_router
@@ -212,6 +214,7 @@ app.include_router(kiosks_admin_router, prefix=f"{settings.API_PREFIX}", tags=["
 app.include_router(kiosks_public_router, prefix=f"{settings.API_PREFIX}", tags=["kiosks"])
 app.include_router(staff_import_router, prefix=f"{settings.API_PREFIX}", tags=["staff"])
 app.include_router(staff_import_mapping_router, prefix=f"{settings.API_PREFIX}", tags=["staff"])
+app.include_router(staff_import_sessions_router, prefix=f"{settings.API_PREFIX}")
 app.include_router(telegram_router, prefix=f"{settings.API_PREFIX}", tags=["telegram"])
 app.include_router(telegram_register_router, prefix=f"{settings.API_PREFIX}", tags=["auth"])
 app.include_router(tenants_router, prefix=f"{settings.API_PREFIX}", tags=["tenants"])
@@ -221,6 +224,7 @@ app.include_router(positions_jd_router, prefix=f"{settings.API_PREFIX}", tags=["
 app.include_router(positions_recommendations_router, prefix=f"{settings.API_PREFIX}", tags=["positions"])
 app.include_router(positions_admin_router, prefix=f"{settings.API_PREFIX}", tags=["positions"])
 app.include_router(positions_qualification_router, prefix=f"{settings.API_PREFIX}", tags=["positions"])
+app.include_router(organization_units_router, prefix=f"{settings.API_PREFIX}")
 app.include_router(departments_router, prefix=f"{settings.API_PREFIX}", tags=["departments"])
 app.include_router(training_rules_router, prefix=f"{settings.API_PREFIX}", tags=["training-rules"])
 app.include_router(integrations_router, prefix=f"{settings.API_PREFIX}", tags=["integrations"])

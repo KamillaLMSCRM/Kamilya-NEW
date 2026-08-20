@@ -43,6 +43,7 @@ celery_app = Celery(
         "app.modules.enrollments.notification_tasks",
         "app.modules.learning_cycles.tasks",
         "app.modules.candidate_assessments.retention_tasks",
+        "app.modules.staff_import_sessions.retention_tasks",
         "app.modules.tenants.tasks",
     ],
 )
@@ -73,6 +74,7 @@ celery_app.conf.update(
         "learning_cycles.materialize": {"queue": "maintenance"},
         "learning_cycles.recover_due": {"queue": "maintenance"},
         "candidate_assessments.enforce_retention": {"queue": "maintenance"},
+        "staff_import.cleanup_expired_sources": {"queue": "maintenance"},
         "crm.deliver_lead_outbox": {"queue": "notifications"},
         "crm.recover_lead_outbox": {"queue": "notifications"},
     },

@@ -4,15 +4,15 @@ from __future__ import annotations
 from dataclasses import dataclass
 from uuid import UUID
 
-from sqlalchemy import and_, delete, select, update
+from sqlalchemy import and_, delete, literal, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.courses import Course
+from app.models.department import Department
 from app.models.enrollment import Enrollment
 from app.models.users import User
 from app.modules.positions.models import DepartmentCourse, Position, PositionCourse
 from app.modules.training_rules.models import OrganizationCourseRule
-
 
 MANAGED_RULE_SOURCES = frozenset(("position", "department", "organization"))
 
@@ -99,12 +99,24 @@ async def _rule_course_sets(
         )
         position = await db.get(Position, user.position_id)
         if position is not None and position.department_id is not None:
+            department_scope_ids = [position.department_id]
+            unit = await db.get(Department, position.department_id)
+            if (
+                unit is not None
+                and unit.tenant_id == tenant_id
+                and unit.unit_type == "department"
+                and unit.parent_id is not None
+            ):
+                # A rule attached to a branch is inherited by positions in
+                # its direct departments. Direct branch positions already
+                # use the branch ID and need no special case.
+                department_scope_ids.append(unit.parent_id)
             department_courses = set(
                 await _published_rule_courses(
                     db,
                     DepartmentCourse,
                     tenant_id,
-                    (DepartmentCourse.department_id == position.department_id,),
+                    (DepartmentCourse.department_id.in_(department_scope_ids),),
                 )
             )
 
@@ -248,6 +260,11 @@ async def preview_rule_change(
             User.is_active.is_(True),
         )
     elif scope == "department" and department_id is not None:
+        child_department_ids = select(Department.id).where(
+            Department.tenant_id == tenant_id,
+            Department.parent_id == department_id,
+            Department.is_active.is_(True),
+        )
         user_query = (
             select(User)
             .join(Position, User.position_id == Position.id)
@@ -256,14 +273,13 @@ async def preview_rule_change(
                 User.role == "student",
                 User.is_active.is_(True),
                 Position.tenant_id == tenant_id,
-                Position.department_id == department_id,
+                Position.department_id.in_(child_department_ids.union_all(select(literal(department_id)))),
             )
         )
     else:
         raise ValueError("Department rule preview requires department_id")
 
     users = list((await db.execute(user_query)).scalars().all())
-    preview = RuleChangePreview(affected_employees=len(users))
     adds = removals = completed = protected = 0
 
     for user in users:

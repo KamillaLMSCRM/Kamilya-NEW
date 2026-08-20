@@ -2,6 +2,7 @@ import uuid
 
 from sqlalchemy import (
     JSON,
+    UUID,
     Boolean,
     Column,
     DateTime,
@@ -10,23 +11,24 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
-    UUID,
     func,
 )
 from sqlalchemy.orm import relationship
 
 from app.core.db import Base
 
-# Department is referenced via relationship("Department", ...) below.
-# Import it here so SQLAlchemy's class registry knows about it before
-# any mapper configuration runs.
-from app.models.department import Department  # noqa: F401
 # Course is referenced from Module.course = relationship("Course", ...).
 # Import Course BEFORE importing lessons.models so the registry can
 # resolve the string. Without this, importing positions.models
 # standalone (e.g. from a test) breaks because lessons.models tries
 # to resolve "Course" before Course is loaded.
 from app.models.courses import Course  # noqa: F401
+
+# Department is referenced via relationship("Department", ...) below.
+# Import it here so SQLAlchemy's class registry knows about it before
+# any mapper configuration runs.
+from app.models.department import Department  # noqa: F401
+
 # Course.modules is defined as a relationship("Module", ...) in
 # app.modules.courses.models. Importing lessons.models here ensures
 # SQLAlchemy's class registry is populated whenever this module is
@@ -89,6 +91,10 @@ class Position(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id = Column(UUID(as_uuid=True), nullable=False, index=True)
     name = Column(Text, nullable=False)
+    normalized_name = Column(Text, nullable=False, default="")
+    external_key = Column(Text, nullable=True)
+    source_metadata = Column(JSON, nullable=False, default=dict)
+    is_active = Column(Boolean, nullable=False, default=True)
     department = Column(Text, nullable=False, default="")
     level = Column(Text, nullable=False, default="")
     responsibilities = Column(Text, nullable=False, default="")

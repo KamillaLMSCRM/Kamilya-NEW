@@ -9,9 +9,11 @@ We only enforce uniqueness on (tenant_id, name) here. The DB has the
 unique index as a second line of defense — if the service layer
 somehow misses a race, the DB rejects and we surface a 409.
 """
+
 from __future__ import annotations
 
 import logging
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import select
@@ -23,7 +25,7 @@ from app.models.staff_import_mapping import StaffImportMapping
 logger = logging.getLogger(__name__)
 
 
-class MappingNameConflict(Exception):
+class MappingNameConflict(Exception):  # noqa: N818 - public compatibility name
     """Raised when a mapping with the same name already exists for the tenant."""
 
 
@@ -67,6 +69,8 @@ async def create_mapping(
     name: str,
     mapping_json: dict,
     is_default: bool = False,
+    workbook_signature: str | None = None,
+    profile_json: dict | None = None,
 ) -> StaffImportMapping:
     """Create a new mapping. If is_default=True, demote any previous default."""
     if is_default:
@@ -77,6 +81,10 @@ async def create_mapping(
         name=name.strip(),
         mapping_json=mapping_json or {},
         is_default=is_default,
+        workbook_signature=workbook_signature,
+        profile_json=profile_json or {},
+        approved_at=datetime.now(UTC) if workbook_signature else None,
+        approved_by=created_by if workbook_signature else None,
         created_by=created_by,
     )
     db.add(m)

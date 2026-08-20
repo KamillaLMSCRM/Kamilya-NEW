@@ -3,7 +3,7 @@
 Stage 1d of employee onboarding epic.
 
 Flow:
-1. HR uploads file (.xlsx or .csv) at /admin/staff
+1. HR uploads file (.xls, .xlsx or .csv) at /admin/staff
 2. Backend parses, normalizes columns (Russian/English), returns preview
 3. HR reviews preview (new users, matched users, new departments, new positions)
 4. HR commits, backend creates/updates rows in transaction
@@ -26,6 +26,7 @@ Logic:
 - If new: create with status='inactive', is_active=true (HR-managed)
   (password_hash=NULL - no self-service login)
 """
+
 from __future__ import annotations
 
 import csv
@@ -37,6 +38,7 @@ from datetime import date
 from typing import Any
 from uuid import UUID, uuid4
 
+import xlrd  # type: ignore[import-untyped]
 from openpyxl import load_workbook
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -60,11 +62,13 @@ def normalize_staff_lookup(value: Any) -> str:
 
 def _normalized_row_values(row: Any) -> dict[str, str | date | None]:
     raw_hire_date = _normalize_staff_text(getattr(row, "hire_date", ""))
+    branch = _normalize_staff_text(getattr(row, "branch", ""))
     return {
         "personnel_number": _normalize_staff_text(getattr(row, "personnel_number", "")),
         "first_name": _normalize_staff_text(getattr(row, "first_name", "")),
         "last_name": _normalize_staff_text(getattr(row, "last_name", "")),
-        "department": _normalize_staff_text(getattr(row, "department", "")),
+        "department": _normalize_staff_text(getattr(row, "department", "")) or branch,
+        "branch": branch,
         "position": _normalize_staff_text(getattr(row, "position", "")),
         "email": _normalize_staff_text(getattr(row, "email", "")).lower() or None,
         "phone": _normalize_staff_text(getattr(row, "phone", "")) or None,
@@ -100,9 +104,7 @@ async def _load_staff_indexes(
         if email_key:
             users_by_email.setdefault(email_key, []).append(user)
 
-    departments_result = await db.execute(
-        select(Department).where(Department.tenant_id == tenant_id)
-    )
+    departments_result = await db.execute(select(Department).where(Department.tenant_id == tenant_id))
     departments_by_slug: dict[str, Department] = {}
     departments_by_id: dict[UUID, Department] = {}
     for department in departments_result.scalars().all():
@@ -116,9 +118,7 @@ async def _load_staff_indexes(
                 departments_by_slug.setdefault(key, department)
         departments_by_id[department.id] = department
 
-    positions_result = await db.execute(
-        select(Position).where(Position.tenant_id == tenant_id)
-    )
+    positions_result = await db.execute(select(Position).where(Position.tenant_id == tenant_id))
     positions_by_key: dict[tuple[str, str], Position] = {}
     for position in positions_result.scalars().all():
         if position.tenant_id != tenant_id:
@@ -169,8 +169,7 @@ def _assert_unique_staff_emails(
         existing_by_pn = users_by_pn.get(pn)
         existing_email_owners = users_by_email.get(email, [])
         if len(existing_email_owners) > 1 or any(
-            owner.id != getattr(existing_by_pn, "id", None)
-            for owner in existing_email_owners
+            owner.id != getattr(existing_by_pn, "id", None) for owner in existing_email_owners
         ):
             raise StaffEmailConflictError(email)
         previous_pn = planned_email_owner.get(email)
@@ -230,11 +229,20 @@ COLUMN_ALIASES: dict[str, str] = {
     "last_name": "last_name",
     "lastname": "last_name",
     "фамилия": "last_name",
+    # full_name
+    "сотрудник": "full_name",
+    "фио": "full_name",
     # department
     "department": "department",
     "отдел": "department",
     "подразделение": "department",
     "цех": "department",
+    # branch (kept separate from legacy department)
+    "branch": "branch",
+    "branch_name": "branch",
+    "филиал": "branch",
+    "название филиала": "branch",
+    "филиал атауы": "branch",
     # position
     "position": "position",
     "должность": "position",
@@ -254,7 +262,7 @@ COLUMN_ALIASES: dict[str, str] = {
 
 
 REQUIRED_FIELDS = {"personnel_number", "first_name", "last_name", "department", "position"}
-OPTIONAL_FIELDS = {"email", "phone", "hire_date", "full_name"}
+OPTIONAL_FIELDS = {"branch", "email", "phone", "hire_date", "full_name"}
 ALL_FIELDS = REQUIRED_FIELDS | OPTIONAL_FIELDS
 
 
@@ -264,6 +272,7 @@ ALL_FIELDS = REQUIRED_FIELDS | OPTIONAL_FIELDS
 @dataclass
 class ParsedRow:
     """One row of the import file, normalized."""
+
     row_number: int  # 1-based row in original file (skipping header)
     personnel_number: str
     first_name: str
@@ -273,11 +282,13 @@ class ParsedRow:
     email: str | None = None
     phone: str | None = None
     hire_date: str | None = None  # ISO format if present
+    branch: str = ""
 
 
 @dataclass
 class ParsedFile:
     """Result of parsing the uploaded file."""
+
     rows: list[ParsedRow]
     invalid_rows: list[dict]  # [{row_number, errors: [...], raw: {...}}]
     detected_columns: dict[str, str]  # original -> canonical
@@ -294,6 +305,7 @@ class ParsedFile:
 @dataclass
 class PreviewItem:
     """One row in the preview (will_create / will_update / will_skip)."""
+
     row_number: int
     personnel_number: str
     first_name: str
@@ -310,6 +322,7 @@ class PreviewItem:
 @dataclass
 class PreviewResult:
     """Full preview returned to HR before commit."""
+
     items: list[PreviewItem]
     new_positions: list[str]  # (department, position) tuples that will be auto-created
     new_departments: list[str]  # departments that don't exist yet
@@ -355,6 +368,8 @@ def _suggest_field_for_header(raw: str) -> str | None:
         ("last_name", "family", ""),
         ("last_name", "surname", ""),
         ("last_name", "last", "name"),
+        ("branch", "филиал", ""),
+        ("branch", "branch", ""),
         ("department", "отдел", ""),
         ("department", "департамент", ""),
         ("department", "подраздел", ""),
@@ -406,7 +421,9 @@ def _suggested_mapping_from_column_map(column_map: dict[str, str]) -> dict[str, 
 def _split_full_name(full_name: str) -> tuple[str, str]:
     parts = [p for p in str(full_name).strip().split() if p]
     if len(parts) >= 2:
-        return parts[1], parts[0]
+        # User has no dedicated patronymic column. Preserve every name part by
+        # storing "Имя Отчество" in first_name and the leading surname in last_name.
+        return " ".join(parts[1:]), parts[0]
     if len(parts) == 1:
         return parts[0], parts[0]
     return "", ""
@@ -418,6 +435,10 @@ def _missing_required_fields(column_map: dict[str, str]) -> set[str]:
     if "full_name" in values:
         missing.discard("first_name")
         missing.discard("last_name")
+    if "branch" in values:
+        # A separate branch column is a valid structural parent for a direct
+        # position; old files continue to require their department column.
+        missing.discard("department")
     return missing
 
 
@@ -432,7 +453,13 @@ def _normalize_fields(fields: dict[str, str]) -> dict[str, str]:
 def _sheet_score(sheet_name: str, raw_columns: list[str], sample_rows: list[dict[str, str]]) -> int:
     column_map = _build_column_map(raw_columns)
     values = set(column_map.values())
-    score = len(values & {"personnel_number", "first_name", "last_name", "full_name", "department", "position", "email"}) * 10
+    score = (
+        len(
+            values
+            & {"personnel_number", "first_name", "last_name", "full_name", "branch", "department", "position", "email"}
+        )
+        * 10
+    )
     score += len(sample_rows)
     normalized_sheet = _normalize_header(sheet_name)
     if "сотруд" in normalized_sheet or "employee" in normalized_sheet:
@@ -447,7 +474,9 @@ def _sheet_score(sheet_name: str, raw_columns: list[str], sample_rows: list[dict
         score -= 80
     if "email" in values:
         score += 10
-    if {"personnel_number", "department", "position"} <= values and ({"first_name", "last_name"} <= values or "full_name" in values):
+    if {"personnel_number", "department", "position"} <= values and (
+        {"first_name", "last_name"} <= values or "full_name" in values
+    ):
         score += 100
     return score
 
@@ -464,11 +493,15 @@ def _xlsx_sheet_candidates(wb) -> list[dict[str, Any]]:
             raw_columns = [str(c).strip() if c is not None else "" for c in header_cells]
             if not any(raw_columns):
                 continue
-            data_rows = list(ws.iter_rows(min_row=header_row + 1, max_row=min(ws.max_row or header_row, header_row + 5), values_only=True))
+            data_rows = list(
+                ws.iter_rows(
+                    min_row=header_row + 1, max_row=min(ws.max_row or header_row, header_row + 5), values_only=True
+                )
+            )
             sample_rows = [
                 {
                     raw_header: str(cell).strip() if cell is not None else ""
-                    for raw_header, cell in zip(raw_columns, row)
+                    for raw_header, cell in zip(raw_columns, row, strict=False)
                 }
                 for row in data_rows
                 if any(cell is not None and str(cell).strip() for cell in row)
@@ -478,16 +511,9 @@ def _xlsx_sheet_candidates(wb) -> list[dict[str, Any]]:
             missing_required = sorted(_missing_required_fields(column_map))
             normalized_sheet = _normalize_header(ws.title)
             is_reference_sheet = any(
-                marker in normalized_sheet
-                for marker in ("отдел", "department", "долж", "position")
+                marker in normalized_sheet for marker in ("отдел", "department", "долж", "position")
             )
-            sheet_kind = (
-                "employees"
-                if not missing_required
-                else "reference"
-                if is_reference_sheet
-                else "needs_mapping"
-            )
+            sheet_kind = "employees" if not missing_required else "reference" if is_reference_sheet else "needs_mapping"
             if best is None or score > best["score"]:
                 best = {
                     "sheet_name": ws.title,
@@ -528,6 +554,259 @@ def _parse_hire_date(s: str | None) -> str | None:
     return None  # can't parse
 
 
+def _canonical_branch_department(value: str) -> str:
+    """Turn a legacy branch section label into a stable department name."""
+    normalized = _normalize_staff_text(value)
+    city_match = re.search(r"(?:^|\s)г\.\s*([^,(]+)", normalized, flags=re.IGNORECASE)
+    if city_match:
+        city = city_match.group(1).strip(" .")
+        if city:
+            return f"Филиал {city}"
+    return normalized
+
+
+def _is_branch_section(value: str) -> bool:
+    normalized = _normalize_staff_text(value)
+    return bool(
+        re.search(r"(?:^|\s)г\.\s*", normalized, flags=re.IGNORECASE)
+        or re.search(r"\bфилиал\b", normalized, flags=re.IGNORECASE)
+    )
+
+
+def _xls_cell_text(book: xlrd.book.Book, cell: xlrd.sheet.Cell) -> str:
+    """Return a display-safe value while preserving common personnel-number formats."""
+    if cell.ctype in (xlrd.XL_CELL_EMPTY, xlrd.XL_CELL_BLANK):
+        return ""
+    if cell.ctype == xlrd.XL_CELL_DATE:
+        try:
+            return xlrd.xldate_as_datetime(cell.value, book.datemode).date().isoformat()
+        except (OverflowError, TypeError, ValueError):
+            return str(cell.value).strip()
+    if cell.ctype == xlrd.XL_CELL_NUMBER:
+        numeric = float(cell.value)
+        if numeric.is_integer():
+            # Personnel numbers are identifiers, not quantities.  Older HR
+            # workbooks often store them as numeric cells with a display mask
+            # such as ``0000``; preserve that mask instead of silently turning
+            # employee ``0001`` into ``1`` during import.
+            try:
+                cell_format = book.xf_list[cell.xf_index]
+                format_string = book.format_map[cell_format.format_key].format_str
+                if re.fullmatch(r"0+", format_string):
+                    return f"{int(numeric):0{len(format_string)}d}"
+            except (AttributeError, IndexError, KeyError, TypeError):
+                pass
+            return str(int(numeric))
+    return str(cell.value).strip()
+
+
+def _xls_has_branch_sections(book: xlrd.book.Book, sheet: xlrd.sheet.Sheet, header_row_index: int) -> bool:
+    for row_index in range(header_row_index + 1, sheet.nrows):
+        values = [_xls_cell_text(book, sheet.cell(row_index, column)) for column in range(sheet.ncols)]
+        populated = [value for value in values if value]
+        if len(populated) == 1 and values and values[0] and _is_branch_section(values[0]):
+            return True
+    return False
+
+
+def _xls_sheet_candidates(book: xlrd.book.Book) -> list[dict[str, Any]]:
+    candidates: list[dict[str, Any]] = []
+    for sheet in book.sheets():
+        best: dict[str, Any] | None = None
+        for header_row_index in range(min(sheet.nrows, 20)):
+            raw_columns = [_xls_cell_text(book, sheet.cell(header_row_index, column)) for column in range(sheet.ncols)]
+            if not any(raw_columns):
+                continue
+            sample_rows: list[dict[str, str]] = []
+            for row_index in range(header_row_index + 1, min(sheet.nrows, header_row_index + 6)):
+                values = [_xls_cell_text(book, sheet.cell(row_index, column)) for column in range(sheet.ncols)]
+                if any(values):
+                    sample_rows.append(dict(zip(raw_columns, values, strict=False)))
+            column_map = _build_column_map(raw_columns)
+            missing_required = _missing_required_fields(column_map)
+            has_branch_sections = _xls_has_branch_sections(book, sheet, header_row_index)
+            if has_branch_sections:
+                missing_required.discard("department")
+            candidate = {
+                "sheet_name": sheet.name,
+                "header_row": header_row_index + 1,
+                "score": _sheet_score(sheet.name, raw_columns, sample_rows) + (40 if has_branch_sections else 0),
+                "raw_columns": raw_columns,
+                "sample_rows": sample_rows,
+                "suggested_mapping": _suggested_mapping_from_column_map(column_map),
+                "missing_required_columns": sorted(missing_required),
+                "is_importable": not missing_required,
+                "sheet_kind": "employees" if not missing_required else "needs_mapping",
+                "has_branch_sections": has_branch_sections,
+            }
+            if best is None or candidate["score"] > best["score"]:
+                best = candidate
+        if best:
+            candidates.append(best)
+    return sorted(candidates, key=lambda candidate: candidate["score"], reverse=True)
+
+
+def _xlsx_data_rows_with_merged_values(ws, *, min_row: int) -> list[tuple[Any, ...]]:
+    """Return worksheet rows while expanding merged data-cell anchors.
+
+    Tenant HR exports commonly merge a branch/department cell vertically for
+    all employees in that group. OpenPyXL exposes only the top-left value and
+    returns ``None`` for the remaining rows. Expanding only data rows preserves
+    the workbook's meaning without inventing a generic fill-down rule for
+    genuinely empty cells.
+    """
+
+    merged_values: dict[tuple[int, int], Any] = {}
+    for merged_range in ws.merged_cells.ranges:
+        anchor = ws.cell(merged_range.min_row, merged_range.min_col).value
+        if anchor is None:
+            continue
+        for row_index in range(max(min_row, merged_range.min_row), merged_range.max_row + 1):
+            for column_index in range(merged_range.min_col, merged_range.max_col + 1):
+                merged_values[(row_index, column_index)] = anchor
+
+    rows: list[tuple[Any, ...]] = []
+    for row_index, row in enumerate(
+        ws.iter_rows(min_row=min_row, values_only=True),
+        start=min_row,
+    ):
+        rows.append(
+            tuple(
+                merged_values.get((row_index, column_index), cell) if cell is None else cell
+                for column_index, cell in enumerate(row, start=1)
+            )
+        )
+    return rows
+
+
+def parse_xls(
+    content: bytes,
+    mapping: dict[str, str] | None = None,
+    sheet_name: str | None = None,
+) -> ParsedFile:
+    """Parse Excel 97-2003 .xls files, including branch section marker rows."""
+    try:
+        book = xlrd.open_workbook(file_contents=content, on_demand=True)
+    except xlrd.biffh.XLRDError as exc:
+        raise ValueError("Не удалось прочитать старый Excel-файл .xls.") from exc
+
+    candidates = _xls_sheet_candidates(book)
+    selected = next((candidate for candidate in candidates if candidate["sheet_name"] == sheet_name), None)
+    if selected is None and candidates:
+        selected = candidates[0]
+    if selected is None:
+        book.release_resources()
+        return ParsedFile(
+            rows=[],
+            invalid_rows=[],
+            detected_columns={},
+            missing_required_columns=sorted(REQUIRED_FIELDS),
+            total_rows_in_file=0,
+        )
+
+    sheet = book.sheet_by_name(selected["sheet_name"])
+    header_row_index = int(selected["header_row"]) - 1
+    raw_columns = [_xls_cell_text(book, sheet.cell(header_row_index, column)) for column in range(sheet.ncols)]
+    column_map = _build_column_map(raw_columns, mapping)
+    missing = _missing_required_fields(column_map)
+    has_branch_sections = _xls_has_branch_sections(book, sheet, header_row_index)
+    if has_branch_sections:
+        missing.discard("department")
+    if missing:
+        book.release_resources()
+        return ParsedFile(
+            rows=[],
+            invalid_rows=[],
+            detected_columns=column_map,
+            missing_required_columns=sorted(missing),
+            total_rows_in_file=0,
+            raw_columns=raw_columns,
+            sample_rows=selected["sample_rows"],
+            suggested_mapping=_suggested_mapping_from_column_map(column_map),
+            sheet_name=sheet.name,
+            header_row=header_row_index + 1,
+            sheets=candidates,
+        )
+
+    rows: list[ParsedRow] = []
+    invalid: list[dict[str, Any]] = []
+    seen_personnel_numbers: set[str] = set()
+    current_department = ""
+    current_branch = ""
+    for row_index in range(header_row_index + 1, sheet.nrows):
+        values = [_xls_cell_text(book, sheet.cell(row_index, column)) for column in range(sheet.ncols)]
+        if not any(values):
+            continue
+        populated = [value for value in values if value]
+        if len(populated) == 1 and values[0] and _is_branch_section(values[0]):
+            current_department = _canonical_branch_department(values[0])
+            continue
+
+        fields: dict[str, str] = {}
+        raw_dict: dict[str, str] = {}
+        for raw_header, value in zip(raw_columns, values, strict=False):
+            canonical = column_map.get(raw_header)
+            if canonical is None:
+                raw_dict[raw_header] = value
+            else:
+                fields[canonical] = value
+        if "branch" in column_map.values():
+            if fields.get("branch"):
+                current_branch = fields["branch"]
+            elif current_branch:
+                fields["branch"] = current_branch
+        if not fields.get("department") and current_department:
+            fields["department"] = current_department
+        if fields.get("email"):
+            fields["email"] = re.sub(r"\s+", "", fields["email"])
+        fields = _normalize_fields(fields)
+
+        errors = [
+            f"Поле «{required}» пустое"
+            for required in REQUIRED_FIELDS
+            if not fields.get(required) and not (required == "department" and fields.get("branch"))
+        ]
+        personnel_number = fields.get("personnel_number", "").strip()
+        if personnel_number:
+            personnel_key = personnel_number.casefold()
+            if personnel_key in seen_personnel_numbers:
+                errors.append(f"Дубликат табельного номера «{personnel_number}»")
+            seen_personnel_numbers.add(personnel_key)
+        if errors:
+            invalid.append({"row_number": row_index + 1, "errors": errors, "raw": raw_dict})
+            continue
+
+        rows.append(
+            ParsedRow(
+                row_number=row_index + 1,
+                personnel_number=personnel_number,
+                first_name=fields.get("first_name", "").strip(),
+                last_name=fields.get("last_name", "").strip(),
+                department=fields.get("department", "").strip(),
+                position=fields.get("position", "").strip(),
+                email=fields.get("email") or None,
+                phone=fields.get("phone") or None,
+                hire_date=_parse_hire_date(fields.get("hire_date")),
+                branch=fields.get("branch", "").strip(),
+            )
+        )
+
+    book.release_resources()
+    return ParsedFile(
+        rows=rows,
+        invalid_rows=invalid,
+        detected_columns=column_map,
+        missing_required_columns=[],
+        total_rows_in_file=len(rows) + len(invalid),
+        raw_columns=raw_columns,
+        sample_rows=selected["sample_rows"],
+        suggested_mapping=_suggested_mapping_from_column_map(column_map),
+        sheet_name=sheet.name,
+        header_row=header_row_index + 1,
+        sheets=candidates,
+    )
+
+
 def parse_csv(content: bytes, mapping: dict[str, str] | None = None, sheet_name: str | None = None) -> ParsedFile:
     """Parse CSV with Russian/English headers, return ParsedFile."""
     # Decode (try utf-8-sig first for BOM, then cp1251 for old Russian Excel exports)
@@ -542,10 +821,7 @@ def parse_csv(content: bytes, mapping: dict[str, str] | None = None, sheet_name:
     reader = csv.DictReader(io.StringIO(text))
     raw_columns = [c for c in (reader.fieldnames or [])]
     raw_rows = list(reader)
-    sample_rows = [
-        {str(k): str(v).strip() if v is not None else "" for k, v in row.items()}
-        for row in raw_rows[:5]
-    ]
+    sample_rows = [{str(k): str(v).strip() if v is not None else "" for k, v in row.items()} for row in raw_rows[:5]]
     column_map = _build_column_map(raw_columns, mapping)
 
     missing = _missing_required_fields(column_map)
@@ -567,6 +843,7 @@ def parse_csv(content: bytes, mapping: dict[str, str] | None = None, sheet_name:
     rows: list[ParsedRow] = []
     invalid: list[dict] = []
     seen_pn: set[str] = set()
+    current_branch = ""
     for i, raw_row in enumerate(raw_rows, start=2):  # row 1 = header
         # Skip empty rows
         if not any(v and str(v).strip() for v in raw_row.values()):
@@ -579,12 +856,17 @@ def parse_csv(content: bytes, mapping: dict[str, str] | None = None, sheet_name:
             if v is None:
                 continue
             fields[canonical] = str(v).strip()
+        if "branch" in column_map.values():
+            if fields.get("branch"):
+                current_branch = fields["branch"]
+            elif current_branch:
+                fields["branch"] = current_branch
         fields = _normalize_fields(fields)
 
         # Validate required
         errors: list[str] = []
         for req in REQUIRED_FIELDS:
-            if not fields.get(req):
+            if not fields.get(req) and not (req == "department" and fields.get("branch")):
                 errors.append(f"Поле «{req}» пустое")
 
         pn = fields.get("personnel_number", "").strip()
@@ -595,24 +877,29 @@ def parse_csv(content: bytes, mapping: dict[str, str] | None = None, sheet_name:
             seen_pn.add(pn_norm)
 
         if errors:
-            invalid.append({
-                "row_number": i,
-                "errors": errors,
-                "raw": dict(raw_row),
-            })
+            invalid.append(
+                {
+                    "row_number": i,
+                    "errors": errors,
+                    "raw": dict(raw_row),
+                }
+            )
             continue
 
-        rows.append(ParsedRow(
-            row_number=i,
-            personnel_number=pn,
-            first_name=fields.get("first_name", "").strip(),
-            last_name=fields.get("last_name", "").strip(),
-            department=fields.get("department", "").strip(),
-            position=fields.get("position", "").strip(),
-            email=fields.get("email") or None,
-            phone=fields.get("phone") or None,
-            hire_date=_parse_hire_date(fields.get("hire_date")),
-        ))
+        rows.append(
+            ParsedRow(
+                row_number=i,
+                personnel_number=pn,
+                first_name=fields.get("first_name", "").strip(),
+                last_name=fields.get("last_name", "").strip(),
+                department=fields.get("department", "").strip(),
+                position=fields.get("position", "").strip(),
+                email=fields.get("email") or None,
+                phone=fields.get("phone") or None,
+                hire_date=_parse_hire_date(fields.get("hire_date")),
+                branch=fields.get("branch", "").strip(),
+            )
+        )
 
     return ParsedFile(
         rows=rows,
@@ -631,7 +918,12 @@ def parse_csv(content: bytes, mapping: dict[str, str] | None = None, sheet_name:
 
 def parse_xlsx(content: bytes, mapping: dict[str, str] | None = None, sheet_name: str | None = None) -> ParsedFile:
     """Parse Excel .xlsx via openpyxl. Returns ParsedFile (same shape as parse_csv)."""
-    wb = load_workbook(io.BytesIO(content), read_only=True, data_only=True)
+    wb = load_workbook(
+        io.BytesIO(content),
+        read_only=False,
+        data_only=True,
+        keep_links=False,
+    )
     sheet_candidates = _xlsx_sheet_candidates(wb)
     selected_sheet = None
     if sheet_name:
@@ -644,16 +936,26 @@ def parse_xlsx(content: bytes, mapping: dict[str, str] | None = None, sheet_name
     # Header row
     header_cells = next(ws.iter_rows(min_row=header_row, max_row=header_row, values_only=True), None)
     if not header_cells:
-        return ParsedFile(rows=[], invalid_rows=[], detected_columns={},
-                          missing_required_columns=list(REQUIRED_FIELDS), total_rows_in_file=0,
-                          sheets=sheet_candidates, sheet_name=ws.title, header_row=header_row)
+        return ParsedFile(
+            rows=[],
+            invalid_rows=[],
+            detected_columns={},
+            missing_required_columns=list(REQUIRED_FIELDS),
+            total_rows_in_file=0,
+            sheets=sheet_candidates,
+            sheet_name=ws.title,
+            header_row=header_row,
+        )
 
     raw_columns = [str(c).strip() if c is not None else "" for c in header_cells]
-    raw_data_rows = list(ws.iter_rows(min_row=header_row + 1, values_only=True))
+    raw_data_rows = _xlsx_data_rows_with_merged_values(
+        ws,
+        min_row=header_row + 1,
+    )
     sample_rows = [
         {
             raw_header: str(cell).strip() if cell is not None else ""
-            for raw_header, cell in zip(raw_columns, row)
+            for raw_header, cell in zip(raw_columns, row, strict=False)
         }
         for row in raw_data_rows[:5]
     ]
@@ -679,6 +981,7 @@ def parse_xlsx(content: bytes, mapping: dict[str, str] | None = None, sheet_name
     rows: list[ParsedRow] = []
     invalid: list[dict] = []
     seen_pn: set[str] = set()
+    current_branch = ""
     for i, row in enumerate(raw_data_rows, start=header_row + 1):
         # Skip empty rows
         if not any(v is not None and str(v).strip() for v in row):
@@ -687,7 +990,7 @@ def parse_xlsx(content: bytes, mapping: dict[str, str] | None = None, sheet_name
         # Map cells to fields
         fields: dict[str, str] = {}
         raw_dict: dict[str, Any] = {}
-        for raw_header, cell in zip(raw_columns, row):
+        for raw_header, cell in zip(raw_columns, row, strict=False):
             canonical = column_map.get(raw_header)
             if canonical is None:
                 # Unmapped column - keep as raw for invalid rows
@@ -695,11 +998,16 @@ def parse_xlsx(content: bytes, mapping: dict[str, str] | None = None, sheet_name
             else:
                 v = str(cell).strip() if cell is not None else ""
                 fields[canonical] = v
+        if "branch" in column_map.values():
+            if fields.get("branch"):
+                current_branch = fields["branch"]
+            elif current_branch:
+                fields["branch"] = current_branch
         fields = _normalize_fields(fields)
 
         errors: list[str] = []
         for req in REQUIRED_FIELDS:
-            if not fields.get(req):
+            if not fields.get(req) and not (req == "department" and fields.get("branch")):
                 errors.append(f"Поле «{req}» пустое")
 
         pn = fields.get("personnel_number", "").strip()
@@ -710,24 +1018,29 @@ def parse_xlsx(content: bytes, mapping: dict[str, str] | None = None, sheet_name
             seen_pn.add(pn_norm)
 
         if errors:
-            invalid.append({
-                "row_number": i,
-                "errors": errors,
-                "raw": raw_dict,
-            })
+            invalid.append(
+                {
+                    "row_number": i,
+                    "errors": errors,
+                    "raw": raw_dict,
+                }
+            )
             continue
 
-        rows.append(ParsedRow(
-            row_number=i,
-            personnel_number=pn,
-            first_name=fields.get("first_name", "").strip(),
-            last_name=fields.get("last_name", "").strip(),
-            department=fields.get("department", "").strip(),
-            position=fields.get("position", "").strip(),
-            email=fields.get("email") or None,
-            phone=fields.get("phone") or None,
-            hire_date=_parse_hire_date(fields.get("hire_date")),
-        ))
+        rows.append(
+            ParsedRow(
+                row_number=i,
+                personnel_number=pn,
+                first_name=fields.get("first_name", "").strip(),
+                last_name=fields.get("last_name", "").strip(),
+                department=fields.get("department", "").strip(),
+                position=fields.get("position", "").strip(),
+                email=fields.get("email") or None,
+                phone=fields.get("phone") or None,
+                hire_date=_parse_hire_date(fields.get("hire_date")),
+                branch=fields.get("branch", "").strip(),
+            )
+        )
 
     wb.close()
     return ParsedFile(
@@ -758,8 +1071,8 @@ def parse_upload(
     if name.endswith(".xlsx"):
         return parse_xlsx(content, mapping=mapping, sheet_name=sheet_name)
     if name.endswith(".xls"):
-        raise ValueError("Старый формат .xls не поддерживается. Сохраните файл как .xlsx или .csv.")
-    raise ValueError(f"Формат файла не поддерживается: {filename}. Используйте .xlsx или .csv.")
+        return parse_xls(content, mapping=mapping, sheet_name=sheet_name)
+    raise ValueError(f"Формат файла не поддерживается: {filename}. Используйте .xls, .xlsx или .csv.")
 
 
 # ── Preview (against current DB) ─────────────────────────────────
@@ -794,9 +1107,7 @@ async def build_preview(
         department_key = normalize_staff_lookup(values["department"])
         department = departments_by_slug.get(department_key)
         position_key = normalize_staff_lookup(values["position"])
-        position = _find_position(
-            positions_by_key, department_key, department, position_key
-        )
+        position = _find_position(positions_by_key, department_key, department, position_key)
         if department is None and department_key:
             new_departments.setdefault(department_key, values["department"] or "")
         if position is None and department_key and position_key:
@@ -805,11 +1116,7 @@ async def build_preview(
                 (values["department"] or "", values["position"] or ""),
             )
 
-        position_ref: object = (
-            position.id
-            if position is not None
-            else ("new", department_key, position_key)
-        )
+        position_ref: object = position.id if position is not None else ("new", department_key, position_key)
         projected = projected_users.get(pn_norm)
         is_repeated_row = projected is not None
         if projected is None and existing is not None:
@@ -835,65 +1142,51 @@ async def build_preview(
             if values["hire_date"] is None:
                 values["hire_date"] = projected.hire_date
             if projected.first_name != values["first_name"]:
-                notes.append(
-                    f"имя: «{projected.first_name}» → «{values['first_name']}»"
-                )
+                notes.append(f"имя: «{projected.first_name}» → «{values['first_name']}»")
             if projected.last_name != values["last_name"]:
-                notes.append(
-                    f"фамилия: «{projected.last_name}» → «{values['last_name']}»"
-                )
+                notes.append(f"фамилия: «{projected.last_name}» → «{values['last_name']}»")
             if projected.email != values["email"]:
-                notes.append(
-                    f"email: «{projected.email or '—'}» → «{values['email'] or '—'}»"
-                )
+                notes.append(f"email: «{projected.email or '—'}» → «{values['email'] or '—'}»")
             if projected.phone != values["phone"]:
-                notes.append(
-                    f"телефон: «{projected.phone or '—'}» → «{values['phone'] or '—'}»"
-                )
+                notes.append(f"телефон: «{projected.phone or '—'}» → «{values['phone'] or '—'}»")
             if projected.hire_date != values["hire_date"]:
-                notes.append(
-                    f"дата приёма: «{projected.hire_date or '—'}» → «{values['hire_date'] or '—'}»"
-                )
+                notes.append(f"дата приёма: «{projected.hire_date or '—'}» → «{values['hire_date'] or '—'}»")
             if projected.position_ref != position_ref:
-                notes.append(
-                    f"новая должность: «{values['position']}» (отдел «{values['department']}»)"
-                )
+                notes.append(f"новая должность: «{values['position']}» (отдел «{values['department']}»)")
 
-            items.append(PreviewItem(
-                row_number=row.row_number,
-                personnel_number=values["personnel_number"] or "",
-                first_name=values["first_name"] or "",
-                last_name=values["last_name"] or "",
-                department=values["department"] or "",
-                position=values["position"] or "",
-                email=values["email"],
-                phone=values["phone"],
-                action="update" if notes else "skip",
-                existing_user_id=projected.existing_user_id,
-                notes=notes or [
-                    "Повторный ряд: без изменений"
-                    if is_repeated_row
-                    else "Без изменений"
-                ],
-            ))
+            items.append(
+                PreviewItem(
+                    row_number=row.row_number,
+                    personnel_number=values["personnel_number"] or "",
+                    first_name=values["first_name"] or "",
+                    last_name=values["last_name"] or "",
+                    department=values["department"] or "",
+                    position=values["position"] or "",
+                    email=values["email"],
+                    phone=values["phone"],
+                    action="update" if notes else "skip",
+                    existing_user_id=projected.existing_user_id,
+                    notes=notes or ["Повторный ряд: без изменений" if is_repeated_row else "Без изменений"],
+                )
+            )
         else:
             if position is None:
-                notes.append(
-                    f"новая должность: «{values['position']}» в «{values['department']}»"
+                notes.append(f"новая должность: «{values['position']}» в «{values['department']}»")
+            items.append(
+                PreviewItem(
+                    row_number=row.row_number,
+                    personnel_number=values["personnel_number"] or "",
+                    first_name=values["first_name"] or "",
+                    last_name=values["last_name"] or "",
+                    department=values["department"] or "",
+                    position=values["position"] or "",
+                    email=values["email"],
+                    phone=values["phone"],
+                    action="create",
+                    existing_user_id=None,
+                    notes=notes,
                 )
-            items.append(PreviewItem(
-                row_number=row.row_number,
-                personnel_number=values["personnel_number"] or "",
-                first_name=values["first_name"] or "",
-                last_name=values["last_name"] or "",
-                department=values["department"] or "",
-                position=values["position"] or "",
-                email=values["email"],
-                phone=values["phone"],
-                action="create",
-                existing_user_id=None,
-                notes=notes,
-            ))
+            )
 
         projected_users[pn_norm] = _ProjectedStaffUser(
             first_name=values["first_name"] or "",
@@ -927,6 +1220,9 @@ async def commit_import(
     db: AsyncSession,
     tenant_id: UUID,
     parsed: ParsedFile,
+    *,
+    commit_changes: bool = True,
+    apply_rules: bool = True,
 ) -> dict:
     """Apply the import: create/update users + create new positions.
 
@@ -971,9 +1267,7 @@ async def commit_import(
             departments_by_id[department.id] = department
 
         position_key = normalize_staff_lookup(values["position"])
-        pos = _find_position(
-            positions_by_key, department_key, department, position_key
-        )
+        pos = _find_position(positions_by_key, department_key, department, position_key)
         if pos is None:
             pos = Position(
                 id=uuid4(),
@@ -1063,7 +1357,10 @@ async def commit_import(
             # Invalidate cache so next row can find this user (duplicate-PN check)
             users_by_pn[pn_norm] = user
 
-    await db.commit()
+    if commit_changes:
+        await db.commit()
+    else:
+        await db.flush()
 
     # P0-1 (TZ §2.6): trigger apply-rules inline so the import
     # is actually useful. Pre-fix the router dispatched to Celery,
@@ -1074,14 +1371,12 @@ async def commit_import(
     # /admin/staff/apply-rules endpoint still exists for
     # retroactive retries (see staff_import_router).
     apply_rules_task_id: str | None = None
-    if affected_user_ids:
+    if affected_user_ids and apply_rules:
         from app.core import redis_progress
         from app.modules.positions.batch_service import apply_rules_for_users
 
         apply_rules_task_id = redis_progress.new_task_id()
-        await redis_progress.init_task(
-            apply_rules_task_id, total=len(affected_user_ids)
-        )
+        await redis_progress.init_task(apply_rules_task_id, total=len(affected_user_ids))
         await redis_progress.mark_started(apply_rules_task_id)
 
         # Chunked per TZ §2.6 (50 users per chunk). The chunked
@@ -1115,33 +1410,26 @@ async def commit_import(
                 aggregate_failed += len(chunk)
                 logger.exception(
                     "apply-rules inline chunk failed (chunk_size=%d): %s",
-                    len(chunk), exc,
+                    len(chunk),
+                    exc,
                 )
                 for _ in chunk:
-                    await redis_progress.increment_failed(
-                        apply_rules_task_id
-                    )
+                    await redis_progress.increment_failed(apply_rules_task_id)
 
         # Final state in Redis.
         result_payload = {
             "users_processed": len(affected_user_ids) - aggregate_failed,
             "added": aggregate_added,
             "removed": aggregate_removed,
-            "failed_chunks": aggregate_failed // chunk_size
-            if chunk_size
-            else 0,
+            "failed_chunks": aggregate_failed // chunk_size if chunk_size else 0,
         }
         if aggregate_failed == 0:
-            await redis_progress.mark_success(
-                apply_rules_task_id, result_payload
-            )
+            await redis_progress.mark_success(apply_rules_task_id, result_payload)
         elif aggregate_failed < len(affected_user_ids):
             # Partial — mark SUCCESS (we did what we could) but
             # the failed count is in the result payload so the
             # UI can surface a warning.
-            await redis_progress.mark_success(
-                apply_rules_task_id, result_payload
-            )
+            await redis_progress.mark_success(apply_rules_task_id, result_payload)
         else:
             # Total failure — mark FAILURE so the UI shows red.
             await redis_progress.mark_failure(

@@ -1,4 +1,5 @@
 """Schemas for /admin/staff/import/mappings CRUD."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -15,7 +16,6 @@ class StaffImportMappingCreate(BaseModel):
         description="Canonical field → raw column name. Example: {'personnel_number': 'Табельный №'}",
     )
     is_default: bool = False
-
     model_config = ConfigDict(extra="forbid")
 
 
@@ -25,7 +25,6 @@ class StaffImportMappingUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=120)
     mapping_json: dict[str, Any] | None = None
     is_default: bool | None = None
-
     model_config = ConfigDict(extra="forbid")
 
 
@@ -35,6 +34,11 @@ class StaffImportMappingResponse(BaseModel):
     name: str
     mapping_json: dict[str, Any]
     is_default: bool
+    workbook_signature: str | None
+    profile_json: dict[str, Any]
+    schema_version: str
+    approved_at: datetime | None
+    approved_by: UUID | None
     created_by: UUID
     created_at: datetime
 

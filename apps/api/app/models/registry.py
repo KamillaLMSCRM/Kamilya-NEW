@@ -16,6 +16,7 @@ MODEL_MODULES = (
     "app.models.assignment_access",
     "app.models.progress",
     "app.models.staff_import_mapping",
+    "app.models.staff_import_session",
     "app.models.tenant_llm_usage",
     "app.models.tenant_settings",
     "app.models.tenants",

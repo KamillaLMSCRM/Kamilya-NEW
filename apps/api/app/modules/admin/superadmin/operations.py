@@ -72,6 +72,7 @@ REQUIRED_CELERY_TASKS = (
     "learning_cycles.materialize",
     "learning_cycles.recover_due",
     "candidate_assessments.enforce_retention",
+    "staff_import.cleanup_expired_sources",
     "crm.deliver_lead_outbox",
     "crm.recover_lead_outbox",
 )
