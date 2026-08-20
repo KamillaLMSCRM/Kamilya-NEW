@@ -20,13 +20,12 @@ from __future__ import annotations
 
 import logging
 import secrets
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
 from fastapi import HTTPException
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from app.core.auth import create_access_token
 from app.models.enrollment import Enrollment
@@ -57,11 +56,22 @@ async def establish_public_kiosk_tenant_context(
     """Resolve an opaque kiosk token, then enable normal tenant RLS.
 
     Public kiosk requests have no JWT and therefore no tenant context. The
-    database function exposes only the matching tenant UUID; all subsequent
-    reads still run through the regular tenant policies.
+    token-scoped ``kiosk_links`` SELECT policy exposes only the row matching
+    the cryptographically random public credential.  After resolving that
+    row, all subsequent reads run through the regular tenant policies.
+
+    Do not use a SECURITY DEFINER lookup here.  ``kiosk_links`` has FORCE RLS,
+    so a function owned by the migration role cannot bypass the table policy;
+    production then reports every valid kiosk as missing.  The transaction-
+    local token context keeps the bootstrap both RLS-compatible and limited
+    to the one public kiosk row.
     """
+    await db.execute(
+        text("SELECT set_config('app.kiosk_token', :token, true)"),
+        {"token": token},
+    )
     result = await db.execute(
-        text("SELECT lookup_kiosk_tenant_by_token(:token)"),
+        text("SELECT tenant_id FROM kiosk_links WHERE token = :token LIMIT 1"),
         {"token": token},
     )
     tenant_id = result.scalar_one_or_none()
@@ -279,7 +289,7 @@ async def get_public_kiosk(db: AsyncSession, token: str) -> dict:
             "valid": False,
             "reason_if_invalid": "kiosk_disabled",
         }
-    if link.expires_at and link.expires_at < datetime.now(timezone.utc):
+    if link.expires_at and link.expires_at < datetime.now(UTC):
         return {
             "name": link.name,
             "tenant_name": tenant_name,
@@ -327,7 +337,7 @@ async def identify_at_kiosk(
         raise HTTPException(status_code=404, detail="Киоск не найден")
     if not link.is_active:
         raise HTTPException(status_code=410, detail="Киоск отключён")
-    if link.expires_at and link.expires_at < datetime.now(timezone.utc):
+    if link.expires_at and link.expires_at < datetime.now(UTC):
         raise HTTPException(status_code=410, detail="Срок действия киоска истёк")
 
     # Find user by personnel_number (case-insensitive) within tenant
@@ -406,7 +416,7 @@ async def identify_at_kiosk(
     # in Course's model, so we also import Module to make sure it's registered.
     from app.modules.courses.models import Course
     from app.modules.lessons.models import Module  # noqa: F401  (registers Module for Course.relationship)
-    courses_data: list[dict] = [] 
+    courses_data: list[dict] = []
     if course_ids:
         course_result = await db.execute(
             select(Course).where(
