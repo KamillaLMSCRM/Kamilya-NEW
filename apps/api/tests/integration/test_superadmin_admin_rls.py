@@ -39,7 +39,11 @@ async def test_platform_superadmin_sets_target_tenant_before_user_role_write(
             send_invite=False,
         ),
         superadmin_id=operator.id,
-        commit=False,
+    )
+
+    await db_session.execute(
+        text("SELECT set_current_tenant(:tenant_id)"),
+        {"tenant_id": str(tenant.id)},
     )
 
     role = (

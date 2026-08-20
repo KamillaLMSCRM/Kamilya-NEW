@@ -406,8 +406,9 @@ class SuperadminService:
                 existing.telegram_id = payload.telegram_id
             await self._sync_user_role(existing.id, tenant_id, payload.role)
             if commit:
-                await self.db.commit()
+                await self.db.flush()
                 await self.db.refresh(existing)
+                await self.db.commit()
             else:
                 await self.db.flush()
             logger.info(
@@ -453,10 +454,15 @@ class SuperadminService:
             self.db.add(invite)
 
         if commit:
-            await self.db.commit()
+            # Refresh while the transaction-local tenant context established
+            # by _sync_user_role is still active.  Committing first clears
+            # app.tenant_id and makes FORCE RLS hide this tenant user from the
+            # subsequent SELECT used by AsyncSession.refresh().
+            await self.db.flush()
             await self.db.refresh(user)
             if invite:
                 await self.db.refresh(invite)
+            await self.db.commit()
         else:
             await self.db.flush()
         logger.info(
@@ -505,8 +511,9 @@ class SuperadminService:
         if changes:
             if payload.role is not None:
                 await self._sync_user_role(user.id, tenant_id, payload.role)
-            await self.db.commit()
+            await self.db.flush()
             await self.db.refresh(user)
+            await self.db.commit()
             logger.info(
                 "superadmin.admin.updated id=%s tenant=%s changes=%s",
                 user_id, tenant_id, list(changes.keys()),

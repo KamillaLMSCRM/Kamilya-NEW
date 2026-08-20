@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
 import pytest
 
+from app.modules.admin.superadmin.schemas import AdminCreate
 from app.modules.admin.superadmin.service import SuperadminService
 
 
@@ -29,3 +31,44 @@ async def test_sync_user_role_binds_target_tenant_before_rls_query() -> None:
     assert "FROM user_roles" in statements[1]
     db.add.assert_called_once()
     db.flush.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_create_admin_refreshes_before_transaction_local_context_commit() -> None:
+    events: list[str] = []
+    tenant_id = uuid4()
+    existing = SimpleNamespace(
+        id=uuid4(),
+        tenant_id=tenant_id,
+        email="methodologist@example.com",
+        telegram_id=None,
+        first_name="Before",
+        last_name="User",
+        role="admin",
+        is_active=True,
+    )
+    db = MagicMock()
+    db.flush = AsyncMock(side_effect=lambda: events.append("flush"))
+    db.commit = AsyncMock(side_effect=lambda: events.append("commit"))
+    db.refresh = AsyncMock(side_effect=lambda _obj: events.append("refresh"))
+    service = SuperadminService(db)
+    service._find_existing_user = AsyncMock(return_value=existing)
+    service._sync_user_role = AsyncMock()
+
+    user, invite = await service.create_admin(
+        tenant_id,
+        AdminCreate(
+            email="methodologist@example.com",
+            first_name="After",
+            last_name="User",
+            role="methodologist",
+            is_active=True,
+            send_invite=False,
+        ),
+        superadmin_id=uuid4(),
+    )
+
+    assert events == ["flush", "refresh", "commit"]
+    assert invite is None
+    assert user is existing
+    assert user.role == "methodologist"
