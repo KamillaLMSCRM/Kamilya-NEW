@@ -733,8 +733,15 @@ async def list_training_log(
             computed_status = "in_progress" if has_native_progress else "assigned"
 
         quiz_info = quiz_by_pair.get((r["user_id"], r["course_id"], r["enrollment_id"]), {})
-        certificate_key = r["enrollment_id"] if r["enrollment_source"] == "recurring" else None
-        cert_info = cert_by_pair.get((r["user_id"], r["course_id"], certificate_key), {})
+        # Current certificates are bound to the exact enrollment for both
+        # one-time and recurring assignments. Retain a fallback for legacy
+        # one-time certificates created before enrollment binding existed.
+        cert_info = cert_by_pair.get(
+            (r["user_id"], r["course_id"], r["enrollment_id"]),
+        )
+        if cert_info is None and r["enrollment_source"] != "recurring":
+            cert_info = cert_by_pair.get((r["user_id"], r["course_id"], None))
+        cert_info = cert_info or {}
         evidence_info = evidence_by_enrollment.get(
             r["enrollment_id"],
             {

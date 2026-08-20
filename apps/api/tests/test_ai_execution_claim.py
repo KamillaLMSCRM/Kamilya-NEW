@@ -114,6 +114,14 @@ def test_pipeline_exception_is_persisted_as_terminal_failure(monkeypatch):
         user_id=str(uuid4()),
     )
 
-    assert result == {"job_id": "job-2", "status": "failed", "message": "provider disconnected"}
+    assert result == {
+        "job_id": "job-2",
+        "status": "failed",
+        "message": "RuntimeError: generation failed",
+    }
     persisted.assert_awaited_once()
-    assert persisted.await_args.args[1:] == ("job-2", "provider disconnected", tenant_id)
+    assert persisted.await_args.args[1:] == (
+        "job-2",
+        "RuntimeError: generation failed",
+        tenant_id,
+    )

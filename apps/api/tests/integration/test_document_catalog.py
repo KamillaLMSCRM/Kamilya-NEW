@@ -357,10 +357,11 @@ async def test_document_upload_allows_methodologist_without_external_services(
     from app.modules.documents import router as documents_router
 
     class StorageStub:
-        def put_bytes(self, key, content, content_type):
+        def put_file(self, key, source, content_type):
             assert key.startswith(f"tenants/{tenant.id}/documents/")
-            assert content == b"safe source text"
+            assert source.read() == b"safe source text"
             assert content_type == "text/plain"
+            return key
 
     tenant = await make_tenant()
     methodologist = await make_user(tenant, role="methodologist")
@@ -412,7 +413,8 @@ async def test_document_upload_hashes_content_and_rejects_exact_duplicate(
     from app.modules.documents import router as documents_router
 
     class StorageStub:
-        def put_bytes(self, key, content, content_type):
+        def put_file(self, key, source, content_type):
+            source.read()
             return key
 
         def delete_bytes(self, key):
@@ -465,7 +467,8 @@ async def test_document_upload_allows_identical_content_in_different_tenants(
     from app.modules.documents import router as documents_router
 
     class StorageStub:
-        def put_bytes(self, key, content, content_type):
+        def put_file(self, key, source, content_type):
+            source.read()
             return key
 
         def delete_bytes(self, key):
@@ -583,7 +586,8 @@ async def test_document_upload_creates_explicit_next_version(
     from app.modules.documents import router as documents_router
 
     class StorageStub:
-        def put_bytes(self, key, content, content_type):
+        def put_file(self, key, source, content_type):
+            source.read()
             return key
 
         def delete_bytes(self, key):

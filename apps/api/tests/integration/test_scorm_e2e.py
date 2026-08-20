@@ -171,6 +171,22 @@ async def test_scorm12_import_happy_path(
         assert str(package_id) in launch["launch_url"]
 
         # Step 3: log in as the learner and get the launch token.
+        # Learners may launch only assigned published courses. The author
+        # preview above deliberately remains enrollment-free; this path
+        # exercises the production assignment boundary.
+        from app.models.enrollment import Enrollment
+
+        db_session.add(
+            Enrollment(
+                tenant_id=tenant.id,
+                user_id=learner.id,
+                course_id=course_id,
+                status="enrolled",
+                source="manual",
+            )
+        )
+        await db_session.flush()
+
         learner_token = await _login(client, learner)
         learner_headers = {"Authorization": f"Bearer {learner_token}"}
 
@@ -318,7 +334,7 @@ async def test_scorm12_launch_requires_tenant_match(
 
 @pytest.mark.asyncio
 async def test_scorm12_in_progress_does_not_complete(
-    client, monkeypatch, tmp_path, make_tenant, make_user
+    client, monkeypatch, tmp_path, db_session, make_tenant, make_user
 ):
     """in_progress should NOT trigger certificate or completion."""
     from app.core.storage import reset_storage_for_tests
@@ -342,6 +358,19 @@ async def test_scorm12_in_progress_does_not_complete(
     assert resp.status_code == 201
     course_id = resp.json()["course_id"]
     package_id = resp.json()["package"]["id"]
+
+    from app.models.enrollment import Enrollment
+
+    db_session.add(
+        Enrollment(
+            tenant_id=tenant.id,
+            user_id=learner.id,
+            course_id=course_id,
+            status="enrolled",
+            source="manual",
+        )
+    )
+    await db_session.flush()
 
     learner_token = await _login(client, learner)
     resp = await client.get(
