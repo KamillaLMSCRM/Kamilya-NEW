@@ -116,6 +116,24 @@ def _build_evidence_bank(bounded_source: str) -> dict[str, str]:
     return bank
 
 
+def _evidence_anchor_phrase(text: str) -> str:
+    words = [
+        match.group(0)
+        for match in _WORD_RE.finditer(text)
+        if match.group(0).lower() not in _GROUNDING_STOPWORDS
+    ]
+    return " ".join(words[:3]) or text[:60].strip()
+
+
+def _grounded_question(anchor: str, language: str) -> str:
+    templates = {
+        "ru": "Что в материале урока указано о теме «{anchor}»?",
+        "kk": "Сабақ материалында «{anchor}» тақырыбы туралы не айтылған?",
+        "en": "What does the lesson material state about “{anchor}”?",
+    }
+    return templates.get(language, templates["en"]).format(anchor=anchor)
+
+
 def _parse_json_response(content: str) -> dict:
     """Parse JSON from LLM response with preprocessing."""
     from json_repair import repair_json
@@ -178,6 +196,7 @@ def _validate_question_evidence(
     data: dict,
     evidence_bank: dict[str, str],
     bounded_source: str,
+    language: str,
 ) -> list[str]:
     """Resolve server-owned evidence IDs and validate grounded MCQs."""
     issues: list[str] = []
@@ -214,6 +233,12 @@ def _validate_question_evidence(
             issues.append(f"MCQ #{index}: distractor duplicates source evidence")
         quote_stems = _grounding_stems(source_quote)
         question_stems = _grounding_stems(str(question.get("question", "")))
+        if not quote_stems & question_stems:
+            question["question"] = _grounded_question(
+                _evidence_anchor_phrase(source_quote),
+                language,
+            )
+            question_stems = _grounding_stems(question["question"])
         correct_answer = " ".join(
             str(option.get("text", ""))
             for option in question.get("options", [])
@@ -350,6 +375,7 @@ Output ONLY the JSON data instance:
                 data,
                 evidence_bank,
                 bounded_lesson_content,
+                language,
             )
             assessment = LessonAssessment.from_dict(
                 {

@@ -116,7 +116,7 @@ async def test_standard_assessment_retries_an_incomplete_result():
 
 
 @pytest.mark.asyncio
-async def test_standard_assessment_retries_structurally_valid_off_source_questions():
+async def test_standard_assessment_repairs_structurally_valid_off_source_questions():
     class FakeLLM:
         calls = 0
 
@@ -154,8 +154,10 @@ async def test_standard_assessment_retries_structurally_valid_off_source_questio
         language="ru",
     )
 
-    assert llm.calls == 2
+    assert llm.calls == 1
     assert "микрокредита" in result.mcq[0].question
+    assert "REST" not in result.mcq[0].question
+    assert "HTTP" not in result.mcq[0].explanation
 
 
 @pytest.mark.asyncio
@@ -363,3 +365,37 @@ async def test_standard_assessment_uses_server_quote_as_correct_answer():
         correct = [option.text for option in question.options if option.is_correct]
         assert correct == [source_quote]
         assert question.explanation == f"Согласно материалу урока: {source_quote}"
+
+
+@pytest.mark.asyncio
+async def test_standard_assessment_repairs_unanchored_question_from_evidence():
+    source_quote = "Выдача микрокредита выполняется после проверки заявления."
+
+    class FakeLLM:
+        async def ainvoke(self, messages, config=None, response_format=None):
+            questions = _questions(
+                "операцию",
+                "После проверки заявления",
+                source_quote,
+            )
+            for question in questions:
+                question["question"] = "Каков порядок действий?"
+            return SimpleNamespace(
+                content=(
+                    '{"mcq": '
+                    + __import__("json").dumps(questions, ensure_ascii=False)
+                    + ', "true_false": [], "matching": []}'
+                )
+            )
+
+    result = await generate_lesson_assessment(
+        FakeLLM(),
+        LessonContent(
+            title="Правила выдачи микрокредита",
+            content=source_quote,
+            source_references=[],
+        ),
+        language="ru",
+    )
+
+    assert all("выдача микрокредита" in question.question.lower() for question in result.mcq)
