@@ -34,7 +34,7 @@ def _questions(
 @pytest.mark.asyncio
 async def test_standard_assessment_requests_five_mcq_questions_only():
     class FakeLLM:
-        async def ainvoke(self, messages):
+        async def ainvoke(self, messages, config=None, response_format=None):
             prompt = messages[-1]["content"]
             assert "Exactly 5 single choice questions" in prompt
             assert "Do not add true/false or matching questions" in prompt
@@ -75,7 +75,7 @@ async def test_standard_assessment_retries_an_incomplete_result():
     class FakeLLM:
         calls = 0
 
-        async def ainvoke(self, messages):
+        async def ainvoke(self, messages, config=None, response_format=None):
             self.calls += 1
             if self.calls == 1:
                 return SimpleNamespace(
@@ -120,7 +120,7 @@ async def test_standard_assessment_retries_structurally_valid_off_source_questio
     class FakeLLM:
         calls = 0
 
-        async def ainvoke(self, messages):
+        async def ainvoke(self, messages, config=None, response_format=None):
             self.calls += 1
             questions = (
                 _questions(
@@ -161,7 +161,7 @@ async def test_standard_assessment_retries_structurally_valid_off_source_questio
 @pytest.mark.asyncio
 async def test_standard_assessment_keeps_source_title_and_marks_untrusted_boundary():
     class FakeLLM:
-        async def ainvoke(self, messages):
+        async def ainvoke(self, messages, config=None, response_format=None):
             assert "untrusted reference data" in messages[0]["content"]
             prompt = messages[-1]["content"]
             assert "BEGIN_UNTRUSTED_LESSON_DATA" in prompt
@@ -201,7 +201,7 @@ async def test_standard_assessment_rejects_too_short_lesson_before_llm_call():
     class FakeLLM:
         calls = 0
 
-        async def ainvoke(self, messages):
+        async def ainvoke(self, messages, config=None, response_format=None):
             self.calls += 1
             raise AssertionError("LLM must not be called for an empty lesson")
 
@@ -225,7 +225,7 @@ async def test_standard_assessment_validates_quotes_against_prompt_bounded_sourc
     class FakeLLM:
         calls = 0
 
-        async def ainvoke(self, messages):
+        async def ainvoke(self, messages, config=None, response_format=None):
             self.calls += 1
             questions = _questions(
                 "секретный порядок",
@@ -263,7 +263,7 @@ async def test_standard_assessment_validates_quotes_against_prompt_bounded_sourc
 @pytest.mark.asyncio
 async def test_standard_assessment_resolves_authoritative_quote_from_evidence_id():
     class FakeLLM:
-        async def ainvoke(self, messages):
+        async def ainvoke(self, messages, config=None, response_format=None):
             questions = _questions(
                 "выдачу микрокредита",
                 "проверки заявления",
@@ -290,3 +290,41 @@ async def test_standard_assessment_resolves_authoritative_quote_from_evidence_id
     assert result.mcq[0].source_quote == (
         "Выдача микрокредита выполняется после проверки заявления."
     )
+
+
+@pytest.mark.asyncio
+async def test_standard_assessment_requests_provider_structured_output():
+    class FakeLLM:
+        async def ainvoke(self, messages, config=None, response_format=None):
+            assert response_format is not None
+            assert response_format["type"] == "json_schema"
+            schema = response_format["json_schema"]["schema"]
+            assert schema["properties"]["mcq"]["minItems"] == 5
+            assert schema["properties"]["mcq"]["maxItems"] == 5
+            assert schema["properties"]["mcq"]["items"]["properties"][
+                "source_quote_id"
+            ]["enum"] == ["E01"]
+            questions = _questions(
+                "выдачу микрокредита",
+                "проверки заявления",
+                "Выдача микрокредита выполняется после проверки заявления.",
+            )
+            return SimpleNamespace(
+                content=(
+                    '{"mcq": '
+                    + __import__("json").dumps(questions, ensure_ascii=False)
+                    + ', "true_false": [], "matching": []}'
+                )
+            )
+
+    result = await generate_lesson_assessment(
+        FakeLLM(),
+        LessonContent(
+            title="Правила выдачи микрокредита",
+            content="Выдача микрокредита выполняется после проверки заявления.",
+            source_references=[],
+        ),
+        language="ru",
+    )
+
+    assert len(result.mcq) == 5

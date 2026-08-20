@@ -300,9 +300,20 @@ Grounding requirements:
 Generate:
 {question_plan}
 
-Output ONLY valid JSON matching this schema:
+Output one JSON DATA INSTANCE that matches this schema.
+Never copy or return the schema itself and never return top-level keys named
+`type`, `properties`, or `required`.
+Output ONLY the JSON data instance:
 {json.dumps(output_schema, indent=2, ensure_ascii=False)}"""
     user_prompt = base_user_prompt
+    response_format = {
+        "type": "json_schema",
+        "json_schema": {
+            "name": "lesson_assessment",
+            "strict": True,
+            "schema": output_schema,
+        },
+    }
 
     for attempt in range(MAX_ASSESSMENT_RETRIES + 1):
         try:
@@ -310,7 +321,8 @@ Output ONLY valid JSON matching this schema:
                 [
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt},
-                ]
+                ],
+                response_format=response_format,
             )
             logger.debug(
                 "[ASSESSMENT_RAW] attempt %d len=%d",

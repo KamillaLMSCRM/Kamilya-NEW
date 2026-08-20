@@ -12,7 +12,7 @@ async def test_compact_assessment_requests_only_three_mcq_questions():
     class _LLM:
         messages = None
 
-        async def ainvoke(self, messages):
+        async def ainvoke(self, messages, config=None, response_format=None):
             self.messages = messages
             return SimpleNamespace(
                 content=json.dumps(
