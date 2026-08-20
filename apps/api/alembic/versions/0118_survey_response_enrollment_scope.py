@@ -92,7 +92,10 @@ def upgrade() -> None:
             RETURN NEW;
         END;
         $$ LANGUAGE plpgsql;
-
+        """
+    )
+    op.execute(
+        """
         CREATE TRIGGER trg_validate_survey_response_enrollment_scope
         BEFORE INSERT OR UPDATE OF tenant_id, survey_id, user_id, enrollment_id
         ON survey_responses

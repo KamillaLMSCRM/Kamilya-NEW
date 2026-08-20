@@ -49,6 +49,11 @@ def test_survey_enrollment_migration_preserves_legacy_rows_and_enforces_scope():
     assert "uq_survey_response_legacy_user" in source
     assert "uq_survey_response_enrollment" in source
     assert "validate_survey_response_enrollment_scope" in source
+    separate_trigger_statement = (
+        "$$ LANGUAGE plpgsql;\n        \"\"\"\n    )\n"
+        "    op.execute(\n        \"\"\"\n        CREATE TRIGGER"
+    )
+    assert separate_trigger_statement in source
     assert "e.status = 'completed'" in source
     assert "0118 downgrade refused" in source
 
