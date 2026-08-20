@@ -354,6 +354,7 @@ async def test_scorm12_in_progress_does_not_complete(
         "/api/v1/scorm/packages/import",
         headers=headers,
         files={"file": ("c.zip", _scorm12_zip(title="InProgress"), "application/zip")},
+        data={"status": "published"},
     )
     assert resp.status_code == 201
     course_id = resp.json()["course_id"]
@@ -377,6 +378,7 @@ async def test_scorm12_in_progress_does_not_complete(
         f"/api/v1/scorm/courses/{course_id}/launch",
         headers={"Authorization": f"Bearer {learner_token}"},
     )
+    assert resp.status_code == 200, resp.text
     launch_token = resp.json()["launch_url"].split("token=", 1)[1].split("&", 1)[0]
 
     # Render launcher to create the attempt
