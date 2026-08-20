@@ -27,7 +27,7 @@ superadmin -> tenant/admin -> methodologist -> структура/сотрудн
 1. Зафиксированы deployed revisions frontend, API и workers.
 2. `alembic current == alembic heads`; runtime role `lms_app` видит только свой tenant context.
 3. API, worker queues, Valkey, storage, converter, backup freshness и свободный диск находятся в рабочем состоянии.
-4. Production содержит требуемый adaptive staff-import contract. На 2026-08-20 каноническая документация фиксирует production DB head `0111`, а рабочее дерево содержит незавершённые `0112–0115`; до сверки нельзя считать новую загрузку структуры доступной в production.
+4. Production содержит требуемый adaptive staff-import contract и миграции структуры; фактический head сверяется с текущим repository head перед каждым прогоном. В завершённом прогоне оба значения равны `0119`.
 5. Для выпуска используется только точный проверенный commit; dirty worktree не разворачивается.
 
 Если любой пункт не выполнен, соответствующая строка матрицы получает `BLOCKED`, после чего сначала закрывается release gate.
@@ -65,21 +65,21 @@ superadmin -> tenant/admin -> methodologist -> структура/сотрудн
 
 ### 4.1. Текущий production snapshot
 
-На 2026-08-20 используется disposable tenant `e75b516a-d732-483c-a1cb-3d5445ecc570`; tenant Ломбард Сандык не изменялся. API и три worker работают на exact SHA `4f2816e`, Docling — на независимом образе `f314aa3`, PostgreSQL — `0118 (head)`, внешний `/health` отвечает `200`.
+На 2026-08-20 используется disposable tenant `e75b516a-d732-483c-a1cb-3d5445ecc570`; tenant Ломбард Сандык не изменялся. API и три worker работают на exact SHA/image `8904b62`, Docling — на независимом образе `f314aa3` (`2.106.0`, `healthy`), PostgreSQL — `0119 (head)`, внешний `/health` отвечает `200`. Все три Celery worker отвечают `pong`; Valkey healthy. Disposable tenant временно переведён в `pro/active` только для ограниченной AI-приёмки и пока сохранён для повторных проверок.
 
 | ID | Проверенная поверхность | Наблюдаемый результат | Latency / async | Result | Примечание |
 |---|---|---|---|---|---|
-| REL-02 | API/proxy health | `200`, API и три worker на `4f2816e` | health < 15 s timeout | PASS | После controlled recreate |
-| REL-03 | workers/Docling | AI/documents/ops `ready`; Docling `healthy` | startup около 16 s | PASS | Celery пока запускается под root — отдельный hardening backlog |
-| REL-04 | PostgreSQL/Alembic | `0118 (head)` | migration < 5 s после исправления | PASS | Первый прогон поймал multi-statement asyncpg defect; исправлен commit `4f2816e` |
+| REL-02 | API/proxy health | `200`, API и три worker на `8904b62` | recreate/start около 16 s | PASS | Exact Git archive; dirty worktree не разворачивался |
+| REL-03 | workers/Docling | AI/documents/ops: 3/3 `pong`; Docling `f314aa3` healthy | worker ping 12.1 s | PASS | Celery root-warning остаётся hardening backlog, не функциональный отказ |
+| REL-04 | PostgreSQL/Alembic | `0119 (head)` | migration + current 6.0 s | PASS | `0119` восстанавливает token-scoped public kiosk lookup под FORCE RLS |
 | TEN-01 | synthetic tenant | tenant создан и изолирован | — | PASS | Cleanup отложен до конца всей матрицы |
 | TEN-02/03 | admin/methodologist login | обе реальные tenant-учётные записи аутентифицируются | < 1 s | PASS | Impersonation не используется для immutable evidence |
 | MET-05 | DOCX upload/catalog/download/duplicate | индекс `ready`, 3/3 chunks, байты и SHA совпадают, duplicate `409` | catalog 76 ms; download 57 ms; duplicate 64 ms | PASS | Docling 2.106.0 подтверждён реальным DOCX |
-| MET-02 | AI generation runtime | draft создан: 2 modules, 4 lessons, 4 quizzes | 312.5 s | PASS | Функциональная доставка завершилась |
-| MET-02-Q | grounded quality | первые два quiz содержат вопросы о JSON/HTTP вместо исходного регламента | — | FAIL | Обязательный дефект качества до итогового GO |
+| MET-02 | AI generation runtime | job `808117d3-9ce6-4dca-919a-3a33cf99c97f`: draft `d4cbd14a-799f-42f0-8b3d-27157308451d`, 1 module, 3 lessons, 15 questions | 185.8 s | PASS | Production provider `cyankiwi/Qwen3.6-35B-A3B-AWQ-4bit` |
+| MET-02-Q | grounded quality | 15/15 вопросов привязаны к server-owned evidence; meta/off-source count 0; ответы очищены от Markdown и не обрываются на `:` | audit после job | PASS | Evidence-bank ID, structured JSON schema, server-owned correct answer/explanation |
 | MET-03/04 | review/publish/quizzes/release | publish до review `409`; после review `200`; release создан | review 43 ms; publish 62 ms | PASS | 4 quiz, по 5 вопросов, pass 80, attempts 2 |
 | MET-06 | learning path create/publish/assign | real methodologist: assign cohort `201`, 2 assignments, enrollments materialized | assign 90 ms; list 40 ms | PASS | Impersonation writer корректно отклонён tenant trigger |
-| MET-06-IDEM | repeat completed path assignment | completed assignment был повторно посчитан `added` и реактивирован | repeat 49 ms | FAIL | Не создан второй enrollment, но completed state нельзя сбрасывать; TDD fix начат |
+| MET-06-IDEM | repeat completed path assignment | before 2 / completed 1; repeat: added 0, skipped 2; after 2 / completed 1 | 116/66/53 ms | PASS | Completed state/enrollment сохранены, дублей нет |
 | MET-07 | cohort create/update/membership | 2 synthetic members; cohort без path assignment не создал enrollment | — | PASS | Cohort подтверждён как reusable audience, не назначение |
 | MET-08 | initial adaptive staff import | 2 branches, 3 departments, 5 positions/staff | readback 34–43 ms | PASS | Вложенность branch → department сохранена |
 | MET-09 | incremental import | добавлены ещё 5 branches; итого 7/8/10/10, старые IDs сохранены | readback 35–61 ms | PASS | Дублей нет |
@@ -94,19 +94,54 @@ superadmin -> tenant/admin -> methodologist -> структура/сотрудн
 | SEC-POST-01 | mutation after completion | progress/quiz/complete и AI-chat отклонены `409` | — | PASS | `assignment_enrollment_not_active` до LLM/write |
 | SEC-POST-02 | impersonated immutable write | signed-scan POST отклонён `403` | — | PASS | `impersonation_cannot_append_evidence` |
 | MET-19-SURVEY | survey exact enrollment | create/list/submit `201`, submitted readback true, duplicate `409` | < 1 s | PASS | Response привязан к точному enrollment; legacy NULL не учитывается assignment bearer |
-| ADM-01-A | admin stats/trial usage | оба route `200` | 110–130 ms | PASS | Tenant summary читается |
-| ADM-01-B | admin dashboard | production `500`: recent kiosk/student содержит допустимый `email=NULL`, response schema требовала `str` | около 200 ms | FAIL | TDD-исправление локально готово; production повтор после release |
-| ADM-02-R | team read/RBAC | team `200`; `include_students=true` ожидаемо `403` | около 118 ms | PASS | Mutation lifecycle отложен из-за login rate limit; сущности не создавались |
-| ADM-03-R | kiosk read surfaces | list/scopes/access logs `200`, начальное состояние пустое | 106–142 ms | PASS | Create/public identify/delete ещё не выполнялись из-за login rate limit |
+| ADM-01 | admin dashboard/stats/trial usage | все три route `200`; nullable kiosk email безопасно нормализуется | 151/52/40 ms | PASS | Исправление dashboard уже в production |
+| ADM-02 | team lifecycle/RBAC | list `200`; synthetic methodologist create `201`, detail `200`, deactivate `204`, soft-deleted detail `200`; admin `include_students=true` ожидаемо `403` | 37–102 ms | PASS | Синтетическая учётная запись деактивирована |
+| ADM-03 | kiosk lifecycle | create `201`; public valid; identify `200` с 1 курсом и коротким JWT; success log 1; delete `204`; затем invalid `kiosk_not_found` | 31–65 ms | PASS | Найден и исправлен FORCE-RLS defect, commit `8904b62`; raw token/JWT не сохранялись |
 | ADM-05 | integrations read-only | `200`, пусто, секреты не раскрываются | около 122 ms | PASS | Внешняя отправка не выполнялась |
-| ADM-06-R | certificate settings read | `200` | около 118 ms | PASS | Preview/mutation ещё не выполнялись |
+| ADM-06 | certificate settings/preview | settings `200`; неперсистентный PDF preview `200`, 45,343 bytes | 46/158 ms | PASS | Production-настройки не изменялись |
 | ADM-07 | methodologist negative RBAC | dashboard/kiosk/integrations/certificate settings отклонены `403` | — | PASS | Admin-only граница подтверждена |
-| ADM-EXPORT | users/courses/quiz-results CSV | `200`; 2,158 / 727 / 555 bytes | — | PASS | Файлы не передавались наружу |
-| MET-06-IDEM-FIX | completed path repeat contract | локальный TDD: completed сохраняется и считается skipped; cancelled можно реактивировать | 11 focused tests PASS | BLOCKED | Ожидает commit/release и production repeat |
-| MET-02-Q-FIX | assessment grounding hardening | локально: untrusted-source boundary, exact supporting quote per question, quoted correct answer, meta-term rejection, safe retry/title/logging; full unit suite 261 PASS | — | BLOCKED | Ожидает final independent review, release и новую production generation |
-| MET-02-QWEN | Qwen3.8-27B-NVFP4 direct quality probe | первый request получил engine HTTP 500, затем endpoint стал connection-refused | — | BLOCKED | Не переключать production failover до восстановления `/health`, `/models` и grounded probe |
+| ADM-EXPORT | users/courses/quiz-results CSV | все три `200`; 2,456 / 1,668 / 555 bytes | 36–45 ms | PASS | Файлы не передавались наружу |
+| MET-13 | процедуры подтверждения | маршруты и guards присутствуют; реальная юридическая аттестация не создавалась | — | NOT_APPLICABLE | Отдельный product/legal gate по плану приёмки |
+| MET-14 | сроки хранения результатов | retention timer enabled/active; destructive purge не запускался | — | PASS | Безопасный контроль без удаления production evidence |
+| MET-15 | оценка кандидатов | create/activate, protected link/PIN, consent, attempt, deterministic result, manager result/CSV, cleanup | production E2E | PASS | Кандидат изолирован от employee/staff объектов |
+| MET-02-QWEN | Qwen3.8-27B-NVFP4 direct pool | руководство применено к контракту, но VM126 и workstation не достигают `10.66.66.30:8002`; gateway не принимает model ID | — | BLOCKED | Не включён; production продолжает проверенный Qwen3.6 route |
 
-Все строки без фактического production evidence остаются незакрытыми, даже если code-contract или unit test существует.
+Итог обязательного pilot-flow: `PASS`. Остаточные ограничения не маскируются: Qwen3.8 direct route пока `BLOCKED`; реальная юридическая аттестация `NOT_APPLICABLE`; массовая нагрузка и внешняя email-доставка не являлись частью этого synthetic production run. Tenant оставлен только для повторной приёмки, поэтому финальный residual cleanup ещё не выполнен. Это не меняет данные и настройки Ломбард Сандык.
+
+### 4.2. Карта видимых пунктов меню
+
+Статус ниже относится к рабочему backend-flow пункта меню на disposable production tenant. Один лишь факт наличия страницы в frontend не считался доказательством.
+
+| Роль | Пункт меню / route | Проверенный рабочий результат | Итог |
+|---|---|---|---|
+| Superadmin | Тенанты `/admin/super/tenants` | tenant создан штатным API, admin учётная запись активна, tenant изолирован | PASS |
+| Admin | Панель `/admin` | dashboard, stats, trial usage | PASS |
+| Admin | Команда `/admin/team` | list/create/detail/deactivate и role boundary | PASS |
+| Admin | Киоски `/admin/kiosks` | create/public identify/JWT/course/log/delete/invalid | PASS |
+| Admin | Настройки `/settings` | навигационный hub; все четыре дочерние admin-поверхности доступны | PASS |
+| Admin | Интеграции `/admin/settings/integrations` | безопасное чтение конфигурации, пустое состояние, без раскрытия secret | PASS |
+| Admin | Шаблон сертификата `/admin/certificates/settings` | settings read + неперсистентный PDF preview | PASS |
+| Методолог | Панель `/dashboard` | данные tenant/course доступны; admin route отклонён | PASS |
+| Методолог | AI-генерация `/ai/generate` | grounded draft + 15 вопросов, meta/off-source 0 | PASS |
+| Методолог | Курсы `/courses` | draft, editor/content, review guard, publish, immutable release | PASS |
+| Методолог | Конструктор тестов `/quizzes` | 4 quiz, вопросы/порог/попытки, learner attempts и best score | PASS |
+| Методолог | Документы `/documents` | DOCX upload, Docling index, catalog/download/hash, duplicate `409`, reindex | PASS |
+| Методолог | Программы `/learning-paths` | create/publish/cohort assign/repeat idempotency/learner progress | PASS |
+| Методолог | Группы `/cohorts` | create/update/membership; группа сама не создаёт назначение | PASS |
+| Методолог | Сотрудники и структура `/staff?tab=structure` | initial/incremental/legacy XLS; 7 филиалов, 8 отделов, 14 должностей/сотрудников, без дублей | PASS |
+| Методолог | Процедуры подтверждения `/training-procedures` | фактическая юридическая аттестация исключена из synthetic run | NOT_APPLICABLE |
+| Методолог | Сроки хранения `/training-retention` | timer enabled/active; destructive purge не запускался | PASS |
+| Методолог | Оценка кандидатов `/candidate-assessments` | campaign/link/PIN/consent/attempt/result/CSV/cleanup | PASS |
+| Методолог | Назначения и доступ `/assignments` | published release, personal link/PIN, 30-minute policy, exact enrollment | PASS |
+| Методолог | Журнал обучения `/training-log` | status/score/progress/evidence/export/signed scan | PASS |
+| Сотрудник | Панель `/student` | exact enrollment, next/current state, manager routes закрыты | PASS |
+| Сотрудник | Мои курсы `/my-courses` | course/lessons/progress/completion, post-completion mutation guards | PASS |
+| Сотрудник | Мои тесты `/my-quizzes` | полный attempt flow, score/pass/retry limits | PASS |
+| Сотрудник | Сертификаты `/certificates` | own detail/download + public verification | PASS |
+| Public | Персональная ссылка `/access/{token}` | wrong PIN `401`, correct exchange `200`, timer/exact enrollment | PASS |
+| Public | Киоск `/kiosk/{token}` | public token bootstrap под FORCE RLS, employee identify и short-lived JWT | PASS |
+
+Скрытые маршруты (`training-rules`, `invitations`, `competencies`) проверялись только как части соответствующих сквозных сценариев и намеренно не рекламируются как отдельные пункты sidebar.
 
 ## 5. Инвентарь проверок
 

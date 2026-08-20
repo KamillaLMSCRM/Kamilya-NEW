@@ -20,18 +20,17 @@ These tests assert:
      shared-device protection.
   5. The token is NOT issued for non-active users (re-check).
 """
+
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
+from datetime import UTC, datetime
+from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
 import pytest
 from fastapi import HTTPException
 
 from app.core.auth import decode_token
-from app.core.config import get_settings
-
 
 # ── helpers ─────────────────────────────────────────────────
 
@@ -52,6 +51,7 @@ def _user(tenant_id=None, role="student", is_active=True, status="active"):
 
 def _kiosk(tenant_id=None):
     from app.models.kiosk_link import KioskLink
+
     k = MagicMock(spec=KioskLink)
     k.id = uuid4()
     k.tenant_id = tenant_id or uuid4()
@@ -75,6 +75,9 @@ def _mock_db_for_kiosk(*, kiosk, user):
       2. SELECT User WHERE tenant_id=... AND personnel_number ILIKE ...
     """
     db = AsyncMock()
+    # SQLAlchemy's AsyncSession.add() is synchronous.  AsyncMock would create
+    # an un-awaited coroutine and hide real warnings from the focused suite.
+    db.add = MagicMock()
     call_count = {"n": 0}
 
     async def execute_side_effect(stmt, *args, **kwargs):
@@ -163,15 +166,13 @@ async def test_identify_token_has_short_ttl():
     result = await identify_at_kiosk(db, kiosk.token, user.personnel_number)
     payload = decode_token(result["access_token"])
 
-    now_ts = int(datetime.now(timezone.utc).timestamp())
+    now_ts = int(datetime.now(UTC).timestamp())
     exp_ts = payload["exp"]
     ttl_seconds = exp_ts - now_ts
 
     # 15-30 minutes per TZ §3.5. We allow up to 30 min (1800s)
     # and require at least 14 min (840s) to be tight.
-    assert 14 * 60 <= ttl_seconds <= 30 * 60, (
-        f"Kiosk JWT TTL must be 15-30 min per TZ §3.5, got {ttl_seconds}s"
-    )
+    assert 14 * 60 <= ttl_seconds <= 30 * 60, f"Kiosk JWT TTL must be 15-30 min per TZ §3.5, got {ttl_seconds}s"
 
 
 # ── 4. token is NOT issued for inactive users ──────────────
