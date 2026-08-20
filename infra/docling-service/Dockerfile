@@ -17,6 +17,10 @@ RUN apt-get update \
 WORKDIR /opt/docling-service
 COPY requirements.txt ./
 RUN python -m pip install --upgrade pip \
+    && python -m pip install \
+        --index-url https://download.pytorch.org/whl/cpu \
+        torch==2.7.1+cpu \
+        torchvision==0.22.1+cpu \
     && python -m pip install -r requirements.txt
 
 COPY main.py ./
