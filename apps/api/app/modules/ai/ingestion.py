@@ -1,17 +1,15 @@
 """Document ingestion — parsing, chunking, embedding, vector store."""
 from __future__ import annotations
 
-import json
 import hashlib
+import json
 import logging
 import os
-import tempfile
 from pathlib import Path
-from typing import Any
 
 logger = logging.getLogger(__name__)
 
-DOCLING_URL = os.getenv("DOCLING_URL", "http://173.249.51.164:8600")
+DOCLING_URL = os.getenv("DOCLING_URL", "")
 DOCLING_API_KEY = os.getenv("DOCLING_API_KEY", "")
 DOCLING_TIMEOUT_SECONDS = float(os.getenv("DOCLING_TIMEOUT_SECONDS", "900"))
 
@@ -33,8 +31,12 @@ class DocumentConverter:
         if ext in (".txt", ".md", ".csv"):
             return await _local_convert(file_path)
 
-        # Try remote Docling first
+        # Try remote Docling first, but only when operators configured it.
+        # A historical public-IP default made every Office/PDF upload wait for
+        # a dead external service before the local fallback could run.
         try:
+            if not self.base_url:
+                return await _local_convert(file_path)
             import httpx
             with open(file_path, "rb") as f:
                 files = {"file": (filename, f, "application/octet-stream")}
@@ -74,10 +76,63 @@ class DocumentConverter:
 
 
 async def _local_convert(file_path: str) -> dict:
-    """Local fallback — try docling import, then basic text read."""
+    """Convert common source formats without an external document service."""
     ext = Path(file_path).suffix.lower()
+    engine: str
+    pages = 0
+    tables = 0
     if ext in (".txt", ".md", ".csv"):
         content = Path(file_path).read_text(encoding="utf-8")
+        engine = "plain_text"
+    elif ext == ".docx":
+        from docx import Document
+        from docx.table import Table
+
+        try:
+            document = Document(file_path)
+        except Exception as exc:
+            raise RuntimeError("Document conversion is unavailable for .docx") from exc
+        blocks: list[str] = []
+        for block in document.iter_inner_content():
+            if isinstance(block, Table):
+                rows = [
+                    [cell.text.replace("\n", " ").strip() for cell in row.cells]
+                    for row in block.rows
+                ]
+                if not rows:
+                    continue
+                width = max(len(row) for row in rows)
+                normalized = [row + [""] * (width - len(row)) for row in rows]
+                blocks.append("| " + " | ".join(normalized[0]) + " |")
+                blocks.append("| " + " | ".join(["---"] * width) + " |")
+                blocks.extend(
+                    "| " + " | ".join(row) + " |" for row in normalized[1:]
+                )
+                tables += 1
+                continue
+
+            text_value = block.text.strip()
+            if not text_value:
+                continue
+            style_name = (block.style.name or "") if block.style else ""
+            if style_name.lower().startswith("heading"):
+                suffix = style_name.split()[-1]
+                level = int(suffix) if suffix.isdigit() else 1
+                blocks.append(f"{'#' * min(max(level, 1), 6)} {text_value}")
+            else:
+                blocks.append(text_value)
+        content = "\n\n".join(blocks)
+        engine = "python-docx"
+    elif ext == ".pdf":
+        from pypdf import PdfReader
+
+        try:
+            reader = PdfReader(file_path)
+        except Exception as exc:
+            raise RuntimeError("Document conversion is unavailable for .pdf") from exc
+        pages = len(reader.pages)
+        content = "\n\n".join((page.extract_text() or "").strip() for page in reader.pages)
+        engine = "pypdf"
     else:
         raise RuntimeError(
             f"Document conversion is unavailable for {ext or 'this file type'}"
@@ -87,11 +142,11 @@ async def _local_convert(file_path: str) -> dict:
         "metadata": {
             "filename": os.path.basename(file_path),
             "size": os.path.getsize(file_path),
-            "pages": 0,
-            "tables": 0,
-            "engine": "plain_text",
+            "pages": pages,
+            "tables": tables,
+            "engine": engine,
             "engine_version": None,
-            "fallback_used": False,
+            "fallback_used": ext not in (".txt", ".md", ".csv"),
             "warnings": [],
         },
     }
