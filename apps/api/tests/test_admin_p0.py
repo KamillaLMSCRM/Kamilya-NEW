@@ -11,6 +11,24 @@ from app.modules.audit.schemas import AuditLogResponse
 from app.modules.auth.service import create_user_and_tokens
 
 
+def test_admin_user_list_item_normalizes_legacy_null_email() -> None:
+    from app.modules.admin.schemas import UserListItem
+
+    payload = UserListItem.model_validate(
+        {
+            "id": uuid4(),
+            "email": None,
+            "first_name": "Kiosk",
+            "last_name": "Worker",
+            "role": "student",
+            "is_active": True,
+            "created_at": "2026-08-20T00:00:00Z",
+        }
+    )
+
+    assert payload.email == ""
+
+
 @pytest.mark.asyncio
 async def test_create_user_sets_tenant_context_before_insert() -> None:
     db = AsyncMock()

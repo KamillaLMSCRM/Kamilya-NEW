@@ -572,7 +572,10 @@ async def assign_path_audience(
     skipped = 0
     for user_id, (source, source_ref_id) in targets.items():
         assignment = by_user.get(user_id)
-        if assignment is not None and assignment.status == "active":
+        # Re-applying an audience must not resurrect a completed program.
+        # Completion is an immutable learner outcome; only a cancelled
+        # assignment may be explicitly reactivated by a later assignment.
+        if assignment is not None and assignment.status in {"active", "completed"}:
             skipped += 1
             continue
         if assignment is None:

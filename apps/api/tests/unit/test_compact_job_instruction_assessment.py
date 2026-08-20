@@ -19,14 +19,24 @@ async def test_compact_assessment_requests_only_three_mcq_questions():
                     {
                         "mcq": [
                             {
-                                "question": f"Question {index}",
+                                "question": f"Какие обязанности выполняет кассир? {index}",
                                 "options": [
-                                    {"text": "A", "is_correct": True},
+                                    {
+                                        "text": "Кассир принимает наличные средства",
+                                        "is_correct": True,
+                                    },
                                     {"text": "B", "is_correct": False},
                                     {"text": "C", "is_correct": False},
                                     {"text": "D", "is_correct": False},
                                 ],
-                                "explanation": "From the instruction",
+                                "explanation": (
+                                    "Должностная инструкция устанавливает обязанности "
+                                    "кассира по приёму наличных средств."
+                                ),
+                                "source_quote": (
+                                    "Кассир принимает наличные средства и выполняет "
+                                    "перечисленные обязанности."
+                                ),
                             }
                             for index in range(1, 4)
                         ],
@@ -43,7 +53,10 @@ async def test_compact_assessment_requests_only_three_mcq_questions():
         LessonContent(
             title="Должностные обязанности",
             objectives=["Знать обязанности"],
-            content="Работник выполняет перечисленные обязанности.",
+            content=(
+                "Кассир принимает наличные средства и выполняет "
+                "перечисленные обязанности."
+            ),
         ),
         compact=True,
     )

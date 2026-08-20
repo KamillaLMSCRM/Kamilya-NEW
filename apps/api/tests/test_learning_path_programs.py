@@ -150,6 +150,86 @@ async def test_assignment_is_idempotent_for_an_active_matching_user():
 
 
 @pytest.mark.asyncio
+async def test_assignment_does_not_resurrect_completed_matching_user():
+    from datetime import UTC, datetime
+
+    from app.modules.learning_paths.router import assign_path_audience
+
+    user = _user()
+    path = _path(tenant_id=user.tenant_id, status="published")
+    learner_id = uuid4()
+    completed_at = datetime(2026, 8, 20, 9, 0, tzinfo=UTC)
+    existing = SimpleNamespace(user_id=learner_id, status="completed", completed_at=completed_at)
+    db = AsyncMock()
+    db.execute.return_value = _result(all_rows=[existing])
+    payload = LearningPathAssignmentAudience(user_ids=[learner_id])
+    with (
+        patch("app.modules.learning_paths.router._get_path", new=AsyncMock(return_value=path)),
+        patch(
+            "app.modules.learning_paths.router._resolve_audience",
+            new=AsyncMock(return_value={learner_id: ("manual", None)}),
+        ),
+        patch("app.modules.learning_paths.router.sync_assignment_enrollments", new=AsyncMock()) as sync,
+    ):
+        result = await assign_path_audience(path.id, payload, db=db, user=user)
+
+    assert result.added == 0
+    assert result.skipped == 1
+    assert result.total == 1
+    assert existing.status == "completed"
+    assert existing.completed_at == completed_at
+    sync.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_assignment_can_reactivate_cancelled_matching_user():
+    from datetime import UTC, datetime
+
+    from app.modules.learning_paths.router import assign_path_audience
+
+    user = _user()
+    path = _path(tenant_id=user.tenant_id, status="published")
+    learner_id = uuid4()
+    existing = SimpleNamespace(user_id=learner_id, status="cancelled", cancelled_at=uuid4())
+    db = AsyncMock()
+    db.execute.return_value = _result(all_rows=[existing])
+    payload = LearningPathAssignmentAudience(user_ids=[learner_id])
+    with (
+        patch("app.modules.learning_paths.router._get_path", new=AsyncMock(return_value=path)),
+        patch(
+            "app.modules.learning_paths.router._resolve_audience",
+            new=AsyncMock(return_value={learner_id: ("manual", None)}),
+        ),
+        patch("app.modules.learning_paths.router.sync_assignment_enrollments", new=AsyncMock()),
+        patch(
+            "app.modules.learning_paths.router._assignment_response",
+            return_value=SimpleNamespace(
+                id=uuid4(),
+                path_id=path.id,
+                user_id=learner_id,
+                source="manual",
+                source_ref_id=None,
+                assigned_by=user.id,
+                starts_at=None,
+                due_at=None,
+                status="active",
+                created_at=datetime.now(UTC),
+                cancelled_at=None,
+                completed_at=None,
+                user_name=None,
+                user_email=None,
+            ),
+        ),
+    ):
+        result = await assign_path_audience(path.id, payload, db=db, user=user)
+
+    assert result.added == 1
+    assert result.skipped == 0
+    assert existing.status == "active"
+    assert existing.cancelled_at is None
+
+
+@pytest.mark.asyncio
 async def test_path_lookup_always_contains_tenant_filter():
     from app.modules.learning_paths.router import _get_path
 

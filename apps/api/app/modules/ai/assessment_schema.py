@@ -16,6 +16,7 @@ class MCQQuestion:
     question: str
     options: list[MCQOption] = field(default_factory=list)
     explanation: str = ""
+    source_quote: str = ""
     quality_score: float = 3.0
 
     def to_dict(self):
@@ -30,6 +31,7 @@ class MCQQuestion:
                 question=data["question"],
                 options=[MCQOption(**o) for o in data.get("options", [])],
                 explanation=data.get("explanation", ""),
+                source_quote=data.get("source_quote", ""),
                 quality_score=data.get("quality_score", 3.0),
             )
         except (KeyError, TypeError):
@@ -167,6 +169,7 @@ ASSESSMENT_JSON_SCHEMA = {
                         "maxItems": 4,
                     },
                     "explanation": {"type": "string"},
+                    "source_quote": {"type": "string"},
                     "quality_score": {"type": "number", "minimum": 1, "maximum": 5},
                 },
                 "required": ["question", "options", "explanation"],

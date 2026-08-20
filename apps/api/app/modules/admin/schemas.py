@@ -1,7 +1,9 @@
 """Admin dashboard schemas"""
-from pydantic import BaseModel
-from uuid import UUID
+
 from datetime import datetime
+from uuid import UUID
+
+from pydantic import BaseModel, field_validator
 
 
 class TenantStats(BaseModel):
@@ -47,6 +49,12 @@ class UserListItem(BaseModel):
     last_login: datetime | None = None
     created_at: datetime
     model_config = {"from_attributes": True}
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def normalize_legacy_null_email(cls, value: object) -> str:
+        """Kiosk-provisioned students may legitimately have no email."""
+        return "" if value is None else str(value)
 
 
 class CourseListItem(BaseModel):
