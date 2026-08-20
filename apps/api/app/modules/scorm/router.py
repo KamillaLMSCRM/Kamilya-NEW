@@ -17,7 +17,7 @@ from xml.etree import ElementTree as ET
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import HTMLResponse, Response
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import create_scoped_token, decode_token, get_current_user, require_role
@@ -241,7 +241,7 @@ def _safe_asset_url(package: ScormPackage, token: str, entrypoint: str) -> str:
     return f"/api/v1/scorm/packages/{package.id}/assets-token/{token}/{entrypoint}"
 
 
-def _make_launch_token(user: User, package: ScormPackage) -> str:
+def _make_launch_token(user: User, package: ScormPackage, *, enrollment_id: UUID | None = None) -> str:
     assignment_enrollment_id = getattr(user, "assignment_access_enrollment_id", None)
     return create_scoped_token(
         {
@@ -250,6 +250,7 @@ def _make_launch_token(user: User, package: ScormPackage) -> str:
             "type": "scorm_launch",
             "package_id": str(package.id),
             "course_id": str(package.course_id),
+            "enrollment_id": str(enrollment_id) if enrollment_id is not None else None,
             "assignment_access_enrollment_id": (
                 str(assignment_enrollment_id) if assignment_enrollment_id is not None else None
             ),
@@ -266,6 +267,15 @@ def _decode_launch_token(token: str, package_id: str | None = None) -> dict:
     if package_id and payload.get("package_id") != package_id:
         raise HTTPException(status_code=403, detail="SCORM token does not match package")
     return payload
+
+
+async def _set_scorm_token_tenant_context(db: AsyncSession, payload: dict) -> UUID:
+    try:
+        tenant_id = UUID(str(payload["tenant_id"]))
+    except (KeyError, TypeError, ValueError):
+        raise HTTPException(status_code=401, detail="Invalid SCORM launch token") from None
+    await db.execute(text("SELECT set_current_tenant(:tid)"), {"tid": str(tenant_id)})
+    return tenant_id
 
 
 async def _get_package_for_user(db: AsyncSession, course_id: UUID, user: User) -> ScormPackage:
@@ -293,7 +303,7 @@ async def _require_scorm_token_enrollment(
     *,
     active_only: bool,
 ) -> UUID | None:
-    raw_enrollment_id = payload.get("assignment_access_enrollment_id")
+    raw_enrollment_id = payload.get("assignment_access_enrollment_id") or payload.get("enrollment_id")
     if not raw_enrollment_id:
         return None
     try:
@@ -378,23 +388,26 @@ def _asset_bytes(package: ScormPackage, asset_path: str) -> tuple[bytes, str]:
 
 
 async def _complete_from_scorm(db: AsyncSession, attempt: ScormAttempt, user_id: str) -> dict[str, str | None]:
+    if attempt.enrollment_id is None:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "legacy_scorm_attempt_not_bound",
+                "message": "Restart the SCORM course from the current assignment before completing it",
+            },
+        )
     user = await db.get(User, UUID(user_id))
     course = await db.get(Course, attempt.course_id)
     if not user or not course or user.tenant_id != attempt.tenant_id:
         raise HTTPException(status_code=404, detail="SCORM user/course not found")
-    from app.modules.enrollments.context import current_enrollment
-
-    if attempt.enrollment_id is not None:
-        enrollment = await db.scalar(
-            select(Enrollment).where(
-                Enrollment.id == attempt.enrollment_id,
-                Enrollment.tenant_id == attempt.tenant_id,
-                Enrollment.user_id == user.id,
-                Enrollment.course_id == course.id,
-            )
+    enrollment = await db.scalar(
+        select(Enrollment).where(
+            Enrollment.id == attempt.enrollment_id,
+            Enrollment.tenant_id == attempt.tenant_id,
+            Enrollment.user_id == user.id,
+            Enrollment.course_id == course.id,
         )
-    else:
-        enrollment = await current_enrollment(db, tenant_id=attempt.tenant_id, user_id=user.id, course_id=course.id)
+    )
     if not enrollment:
         enrollment = Enrollment(
             user_id=user.id,
@@ -526,7 +539,18 @@ async def get_scorm_launch_info(
     user: User = Depends(get_current_user),
 ):
     package = await _get_package_for_user(db, course_id, user)
-    token = _make_launch_token(user, package)
+    enrollment_id = getattr(user, "assignment_access_enrollment_id", None)
+    if enrollment_id is None:
+        from app.modules.enrollments.context import current_enrollment
+
+        enrollment = await current_enrollment(
+            db,
+            tenant_id=user.tenant_id,
+            user_id=user.id,
+            course_id=course_id,
+        )
+        enrollment_id = enrollment.id if enrollment is not None else None
+    token = _make_launch_token(user, package, enrollment_id=enrollment_id)
     base = str(request.base_url).rstrip("/")
     return {
         "course_id": package.course_id,
@@ -544,6 +568,7 @@ async def launch_scorm_package(
     db: AsyncSession = Depends(get_db),
 ):
     payload = _decode_launch_token(token, package_id=package_id)
+    await _set_scorm_token_tenant_context(db, payload)
     enrollment_id = await _require_scorm_token_enrollment(db, payload, active_only=True)
     package = await db.get(ScormPackage, package_id)
     if not package or str(package.tenant_id) != payload.get("tenant_id"):
@@ -587,7 +612,8 @@ async def launch_scorm_package(
   <title>{title_escaped}</title>
   <style>
     html, body, iframe {{ width: 100%; height: 100%; margin: 0; border: 0; background: #fff; }}
-    .bar {{ height: 36px; display: flex; align-items: center; gap: 12px; padding: 0 12px; border-bottom: 1px solid #ddd; font: 13px system-ui, sans-serif; color: #555; }}
+    .bar {{ height: 36px; display: flex; align-items: center; gap: 12px; padding: 0 12px;
+      border-bottom: 1px solid #ddd; font: 13px system-ui, sans-serif; color: #555; }}
     .dot {{ width: 8px; height: 8px; border-radius: 999px; background: #999; }}
     .dot.saved {{ background: #16a34a; }}
     .dot.error {{ background: #dc2626; }}
@@ -632,7 +658,9 @@ async def launch_scorm_package(
       LMSInitialize: function() {{ initialized = true; return ok(); }},
       LMSFinish: function() {{ if (!initialized) return fail("301"); initialized = false; commit(); return ok(); }},
       LMSGetValue: function(key) {{ if (!initialized) return ""; lastError = "0"; return cmi[key] || ""; }},
-      LMSSetValue: function(key, value) {{ if (!initialized) return fail("301"); cmi[key] = String(value); return ok(); }},
+      LMSSetValue: function(key, value) {{
+        if (!initialized) return fail("301"); cmi[key] = String(value); return ok();
+      }},
       LMSCommit: function() {{ if (!initialized) return fail("301"); commit(); return ok(); }},
       LMSGetLastError: function() {{ return lastError; }},
       LMSGetErrorString: function(code) {{
@@ -642,7 +670,9 @@ async def launch_scorm_package(
       LMSGetDiagnostic: function(code) {{ return this.LMSGetErrorString(code); }}
     }};
     window.addEventListener("beforeunload", function() {{
-      navigator.sendBeacon && navigator.sendBeacon(commitUrl, new Blob([JSON.stringify({{ cmi }})], {{ type: "application/json" }}));
+      navigator.sendBeacon && navigator.sendBeacon(
+        commitUrl, new Blob([JSON.stringify({{ cmi }})], {{ type: "application/json" }})
+      );
     }});
   </script>
 </body>
@@ -658,6 +688,7 @@ async def get_scorm_asset(
     db: AsyncSession = Depends(get_db),
 ):
     payload = _decode_launch_token(token, package_id=package_id)
+    await _set_scorm_token_tenant_context(db, payload)
     await _require_scorm_token_enrollment(db, payload, active_only=False)
     package = await db.get(ScormPackage, package_id)
     if not package or str(package.tenant_id) != payload.get("tenant_id"):
@@ -674,6 +705,7 @@ async def get_scorm_asset_by_token_path(
     db: AsyncSession = Depends(get_db),
 ):
     payload = _decode_launch_token(token, package_id=package_id)
+    await _set_scorm_token_tenant_context(db, payload)
     await _require_scorm_token_enrollment(db, payload, active_only=False)
     package = await db.get(ScormPackage, package_id)
     if not package or str(package.tenant_id) != payload.get("tenant_id"):
@@ -690,11 +722,14 @@ async def commit_scorm_attempt(
     db: AsyncSession = Depends(get_db),
 ):
     payload = _decode_launch_token(token)
+    await _set_scorm_token_tenant_context(db, payload)
     enrollment_id = await _require_scorm_token_enrollment(db, payload, active_only=True)
     attempt = await db.get(ScormAttempt, attempt_id)
     if not attempt:
         raise HTTPException(status_code=404, detail="SCORM attempt not found")
     if str(attempt.tenant_id) != payload.get("tenant_id") or str(attempt.user_id) != payload.get("sub"):
+        raise HTTPException(status_code=403, detail="SCORM token does not match attempt")
+    if str(attempt.package_id) != payload.get("package_id") or str(attempt.course_id) != payload.get("course_id"):
         raise HTTPException(status_code=403, detail="SCORM token does not match attempt")
     if attempt.enrollment_id != enrollment_id:
         raise HTTPException(status_code=403, detail="SCORM token does not match enrollment")

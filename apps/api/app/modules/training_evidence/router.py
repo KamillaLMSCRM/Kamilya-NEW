@@ -184,6 +184,15 @@ async def attach_returned_signed_scan(
 ):
     """Append a returned hand-signed copy; it never mutates the result event."""
 
+    if getattr(user, "is_impersonating", False):
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "code": "impersonation_cannot_append_evidence",
+                "message": "Use a tenant methodologist account to append immutable evidence",
+            },
+        )
+
     scan = await append_signed_scan(
         db,
         tenant_id=user.tenant_id,

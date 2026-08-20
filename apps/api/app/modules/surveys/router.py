@@ -1,8 +1,8 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import exists, select
+from sqlalchemy import exists, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import get_current_user, require_role, require_tenant_user
@@ -99,12 +99,30 @@ async def list_my_surveys(db: AsyncSession = Depends(get_db), user=Depends(get_c
     rows = result.all()
     response_rows = []
     for survey, course in rows:
+        completed_enrollment_query = (
+            select(Enrollment.id)
+            .where(
+                Enrollment.course_id == survey.course_id,
+                Enrollment.user_id == user.id,
+                Enrollment.tenant_id == user.tenant_id,
+                Enrollment.status == "completed",
+            )
+            .order_by(Enrollment.completed_at.desc(), Enrollment.enrolled_at.desc())
+            .limit(1)
+        )
+        if assignment_enrollment_id is not None:
+            completed_enrollment_query = completed_enrollment_query.where(Enrollment.id == assignment_enrollment_id)
+        completed_enrollment_id = (await db.execute(completed_enrollment_query)).scalar_one_or_none()
+        response_enrollment_scope = SurveyResponse.enrollment_id == completed_enrollment_id
+        if assignment_enrollment_id is None:
+            response_enrollment_scope = or_(response_enrollment_scope, SurveyResponse.enrollment_id.is_(None))
         submitted = (
             await db.execute(
                 select(SurveyResponse.id).where(
                     SurveyResponse.survey_id == survey.id,
                     SurveyResponse.user_id == user.id,
                     SurveyResponse.tenant_id == user.tenant_id,
+                    response_enrollment_scope,
                 )
             )
         ).scalar_one_or_none() is not None
@@ -134,11 +152,16 @@ async def submit_response(
     ).scalar_one_or_none()
     if not survey:
         raise HTTPException(status_code=404, detail="Survey not found")
-    enrollment_query = select(Enrollment.id).where(
-        Enrollment.course_id == survey.course_id,
-        Enrollment.user_id == user.id,
-        Enrollment.tenant_id == user.tenant_id,
-        Enrollment.status == "completed",
+    enrollment_query = (
+        select(Enrollment.id)
+        .where(
+            Enrollment.course_id == survey.course_id,
+            Enrollment.user_id == user.id,
+            Enrollment.tenant_id == user.tenant_id,
+            Enrollment.status == "completed",
+        )
+        .order_by(Enrollment.completed_at.desc(), Enrollment.enrolled_at.desc())
+        .limit(1)
     )
     assignment_enrollment_id = getattr(user, "assignment_access_enrollment_id", None)
     if assignment_enrollment_id is not None:
@@ -146,12 +169,16 @@ async def submit_response(
     completed = (await db.execute(enrollment_query)).scalar_one_or_none()
     if not completed:
         raise HTTPException(status_code=403, detail="Complete the course before submitting feedback")
+    response_enrollment_scope = SurveyResponse.enrollment_id == completed
+    if assignment_enrollment_id is None:
+        response_enrollment_scope = or_(response_enrollment_scope, SurveyResponse.enrollment_id.is_(None))
     existing = (
         await db.execute(
             select(SurveyResponse.id).where(
                 SurveyResponse.survey_id == survey.id,
                 SurveyResponse.user_id == user.id,
                 SurveyResponse.tenant_id == user.tenant_id,
+                response_enrollment_scope,
             )
         )
     ).scalar_one_or_none()
@@ -165,8 +192,9 @@ async def submit_response(
             tenant_id=user.tenant_id,
             survey_id=survey.id,
             user_id=user.id,
+            enrollment_id=completed,
             answers=payload.answers,
-            submitted_at=datetime.now(timezone.utc),
+            submitted_at=datetime.now(UTC),
         )
     )
     await db.commit()

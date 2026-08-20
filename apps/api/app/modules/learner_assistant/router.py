@@ -13,6 +13,11 @@ from app.models.courses import Course
 from app.models.users import User
 from app.modules.ai.llm_client import ResilientLLMClient
 from app.modules.courses.access import require_course_access
+from app.modules.enrollments.access_service import (
+    AssignmentWindowExpiredError,
+    assignment_window_error,
+    require_active_enrollment_window,
+)
 from app.modules.learner_assistant.models import LearnerAssistantMessage
 from app.modules.learner_assistant.schemas import (
     LearnerAssistantChatRequest,
@@ -32,6 +37,22 @@ router = APIRouter(
 
 async def _assert_course_access(db: AsyncSession, course_id: UUID, user: User) -> Course:
     return await require_course_access(db, course_id, user)
+
+
+async def _assert_course_mutation_access(db: AsyncSession, course_id: UUID, user: User) -> Course:
+    assignment_enrollment_id = getattr(user, "assignment_access_enrollment_id", None)
+    if assignment_enrollment_id is not None:
+        try:
+            await require_active_enrollment_window(
+                db,
+                user_id=user.id,
+                tenant_id=user.tenant_id,
+                course_id=course_id,
+                enrollment_id=assignment_enrollment_id,
+            )
+        except AssignmentWindowExpiredError as exc:
+            raise assignment_window_error(exc) from exc
+    return await _assert_course_access(db, course_id, user)
 
 
 async def _build_context(
@@ -103,7 +124,7 @@ async def learner_chat(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    course = await _assert_course_access(db, req.course_id, user)
+    course = await _assert_course_mutation_access(db, req.course_id, user)
     context, sources = await _build_context(db, course, req.lesson_id, user.tenant_id)
 
     system_prompt = (
