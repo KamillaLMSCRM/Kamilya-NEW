@@ -139,6 +139,15 @@ def _parse_mapping(value: str | None) -> dict[str, str] | None:
     return parsed
 
 
+async def _restore_tenant_context(db: AsyncSession, tenant_id: UUID) -> None:
+    """Restore transaction-local RLS context after a commit or rollback."""
+
+    await db.execute(
+        text("SELECT set_current_tenant(:tenant_id)"),
+        {"tenant_id": str(tenant_id)},
+    )
+
+
 def _source_object_key(tenant_id: UUID, session_id: UUID, suffix: str) -> str:
     return f"staff-import-sessions/{tenant_id}/{session_id}/source.{suffix}"
 
@@ -269,10 +278,7 @@ async def analyze_import_session(
         # commit above deliberately closes its transaction, so restore the
         # context before inserting a session guarded by FORCE RLS and the
         # actor/tenant ownership trigger.
-        await db.execute(
-            text("SELECT set_current_tenant(:tenant_id)"),
-            {"tenant_id": str(user.tenant_id)},
-        )
+        await _restore_tenant_context(db, user.tenant_id)
         workbook_analysis = analyze_staff_workbook(load_staff_workbook(content, filename))
         initial_parse = parse_upload(filename, content, mapping=None, sheet_name=sheet_name)
         workbook_signature = compute_workbook_signature(
@@ -512,45 +518,60 @@ async def commit_session(
     db: DbSession,
     user: Methodologist,
 ):
+    # Keep immutable primitives across commits. SQLAlchemy expires ORM objects
+    # after commit, and reading ``user.tenant_id`` or ``record.*`` then would
+    # trigger forbidden implicit async IO (MissingGreenlet).
+    tenant_id = UUID(str(user.tenant_id))
+    actor_id = UUID(str(user.id))
     try:
         record = await commit_approved_import_session(
             db,
-            tenant_id=user.tenant_id,
+            tenant_id=tenant_id,
             session_id=session_id,
-            actor_id=user.id,
+            actor_id=actor_id,
             revision=body.revision,
         )
         await db.commit()
+        await _restore_tenant_context(db, tenant_id)
         try:
             record = await run_committed_rule_recompute(
                 db,
-                tenant_id=user.tenant_id,
+                tenant_id=tenant_id,
                 session_id=session_id,
-                actor_id=user.id,
+                actor_id=actor_id,
             )
         except Exception as exc:  # noqa: BLE001 - import is already committed
             await db.rollback()
+            await _restore_tenant_context(db, tenant_id)
             record = await mark_rule_recompute_failed(
                 db,
-                tenant_id=user.tenant_id,
+                tenant_id=tenant_id,
                 session_id=session_id,
-                actor_id=user.id,
+                actor_id=actor_id,
                 error_code=type(exc).__name__,
             )
-        await db.commit()
         source_key = record.source_object_key
+        await db.commit()
         if source_key:
             try:
                 get_storage().delete_bytes(source_key)
+                await _restore_tenant_context(db, tenant_id)
+                record = await get_import_session(
+                    db,
+                    tenant_id=tenant_id,
+                    session_id=session_id,
+                    for_update=True,
+                )
                 record.source_object_key = None
                 await db.commit()
             except Exception:  # noqa: BLE001 - committed import remains successful
                 await db.rollback()
-                record = await get_import_session(
-                    db,
-                    tenant_id=user.tenant_id,
-                    session_id=session_id,
-                )
+        await _restore_tenant_context(db, tenant_id)
+        record = await get_import_session(
+            db,
+            tenant_id=tenant_id,
+            session_id=session_id,
+        )
         return _response(record)
     except LookupError as exc:
         await db.rollback()

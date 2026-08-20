@@ -54,7 +54,20 @@ def test_cleanup_commit_restores_transaction_local_tenant_context() -> None:
     source = ROUTER.read_text(encoding="utf-8")
     cleanup_call = source.index("await cleanup_expired_import_sources(")
     cleanup_commit = source.index("await db.commit()", cleanup_call)
-    context_restore = source.index('text("SELECT set_current_tenant(:tenant_id)")', cleanup_commit)
+    context_restore = source.index("await _restore_tenant_context(db, user.tenant_id)", cleanup_commit)
     session_insert = source.index("record = await create_import_session(", context_restore)
 
     assert cleanup_call < cleanup_commit < context_restore < session_insert
+
+
+def test_commit_flow_uses_stable_ids_and_restores_context_after_transactions() -> None:
+    source = ROUTER.read_text(encoding="utf-8")
+    commit_flow = source[source.index("async def commit_session(") :]
+
+    assert "tenant_id = UUID(str(user.tenant_id))" in commit_flow
+    assert "actor_id = UUID(str(user.id))" in commit_flow
+    assert "await _restore_tenant_context(db, tenant_id)" in commit_flow
+    assert "tenant_id=user.tenant_id" not in commit_flow
+    assert "actor_id=user.id" not in commit_flow
+    assert "source_key = record.source_object_key\n        await db.commit()" in commit_flow
+    assert "record = await get_import_session(" in commit_flow
