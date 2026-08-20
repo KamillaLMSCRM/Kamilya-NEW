@@ -139,7 +139,7 @@ class TestAuditService:
         mock_session.add = MagicMock()
         mock_session.flush = AsyncMock()
 
-        await log_action(
+        entry = await log_action(
             db=mock_session,
             tenant_id=uuid.uuid4(),
             action="CREATE_COURSE",
@@ -150,6 +150,7 @@ class TestAuditService:
         )
 
         mock_session.add.assert_called_once()
+        assert entry.resource_id == "test-course-id"
 
     @pytest.mark.asyncio
     async def test_log_action_with_fields(self):

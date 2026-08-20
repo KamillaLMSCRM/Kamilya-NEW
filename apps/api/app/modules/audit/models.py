@@ -14,7 +14,11 @@ class AuditLog(Base):
     user_id = Column(UUID(as_uuid=True), nullable=True, index=True)
     action = Column(String(100), nullable=False, index=True)
     resource_type = Column(String(100), nullable=False, index=True)
-    resource_id = Column(UUID(as_uuid=True), nullable=True)
+    # Migration 0006 intentionally stores heterogeneous resource identifiers
+    # (UUIDs, slugs, and external ids) as VARCHAR(100).  Keep the ORM aligned
+    # with the deployed schema so audit reads do not emit VARCHAR = UUID SQL
+    # and non-UUID identifiers are not silently discarded.
+    resource_id = Column(String(100), nullable=True)
     details = Column(JSON, nullable=True)
     ip_address = Column(String(45), nullable=True)
     user_agent = Column(Text, nullable=True)

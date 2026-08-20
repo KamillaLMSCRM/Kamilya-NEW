@@ -120,3 +120,4 @@ async def test_superadmin_admin_endpoint_commits_user_role_and_audit_together(
 
     assert role_count.tenant_id == tenant.id
     assert audit.user_id == operator.id
+    assert audit.resource_id == body["id"]

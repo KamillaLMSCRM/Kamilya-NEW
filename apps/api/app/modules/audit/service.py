@@ -20,16 +20,10 @@ async def log_action(
     user_agent: str | None = None,
 ) -> AuditLog:
     """Log an audit event."""
-    rid = None
-    if resource_id is not None:
-        if isinstance(resource_id, UUID):
-            rid = resource_id
-        else:
-            # Try to parse as UUID; fallback to None so non-UUID ids (e.g. slugs) still log
-            try:
-                rid = UUID(str(resource_id))
-            except (ValueError, TypeError):
-                rid = None
+    # audit_logs.resource_id is VARCHAR(100) by contract because audited
+    # resources are not uniformly UUID-backed.  Normalising to text preserves
+    # UUIDs and external/string identifiers without weakening query typing.
+    rid = str(resource_id) if resource_id is not None else None
     entry = AuditLog(
         tenant_id=tenant_id,
         user_id=user_id,
