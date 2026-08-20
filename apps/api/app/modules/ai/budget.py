@@ -23,17 +23,15 @@ Design notes:
 
 from __future__ import annotations
 
-import calendar
 import logging
-from datetime import datetime, timezone
+import uuid
+from datetime import UTC, datetime
 
-from sqlalchemy import select, update
-from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import HTTPException, status
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.tenant_settings import TenantSettings
-from app.models.tenant_llm_usage import TenantLLMUsage
-from app.core.config import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -70,14 +68,12 @@ async def check_and_charge_llm_budget(
 
     # Get budget (per-tenant override or default).
     settings_result = await db.execute(
-        select(TenantSettings.monthly_llm_budget_usd_cents).where(
-            TenantSettings.tenant_id == tenant_id
-        )
+        select(TenantSettings.monthly_llm_budget_usd_cents).where(TenantSettings.tenant_id == tenant_id)
     )
     budget_cents = settings_result.scalar_one_or_none() or DEFAULT_BUDGET_USD_CENTS
 
     # Get current month key (YYYY-MM).
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     month_key = now.strftime("%Y-%m")
 
     # Atomic check-and-increment: only update if (current + estimated) <= budget.
@@ -86,8 +82,8 @@ async def check_and_charge_llm_budget(
 
     result = await db.execute(
         text("""
-            INSERT INTO tenant_llm_usage (tenant_id, month_key, cost_cents, request_count)
-            VALUES (:tenant_id, :month_key, :cost, 1)
+            INSERT INTO tenant_llm_usage (id, tenant_id, month_key, cost_cents, request_count)
+            VALUES (:usage_id, :tenant_id, :month_key, :cost, 1)
             ON CONFLICT (tenant_id, month_key)
             DO UPDATE SET
                 cost_cents = tenant_llm_usage.cost_cents + :cost,
@@ -97,6 +93,7 @@ async def check_and_charge_llm_budget(
             RETURNING cost_cents, request_count
         """),
         {
+            "usage_id": uuid.uuid4(),
             "tenant_id": tenant_id,
             "month_key": month_key,
             "cost": estimated_cost_cents,
@@ -115,7 +112,11 @@ async def check_and_charge_llm_budget(
         used = current.scalar() or 0
         logger.warning(
             "tenant=%s exceeded LLM budget (%d/%d cents) for %s; rejecting %s",
-            tenant_id, used, budget_cents, month_key, operation,
+            tenant_id,
+            used,
+            budget_cents,
+            month_key,
+            operation,
         )
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
@@ -130,9 +131,7 @@ async def check_and_charge_llm_budget(
 
     # Verify tenant exists (defense — the FK should catch this but
     # explicit check surfaces a clearer error).
-    exists = await db.execute(
-        select(Tenant.id).where(Tenant.id == tenant_id)
-    )
+    exists = await db.execute(select(Tenant.id).where(Tenant.id == tenant_id))
     if exists.scalar_one_or_none() is None:
         # Roll back the increment — the tenant doesn't actually exist.
         await db.execute(
@@ -151,7 +150,11 @@ async def check_and_charge_llm_budget(
 
     logger.debug(
         "tenant=%s charged %d cents for %s (now %d/%d)",
-        tenant_id, estimated_cost_cents, operation, row[0], budget_cents,
+        tenant_id,
+        estimated_cost_cents,
+        operation,
+        row[0],
+        budget_cents,
     )
 
 
@@ -178,7 +181,7 @@ async def refund_llm_budget(
     """
     from sqlalchemy import text
 
-    month_key = datetime.now(timezone.utc).strftime("%Y-%m")
+    month_key = datetime.now(UTC).strftime("%Y-%m")
     await db.execute(
         text("""
             UPDATE tenant_llm_usage
