@@ -2,7 +2,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.modules.ai.assessment import generate_lesson_assessment
+from app.modules.ai.assessment import _build_evidence_bank, generate_lesson_assessment
 from app.modules.ai.writer_schema import LessonContent
 
 
@@ -399,3 +399,50 @@ async def test_standard_assessment_repairs_unanchored_question_from_evidence():
     )
 
     assert all("выдача микрокредита" in question.question.lower() for question in result.mcq)
+
+
+def test_evidence_bank_excludes_incomplete_colon_introductions():
+    bank = _build_evidence_bank(
+        "Курс считается завершённым при двух обязательных условиях:\n"
+        "Первое условие — завершение всех уроков.\n"
+        "Второе условие — успешная сдача теста."
+    )
+
+    assert "Курс считается завершённым при двух обязательных условиях:" not in bank.values()
+    assert "Первое условие — завершение всех уроков." in bank.values()
+
+
+@pytest.mark.asyncio
+async def test_standard_assessment_renders_markdown_evidence_as_plain_answer():
+    source_quote = "*   **Временное окно:** Сотруднику предоставляется **30 минут** на тест."
+
+    class FakeLLM:
+        async def ainvoke(self, messages, config=None, response_format=None):
+            questions = _questions(
+                "временное окно",
+                "30 минут",
+                source_quote,
+            )
+            return SimpleNamespace(
+                content=(
+                    '{"mcq": '
+                    + __import__("json").dumps(questions, ensure_ascii=False)
+                    + ', "true_false": [], "matching": []}'
+                )
+            )
+
+    result = await generate_lesson_assessment(
+        FakeLLM(),
+        LessonContent(
+            title="Временное окно",
+            content=source_quote,
+            source_references=[],
+        ),
+        language="ru",
+    )
+
+    expected = "Временное окно: Сотруднику предоставляется 30 минут на тест."
+    for question in result.mcq:
+        correct = [option.text for option in question.options if option.is_correct]
+        assert correct == [expected]
+        assert question.explanation == f"Согласно материалу урока: {expected}"

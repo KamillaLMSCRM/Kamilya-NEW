@@ -78,6 +78,16 @@ def _normalize_evidence_text(text: str) -> str:
     return " ".join(text.lower().split())
 
 
+def _plain_evidence_text(text: str) -> str:
+    """Return the human-visible text represented by a Markdown excerpt."""
+    value = text.strip()
+    value = re.sub(r"^\s{0,3}(?:[-*+]\s+|#{1,6}\s+)", "", value)
+    value = re.sub(r"\*\*(.+?)\*\*", r"\1", value)
+    value = re.sub(r"__(.+?)__", r"\1", value)
+    value = re.sub(r"`(.+?)`", r"\1", value)
+    return " ".join(value.split())
+
+
 def _split_evidence_chunk(text: str) -> list[str]:
     """Split a source fragment into exact, model-friendly bounded excerpts."""
     stripped = text.strip()
@@ -107,7 +117,13 @@ def _build_evidence_bank(bounded_source: str) -> dict[str, str]:
     seen: set[str] = set()
     for candidate in candidates:
         normalized = _normalize_evidence_text(candidate)
-        if len(candidate) < 12 or len(_grounding_stems(candidate)) < 2 or normalized in seen:
+        plain_candidate = _plain_evidence_text(candidate)
+        if (
+            len(plain_candidate) < 12
+            or plain_candidate.endswith(":")
+            or len(_grounding_stems(plain_candidate)) < 2
+            or normalized in seen
+        ):
             continue
         seen.add(normalized)
         bank[f"E{len(bank) + 1:02d}"] = candidate
@@ -217,16 +233,18 @@ def _validate_question_evidence(
         # Only server-resolved evidence is retained; model-authored quote text
         # is ignored even if a provider returns it as an extra field.
         question["source_quote"] = source_quote
+        answer_text = _plain_evidence_text(source_quote)
         options = [option for option in question.get("options", []) if isinstance(option, dict)]
         correct_options = [option for option in options if option.get("is_correct") is True]
         if len(correct_options) == 1:
             # The provider chooses the evidence ID and writes the question and
             # distractors. The server owns the authoritative answer text, so a
             # harmless paraphrase or punctuation change cannot break grounding.
-            correct_options[0]["text"] = source_quote
-            question["explanation"] = f"Согласно материалу урока: {source_quote}"
+            correct_options[0]["text"] = answer_text
+            question["explanation"] = f"Согласно материалу урока: {answer_text}"
         if any(
-            _normalize_evidence_text(str(option.get("text", ""))) == normalized_quote
+            _normalize_evidence_text(_plain_evidence_text(str(option.get("text", ""))))
+            == _normalize_evidence_text(answer_text)
             for option in options
             if option.get("is_correct") is not True
         ):
@@ -251,8 +269,8 @@ def _validate_question_evidence(
         if not quote_stems & answer_stems:
             issues.append(f"MCQ #{index}: answer does not use its source evidence")
         normalized_answer = _normalize_evidence_text(correct_answer)
-        if len(normalized_answer) < 4 or normalized_answer not in normalized_quote:
-            issues.append(f"MCQ #{index}: correct answer is not quoted from evidence")
+        if len(normalized_answer) < 4 or normalized_answer != _normalize_evidence_text(answer_text):
+            issues.append(f"MCQ #{index}: correct answer does not match source evidence")
         generated_meta_stems = {
             token.lower()[:5]
             for token in _META_TERM_RE.findall(
