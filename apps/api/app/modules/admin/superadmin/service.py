@@ -468,6 +468,16 @@ class SuperadminService:
     async def _sync_user_role(
         self, user_id: uuid.UUID, tenant_id: uuid.UUID, role: str
     ) -> None:
+        # Platform superadmin authentication intentionally enables only the
+        # platform policy (app.is_superadmin).  user_roles keeps strict
+        # tenant-only FORCE RLS, so bind the already-authorized target tenant
+        # before reading or writing its role ledger.  The router validates the
+        # tenant before this service method is reached; tenant creation binds
+        # the same id earlier, making this call idempotent in the wizard flow.
+        await self.db.execute(
+            text("SELECT set_current_tenant(:tenant_id)"),
+            {"tenant_id": str(tenant_id)},
+        )
         existing_role = (
             await self.db.execute(
                 select(UserRole).where(
