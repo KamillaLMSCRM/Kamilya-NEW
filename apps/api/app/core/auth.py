@@ -240,7 +240,13 @@ async def get_current_user(
                 ),
                 Enrollment.tenant_id == tenant_uuid,
                 Enrollment.user_id == user_uuid,
-                Enrollment.status.in_(("enrolled", "in_progress")),
+                # A remote learner must retain the short-lived, exact-
+                # enrollment session after completion so the result PDF and
+                # certificate can be viewed/downloaded.  Course/quiz/progress
+                # mutations keep their own active-enrollment guards, while
+                # this authentication seam still enforces credential,
+                # tenant, user, policy deadline and explicit revocation.
+                Enrollment.status.in_(("enrolled", "in_progress", "completed")),
             )
         )
         if active_credential is None:

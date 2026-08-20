@@ -214,6 +214,14 @@ def test_pin_exchange_serializes_concurrent_updates() -> None:
     assert ".with_for_update()" in source
 
 
+def test_completed_assignment_bearer_can_read_its_result_artifacts() -> None:
+    """Completion must not log the remote learner out before PDF/certificate download."""
+    from pathlib import Path
+
+    source = Path("app/core/auth.py").read_text(encoding="utf-8")
+    assert 'Enrollment.status.in_(("enrolled", "in_progress", "completed"))' in source
+
+
 @pytest.mark.asyncio
 async def test_window_guard_filters_by_exact_enrollment_bound_to_assignment_token() -> None:
     """A second enrollment for the same learner/course cannot select its policy."""
