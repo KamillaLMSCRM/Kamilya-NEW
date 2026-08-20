@@ -266,7 +266,7 @@ async def create_admin(
         raise HTTPException(status_code=404, detail="Tenant not found")
     try:
         new_user, invite = await svc.create_admin(
-            tenant_id, payload, superadmin_id=user.id
+            tenant_id, payload, superadmin_id=user.id, commit=False
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -279,6 +279,7 @@ async def create_admin(
         },
         ip_address=request.client.host if request.client else None,
     )
+    await svc.db.commit()
     return AdminResponse.model_validate(new_user)
 
 
@@ -295,7 +296,9 @@ async def update_admin(
     svc: SuperadminService = Depends(_service),
 ):
     try:
-        target = await svc.update_admin(tenant_id, user_id, payload)
+        target = await svc.update_admin(
+            tenant_id, user_id, payload, commit=False
+        )
     except LookupError as e:
         raise HTTPException(status_code=404, detail=str(e))
     await log_action(
@@ -304,6 +307,7 @@ async def update_admin(
         details=payload.model_dump(exclude_none=True),
         ip_address=request.client.host if request.client else None,
     )
+    await svc.db.commit()
     return AdminResponse.model_validate(target)
 
 
@@ -319,7 +323,7 @@ async def deactivate_admin(
     svc: SuperadminService = Depends(_service),
 ):
     try:
-        await svc.deactivate_admin(tenant_id, user_id)
+        await svc.deactivate_admin(tenant_id, user_id, commit=False)
     except LookupError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except ValueError as e:
@@ -329,6 +333,7 @@ async def deactivate_admin(
         resource_id=user_id, user_id=user.id,
         ip_address=request.client.host if request.client else None,
     )
+    await svc.db.commit()
 
 
 # ── Impersonation ──────────────────────────────────────────────────────

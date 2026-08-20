@@ -393,6 +393,11 @@ class SuperadminService:
                 f"Cannot grant role '{payload.role}' from superadmin UI"
             )
 
+        # Keep all tenant-owned writes in the caller's current transaction.
+        # Platform-superadmin auth sets only app.is_superadmin; FORCE RLS on
+        # users, user_roles and audit_logs still requires the exact tenant.
+        await self.bind_tenant_context(tenant_id)
+
         # Idempotent: if a user with this email or telegram_id already
         # exists in this tenant, promote them rather than error.
         existing = await self._find_existing_user(tenant_id, payload)
@@ -480,10 +485,7 @@ class SuperadminService:
         # before reading or writing its role ledger.  The router validates the
         # tenant before this service method is reached; tenant creation binds
         # the same id earlier, making this call idempotent in the wizard flow.
-        await self.db.execute(
-            text("SELECT set_current_tenant(:tenant_id)"),
-            {"tenant_id": str(tenant_id)},
-        )
+        await self.bind_tenant_context(tenant_id)
         existing_role = (
             await self.db.execute(
                 select(UserRole).where(
@@ -498,9 +500,22 @@ class SuperadminService:
             self.db.add(UserRole(user_id=user_id, tenant_id=tenant_id, role=role))
         await self.db.flush()
 
+    async def bind_tenant_context(self, tenant_id: uuid.UUID) -> None:
+        """Bind an already-authorized target tenant for FORCE-RLS writes."""
+        await self.db.execute(
+            text("SELECT set_current_tenant(:tenant_id)"),
+            {"tenant_id": str(tenant_id)},
+        )
+
     async def update_admin(
-        self, tenant_id: uuid.UUID, user_id: uuid.UUID, payload: AdminUpdate
+        self,
+        tenant_id: uuid.UUID,
+        user_id: uuid.UUID,
+        payload: AdminUpdate,
+        *,
+        commit: bool = True,
     ) -> User:
+        await self.bind_tenant_context(tenant_id)
         user = await self._get_user_in_tenant(tenant_id, user_id)
         changes: dict = {}
         for field in ("role", "is_active", "first_name", "last_name"):
@@ -513,15 +528,23 @@ class SuperadminService:
                 await self._sync_user_role(user.id, tenant_id, payload.role)
             await self.db.flush()
             await self.db.refresh(user)
-            await self.db.commit()
+            if commit:
+                await self.db.commit()
             logger.info(
                 "superadmin.admin.updated id=%s tenant=%s changes=%s",
                 user_id, tenant_id, list(changes.keys()),
             )
         return user
 
-    async def deactivate_admin(self, tenant_id: uuid.UUID, user_id: uuid.UUID) -> None:
+    async def deactivate_admin(
+        self,
+        tenant_id: uuid.UUID,
+        user_id: uuid.UUID,
+        *,
+        commit: bool = True,
+    ) -> None:
         """Soft-delete: set is_active=false. Reversible from the same UI."""
+        await self.bind_tenant_context(tenant_id)
         user = await self._get_user_in_tenant(tenant_id, user_id)
         if user.role == "superadmin":
             raise ValueError(
@@ -530,7 +553,9 @@ class SuperadminService:
             )
         user.is_active = False
         user.status = "inactive"
-        await self.db.commit()
+        await self.db.flush()
+        if commit:
+            await self.db.commit()
         logger.info(
             "superadmin.admin.deactivated id=%s tenant=%s", user_id, tenant_id
         )
