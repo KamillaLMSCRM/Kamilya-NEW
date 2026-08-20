@@ -412,7 +412,11 @@ Output ONLY the JSON data instance:
                 raise ValueError("; ".join(issues))
             return assessment
         except (json.JSONDecodeError, ValueError) as e:
-            logger.warning("[ASSESSMENT_CONTRACT] attempt %d failed: %s", attempt + 1, e)
+            logger.warning(
+                "[ASSESSMENT_CONTRACT] attempt %d failed error_type=%s",
+                attempt + 1,
+                type(e).__name__,
+            )
             if attempt < MAX_ASSESSMENT_RETRIES:
                 user_prompt = (
                     f"The previous response failed validation: {e}\n"

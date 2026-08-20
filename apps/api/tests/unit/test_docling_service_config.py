@@ -7,6 +7,7 @@ import json
 import sys
 import threading
 import time
+import zipfile
 from pathlib import Path
 from types import ModuleType
 
@@ -14,11 +15,24 @@ import pytest
 from starlette.datastructures import UploadFile
 
 SERVICE_PATH = Path(__file__).resolve().parents[4] / "infra" / "docling-service" / "main.py"
+TEST_API_KEY = "test-docling-key"
+
+
+def _minimal_ooxml(suffix: str) -> bytes:
+    required = {
+        ".docx": "word/document.xml",
+        ".xlsx": "xl/workbook.xml",
+    }[suffix]
+    payload = io.BytesIO()
+    with zipfile.ZipFile(payload, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("[Content_Types].xml", "types")
+        archive.writestr(required, "document")
+    return payload.getvalue()
 
 
 def _load_service(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.delenv("DOCLING_OCR_LANGUAGES", raising=False)
-    monkeypatch.delenv("DOCLING_API_KEY", raising=False)
+    monkeypatch.setenv("DOCLING_API_KEY", TEST_API_KEY)
     for name in (
         "CONVERTER_MAX_UPLOAD_BYTES",
         "CONVERTER_MAX_CONCURRENCY",
@@ -111,7 +125,11 @@ async def test_health_reports_ocr_configuration(monkeypatch: pytest.MonkeyPatch)
 
 
 @pytest.mark.asyncio
-async def test_convert_rejects_invalid_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize("provided_key", [None, "wrong-key"])
+async def test_convert_rejects_missing_or_invalid_api_key(
+    monkeypatch: pytest.MonkeyPatch,
+    provided_key: str | None,
+) -> None:
     monkeypatch.setenv("DOCLING_API_KEY", "expected-key")
     spec = importlib.util.spec_from_file_location("docling_service_main_auth_test", SERVICE_PATH)
     assert spec and spec.loader
@@ -119,7 +137,7 @@ async def test_convert_rejects_invalid_api_key(monkeypatch: pytest.MonkeyPatch) 
     spec.loader.exec_module(service)
 
     with pytest.raises(service.HTTPException) as exc_info:
-        await service.convert_document(file=None, x_docling_key="wrong-key")
+        await service.convert_document(file=None, x_docling_key=provided_key)
 
     assert exc_info.value.status_code == 401
 
@@ -138,7 +156,7 @@ async def test_convert_legacy_doc_uses_libreoffice_before_docling(
     def fake_run(args, **kwargs):
         output_dir = Path(args[args.index("--outdir") + 1])
         source = Path(args[-1])
-        (output_dir / f"{source.stem}.docx").write_bytes(b"PK converted")
+        (output_dir / f"{source.stem}.docx").write_bytes(_minimal_ooxml(".docx"))
         return Completed()
 
     class Document:
@@ -159,7 +177,7 @@ async def test_convert_legacy_doc_uses_libreoffice_before_docling(
 
     response = await service.convert_document(
         file=UploadFile(filename="expert.doc", file=io.BytesIO(b"legacy-doc")),
-        x_docling_key=None,
+        x_docling_key=TEST_API_KEY,
     )
     payload = json.loads(response.body)
 
@@ -180,7 +198,7 @@ async def test_convert_legacy_doc_fails_honestly_without_libreoffice(
     with pytest.raises(service.HTTPException) as exc_info:
         await service.convert_document(
             file=UploadFile(filename="expert.doc", file=io.BytesIO(b"legacy-doc")),
-            x_docling_key=None,
+            x_docling_key=TEST_API_KEY,
         )
 
     assert exc_info.value.status_code == 503
@@ -214,8 +232,8 @@ async def test_docx_uses_markitdown_primary_and_returns_metadata(
     monkeypatch.setattr(service, "_markitdown_convert", lambda path: "# Office document")
 
     response = await service.convert_document(
-        file=UploadFile(filename="policy.docx", file=io.BytesIO(b"docx")),
-        x_docling_key=None,
+        file=UploadFile(filename="policy.docx", file=io.BytesIO(_minimal_ooxml(".docx"))),
+        x_docling_key=TEST_API_KEY,
     )
     payload = json.loads(response.body)
 
@@ -239,8 +257,8 @@ async def test_docx_falls_back_to_docling_without_internal_error(
     monkeypatch.setattr(service, "_docling_convert", lambda path: ("# Fallback", 2, 1))
 
     response = await service.convert_document(
-        file=UploadFile(filename="policy.xlsx", file=io.BytesIO(b"xlsx")),
-        x_docling_key=None,
+        file=UploadFile(filename="policy.xlsx", file=io.BytesIO(_minimal_ooxml(".xlsx"))),
+        x_docling_key=TEST_API_KEY,
     )
     payload = json.loads(response.body)
 
@@ -272,7 +290,7 @@ async def test_digital_pdf_uses_markitdown_without_docling(monkeypatch: pytest.M
 
     response = await service.convert_document(
         file=UploadFile(filename="policy.pdf", file=io.BytesIO(b"pdf")),
-        x_docling_key=None,
+        x_docling_key=TEST_API_KEY,
     )
     payload = json.loads(response.body)
 
@@ -302,7 +320,7 @@ async def test_scanned_pdf_uses_docling_ocr(monkeypatch: pytest.MonkeyPatch) -> 
 
     response = await service.convert_document(
         file=UploadFile(filename="scan.pdf", file=io.BytesIO(b"pdf")),
-        x_docling_key=None,
+        x_docling_key=TEST_API_KEY,
     )
     payload = json.loads(response.body)
 
@@ -347,7 +365,7 @@ async def test_upload_size_limit_returns_413_and_cleans_temp(monkeypatch: pytest
     with pytest.raises(service.HTTPException) as exc_info:
         await service.convert_document(
             file=UploadFile(filename="large.txt", file=io.BytesIO(b"1234")),
-            x_docling_key=None,
+            x_docling_key=TEST_API_KEY,
         )
 
     assert exc_info.value.status_code == 413
@@ -362,7 +380,7 @@ async def test_conversion_queue_timeout_returns_503_with_retry_after(monkeypatch
     with pytest.raises(service.HTTPException) as exc_info:
         await service.convert_document(
             file=UploadFile(filename="queued.txt", file=io.BytesIO(b"queued")),
-            x_docling_key=None,
+            x_docling_key=TEST_API_KEY,
         )
 
     assert exc_info.value.status_code == 503
@@ -387,8 +405,8 @@ async def test_blocking_conversion_runs_off_event_loop(monkeypatch: pytest.Monke
     monkeypatch.setattr(service, "_convert_sync", slow_conversion)
     conversion = asyncio.create_task(
         service.convert_document(
-            file=UploadFile(filename="policy.docx", file=io.BytesIO(b"docx")),
-            x_docling_key=None,
+            file=UploadFile(filename="policy.docx", file=io.BytesIO(_minimal_ooxml(".docx"))),
+            x_docling_key=TEST_API_KEY,
         )
     )
     assert await asyncio.to_thread(started.wait, 1) is True
@@ -413,7 +431,7 @@ async def test_pdf_markitdown_fallback_is_marked_degraded(
 
     response = await service.convert_document(
         file=UploadFile(filename="digital.pdf", file=io.BytesIO(b"pdf")),
-        x_docling_key=None,
+        x_docling_key=TEST_API_KEY,
     )
     payload = json.loads(response.body)
 
@@ -440,7 +458,7 @@ async def test_failed_conversion_has_safe_error_and_cleans_temp_file(
     with pytest.raises(service.HTTPException) as exc_info:
         await service.convert_document(
             file=UploadFile(filename="notes.txt", file=io.BytesIO(b"not sent to service")),
-            x_docling_key=None,
+            x_docling_key=TEST_API_KEY,
         )
 
     assert exc_info.value.status_code == 422

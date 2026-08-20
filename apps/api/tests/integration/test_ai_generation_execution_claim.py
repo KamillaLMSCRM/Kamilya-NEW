@@ -39,6 +39,9 @@ async def test_generation_claim_is_single_winner_and_cross_tenant_is_denied():
 
         async def claim_in_independent_session(tenant_id: str) -> bool:
             async with async_session_factory() as session:
+                # Exercise the same NOINHERIT/NOBYPASSRLS role used by workers,
+                # not the migration owner that seeded the fixtures.
+                await session.execute(text("SET LOCAL ROLE lms_app"))
                 return await claim_generation_execution(session, job.id, tenant_id)
 
         first, second = await asyncio.gather(

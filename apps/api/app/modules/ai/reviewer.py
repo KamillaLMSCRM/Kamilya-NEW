@@ -63,7 +63,7 @@ Content:
             return result
         except Exception as e:
             self._llm_available = False
-            logger.warning("LLM review failed, falling back to heuristic: %s", e)
+            logger.warning("LLM review failed; using heuristic error_type=%s", type(e).__name__)
             return None
 
     def _heuristic_review(

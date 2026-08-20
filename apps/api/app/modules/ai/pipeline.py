@@ -391,7 +391,11 @@ async def run_generation_pipeline(
                         missing_docs.append(doc_id)
                         logger.warning(f"No embeddings found for doc {doc_id} вЂ” may need re-upload")
                 except Exception as e:
-                    logger.warning(f"Could not check embeddings for {doc_id}: {e}")
+                    logger.warning(
+                        "Could not check embeddings for %s error_type=%s",
+                        doc_id,
+                        type(e).__name__,
+                    )
             if len(missing_docs) == len(documents):
                 raise ValueError(
                     f"None of the {len(documents)} selected document(s) have embeddings. "
@@ -694,6 +698,6 @@ async def run_generation_pipeline(
                     "Could not refund failed generation reservation for job %s",
                     job_id,
                 )
-        logger.error(f"Generation pipeline failed for job {job_id}: {e}")
+        logger.error("Generation pipeline failed for job %s error_type=%s", job_id, type(e).__name__)
 
     return state

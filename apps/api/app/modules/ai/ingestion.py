@@ -7,6 +7,8 @@ import logging
 import os
 from pathlib import Path
 
+from app.modules.documents.archive_preflight import preflight_ooxml
+
 logger = logging.getLogger(__name__)
 
 DOCLING_URL = os.getenv("DOCLING_URL", "")
@@ -24,6 +26,14 @@ class DocumentConverter:
         """Convert document to markdown + metadata."""
         filename = os.path.basename(file_path)
         ext = Path(file_path).suffix.lower()
+
+        # Re-check Office archives at the conversion boundary as well as at
+        # upload time. Existing stored documents and internal callers can
+        # otherwise bypass the public upload preflight and reach Docling or a
+        # local OOXML parser with a decompression bomb or unsafe member path.
+        if ext in (".docx", ".xlsx"):
+            with open(file_path, "rb") as source:
+                preflight_ooxml(source, ext)
 
         # Plain text formats are already markdown-compatible. Sending them
         # through remote Docling adds minutes of latency and can make the
@@ -69,7 +79,7 @@ class DocumentConverter:
                         },
                     }
         except Exception as e:
-            logger.warning("Remote Docling conversion failed: %s", e)
+            logger.warning("Remote Docling conversion failed error_type=%s", type(e).__name__)
 
         # Local fallback
         return await _local_convert(file_path)
@@ -235,12 +245,15 @@ class VectorStore:
         Now we drop bad vectors at the door and log them so the
         document is at least partially usable.
         """
-        from app.core.db import async_session_factory
-        from sqlalchemy import text
         import hashlib
-        import math
         import logging as _log
+        import math
+
+        from sqlalchemy import text
+
         from app.core.config import get_settings
+        from app.core.db import async_session_factory
+
         _logger = _log.getLogger(__name__)
         expected_dimensions = get_settings().EMBEDDING_DIMENSIONS
 
@@ -379,8 +392,10 @@ class VectorStore:
         tenant_id: str | None = None,
     ) -> dict:
         """Query the vector store using pgvector cosine distance."""
-        from app.core.db import async_session_factory
         from sqlalchemy import text
+
+        from app.core.db import async_session_factory
+
         emb = query_embeddings[0]
 
         where_clause = ""
@@ -439,8 +454,10 @@ class VectorStore:
         tenant_id: str | None = None,
     ) -> list[tuple[str, dict]]:
         """Get all chunks, optionally filtered by doc_ids."""
-        from app.core.db import async_session_factory
         from sqlalchemy import text
+
+        from app.core.db import async_session_factory
+
         params: dict = {}
         where = ""
         if doc_ids:
@@ -591,7 +608,7 @@ class DocumentIngestion:
         if not doc_id:
             doc_id = hashlib.md5(filename.encode()).hexdigest()[:12]
 
-        print(f"[INGEST] start file={filename} doc_id={doc_id}", flush=True)
+        print(f"[INGEST] start doc_id={doc_id}", flush=True)
 
         # Step 1: Convert to markdown
         converted = await self.converter.convert(file_path)
@@ -650,7 +667,7 @@ class DocumentIngestion:
         summary_path = os.path.join(self.summaries_dir, f"{doc_id}.json")
         with open(summary_path, "w", encoding="utf-8") as f:
             json.dump(summary, f, ensure_ascii=False, indent=2)
-        print(f"[INGEST] summary saved", flush=True)
+        print("[INGEST] summary saved", flush=True)
 
         return {
             "doc_id": doc_id,

@@ -11,8 +11,10 @@ Supabase in dev are not fatal — they fall back to local with a warning log.
 from __future__ import annotations
 
 import logging
+import shutil
 from abc import ABC, abstractmethod
 from pathlib import Path
+from typing import BinaryIO
 
 from app.core.config import get_settings
 
@@ -36,6 +38,15 @@ class StorageBackend(ABC):
     def put_bytes(self, key: str, data: bytes, content_type: str = "application/octet-stream") -> str:
         """Upload bytes at `key`. Returns the stored key (same as input)."""
         ...
+
+    def put_file(self, key: str, source: BinaryIO, content_type: str = "application/octet-stream") -> str:
+        """Upload a seekable binary stream.
+
+        Backends override this to avoid materializing the full object in API
+        memory. The compatibility fallback is retained for external backends.
+        """
+        source.seek(0)
+        return self.put_bytes(key, source.read(), content_type)
 
     @abstractmethod
     def get_bytes(self, key: str) -> bytes | None:
@@ -87,6 +98,14 @@ class LocalStorageBackend(StorageBackend):
         target = self._path(key)
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(data)
+        return key
+
+    def put_file(self, key: str, source: BinaryIO, content_type: str = "application/octet-stream") -> str:
+        target = self._path(key)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        source.seek(0)
+        with target.open("wb") as destination:
+            shutil.copyfileobj(source, destination, length=1024 * 1024)
         return key
 
     def get_bytes(self, key: str) -> bytes | None:
@@ -147,6 +166,16 @@ class SupabaseStorageBackend(StorageBackend):
         client.storage.from_(self.bucket).upload(
             path=key,
             file=data,
+            file_options={"content-type": content_type, "upsert": "true"},
+        )
+        return key
+
+    def put_file(self, key: str, source: BinaryIO, content_type: str = "application/octet-stream") -> str:
+        client = self._get_client()
+        source.seek(0)
+        client.storage.from_(self.bucket).upload(
+            path=key,
+            file=source,
             file_options={"content-type": content_type, "upsert": "true"},
         )
         return key

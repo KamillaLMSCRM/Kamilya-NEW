@@ -20,25 +20,33 @@ jobs:
   smoke:
     runs-on: ubuntu-latest
     steps:
-      - name: Check production endpoints
+      - name: Check out verifier
+        uses: actions/checkout@v4
+
+      - name: Verify KZ production identity and endpoints
         id: smoke
         continue-on-error: true
         shell: bash
+        env:
+          EXPECTED_RELEASE_SHA: ${{ vars.KZ_PRODUCTION_RELEASE_SHA }}
         run: |
           set -euo pipefail
-          curl --fail --silent --show-error --location \
-            --connect-timeout 10 --max-time 30 --retry 2 \
-            https://kamilya-lms-api.onrender.com/api/v1/health >/dev/null
-          curl --fail --silent --show-error --location \
-            --connect-timeout 10 --max-time 30 --retry 2 \
-            https://app.kml.kz/login >/dev/null
+          for attempt in {1..12}; do
+            if python scripts/ops/verify_production_endpoint.py; then
+              exit 0
+            fi
+            if [[ "${attempt}" -lt 12 ]]; then
+              sleep 30
+            fi
+          done
+          exit 1
 
       - name: Open or update incident issue
         if: steps.smoke.outcome == 'failure'
         uses: actions/github-script@v7
         with:
           script: |
-            const title = "[monitor] Production smoke failed";
+            const title = "[monitor] KZ production identity smoke failed";
             const { data: issues } = await github.rest.issues.listForRepo({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -47,7 +55,7 @@ jobs:
             });
             const existing = issues.find((issue) => issue.title === title);
             const body = [
-              `Production smoke failed at ${new Date().toISOString()}.`,
+              `KZ production identity smoke failed at ${new Date().toISOString()}.`,
               "",
               `Workflow: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
             ].join("\n");
@@ -72,7 +80,7 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const title = "[monitor] Production smoke failed";
+            const title = "[monitor] KZ production identity smoke failed";
             const { data: issues } = await github.rest.issues.listForRepo({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -84,7 +92,7 @@ jobs:
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: issue.number,
-                body: `Production smoke recovered at ${new Date().toISOString()}.`,
+                body: `KZ production identity smoke recovered at ${new Date().toISOString()}.`,
               });
               await github.rest.issues.update({
                 owner: context.repo.owner,

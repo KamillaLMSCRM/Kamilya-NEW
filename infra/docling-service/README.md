@@ -65,9 +65,20 @@ Docling processes them.
 
 ## Authentication
 
-Set the same strong `DOCLING_API_KEY` in the service environment and in the
-backend environment. `/health` remains public. `/convert` requires the
-`X-Docling-Key` header whenever the service key is configured.
+Set the same strong `DOCLING_API_KEY` (minimum 32 characters in production) in
+the service environment and in the backend environment. `/health` remains
+public. `/convert` always requires the `X-Docling-Key` header. Production
+startup fails closed when the key is absent or too short.
+
+DOCX/XLSX are checked as bounded OOXML archives before MarkItDown/Docling:
+unsafe paths, symlinks, encrypted entries, generic ZIPs, excessive entry count,
+expanded bytes and compression ratios are rejected before parser invocation.
+The container and systemd service run as the dedicated non-root `docling` user.
+The native unit stores only its writable model cache under the systemd-managed
+`/var/lib/docling` state directory and applies an 8 GiB memory ceiling, four-CPU
+quota, bounded task count, private temporary directory, strict umask and an
+empty capability set. Validate these limits against measured document sizes
+before changing them; do not increase concurrency to compensate for a queue.
 
 Keep the VPS environment file outside the repository with mode `0600`, and
 load it from the systemd unit using `EnvironmentFile=`.

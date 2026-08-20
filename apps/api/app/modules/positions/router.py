@@ -712,7 +712,7 @@ def _extract_text(content: bytes, filename: str) -> str:
             reader = PdfReader(io.BytesIO(content))
             return "\n".join(page.extract_text() or "" for page in reader.pages)
         except Exception as e:
-            logger.warning(f"PDF extraction failed: {e}")
+            logger.warning("PDF extraction failed error_type=%s", type(e).__name__)
             return ""
 
     if ext in (".docx", ".doc"):
@@ -723,7 +723,7 @@ def _extract_text(content: bytes, filename: str) -> str:
             doc = Document(io.BytesIO(content))
             return "\n".join(p.text for p in doc.paragraphs)
         except Exception as e:
-            logger.warning(f"DOCX extraction failed: {e}")
+            logger.warning("DOCX extraction failed error_type=%s", type(e).__name__)
             return ""
 
     return content.decode("utf-8", errors="replace")

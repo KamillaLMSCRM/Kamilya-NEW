@@ -31,7 +31,8 @@ export function isPublicAuthenticationRequest(url?: string): boolean {
   if (!url) return false;
   const normalized = url.toLowerCase();
   return normalized.includes('/auth/')
-    || normalized.includes('/v1/invitations/');
+    || normalized.includes('/v1/invitations/')
+    || (normalized.includes('/v1/kiosks/') && normalized.endsWith('/identify'));
 }
 
 async function _refresh(): Promise<boolean> {

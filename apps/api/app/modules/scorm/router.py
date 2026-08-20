@@ -7,11 +7,13 @@ import logging
 import mimetypes
 import os
 import re
+import secrets
 import zipfile
 from datetime import UTC, datetime, timedelta
 from io import BytesIO
 from pathlib import PurePosixPath
 from typing import Any
+from urllib.parse import quote, urlsplit
 from uuid import UUID
 from xml.etree import ElementTree as ET
 
@@ -21,6 +23,7 @@ from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import create_scoped_token, decode_token, get_current_user, require_role
+from app.core.config import get_settings
 from app.core.db import get_db
 from app.core.storage import get_storage
 from app.models.courses import Course
@@ -51,6 +54,50 @@ MAX_SCORM_COMPRESSION_RATIO = int(os.getenv("MAX_SCORM_COMPRESSION_RATIO", "100"
 MAX_SCORM_MANIFEST_BYTES = int(os.getenv("MAX_SCORM_MANIFEST_BYTES", str(2 * 1024 * 1024)))
 SCORM_READ_CHUNK_BYTES = 1024 * 1024
 SCORM_LAUNCH_TOKEN_MINUTES = 180
+SCORM_BRIDGE_VERSION = 1
+
+
+def _url_origin(value: str) -> str:
+    parsed = urlsplit(value.rstrip("/"))
+    if not parsed.scheme or not parsed.netloc:
+        raise ValueError("URL must contain an origin")
+    return f"{parsed.scheme.lower()}://{parsed.netloc.lower()}"
+
+
+def _scorm_content_origin(request: Request) -> str:
+    settings = get_settings()
+    if settings.SCORM_CONTENT_ORIGIN:
+        return _url_origin(settings.SCORM_CONTENT_ORIGIN)
+    if settings.APP_ENV.lower() == "production":
+        raise HTTPException(status_code=503, detail="SCORM content origin is not configured")
+    return _url_origin(str(request.base_url))
+
+
+def _build_scorm_launch_url(request: Request, package_id: str, token: str) -> str:
+    origin = _scorm_content_origin(request)
+    encoded_token = quote(token, safe="")
+    return f"{origin}/api/v1/scorm/packages/{package_id}/launch?token={encoded_token}"
+
+
+def _require_scorm_content_request(request: Request) -> None:
+    """Reject production launch/assets served through the trusted API origin.
+
+    Browser security is based on the URL origin, not on route names. The same
+    application process may sit behind both api.kml.kz and scorm.kml.kz, so
+    every content response must verify the dedicated Host before returning
+    tenant-controlled HTML/JavaScript.
+    """
+
+    settings = get_settings()
+    expected = settings.SCORM_CONTENT_ORIGIN
+    if not expected:
+        if settings.APP_ENV.lower() == "production":
+            raise HTTPException(status_code=503, detail="SCORM content origin is not configured")
+        return
+    expected_netloc = urlsplit(expected).netloc.lower()
+    actual_netloc = urlsplit(str(request.url)).netloc.lower()
+    if actual_netloc != expected_netloc:
+        raise HTTPException(status_code=421, detail="SCORM content is available only on the isolated origin")
 
 
 def _safe_zip_names(zf: zipfile.ZipFile) -> list[str]:
@@ -241,7 +288,14 @@ def _safe_asset_url(package: ScormPackage, token: str, entrypoint: str) -> str:
     return f"/api/v1/scorm/packages/{package.id}/assets-token/{token}/{entrypoint}"
 
 
-def _make_launch_token(user: User, package: ScormPackage, *, enrollment_id: UUID | None = None) -> str:
+def _make_launch_token(
+    user: User,
+    package: ScormPackage,
+    *,
+    enrollment_id: UUID | None = None,
+    bridge_channel: str | None = None,
+) -> str:
+    bridge_channel = bridge_channel or secrets.token_urlsafe(24)
     assignment_enrollment_id = getattr(user, "assignment_access_enrollment_id", None)
     return create_scoped_token(
         {
@@ -251,6 +305,7 @@ def _make_launch_token(user: User, package: ScormPackage, *, enrollment_id: UUID
             "package_id": str(package.id),
             "course_id": str(package.course_id),
             "enrollment_id": str(enrollment_id) if enrollment_id is not None else None,
+            "bridge_channel": bridge_channel,
             "assignment_access_enrollment_id": (
                 str(assignment_enrollment_id) if assignment_enrollment_id is not None else None
             ),
@@ -550,60 +605,50 @@ async def get_scorm_launch_info(
             course_id=course_id,
         )
         enrollment_id = enrollment.id if enrollment is not None else None
-    token = _make_launch_token(user, package, enrollment_id=enrollment_id)
-    base = str(request.base_url).rstrip("/")
+    bridge_channel = secrets.token_urlsafe(24)
+    token = _make_launch_token(
+        user,
+        package,
+        enrollment_id=enrollment_id,
+        bridge_channel=bridge_channel,
+    )
+    launch_origin = _scorm_content_origin(request)
     return {
         "course_id": package.course_id,
         "package_id": package.id,
-        "launch_url": f"{base}/api/v1/scorm/packages/{package.id}/launch?token={token}",
+        "launch_url": _build_scorm_launch_url(request, str(package.id), token),
+        "launch_origin": launch_origin,
+        "bridge_channel": bridge_channel,
         "version": "scorm_1_2",
         "title": package.title,
     }
 
 
-@router.get("/packages/{package_id}/launch", response_class=HTMLResponse)
-async def launch_scorm_package(
-    package_id: str,
-    token: str = Query(...),
-    db: AsyncSession = Depends(get_db),
-):
-    payload = _decode_launch_token(token, package_id=package_id)
-    await _set_scorm_token_tenant_context(db, payload)
-    enrollment_id = await _require_scorm_token_enrollment(db, payload, active_only=True)
-    package = await db.get(ScormPackage, package_id)
-    if not package or str(package.tenant_id) != payload.get("tenant_id"):
-        raise HTTPException(status_code=404, detail="SCORM package not found")
-    _assert_scorm_12(package.version)
-    attempt = await _get_or_create_attempt(db, package, payload["sub"], enrollment_id)
-    await db.commit()
-    entrypoint = package.entrypoint
-    # Defence-in-depth: validate the entrypoint path component before
-    # embedding it in an iframe src. _safe_asset_url also html-escapes the
-    # resulting URL so it cannot break out of the attribute even if a
-    # malicious package title sneaks through somehow.
-    asset_url = _safe_asset_url(package, token, entrypoint)
+def _render_scorm_launch_html(
+    *,
+    title: str,
+    asset_url: str,
+    commit_url: str,
+    bridge_channel: str,
+) -> str:
+    title_escaped = html.escape(title or "SCORM", quote=True)
     asset_url_escaped = html.escape(asset_url, quote=True)
-    commit_url = f"/api/v1/scorm/attempts/{attempt.id}/commit?token={token}"
-    # Title is user-provided (manifest parser keeps it verbatim from the
-    # imsmanifest.xml <organization><title>). Escape aggressively — this
-    # value lands between <title>...</title> and on the commit_url JSON dump.
-    title_escaped = html.escape(package.title or "SCORM", quote=True)
-    # Content Security Policy: the runtime shell only fetches its own
-    # asset URL and POSTs to its own commit endpoint. Disallow inline
-    # scripts from third-party origins (we already inline a small bootstrap
-    # which is allowed via the 'unsafe-inline' fallback; if you harden this
-    # further, move the bootstrap into an external /scorm/runtime.js).
+    parent_origin = _url_origin(get_settings().PUBLIC_URL)
     csp = (
         "default-src 'self'; "
         "script-src 'self' 'unsafe-inline'; "
         "style-src 'self' 'unsafe-inline'; "
         "frame-src 'self'; "
         "connect-src 'self'; "
-        "img-src 'self' data:; "
+        "img-src 'self' data: blob:; "
+        "font-src 'self' data:; "
+        "media-src 'self' blob:; "
+        "worker-src 'self' blob:; "
+        "object-src 'none'; "
         "base-uri 'none'; "
-        "form-action 'none'"
+        "form-action 'self'"
     )
-    html_body = f"""<!doctype html>
+    return f"""<!doctype html>
 <html lang="ru">
 <head>
   <meta charset="utf-8" />
@@ -622,23 +667,36 @@ async def launch_scorm_package(
 </head>
 <body>
   <div class="bar"><span id="status-dot" class="dot"></span><span id="status-text">SCORM 1.2 runtime готов</span></div>
-  <iframe id="sco" src="{asset_url_escaped}" allow="fullscreen"></iframe>
+  <iframe id="sco" src="{asset_url_escaped}" sandbox="allow-forms allow-same-origin allow-scripts" allow="fullscreen"></iframe>
   <script>
     const commitUrl = {json.dumps(commit_url)};
+    const bridgeVersion = {SCORM_BRIDGE_VERSION};
+    const bridgeChannel = {json.dumps(bridge_channel)};
+    const parentOrigin = {json.dumps(parent_origin)};
     const cmi = {{}};
     let initialized = false;
     let lastError = "0";
     const dot = document.getElementById("status-dot");
     const statusText = document.getElementById("status-text");
-    function setStatus(text, kind) {{
+    function notifyParent(status) {{
+      const message = {{
+        version: bridgeVersion,
+        type: "kamilya.scorm.status",
+        channel: bridgeChannel,
+        status
+      }};
+      window.parent.postMessage(message, parentOrigin);
+    }}
+    function setStatus(text, kind, bridgeStatus) {{
       statusText.textContent = text;
       dot.className = "dot" + (kind ? " " + kind : "");
+      if (bridgeStatus) notifyParent(bridgeStatus);
     }}
     function ok() {{ lastError = "0"; return "true"; }}
     function fail(code) {{ lastError = code || "101"; return "false"; }}
     async function commit() {{
       try {{
-        setStatus("Сохранение прогресса...", "");
+        setStatus("Сохранение прогресса...", "", "saving");
         const res = await fetch(commitUrl, {{
           method: "POST",
           headers: {{ "Content-Type": "application/json" }},
@@ -646,16 +704,20 @@ async def launch_scorm_package(
         }});
         if (!res.ok) throw new Error("HTTP " + res.status);
         const data = await res.json();
-        setStatus(data.completed ? "Курс завершён" : "Прогресс сохранён", "saved");
+        setStatus(
+          data.completed ? "Курс завершён" : "Прогресс сохранён",
+          "saved",
+          data.completed ? "completed" : "saved"
+        );
         return true;
       }} catch (e) {{
         console.error("SCORM commit failed", e);
-        setStatus("Не удалось сохранить прогресс", "error");
+        setStatus("Не удалось сохранить прогресс", "error", "error");
         return false;
       }}
     }}
     window.API = {{
-      LMSInitialize: function() {{ initialized = true; return ok(); }},
+      LMSInitialize: function() {{ initialized = true; notifyParent("ready"); return ok(); }},
       LMSFinish: function() {{ if (!initialized) return fail("301"); initialized = false; commit(); return ok(); }},
       LMSGetValue: function(key) {{ if (!initialized) return ""; lastError = "0"; return cmi[key] || ""; }},
       LMSSetValue: function(key, value) {{
@@ -669,6 +731,7 @@ async def launch_scorm_package(
       }},
       LMSGetDiagnostic: function(code) {{ return this.LMSGetErrorString(code); }}
     }};
+    notifyParent("loading");
     window.addEventListener("beforeunload", function() {{
       navigator.sendBeacon && navigator.sendBeacon(
         commitUrl, new Blob([JSON.stringify({{ cmi }})], {{ type: "application/json" }})
@@ -677,16 +740,50 @@ async def launch_scorm_package(
   </script>
 </body>
 </html>"""
-    return HTMLResponse(html_body)
+
+
+@router.get("/packages/{package_id}/launch", response_class=HTMLResponse)
+async def launch_scorm_package(
+    package_id: str,
+    request: Request,
+    token: str = Query(...),
+    db: AsyncSession = Depends(get_db),
+):
+    _require_scorm_content_request(request)
+    payload = _decode_launch_token(token, package_id=package_id)
+    await _set_scorm_token_tenant_context(db, payload)
+    enrollment_id = await _require_scorm_token_enrollment(db, payload, active_only=True)
+    package = await db.get(ScormPackage, package_id)
+    if not package or str(package.tenant_id) != payload.get("tenant_id"):
+        raise HTTPException(status_code=404, detail="SCORM package not found")
+    _assert_scorm_12(package.version)
+    attempt = await _get_or_create_attempt(db, package, payload["sub"], enrollment_id)
+    await db.commit()
+    entrypoint = package.entrypoint
+    asset_url = _safe_asset_url(package, token, entrypoint)
+    commit_url = f"/api/v1/scorm/attempts/{attempt.id}/commit?token={token}"
+    bridge_channel = payload.get("bridge_channel")
+    if not isinstance(bridge_channel, str) or not bridge_channel:
+        raise HTTPException(status_code=401, detail="Invalid SCORM launch token")
+    return HTMLResponse(
+        _render_scorm_launch_html(
+            title=package.title or "SCORM",
+            asset_url=asset_url,
+            commit_url=commit_url,
+            bridge_channel=bridge_channel,
+        )
+    )
 
 
 @router.get("/packages/{package_id}/assets/{asset_path:path}")
 async def get_scorm_asset(
     package_id: str,
     asset_path: str,
+    request: Request,
     token: str = Query(...),
     db: AsyncSession = Depends(get_db),
 ):
+    _require_scorm_content_request(request)
     payload = _decode_launch_token(token, package_id=package_id)
     await _set_scorm_token_tenant_context(db, payload)
     await _require_scorm_token_enrollment(db, payload, active_only=False)
@@ -702,8 +799,10 @@ async def get_scorm_asset_by_token_path(
     package_id: str,
     token: str,
     asset_path: str,
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ):
+    _require_scorm_content_request(request)
     payload = _decode_launch_token(token, package_id=package_id)
     await _set_scorm_token_tenant_context(db, payload)
     await _require_scorm_token_enrollment(db, payload, active_only=False)
@@ -718,9 +817,11 @@ async def get_scorm_asset_by_token_path(
 async def commit_scorm_attempt(
     attempt_id: str,
     req: ScormCommitRequest,
+    request: Request,
     token: str = Query(...),
     db: AsyncSession = Depends(get_db),
 ):
+    _require_scorm_content_request(request)
     payload = _decode_launch_token(token)
     await _set_scorm_token_tenant_context(db, payload)
     enrollment_id = await _require_scorm_token_enrollment(db, payload, active_only=True)

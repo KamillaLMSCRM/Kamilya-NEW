@@ -490,16 +490,15 @@ When ready to output the final course structure, output ONLY the JSON code block
     logger.info(f"Architect pre-check: {len(all_rows)} documents available (tenant={tenant_id})")
 
     doc_list_result = await tools["list_documents"]()
-    logger.info(f"Architect scoped docs: {doc_list_result[:300]}")
+    logger.info("Architect document scope prepared")
     try:
         doc_list = json.loads(doc_list_result)
         if not doc_list:
             # Build a helpful, tenant-safe error message.
-            available_names = [r[1] for r in all_rows]
             raise ValueError(
                 "None of the selected documents have embeddings yet — their ingestion "
                 "may have failed during upload. Please re-upload the documents you "
-                f"want to use. Currently available for your organization: {available_names}"
+                "want to use."
             )
     except (json.JSONDecodeError, TypeError):
         pass

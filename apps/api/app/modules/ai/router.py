@@ -655,7 +655,7 @@ async def chat(
         )
         reply = (resp.content or "").strip()
     except Exception as e:
-        logger.error(f"AI chat LLM call failed: {e}", exc_info=True)
+        logger.error("AI chat LLM call failed error_type=%s", type(e).__name__)
         raise HTTPException(status_code=502, detail="AI assistant is unavailable, try again")
 
     if not reply:
@@ -819,7 +819,7 @@ async def _regenerate_module_job(
             try:
                 plan = json.loads(plan_text)
             except Exception:
-                logger.warning(f"Module regen — bad JSON, using raw text as title. Got: {plan_text[:200]}")
+                logger.warning("Module regen — invalid JSON; preserving the existing module plan")
                 plan = {"title": module.title, "description": module.description, "lessons": [
                     {"title": l.title, "description": l.description or "", "duration_minutes": (l.duration_seconds or 600) // 60}
                     for l in old_lessons
@@ -901,7 +901,7 @@ async def _regenerate_module_job(
                 try:
                     questions = json.loads(assess_text)
                 except Exception:
-                    logger.warning(f"Lesson regen — bad JSON for quiz, skipping. Got: {assess_text[:200]}")
+                    logger.warning("Lesson regen — invalid quiz JSON; skipping quiz regeneration")
                     questions = []
 
                 if isinstance(questions, list) and questions:
@@ -957,7 +957,7 @@ async def _regenerate_module_job(
             await session.rollback()
             return {"job_id": job_id, "status": "cancelled"}
         except Exception as e:
-            logger.error(f"Module regeneration failed: {e}", exc_info=True)
+            logger.error("Module regeneration failed error_type=%s", type(e).__name__)
             await session.rollback()
             try:
                 await _set_regeneration_job_state(
@@ -1118,7 +1118,7 @@ async def _regenerate_lesson_job(
             await session.rollback()
             return {"job_id": job_id, "status": "cancelled"}
         except Exception as e:
-            logger.error(f"Lesson regeneration failed: {e}", exc_info=True)
+            logger.error("Lesson regeneration failed error_type=%s", type(e).__name__)
             await session.rollback()
             try:
                 await _set_regeneration_job_state(

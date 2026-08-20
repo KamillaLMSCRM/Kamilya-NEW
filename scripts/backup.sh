@@ -1,18 +1,13 @@
 #!/usr/bin/env bash
-# Kamilya LMS encrypted database backup.
-#
-# Required environment: BACKUP_DIR, BACKUP_PASSPHRASE_FILE, DB_HOST, DB_PORT,
-# DB_NAME, DB_USER. Authentication is delegated to libpq. The passphrase is
-# never accepted on the command line or written to logs.
+# Kamilya LMS authenticated encrypted PostgreSQL backup.
 
 set -Eeuo pipefail
 IFS=$'\n\t'
 umask 077
 
-SCRIPT_NAME="$(basename "$0")"
-readonly SCRIPT_NAME
+readonly SCRIPT_NAME="$(basename "$0")"
 readonly BACKUP_PREFIX="kamilya_"
-readonly BACKUP_SUFFIX=".dump.enc"
+readonly BACKUP_SUFFIX=".dump.gpg"
 DRY_RUN=0
 TEMP_FILES=()
 
@@ -21,24 +16,19 @@ usage() {
 Usage: ${SCRIPT_NAME} [--dry-run]
 
 Required environment:
-  BACKUP_DIR              Local directory for encrypted backups and logs
-  BACKUP_PASSPHRASE_FILE  Root-only passphrase file (mode no wider than 600)
-  DB_HOST, DB_PORT, DB_NAME, DB_USER
+  BACKUP_DIR, BACKUP_PASSPHRASE_FILE, DB_HOST, DB_PORT, DB_NAME, DB_USER
 
 Optional environment:
-  BACKUP_PBKDF2_ITERATIONS  OpenSSL PBKDF2 work factor (600000)
-  RETENTION_DAYS            Delete older valid backups after this many days (30)
-  MIN_VALID_BACKUPS         Never retain fewer valid local backups than this (1)
-  LOG_DIR                   Log directory (BACKUP_DIR/logs)
-  MC_ALIAS                  MinIO/mc alias; requires MC_TARGET when set
-  MC_TARGET                 MinIO destination when MC_ALIAS is set
+  RETENTION_DAYS             Local retention in days (30)
+  MIN_VALID_BACKUPS          Minimum valid local archives (1)
+  LOG_DIR                    Log directory (BACKUP_DIR/logs)
+  MC_ALIAS, MC_TARGET        Configured MinIO alias and destination
+  MC_IMMUTABLE_RETENTION     Governance retention, for example 30d; required
+                             whenever MC_ALIAS is set
 EOF
 }
 
-die() {
-  printf 'ERROR: %s\n' "$*" >&2
-  exit 1
-}
+die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 
 on_error() {
   local exit_code=$?
@@ -47,15 +37,17 @@ on_error() {
 }
 
 cleanup() {
-  local temp_file
-  for temp_file in "${TEMP_FILES[@]}"; do
-    rm -f -- "${temp_file}"
-  done
+  local path
+  for path in "${TEMP_FILES[@]}"; do rm -f -- "${path}"; done
 }
 trap on_error ERR
 trap cleanup EXIT
 
-validate_passphrase_file() {
+require_command() {
+  command -v "$1" >/dev/null 2>&1 || die "required command is missing: $1"
+}
+
+validate_secret_file() {
   local mode mode_value
   [[ -f "${BACKUP_PASSPHRASE_FILE}" ]] || die "BACKUP_PASSPHRASE_FILE must point to a regular file"
   [[ ! -L "${BACKUP_PASSPHRASE_FILE}" ]] || die "BACKUP_PASSPHRASE_FILE must not be a symlink"
@@ -74,12 +66,27 @@ make_temp_file() {
   chmod 600 -- "${TEMP_FILE}"
 }
 
-validate_encrypted_backup() {
-  local candidate=$1
+validate_checksum() {
+  local archive=$1 sidecar=$2 expected_name=${3:-} digest expected
+  [[ -f "${sidecar}" && ! -L "${sidecar}" ]] || return 1
+  [[ -n "${expected_name}" ]] || expected_name="$(basename "${archive}")"
+  digest="$(sha256sum -- "${archive}")"
+  expected="${digest%% *}  ${expected_name}"
+  grep -Fx -- "${expected}" "${sidecar}" >/dev/null 2>&1
+}
+
+decrypt_archive() {
+  local archive=$1 output=$2
+  gpg --batch --yes --quiet --pinentry-mode loopback \
+    --passphrase-file "${BACKUP_PASSPHRASE_FILE}" \
+    --output "${output}" --decrypt "${archive}"
+}
+
+validate_archive() {
+  local archive=$1 sidecar=$2 expected_name=${3:-}
+  validate_checksum "${archive}" "${sidecar}" "${expected_name}" || return 1
   make_temp_file "${BACKUP_DIR}/.kamilya-verify.XXXXXX.dump"
-  openssl enc -d -aes-256-cbc -pbkdf2 -iter "${BACKUP_PBKDF2_ITERATIONS}" -md sha256 \
-    -pass "file:${BACKUP_PASSPHRASE_FILE}" \
-    -in "${candidate}" -out "${TEMP_FILE}" >/dev/null 2>&1 || return 1
+  decrypt_archive "${archive}" "${TEMP_FILE}" >/dev/null 2>&1 || return 1
   pg_restore --list "${TEMP_FILE}" >/dev/null 2>&1
 }
 
@@ -97,94 +104,91 @@ done
 : "${DB_PORT:?DB_PORT is required}"
 : "${DB_NAME:?DB_NAME is required}"
 : "${DB_USER:?DB_USER is required}"
-BACKUP_PBKDF2_ITERATIONS="${BACKUP_PBKDF2_ITERATIONS:-600000}"
 RETENTION_DAYS="${RETENTION_DAYS:-30}"
 MIN_VALID_BACKUPS="${MIN_VALID_BACKUPS:-1}"
 LOG_DIR="${LOG_DIR:-${BACKUP_DIR}/logs}"
 
-validate_passphrase_file
-[[ "${BACKUP_PBKDF2_ITERATIONS}" =~ ^[1-9][0-9]+$ ]] || die "BACKUP_PBKDF2_ITERATIONS must be numeric"
-(( BACKUP_PBKDF2_ITERATIONS >= 100000 )) || die "BACKUP_PBKDF2_ITERATIONS must be at least 100000"
+validate_secret_file
 [[ "${RETENTION_DAYS}" =~ ^[0-9]+$ ]] || die "RETENTION_DAYS must be a non-negative integer"
 [[ "${MIN_VALID_BACKUPS}" =~ ^[1-9][0-9]*$ ]] || die "MIN_VALID_BACKUPS must be a positive integer"
 [[ "${DB_PORT}" =~ ^[0-9]+$ ]] || die "DB_PORT must be numeric"
 [[ "${DB_NAME}" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || die "DB_NAME must be a simple PostgreSQL identifier"
 [[ "${DB_USER}" =~ ^[A-Za-z_][A-Za-z0-9_.-]*$ ]] || die "DB_USER contains unsupported characters"
-[[ -z "${MC_ALIAS:-}" || -n "${MC_TARGET:-}" ]] || die "MC_TARGET is required when MC_ALIAS is set"
-
-require_command() {
-  command -v "$1" >/dev/null 2>&1 || die "required command is missing: $1"
-}
+if [[ -n "${MC_ALIAS:-}" ]]; then
+  [[ "${MC_ALIAS}" =~ ^[A-Za-z0-9_-]+$ ]] || die "MC_ALIAS contains unsupported characters"
+  [[ -n "${MC_TARGET:-}" ]] || die "MC_TARGET is required when MC_ALIAS is set"
+  [[ "${MC_TARGET}" == "${MC_ALIAS}/"* && "${MC_TARGET}" != *'/../'* ]] || die "MC_TARGET must be a path below MC_ALIAS"
+  [[ "${MC_IMMUTABLE_RETENTION:-}" =~ ^[1-9][0-9]*[dhmy]$ ]] || die "MC_IMMUTABLE_RETENTION is required and must look like 30d when MC_ALIAS is set"
+fi
 
 if (( DRY_RUN == 1 )); then
   printf 'DRY-RUN: configuration and passphrase-file validation passed; no database operation performed.\n'
   exit 0
 fi
 
-require_command date
-require_command find
-require_command mkdir
-require_command mv
-require_command openssl
-require_command pg_dump
-require_command pg_restore
+for command in basename chmod cmp date find gpg grep mkdir mktemp mv pg_dump pg_restore rm sha256sum stat tee; do require_command "${command}"; done
 mkdir -p -- "${BACKUP_DIR}" "${LOG_DIR}"
+[[ -d "${BACKUP_DIR}" && ! -L "${BACKUP_DIR}" ]] || die "BACKUP_DIR must be a non-symlink directory"
+[[ -d "${LOG_DIR}" && ! -L "${LOG_DIR}" ]] || die "LOG_DIR must be a non-symlink directory"
 
 RUN_ID="$(date -u +%Y%m%dT%H%M%SZ)"
 readonly RUN_ID
 readonly LOG_FILE="${LOG_DIR}/backup_${RUN_ID}.log"
 readonly FINAL_FILE="${BACKUP_DIR}/${BACKUP_PREFIX}${RUN_ID}${BACKUP_SUFFIX}"
+readonly CHECKSUM_FILE="${FINAL_FILE}.sha256"
 readonly DUMP_PART="${FINAL_FILE}.dump.part"
 readonly ENCRYPTED_PART="${FINAL_FILE}.part"
-TEMP_FILES+=("${DUMP_PART}" "${ENCRYPTED_PART}")
+readonly CHECKSUM_PART="${CHECKSUM_FILE}.part"
+TEMP_FILES+=("${DUMP_PART}" "${ENCRYPTED_PART}" "${CHECKSUM_PART}")
+[[ ! -e "${FINAL_FILE}" && ! -e "${CHECKSUM_FILE}" ]] || die "backup destination already exists"
 exec > >(tee -a "${LOG_FILE}") 2>&1
 
-printf 'Starting encrypted backup for database %s on %s:%s\n' "${DB_NAME}" "${DB_HOST}" "${DB_PORT}"
-pg_dump \
-  --host="${DB_HOST}" \
-  --port="${DB_PORT}" \
-  --username="${DB_USER}" \
-  --dbname="${DB_NAME}" \
-  --format=custom \
-  --compress=9 \
-  --file="${DUMP_PART}"
-
+printf 'Starting authenticated encrypted backup for database %s on %s:%s\n' "${DB_NAME}" "${DB_HOST}" "${DB_PORT}"
+pg_dump --host="${DB_HOST}" --port="${DB_PORT}" --username="${DB_USER}" \
+  --dbname="${DB_NAME}" --format=custom --compress=9 --file="${DUMP_PART}"
 [[ -s "${DUMP_PART}" ]] || die "pg_dump produced an empty archive"
 pg_restore --list "${DUMP_PART}" >/dev/null || die "pg_restore could not read the custom dump"
-openssl enc -aes-256-cbc -pbkdf2 -iter "${BACKUP_PBKDF2_ITERATIONS}" -md sha256 \
-  -salt -pass "file:${BACKUP_PASSPHRASE_FILE}" \
-  -in "${DUMP_PART}" -out "${ENCRYPTED_PART}"
-validate_encrypted_backup "${ENCRYPTED_PART}" || die "encrypted backup failed decrypt/pg_restore validation"
+
+gpg --batch --yes --quiet --pinentry-mode loopback --symmetric --cipher-algo AES256 \
+  --s2k-mode 3 --s2k-digest-algo SHA512 --s2k-count 65011712 \
+  --passphrase-file "${BACKUP_PASSPHRASE_FILE}" --output "${ENCRYPTED_PART}" "${DUMP_PART}"
+archive_digest="$(sha256sum -- "${ENCRYPTED_PART}")"
+printf '%s  %s\n' "${archive_digest%% *}" "$(basename "${FINAL_FILE}")" >"${CHECKSUM_PART}"
+validate_archive "${ENCRYPTED_PART}" "${CHECKSUM_PART}" "$(basename "${FINAL_FILE}")" || die "backup failed checksum/decrypt/pg_restore validation"
+mv -- "${CHECKSUM_PART}" "${CHECKSUM_FILE}"
 mv -- "${ENCRYPTED_PART}" "${FINAL_FILE}"
 rm -f -- "${DUMP_PART}"
-printf 'Published encrypted and verified backup: %s\n' "${FINAL_FILE}"
+printf 'Published authenticated encrypted and verified backup: %s\n' "${FINAL_FILE}"
 
 if [[ -n "${MC_ALIAS:-}" ]]; then
   require_command mc
-  printf 'Uploading encrypted backup to %s\n' "${MC_TARGET}"
-  mc cp -- "${FINAL_FILE}" "${MC_TARGET}/"
+  make_temp_file "${BACKUP_DIR}/.kamilya-offsite-verify.XXXXXX.gpg"
+  OFFSITE_COPY="${TEMP_FILE}"
+  make_temp_file "${BACKUP_DIR}/.kamilya-offsite-verify.XXXXXX.sha256"
+  OFFSITE_CHECKSUM_COPY="${TEMP_FILE}"
+  printf 'Uploading archive and checksum to immutable offsite destination %s\n' "${MC_TARGET}"
+  mc cp -- "${FINAL_FILE}" "${CHECKSUM_FILE}" "${MC_TARGET}/"
+  mc cp -- "${MC_TARGET}/$(basename "${FINAL_FILE}")" "${OFFSITE_COPY}"
+  mc cp -- "${MC_TARGET}/$(basename "${CHECKSUM_FILE}")" "${OFFSITE_CHECKSUM_COPY}"
+  cmp --silent -- "${FINAL_FILE}" "${OFFSITE_COPY}" || die "offsite round-trip verification failed"
+  cmp --silent -- "${CHECKSUM_FILE}" "${OFFSITE_CHECKSUM_COPY}" || die "offsite checksum round-trip verification failed"
+  mc retention set --recursive governance "${MC_IMMUTABLE_RETENTION}" "${MC_TARGET}/"
+  mc retention info "${MC_TARGET}/" >/dev/null || die "offsite retention policy could not be verified"
 fi
 
 valid_count=0
-while IFS= read -r -d '' candidate; do
-  if validate_encrypted_backup "${candidate}"; then
-    valid_count=$((valid_count + 1))
-  fi
+while IFS= read -r -d '' archive; do
+  if validate_archive "${archive}" "${archive}.sha256"; then valid_count=$((valid_count + 1)); fi
 done < <(find "${BACKUP_DIR}" -maxdepth 1 -type f -name "${BACKUP_PREFIX}*${BACKUP_SUFFIX}" -print0)
+printf 'Valid authenticated encrypted local backups before retention: %s\n' "${valid_count}"
 
-printf 'Valid encrypted local backups before retention: %s\n' "${valid_count}"
-while IFS= read -r -d '' candidate; do
-  if (( valid_count <= MIN_VALID_BACKUPS )); then
-    break
-  fi
-  if [[ "${candidate}" != "${FINAL_FILE}" ]] && ! validate_encrypted_backup "${candidate}"; then
-    rm -f -- "${candidate}"
-    continue
-  fi
-  if [[ "${candidate}" != "${FINAL_FILE}" ]] && validate_encrypted_backup "${candidate}"; then
-    rm -f -- "${candidate}"
+while IFS= read -r -d '' archive; do
+  if (( valid_count <= MIN_VALID_BACKUPS )); then break; fi
+  [[ "${archive}" != "${FINAL_FILE}" ]] || continue
+  if validate_archive "${archive}" "${archive}.sha256"; then
+    rm -f -- "${archive}" "${archive}.sha256"
     valid_count=$((valid_count - 1))
   fi
 done < <(find "${BACKUP_DIR}" -maxdepth 1 -type f -name "${BACKUP_PREFIX}*${BACKUP_SUFFIX}" -mtime "+${RETENTION_DAYS}" -print0)
 
-printf 'Backup completed successfully. Valid encrypted backups retained: %s\n' "${valid_count}"
+printf 'Backup completed successfully. Valid local backups retained: %s\n' "${valid_count}"

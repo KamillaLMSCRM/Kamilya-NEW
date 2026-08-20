@@ -1,0 +1,60 @@
+name: kamilya-runtime
+
+x-app-runtime: &app-runtime
+  image: ${KAMILYA_API_IMAGE:?set KAMILYA_API_IMAGE to an exact release tag}
+  env_file:
+    - ${KAMILYA_ENV_FILE:-runtime.env}
+  environment:
+    DEPLOYMENT_ENVIRONMENT: kz-production
+    RELEASE_SHA: ${KAMILYA_RELEASE_SHA:?set KAMILYA_RELEASE_SHA to the exact 40-character release SHA}
+    FORWARDED_ALLOW_IPS: ${KAMILYA_FORWARDED_ALLOW_IPS:?set KAMILYA_FORWARDED_ALLOW_IPS to the exact trusted proxy IP}
+  volumes:
+    - ${KAMILYA_BLOB_STORAGE_DIR:-/opt/kamilya-runtime/blob-storage}:/app/storage/certificates
+  restart: unless-stopped
+  depends_on:
+    valkey:
+      condition: service_healthy
+
+services:
+  valkey:
+    image: valkey/valkey:8.1-alpine
+    command:
+      - sh
+      - -c
+      - exec valkey-server --appendonly yes --requirepass $$VALKEY_PASSWORD --maxmemory 768mb --maxmemory-policy noeviction
+    environment:
+      VALKEY_PASSWORD: ${VALKEY_PASSWORD:?set VALKEY_PASSWORD}
+    volumes:
+      - valkey-data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "valkey-cli -a $$VALKEY_PASSWORD ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    mem_limit: 1g
+
+  api:
+    <<: *app-runtime
+    ports:
+      - "${KAMILYA_BIND_IP:-127.0.0.1}:8000:8000"
+    command: ["poetry", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    mem_limit: 2g
+
+  worker-ai:
+    <<: *app-runtime
+    command: ["poetry", "run", "celery", "-A", "app.core.celery_app:celery_app", "worker", "-Q", "ai", "--concurrency=2", "--loglevel=INFO"]
+    mem_limit: 4g
+
+  worker-documents:
+    <<: *app-runtime
+    command: ["poetry", "run", "celery", "-A", "app.core.celery_app:celery_app", "worker", "-Q", "documents", "--concurrency=2", "--loglevel=INFO"]
+    mem_limit: 3g
+
+  worker-ops:
+    <<: *app-runtime
+    command: ["poetry", "run", "celery", "-A", "app.core.celery_app:celery_app", "worker", "-Q", "maintenance,notifications", "--concurrency=2", "--loglevel=INFO"]
+    mem_limit: 2g
+
+volumes:
+  valkey-data:

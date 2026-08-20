@@ -29,6 +29,8 @@ class ScormLaunchInfo(BaseModel):
     course_id: UUID
     package_id: UUID
     launch_url: str
+    launch_origin: str
+    bridge_channel: str
     version: Literal["scorm_1_2"]
     title: str
 

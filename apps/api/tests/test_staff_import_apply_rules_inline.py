@@ -25,6 +25,7 @@ These tests cover:
     failure does not roll back the import — per TZ §2.6).
   - apply-rules is called in chunks of ≤ 50 (per TZ §2.6).
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -32,7 +33,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
-
 
 # ── helpers ─────────────────────────────────────────────────
 
@@ -92,8 +92,8 @@ async def test_commit_import_triggers_apply_rules_for_new_users():
 
     This is the §6.1 "загрузил → все получили курсы" contract.
     """
-    from app.modules.users.staff_import_service import commit_import
     from app.modules.positions.batch_service import BatchResult
+    from app.modules.users.staff_import_service import commit_import
 
     db = _mock_db_no_users()
     tenant = uuid4()
@@ -127,21 +127,27 @@ async def test_commit_import_triggers_apply_rules_for_new_users():
         fake_apply,
     ):
         # redis_progress is also late-imported — patch its key methods.
-        with patch(
-            "app.core.redis_progress.new_task_id",
-            return_value="fixed-task-id",
-        ), patch(
-            "app.core.redis_progress.init_task",
-            new=AsyncMock(),
-        ), patch(
-            "app.core.redis_progress.mark_started",
-            new=AsyncMock(),
-        ), patch(
-            "app.core.redis_progress.increment_done",
-            new=AsyncMock(),
-        ), patch(
-            "app.core.redis_progress.mark_success",
-            new=AsyncMock(),
+        with (
+            patch(
+                "app.core.redis_progress.new_task_id",
+                return_value="fixed-task-id",
+            ),
+            patch(
+                "app.core.redis_progress.init_task",
+                new=AsyncMock(),
+            ),
+            patch(
+                "app.core.redis_progress.mark_started",
+                new=AsyncMock(),
+            ),
+            patch(
+                "app.core.redis_progress.increment_done",
+                new=AsyncMock(),
+            ),
+            patch(
+                "app.core.redis_progress.mark_success",
+                new=AsyncMock(),
+            ),
         ):
             result = await commit_import(db, tenant, parsed)
 
@@ -167,8 +173,8 @@ async def test_apply_rules_called_after_commit():
     must call apply_rules AFTER `await db.commit()`, never
     before. This test pins the order.
     """
-    from app.modules.users.staff_import_service import commit_import
     from app.modules.positions.batch_service import BatchResult
+    from app.modules.users.staff_import_service import commit_import
 
     db = _mock_db_no_users()
     parsed = FakeParsed(
@@ -183,8 +189,6 @@ async def test_apply_rules_called_after_commit():
         ]
     )
 
-    fake_apply = AsyncMock(return_value=BatchResult(users_processed=1, added=2))
-
     call_order: list[str] = []
 
     async def track_commit(*a, **kw):
@@ -196,19 +200,16 @@ async def test_apply_rules_called_after_commit():
 
     db.commit = AsyncMock(side_effect=track_commit)
 
-    with patch(
-        "app.modules.positions.batch_service.apply_rules_for_users",
-        side_effect=track_apply,
-    ), patch(
-        "app.core.redis_progress.new_task_id", return_value="tid"
-    ), patch(
-        "app.core.redis_progress.init_task", new=AsyncMock()
-    ), patch(
-        "app.core.redis_progress.mark_started", new=AsyncMock()
-    ), patch(
-        "app.core.redis_progress.increment_done", new=AsyncMock()
-    ), patch(
-        "app.core.redis_progress.mark_success", new=AsyncMock()
+    with (
+        patch(
+            "app.modules.positions.batch_service.apply_rules_for_users",
+            side_effect=track_apply,
+        ),
+        patch("app.core.redis_progress.new_task_id", return_value="tid"),
+        patch("app.core.redis_progress.init_task", new=AsyncMock()),
+        patch("app.core.redis_progress.mark_started", new=AsyncMock()),
+        patch("app.core.redis_progress.increment_done", new=AsyncMock()),
+        patch("app.core.redis_progress.mark_success", new=AsyncMock()),
     ):
         await commit_import(db, uuid4(), parsed)
 
@@ -257,8 +258,8 @@ async def test_apply_rules_called_in_chunks_of_at_most_50():
     fix must invoke apply_rules_for_users with batches of
     at most 50 user_ids each (3 calls: 50, 50, 30).
     """
-    from app.modules.users.staff_import_service import commit_import
     from app.modules.positions.batch_service import BatchResult
+    from app.modules.users.staff_import_service import commit_import
 
     db = _mock_db_no_users()
     parsed = FakeParsed(
@@ -276,19 +277,16 @@ async def test_apply_rules_called_in_chunks_of_at_most_50():
 
     fake_apply = AsyncMock(return_value=BatchResult(users_processed=50, added=0))
 
-    with patch(
-        "app.modules.positions.batch_service.apply_rules_for_users",
-        fake_apply,
-    ), patch(
-        "app.core.redis_progress.new_task_id", return_value="tid"
-    ), patch(
-        "app.core.redis_progress.init_task", new=AsyncMock()
-    ), patch(
-        "app.core.redis_progress.mark_started", new=AsyncMock()
-    ), patch(
-        "app.core.redis_progress.increment_done", new=AsyncMock()
-    ), patch(
-        "app.core.redis_progress.mark_success", new=AsyncMock()
+    with (
+        patch(
+            "app.modules.positions.batch_service.apply_rules_for_users",
+            fake_apply,
+        ),
+        patch("app.core.redis_progress.new_task_id", return_value="tid"),
+        patch("app.core.redis_progress.init_task", new=AsyncMock()),
+        patch("app.core.redis_progress.mark_started", new=AsyncMock()),
+        patch("app.core.redis_progress.increment_done", new=AsyncMock()),
+        patch("app.core.redis_progress.mark_success", new=AsyncMock()),
     ):
         await commit_import(db, uuid4(), parsed)
 
@@ -311,7 +309,6 @@ async def test_import_succeeds_even_if_apply_rules_fails():
     carries the import summary.
     """
     from app.modules.users.staff_import_service import commit_import
-    from app.modules.positions.batch_service import BatchResult
 
     db = _mock_db_no_users()
     parsed = FakeParsed(
@@ -329,19 +326,16 @@ async def test_import_succeeds_even_if_apply_rules_fails():
     async def boom(*a, **kw):
         raise RuntimeError("simulated apply-rules failure")
 
-    with patch(
-        "app.modules.positions.batch_service.apply_rules_for_users",
-        side_effect=boom,
-    ), patch(
-        "app.core.redis_progress.new_task_id", return_value="tid"
-    ), patch(
-        "app.core.redis_progress.init_task", new=AsyncMock()
-    ), patch(
-        "app.core.redis_progress.mark_started", new=AsyncMock()
-    ), patch(
-        "app.core.redis_progress.increment_failed", new=AsyncMock()
-    ), patch(
-        "app.core.redis_progress.mark_failure", new=AsyncMock()
+    with (
+        patch(
+            "app.modules.positions.batch_service.apply_rules_for_users",
+            side_effect=boom,
+        ),
+        patch("app.core.redis_progress.new_task_id", return_value="tid"),
+        patch("app.core.redis_progress.init_task", new=AsyncMock()),
+        patch("app.core.redis_progress.mark_started", new=AsyncMock()),
+        patch("app.core.redis_progress.increment_failed", new=AsyncMock()),
+        patch("app.core.redis_progress.mark_failure", new=AsyncMock()),
     ):
         # The fix must NOT propagate this — the import has
         # already committed and we must return the import summary.

@@ -1,5 +1,6 @@
 import json
 from functools import lru_cache
+from urllib.parse import urlsplit
 
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -11,6 +12,11 @@ class Settings(BaseSettings):
     # App
     APP_NAME: str = "Kamilya LMS"
     APP_ENV: str = "development"
+    # APP_ENV controls application behavior. These fields identify the actual
+    # deployment and release so monitors cannot mistake a legacy provider for
+    # the authoritative KZ runtime.
+    DEPLOYMENT_ENVIRONMENT: str = "local"
+    RELEASE_SHA: str = ""
     DEBUG: bool = False
     API_PREFIX: str = "/api/v1"
 
@@ -84,7 +90,23 @@ class Settings(BaseSettings):
     MINIO_BUCKET: str = "lms-content"
     MINIO_USE_SSL: bool = False
 
-    # Qwen (via Cloudflare tunnel) — fallback LLM and embeddings provider
+    # Free private vLLM pool for user-facing generation. These endpoints are
+    # reachable only from the approved WireGuard/VPS contour. Keep the pool
+    # disabled on Render or any runtime without that route: the existing
+    # DeepSeek/Qwen chain remains available as the fallback.
+    FREE_LLM_POOL_ENABLED: bool = False
+    FREE_LLM_QWEN38_URL: str = "http://10.66.66.30:8002/v1"
+    FREE_LLM_QWEN38_MODEL: str = "unsloth/Qwen3.8-27B-NVFP4"
+    FREE_LLM_THINKINGCAP_URL: str = "http://10.66.66.20:8000/v1"
+    FREE_LLM_THINKINGCAP_MODEL: str = "morosystems/ThinkingCap-Qwen3.6-27B-NVFP4"
+    FREE_LLM_NVFP4_URL: str = "http://10.66.66.15:8000/v1"
+    FREE_LLM_NVFP4_MODEL: str = "nvidia/Qwen3.6-35B-A3B-NVFP4"
+    FREE_LLM_CONNECT_TIMEOUT_SECONDS: float = Field(default=3.0, ge=1.0, le=15.0)
+    FREE_LLM_REQUEST_TIMEOUT_SECONDS: float = Field(default=600.0, ge=30.0, le=900.0)
+
+    # Qwen 35B AWQ is the third free model and the established self-hosted
+    # provider. It is deliberately reused rather than added to the chain a
+    # second time under another name.
     QWEN_API_URL: str = "https://qwen.kml.kz/v1"
     QWEN_EMBEDDING_URL: str = "https://qwen-embed.kml.kz/v1"
     EMBEDDING_URL: str = "https://qwen-embed.kml.kz/v1"
@@ -95,8 +117,9 @@ class Settings(BaseSettings):
     LLM_API_KEY: str = ""
     LLM_MODEL: str = "cyankiwi/Qwen3.6-35B-A3B-AWQ-4bit"
 
-    # DeepSeek — primary managed LLM. Activated when DEEPSEEK_API_KEY is set;
-    # Qwen remains the fallback. Pricing (per 1M tokens, July 2026):
+    # DeepSeek — managed reliability fallback. Activated when
+    # DEEPSEEK_API_KEY is set. When the private free pool is disabled, the
+    # legacy order remains DeepSeek -> Qwen. Pricing (per 1M tokens, July 2026):
     #   deepseek-v4-flash  $0.14 in / $0.28 out
     #   deepseek-v4-pro    $0.435 in / $0.87 out
     # Endpoint is OpenAI-compatible (https://api.deepseek.com/v1).
@@ -156,6 +179,7 @@ class Settings(BaseSettings):
         "http://localhost:3001",
         "https://web-inky-three-48.vercel.app",
         "https://web-natt1inhm-kamillalmscrms-projects.vercel.app",
+        "https://kamilya-lms-dev.vercel.app",
         "https://app.kml.kz",
         "https://www.kml.kz",
     ]
@@ -193,6 +217,14 @@ class Settings(BaseSettings):
             raise ValueError("CRM_WEBHOOK_URL must use HTTPS in production")
         if self.APP_ENV.lower() == "production" and self.CRM_WEBHOOK_SECRET and len(self.CRM_WEBHOOK_SECRET) < 32:
             raise ValueError("CRM_WEBHOOK_SECRET must be at least 32 characters in production")
+        if self.APP_ENV.lower() == "production":
+            if self.SCORM_CONTENT_ORIGIN:
+                scorm = urlsplit(self.SCORM_CONTENT_ORIGIN)
+                if scorm.scheme != "https":
+                    raise ValueError("SCORM_CONTENT_ORIGIN must use HTTPS in production")
+                public = urlsplit(self.PUBLIC_URL.rstrip("/"))
+                if (scorm.scheme.lower(), scorm.netloc.lower()) == (public.scheme.lower(), public.netloc.lower()):
+                    raise ValueError("SCORM_CONTENT_ORIGIN must be a separate origin from PUBLIC_URL")
         return self
 
     # Celery
@@ -218,6 +250,32 @@ class Settings(BaseSettings):
 
     # Storage
     CERTIFICATE_STORAGE_DIR: str = "storage/certificates"
+
+    # Dedicated, cookieless origin used exclusively for tenant-uploaded SCORM
+    # HTML/JavaScript. Production routes only the scoped SCORM endpoints there;
+    # it must never share app/API auth cookies or browser storage.
+    SCORM_CONTENT_ORIGIN: str = ""
+
+    @field_validator("SCORM_CONTENT_ORIGIN", mode="before")
+    @classmethod
+    def normalize_scorm_content_origin(cls, value):
+        if value is None:
+            return ""
+        origin = str(value).strip().rstrip("/")
+        if not origin:
+            return ""
+        parsed = urlsplit(origin)
+        if (
+            parsed.scheme not in {"http", "https"}
+            or not parsed.netloc
+            or parsed.path
+            or parsed.query
+            or parsed.fragment
+            or parsed.username
+            or parsed.password
+        ):
+            raise ValueError("SCORM_CONTENT_ORIGIN must be an origin without credentials, path, query, or fragment")
+        return origin
 
     # Public URL — used to build invite links (e.g. /accept-invite?token=...)
     # Defaults to app.kml.kz in production. Override in .env for staging.

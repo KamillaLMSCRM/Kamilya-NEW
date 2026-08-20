@@ -65,6 +65,7 @@ export default function KioskPage() {
   const [loading, setLoading] = useState(true);
 
   const [personnelNumber, setPersonnelNumber] = useState('');
+  const [pin, setPin] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -80,6 +81,7 @@ export default function KioskPage() {
     previousAuthRef.current = null;
     setResult(null);
     setPersonnelNumber('');
+    setPin('');
     setError('');
     setSessionExpired(true);
   }, []);
@@ -117,14 +119,15 @@ export default function KioskPage() {
   const handleIdentify = useCallback(async () => {
     setError('');
     if (!token) return;
-    if (!personnelNumber.trim()) {
-      setError('Введите табельный номер');
+    if (!personnelNumber.trim() || !/^\d{6}$/.test(pin)) {
+      setError('Введите табельный номер и шестизначный PIN');
       return;
     }
     setSubmitting(true);
     try {
       const res = await api.post(`/v1/kiosks/${encodeURIComponent(token)}/identify`, {
         personnel_number: personnelNumber.trim(),
+        pin,
       });
       setResult(res.data);
       previousAuthRef.current = getStoredAuth();
@@ -145,7 +148,7 @@ export default function KioskPage() {
     } finally {
       setSubmitting(false);
     }
-  }, [token, personnelNumber]);
+  }, [token, personnelNumber, pin]);
 
   const handleBack = () => {
     if (typeof window !== 'undefined') sessionStorage.removeItem('kamilya_kiosk_session');
@@ -155,6 +158,7 @@ export default function KioskPage() {
     previousAuthRef.current = null;
     setResult(null);
     setPersonnelNumber('');
+    setPin('');
     setError('');
     setSessionExpired(false);
   };
@@ -307,7 +311,7 @@ export default function KioskPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-center text-sm text-muted-foreground">
-            Введите ваш <strong>табельный номер</strong> чтобы увидеть назначенные курсы.
+            Введите ваш <strong>табельный номер</strong> и отдельный PIN для киоска, чтобы увидеть назначенные курсы.
             {kiosk.scope_position_name && (
               <span className="block text-xs text-warning mt-1">
                 Этот киоск только для должности: <strong>{kiosk.scope_position_name}</strong>
@@ -330,6 +334,21 @@ export default function KioskPage() {
             />
           </label>
 
+          <label className="block">
+            <span className="block text-xs font-semibold text-muted-foreground mb-1">PIN для киоска</span>
+            <Input
+              value={pin}
+              onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              placeholder="6 цифр"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              className="text-lg tracking-[0.35em]"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && personnelNumber.trim() && /^\d{6}$/.test(pin)) handleIdentify();
+              }}
+            />
+          </label>
+
           {error && (
             <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
               {error}
@@ -338,7 +357,7 @@ export default function KioskPage() {
 
           <Button
             onClick={handleIdentify}
-            disabled={submitting || !personnelNumber.trim()}
+            disabled={submitting || !personnelNumber.trim() || !/^\d{6}$/.test(pin)}
             className="w-full"
           >
             {submitting ? 'Проверяю...' : 'Показать курсы'}

@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
 import pytest
+from argon2 import PasswordHasher
 
 
 @pytest.mark.asyncio
@@ -65,3 +66,38 @@ async def test_admin_can_list_positions_for_kiosk_scope():
             "department": "QA Warehouse",
         }
     ]
+
+
+@pytest.mark.asyncio
+async def test_admin_issues_one_time_kiosk_pin_without_storing_clear_value():
+    from app.modules.users.kiosk_service import issue_kiosk_user_pin
+
+    tenant_id, user_id, actor_id = uuid4(), uuid4(), uuid4()
+    learner = SimpleNamespace(
+        id=user_id,
+        tenant_id=tenant_id,
+        role="student",
+        is_active=True,
+        status="active",
+        personnel_number="EMP-1042",
+    )
+    db = MagicMock()
+    db.scalar = AsyncMock(side_effect=[learner, None])
+    db.flush = AsyncMock()
+
+    result = await issue_kiosk_user_pin(
+        db,
+        tenant_id=tenant_id,
+        user_id=user_id,
+        issued_by=actor_id,
+    )
+
+    assert result is not None
+    assert result["user_id"] == user_id
+    assert result["personnel_number_masked"] == "******42"
+    assert result["temporary_pin"].isdigit()
+    assert len(result["temporary_pin"]) == 6
+    credential = db.add.call_args.args[0]
+    assert result["temporary_pin"] not in credential.pin_hash
+    assert PasswordHasher().verify(credential.pin_hash, result["temporary_pin"])
+    db.flush.assert_awaited_once()

@@ -1,4 +1,5 @@
 """Unit coverage for the canonical staff import hierarchy."""
+
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -107,15 +108,16 @@ def _parsed(*rows: ParsedRow) -> ParsedFile:
 
 async def _commit(db, tenant_id, parsed):
     fake_apply = AsyncMock(return_value=SimpleNamespace(added=0, removed=0))
-    with patch(
-        "app.modules.positions.batch_service.apply_rules_for_users",
-        fake_apply,
-    ), patch(
-        "app.core.redis_progress.new_task_id", return_value="staff-task"
-    ), patch("app.core.redis_progress.init_task", new=AsyncMock()), patch(
-        "app.core.redis_progress.mark_started", new=AsyncMock()
-    ), patch("app.core.redis_progress.increment_done", new=AsyncMock()), patch(
-        "app.core.redis_progress.mark_success", new=AsyncMock()
+    with (
+        patch(
+            "app.modules.positions.batch_service.apply_rules_for_users",
+            fake_apply,
+        ),
+        patch("app.core.redis_progress.new_task_id", return_value="staff-task"),
+        patch("app.core.redis_progress.init_task", new=AsyncMock()),
+        patch("app.core.redis_progress.mark_started", new=AsyncMock()),
+        patch("app.core.redis_progress.increment_done", new=AsyncMock()),
+        patch("app.core.redis_progress.mark_success", new=AsyncMock()),
     ):
         result = await commit_import(db, tenant_id, parsed)
     return result
@@ -123,15 +125,16 @@ async def _commit(db, tenant_id, parsed):
 
 async def _manual(db, tenant_id, **kwargs):
     fake_apply = AsyncMock(return_value=SimpleNamespace(added=0, removed=0))
-    with patch(
-        "app.modules.positions.batch_service.apply_rules_for_users",
-        fake_apply,
-    ), patch(
-        "app.core.redis_progress.new_task_id", return_value="staff-task"
-    ), patch("app.core.redis_progress.init_task", new=AsyncMock()), patch(
-        "app.core.redis_progress.mark_started", new=AsyncMock()
-    ), patch("app.core.redis_progress.increment_done", new=AsyncMock()), patch(
-        "app.core.redis_progress.mark_success", new=AsyncMock()
+    with (
+        patch(
+            "app.modules.positions.batch_service.apply_rules_for_users",
+            fake_apply,
+        ),
+        patch("app.core.redis_progress.new_task_id", return_value="staff-task"),
+        patch("app.core.redis_progress.init_task", new=AsyncMock()),
+        patch("app.core.redis_progress.mark_started", new=AsyncMock()),
+        patch("app.core.redis_progress.increment_done", new=AsyncMock()),
+        patch("app.core.redis_progress.mark_success", new=AsyncMock()),
     ):
         return await create_manual_staff_member(db, tenant_id, **kwargs)
 
@@ -224,9 +227,7 @@ async def test_preview_commit_repeat_and_manual_add_share_normalization():
 async def test_same_position_name_is_separate_per_department_and_tenant():
     tenant_a = uuid4()
     tenant_b = uuid4()
-    b_department = Department(
-        id=uuid4(), tenant_id=tenant_b, name="Operations", slug="operations"
-    )
+    b_department = Department(id=uuid4(), tenant_id=tenant_b, name="Operations", slug="operations")
     b_position = Position(
         id=uuid4(),
         tenant_id=tenant_b,
@@ -249,9 +250,7 @@ async def test_same_position_name_is_separate_per_department_and_tenant():
         is_active=True,
         position_id=b_position.id,
     )
-    db = _MemorySession(
-        users=[b_user], departments=[b_department], positions=[b_position]
-    )
+    db = _MemorySession(users=[b_user], departments=[b_department], positions=[b_position])
 
     result = await _commit(
         db,

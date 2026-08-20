@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+import pytest
+from docx import Document
+
 from app.modules.ai.ingestion import DocumentConverter
+from app.modules.documents.archive_preflight import ArchivePreflightError
 
 
 class _Response:
@@ -37,7 +41,9 @@ class _Client:
 
 async def test_remote_converter_preserves_engine_metadata(tmp_path, monkeypatch) -> None:
     source = tmp_path / "policy.docx"
-    source.write_bytes(b"PK fixture")
+    document = Document()
+    document.add_paragraph("Approved policy")
+    document.save(source)
     monkeypatch.setattr("httpx.AsyncClient", _Client)
 
     converted = await DocumentConverter("https://converter.example").convert(str(source))
@@ -45,7 +51,7 @@ async def test_remote_converter_preserves_engine_metadata(tmp_path, monkeypatch)
     assert converted["markdown"] == "# Policy"
     assert converted["metadata"] == {
         "filename": "policy.docx",
-        "size": len(b"PK fixture"),
+        "size": source.stat().st_size,
         "pages": 2,
         "tables": 1,
         "engine": "markitdown",
@@ -55,3 +61,20 @@ async def test_remote_converter_preserves_engine_metadata(tmp_path, monkeypatch)
         "profile": "office",
         "routing_reason": "office-docling-fallback",
     }
+
+
+@pytest.mark.asyncio
+async def test_invalid_ooxml_is_rejected_before_remote_converter(
+    tmp_path, monkeypatch
+) -> None:
+    source = tmp_path / "policy.docx"
+    source.write_bytes(b"PK fixture")
+
+    async def unexpected_post(*args, **kwargs):
+        raise AssertionError("remote converter must not receive invalid OOXML")
+
+    monkeypatch.setattr(_Client, "post", unexpected_post)
+    monkeypatch.setattr("httpx.AsyncClient", _Client)
+
+    with pytest.raises(ArchivePreflightError):
+        await DocumentConverter("https://converter.example").convert(str(source))

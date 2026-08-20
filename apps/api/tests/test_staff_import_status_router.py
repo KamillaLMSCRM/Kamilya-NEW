@@ -7,12 +7,12 @@ Covers:
   - empty / missing task_id → 400
   - the endpoint MUST NOT touch the DB (polling is pure Celery read)
 """
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 
 # ── 1. SUCCESS: body passes through unchanged when dict ──────
 
@@ -43,8 +43,10 @@ async def test_success_state_passes_dict_through():
     async def fake_redis_get_task(_tid):
         return None
 
-    with patch("app.modules.users.staff_import_router.AsyncResult", return_value=fake_result), \
-         patch("app.core.redis_progress.get_task", side_effect=fake_redis_get_task):
+    with (
+        patch("app.modules.users.staff_import_router.AsyncResult", return_value=fake_result),
+        patch("app.core.redis_progress.get_task", side_effect=fake_redis_get_task),
+    ):
         resp = await get_apply_rules_status(
             task_id="abc-123",
             user=user,
@@ -79,8 +81,10 @@ async def test_failure_state_extracts_error_message():
     async def fake_redis_get_task(_tid):
         return None
 
-    with patch("app.modules.users.staff_import_router.AsyncResult", return_value=fake_result), \
-         patch("app.core.redis_progress.get_task", side_effect=fake_redis_get_task):
+    with (
+        patch("app.modules.users.staff_import_router.AsyncResult", return_value=fake_result),
+        patch("app.core.redis_progress.get_task", side_effect=fake_redis_get_task),
+    ):
         resp = await get_apply_rules_status(task_id="xyz", user=user)
 
     assert resp.state == "FAILURE"
@@ -109,8 +113,10 @@ async def test_pending_state_returns_minimal_payload():
     async def fake_redis_get_task(_tid):
         return None
 
-    with patch("app.modules.users.staff_import_router.AsyncResult", return_value=fake_result), \
-         patch("app.core.redis_progress.get_task", side_effect=fake_redis_get_task):
+    with (
+        patch("app.modules.users.staff_import_router.AsyncResult", return_value=fake_result),
+        patch("app.core.redis_progress.get_task", side_effect=fake_redis_get_task),
+    ):
         resp = await get_apply_rules_status(task_id="t1", user=user)
 
     assert resp.state == "PENDING"
@@ -157,8 +163,10 @@ async def test_revoked_state_handled():
     async def fake_redis_get_task(_tid):
         return None
 
-    with patch("app.modules.users.staff_import_router.AsyncResult", return_value=fake_result), \
-         patch("app.core.redis_progress.get_task", side_effect=fake_redis_get_task):
+    with (
+        patch("app.modules.users.staff_import_router.AsyncResult", return_value=fake_result),
+        patch("app.core.redis_progress.get_task", side_effect=fake_redis_get_task),
+    ):
         resp = await get_apply_rules_status(task_id="rev", user=user)
 
     # REVOKED is in the terminal bucket but doesn't carry a useful result.

@@ -14,25 +14,27 @@ Endpoints:
     POST  /kiosks/{token}/identify           body: {personnel_number} → returns
                                               user identity + assigned courses
 """
+from datetime import datetime
 from uuid import UUID
-from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException, Body, Query, Request
+
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.auth import get_current_user, require_role
+from app.core.auth import require_role
 from app.core.db import get_db
 from app.models.users import User
 from app.modules.users.kiosk_service import (
     create_kiosk_link,
-    list_kiosk_links,
-    get_kiosk_link,
-    update_kiosk_link,
     delete_kiosk_link,
-    list_kiosk_access_logs,
     establish_public_kiosk_tenant_context,
     get_public_kiosk,
     identify_at_kiosk,
+    issue_kiosk_user_pin,
+    list_kiosk_access_logs,
+    list_kiosk_links,
+    list_kiosk_pin_users,
+    update_kiosk_link,
 )
 
 admin_router = APIRouter(prefix="/admin/kiosks", tags=["kiosks-admin"])
@@ -73,7 +75,7 @@ class KioskAccessLogResponse(BaseModel):
     kiosk_id: UUID
     kiosk_name: str
     user_id: UUID | None = None
-    personnel_number: str | None = None
+    personnel_number_masked: str | None = None
     success: bool
     reason: str | None = None
     ip_address: str | None = None
@@ -84,6 +86,20 @@ class KioskScopePositionResponse(BaseModel):
     id: UUID
     name: str
     department: str | None = None
+
+
+class KioskPinUserResponse(BaseModel):
+    user_id: UUID
+    full_name: str
+    personnel_number_masked: str | None = None
+    has_kiosk_pin: bool
+
+
+class KioskPinIssueResponse(BaseModel):
+    user_id: UUID
+    personnel_number_masked: str | None = None
+    temporary_pin: str
+    issued_at: datetime
 
 
 def _to_response(link, base_url: str, scope_position_name: str | None = None) -> dict:
@@ -208,6 +224,33 @@ async def kiosk_access_logs(
     return await list_kiosk_access_logs(db, user.tenant_id, kiosk_id=kiosk_id, limit=limit)
 
 
+@admin_router.get("/pin-users", response_model=list[KioskPinUserResponse])
+async def kiosk_pin_users(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_role("admin", "superadmin")),
+):
+    """List active tenant learners that can receive a kiosk-only PIN."""
+    return await list_kiosk_pin_users(db, user.tenant_id)
+
+
+@admin_router.post("/pin-users/{user_id}/issue", response_model=KioskPinIssueResponse, status_code=201)
+async def issue_kiosk_pin(
+    user_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_role("admin", "superadmin")),
+):
+    """Issue or rotate a learner's kiosk PIN; clear PIN is returned once."""
+    result = await issue_kiosk_user_pin(
+        db,
+        tenant_id=user.tenant_id,
+        user_id=user_id,
+        issued_by=user.id,
+    )
+    if result is None:
+        raise HTTPException(status_code=404, detail="Eligible learner not found")
+    return result
+
+
 @admin_router.patch("/{kiosk_id}", response_model=KioskLinkResponse)
 async def update_kiosk(
     kiosk_id: UUID,
@@ -263,6 +306,7 @@ class KioskPublicView(BaseModel):
 
 class KioskIdentifyRequest(BaseModel):
     personnel_number: str = Field(..., min_length=1, max_length=64)
+    pin: str = Field(..., min_length=6, max_length=6, pattern=r"^\d{6}$")
 
 
 class KioskIdentifyResponse(BaseModel):
@@ -303,10 +347,10 @@ async def identify_kiosk(
     payload: KioskIdentifyRequest = Body(...),
     db: AsyncSession = Depends(get_db),
 ):
-    """Worker enters their tab number → server returns identity + assigned courses.
+    """Exchange a tab number plus separately issued PIN for kiosk course access.
 
-    No auth required. The kiosk URL is the public credential (it's printed
-    on a wall); personnel_number is the per-user credential.
+    The kiosk URL is public and the personnel number is only an identifier.
+    The PIN is a separate per-user credential with server-side lockout.
     """
     tenant_id = await establish_public_kiosk_tenant_context(db, token)
     if tenant_id is None:
@@ -315,6 +359,7 @@ async def identify_kiosk(
         db,
         token,
         payload.personnel_number,
+        payload.pin,
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent"),
     )

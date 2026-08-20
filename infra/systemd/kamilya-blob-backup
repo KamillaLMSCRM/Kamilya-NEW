@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+umask 077
+
+ENV_FILE=${KAMILYA_BLOB_BACKUP_ENV:-/etc/kamilya/blob-backup.env}
+test -r "$ENV_FILE"
+# shellcheck source=/dev/null
+source "$ENV_FILE"
+
+: "${BLOB_BACKUP_SOURCE:?set BLOB_BACKUP_SOURCE}"
+: "${BLOB_BACKUP_TARGET:?set BLOB_BACKUP_TARGET}"
+: "${BLOB_BACKUP_IDENTITY:?set BLOB_BACKUP_IDENTITY}"
+
+test -d "$BLOB_BACKUP_SOURCE"
+test -r "$BLOB_BACKUP_IDENTITY"
+[[ "$BLOB_BACKUP_TARGET" =~ ^root@[0-9a-zA-Z.-]+$ ]]
+
+stamp=$(date -u +%Y%m%dT%H%M%SZ)
+filename="kamilya_blobs_${stamp}.tar.gz.gpg"
+
+remote_script=$(cat <<EOF
+set -Eeuo pipefail
+umask 077
+backup_dir=/var/backups/kamilya-blobs
+passfile=/root/kamilya-backup.pass
+final="\$backup_dir/$filename"
+test -s "\$passfile"
+install -d -m 0700 -o root -g root "\$backup_dir"
+work=\$(mktemp -d /tmp/kamilya-blob-backup.XXXXXX)
+trap 'rm -rf "\$work"' EXIT
+install -d -m 0700 "\$work/gnupg"
+GNUPGHOME="\$work/gnupg" gpg --batch --yes --pinentry-mode loopback --passphrase-file "\$passfile" --symmetric --cipher-algo AES256 --output "\$final.tmp"
+GNUPGHOME="\$work/gnupg" gpg --batch --quiet --yes --pinentry-mode loopback --passphrase-file "\$passfile" --decrypt "\$final.tmp" | tar -tzf - >/dev/null
+mv "\$final.tmp" "\$final"
+chmod 0600 "\$final"
+sha256sum "\$final" > "\$final.sha256"
+chmod 0600 "\$final.sha256"
+find "\$backup_dir" -maxdepth 1 -type f -name '*.tar.gz.gpg' -mtime +30 -delete
+find "\$backup_dir" -maxdepth 1 -type f -name '*.tar.gz.gpg.sha256' -mtime +30 -delete
+stat -c 'backup=%n mode=%a size=%s' "\$final"
+EOF
+)
+
+tar --numeric-owner -C "$BLOB_BACKUP_SOURCE" -czf - . \
+  | timeout 1800 ssh \
+      -i "$BLOB_BACKUP_IDENTITY" \
+      -o IdentitiesOnly=yes \
+      -o StrictHostKeyChecking=yes \
+      -o UserKnownHostsFile=/root/.ssh/known_hosts.ct125 \
+      "$BLOB_BACKUP_TARGET" "$remote_script"

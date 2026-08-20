@@ -32,11 +32,25 @@ interface KioskAccessLog {
   id: string;
   kiosk_id: string;
   kiosk_name: string;
-  personnel_number: string | null;
+  personnel_number_masked: string | null;
   success: boolean;
   reason: string | null;
   ip_address: string | null;
   created_at: string;
+}
+
+interface KioskPinUser {
+  user_id: string;
+  full_name: string;
+  personnel_number_masked: string | null;
+  has_kiosk_pin: boolean;
+}
+
+interface IssuedKioskPin {
+  user_id: string;
+  personnel_number_masked: string | null;
+  temporary_pin: string;
+  issued_at: string;
 }
 
 export default function AdminKiosksPage() {
@@ -47,6 +61,10 @@ export default function AdminKiosksPage() {
   const [accessLogs, setAccessLogs] = useState<KioskAccessLog[]>([]);
   const [qrByKioskId, setQrByKioskId] = useState<Record<string, string>>({});
   const [positions, setPositions] = useState<Position[]>([]);
+  const [pinUsers, setPinUsers] = useState<KioskPinUser[]>([]);
+  const [pinUserId, setPinUserId] = useState('');
+  const [issuingPin, setIssuingPin] = useState(false);
+  const [issuedPin, setIssuedPin] = useState<IssuedKioskPin | null>(null);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -85,11 +103,21 @@ export default function AdminKiosksPage() {
     } catch {}
   }, []);
 
+  const fetchPinUsers = useCallback(async () => {
+    try {
+      const res = await api.get('/v1/admin/kiosks/pin-users');
+      setPinUsers(Array.isArray(res.data) ? res.data : []);
+    } catch {
+      toast.error('Не удалось загрузить сотрудников для PIN');
+    }
+  }, []);
+
   useEffect(() => {
     fetchKiosks();
     fetchPositions();
     fetchAccessLogs();
-  }, [fetchKiosks, fetchPositions, fetchAccessLogs]);
+    fetchPinUsers();
+  }, [fetchKiosks, fetchPositions, fetchAccessLogs, fetchPinUsers]);
 
   useEffect(() => {
     let cancelled = false;
@@ -161,10 +189,10 @@ export default function AdminKiosksPage() {
     }
   };
 
-  const copyKioskUrl = async (url: string) => {
+  const copyText = async (value: string, successMessage: string) => {
     try {
-      await navigator.clipboard.writeText(url);
-      toast.success('Ссылка скопирована');
+      await navigator.clipboard.writeText(value);
+      toast.success(successMessage);
     } catch {
       toast.error('Не удалось скопировать');
     }
@@ -194,6 +222,22 @@ export default function AdminKiosksPage() {
     w.document.write(html);
     w.document.close();
     w.focus();
+  };
+
+  const handleIssuePin = async () => {
+    if (!pinUserId || issuingPin) return;
+    setIssuingPin(true);
+    setIssuedPin(null);
+    try {
+      const res = await api.post(`/v1/admin/kiosks/pin-users/${pinUserId}/issue`);
+      setIssuedPin(res.data);
+      await fetchPinUsers();
+      toast.success('Новый PIN выпущен');
+    } catch {
+      toast.error('Не удалось выпустить PIN');
+    } finally {
+      setIssuingPin(false);
+    }
   };
 
   return (
@@ -249,7 +293,7 @@ export default function AdminKiosksPage() {
                         />
                         <button
                           type="button"
-                          onClick={() => copyKioskUrl(k.kiosk_url)}
+                          onClick={() => copyText(k.kiosk_url, 'Ссылка скопирована')}
                           className="text-xs px-2 py-0.5 rounded border border-border hover:bg-muted"
                           title="Скопировать"
                         >
@@ -313,6 +357,66 @@ export default function AdminKiosksPage() {
 
       <Card>
         <CardHeader>
+          <CardTitle>PIN сотрудников для киоска</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Табельный номер идентифицирует сотрудника, но не является паролем. Выпустите отдельный
+            шестизначный PIN и передайте его сотруднику безопасным каналом.
+          </p>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <select
+              aria-label="Сотрудник для PIN"
+              value={pinUserId}
+              onChange={(event) => {
+                setPinUserId(event.target.value);
+                setIssuedPin(null);
+              }}
+              className="min-w-0 flex-1 rounded-xl border border-border bg-card px-3 py-2 text-sm"
+            >
+              <option value="">Выберите сотрудника</option>
+              {pinUsers.map((pinUser) => (
+                <option key={pinUser.user_id} value={pinUser.user_id}>
+                  {pinUser.full_name} · {pinUser.personnel_number_masked || 'без номера'}
+                  {pinUser.has_kiosk_pin ? ' · PIN уже выпускался' : ''}
+                </option>
+              ))}
+            </select>
+            <Button onClick={handleIssuePin} disabled={!pinUserId || issuingPin}>
+              {issuingPin
+                ? 'Выпускаю...'
+                : pinUsers.find((item) => item.user_id === pinUserId)?.has_kiosk_pin
+                  ? 'Перевыпустить PIN'
+                  : 'Выпустить PIN'}
+            </Button>
+          </div>
+          {issuedPin && (
+            <div className="rounded-xl border border-warning/40 bg-warning/10 p-4" role="status">
+              <div className="text-sm font-semibold text-foreground">Скопируйте PIN сейчас</div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                После закрытия блока PIN повторно не показывается. Перевыпуск немедленно заменит предыдущий PIN.
+              </p>
+              <div className="mt-3 flex items-center gap-3">
+                <code className="rounded-lg bg-card px-4 py-2 text-2xl font-bold tracking-[0.3em]">
+                  {issuedPin.temporary_pin}
+                </code>
+                <Button
+                  variant="outline"
+                  onClick={() => copyText(issuedPin.temporary_pin, 'PIN скопирован')}
+                >
+                  Копировать
+                </Button>
+                <Button variant="outline" onClick={() => setIssuedPin(null)}>
+                  Скрыть
+                </Button>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle>Журнал киоска</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
@@ -324,7 +428,7 @@ export default function AdminKiosksPage() {
                 <tr>
                   <th className="text-left p-3">Время</th>
                   <th className="text-left p-3">Киоск</th>
-                  <th className="text-left p-3">Табельный номер</th>
+                  <th className="text-left p-3">Маскированный номер</th>
                   <th className="text-left p-3">Результат</th>
                   <th className="text-left p-3">IP</th>
                 </tr>
@@ -336,7 +440,7 @@ export default function AdminKiosksPage() {
                       {new Date(log.created_at).toLocaleString('ru-RU')}
                     </td>
                     <td className="p-3 text-sm">{log.kiosk_name}</td>
-                    <td className="p-3 text-sm font-mono">{log.personnel_number || '—'}</td>
+                    <td className="p-3 text-sm font-mono">{log.personnel_number_masked || '—'}</td>
                     <td className="p-3">
                       {log.success ? (
                         <Badge variant="default" className="bg-success/15 text-success">Успешно</Badge>

@@ -6,6 +6,7 @@ from uuid import uuid4
 
 import pytest
 from fastapi import HTTPException
+from starlette.requests import Request
 
 from app.modules.enrollments.access_service import AssignmentWindowExpiredError
 from app.modules.learner_assistant import router as assistant_router
@@ -115,6 +116,19 @@ async def test_scorm_commit_rejects_attempt_from_another_package(monkeypatch):
         await scorm_router.commit_scorm_attempt(
             str(attempt.id),
             ScormCommitRequest(cmi={"cmi.core.lesson_status": "incomplete"}),
+            Request(
+                {
+                    "type": "http",
+                    "method": "POST",
+                    "scheme": "http",
+                    "path": "/api/v1/scorm/attempts/test/commit",
+                    "raw_path": b"/api/v1/scorm/attempts/test/commit",
+                    "query_string": b"",
+                    "headers": [(b"host", b"testserver")],
+                    "server": ("testserver", 80),
+                    "client": ("127.0.0.1", 50000),
+                }
+            ),
             token="signed-package-a-token",
             db=db,
         )

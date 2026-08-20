@@ -23,11 +23,13 @@ import secrets
 from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
+from argon2 import PasswordHasher
+from argon2.exceptions import VerifyMismatchError
 from fastapi import HTTPException
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.auth import create_access_token
+from app.core.auth import create_scoped_token
 from app.models.enrollment import Enrollment
 from app.models.users import User
 from app.modules.positions.models import Position, PositionCourse
@@ -37,6 +39,11 @@ from app.modules.positions.models import Position, PositionCourse
 # open for the next user. 20 min sits in the middle of the
 # window and gives enough time to actually watch a course.
 KIOSK_JWT_TTL_MINUTES = 20
+KIOSK_PIN_HASHER = PasswordHasher()
+KIOSK_PIN_LOCKOUT = timedelta(minutes=15)
+KIOSK_PIN_MAX_ATTEMPTS = 5
+KIOSK_AUTH_FAILED = "Неверный табельный номер или PIN"
+_DUMMY_KIOSK_PIN_HASH = KIOSK_PIN_HASHER.hash("000000")
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +54,107 @@ logger = logging.getLogger(__name__)
 def _generate_kiosk_token() -> str:
     """24-char URL-safe token. ~144 bits entropy (still infeasible to brute force)."""
     return secrets.token_urlsafe(16)
+
+
+def _masked_personnel_number(value: str | None) -> str | None:
+    normalized = (value or "").strip()
+    if not normalized:
+        return None
+    if len(normalized) <= 2:
+        return "*" * len(normalized)
+    return f"{'*' * (len(normalized) - 2)}{normalized[-2:]}"
+
+
+def _kiosk_auth_error() -> HTTPException:
+    return HTTPException(status_code=401, detail=KIOSK_AUTH_FAILED)
+
+
+async def issue_kiosk_user_pin(
+    db: AsyncSession,
+    *,
+    tenant_id: UUID,
+    user_id: UUID,
+    issued_by: UUID,
+) -> dict | None:
+    """Issue or rotate a kiosk-only PIN and return its clear value once."""
+    from app.models.kiosk_link import KioskUserCredential
+
+    learner = await db.scalar(
+        select(User)
+        .where(
+            User.id == user_id,
+            User.tenant_id == tenant_id,
+            User.role == "student",
+            User.is_active.is_(True),
+            User.status == "active",
+            User.personnel_number.is_not(None),
+        )
+        .with_for_update()
+    )
+    if learner is None or not (learner.personnel_number or "").strip():
+        return None
+    credential = await db.scalar(
+        select(KioskUserCredential)
+        .where(
+            KioskUserCredential.tenant_id == tenant_id,
+            KioskUserCredential.user_id == user_id,
+        )
+        .with_for_update()
+    )
+    pin = f"{secrets.randbelow(1_000_000):06d}"
+    if credential is None:
+        credential = KioskUserCredential(
+            tenant_id=tenant_id,
+            user_id=user_id,
+            issued_by=issued_by,
+            pin_hash=KIOSK_PIN_HASHER.hash(pin),
+        )
+        db.add(credential)
+    else:
+        credential.pin_hash = KIOSK_PIN_HASHER.hash(pin)
+        credential.issued_by = issued_by
+        credential.revoked_at = None
+        credential.failed_attempts = 0
+        credential.locked_until = None
+    await db.flush()
+    return {
+        "user_id": learner.id,
+        "personnel_number_masked": _masked_personnel_number(learner.personnel_number),
+        "temporary_pin": pin,
+        "issued_at": datetime.now(UTC),
+    }
+
+
+async def list_kiosk_pin_users(db: AsyncSession, tenant_id: UUID) -> list[dict]:
+    """List active learners eligible for a kiosk PIN without exposing raw PIN data."""
+    from app.models.kiosk_link import KioskUserCredential
+
+    result = await db.execute(
+        select(User, KioskUserCredential.id)
+        .outerjoin(
+            KioskUserCredential,
+            (KioskUserCredential.tenant_id == User.tenant_id)
+            & (KioskUserCredential.user_id == User.id)
+            & KioskUserCredential.revoked_at.is_(None),
+        )
+        .where(
+            User.tenant_id == tenant_id,
+            User.role == "student",
+            User.is_active.is_(True),
+            User.status == "active",
+            User.personnel_number.is_not(None),
+        )
+        .order_by(User.last_name.asc(), User.first_name.asc())
+    )
+    return [
+        {
+            "user_id": learner.id,
+            "full_name": f"{learner.last_name} {learner.first_name}".strip(),
+            "personnel_number_masked": _masked_personnel_number(learner.personnel_number),
+            "has_kiosk_pin": credential_id is not None,
+        }
+        for learner, credential_id in result.all()
+    ]
 
 
 async def establish_public_kiosk_tenant_context(
@@ -206,7 +314,7 @@ async def list_kiosk_access_logs(db: AsyncSession, tenant_id: UUID, kiosk_id: UU
             "kiosk_id": log.kiosk_id,
             "kiosk_name": kiosk_name,
             "user_id": log.user_id,
-            "personnel_number": log.personnel_number,
+            "personnel_number_masked": log.personnel_number,
             "success": log.success,
             "reason": log.reason,
             "ip_address": log.ip_address,
@@ -231,7 +339,7 @@ async def _record_kiosk_access(
         tenant_id=link.tenant_id,
         kiosk_id=link.id,
         user_id=user_id,
-        personnel_number=personnel_number[:128] if personnel_number else None,
+        personnel_number=_masked_personnel_number(personnel_number),
         success=success,
         reason=reason,
         ip_address=ip_address,
@@ -313,10 +421,11 @@ async def identify_at_kiosk(
     db: AsyncSession,
     token: str,
     personnel_number: str,
+    pin: str,
     ip_address: str | None = None,
     user_agent: str | None = None,
 ) -> dict:
-    """Worker enters their personnel_number → server returns identity + assigned courses.
+    """Exchange a personnel identifier plus separately issued PIN for kiosk access.
 
     Used by kiosk page after worker types their tab number.
 
@@ -327,8 +436,9 @@ async def identify_at_kiosk(
     from app.models.kiosk_link import KioskLink
 
     pn = personnel_number.strip()
-    if not pn:
-        raise HTTPException(status_code=422, detail="Введите табельный номер")
+    normalized_pin = pin.strip()
+    if not pn or len(normalized_pin) != 6 or not normalized_pin.isdigit():
+        raise _kiosk_auth_error()
 
     # Resolve kiosk
     result = await db.execute(select(KioskLink).where(KioskLink.token == token))
@@ -349,20 +459,53 @@ async def identify_at_kiosk(
     )
     user = user_result.scalar_one_or_none()
     if not user:
-        # Don't leak whether the user exists in another tenant
-        logger.info(f"kiosk identify failed: pn={pn} not found in tenant {link.tenant_id}")
+        # Keep missing-user and bad-PIN timing closer and return one public
+        # error so callers cannot enumerate personnel numbers.
+        try:
+            KIOSK_PIN_HASHER.verify(_DUMMY_KIOSK_PIN_HASH, normalized_pin)
+        except VerifyMismatchError:
+            pass
+        logger.info("kiosk identify failed: unknown credential at kiosk %s", link.id)
         await _record_kiosk_access(db, link, pn, False, "personnel_number_not_found", None, ip_address, user_agent)
         await db.commit()
-        raise HTTPException(
-            status_code=404,
-            detail="Табельный номер не найден. Обратитесь к HR.",
-        )
+        raise _kiosk_auth_error()
 
-    if not user.is_active or user.status != "active":
+    from app.models.kiosk_link import KioskUserCredential
+
+    credential = await db.scalar(
+        select(KioskUserCredential)
+        .where(
+            KioskUserCredential.tenant_id == link.tenant_id,
+            KioskUserCredential.user_id == user.id,
+            KioskUserCredential.revoked_at.is_(None),
+        )
+        .with_for_update()
+    )
+    now = datetime.now(UTC)
+    if credential is None or (credential.locked_until and credential.locked_until > now):
+        await _record_kiosk_access(db, link, pn, False, "credential_unavailable", user.id, ip_address, user_agent)
+        await db.commit()
+        raise _kiosk_auth_error()
+    if credential.locked_until and credential.locked_until <= now:
+        credential.failed_attempts = 0
+        credential.locked_until = None
+    try:
+        pin_valid = KIOSK_PIN_HASHER.verify(credential.pin_hash, normalized_pin)
+    except VerifyMismatchError:
+        pin_valid = False
+    if not pin_valid:
+        credential.failed_attempts += 1
+        if credential.failed_attempts >= KIOSK_PIN_MAX_ATTEMPTS:
+            credential.locked_until = now + KIOSK_PIN_LOCKOUT
+        await _record_kiosk_access(db, link, pn, False, "invalid_pin", user.id, ip_address, user_agent)
+        await db.commit()
+        raise _kiosk_auth_error()
+
+    if user.role != "student" or not user.is_active or user.status != "active":
         logger.info(f"kiosk identify: user {user.id} inactive")
         await _record_kiosk_access(db, link, pn, False, "user_inactive", user.id, ip_address, user_agent)
         await db.commit()
-        raise HTTPException(status_code=403, detail="Учётная запись не активна. Обратитесь к HR.")
+        raise _kiosk_auth_error()
 
     # Check kiosk scope (if scoped to a position, user must have that position)
     if link.scope_position_id:
@@ -370,10 +513,10 @@ async def identify_at_kiosk(
             logger.info(f"kiosk identify: user {user.id} position mismatch")
             await _record_kiosk_access(db, link, pn, False, "position_mismatch", user.id, ip_address, user_agent)
             await db.commit()
-            raise HTTPException(
-                status_code=403,
-                detail="Этот киоск не для вашей должности. Обратитесь к HR.",
-            )
+            raise _kiosk_auth_error()
+
+    credential.failed_attempts = 0
+    credential.locked_until = None
 
     # Get user's assigned courses via position_courses + direct enrollments
     course_ids: set[UUID] = set()
@@ -465,7 +608,7 @@ async def identify_at_kiosk(
         pos = pos_result.scalar_one_or_none()
         pos_name = pos.name if pos else None
 
-    logger.info(f"kiosk identify: user {user.id} ({pn}) identified at kiosk {link.id}")
+    logger.info("kiosk identify: user %s identified at kiosk %s", user.id, link.id)
 
     # Per TZ §3.5: issue a short-lived JWT so the worker can
     # actually open courses. Without this, identify returns
@@ -477,13 +620,15 @@ async def identify_at_kiosk(
     # `auth_method="kiosk"` is recorded in the token payload
     # so audit logs can distinguish kiosk sessions from
     # magic-link / telegram sessions.
-    access_token = create_access_token(
+    access_token = create_scoped_token(
         data={
             "sub": str(user.id),
             "tenant_id": str(user.tenant_id),
-            "role": user.role,
             "auth_method": "kiosk",
+            "kiosk_id": str(link.id),
+            "kiosk_credential_id": str(credential.id),
         },
+        token_type="kiosk_access",
         expires_delta=timedelta(minutes=KIOSK_JWT_TTL_MINUTES),
     )
     await _record_kiosk_access(db, link, pn, True, None, user.id, ip_address, user_agent)

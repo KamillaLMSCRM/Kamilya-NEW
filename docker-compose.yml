@@ -22,7 +22,7 @@
 
 services:
   postgres:
-    image: pgvector/pgvector:pg16
+    image: pgvector/pgvector:pg17
     container_name: kamilya-postgres
     environment:
       POSTGRES_USER: lms

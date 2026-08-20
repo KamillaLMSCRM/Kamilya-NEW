@@ -1,7 +1,7 @@
 {
-  "buildCommand": "npm run build",
+  "buildCommand": "pnpm run build",
   "framework": "nextjs",
-  "installCommand": "npm install",
+  "installCommand": "pnpm install --frozen-lockfile",
   "regions": ["fra1"],
   "outputDirectory": ".next"
 }

@@ -31,6 +31,8 @@ import threading
 import time
 from typing import Any, TextIO
 
+from app.core.log_redaction import SensitiveDataFilter, redact_sensitive_text
+
 # Default capacity: ~500 lines. Render keeps stdout in the deploy log
 # buffer, but our ring buffer is the only thing an agent can read via
 # the API. 500 lines covers a typical ingest + AI-generation debug
@@ -49,7 +51,7 @@ def _record(level: str, message: str) -> None:
         _buffer.append({
             "ts": time.time(),
             "level": level,
-            "message": message,
+            "message": redact_sensitive_text(message),
         })
 
 
@@ -90,6 +92,7 @@ class BufferHandler(logging.Handler):
     def __init__(self, level: int = logging.DEBUG):
         super().__init__(level=level)
         self.setFormatter(logging.Formatter("%(message)s"))
+        self.addFilter(SensitiveDataFilter())
 
     def emit(self, record: logging.LogRecord) -> None:
         try:
@@ -118,14 +121,15 @@ class _StdoutTee:
         self._level = level
 
     def write(self, s: str) -> int:
-        # Always forward to the real stream so Render still sees the line.
+        safe = redact_sensitive_text(s)
+        # Forward only redacted output to the real stream and internal buffer.
         try:
-            self._original.write(s)
+            self._original.write(safe)
         except Exception:
             pass
         # Only buffer non-empty, non-whitespace lines to avoid noise.
-        if s and s.strip():
-            for line in s.splitlines():
+        if safe and safe.strip():
+            for line in safe.splitlines():
                 if line.strip():
                     _record(self._level, line)
         return len(s)

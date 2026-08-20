@@ -35,11 +35,11 @@ type E2EFixtures = {
 };
 
 export const test = base.extend<E2EFixtures>({
-  landingNavLinks: async ({ page }, use) => {
-    await use(landingNavLinks(page));
+  landingNavLinks: async ({ page }, provide) => {
+    await provide(landingNavLinks(page));
   },
-  loginPageElements: async ({ page }, use) => {
-    await use(loginPageElements(page));
+  loginPageElements: async ({ page }, provide) => {
+    await provide(loginPageElements(page));
   },
 });
 

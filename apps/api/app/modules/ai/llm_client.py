@@ -1,12 +1,19 @@
 """LLM Client — OpenAI-compatible adapters with automatic failover chain.
 
-Chain architecture (June 2026):
+Chain architecture (August 2026):
 
   LLM chain:
-    1. DeepSeek v4-flash via direct DeepSeek API (api.deepseek.com/v1)
-       → primary, reliable managed API. $0.14/M in, $0.28/M out.
-    2. Qwen self-hosted (Qwen3.6-35B-A3B-AWQ-4bit via Cloudflare tunnel)
-       → fallback, free
+    1. Qwen3.8 27B NVFP4 (private vLLM)
+    2. ThinkingCap Qwen3.6 27B NVFP4 (private vLLM)
+    3. Qwen3.6 35B-A3B NVFP4 (private vLLM)
+    4. Existing Qwen3.6 35B-A3B AWQ endpoint
+       → free pool, enabled only inside the approved private network
+    5. DeepSeek v4-flash
+       → managed reliability fallback
+
+  When FREE_LLM_POOL_ENABLED is false, the legacy DeepSeek -> Qwen order is
+  preserved. The current Qwen endpoint is the third free model, so it is not
+  called twice.
 
   Embeddings chain:
     1. Voyage voyage-4-lite via direct Voyage API (api.voyageai.com/v1)
@@ -28,12 +35,14 @@ Failover semantics
   exception class + status code if HTTP) so on-call can spot outages.
   We do NOT log tenant_id, prompt text, or response bodies.
 """
+
 from __future__ import annotations
 
 import asyncio
 import logging
-from dataclasses import dataclass, field
-from typing import Any, Iterable
+from collections.abc import Iterable
+from dataclasses import dataclass, field, replace
+from typing import Any
 
 import httpx
 
@@ -78,6 +87,10 @@ class LLMProviderConfig:
     api_key: str  # empty string for local endpoints that don't need a key
     model: str
     timeout: float = 600.0  # per-request timeout, seconds
+    connect_timeout: float = 10.0
+    # None inherits the chain-wide retry budget. Private free providers use
+    # zero retries so an unavailable WireGuard node cannot stall a user flow.
+    max_retries: int | None = None
     extra_body: dict = field(default_factory=dict)  # vendor-specific extras
     # OpenAI-compatible endpoint path. Default = chat/completions (LLM).
     # EmbeddingsClient overrides this to /embeddings.
@@ -89,17 +102,68 @@ class LLMProviderConfig:
     endpoint: str = "/chat/completions"
 
 
+def _openai_base_url(value: str) -> str:
+    """Return a normalized OpenAI-compatible base URL including `/v1`."""
+    normalized = value.rstrip("/")
+    return normalized if normalized.endswith("/v1") else f"{normalized}/v1"
+
+
+def _free_llm_providers() -> list[LLMProviderConfig]:
+    """Build the additional private free pool when explicitly enabled."""
+    s = get_settings()
+    if not s.FREE_LLM_POOL_ENABLED:
+        return []
+
+    common = {
+        "api_key": s.LLM_API_KEY or "not-needed",
+        "timeout": s.FREE_LLM_REQUEST_TIMEOUT_SECONDS,
+        "connect_timeout": s.FREE_LLM_CONNECT_TIMEOUT_SECONDS,
+        "max_retries": 0,
+        "extra_body": {"chat_template_kwargs": {"enable_thinking": False}},
+    }
+    return [
+        LLMProviderConfig(
+            name="gx10-17-18-qwen38-27b-nvfp4",
+            base_url=_openai_base_url(s.FREE_LLM_QWEN38_URL),
+            model=s.FREE_LLM_QWEN38_MODEL,
+            **common,
+        ),
+        LLMProviderConfig(
+            name="gx10-7-thinkingcap",
+            base_url=_openai_base_url(s.FREE_LLM_THINKINGCAP_URL),
+            model=s.FREE_LLM_THINKINGCAP_MODEL,
+            **common,
+        ),
+        LLMProviderConfig(
+            name="gx10-2-qwen35-nvfp4",
+            base_url=_openai_base_url(s.FREE_LLM_NVFP4_URL),
+            model=s.FREE_LLM_NVFP4_MODEL,
+            **common,
+        ),
+    ]
+
+
 def _qwen_llm_provider() -> LLMProviderConfig:
     s = get_settings()
     return LLMProviderConfig(
         name="qwen-self-hosted",
-        base_url=s.QWEN_API_URL,
+        base_url=_openai_base_url(s.QWEN_API_URL),
         api_key=s.LLM_API_KEY or "not-needed",
         model=s.LLM_MODEL or "cyankiwi/Qwen3.6-35B-A3B-AWQ-4bit",
         # Qwen-specific: disable thinking for snappier responses on
         # structured tasks (course generation). Harmless on providers that
         # ignore unknown chat_template_kwargs.
         extra_body={"chat_template_kwargs": {"enable_thinking": False}},
+    )
+
+
+def _qwen_free_pool_provider() -> LLMProviderConfig:
+    """Reuse the established AWQ endpoint with the free-pool latency budget."""
+    s = get_settings()
+    return replace(
+        _qwen_llm_provider(),
+        connect_timeout=s.FREE_LLM_CONNECT_TIMEOUT_SECONDS,
+        max_retries=0,
     )
 
 
@@ -116,7 +180,7 @@ def _deepseek_llm_provider() -> LLMProviderConfig | None:
     extra: dict[str, Any] = {"thinking": {"type": "disabled"}}
     return LLMProviderConfig(
         name="deepseek",
-        base_url=s.DEEPSEEK_BASE_URL,
+        base_url=_openai_base_url(s.DEEPSEEK_BASE_URL),
         api_key=s.DEEPSEEK_API_KEY,
         model=s.DEEPSEEK_MODEL,
         timeout=120.0,  # DeepSeek p95 ~30s, but cold start can be longer
@@ -149,7 +213,8 @@ async def _resolve_db_key(provider: str, env_key: str) -> str:
     except Exception as e:  # pragma: no cover — defensive
         logger.warning(
             "[KEY_RESOLVE] failed to read provider key for %s: %s",
-            provider, type(e).__name__,
+            provider,
+            type(e).__name__,
         )
         return ""
 
@@ -158,7 +223,7 @@ def _qwen_embed_provider() -> LLMProviderConfig:
     s = get_settings()
     return LLMProviderConfig(
         name="qwen-self-hosted",
-        base_url=s.QWEN_EMBEDDING_URL,
+        base_url=_openai_base_url(s.QWEN_EMBEDDING_URL),
         api_key=s.LLM_API_KEY or "not-needed",
         model="Qwen3-Embedding-8B",
         timeout=20.0,
@@ -215,7 +280,11 @@ class _BaseProviderClient:
         last_exc: BaseException | None = None
         for attempt in range(self.max_retries + 1):
             try:
-                async with httpx.AsyncClient(timeout=self.config.timeout) as client:
+                timeout = httpx.Timeout(
+                    self.config.timeout,
+                    connect=self.config.connect_timeout,
+                )
+                async with httpx.AsyncClient(timeout=timeout) as client:
                     resp = await client.post(
                         f"{self.config.base_url}{self.config.endpoint}",
                         json=payload,
@@ -223,12 +292,12 @@ class _BaseProviderClient:
                     )
             except httpx.TimeoutException as e:
                 last_exc = e
-                wait = min(2 ** attempt, 8)
+                wait = min(2**attempt, 8)
                 logger.warning(
-                    f"[{self.config.name}] timeout attempt {attempt+1}/{self.max_retries+1}, "
-                    f"retrying in {wait}s"
+                    f"[{self.config.name}] timeout attempt {attempt+1}/{self.max_retries+1}, " f"retrying in {wait}s"
                 )
-                await asyncio.sleep(wait)
+                if attempt < self.max_retries:
+                    await asyncio.sleep(wait)
                 continue
             except httpx.HTTPError as e:
                 # Connection refused, DNS, etc. — not retryable.
@@ -241,20 +310,17 @@ class _BaseProviderClient:
                     server_wait = float(retry_after) if retry_after else 0.0
                 except ValueError:
                     server_wait = 0.0
-                wait = max(server_wait, min(2 ** attempt, 60))
+                wait = max(server_wait, min(2**attempt, 60))
                 logger.warning(f"[{self.config.name}] 429 rate limited, waiting {wait}s")
                 if attempt < self.max_retries:
                     await asyncio.sleep(wait)
                 continue
             if resp.status_code in (502, 503, 504):
-                last_exc = httpx.HTTPStatusError(
-                    str(resp.status_code), request=resp.request, response=resp
-                )
-                wait = min(2 ** attempt, 8)
-                logger.warning(
-                    f"[{self.config.name}] {resp.status_code} server error, retrying in {wait}s"
-                )
-                await asyncio.sleep(wait)
+                last_exc = httpx.HTTPStatusError(str(resp.status_code), request=resp.request, response=resp)
+                wait = min(2**attempt, 8)
+                logger.warning(f"[{self.config.name}] {resp.status_code} server error, retrying in {wait}s")
+                if attempt < self.max_retries:
+                    await asyncio.sleep(wait)
                 continue
             if resp.status_code != 200:
                 # 4xx (auth, bad request, etc.) is NOT retryable — fail fast.
@@ -270,9 +336,7 @@ class _BaseProviderClient:
             return resp.json()
 
         # Exhausted retries
-        raise ProviderFailedError(
-            self.config.name, last_exc or RuntimeError("retries exhausted with no error")
-        )
+        raise ProviderFailedError(self.config.name, last_exc or RuntimeError("retries exhausted with no error"))
 
 
 class LLMClient(_BaseProviderClient):
@@ -301,7 +365,7 @@ class LLMClient(_BaseProviderClient):
         messages: str | list[dict],
         config: dict | None = None,
         response_format: dict | None = None,
-    ) -> "_LLMResponse":
+    ) -> _LLMResponse:
         """Send completion request. Returns object with .content attribute."""
         if isinstance(messages, str):
             messages = [{"role": "user", "content": messages}]
@@ -326,8 +390,7 @@ class LLMClient(_BaseProviderClient):
         content = msg.get("content") or msg.get("reasoning") or ""
         if not content:
             logger.warning(
-                f"[{self.config.name}] empty content, finish_reason="
-                f"{data['choices'][0].get('finish_reason')}"
+                f"[{self.config.name}] empty content, finish_reason=" f"{data['choices'][0].get('finish_reason')}"
             )
         return _LLMResponse(content=content)
 
@@ -371,7 +434,7 @@ class ResilientLLMClient:
                 cfg,
                 temperature=temperature,
                 max_tokens=max_tokens,
-                max_retries=max_retries_per_provider,
+                max_retries=(cfg.max_retries if cfg.max_retries is not None else max_retries_per_provider),
             )
             for cfg in providers
         ]
@@ -388,12 +451,17 @@ class ResilientLLMClient:
         temperature: float = 0.7,
         max_tokens: int = 8192,
         max_retries_per_provider: int = 2,
-    ) -> "ResilientLLMClient":
+    ) -> ResilientLLMClient:
         """Build the production chain from env-only settings.
 
-        Order:
-          1. DeepSeek (only if DEEPSEEK_API_KEY is set in env)
-          2. Qwen self-hosted (always present)
+        Order with FREE_LLM_POOL_ENABLED:
+          1. Qwen3.8 27B NVFP4
+          2. ThinkingCap 27B NVFP4
+          3. Qwen 35B-A3B NVFP4
+          4. Existing Qwen 35B-A3B AWQ
+          5. DeepSeek (when configured)
+
+        With the pool disabled, preserve the legacy DeepSeek -> Qwen order.
 
         Does NOT consult the provider_keys table — used by tests and
         legacy callers that don't pass a DB session. Production code
@@ -402,9 +470,16 @@ class ResilientLLMClient:
         """
         providers: list[LLMProviderConfig] = []
         deepseek = _deepseek_llm_provider()
-        if deepseek is not None:
-            providers.append(deepseek)
-        providers.append(_qwen_llm_provider())
+        free_providers = _free_llm_providers()
+        if free_providers:
+            providers.extend(free_providers)
+            providers.append(_qwen_free_pool_provider())
+            if deepseek is not None:
+                providers.append(deepseek)
+        else:
+            if deepseek is not None:
+                providers.append(deepseek)
+            providers.append(_qwen_llm_provider())
         return cls(
             providers,
             temperature=temperature,
@@ -419,10 +494,10 @@ class ResilientLLMClient:
         temperature: float = 0.7,
         max_tokens: int = 8192,
         max_retries_per_provider: int = 2,
-    ) -> "ResilientLLMClient":
+    ) -> ResilientLLMClient:
         """Build the production chain from env + provider_keys table.
 
-        Same order as `from_settings()` but each provider's API key is
+        Same order as `from_settings()` but each managed provider's API key is
         resolved by `_resolve_db_key()` which prefers env and falls
         back to the active global key stored in `provider_keys`.
 
@@ -430,10 +505,7 @@ class ResilientLLMClient:
         routing) calls — keys added or rotated via the superadmin
         provider-keys UI take effect immediately without a redeploy.
         """
-        from dataclasses import replace
-
         s = get_settings()
-        qwen = _qwen_llm_provider()  # always present
         providers: list[LLMProviderConfig] = []
 
         deepseek_key = await _resolve_db_key("deepseek", s.DEEPSEEK_API_KEY)
@@ -444,7 +516,7 @@ class ResilientLLMClient:
                 # defaults + DB key.
                 cfg = LLMProviderConfig(
                     name="deepseek",
-                    base_url=s.DEEPSEEK_BASE_URL,
+                    base_url=_openai_base_url(s.DEEPSEEK_BASE_URL),
                     api_key=deepseek_key,
                     model=s.DEEPSEEK_MODEL,
                     timeout=120.0,
@@ -452,8 +524,16 @@ class ResilientLLMClient:
                 )
             else:
                 cfg = replace(cfg, api_key=deepseek_key)
-            providers.append(cfg)
-        providers.append(qwen)
+        free_providers = _free_llm_providers()
+        if free_providers:
+            providers.extend(free_providers)
+            providers.append(_qwen_free_pool_provider())
+            if deepseek_key:
+                providers.append(cfg)
+        else:
+            if deepseek_key:
+                providers.append(cfg)
+            providers.append(_qwen_llm_provider())
 
         return cls(
             providers,
@@ -475,9 +555,7 @@ class ResilientLLMClient:
         last_exc: BaseException | None = None
         for client in self._clients:
             try:
-                return await client.ainvoke(
-                    messages, config=config, response_format=response_format
-                )
+                return await client.ainvoke(messages, config=config, response_format=response_format)
             except ProviderFailedError as e:
                 logger.warning(
                     f"[LLM_FAILOVER] {e.provider_name} failed "
@@ -487,9 +565,7 @@ class ResilientLLMClient:
                 last_exc = e
                 continue
 
-        raise AllProvidersFailedError(
-            f"All LLM providers failed: {[c.name for c in self._clients]}"
-        ) from last_exc
+        raise AllProvidersFailedError(f"All LLM providers failed: {[c.name for c in self._clients]}") from last_exc
 
 
 # ---------------------------------------------------------------------------
@@ -509,7 +585,6 @@ class EmbeddingsClient(_BaseProviderClient):
             config = _qwen_embed_provider()
         # OpenAI-compatible providers use /embeddings. Cohere has a native
         # v2 /embed endpoint and a different request/response schema.
-        from dataclasses import replace
         endpoint = "/embed" if config.name == "cohere" else "/embeddings"
         config = replace(config, endpoint=endpoint)
         super().__init__(config=config, max_retries=max_retries)
@@ -534,10 +609,7 @@ class EmbeddingsClient(_BaseProviderClient):
                     f"at most {self.expected_dimensions}, got {oversized_dims}"
                 ),
             )
-        return [
-            embedding + [0.0] * (self.expected_dimensions - len(embedding))
-            for embedding in embeddings
-        ]
+        return [embedding + [0.0] * (self.expected_dimensions - len(embedding)) for embedding in embeddings]
 
     async def _embed(self, texts: list[str], input_type: str) -> list[list[float]]:
         if self.config.name == "cohere":
@@ -550,9 +622,7 @@ class EmbeddingsClient(_BaseProviderClient):
                 payload: dict[str, Any] = {
                     "model": self.config.model,
                     "texts": batch,
-                    "input_type": (
-                        "search_document" if input_type == "document" else "search_query"
-                    ),
+                    "input_type": ("search_document" if input_type == "document" else "search_query"),
                     "embedding_types": ["float"],
                     "output_dimension": 1024,
                 }
@@ -595,8 +665,7 @@ class ResilientEmbeddingsClient:
         max_retries_per_provider: int = 2,
     ):
         self._clients: list[EmbeddingsClient] = [
-            EmbeddingsClient(cfg, max_retries=max_retries_per_provider)
-            for cfg in providers
+            EmbeddingsClient(cfg, max_retries=max_retries_per_provider) for cfg in providers
         ]
         if not self._clients:
             raise ValueError(
@@ -605,7 +674,7 @@ class ResilientEmbeddingsClient:
             )
 
     @classmethod
-    def from_settings(cls, max_retries_per_provider: int = 6) -> "ResilientEmbeddingsClient":
+    def from_settings(cls, max_retries_per_provider: int = 6) -> ResilientEmbeddingsClient:
         """Build the embeddings chain from env-only settings (tests/legacy)."""
         providers: list[LLMProviderConfig] = []
         voyage = _voyage_embed_provider()
@@ -618,9 +687,7 @@ class ResilientEmbeddingsClient:
         return cls(providers, max_retries_per_provider=max_retries_per_provider)
 
     @classmethod
-    async def from_settings_async(
-        cls, max_retries_per_provider: int = 6
-    ) -> "ResilientEmbeddingsClient":
+    async def from_settings_async(cls, max_retries_per_provider: int = 6) -> ResilientEmbeddingsClient:
         """Build the embeddings chain from env + provider_keys table.
 
         Same order as `from_settings()` but each provider's API key is
@@ -727,18 +794,15 @@ def create_llm(
             api_key=api_key or settings.LLM_API_KEY or "not-needed",
             model=model or settings.LLM_MODEL,
         )
-        client = LLMClient(
-            config, temperature=temperature, max_tokens=max_tokens
-        )
+        client = LLMClient(config, temperature=temperature, max_tokens=max_tokens)
+
         # Wrap so ainvoke signature stays identical.
         class _SingleProviderAdapter:
             def __init__(self, inner: LLMClient):
                 self._inner = inner
 
             async def ainvoke(self, messages, config=None, response_format=None):
-                return await self._inner.ainvoke(
-                    messages, config=config, response_format=response_format
-                )
+                return await self._inner.ainvoke(messages, config=config, response_format=response_format)
 
             @property
             def provider_names(self) -> list[str]:
@@ -746,9 +810,7 @@ def create_llm(
 
         return _SingleProviderAdapter(client)  # type: ignore[return-value]
 
-    return ResilientLLMClient.from_settings(
-        temperature=temperature, max_tokens=max_tokens
-    )
+    return ResilientLLMClient.from_settings(temperature=temperature, max_tokens=max_tokens)
 
 
 def create_embeddings(
@@ -770,6 +832,7 @@ def create_embeddings(
             model=model,
         )
         client = EmbeddingsClient(config)
+
         # Wrap to keep .embed_documents / .embed_query API identical.
         class _SingleProviderAdapter:
             def __init__(self, inner: EmbeddingsClient):
@@ -790,8 +853,6 @@ def create_embeddings(
     return ResilientEmbeddingsClient.from_settings()
 
 
-async def embed_queries(
-    client: EmbeddingsClient | ResilientEmbeddingsClient, queries: list[str]
-) -> list[list[float]]:
+async def embed_queries(client: EmbeddingsClient | ResilientEmbeddingsClient, queries: list[str]) -> list[list[float]]:
     """Embed multiple queries (kept for legacy imports)."""
     return await client.embed_documents(queries)

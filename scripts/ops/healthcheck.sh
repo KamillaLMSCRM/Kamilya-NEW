@@ -5,20 +5,21 @@ set -Eeuo pipefail
 IFS=$'\n\t'
 umask 077
 
-API_HEALTH_URL="${API_HEALTH_URL:-https://kamilya-lms-api.onrender.com/api/v1/health}"
+API_HEALTH_URL="${API_HEALTH_URL:-https://api.kml.kz/api/v1/health}"
 WEB_HEALTH_URL="${WEB_HEALTH_URL:-https://app.kml.kz/login}"
-WORKER_SERVICES="${WORKER_SERVICES:-kamilya-worker.service,kamilya-worker-documents.service,kamilya-worker-ai.service}"
-VALKEY_SERVICE="${VALKEY_SERVICE:-valkey-server.service}"
-BACKUP_DIR="${BACKUP_DIR:-/opt/kamilya-backups}"
+EXPECTED_DEPLOYMENT_ENVIRONMENT="${EXPECTED_DEPLOYMENT_ENVIRONMENT:-kz-production}"
+EXPECTED_RELEASE_SHA="${EXPECTED_RELEASE_SHA:-}"
+PRODUCTION_VERIFIER="${PRODUCTION_VERIFIER:-/opt/kamilya-worker/scripts/ops/verify_production_endpoint.py}"
+COMPOSE_FILE="${COMPOSE_FILE:-/opt/kamilya-runtime/kamilya-app-worker.yml}"
+COMPOSE_ENV_FILE="${COMPOSE_ENV_FILE:-/opt/kamilya-runtime/deploy.env}"
+COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-kamilya-runtime}"
+REQUIRED_COMPOSE_SERVICES="${REQUIRED_COMPOSE_SERVICES:-api,valkey,worker-ai,worker-documents,worker-ops}"
+BACKUP_FRESHNESS_PATH="${BACKUP_FRESHNESS_PATH:-}"
 BACKUP_MAX_AGE_HOURS="${BACKUP_MAX_AGE_HOURS:-30}"
 DISK_MAX_PERCENT="${DISK_MAX_PERCENT:-85}"
 ALERT_STATE_DIR="${ALERT_STATE_DIR:-/var/lib/kamilya-ops}"
 ALERT_COOLDOWN_SECONDS="${ALERT_COOLDOWN_SECONDS:-21600}"
-CELERY_BIN="${CELERY_BIN:-/opt/kamilya-worker/apps/api/.venv/bin/celery}"
-CELERY_APP="${CELERY_APP:-app.core.celery_app:celery_app}"
-CELERY_WORKDIR="${CELERY_WORKDIR:-/opt/kamilya-worker/apps/api}"
 EXPECTED_CELERY_NODES="${EXPECTED_CELERY_NODES:-3}"
-CELERY_QUEUE_MAX_DEPTH="${CELERY_QUEUE_MAX_DEPTH:-50}"
 
 failures=()
 
@@ -35,29 +36,62 @@ require_integer BACKUP_MAX_AGE_HOURS "${BACKUP_MAX_AGE_HOURS}"
 require_integer DISK_MAX_PERCENT "${DISK_MAX_PERCENT}"
 require_integer ALERT_COOLDOWN_SECONDS "${ALERT_COOLDOWN_SECONDS}"
 require_integer EXPECTED_CELERY_NODES "${EXPECTED_CELERY_NODES}"
-require_integer CELERY_QUEUE_MAX_DEPTH "${CELERY_QUEUE_MAX_DEPTH}"
-
-check_service() {
-  local service=$1
-  systemctl is-active --quiet "${service}" ||
-    failures+=("service ${service} is not active")
+compose() {
+  docker compose \
+    --project-name "${COMPOSE_PROJECT_NAME}" \
+    --env-file "${COMPOSE_ENV_FILE}" \
+    --file "${COMPOSE_FILE}" "$@"
 }
 
-check_url() {
-  local label=$1
-  local url=$2
-  curl --fail --silent --show-error --location \
-    --connect-timeout 10 --max-time 20 --retry 2 --retry-delay 2 \
-    --output /dev/null "${url}" ||
-    failures+=("${label} is unavailable")
+check_runtime_services() {
+  local output service
+  if [[ ! -f "${COMPOSE_FILE}" || ! -f "${COMPOSE_ENV_FILE}" ]]; then
+    failures+=("KZ runtime compose inventory is missing")
+    return
+  fi
+  output="$(compose ps --services --status running 2>/dev/null)" || {
+    failures+=("KZ runtime compose status could not be read")
+    return
+  }
+  IFS=',' read -r -a required_services <<<"${REQUIRED_COMPOSE_SERVICES}"
+  for service in "${required_services[@]}"; do
+    grep -Fxq "${service}" <<<"${output}" ||
+      failures+=("compose service ${service} is not running")
+  done
+}
+
+check_public_identity() {
+  if [[ ! "${EXPECTED_RELEASE_SHA}" =~ ^[0-9a-fA-F]{40}$ ]]; then
+    failures+=("EXPECTED_RELEASE_SHA must be an exact 40-character Git SHA")
+    return
+  fi
+  if [[ ! -f "${PRODUCTION_VERIFIER}" ]]; then
+    failures+=("production endpoint verifier is missing")
+    return
+  fi
+  python3 "${PRODUCTION_VERIFIER}" \
+    --api-url "${API_HEALTH_URL}" \
+    --web-url "${WEB_HEALTH_URL}" \
+    --expected-deployment "${EXPECTED_DEPLOYMENT_ENVIRONMENT}" \
+    --expected-release "${EXPECTED_RELEASE_SHA}" >/dev/null ||
+    failures+=("KZ production endpoint identity check failed")
 }
 
 check_backup_age() {
   local newest now age_seconds max_age_seconds
-  newest="$(find "${BACKUP_DIR}" -maxdepth 1 -type f -name 'kamilya_*.dump.enc' \
-    -printf '%T@ %p\n' 2>/dev/null | sort -nr | head -n 1 || true)"
+  if [[ -z "${BACKUP_FRESHNESS_PATH}" || ! -e "${BACKUP_FRESHNESS_PATH}" ]]; then
+    failures+=("KZ backup freshness source is not configured")
+    return
+  fi
+  if [[ -d "${BACKUP_FRESHNESS_PATH}" ]]; then
+    newest="$(find "${BACKUP_FRESHNESS_PATH}" -maxdepth 1 -type f \
+      \( -name '*.dump.gpg' -o -name '*.tar.gpg' \) \
+      -printf '%T@ %p\n' 2>/dev/null | sort -nr | head -n 1 || true)"
+  else
+    newest="$(stat -c '%Y %n' "${BACKUP_FRESHNESS_PATH}" 2>/dev/null || true)"
+  fi
   if [[ -z "${newest}" ]]; then
-    failures+=("no encrypted database backup found")
+    failures+=("no current encrypted KZ backup evidence found")
     return
   fi
   newest="${newest%% *}"
@@ -81,13 +115,13 @@ check_disk() {
 
 check_worker_ping() {
   local output node_count
-  if [[ ! -x "${CELERY_BIN}" ]]; then
-    failures+=("Celery executable is missing")
-    return
-  fi
   output="$(
-    cd "${CELERY_WORKDIR}"
-    timeout 20 "${CELERY_BIN}" -A "${CELERY_APP}" inspect ping --timeout 8 --json
+    timeout 20 docker compose \
+      --project-name "${COMPOSE_PROJECT_NAME}" \
+      --env-file "${COMPOSE_ENV_FILE}" \
+      --file "${COMPOSE_FILE}" \
+      exec -T api poetry run celery \
+      -A app.core.celery_app:celery_app inspect ping --timeout 8 --json
   )" 2>/dev/null || {
     failures+=("Celery workers did not answer ping")
     return
@@ -95,20 +129,6 @@ check_worker_ping() {
   node_count="$(python3 -c 'import json,sys; print(len(json.load(sys.stdin)))' <<<"${output}" 2>/dev/null || printf '0')"
   (( node_count >= EXPECTED_CELERY_NODES )) ||
     failures+=("only ${node_count}/${EXPECTED_CELERY_NODES} Celery workers answered ping")
-}
-
-check_queue_depth() {
-  local output
-  output="$(
-    cd "${CELERY_WORKDIR}"
-    PYTHONPATH="${CELERY_WORKDIR}" \
-      .venv/bin/python /opt/kamilya-worker/scripts/ops/queue_depth.py \
-      --max-depth "${CELERY_QUEUE_MAX_DEPTH}"
-  )" 2>/dev/null || {
-    failures+=("${output:-Celery queue depth could not be checked}")
-    return
-  }
-  [[ -z "${output}" ]] || failures+=("${output}")
 }
 
 send_email() {
@@ -168,17 +188,11 @@ ${current_state}"
   fi
 }
 
-IFS=',' read -r -a worker_services <<<"${WORKER_SERVICES}"
-for worker_service in "${worker_services[@]}"; do
-  check_service "${worker_service}"
-done
-check_service "${VALKEY_SERVICE}"
-check_url API "${API_HEALTH_URL}"
-check_url frontend "${WEB_HEALTH_URL}"
+check_runtime_services
+check_public_identity
 check_backup_age
 check_disk
 check_worker_ping
-check_queue_depth
 notify_state_change
 
 if ((${#failures[@]} > 0)); then

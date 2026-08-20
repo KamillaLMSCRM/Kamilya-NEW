@@ -12,8 +12,11 @@ package whose manifest <title> or resource href smuggles HTML.
 from __future__ import annotations
 
 import html
+from types import SimpleNamespace
+
 import pytest
 from fastapi import HTTPException
+from starlette.requests import Request
 
 
 def test_assert_safe_asset_path_accepts_normal_paths():
@@ -96,3 +99,101 @@ def test_assert_safe_asset_path_rejects_empty():
     with pytest.raises(HTTPException) as ei:
         _assert_safe_asset_path("")
     assert ei.value.status_code == 400
+
+
+def _request(host: str, *, scheme: str = "https") -> Request:
+    return Request(
+        {
+            "type": "http",
+            "method": "GET",
+            "scheme": scheme,
+            "path": "/api/v1/scorm/packages/pkg-123/launch",
+            "raw_path": b"/api/v1/scorm/packages/pkg-123/launch",
+            "query_string": b"",
+            "headers": [(b"host", host.encode("ascii"))],
+            "server": (host, 443 if scheme == "https" else 80),
+            "client": ("127.0.0.1", 50000),
+        }
+    )
+
+
+def test_scorm_launch_url_uses_dedicated_content_origin(monkeypatch):
+    from app.modules.scorm import router
+
+    monkeypatch.setattr(
+        router,
+        "get_settings",
+        lambda: SimpleNamespace(
+            APP_ENV="production",
+            SCORM_CONTENT_ORIGIN="https://scorm.kml.kz",
+            PUBLIC_URL="https://app.kml.kz",
+        ),
+    )
+
+    url = router._build_scorm_launch_url(_request("api.kml.kz"), "pkg-123", "launch-token")
+
+    assert url == "https://scorm.kml.kz/api/v1/scorm/packages/pkg-123/launch?token=launch-token"
+    assert "api.kml.kz" not in url
+
+
+def test_scorm_content_route_rejects_api_origin_in_production(monkeypatch):
+    from app.modules.scorm import router
+
+    monkeypatch.setattr(
+        router,
+        "get_settings",
+        lambda: SimpleNamespace(
+            APP_ENV="production",
+            SCORM_CONTENT_ORIGIN="https://scorm.kml.kz",
+            PUBLIC_URL="https://app.kml.kz",
+        ),
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        router._require_scorm_content_request(_request("api.kml.kz"))
+
+    assert exc.value.status_code == 421
+    router._require_scorm_content_request(_request("scorm.kml.kz"))
+
+
+def test_scorm_launch_fails_closed_when_production_origin_is_unconfigured(monkeypatch):
+    from app.modules.scorm import router
+
+    monkeypatch.setattr(
+        router,
+        "get_settings",
+        lambda: SimpleNamespace(APP_ENV="production", SCORM_CONTENT_ORIGIN="", PUBLIC_URL="https://app.kml.kz"),
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        router._build_scorm_launch_url(_request("api.kml.kz"), "pkg-123", "launch-token")
+
+    assert exc.value.status_code == 503
+
+
+def test_scorm_launch_shell_uses_versioned_targeted_bridge(monkeypatch):
+    from app.modules.scorm import router
+
+    monkeypatch.setattr(
+        router,
+        "get_settings",
+        lambda: SimpleNamespace(
+            APP_ENV="production",
+            SCORM_CONTENT_ORIGIN="https://scorm.kml.kz",
+            PUBLIC_URL="https://app.kml.kz",
+        ),
+    )
+
+    body = router._render_scorm_launch_html(
+        title="Безопасный курс",
+        asset_url="/api/v1/scorm/packages/pkg/assets-token/token/index.html",
+        commit_url="/api/v1/scorm/attempts/attempt/commit?token=token",
+        bridge_channel="channel-123",
+    )
+
+    assert 'sandbox="allow-forms allow-same-origin allow-scripts"' in body
+    assert 'const bridgeVersion = 1;' in body
+    assert 'const bridgeChannel = "channel-123";' in body
+    assert 'const parentOrigin = "https://app.kml.kz";' in body
+    assert "window.parent.postMessage" in body
+    assert "postMessage(message, \"*\")" not in body

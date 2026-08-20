@@ -46,6 +46,7 @@ describe('API authentication error handling', () => {
   it('classifies email and invitation OTP routes as public authentication requests', () => {
     expect(isPublicAuthenticationRequest('/v1/auth/email/verify-code')).toBe(true);
     expect(isPublicAuthenticationRequest('/v1/invitations/token/accept')).toBe(true);
+    expect(isPublicAuthenticationRequest('/v1/kiosks/public-token/identify')).toBe(true);
     expect(isPublicAuthenticationRequest('/v1/courses')).toBe(false);
     expect(isPublicAuthenticationRequest('/v1/users/invitations')).toBe(false);
   });

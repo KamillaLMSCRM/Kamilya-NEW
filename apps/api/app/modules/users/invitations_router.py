@@ -68,11 +68,9 @@ async def accept_invitation_endpoint(
     accepted_ip / accepted_user_agent in /users/invitations to spot
     suspicious accepts (different IP/UA than expected).
     """
-    # Extract client IP — handle X-Forwarded-For (Render proxy)
+    # Uvicorn rewrites request.client only when the socket peer is in the exact
+    # FORWARDED_ALLOW_IPS allowlist. Never parse a caller-controlled XFF here.
     ip = request.client.host if request.client and request.client.host else None
-    xff = request.headers.get("x-forwarded-for")
-    if xff:
-        ip = xff.split(",")[0].strip()
     ua = request.headers.get("user-agent", "")
 
     try:

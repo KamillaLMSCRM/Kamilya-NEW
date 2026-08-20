@@ -1,75 +1,126 @@
-# ADR-0007: AI pipeline — Qwen primary, DeepSeek/Voyage failover
+# ADR-0007: бесплатный приватный LLM-пул и управляемый fallback
 
-- **Status:** Accepted
-- **Date:** 2026-06-28
-- **Context:** AGENTS.md §LLM failover chain, audit §6
+- **Статус:** Accepted, amended 2026-08-14
+- **Первоначальная дата:** 2026-06-28
+- **Контекст:** пользовательская генерация курсов, тестов, рекомендаций и материалов Kamilya
 
-## Decision
+## Решение
 
-We run a two-tier LLM/embeddings stack with automatic failover:
+Пользователь не выбирает техническую модель. Все пользовательские LLM-вызовы
+проходят через один интерфейс `ResilientLLMClient`, который скрывает порядок,
+повторы и переключение провайдера.
 
-**LLM (text generation):**
-1. **Qwen self-hosted** (primary) — `https://qwen.kml.kz/v1`,
-   model `cyankiwi/Qwen3.6-35B-A3B-AWQ-4bit`. Free at the network
-   level (DGX machine, no per-token cost). Higher latency on first
-   token because of network tunneling through the office VPN, but
-   free.
-2. **DeepSeek v4-flash** (fallback) — `https://api.deepseek.com/v1`,
-   model `deepseek-v4-flash`. $0.14/$0.28 per 1M tokens.
-   Activated only when Qwen fails (timeout, 5xx, circuit-breaker
-   opens). Used as a reliability backstop, not as primary cost
-   optimization.
+Когда `FREE_LLM_POOL_ENABLED=true`, цепочка генерации имеет порядок:
 
-**Embeddings:**
-1. **Qwen self-hosted** (`Qwen3-Embedding-8B`) — primary, free.
-2. **Voyage voyage-4-lite** — fallback. $0.02/M tokens with 200M
-   free tokens per account.
+1. `gx10-7-thinkingcap` —
+   `morosystems/ThinkingCap-Qwen3.6-27B-NVFP4`;
+2. `gx10-2-qwen35-nvfp4` —
+   `nvidia/Qwen3.6-35B-A3B-NVFP4`;
+3. существующий `QWEN_API_URL` —
+   `cyankiwi/Qwen3.6-35B-A3B-AWQ-4bit`;
+4. DeepSeek — управляемый внешний резерв, если настроен ключ.
 
-Provider keys resolution priority (per provider):
-1. Environment variable (`DEEPSEEK_API_KEY`, `VOYAGE_API_KEY`)
-2. Active global key in `provider_keys` table (superadmin-managed)
-3. Provider skipped from the chain
+Существующий Qwen является третьей бесплатной моделью, поэтому отдельный
+дублирующий provider для `gx10-4` не создаётся. Когда приватный пул выключен,
+сохраняется прежний порядок `DeepSeek -> Qwen`.
 
-## Why not single-cloud from the start
+Дополнительные приватные модели имеют короткий connect timeout и нулевой
+повтор внутри одного provider. Это ограничивает задержку, если WireGuard-узел
+недоступен. Существующий Qwen и DeepSeek сохраняют стандартный retry budget.
 
-Qwen on the local DGX was the cheapest option (zero marginal cost) and
-keeps document content on infrastructure we control — important for
-Kazakh legal-entity customers who have data-residency concerns. The
-failover to DeepSeek/Voyage exists purely for reliability, not for cost
-arbitrage.
+Embeddings-маршрут этим решением не меняется.
 
-## Operational constraints
+## Сетевой и информационный gate
 
-- **ResilientLLMClient / ResilientEmbeddingsClient** in
-  `apps/api/app/modules/ai/llm_client.py` orchestrate the chain.
-- **Embeddings endpoint must be `/embeddings`** — the unified
-  `_BaseProviderClient._request()` was previously hard-coded to
-  `/chat/completions` for both LLM and embeddings (lesson 1 from
-  AGENTS.md). EmbeddingsClient now overrides to `/embeddings`.
-- **NaN-filtering** — embeddings are checked for None/NaN/inf before
-  pgvector insert (lesson 4).
-- **`embedding_status` reflects actual embeddings written**, not chunks
-  produced (lesson 2).
-- **`chunk_id` = md5(doc_id + text)**, not just md5(text) (lesson 5c) —
-  prevents cross-document collision on re-upload.
+Адреса бесплатного пула доступны только в разрешённом приватном
+WireGuard/VPS-контуре. Флаг нельзя включать на основании проверки с ноутбука:
+до активации фактический API-host и AI-worker обязаны подтвердить:
 
-## Alternatives considered
+1. успешный `GET /v1/models` для каждого включаемого endpoint;
+2. короткий completion без персональных данных;
+3. failover при timeout/5xx;
+4. отсутствие prompt/response body и tenant PII в журналах;
+5. утверждённый контур обработки загруженных документов.
 
-- **OpenAI / Anthropic as primary.** Rejected — per-token cost at our
-  expected volume (10K docs × 5 embeddings × 1000 tokens each) would
-  exceed DeepSeek fallback cost by 5-10x and adds data-residency
-  concerns.
-- **OpenRouter aggregator.** Could add Claude Haiku as a 3rd tier for
-  the reviewer role. Deferred — current reviewers run on Qwen fine.
-- **Per-tenant provider keys.** Currently global only (provider_keys
-  rows have `tenant_id=NULL`). Architecture supports per-tenant but UI
-  not built — deferred until enterprise tier demands it.
+Render не имеет подтверждённого маршрута к этим приватным адресам, поэтому в
+его декларации `FREE_LLM_POOL_ENABLED=false`. Включение выполняется только
+после переноса соответствующего API/worker-контура на хост с проверенной
+сетевой связностью.
 
-## Open items
+## Почему без выбора модели в интерфейсе
 
-- **Per-tenant LLM budget** (`tenant_settings.monthly_llm_budget_usd`)
-  not yet implemented. Needs metrification first to know what a
-  reasonable cap is.
-- **Quality-tier reviewer model** (e.g. DeepSeek v4-pro or Claude
-  Sonnet) — currently Qwen reviews its own output. Acceptable for v1,
-  revisit after first month of production quality metrics.
+Название модели является эксплуатационной деталью, а не учебным параметром.
+Dropdown переложил бы на методолога знания о доступности, цене и качестве
+инфраструктуры, усложнил воспроизводимость генерации и сделал fallback
+неочевидным. Малый интерфейс `ainvoke(messages, response_format)` сохраняет
+локальность маршрутизации и позволяет менять порядок без изменения
+пользовательских экранов.
+
+## Последствия
+
+- при доступном приватном пуле снижается предельная стоимость генерации;
+- отказ бесплатного узла не останавливает пользовательский flow;
+- DeepSeek используется только после перебора трёх бесплатных вариантов;
+- включение пула является отдельным deployment/network gate, а не следствием
+  наличия кода или локального WireGuard-профиля;
+- содержимое документов может входить в LLM prompt, поэтому новые endpoint-ы
+  нельзя считать безопасными для коммерческого tenant до утверждения их
+  размещения, доступа и журналирования.
+
+## Проверка
+
+- unit tests фиксируют порядок обеих цепочек и provider-specific retry budget;
+- URL нормализуется до OpenAI-совместимого `/v1` ровно один раз;
+- production smoke после включения должен записать только имена provider и
+  классы ошибок, без пользовательского содержимого;
+- provider timeout/5xx smoke обязан завершиться результатом следующего
+  provider, а не зависшим пользовательским заданием.
+
+## Квалификация ThinkingCap для курсов и тестов — 2026-08-14
+
+`morosystems/ThinkingCap-Qwen3.6-27B-NVFP4` отдельно проверена на синтетическом
+трёхстраничном документе без персональных данных. Контрольные факты были
+разнесены между началом, серединой и концом документа.
+
+Результат квалификации:
+
+- полный извлечённый текст: production-подобный Architect prompt за 19 секунд
+  вернул валидную структуру из 2 модулей и 4 уроков; каждый из четырёх
+  исходных заголовков использован ровно один раз;
+- Writer prompt за 4 секунды создал связный урок и сохранил все существенные
+  факты выбранного раздела, но добавил одну небольшую не подтверждённую
+  источником конкретизацию;
+- Assessment prompt за 13 секунд создал 5 вопросов с четырьмя вариантами и
+  одним правильным ответом; вопросы были корректны, но один унаследовал
+  конкретизацию Writer;
+- отдельный тест по полному документу за 18 секунд создал 8 валидных вопросов
+  и охватил все разделы;
+- три изображения страниц были прочитаны как единый документ: модель извлекла
+  7 из 7 контрольных фактов и сформировала валидную структуру курса с четырьмя
+  уникальными исходными заголовками;
+- исходный PDF как бинарный `input_file`/`file` текущий endpoint отверг HTTP
+  400. Runtime принимает текст и мультимодальные изображения, но не выполняет
+  разбор PDF/DOCX-файла как исходного документа;
+- `response_format=json_schema` для этой пары model/runtime непригоден: ответ
+  дошёл до лимита 8192 токенов и остался невалидным, тогда как обычный JSON
+  prompt завершился корректно.
+
+Модель допускается как первый бесплатный provider для создания **черновиков**
+курсов и тестов при обязательной проверке методистом. Она не получает право на
+автоматическую публикацию. Небольшая конкретизация Writer и её перенос в тест
+показывают, что формальная корректность JSON не равна полной фактической
+точности.
+
+Прямой бинарный upload в LLM не добавляется. Канонический путь остаётся:
+object storage -> проверенная конвертация/OCR -> chunks/retrieval с provenance
+-> Architect -> Writer -> Assessment. Для небольших документов разрешается
+будущая оптимизация с полным извлечённым текстом после отдельного token gate.
+Рендер страниц в изображения может рассматриваться как ограниченный fallback
+для сканов и layout-heavy страниц, но не как замена duplicate detection,
+tenant isolation, provenance, recovery и управлению источниками.
+
+Квалификация короткого трёхстраничного документа не доказывает устойчивую
+работу с произвольно длинными файлами. До коммерческого включения остаются
+отдельными gates: сетевой доступ runtime, размещение и журналирование, правила
+передачи содержимого документов, предел числа страниц/токенов и проверка на
+реальном обезличенном наборе типовых документов.

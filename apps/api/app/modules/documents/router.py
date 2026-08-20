@@ -20,6 +20,7 @@ from app.core.storage import get_storage
 from app.models.ai_job import AIJob
 from app.models.document import Document
 from app.modules.ai.job_service import create_ai_job
+from app.modules.documents.archive_preflight import ArchivePreflightError, preflight_ooxml
 from app.modules.documents.schemas import (
     DocumentCatalogResponse,
     DocumentCategory,
@@ -101,6 +102,7 @@ ALLOWED_MIME_TYPES = {
 # configurable while accepting normal business documents by default.
 MAX_FILE_SIZE_MB = int(os.getenv("MAX_DOCUMENT_SIZE_MB", "50"))
 MAX_FILE_SIZE = MAX_FILE_SIZE_MB * 1024 * 1024
+UPLOAD_CHUNK_BYTES = 1024 * 1024
 
 # Heuristic thresholds for text-content validation (audit §4.7):
 # a binary blob declared as text/plain must NOT pass. We accept UTF-8
@@ -535,13 +537,23 @@ async def upload_document(
         raise HTTPException(status_code=422, detail="Unsupported document category")
     from app.core.demo_limits import assert_can_create_document
 
-    content = await file.read()
-    file_size = len(content)
+    digest = hashlib.sha256()
+    sample = bytearray()
+    file_size = 0
+    await file.seek(0)
+    while chunk := await file.read(UPLOAD_CHUNK_BYTES):
+        file_size += len(chunk)
+        if file_size > MAX_FILE_SIZE:
+            raise HTTPException(
+                status_code=413,
+                detail=f"File too large. Maximum size: {MAX_FILE_SIZE // (1024 * 1024)}MB",
+            )
+        digest.update(chunk)
+        if len(sample) < TEXT_MAX_SAMPLE_BYTES:
+            sample.extend(chunk[: TEXT_MAX_SAMPLE_BYTES - len(sample)])
+    await file.seek(0)
 
     # File size check
-    if file_size > MAX_FILE_SIZE:
-        raise HTTPException(status_code=413, detail=f"File too large. Maximum size: {MAX_FILE_SIZE // (1024 * 1024)}MB")
-
     if file_size == 0:
         raise HTTPException(status_code=400, detail="Empty file")
 
@@ -554,10 +566,23 @@ async def upload_document(
         )
 
     # Magic bytes validation
-    if not validate_magic_bytes(content, content_type):
+    if not validate_magic_bytes(bytes(sample), content_type):
         raise HTTPException(status_code=400, detail="File content does not match declared type")
 
-    content_sha256 = hashlib.sha256(content).hexdigest()
+    ext = os.path.splitext(file.filename or "")[1].lower()
+    ooxml_suffix = {
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ".xlsx",
+    }.get(content_type)
+    if ooxml_suffix:
+        if ext != ooxml_suffix:
+            raise HTTPException(status_code=400, detail="File extension does not match declared OOXML type")
+        try:
+            preflight_ooxml(file.file, ooxml_suffix)
+        except ArchivePreflightError as exc:
+            raise HTTPException(status_code=400, detail="Invalid or unsafe OOXML document") from exc
+
+    content_sha256 = digest.hexdigest()
     duplicate = await db.scalar(
         select(Document)
         .where(
@@ -603,7 +628,6 @@ async def upload_document(
 
     await assert_can_create_document(db, user.tenant_id)
 
-    ext = os.path.splitext(file.filename or "")[1]
     s3_key = f"tenants/{user.tenant_id}/documents/{doc_id}{ext}"
 
     doc = Document(
@@ -642,7 +666,8 @@ async def upload_document(
             },
         )
         try:
-            get_storage().put_bytes(s3_key, content, content_type)
+            await file.seek(0)
+            get_storage().put_file(s3_key, file.file, content_type)
             blob_persisted = True
         except Exception as exc:
             await db.rollback()

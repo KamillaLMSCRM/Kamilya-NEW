@@ -28,6 +28,7 @@ from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
 import pytest
+from argon2 import PasswordHasher
 from fastapi import HTTPException
 
 from app.core.auth import decode_token
@@ -49,6 +50,20 @@ def _user(tenant_id=None, role="student", is_active=True, status="active"):
     return u
 
 
+def _credential(*, tenant_id, user_id, pin="384921", failed_attempts=0):
+    from app.models.kiosk_link import KioskUserCredential
+
+    credential = MagicMock(spec=KioskUserCredential)
+    credential.id = uuid4()
+    credential.tenant_id = tenant_id
+    credential.user_id = user_id
+    credential.pin_hash = PasswordHasher().hash(pin)
+    credential.failed_attempts = failed_attempts
+    credential.locked_until = None
+    credential.revoked_at = None
+    return credential
+
+
 def _kiosk(tenant_id=None):
     from app.models.kiosk_link import KioskLink
 
@@ -67,7 +82,7 @@ def _kiosk(tenant_id=None):
     return k
 
 
-def _mock_db_for_kiosk(*, kiosk, user):
+def _mock_db_for_kiosk(*, kiosk, user, credential=None):
     """Build a mock AsyncSession that resolves kiosk + user queries.
 
     Query order in identify_at_kiosk:
@@ -96,6 +111,7 @@ def _mock_db_for_kiosk(*, kiosk, user):
         return result
 
     db.execute = AsyncMock(side_effect=execute_side_effect)
+    db.scalar = AsyncMock(return_value=credential)
     return db
 
 
@@ -110,9 +126,10 @@ async def test_identify_returns_access_token():
     tenant = uuid4()
     user = _user(tenant_id=tenant)
     kiosk = _kiosk(tenant_id=tenant)
-    db = _mock_db_for_kiosk(kiosk=kiosk, user=user)
+    credential = _credential(tenant_id=tenant, user_id=user.id)
+    db = _mock_db_for_kiosk(kiosk=kiosk, user=user, credential=credential)
 
-    result = await identify_at_kiosk(db, kiosk.token, user.personnel_number)
+    result = await identify_at_kiosk(db, kiosk.token, user.personnel_number, "384921")
 
     assert "access_token" in result
     assert isinstance(result["access_token"], str)
@@ -132,9 +149,10 @@ async def test_identify_token_has_correct_payload():
     tenant = uuid4()
     user = _user(tenant_id=tenant, role="student")
     kiosk = _kiosk(tenant_id=tenant)
-    db = _mock_db_for_kiosk(kiosk=kiosk, user=user)
+    credential = _credential(tenant_id=tenant, user_id=user.id)
+    db = _mock_db_for_kiosk(kiosk=kiosk, user=user, credential=credential)
 
-    result = await identify_at_kiosk(db, kiosk.token, user.personnel_number)
+    result = await identify_at_kiosk(db, kiosk.token, user.personnel_number, "384921")
     token = result["access_token"]
 
     # Decode with the same secret the app uses — proves it's
@@ -142,8 +160,10 @@ async def test_identify_token_has_correct_payload():
     payload = decode_token(token)
     assert payload["sub"] == str(user.id)
     assert payload["tenant_id"] == str(tenant)
-    assert payload["role"] == "student"
+    assert payload["type"] == "kiosk_access"
     assert payload["auth_method"] == "kiosk"
+    assert payload["kiosk_id"] == str(kiosk.id)
+    assert payload["kiosk_credential_id"] == str(credential.id)
 
 
 # ── 3. token has short TTL (≤ 30 min) per TZ §3.5 ──────────
@@ -161,9 +181,10 @@ async def test_identify_token_has_short_ttl():
     tenant = uuid4()
     user = _user(tenant_id=tenant)
     kiosk = _kiosk(tenant_id=tenant)
-    db = _mock_db_for_kiosk(kiosk=kiosk, user=user)
+    credential = _credential(tenant_id=tenant, user_id=user.id)
+    db = _mock_db_for_kiosk(kiosk=kiosk, user=user, credential=credential)
 
-    result = await identify_at_kiosk(db, kiosk.token, user.personnel_number)
+    result = await identify_at_kiosk(db, kiosk.token, user.personnel_number, "384921")
     payload = decode_token(result["access_token"])
 
     now_ts = int(datetime.now(UTC).timestamp())
@@ -189,11 +210,12 @@ async def test_identify_does_not_issue_token_for_inactive_user():
     tenant = uuid4()
     user = _user(tenant_id=tenant, is_active=False, status="inactive")
     kiosk = _kiosk(tenant_id=tenant)
-    db = _mock_db_for_kiosk(kiosk=kiosk, user=user)
+    credential = _credential(tenant_id=tenant, user_id=user.id)
+    db = _mock_db_for_kiosk(kiosk=kiosk, user=user, credential=credential)
 
     with pytest.raises(HTTPException) as exc:
-        await identify_at_kiosk(db, kiosk.token, user.personnel_number)
-    assert exc.value.status_code == 403
+        await identify_at_kiosk(db, kiosk.token, user.personnel_number, "384921")
+    assert exc.value.status_code == 401
     # Importantly: no token in the response (the raise prevents it)
 
 
@@ -211,9 +233,10 @@ async def test_identify_response_includes_user_courses_and_token():
     tenant = uuid4()
     user = _user(tenant_id=tenant)
     kiosk = _kiosk(tenant_id=tenant)
-    db = _mock_db_for_kiosk(kiosk=kiosk, user=user)
+    credential = _credential(tenant_id=tenant, user_id=user.id)
+    db = _mock_db_for_kiosk(kiosk=kiosk, user=user, credential=credential)
 
-    result = await identify_at_kiosk(db, kiosk.token, user.personnel_number)
+    result = await identify_at_kiosk(db, kiosk.token, user.personnel_number, "384921")
 
     assert "user" in result
     assert "kiosk_name" in result
@@ -221,3 +244,37 @@ async def test_identify_response_includes_user_courses_and_token():
     assert "courses" in result
     assert "access_token" in result  # new
     assert "token_type" in result  # "bearer" hint for frontend
+
+
+@pytest.mark.asyncio
+async def test_identify_rejects_wrong_pin_with_generic_error_and_locks_after_five_attempts():
+    from app.modules.users.kiosk_service import identify_at_kiosk
+
+    tenant = uuid4()
+    user = _user(tenant_id=tenant)
+    kiosk = _kiosk(tenant_id=tenant)
+    credential = _credential(tenant_id=tenant, user_id=user.id, failed_attempts=4)
+    db = _mock_db_for_kiosk(kiosk=kiosk, user=user, credential=credential)
+
+    with pytest.raises(HTTPException) as exc:
+        await identify_at_kiosk(db, kiosk.token, user.personnel_number, "000000")
+
+    assert exc.value.status_code == 401
+    assert exc.value.detail == "Неверный табельный номер или PIN"
+    assert credential.failed_attempts == 5
+    assert credential.locked_until is not None
+
+
+@pytest.mark.asyncio
+async def test_unknown_personnel_number_uses_same_public_error_as_wrong_pin():
+    from app.modules.users.kiosk_service import identify_at_kiosk
+
+    tenant = uuid4()
+    kiosk = _kiosk(tenant_id=tenant)
+    db = _mock_db_for_kiosk(kiosk=kiosk, user=None, credential=None)
+
+    with pytest.raises(HTTPException) as exc:
+        await identify_at_kiosk(db, kiosk.token, "UNKNOWN", "000000")
+
+    assert exc.value.status_code == 401
+    assert exc.value.detail == "Неверный табельный номер или PIN"

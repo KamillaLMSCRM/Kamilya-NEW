@@ -54,8 +54,8 @@ try:
           wait_on_future from the runner executes on the same loop
           as the coroutine, so no future-mismatch.
 
-          See docs/LESSONS.md 2026-06-29 "tasks.py async event-loop
-          bug" for the full writeup.
+          See ERRORS.md WORKER-001 for the rule that a background-job smoke
+          must exercise the real worker boundary.
         """
         logger.info(
             "apply_rules_for_users_task: starting for %d users", len(user_ids)
@@ -111,7 +111,7 @@ except ImportError as e:
     # without the full app context). Define a no-op so the module
     # is importable. The real task is registered when this module
     # is loaded by the worker.
-    logger.warning("Celery task registration skipped: %s", e)
+    logger.warning("Celery task registration skipped error_type=%s", type(e).__name__)
 
     def apply_rules_for_users_task(*args, **kwargs):  # type: ignore[no-redef]
         raise RuntimeError(

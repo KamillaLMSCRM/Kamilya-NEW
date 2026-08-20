@@ -2,7 +2,7 @@ import logging
 import os
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
 
 # Structured JSON logging — emit machine-parseable lines in production so
@@ -21,6 +21,11 @@ except ImportError:
 # before resolving User.position_id ForeignKey
 from app.core.config import get_settings
 from app.core.errors import register_error_handlers
+from app.core.log_redaction import (
+    SensitiveDataFilter,
+    install_sensitive_logging_filters,
+    scrub_sentry_event,
+)
 from app.core.rate_limit import RateLimitMiddleware
 from app.core.security import SecurityHeadersMiddleware
 from app.modules.admin.onboarding.router import router as onboarding_router
@@ -117,6 +122,7 @@ if settings.SENTRY_DSN:
             ),
             # PII: scrub Authorization header, cookies, password fields.
             send_default_pii=False,
+            before_send=scrub_sentry_event,
         )
         logger.info("Sentry initialized (env=%s)", settings.APP_ENV)
     except ImportError:
@@ -127,6 +133,7 @@ if settings.SENTRY_DSN:
 # human-readable formatter because JSON in a terminal is hard to read.
 if settings.APP_ENV == "production" and _HAS_JSON_LOGGER:
     handler = logging.StreamHandler()
+    handler.addFilter(SensitiveDataFilter())
     handler.setFormatter(
         jsonlogger.JsonFormatter(
             "%(asctime)s %(name)s %(levelname)s %(message)s",
@@ -140,6 +147,8 @@ if settings.APP_ENV == "production" and _HAS_JSON_LOGGER:
 elif settings.DEBUG:
     # Verbose logging in DEBUG mode.
     logging.basicConfig(level=logging.DEBUG, format="%(asctime)s %(name)s %(levelname)s %(message)s")
+
+install_sensitive_logging_filters()
 
 
 @asynccontextmanager
@@ -251,7 +260,19 @@ async def root_probe():
     return {"status": "ok", "app": settings.APP_NAME}
 
 
+def _deployment_identity() -> dict[str, str]:
+    release_sha = settings.RELEASE_SHA.strip() or os.getenv("RENDER_GIT_COMMIT", "").strip() or "unknown"
+    return {
+        "status": "ok",
+        "app": settings.APP_NAME,
+        "app_environment": settings.APP_ENV,
+        "deployment_environment": settings.DEPLOYMENT_ENVIRONMENT,
+        "release_sha": release_sha,
+    }
+
+
 @app.get("/health")
 @app.get(f"{settings.API_PREFIX}/health")
-async def health_check():
-    return {"status": "ok", "app": settings.APP_NAME}
+async def health_check(response: Response):
+    response.headers["Cache-Control"] = "no-store"
+    return _deployment_identity()

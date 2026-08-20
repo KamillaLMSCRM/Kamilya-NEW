@@ -53,7 +53,7 @@ class DocumentConverter:
                 logger.warning(f"Docling service unreachable at {self.base_url}, using fallback")
                 return await _fallback_convert(file_path)
             except Exception as e:
-                logger.warning(f"Docling conversion failed: {e}, using fallback")
+                logger.warning("Docling conversion failed error_type=%s; using fallback", type(e).__name__)
                 return await _fallback_convert(file_path)
 
 

@@ -112,8 +112,12 @@ try:
             }
 
         except Exception as e:
-            error_message = str(e)
-            logger.error(f"Generation task failed for job {job_id}: {error_message}")
+            error_message = f"{type(e).__name__}: generation failed"
+            logger.error(
+                "Generation task failed for job %s error_type=%s",
+                job_id,
+                type(e).__name__,
+            )
             # The pipeline may already have called providers before an error.
             # Without durable stage artifacts, replaying it can duplicate cost
             # or drafts, so leave it terminal for explicit user recovery.
@@ -154,7 +158,7 @@ try:
         except asyncio.CancelledError:
             return {"job_id": job_id, "status": "cancelled"}
         except Exception as exc:
-            logger.error("Module regeneration failed for job %s: %s", job_id, exc)
+            logger.error("Module regeneration failed for job %s error_type=%s", job_id, type(exc).__name__)
             raise self.retry(exc=exc, countdown=60) from exc
 
     @celery_app.task(bind=True, name="ai.regenerate_lesson", max_retries=2)
@@ -184,7 +188,7 @@ try:
         except asyncio.CancelledError:
             return {"job_id": job_id, "status": "cancelled"}
         except Exception as exc:
-            logger.error("Lesson regeneration failed for job %s: %s", job_id, exc)
+            logger.error("Lesson regeneration failed for job %s error_type=%s", job_id, type(exc).__name__)
             raise self.retry(exc=exc, countdown=60) from exc
 
     @celery_app.task(name="ai.ingest_document")
@@ -192,7 +196,7 @@ try:
         """Celery task to ingest a single document."""
         from app.modules.ai.ingestion import DocumentIngestion
 
-        logger.info(f"Ingesting document: {file_path}")
+        logger.info("Starting document ingestion")
 
         ingestion = DocumentIngestion()
         result = _run_async(ingestion.ingest_file(file_path, doc_id, tenant_id=tenant_id))

@@ -3,10 +3,11 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import secrets
 import time
 from collections.abc import Callable
 
-from fastapi import Request, Response
+from fastapi import HTTPException, Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 
@@ -41,6 +42,10 @@ RATE_LIMITS: dict[str, RateLimitConfig] = {
     "/api/v1/auth/email/request-code": RateLimitConfig(requests_per_minute=5, requests_per_hour=20, burst_size=3),
     "/api/v1/auth/email/verify-code": RateLimitConfig(requests_per_minute=10, requests_per_hour=60, burst_size=5),
     "/api/v1/invitations/": RateLimitConfig(requests_per_minute=10, requests_per_hour=60, burst_size=5),
+    "/api/v1/kiosks/": RateLimitConfig(requests_per_minute=20, requests_per_hour=200, burst_size=5),
+    "/api/v1/assignment-access/": RateLimitConfig(requests_per_minute=10, requests_per_hour=60, burst_size=5),
+    "/api/v1/candidate-assessment/": RateLimitConfig(requests_per_minute=20, requests_per_hour=120, burst_size=5),
+    "/api/v1/public/leads": RateLimitConfig(requests_per_minute=5, requests_per_hour=20, burst_size=3),
     "/api/v1/ai/generate-course": RateLimitConfig(requests_per_minute=2, requests_per_hour=10, burst_size=1),
     "/api/v1/quizzes": RateLimitConfig(requests_per_minute=30, requests_per_hour=500, burst_size=10),
     "/api/v1/documents/upload": RateLimitConfig(requests_per_minute=10, requests_per_hour=100, burst_size=5),
@@ -66,10 +71,20 @@ PUBLIC_AUTH_ENDPOINTS = frozenset(
     }
 )
 PUBLIC_AUTH_PREFIXES = ("/api/v1/invitations/",)
+PUBLIC_CAPABILITY_PREFIXES = (
+    "/api/v1/assignment-access/",
+    "/api/v1/candidate-assessment/",
+)
 
 
 def _is_public_auth_path(path: str) -> bool:
-    return path in PUBLIC_AUTH_ENDPOINTS or path.startswith(PUBLIC_AUTH_PREFIXES)
+    return (
+        path in PUBLIC_AUTH_ENDPOINTS
+        or path.startswith(PUBLIC_AUTH_PREFIXES)
+        or path.startswith(PUBLIC_CAPABILITY_PREFIXES)
+        or path == "/api/v1/public/leads"
+        or path.startswith("/api/v1/kiosks/")
+    )
 
 
 def _rate_limit_bucket_path(path: str) -> str:
@@ -78,6 +93,23 @@ def _rate_limit_bucket_path(path: str) -> str:
         token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()[:16]
         action = "request-code" if path.endswith("/request-code") else "accept" if path.endswith("/accept") else "view"
         return f"/api/v1/invitations/{token_hash}/{action}"
+    if path.startswith("/api/v1/kiosks/"):
+        suffix = path.removeprefix("/api/v1/kiosks/")
+        token = suffix.split("/", 1)[0]
+        token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()[:16]
+        action = "identify" if suffix.endswith("/identify") else "view"
+        return f"/api/v1/kiosks/{token_hash}/{action}"
+    if path.startswith("/api/v1/assignment-access/"):
+        token = path.removeprefix("/api/v1/assignment-access/").split("/", 1)[0]
+        token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()[:16]
+        return f"/api/v1/assignment-access/{token_hash}/exchange"
+    if path.startswith("/api/v1/candidate-assessment/"):
+        suffix = path.removeprefix("/api/v1/candidate-assessment/")
+        if suffix == "submit":
+            return "/api/v1/candidate-assessment/submit"
+        token = suffix.split("/", 1)[0]
+        token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()[:16]
+        return f"/api/v1/candidate-assessment/{token_hash}/exchange"
     return path
 
 
@@ -142,7 +174,7 @@ class RateLimiter:
 
             pipe = redis.pipeline()
             pipe.zremrangebyscore(key, 0, window_start)
-            pipe.zadd(key, {str(now): now})
+            pipe.zadd(key, {f"{now}:{secrets.token_hex(8)}": now})
             pipe.zcard(key)
             pipe.expire(key, window_seconds)
             results = await pipe.execute()
@@ -205,23 +237,18 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         path = request.url.path
         info = {"remaining": 0, "reset": 0, "limit": 0, "current": 0}
 
-        # Extract tenant context from Authorization header (best-effort,
-        # not verified — middleware doesn't decode JWT, it just peeks at
-        # the payload to scope the rate-limit bucket). For unauthenticated
-        # endpoints (login, register) this stays empty and we fall back
-        # to IP-only. See audit §4.5.
-        tenant_id = _peek_tenant_id_from_request(request)
+        principal_bucket = _verified_principal_bucket(request)
         is_public_auth = _is_public_auth_path(path)
 
         try:
             config = await self.limiter.get_rate_limit_config(path)
-            if is_public_auth or not tenant_id:
+            if is_public_auth or not principal_bucket:
                 # Public authentication must always use the network identity.
                 # Never trust a tenant_id peeked from an unsigned JWT here:
                 # attackers could forge it to split a brute-force quota.
                 key = f"rate_limit:{_rate_limit_bucket_path(path)}:ip:{client_ip}"
             else:
-                key = f"rate_limit:{path}:tenant:{tenant_id}"
+                key = f"rate_limit:{path}:principal:{principal_bucket}"
 
             checks = (
                 ("burst", config.burst_size, 10),
@@ -283,7 +310,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         if not is_allowed:
             logger.warning(
                 "Rate limit exceeded for tenant=%s ip=%s on %s",
-                tenant_id or "<none>",
+                "verified" if principal_bucket else "<none>",
                 client_ip,
                 path,
             )
@@ -310,36 +337,23 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         return response
 
 
-def _peek_tenant_id_from_request(request: Request) -> str | None:
-    """Best-effort tenant_id extraction from JWT (no signature check).
-
-    The middleware runs BEFORE route handlers, so we can't use the
-    FastAPI dependency injection that decodes tokens. Instead we
-    decode the payload WITHOUT verifying the signature — anyone can
-    forge a token with any tenant_id, but the rate-limit bucket is
-    not security-critical: a forged tenant_id just splits that
-    attacker's quota across multiple buckets, not amplifies it.
-
-    Returns the tenant_id string if the token looks well-formed, else None.
-    """
+def _verified_principal_bucket(request: Request) -> str | None:
+    """Return an opaque bucket only for a cryptographically valid access JWT."""
     auth_header = request.headers.get("Authorization", "")
     if not auth_header.startswith("Bearer "):
         return None
     token = auth_header[len("Bearer ") :].strip()
-    parts = token.split(".")
-    if len(parts) != 3:
-        return None
     try:
-        # PyJWT is already a dependency; lazy import to avoid global cost.
-        import base64
-        import json
+        from app.core.auth import decode_token
 
-        payload_b64 = parts[1]
-        # Add padding if missing.
-        payload_b64 += "=" * (-len(payload_b64) % 4)
-        payload_bytes = base64.urlsafe_b64decode(payload_b64.encode("ascii"))
-        payload = json.loads(payload_bytes.decode("utf-8"))
-        tid = payload.get("tenant_id")
-        return str(tid) if tid else None
-    except Exception:
+        payload = decode_token(token)
+    except HTTPException:
         return None
+    if payload.get("type") not in {"access", "kiosk_access"}:
+        return None
+    subject = payload.get("sub")
+    if not subject:
+        return None
+    tenant_id = payload.get("tenant_id") or "global"
+    canonical = f"{tenant_id}:{subject}:{payload.get('type')}"
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:32]

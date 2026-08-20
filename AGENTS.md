@@ -6,16 +6,45 @@
 
 Сначала прочитать:
 
-1. [`docs/CODEX_HANDOFF.md`](docs/CODEX_HANDOFF.md)
-2. [`PROJECT.md`](PROJECT.md)
-3. [`docs/PROJECT-CONTEXT.md`](docs/PROJECT-CONTEXT.md)
-4. [`docs/PRODUCTION_READINESS.md`](docs/PRODUCTION_READINESS.md)
-5. [`docs/PRODUCT_BACKLOG.md`](docs/PRODUCT_BACKLOG.md)
-6. [`docs/PROJECT_INTERNAL_DOCUMENTATION.md`](docs/PROJECT_INTERNAL_DOCUMENTATION.md)
-7. [`docs/LESSONS.md`](docs/LESSONS.md)
+1. [`ERRORS.md`](ERRORS.md)
+2. [`docs/CODEX_HANDOFF.md`](docs/CODEX_HANDOFF.md)
+3. [`PROJECT.md`](PROJECT.md)
+4. [`docs/PROJECT-CONTEXT.md`](docs/PROJECT-CONTEXT.md)
+5. [`docs/PRODUCTION_READINESS.md`](docs/PRODUCTION_READINESS.md)
+6. [`docs/PRODUCT_BACKLOG.md`](docs/PRODUCT_BACKLOG.md)
+7. [`docs/PROJECT_INTERNAL_DOCUMENTATION.md`](docs/PROJECT_INTERNAL_DOCUMENTATION.md)
 
 Git history содержит старые ТЗ и отчёты, но они не являются источником
 текущего поведения.
+
+## Журнал ошибок
+
+Корневой [`ERRORS.md`](ERRORS.md) — единственный действующий журнал
+подтверждённых ошибок, исправлений и профилактических проверок.
+
+До анализа, кодирования, миграций, provisioning, тестов, build, deployment,
+commit и push агент обязан полностью прочитать `ERRORS.md`. Непосредственно
+перед каждой рискованной процедурой нужно повторно проверить относящиеся к ней
+записи.
+
+Если в ходе задачи возникла новая ошибка, неверное предположение, небезопасный
+fallback или повторяемый сбой, агент обязан в рамках той же задачи:
+
+1. отделить наблюдаемый симптом от гипотезы;
+2. подтвердить первопричину;
+3. исправить минимально необходимый слой;
+4. повторить падавшую проверку и выполнить соразмерную регрессию;
+5. дополнить существующую запись либо создать уникальный `CATEGORY-NNN` с
+   датой, симптомом, причиной, исправлением, проверкой и профилактикой;
+6. проверить запись на секреты, персональные данные и устаревшие рекомендации.
+
+Повтор прежней причины обновляет существующую запись, а не создаёт дубль.
+Если архитектура, команда, API или окружение изменились, запись удаляется либо
+переписывается под действующий источник истины. Неверное legacy нельзя хранить
+даже с пометкой «устарело».
+
+При параллельной работе основной агент владеет финальным обновлением
+`ERRORS.md`; вывод другого агента без проверки не записывается как факт.
 
 ## Значение команды «проверь»
 
@@ -85,6 +114,23 @@ subagents:
 Для работы больше одного шага создать временный
 `docs/plans/YYYY-MM-DD_<slug>.md` с проверками и gate.
 
+Для крупного multi-agent или cross-repository эпика использовать проектный
+skill `.codex/skills/kamilya-orchestrator/SKILL.md`, если выполняются хотя бы
+два условия:
+
+- работа затрагивает несколько репозиториев;
+- задействованы три и более исполнителя;
+- есть production или внешний provider;
+- требуются несколько отдельных approval gates;
+- есть зависимые параллельные ветви;
+- работа продолжается в нескольких сессиях.
+
+Skill работает в режимах `bootstrap` и `epic-update` и использует временный
+task graph в `docs/plans/`. Не создавать параллельный каталог `docs/ai/` и не
+дублировать `PROJECT-CONTEXT.md`, `PRODUCTION_READINESS.md`,
+`PRODUCT_BACKLOG.md`, `ERRORS.md`, ADR или `CODEX_HANDOFF.md`. Для обычной
+задачи в одном scope достаточно стандартного временного плана выше.
+
 Дешёвые subagents разрешены для ограниченной массовой работы:
 
 - для простых, ограниченных и низкорисковых задач использовать самый дешёвый
@@ -124,10 +170,10 @@ Frontend:
 
 ```powershell
 cd apps\web
-npm test
-npm run typecheck
+pnpm test
+pnpm typecheck
 $env:NEXT_TELEMETRY_DISABLED='1'
-npx next build
+pnpm build
 ```
 
 Тесты должны соответствовать риску:
@@ -151,6 +197,74 @@ npx next build
 
 Worker на отдельном VPS не обновляется автоматически вместе с Render.
 
+## Каноническая карта внешних доступов
+
+Перед любой работой с Vercel, proxy VPS, Proxmox, VM126, CT125, KZ API/worker
+или PostgreSQL полностью прочитать раздел «Карта окружений и доступов» в
+[`docs/PROJECT-CONTEXT.md`](docs/PROJECT-CONTEXT.md) и текущие факты в
+[`docs/VPS_CONNECTION_GUIDE.md`](docs/VPS_CONNECTION_GUIDE.md). Файлы
+`docs/plans/` и старые handoff-сообщения не являются источником действующей
+топологии.
+
+Обязательная схема:
+
+- Vercel управляется через API-токен `vercel_token` из корневого `.env`.
+  Значение загружается в память процесса и передаётся в authorization header;
+  его нельзя помещать в аргументы командной строки, URL, вывод или Git.
+- Production frontend — Vercel project `web`, branch `master`, домен
+  `app.kml.kz`. Dev frontend — отдельный project `kamilya-lms-dev`, branch
+  `dev`, без custom domain. Нельзя связывать локальный checkout или менять env,
+  branch/domain одного проекта, пока его id и текущее состояние не прочитаны
+  обратно через API.
+- Доступ к публичному proxy VPS берётся только из `C:\Kamilya New\.env`:
+  `PROXY_VPS_HOST`, `PROXY_VPS_LOGIN`, `PROXY_VPS_PASSWORD`. Перед SSH
+  проверяется фактический target из `PROXY_VPS_HOST` и сохранённый host key;
+  пароль не вставляется в command line. Историческое provider-имя
+  `vds36463.vpsza500.kz` на 17.08.2026 не разрешается в DNS и не используется
+  как endpoint.
+- Proxmox API использует только `PVE_API_TOKEN_ID`,
+  `PVE_API_TOKEN_SECRET` и `VPS_URL` из корневого `.env`. Права Proxmox на VM
+  или CT не доказывают доступ к guest OS. QGA, SSH и встроенная console — разные
+  authority boundaries; не заменять одну другой без явного решения.
+- KZ application path: public TLS/DNS -> proxy Nginx -> WireGuard hub
+  `10.77.77.1` -> VM126 `10.77.77.2:8000`. VM126 содержит API, Celery, Valkey и
+  файловый runtime; CT125 содержит native PostgreSQL 17 + pgvector и backup.
+  PostgreSQL нельзя публиковать в Internet.
+- Authoritative DNS для `kml.kz` находится в Cloudflare, не в Vercel. Наличие
+  verified domain в Vercel не разрешает создавать DNS record через Vercel API.
+  Перед DNS mutation проверить NS и использовать только подтверждённую
+  Cloudflare-сессию/API authority.
+- На 17.08.2026 production frontend `app.kml.kz` направлен на
+  `https://api.kml.kz/api` через proxy/WireGuard к VM126 и private DB path в
+  CT125. Render/Supabase сохранены как dev/demo и rollback-контур. Нельзя
+  смешивать production и dev/demo данные, очереди или storage; любое следующее
+  переключение требует нового release gate и rollback.
+- Изолированный Vercel project `kamilya-lms-dev` использует
+  `NEXT_PUBLIC_API_URL=https://api.kml.kz/api`. Суффикс `/api` обязателен:
+  frontend добавляет к base URL пути `/v1/...`. Stable dev origin временно
+  разрешён точным CORS allowlist на proxy до следующего exact-image deploy,
+  содержащего тот же origin в backend configuration.
+- Routine-доступ к guest должен идти по подтверждённому SSH/WireGuard пути.
+  noVNC/встроенная console используется только для bootstrap/recovery по
+  явному указанию, а не как автоматический fallback. Если SSH к VM126/CT125 не
+  подтверждён, зафиксировать это как gap, а не снова искать credentials.
+- Доступность SSH к публичному proxy, активный WireGuard и HTTP 200 от VM126 не
+  доказывают guest-admin доступ. На 18.08.2026 штатный admin path к VM126
+  завершён: private key создан и остаётся на proxy в
+  `/root/.ssh/kamilya-vm126-admin`, public key установлен пользователю
+  `kamilya-admin`, вход выполняется через WireGuard на `10.77.77.2`, а
+  `sudo -n` и read-back smoke подтверждены. Root-login по SSH выключен;
+  временная копия этого ключа из `/root/.ssh/authorized_keys` VM126 удалена.
+  Routine operations выполнять только по цепочке local -> proxy ->
+  `kamilya-admin@10.77.77.2`; console/QGA сохраняются только для явно
+  разрешённого bootstrap/recovery.
+- Если API token или Authorization header попал в диагностический вывод, этот
+  token считается раскрытым: прекратить его использование и потребовать
+  ротацию до следующей Proxmox/QGA mutation.
+- После двух одинаковых access/auth/network failures действует правило двух
+  неудач ниже: остановиться, не перебирать старые `.env`, логины, пароли, порты
+  или альтернативные каналы.
+
 ## Секреты
 
 - Локальные значения только в `.env`.
@@ -158,6 +272,49 @@ Worker на отдельном VPS не обновляется автомати�
 - Не коммитить `.env`, tokens, passwords, private keys.
 - Для проверки разрешено читать только имена переменных.
 - Production changes выполнять только в scope запроса пользователя.
+
+### Правило двух неудач для доступа и инфраструктуры
+
+- Правило обязательной остановки после двух неудач применяется к subagents и
+  отдельным делегированным чатам. Главный агент Kamilya не прекращает задачу
+  только из-за счётчика попыток: он обязан классифицировать сбой, сменить
+  безопасный метод диагностики и довести работу до проверяемого результата.
+  При этом главный агент также не перебирает секреты и не выполняет
+  неоднозначные, необратимые или расширяющие authority действия без отдельного
+  подтверждения пользователя.
+- После двух последовательных неудач одного access/auth/network/deployment
+  действия агент немедленно останавливает повторы и обращается к главному
+  агенту за точным одобренным следующим шагом.
+- Запрещено после этого перебирать другие логины, пароли, ключи, порты, URL,
+  имена переменных, старые `.env`, backup-файлы, shell history, соседние
+  репозитории или прежние серверные профили.
+- Старые `.env` и исторические заметки разрешено использовать только для имён
+  параметров и архитектурного контекста, но не как источник действующих
+  credentials.
+- В запросе главному агенту указывать только target, выполненные две попытки,
+  класс ошибки и требуемую authority boundary: конкретный пользователь/SSH key
+  path, актуальное имя secret-переменной, QGA/noVNC/console либо иной явно
+  разрешённый канал. Значения секретов не передавать.
+- До ответа главного агента не выполнять новых попыток и не менять firewall,
+  auth configuration, пользователей, ключи, сервисы или сетевые маршруты.
+
+### Межчатовая эскалация главному агенту
+
+- Фразы «уточню у главного агента», «передал главному агенту»,
+  `ROOT REVIEW REQUIRED` и аналогичные сами по себе не считаются передачей.
+- При blocker, approval gate, security/data-loss risk, неожиданном production
+  state или завершении значимого infrastructure milestone агент обязан в том
+  же turn вызвать доступный инструмент межчатовой отправки в конкретный
+  основной Kamilya thread и проверить успешный результат вызова.
+- Сообщение начинать с `[VPS -> ROOT | INPUT REQUIRED]` либо соответствующего
+  имени workstream и включать только: `CURRENT STATUS`, `EXACT BLOCKER`,
+  `ATTEMPTS/ERROR CLASSES`, `AUTHORITY/DECISION REQUIRED`,
+  `SAFE DEFAULT WHILE WAITING`, `TEMPORARY ARTIFACTS REQUIRING CLEANUP`.
+- После успешной отправки завершить turn пометкой `[WAITING FOR ROOT]` и не
+  выполнять новые попытки или мутации до ответа главного агента.
+- Если сама межчатовая отправка дважды не сработала, остановиться и сообщить
+  пользователю в текущей задаче два класса ошибки. Не искать другой основной
+  thread и не заявлять, что сообщение доставлено.
 
 ## Git и release
 

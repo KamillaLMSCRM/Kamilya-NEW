@@ -158,7 +158,7 @@ async def learner_chat(
         )
         reply = (resp.content or "").strip() or "Не получилось сформировать ответ."
     except Exception as e:
-        logger.error("Learner assistant failed: %s", e, exc_info=True)
+        logger.error("Learner assistant failed error_type=%s", type(e).__name__)
         raise HTTPException(status_code=502, detail="AI assistant is unavailable, try again")
 
     db.add(

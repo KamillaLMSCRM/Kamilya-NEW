@@ -525,3 +525,254 @@
 - Профилактика: идемпотентность назначения проверять отдельно для active,
   completed и cancelled. Завершённый learner outcome нельзя сбрасывать тем же
   массовым audience action, которым создаётся первое назначение.
+
+## SECURITY-001 — Содержание урока исполнялось как сохранённый HTML
+
+- Дата: 2026-08-20.
+- Симптом: сохранённая строка урока с HTML-тегами превращалась в реальные DOM
+  элементы на странице курса; обработчики событий и активные URL попадали в
+  браузерный execution context.
+- Причина: самописный `simpleMarkdown()` не экранировал вход, а его результат
+  передавался в React `dangerouslySetInnerHTML`.
+- Исправление: содержание урока строится только как React text nodes и
+  ограниченные элементы `strong`, `em`, `br`. Raw HTML не парсится, поэтому
+  теги из editor, документа или LLM остаются видимым безопасным текстом.
+- Проверка: regression test сначала воспроизвёл DOM injection, затем подтвердил
+  отсутствие `img`, `script` и `javascript:` link при сохранении базового
+  выделения. Focused suite `5 passed`, typecheck и lint прошли, production build
+  сформировал 57 страниц. Полная web-suite дала один несвязанный flaky failure
+  contextual assignment; его отдельный повтор прошёл `9 passed`.
+- Профилактика: не передавать persisted/API/LLM content в HTML sinks. Rich text
+  добавлять только через безопасный AST/component renderer либо отдельно
+  проверенный allowlist sanitizer с XSS corpus и CSP defense-in-depth.
+
+## SECURITY-002 — Табельный номер использовался как единственный секрет киоска
+
+- Дата: 2026-08-20.
+- Симптом: знание общей ссылки киоска и табельного номера позволяло получить
+  обычный пользовательский access JWT; разные ошибки дополнительно раскрывали
+  существование, статус и соответствие должности сотрудника.
+- Причина: табельный номер ошибочно считался credential, отдельного секрета,
+  блокировки перебора и серверной привязки сеанса к активному киоску не было;
+  новые журналы также сохраняли номер без маскирования.
+- Исправление: администратор выпускает отдельный шестизначный PIN, в БД хранится
+  только Argon2-хеш. Публичный exchange имеет нейтральную ошибку, пять попыток,
+  15-минутный lockout и fail-closed IP rate limit через Valkey. JWT имеет тип
+  `kiosk_access` и на каждом запросе сверяется с активными credential, киоском,
+  тенантом, сотрудником и должностным scope. Миграция `0120` включает RLS,
+  ownership trigger и маскирует исторические номера в журнале.
+- Проверка: security/API suite `43 passed`, полный доступный API suite
+  `998 passed`; 48 DB-backed тестов не стартовали из-за недоступного локального
+  PostgreSQL. Web suite `317 passed`, typecheck, lint и production build
+  (57 страниц) прошли. Alembic head — `0120`.
+- Профилактика: публичный идентификатор никогда не считать аутентификатором.
+  Capability-сеансы должны иметь независимый секрет, попытки/lockout,
+  server-side revocation, tenant ownership, нейтральные ошибки и тест
+  деградации rate limiter до release.
+
+## SECURITY-003 — SCORM был заблокирован headers либо исполнялся бы на trusted API origin
+
+- Дата: 2026-08-20.
+- Симптом: frontend встраивал SCORM launch без `sandbox`, а общий API middleware
+  одновременно отвечал `X-Frame-Options: DENY` и `frame-ancestors 'none'`.
+  Простое снятие этих headers дало бы tenant-uploaded HTML/JavaScript доверенный
+  API origin.
+- Причина: launch shell, package assets, commit API и основной API не имели
+  явной browser trust boundary; launch URL строился из `request.base_url`.
+- Исправление: launch URL строится только из `SCORM_CONTENT_ORIGIN`; production
+  без настройки отвечает `503`, а package/asset/commit на другом Host — `421`.
+  Приложение использует sandboxed iframe. Статусный bridge версионирован и
+  проверяет exact origin, frame source, случайный channel, type и status schema.
+  Только точный SCORM host/path получает frameable CSP; app/API сохраняют DENY.
+- Проверка: SCORM/API security suite `36 passed`; frontend role/SCORM suite
+  `7 passed`; typecheck и lint прошли. Production DNS/proxy и malicious-package
+  browser E2E остаются обязательным release gate и локальными тестами не
+  заменяются.
+- Профилактика: недоверенный executable content всегда выносить на отдельный
+  cookieless origin. Не исправлять frame conflict глобальным снятием XFO/CSP;
+  ingress должен публиковать только минимальный scoped route allowlist.
+
+## SECURITY-004 — OOXML и converter не имели единого ограниченного trust boundary
+
+- Дата: 2026-08-20.
+- Симптом: API считывал upload целиком в память и проверял DOCX/XLSX только по
+  префиксу `PK`. Existing/internal documents могли попасть прямо в локальный
+  parser fallback; converter допускал запуск без ключа и systemd запускал его
+  от root без ресурсных и filesystem ограничений.
+- Причина: лимит размера сжатого файла ошибочно считался достаточным для ZIP-
+  контейнера, а upload, storage и conversion использовали разные enforcement
+  points. Аутентификация converter была условной: пустая настройка отключала
+  проверку вместо отказа запуска production.
+- Исправление: upload хешируется и сохраняется потоково. DOCX/XLSX до storage и
+  повторно перед любым remote/local conversion проходят bounded central-directory
+  preflight: обязательные части, unsafe paths, symlink, encryption, entry count,
+  individual/total expanded size и compression ratio. Legacy DOC output также
+  проверяется до parser. Converter всегда требует header, production не стартует
+  с отсутствующим/коротким ключом; Docker/systemd используют пользователя
+  `docling`, пустые capabilities, private tmp, strict filesystem, state directory,
+  umask и CPU/RAM/task limits.
+- Проверка: targeted document/converter suite `80 passed`; полный backend
+  unit-suite `292 passed`; scoped Ruff `E9,F,I` прошёл. Реальный production
+  rollout и adversarial archive/OCR smoke остаются отдельным gate.
+- Профилактика: ZIP prefix и MIME не являются доказательством безопасного
+  документа. Каждый parser boundary обязан повторять budgets; production helper
+  service должен fail closed по auth и работать в sandbox с измеренными limits.
+
+## SECURITY-005 — Production smoke подтверждал старый Render вместо KZ runtime
+
+- Дата: 2026-08-20.
+- Симптом: GitHub smoke и host watchdog считали production доступным при HTTP
+  200 от исторического Render endpoint; ответ health не содержал deployment или
+  release identity.
+- Причина: доступность URL использовалась как эквивалент идентичности runtime,
+  а канонический переход на `api.kml.kz` не был перенесён в monitoring contract.
+- Исправление: health возвращает `app_environment`, `deployment_environment` и
+  полный `release_sha` с `no-store`. KZ compose требует exact SHA; Render явно
+  маркирован development. Общий verifier не следует redirects и сверяет KZ
+  deployment/release; его используют GitHub smoke и системный watchdog.
+- Проверка: monitoring TDD suite `6 passed`; Ruff и shell syntax прошли.
+  Watchdog проверяет текущие Compose services и fail-closed требует источник
+  свежести KZ backup. Production rollout и
+  fault-injection на контролируемом staging остаются отдельным release gate.
+- Профилактика: health monitor должен проверять identity и exact immutable
+  release, а не только DNS/TLS/HTTP status. Dev/demo/rollback endpoints никогда
+  не включать в production success path.
+
+## SECURITY-006 — Limiter доверял неподписанному tenant и неполному public-route списку
+
+- Дата: 2026-08-20.
+- Симптом: non-public limiter выбирал tenant bucket из JWT payload без проверки
+  подписи. Assignment-link, candidate, kiosk view и public lead не считались
+  fail-closed public capabilities; invitation route отдельно доверял любому
+  `X-Forwarded-For`.
+- Причина: middleware пытался получить tenant до auth dependency и смешивал
+  transport identity, неподтверждённый claim и route-specific protections.
+  Runtime не требовал явный список trusted proxy.
+- Исправление: principal bucket строится только после полной JWT
+  signature/audience/issuer/expiry/type проверки и хранит opaque hash. Любой
+  invalid/forged token остаётся в socket-IP bucket. Все public auth/capability
+  routes fail closed при недоступном Valkey; URL tokens хешируются. KZ Compose
+  требует exact `FORWARDED_ALLOW_IPS` для WireGuard proxy, а route-код больше не
+  разбирает caller-controlled XFF. Redis member получил nonce, исключающий
+  коллизии запросов с одинаковым timestamp.
+- Проверка: forged JWT, spoofed XFF, verified access JWT, hashed capability,
+  outage и exact-compose tests — `33 passed`; полный backend unit-suite
+  `305 passed`; scoped Ruff прошёл.
+- Профилактика: forwarded headers должны обрабатываться только ASGI server от
+  allowlisted socket peer. До auth применяется network bucket, после проверки
+  — opaque principal; новый public capability обязан попасть в fail-closed
+  inventory и negative outage test.
+
+## SECURITY-007 — Два package manager и уязвимые frontend runtime dependencies
+
+- Дата: 2026-08-20.
+- Симптом: LMS web одновременно содержал `package-lock.json` и
+  `pnpm-lock.yaml`, CI/Vercel использовали npm, Dockerfile — pnpm и
+  несуществующую monorepo-команду. Production SCA показывал high advisories в
+  Next/PostCSS/nanoid; после основного обновления отдельно остался vulnerable
+  transitive sharp.
+- Причина: dependency contract расходился между локальной разработкой, CI,
+  Vercel и container build; package manager/version не были закреплены.
+- Исправление: web и landing закреплены на `pnpm 10.26.1`; web npm lock удалён;
+  CI/Vercel требуют frozen pnpm lock. Web обновлён до Next `15.5.23`,
+  PostCSS/nanoid/sharp закреплены на patched versions. Dockerfile использует
+  app-local pnpm contract и production `next start`. Next 15 route params и
+  ESLint fixture callback приведены к актуальному контракту.
+- Проверка: frozen install проходит в обоих репозиториях; production audit —
+  `0 high / 0 critical`; web `319 passed`, typecheck/lint/build (57 routes);
+  landing `22 passed`, typecheck/lint/build (18 pages).
+- Профилактика: один lockfile и exact packageManager на deployable app;
+  `--frozen-lockfile` во всех release paths; SCA и production build блокируют
+  release. Linux container build и production readback остаются release gate.
+
+## SECURITY-008 — Ruff и mypy не блокировали CI
+
+- Дата: 2026-08-20.
+- Симптом: Ruff/format имели `continue-on-error`, mypy job — одновременно
+  `continue-on-error` и `|| true`; mypy дополнительно останавливался на
+  `config`/`app.core.config` duplicate module.
+- Причина: большой накопленный долг пытались запускать как all-or-nothing gate,
+  поэтому проверку сделали информационной и зелёный CI не означал отсутствие
+  новых нарушений.
+- Исправление: mypy получил `explicit_package_bases`; единый blocking script
+  запускает Ruff и mypy и сравнивает per-file/per-code counts с committed upper
+  bounds. Уменьшение долга разрешено, любое увеличение возвращает exit 1.
+  Warn-only jobs и `|| true` удалены.
+- Проверка: текущий gate PASS (`ruff=1140`, `mypy=2429`); contract tests
+  `4 passed`; seeded дополнительный `F401` делает CLI gate красным.
+- Профилактика: baseline не обновлять вверх без отдельного review и объяснения;
+  постепенно снижать counts. Первый GitHub Actions run остаётся release gate.
+
+## SECURITY-011 — PII и клиентский контент попадали в runtime logs
+
+- Дата: 2026-08-20.
+- Симптом: отдельные AI regeneration paths логировали первые 200 символов raw
+  model output; ingestion/JD paths — filenames и document names; ряд внешних
+  исключений логировался целиком. Debug API дополнительно копировал logger и
+  stdout/stderr без redaction boundary.
+- Причина: redaction полагался на дисциплину отдельных call sites; handlers,
+  in-memory buffer и Sentry не имели единого контракта.
+- Исправление: добавлен общий bounded redactor для свободного текста,
+  structured extras, nested telemetry и tracebacks. Он установлен на root
+  handlers, stdout/stderr tee, debug buffer и Sentry `before_send`. Опасные
+  call sites теперь логируют только event/job/document IDs, counts/status и
+  exception class, но не filenames, prompts, outputs или exception messages.
+- Проверка: synthetic email/phone/JWT/Bearer/capability token/personnel/PIN/
+  password и raw AI fragment tests — `7 passed`; связанный focused suite —
+  `53 passed`; полный backend unit-suite — `312 passed`.
+- Профилактика: новые content/provider boundaries логируют только opaque IDs,
+  metrics и error type. Production aggregator/Sentry canary readback остаётся
+  release gate и не должен использовать реальные персональные данные.
+
+## SECURITY-013 — Backup не аутентифицировал ciphertext, а KZ restore не имел fail-closed команды
+
+- Дата: 2026-08-20.
+- Симптом: репозиторный backup использовал OpenSSL AES-256-CBC + PBKDF2 без
+  authenticated-encryption contract. Offsite upload не скачивался обратно для
+  сравнения и не требовал immutable retention. KZ runbook требовал отдельный
+  restore, но версия команды отсутствовала; существующий `restore.sh` совмещал
+  исторический Supabase portability path с возможностью production override.
+- Причина: confidentiality ошибочно считалась достаточной проверкой целостности,
+  а operational restore жил только в host-local знаниях. SHA sidecar, пустота
+  target, schema/RLS/data gates, RPO/RTO и подписанное evidence не были связаны
+  одним версионированным fail-closed workflow.
+- Исправление: `scripts/backup.sh` использует authenticated GPG symmetric
+  encryption, portable SHA-256 sidecar, обязательный decrypt/TOC validation и
+  при MinIO — round-trip byte comparison плюс governance retention. Новый
+  `scripts/kz-restore-drill.sh` принимает canonical archive, всегда блокирует
+  production DB и непустую target, проверяет RPO/RTO, Alembic head, pgvector,
+  FORCE RLS и агрегаты, затем подписывает JSON report отдельным GPG key.
+  Исторический `.dump.enc`/Supabase restore оставлен отдельным legacy path.
+- Проверка: Bash syntax и `scripts/tests/backup_restore_validation.sh` проходят;
+  tampered GPG ciphertext отклоняется; Python source-contract suite — `4 passed`.
+  Реальный KZ offsite upload и disposable PostgreSQL 17 + pgvector restore не
+  выполнялись и остаются обязательным operational release gate.
+- Профилактика: после каждого schema/release изменения выполнять свежий
+  disposable drill и хранить подписанный report; quarterly проверять restore и
+  immutable offsite retention. Production backup нельзя считать готовым по
+  локальному тесту или наличию файла без decrypt/TOC и offsite readback.
+
+## SECURITY-014 — DB security gate отличался от production major и частично работал как owner
+
+- Дата: 2026-08-20.
+- Симптом: GitHub Actions и локальный compose использовали pgvector/PostgreSQL
+  16 при KZ production PostgreSQL 17. Часть cross-tenant API тестов работала в
+  транзакции владельца миграций, а worker generation claim также не
+  переключался на `lms_app`; зелёный результат не доказывал runtime FORCE RLS.
+- Причина: полный backend suite одновременно выполнял unit, application-filter
+  и DB tests, но не имел отдельного version/role/RLS environment contract.
+  Production parity и факт `NOBYPASSRLS` подразумевались из migration source.
+- Исправление: CI и compose переведены на `pgvector/pgvector:pg17`. Новый
+  `scripts/ci/run_rls_release_gate.sh` fail closed разрешает только test-mode
+  localhost ephemeral DB с typed confirmation. Gate отдельно проверяет server
+  major, pgvector, Alembic head, runtime role attributes, FORCE RLS на критичных
+  таблицах, cross-tenant CRUD/export/share/import, worker claim и superadmin
+  isolation. Worker test явно выполняет claim после `SET LOCAL ROLE lms_app`.
+- Проверка: source-contract unit suite `3 passed`, scoped Ruff, Bash syntax и
+  CI YAML parsing прошли. DB-backed suite не запускался локально из-за
+  отсутствующего Docker Desktop daemon; первый зелёный GitHub Actions run или
+  отдельный ephemeral PostgreSQL 17 запуск остаётся release gate.
+- Профилактика: production major version входит в blocking test contract;
+  RLS-sensitive test обязан доказать effective runtime role, а не только наличие
+  `tenant_id` predicate. Никогда не запускать destructive/fixture suite против
+  production или удалённой shared DB.

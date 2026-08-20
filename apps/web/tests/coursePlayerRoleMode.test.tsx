@@ -34,6 +34,7 @@ vi.mock('@/lib/useIdleTimeout', () => ({
 }));
 
 import CoursePlayerPage from '@/app/courses/[id]/page';
+import { isTrustedScormBridgeMessage } from '@/features/scorm/bridge';
 import { useAuthStore } from '@/store/authStore';
 
 function jsonResponse(body: unknown, status = 200) {
@@ -59,12 +60,24 @@ const lesson = {
   order_index: 0,
 };
 
-function setupFetch(accessWindow: unknown = null) {
+function setupFetch(
+  accessWindow: unknown = null,
+  lessonContent = lesson.content,
+  courseOverride: typeof course = course,
+) {
   fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
-    if (url.endsWith('/v1/courses/course-1')) return jsonResponse(course);
+    if (url.endsWith('/v1/courses/course-1')) return jsonResponse(courseOverride);
     if (url.endsWith('/v1/courses/course-1/structure')) {
-      return jsonResponse({ modules: [{ id: 'module-1', title: 'Модуль', description: '', order_index: 0, lessons: [lesson] }] });
+      return jsonResponse({
+        modules: [{
+          id: 'module-1',
+          title: 'Модуль',
+          description: '',
+          order_index: 0,
+          lessons: [{ ...lesson, content: lessonContent }],
+        }],
+      });
     }
     if (url.endsWith('/v1/progress/courses/course-1/completed-ids')) {
       return jsonResponse({ completed_lesson_ids: ['lesson-1'] });
@@ -128,6 +141,26 @@ describe('course player role modes', () => {
     expect(screen.queryByRole('button', { name: 'Следующий урок' })).not.toBeInTheDocument();
   });
 
+  it('renders persisted lesson markup as safe text while preserving basic emphasis', async () => {
+    setupFetch(
+      null,
+      'Безопасный **жирный** текст\n<img src=x onerror="alert(1)"><script>alert(2)</script><a href="javascript:alert(3)">ссылка</a>',
+    );
+    useAuthStore.setState({
+      accessToken: 'student-token',
+      user: { id: 'student-1', role: 'student' } as never,
+      initialized: true,
+    });
+
+    render(<CoursePlayerPage />);
+
+    expect(await screen.findByText('жирный')).toHaveProperty('tagName', 'STRONG');
+    expect(document.body.textContent).toContain('<img src=x onerror="alert(1)">');
+    expect(document.querySelector('img[src="x"]')).not.toBeInTheDocument();
+    expect(document.querySelector('script')).not.toBeInTheDocument();
+    expect(document.querySelector('a[href^="javascript:"]')).not.toBeInTheDocument();
+  });
+
   it('shows a server-anchored assignment countdown that survives page reloads', async () => {
     setupFetch({
       server_now: '2026-08-13T09:00:00Z',
@@ -175,5 +208,83 @@ describe('course player role modes', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Время, отведённое на прохождение, истекло');
     expect(screen.getByRole('button', { name: 'Начать тест' })).toBeDisabled();
+  });
+
+  it('embeds SCORM only from the dedicated origin with a restrictive sandbox', async () => {
+    const scormCourse = { ...course, delivery_type: 'scorm' as const };
+    setupFetch(null, lesson.content, scormCourse);
+    fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith('/v1/courses/course-1')) return jsonResponse(scormCourse);
+      if (url.endsWith('/v1/courses/course-1/structure')) return jsonResponse({ modules: [] });
+      if (url.endsWith('/v1/progress/courses/course-1/completed-ids')) {
+        return jsonResponse({ completed_lesson_ids: [] });
+      }
+      if (url.endsWith('/v1/courses/course-1/access-window')) return jsonResponse(null);
+      if (url.endsWith('/v1/student/dashboard')) {
+        return jsonResponse({ enrolled_courses: [{ course_id: 'course-1', enrollment_status: 'in_progress' }] });
+      }
+      if (url.endsWith('/v1/scorm/courses/course-1/launch')) {
+        return jsonResponse({
+          course_id: 'course-1',
+          package_id: 'package-1',
+          launch_url: 'https://scorm.kml.kz/api/v1/scorm/packages/package-1/launch?token=opaque',
+          launch_origin: 'https://scorm.kml.kz',
+          bridge_channel: 'channel-123',
+          version: 'scorm_1_2',
+          title: 'SCORM курс',
+        });
+      }
+      return jsonResponse({ detail: `Unexpected request: ${url}` }, 404);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    useAuthStore.setState({
+      accessToken: 'student-token',
+      user: { id: 'student-1', role: 'student' } as never,
+      initialized: true,
+    });
+
+    render(<CoursePlayerPage />);
+
+    const frame = await screen.findByTitle('Черновой курс');
+    expect(frame).toHaveAttribute('src', expect.stringMatching(/^https:\/\/scorm\.kml\.kz\//));
+    expect(frame).toHaveAttribute('sandbox', 'allow-forms allow-same-origin allow-scripts');
+    expect(frame).not.toHaveAttribute('allow', expect.stringContaining('camera'));
+  });
+
+  it('accepts SCORM bridge messages only from the expected frame, origin, version, and channel', () => {
+    const expectedSource = {} as Window;
+    const valid = {
+      origin: 'https://scorm.kml.kz',
+      source: expectedSource,
+      data: {
+        version: 1,
+        type: 'kamilya.scorm.status',
+        channel: 'channel-123',
+        status: 'saved',
+      },
+    } as MessageEvent;
+
+    expect(isTrustedScormBridgeMessage(valid, {
+      origin: 'https://scorm.kml.kz',
+      channel: 'channel-123',
+      source: expectedSource,
+    })).toBe(true);
+    expect(isTrustedScormBridgeMessage(
+      { ...valid, origin: 'https://evil.example' } as MessageEvent,
+      { origin: 'https://scorm.kml.kz', channel: 'channel-123', source: expectedSource },
+    )).toBe(false);
+    expect(isTrustedScormBridgeMessage(
+      { ...valid, data: { ...valid.data, version: 2 } } as MessageEvent,
+      { origin: 'https://scorm.kml.kz', channel: 'channel-123', source: expectedSource },
+    )).toBe(false);
+    expect(isTrustedScormBridgeMessage(
+      { ...valid, data: { ...valid.data, channel: 'other' } } as MessageEvent,
+      { origin: 'https://scorm.kml.kz', channel: 'channel-123', source: expectedSource },
+    )).toBe(false);
+    expect(isTrustedScormBridgeMessage(
+      { ...valid, source: {} as Window } as MessageEvent,
+      { origin: 'https://scorm.kml.kz', channel: 'channel-123', source: expectedSource },
+    )).toBe(false);
   });
 });

@@ -4,13 +4,16 @@
 from __future__ import annotations
 
 import ast
+import re
 import sys
 from pathlib import Path
-
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 MIGRATIONS_DIR = REPO_ROOT / "apps" / "api" / "alembic" / "versions"
 CELERY_APP = REPO_ROOT / "apps" / "api" / "app" / "core" / "celery_app.py"
+ERRORS_JOURNAL = REPO_ROOT / "ERRORS.md"
+AGENT_RULES = REPO_ROOT / "AGENTS.md"
+LEGACY_LESSONS = REPO_ROOT / "docs" / "LESSONS.md"
 EXPECTED_TASK_MODULES = {
     "app.modules.ai.tasks",
     "app.modules.positions.tasks",
@@ -31,6 +34,17 @@ EXPECTED_TASK_NAMES = {
     "candidate_assessments.enforce_retention",
     "crm.deliver_lead_outbox",
     "crm.recover_lead_outbox",
+}
+
+ERROR_ENTRY = re.compile(r"^## ([A-Z][A-Z0-9_-]*-\d{3}) — .+$", re.MULTILINE)
+ERROR_FIELD_NAMES = ("Дата", "Симптом", "Причина", "Исправление", "Проверка", "Профилактика")
+ERROR_SECRET_PATTERNS = {
+    "private key marker": re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----"),
+    "credential URL": re.compile(r"(?:postgres(?:ql)?|redis|https?)://[^\s/:]+:[^\s/@]+@", re.IGNORECASE),
+    "GitHub token": re.compile(r"\bgh[pousr]_[A-Za-z0-9]{20,}\b"),
+    "OpenAI-style key": re.compile(r"\bsk-[A-Za-z0-9_-]{20,}\b"),
+    "Slack token": re.compile(r"\bxox[baprs]-[A-Za-z0-9-]{20,}\b"),
+    "JWT value": re.compile(r"\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b"),
 }
 
 
@@ -84,8 +98,7 @@ def check_alembic_chain() -> str:
     roots = sorted(revision for revision, parent in migrations.items() if parent is None)
     if len(heads) != 1 or len(roots) != 1:
         raise ValueError(
-            "Alembic metadata error: expected exactly one head and one root "
-            f"(heads={heads}, roots={roots})"
+            "Alembic metadata error: expected exactly one head and one root " f"(heads={heads}, roots={roots})"
         )
 
     seen: set[str] = set()
@@ -148,7 +161,11 @@ def check_celery_contract() -> str:
                 if not isinstance(decorator.func, ast.Attribute) or decorator.func.attr != "task":
                     continue
                 for keyword in decorator.keywords:
-                    if keyword.arg == "name" and isinstance(keyword.value, ast.Constant) and isinstance(keyword.value.value, str):
+                    if (
+                        keyword.arg == "name"
+                        and isinstance(keyword.value, ast.Constant)
+                        and isinstance(keyword.value.value, str)
+                    ):
                         registered.add(keyword.value.value)
 
     missing_tasks = sorted(EXPECTED_TASK_NAMES - registered)
@@ -171,11 +188,55 @@ def check_migration_owner() -> str:
     return "migration ownership OK (Render pre-deploy and fail-closed Docker startup)"
 
 
+def check_errors_journal() -> str:
+    try:
+        journal = ERRORS_JOURNAL.read_text(encoding="utf-8")
+        agent_rules = AGENT_RULES.read_text(encoding="utf-8")
+    except OSError as error:
+        raise ValueError(f"Errors journal contract error: {error}") from error
+
+    if LEGACY_LESSONS.exists():
+        raise ValueError("Errors journal contract error: competing docs/LESSONS.md still exists")
+    if "[`ERRORS.md`](ERRORS.md)" not in agent_rules:
+        raise ValueError("Errors journal contract error: AGENTS.md does not link the root journal")
+    if "обязан полностью прочитать `ERRORS.md`" not in agent_rules:
+        raise ValueError("Errors journal contract error: AGENTS.md does not require a full preflight read")
+
+    ids = ERROR_ENTRY.findall(journal)
+    if not ids:
+        raise ValueError("Errors journal contract error: no CATEGORY-NNN entries found")
+    duplicates = sorted({entry_id for entry_id in ids if ids.count(entry_id) > 1})
+    if duplicates:
+        raise ValueError(f"Errors journal contract error: duplicate ids: {', '.join(duplicates)}")
+
+    matches = list(ERROR_ENTRY.finditer(journal))
+    for index, match in enumerate(matches):
+        end = matches[index + 1].start() if index + 1 < len(matches) else len(journal)
+        section = journal[match.start() : end]
+        missing = [field for field in ERROR_FIELD_NAMES if f"- {field}:" not in section]
+        if missing:
+            raise ValueError(f"Errors journal contract error: {match.group(1)} missing fields: {', '.join(missing)}")
+
+    for rule_name, pattern in ERROR_SECRET_PATTERNS.items():
+        match = pattern.search(journal)
+        if match:
+            line = journal.count("\n", 0, match.start()) + 1
+            raise ValueError(f"Errors journal contract error: possible {rule_name} at ERRORS.md:{line}")
+
+    header_date = re.search(r"^Актуально на: (\d{4}-\d{2}-\d{2})\.$", journal, re.MULTILINE)
+    entry_dates = re.findall(r"^- Дата: (\d{4}-\d{2}-\d{2})", journal, re.MULTILINE)
+    if not header_date or not entry_dates or header_date.group(1) != max(entry_dates):
+        raise ValueError("Errors journal contract error: header date must equal the latest entry date")
+
+    return f"errors journal OK ({len(ids)} unique entries, secret-safe structure)"
+
+
 def main() -> int:
     try:
         print(f"release-contract-gate: {check_alembic_chain()}")
         print(f"release-contract-gate: {check_celery_contract()}")
         print(f"release-contract-gate: {check_migration_owner()}")
+        print(f"release-contract-gate: {check_errors_journal()}")
     except ValueError as error:
         print(f"release-contract-gate: {error}", file=sys.stderr)
         return 1

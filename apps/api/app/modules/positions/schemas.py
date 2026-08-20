@@ -34,7 +34,7 @@ class PositionResponse(BaseModel):
     # got its own table). Without the | None here, any such row 422s
     # the whole tenant's /positions call. The frontend treats null
     # and empty string the same way (renders «— без отдела —»).
-    # See LESSONS.md Lesson 14 (added 2026-06-30).
+    # See ERRORS.md API-001.
     department: str | None = None
     level: str = ""
     responsibilities: str = ""
@@ -67,7 +67,7 @@ class PositionResponse(BaseModel):
     # (pre-migration 0036 / staff-import that bypassed ServerDefault)
     # can have created_at IS NULL. Without the default this validation
     # error would 422 every list call the moment a NULL row exists in
-    # the tenant. See LESSONS.md Lesson 14 (added 2026-06-30).
+    # the tenant. See ERRORS.md API-001.
     created_at: datetime | None = None
     re_enrolled: int | None = None  # only set on update responses
 

@@ -79,7 +79,10 @@ async def _call(method: str, path: str, **kwargs) -> dict[str, Any]:
             r = await client.request(method, _gateway_url(path), headers=headers, **kwargs)
     except httpx.RequestError as e:
         # Connection refused, DNS failure, timeout — gateway is down
-        logger.error({"err": str(e), "path": path}, "wa-gateway unreachable")
+        logger.error(
+            {"error_type": type(e).__name__, "path": path},
+            "wa-gateway unreachable",
+        )
         raise WAGatewayError(503, f"wa-gateway unreachable: {e.__class__.__name__}")
 
     if not r.is_success:
@@ -87,7 +90,7 @@ async def _call(method: str, path: str, **kwargs) -> dict[str, Any]:
             detail = r.json().get("detail", r.text[:200])
         except Exception:
             detail = r.text[:200]
-        logger.warning({"status": r.status_code, "path": path, "detail": detail},
+        logger.warning({"status": r.status_code, "path": path},
                        "wa-gateway returned error")
         raise WAGatewayError(r.status_code, detail)
 

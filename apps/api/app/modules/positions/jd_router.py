@@ -147,7 +147,7 @@ async def _analyze_jd_content(content: bytes, filename: str) -> dict:
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"JD analysis failed: {e}")
+        logger.error("JD analysis failed error_type=%s", type(e).__name__)
         raise HTTPException(status_code=503, detail="AI service unavailable. Please try again later.")
 
     return {
@@ -370,7 +370,7 @@ async def _audit_jd_text(
                 continue
         return valid
     except Exception as e:
-        logger.warning(f"JD audit failed: {e}")
+        logger.warning("JD audit failed error_type=%s", type(e).__name__)
         return []
 
 
@@ -548,13 +548,13 @@ async def bulk_analyze_jd(
                     item.requirements,
                 )
             except Exception as audit_err:
-                logger.warning(f"bulk-analyze-jd: audit failed for {item.filename}: {audit_err}")
+                logger.warning("bulk-analyze-jd: audit failed error_type=%s", type(audit_err).__name__)
         except json.JSONDecodeError:
             item.error = "AI returned invalid response"
-            logger.warning(f"bulk-analyze-jd: invalid JSON for {item.filename}")
+            logger.warning("bulk-analyze-jd: invalid JSON")
         except Exception as e:
             item.error = f"Failed: {type(e).__name__}"
-            logger.error(f"bulk-analyze-jd: error for {item.filename}: {e}")
+            logger.error("bulk-analyze-jd: processing failed error_type=%s", type(e).__name__)
         finally:
             items.append(item)
 
@@ -635,7 +635,7 @@ async def generate_jd_from_name(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"generate-jd-from-name failed: {e}")
+        logger.error("generate-jd-from-name failed error_type=%s", type(e).__name__)
         raise HTTPException(status_code=503, detail="AI service unavailable. Please try again later.")
 
     return GenerateJDResponse(
@@ -713,7 +713,7 @@ async def jd_preview(
             proposed_resp = (data.get("responsibilities") or "").strip()
             proposed_req = (data.get("requirements") or "").strip()
         except Exception as e:
-            logger.error(f"jd-preview LLM failed: {e}")
+            logger.error("jd-preview LLM failed error_type=%s", type(e).__name__)
             # Fall through with pre-filled values only
     else:
         # No text, just use the pre-filled values from req as "proposed"

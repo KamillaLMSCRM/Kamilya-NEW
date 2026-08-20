@@ -53,3 +53,4 @@ def test_release_contract_has_one_migration_owner_and_all_worker_tasks():
     celery_result = gate.check_celery_contract()
     assert "ai.regenerate_lesson" in celery_result
     assert "ai.regenerate_module" in celery_result
+    assert "errors journal OK" in gate.check_errors_journal()

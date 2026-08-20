@@ -190,8 +190,7 @@ async def _retrieve_and_rerank(
                 doc_id = str((metadata or {}).get("doc_id", ""))
                 if not chunk_id or not doc_id:
                     logger.warning(
-                        "Skipping untraceable lexical source chunk for lesson %s",
-                        lesson_title,
+                        "Skipping untraceable lexical source chunk",
                     )
                     continue
                 headings_raw = (metadata or {}).get("headings", "[]")
@@ -224,14 +223,12 @@ async def _retrieve_and_rerank(
             lexical_chunks = [item[3] for item in scored[:top_n]]
         if lexical_chunks:
             logger.info(
-                "Using %d lexical source chunks for OCR-heavy lesson %s",
+                "Using %d lexical source chunks for OCR-heavy lesson",
                 len(lexical_chunks),
-                lesson_title,
             )
             return lexical_chunks
         logger.warning(
-            "No source chunks met the relevance threshold for lesson %s (best distance %.3f)",
-            lesson_title,
+            "No source chunks met the relevance threshold (best distance %.3f)",
             pre_filter_ranked[0].distance,
         )
         return []

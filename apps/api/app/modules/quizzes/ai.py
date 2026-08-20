@@ -301,7 +301,7 @@ async def generate_quiz_draft(
             ]
         )
     except Exception as e:
-        logger.error(f"AI quiz draft LLM call failed: {e}", exc_info=True)
+        logger.error("AI quiz draft LLM call failed error_type=%s", type(e).__name__)
         raise RuntimeError("AI assistant is unavailable, try again") from e
 
     elapsed_ms = int((time.monotonic() - t0) * 1000)

@@ -320,7 +320,7 @@ async def suggest_courses(
                 continue
         return CourseSuggestionsResponse(items=valid)
     except Exception as e:
-        logger.warning(f"suggest-courses failed: {e}")
+        logger.warning("suggest-courses failed error_type=%s", type(e).__name__)
         return CourseSuggestionsResponse(items=[])
 
 
@@ -694,7 +694,7 @@ async def suggest_onboarding_quiz(
             raw = raw.strip()
         data = json.loads(raw)
     except Exception as e:
-        logger.warning(f"suggest-onboarding-quiz failed: {e}")
+        logger.warning("suggest-onboarding-quiz failed error_type=%s", type(e).__name__)
         return SuggestOnboardingQuizResponse(
             title=f"Онбординг: {pos.name}",
             questions=[],

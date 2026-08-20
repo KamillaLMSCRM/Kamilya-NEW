@@ -1,9 +1,10 @@
 import VerificationPanel from '../VerificationPanel';
 
 interface CertificateVerificationRouteProps {
-  params: { number: string };
+  params: Promise<{ number: string }>;
 }
 
-export default function CertificateVerificationRoute({ params }: CertificateVerificationRouteProps) {
-  return <VerificationPanel initialNumber={decodeURIComponent(params.number)} />;
+export default async function CertificateVerificationRoute({ params }: CertificateVerificationRouteProps) {
+  const { number } = await params;
+  return <VerificationPanel initialNumber={decodeURIComponent(number)} />;
 }

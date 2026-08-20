@@ -1,14 +1,15 @@
 [Unit]
 Description=Kamilya LMS production watchdog
-After=network-online.target kamilya-worker.service valkey-server.service
+After=network-online.target docker.service
 Wants=network-online.target
+Requires=docker.service
 
 [Service]
 Type=oneshot
 User=root
 Group=root
 EnvironmentFile=/etc/kamilya/ops.env
-ExecStart=/opt/kamilya-worker/scripts/ops/healthcheck.sh
+ExecStart=/opt/kamilya-runtime/scripts/ops/healthcheck.sh
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict

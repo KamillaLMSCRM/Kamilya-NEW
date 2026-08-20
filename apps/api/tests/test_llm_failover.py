@@ -8,12 +8,14 @@ Verifies that:
 
 We use AsyncMock to simulate provider success/failure without any network I/O.
 """
+
 from __future__ import annotations
 
 from unittest.mock import AsyncMock
 
 import pytest
 
+from app.modules.ai import llm_client
 from app.modules.ai.llm_client import (
     AllProvidersFailedError,
     EmbeddingsClient,
@@ -24,7 +26,6 @@ from app.modules.ai.llm_client import (
     ResilientLLMClient,
     _LLMResponse,
 )
-from app.modules.ai import llm_client
 
 
 def _make_client(name: str, *, succeed_after: int = 0, fail_with: Exception | None = None) -> LLMClient:
@@ -158,28 +159,81 @@ def test_resilient_llm_provider_names():
     assert chain.provider_names == ["qwen-self-hosted", "deepseek"]
 
 
-def test_settings_chain_prefers_deepseek_when_configured(monkeypatch):
-    deepseek = LLMProviderConfig(
-        name="deepseek", base_url="https://deepseek.test", api_key="key", model="flash"
-    )
-    qwen = LLMProviderConfig(
-        name="qwen-self-hosted", base_url="https://qwen.test", api_key="key", model="qwen"
-    )
+def test_settings_chain_preserves_legacy_order_when_free_pool_disabled(monkeypatch):
+    deepseek = LLMProviderConfig(name="deepseek", base_url="https://deepseek.test", api_key="key", model="flash")
+    qwen = LLMProviderConfig(name="qwen-self-hosted", base_url="https://qwen.test", api_key="key", model="qwen")
     monkeypatch.setattr(llm_client, "_deepseek_llm_provider", lambda: deepseek)
     monkeypatch.setattr(llm_client, "_qwen_llm_provider", lambda: qwen)
+    monkeypatch.setattr(llm_client, "_qwen_free_pool_provider", lambda: qwen)
+    monkeypatch.setattr(llm_client, "_free_llm_providers", lambda: [])
 
     chain = ResilientLLMClient.from_settings()
 
     assert chain.provider_names == ["deepseek", "qwen-self-hosted"]
 
 
+def test_settings_chain_tries_all_free_models_before_managed_fallback(monkeypatch):
+    qwen38 = LLMProviderConfig(
+        name="gx10-17-18-qwen38-27b-nvfp4",
+        base_url="http://qwen38.test/v1",
+        api_key="not-needed",
+        model="qwen38",
+        max_retries=0,
+    )
+    thinkingcap = LLMProviderConfig(
+        name="gx10-7-thinkingcap",
+        base_url="http://thinkingcap.test/v1",
+        api_key="not-needed",
+        model="thinkingcap",
+        max_retries=0,
+    )
+    nvfp4 = LLMProviderConfig(
+        name="gx10-2-qwen35-nvfp4",
+        base_url="http://nvfp4.test/v1",
+        api_key="not-needed",
+        model="nvfp4",
+        max_retries=0,
+    )
+    qwen = LLMProviderConfig(
+        name="qwen-self-hosted",
+        base_url="http://awq.test/v1",
+        api_key="not-needed",
+        model="awq",
+    )
+    deepseek = LLMProviderConfig(
+        name="deepseek",
+        base_url="https://deepseek.test/v1",
+        api_key="key",
+        model="flash",
+    )
+    monkeypatch.setattr(llm_client, "_free_llm_providers", lambda: [qwen38, thinkingcap, nvfp4])
+    monkeypatch.setattr(llm_client, "_qwen_llm_provider", lambda: qwen)
+    monkeypatch.setattr(llm_client, "_deepseek_llm_provider", lambda: deepseek)
+
+    chain = ResilientLLMClient.from_settings(max_retries_per_provider=2)
+
+    assert chain.provider_names == [
+        "gx10-17-18-qwen38-27b-nvfp4",
+        "gx10-7-thinkingcap",
+        "gx10-2-qwen35-nvfp4",
+        "qwen-self-hosted",
+        "deepseek",
+    ]
+    assert [client.max_retries for client in chain._clients] == [0, 0, 0, 0, 2]
+
+
+def test_openai_base_url_adds_v1_once():
+    assert llm_client._openai_base_url("http://model.test:8000") == ("http://model.test:8000/v1")
+    assert llm_client._openai_base_url("http://model.test:8000/v1/") == ("http://model.test:8000/v1")
+
+
 @pytest.mark.asyncio
 async def test_async_settings_chain_prefers_db_deepseek_key(monkeypatch):
-    qwen = LLMProviderConfig(
-        name="qwen-self-hosted", base_url="https://qwen.test", api_key="key", model="qwen"
-    )
+    qwen = LLMProviderConfig(name="qwen-self-hosted", base_url="https://qwen.test", api_key="key", model="qwen")
     monkeypatch.setattr(llm_client, "_qwen_llm_provider", lambda: qwen)
+    monkeypatch.setattr(llm_client, "_qwen_free_pool_provider", lambda: qwen)
     monkeypatch.setattr(llm_client, "_deepseek_llm_provider", lambda: None)
+    monkeypatch.setattr(llm_client, "_free_llm_providers", lambda: [])
 
     async def resolve_key(provider, env_key):
         return "db-deepseek-key"
@@ -191,13 +245,42 @@ async def test_async_settings_chain_prefers_db_deepseek_key(monkeypatch):
     assert chain.provider_names == ["deepseek", "qwen-self-hosted"]
 
 
-def test_embeddings_settings_chain_prefers_voyage(monkeypatch):
-    voyage = LLMProviderConfig(
-        name="voyage", base_url="https://voyage.test", api_key="key", model="voyage"
+@pytest.mark.asyncio
+async def test_async_settings_chain_places_db_deepseek_after_free_pool(monkeypatch):
+    free = LLMProviderConfig(
+        name="gx10-7-thinkingcap",
+        base_url="http://thinkingcap.test/v1",
+        api_key="not-needed",
+        model="thinkingcap",
+        max_retries=0,
     )
     qwen = LLMProviderConfig(
-        name="qwen-self-hosted", base_url="https://qwen.test", api_key="key", model="qwen"
+        name="qwen-self-hosted",
+        base_url="http://awq.test/v1",
+        api_key="not-needed",
+        model="awq",
     )
+    monkeypatch.setattr(llm_client, "_free_llm_providers", lambda: [free])
+    monkeypatch.setattr(llm_client, "_qwen_llm_provider", lambda: qwen)
+    monkeypatch.setattr(llm_client, "_deepseek_llm_provider", lambda: None)
+
+    async def resolve_key(provider, env_key):
+        return "db-deepseek-key"
+
+    monkeypatch.setattr(llm_client, "_resolve_db_key", resolve_key)
+
+    chain = await ResilientLLMClient.from_settings_async()
+
+    assert chain.provider_names == [
+        "gx10-7-thinkingcap",
+        "qwen-self-hosted",
+        "deepseek",
+    ]
+
+
+def test_embeddings_settings_chain_prefers_voyage(monkeypatch):
+    voyage = LLMProviderConfig(name="voyage", base_url="https://voyage.test", api_key="key", model="voyage")
+    qwen = LLMProviderConfig(name="qwen-self-hosted", base_url="https://qwen.test", api_key="key", model="qwen")
     monkeypatch.setattr(llm_client, "_voyage_embed_provider", lambda: voyage)
     monkeypatch.setattr(llm_client, "_cohere_embed_provider", lambda: None)
     monkeypatch.setattr(llm_client, "_qwen_embed_provider", lambda: qwen)
@@ -210,9 +293,7 @@ def test_embeddings_settings_chain_prefers_voyage(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_async_embeddings_chain_prefers_db_voyage_key(monkeypatch):
-    qwen = LLMProviderConfig(
-        name="qwen-self-hosted", base_url="https://qwen.test", api_key="key", model="qwen"
-    )
+    qwen = LLMProviderConfig(name="qwen-self-hosted", base_url="https://qwen.test", api_key="key", model="qwen")
     monkeypatch.setattr(llm_client, "_qwen_embed_provider", lambda: qwen)
     monkeypatch.setattr(llm_client, "_voyage_embed_provider", lambda: None)
 
@@ -227,15 +308,9 @@ async def test_async_embeddings_chain_prefers_db_voyage_key(monkeypatch):
 
 
 def test_embeddings_settings_chain_places_cohere_between_voyage_and_qwen(monkeypatch):
-    voyage = LLMProviderConfig(
-        name="voyage", base_url="https://voyage.test", api_key="key", model="voyage"
-    )
-    cohere = LLMProviderConfig(
-        name="cohere", base_url="https://cohere.test", api_key="key", model="embed-v4.0"
-    )
-    qwen = LLMProviderConfig(
-        name="qwen-self-hosted", base_url="https://qwen.test", api_key="key", model="qwen"
-    )
+    voyage = LLMProviderConfig(name="voyage", base_url="https://voyage.test", api_key="key", model="voyage")
+    cohere = LLMProviderConfig(name="cohere", base_url="https://cohere.test", api_key="key", model="embed-v4.0")
+    qwen = LLMProviderConfig(name="qwen-self-hosted", base_url="https://qwen.test", api_key="key", model="qwen")
     monkeypatch.setattr(llm_client, "_voyage_embed_provider", lambda: voyage)
     monkeypatch.setattr(llm_client, "_cohere_embed_provider", lambda: cohere)
     monkeypatch.setattr(llm_client, "_qwen_embed_provider", lambda: qwen)
@@ -247,9 +322,7 @@ def test_embeddings_settings_chain_places_cohere_between_voyage_and_qwen(monkeyp
 
 @pytest.mark.asyncio
 async def test_async_embeddings_chain_uses_db_cohere_key(monkeypatch):
-    qwen = LLMProviderConfig(
-        name="qwen-self-hosted", base_url="https://qwen.test", api_key="key", model="qwen"
-    )
+    qwen = LLMProviderConfig(name="qwen-self-hosted", base_url="https://qwen.test", api_key="key", model="qwen")
     monkeypatch.setattr(llm_client, "_qwen_embed_provider", lambda: qwen)
     monkeypatch.setattr(llm_client, "_voyage_embed_provider", lambda: None)
     monkeypatch.setattr(llm_client, "_cohere_embed_provider", lambda: None)
@@ -412,11 +485,7 @@ async def test_cohere_embeddings_split_requests_at_provider_batch_limit(monkeypa
 
     async def mock_request(payload):
         batch_sizes.append(len(payload["texts"]))
-        return {
-            "embeddings": {
-                "float": [[float(len(batch_sizes))] * 1024 for _ in payload["texts"]]
-            }
-        }
+        return {"embeddings": {"float": [[float(len(batch_sizes))] * 1024 for _ in payload["texts"]]}}
 
     monkeypatch.setattr(client, "_request", mock_request)
 

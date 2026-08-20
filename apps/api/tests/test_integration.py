@@ -1,12 +1,14 @@
 """Integration tests — endpoints via TestClient + audit + config."""
-import pytest
 import uuid
 from unittest.mock import AsyncMock, MagicMock
+
+import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.rate_limit import RateLimitMiddleware
 from app.main import app
 from app.modules.audit.service import log_action
-from app.core.rate_limit import RateLimitMiddleware
-from sqlalchemy.ext.asyncio import AsyncSession
 
 
 # --- shared rate limit disabler (static helper) ---
@@ -86,8 +88,29 @@ class TestCSRFAndSecurity:
     def test_cors_allowed_origins_configured(self):
         """CORS origins should include production domain."""
         from app.core.config import get_settings
+
         origins = get_settings().CORS_ORIGINS
         assert "https://web-inky-three-48.vercel.app" in origins
+        assert "https://kamilya-lms-dev.vercel.app" in origins
+
+    def test_dev_vercel_origin_preflight_is_allowed(self):
+        """The isolated Vercel dev project must be able to call the API."""
+        client = TestClient(app)
+        response = client.options(
+            "/api/v1/auth/login",
+            headers={
+                "Origin": "https://kamilya-lms-dev.vercel.app",
+                "Access-Control-Request-Method": "POST",
+                "Access-Control-Request-Headers": "content-type,authorization",
+            },
+        )
+
+        assert response.status_code == 200
+        assert (
+            response.headers["access-control-allow-origin"]
+            == "https://kamilya-lms-dev.vercel.app"
+        )
+        assert response.headers["access-control-allow-credentials"] == "true"
 
     @pytest.mark.asyncio
     async def test_cors_simple_request(self):

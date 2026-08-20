@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily encrypted Kamilya blob-storage backup
+
+[Timer]
+OnCalendar=*-*-* 03:10:00 UTC
+RandomizedDelaySec=15m
+Persistent=true
+Unit=kamilya-blob-backup.service
+
+[Install]
+WantedBy=timers.target

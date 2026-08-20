@@ -4,13 +4,35 @@ After=network.target
 
 [Service]
 Type=simple
-User=root
+User=docling
+Group=docling
 WorkingDirectory=/opt/docling-service
 ExecStart=/opt/docling-service/.venv/bin/python main.py
 Restart=always
 RestartSec=5
 Environment=PYTHONUNBUFFERED=1
-EnvironmentFile=-/opt/docling-service/.env
+Environment=DOCLING_ENV=production
+Environment=HOME=/var/lib/docling
+Environment=XDG_CACHE_HOME=/var/lib/docling/cache
+EnvironmentFile=/opt/docling-service/.env
+StateDirectory=docling
+StateDirectoryMode=0700
+UMask=0077
+MemoryMax=8G
+CPUQuota=400%
+TasksMax=256
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictNamespaces=true
+LockPersonality=true
+CapabilityBoundingSet=
+AmbientCapabilities=
 
 [Install]
 WantedBy=multi-user.target

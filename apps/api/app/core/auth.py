@@ -187,7 +187,8 @@ async def get_current_user(
         )
     token = credentials.credentials
     payload = decode_token(token)
-    if payload.get("type") != "access":
+    token_type = payload.get("type")
+    if token_type not in {"access", "kiosk_access"}:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid access token")
     user_id = payload.get("sub")
     tenant_id = payload.get("tenant_id")
@@ -199,6 +200,44 @@ async def get_current_user(
     # is a hard security boundary failure, not a recoverable filtering concern.
     if tenant_id:
         await _set_tenant_security_context(db, tenant_id)
+
+    kiosk_access_kiosk_id: UUID | None = None
+    if token_type == "kiosk_access":
+        kiosk_id = payload.get("kiosk_id")
+        credential_id = payload.get("kiosk_credential_id")
+        if payload.get("auth_method") != "kiosk" or not tenant_id or not kiosk_id or not credential_id:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid kiosk access")
+        try:
+            kiosk_access_kiosk_id = UUID(kiosk_id)
+            credential_uuid = UUID(credential_id)
+            tenant_uuid = UUID(tenant_id)
+            user_uuid = UUID(user_id)
+        except (TypeError, ValueError):
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid kiosk access") from None
+
+        from app.models.kiosk_link import KioskLink, KioskUserCredential
+
+        active_kiosk_access = await db.scalar(
+            select(KioskUserCredential.id)
+            .join(User, User.id == KioskUserCredential.user_id)
+            .join(KioskLink, KioskLink.id == kiosk_access_kiosk_id)
+            .where(
+                KioskUserCredential.id == credential_uuid,
+                KioskUserCredential.tenant_id == tenant_uuid,
+                KioskUserCredential.user_id == user_uuid,
+                KioskUserCredential.revoked_at.is_(None),
+                KioskLink.tenant_id == tenant_uuid,
+                KioskLink.is_active.is_(True),
+                or_(KioskLink.expires_at.is_(None), KioskLink.expires_at > datetime.now(UTC)),
+                or_(KioskLink.scope_position_id.is_(None), KioskLink.scope_position_id == User.position_id),
+                User.tenant_id == tenant_uuid,
+                User.role == "student",
+                User.is_active.is_(True),
+                User.status == "active",
+            )
+        )
+        if active_kiosk_access is None:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Kiosk access revoked")
 
     # Access issued through the no-email assignment flow is revocable.  Bind
     # every request to the still-active credential and enrollment so reissue,
@@ -305,6 +344,8 @@ async def get_current_user(
         user = _ActiveRoleUser(user, active_role)
     if assignment_access_enrollment_id is not None:
         return _AssignmentAccessUser(user, assignment_access_enrollment_id)
+    if kiosk_access_kiosk_id is not None:
+        return _KioskAccessUser(user, kiosk_access_kiosk_id)
     return user
 
 
@@ -358,6 +399,19 @@ class _AssignmentAccessUser:
     def __init__(self, user: User, enrollment_id: UUID):
         self._user = user
         self.assignment_access_enrollment_id = enrollment_id
+
+    def __getattr__(self, name):
+        return getattr(self._user, name)
+
+
+class _KioskAccessUser:
+    """A student principal whose session remains bound to an active kiosk."""
+
+    __slots__ = ("_user", "kiosk_access_kiosk_id")
+
+    def __init__(self, user: User, kiosk_id: UUID):
+        self._user = user
+        self.kiosk_access_kiosk_id = kiosk_id
 
     def __getattr__(self, name):
         return getattr(self._user, name)

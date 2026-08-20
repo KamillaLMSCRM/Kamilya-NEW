@@ -7,7 +7,7 @@
 
 set -euo pipefail
 
-# pgvector is bundled with the pgvector/pgvector:pg16 image but must be
+# pgvector is bundled with the pgvector/pgvector:pg17 image but must be
 # enabled per-database. Without this, alembic upgrade head fails when
 # migration 0018 creates document_embeddings.
 psql -v ON_ERROR_STOP=1 --username "${POSTGRES_USER}" --dbname "${POSTGRES_DB}" <<-'EOSQL'

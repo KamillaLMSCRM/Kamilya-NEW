@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { Card, CardHeader, CardTitle, CardContent, Button, Badge, Table, Modal, DateInput, Input } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
@@ -115,8 +115,8 @@ function addDaysIso(days: number) {
   return date.toISOString();
 }
 
-export default function TenantDetailPage({ params }: { params: { id: string } }) {
-  const { id } = params;
+export default function TenantDetailPage() {
+  const { id } = useParams<{ id: string }>();
   const { t, tp } = useT();
   const token = useAuthStore((s) => s.accessToken);
   const API_URL = process.env.NEXT_PUBLIC_API_URL;

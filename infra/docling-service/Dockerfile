@@ -3,7 +3,10 @@ FROM python:3.12-slim-bookworm
 ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1
+    PIP_NO_CACHE_DIR=1 \
+    DOCLING_ENV=production \
+    HOME=/tmp/docling-home \
+    XDG_CACHE_HOME=/tmp/docling-cache
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
@@ -25,5 +28,10 @@ RUN python -m pip install --upgrade pip \
 
 COPY main.py ./
 
+RUN groupadd --system --gid 10001 docling \
+    && useradd --system --uid 10001 --gid docling --home-dir /nonexistent --shell /usr/sbin/nologin docling \
+    && chown -R docling:docling /opt/docling-service
+
 EXPOSE 8600
+USER docling
 CMD ["python", "main.py"]

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { Fragment, useState, useEffect, useCallback, useRef, type ReactNode } from 'react';
 import { useParams } from 'next/navigation';
 import { Card, CardHeader, CardTitle, CardContent, Button } from '@/components/ui';
 import Link from 'next/link';
@@ -12,6 +12,7 @@ import { CheckCircle2, ChevronRight, ChevronLeft, Clock, AlertTriangle } from 'l
 import { clearAuth } from '@/lib/auth';
 import { useIdleTimeout } from '@/lib/useIdleTimeout';
 import { EvidenceConfirmationPanel } from '@/features/training-evidence/EvidenceConfirmationPanel';
+import { isTrustedScormBridgeMessage, type ScormBridgeStatus } from '@/features/scorm/bridge';
 
 interface Lesson {
   id: string;
@@ -73,6 +74,12 @@ interface AssignmentAccessWindow {
   access_policy: AssignmentAccessPolicy;
 }
 
+interface ScormLaunchSession {
+  url: string;
+  origin: string;
+  channel: string;
+}
+
 export default function CoursePlayerPage() {
   const params = useParams();
   const courseId = params?.id as string;
@@ -92,9 +99,11 @@ export default function CoursePlayerPage() {
   const [lessonQuiz, setLessonQuiz] = useState<QuizInfo | null>(null);
   const [quizAttempts, setQuizAttempts] = useState<QuizAttempt[]>([]);
   const [quizPassed, setQuizPassed] = useState(false);
-  const [scormLaunchUrl, setScormLaunchUrl] = useState('');
+  const [scormLaunchSession, setScormLaunchSession] = useState<ScormLaunchSession | null>(null);
+  const [scormRuntimeStatus, setScormRuntimeStatus] = useState<ScormBridgeStatus | null>(null);
   const [scormLaunchError, setScormLaunchError] = useState('');
   const [scormLaunchLoading, setScormLaunchLoading] = useState(false);
+  const scormFrameRef = useRef<HTMLIFrameElement>(null);
   const [assistantMessages, setAssistantMessages] = useState<AssistantMessage[]>([]);
   const [assistantInput, setAssistantInput] = useState('');
   const [assistantLoading, setAssistantLoading] = useState(false);
@@ -228,7 +237,27 @@ export default function CoursePlayerPage() {
           throw new Error(typeof detail?.detail === 'string' ? detail.detail : `HTTP ${res.status}`);
         }
         const data = await res.json();
-        if (!cancelled) setScormLaunchUrl(data.launch_url);
+        const launchUrl = typeof data?.launch_url === 'string' ? data.launch_url : '';
+        const launchOrigin = typeof data?.launch_origin === 'string' ? data.launch_origin : '';
+        const bridgeChannel = typeof data?.bridge_channel === 'string' ? data.bridge_channel : '';
+        let parsedLaunch: URL;
+        try {
+          parsedLaunch = new URL(launchUrl);
+        } catch {
+          throw new Error('Сервер вернул некорректный адрес SCORM');
+        }
+        if (
+          !launchOrigin
+          || !bridgeChannel
+          || parsedLaunch.origin !== launchOrigin
+          || (typeof window !== 'undefined' && parsedLaunch.origin === window.location.origin)
+        ) {
+          throw new Error('SCORM-контент не изолирован на отдельном домене');
+        }
+        if (!cancelled) {
+          setScormRuntimeStatus(null);
+          setScormLaunchSession({ url: launchUrl, origin: launchOrigin, channel: bridgeChannel });
+        }
       } catch (e) {
         if (!cancelled) setScormLaunchError(e instanceof Error ? e.message : 'Не удалось открыть SCORM');
       } finally {
@@ -240,6 +269,20 @@ export default function CoursePlayerPage() {
       cancelled = true;
     };
   }, [course?.delivery_type, token, courseId, API_URL]);
+
+  useEffect(() => {
+    if (!scormLaunchSession) return;
+    const receiveScormStatus = (event: MessageEvent) => {
+      if (!isTrustedScormBridgeMessage(event, {
+        origin: scormLaunchSession.origin,
+        channel: scormLaunchSession.channel,
+        source: scormFrameRef.current?.contentWindow || null,
+      })) return;
+      setScormRuntimeStatus(event.data.status);
+    };
+    window.addEventListener('message', receiveScormStatus);
+    return () => window.removeEventListener('message', receiveScormStatus);
+  }, [scormLaunchSession]);
 
   const fetchData = useCallback(async () => {
     try {
@@ -615,13 +658,21 @@ export default function CoursePlayerPage() {
               </div>
             </div>
           </div>
-        ) : scormLaunchUrl ? (
-          <iframe
-            title={course.title}
-            src={scormLaunchUrl}
-            className="block flex-1 border-0 bg-white"
-            allow="fullscreen"
-          />
+        ) : scormLaunchSession ? (
+          <div className="flex min-h-0 flex-1 flex-col">
+            <p className="sr-only" aria-live="polite">
+              {scormRuntimeStatus ? `SCORM: ${scormRuntimeStatus}` : 'SCORM загружается'}
+            </p>
+            <iframe
+              ref={scormFrameRef}
+              title={course.title}
+              src={scormLaunchSession.url}
+              className="block min-h-0 flex-1 border-0 bg-white"
+              sandbox="allow-forms allow-same-origin allow-scripts"
+              allow="fullscreen"
+              referrerPolicy="no-referrer"
+            />
+          </div>
         ) : null}
       </div>
     );
@@ -685,7 +736,7 @@ export default function CoursePlayerPage() {
 
             <div className="prose max-w-none">
               {selectedLesson.content ? (
-                <div dangerouslySetInnerHTML={{ __html: simpleMarkdown(selectedLesson.content) }} />
+                <SafeLessonContent text={selectedLesson.content} />
               ) : (
                 <p className="text-muted-foreground italic">{t('common.noData')}</p>
               )}
@@ -882,9 +933,30 @@ function formatRemainingTime(seconds: number): string {
   return [hours, minutes, remainder].map((part) => String(part).padStart(2, '0')).join(':');
 }
 
-function simpleMarkdown(text: string): string {
-  return text
-    .replace(/\n/g, '<br>')
-    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*(.*?)\*/g, '<em>$1</em>');
+function SafeLessonContent({ text }: { text: string }) {
+  const lines = text.split('\n');
+
+  return (
+    <div>
+      {lines.map((line, lineIndex) => (
+        <Fragment key={`${lineIndex}:${line}`}>
+          {renderInlineLessonMarkdown(line, lineIndex)}
+          {lineIndex < lines.length - 1 && <br />}
+        </Fragment>
+      ))}
+    </div>
+  );
+}
+
+function renderInlineLessonMarkdown(line: string, lineIndex: number): ReactNode[] {
+  return line.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g).map((segment, segmentIndex) => {
+    const key = `${lineIndex}:${segmentIndex}`;
+    if (segment.startsWith('**') && segment.endsWith('**')) {
+      return <strong key={key}>{segment.slice(2, -2)}</strong>;
+    }
+    if (segment.startsWith('*') && segment.endsWith('*')) {
+      return <em key={key}>{segment.slice(1, -1)}</em>;
+    }
+    return <Fragment key={key}>{segment}</Fragment>;
+  });
 }

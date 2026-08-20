@@ -8,10 +8,13 @@ import math
 import os
 import secrets
 import shutil
+import stat
+import struct
 import subprocess
 import tempfile
+import zipfile
 from importlib.metadata import PackageNotFoundError, version
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Annotated, Any
 
 import uvicorn
@@ -33,6 +36,7 @@ OCR_LANGUAGES = [
     if language.strip()
 ]
 DOCLING_API_KEY = os.getenv("DOCLING_API_KEY", "")
+DOCLING_ENV = os.getenv("DOCLING_ENV", "development").strip().lower()
 LEGACY_DOC_TIMEOUT_SECONDS = int(os.getenv("DOCLING_LEGACY_DOC_TIMEOUT_SECONDS", "120"))
 MAX_UPLOAD_BYTES = max(
     1, int(os.getenv("CONVERTER_MAX_UPLOAD_BYTES", str(50 * 1024 * 1024)))
@@ -54,6 +58,18 @@ PDF_MIN_TEXT_PAGE_RATIO = min(
     1.0,
     max(0.0, float(os.getenv("CONVERTER_PDF_MIN_TEXT_PAGE_RATIO", "0.6"))),
 )
+OOXML_MAX_ENTRIES = max(1, int(os.getenv("OOXML_MAX_ENTRIES", "5000")))
+OOXML_MAX_ENTRY_BYTES = max(1, int(os.getenv("OOXML_MAX_ENTRY_BYTES", str(64 * 1024 * 1024))))
+OOXML_MAX_TOTAL_BYTES = max(1, int(os.getenv("OOXML_MAX_TOTAL_BYTES", str(256 * 1024 * 1024))))
+OOXML_MAX_COMPRESSION_RATIO = max(1.0, float(os.getenv("OOXML_MAX_COMPRESSION_RATIO", "100")))
+
+
+def validate_runtime_config(environment: str = DOCLING_ENV, api_key: str = DOCLING_API_KEY) -> None:
+    if environment == "production" and len(api_key) < 32:
+        raise RuntimeError("DOCLING_API_KEY must contain at least 32 characters in production")
+
+
+validate_runtime_config()
 
 # One process should own the Docling models on a small VPS. A semaphore keeps
 # requests asynchronous while preventing concurrent model-sized allocations.
@@ -121,6 +137,75 @@ def _usable_markdown(markdown: object) -> bool:
         return False
     printable = sum(char.isprintable() or char in "\n\r\t" for char in text)
     return printable / len(text) >= 0.8 and any(char.isalnum() for char in text)
+
+
+def preflight_ooxml(path: str, suffix: str) -> None:
+    """Reject archive traversal and expansion abuse before parser invocation."""
+    required = {".docx": "word/document.xml", ".xlsx": "xl/workbook.xml"}.get(suffix)
+    if required is None:
+        return
+    with open(path, "rb") as source:
+        source.seek(0, 2)
+        size = source.tell()
+        source.seek(max(0, size - (22 + 65_535)))
+        tail = source.read(22 + 65_535)
+    directory_offset = tail.rfind(b"PK\x05\x06")
+    if directory_offset < 0 or len(tail) - directory_offset < 22:
+        raise HTTPException(status_code=400, detail="Invalid OOXML document")
+    _, disk_number, directory_disk, disk_entries, declared_entries, _, _, comment_length = struct.unpack_from(
+        "<4s4H2LH", tail, directory_offset
+    )
+    if (
+        directory_offset + 22 + comment_length != len(tail)
+        or disk_number
+        or directory_disk
+        or disk_entries != declared_entries
+        or declared_entries == 0xFFFF
+    ):
+        raise HTTPException(status_code=400, detail="Invalid OOXML document directory")
+    if declared_entries > OOXML_MAX_ENTRIES:
+        raise HTTPException(status_code=413, detail="OOXML archive has too many entries")
+    try:
+        with zipfile.ZipFile(path) as archive:
+            entries = archive.infolist()
+    except (zipfile.BadZipFile, zipfile.LargeZipFile) as exc:
+        raise HTTPException(status_code=400, detail="Invalid OOXML document") from exc
+    if len(entries) > OOXML_MAX_ENTRIES:
+        raise HTTPException(status_code=413, detail="OOXML archive has too many entries")
+    if len(entries) != declared_entries:
+        raise HTTPException(status_code=400, detail="Invalid OOXML document directory")
+
+    names: set[str] = set()
+    total_uncompressed = 0
+    total_compressed = 0
+    for entry in entries:
+        name = entry.filename
+        parsed = PurePosixPath(name)
+        if (
+            not name
+            or len(name) > 512
+            or "\x00" in name
+            or "\\" in name
+            or name.startswith("/")
+            or parsed.is_absolute()
+            or ".." in parsed.parts
+        ):
+            raise HTTPException(status_code=400, detail="OOXML archive contains an unsafe path")
+        if entry.flag_bits & 0x1 or stat.S_ISLNK(entry.external_attr >> 16):
+            raise HTTPException(status_code=400, detail="OOXML archive contains an unsupported entry")
+        if entry.file_size > OOXML_MAX_ENTRY_BYTES:
+            raise HTTPException(status_code=413, detail="OOXML entry is too large")
+        if entry.file_size and entry.file_size / max(entry.compress_size, 1) > OOXML_MAX_COMPRESSION_RATIO:
+            raise HTTPException(status_code=413, detail="OOXML compression ratio is too high")
+        names.add(name.rstrip("/"))
+        total_uncompressed += entry.file_size
+        total_compressed += entry.compress_size
+        if total_uncompressed > OOXML_MAX_TOTAL_BYTES:
+            raise HTTPException(status_code=413, detail="OOXML expanded size is too large")
+    if total_uncompressed and total_uncompressed / max(total_compressed, 1) > OOXML_MAX_COMPRESSION_RATIO:
+        raise HTTPException(status_code=413, detail="OOXML compression ratio is too high")
+    if "[Content_Types].xml" not in names or required not in names:
+        raise HTTPException(status_code=400, detail="Invalid OOXML document structure")
 
 
 def _markitdown_convert(path: str) -> str:
@@ -268,6 +353,7 @@ def _convert_sync(*, tmp_path: str, filename: str, suffix: str) -> dict:
                         status_code=422,
                         detail="The legacy DOC file could not be converted to DOCX",
                     )
+                preflight_ooxml(str(candidate), ".docx")
                 conversion_input = str(candidate)
                 warnings.append("Legacy DOC pre-converted to DOCX with LibreOffice.")
             except subprocess.TimeoutExpired as exc:
@@ -487,7 +573,7 @@ async def convert_document(
     x_docling_key: Annotated[str | None, Header()] = None,
 ):
     """Convert uploaded document while keeping the event loop responsive."""
-    if DOCLING_API_KEY and (
+    if not DOCLING_API_KEY or (
         x_docling_key is None
         or not secrets.compare_digest(x_docling_key, DOCLING_API_KEY)
     ):
@@ -499,6 +585,7 @@ async def convert_document(
     acquired = False
     try:
         tmp_path = await _save_upload(file, suffix)
+        preflight_ooxml(tmp_path, suffix)
         await _acquire_conversion_slot()
         acquired = True
         payload = await asyncio.to_thread(
