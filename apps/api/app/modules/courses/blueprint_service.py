@@ -13,8 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.document import Document
 from app.models.tenants import Tenant
 from app.modules.courses.blueprint_catalog import (
-    FINANCE_IS_BLUEPRINT_ID,
-    get_blueprint,
+    get_blueprint_by_id,
     list_blueprints,
 )
 from app.modules.courses.blueprint_schemas import (
@@ -72,6 +71,11 @@ def _catalog_response(blueprint: dict[str, Any]) -> CourseBlueprintResponse:
             for item in blueprint["checklist"]
         ],
         limitations=blueprint["limitations"],
+        compliance_mode=blueprint["compliance_mode"],
+        applicability=blueprint["applicability"],
+        tags=blueprint["tags"],
+        legal_basis=blueprint["legal_basis"],
+        base_blueprint_id=blueprint.get("base_blueprint_id"),
     )
 
 
@@ -80,9 +84,11 @@ def get_catalog(locale: str) -> list[CourseBlueprintResponse]:
 
 
 def get_catalog_item(blueprint_id: str, locale: str) -> CourseBlueprintResponse:
-    if blueprint_id != FINANCE_IS_BLUEPRINT_ID:
-        raise BlueprintNotFoundError(blueprint_id)
-    return _catalog_response(get_blueprint(locale))
+    try:
+        blueprint = get_blueprint_by_id(blueprint_id, locale)
+    except KeyError as error:
+        raise BlueprintNotFoundError(blueprint_id) from error
+    return _catalog_response(blueprint)
 
 
 def calculate_adaptation(blueprint: dict[str, Any], answers: dict[str, str]) -> tuple[int, list[str], list[str]]:
@@ -148,12 +154,19 @@ def adaptation_snapshot(course: Course) -> BlueprintAdaptationSnapshot:
     analysis: dict[str, Any] = dict(course.source_analysis or {})
     marker = analysis.get("blueprint") or {}
     adaptation = analysis.get("adaptation") or {}
-    if marker.get("id") != FINANCE_IS_BLUEPRINT_ID:
+    blueprint_id = marker.get("id")
+    locale = marker.get("locale")
+    version = marker.get("version")
+    if not blueprint_id or not locale or not version:
         raise BlueprintNotFoundError(str(marker.get("id") or ""))
+    try:
+        get_blueprint_by_id(blueprint_id, locale, version)
+    except KeyError as error:
+        raise BlueprintNotFoundError(str(blueprint_id)) from error
     return BlueprintAdaptationSnapshot(
-        blueprint_id=marker["id"],
-        blueprint_version=marker["version"],
-        locale=marker["locale"],
+        blueprint_id=blueprint_id,
+        blueprint_version=version,
+        locale=locale,
         readiness_percent=adaptation.get("readiness_percent", 70),
         answers=dict(adaptation.get("answers") or {}),
         source_document_ids=[UUID(value) for value in adaptation.get("source_document_ids") or []],
@@ -221,9 +234,10 @@ async def instantiate_blueprint(
     user_id: UUID,
     request: BlueprintInstantiationRequest,
 ) -> tuple[Course, BlueprintInstantiationResponse]:
-    if blueprint_id != FINANCE_IS_BLUEPRINT_ID:
-        raise BlueprintNotFoundError(blueprint_id)
-    blueprint = get_blueprint(request.locale)
+    try:
+        blueprint = get_blueprint_by_id(blueprint_id, request.locale)
+    except KeyError as error:
+        raise BlueprintNotFoundError(blueprint_id) from error
     calculate_adaptation(blueprint, request.answers)
     await _validate_documents(db, tenant_id, request.source_document_ids)
 
@@ -359,12 +373,13 @@ async def update_blueprint_adaptation(
     if course.status != "draft":
         raise BlueprintContentConflictError("Only a draft blueprint course can be adapted")
     snapshot = adaptation_snapshot(course)
-    if snapshot.blueprint_version != get_blueprint(snapshot.locale)["version"]:
-        raise BlueprintContentConflictError("This blueprint version is no longer editable")
     if request.locale != snapshot.locale:
         raise BlueprintContentConflictError("Blueprint locale cannot be changed after instantiation")
 
-    blueprint = get_blueprint(snapshot.locale)
+    try:
+        blueprint = get_blueprint_by_id(snapshot.blueprint_id, snapshot.locale, snapshot.blueprint_version)
+    except KeyError as error:
+        raise BlueprintContentConflictError("This blueprint version is no longer editable") from error
     calculate_adaptation(blueprint, request.answers)
     await _validate_documents(db, course.tenant_id, request.source_document_ids)
     previous_state = dict((course.source_analysis or {}).get("render_state") or {})

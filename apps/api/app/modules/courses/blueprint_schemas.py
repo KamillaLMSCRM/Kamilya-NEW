@@ -6,6 +6,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 BlueprintLocale = Literal["ru", "kk"]
+BlueprintComplianceMode = Literal["lms_only", "blended", "external_certified"]
 
 
 class BlueprintChecklistItemResponse(BaseModel):
@@ -14,6 +15,13 @@ class BlueprintChecklistItemResponse(BaseModel):
     description: str
     required: bool = True
     answer_placeholder: str
+
+
+class BlueprintLegalBasisResponse(BaseModel):
+    title: str
+    act_id: str
+    url: str
+    reviewed_at: str
 
 
 class CourseBlueprintResponse(BaseModel):
@@ -30,6 +38,11 @@ class CourseBlueprintResponse(BaseModel):
     quiz_question_count: int
     checklist: list[BlueprintChecklistItemResponse]
     limitations: list[str]
+    compliance_mode: BlueprintComplianceMode
+    applicability: str
+    tags: list[str]
+    legal_basis: list[BlueprintLegalBasisResponse]
+    base_blueprint_id: str | None = None
 
 
 class BlueprintInstantiationRequest(BaseModel):

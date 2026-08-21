@@ -4,32 +4,61 @@ export interface AdaptationChecklistItem {
 }
 
 export interface AdaptationStep {
-  id: 'access' | 'operations' | 'incidents';
+  id: string;
   titleKey: string;
   descriptionKey: string;
   itemIds: readonly string[];
 }
+
+const legacyFinanceChecklistIds = [
+  'access_and_offboarding',
+  'approved_systems',
+  'data_classification',
+  'remote_work',
+  'removable_media',
+  'fraud_verification',
+  'incident_channel',
+  'branch_specifics',
+] as const;
 
 export const adaptationSteps: readonly AdaptationStep[] = [
   {
     id: 'access',
     titleKey: 'courses.blueprint.steps.accessTitle',
     descriptionKey: 'courses.blueprint.steps.accessDescription',
-    itemIds: ['access_and_offboarding', 'approved_systems', 'data_classification'],
+    itemIds: legacyFinanceChecklistIds.slice(0, 3),
   },
   {
     id: 'operations',
     titleKey: 'courses.blueprint.steps.operationsTitle',
     descriptionKey: 'courses.blueprint.steps.operationsDescription',
-    itemIds: ['remote_work', 'removable_media', 'fraud_verification'],
+    itemIds: legacyFinanceChecklistIds.slice(3, 6),
   },
   {
     id: 'incidents',
     titleKey: 'courses.blueprint.steps.incidentsTitle',
     descriptionKey: 'courses.blueprint.steps.incidentsDescription',
-    itemIds: ['incident_channel', 'branch_specifics'],
+    itemIds: legacyFinanceChecklistIds.slice(6),
   },
 ];
+
+export function buildAdaptationSteps(
+  checklist: readonly AdaptationChecklistItem[],
+): readonly AdaptationStep[] {
+  const checklistIds = checklist.map((item) => item.id);
+  if (
+    checklistIds.length === legacyFinanceChecklistIds.length
+    && legacyFinanceChecklistIds.every((id) => checklistIds.includes(id))
+  ) {
+    return adaptationSteps;
+  }
+  return [{
+    id: 'checklist',
+    titleKey: 'courses.blueprint.steps.checklistTitle',
+    descriptionKey: 'courses.blueprint.steps.checklistDescription',
+    itemIds: checklist.map((item) => item.id),
+  }];
+}
 
 export function firstMissingAnswer(
   step: AdaptationStep,
@@ -51,7 +80,7 @@ export function firstIncompleteStep(
   checklist: readonly AdaptationChecklistItem[],
   answers: Record<string, string>,
 ): number {
-  return adaptationSteps.findIndex((step) => Boolean(firstMissingAnswer(step, checklist, answers)));
+  return buildAdaptationSteps(checklist).findIndex((step) => Boolean(firstMissingAnswer(step, checklist, answers)));
 }
 
 export function adaptationResumeStep(
@@ -59,5 +88,5 @@ export function adaptationResumeStep(
   answers: Record<string, string>,
 ): number {
   const incompleteStep = firstIncompleteStep(checklist, answers);
-  return incompleteStep === -1 ? adaptationSteps.length - 1 : incompleteStep;
+  return incompleteStep === -1 ? buildAdaptationSteps(checklist).length - 1 : incompleteStep;
 }

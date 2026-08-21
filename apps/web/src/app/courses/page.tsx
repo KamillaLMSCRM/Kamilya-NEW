@@ -11,9 +11,30 @@ import { api } from '@/lib/api';
 import { GraduationCap, MoreVertical, ShieldCheck, Trash2 } from 'lucide-react';
 import { LoadError } from '@/components/ui/LoadError';
 
+type BlueprintLocale = 'ru' | 'kk';
+type ComplianceMode = 'lms_only' | 'blended' | 'external_certified';
+
+interface CourseBlueprintCatalogItem {
+  id: string;
+  title: string;
+  description: string;
+  audience: string;
+  applicability?: string;
+  estimated_ready_percent: number;
+  compliance_mode?: ComplianceMode;
+  tags?: string[];
+}
+
+interface CourseWithBlueprintSource {
+  source_analysis?: { blueprint?: { id?: string } };
+}
+
+const getSourceBlueprintId = (course: CourseWithBlueprintSource) =>
+  course.source_analysis?.blueprint?.id;
+
 export default function CoursesPage() {
   const { user } = useAuthStore();
-  const { t } = useT();
+  const { t, lang } = useT();
   const tRef = useRef(t);
   tRef.current = t;
   const { confirm, dialog } = useConfirm();
@@ -31,8 +52,12 @@ export default function CoursesPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [blueprints, setBlueprints] = useState<CourseBlueprintCatalogItem[]>([]);
+  const [blueprintsLoading, setBlueprintsLoading] = useState(true);
+  const [blueprintsError, setBlueprintsError] = useState<string | null>(null);
 
   const canManage = user?.role === 'methodologist';
+  const blueprintLocale: BlueprintLocale = lang === 'kk' ? 'kk' : 'ru';
 
   const apiErrorMessage = (error: any, fallback: string) =>
     error?.response?.data?.message
@@ -63,6 +88,29 @@ export default function CoursesPage() {
   useEffect(() => {
     fetchCourses();
   }, [fetchCourses]);
+
+  const fetchBlueprints = useCallback(async () => {
+    setBlueprintsLoading(true);
+    setBlueprintsError(null);
+    try {
+      const response = await api.get<CourseBlueprintCatalogItem[]>(`/v1/course-blueprints?locale=${blueprintLocale}`);
+      setBlueprints(Array.isArray(response.data) ? response.data : []);
+    } catch (error: any) {
+      setBlueprintsError(apiErrorMessage(error, tRef.current('courses.blueprint.catalogLoadFailed')));
+    } finally {
+      setBlueprintsLoading(false);
+    }
+  }, [blueprintLocale]);
+
+  useEffect(() => {
+    if (canManage) void fetchBlueprints();
+  }, [canManage, fetchBlueprints]);
+
+  const complianceLabel = (mode?: ComplianceMode) => {
+    if (mode === 'blended') return t('courses.blueprint.complianceModes.blended');
+    if (mode === 'external_certified') return t('courses.blueprint.complianceModes.externalCertified');
+    return t('courses.blueprint.complianceModes.lmsOnly');
+  };
 
   const handleCreate = async () => {
     if (!title.trim()) {
@@ -162,23 +210,40 @@ export default function CoursesPage() {
       </div>
 
       {canManage && (
-        <section className="overflow-hidden rounded-2xl border border-primary/20 bg-gradient-to-r from-primary/15 via-card to-accent/10 p-5 shadow-card">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex min-w-0 items-start gap-3">
-              <span className="rounded-xl bg-primary/10 p-2 text-primary"><ShieldCheck className="h-5 w-5" aria-hidden="true" /></span>
-              <div>
-                <div className="text-xs font-semibold uppercase tracking-wide text-primary">{t('courses.blueprint.badge')}</div>
-                <h2 className="mt-1 font-bold text-foreground">{t('courses.blueprint.offerTitle')}</h2>
-                <p className="mt-1 text-sm text-muted-foreground">{t('courses.blueprint.offerDescription')}</p>
-              </div>
-            </div>
-            <Link
-              href="/courses/templates/kz-finance-information-security"
-              className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
-            >
-              {t('courses.blueprint.open')}
-            </Link>
+        <section className="space-y-4" aria-labelledby="blueprint-catalog-title">
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-wide text-primary">{t('courses.blueprint.badge')}</div>
+            <h2 id="blueprint-catalog-title" className="mt-1 text-xl font-bold text-foreground">{t('courses.blueprint.catalogTitle')}</h2>
+            <p className="mt-1 max-w-3xl text-sm text-muted-foreground">{t('courses.blueprint.catalogDescription')}</p>
           </div>
+          {blueprintsLoading ? (
+            <div className="rounded-2xl border border-border bg-card py-10 text-center text-sm text-muted-foreground">{t('common.loading')}</div>
+          ) : blueprintsError ? (
+            <LoadError title={t('courses.blueprint.catalogLoadFailed')} message={blueprintsError} retryLabel={t('common.retry')} onRetry={() => void fetchBlueprints()} />
+          ) : blueprints.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-border py-10 text-center text-sm text-muted-foreground">{t('courses.blueprint.catalogEmpty')}</div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {blueprints.map((blueprint) => (
+                <article key={blueprint.id} className="flex h-full flex-col rounded-2xl border border-border bg-card p-5 shadow-card transition hover:-translate-y-1 hover:shadow-card-hover">
+                  <div className="flex items-start justify-between gap-3">
+                    <h3 className="font-bold text-foreground">{blueprint.title}</h3>
+                    <span className="shrink-0 rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-semibold text-primary">{complianceLabel(blueprint.compliance_mode)}</span>
+                  </div>
+                  <p className="mt-3 text-sm text-muted-foreground">{blueprint.description}</p>
+                  <dl className="mt-4 space-y-2 text-sm">
+                    <div><dt className="inline font-semibold text-foreground">{t('courses.blueprint.audience')}: </dt><dd className="inline text-muted-foreground">{blueprint.audience}</dd></div>
+                    {blueprint.applicability && <div><dt className="inline font-semibold text-foreground">{t('courses.blueprint.applicability')}: </dt><dd className="inline text-muted-foreground">{blueprint.applicability}</dd></div>}
+                  </dl>
+                  <div className="mt-4 flex items-center justify-between text-sm"><span className="text-muted-foreground">{t('courses.blueprint.readiness')}</span><strong className="text-primary">{blueprint.estimated_ready_percent}%</strong></div>
+                  <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-primary" style={{ width: `${Math.min(100, Math.max(0, blueprint.estimated_ready_percent))}%` }} /></div>
+                  {!!blueprint.tags?.length && <div className="mt-4 flex flex-wrap gap-2">{blueprint.tags.map((tag) => <span key={tag} className="rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground">{tag}</span>)}</div>}
+                  <p className="mt-4 text-xs text-muted-foreground">{t('courses.blueprint.catalogNotMandatory')}</p>
+                   <Link href={blueprint.id === 'kz-finance-information-security' ? '/courses/templates/kz-finance-information-security' : `/courses/templates/${encodeURIComponent(blueprint.id)}`} className="mt-5 inline-flex min-h-11 items-center justify-center rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90">{t('courses.blueprint.open')}</Link>
+                </article>
+              ))}
+            </div>
+          )}
         </section>
       )}
 
@@ -389,7 +454,7 @@ export default function CoursesPage() {
                       SCORM
                     </span>
                   )}
-                  {course.source_analysis?.blueprint?.id && (
+                   {getSourceBlueprintId(course) && (
                     <span className="text-[11px] font-semibold rounded-full px-2.5 py-1 text-primary bg-card/80 backdrop-blur-sm">
                       {t('courses.blueprint.badge')}
                     </span>
@@ -411,9 +476,9 @@ export default function CoursesPage() {
 
                 {canManage && (
                   <>
-                    {course.status !== 'published' && course.source_analysis?.blueprint?.id && (
-                      <Link
-                        href={`/courses/templates/${course.source_analysis.blueprint.id}?course_id=${course.id}`}
+                     {course.status !== 'published' && getSourceBlueprintId(course) && (
+                       <Link
+                         href={`/courses/templates/${getSourceBlueprintId(course)}?course_id=${course.id}`}
                         className="mt-4 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-primary/30 bg-primary/5 px-3 py-2 text-sm font-medium text-primary transition-colors hover:bg-primary/10"
                       >
                         <ShieldCheck className="h-4 w-4" aria-hidden="true" />

@@ -12,7 +12,7 @@ import { useT } from '@/i18n/useT';
 import { api } from '@/lib/api';
 import {
   adaptationResumeStep,
-  adaptationSteps,
+  buildAdaptationSteps,
   completedAnswerCount,
   firstIncompleteStep,
   firstMissingAnswer,
@@ -40,6 +40,9 @@ interface CourseBlueprint {
   title: string;
   description: string;
   audience: string;
+  applicability?: string;
+  compliance_mode?: 'lms_only' | 'blended' | 'external_certified';
+  tags?: string[];
   estimated_ready_percent: number;
   customization_percent: number;
   module_count: number;
@@ -62,7 +65,7 @@ interface InstantiationResponse {
   adaptation_url: string;
 }
 
-function FinanceBlueprintPageContent() {
+function BlueprintPageContent() {
   const { t, lang } = useT();
   const params = useParams<{ blueprintId: string }>();
   const searchParams = useSearchParams();
@@ -136,13 +139,15 @@ function FinanceBlueprintPageContent() {
     ? Math.min(
         100,
         blueprint.estimated_ready_percent
-          + Math.round(blueprint.customization_percent * completedCount / blueprint.checklist.length),
+          + Math.round(blueprint.customization_percent * completedCount / Math.max(1, blueprint.checklist.length)),
       )
     : 0;
   const requiredCount = blueprint?.checklist.filter((item) => item.required).length || 0;
-  const allRequiredComplete = requiredCount > 0 && completedCount === requiredCount;
-  const activeStep = adaptationSteps[currentStep];
-  const activeItems = blueprint?.checklist.filter((item) => activeStep.itemIds.includes(item.id)) || [];
+  const allRequiredComplete = completedCount === requiredCount;
+  const adaptationSteps = useMemo(() => buildAdaptationSteps(blueprint?.checklist || []), [blueprint]);
+  const activeStep = adaptationSteps[currentStep] || adaptationSteps[0];
+  const isFinanceBlueprint = blueprint?.id === 'kz-finance-information-security';
+  const activeItems = blueprint?.checklist.filter((item) => activeStep?.itemIds.includes(item.id)) || [];
 
   const firstMissingId = (stepIndex: number) => {
     return firstMissingAnswer(adaptationSteps[stepIndex], blueprint?.checklist || [], answers);
@@ -243,9 +248,21 @@ function FinanceBlueprintPageContent() {
               <ShieldCheck className="h-4 w-4" aria-hidden="true" />
               {t('courses.blueprint.badge')}
             </div>
-            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{t('courses.blueprint.pageTitle')}</h1>
-            <p className="mt-3 text-muted-foreground">{t('courses.blueprint.pageSubtitle')}</p>
-            <p className="mt-3 text-sm font-medium text-foreground">{blueprint.audience}</p>
+             <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{blueprint.title}</h1>
+             <p className="mt-3 text-muted-foreground">{blueprint.description}</p>
+             <p className="mt-3 text-sm font-medium text-foreground">{blueprint.audience}</p>
+             {blueprint.applicability && (
+               <p className="mt-2 text-sm text-muted-foreground">{blueprint.applicability}</p>
+             )}
+             {blueprint.compliance_mode && (
+               <span className="mt-3 inline-flex rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+                 {blueprint.compliance_mode === 'blended'
+                   ? t('courses.blueprint.complianceModes.blended')
+                   : blueprint.compliance_mode === 'external_certified'
+                     ? t('courses.blueprint.complianceModes.externalCertified')
+                     : t('courses.blueprint.complianceModes.lmsOnly')}
+               </span>
+             )}
           </div>
           <div className="w-full max-w-xs rounded-2xl border bg-card/90 p-5">
             <div className="flex items-end justify-between">
@@ -267,8 +284,8 @@ function FinanceBlueprintPageContent() {
         <div className="flex items-start gap-3">
           <Info className="mt-0.5 h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
           <div>
-            <h2 className="font-bold">{t('courses.blueprint.introTitle')}</h2>
-            <p className="mt-1 text-sm text-foreground">{t('courses.blueprint.introBody')}</p>
+            <h2 className="font-bold">{t(isFinanceBlueprint ? 'courses.blueprint.introTitle' : 'courses.blueprint.genericIntroTitle')}</h2>
+            <p className="mt-1 text-sm text-foreground">{t(isFinanceBlueprint ? 'courses.blueprint.introBody' : 'courses.blueprint.genericIntroBody')}</p>
             <p className="mt-2 text-sm text-muted-foreground">{t('courses.blueprint.introNotice')}</p>
             <p className="mt-2 text-xs text-muted-foreground">{t('courses.blueprint.introMicrocopy')}</p>
           </div>
@@ -281,8 +298,8 @@ function FinanceBlueprintPageContent() {
         <Input id="blueprint-course-title" className="mt-2" value={title} onChange={(event) => setTitle(event.target.value)} />
       </section>
 
-      <nav aria-label={t('courses.blueprint.adaptationSteps')} className="grid gap-3 sm:grid-cols-3">
-        {adaptationSteps.map((step, index) => {
+       <nav aria-label={t('courses.blueprint.adaptationSteps')} className="grid gap-3">
+         {adaptationSteps.map((step, index) => {
           const complete = !firstMissingId(index);
           const active = index === currentStep;
           return (
@@ -302,7 +319,7 @@ function FinanceBlueprintPageContent() {
                 <span className={`flex h-6 w-6 items-center justify-center rounded-full ${complete ? 'bg-success text-white' : active ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
                   {complete ? <Check className="h-4 w-4" aria-hidden="true" /> : index + 1}
                 </span>
-                {t('courses.blueprint.stepProgress', { current: index + 1, total: adaptationSteps.length })}
+                 {t('courses.blueprint.stepProgress', { current: index + 1, total: adaptationSteps.length })}
               </span>
               <span className="mt-2 block font-semibold">{t(step.titleKey as never)}</span>
             </button>
@@ -325,19 +342,19 @@ function FinanceBlueprintPageContent() {
             <div key={item.id} className="rounded-2xl border border-border p-4 focus-within:border-primary sm:p-5">
               <label className="block" htmlFor={`blueprint-answer-${item.id}`}>
                 <span className="flex flex-wrap items-center gap-2">
-                  <span className="font-semibold">{t(`courses.blueprint.fields.${item.id}.label` as never)}</span>
-                  <span className="rounded-full bg-warning/10 px-2 py-0.5 text-xs font-medium text-warning-foreground">{t('courses.blueprint.requiredLabel')}</span>
+                   <span className="font-semibold">{item.title}</span>
+                   <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${item.required ? 'bg-warning/10 text-warning-foreground' : 'bg-muted text-muted-foreground'}`}>{item.required ? t('courses.blueprint.requiredLabel') : t('courses.blueprint.optionalLabel')}</span>
                 </span>
                 <span className="mt-2 block text-sm text-muted-foreground">
                   <strong className="font-medium text-foreground">{t('courses.blueprint.whyLabel')}:</strong>{' '}
-                  {t(`courses.blueprint.fields.${item.id}.help` as never)}
+                   {item.description}
                 </span>
-              </label>
-              <details className="mt-3 rounded-xl bg-muted/40 px-3 py-2 text-sm">
-                <summary className="cursor-pointer font-medium text-primary">{t('courses.blueprint.showExample')}</summary>
-                <p className="mt-2 text-muted-foreground">{t(`courses.blueprint.fields.${item.id}.example` as never)}</p>
-              </details>
-              <textarea
+               </label>
+               <details className="mt-3 text-sm text-muted-foreground">
+                 <summary className="cursor-pointer font-medium text-primary">{t('courses.blueprint.showExample')}</summary>
+                 <p className="mt-2 rounded-lg bg-muted/50 p-3">{item.answer_placeholder}</p>
+               </details>
+               <textarea
                 id={`blueprint-answer-${item.id}`}
                 required={item.required}
                 aria-required={item.required}
@@ -346,7 +363,7 @@ function FinanceBlueprintPageContent() {
                   setAnswers((current) => ({ ...current, [item.id]: event.target.value }));
                   setValidationError('');
                 }}
-                placeholder={t('courses.blueprint.answerPrompt')}
+                placeholder={item.answer_placeholder}
                 rows={3}
                 maxLength={4000}
                 className="mt-4 w-full resize-y rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
@@ -354,6 +371,11 @@ function FinanceBlueprintPageContent() {
               <p className="mt-2 text-xs text-muted-foreground">{t('courses.blueprint.notApplicableHint')}</p>
             </div>
           ))}
+          {!activeItems.length && (
+            <p className="rounded-xl border border-dashed border-border p-5 text-sm text-muted-foreground">
+              {t('courses.blueprint.checklistEmpty')}
+            </p>
+          )}
         </div>
       </section>
 
@@ -389,7 +411,7 @@ function FinanceBlueprintPageContent() {
 
       <div className="sticky bottom-3 rounded-2xl border bg-card/95 p-3 shadow-lg backdrop-blur sm:bottom-4 sm:flex sm:items-center sm:justify-between sm:gap-4">
         <div className="mb-3 text-xs text-muted-foreground sm:mb-0">
-          {currentStep === adaptationSteps.length - 1 ? t('courses.blueprint.finalHint') : t('courses.blueprint.stepHint')}
+           {currentStep === adaptationSteps.length - 1 ? t('courses.blueprint.finalHint') : t('courses.blueprint.stepHint')}
           {validationError && <p role="alert" className="mt-1 font-medium text-destructive">{validationError}</p>}
         </div>
         <div className="grid grid-cols-2 gap-2 sm:flex sm:shrink-0">
@@ -432,10 +454,10 @@ function FinanceBlueprintPageContent() {
   );
 }
 
-export default function FinanceBlueprintPage() {
+export default function BlueprintPage() {
   return (
     <Suspense fallback={<div className="flex min-h-80 items-center justify-center">...</div>}>
-      <FinanceBlueprintPageContent />
+      <BlueprintPageContent />
     </Suspense>
   );
 }
