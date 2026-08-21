@@ -588,3 +588,18 @@ open, also record status, safe interim path, and review condition.
 - Prevention: production major is a blocking test contract. RLS tests prove effective
   runtime role, not only `tenant_id` predicates. Never run destructive fixtures
   against production or shared remote DB.
+
+## CI-001 - English errors journal broke the release contract parser
+
+- Date: 2026-08-21.
+- Symptom: the release contract and backend unit CI jobs failed after `ERRORS.md`
+  was translated to English, although every stable entry ID and required field was
+  still present.
+- Cause: the parser required a Unicode em dash, Russian field names, and Russian
+  date labels instead of validating the language-independent journal structure.
+- Fix: accept ASCII or legacy heading separators and English or legacy Russian
+  field/date labels while keeping stable `CATEGORY-NNN` IDs mandatory.
+- Verification: `python scripts/ci/release-contract-gate.py` and
+  `tests/unit/test_release_reliability_contracts.py` pass with the English journal.
+- Prevention: changes to operational documentation language must update and run
+  every machine-readable documentation contract before push.

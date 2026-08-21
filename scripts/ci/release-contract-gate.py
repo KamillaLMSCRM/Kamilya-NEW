@@ -36,8 +36,15 @@ EXPECTED_TASK_NAMES = {
     "crm.recover_lead_outbox",
 }
 
-ERROR_ENTRY = re.compile(r"^## ([A-Z][A-Z0-9_-]*-\d{3}) — .+$", re.MULTILINE)
-ERROR_FIELD_NAMES = ("Дата", "Симптом", "Причина", "Исправление", "Проверка", "Профилактика")
+ERROR_ENTRY = re.compile(r"^## ([A-Z][A-Z0-9_-]*-\d{3}) (?:—|-) .+$", re.MULTILINE)
+ERROR_FIELD_NAMES = (
+    ("Date", "Дата"),
+    ("Symptom", "Симптом"),
+    ("Cause", "Причина"),
+    ("Fix", "Исправление"),
+    ("Verification", "Проверка"),
+    ("Prevention", "Профилактика"),
+)
 ERROR_SECRET_PATTERNS = {
     "private key marker": re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----"),
     "credential URL": re.compile(r"(?:postgres(?:ql)?|redis|https?)://[^\s/:]+:[^\s/@]+@", re.IGNORECASE),
@@ -213,7 +220,11 @@ def check_errors_journal() -> str:
     for index, match in enumerate(matches):
         end = matches[index + 1].start() if index + 1 < len(matches) else len(journal)
         section = journal[match.start() : end]
-        missing = [field for field in ERROR_FIELD_NAMES if f"- {field}:" not in section]
+        missing = [
+            names[0]
+            for names in ERROR_FIELD_NAMES
+            if not any(f"- {name}:" in section for name in names)
+        ]
         if missing:
             raise ValueError(f"Errors journal contract error: {match.group(1)} missing fields: {', '.join(missing)}")
 
@@ -223,8 +234,12 @@ def check_errors_journal() -> str:
             line = journal.count("\n", 0, match.start()) + 1
             raise ValueError(f"Errors journal contract error: possible {rule_name} at ERRORS.md:{line}")
 
-    header_date = re.search(r"^Актуально на: (\d{4}-\d{2}-\d{2})\.$", journal, re.MULTILINE)
-    entry_dates = re.findall(r"^- Дата: (\d{4}-\d{2}-\d{2})", journal, re.MULTILINE)
+    header_date = re.search(
+        r"^(?:Current as of|Актуально на): (\d{4}-\d{2}-\d{2})\.$",
+        journal,
+        re.MULTILINE,
+    )
+    entry_dates = re.findall(r"^- (?:Date|Дата): (\d{4}-\d{2}-\d{2})", journal, re.MULTILINE)
     if not header_date or not entry_dates or header_date.group(1) != max(entry_dates):
         raise ValueError("Errors journal contract error: header date must equal the latest entry date")
 
