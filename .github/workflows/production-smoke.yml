@@ -28,7 +28,7 @@ jobs:
         continue-on-error: true
         shell: bash
         env:
-          EXPECTED_RELEASE_SHA: ${{ vars.KZ_PRODUCTION_RELEASE_SHA }}
+          EXPECTED_RELEASE_SHA: ${{ github.event_name == 'push' && github.sha || vars.KZ_PRODUCTION_RELEASE_SHA }}
         run: |
           set -euo pipefail
           for attempt in {1..12}; do
