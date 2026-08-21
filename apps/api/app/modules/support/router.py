@@ -4,7 +4,7 @@ from typing import Annotated, Any, Literal, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, status
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import require_tenant_user
@@ -40,8 +40,9 @@ async def create_support_request(
     requester_name = " ".join(part for part in (first_name.strip(), last_name.strip()) if part)
     requester_name = requester_name or "Kamilya LMS user"
     requester_role = cast(str, user.role)
+    tenant_id = cast(UUID, user.tenant_id)
     item = SupportRequest(
-        tenant_id=user.tenant_id,
+        tenant_id=tenant_id,
         created_by=user.id,
         requester_email=requester_email,
         requester_name=requester_name,
@@ -85,6 +86,7 @@ async def create_support_request(
         writable_item.delivery_failure_category = "unexpected_delivery_error"
         logger.exception("support request email failed reference=%s", reference)
 
+    await db.execute(text("SELECT set_current_tenant(:tenant_id)"), {"tenant_id": str(tenant_id)})
     writable_item.delivery_status = delivery_status
     await db.commit()
     return SupportRequestCreated(

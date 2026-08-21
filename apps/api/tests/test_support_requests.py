@@ -94,3 +94,48 @@ async def test_support_request_validates_trimmed_message_length(
     )
 
     assert response.status_code == 422
+
+
+async def test_support_request_restores_tenant_context_after_initial_commit(
+    client,
+    db_session,
+    make_tenant,
+    make_user,
+    auth_headers,
+    monkeypatch,
+):
+    tenant = await make_tenant(name="Support RLS Tenant")
+    user = await make_user(
+        tenant,
+        role="methodologist",
+        email="support-rls@example.kz",
+    )
+
+    async def fake_send_support_request(_service, **_kwargs):
+        return "provider-message-id"
+
+    monkeypatch.setattr(EmailService, "send_support_request", fake_send_support_request)
+
+    statements = []
+    original_execute = db_session.execute
+
+    async def recording_execute(statement, *args, **kwargs):
+        statements.append(str(statement))
+        return await original_execute(statement, *args, **kwargs)
+
+    monkeypatch.setattr(db_session, "execute", recording_execute)
+
+    response = await client.post(
+        "/api/v1/support/requests",
+        headers=auth_headers(user),
+        json={
+            "category": "technical",
+            "subject": "RLS context regression",
+            "message": "The delivery status update must retain tenant ownership.",
+            "current_path": "/dashboard",
+        },
+    )
+
+    assert response.status_code == 201
+    assert response.json()["delivery_status"] == "sent"
+    assert sum("set_current_tenant" in statement for statement in statements) >= 2
