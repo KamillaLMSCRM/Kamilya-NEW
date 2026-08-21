@@ -1782,5 +1782,26 @@
     "exhaustedPrefix": "Exhausted limits: ",
     "exhaustedSuffix": ". Those operations are unavailable; all other features remain available.",
     "contact": "Contact support"
+  },
+  "support": {
+    "open": "Support",
+    "title": "Contact support",
+    "description": "Describe the problem — we will receive your workspace details and the page where it occurred.",
+    "category": "Category",
+    "categories": { "access": "Sign-in and access", "technical": "System error", "learning": "Course or learning", "staff": "Employees and import", "billing": "Billing and plan", "other": "Other" },
+    "subject": "Subject",
+    "subjectPlaceholder": "Briefly describe the problem",
+    "message": "Description",
+    "messagePlaceholder": "What happened, what did you expect, and how can we reproduce it?",
+    "privacyHint": "Do not include passwords, sign-in codes, or other secret data.",
+    "submit": "Send request",
+    "submitting": "Sending…",
+    "cancel": "Cancel",
+    "close": "Close",
+    "successTitle": "Request received",
+    "successMessage": "Save the request number — it will help us find the conversation.",
+    "deliveryDeferred": "The request was saved, but the email notification is not yet confirmed. For an urgent problem, email:",
+    "submitError": "The request could not be saved. Email us directly:",
+    "defaultEmailSubject": "Kamilya LMS problem"
   }
 }

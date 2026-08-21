@@ -306,6 +306,56 @@ class EmailService:
             html += f"<p><strong>Course:</strong> {escape(course_title)}</p>"
         await self._send(to_email=to_email, subject=subject, text=text, html=html)
 
+    async def send_support_request(
+        self,
+        *,
+        to_email: str,
+        reply_to: str | None,
+        reference: str,
+        tenant_name: str,
+        requester_name: str,
+        requester_email: str | None,
+        requester_role: str,
+        category: str,
+        subject: str,
+        message: str,
+        current_path: str | None,
+    ) -> str | None:
+        safe_subject = _subject_component(subject, fallback="Support request")
+        email_subject = f"{reference}: {safe_subject}"
+        rows = (
+            ("Reference", reference),
+            ("Tenant", tenant_name),
+            ("Requester", requester_name),
+            ("Email", requester_email or "Not available"),
+            ("Role", requester_role),
+            ("Category", category),
+            ("Page", current_path or "Not available"),
+        )
+        text = "Kamilya LMS support request\n\n" + "\n".join(f"{label}: {value}" for label, value in rows)
+        text += f"\n\nSubject: {subject}\n\nMessage:\n{message}"
+        html_rows = "".join(
+            "<tr>"
+            f'<th style="text-align:left;vertical-align:top;padding:5px 12px 5px 0">{escape(label)}</th>'
+            f'<td style="padding:5px 0">{escape(value)}</td>'
+            "</tr>"
+            for label, value in rows
+        )
+        html = (
+            "<h2>Kamilya LMS support request</h2>"
+            f'<table style="border-collapse:collapse">{html_rows}</table>'
+            f"<h3>{escape(subject)}</h3>"
+            f'<div style="white-space:pre-wrap">{escape(message)}</div>'
+        )
+        return await self._send(
+            to_email=to_email,
+            subject=email_subject,
+            text=text,
+            html=html,
+            idempotency_key=f"support-request/{reference}",
+            reply_to=reply_to,
+        )
+
     async def _send(
         self,
         *,
@@ -314,6 +364,7 @@ class EmailService:
         text: str,
         html: str,
         idempotency_key: str | None = None,
+        reply_to: str | None = None,
     ) -> str | None:
         settings = get_settings()
         provider = settings.EMAIL_PROVIDER.lower().strip()
@@ -325,6 +376,7 @@ class EmailService:
                 text=text,
                 html=html,
                 idempotency_key=idempotency_key,
+                reply_to=reply_to,
             )
 
         logger.info("email_queued", extra={"provider": "log"})
@@ -338,6 +390,7 @@ class EmailService:
         text: str,
         html: str,
         idempotency_key: str | None = None,
+        reply_to: str | None = None,
     ) -> str | None:
         settings = get_settings()
         payload = {
@@ -347,6 +400,8 @@ class EmailService:
             "text": text,
             "html": html,
         }
+        if reply_to:
+            payload["reply_to"] = reply_to
         headers = {
             "Authorization": f"Bearer {settings.RESEND_API_KEY}",
             "Content-Type": "application/json",

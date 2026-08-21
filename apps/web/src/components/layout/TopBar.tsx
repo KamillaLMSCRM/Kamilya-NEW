@@ -6,6 +6,7 @@ import { useAuthStore } from '@/store/authStore';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { toast } from '@/components/ui/Toast';
 import { getRoleHome } from '@/lib/rolePolicy';
+import { SupportRequestDialog } from '@/components/support/SupportRequestDialog';
 import Link from 'next/link';
 
 interface TopBarProps {
@@ -157,6 +158,8 @@ export default function TopBar({ title, onMenuClick }: TopBarProps) {
             </select>
           </label>
         )}
+        {user?.tenant && <SupportRequestDialog />}
+
         {/* Language switcher */}
         <LanguageSwitcher />
 

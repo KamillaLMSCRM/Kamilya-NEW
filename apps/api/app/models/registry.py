@@ -43,6 +43,7 @@ MODEL_MODULES = (
     "app.modules.quizzes.models",
     "app.modules.scorm.models",
     "app.modules.surveys.models",
+    "app.modules.support.models",
     "app.modules.training_rules.models",
     "app.modules.training_evidence.models",
     "app.modules.training_procedures.models",

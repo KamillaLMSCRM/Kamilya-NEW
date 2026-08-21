@@ -71,6 +71,7 @@ from app.modules.quizzes.router import router as quizzes_router
 from app.modules.scorm.router import router as scorm_router
 from app.modules.staff_import_sessions.router import router as staff_import_sessions_router
 from app.modules.student.router import router as student_router
+from app.modules.support.router import router as support_router
 from app.modules.surveys.router import router as surveys_router
 from app.modules.tenants.router import public_router as tenants_public_router
 from app.modules.tenants.router import router as tenants_router
@@ -209,6 +210,7 @@ app.include_router(learning_paths_router, prefix=f"{settings.API_PREFIX}", tags=
 app.include_router(competencies_router, prefix=f"{settings.API_PREFIX}", tags=["competencies"])
 app.include_router(announcements_router, prefix=f"{settings.API_PREFIX}", tags=["announcements"])
 app.include_router(surveys_router, prefix=f"{settings.API_PREFIX}", tags=["surveys"])
+app.include_router(support_router, prefix=f"{settings.API_PREFIX}", tags=["support"])
 app.include_router(cohorts_router, prefix=f"{settings.API_PREFIX}", tags=["cohorts"])
 app.include_router(audit_router, prefix=f"{settings.API_PREFIX}", tags=["audit"])
 app.include_router(admin_router, prefix=f"{settings.API_PREFIX}", tags=["admin"])
