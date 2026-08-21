@@ -1,5 +1,7 @@
 import logging
-from typing import Annotated
+from datetime import datetime
+from typing import Annotated, Any, Literal, cast
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, status
 from sqlalchemy import select
@@ -20,7 +22,7 @@ DBSession = Annotated[AsyncSession, Depends(get_db)]
 TenantUser = Annotated[User, Depends(require_tenant_user())]
 
 
-def _reference(request_id) -> str:
+def _reference(request_id: UUID) -> str:
     return f"KML-{request_id.hex[:8].upper()}"
 
 
@@ -31,13 +33,19 @@ async def create_support_request(
     user: TenantUser,
 ) -> SupportRequestCreated:
     tenant_name = await db.scalar(select(Tenant.name).where(Tenant.id == user.tenant_id)) or "Kamilya LMS"
-    requester_name = " ".join(part for part in (user.first_name.strip(), user.last_name.strip()) if part)
+    first_name = cast(str | None, user.first_name) or ""
+    last_name = cast(str | None, user.last_name) or ""
+    raw_email = cast(str | None, user.email)
+    requester_email = raw_email.strip().lower() if raw_email else None
+    requester_name = " ".join(part for part in (first_name.strip(), last_name.strip()) if part)
+    requester_name = requester_name or "Kamilya LMS user"
+    requester_role = cast(str, user.role)
     item = SupportRequest(
         tenant_id=user.tenant_id,
         created_by=user.id,
-        requester_email=user.email.strip().lower() if user.email else None,
-        requester_name=requester_name or "Kamilya LMS user",
-        requester_role=user.role,
+        requester_email=requester_email,
+        requester_name=requester_name,
+        requester_role=requester_role,
         category=payload.category,
         subject=payload.subject,
         message=payload.message,
@@ -48,36 +56,40 @@ async def create_support_request(
     await db.refresh(item)
     await db.commit()
 
-    reference = _reference(item.id)
+    writable_item = cast(Any, item)
+    request_id = cast(UUID, item.id)
+    reference = _reference(request_id)
     settings = get_settings()
+    delivery_status: Literal["sent", "deferred", "failed"]
     try:
         message_id = await EmailService().send_support_request(
             to_email=settings.SUPPORT_EMAIL,
-            reply_to=item.requester_email,
+            reply_to=requester_email,
             reference=reference,
             tenant_name=tenant_name,
-            requester_name=item.requester_name,
-            requester_email=item.requester_email,
-            requester_role=item.requester_role,
-            category=item.category,
-            subject=item.subject,
-            message=item.message,
-            current_path=item.current_path,
+            requester_name=requester_name,
+            requester_email=requester_email,
+            requester_role=requester_role,
+            category=payload.category,
+            subject=payload.subject,
+            message=payload.message,
+            current_path=payload.current_path,
         )
-        item.delivery_status = "sent" if message_id else "deferred"
+        delivery_status = "sent" if message_id else "deferred"
     except EmailDeliveryError as exc:
-        item.delivery_status = "failed"
-        item.delivery_failure_category = exc.category
+        delivery_status = "failed"
+        writable_item.delivery_failure_category = exc.category
         logger.warning("support request email failed reference=%s category=%s", reference, exc.category)
     except Exception:
-        item.delivery_status = "failed"
-        item.delivery_failure_category = "unexpected_delivery_error"
+        delivery_status = "failed"
+        writable_item.delivery_failure_category = "unexpected_delivery_error"
         logger.exception("support request email failed reference=%s", reference)
 
+    writable_item.delivery_status = delivery_status
     await db.commit()
     return SupportRequestCreated(
-        id=item.id,
+        id=request_id,
         reference=reference,
-        delivery_status=item.delivery_status,
-        created_at=item.created_at,
+        delivery_status=delivery_status,
+        created_at=cast(datetime, item.created_at),
     )
