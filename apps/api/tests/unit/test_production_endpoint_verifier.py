@@ -86,7 +86,10 @@ def test_monitoring_contract_targets_kz_runtime_and_exact_release():
 
     assert "kamilya-lms-api.onrender.com" not in workflow
     assert "verify_production_endpoint.py" in workflow
-    assert "EXPECTED_RELEASE_SHA: ${{ vars.KZ_PRODUCTION_RELEASE_SHA }}" in workflow
+    assert (
+        "EXPECTED_RELEASE_SHA: ${{ github.event_name == 'push' && github.sha "
+        "|| vars.KZ_PRODUCTION_RELEASE_SHA }}"
+    ) in workflow
     assert "https://api.kml.kz/api/v1/health" in watchdog
     assert "EXPECTED_RELEASE_SHA" in watchdog
     assert "docker compose" in watchdog
