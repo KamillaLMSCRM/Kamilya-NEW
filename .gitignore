@@ -130,3 +130,8 @@ apps/api/summaries/
 .env*.local
 # one-off deploy scripts with embedded secrets — must NEVER commit
 *.deploy.sh
+
+# One-off local deployment and acceptance artifacts. Durable evidence must be
+# summarized under docs/evidence before these disposable files are removed.
+.tmp-*.tar.gz
+.tmp-*/
