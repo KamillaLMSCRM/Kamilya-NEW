@@ -5,9 +5,14 @@ import hashlib
 import json
 import logging
 import os
+from datetime import datetime, timezone
 from pathlib import Path
 
 from app.modules.documents.archive_preflight import preflight_ooxml
+from app.modules.ai.embedding_provenance import (
+    VerifiedEmbeddingProvenance,
+    serialize_embedding_provenance,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -227,93 +232,172 @@ class VectorStore:
     def __init__(self, persist_dir: str = "./chroma_data"):
         self.persist_dir = persist_dir
 
+    @staticmethod
+    def _active_index_visibility_clause() -> str:
+        """Expose legacy rows or the exact atomically selected index revision."""
+        return (
+            "((document_embeddings.embedding_index_revision_id IS NULL AND NOT EXISTS ("
+            "SELECT 1 FROM embedding_active_revisions AS active_index "
+            "WHERE active_index.tenant_id = document_embeddings.tenant_id "
+            "AND active_index.document_id = document_embeddings.doc_id"
+            ")) OR document_embeddings.embedding_index_revision_id = ("
+            "SELECT active_index.active_revision_id "
+            "FROM embedding_active_revisions AS active_index "
+            "WHERE active_index.tenant_id = document_embeddings.tenant_id "
+            "AND active_index.document_id = document_embeddings.doc_id"
+            "))"
+        )
+
     async def _set_tenant_context(self, session, tenant_id: str | None) -> None:
         if tenant_id:
             from sqlalchemy import text
             await session.execute(text("SELECT set_current_tenant(:tid)"), {"tid": str(tenant_id)})
 
-    async def add_chunks(self, chunks: list[dict], embeddings: list[list[float]], tenant_id: str | None = None):
+    async def add_chunks(
+        self,
+        chunks: list[dict],
+        embedding_batch,
+        tenant_id: str | None = None,
+        index_revision_id: str | None = None,
+        reindex_run_id: str | None = None,
+    ):
         """Add chunks with embeddings to Supabase.
 
-        Defends against malformed vectors (NaN/inf) that occasionally
-        come back from cloud embedding providers. Postgres pgvector
-        rejects these with a cryptic 'NaN not allowed in vector'
-        DataError, which used to mark the whole document as
-        embedding_status='failed' and block any AI generation against
-        it — see bug 2026-06-26: re-uploading the document didn't
-        help because the failing chunk was consistently the same.
-        Now we drop bad vectors at the door and log them so the
-        document is at least partially usable.
+        The store only accepts a validated EmbeddingBatchResult. This
+        fails closed before any database write if the embedding batch
+        does not match the chunk count or the configured pgvector
+        schema.
         """
-        import hashlib
-        import logging as _log
-        import math
-
         from sqlalchemy import text
 
         from app.core.config import get_settings
         from app.core.db import async_session_factory
+        from app.modules.ai.llm_client import EmbeddingBatchResult
 
-        _logger = _log.getLogger(__name__)
+        if not tenant_id:
+            raise ValueError("tenant_id_required")
+        if not isinstance(embedding_batch, EmbeddingBatchResult):
+            raise TypeError("embedding_batch_required")
+        if (index_revision_id is None) != (reindex_run_id is None):
+            raise ValueError("embedding_reindex_binding_required")
+        if index_revision_id is not None:
+            import re
+
+            if not isinstance(index_revision_id, str) or not index_revision_id.strip():
+                raise ValueError("invalid_embedding_index_revision_id")
+            if not isinstance(reindex_run_id, str) or not re.fullmatch(
+                r"[A-Za-z0-9][A-Za-z0-9._:-]{0,159}", reindex_run_id
+            ):
+                raise ValueError("invalid_embedding_reindex_run_id")
+
         expected_dimensions = get_settings().EMBEDDING_DIMENSIONS
+        if len(chunks) != len(embedding_batch.vectors):
+            raise ValueError("embedding_batch_chunk_count_mismatch")
+        if embedding_batch.storage_dimensions != expected_dimensions:
+            raise ValueError("embedding_batch_storage_dimension_mismatch")
+
+        source_revisions: set[str] = set()
+        chunk_indices: set[int] = set()
+        document_ids: set[str] = set()
+        for chunk in chunks:
+            metadata = chunk.get("metadata", {})
+            source_revision = metadata.get("source_revision")
+            chunk_index = metadata.get("chunk_index")
+            doc_id = metadata.get("doc_id")
+            if not isinstance(source_revision, str) or not source_revision:
+                raise ValueError("embedding_source_revision_required")
+            if type(chunk_index) is not int or chunk_index < 0:
+                raise ValueError("invalid_chunk_index")
+            if not isinstance(doc_id, str) or not doc_id:
+                raise ValueError("document_id_required")
+            source_revisions.add(source_revision)
+            chunk_indices.add(chunk_index)
+            document_ids.add(doc_id)
+        if len(source_revisions) != 1 or len(document_ids) != 1:
+            raise ValueError("mixed_document_embedding_batch")
+        if len(chunk_indices) != len(chunks):
+            raise ValueError("duplicate_chunk_index")
+
+        indexed_at = datetime.now(timezone.utc)
 
         async with async_session_factory() as session:
             await self._set_tenant_context(session, tenant_id)
-            dropped = 0
             inserted = 0
             last_doc_id = ""
             rows: list[dict] = []
-            for chunk, emb in zip(chunks, embeddings):
-                # Sanity-check the vector: reject NaN/inf in any component.
-                # If the provider returned garbage, skip the chunk rather
-                # than blow up the whole insert.
-                if emb is None or any(
-                    not isinstance(x, (int, float)) or math.isnan(x) or math.isinf(x)
-                    for x in emb
-                ):
-                    _logger.warning(
-                        "Skipping chunk with malformed embedding "
-                        "(None/NaN/inf). doc_id=%s text_preview=%r",
-                        chunk.get("metadata", {}).get("doc_id", "?"),
-                        (chunk.get("text") or "")[:60],
-                    )
-                    dropped += 1
-                    continue
-                if len(emb) != expected_dimensions:
-                    _logger.warning(
-                        "Skipping chunk with wrong embedding dimensions "
-                        "(expected=%d got=%d). doc_id=%s text_preview=%r",
-                        expected_dimensions,
-                        len(emb),
-                        chunk.get("metadata", {}).get("doc_id", "?"),
-                        (chunk.get("text") or "")[:60],
-                    )
-                    dropped += 1
-                    continue
-
-                # Composite id: doc_id + text. Was previously just md5(text),
-                # which collided across documents that share paragraphs
-                # (any reused boilerplate like "## Overview" with identical
-                # content produced the same chunk_id) — and ON CONFLICT DO
-                # NOTHING then silently skipped every insert for that
-                # overlap. Composite id ensures each (doc, chunk) pair is
-                # unique; ON CONFLICT becomes a genuine no-op only when
-                # the same chunk of the same doc is re-uploaded.
+            for chunk, vector in zip(chunks, embedding_batch.vectors, strict=True):
                 meta = chunk.get("metadata", {})
                 last_doc_id = meta.get("doc_id", "")
-                chunk_id = hashlib.md5(
-                    f"{last_doc_id}|{chunk['text']}".encode()
-                ).hexdigest()
+                chunk_text = chunk["text"]
+                chunk_index = meta["chunk_index"]
+                source_revision = meta["source_revision"]
+                chunk_identity = (
+                    f"{tenant_id}|{last_doc_id}|{source_revision}|{chunk_index}|{chunk_text}"
+                )
+                if index_revision_id is not None:
+                    chunk_identity += f"|{index_revision_id}|{reindex_run_id}"
+                chunk_id = hashlib.sha256(chunk_identity.encode("utf-8")).hexdigest()
+                provenance = serialize_embedding_provenance(
+                    VerifiedEmbeddingProvenance(
+                        space=embedding_batch.space,
+                        native_dimensions=embedding_batch.native_dimensions,
+                        storage_dimensions=embedding_batch.storage_dimensions,
+                        content_sha256=hashlib.sha256(
+                            chunk_text.encode("utf-8")
+                        ).hexdigest(),
+                        source_revision=source_revision,
+                        indexed_at=indexed_at,
+                    )
+                )
                 rows.append({
-                    "id": chunk_id, "tenant_id": tenant_id, "doc_id": last_doc_id,
-                    "text": chunk["text"], "headings": meta.get("headings", ""),
-                    "doc_name": meta.get("doc_name", ""), "embedding": str(emb),
+                    "id": chunk_id,
+                    "tenant_id": tenant_id,
+                    "doc_id": last_doc_id,
+                    "text": chunk_text,
+                    "headings": meta.get("headings", ""),
+                    "doc_name": meta.get("doc_name", ""),
+                    "embedding": str(list(vector)),
+                    "chunk_index": chunk_index,
+                    "embedding_index_revision_id": index_revision_id,
+                    "embedding_reindex_run_id": reindex_run_id,
+                    **provenance,
                 })
                 inserted += 1
             insert_stmt = text(
-                """INSERT INTO document_embeddings (id, tenant_id, doc_id, text, headings, doc_name, embedding)
-                   VALUES (:id, :tenant_id, :doc_id, :text, :headings, :doc_name, :embedding)
-                   ON CONFLICT (id) DO NOTHING"""
+                """INSERT INTO document_embeddings (
+                       id, tenant_id, doc_id, text, headings, doc_name, embedding,
+                       embedding_provenance_state, embedding_provider, embedding_model,
+                       embedding_revision, embedding_native_dimensions, embedding_storage_dimensions,
+                       embedding_content_sha256, embedding_source_revision, embedding_indexed_at,
+                       chunk_index, embedding_index_revision_id, embedding_reindex_run_id
+                   )
+                   VALUES (
+                       :id, :tenant_id, :doc_id, :text, :headings, :doc_name, :embedding,
+                       :embedding_provenance_state, :embedding_provider, :embedding_model,
+                       :embedding_revision, :embedding_native_dimensions, :embedding_storage_dimensions,
+                       :embedding_content_sha256, :embedding_source_revision, :embedding_indexed_at,
+                       :chunk_index, :embedding_index_revision_id, :embedding_reindex_run_id
+                   )
+                   ON CONFLICT (id) DO UPDATE SET
+                       tenant_id = EXCLUDED.tenant_id,
+                       doc_id = EXCLUDED.doc_id,
+                       text = EXCLUDED.text,
+                       headings = EXCLUDED.headings,
+                       doc_name = EXCLUDED.doc_name,
+                       embedding = EXCLUDED.embedding,
+                       embedding_provenance_state = EXCLUDED.embedding_provenance_state,
+                       embedding_provider = EXCLUDED.embedding_provider,
+                       embedding_model = EXCLUDED.embedding_model,
+                       embedding_revision = EXCLUDED.embedding_revision,
+                       embedding_native_dimensions = EXCLUDED.embedding_native_dimensions,
+                       embedding_storage_dimensions = EXCLUDED.embedding_storage_dimensions,
+                       embedding_content_sha256 = EXCLUDED.embedding_content_sha256,
+                       embedding_source_revision = EXCLUDED.embedding_source_revision,
+                       embedding_indexed_at = EXCLUDED.embedding_indexed_at,
+                       chunk_index = EXCLUDED.chunk_index,
+                       embedding_index_revision_id = EXCLUDED.embedding_index_revision_id,
+                       embedding_reindex_run_id = EXCLUDED.embedding_reindex_run_id
+                   WHERE document_embeddings.tenant_id = EXCLUDED.tenant_id"""
             )
             for start in range(0, len(rows), 100):
                 await session.execute(insert_stmt, rows[start:start + 100])
@@ -334,86 +418,123 @@ class VectorStore:
             # SELECT on a fresh connection (we add one below).
             await session.flush()
             await session.commit()
-            await self._set_tenant_context(session, tenant_id)
-
-            # Verify rows landed — first inside the session (best-effort,
-            # may see 0 under PgBouncer), then on a fresh session that
-            # has to read from the committed transaction snapshot.
-            cnt = await session.execute(
-                text(
-                    "SELECT COUNT(*) FROM document_embeddings "
-                    "WHERE doc_id::text = :did"
-                ),
-                {"did": last_doc_id},
-            )
-            count_in_session = cnt.scalar()
-
-            # Second check: open a NEW session and read from a different
-            # connection. This is the ground-truth — if PgBouncer gave us
-            # a different backend after commit, this is what other
-            # workers / queries will see.
+            # Verify exact IDs on a fresh transaction/connection. RLS remains
+            # active through the tenant context, so a cross-tenant conflict or
+            # incomplete write cannot be mistaken for success.
             from app.core.db import async_session_factory as _fresh_factory
             async with _fresh_factory() as fresh:
                 await self._set_tenant_context(fresh, tenant_id)
+                verification_sql = (
+                    "SELECT COUNT(*) FROM document_embeddings "
+                    "WHERE id = ANY(CAST(:ids AS text[])) "
+                    "AND tenant_id = CAST(:tenant_id AS uuid) "
+                    "AND doc_id = CAST(:doc_id AS uuid) "
+                    "AND embedding_source_revision = :source_revision "
+                    "AND embedding_provenance_state = 'verified'"
+                )
+                verification_params = {
+                    "ids": [row["id"] for row in rows],
+                    "tenant_id": tenant_id,
+                    "doc_id": last_doc_id,
+                    "source_revision": next(iter(source_revisions)),
+                }
+                if index_revision_id is not None:
+                    verification_sql += (
+                        " AND embedding_index_revision_id = :index_revision_id"
+                        " AND embedding_reindex_run_id = :reindex_run_id"
+                    )
+                    verification_params.update(
+                        {
+                            "index_revision_id": index_revision_id,
+                            "reindex_run_id": reindex_run_id,
+                        }
+                    )
                 cnt2 = await fresh.execute(
-                    text(
-                        "SELECT COUNT(*) FROM document_embeddings "
-                        "WHERE doc_id::text = :did"
-                    ),
-                    {"did": last_doc_id},
+                    text(verification_sql),
+                    verification_params,
                 )
                 count_in_fresh = cnt2.scalar()
+            if count_in_fresh != len(rows):
+                logger.error(
+                    "add_chunks verification failed: expected=%d verified=%d",
+                    len(rows),
+                    count_in_fresh,
+                )
+                raise RuntimeError("embedding_write_verification_failed")
             print(
                 f"[INGEST] add_chunks post-commit: inserted_attempted={inserted} "
-                f"dropped={dropped} count_in_session={count_in_session} "
-                f"count_in_fresh={count_in_fresh}",
+                f"dropped=0 verified_in_fresh={count_in_fresh}",
                 flush=True,
             )
 
-            # Verify rows landed by counting from the same session, AFTER flush.
-            # This block is intentionally a no-op after the new
-            # diagnostic above (count_in_fresh) — kept only so the
-            # function still exits cleanly. The fresh-session count is
-            # the ground truth under PgBouncer.
-            if dropped:
-                _logger.warning(
-                    "add_chunks: dropped %d malformed embeddings "
-                    "(see warnings above). Document may have partial coverage.",
-                    dropped,
-                )
-            return dropped
+            return 0
 
     async def query(
         self,
-        query_embeddings: list[list[float]],
+        query_embedding_batch,
         n_results: int = 10,
         where: dict | None = None,
         include: list[str] | None = None,
         tenant_id: str | None = None,
     ) -> dict:
-        """Query the vector store using pgvector cosine distance."""
+        """Query only embeddings from the exact verified semantic space."""
         from sqlalchemy import text
 
+        from app.core.config import get_settings
         from app.core.db import async_session_factory
+        from app.modules.ai.llm_client import EmbeddingBatchResult
 
-        emb = query_embeddings[0]
+        if not tenant_id:
+            raise ValueError("tenant_id_required")
+        if not isinstance(query_embedding_batch, EmbeddingBatchResult):
+            raise TypeError("embedding_batch_required")
+        if len(query_embedding_batch.vectors) != 1:
+            raise ValueError("single_query_embedding_required")
+        if query_embedding_batch.storage_dimensions != get_settings().EMBEDDING_DIMENSIONS:
+            raise ValueError("embedding_batch_storage_dimension_mismatch")
 
-        where_clause = ""
-        params: dict = {"n": n_results}
+        emb = query_embedding_batch.vectors[0]
+
+        clauses = [
+            "embedding_provenance_state = 'verified'",
+            self._active_index_visibility_clause(),
+            "embedding_source_revision = 'document:' || ("
+            "SELECT active_document.content_sha256 FROM documents AS active_document "
+            "WHERE active_document.id = document_embeddings.doc_id "
+            "AND active_document.tenant_id = document_embeddings.tenant_id"
+            ")",
+            "embedding_provider = :embedding_provider",
+            "embedding_model = :embedding_model",
+            "embedding_revision = :embedding_revision",
+            "embedding_native_dimensions = :embedding_native_dimensions",
+            "embedding_storage_dimensions = :embedding_storage_dimensions",
+        ]
+        params: dict = {
+            "n": n_results,
+            "embedding_provider": query_embedding_batch.space.provider,
+            "embedding_model": query_embedding_batch.space.model,
+            "embedding_revision": query_embedding_batch.space.revision,
+            "embedding_native_dimensions": query_embedding_batch.native_dimensions,
+            "embedding_storage_dimensions": query_embedding_batch.storage_dimensions,
+        }
         if where:
             doc_id = where.get("doc_id")
             if doc_id:
                 if isinstance(doc_id, dict) and "$in" in doc_id:
                     ids = doc_id["$in"]
+                    if not ids:
+                        return {"documents": [[]], "metadatas": [[]], "distances": [[]]}
                     placeholders = ", ".join(f":doc_id_{i}" for i in range(len(ids)))
-                    where_clause = f"WHERE doc_id IN ({placeholders})"
+                    clauses.append(f"doc_id IN ({placeholders})")
                     for i, did in enumerate(ids):
                         params[f"doc_id_{i}"] = did
                 else:
-                    where_clause = "WHERE doc_id = :doc_id"
+                    clauses.append("doc_id = :doc_id")
                     params["doc_id"] = doc_id
 
-        emb_str = str(emb)
+        # pgvector accepts bracketed vector input. Embedding providers and
+        # synthetic gates may return either lists or tuples, so normalize both.
+        emb_str = str(list(emb))
         # NOTE: Use CAST(:emb AS vector) instead of ':emb'::vector or :emb::vector.
         # - ':emb'::vector (f-string interpolation) works but looks like SQL injection
         #   to security scanners, and a previous audit (a1ea9c9) flagged it.
@@ -423,10 +544,14 @@ class VectorStore:
         # and is also safe-looking for auditors. emb_str is a list of floats from
         # the embedding model, not user input, so the bind value is well-typed.
         sql = text(f"""
-            SELECT id, text, doc_id, doc_name, headings,
+            SELECT id, text, doc_id, tenant_id, doc_name, headings,
+                   embedding_provider, embedding_model, embedding_revision,
+                   embedding_native_dimensions, embedding_storage_dimensions,
+                   embedding_content_sha256, embedding_source_revision,
+                   embedding_indexed_at, chunk_index,
                    embedding <=> CAST(:emb AS vector) as distance
             FROM document_embeddings
-            {where_clause}
+            WHERE {' AND '.join(clauses)}
             ORDER BY distance ASC
             LIMIT :n
         """)
@@ -441,12 +566,123 @@ class VectorStore:
         metadatas = [[{
             "chunk_id": str(row[0]),
             "doc_id": str(row[2]),
-            "doc_name": row[3],
-            "headings": row[4],
+            "tenant_id": str(row[3]),
+            "doc_name": row[4],
+            "headings": row[5],
+            "embedding_provider": row[6],
+            "embedding_model": row[7],
+            "embedding_revision": row[8],
+            "embedding_native_dimensions": row[9],
+            "embedding_storage_dimensions": row[10],
+            "embedding_content_sha256": row[11],
+            "embedding_source_revision": row[12],
+            "embedding_indexed_at": (
+                row[13].isoformat() if hasattr(row[13], "isoformat") else str(row[13])
+            ),
+            "chunk_index": row[14],
         } for row in rows]]
-        distances = [[row[5] for row in rows]]
+        distances = [[row[15] for row in rows]]
 
         return {"documents": documents, "metadatas": metadatas, "distances": distances}
+
+    async def search_full_text(
+        self,
+        *,
+        query_text: str,
+        tenant_id: str | None,
+        doc_ids: list[str],
+        limit: int = 30,
+    ) -> list[tuple[str, dict]]:
+        """Return a bounded PostgreSQL FTS candidate set inside one tenant scope."""
+        from sqlalchemy import text
+
+        from app.core.db import async_session_factory
+
+        if not tenant_id:
+            raise ValueError("tenant_id_required")
+        if not isinstance(query_text, str) or not query_text.strip():
+            raise ValueError("full_text_query_required")
+        if (
+            not isinstance(doc_ids, list)
+            or not doc_ids
+            or any(not isinstance(doc_id, str) or not doc_id for doc_id in doc_ids)
+        ):
+            raise ValueError("document_ids_required")
+        if type(limit) is not int or limit < 1 or limit > 100:
+            raise ValueError("invalid_full_text_limit")
+
+        unique_doc_ids = list(dict.fromkeys(doc_ids))
+        params: dict = {
+            "query_text": query_text.strip(),
+            "tenant_id": tenant_id,
+            "limit": limit,
+        }
+        placeholders = ", ".join(
+            f":doc_id_{index}" for index in range(len(unique_doc_ids))
+        )
+        for index, doc_id in enumerate(unique_doc_ids):
+            params[f"doc_id_{index}"] = doc_id
+
+        statement = text(
+            f"""
+            WITH query AS (
+                SELECT
+                    websearch_to_tsquery('russian'::regconfig, :query_text) ||
+                    websearch_to_tsquery('simple'::regconfig, :query_text) AS value
+            )
+            SELECT id, text, doc_id, tenant_id, doc_name, headings,
+                   embedding_provider, embedding_model, embedding_revision,
+                   embedding_native_dimensions, embedding_storage_dimensions,
+                   embedding_content_sha256, embedding_source_revision,
+                   embedding_indexed_at, chunk_index,
+                   ts_rank_cd(embedding_fts, query.value) AS lexical_score
+            FROM document_embeddings
+            CROSS JOIN query
+            WHERE tenant_id = CAST(:tenant_id AS uuid)
+              AND embedding_provenance_state = 'verified'
+              AND {self._active_index_visibility_clause()}
+              AND embedding_source_revision = 'document:' || (
+                  SELECT active_document.content_sha256
+                  FROM documents AS active_document
+                  WHERE active_document.id = document_embeddings.doc_id
+                    AND active_document.tenant_id = document_embeddings.tenant_id
+              )
+              AND doc_id IN ({placeholders})
+              AND embedding_fts @@ query.value
+            ORDER BY lexical_score DESC, doc_id ASC, chunk_index ASC, id ASC
+            LIMIT :limit
+            """
+        )
+        async with async_session_factory() as session:
+            await self._set_tenant_context(session, tenant_id)
+            result = await session.execute(statement, params)
+            rows = result.fetchall()
+
+        return [
+            (
+                row[1],
+                {
+                    "chunk_id": str(row[0]),
+                    "doc_id": str(row[2]),
+                    "tenant_id": str(row[3]),
+                    "doc_name": row[4],
+                    "headings": row[5],
+                    "embedding_provider": row[6],
+                    "embedding_model": row[7],
+                    "embedding_revision": row[8],
+                    "embedding_native_dimensions": row[9],
+                    "embedding_storage_dimensions": row[10],
+                    "embedding_content_sha256": row[11],
+                    "embedding_source_revision": row[12],
+                    "embedding_indexed_at": (
+                        row[13].isoformat() if hasattr(row[13], "isoformat") else str(row[13])
+                    ),
+                    "chunk_index": row[14],
+                    "postgres_fts_score": float(row[15]),
+                },
+            )
+            for row in rows
+        ]
 
     async def get_all_chunks(
         self,
@@ -458,23 +694,38 @@ class VectorStore:
 
         from app.core.db import async_session_factory
 
+        if not tenant_id:
+            raise ValueError("tenant_id_required")
         params: dict = {}
-        where = ""
+        clauses = [
+            "embedding_provenance_state = 'verified'",
+            self._active_index_visibility_clause(),
+            "embedding_source_revision = 'document:' || ("
+            "SELECT active_document.content_sha256 FROM documents AS active_document "
+            "WHERE active_document.id = document_embeddings.doc_id "
+            "AND active_document.tenant_id = document_embeddings.tenant_id"
+            ")",
+        ]
         if doc_ids:
             if len(doc_ids) == 1:
-                where = "WHERE doc_id = :doc_id"
+                clauses.append("doc_id = :doc_id")
                 params["doc_id"] = doc_ids[0]
             else:
                 placeholders = ", ".join(f":doc_id_{i}" for i in range(len(doc_ids)))
-                where = f"WHERE doc_id IN ({placeholders})"
+                clauses.append(f"doc_id IN ({placeholders})")
                 for i, did in enumerate(doc_ids):
                     params[f"doc_id_{i}"] = did
+        where = "WHERE " + " AND ".join(clauses)
 
         async with async_session_factory() as session:
             await self._set_tenant_context(session, tenant_id)
             result = await session.execute(
                 text(
-                    f"SELECT id, text, doc_id, doc_name, headings "
+                    f"SELECT id, text, doc_id, tenant_id, doc_name, headings, "
+                    f"embedding_provider, embedding_model, embedding_revision, "
+                    f"embedding_native_dimensions, embedding_storage_dimensions, "
+                    f"embedding_content_sha256, embedding_source_revision, "
+                    f"embedding_indexed_at, chunk_index "
                     f"FROM document_embeddings {where}"
                 ),
                 params,
@@ -487,8 +738,103 @@ class VectorStore:
                 {
                     "chunk_id": str(row[0]),
                     "doc_id": str(row[2]),
-                    "doc_name": row[3],
-                    "headings": row[4],
+                    "tenant_id": str(row[3]),
+                    "doc_name": row[4],
+                    "headings": row[5],
+                    "embedding_provider": row[6],
+                    "embedding_model": row[7],
+                    "embedding_revision": row[8],
+                    "embedding_native_dimensions": row[9],
+                    "embedding_storage_dimensions": row[10],
+                    "embedding_content_sha256": row[11],
+                    "embedding_source_revision": row[12],
+                    "embedding_indexed_at": (
+                        row[13].isoformat() if hasattr(row[13], "isoformat") else str(row[13])
+                    ),
+                    "chunk_index": row[14],
+                },
+            )
+            for row in rows
+        ]
+
+    async def get_context_window(
+        self,
+        *,
+        doc_id: str,
+        source_revision: str,
+        chunk_index: int,
+        radius: int = 1,
+        tenant_id: str | None = None,
+    ) -> list[tuple[str, dict]]:
+        """Read one bounded, version-scoped neighboring chunk window."""
+        from sqlalchemy import text
+
+        from app.core.db import async_session_factory
+
+        if not tenant_id:
+            raise ValueError("tenant_id_required")
+        if not isinstance(doc_id, str) or not doc_id:
+            raise ValueError("document_id_required")
+        digest = source_revision.removeprefix("document:") if isinstance(source_revision, str) else ""
+        if (
+            not isinstance(source_revision, str)
+            or not source_revision.startswith("document:")
+            or len(digest) != 64
+            or any(character not in "0123456789abcdef" for character in digest)
+        ):
+            raise ValueError("invalid_document_source_revision")
+        if type(chunk_index) is not int or chunk_index < 0:
+            raise ValueError("invalid_chunk_index")
+        if type(radius) is not int or radius < 0 or radius > 3:
+            raise ValueError("invalid_context_radius")
+
+        sql = text(
+            f"""
+            SELECT id, text, doc_id, tenant_id, doc_name, headings,
+                   embedding_provider, embedding_model, embedding_revision,
+                   embedding_native_dimensions, embedding_storage_dimensions,
+                   embedding_content_sha256, embedding_source_revision,
+                   embedding_indexed_at, chunk_index
+            FROM document_embeddings
+            WHERE embedding_provenance_state = 'verified'
+              AND {self._active_index_visibility_clause()}
+              AND doc_id = :doc_id
+              AND embedding_source_revision = :source_revision
+              AND chunk_index BETWEEN :lower_index AND :upper_index
+            ORDER BY chunk_index ASC, id ASC
+            """
+        )
+        params = {
+            "doc_id": doc_id,
+            "source_revision": source_revision,
+            "lower_index": max(0, chunk_index - radius),
+            "upper_index": chunk_index + radius,
+        }
+        async with async_session_factory() as session:
+            await self._set_tenant_context(session, tenant_id)
+            result = await session.execute(sql, params)
+            rows = result.fetchall()
+
+        return [
+            (
+                row[1],
+                {
+                    "chunk_id": str(row[0]),
+                    "doc_id": str(row[2]),
+                    "tenant_id": str(row[3]),
+                    "doc_name": row[4],
+                    "headings": row[5],
+                    "embedding_provider": row[6],
+                    "embedding_model": row[7],
+                    "embedding_revision": row[8],
+                    "embedding_native_dimensions": row[9],
+                    "embedding_storage_dimensions": row[10],
+                    "embedding_content_sha256": row[11],
+                    "embedding_source_revision": row[12],
+                    "embedding_indexed_at": (
+                        row[13].isoformat() if hasattr(row[13], "isoformat") else str(row[13])
+                    ),
+                    "chunk_index": row[14],
                 },
             )
             for row in rows
@@ -567,12 +913,40 @@ class EmbeddingsProvider:
             )
             raise
 
+    async def embed_documents_with_provenance(self, texts: list[str]):
+        """Embed documents and retain the exact provider selected by failover."""
+        from app.modules.ai.llm_client import AllProvidersFailedError
+
+        try:
+            client = await self._get_client()
+            return await client.embed_documents_with_provenance(texts)
+        except AllProvidersFailedError:
+            logger.error(
+                "[EMBED_FAILOVER] All cloud embedding providers failed; "
+                "document cannot be indexed semantically"
+            )
+            raise
+
     async def embed_query(self, text: str) -> list[float]:
         """Embed a single query."""
         from app.modules.ai.llm_client import AllProvidersFailedError
         try:
             client = await self._get_client()
             return await client.embed_query(text)
+        except AllProvidersFailedError:
+            logger.error(
+                "[EMBED_FAILOVER] All cloud embedding providers failed; "
+                "semantic query cannot be executed"
+            )
+            raise
+
+    async def embed_query_with_provenance(self, text: str):
+        """Embed one semantic query and retain the selected embedding space."""
+        from app.modules.ai.llm_client import AllProvidersFailedError
+
+        try:
+            client = await self._get_client()
+            return await client.embed_query_with_provenance(text)
         except AllProvidersFailedError:
             logger.error(
                 "[EMBED_FAILOVER] All cloud embedding providers failed; "
@@ -604,6 +978,8 @@ class DocumentIngestion:
         self, file_path: str, doc_id: str | None = None, tenant_id: str | None = None
     ) -> dict:
         """Ingest a single file through the full pipeline."""
+        if not tenant_id:
+            raise ValueError("tenant_id_required")
         filename = os.path.basename(file_path)
         if not doc_id:
             doc_id = hashlib.md5(filename.encode()).hexdigest()[:12]
@@ -623,12 +999,18 @@ class DocumentIngestion:
 
         # Step 2: Chunk
         chunks = self.chunker.chunk_markdown(markdown, doc_id, filename)
+        source_revision = f"document:{hashlib.sha256(markdown.encode('utf-8')).hexdigest()}"
+        for chunk_index, chunk in enumerate(chunks):
+            metadata = chunk.setdefault("metadata", {})
+            metadata["source_revision"] = source_revision
+            metadata["chunk_index"] = chunk_index
         print(f"[INGEST] chunked {len(chunks)} chunks", flush=True)
 
         # Step 3: Embed (Qwen → Voyage → hash fallback)
         texts = [c["text"] for c in chunks]
         try:
-            embeddings = await self.embeddings.embed(texts)
+            embedding_batch = await self.embeddings.embed_documents_with_provenance(texts)
+            embeddings = embedding_batch.as_lists()
             print(
                 f"[INGEST] embedded {len(embeddings)} vectors "
                 f"(dim={len(embeddings[0]) if embeddings else 0})",
@@ -642,7 +1024,11 @@ class DocumentIngestion:
 
         # Step 4: Store in pgvector
         try:
-            dropped = await self.store.add_chunks(chunks, embeddings, tenant_id=tenant_id)
+            dropped = await self.store.add_chunks(
+                chunks,
+                embedding_batch,
+                tenant_id=tenant_id,
+            )
             print(
                 f"[INGEST] stored (dropped={dropped})",
                 flush=True,
@@ -678,10 +1064,15 @@ class DocumentIngestion:
             "conversion": conversion_metadata,
         }
 
-    async def ingest_files(self, file_paths: list[str]) -> list[dict]:
+    async def ingest_files(
+        self,
+        file_paths: list[str],
+        *,
+        tenant_id: str,
+    ) -> list[dict]:
         """Ingest multiple files."""
         results = []
         for fp in file_paths:
-            result = await self.ingest_file(fp)
+            result = await self.ingest_file(fp, tenant_id=tenant_id)
             results.append(result)
         return results

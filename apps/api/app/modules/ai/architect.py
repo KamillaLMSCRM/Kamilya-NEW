@@ -43,6 +43,9 @@ def create_architect_tools(
     """
     import collections
 
+    if not tenant_id:
+        raise ValueError("tenant_id_required")
+
     store = vector_store or VectorStore(chroma_dir)
     scope = set(doc_ids) if doc_ids else None
     chapter_read_counts = collections.defaultdict(int)
@@ -212,50 +215,17 @@ def create_architect_tools(
             where = {"doc_id": {"$in": list(scope)}}
         tenant_filter = tenant_id
 
-        # Generate real embeddings for the query
-        provider = EmbeddingsProvider()
-        query_embedding = await provider.embed_query(query)
+        # Generate a query embedding with the exact successful provider space.
+        provider = embeddings_client or EmbeddingsProvider()
+        query_embedding_batch = await provider.embed_query_with_provenance(query)
 
         raw = await store.query(
-            query_embeddings=[query_embedding],
+            query_embedding_batch=query_embedding_batch,
             n_results=10,
             where=where,
             include=["documents", "metadatas", "distances"],
             tenant_id=tenant_id,
         )
-        # Post-filter by tenant_id via SQL to avoid leaking chunks from other
-        # tenants. Chroma `where` doesn't support arbitrary AND with the
-        # vector query, and we don't store tenant_id in chunk metadata, so we
-        # verify each result row against the source table.
-        if tenant_filter is not None:
-            from app.core.db import async_session_factory
-            from sqlalchemy import text as _sa_text
-            metas = raw.get("metadatas", [[]])[0]
-            docs = raw.get("documents", [[]])[0]
-            dists = raw.get("distances", [[]])[0]
-            # Collect unique doc_names (these are the human-readable names; the
-            # embeddings table also has a stable doc_id) — query DB to map back.
-            candidate_doc_names = list({m.get("doc_name", "") for m in metas if m.get("doc_name")})
-            if candidate_doc_names:
-                placeholders = ", ".join(f":n_{i}" for i in range(len(candidate_doc_names)))
-                async with async_session_factory() as session:
-                    await _set_tenant_context(session)
-                    res = await session.execute(
-                        _sa_text(
-                            f"SELECT DISTINCT doc_name FROM document_embeddings "
-                            f"WHERE tenant_id = :tenant_id AND doc_name IN ({placeholders})"
-                        ),
-                        {"tenant_id": tenant_filter, **{f"n_{i}": n for i, n in enumerate(candidate_doc_names)}},
-                    )
-                    allowed = {row[0] for row in res.fetchall()}
-                keep_idx = [i for i, m in enumerate(metas) if m.get("doc_name", "") in allowed]
-                raw["documents"] = [[docs[i] for i in keep_idx]]
-                raw["metadatas"] = [[metas[i] for i in keep_idx]]
-                raw["distances"] = [[dists[i] for i in keep_idx]]
-            else:
-                raw["documents"] = [[]]
-                raw["metadatas"] = [[]]
-                raw["distances"] = [[]]
         results = []
         docs = raw.get("documents", [[]])[0]
         metas = raw.get("metadatas", [[]])[0]

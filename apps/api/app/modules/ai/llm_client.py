@@ -40,6 +40,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import math
 from collections.abc import Iterable
 from dataclasses import dataclass, field, replace
 from typing import Any
@@ -47,6 +48,7 @@ from typing import Any
 import httpx
 
 from app.core.config import get_settings
+from app.modules.ai.embedding_space import EmbeddingSpace
 
 logger = logging.getLogger(__name__)
 
@@ -402,6 +404,41 @@ class _LLMResponse:
         self.content = content
 
 
+@dataclass(frozen=True, slots=True)
+class EmbeddingBatchResult:
+    """Immutable provenance-aware batch of padded embeddings."""
+
+    space: EmbeddingSpace
+    native_dimensions: int
+    storage_dimensions: int
+    vectors: tuple[tuple[float, ...], ...]
+
+    def __post_init__(self) -> None:
+        if self.native_dimensions != self.space.dimensions:
+            raise ValueError("embedding_batch_native_space_mismatch")
+        if self.storage_dimensions < self.native_dimensions:
+            raise ValueError("embedding_batch_storage_too_small")
+        if not self.vectors:
+            raise ValueError("empty_embedding_batch")
+        if any(len(vector) != self.storage_dimensions for vector in self.vectors):
+            raise ValueError("embedding_batch_storage_dimension_mismatch")
+
+    @property
+    def provider(self) -> str:
+        return self.space.provider
+
+    @property
+    def model(self) -> str:
+        return self.space.model
+
+    @property
+    def revision(self) -> str:
+        return self.space.revision
+
+    def as_lists(self) -> list[list[float]]:
+        return [list(vector) for vector in self.vectors]
+
+
 # ---------------------------------------------------------------------------
 # Resilient client — failover chain
 # ---------------------------------------------------------------------------
@@ -590,28 +627,81 @@ class EmbeddingsClient(_BaseProviderClient):
         super().__init__(config=config, max_retries=max_retries)
         self.expected_dimensions = get_settings().EMBEDDING_DIMENSIONS
 
-    def _validate_embeddings(self, embeddings: list[list[float]]) -> list[list[float]]:
-        """Adapt smaller embeddings to the fixed pgvector schema.
+    def _build_batch_result(self, embeddings: list[list[float]]) -> EmbeddingBatchResult:
+        """Validate and adapt embeddings to the fixed pgvector schema.
 
         Voyage 4 returns 1024 dimensions by default while the primary Qwen
         model and the database column use 4096. Zero-padding preserves cosine
         similarity and Euclidean distances, so the fallback remains semantic
         without requiring a destructive pgvector migration.
         """
-        oversized_dims = sorted(
-            {len(embedding) for embedding in embeddings if len(embedding) > self.expected_dimensions}
-        )
-        if oversized_dims:
+        if not embeddings:
+            raise ProviderFailedError(self.config.name, ValueError("empty_embedding_batch"))
+
+        native_dimensions = len(embeddings[0])
+        if native_dimensions <= 0:
+            raise ProviderFailedError(self.config.name, ValueError("invalid_embedding_dimensions"))
+
+        for embedding in embeddings[1:]:
+            if len(embedding) != native_dimensions:
+                raise ProviderFailedError(
+                    self.config.name,
+                    ValueError("inconsistent_embedding_dimensions"),
+                )
+
+        storage_dimensions = self.expected_dimensions
+        if storage_dimensions < native_dimensions:
             raise ProviderFailedError(
                 self.config.name,
                 ValueError(
-                    f"embedding dimensions mismatch: expected "
-                    f"at most {self.expected_dimensions}, got {oversized_dims}"
+                    "embedding dimensions mismatch: expected "
+                    f"at most {storage_dimensions}, got {native_dimensions}"
                 ),
             )
-        return [embedding + [0.0] * (self.expected_dimensions - len(embedding)) for embedding in embeddings]
 
-    async def _embed(self, texts: list[str], input_type: str) -> list[list[float]]:
+        padded_vectors: list[tuple[float, ...]] = []
+        for embedding in embeddings:
+            normalized: list[float] = []
+            for value in embedding:
+                if type(value) not in (int, float):
+                    raise ProviderFailedError(
+                        self.config.name,
+                        ValueError("invalid_embedding_value"),
+                    )
+                try:
+                    numeric = float(value)
+                except (OverflowError, ValueError) as exc:
+                    raise ProviderFailedError(
+                        self.config.name,
+                        ValueError("invalid_embedding_value"),
+                    ) from exc
+                if not math.isfinite(numeric):
+                    raise ProviderFailedError(
+                        self.config.name,
+                        ValueError("invalid_embedding_value"),
+                    )
+                normalized.append(numeric)
+            normalized.extend([0.0] * (storage_dimensions - native_dimensions))
+            padded_vectors.append(tuple(normalized))
+
+        try:
+            space = EmbeddingSpace(
+                provider=self.config.name,
+                model=self.config.model,
+                revision=self.config.model,
+                dimensions=native_dimensions,
+            )
+        except Exception as exc:  # pragma: no cover - defensive, sanitized
+            raise ProviderFailedError(self.config.name, ValueError("invalid_embedding_space")) from exc
+
+        return EmbeddingBatchResult(
+            space=space,
+            native_dimensions=native_dimensions,
+            storage_dimensions=storage_dimensions,
+            vectors=tuple(padded_vectors),
+        )
+
+    async def _embed(self, texts: list[str], input_type: str) -> EmbeddingBatchResult:
         if self.config.name == "cohere":
             # Cohere v2 accepts at most 96 texts per request. Document
             # ingestion commonly produces larger batches, so preserve input
@@ -628,7 +718,7 @@ class EmbeddingsClient(_BaseProviderClient):
                 }
                 data = await self._request(payload)
                 embeddings.extend(data["embeddings"]["float"])
-            return self._validate_embeddings(embeddings)
+            return self._build_batch_result(embeddings)
 
         payload = {
             "model": self.config.model,
@@ -639,14 +729,21 @@ class EmbeddingsClient(_BaseProviderClient):
 
         data = await self._request(payload)
         embeddings = [item["embedding"] for item in data["data"]]
-        return self._validate_embeddings(embeddings)
+        return self._build_batch_result(embeddings)
 
-    async def embed_documents(self, texts: list[str]) -> list[list[float]]:
+    async def embed_documents_with_provenance(self, texts: list[str]) -> EmbeddingBatchResult:
         return await self._embed(texts, input_type="document")
 
+    async def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        result = await self.embed_documents_with_provenance(texts)
+        return result.as_lists()
+
+    async def embed_query_with_provenance(self, text: str) -> EmbeddingBatchResult:
+        return await self._embed([text], input_type="query")
+
     async def embed_query(self, text: str) -> list[float]:
-        results = await self._embed([text], input_type="query")
-        return results[0]
+        result = await self.embed_query_with_provenance(text)
+        return list(result.vectors[0])
 
 
 class ResilientEmbeddingsClient:
@@ -737,15 +834,23 @@ class ResilientEmbeddingsClient:
         return [c.name for c in self._clients]
 
     async def _call_with_failover(self, fn_name: str, *args, **kwargs):
+        result = await self._call_with_failover_provenance(fn_name, *args, **kwargs)
+        if fn_name == "embed_documents_with_provenance":
+            return result.as_lists()
+        if fn_name == "embed_query_with_provenance":
+            return list(result.vectors[0])
+        return result
+
+    async def _call_with_failover_provenance(self, fn_name: str, *args, **kwargs) -> EmbeddingBatchResult:
         last_exc: BaseException | None = None
-        for client in self._clients:
+        for index, client in enumerate(self._clients):
             try:
                 return await getattr(client, fn_name)(*args, **kwargs)
             except ProviderFailedError as e:
                 logger.warning(
                     f"[EMBED_FAILOVER] {e.provider_name} failed "
                     f"({type(e.last_exc).__name__}); "
-                    f"remaining={len(self._clients) - self._clients.index(client) - 1}"
+                    f"remaining={len(self._clients) - index - 1}"
                 )
                 last_exc = e
                 continue
@@ -754,11 +859,17 @@ class ResilientEmbeddingsClient:
             f"All embedding providers failed: {[c.name for c in self._clients]}"
         ) from last_exc
 
+    async def embed_documents_with_provenance(self, texts: list[str]) -> EmbeddingBatchResult:
+        return await self._call_with_failover_provenance("embed_documents_with_provenance", texts)
+
     async def embed_documents(self, texts: list[str]) -> list[list[float]]:
-        return await self._call_with_failover("embed_documents", texts)
+        return await self._call_with_failover("embed_documents_with_provenance", texts)
+
+    async def embed_query_with_provenance(self, text: str) -> EmbeddingBatchResult:
+        return await self._call_with_failover_provenance("embed_query_with_provenance", text)
 
     async def embed_query(self, text: str) -> list[float]:
-        return await self._call_with_failover("embed_query", text)
+        return await self._call_with_failover("embed_query_with_provenance", text)
 
 
 # ---------------------------------------------------------------------------
@@ -838,8 +949,14 @@ def create_embeddings(
             def __init__(self, inner: EmbeddingsClient):
                 self._inner = inner
 
+            async def embed_documents_with_provenance(self, texts):
+                return await self._inner.embed_documents_with_provenance(texts)
+
             async def embed_documents(self, texts):
                 return await self._inner.embed_documents(texts)
+
+            async def embed_query_with_provenance(self, text):
+                return await self._inner.embed_query_with_provenance(text)
 
             async def embed_query(self, text):
                 return await self._inner.embed_query(text)

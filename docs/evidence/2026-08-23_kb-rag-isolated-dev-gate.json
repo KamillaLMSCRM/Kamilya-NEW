@@ -1,0 +1,78 @@
+{
+  "checks": {
+    "active_revision_sql_contract": true,
+    "database_name_expected": true,
+    "disposable_schema_removed": true,
+    "downgrade_0130_to_0127": true,
+    "embedding_space_sql_contract": true,
+    "fts_forced_gin_diagnostic": true,
+    "fts_forced_plan_indexes": [
+      "ix_document_embeddings_verified_fts"
+    ],
+    "fts_forced_plan_nodes": [
+      "Bitmap Heap Scan",
+      "Bitmap Index Scan"
+    ],
+    "fts_gin_index_present": true,
+    "fts_gin_index_ready": true,
+    "fts_gin_index_valid": true,
+    "fts_normal_plan_indexes": [
+      "ix_document_embeddings_verified_fts",
+      "documents_pkey"
+    ],
+    "fts_normal_plan_nodes": [
+      "Nested Loop",
+      "Bitmap Heap Scan",
+      "Bitmap Index Scan",
+      "Index Scan"
+    ],
+    "fts_normal_production_shape_uses_gin": true,
+    "fts_tenant_and_active_revision_semantics": true,
+    "legacy_provenance_classified": true,
+    "migration_sources_schema_neutral": true,
+    "not_valid_upgrade_then_validation": true,
+    "pgvector_version_present": true,
+    "postgresql_major": 17,
+    "public_revision_after": "0127",
+    "public_revision_before": "0127",
+    "public_revision_unchanged": true,
+    "public_schema_metadata_unchanged": true,
+    "reupgrade_0127_to_0130": true,
+    "reupgrade_constraints_validated": true,
+    "reupgrade_fts_index_valid_and_ready": true,
+    "rls_enabled": true,
+    "rls_force_enabled": true,
+    "rls_sql_contract_cross_tenant_read_denied": true,
+    "rls_sql_contract_cross_tenant_write_denied": true,
+    "rls_sql_contract_tenant_a_positive": true,
+    "rls_sql_contract_tenant_b_positive": true,
+    "rls_sql_contract_without_tenant_denied": true,
+    "target_supabase_dev_identity": true,
+    "unexpected_relations_absent": true
+  },
+  "cleanup_checked_at": "2026-08-23T12:51:51.506963Z",
+  "disposable_schema_digest": "30e477cf52b2265718c7cd92c854c98ac1f426acf31fbeb5f5205db152d3c03c",
+  "evidence_id": "HBR-DEV-20260823T125151Z",
+  "evidence_labels": [
+    "RUNTIME-DERIVED"
+  ],
+  "executed_at": "2026-08-23T12:51:25.711924Z",
+  "migration_from": "0127",
+  "migration_to": "0130",
+  "scope": "isolated_supabase_dev_disposable_schema",
+  "source_sha256": {
+    "0128_add_embedding_provenance.py": "3af310e3348d20a78edf615f44a4df2752253db45ebe3ed507eeaab432e9d57f",
+    "0129_add_embedding_chunk_index.py": "5fed314a878d6e0cb54ec372832926763b3d312ccd5f039870da2a397328964f",
+    "0130_add_document_embedding_fts.py": "0785718c6eca956f1777f701838587bda6822d148bd7e56b696e5712c2ae6eec",
+    "kb_rag_isolated_dev_gate.py": "a471b2de3a310f6d5848ba8985b4e429b9e5be1d5fc698046452b5002dfb35a5"
+  },
+  "status": "PASSED",
+  "target_fingerprint": "ce44e7eee24ce87040169125ca28347358e8c01fbbb7f2b84810be56f9cfea18",
+  "target_identity": {
+    "canonical_alias": "kamilya-supabase-dev",
+    "database_name": "postgres",
+    "environment": "supabase-dev",
+    "project_ref_sha256": "5b535773cb7222384bbb54ad3f8c2e741fa6176bec4ce586abcd82d17ee0062e",
+    "provider": "supabase"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "project": "Kamilya-NEW",
+  "query": "tenant retrieval evidence",
+  "limit": 3,
+  "records": [
+    {"record_id":"KR-0000000000000001","project":"Kamilya-NEW","source_kind":"canonical_doc","path":"PROJECT.md","citation":"PROJECT.md:10","evidence_label":"GIT-DERIVED","text":"Tenant retrieval rules are documented with evidence requirements.","candidate_id":null,"activation_state":null,"sensitive":false},
+    {"record_id":"KR-0000000000000002","project":"Kamilya-NEW","source_kind":"graphify","path":".graphify/INDEX_META.json","citation":".graphify/INDEX_META.json:1","evidence_label":"GRAPH-DERIVED","text":"Graph navigation connects retrieval modules and tests.","candidate_id":null,"activation_state":null,"sensitive":false},
+    {"record_id":"KR-0000000000000003","project":"Kamilya-NEW","source_kind":"hermes_candidate","path":".codex/skills/kamilya-learning-candidate-triage/SKILL.md","citation":".codex/skills/kamilya-learning-candidate-triage/SKILL.md:20","evidence_label":"NOT VERIFIED","text":"Candidate proposes a retrieval regression test for root review.","candidate_id":"LC-00000000000000000000","activation_state":"CANDIDATE_ONLY","sensitive":false}
+  ]
+}

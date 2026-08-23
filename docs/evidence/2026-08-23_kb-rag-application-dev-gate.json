@@ -1,0 +1,41 @@
+{
+  "checks": {
+    "atomic_activation_cas": true,
+    "authenticated_tenant_context_and_seed_visibility": true,
+    "concurrent_event_generation_cas": true,
+    "disposable_schema_removed": true,
+    "exact_nonactive_revision_cleanup": true,
+    "injected_stage_transaction_rollback": true,
+    "lifecycle_force_rls_read_write_and_no_tenant_negatives": true,
+    "migration_0131_and_force_rls": true,
+    "migration_sources_schema_neutral": true,
+    "partial_candidate_invisible_and_cannot_activate": true,
+    "pgvector_present": true,
+    "postgresql_major": 17,
+    "public_revision_before": "0127",
+    "residual_application_schema_absent": true,
+    "rollback_restored_old_active": true,
+    "semantic_fts_corpus_context_active_only": true,
+    "shared_public_revision_and_metadata_unchanged": true,
+    "single_open_run_enforced": true,
+    "target_supabase_dev_identity": true,
+    "upgrade_downgrade_reupgrade_0127_0131": true,
+    "writer_context_budget_and_safe_citations": true
+  },
+  "cleanup": "passed",
+  "evidence_id": "HBR-DEV-APP-20260823T141806Z",
+  "evidence_label": "RUNTIME-DERIVED",
+  "finished_at": "2026-08-23T14:18:52.881030Z",
+  "gate_id": "HBR-DEV-APP-02",
+  "scope": "isolated_supabase_dev_application_path",
+  "source_digests": {
+    "0128_add_embedding_provenance.py": "3af310e3348d20a78edf615f44a4df2752253db45ebe3ed507eeaab432e9d57f",
+    "0129_add_embedding_chunk_index.py": "5fed314a878d6e0cb54ec372832926763b3d312ccd5f039870da2a397328964f",
+    "0130_add_document_embedding_fts.py": "0785718c6eca956f1777f701838587bda6822d148bd7e56b696e5712c2ae6eec",
+    "0131_add_embedding_reindex_lifecycle.py": "edc6e4546b44ba0d697bb72e1cf4c7dc2d842b75542579cbcff56cfaa7f182b0",
+    "kb_rag_application_dev_gate.py": "fb5161b42617382d545871a21278b5f0e29c015aa0c0b9fa0c8a19884e583cf3"
+  },
+  "started_at": "2026-08-23T14:18:06.322789Z",
+  "status": "READY",
+  "target_fingerprint": "95b21017d29897d38c62f8be28fd038649ff478b1997dc610fe81fc6b2b167d5"
+}

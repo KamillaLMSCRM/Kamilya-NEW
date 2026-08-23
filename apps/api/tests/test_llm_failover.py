@@ -380,8 +380,20 @@ def _make_embed_client(name: str, *, fail_with: Exception | None = None):
             raise fail_with
         return [0.1] * 8
 
+    async def mock_embed_docs_with_provenance(texts):
+        if fail_with is not None:
+            raise fail_with
+        return client._build_batch_result([[0.1] * 8 for _ in texts])
+
+    async def mock_embed_query_with_provenance(text):
+        if fail_with is not None:
+            raise fail_with
+        return client._build_batch_result([[0.1] * 8])
+
     client.embed_documents = mock_embed_docs  # type: ignore[assignment]
     client.embed_query = mock_embed_query  # type: ignore[assignment]
+    client.embed_documents_with_provenance = mock_embed_docs_with_provenance  # type: ignore[assignment]
+    client.embed_query_with_provenance = mock_embed_query_with_provenance  # type: ignore[assignment]
     return client
 
 
@@ -399,7 +411,15 @@ async def test_resilient_embeddings_uses_primary():
     ]
     result = await chain.embed_documents(["hello", "world"])
     assert len(result) == 2
-    assert all(len(v) == 8 for v in result)
+    assert all(len(v) == 4096 for v in result)
+
+    provenance = await chain.embed_documents_with_provenance(["hello"])
+    assert provenance.provider == "qwen"
+    assert provenance.model == "mock-embed-model"
+    assert provenance.revision == "mock-embed-model"
+    assert provenance.native_dimensions == 8
+    assert provenance.space.dimensions == 8
+    assert provenance.storage_dimensions == 4096
 
 
 @pytest.mark.asyncio
@@ -415,7 +435,15 @@ async def test_resilient_embeddings_falls_over_to_voyage():
         _make_embed_client("voyage"),
     ]
     result = await chain.embed_query("test query")
-    assert result == [0.1] * 8
+    assert result[:8] == [0.1] * 8
+    assert result[8:] == [0.0] * (4096 - 8)
+
+    provenance = await chain.embed_query_with_provenance("test query")
+    assert provenance.provider == "voyage"
+    assert provenance.model == "mock-embed-model"
+    assert provenance.revision == "mock-embed-model"
+    assert provenance.native_dimensions == 8
+    assert provenance.storage_dimensions == 4096
 
 
 @pytest.mark.asyncio
@@ -431,10 +459,39 @@ async def test_embeddings_client_zero_pads_smaller_provider_vectors(monkeypatch)
     monkeypatch.setattr(client, "_request", mock_request)
 
     result = await client.embed_documents(["hello"])
+    provenance = await client.embed_documents_with_provenance(["hello"])
 
     assert len(result[0]) == 4096
     assert result[0][:1024] == [0.1] * 1024
     assert result[0][1024:] == [0.0] * (4096 - 1024)
+    assert provenance.provider == "voyage"
+    assert provenance.model == "z"
+    assert provenance.revision == "z"
+    assert provenance.native_dimensions == 1024
+    assert provenance.space.dimensions == 1024
+    assert provenance.storage_dimensions == 4096
+    assert len(provenance.vectors[0]) == 4096
+
+
+@pytest.mark.asyncio
+async def test_embeddings_client_rejects_inconsistent_native_dimensions(monkeypatch):
+    client = EmbeddingsClient(
+        LLMProviderConfig(name="qwen", base_url="http://mock", api_key="y", model="z"),
+        max_retries=0,
+    )
+
+    async def mock_request(payload):
+        return {
+            "data": [
+                {"embedding": [0.1] * 8},
+                {"embedding": [0.2] * 7},
+            ]
+        }
+
+    monkeypatch.setattr(client, "_request", mock_request)
+
+    with pytest.raises(ProviderFailedError, match="inconsistent_embedding_dimensions"):
+        await client.embed_documents_with_provenance(["one", "two"])
 
 
 @pytest.mark.asyncio
