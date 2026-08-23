@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
@@ -24,7 +24,7 @@ def make_verified(**overrides: object) -> VerifiedEmbeddingProvenance:
         "storage_dimensions": 4,
         "content_sha256": "a" * 64,
         "source_revision": "git-2026-08-23",
-        "indexed_at": datetime(2026, 8, 23, 10, 30, tzinfo=timezone.utc),
+        "indexed_at": datetime(2026, 8, 23, 10, 30, tzinfo=UTC),
     }
     values.update(overrides)
     return VerifiedEmbeddingProvenance(**values)  # type: ignore[arg-type]

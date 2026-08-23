@@ -5,14 +5,18 @@ import hashlib
 import json
 import logging
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
-from app.modules.documents.archive_preflight import preflight_ooxml
 from app.modules.ai.embedding_provenance import (
     VerifiedEmbeddingProvenance,
     serialize_embedding_provenance,
 )
+from app.modules.documents.archive_preflight import preflight_ooxml
+
+if TYPE_CHECKING:
+    from app.modules.ai.llm_client import EmbeddingBatchResult, ResilientEmbeddingsClient
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +31,7 @@ class DocumentConverter:
     def __init__(self, base_url: str | None = None):
         self.base_url = (base_url or DOCLING_URL).rstrip("/")
 
-    async def convert(self, file_path: str) -> dict:
+    async def convert(self, file_path: str) -> dict[str, Any]:
         """Convert document to markdown + metadata."""
         filename = os.path.basename(file_path)
         ext = Path(file_path).suffix.lower()
@@ -90,7 +94,7 @@ class DocumentConverter:
         return await _local_convert(file_path)
 
 
-async def _local_convert(file_path: str) -> dict:
+async def _local_convert(file_path: str) -> dict[str, Any]:
     """Convert common source formats without an external document service."""
     ext = Path(file_path).suffix.lower()
     engine: str
@@ -175,7 +179,7 @@ class DocumentChunker:
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
 
-    def chunk_markdown(self, markdown: str, doc_id: str, doc_name: str) -> list[dict]:
+    def chunk_markdown(self, markdown: str, doc_id: str, doc_name: str) -> list[dict[str, Any]]:
         """Split markdown into chunks with metadata."""
         chunks = []
         paragraphs = markdown.split("\n\n")
@@ -248,19 +252,19 @@ class VectorStore:
             "))"
         )
 
-    async def _set_tenant_context(self, session, tenant_id: str | None) -> None:
+    async def _set_tenant_context(self, session: Any, tenant_id: str | None) -> None:
         if tenant_id:
             from sqlalchemy import text
             await session.execute(text("SELECT set_current_tenant(:tid)"), {"tid": str(tenant_id)})
 
     async def add_chunks(
         self,
-        chunks: list[dict],
-        embedding_batch,
+        chunks: list[dict[str, Any]],
+        embedding_batch: Any,
         tenant_id: str | None = None,
         index_revision_id: str | None = None,
         reindex_run_id: str | None = None,
-    ):
+    ) -> int:
         """Add chunks with embeddings to Supabase.
 
         The store only accepts a validated EmbeddingBatchResult. This
@@ -318,7 +322,7 @@ class VectorStore:
         if len(chunk_indices) != len(chunks):
             raise ValueError("duplicate_chunk_index")
 
-        indexed_at = datetime.now(timezone.utc)
+        indexed_at = datetime.now(UTC)
 
         async with async_session_factory() as session:
             await self._set_tenant_context(session, tenant_id)
@@ -432,7 +436,7 @@ class VectorStore:
                     "AND embedding_source_revision = :source_revision "
                     "AND embedding_provenance_state = 'verified'"
                 )
-                verification_params = {
+                verification_params: dict[str, Any] = {
                     "ids": [row["id"] for row in rows],
                     "tenant_id": tenant_id,
                     "doc_id": last_doc_id,
@@ -500,7 +504,7 @@ class VectorStore:
             self._active_index_visibility_clause(),
             "embedding_source_revision = 'document:' || ("
             "SELECT active_document.content_sha256 FROM documents AS active_document "
-            "WHERE active_document.id = document_embeddings.doc_id "
+            "WHERE active_document.id::text = document_embeddings.doc_id "
             "AND active_document.tenant_id = document_embeddings.tenant_id"
             ")",
             "embedding_provider = :embedding_provider",
@@ -644,7 +648,7 @@ class VectorStore:
               AND embedding_source_revision = 'document:' || (
                   SELECT active_document.content_sha256
                   FROM documents AS active_document
-                  WHERE active_document.id = document_embeddings.doc_id
+                  WHERE active_document.id::text = document_embeddings.doc_id
                     AND active_document.tenant_id = document_embeddings.tenant_id
               )
               AND doc_id IN ({placeholders})
@@ -702,7 +706,7 @@ class VectorStore:
             self._active_index_visibility_clause(),
             "embedding_source_revision = 'document:' || ("
             "SELECT active_document.content_sha256 FROM documents AS active_document "
-            "WHERE active_document.id = document_embeddings.doc_id "
+            "WHERE active_document.id::text = document_embeddings.doc_id "
             "AND active_document.tenant_id = document_embeddings.tenant_id"
             ")",
         ]
@@ -853,7 +857,7 @@ class Summarizer:
         # For now, return basic summary
         word_count = len(markdown.split())
         lines = markdown.split("\n")
-        headings = [l.lstrip("#").strip() for l in lines if l.startswith("#")]
+        headings = [line.lstrip("#").strip() for line in lines if line.startswith("#")]
 
         return {
             "doc_id": doc_id,
@@ -892,9 +896,9 @@ class EmbeddingsProvider:
         self.qwen_url = qwen_url
         # Built lazily on first embed() call so config changes are picked up
         # and we don't spin up an httpx client until needed.
-        self._client = None
+        self._client: ResilientEmbeddingsClient | None = None
 
-    async def _get_client(self):
+    async def _get_client(self) -> ResilientEmbeddingsClient:
         if self._client is None:
             from app.modules.ai.llm_client import ResilientEmbeddingsClient
             self._client = await ResilientEmbeddingsClient.from_settings_async()
@@ -913,7 +917,7 @@ class EmbeddingsProvider:
             )
             raise
 
-    async def embed_documents_with_provenance(self, texts: list[str]):
+    async def embed_documents_with_provenance(self, texts: list[str]) -> EmbeddingBatchResult:
         """Embed documents and retain the exact provider selected by failover."""
         from app.modules.ai.llm_client import AllProvidersFailedError
 
@@ -940,7 +944,7 @@ class EmbeddingsProvider:
             )
             raise
 
-    async def embed_query_with_provenance(self, text: str):
+    async def embed_query_with_provenance(self, text: str) -> EmbeddingBatchResult:
         """Embed one semantic query and retain the selected embedding space."""
         from app.modules.ai.llm_client import AllProvidersFailedError
 

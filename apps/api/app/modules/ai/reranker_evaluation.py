@@ -5,8 +5,8 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass
-from typing import Mapping, Sequence
 
 
 @dataclass(frozen=True)
@@ -63,7 +63,7 @@ class BenchmarkDecision:
     verdict: str
     reasons: tuple[str, ...]
 
-    def as_dict(self) -> dict:
+    def as_dict(self) -> dict[str, object]:
         return {
             "baseline": asdict(self.baseline),
             "candidate": asdict(self.candidate),
@@ -89,7 +89,7 @@ def rank_by_score(
         if not math.isfinite(result.score):
             raise ValueError("reranker_score_must_be_finite")
 
-    def key(result: RankedResult) -> tuple:
+    def key(result: RankedResult) -> tuple[float, str, int, str]:
         chunk = chunks.get(result.chunk_id)
         if chunk is None:
             return (-result.score, "~", 2**31 - 1, result.chunk_id)
@@ -106,16 +106,18 @@ def rank_by_score(
 def _percentile(values: Sequence[float], percentile: float) -> float:
     if not values:
         return 0.0
-    ordered = sorted(float(value) for value in values)
-    index = max(0, math.ceil(percentile * len(ordered)) - 1)
-    return ordered[index]
+    ordered: tuple[float, ...] = tuple(sorted(values))
+    index: int = int(max(0, math.ceil(percentile * len(ordered)) - 1))
+    selected_text: str = str(ordered[index])
+    selected: float = float(selected_text)
+    return selected
 
 
 def _dcg(gains: Sequence[int]) -> float:
-    return sum(
-        ((2**gain) - 1) / math.log2(rank + 1)
-        for rank, gain in enumerate(gains, start=1)
-    )
+    total = 0.0
+    for rank, gain in enumerate(gains, start=1):
+        total += ((2**gain) - 1) / math.log2(rank + 1)
+    return total
 
 
 def _benchmark_id(

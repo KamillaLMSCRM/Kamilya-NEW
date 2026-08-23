@@ -16,7 +16,6 @@ from app.modules.ai.retrieval_baseline import (
     evaluate_baseline,
 )
 
-
 FIXTURE = Path(__file__).parents[1] / "fixtures" / "kb_rag_hbr04_baseline.json"
 
 

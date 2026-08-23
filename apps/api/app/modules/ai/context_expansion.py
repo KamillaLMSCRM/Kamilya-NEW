@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Mapping, Protocol, Sequence
+from typing import Protocol, cast
 
 
 class ContextWindowStore(Protocol):
-    async def get_context_window(self, **kwargs) -> list[tuple[str, dict]]: ...
+    async def get_context_window(
+        self, **kwargs: object
+    ) -> list[tuple[str, dict[str, object]]]: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -62,7 +65,7 @@ def _headings(value: object) -> tuple[str, ...]:
             value = json.loads(value)
         except (json.JSONDecodeError, TypeError):
             return ()
-    if not isinstance(value, (list, tuple)):
+    if not isinstance(value, list | tuple):
         return ()
     return tuple(item for item in value if isinstance(item, str) and item)
 
@@ -111,7 +114,7 @@ def _anchor_values(
         raise ValueError("incomplete_context_anchor")
     if not isinstance(tenant_id, str) or not tenant_id:
         raise ValueError("incomplete_context_anchor")
-    if not _document_revision(source_revision):
+    if not isinstance(source_revision, str) or not _document_revision(source_revision):
         raise ValueError("incomplete_context_anchor")
     if type(chunk_index) is not int or chunk_index < 0:
         raise ValueError("incomplete_context_anchor")
@@ -203,13 +206,17 @@ async def expand_context_windows(
                     text=text,
                     source_revision=source_revision,
                     chunk_index=row_index,
-                    content_sha256=metadata["embedding_content_sha256"],
-                    indexed_at=metadata["embedding_indexed_at"],
-                    embedding_provider=metadata["embedding_provider"],
-                    embedding_model=metadata["embedding_model"],
-                    embedding_revision=metadata["embedding_revision"],
-                    embedding_native_dimensions=metadata["embedding_native_dimensions"],
-                    embedding_storage_dimensions=metadata["embedding_storage_dimensions"],
+                    content_sha256=cast(str, metadata["embedding_content_sha256"]),
+                    indexed_at=cast(str, metadata["embedding_indexed_at"]),
+                    embedding_provider=cast(str, metadata["embedding_provider"]),
+                    embedding_model=cast(str, metadata["embedding_model"]),
+                    embedding_revision=cast(str, metadata["embedding_revision"]),
+                    embedding_native_dimensions=cast(
+                        int, metadata["embedding_native_dimensions"]
+                    ),
+                    embedding_storage_dimensions=cast(
+                        int, metadata["embedding_storage_dimensions"]
+                    ),
                     is_anchor=chunk_id == anchor_id,
                 )
             )

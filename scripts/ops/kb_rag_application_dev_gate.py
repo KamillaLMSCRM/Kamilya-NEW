@@ -223,7 +223,7 @@ async def _bootstrap_schema(connection, schema: str) -> None:
             "create_document_embeddings",
             text(
                 f'CREATE TABLE "{schema}".document_embeddings ('
-                "id text PRIMARY KEY, tenant_id uuid NOT NULL, doc_id uuid NOT NULL, "
+                "id text PRIMARY KEY, tenant_id uuid NOT NULL, doc_id text NOT NULL, "
                 "doc_name text, text text NOT NULL, headings jsonb, embedding vector(4) NOT NULL)"
             ),
         ),
@@ -661,7 +661,7 @@ async def run_gate(database_url: str, supabase_url: str, schema: str) -> dict[st
                         text(
                             "SELECT count(*) FROM document_embeddings "
                             "WHERE tenant_id=CAST(:tenant_id AS uuid) "
-                            "AND doc_id=CAST(:document_id AS uuid) "
+                            "AND doc_id=CAST(:document_id AS text) "
                             "AND embedding_index_revision_id IS NULL "
                             "AND embedding_reindex_run_id IS NULL "
                             "AND embedding_provenance_state='verified' "
@@ -923,7 +923,7 @@ async def run_gate(database_url: str, supabase_url: str, schema: str) -> dict[st
                         "tenant_id, document_id, run_id, state, generation, "
                         "active_revision_id, candidate_revision_id, candidate_manifest_sha256, "
                         "expected_chunk_count, completed_chunk_count, lifecycle_payload) "
-                        "VALUES (CAST(:tenant_b AS uuid), CAST(:doc_b AS uuid), 'cross-tenant', "
+                        "VALUES (CAST(:tenant_b AS uuid), CAST(:doc_b AS text), 'cross-tenant', "
                         "'staged', 0, 'active-b', 'candidate-b', :manifest_sha, 1, 0, '{}'::jsonb)"
                     ),
                     {

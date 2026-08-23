@@ -16,7 +16,6 @@ from app.modules.ai.embedding_reindex_lifecycle import (
 )
 from app.modules.ai.embedding_space import EmbeddingSpace
 
-
 OLD_SOURCE = "document:" + "a" * 64
 NEW_SOURCE = "document:" + "b" * 64
 OLD_SPACE = EmbeddingSpace("provider", "model", "r1", 3)

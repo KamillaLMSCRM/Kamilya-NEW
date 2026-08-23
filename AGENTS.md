@@ -324,7 +324,18 @@ Worker на отдельном VPS не обновляется автомати�
 ## Git и release
 
 - Commit author email: `kamilla_lms_crm@proton.me`.
-- Push выполнять токеном из `.env`, без Git Credential Manager.
+- Канонический GitHub credential находится только в корневом `.env` текущего
+  репозитория в переменной `GITHUB_TOKEN`. Старые `.env`, Git Credential Manager,
+  browser/device login и соседние проекты не являются источниками Git credentials.
+- Прямой `git push` не загружает `.env`. Ошибка `/dev/tty`, интерактивный prompt
+  или отсутствие сохранённой `gh`-сессии не доказывают, что token недействителен.
+- Перед push из `apps/api` выполнить безопасную проверку без вывода значения:
+  `poetry run dotenv -f ..\..\.env run -- gh auth status --hostname github.com`.
+- Push выполнять через официальный process-local credential helper:
+  `poetry run dotenv -f ..\..\.env run -- git -c credential.helper= -c "credential.helper=!gh auth git-credential" -C ..\.. push origin <exact-sha>:master`.
+  Token нельзя помещать в URL, аргументы, temporary scripts, Git config, вывод или
+  документы. Device login не использовать как fallback, если владелец требует
+  token-only Git access.
 - Не использовать `git reset --hard` и слепой production `git pull`.
 - После push дождаться CI и provider deploys.
 - Документировать только подтверждённый текущий результат.

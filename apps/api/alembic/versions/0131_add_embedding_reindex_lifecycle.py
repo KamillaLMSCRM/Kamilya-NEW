@@ -44,7 +44,7 @@ def upgrade() -> None:
         """
         CREATE TABLE embedding_active_revisions (
             tenant_id UUID NOT NULL,
-            document_id UUID NOT NULL,
+            document_id TEXT NOT NULL,
             active_revision_id TEXT NOT NULL,
             generation BIGINT NOT NULL DEFAULT 1,
             updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -71,7 +71,7 @@ def upgrade() -> None:
         """
         CREATE TABLE embedding_reindex_runs (
             tenant_id UUID NOT NULL,
-            document_id UUID NOT NULL,
+            document_id TEXT NOT NULL,
             run_id TEXT NOT NULL,
             state TEXT NOT NULL,
             generation BIGINT NOT NULL DEFAULT 1,
@@ -154,7 +154,7 @@ def upgrade() -> None:
         """
         CREATE TABLE embedding_reindex_events (
             tenant_id UUID NOT NULL,
-            document_id UUID NOT NULL,
+            document_id TEXT NOT NULL,
             run_id TEXT NOT NULL,
             event_id TEXT NOT NULL,
             event_sha256 TEXT NOT NULL,

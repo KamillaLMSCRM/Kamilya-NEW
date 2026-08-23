@@ -4,7 +4,6 @@ import pytest
 
 from app.modules.ai.context_expansion import expand_context_windows
 
-
 REVISION = "document:" + "d" * 64
 
 

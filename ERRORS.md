@@ -603,3 +603,29 @@ open, also record status, safe interim path, and review condition.
   `tests/unit/test_release_reliability_contracts.py` pass with the English journal.
 - Prevention: changes to operational documentation language must update and run
   every machine-readable documentation contract before push.
+
+## GIT-001 - Direct push ignored the valid repository token and opened an interactive path
+
+- Date: 2026-08-23.
+- Symptom: direct `git push` failed with `/dev/tty` and could not read a GitHub
+  username. A later attempt started device login even though the owner required
+  token-only Git access.
+- Cause: plain Git does not load the repository `.env`, and the GitHub CLI had no
+  persisted login. The access-path failure was initially treated as an authentication
+  problem before independently validating the process-local token.
+- Fix: use only `GITHUB_TOKEN` from the current repository root `.env`. From
+  `apps/api`, validate it with
+  `poetry run dotenv -f ..\..\.env run -- gh auth status --hostname github.com`,
+  then push through the official process-local helper with
+  `poetry run dotenv -f ..\..\.env run -- git -c credential.helper= -c
+  "credential.helper=!gh auth git-credential" -C ..\.. push origin
+  <exact-sha>:master`.
+- Verification: `gh auth status` identified the active token-backed GitHub account
+  without exposing the token. The helper then pushed exact commit
+  `0492fd72dc18c760f91de7acc96cce14de72d9d1` to `origin/master`; Git reported
+  `c1c1385..0492fd7`.
+- Status: resolved.
+- Prevention: distinguish token validity from credential transport. Never infer an
+  expired token from `/dev/tty`, missing persisted `gh` login, or prompt failure.
+  Do not switch to browser/device login when token-only access is required. Never
+  put a token in a command argument, URL, helper file, Git config, log, or document.

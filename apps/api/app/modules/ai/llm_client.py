@@ -43,7 +43,7 @@ import logging
 import math
 from collections.abc import Iterable
 from dataclasses import dataclass, field, replace
-from typing import Any
+from typing import Any, cast
 
 import httpx
 
@@ -833,7 +833,7 @@ class ResilientEmbeddingsClient:
     def provider_names(self) -> list[str]:
         return [c.name for c in self._clients]
 
-    async def _call_with_failover(self, fn_name: str, *args, **kwargs):
+    async def _call_with_failover(self, fn_name: str, *args: Any, **kwargs: Any) -> Any:
         result = await self._call_with_failover_provenance(fn_name, *args, **kwargs)
         if fn_name == "embed_documents_with_provenance":
             return result.as_lists()
@@ -841,11 +841,13 @@ class ResilientEmbeddingsClient:
             return list(result.vectors[0])
         return result
 
-    async def _call_with_failover_provenance(self, fn_name: str, *args, **kwargs) -> EmbeddingBatchResult:
+    async def _call_with_failover_provenance(
+        self, fn_name: str, *args: Any, **kwargs: Any
+    ) -> EmbeddingBatchResult:
         last_exc: BaseException | None = None
         for index, client in enumerate(self._clients):
             try:
-                return await getattr(client, fn_name)(*args, **kwargs)
+                return cast(EmbeddingBatchResult, await getattr(client, fn_name)(*args, **kwargs))
             except ProviderFailedError as e:
                 logger.warning(
                     f"[EMBED_FAILOVER] {e.provider_name} failed "
@@ -912,7 +914,12 @@ def create_llm(
             def __init__(self, inner: LLMClient):
                 self._inner = inner
 
-            async def ainvoke(self, messages, config=None, response_format=None):
+            async def ainvoke(
+                self,
+                messages: list[dict[str, str]],
+                config: dict[str, Any] | None = None,
+                response_format: dict[str, Any] | None = None,
+            ) -> Any:
                 return await self._inner.ainvoke(messages, config=config, response_format=response_format)
 
             @property

@@ -88,7 +88,7 @@ def main() -> int:
     parser.add_argument("--expected-release", default=os.getenv("EXPECTED_RELEASE_SHA", ""))
     args = parser.parse_args()
 
-    if not FULL_SHA.fullmatch(args.expected_release):
+    if args.expected_release and not FULL_SHA.fullmatch(args.expected_release):
         print("verification failed: expected release must be a full 40-character Git SHA", file=sys.stderr)
         return 2
     try:

@@ -2,7 +2,6 @@
 
 from pathlib import Path
 
-
 INGESTION = Path(__file__).parents[2] / "app" / "modules" / "ai" / "ingestion.py"
 
 
@@ -11,5 +10,6 @@ def test_semantic_fts_and_legacy_chunk_reads_require_active_document_revision() 
     predicate = "embedding_source_revision = 'document:' || ("
     assert source.count(predicate) == 3
     assert source.count("active_document.content_sha256") == 3
-    assert source.count("active_document.id = document_embeddings.doc_id") == 3
+    assert source.count("active_document.id::text = document_embeddings.doc_id") == 3
+    assert "active_document.id = document_embeddings.doc_id" not in source
     assert source.count("active_document.tenant_id = document_embeddings.tenant_id") == 3

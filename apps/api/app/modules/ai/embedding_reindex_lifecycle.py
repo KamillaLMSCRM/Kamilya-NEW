@@ -5,12 +5,11 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass, replace
 from enum import Enum
-from typing import Sequence
 
 from app.modules.ai.embedding_space import EmbeddingSpace
-
 
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 SOURCE_REVISION_RE = re.compile(r"^document:[0-9a-f]{64}$")

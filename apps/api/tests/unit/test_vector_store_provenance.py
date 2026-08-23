@@ -1,5 +1,5 @@
 import hashlib
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
@@ -35,7 +35,7 @@ class _Session:
                 "chunk-1", "Подтвержденный текст", "doc-1", "tenant-1", "scan.pdf", '["Раздел 1"]',
                 "qwen-self-hosted", "Qwen3-Embedding-8B", "Qwen3-Embedding-8B",
                 2, 2, "a" * 64, "document:" + "d" * 64,
-                datetime(2026, 8, 23, tzinfo=timezone.utc), 0,
+                datetime(2026, 8, 23, tzinfo=UTC), 0,
             )])
         return _Result([("Подтвержденный текст", "doc-1", "scan.pdf", '["Раздел 1"]')])
 
@@ -95,7 +95,7 @@ class _SemanticSession:
                     2,
                     "a" * 64,
                     "document:" + "d" * 64,
-                    datetime(2026, 8, 23, tzinfo=timezone.utc),
+                    datetime(2026, 8, 23, tzinfo=UTC),
                     0,
                     0.2,
                 )
@@ -123,7 +123,7 @@ class _ContextSession:
                 "chunk-1", "center", "doc-1", "tenant-1", "source.pdf", '["Раздел"]',
                 "qwen-self-hosted", "Qwen3-Embedding-8B", "Qwen3-Embedding-8B",
                 2, 2, "a" * 64, "document:" + "d" * 64,
-                datetime(2026, 8, 23, tzinfo=timezone.utc), 4,
+                datetime(2026, 8, 23, tzinfo=UTC), 4,
             )
         ])
 
@@ -230,9 +230,6 @@ async def test_add_chunks_uses_bounded_executemany_batches(monkeypatch) -> None:
     assert all(row["embedding_native_dimensions"] == 2 for row in rows)
     assert all(row["embedding_storage_dimensions"] == 2 for row in rows)
     first_text = chunks[0]["text"]
-    first_id = hashlib.sha256(
-        f"tenant-1|doc-1|document:{'d' * 64}|0|{first_text}".encode("utf-8")
-    ).hexdigest()
     assert rows[0]["embedding_content_sha256"] == hashlib.sha256(
         first_text.encode("utf-8")
     ).hexdigest()

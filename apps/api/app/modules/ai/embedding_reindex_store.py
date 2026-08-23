@@ -125,12 +125,12 @@ def deserialize_reindex_run(payload: dict[str, Any]) -> ReindexRun:
     )
 
 
-def _first(result):
+def _first(result: Any) -> Any:
     row = result.first()
     return row
 
 
-def _row_value(row, name: str, index: int):
+def _row_value(row: Any, name: str, index: int) -> Any:
     mapping = getattr(row, "_mapping", None)
     if mapping is not None:
         return mapping[name]
@@ -140,13 +140,13 @@ def _row_value(row, name: str, index: int):
 class EmbeddingReindexRepository:
     """Persist lifecycle transitions atomically in a caller-owned transaction."""
 
-    async def _set_tenant(self, session, tenant_id: str) -> None:
+    async def _set_tenant(self, session: Any, tenant_id: str) -> None:
         await session.execute(
             text("SELECT set_current_tenant(:tenant_id)"),
             {"tenant_id": tenant_id},
         )
 
-    async def stage(self, session, run: ReindexRun) -> None:
+    async def stage(self, session: Any, run: ReindexRun) -> None:
         if run.state is not ReindexState.STAGED or run.generation != 0:
             raise EmbeddingReindexPersistenceError("reindex_stage_state_required")
         await self._set_tenant(session, run.tenant_id)
@@ -156,7 +156,7 @@ class EmbeddingReindexRepository:
                 SELECT active_revision_id
                 FROM embedding_active_revisions
                 WHERE tenant_id = CAST(:tenant_id AS uuid)
-                  AND document_id = CAST(:document_id AS uuid)
+                  AND document_id = CAST(:document_id AS text)
                 FOR UPDATE
                 """
             ),
@@ -171,7 +171,7 @@ class EmbeddingReindexRepository:
                     SET embedding_index_revision_id = :active_revision_id,
                         embedding_reindex_run_id = :run_id
                     WHERE tenant_id = CAST(:tenant_id AS uuid)
-                      AND doc_id = CAST(:document_id AS uuid)
+                      AND doc_id = CAST(:document_id AS text)
                       AND embedding_index_revision_id IS NULL
                       AND embedding_reindex_run_id IS NULL
                       AND embedding_provenance_state = 'verified'
@@ -196,7 +196,7 @@ class EmbeddingReindexRepository:
                     INSERT INTO embedding_active_revisions (
                         tenant_id, document_id, active_revision_id, generation
                     ) VALUES (
-                        CAST(:tenant_id AS uuid), CAST(:document_id AS uuid),
+                        CAST(:tenant_id AS uuid), CAST(:document_id AS text),
                         :active_revision_id, 1
                     )
                     """
@@ -220,7 +220,7 @@ class EmbeddingReindexRepository:
                     candidate_manifest_sha256, expected_chunk_count,
                     completed_chunk_count, lifecycle_payload
                 ) VALUES (
-                    CAST(:tenant_id AS uuid), CAST(:document_id AS uuid), :run_id,
+                    CAST(:tenant_id AS uuid), CAST(:document_id AS text), :run_id,
                     :state, :generation, :active_revision_id, :candidate_revision_id,
                     NULL, :candidate_manifest_sha256, :expected_chunk_count, 0,
                     CAST(:lifecycle_payload AS jsonb)
@@ -241,7 +241,9 @@ class EmbeddingReindexRepository:
             },
         )
 
-    async def load(self, session, *, tenant_id: str, document_id: str, run_id: str) -> ReindexRun:
+    async def load(
+        self, session: Any, *, tenant_id: str, document_id: str, run_id: str
+    ) -> ReindexRun:
         await self._set_tenant(session, tenant_id)
         result = await session.execute(
             text(
@@ -249,7 +251,7 @@ class EmbeddingReindexRepository:
                 SELECT lifecycle_payload
                 FROM embedding_reindex_runs
                 WHERE tenant_id = CAST(:tenant_id AS uuid)
-                  AND document_id = CAST(:document_id AS uuid)
+                  AND document_id = CAST(:document_id AS text)
                   AND run_id = :run_id
                 """
             ),
@@ -263,14 +265,14 @@ class EmbeddingReindexRepository:
             payload = json.loads(payload)
         return deserialize_reindex_run(payload)
 
-    async def _verify_candidate_rows(self, session, run: ReindexRun) -> None:
+    async def _verify_candidate_rows(self, session: Any, run: ReindexRun) -> None:
         result = await session.execute(
             text(
                 """
                 SELECT chunk_index, embedding_content_sha256
                 FROM document_embeddings
                 WHERE tenant_id = CAST(:tenant_id AS uuid)
-                  AND doc_id = CAST(:document_id AS uuid)
+                  AND doc_id = CAST(:document_id AS text)
                   AND embedding_index_revision_id = :candidate_revision_id
                   AND embedding_reindex_run_id = :run_id
                   AND embedding_provenance_state = 'verified'
@@ -310,7 +312,7 @@ class EmbeddingReindexRepository:
 
     async def persist_transition(
         self,
-        session,
+        session: Any,
         *,
         before: ReindexRun,
         after: ReindexRun,
@@ -334,7 +336,7 @@ class EmbeddingReindexRepository:
                 SELECT event_sha256, generation
                 FROM embedding_reindex_events
                 WHERE tenant_id = CAST(:tenant_id AS uuid)
-                  AND document_id = CAST(:document_id AS uuid)
+                  AND document_id = CAST(:document_id AS text)
                   AND run_id = :run_id
                   AND event_id = :event_id
                 """
@@ -371,7 +373,7 @@ class EmbeddingReindexRepository:
                     lifecycle_payload = CAST(:lifecycle_payload AS jsonb),
                     updated_at = NOW()
                 WHERE tenant_id = CAST(:tenant_id AS uuid)
-                  AND document_id = CAST(:document_id AS uuid)
+                  AND document_id = CAST(:document_id AS text)
                   AND run_id = :run_id
                   AND state = :expected_state
                   AND generation = :expected_generation
@@ -406,7 +408,7 @@ class EmbeddingReindexRepository:
                         generation = generation + 1,
                         updated_at = NOW()
                     WHERE tenant_id = CAST(:tenant_id AS uuid)
-                      AND document_id = CAST(:document_id AS uuid)
+                  AND document_id = CAST(:document_id AS text)
                       AND active_revision_id = :expected_active_revision_id
                     RETURNING generation
                     """
@@ -427,7 +429,7 @@ class EmbeddingReindexRepository:
                 INSERT INTO embedding_reindex_events (
                     tenant_id, document_id, run_id, event_id, event_sha256, generation
                 ) VALUES (
-                    CAST(:tenant_id AS uuid), CAST(:document_id AS uuid), :run_id,
+                    CAST(:tenant_id AS uuid), CAST(:document_id AS text), :run_id,
                     :event_id, :event_sha256, :generation
                 )
                 """
@@ -442,7 +444,9 @@ class EmbeddingReindexRepository:
             },
         )
 
-    async def cleanup(self, session, *, run: ReindexRun, directive: CleanupDirective) -> int:
+    async def cleanup(
+        self, session: Any, *, run: ReindexRun, directive: CleanupDirective
+    ) -> int:
         if run.state is not ReindexState.CLEANED:
             raise EmbeddingReindexPersistenceError("cleaned_reindex_state_required")
         if (
@@ -458,7 +462,7 @@ class EmbeddingReindexRepository:
                 """
                 DELETE FROM document_embeddings AS doomed
                 WHERE doomed.tenant_id = CAST(:tenant_id AS uuid)
-                  AND doomed.doc_id = CAST(:document_id AS uuid)
+                  AND doomed.doc_id = CAST(:document_id AS text)
                   AND doomed.embedding_index_revision_id = ANY(CAST(:revision_ids AS text[]))
                   AND doomed.embedding_index_revision_id <> (
                       SELECT active.active_revision_id
@@ -474,7 +478,7 @@ class EmbeddingReindexRepository:
                 "revision_ids": list(directive.revision_ids),
             },
         )
-        return result.rowcount
+        return int(result.rowcount)
 
 
 __all__ = [

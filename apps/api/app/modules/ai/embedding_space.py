@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import math
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Iterable
 
 _MAX_IDENTIFIER_LENGTH = 160
 _IDENTIFIER_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/+:-]*$")

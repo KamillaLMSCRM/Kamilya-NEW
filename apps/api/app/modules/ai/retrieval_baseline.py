@@ -6,8 +6,8 @@ import hashlib
 import json
 import math
 import re
+from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass
-from typing import Mapping, Sequence
 
 CITATION_RE = re.compile(r"^[^\r\n]+:[1-9][0-9]*(?::[1-9][0-9]*)?$")
 
@@ -48,7 +48,7 @@ class BaselineReport:
     latency_p95_ms: float
     estimated_cost_usd: float
 
-    def as_dict(self) -> dict:
+    def as_dict(self) -> dict[str, object]:
         return asdict(self)
 
 
@@ -68,7 +68,7 @@ class BaselineComparison:
     no_regression: bool
     passed: bool
 
-    def as_dict(self) -> dict:
+    def as_dict(self) -> dict[str, object]:
         return asdict(self)
 
 

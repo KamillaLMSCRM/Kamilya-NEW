@@ -6,7 +6,6 @@ from app.modules.ai.hybrid_retrieval import (
     fuse_ranked_results,
 )
 
-
 REVISION = "document:" + "a" * 64
 
 

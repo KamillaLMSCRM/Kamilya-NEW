@@ -1,5 +1,5 @@
-from dataclasses import asdict
 import hashlib
+from dataclasses import asdict
 from uuid import uuid4
 
 import pytest

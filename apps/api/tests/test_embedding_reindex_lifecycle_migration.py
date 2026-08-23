@@ -3,7 +3,6 @@
 import importlib.util
 from pathlib import Path
 
-
 MIGRATION_PATH = (
     Path(__file__).resolve().parents[1]
     / "alembic"
@@ -57,6 +56,8 @@ def test_migration_adds_active_revision_and_reindex_state_tables() -> None:
     assert "fk_document_embeddings_reindex_run" in source
     assert "DEFERRABLE INITIALLY DEFERRED" in source
     assert "UNIQUE (tenant_id, document_id, run_id, generation)" in source
+    assert source.count("document_id TEXT NOT NULL") == 3
+    assert "document_id UUID NOT NULL" not in source
 
 
 def test_all_new_tables_force_tenant_rls() -> None:

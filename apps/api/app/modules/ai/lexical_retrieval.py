@@ -6,9 +6,9 @@ import json
 import math
 import re
 from collections import Counter
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Mapping, Protocol, Sequence
-
+from typing import Protocol
 
 _TOKEN_RE = re.compile(r"[^\W_]{3,}", re.UNICODE)
 _KAZAKH_MARKER_RE = re.compile(r"[әғқңөұүһі]", re.IGNORECASE)
@@ -55,7 +55,7 @@ class LexicalChunkStore(Protocol):
         self,
         doc_ids: list[str] | None = None,
         tenant_id: str | None = None,
-    ) -> list[tuple[str, dict]]: ...
+    ) -> list[tuple[str, dict[str, object]]]: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -122,7 +122,7 @@ def _parse_headings(value: object) -> tuple[str, ...]:
             value = json.loads(value)
         except (json.JSONDecodeError, TypeError):
             return ()
-    if not isinstance(value, (list, tuple)):
+    if not isinstance(value, list | tuple):
         return ()
     return tuple(item.strip() for item in value if isinstance(item, str) and item.strip())
 
@@ -150,7 +150,7 @@ def _validated_scope(tenant_id: str, doc_ids: Sequence[str], limit: int) -> tupl
         raise ValueError("tenant_id_required")
     if type(limit) is not int or limit <= 0:
         raise ValueError("invalid_lexical_limit")
-    if not isinstance(doc_ids, Sequence) or isinstance(doc_ids, (str, bytes)):
+    if not isinstance(doc_ids, Sequence) or isinstance(doc_ids, str | bytes):
         raise ValueError("selected_doc_ids_required")
 
     normalized: list[str] = []

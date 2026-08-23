@@ -3,13 +3,12 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from types import MappingProxyType
-from typing import Mapping, TypeAlias
 
 from app.modules.ai.embedding_space import EmbeddingSpace
-
 
 PROVENANCE_COLUMNS = (
     "embedding_provenance_state",
@@ -81,7 +80,7 @@ class VerifiedEmbeddingProvenance:
             raise InvalidEmbeddingProvenanceError("invalid_indexed_at")
 
 
-EmbeddingProvenance: TypeAlias = LegacyUnclassified | VerifiedEmbeddingProvenance
+type EmbeddingProvenance = LegacyUnclassified | VerifiedEmbeddingProvenance
 
 
 def serialize_embedding_provenance(provenance: EmbeddingProvenance) -> dict[str, object]:

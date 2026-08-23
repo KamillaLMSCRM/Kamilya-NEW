@@ -13,7 +13,6 @@ from app.modules.ai.reranker_evaluation import (
     rank_by_score,
 )
 
-
 FIXTURE = Path(__file__).parents[1] / "fixtures" / "kb_rag_hbr08_corpus.json"
 
 

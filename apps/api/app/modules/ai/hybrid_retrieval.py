@@ -4,9 +4,8 @@ from __future__ import annotations
 
 import math
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Sequence
-
 
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 SOURCE_REVISION_RE = re.compile(r"^document:[0-9a-f]{64}$")

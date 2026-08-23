@@ -27,7 +27,8 @@ class _Session:
 @pytest.mark.asyncio
 async def test_vector_store_fts_is_explicitly_tenant_document_and_verified_scoped(monkeypatch) -> None:
     row = (
-        "chunk-1", "Порядок эвакуации", "doc-1", "source.pdf", '["Эвакуация"]',
+        "chunk-1", "Порядок эвакуации", "doc-1",
+        "00000000-0000-0000-0000-000000000001", "source.pdf", '["Эвакуация"]',
         "provider", "model", "revision", 3, 4, "a" * 64,
         "document:" + "b" * 64, "2026-08-23T00:00:00+00:00", 2, 0.75,
     )
@@ -57,6 +58,7 @@ async def test_vector_store_fts_is_explicitly_tenant_document_and_verified_scope
     assert "embedding_provenance_state = 'verified'" in sql
     assert "embedding_source_revision = 'document:'" in sql
     assert "active_document.content_sha256" in sql
+    assert "active_document.id::text = document_embeddings.doc_id" in sql
     assert "embedding_fts @@ query.value" in sql
     assert "doc_id IN (:doc_id_0)" in sql
     assert params["doc_id_0"] == "doc-1"

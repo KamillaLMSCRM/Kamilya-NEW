@@ -77,7 +77,7 @@ def test_verifier_refuses_redirects():
     assert module._NoRedirect().redirect_request(None, None, 302, "Found", {}, "https://other.test") is None
 
 
-def test_monitoring_contract_targets_kz_runtime_and_exact_release():
+def test_monitoring_contract_separates_routine_health_from_post_deploy_release():
     workflow = (REPO_ROOT / ".github" / "workflows" / "production-smoke.yml").read_text(encoding="utf-8")
     watchdog = (REPO_ROOT / "scripts" / "ops" / "healthcheck.sh").read_text(encoding="utf-8")
     compose = (REPO_ROOT / "infra" / "compose" / "kamilya-app-worker.yml").read_text(encoding="utf-8")
@@ -86,7 +86,10 @@ def test_monitoring_contract_targets_kz_runtime_and_exact_release():
 
     assert "kamilya-lms-api.onrender.com" not in workflow
     assert "verify_production_endpoint.py" in workflow
-    assert "EXPECTED_RELEASE_SHA: ${{ github.sha }}" in workflow
+    assert "push:" not in workflow
+    assert 'cron: "*/15 * * * *"' in workflow
+    assert "expected_release_sha:" in workflow
+    assert "EXPECTED_RELEASE_SHA: ${{ inputs.expected_release_sha || '' }}" in workflow
     assert "https://api.kml.kz/api/v1/health" in watchdog
     assert "EXPECTED_RELEASE_SHA" in watchdog
     assert "docker compose" in watchdog

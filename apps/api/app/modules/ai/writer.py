@@ -8,19 +8,20 @@ from __future__ import annotations
 import json
 import logging
 import re
-from dataclasses import asdict, dataclass, replace
-from typing import Callable
+from collections.abc import Callable
+from dataclasses import dataclass, replace
+from typing import Any, cast
 
 from app.ml_prompts import get_renderer
-from app.modules.ai.context_expansion import ContextChunk, expand_context_windows
+from app.modules.ai.context_expansion import ContextChunk, ContextWindowStore, expand_context_windows
 from app.modules.ai.hybrid_retrieval import (
     RankedRetrievalItem,
     RetrievalBoundary,
     fuse_ranked_results,
 )
 from app.modules.ai.ingestion import VectorStore
-from app.modules.ai.lexical_retrieval import retrieve_lexical_hits
-from app.modules.ai.llm_client import LLMClient, create_llm
+from app.modules.ai.lexical_retrieval import LexicalChunkStore, retrieve_lexical_hits
+from app.modules.ai.llm_client import LLMClient
 from app.modules.ai.writer_schema import CourseContent, LessonContent, ModuleContent
 
 logger = logging.getLogger(__name__)
@@ -115,7 +116,7 @@ def _format_source_window(chunk: RetrievedChunk) -> str:
     )
 
 
-def _public_source_reference(chunk: RetrievedChunk) -> dict:
+def _public_source_reference(chunk: RetrievedChunk) -> dict[str, Any]:
     """Project internal retrieval provenance into a learner-safe citation."""
     context_sections = [
         {
@@ -164,7 +165,7 @@ async def _retrieve_and_rerank(
     """Multi-query retrieval + deduplication + ranking."""
     if not tenant_id:
         raise ValueError("tenant_id_required")
-    where = None
+    where: dict[str, Any] | None = None
     if doc_ids:
         if len(doc_ids) == 1:
             where = {"doc_id": doc_ids[0]}
@@ -195,7 +196,7 @@ async def _retrieve_and_rerank(
         metadatas = results.get("metadatas", [[]])[0]
 
         ranking: list[RankedRetrievalItem] = []
-        for doc_text, dist, meta in zip(documents, distances, metadatas):
+        for doc_text, dist, meta in zip(documents, distances, metadatas, strict=False):
             try:
                 distance = float(dist)
             except (TypeError, ValueError):
@@ -246,7 +247,7 @@ async def _retrieve_and_rerank(
     lexical_ranking: list[RankedRetrievalItem] = []
     if doc_ids and hasattr(store, "get_all_chunks"):
         lexical_hits = await retrieve_lexical_hits(
-            store,
+            cast(LexicalChunkStore, store),
             queries,
             tenant_id=tenant_id,
             doc_ids=doc_ids,
@@ -367,7 +368,7 @@ async def write_lesson(
         lang_names = {"ru": "Русский", "kk": "Қазақша", "en": "English"}
         lang_name = lang_names.get(language, language)
 
-        prompt = f"""Write a comprehensive educational lesson on the topic below. 
+        prompt = f"""Write a comprehensive educational lesson on the topic below.
 Use your general knowledge. Write detailed, well-structured content with examples.
 
 Lesson: {lesson_title}
@@ -406,7 +407,7 @@ Length: 1500-2500 words."""
             (MAX_CHUNK_CHARS // max(len(formatted_chunks), 1)) - 512,
         )
         context_windows = await expand_context_windows(
-            store,
+            cast(ContextWindowStore, store),
             formatted_chunks,
             tenant_id=str(tenant_id or ""),
             radius=1,

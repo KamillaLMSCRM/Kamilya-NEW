@@ -1,16 +1,15 @@
 """Architect Agent — interactive course design via LLM + retrieval tools."""
 from __future__ import annotations
 
-import asyncio
 import json
-import re
 import logging
-from typing import Callable
+import re
+from collections.abc import Callable
 
-from app.modules.ai.architect_schema import CourseStructure
-from app.modules.ai.llm_client import LLMClient, create_llm
-from app.modules.ai.ingestion import VectorStore, Summarizer
 from app.ml_prompts import get_renderer
+from app.modules.ai.architect_schema import CourseStructure
+from app.modules.ai.ingestion import VectorStore
+from app.modules.ai.llm_client import LLMClient
 
 logger = logging.getLogger(__name__)
 
@@ -68,8 +67,9 @@ def create_architect_tools(
 
     async def list_documents() -> str:
         """List all ingested documents with IDs and names from DB (tenant-scoped)."""
-        from app.core.db import async_session_factory
         from sqlalchemy import text
+
+        from app.core.db import async_session_factory
 
         async with async_session_factory() as session:
             await _set_tenant_context(session)
@@ -97,8 +97,9 @@ def create_architect_tools(
 
     async def get_document_summary(doc_id: str) -> str:
         """Get educational profile summary of a document from DB embeddings."""
-        from app.core.db import async_session_factory
         from sqlalchemy import text
+
+        from app.core.db import async_session_factory
 
         if scope and doc_id not in scope:
             return f"Document '{doc_id}' is not in the current scope."
@@ -132,8 +133,9 @@ def create_architect_tools(
 
     async def get_document_toc(doc_id: str) -> str:
         """Get table of contents of a document from DB."""
-        from app.core.db import async_session_factory
         from sqlalchemy import text
+
+        from app.core.db import async_session_factory
 
         if scope and doc_id not in scope:
             return f"Document '{doc_id}' is not in scope."
@@ -166,8 +168,9 @@ def create_architect_tools(
 
     async def get_chapter_text(doc_id: str, chapter_title: str) -> str:
         """Read text chunks matching a heading from DB."""
-        from app.core.db import async_session_factory
         from sqlalchemy import text
+
+        from app.core.db import async_session_factory
 
         if scope and doc_id not in scope:
             return f"Document '{doc_id}' is not in scope."
@@ -213,8 +216,6 @@ def create_architect_tools(
             where = {"doc_id": doc_id}
         elif scope:
             where = {"doc_id": {"$in": list(scope)}}
-        tenant_filter = tenant_id
-
         # Generate a query embedding with the exact successful provider space.
         provider = embeddings_client or EmbeddingsProvider()
         query_embedding_batch = await provider.embed_query_with_provenance(query)
@@ -230,7 +231,7 @@ def create_architect_tools(
         docs = raw.get("documents", [[]])[0]
         metas = raw.get("metadatas", [[]])[0]
         distances = raw.get("distances", [[]])[0]
-        for text, meta, dist in zip(docs, metas, distances):
+        for text, meta, _dist in zip(docs, metas, distances, strict=False):
             entry = {
                 "text": text,
                 "doc_name": meta.get("doc_name", ""),
@@ -329,7 +330,6 @@ def _attempt_json_repair(json_str: str) -> str | None:
 
 def _parse_course_structure(text: str) -> CourseStructure:
     """Parse JSON course structure from LLM output."""
-    from json_repair import repair_json
 
     # Strip thinking tags
     text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
@@ -366,7 +366,7 @@ def _parse_course_structure(text: str) -> CourseStructure:
         except (json.JSONDecodeError, KeyError, ValueError):
             pass
 
-    raise ValueError(f"Failed to parse course structure JSON")
+    raise ValueError("Failed to parse course structure JSON")
 
 
 async def run_architect(
@@ -432,8 +432,9 @@ When ready to output the final course structure, output ONLY the JSON code block
 
     # Pre-check: validate documents exist before starting the loop.
     # Tenant-scoped — never show documents from other tenants in error messages.
-    from app.core.db import async_session_factory
     from sqlalchemy import text as sa_text
+
+    from app.core.db import async_session_factory
     async with async_session_factory() as session:
         if tenant_id is not None:
             await session.execute(
@@ -532,7 +533,7 @@ When ready to output the final course structure, output ONLY the JSON code block
                         messages.append({"role": "assistant", "content": content})
                         messages.append({"role": "user", "content": f"Error: Unknown tool '{tool_name}'"})
                         continue
-                except (json.JSONDecodeError, AttributeError) as e:
+                except (json.JSONDecodeError, AttributeError):
                     pass  # Fall through to other parsing
 
         # Check for inline tool call
