@@ -4,6 +4,7 @@ import asyncio
 import threading
 from io import BytesIO
 from pathlib import Path
+from tempfile import SpooledTemporaryFile
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
@@ -128,6 +129,25 @@ def test_supabase_put_bytes_calls_upload():
         assert kwargs["path"] == "t/cert.pdf"
         assert kwargs["file"] == b"DATA"
         assert kwargs["file_options"]["content-type"] == "application/pdf"
+
+
+def test_supabase_put_file_materializes_spooled_upload_as_bytes():
+    client, bucket = _make_mock_supabase_client()
+    source = SpooledTemporaryFile(max_size=1024)
+    source.write(b"DOCX-DATA")
+
+    with patch("supabase.create_client", return_value=client):
+        backend = SupabaseStorageBackend(
+            url="https://x.supabase.co", key="key", bucket="documents"
+        )
+        backend.put_file(
+            "tenant/document.docx",
+            source,
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        )
+
+    _, kwargs = bucket.upload.call_args
+    assert kwargs["file"] == b"DOCX-DATA"
 
 
 def test_supabase_get_bytes_returns_downloaded():

@@ -182,14 +182,8 @@ class SupabaseStorageBackend(StorageBackend):
         return key
 
     def put_file(self, key: str, source: BinaryIO, content_type: str = "application/octet-stream") -> str:
-        client = self._get_client()
         source.seek(0)
-        client.storage.from_(self.bucket).upload(
-            path=key,
-            file=source,
-            file_options={"content-type": content_type, "upsert": "true"},
-        )
-        return key
+        return self.put_bytes(key, source.read(), content_type)
 
     def get_bytes(self, key: str) -> bytes | None:
         try:
