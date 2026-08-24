@@ -217,6 +217,7 @@ class SuperadminService:
             slug=slug,
             plan=payload.plan,
             status=payload.status,
+            is_demo=payload.is_demo,
             trial_started_at=now if payload.status == "trial" or payload.plan == "trial" else None,
             trial_ends_at=payload.trial_ends_at,
             paid_until=payload.paid_until,

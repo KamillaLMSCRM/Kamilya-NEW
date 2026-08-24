@@ -78,6 +78,7 @@ class TenantResponse(BaseModel):
     slug: str
     status: str
     plan: str
+    is_demo: bool
     trial_started_at: datetime | None = None
     trial_ends_at: datetime | None
     paid_until: datetime | None
@@ -111,6 +112,7 @@ class TenantCreate(BaseModel):
     slug: str = Field(..., min_length=2, max_length=64, pattern=r"^[a-z0-9-]+$")
     plan: PLAN_NAMES = "trial"
     status: TENANT_STATUSES = "trial"
+    is_demo: bool = False
     trial_ends_at: datetime | None = None
     paid_until: datetime | None = None
     max_users: int | None = Field(None, ge=1)

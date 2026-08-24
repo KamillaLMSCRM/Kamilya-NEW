@@ -16,6 +16,8 @@ from uuid import uuid4
 
 import pytest
 
+from app.models.tenants import Tenant
+
 
 async def _login(client, user, password: str = "Password123!") -> str:
     resp = await client.post(
@@ -128,6 +130,54 @@ async def test_superadmin_create_duplicate_slug_returns_409(
     assert resp.status_code == 201, resp.text
     body = resp.json()
     assert body["tenant"]["slug"] == "duplicate-test-1"
+
+
+@pytest.mark.asyncio
+async def test_superadmin_create_tenant_defaults_is_demo_false_without_first_admin(
+    client, db_session, make_superadmin
+):
+    _, token = await _make_superadmin(client, db_session, make_superadmin)
+    headers = {"Authorization": f"Bearer {token}"}
+
+    resp = await client.post(
+        "/api/v1/admin/super/tenants",
+        headers=headers,
+        json={"name": "Default Demo Flag", "slug": "default-demo-flag"},
+    )
+
+    assert resp.status_code == 201, resp.text
+    body = resp.json()
+    tenant = await db_session.get(Tenant, body["tenant"]["id"])
+    assert body["tenant"]["is_demo"] is False
+    assert tenant is not None and tenant.is_demo is False
+    assert body["first_admin"] is None
+    assert body["invite_url"] is None
+
+
+@pytest.mark.asyncio
+async def test_superadmin_create_tenant_persists_explicit_is_demo_true_without_first_admin(
+    client, db_session, make_superadmin
+):
+    _, token = await _make_superadmin(client, db_session, make_superadmin)
+    headers = {"Authorization": f"Bearer {token}"}
+
+    resp = await client.post(
+        "/api/v1/admin/super/tenants",
+        headers=headers,
+        json={
+            "name": "Explicit Synthetic Demo",
+            "slug": "synthetic-explicit-demo",
+            "is_demo": True,
+        },
+    )
+
+    assert resp.status_code == 201, resp.text
+    body = resp.json()
+    tenant = await db_session.get(Tenant, body["tenant"]["id"])
+    assert body["tenant"]["is_demo"] is True
+    assert tenant is not None and tenant.is_demo is True
+    assert body["first_admin"] is None
+    assert body["invite_url"] is None
 
 
 @pytest.mark.asyncio
