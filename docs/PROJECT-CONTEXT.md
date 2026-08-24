@@ -268,3 +268,30 @@ restore и cutover проходят отдельный release-gate.
 4. обновить `PRODUCTION_READINESS.md`, если меняется release gate;
 5. обновить `PRODUCT_BACKLOG.md`, если задача открыта или закрыта;
 6. не создавать отдельный исторический отчёт, дублирующий эти документы.
+
+## Current exact KZ release — 2026-08-24
+
+- `GIT-DERIVED`: backend application release
+  `d17a9206086d8557f797a13563353c406d0ce9f4`; GitHub CI run `32743293275`
+  passed all backend, unit, PostgreSQL 17 + pgvector RLS, release/security,
+  frontend, quality and secrets jobs.
+- `RUNTIME-DERIVED`: VM126 API and all three application workers use
+  `kamilya-api:d17a9206086d`; public and private `/health` report
+  `kz-production` and the full release SHA. All four application containers are
+  running with zero restarts and no error-pattern matches after deployment.
+- `RUNTIME-DERIVED`: live Alembic remains `0131 (head)`. This release did not
+  run a migration and did not change CT125, tenant data, blob data, Valkey,
+  Docling or the frontend. The prior exact release
+  `760eeb72cac972a9ff2b2763d770f9cfc31d15eb` remains available as the rollback
+  image and source directory.
+- `RUNTIME-DERIVED`: the exact-SHA public endpoint verifier passed. A
+  no-credential, no-file probe of `/api/v1/documents/upload` returned the
+  expected HTTP 401 instead of edge HTTP 503 and created no application data.
+  The first authenticated production upload is intentionally deferred to the
+  owner-controlled synthetic tenant rehearsal.
+- `RUNTIME-DERIVED`: the VM126 operational watchdog now expects the exact new
+  SHA and image; its service and timer are successful, enabled and active.
+- `BLOCKED`: the current push-capable GitHub PAT cannot read or update repository
+  Actions Variables (`HTTP 403`), so no provider variable or manual workflow
+  dispatch was changed. Scheduled `production-smoke.yml` does not consume that
+  variable; it continues its independent public endpoint check.

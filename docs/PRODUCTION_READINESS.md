@@ -449,3 +449,37 @@ commission/authorized-decision workflows, KZ PostgreSQL/object storage и
 реальный pawnshop acceptance test. OTP не ЭЦП; generic correction, completion
 и quiz не создают training/knowledge/attestation/admission вне своих trusted
 workflows. Остальной backlog ведётся в [`PRODUCT_BACKLOG.md`](PRODUCT_BACKLOG.md).
+
+## KZ document-upload release acceptance — 2026-08-24
+
+Release verdict: **GO** for backend release
+`d17a9206086d8557f797a13563353c406d0ce9f4`; the first authenticated production
+document/course journey remains a separate owner-controlled synthetic rehearsal.
+
+- `GIT-DERIVED`: GitHub CI run `32743293275` passed all jobs for the exact SHA,
+  including 1,555 backend tests with two skipped, coverage above the required
+  threshold, unit tests, PostgreSQL 17 + pgvector RLS gates, Alembic/Celery and
+  tenant-security contracts, frontend checks, Python quality and secrets scan.
+- `RUNTIME-DERIVED`: VM126 API and all three Celery workers run immutable image
+  `kamilya-api:d17a9206086d`; exact public and private health identify
+  `kz-production` and the full SHA. Application restart counts and bounded
+  post-deploy error-pattern counts are zero.
+- `RUNTIME-DERIVED`: production Alembic remains `0131 (head)`. No migration,
+  tenant, database, blob, Valkey, Docling or frontend mutation was part of this
+  deployment.
+- `RUNTIME-DERIVED`: the public endpoint verifier passed. A no-credential,
+  no-file request to `/api/v1/documents/upload` returned HTTP 401, proving the
+  route is reachable without recreating the former edge HTTP 503 or creating a
+  document. An authenticated production upload was deliberately not submitted.
+- `RUNTIME-DERIVED`: rollback SHA
+  `760eeb72cac972a9ff2b2763d770f9cfc31d15eb`, its image and release directory
+  remain present. Timestamped backups of `compose.yml`, `runtime.env` and the
+  watchdog configuration were retained. Transit archives were removed from the
+  workstation, proxy and VM126.
+- `RUNTIME-DERIVED`: VM126 had about 14 GiB available RAM and 8.8 GiB free disk
+  after deployment. The watchdog expects the new release/image and reports a
+  successful service with its timer enabled and active.
+- `BLOCKED`: the current push-capable GitHub PAT receives HTTP 403 for Actions
+  Variables, so an exact provider variable/readback and manual dispatch were not
+  performed. The scheduled smoke workflow does not use that variable; the exact
+  SHA was independently verified from the workstation and VM126.
