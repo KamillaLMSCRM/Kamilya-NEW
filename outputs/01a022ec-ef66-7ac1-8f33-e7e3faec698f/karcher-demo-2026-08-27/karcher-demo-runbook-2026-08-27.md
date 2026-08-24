@@ -20,7 +20,7 @@
 ## Демонстрационный тенант
 
 - Отображаемое имя: `Керхер — демонстрация 27.08.2026`.
-- Предлагаемый уникальный slug: `demo-karcher-20260827`.
+- Уникальный slug: `synthetic-karcher-demo-20260827`.
 - Тип: одноразовый синтетический dev-тенант.
 - Язык демонстрации: русский.
 - Филиал: `Алматы`.
@@ -84,7 +84,7 @@
 ## Последовательность dev-репетиции
 
 1. Read-only проверить dev health, release identity и доступность трёх blueprint.
-2. Проверить отсутствие существующего активного тенанта со slug `demo-karcher-20260827`.
+2. Проверить отсутствие существующего активного тенанта со slug `synthetic-karcher-demo-20260827`.
 3. Создать одноразовый dev-тенант и синтетического администратора.
 4. Войти в кабинет администратора и проверить базовую навигацию.
 5. Импортировать `karcher-demo-staff-import.xlsx`.
@@ -123,7 +123,11 @@
 
 - `GIT-DERIVED`: blueprint и контракты импорта подтверждены исходным кодом текущего checkout.
 - `GRAPH-DERIVED`: Graphify использован только для навигации; freshness относительно текущего checkout не подтверждена.
-- `NOT VERIFIED`: фактическая доступность blueprint и весь пользовательский сценарий в каноническом dev до репетиции.
+- `PROVIDER-CONFIRMED`: Render dev deploy `dep-da64h2gu01pc7396daeg` стал `live` на commit `5571cca411cc60b23dca9cc26d13dae0db55dc81` 24 августа 2026 года.
+- `RUNTIME-DERIVED`: публичный dev health вернул HTTP 200; два связанных integration-теста superadmin-create прошли на Supabase dev в откатываемых транзакциях.
+- `RUNTIME-DERIVED`: tenant со slug `synthetic-karcher-demo-20260827` в Supabase dev отсутствует; создание не выполнялось.
+- `BLOCKED`: локальный `SUPERADMIN_EMAIL` отсутствует в Supabase dev, где существует один другой superadmin. Повторные попытки входа и credential guessing запрещены. Для создания tenant требуется актуальный dev superadmin credential либо отдельное точное разрешение создать новую dev-only platform-superadmin учётную запись.
+- `NOT VERIFIED`: authenticated runtime-каталог blueprint, импорт сотрудников и пользовательский smoke до восстановления superadmin-доступа.
 - `BLOCKED`: создание production-тенанта до отдельного решения владельца после dev-проверки.
 
 Результат репетиции фиксируется как `GO`, `CONDITIONAL GO` или `NO-GO` с точным перечнем пройденных шагов, отклонений, очистки и оставшихся gates.
