@@ -217,3 +217,46 @@ awaiting Google policy review; the logo remains blocked only by the deterministi
 file-input route. The next safe action is a read-only policy/status check for the
 two edited RSAs and six sitelinks, followed by normal read-only spend, search-term
 and conversion monitoring.
+
+## Company logo execution outcome, 2026-08-24
+
+The previous `LOGO_FILE_INPUT_ROUTE_BLOCKED` state was resolved after the
+supported Chrome file-chooser API became available. With fresh owner
+confirmation at the final publication gate, exactly one existing Kamilya
+site-derived logo was uploaded and saved:
+
+- source file:
+  `docs/marketing/google-ads-assets-2026-08-24/kamilya-logo-mark-1200.png`;
+- dimensions: 1200 x 1200 pixels;
+- size: 54,432 bytes;
+- SHA-256:
+  `4EEAC7A634B7C5A2EB316BC150B78D75CB12E4100CBEEBB7FF518537326CA1B1`;
+- provenance: deterministic export of the existing Kamilya website mark, not
+  generated imagery.
+
+The pre-save Google Ads form readback showed association level `Campaign` and
+the exact campaign `KZ | HR | Search | RU`. The alternative `Account` level was
+visible but not selected. Visual preview confirmed that the K mark was complete
+and not materially cropped or distorted. The object picker contained one
+selected logo and the two required Save operations were each performed once.
+
+Immediate live association readback showed exactly one company-logo row:
+
+- asset type: Company logo;
+- destination: `KZ | HR | Search | RU`;
+- level: Campaign;
+- resource state: Enabled;
+- policy state: Under review;
+- added by: Advertiser;
+- Google Ads last-update timestamp: 24 August 2026, 12:48 GMT+05;
+- table count: 1 of 1.
+
+No account-level or `KZ | B2B LMS | Search | RU` logo association was created.
+No product screenshot or generated image was uploaded. No RSA, sitelink,
+keyword, GTM, conversion, budget, bid, date, status, network, geo, language or
+schedule setting was changed during this logo operation.
+
+Readiness remains `PARTIALLY READY` until Google completes policy review of the
+new logo and the six sitelinks, and until the separately documented conversion
+processing issue is resolved. The next action is read-only policy/status and
+conversion monitoring; no additional creative or tracking mutation is implied.
