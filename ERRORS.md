@@ -604,6 +604,61 @@ open, also record status, safe interim path, and review condition.
 - Prevention: changes to operational documentation language must update and run
   every machine-readable documentation contract before push.
 
+## TOOL-003 - Skill validator dependency was absent from available Python runtimes
+
+- Date: 2026-08-23.
+- Symptom: `quick_validate.py` failed twice with
+  `ModuleNotFoundError: No module named 'yaml'`, first under the default Python and
+  then under the bundled Codex Python runtime.
+- Cause: the validator imports PyYAML, but neither selected runtime provided that
+  tool dependency. Repeating the command with another unqualified interpreter did
+  not change the dependency set.
+- Fix: the completed skill review first used a fail-closed PowerShell contract check
+  plus independent semantic review. PyYAML `6.0.3` was then qualified against the
+  official PyPI project and canonical signed GitHub release and installed from a
+  binary wheel with `--only-binary=:all:` and `--no-deps` into the isolated
+  `%USERPROFILE%\.codex\tool-envs\kamilya-agent-tools` environment. It was not
+  added to Kamilya application dependencies or a shared Python runtime.
+- Verification: both original Python attempts reproduced the exact import error;
+  the bounded replacement contract returned `PASS`; the independent reviewer
+  returned `READY`; the isolated environment reported PyYAML `6.0.3`; and the
+  original `quick_validate.py` command returned `Skill is valid!`.
+- Status: resolved. The reproducible tool dependency is pinned in
+  `.codex/tooling/requirements.txt`, with discovery and invocation documented in
+  `.codex/tooling/TOOLS.md`.
+- Prevention: inspect a helper's imports before first use. When a missing reputable
+  package materially improves repeatable work, verify provenance, version,
+  install hooks, vulnerabilities, license, and dependency conflicts, then install
+  it in an isolated tool environment and rerun the original command. Record the
+  pinned desired state and safe usage in `.codex/tooling/`; verify live availability
+  instead of assuming the manifest was installed. Do not repeat interpreters with
+  the same unresolved dependency set.
+
+## AGENT-001 - A blocked claim incorrectly became the overall reconciliation status
+
+- Date: 2026-08-23.
+- Symptom: two blind forward-test scenarios correctly verified available Git or
+  provider evidence and correctly left production runtime unverified, but returned
+  overall `CURRENT STATUS: BLOCKED` instead of `PARTIALLY VERIFIED`.
+- Cause: `kamilya-evidence-reconciliation` listed the allowed overall status values
+  without defining mutually exclusive selection criteria. Agents propagated one
+  per-claim `BLOCKED` condition to the whole reconciliation even when other
+  decision-relevant claims were independently verified.
+- Fix: define `VERIFIED`, `PARTIALLY VERIFIED`, and `BLOCKED` separately in the
+  skill. `PARTIALLY VERIFIED` now covers mixed verified and unresolved/conflicting
+  claims; overall `BLOCKED` is reserved for a named condition that prevents
+  verification of every decision-relevant in-scope claim.
+- Verification: the canonical skill validator returned `Skill is valid!`. Fresh
+  isolated Luna agents, without prior conversation or expected answers, reran the
+  access-gap and conflicting-handoff fixtures and both returned
+  `PARTIALLY VERIFIED`, preserved the exact unresolved frontier, used valid evidence
+  labels, and performed no mutation. The complete-evidence fixture had already
+  returned `VERIFIED`.
+- Status: resolved.
+- Prevention: every skill output enum must define selection semantics, not only
+  allowed values. Forward-test at least complete, partially available, access-gap,
+  and conflicting-evidence cases with fresh isolated agents before activation.
+
 ## GIT-001 - Direct push ignored the valid repository token and opened an interactive path
 
 - Date: 2026-08-23.
@@ -629,3 +684,28 @@ open, also record status, safe interim path, and review condition.
   expired token from `/dev/tty`, missing persisted `gh` login, or prompt failure.
   Do not switch to browser/device login when token-only access is required. Never
   put a token in a command argument, URL, helper file, Git config, log, or document.
+
+## GIT-002 - Landing push used the LMS repository token instead of the landing token
+
+- Date: 2026-08-24.
+- Symptom: the exact landing release push failed with GitHub HTTP 403 `Write
+  access to repository not granted`, although the landing repository had its own
+  valid token.
+- Cause: generic credential discovery checked standard `GITHUB_TOKEN` names in
+  workspace and LMS environment files but did not resolve the landing repository's
+  project-local variable names. It therefore selected the LMS token, which had no
+  write authority for `KamillaLMSCRM/kamilya-landing`.
+- Fix: use `github_landing_token` and `vercel_landing_token` only from
+  `C:\Kamilya New\kamilya-landing\.env.local` for landing GitHub and Vercel
+  operations. Keep `Kamilya-NEW\.env` credentials scoped to the main repository.
+- Verification: the same fast-forward push method, using the process-local landing
+  token without exposing it in arguments or output, pushed exact commit
+  `35f7184be0a8512e8b94428f271390abd4864fc4` to landing `master`. Vercel then
+  created production deployment `dpl_BNYDLCvETP2phjc8tebMCu2VRiRi` from that
+  exact Git SHA.
+- Status: resolved.
+- Prevention: resolve credentials by repository and canonical variable name before
+  every provider mutation. Never scan backup or neighboring environment files,
+  never substitute another repository's token, and stop after an authorization
+  error until the credential source is reconciled. Keep token values process-local
+  and out of command arguments, URLs, logs, documents, and Git configuration files.

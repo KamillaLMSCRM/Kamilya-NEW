@@ -1,7 +1,7 @@
 # Kamilya LMS: текущий контекст проекта
 
 > Living document. Значения секретов здесь не хранятся.
-> Обновлено: 2026-08-06.
+> Обновлено: 2026-08-17.
 
 ## Источники правды
 
@@ -18,6 +18,7 @@
 | Доступ и сервисы VPS | [`VPS_CONNECTION_GUIDE.md`](VPS_CONNECTION_GUIDE.md) |
 | Backup и restore | [`BACKUP_RESTORE_RUNBOOK.md`](BACKUP_RESTORE_RUNBOOK.md) |
 | OCR и KZ infrastructure migration | [`INFRA_KZ_OCR_MIGRATION_ANALYSIS.md`](INFRA_KZ_OCR_MIGRATION_ANALYSIS.md) |
+| Подтверждённые ошибки и профилактика | [`ERRORS.md`](../ERRORS.md) |
 | Правила для агентов | [`AGENTS.md`](../AGENTS.md) |
 
 Старые планы, аудиты, отчёты веток и ТЗ не являются источниками текущего
@@ -28,7 +29,8 @@
 | Контур | Текущее размещение |
 |---|---|
 | Monorepo | `KamillaLMSCRM/Kamilya-NEW`, branch `master` |
-| Frontend | Next.js, Vercel, `https://app.kml.kz` |
+| Production frontend | Next.js, Vercel project `web`, branch `master`, `https://app.kml.kz` |
+| Dev frontend | Vercel project `kamilya-lms-dev`, branch `dev`, `https://kamilya-lms-dev.vercel.app` |
 | API | FastAPI, Render, `https://kamilya-lms-api.onrender.com` |
 | PostgreSQL/pgvector | Supabase, общий dev/test и controlled-pilot контур |
 | Object storage | Supabase Storage, общий dev/test и controlled-pilot контур |
@@ -44,10 +46,158 @@
 PostgreSQL и object storage в Казахстане; параметры подключения, backup,
 restore и cutover проходят отдельный release-gate.
 
-## Текущий проверенный release
+## Карта окружений и доступов
 
-На 2026-08-06 application release
-`c4a5eb8bf58989eff4f4338272dc68941bd416bd` находится в production:
+Этот раздел — краткий канонический ответ на вопросы «где взять доступ» и
+«через какой узел идёт запрос». Значения токенов, паролей, private keys и DB URL
+здесь не хранятся.
+
+### Vercel
+
+Vercel account/team: user `kamillalmscrm`, team
+`kamillalmscrms-projects` (`team_EknCOCWEL771BUDea5UFM2Ba`).
+
+| Назначение | Project | Git branch | Domain/alias | Backend сейчас |
+|---|---|---|---|---|
+| Production frontend | `web` (`prj_hJMzgp9QNFCwUMrsDEBZINpJJzBp`) | `master` | `app.kml.kz` | KZ production API `https://api.kml.kz/api` |
+| Dev frontend | `kamilya-lms-dev` (`prj_JN1xM4BMmhoHzDt6joPaCBXvOSLk`) | `dev` | `kamilya-lms-dev.vercel.app` | KZ staging `https://api.kml.kz/api` |
+
+Канонический источник API-токена — корневой `.env`, имя `vercel_token`.
+
+Для отдельного репозитория публичного лендинга provider credentials берутся
+только из `C:\Kamilya New\kamilya-landing\.env.local`: GitHub token имеет имя
+`github_landing_token`, Vercel token — `vercel_landing_token`. Не подменять их
+`GITHUB_TOKEN` или Vercel credentials из `Kamilya-NEW`; перед mutation проверять
+только наличие нужного имени без вывода значения.
+Наличие одноимённой переменной в другом локальном env-файле не меняет источник
+и не разрешает перебирать старые файлы.
+Алгоритм работы агента:
+
+1. проверить наличие имени переменной, не печатая значение;
+2. загрузить значение в память процесса и использовать Vercel REST API с
+   authorization header, а не передавать token в URL/CLI arguments;
+3. перед мутацией прочитать project id, Git repository, production branch,
+   domains, env targets и последний deployment;
+4. после мутации повторно прочитать те же поля и проверить deployment exact
+   SHA, состояние `READY` и HTTP/business smoke;
+5. не использовать локальный `.vercel/project.json` как доказательство
+   правильного проекта и не выполнять `vercel link` вслепую.
+
+Dev project собирает только ветку `dev`; custom domain не назначен. Production
+project `web`, его branch `master` и `app.kml.kz` нельзя менять в рамках dev
+задачи. Dev deployment содержит только committed Git SHA: dirty worktree в
+Vercel не попадает.
+
+Зона `kml.kz` использует authoritative nameservers Cloudflare
+`sureena.ns.cloudflare.com` и `syeef.ns.cloudflare.com`. Vercel verified domain
+не означает управление DNS-записями: Vercel DNS records для зоны пусты. DNS
+нужно менять только через подтверждённый Cloudflare account/API.
+
+### Управляющие каналы VPS и Proxmox
+
+| Target | Канонический источник доступа | Назначение и граница |
+|---|---|---|
+| Public proxy VPS, reachable target `92.38.49.167` | `C:\Kamilya New\.env`: `PROXY_VPS_HOST`, `PROXY_VPS_LOGIN`, `PROXY_VPS_PASSWORD` | SSH к proxy; target и host key проверяются до auth, пароль не выводится и не передаётся аргументом |
+| Proxmox API | корневой `.env`: `VPS_URL`, `PVE_API_TOKEN_ID`, `PVE_API_TOKEN_SECRET` | VM/CT metadata и только явно разрешённые API/QGA operations; не является guest SSH |
+| Legacy/общий VPS доступ | корневой `.env`: `VPS_LOGIN`, `VPS_PASSWORD`, `vps_root_password` | использовать только после точного сопоставления target; не подставлять для proxy/VM126/CT125 по догадке |
+| Guest VM126/CT125 | подтверждённый host-specific SSH/WireGuard path | routine administration; если путь не подтверждён, это access gap, а не разрешение искать пароль |
+
+Состояние на 18.08.2026: SSH-аутентификация к public proxy подтверждена,
+`wg-quick@wg0` active, `10.77.77.2:8000/health` отвечает 200. На proxy создан
+host-specific key `/root/.ssh/kamilya-vm126-admin`; через однократный
+Proxmox/QGA bootstrap его public key установлен непривилегированному
+пользователю `kamilya-admin` на VM126. Цепочка proxy ->
+`kamilya-admin@10.77.77.2` с проверкой host key и `sudo -n` подтверждена.
+`PermitRootLogin no` сохранён, ненужная копия ключа из root authorized_keys
+удалена. Routine administration выполняется по SSH/WireGuard; console и QGA
+остаются recovery/bootstrap-каналами, а не обычным способом deployment.
+
+После двух последовательных ошибок одного доступа агент останавливается по
+правилу `AGENTS.md`. Запрещено проверять старые `.env`, backup-файлы, соседние
+репозитории, другие логины/пароли/порты или обходить host-key verification.
+Встроенная Proxmox console/noVNC допускается только для явно разрешённого
+bootstrap/recovery; она не является обычным способом deployment.
+
+Историческое provider-имя `vds36463.vpsza500.kz` на 17.08.2026 возвращает
+NXDOMAIN. Рабочий SSH/HTTP target берётся из `PROXY_VPS_HOST`; нельзя снова
+переключаться на неразрешаемое имя. На 18.08.2026 новый Proxmox API token
+подтверждён чтением VM126 и QGA `agent/info`; значения token id/secret в
+документации и логах не сохраняются.
+
+### Трафик: текущее состояние
+
+```text
+Production browser
+  -> app.kml.kz
+  -> Vercel project web / master
+  -> https://api.kml.kz/api
+  -> proxy Nginx / TLS
+  -> WireGuard -> VM126 FastAPI/workers/Valkey/file runtime
+  -> private DB path -> CT125 PostgreSQL/pgvector
+
+Dev browser
+  -> kamilya-lms-dev.vercel.app
+  -> Vercel project kamilya-lms-dev / dev
+  -> https://api.kml.kz/api
+  -> proxy Nginx / exact CORS allowlist
+  -> WireGuard -> VM126 FastAPI
+
+KZ production management/ingress path
+  -> public proxy VPS (TLS/Nginx + WireGuard hub 10.77.77.1)
+  -> WireGuard
+  -> VM126 / 10.77.77.2:8000
+       API + Celery workers + Valkey + local file runtime
+  -> private DB path
+  -> CT125: native PostgreSQL 17 + pgvector + encrypted backup
+```
+
+Для KZ production подтверждены API/worker/broker/file runtime на VM126 и database,
+RLS, backup/restore на CT125. На proxy добавлен отдельный virtual host
+`api.kml.kz`, который через WireGuard проксирует на `10.77.77.2:8000`.
+17.08.2026 в authoritative Cloudflare создан DNS-only A-record на proxy,
+выпущен сертификат Let's Encrypt, открыт HTTPS listener `443`, HTTP настроен на
+redirect и внешний HTTPS `/health` вернул 200. После tenant/business smoke и
+подготовки rollback production environment Vercel project `web` переключён на
+`https://api.kml.kz/api`; новый deployment `dpl_5fYKAQhbzgDT3PfpmtvopJq8hre5`
+имеет состояние `READY` и собран из того же exact SHA
+`69ef25c3383ddd35443e621618c640d708c867ba`, что и предыдущий frontend.
+Render/Supabase остаются dev/demo-контуром и не являются production backend
+для `app.kml.kz`.
+
+### Действующая production-схема после cutover 2026-08-17
+
+Vercel можно сохранить как frontend. После подтверждённого cutover меняется
+только backend destination конкретного Vercel environment:
+
+```text
+app.kml.kz on Vercel
+  -> отдельный публичный API hostname с TLS на proxy VPS
+  -> proxy Nginx
+  -> WireGuard 10.77.77.1 -> 10.77.77.2:8000
+  -> VM126 API/workers/storage runtime
+  -> CT125 PostgreSQL/pgvector по private-only DB path
+```
+
+Cutover подтверждён внешним `/health`, production login bundle, API login,
+`/users/me`, courses, documents, training log и staff-structure smoke под
+контролируемой учётной записью tenant `too-lombard-sandyk`. CT125 имеет schema
+head `0111`, private runtime roles без SUPERUSER/BYPASSRLS и активный ежедневный
+encrypted backup. Render/Supabase сохранены как dev/demo-контур и rollback
+destination; смешивать их очереди, данные или storage с KZ production нельзя.
+
+19.08.2026 отдельно подтверждён candidate assessment production flow. Vercel
+frontend содержит manager/public candidate routes на SHA `7b44f11`; VM126 API и
+workers работают на image `kamilya-api:db797fd`, CT125 остаётся на `0111`.
+Полный disposable journey на опубликованном release tenant Sandyk прошёл от
+создания кампании и protected link/PIN до consent, результата и CSV; candidate
+не создаёт staff user. Все synthetic записи после проверки удалены. Candidate
+retention timer включён, активен и имеет последний успешный recovery run.
+
+## Исторический Render/Supabase baseline (dev/demo fallback)
+
+Application release `c4a5eb8bf58989eff4f4338272dc68941bd416bd`
+был production baseline на 2026-08-06 и после KZ cutover сохранён только как
+историческая dev/demo/rollback-точка:
 
 - GitHub CI `31092967471` passed; production smoke `31092967755` passed;
 - Vercel deployment `dpl_AYjE7QGd1n9hRv5tARDfvYx1WUAP` READY;
@@ -263,3 +413,20 @@ restore и cutover проходят отдельный release-gate.
 4. обновить `PRODUCTION_READINESS.md`, если меняется release gate;
 5. обновить `PRODUCT_BACKLOG.md`, если задача открыта или закрыта;
 6. не создавать отдельный исторический отчёт, дублирующий эти документы.
+## Current exact KZ release — 2026-08-22
+
+- `GIT-DERIVED`: application release
+  `c8381617bb510909f5a97e9de244744eee31db30`; GitHub CI run `32564167526`
+  passed.
+- `PROVIDER-CONFIRMED`: production Vercel project `web` and dev project
+  `kamilya-lms-dev` both have `READY` deployments from that SHA. The dev
+  frontend remains a separate Vercel branch deployment, but it uses the shared
+  KZ `api.kml.kz` backend and is not an isolated hosted backend contour.
+- `RUNTIME-DERIVED`: VM126 API and all three application workers use
+  `kamilya-api:c8381617bb5`; `/health` reports `kz-production` and the full
+  release SHA. Alembic is `0122`; PostgreSQL is 17.11, pgvector is 0.8.6, and
+  runtime role `lms_app` has neither SUPERUSER nor BYPASSRLS.
+- `RUNTIME-DERIVED`: FORCE RLS is enabled on all 77 RLS tables. Signed restore,
+  offsite checksum/immutability and disposable three-tenant pentest gates pass;
+  all restore and pentest disposable databases/containers/images/temp files
+  were removed.
