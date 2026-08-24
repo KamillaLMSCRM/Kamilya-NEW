@@ -10,6 +10,7 @@ Supabase in dev are not fatal — they fall back to local with a warning log.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import shutil
 from abc import ABC, abstractmethod
@@ -77,6 +78,16 @@ class StorageBackend(ABC):
     def name(self) -> str:
         """Backend identifier for logging/diagnostics."""
         ...
+
+
+async def put_file_async(
+    backend: StorageBackend,
+    key: str,
+    source: BinaryIO,
+    content_type: str = "application/octet-stream",
+) -> str:
+    """Run a synchronous storage upload without blocking the API event loop."""
+    return await asyncio.to_thread(backend.put_file, key, source, content_type)
 
 
 # ── Local filesystem backend ───────────────────────────────

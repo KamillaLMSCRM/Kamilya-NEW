@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import require_role, require_tenant_user
 from app.core.db import get_db
-from app.core.storage import get_storage
+from app.core.storage import get_storage, put_file_async
 from app.models.ai_job import AIJob
 from app.models.document import Document
 from app.modules.ai.job_service import create_ai_job
@@ -667,7 +667,7 @@ async def upload_document(
         )
         try:
             await file.seek(0)
-            get_storage().put_file(s3_key, file.file, content_type)
+            await put_file_async(get_storage(), s3_key, file.file, content_type)
             blob_persisted = True
         except Exception as exc:
             await db.rollback()

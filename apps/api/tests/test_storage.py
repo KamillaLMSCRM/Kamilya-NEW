@@ -1,5 +1,8 @@
 """Tests for storage abstraction — local and Supabase backends."""
 
+import asyncio
+import threading
+from io import BytesIO
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
@@ -11,6 +14,7 @@ from app.core.storage import (
     StorageUnavailableError,
     SupabaseStorageBackend,
     get_storage,
+    put_file_async,
     reset_storage_for_tests,
 )
 
@@ -72,6 +76,44 @@ def _make_mock_supabase_client():
     bucket = MagicMock()
     client.storage.from_.return_value = bucket
     return client, bucket
+
+
+def test_put_file_async_offloads_blocking_backend():
+    started = threading.Event()
+    release = threading.Event()
+    caller_thread = threading.get_ident()
+    worker_thread = None
+
+    class BlockingBackend:
+        def put_file(self, key, source, content_type):
+            nonlocal worker_thread
+            worker_thread = threading.get_ident()
+            started.set()
+            assert release.wait(timeout=1)
+            assert source.read() == b"DATA"
+            return key
+
+    async def scenario():
+        task = asyncio.create_task(
+            put_file_async(
+                BlockingBackend(),
+                "tenant/document.docx",
+                BytesIO(b"DATA"),
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            )
+        )
+        for _ in range(100):
+            if started.is_set():
+                break
+            await asyncio.sleep(0.001)
+        assert started.is_set()
+        assert task.done() is False
+        release.set()
+        assert await task == "tenant/document.docx"
+
+    asyncio.run(scenario())
+    assert worker_thread is not None
+    assert worker_thread != caller_thread
 
 
 def test_supabase_put_bytes_calls_upload():
