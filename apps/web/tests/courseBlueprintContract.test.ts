@@ -48,6 +48,8 @@ describe('finance course blueprint contract', () => {
     expect(blueprintPage).toContain('firstMissingAnswer');
     expect(blueprintPage).toContain("t('courses.blueprint.whyLabel')");
     expect(blueprintPage).toContain("t('courses.blueprint.showExample')");
+    expect(blueprintPage).toContain('item.example_answer');
+    expect(blueprintPage).not.toContain('>{item.answer_placeholder}</p>');
     expect(blueprintPage).toContain("t('courses.blueprint.documentsOptional')");
     expect(blueprintPage).toContain('disabled={saving || !allRequiredComplete}');
     expect(blueprintPage).toContain('onClick={() => void save(false)}');

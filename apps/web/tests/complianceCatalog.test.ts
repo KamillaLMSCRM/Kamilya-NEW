@@ -26,10 +26,13 @@ describe('compliance blueprint catalogue UI contract', () => {
     expect(coursesPage).toContain('LoadError');
   });
 
-  it('renders server-provided adaptation labels, placeholders, and compliance metadata', () => {
+  it('renders distinct server-provided examples, placeholders, and compliance metadata', () => {
     expect(blueprintPage).toContain('item.title');
     expect(blueprintPage).toContain('item.description');
     expect(blueprintPage).toContain('item.answer_placeholder');
+    expect(blueprintPage).toContain('item.example_answer');
+    expect(blueprintPage).toContain('ring-warning/40');
+    expect(blueprintPage).not.toContain('>{item.answer_placeholder}</p>');
     expect(blueprintPage).toContain('blueprint.compliance_mode');
     expect(blueprintPage).toContain('blueprint.applicability');
     expect(blueprintPage).toContain('blueprint.limitations.map');

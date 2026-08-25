@@ -31,6 +31,7 @@ interface ChecklistItem {
   description: string;
   required: boolean;
   answer_placeholder: string;
+  example_answer: string;
 }
 
 interface CourseBlueprint {
@@ -343,7 +344,7 @@ function BlueprintPageContent() {
               <label className="block" htmlFor={`blueprint-answer-${item.id}`}>
                 <span className="flex flex-wrap items-center gap-2">
                    <span className="font-semibold">{item.title}</span>
-                   <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${item.required ? 'bg-warning/10 text-warning-foreground' : 'bg-muted text-muted-foreground'}`}>{item.required ? t('courses.blueprint.requiredLabel') : t('courses.blueprint.optionalLabel')}</span>
+                   <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${item.required ? 'bg-warning/20 text-foreground ring-1 ring-inset ring-warning/40' : 'bg-muted text-muted-foreground'}`}>{item.required ? t('courses.blueprint.requiredLabel') : t('courses.blueprint.optionalLabel')}</span>
                 </span>
                 <span className="mt-2 block text-sm text-muted-foreground">
                   <strong className="font-medium text-foreground">{t('courses.blueprint.whyLabel')}:</strong>{' '}
@@ -352,7 +353,7 @@ function BlueprintPageContent() {
                </label>
                <details className="mt-3 text-sm text-muted-foreground">
                  <summary className="cursor-pointer font-medium text-primary">{t('courses.blueprint.showExample')}</summary>
-                 <p className="mt-2 rounded-lg bg-muted/50 p-3">{item.answer_placeholder}</p>
+                 <p className="mt-2 rounded-lg border border-primary/10 bg-primary/5 p-3 text-foreground">{item.example_answer}</p>
                </details>
                <textarea
                 id={`blueprint-answer-${item.id}`}

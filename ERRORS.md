@@ -1,6 +1,6 @@
 # Error and Recurrence Prevention Log
 
-Current as of: 2026-08-24.
+Current as of: 2026-08-25.
 
 This is the single operational log for confirmed Kamilya LMS workflow errors,
 invalid assumptions, fixes, verification, and recurrence prevention. Open product
@@ -819,3 +819,20 @@ open, also record status, safe interim path, and review condition.
 **Recovery:** a guarded tenant-scoped transaction verified exact unit/position IDs, zero employees/courses/children on the obsolete rows, four employees on the retained rows and 13 active enrollments. It deleted only the two empty legacy roots and four empty duplicate positions, then converted the two occupied units to `branch`. Independent API readback passed: 2 branches, 0 legacy roots, 4 positions, 4 employees, 13 active assignments and 1 completion.
 
 **Prevention:** add a DB-backed regression where an analyzed workbook matches legacy roots by name, corrections rename them, commit must reuse the original unit IDs, set `unit_type=branch` and `legacy_root=false`, and must not duplicate positions. Until that test and code fix land, do not trust proposal action `update` as proof of commit behavior; require post-commit tree readback and a guarded cleanup plan.
+
+## TOOL-004 - Whole-file formatter expanded a narrow legacy-file change
+
+- Date: 2026-08-25.
+- Symptom: `ruff format` changed hundreds of pre-existing lines in
+  `blueprint_catalog.py` while formatting a small checklist-contract patch.
+- Cause: the legacy file was not Ruff-formatted as a whole; running the mutating
+  formatter on the entire file was incorrectly treated as a safe narrow fix.
+- Fix: reconstruct the clean `HEAD` text in memory and reapply only the owned
+  `example_answer` contract, examples, and call-site changes. No user or unrelated
+  worktree content was overwritten because the file was clean before this task.
+- Verification: exact-path diff review shows only the intended checklist/UI/test
+  changes; focused backend/frontend tests, Ruff check, typecheck, and build pass.
+- Prevention: on a legacy file, inspect formatter scope before mutation. If
+  `ruff format --check <file>` reports pre-existing whole-file drift, do not run the
+  mutating formatter as part of an unrelated patch; keep the owned hunk formatted
+  manually and use Ruff lint plus exact diff review.

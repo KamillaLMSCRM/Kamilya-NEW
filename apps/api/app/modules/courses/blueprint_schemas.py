@@ -15,6 +15,7 @@ class BlueprintChecklistItemResponse(BaseModel):
     description: str
     required: bool = True
     answer_placeholder: str
+    example_answer: str
 
 
 class BlueprintLegalBasisResponse(BaseModel):

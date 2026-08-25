@@ -32,6 +32,11 @@ def test_compliance_catalog_has_four_stable_localized_blueprints(locale: str) ->
         assert payload["checklist"]
         assert all(checklist_item["title"] for checklist_item in payload["checklist"])
         assert all(checklist_item["answer_placeholder"] for checklist_item in payload["checklist"])
+        assert all(checklist_item["example_answer"] for checklist_item in payload["checklist"])
+        assert all(
+            checklist_item["example_answer"] != checklist_item["answer_placeholder"]
+            for checklist_item in payload["checklist"]
+        )
 
 
 def test_finance_overlay_has_universal_base_without_id_collision() -> None:
@@ -44,10 +49,13 @@ def test_finance_overlay_has_universal_base_without_id_collision() -> None:
     assert finance["id"] in BLUEPRINT_IDS
 
 
-@pytest.mark.parametrize("blueprint_id", [
-    "kz-occupational-safety-induction",
-    "kz-fire-safety-instruction",
-])
+@pytest.mark.parametrize(
+    "blueprint_id",
+    [
+        "kz-occupational-safety-induction",
+        "kz-fire-safety-instruction",
+    ],
+)
 def test_practical_and_workplace_gates_are_explicit(blueprint_id: str) -> None:
     for locale in ("ru", "kk"):
         blueprint = get_blueprint(locale, blueprint_id=blueprint_id)
