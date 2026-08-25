@@ -312,7 +312,7 @@ async def test_unenroll_cancels_manual_enrollment_and_revokes_access():
     await unenroll(db, uuid4(), tenant)
 
     db.delete.assert_not_called()
-    assert enrollment.status == "cancelled"
-    assert db.execute.await_count == 3
+    assert db.execute.await_count == 4
     assert "assignment_access_credentials" in str(db.execute.await_args_list[1].args[0])
     assert "enrollment_access_policies" in str(db.execute.await_args_list[2].args[0])
+    assert "UPDATE enrollments" in str(db.execute.await_args_list[3].args[0])

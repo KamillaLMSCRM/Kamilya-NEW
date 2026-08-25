@@ -366,7 +366,14 @@ async def unenroll(db: AsyncSession, enrollment_id: UUID, tenant_id: UUID) -> No
             )
             .values(revoked_at=now, revoked_reason="Enrollment cancelled by methodologist")
         )
-        enrollment.status = "cancelled"
+        await db.execute(
+            update(Enrollment)
+            .where(
+                Enrollment.id == enrollment.id,
+                Enrollment.tenant_id == tenant_id,
+            )
+            .values(status="cancelled")
+        )
 
 
 async def get_course_enrollment_stats(db: AsyncSession, course_id: UUID, tenant_id: UUID) -> dict:
