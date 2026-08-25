@@ -119,7 +119,7 @@
 - Возникает риск изменения production, Sandyk или другого реального тенанта.
 - Для продолжения требуется новая внешняя, production или destructive mutation.
 
-## Evidence и решение
+## Плановый evidence baseline до выполнения
 
 - `GIT-DERIVED`: blueprint и контракты импорта подтверждены исходным кодом текущего checkout.
 - `GRAPH-DERIVED`: Graphify использован только для навигации; freshness относительно текущего checkout не подтверждена.
@@ -131,6 +131,117 @@
 - `BLOCKED`: создание production-тенанта до отдельного решения владельца после dev-проверки.
 
 Результат репетиции фиксируется как `GO`, `CONDITIONAL GO` или `NO-GO` с точным перечнем пройденных шагов, отклонений, очистки и оставшихся gates.
+
+## Исторический dev outcome 24 августа 2026 года
+
+Этот раздел фиксирует завершённый dev-этап и не является текущим production-статусом. Текущий controlling outcome приведён ниже в разделе `Итог production-подготовки от 25.08.2026`.
+
+- `OWNER-CONFIRMED`: разрешено использовать существующие локальные
+  `SUPERADMIN_EMAIL` и `SUPERADMIN_PASSWORD` для отдельной dev-only
+  platform-superadmin учётной записи; значения не раскрывались и не менялись.
+- `RUNTIME-DERIVED`: dev platform-superadmin создан в канонической Supabase dev
+  на Alembic `0131`; `/api/v1/auth/superadmin-login` вернул HTTP 200, роль
+  `superadmin`, `tenant_id = null`, access token и защищённую refresh cookie.
+- `RUNTIME-DERIVED`: создан tenant
+  `synthetic-karcher-demo-20260827`, ID
+  `e0e73551-c109-4bd7-941c-58224bc38f8e`, `is_demo = true`, plan/status
+  `trial`, лимит 10 пользователей. `first_admin` и invite не создавались.
+- `RUNTIME-DERIVED`: authenticated catalog содержит все три выбранных blueprint
+  версии `2026.1`; финансовый blueprint существует, но в демо не использован.
+- `RUNTIME-DERIVED`: staff import preview показал `4 create / 0 update / 0
+  invalid`; commit создал 4 users, 2 departments и 4 positions. Табельные номера
+  `KD-001` -- `KD-004` совпали, invitation count равен 0.
+- `RUNTIME-DERIVED`: три blueprint инстанцированы с readiness 100%, прошли
+  review, опубликованы и имеют immutable release:
+  - ИБ: `7b8866b6-993a-4de5-a7d5-b131b53e216c`;
+  - охрана труда: `e1a78840-49a4-40b2-96cc-cba40d60971e`;
+  - пожарная безопасность: `cd56b54c-a715-41da-a39c-5ca136370b21`.
+- `RUNTIME-DERIVED`: каждый общий курс назначен всем четырём сотрудникам через
+  `personal_link`; подтверждены 12 enrollments, `source = manual`, notification
+  fields пусты, invitation count равен 0.
+- `RUNTIME-DERIVED`: из подготовленного должностного профиля создан безопасный
+  manual fallback-курс «Онбординг сервисного инженера: безопасная работа с
+  сервисной заявкой», ID `69c3eb4f-633e-4966-9aed-3fb3ad3857f2`: 3 модуля,
+  6 уроков, quiz `ef04d006-3662-4a38-b0f7-6063e8b19518` с 4 вопросами и
+  12 вариантами. Курс не AI-generated, содержит обязательный disclaimer, прошёл
+  review, опубликован и назначен `KD-003` и `KD-004` через `personal_link`.
+- `RUNTIME-DERIVED`: итог tenant -- 4 synthetic users, 4 published courses,
+  14 enrollments, 0 invitations. Временные access URL/PIN не выпускались.
+- `PROVIDER-CONFIRMED`: Render dev получил `SUPABASE_URL` и
+  `STORAGE_BACKEND=supabase` без замены остальных env vars; deploy
+  `dep-da64vaijobas738jbfqg` стал `live` на exact commit
+  `5571cca411cc60b23dca9cc26d13dae0db55dc81`. Публичный health вернул HTTP 200.
+- `RUNTIME-DERIVED`: прямой disposable Supabase Storage probe тем же SDK,
+  bucket и DOCX прошёл upload/existence/delete, после cleanup объект отсутствует.
+- `RUNTIME-DERIVED`: исправление multipart upload развёрнуто в Render dev deploy
+  `dep-da65lku1egvs73a4rucg` на exact commit
+  `c7e15486afabb1b7eef2ef387c4a7990d5816ab3`. Единственный контрольный DOCX
+  upload вернул HTTP 201; FORCE-RLS-aware readback подтвердил Document 42 241 байт,
+  существующий blob, один indexing job и `embedding_status=success`.
+- `RUNTIME-DERIVED`: единственный AI generation job завершён на 100% и создал
+  связанный с исходным документом курс-черновик: 3 модуля, 6 уроков и 6 тестов.
+  Черновик имеет `status=draft`, `review_status=pending`; он не опубликован и не
+  назначен сотрудникам до методологической проверки.
+- `NOT VERIFIED`: student journey с выдачей personal URL/PIN, прохождением урока,
+  quiz и readback прогресса оставлен на репетицию непосредственно перед встречей.
+- `OWNER-CONFIRMED`: production, Sandyk и другие реальные tenants не изменялись;
+  production tenant остаётся отдельным approval gate.
+
+Результат dev-этапа на эту дату: `CONDITIONAL GO`. Структура, обязательные курсы, ручной
+onboarding fallback и AI-generated draft готовы к методологической репетиции.
+Перед встречей нужно проверить содержание generated draft, решить, оставлять ли
+его только как демонстрацию или публиковать вместо fallback, затем выпустить один
+personal link/PIN через защищённый операторский контур и пройти student/admin
+smoke; credentials не сохранять в Git, runbook или чат.
+
+## Исторический план production-репетиции 25 августа 2026 года (выполнен)
+
+План ниже сохранён как история решения. Он больше не задаёт текущие SHA, структуру или открытые gates; фактический production outcome ниже имеет приоритет.
+
+`OWNER-CONFIRMED`: выполнять по одному шагу с readback после каждого шага. Это
+отдельный синтетический demo-контур; Sandyk, реальные сотрудники и иные tenants
+не изменяются. До начала следующего шага предыдущий должен иметь проверяемый
+результат и понятный rollback/cleanup.
+
+1. **Preflight.** Подтвердить public health и exact release
+   `d17a9206086d8557f797a13563353c406d0ce9f4`, parity API/трёх workers, Alembic
+   `0131`, успешный watchdog/backup readback и отсутствие production tenant со
+   slug `synthetic-karcher-demo-prod-20260827`.
+2. **Создание tenant.** Войти под существующим production superadmin и создать
+   один `is_demo=true` tenant «Керхер — демонстрация 27.08.2026» со slug
+   `synthetic-karcher-demo-prod-20260827`. Не создавать приглашение и не
+   отправлять письмо. Зафиксировать tenant ID и readback границ.
+3. **Структура.** Из кабинета администратора выполнить preview файла
+   `karcher-demo-staff-import.xlsx`; ожидается `4 create / 0 update / 0 invalid`.
+   Только после совпадения выполнить commit и подтвердить 2 отдела, по 2
+   сотрудника, 4 должности, 0 приглашений и 0 email delivery.
+4. **Источники и общие курсы.** Проверить три версии `2026.1` общих blueprint,
+   инстанцировать их только в новом tenant и загрузить синтетический документ
+   `karcher-demo-service-engineer-role-source.docx`. Дождаться успешной индексации
+   и подтвердить tenant ownership, размер/hash, blob existence и один indexing
+   job без вывода содержимого в evidence.
+5. **Генерация и проверка.** Запустить ровно одну AI-генерацию ролевого курса из
+   загруженного документа. Дождаться terminal state; проверить provenance,
+   модули, уроки, вопросы, правильные ответы, дисклеймеры и отсутствие
+   неподтверждённых технических/юридических утверждений. До review курс остаётся
+   `draft/pending`.
+6. **Публикация и назначение.** После методологического review опубликовать
+   утверждённые общие курсы и ролевой курс, проверить immutable releases, затем
+   назначить общие курсы четырём сотрудникам, а ролевой курс сотруднику KD-003.
+   Не отправлять реальные email; использовать только защищённый synthetic access.
+7. **Полное прохождение.** Выпустить один ограниченный personal link/PIN для
+   KD-003, войти как сотрудник, пройти назначенный курс и итоговый тест до
+   terminal completion, получить сертификат, затем из кабинета администратора
+   подтвердить enrollment, попытку, score, completion и certificate evidence.
+8. **Финальный gate.** Зафиксировать `GO`, `CONDITIONAL GO` или `NO-GO`, exact
+   IDs без credentials/PII, отклонения и cleanup manifest. Tenant сохранить до
+   встречи только при `GO`; после демонстрации удалить его отдельной guarded
+   операцией, исключающей Sandyk и все иные tenants.
+
+Стоп-условия production-репетиции: SHA/image/worker/DB/backup mismatch, уже
+существующий slug, неожиданные письма, импорт не `4/0/0`, cross-tenant evidence,
+неуспешная индексация, неподтверждённое содержание, duplicate generation,
+публикация до review или любой запрос на реальные персональные данные.
 
 ## Очистка
 
