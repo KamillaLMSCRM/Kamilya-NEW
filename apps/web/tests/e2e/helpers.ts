@@ -22,7 +22,7 @@ export function loginPageElements(page: Page) {
     codeDigits: page.locator('[role="img"] > div'),
     copyButton: page.getByRole('button', { name: /скопировать/i }),
     telegramLink: page.locator('a[href*="t.me/"]'),
-    registerLink: page.locator('a[href="/register"]'),
+    registerLink: page.locator('a[href="/register-tenant"]'),
     refreshButton: page.getByRole('button', { name: /новый код/i }),
   };
 }

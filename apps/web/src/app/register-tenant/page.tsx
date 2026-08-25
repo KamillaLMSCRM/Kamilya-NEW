@@ -3,7 +3,7 @@
 import { FormEvent, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Building2, CheckCircle2, Mail, MessageCircle, ShieldCheck, Sparkles } from 'lucide-react';
+import { Building2, CheckCircle2, Mail, ShieldCheck, Sparkles } from 'lucide-react';
 
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Input } from '@/components/ui';
 import { Logo } from '@/components/brand/Logo';
@@ -140,11 +140,11 @@ export default function TenantRegisterPage() {
             </Card>
             <Card>
               <CardHeader className="p-4 pb-2">
-                <MessageCircle className="h-5 w-5 text-primary" aria-hidden="true" />
-                <CardTitle className="text-sm">Бот позже</CardTitle>
+                <Building2 className="h-5 w-5 text-primary" aria-hidden="true" />
+                <CardTitle className="text-sm">Отдельный кабинет</CardTitle>
               </CardHeader>
               <CardContent className="p-4 pt-0 text-sm text-muted-foreground">
-                Старт без собственного бота, подключение после квалификации.
+                Своя компания, администратор, структура, сотрудники и учебные данные.
               </CardContent>
             </Card>
           </div>
@@ -362,8 +362,8 @@ export default function TenantRegisterPage() {
                 <Mail className="h-4 w-4" aria-hidden="true" />
                 Уже есть доступ
               </Link>
-              <Link href="/register" className="text-primary hover:underline">
-                Старый Telegram-flow
+              <Link href="/login/demo" className="text-primary hover:underline">
+                Общий демо-кабинет без регистрации
               </Link>
             </div>
           </CardContent>

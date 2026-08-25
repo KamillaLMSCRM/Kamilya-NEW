@@ -16,7 +16,7 @@ export default function LandingPage() {
             {t('auth.loginButton')}
           </Link>
           <Link
-            href="/register"
+            href="/register-tenant"
             className="bg-primary text-primary-foreground px-4 py-2 rounded-lg hover:bg-primary/90"
           >
             {t('auth.register')}
@@ -33,7 +33,7 @@ export default function LandingPage() {
         </p>
         <div className="flex justify-center gap-4">
           <Link
-            href="/register"
+            href="/register-tenant"
             className="bg-primary text-primary-foreground px-8 py-3 rounded-lg text-lg hover:bg-primary/90"
           >
             {t('landing.getStarted')}

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useAuthStore } from '@/store/authStore';
 import { clearStoredAuth } from '@/lib/auth';
 import { api } from '@/lib/api';
@@ -70,7 +71,7 @@ export default function DemoLoginPage() {
           </div>
           <h2 className="text-xl font-semibold mt-2 text-foreground">Демо-доступ</h2>
           <p className="text-sm text-muted-foreground mt-2">
-            Выберите роль для входа в систему
+            Общий кабинет с демонстрационными данными. Компания и личный аккаунт не создаются.
           </p>
         </div>
 
@@ -106,14 +107,20 @@ export default function DemoLoginPage() {
           ))}
         </div>
 
-        <div className="mt-8 pt-6 border-t border-border text-center">
-          <a
+        <div className="mt-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-3 border-t border-border pt-6 text-center">
+          <Link
             href="/login"
             className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-primary transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
-            Назад к входу через Telegram
-          </a>
+            Назад к входу
+          </Link>
+          <Link
+            href="/register-tenant"
+            className="text-sm font-medium text-primary hover:underline"
+          >
+            Создать отдельный trial для своей компании
+          </Link>
         </div>
       </main>
     </div>

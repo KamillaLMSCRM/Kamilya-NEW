@@ -11,7 +11,7 @@ test('landing page shows title, nav links, and hero', async ({ page }) => {
   await expect(nav).toHaveCount(2);
 
   await expect(nav.first()).toHaveAttribute('href', '/login');
-  await expect(nav.last()).toHaveAttribute('href', '/register');
+  await expect(nav.last()).toHaveAttribute('href', '/register-tenant');
 
   // Hero section visible
   await expect(page.locator('h1')).toBeVisible();
@@ -28,9 +28,9 @@ test('landing → navigate to login page', async ({ page }) => {
 test('landing → navigate to register from nav bar', async ({ page }) => {
   await goToLanding(page);
   await page.getByRole('link', { name: /регистрац/i }).click();
-  // Should land on /register (308 or direct)
+  // Should land directly on the current email-first tenant registration.
   const url = page.url();
-  expect(url).toMatch(/\/register/);
+  expect(url).toMatch(/\/register-tenant/);
 });
 
 test('landing → navigate to register from hero CTA', async ({ page }) => {
@@ -38,7 +38,7 @@ test('landing → navigate to register from hero CTA', async ({ page }) => {
   const heroStartButton = page.getByRole('link', { name: /начать/i, exact: false }).first();
   await heroStartButton.click();
   const url = page.url();
-  expect(url).toMatch(/\/register/);
+  expect(url).toMatch(/\/register-tenant/);
 });
 
 test('login page generates code and shows digit boxes', async ({ page, loginPageElements: el }) => {
@@ -60,7 +60,7 @@ test('login page generates code and shows digit boxes', async ({ page, loginPage
 
 test('login page has registration link', async ({ page, loginPageElements: el }) => {
   await goToLogin(page);
-  await expect(el.registerLink).toHaveAttribute('href', '/register');
+  await expect(el.registerLink).toHaveAttribute('href', '/register-tenant');
 });
 
 test('login page heading is visible', async ({ page, loginPageElements: el }) => {
