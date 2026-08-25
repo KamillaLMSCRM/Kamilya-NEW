@@ -27,7 +27,6 @@ import pytest
 
 from app.modules.enrollments.service import enroll_users, unenroll
 
-
 # ── helpers ─────────────────────────────────────────────────
 
 
@@ -313,3 +312,6 @@ async def test_unenroll_deletes_manual_enrollment():
     await unenroll(db, uuid4(), tenant)
 
     db.delete.assert_awaited_once_with(enrollment)
+    assert db.execute.await_count == 3
+    assert "assignment_access_credentials" in str(db.execute.await_args_list[1].args[0])
+    assert "enrollment_access_policies" in str(db.execute.await_args_list[2].args[0])

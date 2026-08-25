@@ -2,11 +2,13 @@
 
 from uuid import UUID, uuid4
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.assignment_access import AssignmentAccessCredential
 from app.models.courses import Course
 from app.models.enrollment import Enrollment
+from app.models.enrollment_access_policy import EnrollmentAccessPolicy
 from app.models.users import User, UserInvitation
 from app.modules.courses.release_service import ensure_course_release
 from app.modules.enrollments.notification_outbox import (
@@ -343,6 +345,18 @@ async def unenroll(db: AsyncSession, enrollment_id: UUID, tenant_id: UUID) -> No
     if enrollment:
         if enrollment.source != "manual":
             raise ValueError("Rule-driven enrollments must be changed through department or position rules")
+        await db.execute(
+            delete(AssignmentAccessCredential).where(
+                AssignmentAccessCredential.enrollment_id == enrollment.id,
+                AssignmentAccessCredential.tenant_id == tenant_id,
+            )
+        )
+        await db.execute(
+            delete(EnrollmentAccessPolicy).where(
+                EnrollmentAccessPolicy.enrollment_id == enrollment.id,
+                EnrollmentAccessPolicy.tenant_id == tenant_id,
+            )
+        )
         await db.delete(enrollment)
 
 
