@@ -82,7 +82,21 @@ const needsCorrection = {
 };
 
 const tree = {
-  branches: [{ id: 'branch-1', name: 'Филиал Павлодар', unit_type: 'branch', children: [{ id: 'dept-1', name: 'Бухгалтерия', unit_type: 'department', children: [] }] }],
+  branches: [{
+    id: 'branch-1',
+    name: 'Филиал Павлодар',
+    unit_type: 'branch',
+    employee_count: 1,
+    positions: [{
+      id: 'position-direct-1',
+      name: 'Региональный директор',
+      department: 'Филиал Павлодар',
+      department_slug: 'branch-1',
+      employee_count: 1,
+      employees: [{ id: 'employee-direct-1', full_name: 'Айдана Сейтова', personnel_number: '101', is_active: true }],
+    }],
+    children: [{ id: 'dept-1', name: 'Бухгалтерия', unit_type: 'department', children: [] }],
+  }],
   legacy_roots: [],
   summary: { total_branches: 1, total_departments: 1, legacy_roots: 0 },
 };
@@ -210,6 +224,17 @@ describe('adaptive staff import interactions', () => {
 });
 
 describe('organization structure interactions', () => {
+  it('renders positions and employees assigned directly to a branch', async () => {
+    render(<AdminStaffPage />);
+    fireEvent.click(screen.getByRole('tab', { name: /Структура/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /^Филиал Павлодар/ }));
+    const position = await screen.findByRole('button', { name: /Региональный директор/ });
+    expect(screen.getByRole('link', { name: /Профиль и обучение/i })).toHaveAttribute('href', '/positions/position-direct-1?tab=training');
+    fireEvent.click(position);
+    expect(await screen.findByText('Айдана Сейтова')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Назначить обучение/i })).toHaveAttribute('href', '/assignments?user_id=employee-direct-1');
+  });
+
   it('renders nested branch and department labels and submits a new department', async () => {
     render(<AdminStaffPage />);
     fireEvent.click(screen.getByRole('tab', { name: /Структура/i }));

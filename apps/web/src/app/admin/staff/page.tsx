@@ -1824,6 +1824,7 @@ interface StructureBranch {
   name: string;
   department_count: number;
   employee_count: number;
+  positions: StructurePosition[];
   departments: StructureDepartment[];
 }
 
@@ -1857,6 +1858,7 @@ function normaliseStructureResponse(raw: any): StructureResponse {
       departments: (branch.departments || branch.children || [])
         .filter((node: any) => node.unit_type === "department" || !node.unit_type)
         .map((node: any) => toDepartment(node, branch)),
+      positions: Array.isArray(branch.positions) ? branch.positions : [],
       department_count: branch.department_count ?? (branch.children || []).length ?? 0,
       employee_count: branch.employee_count ?? 0,
     });
@@ -1870,7 +1872,7 @@ function normaliseStructureResponse(raw: any): StructureResponse {
         total_employees: raw.summary?.total_employees ?? branches.reduce((sum, branch) => sum + branch.employee_count, 0),
         total_branches: raw.summary?.total_branches ?? raw.branches.length,
         total_departments: raw.summary?.total_departments ?? branches.reduce((sum, branch) => sum + branch.department_count, 0) + legacyDepartments.length,
-        total_positions: raw.summary?.total_positions ?? branches.reduce((sum, branch) => sum + branch.departments.reduce((inner, department) => inner + department.position_count, 0), 0),
+        total_positions: raw.summary?.total_positions ?? branches.reduce((sum, branch) => sum + branch.positions.length + branch.departments.reduce((inner, department) => inner + department.position_count, 0), 0),
       },
     };
   }
@@ -2027,14 +2029,18 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
     const needle = query.trim().toLocaleLowerCase();
     if (!needle) return data.branches;
     return data.branches
-      .map((branch) => ({
-        ...branch,
-        departments: branch.departments.filter((department) =>
+      .map((branch) => {
+        const positions = branch.positions.filter((position) =>
+          position.name.toLocaleLowerCase().includes(needle) ||
+          position.employees.some((employee) => `${employee.full_name} ${employee.personnel_number ?? ""}`.toLocaleLowerCase().includes(needle)),
+        );
+        const departments = branch.departments.filter((department) =>
           department.name.toLocaleLowerCase().includes(needle) ||
           department.positions.some((position) => position.name.toLocaleLowerCase().includes(needle) || position.employees.some((employee) => `${employee.full_name} ${employee.personnel_number ?? ""}`.toLocaleLowerCase().includes(needle))),
-        ),
-      }))
-      .filter((branch) => branch.name.toLocaleLowerCase().includes(needle) || branch.departments.length > 0);
+        );
+        return { ...branch, positions, departments };
+      })
+      .filter((branch) => branch.name.toLocaleLowerCase().includes(needle) || branch.positions.length > 0 || branch.departments.length > 0);
   }, [data, query]);
 
   if (loading) {
@@ -2125,7 +2131,7 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
         <Card>
           <CardHeader>
             <CardTitle>Филиалы</CardTitle>
-            <p className="text-sm text-muted-foreground">Отделы и сотрудники находятся внутри филиала. Добавление филиала не создаёт сотрудников автоматически.</p>
+            <p className="text-sm text-muted-foreground">Отделы, должности и сотрудники находятся внутри филиала. Добавление филиала не создаёт сотрудников автоматически.</p>
           </CardHeader>
           <CardContent className="p-0">
             <ul className="divide-y divide-border">
@@ -2145,7 +2151,60 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
                       <Button type="button" variant="ghost" size="sm" onClick={() => archiveUnit(branch.id, branch.name)}>Архивировать</Button>
                     </div>
                     {open && <ul className="divide-y divide-border bg-muted/20">
-                      {branch.departments.length === 0 && <li className="px-12 py-3 text-xs text-muted-foreground">Отделов пока нет</li>}
+                      {branch.positions.length === 0 && branch.departments.length === 0 && <li className="px-12 py-3 text-xs text-muted-foreground">В филиале пока нет отделов и должностей</li>}
+                      {branch.positions.map((pos) => {
+                        const positionOpen = expandedPositions.has(pos.id) || query.trim().length > 0;
+                        return (
+                          <li key={pos.id} className="px-4 py-3 pl-12">
+                            <div className="flex min-w-0 items-start gap-3">
+                              <button
+                                type="button"
+                                onClick={() => togglePosition(pos.id)}
+                                aria-expanded={positionOpen}
+                                className="flex min-w-0 flex-1 items-start gap-2 rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                              >
+                                {positionOpen ? (
+                                  <ChevronDown className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                                ) : (
+                                  <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                                )}
+                                <span className="min-w-0">
+                                  <span className="block truncate text-sm font-medium text-foreground">{pos.name}</span>
+                                  <span className="mt-0.5 block text-xs text-muted-foreground">{tp('common.counts.employee', pos.employee_count)}</span>
+                                </span>
+                              </button>
+                              <Link
+                                href={`/positions/${pos.id}?tab=training`}
+                                className="shrink-0 rounded-sm text-sm font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                              >
+                                Профиль и обучение
+                              </Link>
+                            </div>
+                            {positionOpen && pos.employees.length > 0 && (
+                              <ul className="mt-2 space-y-1 pl-6">
+                                {pos.employees.map((emp) => (
+                                  <li key={emp.id} className="flex min-w-0 items-center justify-between gap-3 rounded-md px-2 py-1.5 hover:bg-background">
+                                    <span className={emp.is_active ? "min-w-0 text-base font-semibold text-primary" : "min-w-0 text-base font-semibold text-muted-foreground line-through"}>
+                                      {emp.full_name}
+                                      {emp.personnel_number && <span className="ml-2 whitespace-nowrap text-xs font-normal text-muted-foreground">· {emp.personnel_number}</span>}
+                                    </span>
+                                    {emp.is_active && (
+                                      <Link
+                                        href={`/assignments?user_id=${emp.id}`}
+                                        className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-md border border-border px-2.5 text-xs font-medium text-primary hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                      >
+                                        <GraduationCap className="h-4 w-4" aria-hidden="true" />
+                                        <span className="hidden sm:inline">Назначить обучение</span>
+                                        <span className="sm:hidden">Назначить</span>
+                                      </Link>
+                                    )}
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                          </li>
+                        );
+                      })}
                       {branch.departments.map((department) => <li key={department.id || department.slug} className="flex flex-wrap items-center justify-between gap-3 px-12 py-3">
                         <span><span className="block text-sm font-medium">{department.name}</span><span className="text-xs text-muted-foreground">{department.position_count} должностей · {department.employee_count} сотрудников</span></span>
                         {department.id && <span className="flex flex-wrap items-center gap-2"><Link href={`/training-rules?scope=department&department_id=${department.id}`} className="text-xs text-primary hover:underline">Обязательные курсы</Link><Button type="button" variant="ghost" size="sm" onClick={() => { setUnitName(department.name); setUnitModal({ type: "department", unitId: department.id || undefined, parentId: branch.id, parentName: branch.name }); }}>Переименовать</Button><Button type="button" variant="ghost" size="sm" onClick={() => department.id && archiveUnit(department.id, department.name)}>Архивировать</Button></span>}
