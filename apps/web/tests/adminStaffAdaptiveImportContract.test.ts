@@ -5,15 +5,16 @@ import { describe, expect, it } from 'vitest';
 const source = readFileSync(resolve(process.cwd(), 'src/app/admin/staff/page.tsx'), 'utf8');
 
 describe('adaptive staff import and organization structure contract', () => {
-  it('keeps analyze, approve, commit and legacy fallback endpoints in the staff workspace', () => {
+  it('keeps only the adaptive analyze, approve and commit flow in the staff workspace', () => {
     expect(source).toContain('/v1/admin/staff/import/sessions/analyze');
     expect(source).toContain('/approve');
     expect(source).toContain('/commit');
     expect(source).toContain('/mapping');
     expect(source).toContain('mapping_json: adaptiveMapping');
     expect(source).toContain('mapping_id');
-    expect(source).toContain('/v1/admin/staff/import/preview');
-    expect(source).toContain('Открыть старый импорт');
+    expect(source).not.toContain('/v1/admin/staff/import/preview');
+    expect(source).not.toContain('Открыть старый импорт');
+    expect(source).not.toContain('Запасной сценарий для прежних файлов');
   });
 
   it('makes the no-write-until-approval promise visible and distinguishes unit types', () => {

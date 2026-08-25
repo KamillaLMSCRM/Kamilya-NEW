@@ -30,24 +30,23 @@ describe("methodologist information architecture", () => {
     expect(staffSource).not.toContain("CompanyCoursesTab");
   });
 
-  it("keeps multi-sheet import reviewable and opens the resulting structure", () => {
-    expect(staffSource).toContain("const [sheets, setSheets]");
-    expect(staffSource).toContain('sheet.sheet_kind === "reference"');
-    expect(staffSource).toContain('sheet.sheet_kind === "needs_mapping"');
-    expect(staffSource).toContain("setMappingDirty(true)");
+  it("keeps adaptive workbook analysis reviewable and refreshes the resulting structure", () => {
+    expect(staffSource).toContain("getAdaptiveParserSummary");
+    expect(staffSource).toContain("raw_columns");
+    expect(staffSource).toContain("missing_required_columns");
+    expect(staffSource).toContain("selected_sheet");
+    expect(staffSource).toContain("setAdaptiveMapping");
     expect(staffSource).toContain("setStructureRefreshKey((value) => value + 1)");
-    expect(staffSource).toContain('selectTab("structure")');
-    expect(staffSource).toContain("overflow-x-auto overflow-y-auto");
-    expect(staffSource).toContain("Для имени сотрудника укажите либо отдельные колонки");
-    expect(staffSource).toContain('field.key === "first_name" || field.key === "last_name"');
+    expect(staffSource).toContain("Сохранить сопоставление и продолжить");
+    expect(staffSource).not.toContain("const [sheets, setSheets]");
   });
 
-  it("accepts legacy Excel staffing files and explains branch section rows", () => {
+  it("accepts supported staffing files through the adaptive flow without the retired fallback", () => {
     expect(staffSource).toContain('accept=".xls,.xlsx,.csv"');
-    expect(staffSource).toContain("Старые штатные");
-    expect(staffSource).toContain("с адресами филиалов");
-    expect(staffSource).toContain("Сотрудник /");
-    expect(staffSource).toContain("ФИО / full_name");
+    expect(staffSource).toContain("branch_name");
+    expect(staffSource).toContain("source_sheet");
+    expect(staffSource).not.toContain("Открыть старый импорт");
+    expect(staffSource).not.toContain("Запасной сценарий для прежних файлов");
   });
 
   it("uses canonical department and position ids for manual employees", () => {

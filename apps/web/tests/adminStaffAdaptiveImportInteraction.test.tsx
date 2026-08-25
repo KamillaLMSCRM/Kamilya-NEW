@@ -105,6 +105,11 @@ function setMethodologist() {
   useAuthStore.setState({ accessToken: 'test-token', user });
 }
 
+function renderImportPage() {
+  window.history.replaceState({}, '', '/?tab=import');
+  return render(<AdminStaffPage />);
+}
+
 beforeEach(() => {
   setMethodologist();
   window.history.replaceState({}, '', '/');
@@ -126,9 +131,15 @@ afterEach(() => {
 });
 
 describe('adaptive staff import interactions', () => {
+  it('does not expose the retired legacy import fallback', async () => {
+    renderImportPage();
+
+    expect(await screen.findByText(/Адаптивная загрузка штатки/i)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /старый импорт/i })).not.toBeInTheDocument();
+  });
+
   it('edits mapping, resumes the same session and keeps only its id in sessionStorage', async () => {
-    render(<AdminStaffPage />);
-    fireEvent.click(screen.getByRole('tab', { name: /Импорт/i }));
+    renderImportPage();
     const file = new File(['workbook'], 'штатка.xlsx', { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     fireEvent.change(await screen.findByLabelText(/штатного расписания для анализа/i), { target: { files: [file] } });
     postMock.mockResolvedValueOnce({ data: needsMapping } as any);
@@ -171,8 +182,7 @@ describe('adaptive staff import interactions', () => {
       },
     };
     postMock.mockResolvedValueOnce({ data: branchOnly } as any);
-    render(<AdminStaffPage />);
-    fireEvent.click(screen.getByRole('tab', { name: /Импорт/i }));
+    renderImportPage();
     fireEvent.change(await screen.findByLabelText(/штатного расписания для анализа/i), { target: { files: [new File(['x'], 'branch.xlsx')] } });
     fireEvent.click(screen.getByRole('button', { name: /Запустить анализ файла/i }));
     await screen.findByText(/Нужно сопоставить колонки/i);
@@ -197,8 +207,7 @@ describe('adaptive staff import interactions', () => {
 
   it('keeps branch-only positions linked to their branch in correction payload', async () => {
     postMock.mockResolvedValueOnce({ data: needsCorrection } as any);
-    render(<AdminStaffPage />);
-    fireEvent.click(screen.getByRole('tab', { name: /Импорт/i }));
+    renderImportPage();
     fireEvent.change(await screen.findByLabelText(/штатного расписания для анализа/i), { target: { files: [new File(['x'], 'correction.xlsx')] } });
     fireEvent.click(screen.getByRole('button', { name: /Запустить анализ файла/i }));
 
