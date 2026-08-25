@@ -1,8 +1,9 @@
 """Enrollments — API service."""
 
+from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.assignment_access import AssignmentAccessCredential
@@ -32,6 +33,7 @@ async def get_enrolled_users(db: AsyncSession, course_id: UUID, tenant_id: UUID)
         select(Enrollment).where(
             Enrollment.course_id == course_id,
             Enrollment.tenant_id == tenant_id,
+            Enrollment.status.in_(("enrolled", "in_progress", "completed")),
         )
     )
     enrollments = list(result.scalars().all())
@@ -229,6 +231,7 @@ async def enroll_users(
                 Enrollment.user_id == uid,
                 Enrollment.tenant_id == tenant_id,
                 Enrollment.recurring_assignment_id.is_(None),
+                Enrollment.status.in_(("enrolled", "in_progress", "completed")),
             )
         )
         if existing.scalar_one_or_none():
@@ -345,19 +348,25 @@ async def unenroll(db: AsyncSession, enrollment_id: UUID, tenant_id: UUID) -> No
     if enrollment:
         if enrollment.source != "manual":
             raise ValueError("Rule-driven enrollments must be changed through department or position rules")
+        now = datetime.now(UTC)
         await db.execute(
-            delete(AssignmentAccessCredential).where(
+            update(AssignmentAccessCredential)
+            .where(
                 AssignmentAccessCredential.enrollment_id == enrollment.id,
                 AssignmentAccessCredential.tenant_id == tenant_id,
+                AssignmentAccessCredential.revoked_at.is_(None),
             )
+            .values(revoked_at=now, revoked_reason="Enrollment cancelled by methodologist")
         )
         await db.execute(
-            delete(EnrollmentAccessPolicy).where(
+            update(EnrollmentAccessPolicy)
+            .where(
                 EnrollmentAccessPolicy.enrollment_id == enrollment.id,
                 EnrollmentAccessPolicy.tenant_id == tenant_id,
             )
+            .values(revoked_at=now, revoked_reason="Enrollment cancelled by methodologist")
         )
-        await db.delete(enrollment)
+        enrollment.status = "cancelled"
 
 
 async def get_course_enrollment_stats(db: AsyncSession, course_id: UUID, tenant_id: UUID) -> dict:

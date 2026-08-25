@@ -297,7 +297,7 @@ async def test_unenroll_rejects_rule_driven_enrollment():
 
 
 @pytest.mark.asyncio
-async def test_unenroll_deletes_manual_enrollment():
+async def test_unenroll_cancels_manual_enrollment_and_revokes_access():
     tenant = uuid4()
     enrollment = MagicMock()
     enrollment.source = "manual"
@@ -311,7 +311,8 @@ async def test_unenroll_deletes_manual_enrollment():
 
     await unenroll(db, uuid4(), tenant)
 
-    db.delete.assert_awaited_once_with(enrollment)
+    db.delete.assert_not_called()
+    assert enrollment.status == "cancelled"
     assert db.execute.await_count == 3
     assert "assignment_access_credentials" in str(db.execute.await_args_list[1].args[0])
     assert "enrollment_access_policies" in str(db.execute.await_args_list[2].args[0])
