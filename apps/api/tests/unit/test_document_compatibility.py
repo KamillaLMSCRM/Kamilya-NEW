@@ -700,17 +700,25 @@ async def test_manual_edit_marks_grounded_lesson_for_source_review() -> None:
             return lesson
 
     class _DB:
+        refreshed = False
+
         async def execute(self, statement):
             return _Result()
 
         async def flush(self):
             return None
 
+        async def refresh(self, instance):
+            assert instance is lesson
+            self.refreshed = True
+
+    db = _DB()
     updated = await update_lesson(
-        _DB(),
+        db,
         lesson.id,
         lesson.tenant_id,
         LessonUpdate(content="Текст после ручной правки"),
     )
 
     assert updated.source_validation_status == "needs_review"
+    assert db.refreshed is True

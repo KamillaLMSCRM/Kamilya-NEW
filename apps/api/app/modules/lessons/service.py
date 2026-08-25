@@ -116,6 +116,7 @@ async def update_lesson(db: AsyncSession, lesson_id: UUID, tenant_id: UUID, data
     if source_affecting_change:
         await _mark_lesson_quizzes_needs_review(db, lesson.id, tenant_id)
     await db.flush()
+    await db.refresh(lesson)
     return lesson
 
 
