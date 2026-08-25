@@ -432,7 +432,7 @@ class VectorStore:
                     "SELECT COUNT(*) FROM document_embeddings "
                     "WHERE id = ANY(CAST(:ids AS text[])) "
                     "AND tenant_id = CAST(:tenant_id AS uuid) "
-                    "AND doc_id = CAST(:doc_id AS uuid) "
+                    "AND doc_id = CAST(:doc_id AS text) "
                     "AND embedding_source_revision = :source_revision "
                     "AND embedding_provenance_state = 'verified'"
                 )

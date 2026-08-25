@@ -247,6 +247,8 @@ async def test_add_chunks_uses_bounded_executemany_batches(monkeypatch) -> None:
         (sql, params) for sql, params in verification.calls if "COUNT(*)" in sql
     )
     assert "embedding_provenance_state = 'verified'" in verification_sql
+    assert "doc_id = CAST(:doc_id AS text)" in verification_sql
+    assert "doc_id = CAST(:doc_id AS uuid)" not in verification_sql
     assert verification_params == {
         "ids": [row["id"] for row in rows],
         "tenant_id": "tenant-1",
