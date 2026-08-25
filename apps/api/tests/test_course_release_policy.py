@@ -106,6 +106,9 @@ async def test_student_can_read_assigned_published_course():
     resolved = await require_course_access(db, course.id, user)
 
     assert resolved is course
+    enrollment_query = str(db.execute.await_args_list[1].args[0])
+    assert "enrollments.status IN" in enrollment_query
+    assert "LIMIT" in enrollment_query
 
 
 @pytest.mark.asyncio

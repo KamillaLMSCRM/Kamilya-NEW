@@ -42,11 +42,14 @@ async def require_course_access(
         raise HTTPException(status_code=404, detail="Course not found")
 
     enrollment_result = await db.execute(
-        select(Enrollment.id).where(
+        select(Enrollment.id)
+        .where(
             Enrollment.course_id == course.id,
             Enrollment.user_id == user.id,
             Enrollment.tenant_id == user.tenant_id,
+            Enrollment.status.in_(("enrolled", "in_progress", "completed")),
         )
+        .limit(1)
     )
     if enrollment_result.scalar_one_or_none() is None:
         raise HTTPException(status_code=404, detail="Course not found")
