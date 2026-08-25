@@ -233,36 +233,37 @@ def test_purge_contract_covers_starvation_share_cleanup_and_idempotency():
     assert "integrity_constraint_violation" in source
 
 
-def test_main_registers_retention_api_surface():
+def test_tenant_retention_api_surface_is_read_only():
     from app.main import app
 
     paths = set(app.openapi()["paths"])
     assert "/api/v1/training-retention/policies" in paths
-    assert "/api/v1/training-retention/purge" in paths
+    assert set(app.openapi()["paths"]["/api/v1/training-retention/policies"]) == {"get"}
+    assert "/api/v1/training-retention/policies/{policy_id}" not in paths
+    assert "/api/v1/training-retention/purge" not in paths
 
 
 @pytest.mark.asyncio
-async def test_methodologist_policy_is_not_visible_across_tenants(client, make_tenant, make_user, auth_headers):
-    tenant_a = await make_tenant(name="Retention A")
-    methodologist_a = await make_user(tenant_a, role="methodologist")
-    created = await client.post(
+async def test_methodologist_cannot_mutate_policy_or_invoke_purge(client, make_tenant, make_user, auth_headers):
+    tenant = await make_tenant(name="Read-only retention")
+    methodologist = await make_user(tenant, role="methodologist")
+    create_response = await client.post(
         "/api/v1/training-retention/policies",
-        headers=auth_headers(methodologist_a),
+        headers=auth_headers(methodologist),
         json={
             "procedure_type": "training",
             "retention_days": 365,
             "local_basis": "Tenant schedule",
         },
     )
-    assert created.status_code == 201, created.text
-
-    tenant_b = await make_tenant(name="Retention B")
-    methodologist_b = await make_user(tenant_b, role="methodologist")
-    response = await client.get(
-        f"/api/v1/training-retention/policies/{created.json()['id']}",
-        headers=auth_headers(methodologist_b),
+    purge_response = await client.post(
+        "/api/v1/training-retention/purge",
+        headers=auth_headers(methodologist),
+        json={"dry_run": True},
     )
-    assert response.status_code == 404
+
+    assert create_response.status_code == 405
+    assert purge_response.status_code == 404
 
 
 @pytest.mark.asyncio
