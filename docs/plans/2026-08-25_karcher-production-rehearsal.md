@@ -48,3 +48,24 @@ worker, database, backup or tenant mismatch; existing slug; unexpected email;
 import count other than `4/0/0`; cross-tenant visibility; failed indexing;
 unsupported generated content; duplicate generation; publication before review;
 or any request to use real personal data.
+
+## Controlling production outcome - 2026-08-25
+
+This section supersedes the earlier draft status table for the Karcher rehearsal.
+
+| Node | State | Evidence / remaining gate |
+|---|---|---|
+| KDP-01 Exact release and CI | DONE | GIT-DERIVED / PROVIDER-CONFIRMED: release `67477ed5a9fabed92e1bd4805c263697a14826d0`; GitHub Actions run `32849094899` passed all frontend, backend, PostgreSQL 17 + pgvector/RLS, secrets, quality and release gates. |
+| KDP-02 Production tenant | DONE | RUNTIME-DERIVED: tenant `bf5bb4a5-a473-4a0e-a649-c578d26f4be9` is retained for the 2026-08-27 demonstration. |
+| KDP-03 Organization structure | DONE | RUNTIME-DERIVED: exactly 2 branches (`Филиал Павлодар`, `Филиал Петропавловск`), 0 legacy roots, 4 positions and 4 employees. The adaptive import defect was repaired by a guarded tenant-scoped transaction after preserving all employee links. |
+| KDP-04 Common content | DONE | RUNTIME-DERIVED: information-security, occupational-safety and fire-safety courses are published and assigned; the source document embedding is successful. |
+| KDP-05 Live AI generation | BLOCKED | RUNTIME-DERIVED / BLOCKED: the production Qwen provider pool was unavailable. No provider was enabled and no uncontrolled retry was performed. |
+| KDP-06 Role onboarding course | DONE VIA FALLBACK | RUNTIME-DERIVED: deterministic manual role-course fallback is published and assigned to KD-003; active assignment total remains 13. |
+| KDP-07 Learner journey and certificate | DONE | RUNTIME-DERIVED: link exchange, 6 lessons, quiz, 100% progress, completion and certificate download passed in production. Certificate PDF SHA-256: `17270D9854992B02FEEEE0FB3EB3A79A2375C1ACE144631E409915A7091CD5F0`. |
+| KDP-08 Demo decision | CONDITIONAL GO | OWNER-CONFIRMED / RUNTIME-DERIVED: the prepared production tenant is usable for the client demonstration. Live AI generation remains unavailable; use the published fallback course during the session. |
+
+Additional runtime evidence:
+- Public and private runtime identity matched release `67477ed5a9fabed92e1bd4805c263697a14826d0`; API and all three worker containers used `kamilya-api:67477ed5a9fa`, with zero restarts after deployment.
+- Production organization readback after repair: branches 2, legacy roots 0, positions 4, employees 4, active enrollments 13, completed course assignments 1.
+- A real tenant-scoped methodologist account was created on the authorized service mailbox and its email-code login was verified. Credentials and OTP were not recorded in Git or logs.
+- Temporary release archives, build directories and operator scripts were removed after successful readback. The tenant and its business-demo artifacts are intentionally retained until a separately approved cleanup.

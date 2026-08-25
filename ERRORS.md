@@ -654,3 +654,23 @@ open, also record status, safe interim path, and review condition.
   never substitute another repository's token, and stop after an authorization
   error until the credential source is reconciled. Keep token values process-local
   and out of command arguments, URLs, logs, documents, and Git configuration files.
+
+## 2026-08-25 - Cancelled enrollment history broke learner course access
+
+**Symptom:** quiz submission returned HTTP 500 with `MultipleResultsFound` after a learner had both a cancelled historical enrollment and an active enrollment for the same course.
+
+**Root cause:** `require_course_access` queried enrollment history without filtering to access-granting statuses and assumed at most one row.
+
+**Fix:** release `67477ed5a9fabed92e1bd4805c263697a14826d0` filters to `enrolled`, `in_progress`, or `completed` and limits the existence query to one row. Focused tests, full CI, dev regression and production learner E2E passed.
+
+**Prevention:** access checks must treat cancelled/revoked rows as retained evidence, not as active access, and existence checks must not assume history uniqueness.
+
+## 2026-08-25 - Adaptive staff import duplicated legacy organization roots
+
+**Symptom:** a proposal with two branch actions classified as `update` committed as two new legacy roots and four duplicate positions instead of converting the two matched legacy roots into branches.
+
+**Impact:** the synthetic Karcher production tenant temporarily showed 0 branches, 4 legacy roots and 8 positions. Employees, course assignments, completion and certificate evidence were preserved.
+
+**Recovery:** a guarded tenant-scoped transaction verified exact unit/position IDs, zero employees/courses/children on the obsolete rows, four employees on the retained rows and 13 active enrollments. It deleted only the two empty legacy roots and four empty duplicate positions, then converted the two occupied units to `branch`. Independent API readback passed: 2 branches, 0 legacy roots, 4 positions, 4 employees, 13 active assignments and 1 completion.
+
+**Prevention:** add a DB-backed regression where an analyzed workbook matches legacy roots by name, corrections rename them, commit must reuse the original unit IDs, set `unit_type=branch` and `legacy_root=false`, and must not duplicate positions. Until that test and code fix land, do not trust proposal action `update` as proof of commit behavior; require post-commit tree readback and a guarded cleanup plan.
