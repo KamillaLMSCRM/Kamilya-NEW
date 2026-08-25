@@ -8,7 +8,13 @@ const apiMocks = vi.hoisted(() => ({
 
 vi.mock('@/lib/api', () => ({ api: apiMocks }));
 vi.mock('@/i18n/useT', () => ({
-  useT: () => ({ t: (key: string) => (key === 'auth.password' ? 'Password' : key) }),
+  useT: () => ({
+    t: (key: string) => {
+      if (key === 'auth.password') return 'Password';
+      if (key === 'auth.emailCode') return 'Email code';
+      return key;
+    },
+  }),
 }));
 
 import LoginPage from '@/app/login/page';
@@ -26,7 +32,7 @@ describe('Telegram login capability', () => {
 
     await waitFor(() => expect(apiMocks.get).toHaveBeenCalledWith('/v1/auth/capabilities'));
     expect(screen.queryByRole('button', { name: 'Telegram' })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /password|пароль/i })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /password|пароль/i })).toBeInTheDocument();
   });
 
   it('shows the Telegram tab only when the server reports the integration enabled', async () => {
@@ -34,6 +40,6 @@ describe('Telegram login capability', () => {
 
     render(<LoginPage />);
 
-    expect(await screen.findByRole('button', { name: 'Telegram' })).toBeInTheDocument();
+    expect(await screen.findByRole('tab', { name: 'Telegram' })).toBeInTheDocument();
   });
 });

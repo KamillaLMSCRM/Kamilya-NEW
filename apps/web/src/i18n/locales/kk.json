@@ -159,7 +159,7 @@
     "hasAccount": "Тіркелгіңіз бар ма?",
     "loginWithTelegram": "Telegram арқылы кіру",
     "invalidCredentials": "Email немесе құпия сөз қате",
-    "emailCode": "Код",
+    "emailCode": "Email коды",
     "passwordLoginHint": "Тіркелу кезінде орнатқан немесе әкімшіден алған құпиясөзді пайдаланыңыз.",
     "loggingIn": "Кіруде...",
     "loginFailed": "Кіру мүмкін болмады",

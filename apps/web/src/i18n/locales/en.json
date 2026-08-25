@@ -159,7 +159,7 @@
     "hasAccount": "Already have an account?",
     "loginWithTelegram": "Login with Telegram",
     "invalidCredentials": "Invalid email or password",
-    "emailCode": "Code",
+    "emailCode": "Email code",
     "passwordLoginHint": "Use the password you set during registration or received from your administrator.",
     "loggingIn": "Signing in...",
     "loginFailed": "Could not sign in",

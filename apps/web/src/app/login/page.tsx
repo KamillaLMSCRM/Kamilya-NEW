@@ -3,7 +3,7 @@
 import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ChevronRight, Copy, Mail, MessageCircle, RefreshCw } from 'lucide-react';
+import { ChevronRight, Copy, KeyRound, Mail, MessageCircle, RefreshCw } from 'lucide-react';
 
 import SkipLink from '@/components/SkipLink';
 import { Logo } from '@/components/brand/Logo';
@@ -21,7 +21,7 @@ export default function LoginPage() {
   const router = useRouter();
   const { t } = useT();
   const { login, accessToken } = useAuthStore();
-  const [mode, setMode] = useState<LoginMode>('password');
+  const [mode, setMode] = useState<LoginMode>('email');
   const [passwordEmail, setPasswordEmail] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -71,7 +71,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (!telegramEnabled && mode === 'telegram') {
-      setMode('password');
+      setMode('email');
       setTelegramCode('');
       if (pollingRef.current) clearInterval(pollingRef.current);
     }
@@ -244,32 +244,49 @@ export default function LoginPage() {
           <h1 className="text-xl font-semibold">Вход в Kamilya LMS</h1>
         </div>
 
-        <div className={`mb-5 grid rounded-md border border-input bg-muted p-1 ${telegramEnabled ? 'grid-cols-3' : 'grid-cols-2'}`}>
+        <div
+          role="tablist"
+          aria-label="Способ входа"
+          className={`mb-5 grid gap-1.5 rounded-lg border border-primary/20 bg-primary/5 p-1.5 shadow-inner ${telegramEnabled ? 'grid-cols-3' : 'grid-cols-2'}`}
+        >
           <button
             type="button"
-            onClick={() => switchMode('password')}
-            className={`inline-flex h-10 items-center justify-center gap-2 rounded-md text-sm font-medium transition-colors ${
-              mode === 'password' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            {t('auth.password')}
-          </button>
-          <button
-            type="button"
+            role="tab"
+            aria-selected={mode === 'email'}
             onClick={() => switchMode('email')}
-            className={`inline-flex h-10 items-center justify-center gap-2 rounded-md text-sm font-medium transition-colors ${
-              mode === 'email' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+            className={`inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-md border text-sm font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
+              mode === 'email'
+                ? 'border-primary bg-primary text-primary-foreground shadow-sm'
+                : 'border-border bg-background text-foreground shadow-sm hover:border-primary/50 hover:bg-primary/10'
             }`}
           >
             <Mail className="h-4 w-4" aria-hidden="true" />
             {t('auth.emailCode')}
           </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mode === 'password'}
+            onClick={() => switchMode('password')}
+            className={`inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-md border text-sm font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
+              mode === 'password'
+                ? 'border-primary bg-primary text-primary-foreground shadow-sm'
+                : 'border-border bg-background text-foreground shadow-sm hover:border-primary/50 hover:bg-primary/10'
+            }`}
+          >
+            <KeyRound className="h-4 w-4" aria-hidden="true" />
+            {t('auth.password')}
+          </button>
           {telegramEnabled && (
             <button
               type="button"
+              role="tab"
+              aria-selected={mode === 'telegram'}
               onClick={() => switchMode('telegram')}
-              className={`inline-flex h-10 items-center justify-center gap-2 rounded-md text-sm font-medium transition-colors ${
-                mode === 'telegram' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+              className={`inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-md border text-sm font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
+                mode === 'telegram'
+                  ? 'border-primary bg-primary text-primary-foreground shadow-sm'
+                  : 'border-border bg-background text-foreground shadow-sm hover:border-primary/50 hover:bg-primary/10'
               }`}
             >
               <MessageCircle className="h-4 w-4" aria-hidden="true" />
