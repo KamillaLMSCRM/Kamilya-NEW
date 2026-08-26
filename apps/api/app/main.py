@@ -70,6 +70,7 @@ from app.modules.quizzes.assignment_router import router as quiz_assignments_rou
 from app.modules.quizzes.router import router as quizzes_router
 from app.modules.scorm.router import router as scorm_router
 from app.modules.staff_import_sessions.router import router as staff_import_sessions_router
+from app.modules.staff_sync.router import router as staff_sync_router
 from app.modules.student.router import router as student_router
 from app.modules.support.router import router as support_router
 from app.modules.surveys.router import router as surveys_router
@@ -183,7 +184,7 @@ app.add_middleware(
     allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type", "Accept"],
+    allow_headers=["Authorization", "Content-Type", "Accept", "Idempotency-Key"],
 )
 
 register_error_handlers(app)
@@ -226,6 +227,7 @@ app.include_router(kiosks_public_router, prefix=f"{settings.API_PREFIX}", tags=[
 app.include_router(staff_import_router, prefix=f"{settings.API_PREFIX}", tags=["staff"])
 app.include_router(staff_import_mapping_router, prefix=f"{settings.API_PREFIX}", tags=["staff"])
 app.include_router(staff_import_sessions_router, prefix=f"{settings.API_PREFIX}")
+app.include_router(staff_sync_router, prefix=f"{settings.API_PREFIX}")
 app.include_router(telegram_router, prefix=f"{settings.API_PREFIX}", tags=["telegram"])
 app.include_router(telegram_register_router, prefix=f"{settings.API_PREFIX}", tags=["auth"])
 app.include_router(tenants_router, prefix=f"{settings.API_PREFIX}", tags=["tenants"])

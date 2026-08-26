@@ -873,3 +873,28 @@ open, also record status, safe interim path, and review condition.
   traversal, success-returning rollback traps, or hidden PTY input for strings
   containing `@`. A deploy report is not accepted until an independent
   postdeploy readback confirms the claimed image and release.
+
+## 2026-08-26 — Staff Sync uniqueness pre-check ran after insert flush
+
+- Symptom: the disposable Supabase dev smoke sent a second external employee
+  with an email already owned by another user in the same tenant. Instead of an
+  audited `email_conflict`, PostgreSQL raised `uq_users_tenant_email_ci` and the
+  API exposed an unhandled `IntegrityError` path.
+- Cause: `_upsert_employee()` inserted and flushed a new `User` before calling
+  `_assert_employee_keys_available()`. The query itself matched the database
+  index semantics, but it ran too late to prevent the unique-constraint error.
+- Fix: run the personnel/email availability check before constructing and
+  flushing a new user. Preserve the second post-link/update check that excludes
+  the current user. Map only known identity-related constraint races to a
+  redacted auditable conflict; re-raise unknown integrity failures.
+- Recovery: the failed synthetic tenant was removed by its guarded cleanup;
+  residue was zero and shared counts were unchanged. The corrected event then
+  returned `status=conflict`, retained one user, and persisted the redacted
+  conflict event.
+- Verification: focused tests pass (`12 passed`), Stage 1 passed
+  upsert/replay/reuse/update/conflict, and Stage 2 passed termination/session
+  revocation/reactivation/two-tenant FORCE RLS/credential revocation. Both
+  stages reported zero residue and unchanged shared counts.
+- Prevention: identity pre-checks must precede the first insert flush, while
+  database uniqueness remains the concurrency backstop. Every external sync
+  path must test both deterministic conflicts and constraint-race translation.

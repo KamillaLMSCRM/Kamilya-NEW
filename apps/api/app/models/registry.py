@@ -42,6 +42,7 @@ MODEL_MODULES = (
     "app.modules.quizzes.assignment_models",
     "app.modules.quizzes.models",
     "app.modules.scorm.models",
+    "app.modules.staff_sync.models",
     "app.modules.surveys.models",
     "app.modules.support.models",
     "app.modules.training_rules.models",
