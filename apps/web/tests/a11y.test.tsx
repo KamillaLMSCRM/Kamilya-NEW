@@ -35,6 +35,18 @@ describe("Modal a11y", () => {
     expect(dialog).toHaveAttribute("aria-labelledby");
   });
 
+  it("keeps long dialog content inside the viewport with its own scroll", () => {
+    render(
+      <Modal open={true} onClose={() => {}} title="Long dialog">
+        <div style={{ height: 2000 }}>Long content</div>
+      </Modal>
+    );
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toHaveClass("max-h-[calc(100dvh-2rem)]");
+    expect(dialog).toHaveClass("overflow-y-auto");
+    expect(dialog).toHaveClass("overscroll-contain");
+  });
+
   it("axe-core: passes WCAG 2.1 AA on a basic open modal", async () => {
     const { container } = render(
       <Modal open={true} onClose={() => {}} title="A11y modal">

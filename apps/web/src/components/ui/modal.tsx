@@ -125,7 +125,7 @@ export function Modal({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div
         className="fixed inset-0 bg-black/50"
         onClick={dismissable ? handleClose : undefined}
@@ -139,7 +139,7 @@ export function Modal({
         aria-describedby={description ? descriptionId : undefined}
         tabIndex={-1}
         className={cn(
-          'relative bg-background rounded-lg shadow-lg p-6 z-10 w-full max-w-lg outline-none',
+          'relative z-10 w-full max-w-lg max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain rounded-lg bg-background p-6 shadow-lg outline-none',
           className
         )}
       >
