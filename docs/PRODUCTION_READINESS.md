@@ -483,3 +483,40 @@ document/course journey remains a separate owner-controlled synthetic rehearsal.
   Variables, so an exact provider variable/readback and manual dispatch were not
   performed. The scheduled smoke workflow does not use that variable; the exact
   SHA was independently verified from the workstation and VM126.
+
+# Trial-registration operator notifications - 2026-08-26
+
+- `GIT-DERIVED`: commits `82f29284245acd0f2ab5cdb46741a3164c0fbb3d` and
+  `80205985c43483d341d41c8be74bbf8640dc6e04` add best-effort operator
+  notifications for successful public tenant registrations, independently fan
+  out the complete stored application to every configured recipient, and use a
+  recipient-specific provider idempotency key. GitHub CI run `32925288220`
+  passed all unit, database, PostgreSQL 17 + pgvector/RLS, frontend, quality,
+  release-security and secret-detection jobs.
+- `RUNTIME-DERIVED`: VM126 API and all three application workers run immutable
+  image `kamilya-api:80205985c434`; public and private health identify exact
+  release `80205985c43483d341d41c8be74bbf8640dc6e04` and `kz-production`.
+  All four application containers were running with zero restart count after
+  deployment. No database migration, tenant mutation, Valkey, Docling, blob,
+  frontend or CT125 configuration change was part of this release.
+- `RUNTIME-DERIVED`: production `runtime.env` contains one
+  `PUBLIC_LEAD_NOTIFICATION_EMAIL` setting with two deduplicated operator
+  recipients. Recipient values remain runtime-only and are not stored in Git or
+  command output. The post-deploy operational watchdog completed with
+  `Result=success` and `ExecMainStatus=0`.
+- `RUNTIME-DERIVED`: the first guarded deployment attempt automatically restored
+  the previous image/configuration because the watchdog's separate expected
+  image field had not yet been reconciled. The corrected guarded attempt updated
+  both expected release and expected image, passed health/watchdog gates, removed
+  its temporary release source and retained the prior image plus a root-only
+  rollback backup.
+- `NOT VERIFIED`: no retrospective Coffee Nation notification is claimed. A
+  read-only production query found no current lead under the supplied historical
+  slug or company-name match, so no contact fields were reconstructed from a
+  screenshot and no backfill email was sent. Future successful public tenant
+  registrations are covered by the deployed path. No synthetic registration was
+  submitted for this verification.
+- `GIT-DERIVED`: ops commit `f0ffc0abd9daceff68f552763eb65cc9406988a6`
+  tracks the fail-closed KZ remote executor, reconciles VM126's exact runtime
+  hostname, and records recurrence prevention. GitHub CI run `32926482727`
+  passed all jobs.
