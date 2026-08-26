@@ -323,7 +323,16 @@ Worker на отдельном VPS не обновляется автомати�
 
 ## Git и release
 
-- Commit author email: `kamilla_lms_crm@proton.me`.
+**STOP: КАНОНИЧЕСКИЙ `GITHUB_TOKEN` ПРОВЕРЕН 26.08.2026 И ДЕЙСТВУЕТ ДЛЯ
+АККАУНТА `KamillaLMSCRM`. НЕ ОБЪЯВЛЯТЬ ЕГО НЕДЕЙСТВИТЕЛЬНЫМ ИЗ-ЗА 403,
+ПОЛУЧЕННОГО ЧЕРЕЗ САМОДЕЛЬНЫЙ `GIT_ASKPASS`, ЧУЖУЮ KEYRING-СЕССИЮ,
+НЕВЕРНЫЙ `.env` ИЛИ ОБЫЧНЫЙ `git push`. СНАЧАЛА ОБЯЗАТЕЛЬНО ВЫПОЛНИТЬ
+КАНОНИЧЕСКИЙ `gh auth status` НИЖЕ.**
+
+- Exact commit author: `Kamilya Codex <kamilla_lms_crm@proton.me>`.
+- Канонический GitHub account для этого репозитория: `KamillaLMSCRM`.
+- Keyring account `askar0007amirkhanov` не является Git identity Kamilya и не
+  используется для push, даже если локальная keyring-сессия существует.
 - Канонический GitHub credential находится только в корневом `.env` текущего
   репозитория в переменной `GITHUB_TOKEN`. Старые `.env`, Git Credential Manager,
   browser/device login и соседние проекты не являются источниками Git credentials.
@@ -367,3 +376,7 @@ Rules:
 - If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
 - Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
 - After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).
+- Запрещено создавать альтернативный `GIT_ASKPASS` helper для этого workflow.
+  Token считается недействительным только если канонический process-local
+  `gh auth status` из корневого `.env` сам завершился auth failure; до этого
+  транспортный 403 классифицируется как неверный credential path/account.

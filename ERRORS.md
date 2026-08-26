@@ -710,6 +710,15 @@ open, also record status, safe interim path, and review condition.
   error until the credential source is reconciled. Keep token values process-local
   and out of command arguments, URLs, logs, documents, and Git configuration files.
 
+**STOP / RECURRENCE 2026-08-26:** THE CANONICAL ROOT `GITHUB_TOKEN` IS VALID
+FOR `KamillaLMSCRM`. THE EXACT COMMIT AUTHOR IS
+`Kamilya Codex <kamilla_lms_crm@proton.me>`. A CUSTOM `GIT_ASKPASS` SELECTED
+THE INACTIVE `askar0007amirkhanov` KEYRING IDENTITY AND PRODUCED HTTP 403; THIS
+WAS A WRONG CREDENTIAL-PATH/ACCOUNT FAILURE, NOT TOKEN EXPIRY. CUSTOM ASKPASS IS
+FORBIDDEN FOR THIS REPOSITORY. RUN THE ROOT-ENV `gh auth status` CHECK AND USE
+THE OFFICIAL PROCESS-LOCAL `gh auth git-credential` HELPER BEFORE CLASSIFYING
+ANY TOKEN FAILURE.
+
 ## 2026-08-24 - Local API test environment drifted from declared dependencies
 
 - **Context:** Focused superadmin tenant lifecycle tests were run against the canonical Supabase dev database through the transaction-rollback fixture.

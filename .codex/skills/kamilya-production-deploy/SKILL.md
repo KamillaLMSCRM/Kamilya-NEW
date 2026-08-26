@@ -17,6 +17,23 @@ owner approval to the exact target, release SHA, services, migration scope,
 preservation requirements, stop conditions, and rollback operation.
 
 ## Fixed production topology
+## Mandatory Git identity preflight
+
+**STOP: the repository-root `GITHUB_TOKEN` was verified on 2026-08-26 for the
+`KamillaLMSCRM` account. Do not diagnose token expiry from a custom
+`GIT_ASKPASS`, a plain `git push`, or the inactive keyring account
+`askar0007amirkhanov`.**
+
+- Require exact commit author `Kamilya Codex <kamilla_lms_crm@proton.me>`.
+- From `apps/api`, verify the process-local credential without printing it:
+  `poetry run dotenv -f ..\..\.env run -- gh auth status --hostname github.com`.
+- Push only through the official process-local helper:
+  `poetry run dotenv -f ..\..\.env run -- git -c credential.helper= -c "credential.helper=!gh auth git-credential" -C ..\.. push origin <exact-sha>:<exact-branch>`.
+- Never create a custom askpass script, use a browser/device login, put the token
+  in a URL/command/config, or treat another account's 403 as token evidence.
+- Declare the canonical token invalid only when this exact root-env
+  `gh auth status` fails authentication.
+
 
 - The proxy is ingress and SSH transport only; never build or run Kamilya there.
 - VM126 runs the production API, three workers, Valkey, and file services.
