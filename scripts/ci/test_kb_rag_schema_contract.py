@@ -17,7 +17,7 @@ from scripts.ci.kb_rag_schema_contract import (
 
 def _valid_snapshot() -> SchemaSnapshot:
     return SchemaSnapshot(
-        revision="0131",
+        revision="0132",
         postgresql_major=17,
         pgvector_present=True,
         relations=(
@@ -126,7 +126,7 @@ def _with_constraint_definition(
 
 def test_valid_snapshot_returns_sanitized_ci_contract() -> None:
     checks = evaluate_snapshot(_valid_snapshot())
-    assert checks["alembic_revision"] == "0131"
+    assert checks["alembic_revision"] == "0132"
     assert checks["postgresql_major"] == 17
     assert checks["force_rls"] is True
     assert checks["deferred_fk"] is True

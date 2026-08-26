@@ -6,6 +6,7 @@ import hashlib
 import json
 import secrets
 from datetime import UTC, datetime
+from typing import Any, cast
 from uuid import UUID
 
 from fastapi import HTTPException
@@ -83,8 +84,8 @@ async def rotate_credential(
         )
     )).all())
     for credential in active:
-        credential.is_active = False
-        credential.revoked_at = now
+        cast(Any, credential).is_active = False
+        cast(Any, credential).revoked_at = now
 
     token = secrets.token_urlsafe(48)
     credential = StaffSyncCredential(
@@ -203,7 +204,7 @@ def _apply_employee_fields(user: User, employee: StaffSyncEmployeeInput) -> list
     for field, value in updates.items():
         if getattr(user, field) != value:
             if field == "email":
-                user.email_verified_at = None
+                cast(Any, user).email_verified_at = None
             setattr(user, field, value)
             changed.append(field)
     return changed
@@ -284,19 +285,24 @@ async def _upsert_employee(
     if not user.is_active and not allow_reactivate:
         raise StaffSyncConflictError("employee_inactive", "Use reactivate for an inactive employee")
 
-    await _assert_employee_keys_available(db, context.tenant_id, employee, user.id)
+    await _assert_employee_keys_available(
+        db,
+        context.tenant_id,
+        employee,
+        cast(UUID, user.id),
+    )
     changed = _apply_employee_fields(user, employee)
     if position is not None and user.position_id != position.id:
         user.position_id = position.id
         changed.append("position_id")
     if allow_reactivate and not user.is_active:
         await assert_can_create_learners(db, context.tenant_id, requested=1)
-        user.is_active = True
-        user.status = "active"
+        cast(Any, user).is_active = True
+        cast(Any, user).status = "active"
         changed.extend(["is_active", "status"])
 
     await db.flush()
-    await apply_rules_for_users(db, [user.id])
+    await apply_rules_for_users(db, [cast(UUID, user.id)])
     status = "reactivated" if allow_reactivate and "is_active" in changed else created_or_linked
     if status in {"updated", "linked"} and not changed:
         status = "unchanged"
@@ -313,8 +319,8 @@ async def _terminate_employee(
         raise StaffSyncConflictError("identity_not_found", "External employee identity is not linked")
     if not user.is_active:
         return user, "unchanged", []
-    user.is_active = False
-    user.status = "inactive"
+    cast(Any, user).is_active = False
+    cast(Any, user).status = "inactive"
     await db.execute(
         delete(UserSession).where(
             UserSession.tenant_id == context.tenant_id,
@@ -366,7 +372,7 @@ async def process_event(
                 status_code=409,
                 detail={"code": "event_id_reused", "message": "event_id was already used with another payload"},
             )
-        outcome = existing.outcome_json or {}
+        outcome: dict[str, Any] = cast(dict[str, Any], existing.outcome_json or {})
         return StaffSyncEventResponse(
             event_id=existing.event_id,
             action=existing.action,
@@ -393,7 +399,7 @@ async def process_event(
     db.add(event)
     credential = await db.get(StaffSyncCredential, context.credential_id)
     if credential is not None:
-        credential.last_used_at = now
+        cast(Any, credential).last_used_at = now
     await db.flush()
 
     try:
@@ -416,34 +422,37 @@ async def process_event(
                         user, event_status, changed = current, "unchanged", []
                     else:
                         await assert_can_create_learners(db, context.tenant_id, requested=1)
-                        current.is_active = True
-                        current.status = "active"
+                        cast(Any, current).is_active = True
+                        cast(Any, current).status = "active"
                         await db.flush()
-                        await apply_rules_for_users(db, [current.id])
+                        await apply_rules_for_users(db, [cast(UUID, current.id)])
                         user, event_status, changed = current, "reactivated", ["is_active", "status"]
                 else:
                     user, event_status, changed = await _upsert_employee(
                         db, context, payload, allow_reactivate=True,
                     )
-        event.employee_id = user.id
-        event.status = event_status
-        event.outcome_json = {"changed_fields": changed}
+        cast(Any, event).employee_id = user.id
+        cast(Any, event).status = event_status
+        cast(Any, event).outcome_json = {"changed_fields": changed}
     except StaffSyncConflictError as conflict:
-        event.status = "conflict"
-        event.outcome_json = {"error_code": conflict.code, "message": conflict.message}
+        cast(Any, event).status = "conflict"
+        cast(Any, event).outcome_json = {
+            "error_code": conflict.code,
+            "message": conflict.message,
+        }
         changed = []
     except IntegrityError as integrity_error:
         conflict_code = integrity_conflict_code(integrity_error)
         if conflict_code is None:
             raise
-        event.status = "conflict"
-        event.outcome_json = {
+        cast(Any, event).status = "conflict"
+        cast(Any, event).outcome_json = {
             "error_code": conflict_code,
             "message": "Employee identity conflicts with an existing record",
         }
         changed = []
 
-    event.processed_at = datetime.now(UTC)
+    cast(Any, event).processed_at = datetime.now(UTC)
     await db.flush()
     return StaffSyncEventResponse(
         event_id=event.event_id,

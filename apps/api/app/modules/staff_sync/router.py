@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import Annotated
+from typing import Annotated, Any, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, status
@@ -35,16 +35,19 @@ MachineContext = Annotated[StaffSyncContext, Depends(require_staff_sync_context)
 async def credential_status(
     db: DbSession,
     user: TenantAdmin,
-):
+) -> StaffSyncCredential | None:
     if user.tenant_id is None:
         raise HTTPException(status_code=400, detail="Tenant is required")
-    return await db.scalar(
-        select(StaffSyncCredential)
-        .where(
-            StaffSyncCredential.tenant_id == user.tenant_id,
-            StaffSyncCredential.revoked_at.is_(None),
-        )
-        .order_by(StaffSyncCredential.created_at.desc())
+    return cast(
+        StaffSyncCredential | None,
+        await db.scalar(
+            select(StaffSyncCredential)
+            .where(
+                StaffSyncCredential.tenant_id == user.tenant_id,
+                StaffSyncCredential.revoked_at.is_(None),
+            )
+            .order_by(StaffSyncCredential.created_at.desc())
+        ),
     )
 
 
@@ -53,23 +56,27 @@ async def create_or_rotate_credential(
     payload: StaffSyncCredentialCreate,
     db: DbSession,
     user: TenantAdmin,
-):
+) -> StaffSyncCredentialCreated:
     if user.tenant_id is None:
         raise HTTPException(status_code=400, detail="Tenant is required")
     return await rotate_credential(
         db,
-        tenant_id=user.tenant_id,
-        created_by=user.id,
+        tenant_id=cast(UUID, user.tenant_id),
+        created_by=cast(UUID, user.id),
         payload=payload,
     )
 
 
-@router.delete("/credential/{credential_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/credential/{credential_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_model=None,
+)
 async def revoke_credential(
     credential_id: UUID,
     db: DbSession,
     user: TenantAdmin,
-):
+) -> None:
     if user.tenant_id is None:
         raise HTTPException(status_code=400, detail="Tenant is required")
     credential = await db.scalar(
@@ -80,8 +87,8 @@ async def revoke_credential(
     )
     if credential is None:
         raise HTTPException(status_code=404, detail="Staff Sync credential not found")
-    credential.is_active = False
-    credential.revoked_at = datetime.now(UTC)
+    cast(Any, credential).is_active = False
+    cast(Any, credential).revoked_at = datetime.now(UTC)
 
 
 @router.post("/events", response_model=StaffSyncEventResponse)
@@ -90,7 +97,7 @@ async def receive_staff_event(
     db: DbSession,
     context: MachineContext,
     idempotency_key: Annotated[str, Header(alias="Idempotency-Key", min_length=1, max_length=200)],
-):
+) -> StaffSyncEventResponse:
     if idempotency_key != payload.event_id:
         raise HTTPException(
             status_code=422,
