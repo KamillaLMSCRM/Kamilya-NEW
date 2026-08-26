@@ -200,7 +200,7 @@ async def test_registration_rejects_unverified_email_without_creating_tenant(
     )
 
     assert response.status_code == 400
-    assert response.json()["detail"]["code"] == "invalid_registration_email_code"
+    assert response.json()["details"]["code"] == "invalid_registration_email_code"
     tenant = (
         await db_session.execute(select(Tenant).where(Tenant.name == company_name))
     ).scalar_one_or_none()

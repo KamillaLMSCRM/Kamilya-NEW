@@ -285,8 +285,9 @@ async def _unique_slug(db: AsyncSession, company_name: str) -> str:
 async def request_tenant_registration_code(
     payload: TenantRegistrationCodeRequest,
     db: Annotated[AsyncSession, Depends(get_db)],
-):
+) -> TenantRegistrationCodeResponse:
     existing_user = (
+        # tenant-gate: allow - globally unique email check before a tenant exists.
         await db.execute(select(User.id).where(User.email == payload.email))
     ).scalar_one_or_none()
     if existing_user is not None:
