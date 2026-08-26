@@ -1,6 +1,6 @@
 """User management API router"""
 import logging
-from typing import Optional
+from typing import Optional, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -86,12 +86,12 @@ async def _deliver_team_member_welcome(
         settings = get_settings()
         public_url = (getattr(settings, "PUBLIC_URL", None) or "https://app.kml.kz").rstrip("/")
         await EmailService().send_team_member_welcome(
-            to_email=target.email,
+            to_email=cast(str, target.email),
             company_name=tenant_name,
             member_name=f"{target.first_name} {target.last_name}".strip(),
             login_url=f"{public_url}/login?mode=code",
             password_configured=password_configured,
-            user_id=target.id,
+            user_id=cast(UUID, target.id),
             language=language,
         )
     except EmailDeliveryError as exc:
@@ -326,7 +326,7 @@ async def create_new_user(
         delivery_status, delivery_failure_category = await _deliver_team_member_welcome(
             db,
             target=existing,
-            tenant_id=user.tenant_id,
+            tenant_id=cast(UUID, user.tenant_id),
             password_configured=False,
         )
         response = await _user_response(db, existing)
@@ -346,7 +346,7 @@ async def create_new_user(
     try:
         new_user = await create_user(
             db=db,
-            tenant_id=user.tenant_id,
+            tenant_id=cast(UUID, user.tenant_id),
             email=normalized_email,
             first_name=req.first_name.strip(),
             last_name=req.last_name.strip(),
@@ -379,9 +379,9 @@ async def create_new_user(
 @router.post("/{user_id}/welcome-email", response_model=UserResponse)
 async def resend_team_member_welcome(
     user_id: UUID,
-    db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("admin", "superadmin")),
-):
+    db: AsyncSession = Depends(get_db),  # noqa: B008
+    user: User = Depends(require_role("admin", "superadmin")),  # noqa: B008
+) -> UserResponse:
     """Retry code-first onboarding instructions for one tenant team member."""
 
     target = (
@@ -394,7 +394,7 @@ async def resend_team_member_welcome(
     delivery_status, delivery_failure_category = await _deliver_team_member_welcome(
         db,
         target=target,
-        tenant_id=user.tenant_id,
+        tenant_id=cast(UUID, user.tenant_id),
         password_configured=False,
     )
     response = await _user_response(db, target)

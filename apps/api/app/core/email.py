@@ -468,13 +468,14 @@ class EmailService:
             )
 
         if provider == "smtp" and self.delivery_ready():
-            return await self._send_smtp(
+            await self._send_smtp(
                 to_email=to_email,
                 subject=subject,
                 text=text,
                 html=html,
                 reply_to=reply_to,
             )
+            return None
 
         logger.info("email_queued", extra={"provider": "log"})
         return None
@@ -502,24 +503,29 @@ class EmailService:
 
         def deliver() -> None:
             context = ssl.create_default_context()
-            if settings.SMTP_USE_SSL:
-                client_factory = smtplib.SMTP_SSL
-                client_kwargs = {"context": context}
-            else:
-                client_factory = smtplib.SMTP
-                client_kwargs = {}
-            with client_factory(
-                settings.SMTP_HOST,
-                settings.SMTP_PORT,
-                timeout=10,
-                **client_kwargs,
-            ) as client:
-                if not settings.SMTP_USE_SSL:
-                    client.starttls(context=context)
+
+            def send(client: smtplib.SMTP) -> None:
                 client.login(settings.EMAIL, settings.EMAIL_PASSWORD)
                 refused = client.send_message(message)
                 if refused:
                     raise smtplib.SMTPRecipientsRefused(refused)
+
+            if settings.SMTP_USE_SSL:
+                with smtplib.SMTP_SSL(
+                    settings.SMTP_HOST,
+                    settings.SMTP_PORT,
+                    timeout=10,
+                    context=context,
+                ) as ssl_client:
+                    send(ssl_client)
+            else:
+                with smtplib.SMTP(
+                    settings.SMTP_HOST,
+                    settings.SMTP_PORT,
+                    timeout=10,
+                ) as plain_client:
+                    plain_client.starttls(context=context)
+                    send(plain_client)
 
         try:
             await asyncio.to_thread(deliver)
