@@ -574,7 +574,7 @@ async def register_tenant(
     background_tasks.add_task(
         _send_public_lead_notification,
         PublicLeadNotification(
-            lead_id=lead.id,
+            lead_id=UUID(str(lead.id)),
             received_at=now,
             name=payload.contact_name.strip(),
             company=payload.company_name.strip(),
