@@ -898,3 +898,25 @@ open, also record status, safe interim path, and review condition.
 - Prevention: identity pre-checks must precede the first insert flush, while
   database uniqueness remains the concurrency backstop. Every external sync
   path must test both deterministic conflicts and constraint-race translation.
+
+## 2026-08-26 — Git token lookup resolved `.env` from the task subdirectory
+
+- Symptom: the agent incorrectly reported that `GITHUB_TOKEN` was empty and
+  then tried the unrelated `kamilya_landing_git_token`, which GitHub rejected
+  for the `Kamilya-NEW` remote. The owner correctly stated that the active token
+  was present and had already been used during the same workday.
+- Cause: the token-safe push helper ran with `apps/api` as its current working
+  directory and resolved `Path.cwd() / '.env'`. It therefore read
+  `apps/api/.env` instead of the canonical repository-root `.env`. The resulting
+  absence was wrongly presented as a credential-state fact rather than a
+  path-resolution error.
+- Fix: derive the repository root explicitly, then resolve `.env` from that
+  root. Inspect every matching variable occurrence by name and non-empty state
+  without printing values, and select the last non-empty exact `GITHUB_TOKEN`.
+- Recovery: the helper read the correct repository-root file and pushed commit
+  `6e80bf5608e1744e3abb38191cc77d82123b7883` to `origin/dev`; exact remote SHA
+  readback matched.
+- Prevention: Git credential helpers must never infer the secret-file location
+  from a task subdirectory. Use `git rev-parse --show-toplevel` or an already
+  verified absolute repository root, keep tokens process-local, and distinguish
+  `credential absent` from `wrong file inspected` in all reports.
