@@ -856,6 +856,9 @@ open, also record status, safe interim path, and review condition.
   `sudo -n` read-only Docker shape; the release script copied assumptions from a
   root execution context; the `ERR` handler did not disable itself and exit with
   the original nonzero status; and hidden PTY input was treated as exact bytes.
+- Fix: extend the reviewed adapter with the narrow `sudo -n` read-only command
+  shape, use absolute privileged runtime paths, preserve the original nonzero
+  status after rollback, and reconstruct email addresses outside hidden PTY input.
 - Recovery: narrowly allow only `sudo -n` followed by an existing read-only
   command, plus one fixed container-evidence format; retain sanitized stage
   evidence on remote failure; use absolute root-only paths with
@@ -870,6 +873,3 @@ open, also record status, safe interim path, and review condition.
   traversal, success-returning rollback traps, or hidden PTY input for strings
   containing `@`. A deploy report is not accepted until an independent
   postdeploy readback confirms the claimed image and release.
-- **Fix:** extend the reviewed adapter with the narrow `sudo -n` read-only command
-  shape, use absolute privileged runtime paths, preserve the original nonzero
-  status after rollback, and reconstruct email addresses outside hidden PTY input.
