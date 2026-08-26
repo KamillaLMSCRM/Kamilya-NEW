@@ -16,9 +16,9 @@ name: CI
 
 on:
   push:
-    branches: [master, main, develop]
+    branches: [master, main, develop, dev]
   pull_request:
-    branches: [master, main, develop]
+    branches: [master, main, develop, dev]
 
 # Cancel in-flight runs for the same ref.
 concurrency:
