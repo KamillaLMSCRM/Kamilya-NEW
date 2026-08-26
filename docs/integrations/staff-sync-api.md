@@ -1,8 +1,9 @@
 # Staff Sync API
 
-Status: canonical contract. The single-event vertical slice is implemented in
-local source at revision `0132`; no tenant credential has been issued and no
-provider or production activation is claimed.
+Status: canonical contract. The single-event vertical slice is deployed to
+Render dev at revision `0132` and release
+`cf12ee260f0080ebcc4d70b440d4849bb70f8a10`. No real tenant credential has
+been issued and no production activation is claimed.
 
 ## Scope and tenancy
 
@@ -240,5 +241,16 @@ termination-count acceptance tests.
   conflict, termination with refresh-session revocation, reactivation,
   two-tenant FORCE RLS isolation and credential revocation. Both staged runs
   finished with zero guarded-manifest residue and unchanged shared row counts.
-- `NOT VERIFIED`: no production migration, provider deployment, real tenant
-  credential, real employee data or external HR-system request was used.
+- `PROVIDER-CONFIRMED` (Render dev, 2026-08-26): GitHub Actions run
+  `32952220199` passed all six jobs for release
+  `cf12ee260f0080ebcc4d70b440d4849bb70f8a10`; Render deploy
+  `dep-da7b5bh42hec73atfgvg` reached `live` on the same release. Public health
+  returned `app_environment=production` (production-grade behavior),
+  `deployment_environment=render-development`, and the exact release SHA.
+- `RUNTIME-DERIVED` (Render dev plus Supabase dev, 2026-08-26): the deployed
+  route passed synthetic upsert, exact replay, update, terminate, reactivate,
+  database readback, and revoked-credential rejection. The disposable tenant,
+  employee, position, credential, identity and four events were removed; final
+  guarded residue was zero.
+- `NOT VERIFIED`: no production migration, real tenant credential, real
+  employee data or external HR-system request was used.
