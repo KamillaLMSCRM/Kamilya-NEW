@@ -36,6 +36,7 @@ def test_public_registration_normalizes_legal_evidence_versions() -> None:
             "company_name": "QA Company",
             "contact_name": "QA Admin",
             "email": "QA@EXAMPLE.COM ",
+            "email_code": "123456",
             "password": "qa-password-2026",
             "privacy_consent_version": f" {CURRENT_PRIVACY_CONSENT_VERSION} ",
             "privacy_consent_locale": "ru",

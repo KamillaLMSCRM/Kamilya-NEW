@@ -169,9 +169,18 @@ async def test_registration_succeeds_when_trial_email_provider_fails(
 async def test_registration_rejects_unverified_email_without_creating_tenant(
     client,
     db_session,
+    monkeypatch,
 ):
     suffix = uuid4().hex[:12]
     company_name = f"QA Unverified {suffix}"
+
+    async def reject_unverified_email(**_kwargs):
+        return None
+
+    monkeypatch.setattr(
+        "app.modules.tenants.router.consume_email_code",
+        reject_unverified_email,
+    )
 
     response = await client.post(
         "/api/v1/tenants/register",
