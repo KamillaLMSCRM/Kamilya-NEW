@@ -836,3 +836,10 @@ open, also record status, safe interim path, and review condition.
   `ruff format --check <file>` reports pre-existing whole-file drift, do not run the
   mutating formatter as part of an unrelated patch; keep the owned hunk formatted
   manually and use Ruff lint plus exact diff review.
+
+# 2026-08-26 - VM126 canonical hostname drift blocked the fail-closed SSH adapter
+
+- **Symptom:** `kz_remote_exec.py` returned `target_identity_mismatch` before a reviewed VM126 script could run.
+- **Cause:** the canonical WireGuard/SSH target identified itself as `kml`, while the adapter still expected the former hostname `KML-2-77`.
+- **Prevention:** keep the adapter's exact hostname assertion synchronized with runtime identity evidence; do not bypass the assertion or guess a different host when it fails.
+- **Resolution:** update `VM126_HOSTNAME` and its focused tests to the independently read-back hostname, then rerun the reviewed script through the same pinned host-key and WireGuard route.
