@@ -74,7 +74,6 @@ TENANT_DELETE_SQL = [
     "DELETE FROM tenant_llm_usage WHERE tenant_id = :tenant_id",
     "DELETE FROM tenant_settings WHERE tenant_id = :tenant_id",
     "DELETE FROM provider_keys WHERE tenant_id = :tenant_id",
-    "DELETE FROM registration_legal_acceptances WHERE tenant_id = :tenant_id",
     "DELETE FROM user_sessions WHERE tenant_id = :tenant_id",
     "DELETE FROM user_invitations WHERE tenant_id = :tenant_id",
     "DELETE FROM user_roles WHERE tenant_id = :tenant_id",
