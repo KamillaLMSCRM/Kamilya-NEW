@@ -25,6 +25,24 @@ DOCLING_API_KEY = os.getenv("DOCLING_API_KEY", "")
 DOCLING_TIMEOUT_SECONDS = float(os.getenv("DOCLING_TIMEOUT_SECONDS", "900"))
 
 
+class DocumentIndexingTerminalError(RuntimeError):
+    """Stable non-retryable failure for unusable converted document content."""
+
+    error_code = "document_content_unavailable"
+
+
+class DocumentOCRRequiredError(DocumentIndexingTerminalError):
+    """A scanned PDF has no text layer and the OCR route was unavailable."""
+
+    error_code = "ocr_required"
+
+
+class DocumentNoContentError(DocumentIndexingTerminalError):
+    """Conversion completed but produced no indexable content."""
+
+    error_code = "no_chunks"
+
+
 class DocumentConverter:
     """Convert documents to markdown — remote Docling on VPS, local fallback."""
 
@@ -1009,6 +1027,18 @@ class DocumentIngestion:
             metadata["source_revision"] = source_revision
             metadata["chunk_index"] = chunk_index
         print(f"[INGEST] chunked {len(chunks)} chunks", flush=True)
+
+        if not chunks:
+            conversion_engine = str(conversion_metadata.get("engine") or "")
+            if Path(file_path).suffix.lower() == ".pdf" and conversion_engine == "pypdf":
+                raise DocumentOCRRequiredError(
+                    "This scanned PDF has no text layer and requires OCR. "
+                    "The OCR service is currently unavailable; retry after it is restored."
+                )
+            raise DocumentNoContentError(
+                "Document conversion produced no indexable text. "
+                "Upload a document containing readable text."
+            )
 
         # Step 3: Embed (Qwen → Voyage → hash fallback)
         texts = [c["text"] for c in chunks]

@@ -16,6 +16,7 @@ from app.core.db import async_session_factory
 from app.core.storage import get_storage
 from app.models.ai_job import AIJob
 from app.models.document import Document
+from app.modules.ai.ingestion import DocumentIndexingTerminalError
 
 logger = logging.getLogger(__name__)
 
@@ -306,6 +307,24 @@ async def run_document_reindex(
             revision,
             str(exc),
             error_code="source_blob_missing",
+        )
+        raise
+    except DocumentIndexingTerminalError as exc:
+        logger.warning(
+            "Document content is not indexable document_id=%s revision=%s "
+            "job_id=%s error_code=%s",
+            document_id,
+            revision,
+            job_id,
+            exc.error_code,
+        )
+        await _mark_reindex_failed(
+            tenant_id,
+            document_id,
+            job_id,
+            revision,
+            str(exc),
+            error_code=exc.error_code,
         )
         raise
     except Exception as exc:

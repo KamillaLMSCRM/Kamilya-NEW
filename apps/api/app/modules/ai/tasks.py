@@ -232,6 +232,7 @@ try:
         revision: int,
     ):
         """Rebuild a document index from the persisted source blob."""
+        from app.modules.ai.ingestion import DocumentIndexingTerminalError
         from app.modules.documents.operations import run_document_reindex
 
         try:
@@ -243,6 +244,8 @@ try:
                     revision=revision,
                 )
             )
+        except DocumentIndexingTerminalError:
+            raise
         except Exception as exc:
             raise self.retry(
                 exc=exc,

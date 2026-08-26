@@ -291,6 +291,13 @@ export default function DocumentsPage() {
     typeof firstBackgroundError === 'string' ? null : firstBackgroundError?.code
   ) || backgroundOperation?.document.index.error_code;
   const sourceBlobMissing = backgroundErrorCode === 'source_blob_missing';
+  const ocrRequired = backgroundErrorCode === 'ocr_required';
+  const displayedBackgroundJob = backgroundOperation && ocrRequired
+    ? {
+        ...backgroundOperation.job,
+        message: t('documents.ocrRequiredHint'),
+      }
+    : backgroundOperation?.job;
 
   const handleDownload = async (document: DocumentCatalogItem) => {
     setDownloadingId(document.id);
@@ -399,7 +406,7 @@ export default function DocumentsPage() {
 
       {backgroundOperation && (
         <AsyncOperationStatus
-          operation={backgroundOperation.job}
+          operation={displayedBackgroundJob || backgroundOperation.job}
           title={`${t('documents.reindex')}: ${backgroundOperation.document.title}`}
           labels={{
             queued: t('asyncOperation.queued'),
@@ -880,6 +887,16 @@ function StatusBadge({ document, t }: { document: DocumentCatalogItem; t: (key: 
         title={t('documents.sourceMissingHint')}
       >
         {t('documents.sourceMissing')}
+      </span>
+    );
+  }
+  if (document.index.error_code === 'ocr_required') {
+    return (
+      <span
+        className="inline-flex rounded-full border border-warning/40 bg-warning/10 px-2 py-1 text-xs font-medium text-warning"
+        title={t('documents.ocrRequiredHint')}
+      >
+        {t('documents.ocrRequired')}
       </span>
     );
   }

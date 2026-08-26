@@ -4,7 +4,11 @@ import pytest
 from docx import Document
 from pypdf import PdfWriter
 
-from app.modules.ai.ingestion import _local_convert
+from app.modules.ai.ingestion import (
+    DocumentIngestion,
+    DocumentOCRRequiredError,
+    _local_convert,
+)
 
 
 @pytest.mark.asyncio
@@ -73,3 +77,35 @@ async def test_pdf_document_has_local_text_fallback(tmp_path) -> None:
     assert converted["metadata"]["pages"] == 1
     assert converted["metadata"]["engine"] == "pypdf"
     assert converted["metadata"]["fallback_used"] is True
+
+
+@pytest.mark.asyncio
+async def test_scanned_pdf_requires_ocr_before_embedding(tmp_path) -> None:
+    source = tmp_path / "scanned-policy.pdf"
+    source.write_bytes(b"synthetic scanned fixture")
+
+    class ScannedPDFConverter:
+        async def convert(self, file_path: str) -> dict:
+            return {
+                "markdown": "",
+                "metadata": {
+                    "engine": "pypdf",
+                    "fallback_used": True,
+                    "pages": 2,
+                },
+            }
+
+    class EmbeddingsMustNotRun:
+        async def embed_documents_with_provenance(self, texts):
+            raise AssertionError("empty embedding batch must not be sent")
+
+    ingestion = DocumentIngestion()
+    ingestion.converter = ScannedPDFConverter()
+    ingestion.embeddings = EmbeddingsMustNotRun()
+
+    with pytest.raises(DocumentOCRRequiredError, match="requires OCR"):
+        await ingestion.ingest_file(
+            str(source),
+            doc_id="scanned-policy",
+            tenant_id="00000000-0000-0000-0000-000000000001",
+        )

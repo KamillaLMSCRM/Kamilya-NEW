@@ -819,6 +819,8 @@
     "backgroundJobFailed": "Background operation failed",
     "sourceMissing": "Source file missing",
     "sourceMissingHint": "The source file is unavailable. Upload a new document version.",
+    "ocrRequired": "OCR required",
+    "ocrRequiredHint": "This document contains scanned pages. The text recognition service is temporarily unavailable. Retry reindexing after OCR is restored.",
     "restoreSource": "Upload a new version to replace the missing source",
     "retryDelete": "Retry deletion",
     "retryCleanup": "Retry cleanup",
