@@ -130,8 +130,8 @@ async def test_public_lead_notification_contains_full_application_and_escapes_ht
     assert "&lt;script&gt;alert(1)&lt;/script&gt;" in payload["html"]
     assert "<script>alert(1)</script>" not in payload["html"]
     assert _FakeAsyncClient.headers is not None
-    assert _FakeAsyncClient.headers["Idempotency-Key"] == (
-        "public-lead-notification/00000000-0000-0000-0000-000000000123"
+    assert _FakeAsyncClient.headers["Idempotency-Key"].startswith(
+        "public-lead-notification/00000000-0000-0000-0000-000000000123/"
     )
 
 

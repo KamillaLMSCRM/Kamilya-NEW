@@ -206,21 +206,31 @@ def _dispatch_crm_lead_outbox(event_id: UUID) -> None:
 async def _send_public_lead_notification(notification: PublicLeadNotification) -> None:
     """Send a best-effort operator copy without changing lead acceptance."""
 
-    recipient = get_settings().PUBLIC_LEAD_NOTIFICATION_EMAIL.strip()
-    if not recipient:
+    raw_recipients = get_settings().PUBLIC_LEAD_NOTIFICATION_EMAIL
+    recipients: list[str] = []
+    seen: set[str] = set()
+    for candidate in re.split(r"[,;]", raw_recipients):
+        recipient = candidate.strip()
+        normalized = recipient.lower()
+        if recipient and normalized not in seen:
+            recipients.append(recipient)
+            seen.add(normalized)
+    if not recipients:
         return
-    try:
-        await EmailService().send_public_lead_notification(
-            to_email=recipient,
-            notification=notification,
-        )
-    except Exception as exc:
-        category = exc.category if isinstance(exc, EmailDeliveryError) else type(exc).__name__
-        logger.warning(
-            "public_lead.notification_email.failed lead_id=%s category=%s",
-            notification.lead_id,
-            category,
-        )
+    for recipient_index, recipient in enumerate(recipients, start=1):
+        try:
+            await EmailService().send_public_lead_notification(
+                to_email=recipient,
+                notification=notification,
+            )
+        except Exception as exc:
+            category = exc.category if isinstance(exc, EmailDeliveryError) else type(exc).__name__
+            logger.warning(
+                "public_lead.notification_email.failed lead_id=%s recipient_index=%s category=%s",
+                notification.lead_id,
+                recipient_index,
+                category,
+            )
 
 
 def _tenant_registration_attribution(payload: TenantRegisterRequest) -> dict[str, str]:
@@ -560,6 +570,29 @@ async def register_tenant(
     await db.refresh(lead)
 
     user_payload = await build_user_payload(db, user)
+
+    background_tasks.add_task(
+        _send_public_lead_notification,
+        PublicLeadNotification(
+            lead_id=lead.id,
+            received_at=now,
+            name=payload.contact_name.strip(),
+            company=payload.company_name.strip(),
+            email=str(payload.email),
+            phone=payload.phone.strip() if payload.phone else None,
+            interest=payload.intent,
+            message=_build_tenant_registration_message(payload),
+            locale=payload.preferred_language,
+            utm_source=payload.utm_source,
+            utm_medium=payload.utm_medium,
+            utm_campaign=payload.utm_campaign,
+            utm_content=payload.utm_content,
+            utm_term=payload.utm_term,
+            referrer=payload.referrer,
+            source_section="tenant_registration",
+            plan="trial",
+        ),
+    )
 
     # Workspace activation is the primary transaction. A notification-provider
     # outage must not roll it back or turn a successful registration into a 500.

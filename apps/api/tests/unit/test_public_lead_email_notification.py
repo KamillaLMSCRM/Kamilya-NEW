@@ -77,7 +77,11 @@ def test_public_lead_api_sends_complete_copy_only_after_commit(monkeypatch):
 
     monkeypatch.setattr(
         "app.modules.tenants.router.get_settings",
-        lambda: SimpleNamespace(PUBLIC_LEAD_NOTIFICATION_EMAIL="askar0007amirkhanov@gmail.com"),
+        lambda: SimpleNamespace(
+            PUBLIC_LEAD_NOTIFICATION_EMAIL=(
+                "askar@kml.kz, askar0007amirkhanov@gmail.com; ASKAR@KML.KZ"
+            )
+        ),
     )
     monkeypatch.setattr("app.modules.tenants.router._dispatch_crm_lead_outbox", lambda _event_id: None)
     monkeypatch.setattr(
@@ -90,9 +94,12 @@ def test_public_lead_api_sends_complete_copy_only_after_commit(monkeypatch):
 
     assert response.status_code == 201
     assert response.json() == {"id": str(LEAD_ID), "ok": True}
-    assert len(delivered) == 1
-    recipient, notification = delivered[0]
-    assert recipient == "askar0007amirkhanov@gmail.com"
+    assert len(delivered) == 2
+    assert [item[0] for item in delivered] == [
+        "askar@kml.kz",
+        "askar0007amirkhanov@gmail.com",
+    ]
+    notification = delivered[0][1]
     assert notification.lead_id == LEAD_ID
     assert notification.name == "Аскар Амирханов"
     assert notification.company == "ТОО Document. KZ"
@@ -104,13 +111,19 @@ def test_public_lead_api_sends_complete_copy_only_after_commit(monkeypatch):
 
 def test_public_lead_api_stays_successful_when_email_provider_fails(monkeypatch, caplog):
     fake_db = _FakeDb()
+    attempted_recipients = []
 
     async def fail_notification(_service, *, to_email, notification):
+        attempted_recipients.append(to_email)
         raise RuntimeError("provider unavailable with private payload")
 
     monkeypatch.setattr(
         "app.modules.tenants.router.get_settings",
-        lambda: SimpleNamespace(PUBLIC_LEAD_NOTIFICATION_EMAIL="askar0007amirkhanov@gmail.com"),
+        lambda: SimpleNamespace(
+            PUBLIC_LEAD_NOTIFICATION_EMAIL=(
+                "askar@kml.kz,askar0007amirkhanov@gmail.com"
+            )
+        ),
     )
     monkeypatch.setattr("app.modules.tenants.router._dispatch_crm_lead_outbox", lambda _event_id: None)
     monkeypatch.setattr(
@@ -124,4 +137,8 @@ def test_public_lead_api_stays_successful_when_email_provider_fails(monkeypatch,
     assert response.status_code == 201
     assert response.json() == {"id": str(LEAD_ID), "ok": True}
     assert fake_db.committed is True
+    assert attempted_recipients == [
+        "askar@kml.kz",
+        "askar0007amirkhanov@gmail.com",
+    ]
     assert "private payload" not in caplog.text

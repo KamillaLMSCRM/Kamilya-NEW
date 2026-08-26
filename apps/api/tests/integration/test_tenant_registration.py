@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
@@ -27,6 +28,23 @@ async def test_registration_succeeds_when_trial_email_provider_fails(
     monkeypatch.setattr(
         "app.modules.tenants.router.EmailService.send_trial_started",
         fail_email,
+    )
+    operator_notifications = []
+
+    async def capture_operator_notification(_service, *, to_email, notification):
+        operator_notifications.append((to_email, notification))
+
+    monkeypatch.setattr(
+        "app.modules.tenants.router.get_settings",
+        lambda: SimpleNamespace(
+            PUBLIC_LEAD_NOTIFICATION_EMAIL=(
+                "askar@kml.kz,askar0007amirkhanov@gmail.com"
+            )
+        ),
+    )
+    monkeypatch.setattr(
+        "app.modules.tenants.router.EmailService.send_public_lead_notification",
+        capture_operator_notification,
     )
     dispatched: list[str] = []
     monkeypatch.setattr(
@@ -104,6 +122,18 @@ async def test_registration_succeeds_when_trial_email_provider_fails(
     assert event["utm_campaign"] == "kz_lms"
     assert "billing_identifier" not in event
     assert dispatched == [str(lead.id)]
+    assert [item[0] for item in operator_notifications] == [
+        "askar@kml.kz",
+        "askar0007amirkhanov@gmail.com",
+    ]
+    trial_notification = operator_notifications[0][1]
+    assert trial_notification.lead_id == lead.id
+    assert trial_notification.company == f"QA Registration {suffix}"
+    assert trial_notification.email == email
+    assert trial_notification.interest == "try"
+    assert trial_notification.source_section == "tenant_registration"
+    assert trial_notification.plan == "trial"
+    assert trial_notification.utm_campaign == "kz_lms"
     await db_session.execute(
         text(
             "SELECT crm_finalize_lead_outbox("

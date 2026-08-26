@@ -158,8 +158,9 @@ class Settings(BaseSettings):
     RESEND_API_KEY: str = ""
     EMAIL_FROM: str = "Kamilya LMS <no-reply@notify.kml.kz>"
     SUPPORT_EMAIL: str = "support@kml.kz"
-    # Optional temporary operator copy of every successfully stored public
-    # website lead. Keep empty outside explicitly configured environments.
+    # Optional operator copies of every successfully stored public website lead
+    # and self-service trial registration. Accepts comma- or semicolon-separated
+    # recipients; keep empty outside explicitly configured environments.
     PUBLIC_LEAD_NOTIFICATION_EMAIL: str = ""
 
     # CRM webhook is deliberately optional: absent configuration keeps durable

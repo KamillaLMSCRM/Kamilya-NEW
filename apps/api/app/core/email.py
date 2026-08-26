@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, fields
 from datetime import datetime
+from hashlib import sha256
 from html import escape
 from uuid import UUID
 
@@ -150,6 +151,7 @@ class EmailService:
         """Send the complete stored lead copy to the configured operator."""
 
         rows = _public_lead_rows(notification)
+        recipient_key = sha256(to_email.strip().lower().encode("utf-8")).hexdigest()[:16]
         subject = "Kamilya LMS: новая заявка с сайта"
         text = "Новая заявка Kamilya LMS\n\n" + "\n".join(f"{label}: {value}" for label, value in rows)
         html_rows = "".join(
@@ -165,7 +167,9 @@ class EmailService:
             subject=subject,
             text=text,
             html=html,
-            idempotency_key=f"public-lead-notification/{notification.lead_id}",
+            idempotency_key=(
+                f"public-lead-notification/{notification.lead_id}/{recipient_key}"
+            ),
         )
 
     async def send_invitation_code(
