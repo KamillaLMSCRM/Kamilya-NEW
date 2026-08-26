@@ -52,12 +52,80 @@ class _FakeAsyncClient:
         return _FakeResponse()
 
 
+class _FakeSMTP:
+    message = None
+    login_args = None
+
+    def __init__(self, host, port, *, timeout, context=None) -> None:
+        assert host == "mail.example.kz"
+        assert port == 465
+        assert timeout == 10
+        assert context is not None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args) -> None:
+        return None
+
+    def login(self, username, password) -> None:
+        type(self).login_args = (username, password)
+
+    def send_message(self, message):
+        type(self).message = message
+        return {}
+
+
 def test_tenant_name_cannot_inject_an_email_subject_line():
     subject_part = _subject_component("Tenant\r\nBcc: hidden@example.kz", fallback="Kamilya LMS")
 
     assert subject_part == "Tenant Bcc: hidden@example.kz"
     assert "\r" not in subject_part
     assert "\n" not in subject_part
+
+
+def test_smtp_delivery_ready_requires_complete_credentials(monkeypatch):
+    monkeypatch.setattr(
+        "app.core.email.get_settings",
+        lambda: SimpleNamespace(
+            EMAIL_PROVIDER="smtp",
+            SMTP_HOST="mail.example.kz",
+            SMTP_PORT=465,
+            EMAIL="sender@example.kz",
+            EMAIL_PASSWORD="secret",
+        ),
+    )
+
+    assert EmailService.delivery_ready() is True
+
+
+@pytest.mark.asyncio
+async def test_smtp_transport_sends_multipart_message_without_logging_credentials(monkeypatch):
+    monkeypatch.setattr(
+        "app.core.email.get_settings",
+        lambda: SimpleNamespace(
+            EMAIL_PROVIDER="smtp",
+            RESEND_API_KEY="",
+            SMTP_HOST="mail.example.kz",
+            SMTP_PORT=465,
+            SMTP_USE_SSL=True,
+            EMAIL="sender@example.kz",
+            EMAIL_PASSWORD="secret",
+        ),
+    )
+    monkeypatch.setattr("app.core.email.smtplib.SMTP_SSL", _FakeSMTP)
+
+    await EmailService()._send(
+        to_email="recipient@example.kz",
+        subject="Welcome",
+        text="Plain text",
+        html="<p>HTML</p>",
+    )
+
+    assert _FakeSMTP.login_args == ("sender@example.kz", "secret")
+    assert _FakeSMTP.message["From"] == "Kamilya LMS <sender@example.kz>"
+    assert _FakeSMTP.message["To"] == "recipient@example.kz"
+    assert _FakeSMTP.message.is_multipart()
 
 
 @pytest.mark.asyncio
@@ -182,6 +250,39 @@ async def test_registration_code_email_explains_tenant_is_not_created_yet(monkey
     assert payload["subject"] == "Kamilya LMS: подтверждение email"
     assert "Tenant будет создан только после ввода кода" in payload["text"]
     assert "654321" in payload["html"]
+
+
+@pytest.mark.asyncio
+async def test_team_member_welcome_uses_code_first_copy_and_stable_idempotency(monkeypatch):
+    monkeypatch.setattr(
+        "app.core.email.get_settings",
+        lambda: SimpleNamespace(
+            EMAIL_PROVIDER="resend",
+            RESEND_API_KEY="test-key",
+            EMAIL_FROM="Kamilya LMS <noreply@example.kz>",
+        ),
+    )
+    _FakeAsyncClient.payload = None
+    _FakeAsyncClient.headers = None
+    monkeypatch.setattr("app.core.email.httpx.AsyncClient", _FakeAsyncClient)
+    user_id = UUID("00000000-0000-0000-0000-000000000321")
+
+    await EmailService().send_team_member_welcome(
+        to_email="methodologist@example.kz",
+        company_name="ТОО Тест",
+        member_name="Айжан Тестова",
+        login_url="https://app.kml.kz/login?mode=code",
+        password_configured=False,
+        user_id=user_id,
+        language="ru",
+    )
+
+    payload = _FakeAsyncClient.payload
+    assert payload is not None
+    assert "Код на email" in payload["text"]
+    assert "https://app.kml.kz/login?mode=code" in payload["text"]
+    assert _FakeAsyncClient.headers is not None
+    assert _FakeAsyncClient.headers["Idempotency-Key"] == f"team-member-welcome/{user_id}"
 
 
 @pytest.mark.asyncio

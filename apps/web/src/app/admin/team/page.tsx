@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Card, CardHeader, CardTitle, CardContent, Button, Badge, Table, Modal, Input } from '@/components/ui';
+import { toast } from '@/components/ui/Toast';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
 import {
@@ -20,6 +21,8 @@ interface User {
   is_active: boolean;
   created_at: string;
   last_login: string | null;
+  welcome_email_status?: 'sent' | 'failed' | 'unconfigured' | null;
+  welcome_email_failure_category?: string | null;
 }
 
 interface NewUserForm {
@@ -212,7 +215,7 @@ export default function AdminTeamPage() {
     if (!existingAccount) {
       if (!newUser.first_name.trim()) { setCreateError(t('users.teamPage.errors.firstNameRequired')); return; }
       if (!newUser.last_name.trim()) { setCreateError(t('users.teamPage.errors.lastNameRequired')); return; }
-      if (newUser.password.length < 8) { setCreateError(t('users.teamPage.errors.passwordMin')); return; }
+      if (newUser.password && newUser.password.length < 8) { setCreateError(t('users.teamPage.errors.passwordMin')); return; }
     }
     if (existingAccount && !assignableRoles.includes(newUser.role as any)) {
       setCreateError(t('users.teamPage.errors.roleAlreadyAssigned'));
@@ -234,6 +237,13 @@ export default function AdminTeamPage() {
             ...authUser,
             roles: savedUser.roles?.length ? savedUser.roles : [savedUser.role],
           });
+        }
+        if (!existingAccount && savedUser.welcome_email_status === 'sent') {
+          toast.success(t('users.teamPage.welcomeSent'));
+        } else if (!existingAccount && savedUser.welcome_email_status === 'failed') {
+          toast.warning(t('users.teamPage.welcomeFailed'));
+        } else if (!existingAccount && savedUser.welcome_email_status === 'unconfigured') {
+          toast.warning(t('users.teamPage.welcomeUnavailable'));
         }
         setShowCreateModal(false);
         setNewUser(createEmptyNewUser());
@@ -439,6 +449,7 @@ export default function AdminTeamPage() {
           <label className="block">
             <span className="text-sm text-foreground mb-1 block">{t('users.email')}</span>
             <Input
+              aria-describedby={!existingAccount ? 'team-member-password-hint' : undefined}
               name={`team_member_email_${createFormKey}`}
               type="email"
               autoComplete="off"
@@ -506,7 +517,9 @@ export default function AdminTeamPage() {
             </span>
           </label>
           <label className="block">
-            <span className="text-sm text-foreground mb-1 block">{t('users.password')}</span>
+            <span className="text-sm text-foreground mb-1 block">
+              {existingAccount ? t('users.password') : t('users.teamPage.passwordOptional')}
+            </span>
             <Input
               name={`team_member_password_${createFormKey}`}
               type="password"
@@ -519,6 +532,11 @@ export default function AdminTeamPage() {
               placeholder={existingAccount ? t('users.teamPage.passwordUnchanged') : undefined}
               onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
             />
+            {!existingAccount && (
+              <span id="team-member-password-hint" className="mt-1 block text-xs text-muted-foreground">
+                {t('users.teamPage.passwordOptionalHint')}
+              </span>
+            )}
           </label>
           {existingAccount && (
             <p className="rounded-lg bg-primary/5 px-3 py-2 text-xs text-muted-foreground">

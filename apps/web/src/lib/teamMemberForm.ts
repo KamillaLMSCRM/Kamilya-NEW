@@ -34,14 +34,16 @@ export function buildTeamMemberSubmission(
     };
   }
 
+  const body: Record<string, string> = {
+    email: form.email.trim().toLowerCase(),
+    first_name: form.first_name.trim(),
+    last_name: form.last_name.trim(),
+    role: form.role,
+  };
+  if (form.password) body.password = form.password;
+
   return {
     path: '/v1/users',
-    body: {
-      email: form.email.trim().toLowerCase(),
-      first_name: form.first_name.trim(),
-      last_name: form.last_name.trim(),
-      role: form.role,
-      password: form.password,
-    },
+    body,
   };
 }

@@ -7,6 +7,7 @@ import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { toast } from '@/components/ui/Toast';
 import { getRoleHome } from '@/lib/rolePolicy';
 import { SupportRequestDialog } from '@/components/support/SupportRequestDialog';
+import { ContextualHelpButton } from '@/components/layout/ContextualHelpButton';
 import Link from 'next/link';
 
 interface TopBarProps {
@@ -158,6 +159,7 @@ export default function TopBar({ title, onMenuClick }: TopBarProps) {
             </select>
           </label>
         )}
+        <ContextualHelpButton />
         {user?.tenant && <SupportRequestDialog />}
 
         {/* Language switcher */}

@@ -1,5 +1,6 @@
 """User management schemas"""
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
@@ -16,12 +17,7 @@ class UserCreate(BaseModel):
     @field_validator("password", mode="before")
     @classmethod
     def empty_password_is_missing(cls, value: object) -> object:
-        """Let the router distinguish role assignment from account creation.
-
-        The team form historically sent empty hidden fields while adding a
-        role to an existing account. New accounts still require an eight
-        character password through the field constraint and router check.
-        """
+        """Normalize blank code-first submissions to an omitted password."""
         return None if value == "" else value
 
 
@@ -51,6 +47,16 @@ class UserResponse(BaseModel):
     last_name: str
     role: str
     roles: list[str] = Field(default_factory=list)
+    welcome_email_status: Literal["sent", "failed", "unconfigured"] | None = None
+    welcome_email_failure_category: Literal[
+        "provider_timeout",
+        "provider_unreachable",
+        "provider_rate_limited",
+        "provider_unavailable",
+        "provider_rejected",
+        "provider_auth_failed",
+        "internal_error",
+    ] | None = None
     is_active: bool
     position_id: UUID | None = None
     telegram_id: int | None = None

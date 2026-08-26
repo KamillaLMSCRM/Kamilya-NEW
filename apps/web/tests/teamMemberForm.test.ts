@@ -34,6 +34,18 @@ describe('team member submission', () => {
     });
   });
 
+  it('omits an empty optional password so email-code onboarding is explicit', () => {
+    expect(buildTeamMemberSubmission(form, null)).toEqual({
+      path: '/v1/users',
+      body: {
+        email: 'existing@example.com',
+        first_name: 'Existing',
+        last_name: 'User',
+        role: 'methodologist',
+      },
+    });
+  });
+
     it('does not offer a role that the account already has', () => {
       expect(getAssignableTeamRoles(['admin', 'methodologist'])).toEqual([]);
     });

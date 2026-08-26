@@ -153,9 +153,16 @@ class Settings(BaseSettings):
     TELEGRAM_WEBHOOK_SECRET: str = ""
 
     # Email
-    # Provider values: "log" (default, no external delivery) or "resend".
+    # Provider values: "log" (default, no external delivery), "resend", or
+    # "smtp". SMTP defaults match the project mail server but credentials must
+    # always be supplied by the active environment.
     EMAIL_PROVIDER: str = "log"
     RESEND_API_KEY: str = ""
+    EMAIL: str = ""
+    EMAIL_PASSWORD: str = ""
+    SMTP_HOST: str = "mail.kml.kz"
+    SMTP_PORT: int = 465
+    SMTP_USE_SSL: bool = True
     EMAIL_FROM: str = "Kamilya LMS <no-reply@notify.kml.kz>"
     SUPPORT_EMAIL: str = "support@kml.kz"
     # Optional operator copies of every successfully stored public website lead

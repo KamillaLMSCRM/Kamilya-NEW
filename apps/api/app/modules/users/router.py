@@ -1,4 +1,5 @@
 """User management API router"""
+import logging
 from typing import Optional
 from uuid import UUID
 
@@ -7,7 +8,11 @@ from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import get_current_user, require_role, require_tenant_user
+from app.core.config import get_settings
 from app.core.db import get_db
+from app.core.email import EmailDeliveryError, EmailService
+from app.models.tenant_settings import TenantSettings
+from app.models.tenants import Tenant
 from app.models.users import User, UserInvitation
 from app.modules.users.invitations_service import (
     attempt_invitation_delivery,
@@ -47,10 +52,54 @@ router = APIRouter(
     dependencies=[Depends(require_tenant_user())],
 )
 
+logger = logging.getLogger(__name__)
+
 
 async def _user_response(db: AsyncSession, user: User) -> UserResponse:
     roles = (await get_role_map(db, [user], user.tenant_id)).get(user.id, [user.role])
     return UserResponse.model_validate(user).model_copy(update={"roles": roles})
+
+
+async def _deliver_team_member_welcome(
+    db: AsyncSession,
+    *,
+    target: User,
+    tenant_id: UUID,
+    password_configured: bool,
+) -> tuple[str, str | None]:
+    """Attempt one bounded welcome delivery without undoing the account."""
+
+    if not EmailService.delivery_ready():
+        return "unconfigured", None
+    try:
+        tenant_name = (
+            await db.execute(select(Tenant.name).where(Tenant.id == tenant_id))
+        ).scalar_one_or_none() or "Kamilya LMS"
+        language = (
+            await db.execute(
+                select(TenantSettings.default_language).where(
+                    TenantSettings.tenant_id == tenant_id
+                )
+            )
+        ).scalar_one_or_none()
+        language = language if language in {"ru", "kk", "en"} else "ru"
+        settings = get_settings()
+        public_url = (getattr(settings, "PUBLIC_URL", None) or "https://app.kml.kz").rstrip("/")
+        await EmailService().send_team_member_welcome(
+            to_email=target.email,
+            company_name=tenant_name,
+            member_name=f"{target.first_name} {target.last_name}".strip(),
+            login_url=f"{public_url}/login?mode=code",
+            password_configured=password_configured,
+            user_id=target.id,
+            language=language,
+        )
+    except EmailDeliveryError as exc:
+        return "failed", exc.category
+    except Exception:
+        logger.exception("Team member welcome email failed")
+        return "failed", "internal_error"
+    return "sent", None
 
 
 @router.get("/me", response_model=UserResponse)
@@ -273,15 +322,25 @@ async def create_new_user(
             await assign_role(db, existing.id, user.tenant_id, req.role)
         except ValueError as exc:
             raise HTTPException(status_code=409, detail=str(exc))
-        return await _user_response(db, existing)
+        await db.commit()
+        delivery_status, delivery_failure_category = await _deliver_team_member_welcome(
+            db,
+            target=existing,
+            tenant_id=user.tenant_id,
+            password_configured=False,
+        )
+        response = await _user_response(db, existing)
+        return response.model_copy(
+            update={
+                "welcome_email_status": delivery_status,
+                "welcome_email_failure_category": delivery_failure_category,
+            }
+        )
 
     if not req.first_name or not req.first_name.strip():
         raise HTTPException(status_code=422, detail="First name is required for a new account")
     if not req.last_name or not req.last_name.strip():
         raise HTTPException(status_code=422, detail="Last name is required for a new account")
-    if not req.password:
-        raise HTTPException(status_code=422, detail="Password is required for a new account")
-
     await assert_can_create_user(db, user.tenant_id)
     await assert_can_create_system_users(db, user.tenant_id)
     try:
@@ -292,12 +351,59 @@ async def create_new_user(
             first_name=req.first_name.strip(),
             last_name=req.last_name.strip(),
             role=req.role,
-            password=req.password,
+            password=req.password or "",
             is_active=req.is_active,
         )
-        return await _user_response(db, new_user)
+        # The account must exist before an external provider receives a welcome
+        # message. A provider failure never rolls back the team member.
+        await db.commit()
+
+        delivery_status, delivery_failure_category = await _deliver_team_member_welcome(
+            db,
+            target=new_user,
+            tenant_id=user.tenant_id,
+            password_configured=bool(req.password),
+        )
+
+        response = await _user_response(db, new_user)
+        return response.model_copy(
+            update={
+                "welcome_email_status": delivery_status,
+                "welcome_email_failure_category": delivery_failure_category,
+            }
+        )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/{user_id}/welcome-email", response_model=UserResponse)
+async def resend_team_member_welcome(
+    user_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_role("admin", "superadmin")),
+):
+    """Retry code-first onboarding instructions for one tenant team member."""
+
+    target = (
+        await db.execute(
+            select(User).where(User.id == user_id, User.tenant_id == user.tenant_id)
+        )
+    ).scalar_one_or_none()
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+    delivery_status, delivery_failure_category = await _deliver_team_member_welcome(
+        db,
+        target=target,
+        tenant_id=user.tenant_id,
+        password_configured=False,
+    )
+    response = await _user_response(db, target)
+    return response.model_copy(
+        update={
+            "welcome_email_status": delivery_status,
+            "welcome_email_failure_category": delivery_failure_category,
+        }
+    )
 
 
 @router.patch("/{user_id}", response_model=UserResponse)

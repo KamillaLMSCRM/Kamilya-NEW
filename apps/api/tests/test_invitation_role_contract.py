@@ -9,7 +9,8 @@ from httpx import ASGITransport, AsyncClient
 from app.core.auth import get_current_active_user
 from app.core.db import get_db
 from app.main import app
-from app.modules.users.router import router
+from app.modules.users.router import _deliver_team_member_welcome, router
+from app.modules.users.schemas import UserCreate
 
 
 def _role_dependency(path: str, method: str):
@@ -23,6 +24,85 @@ def _role_dependency(path: str, method: str):
         for dependency in route.dependant.dependencies
         if getattr(dependency.call, "__name__", "") == "role_checker"
     )
+
+
+def test_team_user_schema_allows_code_first_creation_without_password():
+    payload = UserCreate(
+        email="methodologist@example.kz",
+        first_name="Method",
+        last_name="Ologist",
+        role="methodologist",
+    )
+    assert payload.password is None
+
+
+@pytest.mark.asyncio
+async def test_team_member_welcome_flow_reports_provider_success(monkeypatch):
+    class Result:
+        def __init__(self, value):
+            self.value = value
+
+        def scalar_one_or_none(self):
+            return self.value
+
+    class DB:
+        def __init__(self):
+            self.results = iter([Result("Example Company"), Result("ru")])
+
+        async def execute(self, _query):
+            return next(self.results)
+
+    sent = []
+
+    async def capture(_service, **payload):
+        sent.append(payload)
+
+    monkeypatch.setattr(
+        "app.modules.users.router.EmailService.delivery_ready",
+        staticmethod(lambda: True),
+    )
+    monkeypatch.setattr(
+        "app.modules.users.router.EmailService.send_team_member_welcome",
+        capture,
+    )
+    monkeypatch.setattr(
+        "app.modules.users.router.get_settings",
+        lambda: SimpleNamespace(PUBLIC_URL="https://app.example.kz/"),
+    )
+    target = SimpleNamespace(
+        id="00000000-0000-0000-0000-000000000001",
+        email="methodologist@example.kz",
+        first_name="Method",
+        last_name="Ologist",
+    )
+
+    status, failure = await _deliver_team_member_welcome(
+        DB(),
+        target=target,
+        tenant_id="00000000-0000-0000-0000-000000000002",
+        password_configured=False,
+    )
+
+    assert (status, failure) == ("sent", None)
+    assert sent[0]["login_url"] == "https://app.example.kz/login?mode=code"
+    assert sent[0]["password_configured"] is False
+
+
+@pytest.mark.asyncio
+async def test_team_member_welcome_flow_reports_unconfigured_provider(monkeypatch):
+    monkeypatch.setattr(
+        "app.modules.users.router.EmailService.delivery_ready",
+        staticmethod(lambda: False),
+    )
+
+    status, failure = await _deliver_team_member_welcome(
+        SimpleNamespace(),
+        target=SimpleNamespace(),
+        tenant_id="00000000-0000-0000-0000-000000000002",
+        password_configured=False,
+    )
+
+    assert (status, failure) == ("unconfigured", None)
 
 
 @pytest.mark.asyncio

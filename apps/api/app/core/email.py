@@ -1,8 +1,13 @@
 from __future__ import annotations
 
+import asyncio
 import logging
+import smtplib
+import ssl
 from dataclasses import dataclass, fields
 from datetime import datetime
+from email.message import EmailMessage
+from email.utils import formataddr
 from hashlib import sha256
 from html import escape
 from uuid import UUID
@@ -113,7 +118,17 @@ class EmailService:
     def delivery_ready() -> bool:
         """Return whether transactional email can actually leave the service."""
         settings = get_settings()
-        return settings.EMAIL_PROVIDER.lower().strip() == "resend" and bool(settings.RESEND_API_KEY)
+        provider = settings.EMAIL_PROVIDER.lower().strip()
+        if provider == "resend":
+            return bool(settings.RESEND_API_KEY)
+        if provider == "smtp":
+            return bool(
+                settings.SMTP_HOST
+                and settings.SMTP_PORT
+                and settings.EMAIL
+                and settings.EMAIL_PASSWORD
+            )
+        return False
 
     async def send_login_code(self, *, to_email: str, code: str) -> None:
         subject = "Kamilya LMS: код для входа"
@@ -156,6 +171,60 @@ class EmailService:
             "<p>Contact: <a href=\"mailto:askar@kml.kz\">askar@kml.kz</a> · +7 707 275 0007</p>"
         )
         await self._send(to_email=to_email, subject=subject, text=text, html=html)
+
+    async def send_team_member_welcome(
+        self,
+        *,
+        to_email: str,
+        company_name: str,
+        member_name: str,
+        login_url: str,
+        password_configured: bool,
+        user_id: UUID,
+        language: str = "ru",
+    ) -> str | None:
+        """Send first-access instructions after a team account is durable."""
+        language = language if language in {"ru", "kk", "en"} else "ru"
+        subject_company = _subject_component(company_name, fallback="Kamilya LMS")
+        safe_company = escape(company_name)
+        safe_name = escape(member_name)
+        safe_url = escape(login_url, quote=True)
+
+        if language == "kk":
+            subject = f"{subject_company}: Kamilya LMS жүйесіне қолжетімділік"
+            password_note = (
+                "Әкімші орнатқан құпиясөзбен немесе email-ге келетін бір реттік кодпен кіре аласыз."
+                if password_configured
+                else "Кіру бетінде «Email коды» тәсілін таңдап, бір реттік код алыңыз."
+            )
+            text = f"{member_name}, {company_name} ұйымының Kamilya LMS командасына қосылдыңыз.\n\n{password_note}\n\nКіру: {login_url}"
+            html = f"<p>{safe_name}, сіз <strong>{safe_company}</strong> ұйымының Kamilya LMS командасына қосылдыңыз.</p><p>{escape(password_note)}</p><p><a href=\"{safe_url}\">Kamilya LMS жүйесіне кіру</a></p>"
+        elif language == "en":
+            subject = f"{subject_company}: access to Kamilya LMS"
+            password_note = (
+                "Sign in with the password set by your administrator or request a one-time email code."
+                if password_configured
+                else "On the sign-in page, choose Email code and request a one-time code."
+            )
+            text = f"{member_name}, you have been added to the {company_name} team in Kamilya LMS.\n\n{password_note}\n\nSign in: {login_url}"
+            html = f"<p>{safe_name}, you have been added to the <strong>{safe_company}</strong> team in Kamilya LMS.</p><p>{escape(password_note)}</p><p><a href=\"{safe_url}\">Sign in to Kamilya LMS</a></p>"
+        else:
+            subject = f"{subject_company}: доступ к Kamilya LMS"
+            password_note = (
+                "Вы можете войти по паролю, заданному администратором, или получить одноразовый код на email."
+                if password_configured
+                else "На странице входа выберите «Код на email» и получите одноразовый код."
+            )
+            text = f"{member_name}, вас добавили в команду {company_name} в Kamilya LMS.\n\n{password_note}\n\nВойти: {login_url}"
+            html = f"<p>{safe_name}, вас добавили в команду <strong>{safe_company}</strong> в Kamilya LMS.</p><p>{escape(password_note)}</p><p><a href=\"{safe_url}\">Войти в Kamilya LMS</a></p>"
+
+        return await self._send(
+            to_email=to_email,
+            subject=subject,
+            text=text,
+            html=html,
+            idempotency_key=f"team-member-welcome/{user_id}",
+        )
 
     async def send_public_lead_notification(
         self,
@@ -398,8 +467,82 @@ class EmailService:
                 reply_to=reply_to,
             )
 
+        if provider == "smtp" and self.delivery_ready():
+            return await self._send_smtp(
+                to_email=to_email,
+                subject=subject,
+                text=text,
+                html=html,
+                reply_to=reply_to,
+            )
+
         logger.info("email_queued", extra={"provider": "log"})
         return None
+
+    async def _send_smtp(
+        self,
+        *,
+        to_email: str,
+        subject: str,
+        text: str,
+        html: str,
+        reply_to: str | None = None,
+    ) -> None:
+        """Deliver through the configured authenticated SMTP transport."""
+
+        settings = get_settings()
+        message = EmailMessage()
+        message["From"] = formataddr(("Kamilya LMS", settings.EMAIL))
+        message["To"] = to_email
+        message["Subject"] = subject
+        if reply_to:
+            message["Reply-To"] = reply_to
+        message.set_content(text)
+        message.add_alternative(html, subtype="html")
+
+        def deliver() -> None:
+            context = ssl.create_default_context()
+            if settings.SMTP_USE_SSL:
+                client_factory = smtplib.SMTP_SSL
+                client_kwargs = {"context": context}
+            else:
+                client_factory = smtplib.SMTP
+                client_kwargs = {}
+            with client_factory(
+                settings.SMTP_HOST,
+                settings.SMTP_PORT,
+                timeout=10,
+                **client_kwargs,
+            ) as client:
+                if not settings.SMTP_USE_SSL:
+                    client.starttls(context=context)
+                client.login(settings.EMAIL, settings.EMAIL_PASSWORD)
+                refused = client.send_message(message)
+                if refused:
+                    raise smtplib.SMTPRecipientsRefused(refused)
+
+        try:
+            await asyncio.to_thread(deliver)
+        except smtplib.SMTPAuthenticationError as exc:
+            raise EmailDeliveryError(
+                "provider_auth_failed",
+                "The email provider rejected authentication.",
+            ) from exc
+        except (TimeoutError, smtplib.SMTPServerDisconnected) as exc:
+            raise EmailDeliveryError(
+                "provider_timeout",
+                "The email provider did not respond in time.",
+            ) from exc
+        except (smtplib.SMTPRecipientsRefused, smtplib.SMTPSenderRefused, smtplib.SMTPDataError) as exc:
+            raise EmailDeliveryError(
+                "provider_rejected",
+                "The email provider rejected the message.",
+            ) from exc
+        except (OSError, smtplib.SMTPException) as exc:
+            raise EmailDeliveryError(
+                "provider_unreachable",
+                "The email provider could not be reached.",
+            ) from exc
 
     async def _send_resend(
         self,
