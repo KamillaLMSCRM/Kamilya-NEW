@@ -29,6 +29,19 @@ async def test_registration_succeeds_when_trial_email_provider_fails(
         "app.modules.tenants.router.EmailService.send_trial_started",
         fail_email,
     )
+    monkeypatch.setattr(
+        "app.modules.tenants.router.EmailService.delivery_ready",
+        staticmethod(lambda: True),
+    )
+    registration_codes: dict[str, str] = {}
+
+    async def capture_registration_code(_service, *, to_email, code):
+        registration_codes[to_email] = code
+
+    monkeypatch.setattr(
+        "app.modules.tenants.router.EmailService.send_registration_code",
+        capture_registration_code,
+    )
     operator_notifications = []
 
     async def capture_operator_notification(_service, *, to_email, notification):
@@ -54,12 +67,21 @@ async def test_registration_succeeds_when_trial_email_provider_fails(
     suffix = uuid4().hex[:12]
     email = f"qa-registration-{suffix}@example.com"
 
+    code_response = await client.post(
+        "/api/v1/tenants/register/request-code",
+        json={"email": email},
+    )
+    assert code_response.status_code == 200
+    assert code_response.json()["expires_in"] > 0
+    assert email in registration_codes
+
     response = await client.post(
         "/api/v1/tenants/register",
         json={
             "company_name": f"QA Registration {suffix}",
             "contact_name": "Айдана QA",
             "email": email,
+            "email_code": registration_codes[email],
             "password": "QA-registration-pass-2026!",
             "preferred_language": "ru",
             "intent": "try",
@@ -141,6 +163,39 @@ async def test_registration_succeeds_when_trial_email_provider_fails(
         ),
         {"id": lead.id, "token": claimed["claim_token"]},
     )
+
+
+@pytest.mark.asyncio
+async def test_registration_rejects_unverified_email_without_creating_tenant(
+    client,
+    db_session,
+):
+    suffix = uuid4().hex[:12]
+    company_name = f"QA Unverified {suffix}"
+
+    response = await client.post(
+        "/api/v1/tenants/register",
+        json={
+            "company_name": company_name,
+            "contact_name": "Айдана QA",
+            "email": f"qa-unverified-{suffix}@example.com",
+            "email_code": "000000",
+            "password": "QA-registration-pass-2026!",
+            "preferred_language": "ru",
+            "intent": "try",
+            "privacy_consent_version": CURRENT_PRIVACY_CONSENT_VERSION,
+            "privacy_consent_locale": "ru",
+            "privacy_consent_surface": "tenant_registration",
+            "terms_version": CURRENT_TERMS_VERSION,
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"]["code"] == "invalid_registration_email_code"
+    tenant = (
+        await db_session.execute(select(Tenant).where(Tenant.name == company_name))
+    ).scalar_one_or_none()
+    assert tenant is None
 
 
 @pytest.mark.asyncio

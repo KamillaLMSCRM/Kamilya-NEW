@@ -128,6 +128,21 @@ class EmailService:
         )
         await self._send(to_email=to_email, subject=subject, text=text, html=html)
 
+    async def send_registration_code(self, *, to_email: str, code: str) -> None:
+        subject = "Kamilya LMS: подтверждение email"
+        text = (
+            f"Код подтверждения email для регистрации в Kamilya LMS: {code}.\n\n"
+            "Код действует 5 минут. Tenant будет создан только после ввода кода. "
+            "Если вы не начинали регистрацию, проигнорируйте письмо."
+        )
+        html = (
+            "<p>Подтвердите email для регистрации в Kamilya LMS:</p>"
+            f'<p style="font-size:28px;font-weight:700;letter-spacing:4px">{code}</p>'
+            "<p>Код действует 5 минут. Tenant будет создан только после ввода кода.</p>"
+            "<p>Если вы не начинали регистрацию, проигнорируйте письмо.</p>"
+        )
+        await self._send(to_email=to_email, subject=subject, text=text, html=html)
+
     async def send_trial_started(self, *, to_email: str, company_name: str) -> None:
         subject = "Kamilya LMS trial started"
         text = (

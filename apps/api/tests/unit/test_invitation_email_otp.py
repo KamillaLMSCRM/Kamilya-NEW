@@ -140,3 +140,27 @@ async def test_invitation_code_can_be_invalidated_after_delivery_failure(monkeyp
         purpose="invitation",
         subject_id="invite-1",
     ) is None
+
+
+@pytest.mark.asyncio
+async def test_registration_code_is_purpose_bound_and_single_use(monkeypatch):
+    monkeypatch.setattr(email_otp.secrets, "randbelow", lambda _limit: 234567)
+    code, _, created = await email_otp.create_registration_email_code(
+        email="owner@example.kz",
+    )
+
+    assert created is True
+    assert await email_otp.consume_email_code(
+        email="owner@example.kz",
+        code=code,
+    ) is None
+    assert await email_otp.consume_email_code(
+        email="owner@example.kz",
+        code=code,
+        purpose=email_otp.REGISTRATION_EMAIL_CODE_PURPOSE,
+    )
+    assert await email_otp.consume_email_code(
+        email="owner@example.kz",
+        code=code,
+        purpose=email_otp.REGISTRATION_EMAIL_CODE_PURPOSE,
+    ) is None

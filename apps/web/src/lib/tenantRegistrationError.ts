@@ -2,6 +2,7 @@ const FIELD_LABELS: Record<string, string> = {
   company_name: 'Компания',
   contact_name: 'Контактное лицо',
   email: 'Email',
+  email_code: 'Код из письма',
   password: 'Пароль',
   phone: 'Телефон',
   telegram_username: 'Telegram',

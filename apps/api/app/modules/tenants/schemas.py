@@ -53,6 +53,7 @@ class TenantRegisterRequest(PublicRegistrationLegalAcceptance):
     company_name: str = Field(..., min_length=2, max_length=200)
     contact_name: str = Field(..., min_length=2, max_length=160)
     email: EmailStr
+    email_code: str = Field(..., pattern=r"^\d{6}$")
     password: str = Field(..., min_length=8, max_length=128)
     phone: str | None = Field(None, max_length=80)
     telegram_username: str | None = Field(None, max_length=80)
@@ -72,6 +73,22 @@ class TenantRegisterRequest(PublicRegistrationLegalAcceptance):
     @classmethod
     def normalize_email(cls, value: str) -> str:
         return value.lower().strip()
+
+
+class TenantRegistrationCodeRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    email: EmailStr
+
+    @field_validator("email")
+    @classmethod
+    def normalize_email(cls, value: str) -> str:
+        return value.lower().strip()
+
+
+class TenantRegistrationCodeResponse(BaseModel):
+    ok: bool = True
+    expires_in: int
 
 
 class TrialLimits(BaseModel):

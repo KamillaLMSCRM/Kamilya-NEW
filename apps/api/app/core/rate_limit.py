@@ -37,6 +37,7 @@ RATE_LIMITS: dict[str, RateLimitConfig] = {
     "/api/v1/auth/superadmin-login": RateLimitConfig(requests_per_minute=5, requests_per_hour=20, burst_size=3),
     "/api/v1/auth/register-by-telegram": RateLimitConfig(requests_per_minute=3, requests_per_hour=10, burst_size=2),
     "/api/v1/auth/demo-login": RateLimitConfig(requests_per_minute=3, requests_per_hour=10, burst_size=2),
+    "/api/v1/tenants/register/request-code": RateLimitConfig(requests_per_minute=3, requests_per_hour=10, burst_size=2),
     "/api/v1/tenants/register": RateLimitConfig(requests_per_minute=3, requests_per_hour=10, burst_size=2),
     "/api/v1/auth/generate-code": RateLimitConfig(requests_per_minute=10, requests_per_hour=60, burst_size=5),
     "/api/v1/auth/email/request-code": RateLimitConfig(requests_per_minute=5, requests_per_hour=20, burst_size=3),
@@ -68,6 +69,7 @@ PUBLIC_AUTH_ENDPOINTS = frozenset(
         "/api/v1/auth/email/request-code",
         "/api/v1/auth/email/verify-code",
         "/api/v1/tenants/register",
+        "/api/v1/tenants/register/request-code",
     }
 )
 PUBLIC_AUTH_PREFIXES = ("/api/v1/invitations/",)

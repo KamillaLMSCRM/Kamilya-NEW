@@ -11,7 +11,9 @@ logger = logging.getLogger(__name__)
 EMAIL_CODE_TTL_SECONDS = 300
 EMAIL_CODE_COOLDOWN_SECONDS = 25
 INVITATION_CODE_COOLDOWN_SECONDS = 60
+REGISTRATION_CODE_COOLDOWN_SECONDS = 60
 EMAIL_CODE_MAX_ATTEMPTS = 5
+REGISTRATION_EMAIL_CODE_PURPOSE = "tenant_registration"
 
 _memory_store: dict[str, dict[str, Any]] = {}
 _redis_client = None
@@ -118,6 +120,20 @@ async def create_invitation_email_code(
         purpose="invitation",
         subject_id=invitation_id,
         cooldown_seconds=INVITATION_CODE_COOLDOWN_SECONDS,
+    )
+
+
+async def create_registration_email_code(*, email: str) -> tuple[str, int, bool]:
+    """Create an OTP that can authorize only public tenant registration."""
+
+    return await _create_scoped_email_code(
+        email=email,
+        user_id="pending-registration",
+        tenant_id=None,
+        role="admin",
+        purpose=REGISTRATION_EMAIL_CODE_PURPOSE,
+        subject_id=None,
+        cooldown_seconds=REGISTRATION_CODE_COOLDOWN_SECONDS,
     )
 
 

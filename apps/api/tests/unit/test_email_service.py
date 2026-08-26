@@ -160,6 +160,31 @@ async def test_login_otp_email_is_russian_and_keeps_kamilya_branding(monkeypatch
 
 
 @pytest.mark.asyncio
+async def test_registration_code_email_explains_tenant_is_not_created_yet(monkeypatch):
+    monkeypatch.setattr(
+        "app.core.email.get_settings",
+        lambda: SimpleNamespace(
+            EMAIL_PROVIDER="resend",
+            RESEND_API_KEY="test-key",
+            EMAIL_FROM="Kamilya LMS <noreply@example.kz>",
+        ),
+    )
+    _FakeAsyncClient.payload = None
+    monkeypatch.setattr("app.core.email.httpx.AsyncClient", _FakeAsyncClient)
+
+    await EmailService().send_registration_code(
+        to_email="owner@example.kz",
+        code="654321",
+    )
+
+    payload = _FakeAsyncClient.payload
+    assert payload is not None
+    assert payload["subject"] == "Kamilya LMS: подтверждение email"
+    assert "Tenant будет создан только после ввода кода" in payload["text"]
+    assert "654321" in payload["html"]
+
+
+@pytest.mark.asyncio
 async def test_initial_invitation_link_returns_resend_message_id(monkeypatch):
     monkeypatch.setattr(
         "app.core.email.get_settings",

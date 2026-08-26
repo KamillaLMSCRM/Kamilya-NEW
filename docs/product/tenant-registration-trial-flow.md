@@ -1,6 +1,6 @@
 # Регистрация tenant и trial
 
-**Обновлено:** 2026-07-30
+**Обновлено:** 2026-08-26
 **Статус:** реализовано; pre-production gates перечислены в
 [`PRODUCTION_READINESS.md`](../PRODUCTION_READINESS.md).
 
@@ -13,8 +13,9 @@
    - контактное лицо;
    - email;
    - пароль от 8 символов;
+   - шестизначный код, отправленный на указанный email;
    - необязательные телефон, Telegram, размер компании и комментарий.
-4. Backend создаёт:
+4. Backend создаёт tenant только после успешной одноразовой проверки email:
    - tenant;
    - первого системного пользователя с ролью `admin`;
    - tenant lead;
@@ -22,8 +23,10 @@
 5. Регистрация возвращает access/refresh session, и пользователь сразу
    переходит в кабинет tenant admin.
 
-Регистрация не требует предварительного OTP. При последующих входах доступен
-email OTP через Resend; Telegram остаётся альтернативным auth-flow.
+Регистрационный OTP имеет отдельное назначение `tenant_registration`, действует
+5 минут, ограничен по повторной отправке и числу неверных попыток и не может
+использоваться для входа. При последующих входах доступен отдельный email OTP
+через Resend; Telegram остаётся альтернативным auth-flow.
 
 ## Trial
 
@@ -66,6 +69,10 @@ Methodologist:
 - Sender: `Kamilya LMS <no-reply@notify.kml.kz>`.
 - Resend доставляет сообщение, но не авторизует пользователя.
 - OTP создаётся и проверяется backend.
+- До принятия регистрационного OTP tenant, пользователь, lead и операторское
+  уведомление не создаются.
+- Если provider не принял письмо, OTP аннулируется, а регистрация остаётся
+  доступной для безопасной повторной попытки.
 - Для неизвестного email request-code возвращает нейтральный ответ.
 - Resend key существует только в backend/provider secrets.
 
@@ -114,7 +121,8 @@ Methodologist:
 Flow считается готовым только после production smoke:
 
 ```text
-registration
+registration email OTP
+  -> registration
   -> admin dashboard
   -> logout
   -> email OTP login

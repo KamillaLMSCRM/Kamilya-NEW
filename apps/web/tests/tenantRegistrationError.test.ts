@@ -29,4 +29,23 @@ describe('getTenantRegistrationError', () => {
       }),
     ).toBe('Не удалось создать trial. Проверьте поля формы и попробуйте ещё раз.');
   });
+
+  it('renders the registration-code field label', () => {
+    const error = {
+      response: {
+        data: {
+          detail: [
+            {
+              loc: ['body', 'email_code'],
+              msg: 'String should match pattern',
+            },
+          ],
+        },
+      },
+    };
+
+    expect(getTenantRegistrationError(error)).toBe(
+      'Код из письма: String should match pattern',
+    );
+  });
 });

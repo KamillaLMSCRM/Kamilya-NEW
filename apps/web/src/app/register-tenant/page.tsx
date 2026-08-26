@@ -34,6 +34,9 @@ export default function TenantRegisterPage() {
   const [companyName, setCompanyName] = useState('');
   const [contactName, setContactName] = useState('');
   const [email, setEmail] = useState('');
+  const [emailCode, setEmailCode] = useState('');
+  const [codeRequested, setCodeRequested] = useState(false);
+  const [codeLoading, setCodeLoading] = useState(false);
   const [password, setPassword] = useState('');
   const [phone, setPhone] = useState('');
   const [telegramUsername, setTelegramUsername] = useState('');
@@ -50,17 +53,49 @@ export default function TenantRegisterPage() {
     return companyName.trim().length >= 2
       && contactName.trim().length >= 2
       && email.trim().length > 3
+      && codeRequested
+      && /^\d{6}$/.test(emailCode)
       && password.length >= 8
       && privacyAccepted
       && termsAccepted;
-  }, [companyName, contactName, email, password, privacyAccepted, termsAccepted]);
+  }, [companyName, contactName, email, emailCode, codeRequested, password, privacyAccepted, termsAccepted]);
+
+  function handleEmailChange(value: string) {
+    setEmail(value);
+    setEmailCode('');
+    setCodeRequested(false);
+  }
+
+  async function requestEmailCode() {
+    const normalizedEmail = email.trim();
+    if (!normalizedEmail || !normalizedEmail.includes('@')) {
+      setError('Укажите корректный email.');
+      return;
+    }
+
+    setError('');
+    setCodeLoading(true);
+    try {
+      await api.post('/v1/tenants/register/request-code', { email: normalizedEmail });
+      setCodeRequested(true);
+      toast.success('Код отправлен', {
+        description: 'Введите шестизначный код из письма. Он действует 5 минут.',
+      });
+    } catch (err: any) {
+      const messageText = getTenantRegistrationError(err);
+      setError(messageText);
+      toast.error('Не удалось отправить код', { description: messageText });
+    } finally {
+      setCodeLoading(false);
+    }
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError('');
 
     if (!canSubmit) {
-      setError('Заполните компанию, контактное лицо, email и пароль от 8 символов.');
+      setError('Заполните обязательные поля и подтвердите email шестизначным кодом.');
       return;
     }
 
@@ -71,6 +106,7 @@ export default function TenantRegisterPage() {
         company_name: companyName.trim(),
         contact_name: contactName.trim(),
         email: email.trim(),
+        email_code: emailCode,
         password,
         phone: phone.trim() || null,
         telegram_username: telegramUsername.trim() || null,
@@ -156,7 +192,7 @@ export default function TenantRegisterPage() {
               <div>
                 <CardTitle className="text-xl">Регистрация тенанта</CardTitle>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Доступ откроется сразу после отправки формы.
+                  Доступ откроется после подтверждения email.
                 </p>
               </div>
 
@@ -213,12 +249,26 @@ export default function TenantRegisterPage() {
                     id="email"
                     type="email"
                     value={email}
-                    onChange={(event) => setEmail(event.target.value)}
+                    onChange={(event) => handleEmailChange(event.target.value)}
                     autoComplete="email"
                     placeholder="hr@company.kz"
                     required
                     aria-required="true"
                   />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="mt-2 w-full"
+                    onClick={requestEmailCode}
+                    disabled={codeLoading || !email.trim().includes('@')}
+                    aria-busy={codeLoading}
+                  >
+                    <Mail className="mr-2 h-4 w-4" aria-hidden="true" />
+                    {codeLoading ? 'Отправляем...' : codeRequested ? 'Отправить код ещё раз' : 'Получить код'}
+                  </Button>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Кабинет будет создан только после подтверждения этого адреса.
+                  </p>
                 </div>
                 <div>
                   <label htmlFor="password" className="mb-1 block text-sm font-medium">
@@ -241,6 +291,32 @@ export default function TenantRegisterPage() {
                   </p>
                 </div>
               </div>
+
+              {codeRequested && (
+                <div>
+                  <label htmlFor="email_code" className="mb-1 block text-sm font-medium">
+                    <span aria-hidden="true" className="mr-0.5 text-destructive">*</span>
+                    Код из письма
+                  </label>
+                  <Input
+                    id="email_code"
+                    name="email-code"
+                    value={emailCode}
+                    onChange={(event) => setEmailCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
+                    autoComplete="one-time-code"
+                    inputMode="numeric"
+                    pattern="[0-9]{6}"
+                    maxLength={6}
+                    placeholder="000000"
+                    required
+                    aria-required="true"
+                    aria-describedby="email-code-hint"
+                  />
+                  <p id="email-code-hint" className="mt-1 text-xs text-muted-foreground">
+                    Код действует 5 минут и подходит только для регистрации этого email.
+                  </p>
+                </div>
+              )}
 
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>
@@ -353,7 +429,7 @@ export default function TenantRegisterPage() {
               </fieldset>
 
               <Button type="submit" className="w-full" disabled={loading || !canSubmit} aria-busy={loading}>
-                {loading ? 'Создаем trial...' : 'Создать trial'}
+                {loading ? 'Создаем trial...' : 'Подтвердить email и создать trial'}
               </Button>
             </form>
 

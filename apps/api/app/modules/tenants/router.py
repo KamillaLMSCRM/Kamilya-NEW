@@ -30,6 +30,12 @@ from app.models.tenants import RegistrationLegalAcceptance, Tenant, TenantLead, 
 from app.models.user_roles import UserRole
 from app.models.users import User
 from app.modules.audit.service import log_action
+from app.modules.auth.email_otp import (
+    REGISTRATION_EMAIL_CODE_PURPOSE,
+    consume_email_code,
+    create_registration_email_code,
+    invalidate_email_code,
+)
 from app.modules.auth.router import _set_refresh_cookie
 from app.modules.auth.service import build_user_payload, issue_refresh_session
 from app.modules.tenants.schemas import (
@@ -37,6 +43,8 @@ from app.modules.tenants.schemas import (
     PublicLeadResponse,
     TenantRegisterRequest,
     TenantRegisterResponse,
+    TenantRegistrationCodeRequest,
+    TenantRegistrationCodeResponse,
     TrialLimits,
 )
 from app.modules.tenants.tasks import deliver_lead_outbox_task
@@ -270,6 +278,66 @@ async def _unique_slug(db: AsyncSession, company_name: str) -> str:
         candidate = f"{base}-{suffix}"
 
 
+@router.post(
+    "/register/request-code",
+    response_model=TenantRegistrationCodeResponse,
+)
+async def request_tenant_registration_code(
+    payload: TenantRegistrationCodeRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    existing_user = (
+        await db.execute(select(User.id).where(User.email == payload.email))
+    ).scalar_one_or_none()
+    if existing_user is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "email_taken",
+                "message": "This email is already registered. Use login or contact support.",
+            },
+        )
+
+    email_service = EmailService()
+    if not email_service.delivery_ready():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={
+                "code": "registration_email_unavailable",
+                "message": "Email confirmation is temporarily unavailable. Try again later.",
+            },
+        )
+
+    code, expires_in, created = await create_registration_email_code(
+        email=str(payload.email),
+    )
+    if created:
+        try:
+            await email_service.send_registration_code(
+                to_email=str(payload.email),
+                code=code,
+            )
+        except Exception as exc:
+            await invalidate_email_code(
+                email=str(payload.email),
+                purpose=REGISTRATION_EMAIL_CODE_PURPOSE,
+            )
+            category = exc.category if isinstance(exc, EmailDeliveryError) else type(exc).__name__
+            logger.warning(
+                "tenant_registration.email_code_delivery_failed category=%s",
+                category,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail={
+                    "code": "registration_email_delivery_failed",
+                    "message": "The confirmation code could not be delivered. Try again later.",
+                },
+            ) from None
+
+    return TenantRegistrationCodeResponse(expires_in=expires_in)
+
+
 @public_router.post("/leads", response_model=PublicLeadResponse, status_code=status.HTTP_201_CREATED)
 async def submit_public_lead(
     payload: PublicLeadRequest,
@@ -373,6 +441,20 @@ async def register_tenant(
             detail={
                 "code": "email_taken",
                 "message": "This email is already registered. Use login or contact support.",
+            },
+        )
+
+    verified_email = await consume_email_code(
+        email=str(payload.email),
+        code=payload.email_code,
+        purpose=REGISTRATION_EMAIL_CODE_PURPOSE,
+    )
+    if verified_email is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "code": "invalid_registration_email_code",
+                "message": "The email confirmation code is invalid or expired.",
             },
         )
 
