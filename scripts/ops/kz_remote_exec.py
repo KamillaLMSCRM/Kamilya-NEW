@@ -65,6 +65,19 @@ READ_ONLY_COMMANDS = {
     "false",
 }
 SHELL_CONTROL = re.compile(r"[`$;&|<>{}()\[\]*?~]")
+DIRECT_EVIDENCE_PRINTF_RE = re.compile(
+    r"^printf '((?:EVIDENCE(?:\|[a-z][a-z0-9_]{0,63}=[A-Za-z0-9._:/-]{1,256})+))(?:\\n)?'$"
+)
+FORMATTED_EVIDENCE_PRINTF_RE = re.compile(
+    r"^printf '%s\\n' '((?:EVIDENCE(?:\|[a-z][a-z0-9_]{0,63}=[A-Za-z0-9._:/-]{1,256})+))'$"
+)
+DOCKER_EVIDENCE_FORMAT = (
+    "EVIDENCE|container={{.Name}}|image={{.Config.Image}}|"
+    "status={{.State.Status}}|restarts={{.RestartCount}}"
+)
+DOCKER_EVIDENCE_CONTAINER_RE = re.compile(
+    r"kamilya-runtime-(?:api|worker-ai|worker-documents|worker-ops)-1"
+)
 
 MUTATING_PATTERNS = (
     re.compile(r"(^|[;&|]\s*)rm\s", re.IGNORECASE),
@@ -96,6 +109,14 @@ class GateBlocked(RuntimeError):
     def __init__(self, error_class: str) -> None:
         super().__init__(error_class)
         self.error_class = error_class
+
+
+class RemoteScriptBlocked(GateBlocked):
+    """Remote failure carrying only evidence lines that passed the sanitizer."""
+
+    def __init__(self, error_class: str, evidence: list[str]) -> None:
+        super().__init__(error_class)
+        self.evidence = evidence
 
 
 @dataclass(frozen=True)
@@ -182,12 +203,27 @@ def _assert_read_only(text: str) -> None:
         stripped = line.strip()
         if stripped == "set -Eeuo pipefail":
             continue
-        if SHELL_CONTROL.search(stripped):
-            raise GateBlocked("read_only_shell_construct_not_allowed")
+        if stripped.startswith("printf"):
+            direct = DIRECT_EVIDENCE_PRINTF_RE.fullmatch(stripped)
+            formatted = FORMATTED_EVIDENCE_PRINTF_RE.fullmatch(stripped)
+            rendered = (direct or formatted).group(1) if (direct or formatted) else ""
+            if not rendered or not EVIDENCE_LINE_RE.fullmatch(rendered):
+                raise GateBlocked("read_only_printf_not_evidence")
+            continue
         try:
             argv = shlex.split(stripped, posix=True)
         except ValueError as exc:
             raise GateBlocked("read_only_command_parse_failed") from exc
+        if argv[:2] == ["sudo", "-n"]:
+            argv = argv[2:]
+        safe_docker_evidence_format = (
+            len(argv) == 5
+            and argv[:3] == ["docker", "inspect", "--format"]
+            and argv[3] == DOCKER_EVIDENCE_FORMAT
+            and DOCKER_EVIDENCE_CONTAINER_RE.fullmatch(argv[4]) is not None
+        )
+        if SHELL_CONTROL.search(stripped) and not safe_docker_evidence_format:
+            raise GateBlocked("read_only_shell_construct_not_allowed")
         if not argv or argv[0] not in READ_ONLY_COMMANDS:
             raise GateBlocked("read_only_command_not_allowed")
         if argv[0] == "docker" and (len(argv) < 2 or argv[1] not in {"ps", "stats", "inspect", "version", "info"}):
@@ -203,10 +239,6 @@ def _assert_read_only(text: str) -> None:
                 raise GateBlocked("read_only_curl_timeout_invalid") from exc
             if not 1 <= curl_timeout <= 30 or argv[4] != "http://10.77.77.2:8000/health":
                 raise GateBlocked("read_only_curl_target_or_timeout_not_allowed")
-        if argv[0] == "printf":
-            rendered = " ".join(argv[1:])
-            if not EVIDENCE_LINE_RE.fullmatch(rendered):
-                raise GateBlocked("read_only_printf_not_evidence")
 
 
 def _assert_no_sensitive_content(text: str) -> None:
@@ -382,7 +414,11 @@ def execute_stages(
 
     execution = runner(profile.command(timeout, "bash", "-se"), payload)
     if execution.exit_code != 0:
-        raise GateBlocked("remote_script_failed")
+        try:
+            sanitized_evidence = evidence_lines(execution.stdout)
+        except GateBlocked:
+            sanitized_evidence = []
+        raise RemoteScriptBlocked("remote_script_failed", sanitized_evidence)
     return {
         "remote_sha256_verified": True,
         "target_identity_verified": True,
@@ -496,10 +532,10 @@ def main() -> int:
         return 0
     except (GateBlocked, FileNotFoundError) as exc:
         error_class = exc.error_class if isinstance(exc, GateBlocked) else "script_file_not_found"
-        _emit(
-            {"status": "BLOCKED", "evidence_label": "BLOCKED", "error_class": error_class},
-            stream=sys.stderr,
-        )
+        payload = {"status": "BLOCKED", "evidence_label": "BLOCKED", "error_class": error_class}
+        if isinstance(exc, RemoteScriptBlocked) and exc.evidence:
+            payload["evidence"] = exc.evidence
+        _emit(payload, stream=sys.stderr)
         return 2
 
 

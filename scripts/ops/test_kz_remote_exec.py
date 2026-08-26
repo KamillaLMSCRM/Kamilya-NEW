@@ -152,6 +152,30 @@ def test_remote_hash_and_evidence_contract_fail_closed() -> None:
         remote.evidence_lines(b"\xff\xfe")
 
 
+def test_remote_failure_preserves_only_sanitized_evidence() -> None:
+    payload = b"payload"
+    digest = hashlib.sha256(payload).hexdigest()
+
+    def runner(command: str, _payload: bytes) -> remote.StageResult:
+        if command.endswith("hostname"):
+            return remote.StageResult(0, b"kml\n", b"")
+        if command.endswith("sha256sum"):
+            return remote.StageResult(0, f"{digest}  -\n".encode(), b"")
+        if command.endswith("bash -n -s"):
+            return remote.StageResult(0, b"", b"")
+        return remote.StageResult(
+            1,
+            b"secret-noise\nEVIDENCE|stage=compose|status=blocked\n",
+            b"suppressed-stderr",
+        )
+
+    with pytest.raises(remote.RemoteScriptBlocked) as caught:
+        remote.execute_stages(remote.VM126, payload, digest, 30, runner)
+    assert caught.value.evidence == ["EVIDENCE|stage=compose|status=blocked"]
+    assert "secret-noise" not in str(caught.value.evidence)
+    assert "suppressed-stderr" not in str(caught.value.evidence)
+
+
 def test_dry_run_does_not_read_credentials(monkeypatch, tmp_path, capsys) -> None:
     _inside_repo(monkeypatch, tmp_path)
     path = _script(tmp_path, "hostname")
@@ -241,6 +265,102 @@ def test_read_only_fixed_health_get_is_allowed(monkeypatch, tmp_path) -> None:
         path, target="vm126", mode="read-only", correlation_id="", expected_sha256=""
     )
     assert manifest.mode == "read-only"
+
+
+def test_read_only_sudo_noninteractive_docker_inspect_is_allowed(monkeypatch, tmp_path) -> None:
+    _inside_repo(monkeypatch, tmp_path)
+    path = _script(tmp_path, "sudo -n docker inspect kamilya-runtime-api-1")
+    manifest = remote.load_script(
+        path, target="vm126", mode="read-only", correlation_id="", expected_sha256=""
+    )
+    assert manifest.mode == "read-only"
+
+
+def test_read_only_sudo_docker_evidence_format_is_narrowly_allowed(monkeypatch, tmp_path) -> None:
+    _inside_repo(monkeypatch, tmp_path)
+    body = (
+        "sudo -n docker inspect --format '"
+        + remote.DOCKER_EVIDENCE_FORMAT
+        + "' kamilya-runtime-api-1"
+    )
+    path = _script(tmp_path, body)
+    manifest = remote.load_script(
+        path, target="vm126", mode="read-only", correlation_id="", expected_sha256=""
+    )
+    assert manifest.mode == "read-only"
+
+
+@pytest.mark.parametrize(
+    "body",
+    (
+        "sudo -n docker inspect --format '{{json .Config}}' kamilya-runtime-api-1",
+        "sudo -n docker inspect --format 'EVIDENCE|image={{.Config.Image}}' other-container",
+    ),
+)
+def test_read_only_sudo_docker_evidence_format_rejects_other_shapes(
+    monkeypatch, tmp_path, body
+) -> None:
+    _inside_repo(monkeypatch, tmp_path)
+    path = _script(tmp_path, body)
+    with pytest.raises(remote.GateBlocked):
+        remote.load_script(
+            path, target="vm126", mode="read-only", correlation_id="", expected_sha256=""
+        )
+
+
+@pytest.mark.parametrize(
+    "body",
+    (
+        "sudo docker inspect kamilya-runtime-api-1",
+        "sudo -n docker restart kamilya-runtime-api-1",
+        "sudo -n sh -c hostname",
+    ),
+)
+def test_read_only_sudo_rejects_interactive_mutating_or_shell_forms(
+    monkeypatch, tmp_path, body
+) -> None:
+    _inside_repo(monkeypatch, tmp_path)
+    path = _script(tmp_path, body)
+    with pytest.raises(remote.GateBlocked):
+        remote.load_script(
+            path, target="vm126", mode="read-only", correlation_id="", expected_sha256=""
+        )
+
+
+@pytest.mark.parametrize(
+    "body",
+    (
+        "printf 'EVIDENCE|status=ok|release=abcdef123456\\n'",
+        "printf '%s\\n' 'EVIDENCE|status=ok|release=abcdef123456'",
+    ),
+)
+def test_read_only_quoted_evidence_printf_is_allowed(monkeypatch, tmp_path, body) -> None:
+    _inside_repo(monkeypatch, tmp_path)
+    path = _script(tmp_path, body)
+    manifest = remote.load_script(
+        path, target="vm126", mode="read-only", correlation_id="", expected_sha256=""
+    )
+    assert manifest.mode == "read-only"
+
+
+@pytest.mark.parametrize(
+    "body",
+    (
+        "printf EVIDENCE|status=ok",
+        "printf 'EVIDENCE|status=ok' | cat",
+        'printf "EVIDENCE|status=$value"',
+        "printf '%s' 'not-evidence'",
+    ),
+)
+def test_read_only_evidence_printf_rejects_shell_or_non_evidence_shapes(
+    monkeypatch, tmp_path, body
+) -> None:
+    _inside_repo(monkeypatch, tmp_path)
+    path = _script(tmp_path, body)
+    with pytest.raises(remote.GateBlocked, match="read_only_printf_not_evidence"):
+        remote.load_script(
+            path, target="vm126", mode="read-only", correlation_id="", expected_sha256=""
+        )
 
 
 def test_output_overflow_is_reported_only_after_channel_termination(monkeypatch) -> None:

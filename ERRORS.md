@@ -843,3 +843,30 @@ open, also record status, safe interim path, and review condition.
 - **Cause:** the canonical WireGuard/SSH target identified itself as `kml`, while the adapter still expected the former hostname `KML-2-77`.
 - **Prevention:** keep the adapter's exact hostname assertion synchronized with runtime identity evidence; do not bypass the assertion or guess a different host when it fails.
 - **Resolution:** update `VM126_HOSTNAME` and its focused tests to the independently read-back hostname, then rerun the reviewed script through the same pinned host-key and WireGuard route.
+
+## TOOL-005 - VM126 privilege, rollback, and hidden-input assumptions broke release evidence
+
+- Date: 2026-08-26.
+- Symptom: read-only Docker preflight failed for `kamilya-admin`; initial deploy
+  attempts referenced `docker-compose.yml`, attempted a non-privileged `cd` into
+  root-only `/opt/kamilya-runtime`, and one rollback trap returned success after
+  restoring the old release. A hidden PTY input also removed `@` from an email
+  address, producing misleading SMTP `501` results and one malformed test user.
+- Cause: the workstation-to-VM126 adapter did not support the canonical
+  `sudo -n` read-only Docker shape; the release script copied assumptions from a
+  root execution context; the `ERR` handler did not disable itself and exit with
+  the original nonzero status; and hidden PTY input was treated as exact bytes.
+- Recovery: narrowly allow only `sudo -n` followed by an existing read-only
+  command, plus one fixed container-evidence format; retain sanitized stage
+  evidence on remote failure; use absolute root-only paths with
+  `sudo -n docker compose --env-file ... -f ...`; make rollback disable `ERR` and
+  exit nonzero; and collect email local/domain parts separately. The malformed
+  user was deactivated and the valid account passed SMTP welcome/code checks.
+- Verification: helper tests pass (`48 passed`); immutable deploy v6 and
+  independent public/private readback confirm exact release/image identity,
+  four running containers and zero restarts; SMTP envelope returned `250` for
+  sender and recipient when the address was reconstructed inside Python.
+- Prevention: never use nested SSH quoting, unprivileged runtime-directory
+  traversal, success-returning rollback traps, or hidden PTY input for strings
+  containing `@`. A deploy report is not accepted until an independent
+  postdeploy readback confirms the claimed image and release.

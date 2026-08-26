@@ -520,3 +520,37 @@ document/course journey remains a separate owner-controlled synthetic rehearsal.
   tracks the fail-closed KZ remote executor, reconciles VM126's exact runtime
   hostname, and records recurrence prevention. GitHub CI run `32926482727`
   passed all jobs.
+
+## Team onboarding email and contextual-help release - 2026-08-26
+
+- `GIT-DERIVED`: release `7bc11a9873cc0a3b136db46d1ac1e1732e205685`
+  makes team-member passwords optional, keeps email-code login as the primary
+  path, reports welcome-email delivery status, exposes an authorized resend
+  endpoint, supports authenticated SMTP as well as Resend, and adds role/path
+  contextual help for the main methodologist and team-management sections.
+  GitHub Actions run `32935612145` passed secrets, quality, frontend, migration,
+  PostgreSQL 17 + pgvector/RLS, DB-backed and release-security gates.
+- `PROVIDER-CONFIRMED`: the exact release is READY in the Vercel production
+  deployment associated with `app.kml.kz` and branch `master`; the public login
+  route returned HTTP 200. The same exact SHA was independently verified in the
+  dev Vercel and Render deployments before production promotion.
+- `RUNTIME-DERIVED`: public and private API health identify exact release
+  `7bc11a9873cc0a3b136db46d1ac1e1732e205685` and `kz-production`. VM126 API,
+  worker-ai, worker-documents and worker-ops run image
+  `kamilya-api:7bc11a9873cc`, are `running`, and have zero restarts. No migration,
+  CT125, PostgreSQL, tenant content or blob mutation was part of the release.
+- `RUNTIME-DERIVED`: the VM126 operational watchdog expected release/image now
+  match the deployed identity and its timer remains active. Runtime email
+  transport uses authenticated SMTP through the configured Kamilya mailbox;
+  credentials remain runtime-only. API and worker-ops were the only services
+  recreated for this transport reconciliation.
+- `RUNTIME-DERIVED`: the existing Lombard Sandyq methodologist account received
+  a code-first welcome (`sent`) and a login-code request was accepted. No
+  duplicate correct-address account was created. One malformed account produced
+  solely by a hidden-PTY test-input defect was deactivated through the standard
+  user-management API; the valid account remains active and unchanged apart from
+  the intended delivery verification.
+- `INFERRED`: delivery-provider acceptance and SMTP envelope acceptance prove
+  that the messages left Kamilya's application path, but recipient inbox display
+  remains owner/client observable rather than independently read back by this
+  release process.
