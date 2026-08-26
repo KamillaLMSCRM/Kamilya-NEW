@@ -870,3 +870,6 @@ open, also record status, safe interim path, and review condition.
   traversal, success-returning rollback traps, or hidden PTY input for strings
   containing `@`. A deploy report is not accepted until an independent
   postdeploy readback confirms the claimed image and release.
+- **Fix:** extend the reviewed adapter with the narrow `sudo -n` read-only command
+  shape, use absolute privileged runtime paths, preserve the original nonzero
+  status after rollback, and reconstruct email addresses outside hidden PTY input.
