@@ -11,19 +11,15 @@ Chain architecture (August 2026):
     5. DeepSeek v4-flash
        → managed reliability fallback
 
-  When FREE_LLM_POOL_ENABLED is false, the legacy DeepSeek -> Qwen order is
-  preserved. The current Qwen endpoint is the third free model, so it is not
-  called twice.
+  When FREE_LLM_POOL_ENABLED is false, the established public Qwen endpoint is
+  primary and DeepSeek is the managed fallback. The current Qwen endpoint is
+  already part of the free chain, so it is not called twice.
 
   Embeddings chain:
     1. Voyage voyage-4-lite via direct Voyage API (api.voyageai.com/v1)
        → primary managed embeddings. Free up to 200M tokens / account.
     2. Qwen self-hosted (Qwen3-Embedding-8B)
        → fallback, free
-
-OpenRouter is intentionally NOT part of the v1 chain. To add a premium
-tier later (Claude Haiku for reviewer), extend the providers list at
-runtime through the upcoming superadmin modal — see AGENTS.md.
 
 Failover semantics
 ------------------
@@ -111,7 +107,7 @@ def _openai_base_url(value: str) -> str:
 
 
 def _free_llm_providers() -> list[LLMProviderConfig]:
-    """Build the additional private free pool when explicitly enabled."""
+    """Build the owner-approved private fallback pair when enabled."""
     s = get_settings()
     if not s.FREE_LLM_POOL_ENABLED:
         return []
@@ -131,15 +127,9 @@ def _free_llm_providers() -> list[LLMProviderConfig]:
             **common,
         ),
         LLMProviderConfig(
-            name="gx10-7-thinkingcap",
-            base_url=_openai_base_url(s.FREE_LLM_THINKINGCAP_URL),
-            model=s.FREE_LLM_THINKINGCAP_MODEL,
-            **common,
-        ),
-        LLMProviderConfig(
-            name="gx10-2-qwen35-nvfp4",
-            base_url=_openai_base_url(s.FREE_LLM_NVFP4_URL),
-            model=s.FREE_LLM_NVFP4_MODEL,
+            name="gx10-18-qwen35-4b-fp8",
+            base_url=_openai_base_url(s.FREE_LLM_QWEN4_URL),
+            model=s.FREE_LLM_QWEN4_MODEL,
             **common,
         ),
     ]
@@ -188,6 +178,13 @@ def _deepseek_llm_provider() -> LLMProviderConfig | None:
         timeout=120.0,  # DeepSeek p95 ~30s, but cold start can be longer
         extra_body=extra,
     )
+
+
+def _response_format_for_provider(provider_name: str, response_format: dict | None) -> dict | None:
+    """Map structured-output requests to each provider's supported dialect."""
+    if provider_name == "deepseek" and response_format and response_format.get("type") == "json_schema":
+        return {"type": "json_object"}
+    return response_format
 
 
 async def _resolve_db_key(provider: str, env_key: str) -> str:
@@ -492,13 +489,11 @@ class ResilientLLMClient:
         """Build the production chain from env-only settings.
 
         Order with FREE_LLM_POOL_ENABLED:
-          1. Qwen3.8 27B NVFP4
-          2. ThinkingCap 27B NVFP4
-          3. Qwen 35B-A3B NVFP4
-          4. Existing Qwen 35B-A3B AWQ
-          5. DeepSeek (when configured)
+          1. DeepSeek (when configured)
+          2. Qwen3.8 27B NVFP4
+          3. Qwen3.5 4B FP8
 
-        With the pool disabled, preserve the legacy DeepSeek -> Qwen order.
+        With the pool disabled, use DeepSeek first and public Qwen as fallback.
 
         Does NOT consult the provider_keys table — used by tests and
         legacy callers that don't pass a DB session. Production code
@@ -509,10 +504,9 @@ class ResilientLLMClient:
         deepseek = _deepseek_llm_provider()
         free_providers = _free_llm_providers()
         if free_providers:
-            providers.extend(free_providers)
-            providers.append(_qwen_free_pool_provider())
             if deepseek is not None:
                 providers.append(deepseek)
+            providers.extend(free_providers)
         else:
             if deepseek is not None:
                 providers.append(deepseek)
@@ -563,10 +557,9 @@ class ResilientLLMClient:
                 cfg = replace(cfg, api_key=deepseek_key)
         free_providers = _free_llm_providers()
         if free_providers:
-            providers.extend(free_providers)
-            providers.append(_qwen_free_pool_provider())
             if deepseek_key:
                 providers.append(cfg)
+            providers.extend(free_providers)
         else:
             if deepseek_key:
                 providers.append(cfg)
@@ -592,7 +585,8 @@ class ResilientLLMClient:
         last_exc: BaseException | None = None
         for client in self._clients:
             try:
-                return await client.ainvoke(messages, config=config, response_format=response_format)
+                provider_response_format = _response_format_for_provider(client.name, response_format)
+                return await client.ainvoke(messages, config=config, response_format=provider_response_format)
             except ProviderFailedError as e:
                 logger.warning(
                     f"[LLM_FAILOVER] {e.provider_name} failed "
@@ -892,7 +886,7 @@ def create_llm(
 
     ResilientLLMClient is API-compatible with the previous LLMClient:
     callers use `await llm.ainvoke(messages)` and get back an object
-    with `.content`. Internally it now falls over to DeepSeek on failure.
+    with `.content`. The configured chain performs automatic provider failover.
 
     The base_url/api_key/model args are kept for legacy callers but the
     production chain is built from settings — pass them only in tests

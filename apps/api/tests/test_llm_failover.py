@@ -159,7 +159,7 @@ def test_resilient_llm_provider_names():
     assert chain.provider_names == ["qwen-self-hosted", "deepseek"]
 
 
-def test_settings_chain_preserves_legacy_order_when_free_pool_disabled(monkeypatch):
+def test_settings_chain_uses_deepseek_before_public_qwen_when_free_pool_disabled(monkeypatch):
     deepseek = LLMProviderConfig(name="deepseek", base_url="https://deepseek.test", api_key="key", model="flash")
     qwen = LLMProviderConfig(name="qwen-self-hosted", base_url="https://qwen.test", api_key="key", model="qwen")
     monkeypatch.setattr(llm_client, "_deepseek_llm_provider", lambda: deepseek)
@@ -172,7 +172,7 @@ def test_settings_chain_preserves_legacy_order_when_free_pool_disabled(monkeypat
     assert chain.provider_names == ["deepseek", "qwen-self-hosted"]
 
 
-def test_settings_chain_tries_all_free_models_before_managed_fallback(monkeypatch):
+def test_settings_chain_uses_deepseek_then_qwen27_then_qwen4(monkeypatch):
     qwen38 = LLMProviderConfig(
         name="gx10-17-18-qwen38-27b-nvfp4",
         base_url="http://qwen38.test/v1",
@@ -180,18 +180,11 @@ def test_settings_chain_tries_all_free_models_before_managed_fallback(monkeypatc
         model="qwen38",
         max_retries=0,
     )
-    thinkingcap = LLMProviderConfig(
-        name="gx10-7-thinkingcap",
-        base_url="http://thinkingcap.test/v1",
+    qwen4 = LLMProviderConfig(
+        name="gx10-18-qwen35-4b-fp8",
+        base_url="http://qwen4.test/v1",
         api_key="not-needed",
-        model="thinkingcap",
-        max_retries=0,
-    )
-    nvfp4 = LLMProviderConfig(
-        name="gx10-2-qwen35-nvfp4",
-        base_url="http://nvfp4.test/v1",
-        api_key="not-needed",
-        model="nvfp4",
+        model="qwen4",
         max_retries=0,
     )
     qwen = LLMProviderConfig(
@@ -206,20 +199,25 @@ def test_settings_chain_tries_all_free_models_before_managed_fallback(monkeypatc
         api_key="key",
         model="flash",
     )
-    monkeypatch.setattr(llm_client, "_free_llm_providers", lambda: [qwen38, thinkingcap, nvfp4])
+    monkeypatch.setattr(llm_client, "_free_llm_providers", lambda: [qwen38, qwen4])
     monkeypatch.setattr(llm_client, "_qwen_llm_provider", lambda: qwen)
     monkeypatch.setattr(llm_client, "_deepseek_llm_provider", lambda: deepseek)
 
     chain = ResilientLLMClient.from_settings(max_retries_per_provider=2)
 
     assert chain.provider_names == [
-        "gx10-17-18-qwen38-27b-nvfp4",
-        "gx10-7-thinkingcap",
-        "gx10-2-qwen35-nvfp4",
-        "qwen-self-hosted",
         "deepseek",
+        "gx10-17-18-qwen38-27b-nvfp4",
+        "gx10-18-qwen35-4b-fp8",
     ]
-    assert [client.max_retries for client in chain._clients] == [0, 0, 0, 0, 2]
+    assert [client.max_retries for client in chain._clients] == [2, 0, 0]
+
+
+def test_deepseek_uses_supported_json_object_response_format():
+    schema_format = {"type": "json_schema", "json_schema": {"name": "course", "schema": {"type": "object"}}}
+
+    assert llm_client._response_format_for_provider("deepseek", schema_format) == {"type": "json_object"}
+    assert llm_client._response_format_for_provider("gx10-17-18-qwen38-27b-nvfp4", schema_format) is schema_format
 
 
 def test_openai_base_url_adds_v1_once():
@@ -246,7 +244,7 @@ async def test_async_settings_chain_prefers_db_deepseek_key(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_async_settings_chain_places_db_deepseek_after_free_pool(monkeypatch):
+async def test_async_settings_chain_places_db_deepseek_before_free_pool(monkeypatch):
     free = LLMProviderConfig(
         name="gx10-7-thinkingcap",
         base_url="http://thinkingcap.test/v1",
@@ -272,9 +270,8 @@ async def test_async_settings_chain_places_db_deepseek_after_free_pool(monkeypat
     chain = await ResilientLLMClient.from_settings_async()
 
     assert chain.provider_names == [
-        "gx10-7-thinkingcap",
-        "qwen-self-hosted",
         "deepseek",
+        "gx10-7-thinkingcap",
     ]
 
 

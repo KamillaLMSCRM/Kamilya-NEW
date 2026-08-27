@@ -92,11 +92,13 @@ class Settings(BaseSettings):
 
     # Free private vLLM pool for user-facing generation. These endpoints are
     # reachable only from the approved WireGuard/VPS contour. Keep the pool
-    # disabled on Render or any runtime without that route: the existing
-    # DeepSeek/Qwen chain remains available as the fallback.
+    # disabled on Render or any runtime without that route: the managed
+    # DeepSeek/public-Qwen chain remains available as the fallback.
     FREE_LLM_POOL_ENABLED: bool = False
     FREE_LLM_QWEN38_URL: str = "http://10.66.66.30:8002/v1"
-    FREE_LLM_QWEN38_MODEL: str = "unsloth/Qwen3.8-27B-NVFP4"
+    FREE_LLM_QWEN38_MODEL: str = "orcarouter/Qwen3.8-27B-Uncensored-NVFP4"
+    FREE_LLM_QWEN4_URL: str = "http://10.66.66.31:8003/v1"
+    FREE_LLM_QWEN4_MODEL: str = "assessment/Qwen3.5-4B-FP8-dynamic"
     FREE_LLM_THINKINGCAP_URL: str = "http://10.66.66.20:8000/v1"
     FREE_LLM_THINKINGCAP_MODEL: str = "morosystems/ThinkingCap-Qwen3.6-27B-NVFP4"
     FREE_LLM_NVFP4_URL: str = "http://10.66.66.15:8000/v1"
@@ -117,9 +119,9 @@ class Settings(BaseSettings):
     LLM_API_KEY: str = ""
     LLM_MODEL: str = "cyankiwi/Qwen3.6-35B-A3B-AWQ-4bit"
 
-    # DeepSeek — managed reliability fallback. Activated when
-    # DEEPSEEK_API_KEY is set. When the private free pool is disabled, the
-    # legacy order remains DeepSeek -> Qwen. Pricing (per 1M tokens, July 2026):
+    # DeepSeek — owner-selected primary provider. Activated when
+    # DEEPSEEK_API_KEY is set. The private production contour falls back to
+    # Qwen 27B and then Qwen 4B. Pricing (per 1M tokens, July 2026):
     #   deepseek-v4-flash  $0.14 in / $0.28 out
     #   deepseek-v4-pro    $0.435 in / $0.87 out
     # Endpoint is OpenAI-compatible (https://api.deepseek.com/v1).
