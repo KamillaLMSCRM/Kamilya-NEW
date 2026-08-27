@@ -154,7 +154,7 @@ async def expand_context_windows(
     for (
         anchor_id,
         doc_id,
-        anchor_tenant,
+        _anchor_tenant,
         source_revision,
         anchor_index,
         anchor_space,
@@ -197,10 +197,10 @@ async def expand_context_windows(
                 or row_space != anchor_space
             ):
                 continue
-            identity = (row_index, chunk_id)
-            if identity in seen:
+            row_identity = (row_index, chunk_id)
+            if row_identity in seen:
                 continue
-            seen.add(identity)
+            seen.add(row_identity)
             candidates.append(
                 ContextChunk(
                     chunk_id=chunk_id,
@@ -238,15 +238,15 @@ async def expand_context_windows(
         selected: list[ContextChunk] = []
         used_chars = 0
         for candidate in candidates:
-            identity = (
+            context_identity = (
                 candidate.tenant_id,
                 candidate.doc_id,
                 candidate.source_revision,
                 candidate.chunk_id,
             )
-            if not candidate.is_anchor and identity in anchor_identities:
+            if not candidate.is_anchor and context_identity in anchor_identities:
                 continue
-            if identity in used_window_chunks:
+            if context_identity in used_window_chunks:
                 continue
             if candidate.is_anchor or used_chars + len(candidate.text) <= max_chars_per_window:
                 selected.append(candidate)
