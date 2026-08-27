@@ -997,7 +997,12 @@ class DocumentIngestion:
         self.embeddings = EmbeddingsProvider(qwen_url=qwen_embeddings_url)
 
     async def ingest_file(
-        self, file_path: str, doc_id: str | None = None, tenant_id: str | None = None
+        self,
+        file_path: str,
+        doc_id: str | None = None,
+        tenant_id: str | None = None,
+        *,
+        source_revision: str | None = None,
     ) -> dict:
         """Ingest a single file through the full pipeline."""
         if not tenant_id:
@@ -1021,7 +1026,17 @@ class DocumentIngestion:
 
         # Step 2: Chunk
         chunks = self.chunker.chunk_markdown(markdown, doc_id, filename)
-        source_revision = f"document:{hashlib.sha256(markdown.encode('utf-8')).hexdigest()}"
+        if source_revision is None:
+            source_revision = f"document:{hashlib.sha256(markdown.encode('utf-8')).hexdigest()}"
+        else:
+            prefix, separator, digest = source_revision.partition(":")
+            if (
+                prefix != "document"
+                or separator != ":"
+                or len(digest) != 64
+                or any(character not in "0123456789abcdef" for character in digest)
+            ):
+                raise ValueError("invalid_document_source_revision")
         for chunk_index, chunk in enumerate(chunks):
             metadata = chunk.setdefault("metadata", {})
             metadata["source_revision"] = source_revision

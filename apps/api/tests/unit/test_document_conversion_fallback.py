@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+
 import pytest
 from docx import Document
 from pypdf import PdfWriter
@@ -9,6 +11,56 @@ from app.modules.ai.ingestion import (
     DocumentOCRRequiredError,
     _local_convert,
 )
+
+
+@pytest.mark.asyncio
+async def test_ingestion_preserves_canonical_document_source_revision(tmp_path) -> None:
+    source = tmp_path / "policy.docx"
+    source.write_bytes(b"canonical source blob")
+    source_revision = f"document:{hashlib.sha256(source.read_bytes()).hexdigest()}"
+    captured_chunks: list[dict] = []
+
+    class ConverterStub:
+        async def convert(self, file_path: str) -> dict:
+            return {"markdown": "# Converted policy", "metadata": {"engine": "test"}}
+
+    class ChunkerStub:
+        def chunk_markdown(self, markdown: str, doc_id: str, filename: str) -> list[dict]:
+            return [{"text": markdown, "metadata": {}}]
+
+    class EmbeddingBatchStub:
+        def as_lists(self) -> list[list[float]]:
+            return [[0.1, 0.2]]
+
+    class EmbeddingsStub:
+        async def embed_documents_with_provenance(self, texts: list[str]):
+            return EmbeddingBatchStub()
+
+    class StoreStub:
+        async def add_chunks(self, chunks, embedding_batch, *, tenant_id: str) -> int:
+            captured_chunks.extend(chunks)
+            return 0
+
+    class SummarizerStub:
+        async def summarize(self, markdown: str, doc_id: str, filename: str) -> dict:
+            return {"summary": "test"}
+
+    ingestion = DocumentIngestion(summaries_dir=str(tmp_path / "summaries"))
+    ingestion.converter = ConverterStub()
+    ingestion.chunker = ChunkerStub()
+    ingestion.embeddings = EmbeddingsStub()
+    ingestion.store = StoreStub()
+    ingestion.summarizer = SummarizerStub()
+
+    result = await ingestion.ingest_file(
+        str(source),
+        doc_id="document-id",
+        tenant_id="00000000-0000-0000-0000-000000000001",
+        source_revision=source_revision,
+    )
+
+    assert result["embeddings_written"] == 1
+    assert captured_chunks[0]["metadata"]["source_revision"] == source_revision
 
 
 @pytest.mark.asyncio

@@ -251,6 +251,7 @@ async def run_document_reindex(
             temp_path,
             doc_id=str(document_id),
             tenant_id=str(tenant_id),
+            source_revision=f"document:{document.content_sha256}",
         )
 
         async with async_session_factory() as session:

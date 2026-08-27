@@ -28,12 +28,17 @@ async def test_document_reindex_worker_completes_and_is_idempotent(
         async def __aexit__(self, exc_type, exc, tb):
             return False
 
+    source_blob = b"approved source text"
+    source_sha256 = hashlib.sha256(source_blob).hexdigest()
+    observed_source_revisions: list[str] = []
+
     class StorageStub:
         def get_bytes(self, key):
-            return b"approved source text"
+            return source_blob
 
     class IngestionStub:
-        async def ingest_file(self, file_path, doc_id, tenant_id):
+        async def ingest_file(self, file_path, doc_id, tenant_id, *, source_revision):
+            observed_source_revisions.append(source_revision)
             return {"chunks": 3, "embeddings_written": 3}
 
     monkeypatch.setattr(operations, "async_session_factory", lambda: SessionContext())
@@ -48,6 +53,7 @@ async def test_document_reindex_worker_completes_and_is_idempotent(
         embedding_status="pending",
         index_status="processing",
         index_revision=2,
+        content_sha256=source_sha256,
     )
     job = AIJob(
         id=f"reindex-{uuid4()}",
@@ -88,6 +94,7 @@ async def test_document_reindex_worker_completes_and_is_idempotent(
     assert stored.index_chunks_total == 3
     assert stored.index_chunks_indexed == 3
     assert stored_job.status == "completed"
+    assert observed_source_revisions == [f"document:{source_sha256}"]
 
 
 async def test_document_reindex_marks_missing_source_as_terminal_recovery(
@@ -189,7 +196,7 @@ async def test_document_reindex_preserves_ocr_required_error_code(
             return b"synthetic scanned source"
 
     class IngestionStub:
-        async def ingest_file(self, file_path, doc_id, tenant_id):
+        async def ingest_file(self, file_path, doc_id, tenant_id, *, source_revision):
             raise ingestion.DocumentOCRRequiredError(
                 "This scanned PDF has no text layer and requires OCR."
             )
