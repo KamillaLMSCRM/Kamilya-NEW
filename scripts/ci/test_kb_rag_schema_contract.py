@@ -17,7 +17,7 @@ from scripts.ci.kb_rag_schema_contract import (
 
 def _valid_snapshot() -> SchemaSnapshot:
     return SchemaSnapshot(
-        revision="0132",
+        revision="0133",
         postgresql_major=17,
         pgvector_present=True,
         relations=(
@@ -91,6 +91,11 @@ def _valid_snapshot() -> SchemaSnapshot:
                 "state IN ('staged','running','ready')",
             ),
         ),
+        privileges=(
+            ("embedding_active_revisions", True, True, True, False),
+            ("embedding_reindex_events", True, True, True, False),
+            ("embedding_reindex_runs", True, True, True, False),
+        ),
     )
 
 
@@ -126,9 +131,10 @@ def _with_constraint_definition(
 
 def test_valid_snapshot_returns_sanitized_ci_contract() -> None:
     checks = evaluate_snapshot(_valid_snapshot())
-    assert checks["alembic_revision"] == "0132"
+    assert checks["alembic_revision"] == "0133"
     assert checks["postgresql_major"] == 17
     assert checks["force_rls"] is True
+    assert checks["runtime_privileges"] is True
     assert checks["deferred_fk"] is True
 
 
@@ -138,6 +144,18 @@ def test_valid_snapshot_returns_sanitized_ci_contract() -> None:
         (replace(_valid_snapshot(), revision="0130"), "unexpected_alembic_revision"),
         (replace(_valid_snapshot(), postgresql_major=16), "unexpected_postgresql_major"),
         (replace(_valid_snapshot(), pgvector_present=False), "pgvector_missing"),
+        (replace(_valid_snapshot(), privileges=()), "lifecycle_runtime_privileges_missing"),
+        (
+            replace(
+                _valid_snapshot(),
+                privileges=(
+                    ("embedding_active_revisions", True, True, True, True),
+                    ("embedding_reindex_events", True, True, True, False),
+                    ("embedding_reindex_runs", True, True, True, False),
+                ),
+            ),
+            "lifecycle_runtime_privileges_invalid",
+        ),
         (
             replace(
                 _valid_snapshot(),
