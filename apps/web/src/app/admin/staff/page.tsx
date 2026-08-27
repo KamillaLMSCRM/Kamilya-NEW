@@ -1515,7 +1515,10 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
                         {open ? <ChevronDown className="h-4 w-4" aria-hidden="true" /> : <ChevronRight className="h-4 w-4" aria-hidden="true" />}
                         <Building2 className="h-4 w-4 text-primary" aria-hidden="true" />
                         <span className="min-w-0 truncate font-semibold">{branch.name}</span>
-                        <span className="shrink-0 text-xs text-muted-foreground">{branch.department_count} отделов · {branch.employee_count} сотрудников</span>
+                        <span className="shrink-0 text-xs text-muted-foreground">
+                          {tp('common.counts.department', branch.department_count)} ·{' '}
+                          {tp('common.counts.employee', branch.employee_count)}
+                        </span>
                       </button>
                       <Button type="button" variant="outline" size="sm" onClick={() => setUnitModal({ type: "department", parentId: branch.id, parentName: branch.name })}>+ Добавить отдел</Button>
                       <Button type="button" variant="ghost" size="sm" onClick={() => { setUnitName(branch.name); setUnitModal({ type: "branch", unitId: branch.id }); }}>Переименовать</Button>
@@ -1587,10 +1590,124 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
                           </li>
                         );
                       })}
-                      {branch.departments.map((department) => <li key={department.id || department.slug} className="flex flex-wrap items-center justify-between gap-3 px-12 py-3">
-                        <span><span className="block text-sm font-medium">{department.name}</span><span className="text-xs text-muted-foreground">{department.position_count} должностей · {department.employee_count} сотрудников</span></span>
-                        {department.id && <span className="flex flex-wrap items-center gap-2"><Link href={`/training-rules?scope=department&department_id=${department.id}`} className="text-xs text-primary hover:underline">Обязательные курсы</Link><Button type="button" variant="ghost" size="sm" onClick={() => { setUnitName(department.name); setUnitModal({ type: "department", unitId: department.id || undefined, parentId: branch.id, parentName: branch.name }); }}>Переименовать</Button><Button type="button" variant="ghost" size="sm" onClick={() => department.id && archiveUnit(department.id, department.name)}>Архивировать</Button></span>}
-                      </li>)}
+                      {branch.departments.map((department) => {
+                        const departmentOpen = expandedDepts.has(department.slug) || query.trim().length > 0;
+                        return (
+                          <li key={department.id || department.slug}>
+                            <div className="flex flex-wrap items-center gap-3 px-12 py-3">
+                              <button
+                                type="button"
+                                onClick={() => toggleDept(department.slug)}
+                                aria-expanded={departmentOpen}
+                                className="flex min-w-0 flex-[1_1_16rem] items-center gap-3 rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                              >
+                                {departmentOpen ? (
+                                  <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                                ) : (
+                                  <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                                )}
+                                <span className="min-w-0">
+                                  <span className="block truncate text-sm font-medium">{department.name}</span>
+                                  <span className="text-xs text-muted-foreground">
+                                    {tp('common.counts.position', department.position_count)} ·{' '}
+                                    {tp('common.counts.employee', department.employee_count)}
+                                  </span>
+                                </span>
+                              </button>
+                              {department.id && (
+                                <span className="flex flex-wrap items-center gap-2">
+                                  <Link href={`/training-rules?scope=department&department_id=${department.id}`} className="text-xs text-primary hover:underline">Обязательные курсы</Link>
+                                  <Button type="button" variant="ghost" size="sm" onClick={() => { setUnitName(department.name); setUnitModal({ type: "department", unitId: department.id || undefined, parentId: branch.id, parentName: branch.name }); }}>Переименовать</Button>
+                                  <Button type="button" variant="ghost" size="sm" onClick={() => department.id && archiveUnit(department.id, department.name)}>Архивировать</Button>
+                                </span>
+                              )}
+                            </div>
+                            {departmentOpen && (
+                              <ul className="divide-y divide-border bg-muted/30">
+                                {department.positions.length === 0 && (
+                                  <li className="px-4 py-3 pl-20 text-xs italic text-muted-foreground">Нет должностей</li>
+                                )}
+                                {department.positions.map((pos) => {
+                                  const positionOpen = expandedPositions.has(pos.id) || query.trim().length > 0;
+                                  return (
+                                    <li key={pos.id} className="px-4 py-3 pl-20">
+                                      <div className="flex min-w-0 items-start gap-3">
+                                        <button
+                                          type="button"
+                                          onClick={() => togglePosition(pos.id)}
+                                          aria-expanded={positionOpen}
+                                          className="flex min-w-0 flex-1 items-start gap-2 rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                        >
+                                          {positionOpen ? (
+                                            <ChevronDown className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                                          ) : (
+                                            <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                                          )}
+                                          <span className="min-w-0">
+                                            <span className="block truncate text-sm font-medium text-foreground">{pos.name}</span>
+                                            <span className="mt-0.5 block text-xs text-muted-foreground">
+                                              {tp('common.counts.employee', pos.employee_count)}
+                                            </span>
+                                          </span>
+                                        </button>
+                                        <Link
+                                          href={`/positions/${pos.id}?tab=training`}
+                                          className="shrink-0 rounded-sm text-sm font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                        >
+                                          Профиль и обучение
+                                        </Link>
+                                      </div>
+                                      {positionOpen && pos.employees.length > 0 && (
+                                        <ul className="mt-2 space-y-1 pl-6">
+                                          {pos.employees.map((emp) => (
+                                            <li key={emp.id} className="flex min-w-0 items-center justify-between gap-3 rounded-md px-2 py-1.5 hover:bg-background">
+                                              <span
+                                                className={
+                                                  emp.is_active
+                                                    ? "min-w-0 text-base font-semibold text-primary"
+                                                    : "min-w-0 text-base font-semibold text-muted-foreground line-through"
+                                                }
+                                              >
+                                                {emp.full_name}
+                                                {emp.personnel_number && (
+                                                  <span className="ml-2 whitespace-nowrap text-xs font-normal text-muted-foreground">
+                                                    · {emp.personnel_number}
+                                                  </span>
+                                                )}
+                                              </span>
+                                              <span className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+                                                <Button
+                                                  type="button"
+                                                  variant="ghost"
+                                                  size="sm"
+                                                  onClick={() => openEmployeeEditor(emp.id)}
+                                                  disabled={employeeLoadingId === emp.id}
+                                                >
+                                                  {employeeLoadingId === emp.id ? "Открываю…" : "Изменить"}
+                                                </Button>
+                                                {emp.is_active && (
+                                                  <Link
+                                                    href={`/assignments?user_id=${emp.id}`}
+                                                    className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-md border border-border px-2.5 text-xs font-medium text-primary hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                                  >
+                                                    <GraduationCap className="h-4 w-4" aria-hidden="true" />
+                                                    <span className="hidden sm:inline">Назначить обучение</span>
+                                                    <span className="sm:hidden">Назначить</span>
+                                                  </Link>
+                                                )}
+                                              </span>
+                                            </li>
+                                          ))}
+                                        </ul>
+                                      )}
+                                    </li>
+                                  );
+                                })}
+                              </ul>
+                            )}
+                          </li>
+                        );
+                      })}
                     </ul>}
                   </li>
                 );

@@ -86,7 +86,7 @@ const tree = {
     id: 'branch-1',
     name: 'Филиал Павлодар',
     unit_type: 'branch',
-    employee_count: 1,
+    employee_count: 2,
     positions: [{
       id: 'position-direct-1',
       name: 'Региональный директор',
@@ -95,7 +95,22 @@ const tree = {
       employee_count: 1,
       employees: [{ id: 'employee-direct-1', full_name: 'Айдана Сейтова', personnel_number: '101', is_active: true }],
     }],
-    children: [{ id: 'dept-1', name: 'Бухгалтерия', unit_type: 'department', children: [] }],
+    children: [{
+      id: 'dept-1',
+      name: 'Бухгалтерия',
+      unit_type: 'department',
+      employee_count: 1,
+      position_count: 1,
+      positions: [{
+        id: 'position-dept-1',
+        name: 'Кассир',
+        department: 'Бухгалтерия',
+        department_slug: 'dept-1',
+        employee_count: 1,
+        employees: [{ id: 'employee-dept-1', full_name: 'Мария Иванова', personnel_number: '102', is_active: true }],
+      }],
+      children: [],
+    }],
   }],
   legacy_roots: [],
   summary: { total_branches: 1, total_departments: 1, legacy_roots: 0 },
@@ -234,6 +249,25 @@ describe('adaptive staff import interactions', () => {
 });
 
 describe('organization structure interactions', () => {
+  it('pluralizes branch counts and drills down from a department to its employees', async () => {
+    render(<AdminStaffPage />);
+    fireEvent.click(screen.getByRole('tab', { name: /Структура/i }));
+
+    const branch = await screen.findByRole('button', { name: /^Филиал Павлодар/ });
+    expect(branch).toHaveTextContent('1 отдел');
+    expect(branch).not.toHaveTextContent('1 отделов');
+    fireEvent.click(branch);
+
+    const department = await screen.findByRole('button', { name: /^Бухгалтерия/ });
+    expect(department).toHaveTextContent('1 должность · 1 сотрудник');
+    fireEvent.click(department);
+
+    const position = await screen.findByRole('button', { name: /^Кассир/ });
+    fireEvent.click(position);
+    expect(await screen.findByText('Мария Иванова')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Назначить обучение/i })).toHaveAttribute('href', '/assignments?user_id=employee-dept-1');
+  });
+
   it('renders positions and employees assigned directly to a branch', async () => {
     render(<AdminStaffPage />);
     fireEvent.click(screen.getByRole('tab', { name: /Структура/i }));
