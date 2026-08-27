@@ -9,6 +9,7 @@ Endpoints:
 """
 import json
 import logging
+from typing import Annotated, Any, cast
 from uuid import UUID
 
 from celery.result import AsyncResult
@@ -36,6 +37,8 @@ from app.modules.users.staff_import_service import (
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/admin/staff", tags=["staff-import"])
+StaffEditorSession = Annotated[AsyncSession, Depends(get_db)]
+StaffEditorUser = Annotated[User, Depends(require_role("superadmin", "methodologist"))]
 
 
 class PreviewItemResponse(BaseModel):
@@ -374,13 +377,14 @@ async def create_manual_staff(
 @router.get("/manual/{employee_id}", response_model=ManualStaffEmployeeResponse)
 async def get_manual_staff_member(
     employee_id: UUID,
-    db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("superadmin", "methodologist")),
-):
+    db: StaffEditorSession,
+    user: StaffEditorUser,
+) -> ManualStaffEmployeeResponse:
     """Return editable contact fields for one employee in the current tenant."""
     if not user.tenant_id:
         raise HTTPException(status_code=400, detail="Tenant is required")
-    employee = await _tenant_employee_or_404(db, user.tenant_id, employee_id)
+    tenant_id = cast(UUID, user.tenant_id)
+    employee = await _tenant_employee_or_404(db, tenant_id, employee_id)
     return _manual_employee_response(employee)
 
 
@@ -388,14 +392,15 @@ async def get_manual_staff_member(
 async def update_manual_staff_member(
     employee_id: UUID,
     payload: ManualStaffUpdateRequest,
-    db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("superadmin", "methodologist")),
-):
+    db: StaffEditorSession,
+    user: StaffEditorUser,
+) -> ManualStaffEmployeeResponse:
     """Update employee identity/contact data without moving assignments or hierarchy."""
     if not user.tenant_id:
         raise HTTPException(status_code=400, detail="Tenant is required")
 
-    employee = await _tenant_employee_or_404(db, user.tenant_id, employee_id)
+    tenant_id = cast(UUID, user.tenant_id)
+    employee = await _tenant_employee_or_404(db, tenant_id, employee_id)
     personnel_number = payload.personnel_number.strip()
     first_name = payload.first_name.strip()
     last_name = payload.last_name.strip()
@@ -418,7 +423,7 @@ async def update_manual_staff_member(
 
     personnel_conflict = await db.scalar(
         select(User.id).where(
-            User.tenant_id == user.tenant_id,
+            User.tenant_id == tenant_id,
             User.id != employee.id,
             func.lower(func.btrim(User.personnel_number)) == personnel_number.lower(),
         )
@@ -432,7 +437,7 @@ async def update_manual_staff_member(
     if email:
         email_conflict = await db.scalar(
             select(User.id).where(
-                User.tenant_id == user.tenant_id,
+                User.tenant_id == tenant_id,
                 User.id != employee.id,
                 func.lower(func.btrim(User.email)) == email,
             )
@@ -443,16 +448,17 @@ async def update_manual_staff_member(
                 detail="Сотрудник с таким email уже существует",
             )
 
-    previous_email = _normalise_optional(employee.email)
+    previous_email = _normalise_optional(cast(str | None, employee.email))
     previous_email = previous_email.lower() if previous_email else None
-    employee.personnel_number = personnel_number
-    employee.first_name = first_name
-    employee.last_name = last_name
-    employee.email = email
-    employee.phone = phone
+    editable_employee = cast(Any, employee)
+    editable_employee.personnel_number = personnel_number
+    editable_employee.first_name = first_name
+    editable_employee.last_name = last_name
+    editable_employee.email = email
+    editable_employee.phone = phone
     if previous_email != email:
         # A verification of the old mailbox must never authenticate a new one.
-        employee.email_verified_at = None
+        editable_employee.email_verified_at = None
 
     try:
         await db.commit()
