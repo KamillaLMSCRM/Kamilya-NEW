@@ -460,6 +460,10 @@ async def update_manual_staff_member(
         # A verification of the old mailbox must never authenticate a new one.
         editable_employee.email_verified_at = None
 
+    # Build the response while the row is still visible in the current
+    # tenant-scoped transaction. A refresh after commit starts a new
+    # transaction where transaction-local RLS context may no longer be set.
+    response = _manual_employee_response(employee)
     try:
         await db.commit()
     except IntegrityError as exc:
@@ -468,8 +472,7 @@ async def update_manual_staff_member(
             status_code=409,
             detail="Табельный номер или email уже используется другим сотрудником",
         ) from exc
-    await db.refresh(employee)
-    return _manual_employee_response(employee)
+    return response
 
 
 @router.post("/import/preview", response_model=PreviewResponse)

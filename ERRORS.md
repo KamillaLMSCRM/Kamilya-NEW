@@ -929,3 +929,20 @@ ANY TOKEN FAILURE.
   from a task subdirectory. Use `git rev-parse --show-toplevel` or an already
   verified absolute repository root, keep tokens process-local, and distinguish
   `credential absent` from `wrong file inspected` in all reports.
+
+## 2026-08-27 — Employee edit committed, then failed during an RLS-bound refresh
+
+- Symptom: production `PATCH /api/v1/admin/staff/manual/{employee_id}` returned
+  HTTP 500 from the employee edit modal. The sanitized runtime classifier found
+  one failed PATCH plus `InvalidRequestError: Could not refresh instance` and no
+  validation, uniqueness, SQL, network, or explicit RLS-policy error.
+- Cause: the endpoint committed the update and then refreshed the ORM object.
+  The refresh opened a new transaction after the transaction-local tenant/RLS
+  context had ended, so the row was no longer visible to that refresh. This
+  could report failure even though the preceding commit had succeeded.
+- Fix: construct the minimized response from the tenant-scoped object before
+  commit, return it only after a successful commit, and do not perform a
+  post-commit refresh.
+- Prevention: tenant-scoped write endpoints must not depend on post-commit ORM
+  refreshes when RLS context is transaction-local. Regression tests must make
+  any such refresh fail and assert that the endpoint never calls it.

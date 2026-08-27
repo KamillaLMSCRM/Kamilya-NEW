@@ -146,6 +146,7 @@ async def test_manual_employee_update_changes_identity_and_invalidates_changed_e
     employee = _employee(tenant_id)
     db = AsyncMock()
     db.scalar.side_effect = [employee, None, None]
+    db.refresh.side_effect = RuntimeError("Could not refresh instance")
 
     result = await update_manual_staff_member(
         employee.id,
@@ -167,7 +168,7 @@ async def test_manual_employee_update_changes_identity_and_invalidates_changed_e
     assert result.phone == "+77071111111"
     assert employee.email_verified_at is None
     db.commit.assert_awaited_once()
-    db.refresh.assert_awaited_once_with(employee)
+    db.refresh.assert_not_awaited()
 
 
 @pytest.mark.asyncio
