@@ -171,16 +171,24 @@ async def test_expansion_rejects_mismatched_or_invalid_embedding_space() -> None
 
 
 @pytest.mark.asyncio
-async def test_expansion_rejects_overlapping_context_windows() -> None:
+async def test_expansion_deduplicates_overlapping_context_windows() -> None:
     store = _Store([
         ("first", _metadata("first", 3)),
         ("center", _metadata("center", 4)),
         ("second", _metadata("second", 5)),
     ])
-    with pytest.raises(ValueError, match="overlapping_context_windows"):
-        await expand_context_windows(
-            store,
-            [_hit(), _hit(chunk_id="second", chunk_index=5)],
-            tenant_id="tenant-1",
-            radius=1,
-        )
+    windows = await expand_context_windows(
+        store,
+        [_hit(), _hit(chunk_id="second", chunk_index=5)],
+        tenant_id="tenant-1",
+        radius=1,
+    )
+
+    assert [chunk.chunk_id for chunk in windows[0].chunks] == ["first", "center"]
+    assert [chunk.chunk_id for chunk in windows[1].chunks] == ["second"]
+    identities = [
+        (chunk.tenant_id, chunk.doc_id, chunk.source_revision, chunk.chunk_id)
+        for window in windows
+        for chunk in window.chunks
+    ]
+    assert len(identities) == len(set(identities))

@@ -143,17 +143,22 @@ async def expand_context_windows(
     windows: list[ContextWindow] = []
     used_window_chunks: set[tuple[str, str, str, str]] = set()
     normalized_tenant = tenant_id.strip()
-    for hit in hits:
-        (
-            anchor_id,
-            doc_id,
-            anchor_tenant,
-            source_revision,
-            anchor_index,
-            anchor_space,
-        ) = _anchor_values(hit)
+    anchors = [_anchor_values(hit) for hit in hits]
+    for _, _, anchor_tenant, _, _, _ in anchors:
         if anchor_tenant != normalized_tenant:
             raise ValueError("context_anchor_tenant_mismatch")
+    anchor_identities = {
+        (anchor_tenant, doc_id, source_revision, anchor_id)
+        for anchor_id, doc_id, anchor_tenant, source_revision, _, _ in anchors
+    }
+    for (
+        anchor_id,
+        doc_id,
+        anchor_tenant,
+        source_revision,
+        anchor_index,
+        anchor_space,
+    ) in anchors:
         rows = await store.get_context_window(
             doc_id=doc_id,
             source_revision=source_revision,
@@ -233,6 +238,16 @@ async def expand_context_windows(
         selected: list[ContextChunk] = []
         used_chars = 0
         for candidate in candidates:
+            identity = (
+                candidate.tenant_id,
+                candidate.doc_id,
+                candidate.source_revision,
+                candidate.chunk_id,
+            )
+            if not candidate.is_anchor and identity in anchor_identities:
+                continue
+            if identity in used_window_chunks:
+                continue
             if candidate.is_anchor or used_chars + len(candidate.text) <= max_chars_per_window:
                 selected.append(candidate)
                 used_chars += len(candidate.text)
