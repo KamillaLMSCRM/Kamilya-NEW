@@ -946,3 +946,22 @@ ANY TOKEN FAILURE.
 - Prevention: tenant-scoped write endpoints must not depend on post-commit ORM
   refreshes when RLS context is transaction-local. Regression tests must make
   any such refresh fail and assert that the endpoint never calls it.
+
+# 2026-08-27 - FORCE RLS lifecycle tables were created without runtime grants
+
+- Symptom: production course generation failed during verified-embedding retrieval with
+  `InsufficientPrivilegeError: permission denied for table embedding_active_revisions`.
+- Cause: migration `0131` created `embedding_active_revisions`,
+  `embedding_reindex_runs`, and `embedding_reindex_events` with FORCE RLS policies,
+  but omitted the separate table privileges required by the `lms_app` runtime role.
+  RLS policy presence does not imply SQL table privileges.
+- Fix: additive migration `0133` revokes any public/runtime residue and grants only
+  `SELECT, INSERT, UPDATE` on the three lifecycle tables to `lms_app`; it grants no
+  `DELETE`, `TRUNCATE`, ownership, or `BYPASSRLS` capability.
+- Prevention: every migration that creates a runtime-accessed FORCE RLS table must
+  test three independent contracts: table privileges, tenant policy, and FORCE RLS.
+  A schema/RLS-only migration test is incomplete.
+- Verification: the deterministic pre-fix contract reported
+  `RED|missing_runtime_grants=3`; migration `0133`, CI, provider migration, runtime
+  privilege readback, and synthetic generation remain required before production is
+  declared fixed.
