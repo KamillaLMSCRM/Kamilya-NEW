@@ -133,11 +133,14 @@ jobs:
           poetry run python -m py_compile \
             ../../scripts/ops/kb_rag_isolated_dev_gate.py \
             ../../scripts/ops/kb_rag_application_dev_gate.py \
-            ../../scripts/ci/kb_rag_schema_contract.py
+            ../../scripts/ci/kb_rag_schema_contract.py \
+            ../../scripts/ci/critical_journey_gate.py
           poetry run pytest -q \
             ../../scripts/ops/test_kb_rag_isolated_dev_gate.py \
             ../../scripts/ops/test_kb_rag_application_dev_gate.py \
-            ../../scripts/ci/test_kb_rag_schema_contract.py
+            ../../scripts/ci/test_kb_rag_schema_contract.py \
+            ../../scripts/ci/test_critical_journey_gate.py
+          poetry run python ../../scripts/ci/critical_journey_gate.py --all
 
       - name: pytest tests/unit (no DB)
         run: |
@@ -263,6 +266,15 @@ jobs:
             tests/unit/test_vector_store_provenance.py \
             tests/unit/test_context_expansion.py \
             tests/unit/test_document_compatibility.py
+
+      - name: AI-COURSE-01 document-to-course critical journey
+        run: |
+          poetry run python ../../scripts/ci/critical_journey_gate.py \
+            --all \
+            --pytest-root apps/api \
+            --emit-pytest-args /tmp/ai-course-01-tests.txt
+          mapfile -t journey_tests < /tmp/ai-course-01-tests.txt
+          poetry run pytest -q "${journey_tests[@]}"
 
       - name: PostgreSQL 17 + pgvector RLS release gate
         run: bash ../../scripts/ci/run_rls_release_gate.sh

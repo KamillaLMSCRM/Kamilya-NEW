@@ -189,6 +189,36 @@ pnpm build
 - UI: route, loading/error/empty states and responsive browser QA;
 - exports/imports: real files and human-readable output.
 
+## Critical user journeys
+
+Working implementation files are not frozen, but a proven observable journey
+must not change without an explicit product decision. Machine-readable journey
+contracts live in `docs/critical-journeys/`; they define impact paths, required
+tests, runtime gates and stable invariants.
+
+Before changing a path covered by a critical journey, the agent must:
+
+1. use Graphify to trace the changed symbol to affected endpoints, tables,
+   workers and persisted outputs;
+2. read the matching journey contract and include every required test/gate in
+   the task plan;
+3. preserve observable invariants or record a separately approved contract
+   change;
+4. run the complete journey gate, not only tests for the edited file;
+5. perform the specified dev/provider smoke before production when provider or
+   runtime behavior is involved;
+6. perform the bounded disposable post-deploy smoke and cleanup when the
+   journey contract requires it.
+
+Graphify evidence and isolated unit tests do not replace a critical journey.
+Generated wording may be nondeterministic, so AI journeys assert structure,
+language, provenance, tenant isolation, persistence and cleanup rather than an
+exact prose result.
+
+`AI-COURSE-01` is the canonical document-to-course journey. Any change to its
+document, embedding, retrieval, context, pipeline, lesson, quiz or migration
+paths must keep its machine-enforced CI gate green.
+
 ## Production
 
 Перед утверждением release проверить независимо:

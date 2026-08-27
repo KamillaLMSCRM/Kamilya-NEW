@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "journeys": [
+    {
+      "id": "AI-COURSE-01",
+      "title": "Document to generated course and assessment",
+      "description": "Preserve the proven upload/reindex/retrieval/course/quiz behavior across connected AI changes.",
+      "trigger_paths": [
+        "apps/api/alembic/versions/**",
+        "apps/api/app/modules/documents/**",
+        "apps/api/app/modules/ai/**",
+        "apps/api/app/modules/lessons/**",
+        "apps/api/app/modules/quizzes/**",
+        "scripts/ci/kb_rag_schema_contract.py",
+        "scripts/ops/kb_rag_application_dev_gate.py"
+      ],
+      "required_tests": [
+        "apps/api/tests/unit/test_document_conversion_fallback.py::test_ingestion_preserves_canonical_document_source_revision",
+        "apps/api/tests/integration/test_document_operations.py::test_document_reindex_worker_completes_and_is_idempotent",
+        "apps/api/tests/unit/test_active_document_revision_retrieval.py::test_semantic_fts_and_legacy_chunk_reads_require_active_document_revision",
+        "apps/api/tests/unit/test_context_expansion.py::test_expansion_deduplicates_overlapping_context_windows",
+        "apps/api/tests/test_ai_pipeline_existing_course.py::test_generated_single_answer_questions_are_saved_as_mcq",
+        "scripts/ci/test_kb_rag_schema_contract.py::test_valid_snapshot_returns_sanitized_ci_contract"
+      ],
+      "runtime_gates": [
+        "scripts/ci/kb_rag_schema_contract.py",
+        "scripts/ops/kb_rag_application_dev_gate.py"
+      ],
+      "invariants": [
+        "Embedding source revision is derived from the original document content SHA-256.",
+        "Only the active verified document revision and exact embedding space are retrieved.",
+        "Adjacent context overlap is deduplicated without crossing tenant, document or revision boundaries.",
+        "Generation persists at least one module, lesson, quiz, question and answer choice.",
+        "Course structure and quiz APIs are verified according to their separate response contracts.",
+        "Requested language is preserved without asserting exact generated wording.",
+        "Disposable journey data is removed and no invitation or assignment is emitted."
+      ],
+      "dev_gate": "Run the application dev gate with a synthetic document and current provider route before production.",
+      "production_gate": "Run one bounded disposable document-to-course smoke, verify structure and quizzes, then prove cleanup and zero invitations."
+    }
+  ]
+}

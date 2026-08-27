@@ -11,8 +11,9 @@ from app.modules.ai.assessment_schema import CourseAssessment, LessonAssessment,
 from app.modules.ai.pipeline import GenerationState, _save_generation_to_db
 from app.modules.ai.writer_schema import CourseContent, LessonContent, ModuleContent
 from app.modules.courses.models import Course
-from app.modules.lessons.models import Module as CourseModule  # noqa: F401 - registers ORM relationship
-from app.modules.quizzes.models import Question
+from app.modules.lessons.models import Lesson
+from app.modules.lessons.models import Module as CourseModule
+from app.modules.quizzes.models import Question, Quiz, QuizChoice
 
 
 def test_course_model_registers_instruction_source_table() -> None:
@@ -168,5 +169,19 @@ async def test_generated_single_answer_questions_are_saved_as_mcq(monkeypatch):
 
     await _save_generation_to_db(state, tenant_id, course.created_by)
 
+    modules = [value for value in session.added if isinstance(value, CourseModule)]
+    lessons = [value for value in session.added if isinstance(value, Lesson)]
+    quizzes = [value for value in session.added if isinstance(value, Quiz)]
     questions = [value for value in session.added if isinstance(value, Question)]
+    choices = [value for value in session.added if isinstance(value, QuizChoice)]
+
+    assert len(modules) == 1
+    assert modules[0].tenant_id == tenant_id
+    assert len(lessons) == 1
+    assert lessons[0].tenant_id == tenant_id
+    assert len(quizzes) == 1
+    assert quizzes[0].tenant_id == tenant_id
     assert [question.type for question in questions] == ["MCQ"]
+    assert [choice.text for choice in choices] == ["Correct", "Incorrect"]
+    assert [choice.is_correct for choice in choices] == [True, False]
+    assert session.committed is True
