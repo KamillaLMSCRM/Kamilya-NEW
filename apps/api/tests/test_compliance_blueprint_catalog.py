@@ -65,6 +65,49 @@ def test_practical_and_workplace_gates_are_explicit(blueprint_id: str) -> None:
         assert any(token in text for token in ("рабоч", "workplace", "жұмыс ор", "өндір"))
 
 
+@pytest.mark.parametrize(
+    "blueprint_id",
+    [
+        "kz-occupational-safety-induction",
+        "kz-fire-safety-instruction",
+    ],
+)
+@pytest.mark.parametrize("locale", ["ru", "kk"])
+def test_generic_assessments_are_localized_and_meaningful(
+    blueprint_id: str,
+    locale: str,
+) -> None:
+    blueprint = get_blueprint(locale, blueprint_id=blueprint_id)
+    forbidden_choices = {
+        "ru": {"Иә", "Жоқ", "Белгісіз"},
+        "kk": {"Да", "Нет", "Неизвестно"},
+    }[locale]
+
+    for lesson in blueprint["lessons"]:
+        assert len(lesson["questions"]) == 1
+        question, choices, correct_index, explanation = lesson["questions"][0]
+        assert question.endswith("?")
+        assert question != f"{lesson['title']}?"
+        assert len(choices) >= 3
+        assert len(set(choices)) == len(choices)
+        assert not forbidden_choices.intersection(choices)
+        assert 0 <= correct_index < len(choices)
+        assert explanation
+
+
+def test_russian_fire_alarm_question_has_a_safe_action_answer() -> None:
+    blueprint = get_blueprint("ru", blueprint_id="kz-fire-safety-instruction")
+    alarm_lesson = next(
+        lesson for lesson in blueprint["lessons"] if lesson["id"] == "local_risks"
+    )
+    question, choices, correct_index, _ = alarm_lesson["questions"][0]
+
+    assert question == "Когда сотруднику допустимо использовать огнетушитель?"
+    assert choices[correct_index] == (
+        "Только если это разрешено, безопасно и сотрудник обучен"
+    )
+
+
 def test_readiness_requires_every_required_tenant_answer() -> None:
     blueprint = get_blueprint("ru", blueprint_id="kz-fire-safety-instruction")
 
