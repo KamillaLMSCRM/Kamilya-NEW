@@ -393,7 +393,18 @@ def execute_stages(
     expected_sha256: str,
     timeout: int,
     runner: Callable[[str, bytes], StageResult],
+    *,
+    mode: str = "read-only",
 ) -> dict[str, Any]:
+    if mode == "read-only":
+        execution_argv = ("bash", "-se")
+        execution_privilege = "unprivileged"
+    elif mode == "mutation":
+        execution_argv = ("sudo", "-n", "bash", "-se")
+        execution_privilege = "root"
+    else:
+        raise GateBlocked("mode_not_allowed")
+
     identity = runner(profile.command(timeout, "hostname"), b"")
     if identity.exit_code != 0:
         raise GateBlocked("target_identity_stage_failed")
@@ -412,7 +423,7 @@ def execute_stages(
     if syntax.exit_code != 0:
         raise GateBlocked("remote_bash_syntax_failed")
 
-    execution = runner(profile.command(timeout, "bash", "-se"), payload)
+    execution = runner(profile.command(timeout, *execution_argv), payload)
     if execution.exit_code != 0:
         try:
             sanitized_evidence = evidence_lines(execution.stdout)
@@ -423,6 +434,7 @@ def execute_stages(
         "remote_sha256_verified": True,
         "target_identity_verified": True,
         "remote_bash_syntax_verified": True,
+        "remote_execution_privilege": execution_privilege,
         "server_timeout_seconds": timeout,
         "remote_execution_exit_code": execution.exit_code,
         "evidence": evidence_lines(execution.stdout),
@@ -466,6 +478,7 @@ def run_remote(manifest: ScriptManifest, env_file: Path, known_hosts: Path, time
             manifest.sha256,
             timeout,
             lambda command, payload: run_channel(client, command, payload, timeout + 10),
+            mode=manifest.mode,
         )
     except GateBlocked:
         raise

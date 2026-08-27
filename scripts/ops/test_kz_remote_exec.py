@@ -128,9 +128,53 @@ def test_execute_stages_send_identical_bytes_and_suppress_raw_output() -> None:
     assert calls[0][1] == b""
     assert all(observed == payload for _, observed in calls[1:])
     assert result["target_identity_verified"] is True
+    assert result["remote_execution_privilege"] == "unprivileged"
+    assert calls[-1][0].endswith("bash -se")
+    assert "sudo -n bash -se" not in calls[-1][0]
     assert result["evidence"] == ["EVIDENCE|status=ok|release=abcdef123456"]
     assert "secret-noise" not in str(result)
     assert "suppressed-stderr" not in str(result)
+
+
+def test_mutation_execution_uses_noninteractive_root_only_after_fixed_gates() -> None:
+    payload = b"#!/usr/bin/env bash\nset -Eeuo pipefail\nprintf mutation\n"
+    digest = hashlib.sha256(payload).hexdigest()
+    calls = []
+
+    def runner(command: str, observed: bytes) -> remote.StageResult:
+        calls.append((command, observed))
+        if command.endswith("hostname"):
+            return remote.StageResult(0, b"kml\n", b"")
+        if command.endswith("sha256sum"):
+            return remote.StageResult(0, f"{digest}  -\n".encode(), b"")
+        if command.endswith("bash -n -s"):
+            return remote.StageResult(0, b"", b"")
+        return remote.StageResult(0, b"EVIDENCE|status=ok|mutation=complete\n", b"")
+
+    result = remote.execute_stages(
+        remote.VM126, payload, digest, 30, runner, mode="mutation"
+    )
+
+    assert len(calls) == 4
+    assert calls[-1][0].endswith("sudo -n bash -se")
+    assert all(observed == payload for _, observed in calls[1:])
+    assert result["remote_execution_privilege"] == "root"
+
+
+def test_execute_stages_rejects_unknown_mode_before_remote_calls() -> None:
+    calls = []
+
+    with pytest.raises(remote.GateBlocked, match="mode_not_allowed"):
+        remote.execute_stages(
+            remote.VM126,
+            b"payload",
+            hashlib.sha256(b"payload").hexdigest(),
+            30,
+            lambda command, payload: calls.append((command, payload)),
+            mode="destructive",
+        )
+
+    assert calls == []
 
 
 def test_remote_hash_and_evidence_contract_fail_closed() -> None:
