@@ -118,6 +118,7 @@ beforeEach(() => {
   getMock.mockImplementation(async (url: string) => {
     if (url.includes('/import/mappings')) return { data: [] } as any;
     if (url.includes('/organization-units/tree')) return { data: tree } as any;
+    if (url.includes('/staff/manual/employee-direct-1')) return { data: { id: 'employee-direct-1', personnel_number: '101', first_name: 'Айдана', last_name: 'Сейтова', email: 'aidana@example.kz', phone: '+77070000000', is_active: true } } as any;
     if (url.includes('/import/sessions/session-1')) return { data: needsMapping } as any;
     throw new Error(`unexpected GET ${url}`);
   });
@@ -242,6 +243,32 @@ describe('organization structure interactions', () => {
     fireEvent.click(position);
     expect(await screen.findByText('Айдана Сейтова')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Назначить обучение/i })).toHaveAttribute('href', '/assignments?user_id=employee-direct-1');
+  });
+
+  it('edits employee identity and contact data without changing hierarchy', async () => {
+    render(<AdminStaffPage />);
+    fireEvent.click(screen.getByRole('tab', { name: /Структура/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /^Филиал Павлодар/ }));
+    fireEvent.click(await screen.findByRole('button', { name: /Региональный директор/ }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Изменить' }));
+
+    const dialog = await screen.findByRole('dialog', { name: 'Данные сотрудника' });
+    fireEvent.change(within(dialog).getByLabelText('Имя *'), { target: { value: 'Алия' } });
+    fireEvent.change(within(dialog).getByLabelText('Фамилия *'), { target: { value: 'Садыкова' } });
+    fireEvent.change(within(dialog).getByLabelText(/^Email/), { target: { value: 'aliya.new@example.kz' } });
+    patchMock.mockResolvedValueOnce({ data: { id: 'employee-direct-1' } } as any);
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Сохранить' }));
+
+    await waitFor(() => expect(patchMock).toHaveBeenCalledWith(
+      '/v1/admin/staff/manual/employee-direct-1',
+      expect.objectContaining({
+        personnel_number: '101',
+        first_name: 'Алия',
+        last_name: 'Садыкова',
+        email: 'aliya.new@example.kz',
+      }),
+    ));
+    expect(screen.queryByRole('dialog', { name: 'Данные сотрудника' })).not.toBeInTheDocument();
   });
 
   it('renders nested branch and department labels and submits a new department', async () => {

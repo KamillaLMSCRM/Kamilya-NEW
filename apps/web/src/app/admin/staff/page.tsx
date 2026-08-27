@@ -1089,6 +1089,16 @@ interface StructureEmployee {
   is_active: boolean;
 }
 
+interface EditableEmployee {
+  id: string;
+  personnel_number: string;
+  first_name: string;
+  last_name: string;
+  email: string | null;
+  phone: string | null;
+  is_active: boolean;
+}
+
 interface StructurePosition {
   id: string;
   name: string;
@@ -1194,6 +1204,16 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
   const [unitModal, setUnitModal] = useState<{ type: "branch" | "department"; parentId?: string; parentName?: string; unitId?: string } | null>(null);
   const [unitName, setUnitName] = useState("");
   const [unitSaving, setUnitSaving] = useState(false);
+  const [employeeLoadingId, setEmployeeLoadingId] = useState<string | null>(null);
+  const [editingEmployee, setEditingEmployee] = useState<EditableEmployee | null>(null);
+  const [employeeSaving, setEmployeeSaving] = useState(false);
+  const [employeeForm, setEmployeeForm] = useState({
+    personnel_number: "",
+    first_name: "",
+    last_name: "",
+    email: "",
+    phone: "",
+  });
 
   // Keep modal form state scoped to the modal lifecycle. Otherwise a cancelled
   // rename can leak its old name into the next "Добавить ..." dialog.
@@ -1295,6 +1315,67 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
       else next.add(positionId);
       return next;
     });
+  };
+
+  const openEmployeeEditor = async (employeeId: string) => {
+    setEmployeeLoadingId(employeeId);
+    try {
+      const response = await api.get<EditableEmployee>(`/v1/admin/staff/manual/${employeeId}`);
+      const employee = response.data;
+      setEditingEmployee(employee);
+      setEmployeeForm({
+        personnel_number: employee.personnel_number || "",
+        first_name: employee.first_name || "",
+        last_name: employee.last_name || "",
+        email: employee.email || "",
+        phone: employee.phone ? formatKzPhone(employee.phone) : "",
+      });
+    } catch (error: any) {
+      const detail = error?.response?.data?.detail;
+      toast.error(typeof detail === "string" ? detail : "Не удалось загрузить данные сотрудника");
+    } finally {
+      setEmployeeLoadingId(null);
+    }
+  };
+
+  const closeEmployeeEditor = () => {
+    if (employeeSaving) return;
+    setEditingEmployee(null);
+  };
+
+  const saveEmployee = async () => {
+    if (!editingEmployee) return;
+    if (
+      !employeeForm.personnel_number.trim()
+      || !employeeForm.first_name.trim()
+      || !employeeForm.last_name.trim()
+    ) {
+      toast.error("Заполните табельный номер, имя и фамилию");
+      return;
+    }
+    if (employeeForm.phone && !isCompleteKzPhone(employeeForm.phone)) {
+      toast.error(t("staffPage.manualPhoneInvalid"));
+      return;
+    }
+
+    setEmployeeSaving(true);
+    try {
+      await api.patch(`/v1/admin/staff/manual/${editingEmployee.id}`, {
+        personnel_number: employeeForm.personnel_number.trim(),
+        first_name: employeeForm.first_name.trim(),
+        last_name: employeeForm.last_name.trim(),
+        email: employeeForm.email.trim() || null,
+        phone: employeeForm.phone.trim() || null,
+      });
+      toast.success("Данные сотрудника обновлены");
+      setEditingEmployee(null);
+      setRetryKey((value) => value + 1);
+    } catch (error: any) {
+      const detail = error?.response?.data?.detail;
+      toast.error(typeof detail === "string" ? detail : detail?.message || "Не удалось обновить сотрудника");
+    } finally {
+      setEmployeeSaving(false);
+    }
   };
 
   const filteredDepartments = useMemo(() => {
@@ -1478,6 +1559,16 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
                                       {emp.full_name}
                                       {emp.personnel_number && <span className="ml-2 whitespace-nowrap text-xs font-normal text-muted-foreground">· {emp.personnel_number}</span>}
                                     </span>
+                                    <span className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => openEmployeeEditor(emp.id)}
+                                        disabled={employeeLoadingId === emp.id}
+                                      >
+                                        {employeeLoadingId === emp.id ? "Открываю…" : "Изменить"}
+                                      </Button>
                                     {emp.is_active && (
                                       <Link
                                         href={`/assignments?user_id=${emp.id}`}
@@ -1488,6 +1579,7 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
                                         <span className="sm:hidden">Назначить</span>
                                       </Link>
                                     )}
+                                    </span>
                                   </li>
                                 ))}
                               </ul>
@@ -1608,6 +1700,16 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
                                       </span>
                                     )}
                                   </span>
+                                  <span className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => openEmployeeEditor(emp.id)}
+                                      disabled={employeeLoadingId === emp.id}
+                                    >
+                                      {employeeLoadingId === emp.id ? "Открываю…" : "Изменить"}
+                                    </Button>
                                   {emp.is_active && (
                                     <Link
                                       href={`/assignments?user_id=${emp.id}`}
@@ -1618,6 +1720,7 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
                                       <span className="sm:hidden">Назначить</span>
                                     </Link>
                                   )}
+                                  </span>
                                 </li>
                               ))}
                             </ul>
@@ -1638,6 +1741,91 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
         <CardHeader><CardTitle>Требуют распределения</CardTitle><p className="text-sm text-muted-foreground">Должности старого формата, для которых нельзя безопасно определить филиал или отдел. Они не потеряны и показаны отдельно.</p></CardHeader>
         <CardContent className="space-y-2">{data.unassignedPositions.map((position) => <div key={position.id} className="flex flex-wrap items-center justify-between gap-2 rounded border border-warning/30 bg-warning/5 p-3"><div><span className="block text-sm font-medium">{position.name}</span><span className="text-xs text-muted-foreground">Исходное подразделение: {position.department || "не указано"}</span></div><span className="text-xs text-muted-foreground">{position.employee_count} сотрудников</span></div>)}</CardContent>
       </Card>}
+
+      {editingEmployee && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 sm:items-center">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="edit-employee-title"
+            className="w-full max-w-2xl rounded-xl bg-card p-6 shadow-xl"
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 id="edit-employee-title" className="text-xl font-bold text-foreground">Данные сотрудника</h2>
+                <p className="mt-1 text-sm text-muted-foreground">Изменения не затронут должность, назначенные курсы и историю обучения.</p>
+              </div>
+              <button
+                type="button"
+                onClick={closeEmployeeEditor}
+                disabled={employeeSaving}
+                className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                aria-label="Закрыть"
+              >
+                <X className="h-5 w-5" aria-hidden="true" />
+              </button>
+            </div>
+
+            <div className="mt-5 grid gap-4 md:grid-cols-2">
+              <label className="space-y-1">
+                <span className="text-sm font-medium">Табельный номер *</span>
+                <input
+                  value={employeeForm.personnel_number}
+                  onChange={(event) => setEmployeeForm((current) => ({ ...current, personnel_number: event.target.value }))}
+                  className="w-full rounded-lg border border-border bg-card px-3 py-2 outline-none focus:border-primary"
+                />
+              </label>
+              <label className="space-y-1">
+                <span className="text-sm font-medium">Email</span>
+                <input
+                  type="email"
+                  value={employeeForm.email}
+                  onChange={(event) => setEmployeeForm((current) => ({ ...current, email: event.target.value }))}
+                  className="w-full rounded-lg border border-border bg-card px-3 py-2 outline-none focus:border-primary"
+                  placeholder="employee@company.kz"
+                />
+                <span className="block text-xs text-muted-foreground">После смены адреса коды входа будут отправляться на новый email.</span>
+              </label>
+              <label className="space-y-1">
+                <span className="text-sm font-medium">Имя *</span>
+                <input
+                  value={employeeForm.first_name}
+                  onChange={(event) => setEmployeeForm((current) => ({ ...current, first_name: event.target.value }))}
+                  className="w-full rounded-lg border border-border bg-card px-3 py-2 outline-none focus:border-primary"
+                />
+              </label>
+              <label className="space-y-1">
+                <span className="text-sm font-medium">Фамилия *</span>
+                <input
+                  value={employeeForm.last_name}
+                  onChange={(event) => setEmployeeForm((current) => ({ ...current, last_name: event.target.value }))}
+                  className="w-full rounded-lg border border-border bg-card px-3 py-2 outline-none focus:border-primary"
+                />
+              </label>
+              <label className="space-y-1 md:col-span-2">
+                <span className="text-sm font-medium">Телефон</span>
+                <input
+                  type="tel"
+                  value={employeeForm.phone}
+                  onChange={(event) => setEmployeeForm((current) => ({ ...current, phone: formatKzPhone(event.target.value) }))}
+                  inputMode="tel"
+                  autoComplete="tel"
+                  maxLength={18}
+                  className="w-full rounded-lg border border-border bg-card px-3 py-2 outline-none focus:border-primary"
+                  placeholder="+7 (777) 000-00-00"
+                />
+              </label>
+            </div>
+
+            <div className="mt-6 flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={closeEmployeeEditor} disabled={employeeSaving}>Отмена</Button>
+              <Button type="button" onClick={saveEmployee} disabled={employeeSaving}>
+                {employeeSaving ? "Сохраняю…" : "Сохранить"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

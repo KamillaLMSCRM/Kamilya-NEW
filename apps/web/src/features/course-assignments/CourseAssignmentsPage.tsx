@@ -748,11 +748,11 @@ export default function EnrollmentsPage() {
                         const u = usersById.get(e.user_id);
                         const sourceInfo = getAssignmentSourceInfo(e.source);
                         return (
-                          <tr key={e.id} className="border-t">
-                            <td className="p-2 text-sm">
+                          <tr key={e.id} className="border-t align-top">
+                            <td className="p-2 align-top text-sm">
                               {u ? (
                                 <>
-                                  <div className="font-medium">
+                                  <div className="flex min-h-9 items-center font-medium leading-5">
                                     {u.first_name} {u.last_name}
                                   </div>
                                   {u.position_name && (
@@ -769,16 +769,19 @@ export default function EnrollmentsPage() {
                                 </span>
                               )}
                             </td>
-                            <td className="p-2">
-                              <Badge
-                                variant={STATUS_BADGE_VARIANT[e.status] || 'outline'}
-                              >
-                                {STATUS_LABELS[e.status] || e.status}
-                              </Badge>
+                            <td className="p-2 align-top">
+                              <span data-testid="assignment-primary-line" className="flex min-h-9 items-center text-sm leading-5">
+                                <Badge
+                                  className="text-sm font-normal leading-5"
+                                  variant={STATUS_BADGE_VARIANT[e.status] || 'outline'}
+                                >
+                                  {STATUS_LABELS[e.status] || e.status}
+                                </Badge>
+                              </span>
                             </td>
-                            <td className="p-2">
-                              <span title={t(sourceInfo.descriptionKey)}>
-                                <Badge variant={sourceInfo.managedByRule ? 'secondary' : 'outline'}>
+                            <td className="p-2 align-top">
+                              <span data-testid="assignment-primary-line" className="flex min-h-9 items-center text-sm leading-5" title={t(sourceInfo.descriptionKey)}>
+                                <Badge className="text-sm font-normal leading-5" variant={sourceInfo.managedByRule ? 'secondary' : 'outline'}>
                                   {t(sourceInfo.labelKey)}
                                 </Badge>
                               </span>
@@ -786,8 +789,10 @@ export default function EnrollmentsPage() {
                                 {t(sourceInfo.descriptionKey)}
                               </p>
                             </td>
-                            <td className="p-2">
+                            <td className="p-2 align-top">
                               <Button
+                                data-testid="assignment-primary-line"
+                                className="h-9 whitespace-nowrap text-sm leading-5"
                                 variant="outline"
                                 size="sm"
                                 onClick={() => void handleAssignmentAccess(e, u)}
@@ -802,19 +807,23 @@ export default function EnrollmentsPage() {
                                 </p>
                               )}
                             </td>
-                            <td className="p-2">
+                            <td className="p-2 align-top">
                               {e.notification_status ? (
                                 <div className="space-y-1">
-                                  <Badge variant={e.notification_status === 'delivered' ? 'default' : e.notification_status === 'dead' ? 'outline' : 'secondary'}>
-                                    {{ pending: 'Ожидает', claimed: 'Отправляется', retry: 'Повтор', delivered: 'Доставлено', dead: 'Не доставлено' }[e.notification_status]}
-                                  </Badge>
+                                  <span data-testid="assignment-primary-line" className="flex min-h-9 items-center text-sm leading-5">
+                                    <Badge className="text-sm font-normal leading-5" variant={e.notification_status === 'delivered' ? 'default' : e.notification_status === 'dead' ? 'outline' : 'secondary'}>
+                                      {{ pending: 'Ожидает', claimed: 'Отправляется', retry: 'Повтор', delivered: 'Доставлено', dead: 'Не доставлено' }[e.notification_status]}
+                                    </Badge>
+                                  </span>
                                   {e.notification_error && <p className="text-xs text-muted-foreground">{e.notification_error}</p>}
                                   <Button variant="outline" size="sm" onClick={() => void resendNotification(e)}>Отправить повторно</Button>
                                 </div>
-                              ) : <span className="text-xs text-muted-foreground">Не требуется</span>}
+                              ) : <span data-testid="assignment-primary-line" className="flex min-h-9 items-center text-sm leading-5 text-muted-foreground">Не требуется</span>}
                             </td>
-                            <td className="p-2">
+                            <td className="p-2 align-top">
                               <Button
+                                data-testid="assignment-primary-line"
+                                className="h-9 whitespace-nowrap text-sm leading-5"
                                 variant="outline"
                                 size="sm"
                                 onClick={() => handleUnenroll(e)}
@@ -874,11 +883,11 @@ export default function EnrollmentsPage() {
                 <span><b>Персональная ссылка и PIN</b><span className="block text-xs text-muted-foreground">Подходит для телефона и не требует обычного входа или наличия email.</span></span>
               </label>
               {deliveryMode === 'personal_link' && (
-                <div className="grid gap-3 sm:grid-cols-3">
-                  <label className="text-sm">
-                    Время на прохождение после первого входа, минут
+                <div data-testid="personal-link-settings-grid" className="grid gap-3 sm:grid-cols-3">
+                  <label data-testid="personal-link-field" className="grid grid-rows-[2.5rem_2.5rem_auto] gap-y-1 text-sm">
+                    <span className="leading-5">Время на прохождение после первого входа, минут</span>
                     <Input
-                      className="mt-1"
+                      className="h-10"
                       type="number"
                       aria-label="Время на прохождение после первого входа, минут"
                       min={1}
@@ -887,12 +896,12 @@ export default function EnrollmentsPage() {
                       placeholder="Без ограничения"
                       onChange={(event) => setCompletionWindowMinutes(event.target.value ? Number(event.target.value) : null)}
                     />
-                    <span className="mt-1 block text-xs text-muted-foreground">Таймер запускается, когда сотрудник впервые открыл назначение.</span>
+                    <span className="block text-xs text-muted-foreground">Таймер запускается, когда сотрудник впервые открыл назначение.</span>
                   </label>
-                  <label className="text-sm">
-                    Ссылка действительна, дней
+                  <label data-testid="personal-link-field" className="grid grid-rows-[2.5rem_2.5rem_auto] gap-y-1 text-sm">
+                    <span className="leading-5">Ссылка действительна, дней</span>
                     <Input
-                      className="mt-1"
+                      className="h-10"
                       type="number"
                       aria-label="Ссылка действительна, дней"
                       min={1}
@@ -900,18 +909,18 @@ export default function EnrollmentsPage() {
                       value={linkValidityDays}
                       onChange={(event) => setLinkValidityDays(Number(event.target.value))}
                     />
-                    <span className="mt-1 block text-xs text-muted-foreground">Это срок входа по ссылке, а не время прохождения курса.</span>
+                    <span className="block text-xs text-muted-foreground">Это срок входа по ссылке, а не время прохождения курса.</span>
                   </label>
-                  <label className="text-sm">
-                    Завершить до (необязательно)
+                  <label data-testid="personal-link-field" className="grid grid-rows-[2.5rem_2.5rem_auto] gap-y-1 text-sm">
+                    <span className="leading-5">Завершить до (необязательно)</span>
                     <Input
-                      className="mt-1"
+                      className="h-10"
                       type="datetime-local"
                       aria-label="Завершить до"
                       value={dueAt}
                       onChange={(event) => setDueAt(event.target.value)}
                     />
-                    <span className="mt-1 block text-xs text-muted-foreground">Абсолютный крайний срок действует вместе с таймером после первого входа.</span>
+                    <span className="block text-xs text-muted-foreground">Абсолютный крайний срок действует вместе с таймером после первого входа.</span>
                   </label>
                 </div>
               )}

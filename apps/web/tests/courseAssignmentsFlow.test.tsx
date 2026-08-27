@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 
 const fetchMock = vi.hoisted(() => vi.fn());
 const confirmMock = vi.hoisted(() => vi.fn().mockResolvedValue(true));
@@ -257,6 +257,36 @@ describe('contextual course assignment flow', () => {
     render(<CourseAssignmentsPage />);
     fireEvent.click(await screen.findByRole('button', { name: 'Получить ссылку' }));
     await waitFor(() => expect(navigator.clipboard.writeText).toHaveBeenCalledWith('https://app.kml.kz/accept-invite?token=test'));
+  });
+
+  it('keeps enrollment controls and personal-link settings on shared visual rows', async () => {
+    fetchMock.mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/v1/courses?')) return Promise.resolve(jsonResponse([{ id: 'course-1', title: 'Охрана труда', status: 'published' }]));
+      if (url.includes('/v1/users?')) return Promise.resolve(jsonResponse({ users: [{ id: 'user-1', first_name: 'Алия', last_name: 'Садыкова', email: 'aliya@example.kz', role: 'student' }] }));
+      if (url.endsWith('/v1/courses/course-1/enrollments')) return Promise.resolve(jsonResponse([{ id: 'enrollment-1', user_id: 'user-1', course_id: 'course-1', status: 'enrolled', source: 'manual', enrolled_at: '2026-01-01T00:00:00Z' }]));
+      if (url.endsWith('/v1/learning-cycles')) return Promise.resolve(jsonResponse([]));
+      if (url.endsWith('/v1/learning-cycles/occurrences')) return Promise.resolve(jsonResponse([]));
+      throw new Error(`Unexpected request: ${url}`);
+    });
+
+    render(<CourseAssignmentsPage />);
+
+    const primaryLines = await screen.findAllByTestId('assignment-primary-line');
+    expect(primaryLines).toHaveLength(5);
+    primaryLines.forEach((line) => {
+      expect(line).toHaveClass('text-sm', 'leading-5');
+      expect(line.classList.contains('min-h-9') || line.classList.contains('h-9')).toBe(true);
+    });
+
+    fireEvent.click(screen.getByRole('radio', { name: /Персональная ссылка и PIN/i }));
+    expect(screen.getByTestId('personal-link-settings-grid')).toHaveClass('sm:grid-cols-3');
+    const fields = screen.getAllByTestId('personal-link-field');
+    expect(fields).toHaveLength(3);
+    fields.forEach((field) => {
+      expect(field).toHaveClass('grid-rows-[2.5rem_2.5rem_auto]');
+      expect(field.querySelector('input')).toHaveClass('h-10');
+    });
   });
 
   it('shows durable notification failure and exposes explicit resend', async () => {

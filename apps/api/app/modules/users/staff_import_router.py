@@ -15,6 +15,7 @@ from celery.result import AsyncResult
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import require_role
@@ -108,6 +109,57 @@ class ManualStaffCreateResponse(BaseModel):
     positions_created: int
     apply_rules_task_id: str | None = None
     affected_user_count: int = 0
+
+
+class ManualStaffUpdateRequest(BaseModel):
+    personnel_number: str = Field(..., min_length=1, max_length=64)
+    first_name: str = Field(..., min_length=1, max_length=120)
+    last_name: str = Field(..., min_length=1, max_length=120)
+    email: str | None = Field(default=None, max_length=320)
+    phone: str | None = Field(default=None, max_length=64)
+
+
+class ManualStaffEmployeeResponse(BaseModel):
+    id: UUID
+    personnel_number: str
+    first_name: str
+    last_name: str
+    email: str | None = None
+    phone: str | None = None
+    is_active: bool
+
+
+def _normalise_optional(value: str | None) -> str | None:
+    normalised = (value or "").strip()
+    return normalised or None
+
+
+async def _tenant_employee_or_404(
+    db: AsyncSession,
+    tenant_id: UUID,
+    employee_id: UUID,
+) -> User:
+    employee = await db.scalar(
+        select(User).where(
+            User.id == employee_id,
+            User.tenant_id == tenant_id,
+        )
+    )
+    if employee is None:
+        raise HTTPException(status_code=404, detail="Сотрудник не найден в этой компании")
+    return employee
+
+
+def _manual_employee_response(employee: User) -> ManualStaffEmployeeResponse:
+    return ManualStaffEmployeeResponse(
+        id=employee.id,
+        personnel_number=employee.personnel_number or "",
+        first_name=employee.first_name,
+        last_name=employee.last_name,
+        email=employee.email,
+        phone=employee.phone,
+        is_active=employee.is_active,
+    )
 
 
 async def _resolve_manual_hierarchy(
@@ -317,6 +369,101 @@ async def create_manual_staff(
         "apply_rules_task_id": result.get("apply_rules_task_id"),
         "affected_user_count": len(result.get("affected_user_ids") or []),
     }
+
+
+@router.get("/manual/{employee_id}", response_model=ManualStaffEmployeeResponse)
+async def get_manual_staff_member(
+    employee_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_role("superadmin", "methodologist")),
+):
+    """Return editable contact fields for one employee in the current tenant."""
+    if not user.tenant_id:
+        raise HTTPException(status_code=400, detail="Tenant is required")
+    employee = await _tenant_employee_or_404(db, user.tenant_id, employee_id)
+    return _manual_employee_response(employee)
+
+
+@router.patch("/manual/{employee_id}", response_model=ManualStaffEmployeeResponse)
+async def update_manual_staff_member(
+    employee_id: UUID,
+    payload: ManualStaffUpdateRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_role("superadmin", "methodologist")),
+):
+    """Update employee identity/contact data without moving assignments or hierarchy."""
+    if not user.tenant_id:
+        raise HTTPException(status_code=400, detail="Tenant is required")
+
+    employee = await _tenant_employee_or_404(db, user.tenant_id, employee_id)
+    personnel_number = payload.personnel_number.strip()
+    first_name = payload.first_name.strip()
+    last_name = payload.last_name.strip()
+    email = _normalise_optional(payload.email)
+    email = email.lower() if email else None
+    phone = _normalise_optional(payload.phone)
+
+    if not personnel_number or not first_name or not last_name:
+        raise HTTPException(
+            status_code=422,
+            detail="Табельный номер, имя и фамилия обязательны",
+        )
+    if email and (
+        email.count("@") != 1
+        or email.startswith("@")
+        or email.endswith("@")
+        or "." not in email.rsplit("@", 1)[1]
+    ):
+        raise HTTPException(status_code=422, detail="Укажите корректный email")
+
+    personnel_conflict = await db.scalar(
+        select(User.id).where(
+            User.tenant_id == user.tenant_id,
+            User.id != employee.id,
+            func.lower(func.btrim(User.personnel_number)) == personnel_number.lower(),
+        )
+    )
+    if personnel_conflict is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="Сотрудник с таким табельным номером уже существует",
+        )
+
+    if email:
+        email_conflict = await db.scalar(
+            select(User.id).where(
+                User.tenant_id == user.tenant_id,
+                User.id != employee.id,
+                func.lower(func.btrim(User.email)) == email,
+            )
+        )
+        if email_conflict is not None:
+            raise HTTPException(
+                status_code=409,
+                detail="Сотрудник с таким email уже существует",
+            )
+
+    previous_email = _normalise_optional(employee.email)
+    previous_email = previous_email.lower() if previous_email else None
+    employee.personnel_number = personnel_number
+    employee.first_name = first_name
+    employee.last_name = last_name
+    employee.email = email
+    employee.phone = phone
+    if previous_email != email:
+        # A verification of the old mailbox must never authenticate a new one.
+        employee.email_verified_at = None
+
+    try:
+        await db.commit()
+    except IntegrityError as exc:
+        await db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="Табельный номер или email уже используется другим сотрудником",
+        ) from exc
+    await db.refresh(employee)
+    return _manual_employee_response(employee)
 
 
 @router.post("/import/preview", response_model=PreviewResponse)
