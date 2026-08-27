@@ -14,7 +14,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
 
-EXPECTED_REVISION = "0132"
+EXPECTED_REVISION = "0133"
 LIFECYCLE_TABLES = {
     "embedding_active_revisions",
     "embedding_reindex_runs",
@@ -40,6 +40,7 @@ class SchemaSnapshot:
     columns: tuple[str, ...]
     constraints: tuple[tuple[str, str, bool, bool, bool], ...]
     indexes: tuple[tuple[str, str, str], ...]
+    privileges: tuple[tuple[str, bool, bool, bool, bool], ...]
 
 
 def _normalized(value: str) -> str:
@@ -50,6 +51,22 @@ def _require_fragments(definition: str, *fragments: str, error: str) -> None:
     normalized = _normalized(definition)
     if any(_normalized(fragment) not in normalized for fragment in fragments):
         raise ContractError(error)
+
+
+def _require_runtime_privileges(
+    privileges: tuple[tuple[str, bool, bool, bool, bool], ...],
+) -> None:
+    privilege_map = {
+        name: (can_select, can_insert, can_update, can_delete)
+        for name, can_select, can_insert, can_update, can_delete in privileges
+    }
+    if set(privilege_map) != LIFECYCLE_TABLES:
+        raise ContractError("lifecycle_runtime_privileges_missing")
+    if any(
+        not can_select or not can_insert or not can_update or can_delete
+        for can_select, can_insert, can_update, can_delete in privilege_map.values()
+    ):
+        raise ContractError("lifecycle_runtime_privileges_invalid")
 
 
 def evaluate_snapshot(snapshot: SchemaSnapshot) -> dict[str, bool | int | str]:
@@ -68,6 +85,8 @@ def evaluate_snapshot(snapshot: SchemaSnapshot) -> dict[str, bool | int | str]:
         raise ContractError("lifecycle_tables_missing")
     if any(not row_security or not force for row_security, force in relation_map.values()):
         raise ContractError("lifecycle_force_rls_missing")
+
+    _require_runtime_privileges(snapshot.privileges)
 
     if set(snapshot.columns) != {
         "embedding_index_revision_id",
@@ -166,6 +185,7 @@ def evaluate_snapshot(snapshot: SchemaSnapshot) -> dict[str, bool | int | str]:
         "pgvector_present": True,
         "lifecycle_tables": len(LIFECYCLE_TABLES),
         "force_rls": True,
+        "runtime_privileges": True,
         "reindex_columns": True,
         "state_and_count_constraints": True,
         "deferred_fk": True,
@@ -275,6 +295,31 @@ async def read_snapshot(database_url: str) -> SchemaSnapshot:
                     )
                 ).all()
             )
+            privileges = tuple(
+                (
+                    str(row[0]),
+                    bool(row[1]),
+                    bool(row[2]),
+                    bool(row[3]),
+                    bool(row[4]),
+                )
+                for row in (
+                    await connection.execute(
+                        text(
+                            "SELECT table_name, "
+                            "has_table_privilege('lms_app', 'public.' || table_name, 'SELECT'), "
+                            "has_table_privilege('lms_app', 'public.' || table_name, 'INSERT'), "
+                            "has_table_privilege('lms_app', 'public.' || table_name, 'UPDATE'), "
+                            "has_table_privilege('lms_app', 'public.' || table_name, 'DELETE') "
+                            "FROM unnest(ARRAY["
+                            "'embedding_active_revisions',"
+                            "'embedding_reindex_runs',"
+                            "'embedding_reindex_events'"
+                            "]) AS table_name ORDER BY table_name"
+                        )
+                    )
+                ).all()
+            )
         return SchemaSnapshot(
             revision=revision,
             postgresql_major=postgresql_major,
@@ -283,6 +328,7 @@ async def read_snapshot(database_url: str) -> SchemaSnapshot:
             columns=columns,
             constraints=constraints,
             indexes=indexes,
+            privileges=privileges,
         )
     finally:
         await engine.dispose()
