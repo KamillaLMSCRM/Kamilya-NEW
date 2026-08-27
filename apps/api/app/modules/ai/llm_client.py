@@ -180,7 +180,10 @@ def _deepseek_llm_provider() -> LLMProviderConfig | None:
     )
 
 
-def _response_format_for_provider(provider_name: str, response_format: dict | None) -> dict | None:
+def _response_format_for_provider(
+    provider_name: str,
+    response_format: dict[str, Any] | None,
+) -> dict[str, Any] | None:
     """Map structured-output requests to each provider's supported dialect."""
     if provider_name == "deepseek" and response_format and response_format.get("type") == "json_schema":
         return {"type": "json_object"}
