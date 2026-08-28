@@ -50,6 +50,15 @@ async def _summary(db: AsyncSession, item: Cohort) -> CohortSummary:
     )
 
 
+async def _summary_then_commit(db: AsyncSession, item: Cohort) -> CohortSummary:
+    """Build the response while transaction-local tenant RLS context is active."""
+    await db.flush()
+    await db.refresh(item)
+    summary = await _summary(db, item)
+    await db.commit()
+    return summary
+
+
 async def _detail(db: AsyncSession, item: Cohort) -> CohortDetail:
     summary = await _summary(db, item)
     users = (
@@ -84,10 +93,7 @@ async def create_cohort(
         tenant_id=user.tenant_id, created_by=user.id, name=payload.name.strip(), description=payload.description.strip()
     )
     db.add(item)
-    await db.flush()
-    await db.refresh(item)
-    await db.commit()
-    return await _summary(db, item)
+    return await _summary_then_commit(db, item)
 
 
 @router.patch("/{cohort_id}", response_model=CohortSummary)
@@ -104,9 +110,7 @@ async def update_cohort(
         item.description = payload.description.strip()
     if not item.name:
         raise HTTPException(status_code=422, detail="Cohort name cannot be empty")
-    await db.commit()
-    await db.refresh(item)
-    return await _summary(db, item)
+    return await _summary_then_commit(db, item)
 
 
 @router.put("/{cohort_id}/members", response_model=CohortSummary)
@@ -144,8 +148,7 @@ async def replace_members(
     )
     for uid in payload.user_ids:
         db.add(CohortMember(tenant_id=user.tenant_id, cohort_id=item.id, user_id=uid))
-    await db.commit()
-    return await _summary(db, item)
+    return await _summary_then_commit(db, item)
 
 
 @router.put("/{cohort_id}/links", response_model=CohortSummary, deprecated=True)

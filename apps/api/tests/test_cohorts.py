@@ -2,8 +2,38 @@
 
 from sqlalchemy import func, select
 
+import app.modules.cohorts.router as cohort_router
 from app.modules.cohorts.models import CohortCourse, CohortMember
 from app.modules.cohorts.router import router
+
+
+async def test_cohort_response_is_built_before_transaction_commit(monkeypatch):
+    events: list[str] = []
+    item = object()
+    expected = object()
+
+    class RecordingSession:
+        async def flush(self):
+            events.append("flush")
+
+        async def refresh(self, refreshed):
+            assert refreshed is item
+            events.append("refresh")
+
+        async def commit(self):
+            events.append("commit")
+
+    async def record_summary(db, summarized):
+        assert summarized is item
+        events.append("summary")
+        return expected
+
+    monkeypatch.setattr(cohort_router, "_summary", record_summary)
+
+    result = await cohort_router._summary_then_commit(RecordingSession(), item)
+
+    assert result is expected
+    assert events == ["flush", "refresh", "summary", "commit"]
 
 
 async def test_cohort_is_methodologist_only_and_tenant_scoped(client, make_tenant, make_user, auth_headers):
