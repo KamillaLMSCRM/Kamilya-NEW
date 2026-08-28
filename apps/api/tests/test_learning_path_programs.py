@@ -45,6 +45,17 @@ def _path(*, tenant_id, status="draft", courses=None):
     )
 
 
+def test_assignment_actor_preserves_tenant_user_and_omits_platform_impersonator():
+    from app.modules.learning_paths.router import _assignment_actor_id
+
+    tenant_user = _user()
+    impersonated_platform_user = _user()
+    impersonated_platform_user.is_impersonating = True
+
+    assert _assignment_actor_id(tenant_user) == tenant_user.id
+    assert _assignment_actor_id(impersonated_platform_user) is None
+
+
 def test_create_schema_is_draft_only_and_curriculum_is_structured():
     assert "status" not in LearningPathCreate.model_fields
     assert "course_ids" not in LearningPathCurriculumReplace.model_fields

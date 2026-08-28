@@ -145,6 +145,21 @@ def _assignment_response(
     )
 
 
+def _assignment_actor_id(user: User) -> UUID | None:
+    """Return a tenant-valid assignment author.
+
+    An impersonation token wraps the platform superadmin with the target tenant
+    for authorization and filtering, but the underlying user row still has a
+    NULL tenant. The database correctly rejects that platform user as a tenant
+    assignment author. The real operator remains attributable through the
+    impersonation audit trail, while the tenant-owned assignment keeps a null
+    author instead of inventing a tenant identity.
+    """
+    if getattr(user, "is_impersonating", False):
+        return None
+    return user.id
+
+
 def _validate_dates(starts_at: datetime | None, due_at: datetime | None) -> None:
     if starts_at is not None and due_at is not None and due_at < starts_at:
         raise HTTPException(
@@ -587,7 +602,7 @@ async def assign_path_audience(
                 user_id=user_id,
                 source=source,
                 source_ref_id=source_ref_id,
-                assigned_by=user.id,
+                assigned_by=_assignment_actor_id(user),
                 starts_at=payload.starts_at,
                 due_at=payload.due_at,
                 status="active",
@@ -596,7 +611,7 @@ async def assign_path_audience(
         else:
             assignment.source = source
             assignment.source_ref_id = source_ref_id
-            assignment.assigned_by = user.id
+            assignment.assigned_by = _assignment_actor_id(user)
             assignment.starts_at = payload.starts_at
             assignment.due_at = payload.due_at
             assignment.status = "active"
