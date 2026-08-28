@@ -613,27 +613,28 @@ async def delete_course(
 async def archive_course(
     course_id: UUID,
     request: Request,
-    db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_role("superadmin", "methodologist")),
-):
+    db: AsyncSession = Depends(get_db),  # noqa: B008
+    user: User = Depends(require_role("superadmin", "methodologist")),  # noqa: B008
+) -> CourseResponse:
     result = await db.execute(select(Course).where(Course.id == course_id, Course.tenant_id == user.tenant_id))
     course = result.scalar_one_or_none()
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
     if course.status == "archived":
-        course.reviewer = await _hydrate_reviewer(db, course)
-        return course
+        return CourseResponse.model_validate(course)
 
     previous_status = course.status
-    course.status = "archived"
+    course.status = "archived"  # type: ignore[assignment]
     await db.flush()
+    await db.refresh(course)
+    response = CourseResponse.model_validate(course)
     await log_action(
         db,
-        user.tenant_id,
+        UUID(str(user.tenant_id)),
         "archive",
         "course",
         resource_id=str(course.id),
-        user_id=user.id,
+        user_id=UUID(str(user.id)),
         details={
             "title": course.title,
             "previous_status": previous_status,
@@ -643,8 +644,7 @@ async def archive_course(
         user_agent=request.headers.get("user-agent"),
     )
     await db.commit()
-    course.reviewer = await _hydrate_reviewer(db, course)
-    return course
+    return response
 
 
 async def _complete_course_for_user(db: AsyncSession, course_id: UUID, user: User) -> dict:

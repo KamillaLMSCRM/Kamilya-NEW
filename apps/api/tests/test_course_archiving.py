@@ -4,7 +4,6 @@ import pytest
 
 from app.modules.courses.release_models import ContentRelease
 
-
 pytestmark = pytest.mark.asyncio
 
 
