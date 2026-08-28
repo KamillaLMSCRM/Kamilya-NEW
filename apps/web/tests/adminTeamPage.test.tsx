@@ -79,4 +79,19 @@ describe('tenant team modal', () => {
     expect(useAuthStore.getState().user?.role).toBe('admin');
     expect(useAuthStore.getState().user?.roles).toEqual(['admin', 'methodologist']);
   });
+
+  it('does not discard the create-user form when the backdrop is clicked', async () => {
+    render(<AdminTeamPage />);
+    await screen.findByText(existingUser.email);
+
+    fireEvent.click(screen.getByRole('button', { name: /\+/ }));
+    const emailInput = document.querySelector<HTMLInputElement>('input[name^="team_member_email_"]');
+    expect(emailInput).not.toBeNull();
+    fireEvent.change(emailInput!, { target: { value: 'new.user@example.com' } });
+
+    fireEvent.click(document.querySelector('[data-modal-backdrop="true"]')!);
+
+    expect(emailInput).toBeInTheDocument();
+    expect(emailInput).toHaveValue('new.user@example.com');
+  });
 });

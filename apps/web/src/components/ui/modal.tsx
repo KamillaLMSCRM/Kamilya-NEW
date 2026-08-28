@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useId, useRef, useCallback } from 'react';
+import { useEffect, useId, useRef, useCallback, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { cn } from '@/lib/utils';
 import { X } from 'lucide-react';
 import { useT } from '@/i18n/useT';
@@ -16,6 +17,8 @@ interface ModalProps {
   className?: string;
   /** Allow closing with ESC and backdrop click. Default: true. */
   dismissable?: boolean;
+  /** Allow closing specifically by clicking the backdrop. Defaults to dismissable. */
+  closeOnBackdrop?: boolean;
   /** Element that triggered the modal — focus restores here on close. */
   initialFocusRef?: React.RefObject<HTMLElement>;
 }
@@ -50,6 +53,7 @@ export function Modal({
   children,
   className,
   dismissable = true,
+  closeOnBackdrop = dismissable,
   initialFocusRef,
 }: ModalProps) {
   const { t } = useT();
@@ -57,6 +61,11 @@ export function Modal({
   const descriptionId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handleClose = useCallback(() => {
     onClose?.();
@@ -122,13 +131,14 @@ export function Modal({
     return () => document.removeEventListener('keydown', onKeyDown);
   }, [open, dismissable, handleClose]);
 
-  if (!open) return null;
+  if (!open || !mounted) return null;
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div
         className="fixed inset-0 bg-black/50"
-        onClick={dismissable ? handleClose : undefined}
+        data-modal-backdrop="true"
+        onClick={closeOnBackdrop ? handleClose : undefined}
         aria-hidden="true"
       />
       <div
@@ -167,6 +177,7 @@ export function Modal({
         )}
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

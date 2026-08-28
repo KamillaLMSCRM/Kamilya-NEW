@@ -47,6 +47,19 @@ describe("Modal a11y", () => {
     expect(dialog).toHaveClass("overscroll-contain");
   });
 
+  it("portals the dialog to document.body instead of a transformed layout ancestor", () => {
+    const { container } = render(
+      <div style={{ backdropFilter: "blur(8px)" }}>
+        <Modal open={true} onClose={() => {}} title="Portalled dialog">
+          <p>Body</p>
+        </Modal>
+      </div>
+    );
+    const dialog = screen.getByRole("dialog", { name: "Portalled dialog" });
+    expect(container).not.toContainElement(dialog);
+    expect(document.body).toContainElement(dialog);
+  });
+
   it("axe-core: passes WCAG 2.1 AA on a basic open modal", async () => {
     const { container } = render(
       <Modal open={true} onClose={() => {}} title="A11y modal">
@@ -80,6 +93,18 @@ describe("Modal a11y", () => {
     );
     fireEvent.keyDown(document, { key: "Escape" });
     expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("can keep backdrop clicks inert while preserving normal dismissal controls", () => {
+    const onClose = vi.fn();
+    render(
+      <Modal open={true} onClose={onClose} title="Protected form" closeOnBackdrop={false}>
+        <input aria-label="Draft value" defaultValue="Unsaved" />
+      </Modal>
+    );
+    fireEvent.click(document.querySelector('[data-modal-backdrop="true"]')!);
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByLabelText("Draft value")).toHaveValue("Unsaved");
   });
 
   it("registers a keydown handler while open (focus trap plumbing)", () => {

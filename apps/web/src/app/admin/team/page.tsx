@@ -427,7 +427,11 @@ export default function AdminTeamPage() {
       </div>
 
       {/* Create user modal */}
-      <Modal open={showCreateModal} onOpenChange={handleCreateModalOpenChange}>
+      <Modal
+        open={showCreateModal}
+        onOpenChange={handleCreateModalOpenChange}
+        closeOnBackdrop={false}
+      >
         <CardHeader>
           <CardTitle>{t('users.teamPage.newMember')}</CardTitle>
         </CardHeader>
