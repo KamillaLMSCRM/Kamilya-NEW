@@ -74,6 +74,8 @@ async def list_courses(
         raise HTTPException(status_code=403, detail="Course authoring role required")
     if status:
         query = query.where(Course.status == status)
+    elif user.role in AUTHORING_ROLES:
+        query = query.where(Course.status != "archived")
     if q:
         search = f"%{q}%"
         query = query.where((Course.title.ilike(search)) | (Course.description.ilike(search)))
@@ -605,6 +607,44 @@ async def delete_course(
     )
     await db.delete(course)
     await db.commit()
+
+
+@router.post("/{course_id}/archive", response_model=CourseResponse)
+async def archive_course(
+    course_id: UUID,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_role("superadmin", "methodologist")),
+):
+    result = await db.execute(select(Course).where(Course.id == course_id, Course.tenant_id == user.tenant_id))
+    course = result.scalar_one_or_none()
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+    if course.status == "archived":
+        course.reviewer = await _hydrate_reviewer(db, course)
+        return course
+
+    previous_status = course.status
+    course.status = "archived"
+    await db.flush()
+    await log_action(
+        db,
+        user.tenant_id,
+        "archive",
+        "course",
+        resource_id=str(course.id),
+        user_id=user.id,
+        details={
+            "title": course.title,
+            "previous_status": previous_status,
+            "content_release_id": str(course.current_release_id) if course.current_release_id else None,
+        },
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+    await db.commit()
+    course.reviewer = await _hydrate_reviewer(db, course)
+    return course
 
 
 async def _complete_course_for_user(db: AsyncSession, course_id: UUID, user: User) -> dict:

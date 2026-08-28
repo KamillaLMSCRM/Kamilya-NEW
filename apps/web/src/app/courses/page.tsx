@@ -8,7 +8,7 @@ import { useT } from '@/i18n/useT';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { toast } from '@/components/ui/Toast';
 import { api } from '@/lib/api';
-import { GraduationCap, MoreVertical, ShieldCheck, Trash2 } from 'lucide-react';
+import { Archive, GraduationCap, MoreVertical, ShieldCheck, Trash2 } from 'lucide-react';
 import { LoadError } from '@/components/ui/LoadError';
 
 type BlueprintLocale = 'ru' | 'kk';
@@ -187,6 +187,29 @@ export default function CoursesPage() {
     } catch (err: any) {
       toast.error(t('common.saveFailed'), {
         description: err?.response?.data?.detail || err?.message,
+      });
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const handleArchive = async (courseId: string) => {
+    const ok = await confirm({
+      title: t('dialogs.confirmArchiveCourse'),
+      variant: 'danger',
+      confirmLabel: t('courses.archive'),
+    });
+    if (!ok) return;
+    setDeletingId(courseId);
+    try {
+      await api.post(`/v1/courses/${courseId}/archive`);
+      toast.success(t('toast.courseArchived'), {
+        description: t('courses.archiveHint'),
+      });
+      fetchCourses();
+    } catch (err: any) {
+      toast.error(t('common.saveFailed'), {
+        description: apiErrorMessage(err, t('common.saveFailed')),
       });
     } finally {
       setDeletingId(null);
@@ -532,15 +555,27 @@ export default function CoursesPage() {
                         <MoreVertical className="h-4 w-4" aria-hidden="true" />
                       </summary>
                       <div className="absolute bottom-full right-0 z-20 mb-2 min-w-40 rounded-xl border border-border bg-card p-1 shadow-card-lg">
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(course.id)}
-                          disabled={deletingId === course.id}
-                          className="flex min-h-10 w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-50"
-                        >
-                          <Trash2 className="h-4 w-4" aria-hidden="true" />
-                          {deletingId === course.id ? '…' : t('dialogs.delete')}
-                        </button>
+                        {course.current_release_id ? (
+                          <button
+                            type="button"
+                            onClick={() => handleArchive(course.id)}
+                            disabled={deletingId === course.id}
+                            className="flex min-h-10 w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-warning transition-colors hover:bg-warning/10 disabled:opacity-50"
+                          >
+                            <Archive className="h-4 w-4" aria-hidden="true" />
+                            {deletingId === course.id ? '…' : t('courses.archive')}
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(course.id)}
+                            disabled={deletingId === course.id}
+                            className="flex min-h-10 w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-50"
+                          >
+                            <Trash2 className="h-4 w-4" aria-hidden="true" />
+                            {deletingId === course.id ? '…' : t('dialogs.delete')}
+                          </button>
+                        )}
                       </div>
                     </details>
                   </div>
