@@ -34,6 +34,7 @@ async def test_cohort_members_are_tenant_scoped_and_courses_are_not_materialized
     tenant_b = await make_tenant(name="Tenant B")
     methodologist_a = await make_user(tenant_a, role="methodologist")
     member_a = await make_user(tenant_a, role="student")
+    second_member_a = await make_user(tenant_a, role="student")
     admin_a = await make_user(tenant_a, role="admin")
     member_b = await make_user(tenant_b, role="student")
 
@@ -56,14 +57,30 @@ async def test_cohort_members_are_tenant_scoped_and_courses_are_not_materialized
 
     saved = await client.put(
         f"/api/v1/cohorts/{cohort_id}/members",
-        json={"user_ids": [str(member_a.id)]},
+        json={"user_ids": [str(member_a.id), str(second_member_a.id)]},
         headers=auth_headers(methodologist_a),
     )
     assert saved.status_code == 200
-    assert saved.json()["member_count"] == 1
+    assert saved.json()["member_count"] == 2
     assert "course_count" not in saved.json()
-    assert await db_session.scalar(select(func.count(CohortMember.id)).where(CohortMember.cohort_id == cohort_id)) == 1
+    assert await db_session.scalar(select(func.count(CohortMember.id)).where(CohortMember.cohort_id == cohort_id)) == 2
     assert await db_session.scalar(select(func.count(CohortCourse.id)).where(CohortCourse.cohort_id == cohort_id)) == 0
+
+    replaced = await client.put(
+        f"/api/v1/cohorts/{cohort_id}/members",
+        json={"user_ids": [str(second_member_a.id)]},
+        headers=auth_headers(methodologist_a),
+    )
+    assert replaced.status_code == 200
+    assert replaced.json()["member_count"] == 1
+
+    cleared = await client.put(
+        f"/api/v1/cohorts/{cohort_id}/members",
+        json={"user_ids": []},
+        headers=auth_headers(methodologist_a),
+    )
+    assert cleared.status_code == 200
+    assert cleared.json()["member_count"] == 0
 
     renamed = await client.patch(
         f"/api/v1/cohorts/{cohort_id}",

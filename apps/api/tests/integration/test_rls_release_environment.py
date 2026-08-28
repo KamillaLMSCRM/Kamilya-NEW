@@ -33,7 +33,18 @@ async def test_release_database_is_postgresql_17_with_pgvector_and_current_schem
     assert await db_session.scalar(
         text("SELECT count(*) FROM pg_extension WHERE extname='vector'")
     ) == 1
-    assert await db_session.scalar(text("SELECT version_num FROM alembic_version")) == "0133"
+    assert await db_session.scalar(text("SELECT version_num FROM alembic_version")) == "0134"
+
+
+async def test_runtime_role_can_replace_cohort_membership(db_session) -> None:
+    for privilege in ("SELECT", "INSERT", "DELETE"):
+        assert await db_session.scalar(
+            text(
+                "SELECT has_table_privilege("
+                "'lms_app', 'cohort_members', :privilege)"
+            ),
+            {"privilege": privilege},
+        ) is True
 
 
 async def test_runtime_role_cannot_bypass_rls_or_administer_cluster(db_session) -> None:
