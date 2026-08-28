@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from typing import cast
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -157,7 +158,7 @@ def _assignment_actor_id(user: User) -> UUID | None:
     """
     if getattr(user, "is_impersonating", False):
         return None
-    return user.id
+    return cast(UUID, user.id)
 
 
 def _validate_dates(starts_at: datetime | None, due_at: datetime | None) -> None:
