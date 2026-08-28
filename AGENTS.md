@@ -161,6 +161,59 @@ task graph в `docs/plans/`. Не создавать параллельный к
 
 История остаётся в Git.
 
+## Постоянные специализированные рабочие чаты
+
+Kamilya использует два постоянных узких worker-чата под управлением root
+orchestrator. Они не являются временными subagents и не получают общую
+самостоятельность проекта.
+
+### Release Runner
+
+- Канонический контракт: `.codex/agents/release-runner/AGENTS.md`.
+- По умолчанию использовать доступную бюджетную модель класса `luna`.
+- Получает только готовый exact SHA и полный release packet от root.
+- Может выполнять push, provider deployment и production readback только когда
+  packet содержит текущую точную owner authorization, target, rollback и stop
+  conditions. Наличие credentials, старое разрешение или skill не являются
+  authority.
+- Не проектирует и не исправляет код, миграции или инфраструктуру. Любое
+  расхождение, неожиданный diff/state, неготовый rollback либо две одинаковые
+  ошибки немедленно возвращаются root.
+- Agent report не закрывает release: root независимо проверяет критические
+  evidence и принимает итоговый GO/NO-GO.
+
+Это единственное исключение из общего запрета дешёвым агентам push/deploy.
+Исключение относится только к именованному постоянному Release Runner и только
+к exact packet текущего запуска.
+
+### Test & Evidence Runner
+
+- Канонический контракт: `.codex/agents/test-runner/AGENTS.md`.
+- По умолчанию использовать доступную бюджетную модель класса `luna`.
+- Не исправляет production/source code в обычном режиме; воспроизводит,
+  классифицирует и возвращает failure packet root.
+- Ведёт единый version-controlled журнал `docs/testing/TEST_RUN_LEDGER.md`.
+- Журнал содержит только sanitized evidence: exact SHA, environment, commands,
+  counts, result, failure fingerprint и gates. Secrets, PII и tenant payloads
+  запрещены.
+- Повторяемые подтверждённые failure patterns проходят
+  `kamilya-learning-candidate-triage` и root review; runner не меняет самовольно
+  `ERRORS.md`, `AGENTS.md`, ADR, tests, skills или memory.
+
+### Routing rule
+
+Root оставляет у себя architecture, diagnosis, code changes, integration,
+authority decisions и final acceptance. После готовности точного SHA root
+передаёт сначала test packet Test Runner, затем при зелёном gate передаёт release
+packet Release Runner. Рабочие чаты общаются с root только на английском и
+эскалируют через межчатовый инструмент, а не ждут, что пользователь перенесёт
+сообщение вручную.
+
+Obsidian может использоваться как дополнительный sanitized navigation/index
+слой, если его доступ отдельно подтверждён. Git ledger и канонические документы
+проекта всегда имеют приоритет; Obsidian не является project truth, evidence или
+authority source.
+
 ## Тесты
 
 Backend:
