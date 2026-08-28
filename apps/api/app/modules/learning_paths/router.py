@@ -108,6 +108,14 @@ def _detail(path: LearningPath) -> LearningPathDetail:
     )
 
 
+async def _detail_then_commit(db: AsyncSession, path: LearningPath) -> LearningPathDetail:
+    """Build the response before transaction-local tenant RLS context expires."""
+    await db.flush()
+    detail = _detail(await _get_path(db, path.id, path.tenant_id))
+    await db.commit()
+    return detail
+
+
 def _assignment_response(
     item: LearningPathAssignment,
     learner: User | None = None,
@@ -184,9 +192,7 @@ async def create_path(
     )
     db.add(path)
     path.family_id = path.id
-    await db.flush()
-    await db.commit()
-    return _detail(await _get_path(db, path.id, user.tenant_id))
+    return await _detail_then_commit(db, path)
 
 
 @router.get("/my", response_model=list[LearnerPathItem])
@@ -324,8 +330,7 @@ async def update_path(
         elif key == "description":
             value = value.strip()
         setattr(path, key, value)
-    await db.commit()
-    return _detail(await _get_path(db, path_id, user.tenant_id))
+    return await _detail_then_commit(db, path)
 
 
 @router.put("/{path_id}/curriculum", response_model=LearningPathDetail)
@@ -367,8 +372,7 @@ async def replace_path_curriculum(
                 required=step.required,
             )
         )
-    await db.commit()
-    return _detail(await _get_path(db, path_id, user.tenant_id))
+    return await _detail_then_commit(db, path)
 
 
 @router.post("/{path_id}/publish", response_model=LearningPathDetail)
@@ -390,8 +394,7 @@ async def publish_path(
         )
     path.status = "published"
     path.published_at = datetime.now(timezone.utc)
-    await db.commit()
-    return _detail(await _get_path(db, path_id, user.tenant_id))
+    return await _detail_then_commit(db, path)
 
 
 @router.post("/{path_id}/versions", response_model=LearningPathDetail, status_code=201)
@@ -440,8 +443,7 @@ async def create_path_version(
                 required=step.required,
             )
         )
-    await db.commit()
-    return _detail(await _get_path(db, clone.id, user.tenant_id))
+    return await _detail_then_commit(db, clone)
 
 
 async def _require_audience_records(

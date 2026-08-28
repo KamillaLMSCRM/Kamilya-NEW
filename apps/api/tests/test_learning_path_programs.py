@@ -56,6 +56,41 @@ def test_create_schema_is_draft_only_and_curriculum_is_structured():
     assert payload.steps[0].required is False
 
 
+@pytest.mark.asyncio
+async def test_learning_path_detail_is_built_before_transaction_commit(monkeypatch):
+    from app.modules.learning_paths import router
+
+    events: list[str] = []
+    path = _path(tenant_id=uuid4())
+    expected = object()
+
+    class RecordingSession:
+        async def flush(self):
+            events.append("flush")
+
+        async def commit(self):
+            events.append("commit")
+
+    async def get_path(db, path_id, tenant_id):
+        assert path_id == path.id
+        assert tenant_id == path.tenant_id
+        events.append("get")
+        return path
+
+    def build_detail(value):
+        assert value is path
+        events.append("detail")
+        return expected
+
+    monkeypatch.setattr(router, "_get_path", get_path)
+    monkeypatch.setattr(router, "_detail", build_detail)
+
+    result = await router._detail_then_commit(RecordingSession(), path)
+
+    assert result is expected
+    assert events == ["flush", "get", "detail", "commit"]
+
+
 def test_linear_sequencing_locks_later_steps_until_required_predecessor_completes():
     first, optional, third = uuid4(), uuid4(), uuid4()
     steps = [
