@@ -16,7 +16,6 @@ The skill never grants deployment authority. Before execution, bind the current
 owner approval to the exact target, release SHA, services, migration scope,
 preservation requirements, stop conditions, and rollback operation.
 
-## Fixed production topology
 ## Mandatory Git identity preflight
 
 **STOP: the repository-root `GITHUB_TOKEN` was verified on 2026-08-26 for the
@@ -34,6 +33,7 @@ preservation requirements, stop conditions, and rollback operation.
 - Declare the canonical token invalid only when this exact root-env
   `gh auth status` fails authentication.
 
+## Fixed production topology
 
 - The proxy is ingress and SSH transport only; never build or run Kamilya there.
 - VM126 runs the production API, three workers, Valkey, and file services.
@@ -43,6 +43,11 @@ preservation requirements, stop conditions, and rollback operation.
 - Public traffic is Vercel frontend -> `api.kml.kz` -> proxy -> WireGuard ->
   VM126. Validate frontend/backend compatibility, but do not mutate Vercel from
   this backend deployment unless the approval explicitly includes it.
+- When frontend deployment is approved, resolve the custom production alias to
+  its actual Vercel project before deployment. A READY deployment in a dev
+  project is not production evidence. After deployment, prove `app.kml.kz`
+  points to the target deployment and that deployment carries the exact release
+  SHA.
 
 ## Required release inputs
 
@@ -91,7 +96,9 @@ include unrelated changes.
 7. **Synchronized rollout.** Build/tag the exact release image and recreate only
    the approved API and three workers. Require all four to resolve to the same
    image and full release SHA. A mixed identity is `PARTIAL_ROLLOUT`, not a
-   successful deploy.
+   successful deploy. If a host timer can enter one of these containers, stop
+   that timer immediately before recreation, run and verify its oneshot against
+   the healthy new runtime, then restart and read back the timer.
 8. **Health and rollback gate.** Require bounded private API health before
    public health. On build failure, container failure, timeout, wrong SHA,
    mixed images, or unhealthy API, execute the reviewed rollback path and stop.
@@ -103,9 +110,11 @@ include unrelated changes.
 10. **Capability smoke and cleanup.** Exercise only the changed behavior with
     synthetic data and no real PII. Verify both success and a relevant negative
     path. Remove disposable data through the approved application/database
-    seam and prove absence. Never use a production customer record as smoke.
+     seam and prove absence. Never use a production customer record as smoke.
 11. **Watchdog and documentation.** Update the watchdog expected SHA only after
-    synchronized rollout and independent readback. Preserve rollback evidence,
+     synchronized rollout and independent readback. Read the existing
+     EnvironmentFile and update its actual keys; the current production keys are
+     `EXPECTED_RELEASE` and `EXPECTED_API_IMAGE`. Preserve rollback evidence,
     then transfer durable facts to `docs/PRODUCTION_READINESS.md`, `ERRORS.md`
     only for confirmed reusable failures, and the active release plan. Do not
     create a parallel project-truth file.
@@ -133,6 +142,10 @@ include unrelated changes.
 - A deploy is not successful until a separate read-only script proves all
   expected container image/status/restart values and public health proves the
   exact release. Update watchdog identity only after that independent readback.
+- A release containing an approved CT125 migration additionally requires an
+  independent CT125 readback of the exact Alembic revision, expected schema and
+  FORCE RLS state, plus cleanup proof. VM126 migration output alone is not
+  database evidence.
 
 ## Stop and rollback conditions
 

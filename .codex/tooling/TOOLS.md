@@ -65,3 +65,26 @@ $toolPython = Join-Path $env:USERPROFILE `
 
 - Safety: use `yaml.safe_load()` for untrusted YAML. Never use an unsafe object
   loader for workspace, external, generated, or user-provided YAML.
+
+### Paramiko 5.0.0
+
+- Import: `paramiko`
+- Purpose: typed SSH transport for `scripts/ops/kz_remote_exec.py`. The helper
+  sends reviewed script bytes through the canonical proxy without putting a
+  password or script body in command-line arguments.
+- Direct dependencies are pinned in `requirements.txt` so the existing
+  `--no-deps` installation contract remains reproducible.
+- Scope: agent-only local tooling. It is not an application, CI, container, or
+  production dependency.
+- Safety: the helper loads known hosts with a reject policy, disables legacy
+  ciphers/KEX/MAC/host-key algorithms, suppresses raw remote output, and never
+  enables SSH agent or local-key fallback. Paramiko is LGPL-2.1; the official
+  PyPI wheel has no install hook. Recheck official release/security metadata
+  before changing the pin.
+- Invocation:
+
+```powershell
+$toolPython = Join-Path $env:USERPROFILE `
+  '.codex\tool-envs\kamilya-agent-tools\Scripts\python.exe'
+& $toolPython scripts\ops\kz_remote_exec.py --help
+```

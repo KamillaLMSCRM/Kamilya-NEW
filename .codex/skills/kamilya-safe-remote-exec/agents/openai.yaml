@@ -1,0 +1,6 @@
+interface:
+  display_name: "Kamilya Safe Remote Execution"
+  short_description: "Run reviewed VM126 scripts without quote nesting"
+  default_prompt: "Use $kamilya-safe-remote-exec to validate a reviewed Kamilya VM126 script locally; execute it only when the current request explicitly authorizes the remote action."
+policy:
+  allow_implicit_invocation: true
