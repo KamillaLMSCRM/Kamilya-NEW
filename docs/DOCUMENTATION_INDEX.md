@@ -28,6 +28,7 @@ production.
 ## Разработчикам
 
 - [Описание продукта](../PROJECT.md)
+- [Журнал ошибок и предотвращения повторов](../ERRORS.md)
 - [Live OpenAPI](https://kamilya-lms-api.onrender.com/docs)
 - [Архитектурные решения](adr/)
 - [ADR-0015: события обучения и подтверждение результата](adr/0015-training-evidence-and-step-up-confirmation.md)
@@ -35,7 +36,6 @@ production.
 - [Celery worker](INFRA_CELERY_WORKER.md)
 - [VPS и сервисы](VPS_CONNECTION_GUIDE.md)
 - [Backup и restore](BACKUP_RESTORE_RUNBOOK.md)
-- [Уроки проекта](LESSONS.md)
 
 ## Правила актуальности
 

@@ -324,6 +324,23 @@ open, also record status, safe interim path, and review condition.
   and delivery evidence. Test SECURITY DEFINER under FORCE RLS as runtime role and
   actual function owner.
 
+## AUTH-002 - Public trial registration accepted an unverified email
+
+- Date: 2026-08-26.
+- Symptom: a public form could create a trial tenant, admin, lead, and operator
+  notification before proving that the registrant controlled the supplied email.
+- Cause: `/api/v1/tenants/register` created the workspace immediately and sent only
+  a best-effort post-creation welcome message.
+- Fix: add a purpose-bound five-minute registration OTP. The request endpoint sends
+  it fail-closed through the configured provider; the create endpoint consumes it
+  before any tenant-scoped insert. Provider failure invalidates the pending code.
+- Verification: backend OTP/email/rate-limit tests `55 passed`; frontend focused
+  tests `16 passed`; Ruff, compileall, and TypeScript passed. The DB-backed suite is
+  `BLOCKED` before test execution by local PostgreSQL `ConnectionRefusedError
+  [WinError 1225]`; dev runtime and production release evidence remain required.
+- Prevention: no self-service tenant, user, lead, CRM event, or owner notification
+  may be created before a purpose-bound email proof succeeds.
+
 ## CANDIDATE-001 - Candidate link existed but public PIN exchange returned 404
 
 - Date: 2026-08-19.
@@ -623,6 +640,12 @@ open, also record status, safe interim path, and review condition.
   the bounded replacement contract returned `PASS`; the independent reviewer
   returned `READY`; the isolated environment reported PyYAML `6.0.3`; and the
   original `quick_validate.py` command returned `Skill is valid!`.
+  On 2026-08-25 the same runtime-selection class recurred when system Python was
+  assumed to contain pytest and a repository-local backend venv was assumed to
+  exist. Both stopped before test execution. The documented `poetry run` runner
+  was then used; its first collection exposed a separate missing repository-root
+  import bootstrap in the new ops test, which was fixed to match existing tests.
+  The unchanged canonical runner then completed all 15 remote-exec tests.
 - Status: resolved. The reproducible tool dependency is pinned in
   `.codex/tooling/requirements.txt`, with discovery and invocation documented in
   `.codex/tooling/TOOLS.md`.
@@ -632,7 +655,9 @@ open, also record status, safe interim path, and review condition.
   it in an isolated tool environment and rerun the original command. Record the
   pinned desired state and safe usage in `.codex/tooling/`; verify live availability
   instead of assuming the manifest was installed. Do not repeat interpreters with
-  the same unresolved dependency set.
+  the same unresolved dependency set. For repository tests, start with the
+  documented project runner and preserve the repository-root import bootstrap used
+  by existing out-of-package ops tests; probe any alternate interpreter before use.
 
 ## AGENT-001 - A blocked claim incorrectly became the overall reconciliation status
 
@@ -685,6 +710,15 @@ open, also record status, safe interim path, and review condition.
   Do not switch to browser/device login when token-only access is required. Never
   put a token in a command argument, URL, helper file, Git config, log, or document.
 
+**STOP / RECURRENCE 2026-08-26:** THE CANONICAL ROOT `GITHUB_TOKEN` IS VALID
+FOR `KamillaLMSCRM`. THE EXACT COMMIT AUTHOR IS
+`Kamilya Codex <kamilla_lms_crm@proton.me>`. A CUSTOM `GIT_ASKPASS` SELECTED
+THE INACTIVE `askar0007amirkhanov` KEYRING IDENTITY AND PRODUCED HTTP 403; THIS
+WAS A WRONG CREDENTIAL-PATH/ACCOUNT FAILURE, NOT TOKEN EXPIRY. CUSTOM ASKPASS IS
+FORBIDDEN FOR THIS REPOSITORY. RUN THE ROOT-ENV `gh auth status` CHECK AND USE
+THE OFFICIAL PROCESS-LOCAL `gh auth git-credential` HELPER BEFORE CLASSIFYING
+ANY TOKEN FAILURE.
+
 ## GIT-002 - Landing push used the LMS repository token instead of the landing token
 
 - Date: 2026-08-24.
@@ -709,15 +743,6 @@ open, also record status, safe interim path, and review condition.
   never substitute another repository's token, and stop after an authorization
   error until the credential source is reconciled. Keep token values process-local
   and out of command arguments, URLs, logs, documents, and Git configuration files.
-
-**STOP / RECURRENCE 2026-08-26:** THE CANONICAL ROOT `GITHUB_TOKEN` IS VALID
-FOR `KamillaLMSCRM`. THE EXACT COMMIT AUTHOR IS
-`Kamilya Codex <kamilla_lms_crm@proton.me>`. A CUSTOM `GIT_ASKPASS` SELECTED
-THE INACTIVE `askar0007amirkhanov` KEYRING IDENTITY AND PRODUCED HTTP 403; THIS
-WAS A WRONG CREDENTIAL-PATH/ACCOUNT FAILURE, NOT TOKEN EXPIRY. CUSTOM ASKPASS IS
-FORBIDDEN FOR THIS REPOSITORY. RUN THE ROOT-ENV `gh auth status` CHECK AND USE
-THE OFFICIAL PROCESS-LOCAL `gh auth git-credential` HELPER BEFORE CLASSIFYING
-ANY TOKEN FAILURE.
 
 ## 2026-08-24 - Local API test environment drifted from declared dependencies
 
@@ -797,9 +822,61 @@ ANY TOKEN FAILURE.
   is intentionally deferred to the owner-controlled rehearsal.
 - **Deployment recurrence:** The first immutable-release script attempt stopped
   before runtime mutation because PowerShell passed escaped quotes literally to
-  Bash. The retry used a single-quoted script template with explicit placeholder
-  replacement and exact old-release preconditions. Future cross-shell deployment
-  scripts must use this template approach and fail before config mutation.
+  Bash. On 2026-08-25 the same parser class recurred during a read-only preflight:
+  PowerShell damaged nested `python -c -> SSH -> SSH -> Bash` quoting before the
+  script reached the remote host. The textual template rule had not been promoted
+  into an executable invariant. `scripts/ops/kz_remote_exec.py` now accepts only a
+  reviewed local `.sh` file, verifies its exact SHA-256 through the fixed canonical
+  VM126 route, runs remote `bash -n`, and only then streams the identical bytes for
+  execution. `.codex/skills/kamilya-safe-remote-exec/` makes this the default
+  project procedure for KZ guest scripts. Inline cross-shell command bodies,
+  `python -c`, shell-built SSH commands, target fallback, and raw remote output are
+  prohibited. The routine CT125 route was independently recovered and verified on
+  2026-08-26: workstation -> proxy -> VM126 (`10.77.77.2`) -> CT125
+  (`192.168.1.225`) with host-specific keys and fixed known-hosts files. A failed
+  Proxmox API/QGA attempt is only a failed recovery transport and must never be
+  reported as absence of CT125 access until this canonical SSH route is tested.
+  The adversarial suite passed 15 tests covering exact
+  byte preservation, SHA mismatch, quoting payloads, target/path gates, read-only
+  mutation rejection, approval matching, output suppression, and no-env dry run;
+  the canonical skill validator and pinned Paramiko import/policy checks passed.
+  An adversarial review then rejected the first guard as too permissive. The final
+  contract uses a narrow read-only command allowlist, conservative secret/PII
+  rejection, exact proxy and guest identity checks, server-side timeout/kill bounds,
+  and an audit-only correlation ID that cannot be mistaken for authority.
+  Implicit skill selection is limited to local dry-run validation; remote execution
+  requires a current explicit request. Alternate credential/known-hosts paths are
+  not accepted, and read-only `curl` is limited to one fixed GET health shape with
+  a bounded timeout and no output/config/cookie file options.
+  A successful exit without at least one valid UTF-8 `EVIDENCE|...` line is also
+  blocked; transport success alone cannot become `RUNTIME-DERIVED` evidence.
+- **CT125 backup/restore recurrence:** The production backup unit is root-owned,
+  invokes `kamilya-pg-backup`, writes encrypted archives under
+  `/var/backups/kamilya-postgresql`, and uses `/root/kamilya-backup.pass`. The
+  restore utility `/usr/local/sbin/kz-restore-drill` executes database and GPG
+  operations as `postgres`. Backup names include `kamilya_staging_<UTC>.dump.gpg`,
+  while the restore parser accepts `kamilya_<UTC>.dump.gpg`. Do not rename or
+  alter the source archive. Create a bounded encrypted temporary copy with the
+  accepted basename, regenerate and verify its SHA-256 sidecar, run the signed
+  disposable drill, then prove the disposable database and temporary copy are
+  absent. Never expose passfiles or signing material.
+- **Streaming-shell recurrence:** `ssh` reads stdin by default. In a streamed
+  nested script, every non-payload SSH call must use `ssh -n`, only the final
+  payload receiver may use `ssh -T`, and non-interactive Docker exec calls must
+  redirect stdin from `/dev/null`. Use `trap cleanup EXIT`, not `EXIT ERR`, when
+  cleanup functions may be reached through command substitution; inherited ERR
+  traps can delete temporary material in a subshell before the parent uses it.
+- **Production rollout recurrence:** A host timer can race with Docker Compose
+  container recreation. Stop `kamilya-candidate-retention.timer` immediately
+  before recreating the approved containers, run and verify the oneshot after the
+  new runtime is healthy, then restart and read back the timer. The watchdog
+  EnvironmentFile keys are `EXPECTED_RELEASE` and `EXPECTED_API_IMAGE`; do not
+  guess similarly named variables.
+- **Vercel recurrence:** A READY deployment in the dev project does not prove the
+  custom production alias moved. Before and after a frontend rollout, resolve
+  `app.kml.kz` to its actual Vercel project and deployment, then verify that
+  deployment's exact Git commit. On 2026-08-26 the owning production project was
+  `web`, not `kamilya-lms-dev`.
 - **Status:** resolved in canonical dev and deployed to KZ production; business
   flow acceptance remains pending the bounded synthetic rehearsal.
 - **Prevention:** Treat edge 503 without an application error body as a separate
@@ -845,7 +922,6 @@ ANY TOKEN FAILURE.
   `ruff format --check <file>` reports pre-existing whole-file drift, do not run the
   mutating formatter as part of an unrelated patch; keep the owned hunk formatted
   manually and use Ruff lint plus exact diff review.
-
 # 2026-08-26 - VM126 canonical hostname drift blocked the fail-closed SSH adapter
 
 - **Symptom:** `kz_remote_exec.py` returned `target_identity_mismatch` before a reviewed VM126 script could run.
@@ -881,7 +957,10 @@ ANY TOKEN FAILURE.
 - Prevention: never use nested SSH quoting, unprivileged runtime-directory
   traversal, success-returning rollback traps, or hidden PTY input for strings
   containing `@`. A deploy report is not accepted until an independent
-  postdeploy readback confirms the claimed image and release.
+  postdeploy readback confirms the claimed image and release. The immutable
+  remote adapter must execute read-only scripts as `kamilya-admin`, but execute
+  an exact-SHA approved `mutation` only as `sudo -n bash -se` after identity,
+  hash and syntax gates pass. Do not reintroduce per-release privilege wrappers.
 
 ## 2026-08-26 — Staff Sync uniqueness pre-check ran after insert flush
 
@@ -946,7 +1025,6 @@ ANY TOKEN FAILURE.
 - Prevention: tenant-scoped write endpoints must not depend on post-commit ORM
   refreshes when RLS context is transaction-local. Regression tests must make
   any such refresh fail and assert that the endpoint never calls it.
-
 # 2026-08-27 - FORCE RLS lifecycle tables were created without runtime grants
 
 - Symptom: production course generation failed during verified-embedding retrieval with
@@ -962,6 +1040,54 @@ ANY TOKEN FAILURE.
   test three independent contracts: table privileges, tenant policy, and FORCE RLS.
   A schema/RLS-only migration test is incomplete.
 - Verification: the deterministic pre-fix contract reported
-  `RED|missing_runtime_grants=3`; migration `0133`, CI, provider migration, runtime
-  privilege readback, and synthetic generation remain required before production is
-  declared fixed.
+  `RED|missing_runtime_grants=3`; migration `0133` was applied in production, the
+  runtime role readback confirmed `SELECT, INSERT, UPDATE` without `DELETE`, and the
+  formerly failing verified-embedding query completed under the runtime role.
+
+# 2026-08-27 - Document embeddings used a converted-content source revision
+
+- Symptom: a successfully indexed production document had verified embeddings, but
+  course generation retrieved zero chunks after enforcing the active source revision.
+- Cause: document ingestion derived `embedding_source_revision` from converted
+  Markdown, while retrieval compared it with `document:<documents.content_sha256>`,
+  which is the SHA-256 of the original uploaded blob.
+- Fix: document operations now pass the canonical original-blob source revision into
+  ingestion, and ingestion validates the strict `document:<64 lowercase hex>` form.
+- Prevention: upload, reindex and retrieval must share one source-revision contract;
+  conversion output hashes are transformation evidence, not document identity.
+- Verification: exact release `4de6358851dc22fadcb0a41320e4d52bad9c8069`
+  passed dev and master CI, was deployed to production, and three existing documents
+  reindexed to the canonical revision successfully.
+
+# 2026-08-27 - Normal adjacent retrieval hits were rejected as overlapping context
+
+- Symptom: production course generation reached content generation and failed with
+  `overlapping_context_windows` when semantic search returned neighboring chunks.
+- Cause: context expansion treated any repeated chunk across independently expanded
+  anchor windows as invalid, although adjacent semantic anchors normally have shared
+  context.
+- Fix: rank all anchors first, keep every anchor in its own window, and assign each
+  non-anchor context chunk to the first eligible ranked window. Tenant, document,
+  revision and embedding-space checks remain fail-closed; the final no-overlap
+  assertion remains a defensive invariant.
+- Prevention: distinguish cross-boundary provenance conflicts from harmless context
+  overlap. Deduplicate deterministic overlap instead of rejecting a valid retrieval
+  result.
+- Verification: releases `901df3658b13ae50d3ee1dc7de51779e05d63ef5`
+  and `b4cca57bded652c1c4b825c2cdcb6fff4ddb27a5` passed focused tests, quality,
+  dev CI and master CI. Production smoke on `b4cca57bded652c1c4b825c2cdcb6fff4ddb27a5`
+  generated 2 modules, 5 lessons and 25 Russian-language questions, then removed the
+  disposable course and confirmed that no invitation was sent.
+
+# 2026-08-27 - AI smoke looked for quizzes in the course-structure response
+
+- Symptom: a completed production generation was reported as structurally incomplete
+  with zero questions even though the assessment and save stages had completed.
+- Cause: the smoke counted questions in `/courses/{id}/structure`; by contract that
+  response contains modules and lessons only. Quizzes and questions are returned by
+  the separate `/quizzes` API.
+- Fix: collect generated lesson IDs from the structure response, then count and
+  language-check only quizzes linked to those lessons.
+- Prevention: acceptance checks must follow public response schemas rather than
+  assuming nested resources. A smoke failure must be classified as product failure or
+  verifier-contract failure before another release is attempted.

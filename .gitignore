@@ -135,3 +135,19 @@ apps/api/summaries/
 # summarized under docs/evidence before these disposable files are removed.
 .tmp-*.tar.gz
 .tmp-*/
+
+# Agent-generated release packets, runtime probes, and disposable tenant
+# fixtures. A few historical files below this path are already tracked; this
+# rule prevents new one-off artifacts from accumulating in the worktree.
+/outputs/
+
+# Non-canonical scratch notes and per-machine operator configuration.
+/agent-notes/
+/opencode.jsonc
+
+# This repository uses Poetry. A uv lock created by an isolated tool probe is
+# not an application dependency lockfile.
+/apps/api/uv.lock
+
+# DocumentKZ is a separate project and must not be copied into Kamilya LMS.
+/docs/DocumentKZ/

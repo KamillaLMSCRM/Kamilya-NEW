@@ -7,12 +7,12 @@
 ## Сначала прочитать
 
 1. [`AGENTS.md`](../AGENTS.md)
-2. [`PROJECT.md`](../PROJECT.md)
-3. [`PROJECT-CONTEXT.md`](PROJECT-CONTEXT.md)
-4. [`PRODUCTION_READINESS.md`](PRODUCTION_READINESS.md)
-5. [`PRODUCT_BACKLOG.md`](PRODUCT_BACKLOG.md)
-6. [`PROJECT_INTERNAL_DOCUMENTATION.md`](PROJECT_INTERNAL_DOCUMENTATION.md)
-7. [`LESSONS.md`](LESSONS.md)
+2. [`ERRORS.md`](../ERRORS.md)
+3. [`PROJECT.md`](../PROJECT.md)
+4. [`PROJECT-CONTEXT.md`](PROJECT-CONTEXT.md)
+5. [`PRODUCTION_READINESS.md`](PRODUCTION_READINESS.md)
+6. [`PRODUCT_BACKLOG.md`](PRODUCT_BACKLOG.md)
+7. [`PROJECT_INTERNAL_DOCUMENTATION.md`](PROJECT_INTERNAL_DOCUMENTATION.md)
 8. [`BACKUP_RESTORE_RUNBOOK.md`](BACKUP_RESTORE_RUNBOOK.md)
 
 Не использовать старые commit reports, ТЗ и переписку как описание текущего
@@ -123,10 +123,10 @@ Frontend:
 
 ```powershell
 cd "C:\Kamilya New\Kamilya-NEW\apps\web"
-npm test
-npm run typecheck
+pnpm test
+pnpm typecheck
 $env:NEXT_TELEMETRY_DISABLED='1'
-npx next build
+pnpm build
 ```
 
 Перед release:

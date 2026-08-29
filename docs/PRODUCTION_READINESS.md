@@ -9,6 +9,25 @@ DB/storage gate и приёмкой клиента
 остаётся в Git; отдельные датированные отчёты не используются как источник
 текущего состояния.
 
+## Staff Sync production release 2026-08-26
+
+| Контур | Состояние | Подтверждение |
+|---|---|---|
+| Application release | PASS | exact SHA `7718615758a6cdbf25bf9faa2cc8bcf119ffb0a7` |
+| CI | PASS | GitHub Actions run `32953790547` |
+| Immutable package | PASS | `kamilya-release-7718615758a6.tar.gz`, SHA-256 `f16490ebf80a4cf6f18acc7f4b7cecf58c3b9c222aadc8d116f1a59f2edbe744` |
+| CT125 backup | PASS | fresh encrypted archive `kamilya_staging_20260826T101849Z.dump.gpg`; mode and SHA sidecar verified |
+| Signed restore drill | PASS | signed report `kz_restore_drill_20260826T102339Z.json`; signature verified; disposable database and temporary plaintext/passfiles absent |
+| Database | PASS | Alembic `0132`; three Staff Sync tables, all three with FORCE RLS; zero Staff Sync rows after release |
+| API and workers | PASS | API plus `worker-ai`, `worker-documents`, and `worker-ops` use `kamilya-api:7718615758a6`; public/private health return the exact full SHA and `kz-production` |
+| Frontend | PASS | Vercel deployment `dpl_CZMyqgFJqBYLM9q5om2EHGgyCAZ3`, project `web`, READY; alias `app.kml.kz` resolves to this exact deployment and commit |
+| Retention and watchdog | PASS | retention oneshot succeeded, timer active; watchdog readback `critical:0`, `warning:0` with exact expected release/image |
+| Staff Sync auth boundary | PASS | unauthenticated credential GET and event POST both return HTTP 401; no credential, event, employee, or tenant row was created |
+
+**Verdict:** technical production release GO. Enabling Staff Sync for a specific
+tenant, issuing a credential, connecting its HR system, and processing real
+employee data remain a separate tenant onboarding and data-processing gate.
+
 ## Временная доставка публичных заявок оператору 2026-08-13
 
 Application patch `01373b14dad8ce338753956ae161cece8ec902c5` добавляет
@@ -188,6 +207,12 @@ Manifest относится только к указанному SHA. Более
   login не остаётся заблокированным до рестарта API.
 - Login/register/OTP всегда ограничиваются по IP; неподписанный JWT не может
   подменить bucket.
+- Invitation, kiosk, assignment-link, candidate и public lead routes также
+  fail closed при недоступном Valkey; capability в bucket сохраняется только
+  как hash. Authenticated bucket создаётся только из полностью проверенного
+  access/kiosk JWT.
+- KZ Uvicorn доверяет forwarded headers только от точного WireGuard proxy
+  `10.77.77.1`; route-код не читает `X-Forwarded-For` напрямую.
 - Реально применяются burst, minute и hour windows.
 - Production probe: четвёртый запрос в burst получил `429` и
   `Retry-After: 10`; после cooldown endpoint снова отвечал.
@@ -374,6 +399,67 @@ Manifest относится только к указанному SHA. Более
 Изменённые уроки имеют `source_validation_status=needs_review`, а курс остаётся
 `review_status=pending` до содержательного одобрения клиента.
 
+17 августа 2026 года выполнен отдельный bootstrap реального tenant
+`ТОО «Ломбард Сандық»` в KZ staging-базе `kamilya_staging` на Alembic head
+`0111`. Импорт прошёл одной транзакцией через runtime-роль `lms_app` и создал:
+
+- 12 сотрудников в двух филиалах по 6 человек, 4 должности;
+- 2 исходных документа с совпавшими SHA-256 БД и object storage;
+- 2 опубликованных и одобренных native-курса, 2 immutable release, 7 модулей,
+  18 уроков, 18 тестов, 78 вопросов и 312 вариантов ответа;
+- 6 правил должность–курс и 22 назначения.
+
+Старые попытки, сертификаты, evidence-события, приглашения и временные
+учётные данные не переносились; контрольные счётчики для них равны нулю.
+Tenant RLS проверен runtime-ролью: при контексте нового tenant видны его 13
+учётных записей (12 сотрудников и неактивный служебный импортёр), при чужом
+tenant context — 0. API `/health` отвечает `ok`. На этапе bootstrap production
+ещё не переключался; последующие methodologist/business smoke и cutover
+зафиксированы ниже в отдельном разделе.
+
+17 августа 2026 года создан изолированный Vercel project
+`kamilya-lms-dev` (`prj_JN1xM4BMmhoHzDt6joPaCBXvOSLk`) для frontend dev-среды:
+
+- Git repository `KamillaLMSCRM/Kamilya-NEW`, production branch проекта `dev`;
+- root directory `apps/web`, framework Next.js;
+- `NEXT_PUBLIC_API_URL` сначала был скопирован из действующего проекта, затем
+  после закрытия DNS/TLS gate изменён на `https://api.kml.kz/api`;
+- ignored-build contract разрешает сборку только для ветки `dev`;
+- актуальный deployment `dpl_A3Jbt9fmYfQXowRQopQPsfs2punc` на exact SHA
+  `69ef25c3383ddd35443e621618c640d708c867ba` имеет состояние `READY`;
+- alias `kamilya-lms-dev.vercel.app` остаётся защищён Vercel Authentication;
+  официальный `vercel curl` с автоматически выпущенным protection bypass
+  получил `/login` и страницу Kamilya;
+- собранный login chunk содержит `https://api.kml.kz/api`, не содержит Render
+  hostname и содержит ожидаемый `/v1/auth/login`;
+- CORS preflight от стабильного dev-origin через proxy возвращает 204 с одним
+  набором allow-origin/credentials headers; `app.kml.kz` и `www.kml.kz`
+  разрешены, неизвестный origin возвращает 400; безопасный invalid-login smoke
+  дошёл до FastAPI и вернул ожидаемый 401;
+- custom domains не добавлялись.
+
+Vercel project `web` оставался привязан к `master`; на этом dev-этапе
+`app.kml.kz` ещё не переключался. Dev deployment содержит только указанный Git
+SHA и не включает незакоммиченные изменения рабочего дерева. Позднейший
+production cutover описан ниже.
+
+17 августа 2026 года подготовлен обратимый HTTPS ingress на proxy VPS для KZ
+staging. Nginx virtual host `api.kml.kz` проксирует через подтверждённый
+WireGuard peer на VM126 `10.77.77.2:8000`; `nginx -t`, reload, proxy-local и
+external Host-header `/health` smoke прошли с HTTP 200. Перед изменением создан
+root-only архив прежней Nginx-конфигурации, default site сохранён.
+
+В authoritative Cloudflare создан DNS-only A-record
+`api.kml.kz -> 92.38.49.167`; выпущен сертификат Let's Encrypt, активирован
+`certbot.timer`, `443` слушает, HTTP перенаправляется на HTTPS, внешний HTTPS
+`/health` вернул 200 с валидной проверкой имени сертификата, а
+`certbot renew --dry-run` прошёл успешно. На этом ingress-этапе cutover ещё не
+выполнялся: proxy-диск был заполнен на 82% (около 866 MiB свободно), а
+Vercel production env и customer traffic не переключались. Затем был выдан
+контролируемый KZ methodologist-доступ, выполнен business smoke и проведён
+обратимый cutover, описанный ниже. Disk monitoring/cleanup proxy остаётся
+обязательным операционным follow-up.
+
 ### Сертификаты
 
 Baseline содержит версионированный PDF-шаблон, снимок данных выдачи, SHA-256
@@ -400,6 +486,57 @@ SCORM ingress must enforce a request-body limit no larger than
 per-entry uncompressed bytes, compression ratio, and manifest bytes; see
 `apps/api/.env.example`.
 
+## KZ production cutover: Lombard Sandyk (2026-08-17)
+
+- Vercel project `web` production env использует
+  `NEXT_PUBLIC_API_URL=https://api.kml.kz/api`.
+- Production deployment `dpl_5fYKAQhbzgDT3PfpmtvopJq8hre5` имеет состояние
+  `READY` и exact frontend SHA
+  `69ef25c3383ddd35443e621618c640d708c867ba`; `app.kml.kz/login` отвечает 200,
+  compiled login bundle содержит KZ API и не содержит Render hostname.
+- Tenant `too-lombard-sandyk` активен в CT125, schema head `0111`; перенесены
+  12 сотрудников, структура двух подразделений, 2 курса и назначения.
+- Создана контролируемая methodologist-учётная запись. Её credential хранится
+  только в локальном ACL-защищённом файле вне Git. Login, `/users/me`, courses,
+  documents, training log и staff-structure API smoke прошли успешно.
+- `kamilya-pg-backup.timer` active/enabled. После исправления проверки владельца
+  временного dump ручной запуск завершился успешно; encrypted backup прошёл
+  SHA-256 verification и сохранён с mode `0600`.
+- Rollback-снимок прежнего Vercel production env хранится локально вне Git;
+  предыдущий production deployment не удалён. Render/Supabase остаются
+  dev/demo и rollback-контуром.
+
+### Candidate assessment production verification (2026-08-19)
+
+- Public manager и candidate routes присутствуют в Vercel production release
+  `7b44f11a8b1494158609fec20c52c094a341fbc3`.
+- KZ API и три Celery worker используют exact image `kamilya-api:db797fd`;
+  CT125 остаётся на Alembic head `0111`, новых schema-изменений для исправления
+  не потребовалось.
+- На двух опубликованных immutable releases tenant `too-lombard-sandyk`
+  подтверждён доступный candidate source: один курс содержит 12 тестов и 60
+  вопросов, второй — 6 тестов и 18 вопросов.
+- Полный удаляемый production journey прошёл: methodologist campaign create и
+  activate, protected link/PIN, consent exchange, попытка, детерминированный
+  score/pass, manager result и CSV. Candidate identity осталась изолированной
+  от staff `users`.
+- Найден и исправлен pre-context RLS defect публичного token exchange без
+  выдачи `BYPASSRLS`: tenant UUID используется только для маршрутизации, а
+  авторизация выполняется по полному token hash, PIN, expiry и revoke state уже
+  внутри tenant context.
+- После smoke campaign/candidate/credential/attempt удалены; residual state
+  отсутствует. `kamilya-candidate-retention.timer` включён и активен, последний
+  recovery service завершён с `success`.
+
+Этот результат подтверждает production-работоспособность текущего candidate
+assessment flow. Он не превращает score/pass в решение о найме: решение по
+кандидату остаётся за клиентом.
+
+Остаются эксплуатационные follow-up, не блокирующие вход методолога:
+настроить штатный SSH/WireGuard admin path к CT125 вместо встроенной console,
+проверить следующий автоматический backup по timer и добавить внешний alert на
+возраст backup/health API.
+
 ## Открытые P1 release gates
 
 ### Юридические поверхности и согласия
@@ -417,11 +554,11 @@ per-entry uncompressed bytes, compression ratio, and manifest bytes; see
 или пользователя ограничено до утверждённого архивирования. Публичная заявка
 также принимает только каноническую версию согласия, а время фиксирует API.
 
-До подключения коммерческого клиента остаётся обязательным отдельный gate:
-подтвердить размещение основной БД, файлов, резервных копий и журналов с
-персональными данными в Казахстане и заполнить фактический реестр внешних
-обработчиков. Публичные тексты описывают это как условие запуска, а не как уже
-подтверждённое состояние текущей пилотной инфраструктуры.
+Для текущего tenant основная БД, файловый runtime и резервные копии размещены в
+KZ-контуре. Открытым договорным gate остаётся заполнение фактического реестра
+внешних обработчиков и описание минимизированных внешних потоков (Vercel,
+email и выбранные AI/LLM функции); нельзя заменять это утверждением, что вообще
+все виды обработки происходят только в Казахстане.
 
 Durable LMS→CRM lead outbox подготовлен миграцией `0094`: публичный lead и
 outbox фиксируются одной транзакцией, payload подписывается по exact bytes,
@@ -438,6 +575,14 @@ automatically replayed because a replay after provider work could duplicate
 cost or draft content. Operations must use the existing job diagnostics and
 an explicit user/superadmin recovery action after the root cause is resolved.
 
+Код поддерживает опциональный бесплатный LLM-пул
+`ThinkingCap -> Qwen NVFP4 -> существующий Qwen AWQ -> DeepSeek`, но это не
+является доказательством его production-активации. Render сохраняет
+`FREE_LLM_POOL_ENABLED=false`, потому что маршрут к приватным WireGuard
+endpoint-ам с фактического Render runtime не подтверждён. Перед включением на
+новом API/worker VPS обязательны `/v1/models`, неперсональный completion,
+timeout/failover smoke и проверка журналов без prompt/response/tenant PII.
+
 Автоматическая bulk delivery invitation link уже реализована в коде через
 Celery. Invitation сохраняется до queue dispatch; lifecycle/provider id/errors
 наблюдаемы, а copyable link остаётся manual fallback. До фактического deploy
@@ -449,6 +594,35 @@ commission/authorized-decision workflows, KZ PostgreSQL/object storage и
 реальный pawnshop acceptance test. OTP не ЭЦП; generic correction, completion
 и quiz не создают training/knowledge/attestation/admission вне своих trusted
 workflows. Остальной backlog ведётся в [`PRODUCT_BACKLOG.md`](PRODUCT_BACKLOG.md).
+## KZ security release acceptance — 2026-08-22
+
+Formal release and security verdict: **GO** for exact release
+`c8381617bb510909f5a97e9de244744eee31db30`.
+
+- `GIT-DERIVED`, `PROVIDER-CONFIRMED`: GitHub CI run `32564167526` passed,
+  including full backend coverage, frontend gates, secrets detection, Alembic
+  contract and disposable PostgreSQL 17 + pgvector RLS checks.
+- `RUNTIME-DERIVED`: VM126 API and three workers run
+  `kamilya-api:c8381617bb5`; public health returns `kz-production` and the exact
+  release SHA; three Celery nodes answer ping; live Alembic is `0122`.
+- `PROVIDER-CONFIRMED`: Vercel production deployment
+  `dpl_9gp9F3vNmN1cxnSa5JSjnWQTKv6e` and dev deployment
+  `dpl_CERmDcyPPCULfTrasWdiJHyx9wX5` are `READY` on the exact SHA.
+- `RUNTIME-DERIVED`: CT125 uses PostgreSQL 17.11 and pgvector 0.8.6; runtime
+  role `lms_app` is not superuser and has no `BYPASSRLS`; 77 of 77 RLS tables
+  have FORCE RLS.
+- `RUNTIME-DERIVED`: signed restore report
+  `kz_restore_drill_20260820T170343Z.json` passed and its detached signature is
+  valid. The offsite encrypted archive hash matches the signed report and
+  sidecar, the proxy copy is immutable, and no restore database remains.
+- `RUNTIME-DERIVED`: bounded disposable three-tenant security acceptance passed
+  17 tests on synthetic data. Cleanup left zero pentest databases, containers,
+  derived images and temporary files.
+
+GitHub monitor issue `#3`, created by the pre-deployment SHA mismatch, was
+automatically closed after scheduled production smoke `32565715719` passed on
+the exact deployed SHA. The failed pre-deployment run remains preserved as
+historical evidence.
 
 ## KZ document-upload release acceptance — 2026-08-24
 
@@ -554,3 +728,32 @@ document/course journey remains a separate owner-controlled synthetic rehearsal.
   that the messages left Kamilya's application path, but recipient inbox display
   remains owner/client observable rather than independently read back by this
   release process.
+
+## Document-grounded AI generation correction - 2026-08-27
+
+- `GIT-DERIVED`: exact release `4de6358851dc22fadcb0a41320e4d52bad9c8069`
+  aligns document-ingestion source revisions with the original uploaded blob SHA.
+  Exact release `b4cca57bded652c1c4b825c2cdcb6fff4ddb27a5` deterministically
+  deduplicates adjacent context-window overlap while preserving tenant, document,
+  revision and embedding-space fail-closed checks. Both exact releases passed dev
+  and master CI; the final release passed Python quality, unit, integration,
+  PostgreSQL 17 + pgvector/RLS, frontend, coverage and secrets gates.
+- `RUNTIME-DERIVED`: production Alembic is `0133`; the runtime role has
+  `SELECT, INSERT, UPDATE` and no `DELETE` on the three embedding lifecycle tables.
+  The previously failing verified-embedding SELECT completed under the runtime role.
+- `RUNTIME-DERIVED`: VM126 API and all three workers run image
+  `kamilya-api:b4cca57bded6`, are `running`, and have zero restarts. Public health
+  reports `ok`, `kz-production` and exact release
+  `b4cca57bded652c1c4b825c2cdcb6fff4ddb27a5`. No database migration was part of
+  this final application release.
+- `RUNTIME-DERIVED`: three existing production documents completed canonical
+  reindexing. A disposable production AI smoke then completed architect, content,
+  review, assessment and save stages and produced 2 modules, 5 lessons and 25
+  Russian-language questions. The disposable course was deleted and zero invitations
+  were sent.
+- `RUNTIME-DERIVED`: the candidate-retention timer and operational watchdog remain
+  active, with watchdog expected release/image reconciled to the deployed identity.
+- **Verdict:** document-grounded automatic course and assessment generation is GO for
+  controlled tenant use. Human methodologist review before publication remains
+  mandatory; this verification does not authorize automatic publication or learner
+  assignment.

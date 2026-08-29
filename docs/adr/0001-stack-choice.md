@@ -32,7 +32,7 @@ Kamilya LMS Core заменяет Chamilo 2.0 как LMS-модуль платф
 - **pytest + pytest-asyncio** (testing)
 
 ### Database
-- **PostgreSQL 16** + **pgvector** (single source of truth)
+- **PostgreSQL 17** + **pgvector** (single source of truth; aligned with KZ production)
 - Row-Level Security для tenant isolation
 
 ### AI/ML

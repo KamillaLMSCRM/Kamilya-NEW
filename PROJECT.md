@@ -133,7 +133,7 @@ Kamilya фиксирует технические доказательства �
 | Queue/cache | Valkey TLS на VPS |
 | Background jobs | Изолированные Celery workers `ai`, `documents`, `notifications/maintenance` на VPS |
 | API hosting | Render |
-| Web hosting | Vercel |
+| Web hosting | Vercel: production project `web` from `master`; isolated dev project `kamilya-lms-dev` from `dev` |
 | Email | Resend |
 | Document conversion | Local bounded hybrid service: MarkItDown for Office/text-layer PDF, Docling for scans/OCR, LibreOffice for legacy `.doc` |
 
@@ -202,8 +202,13 @@ email OTP через Resend и Telegram flow.
 Исторический pre-P1 baseline и его проверки описаны в production-readiness.
 Deployment текущего P1-контура рабочего дерева не подтверждён: до отдельной
 проверки нельзя переносить на него прежние commit, CI, API/web/worker, DB revision или
-production smoke evidence. KZ infrastructure и реальный pawnshop acceptance
-test отложены.
+production smoke evidence. В KZ staging создан реальный tenant
+`ТОО «Ломбард Сандық»` со штатной структурой и двумя опубликованными курсами;
+это не является production cutover и не подтверждает публичный доступ клиента.
+Для frontend-разработки создан отдельный Vercel project `kamilya-lms-dev`,
+привязанный к ветке `dev`. Его актуальный deployment использует KZ staging API
+`https://api.kml.kz/api`; production project `web`, ветка `master` и домен
+`app.kml.kz` этим не изменялись.
 
 ## Документация
 
@@ -211,6 +216,7 @@ test отложены.
 - [Контекст проекта](docs/PROJECT-CONTEXT.md)
 - [Production readiness](docs/PRODUCTION_READINESS.md)
 - [Product backlog](docs/PRODUCT_BACKLOG.md)
+- [Журнал ошибок и предотвращения повторов](ERRORS.md)
 - [Внутренняя документация](docs/PROJECT_INTERNAL_DOCUMENTATION.md)
 - [Руководство пользователя](docs/USER_DOCUMENTATION_RU.md)
 - [ADR](docs/adr/)

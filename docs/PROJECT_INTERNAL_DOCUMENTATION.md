@@ -31,11 +31,13 @@ cd apps/api
 python -m uvicorn app.main:app --reload --port 8000
 
 cd apps/web
-npm install
-npm run dev
+pnpm install --frozen-lockfile
+pnpm dev
 ```
 
-Для Windows production-проверка frontend запускается через `npx next build`. Unix-синтаксис вида `NEXT_TELEMETRY_DISABLED=1 command` в PowerShell не используется.
+Для Windows production-проверка frontend запускается через `pnpm build` при
+установленном `$env:NEXT_TELEMETRY_DISABLED='1'`. Unix-синтаксис вида
+`NEXT_TELEMETRY_DISABLED=1 command` в PowerShell не используется.
 
 ## 3. Архитектура
 
@@ -47,7 +49,12 @@ npm run dev
 - `app.core.auth` отвечает за JWT, текущего пользователя, tenant context и RBAC.
 - `app.core.email.EmailService` поддерживает `log` и Resend.
 - AI-пайплайн генерирует структуру и содержание курсов из документов.
-- Qwen используется как основной AI-провайдер в соответствующих потоках; fallback зависит от конкретного AI-модуля.
+- Пользовательская генерация проходит через `ResilientLLMClient`. В
+  подтверждённом приватном VPS/WireGuard-контуре опциональный бесплатный пул
+  последовательно пробует ThinkingCap 27B NVFP4, Qwen 35B-A3B NVFP4 и
+  существующий Qwen 35B-A3B AWQ; затем используется DeepSeek. На хосте без
+  подтверждённого приватного маршрута пул выключен, и сохраняется прежний
+  DeepSeek/Qwen fallback. Техническую модель пользователь не выбирает.
 
 ### Frontend
 
@@ -291,6 +298,15 @@ index и переводит документ в `ready`, `partial` или `faile
 заданием и 30 секундами ожидания слота; очередь документов остаётся durable в
 Celery и обрабатывается отдельным worker с concurrency 1.
 
+API читает upload порциями и передаёт seekable stream в storage, не создавая
+вторую полную копию файла в памяти. DOCX/XLSX проходят bounded preflight до
+storage и повторно на conversion boundary: проверяются обязательные OOXML
+части, число записей, размеры распаковки, compression ratio, шифрование,
+symlink и небезопасные пути. Тот же контроль применяется после преобразования
+legacy DOC. Production converter запускается только с обязательным сильным
+`DOCLING_API_KEY`, от отдельного пользователя `docling`, с пустым capability
+set, приватным `/tmp`, systemd state directory и CPU/RAM/task limits.
+
 ### 6.4 Создание курса
 
 Канонические варианты:
@@ -332,6 +348,15 @@ assignment и evidence-механизмы.
 5. Architect назначает каждому уроку `source_doc_ids` только из выбранного набора. Writer извлекает контент строго из этих документов.
 6. Если релевантные chunks отсутствуют, задача завершается контролируемой ошибкой. Fallback на общие знания LLM запрещён.
 7. Qwen embeddings использует Voyage как fallback. При недоступности обоих провайдеров индексация завершается ошибкой; синтетические hash-векторы не сохраняются.
+
+LLM provider routing отделён от embeddings. `FREE_LLM_POOL_ENABLED` включает
+два дополнительных приватных vLLM endpoint-а перед существующим Qwen; сам
+Qwen уже является третьей бесплатной моделью и не дублируется. Недоступные
+дополнительные endpoint-ы имеют короткий connect timeout и нулевой внутренний
+retry, после чего вызов продолжает общую цепочку. Render держит флаг
+выключенным до сетевого smoke из фактического API-host; проверка `/models` с
+рабочей станции не является deployment evidence. Полный контракт закреплён в
+[ADR-0007](adr/0007-ai-pipeline-failover.md).
 
 При создании ещё одного курса backend ищет tenant-scoped курсы, уже связанные
 с выбранными `source_document_ids` или `source_instruction_id`. Без
@@ -842,6 +867,8 @@ API изменения course links отклоняет, endpoints apply/progress
 0106 политика доставки и временного окна конкретного назначения
 0107 append-only реестр возвращённых подписанных экземпляров
 0108 маркер первого обмена персональной ссылки на ограниченную сессию
+0109 права runtime-роли на legacy-таблицы свежего PostgreSQL-кластера
+0110 RLS-политики владельца bounded CRM outbox-функций
 ```
 
 Перед production deploy:
@@ -894,7 +921,7 @@ npx next build
 
 ## 10. Правила дальнейшей разработки
 
-- Сначала читать `AGENTS.md`, `docs/LESSONS.md`, ADR и текущий код.
+- Сначала читать `AGENTS.md`, корневой `ERRORS.md`, ADR и текущий код.
 - Не добавлять legacy-дубли экранов без миграционного плана.
 - Разделять current code, deployment evidence и backlog; не описывать
   development candidate как уже выпущенный production-контур.
