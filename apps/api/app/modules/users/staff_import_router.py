@@ -15,7 +15,7 @@ from uuid import UUID
 from celery.result import AsyncResult
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel, Field
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -23,7 +23,9 @@ from app.core.auth import require_role
 from app.core.celery_app import celery_app
 from app.core.db import get_db
 from app.models.department import Department
-from app.models.users import User
+from app.models.users import User, UserInvitation
+from app.modules.audit.service import log_action
+from app.modules.cohorts.models import CohortMember
 from app.modules.positions.models import Position
 from app.modules.users.staff_import_service import (
     ParsedFile,
@@ -120,6 +122,10 @@ class ManualStaffUpdateRequest(BaseModel):
     last_name: str = Field(..., min_length=1, max_length=120)
     email: str | None = Field(default=None, max_length=320)
     phone: str | None = Field(default=None, max_length=64)
+
+
+class ManualStaffTerminationRequest(BaseModel):
+    reason: str = Field(..., min_length=3, max_length=500)
 
 
 class ManualStaffEmployeeResponse(BaseModel):
@@ -450,6 +456,13 @@ async def update_manual_staff_member(
 
     previous_email = _normalise_optional(cast(str | None, employee.email))
     previous_email = previous_email.lower() if previous_email else None
+    previous_values = {
+        "personnel_number": employee.personnel_number,
+        "first_name": employee.first_name,
+        "last_name": employee.last_name,
+        "email": previous_email,
+        "phone": employee.phone,
+    }
     editable_employee = cast(Any, employee)
     editable_employee.personnel_number = personnel_number
     editable_employee.first_name = first_name
@@ -459,6 +472,27 @@ async def update_manual_staff_member(
     if previous_email != email:
         # A verification of the old mailbox must never authenticate a new one.
         editable_employee.email_verified_at = None
+
+    changed_fields = [
+        field
+        for field, before, after in (
+            ("personnel_number", previous_values["personnel_number"], personnel_number),
+            ("first_name", previous_values["first_name"], first_name),
+            ("last_name", previous_values["last_name"], last_name),
+            ("email", previous_values["email"], email),
+            ("phone", previous_values["phone"], phone),
+        )
+        if before != after
+    ]
+    await log_action(
+        db,
+        tenant_id=tenant_id,
+        user_id=cast(UUID, user.id),
+        action="employee_profile_updated",
+        resource_type="employee",
+        resource_id=cast(UUID, employee.id),
+        details={"changed_fields": changed_fields},
+    )
 
     # Build the response while the row is still visible in the current
     # tenant-scoped transaction. A refresh after commit starts a new
@@ -473,6 +507,55 @@ async def update_manual_staff_member(
             detail="Табельный номер или email уже используется другим сотрудником",
         ) from exc
     return response
+
+
+@router.post("/manual/{employee_id}/terminate")
+async def terminate_manual_staff_member(
+    employee_id: UUID,
+    payload: ManualStaffTerminationRequest,
+    db: StaffEditorSession,
+    user: StaffEditorUser,
+) -> dict[str, bool]:
+    """Block employee access while preserving identity, assignments and training history."""
+    if not user.tenant_id:
+        raise HTTPException(status_code=400, detail="Tenant is required")
+    tenant_id = cast(UUID, user.tenant_id)
+    employee = await _tenant_employee_or_404(db, tenant_id, employee_id)
+    if employee.role != "student":
+        raise HTTPException(status_code=422, detail="Уволить можно только сотрудника")
+    if not employee.is_active:
+        raise HTTPException(status_code=409, detail="Сотрудник уже уволен")
+
+    reason = payload.reason.strip()
+    editable_employee = cast(Any, employee)
+    editable_employee.is_active = False
+    editable_employee.status = "inactive"
+    await db.execute(
+        delete(CohortMember).where(
+            CohortMember.tenant_id == tenant_id,
+            CohortMember.user_id == employee.id,
+        )
+    )
+    await db.execute(
+        update(UserInvitation)
+        .where(
+            UserInvitation.tenant_id == tenant_id,
+            UserInvitation.user_id == employee.id,
+            UserInvitation.status == "pending",
+        )
+        .values(status="revoked")
+    )
+    await log_action(
+        db,
+        tenant_id=tenant_id,
+        user_id=cast(UUID, user.id),
+        action="employee_terminated",
+        resource_type="employee",
+        resource_id=cast(UUID, employee.id),
+        details={"reason": reason},
+    )
+    await db.commit()
+    return {"ok": True}
 
 
 @router.post("/import/preview", response_model=PreviewResponse)

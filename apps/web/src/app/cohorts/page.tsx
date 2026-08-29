@@ -37,7 +37,7 @@ export default function CohortsPage() {
     try {
       const [cohorts, userList] = await Promise.all([
         api.get<Cohort[]>('/v1/cohorts'),
-        api.get<UserListResponse>('/v1/users?per_page=500&include_students=true'),
+        api.get<UserListResponse>('/v1/users?per_page=500&role=student&is_active=true'),
       ]);
       setItems(cohorts.data);
       setUsers(cohortUserOptions(userList.data));
@@ -57,7 +57,8 @@ export default function CohortsPage() {
       setSelected(detail.data);
       setName(detail.data.name);
       setDescription(detail.data.description);
-      setUserIds(detail.data.user_ids);
+      const eligibleUserIds = new Set(users.map((item) => item.id));
+      setUserIds(detail.data.user_ids.filter((id) => eligibleUserIds.has(id)));
     } catch (error: any) {
       toast.error(t('cohorts.loadFailed'), { description: error?.response?.data?.detail || error?.message });
     }

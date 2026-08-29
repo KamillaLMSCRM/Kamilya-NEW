@@ -35,6 +35,7 @@ describe('tenant admin dashboard role contract', () => {
       '/settings',
       '/admin/settings/integrations',
       '/admin/certificates/settings',
+      '/admin/audit',
       '/training-log',
     ]);
     expect(source).toContain("getNavigationRoutes(role, 'sidebar')");

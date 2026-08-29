@@ -9,7 +9,6 @@ import { useT } from '@/i18n/useT';
 import { toast } from '@/components/ui/Toast';
 import { CheckCircle2, XCircle } from 'lucide-react';
 import { getRoleHome } from '@/lib/rolePolicy';
-import { EvidenceConfirmationPanel } from '@/features/training-evidence/EvidenceConfirmationPanel';
 
 interface QuizChoice {
   id: string;
@@ -303,16 +302,18 @@ export default function QuizPlayerPage() {
           </Card>
         )}
 
-        {result?.training_evidence_event_id && (
-          <EvidenceConfirmationPanel
-            eventId={result.training_evidence_event_id}
-            activityTitle={quiz.title}
-            activityKind="quiz"
-            continueHref={nextLessonHref || courseHref || '/courses'}
-            continueLabel={nextLessonHref ? t('courses.nextLesson') : t('evidenceConfirmation.continue')}
-            resultHref={courseHref || getRoleHome(user?.role)}
-            resultLabel={t('evidenceConfirmation.result')}
-          />
+        {result?.passed && !nextLessonHref && (
+          <Card>
+            <CardContent className="space-y-3 p-5">
+              <h2 className="font-semibold">Что делать дальше</h2>
+              <p className="text-sm text-muted-foreground">
+                Все задания этого курса завершены. Вернитесь в курс и выполните одно итоговое подтверждение результата обучения.
+              </p>
+              <Button onClick={() => window.location.assign(nextLessonHref || courseHref || getRoleHome(user?.role))}>
+                Вернуться в курс и завершить
+              </Button>
+            </CardContent>
+          </Card>
         )}
 
         {/* Question Navigation */}

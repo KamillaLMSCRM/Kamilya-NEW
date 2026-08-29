@@ -546,7 +546,7 @@ export default function CourseEditPage() {
               onChange={(event) => setEditLessonContent(event.target.value)}
               name="lesson-content"
               autoComplete="off"
-              className="min-h-[180px] w-full flex-1 resize-none rounded-md border border-input bg-background px-4 py-3 text-base leading-7 text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20"
+              className="min-h-[180px] max-h-[70vh] w-full flex-1 resize-y rounded-md border border-input bg-background px-4 py-3 text-base leading-7 text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20"
               placeholder="Введите содержание урока…"
             />
           </label>

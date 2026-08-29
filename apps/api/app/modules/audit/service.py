@@ -1,10 +1,12 @@
 """Audit log service"""
-from uuid import UUID
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, desc
+from uuid import UUID
 
+from sqlalchemy import desc, func, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models.users import User
 from app.modules.audit.models import AuditLog
 
 
@@ -51,7 +53,11 @@ async def get_audit_logs(
     offset: int = 0,
 ) -> list[AuditLog]:
     """Get audit logs with filters."""
-    query = select(AuditLog).where(AuditLog.tenant_id == tenant_id)
+    query = (
+        select(AuditLog, User.email, User.first_name, User.last_name)
+        .outerjoin(User, User.id == AuditLog.user_id)
+        .where(AuditLog.tenant_id == tenant_id)
+    )
 
     if user_id:
         query = query.where(AuditLog.user_id == user_id)
@@ -67,10 +73,15 @@ async def get_audit_logs(
     query = query.order_by(desc(AuditLog.created_at)).offset(offset).limit(limit)
 
     result = await db.execute(query)
-    return result.scalars().all()
+    entries: list[AuditLog] = []
+    for entry, email, first_name, last_name in result.all():
+        entry.actor_email = email
+        entry.actor_name = f"{first_name or ''} {last_name or ''}".strip() or None
+        entries.append(entry)
+    return entries
 
 
-async def get_audit_stats(db: AsyncSession, tenant_id: UUID) -> dict:
+async def get_audit_stats(db: AsyncSession, tenant_id: UUID) -> dict[str, Any]:
     """Get audit statistics for a tenant."""
     total_result = await db.execute(
         select(func.count(AuditLog.id)).where(AuditLog.tenant_id == tenant_id)
@@ -99,7 +110,7 @@ async def get_audit_stats(db: AsyncSession, tenant_id: UUID) -> dict:
 
     # Recent activity (last 24h)
     from datetime import timedelta
-    yesterday = datetime.now(timezone.utc) - timedelta(hours=24)
+    yesterday = datetime.now(UTC) - timedelta(hours=24)
     recent_result = await db.execute(
         select(func.count(AuditLog.id)).where(
             AuditLog.tenant_id == tenant_id,

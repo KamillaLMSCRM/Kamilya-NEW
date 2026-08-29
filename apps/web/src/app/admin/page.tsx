@@ -5,6 +5,7 @@ import Link from 'next/link';
 import {
   Award,
   ChevronRight,
+  History,
   Monitor,
   Settings,
   SlidersHorizontal,
@@ -31,6 +32,7 @@ const ADMIN_ACTION_IDS = new Set([
   'kiosks',
   'integrations',
   'certificate-settings',
+  'audit-log',
 ]);
 
 const ACTION_ICONS: Record<string, LucideIcon> = {
@@ -39,6 +41,7 @@ const ACTION_ICONS: Record<string, LucideIcon> = {
   kiosks: Monitor,
   integrations: SlidersHorizontal,
   'certificate-settings': Award,
+  'audit-log': History,
 };
 
 export default function AdminDashboardPage() {

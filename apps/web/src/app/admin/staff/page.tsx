@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { BookOpenCheck, Building2, ChevronDown, ChevronRight, FileText, GraduationCap, Network, Search, Upload, Users, X } from "lucide-react";
+import { BookOpenCheck, Building2, ChevronDown, ChevronRight, FileText, GraduationCap, Network, Search, Upload, UserMinus, Users, X } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent, Button, Badge } from "@/components/ui";
 import { useAuthStore } from "@/store/authStore";
 import { useT } from "@/i18n/useT";
@@ -1207,6 +1207,9 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
   const [employeeLoadingId, setEmployeeLoadingId] = useState<string | null>(null);
   const [editingEmployee, setEditingEmployee] = useState<EditableEmployee | null>(null);
   const [employeeSaving, setEmployeeSaving] = useState(false);
+  const [employeeTerminating, setEmployeeTerminating] = useState(false);
+  const [showTermination, setShowTermination] = useState(false);
+  const [terminationReason, setTerminationReason] = useState("");
   const [employeeForm, setEmployeeForm] = useState({
     personnel_number: "",
     first_name: "",
@@ -1339,8 +1342,10 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
   };
 
   const closeEmployeeEditor = () => {
-    if (employeeSaving) return;
+    if (employeeSaving || employeeTerminating) return;
     setEditingEmployee(null);
+    setShowTermination(false);
+    setTerminationReason("");
   };
 
   const saveEmployee = async () => {
@@ -1375,6 +1380,29 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
       toast.error(typeof detail === "string" ? detail : detail?.message || "Не удалось обновить сотрудника");
     } finally {
       setEmployeeSaving(false);
+    }
+  };
+
+  const terminateEmployee = async () => {
+    if (!editingEmployee || terminationReason.trim().length < 3) {
+      toast.error("Укажите причину увольнения");
+      return;
+    }
+    setEmployeeTerminating(true);
+    try {
+      await api.post(`/v1/admin/staff/manual/${editingEmployee.id}/terminate`, {
+        reason: terminationReason.trim(),
+      });
+      toast.success("Доступ сотрудника закрыт, история обучения сохранена");
+      setEditingEmployee(null);
+      setShowTermination(false);
+      setTerminationReason("");
+      setRetryKey((value) => value + 1);
+    } catch (error: any) {
+      const detail = error?.response?.data?.detail;
+      toast.error(typeof detail === "string" ? detail : "Не удалось уволить сотрудника");
+    } finally {
+      setEmployeeTerminating(false);
     }
   };
 
@@ -1870,12 +1898,12 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h2 id="edit-employee-title" className="text-xl font-bold text-foreground">Данные сотрудника</h2>
-                <p className="mt-1 text-sm text-muted-foreground">Изменения не затронут должность, назначенные курсы и историю обучения.</p>
+                <p className="mt-1 text-sm text-muted-foreground">Изменения не затронут должность, назначенные курсы и историю обучения. Увольнение закрывает доступ, но не удаляет историю.</p>
               </div>
               <button
                 type="button"
                 onClick={closeEmployeeEditor}
-                disabled={employeeSaving}
+                disabled={employeeSaving || employeeTerminating}
                 className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 aria-label="Закрыть"
               >
@@ -1934,11 +1962,38 @@ function StructureTab({ refreshKey = 0 }: { refreshKey?: number }) {
               </label>
             </div>
 
-            <div className="mt-6 flex justify-end gap-2">
-              <Button type="button" variant="outline" onClick={closeEmployeeEditor} disabled={employeeSaving}>Отмена</Button>
-              <Button type="button" onClick={saveEmployee} disabled={employeeSaving}>
+            {showTermination && (
+              <div className="mt-5 rounded-lg border border-destructive/30 bg-destructive/5 p-4">
+                <h3 className="font-semibold text-destructive">Уволить сотрудника</h3>
+                <p className="mt-1 text-sm text-muted-foreground">Сотрудник станет неактивным и будет исключён из групп. Назначения, результаты и журнал действий сохранятся.</p>
+                <label className="mt-3 block space-y-1">
+                  <span className="text-sm font-medium">Причина *</span>
+                  <textarea
+                    value={terminationReason}
+                    onChange={(event) => setTerminationReason(event.target.value)}
+                    className="min-h-24 w-full resize-y rounded-lg border border-border bg-card px-3 py-2 outline-none focus:border-destructive"
+                    placeholder="Например: трудовой договор завершён"
+                  />
+                </label>
+                <div className="mt-3 flex justify-end gap-2">
+                  <Button type="button" variant="outline" onClick={() => setShowTermination(false)} disabled={employeeTerminating}>Не увольнять</Button>
+                  <Button type="button" className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={terminateEmployee} disabled={employeeTerminating || terminationReason.trim().length < 3}>
+                    {employeeTerminating ? "Закрываю доступ…" : "Подтвердить увольнение"}
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            <div className="mt-6 flex flex-wrap justify-between gap-2">
+              <Button type="button" variant="outline" className="text-destructive" onClick={() => setShowTermination(true)} disabled={employeeSaving || employeeTerminating || showTermination}>
+                <UserMinus className="mr-2 h-4 w-4" /> Уволить
+              </Button>
+              <div className="flex gap-2">
+              <Button type="button" variant="outline" onClick={closeEmployeeEditor} disabled={employeeSaving || employeeTerminating}>Отмена</Button>
+              <Button type="button" onClick={saveEmployee} disabled={employeeSaving || employeeTerminating}>
                 {employeeSaving ? "Сохраняю…" : "Сохранить"}
               </Button>
+              </div>
             </div>
           </div>
         </div>

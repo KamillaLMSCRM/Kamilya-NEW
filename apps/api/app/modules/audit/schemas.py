@@ -1,14 +1,17 @@
 """Audit log schemas"""
-from pydantic import BaseModel
-from uuid import UUID
 from datetime import datetime
 from typing import Any
+from uuid import UUID
+
+from pydantic import BaseModel
 
 
 class AuditLogResponse(BaseModel):
     id: UUID
     tenant_id: UUID
     user_id: UUID | None = None
+    actor_email: str | None = None
+    actor_name: str | None = None
     action: str
     resource_type: str
     # resource_id is stored as UUID in the DB but historically callers

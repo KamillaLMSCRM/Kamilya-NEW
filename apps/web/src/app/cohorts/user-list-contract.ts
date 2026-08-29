@@ -3,6 +3,8 @@ export type CohortUser = {
   first_name: string | null;
   last_name: string | null;
   email: string | null;
+  role?: string | null;
+  is_active?: boolean;
 };
 
 export type UserListResponse = {
@@ -24,11 +26,13 @@ export function cohortMemberPayload(userIds: string[]) {
 }
 
 export function cohortUserOptions(response: UserListResponse): CohortUserOption[] {
-  return response.users.map((user) => ({
-    id: user.id,
-    name:
-      `${user.first_name ?? ''} ${user.last_name ?? ''}`.trim() ||
-      user.email ||
-      user.id,
-  }));
+  return response.users
+    .filter((user) => user.role === 'student' && user.is_active !== false)
+    .map((user) => ({
+      id: user.id,
+      name:
+        `${user.first_name ?? ''} ${user.last_name ?? ''}`.trim() ||
+        user.email ||
+        user.id,
+    }));
 }

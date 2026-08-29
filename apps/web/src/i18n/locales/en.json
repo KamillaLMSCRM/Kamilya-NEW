@@ -139,6 +139,7 @@
     "staffSchedule": "Employees and structure",
     "kiosks": "Shared kiosk",
     "trainingLog": "Training log",
+    "auditLog": "Action log",
     "trainingRules": "Training rules",
     "candidateAssessments": "Candidate testing",
     "assignmentsAndAccess": "Assignments and access"

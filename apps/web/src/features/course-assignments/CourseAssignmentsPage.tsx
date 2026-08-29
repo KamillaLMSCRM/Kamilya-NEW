@@ -264,6 +264,13 @@ export default function EnrollmentsPage() {
     const course = courses.find((item) => item.id === selectedCourse);
     const withoutAccess = selected.filter((user) => user.has_login_access === false);
     const personalLink = deliveryMode === 'personal_link';
+    const withoutEmail = selected.filter((user) => !user.email?.trim());
+    if (!personalLink && withoutEmail.length > 0) {
+      toast.error('У выбранных сотрудников нет email', {
+        description: 'Укажите email в карточке сотрудника или выберите персональную ссылку и PIN.',
+      });
+      return;
+    }
     if (personalLink && selectedUsers.size !== 1) {
       toast.info('Персональный доступ создаётся по одному сотруднику', {
         description: 'Выберите одного человека, чтобы одноразовый PIN не потерялся и не попал другому адресату.',
@@ -959,6 +966,7 @@ export default function EnrollmentsPage() {
                   >
                     <input
                       type="checkbox"
+                      aria-label={`${user.first_name} ${user.last_name}`.trim()}
                       checked={selectedUsers.has(user.id)}
                       onChange={() => toggleUser(user.id)}
                       disabled={!selectedCourse}
@@ -970,12 +978,17 @@ export default function EnrollmentsPage() {
                       </div>
                       <div className="text-xs text-muted-foreground">
                         {user.position_name && `${user.position_name} · `}
-                        {user.email}
+                        {user.email || 'Email не указан'}
                         {user.personnel_number && ` · ${user.personnel_number}`}
                       </div>
                       {user.has_login_access === false && (
                         <div className="mt-1 text-xs font-medium text-warning">
                           После назначения будет создана ссылка доступа
+                        </div>
+                      )}
+                      {deliveryMode === 'email' && !user.email?.trim() && (
+                        <div className="mt-1 text-xs font-medium text-warning">
+                          Для этого сотрудника выберите персональную ссылку и PIN
                         </div>
                       )}
                     </div>

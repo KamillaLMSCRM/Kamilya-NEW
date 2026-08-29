@@ -1,5 +1,5 @@
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
 import pytest
@@ -10,9 +10,11 @@ from app.modules.positions.models import Position
 from app.modules.positions.router import _resolve_or_create_department
 from app.modules.users.staff_import_router import (
     ManualStaffCreateRequest,
+    ManualStaffTerminationRequest,
     ManualStaffUpdateRequest,
     _resolve_manual_hierarchy,
     get_manual_staff_member,
+    terminate_manual_staff_member,
     update_manual_staff_member,
 )
 
@@ -135,6 +137,8 @@ def _employee(tenant_id, **overrides):
         "email_verified_at": object(),
         "phone": "+77070000000",
         "is_active": True,
+        "role": "student",
+        "status": "active",
     }
     values.update(overrides)
     return SimpleNamespace(**values)
@@ -145,6 +149,7 @@ async def test_manual_employee_update_changes_identity_and_invalidates_changed_e
     tenant_id = uuid4()
     employee = _employee(tenant_id)
     db = AsyncMock()
+    db.add = MagicMock()
     db.scalar.side_effect = [employee, None, None]
     db.refresh.side_effect = RuntimeError("Could not refresh instance")
 
@@ -158,7 +163,7 @@ async def test_manual_employee_update_changes_identity_and_invalidates_changed_e
             phone=" +77071111111 ",
         ),
         db=db,
-        user=SimpleNamespace(tenant_id=tenant_id),
+        user=SimpleNamespace(id=uuid4(), tenant_id=tenant_id),
     )
 
     assert result.personnel_number == "EMP-002"
@@ -187,7 +192,7 @@ async def test_manual_employee_update_rejects_duplicate_personnel_number() -> No
                 last_name="Person",
             ),
             db=db,
-            user=SimpleNamespace(tenant_id=tenant_id),
+            user=SimpleNamespace(id=uuid4(), tenant_id=tenant_id),
         )
 
     assert error.value.status_code == 409
@@ -207,3 +212,25 @@ async def test_manual_employee_read_does_not_cross_tenant_boundary() -> None:
         )
 
     assert error.value.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_manual_employee_termination_preserves_record_and_blocks_access() -> None:
+    tenant_id = uuid4()
+    employee = _employee(tenant_id)
+    db = AsyncMock()
+    db.add = MagicMock()
+    db.scalar.return_value = employee
+
+    result = await terminate_manual_staff_member(
+        employee.id,
+        ManualStaffTerminationRequest(reason="Employment ended"),
+        db=db,
+        user=SimpleNamespace(id=uuid4(), tenant_id=tenant_id),
+    )
+
+    assert result == {"ok": True}
+    assert employee.is_active is False
+    assert employee.status == "inactive"
+    assert db.execute.await_count == 2
+    db.commit.assert_awaited_once()

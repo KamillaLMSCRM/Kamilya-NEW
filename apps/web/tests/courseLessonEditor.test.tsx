@@ -142,7 +142,7 @@ describe('course lesson editor', () => {
     expect(contentEditor.className).toContain('text-base');
     expect(contentEditor.className).toContain('leading-7');
     expect(contentEditor.className).toContain('flex-1');
-    expect(contentEditor.className).toContain('resize-none');
+    expect(contentEditor.className).toContain('resize-y');
     expect(contentEditor.className).not.toContain('font-mono');
 
     fireEvent.change(within(dialog).getByRole('textbox', { name: 'Название урока' }), {

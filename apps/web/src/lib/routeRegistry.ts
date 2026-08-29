@@ -122,6 +122,7 @@ export const ROUTES: readonly AppRoute[] = [
   { id: 'tenant-settings', href: '/settings', capability: 'configure_tenant', labelKey: 'settings.title', section: 'tenant', icon: 'settings', order: 40, sidebar: true, commandPalette: true },
   { id: 'integrations', href: '/admin/settings/integrations', capability: 'configure_tenant', match: 'prefix', labelKey: 'integrations.title', section: 'tenant', icon: 'settings', order: 50, sidebar: true, commandPalette: true },
   { id: 'certificate-settings', href: '/admin/certificates/settings', capability: 'configure_tenant', match: 'prefix', labelKey: 'sidebar.certificateTemplate', section: 'tenant', icon: 'certificate', order: 60, sidebar: true, commandPalette: true },
+  { id: 'audit-log', href: '/admin/audit', capability: 'configure_tenant', match: 'prefix', labelKey: 'nav.auditLog', section: 'tenant', icon: 'log', order: 70, sidebar: true, commandPalette: true },
 
   { id: 'learner-dashboard', href: '/student', capability: 'learn', labelKey: 'nav.dashboard', section: 'overview', icon: 'dashboard', order: 10, sidebar: true, commandPalette: true },
   { id: 'my-courses', href: '/my-courses', capability: 'learn', labelKey: 'student.enrolledCourses', section: 'learning', icon: 'book', order: 20, sidebar: true, commandPalette: true },
