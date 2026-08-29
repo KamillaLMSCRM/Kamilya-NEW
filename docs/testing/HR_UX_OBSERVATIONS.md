@@ -118,3 +118,29 @@ Entry template:
 - Evidence: Exactly one normal UI assignment attempt returned `Программа назначена`; the published program read back two active synthetic group assignments. Post-release API evidence recorded one successful assignment request and zero assignment 500, author-tenant, foreign-key, or integrity errors; `RUNTIME-DERIVED`.
 - Resolution: Platform-superadmin impersonation no longer writes the platform user as a tenant-owned assignment author. Normal tenant methodologists retain their author identity, while the real impersonating operator remains attributable through the impersonation audit trail.
 - Verification gate: `PASS`; group assignment and immediate readback succeeded without duplicate programs or assignments.
+
+## UX-20260829-006 — Superadmin audit verification requires separate credentials
+
+- Related run: `RUN-20260829-PLUS-READONLY-0bd6ecc`
+- Environment / exact SHA: `kz-production` / `0bd6eccce1fe841595a2842034e1396643ac1f5e` (`PROVIDER-CONFIRMED`)
+- Page/role/action: Plus methodologist workspace; visible superadmin handoff for read-only platform audit navigation
+- Observed behavior: Handoff opened platform operator login requiring email and password; the existing signed-in session did not expose `/admin/audit`.
+- User impact: Platform audit filter acceptance cannot be completed from the approved tenant session without another authorized session.
+- Severity: MEDIUM
+- Evidence: visible credential login with no authenticated continuation; `RUNTIME-DERIVED`.
+- Expected behavior: Provide an explicit authorized session handoff or documented safe route for audit verification.
+- Suggested product correction: Preserve an approved platform-session handoff for audit-only checks without credential re-entry.
+- Status: BLOCKED / NOT VERIFIED
+
+## UX-20260829-007 — Four requested safe checks remained unverified
+
+- Related run: `RUN-20260829-PLUS-READONLY-0bd6ecc`
+- Environment / exact SHA: `kz-production` / `0bd6eccce1fe841595a2842034e1396643ac1f5e` (`PROVIDER-CONFIRMED`)
+- Page/role/action: Plus methodologist read-only acceptance continuation
+- Observed behavior: The bounded session did not safely reach the employee termination modal, assignment email-mode explanation, completed learner final screen, or lesson-editor resize control; no mutation or workaround was attempted.
+- User impact: These four acceptance criteria remain unverified and require a subsequent authenticated methodologist session.
+- Severity: MEDIUM
+- Evidence: `NOT VERIFIED`; no product behavior inferred.
+- Expected behavior: Each control should be independently inspectable without saving or submitting.
+- Suggested product correction: None until the controls are observed in a valid session.
+- Status: NOT VERIFIED

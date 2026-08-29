@@ -105,3 +105,11 @@ Rules:
 - Group reconciliation: `PASS`; first group remained at 2 synthetic members; second group saved as the other 2 synthetic members, visible counts `2 участника` for both; toast `Состав группы сохранён`; first group readback confirmed its original 2.
 - Remaining learner confirmation/certificate and full menu audit: `NOT RUN` in this narrow continuation after the assignment defect; prior learner completion evidence remains unchanged.
 - Cleanup: none; successful Plus demo artifacts preserved. No identifiers, links, PINs, emails, or real-person data recorded.
+
+## RUN-20260829-PLUS-READONLY-0bd6ecc — bounded production UI acceptance
+
+- Runtime: root supplied exact SHA `0bd6eccce1fe841595a2842034e1396643ac1f5e`, `kz-production`, matching API/worker image, zero restarts, Alembic `0134`, and READY Vercel deployment (`PROVIDER-CONFIRMED`).
+- Groups candidate list: `PASS`; visible Plus candidates excluded the platform admin/methodologist-only account. No group save.
+- Platform audit: `BLOCKED`; superadmin handoff opened a credential login unavailable in the signed-in session. No credentials entered.
+- Termination modal, assignment email mode, learner final screen, and lesson textarea resize: `NOT VERIFIED`.
+- Residue: none; no mutations, uploads, notifications, or cleanup.
