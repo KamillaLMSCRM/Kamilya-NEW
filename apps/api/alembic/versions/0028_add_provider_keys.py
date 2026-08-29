@@ -1,7 +1,7 @@
 """add provider_keys table for superadmin-managed API credentials
 
 Adds the `provider_keys` table for storing encrypted API keys for cloud
-LLM/embedding providers (DeepSeek, Voyage, future OpenRouter).
+LLM/embedding providers (DeepSeek and Voyage).
 
 Schema:
 - id          UUID PK

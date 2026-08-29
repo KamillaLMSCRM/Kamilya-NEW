@@ -66,6 +66,10 @@ async def run_async_migrations() -> None:
 
 def run_migrations_online() -> None:
     """Entrypoint for online mode — bridge to the async runner."""
+    provided_connection = config.attributes.get("connection")
+    if provided_connection is not None:
+        do_run_migrations(provided_connection)
+        return
     asyncio.run(run_async_migrations())
 
 

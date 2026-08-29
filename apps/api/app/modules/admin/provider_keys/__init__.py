@@ -1,7 +1,7 @@
 """Provider API keys management (superadmin only).
 
 Allows the platform operator (Askar) to manage API keys for cloud
-providers (DeepSeek, Voyage, future OpenRouter) via the admin UI instead
+providers (DeepSeek, Voyage, Cohere) via the admin UI instead
 of editing environment variables. Keys are encrypted at rest with Fernet.
 
 For v1.0 only global keys (tenant_id NULL) are exposed in the UI.

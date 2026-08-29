@@ -32,7 +32,6 @@ class ProviderName(str, enum.Enum):
     DEEPSEEK = "deepseek"
     VOYAGE = "voyage"
     COHERE = "cohere"
-    # Future: OPENROUTER = "openrouter"
 
 
 class ProviderKey(Base):
