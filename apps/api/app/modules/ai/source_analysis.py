@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 import math
 from dataclasses import dataclass
-from typing import Literal
+from typing import Literal, cast
 from uuid import UUID
 
 from fastapi import HTTPException
@@ -173,6 +173,7 @@ def recommend_course_structure(
     chunks = max(1, int(total_chunks or 0))
     documents = max(1, int(document_count or 0))
     requested = course_format
+    reasons: tuple[str, ...]
     if manual_modules is not None:
         modules = max(1, min(10, int(manual_modules)))
         resolved = "custom"
@@ -333,7 +334,7 @@ async def analyze_document_set(
     if lock_for_update:
         document_query = document_query.with_for_update()
     documents = (await db.execute(document_query)).scalars().all()
-    by_id = {document.id: document for document in documents}
+    by_id = {cast(UUID, document.id): document for document in documents}
     missing = [str(document_id) for document_id in unique_ids if document_id not in by_id]
     if missing:
         raise HTTPException(
@@ -395,8 +396,8 @@ async def analyze_document_set(
     profiles = [
         DocumentVectorProfile(
             doc_id=document_id,
-            title=by_id[document_id].title,
-            filename=by_id[document_id].filename,
+            title=cast(str, by_id[document_id].title),
+            filename=cast(str, by_id[document_id].filename),
             vector=centroids[document_id],
         )
         for document_id in unique_ids

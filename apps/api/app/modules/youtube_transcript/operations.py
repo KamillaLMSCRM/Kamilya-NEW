@@ -4,11 +4,14 @@ from __future__ import annotations
 
 import logging
 import re
+from collections.abc import Callable
 from datetime import UTC, datetime
+from typing import Any, cast
 from uuid import UUID, uuid4
 
 from sqlalchemy import select, text
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.db import async_session_factory
@@ -49,14 +52,14 @@ async def run_youtube_analysis(
     url: str,
     preferred_languages: list[str],
     provider: TranscriptProvider | None = None,
-) -> dict:
+) -> dict[str, Any]:
     """Fetch and validate captions without creating a permanent Document."""
     settings = get_settings()
     ref = YouTubeImportRequest(url=url, preferred_languages=preferred_languages).validated_video_ref()
     provider = provider or PublicCaptionProvider(timeout_seconds=settings.YOUTUBE_PROVIDER_TIMEOUT_SECONDS)
     async with async_session_factory() as session:
         await _set_tenant(session, tenant_id)
-        job = await session.scalar(select(AIJob).where(AIJob.id == job_id, AIJob.tenant_id == tenant_id).with_for_update())
+        job = cast(Any, await session.scalar(select(AIJob).where(AIJob.id == job_id, AIJob.tenant_id == tenant_id).with_for_update()))
         if not job:
             return {"job_id": job_id, "status": "missing"}
         job.status = "processing"
@@ -82,7 +85,7 @@ async def run_youtube_analysis(
             job_id, tenant_id, code="provider_unavailable",
             message="Сервис получения субтитров недоступен. Повторите попытку позже.", retryable=True,
         )
-    result = {
+    result: dict[str, Any] = {
         "video_id": ref.video_id,
         "canonical_url": ref.canonical_url,
         "preferred_languages": preferred_languages,
@@ -102,7 +105,7 @@ async def run_youtube_analysis(
     }
     async with async_session_factory() as session:
         await _set_tenant(session, tenant_id)
-        job = await session.scalar(select(AIJob).where(AIJob.id == job_id, AIJob.tenant_id == tenant_id).with_for_update())
+        job = cast(Any, await session.scalar(select(AIJob).where(AIJob.id == job_id, AIJob.tenant_id == tenant_id).with_for_update()))
         if job and job.status != "cancelled":
             now = datetime.now(UTC)
             job.status = "completed"
@@ -116,14 +119,14 @@ async def run_youtube_analysis(
     return result
 
 
-async def _set_tenant(session, tenant_id: UUID) -> None:
+async def _set_tenant(session: AsyncSession, tenant_id: UUID) -> None:
     await session.execute(text("SELECT set_current_tenant(:tenant_id)"), {"tenant_id": str(tenant_id)})
 
 
-async def _finish_failed(job_id: str, tenant_id: UUID, *, code: str, message: str, retryable: bool) -> dict:
+async def _finish_failed(job_id: str, tenant_id: UUID, *, code: str, message: str, retryable: bool) -> dict[str, Any]:
     async with async_session_factory() as session:
         await _set_tenant(session, tenant_id)
-        job = await session.scalar(select(AIJob).where(AIJob.id == job_id, AIJob.tenant_id == tenant_id).with_for_update())
+        job = cast(Any, await session.scalar(select(AIJob).where(AIJob.id == job_id, AIJob.tenant_id == tenant_id).with_for_update()))
         if job and job.status not in {"completed", "cancelled"}:
             now = datetime.now(UTC)
             job.status = "failed"
@@ -137,10 +140,10 @@ async def _finish_failed(job_id: str, tenant_id: UUID, *, code: str, message: st
     return {"job_id": job_id, "status": "failed", "code": code}
 
 
-async def _finish_completed(job_id: str, tenant_id: UUID, result: dict) -> dict:
+async def _finish_completed(job_id: str, tenant_id: UUID, result: dict[str, Any]) -> dict[str, Any]:
     async with async_session_factory() as session:
         await _set_tenant(session, tenant_id)
-        job = await session.scalar(select(AIJob).where(AIJob.id == job_id, AIJob.tenant_id == tenant_id).with_for_update())
+        job = cast(Any, await session.scalar(select(AIJob).where(AIJob.id == job_id, AIJob.tenant_id == tenant_id).with_for_update()))
         if job and job.status != "cancelled":
             now = datetime.now(UTC)
             job.status = "completed"
@@ -170,9 +173,9 @@ async def run_youtube_import(
     url: str,
     preferred_languages: list[str],
     provider: TranscriptProvider | None = None,
-    storage=None,
-    index_dispatcher=None,
-) -> dict:
+    storage: Any | None = None,
+    index_dispatcher: Callable[[str, UUID, UUID], None] | None = None,
+) -> dict[str, Any]:
     """Fetch captions, persist an ordinary Document, and enqueue indexing."""
 
     settings = get_settings()
@@ -184,7 +187,7 @@ async def run_youtube_import(
 
     async with async_session_factory() as session:
         await _set_tenant(session, tenant_id)
-        job = await session.scalar(select(AIJob).where(AIJob.id == job_id, AIJob.tenant_id == tenant_id).with_for_update())
+        job = cast(Any, await session.scalar(select(AIJob).where(AIJob.id == job_id, AIJob.tenant_id == tenant_id).with_for_update()))
         if not job:
             return {"job_id": job_id, "status": "missing"}
         if job.status in {"completed", "cancelled"}:
@@ -224,18 +227,18 @@ async def run_youtube_import(
     try:
         async with async_session_factory() as session:
             await _set_tenant(session, tenant_id)
-            existing = await session.scalar(
+            existing = cast(Any, await session.scalar(
                 select(Document).where(
                     Document.tenant_id == tenant_id,
                     Document.content_sha256 == normalized.content_sha256,
                     Document.lifecycle_status == "active",
                 ).limit(1)
-            )
-            job = await session.scalar(select(AIJob).where(AIJob.id == job_id, AIJob.tenant_id == tenant_id).with_for_update())
+            ))
+            job = cast(Any, await session.scalar(select(AIJob).where(AIJob.id == job_id, AIJob.tenant_id == tenant_id).with_for_update()))
             if not job or job.status == "cancelled":
                 return {"job_id": job_id, "status": "cancelled"}
             if existing:
-                result = {
+                result: dict[str, Any] = {
                     "document_id": str(existing.id),
                     "indexing_job_id": None,
                     "idempotent_reuse": True,
@@ -282,12 +285,13 @@ async def run_youtube_import(
                 user_id=user_id,
                 params={"action": "document_reindex", "document_id": str(doc_id), "revision": 1},
             )
+            index_job_id = str(index_job.id)
             await session.flush()
             storage.put_bytes(s3_key, blob, content_type=normalized.content_type)
             blob_persisted = True
             result = {
                 "document_id": str(doc_id),
-                "indexing_job_id": index_job.id,
+                "indexing_job_id": index_job_id,
                 "idempotent_reuse": False,
                 "provenance": normalized.provenance,
             }
@@ -305,15 +309,15 @@ async def run_youtube_import(
                 logger.exception("Could not remove orphaned YouTube import blob doc_id=%s", doc_id)
         async with async_session_factory() as session:
             await _set_tenant(session, tenant_id)
-            existing = await session.scalar(
+            existing = cast(Any, await session.scalar(
                 select(Document).where(
                     Document.tenant_id == tenant_id,
                     Document.content_sha256 == normalized.content_sha256,
                     Document.lifecycle_status == "active",
                 ).limit(1)
-            )
+            ))
             if existing:
-                job = await session.scalar(select(AIJob).where(AIJob.id == job_id, AIJob.tenant_id == tenant_id).with_for_update())
+                job = cast(Any, await session.scalar(select(AIJob).where(AIJob.id == job_id, AIJob.tenant_id == tenant_id).with_for_update()))
                 result = {
                     "document_id": str(existing.id),
                     "indexing_job_id": None,
@@ -348,9 +352,9 @@ async def run_youtube_import(
         )
 
     try:
-        index_dispatcher(index_job.id, doc_id, tenant_id)
+        index_dispatcher(index_job_id, doc_id, tenant_id)
     except Exception:
-        logger.exception("Could not enqueue YouTube document indexing job_id=%s", index_job.id)
+        logger.exception("Could not enqueue YouTube document indexing job_id=%s", index_job_id)
         return await _finish_failed(
             job_id,
             tenant_id,

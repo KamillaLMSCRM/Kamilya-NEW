@@ -5,8 +5,8 @@ YouTube call can happen. Tests prove exception mapping, normalization into
 TranscriptResult, and behavior when the library is not imported.
 """
 
-from datetime import UTC, datetime
 import time
+from datetime import UTC, datetime
 from types import SimpleNamespace
 
 import pytest

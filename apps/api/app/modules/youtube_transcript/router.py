@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
+from typing import Annotated, Any, cast
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
@@ -11,25 +14,31 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.auth import require_role, require_tenant_user
 from app.core.config import get_settings
 from app.core.db import get_db
-from app.modules.ai.job_service import create_ai_job, get_ai_job, update_ai_job
 from app.models.ai_job import AIJob
+from app.models.users import User
+from app.modules.ai.job_service import create_ai_job, get_ai_job, update_ai_job
 from app.modules.youtube_transcript.schemas import (
     TranscriptProvenanceOut,
-    YouTubeImportAccepted,
-    YouTubeImportErrorOut,
-    YouTubeImportRequest,
-    YouTubeImportStatusOut,
     YouTubeAnalysisAccepted,
     YouTubeAnalysisConfirmAccepted,
     YouTubeAnalysisConfirmRequest,
     YouTubeAnalysisStatusOut,
+    YouTubeImportAccepted,
+    YouTubeImportErrorOut,
+    YouTubeImportRequest,
+    YouTubeImportStatusOut,
     YouTubePreviewOut,
 )
+
+tenant_guard = cast(Callable[..., Any], require_tenant_user)()
+methodologist_guard = cast(Callable[..., Any], require_role)("methodologist")
+DatabaseSession = Annotated[AsyncSession, Depends(get_db)]
+Methodologist = Annotated[User, Depends(methodologist_guard)]
 
 router = APIRouter(
     prefix="/youtube",
     tags=["youtube-transcript"],
-    dependencies=[Depends(require_tenant_user())],
+    dependencies=[Depends(tenant_guard)],
 )
 
 
@@ -44,7 +53,7 @@ def _feature_unavailable() -> HTTPException:
     )
 
 
-def _dispatch_youtube_import(*, job_id: str, tenant_id, user_id, url: str, languages: list[str]) -> None:
+def _dispatch_youtube_import(*, job_id: str, tenant_id: UUID, user_id: UUID, url: str, languages: list[str]) -> None:
     from app.modules.youtube_transcript.tasks import youtube_import_task
 
     youtube_import_task.apply_async(
@@ -59,7 +68,7 @@ def _dispatch_youtube_import(*, job_id: str, tenant_id, user_id, url: str, langu
     )
 
 
-def _dispatch_youtube_analysis(*, job_id: str, tenant_id, url: str, languages: list[str]) -> None:
+def _dispatch_youtube_analysis(*, job_id: str, tenant_id: UUID, url: str, languages: list[str]) -> None:
     from app.modules.youtube_transcript.tasks import youtube_analyze_task
 
     youtube_analyze_task.apply_async(
@@ -71,30 +80,32 @@ def _dispatch_youtube_analysis(*, job_id: str, tenant_id, url: str, languages: l
 @router.post("/analyze", response_model=YouTubeAnalysisAccepted, status_code=status.HTTP_202_ACCEPTED)
 async def analyze_youtube_transcript(
     request: YouTubeImportRequest,
-    db: AsyncSession = Depends(get_db),
-    user=Depends(require_role("methodologist")),
-):
+    db: DatabaseSession,
+    user: Methodologist,
+) -> YouTubeAnalysisAccepted:
     if not get_settings().YOUTUBE_IMPORT_ENABLED:
         raise _feature_unavailable()
     ref = request.validated_video_ref()
     languages = list(dict.fromkeys(request.preferred_languages or ["ru"]))
-    job = await create_ai_job(
-        db, tenant_id=user.tenant_id, user_id=user.id,
+    tenant_id = UUID(str(user.tenant_id))
+    user_id = UUID(str(user.id))
+    job = cast(Any, await create_ai_job(
+        db, tenant_id=tenant_id, user_id=user_id,
         params={"action": "youtube_analysis", "video_id": ref.video_id, "canonical_url": ref.canonical_url, "preferred_languages": languages},
-    )
+    ))
     await db.commit()
     try:
-        _dispatch_youtube_analysis(job_id=job.id, tenant_id=user.tenant_id, url=ref.canonical_url, languages=languages)
+        _dispatch_youtube_analysis(job_id=str(job.id), tenant_id=tenant_id, url=ref.canonical_url, languages=languages)
     except Exception as exc:
         await update_ai_job(
-            db, job.id, tenant_id=str(user.tenant_id), status="failed", stage="failed", progress=0,
+            db, str(job.id), tenant_id=str(tenant_id), status="failed", stage="failed", progress=0,
             message="Фоновый обработчик анализа недоступен.",
             errors=[{"code": "analysis_enqueue_failed", "retryable": True}], completed_at=datetime.now(UTC),
         )
         await db.commit()
         raise _feature_unavailable() from exc
     return YouTubeAnalysisAccepted(
-        job_id=job.id, status_url=f"/api/v1/youtube/analyses/{job.id}",
+        job_id=str(job.id), status_url=f"/api/v1/youtube/analyses/{job.id}",
         video_id=ref.video_id, canonical_url=ref.canonical_url,
     )
 
@@ -102,13 +113,13 @@ async def analyze_youtube_transcript(
 @router.get("/analyses/{job_id}", response_model=YouTubeAnalysisStatusOut)
 async def get_youtube_analysis(
     job_id: str,
-    db: AsyncSession = Depends(get_db),
-    user=Depends(require_role("methodologist")),
-):
-    job = await get_ai_job(db, job_id, tenant_id=str(user.tenant_id))
+    db: DatabaseSession,
+    user: Methodologist,
+) -> YouTubeAnalysisStatusOut:
+    job = cast(Any, await get_ai_job(db, job_id, tenant_id=str(user.tenant_id)))
     if not job or (job.params or {}).get("action") != "youtube_analysis":
         raise HTTPException(status_code=404, detail="YouTube analysis not found")
-    result = job.result or {}
+    result: dict[str, Any] = job.result or {}
     raw_error = (job.errors or [None])[0]
     error = None
     if isinstance(raw_error, dict):
@@ -131,10 +142,12 @@ async def get_youtube_analysis(
 async def confirm_youtube_analysis(
     job_id: str,
     request: YouTubeAnalysisConfirmRequest,
-    db: AsyncSession = Depends(get_db),
-    user=Depends(require_role("methodologist")),
-):
-    analysis = await db.scalar(select(AIJob).where(AIJob.id == job_id, AIJob.tenant_id == user.tenant_id).with_for_update())
+    db: DatabaseSession,
+    user: Methodologist,
+) -> YouTubeAnalysisConfirmAccepted:
+    tenant_id = UUID(str(user.tenant_id))
+    user_id = UUID(str(user.id))
+    analysis = cast(Any, await db.scalar(select(AIJob).where(AIJob.id == job_id, AIJob.tenant_id == tenant_id).with_for_update()))
     if not analysis or (analysis.params or {}).get("action") != "youtube_analysis":
         raise HTTPException(status_code=404, detail="YouTube analysis not found")
     if analysis.status != "completed" or not (analysis.result or {}).get("preview"):
@@ -143,24 +156,24 @@ async def confirm_youtube_analysis(
         raise HTTPException(status_code=410, detail={"code": "analysis_expired"})
     if (analysis.result or {}).get("confirmation_job_id"):
         raise HTTPException(status_code=409, detail={"code": "analysis_already_confirmed"})
-    result = dict(analysis.result or {})
+    result: dict[str, Any] = dict(analysis.result or {})
     canonical_url = str(result.get("canonical_url") or (analysis.params or {}).get("canonical_url"))
     languages = list(result.get("preferred_languages") or (analysis.params or {}).get("preferred_languages") or ["ru"])
-    import_job = await create_ai_job(
-        db, tenant_id=user.tenant_id, user_id=user.id,
+    import_job = cast(Any, await create_ai_job(
+        db, tenant_id=tenant_id, user_id=user_id,
         params={"action": "youtube_import", "video_id": (analysis.params or {}).get("video_id"), "canonical_url": canonical_url, "preferred_languages": languages, "analysis_job_id": analysis.id, "confirmation_action": request.action},
-    )
+    ))
     result.update({"confirmation_job_id": import_job.id, "confirmation_action": request.action, "confirmed_at": datetime.now(UTC).isoformat()})
     analysis.result = result
     await db.commit()
     try:
-        _dispatch_youtube_import(job_id=import_job.id, tenant_id=user.tenant_id, user_id=user.id, url=canonical_url, languages=languages)
+        _dispatch_youtube_import(job_id=str(import_job.id), tenant_id=tenant_id, user_id=user_id, url=canonical_url, languages=languages)
     except Exception as exc:
         await update_ai_job(
-            db, import_job.id, tenant_id=str(user.tenant_id), status="failed", stage="failed", progress=0,
+            db, str(import_job.id), tenant_id=str(tenant_id), status="failed", stage="failed", progress=0,
             message="Фоновый обработчик импорта недоступен.", errors=[{"code": "import_enqueue_failed", "retryable": True}], completed_at=datetime.now(UTC),
         )
-        refreshed = await db.scalar(select(AIJob).where(AIJob.id == job_id, AIJob.tenant_id == user.tenant_id).with_for_update())
+        refreshed = cast(Any, await db.scalar(select(AIJob).where(AIJob.id == job_id, AIJob.tenant_id == tenant_id).with_for_update()))
         if refreshed:
             restored = dict(refreshed.result or {})
             for key in ("confirmation_job_id", "confirmation_action", "confirmed_at"):
@@ -169,7 +182,7 @@ async def confirm_youtube_analysis(
         await db.commit()
         raise _feature_unavailable() from exc
     return YouTubeAnalysisConfirmAccepted(
-        job_id=import_job.id, status_url=f"/api/v1/youtube/imports/{import_job.id}",
+        job_id=str(import_job.id), status_url=f"/api/v1/youtube/imports/{import_job.id}",
         video_id=str((analysis.params or {}).get("video_id", "")), canonical_url=canonical_url, action=request.action,
     )
 
@@ -177,40 +190,42 @@ async def confirm_youtube_analysis(
 @router.post("/import", response_model=YouTubeImportAccepted, status_code=status.HTTP_202_ACCEPTED)
 async def import_youtube_transcript(
     request: YouTubeImportRequest,
-    db: AsyncSession = Depends(get_db),
-    user=Depends(require_role("methodologist")),
-):
+    db: DatabaseSession,
+    user: Methodologist,
+) -> YouTubeImportAccepted:
     settings = get_settings()
     if not settings.YOUTUBE_IMPORT_ENABLED:
         raise _feature_unavailable()
 
     ref = request.validated_video_ref()
     languages = list(dict.fromkeys(request.preferred_languages or ["ru"]))
-    job = await create_ai_job(
+    tenant_id = UUID(str(user.tenant_id))
+    user_id = UUID(str(user.id))
+    job = cast(Any, await create_ai_job(
         db,
-        tenant_id=user.tenant_id,
-        user_id=user.id,
+        tenant_id=tenant_id,
+        user_id=user_id,
         params={
             "action": "youtube_import",
             "video_id": ref.video_id,
             "canonical_url": ref.canonical_url,
             "preferred_languages": languages,
         },
-    )
+    ))
     await db.commit()
     try:
         _dispatch_youtube_import(
-            job_id=job.id,
-            tenant_id=user.tenant_id,
-            user_id=user.id,
+            job_id=str(job.id),
+            tenant_id=tenant_id,
+            user_id=user_id,
             url=ref.canonical_url,
             languages=languages,
         )
     except Exception as exc:
         await update_ai_job(
             db,
-            job.id,
-            tenant_id=str(user.tenant_id),
+            str(job.id),
+            tenant_id=str(tenant_id),
             status="failed",
             stage="failed",
             progress=0,
@@ -222,7 +237,7 @@ async def import_youtube_transcript(
         raise _feature_unavailable() from exc
 
     return YouTubeImportAccepted(
-        job_id=job.id,
+        job_id=str(job.id),
         status_url=f"/api/v1/youtube/imports/{job.id}",
         video_id=ref.video_id,
         canonical_url=ref.canonical_url,
@@ -232,15 +247,15 @@ async def import_youtube_transcript(
 @router.get("/imports/{job_id}", response_model=YouTubeImportStatusOut)
 async def get_youtube_import(
     job_id: str,
-    db: AsyncSession = Depends(get_db),
-    user=Depends(require_role("methodologist")),
-):
-    job = await get_ai_job(db, job_id, tenant_id=str(user.tenant_id))
+    db: DatabaseSession,
+    user: Methodologist,
+) -> YouTubeImportStatusOut:
+    job = cast(Any, await get_ai_job(db, job_id, tenant_id=str(user.tenant_id)))
     if not job or (job.params or {}).get("action") != "youtube_import":
         raise HTTPException(status_code=404, detail="YouTube import not found")
 
-    params = job.params or {}
-    result = job.result or {}
+    params: dict[str, Any] = job.params or {}
+    result: dict[str, Any] = job.result or {}
     raw_error = (job.errors or [None])[0]
     error = None
     if isinstance(raw_error, dict):
@@ -274,7 +289,7 @@ async def get_youtube_import(
 
 
 @router.get("/limits")
-async def youtube_limits() -> dict:
+async def youtube_limits() -> dict[str, object]:
     from app.modules.youtube_transcript.provider import MAX_SEGMENTS, MIN_TOTAL_CHARS, SUPPORTED_LANGUAGES
 
     settings = get_settings()

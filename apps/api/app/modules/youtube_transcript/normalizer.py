@@ -33,7 +33,7 @@ class NormalizedTranscriptSource:
     plain_text: str
     source_revision: str
     content_sha256: str
-    provenance: dict
+    provenance: dict[str, object]
 
 
 def normalize_transcript(
@@ -48,7 +48,7 @@ def normalize_transcript(
     the existing ingestion and retrieval contracts accept it unchanged.
     """
     try:
-        limits = {}
+        limits: dict[str, int] = {}
         if max_video_duration_seconds is not None:
             limits["max_video_duration_seconds"] = max_video_duration_seconds
         if max_total_chars is not None:
@@ -77,7 +77,7 @@ def normalize_transcript(
     )
     content_sha256 = hashlib.sha256(plain_text.encode("utf-8")).hexdigest()
     source_revision = f"document:{content_sha256}"
-    provenance = {
+    provenance: dict[str, object] = {
         "source_type": result.source_type,
         "provider": result.provider,
         "video_id": result.video_id,

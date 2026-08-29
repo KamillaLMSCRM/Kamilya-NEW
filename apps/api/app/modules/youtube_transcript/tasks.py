@@ -3,12 +3,16 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Coroutine
+from typing import Any, TypeVar
 from uuid import UUID
 
 from app.core.celery_app import celery_app
 
+T = TypeVar("T")
 
-def _run(coro):
+
+def _run(coro: Coroutine[Any, Any, T]) -> T:
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     try:
@@ -23,8 +27,8 @@ def _run(coro):
             loop.close()
 
 
-@celery_app.task(name="youtube.import_transcript")
-def youtube_import_task(job_id: str, tenant_id: str, user_id: str, url: str, preferred_languages: list[str]):
+@celery_app.task(name="youtube.import_transcript")  # type: ignore[untyped-decorator]
+def youtube_import_task(job_id: str, tenant_id: str, user_id: str, url: str, preferred_languages: list[str]) -> dict[str, Any]:
     from app.modules.youtube_transcript.operations import run_youtube_import
 
     return _run(
@@ -38,8 +42,8 @@ def youtube_import_task(job_id: str, tenant_id: str, user_id: str, url: str, pre
     )
 
 
-@celery_app.task(name="youtube.analyze_transcript")
-def youtube_analyze_task(job_id: str, tenant_id: str, url: str, preferred_languages: list[str]):
+@celery_app.task(name="youtube.analyze_transcript")  # type: ignore[untyped-decorator]
+def youtube_analyze_task(job_id: str, tenant_id: str, url: str, preferred_languages: list[str]) -> dict[str, Any]:
     from app.modules.youtube_transcript.operations import run_youtube_analysis
 
     return _run(

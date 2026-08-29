@@ -2,7 +2,7 @@
 from pydantic import BaseModel, Field, ConfigDict, model_validator
 from uuid import UUID
 from datetime import datetime
-from typing import Optional, List, Literal
+from typing import Any, List, Literal, Optional, Self
 
 # V1 multi-document generation window. A single document keeps the legacy
 # path; selecting several documents is capped at five unique sources.
@@ -38,7 +38,7 @@ class AIGenerateRequest(BaseModel):
     language_confirmed: bool = False
 
     @model_validator(mode="after")
-    def validate_combination_goal(self):
+    def validate_combination_goal(self) -> Self:
         # Deduplicate while preserving the user's first-occurrence order so
         # retries stay deterministic and provenance is unambiguous. The
         # per-submission source cap is enforced at the endpoint with a stable
@@ -107,7 +107,7 @@ class AIJobResponse(BaseModel):
     tenant_active_limit: int | None = Field(default=None, ge=1)
     # Present only when the selected multi-document set spans several scripts;
     # the UI must ask the methodologist which course language to use.
-    mixed_language_warning: dict | None = None
+    mixed_language_warning: dict[str, Any] | None = None
 
 
 class AIJobProgress(BaseModel):

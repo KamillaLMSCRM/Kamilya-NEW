@@ -9,7 +9,7 @@ as the existing document compatibility tests.
 from __future__ import annotations
 
 import hashlib
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
@@ -169,7 +169,7 @@ async def test_duplicate_ids_are_normalized_before_submission(
         id = "stub-job"
         status = "pending"
         course_id = None
-        created_at = updated_at = datetime.now(timezone.utc)
+        created_at = updated_at = datetime.now(UTC)
         started_at = None
         progress = 0
         stage = "queued"
@@ -284,7 +284,7 @@ async def test_single_document_submission_is_exempt_from_multi_doc_budget(
         id = "stub-job"
         status = "pending"
         course_id = None
-        created_at = updated_at = datetime.now(timezone.utc)
+        created_at = updated_at = datetime.now(UTC)
         started_at = None
         progress = 0
         stage = "queued"
@@ -332,7 +332,7 @@ async def test_multi_document_submission_at_budget_limit_is_allowed(
         id = "stub-job"
         status = "pending"
         course_id = None
-        created_at = updated_at = datetime.now(timezone.utc)
+        created_at = updated_at = datetime.now(UTC)
         started_at = None
         progress = 0
         stage = "queued"
@@ -508,7 +508,6 @@ async def test_concurrent_identical_submissions_create_exactly_one_job():
     import asyncio
 
     from httpx import ASGITransport, AsyncClient
-    from sqlalchemy import func, select
 
     from app.core.db import async_session_factory, get_db
     from app.main import app
@@ -549,7 +548,7 @@ async def test_concurrent_identical_submissions_create_exactly_one_job():
                 is_active=True,
             )
         )
-        for position, (doc_id, sha) in enumerate(zip(doc_ids, shas)):
+        for position, (doc_id, sha) in enumerate(zip(doc_ids, shas, strict=True)):
             setup.add(
                 Document(
                     id=doc_id,
@@ -579,7 +578,7 @@ async def test_concurrent_identical_submissions_create_exactly_one_job():
         await setup.execute(
             text("SELECT set_current_tenant(:tid)"), {"tid": str(tenant_id)}
         )
-        for doc_id, sha in zip(doc_ids, shas):
+        for doc_id, sha in zip(doc_ids, shas, strict=True):
             await _seed_committed_embedding(setup, tenant_id, doc_id, sha)
         await setup.commit()
 
@@ -630,7 +629,7 @@ async def test_concurrent_identical_submissions_create_exactly_one_job():
     original_dispatcher = job_service.CeleryAIJobDispatcher
     job_service.CeleryAIJobDispatcher = lambda: recording_dispatcher
     try:
-        for index in range(2):
+        for _ in range(2):
             session = async_session_factory()
             sessions.append(session)
             await session.execute(text("SELECT 1"))
@@ -707,7 +706,7 @@ async def test_mixed_language_requires_explicit_confirmation_before_queueing(
         id = "stub-job"
         status = "pending"
         course_id = None
-        created_at = updated_at = datetime.now(timezone.utc)
+        created_at = updated_at = datetime.now(UTC)
         started_at = None
         progress = 0
         stage = "queued"
@@ -807,8 +806,6 @@ async def test_multi_document_provenance_persisted_for_course_and_lessons(
     state.assessment = _FakeAssessment()
     await _save_generation_to_db(state, tenant.id, user.id)
     await db_session.commit()
-
-    from app.modules.courses.models import Course
 
     course = (
         await db_session.execute(

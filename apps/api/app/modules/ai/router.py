@@ -148,9 +148,10 @@ async def document_compatibility(
                 "limit": MULTI_DOCUMENT_MAX_SOURCES,
             },
         )
-    analysis = await analyze_document_set(db, user.tenant_id, req.documents)
+    tenant_id = UUID(str(user.tenant_id))
+    analysis = await analyze_document_set(db, tenant_id, req.documents)
     response = _compatibility_response(analysis)
-    chunks = await document_chunk_totals(db, user.tenant_id, req.documents)
+    chunks = await document_chunk_totals(db, tenant_id, req.documents)
     recommendation = recommend_course_structure(
         total_chunks=sum(chunks.values()),
         document_count=len(req.documents),
@@ -257,7 +258,7 @@ async def _job_response(
     *,
     message: str | None = None,
     queue_metadata: dict[str, int | None] | None = None,
-    mixed_language_warning: dict | None = None,
+    mixed_language_warning: dict[str, object] | None = None,
 ) -> AIJobResponse:
     settings = get_settings()
     if queue_metadata is None:
@@ -310,15 +311,16 @@ async def generate_course(
             },
         )
 
+    tenant_id = UUID(str(user.tenant_id))
     analysis = await analyze_document_set(
         db,
-        user.tenant_id,
+        tenant_id,
         req.documents,
         lock_for_update=True,
     )
     # Aggregate source budget for multi-document submissions only. The legacy
     # single-document path keeps its original behavior and limits.
-    chunk_totals = await document_chunk_totals(db, user.tenant_id, req.documents)
+    chunk_totals = await document_chunk_totals(db, tenant_id, req.documents)
     total_chunks = sum(chunk_totals.values())
     structure = recommend_course_structure(
         total_chunks=total_chunks,
@@ -353,7 +355,7 @@ async def generate_course(
     # selection spanning several languages is refused until the methodologist
     # explicitly confirms the course language via `language_confirmed`.
     # Single-document submissions keep the original behavior.
-    document_languages = await document_script_languages(db, user.tenant_id, req.documents)
+    document_languages = await document_script_languages(db, tenant_id, req.documents)
     detected_languages = sorted({lang for lang in document_languages.values() if lang})
     mixed_language = (
         len(req.documents) >= 2
@@ -381,7 +383,7 @@ async def generate_course(
             {"tenant_id": str(user.tenant_id)},
         )
         in_flight_job_id = await _in_flight_generation_for_documents(
-            db, user.tenant_id, req.documents
+            db, tenant_id, req.documents
         )
         if in_flight_job_id:
             raise HTTPException(
@@ -394,7 +396,7 @@ async def generate_course(
             )
     if req.course_id is None and not req.reuse_reason:
         existing_courses = await _existing_courses_for_source_documents(
-            db, user.tenant_id, req.documents
+            db, tenant_id, req.documents
         )
         if existing_courses:
             raise HTTPException(

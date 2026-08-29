@@ -12,6 +12,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import UTC, datetime
+from typing import Any, Protocol, cast
 
 from app.modules.youtube_transcript.provider import (
     TranscriptAcquisitionError,
@@ -27,10 +28,27 @@ logger = logging.getLogger(__name__)
 ADAPTER_NAME = "youtube_public_transcript"
 
 
+class _FetchedTranscript(Protocol):
+    language_code: str
+    is_generated: bool
+
+    def to_raw_data(self) -> list[dict[str, object]]: ...
+
+
+class _CaptionApi(Protocol):
+    def fetch(
+        self,
+        video_id: str,
+        *,
+        languages: list[str],
+        preserve_formatting: bool,
+    ) -> _FetchedTranscript: ...
+
+
 def _map_exception(exc: Exception) -> TranscriptAcquisitionError:
     """Map library exception classes to the stable error catalog."""
     try:
-        from youtube_transcript_api import (
+        from youtube_transcript_api import (  # type: ignore[import-not-found]
             IpBlocked,
             NoTranscriptFound,
             RequestBlocked,
@@ -59,19 +77,19 @@ class PublicCaptionProvider:
     (injected), keeping the adapter itself free of network configuration.
     """
 
-    def __init__(self, http_client=None, timeout_seconds: float = 20.0):
+    def __init__(self, http_client: Any | None = None, timeout_seconds: float = 20.0) -> None:
         self._http_client = http_client
         self._timeout_seconds = timeout_seconds
 
-    def _build_api(self):
+    def _build_api(self) -> _CaptionApi:
         try:
             from youtube_transcript_api import YouTubeTranscriptApi
         except ImportError as exc:
             raise TranscriptProviderError("provider_unavailable") from exc
-        kwargs = {}
+        kwargs: dict[str, Any] = {}
         if self._http_client is not None:
             kwargs["http_client"] = self._http_client
-        return YouTubeTranscriptApi(**kwargs)
+        return cast(_CaptionApi, YouTubeTranscriptApi(**kwargs))
 
     async def get_transcript(
         self,
@@ -104,13 +122,13 @@ class PublicCaptionProvider:
         except AttributeError as exc:
             raise TranscriptProviderError("provider_unavailable") from exc
 
-        segments = []
+        segments: list[TranscriptSegment] = []
         for item in raw:
             text = str(item.get("text", "")).strip()
             if not text:
                 continue
-            start = float(item.get("start", 0.0))
-            duration = float(item.get("duration", 0.0))
+            start = float(cast(Any, item.get("start", 0.0)))
+            duration = float(cast(Any, item.get("duration", 0.0)))
             segments.append(
                 TranscriptSegment(
                     start_seconds=start,

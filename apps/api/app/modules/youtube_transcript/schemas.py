@@ -6,7 +6,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-from app.modules.youtube_transcript.url_resolver import extract_video_id
+from app.modules.youtube_transcript.url_resolver import YouTubeVideoRef, extract_video_id
 
 YouTubeImportStatus = Literal["pending", "ready", "failed"]
 
@@ -17,7 +17,7 @@ class YouTubeImportRequest(BaseModel):
     url: str = Field(min_length=1, max_length=2048)
     preferred_languages: list[str] = Field(default_factory=lambda: ["ru"], max_length=5)
 
-    def validated_video_ref(self):
+    def validated_video_ref(self) -> YouTubeVideoRef:
         return extract_video_id(self.url)
 
 
