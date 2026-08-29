@@ -89,6 +89,7 @@ from app.modules.users.kiosk_router import public_router as kiosks_public_router
 from app.modules.users.router import router as users_router
 from app.modules.users.staff_import_mapping_router import router as staff_import_mapping_router
 from app.modules.users.staff_import_router import router as staff_import_router
+from app.modules.youtube_transcript.router import router as youtube_transcript_router
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -203,6 +204,7 @@ app.include_router(candidate_assessments_router, prefix=f"{settings.API_PREFIX}"
 app.include_router(candidate_assessment_public_router, prefix=f"{settings.API_PREFIX}", tags=["candidate-assessment"])
 app.include_router(progress_router, prefix=f"{settings.API_PREFIX}", tags=["progress"])
 app.include_router(documents_router, prefix=f"{settings.API_PREFIX}", tags=["documents"])
+app.include_router(youtube_transcript_router, prefix=f"{settings.API_PREFIX}", tags=["youtube-transcript"])
 app.include_router(quizzes_router, prefix=f"{settings.API_PREFIX}", tags=["quizzes"])
 app.include_router(quiz_assignments_router, prefix=f"{settings.API_PREFIX}", tags=["quiz-assignments"])
 app.include_router(certificates_router, prefix=f"{settings.API_PREFIX}", tags=["certificates"])

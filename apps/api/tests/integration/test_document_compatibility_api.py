@@ -33,6 +33,7 @@ async def test_mixed_document_topics_are_reported_and_block_generation(
         name="fire-safety.md",
         title="Пожарная безопасность",
         embedding_status="success",
+        index_status="ready",
     )
     marketing = await make_document(
         tenant,
@@ -40,6 +41,7 @@ async def test_mixed_document_topics_are_reported_and_block_generation(
         name="brand-playbook.md",
         title="Стандарт рекламы бренда",
         embedding_status="success",
+        index_status="ready",
     )
     for document, vector in ((safety, _unit_vector(0)), (marketing, _unit_vector(1))):
         await db_session.execute(
@@ -114,3 +116,25 @@ async def test_document_pending_deletion_cannot_enter_new_generation(
 
     assert response.status_code == 404
     assert "documents_not_found" in response.text
+
+
+@pytest.mark.asyncio
+async def test_document_compatibility_uses_the_same_five_source_limit(
+    client,
+    auth_headers,
+    make_tenant,
+    make_user,
+):
+    tenant = await make_tenant()
+    methodologist = await make_user(tenant, role="methodologist")
+
+    response = await client.post(
+        "/api/v1/ai/document-compatibility",
+        json={"documents": [str(uuid4()) for _ in range(6)]},
+        headers=auth_headers(methodologist),
+    )
+
+    assert response.status_code == 422
+    body = response.json()
+    assert body["details"]["code"] == "too_many_documents"
+    assert body["details"]["limit"] == 5

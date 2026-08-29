@@ -248,10 +248,16 @@ class Settings(BaseSettings):
     AI_WORKER_CONCURRENCY: int = 2
     AI_ESTIMATED_JOB_SECONDS: int = 510
 
+    # Aggregate source budget for one multi-document generation: the sum of
+    # indexed chunks across all selected documents must stay within this
+    # limit so provider context stays bounded instead of silently truncating.
+    AI_MULTI_DOC_MAX_TOTAL_CHUNKS: int = 4000
+
     @field_validator(
         "AI_MAX_ACTIVE_JOBS_PER_TENANT",
         "AI_WORKER_CONCURRENCY",
         "AI_ESTIMATED_JOB_SECONDS",
+        "AI_MULTI_DOC_MAX_TOTAL_CHUNKS",
     )
     @classmethod
     def validate_positive_ai_capacity(cls, value: int) -> int:
@@ -315,6 +321,12 @@ class Settings(BaseSettings):
     # Shared JWT secret for wa-gateway authentication. Must match the
     # KAMILYA_BACKEND_SECRET on the wa-gateway VPS.
     KAMILYA_BACKEND_SECRET: str = ""
+
+    # YouTube transcript import: bounded worker flow, disabled by default.
+    YOUTUBE_IMPORT_ENABLED: bool = False
+    YOUTUBE_MAX_VIDEO_DURATION_SECONDS: int = Field(default=7200, ge=60, le=7200)
+    YOUTUBE_MAX_TOTAL_CHARS: int = Field(default=500_000, ge=1000, le=2_000_000)
+    YOUTUBE_PROVIDER_TIMEOUT_SECONDS: float = Field(default=20.0, ge=3.0, le=60.0)
 
 
 @lru_cache

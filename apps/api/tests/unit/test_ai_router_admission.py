@@ -12,6 +12,15 @@ from app.modules.ai.job_service import AIJobAdmissionLimitReachedError
 from app.modules.ai.schemas import AIGenerateRequest
 
 
+def _lenient_db(rows=None, scalar=None):
+    """A db stub tolerating any number of execute/first calls made by the
+    generation endpoint's readiness/budget/idempotency helpers."""
+    db = SimpleNamespace()
+    db.execute = AsyncMock(return_value=SimpleNamespace(all=lambda: rows or [], first=lambda: scalar))
+    db.first = None
+    return db
+
+
 @pytest.mark.asyncio
 async def test_full_tenant_queue_maps_submission_limit_to_http_429(monkeypatch):
     tenant_id = uuid4()
@@ -37,10 +46,17 @@ async def test_full_tenant_queue_maps_submission_limit_to_http_429(monkeypatch):
     monkeypatch.setattr("app.modules.ai.source_analysis.analyze_document_set", analyze)
     monkeypatch.setattr("app.core.demo_limits.check_ai_generation_quota", check_quota)
     monkeypatch.setattr(router, "submit_ai_job", submit)
+    monkeypatch.setattr(
+        "app.modules.ai.source_analysis.document_chunk_totals",
+        AsyncMock(return_value={}),
+    )
+    monkeypatch.setattr(
+        "app.modules.ai.source_analysis.document_script_languages",
+        AsyncMock(return_value={}),
+    )
 
-    empty_courses = SimpleNamespace(all=lambda: [])
     with pytest.raises(HTTPException) as error:
-        await router.generate_course(request, db=SimpleNamespace(execute=AsyncMock(return_value=empty_courses)), user=user)
+        await router.generate_course(request, db=_lenient_db(), user=user)
 
     assert error.value.status_code == 429
     assert error.value.detail == {
@@ -64,11 +80,31 @@ async def test_reused_source_requires_reason_and_returns_only_existing_course_pr
     rows = SimpleNamespace(all=lambda: [(existing_course_id, "Existing course", "published")])
 
     monkeypatch.setattr("app.modules.ai.source_analysis.analyze_document_set", AsyncMock(return_value=analysis))
+    monkeypatch.setattr(
+        "app.modules.ai.source_analysis.document_chunk_totals",
+        AsyncMock(return_value={}),
+    )
+    monkeypatch.setattr(
+        "app.modules.ai.source_analysis.document_script_languages",
+        AsyncMock(return_value={}),
+    )
+
+    execute = AsyncMock(
+        side_effect=[
+            SimpleNamespace(scalar=lambda: None),  # advisory lock
+            SimpleNamespace(first=lambda: None),   # in-flight probe
+            rows,                                  # existing courses
+        ]
+    )
+
+    class _DB:
+        async def execute(self, *args, **kwargs):
+            return await execute(*args, **kwargs)
 
     with pytest.raises(HTTPException) as error:
         await router.generate_course(
             request,
-            db=SimpleNamespace(execute=AsyncMock(return_value=rows)),
+            db=_DB(),
             user=SimpleNamespace(id=uuid4(), tenant_id=tenant_id),
         )
 
@@ -86,15 +122,30 @@ async def test_reuse_reason_is_persisted_and_starts_an_independent_draft(monkeyp
     request = AIGenerateRequest(documents=[uuid4()], reuse_reason="different_audience")
     analysis = SimpleNamespace(status="compatible", score=1.0, requires_decision=False, clusters=[])
     submit = AsyncMock(return_value=(SimpleNamespace(), {}))
+    db = SimpleNamespace(execute=AsyncMock())
 
     monkeypatch.setattr("app.modules.ai.source_analysis.analyze_document_set", AsyncMock(return_value=analysis))
     monkeypatch.setattr("app.core.demo_limits.check_ai_generation_quota", AsyncMock())
     monkeypatch.setattr(router, "submit_ai_job", submit)
     monkeypatch.setattr(router, "_job_response", AsyncMock(return_value={"id": "job-1"}))
+    monkeypatch.setattr(
+        router,
+        "_in_flight_generation_for_documents",
+        AsyncMock(return_value=None),
+    )
+    monkeypatch.setattr(
+        "app.modules.ai.source_analysis.document_chunk_totals",
+        AsyncMock(return_value={}),
+    )
+    monkeypatch.setattr(
+        "app.modules.ai.source_analysis.document_script_languages",
+        AsyncMock(return_value={}),
+    )
 
-    response = await router.generate_course(request, db=SimpleNamespace(), user=SimpleNamespace(id=uuid4(), tenant_id=tenant_id))
+    response = await router.generate_course(request, db=db, user=SimpleNamespace(id=uuid4(), tenant_id=tenant_id))
 
     assert response == {"id": "job-1"}
+    db.execute.assert_awaited_once()
     assert submit.await_args.kwargs["course_id"] is None
     assert submit.await_args.kwargs["params"]["reuse_reason"] == "different_audience"
     assert submit.await_args.kwargs["task_kwargs"](SimpleNamespace(id="job-1"))["reuse_reason"] == "different_audience"
@@ -122,6 +173,14 @@ async def test_existing_course_regeneration_does_not_enter_new_course_reuse_flow
     monkeypatch.setattr("app.core.demo_limits.check_ai_generation_quota", AsyncMock())
     monkeypatch.setattr(router, "submit_ai_job", submit)
     monkeypatch.setattr(router, "_job_response", AsyncMock(return_value={"id": "job-1"}))
+    monkeypatch.setattr(
+        "app.modules.ai.source_analysis.document_chunk_totals",
+        AsyncMock(return_value={}),
+    )
+    monkeypatch.setattr(
+        "app.modules.ai.source_analysis.document_script_languages",
+        AsyncMock(return_value={}),
+    )
 
     response = await router.generate_course(
         request,
@@ -130,6 +189,5 @@ async def test_existing_course_regeneration_does_not_enter_new_course_reuse_flow
     )
 
     assert response == {"id": "job-1"}
-    db.execute.assert_not_awaited()
     assert submit.await_args.kwargs["course_id"] == existing_course_id
     assert submit.await_args.kwargs["reserve_course_generation"] is False

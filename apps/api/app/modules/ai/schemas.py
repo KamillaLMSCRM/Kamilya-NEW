@@ -4,12 +4,22 @@ from uuid import UUID
 from datetime import datetime
 from typing import Optional, List, Literal
 
+# V1 multi-document generation window. A single document keeps the legacy
+# path; selecting several documents is capped at five unique sources.
+MULTI_DOCUMENT_MAX_SOURCES = 5
+CourseFormat = Literal["automatic", "brief", "standard", "detailed"]
+
 
 class AIGenerateRequest(BaseModel):
     course_id: UUID | None = None
-    documents: List[UUID] = Field(min_length=1, max_length=20, description="Source document IDs")
+    # No upper schema cap: any over-limit document count must reach the
+    # endpoint and fail with the stable `too_many_documents` code instead of
+    # framework validation leakage. Request-body limits at the ingress bound
+    # abuse; the endpoint enforces the 5-source product cap.
+    documents: List[UUID] = Field(min_length=1, description="Source document IDs")
     target_audience: str = Field(default="", max_length=2000, description="Target audience description")
-    num_modules: int = Field(default=3, ge=1, le=10)
+    course_format: CourseFormat = "automatic"
+    num_modules: int | None = Field(default=None, ge=1, le=10)
     language: Literal["ru", "kk", "en"] = "ru"
     tone: str = Field(default="professional", max_length=100)
     source_strategy: Literal["single_topic", "intentional_combination"] = "single_topic"
@@ -22,9 +32,18 @@ class AIGenerateRequest(BaseModel):
         "recurring_training",
         "other",
     ] | None = None
+    # Set by the UI after the methodologist explicitly confirms the course
+    # language for a mixed-language document set. Required before queueing
+    # whenever the server reports mixed_language_sources.
+    language_confirmed: bool = False
 
     @model_validator(mode="after")
     def validate_combination_goal(self):
+        # Deduplicate while preserving the user's first-occurrence order so
+        # retries stay deterministic and provenance is unambiguous. The
+        # per-submission source cap is enforced at the endpoint with a stable
+        # machine-readable error code.
+        self.documents = list(dict.fromkeys(self.documents))
         if self.source_strategy == "intentional_combination" and len(self.combination_goal.strip()) < 20:
             raise ValueError("combination_goal must explain the shared learning goal (at least 20 characters)")
         if self.course_id is not None and self.reuse_reason is not None:
@@ -35,7 +54,9 @@ class AIGenerateRequest(BaseModel):
 
 
 class DocumentCompatibilityRequest(BaseModel):
-    documents: List[UUID] = Field(min_length=1, max_length=20)
+    documents: List[UUID] = Field(min_length=1)
+    course_format: CourseFormat = "automatic"
+    num_modules: int | None = Field(default=None, ge=1, le=10)
 
 
 class CompatibilityDocument(BaseModel):
@@ -51,11 +72,22 @@ class CompatibilityCluster(BaseModel):
     documents: list[CompatibilityDocument]
 
 
+class CourseStructureRecommendation(BaseModel):
+    requested_format: CourseFormat
+    resolved_format: Literal["brief", "standard", "detailed", "custom"]
+    module_count: int = Field(ge=1, le=10)
+    lessons_per_module: int = Field(ge=1, le=6)
+    estimated_duration_minutes: int = Field(ge=5)
+    quiz_count: int = Field(ge=1)
+    reason_codes: list[str] = Field(default_factory=list)
+
+
 class DocumentCompatibilityResponse(BaseModel):
     status: Literal["compatible", "mixed", "incompatible"]
     score: float
     requires_decision: bool
     clusters: list[CompatibilityCluster]
+    recommended_structure: CourseStructureRecommendation | None = None
 
 
 class AIJobResponse(BaseModel):
@@ -73,6 +105,9 @@ class AIJobResponse(BaseModel):
     estimated_wait_seconds: int | None = Field(default=None, ge=0)
     tenant_active_jobs: int | None = Field(default=None, ge=0)
     tenant_active_limit: int | None = Field(default=None, ge=1)
+    # Present only when the selected multi-document set spans several scripts;
+    # the UI must ask the methodologist which course language to use.
+    mixed_language_warning: dict | None = None
 
 
 class AIJobProgress(BaseModel):

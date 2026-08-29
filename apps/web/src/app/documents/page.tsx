@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   AlertCircle,
   ArrowRight,
@@ -49,7 +50,37 @@ interface DocumentBackgroundOperation {
   job: AsyncOperation;
 }
 
+interface YouTubeImportAccepted {
+  job_id: string;
+  status_url: string;
+}
+
+interface YouTubeImportStatus {
+  status: 'pending' | 'ready' | 'failed';
+  message: string;
+  idempotent_reuse: boolean;
+  document_id?: string | null;
+  error?: { message_ru?: string } | null;
+}
+
+interface YouTubeAnalysisStatus {
+  status: 'pending' | 'ready' | 'failed';
+  message: string;
+  preview?: {
+    title: string;
+    channel?: string | null;
+    summary: string;
+    language: string;
+    is_auto_generated: boolean;
+    duration_seconds?: number | null;
+    recommended_course_format: 'brief' | 'standard' | 'detailed';
+    quality_warnings: string[];
+  } | null;
+  error?: { message_ru?: string } | null;
+}
+
 export default function DocumentsPage() {
+  const router = useRouter();
   const { t, tp } = useT();
   const { confirm, dialog } = useConfirm();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -66,6 +97,13 @@ export default function DocumentsPage() {
   const [lifecycleFilter, setLifecycleFilter] = useState<DocumentLifecycleStatus>('active');
 
   const [showUpload, setShowUpload] = useState(false);
+  const [youtubeEnabled, setYoutubeEnabled] = useState(false);
+  const [showYoutubeImport, setShowYoutubeImport] = useState(false);
+  const [youtubeUrl, setYoutubeUrl] = useState('');
+  const [youtubeLanguage, setYoutubeLanguage] = useState<'ru' | 'kk' | 'en'>('ru');
+  const [youtubeImporting, setYoutubeImporting] = useState(false);
+  const [youtubeAnalysisJobId, setYoutubeAnalysisJobId] = useState<string | null>(null);
+  const [youtubeAnalysis, setYoutubeAnalysis] = useState<NonNullable<YouTubeAnalysisStatus['preview']> | null>(null);
   const [versionSource, setVersionSource] = useState<DocumentCatalogItem | null>(null);
   const [duplicateConflict, setDuplicateConflict] = useState<{
     id: string;
@@ -118,6 +156,12 @@ export default function DocumentsPage() {
     const timer = window.setTimeout(() => void fetchDocuments(), 250);
     return () => window.clearTimeout(timer);
   }, [fetchDocuments]);
+
+  useEffect(() => {
+    api.get<{ enabled: boolean }>('/v1/youtube/limits')
+      .then((response) => setYoutubeEnabled(Boolean(response.data.enabled)))
+      .catch(() => setYoutubeEnabled(false));
+  }, []);
 
   const hasProcessingDocuments = documents.some(
     (document) => document.index.status === 'processing'
@@ -187,6 +231,68 @@ export default function DocumentsPage() {
     } finally {
       setUploading(false);
       setUploadStartedAt(null);
+    }
+  };
+
+  const handleYoutubeAnalyze = async () => {
+    if (!youtubeUrl.trim()) return;
+    setYoutubeImporting(true);
+    try {
+      setYoutubeAnalysis(null);
+      const accepted = await api.post<YouTubeImportAccepted>('/v1/youtube/analyze', {
+        url: youtubeUrl.trim(),
+        preferred_languages: [youtubeLanguage],
+      });
+      for (let attempt = 0; attempt < 60; attempt += 1) {
+        await new Promise((resolve) => window.setTimeout(resolve, 2000));
+        const current = await api.get<YouTubeAnalysisStatus>(accepted.data.status_url.replace('/api', ''));
+        if (current.data.status === 'ready') {
+          if (!current.data.preview) throw new Error(t('documents.youtubeImportFailed'));
+          setYoutubeAnalysisJobId(accepted.data.job_id);
+          setYoutubeAnalysis(current.data.preview);
+          return;
+        }
+        if (current.data.status === 'failed') {
+          throw new Error(current.data.error?.message_ru || current.data.message);
+        }
+      }
+      throw new Error(t('documents.youtubeTimeout'));
+    } catch (error: any) {
+      const detail = error?.response?.data?.detail;
+      const message = detail?.message_ru || error?.message || t('documents.youtubeImportFailed');
+      toast.error(t('documents.youtubeImportFailed'), { description: message });
+    } finally {
+      setYoutubeImporting(false);
+    }
+  };
+
+  const handleYoutubeConfirm = async (action: 'create_course' | 'save_captions') => {
+    if (!youtubeAnalysisJobId) return;
+    setYoutubeImporting(true);
+    try {
+      const accepted = await api.post<YouTubeImportAccepted>(`/v1/youtube/analyses/${youtubeAnalysisJobId}/confirm`, { action });
+      for (let attempt = 0; attempt < 60; attempt += 1) {
+        await new Promise((resolve) => window.setTimeout(resolve, 2000));
+        const current = await api.get<YouTubeImportStatus>(accepted.data.status_url.replace('/api', ''));
+        if (current.data.status === 'ready') {
+          if (!current.data.document_id) throw new Error(t('documents.youtubeImportFailed'));
+          toast.success(current.data.idempotent_reuse ? t('documents.youtubeReuseSuccess') : t('documents.youtubeImportSuccess'));
+          setShowYoutubeImport(false);
+          setYoutubeUrl('');
+          setYoutubeAnalysis(null);
+          setYoutubeAnalysisJobId(null);
+          if (action === 'create_course') router.push(`/ai/generate?document_id=${encodeURIComponent(current.data.document_id)}`);
+          else await fetchDocuments();
+          return;
+        }
+        if (current.data.status === 'failed') throw new Error(current.data.error?.message_ru || current.data.message);
+      }
+      throw new Error(t('documents.youtubeTimeout'));
+    } catch (error: any) {
+      const detail = error?.response?.data?.detail;
+      toast.error(t('documents.youtubeImportFailed'), { description: detail?.message_ru || detail?.message || error?.message || t('documents.youtubeImportFailed') });
+    } finally {
+      setYoutubeImporting(false);
     }
   };
 
@@ -374,14 +480,26 @@ export default function DocumentsPage() {
           <h1 className="font-display text-2xl font-bold text-foreground">{t('documents.title')}</h1>
           <p className="mt-1 text-sm text-muted-foreground">{t('documents.subtitle')}</p>
         </div>
-        <button
-          type="button"
-          onClick={() => openUpload()}
-          className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-        >
-          <Plus className="h-4 w-4" aria-hidden="true" />
-          {t('documents.upload')}
-        </button>
+        <div className="flex flex-wrap gap-2">
+          {youtubeEnabled && (
+            <button
+              type="button"
+              onClick={() => setShowYoutubeImport(true)}
+              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+            >
+              <Film className="h-4 w-4" aria-hidden="true" />
+              {t('documents.youtubeImport')}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => openUpload()}
+            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+          >
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            {t('documents.upload')}
+          </button>
+        </div>
       </header>
 
       {uploading && uploadStartedAt && (
@@ -553,6 +671,74 @@ export default function DocumentsPage() {
             {loadingMore && <Loader2 className="h-4 w-4 animate-spin" />}
             {t('documents.loadMore')}
           </button>
+        </div>
+      )}
+
+      {showYoutubeImport && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40" aria-hidden="true" />
+          <section className="relative z-10 w-full max-w-lg rounded-lg bg-card p-5 shadow-card-lg" role="dialog" aria-modal="true" aria-labelledby="youtube-import-title">
+            <h2 id="youtube-import-title" className="font-display text-lg font-bold">{t('documents.youtubeImportTitle')}</h2>
+            <p className="mt-1 text-sm text-muted-foreground">{t('documents.youtubeImportHint')}</p>
+            <div className="mt-4 grid gap-3">
+              <label className="grid gap-1 text-sm">
+                <span className="font-medium">{t('documents.youtubeUrl')}</span>
+                <input
+                  type="url"
+                  value={youtubeUrl}
+                  disabled={youtubeImporting}
+                  onChange={(event) => setYoutubeUrl(event.target.value)}
+                  placeholder="https://www.youtube.com/watch?v=..."
+                  className="h-10 rounded-lg border border-border bg-background px-3 outline-none focus:border-primary disabled:opacity-60"
+                />
+              </label>
+              <label className="grid gap-1 text-sm">
+                <span className="font-medium">{t('documents.youtubeLanguage')}</span>
+                <select
+                  value={youtubeLanguage}
+                  disabled={youtubeImporting}
+                  onChange={(event) => setYoutubeLanguage(event.target.value as 'ru' | 'kk' | 'en')}
+                  className="h-10 rounded-lg border border-border bg-background px-3 outline-none focus:border-primary disabled:opacity-60"
+                >
+                  <option value="ru">Русский</option>
+                  <option value="kk">Қазақша</option>
+                  <option value="en">English</option>
+                </select>
+              </label>
+              <p className="rounded-lg border border-warning/40 bg-warning/10 p-3 text-xs text-muted-foreground">
+                {t('documents.youtubeReviewWarning')}
+              </p>
+              {youtubeAnalysis && (
+                <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
+                  <div className="font-semibold text-foreground">{youtubeAnalysis.title}</div>
+                  {youtubeAnalysis.channel && <div className="mt-0.5 text-xs text-muted-foreground">{youtubeAnalysis.channel}</div>}
+                  <p className="mt-3 text-sm text-foreground">{youtubeAnalysis.summary}</p>
+                  <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                    <span className="rounded-full border border-border bg-background px-2 py-1">{youtubeAnalysis.language.toUpperCase()}</span>
+                    {youtubeAnalysis.duration_seconds != null && <span className="rounded-full border border-border bg-background px-2 py-1">{Math.max(1, Math.round(youtubeAnalysis.duration_seconds / 60))} мин.</span>}
+                    <span className="rounded-full border border-border bg-background px-2 py-1">{t(`documents.youtubeFormat.${youtubeAnalysis.recommended_course_format}`)}</span>
+                  </div>
+                  {youtubeAnalysis.is_auto_generated && <p className="mt-3 text-xs text-warning">{t('documents.youtubeAutomaticCaptions')}</p>}
+                </div>
+              )}
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button type="button" disabled={youtubeImporting} onClick={() => { setShowYoutubeImport(false); setYoutubeAnalysis(null); setYoutubeAnalysisJobId(null); }} className="rounded-lg border border-border px-4 py-2 text-sm hover:bg-muted disabled:opacity-50">
+                {t('common.cancel')}
+              </button>
+              {youtubeAnalysis ? (
+                <>
+                  <button type="button" disabled={youtubeImporting} onClick={() => void handleYoutubeConfirm('save_captions')} className="rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-muted disabled:opacity-50">{t('documents.youtubeSaveCaptions')}</button>
+                  <button type="button" disabled={youtubeImporting} onClick={() => void handleYoutubeConfirm('create_course')} className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50">{youtubeImporting && <Loader2 className="h-4 w-4 animate-spin" />}{t('documents.youtubeCreateCourse')}</button>
+                </>
+              ) : (
+                <button type="button" disabled={!youtubeUrl.trim() || youtubeImporting} onClick={() => void handleYoutubeAnalyze()} className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
+                  {youtubeImporting && <Loader2 className="h-4 w-4 animate-spin" />}
+                  {youtubeImporting ? t('documents.youtubeAnalyzing') : t('documents.youtubeAnalyzeAction')}
+                </button>
+              )}
+            </div>
+          </section>
         </div>
       )}
 

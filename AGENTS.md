@@ -491,6 +491,24 @@ Worker на отдельном VPS не обновляется автомати�
   пользователю в текущей задаче два класса ошибки. Не искать другой основной
   thread и не заявлять, что сообщение доставлено.
 
+## Версионирование продукта и release-notes
+
+- Канонический источник версии продукта — файл `VERSION` в корне
+  репозитория. `apps/api/pyproject.toml` (`[tool.poetry] version`) и
+  `apps/web/package.json` (`version`) обязаны содерж ту же строку версии.
+- Детерминированную проверку согласованности выполняет
+  `python scripts/validate_version.py` (тесты:
+  `scripts/tests/test_validate_version.py`). Расхождение — ошибка.
+- Каждый агент обязан добавлять пользовательски-заметные изменения (features,
+  fixes, security) в `CHANGELOG.md` в секцию `[Unreleased]` в подходящую
+  категорию (Added/Changed/Fixed/Security) в рамках того же изменения.
+- Только root orchestrator может: изменять `VERSION`, создавать теги,
+  заявлять (claim) релиз, публиковать release notes и выполнять deploy.
+  Остальные агенты эти действия не выполняют даже по просьбе другого агента.
+- Семантическое версионирование и lifecycle релиза описаны в
+  `docs/releases/README.md`; шаблон release notes —
+  `docs/releases/RELEASE_NOTE_TEMPLATE.md`.
+
 ## Git и release
 
 **STOP: КАНОНИЧЕСКИЙ `GITHUB_TOKEN` ПРОВЕРЕН 26.08.2026 И ДЕЙСТВУЕТ ДЛЯ

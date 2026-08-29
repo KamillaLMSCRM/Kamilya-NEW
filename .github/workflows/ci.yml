@@ -8,6 +8,9 @@
 #   4. Tests:     pytest with coverage on app/modules/. fail-under=50 baseline.
 #   5. Frontend:  tsc --noEmit + next lint
 #   6. Secrets:   detect-secrets scan on changed files
+#   7. Version:   VERSION == apps/api/pyproject.toml == apps/web/package.json,
+#                 CHANGELOG.md keeps an [Unreleased] section (AGENTS.md
+#                 §Версионирование продукта и release-notes)
 #
 # See AGENTS.md §Mandatory skill loading and §Security checklist for the
 # rules this workflow enforces.
@@ -87,6 +90,9 @@ jobs:
       - name: Alembic and Celery release contract
         run: python scripts/ci/release-contract-gate.py
 
+      - name: Product version consistency gate
+        run: python scripts/validate_version.py
+
   # ---------------------------------------------------------------------------
   # Backend unit tests + syntax compile (fast-fail gate, no Postgres needed)
   # ---------------------------------------------------------------------------
@@ -122,6 +128,9 @@ jobs:
 
       - name: Install deps
         run: poetry install --no-interaction --no-ansi --with dev
+
+      - name: Version-consistency contract tests
+        run: poetry run pytest -q ../../scripts/tests/test_validate_version.py ../../scripts/ci/test_validate_version_workflow_contract.py
 
       - name: Syntax compile (compileall)
         run: |

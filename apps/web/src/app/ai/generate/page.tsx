@@ -83,7 +83,17 @@ interface DocumentCompatibility {
   score: number;
   requires_decision: boolean;
   clusters: CompatibilityCluster[];
+  recommended_structure?: {
+    requested_format: 'automatic' | 'brief' | 'standard' | 'detailed';
+    resolved_format: 'brief' | 'standard' | 'detailed' | 'custom';
+    module_count: number;
+    lessons_per_module: number;
+    estimated_duration_minutes: number;
+    quiz_count: number;
+  } | null;
 }
+
+type CourseFormat = 'automatic' | 'brief' | 'standard' | 'detailed';
 
 type Step = 'documents' | 'generate' | 'review';
 
@@ -106,6 +116,8 @@ export default function AIGeneratePage() {
   const [selectedDocIds, setSelectedDocIds] = useState<string[]>([]);
   const [targetAudience, setTargetAudience] = useState('');
   const [numModules, setNumModules] = useState(3);
+  const [courseFormat, setCourseFormat] = useState<CourseFormat>('automatic');
+  const [manualModules, setManualModules] = useState(false);
   const [language, setLanguage] = useState('ru');
   const {
     currentJob,
@@ -140,6 +152,17 @@ export default function AIGeneratePage() {
     courses: ReusedSourceCourse[];
     reason: ReuseReason | null;
   }>({ open: false, courses: [], reason: null });
+  const [languageConfirmation, setLanguageConfirmation] = useState<{
+    open: boolean;
+    detectedLanguages: string[];
+  }>({ open: false, detectedLanguages: [] });
+  // Acknowledgements collected from the 409 confirmation dialogs. They persist
+  // independently of which dialog opened last so both acknowledgement orders
+  // (language -> reuse and reuse -> language) survive into the final request.
+  const [acknowledgements, setAcknowledgements] = useState<{
+    languageConfirmed: boolean;
+    reuseReason: ReuseReason | null;
+  }>({ languageConfirmed: false, reuseReason: null });
   const fileRef = useRef<HTMLInputElement>(null);
 
   // Result-step state: preview of the generated course + approval.
@@ -230,6 +253,8 @@ export default function AIGeneratePage() {
       try {
         const response = await api.post('/v1/ai/document-compatibility', {
           documents: selectedDocIds,
+          course_format: courseFormat,
+          ...(manualModules ? { num_modules: numModules } : {}),
         });
         if (!cancelled) setCompatibility(response.data);
       } catch (error: any) {
@@ -245,7 +270,7 @@ export default function AIGeneratePage() {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [selectedDocIds, selectedNotReadyCount]);
+  }, [selectedDocIds, selectedNotReadyCount, courseFormat, manualModules, numModules]);
 
   const fetchDocuments = useCallback(async () => {
     setDocumentLoadError('');
@@ -283,6 +308,17 @@ export default function AIGeneratePage() {
     void fetchDocuments();
     void restoreActiveJob();
   }, [fetchDocuments, restoreActiveJob]);
+
+  const querySelectionApplied = useRef(false);
+  useEffect(() => {
+    if (querySelectionApplied.current || documents.length === 0) return;
+    const requestedDocument = new URLSearchParams(window.location.search).get('document_id');
+    if (!requestedDocument) return;
+    const document = documents.find((item) => item.id === requestedDocument);
+    if (!document) return;
+    setSelectedDocIds([requestedDocument]);
+    querySelectionApplied.current = true;
+  }, [documents]);
 
   useEffect(() => {
     if (!hasProcessingDocuments) return;
@@ -338,8 +374,8 @@ export default function AIGeneratePage() {
   const toggleDoc = (id: string) => {
     const doc = documents.find((item) => item.id === id);
     if (doc && doc.embedding_status !== 'success') return;
-    if (!selectedDocIds.includes(id) && selectedDocIds.length >= 20) {
-      toast.warning('Можно выбрать не более 20 документов для одного курса.');
+    if (!selectedDocIds.includes(id) && selectedDocIds.length >= 5) {
+      toast.warning('Можно выбрать не более 5 документов для одного курса.');
       return;
     }
     setSelectedDocIds(prev => prev.includes(id) ? prev.filter(d => d !== id) : [...prev, id]);
@@ -353,22 +389,28 @@ export default function AIGeneratePage() {
     setCombinationGoal('');
   };
 
-  const handleGenerate = async (reuseReason?: ReuseReason) => {
+  const handleGenerate = async (reuseReason?: ReuseReason, languageConfirmed = false) => {
     if (!canGenerate || generationSubmitting) return;
     setAdmissionError(false);
     setAdmissionRetryAfter(null);
     setGenerationSubmitting(true);
+    const confirmedLanguage = languageConfirmed || acknowledgements.languageConfirmed;
+    const confirmedReuseReason = reuseReason ?? acknowledgements.reuseReason;
     try {
       const res = await api.post('/v1/ai/generate-course', {
         documents: selectedDocIds,
         target_audience: targetAudience,
-        num_modules: numModules,
+        course_format: courseFormat,
+        ...(manualModules ? { num_modules: numModules } : {}),
         language,
         source_strategy: sourceStrategy,
         combination_goal: sourceStrategy === 'intentional_combination' ? combinationGoal.trim() : '',
-        ...(reuseReason ? { reuse_reason: reuseReason } : {}),
+        language_confirmed: confirmedLanguage,
+        ...(confirmedReuseReason ? { reuse_reason: confirmedReuseReason } : {}),
       });
       setReuseDialog({ open: false, courses: [], reason: null });
+      setLanguageConfirmation({ open: false, detectedLanguages: [] });
+      setAcknowledgements({ languageConfirmed: false, reuseReason: null });
       startJob(res.data);
     } catch (e: any) {
       console.error('Generation failed', e);
@@ -386,7 +428,13 @@ export default function AIGeneratePage() {
         });
         return;
       }
+      if (detail?.code === 'mixed_language_sources' && Array.isArray(detail.detected_languages)) {
+        setAcknowledgements((state) => ({ ...state, languageConfirmed: confirmedLanguage, reuseReason: confirmedReuseReason ?? state.reuseReason }));
+        setLanguageConfirmation({ open: true, detectedLanguages: detail.detected_languages });
+        return;
+      }
       if (detail?.code === 'source_documents_already_used' && Array.isArray(detail.existing_courses)) {
+        setAcknowledgements((state) => ({ ...state, languageConfirmed: confirmedLanguage, reuseReason: confirmedReuseReason ?? state.reuseReason }));
         setReuseDialog({ open: true, courses: detail.existing_courses, reason: null });
         return;
       }
@@ -892,15 +940,21 @@ export default function AIGeneratePage() {
                 className="w-full rounded-xl border border-border px-3 py-2.5 text-sm outline-none focus:border-primary transition-colors resize-none"
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <label className="block text-xs font-semibold text-muted-foreground mb-1">{t('ai.numModules')}</label>
-                <input
-                  type="number" min={1} max={10}
-                  value={numModules}
-                  onChange={(e) => setNumModules(parseInt(e.target.value) || 3)}
+                <label htmlFor="course-format" className="block text-xs font-semibold text-muted-foreground mb-1">{t('ai.courseFormat')}</label>
+                <select
+                  id="course-format"
+                  value={courseFormat}
+                  onChange={(event) => setCourseFormat(event.target.value as CourseFormat)}
                   className="w-full rounded-xl border border-border px-3 py-2.5 text-sm outline-none focus:border-primary transition-colors"
-                />
+                >
+                  <option value="automatic">{t('ai.courseFormats.automatic')}</option>
+                  <option value="brief">{t('ai.courseFormats.brief')}</option>
+                  <option value="standard">{t('ai.courseFormats.standard')}</option>
+                  <option value="detailed">{t('ai.courseFormats.detailed')}</option>
+                </select>
+                <p className="mt-1 text-xs text-muted-foreground">{t('ai.courseFormatHint')}</p>
               </div>
               <div>
                 <label className="block text-xs font-semibold text-muted-foreground mb-1">{t('ai.language')}</label>
@@ -915,6 +969,28 @@ export default function AIGeneratePage() {
                 </select>
               </div>
             </div>
+            {compatibility?.recommended_structure && (
+              <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 text-sm">
+                <div className="font-medium text-foreground">{t('ai.recommendedStructure')}</div>
+                <div className="mt-1 text-muted-foreground">
+                  {t('ai.recommendedStructureValue', { modules: compatibility.recommended_structure.module_count, lessons: compatibility.recommended_structure.lessons_per_module, minutes: compatibility.recommended_structure.estimated_duration_minutes })}
+                </div>
+              </div>
+            )}
+            <details className="rounded-xl border border-border px-3 py-2">
+              <summary className="cursor-pointer text-sm font-medium text-foreground">{t('ai.advancedStructure')}</summary>
+              <label className="mt-3 flex items-start gap-2 text-sm">
+                <input type="checkbox" checked={manualModules} onChange={(event) => setManualModules(event.target.checked)} className="mt-1" />
+                <span>{t('ai.manualModules')}</span>
+              </label>
+              {manualModules && (
+                <div className="mt-3 max-w-xs">
+                  <label htmlFor="manual-module-count" className="block text-xs font-semibold text-muted-foreground mb-1">{t('ai.numModules')}</label>
+                  <input id="manual-module-count" type="number" min={1} max={10} value={numModules} onChange={(event) => setNumModules(parseInt(event.target.value) || 1)} className="w-full rounded-xl border border-border px-3 py-2.5 text-sm outline-none focus:border-primary" />
+                  <p className="mt-1 text-xs text-muted-foreground">{t('ai.manualModulesHint')}</p>
+                </div>
+              )}
+            </details>
           </div>
 
           <button
@@ -1261,9 +1337,71 @@ export default function AIGeneratePage() {
           reason={reuseDialog.reason}
           submitting={generationSubmitting}
           onReasonChange={(reason) => setReuseDialog((dialog) => ({ ...dialog, reason }))}
-          onCancel={() => setReuseDialog({ open: false, courses: [], reason: null })}
+          onCancel={() => {
+            setAcknowledgements({ languageConfirmed: false, reuseReason: null });
+            setReuseDialog({ open: false, courses: [], reason: null });
+          }}
           onConfirm={(reason) => void handleGenerate(reason)}
         />
+      )}
+
+      {languageConfirmation.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="mixed-language-title">
+          <div className="w-full max-w-lg rounded-2xl border border-border bg-card shadow-card-lg">
+            <div className="border-b border-border px-5 py-4">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-warning" />
+                <div>
+                  <h3 id="mixed-language-title" className="font-bold text-foreground font-display">Документы на разных языках</h3>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Проверьте выбор перед запуском. Курс и тесты будут сформированы на выбранном языке курса.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="space-y-4 px-5 py-4">
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Обнаружены языки</div>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {languageConfirmation.detectedLanguages.map((detectedLanguage) => (
+                    <span key={detectedLanguage} className="rounded-full border border-border bg-muted px-3 py-1 text-sm text-foreground">
+                      {({ ru: 'Русский', kk: 'Казахский', en: 'Английский', latin: 'Латиница', cjk: 'Китайский/японский/корейский', arabic: 'Арабская письменность', unknown: 'Не определён' } as Record<string, string>)[detectedLanguage] ?? detectedLanguage}
+                    </span>
+                  ))}
+                </div>
+              </div>
+              <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 text-sm text-foreground">
+                Язык будущего курса: <strong>{language === 'ru' ? 'Русский' : language === 'kk' ? 'Казахский' : language === 'en' ? 'Английский' : language}</strong>.
+                Если это неверно, отмените запуск и измените язык в настройках генерации.
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-border px-5 py-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setAcknowledgements({ languageConfirmed: false, reuseReason: null });
+                  setLanguageConfirmation((dialog) => ({ ...dialog, open: false }));
+                }}
+                disabled={generationSubmitting}
+                className="rounded-xl border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-muted transition-colors disabled:opacity-50"
+              >
+                Вернуться к документам
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setLanguageConfirmation((dialog) => ({ ...dialog, open: false }));
+                  void handleGenerate(undefined, true);
+                }}
+                disabled={generationSubmitting}
+                className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+              >
+                {generationSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
+                Подтвердить и запустить
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Review confirmation dialog */}

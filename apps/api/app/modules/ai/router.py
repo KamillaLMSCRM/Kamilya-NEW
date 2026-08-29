@@ -2,13 +2,14 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 from datetime import datetime, timezone
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect
 from fastapi.security import HTTPAuthorizationCredentials
-from sqlalchemy import or_, select, update
+from sqlalchemy import or_, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import (
@@ -40,6 +41,7 @@ from app.modules.ai.schemas import (
     AIRegenerateModuleRequest,
     CompatibilityCluster,
     CompatibilityDocument,
+    CourseStructureRecommendation,
     DocumentCompatibilityRequest,
     DocumentCompatibilityResponse,
 )
@@ -134,10 +136,37 @@ async def document_compatibility(
     user: User = Depends(require_role("superadmin", "methodologist")),
 ):
     """Analyze whether selected source documents belong in one course."""
-    from app.modules.ai.source_analysis import analyze_document_set
+    from app.modules.ai.schemas import MULTI_DOCUMENT_MAX_SOURCES
+    from app.modules.ai.source_analysis import analyze_document_set, document_chunk_totals, recommend_course_structure
 
+    if len(req.documents) > MULTI_DOCUMENT_MAX_SOURCES:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "code": "too_many_documents",
+                "message": "At most 5 unique documents can be combined into one course",
+                "limit": MULTI_DOCUMENT_MAX_SOURCES,
+            },
+        )
     analysis = await analyze_document_set(db, user.tenant_id, req.documents)
-    return _compatibility_response(analysis)
+    response = _compatibility_response(analysis)
+    chunks = await document_chunk_totals(db, user.tenant_id, req.documents)
+    recommendation = recommend_course_structure(
+        total_chunks=sum(chunks.values()),
+        document_count=len(req.documents),
+        course_format=req.course_format,
+        manual_modules=req.num_modules,
+    )
+    response.recommended_structure = CourseStructureRecommendation(
+        requested_format=recommendation.requested_format,
+        resolved_format=recommendation.resolved_format,
+        module_count=recommendation.module_count,
+        lessons_per_module=recommendation.lessons_per_module,
+        estimated_duration_minutes=recommendation.estimated_duration_minutes,
+        quiz_count=recommendation.quiz_count,
+        reason_codes=list(recommendation.reason_codes),
+    )
+    return response
 
 
 def _job_course_uuid(course_id) -> UUID | None:
@@ -187,12 +216,48 @@ async def _existing_courses_for_source_documents(
     ]
 
 
+async def _in_flight_generation_for_documents(
+    db: AsyncSession,
+    tenant_id: UUID,
+    document_ids: list[UUID],
+) -> UUID | None:
+    """Find an active generation job over the same document set.
+
+    Celery at-least-once delivery plus the execution claim makes a single job
+    safe to replay, but two near-simultaneous HTTP submissions each create
+    their own job row. JSONB containment in both directions makes the check
+    independent of document order while preserving the original order in the
+    persisted job provenance.
+    """
+    wanted = [str(document_id) for document_id in document_ids]
+    statement = text(
+        "SELECT id FROM ai_jobs "
+        "WHERE tenant_id = :tenant_id "
+        "AND status IN ('pending', 'running') "
+        "AND jsonb_typeof(params->'documents') = 'array' "
+        "AND params->'documents' @> CAST(:documents AS jsonb) "
+        "AND params->'documents' <@ CAST(:documents AS jsonb) "
+        "ORDER BY created_at DESC LIMIT 1"
+    )
+    row = (
+        await db.execute(
+            statement,
+            {
+                "tenant_id": str(tenant_id),
+                "documents": json.dumps(wanted),
+            },
+        )
+    ).first()
+    return UUID(str(row.id)) if row else None
+
+
 async def _job_response(
     db: AsyncSession,
     job: AIJob,
     *,
     message: str | None = None,
     queue_metadata: dict[str, int | None] | None = None,
+    mixed_language_warning: dict | None = None,
 ) -> AIJobResponse:
     settings = get_settings()
     if queue_metadata is None:
@@ -214,6 +279,7 @@ async def _job_response(
         stage=job.stage,
         message=message if message is not None else (job.message or ""),
         errors=job.errors,
+        mixed_language_warning=mixed_language_warning,
         **queue_metadata,
     )
 
@@ -226,7 +292,23 @@ async def generate_course(
 ):
     """Start AI course generation (returns job_id for polling/WebSocket)."""
     from app.core.demo_limits import check_ai_generation_quota
-    from app.modules.ai.source_analysis import analyze_document_set
+    from app.modules.ai.schemas import MULTI_DOCUMENT_MAX_SOURCES
+    from app.modules.ai.source_analysis import (
+        analyze_document_set,
+        document_chunk_totals,
+        document_script_languages,
+        recommend_course_structure,
+    )
+
+    if len(req.documents) > MULTI_DOCUMENT_MAX_SOURCES:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "code": "too_many_documents",
+                "message": "At most 5 unique documents can be combined into one course",
+                "limit": MULTI_DOCUMENT_MAX_SOURCES,
+            },
+        )
 
     analysis = await analyze_document_set(
         db,
@@ -234,6 +316,29 @@ async def generate_course(
         req.documents,
         lock_for_update=True,
     )
+    # Aggregate source budget for multi-document submissions only. The legacy
+    # single-document path keeps its original behavior and limits.
+    chunk_totals = await document_chunk_totals(db, user.tenant_id, req.documents)
+    total_chunks = sum(chunk_totals.values())
+    structure = recommend_course_structure(
+        total_chunks=total_chunks,
+        document_count=len(req.documents),
+        course_format=req.course_format,
+        manual_modules=req.num_modules,
+    )
+    resolved_modules = structure.module_count
+    budget_limit = get_settings().AI_MULTI_DOC_MAX_TOTAL_CHUNKS
+    if len(req.documents) >= 2 and total_chunks > budget_limit:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "code": "aggregate_source_budget_exceeded",
+                "message": "Selected documents exceed the total indexed content budget",
+                "total_chunks": total_chunks,
+                "limit": budget_limit,
+                "document_chunks": {str(doc_id): value for doc_id, value in chunk_totals.items()},
+            },
+        )
     analysis_payload = _compatibility_response(analysis).model_dump(mode="json")
     if analysis.requires_decision and req.source_strategy != "intentional_combination":
         raise HTTPException(
@@ -244,9 +349,49 @@ async def generate_course(
                 "analysis": analysis_payload,
             },
         )
+    # Mixed-language sources: detected before queueing. A multi-document
+    # selection spanning several languages is refused until the methodologist
+    # explicitly confirms the course language via `language_confirmed`.
+    # Single-document submissions keep the original behavior.
+    document_languages = await document_script_languages(db, user.tenant_id, req.documents)
+    detected_languages = sorted({lang for lang in document_languages.values() if lang})
+    mixed_language = (
+        len(req.documents) >= 2
+        and len({lang for lang in detected_languages if lang != "unknown"}) > 1
+    )
+    if mixed_language and not req.language_confirmed:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "mixed_language_sources",
+                "message": "Selected documents use different languages; confirm the course language",
+                "detected_languages": detected_languages,
+            },
+        )
     # Reuse acknowledgement applies only when creating another course. An
     # explicit course_id is the existing draft-regeneration contract and must
     # continue to update that draft even when it cites the same sources.
+    if req.course_id is None:
+        # Serialize same-tenant generation submissions so the in-flight check
+        # and the job insert commit atomically: two concurrent identical
+        # requests can no longer both pass the check. The transaction-scoped
+        # advisory lock is released at the commit inside submit_ai_job.
+        await db.execute(
+            text("SELECT pg_advisory_xact_lock(hashtext('ai_generation_admission' || :tenant_id))"),
+            {"tenant_id": str(user.tenant_id)},
+        )
+        in_flight_job_id = await _in_flight_generation_for_documents(
+            db, user.tenant_id, req.documents
+        )
+        if in_flight_job_id:
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "code": "generation_already_in_progress",
+                    "message": "The same document set is already being generated",
+                    "job_id": str(in_flight_job_id),
+                },
+            )
     if req.course_id is None and not req.reuse_reason:
         existing_courses = await _existing_courses_for_source_documents(
             db, user.tenant_id, req.documents
@@ -275,7 +420,15 @@ async def generate_course(
             params={
                 "documents": [str(document_id) for document_id in req.documents],
                 "target_audience": req.target_audience,
-                "num_modules": req.num_modules,
+                "course_format": req.course_format,
+                "num_modules": resolved_modules,
+                "course_structure": {
+                    "resolved_format": structure.resolved_format,
+                    "lessons_per_module": structure.lessons_per_module,
+                    "estimated_duration_minutes": structure.estimated_duration_minutes,
+                    "quiz_count": structure.quiz_count,
+                    "reason_codes": list(structure.reason_codes),
+                },
                 "language": req.language,
                 "source_strategy": req.source_strategy,
                 "combination_goal": req.combination_goal.strip(),
@@ -287,7 +440,7 @@ async def generate_course(
                 "job_id": str(job.id),
                 "documents": [str(document_id) for document_id in req.documents],
                 "target_audience": req.target_audience,
-                "num_modules": req.num_modules,
+                "num_modules": resolved_modules,
                 "language": req.language,
                 "course_id": str(target_course_id) if target_course_id else None,
                 "tenant_id": str(user.tenant_id) if user.tenant_id else None,
@@ -313,6 +466,15 @@ async def generate_course(
         job,
         message="Job queued",
         queue_metadata=queue_metadata,
+        mixed_language_warning=(
+            {
+                "code": "mixed_language_sources",
+                "detected_languages": detected_languages,
+                "course_language": req.language,
+            }
+            if mixed_language
+            else None
+        ),
     )
 
 
