@@ -1,0 +1,33 @@
+campaign,negative_phrase,level,language,reason,status
+KZ | Finance | Search | RU,школа,Campaign,ru,education-consumer / school unrelated,PENDING validate against actual queries
+KZ | Finance | Search | RU,университет,Campaign,ru,education-consumer,PENDING validate against actual queries
+KZ | Finance | Search | RU,студент,Campaign,ru,education-consumer,PENDING validate against actual queries
+KZ | Finance | Search | RU,школьник,Campaign,ru,education-consumer,PENDING validate against actual queries
+KZ | Finance | Search | RU,ученик,Campaign,ru,education-consumer,PENDING validate against actual queries
+KZ | Finance | Search | RU,учитель,Campaign,ru,education-consumer,PENDING validate against actual queries
+KZ | Finance | Search | RU,репетитор,Campaign,ru,education-consumer,PENDING validate against actual queries
+KZ | Finance | Search | RU,дети,Campaign,ru,education-consumer,PENDING validate against actual queries
+KZ | Finance | Search | RU,курсовая,Campaign,ru,student homework,PENDING validate against actual queries
+KZ | Finance | Search | RU,диплом,Campaign,ru,student graduation work,PENDING validate against actual queries
+KZ | Finance | Search | RU,вакансия,Campaign,ru,hiring intent,PENDING validate against actual queries
+KZ | Finance | Search | RU,работа,Campaign,ru,hiring/consumer job intent,PENDING validate against actual queries
+KZ | Finance | Search | RU,бесплатно,Campaign,ru,consumer free-course intent,PENDING validate against actual queries
+KZ | Finance | Search | RU,бесплатные курсы,Campaign,ru,consumer free-course intent,PENDING validate against actual queries
+KZ | Finance | Search | RU,создать онлайн школу,Campaign,ru,education-platform builder intent,PENDING validate against actual queries
+KZ | Finance | Search | RU,учебный центр,Campaign,ru,education-center consumer intent,PENDING validate against actual queries
+KZ | Finance | Search | RU,Moodle,Campaign,ru,competitor open-source LMS - technical/self-hosted intent,PENDING validate against actual queries
+KZ | Finance | Search | RU,LMS 901,Campaign,ru,vehicle/fleet product with LMS abbreviation - irrelevant,PENDING validate against actual queries
+KZ | Finance | Search | RU,Audi,Campaign,ru,vehicle unrelated LMS abbreviation,PENDING validate against actual queries
+KZ | Finance | Search | RU,автомобиль,Campaign,ru,vehicle intent,PENDING validate against actual queries
+KZ | Finance | Search | RU,запчасти,Campaign,ru,vehicle parts intent,PENDING validate against actual queries
+KZ | Finance | Search | RU,скачать,Campaign,ru,download/consumer intent,PENDING validate against actual queries
+KZ | Finance | Search | RU,самостоятельно,Campaign,ru,self-training not B2B platform,PENDING validate against actual queries
+KZ | Finance | Search | RU,для себя,Campaign,ru,personal/consumer training intent,PENDING validate against actual queries
+KZ | Finance | Search | RU,пройти онлайн курс,Campaign,ru,education-consumer intent,PENDING validate against actual queries
+KZ | Finance | Search | RU,кредит,Campaign,ru,consumer finance - not target segment,PENDING validate against actual queries
+KZ | Finance | Search | RU,микрозайм,Campaign,ru,consumer finance - not target segment,PENDING validate against actual queries
+KZ | Finance | Search | RU,ломбард кредит,Campaign,ru,consumer pawnshop loan intent,PENDING validate against actual queries
+KZ | Finance | Search | RU,каско,Campaign,ru,consumer insurance purchase intent,PENDING validate against actual queries
+KZ | Finance | Search | RU,полис,Campaign,ru,consumer insurance purchase intent,PENDING validate against actual queries
+KZ | Finance | Search | RU,брокер счёт,Campaign,ru,consumer broker account intent,PENDING validate against actual queries
+KZ | Finance | Search | RU,купить акции,Campaign,ru,consumer investment intent,PENDING validate against actual queries

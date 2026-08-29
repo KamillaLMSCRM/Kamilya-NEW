@@ -1,0 +1,12 @@
+﻿field,value,rule
+utm_source,google,fixed
+utm_medium,cpc,fixed
+utm_campaign,kz_hr_search_ru,fixed for paused HR campaign
+utm_content,ag_<cluster>_rsa_<variant>,unique per ad group and RSA
+utm_term,{keyword},Google ValueTrack keyword value
+final_url,defined only on RSA; keyword Final URL left blank,one canonical localized URL preserves RSA variant and keyword attribution
+gclid,automatic,Google auto-tagging must remain enabled
+landing_page,automatic,first landing URL stored in current browser session
+source_section,onboarding_hero or onboarding_final_cta or candidate_assessment_hero or candidate_assessment_final_cta,CTA that opened the lead form
+lead_plan,employee_onboarding or candidate_assessment,server-side lead intent separation
+primary_conversion,lead_form_success,fire only after backend returns success

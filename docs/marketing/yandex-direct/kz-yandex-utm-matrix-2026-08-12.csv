@@ -1,0 +1,12 @@
+﻿field,value,rule,notes
+utm_source,ya_direct,fixed,"Risk: Yandex rewrites utm_source values beginning with ""yandex"" to ""ya"" (yandex_direct -> ya_direct). The prompt contract requested utm_source=yandex_direct; the safe stable value is ya_direct. Confirm in live account and keep the landing attribution consistent. Decide once; do not mix."
+utm_medium,cpc,fixed,Standard CPC tag
+utm_campaign,kz_yandex_finance_search_ru,fixed for first campaign,Stable campaign slug - never change after launch
+utm_content,ag_<cluster>_v<variant>,unique per ad group and variant,"Examples: ag1_knowledge_v1, ag2_mandatory_v2, ag6_vertical_v1"
+utm_term,{keyword},Yandex dynamic parameter,Passes the matched keyword phrase
+yclid,{yclid},Yandex dynamic parameter - click id,Must be preserved end-to-end; add to landing attribution capture and lead payload (currently only gclid is captured)
+final_url,defined only on ad; keyword URLs left blank,one canonical URL per ad,Preserves ad variant and keyword attribution without conflicting URLs
+landing_page,automatic,first finance landing URL stored in current browser session,Existing behavior in landing lib/attribution.mjs
+source_section,finance_hero or finance_final_cta,CTA that opened the lead form,Existing behavior
+primary_conversion,lead_form_success,fire only after backend returns success,Metrica reachGoal target; NOT lead_form_open or lead_form_submit
+attribution_model,first-touch within session; last-touch wins if a fresh campaign attribution arrives,explicit decision,Current landing uses sessionStorage kamilya_attribution_v1; a fresh campaign attribution on a later pageview replaces the persisted first-touch. Document and test.
