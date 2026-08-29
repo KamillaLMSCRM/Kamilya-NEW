@@ -1,3 +1,12 @@
+const DEV_VERCEL_PROJECT_URL = 'kamilya-lms-dev.vercel.app';
+const DEV_API_URL = 'https://kamilya-lms-api.onrender.com/api';
+
+const configuredApiUrl = process.env.NEXT_PUBLIC_API_URL;
+const apiUrl =
+  process.env.VERCEL_PROJECT_PRODUCTION_URL === DEV_VERCEL_PROJECT_URL
+    ? DEV_API_URL
+    : configuredApiUrl;
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
@@ -14,6 +23,11 @@ const nextConfig = {
         hostname: 'cdn.lms.kml.kz',
       },
     ],
+  },
+  // The isolated dev Vercel project must never call the production API,
+  // even if its dashboard environment variable drifts to api.kml.kz.
+  env: {
+    NEXT_PUBLIC_API_URL: apiUrl,
   },
   // API calls now go cross-origin directly to the FastAPI backend.
 // Earlier we had a `rewrites()` block that proxied /api/v1/* through
