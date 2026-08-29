@@ -12,6 +12,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import UTC, datetime
+from importlib import import_module
 from typing import Any, Protocol, cast
 
 from app.modules.youtube_transcript.provider import (
@@ -48,24 +49,17 @@ class _CaptionApi(Protocol):
 def _map_exception(exc: Exception) -> TranscriptAcquisitionError:
     """Map library exception classes to the stable error catalog."""
     try:
-        from youtube_transcript_api import (  # type: ignore[import-not-found]
-            IpBlocked,
-            NoTranscriptFound,
-            RequestBlocked,
-            TranscriptsDisabled,
-            VideoUnavailable,
-            YouTubeRequestFailed,
-        )
+        youtube_api = import_module("youtube_transcript_api")
     except ImportError:  # pragma: no cover - guarded by lazy import at call site
         return TranscriptProviderError("provider_unavailable")
 
-    if isinstance(exc, RequestBlocked | IpBlocked):
+    if isinstance(exc, youtube_api.RequestBlocked | youtube_api.IpBlocked):
         return TranscriptProviderError("provider_blocked")
-    if isinstance(exc, TranscriptsDisabled | NoTranscriptFound):
+    if isinstance(exc, youtube_api.TranscriptsDisabled | youtube_api.NoTranscriptFound):
         return TranscriptUnavailableError("transcript_unavailable")
-    if isinstance(exc, VideoUnavailable):
+    if isinstance(exc, youtube_api.VideoUnavailable):
         return TranscriptUnavailableError("video_unavailable")
-    if isinstance(exc, YouTubeRequestFailed):
+    if isinstance(exc, youtube_api.YouTubeRequestFailed):
         return TranscriptProviderError("provider_unavailable")
     return TranscriptProviderError("provider_unavailable")
 
@@ -83,13 +77,13 @@ class PublicCaptionProvider:
 
     def _build_api(self) -> _CaptionApi:
         try:
-            from youtube_transcript_api import YouTubeTranscriptApi
+            api_factory = import_module("youtube_transcript_api").YouTubeTranscriptApi
         except ImportError as exc:
             raise TranscriptProviderError("provider_unavailable") from exc
         kwargs: dict[str, Any] = {}
         if self._http_client is not None:
             kwargs["http_client"] = self._http_client
-        return cast(_CaptionApi, YouTubeTranscriptApi(**kwargs))
+        return cast(_CaptionApi, api_factory(**kwargs))
 
     async def get_transcript(
         self,
