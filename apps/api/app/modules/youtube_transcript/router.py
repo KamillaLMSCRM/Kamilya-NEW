@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any, cast
@@ -12,6 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import require_role, require_tenant_user
+from app.core.celery_app import celery_app
 from app.core.config import get_settings
 from app.core.db import get_db
 from app.models.ai_job import AIJob
@@ -51,6 +53,13 @@ def _feature_unavailable() -> HTTPException:
             "message_ru": "Импорт из YouTube временно недоступен.",
         },
     )
+
+
+async def _dispatch_background(dispatch: Callable[..., None], **kwargs: Any) -> None:
+    if celery_app.conf.task_always_eager:
+        await asyncio.to_thread(dispatch, **kwargs)
+        return
+    dispatch(**kwargs)
 
 
 def _dispatch_youtube_import(*, job_id: str, tenant_id: UUID, user_id: UUID, url: str, languages: list[str]) -> None:
@@ -95,7 +104,13 @@ async def analyze_youtube_transcript(
     ))
     await db.commit()
     try:
-        _dispatch_youtube_analysis(job_id=str(job.id), tenant_id=tenant_id, url=ref.canonical_url, languages=languages)
+        await _dispatch_background(
+            _dispatch_youtube_analysis,
+            job_id=str(job.id),
+            tenant_id=tenant_id,
+            url=ref.canonical_url,
+            languages=languages,
+        )
     except Exception as exc:
         await update_ai_job(
             db, str(job.id), tenant_id=str(tenant_id), status="failed", stage="failed", progress=0,
@@ -167,7 +182,14 @@ async def confirm_youtube_analysis(
     analysis.result = result
     await db.commit()
     try:
-        _dispatch_youtube_import(job_id=str(import_job.id), tenant_id=tenant_id, user_id=user_id, url=canonical_url, languages=languages)
+        await _dispatch_background(
+            _dispatch_youtube_import,
+            job_id=str(import_job.id),
+            tenant_id=tenant_id,
+            user_id=user_id,
+            url=canonical_url,
+            languages=languages,
+        )
     except Exception as exc:
         await update_ai_job(
             db, str(import_job.id), tenant_id=str(tenant_id), status="failed", stage="failed", progress=0,
@@ -214,7 +236,8 @@ async def import_youtube_transcript(
     ))
     await db.commit()
     try:
-        _dispatch_youtube_import(
+        await _dispatch_background(
+            _dispatch_youtube_import,
             job_id=str(job.id),
             tenant_id=tenant_id,
             user_id=user_id,

@@ -31,6 +31,39 @@ def _enabled(monkeypatch):
     )
 
 
+@pytest.mark.asyncio
+async def test_eager_dispatch_runs_in_a_thread(monkeypatch):
+    calls = []
+
+    async def fake_to_thread(dispatch, **kwargs):
+        calls.append((dispatch, kwargs))
+        dispatch(**kwargs)
+
+    monkeypatch.setitem(youtube_router.celery_app.conf, "task_always_eager", True)
+    monkeypatch.setattr(youtube_router.asyncio, "to_thread", fake_to_thread)
+    dispatched = []
+
+    await youtube_router._dispatch_background(
+        lambda **kwargs: dispatched.append(kwargs),
+        job_id="youtube-job-1",
+    )
+
+    assert calls and dispatched == [{"job_id": "youtube-job-1"}]
+
+
+@pytest.mark.asyncio
+async def test_normal_dispatch_stays_on_the_worker_queue_path(monkeypatch):
+    monkeypatch.setitem(youtube_router.celery_app.conf, "task_always_eager", False)
+    dispatched = []
+
+    await youtube_router._dispatch_background(
+        lambda **kwargs: dispatched.append(kwargs),
+        job_id="youtube-job-1",
+    )
+
+    assert dispatched == [{"job_id": "youtube-job-1"}]
+
+
 def test_request_schema_validates_url_canonically():
     request = YouTubeImportRequest(url="https://youtu.be/dQw4w9WgXcQ")
     assert request.validated_video_ref().video_id == "dQw4w9WgXcQ"
