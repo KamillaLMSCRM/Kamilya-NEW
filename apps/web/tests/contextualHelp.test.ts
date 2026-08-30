@@ -43,4 +43,13 @@ describe('contextual help registry', () => {
   it('falls back to Russian for an unsupported locale', () => {
     expect(getContextualHelp('/documents', 'methodologist', 'de')?.title).toBe('Документы');
   });
+
+  it('keeps retention help read-only for methodologists', () => {
+    const help = getContextualHelp('/training-retention', 'methodologist', 'ru');
+
+    expect(help?.purpose).toContain('Просмотр утверждённых сроков');
+    expect(help?.steps.join(' ')).toContain('обратитесь к администратору Kamilya');
+    expect(help?.important).toContain('не изменяет политики');
+    expect(help?.steps.join(' ')).not.toContain('Активируйте');
+  });
 });

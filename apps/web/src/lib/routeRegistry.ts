@@ -57,7 +57,15 @@ export function isPublicRoute(pathname: string): boolean {
   return PUBLIC_ROUTE_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
 }
 
-export type NavigationSection = 'overview' | 'content' | 'workforce' | 'learning' | 'tenant' | 'platform';
+export type NavigationSection =
+  | 'overview'
+  | 'content'
+  | 'delivery'
+  | 'workforce'
+  | 'results'
+  | 'learning'
+  | 'tenant'
+  | 'platform';
 export type NavigationIcon =
   | 'dashboard'
   | 'sparkles'
@@ -96,24 +104,24 @@ export interface AppRoute {
 export const ROUTES: readonly AppRoute[] = [
   { id: 'profile', href: '/profile', capability: 'manage_profile', labelKey: 'nav.myProfile' },
   { id: 'methodologist-dashboard', href: '/dashboard', capability: 'manage_content', labelKey: 'nav.dashboard', section: 'overview', icon: 'dashboard', order: 10, sidebar: true, commandPalette: true },
-  { id: 'ai-generation', href: '/ai/generate', capability: 'manage_content', match: 'prefix', labelKey: 'nav.aiGeneration', section: 'content', icon: 'sparkles', order: 20, sidebar: true, commandPalette: true },
-  { id: 'courses', href: '/courses', capability: 'manage_content', match: 'prefix', labelKey: 'nav.courses', section: 'content', icon: 'book', order: 30, sidebar: true, commandPalette: true },
-  { id: 'quizzes', href: '/quizzes', capability: 'manage_content', match: 'prefix', labelKey: 'sidebar.quizConstructor', section: 'content', icon: 'quiz', order: 40, sidebar: true, commandPalette: true },
-  { id: 'documents', href: '/documents', capability: 'manage_content', match: 'prefix', labelKey: 'nav.documents', section: 'content', icon: 'document', order: 50, sidebar: true, commandPalette: true },
-  { id: 'learning-paths-manage', href: '/learning-paths', capability: 'manage_content', labelKey: 'learningPaths.title', section: 'content', icon: 'route', order: 60, sidebar: true, commandPalette: true },
-  { id: 'cohorts', href: '/cohorts', capability: 'manage_staff', labelKey: 'cohorts.title', section: 'workforce', icon: 'users', order: 70, sidebar: true, commandPalette: true },
+  { id: 'documents', href: '/documents', capability: 'manage_content', match: 'prefix', labelKey: 'nav.documents', section: 'content', icon: 'document', order: 20, sidebar: true, commandPalette: true },
+  { id: 'ai-generation', href: '/ai/generate', capability: 'manage_content', match: 'prefix', labelKey: 'nav.aiGeneration', section: 'content', icon: 'sparkles', order: 30, sidebar: true, commandPalette: true },
+  { id: 'courses', href: '/courses', capability: 'manage_content', match: 'prefix', labelKey: 'nav.courses', section: 'content', icon: 'book', order: 40, sidebar: true, commandPalette: true },
+  { id: 'quizzes', href: '/quizzes', capability: 'manage_content', match: 'prefix', labelKey: 'sidebar.quizConstructor', section: 'content', icon: 'quiz', order: 50, sidebar: true, commandPalette: true },
+  { id: 'learning-paths-manage', href: '/learning-paths', capability: 'manage_content', labelKey: 'learningPaths.title', section: 'delivery', icon: 'route', order: 60, sidebar: true, commandPalette: true },
+  { id: 'course-assignments', href: '/assignments', capability: 'manage_assignments', match: 'prefix', labelKey: 'nav.assignmentsAndAccess', section: 'delivery', icon: 'assignment', order: 70, sidebar: true, commandPalette: true },
   { id: 'competencies', href: '/competencies', capability: 'manage_qualifications', labelKey: 'competencies.title', section: 'workforce', icon: 'target', order: 80, sidebar: false, commandPalette: false },
   { id: 'surveys-manage', href: '/surveys', capability: 'manage_communications' },
   { id: 'announcements', href: '/announcements', capability: 'manage_communications' },
-  { id: 'staff', href: '/staff?tab=structure', capability: 'manage_staff', labelKey: 'nav.staffSchedule', section: 'workforce', icon: 'users', order: 110, sidebar: true, commandPalette: true },
+  { id: 'staff', href: '/staff', capability: 'manage_staff', match: 'prefix', labelKey: 'nav.staffSchedule', section: 'workforce', icon: 'users', order: 80, sidebar: true, commandPalette: true },
+  { id: 'cohorts', href: '/cohorts', capability: 'manage_staff', labelKey: 'cohorts.title', section: 'workforce', icon: 'users', order: 90, sidebar: true, commandPalette: true },
   { id: 'training-rules', href: '/training-rules?scope=organization', capability: 'manage_staff', labelKey: 'nav.trainingRules', section: 'workforce', icon: 'assignment', order: 112, sidebar: false, commandPalette: false },
-  { id: 'training-procedures', href: '/training-procedures', capability: 'configure_training_procedures', labelKey: 'trainingProceduresPage.navLabel', section: 'workforce', icon: 'assignment', order: 113, sidebar: true, commandPalette: true },
-  { id: 'training-retention', href: '/training-retention', capability: 'configure_training_procedures', labelKey: 'trainingRetentionPage.navLabel', section: 'workforce', icon: 'assignment', order: 114, sidebar: true, commandPalette: true },
+  { id: 'training-procedures', href: '/training-procedures', capability: 'configure_training_procedures', labelKey: 'trainingProceduresPage.navLabel', section: 'results', icon: 'assignment', order: 120, sidebar: true, commandPalette: true },
+  { id: 'training-retention', href: '/training-retention', capability: 'configure_training_procedures', labelKey: 'trainingRetentionPage.navLabel', section: 'results', icon: 'assignment', order: 130, sidebar: true, commandPalette: true },
   { id: 'invitations', href: '/invitations', capability: 'manage_learners', labelKey: 'invitations.navLabel', section: 'workforce', icon: 'users', order: 115, sidebar: false, commandPalette: false },
-  { id: 'candidate-assessments', href: '/candidate-assessments', capability: 'manage_learners', labelKey: 'nav.candidateAssessments', section: 'workforce', icon: 'users', order: 118, sidebar: true, commandPalette: true },
+  { id: 'candidate-assessments', href: '/candidate-assessments', capability: 'manage_learners', labelKey: 'nav.candidateAssessments', section: 'workforce', icon: 'users', order: 100, sidebar: true, commandPalette: true },
   { id: 'positions', href: '/positions', capability: 'manage_qualifications', match: 'prefix' },
-  { id: 'course-assignments', href: '/assignments', capability: 'manage_assignments', match: 'prefix', labelKey: 'nav.assignmentsAndAccess', section: 'workforce', icon: 'assignment', order: 120, sidebar: true, commandPalette: true },
-  { id: 'training-log', href: '/training-log', capability: 'view_training_reports', match: 'prefix', labelKey: 'nav.trainingLog', section: 'overview', icon: 'log', order: 150, sidebar: true, commandPalette: true },
+  { id: 'training-log', href: '/training-log', capability: 'view_training_reports', match: 'prefix', labelKey: 'nav.trainingLog', section: 'results', icon: 'log', order: 110, sidebar: true, commandPalette: true },
 
   { id: 'tenant-dashboard', href: '/admin', capability: 'configure_tenant', labelKey: 'nav.admin', section: 'overview', icon: 'dashboard', order: 10, sidebar: true, commandPalette: true },
   { id: 'team', href: '/admin/team', capability: 'manage_accounts', match: 'prefix', labelKey: 'nav.userManagement', section: 'tenant', icon: 'users', order: 20, sidebar: true, commandPalette: true },

@@ -40,7 +40,9 @@ import {
 const SECTION_LABELS: Record<NavigationSection, TranslationKey> = {
   overview: 'sidebar.overview',
   content: 'sidebar.content',
+  delivery: 'sidebar.delivery',
   workforce: 'sidebar.workforce',
+  results: 'sidebar.results',
   learning: 'sidebar.learning',
   tenant: 'sidebar.tenant',
   platform: 'superadmin.title',
@@ -121,7 +123,7 @@ export default function Sidebar({ collapsed, mobileOpen = false, onToggle, onClo
         <span aria-hidden>×</span>
       </button>
 
-      <nav id="sidebar-nav" className="flex-1 space-y-6 overflow-y-auto px-3 py-4" aria-label={t('a11y.mainNavigation')}>
+      <nav id="sidebar-nav" className="flex-1 space-y-4 overflow-y-auto px-3 py-4" aria-label={t('a11y.mainNavigation')}>
         {sections.map((section) => (
           <div key={section}>
             {!collapsed && (

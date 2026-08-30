@@ -89,7 +89,7 @@ const TOPICS: readonly HelpTopicDefinition[] = [
   },
   {
     id: 'cohorts', paths: ['/cohorts'], roles: ['methodologist'],
-    title: text('Группы обучения', 'Оқу топтары', 'Learning groups'),
+    title: text('Группы сотрудников', 'Қызметкерлер топтары', 'Employee groups'),
     purpose: text('Объединение сотрудников для общего назначения и контроля.', 'Қызметкерлерді ортақ тағайындау және бақылау үшін біріктіру.', 'Group employees for shared assignment and monitoring.'),
     steps: [text('Создайте группу с понятным критерием.', 'Түсінікті өлшеммен топ жасаңыз.', 'Create a group with a clear criterion.'), text('Добавьте нужных сотрудников и проверьте состав.', 'Қажетті қызметкерлерді қосып, құрамын тексеріңіз.', 'Add employees and verify membership.'), text('Назначьте группе курс или программу.', 'Топқа курс не бағдарлама тағайындаңыз.', 'Assign a course or program to the group.')],
     example: text('Группа «Новые сотрудники — август» получает общую программу адаптации.', '«Тамыздағы жаңа қызметкерлер» тобы ортақ бейімделу бағдарламасын алады.', 'The “August new hires” group receives one onboarding program.'),
@@ -117,11 +117,11 @@ const TOPICS: readonly HelpTopicDefinition[] = [
   {
     id: 'training-retention', paths: ['/training-retention'], roles: ['methodologist'],
     title: text('Сроки хранения', 'Сақтау мерзімдері', 'Retention periods'),
-    purpose: text('Настройка сроков хранения доказательств обучения без ручного удаления пользователем.', 'Пайдаланушының қолмен жоюынсыз оқу дәлелдерін сақтау мерзімдерін баптау.', 'Configure how long learning evidence is retained without user-operated deletion.'),
-    steps: [text('Выберите вид доказательства.', 'Дәлел түрін таңдаңыз.', 'Choose the evidence type.'), text('Укажите согласованный срок и основание.', 'Келісілген мерзім мен негізді көрсетіңіз.', 'Enter the approved period and basis.'), text('Активируйте политику только после внутреннего согласования.', 'Саясатты ішкі келісімнен кейін ғана іске қосыңыз.', 'Activate only after internal approval.')],
+    purpose: text('Просмотр утверждённых сроков хранения результатов и доказательств обучения.', 'Оқу нәтижелері мен дәлелдерін сақтаудың бекітілген мерзімдерін көру.', 'Review approved retention periods for learning results and evidence.'),
+    steps: [text('Найдите нужный вид результата или доказательства.', 'Қажетті нәтиже немесе дәлел түрін табыңыз.', 'Find the relevant result or evidence type.'), text('Сверьте срок хранения и указанное основание.', 'Сақтау мерзімі мен көрсетілген негізді салыстырыңыз.', 'Review the retention period and its stated basis.'), text('Если политика отсутствует или требует изменения, обратитесь к администратору Kamilya.', 'Саясат жоқ немесе өзгерту қажет болса, Kamilya әкімшісіне хабарласыңыз.', 'If a policy is missing or needs adjustment, contact the Kamilya administrator.')],
     example: text('Результаты обязательного обучения хранятся 5 лет по внутренней политике организации.', 'Міндетті оқу нәтижелері ұйымның ішкі саясаты бойынша 5 жыл сақталады.', 'Required-training results are retained for five years under company policy.'),
-    result: text('Зафиксированная политика хранения для новых доказательств.', 'Жаңа дәлелдерге арналған бекітілген сақтау саясаты.', 'A recorded retention policy for new evidence.'),
-    important: text('Раздел не предназначен для ручной необратимой очистки. Срок определяет организация.', 'Бөлім қолмен қайтарымсыз тазалауға арналмаған. Мерзімді ұйым анықтайды.', 'This section is not for manual irreversible deletion. The organization defines the retention period.'),
+    result: text('Понятно, сколько и на каком основании хранятся результаты обучения.', 'Оқу нәтижелерінің қанша уақыт және қандай негізде сақталатыны түсінікті.', 'You can see how long learning results are retained and on what basis.'),
+    important: text('Методист не изменяет политики и не удаляет доказательства из этого раздела.', 'Әдіскер бұл бөлімде саясаттарды өзгертпейді және дәлелдерді жоймайды.', 'A methodologist cannot change policies or delete evidence from this section.'),
   },
   {
     id: 'candidate-assessments', paths: ['/candidate-assessments'], roles: ['methodologist'],
@@ -135,7 +135,7 @@ const TOPICS: readonly HelpTopicDefinition[] = [
   {
     id: 'assignments', paths: ['/assignments'], roles: ['methodologist'],
     title: text('Назначения и доступ', 'Тағайындаулар және қолжетімділік', 'Assignments and access'),
-    purpose: text('Выдача сотрудникам конкретного курса или программы со сроком прохождения.', 'Қызметкерлерге курс не бағдарламаны өту мерзімімен беру.', 'Assign a course or program to employees with a completion deadline.'),
+    purpose: text('Выдача сотрудникам опубликованного курса и выбор способа доступа.', 'Қызметкерлерге жарияланған курсты тағайындау және қолжетімділік тәсілін таңдау.', 'Assign a published course to employees and choose how they receive access.'),
     steps: [text('Выберите опубликованный материал.', 'Жарияланған материалды таңдаңыз.', 'Choose published learning content.'), text('Проверьте получателей и срок.', 'Алушылар мен мерзімді тексеріңіз.', 'Verify recipients and deadline.'), text('Создайте назначение и убедитесь, что доступ появился.', 'Тағайындау жасап, қолжетімділік ашылғанын тексеріңіз.', 'Create the assignment and confirm access is available.')],
     example: text('Курс по ИБ назначается всем кассирам двух филиалов до конца недели.', 'ИБ курсы екі филиалдың барлық кассирлеріне апта соңына дейін тағайындалады.', 'An information-security course is assigned to cashiers in two branches by week end.'),
     result: text('У сотрудников появляется обучение, а у методиста — контроль статусов.', 'Қызметкерлерде оқу, әдіскерде мәртебелерді бақылау пайда болады.', 'Learners receive access and the methodologist can track status.'),

@@ -68,7 +68,7 @@ describe('route and capability registry', () => {
 
     expect(procedureRoute).toMatchObject({
       href: '/training-procedures',
-      section: 'workforce',
+      section: 'results',
       sidebar: true,
       commandPalette: true,
       capability: 'configure_training_procedures',
@@ -78,6 +78,31 @@ describe('route and capability registry', () => {
     expect(canAccessRegisteredRoute('admin', '/training-procedures')).toBe(false);
   });
 
+  it('orders the methodologist workspace by HR tasks and keeps employees beside groups', () => {
+    const routes = getNavigationRoutes('methodologist', 'sidebar');
+
+    expect(routes.map(({ id }) => id)).toEqual([
+      'methodologist-dashboard',
+      'documents',
+      'ai-generation',
+      'courses',
+      'quizzes',
+      'learning-paths-manage',
+      'course-assignments',
+      'staff',
+      'cohorts',
+      'candidate-assessments',
+      'training-log',
+      'training-procedures',
+      'training-retention',
+    ]);
+    expect(routes.find(({ id }) => id === 'staff')?.section).toBe('workforce');
+    expect(routes.find(({ id }) => id === 'staff')?.href).toBe('/staff');
+    expect(routes.find(({ id }) => id === 'cohorts')?.section).toBe('workforce');
+    expect(routes.findIndex(({ id }) => id === 'cohorts'))
+      .toBe(routes.findIndex(({ id }) => id === 'staff') + 1);
+  });
+
   it('keeps contextual workforce tools out of global navigation', () => {
     const routes = getNavigationRoutes('methodologist', 'sidebar');
     expect(routes[0].href).toBe('/dashboard');
@@ -85,7 +110,6 @@ describe('route and capability registry', () => {
       'competencies',
       'training-rules',
       'invitations',
-      'course-assignments',
     ];
     expect(routes.map(({ id }) => id)).not.toEqual(expect.arrayContaining(hiddenContextualRoutes));
     expect(getNavigationRoutes('methodologist', 'commandPalette').map(({ id }) => id))

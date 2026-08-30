@@ -28,6 +28,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Document library can offer a YouTube source flow with RU, KK, and EN caption
   preference when the backend feature flag is enabled.
+- Methodologist navigation now follows the operational sequence from source
+  documents and course creation through assignment, employees, and results;
+  employee structure and employee groups are adjacent, and the staff menu item
+  remains active across structure and import tabs.
+- Contextual help no longer repeats its purpose block, and retention help now
+  reflects the methodologist's read-only policy view instead of suggesting
+  unavailable policy mutations.
 
 ### Fixed
 

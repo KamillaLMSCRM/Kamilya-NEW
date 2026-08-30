@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { CircleHelp, Lightbulb, ListChecks, ShieldAlert, Target } from 'lucide-react';
+import { CircleHelp, Lightbulb, ListChecks, ShieldAlert } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 
 import { Modal } from '@/components/ui';
@@ -10,9 +10,9 @@ import { getContextualHelp } from '@/lib/contextualHelp';
 import { useAuthStore } from '@/store/authStore';
 
 const CHROME = {
-  ru: { button: 'Справка', purpose: 'Для чего нужен раздел', steps: 'Как использовать', example: 'Пример', result: 'Что получится', important: 'Важно' },
-  kk: { button: 'Анықтама', purpose: 'Бөлім не үшін қажет', steps: 'Қалай пайдалану керек', example: 'Мысал', result: 'Нәтиже', important: 'Маңызды' },
-  en: { button: 'Help', purpose: 'What this section is for', steps: 'How to use it', example: 'Example', result: 'Expected result', important: 'Important' },
+  ru: { button: 'Справка', steps: 'Как использовать', example: 'Пример', result: 'Что получится', important: 'Важно' },
+  kk: { button: 'Анықтама', steps: 'Қалай пайдалану керек', example: 'Мысал', result: 'Нәтиже', important: 'Маңызды' },
+  en: { button: 'Help', steps: 'How to use it', example: 'Example', result: 'Expected result', important: 'Important' },
 } as const;
 
 export function ContextualHelpButton() {
@@ -46,10 +46,6 @@ export function ContextualHelpButton() {
         className="max-w-3xl"
       >
         <div className="space-y-5 text-sm text-foreground">
-          <section className="rounded-xl border border-border bg-muted/30 p-4">
-            <h3 className="mb-2 flex items-center gap-2 font-bold"><Target className="h-4 w-4 text-primary" aria-hidden="true" />{labels.purpose}</h3>
-            <p className="leading-6 text-muted-foreground">{help.purpose}</p>
-          </section>
           <section>
             <h3 className="mb-3 flex items-center gap-2 font-bold"><ListChecks className="h-4 w-4 text-primary" aria-hidden="true" />{labels.steps}</h3>
             <ol className="space-y-2">

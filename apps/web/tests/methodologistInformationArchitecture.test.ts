@@ -104,6 +104,21 @@ describe("methodologist information architecture", () => {
     expect(getNavigationRoutes("admin", "sidebar").some((route) => route.id === "course-assignments")).toBe(false);
   });
 
+  it("groups the workspace around methodologist tasks", () => {
+    const sidebar = getNavigationRoutes("methodologist", "sidebar");
+    const sections = Object.fromEntries(sidebar.map((route) => [route.id, route.section]));
+
+    expect(sections["documents"]).toBe("content");
+    expect(sections["learning-paths-manage"]).toBe("delivery");
+    expect(sections["course-assignments"]).toBe("delivery");
+    expect(sections["staff"]).toBe("workforce");
+    expect(sections["cohorts"]).toBe("workforce");
+    expect(sections["training-log"]).toBe("results");
+    expect(sections["training-procedures"]).toBe("results");
+    expect(sections["training-retention"]).toBe("results");
+    expect(sidebar.find((route) => route.id === "staff")?.href).toBe("/staff");
+  });
+
   it("does not advertise the unfinished position onboarding quiz as a usable flow", () => {
     expect(qualificationCardSource).not.toContain('{ id: "onboarding", label: "Onboarding-тест"');
     expect(qualificationCardSource).not.toContain("AI-рекомендациях и onboarding-тесте");

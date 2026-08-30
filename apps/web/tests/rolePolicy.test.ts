@@ -90,16 +90,16 @@ describe('auth redirect policy', () => {
 });
 
 describe('navigation active state', () => {
-  it('matches the staff structure link only for its selected tab', () => {
+  it('keeps the canonical staff item active across its URL-backed tabs', () => {
     expect(isNavigationItemActive(
-      '/staff?tab=structure',
+      '/staff',
       '/staff',
       new URLSearchParams('tab=structure'),
     )).toBe(true);
     expect(isNavigationItemActive(
-      '/staff?tab=structure',
+      '/staff',
       '/staff',
       new URLSearchParams('tab=import'),
-    )).toBe(false);
+    )).toBe(true);
   });
 });

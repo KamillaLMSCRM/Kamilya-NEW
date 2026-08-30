@@ -1135,3 +1135,19 @@ ANY TOKEN FAILURE.
   test/typecheck/build gate pass on the same working tree.
 - Prevention: compatibility request tests must assert all selection-dependent
   fields, including the default course format, whenever generation settings change.
+
+## TEST-004 - Typecheck raced with Next.js generated-type replacement
+
+- Date: 2026-08-30.
+- Symptom: `pnpm typecheck` reported multiple `TS6053` missing files under
+  `.next/types` while `pnpm exec next build` was running in parallel.
+- Cause: both commands shared the same `.next` directory; the build replaced its
+  generated type tree while TypeScript was reading files matched by `tsconfig.json`.
+- Fix: allow the build to finish, then run `pnpm typecheck` sequentially against the
+  stable generated tree.
+- Verification: the production build completed successfully, the subsequent
+  standalone `pnpm typecheck` exited `0`, and the full frontend suite remained
+  `82` files / `410` tests passed.
+- Prevention: never run `next build` and `tsc --noEmit` concurrently in the same
+  checkout. Parallelize lint or tests instead, then run typecheck after the build
+  has finished or use isolated output directories.
