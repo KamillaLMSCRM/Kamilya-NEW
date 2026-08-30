@@ -2,22 +2,7 @@
 
 import pytest
 
-from app.core.celery_app import _dev_task_always_eager, celery_app, settings
-
-
-def test_eager_tasks_are_opt_in_for_render_development(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("CELERY_TASK_ALWAYS_EAGER", "true")
-    monkeypatch.setattr(settings, "DEPLOYMENT_ENVIRONMENT", "render-development")
-
-    assert _dev_task_always_eager() is True
-
-
-def test_eager_tasks_are_rejected_outside_render_development(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("CELERY_TASK_ALWAYS_EAGER", "true")
-    monkeypatch.setattr(settings, "DEPLOYMENT_ENVIRONMENT", "production")
-
-    with pytest.raises(RuntimeError, match="restricted to render-development"):
-        _dev_task_always_eager()
+from app.core.celery_app import celery_app
 
 
 @pytest.mark.parametrize(

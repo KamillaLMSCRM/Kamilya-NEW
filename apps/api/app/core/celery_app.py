@@ -11,20 +11,6 @@ from app.core.config import get_settings
 settings = get_settings()
 
 
-def _dev_task_always_eager() -> bool:
-    requested = os.getenv("CELERY_TASK_ALWAYS_EAGER", "false").strip().lower() in {
-        "1",
-        "true",
-        "yes",
-        "on",
-    }
-    if requested and settings.DEPLOYMENT_ENVIRONMENT != "render-development":
-        raise RuntimeError(
-            "CELERY_TASK_ALWAYS_EAGER is restricted to render-development"
-        )
-    return requested
-
-
 def _redis_ssl_options() -> dict[str, object] | None:
     """Build Celery TLS options from the Redis URL and explicit policy.
 
@@ -45,7 +31,6 @@ def _redis_ssl_options() -> dict[str, object] | None:
 
 
 _redis_ssl_options = _redis_ssl_options()
-_task_always_eager = _dev_task_always_eager()
 
 celery_app = Celery(
     "kamilya_lms",
@@ -71,8 +56,6 @@ celery_app.conf.update(
     timezone="UTC",
     enable_utc=True,
     task_track_started=True,
-    task_always_eager=_task_always_eager,
-    task_eager_propagates=_task_always_eager,
     task_acks_late=True,
     worker_prefetch_multiplier=1,
     task_default_queue="maintenance",

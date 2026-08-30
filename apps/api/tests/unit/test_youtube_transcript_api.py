@@ -37,7 +37,14 @@ async def test_eager_analysis_dispatch_uses_current_event_loop(monkeypatch):
     from app.modules.youtube_transcript import operations, tasks
 
     calls = []
-    monkeypatch.setitem(youtube_router.celery_app.conf, "task_always_eager", True)
+    monkeypatch.setattr(
+        youtube_router,
+        "get_settings",
+        lambda: SimpleNamespace(
+            YOUTUBE_INLINE_EXECUTION=True,
+            DEPLOYMENT_ENVIRONMENT="render-development",
+        ),
+    )
     async def fake_run(**kwargs):
         calls.append(kwargs)
 
@@ -57,6 +64,20 @@ async def test_eager_analysis_dispatch_uses_current_event_loop(monkeypatch):
 
     assert calls[0]["job_id"] == "youtube-job-1"
     assert calls[0]["preferred_languages"] == ["ru"]
+
+
+def test_inline_execution_is_rejected_outside_render_development(monkeypatch):
+    monkeypatch.setattr(
+        youtube_router,
+        "get_settings",
+        lambda: SimpleNamespace(
+            YOUTUBE_INLINE_EXECUTION=True,
+            DEPLOYMENT_ENVIRONMENT="production",
+        ),
+    )
+
+    with pytest.raises(RuntimeError, match="restricted to render-development"):
+        youtube_router._youtube_inline_execution_enabled()
 
 
 def test_request_schema_validates_url_canonically():

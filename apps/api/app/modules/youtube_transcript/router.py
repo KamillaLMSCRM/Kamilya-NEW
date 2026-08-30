@@ -13,7 +13,6 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import require_role, require_tenant_user
-from app.core.celery_app import celery_app
 from app.core.config import get_settings
 from app.core.db import get_db
 from app.models.ai_job import AIJob
@@ -45,6 +44,15 @@ router = APIRouter(
 logger = logging.getLogger(__name__)
 
 
+def _youtube_inline_execution_enabled() -> bool:
+    settings = get_settings()
+    if not settings.YOUTUBE_INLINE_EXECUTION:
+        return False
+    if settings.DEPLOYMENT_ENVIRONMENT != "render-development":
+        raise RuntimeError("YOUTUBE_INLINE_EXECUTION is restricted to render-development")
+    return True
+
+
 def _feature_unavailable() -> HTTPException:
     return HTTPException(
         status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -66,7 +74,7 @@ async def _dispatch_youtube_import(*, job_id: str, tenant_id: UUID, user_id: UUI
         "url": url,
         "preferred_languages": languages,
     }
-    if celery_app.conf.task_always_eager:
+    if _youtube_inline_execution_enabled():
         from app.modules.youtube_transcript.operations import run_youtube_import
 
         await run_youtube_import(
@@ -84,7 +92,7 @@ async def _dispatch_youtube_analysis(*, job_id: str, tenant_id: UUID, url: str, 
     from app.modules.youtube_transcript.tasks import youtube_analyze_task
 
     kwargs = {"job_id": job_id, "tenant_id": str(tenant_id), "url": url, "preferred_languages": languages}
-    if celery_app.conf.task_always_eager:
+    if _youtube_inline_execution_enabled():
         from app.modules.youtube_transcript.operations import run_youtube_analysis
 
         await run_youtube_analysis(

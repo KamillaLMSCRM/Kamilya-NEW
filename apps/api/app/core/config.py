@@ -324,6 +324,7 @@ class Settings(BaseSettings):
 
     # YouTube transcript import: bounded worker flow, disabled by default.
     YOUTUBE_IMPORT_ENABLED: bool = False
+    YOUTUBE_INLINE_EXECUTION: bool = False
     YOUTUBE_MAX_VIDEO_DURATION_SECONDS: int = Field(default=7200, ge=60, le=7200)
     YOUTUBE_MAX_TOTAL_CHARS: int = Field(default=500_000, ge=1000, le=2_000_000)
     YOUTUBE_PROVIDER_TIMEOUT_SECONDS: float = Field(default=20.0, ge=3.0, le=60.0)
