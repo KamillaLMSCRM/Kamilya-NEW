@@ -162,7 +162,10 @@ async def test_reuse_reason_is_persisted_and_starts_an_independent_draft(monkeyp
     db.execute.assert_awaited_once()
     assert submit.await_args.kwargs["course_id"] is None
     assert submit.await_args.kwargs["params"]["reuse_reason"] == "different_audience"
-    assert submit.await_args.kwargs["task_kwargs"](SimpleNamespace(id="job-1"))["reuse_reason"] == "different_audience"
+    task_kwargs = submit.await_args.kwargs["task_kwargs"](SimpleNamespace(id="job-1"))
+    assert task_kwargs["reuse_reason"] == "different_audience"
+    assert task_kwargs["num_modules"] == 1
+    assert task_kwargs["lessons_per_module"] == 1
 
 
 def test_reuse_reason_cannot_silently_replace_an_existing_course_regeneration() -> None:

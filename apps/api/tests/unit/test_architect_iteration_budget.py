@@ -69,6 +69,34 @@ class _ExploringLLM:
         )
 
 
+class _BudgetCorrectingLLM:
+    def __init__(self):
+        self.calls = 0
+
+    async def ainvoke(self, messages):
+        self.calls += 1
+        lesson_count = 2 if self.calls == 1 else 1
+        payload = {
+            "title": "Compact rules course",
+            "description": "Grounded course",
+            "modules": [
+                {
+                    "title": "Rules",
+                    "lessons": [
+                        {
+                            "title": f"Procedure {index}",
+                            "objectives": ["Apply the procedure"],
+                            "source_doc_ids": ["doc-1"],
+                            "relevant_headings": ["Procedure"],
+                        }
+                        for index in range(lesson_count)
+                    ],
+                }
+            ],
+        }
+        return SimpleNamespace(content=f"```json\n{json.dumps(payload)}\n```")
+
+
 @pytest.mark.asyncio
 async def test_architect_reserves_a_final_turn_when_model_keeps_using_tools(monkeypatch):
     monkeypatch.setattr(core_db, "async_session_factory", lambda: _SessionContext())
@@ -82,6 +110,25 @@ async def test_architect_reserves_a_final_turn_when_model_keeps_using_tools(monk
     )
 
     assert structure.title == "Rules course"
+    assert llm.calls == 2
+
+
+@pytest.mark.asyncio
+async def test_architect_rejects_oversized_structure_before_lesson_generation(monkeypatch):
+    monkeypatch.setattr(core_db, "async_session_factory", lambda: _SessionContext())
+    llm = _BudgetCorrectingLLM()
+
+    structure = await run_architect(
+        llm=llm,
+        tools={"list_documents": lambda: _async_value('[{"id":"doc-1"}]')},
+        num_modules=1,
+        lessons_per_module=1,
+        max_iterations=4,
+        tenant_id="00000000-0000-0000-0000-000000000001",
+    )
+
+    assert len(structure.modules) == 1
+    assert len(structure.modules[0].lessons) == 1
     assert llm.calls == 2
 
 

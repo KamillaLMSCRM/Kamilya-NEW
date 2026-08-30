@@ -468,6 +468,7 @@ async def generate_course(
                 "documents": [str(document_id) for document_id in req.documents],
                 "target_audience": req.target_audience,
                 "num_modules": resolved_modules,
+                "lessons_per_module": structure.lessons_per_module,
                 "language": req.language,
                 "course_id": str(target_course_id) if target_course_id else None,
                 "tenant_id": str(user.tenant_id) if user.tenant_id else None,

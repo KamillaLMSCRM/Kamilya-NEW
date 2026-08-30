@@ -253,6 +253,7 @@ def _build_system_prompt(
     goals: list[str] | None = None,
     course_hours: float | None = None,
     num_modules: int | None = None,
+    lessons_per_module: int | None = None,
     language: str = "ru",
     guidance: str | None = None,
     target_audience: str = "",
@@ -271,12 +272,17 @@ def _build_system_prompt(
             "Focus modules and lessons on content that addresses these goals.\n"
         )
 
-    if course_hours is not None or num_modules is not None:
+    if course_hours is not None or num_modules is not None or lessons_per_module is not None:
         lines = ["\n\n## Course Constraints\n"]
         if course_hours is not None:
             lines.append(f"- Target duration: {course_hours:g} hours")
         if num_modules is not None:
             lines.append(f"- Modules/sections: {num_modules}")
+        if lessons_per_module is not None:
+            lines.append(f"- Maximum lessons per module: {lessons_per_module}")
+            if num_modules is not None:
+                lines.append(f"- Maximum lessons in the whole course: {num_modules * lessons_per_module}")
+            lines.append("These lesson limits are mandatory. Combine closely related source topics instead of exceeding them.")
         prompt += "\n".join(lines)
 
     lang_names = {"ru": "Русский", "kk": "Қазақша", "en": "English"}
@@ -375,6 +381,7 @@ async def run_architect(
     goals: list[str] | None = None,
     course_hours: float | None = None,
     num_modules: int | None = None,
+    lessons_per_module: int | None = None,
     language: str = "ru",
     guidance: str | None = None,
     on_message: Callable | None = None,
@@ -395,6 +402,7 @@ async def run_architect(
         goals=goals,
         course_hours=course_hours,
         num_modules=num_modules,
+        lessons_per_module=lessons_per_module,
         language=language,
         guidance=guidance,
         target_audience=target_audience,
@@ -503,7 +511,36 @@ When ready to output the final course structure, output ONLY the JSON code block
         # Check if this is the final JSON output
         if "```json" in content and '"modules"' in content:
             try:
-                return _parse_course_structure(content)
+                structure = _parse_course_structure(content)
+                budget_errors: list[str] = []
+                if num_modules is not None and len(structure.modules) != num_modules:
+                    budget_errors.append(f"exactly {num_modules} modules are required")
+                if lessons_per_module is not None:
+                    oversized = [
+                        module.title
+                        for module in structure.modules
+                        if len(module.lessons) > lessons_per_module
+                    ]
+                    if oversized:
+                        budget_errors.append(
+                            f"every module must contain at most {lessons_per_module} lessons"
+                        )
+                if budget_errors:
+                    messages.append({"role": "assistant", "content": content})
+                    messages.append(
+                        {
+                            "role": "user",
+                            "content": (
+                                "Your course structure violates the mandatory size budget: "
+                                + "; ".join(budget_errors)
+                                + ". Merge related topics and output the complete corrected JSON ONLY."
+                            ),
+                        }
+                    )
+                    if on_message:
+                        on_message("Course structure exceeded the mandatory size budget; requesting correction")
+                    continue
+                return structure
             except ValueError as e:
                 # Ask LLM to fix the broken JSON
                 messages.append({"role": "assistant", "content": content})

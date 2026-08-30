@@ -336,6 +336,7 @@ async def run_generation_pipeline(
     documents: list[str],
     target_audience: str = "",
     num_modules: int = 3,
+    lessons_per_module: int | None = None,
     language: str = "ru",
     goals: list[str] | None = None,
     course_hours: float | None = None,
@@ -445,6 +446,7 @@ async def run_generation_pipeline(
             goals=goals,
             course_hours=course_hours,
             num_modules=num_modules,
+            lessons_per_module=lessons_per_module,
             language=language,
             guidance=effective_guidance,
             on_message=lambda msg: asyncio.create_task(_update_job_db(job_id, tenant_id=tenant_id, message=f"Architect: {msg}")),
@@ -532,6 +534,7 @@ async def run_generation_pipeline(
                 goals=goals,
                 course_hours=course_hours,
                 num_modules=num_modules,
+                lessons_per_module=lessons_per_module,
                 language=language,
                 guidance=recovery_guidance,
                 on_message=lambda msg: asyncio.create_task(

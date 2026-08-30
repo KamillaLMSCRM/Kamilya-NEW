@@ -65,7 +65,10 @@ def test_failed_pipeline_result_is_terminal_and_not_retried(monkeypatch):
     async def claimed(*args, **kwargs):
         return True
 
+    captured = {}
+
     async def failed_pipeline(**kwargs):
+        captured.update(kwargs)
         return SimpleNamespace(status="failed", message="provider failed", progress=42)
 
     monkeypatch.setattr(db_module, "async_session_factory", Factory())
@@ -73,9 +76,18 @@ def test_failed_pipeline_result_is_terminal_and_not_retried(monkeypatch):
     monkeypatch.setattr(tasks, "run_generation_pipeline", failed_pipeline)
     monkeypatch.setattr(tasks, "_run_async", lambda awaitable: asyncio.run(awaitable))
 
-    result = tasks.generate_course_task.run(job_id="job-1", documents=[], tenant_id=str(uuid4()), user_id=str(uuid4()))
+    result = tasks.generate_course_task.run(
+        job_id="job-1",
+        documents=[],
+        num_modules=1,
+        lessons_per_module=4,
+        tenant_id=str(uuid4()),
+        user_id=str(uuid4()),
+    )
 
     assert result == {"job_id": "job-1", "status": "failed", "message": "provider failed", "progress": 42}
+    assert captured["num_modules"] == 1
+    assert captured["lessons_per_module"] == 4
 
 
 def test_pipeline_exception_is_persisted_as_terminal_failure(monkeypatch):
