@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Card, CardHeader, CardTitle, CardContent, Button, Badge, Table, Modal, Input } from '@/components/ui';
+import { Card, CardContent, Button, Badge, Table, Modal, Input } from '@/components/ui';
 import { toast } from '@/components/ui/Toast';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
@@ -431,10 +431,8 @@ export default function AdminTeamPage() {
         open={showCreateModal}
         onOpenChange={handleCreateModalOpenChange}
         closeOnBackdrop={false}
+        title={t('users.teamPage.newMember')}
       >
-        <CardHeader>
-          <CardTitle>{t('users.teamPage.newMember')}</CardTitle>
-        </CardHeader>
         <CardContent>
           <form
             key={createFormKey}
@@ -548,15 +546,24 @@ export default function AdminTeamPage() {
             </p>
           )}
           {createError && <p className="text-sm text-destructive">{createError}</p>}
-          <Button
-            type="submit"
-            className="w-full"
-            disabled={isCreating || isLookingUpAccount || (existingAccount != null && assignableRoles.length === 0)}
-          >
-            {isCreating
-              ? t(existingAccount ? 'users.teamPage.addingRole' : 'users.teamPage.creating')
-              : t(existingAccount ? 'users.teamPage.addRoleButton' : 'users.createButton')}
-          </Button>
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowCreateModal(false)}
+              disabled={isCreating}
+            >
+              {t('common.cancel')}
+            </Button>
+            <Button
+              type="submit"
+              disabled={isCreating || isLookingUpAccount || (existingAccount != null && assignableRoles.length === 0)}
+            >
+              {isCreating
+                ? t(existingAccount ? 'users.teamPage.addingRole' : 'users.teamPage.creating')
+                : t(existingAccount ? 'users.teamPage.addRoleButton' : 'users.createButton')}
+            </Button>
+          </div>
           </form>
         </CardContent>
       </Modal>

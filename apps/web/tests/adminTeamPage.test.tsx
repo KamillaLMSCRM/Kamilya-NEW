@@ -93,5 +93,19 @@ describe('tenant team modal', () => {
 
     expect(emailInput).toBeInTheDocument();
     expect(emailInput).toHaveValue('new.user@example.com');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Отмена' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('offers an explicit close control instead of relying on the backdrop', async () => {
+    render(<AdminTeamPage />);
+    await screen.findByText(existingUser.email);
+
+    fireEvent.click(screen.getByRole('button', { name: /\+/ }));
+    expect(screen.getByRole('dialog', { name: 'Новый участник команды' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /закрыть/i }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 });
