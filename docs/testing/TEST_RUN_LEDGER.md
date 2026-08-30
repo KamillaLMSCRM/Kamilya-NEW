@@ -113,3 +113,25 @@ Rules:
 - Platform audit: `BLOCKED`; superadmin handoff opened a credential login unavailable in the signed-in session. No credentials entered.
 - Termination modal, assignment email mode, learner final screen, and lesson textarea resize: `NOT VERIFIED`.
 - Residue: none; no mutations, uploads, notifications, or cleanup.
+
+## RUN-20260831-METHODOLOGIST-DEV-13E43E4 — full section and key-flow acceptance
+
+- Environment / exact frontend SHA: `development` / `13e43e497ef76b9e6909e32c0aaa9f85c2da7829`.
+- Provider and CI evidence: Vercel deployment `READY` with the dev alias attached to the exact SHA; GitHub Actions run `33332934886` completed `success`, including frontend typecheck/lint, backend unit and DB-backed suites, release and tenant-security gates, secret detection, Python quality, PostgreSQL/pgvector RLS, and the document-to-course critical journey.
+- Tenant / role: approved synthetic QA tenant / methodologist, plus a bounded admin impersonation for team-modal and audit-log readback. No unrelated tenant was opened or mutated.
+- Navigation and help: `PASS`; all 13 primary methodologist routes loaded through the normal sidebar without a visible 5xx. Every contextual-help dialog opened, stayed inside the viewport, matched the final page/menu terminology, and closed explicitly.
+- Information architecture: `PASS`; the sidebar is grouped as courses/materials, learning assignment, employees/candidates, and results. Staff and groups are adjacent; candidate testing is accurately included under `СОТРУДНИКИ И КАНДИДАТЫ`.
+- Documents: `PASS`; the indexed synthetic source remained ready and selectable.
+- Course generation preflight: `PASS`; one selected source produced a coherent thematic-group result and the short-format recommendation `1` module, about `5` lessons, `20` minutes. Duplicate-source protection required an explicit business reason before independent generation.
+- Course generation execution: `BLOCKED`; two bounded attempts separated by a substantial pause returned visible `429 Rate limit exceeded`. No new AI job or course was created, and no third identical attempt was made.
+- Courses and tests: `PASS_WITH_FOLLOW_UP`; the existing published synthetic course opened and its lesson editor exposed vertical resizing. The test list now exposes lessons as keyboard-accessible pressed-state buttons. Manual review found a repeated answer-length cue in generated single-choice questions; quality remediation remains open.
+- Programs, groups, and assignments: `PASS`; the existing one-course program remained published, the synthetic group retained two members, and both group-derived assignments read back as active/enrolled. The email mode excluded no-email learners before a course was selected and explained that they require personal link/PIN access. No new link/PIN was issued in this run.
+- Staff: `PASS`; employee edit and termination dialogs exposed the expected fields, preserved training-history copy, required a termination reason, and were closed without mutation.
+- Candidate testing: `PASS_READ_ONLY`; page, course selector, campaign controls, and contextual help loaded. No candidate access or notification was created.
+- Training log and admin audit: `PASS`; the learning log exposed course/status/date filters and export controls. The admin audit exposed actor, action, object, and period filters and read back employee update/termination, course review/publication, procedure creation, and impersonation events with an attributable account.
+- Procedures and retention: `PASS`; a synthetic draft procedure had already been saved and read back; retention remained appropriately read-only for the methodologist.
+- Admin team modal: `PASS`; the visible title, close control, optional-password explanation, and Cancel action were present. A backdrop click preserved the dialog; explicit Cancel closed it.
+- Learner completion using a newly issued personal link/PIN: `NOT VERIFIED`; issuing a new persistent access credential requires a separate action-time confirmation. Prior production synthetic evidence remains separate and was not reused as dev proof.
+- Local focused gates: `18/18` and `19/19` targeted frontend tests passed in the two UX rounds; `pnpm typecheck` passed after each round.
+- Mutations / residue: the previously approved synthetic course, program, assignments, procedure, groups, and employees were preserved. No email, external notification, candidate access, learner credential, employee termination, or unrelated tenant mutation occurred. The failed AI submissions created no job.
+- Overall: `PASS_WITH_FOLLOW_UP`; dev is ready for UX review, but AI generation remains blocked by the tenant/rate-limit path and a fresh learner credential flow remains gated.

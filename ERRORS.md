@@ -1151,3 +1151,30 @@ ANY TOKEN FAILURE.
 - Prevention: never run `next build` and `tsc --noEmit` concurrently in the same
   checkout. Parallelize lint or tests instead, then run typecheck after the build
   has finished or use isolated output directories.
+
+## TOOL-005 - Repository-relative paths were staged from the API subdirectory
+
+- Date: 2026-08-31.
+- Symptom: `git add apps/web/...` failed with `pathspec did not match any files`, and the following push reported `Everything up-to-date` because no commit had been created.
+- Cause: the command ran from `apps/api` while its pathspecs were written relative to the repository root.
+- Fix: stage and commit from the repository root, then enter `apps/api` only for process-local `.env` execution of the authenticated push helper.
+- Verification: commit `9770dbc5e1f98a5a9af408d20f8fad6e228303d0` was created with exactly the intended seven frontend files and pushed to `origin/dev`.
+- Prevention: treat repository-relative Git pathspecs and application-local environment runners as separate working-directory phases; never combine them under an implicit cwd.
+
+## DEPLOY-006 - Browser route audit crossed a frontend alias switch
+
+- Date: 2026-08-31.
+- Symptom: the first methodologist route sweep reached `/cohorts`, then returned to `/admin/super`; four later sidebar locators disappeared.
+- Cause: the shared dev alias switched frontend deployments during the authenticated impersonation session, invalidating the in-memory impersonation state.
+- Fix: wait for the exact Vercel SHA to reach `READY` with the dev alias attached, restore the approved synthetic impersonation, and rerun the complete route/help matrix.
+- Verification: all 13 methodologist routes and help dialogs passed on exact SHA `13e43e497ef76b9e6909e32c0aaa9f85c2da7829`.
+- Prevention: bind browser acceptance to an immutable READY deployment or wait for alias convergence before creating role/session state; never classify an alias-switch interruption as a product defect.
+
+## INFRA-008 - Vercel project identifiers were assumed to exist in the root env
+
+- Date: 2026-08-31.
+- Symptom: a read-only deployment query failed locally with a `TypeError` because `VERCEL_PROJECT_ID` was absent even though `VERCEL_TOKEN` was present and valid.
+- Cause: the helper assumed token, project ID, and team ID were all configured instead of checking the canonical root `.env` contract first.
+- Fix: use the token process-locally, list accessible projects without exposing values, select the exact `kamilya-lms-dev` project, and use its non-secret project/team identifiers for provider readback.
+- Verification: Vercel returned exact SHA `13e43e497ef76b9e6909e32c0aaa9f85c2da7829` as `READY` with `kamilya-lms-dev.vercel.app` attached.
+- Prevention: perform presence-only checks before composing provider URLs; discover stable non-secret resource IDs read-only when the canonical env intentionally stores only the token.

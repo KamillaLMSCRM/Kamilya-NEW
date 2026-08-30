@@ -144,3 +144,62 @@ Entry template:
 - Expected behavior: Each control should be independently inspectable without saving or submitting.
 - Suggested product correction: None until the controls are observed in a valid session.
 - Status: NOT VERIFIED
+
+## UX-20260831-008 — Methodologist navigation follows HR tasks
+
+- Related run: `RUN-20260831-METHODOLOGIST-DEV-13E43E4`
+- Environment / exact SHA: `development` / `13e43e497ef76b9e6909e32c0aaa9f85c2da7829`
+- State: `FIXED`
+- Severity: `HIGH`
+- Observation: Staff and employee groups were previously separated by unrelated functions, while page, menu, and help terminology also diverged.
+- User impact: An ordinary HR methodologist had to understand the product's internal module structure instead of following the sequence create, assign, manage people, and review results.
+- Resolution: The sidebar now groups courses/materials, learning assignment, employees/candidates, and results. Staff and groups are adjacent. Page titles and help use `Создать курс из материалов`, `Тесты и вопросы`, `Тестирование кандидатов`, `Подтверждение обучения`, and `Сроки хранения результатов` consistently.
+- Evidence: all 13 methodologist routes and help dialogs passed normal-browser acceptance on the exact dev SHA; `RUNTIME-DERIVED` and `PROVIDER-CONFIRMED`.
+- Verification gate: `PASS`.
+
+## UX-20260831-009 — Course generation has no recoverable rate-limit path
+
+- Related run: `RUN-20260831-METHODOLOGIST-DEV-13E43E4`
+- Environment / exact SHA: `development` / `13e43e497ef76b9e6909e32c0aaa9f85c2da7829`
+- State: `BLOCKED`
+- Severity: `HIGH`
+- Observation: After thematic analysis, structure recommendation, and duplicate-source reason selection all succeeded, two bounded generation submissions separated by a substantial pause returned only `Rate limit exceeded`.
+- User impact: The methodologist completes the full setup but cannot tell whether the limit is per minute, daily, tenant-wide, or recoverable, and cannot estimate when work can continue.
+- Evidence: two visible `429` outcomes with no created job; no third unchanged retry; `RUNTIME-DERIVED`.
+- Recommendation: Return a localized explanation with limit scope, remaining allowance, and `retry_after`; display the next safe retry time and prevent an early repeat client-side.
+- Verification gate: submit one approved synthetic job below quota, read back its job ID, then exhaust a disposable quota and verify deterministic `retry_after` guidance without duplicate job creation.
+
+## UX-20260831-010 — Generated answers reveal the correct option by length
+
+- Related run: `RUN-20260831-METHODOLOGIST-DEV-13E43E4`
+- Environment / course: synthetic dev course generated from the QA service standard
+- State: `OPEN`
+- Severity: `HIGH`
+- Observation: Across the inspected single-choice tests, the correct option was repeatedly the most detailed and often reproduced source wording, while distractors were shorter and less specific.
+- User impact: A learner can improve the score by selecting the longest answer instead of understanding the material, invalidating assessment quality.
+- Evidence: browser review of the existing generated course and nine lesson quizzes; `RUNTIME-DERIVED`.
+- Recommendation: Add generation constraints and a deterministic quality gate for answer-length distribution, lexical overlap, implausible distractors, and positional bias. Regenerate only flagged questions and expose the methodologist assistant for targeted revision.
+- Verification gate: evaluate a fixed multilingual corpus and require no statistically dominant correct-answer length/position cue while preserving factual correctness and source grounding.
+
+## UX-20260831-011 — Training log is not an employee learning profile
+
+- Related run: `RUN-20260831-METHODOLOGIST-DEV-13E43E4`
+- Environment / exact SHA: `development` / `13e43e497ef76b9e6909e32c0aaa9f85c2da7829`
+- State: `OPEN`
+- Severity: `MEDIUM`
+- Observation: The journal provides a strong cross-employee list and filters, but opening the course title leads to course content rather than an employee-centric summary.
+- User impact: HR cannot quickly answer how one employee performs over time, which topics are weak, how attempts compare, or which required training remains outstanding.
+- Evidence: normal methodologist browser traversal of the training log; `RUNTIME-DERIVED`.
+- Recommendation: Add an employee learning profile aggregating assignments, completion, attempts, scores, confirmations, certificates, overdue items, and comparisons over a selected period, with drill-down to source records.
+- Verification gate: from a journal employee row, open one profile and reconcile every aggregate against the underlying immutable training records.
+
+## UX-20260831-012 — Admin audit and team-form safety are available on dev
+
+- Related run: `RUN-20260831-METHODOLOGIST-DEV-13E43E4`
+- Environment / exact frontend SHA: `development` / `13e43e497ef76b9e6909e32c0aaa9f85c2da7829`
+- State: `FIXED`
+- Severity: `MEDIUM`
+- Observation: Earlier production acceptance could not reach the audit route, and the create-team-member form lacked an explicit safe close path.
+- Resolution: An authorized dev admin session read back audit filters and attributable actions. The team dialog now has a title, close control, Cancel button, optional-password explanation, and an inert backdrop.
+- Evidence: normal-browser admin readback plus focused component tests; `RUNTIME-DERIVED`.
+- Verification gate: `PASS` on dev; production remains a separate release and acceptance gate.
