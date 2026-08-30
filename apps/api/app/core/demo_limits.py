@@ -210,15 +210,45 @@ async def check_ai_generation_quota(db: AsyncSession, user_id: Any, tenant_id: A
             now = datetime.now(timezone.utc)
             seconds_until_midnight = int((24 * 3600) - (now.hour * 3600 + now.minute * 60 + now.second))
             await r.expire(key, max(seconds_until_midnight, 60))
-        await r.aclose()
         if current > 1:
-            # Daily limit exceeded — raise with same shape.
+            # Keep rejected retries from inflating the durable counter.
+            await r.decr(key)
+            await r.aclose()
             raise DemoLimitExceeded("ai_generation", 1, 1)
+        await r.aclose()
     except DemoLimitExceeded:
         raise
     except Exception as e:  # pragma: no cover — fail-open
         logger.warning(
             "[DEMO_AI_QUOTA] Redis check failed, allowing through: %s",
+            type(e).__name__,
+        )
+
+
+async def release_ai_generation_quota(
+    db: AsyncSession,
+    user_id: Any,
+    tenant_id: Any,
+) -> None:
+    """Return a reserved demo attempt when no generation job was accepted."""
+    if not await _is_demo(db, tenant_id):
+        return
+    try:
+        import redis.asyncio as aioredis
+
+        from app.core.config import get_settings
+
+        r = aioredis.from_url(  # type: ignore[no-untyped-call]
+            get_settings().REDIS_URL,
+            decode_responses=True,
+        )
+        try:
+            await r.delete(_today_utc_key(user_id))
+        finally:
+            await r.aclose()
+    except Exception as e:  # pragma: no cover — fail-open
+        logger.warning(
+            "[DEMO_AI_QUOTA] Redis release failed: %s",
             type(e).__name__,
         )
 

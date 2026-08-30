@@ -298,7 +298,10 @@ async def generate_course(
     user: User = Depends(require_ai_job_access),
 ):
     """Start AI course generation (returns job_id for polling/WebSocket)."""
-    from app.core.demo_limits import check_ai_generation_quota
+    from app.core.demo_limits import (
+        check_ai_generation_quota,
+        release_ai_generation_quota,
+    )
     from app.modules.ai.schemas import MULTI_DOCUMENT_MAX_SOURCES
     from app.modules.ai.source_analysis import (
         analyze_document_set,
@@ -470,8 +473,10 @@ async def generate_course(
             reserve_course_generation=target_course_id is None,
         )
     except AIJobAdmissionLimitReachedError as exc:
+        await release_ai_generation_quota(db, user.id, user.tenant_id)
         raise _admission_http_error(exc) from exc
     except AIJobSubmissionUnavailableError as exc:
+        await release_ai_generation_quota(db, user.id, user.tenant_id)
         raise HTTPException(status_code=503, detail=exc.detail) from exc
 
     return await _job_response(

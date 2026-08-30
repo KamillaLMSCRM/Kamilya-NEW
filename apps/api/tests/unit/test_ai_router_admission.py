@@ -35,6 +35,7 @@ async def test_full_tenant_queue_maps_submission_limit_to_http_429(monkeypatch):
 
     analyze = AsyncMock(return_value=analysis)
     check_quota = AsyncMock()
+    release_quota = AsyncMock()
     submit = AsyncMock(
         side_effect=AIJobAdmissionLimitReachedError(
             tenant_id=tenant_id,
@@ -45,6 +46,7 @@ async def test_full_tenant_queue_maps_submission_limit_to_http_429(monkeypatch):
 
     monkeypatch.setattr("app.modules.ai.source_analysis.analyze_document_set", analyze)
     monkeypatch.setattr("app.core.demo_limits.check_ai_generation_quota", check_quota)
+    monkeypatch.setattr("app.core.demo_limits.release_ai_generation_quota", release_quota)
     monkeypatch.setattr(router, "submit_ai_job", submit)
     monkeypatch.setattr(
         router,
@@ -60,8 +62,9 @@ async def test_full_tenant_queue_maps_submission_limit_to_http_429(monkeypatch):
         AsyncMock(return_value={}),
     )
 
+    db = _lenient_db()
     with pytest.raises(HTTPException) as error:
-        await router.generate_course(request, db=_lenient_db(), user=user)
+        await router.generate_course(request, db=db, user=user)
 
     assert error.value.status_code == 429
     assert error.value.detail == {
@@ -73,6 +76,7 @@ async def test_full_tenant_queue_maps_submission_limit_to_http_429(monkeypatch):
     }
     assert error.value.headers == {"Retry-After": "510"}
     check_quota.assert_awaited_once()
+    release_quota.assert_awaited_once_with(db, user.id, tenant_id)
 
 
 @pytest.mark.asyncio
