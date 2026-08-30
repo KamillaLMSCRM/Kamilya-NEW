@@ -438,9 +438,11 @@ export default function LearningPathsPage() {
           <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{t('learningPaths.title')}</h1>
           <p className="mt-1 max-w-2xl text-muted-foreground">{t('learningPaths.managerDescription')}</p>
         </div>
-        <Button className="gap-2 self-start" onClick={resetEditor}>
-          <Plus className="h-4 w-4" aria-hidden="true" />{t('learningPaths.new')}
-        </Button>
+        {(paths.length > 0 || editing) && (
+          <Button className="gap-2 self-start" onClick={resetEditor}>
+            <Plus className="h-4 w-4" aria-hidden="true" />{t('learningPaths.new')}
+          </Button>
+        )}
       </header>
 
       <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">

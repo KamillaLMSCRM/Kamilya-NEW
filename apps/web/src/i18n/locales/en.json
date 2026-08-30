@@ -129,7 +129,7 @@
     "register": "Register",
     "myDashboard": "My Dashboard",
     "myProfile": "My profile",
-    "aiGeneration": "AI Generation",
+    "aiGeneration": "Create course from materials",
     "userManagement": "User Management",
     "positions": "Positions",
     "staffTree": "Staff structure",
@@ -1018,7 +1018,7 @@
     "staff": "STAFF",
     "courseManagement": "COURSE MANAGEMENT",
     "learning": "LEARNING",
-    "quizConstructor": "Quiz constructor",
+    "quizConstructor": "Tests and questions",
     "certificateTemplate": "Certificate template",
     "userRole": {
       "superadmin": "Superadmin",

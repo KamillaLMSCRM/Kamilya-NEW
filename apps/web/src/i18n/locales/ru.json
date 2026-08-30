@@ -129,7 +129,7 @@
     "register": "Регистрация",
     "myDashboard": "Мой дашборд",
     "myProfile": "Мой профиль",
-    "aiGeneration": "AI Генерация",
+    "aiGeneration": "Создать курс из материалов",
     "userManagement": "Управление пользователями",
     "positions": "Должности",
     "staffTree": "Структура штата",
@@ -1062,7 +1062,7 @@
     "staff": "ПЕРСОНАЛ",
     "courseManagement": "УПРАВЛЕНИЕ КУРСАМИ",
     "learning": "ОБУЧЕНИЕ",
-    "quizConstructor": "Конструктор тестов",
+    "quizConstructor": "Тесты и вопросы",
     "certificateTemplate": "Шаблон сертификата",
     "userRole": {
       "superadmin": "Суперадмин",

@@ -129,7 +129,7 @@
     "register": "Тіркелу",
     "myDashboard": "Менің басқару панелі",
     "myProfile": "Менің профилім",
-    "aiGeneration": "AI Өндіру",
+    "aiGeneration": "Материалдардан курс жасау",
     "userManagement": "Пайдаланушыларды басқару",
     "positions": "Лауазымдар",
     "staffTree": "Штат құрылымы",
@@ -1018,7 +1018,7 @@
     "staff": "ПЕРСОНАЛ",
     "courseManagement": "КУРСТАРДЫ БАСҚАРУ",
     "learning": "ОҚЫТУ",
-    "quizConstructor": "Тест конструкторы",
+    "quizConstructor": "Тесттер мен сұрақтар",
     "certificateTemplate": "Сертификат үлгісі",
     "userRole": {
       "superadmin": "Суперәкімші",

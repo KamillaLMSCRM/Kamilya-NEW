@@ -11,6 +11,7 @@ const qualificationCardSource = readFileSync(
   resolve(process.cwd(), "src/features/positions/PositionQualificationCard.tsx"),
   "utf8",
 );
+const learningPathsSource = readFileSync(resolve(process.cwd(), "src/app/learning-paths/page.tsx"), "utf8");
 
 describe("methodologist information architecture", () => {
   it("registers rules for the active methodologist only", () => {
@@ -117,6 +118,11 @@ describe("methodologist information architecture", () => {
     expect(sections["training-procedures"]).toBe("results");
     expect(sections["training-retention"]).toBe("results");
     expect(sidebar.find((route) => route.id === "staff")?.href).toBe("/staff");
+  });
+
+  it("uses task language and shows one empty-state program action", () => {
+    expect(learningPathsSource).toContain("{(paths.length > 0 || editing) && (");
+    expect(learningPathsSource).toContain("<EmptyManagerState onCreate={resetEditor} t={t} />");
   });
 
   it("does not advertise the unfinished position onboarding quiz as a usable flow", () => {
