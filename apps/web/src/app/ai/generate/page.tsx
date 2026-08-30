@@ -492,10 +492,9 @@ export default function AIGeneratePage() {
     }
   };
 
-  const retryGeneration = async () => {
-    setPageStep('generate');
+  const retryGeneration = () => {
+    setPageStep('documents');
     prepareRetry();
-    await handleGenerate();
   };
 
   const publishCourse = async () => {
@@ -1025,7 +1024,7 @@ export default function AIGeneratePage() {
             queuePosition={t('ai.queuePosition', { position: currentJob.queue_position ?? 0 })}
             estimatedWait={t('ai.estimatedWait', { minutes: Math.max(1, Math.ceil((currentJob.estimated_wait_seconds ?? 0) / 60)) })}
             queueEstimateHint={t('ai.queueEstimateHint')}
-            onRetry={resolveAsyncOperationState(currentJob) === 'stalled' ? () => void refreshJob().catch((error: any) => toast.error(t('common.loadFailed'), { description: error?.response?.data?.detail || error?.message })) : () => void retryGeneration()}
+            onRetry={resolveAsyncOperationState(currentJob) === 'stalled' ? () => void refreshJob().catch((error: any) => toast.error(t('common.loadFailed'), { description: error?.response?.data?.detail || error?.message })) : retryGeneration}
             onCancel={() => void cancelJob().catch((error) => console.error('Cancel failed', error))}
           />
 

@@ -66,6 +66,31 @@ describe('/ai/generate job workflow parity', () => {
     expect(await screen.findByText('Этот файл уже есть в библиотеке: «Правила ИБ», версия 2.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Открыть существующий документ' })).toBeInTheDocument();
   });
+
+  it('returns a restored failed job to the document form without submitting automatically', async () => {
+    localStorage.clear();
+    const failedJob = {
+      ...activeJob,
+      id: 'failed-job',
+      job_type: 'course_generation',
+      course_id: null,
+      status: 'failed',
+      stage: 'failed',
+      message: 'SoftTimeLimitExceeded: generation failed',
+    };
+    apiMock.get.mockImplementation(async (url: string) => {
+      if (url.startsWith('/v1/documents/catalog')) return { data: { items: [], page: { has_more: false } } } as any;
+      if (url === '/v1/ai/jobs') return { data: [failedJob] } as any;
+      throw new Error(`Unexpected GET ${url}`);
+    });
+    render(<AIGeneratePage />);
+
+    expect(await screen.findByText('SoftTimeLimitExceeded: generation failed')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Повторить' }));
+
+    expect(await screen.findByText(/Перетащите документы/)).toBeInTheDocument();
+    expect(apiMock.post).not.toHaveBeenCalledWith('/v1/ai/generate-course', expect.anything());
+  });
 });
 
 const readyDocuments = [
