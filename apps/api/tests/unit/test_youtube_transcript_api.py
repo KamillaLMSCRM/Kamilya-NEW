@@ -2,6 +2,7 @@
 
 from datetime import UTC, datetime
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
 from uuid import uuid4
 
 import pytest
@@ -32,51 +33,22 @@ def _enabled(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_eager_dispatch_runs_in_a_thread(monkeypatch):
-    calls = []
-
-    async def fake_to_thread(dispatch, **kwargs):
-        calls.append((dispatch, kwargs))
-        dispatch(**kwargs)
-
-    monkeypatch.setitem(youtube_router.celery_app.conf, "task_always_eager", True)
-    monkeypatch.setattr(youtube_router.asyncio, "to_thread", fake_to_thread)
-    dispatched = []
-
-    await youtube_router._dispatch_background(
-        lambda **kwargs: dispatched.append(kwargs),
-        job_id="youtube-job-1",
-    )
-
-    assert calls and dispatched == [{"job_id": "youtube-job-1"}]
-
-
-@pytest.mark.asyncio
-async def test_normal_dispatch_stays_on_the_worker_queue_path(monkeypatch):
-    monkeypatch.setitem(youtube_router.celery_app.conf, "task_always_eager", False)
-    dispatched = []
-
-    await youtube_router._dispatch_background(
-        lambda **kwargs: dispatched.append(kwargs),
-        job_id="youtube-job-1",
-    )
-
-    assert dispatched == [{"job_id": "youtube-job-1"}]
-
-
-def test_eager_analysis_dispatch_bypasses_broker(monkeypatch):
-    from app.modules.youtube_transcript import tasks
+async def test_eager_analysis_dispatch_uses_current_event_loop(monkeypatch):
+    from app.modules.youtube_transcript import operations, tasks
 
     calls = []
     monkeypatch.setitem(youtube_router.celery_app.conf, "task_always_eager", True)
-    monkeypatch.setattr(tasks.youtube_analyze_task, "run", lambda **kwargs: calls.append(kwargs))
+    async def fake_run(**kwargs):
+        calls.append(kwargs)
+
+    monkeypatch.setattr(operations, "run_youtube_analysis", fake_run)
     monkeypatch.setattr(
         tasks.youtube_analyze_task,
         "apply_async",
         lambda **kwargs: pytest.fail("eager dispatch must not use the broker"),
     )
 
-    youtube_router._dispatch_youtube_analysis(
+    await youtube_router._dispatch_youtube_analysis(
         job_id="youtube-job-1",
         tenant_id=uuid4(),
         url="https://www.youtube.com/watch?v=dQw4w9WgXcQ",
@@ -127,7 +99,7 @@ async def test_import_endpoint_persists_job_before_dispatch(monkeypatch):
         return SimpleNamespace(id="youtube-job-1")
 
     monkeypatch.setattr(youtube_router, "create_ai_job", fake_create)
-    monkeypatch.setattr(youtube_router, "_dispatch_youtube_import", lambda **kwargs: dispatched.append(kwargs))
+    monkeypatch.setattr(youtube_router, "_dispatch_youtube_import", AsyncMock(side_effect=lambda **kwargs: dispatched.append(kwargs)))
     response = await youtube_router.import_youtube_transcript(
         YouTubeImportRequest(url="https://youtu.be/dQw4w9WgXcQ", preferred_languages=["ru", "ru"]),
         db=db,
@@ -151,7 +123,7 @@ async def test_analysis_endpoint_does_not_create_a_document_before_confirmation(
         return SimpleNamespace(id="youtube-analysis-1")
 
     monkeypatch.setattr(youtube_router, "create_ai_job", fake_create)
-    monkeypatch.setattr(youtube_router, "_dispatch_youtube_analysis", lambda **kwargs: dispatched.append(kwargs))
+    monkeypatch.setattr(youtube_router, "_dispatch_youtube_analysis", AsyncMock(side_effect=lambda **kwargs: dispatched.append(kwargs)))
 
     response = await youtube_router.analyze_youtube_transcript(
         YouTubeImportRequest(url="https://youtu.be/dQw4w9WgXcQ", preferred_languages=["ru"]),
@@ -201,7 +173,7 @@ async def test_confirmation_is_single_use_and_dispatches_the_existing_import_pat
         return SimpleNamespace(id="youtube-import-1")
 
     monkeypatch.setattr(youtube_router, "create_ai_job", fake_create)
-    monkeypatch.setattr(youtube_router, "_dispatch_youtube_import", lambda **kwargs: dispatched.append(kwargs))
+    monkeypatch.setattr(youtube_router, "_dispatch_youtube_import", AsyncMock(side_effect=lambda **kwargs: dispatched.append(kwargs)))
 
     response = await youtube_router.confirm_youtube_analysis(
         analysis.id,

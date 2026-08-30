@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
@@ -57,14 +56,7 @@ def _feature_unavailable() -> HTTPException:
     )
 
 
-async def _dispatch_background(dispatch: Callable[..., None], **kwargs: Any) -> None:
-    if celery_app.conf.task_always_eager:
-        await asyncio.to_thread(dispatch, **kwargs)
-        return
-    dispatch(**kwargs)
-
-
-def _dispatch_youtube_import(*, job_id: str, tenant_id: UUID, user_id: UUID, url: str, languages: list[str]) -> None:
+async def _dispatch_youtube_import(*, job_id: str, tenant_id: UUID, user_id: UUID, url: str, languages: list[str]) -> None:
     from app.modules.youtube_transcript.tasks import youtube_import_task
 
     kwargs = {
@@ -75,17 +67,32 @@ def _dispatch_youtube_import(*, job_id: str, tenant_id: UUID, user_id: UUID, url
         "preferred_languages": languages,
     }
     if celery_app.conf.task_always_eager:
-        youtube_import_task.run(**kwargs)
+        from app.modules.youtube_transcript.operations import run_youtube_import
+
+        await run_youtube_import(
+            job_id=job_id,
+            tenant_id=tenant_id,
+            user_id=user_id,
+            url=url,
+            preferred_languages=languages,
+        )
         return
     youtube_import_task.apply_async(task_id=job_id, kwargs=kwargs)
 
 
-def _dispatch_youtube_analysis(*, job_id: str, tenant_id: UUID, url: str, languages: list[str]) -> None:
+async def _dispatch_youtube_analysis(*, job_id: str, tenant_id: UUID, url: str, languages: list[str]) -> None:
     from app.modules.youtube_transcript.tasks import youtube_analyze_task
 
     kwargs = {"job_id": job_id, "tenant_id": str(tenant_id), "url": url, "preferred_languages": languages}
     if celery_app.conf.task_always_eager:
-        youtube_analyze_task.run(**kwargs)
+        from app.modules.youtube_transcript.operations import run_youtube_analysis
+
+        await run_youtube_analysis(
+            job_id=job_id,
+            tenant_id=tenant_id,
+            url=url,
+            preferred_languages=languages,
+        )
         return
     youtube_analyze_task.apply_async(task_id=job_id, kwargs=kwargs)
 
@@ -108,8 +115,7 @@ async def analyze_youtube_transcript(
     ))
     await db.commit()
     try:
-        await _dispatch_background(
-            _dispatch_youtube_analysis,
+        await _dispatch_youtube_analysis(
             job_id=str(job.id),
             tenant_id=tenant_id,
             url=ref.canonical_url,
@@ -187,8 +193,7 @@ async def confirm_youtube_analysis(
     analysis.result = result
     await db.commit()
     try:
-        await _dispatch_background(
-            _dispatch_youtube_import,
+        await _dispatch_youtube_import(
             job_id=str(import_job.id),
             tenant_id=tenant_id,
             user_id=user_id,
@@ -242,8 +247,7 @@ async def import_youtube_transcript(
     ))
     await db.commit()
     try:
-        await _dispatch_background(
-            _dispatch_youtube_import,
+        await _dispatch_youtube_import(
             job_id=str(job.id),
             tenant_id=tenant_id,
             user_id=user_id,
