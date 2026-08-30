@@ -1,6 +1,6 @@
 # Error and Recurrence Prevention Log
 
-Current as of: 2026-08-30.
+Current as of: 2026-08-31.
 
 This is the single operational log for confirmed Kamilya LMS workflow errors,
 invalid assumptions, fixes, verification, and recurrence prevention. Open product
@@ -1152,7 +1152,7 @@ ANY TOKEN FAILURE.
   checkout. Parallelize lint or tests instead, then run typecheck after the build
   has finished or use isolated output directories.
 
-## TOOL-005 - Repository-relative paths were staged from the API subdirectory
+## TOOL-006 - Repository-relative paths were staged from the API subdirectory
 
 - Date: 2026-08-31.
 - Symptom: `git add apps/web/...` failed with `pathspec did not match any files`, and the following push reported `Everything up-to-date` because no commit had been created.
@@ -1178,3 +1178,12 @@ ANY TOKEN FAILURE.
 - Fix: use the token process-locally, list accessible projects without exposing values, select the exact `kamilya-lms-dev` project, and use its non-secret project/team identifiers for provider readback.
 - Verification: Vercel returned exact SHA `13e43e497ef76b9e6909e32c0aaa9f85c2da7829` as `READY` with `kamilya-lms-dev.vercel.app` attached.
 - Prevention: perform presence-only checks before composing provider URLs; discover stable non-secret resource IDs read-only when the canonical env intentionally stores only the token.
+
+## TEST-005 - Errors journal append reused an existing contract identifier
+
+- Date: 2026-08-31.
+- Symptom: documentation-only CI failed the release-contract gate and the backend suites that import it with `duplicate ids: TOOL-005`.
+- Cause: the new Git working-directory incident was assigned `TOOL-005` without first checking the append-only journal's existing identifiers.
+- Fix: rename the new incident to the next unused identifier, `TOOL-006`, and run the release-contract gate locally before pushing the correction.
+- Verification: `python scripts/ci/release-contract-gate.py` reports the errors journal contract as valid, and its focused reliability test passes.
+- Prevention: before appending an incident, enumerate headings for the selected prefix and choose the next unused number; the release gate remains the required pre-push check for `ERRORS.md` edits.
