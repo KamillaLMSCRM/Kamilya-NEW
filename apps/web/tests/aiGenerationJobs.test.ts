@@ -1,4 +1,7 @@
-import { selectOldestActiveCourseJob } from '@/lib/aiGenerationJobs';
+import {
+  selectLatestTerminalCourseJob,
+  selectOldestActiveCourseJob,
+} from '@/lib/aiGenerationJobs';
 import { describe, expect, it } from 'vitest';
 
 const job = (
@@ -49,5 +52,13 @@ describe('AI generation job recovery', () => {
     ]);
 
     expect(selected?.id).toBe('legacy');
+  });
+
+  it('selects only the latest terminal course-generation job', () => {
+    const olderFailed = { ...job('older', '2026-08-06T08:00:00Z', null, 'failed', 'course_generation'), status: 'failed' };
+    const latestFailed = { ...job('latest', '2026-08-06T08:01:00Z', null, 'failed', 'course_generation'), status: 'failed' };
+    const indexingFailed = { ...job('index', '2026-08-06T08:02:00Z', null, 'failed', 'document_reindex'), status: 'failed' };
+
+    expect(selectLatestTerminalCourseJob([olderFailed, latestFailed, indexingFailed])?.id).toBe('latest');
   });
 });

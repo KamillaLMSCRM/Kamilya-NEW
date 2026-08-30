@@ -2,7 +2,11 @@
 
 import { useCallback, useEffect, useReducer } from 'react';
 import { api } from '@/lib/api';
-import { selectOldestActiveCourseJob, type AIGenerationJob } from '@/lib/aiGenerationJobs';
+import {
+  selectLatestTerminalCourseJob,
+  selectOldestActiveCourseJob,
+  type AIGenerationJob,
+} from '@/lib/aiGenerationJobs';
 import {
   generationWorkflowReducer,
   initialGenerationWorkflowState,
@@ -24,9 +28,13 @@ export function useGenerationWorkflow() {
   const restoreFromJobList = useCallback(async () => {
     const response = await api.get<AIGenerationJob[]>('/v1/ai/jobs');
     const activeJob = selectOldestActiveCourseJob(response.data);
-    if (!activeJob) return;
-    localStorage.setItem(activeJobStorageKey, activeJob.id);
-    dispatch({ type: 'job_active', job: activeJob });
+    if (activeJob) {
+      localStorage.setItem(activeJobStorageKey, activeJob.id);
+      dispatch({ type: 'job_active', job: activeJob });
+      return;
+    }
+    const terminalJob = selectLatestTerminalCourseJob(response.data);
+    if (terminalJob) dispatch({ type: 'job_terminal', job: terminalJob });
   }, []);
 
   const restoreActiveJob = useCallback(async () => {

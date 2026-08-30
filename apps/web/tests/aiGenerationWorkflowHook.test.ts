@@ -33,4 +33,24 @@ describe('AI generation workflow recovery', () => {
     expect(localStorage.getItem('ai_active_job_id')).toBe('current-tenant-job');
     expect(apiMock.get).toHaveBeenNthCalledWith(2, '/v1/ai/jobs');
   });
+
+  it('shows the latest failed course generation when no active job exists', async () => {
+    const failedJob = {
+      ...activeJob,
+      id: 'failed-course-job',
+      job_type: 'course_generation',
+      course_id: null,
+      status: 'failed',
+      stage: 'failed',
+      message: 'SoftTimeLimitExceeded: generation failed',
+    };
+    apiMock.get.mockResolvedValueOnce({ data: [failedJob] });
+    const { result } = renderHook(() => useGenerationWorkflow());
+
+    await act(async () => { await result.current.restoreActiveJob(); });
+
+    await waitFor(() => expect(result.current.currentJob?.id).toBe('failed-course-job'));
+    expect(result.current.step).toBe('generate');
+    expect(localStorage.getItem('ai_active_job_id')).toBeNull();
+  });
 });

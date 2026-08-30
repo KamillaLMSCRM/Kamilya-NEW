@@ -29,3 +29,15 @@ export function selectOldestActiveCourseJob(
     .sort((left, right) => Date.parse(left.created_at) - Date.parse(right.created_at));
   return activeJobs[0] ?? null;
 }
+
+export function selectLatestTerminalCourseJob(
+  jobs: AIGenerationJob[],
+): AIGenerationJob | null {
+  const terminalJobs = jobs
+    .filter((job) => (
+      job.job_type === 'course_generation'
+      && (job.status === 'failed' || job.status === 'cancelled')
+    ))
+    .sort((left, right) => Date.parse(right.updated_at) - Date.parse(left.updated_at));
+  return terminalJobs[0] ?? null;
+}
