@@ -35,6 +35,16 @@ TENANT_EXPRESSION = (
 
 
 def upgrade() -> None:
+    # Compatibility repair for environments that applied an early 0135 build
+    # before its same-tenant composite key was finalized. The current 0135
+    # constraint already owns an index with this name, so clean installs are a
+    # no-op. A primary key on ``id`` guarantees this additive index cannot
+    # reveal duplicate rows; PostgreSQL still requires the explicit composite
+    # uniqueness proof for the tenant-bound foreign key below.
+    op.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS uq_ai_editor_requests_tenant_id "
+        "ON ai_editor_requests (tenant_id, id)"
+    )
     op.execute(
         f"""
         CREATE TABLE {PREVIEW_TABLE} (

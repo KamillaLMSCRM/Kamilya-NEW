@@ -193,6 +193,10 @@ def test_migration_contract_has_linear_chain_rls_policies_and_safe_grants() -> N
 
     upgrade_sql = _captured_sql(migration, "upgrade")
     table_name = "ai_editor_request_previews"
+    assert (
+        "create unique index if not exists uq_ai_editor_requests_tenant_id "
+        "on ai_editor_requests (tenant_id, id)"
+    ) in upgrade_sql
     assert f"create table {table_name}" in upgrade_sql
     assert (
         "foreign key (tenant_id, request_id) references "
