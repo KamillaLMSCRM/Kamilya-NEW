@@ -28,6 +28,7 @@ from app.modules.ai.job_service import (
     AIJobSubmissionUnavailableError,
     build_ai_job_queue_metadata,
     get_ai_job,
+    resolve_tenant_ai_active_limit,
     submit_ai_job,
     update_ai_job,
 )
@@ -262,10 +263,15 @@ async def _job_response(
 ) -> AIJobResponse:
     settings = get_settings()
     if queue_metadata is None:
+        active_limit = await resolve_tenant_ai_active_limit(
+            db,
+            job.tenant_id,
+            default_limit=settings.AI_MAX_ACTIVE_JOBS_PER_TENANT,
+        )
         queue_metadata = await build_ai_job_queue_metadata(
             db,
             job,
-            active_limit=settings.AI_MAX_ACTIVE_JOBS_PER_TENANT,
+            active_limit=active_limit,
             worker_concurrency=settings.AI_WORKER_CONCURRENCY,
             historical_estimate_seconds=settings.AI_ESTIMATED_JOB_SECONDS,
         )
@@ -410,6 +416,11 @@ async def generate_course(
     await check_ai_generation_quota(db, user.id, user.tenant_id)
 
     settings = get_settings()
+    active_limit = await resolve_tenant_ai_active_limit(
+        db,
+        user.tenant_id,
+        default_limit=settings.AI_MAX_ACTIVE_JOBS_PER_TENANT,
+    )
     # A reuse acknowledgement always starts a distinct draft; it must never
     # mutate the course that caused the reuse warning.
     target_course_id = None if req.reuse_reason else req.course_id
@@ -452,7 +463,7 @@ async def generate_course(
                 "source_analysis": analysis_payload,
                 "reuse_reason": req.reuse_reason,
             },
-            active_limit=settings.AI_MAX_ACTIVE_JOBS_PER_TENANT,
+            active_limit=active_limit,
             worker_concurrency=settings.AI_WORKER_CONCURRENCY,
             historical_estimate_seconds=settings.AI_ESTIMATED_JOB_SECONDS,
             generation=True,
@@ -1318,6 +1329,11 @@ async def regenerate_module(
         raise HTTPException(status_code=404, detail="Module not found")
 
     settings = get_settings()
+    active_limit = await resolve_tenant_ai_active_limit(
+        db,
+        user.tenant_id,
+        default_limit=settings.AI_MAX_ACTIVE_JOBS_PER_TENANT,
+    )
     try:
         job, queue_metadata = await submit_ai_job(
             db,
@@ -1335,7 +1351,7 @@ async def regenerate_module(
                 "tenant_id": str(user.tenant_id),
                 "user_id": str(user.id),
             },
-            active_limit=settings.AI_MAX_ACTIVE_JOBS_PER_TENANT,
+            active_limit=active_limit,
             worker_concurrency=settings.AI_WORKER_CONCURRENCY,
             historical_estimate_seconds=settings.AI_ESTIMATED_JOB_SECONDS,
         )
@@ -1368,6 +1384,11 @@ async def regenerate_lesson(
     module = await db.get(Module, lesson.module_id)
 
     settings = get_settings()
+    active_limit = await resolve_tenant_ai_active_limit(
+        db,
+        user.tenant_id,
+        default_limit=settings.AI_MAX_ACTIVE_JOBS_PER_TENANT,
+    )
     try:
         job, queue_metadata = await submit_ai_job(
             db,
@@ -1385,7 +1406,7 @@ async def regenerate_lesson(
                 "tenant_id": str(user.tenant_id),
                 "user_id": str(user.id),
             },
-            active_limit=settings.AI_MAX_ACTIVE_JOBS_PER_TENANT,
+            active_limit=active_limit,
             worker_concurrency=settings.AI_WORKER_CONCURRENCY,
             historical_estimate_seconds=settings.AI_ESTIMATED_JOB_SECONDS,
         )

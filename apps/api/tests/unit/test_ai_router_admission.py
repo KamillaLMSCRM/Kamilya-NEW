@@ -47,6 +47,11 @@ async def test_full_tenant_queue_maps_submission_limit_to_http_429(monkeypatch):
     monkeypatch.setattr("app.core.demo_limits.check_ai_generation_quota", check_quota)
     monkeypatch.setattr(router, "submit_ai_job", submit)
     monkeypatch.setattr(
+        router,
+        "resolve_tenant_ai_active_limit",
+        AsyncMock(return_value=2),
+    )
+    monkeypatch.setattr(
         "app.modules.ai.source_analysis.document_chunk_totals",
         AsyncMock(return_value={}),
     )
@@ -130,6 +135,11 @@ async def test_reuse_reason_is_persisted_and_starts_an_independent_draft(monkeyp
     monkeypatch.setattr(router, "_job_response", AsyncMock(return_value={"id": "job-1"}))
     monkeypatch.setattr(
         router,
+        "resolve_tenant_ai_active_limit",
+        AsyncMock(return_value=2),
+    )
+    monkeypatch.setattr(
+        router,
         "_in_flight_generation_for_documents",
         AsyncMock(return_value=None),
     )
@@ -173,6 +183,11 @@ async def test_existing_course_regeneration_does_not_enter_new_course_reuse_flow
     monkeypatch.setattr("app.core.demo_limits.check_ai_generation_quota", AsyncMock())
     monkeypatch.setattr(router, "submit_ai_job", submit)
     monkeypatch.setattr(router, "_job_response", AsyncMock(return_value={"id": "job-1"}))
+    monkeypatch.setattr(
+        router,
+        "resolve_tenant_ai_active_limit",
+        AsyncMock(return_value=2),
+    )
     monkeypatch.setattr(
         "app.modules.ai.source_analysis.document_chunk_totals",
         AsyncMock(return_value={}),

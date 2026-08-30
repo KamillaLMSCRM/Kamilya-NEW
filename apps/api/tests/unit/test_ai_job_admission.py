@@ -40,6 +40,16 @@ class _RecordingSession:
         self.added.append(value)
 
 
+class _ScalarSession:
+    def __init__(self, value):
+        self.value = value
+        self.statements = []
+
+    async def scalar(self, statement):
+        self.statements.append(statement)
+        return self.value
+
+
 def _sql(statement) -> str:
     return str(
         statement.compile(
@@ -72,6 +82,31 @@ async def test_active_count_is_tenant_scoped_and_excludes_terminal_statuses():
     assert "running" in statement
     for terminal in ("completed", "failed", "cancelled"):
         assert terminal not in statement
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "settings,expected",
+    [
+        ({"ai_max_active_jobs": 4}, 4),
+        ({"ai_max_active_jobs": 8}, 8),
+        ({"ai_max_active_jobs": 0}, 2),
+        ({"ai_max_active_jobs": 9}, 2),
+        ({"ai_max_active_jobs": True}, 2),
+        ({"ai_max_active_jobs": "4"}, 2),
+        ({}, 2),
+        (None, 2),
+    ],
+)
+async def test_tenant_active_limit_override_is_bounded(settings, expected):
+    db = _ScalarSession(settings)
+    tenant_id = uuid4()
+
+    assert await job_service.resolve_tenant_ai_active_limit(db, tenant_id) == expected
+
+    statement = _sql(db.statements[0])
+    assert "tenants.settings" in statement
+    assert "tenants.id" in statement
 
 
 @pytest.mark.asyncio

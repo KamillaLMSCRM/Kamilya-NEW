@@ -15,6 +15,8 @@ from app.models.ai_job import AIJob
 from app.models.tenants import Tenant
 
 DEFAULT_TENANT_AI_ACTIVE_LIMIT = 2
+MAX_TENANT_AI_ACTIVE_LIMIT = 8
+TENANT_AI_ACTIVE_LIMIT_SETTING = "ai_max_active_jobs"
 DEFAULT_AI_WORKER_CONCURRENCY = 2
 DEFAULT_HISTORICAL_JOB_SECONDS = 510
 ACTIVE_AI_JOB_STATUSES = frozenset({"pending", "running"})
@@ -107,6 +109,30 @@ async def count_active_ai_jobs(db: AsyncSession, tenant_id) -> int:
         )
     )
     return int(result.scalar_one() or 0)
+
+
+async def resolve_tenant_ai_active_limit(
+    db: AsyncSession,
+    tenant_id,
+    *,
+    default_limit: int = DEFAULT_TENANT_AI_ACTIVE_LIMIT,
+) -> int:
+    """Resolve an optional tenant override without weakening the global cap.
+
+    Overrides live in the existing ``tenants.settings`` JSONB as
+    ``ai_max_active_jobs``. Invalid, boolean, or out-of-range values fail
+    closed to the configured environment default.
+    """
+    default_limit = _positive_int(default_limit, "default_limit")
+    settings = await db.scalar(select(Tenant.settings).where(Tenant.id == tenant_id))
+    if not isinstance(settings, dict):
+        return default_limit
+    value = settings.get(TENANT_AI_ACTIVE_LIMIT_SETTING)
+    if isinstance(value, bool) or not isinstance(value, int):
+        return default_limit
+    if not 1 <= value <= MAX_TENANT_AI_ACTIVE_LIMIT:
+        return default_limit
+    return value
 
 
 async def create_ai_job(
