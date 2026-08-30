@@ -32,7 +32,7 @@ def test_wrapper_runs_exact_step1_migration_and_test_scope() -> None:
     assert source.count('"upgrade", "head"') >= 2
     assert '"downgrade", "0134"' in source
     assert '"upgrade", "0135"' in source
-    assert '"tests/unit/test_editor_assistant_telemetry.py"' in source
+    assert '"tests/integration/test_editor_assistant_telemetry.py"' in source
     assert '"tests/integration/test_editor_assistant_preview_repository.py"' in source
     assert "EDITOR ASSISTANT STEP 1 CHECKS PASSED" in source
 

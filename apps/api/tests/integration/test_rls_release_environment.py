@@ -33,7 +33,7 @@ async def test_release_database_is_postgresql_17_with_pgvector_and_current_schem
     assert await db_session.scalar(
         text("SELECT count(*) FROM pg_extension WHERE extname='vector'")
     ) == 1
-    assert await db_session.scalar(text("SELECT version_num FROM alembic_version")) == "0134"
+    assert await db_session.scalar(text("SELECT version_num FROM alembic_version")) == "0137"
 
 
 async def test_runtime_role_can_replace_cohort_membership(db_session) -> None:

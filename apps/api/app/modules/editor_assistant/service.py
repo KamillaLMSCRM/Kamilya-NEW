@@ -30,7 +30,7 @@ import re
 import unicodedata
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, cast
 from uuid import NAMESPACE_URL, UUID, uuid5
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -126,7 +126,7 @@ def _validate_operation_constraints(value: dict[str, Any]) -> dict[str, Any]:
         )
         if len(encoded.encode("utf-8")) > _MAX_OPERATION_CONSTRAINTS_BYTES:
             raise EditorRequestServiceError("Editor operation constraints exceed the size limit")
-        return json.loads(encoded)
+        return cast(dict[str, Any], json.loads(encoded))
     except (TypeError, ValueError, RecursionError, OverflowError):
         raise EditorRequestServiceError("Invalid editor operation constraints") from None
 
@@ -326,9 +326,10 @@ class EditorRequestService:
             # Idempotent exact replay: never rewrite, never re-apply outcome.
             return request, None
 
-        if not can_record_outcome(request.outcome_state, event_type_value):
+        current_outcome = cast(str | None, request.outcome_state)
+        if not can_record_outcome(current_outcome, event_type_value):
             raise EditorLifecycleTransitionError(
-                f"Cannot record {event_type_value} after {request.outcome_state}"
+                f"Cannot record {event_type_value} after {current_outcome}"
             )
 
         event = await self._insert_event(
@@ -340,7 +341,7 @@ class EditorRequestService:
                 event_key=event_key,
                 metadata=validated_metadata,
             ),
-            current_outcome=request.outcome_state,
+            current_outcome=current_outcome,
         )
         request = await self._repo.refresh_outcome_state(request, event_type_value)
         logger.info(

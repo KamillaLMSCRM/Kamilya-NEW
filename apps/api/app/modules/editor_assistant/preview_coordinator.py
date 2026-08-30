@@ -11,7 +11,7 @@ import hashlib
 import json
 import unicodedata
 from collections.abc import Awaitable, Mapping
-from typing import Any, Protocol
+from typing import Any, Protocol, TypeGuard, cast
 from uuid import NAMESPACE_URL, UUID, uuid5
 
 from .patch_contract import PatchIdempotencyCollisionError
@@ -202,7 +202,7 @@ def _record_is_bound(
     request_id: UUID,
     preview_key: str,
     fingerprint: str,
-) -> bool:
+) -> TypeGuard[EditorPreviewRecord]:
     return (
         isinstance(record, EditorPreviewRecord)
         and record.tenant_id == tenant_id
@@ -451,7 +451,11 @@ async def coordinate_question_preview(
         return claimed.request_id, claimed.id
 
     try:
-        response = await application_runner(context, request, identity_factory)
+        response = await application_runner(
+            context,
+            request,
+            cast(PreviewIdentityFactory, identity_factory),
+        )
     except Exception:
         return await _fail_once(
             repository,

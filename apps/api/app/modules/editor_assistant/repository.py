@@ -149,20 +149,24 @@ def _preview_record(
     if preview.state == "completed":
         result = _freeze_json(dict(preview.completed_result_json))
     return EditorPreviewRecord(
-        id=preview.id,
-        tenant_id=preview.tenant_id,
-        request_id=preview.request_id,
-        preview_key=preview.preview_key,
-        payload_fingerprint=preview.payload_fingerprint,
-        state=preview.state,
+        id=cast(UUID, preview.id),
+        tenant_id=cast(UUID, preview.tenant_id),
+        request_id=cast(UUID, preview.request_id),
+        preview_key=cast(str, preview.preview_key),
+        payload_fingerprint=cast(str, preview.payload_fingerprint),
+        state=cast(str, preview.state),
         owns_claim=owns_claim,
         claim_token=claim_token if owns_claim else None,
         completed_result=result,
-        failure_code=preview.failure_code if preview.state == "failed" else None,
-        created_at=preview.created_at,
-        updated_at=preview.updated_at,
-        completed_at=preview.completed_at,
-        failed_at=preview.failed_at,
+        failure_code=(
+            cast(str | None, preview.failure_code)
+            if preview.state == "failed"
+            else None
+        ),
+        created_at=cast(datetime, preview.created_at),
+        updated_at=cast(datetime, preview.updated_at),
+        completed_at=cast(datetime | None, preview.completed_at),
+        failed_at=cast(datetime | None, preview.failed_at),
     )
 
 
@@ -322,8 +326,9 @@ class EditorRequestRepository:
     ) -> AIEditorRequest:
         """Move the request outcome to ``event_type`` and persist it."""
 
-        request.outcome_state = event_type
-        request.updated_at = datetime.now(UTC)
+        mutable_request = cast(Any, request)
+        mutable_request.outcome_state = event_type
+        mutable_request.updated_at = datetime.now(UTC)
         await self._db.flush()
         return request
 

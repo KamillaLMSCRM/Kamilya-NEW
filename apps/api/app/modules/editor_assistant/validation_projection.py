@@ -69,7 +69,7 @@ def project_validation_report(
     """
 
     if isinstance(result_or_findings, QuestionValidationResult):
-        source_findings = result_or_findings.findings
+        source_findings = tuple(result_or_findings.findings)
         try:
             source_status = EditorValidationStatus(result_or_findings.status)
         except (TypeError, ValueError):
@@ -77,7 +77,7 @@ def project_validation_report(
     elif isinstance(result_or_findings, Sequence) and not isinstance(
         result_or_findings, str | bytes | bytearray
     ):
-        source_findings = result_or_findings
+        source_findings = tuple(result_or_findings)
         source_status = None
     else:
         raise EditorAssistantValidationProjectionError

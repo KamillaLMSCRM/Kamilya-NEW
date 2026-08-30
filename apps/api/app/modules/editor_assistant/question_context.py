@@ -13,7 +13,7 @@ import json
 import re
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Any
+from typing import Any, cast
 from uuid import UUID
 
 from sqlalchemy import select, text
@@ -459,26 +459,28 @@ async def resolve_question_context(
     source_facts: list[QuestionSourceFact] = []
     seen_fact_ids: set[str] = set()
     seen_fact_sources: set[UUID] = set()
-    for row in fact_rows:
+    for fact_row in fact_rows:
         try:
-            source_id = UUID(str(row["source_id"]))
+            source_id = UUID(str(fact_row["source_id"]))
         except (KeyError, TypeError, ValueError, AttributeError):
             continue
-        document = documents_by_id.get(source_id)
-        fact_id = row.get("fact_id")
-        content_sha256 = row.get("content_sha256")
+        fact_document = documents_by_id.get(source_id)
+        fact_id = fact_row.get("fact_id")
+        content_sha256 = fact_row.get("content_sha256")
         if (
-            document is None
+            fact_document is None
             or not isinstance(fact_id, str)
             or not _OPAQUE_FACT_ID.fullmatch(fact_id)
             or fact_id in seen_fact_ids
             or source_id in seen_fact_sources
-            or content_sha256 != document.content_sha256
+            or content_sha256 != fact_document.content_sha256
         ):
             continue
         try:
-            locator = _source_locator(row.get("headings"), row.get("chunk_index"))
-            bounded_source_text = _source_text(row.get("source_text"))
+            locator = _source_locator(
+                fact_row.get("headings"), fact_row.get("chunk_index")
+            )
+            bounded_source_text = _source_text(fact_row.get("source_text"))
         except QuestionContextError:
             continue
         source_facts.append(
@@ -487,7 +489,7 @@ async def resolve_question_context(
                 source_id=source_id,
                 text=bounded_source_text,
                 locator=locator,
-                content_sha256=document.content_sha256,
+                content_sha256=cast(str, fact_document.content_sha256),
             )
         )
         seen_fact_ids.add(fact_id)
@@ -501,7 +503,7 @@ async def resolve_question_context(
             source_id=document_id,
             document_title=_safe_document_title(documents_by_id[document_id].title),
             locator=facts_by_source[document_id].locator,
-            content_sha256=documents_by_id[document_id].content_sha256,
+            content_sha256=cast(str, documents_by_id[document_id].content_sha256),
         )
         for document_id in tuple(sorted(seen_fact_sources, key=str))
     )

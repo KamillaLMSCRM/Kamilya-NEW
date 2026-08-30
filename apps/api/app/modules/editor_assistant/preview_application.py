@@ -162,6 +162,8 @@ def _snapshot_token(fingerprint: object) -> str:
 
 
 def _validated_reason_code(reason: object) -> EditorAssistantFailureCode:
+    if not isinstance(reason, str):
+        return EditorAssistantFailureCode.CONTRACT_VIOLATION
     try:
         normalized = ValidatedCallFailureReason(reason)
         return EditorAssistantFailureCode(normalized.value)
@@ -387,6 +389,8 @@ def _public_operations(
 
     operations: list[EditorAssistantPatchOperation] = []
     for operation in patch.operations:
+        before_value: str | tuple[EditorAssistantPatchOption, ...]
+        after_value: str | tuple[EditorAssistantPatchOption, ...]
         if (
             operation.target != preview_context.command.target
             or operation.operation is not PatchOperationType.REPLACE
@@ -415,7 +419,7 @@ def _public_operations(
                 raise _ApplicationFailure(
                     EditorAssistantFailureCode.CONTRACT_VIOLATION
                 )
-            before_value = context.explanation
+            before_value = current
             after_value = operation.after_value
         else:
             before_value = _public_options(

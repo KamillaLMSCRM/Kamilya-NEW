@@ -80,7 +80,7 @@ def _validate_issue_labels(value: Any) -> list[str]:
     labels = list(value)
     if len(labels) > _MAX_ISSUE_LABELS:
         raise EditorMetadataValidationError("issue_labels exceeds the bounded size")
-    normalized: list[str] = []
+    normalized: list[EditorQualityIssueLabel] = []
     for label in labels:
         try:
             normalized.append(EditorQualityIssueLabel(label))
@@ -96,7 +96,7 @@ def _validate_non_negative_int(value: Any, key: str, maximum: int) -> int:
         raise EditorMetadataValidationError(f"{key} must be a non-negative integer")
     if value < 0 or value > maximum:
         raise EditorMetadataValidationError(f"{key} exceeds the bounded range")
-    return value
+    return int(value)
 
 
 def _validate_version_string(value: Any, key: str) -> str:

@@ -419,9 +419,9 @@ class LLMClient(_BaseProviderClient):
 
     async def ainvoke(
         self,
-        messages: str | list[dict],
-        config: dict | None = None,
-        response_format: dict | None = None,
+        messages: str | list[dict[str, Any]],
+        config: dict[str, Any] | None = None,
+        response_format: dict[str, Any] | None = None,
     ) -> _LLMResponse:
         """Send completion request. Returns object with .content attribute."""
         if isinstance(messages, str):

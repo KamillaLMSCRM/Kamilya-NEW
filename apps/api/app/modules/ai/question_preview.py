@@ -26,6 +26,7 @@ from app.modules.editor_assistant.patch_contract import (
     PatchApplicabilityStatus,
     PatchOperation,
     PatchOperationType,
+    PatchValidationIssueCode,
     ProviderProvenance,
     SourceEvidenceReference,
     StaleBaseVersionError,
@@ -212,6 +213,7 @@ def _require_bounded_string(value: object, maximum: int) -> str:
 
 
 def _parse_candidate(raw: str, context: QuestionPreviewContext) -> _Candidate:
+    intent = normalize_preview_intent(context.intent)
     if not isinstance(raw, str) or len(raw) > _MAX_PROMPT:
         raise _invalid()
     try:
@@ -288,7 +290,7 @@ def _parse_candidate(raw: str, context: QuestionPreviewContext) -> _Candidate:
         )
         if before != after
     }
-    if not changed_fields or not changed_fields <= _INTENT_FIELDS[context.intent]:
+    if not changed_fields or not changed_fields <= _INTENT_FIELDS[intent]:
         raise RejectedOutOfScopeError("Предложение выходит за область выбранного запроса")
 
     constraints = context.command.operation_constraints
@@ -313,6 +315,7 @@ def _parse_candidate(raw: str, context: QuestionPreviewContext) -> _Candidate:
 
 
 def _prompt(context: QuestionPreviewContext) -> str:
+    intent = normalize_preview_intent(context.intent)
     current_correct_option_index = next(
         (index for index, option in enumerate(context.question.options) if option.is_correct),
         None,
@@ -322,7 +325,7 @@ def _prompt(context: QuestionPreviewContext) -> str:
     prompt = json.dumps(
         {
             "task": "Return one JSON question candidate only.",
-            "intent": context.intent.value,
+            "intent": intent.value,
             "locale": context.command.locale,
             "raw_instruction": context.command.instruction_text,
             "rules": {
@@ -371,7 +374,10 @@ def _prompt(context: QuestionPreviewContext) -> str:
 
 def _validation_report(result: QuestionValidationResult) -> ValidationReport:
     issues = tuple(
-        ValidationIssue(code="provider_output_invalid", blocking=item.blocking)
+        ValidationIssue(
+            code=PatchValidationIssueCode.PROVIDER_OUTPUT_INVALID,
+            blocking=item.blocking,
+        )
         for item in result.findings
     )
     return ValidationReport(

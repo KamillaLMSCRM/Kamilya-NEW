@@ -13,7 +13,7 @@ from typing import Any
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
-EXPECTED_REVISION = "0134"
+EXPECTED_REVISION = "0137"
 LIFECYCLE_TABLES = {
     "embedding_active_revisions",
     "embedding_reindex_runs",

@@ -197,7 +197,7 @@ try {
     if ($Mode -in @("all", "tests")) {
         Invoke-Checked -Program "poetry" -Arguments @(
             "run", "python", "-m", "pytest", "-q",
-            "tests/unit/test_editor_assistant_telemetry.py",
+            "tests/integration/test_editor_assistant_telemetry.py",
             "tests/integration/test_editor_assistant_preview_repository.py"
         ) -WorkingDirectory $ApiRoot
     }

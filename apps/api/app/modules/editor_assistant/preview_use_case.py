@@ -10,7 +10,7 @@ from __future__ import annotations
 from collections.abc import Awaitable
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Protocol
+from typing import Protocol, cast
 from uuid import UUID
 
 from sqlalchemy import select
@@ -295,7 +295,7 @@ class QuestionPreviewUseCase:
         try:
             return await self._coordinator(
                 tenant_id=authorized_principal.tenant_id,
-                editor_request_id=durable_request.id,
+                editor_request_id=cast(UUID, durable_request.id),
                 context=context,
                 request=request,
                 repository=self._preview_repository,
