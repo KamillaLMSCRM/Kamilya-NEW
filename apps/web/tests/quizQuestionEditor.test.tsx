@@ -15,6 +15,9 @@ const toastMock = vi.hoisted(() => ({
   error: vi.fn(),
   success: vi.fn(),
 }));
+const editorAssistantMock = vi.hoisted(() => ({
+  requestQuestionAssistantPreview: vi.fn(),
+}));
 
 vi.mock('@/store/authStore', () => ({
   useAuthStore: (selector: (state: typeof authMock) => unknown) => selector(authMock),
@@ -40,25 +43,35 @@ vi.mock('@/components/ui/ConfirmDialog', () => ({
   useConfirm: () => ({ confirm: vi.fn().mockResolvedValue(false), dialog: null }),
 }));
 vi.mock('@/components/ui/Toast', () => ({ toast: toastMock }));
+vi.mock('@/lib/editorAssistant', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/editorAssistant')>();
+  return { ...actual, ...editorAssistantMock };
+});
 
 import QuizzesAdminPage from '@/app/quizzes/page';
 
+const ids = {
+  question: '11111111-1111-1111-1111-111111111111', question2: '22222222-2222-2222-2222-222222222222',
+  choice1: '33333333-3333-3333-3333-333333333333', choice2: '44444444-4444-4444-4444-444444444444', choice3: '55555555-5555-5555-5555-555555555555', choice4: '66666666-6666-6666-6666-666666666666',
+  quiz: '77777777-7777-7777-7777-777777777777', lesson: '88888888-8888-8888-8888-888888888888', course: '99999999-9999-9999-9999-999999999999', module: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', request: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', preview: 'cccccccc-cccc-cccc-cccc-cccccccccccc',
+};
+
 const initialQuestion = {
-  id: 'question-1',
+  id: ids.question,
   text: 'Старый вопрос',
   type: 'MCQ',
   points: 1,
   explanation: 'Старое пояснение',
   order_index: 0,
   choices: [
-    { id: 'choice-1', text: 'Старый правильный ответ', is_correct: true, order_index: 0 },
-    { id: 'choice-2', text: 'Старый неправильный ответ', is_correct: false, order_index: 1 },
+    { id: ids.choice1, text: 'Старый правильный ответ', is_correct: true, order_index: 0 },
+    { id: ids.choice2, text: 'Старый неправильный ответ', is_correct: false, order_index: 1 },
   ],
 };
 
 const quiz = {
-  id: 'quiz-1',
-  lesson_id: 'lesson-1',
+  id: ids.quiz,
+  lesson_id: ids.lesson,
   title: 'Тест урока',
   pass_score: 80,
   time_limit: null,
@@ -69,14 +82,14 @@ const quiz = {
 
 const grouped = {
   courses: [{
-    id: 'course-1',
+    id: ids.course,
     title: 'Курс 1',
     status: 'draft',
     modules: [{
-      id: 'module-1',
+      id: ids.module,
       title: 'Модуль 1',
       order_index: 0,
-      lessons: [{ id: 'lesson-1', title: 'Урок 1', order_index: 0, quiz }],
+      lessons: [{ id: ids.lesson, title: 'Урок 1', order_index: 0, quiz }],
     }],
   }],
   orphans: [],
@@ -112,16 +125,28 @@ describe('quiz question editor', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     authMock.accessToken = 'test-token';
+    editorAssistantMock.requestQuestionAssistantPreview.mockResolvedValue({
+      request_id: ids.request,
+      preview_id: ids.preview,
+      state: 'pending',
+      applicability: 'not_applicable',
+      base_snapshot_token: 'a'.repeat(64),
+      operations: [],
+      validation: null,
+      source: { source_reference_count: 0, references: [] },
+      provenance: null,
+      failure: null,
+    });
   });
 
   it('opens a create modal and POSTs the question with choices', async () => {
     const createdQuestion = {
       ...initialQuestion,
-      id: 'question-2',
+      id: ids.question2,
       text: 'Новый вопрос',
       choices: [
-        { id: 'choice-3', text: 'Да', is_correct: true, order_index: 0 },
-        { id: 'choice-4', text: 'Нет', is_correct: false, order_index: 1 },
+        { id: ids.choice3, text: 'Да', is_correct: true, order_index: 0 },
+        { id: ids.choice4, text: 'Нет', is_correct: false, order_index: 1 },
       ],
     };
     setupApi({ ...quiz, questions: [createdQuestion] });
@@ -149,7 +174,7 @@ describe('quiz question editor', () => {
 
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     expect(toastMock.success).toHaveBeenCalledWith('Вопрос добавлен');
-    expect(apiMock.post).toHaveBeenCalledWith('/v1/quizzes/quiz-1/questions', expect.objectContaining({
+    expect(apiMock.post).toHaveBeenCalledWith(`/v1/quizzes/${ids.quiz}/questions`, expect.objectContaining({
       text: 'Новый вопрос', type: 'MCQ', points: 2,
     }));
     expect(apiMock.post.mock.calls[0][1].choices).toEqual([
@@ -163,8 +188,8 @@ describe('quiz question editor', () => {
       ...initialQuestion,
       text: 'Обновлённый вопрос',
       choices: [
-        { id: 'choice-1', text: 'Обновлённый правильный ответ', is_correct: true, order_index: 0 },
-        { id: 'choice-2', text: 'Обновлённый неправильный ответ', is_correct: false, order_index: 1 },
+        { id: ids.choice1, text: 'Обновлённый правильный ответ', is_correct: true, order_index: 0 },
+        { id: ids.choice2, text: 'Обновлённый неправильный ответ', is_correct: false, order_index: 1 },
       ],
     };
     setupApi({ ...quiz, questions: [updatedQuestion] });
@@ -185,13 +210,53 @@ describe('quiz question editor', () => {
 
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     expect(toastMock.success).toHaveBeenCalledWith('Вопрос обновлён');
-    expect(apiMock.put).toHaveBeenCalledWith('/v1/quizzes/quiz-1/questions/question-1', expect.objectContaining({
+    expect(apiMock.put).toHaveBeenCalledWith(`/v1/quizzes/${ids.quiz}/questions/${ids.question}`, expect.objectContaining({
       text: 'Обновлённый вопрос', type: 'MCQ', points: 1,
     }));
     expect(apiMock.put.mock.calls[0][1].choices).toEqual([
-      { id: 'choice-1', text: 'Обновлённый правильный ответ', is_correct: true, order_index: 0 },
-      { id: 'choice-2', text: 'Старый неправильный ответ', is_correct: false, order_index: 1 },
+      { id: ids.choice1, text: 'Обновлённый правильный ответ', is_correct: true, order_index: 0 },
+      { id: ids.choice2, text: 'Старый неправильный ответ', is_correct: false, order_index: 1 },
     ]);
+  });
+
+  it('blocks assistant preview while question edits are unsaved and enables it for the saved form', async () => {
+    setupApi();
+    render(<QuizzesAdminPage />);
+    await selectQuiz();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Редактировать' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Редактирование вопроса' });
+    const questionInput = within(dialog).getByRole('textbox', { name: 'Текст вопроса' });
+    const assistantButton = within(dialog).getByRole('button', { name: 'Сформировать предложение помощника' });
+    fireEvent.change(within(dialog).getByRole('textbox', { name: 'Инструкция помощнику' }), {
+      target: { value: 'Добавь больше информации' },
+    });
+    expect(assistantButton).not.toBeDisabled();
+    fireEvent.change(questionInput, { target: { value: 'Мой несохранённый текст' } });
+    expect(within(dialog).getByText('Сначала сохраните изменения вопроса, пояснения или вариантов ответа, затем сформируйте предложение.')).toBeInTheDocument();
+    expect(assistantButton).toBeDisabled();
+    expect(questionInput).toHaveValue('Мой несохранённый текст');
+    expect(apiMock.put).not.toHaveBeenCalled();
+    expect(editorAssistantMock.requestQuestionAssistantPreview).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['fewer than two choices', [{ ...initialQuestion.choices[0] }]],
+    ['a choice without an id', [{ ...initialQuestion.choices[0], id: '' }, { ...initialQuestion.choices[1] }]],
+    ['zero correct choices', initialQuestion.choices.map((choice) => ({ ...choice, is_correct: false }))],
+    ['multiple correct choices', initialQuestion.choices.map((choice) => ({ ...choice, is_correct: true }))],
+    ['duplicate choice ids', [{ ...initialQuestion.choices[0] }, { ...initialQuestion.choices[1], id: initialQuestion.choices[0].id }]],
+  ])('does not expose the assistant for a saved MCQ with %s', async (_name, choices) => {
+    const ineligibleQuestion = { ...initialQuestion, choices };
+    const ineligibleQuiz = { ...quiz, questions: [ineligibleQuestion] };
+    setupApi(ineligibleQuiz, ineligibleQuiz);
+    render(<QuizzesAdminPage />);
+    await selectQuiz();
+    fireEvent.click(screen.getByRole('button', { name: 'Редактировать' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Редактирование вопроса' });
+    expect(within(dialog).queryByRole('button', { name: 'Сформировать предложение помощника' })).not.toBeInTheDocument();
+    expect(within(dialog).getByText('Помощник доступен для сохранённых вопросов с одним правильным ответом и стабильными вариантами ответа.')).toBeInTheDocument();
+    expect(editorAssistantMock.requestQuestionAssistantPreview).not.toHaveBeenCalled();
   });
 
   it('preserves multiple-choice semantics and allows several correct answers', async () => {
@@ -212,6 +277,8 @@ describe('quiz question editor', () => {
     expect(within(dialog).getByRole('combobox', { name: 'Тип вопроса' })).toHaveValue(
       'multiple_choice'
     );
+    expect(within(dialog).queryByRole('button', { name: 'Сформировать предложение помощника' })).not.toBeInTheDocument();
+    expect(within(dialog).getByText('Помощник доступен для сохранённых вопросов с одним правильным ответом и стабильными вариантами ответа.')).toBeInTheDocument();
 
     const correctAnswerInputs = within(dialog).getAllByRole('checkbox');
     expect(correctAnswerInputs).toHaveLength(2);

@@ -13,6 +13,7 @@ from app.core.auth import get_current_user, require_role
 from app.core.db import get_db
 from app.models.users import User
 from app.modules.courses.access import AUTHORING_ROLES, require_lesson_access
+from app.modules.editor_assistant.router import router as editor_assistant_router
 from app.modules.quizzes.ai import generate_quiz_draft as build_quiz_draft
 from app.modules.quizzes.models import Question, Quiz, QuizAttempt, QuizChoice
 from app.modules.quizzes.schemas import (
@@ -43,6 +44,7 @@ from app.modules.quizzes.service import (
 )
 
 router = APIRouter(prefix="/quizzes", tags=["quizzes"])
+router.include_router(editor_assistant_router)
 
 
 async def _require_quiz_tenant(db: AsyncSession, quiz_id: UUID, tenant_id: UUID) -> Quiz:

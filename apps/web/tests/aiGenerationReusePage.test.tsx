@@ -107,6 +107,7 @@ describe('AI generation repeated-source page flow', () => {
     await waitFor(() =>
       expect(postMock).toHaveBeenCalledWith('/v1/ai/document-compatibility', {
         documents: ['document-1'],
+        course_format: 'automatic',
       }),
     );
 

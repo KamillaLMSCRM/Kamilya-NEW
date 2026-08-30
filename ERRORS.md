@@ -1,6 +1,6 @@
 # Error and Recurrence Prevention Log
 
-Current as of: 2026-08-26.
+Current as of: 2026-08-30.
 
 This is the single operational log for confirmed Kamilya LMS workflow errors,
 invalid assumptions, fixes, verification, and recurrence prevention. Open product
@@ -58,6 +58,17 @@ open, also record status, safe interim path, and review condition.
 - Prevention: define safe stdout/stderr before `.env` or provider commands. Print
   only names, counts, statuses, and masked IDs. Stop copying accidental disclosure,
   notify the owner, and keep the incident open until rotation is confirmed.
+- Recurrence (2026-08-30): an external coding agent embedded a local database URL
+  in its shell command twice, despite a no-secret instruction. The confirmed cause
+  was direct command construction from a credential-bearing value instead of a
+  root-owned process-local execution boundary. The value is intentionally not
+  retained here. That agent is no longer permitted to receive database,
+  environment, credential, deployment, or infrastructure tasks. Local Step 1 DB
+  checks now use `scripts/dev/run_editor_assistant_step1_checks.ps1`: it targets one
+  exact local PG18 container, creates and removes a disposable database, passes the
+  connection only through child-process environment, sanitizes output, and accepts
+  no URL or credential argument. Its static contract tests and a complete
+  migration/test execution must pass before reuse.
 
 ## MIGRATION-001 - Green deploy and health concealed a stale DB schema
 
@@ -1091,3 +1102,36 @@ ANY TOKEN FAILURE.
 - Prevention: acceptance checks must follow public response schemas rather than
   assuming nested resources. A smoke failure must be classified as product failure or
   verifier-contract failure before another release is attempted.
+
+## MIGRATION-004 - Editor-assistant wrapper stopped one revision below head after rollback rehearsal
+
+- Date: 2026-08-30.
+- Symptom: the local PG18 wrapper initially upgraded to `0137`, rehearsed
+  downgrade/re-upgrade through `0135` and `0136`, then stopped at `0136` before
+  printing `alembic heads`; the printed repository head did not prove that the
+  disposable database had actually reached `0137`.
+- Cause: the final migration sequence omitted a second `alembic upgrade head`, and
+  its catalog assertions covered preview claims but not the new request fingerprint.
+- Fix: finish the rehearsal with `alembic upgrade head` and assert both the nullable
+  `request_fingerprint_sha256` column and its named check constraint before tests.
+- Verification: `scripts/tests/test_editor_assistant_step1_check_wrapper.py` passed
+  `4` contract tests; the corrected wrapper reported `0137 (head)`, passed `76`
+  DB-backed tests, and removed its disposable PostgreSQL 18 database.
+- Prevention: after every downgrade/re-upgrade rehearsal, verify the applied
+  database revision and at least one catalog invariant introduced by the final
+  migration; `alembic heads` alone describes source history, not live DB state.
+
+## TEST-003 - Multi-document compatibility test omitted the selected course format
+
+- Date: 2026-08-30.
+- Symptom: the full frontend suite failed in
+  `aiGenerationReusePage.test.tsx` although the isolated UI sent one valid
+  compatibility request containing `documents` and `course_format`.
+- Cause: the earlier automatic-format UI change updated the request contract but
+  left this reuse-flow assertion on the former documents-only payload.
+- Fix: require `course_format: "automatic"` in the compatibility-call assertion;
+  application behavior is unchanged.
+- Verification: the isolated reuse-flow test and the subsequent complete frontend
+  test/typecheck/build gate pass on the same working tree.
+- Prevention: compatibility request tests must assert all selection-dependent
+  fields, including the default course format, whenever generation settings change.

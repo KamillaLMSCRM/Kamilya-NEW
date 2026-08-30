@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Authenticated question-editor assistant preview endpoint with server-derived
+  tenant/actor authority, explicit impersonation rejection, and bounded typed
+  error responses.
 - Product versioning foundation: `VERSION` file, `CHANGELOG.md`,
   `docs/releases/` documentation, release-note template, deterministic
   version-consistency validation script and focused tests.

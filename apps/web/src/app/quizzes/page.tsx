@@ -9,6 +9,7 @@ import { api } from '@/lib/api';
 import { useT } from '@/i18n/useT';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { toast } from '@/components/ui/Toast';
+import { QuestionAssistantPreview } from '@/components/quizzes/QuestionAssistantPreview';
 import {
   CheckCircle2,
   ChevronDown,
@@ -93,6 +94,39 @@ const EMPTY_CHOICES = () => [
   { text: '', is_correct: false },
 ];
 
+type QuestionEditorSnapshot = {
+  text: string;
+  type: string;
+  points: number;
+  explanation: string;
+  choices: Array<{ id?: string; text: string; is_correct: boolean }>;
+};
+
+function questionEditorSnapshot(
+  question: Pick<Question, 'text' | 'type' | 'points' | 'explanation' | 'choices'>,
+): QuestionEditorSnapshot {
+  return {
+    text: question.text,
+    type: question.type,
+    points: question.points,
+    explanation: question.explanation || '',
+    choices: [...question.choices]
+      .sort((left, right) => left.order_index - right.order_index)
+      .map((choice) => ({ id: choice.id, text: choice.text, is_correct: choice.is_correct })),
+  };
+}
+
+function questionEditorIsDirty(
+  snapshot: QuestionEditorSnapshot | null,
+  question: typeof EMPTY_QUESTION,
+  choices: Array<{ id?: string; text: string; is_correct: boolean }>,
+): boolean {
+  if (!snapshot) return false;
+  return snapshot.text !== question.text || snapshot.type !== question.type || snapshot.points !== question.points ||
+    snapshot.explanation !== question.explanation || snapshot.choices.length !== choices.length ||
+    snapshot.choices.some((choice, index) => choice.id !== choices[index]?.id || choice.text !== choices[index]?.text || choice.is_correct !== choices[index]?.is_correct);
+}
+
 function questionTypeLabel(type: string) {
   if (type === 'MCQ') return 'Один правильный ответ';
   if (type === 'multiple_choice') return 'Несколько правильных ответов';
@@ -137,6 +171,7 @@ export default function QuizzesAdminPage() {
   const [newChoices, setNewChoices] = useState<Array<{ id?: string; text: string; is_correct: boolean }>>(
     EMPTY_CHOICES
   );
+  const [savedQuestionSnapshot, setSavedQuestionSnapshot] = useState<QuestionEditorSnapshot | null>(null);
   const [showCreateQuiz, setShowCreateQuiz] = useState(false);
   const [questionEditorMode, setQuestionEditorMode] = useState<'create' | 'edit' | null>(null);
   const [editingQuestionId, setEditingQuestionId] = useState<string | null>(null);
@@ -372,12 +407,14 @@ export default function QuizzesAdminPage() {
     if (savingQuestion) return;
     setQuestionEditorMode(null);
     setEditingQuestionId(null);
+    setSavedQuestionSnapshot(null);
   };
 
   const openCreateQuestionEditor = () => {
     setNewQuestion(EMPTY_QUESTION);
     setNewChoices(EMPTY_CHOICES());
     setEditingQuestionId(null);
+    setSavedQuestionSnapshot(null);
     setQuestionEditorMode('create');
   };
 
@@ -400,8 +437,14 @@ export default function QuizzesAdminPage() {
         : EMPTY_CHOICES()
     );
     setEditingQuestionId(question.id);
+    setSavedQuestionSnapshot(questionEditorSnapshot(question));
     setQuestionEditorMode('edit');
   };
+
+  const isQuestionEditorDirty = useMemo(
+    () => questionEditorIsDirty(savedQuestionSnapshot, newQuestion, newChoices),
+    [newChoices, newQuestion, savedQuestionSnapshot],
+  );
 
   const handleSaveQuestion = async () => {
     if (!token || !selectedQuiz || !questionEditorMode || !newQuestion.text.trim()) return;
@@ -443,6 +486,7 @@ export default function QuizzesAdminPage() {
       applyUpdatedQuiz(updated);
       setQuestionEditorMode(null);
       setEditingQuestionId(null);
+      setSavedQuestionSnapshot(null);
       toast.success(isEditing ? 'Вопрос обновлён' : 'Вопрос добавлен');
     } catch (error) {
       toast.error('Не удалось сохранить вопрос', { description: apiErrorMessage(error) });
@@ -1377,6 +1421,24 @@ export default function QuizzesAdminPage() {
               ))}
             </div>
           </div>
+
+          {questionEditorMode === 'edit' && selectedQuiz && editingQuestionId &&
+          newQuestion.type === 'MCQ' && newChoices.length >= 2 &&
+          newChoices.every((choice) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(choice.id ?? '')) &&
+          new Set(newChoices.map((choice) => choice.id)).size === newChoices.length &&
+          newChoices.filter((choice) => choice.is_correct).length === 1 ? (
+            <QuestionAssistantPreview
+              key={editingQuestionId}
+              quizId={selectedQuiz.id}
+              questionId={editingQuestionId}
+              isDirty={isQuestionEditorDirty}
+              disabledReason="Сначала сохраните изменения вопроса, пояснения или вариантов ответа, затем сформируйте предложение."
+            />
+          ) : questionEditorMode === 'edit' && selectedQuiz && editingQuestionId ? (
+            <p className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+              Помощник доступен для сохранённых вопросов с одним правильным ответом и стабильными вариантами ответа.
+            </p>
+          ) : null}
 
           <div className="flex flex-col-reverse gap-2 border-t border-border pt-4 sm:flex-row sm:justify-end">
             <Button variant="outline" onClick={closeQuestionEditor} disabled={savingQuestion}>

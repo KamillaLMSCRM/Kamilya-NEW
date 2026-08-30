@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock
 
+import httpx
 import pytest
 
 from app.modules.ai import llm_client
@@ -24,6 +25,8 @@ from app.modules.ai.llm_client import (
     ProviderFailedError,
     ResilientEmbeddingsClient,
     ResilientLLMClient,
+    ValidatedCallFailureReason,
+    ValidatedLLMResult,
     _LLMResponse,
 )
 
@@ -656,3 +659,235 @@ def test_create_llm_with_explicit_args_uses_single_provider():
     )
     # Should not be the multi-provider resilient client.
     assert client.provider_names == ["custom"]
+
+
+@pytest.mark.asyncio
+async def test_validated_invocation_returns_provider_model_and_parsed_value():
+    chain = ResilientLLMClient(
+        [LLMProviderConfig(name="primary", base_url="x", api_key="y", model="model-a")]
+    )
+
+    async def invoke(messages, config=None, response_format=None):
+        return _LLMResponse('{"ok":true}')
+
+    chain._clients[0].ainvoke = invoke  # type: ignore[assignment]
+    result = await chain.ainvoke_validated("bounded prompt", lambda raw: raw == '{"ok":true}')
+
+    assert isinstance(result, ValidatedLLMResult)
+    assert result.provider == "primary"
+    assert result.model_id == "model-a"
+    assert result.value is True
+
+
+@pytest.mark.asyncio
+async def test_validated_invocation_rejection_falls_back_without_raw_content(caplog):
+    chain = ResilientLLMClient(
+        [
+            LLMProviderConfig(name="primary", base_url="x", api_key="y", model="model-a"),
+            LLMProviderConfig(name="fallback", base_url="x", api_key="y", model="model-b"),
+        ]
+    )
+    secret = "raw-question-must-not-appear"
+
+    async def rejected(messages, config=None, response_format=None):
+        return _LLMResponse(secret)
+
+    async def accepted(messages, config=None, response_format=None):
+        return _LLMResponse("valid")
+
+    chain._clients[0].ainvoke = rejected  # type: ignore[assignment]
+    chain._clients[1].ainvoke = accepted  # type: ignore[assignment]
+
+    with caplog.at_level("WARNING"):
+        result = await chain.ainvoke_validated(
+            secret,
+            lambda raw: (_ for _ in ()).throw(ValueError(secret)) if raw == secret else raw,
+        )
+
+    assert result.provider == "fallback"
+    assert result.value == "valid"
+    assert secret not in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_validated_invocation_fails_closed_when_all_outputs_rejected(caplog):
+    chain = ResilientLLMClient(
+        [
+            LLMProviderConfig(name="primary", base_url="x", api_key="y", model="model-a"),
+            LLMProviderConfig(name="fallback", base_url="x", api_key="y", model="model-b"),
+        ]
+    )
+    secret = "sensitive-response-content"
+
+    async def rejected(messages, config=None, response_format=None):
+        return _LLMResponse(secret)
+
+    chain._clients[0].ainvoke = rejected  # type: ignore[assignment]
+    chain._clients[1].ainvoke = rejected  # type: ignore[assignment]
+
+    with caplog.at_level("WARNING"), pytest.raises(AllProvidersFailedError) as excinfo:
+        await chain.ainvoke_validated(
+            secret,
+            lambda raw: (_ for _ in ()).throw(ValueError(secret)),
+        )
+
+    assert secret not in str(excinfo.value)
+    assert secret not in caplog.text
+    assert excinfo.value.reasons == (
+        ValidatedCallFailureReason.CONTRACT_VIOLATION,
+        ValidatedCallFailureReason.CONTRACT_VIOLATION,
+    )
+
+
+def _validated_chain(size: int = 2) -> ResilientLLMClient:
+    return ResilientLLMClient(
+        [
+            LLMProviderConfig(name=f"provider-{index}", base_url="x", api_key="y", model=f"model-{index}")
+            for index in range(size)
+        ]
+    )
+
+
+async def _raise_provider_failure(_messages, config=None, response_format=None, *, failure):
+    raise failure
+
+
+@pytest.mark.asyncio
+async def test_validated_all_provider_timeouts_expose_only_timeout_reason():
+    chain = _validated_chain()
+    for client in chain._clients:
+        client.ainvoke = lambda *args, **kwargs: _raise_provider_failure(
+            *args,
+            **kwargs,
+            failure=ProviderFailedError("provider", httpx.ReadTimeout("private timeout")),
+        )  # type: ignore[assignment]
+
+    with pytest.raises(AllProvidersFailedError) as excinfo:
+        await chain.ainvoke_validated("private prompt", lambda raw: raw)
+
+    assert excinfo.value.reasons == (ValidatedCallFailureReason.PROVIDER_TIMEOUT,) * 2
+    assert "private timeout" not in str(excinfo.value)
+    assert "provider-" not in str(excinfo.value)
+
+
+@pytest.mark.asyncio
+async def test_validated_mixed_timeout_and_transport_reasons_are_bounded():
+    chain = _validated_chain()
+    failures = [
+        ProviderFailedError("primary", TimeoutError("private timeout")),
+        ProviderFailedError("fallback", RuntimeError("private transport detail")),
+    ]
+    for client, failure in zip(chain._clients, failures, strict=True):
+        async def invoke(messages, config=None, response_format=None, *, failure=failure):
+            raise failure
+
+        client.ainvoke = invoke  # type: ignore[assignment]
+
+    with pytest.raises(AllProvidersFailedError) as excinfo:
+        await chain.ainvoke_validated("private prompt", lambda raw: raw)
+
+    assert excinfo.value.reasons == (
+        ValidatedCallFailureReason.PROVIDER_TIMEOUT,
+        ValidatedCallFailureReason.PROVIDER_UNAVAILABLE,
+    )
+    assert "private" not in repr(excinfo.value)
+
+
+@pytest.mark.asyncio
+async def test_validated_parser_safe_reason_is_preserved_without_exception_text():
+    chain = _validated_chain(1)
+
+    async def invoke(messages, config=None, response_format=None):
+        return _LLMResponse("candidate")
+
+    chain._clients[0].ainvoke = invoke  # type: ignore[assignment]
+
+    class ScopeParserError(Exception):
+        validated_failure_reason = ValidatedCallFailureReason.REJECTED_OUT_OF_SCOPE
+
+    def parser(raw):
+        raise ScopeParserError("sensitive parser detail")
+
+    with pytest.raises(AllProvidersFailedError) as excinfo:
+        await chain.ainvoke_validated("private prompt", parser)
+
+    assert excinfo.value.reasons == (ValidatedCallFailureReason.REJECTED_OUT_OF_SCOPE,)
+    assert "sensitive parser detail" not in str(excinfo.value)
+
+
+@pytest.mark.asyncio
+async def test_validated_unknown_parser_exception_is_contract_violation():
+    chain = _validated_chain(1)
+
+    async def invoke(messages, config=None, response_format=None):
+        return _LLMResponse("candidate")
+
+    chain._clients[0].ainvoke = invoke  # type: ignore[assignment]
+
+    with pytest.raises(AllProvidersFailedError) as excinfo:
+        await chain.ainvoke_validated("private prompt", lambda raw: (_ for _ in ()).throw(RuntimeError("secret")))
+
+    assert excinfo.value.reasons == (ValidatedCallFailureReason.CONTRACT_VIOLATION,)
+    assert "secret" not in repr(excinfo.value)
+
+
+@pytest.mark.asyncio
+async def test_validated_mixed_parser_safe_reasons_preserve_provider_attempt_order():
+    chain = _validated_chain(3)
+
+    async def invoke(messages, config=None, response_format=None):
+        return _LLMResponse("candidate")
+
+    for client in chain._clients:
+        client.ainvoke = invoke  # type: ignore[assignment]
+
+    reasons = iter(
+        (
+            ValidatedCallFailureReason.PROVIDER_OUTPUT_UNPARSEABLE,
+            ValidatedCallFailureReason.SOURCE_EVIDENCE_UNAVAILABLE,
+            ValidatedCallFailureReason.VALIDATION_BLOCKED,
+        )
+    )
+
+    class ParserError(Exception):
+        def __init__(self, reason):
+            super().__init__("secret parser detail")
+            self.validated_failure_reason = reason
+
+    def parser(raw):
+        raise ParserError(next(reasons))
+
+    with pytest.raises(AllProvidersFailedError) as excinfo:
+        await chain.ainvoke_validated("private prompt", parser)
+
+    assert excinfo.value.reasons == (
+        ValidatedCallFailureReason.PROVIDER_OUTPUT_UNPARSEABLE,
+        ValidatedCallFailureReason.SOURCE_EVIDENCE_UNAVAILABLE,
+        ValidatedCallFailureReason.VALIDATION_BLOCKED,
+    )
+
+
+def test_all_providers_failed_error_is_backward_compatible_and_closed():
+    legacy = AllProvidersFailedError("legacy message")
+    assert str(legacy) == "legacy message"
+    assert legacy.reasons == ()
+
+    error = AllProvidersFailedError(
+        "All LLM providers failed validation or transport",
+        (ValidatedCallFailureReason.CONTRACT_VIOLATION,),
+    )
+    assert error.reasons == (ValidatedCallFailureReason.CONTRACT_VIOLATION,)
+    with pytest.raises(TypeError):
+        error.reasons[0] = ValidatedCallFailureReason.PROVIDER_TIMEOUT  # type: ignore[index]
+    with pytest.raises(ValueError):
+        AllProvidersFailedError("message", ("not-a-safe-reason",))
+
+    assert {item.value for item in ValidatedCallFailureReason} == {
+        "provider_timeout",
+        "provider_unavailable",
+        "provider_output_unparseable",
+        "contract_violation",
+        "validation_blocked",
+        "rejected_out_of_scope",
+        "source_evidence_unavailable",
+    }

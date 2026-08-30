@@ -3,17 +3,18 @@
 Chain architecture (August 2026):
 
   LLM chain:
-    1. Qwen3.8 27B NVFP4 (private vLLM)
-    2. ThinkingCap Qwen3.6 27B NVFP4 (private vLLM)
-    3. Qwen3.6 35B-A3B NVFP4 (private vLLM)
+    1. DeepSeek v4-flash (when configured)
+       → managed primary/reliability provider
+    2. Qwen3.8 27B NVFP4 (private vLLM)
+       → first approved free-pool fallback
+    3. Qwen3.5 4B FP8 (private vLLM)
+       → second approved free-pool fallback
     4. Existing Qwen3.6 35B-A3B AWQ endpoint
-       → free pool, enabled only inside the approved private network
-    5. DeepSeek v4-flash
-       → managed reliability fallback
+       → fallback when the free pool is disabled
 
-  When FREE_LLM_POOL_ENABLED is false, the established public Qwen endpoint is
-  primary and DeepSeek is the managed fallback. The current Qwen endpoint is
-  already part of the free chain, so it is not called twice.
+  When FREE_LLM_POOL_ENABLED is false, DeepSeek is used first when configured,
+  followed by the established public Qwen endpoint. Without DeepSeek, the
+  established public Qwen endpoint is used alone.
 
   Embeddings chain:
     1. Voyage voyage-4-lite via direct Voyage API (api.voyageai.com/v1)
@@ -37,9 +38,10 @@ from __future__ import annotations
 import asyncio
 import logging
 import math
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field, replace
-from typing import Any, cast
+from enum import StrEnum
+from typing import Any, Generic, TypeVar, cast
 
 import httpx
 
@@ -58,6 +60,18 @@ class LLMError(Exception):
     """Base error for LLM/embedding operations."""
 
 
+class ValidatedCallFailureReason(StrEnum):
+    """Closed, non-sensitive reasons for a failed validated provider attempt."""
+
+    PROVIDER_TIMEOUT = "provider_timeout"
+    PROVIDER_UNAVAILABLE = "provider_unavailable"
+    PROVIDER_OUTPUT_UNPARSEABLE = "provider_output_unparseable"
+    CONTRACT_VIOLATION = "contract_violation"
+    VALIDATION_BLOCKED = "validation_blocked"
+    REJECTED_OUT_OF_SCOPE = "rejected_out_of_scope"
+    SOURCE_EVIDENCE_UNAVAILABLE = "source_evidence_unavailable"
+
+
 class ProviderFailedError(LLMError):
     """A single provider failed after exhausting its retries."""
 
@@ -68,7 +82,48 @@ class ProviderFailedError(LLMError):
 
 
 class AllProvidersFailedError(LLMError):
-    """All providers in the chain failed."""
+    """All providers in the chain failed without retaining sensitive details."""
+
+    _MAX_REASONS = 32
+
+    def __init__(
+        self,
+        message: str,
+        reasons: Iterable[ValidatedCallFailureReason | str] = (),
+    ) -> None:
+        normalized: list[ValidatedCallFailureReason] = []
+        for value in tuple(reasons):
+            try:
+                reason = ValidatedCallFailureReason(value)
+            except (TypeError, ValueError):
+                raise ValueError("invalid_validated_failure_reason") from None
+            normalized.append(reason)
+            if len(normalized) > self._MAX_REASONS:
+                raise ValueError("too_many_validated_failure_reasons")
+        super().__init__(message)
+        self._reasons = tuple(normalized)
+
+    @property
+    def reasons(self) -> tuple[ValidatedCallFailureReason, ...]:
+        """Immutable closed-vocabulary reasons, in first-seen order."""
+
+        return self._reasons
+
+
+def _validated_parser_failure_reason(exc: BaseException) -> ValidatedCallFailureReason:
+    """Read only a closed, bounded reason attribute from a parser exception."""
+
+    try:
+        value = getattr(exc, "validated_failure_reason", None)
+        return ValidatedCallFailureReason(value)
+    except (AttributeError, TypeError, ValueError):
+        return ValidatedCallFailureReason.CONTRACT_VIOLATION
+
+
+def _provider_validated_failure_reason(exc: ProviderFailedError) -> ValidatedCallFailureReason:
+    if isinstance(exc.last_exc, TimeoutError | httpx.TimeoutException):
+        return ValidatedCallFailureReason.PROVIDER_TIMEOUT
+    return ValidatedCallFailureReason.PROVIDER_UNAVAILABLE
 
 
 # ---------------------------------------------------------------------------
@@ -404,6 +459,18 @@ class _LLMResponse:
         self.content = content
 
 
+T = TypeVar("T")
+
+
+@dataclass(frozen=True, slots=True)
+class ValidatedLLMResult(Generic[T]):
+    """A parser-approved response with safe provider provenance."""
+
+    provider: str
+    model_id: str
+    value: T
+
+
 @dataclass(frozen=True, slots=True)
 class EmbeddingBatchResult:
     """Immutable provenance-aware batch of padded embeddings."""
@@ -600,6 +667,59 @@ class ResilientLLMClient:
                 continue
 
         raise AllProvidersFailedError(f"All LLM providers failed: {[c.name for c in self._clients]}") from last_exc
+
+    async def ainvoke_validated(
+        self,
+        messages: str | list[dict],
+        parser: Callable[[str], T],
+        config: dict | None = None,
+        response_format: dict | None = None,
+    ) -> ValidatedLLMResult[T]:
+        """Invoke providers until one response passes a pure parser/validator.
+
+        Transport retries remain inside each provider client. A parser or
+        validator rejection is treated as provider failure and moves to the
+        next provider, without logging the prompt, response, tenant, or
+        parsed value. Existing ``ainvoke`` callers keep their original
+        response type and behavior.
+        """
+
+        failure_reasons: list[ValidatedCallFailureReason] = []
+        for index, client in enumerate(self._clients):
+            try:
+                provider_response_format = _response_format_for_provider(client.name, response_format)
+                response = await client.ainvoke(
+                    messages,
+                    config=config,
+                    response_format=provider_response_format,
+                )
+                value = parser(response.content)
+                return ValidatedLLMResult(
+                    provider=client.name,
+                    model_id=client.config.model,
+                    value=value,
+                )
+            except ProviderFailedError as exc:
+                failure_reasons.append(_provider_validated_failure_reason(exc))
+                logger.warning(
+                    "[LLM_VALIDATED_FAILOVER] provider=%s failure=%s remaining=%s",
+                    client.name,
+                    type(exc.last_exc).__name__,
+                    len(self._clients) - index - 1,
+                )
+            except Exception as exc:
+                failure_reasons.append(_validated_parser_failure_reason(exc))
+                logger.warning(
+                    "[LLM_VALIDATED_REJECT] provider=%s failure=%s remaining=%s",
+                    client.name,
+                    type(exc).__name__,
+                    len(self._clients) - index - 1,
+                )
+
+        raise AllProvidersFailedError(
+            "All LLM providers failed validation or transport",
+            failure_reasons,
+        ) from None
 
 
 # ---------------------------------------------------------------------------
