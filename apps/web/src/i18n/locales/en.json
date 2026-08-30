@@ -724,7 +724,7 @@
     "active": "Active"
   },
   "ai": {
-    "title": "AI Course Generation",
+    "title": "Create course from materials",
     "targetAudience": "Target Audience",
     "targetAudiencePlaceholder": "Describe who this course is for...",
     "numModules": "Number of Modules",

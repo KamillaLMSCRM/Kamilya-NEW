@@ -32,6 +32,8 @@ describe('contextual help registry', () => {
   it('resolves nested pages and localized content', () => {
     expect(getContextualHelp('/courses/course-123/edit', 'methodologist', 'kk')?.title).toBe('Курстар');
     expect(getContextualHelp('/learning-paths/path-123', 'methodologist', 'en')?.title).toBe('Learning programs');
+    expect(getContextualHelp('/ai/generate', 'methodologist', 'ru')?.title).toBe('Создать курс из материалов');
+    expect(getContextualHelp('/quizzes', 'methodologist', 'ru')?.title).toBe('Тесты и вопросы');
   });
 
   it('does not expose role-inappropriate help', () => {

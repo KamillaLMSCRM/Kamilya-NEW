@@ -44,7 +44,7 @@ const TOPICS: readonly HelpTopicDefinition[] = [
   },
   {
     id: 'ai-generation', paths: ['/ai/generate'], roles: ['methodologist'],
-    title: text('AI-генерация', 'AI-генерация', 'AI generation'),
+    title: text('Создать курс из материалов', 'Материалдардан курс жасау', 'Create course from materials'),
     purpose: text('Создание черновика курса из ваших документов и требований.', 'Құжаттарыңыз бен талаптарыңыздан курс жобасын жасау.', 'Create a draft course from your documents and requirements.'),
     steps: [text('Выберите проверенные исходные документы.', 'Тексерілген бастапқы құжаттарды таңдаңыз.', 'Choose verified source documents.'), text('Укажите аудиторию, цель и ограничения курса.', 'Аудиторияны, мақсатты және шектеулерді көрсетіңіз.', 'Specify the audience, objective, and constraints.'), text('Проверьте каждое утверждение и сохраните только как черновик до методической проверки.', 'Әр тұжырымды тексеріп, әдістемелік тексеруге дейін жоба ретінде сақтаңыз.', 'Verify every claim and keep the result as a draft until methodological review.')],
     example: text('Загрузите инструкцию по работе с кассой и попросите подготовить вводный курс для нового кассира.', 'Касса нұсқаулығын жүктеп, жаңа кассирге кіріспе курс дайындауды сұраңыз.', 'Upload a cash-desk procedure and request an introductory course for a new cashier.'),
@@ -62,7 +62,7 @@ const TOPICS: readonly HelpTopicDefinition[] = [
   },
   {
     id: 'quizzes', paths: ['/quizzes'], roles: ['methodologist'],
-    title: text('Конструктор тестов', 'Тест құрастырушысы', 'Quiz builder'),
+    title: text('Тесты и вопросы', 'Тесттер мен сұрақтар', 'Tests and questions'),
     purpose: text('Проверка знаний по материалам курса с понятными критериями прохождения.', 'Курс материалдары бойынша білімді түсінікті өту талаптарымен тексеру.', 'Assess knowledge with clear passing criteria.'),
     steps: [text('Выберите курс и темы проверки.', 'Курс пен тексеру тақырыптарын таңдаңыз.', 'Choose the course and assessment topics.'), text('Добавьте однозначные вопросы и отметьте правильные ответы.', 'Нақты сұрақтар қосып, дұрыс жауаптарды белгілеңіз.', 'Add unambiguous questions and mark correct answers.'), text('Настройте проходной балл и проверьте тест как обучающийся.', 'Өту балын баптап, тестті оқушы ретінде тексеріңіз.', 'Set the passing score and preview the quiz as a learner.')],
     example: text('После курса по ИБ сотрудник отвечает на 10 вопросов и проходит при 8 правильных ответах.', 'ИБ курсынан кейін қызметкер 10 сұраққа жауап беріп, 8 дұрыс жауаппен өтеді.', 'After an information-security course, a learner passes with 8 correct answers out of 10.'),

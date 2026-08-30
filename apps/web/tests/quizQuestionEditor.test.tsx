@@ -305,7 +305,17 @@ describe('quiz question editor', () => {
     fireEvent.click(courseToggle);
 
     expect(courseToggle).toHaveAttribute('aria-expanded', 'true');
-    expect(await screen.findByText('Урок 1')).toBeInTheDocument();
+    const lessonButton = await screen.findByRole('button', { name: /Урок 1/ });
+    expect(lessonButton).toBeInTheDocument();
+    expect(lessonButton).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('uses the same plain-language title as the navigation', async () => {
+    setupApi();
+    render(<QuizzesAdminPage />);
+
+    expect(await screen.findByRole('heading', { name: 'Тесты и вопросы' })).toBeInTheDocument();
+    expect(screen.queryByText('Конструктор тестов')).not.toBeInTheDocument();
   });
 
   it('names multiple-select questions by correct-answer semantics', async () => {

@@ -596,13 +596,7 @@ export default function QuizzesAdminPage() {
     <div className="mx-auto max-w-[1560px] space-y-5 px-1">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0 max-w-4xl">
-          {/* Page header renamed on 2026-06-27 from "Тест — Админ" to
-              "Конструктор тестов" — the old label sounded like an admin
-              operations panel, but this is actually a content-construction
-              page where the methodologist authors quiz questions. The
-              subtitle clarifies the workflow: pick a lesson → write/AI the
-              questions → save. */}
-          <h1 className="text-2xl font-bold leading-8 text-foreground">Конструктор тестов</h1>
+          <h1 className="text-2xl font-bold leading-8 text-foreground">Тесты и вопросы</h1>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
             Создание и редактирование тестов. Выберите урок → добавьте вопросы вручную или сгенерируйте черновик из контента урока с помощью AI.
           </p>
@@ -991,9 +985,11 @@ export default function QuizzesAdminPage() {
                               {lessons.map((l) => {
                                 const quiz = l.quiz!;
                                 return (
-                                  <div
+                                  <button
+                                    type="button"
                                     key={quiz.id}
-                                    className={`cursor-pointer rounded-md px-3 py-2 text-sm transition-colors ${
+                                    aria-pressed={selectedQuiz?.id === quiz.id}
+                                    className={`w-full rounded-md px-3 py-2 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                                       selectedQuiz?.id === quiz.id ? 'bg-primary/10 text-primary' : 'text-foreground hover:bg-muted/70'
                                     }`}
                                     onClick={() => setSelectedQuiz(quiz)}
@@ -1003,7 +999,7 @@ export default function QuizzesAdminPage() {
                                       <span className="min-w-0 flex-1 truncate">{l.title}</span>
                                       <Badge variant="secondary" className="ml-2 bg-primary/10 text-primary">{quiz.questions.length}</Badge>
                                     </div>
-                                  </div>
+                                  </button>
                                 );
                               })}
                             </div>
@@ -1019,9 +1015,11 @@ export default function QuizzesAdminPage() {
                       Без привязки
                     </div>
                     {grouped.orphans.map(({ quiz }) => (
-                      <div
+                      <button
+                        type="button"
                         key={quiz.id}
-                        className={`cursor-pointer rounded-md px-3 py-2 text-sm ${
+                        aria-pressed={selectedQuiz?.id === quiz.id}
+                        className={`w-full rounded-md px-3 py-2 text-left text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                           selectedQuiz?.id === quiz.id ? 'bg-primary/10 text-primary' : 'hover:bg-muted/70'
                         }`}
                         onClick={() => setSelectedQuiz(quiz)}
@@ -1031,7 +1029,7 @@ export default function QuizzesAdminPage() {
                           <span className="min-w-0 flex-1 truncate">{quiz.title}</span>
                           <Badge variant="secondary" className="ml-2 bg-primary/10 text-primary">{quiz.questions.length}</Badge>
                         </div>
-                      </div>
+                      </button>
                     ))}
                   </div>
                 )}
