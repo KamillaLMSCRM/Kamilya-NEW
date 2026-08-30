@@ -90,8 +90,8 @@ class TrainingProcedureResponse(BaseModel):
     retention_days: int | None
     commission_snapshot_rules: dict[str, Any] | None
     authorized_decision_rules: dict[str, Any] | None
-    created_by_user_id: UUID
-    updated_by_user_id: UUID
+    created_by_user_id: UUID | None
+    updated_by_user_id: UUID | None
     created_at: datetime
     updated_at: datetime
     activated_at: datetime | None

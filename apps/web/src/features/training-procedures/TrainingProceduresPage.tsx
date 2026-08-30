@@ -32,6 +32,8 @@ interface Procedure {
   retention_days: number | null;
   commission_snapshot_rules: Record<string, unknown> | null;
   authorized_decision_rules: Record<string, unknown> | null;
+  created_by_user_id: string | null;
+  updated_by_user_id: string | null;
   created_at: string;
   updated_at: string;
   activated_at: string | null;

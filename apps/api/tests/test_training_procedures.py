@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import UTC, date, datetime
 from inspect import getclosurevars
 from pathlib import Path
 from types import SimpleNamespace
@@ -17,7 +17,7 @@ from app.modules.training_procedures.router import (
     _procedure_tenant_id,
     router,
 )
-from app.modules.training_procedures.schemas import TrainingProcedureCreate
+from app.modules.training_procedures.schemas import TrainingProcedureCreate, TrainingProcedureResponse
 from app.modules.training_procedures.service import ActivationIncompleteError, validate_activation_ready
 
 
@@ -149,6 +149,42 @@ def test_impersonation_never_fabricates_a_tenant_procedure_actor():
 
     assert _procedure_actor_id(SimpleNamespace(id=real_actor_id, is_impersonating=False)) == real_actor_id
     assert _procedure_actor_id(SimpleNamespace(id=real_actor_id, is_impersonating=True)) is None
+
+
+def test_impersonated_procedure_response_accepts_audited_null_authors():
+    now = datetime.now(UTC)
+
+    response = TrainingProcedureResponse.model_validate(
+        {
+            "id": uuid4(),
+            "tenant_id": uuid4(),
+            "code": "qa-acknowledgement",
+            "version": 1,
+            "title": "QA acknowledgement",
+            "description": "",
+            "procedure_type": "acknowledgement",
+            "status": "draft",
+            "approval_reference": None,
+            "approval_date": None,
+            "approved_by_name": None,
+            "legal_basis": None,
+            "local_basis": None,
+            "confirmation_method": "manual_record",
+            "retention_class": None,
+            "retention_days": None,
+            "commission_snapshot_rules": None,
+            "authorized_decision_rules": None,
+            "created_by_user_id": None,
+            "updated_by_user_id": None,
+            "created_at": now,
+            "updated_at": now,
+            "activated_at": None,
+            "retired_at": None,
+        }
+    )
+
+    assert response.created_by_user_id is None
+    assert response.updated_by_user_id is None
 
 
 def test_methodologist_dependency_supplies_the_effective_tenant_context():
