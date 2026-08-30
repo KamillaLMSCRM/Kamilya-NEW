@@ -113,7 +113,7 @@ async def count_active_ai_jobs(db: AsyncSession, tenant_id) -> int:
 
 async def resolve_tenant_ai_active_limit(
     db: AsyncSession,
-    tenant_id,
+    tenant_id: Any,
     *,
     default_limit: int = DEFAULT_TENANT_AI_ACTIVE_LIMIT,
 ) -> int:
@@ -124,6 +124,8 @@ async def resolve_tenant_ai_active_limit(
     closed to the configured environment default.
     """
     default_limit = _positive_int(default_limit, "default_limit")
+    if tenant_id is None:
+        return default_limit
     settings = await db.scalar(select(Tenant.settings).where(Tenant.id == tenant_id))
     if not isinstance(settings, dict):
         return default_limit
