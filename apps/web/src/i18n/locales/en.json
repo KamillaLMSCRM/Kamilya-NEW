@@ -1549,8 +1549,14 @@
     "type": "Procedure type",
     "description": "Description",
     "confirmationMethod": "Confirmation method",
-    "retentionClass": "Retention class",
-    "retentionDays": "Retention period, days",
+      "retentionClass": "Retention class",
+      "retentionDays": "Retention period, days",
+      "retentionPeriod": "Retention period",
+      "chooseOption": "Choose an option",
+      "days": "days",
+      "additionalSettings": "Approval and service settings",
+      "additionalSettingsHint": "Complete these fields before activation. They are optional while saving a draft.",
+      "codeAuto": "Generated automatically",
     "approvalReference": "Approval reference",
     "approvalDate": "Approval date",
     "approvedBy": "Approved by",
@@ -1576,7 +1582,9 @@
     "methodologistOnly": "This section is available only to the active methodologist.",
     "status": { "draft": "Draft", "active": "Active", "retired": "Retired" },
     "types": { "acknowledgement": "Acknowledgement", "internal_attestation": "Internal attestation", "admission_decision": "Separate admission decision" },
-    "confirmations": { "manual_record": "Manual record", "email_otp": "One-time code from email (OTP)" }
+      "confirmations": { "manual_record": "Manual record", "email_otp": "One-time code from email (OTP)" },
+      "retentionClasses": { "training-results": "Training results", "knowledge-checks": "Knowledge checks", "acknowledgements": "Acknowledgements", "work-admission": "Work admission", "other": "Other" },
+      "retentionPeriods": { "365": "1 year", "1095": "3 years", "1825": "5 years", "3650": "10 years", "7300": "20 years" }
   },
   "trainingRetentionPage": {
     "title": "Result retention periods",

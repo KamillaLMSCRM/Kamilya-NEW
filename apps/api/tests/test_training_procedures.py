@@ -5,13 +5,14 @@ from __future__ import annotations
 from datetime import date
 from inspect import getclosurevars
 from pathlib import Path
+from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
 from pydantic import ValidationError
 
 from app.modules.training_procedures.models import TrainingProcedure
-from app.modules.training_procedures.router import router
+from app.modules.training_procedures.router import _procedure_actor_id, router
 from app.modules.training_procedures.schemas import TrainingProcedureCreate
 from app.modules.training_procedures.service import ActivationIncompleteError, validate_activation_ready
 
@@ -139,6 +140,13 @@ def test_all_routes_are_methodologist_only():
         assert getclosurevars(role_dependencies[0]).nonlocals["allowed_roles"] == ("methodologist",)
 
 
+def test_impersonation_never_fabricates_a_tenant_procedure_actor():
+    real_actor_id = uuid4()
+
+    assert _procedure_actor_id(SimpleNamespace(id=real_actor_id, is_impersonating=False)) == real_actor_id
+    assert _procedure_actor_id(SimpleNamespace(id=real_actor_id, is_impersonating=True)) is None
+
+
 def test_migration_has_force_rls_runtime_grants_and_additive_predecessor():
     migration = Path(__file__).parents[1] / "alembic" / "versions" / "0086_training_procedures.py"
     source = migration.read_text(encoding="utf-8")
@@ -151,6 +159,18 @@ def test_migration_has_force_rls_runtime_grants_and_additive_predecessor():
     assert "uq_training_procedures_one_active_code" in source
     assert "status = 'active'" in source
     assert "ck_training_procedures_code_format" in source
+
+
+def test_impersonation_actor_migration_keeps_non_null_authors_tenant_scoped():
+    migration = Path(__file__).parents[1] / "alembic" / "versions" / "0138_allow_impersonated_training_procedure_actor.py"
+    source = migration.read_text(encoding="utf-8")
+
+    assert 'revision = "0138"' in source
+    assert 'down_revision = "0137"' in source
+    assert "created_by_user_id IS NOT NULL" in source
+    assert "updated_by_user_id IS NOT NULL" in source
+    assert "creator_tenant <> NEW.tenant_id" in source
+    assert "updater_tenant <> NEW.tenant_id" in source
 
 
 def test_main_registers_the_procedure_api_surface():

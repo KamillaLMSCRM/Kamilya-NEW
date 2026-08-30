@@ -75,7 +75,7 @@ async def list_procedures(db: AsyncSession, tenant_id: UUID, procedure_status: s
 async def create_procedure(
     db: AsyncSession,
     tenant_id: UUID,
-    user_id: UUID,
+    user_id: UUID | None,
     payload: TrainingProcedureCreate,
 ) -> TrainingProcedure:
     existing = await db.scalar(
@@ -101,7 +101,7 @@ async def create_procedure(
 async def update_procedure(
     db: AsyncSession,
     tenant_id: UUID,
-    user_id: UUID,
+    user_id: UUID | None,
     procedure_id: UUID,
     payload: TrainingProcedureUpdate,
 ) -> TrainingProcedure:
@@ -123,7 +123,7 @@ async def delete_procedure(db: AsyncSession, tenant_id: UUID, procedure_id: UUID
     await db.flush()
 
 
-async def activate_procedure(db: AsyncSession, tenant_id: UUID, user_id: UUID, procedure_id: UUID) -> TrainingProcedure:
+async def activate_procedure(db: AsyncSession, tenant_id: UUID, user_id: UUID | None, procedure_id: UUID) -> TrainingProcedure:
     procedure = await db.scalar(
         select(TrainingProcedure)
         .where(TrainingProcedure.id == procedure_id, TrainingProcedure.tenant_id == tenant_id)
@@ -169,7 +169,7 @@ async def activate_procedure(db: AsyncSession, tenant_id: UUID, user_id: UUID, p
     return procedure
 
 
-async def retire_procedure(db: AsyncSession, tenant_id: UUID, user_id: UUID, procedure_id: UUID) -> TrainingProcedure:
+async def retire_procedure(db: AsyncSession, tenant_id: UUID, user_id: UUID | None, procedure_id: UUID) -> TrainingProcedure:
     procedure = await get_procedure(db, tenant_id, procedure_id)
     if procedure.status != "active":
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Only active procedures can be retired")

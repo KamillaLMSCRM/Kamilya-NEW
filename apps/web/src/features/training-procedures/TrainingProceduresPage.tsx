@@ -82,6 +82,19 @@ const EMPTY_FORM: ProcedureForm = {
   decision_effective_date: "",
 };
 
+const RETENTION_CLASSES = [
+  "training-results",
+  "knowledge-checks",
+  "acknowledgements",
+  "work-admission",
+  "other",
+] as const;
+const RETENTION_PERIODS = ["365", "1095", "1825", "3650", "7300"] as const;
+
+function generatedProcedureCode() {
+  return `procedure-${crypto.randomUUID().replaceAll("-", "").slice(0, 12)}`;
+}
+
 function formFromProcedure(item: Procedure): ProcedureForm {
   const commission = item.commission_snapshot_rules ?? {};
   const decision = item.authorized_decision_rules ?? {};
@@ -110,7 +123,7 @@ function formFromProcedure(item: Procedure): ProcedureForm {
 
 function toPayload(form: ProcedureForm) {
   return {
-    code: form.code.trim(),
+    code: form.code.trim() || generatedProcedureCode(),
     version: Number(form.version),
     title: form.title.trim(),
     description: form.description.trim(),
@@ -237,19 +250,25 @@ export default function TrainingProceduresPage() {
           <CardHeader><CardTitle className="text-base">{isEditing ? t("trainingProceduresPage.editTitle") : t("trainingProceduresPage.createTitle")}</CardTitle><p className="text-sm text-muted-foreground">{t("trainingProceduresPage.formHint")}</p></CardHeader>
           <CardContent className="space-y-4">
             <fieldset disabled={readOnly || saving} className="space-y-4">
-            <div className="grid min-w-0 gap-4 sm:grid-cols-2"><Field label={t("trainingProceduresPage.code")}><Input value={form.code} disabled={isEditing} onChange={(event) => updateForm("code", event.target.value)} /></Field><Field label={t("trainingProceduresPage.version")}><Input type="number" min={1} value={form.version} disabled={isEditing} onChange={(event) => updateForm("version", event.target.value)} /></Field></div>
             <Field label={t("trainingProceduresPage.name")}><Input value={form.title} onChange={(event) => updateForm("title", event.target.value)} /></Field>
             <Field label={t("trainingProceduresPage.type")}><select className="min-h-10 w-full min-w-0 rounded-md border border-input bg-background px-3 py-2 text-sm" value={form.procedure_type} onChange={(event) => updateForm("procedure_type", event.target.value as ProcedureType)} disabled={isEditing}><option value="acknowledgement">{t("trainingProceduresPage.types.acknowledgement")}</option><option value="internal_attestation">{t("trainingProceduresPage.types.internal_attestation")}</option><option value="admission_decision">{t("trainingProceduresPage.types.admission_decision")}</option></select></Field>
             <Field label={t("trainingProceduresPage.description")}><textarea className="min-h-20 w-full min-w-0 rounded-md border border-input bg-background px-3 py-2 text-sm" value={form.description} onChange={(event) => updateForm("description", event.target.value)} /></Field>
-            <div className="grid min-w-0 gap-4 sm:grid-cols-2"><Field label={t("trainingProceduresPage.confirmationMethod")}><select className="min-h-10 w-full min-w-0 rounded-md border border-input bg-background px-3 py-2 text-sm" value={form.confirmation_method} onChange={(event) => updateForm("confirmation_method", event.target.value as ConfirmationMethod)}><option value="manual_record">{t("trainingProceduresPage.confirmations.manual_record")}</option><option value="email_otp">{t("trainingProceduresPage.confirmations.email_otp")}</option></select></Field><Field label={t("trainingProceduresPage.retentionClass")}><Input value={form.retention_class} onChange={(event) => updateForm("retention_class", event.target.value)} /></Field></div>
-            <Field label={t("trainingProceduresPage.retentionDays")}><Input type="number" min={1} value={form.retention_days} onChange={(event) => updateForm("retention_days", event.target.value)} /></Field>
-            <div className="grid min-w-0 gap-4 sm:grid-cols-2"><Field label={t("trainingProceduresPage.approvalReference")}><Input value={form.approval_reference} onChange={(event) => updateForm("approval_reference", event.target.value)} /></Field><Field label={t("trainingProceduresPage.approvalDate")}><DateInput value={form.approval_date} onChange={(value) => updateForm("approval_date", value)} /></Field></div>
-            <Field label={t("trainingProceduresPage.approvedBy")}><Input value={form.approved_by_name} onChange={(event) => updateForm("approved_by_name", event.target.value)} /></Field>
-            <div className="grid min-w-0 gap-4 sm:grid-cols-2"><Field label={t("trainingProceduresPage.legalBasis")}><textarea className="min-h-20 w-full min-w-0 rounded-md border border-input bg-background px-3 py-2 text-sm" value={form.legal_basis} onChange={(event) => updateForm("legal_basis", event.target.value)} /></Field><Field label={t("trainingProceduresPage.localBasis")}><textarea className="min-h-20 w-full min-w-0 rounded-md border border-input bg-background px-3 py-2 text-sm" value={form.local_basis} onChange={(event) => updateForm("local_basis", event.target.value)} /></Field></div>
-            {form.procedure_type === "internal_attestation" && <RuleFields title={t("trainingProceduresPage.commissionRules")} fields={[["commission_members", t("trainingProceduresPage.commissionMembers")], ["commission_quorum", t("trainingProceduresPage.commissionQuorum")], ["commission_decision_record", t("trainingProceduresPage.decisionRecord")]]} form={form} updateForm={updateForm} />}
-            {form.procedure_type === "admission_decision" && <RuleFields title={t("trainingProceduresPage.authorizedRules")} fields={[["decision_authority", t("trainingProceduresPage.authority")], ["decision_record", t("trainingProceduresPage.decisionRecord")], ["decision_effective_date", t("trainingProceduresPage.effectiveDate")]]} form={form} updateForm={updateForm} />}
+            <div className="grid min-w-0 gap-4 sm:grid-cols-2"><Field label={t("trainingProceduresPage.confirmationMethod")}><select className="min-h-10 w-full min-w-0 rounded-md border border-input bg-background px-3 py-2 text-sm" value={form.confirmation_method} onChange={(event) => updateForm("confirmation_method", event.target.value as ConfirmationMethod)}><option value="manual_record">{t("trainingProceduresPage.confirmations.manual_record")}</option><option value="email_otp">{t("trainingProceduresPage.confirmations.email_otp")}</option></select></Field><Field label={t("trainingProceduresPage.retentionClass")}><select className="min-h-10 w-full min-w-0 rounded-md border border-input bg-background px-3 py-2 text-sm" value={form.retention_class} onChange={(event) => updateForm("retention_class", event.target.value)}><option value="">{t("trainingProceduresPage.chooseOption")}</option>{form.retention_class && !RETENTION_CLASSES.includes(form.retention_class as typeof RETENTION_CLASSES[number]) && <option value={form.retention_class}>{form.retention_class}</option>}{RETENTION_CLASSES.map((item) => <option key={item} value={item}>{t(`trainingProceduresPage.retentionClasses.${item}` as never)}</option>)}</select></Field></div>
+            <Field label={t("trainingProceduresPage.retentionPeriod")}><select className="min-h-10 w-full min-w-0 rounded-md border border-input bg-background px-3 py-2 text-sm" value={form.retention_days} onChange={(event) => updateForm("retention_days", event.target.value)}><option value="">{t("trainingProceduresPage.chooseOption")}</option>{form.retention_days && !RETENTION_PERIODS.includes(form.retention_days as typeof RETENTION_PERIODS[number]) && <option value={form.retention_days}>{form.retention_days} {t("trainingProceduresPage.days")}</option>}{RETENTION_PERIODS.map((days) => <option key={days} value={days}>{t(`trainingProceduresPage.retentionPeriods.${days}` as never)}</option>)}</select></Field>
+            <details className="rounded-md border border-border bg-muted/20 p-3" open={isEditing && readOnly}>
+              <summary className="cursor-pointer text-sm font-semibold">{t("trainingProceduresPage.additionalSettings")}</summary>
+              <div className="mt-4 space-y-4">
+                <p className="text-xs text-muted-foreground">{t("trainingProceduresPage.additionalSettingsHint")}</p>
+                <div className="grid min-w-0 gap-4 sm:grid-cols-2"><Field label={t("trainingProceduresPage.code")}><Input value={form.code} disabled={isEditing} placeholder={t("trainingProceduresPage.codeAuto")} onChange={(event) => updateForm("code", event.target.value)} /></Field><Field label={t("trainingProceduresPage.version")}><Input type="number" min={1} value={form.version} disabled={isEditing} onChange={(event) => updateForm("version", event.target.value)} /></Field></div>
+                <div className="grid min-w-0 gap-4 sm:grid-cols-2"><Field label={t("trainingProceduresPage.approvalReference")}><Input value={form.approval_reference} onChange={(event) => updateForm("approval_reference", event.target.value)} /></Field><Field label={t("trainingProceduresPage.approvalDate")}><DateInput value={form.approval_date} onChange={(value) => updateForm("approval_date", value)} /></Field></div>
+                <Field label={t("trainingProceduresPage.approvedBy")}><Input value={form.approved_by_name} onChange={(event) => updateForm("approved_by_name", event.target.value)} /></Field>
+                <div className="grid min-w-0 gap-4 sm:grid-cols-2"><Field label={t("trainingProceduresPage.legalBasis")}><textarea className="min-h-20 w-full min-w-0 rounded-md border border-input bg-background px-3 py-2 text-sm" value={form.legal_basis} onChange={(event) => updateForm("legal_basis", event.target.value)} /></Field><Field label={t("trainingProceduresPage.localBasis")}><textarea className="min-h-20 w-full min-w-0 rounded-md border border-input bg-background px-3 py-2 text-sm" value={form.local_basis} onChange={(event) => updateForm("local_basis", event.target.value)} /></Field></div>
+                {form.procedure_type === "internal_attestation" && <RuleFields title={t("trainingProceduresPage.commissionRules")} fields={[["commission_members", t("trainingProceduresPage.commissionMembers")], ["commission_quorum", t("trainingProceduresPage.commissionQuorum")], ["commission_decision_record", t("trainingProceduresPage.decisionRecord")]]} form={form} updateForm={updateForm} />}
+                {form.procedure_type === "admission_decision" && <RuleFields title={t("trainingProceduresPage.authorizedRules")} fields={[["decision_authority", t("trainingProceduresPage.authority")], ["decision_record", t("trainingProceduresPage.decisionRecord")], ["decision_effective_date", t("trainingProceduresPage.effectiveDate")]]} form={form} updateForm={updateForm} />}
+              </div>
+            </details>
             </fieldset>
-            <div className="flex flex-wrap justify-end gap-2 border-t border-border pt-4"><Button type="button" variant="outline" onClick={() => { setEditingId(null); setForm(EMPTY_FORM); }}>{readOnly ? t("common.close") : t("common.cancel")}</Button>{!readOnly && <Button type="button" onClick={() => void save()} disabled={saving || !form.code || !form.title}>{saving ? t("common.saving") : t("common.save")}</Button>}</div>
+            <div className="flex flex-wrap justify-end gap-2 border-t border-border pt-4"><Button type="button" variant="outline" onClick={() => { setEditingId(null); setForm(EMPTY_FORM); }}>{readOnly ? t("common.close") : t("common.cancel")}</Button>{!readOnly && <Button type="button" onClick={() => void save()} disabled={saving || !form.title}>{saving ? t("common.saving") : t("common.save")}</Button>}</div>
             {selected?.status === "retired" && <p className="text-xs text-muted-foreground">{t("trainingProceduresPage.retiredHint")}</p>}
           </CardContent>
         </Card>

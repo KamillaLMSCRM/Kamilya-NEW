@@ -1549,8 +1549,14 @@
     "type": "Рәсім түрі",
     "description": "Сипаттамасы",
     "confirmationMethod": "Растау тәсілі",
-    "retentionClass": "Сақтау сыныбы",
-    "retentionDays": "Сақтау мерзімі, күн",
+      "retentionClass": "Сақтау сыныбы",
+      "retentionDays": "Сақтау мерзімі, күн",
+      "retentionPeriod": "Сақтау мерзімі",
+      "chooseOption": "Нұсқаны таңдаңыз",
+      "days": "күн",
+      "additionalSettings": "Бекіту және қызметтік баптаулар",
+      "additionalSettingsHint": "Бұл өрістерді іске қоспас бұрын толтырыңыз. Жобаны сақтау үшін олар міндетті емес.",
+      "codeAuto": "Автоматты түрде жасалады",
     "approvalReference": "Бекіту деректемелері",
     "approvalDate": "Бекітілген күн",
     "approvedBy": "Бекіткен тұлға",
@@ -1576,7 +1582,9 @@
     "methodologistOnly": "Бұл бөлімге тек қолданыстағы әдіскер қол жеткізе алады.",
     "status": { "draft": "Жоба", "active": "Белсенді", "retired": "Қолданыстан шығарылған" },
     "types": { "acknowledgement": "Танысуды растау", "internal_attestation": "Ішкі аттестаттау", "admission_decision": "Рұқсат туралы бөлек шешім" },
-    "confirmations": { "manual_record": "Қолмен тіркеу", "email_otp": "Электрондық поштадағы бір реттік код (OTP)" }
+      "confirmations": { "manual_record": "Қолмен тіркеу", "email_otp": "Электрондық поштадағы бір реттік код (OTP)" },
+      "retentionClasses": { "training-results": "Оқу нәтижелері", "knowledge-checks": "Білімді тексеру", "acknowledgements": "Танысуды растау", "work-admission": "Жұмысқа жіберу", "other": "Басқа" },
+      "retentionPeriods": { "365": "1 жыл", "1095": "3 жыл", "1825": "5 жыл", "3650": "10 жыл", "7300": "20 жыл" }
   },
   "trainingRetentionPage": {
     "title": "Нәтижелерді сақтау мерзімі",

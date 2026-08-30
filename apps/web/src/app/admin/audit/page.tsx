@@ -27,9 +27,35 @@ type Account = {
 
 type UserListResponse = { users: Account[] };
 
+function accountsFromAudit(entries: AuditEntry[]): Account[] {
+  const byId = new Map<string, Account>();
+  entries.forEach((entry) => {
+    if (!entry.user_id || byId.has(entry.user_id)) return;
+    const names = (entry.actor_name || '').trim().split(/\s+/).filter(Boolean);
+    byId.set(entry.user_id, {
+      id: entry.user_id,
+      first_name: names[0] || null,
+      last_name: names.slice(1).join(' ') || null,
+      email: entry.actor_email,
+    });
+  });
+  return Array.from(byId.values());
+}
+
+function mergeAccounts(entries: AuditEntry[], users: Account[]): Account[] {
+  const byId = new Map(accountsFromAudit(entries).map((account) => [account.id, account]));
+  users.forEach((account) => byId.set(account.id, account));
+  return Array.from(byId.values()).sort((left, right) => accountLabel(left).localeCompare(accountLabel(right)));
+}
+
 const ACTION_LABELS: Record<string, string> = {
   employee_profile_updated: 'Изменены данные сотрудника',
   employee_terminated: 'Сотрудник уволен',
+  'training_procedure.created': 'Создана процедура подтверждения',
+  'training_procedure.updated': 'Изменена процедура подтверждения',
+  'training_procedure.deleted': 'Удалён черновик процедуры',
+  'training_procedure.activated': 'Активирована процедура подтверждения',
+  'training_procedure.retired': 'Процедура выведена из действия',
   create: 'Создание',
   update: 'Изменение',
   delete: 'Удаление',
@@ -69,12 +95,15 @@ export default function AuditLogPage() {
       if (resourceType) params.set('resource_type', resourceType);
       if (startDate) params.set('start_date', new Date(`${startDate}T00:00:00`).toISOString());
       if (endDate) params.set('end_date', new Date(`${endDate}T23:59:59.999`).toISOString());
-      const [logsResponse, usersResponse] = await Promise.all([
+      const [logsResult, usersResult] = await Promise.allSettled([
         api.get<AuditEntry[]>(`/v1/audit/logs?${params.toString()}`),
-        api.get<UserListResponse>('/v1/users?per_page=500&include_students=true'),
+        api.get<UserListResponse>('/v1/users?per_page=500'),
       ]);
-      setEntries(logsResponse.data);
-      setAccounts(usersResponse.data.users || []);
+      if (logsResult.status === 'rejected') throw logsResult.reason;
+      const loadedEntries = logsResult.value.data;
+      const loadedAccounts = usersResult.status === 'fulfilled' ? usersResult.value.data.users || [] : [];
+      setEntries(loadedEntries);
+      setAccounts(mergeAccounts(loadedEntries, loadedAccounts));
     } catch (error: any) {
       const detail = error?.response?.data?.detail;
       toast.error(typeof detail === 'string' ? detail : 'Не удалось загрузить журнал действий');

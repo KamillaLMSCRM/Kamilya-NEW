@@ -21,16 +21,19 @@ function actionForPolledJob(job: AIGenerationJob): GenerationWorkflowAction {
 export function useGenerationWorkflow() {
   const [state, dispatch] = useReducer(generationWorkflowReducer, initialGenerationWorkflowState);
 
+  const restoreFromJobList = useCallback(async () => {
+    const response = await api.get<AIGenerationJob[]>('/v1/ai/jobs');
+    const activeJob = selectOldestActiveCourseJob(response.data);
+    if (!activeJob) return;
+    localStorage.setItem(activeJobStorageKey, activeJob.id);
+    dispatch({ type: 'job_active', job: activeJob });
+  }, []);
+
   const restoreActiveJob = useCallback(async () => {
     const savedJobId = localStorage.getItem(activeJobStorageKey);
     if (!savedJobId) {
       try {
-        const response = await api.get<AIGenerationJob[]>('/v1/ai/jobs');
-        const activeJob = selectOldestActiveCourseJob(response.data);
-        if (activeJob) {
-          localStorage.setItem(activeJobStorageKey, activeJob.id);
-          dispatch({ type: 'job_active', job: activeJob });
-        }
+        await restoreFromJobList();
       } catch {
         // A missing list is non-blocking; the page remains usable for a new job.
       }
@@ -45,10 +48,18 @@ export function useGenerationWorkflow() {
       else if (job.status === 'failed' || job.status === 'cancelled') dispatch({ type: 'job_terminal', job });
       if (!isActive(job)) localStorage.removeItem(activeJobStorageKey);
     } catch (error: any) {
-      // Keep a saved id after a transient error. Only a confirmed 404 means it is gone.
-      if (error?.response?.status === 404) localStorage.removeItem(activeJobStorageKey);
+      // An impersonation/tenant switch can leave a stale id. On a confirmed
+      // 404, clear it and immediately discover the active job in this tenant.
+      if (error?.response?.status === 404) {
+        localStorage.removeItem(activeJobStorageKey);
+        try {
+          await restoreFromJobList();
+        } catch {
+          // The job list is optional recovery; keep the page usable.
+        }
+      }
     }
-  }, []);
+  }, [restoreFromJobList]);
 
   const startJob = useCallback((job: AIGenerationJob) => {
     localStorage.setItem(activeJobStorageKey, job.id);

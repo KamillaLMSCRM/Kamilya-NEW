@@ -64,8 +64,12 @@ class TrainingProcedure(Base):
     retention_days = Column(Integer, nullable=True)
     commission_snapshot_rules = Column(JSONB, nullable=True)
     authorized_decision_rules = Column(JSONB, nullable=True)
-    created_by_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
-    updated_by_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
+    # A platform superadmin may configure a tenant while impersonating it. The
+    # platform actor is preserved in audit_logs, but must not be fabricated as
+    # a tenant-owned procedure author. In that bounded case these references
+    # remain NULL; ordinary methodologist mutations always store their user id.
+    created_by_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), nullable=True)
+    updated_by_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
     activated_at = Column(DateTime(timezone=True), nullable=True)

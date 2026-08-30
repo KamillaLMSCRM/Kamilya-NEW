@@ -1593,8 +1593,14 @@
     "type": "Тип процедуры",
     "description": "Описание",
     "confirmationMethod": "Способ подтверждения",
-    "retentionClass": "Класс хранения",
-    "retentionDays": "Срок хранения, дней",
+      "retentionClass": "Класс хранения",
+      "retentionDays": "Срок хранения, дней",
+      "retentionPeriod": "Срок хранения",
+      "chooseOption": "Выберите вариант",
+      "days": "дней",
+      "additionalSettings": "Утверждение и служебные настройки",
+      "additionalSettingsHint": "Заполните эти поля перед активацией. Для сохранения черновика они не обязательны.",
+      "codeAuto": "Будет создан автоматически",
     "approvalReference": "Реквизиты утверждения",
     "approvalDate": "Дата утверждения",
     "approvedBy": "Кем утверждено",
@@ -1620,7 +1626,9 @@
     "methodologistOnly": "Раздел доступен только действующему методологу.",
     "status": { "draft": "Черновик", "active": "Активна", "retired": "Выведена из действия" },
     "types": { "acknowledgement": "Подтверждение ознакомления", "internal_attestation": "Внутренняя аттестация", "admission_decision": "Отдельное решение о допуске" },
-    "confirmations": { "manual_record": "Ручная фиксация", "email_otp": "Одноразовый код из письма (OTP)" }
+      "confirmations": { "manual_record": "Ручная фиксация", "email_otp": "Одноразовый код из письма (OTP)" },
+      "retentionClasses": { "training-results": "Результаты обучения", "knowledge-checks": "Проверки знаний", "acknowledgements": "Подтверждения ознакомления", "work-admission": "Допуск к работе", "other": "Другое" },
+      "retentionPeriods": { "365": "1 год", "1095": "3 года", "1825": "5 лет", "3650": "10 лет", "7300": "20 лет" }
   },
   "trainingRetentionPage": {
     "title": "Сроки хранения результатов",

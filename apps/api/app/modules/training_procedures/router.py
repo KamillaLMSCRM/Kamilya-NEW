@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+from typing import cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Response, status
@@ -14,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.auth import require_role
 from app.core.db import get_db
 from app.models.users import User
+from app.modules.audit.service import log_action
 from app.modules.training_procedures.schemas import (
     ProcedureStatus,
     TrainingProcedureCreate,
@@ -34,6 +36,18 @@ from app.modules.training_procedures.service import (
 router = APIRouter(prefix="/training-procedures", tags=["training-procedures"])
 
 
+def _procedure_actor_id(user: User) -> UUID | None:
+    """Return a tenant-valid author without fabricating an impersonated user."""
+
+    if getattr(user, "is_impersonating", False):
+        return None
+    return cast(UUID, user.id)
+
+
+def _audit_details(user: User) -> dict[str, bool]:
+    return {"impersonation": bool(getattr(user, "is_impersonating", False))}
+
+
 @router.get("", response_model=TrainingProcedureListResponse)
 async def list_training_procedures(
     procedure_status: ProcedureStatus | None = Query(default=None, alias="status"),
@@ -50,7 +64,17 @@ async def create_training_procedure(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role("methodologist")),
 ):
-    return await create_procedure(db, user.tenant_id, user.id, payload)
+    procedure = await create_procedure(db, user.tenant_id, _procedure_actor_id(user), payload)
+    await log_action(
+        db,
+        user.tenant_id,
+        "training_procedure.created",
+        "training_procedure",
+        resource_id=procedure.id,
+        user_id=user.id,
+        details=_audit_details(user),
+    )
+    return procedure
 
 
 @router.get("/{procedure_id}", response_model=TrainingProcedureResponse)
@@ -69,7 +93,19 @@ async def update_training_procedure(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role("methodologist")),
 ):
-    return await update_procedure(db, user.tenant_id, user.id, procedure_id, payload)
+    procedure = await update_procedure(
+        db, user.tenant_id, _procedure_actor_id(user), procedure_id, payload
+    )
+    await log_action(
+        db,
+        user.tenant_id,
+        "training_procedure.updated",
+        "training_procedure",
+        resource_id=procedure.id,
+        user_id=user.id,
+        details=_audit_details(user),
+    )
+    return procedure
 
 
 @router.delete("/{procedure_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -78,7 +114,17 @@ async def delete_training_procedure(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role("methodologist")),
 ):
+    procedure = await get_procedure(db, user.tenant_id, procedure_id)
     await delete_procedure(db, user.tenant_id, procedure_id)
+    await log_action(
+        db,
+        user.tenant_id,
+        "training_procedure.deleted",
+        "training_procedure",
+        resource_id=procedure.id,
+        user_id=user.id,
+        details=_audit_details(user),
+    )
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -88,7 +134,19 @@ async def activate_training_procedure(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role("methodologist")),
 ):
-    return await activate_procedure(db, user.tenant_id, user.id, procedure_id)
+    procedure = await activate_procedure(
+        db, user.tenant_id, _procedure_actor_id(user), procedure_id
+    )
+    await log_action(
+        db,
+        user.tenant_id,
+        "training_procedure.activated",
+        "training_procedure",
+        resource_id=procedure.id,
+        user_id=user.id,
+        details=_audit_details(user),
+    )
+    return procedure
 
 
 @router.post("/{procedure_id}/retire", response_model=TrainingProcedureResponse)
@@ -97,4 +155,16 @@ async def retire_training_procedure(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role("methodologist")),
 ):
-    return await retire_procedure(db, user.tenant_id, user.id, procedure_id)
+    procedure = await retire_procedure(
+        db, user.tenant_id, _procedure_actor_id(user), procedure_id
+    )
+    await log_action(
+        db,
+        user.tenant_id,
+        "training_procedure.retired",
+        "training_procedure",
+        resource_id=procedure.id,
+        user_id=user.id,
+        details=_audit_details(user),
+    )
+    return procedure
