@@ -12,7 +12,11 @@ import pytest
 from pydantic import ValidationError
 
 from app.modules.training_procedures.models import TrainingProcedure
-from app.modules.training_procedures.router import _procedure_actor_id, router
+from app.modules.training_procedures.router import (
+    _procedure_actor_id,
+    _procedure_tenant_id,
+    router,
+)
 from app.modules.training_procedures.schemas import TrainingProcedureCreate
 from app.modules.training_procedures.service import ActivationIncompleteError, validate_activation_ready
 
@@ -145,6 +149,12 @@ def test_impersonation_never_fabricates_a_tenant_procedure_actor():
 
     assert _procedure_actor_id(SimpleNamespace(id=real_actor_id, is_impersonating=False)) == real_actor_id
     assert _procedure_actor_id(SimpleNamespace(id=real_actor_id, is_impersonating=True)) is None
+
+
+def test_methodologist_dependency_supplies_the_effective_tenant_context():
+    tenant_id = uuid4()
+
+    assert _procedure_tenant_id(SimpleNamespace(tenant_id=tenant_id)) == tenant_id
 
 
 def test_migration_has_force_rls_runtime_grants_and_additive_predecessor():

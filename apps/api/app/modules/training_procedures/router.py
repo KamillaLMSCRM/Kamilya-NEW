@@ -44,6 +44,12 @@ def _procedure_actor_id(user: User) -> UUID | None:
     return cast(UUID, user.id)
 
 
+def _procedure_tenant_id(user: User) -> UUID:
+    """Narrow the tenant guaranteed by the methodologist role dependency."""
+
+    return cast(UUID, user.tenant_id)
+
+
 def _audit_details(user: User) -> dict[str, bool]:
     return {"impersonation": bool(getattr(user, "is_impersonating", False))}
 
@@ -54,7 +60,7 @@ async def list_training_procedures(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role("methodologist")),
 ):
-    items = await list_procedures(db, user.tenant_id, procedure_status)
+    items = await list_procedures(db, _procedure_tenant_id(user), procedure_status)
     return TrainingProcedureListResponse(items=items, total=len(items))
 
 
@@ -64,10 +70,11 @@ async def create_training_procedure(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role("methodologist")),
 ):
-    procedure = await create_procedure(db, user.tenant_id, _procedure_actor_id(user), payload)
+    tenant_id = _procedure_tenant_id(user)
+    procedure = await create_procedure(db, tenant_id, _procedure_actor_id(user), payload)
     await log_action(
         db,
-        user.tenant_id,
+        tenant_id,
         "training_procedure.created",
         "training_procedure",
         resource_id=procedure.id,
@@ -83,7 +90,7 @@ async def get_training_procedure(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role("methodologist")),
 ):
-    return await get_procedure(db, user.tenant_id, procedure_id)
+    return await get_procedure(db, _procedure_tenant_id(user), procedure_id)
 
 
 @router.patch("/{procedure_id}", response_model=TrainingProcedureResponse)
@@ -93,12 +100,13 @@ async def update_training_procedure(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role("methodologist")),
 ):
+    tenant_id = _procedure_tenant_id(user)
     procedure = await update_procedure(
-        db, user.tenant_id, _procedure_actor_id(user), procedure_id, payload
+        db, tenant_id, _procedure_actor_id(user), procedure_id, payload
     )
     await log_action(
         db,
-        user.tenant_id,
+        tenant_id,
         "training_procedure.updated",
         "training_procedure",
         resource_id=procedure.id,
@@ -114,11 +122,12 @@ async def delete_training_procedure(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role("methodologist")),
 ):
-    procedure = await get_procedure(db, user.tenant_id, procedure_id)
-    await delete_procedure(db, user.tenant_id, procedure_id)
+    tenant_id = _procedure_tenant_id(user)
+    procedure = await get_procedure(db, tenant_id, procedure_id)
+    await delete_procedure(db, tenant_id, procedure_id)
     await log_action(
         db,
-        user.tenant_id,
+        tenant_id,
         "training_procedure.deleted",
         "training_procedure",
         resource_id=procedure.id,
@@ -134,12 +143,13 @@ async def activate_training_procedure(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role("methodologist")),
 ):
+    tenant_id = _procedure_tenant_id(user)
     procedure = await activate_procedure(
-        db, user.tenant_id, _procedure_actor_id(user), procedure_id
+        db, tenant_id, _procedure_actor_id(user), procedure_id
     )
     await log_action(
         db,
-        user.tenant_id,
+        tenant_id,
         "training_procedure.activated",
         "training_procedure",
         resource_id=procedure.id,
@@ -155,12 +165,13 @@ async def retire_training_procedure(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role("methodologist")),
 ):
+    tenant_id = _procedure_tenant_id(user)
     procedure = await retire_procedure(
-        db, user.tenant_id, _procedure_actor_id(user), procedure_id
+        db, tenant_id, _procedure_actor_id(user), procedure_id
     )
     await log_action(
         db,
-        user.tenant_id,
+        tenant_id,
         "training_procedure.retired",
         "training_procedure",
         resource_id=procedure.id,
