@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from uuid import uuid4
 
 import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
+
+from alembic.config import Config
+from alembic.script import ScriptDirectory
 
 pytestmark = pytest.mark.asyncio
 
@@ -23,6 +27,14 @@ CRITICAL_TENANT_TABLES = {
 }
 
 
+def repository_alembic_head() -> str:
+    config = Config()
+    config.set_main_option("script_location", str(Path(__file__).parents[2] / "alembic"))
+    heads = ScriptDirectory.from_config(config).get_heads()
+    assert len(heads) == 1, f"Expected one Alembic head, found {heads}"
+    return heads[0]
+
+
 async def test_release_database_is_postgresql_17_with_pgvector_and_current_schema(
     db_session,
 ) -> None:
@@ -33,7 +45,7 @@ async def test_release_database_is_postgresql_17_with_pgvector_and_current_schem
     assert await db_session.scalar(
         text("SELECT count(*) FROM pg_extension WHERE extname='vector'")
     ) == 1
-    assert await db_session.scalar(text("SELECT version_num FROM alembic_version")) == "0137"
+    assert await db_session.scalar(text("SELECT version_num FROM alembic_version")) == repository_alembic_head()
 
 
 async def test_runtime_role_can_replace_cohort_membership(db_session) -> None:

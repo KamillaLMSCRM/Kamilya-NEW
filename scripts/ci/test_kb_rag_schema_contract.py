@@ -12,12 +12,13 @@ from scripts.ci.kb_rag_schema_contract import (
     ContractError,
     SchemaSnapshot,
     evaluate_snapshot,
+    repository_alembic_head,
 )
 
 
 def _valid_snapshot() -> SchemaSnapshot:
     return SchemaSnapshot(
-        revision="0138",
+        revision=repository_alembic_head(),
         postgresql_major=17,
         pgvector_present=True,
         relations=(
@@ -131,7 +132,7 @@ def _with_constraint_definition(
 
 def test_valid_snapshot_returns_sanitized_ci_contract() -> None:
     checks = evaluate_snapshot(_valid_snapshot())
-    assert checks["alembic_revision"] == "0138"
+    assert checks["alembic_revision"] == repository_alembic_head()
     assert checks["postgresql_major"] == 17
     assert checks["force_rls"] is True
     assert checks["runtime_privileges"] is True

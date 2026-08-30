@@ -8,12 +8,14 @@ import json
 import os
 import re
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
+from alembic.config import Config
+from alembic.script import ScriptDirectory
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
-EXPECTED_REVISION = "0138"
 LIFECYCLE_TABLES = {
     "embedding_active_revisions",
     "embedding_reindex_runs",
@@ -28,6 +30,18 @@ REQUIRED_RUN_CONSTRAINTS = {
 
 class ContractError(RuntimeError):
     """Sanitized schema-contract failure."""
+
+
+def repository_alembic_head() -> str:
+    """Return the repository's single migration head without hard-coding it."""
+
+    repo_root = Path(__file__).resolve().parents[2]
+    config = Config()
+    config.set_main_option("script_location", str(repo_root / "apps" / "api" / "alembic"))
+    heads = ScriptDirectory.from_config(config).get_heads()
+    if len(heads) != 1:
+        raise ContractError("repository_alembic_head_is_not_unique")
+    return heads[0]
 
 
 @dataclass(frozen=True)
@@ -69,7 +83,7 @@ def _require_runtime_privileges(
 
 
 def evaluate_snapshot(snapshot: SchemaSnapshot) -> dict[str, bool | int | str]:
-    if snapshot.revision != EXPECTED_REVISION:
+    if snapshot.revision != repository_alembic_head():
         raise ContractError("unexpected_alembic_revision")
     if snapshot.postgresql_major != 17:
         raise ContractError("unexpected_postgresql_major")
