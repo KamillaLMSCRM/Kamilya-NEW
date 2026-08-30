@@ -107,7 +107,7 @@ const TOPICS: readonly HelpTopicDefinition[] = [
   },
   {
     id: 'training-procedures', paths: ['/training-procedures'], roles: ['methodologist'],
-    title: text('Процедуры обучения', 'Оқыту рәсімдері', 'Training procedures'),
+    title: text('Подтверждение обучения', 'Оқытуды растау', 'Training confirmation'),
     purpose: text('Описание того, как организация назначает, подтверждает и учитывает обучение.', 'Ұйымның оқуды қалай тағайындайтынын, растайтынын және есепке алатынын сипаттау.', 'Define how the organization assigns, confirms, and records learning.'),
     steps: [text('Выберите понятный тип процедуры.', 'Түсінікті рәсім түрін таңдаңыз.', 'Choose a clear procedure type.'), text('Заполните только применимые обязательные сведения.', 'Тек қолданылатын міндетті мәліметтерді толтырыңыз.', 'Complete only applicable required details.'), text('Согласуйте процедуру с ответственным и сохраните реквизиты утверждения.', 'Рәсімді жауапты тұлғамен келісіп, бекіту деректерін сақтаңыз.', 'Agree the procedure with its owner and record approval details.')],
     example: text('Для ознакомления с политикой фиксируется электронное подтверждение сотрудника после чтения.', 'Саясатпен танысу үшін қызметкер оқығаннан кейін электрондық растау береді.', 'For policy acknowledgement, the employee confirms electronically after reading.'),
@@ -116,7 +116,7 @@ const TOPICS: readonly HelpTopicDefinition[] = [
   },
   {
     id: 'training-retention', paths: ['/training-retention'], roles: ['methodologist'],
-    title: text('Сроки хранения', 'Сақтау мерзімдері', 'Retention periods'),
+    title: text('Сроки хранения результатов', 'Нәтижелерді сақтау мерзімдері', 'Result retention periods'),
     purpose: text('Просмотр утверждённых сроков хранения результатов и доказательств обучения.', 'Оқу нәтижелері мен дәлелдерін сақтаудың бекітілген мерзімдерін көру.', 'Review approved retention periods for learning results and evidence.'),
     steps: [text('Найдите нужный вид результата или доказательства.', 'Қажетті нәтиже немесе дәлел түрін табыңыз.', 'Find the relevant result or evidence type.'), text('Сверьте срок хранения и указанное основание.', 'Сақтау мерзімі мен көрсетілген негізді салыстырыңыз.', 'Review the retention period and its stated basis.'), text('Если политика отсутствует или требует изменения, обратитесь к администратору Kamilya.', 'Саясат жоқ немесе өзгерту қажет болса, Kamilya әкімшісіне хабарласыңыз.', 'If a policy is missing or needs adjustment, contact the Kamilya administrator.')],
     example: text('Результаты обязательного обучения хранятся 5 лет по внутренней политике организации.', 'Міндетті оқу нәтижелері ұйымның ішкі саясаты бойынша 5 жыл сақталады.', 'Required-training results are retained for five years under company policy.'),
@@ -125,7 +125,7 @@ const TOPICS: readonly HelpTopicDefinition[] = [
   },
   {
     id: 'candidate-assessments', paths: ['/candidate-assessments'], roles: ['methodologist'],
-    title: text('Оценка кандидатов', 'Үміткерлерді бағалау', 'Candidate assessments'),
+    title: text('Тестирование кандидатов', 'Үміткерлерді тестілеу', 'Candidate testing'),
     purpose: text('Проверка знаний кандидата по требованиям конкретной роли.', 'Нақты рөл талаптары бойынша үміткер білімін тексеру.', 'Assess a candidate against the requirements of a specific role.'),
     steps: [text('Выберите должность и проверяемые знания.', 'Лауазым мен тексерілетін білімді таңдаңыз.', 'Choose the role and knowledge areas.'), text('Подготовьте тест без вопросов о чувствительных личных данных.', 'Сезімтал жеке деректер туралы сұрақтарсыз тест дайындаңыз.', 'Prepare a test without sensitive personal-data questions.'), text('Создайте ограниченную ссылку и оцените результат вместе с другими данными найма.', 'Шектеулі сілтеме жасап, нәтижені басқа жалдау деректерімен бірге бағалаңыз.', 'Create a limited link and review the result alongside other hiring evidence.')],
     example: text('Кандидат на кассира проходит тест по операциям и правилам безопасности.', 'Кассир үміткері операциялар мен қауіпсіздік ережелері бойынша тест өтеді.', 'A cashier candidate completes an operations and safety assessment.'),

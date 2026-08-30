@@ -34,6 +34,9 @@ describe('contextual help registry', () => {
     expect(getContextualHelp('/learning-paths/path-123', 'methodologist', 'en')?.title).toBe('Learning programs');
     expect(getContextualHelp('/ai/generate', 'methodologist', 'ru')?.title).toBe('Создать курс из материалов');
     expect(getContextualHelp('/quizzes', 'methodologist', 'ru')?.title).toBe('Тесты и вопросы');
+    expect(getContextualHelp('/candidate-assessments', 'methodologist', 'ru')?.title).toBe('Тестирование кандидатов');
+    expect(getContextualHelp('/training-procedures', 'methodologist', 'ru')?.title).toBe('Подтверждение обучения');
+    expect(getContextualHelp('/training-retention', 'methodologist', 'ru')?.title).toBe('Сроки хранения результатов');
   });
 
   it('does not expose role-inappropriate help', () => {
