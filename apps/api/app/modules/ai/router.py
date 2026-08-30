@@ -294,7 +294,8 @@ async def _job_response(
 
 def _job_type(job: AIJob) -> str:
     """Return the persisted operation kind without inferring it from results."""
-    params: dict[str, object] = job.params if isinstance(job.params, dict) else {}
+    persisted_params = getattr(job, "params", None)
+    params: dict[str, object] = persisted_params if isinstance(persisted_params, dict) else {}
     if isinstance(params.get("documents"), list):
         return "course_generation"
     action = params.get("action")
