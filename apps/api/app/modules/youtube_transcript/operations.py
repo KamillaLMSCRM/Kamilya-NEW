@@ -22,6 +22,7 @@ from app.modules.ai.job_service import create_ai_job
 from app.modules.youtube_transcript.normalizer import TranscriptLimitError, normalize_transcript
 from app.modules.youtube_transcript.provider import TranscriptAcquisitionError, TranscriptProvider
 from app.modules.youtube_transcript.public_caption_adapter import PublicCaptionProvider
+from app.modules.youtube_transcript.remote_caption_adapter import build_runtime_caption_provider
 from app.modules.youtube_transcript.schemas import YouTubeImportRequest
 
 logger = logging.getLogger(__name__)
@@ -56,7 +57,7 @@ async def run_youtube_analysis(
     """Fetch and validate captions without creating a permanent Document."""
     settings = get_settings()
     ref = YouTubeImportRequest(url=url, preferred_languages=preferred_languages).validated_video_ref()
-    provider = provider or PublicCaptionProvider(timeout_seconds=settings.YOUTUBE_PROVIDER_TIMEOUT_SECONDS)
+    provider = provider or build_runtime_caption_provider(settings)
     async with async_session_factory() as session:
         await _set_tenant(session, tenant_id)
         job = cast(Any, await session.scalar(select(AIJob).where(AIJob.id == job_id, AIJob.tenant_id == tenant_id).with_for_update()))
@@ -181,7 +182,7 @@ async def run_youtube_import(
     settings = get_settings()
     request = YouTubeImportRequest(url=url, preferred_languages=preferred_languages)
     ref = request.validated_video_ref()
-    provider = provider or PublicCaptionProvider(timeout_seconds=settings.YOUTUBE_PROVIDER_TIMEOUT_SECONDS)
+    provider = provider or build_runtime_caption_provider(settings)
     storage = storage or get_storage()
     index_dispatcher = index_dispatcher or _dispatch_index
 

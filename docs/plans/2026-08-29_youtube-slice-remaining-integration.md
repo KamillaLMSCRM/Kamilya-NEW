@@ -161,3 +161,17 @@ when `YOUTUBE_IMPORT_ENABLED=True` and otherwise keeps the structured 503
 
 No video/audio download, no access-control circumvention, no proxy/blocks
 bypass, no production deployment, no new third-party dependency in this slice.
+
+## YTG-08 — authenticated development caption relay
+
+Render development returned the stable retryable `provider_blocked` state on a
+real analysis request. The approved development-only remediation adds an
+isolated caption relay on the separate dev VPS and an HTTPS/bearer-authenticated
+adapter in the Kamilya API. The existing public adapter remains a bounded
+fallback for transient relay failures. The relay accepts video ids rather than
+arbitrary URLs, applies concurrency/rate/size/time limits, downloads no media,
+uses no cookies, and stores no tenant or application credentials.
+
+Promotion is explicitly gated: successful dev service health, exact-SHA Render
+development readback, and a complete YouTube preview/import/course journey are
+required before any separate proposal for CT125, VM126, or production.

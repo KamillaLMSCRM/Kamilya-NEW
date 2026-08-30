@@ -328,6 +328,11 @@ class Settings(BaseSettings):
     YOUTUBE_MAX_VIDEO_DURATION_SECONDS: int = Field(default=7200, ge=60, le=7200)
     YOUTUBE_MAX_TOTAL_CHARS: int = Field(default=500_000, ge=1000, le=2_000_000)
     YOUTUBE_PROVIDER_TIMEOUT_SECONDS: float = Field(default=20.0, ge=3.0, le=60.0)
+    # Optional authenticated caption relay. Development uses this when the
+    # application host's public cloud IP is blocked by YouTube. The URL must
+    # be HTTPS and the bearer token is stored only in environment secrets.
+    YOUTUBE_CAPTION_SERVICE_URL: str = ""
+    YOUTUBE_CAPTION_SERVICE_TOKEN: str = ""
 
 
 @lru_cache
