@@ -21,7 +21,6 @@ from app.models.document import Document
 from app.modules.ai.job_service import create_ai_job
 from app.modules.youtube_transcript.normalizer import TranscriptLimitError, normalize_transcript
 from app.modules.youtube_transcript.provider import TranscriptAcquisitionError, TranscriptProvider
-from app.modules.youtube_transcript.public_caption_adapter import PublicCaptionProvider
 from app.modules.youtube_transcript.remote_caption_adapter import build_runtime_caption_provider
 from app.modules.youtube_transcript.schemas import YouTubeImportRequest
 
