@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any, cast
@@ -42,6 +43,7 @@ router = APIRouter(
     tags=["youtube-transcript"],
     dependencies=[Depends(tenant_guard)],
 )
+logger = logging.getLogger(__name__)
 
 
 def _feature_unavailable() -> HTTPException:
@@ -65,25 +67,27 @@ async def _dispatch_background(dispatch: Callable[..., None], **kwargs: Any) -> 
 def _dispatch_youtube_import(*, job_id: str, tenant_id: UUID, user_id: UUID, url: str, languages: list[str]) -> None:
     from app.modules.youtube_transcript.tasks import youtube_import_task
 
-    youtube_import_task.apply_async(
-        task_id=job_id,
-        kwargs={
-            "job_id": job_id,
-            "tenant_id": str(tenant_id),
-            "user_id": str(user_id),
-            "url": url,
-            "preferred_languages": languages,
-        },
-    )
+    kwargs = {
+        "job_id": job_id,
+        "tenant_id": str(tenant_id),
+        "user_id": str(user_id),
+        "url": url,
+        "preferred_languages": languages,
+    }
+    if celery_app.conf.task_always_eager:
+        youtube_import_task.run(**kwargs)
+        return
+    youtube_import_task.apply_async(task_id=job_id, kwargs=kwargs)
 
 
 def _dispatch_youtube_analysis(*, job_id: str, tenant_id: UUID, url: str, languages: list[str]) -> None:
     from app.modules.youtube_transcript.tasks import youtube_analyze_task
 
-    youtube_analyze_task.apply_async(
-        task_id=job_id,
-        kwargs={"job_id": job_id, "tenant_id": str(tenant_id), "url": url, "preferred_languages": languages},
-    )
+    kwargs = {"job_id": job_id, "tenant_id": str(tenant_id), "url": url, "preferred_languages": languages}
+    if celery_app.conf.task_always_eager:
+        youtube_analyze_task.run(**kwargs)
+        return
+    youtube_analyze_task.apply_async(task_id=job_id, kwargs=kwargs)
 
 
 @router.post("/analyze", response_model=YouTubeAnalysisAccepted, status_code=status.HTTP_202_ACCEPTED)
@@ -112,6 +116,7 @@ async def analyze_youtube_transcript(
             languages=languages,
         )
     except Exception as exc:
+        logger.exception("youtube_analysis_dispatch_failed job_id=%s", job.id)
         await update_ai_job(
             db, str(job.id), tenant_id=str(tenant_id), status="failed", stage="failed", progress=0,
             message="Фоновый обработчик анализа недоступен.",
@@ -191,6 +196,7 @@ async def confirm_youtube_analysis(
             languages=languages,
         )
     except Exception as exc:
+        logger.exception("youtube_confirmation_dispatch_failed job_id=%s", import_job.id)
         await update_ai_job(
             db, str(import_job.id), tenant_id=str(tenant_id), status="failed", stage="failed", progress=0,
             message="Фоновый обработчик импорта недоступен.", errors=[{"code": "import_enqueue_failed", "retryable": True}], completed_at=datetime.now(UTC),
@@ -245,6 +251,7 @@ async def import_youtube_transcript(
             languages=languages,
         )
     except Exception as exc:
+        logger.exception("youtube_import_dispatch_failed job_id=%s", job.id)
         await update_ai_job(
             db,
             str(job.id),

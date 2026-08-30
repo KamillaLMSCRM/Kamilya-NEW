@@ -64,6 +64,29 @@ async def test_normal_dispatch_stays_on_the_worker_queue_path(monkeypatch):
     assert dispatched == [{"job_id": "youtube-job-1"}]
 
 
+def test_eager_analysis_dispatch_bypasses_broker(monkeypatch):
+    from app.modules.youtube_transcript import tasks
+
+    calls = []
+    monkeypatch.setitem(youtube_router.celery_app.conf, "task_always_eager", True)
+    monkeypatch.setattr(tasks.youtube_analyze_task, "run", lambda **kwargs: calls.append(kwargs))
+    monkeypatch.setattr(
+        tasks.youtube_analyze_task,
+        "apply_async",
+        lambda **kwargs: pytest.fail("eager dispatch must not use the broker"),
+    )
+
+    youtube_router._dispatch_youtube_analysis(
+        job_id="youtube-job-1",
+        tenant_id=uuid4(),
+        url="https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+        languages=["ru"],
+    )
+
+    assert calls[0]["job_id"] == "youtube-job-1"
+    assert calls[0]["preferred_languages"] == ["ru"]
+
+
 def test_request_schema_validates_url_canonically():
     request = YouTubeImportRequest(url="https://youtu.be/dQw4w9WgXcQ")
     assert request.validated_video_ref().video_id == "dQw4w9WgXcQ"
