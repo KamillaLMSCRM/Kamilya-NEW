@@ -278,6 +278,7 @@ async def _job_response(
     return AIJobResponse(
         id=job.id,
         status=job.status,
+        job_type=_job_type(job),
         course_id=_job_course_uuid(job.course_id),
         created_at=job.created_at,
         updated_at=job.updated_at,
@@ -289,6 +290,15 @@ async def _job_response(
         mixed_language_warning=mixed_language_warning,
         **queue_metadata,
     )
+
+
+def _job_type(job: AIJob) -> str:
+    """Return the persisted operation kind without inferring it from results."""
+    params: dict[str, object] = job.params if isinstance(job.params, dict) else {}
+    if isinstance(params.get("documents"), list):
+        return "course_generation"
+    action = params.get("action")
+    return str(action) if action else "other"
 
 
 @router.post("/generate-course", response_model=AIJobResponse, status_code=202)
@@ -516,6 +526,7 @@ async def list_jobs(
         AIJobResponse(
             id=j.id,
             status=j.status,
+            job_type=_job_type(j),
             course_id=_job_course_uuid(j.course_id),
             created_at=j.created_at,
             updated_at=j.updated_at,

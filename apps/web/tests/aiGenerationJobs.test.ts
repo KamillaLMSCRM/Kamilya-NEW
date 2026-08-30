@@ -6,9 +6,11 @@ const job = (
   createdAt: string,
   courseId: string | null,
   stage: string,
+  jobType?: string,
 ) => ({
   id,
   status: 'running',
+  job_type: jobType,
   course_id: courseId,
   created_at: createdAt,
   updated_at: createdAt,
@@ -22,12 +24,30 @@ const job = (
 });
 
 describe('AI generation job recovery', () => {
-  it('ignores document indexing jobs without a generated course', () => {
+  it('restores a course-generation job before the course record exists', () => {
     const selected = selectOldestActiveCourseJob([
-      job('document-index', '2026-08-06T08:00:00Z', null, 'index'),
-      job('course-generation', '2026-08-06T08:01:00Z', 'course-1', 'content_generation'),
+      job('document-index', '2026-08-06T08:00:00Z', null, 'index', 'document_reindex'),
+      job('course-generation', '2026-08-06T08:01:00Z', null, 'content_generation', 'course_generation'),
     ]);
 
     expect(selected?.id).toBe('course-generation');
+  });
+
+  it('selects the oldest active course generation and ignores regeneration jobs', () => {
+    const selected = selectOldestActiveCourseJob([
+      job('newer', '2026-08-06T08:02:00Z', null, 'architect', 'course_generation'),
+      job('lesson', '2026-08-06T08:00:00Z', 'course-1', 'regenerate', 'regenerate_lesson'),
+      job('older', '2026-08-06T08:01:00Z', null, 'architect', 'course_generation'),
+    ]);
+
+    expect(selected?.id).toBe('older');
+  });
+
+  it('keeps the result-based fallback for a staggered legacy API response', () => {
+    const selected = selectOldestActiveCourseJob([
+      job('legacy', '2026-08-06T08:00:00Z', 'course-1', 'content_generation'),
+    ]);
+
+    expect(selected?.id).toBe('legacy');
   });
 });

@@ -1,6 +1,7 @@
 export interface AIGenerationJob {
   id: string;
   status: string;
+  job_type?: string;
   course_id: string | null;
   created_at: string;
   updated_at: string;
@@ -19,7 +20,10 @@ export function selectOldestActiveCourseJob(
 ): AIGenerationJob | null {
   const activeJobs = jobs
     .filter((job) => (
-      job.course_id !== null
+      (
+        job.job_type === 'course_generation'
+        || (job.job_type === undefined && job.course_id !== null)
+      )
       && (job.status === 'pending' || job.status === 'running')
     ))
     .sort((left, right) => Date.parse(left.created_at) - Date.parse(right.created_at));

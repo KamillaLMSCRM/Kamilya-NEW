@@ -93,6 +93,7 @@ class DocumentCompatibilityResponse(BaseModel):
 class AIJobResponse(BaseModel):
     id: str
     status: str
+    job_type: str = "other"
     course_id: UUID | None
     created_at: datetime
     updated_at: datetime

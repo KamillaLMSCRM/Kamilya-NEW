@@ -1,5 +1,7 @@
 from datetime import UTC, datetime
+from types import SimpleNamespace
 
+from app.modules.ai.router import _job_type
 from app.modules.ai.schemas import AIJobResponse
 
 
@@ -67,3 +69,9 @@ def test_ai_job_response_uses_flat_queue_metadata_contract():
     assert response.tenant_active_jobs == 2
     assert response.tenant_active_limit == 2
     assert "queue_metadata" not in response.model_dump()
+
+
+def test_ai_job_type_uses_persisted_operation_input_before_result_creation():
+    assert _job_type(SimpleNamespace(params={"documents": ["document-1"]})) == "course_generation"
+    assert _job_type(SimpleNamespace(params={"action": "regenerate_lesson"})) == "regenerate_lesson"
+    assert _job_type(SimpleNamespace(params=None)) == "other"
