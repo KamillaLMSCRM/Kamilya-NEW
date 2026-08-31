@@ -1298,3 +1298,12 @@ ANY TOKEN FAILURE.
 - Fix: trigger immutable image construction automatically from a successful `CI` `workflow_run` on `master`; retain manual dispatch plus the protected environment as the only path to the production job.
 - Verification: workflow contract tests prove the event-derived SHA/run identity, successful-master condition and manual-only deploy condition; the next exact SHA must produce a green CI followed by an automatic image-build run.
 - Prevention: routine artifact construction must be event-driven from verified CI rather than depend on a broad personal token; production execution remains separately authorized and protected.
+
+## GH-002 - Automatic image build overrode the event SHA with an empty manual input
+
+- Date: 2026-08-31.
+- Symptom: automatic release run `33377535020` passed CI identity and checkout, then failed `Verify checked-out SHA` because the step-level `RELEASE_SHA` was empty; no image or production mutation occurred.
+- Cause: the verification step retained `RELEASE_SHA: inputs.release_sha`, which is empty for `workflow_run`, and overrode the correct event-derived job environment.
+- Fix: remove the step-level override so validation, checkout, verification, image tag and evidence artifact all consume the same event-derived job SHA.
+- Verification: the workflow contract forbids a direct manual-input SHA override inside `build-image`; the next successful master CI must trigger an image build with the exact event SHA.
+- Prevention: normalize multi-trigger identity once at job scope and prohibit narrower steps from redefining release identity variables.

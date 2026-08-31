@@ -95,8 +95,6 @@ jobs:
 
       - name: Verify checked-out SHA
         shell: bash
-        env:
-          RELEASE_SHA: ${{ inputs.release_sha }}
         run: test "$(git rev-parse HEAD)" = "${RELEASE_SHA}"
 
       - name: Resolve lowercase image name

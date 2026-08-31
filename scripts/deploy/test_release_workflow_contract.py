@@ -48,6 +48,10 @@ def test_successful_master_ci_automatically_builds_but_never_deploys() -> None:
     assert "github.event.workflow_run.head_sha || inputs.release_sha" in build
     assert "ref: ${{ env.RELEASE_SHA }}" in build
     assert "tags: ${{ steps.image.outputs.name }}:${{ env.RELEASE_SHA }}" in build
+    verify = build[build.index("      - name: Verify checked-out SHA") :]
+    verify = verify.split("\n      - name:", 1)[0]
+    assert "RELEASE_SHA: ${{ inputs.release_sha }}" not in verify
+    assert 'test "$(git rev-parse HEAD)" = "${RELEASE_SHA}"' in verify
     assert "github.event_name == 'workflow_dispatch' && inputs.deploy_to_production" in deploy
 
 
