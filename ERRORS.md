@@ -1289,3 +1289,12 @@ ANY TOKEN FAILURE.
 - Fix: extract the complete eight-space property body with a field-anchored regular expression before asserting `required: false`.
 - Verification: the focused release-plane and workflow contract suite passes after the parser correction.
 - Prevention: indentation-sensitive workflow contract tests must anchor both field and property indentation instead of using a prefix that also matches nested lines.
+
+## GH-001 - Project token could not dispatch the image-build workflow
+
+- Date: 2026-08-31.
+- Symptom: the exact build-only `workflow_dispatch` request returned HTTP 403 `Resource not accessible by personal access token`; no workflow run, package or production mutation was created.
+- Cause: the canonical project token can push and read repository state but does not have authority to dispatch Actions workflows.
+- Fix: trigger immutable image construction automatically from a successful `CI` `workflow_run` on `master`; retain manual dispatch plus the protected environment as the only path to the production job.
+- Verification: workflow contract tests prove the event-derived SHA/run identity, successful-master condition and manual-only deploy condition; the next exact SHA must produce a green CI followed by an automatic image-build run.
+- Prevention: routine artifact construction must be event-driven from verified CI rather than depend on a broad personal token; production execution remains separately authorized and protected.

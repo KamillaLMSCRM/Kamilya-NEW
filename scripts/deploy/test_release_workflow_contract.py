@@ -29,12 +29,26 @@ def test_workflow_builds_exact_sha_digest_and_requires_matching_ci() -> None:
 def test_build_only_creates_image_evidence_without_release_manifest() -> None:
     text = WORKFLOW.read_text(encoding="utf-8")
     build = _job(text, "build-image")
-    assert 'name: release-image-${{ inputs.release_sha }}' in build
+    assert 'name: release-image-${{ env.RELEASE_SHA }}' in build
     assert 'path: release-image.json' in build
     assert '"ci_run_id": os.environ["CI_RUN_ID"]' in build
     assert "Create strict release manifest\n        if: ${{ inputs.deploy_to_production }}" in build
     assert "name: release-manifest-${{ inputs.release_sha }}\n          path: release-manifest.json" in build
     assert build.count("if: ${{ inputs.deploy_to_production }}") == 2
+
+
+def test_successful_master_ci_automatically_builds_but_never_deploys() -> None:
+    text = WORKFLOW.read_text(encoding="utf-8")
+    build = _job(text, "build-image")
+    deploy = _job(text, "deploy-production")
+    assert 'workflow_run:\n    workflows: ["CI"]\n    types: [completed]' in text
+    assert "github.event.workflow_run.conclusion == 'success'" in build
+    assert "github.event.workflow_run.head_branch == 'master'" in build
+    assert "github.event.workflow_run.id || inputs.ci_run_id" in build
+    assert "github.event.workflow_run.head_sha || inputs.release_sha" in build
+    assert "ref: ${{ env.RELEASE_SHA }}" in build
+    assert "tags: ${{ steps.image.outputs.name }}:${{ env.RELEASE_SHA }}" in build
+    assert "github.event_name == 'workflow_dispatch' && inputs.deploy_to_production" in deploy
 
 
 def test_previous_runtime_identity_is_optional_until_production_deploy() -> None:
@@ -47,7 +61,7 @@ def test_previous_runtime_identity_is_optional_until_production_deploy() -> None
         assert match is not None
         assert "required: false" in match.group("body")
     deploy = _job(text, "deploy-production")
-    assert "if: ${{ inputs.deploy_to_production }}" in deploy
+    assert "github.event_name == 'workflow_dispatch' && inputs.deploy_to_production" in deploy
 
 
 def test_production_job_is_protected_fixed_runner_without_checkout() -> None:
