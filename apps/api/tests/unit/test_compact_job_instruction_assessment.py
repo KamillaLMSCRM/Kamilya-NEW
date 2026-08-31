@@ -25,9 +25,18 @@ async def test_compact_assessment_requests_only_three_mcq_questions():
                                         "text": "Кассир принимает наличные средства",
                                         "is_correct": True,
                                     },
-                                    {"text": "B", "is_correct": False},
-                                    {"text": "C", "is_correct": False},
-                                    {"text": "D", "is_correct": False},
+                                    {
+                                        "text": "Кассир проверяет наличные средства",
+                                        "is_correct": False,
+                                    },
+                                    {
+                                        "text": "Кассир хранит наличные средства",
+                                        "is_correct": False,
+                                    },
+                                    {
+                                        "text": "Кассир пересчитывает наличные средства",
+                                        "is_correct": False,
+                                    },
                                 ],
                                 "explanation": (
                                     "Должностная инструкция устанавливает обязанности "

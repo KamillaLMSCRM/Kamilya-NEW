@@ -69,6 +69,7 @@ async def test_ai_draft_reaches_certificate_and_training_log_for_selected_group(
         content="Follow the approved sequence and stop when a risk is found.",
     )
     quiz = await make_quiz(lesson, title="Knowledge check", pass_score=80)
+    quiz.review_status = "needs_review"
     question = Question(
         quiz_id=quiz.id,
         text="What must an employee do after detecting a risk?",
@@ -146,6 +147,21 @@ async def test_ai_draft_reaches_certificate_and_training_log_for_selected_group(
     assert review.status_code == 200, review.text
     assert review.json()["review_status"] == "approved"
     assert review.json()["reviewed_by"] == str(methodologist.id)
+
+    blocked_pending_quiz = await client.post(
+        f"/api/v1/courses/{course.id}/publish",
+        headers=methodologist_headers,
+    )
+    assert blocked_pending_quiz.status_code == 409, blocked_pending_quiz.text
+    assert blocked_pending_quiz.json()["details"]["code"] == "quiz_review_required"
+
+    quiz_review = await client.post(
+        f"/api/v1/quizzes/{quiz.id}/approve",
+        headers=methodologist_headers,
+    )
+    assert quiz_review.status_code == 200, quiz_review.text
+    assert quiz_review.json()["review_status"] == "approved"
+    assert quiz_review.json()["reviewed_by"] == str(methodologist.id)
 
     publish = await client.post(
         f"/api/v1/courses/{course.id}/publish",

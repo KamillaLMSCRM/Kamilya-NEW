@@ -17,6 +17,16 @@ from app.modules.ai.assessment_schema import (
 )
 from app.modules.ai.llm_client import LLMClient
 from app.modules.ai.writer_schema import LessonContent
+from app.modules.editor_assistant.question_validator import (
+    AnswerOption,
+    Question,
+    QuestionSet,
+    QuestionSignals,
+    QuestionValidatorInputError,
+    SourceSupportSignal,
+    validate_question_set,
+)
+from app.modules.editor_assistant.taxonomy import EditorQualityIssueLabel
 
 logger = logging.getLogger(__name__)
 MAX_ASSESSMENT_RETRIES = 4
@@ -61,6 +71,25 @@ _UNSUPPORTED_META_STEMS = {
 _EVIDENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+|\n+", re.UNICODE)
 MAX_EVIDENCE_ITEMS = 24
 MAX_EVIDENCE_CHARS = 280
+_LIST_QUESTION_RE = re.compile(
+    r"\b(?:перечислите|назовите|укажите\s+(?:два|три|четыре|все)|"
+    r"какие\s+(?:два|три|четыре)|list\s+the|name\s+(?:two|three|four))\b",
+    re.IGNORECASE,
+)
+_MARKDOWN_ARTIFACT_RE = re.compile(r"(?:^|\s)(?:\|[^\n]+\||`{1,3}|#{1,6}\s)")
+_GENERATION_BLOCKING_ISSUES = frozenset(
+    {
+        EditorQualityIssueLabel.CORRECT_ANSWER_LENGTH_SIGNAL,
+        EditorQualityIssueLabel.CORRECT_ANSWER_STYLE_SIGNAL,
+        EditorQualityIssueLabel.IMPLAUSIBLE_DISTRACTORS,
+        EditorQualityIssueLabel.MULTIPLE_PLAUSIBLE_CORRECT_ANSWERS,
+        EditorQualityIssueLabel.UNSUPPORTED_CORRECT_ANSWER,
+        EditorQualityIssueLabel.MALFORMED_QUESTION,
+        EditorQualityIssueLabel.DUPLICATE_QUESTION,
+        EditorQualityIssueLabel.LANGUAGE_OR_TRANSLATION_PROBLEM,
+        EditorQualityIssueLabel.EXPLANATION_LEAKED_INTO_ANSWER,
+    }
+)
 
 
 def _grounding_stems(text: str) -> set[str]:
@@ -81,6 +110,10 @@ def _normalize_evidence_text(text: str) -> str:
 def _plain_evidence_text(text: str) -> str:
     """Return the human-visible text represented by a Markdown excerpt."""
     value = text.strip()
+    if value.startswith("|") and value.endswith("|"):
+        cells = [cell.strip() for cell in value.strip("|").split("|") if cell.strip()]
+        if cells:
+            value = " — ".join(cells)
     value = re.sub(r"^\s{0,3}(?:[-*+]\s+|#{1,6}\s+)", "", value)
     value = re.sub(r"\*\*(.+?)\*\*", r"\1", value)
     value = re.sub(r"__(.+?)__", r"\1", value)
@@ -232,45 +265,55 @@ def _validate_question_evidence(
             continue
         # Only server-resolved evidence is retained; model-authored quote text
         # is ignored even if a provider returns it as an extra field.
-        question["source_quote"] = source_quote
         answer_text = _plain_evidence_text(source_quote)
+        question["source_quote"] = answer_text
         options = [option for option in question.get("options", []) if isinstance(option, dict)]
         correct_options = [option for option in options if option.get("is_correct") is True]
-        if len(correct_options) == 1:
-            # The provider chooses the evidence ID and writes the question and
-            # distractors. The server owns the authoritative answer text, so a
-            # harmless paraphrase or punctuation change cannot break grounding.
-            correct_options[0]["text"] = answer_text
-            question["explanation"] = f"Согласно материалу урока: {answer_text}"
+        if len(correct_options) != 1:
+            continue
         if any(
             _normalize_evidence_text(_plain_evidence_text(str(option.get("text", ""))))
-            == _normalize_evidence_text(answer_text)
+            == _normalize_evidence_text(
+                _plain_evidence_text(str(correct_options[0].get("text", "")))
+            )
             for option in options
             if option.get("is_correct") is not True
         ):
-            issues.append(f"MCQ #{index}: distractor duplicates source evidence")
+            issues.append(f"MCQ #{index}: distractor duplicates the correct answer")
         quote_stems = _grounding_stems(source_quote)
         question_stems = _grounding_stems(str(question.get("question", "")))
-        if not quote_stems & question_stems:
-            question["question"] = _grounded_question(
-                _evidence_anchor_phrase(source_quote),
-                language,
-            )
-            question_stems = _grounding_stems(question["question"])
-        correct_answer = " ".join(
-            str(option.get("text", ""))
-            for option in question.get("options", [])
-            if isinstance(option, dict) and option.get("is_correct") is True
-        )
-        answer_stems = _grounding_stems(f"{correct_answer}\n{question.get('explanation', '')}")
+        correct_answer = _plain_evidence_text(str(correct_options[0].get("text", "")))
+        explanation = _plain_evidence_text(str(question.get("explanation", "")))
+        answer_stems = _grounding_stems(correct_answer)
+        explanation_stems = _grounding_stems(explanation)
         required_question_anchors = min(1, len(quote_stems))
         if len(quote_stems & question_stems) < required_question_anchors:
             issues.append(f"MCQ #{index}: question does not use enough source evidence")
-        if not quote_stems & answer_stems:
+        if not answer_stems or len(quote_stems & answer_stems) / len(answer_stems) < 0.6:
             issues.append(f"MCQ #{index}: answer does not use its source evidence")
-        normalized_answer = _normalize_evidence_text(correct_answer)
-        if len(normalized_answer) < 4 or normalized_answer != _normalize_evidence_text(answer_text):
-            issues.append(f"MCQ #{index}: correct answer does not match source evidence")
+        if not explanation_stems or not quote_stems & explanation_stems:
+            issues.append(f"MCQ #{index}: explanation does not use its source evidence")
+        if len(correct_answer) < 7 or len(correct_answer.split()) < 2:
+            issues.append(f"MCQ #{index}: correct answer is an incomplete fragment")
+        if _LIST_QUESTION_RE.search(str(question.get("question", ""))):
+            issues.append(f"MCQ #{index}: question requests a multi-part list")
+        if any(
+            _MARKDOWN_ARTIFACT_RE.search(str(value))
+            for value in (
+                question.get("question", ""),
+                explanation,
+                *(option.get("text", "") for option in options),
+            )
+        ):
+            issues.append(f"MCQ #{index}: markdown leaked into learner-visible text")
+        topical_stems = quote_stems | question_stems
+        implausible_indices = tuple(
+            option_index
+            for option_index, option in enumerate(options)
+            if option.get("is_correct") is not True
+            and not (_grounding_stems(str(option.get("text", ""))) & topical_stems)
+        )
+        question["_implausible_distractor_indices"] = implausible_indices
         generated_meta_stems = {
             token.lower()[:5]
             for token in _META_TERM_RE.findall(
@@ -282,6 +325,50 @@ def _validate_question_evidence(
         if unsupported_meta:
             issues.append(f"MCQ #{index}: unsupported meta terminology")
     return issues
+
+
+def _validate_generated_question_set(data: dict, language: str) -> list[str]:
+    """Apply the shared deterministic editor-quality contract before persistence."""
+    questions: list[Question] = []
+    try:
+        for index, raw_question in enumerate(data.get("mcq", []), start=1):
+            raw_options = raw_question.get("options", [])
+            questions.append(
+                Question(
+                    question_id=f"generated-{index}",
+                    prompt=str(raw_question.get("question", "")),
+                    options=tuple(
+                        AnswerOption(
+                            text=_plain_evidence_text(str(option.get("text", ""))),
+                            is_correct=option.get("is_correct") is True,
+                        )
+                        for option in raw_options
+                        if isinstance(option, dict)
+                    ),
+                    explanation=_plain_evidence_text(
+                        str(raw_question.get("explanation", ""))
+                    ),
+                    signals=QuestionSignals(
+                        source_support=SourceSupportSignal.SUPPORTED,
+                        explicit_implausible_distractor_indices=tuple(
+                            raw_question.pop("_implausible_distractor_indices", ())
+                        ),
+                    ),
+                )
+            )
+        locale = {"ru": "ru-RU", "kk": "kk-KZ", "en": "en-US"}.get(
+            language,
+            "en-US",
+        )
+        report = validate_question_set(QuestionSet(tuple(questions), locale=locale))
+    except QuestionValidatorInputError:
+        return ["assessment quality validator rejected malformed input"]
+
+    return [
+        f"assessment quality: {finding.code.value}"
+        for finding in report.findings
+        if finding.blocking or finding.code in _GENERATION_BLOCKING_ISSUES
+    ]
 
 
 async def generate_lesson_assessment(
@@ -349,8 +436,15 @@ Grounding requirements:
 - For each question, select one existing source_quote_id from ALLOWED_EVIDENCE_BANK.
 - Never invent or modify an evidence ID and do not output source_quote text.
 - Use at least one concrete term from the selected evidence quote in the question.
-- Mark exactly one option as correct. The server replaces its text with the exact
-  selected evidence quote; write three plausible distractors that do not copy it.
+- Ask about one atomic decision or fact. Do not ask the learner to enumerate a list,
+  combine several facts, or choose a grammatically inverted negative statement.
+- Mark exactly one option as correct. Write it as a concise 2-12 word answer that
+  reuses the selected evidence terminology; do not copy the full evidence excerpt.
+- Write three plausible distractors about the same subject. Keep every option close
+  in word count and grammatical style so answer length cannot reveal the key.
+- Do not emit Markdown, table syntax, incomplete fragments, or meta commentary in
+  questions, options, or explanations.
+- Explain the correct answer with a concrete fact from the selected evidence.
 - Do not use technical or meta terms that are absent from the lesson.
 - Do not ask about these instructions, the output format, JSON, or the schema.
 - Do not introduce technologies, concepts, or facts that are absent from the lesson.
@@ -395,6 +489,7 @@ Output ONLY the JSON data instance:
                 bounded_lesson_content,
                 language,
             )
+            issues.extend(_validate_generated_question_set(data, language))
             assessment = LessonAssessment.from_dict(
                 {
                     **data,

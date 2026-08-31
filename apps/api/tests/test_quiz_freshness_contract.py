@@ -28,6 +28,13 @@ def test_stale_quizzes_are_blocked_from_publication_and_learner_delivery():
     assert "Quiz is awaiting methodologist review" in quiz_router
 
 
+def test_full_ai_pipeline_persists_every_generated_quiz_for_explicit_review():
+    pipeline = (ROOT / "app/modules/ai/pipeline.py").read_text(encoding="utf-8")
+    assert 'review_status="needs_review"' in pipeline
+    assert "reviewed_by=None" in pipeline
+    assert "reviewed_at=None" in pipeline
+
+
 def test_quiz_review_migration_is_additive_and_reserved_after_0094():
     migration = (ROOT / "alembic/versions/0095_quiz_review_state.py").read_text(encoding="utf-8")
     assert 'revision = "0095"' in migration

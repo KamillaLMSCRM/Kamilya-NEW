@@ -384,6 +384,11 @@ export default function CourseEditPage() {
           </Button>
         </div>
       </div>
+      {course.status !== 'published' && course.ai_generated && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+          Перед публикацией откройте раздел <a className="font-semibold underline" href="/quizzes">Тесты</a> и явно одобрите каждый AI-тест. Проверка курса не заменяет проверку правильных и неверных вариантов ответа.
+        </div>
+      )}
 
       {course.status !== 'published' && course.source_instruction_id && (
         <div className="rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-950">

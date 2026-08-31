@@ -13,11 +13,17 @@ def _questions(
     count: int = 5,
     source_quote_id: str = "E01",
 ) -> list[dict]:
+    fact_words = fact.split()
+    distractors = [
+        " ".join([*fact_words[:-1], replacement])
+        for replacement in ("договора", "анкеты", "отчёта")
+    ]
     options = [
         {"text": fact, "is_correct": True},
-        {"text": "Посторонний вариант 1", "is_correct": False},
-        {"text": "Посторонний вариант 2", "is_correct": False},
-        {"text": "Посторонний вариант 3", "is_correct": False},
+        *[
+            {"text": distractor, "is_correct": False}
+            for distractor in distractors
+        ],
     ]
     return [
         {
@@ -154,7 +160,7 @@ async def test_standard_assessment_repairs_structurally_valid_off_source_questio
         language="ru",
     )
 
-    assert llm.calls == 1
+    assert llm.calls == 2
     assert "микрокредита" in result.mcq[0].question
     assert "REST" not in result.mcq[0].question
     assert "HTTP" not in result.mcq[0].explanation
@@ -333,7 +339,7 @@ async def test_standard_assessment_requests_provider_structured_output():
 
 
 @pytest.mark.asyncio
-async def test_standard_assessment_uses_server_quote_as_correct_answer():
+async def test_standard_assessment_keeps_concise_answer_and_server_owned_quote():
     source_quote = "Выдача микрокредита выполняется после проверки заявления."
 
     class FakeLLM:
@@ -363,8 +369,11 @@ async def test_standard_assessment_uses_server_quote_as_correct_answer():
 
     for question in result.mcq:
         correct = [option.text for option in question.options if option.is_correct]
-        assert correct == [source_quote]
-        assert question.explanation == f"Согласно материалу урока: {source_quote}"
+        assert correct == ["После проверки заявления"]
+        assert question.source_quote == source_quote
+        assert question.explanation == (
+            "Материал связывает выдачу микрокредита с После проверки заявления."
+        )
 
 
 @pytest.mark.asyncio
@@ -372,14 +381,18 @@ async def test_standard_assessment_repairs_unanchored_question_from_evidence():
     source_quote = "Выдача микрокредита выполняется после проверки заявления."
 
     class FakeLLM:
+        calls = 0
+
         async def ainvoke(self, messages, config=None, response_format=None):
+            self.calls += 1
             questions = _questions(
-                "операцию",
+                "операцию" if self.calls == 1 else "выдачу микрокредита",
                 "После проверки заявления",
                 source_quote,
             )
-            for question in questions:
-                question["question"] = "Каков порядок действий?"
+            if self.calls == 1:
+                for question in questions:
+                    question["question"] = "Каков порядок действий?"
             return SimpleNamespace(
                 content=(
                     '{"mcq": '
@@ -388,8 +401,9 @@ async def test_standard_assessment_repairs_unanchored_question_from_evidence():
                 )
             )
 
+    llm = FakeLLM()
     result = await generate_lesson_assessment(
-        FakeLLM(),
+        llm,
         LessonContent(
             title="Правила выдачи микрокредита",
             content=source_quote,
@@ -398,7 +412,8 @@ async def test_standard_assessment_repairs_unanchored_question_from_evidence():
         language="ru",
     )
 
-    assert all("выдача микрокредита" in question.question.lower() for question in result.mcq)
+    assert llm.calls == 2
+    assert all("микрокредит" in question.question.lower() for question in result.mcq)
 
 
 def test_evidence_bank_excludes_incomplete_colon_introductions():
@@ -423,6 +438,13 @@ async def test_standard_assessment_renders_markdown_evidence_as_plain_answer():
                 "30 минут",
                 source_quote,
             )
+            for question in questions:
+                question["options"] = [
+                    {"text": "30 минут", "is_correct": True},
+                    {"text": "20 минут", "is_correct": False},
+                    {"text": "40 минут", "is_correct": False},
+                    {"text": "60 минут", "is_correct": False},
+                ]
             return SimpleNamespace(
                 content=(
                     '{"mcq": '
@@ -441,8 +463,103 @@ async def test_standard_assessment_renders_markdown_evidence_as_plain_answer():
         language="ru",
     )
 
-    expected = "Временное окно: Сотруднику предоставляется 30 минут на тест."
     for question in result.mcq:
         correct = [option.text for option in question.options if option.is_correct]
-        assert correct == [expected]
-        assert question.explanation == f"Согласно материалу урока: {expected}"
+        assert correct == ["30 минут"]
+        assert "|" not in question.source_quote
+
+
+@pytest.mark.asyncio
+async def test_standard_assessment_strips_markdown_table_row_from_evidence():
+    source_quote = "| Критический приоритет | Не позднее 15 минут |"
+
+    class FakeLLM:
+        async def ainvoke(self, messages, config=None, response_format=None):
+            questions = [
+                {
+                    "question": f"Каков срок для критического приоритета? {index}",
+                    "options": [
+                        {"text": "15 минут", "is_correct": True},
+                        {"text": "10 минут", "is_correct": False},
+                        {"text": "20 минут", "is_correct": False},
+                        {"text": "30 минут", "is_correct": False},
+                    ],
+                    "explanation": "Критический срок составляет 15 минут.",
+                    "source_quote_id": "E01",
+                }
+                for index in range(1, 6)
+            ]
+            return SimpleNamespace(
+                content=(
+                    '{"mcq": '
+                    + __import__("json").dumps(questions, ensure_ascii=False)
+                    + ', "true_false": [], "matching": []}'
+                )
+            )
+
+    result = await generate_lesson_assessment(
+        FakeLLM(),
+        LessonContent(
+            title="Срок критического обращения",
+            content=source_quote,
+            source_references=[],
+        ),
+        language="ru",
+    )
+
+    assert all("|" not in question.source_quote for question in result.mcq)
+    assert result.mcq[0].source_quote == (
+        "Критический приоритет — Не позднее 15 минут"
+    )
+
+
+@pytest.mark.asyncio
+async def test_standard_assessment_retries_answer_length_tell():
+    source_quote = (
+        "Обращение критического приоритета необходимо зарегистрировать "
+        "и передать ответственному специалисту не позднее пятнадцати минут."
+    )
+
+    class FakeLLM:
+        calls = 0
+
+        async def ainvoke(self, messages, config=None, response_format=None):
+            self.calls += 1
+            questions = _questions(
+                "критический приоритет",
+                "пятнадцати минут",
+                source_quote,
+            )
+            if self.calls == 1:
+                for question in questions:
+                    question["options"] = [
+                        {"text": source_quote, "is_correct": True},
+                        {"text": "Позже", "is_correct": False},
+                        {"text": "Завтра", "is_correct": False},
+                        {"text": "Никогда", "is_correct": False},
+                    ]
+            return SimpleNamespace(
+                content=(
+                    '{"mcq": '
+                    + __import__("json").dumps(questions, ensure_ascii=False)
+                    + ', "true_false": [], "matching": []}'
+                )
+            )
+
+    llm = FakeLLM()
+    result = await generate_lesson_assessment(
+        llm,
+        LessonContent(
+            title="Срок критического обращения",
+            content=source_quote,
+            source_references=[],
+        ),
+        language="ru",
+    )
+
+    assert llm.calls == 2
+    assert all(
+        max(len(option.text) for option in question.options)
+        < len(source_quote)
+        for question in result.mcq
+    )

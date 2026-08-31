@@ -8,6 +8,7 @@ describe('quiz freshness review', () => {
   it('shows a stale-quiz warning and an explicit methodologist approval action', () => {
     expect(source).toContain("selectedQuiz.review_status === 'needs_review'");
     expect(source).toContain('/approve`');
-    expect(source).toContain('Урок изменён после создания теста');
+    expect(source).toContain('Этот тест создан ИИ или требует повторной проверки');
+    expect(source).toContain('неверные варианты правдоподобны и похожи по длине');
   });
 });

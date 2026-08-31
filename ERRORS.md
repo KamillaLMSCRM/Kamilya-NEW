@@ -165,6 +165,20 @@ open, also record status, safe interim path, and review condition.
 - Prevention: do not rewrite security tests around mocks. Check target/revision
   without credentials, run the original test on authorized DB, or leave gate open.
 
+## TEST-003 - A Jest-only flag prevented the Vitest suite from starting
+
+- Date: 2026-08-31.
+- Symptom: `pnpm test -- --runInBand` stopped with
+  `CACError: Unknown option --runInBand`; no frontend test had executed.
+- Cause: `--runInBand` is a Jest flag, while the repository package script runs
+  Vitest 4.
+- Fix: run the package contract unchanged with `pnpm test`, then run
+  `pnpm run typecheck` separately.
+- Verification: Vitest completed `85 passed` files and `426 passed` tests;
+  `tsc --noEmit` completed successfully.
+- Prevention: use the checked-in frontend package scripts without Jest-specific
+  flags unless the current Vitest CLI explicitly supports the requested option.
+
 ## WIN-001 - Frontend build script used POSIX env syntax in PowerShell
 
 - Date: 2026-08-13.
@@ -373,31 +387,33 @@ open, also record status, safe interim path, and review condition.
   authorize only after tenant context. Route/UI/credential presence is insufficient
   without exchange, isolation, cleanup, and retention-scheduler evidence.
 
-## AI-002 - Assessment retry lost source and free-form citation weakened grounding
+## AI-002 - Grounded assessment answers became learner-visible evidence dumps
 
-- Date: 2026-08-20.
-- Symptom: initial disposable course produced two JSON/HTTP/REST questions. Later
-  fail-closed runs rejected altered quotes, schema descriptions with
-  `MCQ count is 0`, answer paraphrases not verbatim in evidence, a question without
-  a shared lexical stem, and colon-terminated incomplete evidence.
-- Cause: original retry used prior output and lost lesson source. Later validation
-  still required fragile verbatim quote and lexical-prefix reproduction.
+- Date: 2026-08-20; revised 2026-08-31 after production synthetic acceptance.
+- Symptom: earlier runs produced off-source JSON/HTTP/REST questions. After the
+  first grounding fix, production generated source-based quizzes whose correct
+  options were often the longest, contained complete multi-fact excerpts or raw
+  Markdown table rows, and did not always answer the atomic question.
+- Cause: the server correctly owned bounded evidence, but then replaced the model's
+  correct option and explanation with the entire evidence excerpt. Literal
+  grounding was achieved by destroying answer atomicity and length balance.
 - Fix: rebuild every retry from immutable lesson, never raw prior output. Server
   creates bounded `E01...E24` evidence from the same 8000-character source; model
-  selects `source_quote_id`; server owns quote, sole correct answer, and explanation.
-  Require source terms; reject unsupported JSON/HTTP/REST/API/schema/format terms and
-  evidence-matching distractors. Use deterministic client at temperature `0.2`,
-  server-owned title, no response-body logging, provider
-  `response_format=json_schema`, lexical fallback wording, incomplete-fragment
-  exclusion, and deterministic Markdown stripping.
-- Verification: unit suite `267 passed`; focused assessment/failover/release tests
-  passed. Production Qwen without structured output returned schema keys and
-  `mcq=0`; with `json_schema`, first attempt returned exactly 5 MCQs and empty
-  true/false/matching. Full production job awaits exact-commit release. Direct Qwen
-  3.8 from VM126 remains unavailable and cannot enter free pool before network gate.
+  selects `source_quote_id`; the server resolves and stores the quote separately.
+  The model writes a concise answer and grounded explanation. Deterministic checks
+  require lexical support, atomic wording, plain learner-visible text and topical
+  distractors, then reuse `validate_question_set` for length/style, duplicate,
+  malformed and answer-key signals. A failed contract triggers a bounded clean
+  retry. Full-pipeline AI quizzes persist as `needs_review`; course approval does
+  not replace explicit per-quiz methodologist approval.
+- Verification: focused assessment/review contract `20 passed`; backend unit gate
+  `824 passed`; frontend `426 passed` plus clean typecheck. DB-backed CI, exact-SHA
+  release and a new production synthetic generation remain required before closure.
 - Prevention: successful job and valid JSON are not quality evidence. Verify every
-  question's source and run disposable production generation; retry must preserve
-  source boundary and never learn from invalid output.
+  question's source, keyed-answer support, option-length baseline, Markdown-free
+  rendering and review state. Retry must preserve the immutable source boundary and
+  never learn from invalid output; production acceptance must include a methodologist
+  review and a choose-the-longest baseline.
 
 ## API-002 - One kiosk user's NULL email broke the admin dashboard
 

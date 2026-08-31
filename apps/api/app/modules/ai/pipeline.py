@@ -232,6 +232,9 @@ async def _save_generation_to_db(
                                     title=struct_les.title,
                                     pass_score=80,
                                     attempt_limit=3,
+                                    review_status="needs_review",
+                                    reviewed_by=None,
+                                    reviewed_at=None,
                                 )
                                 session.add(quiz)
                                 await session.flush()
