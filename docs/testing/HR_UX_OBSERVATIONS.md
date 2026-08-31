@@ -235,3 +235,12 @@ Entry template:
 - **Evidence:** In a measured 35-question first-attempt sample, the first answer was the unique longest option in 25 questions. Selecting the first option without understanding still passed six of seven sampled quizzes at 80–100%, although another quiz correctly failed that strategy at 20%.
 - **Impact:** Learners can often infer answers from structure and verbosity rather than knowledge; nominal passing scores overstate learning quality.
 - **Recommended contract:** Add generation and publication gates for answer-length balance, randomized correct-answer position, semantic distractor plausibility, source grounding and leakage detection. Track regeneration requests and failed quality checks by prompt/model/version.
+
+## UX-20260831-013 — Learner lifecycle and access-control resolution package
+
+- **Severity:** HIGH
+- **Status:** IMPLEMENTED_LOCALLY; DEV ACCEPTANCE PENDING
+- **Resolves after dev readback:** the later duplicate-number observations titled `Valid certificate conflicts with pending confirmation`, `Last lesson keeps a no-op “Следующий урок” action`, and `Personal access cannot be revoked from assignments`.
+- **Implementation:** the training log now distinguishes a valid course-completion certificate from separate documentary evidence confirmation; the terminal learner action is `Завершить курс` and directly invokes idempotent completion; active personal link/PIN access can be explicitly revoked from assignments with confirmation, immediate credential invalidation and the existing audit event.
+- **Safety contract:** revocation preserves assignment, progress, test results and certificate history. Completed exact-assignment completion retries are allowed, while revoked, cancelled and cross-tenant credentials remain rejected.
+- **Local evidence:** backend evidence/access suite `34/34`; focused frontend course-player, assignments and training-log suites; frontend typecheck. Exact-SHA dev deployment and browser readback remain required before marking the original observations closed.

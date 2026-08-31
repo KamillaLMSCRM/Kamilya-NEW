@@ -14,6 +14,7 @@ from app.models.progress import Progress
 from app.modules.certificates.models import Certificate
 from app.modules.courses.release_models import ContentRelease
 from app.modules.courses.release_service import canonical_json_sha256
+from app.modules.learning_cycles import models as learning_cycle_models  # noqa: F401
 from app.modules.quizzes.models import Question, QuizAttempt, QuizChoice
 from app.modules.student.service import get_student_dashboard
 from app.modules.training_evidence.models import TrainingEvidenceEvent
@@ -195,9 +196,23 @@ async def test_course_completion_route_creates_training_evidence(
     )
     await db_session.flush()
 
+    issued = await client.post(
+        f"/api/v1/courses/enrollments/{enrollment.id}/access-link",
+        json={"delivery_mode": "personal_link"},
+        headers=auth_headers(methodologist),
+    )
+    assert issued.status_code == 200, issued.text
+    access_token = issued.json()["access_url"].rsplit("/", 1)[1]
+    exchanged = await client.post(
+        f"/api/v1/assignment-access/{access_token}/exchange",
+        json={"pin": issued.json()["temporary_pin"]},
+    )
+    assert exchanged.status_code == 200, exchanged.text
+    assignment_headers = {"Authorization": f"Bearer {exchanged.json()['access_token']}"}
+
     response = await client.post(
         f"/api/v1/courses/{course.id}/complete",
-        headers=auth_headers(learner),
+        headers=assignment_headers,
     )
 
     assert response.status_code == 200, response.text
@@ -216,7 +231,7 @@ async def test_course_completion_route_creates_training_evidence(
 
     retry = await client.post(
         f"/api/v1/courses/{course.id}/complete",
-        headers=auth_headers(learner),
+        headers=assignment_headers,
     )
     assert retry.status_code == 200, retry.text
     assert (

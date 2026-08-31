@@ -259,6 +259,35 @@ describe('contextual course assignment flow', () => {
     await waitFor(() => expect(navigator.clipboard.writeText).toHaveBeenCalledWith('https://app.kml.kz/accept-invite?token=test'));
   });
 
+  it('revokes an active personal link without deleting the assignment', async () => {
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (!init?.method && url.includes('/v1/courses?')) return Promise.resolve(jsonResponse([{ id: 'course-1', title: 'Охрана труда', status: 'published' }]));
+      if (!init?.method && url.includes('/v1/users?')) return Promise.resolve(jsonResponse({ users: [{ id: 'user-1', first_name: 'Алия', last_name: 'Садыкова', email: null, role: 'student' }] }));
+      if (!init?.method && url.endsWith('/v1/learning-cycles')) return Promise.resolve(jsonResponse([]));
+      if (!init?.method && url.endsWith('/v1/learning-cycles/occurrences')) return Promise.resolve(jsonResponse([]));
+      if (!init?.method && url.endsWith('/v1/courses/course-1/enrollments')) return Promise.resolve(jsonResponse([{ id: 'enrollment-1', user_id: 'user-1', course_id: 'course-1', status: 'completed', source: 'manual', enrolled_at: '2026-01-01T00:00:00Z' }]));
+      if (!init?.method && url.endsWith('/v1/courses/enrollments/enrollment-1/access')) return Promise.resolve(jsonResponse({ enrollment_id: 'enrollment-1', user_id: 'user-1', access_kind: 'personal_link', state: 'available', access_url: null, expires_at: '2026-09-07T06:30:21Z', message: 'ready' }));
+      if (init?.method === 'POST' && url.endsWith('/v1/courses/enrollments/enrollment-1/access-policy/revoke')) return Promise.resolve(jsonResponse({ enrollment_id: 'enrollment-1', delivery_mode: 'personal_link', state: 'revoked' }));
+      throw new Error(`Unexpected request: ${url} ${init?.method || 'GET'}`);
+    });
+
+    render(<CourseAssignmentsPage />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Отозвать доступ' }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining('/v1/courses/enrollments/enrollment-1/access-policy/revoke'),
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ reason: 'revoked_from_assignments_ui' }),
+      }),
+    ));
+    expect(toastMock.success).toHaveBeenCalledWith('Персональный доступ отозван');
+    expect(screen.queryByRole('button', { name: 'Перевыпустить доступ' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Создать доступ' })).not.toBeInTheDocument();
+    expect(screen.getByText('Доступ отозван')).toBeInTheDocument();
+  });
+
   it('keeps enrollment controls and personal-link settings on shared visual rows', async () => {
     fetchMock.mockImplementation((input: RequestInfo | URL) => {
       const url = String(input);

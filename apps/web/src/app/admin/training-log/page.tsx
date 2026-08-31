@@ -617,7 +617,14 @@ export default function AdminTrainingLogPage() {
                       </td>
                       <td className={`${columnClass.certificate} text-sm`}>
                         {row.certificate_number ? (
-                          <span className="text-primary">{row.certificate_number}</span>
+                          <div className="space-y-1">
+                            <span className="text-primary">{row.certificate_number}</span>
+                            {row.evidence_confirmation_status === 'pending' && (
+                              <p className="text-xs text-muted-foreground">
+                                {t('trainingLog.evidence.certificateIndependent')}
+                              </p>
+                            )}
+                          </div>
                         ) : (
                           <span className="text-muted-foreground">—</span>
                         )}

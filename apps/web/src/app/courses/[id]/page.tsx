@@ -816,8 +816,15 @@ export default function CoursePlayerPage() {
                   <span className="flex items-center gap-2 text-success font-medium">
                     <CheckCircle2 className="w-5 h-5" aria-hidden="true" /> {t('courses.markComplete')}
                   </span>
-                  <Button variant="outline" onClick={handleNextLesson} disabled={assignmentAccessBlocked}>
-                    {t('courses.nextLesson')} <ChevronRight className="w-4 h-4 ml-1" />
+                  <Button
+                    variant="outline"
+                    onClick={findNextLesson(selectedLesson.id) ? handleNextLesson : () => void finalizeCourseCompletion()}
+                    disabled={assignmentAccessBlocked}
+                  >
+                    {findNextLesson(selectedLesson.id) ? t('courses.nextLesson') : t('courses.finishCourse')}
+                    {findNextLesson(selectedLesson.id)
+                      ? <ChevronRight className="w-4 h-4 ml-1" />
+                      : <CheckCircle2 className="w-4 h-4 ml-1" />}
                   </Button>
                 </div>
               ) : quizPassed ? (
@@ -825,8 +832,15 @@ export default function CoursePlayerPage() {
                   <span className="flex items-center gap-2 text-success font-medium">
                     <CheckCircle2 className="w-5 h-5" aria-hidden="true" /> {t('quiz.passed')}
                   </span>
-                  <Button variant="outline" onClick={handleNextLesson} disabled={assignmentAccessBlocked}>
-                    {t('courses.nextLesson')} <ChevronRight className="w-4 h-4 ml-1" />
+                  <Button
+                    variant="outline"
+                    onClick={findNextLesson(selectedLesson.id) ? handleNextLesson : () => void finalizeCourseCompletion()}
+                    disabled={assignmentAccessBlocked}
+                  >
+                    {findNextLesson(selectedLesson.id) ? t('courses.nextLesson') : t('courses.finishCourse')}
+                    {findNextLesson(selectedLesson.id)
+                      ? <ChevronRight className="w-4 h-4 ml-1" />
+                      : <CheckCircle2 className="w-4 h-4 ml-1" />}
                   </Button>
                 </div>
               ) : null}

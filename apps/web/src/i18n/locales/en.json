@@ -320,6 +320,7 @@
     "noLessons": "No lessons yet",
     "lessonsCount": "{done} of {totalText}",
     "nextLesson": "Next lesson",
+    "finishCourse": "Finish course",
     "prevLesson": "Previous lesson",
     "backToCourse": "Return to course",
     "backToCourses": "Back to courses",
@@ -1662,7 +1663,7 @@
       "success": "Export started"
     },
     "evidence": {
-      "pending": "Awaiting confirmation",
+      "pending": "Documentary confirmation pending",
       "confirmed": "Confirmed",
       "incomplete": "Package not ready",
       "revoked": "Revoked",
@@ -1671,7 +1672,8 @@
       "zip": "ZIP",
       "groupPdf": "Group PDF",
       "groupZip": "Group ZIP",
-      "unavailable": "Export will be available after confirmation",
+      "unavailable": "The evidence package will be available after documentary confirmation",
+      "certificateIndependent": "The certificate confirms course completion. Documentary confirmation for the evidence package is tracked separately.",
       "exportSuccess": "File prepared",
       "exportFailed": "Could not download the package",
       "select": "Select result",

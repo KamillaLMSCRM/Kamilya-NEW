@@ -320,6 +320,7 @@
     "noLessons": "Курста сабақтар жоқ",
     "lessonsCount": "{totalText} ішінен {done}",
     "nextLesson": "Келесі сабақ",
+    "finishCourse": "Курсты аяқтау",
     "prevLesson": "Алдыңғы сабақ",
     "backToCourse": "Курсқа оралу",
     "backToCourses": "Курстар тізіміне",
@@ -1662,7 +1663,7 @@
       "success": "Экспорт басталды"
     },
     "evidence": {
-      "pending": "Растауды күтуде",
+      "pending": "Құжаттық растау күтілуде",
       "confirmed": "Расталды",
       "incomplete": "Пакет дайын емес",
       "revoked": "Күші жойылды",
@@ -1671,7 +1672,8 @@
       "zip": "ZIP",
       "groupPdf": "Топтық PDF",
       "groupZip": "Топтық ZIP",
-      "unavailable": "Экспорт растаудан кейін қолжетімді болады",
+      "unavailable": "Evidence-пакет құжаттық растаудан кейін қолжетімді болады",
+      "certificateIndependent": "Сертификат курстың аяқталғанын растайды. Evidence-пакет үшін құжаттық растау бөлек жүргізіледі.",
       "exportSuccess": "Файл дайындалды",
       "exportFailed": "Пакетті жүктеу мүмкін болмады",
       "select": "Нәтижені таңдау",

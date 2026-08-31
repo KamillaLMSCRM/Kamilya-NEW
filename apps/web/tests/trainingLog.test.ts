@@ -26,6 +26,13 @@ describe('training-log request and count text', () => {
     expect(interpolate(locale.trainingLog.summary.total, { count: 2 })).toBe(total);
     expect(interpolate(locale.trainingLog.summary.showing, { from: 1, to: 2 })).toBe(showing);
   });
+
+  it.each([ru, kk, en])('separates completion certificates from documentary evidence confirmation', (locale) => {
+    const evidence = locale.trainingLog.evidence as unknown as Record<string, string>;
+    expect(evidence.pending).toBeTruthy();
+    expect(evidence.certificateIndependent).toBeTruthy();
+    expect(evidence.unavailable).not.toMatch(/certificate|сертификат|сертификат/i);
+  });
 });
 
 describe('training-log ownership', () => {

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const routerPush = vi.hoisted(() => vi.fn());
@@ -14,6 +14,7 @@ vi.mock('@/i18n/useT', () => ({
   useT: () => ({
     t: (key: string) => ({
       'courses.nextLesson': 'Следующий урок',
+      'courses.finishCourse': 'Завершить курс',
       'courses.markComplete': 'Урок завершён',
       'quiz.startQuiz': 'Начать тест',
       'quiz.passScore': 'Проходной балл',
@@ -104,8 +105,46 @@ function setupFetch(
 
 describe('course player role modes', () => {
   beforeEach(() => {
+    cleanup();
     vi.clearAllMocks();
+    fetchMock.mockReset();
+    routerPush.mockReset();
+    useAuthStore.setState({ accessToken: null, user: null, initialized: true });
     setupFetch();
+  });
+
+  it('shows a terminal completion action instead of a no-op next lesson button', async () => {
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith('/v1/courses/course-1')) return jsonResponse({ ...course, status: 'published' });
+      if (url.endsWith('/v1/courses/course-1/structure')) return jsonResponse({ modules: [{ id: 'module-1', title: 'Модуль', description: '', order_index: 0, lessons: [lesson] }] });
+      if (url.endsWith('/v1/progress/courses/course-1/completed-ids')) return jsonResponse({ completed_lesson_ids: ['lesson-1'] });
+      if (url.endsWith('/v1/courses/course-1/access-window')) return jsonResponse(null);
+      if (url.endsWith('/v1/student/dashboard')) return jsonResponse({ enrolled_courses: [{ course_id: 'course-1', enrollment_id: 'enrollment-1', enrollment_status: 'in_progress' }] });
+      if (url.endsWith('/v1/quizzes/by-lesson/lesson-1')) return jsonResponse({ id: 'quiz-1', title: 'Проверка урока', pass_score: 80, time_limit: null, attempt_limit: 3, deferral_days: 0 });
+      if (url.endsWith('/v1/quizzes/quiz-1/attempts')) return jsonResponse([{ id: 'attempt-1', score_percent: 100, passed: true }]);
+      if (url.endsWith('/v1/courses/course-1/complete') && init?.method === 'POST') return jsonResponse({ status: 'completed', certificate_id: 'certificate-1', training_evidence_event_id: 'event-1' });
+      if (url.includes('/v1/learner/assistant/messages')) return jsonResponse([]);
+      return jsonResponse({ detail: `Unexpected request: ${url}` }, 404);
+    });
+    useAuthStore.setState({
+      accessToken: 'student-token',
+      user: { id: 'student-1', role: 'student' } as never,
+      initialized: true,
+    });
+
+    render(<CoursePlayerPage />);
+
+    const finish = await screen.findByRole('button', { name: 'Завершить курс' });
+    expect(screen.queryByRole('button', { name: 'Следующий урок' })).not.toBeInTheDocument();
+    await act(async () => {
+      finish.click();
+    });
+    expect(routerPush).not.toHaveBeenCalledWith('/courses');
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining('/v1/courses/course-1/complete'),
+      expect.objectContaining({ method: 'POST' }),
+    ));
   });
 
   it('finishes a methodologist preview without calling learner course completion', async () => {
@@ -118,7 +157,9 @@ describe('course player role modes', () => {
     render(<CoursePlayerPage />);
 
     await screen.findByText('Проверка урока');
-    fireEvent.click(screen.getByRole('button', { name: 'Следующий урок' }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Следующий урок' }));
+    });
 
     await waitFor(() => expect(routerPush).toHaveBeenCalledWith('/courses'));
     expect(fetchMock).not.toHaveBeenCalledWith(

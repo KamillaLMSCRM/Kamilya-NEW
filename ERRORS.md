@@ -1187,3 +1187,12 @@ ANY TOKEN FAILURE.
 - Fix: rename the new incident to the next unused identifier, `TOOL-006`, and run the release-contract gate locally before pushing the correction.
 - Verification: `python scripts/ci/release-contract-gate.py` reports the errors journal contract as valid, and its focused reliability test passes.
 - Prevention: before appending an incident, enumerate headings for the selected prefix and choose the next unused number; the release gate remains the required pre-push check for `ERRORS.md` edits.
+
+## LEARNING-002 - Completed assignment blocked idempotent course completion retry
+
+- Date: 2026-08-31.
+- Symptom: a learner reached the terminal lesson, received a valid certificate, but a repeated completion action through the same assignment credential returned `409 assignment_enrollment_not_active`; the UI still exposed a no-op `Next lesson` action.
+- Cause: the course-completion route enforced an active-enrollment guard before its idempotent completion lookup, even though the assignment bearer remained bound to the same completed enrollment.
+- Fix: for the exact bound assignment enrollment only, fall back to the existing completed-enrollment read-access guard and continue the idempotent completion workflow; keep revoked, cancelled and cross-tenant access fail-closed. The terminal UI now calls completion explicitly.
+- Verification: the assignment-bearer completion integration test passes on first and repeated completion; the focused evidence/access backend suite passes `34/34`; the course-player regression test verifies the terminal action sends `POST /complete`.
+- Prevention: lifecycle mutation endpoints that promise idempotency must evaluate an already-completed exact resource before rejecting its active-state transition, while preserving tenant, credential and revocation boundaries.

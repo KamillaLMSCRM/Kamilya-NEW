@@ -657,21 +657,37 @@ async def _complete_course_for_user(db: AsyncSession, course_id: UUID, user: Use
         AssignmentWindowExpiredError,
         assignment_window_error,
         require_active_enrollment_window,
+        require_assignment_enrollment_read_access,
     )
     from app.modules.enrollments.context import current_enrollment
     from app.modules.lessons.models import Lesson, Module
     from app.modules.quizzes.models import Question, Quiz, QuizAttempt
 
+    assignment_enrollment_id = getattr(user, "assignment_access_enrollment_id", None)
     try:
         await require_active_enrollment_window(
             db,
             user_id=user.id,
             tenant_id=user.tenant_id,
             course_id=course_id,
-            enrollment_id=getattr(user, "assignment_access_enrollment_id", None),
+            enrollment_id=assignment_enrollment_id,
         )
     except AssignmentWindowExpiredError as exc:
-        raise assignment_window_error(exc) from exc
+        if assignment_enrollment_id is None or exc.code != "assignment_enrollment_not_active":
+            raise assignment_window_error(exc) from exc
+        try:
+            # Completion is idempotent. A credential-bound learner may read
+            # back the same completed enrollment; revoked, cancelled and
+            # cross-tenant credentials still fail closed in this read guard.
+            await require_assignment_enrollment_read_access(
+                db,
+                user_id=user.id,
+                tenant_id=user.tenant_id,
+                course_id=course_id,
+                enrollment_id=assignment_enrollment_id,
+            )
+        except AssignmentWindowExpiredError as read_exc:
+            raise assignment_window_error(read_exc) from read_exc
     enrollment = await current_enrollment(db, tenant_id=user.tenant_id, user_id=user.id, course_id=course_id)
 
     course_result = await db.execute(select(Course).where(Course.id == course_id, Course.tenant_id == user.tenant_id))

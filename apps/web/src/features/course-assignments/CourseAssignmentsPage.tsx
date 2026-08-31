@@ -59,7 +59,7 @@ interface EnrollmentAccess {
   enrollment_id: string;
   user_id: string;
   access_kind: 'course_access' | 'account_activation' | 'access_without_email' | 'personal_link';
-  state: 'available' | 'needs_activation' | 'blocked';
+  state: 'available' | 'needs_activation' | 'blocked' | 'revoked';
   access_url: string | null;
   expires_at?: string | null;
   message: string;
@@ -501,6 +501,42 @@ export default function EnrollmentsPage() {
     toast.success('Ссылка активации подготовлена');
   };
 
+  const handleRevokeAssignmentAccess = async (enrollment: Enrollment, learner?: User) => {
+    const approved = await confirm({
+      title: 'Отозвать персональный доступ?',
+      message: `Ссылка и PIN для ${learner ? `${learner.first_name} ${learner.last_name}`.trim() : 'сотрудника'} перестанут работать сразу. Назначение, прогресс и результаты сохранятся.`,
+      variant: 'danger',
+      confirmLabel: 'Отозвать доступ',
+    });
+    if (!approved) return;
+    const response = await fetch(`${API_URL}/v1/courses/enrollments/${enrollment.id}/access-policy/revoke`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ reason: 'revoked_from_assignments_ui' }),
+    });
+    if (!response.ok) {
+      toast.error('Не удалось отозвать персональный доступ');
+      return;
+    }
+    setAccessStates((current) => ({
+      ...current,
+      [enrollment.id]: {
+        ...(current[enrollment.id] || {
+          enrollment_id: enrollment.id,
+          user_id: enrollment.user_id,
+          access_kind: 'personal_link',
+          access_url: null,
+          message: '',
+        }),
+        state: 'revoked',
+        expires_at: null,
+        message: 'Доступ отозван',
+      },
+    }));
+    setIssuedNoEmailAccess((current) => current?.enrollment_id === enrollment.id ? null : current);
+    toast.success('Персональный доступ отозван');
+  };
+
   const resendNotification = async (enrollment: Enrollment) => {
     const response = await fetch(`${API_URL}/v1/courses/enrollments/${enrollment.id}/notification/resend`, {
       method: 'POST', headers: { Authorization: `Bearer ${token}` },
@@ -797,18 +833,34 @@ export default function EnrollmentsPage() {
                               </p>
                             </td>
                             <td className="p-2 align-top">
-                              <Button
-                                data-testid="assignment-primary-line"
-                                className="h-9 whitespace-nowrap text-sm leading-5"
-                                variant="outline"
-                                size="sm"
-                                onClick={() => void handleAssignmentAccess(e, u)}
-                              >
-                                {u && !u.email
-                                  ? accessStates[e.id]?.state === 'available' ? 'Перевыпустить доступ' : 'Создать доступ'
-                                  : 'Получить ссылку'}
-                              </Button>
-                              {u && !u.email && accessStates[e.id]?.expires_at && (
+                              <div data-testid="assignment-primary-line" className="flex min-h-9 flex-wrap items-center gap-2 text-sm leading-5">
+                                {e.status !== 'completed' && (
+                                  <Button
+                                    className="h-9 whitespace-nowrap text-sm leading-5"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => void handleAssignmentAccess(e, u)}
+                                  >
+                                    {u && !u.email
+                                      ? accessStates[e.id]?.state === 'available' ? 'Перевыпустить доступ' : 'Создать доступ'
+                                      : 'Получить ссылку'}
+                                  </Button>
+                                )}
+                                {u && !u.email && accessStates[e.id]?.state === 'available' && (
+                                  <Button
+                                    className="h-9 whitespace-nowrap text-sm leading-5"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => void handleRevokeAssignmentAccess(e, u)}
+                                  >
+                                    Отозвать доступ
+                                  </Button>
+                                )}
+                                {e.status === 'completed' && accessStates[e.id]?.state !== 'available' && (
+                                  <span className="text-xs text-muted-foreground">Доступ отозван</span>
+                                )}
+                              </div>
+                              {u && !u.email && accessStates[e.id]?.state === 'available' && accessStates[e.id]?.expires_at && (
                                 <p className="mt-1 text-xs text-muted-foreground">
                                   Активен до {new Date(accessStates[e.id].expires_at!).toLocaleString()}
                                 </p>

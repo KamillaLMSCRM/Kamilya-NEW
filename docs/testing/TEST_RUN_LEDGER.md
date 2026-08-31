@@ -149,3 +149,13 @@ Rules:
 - **Access revocation:** NOT AVAILABLE. The assignment row exposed only `Перевыпустить доступ`; no `Отозвать`, `Удалить доступ` or equivalent action was present. The synthetic access therefore remains active until its displayed expiry.
 - **Session-isolation note:** NOT VERIFIED as a product defect. A final learner transition switched to the existing superadmin identity because methodologist and learner roles shared one browser profile/origin during this test. Re-entering through the same personal link/PIN restored the learner session with all progress intact. A separate-device E2E is required to classify this behavior.
 - **Overall:** PARTIALLY READY. Core personal-link learner flow, progress, scoring and certificate issuance work; confirmation semantics, final navigation, revocation and answer-quality bias remain open.
+
+## RUN-20260831-METHODOLOGIST-DEV-13E43E4 — local remediation addendum
+
+- **Scope:** local code and disposable PostgreSQL 18 compatibility database only; no production access or mutation.
+- **Course completion:** PASS LOCALLY. The exact assignment bearer can repeat a completed course request idempotently without weakening revoked, cancelled or cross-tenant denial.
+- **Terminal action:** PASS LOCALLY. The last completed lesson exposes `Завершить курс`; its click sends the normal completion request instead of reusing next-lesson navigation.
+- **Personal access revocation:** PASS LOCALLY. The assignment UI calls the existing tenant-scoped revoke endpoint, requires confirmation, clears one-time credential UI and reads back `Доступ отозван`; the backend audit assertion verifies actor, action and reason.
+- **Certificate/evidence semantics:** PASS LOCALLY. RU, KK and EN copy now states that the certificate confirms course completion while documentary confirmation controls the separate evidence package.
+- **Automated evidence:** backend focused suites `34/34`, frontend focused suites and typecheck; exact-SHA dev deployment and normal-browser readback are still pending.
+- **Residual:** quiz answer-length quality gate remains OPEN and is not part of this remediation package.

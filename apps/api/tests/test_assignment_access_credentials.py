@@ -10,6 +10,7 @@ from sqlalchemy import select
 
 from app.models.assignment_access import AssignmentAccessCredential
 from app.models.enrollment import Enrollment
+from app.modules.audit.models import AuditLog
 
 
 def test_0096_enforces_ownership_and_refuses_destructive_downgrade() -> None:
@@ -177,6 +178,17 @@ async def test_reissue_revokes_history_and_exchange_is_learner_only(
     assert revoked.status_code == 200, revoked.text
     revoked_session = await client.get("/api/v1/users/me", headers=bearer)
     assert revoked_session.status_code == 401
+    audit = await db_session.scalar(
+        select(AuditLog).where(
+            AuditLog.tenant_id == tenant.id,
+            AuditLog.user_id == manager.id,
+            AuditLog.action == "revoke",
+            AuditLog.resource_type == "enrollment_access_policy",
+            AuditLog.resource_id == str(enrollment_id),
+        )
+    )
+    assert audit is not None
+    assert audit.details == {"reason": "manager ended the remote session"}
 
 
 @pytest.mark.asyncio
