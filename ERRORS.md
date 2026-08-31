@@ -1322,8 +1322,8 @@ ANY TOKEN FAILURE.
 - Date: 2026-08-31.
 - Symptom: the protected KZ production job passed GitHub environment approval but failed before controller validation because `sudo` reported the inherited `no new privileges` flag. After removing the direct flag, a later execute reached the controller but CT125 SSH returned exit 255.
 - Cause: several systemd sandbox directives implicitly set `NoNewPrivileges` for the complete runner process tree, while `ProtectHome=true` hid the root-owned CT125 identity and known-hosts files from the same mount namespace. A successful `runuser ... sudo` check outside that namespace did not test the actual job boundary.
-- Fix: retain a dedicated non-login runner account, exact fixed-command sudoers, `PrivateTmp=true` and `ProtectSystem=full`, but remove sandbox directives incompatible with the intentional fixed-command elevation. Verify `NoNewPrivs: 0` on every runner process and verify only presence/readability of the fixed CT125 files from the runner mount namespace without copying or printing secrets.
-- Verification: the corrected runner reported three processes with `NoNewPrivs: 0`; the workflow `Validate installed release plane` step passed; CT125 SSH changed from transport exit 255 to an application gate exit 1, proving the credential and host-key boundary was reached.
+- Fix: retain a dedicated non-login runner account, exact fixed-command sudoers and `PrivateTmp=true`, but remove systemd directives that block the intentional fixed-command elevation, hide root-owned CT125 identity files or remount release-plane write paths read-only. Verify `NoNewPrivs: 0` on every runner process, exact CT125 file readability and exact state/evidence/lock/proxy path writability from the runner mount namespace without copying or printing secrets.
+- Verification: the corrected runner reported three processes with `NoNewPrivs: 0`; the workflow validation passed; the protected release completed; independent readback confirmed exact public/private health, four matching zero-restart containers and CT125 revision `0140`.
 - Prevention: runner acceptance must execute the exact workflow wrapper from the service process namespace. Host-level sudo success and `systemctl is-active` are insufficient release evidence.
 
 ## DEPLOY-009 - CT125 release gate pinned an obsolete guest hostname
@@ -1332,5 +1332,14 @@ ANY TOKEN FAILURE.
 - Symptom: after runner and SSH recovery, the CT125 release gate returned exit 1 even though revision `0138`, encrypted-backup freshness, modes, checksum, timer and plaintext-absence checks all passed.
 - Cause: the newly introduced gate required hostname `kml-db`, while independent runtime readback identified the canonical CT125 guest as `KML-1-77`.
 - Fix: bind the gate to the verified `KML-1-77` identity and add a focused contract test that preserves strict SSH, revision, timer, checksum and encrypted-backup checks.
-- Verification: the replacement exact SHA must pass local contract checks, full GitHub CI and a protected production release with CT125 revision and backup readback.
+- Verification: exact SHA `be35e60c2b1af1465f770375ba9ff15e8bed4d0b` passed local contracts and full GitHub CI; the configured gate SHA matched source, the protected release succeeded, and independent CT125 readback returned revision `0140` with the backup timer active.
 - Prevention: guest identity assertions must come from current provider/runtime readback and be covered by contract tests; never weaken or remove identity verification after drift.
+
+## DEPLOY-010 - Rollback trap restored an empty file before backup initialization
+
+- Date: 2026-08-31.
+- Symptom: a host-gate update failed safely before its intended edit, but the rollback trap replaced an unused `/usr/local/sbin/kamilya-ct125-release-gate` path with an empty root-owned executable.
+- Cause: `mktemp` created the backup path and the EXIT trap was armed before the existing target had been copied into it. A pre-copy assertion failed, and cleanup treated the empty temporary file as a valid rollback source.
+- Fix: build and hash-verify the candidate before touching the target; copy the current target and assert a non-empty exact backup before arming rollback; restore only when that populated backup exists. The actual configured gate under `/opt/kamilya-release-plane/bin` was updated transactionally with this corrected order.
+- Verification: the configured gate matched source SHA `eaf3dadd4a8894252e31d29981a002b3ab9ee605a5232443f09574035244ab3f`, passed direct CT125 revision/backup checks, and the protected release plus independent production readback succeeded.
+- Prevention: every rollback trap must distinguish “temporary path exists” from “valid backup captured”; pre-mutation tests must exercise failure both before and after backup initialization.
