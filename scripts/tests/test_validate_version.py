@@ -8,6 +8,7 @@ Run: python -m pytest scripts/tests/test_validate_version.py -q
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import sys
 from pathlib import Path
@@ -51,7 +52,7 @@ def test_real_repo_versions_agree() -> None:
 
 def test_real_repo_version_file_is_semver() -> None:
     text = (REPO_ROOT / VERSION_FILE).read_text(encoding="utf-8").strip()
-    assert text == "0.1.0"
+    assert re.fullmatch(r"(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)", text) is not None
 
 
 # --- synthetic cases --------------------------------------------------------

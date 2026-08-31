@@ -1205,3 +1205,12 @@ ANY TOKEN FAILURE.
 - Fix: make `methodologist` the active primary role and assign a separate `admin` role; the session exposes both roles without merging their capabilities.
 - Verification: a fresh PostgreSQL 18 database migrated through Alembic 0139; the focused registration and blueprint suite passed 8 tests, including listing permitted blueprints and creating the first course with the registration token. The full-suite result is recorded by the release gate.
 - Prevention: every self-service plan must test email verification -> tenant activation -> session -> role home -> first value; a successful registration response alone is insufficient.
+
+## TEST-006 - SemVer contract test hardcoded the initial product version
+
+- Date: 2026-08-31.
+- Symptom: the version consistency validator passed for release `0.2.0`, but the CI contract-test job failed because a test named `test_real_repo_version_file_is_semver` required the literal value `0.1.0`.
+- Cause: the test asserted the repository's initial version instead of the SemVer format described by its name.
+- Fix: validate the real `VERSION` file against the numeric `major.minor.patch` SemVer shape while the existing validator continues to enforce cross-manifest equality.
+- Verification: the focused version and workflow contract suite passed locally; the replacement exact SHA must pass the GitHub CI job before release.
+- Prevention: version-contract tests must validate invariants and consistency, never pin a historical release number unless the product contract explicitly requires that exact version.
