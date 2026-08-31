@@ -61,7 +61,8 @@ def build(repo: Path, output: Path, release_sha: str, upgrade_id: str, expected_
         source = repo / source_name
         if not source.is_file() or source.is_symlink():
             raise BundleError(f"source_invalid:{key}")
-        target_name = f"{key}.payload"
+        suffix = Path(source_name).suffix or ".sh"
+        target_name = f"{key}{suffix}"
         target = output / target_name
         shutil.copyfile(source, target)
         records[key] = {

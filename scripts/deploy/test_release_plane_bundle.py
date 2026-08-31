@@ -29,6 +29,8 @@ def test_build_and_verify_are_deterministic(tmp_path: Path) -> None:
     second = bundle.build(repo, tmp_path / "second", "a" * 40, "RPLANE-TEST-0001", "b" * 64)
     assert first == second
     assert bundle.verify(tmp_path / "first") == first
+    assert first["files"]["runner_service"]["payload"].endswith(".service")
+    assert first["files"]["host_config_schema"]["payload"].endswith(".json")
 
 
 def test_verify_rejects_modified_payload(tmp_path: Path) -> None:

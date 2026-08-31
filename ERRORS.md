@@ -1343,3 +1343,12 @@ ANY TOKEN FAILURE.
 - Fix: build and hash-verify the candidate before touching the target; copy the current target and assert a non-empty exact backup before arming rollback; restore only when that populated backup exists. The actual configured gate under `/opt/kamilya-release-plane/bin` was updated transactionally with this corrected order.
 - Verification: the configured gate matched source SHA `eaf3dadd4a8894252e31d29981a002b3ab9ee605a5232443f09574035244ab3f`, passed direct CT125 revision/backup checks, and the protected release plus independent production readback succeeded.
 - Prevention: every rollback trap must distinguish “temporary path exists” from “valid backup captured”; pre-mutation tests must exercise failure both before and after backup initialization.
+
+## DEPLOY-011 - Release-plane bundle stripped the systemd unit suffix
+
+- Date: 2026-08-31.
+- Symptom: protected release-plane upgrade run `33395655075` stopped at the pre-install validation step with `validation_command_failed:systemd-analyze`; install and readback steps were skipped.
+- Cause: the deterministic bundle renamed every source to `*.payload`. `systemd-analyze verify` requires the staged unit filename to retain a recognized `.service` suffix even when its content and SHA-256 match the installed unit.
+- Fix: bundle payload names preserve a type-safe source suffix; extensionless fixed shell wrappers receive `.sh`. Destinations, modes, hashes and the fixed allowlist remain unchanged.
+- Verification: focused bundle tests assert `.service` and `.json` preservation, the complete release-plane contract suite passes locally, and the next exact workflow run must pass validation before any install.
+- Prevention: staged artifacts consumed by type-sensitive validators must retain the required filename type, and the bundle contract must test both bytes and validator-visible names.
