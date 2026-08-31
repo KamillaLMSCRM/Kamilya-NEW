@@ -203,3 +203,35 @@ Entry template:
 - Resolution: An authorized dev admin session read back audit filters and attributable actions. The team dialog now has a title, close control, Cancel button, optional-password explanation, and an inert backdrop.
 - Evidence: normal-browser admin readback plus focused component tests; `RUNTIME-DERIVED`.
 - Verification gate: `PASS` on dev; production remains a separate release and acceptance gate.
+
+## UX-20260831-008 — Valid certificate conflicts with pending confirmation
+
+- **Severity:** HIGH
+- **Status:** OPEN
+- **Evidence:** After the synthetic learner completed all 9 lessons and quizzes, the learner certificate list and public verification page reported a valid certificate. At the same time, the methodologist training journal showed `Ожидает подтверждения`, requested a signed scan and disabled export until confirmation.
+- **Impact:** A methodologist cannot explain whether training is legally complete, whether the certificate is final, or why a signed artifact is still required after issuance.
+- **Recommended contract:** Either issue the certificate only after the configured confirmation procedure is complete, or clearly label it provisional and prevent public `valid` status until confirmation. Use one authoritative lifecycle state across learner, journal, export and verification surfaces.
+
+## UX-20260831-009 — Last lesson keeps a no-op “Следующий урок” action
+
+- **Severity:** MEDIUM
+- **Status:** OPEN
+- **Evidence:** At 9 of 9 lessons and after the final quiz passed, the last lesson still displayed `Следующий урок`. One normal click produced no visible state change.
+- **Impact:** The learner is left unsure whether the course is actually finished or another required action is missing.
+- **Recommended contract:** Replace the action on the terminal lesson with an explicit `Завершить курс` or `Перейти к результату` action and read back the persisted completion state.
+
+## UX-20260831-010 — Personal access cannot be revoked from assignments
+
+- **Severity:** HIGH
+- **Status:** OPEN
+- **Evidence:** After completion, the methodologist assignment row showed an active personal access expiry and only `Перевыпустить доступ`. No revoke/delete/disable action was available.
+- **Impact:** A leaked or no-longer-needed link/PIN remains usable until expiry; reissuing is not equivalent to an explicit auditable revocation.
+- **Recommended contract:** Add `Отозвать доступ` with confirmation, audit event, immediate token invalidation and persisted readback. Keep course assignment and learner results unchanged.
+
+## UX-20260831-011 — Correct-answer verbosity remains a strong quiz cue
+
+- **Severity:** HIGH
+- **Status:** OPEN
+- **Evidence:** In a measured 35-question first-attempt sample, the first answer was the unique longest option in 25 questions. Selecting the first option without understanding still passed six of seven sampled quizzes at 80–100%, although another quiz correctly failed that strategy at 20%.
+- **Impact:** Learners can often infer answers from structure and verbosity rather than knowledge; nominal passing scores overstate learning quality.
+- **Recommended contract:** Add generation and publication gates for answer-length balance, randomized correct-answer position, semantic distractor plausibility, source grounding and leakage detection. Track regeneration requests and failed quality checks by prompt/model/version.

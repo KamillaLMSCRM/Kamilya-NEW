@@ -135,3 +135,17 @@ Rules:
 - Local focused gates: `18/18` and `19/19` targeted frontend tests passed in the two UX rounds; `pnpm typecheck` passed after each round.
 - Mutations / residue: the previously approved synthetic course, program, assignments, procedure, groups, and employees were preserved. No email, external notification, candidate access, learner credential, employee termination, or unrelated tenant mutation occurred. The failed AI submissions created no job.
 - Overall: `PASS_WITH_FOLLOW_UP`; dev is ready for UX review, but AI generation remains blocked by the tenant/rate-limit path and a fresh learner credential flow remains gated.
+
+## RUN-20260831-METHODOLOGIST-DEV-13E43E4 — learner-flow addendum
+
+- **Target:** dev only, synthetic tenant `QA Методист 30.08.2026`, synthetic learner `Анна Тестова`; no production tenant, real employee, email or external notification was used.
+- **Access:** PASS. One personal link/PIN was created through the normal methodologist UI for the existing program assignment. The link opened the assigned course without an ordinary account. The credential value was not persisted in evidence.
+- **Course completion:** PASS. All 9 lessons reached `9 из 9 уроков (100%)`. All 9 lesson quizzes were passed; one quiz required a permitted second attempt after the deliberately naive first-option strategy scored 20%.
+- **Quiz flow:** PASS with UX findings. Questions were shown in Russian, answers were selectable, results were saved, and the final quiz displayed explicit next-step guidance. In the measured 35-question first-attempt sample, the first option was the unique longest option in 25 questions; the naive first-option strategy still passed six of seven sampled quizzes at 80–100% before failing the eighth at 20%.
+- **Result readback:** PASS. Methodologist training log showed the learner as `Завершён`, progress 100%, best score 100%, completion date present, and a certificate number present.
+- **Certificate readback:** PASS. Learner certificate list showed the certificate as valid; the public verification page independently showed the exact synthetic tenant, learner, course, issue date and no expiry.
+- **Confirmation consistency:** FAIL. A valid certificate was issued while the methodologist journal simultaneously showed `Ожидает подтверждения`, requested a signed scan, and kept export unavailable until confirmation.
+- **Final course navigation:** FAIL. On the last completed lesson the UI still showed `Следующий урок`; one click produced no visible state change.
+- **Access revocation:** NOT AVAILABLE. The assignment row exposed only `Перевыпустить доступ`; no `Отозвать`, `Удалить доступ` or equivalent action was present. The synthetic access therefore remains active until its displayed expiry.
+- **Session-isolation note:** NOT VERIFIED as a product defect. A final learner transition switched to the existing superadmin identity because methodologist and learner roles shared one browser profile/origin during this test. Re-entering through the same personal link/PIN restored the learner session with all progress intact. A separate-device E2E is required to classify this behavior.
+- **Overall:** PARTIALLY READY. Core personal-link learner flow, progress, scoring and certificate issuance work; confirmation semantics, final navigation, revocation and answer-quality bias remain open.
