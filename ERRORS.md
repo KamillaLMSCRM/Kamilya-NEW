@@ -1179,6 +1179,37 @@ ANY TOKEN FAILURE.
 - Verification: Vercel returned exact SHA `13e43e497ef76b9e6909e32c0aaa9f85c2da7829` as `READY` with `kamilya-lms-dev.vercel.app` attached.
 - Prevention: perform presence-only checks before composing provider URLs; discover stable non-secret resource IDs read-only when the canonical env intentionally stores only the token.
 
+## RELEASE-001 - Reindex-specific evidence contract blocked a routine additive release
+
+- Date: 2026-08-31.
+- Symptom: exact authorized release `REL-20260831-KAMILYA-020-PROD` passed Git,
+  CI, public-health, VM126 image and archive-transfer preflight, but
+  `kamilya-release-evidence-gate` returned `NO_GO` before build, backup,
+  migration or service recreation.
+- Cause: the single gate contract requires Supabase-dev downgrade/re-upgrade,
+  production reindex, provider-spend approval, cross-tenant canary and
+  latency/cost evidence for every release. Those nodes belong to the earlier
+  migration/reindex workstream and have no not-applicable/profile mechanism for
+  a bounded additive `0138 -> 0139` backend release.
+- Fix: commit `42e8a461a95202839990931611738815d9582ef2` adds explicit
+  `full_reindex`, `bounded_schema_predeploy`, and `bounded_schema_final`
+  contracts. Each profile enumerates its applicable evidence and approvals;
+  unknown profiles, unrelated nodes and skipped requirements fail closed.
+- Verification: 14 evaluator contract tests passed. The preserved
+  `bounded_schema_predeploy` envelope for exact SHA
+  `42e8a461a95202839990931611738815d9582ef2` returned structural `GO` with 5/5
+  evidence nodes, 3/3 approvals and zero blockers while retaining mandatory
+  root reference verification.
+- Safe interim state: production remains on release
+  `25ffe4f8ef0144ab064c358aa5b1c27a89d8934c`; CT125 backup and migration did not
+  start; no service restarted; the transferred VM126 archive was hash-verified
+  and removed through an immutable cleanup script.
+- Prevention: make release evidence requirements profile-specific and
+  fail-closed. A profile must explicitly enumerate applicable evidence and
+  approvals, reject unknown/skipped nodes, and retain exact target/SHA/causality
+  checks. Do not mark unrelated evidence `PASS` and do not bypass `NO_GO` until
+  the corrected gate and its contract tests pass.
+
 ## TEST-005 - Errors journal append reused an existing contract identifier
 
 - Date: 2026-08-31.

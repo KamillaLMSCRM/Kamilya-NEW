@@ -93,6 +93,11 @@ jobs:
       - name: Product version consistency gate
         run: python scripts/validate_version.py
 
+      - name: Release-plane static contract
+        run: |
+          python -m py_compile scripts/deploy/release_plane.py
+          bash -n infra/deploy/kamilya-ct125-release-gate.sh
+
   # ---------------------------------------------------------------------------
   # Backend unit tests + syntax compile (fast-fail gate, no Postgres needed)
   # ---------------------------------------------------------------------------
@@ -131,6 +136,9 @@ jobs:
 
       - name: Version-consistency contract tests
         run: poetry run pytest -q ../../scripts/tests/test_validate_version.py ../../scripts/ci/test_validate_version_workflow_contract.py
+
+      - name: Render-like release-plane contract tests
+        run: poetry run pytest -q ../../scripts/deploy/test_release_plane.py ../../scripts/deploy/test_release_workflow_contract.py
 
       - name: Syntax compile (compileall)
         run: |

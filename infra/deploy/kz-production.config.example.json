@@ -1,0 +1,22 @@
+{
+  "backup_freshness_seconds": 900,
+  "backup_gate": "/opt/kamilya-release-plane/bin/kamilya-ct125-release-gate",
+  "compose_file": "/opt/kamilya-release-plane/kamilya-release-slot.yml",
+  "docker_binary": "/usr/bin/docker",
+  "env_file": "/opt/kamilya-runtime/runtime.env",
+  "environment": "kz-production",
+  "evidence_dir": "/var/lib/kamilya-release-plane/evidence",
+  "health_timeout_seconds": 180,
+  "lock_file": "/run/lock/kamilya-release-plane.lock",
+  "nginx_binary": "/usr/sbin/nginx",
+  "project_prefix": "kamilya",
+  "proxy_upstream_file": "/etc/nginx/conf.d/kamilya-api-active.conf",
+  "proxy_upstream_name": "kamilya_api_active",
+  "public_health_url": "https://api.kml.kz/health",
+  "schema_version": 1,
+  "slot_ports": {
+    "blue": 18000,
+    "green": 18001
+  },
+  "state_file": "/var/lib/kamilya-release-plane/state.json"
+}

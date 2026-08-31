@@ -1,0 +1,200 @@
+name: Render-like KZ release
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_id:
+        description: "Exact approved release correlation ID"
+        required: true
+        type: string
+      release_sha:
+        description: "Exact 40-character commit SHA"
+        required: true
+        type: string
+      ci_run_id:
+        description: "Successful CI workflow run ID for this exact SHA"
+        required: true
+        type: string
+      previous_release_sha:
+        description: "Independently read-back current production SHA"
+        required: true
+        type: string
+      previous_image:
+        description: "Current immutable GHCR image with sha256 digest"
+        required: true
+        type: string
+      migration_mode:
+        description: "Database migration mode"
+        required: true
+        default: "no-migration"
+        type: choice
+        options: ["no-migration", "exact"]
+      migration_from:
+        description: "Exact current Alembic revision, blank for no-migration"
+        required: false
+        type: string
+      migration_to:
+        description: "Exact target Alembic revision, blank for no-migration"
+        required: false
+        type: string
+      rollback_compatible:
+        description: "Schema remains compatible with the previous application"
+        required: true
+        default: false
+        type: boolean
+      deploy_to_production:
+        description: "After build, request protected production execution"
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  actions: read
+  attestations: write
+  checks: read
+  contents: read
+  id-token: write
+  packages: write
+
+concurrency:
+  group: kamilya-kz-production-release
+  cancel-in-progress: false
+
+jobs:
+  build-image:
+    name: Build immutable release image
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.image.outputs.name }}
+      digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - name: Validate exact successful CI identity
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CI_RUN_ID: ${{ inputs.ci_run_id }}
+          RELEASE_SHA: ${{ inputs.release_sha }}
+        run: |
+          set -euo pipefail
+          [[ "${RELEASE_SHA}" =~ ^[0-9a-f]{40}$ ]]
+          actual_sha="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${CI_RUN_ID}" --jq '.head_sha')"
+          workflow_name="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${CI_RUN_ID}" --jq '.name')"
+          conclusion="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${CI_RUN_ID}" --jq '.conclusion')"
+          [[ "${actual_sha}" == "${RELEASE_SHA}" ]]
+          [[ "${workflow_name}" == "CI" ]]
+          [[ "${conclusion}" == "success" ]]
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.release_sha }}
+
+      - name: Verify checked-out SHA
+        shell: bash
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha }}
+        run: test "$(git rev-parse HEAD)" = "${RELEASE_SHA}"
+
+      - name: Resolve lowercase image name
+        id: image
+        shell: bash
+        run: echo "name=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/kamilya-api" >> "${GITHUB_OUTPUT}"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Build and push immutable image
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/api/Dockerfile
+          push: true
+          tags: ${{ steps.image.outputs.name }}:${{ inputs.release_sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Attest image provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: ${{ steps.image.outputs.name }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+
+      - name: Create strict release manifest
+        shell: bash
+        env:
+          RELEASE_ID: ${{ inputs.release_id }}
+          RELEASE_SHA: ${{ inputs.release_sha }}
+          IMAGE: ${{ steps.image.outputs.name }}@${{ steps.build.outputs.digest }}
+          PREVIOUS_RELEASE_SHA: ${{ inputs.previous_release_sha }}
+          PREVIOUS_IMAGE: ${{ inputs.previous_image }}
+          MIGRATION_MODE: ${{ inputs.migration_mode }}
+          MIGRATION_FROM: ${{ inputs.migration_from }}
+          MIGRATION_TO: ${{ inputs.migration_to }}
+          ROLLBACK_COMPATIBLE: ${{ inputs.rollback_compatible }}
+        run: |
+          python - <<'PY'
+          import json, os
+          exact = os.environ["MIGRATION_MODE"] == "exact"
+          payload = {
+              "schema_version": 1,
+              "release_id": os.environ["RELEASE_ID"],
+              "release_sha": os.environ["RELEASE_SHA"],
+              "image": os.environ["IMAGE"],
+              "previous_release_sha": os.environ["PREVIOUS_RELEASE_SHA"],
+              "previous_image": os.environ["PREVIOUS_IMAGE"],
+              "expected_environment": "kz-production",
+              "migration": {
+                  "mode": os.environ["MIGRATION_MODE"],
+                  "from_revision": os.environ["MIGRATION_FROM"] or None,
+                  "to_revision": os.environ["MIGRATION_TO"] or None,
+                  "rollback_compatible": os.environ["ROLLBACK_COMPATIBLE"].lower() == "true" if exact else False,
+              },
+          }
+          with open("release-manifest.json", "x", encoding="utf-8") as handle:
+              json.dump(payload, handle, indent=2, sort_keys=True)
+              handle.write("\n")
+          PY
+          python scripts/deploy/release_plane.py validate \
+            --manifest release-manifest.json \
+            --config infra/deploy/kz-production.config.example.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-manifest-${{ inputs.release_sha }}
+          path: release-manifest.json
+          if-no-files-found: error
+          retention-days: 14
+
+  deploy-production:
+    name: Protected VM126 release
+    if: ${{ inputs.deploy_to_production }}
+    needs: build-image
+    runs-on: [self-hosted, linux, x64, kamilya-production-release]
+    environment: kz-production
+    timeout-minutes: 20
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-manifest-${{ inputs.release_sha }}
+          path: ${{ runner.temp }}/kamilya-release
+
+      - name: Validate installed release plane
+        run: |
+          sudo -n /opt/kamilya-release-plane/venv/bin/python \
+            /opt/kamilya-release-plane/release_plane.py validate \
+            --manifest "${RUNNER_TEMP}/kamilya-release/release-manifest.json" \
+            --config /etc/kamilya-release-plane/config.json
+
+      - name: Execute exact protected release
+        run: |
+          sudo -n /opt/kamilya-release-plane/venv/bin/python \
+            /opt/kamilya-release-plane/release_plane.py execute \
+            --manifest "${RUNNER_TEMP}/kamilya-release/release-manifest.json" \
+            --config /etc/kamilya-release-plane/config.json \
+            --confirm-release-id "${{ inputs.release_id }}"

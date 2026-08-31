@@ -1,0 +1,45 @@
+x-app-runtime: &app-runtime
+  image: ${KAMILYA_API_IMAGE:?set immutable KAMILYA_API_IMAGE digest}
+  env_file:
+    - ${KAMILYA_ENV_FILE:-/opt/kamilya-runtime/runtime.env}
+  environment:
+    DEPLOYMENT_ENVIRONMENT: kz-production
+    RELEASE_SHA: ${KAMILYA_RELEASE_SHA:?set exact 40-character release SHA}
+  volumes:
+    - ${KAMILYA_BLOB_STORAGE_DIR:-/opt/kamilya-runtime/blob-storage}:/app/storage/certificates
+  networks:
+    - runtime
+  restart: unless-stopped
+
+services:
+  api:
+    <<: *app-runtime
+    ports:
+      - "127.0.0.1:${KAMILYA_SLOT_PORT:?set the slot host port}:8000"
+    command: ["poetry", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5)"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    mem_limit: 2g
+
+  worker-ai:
+    <<: *app-runtime
+    command: ["poetry", "run", "celery", "-A", "app.core.celery_app:celery_app", "worker", "-Q", "ai", "--concurrency=2", "--loglevel=INFO"]
+    mem_limit: 4g
+
+  worker-documents:
+    <<: *app-runtime
+    command: ["poetry", "run", "celery", "-A", "app.core.celery_app:celery_app", "worker", "-Q", "documents", "--concurrency=2", "--loglevel=INFO"]
+    mem_limit: 3g
+
+  worker-ops:
+    <<: *app-runtime
+    command: ["poetry", "run", "celery", "-A", "app.core.celery_app:celery_app", "worker", "-Q", "maintenance,notifications", "--concurrency=2", "--loglevel=INFO"]
+    mem_limit: 2g
+
+networks:
+  runtime:
+    external: true
+    name: ${KAMILYA_SHARED_RUNTIME_NETWORK:-kamilya-runtime_default}
