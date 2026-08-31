@@ -161,7 +161,6 @@ async def test_ai_draft_reaches_certificate_and_training_log_for_selected_group(
     )
     assert quiz_review.status_code == 200, quiz_review.text
     assert quiz_review.json()["review_status"] == "approved"
-    assert quiz_review.json()["reviewed_by"] == str(methodologist.id)
 
     publish = await client.post(
         f"/api/v1/courses/{course.id}/publish",

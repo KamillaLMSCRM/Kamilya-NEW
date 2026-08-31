@@ -165,7 +165,7 @@ open, also record status, safe interim path, and review condition.
 - Prevention: do not rewrite security tests around mocks. Check target/revision
   without credentials, run the original test on authorized DB, or leave gate open.
 
-## TEST-003 - A Jest-only flag prevented the Vitest suite from starting
+## TEST-008 - A Jest-only flag prevented the Vitest suite from starting
 
 - Date: 2026-08-31.
 - Symptom: `pnpm test -- --runInBand` stopped with

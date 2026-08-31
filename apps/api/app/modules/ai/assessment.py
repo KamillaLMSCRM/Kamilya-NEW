@@ -8,6 +8,7 @@ import json
 import logging
 import re
 from collections.abc import Callable
+from typing import Any
 
 from app.ml_prompts import get_renderer
 from app.modules.ai.assessment_schema import (
@@ -327,7 +328,7 @@ def _validate_question_evidence(
     return issues
 
 
-def _validate_generated_question_set(data: dict, language: str) -> list[str]:
+def _validate_generated_question_set(data: dict[str, Any], language: str) -> list[str]:
     """Apply the shared deterministic editor-quality contract before persistence."""
     questions: list[Question] = []
     try:
