@@ -1316,3 +1316,21 @@ ANY TOKEN FAILURE.
 - Fix: use Python 3.10-compatible `timezone.utc`, and make the protected workflow invoke only the installed fixed-command runner wrapper.
 - Verification: focused controller and workflow contract tests, static Python 3.10 compatibility assertion, then exact-SHA CI, immutable GHCR image and VM126 import readback.
 - Prevention: release controllers must test against the oldest supported production runtime and must not rely on unreviewed PPA or pre-release system packages.
+
+## DEPLOY-008 - Runner hardening blocked its fixed-command privilege boundary
+
+- Date: 2026-08-31.
+- Symptom: the protected KZ production job passed GitHub environment approval but failed before controller validation because `sudo` reported the inherited `no new privileges` flag. After removing the direct flag, a later execute reached the controller but CT125 SSH returned exit 255.
+- Cause: several systemd sandbox directives implicitly set `NoNewPrivileges` for the complete runner process tree, while `ProtectHome=true` hid the root-owned CT125 identity and known-hosts files from the same mount namespace. A successful `runuser ... sudo` check outside that namespace did not test the actual job boundary.
+- Fix: retain a dedicated non-login runner account, exact fixed-command sudoers, `PrivateTmp=true` and `ProtectSystem=full`, but remove sandbox directives incompatible with the intentional fixed-command elevation. Verify `NoNewPrivs: 0` on every runner process and verify only presence/readability of the fixed CT125 files from the runner mount namespace without copying or printing secrets.
+- Verification: the corrected runner reported three processes with `NoNewPrivs: 0`; the workflow `Validate installed release plane` step passed; CT125 SSH changed from transport exit 255 to an application gate exit 1, proving the credential and host-key boundary was reached.
+- Prevention: runner acceptance must execute the exact workflow wrapper from the service process namespace. Host-level sudo success and `systemctl is-active` are insufficient release evidence.
+
+## DEPLOY-009 - CT125 release gate pinned an obsolete guest hostname
+
+- Date: 2026-08-31.
+- Symptom: after runner and SSH recovery, the CT125 release gate returned exit 1 even though revision `0138`, encrypted-backup freshness, modes, checksum, timer and plaintext-absence checks all passed.
+- Cause: the newly introduced gate required hostname `kml-db`, while independent runtime readback identified the canonical CT125 guest as `KML-1-77`.
+- Fix: bind the gate to the verified `KML-1-77` identity and add a focused contract test that preserves strict SSH, revision, timer, checksum and encrypted-backup checks.
+- Verification: the replacement exact SHA must pass local contract checks, full GitHub CI and a protected production release with CT125 revision and backup readback.
+- Prevention: guest identity assertions must come from current provider/runtime readback and be covered by contract tests; never weaken or remove identity verification after drift.

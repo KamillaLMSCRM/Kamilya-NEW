@@ -48,7 +48,7 @@ expected_revision="$1"
 freshness_seconds="$2"
 db_name="$3"
 backup_dir="$4"
-[[ "$(hostname)" == 'kml-db' ]]
+[[ "$(hostname)" == 'KML-1-77' ]]
 [[ "$(runuser -u postgres -- psql -d "${db_name}" -Atqc 'SELECT version_num FROM alembic_version')" == "${expected_revision}" ]]
 systemctl is-active --quiet kamilya-pg-backup.timer
 
