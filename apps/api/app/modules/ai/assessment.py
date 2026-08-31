@@ -31,6 +31,8 @@ from app.modules.editor_assistant.taxonomy import EditorQualityIssueLabel
 
 logger = logging.getLogger(__name__)
 MAX_ASSESSMENT_RETRIES = 4
+MAX_FOCUSED_ATTEMPTS_PER_EVIDENCE = 2
+FOCUSED_OPTION_WORD_COUNT = 6
 
 _WORD_RE = re.compile(r"[^\W\d_]{4,}", re.UNICODE)
 _META_TERM_RE = re.compile(r"[^\W\d_]{3,}", re.UNICODE)
@@ -455,10 +457,17 @@ async def _recover_with_focused_questions(
         focused_schema["properties"]["mcq"]["items"]["properties"][
             "source_quote_id"
         ]["enum"] = [evidence_id]
+        topical_terms = [
+            match.group(0)
+            for match in _WORD_RE.finditer(_plain_evidence_text(evidence_quote))
+            if match.group(0).lower() not in _GROUNDING_STOPWORDS
+        ][:5]
+        topical_terms_text = ", ".join(topical_terms)
         focused_prompt = f"""Create exactly one assessment question from this evidence.
 
 Target language: {language} ({language_name})
 Evidence ID: {evidence_id}
+Exact topical terms: {topical_terms_text}
 BEGIN_UNTRUSTED_LESSON_DATA
 {_escape_lesson_boundary(evidence_quote)}
 END_UNTRUSTED_LESSON_DATA
@@ -467,55 +476,89 @@ Requirements:
 - Ask one atomic question using concrete terminology from the evidence.
 - Select only {evidence_id}; do not output source_quote text.
 - Write exactly four options with exactly one correct option.
-- Every option must contain 3-8 words, use the same grammatical style, and
-  mention the same subject so the correct answer is not identifiable by length.
-- The concise correct option must reuse evidence terminology.
-- Distractors must be realistic alternatives, not nonsense or unrelated facts.
+- Every option must contain exactly {FOCUSED_OPTION_WORD_COUNT} whitespace-separated
+  words. Count the words before returning JSON. No option may be longer or shorter.
+- Every option must repeat at least one exact topical term listed above, use the
+  same grammatical form, answer the same question, and have equal specificity.
+- At least four words in the correct option must reuse exact evidence terminology.
+- Each distractor must change only one plausible action, condition, sequence, or
+  outcome from the correct option. Never use nonsense or an unrelated subject.
 - Write a grounded explanation and no Markdown or meta commentary.
 - Output only a JSON data instance matching this schema:
 {json.dumps(focused_schema, indent=2, ensure_ascii=False)}"""
-        try:
-            response = await llm.ainvoke(
-                [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": focused_prompt},
-                ],
-                response_format={
-                    "type": "json_schema",
-                    "json_schema": {
-                        "name": "focused_lesson_assessment",
-                        "strict": True,
-                        "schema": focused_schema,
+        for focused_attempt in range(1, MAX_FOCUSED_ATTEMPTS_PER_EVIDENCE + 1):
+            correction = (
+                ""
+                if focused_attempt == 1
+                else (
+                    "\nThe previous candidate failed deterministic quality checks. "
+                    f"Correct it now: all four options must have exactly "
+                    f"{FOCUSED_OPTION_WORD_COUNT} words and each must repeat an "
+                    "exact topical term. Return a new candidate, not commentary."
+                )
+            )
+            try:
+                response = await llm.ainvoke(
+                    [
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": focused_prompt + correction},
+                    ],
+                    response_format={
+                        "type": "json_schema",
+                        "json_schema": {
+                            "name": "focused_lesson_assessment",
+                            "strict": True,
+                            "schema": focused_schema,
+                        },
                     },
-                },
+                )
+                focused_data = _parse_json_response(response.content)
+            except (json.JSONDecodeError, ValueError):
+                logger.warning(
+                    "[ASSESSMENT_FOCUSED_RECOVERY] evidence=%s attempt=%d parse_failed",
+                    evidence_id,
+                    focused_attempt,
+                )
+                continue
+            focused_questions = [
+                copy.deepcopy(question)
+                for question in focused_data.get("mcq", [])
+                if isinstance(question, dict)
+            ]
+            if not focused_questions:
+                continue
+            focused_candidate = focused_questions[0]
+            if (
+                _recover_valid_assessment(
+                    {"mcq": [copy.deepcopy(focused_candidate)]},
+                    evidence_bank=evidence_bank,
+                    bounded_source=bounded_source,
+                    lesson_title=lesson_title,
+                    language=language,
+                    minimum_questions=1,
+                )
+                is None
+            ):
+                continue
+            recovery_pool.append(focused_candidate)
+            recovered = _recover_valid_assessment(
+                {"mcq": recovery_pool},
+                evidence_bank=evidence_bank,
+                bounded_source=bounded_source,
+                lesson_title=lesson_title,
+                language=language,
+                minimum_questions=minimum_questions,
             )
-            focused_data = _parse_json_response(response.content)
-        except (json.JSONDecodeError, ValueError):
-            logger.warning(
-                "[ASSESSMENT_FOCUSED_RECOVERY] evidence=%s parse_failed",
-                evidence_id,
-            )
-            continue
-        recovery_pool.extend(
-            copy.deepcopy(question)
-            for question in focused_data.get("mcq", [])
-            if isinstance(question, dict)
-        )
-        recovered = _recover_valid_assessment(
-            {"mcq": recovery_pool},
-            evidence_bank=evidence_bank,
-            bounded_source=bounded_source,
-            lesson_title=lesson_title,
-            language=language,
-            minimum_questions=minimum_questions,
-        )
-        if recovered is not None:
-            logger.warning(
-                "[ASSESSMENT_FOCUSED_RECOVERED] kept=%d minimum=%d",
-                len(recovered.mcq),
-                minimum_questions,
-            )
-            return recovered
+            if recovered is not None:
+                logger.warning(
+                    "[ASSESSMENT_FOCUSED_RECOVERED] kept=%d minimum=%d",
+                    len(recovered.mcq),
+                    minimum_questions,
+                )
+                return recovered
+            # The current evidence has already produced a valid question. Move
+            # to a different source fragment instead of generating a duplicate.
+            break
     return None
 
 

@@ -749,3 +749,92 @@ async def test_standard_assessment_recovers_with_individual_evidence_questions()
         "When does loan payment occur?",
         "When does loan closure occur?",
     }
+
+
+@pytest.mark.asyncio
+async def test_focused_assessment_retries_rejected_evidence_candidate():
+    source = (
+        "Loan approval occurs after application review. "
+        "Loan payment occurs after contract signing. "
+        "Loan closure occurs after final repayment."
+    )
+    evidence = {
+        "E01": ("approval", "application review", "application intake"),
+        "E02": ("payment", "contract signing", "contract review"),
+        "E03": ("closure", "final repayment", "partial repayment"),
+    }
+
+    class FakeLLM:
+        calls = 0
+        focused_calls: dict[str, int] = {}
+
+        async def ainvoke(self, messages, config=None, response_format=None):
+            self.calls += 1
+            if self.calls <= 5:
+                questions = [
+                    {
+                        "question": "When does loan approval occur?",
+                        "options": [
+                            {"text": "Yes", "is_correct": True},
+                            {"text": "before review", "is_correct": False},
+                            {"text": "during intake", "is_correct": False},
+                            {"text": "without review", "is_correct": False},
+                        ],
+                        "explanation": source,
+                        "source_quote_id": "E01",
+                    }
+                ]
+            else:
+                schema = response_format["json_schema"]["schema"]
+                evidence_id = schema["properties"]["mcq"]["items"]["properties"][
+                    "source_quote_id"
+                ]["enum"][0]
+                self.focused_calls[evidence_id] = self.focused_calls.get(evidence_id, 0) + 1
+                subject, correct_suffix, alternative = evidence[evidence_id]
+                if self.focused_calls[evidence_id] == 1:
+                    options = [
+                        {
+                            "text": f"loan {subject} occurs after {correct_suffix} today",
+                            "is_correct": True,
+                        },
+                        {"text": "never", "is_correct": False},
+                        {"text": "elsewhere", "is_correct": False},
+                        {"text": "unknown", "is_correct": False},
+                    ]
+                else:
+                    options = [
+                        {"text": f"after {correct_suffix} loan {subject} occurs", "is_correct": True},
+                        {"text": f"before {correct_suffix} loan {subject} occurs", "is_correct": False},
+                        {"text": f"during {alternative} loan {subject} occurs", "is_correct": False},
+                        {"text": f"without {correct_suffix} loan {subject} occurs", "is_correct": False},
+                    ]
+                questions = [
+                    {
+                        "question": f"When does loan {subject} occur?",
+                        "options": options,
+                        "explanation": f"Loan {subject} occurs after {correct_suffix}.",
+                        "source_quote_id": evidence_id,
+                    }
+                ]
+            return SimpleNamespace(
+                content=(
+                    '{"mcq": '
+                    + __import__("json").dumps(questions, ensure_ascii=False)
+                    + ', "true_false": [], "matching": []}'
+                )
+            )
+
+    llm = FakeLLM()
+    result = await generate_lesson_assessment(
+        llm,
+        LessonContent(
+            title="Loan lifecycle",
+            content=source,
+            source_references=[],
+        ),
+        language="en",
+    )
+
+    assert llm.calls == 11
+    assert len(result.mcq) == 3
+    assert llm.focused_calls == {"E01": 2, "E02": 2, "E03": 2}
