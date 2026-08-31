@@ -409,11 +409,16 @@ open, also record status, safe interim path, and review condition.
   otherwise the assessment still fails closed. Full-pipeline AI quizzes persist as
   `needs_review`; course approval does not replace explicit per-quiz methodologist
   approval.
-- Verification: production synthetic generation on `dbdba7c` correctly rejected an
-  incomplete answer and implausible distractors instead of persisting them. The new
-  fail-soft regression and focused assessment suite pass (`22 passed`), as does the
-  backend unit gate (`820 passed`). DB-backed CI, the corrective exact-SHA release
-  and a successful production synthetic generation remain required before closure.
+- Verification: the corrective chain through `03718d8d958d475c02c16381ee6dc27e235e4ae3`
+  passed CI run `33423645134` and production release `33424142694`; production
+  smoke `33424391721` passed. A disposable synthetic production generation produced
+  one module, one lesson, one quiz and three independently validated questions.
+  Every question had exactly one keyed answer, no keyed answer was the unique
+  longest option, source references rendered through the public compatibility
+  schema, publication returned `quiz_review_required` before quiz approval, and
+  publication succeeded only after explicit review. No mail was sent and the
+  disposable tenant was removed through the normal API with `204` plus `404`
+  readback.
 - Prevention: successful job and valid JSON are not quality evidence. Verify every
   question's source, keyed-answer support, option-length baseline, Markdown-free
   rendering and review state. Retry must preserve the immutable source boundary and
@@ -1284,13 +1289,28 @@ ANY TOKEN FAILURE.
 - Verification: the focused version and workflow contract suite passed locally; the replacement exact SHA must pass the GitHub CI job before release.
 - Prevention: version-contract tests must validate invariants and consistency, never pin a historical release number unless the product contract explicitly requires that exact version.
 
-## DELETE-001 - Verified trial tenant deletion failed on immutable legal acceptance
+## DELETE-001 - Tenant deletion missed restricted and immutable lifecycle rows
 
 - Date: 2026-08-31.
-- Symptom: superadmin DELETE with the correct `confirm_slug` returned HTTP 500 for a self-service tenant.
-- Cause: `registration_legal_acceptances` references both tenant and first user with `ON DELETE RESTRICT`, while the tenant purge order deleted users without first deleting the tenant-scoped acceptance. The runtime role also intentionally lacked DELETE privilege and policy for that table.
-- Fix: migration 0140 grants DELETE only to `lms_app` under an exact tenant plus superadmin RLS policy; the purge order removes the legal acceptance before users. The browser prompt was replaced with a modal containing a selectable read-only slug, copy action, explicit confirmation input, and a disabled destructive action until the slug matches.
-- Verification: a PostgreSQL 18 integration regression reproduced the original 500 and RESTRICT constraint before the fix; focused backend, migration, frontend modal and typecheck gates must pass before release.
+- Symptom: superadmin DELETE with the correct `confirm_slug` first returned HTTP
+  500 for a verified self-service tenant and later returned HTTP 500 for a
+  synthetic tenant containing a published course release.
+- Cause: `registration_legal_acceptances` references both tenant and first user
+  with `ON DELETE RESTRICT`, while published `content_releases` are protected by
+  an immutable-row trigger and referenced by `courses.current_release_id`. The
+  original purge contract represented neither populated lifecycle.
+- Fix: migration 0140 grants legal-acceptance DELETE only under exact tenant plus
+  superadmin RLS and orders it before users. Migration 0141 adds a bounded
+  `SECURITY DEFINER` helper that requires the active superadmin context, exact
+  tenant ID and matching slug, rejects the protected `kamilya` tenant, clears the
+  current-release pointer and removes only that tenant's releases. Direct release
+  mutation remains blocked. The UI uses a selectable/copyable slug modal and keeps
+  the destructive action disabled until confirmation matches.
+- Verification: CI run `33423645134` passed migrations, RLS/security gates and the
+  populated published-release integration regression. Exact release `33424142694`
+  reached Alembic `0141`; smoke `33424391721` passed. The previously blocked
+  synthetic tenant then returned DELETE `204` and independent GET `404`; no mail
+  was sent.
 - Prevention: every new tenant-owned RESTRICT or immutable table must be represented in the superadmin deletion contract and tested with a populated real-lifecycle tenant, not only an empty tenant fixture.
 
 ## TOOL-007 - Release workflow checks started from inconsistent working directories

@@ -26,6 +26,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   evidence excerpts, reject answer-length clues and implausible distractors,
   accumulate only independently validated questions across bounded retries, and
   require explicit methodologist review before course publication.
+- Superadmin tenant deletion now handles published immutable course releases
+  through an exact-tenant, slug-confirmed security-definer path while preserving
+  the normal immutability guard and the protected production tenant.
 
 ### Security
 

@@ -178,3 +178,15 @@ Rules:
 - **Impersonation navigation:** `FAIL`; several ordinary links from the course/quiz/results surfaces unexpectedly returned the tab to the platform superadmin dashboard. Re-entering the same synthetic tenant restored methodologist access; no tenant boundary was crossed.
 - **Residue:** the synthetic tenant, methodologist, indexed source, published course, program, group, employee, assignment, progress and certificate are intentionally preserved as a repeatable production smoke baseline. The local source file remains outside the repository and contains no personal data.
 - **Overall:** `PARTIALLY READY`. Release infrastructure, ingestion, persistence, publication, assignment, PIN access, completion, journal and certificate paths pass. Generated assessments remain `NO-GO` without human review and deterministic quality gating.
+
+## RUN-20260831-ASSESSMENT-QUALITY-PROD-03718D8
+
+- **Environment / exact SHA:** `kz-production` / `03718d8d958d475c02c16381ee6dc27e235e4ae3`; CI `33423645134`, protected release `33424142694`, and production smoke `33424391721` completed successfully. Release readback reported one exact migration to Alembic `0141`, the same immutable image across API and three workers, and no rollback.
+- **Scope:** one disposable synthetic tenant and synthetic Russian source; no customer tenant, personal data, invitation email, external notification, direct database write, or fabricated confirmation artifact.
+- **Generation:** `PASS`; the production pipeline persisted one module, one lesson, one quiz and three independently validated questions, including the bounded focused-evidence recovery path.
+- **Assessment contract:** `PASS`; every question exposed four usable plain-text options with exactly one correct answer, all correct answers remained concise and source-supported, and no correct answer was the unique longest option.
+- **Review gate:** `PASS`; publication after course review but before quiz review failed closed with `quiz_review_required`. Explicit review of every generated quiz then allowed normal publication.
+- **Source compatibility:** `PASS`; learner-safe source references retained public document identity without exposing embedding/query internals, and legacy references remained parseable.
+- **Cleanup lifecycle:** `PASS`; the first cleanup exposed the immutable `content_releases` deletion gap. The corrected exact-SHA release kept direct release mutation blocked, used the bounded superadmin purge contract, and removed the disposable tenant through the normal API with DELETE `204` and independent GET `404` readback.
+- **Residue:** none. No synthetic tenant, credential, local fixture, email, or external notification remains.
+- **Overall:** `READY` for the assessment-quality scope. Deterministic generation checks and mandatory methodologist review are active in production; ongoing real-document sampling remains a product-quality monitoring activity rather than a release blocker.
