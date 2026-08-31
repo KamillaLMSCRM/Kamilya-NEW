@@ -669,3 +669,83 @@ async def test_standard_assessment_accumulates_distinct_valid_questions_across_r
     assert llm.calls == 5
     assert len(result.mcq) == 5
     assert len({question.question for question in result.mcq}) == 5
+
+
+@pytest.mark.asyncio
+async def test_standard_assessment_recovers_with_individual_evidence_questions():
+    source = (
+        "Loan approval occurs after application review. "
+        "Loan payment occurs after contract signing. "
+        "Loan closure occurs after final repayment."
+    )
+    evidence = {
+        "E01": ("approval", "application review", "application intake"),
+        "E02": ("payment", "contract signing", "contract review"),
+        "E03": ("closure", "final repayment", "partial repayment"),
+    }
+
+    class FakeLLM:
+        calls = 0
+
+        async def ainvoke(self, messages, config=None, response_format=None):
+            self.calls += 1
+            if self.calls <= 5:
+                questions = [
+                    {
+                        "question": f"When does loan approval occur? Case {index}",
+                        "options": [
+                            {"text": "Yes", "is_correct": True},
+                            {"text": "before application review", "is_correct": False},
+                            {"text": "during application intake", "is_correct": False},
+                            {"text": "without application review", "is_correct": False},
+                        ],
+                        "explanation": source,
+                        "source_quote_id": "E01",
+                    }
+                    for index in range(1, 6)
+                ]
+            else:
+                schema = response_format["json_schema"]["schema"]
+                evidence_id = schema["properties"]["mcq"]["items"]["properties"][
+                    "source_quote_id"
+                ]["enum"][0]
+                subject, correct_suffix, alternative = evidence[evidence_id]
+                questions = [
+                    {
+                        "question": f"When does loan {subject} occur?",
+                        "options": [
+                            {"text": f"after {correct_suffix}", "is_correct": True},
+                            {"text": f"before {correct_suffix}", "is_correct": False},
+                            {"text": f"during {alternative}", "is_correct": False},
+                            {"text": f"without {correct_suffix}", "is_correct": False},
+                        ],
+                        "explanation": f"Loan {subject} occurs after {correct_suffix}.",
+                        "source_quote_id": evidence_id,
+                    }
+                ]
+            return SimpleNamespace(
+                content=(
+                    '{"mcq": '
+                    + __import__("json").dumps(questions, ensure_ascii=False)
+                    + ', "true_false": [], "matching": []}'
+                )
+            )
+
+    llm = FakeLLM()
+    result = await generate_lesson_assessment(
+        llm,
+        LessonContent(
+            title="Loan lifecycle",
+            content=source,
+            source_references=[],
+        ),
+        language="en",
+    )
+
+    assert llm.calls == 8
+    assert len(result.mcq) == 3
+    assert {question.question for question in result.mcq} == {
+        "When does loan approval occur?",
+        "When does loan payment occur?",
+        "When does loan closure occur?",
+    }

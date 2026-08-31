@@ -434,6 +434,91 @@ def _recover_valid_assessment(
     return recovered
 
 
+async def _recover_with_focused_questions(
+    llm: LLMClient,
+    *,
+    system_prompt: str,
+    evidence_bank: dict[str, str],
+    bounded_source: str,
+    lesson_title: str,
+    language: str,
+    language_name: str,
+    output_schema: dict[str, Any],
+    recovery_pool: list[dict[str, Any]],
+    minimum_questions: int,
+) -> LessonAssessment | None:
+    """Request one evidence-bound MCQ at a time when batch output stays invalid."""
+    for evidence_id, evidence_quote in list(evidence_bank.items())[:8]:
+        focused_schema = copy.deepcopy(output_schema)
+        focused_schema["properties"]["mcq"]["minItems"] = 1
+        focused_schema["properties"]["mcq"]["maxItems"] = 1
+        focused_schema["properties"]["mcq"]["items"]["properties"][
+            "source_quote_id"
+        ]["enum"] = [evidence_id]
+        focused_prompt = f"""Create exactly one assessment question from this evidence.
+
+Target language: {language} ({language_name})
+Evidence ID: {evidence_id}
+BEGIN_UNTRUSTED_LESSON_DATA
+{_escape_lesson_boundary(evidence_quote)}
+END_UNTRUSTED_LESSON_DATA
+
+Requirements:
+- Ask one atomic question using concrete terminology from the evidence.
+- Select only {evidence_id}; do not output source_quote text.
+- Write exactly four options with exactly one correct option.
+- Every option must contain 3-8 words, use the same grammatical style, and
+  mention the same subject so the correct answer is not identifiable by length.
+- The concise correct option must reuse evidence terminology.
+- Distractors must be realistic alternatives, not nonsense or unrelated facts.
+- Write a grounded explanation and no Markdown or meta commentary.
+- Output only a JSON data instance matching this schema:
+{json.dumps(focused_schema, indent=2, ensure_ascii=False)}"""
+        try:
+            response = await llm.ainvoke(
+                [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": focused_prompt},
+                ],
+                response_format={
+                    "type": "json_schema",
+                    "json_schema": {
+                        "name": "focused_lesson_assessment",
+                        "strict": True,
+                        "schema": focused_schema,
+                    },
+                },
+            )
+            focused_data = _parse_json_response(response.content)
+        except (json.JSONDecodeError, ValueError):
+            logger.warning(
+                "[ASSESSMENT_FOCUSED_RECOVERY] evidence=%s parse_failed",
+                evidence_id,
+            )
+            continue
+        recovery_pool.extend(
+            copy.deepcopy(question)
+            for question in focused_data.get("mcq", [])
+            if isinstance(question, dict)
+        )
+        recovered = _recover_valid_assessment(
+            {"mcq": recovery_pool},
+            evidence_bank=evidence_bank,
+            bounded_source=bounded_source,
+            lesson_title=lesson_title,
+            language=language,
+            minimum_questions=minimum_questions,
+        )
+        if recovered is not None:
+            logger.warning(
+                "[ASSESSMENT_FOCUSED_RECOVERED] kept=%d minimum=%d",
+                len(recovered.mcq),
+                minimum_questions,
+            )
+            return recovered
+    return None
+
+
 async def generate_lesson_assessment(
     llm: LLMClient,
     lesson_content: LessonContent,
@@ -590,13 +675,14 @@ Output ONLY the JSON data instance:
                 )
                 continue
             if data is not None:
+                minimum_questions = max(2, question_count - 2)
                 recovered = _recover_valid_assessment(
                     {"mcq": recovery_pool},
                     evidence_bank=evidence_bank,
                     bounded_source=bounded_lesson_content,
                     lesson_title=lesson_content.title,
                     language=language,
-                    minimum_questions=max(2, question_count - 2),
+                    minimum_questions=minimum_questions,
                 )
                 if recovered is not None:
                     logger.warning(
@@ -605,6 +691,24 @@ Output ONLY the JSON data instance:
                         question_count,
                     )
                     return recovered
+                if any(
+                    question.get("source_quote_id") in evidence_bank
+                    for question in recovery_pool
+                ):
+                    focused_recovery = await _recover_with_focused_questions(
+                        llm,
+                        system_prompt=system_prompt,
+                        evidence_bank=evidence_bank,
+                        bounded_source=bounded_lesson_content,
+                        lesson_title=lesson_content.title,
+                        language=language,
+                        language_name=lang_name,
+                        output_schema=output_schema,
+                        recovery_pool=recovery_pool,
+                        minimum_questions=minimum_questions,
+                    )
+                    if focused_recovery is not None:
+                        return focused_recovery
             raise
 
 
