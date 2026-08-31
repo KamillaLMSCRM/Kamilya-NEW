@@ -632,6 +632,23 @@ open, also record status, safe interim path, and review condition.
 - Prevention: changes to operational documentation language must update and run
   every machine-readable documentation contract before push.
 
+## CI-002 - New Linux release script was committed without executable mode
+
+- Date: 2026-08-31.
+- Symptom: GitHub CI run `33375645285` stopped in `Shell script quality gate`
+  before the remaining release-security steps because
+  `infra/deploy/kamilya-ct125-release-gate.sh` was tracked as mode `100644`.
+- Cause: the script was created on Windows and locally checked only with
+  `bash -n`; the repository-wide executable-policy gate was not run before the
+  first push.
+- Fix: set the Git index mode to `100755` and retain the repository shell gate
+  as the authoritative validation for tracked Linux scripts.
+- Verification: `scripts/ci/shell-quality-gate.sh` passed all 15 tracked shell
+  scripts for LF, CRLF blob, executable policy and syntax after the mode fix.
+- Prevention: every new tracked `.sh` file must run the complete
+  `scripts/ci/shell-quality-gate.sh` before commit; `bash -n` alone does not
+  verify Git executable metadata.
+
 ## TOOL-003 - Skill validator dependency was absent from available Python runtimes
 
 - Date: 2026-08-23.
