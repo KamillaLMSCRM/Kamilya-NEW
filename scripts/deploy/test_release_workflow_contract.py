@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -23,6 +24,30 @@ def test_workflow_builds_exact_sha_digest_and_requires_matching_ci() -> None:
     assert "apps/api/Dockerfile" in build
     assert "@${{ steps.build.outputs.digest }}" in build
     assert "actions/attest-build-provenance@v2" in build
+
+
+def test_build_only_creates_image_evidence_without_release_manifest() -> None:
+    text = WORKFLOW.read_text(encoding="utf-8")
+    build = _job(text, "build-image")
+    assert 'name: release-image-${{ inputs.release_sha }}' in build
+    assert 'path: release-image.json' in build
+    assert '"ci_run_id": os.environ["CI_RUN_ID"]' in build
+    assert "Create strict release manifest\n        if: ${{ inputs.deploy_to_production }}" in build
+    assert "name: release-manifest-${{ inputs.release_sha }}\n          path: release-manifest.json" in build
+    assert build.count("if: ${{ inputs.deploy_to_production }}") == 2
+
+
+def test_previous_runtime_identity_is_optional_until_production_deploy() -> None:
+    text = WORKFLOW.read_text(encoding="utf-8")
+    inputs = text[: text.index("\npermissions:")]
+    assert "previous_release_sha:" in inputs
+    assert "previous_image:" in inputs
+    for name in ("previous_release_sha", "previous_image"):
+        match = re.search(rf"(?ms)^      {name}:\n(?P<body>(?:        .*\n)+)", inputs)
+        assert match is not None
+        assert "required: false" in match.group("body")
+    deploy = _job(text, "deploy-production")
+    assert "if: ${{ inputs.deploy_to_production }}" in deploy
 
 
 def test_production_job_is_protected_fixed_runner_without_checkout() -> None:

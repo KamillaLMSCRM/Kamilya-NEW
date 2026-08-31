@@ -16,12 +16,12 @@ on:
         required: true
         type: string
       previous_release_sha:
-        description: "Independently read-back current production SHA"
-        required: true
+        description: "Independently read-back current production SHA; required for production deploy"
+        required: false
         type: string
       previous_image:
-        description: "Current immutable GHCR image with sha256 digest"
-        required: true
+        description: "Current immutable GHCR image with sha256 digest; required for production deploy"
+        required: false
         type: string
       migration_mode:
         description: "Database migration mode"
@@ -125,7 +125,28 @@ jobs:
           subject-digest: ${{ steps.build.outputs.digest }}
           push-to-registry: true
 
+      - name: Create immutable image record
+        shell: bash
+        env:
+          CI_RUN_ID: ${{ inputs.ci_run_id }}
+          RELEASE_SHA: ${{ inputs.release_sha }}
+          IMAGE: ${{ steps.image.outputs.name }}@${{ steps.build.outputs.digest }}
+        run: |
+          python - <<'PY'
+          import json, os
+          payload = {
+              "schema_version": 1,
+              "release_sha": os.environ["RELEASE_SHA"],
+              "image": os.environ["IMAGE"],
+              "ci_run_id": os.environ["CI_RUN_ID"],
+          }
+          with open("release-image.json", "x", encoding="utf-8") as handle:
+              json.dump(payload, handle, indent=2, sort_keys=True)
+              handle.write("\n")
+          PY
+
       - name: Create strict release manifest
+        if: ${{ inputs.deploy_to_production }}
         shell: bash
         env:
           RELEASE_ID: ${{ inputs.release_id }}
@@ -165,6 +186,14 @@ jobs:
             --config infra/deploy/kz-production.config.example.json
 
       - uses: actions/upload-artifact@v4
+        with:
+          name: release-image-${{ inputs.release_sha }}
+          path: release-image.json
+          if-no-files-found: error
+          retention-days: 14
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ inputs.deploy_to_production }}
         with:
           name: release-manifest-${{ inputs.release_sha }}
           path: release-manifest.json

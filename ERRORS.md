@@ -1271,3 +1271,21 @@ ANY TOKEN FAILURE.
 - Fix: migration 0140 grants DELETE only to `lms_app` under an exact tenant plus superadmin RLS policy; the purge order removes the legal acceptance before users. The browser prompt was replaced with a modal containing a selectable read-only slug, copy action, explicit confirmation input, and a disabled destructive action until the slug matches.
 - Verification: a PostgreSQL 18 integration regression reproduced the original 500 and RESTRICT constraint before the fix; focused backend, migration, frontend modal and typecheck gates must pass before release.
 - Prevention: every new tenant-owned RESTRICT or immutable table must be represented in the superadmin deletion contract and tested with a populated real-lifecycle tenant, not only an empty tenant fixture.
+
+## TOOL-007 - Release workflow checks started from inconsistent working directories
+
+- Date: 2026-08-31.
+- Symptom: the first focused check did not start because Poetry was invoked from the repository root without a `pyproject.toml`; the parallel YAML check resolved a repository-relative path from `apps/api` and could not find the workflow.
+- Cause: the validation commands mixed the repository-root path contract with the canonical `apps/api` Poetry working directory.
+- Fix: run every Poetry command from `apps/api` and address repository files explicitly through `..\\..` paths.
+- Verification: the corrected YAML command reports `YAML OK`, and the corrected focused pytest command reaches and executes all release workflow tests.
+- Prevention: Kamilya Python verification commands must use `apps/api` as their working directory; repository-root artifacts must be passed with explicit relative paths.
+
+## TEST-007 - Build-only workflow contract truncated YAML input blocks
+
+- Date: 2026-08-31.
+- Symptom: the new build-only contract test failed while the workflow correctly declared both previous-runtime inputs as optional.
+- Cause: the test split an input section on any line beginning with at least six spaces, so it stopped at the first eight-space property line and inspected only the field name.
+- Fix: extract the complete eight-space property body with a field-anchored regular expression before asserting `required: false`.
+- Verification: the focused release-plane and workflow contract suite passes after the parser correction.
+- Prevention: indentation-sensitive workflow contract tests must anchor both field and property indentation instead of using a prefix that also matches nested lines.
