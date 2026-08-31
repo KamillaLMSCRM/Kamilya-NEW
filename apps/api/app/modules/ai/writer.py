@@ -128,6 +128,8 @@ def _public_source_reference(chunk: RetrievedChunk) -> dict[str, Any]:
     ]
     return {
         "document": chunk.doc_name,
+        "doc_id": chunk.doc_id,
+        "doc_name": chunk.doc_name,
         "headings": list(chunk.headings),
         "context_sections": context_sections,
     }

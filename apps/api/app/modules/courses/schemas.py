@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import AliasChoices, BaseModel, Field, ConfigDict
 from typing import Literal
 from uuid import UUID
 from datetime import datetime
@@ -74,8 +74,11 @@ class CoursePreviewSourceDocument(BaseModel):
 
 class CoursePreviewSourceReference(BaseModel):
     chunk_id: str = ""
-    doc_id: str
-    doc_name: str
+    doc_id: str = ""
+    doc_name: str = Field(
+        default="",
+        validation_alias=AliasChoices("doc_name", "document"),
+    )
     headings: list[str] = Field(default_factory=list)
     query: str = ""
     distance: float | None = None

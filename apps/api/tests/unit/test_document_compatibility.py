@@ -529,8 +529,16 @@ async def test_write_lesson_expands_traceable_context_and_preserves_provenance(
     assert "role: ANCHOR" in llm.prompt
     assert "role: NEIGHBOR" in llm.prompt
     reference = lesson.source_references[0]
-    assert set(reference) == {"document", "headings", "context_sections"}
+    assert set(reference) == {
+        "document",
+        "doc_id",
+        "doc_name",
+        "headings",
+        "context_sections",
+    }
     assert reference["document"] == "Правила.pdf"
+    assert reference["doc_id"]
+    assert reference["doc_name"] == "Правила.pdf"
     assert [section["is_anchor"] for section in reference["context_sections"]] == [
         False,
         True,
@@ -548,7 +556,6 @@ async def test_write_lesson_expands_traceable_context_and_preserves_provenance(
         "tenant_id",
     ):
         assert forbidden not in serialized_reference
-
     monkeypatch.setattr("app.modules.ai.writer.MAX_WRITER_PROMPT_CHARS", 100)
     with pytest.raises(ValueError, match="writer_prompt_budget_exceeded"):
         await write_lesson(
@@ -563,6 +570,18 @@ async def test_write_lesson_expands_traceable_context_and_preserves_provenance(
             embeddings_provider=_Embeddings(),
             require_sources=True,
         )
+
+
+def test_course_preview_source_reference_accepts_legacy_document_name() -> None:
+    from app.modules.courses.schemas import CoursePreviewSourceReference
+
+    reference = CoursePreviewSourceReference.model_validate(
+        {"document": "legacy-source.pdf", "headings": ["Раздел"]}
+    )
+
+    assert reference.doc_id == ""
+    assert reference.doc_name == "legacy-source.pdf"
+    assert reference.headings == ["Раздел"]
 
 
 @pytest.mark.asyncio
