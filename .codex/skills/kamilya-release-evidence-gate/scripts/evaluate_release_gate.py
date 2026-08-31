@@ -7,11 +7,11 @@ import json
 import re
 import sys
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any, TextIO
 
 ENVELOPE_FIELDS = {
-    "schema_version", "project", "release_sha", "repo_fingerprint",
+    "schema_version", "profile", "project", "release_sha", "repo_fingerprint",
     "dev_fingerprint", "prod_fingerprint", "evidence", "approvals",
 }
 EVIDENCE_FIELDS = {
@@ -108,6 +108,47 @@ APPROVAL_CAUSALITY = {
     "production_deploy": "EV-PROD-DEPLOY",
     "production_cleanup": "EV-PROD-CLEANUP",
 }
+PROFILE_CONTRACTS = {
+    "full_reindex": {
+        "stages": STAGES,
+        "approvals": tuple(APPROVAL_CONTRACT),
+    },
+    "bounded_schema_predeploy": {
+        "stages": (
+            ("LOCAL", ("EV-LOCAL-TESTS", "EV-RELEASE-IDENTITY")),
+            ("BUILD", ("EV-CI", "EV-ARTIFACT")),
+            ("READINESS", ("EV-BACKUP-RESTORE",)),
+        ),
+        "approvals": (
+            "production_migration",
+            "production_deploy",
+            "production_cleanup",
+        ),
+    },
+    "bounded_schema_final": {
+        "stages": (
+            ("LOCAL", ("EV-LOCAL-TESTS", "EV-RELEASE-IDENTITY")),
+            ("BUILD", ("EV-CI", "EV-ARTIFACT")),
+            ("READINESS", ("EV-BACKUP-RESTORE",)),
+            (
+                "RELEASE",
+                (
+                    "EV-PROD-MIGRATION",
+                    "EV-PROD-DEPLOY",
+                    "EV-PROD-READBACK",
+                    "EV-PROD-ROLLBACK",
+                    "EV-PROD-CLEANUP",
+                    "EV-CANONICAL-EVIDENCE",
+                ),
+            ),
+        ),
+        "approvals": (
+            "production_migration",
+            "production_deploy",
+            "production_cleanup",
+        ),
+    },
+}
 ALLOWED_STATES = {"PASS", "FAIL", "NOT_VERIFIED", "BLOCKED"}
 
 
@@ -137,7 +178,7 @@ def _timestamp(value: Any, field: str) -> datetime:
         raise GateContractError(f"{field}_invalid") from exc
     if parsed.tzinfo is None or parsed.utcoffset() is None:
         raise GateContractError(f"{field}_timezone_required")
-    return parsed.astimezone(timezone.utc)
+    return parsed.astimezone(UTC)
 
 
 def _fingerprint_for(kind: str, envelope: dict[str, Any]) -> str:
@@ -155,6 +196,8 @@ def _validate_envelope_header(raw: Any) -> dict[str, Any]:
         raise GateContractError("schema_version_invalid")
     if raw["project"] != "Kamilya-NEW":
         raise GateContractError("project_scope_invalid")
+    if raw["profile"] not in PROFILE_CONTRACTS:
+        raise GateContractError("profile_invalid")
     if not isinstance(raw["release_sha"], str) or not SHA_RE.fullmatch(raw["release_sha"]):
         raise GateContractError("release_sha_invalid")
     for field in ("repo_fingerprint", "dev_fingerprint", "prod_fingerprint"):
@@ -221,24 +264,38 @@ def _validate_approval(raw: Any, envelope: dict[str, Any], index: int) -> ValidA
 
 def evaluate(raw: Any) -> dict[str, Any]:
     envelope = _validate_envelope_header(raw)
+    profile = PROFILE_CONTRACTS[envelope["profile"]]
+    stages = profile["stages"]
+    required_evidence = tuple(item for _, stage in stages for item in stage)
+    required_approvals = profile["approvals"]
     evidence_items = [
         _validate_evidence(item, envelope, index)
         for index, item in enumerate(envelope["evidence"], start=1)
     ]
     if len({item.evidence_id for item in evidence_items}) != len(evidence_items):
         raise GateContractError("evidence_ids_must_be_unique")
+    unexpected_evidence = {
+        item.evidence_id for item in evidence_items
+    } - set(required_evidence)
+    if unexpected_evidence:
+        raise GateContractError("evidence_not_applicable_to_profile")
     approval_items = [
         _validate_approval(item, envelope, index)
         for index, item in enumerate(envelope["approvals"], start=1)
     ]
     if len({item.scope for item in approval_items}) != len(approval_items):
         raise GateContractError("approval_scopes_must_be_unique")
+    unexpected_approvals = {
+        item.scope for item in approval_items
+    } - set(required_approvals)
+    if unexpected_approvals:
+        raise GateContractError("approval_not_applicable_to_profile")
 
     evidence = {item.evidence_id: item.state for item in evidence_items}
     evidence_by_id = {item.evidence_id: item for item in evidence_items}
     blockers: list[str] = []
     passed_prior_stages = True
-    for stage_name, stage_ids in STAGES:
+    for _stage_name, stage_ids in stages:
         stage_passed = all(evidence.get(evidence_id) == "PASS" for evidence_id in stage_ids)
         for evidence_id in stage_ids:
             state = evidence.get(evidence_id)
@@ -251,6 +308,8 @@ def evaluate(raw: Any) -> dict[str, Any]:
         passed_prior_stages = passed_prior_stages and stage_passed
 
     for before_id, after_id in EVIDENCE_CAUSALITY:
+        if before_id not in required_evidence or after_id not in required_evidence:
+            continue
         before = evidence_by_id.get(before_id)
         after = evidence_by_id.get(after_id)
         if before and after and before.observed_at > after.observed_at:
@@ -258,10 +317,12 @@ def evaluate(raw: Any) -> dict[str, Any]:
 
     approvals_by_scope = {item.scope: item for item in approval_items}
     provided_approvals = set(approvals_by_scope)
-    for scope in APPROVAL_CONTRACT:
+    for scope in required_approvals:
         if scope not in provided_approvals:
             blockers.append(f"MISSING_APPROVAL:{scope}")
     for scope, operation_id in APPROVAL_CAUSALITY.items():
+        if scope not in required_approvals or operation_id not in required_evidence:
+            continue
         approval = approvals_by_scope.get(scope)
         operation = evidence_by_id.get(operation_id)
         if approval and operation and approval.approved_at > operation.observed_at:
@@ -269,13 +330,14 @@ def evaluate(raw: Any) -> dict[str, Any]:
 
     return {
         "schema_version": 1,
+        "profile": envelope["profile"],
         "project": "Kamilya-NEW",
         "release_sha": envelope["release_sha"],
         "verdict": "NO_GO" if blockers else "GO",
         "completed_evidence": sum(state == "PASS" for state in evidence.values()),
-        "required_evidence": len(REQUIRED_EVIDENCE),
+        "required_evidence": len(required_evidence),
         "completed_approvals": len(provided_approvals),
-        "required_approvals": len(APPROVAL_CONTRACT),
+        "required_approvals": len(required_approvals),
         "blockers": blockers,
         "actionable": False,
         "root_reference_verification_required": True,

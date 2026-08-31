@@ -75,7 +75,81 @@ def complete_envelope():
     return payload
 
 
+def complete_profile(profile):
+    payload = envelope()
+    payload["profile"] = profile
+    contract = MODULE.PROFILE_CONTRACTS[profile]
+    required_evidence = tuple(
+        item for _, stage in contract["stages"] for item in stage
+    )
+    payload["evidence"] = [
+        evidence(evidence_id, index)
+        for index, evidence_id in enumerate(required_evidence, start=1)
+    ]
+    payload["approvals"] = [
+        approval(scope, index)
+        for index, scope in enumerate(contract["approvals"], start=1)
+    ]
+    return payload
+
+
 class ReleaseGateTests(unittest.TestCase):
+    def test_bounded_schema_predeploy_requires_only_applicable_evidence(self):
+        payload = complete_profile("bounded_schema_predeploy")
+        result = MODULE.evaluate(payload)
+        self.assertEqual(result["verdict"], "GO")
+        self.assertEqual(result["profile"], "bounded_schema_predeploy")
+        self.assertEqual(result["required_evidence"], 5)
+        self.assertEqual(result["required_approvals"], 3)
+        self.assertNotIn("MISSING:EV-PROD-REINDEX", result["blockers"])
+        self.assertNotIn("MISSING_APPROVAL:provider_spend", result["blockers"])
+
+        payload["approvals"] = [
+            item
+            for item in payload["approvals"]
+            if item["scope"] != "production_migration"
+        ]
+        self.assertIn(
+            "MISSING_APPROVAL:production_migration",
+            MODULE.evaluate(payload)["blockers"],
+        )
+
+    def test_bounded_schema_final_keeps_postdeploy_readback_fail_closed(self):
+        payload = complete_profile("bounded_schema_final")
+        self.assertEqual(MODULE.evaluate(payload)["verdict"], "GO")
+        payload["evidence"] = [
+            item
+            for item in payload["evidence"]
+            if item["evidence_id"] != "EV-PROD-READBACK"
+        ]
+        self.assertIn(
+            "MISSING:EV-PROD-READBACK",
+            MODULE.evaluate(payload)["blockers"],
+        )
+
+    def test_unknown_profile_is_rejected(self):
+        payload = envelope()
+        payload["profile"] = "skip_checks"
+        with self.assertRaises(MODULE.GateContractError):
+            MODULE.evaluate(payload)
+
+    def test_bounded_profile_rejects_unrelated_evidence_and_approval(self):
+        payload = complete_profile("bounded_schema_predeploy")
+        payload["evidence"].append(evidence("EV-PROD-REINDEX", 99))
+        with self.assertRaisesRegex(
+            MODULE.GateContractError,
+            "evidence_not_applicable_to_profile",
+        ):
+            MODULE.evaluate(payload)
+
+        payload = complete_profile("bounded_schema_predeploy")
+        payload["approvals"].append(approval("provider_spend", 99))
+        with self.assertRaisesRegex(
+            MODULE.GateContractError,
+            "approval_not_applicable_to_profile",
+        ):
+            MODULE.evaluate(payload)
+
     def test_empty_envelope_is_deterministic_no_go(self):
         result = MODULE.evaluate(envelope())
         self.assertEqual(result["verdict"], "NO_GO")
@@ -212,10 +286,12 @@ class ReleaseGateTests(unittest.TestCase):
         duplicate["evidence"].append(dict(duplicate["evidence"][0]))
         with self.assertRaises(MODULE.GateContractError):
             MODULE.evaluate(duplicate)
-        unknown = complete_envelope(); unknown["unexpected"] = True
+        unknown = complete_envelope()
+        unknown["unexpected"] = True
         with self.assertRaises(MODULE.GateContractError):
             MODULE.evaluate(unknown)
-        sensitive = complete_envelope(); sensitive["evidence"][0]["sensitive"] = True
+        sensitive = complete_envelope()
+        sensitive["evidence"][0]["sensitive"] = True
         with self.assertRaises(MODULE.GateContractError):
             MODULE.evaluate(sensitive)
 

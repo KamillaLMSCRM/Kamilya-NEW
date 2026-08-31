@@ -1,5 +1,6 @@
 {
   "schema_version": 1,
+  "profile": "full_reindex",
   "project": "Kamilya-NEW",
   "release_sha": "0000000000000000000000000000000000000000",
   "repo_fingerprint": "1111111111111111111111111111111111111111111111111111111111111111",

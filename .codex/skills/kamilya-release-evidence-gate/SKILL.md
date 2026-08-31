@@ -45,7 +45,13 @@ evidence yields `NO_GO` or input rejection. No phase can be skipped.
 ## Input and use
 
 The envelope contains only hashes, stable IDs, finite states, permitted evidence
-labels, timestamps, and opaque references. See `examples/no-go.json`.
+labels, timestamps, and opaque references. It must select one exact fail-closed
+profile: `full_reindex`, `bounded_schema_predeploy`, or
+`bounded_schema_final`. Unknown profiles are rejected; a bounded profile makes
+only explicitly unrelated reindex/spend nodes inapplicable and never converts
+missing applicable evidence into a pass. Use `bounded_schema_predeploy` before
+an additive schema rollout and `bounded_schema_final` for its postdeploy
+readback/cleanup sign-off. See `examples/no-go.json`.
 
 ```powershell
 Get-Content -Raw .codex\skills\kamilya-release-evidence-gate\examples\no-go.json |
