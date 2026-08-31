@@ -17,6 +17,8 @@ from uuid import uuid4
 import pytest
 
 from app.models.tenants import RegistrationLegalAcceptance, Tenant
+from app.modules.courses.models import Course
+from app.modules.courses.release_models import ContentRelease
 
 
 async def _login(client, user, password: str = "Password123!") -> str:
@@ -82,6 +84,42 @@ async def test_superadmin_delete_with_correct_confirm_slug_succeeds(
         f"/api/v1/admin/super/tenants/{tenant.id}?confirm_slug=doomed3",
         headers=headers,
     )
+    assert resp.status_code == 204, resp.text
+
+
+@pytest.mark.asyncio
+async def test_superadmin_delete_removes_published_content_release_before_course(
+    client, db_session, make_tenant, make_superadmin
+):
+    _, token = await _make_superadmin(client, db_session, make_superadmin)
+    headers = {"Authorization": f"Bearer {token}"}
+    tenant = await make_tenant(name="Published", slug="published-release")
+    course = Course(
+        tenant_id=tenant.id,
+        title="Published course",
+        description="Synthetic lifecycle fixture",
+        status="published",
+        review_status="approved",
+    )
+    db_session.add(course)
+    await db_session.flush()
+    release = ContentRelease(
+        tenant_id=tenant.id,
+        course_id=course.id,
+        version=1,
+        snapshot={"course": "synthetic"},
+        snapshot_sha256="0" * 64,
+    )
+    db_session.add(release)
+    await db_session.flush()
+    course.current_release_id = release.id
+    await db_session.commit()
+
+    resp = await client.delete(
+        f"/api/v1/admin/super/tenants/{tenant.id}?confirm_slug=published-release",
+        headers=headers,
+    )
+
     assert resp.status_code == 204, resp.text
 
 

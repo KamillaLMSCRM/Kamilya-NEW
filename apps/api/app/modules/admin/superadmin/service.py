@@ -64,6 +64,8 @@ TENANT_DELETE_SQL = [
     "DELETE FROM quizzes WHERE tenant_id = :tenant_id",
     "DELETE FROM lessons WHERE tenant_id = :tenant_id",
     "DELETE FROM modules WHERE tenant_id = :tenant_id",
+    "UPDATE courses SET current_release_id = NULL WHERE tenant_id = :tenant_id",
+    "DELETE FROM content_releases WHERE tenant_id = :tenant_id",
     "DELETE FROM courses WHERE tenant_id = :tenant_id",
     "DELETE FROM documents WHERE tenant_id = :tenant_id",
     "DELETE FROM generated_content WHERE tenant_id = :tenant_id",
