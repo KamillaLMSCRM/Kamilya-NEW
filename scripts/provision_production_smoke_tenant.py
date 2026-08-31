@@ -76,15 +76,24 @@ async def provision() -> None:
             )
             tenant = created["tenant"]
         tenant_id = tenant["id"]
-        impersonated = await request_json(
-            client, "POST", f"/admin/super/tenants/{tenant_id}/impersonate", headers=headers, json={"role": "admin"}
+        admins = await request_json(
+            client, "GET", f"/admin/super/tenants/{tenant_id}/admins", headers=headers
         )
-        tenant_headers = {"Authorization": f"Bearer {impersonated['access_token']}"}
-        users = await request_json(client, "GET", "/users?per_page=100&include_students=true", headers=tenant_headers)
-        exact = [user for user in users["users"] if (user.get("email") or "").lower() == smoke_email.lower()]
+        exact = [user for user in admins if (user.get("email") or "").lower() == smoke_email.lower()]
         if len(exact) > 1:
             raise RuntimeError("smoke_methodologist_duplicate")
-        if not exact:
+        if exact:
+            if exact[0]["role"] != "methodologist" or not exact[0]["is_active"]:
+                raise RuntimeError("existing_smoke_methodologist_contract_mismatch")
+        else:
+            impersonated = await request_json(
+                client,
+                "POST",
+                f"/admin/super/tenants/{tenant_id}/impersonate",
+                headers=headers,
+                json={"role": "admin"},
+            )
+            tenant_headers = {"Authorization": f"Bearer {impersonated['access_token']}"}
             await request_json(
                 client,
                 "POST",

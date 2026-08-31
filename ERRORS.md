@@ -1352,3 +1352,12 @@ ANY TOKEN FAILURE.
 - Fix: bundle payload names preserve a type-safe source suffix; extensionless fixed shell wrappers receive `.sh`. Destinations, modes, hashes and the fixed allowlist remain unchanged.
 - Verification: focused bundle tests assert `.service` and `.json` preservation, the complete release-plane contract suite passes locally, and the next exact workflow run must pass validation before any install.
 - Prevention: staged artifacts consumed by type-sensitive validators must retain the required filename type, and the bundle contract must test both bytes and validator-visible names.
+
+## TOOL-008 - Persistent smoke provisioner crossed the admin/methodologist role boundary
+
+- Date: 2026-08-31.
+- Symptom: the first persistent production smoke provisioning run created the correctly marked synthetic tenant, then stopped with HTTP 403 on `GET /users`; no user or email was created.
+- Cause: the provisioner used an impersonated tenant `admin` token to list staff even though the canonical product contract assigns staff visibility to `methodologist` and tenant lifecycle visibility to `superadmin`.
+- Fix: use the superadmin tenant-admin listing for idempotent methodologist discovery; use the bounded admin-context only when a new methodologist must be created with a password; verify the final account through its own methodologist login.
+- Verification: the corrected script compiles, reuses the one exact synthetic tenant and must return `READY` with `mail_sent=false` before browser acceptance.
+- Prevention: operational smoke tooling must model each route with its real product role and may not broaden a tenant role merely to simplify idempotency.
