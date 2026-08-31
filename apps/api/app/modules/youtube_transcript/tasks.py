@@ -28,7 +28,7 @@ def _run(coro: Coroutine[Any, Any, T]) -> T:
 
 
 @celery_app.task(name="youtube.import_transcript")  # type: ignore[untyped-decorator]
-def youtube_import_task(job_id: str, tenant_id: str, user_id: str, url: str, preferred_languages: list[str]) -> dict[str, Any]:
+def youtube_import_task(job_id: str, tenant_id: str, user_id: str, url: str, preferred_languages: list[str], analysis_job_id: str | None = None) -> dict[str, Any]:
     from app.modules.youtube_transcript.operations import run_youtube_import
 
     return _run(
@@ -38,6 +38,7 @@ def youtube_import_task(job_id: str, tenant_id: str, user_id: str, url: str, pre
             user_id=UUID(user_id),
             url=url,
             preferred_languages=preferred_languages,
+            analysis_job_id=analysis_job_id,
         )
     )
 

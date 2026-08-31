@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
 import re
 from collections.abc import Callable
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 from uuid import UUID, uuid4
 
@@ -25,6 +27,125 @@ from app.modules.youtube_transcript.remote_caption_adapter import build_runtime_
 from app.modules.youtube_transcript.schemas import YouTubeImportRequest
 
 logger = logging.getLogger(__name__)
+
+_ANALYSIS_ARTIFACT_VERSION = 1
+_ANALYSIS_ARTIFACT_TTL = timedelta(minutes=30)
+
+
+class YouTubeAnalysisArtifactError(RuntimeError):
+    """A referenced provisional transcript artifact cannot be trusted."""
+
+
+def _artifact_key(tenant_id: UUID, job_id: str) -> str:
+    return f"tenants/{tenant_id}/youtube-analysis/{job_id}.json"
+
+
+def _serialize_analysis_artifact(
+    *,
+    tenant_id: UUID,
+    analysis_job_id: str,
+    normalized: Any,
+    transcript: Any,
+    expires_at: datetime,
+) -> tuple[str, str, bytes, datetime]:
+    artifact = {
+        "version": _ANALYSIS_ARTIFACT_VERSION,
+        "tenant_id": str(tenant_id),
+        "analysis_job_id": analysis_job_id,
+        "expires_at": expires_at.isoformat(),
+        "video_id": transcript.video_id,
+        "canonical_url": transcript.canonical_url,
+        "language": transcript.language,
+        "content_sha256": normalized.content_sha256,
+        "document": {
+            "title": normalized.title,
+            "filename": normalized.filename,
+            "content_type": normalized.content_type,
+            "plain_text": normalized.plain_text,
+            "source_revision": normalized.source_revision,
+            "content_sha256": normalized.content_sha256,
+            "provenance": normalized.provenance,
+        },
+    }
+    payload = json.dumps(artifact, ensure_ascii=True, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    digest = hashlib.sha256(payload).hexdigest()
+    return _artifact_key(tenant_id, analysis_job_id), digest, payload, expires_at
+
+
+def _load_analysis_artifact(
+    *,
+    storage: Any,
+    artifact_key: str,
+    artifact_sha256: str,
+    tenant_id: UUID,
+    analysis_job_id: str,
+    expected_video_id: str,
+    expected_canonical_url: str,
+    expected_preferred_languages: list[str],
+    now: datetime | None = None,
+) -> tuple[Any, str]:
+    if artifact_key != _artifact_key(tenant_id, analysis_job_id):
+        raise YouTubeAnalysisArtifactError("analysis_artifact_invalid")
+    try:
+        payload = storage.get_bytes(artifact_key)
+        if not isinstance(payload, bytes) or hashlib.sha256(payload).hexdigest() != artifact_sha256:
+            raise YouTubeAnalysisArtifactError("analysis_artifact_invalid")
+        artifact = json.loads(payload.decode("utf-8"))
+        expires_at = datetime.fromisoformat(str(artifact["expires_at"]))
+        if expires_at.tzinfo is None:
+            raise YouTubeAnalysisArtifactError("analysis_artifact_invalid")
+        if (now or datetime.now(UTC)) >= expires_at:
+            raise YouTubeAnalysisArtifactError("analysis_artifact_expired")
+        if artifact["version"] != _ANALYSIS_ARTIFACT_VERSION:
+            raise YouTubeAnalysisArtifactError("analysis_artifact_invalid")
+        if artifact["tenant_id"] != str(tenant_id) or artifact["analysis_job_id"] != analysis_job_id:
+            raise YouTubeAnalysisArtifactError("analysis_artifact_invalid")
+        if artifact["video_id"] != expected_video_id or artifact["canonical_url"] != expected_canonical_url:
+            raise YouTubeAnalysisArtifactError("analysis_artifact_invalid")
+        document = artifact["document"]
+        if artifact["language"] not in expected_preferred_languages or artifact["language"] != document["provenance"]["language"]:
+            raise YouTubeAnalysisArtifactError("analysis_artifact_invalid")
+        content_sha256 = hashlib.sha256(str(document["plain_text"]).encode("utf-8")).hexdigest()
+        if content_sha256 != artifact["content_sha256"] or content_sha256 != document["content_sha256"]:
+            raise YouTubeAnalysisArtifactError("analysis_artifact_invalid")
+        if document["source_revision"] != f"document:{content_sha256}":
+            raise YouTubeAnalysisArtifactError("analysis_artifact_invalid")
+        from app.modules.youtube_transcript.normalizer import NormalizedTranscriptSource
+
+        normalized = NormalizedTranscriptSource(
+            title=str(document["title"]),
+            filename=str(document["filename"]),
+            content_type=str(document["content_type"]),
+            plain_text=str(document["plain_text"]),
+            source_revision=str(document["source_revision"]),
+            content_sha256=content_sha256,
+            provenance=dict(document["provenance"]),
+        )
+        return normalized, str(artifact["language"])
+    except YouTubeAnalysisArtifactError:
+        raise
+    except Exception as exc:
+        raise YouTubeAnalysisArtifactError("analysis_artifact_invalid") from exc
+
+
+def delete_expired_analysis_artifact(*, storage: Any, metadata: Any, tenant_id: UUID, analysis_job_id: str) -> None:
+    if not isinstance(metadata, dict):
+        return
+    key = metadata.get("key")
+    if key == _artifact_key(tenant_id, analysis_job_id):
+        try:
+            storage.delete_bytes(key)
+        except Exception:
+            logger.exception("Could not remove expired YouTube analysis artifact job_id=%s", analysis_job_id)
+
+
+def _delete_consumed_analysis_artifact(*, storage: Any, artifact_key: str | None, job_id: str) -> None:
+    if not artifact_key:
+        return
+    try:
+        storage.delete_bytes(artifact_key)
+    except Exception:
+        logger.exception("Could not remove consumed YouTube analysis artifact job_id=%s", job_id)
 
 
 def _preview_summary(text: str, *, limit: int = 320) -> str:
@@ -103,19 +224,46 @@ async def run_youtube_analysis(
             "quality_warnings": ["automatic_captions_review_required"] if transcript.is_auto_generated else [],
         },
     }
-    async with async_session_factory() as session:
-        await _set_tenant(session, tenant_id)
-        job = cast(Any, await session.scalar(select(AIJob).where(AIJob.id == job_id, AIJob.tenant_id == tenant_id).with_for_update()))
-        if job and job.status != "cancelled":
-            now = datetime.now(UTC)
-            job.status = "completed"
-            job.stage = "preview_ready"
-            job.progress = 100
-            job.message = "Видео проанализировано. Проверьте описание и продолжите."
-            job.result = result
-            job.updated_at = now
-            job.completed_at = now
-            await session.commit()
+    expires_at = datetime.now(UTC) + _ANALYSIS_ARTIFACT_TTL
+    artifact_key, artifact_sha256, artifact_payload, _ = _serialize_analysis_artifact(
+        tenant_id=tenant_id,
+        analysis_job_id=job_id,
+        normalized=normalized,
+        transcript=transcript,
+        expires_at=expires_at,
+    )
+    try:
+        get_storage().put_bytes(artifact_key, artifact_payload, content_type="application/json")
+    except Exception:
+        logger.exception("YouTube analysis artifact persistence failed job_id=%s", job_id)
+        return await _finish_failed(
+            job_id, tenant_id, code="analysis_artifact_persistence_failed",
+            message="Не удалось сохранить результат анализа.", retryable=True,
+        )
+    result["analysis_artifact"] = {
+        "key": artifact_key,
+        "sha256": artifact_sha256,
+        "expires_at": expires_at.isoformat(),
+    }
+    try:
+        async with async_session_factory() as session:
+            await _set_tenant(session, tenant_id)
+            job = cast(Any, await session.scalar(select(AIJob).where(AIJob.id == job_id, AIJob.tenant_id == tenant_id).with_for_update()))
+            if job and job.status != "cancelled":
+                now = datetime.now(UTC)
+                job.status = "completed"
+                job.stage = "preview_ready"
+                job.progress = 100
+                job.message = "Видео проанализировано. Проверьте описание и продолжите."
+                job.result = result
+                job.updated_at = now
+                job.completed_at = now
+                await session.commit()
+            else:
+                _delete_consumed_analysis_artifact(storage=get_storage(), artifact_key=artifact_key, job_id=job_id)
+    except Exception:
+        _delete_consumed_analysis_artifact(storage=get_storage(), artifact_key=artifact_key, job_id=job_id)
+        raise
     return result
 
 
@@ -172,6 +320,7 @@ async def run_youtube_import(
     user_id: UUID,
     url: str,
     preferred_languages: list[str],
+    analysis_job_id: str | None = None,
     provider: TranscriptProvider | None = None,
     storage: Any | None = None,
     index_dispatcher: Callable[[str, UUID, UUID], None] | None = None,
@@ -199,26 +348,45 @@ async def run_youtube_import(
         job.started_at = job.started_at or datetime.now(UTC)
         await session.commit()
 
-    try:
-        transcript = await provider.get_transcript(ref, preferred_languages)
-        normalized = normalize_transcript(
-            transcript,
-            max_video_duration_seconds=settings.YOUTUBE_MAX_VIDEO_DURATION_SECONDS,
-            max_total_chars=settings.YOUTUBE_MAX_TOTAL_CHARS,
-        )
-    except TranscriptAcquisitionError as exc:
-        return await _finish_failed(job_id, tenant_id, code=exc.code, message=exc.message_ru, retryable=exc.retryable)
-    except TranscriptLimitError as exc:
-        return await _finish_failed(job_id, tenant_id, code=exc.code, message=exc.message_ru, retryable=False)
-    except Exception:
-        logger.exception("YouTube transcript acquisition failed job_id=%s", job_id)
-        return await _finish_failed(
-            job_id,
-            tenant_id,
-            code="provider_unavailable",
-            message="Сервис получения субтитров недоступен. Повторите попытку позже.",
-            retryable=True,
-        )
+    artifact_key: str | None = None
+    if analysis_job_id:
+        async with async_session_factory() as session:
+            await _set_tenant(session, tenant_id)
+            analysis = cast(Any, await session.scalar(select(AIJob).where(AIJob.id == analysis_job_id, AIJob.tenant_id == tenant_id)))
+        metadata = (analysis.result or {}).get("analysis_artifact") if analysis else None
+        if not isinstance(metadata, dict) or not all(isinstance(metadata.get(key), str) for key in ("key", "sha256", "expires_at")):
+            return await _finish_failed(job_id, tenant_id, code="analysis_artifact_invalid", message="Результат анализа недоступен для импорта.", retryable=False)
+        artifact_key = str(metadata["key"])
+        try:
+            normalized, artifact_language = _load_analysis_artifact(
+                storage=storage,
+                artifact_key=artifact_key,
+                artifact_sha256=str(metadata["sha256"]),
+                tenant_id=tenant_id,
+                analysis_job_id=analysis_job_id,
+                expected_video_id=ref.video_id,
+                expected_canonical_url=ref.canonical_url,
+                expected_preferred_languages=preferred_languages,
+            )
+        except YouTubeAnalysisArtifactError as exc:
+            return await _finish_failed(job_id, tenant_id, code=str(exc), message="Результат анализа недоступен для импорта.", retryable=False)
+        transcript_language = artifact_language
+    else:
+        try:
+            transcript = await provider.get_transcript(ref, preferred_languages)
+            normalized = normalize_transcript(
+                transcript,
+                max_video_duration_seconds=settings.YOUTUBE_MAX_VIDEO_DURATION_SECONDS,
+                max_total_chars=settings.YOUTUBE_MAX_TOTAL_CHARS,
+            )
+            transcript_language = transcript.language
+        except TranscriptAcquisitionError as exc:
+            return await _finish_failed(job_id, tenant_id, code=exc.code, message=exc.message_ru, retryable=exc.retryable)
+        except TranscriptLimitError as exc:
+            return await _finish_failed(job_id, tenant_id, code=exc.code, message=exc.message_ru, retryable=False)
+        except Exception:
+            logger.exception("YouTube transcript acquisition failed job_id=%s", job_id)
+            return await _finish_failed(job_id, tenant_id, code="provider_unavailable", message="Сервис получения субтитров недоступен. Повторите попытку позже.", retryable=True)
 
     blob = normalized.plain_text.encode("utf-8")
     doc_id = uuid4()
@@ -253,6 +421,7 @@ async def run_youtube_import(
                 job.updated_at = now
                 job.completed_at = now
                 await session.commit()
+                _delete_consumed_analysis_artifact(storage=storage, artifact_key=artifact_key, job_id=job_id)
                 return result
 
             document = Document(
@@ -266,8 +435,8 @@ async def run_youtube_import(
                 size=len(blob),
                 s3_key=s3_key,
                 description=(
-                    f"Импортировано из YouTube. Язык: {transcript.language}. "
-                    f"Автоматические субтитры: {'да' if transcript.is_auto_generated else 'нет'}."
+                    f"Импортировано из YouTube. Язык: {transcript_language}. "
+                    f"Автоматические субтитры: {'да' if normalized.provenance.get('is_auto_generated') else 'нет'}."
                 ),
                 category="general",
                 embedding_status="pending",
@@ -334,6 +503,7 @@ async def run_youtube_import(
                     job.updated_at = now
                     job.completed_at = now
                     await session.commit()
+                    _delete_consumed_analysis_artifact(storage=storage, artifact_key=artifact_key, job_id=job_id)
                 return result
         raise
     except Exception:
@@ -362,4 +532,6 @@ async def run_youtube_import(
             message="Документ сохранён, но индексация не запустилась.",
             retryable=True,
         )
-    return await _finish_completed(job_id, tenant_id, result)
+    completed = await _finish_completed(job_id, tenant_id, result)
+    _delete_consumed_analysis_artifact(storage=storage, artifact_key=artifact_key, job_id=job_id)
+    return completed

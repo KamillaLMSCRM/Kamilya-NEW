@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.auth import require_role, require_tenant_user
 from app.core.config import get_settings
 from app.core.db import get_db
+from app.core.storage import get_storage
 from app.models.ai_job import AIJob
 from app.models.users import User
 from app.modules.ai.job_service import create_ai_job, get_ai_job, update_ai_job
@@ -64,7 +65,7 @@ def _feature_unavailable() -> HTTPException:
     )
 
 
-async def _dispatch_youtube_import(*, job_id: str, tenant_id: UUID, user_id: UUID, url: str, languages: list[str]) -> None:
+async def _dispatch_youtube_import(*, job_id: str, tenant_id: UUID, user_id: UUID, url: str, languages: list[str], analysis_job_id: str | None = None) -> None:
     from app.modules.youtube_transcript.tasks import youtube_import_task
 
     kwargs = {
@@ -74,6 +75,8 @@ async def _dispatch_youtube_import(*, job_id: str, tenant_id: UUID, user_id: UUI
         "url": url,
         "preferred_languages": languages,
     }
+    if analysis_job_id:
+        kwargs["analysis_job_id"] = analysis_job_id
     if _youtube_inline_execution_enabled():
         from app.modules.youtube_transcript.operations import run_youtube_import
 
@@ -83,6 +86,7 @@ async def _dispatch_youtube_import(*, job_id: str, tenant_id: UUID, user_id: UUI
             user_id=user_id,
             url=url,
             preferred_languages=languages,
+            analysis_job_id=analysis_job_id,
         )
         return
     youtube_import_task.apply_async(task_id=job_id, kwargs=kwargs)
@@ -187,6 +191,14 @@ async def confirm_youtube_analysis(
     if analysis.status != "completed" or not (analysis.result or {}).get("preview"):
         raise HTTPException(status_code=409, detail={"code": "analysis_not_ready"})
     if analysis.completed_at and analysis.completed_at < datetime.now(UTC) - timedelta(minutes=30):
+        from app.modules.youtube_transcript.operations import delete_expired_analysis_artifact
+
+        delete_expired_analysis_artifact(
+            storage=get_storage(),
+            metadata=(analysis.result or {}).get("analysis_artifact"),
+            tenant_id=tenant_id,
+            analysis_job_id=str(analysis.id),
+        )
         raise HTTPException(status_code=410, detail={"code": "analysis_expired"})
     if (analysis.result or {}).get("confirmation_job_id"):
         raise HTTPException(status_code=409, detail={"code": "analysis_already_confirmed"})
@@ -207,6 +219,7 @@ async def confirm_youtube_analysis(
             user_id=user_id,
             url=canonical_url,
             languages=languages,
+            analysis_job_id=str(analysis.id),
         )
     except Exception as exc:
         logger.exception("youtube_confirmation_dispatch_failed job_id=%s", import_job.id)

@@ -1,5 +1,7 @@
 """HTTP orchestration contracts for YouTube import. No network or database."""
 
+import hashlib
+import json
 from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
@@ -7,6 +9,7 @@ from uuid import uuid4
 
 import pytest
 
+from app.modules.youtube_transcript import operations
 from app.modules.youtube_transcript import router as youtube_router
 from app.modules.youtube_transcript.schemas import YouTubeAnalysisConfirmRequest, YouTubeImportRequest
 from app.modules.youtube_transcript.url_resolver import YouTubeURLValidationError
@@ -207,6 +210,7 @@ async def test_confirmation_is_single_use_and_dispatches_the_existing_import_pat
     assert response.action == "create_course"
     assert analysis.result["confirmation_job_id"] == "youtube-import-1"
     assert dispatched[0]["url"] == "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    assert dispatched[0]["analysis_job_id"] == analysis.id
 
     with pytest.raises(Exception) as exc:
         await youtube_router.confirm_youtube_analysis(
@@ -243,3 +247,127 @@ def test_feature_flag_defaults_off():
 
     settings = Settings(JWT_SECRET="x" * 48)
     assert settings.YOUTUBE_IMPORT_ENABLED is False
+
+
+class ArtifactStorage:
+    def __init__(self, payload=None):
+        self.payload = payload
+        self.reads = 0
+
+    def get_bytes(self, key):
+        self.reads += 1
+        if self.payload is None:
+            raise KeyError(key)
+        return self.payload
+
+
+@pytest.mark.parametrize(
+    "payload, digest",
+    [
+        (b"{}", hashlib.sha256(b"{}").hexdigest()),
+        (b"{}", "0" * 64),
+        (
+            json.dumps(
+                {
+                    "version": 1,
+                    "tenant_id": str(uuid4()),
+                    "analysis_job_id": "analysis-1",
+                    "expires_at": "2099-01-01T00:00:00+00:00",
+                    "video_id": "dQw4w9WgXcQ",
+                    "canonical_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+                    "language": "ru",
+                    "content_sha256": "0" * 64,
+                    "document": {},
+                },
+                sort_keys=True,
+            ).encode(),
+            None,
+        ),
+    ],
+)
+def test_confirmed_import_artifact_fail_closed(payload, digest):
+    if digest is None:
+        digest = hashlib.sha256(payload).hexdigest()
+    with pytest.raises(operations.YouTubeAnalysisArtifactError):
+        operations._load_analysis_artifact(
+            storage=ArtifactStorage(payload),
+            artifact_key="tenants/tenant/youtube-analysis/analysis-1.json",
+            artifact_sha256=digest,
+            tenant_id=uuid4(),
+            analysis_job_id="analysis-1",
+            expected_video_id="dQw4w9WgXcQ",
+            expected_canonical_url="https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+            expected_preferred_languages=["ru"],
+        )
+
+
+def test_confirmed_import_missing_artifact_fails_closed():
+    with pytest.raises(operations.YouTubeAnalysisArtifactError):
+        operations._load_analysis_artifact(
+            storage=ArtifactStorage(),
+            artifact_key="tenants/tenant/youtube-analysis/analysis-1.json",
+            artifact_sha256="0" * 64,
+            tenant_id=uuid4(),
+            analysis_job_id="analysis-1",
+            expected_video_id="dQw4w9WgXcQ",
+            expected_canonical_url="https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+            expected_preferred_languages=["ru"],
+        )
+
+
+def test_confirmed_import_rejects_non_scoped_artifact_key_before_storage_read():
+    storage = ArtifactStorage(b"not-read")
+    tenant_id = uuid4()
+    with pytest.raises(operations.YouTubeAnalysisArtifactError):
+        operations._load_analysis_artifact(
+            storage=storage,
+            artifact_key="tenants/other/youtube-analysis/analysis-1.json",
+            artifact_sha256="0" * 64,
+            tenant_id=tenant_id,
+            analysis_job_id="analysis-1",
+            expected_video_id="dQw4w9WgXcQ",
+            expected_canonical_url="https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+            expected_preferred_languages=["ru"],
+        )
+    assert storage.reads == 0
+
+
+def test_confirmed_import_artifact_language_mismatch_fails_closed():
+    from uuid import UUID
+
+    tenant_id = uuid4()
+    plain_text = "# Video\n\nContent"
+    content_sha256 = hashlib.sha256(plain_text.encode()).hexdigest()
+    payload = json.dumps(
+        {
+            "version": 1,
+            "tenant_id": str(tenant_id),
+            "analysis_job_id": "analysis-1",
+            "expires_at": "2099-01-01T00:00:00+00:00",
+            "video_id": "dQw4w9WgXcQ",
+            "canonical_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+            "language": "kk",
+            "content_sha256": content_sha256,
+            "document": {
+                "title": "Video",
+                "filename": "youtube-dQw4w9WgXcQ-kk.md",
+                "content_type": "text/markdown",
+                "plain_text": plain_text,
+                "source_revision": f"document:{content_sha256}",
+                "content_sha256": content_sha256,
+                "provenance": {"language": "kk"},
+            },
+        },
+        sort_keys=True,
+    ).encode()
+    with pytest.raises(operations.YouTubeAnalysisArtifactError):
+        operations._load_analysis_artifact(
+            storage=ArtifactStorage(payload),
+            artifact_key=f"tenants/{tenant_id}/youtube-analysis/analysis-1.json",
+            artifact_sha256=hashlib.sha256(payload).hexdigest(),
+            tenant_id=UUID(str(tenant_id)),
+            analysis_job_id="analysis-1",
+            expected_video_id="dQw4w9WgXcQ",
+            expected_canonical_url="https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+            expected_preferred_languages=["ru"],
+        )
