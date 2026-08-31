@@ -563,3 +563,56 @@ async def test_standard_assessment_retries_answer_length_tell():
         < len(source_quote)
         for question in result.mcq
     )
+
+
+@pytest.mark.asyncio
+async def test_standard_assessment_keeps_valid_questions_after_retries_exhausted():
+    source_quote = "Loan approval occurs after application review."
+
+    class FakeLLM:
+        calls = 0
+
+        async def ainvoke(self, messages, config=None, response_format=None):
+            self.calls += 1
+            questions = [
+                {
+                    "question": f"When does loan approval occur? Case {index}",
+                    "options": [
+                        {"text": "after application review", "is_correct": True},
+                        {"text": "before application review", "is_correct": False},
+                        {"text": "during application intake", "is_correct": False},
+                        {"text": "without application review", "is_correct": False},
+                    ],
+                    "explanation": source_quote,
+                    "source_quote_id": "E01",
+                }
+                for index in range(1, 6)
+            ]
+            questions[-1]["options"][0]["text"] = "Yes"
+            return SimpleNamespace(
+                content=(
+                    '{"mcq": '
+                    + __import__("json").dumps(questions, ensure_ascii=False)
+                    + ', "true_false": [], "matching": []}'
+                )
+            )
+
+    llm = FakeLLM()
+    result = await generate_lesson_assessment(
+        llm,
+        LessonContent(
+            title="Loan approval rules",
+            content=source_quote,
+            source_references=[],
+        ),
+        language="en",
+    )
+
+    assert llm.calls == 5
+    assert len(result.mcq) == 4
+    assert all(
+        option.text != "Yes"
+        for question in result.mcq
+        for option in question.options
+        if option.is_correct
+    )

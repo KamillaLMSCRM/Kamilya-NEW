@@ -404,11 +404,16 @@ open, also record status, safe interim path, and review condition.
   require lexical support, atomic wording, plain learner-visible text and topical
   distractors, then reuse `validate_question_set` for length/style, duplicate,
   malformed and answer-key signals. A failed contract triggers a bounded clean
-  retry. Full-pipeline AI quizzes persist as `needs_review`; course approval does
-  not replace explicit per-quiz methodologist approval.
-- Verification: focused assessment/review contract `20 passed`; backend unit gate
-  `824 passed`; frontend `426 passed` plus clean typecheck. DB-backed CI, exact-SHA
-  release and a new production synthetic generation remain required before closure.
+  retry. If every provider retry still contains a bad question, the server retains
+  only independently revalidated questions when at least three of five remain;
+  otherwise the assessment still fails closed. Full-pipeline AI quizzes persist as
+  `needs_review`; course approval does not replace explicit per-quiz methodologist
+  approval.
+- Verification: production synthetic generation on `dbdba7c` correctly rejected an
+  incomplete answer and implausible distractors instead of persisting them. The new
+  fail-soft regression and focused assessment suite pass (`22 passed`), as does the
+  backend unit gate (`820 passed`). DB-backed CI, the corrective exact-SHA release
+  and a successful production synthetic generation remain required before closure.
 - Prevention: successful job and valid JSON are not quality evidence. Verify every
   question's source, keyed-answer support, option-length baseline, Markdown-free
   rendering and review state. Retry must preserve the immutable source boundary and

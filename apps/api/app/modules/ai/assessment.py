@@ -372,6 +372,55 @@ def _validate_generated_question_set(data: dict[str, Any], language: str) -> lis
     ]
 
 
+def _recover_valid_assessment(
+    data: dict[str, Any],
+    *,
+    evidence_bank: dict[str, str],
+    bounded_source: str,
+    lesson_title: str,
+    language: str,
+    minimum_questions: int,
+) -> LessonAssessment | None:
+    """Keep only independently valid MCQs after provider retries are exhausted."""
+    valid_questions: list[dict[str, Any]] = []
+    for raw_question in data.get("mcq", []):
+        if not isinstance(raw_question, dict):
+            continue
+        candidate_data: dict[str, Any] = {
+            "mcq": [copy.deepcopy(raw_question)],
+            "true_false": [],
+            "matching": [],
+        }
+        issues = _validate_question_evidence(
+            candidate_data,
+            evidence_bank,
+            bounded_source,
+            language,
+        )
+        issues.extend(_validate_generated_question_set(candidate_data, language))
+        try:
+            candidate: LessonAssessment = LessonAssessment.from_dict(  # type: ignore[no-untyped-call]
+                {**candidate_data, "lesson_title": lesson_title}
+            )
+        except (KeyError, TypeError, ValueError):
+            continue
+        issues.extend(_validate_assessment(candidate))
+        if not issues and len(candidate.mcq) == 1:
+            valid_questions.append(candidate_data["mcq"][0])
+
+    if len(valid_questions) < minimum_questions:
+        return None
+    recovered: LessonAssessment = LessonAssessment.from_dict(  # type: ignore[no-untyped-call]
+        {
+            "lesson_title": lesson_title,
+            "mcq": valid_questions,
+            "true_false": [],
+            "matching": [],
+        }
+    )
+    return recovered
+
+
 async def generate_lesson_assessment(
     llm: LLMClient,
     lesson_content: LessonContent,
@@ -469,6 +518,7 @@ Output ONLY the JSON data instance:
     }
 
     for attempt in range(MAX_ASSESSMENT_RETRIES + 1):
+        data: dict[str, Any] | None = None
         try:
             response = await llm.ainvoke(
                 [
@@ -520,6 +570,22 @@ Output ONLY the JSON data instance:
                     f"{base_user_prompt}"
                 )
                 continue
+            if data is not None:
+                recovered = _recover_valid_assessment(
+                    data,
+                    evidence_bank=evidence_bank,
+                    bounded_source=bounded_lesson_content,
+                    lesson_title=lesson_content.title,
+                    language=language,
+                    minimum_questions=max(2, question_count - 2),
+                )
+                if recovered is not None:
+                    logger.warning(
+                        "[ASSESSMENT_RECOVERED] kept=%d requested=%d",
+                        len(recovered.mcq),
+                        question_count,
+                    )
+                    return recovered
             raise
 
 
