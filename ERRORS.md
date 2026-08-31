@@ -1307,3 +1307,12 @@ ANY TOKEN FAILURE.
 - Fix: remove the step-level override so validation, checkout, verification, image tag and evidence artifact all consume the same event-derived job SHA.
 - Verification: the workflow contract forbids a direct manual-input SHA override inside `build-image`; the next successful master CI must trigger an image build with the exact event SHA.
 - Prevention: normalize multi-trigger identity once at job scope and prohibit narrower steps from redefining release identity variables.
+
+## DEPLOY-007 - Release controller required a newer Python than VM126
+
+- Date: 2026-08-31.
+- Symptom: controller downloads, files and wrapper installation succeeded, but importing the controller failed; the transactional installer removed controller artifacts and left the legacy production runtime unchanged.
+- Cause: VM126 runs stock Python 3.10.12, while the controller imported `datetime.UTC`, which is available only from Python 3.11. Installing an unreviewed PPA or the available pre-release Python package would have expanded the production change scope.
+- Fix: use Python 3.10-compatible `timezone.utc`, and make the protected workflow invoke only the installed fixed-command runner wrapper.
+- Verification: focused controller and workflow contract tests, static Python 3.10 compatibility assertion, then exact-SHA CI, immutable GHCR image and VM126 import readback.
+- Prevention: release controllers must test against the oldest supported production runtime and must not rely on unreviewed PPA or pre-release system packages.

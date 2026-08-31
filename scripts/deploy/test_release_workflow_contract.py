@@ -74,9 +74,10 @@ def test_production_job_is_protected_fixed_runner_without_checkout() -> None:
     assert "runs-on: [self-hosted, linux, x64, kamilya-production-release]" in deploy
     assert "environment: kz-production" in deploy
     assert "actions/checkout" not in deploy
-    assert "/opt/kamilya-release-plane/release_plane.py execute" in deploy
-    assert "--confirm-release-id" in deploy
-    assert "sudo -n" in deploy
+    assert "sudo -n /usr/local/sbin/kamilya-release-runner validate" in deploy
+    assert "sudo -n /usr/local/sbin/kamilya-release-runner execute" in deploy
+    assert "/opt/kamilya-release-plane/venv/bin/python" not in deploy
+    assert "--confirm-release-id" not in deploy
 
 
 def test_slot_compose_never_runs_migrations_on_api_start() -> None:

@@ -215,16 +215,7 @@ jobs:
           path: ${{ runner.temp }}/kamilya-release
 
       - name: Validate installed release plane
-        run: |
-          sudo -n /opt/kamilya-release-plane/venv/bin/python \
-            /opt/kamilya-release-plane/release_plane.py validate \
-            --manifest "${RUNNER_TEMP}/kamilya-release/release-manifest.json" \
-            --config /etc/kamilya-release-plane/config.json
+        run: sudo -n /usr/local/sbin/kamilya-release-runner validate
 
       - name: Execute exact protected release
-        run: |
-          sudo -n /opt/kamilya-release-plane/venv/bin/python \
-            /opt/kamilya-release-plane/release_plane.py execute \
-            --manifest "${RUNNER_TEMP}/kamilya-release/release-manifest.json" \
-            --config /etc/kamilya-release-plane/config.json \
-            --confirm-release-id "${{ inputs.release_id }}"
+        run: sudo -n /usr/local/sbin/kamilya-release-runner execute

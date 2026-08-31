@@ -19,7 +19,7 @@ import urllib.request
 import uuid
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -33,6 +33,11 @@ TOKEN_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_-]{0,63}$")
 SLOTS = ("blue", "green")
 SERVICES = ("api", "worker-ai", "worker-documents", "worker-ops")
 WORKERS = SERVICES[1:]
+
+
+def _utc_now_iso() -> str:
+    # VM126 uses Python 3.10; datetime.UTC is available only from Python 3.11.
+    return datetime.now(timezone.utc).isoformat()  # noqa: UP017
 
 
 class ReleasePlaneError(RuntimeError):
@@ -498,7 +503,7 @@ class ReleasePlane:
     def execute(self, confirmation: str) -> dict[str, Any]:
         if confirmation != self.manifest.release_id:
             raise ReleasePlaneError("release_confirmation_mismatch")
-        started_at = datetime.now(UTC).isoformat()
+        started_at = _utc_now_iso()
         run_id = f"{self.manifest.release_id}-{uuid.uuid4().hex}"
         lock_fd: int | None = None
         state = self._state()
@@ -527,7 +532,7 @@ class ReleasePlane:
                     "active_slot": state.active_slot,
                     "rollback": "not_required",
                     "started_at": started_at,
-                    "finished_at": datetime.now(UTC).isoformat(),
+                    "finished_at": _utc_now_iso(),
                 }
                 self._write_evidence(result)
                 return result
@@ -648,7 +653,7 @@ class ReleasePlane:
                 "rollback": rollback_status,
                 "services": list(SERVICES),
                 "started_at": started_at,
-                "finished_at": datetime.now(UTC).isoformat(),
+                "finished_at": _utc_now_iso(),
             }
             self._write_evidence(result)
             return result
@@ -689,7 +694,7 @@ class ReleasePlane:
                 "failure": str(safe_error),
                 "rollback": rollback_status,
                 "started_at": started_at,
-                "finished_at": datetime.now(UTC).isoformat(),
+                "finished_at": _utc_now_iso(),
             }
             self._write_evidence(failure)
             if safe_error is error:

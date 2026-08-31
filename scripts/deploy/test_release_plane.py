@@ -21,6 +21,13 @@ OLD_IMAGE = "ghcr.io/kamillalmscrm/kamilya-api@sha256:" + "a" * 64
 NEW_IMAGE = "ghcr.io/kamillalmscrm/kamilya-api@sha256:" + "b" * 64
 
 
+def test_controller_source_remains_compatible_with_vm126_python_310() -> None:
+    source = MODULE_PATH.read_text(encoding="utf-8")
+    assert "from datetime import UTC" not in source
+    assert "datetime.now(UTC)" not in source
+    assert "timezone.utc" in source
+
+
 def manifest(*, migration: bool = False):
     return release_plane.ReleaseManifest.parse(
         {

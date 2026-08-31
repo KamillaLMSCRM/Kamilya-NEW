@@ -17,6 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- KZ release controller now supports VM126's stock Python 3.10 runtime, and the
+  protected production workflow invokes only the installed fixed-command wrapper.
+
 ### Security
 
 ## [0.2.0] - 2026-08-31
