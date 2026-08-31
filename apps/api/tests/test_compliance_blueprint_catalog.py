@@ -15,7 +15,7 @@ BLUEPRINT_IDS = (
 
 @pytest.mark.parametrize("locale", ["ru", "kk"])
 def test_compliance_catalog_has_four_stable_localized_blueprints(locale: str) -> None:
-    items = get_catalog(locale)
+    items = get_catalog(locale, include_financial=True)
 
     assert len(items) == len(BLUEPRINT_IDS)
     assert {item.id for item in items} == set(BLUEPRINT_IDS)

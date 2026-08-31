@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from uuid import uuid4
 
@@ -35,13 +36,14 @@ def repository_alembic_head() -> str:
     return heads[0]
 
 
-async def test_release_database_is_postgresql_17_with_pgvector_and_current_schema(
+async def test_release_database_has_expected_postgresql_major_with_pgvector_and_current_schema(
     db_session,
 ) -> None:
+    expected_major = int(os.environ.get("EXPECTED_POSTGRES_MAJOR", "17"))
     server_version = int(
         await db_session.scalar(text("SELECT current_setting('server_version_num')"))
     )
-    assert 170000 <= server_version < 180000
+    assert expected_major * 10000 <= server_version < (expected_major + 1) * 10000
     assert await db_session.scalar(
         text("SELECT count(*) FROM pg_extension WHERE extname='vector'")
     ) == 1

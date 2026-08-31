@@ -3,7 +3,11 @@
 import pytest
 from sqlalchemy import func, select
 
-from app.modules.courses.blueprint_catalog import FINANCE_IS_BLUEPRINT_ID, get_blueprint
+from app.modules.courses.blueprint_catalog import (
+    FINANCE_IS_BLUEPRINT_ID,
+    INFORMATION_SECURITY_BLUEPRINT_ID,
+    get_blueprint,
+)
 from app.modules.quizzes.models import Question, Quiz
 
 
@@ -17,7 +21,11 @@ async def test_methodologist_adapts_finance_blueprint_before_approval(
     make_document,
     set_current_tenant,
 ):
-    tenant = await make_tenant(name="Finance Tenant", slug="finance-blueprint")
+    tenant = await make_tenant(
+        name="Finance Tenant",
+        slug="finance-blueprint",
+        is_financial_organization=True,
+    )
     methodologist = await make_user(
         tenant,
         role="methodologist",
@@ -142,3 +150,36 @@ async def test_methodologist_adapts_finance_blueprint_before_approval(
     )
     assert duplicate.status_code == 409, duplicate.text
     assert duplicate.json()["details"]["existing_course_id"] == course_id
+
+
+@pytest.mark.asyncio
+async def test_general_tenant_cannot_discover_or_instantiate_finance_blueprint(
+    client,
+    auth_headers,
+    make_tenant,
+    make_user,
+    set_current_tenant,
+):
+    tenant = await make_tenant(name="General Tenant", slug="general-blueprints")
+    methodologist = await make_user(tenant, role="methodologist")
+    await set_current_tenant(tenant)
+    headers = auth_headers(methodologist)
+
+    catalog = await client.get("/api/v1/course-blueprints?locale=ru", headers=headers)
+    assert catalog.status_code == 200, catalog.text
+    catalog_ids = {item["id"] for item in catalog.json()}
+    assert FINANCE_IS_BLUEPRINT_ID not in catalog_ids
+    assert INFORMATION_SECURITY_BLUEPRINT_ID in catalog_ids
+
+    direct_read = await client.get(
+        f"/api/v1/course-blueprints/{FINANCE_IS_BLUEPRINT_ID}?locale=ru",
+        headers=headers,
+    )
+    assert direct_read.status_code == 404
+
+    direct_instantiate = await client.post(
+        f"/api/v1/course-blueprints/{FINANCE_IS_BLUEPRINT_ID}/instantiate",
+        headers=headers,
+        json={"locale": "ru"},
+    )
+    assert direct_instantiate.status_code == 404

@@ -131,6 +131,7 @@ def make_tenant(db_session: AsyncSession) -> Callable[..., Any]:
             status=overrides.get("status", "active"),
             plan=overrides.get("plan", "free"),
             is_demo=overrides.get("is_demo", False),
+            is_financial_organization=overrides.get("is_financial_organization", False),
             settings=overrides.get("settings", {}),
         )
         db_session.add(tenant)

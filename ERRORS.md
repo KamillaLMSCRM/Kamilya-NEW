@@ -1196,3 +1196,12 @@ ANY TOKEN FAILURE.
 - Fix: for the exact bound assignment enrollment only, fall back to the existing completed-enrollment read-access guard and continue the idempotent completion workflow; keep revoked, cancelled and cross-tenant access fail-closed. The terminal UI now calls completion explicitly.
 - Verification: the assignment-bearer completion integration test passes on first and repeated completion; the focused evidence/access backend suite passes `34/34`; the course-player regression test verifies the terminal action sends `POST /complete`.
 - Prevention: lifecycle mutation endpoints that promise idempotency must evaluate an already-completed exact resource before rejecting its active-state transition, while preserving tenant, credential and revocation boundaries.
+
+## TRIAL-001 - Trial owner started in tenant-admin role without course capabilities
+
+- Date: 2026-08-31.
+- Symptom: a verified self-service trial successfully created a tenant and session, but the first user was routed to the admin interface and could not use the promised document and course workflow.
+- Cause: registration created only the primary `admin` role, while the product capability contract reserves content operations for `methodologist`.
+- Fix: make `methodologist` the active primary role and assign a separate `admin` role; the session exposes both roles without merging their capabilities.
+- Verification: a fresh PostgreSQL 18 database migrated through Alembic 0139; the focused registration and blueprint suite passed 8 tests, including listing permitted blueprints and creating the first course with the registration token. The full-suite result is recorded by the release gate.
+- Prevention: every self-service plan must test email verification -> tenant activation -> session -> role home -> first value; a successful registration response alone is insufficient.

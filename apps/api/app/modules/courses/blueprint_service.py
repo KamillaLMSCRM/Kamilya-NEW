@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.document import Document
 from app.models.tenants import Tenant
 from app.modules.courses.blueprint_catalog import (
+    FINANCE_IS_BLUEPRINT_ID,
     get_blueprint_by_id,
     list_blueprints,
 )
@@ -79,11 +80,26 @@ def _catalog_response(blueprint: dict[str, Any]) -> CourseBlueprintResponse:
     )
 
 
-def get_catalog(locale: str) -> list[CourseBlueprintResponse]:
-    return [_catalog_response(item) for item in list_blueprints(locale)]
+def get_catalog(
+    locale: str,
+    *,
+    include_financial: bool,
+) -> list[CourseBlueprintResponse]:
+    return [
+        _catalog_response(item)
+        for item in list_blueprints(locale)
+        if include_financial or item["id"] != FINANCE_IS_BLUEPRINT_ID
+    ]
 
 
-def get_catalog_item(blueprint_id: str, locale: str) -> CourseBlueprintResponse:
+def get_catalog_item(
+    blueprint_id: str,
+    locale: str,
+    *,
+    include_financial: bool,
+) -> CourseBlueprintResponse:
+    if blueprint_id == FINANCE_IS_BLUEPRINT_ID and not include_financial:
+        raise BlueprintNotFoundError(blueprint_id)
     try:
         blueprint = get_blueprint_by_id(blueprint_id, locale)
     except KeyError as error:
@@ -243,6 +259,8 @@ async def instantiate_blueprint(
 
     tenant = (await db.execute(select(Tenant).where(Tenant.id == tenant_id).with_for_update())).scalar_one_or_none()
     if tenant is None:
+        raise BlueprintNotFoundError(blueprint_id)
+    if blueprint_id == FINANCE_IS_BLUEPRINT_ID and not tenant.is_financial_organization:
         raise BlueprintNotFoundError(blueprint_id)
 
     existing_courses = (

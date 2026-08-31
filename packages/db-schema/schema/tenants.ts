@@ -7,6 +7,7 @@ export const tenants = pgTable("tenants", {
   status: text("status").notNull().default("trial"),
   plan: text("plan").notNull().default("starter"),
   settings: jsonb("settings").notNull().default({}),
+  isFinancialOrganization: boolean("is_financial_organization").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });

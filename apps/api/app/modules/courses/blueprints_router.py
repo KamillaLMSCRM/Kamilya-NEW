@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import require_role, require_tenant_user
 from app.core.db import get_db
+from app.models.tenants import Tenant
 from app.models.users import User
 from app.modules.audit.service import log_action
 from app.modules.courses.blueprint_schemas import (
@@ -52,22 +53,38 @@ def _adaptation_conflict(error: BlueprintContentConflictError) -> HTTPException:
     )
 
 
+async def _include_financial_blueprints(db: AsyncSession, user: User) -> bool:
+    tenant = await db.get(Tenant, user.tenant_id)
+    if tenant is None:
+        raise _not_found()
+    return bool(tenant.is_financial_organization)
+
+
 @router.get("/course-blueprints", response_model=list[CourseBlueprintResponse])
 async def list_course_blueprints(
     locale: BlueprintLocale = Query("ru"),
-    _: User = Depends(require_role("superadmin", "methodologist")),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_role("superadmin", "methodologist")),
 ) -> list[CourseBlueprintResponse]:
-    return get_catalog(locale)
+    return get_catalog(
+        locale,
+        include_financial=await _include_financial_blueprints(db, user),
+    )
 
 
 @router.get("/course-blueprints/{blueprint_id}", response_model=CourseBlueprintResponse)
 async def get_course_blueprint(
     blueprint_id: str,
     locale: BlueprintLocale = Query("ru"),
-    _: User = Depends(require_role("superadmin", "methodologist")),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_role("superadmin", "methodologist")),
 ) -> CourseBlueprintResponse:
     try:
-        return get_catalog_item(blueprint_id, locale)
+        return get_catalog_item(
+            blueprint_id,
+            locale,
+            include_financial=await _include_financial_blueprints(db, user),
+        )
     except BlueprintNotFoundError as error:
         raise _not_found() from error
 

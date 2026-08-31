@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+### Changed
+
+### Fixed
+
+### Security
+
+## [0.2.0] - 2026-08-31
+
+### Added
+
 - Authenticated question-editor assistant preview endpoint with server-derived
   tenant/actor authority, explicit impersonation rejection, and bounded typed
   error responses.
@@ -32,6 +42,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   documents and course creation through assignment, employees, and results;
   employee structure and employee groups are adjacent, and the staff menu item
   remains active across structure and import tabs.
+- Self-service trial owners now start in the methodologist workspace while
+  retaining a separate administrator role for tenant configuration.
+- Financial-sector course blueprints are visible only to tenants explicitly
+  classified as financial organizations by a platform superadmin.
 - Contextual help no longer repeats its purpose block, and retention help now
   reflects the methodologist's read-only policy view instead of suggesting
   unavailable policy mutations.

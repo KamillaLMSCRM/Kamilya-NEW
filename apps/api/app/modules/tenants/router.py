@@ -516,7 +516,7 @@ async def register_tenant(
         password_hash=_ph.hash(payload.password),
         first_name=first_name,
         last_name=last_name,
-        role="admin",
+        role="methodologist",
         is_active=True,
         status="active",
     )
@@ -538,7 +538,12 @@ async def register_tenant(
         )
     )
 
-    db.add(UserRole(id=uuid4(), user_id=user.id, tenant_id=tenant.id, role="admin"))
+    db.add_all(
+        [
+            UserRole(id=uuid4(), user_id=user.id, tenant_id=tenant.id, role="methodologist"),
+            UserRole(id=uuid4(), user_id=user.id, tenant_id=tenant.id, role="admin"),
+        ]
+    )
     usage = TenantUsage(
         tenant_id=tenant.id,
         active_students_count_snapshot=0,
@@ -615,7 +620,7 @@ async def register_tenant(
         {
             "sub": str(user.id),
             "tenant_id": tenant.id,
-            "roles": ["admin"],
+            "roles": ["methodologist", "admin"],
         }
     )
     refresh_token = create_refresh_token(
@@ -696,7 +701,7 @@ async def register_tenant(
         tenant_name=tenant.name,
         lead_id=lead.id,
         user_id=user.id,
-        role="admin",
+        role="methodologist",
         access_token=access_token,
         expires_in=900,
         user=user_payload,

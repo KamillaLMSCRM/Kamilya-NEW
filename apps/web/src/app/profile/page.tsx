@@ -9,6 +9,7 @@ import { locales, localeNames, type Locale } from '@/i18n/config';
 import { api } from '@/lib/api';
 import { CheckCircle2 } from 'lucide-react';
 import { toast } from '@/components/ui/Toast';
+import { PRODUCT_VERSION } from '@/lib/productVersion';
 
 export default function ProfilePage() {
   const { t } = useT();
@@ -21,6 +22,7 @@ export default function ProfilePage() {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const updatesLocale = lang === 'kk' ? 'kk' : 'ru';
 
   useEffect(() => {
     let cancelled = false;
@@ -150,6 +152,29 @@ export default function ProfilePage() {
             {user?.telegram_id || t('settings.notLinked')}
           </p>
           <p className="text-sm text-muted-foreground">{t('settings.passwordHelp')}</p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="space-y-3 p-6">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold text-foreground">{t('settings.about')}</h2>
+              <p className="mt-1 text-sm text-muted-foreground">{t('settings.productVersion')}</p>
+            </div>
+            <span className="rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-sm font-semibold text-primary">
+              Kamilya LMS {PRODUCT_VERSION}
+            </span>
+          </div>
+          <p className="text-sm text-muted-foreground">{t('settings.releaseNotesHelp')}</p>
+          <a
+            href={`https://www.kml.kz/${updatesLocale}/updates`}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex text-sm font-semibold text-primary underline-offset-4 hover:underline"
+          >
+            {t('settings.whatsNew')}
+          </a>
         </CardContent>
       </Card>
     </div>

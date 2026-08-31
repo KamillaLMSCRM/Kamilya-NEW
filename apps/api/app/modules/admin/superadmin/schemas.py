@@ -79,6 +79,7 @@ class TenantResponse(BaseModel):
     status: str
     plan: str
     is_demo: bool
+    is_financial_organization: bool
     trial_started_at: datetime | None = None
     trial_ends_at: datetime | None
     paid_until: datetime | None
@@ -113,6 +114,7 @@ class TenantCreate(BaseModel):
     plan: PLAN_NAMES = "trial"
     status: TENANT_STATUSES = "trial"
     is_demo: bool = False
+    is_financial_organization: bool = False
     trial_ends_at: datetime | None = None
     paid_until: datetime | None = None
     max_users: int | None = Field(None, ge=1)
@@ -128,6 +130,7 @@ class TenantUpdate(BaseModel):
     slug: str | None = Field(None, min_length=2, max_length=64, pattern=r"^[a-z0-9-]+$")
     status: TENANT_STATUSES | None = None
     plan: PLAN_NAMES | None = None
+    is_financial_organization: bool | None = None
     trial_ends_at: datetime | None = None
     paid_until: datetime | None = None
     max_users: int | None = Field(None, ge=1)

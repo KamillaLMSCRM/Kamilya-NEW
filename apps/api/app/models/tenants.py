@@ -27,6 +27,15 @@ class Tenant(Base):
     # Prospect sandbox flag — see app/core/demo_limits.py for the
     # per-resource caps that are enforced when this is true.
     is_demo = Column(Boolean, nullable=False, server_default="false", default=False)
+    # Industry flag used for finance-only product content. The safe default is
+    # false so a general tenant never sees or instantiates a regulated-sector
+    # blueprint merely because it knows the public blueprint identifier.
+    is_financial_organization = Column(
+        Boolean,
+        nullable=False,
+        server_default="false",
+        default=False,
+    )
     created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
     updated_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
 

@@ -13,6 +13,7 @@ from app.core.legal_versions import (
     CURRENT_TERMS_VERSION,
 )
 from app.models.tenants import RegistrationLegalAcceptance, Tenant, TenantLead
+from app.models.user_roles import UserRole
 from app.models.users import User
 
 
@@ -100,8 +101,10 @@ async def test_registration_succeeds_when_trial_email_provider_fails(
 
     assert response.status_code == 201
     payload = response.json()
-    assert payload["role"] == "admin"
+    assert payload["role"] == "methodologist"
     assert payload["user"]["email"] == email
+    assert payload["user"]["role"] == "methodologist"
+    assert payload["user"]["roles"] == ["methodologist", "admin"]
 
     tenant = (await db_session.execute(select(Tenant).where(Tenant.id == payload["tenant_id"]))).scalar_one()
     user = (await db_session.execute(select(User).where(User.id == payload["user_id"]))).scalar_one()
@@ -114,8 +117,30 @@ async def test_registration_succeeds_when_trial_email_provider_fails(
         "utm_term": "lms система",
         "referrer": "https://www.kml.kz/ru?utm_source=google",
     }
-    assert user.role == "admin"
+    assert user.role == "methodologist"
     assert user.tenant_id == tenant.id
+    assert tenant.is_financial_organization is False
+    assigned_roles = set(
+        (
+            await db_session.execute(
+                select(UserRole.role).where(UserRole.user_id == user.id)
+            )
+        ).scalars().all()
+    )
+    assert assigned_roles == {"admin", "methodologist"}
+
+    trial_headers = {"Authorization": f"Bearer {payload['access_token']}"}
+    catalog = await client.get("/api/v1/course-blueprints?locale=ru", headers=trial_headers)
+    assert catalog.status_code == 200, catalog.text
+    assert "kz-finance-information-security" not in {
+        item["id"] for item in catalog.json()
+    }
+    first_course = await client.post(
+        "/api/v1/courses",
+        headers=trial_headers,
+        json={"title": "QA trial first course", "description": "Trial workspace smoke"},
+    )
+    assert first_course.status_code == 201, first_course.text
     acceptance = (
         await db_session.execute(
             select(RegistrationLegalAcceptance).where(RegistrationLegalAcceptance.user_id == user.id)

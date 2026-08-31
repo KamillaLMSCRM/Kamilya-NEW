@@ -887,7 +887,11 @@
     "languageChanged": "Language changed: {lang}",
     "telegram": "Telegram",
     "notLinked": "Not linked",
-    "passwordHelp": "Contact your administrator to change password"
+    "passwordHelp": "Contact your administrator to change password",
+    "about": "About",
+    "productVersion": "Product version",
+    "releaseNotesHelp": "Review the main changes and new capabilities in the current release.",
+    "whatsNew": "What's new in this version"
   },
   "onboarding": {
     "welcome": {
@@ -1221,7 +1225,9 @@
         "maxUsers": "Max users",
         "maxCourses": "Max courses per month",
         "unlimited": "unlimited",
-        "notes": "Internal notes"
+        "notes": "Internal notes",
+        "financialOrganization": "Financial organization",
+        "financialOrganizationHelp": "Enables industry course templates for pawnshops, MFIs, banks, insurers, and other financial organizations. The finance pre-course stays hidden for all other tenants."
       },
       "edit": "Edit",
       "save": "Save",

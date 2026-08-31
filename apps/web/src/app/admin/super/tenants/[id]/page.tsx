@@ -46,6 +46,7 @@ interface Tenant {
   slug: string;
   status: string;
   plan: string;
+  is_financial_organization: boolean;
   trial_started_at: string | null;
   trial_ends_at: string | null;
   paid_until: string | null;
@@ -129,6 +130,7 @@ export default function TenantDetailPage() {
 
   const [editForm, setEditForm] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+  const [isFinancialOrganization, setIsFinancialOrganization] = useState(false);
 
   const [showAddAdmin, setShowAddAdmin] = useState(false);
   const [adminForm, setAdminForm] = useState({
@@ -160,6 +162,7 @@ export default function TenantDetailPage() {
       if (!tRes.ok) throw new Error(`HTTP ${tRes.status}`);
       const tnt = await tRes.json();
       setTenant(tnt);
+      setIsFinancialOrganization(Boolean(tnt.is_financial_organization));
       setEditForm({
         name: tnt.name,
         slug: tnt.slug,
@@ -214,6 +217,7 @@ export default function TenantDetailPage() {
   const handleSave = async () => {
     if (!tenant) return;
     const body: Record<string, unknown> = {};
+    body.is_financial_organization = isFinancialOrganization;
     const fields = ['name', 'slug', 'status', 'plan', 'trial_ends_at', 'paid_until', 'max_users', 'max_courses_per_month', 'notes'];
     for (const f of fields) {
       const v = f === 'slug' ? normalizeSlug(editForm[f] || '') : editForm[f];
@@ -640,6 +644,24 @@ export default function TenantDetailPage() {
                 onChange={(e) => setEditForm({ ...editForm, max_courses_per_month: e.target.value })}
                 placeholder={t('superadmin.tenants.subscription.unlimited')}
               />
+            </div>
+            <div className="md:col-span-2">
+              <label className="flex items-start gap-3 rounded-xl border border-border bg-muted/30 p-4">
+                <input
+                  type="checkbox"
+                  checked={isFinancialOrganization}
+                  onChange={(event) => setIsFinancialOrganization(event.target.checked)}
+                  className="mt-1 h-4 w-4 rounded border-border"
+                />
+                <span>
+                  <span className="block text-sm font-medium text-foreground">
+                    {t('superadmin.tenants.subscription.financialOrganization')}
+                  </span>
+                  <span className="mt-1 block text-xs leading-5 text-text-tertiary">
+                    {t('superadmin.tenants.subscription.financialOrganizationHelp')}
+                  </span>
+                </span>
+              </label>
             </div>
             <div className="md:col-span-2">
               <label className="block text-sm font-medium mb-1">

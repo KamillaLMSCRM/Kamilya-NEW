@@ -41,7 +41,7 @@ def test_finance_blueprint_has_localized_non_overlapping_structure() -> None:
 
 
 def test_catalog_exposes_marketing_ratio_as_estimate_and_limitations() -> None:
-    item = get_catalog("ru")[0]
+    item = get_catalog("ru", include_financial=True)[0]
 
     assert item.estimated_ready_percent == 70
     assert item.customization_percent == 30
