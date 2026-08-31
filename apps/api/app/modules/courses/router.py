@@ -664,11 +664,13 @@ async def _complete_course_for_user(db: AsyncSession, course_id: UUID, user: Use
     from app.modules.quizzes.models import Question, Quiz, QuizAttempt
 
     assignment_enrollment_id = getattr(user, "assignment_access_enrollment_id", None)
+    user_id = UUID(str(user.id))
+    tenant_id = UUID(str(user.tenant_id))
     try:
         await require_active_enrollment_window(
             db,
-            user_id=user.id,
-            tenant_id=user.tenant_id,
+            user_id=user_id,
+            tenant_id=tenant_id,
             course_id=course_id,
             enrollment_id=assignment_enrollment_id,
         )
@@ -681,14 +683,14 @@ async def _complete_course_for_user(db: AsyncSession, course_id: UUID, user: Use
             # cross-tenant credentials still fail closed in this read guard.
             await require_assignment_enrollment_read_access(
                 db,
-                user_id=user.id,
-                tenant_id=user.tenant_id,
+                user_id=user_id,
+                tenant_id=tenant_id,
                 course_id=course_id,
                 enrollment_id=assignment_enrollment_id,
             )
         except AssignmentWindowExpiredError as read_exc:
             raise assignment_window_error(read_exc) from read_exc
-    enrollment = await current_enrollment(db, tenant_id=user.tenant_id, user_id=user.id, course_id=course_id)
+    enrollment = await current_enrollment(db, tenant_id=tenant_id, user_id=user_id, course_id=course_id)
 
     course_result = await db.execute(select(Course).where(Course.id == course_id, Course.tenant_id == user.tenant_id))
     course = course_result.scalar_one_or_none()
