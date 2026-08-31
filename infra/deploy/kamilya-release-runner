@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+umask 077
+[[ $# -eq 1 ]]
+mode="$1"
+manifest='/opt/actions-runner/_work/_temp/kamilya-release/release-manifest.json'
+config='/etc/kamilya-release-plane/config.json'
+controller='/opt/kamilya-release-plane/release_plane.py'
+python='/opt/kamilya-release-plane/venv/bin/python'
+[[ "$(realpath -e "${manifest}")" == "${manifest}" ]]
+[[ -f "${manifest}" && ! -L "${manifest}" ]]
+[[ "$(stat -c '%U' "${manifest}")" == 'kamilya-release-runner' ]]
+[[ "$(stat -c '%s' "${manifest}")" -le 8192 ]]
+case "${mode}" in
+  validate)
+    exec "${python}" "${controller}" validate --manifest "${manifest}" --config "${config}"
+    ;;
+  execute)
+    release_id="$(/usr/bin/python3 - "${manifest}" <<'PY'
+import json, re, sys
+with open(sys.argv[1], encoding='utf-8') as handle:
+    value = json.load(handle).get('release_id', '')
+if not isinstance(value, str) or not re.fullmatch(r'REL-[A-Z0-9][A-Z0-9-]{7,95}', value):
+    raise SystemExit(2)
+print(value)
+PY
+)"
+    exec "${python}" "${controller}" execute --manifest "${manifest}" --config "${config}" --confirm-release-id "${release_id}"
+    ;;
+  *) exit 2 ;;
+esac

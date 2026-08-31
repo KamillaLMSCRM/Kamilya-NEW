@@ -95,8 +95,14 @@ jobs:
 
       - name: Release-plane static contract
         run: |
-          python -m py_compile scripts/deploy/release_plane.py
+          python -m py_compile \
+            scripts/deploy/release_plane.py \
+            scripts/deploy/release_plane_bundle.py \
+            scripts/deploy/release_plane_upgrader.py \
+            scripts/provision_production_smoke_tenant.py
           bash -n infra/deploy/kamilya-ct125-release-gate.sh
+          bash -n infra/deploy/kamilya-release-runner
+          bash -n infra/deploy/kamilya-release-plane-upgrader
 
   # ---------------------------------------------------------------------------
   # Backend unit tests + syntax compile (fast-fail gate, no Postgres needed)
@@ -138,7 +144,7 @@ jobs:
         run: poetry run pytest -q ../../scripts/tests/test_validate_version.py ../../scripts/ci/test_validate_version_workflow_contract.py
 
       - name: Render-like release-plane contract tests
-        run: poetry run pytest -q ../../scripts/deploy/test_release_plane.py ../../scripts/deploy/test_release_workflow_contract.py
+        run: poetry run pytest -q ../../scripts/deploy/test_release_plane.py ../../scripts/deploy/test_release_workflow_contract.py ../../scripts/deploy/test_release_plane_bundle.py ../../scripts/deploy/test_release_plane_upgrade_workflow_contract.py
 
       - name: Syntax compile (compileall)
         run: |

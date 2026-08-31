@@ -51,3 +51,19 @@ general root shell. The deploy job deliberately performs no repository checkout.
 
 The first VM126 installation and slot conversion require the production deploy
 skill, exact owner authority, rollback packet and independent readback.
+
+## Release-plane upgrades
+
+Application releases never replace their own privileged controller. Changes to
+the controller, CT125 gate, slot compose, fixed wrappers or runner unit use the
+separate `Upgrade KZ release plane` workflow. It builds a deterministic bundle
+from one exact CI-green SHA, requires the current installed controller hash,
+passes the protected `kz-production` environment and invokes only
+`/usr/local/sbin/kamilya-release-plane-upgrader`.
+
+The one-time bootstrap installs the reviewed upgrader, wrapper and exact sudoers
+contract. After that, the upgrader accepts only the fixed artifact path and
+allowlisted destinations, preserves host config and secrets, backs up current
+files, atomically replaces them, rolls back on failed validation and writes a
+root-owned receipt. A changed runner unit is installed and reported as requiring
+a separate controlled restart; the running GitHub job never restarts itself.

@@ -12,6 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Render-like KZ release plane with immutable GHCR image digests, protected
   exact-CI deployment manifests, two API slots, synchronized workers,
   fail-closed rollback, encrypted CT125 backup gating and append-only evidence.
+- Protected release-plane self-upgrade bundles with exact CI/current-controller
+  identity, fixed destinations, atomic installation, rollback and readback, plus
+  an idempotent persistent synthetic production smoke-tenant provisioner.
 
 ### Changed
 

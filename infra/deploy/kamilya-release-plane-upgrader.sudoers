@@ -1,0 +1,5 @@
+kamilya-release-runner ALL=(root) NOPASSWD: /usr/local/sbin/kamilya-release-runner validate
+kamilya-release-runner ALL=(root) NOPASSWD: /usr/local/sbin/kamilya-release-runner execute
+kamilya-release-runner ALL=(root) NOPASSWD: /usr/local/sbin/kamilya-release-plane-upgrader validate
+kamilya-release-runner ALL=(root) NOPASSWD: /usr/local/sbin/kamilya-release-plane-upgrader execute
+kamilya-release-runner ALL=(root) NOPASSWD: /usr/local/sbin/kamilya-release-plane-upgrader readback

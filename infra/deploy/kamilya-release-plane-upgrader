@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+umask 077
+[[ $# -eq 1 ]]
+case "$1" in
+  validate|execute|readback)
+    exec /usr/bin/python3 /opt/kamilya-release-plane/release_plane_upgrader.py "$1"
+    ;;
+  *) exit 2 ;;
+esac

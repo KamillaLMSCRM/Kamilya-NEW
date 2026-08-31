@@ -1,0 +1,102 @@
+name: Upgrade KZ release plane
+
+on:
+  workflow_dispatch:
+    inputs:
+      upgrade_id:
+        description: "Exact approved release-plane upgrade correlation ID"
+        required: true
+        type: string
+      release_sha:
+        description: "Exact 40-character source commit SHA"
+        required: true
+        type: string
+      ci_run_id:
+        description: "Successful CI workflow run ID for this exact SHA"
+        required: true
+        type: string
+      expected_controller_sha256:
+        description: "Independently read-back currently installed controller SHA-256"
+        required: true
+        type: string
+      execute_upgrade:
+        description: "Request protected production installation"
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  actions: read
+  checks: read
+  contents: read
+
+concurrency:
+  group: kamilya-kz-release-plane-upgrade
+  cancel-in-progress: false
+
+jobs:
+  build-bundle:
+    name: Build deterministic release-plane bundle
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate exact successful CI identity
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CI_RUN_ID: ${{ inputs.ci_run_id }}
+          RELEASE_SHA: ${{ inputs.release_sha }}
+        run: |
+          set -euo pipefail
+          [[ "${RELEASE_SHA}" =~ ^[0-9a-f]{40}$ ]]
+          actual_sha="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${CI_RUN_ID}" --jq '.head_sha')"
+          workflow_name="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${CI_RUN_ID}" --jq '.name')"
+          conclusion="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${CI_RUN_ID}" --jq '.conclusion')"
+          [[ "${actual_sha}" == "${RELEASE_SHA}" ]]
+          [[ "${workflow_name}" == "CI" ]]
+          [[ "${conclusion}" == "success" ]]
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.release_sha }}
+
+      - name: Verify checked-out SHA
+        run: test "$(git rev-parse HEAD)" = "${{ inputs.release_sha }}"
+
+      - name: Build and verify bundle
+        run: |
+          python scripts/deploy/release_plane_bundle.py build \
+            --repo . \
+            --output release-plane-bundle \
+            --release-sha '${{ inputs.release_sha }}' \
+            --upgrade-id '${{ inputs.upgrade_id }}' \
+            --expected-controller-sha256 '${{ inputs.expected_controller_sha256 }}'
+          python scripts/deploy/release_plane_bundle.py verify --bundle release-plane-bundle
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-plane-${{ inputs.release_sha }}
+          path: release-plane-bundle
+          if-no-files-found: error
+          retention-days: 14
+
+  upgrade-production:
+    name: Protected VM126 release-plane upgrade
+    if: ${{ inputs.execute_upgrade }}
+    needs: build-bundle
+    runs-on: [self-hosted, linux, x64, kamilya-production-release]
+    environment: kz-production
+    timeout-minutes: 10
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-plane-${{ inputs.release_sha }}
+          path: ${{ runner.temp }}/kamilya-release-plane-upgrade
+
+      - name: Validate installed upgrade boundary and exact bundle
+        run: sudo -n /usr/local/sbin/kamilya-release-plane-upgrader validate
+
+      - name: Install exact release-plane bundle
+        run: sudo -n /usr/local/sbin/kamilya-release-plane-upgrader execute
+
+      - name: Read back installed bundle identity
+        run: sudo -n /usr/local/sbin/kamilya-release-plane-upgrader readback
