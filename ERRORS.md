@@ -1214,3 +1214,12 @@ ANY TOKEN FAILURE.
 - Fix: validate the real `VERSION` file against the numeric `major.minor.patch` SemVer shape while the existing validator continues to enforce cross-manifest equality.
 - Verification: the focused version and workflow contract suite passed locally; the replacement exact SHA must pass the GitHub CI job before release.
 - Prevention: version-contract tests must validate invariants and consistency, never pin a historical release number unless the product contract explicitly requires that exact version.
+
+## DELETE-001 - Verified trial tenant deletion failed on immutable legal acceptance
+
+- Date: 2026-08-31.
+- Symptom: superadmin DELETE with the correct `confirm_slug` returned HTTP 500 for a self-service tenant.
+- Cause: `registration_legal_acceptances` references both tenant and first user with `ON DELETE RESTRICT`, while the tenant purge order deleted users without first deleting the tenant-scoped acceptance. The runtime role also intentionally lacked DELETE privilege and policy for that table.
+- Fix: migration 0140 grants DELETE only to `lms_app` under an exact tenant plus superadmin RLS policy; the purge order removes the legal acceptance before users. The browser prompt was replaced with a modal containing a selectable read-only slug, copy action, explicit confirmation input, and a disabled destructive action until the slug matches.
+- Verification: a PostgreSQL 18 integration regression reproduced the original 500 and RESTRICT constraint before the fix; focused backend, migration, frontend modal and typecheck gates must pass before release.
+- Prevention: every new tenant-owned RESTRICT or immutable table must be represented in the superadmin deletion contract and tested with a populated real-lifecycle tenant, not only an empty tenant fixture.

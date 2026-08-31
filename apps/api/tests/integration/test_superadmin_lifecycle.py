@@ -16,7 +16,7 @@ from uuid import uuid4
 
 import pytest
 
-from app.models.tenants import Tenant
+from app.models.tenants import RegistrationLegalAcceptance, Tenant
 
 
 async def _login(client, user, password: str = "Password123!") -> str:
@@ -82,6 +82,34 @@ async def test_superadmin_delete_with_correct_confirm_slug_succeeds(
         f"/api/v1/admin/super/tenants/{tenant.id}?confirm_slug=doomed3",
         headers=headers,
     )
+    assert resp.status_code == 204, resp.text
+
+
+@pytest.mark.asyncio
+async def test_superadmin_delete_removes_trial_legal_acceptance_before_user_and_tenant(
+    client, db_session, make_tenant, make_user, make_superadmin
+):
+    _, token = await _make_superadmin(client, db_session, make_superadmin)
+    headers = {"Authorization": f"Bearer {token}"}
+    tenant = await make_tenant(name="Verified trial", slug="verified-trial")
+    user = await make_user(tenant, role="methodologist")
+    db_session.add(
+        RegistrationLegalAcceptance(
+            tenant_id=tenant.id,
+            user_id=user.id,
+            privacy_consent_version="test-privacy-v1",
+            privacy_consent_locale="ru",
+            privacy_consent_surface="tenant_registration",
+            terms_version="test-terms-v1",
+        )
+    )
+    await db_session.commit()
+
+    resp = await client.delete(
+        f"/api/v1/admin/super/tenants/{tenant.id}?confirm_slug=verified-trial",
+        headers=headers,
+    )
+
     assert resp.status_code == 204, resp.text
 
 

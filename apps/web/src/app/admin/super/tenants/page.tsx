@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle, DateInput, Input, Modal, Table } from '@/components/ui';
+import { TenantDeleteModal } from '@/components/admin/TenantDeleteModal';
 import { toast } from '@/components/ui/Toast';
 import { useT } from '@/i18n/useT';
 import { useAuthStore } from '@/store/authStore';
@@ -210,6 +211,8 @@ export default function SuperAdminTenants() {
   const [createStep, setCreateStep] = useState<1 | 2 | 3>(1);
   const [createResult, setCreateResult] = useState<TenantCreateResult | null>(null);
   const [deletingTenantId, setDeletingTenantId] = useState<string | null>(null);
+  const [tenantPendingDelete, setTenantPendingDelete] = useState<Tenant | null>(null);
+  const [deleteConfirmation, setDeleteConfirmation] = useState('');
 
   const fetchTenants = useCallback(async () => {
     if (!token) return;
@@ -318,14 +321,26 @@ export default function SuperAdminTenants() {
     toast.success('Ссылка приглашения скопирована.');
   };
 
-  const handleDeleteTenant = async (tenant: Tenant) => {
-    const confirmation = window.prompt(
-      `Удаление безвозвратно удалит тенанта "${tenant.name}" и его данные.\n\nВведите slug для подтверждения: ${tenant.slug}`
-    );
-    if (confirmation !== tenant.slug) {
-      if (confirmation !== null) toast.error('Удаление отменено: slug не совпал.');
-      return;
-    }
+  const openDeleteTenant = (tenant: Tenant) => {
+    setTenantPendingDelete(tenant);
+    setDeleteConfirmation('');
+  };
+
+  const closeDeleteTenant = () => {
+    if (deletingTenantId) return;
+    setTenantPendingDelete(null);
+    setDeleteConfirmation('');
+  };
+
+  const copyDeleteSlug = async () => {
+    if (!tenantPendingDelete) return;
+    await navigator.clipboard.writeText(tenantPendingDelete.slug);
+    toast.success('Slug скопирован.');
+  };
+
+  const handleDeleteTenant = async () => {
+    const tenant = tenantPendingDelete;
+    if (!tenant || deleteConfirmation !== tenant.slug) return;
     setDeletingTenantId(tenant.id);
     try {
       // P0.2: server-side defense in depth — confirm_slug is also required
@@ -343,6 +358,8 @@ export default function SuperAdminTenants() {
         throw new Error(message === 'Unknown' ? `HTTP ${res.status}` : message);
       }
       toast.success(`Тенант ${tenant.name} удален.`);
+      setTenantPendingDelete(null);
+      setDeleteConfirmation('');
       await fetchTenants();
     } catch (e) {
       toast.error(`Не удалось удалить тенанта: ${(e as Error).message}`);
@@ -504,7 +521,7 @@ export default function SuperAdminTenants() {
                             disabled={
                               deletingTenantId === tnt.id || tnt.slug === 'kamilya'
                             }
-                            onClick={() => handleDeleteTenant(tnt)}
+                            onClick={() => openDeleteTenant(tnt)}
                             title={
                               tnt.slug === 'kamilya'
                                 ? 'Production tenant — protected from deletion'
@@ -523,6 +540,16 @@ export default function SuperAdminTenants() {
           )}
         </CardContent>
       </Card>
+
+      <TenantDeleteModal
+        tenant={tenantPendingDelete}
+        confirmation={deleteConfirmation}
+        deleting={deletingTenantId !== null}
+        onConfirmationChange={setDeleteConfirmation}
+        onCopySlug={copyDeleteSlug}
+        onCancel={closeDeleteTenant}
+        onConfirm={handleDeleteTenant}
+      />
 
       <Modal open={showCreate} onClose={closeCreateModal} title="Создать тенанта">
         <div className="mb-5 grid grid-cols-3 gap-2 text-xs">
