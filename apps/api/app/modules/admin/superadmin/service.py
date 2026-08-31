@@ -64,8 +64,6 @@ TENANT_DELETE_SQL = [
     "DELETE FROM quizzes WHERE tenant_id = :tenant_id",
     "DELETE FROM lessons WHERE tenant_id = :tenant_id",
     "DELETE FROM modules WHERE tenant_id = :tenant_id",
-    "UPDATE courses SET current_release_id = NULL WHERE tenant_id = :tenant_id",
-    "DELETE FROM content_releases WHERE tenant_id = :tenant_id",
     "DELETE FROM courses WHERE tenant_id = :tenant_id",
     "DELETE FROM documents WHERE tenant_id = :tenant_id",
     "DELETE FROM generated_content WHERE tenant_id = :tenant_id",
@@ -326,6 +324,13 @@ class SuperadminService:
             settings=tenant.settings,
             created_at=tenant.created_at,
             updated_at=tenant.updated_at,
+        )
+        await self.db.execute(
+            text(
+                "SELECT public.superadmin_purge_tenant_content_releases("
+                ":tenant_id, :confirm_slug)"
+            ),
+            {"tenant_id": str(tenant_id), "confirm_slug": tenant.slug},
         )
         statements = await self._tenant_delete_statements()
         for statement in statements:
