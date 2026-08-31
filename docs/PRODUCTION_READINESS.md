@@ -757,3 +757,15 @@ document/course journey remains a separate owner-controlled synthetic rehearsal.
   controlled tenant use. Human methodologist review before publication remains
   mandatory; this verification does not authorize automatic publication or learner
   assignment.
+
+## Protected release plane and persistent synthetic smoke — 2026-08-31
+
+- `GIT-DERIVED`: commits `c930749b894708c8fcf9db964054c75278a2dd9d` and `1d876a0c8f19fa3c1a340c2a42d4ae4b768e95c7` add a protected, signed-bundle release-plane upgrader and preserve executable/systemd file types. CI runs `33394763365` and `33396134759` passed. The first protected upgrade stopped safely during validation because a systemd unit suffix had been stripped; no install occurred.
+- `PROVIDER-CONFIRMED`: protected workflow run `33396493124` completed successfully for upgrade `RPLANE-20260831-KAMILYA-0002`. Bundle SHA-256 was `174a77f2c5e890bf9576a533eb3d0b685884be68401bc531ce12e16f5d860299`. Independent VM126 readback confirmed exact root-owned hashes, valid sudoers syntax, active release runner, absent locks and unchanged application runtime.
+- `GIT-DERIVED`: smoke-provisioner correction `e650b76e16c75e87f81aa747789a9386200b33d7` respects the admin/methodologist role boundary. CI run `33397466187` and the no-op-safe KZ release run `33397802150` completed successfully.
+- `RUNTIME-DERIVED`: public health returned HTTP 200, `production`, `kz-production` and exact application SHA `be35e60c2b1af1465f770375ba9ff15e8bed4d0b`. The ops-only changes did not replace the application release.
+- `RUNTIME-DERIVED`: the persistent synthetic smoke tenant completed normal document upload/indexing, one AI generation, course review/publication, employee edit, group save, program/group assignment, personal link/PIN entry, 5/5 lessons, five lesson tests, terminal completion, training-log readback and certificate readback. No email, customer data, unrelated tenant, direct DB edit or fabricated evidence artifact was used.
+- `RUNTIME-DERIVED`: contextual-help dialogs sampled across dashboard, candidates, journal, confirmation and retention fit a 1280x720 viewport with internal scrolling. The superadmin add-member dialog remained open on backdrop click and closed explicitly without saving.
+- `FAIL / PRODUCT_DEFECT`: production assessment generation is not ready for unattended publication. The 25-question synthetic set included semantically incorrect/incomplete answer keys, missing negation/context, fragment answers, raw Markdown and a severe correct-answer verbosity cue. Human methodologist review remains a hard gate; deterministic per-question validation and regeneration are required before changing this verdict.
+- `OPEN`: some methodologist links lose the bounded superadmin impersonation context; program/AI usage counters can disagree with persisted assignments/jobs; learner confirmation wording does not yet match the clearer certificate-versus-evidence contract in the journal.
+- **Verdict:** release-plane self-upgrade is `GO`; the synthetic production operating flow is `GO WITH FOLLOW-UP`; automatically generated assessments are `NO-GO` without human review and quality gating.

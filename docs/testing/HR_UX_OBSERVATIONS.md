@@ -244,3 +244,50 @@ Entry template:
 - **Implementation:** the training log now distinguishes a valid course-completion certificate from separate documentary evidence confirmation; the terminal learner action is `Завершить курс` and directly invokes idempotent completion; active personal link/PIN access can be explicitly revoked from assignments with confirmation, immediate credential invalidation and the existing audit event.
 - **Safety contract:** revocation preserves assignment, progress, test results and certificate history. Completed exact-assignment completion retries are allowed, while revoked, cancelled and cross-tenant credentials remain rejected.
 - **Local evidence:** backend evidence/access suite `34/34`; focused frontend course-player, assignments and training-log suites; frontend typecheck. Exact-SHA dev deployment and browser readback remain required before marking the original observations closed.
+
+## UX-20260831-014 — Generated assessment answer keys can contradict the source contract
+
+- **Related run:** `RUN-20260831-PROD-SMOKE-BE35E60`
+- **Environment:** `kz-production`, synthetic-only tenant and source
+- **State:** `OPEN`
+- **Severity:** `CRITICAL`
+- **Observation:** The production generator persisted several questions whose keyed answer did not answer the question or dropped the source's required negation/context. Other answers contained headings, fragments or raw Markdown table syntax.
+- **User impact:** A methodologist can publish a technically valid but educationally false assessment. A learner may be rewarded for selecting an incomplete or unsafe statement.
+- **Required contract:** Validate that the keyed option directly answers the stem, preserves negation and normative modality, is entailed by the cited source span, and remains correct without a hidden heading or table context. Reject or regenerate the individual question before saving.
+- **Verification gate:** fixed multilingual corpus with adversarial negation, lists, tables and headings; zero incorrect keys under independent source-grounded review.
+
+## UX-20260831-015 — AI generation progress exposes internal agent messages
+
+- **Related run:** `RUN-20260831-PROD-SMOKE-BE35E60`
+- **State:** `OPEN`
+- **Severity:** `MEDIUM`
+- **Observation:** The methodologist saw internal English messages such as tool-result character counts and `Writing lesson` / `Generating assessment` diagnostics. The success page then claimed the structure was empty although 1 module and 5 lessons had already persisted.
+- **User impact:** Ordinary HR users see implementation details and receive contradictory confirmation about whether generation succeeded.
+- **Recommendation:** Map internal stages to stable localized copy, keep diagnostics in operator logs, and load the persisted course summary before rendering the success state.
+
+## UX-20260831-016 — Program and quota counters disagree with persisted state
+
+- **Related run:** `RUN-20260831-PROD-SMOKE-BE35E60`
+- **State:** `OPEN`
+- **Severity:** `MEDIUM`
+- **Observation:** The program displayed `0 обучающихся` immediately after a successful group assignment that independently appeared in assignments as `Записан / По программе`. The demo banner also continued to show `AI генерация 0/1 сегодня` after the completed generation.
+- **User impact:** Methodists cannot trust capacity or audience counts and may repeat actions unnecessarily.
+- **Recommendation:** Derive counters from the authoritative persisted assignment/job records and refresh/invalidate them after successful mutations.
+
+## UX-20260831-017 — Superadmin impersonation is lost on ordinary methodologist links
+
+- **Related run:** `RUN-20260831-PROD-SMOKE-BE35E60`
+- **State:** `OPEN`
+- **Severity:** `HIGH`
+- **Observation:** Several course, quiz and result navigation links returned an impersonating superadmin to `/admin/super` instead of the requested tenant route. Re-entering impersonation restored access.
+- **User impact:** Support and acceptance work is interrupted, and the operator can mistake a navigation defect for lost tenant data.
+- **Recommendation:** Persist the bounded impersonation context across all same-origin SPA and full-document navigations, and add route-level E2E coverage for every sidebar and course-detail link.
+
+## UX-20260831-018 — Learner confirmation wording lags the certificate/evidence contract
+
+- **Related run:** `RUN-20260831-PROD-SMOKE-BE35E60`
+- **State:** `OPEN`
+- **Severity:** `MEDIUM`
+- **Observation:** The no-email learner received a valid certificate but the result page said the result itself was waiting for confirmation. The methodologist journal was clearer: course completion/certificate were final while documentary evidence remained pending.
+- **User impact:** Learners may believe their completed course or certificate is invalid until a signed scan is processed.
+- **Recommendation:** Reuse the journal contract on the learner screen: completion and certificate are valid; only the separate evidence package awaits manual confirmation.
