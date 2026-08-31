@@ -616,3 +616,56 @@ async def test_standard_assessment_keeps_valid_questions_after_retries_exhausted
         for option in question.options
         if option.is_correct
     )
+
+
+@pytest.mark.asyncio
+async def test_standard_assessment_accumulates_distinct_valid_questions_across_retries():
+    source_quote = "Loan approval occurs after application review."
+
+    class FakeLLM:
+        calls = 0
+
+        async def ainvoke(self, messages, config=None, response_format=None):
+            self.calls += 1
+            questions = []
+            for index in range(1, 6):
+                correct_text = (
+                    "after application review"
+                    if index == self.calls
+                    else "Yes"
+                )
+                questions.append(
+                    {
+                        "question": f"When does loan approval occur? Case {index}",
+                        "options": [
+                            {"text": correct_text, "is_correct": True},
+                            {"text": "before application review", "is_correct": False},
+                            {"text": "during application intake", "is_correct": False},
+                            {"text": "without application review", "is_correct": False},
+                        ],
+                        "explanation": source_quote,
+                        "source_quote_id": "E01",
+                    }
+                )
+            return SimpleNamespace(
+                content=(
+                    '{"mcq": '
+                    + __import__("json").dumps(questions, ensure_ascii=False)
+                    + ', "true_false": [], "matching": []}'
+                )
+            )
+
+    llm = FakeLLM()
+    result = await generate_lesson_assessment(
+        llm,
+        LessonContent(
+            title="Loan approval rules",
+            content=source_quote,
+            source_references=[],
+        ),
+        language="en",
+    )
+
+    assert llm.calls == 5
+    assert len(result.mcq) == 5
+    assert len({question.question for question in result.mcq}) == 5

@@ -383,6 +383,7 @@ def _recover_valid_assessment(
 ) -> LessonAssessment | None:
     """Keep only independently valid MCQs after provider retries are exhausted."""
     valid_questions: list[dict[str, Any]] = []
+    seen_questions: set[tuple[str, str]] = set()
     for raw_question in data.get("mcq", []):
         if not isinstance(raw_question, dict):
             continue
@@ -406,7 +407,19 @@ def _recover_valid_assessment(
             continue
         issues.extend(_validate_assessment(candidate))
         if not issues and len(candidate.mcq) == 1:
-            valid_questions.append(candidate_data["mcq"][0])
+            question = candidate_data["mcq"][0]
+            correct_options = [
+                option
+                for option in question.get("options", [])
+                if option.get("is_correct") is True
+            ]
+            dedupe_key = (
+                _normalize_evidence_text(str(question.get("question", ""))),
+                _normalize_evidence_text(str(correct_options[0].get("text", ""))),
+            )
+            if dedupe_key not in seen_questions:
+                seen_questions.add(dedupe_key)
+                valid_questions.append(question)
 
     if len(valid_questions) < minimum_questions:
         return None
@@ -516,6 +529,7 @@ Output ONLY the JSON data instance:
             "schema": output_schema,
         },
     }
+    recovery_pool: list[dict[str, Any]] = []
 
     for attempt in range(MAX_ASSESSMENT_RETRIES + 1):
         data: dict[str, Any] | None = None
@@ -533,6 +547,11 @@ Output ONLY the JSON data instance:
                 len(response.content),
             )
             data = _parse_json_response(response.content)
+            recovery_pool.extend(
+                copy.deepcopy(question)
+                for question in data.get("mcq", [])
+                if isinstance(question, dict)
+            )
             logger.debug("[ASSESSMENT_OK] attempt %d keys=%s", attempt + 1, list(data.keys()))
             issues = _validate_question_evidence(
                 data,
@@ -572,7 +591,7 @@ Output ONLY the JSON data instance:
                 continue
             if data is not None:
                 recovered = _recover_valid_assessment(
-                    data,
+                    {"mcq": recovery_pool},
                     evidence_bank=evidence_bank,
                     bounded_source=bounded_lesson_content,
                     lesson_title=lesson_content.title,

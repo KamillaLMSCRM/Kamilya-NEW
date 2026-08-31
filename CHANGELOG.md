@@ -22,6 +22,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - KZ release controller now supports VM126's stock Python 3.10 runtime, and the
   protected production workflow invokes only the installed fixed-command wrapper.
+- AI-generated quizzes now keep concise source-grounded answers separate from
+  evidence excerpts, reject answer-length clues and implausible distractors,
+  accumulate only independently validated questions across bounded retries, and
+  require explicit methodologist review before course publication.
 
 ### Security
 
