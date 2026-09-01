@@ -746,6 +746,7 @@
     "generate": "Generate Course",
     "cancel": "Cancel",
     "progress": "Generation Progress",
+    "newCourse": "Create new course",
     "status": "Status",
     "stage": "Stage",
     "queued": "Queued",

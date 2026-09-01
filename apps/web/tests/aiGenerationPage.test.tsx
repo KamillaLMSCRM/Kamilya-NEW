@@ -86,7 +86,7 @@ describe('/ai/generate job workflow parity', () => {
     render(<AIGeneratePage />);
 
     expect(await screen.findByText('SoftTimeLimitExceeded: generation failed')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Повторить' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Создать новый курс' }));
 
     expect(await screen.findByText(/Перетащите документы/)).toBeInTheDocument();
     expect(apiMock.post).not.toHaveBeenCalledWith('/v1/ai/generate-course', expect.anything());

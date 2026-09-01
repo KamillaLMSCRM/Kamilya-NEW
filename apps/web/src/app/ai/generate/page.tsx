@@ -1042,7 +1042,7 @@ export default function AIGeneratePage() {
             stages={STAGES}
             title={t('ai.progress')}
             labels={{ queued: t('asyncOperation.queued'), running: t('asyncOperation.running'), completed: t('asyncOperation.completed'), failed: t('asyncOperation.failed'), cancelled: t('asyncOperation.cancelled'), stalled: t('asyncOperation.stalled') }}
-            retryLabel={t('asyncOperation.retry')}
+            retryLabel={resolveAsyncOperationState(currentJob) === 'failed' ? t('ai.newCourse') : t('asyncOperation.retry')}
             checkAgainLabel={t('asyncOperation.checkAgain')}
             cancelLabel={t('asyncOperation.cancel')}
             cancelQueuedLabel={t('asyncOperation.cancelQueued')}
