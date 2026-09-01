@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Document catalog provenance showing the tenant-local uploader display name
+  and the existing creation date/time without exposing user IDs or email.
 - Render-like KZ release plane with immutable GHCR image digests, protected
   exact-CI deployment manifests, two API slots, synchronized workers,
   fail-closed rollback, encrypted CT125 backup gating and append-only evidence.
@@ -17,6 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   an idempotent persistent synthetic production smoke-tenant provisioner.
 
 ### Changed
+
+- Course creation now exposes the existing feature-gated YouTube caption
+  analysis flow and returns confirmed imports to generation as selected sources.
 
 ### Fixed
 

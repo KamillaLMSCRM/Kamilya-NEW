@@ -19,6 +19,7 @@ from sqlalchemy.orm import aliased
 from app.core.config import get_settings
 from app.models.ai_job import AIJob
 from app.models.document import Document
+from app.models.users import User
 from app.modules.courses.models import Course
 from app.modules.documents.schemas import (
     DocumentCatalogItem,
@@ -432,6 +433,14 @@ async def list_catalog(
         lesson_count.label("lesson_count"),
         active_job_count.label("active_job_count"),
         is_latest.label("is_latest"),
+        User.first_name.label("creator_first_name"),
+        User.last_name.label("creator_last_name"),
+    ).outerjoin(
+        User,
+        and_(
+            User.id == Document.uploaded_by,
+            User.tenant_id == tenant_id,
+        ),
     ).where(
         Document.tenant_id == tenant_id,
         Document.lifecycle_status == filters.lifecycle_status,
@@ -467,7 +476,7 @@ async def list_catalog(
     page_rows = rows[: filters.limit]
 
     items = []
-    for document, positions, courses, lessons, active_jobs, latest_flag in page_rows:
+    for document, positions, courses, lessons, active_jobs, latest_flag, creator_first_name, creator_last_name in page_rows:
         usage_summary = None
         if filters.include_usages_summary:
             usage_summary = DocumentUsageSummary(
@@ -502,6 +511,11 @@ async def list_catalog(
                 deletion_error_code=document.deletion_error_code,
                 deletion_error_message=document.deletion_error_message,
                 deletion_job_id=document.deletion_job_id,
+                created_by=" ".join(
+                    part.strip()
+                    for part in (creator_first_name, creator_last_name)
+                    if part and part.strip()
+                ) or None,
                 created_at=document.created_at,
                 updated_at=document.updated_at,
                 usages_summary=usage_summary,

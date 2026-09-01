@@ -111,6 +111,7 @@ async def test_documents_catalog_allows_methodologist_and_hides_internal_metadat
     assert body["page"] == {"next_cursor": None, "has_more": False, "limit": 25}
     assert [item["id"] for item in body["items"]] == [str(document.id)]
     assert INTERNAL_FIELDS.isdisjoint(body["items"][0])
+    assert body["items"][0]["created_by"] == f"{user.first_name} {user.last_name}".strip()
 
 
 async def test_legacy_documents_list_remains_safe_array(client, make_tenant, make_user, make_document, auth_headers):

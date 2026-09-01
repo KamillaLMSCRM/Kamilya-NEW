@@ -67,6 +67,7 @@ class DocumentCatalogItem(BaseModel):
     deletion_error_code: str | None = None
     deletion_error_message: str | None = None
     deletion_job_id: str | None = None
+    created_by: str | None = None
     created_at: datetime
     updated_at: datetime
     usages_summary: DocumentUsageSummary | None = None

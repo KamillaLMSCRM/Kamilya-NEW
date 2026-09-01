@@ -4,6 +4,7 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const pageSource = fs.readFileSync(path.resolve(process.cwd(), 'src/app/documents/page.tsx'), 'utf8');
+const generationPageSource = fs.readFileSync(path.resolve(process.cwd(), 'src/app/ai/generate/page.tsx'), 'utf8');
 
 describe('documents YouTube import UI contract', () => {
   it('analyzes before confirmation and exposes both safe continuation actions', () => {
@@ -16,5 +17,12 @@ describe('documents YouTube import UI contract', () => {
 
   it('does not close the in-progress form when the backdrop is clicked', () => {
     expect(pageSource).toContain('<div className="absolute inset-0 bg-black/40" aria-hidden="true" />');
+  });
+
+  it('exposes the YouTube source from course creation and opens the import dialog', () => {
+    expect(generationPageSource).toContain("router.push('/documents?import=youtube')");
+    expect(generationPageSource).toContain("t('documents.youtubeAddVideo')");
+    expect(pageSource).toContain("requestedImport === 'youtube'");
+    expect(pageSource).toContain('setShowYoutubeImport(true)');
   });
 });

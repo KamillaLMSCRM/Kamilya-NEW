@@ -26,6 +26,7 @@ export interface DocumentCatalogItem {
   deletion_error_code: string | null;
   deletion_error_message: string | null;
   deletion_job_id: string | null;
+  created_by: string | null;
   created_at: string;
   updated_at: string;
   usages_summary?: {

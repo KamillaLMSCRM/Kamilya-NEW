@@ -30,6 +30,7 @@ const document = (status: DocumentCatalogItem['index']['status']): DocumentCatal
   deletion_error_code: null,
   deletion_error_message: null,
   deletion_job_id: null,
+  created_by: 'Иван Петров',
   created_at: '2026-07-24T00:00:00Z',
   updated_at: '2026-07-24T00:00:00Z',
 });

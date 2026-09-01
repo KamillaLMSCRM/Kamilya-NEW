@@ -44,6 +44,15 @@ import {
 
 const PAGE_SIZE = 25;
 
+const formatDocumentDateTime = (value: string) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '—';
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: 'short',
+    timeStyle: 'short',
+  }).format(date);
+};
+
 interface DocumentBackgroundOperation {
   document: DocumentCatalogItem;
   jobId: string;
@@ -162,6 +171,12 @@ export default function DocumentsPage() {
       .then((response) => setYoutubeEnabled(Boolean(response.data.enabled)))
       .catch(() => setYoutubeEnabled(false));
   }, []);
+
+  useEffect(() => {
+    if (!youtubeEnabled) return;
+    const requestedImport = new URLSearchParams(window.location.search).get('import');
+    if (requestedImport === 'youtube') setShowYoutubeImport(true);
+  }, [youtubeEnabled]);
 
   const hasProcessingDocuments = documents.some(
     (document) => document.index.status === 'processing'
@@ -946,6 +961,12 @@ function DocumentRow({
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold text-foreground">{document.title}</p>
           <p className="mt-0.5 truncate text-xs text-muted-foreground">{document.filename} · {formatSize(document.size)}</p>
+          <p className="mt-1 truncate text-xs text-muted-foreground">
+            {t('documents.addedByAt', {
+              user: document.created_by || t('documents.systemImport'),
+              date: formatDocumentDateTime(document.created_at),
+            })}
+          </p>
           {document.description && <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">{document.description}</p>}
         </div>
       </div>

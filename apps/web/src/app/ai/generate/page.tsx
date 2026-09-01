@@ -133,6 +133,7 @@ export default function AIGeneratePage() {
   const [uploadingCount, setUploadingCount] = useState(0);
   const [uploadingFiles, setUploadingFiles] = useState<string[]>([]);
   const [uploadError, setUploadError] = useState('');
+  const [youtubeImportAvailability, setYoutubeImportAvailability] = useState<'checking' | 'enabled' | 'disabled'>('checking');
   const [duplicateDocument, setDuplicateDocument] = useState<{
     title: string;
     version: number;
@@ -308,6 +309,12 @@ export default function AIGeneratePage() {
     void fetchDocuments();
     void restoreActiveJob();
   }, [fetchDocuments, restoreActiveJob]);
+
+  useEffect(() => {
+    api.get<{ enabled: boolean }>('/v1/youtube/limits')
+      .then((response) => setYoutubeImportAvailability(response.data.enabled ? 'enabled' : 'disabled'))
+      .catch(() => setYoutubeImportAvailability('disabled'));
+  }, []);
 
   const querySelectionApplied = useRef(false);
   useEffect(() => {
@@ -700,6 +707,26 @@ export default function AIGeneratePage() {
       )}
       {step === 'documents' && (
         <div className="space-y-4">
+          <section className="flex flex-col gap-3 rounded-2xl border border-primary/20 bg-primary/5 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h3 className="font-display text-sm font-bold text-foreground">{t('documents.youtubeSourceTitle')}</h3>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {t('documents.youtubeSourceDescription')}
+              </p>
+              {youtubeImportAvailability === 'disabled' && (
+                <p className="mt-2 text-xs font-medium text-warning">{t('documents.youtubeUnavailable')}</p>
+              )}
+            </div>
+            <button
+              type="button"
+              disabled={youtubeImportAvailability !== 'enabled'}
+              onClick={() => router.push('/documents?import=youtube')}
+              className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-xl border border-primary/30 bg-card px-4 py-2 text-sm font-semibold text-primary transition-colors hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {youtubeImportAvailability === 'checking' ? t('documents.youtubeChecking') : t('documents.youtubeAddVideo')}
+            </button>
+          </section>
+
           {/* Upload zone */}
           <div
             onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
