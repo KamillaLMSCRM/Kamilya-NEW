@@ -88,7 +88,7 @@ async def test_receiver_health_url_derives_from_webhook_origin():
     )
 
     assert result["status"] == "success"
-    assert transport.health_calls == ["https://crm.example/health"]
+    assert transport.health_calls == ["https://crm.example/healthz"]
 
 
 def test_production_crm_webhook_rejects_a_short_secret():

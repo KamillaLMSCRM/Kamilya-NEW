@@ -182,7 +182,7 @@ def _receiver_health_url(webhook_url: str, explicit_health_url: str | None) -> s
     if explicit_health_url:
         return _validate_endpoint(explicit_health_url, label="CRM health URL")
     parsed = urlsplit(_validate_endpoint(webhook_url, label="CRM webhook URL"))
-    return urlunsplit((parsed.scheme, parsed.netloc, "/health", "", ""))
+    return urlunsplit((parsed.scheme, parsed.netloc, "/healthz", "", ""))
 
 
 async def _receiver_ready(transport: CRMWebhookTransport, health_url: str) -> bool:
