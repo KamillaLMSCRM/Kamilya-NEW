@@ -452,7 +452,7 @@
     "knowledgeRefresh": "Білімді мерзімді жаңарту",
     "knowledgeRefreshOff": "Автоматты түрде қайталамау",
     "knowledgeRefreshPeriodic": "Аяқтағаннан кейін қайталау",
-    "knowledgeRefreshHint": "Қазір ереже сақталады. Келесі оқу кезеңін автоматты жасау бөлек релизде қосылады.",
+    "knowledgeRefreshHint": "Бағдарлама аяқталғаннан кейін жүйе таңдалған аралық бойынша келесі оқу кезеңін автоматты түрде жасайды.",
     "refreshEveryDays": "Қайталау аралығы, күн",
     "refreshEveryDaysPlaceholder": "Мысалы, 365",
     "refreshDueDays": "Өту мерзімі, күн",

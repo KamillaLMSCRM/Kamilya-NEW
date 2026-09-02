@@ -452,7 +452,7 @@
     "knowledgeRefresh": "Periodic knowledge refresh",
     "knowledgeRefreshOff": "Do not repeat automatically",
     "knowledgeRefreshPeriodic": "Repeat after completion",
-    "knowledgeRefreshHint": "Save the rule now; automatic creation of the next learning period will be enabled in a separate release.",
+    "knowledgeRefreshHint": "After the program is completed, the system automatically creates the next learning period using the selected interval.",
     "refreshEveryDays": "Repeat every, days",
     "refreshEveryDaysPlaceholder": "For example, 365",
     "refreshDueDays": "Time to complete, days",
