@@ -54,3 +54,4 @@ def test_recovery_tasks_run_every_minute() -> None:
         "task": "enrollments.recover_assignment_notifications",
         "schedule": 60.0,
     }
+    assert celery_app.conf.beat_max_loop_interval == 30.0

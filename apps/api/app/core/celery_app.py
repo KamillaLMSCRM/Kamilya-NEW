@@ -91,6 +91,7 @@ celery_app.conf.update(
             "schedule": 60.0,
         },
     },
+    beat_max_loop_interval=30.0,
     task_annotations={
         "ai.generate_course": {
             "soft_time_limit": 1200,
