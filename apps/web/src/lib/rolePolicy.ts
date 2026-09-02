@@ -29,9 +29,15 @@ export function canAccessRoute(role: string | null | undefined, route: string): 
   return canAccessRegisteredRoute(role, pathname);
 }
 
+export function getAuthenticationEntry(pathname: string): string {
+  return pathname.startsWith('/admin/super') || pathname.startsWith('/admin/providers')
+    ? '/superadmin/login'
+    : '/login';
+}
+
 export function getAuthRedirect({ initialized, accessToken, role, pathname }: AuthRedirectInput): string | null {
   if (!initialized) return null;
-  if (!accessToken || !isAppRole(role)) return '/login';
+  if (!accessToken || !isAppRole(role)) return getAuthenticationEntry(pathname);
   return canAccessRoute(role, pathname) ? null : getRoleHome(role);
 }
 

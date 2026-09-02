@@ -465,6 +465,11 @@ export default function LoginPage() {
         )}
 
         <div className="mt-6 space-y-3 text-center text-sm text-muted-foreground">
+          <div>
+            <Link href="/superadmin/login" className="font-medium text-primary hover:underline">
+              Вход для суперадмина
+            </Link>
+          </div>
           <Link href="/register-tenant" className="text-primary hover:underline">
             Зарегистрировать компанию
           </Link>

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   canAccessRoute,
+  getAuthenticationEntry,
   getAuthRedirect,
   getRoleHome,
   isNavigationItemActive,
@@ -47,6 +48,20 @@ describe('role route policy', () => {
 });
 
 describe('auth redirect policy', () => {
+  it('routes protected platform pages to the dedicated superadmin login', () => {
+    expect(getAuthenticationEntry('/admin/super')).toBe('/superadmin/login');
+    expect(getAuthenticationEntry('/admin/super/tenants')).toBe('/superadmin/login');
+    expect(getAuthenticationEntry('/admin/providers')).toBe('/superadmin/login');
+    expect(getAuthenticationEntry('/dashboard')).toBe('/login');
+
+    expect(getAuthRedirect({
+      initialized: true,
+      accessToken: null,
+      role: null,
+      pathname: '/admin/super/tenants',
+    })).toBe('/superadmin/login');
+  });
+
   it('waits while restore is pending', () => {
     expect(getAuthRedirect({
       initialized: false,

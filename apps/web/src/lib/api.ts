@@ -5,6 +5,7 @@ import {
   setAuth,
   AuthUser,
 } from '@/lib/auth';
+import { getAuthenticationEntry } from '@/lib/rolePolicy';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -100,7 +101,7 @@ api.interceptors.response.use(
     if (status === 401 && !isPublicAuthenticationRequest(original?.url)) {
       clearStoredAuth();
       if (typeof window !== 'undefined') {
-        window.location.href = '/login';
+        window.location.href = getAuthenticationEntry(window.location.pathname);
       }
     }
     // Demo sandbox limits — surface a global event so DemoLimitProvider
