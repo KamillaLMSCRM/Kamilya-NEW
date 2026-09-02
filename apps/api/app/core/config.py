@@ -1,3 +1,4 @@
+import ipaddress
 import json
 from functools import lru_cache
 from urllib.parse import urlsplit
@@ -175,6 +176,7 @@ class Settings(BaseSettings):
     # CRM webhook is deliberately optional: absent configuration keeps durable
     # lead events observable and pending, never rejects public lead capture.
     CRM_WEBHOOK_URL: str = ""
+    CRM_WEBHOOK_HEALTH_URL: str = ""
     CRM_WEBHOOK_SECRET: str = ""
 
     # Observability (audit §9.4)
@@ -220,12 +222,28 @@ class Settings(BaseSettings):
                 "Only symmetric HMAC algorithms are permitted (HS256/HS384/HS512). "
                 "Asymmetric keys (RS256, ES256) and 'none' are rejected."
             )
-        if (
-            self.APP_ENV.lower() == "production"
-            and self.CRM_WEBHOOK_URL
-            and not self.CRM_WEBHOOK_URL.lower().startswith("https://")
-        ):
-            raise ValueError("CRM_WEBHOOK_URL must use HTTPS in production")
+        for field_name in ("CRM_WEBHOOK_URL", "CRM_WEBHOOK_HEALTH_URL"):
+            endpoint = getattr(self, field_name)
+            if not endpoint:
+                continue
+            parsed = urlsplit(endpoint)
+            if parsed.scheme.lower() not in {"http", "https"} or not parsed.hostname:
+                raise ValueError(f"{field_name} must use an HTTP(S) URL with a hostname")
+            if parsed.username or parsed.password:
+                raise ValueError(f"{field_name} must not contain credentials")
+            if parsed.query or parsed.fragment:
+                raise ValueError(f"{field_name} must not contain a query or fragment")
+            if self.APP_ENV.lower() == "production" and parsed.scheme.lower() != "https":
+                raise ValueError(f"{field_name} must use HTTPS in production")
+            if self.APP_ENV.lower() == "production":
+                if parsed.hostname.lower() in {"localhost", "localhost.localdomain"}:
+                    raise ValueError(f"{field_name} must not target a private or non-public host")
+                try:
+                    address = ipaddress.ip_address(parsed.hostname)
+                except ValueError:
+                    address = None
+                if address is not None and not address.is_global:
+                    raise ValueError(f"{field_name} must not target a private or non-public host")
         if self.APP_ENV.lower() == "production" and self.CRM_WEBHOOK_SECRET and len(self.CRM_WEBHOOK_SECRET) < 32:
             raise ValueError("CRM_WEBHOOK_SECRET must be at least 32 characters in production")
         if self.APP_ENV.lower() == "production":

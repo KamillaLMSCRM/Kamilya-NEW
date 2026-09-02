@@ -43,6 +43,54 @@ def test_development_crm_webhook_can_use_http():
     assert settings.CRM_WEBHOOK_URL.startswith("http://")
 
 
+def test_health_url_is_explicit_and_production_safe():
+    settings = Settings(
+        _env_file=None,
+        APP_ENV="production",
+        JWT_SECRET="x" * 32,
+        CRM_WEBHOOK_URL="https://crm.example/webhooks/lms",
+        CRM_WEBHOOK_HEALTH_URL="https://crm.example/health",
+    )
+
+    assert settings.CRM_WEBHOOK_HEALTH_URL == "https://crm.example/health"
+
+
+def test_production_crm_urls_reject_credentials_and_unsafe_health_scheme():
+    with pytest.raises(ValidationError, match="credentials"):
+        Settings(
+            _env_file=None,
+            APP_ENV="production",
+            JWT_SECRET="x" * 32,
+            CRM_WEBHOOK_URL="https://user:password@crm.example/webhooks/lms",
+        )
+    with pytest.raises(ValidationError, match="HTTPS"):
+        Settings(
+            _env_file=None,
+            APP_ENV="production",
+            JWT_SECRET="x" * 32,
+            CRM_WEBHOOK_URL="https://crm.example/webhooks/lms",
+            CRM_WEBHOOK_HEALTH_URL="http://crm.example/health",
+        )
+
+
+@pytest.mark.asyncio
+async def test_receiver_health_url_derives_from_webhook_origin():
+    event = _event()
+    store = FakeStore(event)
+    transport = FakeTransport(200)
+
+    result = await _deliver_with_adapters(
+        event_id=event.id,
+        store=store,
+        transport=transport,
+        webhook_url="https://crm.example/webhooks/lms",
+        webhook_secret="fixture-secret",
+    )
+
+    assert result["status"] == "success"
+    assert transport.health_calls == ["https://crm.example/health"]
+
+
 def test_production_crm_webhook_rejects_a_short_secret():
     with pytest.raises(ValidationError, match="at least 32 characters"):
         Settings(
@@ -63,8 +111,10 @@ class FakeStore:
         self.event = event
         self.finalize_result = finalize_result
         self.finalizations: list[dict] = []
+        self.claim_calls = 0
 
     async def claim(self, event_id: UUID) -> ClaimedLeadEvent | None:
+        self.claim_calls += 1
         return self.event
 
     async def finalize(self, event, **kwargs) -> bool:
@@ -73,9 +123,20 @@ class FakeStore:
 
 
 class FakeTransport:
-    def __init__(self, status_code: int | None):
+    def __init__(self, status_code: int | None, *, health_status: int | None = 200):
         self.status_code = status_code
+        self.health_status = health_status
         self.calls: list[dict] = []
+        self.health_calls: list[str] = []
+
+    async def check_health(self, *, url: str) -> bool:
+        self.health_calls.append(url)
+        if self.health_status is None:
+            raise httpx.ConnectError(
+                "unavailable",
+                request=httpx.Request("GET", url),
+            )
+        return 200 <= self.health_status < 300
 
     async def send(self, **kwargs) -> int:
         self.calls.append(kwargs)
@@ -191,13 +252,91 @@ async def test_missing_configuration_defers_without_an_http_call():
         webhook_secret="",
     )
 
-    assert result == {"status": "deferred"}
+    assert result == {"status": "disabled"}
     assert transport.calls == []
-    assert store.finalizations[0] == {
-        "kind": "defer",
-        "status_code": None,
-        "error_category": "configuration_missing",
-    }
+    assert transport.health_calls == []
+    assert store.claim_calls == 0
+    assert store.finalizations == []
+
+
+@pytest.mark.asyncio
+async def test_receiver_not_ready_defers_before_claiming_or_sending():
+    event = _event()
+    store = FakeStore(event)
+    transport = FakeTransport(200, health_status=503)
+
+    result = await _deliver_with_adapters(
+        event_id=event.id,
+        store=store,
+        transport=transport,
+        webhook_url="https://crm.example/api/v1/webhooks/lms",
+        webhook_secret="fixture-secret",
+        health_url="https://crm.example/health",
+    )
+
+    assert result == {"status": "deferred", "reason": "receiver_not_ready"}
+    assert transport.health_calls == ["https://crm.example/health"]
+    assert transport.calls == []
+    assert store.claim_calls == 0
+    assert store.finalizations == []
+
+
+@pytest.mark.asyncio
+async def test_receiver_wake_then_delivers_signed_payload():
+    event = _event()
+    store = FakeStore(event)
+    transport = FakeTransport(200, health_status=204)
+
+    result = await _deliver_with_adapters(
+        event_id=event.id,
+        store=store,
+        transport=transport,
+        webhook_url="https://crm.example/api/v1/webhooks/lms",
+        webhook_secret="fixture-secret",
+        health_url="https://crm.example/health",
+    )
+
+    assert result == {"status": "success", "http_status": 200}
+    assert transport.health_calls == ["https://crm.example/health"]
+    assert transport.calls[0]["body"] == BODY
+    assert store.claim_calls == 1
+    assert store.finalizations[0]["kind"] == "success"
+
+
+@pytest.mark.asyncio
+async def test_recovery_skips_database_selection_when_integration_disabled(monkeypatch):
+    class FailSessionFactory:
+        def __call__(self):
+            raise AssertionError("disabled integration must not open a database session")
+
+    monkeypatch.setattr(crm_outbox, "async_session_factory", FailSessionFactory())
+    monkeypatch.setattr(
+        crm_outbox,
+        "get_settings",
+        lambda: type("Settings", (), {"CRM_WEBHOOK_URL": "", "CRM_WEBHOOK_SECRET": ""})(),
+    )
+
+    result = await crm_outbox.recover_due_events()
+
+    assert result == {"status": "disabled", "due": 0, "processed": 0}
+
+
+@pytest.mark.asyncio
+async def test_immediate_dispatch_skips_database_claim_when_integration_disabled(monkeypatch):
+    class FailSessionFactory:
+        def __call__(self):
+            raise AssertionError("disabled integration must not open a database session")
+
+    monkeypatch.setattr(crm_outbox, "async_session_factory", FailSessionFactory())
+    monkeypatch.setattr(
+        crm_outbox,
+        "get_settings",
+        lambda: type("Settings", (), {"CRM_WEBHOOK_URL": "", "CRM_WEBHOOK_SECRET": ""})(),
+    )
+
+    result = await crm_outbox.deliver_event(uuid4())
+
+    assert result == {"status": "disabled"}
 
 
 @pytest.mark.asyncio
@@ -262,6 +401,15 @@ async def test_recovery_processes_due_rows_directly_without_queue_fanout(
         crm_outbox,
         "async_session_factory",
         lambda: FakeSessionContext(),
+    )
+    monkeypatch.setattr(
+        crm_outbox,
+        "get_settings",
+        lambda: type(
+            "Settings",
+            (),
+            {"CRM_WEBHOOK_URL": "https://crm.example/webhooks/lms", "CRM_WEBHOOK_SECRET": "fixture-secret"},
+        )(),
     )
     monkeypatch.setattr(crm_outbox, "PostgresCRMOutboxStore", FakeDueStore)
     monkeypatch.setattr(crm_outbox, "deliver_event", fake_deliver)

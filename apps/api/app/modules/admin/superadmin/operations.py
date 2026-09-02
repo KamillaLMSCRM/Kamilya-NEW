@@ -57,6 +57,7 @@ MAX_CLEANUP_AGE_HOURS = 24 * 365 * 5
 CLEANUP_CONFIRM_TOKEN = "CLEANUP_SYNTHETIC_TENANTS"
 MAX_CLEANUP_CANDIDATES = 100
 CELERY_INSPECT_TIMEOUT_SECONDS = 0.75
+CELERY_INSPECT_OUTER_MARGIN_SECONDS = 0.25
 REQUIRED_CELERY_TASKS = (
     "ai.generate_course",
     "ai.ingest_document",
@@ -136,6 +137,8 @@ class CeleryWorkerSummary(BaseModel):
 
 
 class CRMLeadOutboxOperationsSummary(BaseModel):
+    integration_status: Literal["enabled", "disabled"]
+    held_count: int
     pending_count: int
     retry_count: int
     claimed_count: int
@@ -408,7 +411,7 @@ async def _celery_worker_summary() -> CeleryWorkerSummary:
     try:
         return await asyncio.wait_for(
             asyncio.to_thread(_inspect_celery_worker),
-            timeout=CELERY_INSPECT_TIMEOUT_SECONDS,
+            timeout=CELERY_INSPECT_TIMEOUT_SECONDS + CELERY_INSPECT_OUTER_MARGIN_SECONDS,
         )
     except Exception:
         return _unavailable_celery_summary()
@@ -537,6 +540,10 @@ class SuperadminOperationsService:
         host, process, filesystem = _runtime_summaries()
         celery = await _celery_worker_summary()
         crm_outbox = (await self.db.execute(text("SELECT * FROM crm_lead_outbox_summary()"))).mappings().one()
+        crm_settings = get_settings()
+        integration_enabled = bool(crm_settings.CRM_WEBHOOK_URL and crm_settings.CRM_WEBHOOK_SECRET)
+        pending_count = int(crm_outbox["pending_count"] or 0)
+        retry_count = int(crm_outbox["retry_count"] or 0)
 
         return OperationsSummary(
             generated_at=now,
@@ -562,8 +569,10 @@ class SuperadminOperationsService:
             filesystem=filesystem,
             celery=celery,
             crm_lead_outbox=CRMLeadOutboxOperationsSummary(
-                pending_count=int(crm_outbox["pending_count"] or 0),
-                retry_count=int(crm_outbox["retry_count"] or 0),
+                integration_status="enabled" if integration_enabled else "disabled",
+                held_count=(pending_count + retry_count) if not integration_enabled else 0,
+                pending_count=pending_count,
+                retry_count=retry_count,
                 claimed_count=int(crm_outbox["claimed_count"] or 0),
                 dead_count=int(crm_outbox["dead_count"] or 0),
                 delivered_count=int(crm_outbox["delivered_count"] or 0),

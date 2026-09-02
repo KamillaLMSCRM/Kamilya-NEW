@@ -1408,3 +1408,12 @@ ANY TOKEN FAILURE.
 - Fix: use the superadmin tenant-admin listing for idempotent methodologist discovery; use the bounded admin-context only when a new methodologist must be created with a password; verify the final account through its own methodologist login.
 - Verification: the corrected script compiles, reuses the one exact synthetic tenant and must return `READY` with `mail_sent=false` before browser acceptance.
 - Prevention: operational smoke tooling must model each route with its real product role and may not broaden a tenant role merely to simplify idempotency.
+
+## CRM-001 - Disabled CRM integration churned durable events and masked worker readiness
+
+- Date: 2026-09-02.
+- Symptom: when `CRM_WEBHOOK_URL` or `CRM_WEBHOOK_SECRET` was absent, delivery claimed an outbox event and finalized it as `configuration_missing`, moving it into retry churn. Configured delivery posted lead payloads without first proving that a sleeping Render Free receiver was awake. The operations endpoint also applied the same timeout to Celery inspect and its outer async wait, systematically reporting healthy workers as unavailable when inspect consumed the full budget.
+- Cause: configuration and receiver readiness were checked after the durable claim; there was no non-payload health phase, and the outer timeout had no margin over the Celery control timeout.
+- Fix: disabled mode now returns `status=disabled` before opening a session or selecting/claiming rows. Configured delivery derives or accepts an explicit safe health URL, performs a bounded GET health check, and defers before claim on cold/unavailable receivers. Signed payload delivery and post-readiness retry classification remain unchanged. Operations now exposes `integration_status` and `held_count`, with an outer Celery timeout margin.
+- Verification: focused CRM and operations tests pass (`35 passed`), including disabled-mode no-claim, recovery no-select, health-before-payload, wake-then-deliver, URL safety, and timeout-margin cases. Full backend execution was attempted but is blocked in this workstation by local PostgreSQL `ConnectionRefusedError [WinError 1225]`; no production or provider mutation was performed.
+- Prevention: optional integrations must fail closed before durable claims, external wake/readiness must be a separate non-payload phase, and nested timeouts must reserve an explicit outer margin. Observability contracts must distinguish disabled/held integrations from unavailable workers.

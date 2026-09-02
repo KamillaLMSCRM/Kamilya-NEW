@@ -12,6 +12,7 @@ import hmac
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Protocol
+from urllib.parse import urlsplit, urlunsplit
 from uuid import UUID
 
 import httpx
@@ -35,6 +36,8 @@ class ClaimedLeadEvent:
 
 
 class CRMWebhookTransport(Protocol):
+    async def check_health(self, *, url: str) -> bool: ...
+
     async def send(
         self,
         *,
@@ -45,6 +48,13 @@ class CRMWebhookTransport(Protocol):
 
 
 class HttpxCRMWebhookTransport:
+    async def check_health(self, *, url: str) -> bool:
+        async with httpx.AsyncClient(
+            timeout=httpx.Timeout(10.0, connect=3.0)
+        ) as client:
+            response = await client.get(url, headers={"Accept": "application/json"})
+        return 200 <= response.status_code < 300
+
     async def send(
         self,
         *,
@@ -157,6 +167,33 @@ def _delivery_kind(status_code: int) -> tuple[str, str]:
     return "terminal", "terminal_http"
 
 
+def _validate_endpoint(url: str, *, label: str) -> str:
+    parsed = urlsplit(url)
+    if parsed.scheme.lower() not in {"http", "https"} or not parsed.hostname:
+        raise ValueError(f"{label} must use an HTTP(S) URL with a hostname")
+    if parsed.username or parsed.password:
+        raise ValueError(f"{label} must not contain credentials")
+    if parsed.query or parsed.fragment:
+        raise ValueError(f"{label} must not contain a query or fragment")
+    return url
+
+
+def _receiver_health_url(webhook_url: str, explicit_health_url: str | None) -> str:
+    if explicit_health_url:
+        return _validate_endpoint(explicit_health_url, label="CRM health URL")
+    parsed = urlsplit(_validate_endpoint(webhook_url, label="CRM webhook URL"))
+    return urlunsplit((parsed.scheme, parsed.netloc, "/health", "", ""))
+
+
+async def _receiver_ready(transport: CRMWebhookTransport, health_url: str) -> bool:
+    try:
+        return await transport.check_health(url=health_url)
+    except Exception:
+        # Receiver readiness is an external dependency. A cold start, timeout,
+        # or malformed response must defer delivery without claiming an event.
+        return False
+
+
 async def _deliver_with_adapters(
     *,
     event_id: UUID,
@@ -164,19 +201,18 @@ async def _deliver_with_adapters(
     transport: CRMWebhookTransport,
     webhook_url: str,
     webhook_secret: str,
+    health_url: str | None = None,
 ) -> dict[str, str | int]:
+    if not webhook_url or not webhook_secret:
+        return {"status": "disabled"}
+
+    receiver_health_url = _receiver_health_url(webhook_url, health_url)
+    if not await _receiver_ready(transport, receiver_health_url):
+        return {"status": "deferred", "reason": "receiver_not_ready"}
+
     event = await store.claim(event_id)
     if event is None:
         return {"status": "skipped"}
-
-    if not webhook_url or not webhook_secret:
-        finalized = await store.finalize(
-            event,
-            kind="defer",
-            status_code=None,
-            error_category="configuration_missing",
-        )
-        return {"status": "deferred" if finalized else "lost_claim"}
 
     status_code: int | None = None
     try:
@@ -213,25 +249,25 @@ async def deliver_event(
     webhook_secret: str | None = None,
 ) -> dict[str, str | int]:
     settings = get_settings()
+    webhook_url = settings.CRM_WEBHOOK_URL if webhook_url is None else webhook_url
+    webhook_secret = settings.CRM_WEBHOOK_SECRET if webhook_secret is None else webhook_secret
+    if not webhook_url or not webhook_secret:
+        return {"status": "disabled"}
     async with async_session_factory() as db:
         return await _deliver_with_adapters(
             event_id=event_id,
             store=PostgresCRMOutboxStore(db),
             transport=transport or HttpxCRMWebhookTransport(),
-            webhook_url=(
-                settings.CRM_WEBHOOK_URL
-                if webhook_url is None
-                else webhook_url
-            ),
-            webhook_secret=(
-                settings.CRM_WEBHOOK_SECRET
-                if webhook_secret is None
-                else webhook_secret
-            ),
+            webhook_url=webhook_url,
+            webhook_secret=webhook_secret,
+            health_url=getattr(settings, "CRM_WEBHOOK_HEALTH_URL", "") or None,
         )
 
 
-async def recover_due_events(limit: int = RECOVERY_BATCH_SIZE) -> dict[str, int]:
+async def recover_due_events(limit: int = RECOVERY_BATCH_SIZE) -> dict[str, str | int]:
+    settings = get_settings()
+    if not settings.CRM_WEBHOOK_URL or not settings.CRM_WEBHOOK_SECRET:
+        return {"status": "disabled", "due": 0, "processed": 0}
     bounded_limit = max(1, min(limit, 100))
     async with async_session_factory() as db:
         due_ids = await PostgresCRMOutboxStore(db).due_ids(bounded_limit)
