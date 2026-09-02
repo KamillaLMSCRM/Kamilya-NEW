@@ -67,7 +67,7 @@ describe('/ai/generate job workflow parity', () => {
     expect(screen.getByRole('button', { name: 'Открыть существующий документ' })).toBeInTheDocument();
   });
 
-  it('returns a restored failed job to the document form without submitting automatically', async () => {
+  it('does not let an old failed job take over a new generation form', async () => {
     localStorage.clear();
     const failedJob = {
       ...activeJob,
@@ -85,10 +85,9 @@ describe('/ai/generate job workflow parity', () => {
     });
     render(<AIGeneratePage />);
 
-    expect(await screen.findByText('SoftTimeLimitExceeded: generation failed')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Создать новый курс' }));
-
     expect(await screen.findByText(/Перетащите документы/)).toBeInTheDocument();
+    expect(screen.queryByText('SoftTimeLimitExceeded: generation failed')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Создать новый курс' })).not.toBeInTheDocument();
     expect(apiMock.post).not.toHaveBeenCalledWith('/v1/ai/generate-course', expect.anything());
   });
 });

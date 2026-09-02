@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useReducer } from 'react';
 import { api } from '@/lib/api';
 import {
-  selectLatestTerminalCourseJob,
   selectOldestActiveCourseJob,
   type AIGenerationJob,
 } from '@/lib/aiGenerationJobs';
@@ -33,8 +32,8 @@ export function useGenerationWorkflow() {
       dispatch({ type: 'job_active', job: activeJob });
       return;
     }
-    const terminalJob = selectLatestTerminalCourseJob(response.data);
-    if (terminalJob) dispatch({ type: 'job_terminal', job: terminalJob });
+    localStorage.removeItem(activeJobStorageKey);
+    dispatch({ type: 'job_cleared' });
   }, []);
 
   const restoreActiveJob = useCallback(async () => {
@@ -53,7 +52,7 @@ export function useGenerationWorkflow() {
       const job = response.data;
       if (isActive(job)) dispatch({ type: 'job_active', job });
       else if (job.status === 'completed' && job.course_id) dispatch({ type: 'job_completed', job });
-      else if (job.status === 'failed' || job.status === 'cancelled') dispatch({ type: 'job_terminal', job });
+      else dispatch({ type: 'job_cleared' });
       if (!isActive(job)) localStorage.removeItem(activeJobStorageKey);
     } catch (error: any) {
       // An impersonation/tenant switch can leave a stale id. On a confirmed

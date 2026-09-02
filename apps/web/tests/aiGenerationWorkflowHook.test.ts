@@ -34,7 +34,7 @@ describe('AI generation workflow recovery', () => {
     expect(apiMock.get).toHaveBeenNthCalledWith(2, '/v1/ai/jobs');
   });
 
-  it('shows the latest failed course generation when no active job exists', async () => {
+  it('keeps a new generation form on documents when only a failed job exists', async () => {
     const failedJob = {
       ...activeJob,
       id: 'failed-course-job',
@@ -49,8 +49,9 @@ describe('AI generation workflow recovery', () => {
 
     await act(async () => { await result.current.restoreActiveJob(); });
 
-    await waitFor(() => expect(result.current.currentJob?.id).toBe('failed-course-job'));
-    expect(result.current.step).toBe('generate');
+    await waitFor(() => expect(apiMock.get).toHaveBeenCalledWith('/v1/ai/jobs'));
+    expect(result.current.currentJob).toBeNull();
+    expect(result.current.step).toBe('documents');
     expect(localStorage.getItem('ai_active_job_id')).toBeNull();
   });
 });

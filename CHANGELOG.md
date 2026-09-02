@@ -25,6 +25,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Opening course generation now restores only an active job for the current
+  tenant; an older failed or cancelled job no longer forces a new form onto the
+  generation-progress step.
 - KZ release controller now supports VM126's stock Python 3.10 runtime, and the
   protected production workflow invokes only the installed fixed-command wrapper.
 - AI-generated quizzes now keep concise source-grounded answers separate from
