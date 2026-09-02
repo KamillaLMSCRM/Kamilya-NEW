@@ -137,7 +137,7 @@ export const ROUTES: readonly AppRoute[] = [
   { id: 'my-quizzes', href: '/my-quizzes', capability: 'learn', labelKey: 'sidebar.myTests', section: 'learning', icon: 'quiz', order: 30, sidebar: true, commandPalette: true },
   { id: 'certificates', href: '/certificates', capability: 'learn', match: 'prefix', labelKey: 'nav.certificates', section: 'learning', icon: 'certificate', order: 40, sidebar: true, commandPalette: true },
   { id: 'learner-course', href: '/courses', capability: 'learn', match: 'learner-course' },
-  { id: 'learning-paths-learn', href: '/learning-paths', capability: 'learn' },
+  { id: 'learning-paths-learn', href: '/learning-paths', capability: 'learn', labelKey: 'learningPaths.title', section: 'learning', icon: 'route', order: 25, sidebar: true, commandPalette: true },
   { id: 'surveys-learn', href: '/surveys', capability: 'learn' },
 
   { id: 'platform', href: '/admin/super', capability: 'manage_platform', match: 'prefix', labelKey: 'superadmin.tenants.title', section: 'platform', icon: 'building', order: 10, sidebar: true, commandPalette: true },
