@@ -2,8 +2,7 @@ import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import {
   getAccessToken,
   clearStoredAuth,
-  setAuth,
-  AuthUser,
+  forceRefreshAndStoreSession,
 } from '@/lib/auth';
 import { getAuthenticationEntry } from '@/lib/rolePolicy';
 
@@ -23,43 +22,12 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Track in-flight refresh so we don't fan out N refresh requests when
-// N components fire 401s in parallel. The first request triggers the
-// refresh; all other 401s in the same tick await the same promise.
-let _refreshInFlight: Promise<boolean> | null = null;
-
 export function isPublicAuthenticationRequest(url?: string): boolean {
   if (!url) return false;
   const normalized = url.toLowerCase();
   return normalized.includes('/auth/')
     || normalized.includes('/v1/invitations/')
     || (normalized.includes('/v1/kiosks/') && normalized.endsWith('/identify'));
-}
-
-async function _refresh(): Promise<boolean> {
-  if (_refreshInFlight) return _refreshInFlight;
-  _refreshInFlight = (async () => {
-    try {
-      const r = await fetch(`${API_BASE_URL}/v1/auth/refresh`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
-      });
-      if (!r.ok) return false;
-      const data = await r.json();
-      if (data.access_token && data.user) {
-        setAuth(data.access_token, data.user as AuthUser);
-        return true;
-      }
-      return false;
-    } catch {
-      return false;
-    } finally {
-      _refreshInFlight = null;
-    }
-  })();
-  return _refreshInFlight;
 }
 
 api.interceptors.response.use(
@@ -81,7 +49,7 @@ api.interceptors.response.use(
       const isPublicAuthEndpoint = isPublicAuthenticationRequest(original.url);
       if (!isPublicAuthEndpoint) {
         original._retried = true;
-        const ok = await _refresh();
+        const ok = await forceRefreshAndStoreSession();
         if (ok) {
           // Replay the original request with the fresh token.
           const token = getAccessToken();

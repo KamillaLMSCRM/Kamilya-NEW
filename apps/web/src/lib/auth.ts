@@ -9,6 +9,11 @@
 // server-side and returns a fresh access token. The cookie itself is
 // never visible to JavaScript.
 //
+import {
+  refreshSession,
+  runExclusiveAuthAction,
+} from '@/lib/authRefreshCoordinator';
+
 // Trade-off: a full page reload briefly interrupts the session (one
 // network round-trip to /refresh). In exchange, XSS cannot directly
 // exfiltrate the access or refresh token.
@@ -63,14 +68,13 @@ export interface AuthUser {
 // We follow the same convention so the paths line up everywhere. No
 // rewrite involved — this hits the backend directly cross-origin.
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
-const REFRESH_ENDPOINT = `${API_BASE}/v1/auth/refresh`;
 const LOGOUT_ENDPOINT = `${API_BASE}/v1/auth/logout`;
 const SWITCH_ROLE_ENDPOINT = `${API_BASE}/v1/auth/switch-role`;
 
 let _accessToken: string | null = null;
 let _user: AuthUser | null = null;
-let _refreshInflight: Promise<string | null> | null = null;
 let _authEpoch = 0;
+let _refreshAndStoreInflight: Promise<boolean> | null = null;
 const _listeners = new Set<(state: { accessToken: string | null; user: AuthUser | null }) => void>();
 
 
@@ -117,51 +121,51 @@ function _emit(): void {
  * and returns a fresh access token. On success, populates the in-memory
  * state. On failure, leaves state empty (user must log in again).
  *
- * Concurrent callers share a single in-flight request via
- * _refreshInflight, so a single page reload doesn't trigger N refresh
- * requests when N components mount simultaneously.
+ * Concurrent callers share one refresh-and-store operation, so all callers
+ * observe the same applied result and only one caller advances auth state.
  */
 export async function restoreSession(): Promise<boolean> {
   if (_accessToken) {
     return true;
   }
-  if (_refreshInflight) {
-    const token = await _refreshInflight;
-    return token !== null;
-  }
+
+  return refreshAndStoreSession();
+}
+
+/**
+ * Refresh and apply the result once for this tab. Both startup restoration
+ * and API 401 recovery use this boundary so one caller cannot invalidate a
+ * sibling caller's epoch after the shared refresh promise resolves.
+ */
+export function refreshAndStoreSession(): Promise<boolean> {
+  return refreshAndStoreSessionInternal(false);
+}
+
+/**
+ * Force refresh after an API 401. Unlike startup restoration, this must not
+ * accept the currently held access token because the failed request used it.
+ */
+export function forceRefreshAndStoreSession(): Promise<boolean> {
+  return refreshAndStoreSessionInternal(true);
+}
+
+function refreshAndStoreSessionInternal(force: boolean): Promise<boolean> {
+  if (!force && _accessToken) return Promise.resolve(true);
+  if (_refreshAndStoreInflight) return _refreshAndStoreInflight;
 
   const startedAtEpoch = _authEpoch;
-  _refreshInflight = (async () => {
-    try {
-      const r = await fetch(REFRESH_ENDPOINT, {
-        method: 'POST',
-        credentials: 'include',  // send httpOnly refresh cookie
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),  // refresh token comes from cookie, body is empty
-      });
-      if (!r.ok) {
-        return null;
-      }
-      const data = await r.json();
-      if (startedAtEpoch !== _authEpoch) {
-        return null;
-      }
-      if (data.access_token && data.user) {
-        _accessToken = data.access_token;
-        _user = data.user;
-        _emit();
-        return data.access_token;
-      }
-      return null;
-    } catch {
-      return null;
-    } finally {
-      _refreshInflight = null;
-    }
-  })();
+  _refreshAndStoreInflight = (async () => {
+    const data = await refreshSession();
+    if (startedAtEpoch !== _authEpoch || !data) return false;
+    _accessToken = data.access_token;
+    _user = data.user as AuthUser;
+    _emit();
+    return true;
+  })().finally(() => {
+    _refreshAndStoreInflight = null;
+  });
 
-  const token = await _refreshInflight;
-  return token !== null;
+  return _refreshAndStoreInflight;
 }
 
 
@@ -171,20 +175,19 @@ export async function restoreSession(): Promise<boolean> {
  */
 export async function logout(): Promise<void> {
   clearAuth();
-  const abortRefresh = _refreshInflight;
-  _refreshInflight = null;
-  try {
-    await fetch(LOGOUT_ENDPOINT, {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({}),
-    });
-  } catch {
-    // Ignore network errors — we still want to clear local state.
-  } finally {
-    await abortRefresh?.catch(() => null);
-  }
+  await _refreshAndStoreInflight?.catch(() => false);
+  await runExclusiveAuthAction(async () => {
+    try {
+      await fetch(LOGOUT_ENDPOINT, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+    } catch {
+      // Ignore network errors — we still want to clear local state.
+    }
+  });
 }
 
 
