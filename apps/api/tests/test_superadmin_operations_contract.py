@@ -21,6 +21,7 @@ from app.modules.admin.superadmin.operations import (
     REQUIRED_CELERY_TASKS,
     STALE_AI_JOB_RECOVERY_CONFIRM_TOKEN,
     STALE_AI_JOB_TERMINAL_STATUS,
+    CRMLeadOutboxOperationsSummary,
     CRMLeadOutboxRequeueRequest,
     StaleAIJobRecoveryRequest,
     SyntheticCleanupRequest,
@@ -104,6 +105,21 @@ def test_crm_outbox_requeue_is_dry_run_and_requires_explicit_confirmation():
         CRMLeadOutboxRequeueRequest(limit=101)
 
 
+def test_crm_operations_summary_exposes_disabled_held_state():
+    summary = CRMLeadOutboxOperationsSummary(
+        integration_status="disabled",
+        held_count=147,
+        pending_count=41,
+        retry_count=106,
+        claimed_count=0,
+        dead_count=0,
+        delivered_count=0,
+    )
+
+    assert summary.integration_status == "disabled"
+    assert summary.held_count == 147
+
+
 def test_runtime_summary_is_safe_and_gracefully_allows_missing_metrics():
     host, process, filesystem = _runtime_summaries()
 
@@ -159,9 +175,36 @@ def test_celery_probe_returns_only_required_task_names(monkeypatch):
 @pytest.mark.asyncio
 async def test_celery_probe_timeout_returns_unavailable(monkeypatch):
     monkeypatch.setattr(operations, "CELERY_INSPECT_TIMEOUT_SECONDS", 0.01)
+    monkeypatch.setattr(operations, "CELERY_INSPECT_OUTER_MARGIN_SECONDS", 0.01)
     monkeypatch.setattr(operations, "_inspect_celery_worker", lambda: time.sleep(0.1))
 
     summary = await operations._celery_worker_summary()
 
     assert summary.status == "unavailable"
     assert summary.reachable is False
+
+
+@pytest.mark.asyncio
+async def test_celery_probe_outer_timeout_allows_inspect_margin(monkeypatch):
+    calls = 0
+
+    class SlowInspector:
+        def registered(self):
+            nonlocal calls
+            calls += 1
+            time.sleep(0.04)
+            return {"worker-1": list(REQUIRED_CELERY_TASKS)}
+
+    monkeypatch.setattr(operations, "CELERY_INSPECT_TIMEOUT_SECONDS", 0.05)
+    monkeypatch.setattr(operations, "CELERY_INSPECT_OUTER_MARGIN_SECONDS", 0.05)
+    monkeypatch.setattr(
+        operations.celery_app.control,
+        "inspect",
+        lambda **kwargs: SlowInspector(),
+    )
+
+    summary = await operations._celery_worker_summary()
+
+    assert summary.status == "available"
+    assert summary.worker_count == 1
+    assert calls == 1
