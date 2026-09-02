@@ -5,7 +5,7 @@ from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from sqlalchemy import func, select, text
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
 from app.core.config import get_settings
@@ -32,7 +32,7 @@ load_all_models()
 logger = logging.getLogger(__name__)
 
 
-async def _set_tenant(db, tenant_id):
+async def _set_tenant(db: AsyncSession, tenant_id: UUID) -> None:
     await db.execute(text("SELECT set_current_tenant(:tid)"), {"tid": str(tenant_id)})
 
 

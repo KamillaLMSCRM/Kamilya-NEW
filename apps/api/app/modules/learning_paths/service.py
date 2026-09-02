@@ -10,7 +10,8 @@ which may also have been granted manually or by an organisation rule.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
+from typing import Any, cast
 from uuid import UUID
 
 from sqlalchemy import select
@@ -18,12 +19,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.enrollment import Enrollment
+from app.modules.learning_cycles.models import LearningPathCycleInstance, RecurringLearningRule
 from app.modules.learning_paths.models import (
     LearningPath,
     LearningPathAssignment,
     LearningPathCourse,
 )
-from app.modules.learning_cycles.models import LearningPathCycleInstance, RecurringLearningRule
 
 
 @dataclass(frozen=True)
@@ -52,7 +53,7 @@ def path_step_states(
             state = "available"
         else:
             state = "locked"
-        states.append(StepState(course_id=step.course_id, state=state))
+        states.append(StepState(course_id=cast(UUID, step.course_id), state=state))
         if step.required and step.course_id not in completed_course_ids:
             previous_required_complete = False
     return states
@@ -111,7 +112,7 @@ async def _schedule_recurrence_after_completion(
     ):
         return
 
-    next_run_at = completed_at + timedelta(days=path.recurrence_cadence_days)
+    next_run_at = completed_at + timedelta(days=cast(int, path.recurrence_cadence_days))
     rule = await db.scalar(
         select(RecurringLearningRule)
         .where(
@@ -137,8 +138,9 @@ async def _schedule_recurrence_after_completion(
             .with_for_update()
         )
         if cycle is not None and cycle.status != "completed":
-            cycle.status = "completed"
-            cycle.completed_at = completed_at
+            writable_cycle = cast(Any, cycle)
+            writable_cycle.status = "completed"
+            writable_cycle.completed_at = completed_at
 
 
 async def sync_assignment_enrollments(
@@ -152,7 +154,7 @@ async def sync_assignment_enrollments(
     The function does not commit. Callers can include program updates, course
     completion and enrollment materialization in the same transaction.
     """
-    now = now or datetime.now(timezone.utc)
+    now = now or datetime.now(UTC)
     if (
         assignment.status != "active"
         or assignment.starts_at is not None
@@ -228,7 +230,7 @@ async def sync_learning_path_enrollments_after_course_completion(
     return_completed_assignments: bool = False,
 ) -> int | list[LearningPathAssignment]:
     """Release next steps after a learner completes any course."""
-    now = now or datetime.now(timezone.utc)
+    now = now or datetime.now(UTC)
     result = await db.execute(
         select(LearningPathAssignment)
         .join(LearningPath, LearningPath.id == LearningPathAssignment.path_id)

@@ -270,7 +270,7 @@ export default function LearningPathsPage() {
     setRecurrenceDueDays(detail.recurrence_due_days == null ? '' : String(detail.recurrence_due_days));
   };
 
-  const selectPath = async (summary: PathSummary) => {
+  const selectPath = useCallback(async (summary: PathSummary) => {
     setSaving(true);
     try {
       const [detailResponse, assignmentResponse] = await Promise.all([
@@ -286,7 +286,7 @@ export default function LearningPathsPage() {
     } finally {
       setSaving(false);
     }
-  };
+  }, [t]);
 
   useEffect(() => {
     if (!canManage || loading || !contextualProgramId || contextualProgramApplied.current === contextualProgramId) return;
@@ -295,7 +295,7 @@ export default function LearningPathsPage() {
     contextualProgramApplied.current = contextualProgramId;
     setScenario(null);
     void selectPath(contextualProgram);
-  }, [canManage, contextualProgramId, loading, paths]);
+  }, [canManage, contextualProgramId, loading, paths, selectPath]);
 
   const updatePathList = (detail: PathDetail) => {
     setPaths((items) => {

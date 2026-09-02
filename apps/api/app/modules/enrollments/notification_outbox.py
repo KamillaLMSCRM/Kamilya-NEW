@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import cast
 from uuid import UUID
 
 from sqlalchemy import text
@@ -39,10 +40,10 @@ async def queue_manual_enrollment_notification(
     db: AsyncSession, *, tenant_id: UUID, enrollment_id: UUID, assigned_by: UUID
 ) -> UUID | None:
     """Insert in the caller's enrollment transaction without dispatching."""
-    return await db.scalar(
+    return cast(UUID | None, await db.scalar(
         text("SELECT enqueue_course_assignment_notification(:tenant_id, :enrollment_id, :assigned_by)"),
         {"tenant_id": tenant_id, "enrollment_id": enrollment_id, "assigned_by": assigned_by},
-    )
+    ))
 
 
 class PostgresAssignmentNotificationStore:

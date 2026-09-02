@@ -5,10 +5,11 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import UTC, datetime
+from typing import Any, cast
 from uuid import UUID
 
 from sqlalchemy import select, text
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
 from app.core.celery_app import celery_app
@@ -38,8 +39,31 @@ TRANSIENT_EMAIL_CATEGORIES = frozenset(
 logger = logging.getLogger(__name__)
 
 
-async def _set_tenant_context(db, tenant_id: UUID) -> None:
+async def _set_tenant_context(db: AsyncSession, tenant_id: UUID) -> None:
     await db.execute(text("SELECT set_current_tenant(:tid)"), {"tid": str(tenant_id)})
+
+
+def _mark_invitation_attempt(invite: UserInvitation) -> None:
+    writable = cast(Any, invite)
+    writable.delivery_last_attempt_at = datetime.now(UTC)
+    writable.delivery_attempt_count = (invite.delivery_attempt_count or 0) + 1
+    writable.delivery_failure_category = None
+    writable.delivery_failure_message = None
+
+
+def _mark_invitation_failure(invite: UserInvitation, *, status: str, category: str, message: str) -> None:
+    writable = cast(Any, invite)
+    writable.delivery_status = status
+    writable.delivery_failure_category = category[:64]
+    writable.delivery_failure_message = message[:500]
+
+
+def _mark_invitation_sent(invite: UserInvitation, message_id: str | None) -> None:
+    writable = cast(Any, invite)
+    writable.delivery_status = "sent"
+    writable.delivery_message_id = message_id
+    writable.delivery_failure_category = None
+    writable.delivery_failure_message = None
 
 
 async def _deliver(*, tenant_id: UUID, notification_id: UUID) -> dict[str, str]:
@@ -106,10 +130,7 @@ async def _deliver(*, tenant_id: UUID, notification_id: UUID) -> dict[str, str]:
 
         try:
             if invite is not None:
-                invite.delivery_last_attempt_at = datetime.now(UTC)
-                invite.delivery_attempt_count = (invite.delivery_attempt_count or 0) + 1
-                invite.delivery_failure_category = None
-                invite.delivery_failure_message = None
+                _mark_invitation_attempt(invite)
             message_id = await email.send_course_assignment(
                 to_email=learner.email,
                 company_name=company_name,
@@ -122,9 +143,12 @@ async def _deliver(*, tenant_id: UUID, notification_id: UUID) -> dict[str, str]:
         except EmailDeliveryError as exc:
             kind = "transient" if exc.category in TRANSIENT_EMAIL_CATEGORIES else "terminal"
             if invite is not None:
-                invite.delivery_status = "pending" if kind == "transient" else "failed"
-                invite.delivery_failure_category = exc.category[:64]
-                invite.delivery_failure_message = exc.message[:500]
+                _mark_invitation_failure(
+                    invite,
+                    status="pending" if kind == "transient" else "failed",
+                    category=exc.category,
+                    message=exc.message,
+                )
             await store.finalize(item, kind=kind, error_category=exc.category)
             return {"status": kind}
         except Exception:
@@ -233,16 +257,16 @@ async def _deliver_learning_path(*, tenant_id: UUID, notification_id: UUID) -> d
             return {"status": kind}
         except Exception:
             if invite is not None:
-                invite.delivery_status = "failed"
-                invite.delivery_failure_category = "internal_error"
-                invite.delivery_failure_message = "The program assignment email could not be sent."
+                _mark_invitation_failure(
+                    invite,
+                    status="failed",
+                    category="internal_error",
+                    message="The program assignment email could not be sent.",
+                )
             await store.finalize(item, kind="terminal", error_category="internal_error")
             return {"status": "dead"}
         if invite is not None:
-            invite.delivery_status = "sent"
-            invite.delivery_message_id = message_id
-            invite.delivery_failure_category = None
-            invite.delivery_failure_message = None
+            _mark_invitation_sent(invite, message_id)
         await store.finalize(item, kind="success", message_id=message_id)
         return {"status": "sent"}
 

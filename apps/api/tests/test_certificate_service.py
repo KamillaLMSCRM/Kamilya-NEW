@@ -137,6 +137,7 @@ async def test_program_certificate_returns_existing_row_idempotently():
 @pytest.mark.asyncio
 async def test_program_certificate_unique_race_uses_nested_savepoint_and_rereads_winner():
     from sqlalchemy.exc import IntegrityError
+
     from app.modules.certificates.service import issue_learning_path_certificate
 
     tenant, user, assignment, path, step, course, enrollment = _program_fixture()

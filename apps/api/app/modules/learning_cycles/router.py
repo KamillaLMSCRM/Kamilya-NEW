@@ -1,6 +1,7 @@
 # ruff: noqa: B008
 
 from datetime import UTC, datetime
+from typing import Any, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
@@ -34,7 +35,13 @@ from app.modules.learning_paths.models import LearningPath
 router = APIRouter(prefix="/learning-cycles", tags=["learning-cycles"])
 
 
-def occurrence_reporting_status(*, stored_status: str, due_at, completed_at, now=None) -> str:
+def occurrence_reporting_status(
+    *,
+    stored_status: str,
+    due_at: datetime,
+    completed_at: datetime | None,
+    now: datetime | None = None,
+) -> str:
     now = now or datetime.now(UTC)
     if completed_at is not None:
         return "completed_late" if completed_at > due_at else "completed"
@@ -74,8 +81,8 @@ async def list_rules(
 @router.get("/occurrences", response_model=list[OccurrenceResponse])
 async def list_latest_occurrences(
     db: AsyncSession = Depends(get_db),
-    user=Depends(require_role("methodologist")),
-):
+    user: Any = Depends(require_role("methodologist")),
+) -> list[OccurrenceResponse]:
     rows = (
         await db.execute(
             select(RecurringLearningAssignment, Enrollment.completed_at)
@@ -134,9 +141,9 @@ async def list_latest_occurrences(
             due_at=due_at,
             completed_at=cycle.completed_at,
             status=occurrence_reporting_status(
-                stored_status=cycle.status,
-                due_at=due_at,
-                completed_at=cycle.completed_at,
+                stored_status=cast(str, cycle.status),
+                due_at=cast(datetime, due_at),
+                completed_at=cast(datetime | None, cycle.completed_at),
             ),
         )
     return list(latest.values())
@@ -254,7 +261,7 @@ async def activate(
         )
         if path is None or path.recurrence_mode != "fixed_interval_after_completion":
             raise HTTPException(status.HTTP_409_CONFLICT, "Only published recurring learning paths support recurring delivery")
-        rule.status = "active"
+        cast(Any, rule).status = "active"
         # A path repeat is armed by completion of its current path assignment.
         return rule
     course = await db.scalar(select(Course).where(Course.id == rule.course_id, Course.tenant_id == user.tenant_id))

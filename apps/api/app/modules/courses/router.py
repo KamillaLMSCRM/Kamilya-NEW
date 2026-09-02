@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+from typing import cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -209,7 +210,7 @@ async def get_course_preview(
 
     source_documents: list[CoursePreviewSourceDocument] = []
     source_ids: list[UUID] = []
-    for value in course.source_document_ids or []:
+    for value in cast(list[object] | None, course.source_document_ids) or []:
         try:
             source_ids.append(UUID(str(value)))
         except (TypeError, ValueError):
@@ -851,10 +852,10 @@ async def _complete_course_for_user(db: AsyncSession, course_id: UUID, user: Use
         # assigned learning programs. Keep this in the same transaction as the
         # completion so learners never observe a completed step without the
         # newly available course enrollment.
+        from app.modules.certificates.service import issue_learning_path_certificate
         from app.modules.learning_paths.service import (
             sync_learning_path_enrollments_after_course_completion,
         )
-        from app.modules.certificates.service import issue_learning_path_certificate
 
         completed_program_assignments = await sync_learning_path_enrollments_after_course_completion(
             db,
@@ -862,6 +863,8 @@ async def _complete_course_for_user(db: AsyncSession, course_id: UUID, user: Use
             user_id=user.id,
             return_completed_assignments=True,
         )
+        if isinstance(completed_program_assignments, int):
+            completed_program_assignments = []
         for program_assignment in completed_program_assignments:
             await issue_learning_path_certificate(
                 db,

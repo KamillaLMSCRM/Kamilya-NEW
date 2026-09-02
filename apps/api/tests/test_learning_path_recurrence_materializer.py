@@ -2,18 +2,18 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
 import subprocess
 import sys
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
 import pytest
 
+from app.modules.enrollments import notification_tasks
 from app.modules.learning_cycles import service as cycle_service
 from app.modules.learning_cycles.models import LearningPathCycleInstance
-from app.modules.enrollments import notification_tasks
 from app.modules.learning_paths import service as path_service
 from app.modules.learning_paths.models import LearningPathAssignment
 
@@ -72,7 +72,7 @@ class _Db:
 
     async def flush(self):
         for value in self.added:
-            if isinstance(value, (LearningPathCycleInstance, LearningPathAssignment)) and value.id is None:
+            if isinstance(value, LearningPathCycleInstance | LearningPathAssignment) and value.id is None:
                 value.id = uuid4()
 
     async def commit(self):

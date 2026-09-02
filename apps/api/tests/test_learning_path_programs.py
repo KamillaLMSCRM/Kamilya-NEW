@@ -22,7 +22,6 @@ from app.modules.learning_paths.service import (
     sync_learning_path_enrollments_after_course_completion,
 )
 
-
 load_all_models()
 
 

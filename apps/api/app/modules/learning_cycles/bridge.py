@@ -1,6 +1,7 @@
 """Tenant-safe bridge between published LearningPaths and cycle rules."""
 
 from dataclasses import dataclass
+from typing import cast
 from uuid import UUID
 
 from sqlalchemy import select
@@ -27,7 +28,7 @@ class PathRuleSyncCounts:
 
 
 async def _active_student(db: AsyncSession, *, user_id: UUID, tenant_id: UUID) -> UUID | None:
-    return await db.scalar(
+    return cast(UUID | None, await db.scalar(
         select(User.id).where(
             User.id == user_id,
             User.tenant_id == tenant_id,
@@ -35,11 +36,11 @@ async def _active_student(db: AsyncSession, *, user_id: UUID, tenant_id: UUID) -
             User.is_active.is_(True),
             User.status == "active",
         )
-    )
+    ))
 
 
 def _is_recurring_path(path: LearningPath) -> bool:
-    return (
+    return bool(
         path.status == "published"
         and path.recurrence_mode == "fixed_interval_after_completion"
         and path.recurrence_cadence_days is not None
@@ -57,7 +58,7 @@ async def reconcile_learning_path_assignment(
     """Create or source-reconcile one rule without changing its assignment."""
     if not _is_recurring_path(path):
         return PathRuleReconcileResult(rule=None, action="skipped")
-    if await _active_student(db, user_id=user_id, tenant_id=path.tenant_id) is None:
+    if await _active_student(db, user_id=user_id, tenant_id=cast(UUID, path.tenant_id)) is None:
         return PathRuleReconcileResult(rule=None, action="skipped")
 
     rule = await db.scalar(
@@ -122,7 +123,7 @@ async def sync_learning_path_rules(
         outcome = await reconcile_learning_path_assignment(
             db,
             path=path,
-            user_id=assignment.user_id,
+            user_id=cast(UUID, assignment.user_id),
             created_by=created_by,
         )
         if outcome.action == "created":

@@ -1,13 +1,13 @@
 import ast
+import re
 from datetime import UTC, datetime
 from pathlib import Path
-import re
 from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
 from sqlalchemy.exc import IntegrityError
-from unittest.mock import AsyncMock, MagicMock, patch
 
 from app.modules.learning_cycles.bridge import (
     reconcile_learning_path_assignment,

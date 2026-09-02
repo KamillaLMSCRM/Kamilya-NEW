@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta, timezone
-from typing import cast
+from datetime import UTC, datetime, timedelta
+from typing import Any, cast
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -19,6 +19,9 @@ from app.models.users import User
 from app.modules.cohorts.models import Cohort, CohortMember
 from app.modules.enrollments.notification_outbox import (
     queue_learning_path_assignment_notification,
+)
+from app.modules.learning_cycles.bridge import (
+    reconcile_learning_path_assignment,
 )
 from app.modules.learning_paths.models import (
     LearningPath,
@@ -43,11 +46,7 @@ from app.modules.learning_paths.service import (
     path_step_states,
     sync_assignment_enrollments,
 )
-from app.modules.learning_cycles.bridge import (
-    reconcile_learning_path_assignment,
-)
 from app.modules.positions.models import Position
-
 
 logger = logging.getLogger(__name__)
 
@@ -273,7 +272,7 @@ async def list_my_paths(
     db: AsyncSession = Depends(get_db),
     user=Depends(get_current_user),
 ):
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     result = await db.execute(
         select(LearningPathAssignment)
         .join(LearningPath, LearningPath.id == LearningPathAssignment.path_id)
@@ -372,7 +371,7 @@ async def cancel_assignment(
         raise HTTPException(status_code=409, detail={"code": "completed_assignment_immutable"})
     if assignment.status != "cancelled":
         assignment.status = "cancelled"
-        assignment.cancelled_at = datetime.now(timezone.utc)
+        assignment.cancelled_at = datetime.now(UTC)
         await db.commit()
     return _assignment_response(assignment)
 
@@ -493,7 +492,7 @@ async def publish_path(
             detail={"code": "required_curriculum_step_required"},
         )
     path.status = "published"
-    path.published_at = datetime.now(timezone.utc)
+    path.published_at = datetime.now(UTC)
     return await _detail_then_commit(db, path)
 
 
@@ -673,7 +672,7 @@ async def assign_path_audience(
     due_at = payload.due_at
     default_due_days = getattr(path, "default_due_days", None)
     if due_at is None and default_due_days is not None:
-        due_at = (starts_at or datetime.now(timezone.utc)) + timedelta(days=default_due_days)
+        due_at = (starts_at or datetime.now(UTC)) + timedelta(days=default_due_days)
     _validate_dates(starts_at, due_at)
     targets = await _resolve_audience(db, payload, user.tenant_id)
     existing = await db.execute(
@@ -683,10 +682,10 @@ async def assign_path_audience(
             LearningPathAssignment.tenant_id == user.tenant_id,
         )
     )
-    by_user = {}
+    by_user: dict[UUID, Any] = {}
     for candidate in existing.scalars().all():
         if getattr(candidate, "recurrence_instance_id", None) is None:
-            by_user.setdefault(candidate.user_id, candidate)
+            by_user.setdefault(cast(UUID, candidate.user_id), candidate)
     added: list[LearningPathAssignment] = []
     notification_ids: list[UUID] = []
     skipped = 0
@@ -728,14 +727,14 @@ async def assign_path_audience(
             await reconcile_learning_path_assignment(
                 db,
                 path=path,
-                user_id=assignment.user_id,
+                user_id=cast(UUID, assignment.user_id),
                 created_by=_assignment_actor_id(user),
             )
         notification_id = await queue_learning_path_assignment_notification(
             db,
             tenant_id=user.tenant_id,
-            learning_path_assignment_id=assignment.id,
-            assigned_by=assignment.assigned_by,
+            learning_path_assignment_id=cast(UUID, assignment.id),
+            assigned_by=cast(UUID | None, assignment.assigned_by),
         )
         if notification_id is not None:
             notification_ids.append(notification_id)

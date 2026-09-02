@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Literal
+from typing import Literal, Self
 from uuid import UUID
 
 from pydantic import BaseModel, Field, model_validator
@@ -13,14 +13,19 @@ class RuleCreate(BaseModel):
     due_days: int | None = Field(None, ge=0, le=3650)
 
     @model_validator(mode="after")
-    def validate_target(self):
+    def validate_target(self) -> Self:
         if (self.course_id is None) == (self.learning_path_id is None):
             raise ValueError("exactly one recurring rule target is required")
         if self.learning_path_id is not None and (self.cadence_days is not None or self.due_days is not None):
             raise ValueError("LearningPath recurrence cadence and due are source-controlled")
         if self.course_id is not None and (self.cadence_days is None or self.due_days is None):
             raise ValueError("course recurrence cadence and due are required")
-        if self.course_id is not None and self.due_days > self.cadence_days:
+        if (
+            self.course_id is not None
+            and self.due_days is not None
+            and self.cadence_days is not None
+            and self.due_days > self.cadence_days
+        ):
             raise ValueError("due_days must not exceed cadence_days")
         return self
 

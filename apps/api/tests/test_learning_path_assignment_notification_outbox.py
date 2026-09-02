@@ -5,8 +5,8 @@ from __future__ import annotations
 import ast
 import asyncio
 import inspect
-from pathlib import Path
 import re
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 from uuid import uuid4
@@ -18,7 +18,6 @@ from app.modules.enrollments import notification_outbox, notification_tasks
 from app.modules.enrollments.notification_outbox import (
     ClaimedLearningPathAssignmentNotification,
 )
-
 
 MIGRATION = (
     Path(__file__).parents[1]

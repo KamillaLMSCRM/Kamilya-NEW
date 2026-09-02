@@ -1,10 +1,11 @@
 from datetime import datetime
+from typing import Any, Self
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
-def _validate_policy_values(values: dict):
+def _validate_policy_values(values: dict[str, Any]) -> dict[str, Any]:
     certificate_mode = values.get("certificate_mode", "none")
     certificate_validity_months = values.get("certificate_validity_months")
     recurrence_mode = values.get("recurrence_mode", "none")
@@ -42,7 +43,7 @@ class LearningPathCreate(BaseModel):
     recurrence_due_days: int | None = Field(default=None, ge=1, le=3650)
 
     @model_validator(mode="after")
-    def validate_policy(self):
+    def validate_policy(self) -> Self:
         _validate_policy_values(self.model_dump())
         return self
 
@@ -64,7 +65,7 @@ class LearningPathUpdate(BaseModel):
     recurrence_due_days: int | None = Field(default=None, ge=1, le=3650)
 
     @model_validator(mode="after")
-    def validate_explicit_policy(self):
+    def validate_explicit_policy(self) -> Self:
         values = self.model_dump(exclude_unset=True)
         if "certificate_mode" in values and values["certificate_mode"] == "none":
             if values.get("certificate_validity_months") is not None:

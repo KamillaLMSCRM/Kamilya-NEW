@@ -6,6 +6,7 @@ import logging
 import uuid
 from datetime import UTC, datetime
 from hashlib import sha256
+from typing import Any, cast
 from uuid import UUID
 
 from sqlalchemy import select
@@ -265,7 +266,7 @@ async def issue_learning_path_certificate(
     db: AsyncSession,
     *,
     tenant_id: UUID,
-    user,
+    user: Any,
     learning_path_assignment_id: UUID,
 ) -> Certificate | None:
     """Issue the immutable certificate for one completed LearningPath assignment."""
@@ -335,13 +336,13 @@ async def issue_learning_path_certificate(
     if enrollment is None:
         raise ValueError("Final learning program course is not completed")
 
-    existing = await db.scalar(
+    existing = cast(Certificate | None, await db.scalar(
         select(Certificate).where(
             Certificate.tenant_id == tenant.id,
             Certificate.user_id == user.id,
             Certificate.learning_path_assignment_id == assignment.id,
         )
-    )
+    ))
     if existing:
         return existing
 
@@ -377,22 +378,22 @@ async def issue_learning_path_certificate(
         await db.flush()
     except IntegrityError:
         await savepoint.rollback()
-        existing = await db.scalar(
+        existing = cast(Certificate | None, await db.scalar(
             select(Certificate).where(
                 Certificate.tenant_id == tenant.id,
                 Certificate.user_id == user.id,
                 Certificate.learning_path_assignment_id == assignment.id,
             )
-        )
+        ))
         if existing:
             return existing
         raise
     else:
         await savepoint.commit()
     await db.refresh(cert)
-    settings = await get_certificate_settings(db, tenant.id)
+    settings = await get_certificate_settings(db, cast(UUID, tenant.id))
     cert.metadata_["certificate_settings"] = settings.model_dump()
-    cert.metadata_["verification_url"] = _verification_url(settings, cert.certificate_number)
+    cert.metadata_["verification_url"] = _verification_url(settings, cast(str, cert.certificate_number))
     await db.flush()
     await _generate_and_store_pdf(db, cert)
     return cert
