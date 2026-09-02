@@ -200,3 +200,18 @@
 .stagger-4 { animation-delay: 0.20s; }
 .stagger-5 { animation-delay: 0.25s; }
 .stagger-6 { animation-delay: 0.30s; }
+
+/* Keep the fixed sidebar from shifting application content on small screens. */
+.app-shell-main {
+  margin-left: 0;
+}
+
+@media (min-width: 768px) {
+  .app-shell-main[data-sidebar-collapsed='true'] {
+    margin-left: 68px;
+  }
+
+  .app-shell-main[data-sidebar-collapsed='false'] {
+    margin-left: 240px;
+  }
+}
