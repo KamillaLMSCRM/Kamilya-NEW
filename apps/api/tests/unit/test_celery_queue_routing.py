@@ -19,6 +19,8 @@ from app.core.celery_app import celery_app
         ("users.deliver_invitation", "notifications"),
         ("enrollments.deliver_assignment_notification", "notifications"),
         ("enrollments.recover_assignment_notifications", "notifications"),
+        ("learning_cycles.materialize", "maintenance"),
+        ("learning_cycles.recover_due", "maintenance"),
     ],
 )
 def test_background_tasks_have_explicit_queues(task_name: str, expected_queue: str) -> None:
@@ -39,3 +41,16 @@ def test_long_tasks_have_limits_above_remote_converter_timeout() -> None:
         "time_limit": 1500,
     }
     assert celery_app.conf.broker_transport_options["visibility_timeout"] > 1500
+
+
+def test_recovery_tasks_run_every_minute() -> None:
+    schedule = celery_app.conf.beat_schedule
+
+    assert schedule["recover-due-learning-cycles"] == {
+        "task": "learning_cycles.recover_due",
+        "schedule": 60.0,
+    }
+    assert schedule["recover-due-assignment-notifications"] == {
+        "task": "enrollments.recover_assignment_notifications",
+        "schedule": 60.0,
+    }

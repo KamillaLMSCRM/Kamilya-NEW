@@ -81,6 +81,16 @@ celery_app.conf.update(
         "crm.deliver_lead_outbox": {"queue": "notifications"},
         "crm.recover_lead_outbox": {"queue": "notifications"},
     },
+    beat_schedule={
+        "recover-due-learning-cycles": {
+            "task": "learning_cycles.recover_due",
+            "schedule": 60.0,
+        },
+        "recover-due-assignment-notifications": {
+            "task": "enrollments.recover_assignment_notifications",
+            "schedule": 60.0,
+        },
+    },
     task_annotations={
         "ai.generate_course": {
             "soft_time_limit": 1200,

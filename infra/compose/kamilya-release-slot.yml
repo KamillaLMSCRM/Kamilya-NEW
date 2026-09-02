@@ -36,7 +36,7 @@ services:
 
   worker-ops:
     <<: *app-runtime
-    command: ["poetry", "run", "celery", "-A", "app.core.celery_app:celery_app", "worker", "-Q", "maintenance,notifications", "--concurrency=2", "--loglevel=INFO"]
+    command: ["poetry", "run", "celery", "-A", "app.core.celery_app:celery_app", "worker", "-B", "--schedule=/tmp/celerybeat-schedule", "-Q", "maintenance,notifications", "--concurrency=2", "--loglevel=INFO"]
     mem_limit: 2g
 
 networks:

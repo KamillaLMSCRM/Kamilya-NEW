@@ -19,6 +19,7 @@ EXPECTED_TASK_MODULES = {
     "app.modules.positions.tasks",
     "app.modules.users.tasks",
     "app.modules.enrollments.notification_tasks",
+    "app.modules.learning_cycles.tasks",
     "app.modules.candidate_assessments.retention_tasks",
     "app.modules.tenants.tasks",
 }
@@ -31,6 +32,8 @@ EXPECTED_TASK_NAMES = {
     "users.deliver_invitation",
     "enrollments.deliver_assignment_notification",
     "enrollments.recover_assignment_notifications",
+    "learning_cycles.materialize",
+    "learning_cycles.recover_due",
     "candidate_assessments.enforce_retention",
     "crm.deliver_lead_outbox",
     "crm.recover_lead_outbox",
