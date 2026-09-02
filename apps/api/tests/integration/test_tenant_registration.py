@@ -83,7 +83,6 @@ async def test_registration_succeeds_when_trial_email_provider_fails(
             "contact_name": "Айдана QA",
             "email": email,
             "email_code": registration_codes[email],
-            "password": "QA-registration-pass-2026!",
             "preferred_language": "ru",
             "intent": "try",
             "utm_source": "google",
@@ -119,6 +118,7 @@ async def test_registration_succeeds_when_trial_email_provider_fails(
     }
     assert user.role == "methodologist"
     assert user.tenant_id == tenant.id
+    assert user.password_hash is None
     assert tenant.is_financial_organization is False
     assigned_roles = set(
         (

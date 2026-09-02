@@ -66,6 +66,11 @@ The password login and email-OTP verification flows issue an access token and
 a refresh token, set the refresh cookie, and return the session payload needed
 by the frontend.
 
+Public tenant self-registration is passwordless. The purpose-bound registration
+email code proves control of the address, the first user is stored without a
+password hash, and subsequent sign-in uses the separate email-OTP flow. Password
+login remains available for existing or administratively configured accounts.
+
 ### Telegram code login
 
 A verified Telegram code also issues both an access token and a refresh token,

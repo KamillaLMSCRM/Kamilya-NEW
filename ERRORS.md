@@ -178,6 +178,12 @@ open, also record status, safe interim path, and review condition.
   `tsc --noEmit` completed successfully.
 - Prevention: use the checked-in frontend package scripts without Jest-specific
   flags unless the current Vitest CLI explicitly supports the requested option.
+- Recurrence (2026-09-02): running `pnpm run typecheck` concurrently with
+  `pnpm exec next build` produced only `TS6053` missing-file errors under
+  `.next/types/**` while the build was regenerating that directory. The build
+  completed successfully and the same typecheck passed immediately afterward.
+  Run typecheck and Next.js build sequentially because both commands read or
+  mutate `.next/types`; parallel execution is not valid release evidence.
 
 ## WIN-001 - Frontend build script used POSIX env syntax in PowerShell
 

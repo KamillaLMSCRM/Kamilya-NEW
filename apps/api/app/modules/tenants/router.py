@@ -513,7 +513,7 @@ async def register_tenant(
         id=uuid4(),
         tenant_id=tenant.id,
         email=payload.email,
-        password_hash=_ph.hash(payload.password),
+        password_hash=_ph.hash(payload.password) if payload.password else None,
         first_name=first_name,
         last_name=last_name,
         role="methodologist",

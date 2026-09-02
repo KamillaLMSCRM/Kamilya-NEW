@@ -54,7 +54,10 @@ class TenantRegisterRequest(PublicRegistrationLegalAcceptance):
     contact_name: str = Field(..., min_length=2, max_length=160)
     email: EmailStr
     email_code: str = Field(..., pattern=r"^\d{6}$")
-    password: str = Field(..., min_length=8, max_length=128)
+    # Optional for backward compatibility with older web deployments. New
+    # self-service registrations prove address ownership with the purpose-bound
+    # email code and intentionally create a passwordless first user.
+    password: str | None = Field(None, min_length=8, max_length=128)
     phone: str | None = Field(None, max_length=80)
     telegram_username: str | None = Field(None, max_length=80)
     employee_count_range: EmployeeCountRange | None = None

@@ -14,7 +14,6 @@ import { getRoleHome } from '@/lib/rolePolicy';
 import { getTenantRegistrationError } from '@/lib/tenantRegistrationError';
 import { formatKzPhone } from '@/lib/kzPhone';
 import { extractTenantAttribution } from '@/lib/tenantAttribution';
-import { useT } from '@/i18n/useT';
 import { PublicLegalFooter } from '@/components/legal/PublicLegalFooter';
 
 type TenantIntent = 'try' | 'demo' | 'buy';
@@ -28,7 +27,6 @@ const intentOptions: Array<{ value: TenantIntent; label: string; hint: string }>
 const employeeRanges = ['1-10', '11-50', '51-200', '201-1000', '1000+'];
 
 export default function TenantRegisterPage() {
-  const { t } = useT();
   const router = useRouter();
   const login = useAuthStore((state) => state.login);
   const [companyName, setCompanyName] = useState('');
@@ -37,7 +35,6 @@ export default function TenantRegisterPage() {
   const [emailCode, setEmailCode] = useState('');
   const [codeRequested, setCodeRequested] = useState(false);
   const [codeLoading, setCodeLoading] = useState(false);
-  const [password, setPassword] = useState('');
   const [phone, setPhone] = useState('');
   const [telegramUsername, setTelegramUsername] = useState('');
   const [employeeCountRange, setEmployeeCountRange] = useState('');
@@ -55,10 +52,9 @@ export default function TenantRegisterPage() {
       && email.trim().length > 3
       && codeRequested
       && /^\d{6}$/.test(emailCode)
-      && password.length >= 8
       && privacyAccepted
       && termsAccepted;
-  }, [companyName, contactName, email, emailCode, codeRequested, password, privacyAccepted, termsAccepted]);
+  }, [companyName, contactName, email, emailCode, codeRequested, privacyAccepted, termsAccepted]);
 
   function handleEmailChange(value: string) {
     setEmail(value);
@@ -107,7 +103,6 @@ export default function TenantRegisterPage() {
         contact_name: contactName.trim(),
         email: email.trim(),
         email_code: emailCode,
-        password,
         phone: phone.trim() || null,
         telegram_username: telegramUsername.trim() || null,
         employee_count_range: employeeCountRange || null,
@@ -240,7 +235,7 @@ export default function TenantRegisterPage() {
                 />
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div>
                 <div>
                   <label htmlFor="email" className="mb-1 block text-sm font-medium">
                     <span aria-hidden="true" className="mr-0.5 text-destructive">*</span>
@@ -269,26 +264,7 @@ export default function TenantRegisterPage() {
                   </Button>
                   <p className="mt-1 text-xs text-muted-foreground">
                     Кабинет будет создан только после подтверждения этого адреса.
-                  </p>
-                </div>
-                <div>
-                  <label htmlFor="password" className="mb-1 block text-sm font-medium">
-                    <span aria-hidden="true" className="mr-0.5 text-destructive">*</span>
-                    Пароль
-                  </label>
-                  <Input
-                    id="password"
-                    type="password"
-                    value={password}
-                    onChange={(event) => setPassword(event.target.value)}
-                    autoComplete="new-password"
-                    minLength={8}
-                    required
-                    aria-required="true"
-                    aria-describedby="password-hint"
-                  />
-                  <p id="password-hint" className="mt-1 text-xs text-muted-foreground">
-                    {t('auth.passwordMinHint')}
+                    Пароль не требуется: для следующих входов можно получать одноразовый код на email.
                   </p>
                 </div>
               </div>

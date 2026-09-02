@@ -186,16 +186,12 @@ describe("Register form a11y", () => {
     });
   });
 
-  it("password field has aria-describedby pointing to a hint", async () => {
+  it("keeps public registration passwordless and explains email-code sign-in", async () => {
     const { default: RegisterPage } = await import("@/app/register-tenant/page");
     render(<RegisterPage />);
-    const pw = document.getElementById("password") as HTMLInputElement;
-    expect(pw).toBeTruthy();
-    const describedBy = pw.getAttribute("aria-describedby");
-    expect(describedBy).toBeTruthy();
-    const hint = document.getElementById(describedBy!);
-    expect(hint).toBeTruthy();
-    expect(hint?.textContent).toMatch(/8/);
+    expect(document.querySelector('input[type="password"]')).toBeNull();
+    expect(document.body.textContent).toMatch(/Пароль не требуется/);
+    expect(document.body.textContent).toMatch(/одноразовый код на email/);
   });
 
   it("renders a <main> landmark with id=main-content", async () => {

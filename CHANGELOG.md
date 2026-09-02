@@ -20,6 +20,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Public trial registration no longer asks for or creates a password; verified
+  owners sign in again with a one-time email code, while existing password-based
+  accounts remain compatible.
 - Course creation now exposes the existing feature-gated YouTube caption
   analysis flow and returns confirmed imports to generation as selected sources.
 
