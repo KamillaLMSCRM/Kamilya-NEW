@@ -235,6 +235,8 @@ async def test_acceptance_activates_existing_staff_without_rewriting_hr_identity
     token_result = MagicMock()
     token_result.scalar_one_or_none.return_value = invitation
     tenant_context_result = MagicMock()
+    learning_path_result = MagicMock()
+    learning_path_result.scalar_one_or_none.return_value = None
     course_id = uuid4()
     course_result = MagicMock()
     course_result.scalars.return_value.all.return_value = [course_id]
@@ -272,7 +274,7 @@ async def test_acceptance_activates_existing_staff_without_rewriting_hr_identity
     )
     db = SimpleNamespace(
         execute=AsyncMock(
-            side_effect=[token_result, tenant_context_result, course_result]
+            side_effect=[token_result, tenant_context_result, learning_path_result, course_result]
         ),
         get=AsyncMock(return_value=user),
         commit=AsyncMock(),
@@ -296,6 +298,81 @@ async def test_acceptance_activates_existing_staff_without_rewriting_hr_identity
     assert invitation.status == "accepted"
     assert invitation.verification_method == "email_otp"
     db.commit.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_acceptance_continues_to_learning_paths_for_assignment_scoped_enrollment(
+    monkeypatch,
+):
+    tenant_id = uuid4()
+    user = _user(tenant_id=tenant_id, email="path-learner@example.kz")
+    invitation = UserInvitation(
+        id=uuid4(),
+        tenant_id=tenant_id,
+        email=user.email,
+        first_name=user.first_name,
+        last_name=user.last_name,
+        personnel_number=user.personnel_number,
+        role="student",
+        invited_by=uuid4(),
+        token="server-owned-path-continuation",
+        status="pending",
+        expires_at=datetime.now(UTC) + timedelta(days=1),
+        user_id=user.id,
+    )
+    token_result = MagicMock()
+    token_result.scalar_one_or_none.return_value = invitation
+    tenant_context_result = MagicMock()
+    learning_path_result = MagicMock()
+    learning_path_result.scalar_one_or_none.return_value = uuid4()
+    course_result = MagicMock()
+    course_result.scalars.return_value.all.return_value = [uuid4()]
+    user_payload = {
+        "id": str(user.id),
+        "tenant_id": str(tenant_id),
+        "email": user.email,
+        "first_name": user.first_name,
+        "last_name": user.last_name,
+        "role": "student",
+        "roles": ["student"],
+        "is_active": True,
+    }
+    monkeypatch.setattr(
+        "app.modules.users.invitations_service.consume_email_code",
+        AsyncMock(return_value={"user_id": str(user.id)}),
+    )
+    monkeypatch.setattr(
+        "app.modules.auth.service.build_user_payload",
+        AsyncMock(return_value=user_payload),
+    )
+    monkeypatch.setattr("app.modules.auth.service.issue_refresh_session", AsyncMock())
+    monkeypatch.setattr("app.modules.audit.service.log_action", AsyncMock())
+    db = SimpleNamespace(
+        execute=AsyncMock(
+            side_effect=[
+                token_result,
+                tenant_context_result,
+                learning_path_result,
+                course_result,
+            ]
+        ),
+        get=AsyncMock(return_value=user),
+        commit=AsyncMock(),
+    )
+
+    result = await accept_invitation(
+        db,
+        invitation.token,
+        code="123456",
+    )
+
+    assert result["next_url"] == "/learning-paths"
+    path_query = str(db.execute.await_args_list[2].args[0])
+    assert "enrollments.tenant_id" in path_query
+    assert "enrollments.user_id" in path_query
+    assert "learning_path_assignments.tenant_id" in path_query
+    assert "learning_path_assignments.user_id" in path_query
+    assert "learning_path_assignment_id IS NOT NULL" in path_query
 
 
 def test_user_response_exposes_only_login_access_boolean():

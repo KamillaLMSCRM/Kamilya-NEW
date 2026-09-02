@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+import logging
+from datetime import datetime, timedelta, timezone
 from typing import cast
 from uuid import UUID, uuid4
 
@@ -16,6 +17,9 @@ from app.models.department import Department
 from app.models.enrollment import Enrollment
 from app.models.users import User
 from app.modules.cohorts.models import Cohort, CohortMember
+from app.modules.enrollments.notification_outbox import (
+    queue_learning_path_assignment_notification,
+)
 from app.modules.learning_paths.models import (
     LearningPath,
     LearningPathAssignment,
@@ -33,12 +37,19 @@ from app.modules.learning_paths.schemas import (
     LearningPathDetail,
     LearningPathSummary,
     LearningPathUpdate,
+    _validate_policy_values,
 )
 from app.modules.learning_paths.service import (
     path_step_states,
     sync_assignment_enrollments,
 )
+from app.modules.learning_cycles.bridge import (
+    reconcile_learning_path_assignment,
+)
 from app.modules.positions.models import Position
+
+
+logger = logging.getLogger(__name__)
 
 
 router = APIRouter(
@@ -83,6 +94,14 @@ def _summary(path: LearningPath) -> LearningPathSummary:
         description=path.description,
         status=path.status,
         sequencing_mode=path.sequencing_mode,
+        scenario=getattr(path, "scenario", "custom"),
+        responsible_user_id=getattr(path, "responsible_user_id", None),
+        default_due_days=getattr(path, "default_due_days", None),
+        certificate_mode=getattr(path, "certificate_mode", "none"),
+        certificate_validity_months=getattr(path, "certificate_validity_months", None),
+        recurrence_mode=getattr(path, "recurrence_mode", "none"),
+        recurrence_cadence_days=getattr(path, "recurrence_cadence_days", None),
+        recurrence_due_days=getattr(path, "recurrence_due_days", None),
         course_count=len(path.courses),
         assignment_count=sum(
             assignment.status != "cancelled"
@@ -161,6 +180,30 @@ def _assignment_actor_id(user: User) -> UUID | None:
     return cast(UUID, user.id)
 
 
+async def _validate_responsible_user(
+    db: AsyncSession,
+    *,
+    responsible_user_id: UUID | None,
+    tenant_id: UUID,
+) -> None:
+    if responsible_user_id is None:
+        return
+    responsible_user = await db.scalar(
+        select(User.id).where(
+            User.id == responsible_user_id,
+            User.tenant_id == tenant_id,
+            User.is_active.is_(True),
+            User.status == "active",
+            User.role == "methodologist",
+        )
+    )
+    if responsible_user is None:
+        raise HTTPException(
+            status_code=422,
+            detail={"code": "responsible_user_must_be_active_tenant_methodologist"},
+        )
+
+
 def _validate_dates(starts_at: datetime | None, due_at: datetime | None) -> None:
     if starts_at is not None and due_at is not None and due_at < starts_at:
         raise HTTPException(
@@ -195,6 +238,12 @@ async def create_path(
     title = payload.title.strip()
     if not title:
         raise HTTPException(status_code=422, detail={"code": "blank_title"})
+    _validate_policy_values(payload.model_dump())
+    await _validate_responsible_user(
+        db,
+        responsible_user_id=payload.responsible_user_id,
+        tenant_id=user.tenant_id,
+    )
     path = LearningPath(
         id=uuid4(),
         tenant_id=user.tenant_id,
@@ -203,6 +252,14 @@ async def create_path(
         title=title,
         description=payload.description.strip(),
         sequencing_mode=payload.sequencing_mode,
+        scenario=payload.scenario,
+        responsible_user_id=payload.responsible_user_id,
+        default_due_days=payload.default_due_days,
+        certificate_mode=payload.certificate_mode,
+        certificate_validity_months=payload.certificate_validity_months,
+        recurrence_mode=payload.recurrence_mode,
+        recurrence_cadence_days=payload.recurrence_cadence_days,
+        recurrence_due_days=payload.recurrence_due_days,
         status="draft",
         created_by=user.id,
     )
@@ -338,7 +395,34 @@ async def update_path(
 ):
     path = await _get_path(db, path_id, user.tenant_id)
     _require_draft(path)
-    for key, value in payload.model_dump(exclude_unset=True).items():
+    changes = payload.model_dump(exclude_unset=True)
+    if "responsible_user_id" in changes:
+        await _validate_responsible_user(
+            db,
+            responsible_user_id=changes["responsible_user_id"],
+            tenant_id=user.tenant_id,
+        )
+    current_policy = {
+        "certificate_mode": getattr(path, "certificate_mode", "none"),
+        "certificate_validity_months": getattr(path, "certificate_validity_months", None),
+        "recurrence_mode": getattr(path, "recurrence_mode", "none"),
+        "recurrence_cadence_days": getattr(path, "recurrence_cadence_days", None),
+        "recurrence_due_days": getattr(path, "recurrence_due_days", None),
+    }
+    next_policy = {**current_policy, **{key: value for key, value in changes.items() if key in current_policy}}
+    if changes.get("certificate_mode") == "none":
+        next_policy["certificate_validity_months"] = None
+    if changes.get("recurrence_mode") == "none":
+        next_policy["recurrence_cadence_days"] = None
+        next_policy["recurrence_due_days"] = None
+    _validate_policy_values(next_policy)
+    changes.update({key: next_policy[key] for key in current_policy if key in changes or key.endswith("mode") and key in changes})
+    if "certificate_mode" in changes and changes["certificate_mode"] == "none":
+        changes["certificate_validity_months"] = None
+    if "recurrence_mode" in changes and changes["recurrence_mode"] == "none":
+        changes["recurrence_cadence_days"] = None
+        changes["recurrence_due_days"] = None
+    for key, value in changes.items():
         if key == "title":
             value = value.strip()
             if not value:
@@ -444,6 +528,14 @@ async def create_path_version(
         title=source.title,
         description=source.description,
         sequencing_mode=source.sequencing_mode,
+        scenario=getattr(source, "scenario", "custom"),
+        responsible_user_id=getattr(source, "responsible_user_id", None),
+        default_due_days=getattr(source, "default_due_days", None),
+        certificate_mode=getattr(source, "certificate_mode", "none"),
+        certificate_validity_months=getattr(source, "certificate_validity_months", None),
+        recurrence_mode=getattr(source, "recurrence_mode", "none"),
+        recurrence_cadence_days=getattr(source, "recurrence_cadence_days", None),
+        recurrence_due_days=getattr(source, "recurrence_due_days", None),
         status="draft",
         supersedes_id=source.id,
         created_by=user.id,
@@ -577,6 +669,12 @@ async def assign_path_audience(
     path = await _get_path(db, path_id, user.tenant_id)
     if path.status != "published":
         raise HTTPException(status_code=409, detail={"code": "only_published_versions_can_be_assigned"})
+    starts_at = payload.starts_at
+    due_at = payload.due_at
+    default_due_days = getattr(path, "default_due_days", None)
+    if due_at is None and default_due_days is not None:
+        due_at = (starts_at or datetime.now(timezone.utc)) + timedelta(days=default_due_days)
+    _validate_dates(starts_at, due_at)
     targets = await _resolve_audience(db, payload, user.tenant_id)
     existing = await db.execute(
         select(LearningPathAssignment).where(
@@ -585,8 +683,12 @@ async def assign_path_audience(
             LearningPathAssignment.tenant_id == user.tenant_id,
         )
     )
-    by_user = {assignment.user_id: assignment for assignment in existing.scalars().all()}
+    by_user = {}
+    for candidate in existing.scalars().all():
+        if getattr(candidate, "recurrence_instance_id", None) is None:
+            by_user.setdefault(candidate.user_id, candidate)
     added: list[LearningPathAssignment] = []
+    notification_ids: list[UUID] = []
     skipped = 0
     for user_id, (source, source_ref_id) in targets.items():
         assignment = by_user.get(user_id)
@@ -596,7 +698,7 @@ async def assign_path_audience(
         if assignment is not None and assignment.status in {"active", "completed"}:
             skipped += 1
             continue
-        if assignment is None:
+        if assignment is None or getattr(assignment, "recurrence_instance_id", None) is not None:
             assignment = LearningPathAssignment(
                 tenant_id=user.tenant_id,
                 path_id=path.id,
@@ -604,8 +706,8 @@ async def assign_path_audience(
                 source=source,
                 source_ref_id=source_ref_id,
                 assigned_by=_assignment_actor_id(user),
-                starts_at=payload.starts_at,
-                due_at=payload.due_at,
+                starts_at=starts_at,
+                due_at=due_at,
                 status="active",
             )
             db.add(assignment)
@@ -613,8 +715,8 @@ async def assign_path_audience(
             assignment.source = source
             assignment.source_ref_id = source_ref_id
             assignment.assigned_by = _assignment_actor_id(user)
-            assignment.starts_at = payload.starts_at
-            assignment.due_at = payload.due_at
+            assignment.starts_at = starts_at
+            assignment.due_at = due_at
             assignment.status = "active"
             assignment.cancelled_at = None
             assignment.completed_at = None
@@ -622,7 +724,37 @@ async def assign_path_audience(
     await db.flush()
     for assignment in added:
         await sync_assignment_enrollments(db, assignment)
+        if getattr(path, "recurrence_mode", "none") == "fixed_interval_after_completion":
+            await reconcile_learning_path_assignment(
+                db,
+                path=path,
+                user_id=assignment.user_id,
+                created_by=_assignment_actor_id(user),
+            )
+        notification_id = await queue_learning_path_assignment_notification(
+            db,
+            tenant_id=user.tenant_id,
+            learning_path_assignment_id=assignment.id,
+            assigned_by=assignment.assigned_by,
+        )
+        if notification_id is not None:
+            notification_ids.append(notification_id)
     await db.commit()
+    for notification_id in notification_ids:
+        try:
+            from app.modules.enrollments.notification_tasks import (
+                deliver_assignment_notification_task,
+            )
+
+            deliver_assignment_notification_task.apply_async(
+                args=[str(user.tenant_id), str(notification_id)],
+                kwargs={"notification_kind": "learning_path"},
+            )
+        except Exception:
+            logger.warning(
+                "Learning-path assignment notification dispatch failed; durable outbox recovery will retry",
+                exc_info=True,
+            )
     return LearningPathAssignmentResult(
         added=len(added),
         skipped=skipped,

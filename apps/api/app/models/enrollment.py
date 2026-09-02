@@ -28,6 +28,12 @@ class Enrollment(Base):
         nullable=True,
         index=True,
     )
+    learning_path_assignment_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("learning_path_assignments.id", ondelete="RESTRICT"),
+        nullable=True,
+        index=True,
+    )
     status = Column(String, nullable=False, default="enrolled")
     enrolled_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
     completed_at = Column(DateTime(timezone=True), nullable=True)

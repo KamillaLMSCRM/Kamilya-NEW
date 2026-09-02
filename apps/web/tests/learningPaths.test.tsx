@@ -31,6 +31,7 @@ function setupManager() {
   apiMock.get.mockImplementation((url: string) => {
     if (url === '/v1/learning-paths') return Promise.resolve({ data: [] });
     if (url.startsWith('/v1/courses')) return Promise.resolve({ data: [courseA, courseB] });
+    if (url.includes('role=methodologist')) return Promise.resolve({ data: [{ id: 'methodologist-1', full_name: 'Methodologist One' }] });
     return Promise.resolve({ data: [] });
   });
 }
@@ -245,5 +246,131 @@ describe('learning programs UI', () => {
     expect(screen.getByRole('link', { name: 'learningPaths.startCourse' })).toHaveAttribute('href', '/courses/course-b');
     expect(screen.queryByRole('link', { name: /Locked course/ })).not.toBeInTheDocument();
     await waitFor(() => expect(apiMock.get).toHaveBeenCalledWith('/v1/learning-paths/my'));
+  });
+
+  it('loads active methodologists and renders the responsible selector', async () => {
+    setupManager();
+    apiMock.get.mockImplementation((url: string) => {
+      if (url === '/v1/learning-paths') return Promise.resolve({ data: [] });
+      if (url.startsWith('/v1/courses')) return Promise.resolve({ data: [] });
+      if (url.includes('role=methodologist')) return Promise.resolve({ data: [{ id: 'methodologist-1', full_name: 'Methodologist One', email: 'methodologist@example.kz' }] });
+      return Promise.resolve({ data: [] });
+    });
+    render(<LearningPathsPage />);
+    fireEvent.click(await screen.findByRole('button', { name: /learningPaths\.new/ }));
+    await waitFor(() => expect(apiMock.get).toHaveBeenCalledWith('/v1/users?role=methodologist&is_active=true&per_page=500'));
+    expect(screen.getByRole('option', { name: /Methodologist One/ })).toBeInTheDocument();
+  });
+
+  it('hydrates responsible methodologist and default due period from an existing draft', async () => {
+    apiMock.get.mockImplementation((url: string) => {
+      if (url === '/v1/learning-paths') return Promise.resolve({ data: [{ id: 'program-1', title: 'Draft', status: 'draft', course_count: 0 }] });
+      if (url === '/v1/learning-paths/program-1') return Promise.resolve({ data: { id: 'program-1', title: 'Draft', status: 'draft', course_count: 0, courses: [], responsible_user_id: 'methodologist-1', default_due_days: 30 } });
+      if (url.endsWith('/assignments')) return Promise.resolve({ data: [] });
+      if (url.includes('role=methodologist')) return Promise.resolve({ data: [{ id: 'methodologist-1', full_name: 'Methodologist One' }] });
+      return Promise.resolve({ data: [] });
+    });
+    render(<LearningPathsPage />);
+    fireEvent.click(await screen.findByRole('button', { name: /Draft/ }));
+    expect(await screen.findByRole('option', { name: 'Methodologist One' })).toBeInTheDocument();
+    expect(screen.getByDisplayValue('30')).toBeInTheDocument();
+  });
+
+  it('persists both draft settings in create and update payloads, including blank due days as null', async () => {
+    setupManager();
+    apiMock.post.mockResolvedValue({ data: { id: 'program-1', title: 'Draft', status: 'draft', course_count: 0, courses: [], responsible_user_id: 'methodologist-1', default_due_days: null } });
+    apiMock.put.mockResolvedValue({ data: { id: 'program-1', title: 'Draft', status: 'draft', course_count: 0, courses: [], responsible_user_id: 'methodologist-1', default_due_days: null } });
+    render(<LearningPathsPage />);
+    fireEvent.click(await screen.findByRole('button', { name: /learningPaths\.new/ }));
+    fireEvent.change(screen.getByLabelText('learningPaths.name'), { target: { value: 'Draft' } });
+    fireEvent.change(screen.getByLabelText('learningPaths.responsibleMethodologist'), { target: { value: 'methodologist-1' } });
+    const dueInput = screen.getByPlaceholderText('learningPaths.defaultDueDaysPlaceholder');
+    fireEvent.change(dueInput, { target: { value: '' } });
+    fireEvent.click(screen.getByRole('button', { name: 'learningPaths.saveDraft' }));
+    await waitFor(() => expect(apiMock.post).toHaveBeenCalledWith('/v1/learning-paths', expect.objectContaining({ responsible_user_id: 'methodologist-1', default_due_days: null })));
+    fireEvent.change(dueInput, { target: { value: '45' } });
+    fireEvent.click(screen.getByRole('button', { name: 'learningPaths.saveDraft' }));
+    await waitFor(() => expect(apiMock.patch).toHaveBeenCalledWith('/v1/learning-paths/program-1', expect.objectContaining({ responsible_user_id: 'methodologist-1', default_due_days: 45 })));
+  });
+
+  it.each(['0', '3651', '1.5'])('blocks save for invalid default due days value %s', async (value) => {
+    setupManager();
+    render(<LearningPathsPage />);
+    fireEvent.click(await screen.findByRole('button', { name: /learningPaths\.new/ }));
+    fireEvent.change(screen.getByLabelText('learningPaths.name'), { target: { value: 'Draft' } });
+    fireEvent.change(screen.getByPlaceholderText('learningPaths.defaultDueDaysPlaceholder'), { target: { value } });
+    fireEvent.click(screen.getByRole('button', { name: 'learningPaths.saveDraft' }));
+    expect(apiMock.post).not.toHaveBeenCalled();
+  });
+
+  it('keeps legacy drafts without the new fields usable', async () => {
+    apiMock.get.mockImplementation((url: string) => {
+      if (url === '/v1/learning-paths') return Promise.resolve({ data: [{ id: 'legacy', title: 'Legacy', status: 'draft', course_count: 0 }] });
+      if (url === '/v1/learning-paths/legacy') return Promise.resolve({ data: { id: 'legacy', title: 'Legacy', status: 'draft', course_count: 0, courses: [] } });
+      if (url.endsWith('/assignments')) return Promise.resolve({ data: [] });
+      return Promise.resolve({ data: [] });
+    });
+    render(<LearningPathsPage />);
+    fireEvent.click(await screen.findByRole('button', { name: /Legacy/ }));
+    expect(await screen.findByDisplayValue('Legacy')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('learningPaths.defaultDueDaysPlaceholder')).toBeInTheDocument();
+  });
+
+  it('persists certificate and periodic knowledge refresh policies', async () => {
+    setupManager();
+    apiMock.post.mockResolvedValue({ data: { id: 'program-1', title: 'Draft', status: 'draft', course_count: 0, courses: [] } });
+    apiMock.put.mockResolvedValue({ data: { id: 'program-1', title: 'Draft', status: 'draft', course_count: 0, courses: [] } });
+    render(<LearningPathsPage />);
+    fireEvent.click(await screen.findByRole('button', { name: /learningPaths\.new/ }));
+    fireEvent.change(screen.getByLabelText('learningPaths.name'), { target: { value: 'Draft' } });
+    fireEvent.change(screen.getByLabelText('learningPaths.certificatePolicy'), { target: { value: 'final_course' } });
+    fireEvent.change(screen.getByPlaceholderText('learningPaths.certificateValidityPlaceholder'), { target: { value: '12' } });
+    fireEvent.change(screen.getByLabelText('learningPaths.knowledgeRefresh'), { target: { value: 'fixed_interval_after_completion' } });
+    fireEvent.change(screen.getByPlaceholderText('learningPaths.refreshEveryDaysPlaceholder'), { target: { value: '365' } });
+    fireEvent.change(screen.getByPlaceholderText('learningPaths.refreshDueDaysPlaceholder'), { target: { value: '21' } });
+    fireEvent.click(screen.getByRole('button', { name: 'learningPaths.saveDraft' }));
+    await waitFor(() => expect(apiMock.post).toHaveBeenCalledWith('/v1/learning-paths', expect.objectContaining({
+      certificate_mode: 'final_course',
+      certificate_validity_months: 12,
+      recurrence_mode: 'fixed_interval_after_completion',
+      recurrence_cadence_days: 365,
+      recurrence_due_days: 21,
+    })));
+  });
+
+  it('hydrates policy fields and normalizes disabled policies to null dependents', async () => {
+    apiMock.get.mockImplementation((url: string) => {
+      if (url === '/v1/learning-paths') return Promise.resolve({ data: [{ id: 'program-1', title: 'Draft', status: 'draft', course_count: 0 }] });
+      if (url === '/v1/learning-paths/program-1') return Promise.resolve({ data: { id: 'program-1', title: 'Draft', status: 'draft', course_count: 0, courses: [], certificate_mode: 'final_course', certificate_validity_months: 24, recurrence_mode: 'fixed_interval_after_completion', recurrence_cadence_days: 180, recurrence_due_days: 14 } });
+      if (url.endsWith('/assignments')) return Promise.resolve({ data: [] });
+      return Promise.resolve({ data: [] });
+    });
+    apiMock.put.mockResolvedValue({ data: { id: 'program-1', title: 'Draft', status: 'draft', course_count: 0, courses: [] } });
+    render(<LearningPathsPage />);
+    fireEvent.click(await screen.findByRole('button', { name: /Draft/ }));
+    expect(await screen.findByDisplayValue('24')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('180')).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('learningPaths.certificatePolicy'), { target: { value: 'none' } });
+    fireEvent.change(screen.getByLabelText('learningPaths.knowledgeRefresh'), { target: { value: 'none' } });
+    fireEvent.click(screen.getByRole('button', { name: 'learningPaths.saveDraft' }));
+    await waitFor(() => expect(apiMock.patch).toHaveBeenCalledWith('/v1/learning-paths/program-1', expect.objectContaining({
+      certificate_mode: 'none',
+      certificate_validity_months: null,
+      recurrence_mode: 'none',
+      recurrence_cadence_days: null,
+      recurrence_due_days: null,
+    })));
+  });
+
+  it('blocks inconsistent periodic knowledge refresh settings', async () => {
+    setupManager();
+    render(<LearningPathsPage />);
+    fireEvent.click(await screen.findByRole('button', { name: /learningPaths\.new/ }));
+    fireEvent.change(screen.getByLabelText('learningPaths.name'), { target: { value: 'Draft' } });
+    fireEvent.change(screen.getByLabelText('learningPaths.knowledgeRefresh'), { target: { value: 'fixed_interval_after_completion' } });
+    fireEvent.change(screen.getByPlaceholderText('learningPaths.refreshEveryDaysPlaceholder'), { target: { value: '30' } });
+    fireEvent.change(screen.getByPlaceholderText('learningPaths.refreshDueDaysPlaceholder'), { target: { value: '45' } });
+    fireEvent.click(screen.getByRole('button', { name: 'learningPaths.saveDraft' }));
+    expect(apiMock.post).not.toHaveBeenCalled();
   });
 });

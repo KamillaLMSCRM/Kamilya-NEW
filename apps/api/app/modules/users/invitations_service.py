@@ -805,6 +805,26 @@ async def accept_invitation(
         }
     )
     await issue_refresh_session(db, user, refresh_token, user_agent=accepted_user_agent, ip_address=accepted_ip)
+    from app.modules.learning_paths.models import LearningPathAssignment
+
+    learning_path_enrollment_id = (
+        await db.execute(
+            select(Enrollment.id)
+            .join(
+                LearningPathAssignment,
+                LearningPathAssignment.id == Enrollment.learning_path_assignment_id,
+            )
+            .where(
+                Enrollment.tenant_id == user.tenant_id,
+                Enrollment.user_id == user.id,
+                Enrollment.learning_path_assignment_id.is_not(None),
+                LearningPathAssignment.tenant_id == user.tenant_id,
+                LearningPathAssignment.user_id == user.id,
+                LearningPathAssignment.status == "active",
+            )
+            .limit(1)
+        )
+    ).scalar_one_or_none()
     course_ids = list(
         (
             await db.execute(
@@ -834,7 +854,10 @@ async def accept_invitation(
     )
     await db.commit()
 
-    next_url = f"/courses/{course_ids[0]}" if len(course_ids) == 1 else "/student"
+    if learning_path_enrollment_id is not None:
+        next_url = "/learning-paths"
+    else:
+        next_url = f"/courses/{course_ids[0]}" if len(course_ids) == 1 else "/student"
 
     return {
         "user_id": user.id,

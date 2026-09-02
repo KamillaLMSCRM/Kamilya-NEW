@@ -55,6 +55,14 @@ interface Document {
   index_status: DocumentIndexStatus;
 }
 
+interface LearningPathDetail {
+  id: string;
+  status: 'draft' | 'published' | 'archived';
+  courses: Array<{ course_id: string; required: boolean }>;
+}
+
+type ProgramAttachState = 'idle' | 'attaching' | 'attached' | 'failed';
+
 function parseRetryAfterSeconds(error: any): number | null {
   const headerValue = Number(error?.response?.headers?.['retry-after']);
   if (Number.isFinite(headerValue) && headerValue > 0) return Math.ceil(headerValue);
@@ -119,15 +127,17 @@ export default function AIGeneratePage() {
   const [courseFormat, setCourseFormat] = useState<CourseFormat>('automatic');
   const [manualModules, setManualModules] = useState(false);
   const [language, setLanguage] = useState('ru');
+  const [requestedProgramId, setRequestedProgramId] = useState<string | null>(null);
   const {
     currentJob,
+    programId,
     step: workflowStep,
     restoreActiveJob,
     startJob,
     refreshJob,
     cancelJob,
     prepareRetry,
-  } = useGenerationWorkflow();
+  } = useGenerationWorkflow(requestedProgramId);
   const step = currentJob ? workflowStep : pageStep;
   const [dragOver, setDragOver] = useState(false);
   const [uploadingCount, setUploadingCount] = useState(0);
@@ -172,6 +182,7 @@ export default function AIGeneratePage() {
   const [courseMeta, setCourseMeta] = useState<any | null>(null); // includes review_status, reviewer
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [publishSubmitting, setPublishSubmitting] = useState(false);
+  const [programAttachState, setProgramAttachState] = useState<ProgramAttachState>('idle');
   const [reviewDialog, setReviewDialog] = useState<{ open: boolean; status: 'approved' | 'needs_changes'; comment: string }>({
     open: false,
     status: 'approved',
@@ -214,6 +225,15 @@ export default function AIGeneratePage() {
   const [editingLessonId, setEditingLessonId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<{ title: string; content: string }>({ title: '', content: '' });
   const [editSaving, setEditSaving] = useState(false);
+
+  useEffect(() => {
+    const contextualProgramId = new URLSearchParams(window.location.search).get('program_id')?.trim();
+    setRequestedProgramId(contextualProgramId || null);
+  }, []);
+
+  useEffect(() => {
+    setProgramAttachState('idle');
+  }, [currentJob?.course_id, programId]);
 
   const selectedDocuments = documents.filter((doc) => selectedDocIds.includes(doc.id));
   const selectedNotReadyCount = selectedDocuments.filter((doc) => doc.embedding_status !== 'success').length;
@@ -504,12 +524,39 @@ export default function AIGeneratePage() {
     prepareRetry();
   };
 
+  const attachPublishedCourseToProgram = async (courseId: string) => {
+    if (!programId) return;
+    setProgramAttachState('attaching');
+    try {
+      const response = await api.get<LearningPathDetail>(`/v1/learning-paths/${encodeURIComponent(programId)}`);
+      const program = response.data;
+      if (!program || program.id !== programId || program.status !== 'draft' || !Array.isArray(program.courses)) {
+        setProgramAttachState('failed');
+        return;
+      }
+      if (program.courses.some((step) => step.course_id === courseId)) {
+        setProgramAttachState('attached');
+        return;
+      }
+      await api.put(`/v1/learning-paths/${encodeURIComponent(programId)}/curriculum`, {
+        steps: [
+          ...program.courses.map((step) => ({ course_id: step.course_id, required: step.required })),
+          { course_id: courseId, required: true },
+        ],
+      });
+      setProgramAttachState('attached');
+    } catch {
+      setProgramAttachState('failed');
+    }
+  };
+
   const publishCourse = async () => {
     if (!currentJob?.course_id) return;
     setPublishSubmitting(true);
     try {
       const res = await api.post(`/v1/courses/${currentJob.course_id}/publish`);
       setCourseMeta(res.data);
+      if (programId) await attachPublishedCourseToProgram(currentJob.course_id);
       toast.success('Курс опубликован', { description: 'Теперь его можно назначать обучающимся.' });
     } catch (error: any) {
       toast.error('Не удалось опубликовать курс', {
@@ -1323,6 +1370,18 @@ export default function AIGeneratePage() {
 
           {/* Footer actions */}
           <div className="flex flex-wrap gap-3">
+            {courseMeta?.status === 'published' && programId && (
+              <div className={`mb-4 rounded-xl border p-4 ${programAttachState === 'failed' ? 'border-destructive/30 bg-destructive/5' : 'border-primary/20 bg-primary/5'}`} role="status" aria-live="polite">
+                <div className="flex items-start gap-3">
+                  {programAttachState === 'attaching' ? <Loader2 className="mt-0.5 h-5 w-5 shrink-0 animate-spin text-primary" /> : programAttachState === 'attached' ? <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-success" /> : programAttachState === 'failed' ? <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" /> : <Layers3 className="mt-0.5 h-5 w-5 shrink-0 text-primary" />}
+                  <div className="min-w-0 flex-1"><p className="font-medium text-foreground">{t(`ai.programAttach.${programAttachState}` as never)}</p><p className="mt-1 text-sm text-muted-foreground">{programAttachState === 'failed' ? t('ai.programAttach.failedHint' as never) : t('ai.programAttach.hint' as never)}</p></div>
+                </div>
+                <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                  {(programAttachState === 'idle' || programAttachState === 'failed') && <button type="button" onClick={() => { const courseId = currentJob.course_id; if (courseId) void attachPublishedCourseToProgram(courseId); }} className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"><RefreshCw className="h-4 w-4" />{programAttachState === 'failed' ? t('ai.programAttach.retry' as never) : t('ai.programAttach.attach' as never)}</button>}
+                  <button type="button" onClick={() => { const targetProgramId = programId; router.push(programAttachState === 'attached' && targetProgramId ? `/learning-paths?program_id=${encodeURIComponent(targetProgramId)}` : '/learning-paths'); }} className="inline-flex items-center justify-center gap-2 rounded-xl border border-border px-4 py-2 text-sm text-foreground hover:bg-muted transition-colors">{programAttachState === 'attached' ? t('ai.programAttach.returnToProgram' as never) : t('ai.programAttach.returnToPrograms' as never)}<ChevronRight className="h-4 w-4" /></button>
+                </div>
+              </div>
+            )}
             {courseMeta?.review_status === 'approved' && courseMeta?.status !== 'published' && (
               <button
                 onClick={publishCourse}
@@ -1333,7 +1392,7 @@ export default function AIGeneratePage() {
                 {publishSubmitting ? 'Публикация...' : 'Опубликовать курс'}
               </button>
             )}
-            {courseMeta?.status === 'published' && (
+            {courseMeta?.status === 'published' && !programId && (
               <button
                 onClick={() => router.push('/assignments')}
                 className="flex-1 min-w-[180px] inline-flex items-center justify-center gap-1.5 rounded-xl bg-success px-4 py-3 text-sm font-medium text-success-foreground hover:bg-success/90 transition-colors"

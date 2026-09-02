@@ -11,6 +11,7 @@ PUBLIC_CERTIFICATE_VERIFICATION_BASE_URL = "https://app.kml.kz/verify/certificat
 class CertificateResponse(BaseModel):
     id: UUID
     course_id: UUID
+    learning_path_assignment_id: UUID | None = None
     certificate_number: str
     issued_at: datetime
     expires_at: datetime | None = None

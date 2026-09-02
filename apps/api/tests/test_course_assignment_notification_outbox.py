@@ -227,6 +227,14 @@ async def test_recovery_processes_bounded_due_rows_directly(monkeypatch):
             assert limit == 20
             return due
 
+    class EmptyLearningPathDueStore:
+        def __init__(self, _db):
+            pass
+
+        async def due(self, limit):
+            assert limit == 20
+            return []
+
     async def deliver(**kwargs):
         processed.append(kwargs)
         return {"status": "sent"}
@@ -242,8 +250,19 @@ async def test_recovery_processes_bounded_due_rows_directly(monkeypatch):
         notification_tasks, "async_sessionmaker", lambda *_args, **_kwargs: lambda: _SessionContext(object())
     )
     monkeypatch.setattr(notification_tasks, "PostgresAssignmentNotificationStore", DueStore)
+    monkeypatch.setattr(
+        notification_tasks,
+        "PostgresLearningPathAssignmentNotificationStore",
+        EmptyLearningPathDueStore,
+    )
     monkeypatch.setattr(notification_tasks, "_deliver", deliver)
-    assert await notification_tasks.recover_due_notifications() == {"due": 2, "processed": 2}
+    assert await notification_tasks.recover_due_notifications() == {
+        "due": 2,
+        "processed": 2,
+        "attempted": 2,
+        "succeeded": 2,
+        "failed": 0,
+    }
     assert processed == [{"tenant_id": item.tenant_id, "notification_id": item.id} for item in due]
     recovery_engine.dispose.assert_awaited_once()
 

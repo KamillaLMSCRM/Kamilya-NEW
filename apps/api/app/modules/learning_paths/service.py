@@ -10,7 +10,7 @@ which may also have been granted manually or by an organisation rule.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
 from sqlalchemy import select
@@ -23,6 +23,7 @@ from app.modules.learning_paths.models import (
     LearningPathAssignment,
     LearningPathCourse,
 )
+from app.modules.learning_cycles.models import LearningPathCycleInstance, RecurringLearningRule
 
 
 @dataclass(frozen=True)
@@ -63,6 +64,7 @@ async def _completed_course_ids(
     tenant_id: UUID,
     user_id: UUID,
     course_ids: list[UUID],
+    learning_path_assignment_id: UUID,
 ) -> set[UUID]:
     if not course_ids:
         return set()
@@ -72,6 +74,7 @@ async def _completed_course_ids(
             Enrollment.user_id == user_id,
             Enrollment.course_id.in_(course_ids),
             Enrollment.status == "completed",
+            Enrollment.learning_path_assignment_id == learning_path_assignment_id,
         )
     )
     return set(result.scalars().all())
@@ -92,6 +95,50 @@ async def _load_assignment_path(
     if path is None:
         raise RuntimeError("Learning-path assignment references a missing tenant path")
     return path
+
+
+async def _schedule_recurrence_after_completion(
+    db: AsyncSession,
+    assignment: LearningPathAssignment,
+    path: LearningPath,
+    *,
+    completed_at: datetime,
+) -> None:
+    if (
+        path.recurrence_mode != "fixed_interval_after_completion"
+        or path.recurrence_cadence_days is None
+        or path.recurrence_due_days is None
+    ):
+        return
+
+    next_run_at = completed_at + timedelta(days=path.recurrence_cadence_days)
+    rule = await db.scalar(
+        select(RecurringLearningRule)
+        .where(
+            RecurringLearningRule.tenant_id == assignment.tenant_id,
+            RecurringLearningRule.learning_path_id == assignment.path_id,
+            RecurringLearningRule.user_id == assignment.user_id,
+        )
+        .with_for_update()
+    )
+    # The rule is deliberately NULL while its current assignment is active.
+    # This guard makes repeated completion idempotent and prevents an older
+    # completion from moving an already-scheduled occurrence forward.
+    if rule is not None and rule.status == "active" and rule.next_run_at is None:
+        rule.next_run_at = next_run_at
+
+    if assignment.recurrence_instance_id is not None:
+        cycle = await db.scalar(
+            select(LearningPathCycleInstance)
+            .where(
+                LearningPathCycleInstance.id == assignment.recurrence_instance_id,
+                LearningPathCycleInstance.tenant_id == assignment.tenant_id,
+            )
+            .with_for_update()
+        )
+        if cycle is not None and cycle.status != "completed":
+            cycle.status = "completed"
+            cycle.completed_at = completed_at
 
 
 async def sync_assignment_enrollments(
@@ -123,6 +170,7 @@ async def sync_assignment_enrollments(
         tenant_id=assignment.tenant_id,
         user_id=assignment.user_id,
         course_ids=course_ids,
+        learning_path_assignment_id=assignment.id,
     )
     states = path_step_states(steps, completed, path.sequencing_mode)
     available_course_ids = [state.course_id for state in states if state.state == "available"]
@@ -133,6 +181,7 @@ async def sync_assignment_enrollments(
                 Enrollment.tenant_id == assignment.tenant_id,
                 Enrollment.user_id == assignment.user_id,
                 Enrollment.course_id.in_(available_course_ids),
+                Enrollment.learning_path_assignment_id == assignment.id,
             )
         )
         existing_course_ids = set(existing.scalars().all())
@@ -149,6 +198,7 @@ async def sync_assignment_enrollments(
                     tenant_id=assignment.tenant_id,
                     status="enrolled",
                     source="learning_path",
+                    learning_path_assignment_id=assignment.id,
                 )
             )
             added += 1
@@ -158,6 +208,12 @@ async def sync_assignment_enrollments(
     if completion_course_ids and completion_course_ids.issubset(completed):
         assignment.status = "completed"
         assignment.completed_at = now
+        await _schedule_recurrence_after_completion(
+            db,
+            assignment,
+            path,
+            completed_at=now,
+        )
     if added:
         await db.flush()
     return added
@@ -169,7 +225,8 @@ async def sync_learning_path_enrollments_after_course_completion(
     tenant_id: UUID,
     user_id: UUID,
     now: datetime | None = None,
-) -> int:
+    return_completed_assignments: bool = False,
+) -> int | list[LearningPathAssignment]:
     """Release next steps after a learner completes any course."""
     now = now or datetime.now(timezone.utc)
     result = await db.execute(
@@ -185,6 +242,12 @@ async def sync_learning_path_enrollments_after_course_completion(
         )
     )
     added = 0
+    completed_assignments: list[LearningPathAssignment] = []
     for assignment in result.scalars().unique().all():
+        was_active = assignment.status == "active"
         added += await sync_assignment_enrollments(db, assignment, now=now)
+        if was_active and assignment.status == "completed":
+            completed_assignments.append(assignment)
+    if return_completed_assignments:
+        return completed_assignments
     return added

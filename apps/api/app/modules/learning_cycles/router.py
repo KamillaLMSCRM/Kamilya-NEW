@@ -13,8 +13,23 @@ from app.core.db import get_db
 from app.models.courses import Course
 from app.models.enrollment import Enrollment
 from app.models.users import User
-from app.modules.learning_cycles.models import RecurringLearningAssignment, RecurringLearningRule
-from app.modules.learning_cycles.schemas import OccurrenceResponse, RuleCreate, RuleResponse, RuleUpdate
+from app.modules.learning_cycles.bridge import (
+    reconcile_learning_path_assignment,
+    sync_learning_path_rules,
+)
+from app.modules.learning_cycles.models import (
+    LearningPathCycleInstance,
+    RecurringLearningAssignment,
+    RecurringLearningRule,
+)
+from app.modules.learning_cycles.schemas import (
+    LearningPathSyncResponse,
+    OccurrenceResponse,
+    RuleCreate,
+    RuleResponse,
+    RuleUpdate,
+)
+from app.modules.learning_paths.models import LearningPath
 
 router = APIRouter(prefix="/learning-cycles", tags=["learning-cycles"])
 
@@ -80,7 +95,9 @@ async def list_latest_occurrences(
             id=occurrence.id,
             rule_id=occurrence.rule_id,
             user_id=occurrence.user_id,
+            target_type="course",
             course_id=occurrence.course_id,
+            learning_path_id=None,
             enrollment_id=occurrence.enrollment_id,
             scheduled_for=occurrence.scheduled_for,
             due_at=occurrence.due_at,
@@ -89,6 +106,37 @@ async def list_latest_occurrences(
                 stored_status=occurrence.status,
                 due_at=occurrence.due_at,
                 completed_at=completed_at,
+            ),
+        )
+    path_rows = (
+        await db.execute(
+            select(LearningPathCycleInstance)
+            .where(LearningPathCycleInstance.tenant_id == user.tenant_id)
+            .order_by(
+                LearningPathCycleInstance.rule_id,
+                LearningPathCycleInstance.scheduled_for.desc(),
+            )
+        )
+    ).scalars().all()
+    for cycle in path_rows:
+        if cycle.rule_id in latest:
+            continue
+        due_at = cycle.due_at or cycle.scheduled_for
+        latest[cycle.rule_id] = OccurrenceResponse(
+            id=cycle.id,
+            rule_id=cycle.rule_id,
+            user_id=cycle.user_id,
+            target_type="learning_path",
+            course_id=None,
+            learning_path_id=cycle.path_id,
+            enrollment_id=None,
+            scheduled_for=cycle.scheduled_for,
+            due_at=due_at,
+            completed_at=cycle.completed_at,
+            status=occurrence_reporting_status(
+                stored_status=cycle.status,
+                due_at=due_at,
+                completed_at=cycle.completed_at,
             ),
         )
     return list(latest.values())
@@ -100,6 +148,28 @@ async def create_rule(
     db: AsyncSession = Depends(get_db),
     user=Depends(require_role("methodologist")),
 ):
+    if body.learning_path_id is not None:
+        path = await db.scalar(
+            select(LearningPath).where(
+                LearningPath.id == body.learning_path_id,
+                LearningPath.tenant_id == user.tenant_id,
+                LearningPath.status == "published",
+            )
+        )
+        if path is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Published learning path not found")
+        if path.recurrence_mode != "fixed_interval_after_completion":
+            raise HTTPException(status.HTTP_409_CONFLICT, "Learning path recurrence is not configured")
+        result = await reconcile_learning_path_assignment(
+            db,
+            path=path,
+            user_id=body.user_id,
+            created_by=user.id,
+        )
+        if result.rule is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Active learner not found")
+        return result.rule
+
     course = await db.scalar(
         select(Course.id).where(
             Course.id == body.course_id,
@@ -149,6 +219,17 @@ async def update_rule(
     user=Depends(require_role("methodologist")),
 ):
     rule = await _owned_rule(db, rule_id, user.tenant_id)
+    if getattr(rule, "learning_path_id", None) is not None and (
+        body.cadence_days is not None or body.due_days is not None
+    ):
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "LearningPath recurrence cadence and due are source-controlled",
+        )
+    next_cadence = body.cadence_days if body.cadence_days is not None else rule.cadence_days
+    next_due = body.due_days if body.due_days is not None else rule.due_days
+    if next_due > next_cadence:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "due_days must not exceed cadence_days")
     if body.cadence_days is not None:
         rule.cadence_days = body.cadence_days
     if body.due_days is not None:
@@ -163,12 +244,45 @@ async def activate(
     user=Depends(require_role("methodologist")),
 ):
     rule = await _owned_rule(db, rule_id, user.tenant_id)
+    if getattr(rule, "learning_path_id", None) is not None:
+        path = await db.scalar(
+            select(LearningPath).where(
+                LearningPath.id == rule.learning_path_id,
+                LearningPath.tenant_id == user.tenant_id,
+                LearningPath.status == "published",
+            )
+        )
+        if path is None or path.recurrence_mode != "fixed_interval_after_completion":
+            raise HTTPException(status.HTTP_409_CONFLICT, "Only published recurring learning paths support recurring delivery")
+        rule.status = "active"
+        # A path repeat is armed by completion of its current path assignment.
+        return rule
     course = await db.scalar(select(Course).where(Course.id == rule.course_id, Course.tenant_id == user.tenant_id))
     if course is None or course.status != "published" or course.delivery_type == "scorm":
         raise HTTPException(status.HTTP_409_CONFLICT, "Only published native courses support recurring delivery")
     rule.status = "active"
     rule.next_run_at = rule.next_run_at or datetime.now(UTC)
     return rule
+
+
+@router.post("/learning-paths/{path_id}/sync", response_model=LearningPathSyncResponse)
+async def sync_learning_path(
+    path_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    user=Depends(require_role("methodologist")),
+):
+    path = await db.scalar(
+        select(LearningPath).where(
+            LearningPath.id == path_id,
+            LearningPath.tenant_id == user.tenant_id,
+            LearningPath.status == "published",
+        )
+    )
+    if path is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Published learning path not found")
+    result = await sync_learning_path_rules(db, path=path, created_by=user.id)
+    await db.flush()
+    return LearningPathSyncResponse(path_id=path.id, **result.__dict__)
 
 
 @router.post("/{rule_id}/deactivate", response_model=RuleResponse)

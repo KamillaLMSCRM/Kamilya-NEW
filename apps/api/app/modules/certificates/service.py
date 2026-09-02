@@ -9,6 +9,7 @@ from hashlib import sha256
 from uuid import UUID
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.attributes import flag_modified
 
@@ -256,6 +257,143 @@ async def issue_certificate(
     db.add(cert)
     await db.flush()
     await db.refresh(cert)
+    await _generate_and_store_pdf(db, cert)
+    return cert
+
+
+async def issue_learning_path_certificate(
+    db: AsyncSession,
+    *,
+    tenant_id: UUID,
+    user,
+    learning_path_assignment_id: UUID,
+) -> Certificate | None:
+    """Issue the immutable certificate for one completed LearningPath assignment."""
+    from app.models.courses import Course
+    from app.models.enrollment import Enrollment
+    from app.modules.learning_paths.models import LearningPath, LearningPathAssignment, LearningPathCourse
+
+    tenant = await db.scalar(select(Tenant).where(Tenant.id == tenant_id))
+    if tenant is None:
+        raise ValueError("Certificate tenant not found")
+
+    assignment = await db.scalar(
+        select(LearningPathAssignment)
+        .where(
+            LearningPathAssignment.id == learning_path_assignment_id,
+            LearningPathAssignment.tenant_id == tenant.id,
+            LearningPathAssignment.user_id == user.id,
+            LearningPathAssignment.status == "completed",
+        )
+    )
+    if assignment is None:
+        raise ValueError("Completed learning program assignment not found")
+
+    path = await db.scalar(
+        select(LearningPath)
+        .where(
+            LearningPath.id == assignment.path_id,
+            LearningPath.tenant_id == tenant.id,
+            LearningPath.status == "published",
+        )
+    )
+    if path is None:
+        raise ValueError("Published learning program not found")
+    if getattr(path, "certificate_mode", "none") == "none":
+        return None
+
+    steps = list(
+        (
+            await db.execute(
+                select(LearningPathCourse)
+                .where(LearningPathCourse.path_id == path.id)
+                .order_by(LearningPathCourse.order_index)
+            )
+        ).scalars().all()
+    )
+    if not steps:
+        raise ValueError("Learning program curriculum is empty")
+    required_steps = [step for step in steps if step.required]
+    final_step = (required_steps or steps)[-1]
+    course = await db.scalar(
+        select(Course).where(
+            Course.id == final_step.course_id,
+            Course.tenant_id == tenant.id,
+            Course.status == "published",
+        )
+    )
+    if course is None:
+        raise ValueError("Final learning program course not found")
+    enrollment = await db.scalar(
+        select(Enrollment).where(
+            Enrollment.tenant_id == tenant.id,
+            Enrollment.user_id == user.id,
+            Enrollment.course_id == course.id,
+            Enrollment.status == "completed",
+        ).order_by(Enrollment.completed_at.desc().nullslast(), Enrollment.id.desc())
+    )
+    if enrollment is None:
+        raise ValueError("Final learning program course is not completed")
+
+    existing = await db.scalar(
+        select(Certificate).where(
+            Certificate.tenant_id == tenant.id,
+            Certificate.user_id == user.id,
+            Certificate.learning_path_assignment_id == assignment.id,
+        )
+    )
+    if existing:
+        return existing
+
+    issued_at = datetime.now(UTC)
+    validity_months = getattr(path, "certificate_validity_months", None)
+    expires_at = _add_months(issued_at, validity_months) if validity_months else None
+    certificate_number = generate_certificate_number()
+    cert = Certificate(
+        tenant_id=tenant.id,
+        user_id=user.id,
+        course_id=course.id,
+        enrollment_id=enrollment.id,
+        learning_path_assignment_id=assignment.id,
+        certificate_number=certificate_number,
+        issued_at=issued_at,
+        expires_at=expires_at,
+        template_version=CERTIFICATE_TEMPLATE_VERSION,
+        metadata_={
+            "user_name": f"{user.first_name} {user.last_name}".strip() or user.email,
+            "course_title": path.title,
+            "certificate_subject": "learning_program",
+            "program_title": path.title,
+            "program_version": path.version,
+            "program_family_id": str(path.family_id),
+            "final_course_title": course.title,
+            "learning_path_assignment_id": str(assignment.id),
+            "certificate_settings": {},
+        },
+    )
+    savepoint = await db.begin_nested()
+    db.add(cert)
+    try:
+        await db.flush()
+    except IntegrityError:
+        await savepoint.rollback()
+        existing = await db.scalar(
+            select(Certificate).where(
+                Certificate.tenant_id == tenant.id,
+                Certificate.user_id == user.id,
+                Certificate.learning_path_assignment_id == assignment.id,
+            )
+        )
+        if existing:
+            return existing
+        raise
+    else:
+        await savepoint.commit()
+    await db.refresh(cert)
+    settings = await get_certificate_settings(db, tenant.id)
+    cert.metadata_["certificate_settings"] = settings.model_dump()
+    cert.metadata_["verification_url"] = _verification_url(settings, cert.certificate_number)
+    await db.flush()
     await _generate_and_store_pdf(db, cert)
     return cert
 

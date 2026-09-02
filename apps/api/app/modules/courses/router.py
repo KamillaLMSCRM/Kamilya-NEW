@@ -691,6 +691,23 @@ async def _complete_course_for_user(db: AsyncSession, course_id: UUID, user: Use
         except AssignmentWindowExpiredError as read_exc:
             raise assignment_window_error(read_exc) from read_exc
     enrollment = await current_enrollment(db, tenant_id=tenant_id, user_id=user_id, course_id=course_id)
+    if assignment_enrollment_id is None and (
+        enrollment is None or enrollment.status == "completed"
+    ):
+        # A historical completion for the same course must not win over the
+        # active assignment-scoped enrollment for the current path cycle.
+        enrollment = await db.scalar(
+            select(Enrollment)
+            .where(
+                Enrollment.tenant_id == tenant_id,
+                Enrollment.user_id == user_id,
+                Enrollment.course_id == course_id,
+                Enrollment.status != "completed",
+                Enrollment.learning_path_assignment_id.is_not(None),
+            )
+            .order_by(Enrollment.enrolled_at.desc())
+            .limit(1)
+        ) or enrollment
 
     course_result = await db.execute(select(Course).where(Course.id == course_id, Course.tenant_id == user.tenant_id))
     course = course_result.scalar_one_or_none()
@@ -723,7 +740,15 @@ async def _complete_course_for_user(db: AsyncSession, course_id: UUID, user: Use
                 Progress.tenant_id == user.tenant_id,
                 Progress.completed.is_(True),
                 Progress.enrollment_id
-                == (enrollment.id if enrollment and enrollment.recurring_assignment_id else None),
+                == (
+                    enrollment.id
+                    if enrollment
+                    and (
+                        enrollment.recurring_assignment_id
+                        or getattr(enrollment, "learning_path_assignment_id", None)
+                    )
+                    else None
+                ),
             )
         )
         or 0
@@ -829,12 +854,21 @@ async def _complete_course_for_user(db: AsyncSession, course_id: UUID, user: Use
         from app.modules.learning_paths.service import (
             sync_learning_path_enrollments_after_course_completion,
         )
+        from app.modules.certificates.service import issue_learning_path_certificate
 
-        await sync_learning_path_enrollments_after_course_completion(
+        completed_program_assignments = await sync_learning_path_enrollments_after_course_completion(
             db,
             tenant_id=user.tenant_id,
             user_id=user.id,
+            return_completed_assignments=True,
         )
+        for program_assignment in completed_program_assignments:
+            await issue_learning_path_certificate(
+                db,
+                tenant_id=user.tenant_id,
+                user=user,
+                learning_path_assignment_id=program_assignment.id,
+            )
 
     cert = await issue_certificate(
         db=db,

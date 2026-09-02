@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
   ArrowDown,
@@ -25,9 +25,12 @@ import { useT } from '@/i18n/useT';
 import { Badge, Button, Card, CardContent, DateInput, Input } from '@/components/ui';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { toast } from '@/components/ui/Toast';
+import { PROGRAM_SCENARIOS, type ProgramScenarioId } from '@/features/learning-programs/programScenarios';
 
 type ProgramStatus = 'draft' | 'published' | 'archived';
 type SequencingMode = 'linear' | 'open';
+type CertificateMode = 'none' | 'final_course';
+type RecurrenceMode = 'none' | 'fixed_interval_after_completion';
 type Stage = 'basic' | 'content' | 'audience' | 'review';
 type AudienceTab = 'learners' | 'cohorts' | 'departments' | 'positions';
 
@@ -50,6 +53,14 @@ type PathSummary = {
   assignment_count?: number;
   created_at?: string;
   published_at?: string | null;
+  scenario?: string | null;
+  responsible_user_id?: string | null;
+  default_due_days?: number | null;
+  certificate_mode?: CertificateMode | null;
+  certificate_validity_months?: number | null;
+  recurrence_mode?: RecurrenceMode | null;
+  recurrence_cadence_days?: number | null;
+  recurrence_due_days?: number | null;
 };
 
 type PathDetail = PathSummary & { courses: CourseStep[] };
@@ -131,6 +142,13 @@ function dateLabel(value?: string | null): string {
   return new Intl.DateTimeFormat(undefined, { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(value));
 }
 
+function normalizeScenario(value: unknown): ProgramScenarioId | null {
+  if (value === 'custom') return null;
+  return PROGRAM_SCENARIOS.some((item) => item.id === value)
+    ? (value as ProgramScenarioId)
+    : null;
+}
+
 export default function LearningPathsPage() {
   const { t, tp } = useT();
   const { confirm, dialog } = useConfirm();
@@ -142,10 +160,12 @@ export default function LearningPathsPage() {
   const [learnerPrograms, setLearnerPrograms] = useState<LearnerProgram[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
   const [audience, setAudience] = useState<Record<AudienceTab, AudienceOption[]>>({ learners: [], cohorts: [], departments: [], positions: [] });
+  const [methodologists, setMethodologists] = useState<AudienceOption[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [selected, setSelected] = useState<PathDetail | null>(null);
   const [editing, setEditing] = useState(false);
   const [stage, setStage] = useState<Stage>('basic');
+  const [scenario, setScenario] = useState<ProgramScenarioId | null>(null);
   const [audienceTab, setAudienceTab] = useState<AudienceTab>('learners');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -156,20 +176,39 @@ export default function LearningPathsPage() {
   const [selectedAudience, setSelectedAudience] = useState<Record<AudienceTab, string[]>>({ learners: [], cohorts: [], departments: [], positions: [] });
   const [startsAt, setStartsAt] = useState('');
   const [dueAt, setDueAt] = useState('');
+  const [responsibleUserId, setResponsibleUserId] = useState('');
+  const [defaultDueDays, setDefaultDueDays] = useState('');
+  const [certificateMode, setCertificateMode] = useState<CertificateMode>('none');
+  const [certificateValidityMonths, setCertificateValidityMonths] = useState('');
+  const [recurrenceMode, setRecurrenceMode] = useState<RecurrenceMode>('none');
+  const [recurrenceCadenceDays, setRecurrenceCadenceDays] = useState('');
+  const [recurrenceDueDays, setRecurrenceDueDays] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [contextualProgramId, setContextualProgramId] = useState<string | null>(null);
+  const contextualProgramApplied = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (selected) setScenario(normalizeScenario(selected.scenario));
+  }, [selected]);
+
+  useEffect(() => {
+    const programId = new URLSearchParams(window.location.search).get('program_id')?.trim();
+    setContextualProgramId(programId || null);
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       if (canManage) {
-        const [pathsResponse, coursesResponse, learnersResponse, cohortsResponse, departmentsResponse, positionsResponse] = await Promise.allSettled([
+        const [pathsResponse, coursesResponse, learnersResponse, cohortsResponse, departmentsResponse, positionsResponse, methodologistsResponse] = await Promise.allSettled([
           api.get<PathSummary[]>('/v1/learning-paths'),
           api.get<Course[]>('/v1/courses?status=published&per_page=100'),
           api.get<AudienceOption[]>('/v1/users?role=student&is_active=true&per_page=500'),
           api.get<AudienceOption[]>('/v1/cohorts'),
           api.get<AudienceOption[]>('/v1/departments'),
           api.get<AudienceOption[]>('/v1/positions'),
+          api.get<AudienceOption[]>('/v1/users?role=methodologist&is_active=true&per_page=500'),
         ]);
         if (pathsResponse.status === 'fulfilled') setPaths(asList<PathSummary>(pathsResponse.value.data));
         if (coursesResponse.status === 'fulfilled') setCourses(asList<Course>(coursesResponse.value.data));
@@ -179,6 +218,7 @@ export default function LearningPathsPage() {
           departments: departmentsResponse.status === 'fulfilled' ? asList<AudienceOption>(departmentsResponse.value.data) : [],
           positions: positionsResponse.status === 'fulfilled' ? asList<AudienceOption>(positionsResponse.value.data) : [],
         });
+        setMethodologists(methodologistsResponse.status === 'fulfilled' ? asList<AudienceOption>(methodologistsResponse.value.data) : []);
         if (pathsResponse.status === 'rejected') throw pathsResponse.reason;
       } else if (isLearner) {
         const response = await api.get<LearnerProgram[]>('/v1/learning-paths/my');
@@ -196,6 +236,7 @@ export default function LearningPathsPage() {
   const resetEditor = () => {
     setSelected(null);
     setEditing(true);
+    setScenario(null);
     setStage('basic');
     setTitle('');
     setDescription('');
@@ -205,6 +246,13 @@ export default function LearningPathsPage() {
     setSelectedAudience({ learners: [], cohorts: [], departments: [], positions: [] });
     setStartsAt('');
     setDueAt('');
+    setResponsibleUserId('');
+    setDefaultDueDays('');
+    setCertificateMode('none');
+    setCertificateValidityMonths('');
+    setRecurrenceMode('none');
+    setRecurrenceCadenceDays('');
+    setRecurrenceDueDays('');
   };
 
   const applyDetail = (detail: PathDetail) => {
@@ -213,6 +261,13 @@ export default function LearningPathsPage() {
     setDescription(detail.description || '');
     setSequencingMode(detail.sequencing_mode || 'linear');
     setSteps((detail.courses || []).sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0)));
+    setResponsibleUserId(detail.responsible_user_id || '');
+    setDefaultDueDays(detail.default_due_days == null ? '' : String(detail.default_due_days));
+    setCertificateMode(detail.certificate_mode === 'final_course' ? 'final_course' : 'none');
+    setCertificateValidityMonths(detail.certificate_validity_months == null ? '' : String(detail.certificate_validity_months));
+    setRecurrenceMode(detail.recurrence_mode === 'fixed_interval_after_completion' ? 'fixed_interval_after_completion' : 'none');
+    setRecurrenceCadenceDays(detail.recurrence_cadence_days == null ? '' : String(detail.recurrence_cadence_days));
+    setRecurrenceDueDays(detail.recurrence_due_days == null ? '' : String(detail.recurrence_due_days));
   };
 
   const selectPath = async (summary: PathSummary) => {
@@ -233,6 +288,15 @@ export default function LearningPathsPage() {
     }
   };
 
+  useEffect(() => {
+    if (!canManage || loading || !contextualProgramId || contextualProgramApplied.current === contextualProgramId) return;
+    const contextualProgram = paths.find((path) => path.id === contextualProgramId);
+    if (!contextualProgram || contextualProgram.status === 'archived') return;
+    contextualProgramApplied.current = contextualProgramId;
+    setScenario(null);
+    void selectPath(contextualProgram);
+  }, [canManage, contextualProgramId, loading, paths]);
+
   const updatePathList = (detail: PathDetail) => {
     setPaths((items) => {
       const summary: PathSummary = { ...detail, course_count: detail.courses.length };
@@ -245,6 +309,36 @@ export default function LearningPathsPage() {
     options: { notify?: boolean } = {},
   ): Promise<string | null> => {
     if (!title.trim()) return null;
+    const parsedDueDays = defaultDueDays.trim() ? Number(defaultDueDays) : null;
+    if (parsedDueDays !== null && (!Number.isInteger(parsedDueDays) || parsedDueDays < 1 || parsedDueDays > 3650)) {
+      toast.error(t('learningPaths.defaultDueDaysInvalid' as never));
+      return null;
+    }
+    const parsedCertificateValidity = certificateMode === 'final_course' && certificateValidityMonths.trim() ? Number(certificateValidityMonths) : null;
+    if (parsedCertificateValidity !== null && (!Number.isInteger(parsedCertificateValidity) || parsedCertificateValidity < 1 || parsedCertificateValidity > 120)) {
+      toast.error(t('learningPaths.certificateValidityInvalid' as never));
+      return null;
+    }
+    const parsedRecurrenceCadence = recurrenceMode === 'fixed_interval_after_completion' && recurrenceCadenceDays.trim() ? Number(recurrenceCadenceDays) : null;
+    const parsedRecurrenceDue = recurrenceMode === 'fixed_interval_after_completion' && recurrenceDueDays.trim() ? Number(recurrenceDueDays) : null;
+    if (
+      recurrenceMode === 'fixed_interval_after_completion'
+      && (parsedRecurrenceCadence === null || parsedRecurrenceDue === null
+        || !Number.isInteger(parsedRecurrenceCadence) || !Number.isInteger(parsedRecurrenceDue)
+        || parsedRecurrenceCadence < 1 || parsedRecurrenceCadence > 3650
+        || parsedRecurrenceDue < 1 || parsedRecurrenceDue > 3650
+        || parsedRecurrenceDue > parsedRecurrenceCadence)
+    ) {
+      toast.error(t('learningPaths.recurrenceInvalid' as never));
+      return null;
+    }
+    const policyPayload = {
+      certificate_mode: certificateMode,
+      certificate_validity_months: certificateMode === 'final_course' ? parsedCertificateValidity : null,
+      recurrence_mode: recurrenceMode,
+      recurrence_cadence_days: recurrenceMode === 'fixed_interval_after_completion' ? parsedRecurrenceCadence : null,
+      recurrence_due_days: recurrenceMode === 'fixed_interval_after_completion' ? parsedRecurrenceDue : null,
+    };
     setSaving(true);
     try {
       let id = selected?.id;
@@ -253,6 +347,10 @@ export default function LearningPathsPage() {
           title: title.trim(),
           description: description.trim(),
           sequencing_mode: sequencingMode,
+          scenario: scenario ?? 'custom',
+          responsible_user_id: responsibleUserId || null,
+          default_due_days: parsedDueDays,
+          ...policyPayload,
         });
         const summary = response.data;
         id = summary.id;
@@ -264,6 +362,10 @@ export default function LearningPathsPage() {
           title: title.trim(),
           description: description.trim(),
           sequencing_mode: sequencingMode,
+          scenario: scenario ?? 'custom',
+          responsible_user_id: responsibleUserId || null,
+          default_due_days: parsedDueDays,
+          ...policyPayload,
         });
       }
       const response = await api.put<PathDetail>(`/v1/learning-paths/${id}/curriculum`, {
@@ -500,7 +602,8 @@ export default function LearningPathsPage() {
               ))}
             </nav>
 
-            {stage === 'basic' && <BasicStage title={title} description={description} sequencingMode={sequencingMode} disabled={!isDraft} setTitle={setTitle} setDescription={setDescription} setSequencingMode={setSequencingMode} t={t} />}
+            {stage === 'basic' && <><BasicStage scenario={scenario} setScenario={setScenario} title={title} description={description} sequencingMode={sequencingMode} responsibleUserId={responsibleUserId} setResponsibleUserId={setResponsibleUserId} defaultDueDays={defaultDueDays} setDefaultDueDays={setDefaultDueDays} methodologists={methodologists} disabled={!isDraft} setTitle={setTitle} setDescription={setDescription} setSequencingMode={setSequencingMode} t={t} /><BasicSettings responsibleUserId={responsibleUserId} setResponsibleUserId={setResponsibleUserId} defaultDueDays={defaultDueDays} setDefaultDueDays={setDefaultDueDays} certificateMode={certificateMode} setCertificateMode={setCertificateMode} certificateValidityMonths={certificateValidityMonths} setCertificateValidityMonths={setCertificateValidityMonths} recurrenceMode={recurrenceMode} setRecurrenceMode={setRecurrenceMode} recurrenceCadenceDays={recurrenceCadenceDays} setRecurrenceCadenceDays={setRecurrenceCadenceDays} recurrenceDueDays={recurrenceDueDays} setRecurrenceDueDays={setRecurrenceDueDays} methodologists={methodologists} disabled={!isDraft} t={t} /></>}
+            {stage === 'content' && selected?.status === 'draft' && <div className="mb-5 flex flex-col gap-3 rounded-md border border-primary/20 bg-primary/5 p-4 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-medium">{t('learningPaths.createCourseFromMaterials' as never)}</p><p className="mt-1 text-sm text-muted-foreground">{t('learningPaths.createCourseFromMaterialsHint' as never)}</p></div><Link href={`/ai/generate?program_id=${encodeURIComponent(selected.id)}`} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-md border border-primary bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"><Plus className="h-4 w-4" aria-hidden="true" />{t('learningPaths.createCourseFromMaterialsAction' as never)}</Link></div>}
             {stage === 'content' && <ContentStage courses={filteredCourses} steps={steps} search={courseSearch} setSearch={setCourseSearch} onToggle={toggleStep} onRemove={(id) => setSteps((current) => current.filter((step) => step.course_id !== id))} onMove={moveStep} onRequired={(id, required) => setSteps((current) => current.map((step) => step.course_id === id ? { ...step, required } : step))} disabled={!isDraft} t={t} tp={tp} />}
             {stage === 'audience' && <AudienceStage selected={selected} audienceTab={audienceTab} setAudienceTab={setAudienceTab} options={currentAudience} selectedIds={selectedAudience[audienceTab]} search={audienceSearch} setSearch={setAudienceSearch} onToggle={toggleAudience} startsAt={startsAt} dueAt={dueAt} setStartsAt={setStartsAt} setDueAt={setDueAt} assignments={assignments} onCancel={cancelAssignment} onAssign={assign} saving={saving} totalSelected={totalSelectedAudience} t={t} />}
             {stage === 'review' && <ReviewStage selected={selected} title={title} description={description} sequencingMode={sequencingMode} steps={steps} totalSelectedAudience={totalSelectedAudience} canPublish={canPublish} onPublish={publish} saving={saving} t={t} />}
@@ -529,8 +632,13 @@ function ForbiddenState({ t }: { t: (key: never, params?: Record<string, string 
   return <div className="mx-auto max-w-3xl p-6"><Card><CardContent className="p-8 text-center"><Info className="mx-auto mb-3 h-8 w-8 text-muted-foreground" aria-hidden="true" /><h1 className="text-xl font-semibold">{t('learningPaths.forbidden' as never)}</h1></CardContent></Card></div>;
 }
 
-function BasicStage({ title, description, sequencingMode, disabled, setTitle, setDescription, setSequencingMode, t }: { title: string; description: string; sequencingMode: SequencingMode; disabled: boolean; setTitle: (value: string) => void; setDescription: (value: string) => void; setSequencingMode: (value: SequencingMode) => void; t: (key: never, params?: Record<string, string | number>) => string }) {
-  return <div className="space-y-6"><div><h3 className="text-lg font-semibold">{t('learningPaths.stage.basic' as never)}</h3><p className="mt-1 text-sm text-muted-foreground">{t('learningPaths.basicHint' as never)}</p></div><div className="grid gap-5 md:grid-cols-2"><label className="space-y-2 text-sm font-medium">{t('learningPaths.name' as never)}<Input name="program-name" autoComplete="off" value={title} onChange={(event) => setTitle(event.target.value)} placeholder={t('learningPaths.namePlaceholder' as never)} disabled={disabled} /></label><label className="space-y-2 text-sm font-medium">{t('learningPaths.purpose' as never)}<Input name="program-purpose" autoComplete="off" value={description} onChange={(event) => setDescription(event.target.value)} placeholder={t('learningPaths.descriptionPlaceholder' as never)} disabled={disabled} /></label></div><fieldset disabled={disabled}><legend className="mb-2 text-sm font-medium">{t('learningPaths.sequencingMode' as never)}</legend><div className="grid gap-3 sm:grid-cols-2"><label className={`cursor-pointer rounded-md border p-4 ${sequencingMode === 'linear' ? 'border-primary bg-primary/5' : 'border-border'}`}><input className="sr-only" type="radio" name="sequencing-mode" checked={sequencingMode === 'linear'} onChange={() => setSequencingMode('linear')} /><span className="font-medium">{t('learningPaths.sequential' as never)}</span><span className="mt-1 block text-sm text-muted-foreground">{t('learningPaths.sequentialHint' as never)}</span></label><label className={`cursor-pointer rounded-md border p-4 ${sequencingMode === 'open' ? 'border-primary bg-primary/5' : 'border-border'}`}><input className="sr-only" type="radio" name="sequencing-mode" checked={sequencingMode === 'open'} onChange={() => setSequencingMode('open')} /><span className="font-medium">{t('learningPaths.freeOrder' as never)}</span><span className="mt-1 block text-sm text-muted-foreground">{t('learningPaths.freeOrderHint' as never)}</span></label></div></fieldset>{disabled && <p className="text-sm text-muted-foreground">{t('learningPaths.publishedImmutable' as never)}</p>}</div>;
+function BasicStage({ scenario, setScenario, title, description, sequencingMode, responsibleUserId, setResponsibleUserId, defaultDueDays, setDefaultDueDays, methodologists, disabled, setTitle, setDescription, setSequencingMode, t }: { scenario: ProgramScenarioId | null; setScenario: (value: ProgramScenarioId | null) => void; title: string; description: string; sequencingMode: SequencingMode; responsibleUserId: string; setResponsibleUserId: (value: string) => void; defaultDueDays: string; setDefaultDueDays: (value: string) => void; methodologists: AudienceOption[]; disabled: boolean; setTitle: (value: string) => void; setDescription: (value: string) => void; setSequencingMode: (value: SequencingMode) => void; t: (key: never, params?: Record<string, string | number>) => string }) {
+  const selectedScenario = PROGRAM_SCENARIOS.find((item) => item.id === scenario);
+  return <div className="space-y-6"><div><h3 className="text-lg font-semibold">{t('learningPaths.stage.basic' as never)}</h3><p className="mt-1 text-sm text-muted-foreground">{t('learningPaths.basicHint' as never)}</p></div><fieldset disabled={disabled} className="space-y-3"><legend className="text-sm font-medium">{t('learningPaths.scenarioTitle' as never)}</legend><p className="text-sm text-muted-foreground">{t('learningPaths.scenarioHint' as never)}</p><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"><label className={`cursor-pointer rounded-md border p-4 ${scenario === null ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted/50'}`}><input className="sr-only" type="radio" name="program-scenario" checked={scenario === null} onChange={() => setScenario(null)} /><span className="font-medium">{t('learningPaths.scenarioOptional' as never)}</span><span className="mt-1 block text-sm text-muted-foreground">{t('learningPaths.scenarioOptionalHint' as never)}</span></label>{PROGRAM_SCENARIOS.map((item) => <label key={item.id} className={`cursor-pointer rounded-md border p-4 ${scenario === item.id ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted/50'}`}><input className="sr-only" type="radio" name="program-scenario" checked={scenario === item.id} onChange={() => setScenario(item.id)} /><span className="font-medium">{t(item.titleKey as never)}</span><span className="mt-1 block text-sm text-muted-foreground">{t(item.descriptionKey as never)}</span></label>)}</div>{selectedScenario && <div className="rounded-md border border-primary/20 bg-primary/5 p-4 text-sm"><p className="font-medium">{t('learningPaths.scenarioGuidanceLabel' as never)}</p><p className="mt-1 text-muted-foreground">{t(selectedScenario.guidanceKey as never)}</p><p className="mt-3 text-muted-foreground"><span className="font-medium text-foreground">{t('learningPaths.scenarioSuggestedPurpose' as never)}</span> {t(selectedScenario.descriptionKey as never)}</p></div>}</fieldset><div className="grid gap-5 md:grid-cols-2"><label className="space-y-2 text-sm font-medium">{t('learningPaths.name' as never)}<Input name="program-name" autoComplete="off" value={title} onChange={(event) => setTitle(event.target.value)} placeholder={selectedScenario ? t(selectedScenario.titlePlaceholderKey as never) : t('learningPaths.namePlaceholder' as never)} disabled={disabled} /></label><label className="space-y-2 text-sm font-medium">{t('learningPaths.purpose' as never)}<Input name="program-purpose" autoComplete="off" value={description} onChange={(event) => setDescription(event.target.value)} placeholder={selectedScenario ? t(selectedScenario.descriptionPlaceholderKey as never) : t('learningPaths.descriptionPlaceholder' as never)} disabled={disabled} /></label></div><fieldset disabled={disabled}><legend className="mb-2 text-sm font-medium">{t('learningPaths.sequencingMode' as never)}</legend><div className="grid gap-3 sm:grid-cols-2"><label className={`cursor-pointer rounded-md border p-4 ${sequencingMode === 'linear' ? 'border-primary bg-primary/5' : 'border-border'}`}><input className="sr-only" type="radio" name="sequencing-mode" checked={sequencingMode === 'linear'} onChange={() => setSequencingMode('linear')} /><span className="font-medium">{t('learningPaths.sequential' as never)}</span><span className="mt-1 block text-sm text-muted-foreground">{t('learningPaths.sequentialHint' as never)}</span></label><label className={`cursor-pointer rounded-md border p-4 ${sequencingMode === 'open' ? 'border-primary bg-primary/5' : 'border-border'}`}><input className="sr-only" type="radio" name="sequencing-mode" checked={sequencingMode === 'open'} onChange={() => setSequencingMode('open')} /><span className="font-medium">{t('learningPaths.freeOrder' as never)}</span><span className="mt-1 block text-sm text-muted-foreground">{t('learningPaths.freeOrderHint' as never)}</span></label></div></fieldset>{disabled && <p className="text-sm text-muted-foreground">{t('learningPaths.publishedImmutable' as never)}</p>}</div>;
+}
+
+function BasicSettings({ responsibleUserId, setResponsibleUserId, defaultDueDays, setDefaultDueDays, certificateMode, setCertificateMode, certificateValidityMonths, setCertificateValidityMonths, recurrenceMode, setRecurrenceMode, recurrenceCadenceDays, setRecurrenceCadenceDays, recurrenceDueDays, setRecurrenceDueDays, methodologists, disabled, t }: { responsibleUserId: string; setResponsibleUserId: (value: string) => void; defaultDueDays: string; setDefaultDueDays: (value: string) => void; certificateMode: CertificateMode; setCertificateMode: (value: CertificateMode) => void; certificateValidityMonths: string; setCertificateValidityMonths: (value: string) => void; recurrenceMode: RecurrenceMode; setRecurrenceMode: (value: RecurrenceMode) => void; recurrenceCadenceDays: string; setRecurrenceCadenceDays: (value: string) => void; recurrenceDueDays: string; setRecurrenceDueDays: (value: string) => void; methodologists: AudienceOption[]; disabled: boolean; t: (key: never, params?: Record<string, string | number>) => string }) {
+  return <div className="space-y-5 rounded-md border p-4"><div className="grid gap-5 md:grid-cols-2"><label className="space-y-2 text-sm font-medium">{t('learningPaths.responsibleMethodologist' as never)}<select aria-label={t('learningPaths.responsibleMethodologist' as never)} className="flex h-10 w-full rounded-md border bg-background px-3 py-2 text-sm" value={responsibleUserId} onChange={(event) => setResponsibleUserId(event.target.value)} disabled={disabled}><option value="">{t('learningPaths.responsibleMethodologistEmpty' as never)}</option>{methodologists.map((user) => <option key={user.id} value={user.id}>{optionLabel(user)}</option>)}</select><span className="block text-xs font-normal text-muted-foreground">{t('learningPaths.responsibleMethodologistHint' as never)}</span></label><label className="space-y-2 text-sm font-medium">{t('learningPaths.defaultDueDays' as never)}<Input type="number" min={1} max={3650} step={1} value={defaultDueDays} onChange={(event) => setDefaultDueDays(event.target.value)} placeholder={t('learningPaths.defaultDueDaysPlaceholder' as never)} disabled={disabled} /><span className="block text-xs font-normal text-muted-foreground">{t('learningPaths.defaultDueDaysHint' as never)}</span></label></div><div className="grid gap-5 border-t pt-5 md:grid-cols-2"><div className="space-y-3"><label className="space-y-2 text-sm font-medium">{t('learningPaths.certificatePolicy' as never)}<select aria-label={t('learningPaths.certificatePolicy' as never)} className="flex h-10 w-full rounded-md border bg-background px-3 py-2 text-sm" value={certificateMode} onChange={(event) => setCertificateMode(event.target.value as CertificateMode)} disabled={disabled}><option value="none">{t('learningPaths.certificateOff' as never)}</option><option value="final_course">{t('learningPaths.certificateAfterProgram' as never)}</option></select><span className="block text-xs font-normal text-muted-foreground">{t('learningPaths.certificatePolicyHint' as never)}</span></label>{certificateMode === 'final_course' && <label className="space-y-2 text-sm font-medium">{t('learningPaths.certificateValidity' as never)}<Input type="number" min={1} max={120} step={1} value={certificateValidityMonths} onChange={(event) => setCertificateValidityMonths(event.target.value)} placeholder={t('learningPaths.certificateValidityPlaceholder' as never)} disabled={disabled} /><span className="block text-xs font-normal text-muted-foreground">{t('learningPaths.certificateValidityHint' as never)}</span></label>}</div><div className="space-y-3"><label className="space-y-2 text-sm font-medium">{t('learningPaths.knowledgeRefresh' as never)}<select aria-label={t('learningPaths.knowledgeRefresh' as never)} className="flex h-10 w-full rounded-md border bg-background px-3 py-2 text-sm" value={recurrenceMode} onChange={(event) => setRecurrenceMode(event.target.value as RecurrenceMode)} disabled={disabled}><option value="none">{t('learningPaths.knowledgeRefreshOff' as never)}</option><option value="fixed_interval_after_completion">{t('learningPaths.knowledgeRefreshPeriodic' as never)}</option></select><span className="block text-xs font-normal text-muted-foreground">{t('learningPaths.knowledgeRefreshHint' as never)}</span></label>{recurrenceMode === 'fixed_interval_after_completion' && <div className="grid gap-3 sm:grid-cols-2"><label className="space-y-2 text-sm font-medium">{t('learningPaths.refreshEveryDays' as never)}<Input type="number" min={1} max={3650} step={1} value={recurrenceCadenceDays} onChange={(event) => setRecurrenceCadenceDays(event.target.value)} placeholder={t('learningPaths.refreshEveryDaysPlaceholder' as never)} disabled={disabled} /></label><label className="space-y-2 text-sm font-medium">{t('learningPaths.refreshDueDays' as never)}<Input type="number" min={1} max={3650} step={1} value={recurrenceDueDays} onChange={(event) => setRecurrenceDueDays(event.target.value)} placeholder={t('learningPaths.refreshDueDaysPlaceholder' as never)} disabled={disabled} /></label></div>}</div></div></div>;
 }
 
 function ContentStage({ courses, steps, search, setSearch, onToggle, onRemove, onMove, onRequired, disabled, t, tp }: { courses: Course[]; steps: CourseStep[]; search: string; setSearch: (value: string) => void; onToggle: (course: Course) => void; onRemove: (id: string) => void; onMove: (index: number, direction: -1 | 1) => void; onRequired: (id: string, required: boolean) => void; disabled: boolean; t: (key: never, params?: Record<string, string | number>) => string; tp: (key: never, count: number, params?: Record<string, string | number>) => string }) {

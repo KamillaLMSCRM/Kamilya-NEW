@@ -15,6 +15,11 @@ export interface AIGenerationJob {
   tenant_active_limit: number | null;
 }
 
+export interface AIGenerationWorkflowContext {
+  job_id: string;
+  program_id: string | null;
+}
+
 export function selectOldestActiveCourseJob(
   jobs: AIGenerationJob[],
 ): AIGenerationJob | null {

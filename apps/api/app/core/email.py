@@ -358,6 +358,43 @@ class EmailService:
             idempotency_key=idempotency_key,
         )
 
+    async def send_learning_path_assignment(
+        self,
+        *,
+        to_email: str,
+        company_name: str,
+        learner_name: str,
+        path_title: str,
+        access_url: str,
+        program_url: str,
+        activation_required: bool,
+        idempotency_key: str,
+    ) -> str | None:
+        subject = f"{_subject_component(company_name, fallback='Kamilya LMS')}: назначена программа"
+        if activation_required:
+            action = "Активируйте доступ к программе"
+            route_note = f"После активации программа доступна здесь: {program_url}"
+        else:
+            action = "Откройте назначенную программу"
+            route_note = f"Страница программы: {program_url}"
+        text = (
+            f"{learner_name}, {company_name} назначила вам программу «{path_title}».\n\n"
+            f"{action}: {access_url}\n\n{route_note}"
+        )
+        html = (
+            f"<p>{escape(learner_name)}, организация <strong>{escape(company_name)}</strong> "
+            f"назначила вам программу <strong>{escape(path_title)}</strong>.</p>"
+            f'<p><a href="{escape(access_url, quote=True)}">{action}</a></p>'
+            f'<p><a href="{escape(program_url, quote=True)}">Открыть раздел программ</a></p>'
+        )
+        return await self._send(
+            to_email=to_email,
+            subject=subject,
+            text=text,
+            html=html,
+            idempotency_key=idempotency_key,
+        )
+
     async def send_training_confirmation_code(
         self,
         *,

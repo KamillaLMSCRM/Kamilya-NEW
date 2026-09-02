@@ -19,6 +19,12 @@ class Certificate(Base):
     enrollment_id = Column(
         UUID(as_uuid=True), ForeignKey("enrollments.id", ondelete="RESTRICT"), nullable=True, index=True
     )
+    learning_path_assignment_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("learning_path_assignments.id", ondelete="RESTRICT"),
+        nullable=True,
+        index=True,
+    )
     certificate_number = Column(String(50), nullable=False, unique=True)
     issued_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
     expires_at = Column(DateTime(timezone=True), nullable=True)

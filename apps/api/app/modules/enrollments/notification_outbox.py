@@ -142,3 +142,106 @@ class PostgresAssignmentNotificationStore:
         )
         await self.db.commit()
         return value
+
+
+@dataclass(frozen=True)
+class ClaimedLearningPathAssignmentNotification:
+    id: UUID
+    tenant_id: UUID
+    learning_path_assignment_id: UUID
+    claim_token: UUID
+
+
+async def queue_learning_path_assignment_notification(
+    db: AsyncSession,
+    *,
+    tenant_id: UUID,
+    learning_path_assignment_id: UUID,
+    assigned_by: UUID | None,
+) -> UUID | None:
+    """Enqueue one durable program notification in the caller transaction."""
+    return await db.scalar(
+        text(
+            "SELECT enqueue_learning_path_assignment_notification("
+            ":tenant_id, :learning_path_assignment_id, :assigned_by)"
+        ),
+        {
+            "tenant_id": tenant_id,
+            "learning_path_assignment_id": learning_path_assignment_id,
+            "assigned_by": assigned_by,
+        },
+    )
+
+
+class PostgresLearningPathAssignmentNotificationStore:
+    """RLS-safe adapter for durable program-assignment notifications."""
+
+    def __init__(self, db: AsyncSession):
+        self.db = db
+
+    async def claim(
+        self, *, tenant_id: UUID, notification_id: UUID
+    ) -> ClaimedLearningPathAssignmentNotification | None:
+        row = (
+            (
+                await self.db.execute(
+                    text(
+                        "SELECT * FROM claim_learning_path_assignment_notification("
+                        ":tenant_id, :notification_id)"
+                    ),
+                    {"tenant_id": tenant_id, "notification_id": notification_id},
+                )
+            )
+            .mappings()
+            .one_or_none()
+        )
+        await self.db.commit()
+        if row is None:
+            return None
+        return ClaimedLearningPathAssignmentNotification(
+            id=row["id"],
+            tenant_id=row["tenant_id"],
+            learning_path_assignment_id=row["learning_path_assignment_id"],
+            claim_token=row["claim_token"],
+        )
+
+    async def finalize(
+        self,
+        event: ClaimedLearningPathAssignmentNotification,
+        *,
+        kind: str,
+        message_id: str | None = None,
+        error_category: str = "",
+    ) -> bool:
+        if kind not in FINALIZATION_KINDS:
+            raise ValueError("invalid assignment notification finalization kind")
+        value = await self.db.scalar(
+            text(
+                "SELECT finalize_learning_path_assignment_notification("
+                ":tenant_id, :id, :token, :kind, :message_id, :error_category)"
+            ),
+            {
+                "tenant_id": event.tenant_id,
+                "id": event.id,
+                "token": event.claim_token,
+                "kind": kind,
+                "message_id": message_id,
+                "error_category": error_category,
+            },
+        )
+        await self.db.commit()
+        return bool(value)
+
+    async def due(self, limit: int = RECOVERY_BATCH_SIZE) -> list[DueAssignmentNotification]:
+        bounded = max(1, min(limit, 100))
+        rows = (
+            (
+                await self.db.execute(
+                    text("SELECT * FROM due_learning_path_assignment_notifications(:limit)"),
+                    {"limit": bounded},
+                )
+            )
+            .mappings()
+            .all()
+        )
+        return [DueAssignmentNotification(id=row["id"], tenant_id=row["tenant_id"]) for row in rows]
