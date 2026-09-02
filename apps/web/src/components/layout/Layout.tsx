@@ -134,7 +134,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           )}
           <CommandPalette />
           <main
-            className={collapsed ? 'ml-0 transition-all duration-300 md:ml-[68px]' : 'ml-0 transition-all duration-300 md:ml-[240px]'}
+            className={collapsed ? 'ml-0 max-md:!ml-0 transition-all duration-300 md:ml-[68px]' : 'ml-0 max-md:!ml-0 transition-all duration-300 md:ml-[240px]'}
           >
             <DemoBanner />
             <TopBar onMenuClick={() => setMobileSidebarOpen(true)} />
