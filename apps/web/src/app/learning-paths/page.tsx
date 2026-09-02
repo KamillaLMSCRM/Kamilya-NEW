@@ -201,8 +201,7 @@ export default function LearningPathsPage() {
     setLoading(true);
     try {
       if (canManage) {
-        const [pathsResponse, coursesResponse, learnersResponse, cohortsResponse, departmentsResponse, positionsResponse, methodologistsResponse] = await Promise.allSettled([
-          api.get<PathSummary[]>('/v1/learning-paths'),
+        const supportingData = Promise.allSettled([
           api.get<Course[]>('/v1/courses?status=published&per_page=100'),
           api.get<AudienceOption[]>('/v1/users?role=student&is_active=true&per_page=500'),
           api.get<AudienceOption[]>('/v1/cohorts'),
@@ -210,7 +209,10 @@ export default function LearningPathsPage() {
           api.get<AudienceOption[]>('/v1/positions'),
           api.get<AudienceOption[]>('/v1/users?role=methodologist&is_active=true&per_page=500'),
         ]);
-        if (pathsResponse.status === 'fulfilled') setPaths(asList<PathSummary>(pathsResponse.value.data));
+        const pathsResponse = await api.get<PathSummary[]>('/v1/learning-paths');
+        setPaths(asList<PathSummary>(pathsResponse.data));
+        setLoading(false);
+        const [coursesResponse, learnersResponse, cohortsResponse, departmentsResponse, positionsResponse, methodologistsResponse] = await supportingData;
         if (coursesResponse.status === 'fulfilled') setCourses(asList<Course>(coursesResponse.value.data));
         setAudience({
           learners: learnersResponse.status === 'fulfilled' ? asList<AudienceOption>(learnersResponse.value.data) : [],
@@ -219,7 +221,6 @@ export default function LearningPathsPage() {
           positions: positionsResponse.status === 'fulfilled' ? asList<AudienceOption>(positionsResponse.value.data) : [],
         });
         setMethodologists(methodologistsResponse.status === 'fulfilled' ? asList<AudienceOption>(methodologistsResponse.value.data) : []);
-        if (pathsResponse.status === 'rejected') throw pathsResponse.reason;
       } else if (isLearner) {
         const response = await api.get<LearnerProgram[]>('/v1/learning-paths/my');
         setLearnerPrograms(asList<LearnerProgram>(response.data));

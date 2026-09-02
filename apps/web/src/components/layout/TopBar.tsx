@@ -227,6 +227,7 @@ export default function TopBar({ title, onMenuClick }: TopBarProps) {
         {/* Avatar — name shown in Sidebar footer, TopBar only shows initials */}
         <Link
           href="/profile"
+          prefetch={false}
           className="hidden h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary transition-colors hover:bg-primary/20 sm:flex"
           aria-label={t('nav.myProfile')}
           title={t('nav.myProfile')}

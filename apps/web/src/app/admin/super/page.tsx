@@ -132,6 +132,7 @@ export default function SuperAdminLanding() {
                 <Link
                   key={tnt.id}
                   href={`/admin/super/tenants/${tnt.id}`}
+                  prefetch={false}
                   className="flex items-center justify-between p-3 rounded hover:bg-bg-secondary border border-border"
                 >
                   <div>

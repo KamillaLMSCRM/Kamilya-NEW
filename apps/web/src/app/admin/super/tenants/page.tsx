@@ -7,6 +7,7 @@ import { TenantDeleteModal } from '@/components/admin/TenantDeleteModal';
 import { toast } from '@/components/ui/Toast';
 import { useT } from '@/i18n/useT';
 import { useAuthStore } from '@/store/authStore';
+import { useDebounce } from '@/lib/useDebounce';
 
 interface Tenant {
   id: string;
@@ -214,13 +215,15 @@ export default function SuperAdminTenants() {
   const [tenantPendingDelete, setTenantPendingDelete] = useState<Tenant | null>(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState('');
 
+  const debouncedSearch = useDebounce(search, 300);
+
   const fetchTenants = useCallback(async () => {
     if (!token) return;
     setLoading(true);
     setLoadFailed(false);
     try {
       const params = new URLSearchParams();
-      if (search) params.set('search', search);
+      if (debouncedSearch) params.set('search', debouncedSearch);
       const res = await fetch(`${API_URL}/v1/admin/super/tenants?${params}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -233,11 +236,10 @@ export default function SuperAdminTenants() {
     } finally {
       setLoading(false);
     }
-  }, [token, API_URL, search, t]);
+  }, [token, API_URL, debouncedSearch, t]);
 
   useEffect(() => {
-    const id = setTimeout(fetchTenants, 300);
-    return () => clearTimeout(id);
+    void fetchTenants();
   }, [fetchTenants]);
 
   const closeCreateModal = () => {

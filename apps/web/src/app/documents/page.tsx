@@ -30,6 +30,7 @@ import {
 } from '@/components/ui/AsyncOperationStatus';
 import { useT } from '@/i18n/useT';
 import { api } from '@/lib/api';
+import { useDebounce } from '@/lib/useDebounce';
 import {
   documentDeleteError,
   getDuplicateDocumentConflict,
@@ -101,6 +102,7 @@ export default function DocumentsPage() {
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 250);
   const [categoryFilter, setCategoryFilter] = useState<'all' | DocumentCategory>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | DocumentIndexStatus>('all');
   const [lifecycleFilter, setLifecycleFilter] = useState<DocumentLifecycleStatus>('active');
@@ -143,7 +145,7 @@ export default function DocumentsPage() {
         limit: String(PAGE_SIZE),
         include: 'usages_summary',
       });
-      if (search.trim()) params.set('q', search.trim());
+      if (debouncedSearch.trim()) params.set('q', debouncedSearch.trim());
       if (categoryFilter !== 'all') params.set('category', categoryFilter);
       if (statusFilter !== 'all') params.set('index_status', statusFilter);
       params.set('lifecycle_status', lifecycleFilter);
@@ -159,11 +161,10 @@ export default function DocumentsPage() {
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [categoryFilter, lifecycleFilter, search, statusFilter, t]);
+  }, [categoryFilter, debouncedSearch, lifecycleFilter, statusFilter, t]);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => void fetchDocuments(), 250);
-    return () => window.clearTimeout(timer);
+    void fetchDocuments();
   }, [fetchDocuments]);
 
   useEffect(() => {

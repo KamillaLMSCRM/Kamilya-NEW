@@ -140,7 +140,10 @@ export default function Sidebar({ collapsed, mobileOpen = false, onToggle, onClo
                   <li key={route.id}>
                     <Link
                       href={route.href}
+                      prefetch={false}
                       onClick={onClose}
+                      onMouseEnter={() => router.prefetch(route.href)}
+                      onFocus={() => router.prefetch(route.href)}
                       title={label}
                       aria-current={active ? 'page' : undefined}
                       className={cn(
@@ -164,6 +167,9 @@ export default function Sidebar({ collapsed, mobileOpen = false, onToggle, onClo
       <div className="border-t border-border p-3">
         <Link
           href="/profile"
+          prefetch={false}
+          onMouseEnter={() => router.prefetch('/profile')}
+          onFocus={() => router.prefetch('/profile')}
           className={cn(
             'flex min-h-11 items-center gap-3 rounded-xl px-3 py-2 transition-colors hover:bg-muted',
             collapsed && 'justify-center px-0',
