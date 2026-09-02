@@ -90,6 +90,7 @@ describe('route and capability registry', () => {
       'learning-paths-manage',
       'course-assignments',
       'staff',
+      'positions',
       'cohorts',
       'candidate-assessments',
       'training-log',
@@ -99,8 +100,15 @@ describe('route and capability registry', () => {
     expect(routes.find(({ id }) => id === 'staff')?.section).toBe('workforce');
     expect(routes.find(({ id }) => id === 'staff')?.href).toBe('/staff');
     expect(routes.find(({ id }) => id === 'cohorts')?.section).toBe('workforce');
-    expect(routes.findIndex(({ id }) => id === 'cohorts'))
+    expect(routes.find(({ id }) => id === 'positions')?.parentId).toBe('staff');
+    expect(routes.find(({ id }) => id === 'cohorts')?.parentId).toBe('staff');
+    expect(routes.find(({ id }) => id === 'candidate-assessments')?.parentId).toBe('staff');
+    expect(routes.findIndex(({ id }) => id === 'positions'))
       .toBe(routes.findIndex(({ id }) => id === 'staff') + 1);
+    expect(routes.findIndex(({ id }) => id === 'cohorts'))
+      .toBe(routes.findIndex(({ id }) => id === 'positions') + 1);
+    expect(routes.findIndex(({ id }) => id === 'candidate-assessments'))
+      .toBe(routes.findIndex(({ id }) => id === 'cohorts') + 1);
   });
 
   it('keeps contextual workforce tools out of global navigation', () => {

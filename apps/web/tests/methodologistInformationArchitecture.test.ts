@@ -85,13 +85,14 @@ describe("methodologist information architecture", () => {
     expect(rulesSource).toContain('grid-cols-[minmax(0,1fr)]');
   });
 
-  it("opens qualification cards from staff structure without a duplicate positions menu", () => {
+  it("keeps qualification cards in staff structure and nests positions under staff navigation", () => {
     const sidebar = getNavigationRoutes("methodologist", "sidebar").map((route) => route.id);
     const commands = getNavigationRoutes("methodologist", "commandPalette").map((route) => route.id);
 
     expect(sidebar).toContain("staff");
-    expect(sidebar).not.toContain("positions");
-    expect(commands).not.toContain("positions");
+    expect(sidebar).toContain("positions");
+    expect(commands).toContain("positions");
+    expect(getNavigationRoutes("methodologist", "sidebar").find(({ id }) => id === "positions")?.parentId).toBe("staff");
     expect(staffSource).toContain('href={`/positions/${pos.id}?tab=training`}');
     expect(staffSource).toContain('href={`/assignments?user_id=${emp.id}`}');
   });

@@ -10,6 +10,7 @@ import {
   BriefcaseBusiness,
   Building2,
   CalendarDays,
+  ChevronDown,
   ClipboardCheck,
   FileText,
   GraduationCap,
@@ -84,6 +85,7 @@ export default function Sidebar({ collapsed, mobileOpen = false, onToggle, onClo
   const user = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
   const routes = getNavigationRoutes(user?.role, 'sidebar');
   const sections = [...new Set(routes.map((route) => route.section).filter(Boolean))] as NavigationSection[];
 
@@ -124,44 +126,115 @@ export default function Sidebar({ collapsed, mobileOpen = false, onToggle, onClo
       </button>
 
       <nav id="sidebar-nav" className="flex-1 space-y-4 overflow-y-auto px-3 py-4" aria-label={t('a11y.mainNavigation')}>
-        {sections.map((section) => (
-          <div key={section}>
-            {!collapsed && (
-              <h2 className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                {t(SECTION_LABELS[section])}
-              </h2>
-            )}
-            <ul className="space-y-0.5" role="list">
-              {routes.filter((route) => route.section === section).map((route) => {
-                const Icon = ICONS[route.icon!];
-                const label = t(route.labelKey!);
-                const active = isNavigationItemActive(route.href, pathname, searchParams);
-                return (
-                  <li key={route.id}>
-                    <Link
-                      href={route.href}
-                      prefetch={false}
-                      onClick={onClose}
-                      onMouseEnter={() => router.prefetch(route.href)}
-                      onFocus={() => router.prefetch(route.href)}
-                      title={label}
-                      aria-current={active ? 'page' : undefined}
-                      className={cn(
-                        'group relative flex min-h-11 items-center rounded-xl px-3 py-2 text-sm font-medium transition-colors',
-                        collapsed && 'justify-center px-0',
-                        active ? 'bg-primary/10 text-primary shadow-sm' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+        {sections.map((section) => {
+          const sectionRoutes = routes.filter((route) => route.section === section);
+          const topLevelRoutes = sectionRoutes.filter(
+            (route) => !route.parentId || !sectionRoutes.some((candidate) => candidate.id === route.parentId),
+          );
+
+          return (
+            <div key={section}>
+              {!collapsed && (
+                <h2 className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  {t(SECTION_LABELS[section])}
+                </h2>
+              )}
+              <ul className="space-y-0.5" role="list">
+                {topLevelRoutes.map((route) => {
+                  const Icon = ICONS[route.icon!];
+                  const label = t(route.labelKey!);
+                  const active = isNavigationItemActive(route.href, pathname, searchParams);
+                  const childRoutes = sectionRoutes.filter((candidate) => candidate.parentId === route.id);
+                  const childActive = childRoutes.some((candidate) =>
+                    isNavigationItemActive(candidate.href, pathname, searchParams),
+                  );
+                  const groupOpen = childRoutes.length > 0
+                    && (expandedGroups[route.id] ?? (active || childActive));
+
+                  return (
+                    <li key={route.id}>
+                      <div className="relative flex items-center">
+                        <Link
+                          href={route.href}
+                          prefetch={false}
+                          onClick={onClose}
+                          onMouseEnter={() => router.prefetch(route.href)}
+                          onFocus={() => router.prefetch(route.href)}
+                          title={label}
+                          aria-current={active ? 'page' : undefined}
+                          className={cn(
+                            'group relative flex min-h-11 flex-1 items-center rounded-xl px-3 py-2 text-sm font-medium transition-colors',
+                            collapsed && 'justify-center px-0',
+                            childRoutes.length > 0 && !collapsed && 'pr-10',
+                            active
+                              ? 'bg-primary/10 text-primary shadow-sm'
+                              : childActive
+                                ? 'text-foreground'
+                                : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                          )}
+                        >
+                          <Icon className="h-5 w-5 shrink-0" aria-hidden />
+                          {!collapsed && <span className="ml-3 min-w-0 whitespace-normal break-words leading-5">{label}</span>}
+                          {active && <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r bg-primary" aria-hidden />}
+                        </Link>
+                        {!collapsed && childRoutes.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => setExpandedGroups((current) => ({
+                              ...current,
+                              [route.id]: !(current[route.id] ?? (active || childActive)),
+                            }))}
+                            aria-expanded={groupOpen}
+                            aria-controls={`sidebar-group-${route.id}`}
+                            aria-label={groupOpen ? t('sidebar.collapse') : t('sidebar.expand')}
+                            className="absolute right-1.5 flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                          >
+                            <ChevronDown className={cn('h-4 w-4 transition-transform', groupOpen && 'rotate-180')} />
+                          </button>
+                        )}
+                      </div>
+
+                      {!collapsed && groupOpen && (
+                        <ul
+                          id={`sidebar-group-${route.id}`}
+                          className="ml-5 mt-1 space-y-0.5 border-l border-border pl-2"
+                          role="list"
+                        >
+                          {childRoutes.map((child) => {
+                            const ChildIcon = ICONS[child.icon!];
+                            const childLabel = t(child.labelKey!);
+                            const isChildActive = isNavigationItemActive(child.href, pathname, searchParams);
+                            return (
+                              <li key={child.id}>
+                                <Link
+                                  href={child.href}
+                                  prefetch={false}
+                                  onClick={onClose}
+                                  onMouseEnter={() => router.prefetch(child.href)}
+                                  onFocus={() => router.prefetch(child.href)}
+                                  aria-current={isChildActive ? 'page' : undefined}
+                                  className={cn(
+                                    'relative flex min-h-9 items-center gap-2 rounded-lg px-2.5 py-1.5 text-[13px] font-medium transition-colors',
+                                    isChildActive
+                                      ? 'bg-primary/10 text-primary'
+                                      : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                                  )}
+                                >
+                                  <ChildIcon className="h-4 w-4 shrink-0" aria-hidden />
+                                  <span className="min-w-0 whitespace-normal break-words leading-4">{childLabel}</span>
+                                </Link>
+                              </li>
+                            );
+                          })}
+                        </ul>
                       )}
-                    >
-                      <Icon className="h-5 w-5 shrink-0" aria-hidden />
-                      {!collapsed && <span className="ml-3 min-w-0 whitespace-normal break-words leading-5">{label}</span>}
-                      {active && <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r bg-primary" aria-hidden />}
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        ))}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          );
+        })}
       </nav>
 
       <div className="border-t border-border p-3">

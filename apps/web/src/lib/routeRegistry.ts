@@ -92,6 +92,7 @@ export interface AppRoute {
   id: string;
   href: string;
   capability: Capability;
+  parentId?: string;
   match?: MatchKind;
   labelKey?: TranslationKey;
   section?: NavigationSection;
@@ -114,13 +115,13 @@ export const ROUTES: readonly AppRoute[] = [
   { id: 'surveys-manage', href: '/surveys', capability: 'manage_communications' },
   { id: 'announcements', href: '/announcements', capability: 'manage_communications' },
   { id: 'staff', href: '/staff', capability: 'manage_staff', match: 'prefix', labelKey: 'nav.staffSchedule', section: 'workforce', icon: 'users', order: 80, sidebar: true, commandPalette: true },
-  { id: 'cohorts', href: '/cohorts', capability: 'manage_staff', labelKey: 'cohorts.title', section: 'workforce', icon: 'users', order: 90, sidebar: true, commandPalette: true },
+  { id: 'cohorts', href: '/cohorts', capability: 'manage_staff', parentId: 'staff', labelKey: 'cohorts.title', section: 'workforce', icon: 'users', order: 90, sidebar: true, commandPalette: true },
   { id: 'training-rules', href: '/training-rules?scope=organization', capability: 'manage_staff', labelKey: 'nav.trainingRules', section: 'workforce', icon: 'assignment', order: 112, sidebar: false, commandPalette: false },
   { id: 'training-procedures', href: '/training-procedures', capability: 'configure_training_procedures', labelKey: 'trainingProceduresPage.navLabel', section: 'results', icon: 'assignment', order: 120, sidebar: true, commandPalette: true },
   { id: 'training-retention', href: '/training-retention', capability: 'configure_training_procedures', labelKey: 'trainingRetentionPage.navLabel', section: 'results', icon: 'assignment', order: 130, sidebar: true, commandPalette: true },
   { id: 'invitations', href: '/invitations', capability: 'manage_learners', labelKey: 'invitations.navLabel', section: 'workforce', icon: 'users', order: 115, sidebar: false, commandPalette: false },
-  { id: 'candidate-assessments', href: '/candidate-assessments', capability: 'manage_learners', labelKey: 'nav.candidateAssessments', section: 'workforce', icon: 'users', order: 100, sidebar: true, commandPalette: true },
-  { id: 'positions', href: '/positions', capability: 'manage_qualifications', match: 'prefix' },
+  { id: 'candidate-assessments', href: '/candidate-assessments', capability: 'manage_learners', parentId: 'staff', labelKey: 'nav.candidateAssessments', section: 'workforce', icon: 'quiz', order: 100, sidebar: true, commandPalette: true },
+  { id: 'positions', href: '/positions', capability: 'manage_qualifications', parentId: 'staff', match: 'prefix', labelKey: 'positions.title', section: 'workforce', icon: 'briefcase', order: 85, sidebar: true, commandPalette: true },
   { id: 'training-log', href: '/training-log', capability: 'view_training_reports', match: 'prefix', labelKey: 'nav.trainingLog', section: 'results', icon: 'log', order: 110, sidebar: true, commandPalette: true },
 
   { id: 'tenant-dashboard', href: '/admin', capability: 'configure_tenant', labelKey: 'nav.admin', section: 'overview', icon: 'dashboard', order: 10, sidebar: true, commandPalette: true },

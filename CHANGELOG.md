@@ -20,6 +20,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Workforce navigation now keeps positions, employee groups and candidate
+  assessments inside an expandable staff section instead of presenting every
+  destination as a separate top-level sidebar item.
 - Public trial registration no longer asks for or creates a password; verified
   owners sign in again with a one-time email code, while existing password-based
   accounts remain compatible.
