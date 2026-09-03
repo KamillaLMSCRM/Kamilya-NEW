@@ -4,6 +4,22 @@ export type ApprovalDeliveryMode = 'email' | 'personal_link';
 export type ApprovalOutcome = 'pending' | 'approved' | 'changes_requested' | 'cancelled' | 'superseded';
 export type ReviewActivityState = 'not_started' | 'in_progress' | 'completed' | 'decision_pending';
 
+export interface ApprovalCourseOption { id: string; title: string; requires_approval?: boolean }
+const APPROVAL_COURSE_PAGE_SIZE = 100;
+const APPROVAL_COURSE_MAX_PAGES = 50;
+
+/** Load the bounded course catalog using the API's `per_page <= 100` contract. */
+export async function listApprovalCourses(): Promise<ApprovalCourseOption[]> {
+  const courses: ApprovalCourseOption[] = [];
+  for (let page = 1; page <= APPROVAL_COURSE_MAX_PAGES; page += 1) {
+    const response = await api.get<ApprovalCourseOption[] | { items?: ApprovalCourseOption[] }>(`/v1/courses?page=${page}&per_page=${APPROVAL_COURSE_PAGE_SIZE}`);
+    const rows = Array.isArray(response.data) ? response.data : response.data.items || [];
+    courses.push(...rows);
+    if (rows.length < APPROVAL_COURSE_PAGE_SIZE) break;
+  }
+  return courses;
+}
+
 export interface ApprovalPolicy {
   course_id: string;
   requires_approval: boolean;

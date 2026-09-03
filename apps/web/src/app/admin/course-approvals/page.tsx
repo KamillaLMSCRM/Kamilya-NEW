@@ -3,17 +3,14 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Button, Card, CardContent, Input } from '@/components/ui';
-import { api } from '@/lib/api';
 import { ApprovalPolicyCard } from '@/components/course-approval/ApprovalPolicyCard';
 import { ApprovalRequestModal } from '@/components/course-approval/ApprovalRequestModal';
 import { ApprovalStatusPanel } from '@/components/course-approval/ApprovalStatusPanel';
-import { listApprovalRequests, type ApprovalRequestSummary } from '@/lib/courseApproval';
+import { listApprovalCourses, listApprovalRequests, type ApprovalCourseOption, type ApprovalRequestSummary } from '@/lib/courseApproval';
 import { useAuthStore } from '@/store/authStore';
 
-interface CourseOption { id: string; title: string; requires_approval?: boolean }
-
 export default function CourseApprovalsPage() {
-  const [courses, setCourses] = useState<CourseOption[]>([]);
+  const [courses, setCourses] = useState<ApprovalCourseOption[]>([]);
   const [courseId, setCourseId] = useState('');
   const [requests, setRequests] = useState<ApprovalRequestSummary[]>([]);
   const [open, setOpen] = useState(false);
@@ -28,14 +25,13 @@ export default function CourseApprovalsPage() {
     setLoading(true);
     setError('');
     try {
-      const [courseResponse, requestRows] = await Promise.all([
-        api.get<CourseOption[] | { items?: CourseOption[] }>('/v1/courses?per_page=500'),
+      const [courseRows, requestRows] = await Promise.all([
+        listApprovalCourses(),
         canAudit ? listApprovalRequests() : Promise.resolve([]),
       ]);
-      const data = Array.isArray(courseResponse.data) ? courseResponse.data : courseResponse.data.items || [];
-      setCourses(data);
+      setCourses(courseRows);
       setRequests(requestRows);
-      setCourseId((current) => current || searchParams.get('courseId') || data[0]?.id || '');
+      setCourseId((current) => current || searchParams.get('courseId') || courseRows[0]?.id || '');
     } catch {
       const requestedCourseId = searchParams.get('courseId');
       if (requestedCourseId) { setCourseId(requestedCourseId); setCourses([{ id: requestedCourseId, title: requestedCourseId }]); }
