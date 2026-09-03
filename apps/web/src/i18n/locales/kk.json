@@ -987,7 +987,20 @@
     "notifications": "Хабарламалар",
     "noNotifications": "Жаңа хабарламалар жоқ",
     "commandPalette": "Командалық палитра",
-    "openCommandPalette": "Командалық палитраны ашу"
+    "openCommandPalette": "Командалық палитраны ашу",
+    "unreadCount": "Оқылмаған хабарламалар: {count}",
+    "markAllRead": "Барлығын оқылды деп белгілеу",
+    "markingAllRead": "Белгіленуде…",
+    "notificationsLoading": "Хабарламалар жүктелуде…",
+    "notificationsError": "Хабарламаларды жүктеу мүмкін болмады",
+    "notificationsRetry": "Қайталау",
+    "notificationAssigned": "Сізге курс келісімі тағайындалды: {course}",
+    "notificationReminder": "Курс келісімі туралы еске салу: {course}",
+    "notificationOverdue": "Курс келісімінің мерзімі өтті: {course}",
+    "notificationUnknown": "Жаңа хабарлама",
+    "notificationDue": "Мерзімі: {dueAt}",
+    "notificationReadError": "Хабарламаны ашу мүмкін болмады",
+    "notificationsMarkAllError": "Хабарламаларды белгілеу мүмкін болмады"
   },
   "dialogs": {
     "delete": "Жою",

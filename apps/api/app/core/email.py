@@ -391,6 +391,59 @@ class EmailService:
             idempotency_key=idempotency_key,
         )
 
+    async def send_course_review_reminder(
+        self,
+        *,
+        to_email: str,
+        reviewer_name: str | None,
+        course_title: str,
+        access_url: str,
+        due_at: datetime | None,
+        idempotency_key: str,
+    ) -> str | None:
+        """Send a PIN-free reminder for an existing course-review access link."""
+        name = reviewer_name or "Коллега"
+        subject = f"Kamilya LMS: напоминание о проверке курса «{_subject_component(course_title, fallback='Курс')}»"
+        deadline = due_at.isoformat() if due_at is not None else "не указан"
+        text = (
+            f"{name}, это напоминание о проверке курса «{course_title}».\n\n"
+            f"Открыть проверку: {access_url}\n"
+            f"Срок: {deadline}\n"
+            "Используйте ранее выданный доступ."
+        )
+        html = (
+            f"<p>{escape(name)}, напоминаем о проверке курса <strong>{escape(course_title)}</strong>.</p>"
+            f'<p><a href="{escape(access_url, quote=True)}">Открыть проверку курса</a></p>'
+            f"<p>Срок: {escape(deadline)}</p>"
+        )
+        return await self._send(to_email=to_email, subject=subject, text=text, html=html, idempotency_key=idempotency_key)
+
+    async def send_course_review_escalation(
+        self,
+        *,
+        to_email: str,
+        requester_name: str | None,
+        course_title: str,
+        action_url: str,
+        due_at: datetime | None,
+        idempotency_key: str,
+    ) -> str | None:
+        """Notify the requester about an overdue review without forwarding credentials."""
+        name = requester_name or "Коллега"
+        subject = f"Kamilya LMS: проверка курса просрочена «{_subject_component(course_title, fallback='Курс')}»"
+        deadline = due_at.isoformat() if due_at is not None else "не указан"
+        text = (
+            f"{name}, проверка курса «{course_title}» просрочена.\n\n"
+            f"Открыть запрос: {action_url}\n"
+            f"Срок был: {deadline}"
+        )
+        html = (
+            f"<p>{escape(name)}, проверка курса <strong>{escape(course_title)}</strong> просрочена.</p>"
+            f'<p><a href="{escape(action_url, quote=True)}">Открыть запрос</a></p>'
+            f"<p>Срок был: {escape(deadline)}</p>"
+        )
+        return await self._send(to_email=to_email, subject=subject, text=text, html=html, idempotency_key=idempotency_key)
+
     async def send_learning_path_assignment(
         self,
         *,

@@ -40,6 +40,25 @@ async def _set_tenant_security_context(db: AsyncSession, tenant_id: str) -> None
         ) from None
 
 
+async def _set_user_security_context(db: AsyncSession, user_id: UUID | str) -> None:
+    """Bind recipient-scoped RLS to the authenticated database principal."""
+    try:
+        await db.execute(
+            text("SELECT set_config('app.user_id', :user_id, true)"),
+            {"user_id": str(user_id)},
+        )
+    except Exception:
+        logger.exception("Failed to establish user database security context")
+        try:
+            await db.rollback()
+        except Exception:
+            logger.exception("Failed to roll back rejected user-context transaction")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=TENANT_CONTEXT_UNAVAILABLE,
+        ) from None
+
+
 def _json_safe_jwt_payload(data: dict) -> dict:
     """Normalise a JWT payload so jwt.encode() never trips on UUID.
 
@@ -295,6 +314,8 @@ async def get_current_user(
     user = result.scalar_one_or_none()
     if not user or not user.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found or inactive")
+    if tenant_id:
+        await _set_user_security_context(db, user.id)
 
     # Role is always from DB, never from JWT (JWT role is just for fast checks)
     # UNLESS this is an impersonation token — in that case, the real sub is

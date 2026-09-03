@@ -31,6 +31,16 @@ production.
 - [Журнал ошибок и предотвращения повторов](../ERRORS.md)
 - [Live OpenAPI](https://kamilya-lms-api.onrender.com/docs)
 - [Архитектурные решения](adr/)
+- [ADR-0024: контрактно-модульная разработка](adr/0024-contract-first-modular-delivery.md)
+- [ADR-0025: роли, change control и исполняемые contract tests](adr/0025-contract-governance-and-verification.md)
+- [Стандарт контрактных модулей](product/contract-modules/README.md)
+- [EPIC-APPROVAL-FOLLOWUP-01: уведомления и напоминания согласования](product/contract-modules/EPIC-APPROVAL-FOLLOWUP-01/EPIC_V1.md)
+- [Общая инструкция для агентов V2](product/contract-modules/AGENT_INSTRUCTION_V2.md)
+- [Шаблон цели и сквозной цепочки V2](product/contract-modules/templates/EPIC_CHAIN_SPEC_V2.md)
+- [Шаблон mini-spec модуля V2](product/contract-modules/templates/MODULE_MINI_SPEC_V2.md)
+- [Архив V1: общая инструкция](product/contract-modules/AGENT_INSTRUCTION_V1.md)
+- [Архив V1: шаблон цели](product/contract-modules/templates/EPIC_CHAIN_SPEC_V1.md)
+- [Архив V1: шаблон mini-spec](product/contract-modules/templates/MODULE_MINI_SPEC_V1.md)
 - [ADR-0015: события обучения и подтверждение результата](adr/0015-training-evidence-and-step-up-confirmation.md)
 - [ADR-0017: версионированные отраслевые заготовки курсов](adr/0017-versioned-industry-course-blueprints.md)
 - [Celery worker](INFRA_CELERY_WORKER.md)
@@ -44,6 +54,8 @@ production.
 2. Открытые продуктовые задачи фиксируются только в `PRODUCT_BACKLOG.md`.
 3. Выполненный эпик обновляет продуктовую или эксплуатационную документацию;
    отдельный датированный «финальный отчёт» не создаётся.
-4. Исторические ТЗ и отчёты удаляются из рабочего дерева. При необходимости
-   они доступны через Git history.
+4. Принятые versioned EPIC, module mini-spec, contract и impact-addendum
+   документы сохраняются рядом с новой версией; старый файл не переписывается и
+   явно помечается как superseded. Временные execution plans и отчёты после
+   переноса устойчивого результата по-прежнему удаляются и остаются в Git.
 5. Секреты, пароли, токены и значения `.env` в документацию не добавляются.

@@ -254,13 +254,15 @@ async def create_request(db: AsyncSession, *, revision: CourseApprovalRevision, 
         raw_token = secrets.token_urlsafe(32)
         pin = f"{secrets.randbelow(1_000_000):06d}"
         expires_at = due_at or (datetime.now(UTC) + timedelta(days=7))
-        payload_encrypted = encrypt_config({
-            "access_url": f"{(base_url or 'https://app.kml.kz').rstrip('/')}/course-review-access/{raw_token}",
+        access_url = f"{(base_url or 'https://app.kml.kz').rstrip('/')}/course-review-access/{raw_token}"
+        invitation_payload_encrypted = encrypt_config({
+            "access_url": access_url,
             "pin": pin,
         }) if delivery_mode == "email" else None
-        db.add(WorkflowDelivery(tenant_id=tenant_id, work_item_id=work_item.id, channel="cabinet", recipient_email=recipient_email, recipient_user_id=reviewer_id if reviewer_email is None else None, payload_encrypted=payload_encrypted, status="queued"))
+        followup_payload_encrypted = encrypt_config({"access_url": access_url})
+        db.add(WorkflowDelivery(tenant_id=tenant_id, work_item_id=work_item.id, channel="cabinet", recipient_email=recipient_email, recipient_user_id=reviewer_id if reviewer_email is None else None, payload_encrypted=followup_payload_encrypted, status="queued"))
         if delivery_mode == "email":
-            db.add(WorkflowDelivery(tenant_id=tenant_id, work_item_id=work_item.id, channel="email", recipient_email=recipient_email, recipient_user_id=reviewer_id if reviewer_email is None else None, payload_encrypted=payload_encrypted, status="queued"))
+            db.add(WorkflowDelivery(tenant_id=tenant_id, work_item_id=work_item.id, channel="email", recipient_email=recipient_email, recipient_user_id=reviewer_id if reviewer_email is None else None, payload_encrypted=invitation_payload_encrypted, status="queued"))
         if delivery_mode in {"personal_link", "email"}:
             db.add(WorkflowAccessCredential(
                 tenant_id=tenant_id, work_item_id=work_item.id, reviewer_user_id=reviewer_id,
@@ -268,17 +270,19 @@ async def create_request(db: AsyncSession, *, revision: CourseApprovalRevision, 
                 token_hash=hashlib.sha256(raw_token.encode()).hexdigest(),
                 pin_hash=PIN_HASHER.hash(pin), expires_at=expires_at,
             ))
-            access_url = f"{(base_url or 'https://app.kml.kz').rstrip('/')}/course-review-access/{raw_token}"
             access_credentials.append({"reviewer_id": reviewer_id, "access_url": access_url, "temporary_pin": pin, "expires_at": expires_at})
             if first_access_url is None:
                 first_access_url, first_pin = access_url, pin
         if due_at is not None:
-            reminder_at = due_at - timedelta(hours=24)
-            reminder_channel = "email" if delivery_mode == "email" else "cabinet"
-            operational_recipient = reviewer_id if reviewer_email is None else None
-            if reminder_at > datetime.now(UTC):
-                db.add(WorkflowReminder(tenant_id=tenant_id, work_item_id=work_item.id, rule_key="due_minus_24h", channel=reminder_channel, idempotency_key=f"review-reminder/{work_item.id}/due_minus_24h", scheduled_at=reminder_at, recipient_user_id=operational_recipient))
-            db.add(WorkflowEscalation(tenant_id=tenant_id, work_item_id=work_item.id, rule_key="due_overdue", channel=reminder_channel, idempotency_key=f"review-escalation/{work_item.id}/due_overdue", scheduled_at=due_at, recipient_user_id=operational_recipient))
+            reminder_at = max(datetime.now(UTC), due_at - timedelta(hours=24))
+            if reviewer_email is None:
+                db.add(WorkflowReminder(tenant_id=tenant_id, work_item_id=work_item.id, rule_key="due_minus_24h_cabinet", channel="cabinet", idempotency_key=f"review-reminder/{work_item.id}/due_minus_24h/cabinet", scheduled_at=reminder_at, recipient_user_id=reviewer_id))
+            if recipient_email:
+                db.add(WorkflowReminder(tenant_id=tenant_id, work_item_id=work_item.id, rule_key="due_minus_24h_email", channel="email", idempotency_key=f"review-reminder/{work_item.id}/due_minus_24h/email", scheduled_at=reminder_at, recipient_user_id=reviewer_id if reviewer_email is None else None))
+            # Escalation belongs to the requester, never to the reviewer or to
+            # a guest email copied from the invitation.
+            db.add(WorkflowEscalation(tenant_id=tenant_id, work_item_id=work_item.id, rule_key="due_overdue_cabinet", channel="cabinet", idempotency_key=f"review-escalation/{work_item.id}/due_overdue/cabinet", scheduled_at=due_at, recipient_user_id=actor_id))
+            db.add(WorkflowEscalation(tenant_id=tenant_id, work_item_id=work_item.id, rule_key="due_overdue_email", channel="email", idempotency_key=f"review-escalation/{work_item.id}/due_overdue/email", scheduled_at=due_at, recipient_user_id=actor_id))
     await db.flush()
     await log_action(db, tenant_id, "course_approval.request_created", "course_approval_revision", revision.id, actor_id, {"reviewer_count": len(reviewer_specs), "delivery_mode": delivery_mode})
     return approval_request, first_work_item, first_access_url, first_pin, access_credentials

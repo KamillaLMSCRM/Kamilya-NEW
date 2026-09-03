@@ -987,7 +987,20 @@
     "notifications": "Notifications",
     "noNotifications": "No new notifications",
     "commandPalette": "Command palette",
-    "openCommandPalette": "Open command palette"
+    "openCommandPalette": "Open command palette",
+    "unreadCount": "Unread notifications: {count}",
+    "markAllRead": "Mark all as read",
+    "markingAllRead": "Marking…",
+    "notificationsLoading": "Loading notifications…",
+    "notificationsError": "Could not load notifications",
+    "notificationsRetry": "Retry",
+    "notificationAssigned": "A course approval was assigned to you: {course}",
+    "notificationReminder": "Course approval reminder: {course}",
+    "notificationOverdue": "Course approval is overdue: {course}",
+    "notificationUnknown": "New notification",
+    "notificationDue": "Due: {dueAt}",
+    "notificationReadError": "Could not open notification",
+    "notificationsMarkAllError": "Could not mark notifications as read"
   },
   "dialogs": {
     "delete": "Delete",
