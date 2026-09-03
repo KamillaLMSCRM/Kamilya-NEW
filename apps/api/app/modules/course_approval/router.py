@@ -86,6 +86,12 @@ async def _read_idempotency(db: AsyncSession, *, tenant_id: UUID, key: str | Non
 async def _write_idempotency(db: AsyncSession, *, tenant_id: UUID, key: str | None, operation: str, fingerprint: str, response: dict):
     if not key:
         return
+    # Most workflow handlers commit their domain mutation before persisting
+    # the replay row.  ``set_current_tenant`` is transaction-local, so the
+    # commit clears the RLS context; restore the transaction-local tenant RLS setting
+    # for the exact validated tenant before this second write rather than relying
+    # on ORM predicates alone.
+    await _set_tenant_security_context(db, str(tenant_id))
     try:
         async with db.begin_nested():
             db.add(WorkflowIdempotencyKey(
@@ -366,6 +372,9 @@ async def request_review(revision_id: UUID, req: ApprovalRequestCreate, request:
     await db.commit()
     response = ApprovalRequestResponse(request_id=approval_request.id, revision_id=revision.id, reviewer_ids=req.reviewer_user_ids, outcome=revision.state, delivery_mode=req.delivery_mode, access_url=access_url, temporary_pin=pin, access_credentials=access_credentials)
     if idempotency_key:
+        # The request commit above clears the transaction-local tenant RLS
+        # setting; restore it before inserting the replay record.
+        await _set_tenant_security_context(db, str(user.tenant_id))
         try:
             async with db.begin_nested():
                 persisted = _redact_issued_credentials(response)
@@ -530,7 +539,7 @@ async def submit_test(attempt_id: UUID, req: list[ReviewTestSubmission], db: Asy
         WorkflowWorkItem.review_revision_id == attempt.revision_id,
         WorkflowWorkItem.tenant_id == user.tenant_id,
         or_(WorkflowWorkItem.target_user_id == attempt.reviewer_user_id, WorkflowAccessCredential.reviewer_user_id == attempt.reviewer_user_id),
-    ).with_for_update())
+    ).with_for_update(of=WorkflowWorkItem))
     if work_item is not None:
         work_item.activity_state = "decision_pending" if diagnostics["complete"] else "in_progress"
         work_item.deadline_state = "closed" if diagnostics["complete"] else ("due" if work_item.deadline_state in {"scheduled", "due", "overdue"} else work_item.deadline_state)

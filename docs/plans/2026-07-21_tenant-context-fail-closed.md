@@ -76,3 +76,14 @@ Verification: the route-level scoped-token test passed; course-approval contract
 - [x] Exercise policy toggles false → true → false and same-key idempotent replay through FastAPI `TestClient`.
 
 Verification: policy route regression passed; full unit suite remained green at `860 passed`.
+
+## DEV acceptance defect remediation
+
+- [x] Reproduce the impersonated-methodologist trigger failure and guarded tenant-delete privilege failure through the local API against synthetic DEV data.
+- [x] Add red regressions for platform impersonation actor binding and narrow tenant cleanup permissions.
+- [x] Implement the smallest tenant-safe trigger/cleanup fix without granting broad application-role audit deletion.
+- [x] Run targeted approval/auth/superadmin tests, full backend unit suite, compileall, and Ruff; then repeat synthetic DEV acceptance and cleanup readback.
+
+Resolution: impersonation now sets transaction-local actor markers; migration 0148 permits only a database-validated platform superadmin bound to the exact target tenant, while preserving tenant RLS and audit actor UUIDs. Immutable revision/request actor checks run on insert or actor changes, avoiding false rejection on guest decision updates. Tenant cleanup uses SECURITY DEFINER functions for workflow rows and audit rows, each requiring active superadmin context and exact confirmation; no DELETE grant was added to `audit_logs` or append-only workflow tables.
+
+Verification: targeted course-approval/auth contracts `31 passed`; full unit suite `863 passed`; local API synthetic DEV acceptance `40/40 PASS` (impersonated methodologist writes, guest scoped review, snapshot redaction, progress/decision lifecycle, cross-scope 404, revoke, and guarded tenant DELETE with 404 readback). DEV Alembic downgrade/upgrade `0147↔0148` succeeded. Ruff `F,E9,I`, compileall, and diff-check passed. Integration fixtures requiring a local database remain unavailable (connection refused); no production/provider mutation.

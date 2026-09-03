@@ -166,7 +166,7 @@ async def test_impersonation_uses_target_tenant_without_superadmin_rls_bypass():
         is_active=True,
     )
     db = SimpleNamespace(
-        execute=AsyncMock(side_effect=[object(), _ScalarResult(superadmin)]),
+        execute=AsyncMock(side_effect=[object(), _ScalarResult(superadmin), object()]),
         rollback=AsyncMock(),
     )
 
@@ -185,8 +185,10 @@ async def test_impersonation_uses_target_tenant_without_superadmin_rls_bypass():
     assert result.is_impersonating is True
     assert result.tenant_id == target_tenant_id
     assert result.role == "methodologist"
-    assert db.execute.await_count == 2
+    assert db.execute.await_count == 3
     statements = [str(call.args[0]) for call in db.execute.await_args_list]
     assert "set_current_tenant" in statements[0]
     assert all("app.is_superadmin" not in statement for statement in statements)
+    assert "app.is_impersonating" in statements[2]
+    assert "app.impersonating_actor_id" in statements[2]
     db.rollback.assert_not_awaited()

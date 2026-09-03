@@ -45,18 +45,26 @@ def learner_safe_review_snapshot(snapshot: dict) -> dict:
     import copy
 
     safe = copy.deepcopy(snapshot)
-    course = safe.get("course")
-    if isinstance(course, dict):
-        # Tenant and internal review metadata are not learner content.
-        for field in ("tenant_id", "reviewed_by", "reviewed_at", "review_comment"):
-            course.pop(field, None)
-    for module in safe.get("modules", []):
-        for lesson in module.get("lessons", []):
-            for quiz in lesson.get("quizzes", []):
-                for question in quiz.get("questions", []):
-                    for choice in question.get("choices", []):
-                        choice.pop("is_correct", None)
-    return safe
+    # Keep the reviewer projection learner-like at every nesting level.  The
+    # persisted release includes tenant and review/grading metadata for
+    # server-side integrity, none of which belongs in the reviewer response.
+    internal_fields = {
+        "tenant_id",
+        "reviewed_by",
+        "reviewed_at",
+        "review_comment",
+        "review_status",
+        "is_correct",
+    }
+
+    def strip(value):
+        if isinstance(value, dict):
+            return {key: strip(item) for key, item in value.items() if key not in internal_fields}
+        if isinstance(value, list):
+            return [strip(item) for item in value]
+        return value
+
+    return strip(safe)
 
 
 def score_review_submission(snapshot: dict, submissions: list[dict]) -> dict:
@@ -245,7 +253,7 @@ async def create_request(db: AsyncSession, *, revision: CourseApprovalRevision, 
             "access_url": f"{(base_url or 'https://app.kml.kz').rstrip('/')}/course-review-access/{raw_token}",
             "pin": pin,
         }) if delivery_mode == "email" else None
-        db.add(WorkflowDelivery(tenant_id=tenant_id, work_item_id=work_item.id, channel="cabinet", recipient_email=recipient_email, recipient_user_id=reviewer_id if reviewer_email is None else actor_id, payload_encrypted=payload_encrypted, status="queued"))
+        db.add(WorkflowDelivery(tenant_id=tenant_id, work_item_id=work_item.id, channel="cabinet", recipient_email=recipient_email, recipient_user_id=reviewer_id if reviewer_email is None else None, payload_encrypted=payload_encrypted, status="queued"))
         if delivery_mode == "email":
             db.add(WorkflowDelivery(tenant_id=tenant_id, work_item_id=work_item.id, channel="email", recipient_email=recipient_email, recipient_user_id=reviewer_id if reviewer_email is None else None, payload_encrypted=payload_encrypted, status="queued"))
         if delivery_mode in {"personal_link", "email"}:
@@ -262,7 +270,7 @@ async def create_request(db: AsyncSession, *, revision: CourseApprovalRevision, 
         if due_at is not None:
             reminder_at = due_at - timedelta(hours=24)
             reminder_channel = "email" if delivery_mode == "email" else "cabinet"
-            operational_recipient = reviewer_id if reviewer_email is None else actor_id
+            operational_recipient = reviewer_id if reviewer_email is None else None
             if reminder_at > datetime.now(UTC):
                 db.add(WorkflowReminder(tenant_id=tenant_id, work_item_id=work_item.id, rule_key="due_minus_24h", channel=reminder_channel, idempotency_key=f"review-reminder/{work_item.id}/due_minus_24h", scheduled_at=reminder_at, recipient_user_id=operational_recipient))
             db.add(WorkflowEscalation(tenant_id=tenant_id, work_item_id=work_item.id, rule_key="due_overdue", channel=reminder_channel, idempotency_key=f"review-escalation/{work_item.id}/due_overdue", scheduled_at=due_at, recipient_user_id=operational_recipient))
@@ -338,7 +346,7 @@ async def record_progress(db: AsyncSession, *, attempt: CourseReviewAttempt, rev
         WorkflowWorkItem.review_revision_id == revision.id,
         WorkflowWorkItem.tenant_id == tenant_id,
         or_(WorkflowWorkItem.target_user_id == attempt.reviewer_user_id, WorkflowAccessCredential.reviewer_user_id == attempt.reviewer_user_id),
-    ).with_for_update())
+    ).with_for_update(of=WorkflowWorkItem))
     if work_item is not None:
         work_item.activity_state = "decision_pending" if server_complete else "in_progress"
         if server_complete:
@@ -563,7 +571,7 @@ async def resend_request_access(db: AsyncSession, *, request_id: UUID, tenant_id
         reviewer_id = item.target_user_id or (previous_credential.reviewer_user_id if previous_credential else uuid4())
         db.add(WorkflowAccessCredential(tenant_id=tenant_id, work_item_id=item.id, reviewer_user_id=reviewer_id, reviewer_email=reviewer_email, token_hash=hashlib.sha256(raw_token.encode()).hexdigest(), pin_hash=PIN_HASHER.hash(pin), expires_at=expires_at))
         generation = int(await db.scalar(select(func.max(WorkflowDelivery.generation)).where(WorkflowDelivery.work_item_id == item.id, WorkflowDelivery.tenant_id == tenant_id)) or 0) + 1
-        db.add(WorkflowDelivery(tenant_id=tenant_id, work_item_id=item.id, channel=channel, generation=generation, recipient_email=reviewer_email, recipient_user_id=item.target_user_id if item.target_user_id is not None else actor_id, payload_encrypted=payload_encrypted, status="queued"))
+        db.add(WorkflowDelivery(tenant_id=tenant_id, work_item_id=item.id, channel=channel, generation=generation, recipient_email=reviewer_email, recipient_user_id=item.target_user_id, payload_encrypted=payload_encrypted, status="queued"))
         item.access_state = "issued"
         output.append({"reviewer_id": reviewer_id if item.target_user_id is not None else None, "access_url": f"{base_url.rstrip('/')}/course-review-access/{raw_token}", "temporary_pin": pin, "expires_at": expires_at})
     await log_action(db, tenant_id, "course_approval.access_resent" if rotate_credentials else "course_approval.delivery_retried", "course_approval_request", request_row.id, actor_id, {"reviewer_count": len(output), "retried": retried, "rotated": rotate_credentials})

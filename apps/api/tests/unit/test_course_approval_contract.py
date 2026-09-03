@@ -246,6 +246,12 @@ def test_route_fresh_two_guest_create_returns_credentials_and_replay_is_secret_f
         async def flush(self):
             return None
 
+        async def execute(self, _statement, _params=None):
+            return None
+
+        async def rollback(self):
+            return None
+
         async def commit(self):
             return None
 
@@ -474,6 +480,12 @@ def test_configure_policy_route_refreshes_async_orm_state_and_replays_idempotent
         async def flush(self):
             return None
 
+        async def execute(self, _statement, _params=None):
+            return None
+
+        async def rollback(self):
+            return None
+
         async def commit(self):
             return None
 
@@ -555,6 +567,44 @@ def test_migration_checks_internal_actor_and_recipient_tenant_ownership():
     assert "revision actor tenant mismatch" in source
     assert "requester tenant mismatch" in source
     assert "recipient tenant mismatch" in source
+
+
+def test_impersonation_actor_context_is_explicit_and_tenant_bound():
+    auth = Path(__file__).parents[2] / "app" / "core" / "auth.py"
+    source = auth.read_text(encoding="utf-8")
+    assert "app.is_impersonating" in source
+    assert "app.impersonating_actor_id" in source
+    assert "impersonated_tenant" in source
+
+
+def test_followup_migration_allows_only_bound_platform_impersonator_actor():
+    migration = Path(__file__).parents[2] / "alembic" / "versions" / "0148_platform_impersonation_actor_cleanup.py"
+    source = migration.read_text(encoding="utf-8")
+    assert "app.is_impersonating" in source
+    assert "app.impersonating_actor_id" in source
+    assert "current_setting('app.tenant_id'" in source
+    assert "AND NOT public.course_approval_platform_actor_bound" in source
+    assert "superadmin_purge_tenant_audit_logs" in source
+    assert "superadmin_purge_tenant_course_approval" in source
+    assert "GRANT EXECUTE" in source
+    assert "session_user <> 'lms_app'" in source
+    assert "TG_OP = 'INSERT'" in source
+    assert "GRANT DELETE ON audit_logs TO lms_app" not in source
+
+
+def test_tenant_delete_routes_audit_cleanup_through_bounded_function():
+    service = Path(__file__).parents[2] / "app" / "modules" / "admin" / "superadmin" / "service.py"
+    source = service.read_text(encoding="utf-8")
+    assert "superadmin_purge_tenant_audit_logs" in source
+    assert 'DELETE FROM audit_logs WHERE tenant_id = :tenant_id' not in source
+    approval_router = Path(__file__).parents[2] / "app" / "modules" / "course_approval" / "router.py"
+    approval_source = approval_router.read_text(encoding="utf-8")
+    assert "restore the transaction-local tenant RLS setting" in approval_source
+    assert approval_source.count("_set_tenant_security_context(db, str(tenant_id))") >= 1
+    approval_service = Path(__file__).parents[2] / "app" / "modules" / "course_approval" / "service.py"
+    service_source = approval_service.read_text(encoding="utf-8")
+    assert "recipient_user_id=reviewer_id if reviewer_email is None else None" in service_source
+    assert "operational_recipient = reviewer_id if reviewer_email is None else None" in service_source
 
 
 def test_personal_link_reminders_never_depend_on_plaintext_secret_payloads():

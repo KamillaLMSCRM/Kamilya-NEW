@@ -313,6 +313,18 @@ async def get_current_user(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid impersonation tenant context",
             )
+        # Preserve the real platform actor for audit while giving database
+        # integrity triggers a non-forgeable marker that this request is an
+        # authenticated, exact-tenant impersonation.  Do not set
+        # ``app.is_superadmin`` here: that flag is a platform-wide RLS bypass
+        # and would defeat the tenant scope established above.
+        await db.execute(
+            text(
+                "SELECT set_config('app.is_impersonating', 'true', true), "
+                "set_config('app.impersonating_actor_id', :actor_id, true)"
+            ),
+            {"actor_id": str(user.id)},
+        )
         return _ImpersonatedUser(
             real_user=user,
             tenant_id=impersonated_tenant,

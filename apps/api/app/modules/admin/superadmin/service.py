@@ -80,7 +80,6 @@ TENANT_DELETE_SQL = [
     "DELETE FROM registration_legal_acceptances WHERE tenant_id = :tenant_id",
     "DELETE FROM users WHERE tenant_id = :tenant_id",
     "DELETE FROM departments WHERE tenant_id = :tenant_id",
-    "DELETE FROM audit_logs WHERE tenant_id = :tenant_id",
     "DELETE FROM tenant_usage WHERE tenant_id = :tenant_id",
     "DELETE FROM tenant_leads WHERE tenant_id = :tenant_id",
     "DELETE FROM tenants WHERE id = :tenant_id",
@@ -327,7 +326,24 @@ class SuperadminService:
         )
         await self.db.execute(
             text(
+                "SELECT public.superadmin_purge_tenant_course_approval("
+                ":tenant_id, :confirm_slug)"
+            ),
+            {"tenant_id": str(tenant_id), "confirm_slug": tenant.slug},
+        )
+        await self.db.execute(
+            text(
                 "SELECT public.superadmin_purge_tenant_content_releases("
+                ":tenant_id, :confirm_slug)"
+            ),
+            {"tenant_id": str(tenant_id), "confirm_slug": tenant.slug},
+        )
+        # Audit rows remain append-only for normal lms_app operations.  The
+        # migration-owned SECURITY DEFINER is the sole bounded deletion seam:
+        # it requires the active platform-superadmin context and exact slug.
+        await self.db.execute(
+            text(
+                "SELECT public.superadmin_purge_tenant_audit_logs("
                 ":tenant_id, :confirm_slug)"
             ),
             {"tenant_id": str(tenant_id), "confirm_slug": tenant.slug},
