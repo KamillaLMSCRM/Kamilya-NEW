@@ -39,7 +39,7 @@ export function ReviewCoursePlayer({ snapshot, attemptId, token, initialActivity
     if (!quiz) return;
     const submitted = quiz.questions.map((question) => ({ question_id: question.id, choice_id: answers[question.id] || null }));
     setBusy(true); setMessage('');
-    try { const response = await submitReviewTest(attemptId, submitted.map((item) => ({ question_id: item.question_id, selected_choice_ids: item.choice_id ? [item.choice_id] : [] })), token); setSequence((value) => value + 1); if (response.result || response.diagnostics) { const result = response.result || response.diagnostics || {}; setDiagnostics((current) => ({ ...current, [quizId]: result })); if (result.complete) { setReviewComplete(true); onComplete(); } } else setMessage(t('courseApproval.answersAccepted')); }
+    try { const response = await submitReviewTest(attemptId, submitted.map((item) => ({ question_id: item.question_id, selected_choice_ids: item.choice_id ? [item.choice_id] : [] })), token); setSequence((value) => value + 1); const result = response.result ?? response.diagnostics; if (result) { setDiagnostics((current) => ({ ...current, [quizId]: result })); if (result.complete === true) { setReviewComplete(true); onComplete(); } } else setMessage(t('courseApproval.answersAccepted')); }
     catch { setMessage(t('courseApproval.answersError')); }
     finally { setBusy(false); }
   }

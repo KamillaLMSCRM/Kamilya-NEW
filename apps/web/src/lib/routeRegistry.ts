@@ -140,7 +140,9 @@ export const ROUTES: readonly AppRoute[] = [
   { id: 'integrations', href: '/admin/settings/integrations', capability: 'configure_tenant', match: 'prefix', labelKey: 'integrations.title', section: 'tenant', icon: 'settings', order: 50, sidebar: true, commandPalette: true },
   { id: 'certificate-settings', href: '/admin/certificates/settings', capability: 'configure_tenant', match: 'prefix', labelKey: 'sidebar.certificateTemplate', section: 'tenant', icon: 'certificate', order: 60, sidebar: true, commandPalette: true },
   { id: 'audit-log', href: '/admin/audit', capability: 'configure_tenant', match: 'prefix', labelKey: 'nav.auditLog', section: 'tenant', icon: 'log', order: 70, sidebar: true, commandPalette: true },
-  { id: 'course-approvals', href: '/admin/course-approvals', capability: 'configure_course_approval', match: 'prefix', labelKey: 'nav.courseApprovals', section: 'tenant', icon: 'clipboard', order: 75, sidebar: true, commandPalette: true },
+  // Approval configuration is intentionally contextual and not added to the global
+  // role navigation. The route remains capability-guarded for direct course actions.
+  { id: 'course-approvals', href: '/admin/course-approvals', capability: 'configure_course_approval', match: 'prefix', labelKey: 'nav.courseApprovals', section: 'tenant', icon: 'clipboard', order: 75, sidebar: false, commandPalette: false },
 
   { id: 'learner-dashboard', href: '/student', capability: 'learn', labelKey: 'nav.dashboard', section: 'overview', icon: 'dashboard', order: 10, sidebar: true, commandPalette: true },
   { id: 'my-courses', href: '/my-courses', capability: 'learn', labelKey: 'student.enrolledCourses', section: 'learning', icon: 'book', order: 20, sidebar: true, commandPalette: true },

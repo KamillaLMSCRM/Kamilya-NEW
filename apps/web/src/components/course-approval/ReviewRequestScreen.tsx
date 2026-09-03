@@ -17,7 +17,7 @@ export function ReviewRequestScreen({ requestId, token, onCompleted, onExit }: {
     setLoading(true); setError('');
     try {
       const [summary, nextAttempt] = await Promise.all([token ? getScopedReviewRequest(token, requestId) : getApprovalRequest(requestId), startReviewAttempt(requestId, token)]);
-      const normalizedSummary: ApprovalRequestSummary = token
+      const normalizedSummary: ApprovalRequestSummary = 'reviewer' in summary
         ? { request_id: summary.request_id, revision_id: summary.revision_id, outcome: summary.outcome, delivery_mode: summary.delivery_mode, due_at: summary.due_at, reviewers: [summary.reviewer], reviewer_count: 1 }
         : summary;
       setRequest(normalizedSummary); setAttempt(nextAttempt); setActivityState(nextAttempt.activity_state);
