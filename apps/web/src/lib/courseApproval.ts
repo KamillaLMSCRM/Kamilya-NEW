@@ -34,9 +34,11 @@ export interface ApprovalRequestSummary {
   work_items?: ReviewerApprovalStatus[];
   deliveries?: DeliveryStatus[];
   progress?: ReviewProgressStatus[];
+  all_required_approved?: boolean;
 }
 
-export interface DeliveryStatus { channel: 'cabinet' | 'email'; status: 'queued' | 'accepted' | 'delivered' | 'failed'; attempt_count: number; error_category?: string | null }
+export type DeliveryState = 'queued' | 'accepted' | 'delivered' | 'failed' | 'terminal';
+export interface DeliveryStatus { channel: 'cabinet' | 'email'; status: DeliveryState; attempt_count: number; error_category?: string | null }
 export interface ReviewProgressStatus { attempt_id: string; activity_state: ReviewActivityState; lesson_position?: number | null; diagnostics?: ReviewDiagnostic | null; }
 export interface ReviewDiagnostic { answered: number; total: number; correct: number; score_percent: number; complete: boolean; passed?: boolean }
 
@@ -46,7 +48,7 @@ export interface ReviewerApprovalStatus {
   decision?: 'pending' | 'approved' | 'changes_requested';
   decision_at?: string | null;
   required?: boolean;
-  delivery_state?: 'queued' | 'accepted' | 'delivered' | 'failed';
+  delivery_state?: DeliveryState;
   access_state?: 'issued' | 'opened' | 'pin_verified' | 'active' | 'expired' | 'revoked';
   activity_state?: 'not_started' | 'in_progress' | 'completed' | 'decision_pending';
   deadline_state?: 'unset' | 'scheduled' | 'due' | 'overdue' | 'closed';
@@ -182,6 +184,23 @@ export async function getApprovalRequest(requestId: string, token?: string): Pro
   return response.data;
 }
 
+export interface ScopedReviewRequest {
+  request_id: string;
+  revision_id: string;
+  outcome: ApprovalOutcome;
+  delivery_mode: ApprovalDeliveryMode;
+  due_at?: string | null;
+  reviewer: ReviewerApprovalStatus;
+  all_required_approved: boolean;
+}
+
+/** The scoped endpoint is intentionally separate from the tenant requester projection. */
+export async function getScopedReviewRequest(token?: string, requestId?: string): Promise<ScopedReviewRequest> {
+  const path = requestId ? `/v1/course-review-requests/${encodeURIComponent(requestId)}` : '/v1/course-review-requests';
+  const response = await api.get<ScopedReviewRequest>(path, reviewConfig(token));
+  return response.data;
+}
+
 export async function cancelApprovalRequest(requestId: string): Promise<void> {
   await api.post(`/v1/course-approval-requests/${requestId}/cancel`);
 }
@@ -190,8 +209,11 @@ export async function revokeApprovalAccess(requestId: string): Promise<void> {
   await api.post(`/v1/course-approval-requests/${requestId}/revoke`);
 }
 
-export async function resendApprovalDelivery(requestId: string): Promise<void> {
-  await api.post(`/v1/course-approval-requests/${requestId}/resend`);
+export interface ResendApprovalResponse { request_id: string; rotated: boolean; retried: number; access_credentials: ReviewerAccessSecret[] }
+
+export async function resendApprovalDelivery(requestId: string, rotateCredentials = false): Promise<ResendApprovalResponse> {
+  const response = await api.post<ResendApprovalResponse>(`/v1/course-approval-requests/${requestId}/resend`, { rotate_credentials: rotateCredentials });
+  return response.data;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -279,11 +301,11 @@ export async function startReviewAttempt(requestId: string, token?: string): Pro
   };
 }
 
-export async function saveReviewProgress(attemptId: string, sequence: number, lessonPosition: number | null, activityState: Exclude<ReviewActivityState, 'decision_pending'>, payload: Record<string, unknown> = {}, token?: string): Promise<ReviewProgressResponse> {
+export async function saveReviewProgress(attemptId: string, sequence: number, lessonPosition: number | null, activityState: Exclude<ReviewActivityState, 'decision_pending'>, payload: Record<string, unknown> = {}, token?: string, eventType?: string): Promise<ReviewProgressResponse> {
   const response = await api.put<ReviewProgressResponse>(`/v1/course-review-attempts/${attemptId}/progress`, {
     sequence,
     lesson_position: lessonPosition,
-    event_type: activityState === 'completed' ? 'review_completed' : 'review_activity',
+    event_type: eventType || (activityState === 'completed' ? 'review_completed' : 'review_activity'),
     payload: { purpose: 'course_review', ...payload },
     activity_state: activityState,
   }, reviewConfig(token));
@@ -304,7 +326,7 @@ export async function submitReviewDecision(attemptId: string, decision: 'approve
   return response.data;
 }
 
-export async function verifyReviewPin(token: string, pin: string): Promise<{ review_token: string; work_item_id: string }> {
-  const response = await api.post<{ review_token: string; work_item_id: string }>(`/v1/course-review-access/${encodeURIComponent(token)}/verify-pin`, { pin });
+export async function verifyReviewPin(token: string, pin: string): Promise<{ review_token: string; work_item_id: string; request_id?: string; revision_id?: string }> {
+  const response = await api.post<{ review_token: string; work_item_id: string; request_id?: string; revision_id?: string }>(`/v1/course-review-access/${encodeURIComponent(token)}/verify-pin`, { pin });
   return response.data;
 }

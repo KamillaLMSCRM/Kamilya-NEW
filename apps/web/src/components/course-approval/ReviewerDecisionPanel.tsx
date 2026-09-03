@@ -11,7 +11,7 @@ export function ReviewerDecisionPanel({ attemptId, activityState, token, onSubmi
   const [acknowledged, setAcknowledged] = useState(false);
   const [busy, setBusy] = useState(false);
   const { t } = useT();
-  const incomplete = activityState !== 'completed';
+  const incomplete = activityState !== 'completed' && activityState !== 'decision_pending';
   async function submit(decision: 'approve' | 'return') {
     if (decision === 'return' && !reason.trim()) { toast.error(t('courseApproval.returnReason')); return; }
     if (decision === 'approve' && incomplete && !acknowledged) { toast.error(t('courseApproval.ackRequired')); return; }

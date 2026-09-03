@@ -14,13 +14,13 @@ export function ReviewCoursePlayer({ snapshot, attemptId, token, initialActivity
   const [diagnostics, setDiagnostics] = useState<Record<string, ReviewDiagnostic>>({});
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
-  const [reviewComplete, setReviewComplete] = useState(initialActivityState === 'completed');
+  const [reviewComplete, setReviewComplete] = useState(initialActivityState === 'completed' || initialActivityState === 'decision_pending');
   const { t } = useT();
   const lessons = useMemo(() => snapshot.modules.flatMap((module) => module.lessons.map((lesson) => ({ ...lesson, moduleTitle: module.title }))), [snapshot.modules]);
   const lesson = lessons[position];
 
   async function recordActivity(nextPosition: number, payload: Record<string, unknown> = {}) {
-    const response = await saveReviewProgress(attemptId, sequence, nextPosition, 'in_progress', payload, token);
+    const response = await saveReviewProgress(attemptId, sequence, nextPosition, 'in_progress', payload, token, 'checkpoint');
     setSequence((value) => value + 1);
     if (response.diagnostics && typeof payload.quiz_id === 'string') setDiagnostics((current) => ({ ...current, [payload.quiz_id as string]: response.diagnostics || {} }));
     return response;
@@ -46,7 +46,17 @@ export function ReviewCoursePlayer({ snapshot, attemptId, token, initialActivity
 
   async function complete() {
     setBusy(true); setMessage('');
-    try { if (reviewComplete) { onComplete(); return; } await saveReviewProgress(attemptId, sequence, position, 'completed', { activity: 'review_completed', initial_activity_state: initialActivityState }, token); setSequence((value) => value + 1); setReviewComplete(true); onComplete(); }
+    try {
+      if (reviewComplete) { onComplete(); return; }
+      const response = await saveReviewProgress(attemptId, sequence, position, 'in_progress', { activity: 'review_completed', initial_activity_state: initialActivityState }, token, 'checkpoint');
+      setSequence((value) => value + 1);
+      if (response.activity_state === 'decision_pending') {
+        setReviewComplete(true);
+        onComplete();
+      } else {
+        setMessage(t('courseApproval.finishNeedsCheckpoints'));
+      }
+    }
     catch { setMessage(t('courseApproval.finishError')); }
     finally { setBusy(false); }
   }

@@ -21,6 +21,7 @@ export function ApprovalRequestModal({ open, courseId, onClose, onCreated }: App
   const [guest, setGuest] = useState<GuestReviewer>({ name: '', email: '' });
   const [guests, setGuests] = useState<GuestReviewer[]>([]);
   const [copiedReviewer, setCopiedReviewer] = useState<string | null>(null);
+  const [copyFailed, setCopyFailed] = useState<string | null>(null);
   const { t } = useT();
 
   useEffect(() => {
@@ -49,17 +50,17 @@ export function ApprovalRequestModal({ open, courseId, onClose, onCreated }: App
     try {
       if (navigator.clipboard) await navigator.clipboard.writeText(value);
       else throw new Error('clipboard-unavailable');
-      setCopiedReviewer(reviewerId);
+      setCopiedReviewer(reviewerId); setCopyFailed(null);
     } catch {
       const area = document.createElement('textarea'); area.value = value; area.setAttribute('readonly', 'true'); area.style.position = 'fixed'; area.style.opacity = '0'; document.body.appendChild(area); area.select();
-      try { document.execCommand('copy'); setCopiedReviewer(reviewerId); } catch { toast.error(t('courseApproval.errorLoad')); } finally { document.body.removeChild(area); }
+      try { if (!document.execCommand('copy')) throw new Error('copy-failed'); setCopiedReviewer(reviewerId); setCopyFailed(null); } catch { setCopyFailed(reviewerId); toast.error(t('courseApproval.copyFailed')); } finally { document.body.removeChild(area); }
     }
   }
 
   return (
     <Modal open={open} onClose={() => { setCreated(null); onClose(); }} title={t('courseApproval.send')} description={t('courseApproval.sendDescription')}>
       <div className="space-y-5">
-        {created && <div className="space-y-3 rounded-lg border border-emerald-300 bg-emerald-50 p-4 text-sm"><p className="font-semibold">{t('courseApproval.created')}</p>{created.access_credentials?.map((credential) => <div key={credential.reviewer_id} className="space-y-2 rounded border bg-background p-3"><p className="break-all text-xs">{credential.reviewer_id}</p><p className="break-all font-mono text-xs">{credential.access_url}</p><p className="font-mono">PIN: {credential.temporary_pin}</p><div className="flex flex-wrap gap-2"><Button size="sm" variant="outline" onClick={() => void copyCredential(credential.access_url, credential.temporary_pin, credential.reviewer_id)}>{t('courseApproval.copyAccess')}</Button></div></div>)}<Button variant="outline" onClick={() => { setCreated(null); onClose(); }}>{t('courseApproval.close')}</Button></div>}
+        {created && <div className="space-y-3 rounded-lg border border-emerald-300 bg-emerald-50 p-4 text-sm"><p className="font-semibold">{t('courseApproval.created')}</p>{created.access_credentials?.map((credential) => <div key={credential.reviewer_id} className="space-y-2 rounded border bg-background p-3"><p className="break-all text-xs">{credential.reviewer_id}</p><p className="break-all font-mono text-xs">{credential.access_url}</p><p className="font-mono">PIN: {credential.temporary_pin}</p><div className="flex flex-wrap items-center gap-2"><Button size="sm" variant="outline" onClick={() => void copyCredential(credential.access_url, credential.temporary_pin, credential.reviewer_id)}>{t('courseApproval.copyAccess')}</Button>{copiedReviewer === credential.reviewer_id && <span role="status" className="break-words text-xs text-emerald-700">{t('courseApproval.copied')}</span>}{copyFailed === credential.reviewer_id && <span role="alert" className="break-words text-xs text-destructive">{t('courseApproval.copyFailed')}</span>}</div></div>)}<Button variant="outline" onClick={() => { setCreated(null); onClose(); }}>{t('courseApproval.close')}</Button></div>}
         {!created && <>
         <fieldset className="space-y-2">
           <legend className="text-sm font-medium">{t('courseApproval.reviewers')}</legend>
