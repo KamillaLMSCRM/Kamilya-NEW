@@ -140,6 +140,8 @@
     "kiosks": "Shared kiosk",
     "trainingLog": "Training log",
     "auditLog": "Action log",
+    "courseApprovals": "Course approvals",
+    "courseReview": "Course review",
     "trainingRules": "Training rules",
     "candidateAssessments": "Candidate testing",
     "assignmentsAndAccess": "Assignments and access"
@@ -1893,5 +1895,8 @@
     "deliveryDeferred": "The request was saved, but the email notification is not yet confirmed. For an urgent problem, email:",
     "submitError": "The request could not be saved. Email us directly:",
     "defaultEmailSubject": "Kamilya LMS problem"
+  },
+  "courseApproval": {
+    "policyTitle": "Course approval", "policyHint": "Assign required reviewers before publishing.", "policyLabel": "Require approval before publishing", "policySnapshot": "The course snapshot is fixed when submitted and cannot change during review.", "policyAllRequired": "All assigned reviewers must decide before publishing.", "send": "Send course for approval", "sendDescription": "An immutable snapshot of the current course version will be created.", "reviewers": "Reviewers", "noReviewers": "No reviewers are available.", "administrator": "Administrator", "methodologist": "Methodologist", "delivery": "Delivery", "email": "Email", "personalLink": "Link and PIN", "deadline": "Deadline (optional)", "cancel": "Cancel", "submit": "Send request", "sending": "Sending…", "selectReviewer": "Select at least one reviewer", "created": "Request created. Copy access details now — the PIN is shown only once.", "copyAccess": "Copy access", "close": "Close", "reviewMode": "Review mode", "version": "Version", "contents": "Contents", "previous": "Back", "next": "Next lesson", "finish": "Finish review", "submitAnswers": "Submit answers", "serverResult": "Server result", "reviewDecision": "Reviewer decision", "decisionHint": "This decision applies only to the frozen version and never changes learning history.", "incompleteWarning": "The review is not complete. I understand that I am approving early.", "ackRequired": "Acknowledge early approval", "returnReason": "Return reason (required)", "returnPlaceholder": "What needs to change?", "return": "Return for changes", "approve": "Approve version", "errorLoad": "Could not open the review.", "retry": "Retry", "progressError": "Progress was not saved. Check your connection and try again.", "answersAccepted": "Answers were accepted by the server. Diagnostics will appear after processing.", "answersError": "Answers could not be submitted. Try again.", "finishError": "The review was not completed. Try again.", "externalGuest": "External reviewer", "guestName": "Name", "guestEmail": "Guest email", "addGuest": "Add guest", "guestBackendPending": "The current API accepts registered users only; guest delivery requires a backend extension."
   }
 }

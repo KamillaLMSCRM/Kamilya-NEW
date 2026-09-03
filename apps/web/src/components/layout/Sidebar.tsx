@@ -68,6 +68,7 @@ const ICONS: Record<NavigationIcon, LucideIcon> = {
   log: Map,
   building: Building2,
   activity: Activity,
+  clipboard: ClipboardCheck,
 };
 
 interface SidebarProps {

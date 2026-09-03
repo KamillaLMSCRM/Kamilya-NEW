@@ -22,6 +22,7 @@ import {
   X,
 } from 'lucide-react';
 import { AIChatPanel } from '@/components/ai/AIChatPanel';
+import { ApprovalPolicyCard } from '@/components/course-approval/ApprovalPolicyCard';
 
 interface Lesson {
   id: string;
@@ -45,6 +46,7 @@ interface Course {
   status: string;
   ai_generated: boolean;
   review_status: 'pending' | 'approved' | 'needs_changes';
+  requires_approval?: boolean;
   source_instruction_id?: string | null;
 }
 
@@ -382,8 +384,15 @@ export default function CourseEditPage() {
             <Sparkles className="w-4 h-4 mr-1" />
             AI-помощник
           </Button>
+          <a
+            href={`/admin/course-approvals?courseId=${encodeURIComponent(course.id)}`}
+            className="inline-flex min-h-9 items-center justify-center rounded-md border border-input px-3 py-2 text-sm font-medium hover:bg-muted"
+          >
+            Согласование
+          </a>
         </div>
       </div>
+      <ApprovalPolicyCard courseId={course.id} initialRequiresApproval={Boolean(course.requires_approval)} />
       {course.status !== 'published' && course.ai_generated && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
           Перед публикацией откройте раздел <a className="font-semibold underline" href="/quizzes">Тесты</a> и явно одобрите каждый AI-тест. Проверка курса не заменяет проверку правильных и неверных вариантов ответа.
