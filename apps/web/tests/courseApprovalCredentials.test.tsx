@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const getMock = vi.hoisted(() => vi.fn());
 const freezeMock = vi.hoisted(() => vi.fn());
@@ -10,6 +10,8 @@ vi.mock('@/lib/courseApproval', () => ({ freezeApprovalRevision: freezeMock, cre
 vi.mock('@/components/ui/Toast', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
 import { ApprovalRequestModal } from '@/components/course-approval/ApprovalRequestModal';
+
+let execCommandMock: ReturnType<typeof vi.fn>;
 
 const credentials = [
   { reviewer_id: 'reviewer-1', access_url: 'https://example.test/review/one', temporary_pin: '123456', expires_at: '2027-01-01T00:00:00Z' },
@@ -23,7 +25,12 @@ describe('approval credential reveal', () => {
     createMock.mockReset().mockResolvedValue({ request_id: 'request-1', revision_id: 'revision-1', outcome: 'pending', delivery_mode: 'personal_link', access_credentials: credentials });
     writeTextMock.mockReset().mockResolvedValue(undefined);
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: writeTextMock } });
-    vi.spyOn(document, 'execCommand').mockReturnValue(true);
+    execCommandMock = vi.fn().mockReturnValue(true);
+    Object.defineProperty(document, 'execCommand', { configurable: true, value: execCommandMock });
+  });
+
+  afterEach(() => {
+    delete (document as Document & { execCommand?: unknown }).execCommand;
   });
 
   it('reveals every newly issued credential ephemerally with independent URL and PIN actions', async () => {
@@ -50,7 +57,7 @@ describe('approval credential reveal', () => {
 
   it('reports clipboard failure while attempting the manual fallback', async () => {
     writeTextMock.mockRejectedValue(new Error('blocked'));
-    vi.mocked(document.execCommand).mockReturnValue(false);
+    execCommandMock.mockReturnValue(false);
     render(<ApprovalRequestModal open courseId="course-1" onClose={() => undefined} />);
     fireEvent.change(screen.getByLabelText('Имя'), { target: { value: 'Guest One' } });
     fireEvent.change(screen.getByLabelText('Email гостя'), { target: { value: 'one@example.test' } });
