@@ -25,6 +25,7 @@ describe('course approval course-switch and create flow', () => {
     render(<CourseApprovalsPage />);
     await waitFor(() => expect(screen.getByRole('combobox')).toHaveValue('course-a'));
     fireEvent.change(screen.getByRole('combobox'), { target: { value: 'course-b' } });
+    expect(screen.getAllByTestId('policy-card')).toHaveLength(1);
     expect(screen.getByTestId('policy-card')).toHaveTextContent('policy:course-b');
     fireEvent.click(screen.getByRole('button', { name: 'Создать снимок и запрос' }));
     expect(screen.getByRole('dialog')).toHaveTextContent('request-modal:course-b');
