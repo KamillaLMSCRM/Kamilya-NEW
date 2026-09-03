@@ -70,7 +70,20 @@ async def test_runtime_role_cannot_bypass_rls_or_administer_cluster(db_session) 
             )
         )
     ).one()
-    assert tuple(role) == (False, False, False, False, False)
+    # Supabase provisions lms_app with INHERIT. That is safe here because the
+    # role has no memberships; the security boundary is NOSUPERUSER,
+    # NOCREATEROLE, NOCREATEDB and NOBYPASSRLS plus an empty membership set.
+    assert role.rolsuper is False
+    assert role.rolcreaterole is False
+    assert role.rolcreatedb is False
+    assert role.rolbypassrls is False
+    assert await db_session.scalar(
+        text(
+            "SELECT count(*) FROM pg_auth_members m "
+            "JOIN pg_roles member ON member.oid=m.member "
+            "WHERE member.rolname='lms_app'"
+        )
+    ) == 0
 
 
 async def test_critical_tenant_tables_have_rls_and_force_rls(db_session) -> None:

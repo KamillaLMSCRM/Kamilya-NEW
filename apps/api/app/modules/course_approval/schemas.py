@@ -34,7 +34,7 @@ class GuestReviewer(BaseModel):
 
 class ApprovalRequestCreate(BaseModel):
     reviewer_user_ids: list[UUID] = Field(default_factory=list)
-    guest_reviewers: list["GuestReviewer"] = Field(default_factory=list)
+    guest_reviewers: list[GuestReviewer] = Field(default_factory=list)
     delivery_mode: str = Field(pattern="^(email|personal_link)$")
     due_at: datetime | None = None
 

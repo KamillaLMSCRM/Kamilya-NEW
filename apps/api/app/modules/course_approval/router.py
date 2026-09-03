@@ -1,3 +1,8 @@
+# FastAPI resolves dependency/header/body defaults from function signatures;
+# B008's module-level-singleton recommendation would alter that established
+# request dependency contract, so keep the framework-native declarations.
+# ruff: noqa: B008
+
 from datetime import UTC, datetime
 from uuid import UUID
 
@@ -143,7 +148,7 @@ async def _scoped_request_projection(db: AsyncSession, *, principal, request_id:
     row = await db.scalar(select(CourseApprovalRequest).where(
         CourseApprovalRequest.revision_id == work_item.review_revision_id,
         CourseApprovalRequest.tenant_id == principal.tenant_id,
-        *(([CourseApprovalRequest.id == request_id] if request_id is not None else [])),
+        *([CourseApprovalRequest.id == request_id] if request_id is not None else []),
     ))
     if row is None:
         raise HTTPException(status_code=404, detail="Review request not found")
@@ -364,7 +369,7 @@ async def request_review(revision_id: UUID, req: ApprovalRequestCreate, request:
             if existing is None or existing.request_fingerprint != fingerprint:
                 raise HTTPException(status_code=409, detail="idempotency_conflict") from None
             if existing.response.get("credentials_issued"):
-                raise HTTPException(status_code=409, detail="credentials_already_issued")
+                raise HTTPException(status_code=409, detail="credentials_already_issued") from None
             return existing.response
         await db.commit()
     return response

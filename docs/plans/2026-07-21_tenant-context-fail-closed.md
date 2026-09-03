@@ -17,7 +17,7 @@
 ## Evidence log
 
 - Graphify context search was run before broad code exploration and selected the course approval/release, auth/RLS, reviewer attempt, delivery, and backend test seams.
-- Prior targeted and unit checks passed; full unit has one unrelated pre-existing documentation-date failure; DB-backed integration is unavailable without a local database.
+- Prior targeted and unit checks passed; the local PostgreSQL-backed suite is unavailable, so the narrowly scoped RLS checks were run against the approved DEV database only.
 - DEV Alembic advanced from `0146` to `0147` through the Supabase pooler using runtime role `lms_app`; all twelve workflow tables exist with RLS and FORCE RLS enabled, one tenant policy each, and zero rows. No production endpoint or database was accessed.
 - DEV-only downgrade/upgrade of the empty `0147` workflow surface succeeded; catalog readback found both SECURITY DEFINER due-selector functions owned by `postgres` with `lms_recovery` EXECUTE ACLs. Runtime-role readback remains `NOSUPERUSER`/`NOBYPASSRLS`.
 
@@ -46,9 +46,9 @@ The runtime kill switch blocks only new approval-workflow writes; historical rea
 
 ## Follow-up verification
 
-- Targeted contract/auth/tenant tests: `33 passed`.
-- DEV-only runtime-role integrity tests: `2 passed`; cross-tenant actor and recipient references were rejected by the database trigger.
-- Full unit suite: `854 passed, 1 failed`; the sole failure is the pre-existing release-journal date contract (`docs/ERRORS.md` header does not match its latest entry), outside this change set.
+- Targeted contract/auth/tenant tests: `35 passed`.
+- DEV-only runtime-role integrity tests: `2 passed`; the broader RLS release-environment file also passed (`6 passed`); cross-tenant actor and recipient references were rejected by the database trigger.
+- Full unit suite: `855 passed` after updating the existing `ERRORS.md` current-as-of line to the latest existing entry date (`2026-09-02`); no duplicate journal entry was added.
 - Static verification: Ruff (`F,E9,I`), Python compileall, and `git diff --check` passed.
-- DEV migration/catalog readback: Alembic `0147 (head)`; `lms_app` is `NOSUPERUSER`/`NOBYPASSRLS`; all 12 workflow tables have RLS+FORCE RLS; delete is denied on append-only revision/request/attempt/event tables; both recovery selector functions exist with `lms_recovery` execute ACL; workflow tables contain zero rows.
+- DEV migration/catalog readback: Alembic `0147 (head)`; `lms_app` is `NOSUPERUSER`/`NOBYPASSRLS` with `rolinherit=true` but zero `pg_auth_members` rows, so no inherited privilege or RLS bypass is present; direct effective privilege probes show SELECT/INSERT/UPDATE and no DELETE on append-only tables; all 12 workflow tables have RLS+FORCE RLS; both recovery selector functions exist with `lms_recovery` execute ACL; workflow tables contain zero rows.
 - No production DB/DNS/deploy/push/provider mutation was performed. Graphify was used before broad exploration in the parent pass and selected auth/RLS, course-approval/release, delivery, reviewer-attempt, and test seams; no callable graph refresh tool was exposed during this follow-up.
