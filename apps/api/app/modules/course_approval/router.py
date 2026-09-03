@@ -117,6 +117,7 @@ def _redact_issued_credentials(response: ApprovalRequestResponse) -> dict:
 router = APIRouter(tags=["course-approval"])
 tenant = [Depends(require_tenant_user())]
 workflow_write = tenant + [Depends(require_course_approval_enabled)]
+review_workflow_write = [Depends(require_course_approval_enabled)]
 review_bearer = HTTPBearer(auto_error=False)
 
 
@@ -448,7 +449,7 @@ async def resend(request_id: UUID, request: Request, req: ResendAccessRequest | 
     return response
 
 
-@router.post("/course-approval-requests/{request_id}/attempts", dependencies=workflow_write)
+@router.post("/course-approval-requests/{request_id}/attempts", dependencies=review_workflow_write)
 async def start_attempt(request_id: UUID, db: AsyncSession = Depends(get_db), user=Depends(require_review_principal)):
     request_row = await db.scalar(select(CourseApprovalRequest).where(CourseApprovalRequest.id == request_id, CourseApprovalRequest.tenant_id == user.tenant_id))
     if request_row is None:
@@ -470,7 +471,7 @@ async def start_attempt(request_id: UUID, db: AsyncSession = Depends(get_db), us
     return {"attempt_id": attempt.id, "revision_id": revision.id, "snapshot_sha256": attempt.snapshot_sha256, "activity_state": attempt.activity_state, "snapshot": learner_safe_review_snapshot(revision.snapshot)}
 
 
-@router.put("/course-review-attempts/{attempt_id}/progress", dependencies=workflow_write)
+@router.put("/course-review-attempts/{attempt_id}/progress", dependencies=review_workflow_write)
 async def save_progress(attempt_id: UUID, req: ReviewProgressRequest, db: AsyncSession = Depends(get_db), user=Depends(require_review_principal), idempotency_key: str | None = Header(None, alias="Idempotency-Key")):
     fingerprint = canonical_json_sha256({"attempt_id": str(attempt_id), **req.model_dump(mode="json")})
     replay = await _read_idempotency(db, tenant_id=user.tenant_id, key=idempotency_key, operation="course_review.progress", fingerprint=fingerprint)
@@ -493,7 +494,7 @@ async def save_progress(attempt_id: UUID, req: ReviewProgressRequest, db: AsyncS
     return response
 
 
-@router.post("/course-review-attempts/{attempt_id}/test", dependencies=workflow_write)
+@router.post("/course-review-attempts/{attempt_id}/test", dependencies=review_workflow_write)
 async def submit_test(attempt_id: UUID, req: list[ReviewTestSubmission], db: AsyncSession = Depends(get_db), user=Depends(require_review_principal), idempotency_key: str | None = Header(None, alias="Idempotency-Key")):
     fingerprint = canonical_json_sha256({"attempt_id": str(attempt_id), "submissions": [item.model_dump(mode="json") for item in req]})
     replay = await _read_idempotency(db, tenant_id=user.tenant_id, key=idempotency_key, operation="course_review.test", fingerprint=fingerprint)
@@ -536,7 +537,7 @@ async def submit_test(attempt_id: UUID, req: list[ReviewTestSubmission], db: Asy
     return response
 
 
-@router.post("/course-review-attempts/{attempt_id}/decision", dependencies=workflow_write)
+@router.post("/course-review-attempts/{attempt_id}/decision", dependencies=review_workflow_write)
 async def submit_decision(attempt_id: UUID, req: ReviewDecisionRequest, db: AsyncSession = Depends(get_db), user=Depends(require_review_principal), idempotency_key: str | None = Header(None, alias="Idempotency-Key")):
     fingerprint = canonical_json_sha256({"attempt_id": str(attempt_id), **req.model_dump(mode="json")})
     replay = await _read_idempotency(db, tenant_id=user.tenant_id, key=idempotency_key, operation="course_review.decision", fingerprint=fingerprint)
