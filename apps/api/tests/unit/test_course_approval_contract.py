@@ -161,6 +161,38 @@ def test_review_credentials_are_reusable_and_resend_rotation_is_explicit():
     assert '"access_credentials": []' in router_source
 
 
+def test_guest_create_response_exposes_each_credential_once_and_replay_is_redacted():
+    from datetime import UTC, datetime, timedelta
+
+    from app.modules.course_approval.router import _redact_issued_credentials
+    from app.modules.course_approval.schemas import ApprovalRequestResponse, ReviewerAccessSecret
+
+    expires_at = datetime.now(UTC) + timedelta(days=7)
+    secrets = [
+        ReviewerAccessSecret(reviewer_id=uuid4(), access_url="https://app.test/course-review-access/token-a", temporary_pin="123456", expires_at=expires_at),
+        ReviewerAccessSecret(reviewer_id=uuid4(), access_url="https://app.test/course-review-access/token-b", temporary_pin="654321", expires_at=expires_at),
+    ]
+    response = ApprovalRequestResponse(
+        request_id=uuid4(), revision_id=uuid4(), reviewer_ids=[], outcome="pending", delivery_mode="personal_link",
+        access_url=secrets[0].access_url, temporary_pin=secrets[0].temporary_pin, access_credentials=secrets,
+    )
+    wire = response.model_dump(mode="json")
+    assert wire["access_url"].endswith("token-a")
+    assert wire["temporary_pin"] == "123456"
+    assert [item["temporary_pin"] for item in wire["access_credentials"]] == ["123456", "654321"]
+    persisted = _redact_issued_credentials(response)
+    assert persisted["credentials_issued"] is True
+    assert persisted["access_url"] is None
+    assert persisted["temporary_pin"] is None
+    assert persisted["access_credentials"] == []
+
+
+def test_repeated_create_cannot_return_success_with_an_empty_credential_panel():
+    service = Path(__file__).parents[2] / "app" / "modules" / "course_approval" / "service.py"
+    source = service.read_text(encoding="utf-8")
+    assert 'raise HTTPException(status_code=409, detail="credentials_already_issued")' in source
+
+
 def test_mixed_guest_and_internal_reviewer_contract_keeps_per_reviewer_identity():
     from app.modules.course_approval.models import CourseApprovalReviewer, WorkflowAccessCredential
 

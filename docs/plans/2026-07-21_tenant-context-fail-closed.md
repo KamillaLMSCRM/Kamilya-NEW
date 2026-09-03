@@ -52,3 +52,12 @@ The runtime kill switch blocks only new approval-workflow writes; historical rea
 - Static verification: Ruff (`F,E9,I`), Python compileall, and `git diff --check` passed.
 - DEV migration/catalog readback: Alembic `0147 (head)`; `lms_app` is `NOSUPERUSER`/`NOBYPASSRLS` with `rolinherit=true` but zero `pg_auth_members` rows, so no inherited privilege or RLS bypass is present; direct effective privilege probes show SELECT/INSERT/UPDATE and no DELETE on append-only tables; all 12 workflow tables have RLS+FORCE RLS; both recovery selector functions exist with `lms_recovery` execute ACL; workflow tables contain zero rows.
 - No production DB/DNS/deploy/push/provider mutation was performed. Graphify was used before broad exploration in the parent pass and selected auth/RLS, course-approval/release, delivery, reviewer-attempt, and test seams; no callable graph refresh tool was exposed during this follow-up.
+
+## Credential response acceptance follow-up
+
+- [x] Trace first-create, repeated-create, and persisted-idempotency replay paths for guest personal-link credentials.
+- [x] Ensure first create exposes top-level first credential plus every per-reviewer credential, while persistence/replay strips all URL/PIN material.
+- [x] Reject repeated creates that would otherwise return a successful empty credential panel; require explicit credential rotation instead.
+- [x] Add one-guest and multi-guest response-shape/redaction contract tests; run targeted and full unit verification.
+
+Verification: course-approval contract tests `20 passed`, auth/tenant tests `15 passed`, full unit suite `857 passed`; Ruff, compileall, and diff-check passed. No database or provider access was needed for this response-contract change.
