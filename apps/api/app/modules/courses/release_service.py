@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
 from typing import Any
@@ -369,12 +370,16 @@ async def create_course_release_from_snapshot(
         )
     )
     version = int(latest_version or 0) + 1
+    # Candidate revision numbering and publication versioning are independent.
+    # Preserve the approved content while recording the actual release version.
+    release_snapshot = copy.deepcopy(snapshot)
+    release_snapshot["release_version"] = version
     release = ContentRelease(
         tenant_id=course.tenant_id,
         course_id=course.id,
         version=version,
-        snapshot=snapshot,
-        snapshot_sha256=canonical_json_sha256(snapshot),
+        snapshot=release_snapshot,
+        snapshot_sha256=canonical_json_sha256(release_snapshot),
         published_by=published_by,
     )
     db.add(release)

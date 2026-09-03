@@ -1,32 +1,86 @@
 """Domain services for immutable course approval and isolated review activity."""
 
-from datetime import UTC, datetime, timedelta
 import hashlib
 import secrets
-from uuid import UUID
+from datetime import UTC, datetime, timedelta
+from uuid import UUID, uuid4
 
 from argon2 import PasswordHasher
 from fastapi import HTTPException
-from sqlalchemy import func, select, text
+from sqlalchemy import func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.auth import _set_tenant_security_context
 from app.models.courses import Course
 from app.models.users import User
 from app.modules.audit.service import log_action
 from app.modules.courses.release_service import build_course_release_snapshot, canonical_json_sha256
+from app.modules.integrations.crypto import encrypt_config
+
 from .models import (
     CourseApprovalPolicy,
     CourseApprovalRequest,
-    CourseApprovalRevision,
     CourseApprovalReviewer,
+    CourseApprovalRevision,
     CourseReviewAttempt,
     CourseReviewAttemptEvent,
     WorkflowAccessCredential,
     WorkflowDelivery,
+    WorkflowEscalation,
+    WorkflowReminder,
     WorkflowWorkItem,
 )
 
 PIN_HASHER = PasswordHasher()
+
+
+def learner_safe_review_snapshot(snapshot: dict) -> dict:
+    """Return reviewer content without answer keys or grading metadata.
+
+    Approval attempts are an isolated learner-like surface.  The immutable
+    publication snapshot intentionally contains answer keys for server-side
+    grading, but those keys must never cross the reviewer API boundary.
+    """
+    import copy
+
+    safe = copy.deepcopy(snapshot)
+    course = safe.get("course")
+    if isinstance(course, dict):
+        # Tenant and internal review metadata are not learner content.
+        for field in ("tenant_id", "reviewed_by", "reviewed_at", "review_comment"):
+            course.pop(field, None)
+    for module in safe.get("modules", []):
+        for lesson in module.get("lessons", []):
+            for quiz in lesson.get("quizzes", []):
+                for question in quiz.get("questions", []):
+                    for choice in question.get("choices", []):
+                        choice.pop("is_correct", None)
+    return safe
+
+
+def score_review_submission(snapshot: dict, submissions: list[dict]) -> dict:
+    """Score reviewer quiz answers from the immutable snapshot, never client data."""
+    questions = {
+        str(question.get("id")): question
+        for module in snapshot.get("modules", [])
+        for lesson in module.get("lessons", [])
+        for quiz in lesson.get("quizzes", [])
+        for question in quiz.get("questions", [])
+    }
+    answered: set[str] = set()
+    correct = 0
+    for submission in submissions:
+        question_id = str(submission.get("question_id"))
+        question = questions.get(question_id)
+        if question is None or question_id in answered:
+            continue
+        answered.add(question_id)
+        selected = {str(value) for value in submission.get("selected_choice_ids", [])}
+        expected = {str(choice.get("id")) for choice in question.get("choices", []) if choice.get("is_correct") is True}
+        if selected == expected:
+            correct += 1
+    total = len(questions)
+    return {"answered": len(answered), "total": total, "correct": correct, "score_percent": round(correct * 100 / total, 2) if total else 100.0, "complete": bool(total == len(answered))}
 
 
 async def get_policy(db: AsyncSession, course_id: UUID, tenant_id: UUID) -> CourseApprovalPolicy | None:
@@ -38,7 +92,7 @@ async def get_policy(db: AsyncSession, course_id: UUID, tenant_id: UUID) -> Cour
     )
 
 
-async def set_policy(db: AsyncSession, *, course_id: UUID, tenant_id: UUID, requires_approval: bool, actor_id: UUID):
+async def set_policy(db: AsyncSession, *, course_id: UUID, tenant_id: UUID, requires_approval: bool, review_enabled: bool = True, actor_id: UUID):
     course = await db.scalar(select(Course).where(Course.id == course_id, Course.tenant_id == tenant_id).with_for_update())
     if course is None:
         raise HTTPException(status_code=404, detail="Course not found")
@@ -47,6 +101,7 @@ async def set_policy(db: AsyncSession, *, course_id: UUID, tenant_id: UUID, requ
         policy = CourseApprovalPolicy(tenant_id=tenant_id, course_id=course_id)
         db.add(policy)
     policy.requires_approval = requires_approval
+    policy.review_enabled = review_enabled
     policy.updated_by = actor_id
     await db.flush()
     await log_action(db, tenant_id, "course_approval.configure", "course", course_id, actor_id, {"requires_approval": requires_approval})
@@ -89,7 +144,44 @@ async def freeze_revision(db: AsyncSession, *, course_id: UUID, tenant_id: UUID,
     return revision
 
 
-async def create_request(db: AsyncSession, *, revision: CourseApprovalRevision, tenant_id: UUID, actor_id: UUID, reviewer_ids: list[UUID], delivery_mode: str, due_at=None, base_url: str | None = None):
+async def supersede_course_approvals(db: AsyncSession, *, course_id: UUID, tenant_id: UUID, actor_id: UUID) -> None:
+    """Invalidate review state whenever mutable course content changes."""
+    revisions = (await db.scalars(select(CourseApprovalRevision).where(
+        CourseApprovalRevision.course_id == course_id,
+        CourseApprovalRevision.tenant_id == tenant_id,
+        CourseApprovalRevision.state.in_(("pending", "approved", "changes_requested")),
+    ).with_for_update())).all()
+    if not revisions:
+        return
+    revision_ids = [revision.id for revision in revisions]
+    for revision in revisions:
+        revision.state = "superseded"
+    requests = (await db.scalars(select(CourseApprovalRequest).where(
+        CourseApprovalRequest.revision_id.in_(revision_ids),
+        CourseApprovalRequest.tenant_id == tenant_id,
+    ).with_for_update())).all()
+    for request in requests:
+        request.outcome = "superseded"
+    work_items = (await db.scalars(select(WorkflowWorkItem).where(
+        WorkflowWorkItem.review_revision_id.in_(revision_ids),
+        WorkflowWorkItem.tenant_id == tenant_id,
+    ).with_for_update())).all()
+    for item in work_items:
+        item.outcome = "superseded"
+        item.access_state = "revoked"
+    credentials = (await db.scalars(select(WorkflowAccessCredential).where(
+        WorkflowAccessCredential.work_item_id.in_([item.id for item in work_items]),
+        WorkflowAccessCredential.tenant_id == tenant_id,
+        WorkflowAccessCredential.revoked_at.is_(None),
+    ).with_for_update())).all() if work_items else []
+    now = datetime.now(UTC)
+    for credential in credentials:
+        credential.revoked_at = now
+    await log_action(db, tenant_id, "course_approval.superseded", "course", course_id, actor_id, {"revision_count": len(revisions)})
+    await db.flush()
+
+
+async def create_request(db: AsyncSession, *, revision: CourseApprovalRevision, tenant_id: UUID, actor_id: UUID, reviewer_ids: list[UUID], delivery_mode: str, due_at=None, base_url: str | None = None, guest_reviewers: list[dict] | None = None):
     existing_request = await db.scalar(
         select(CourseApprovalRequest).where(
             CourseApprovalRequest.tenant_id == tenant_id,
@@ -99,64 +191,94 @@ async def create_request(db: AsyncSession, *, revision: CourseApprovalRevision, 
     if existing_request is not None:
         if existing_request.delivery_mode != delivery_mode:
             raise HTTPException(status_code=409, detail="idempotency_conflict")
-        existing_reviewers = set((await db.scalars(select(CourseApprovalReviewer.reviewer_user_id).where(CourseApprovalReviewer.revision_id == revision.id, CourseApprovalReviewer.tenant_id == tenant_id))).all())
-        if existing_reviewers and existing_reviewers != set(reviewer_ids):
+        existing_reviewers = (await db.scalars(select(CourseApprovalReviewer).where(
+            CourseApprovalReviewer.revision_id == revision.id,
+            CourseApprovalReviewer.tenant_id == tenant_id,
+        ))).all()
+        existing_ids = {item.reviewer_user_id for item in existing_reviewers if item.reviewer_user_id is not None}
+        existing_emails = {item.reviewer_email for item in existing_reviewers if item.reviewer_email is not None}
+        requested_emails = {str(item.get("email", "")).strip().lower() for item in (guest_reviewers or [])}
+        if existing_reviewers and (existing_ids != set(reviewer_ids) or existing_emails != requested_emails):
             raise HTTPException(status_code=409, detail="idempotency_conflict")
         work_item = await db.scalar(select(WorkflowWorkItem).where(WorkflowWorkItem.review_revision_id == revision.id, WorkflowWorkItem.tenant_id == tenant_id))
         return existing_request, work_item, None, None, []
-    if len(set(reviewer_ids)) != len(reviewer_ids):
+    guest_reviewers = guest_reviewers or []
+    guest_emails = [str(item.get("email", "")).strip().lower() for item in guest_reviewers]
+    if len(set(reviewer_ids)) != len(reviewer_ids) or len(set(guest_emails)) != len(guest_emails) or not all(guest_emails):
         raise HTTPException(status_code=409, detail="Duplicate reviewer")
+    if not reviewer_ids and not guest_reviewers:
+        raise HTTPException(status_code=422, detail="At least one reviewer is required")
     if due_at is not None and due_at <= datetime.now(UTC):
         raise HTTPException(status_code=422, detail="Due date must be in the future")
-    reviewers = list((await db.scalars(select(User).where(User.id.in_(reviewer_ids), User.tenant_id == tenant_id, User.is_active.is_(True), User.role.in_(("admin", "methodologist"))))).all())
+    # The explicit review capability is currently held by methodologists;
+    # admins can configure/request but cannot become implicit reviewers.
+    reviewers = list((await db.scalars(select(User).where(User.id.in_(reviewer_ids), User.tenant_id == tenant_id, User.is_active.is_(True), User.role == "methodologist"))).all()) if reviewer_ids else []
     if len(reviewers) != len(reviewer_ids):
         raise HTTPException(status_code=404, detail="Reviewer not found")
+    reviewer_emails = {reviewer.id: (reviewer.email or "").strip().lower() or None for reviewer in reviewers}
     approval_request = CourseApprovalRequest(tenant_id=tenant_id, revision_id=revision.id, requested_by=actor_id, delivery_mode=delivery_mode, due_at=due_at)
     db.add(approval_request)
     access_credentials = []
     first_work_item = None
     first_access_url = None
     first_pin = None
-    for reviewer in reviewers:
-        # Review authority is assignment-based; role is deliberately not used
-        # as a substitute for an explicit reviewer assignment.
-        db.add(CourseApprovalReviewer(tenant_id=tenant_id, revision_id=revision.id, reviewer_user_id=reviewer.id, required=True))
-        work_item = WorkflowWorkItem(tenant_id=tenant_id, kind="reviewer", target_user_id=reviewer.id, review_revision_id=revision.id, due_at=due_at)
+    reviewer_specs = [(reviewer.id, None, None) for reviewer in reviewers]
+    reviewer_specs.extend((uuid4(), item["email"].strip().lower(), item.get("name")) for item in guest_reviewers)
+    for reviewer_id, reviewer_email, reviewer_name in reviewer_specs:
+        # Review authority requires both the explicit assignment row and the
+        # methodologist capability validated above.
+        db.add(CourseApprovalReviewer(tenant_id=tenant_id, revision_id=revision.id, reviewer_user_id=reviewer_id if reviewer_email is None else None, reviewer_email=reviewer_email, reviewer_name=reviewer_name, required=True))
+        work_item = WorkflowWorkItem(tenant_id=tenant_id, kind="reviewer", target_user_id=reviewer_id if reviewer_email is None else None, review_revision_id=revision.id, due_at=due_at, deadline_state="scheduled" if due_at is not None else "unset")
         db.add(work_item)
         await db.flush()
         if first_work_item is None:
             first_work_item = work_item
-        db.add(WorkflowDelivery(tenant_id=tenant_id, work_item_id=work_item.id, channel="cabinet", status="delivered" if delivery_mode == "personal_link" else "queued"))
+        recipient_email = reviewer_email or reviewer_emails.get(reviewer_id)
+        raw_token = secrets.token_urlsafe(32)
+        pin = f"{secrets.randbelow(1_000_000):06d}"
+        expires_at = due_at or (datetime.now(UTC) + timedelta(days=7))
+        payload_encrypted = encrypt_config({
+            "access_url": f"{(base_url or 'https://app.kml.kz').rstrip('/')}/course-review-access/{raw_token}",
+            "pin": pin,
+        }) if delivery_mode == "email" else None
+        db.add(WorkflowDelivery(tenant_id=tenant_id, work_item_id=work_item.id, channel="cabinet", recipient_email=recipient_email, payload_encrypted=payload_encrypted, status="queued"))
         if delivery_mode == "email":
-            db.add(WorkflowDelivery(tenant_id=tenant_id, work_item_id=work_item.id, channel="email", status="queued"))
-        if delivery_mode == "personal_link":
-            raw_token = secrets.token_urlsafe(32)
-            pin = f"{secrets.randbelow(1_000_000):06d}"
-            expires_at = due_at or (datetime.now(UTC) + timedelta(days=7))
+            db.add(WorkflowDelivery(tenant_id=tenant_id, work_item_id=work_item.id, channel="email", recipient_email=recipient_email, payload_encrypted=payload_encrypted, status="queued"))
+        if delivery_mode in {"personal_link", "email"}:
             db.add(WorkflowAccessCredential(
-                tenant_id=tenant_id, work_item_id=work_item.id, reviewer_user_id=reviewer.id,
+                tenant_id=tenant_id, work_item_id=work_item.id, reviewer_user_id=reviewer_id,
+                reviewer_email=reviewer_email,
                 token_hash=hashlib.sha256(raw_token.encode()).hexdigest(),
                 pin_hash=PIN_HASHER.hash(pin), expires_at=expires_at,
             ))
             access_url = f"{(base_url or 'https://app.kml.kz').rstrip('/')}/course-review-access/{raw_token}"
-            access_credentials.append({"reviewer_id": reviewer.id, "access_url": access_url, "temporary_pin": pin, "expires_at": expires_at})
+            access_credentials.append({"reviewer_id": reviewer_id, "access_url": access_url, "temporary_pin": pin, "expires_at": expires_at})
             if first_access_url is None:
                 first_access_url, first_pin = access_url, pin
+        if due_at is not None:
+            reminder_at = due_at - timedelta(hours=24)
+            if reminder_at > datetime.now(UTC):
+                db.add(WorkflowReminder(tenant_id=tenant_id, work_item_id=work_item.id, rule_key="due_minus_24h", channel="email", idempotency_key=f"review-reminder/{work_item.id}/due_minus_24h", scheduled_at=reminder_at, recipient_user_id=reviewer_id if reviewer_email is None else None))
+            db.add(WorkflowEscalation(tenant_id=tenant_id, work_item_id=work_item.id, rule_key="due_overdue", channel="email", idempotency_key=f"review-escalation/{work_item.id}/due_overdue", scheduled_at=due_at, recipient_user_id=None))
     await db.flush()
-    await log_action(db, tenant_id, "course_approval.request_created", "course_approval_revision", revision.id, actor_id, {"reviewer_count": len(reviewer_ids), "delivery_mode": delivery_mode})
+    await log_action(db, tenant_id, "course_approval.request_created", "course_approval_revision", revision.id, actor_id, {"reviewer_count": len(reviewer_specs), "delivery_mode": delivery_mode})
     return approval_request, first_work_item, first_access_url, first_pin, access_credentials
 
 
-async def get_or_create_attempt(db: AsyncSession, *, revision_id: UUID, reviewer_user_id: UUID, tenant_id: UUID):
-    revision = await db.scalar(select(CourseApprovalRevision).where(CourseApprovalRevision.id == revision_id, CourseApprovalRevision.tenant_id == tenant_id))
+async def get_or_create_attempt(db: AsyncSession, *, revision_id: UUID, reviewer_user_id: UUID, tenant_id: UUID, reviewer_email: str | None = None):
+    revision = await db.scalar(select(CourseApprovalRevision).where(CourseApprovalRevision.id == revision_id, CourseApprovalRevision.tenant_id == tenant_id).with_for_update())
     if revision is None:
         raise HTTPException(status_code=404, detail="Review revision not found")
-    assignment = await db.scalar(select(CourseApprovalReviewer).where(CourseApprovalReviewer.revision_id == revision_id, CourseApprovalReviewer.tenant_id == tenant_id, CourseApprovalReviewer.reviewer_user_id == reviewer_user_id))
+    policy = await db.scalar(select(CourseApprovalPolicy).where(CourseApprovalPolicy.course_id == revision.course_id, CourseApprovalPolicy.tenant_id == tenant_id, CourseApprovalPolicy.review_enabled.is_(True)))
+    if policy is None:
+        raise HTTPException(status_code=403, detail="Course review access disabled")
+    assignment_filter = CourseApprovalReviewer.reviewer_email == reviewer_email if reviewer_email else CourseApprovalReviewer.reviewer_user_id == reviewer_user_id
+    assignment = await db.scalar(select(CourseApprovalReviewer).where(CourseApprovalReviewer.revision_id == revision_id, CourseApprovalReviewer.tenant_id == tenant_id, assignment_filter))
     if assignment is None:
         raise HTTPException(status_code=403, detail="Reviewer assignment required")
-    attempt = await db.scalar(select(CourseReviewAttempt).where(CourseReviewAttempt.revision_id == revision_id, CourseReviewAttempt.tenant_id == tenant_id, CourseReviewAttempt.reviewer_user_id == reviewer_user_id))
+    attempt = await db.scalar(select(CourseReviewAttempt).where(CourseReviewAttempt.revision_id == revision_id, CourseReviewAttempt.tenant_id == tenant_id, CourseReviewAttempt.reviewer_user_id == reviewer_user_id).with_for_update())
     if attempt is None:
-        attempt = CourseReviewAttempt(tenant_id=tenant_id, revision_id=revision_id, reviewer_user_id=reviewer_user_id, snapshot_sha256=revision.snapshot_sha256)
+        attempt = CourseReviewAttempt(tenant_id=tenant_id, revision_id=revision_id, reviewer_user_id=reviewer_user_id, reviewer_email=reviewer_email, snapshot_sha256=revision.snapshot_sha256)
         db.add(attempt)
         await db.flush()
     return attempt, revision
@@ -171,6 +293,13 @@ def validate_decision(decision: str, reason: str | None, warning_acknowledged: b
 
 
 async def record_progress(db: AsyncSession, *, attempt: CourseReviewAttempt, revision: CourseApprovalRevision, tenant_id: UUID, sequence: int, event_type: str, payload: dict, lesson_position: int | None, activity_state: str):
+    policy = await db.scalar(select(CourseApprovalPolicy).where(CourseApprovalPolicy.course_id == revision.course_id, CourseApprovalPolicy.tenant_id == tenant_id, CourseApprovalPolicy.review_enabled.is_(True)))
+    if policy is None:
+        raise HTTPException(status_code=403, detail="Course review access disabled")
+    if revision.state not in {"pending", "changes_requested"}:
+        raise HTTPException(status_code=409, detail="Review revision is no longer active")
+    if attempt.activity_state == "completed":
+        raise HTTPException(status_code=409, detail="Review attempt is already completed")
     previous = await db.scalar(select(CourseReviewAttemptEvent).where(CourseReviewAttemptEvent.attempt_id == attempt.id, CourseReviewAttemptEvent.tenant_id == tenant_id, CourseReviewAttemptEvent.sequence == sequence))
     payload_hash = canonical_json_sha256(payload)
     if previous:
@@ -184,6 +313,20 @@ async def record_progress(db: AsyncSession, *, attempt: CourseReviewAttempt, rev
     if activity_state == "completed":
         attempt.completed_at = attempt.last_activity_at
     db.add(CourseReviewAttemptEvent(tenant_id=tenant_id, attempt_id=attempt.id, sequence=sequence, event_type=event_type, payload=payload, payload_sha256=payload_hash))
+    work_item = await db.scalar(select(WorkflowWorkItem).outerjoin(
+        WorkflowAccessCredential,
+        (WorkflowAccessCredential.work_item_id == WorkflowWorkItem.id) & (WorkflowAccessCredential.tenant_id == tenant_id),
+    ).where(
+        WorkflowWorkItem.review_revision_id == revision.id,
+        WorkflowWorkItem.tenant_id == tenant_id,
+        or_(WorkflowWorkItem.target_user_id == attempt.reviewer_user_id, WorkflowAccessCredential.reviewer_user_id == attempt.reviewer_user_id),
+    ).with_for_update())
+    if work_item is not None:
+        work_item.activity_state = "completed" if activity_state == "completed" else "in_progress"
+        if activity_state == "completed":
+            work_item.deadline_state = "closed"
+        elif work_item.deadline_state in {"scheduled", "due", "overdue"}:
+            work_item.deadline_state = "due"
     await db.flush()
     return attempt
 
@@ -202,6 +345,11 @@ async def decide(db: AsyncSession, *, attempt: CourseReviewAttempt, revision: Co
         raise HTTPException(status_code=404, detail="Reviewer assignment not found")
     revision = locked_revision
     reviewer = locked_reviewer
+    policy = await db.scalar(select(CourseApprovalPolicy).where(CourseApprovalPolicy.course_id == revision.course_id, CourseApprovalPolicy.tenant_id == tenant_id, CourseApprovalPolicy.review_enabled.is_(True)))
+    if policy is None:
+        raise HTTPException(status_code=403, detail="Course review access disabled")
+    if revision.state not in {"pending", "changes_requested"}:
+        raise HTTPException(status_code=409, detail="Review revision is no longer active")
     validate_decision(decision, reason, warning_acknowledged, complete=attempt.activity_state == "completed")
     if revision.snapshot_sha256 != attempt.snapshot_sha256:
         raise HTTPException(status_code=409, detail="approval_revision_mismatch")
@@ -222,6 +370,24 @@ async def decide(db: AsyncSession, *, attempt: CourseReviewAttempt, revision: Co
     request_row = await db.scalar(select(CourseApprovalRequest).where(CourseApprovalRequest.revision_id == revision.id, CourseApprovalRequest.tenant_id == tenant_id))
     if request_row is not None:
         request_row.outcome = revision.state
+    work_items = (await db.scalars(select(WorkflowWorkItem).where(
+        WorkflowWorkItem.review_revision_id == revision.id,
+        WorkflowWorkItem.tenant_id == tenant_id,
+    ).with_for_update())).all()
+    for item in work_items:
+        item.outcome = revision.state
+        if reviewer.reviewer_user_id is not None and item.target_user_id == reviewer.reviewer_user_id:
+            item.activity_state = "completed"
+            item.deadline_state = "closed"
+        elif reviewer.reviewer_email is not None:
+            credential = await db.scalar(select(WorkflowAccessCredential.id).where(
+                WorkflowAccessCredential.work_item_id == item.id,
+                WorkflowAccessCredential.tenant_id == tenant_id,
+                WorkflowAccessCredential.reviewer_email == reviewer.reviewer_email,
+            ))
+            if credential is not None:
+                item.activity_state = "completed"
+                item.deadline_state = "closed"
     await db.flush()
     await log_action(db, tenant_id, f"course_approval.{mapped}", "course_approval_revision", revision.id, actor_id, {"reason": reviewer.decision_reason, "warning_acknowledged": warning_acknowledged})
     return reviewer
@@ -233,8 +399,13 @@ async def verify_access_pin(db: AsyncSession, token: str, pin: str) -> dict:
     tenant_id = await db.scalar(text("SELECT lookup_course_review_tenant_by_token(:token)"), {"token": digest})
     if tenant_id is None:
         raise HTTPException(status_code=404, detail="Review access not found")
-    await db.execute(text("SELECT set_current_tenant(:tid)"), {"tid": str(tenant_id)})
-    credential = await db.scalar(select(WorkflowAccessCredential).where(WorkflowAccessCredential.token_hash == digest))
+    # Establish RLS context through the fail-closed auth seam.  A rejected
+    # SELECT set_current_tenant must roll back before any ORM access.
+    await _set_tenant_security_context(db, str(tenant_id))
+    credential = await db.scalar(select(WorkflowAccessCredential).where(
+        WorkflowAccessCredential.token_hash == digest,
+        WorkflowAccessCredential.tenant_id == tenant_id,
+    ))
     now = datetime.now(UTC)
     if credential is None or credential.revoked_at is not None or credential.expires_at <= now:
         raise HTTPException(status_code=404, detail="Review access not found")
@@ -265,6 +436,7 @@ async def verify_access_pin(db: AsyncSession, token: str, pin: str) -> dict:
             "auth_method": "course_review",
             "review_work_item_id": str(work_item.id),
             "reviewer_user_id": str(credential.reviewer_user_id),
+            "reviewer_email": credential.reviewer_email,
             "active_role": "methodologist",
         },
         token_type="course_review",
@@ -283,6 +455,21 @@ async def cancel_request(db: AsyncSession, *, request_id: UUID, tenant_id: UUID,
     if revision.state not in {"pending", "changes_requested"}:
         raise HTTPException(status_code=409, detail="Approval request is not cancellable")
     revision.state = request_row.outcome = "cancelled"
+    work_items = (await db.scalars(select(WorkflowWorkItem).where(
+        WorkflowWorkItem.review_revision_id == revision.id,
+        WorkflowWorkItem.tenant_id == tenant_id,
+    ).with_for_update())).all()
+    credentials = (await db.scalars(select(WorkflowAccessCredential).where(
+        WorkflowAccessCredential.work_item_id.in_([item.id for item in work_items]),
+        WorkflowAccessCredential.tenant_id == tenant_id,
+        WorkflowAccessCredential.revoked_at.is_(None),
+    ).with_for_update())).all() if work_items else []
+    now = datetime.now(UTC)
+    for credential in credentials:
+        credential.revoked_at = now
+    for item in work_items:
+        item.access_state = "revoked"
+        item.outcome = "cancelled"
     await log_action(db, tenant_id, "course_approval.cancelled", "course_approval_request", request_row.id, actor_id)
     await db.flush()
     return request_row
@@ -292,14 +479,58 @@ async def revoke_request_access(db: AsyncSession, *, request_id: UUID, tenant_id
     request_row = await db.scalar(select(CourseApprovalRequest).where(CourseApprovalRequest.id == request_id, CourseApprovalRequest.tenant_id == tenant_id))
     if request_row is None:
         raise HTTPException(status_code=404, detail="Approval request not found")
-    work_item = await db.scalar(select(WorkflowWorkItem).where(WorkflowWorkItem.review_revision_id == request_row.revision_id, WorkflowWorkItem.tenant_id == tenant_id))
-    if work_item is None:
+    work_items = (await db.scalars(select(WorkflowWorkItem).where(WorkflowWorkItem.review_revision_id == request_row.revision_id, WorkflowWorkItem.tenant_id == tenant_id).with_for_update())).all()
+    if not work_items:
         raise HTTPException(status_code=404, detail="Review access not found")
-    credentials = (await db.scalars(select(WorkflowAccessCredential).where(WorkflowAccessCredential.work_item_id == work_item.id, WorkflowAccessCredential.tenant_id == tenant_id, WorkflowAccessCredential.revoked_at.is_(None)).with_for_update())).all()
+    credentials = (await db.scalars(select(WorkflowAccessCredential).where(WorkflowAccessCredential.work_item_id.in_([item.id for item in work_items]), WorkflowAccessCredential.tenant_id == tenant_id, WorkflowAccessCredential.revoked_at.is_(None)).with_for_update())).all()
     now = datetime.now(UTC)
     for credential in credentials:
         credential.revoked_at = now
-    work_item.access_state = "revoked"
+    for item in work_items:
+        item.access_state = "revoked"
+        item.outcome = "cancelled"
     await log_action(db, tenant_id, "course_approval.access_revoked", "course_approval_request", request_row.id, actor_id)
     await db.flush()
-    return work_item
+    return work_items[0]
+
+
+async def resend_request_access(db: AsyncSession, *, request_id: UUID, tenant_id: UUID, actor_id: UUID, base_url: str) -> list[dict]:
+    request_row = await db.scalar(select(CourseApprovalRequest).where(CourseApprovalRequest.id == request_id, CourseApprovalRequest.tenant_id == tenant_id).with_for_update())
+    if request_row is None:
+        raise HTTPException(status_code=404, detail="Approval request not found")
+    revision = await db.scalar(select(CourseApprovalRevision).where(CourseApprovalRevision.id == request_row.revision_id, CourseApprovalRevision.tenant_id == tenant_id).with_for_update())
+    if revision is None or revision.state not in {"pending", "changes_requested"}:
+        raise HTTPException(status_code=409, detail="Approval request is not active")
+    work_items = (await db.scalars(select(WorkflowWorkItem).where(WorkflowWorkItem.review_revision_id == revision.id, WorkflowWorkItem.tenant_id == tenant_id).with_for_update())).all()
+    if not work_items:
+        raise HTTPException(status_code=404, detail="Review access not found")
+    now = datetime.now(UTC)
+    output = []
+    for item in work_items:
+        active = (await db.scalars(select(WorkflowAccessCredential).where(WorkflowAccessCredential.work_item_id == item.id, WorkflowAccessCredential.tenant_id == tenant_id, WorkflowAccessCredential.revoked_at.is_(None)).with_for_update())).all()
+        for credential in active:
+            credential.revoked_at = now
+        previous_credential = active[-1] if active else await db.scalar(select(WorkflowAccessCredential).where(
+            WorkflowAccessCredential.work_item_id == item.id,
+            WorkflowAccessCredential.tenant_id == tenant_id,
+        ).order_by(WorkflowAccessCredential.id.desc()).limit(1))
+        reviewer = await db.scalar(select(CourseApprovalReviewer).where(
+            CourseApprovalReviewer.revision_id == revision.id,
+            CourseApprovalReviewer.tenant_id == tenant_id,
+            (CourseApprovalReviewer.reviewer_user_id == item.target_user_id) if item.target_user_id is not None else (CourseApprovalReviewer.reviewer_email == (previous_credential.reviewer_email if previous_credential else None)),
+        ))
+        reviewer_email = reviewer.reviewer_email if reviewer else (previous_credential.reviewer_email if previous_credential else None)
+        raw_token = secrets.token_urlsafe(32)
+        pin = f"{secrets.randbelow(1_000_000):06d}"
+        expires_at = request_row.due_at or (now + timedelta(days=7))
+        payload_encrypted = encrypt_config({"access_url": f"{base_url.rstrip('/')}/course-review-access/{raw_token}", "pin": pin}) if request_row.delivery_mode == "email" else None
+        reviewer_id = item.target_user_id or (previous_credential.reviewer_user_id if previous_credential else uuid4())
+        db.add(WorkflowAccessCredential(tenant_id=tenant_id, work_item_id=item.id, reviewer_user_id=reviewer_id, reviewer_email=reviewer_email, token_hash=hashlib.sha256(raw_token.encode()).hexdigest(), pin_hash=PIN_HASHER.hash(pin), expires_at=expires_at))
+        generation = int(await db.scalar(select(func.max(WorkflowDelivery.generation)).where(WorkflowDelivery.work_item_id == item.id, WorkflowDelivery.tenant_id == tenant_id)) or 0) + 1
+        channel = "email" if request_row.delivery_mode == "email" else "cabinet"
+        db.add(WorkflowDelivery(tenant_id=tenant_id, work_item_id=item.id, channel=channel, generation=generation, recipient_email=reviewer_email, payload_encrypted=payload_encrypted, status="queued"))
+        item.access_state = "issued"
+        output.append({"reviewer_id": reviewer_id if item.target_user_id is not None else None, "access_url": f"{base_url.rstrip('/')}/course-review-access/{raw_token}", "temporary_pin": pin, "expires_at": expires_at})
+    await log_action(db, tenant_id, "course_approval.access_resent", "course_approval_request", request_row.id, actor_id, {"reviewer_count": len(output)})
+    await db.flush()
+    return output

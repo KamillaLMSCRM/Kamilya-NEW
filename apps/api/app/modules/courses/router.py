@@ -2,7 +2,7 @@ from datetime import UTC, datetime
 from typing import cast
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -19,6 +19,7 @@ from app.modules.courses.publication_service import (
     activate_course_assignments,
     refresh_course_assignments,
 )
+from app.modules.courses.release_service import canonical_json_sha256
 from app.modules.courses.schemas import (
     CourseCompletionResponse,
     CourseCreate,
@@ -392,6 +393,10 @@ async def update_course(
         raise HTTPException(status_code=404, detail="Course not found")
     for field, value in req.model_dump(exclude_unset=True).items():
         setattr(course, field, value)
+    # A mutable edit invalidates all approval artifacts.  Reviewers must never
+    # approve a snapshot that no longer matches the course being published.
+    from app.modules.course_approval.service import supersede_course_approvals
+    await supersede_course_approvals(db, course_id=course.id, tenant_id=user.tenant_id, actor_id=user.id)
     await db.flush()
     await db.refresh(course)
     await log_action(
@@ -416,8 +421,30 @@ async def publish_course(
     request: Request,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role("superadmin", "methodologist")),
+    idempotency_key: str | None = Header(None, alias="Idempotency-Key"),
 ):
-    result = await db.execute(select(Course).where(Course.id == course_id, Course.tenant_id == user.tenant_id))
+    from app.modules.course_approval.models import WorkflowIdempotencyKey
+    publish_fingerprint = canonical_json_sha256({"course_id": str(course_id)}) if idempotency_key else None
+    if idempotency_key:
+        if len(idempotency_key) > 200:
+            raise HTTPException(status_code=422, detail="Idempotency-Key is too long")
+        prior = await db.scalar(select(WorkflowIdempotencyKey).where(
+            WorkflowIdempotencyKey.tenant_id == user.tenant_id,
+            WorkflowIdempotencyKey.key == idempotency_key,
+            WorkflowIdempotencyKey.operation == "course.publish",
+        ))
+        if prior is not None:
+            if prior.request_fingerprint != publish_fingerprint:
+                raise HTTPException(status_code=409, detail="idempotency_conflict")
+            existing = await db.scalar(select(Course).where(Course.id == course_id, Course.tenant_id == user.tenant_id))
+            if existing is None:
+                raise HTTPException(status_code=404, detail="Course not found")
+            existing.reviewer = await _hydrate_reviewer(db, existing)
+            return existing
+    # Serialize publication against course edits and approval decisions.  The
+    # lock must be acquired before reading the approved revision or rebuilding
+    # the live snapshot, otherwise a concurrent edit can bypass the hash gate.
+    result = await db.execute(select(Course).where(Course.id == course_id, Course.tenant_id == user.tenant_id).with_for_update())
     course = result.scalar_one_or_none()
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
@@ -442,13 +469,14 @@ async def publish_course(
             )
             .order_by(CourseApprovalRevision.revision_number.desc())
             .limit(1)
+            .with_for_update()
         )
         if approved_revision is None:
             raise HTTPException(status_code=409, detail={"code": "approval_required"})
         if approved_revision.state != "approved":
             code = "approval_pending" if approved_revision.state == "pending" else "approval_changes_requested" if approved_revision.state == "changes_requested" else "approval_superseded"
             raise HTTPException(status_code=409, detail={"code": code})
-        from app.modules.courses.release_service import build_course_release_snapshot, canonical_json_sha256
+        from app.modules.courses.release_service import build_course_release_snapshot
         current_snapshot = await build_course_release_snapshot(db, course, version=approved_revision.revision_number)
         if canonical_json_sha256(current_snapshot) != approved_revision.snapshot_sha256:
             raise HTTPException(status_code=409, detail={"code": "approval_revision_mismatch"})
@@ -542,6 +570,25 @@ async def publish_course(
     )
     await db.commit()
     course.reviewer = await _hydrate_reviewer(db, course)
+    if idempotency_key:
+        db.add(WorkflowIdempotencyKey(
+            tenant_id=user.tenant_id,
+            key=idempotency_key,
+            operation="course.publish",
+            request_fingerprint=publish_fingerprint,
+            response={"course_id": str(course.id), "release_id": str(release.id)},
+        ))
+        try:
+            await db.commit()
+        except Exception:
+            await db.rollback()
+            prior = await db.scalar(select(WorkflowIdempotencyKey).where(
+                WorkflowIdempotencyKey.tenant_id == user.tenant_id,
+                WorkflowIdempotencyKey.key == idempotency_key,
+                WorkflowIdempotencyKey.operation == "course.publish",
+            ))
+            if prior is None or prior.request_fingerprint != publish_fingerprint:
+                raise HTTPException(status_code=409, detail="idempotency_conflict") from None
     return course
 
 
