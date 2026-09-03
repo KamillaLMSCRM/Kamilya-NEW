@@ -193,6 +193,95 @@ def test_repeated_create_cannot_return_success_with_an_empty_credential_panel():
     assert 'raise HTTPException(status_code=409, detail="credentials_already_issued")' in source
 
 
+def test_route_fresh_two_guest_create_returns_credentials_and_replay_is_secret_free(monkeypatch):
+    from datetime import UTC, datetime, timedelta
+    from types import SimpleNamespace
+
+    from fastapi.testclient import TestClient
+
+    import app.modules.course_approval.router as approval_router
+    from app.core.auth import get_current_active_user
+    from app.core.config import get_settings
+    from app.core.db import get_db
+    from app.main import app
+
+    tenant_id = uuid4()
+    actor = SimpleNamespace(id=uuid4(), tenant_id=tenant_id, role="methodologist")
+    revision_id = uuid4()
+    request_id = uuid4()
+    expires_at = datetime.now(UTC) + timedelta(days=7)
+    credentials = [
+        {"reviewer_id": uuid4(), "access_url": "https://app.test/course-review-access/token-a", "temporary_pin": "123456", "expires_at": expires_at},
+        {"reviewer_id": uuid4(), "access_url": "https://app.test/course-review-access/token-b", "temporary_pin": "654321", "expires_at": expires_at},
+    ]
+    revision = SimpleNamespace(id=revision_id, state="pending")
+    approval_request = SimpleNamespace(id=request_id)
+
+    class _Nested:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            return False
+
+    class _DB:
+        def __init__(self):
+            self.idempotency = None
+
+        async def scalar(self, statement):
+            sql = str(statement)
+            if "course_approval_revisions" in sql:
+                return revision
+            if "workflow_idempotency_keys" in sql:
+                return self.idempotency
+            return None
+
+        def begin_nested(self):
+            return _Nested()
+
+        def add(self, value):
+            if value.__class__.__name__ == "WorkflowIdempotencyKey":
+                self.idempotency = value
+
+        async def flush(self):
+            return None
+
+        async def commit(self):
+            return None
+
+    db = _DB()
+
+    async def override_db():
+        yield db
+
+    async def override_user():
+        return actor
+
+    async def fake_create_request(_db, **_kwargs):
+        return approval_request, SimpleNamespace(), credentials[0]["access_url"], credentials[0]["temporary_pin"], credentials
+
+    app.dependency_overrides[get_db] = override_db
+    app.dependency_overrides[get_current_active_user] = override_user
+    monkeypatch.setattr(approval_router, "create_request", fake_create_request)
+    payload = {"guest_reviewers": [{"email": "guest-a@example.test"}, {"email": "guest-b@example.test"}], "delivery_mode": "personal_link"}
+    path = f"{get_settings().API_PREFIX}/course-approval-revisions/{revision_id}/requests"
+    try:
+        with TestClient(app) as client:
+            first = client.post(path, json=payload, headers={"Idempotency-Key": "guest-create-contract"})
+            assert first.status_code == 200
+            body = first.json()
+            assert body["access_url"].endswith("token-a")
+            assert body["temporary_pin"] == "123456"
+            assert len(body["access_credentials"]) == 2
+            assert {item["temporary_pin"] for item in body["access_credentials"]} == {"123456", "654321"}
+
+            replay = client.post(path, json=payload, headers={"Idempotency-Key": "guest-create-contract"})
+            assert replay.status_code == 409
+            assert "token-a" not in replay.text and "123456" not in replay.text
+    finally:
+        app.dependency_overrides.clear()
+
+
 def test_mixed_guest_and_internal_reviewer_contract_keeps_per_reviewer_identity():
     from app.modules.course_approval.models import CourseApprovalReviewer, WorkflowAccessCredential
 

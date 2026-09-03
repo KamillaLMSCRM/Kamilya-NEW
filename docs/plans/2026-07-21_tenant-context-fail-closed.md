@@ -60,4 +60,4 @@ The runtime kill switch blocks only new approval-workflow writes; historical rea
 - [x] Reject repeated creates that would otherwise return a successful empty credential panel; require explicit credential rotation instead.
 - [x] Add one-guest and multi-guest response-shape/redaction contract tests; run targeted and full unit verification.
 
-Verification: course-approval contract tests `20 passed`, auth/tenant tests `15 passed`, full unit suite `857 passed`; Ruff, compileall, and diff-check passed. No database or provider access was needed for this response-contract change.
+Verification: FastAPI TestClient route coverage now exercises a fresh two-guest `personal_link` POST and the same-key replay; course-approval contract tests `21 passed`, auth/tenant tests `15 passed`, full unit suite `858 passed`; Ruff, compileall, and diff-check passed. No database or provider access was needed for this response-contract change.
