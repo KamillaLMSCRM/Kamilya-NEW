@@ -68,4 +68,11 @@ Verification: FastAPI TestClient route coverage now exercises a fresh two-guest 
 - [x] Allow scoped guest tokens through reviewer write routes without applying the tenant-user-only dependency; retain tenant context setup inside `require_review_principal`.
 - [x] Exercise verify-PIN, scoped list/detail, isolated snapshot start, foreign-request 404, and learner-JWT rejection through FastAPI `TestClient`.
 
-Verification: the route-level scoped-token test passed; course-approval contract/auth/tenant tests `37 passed`, full unit suite `859 passed`, Ruff, compileall, and diff-check passed. No database/provider/production mutation was performed.
+Verification: the route-level scoped-token test passed; course-approval contract/auth/tenant tests `38 passed`, full unit suite `860 passed`, Ruff, compileall, and diff-check passed. No database/provider/production mutation was performed.
+
+## Approval-policy async serialization acceptance
+
+- [x] Refresh server-default/on-update policy fields before response-model construction to prevent `MissingGreenlet` on async ORM expiration.
+- [x] Exercise policy toggles false → true → false and same-key idempotent replay through FastAPI `TestClient`.
+
+Verification: policy route regression passed; full unit suite remained green at `860 passed`.

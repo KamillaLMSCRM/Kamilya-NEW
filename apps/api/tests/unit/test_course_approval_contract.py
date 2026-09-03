@@ -431,6 +431,98 @@ def test_guest_pin_verify_token_scopes_request_routes_and_rejects_learner_jwt(mo
         app.dependency_overrides.clear()
 
 
+def test_configure_policy_route_refreshes_async_orm_state_and_replays_idempotently(monkeypatch):
+    from datetime import UTC, datetime
+    from types import SimpleNamespace
+
+    from fastapi.testclient import TestClient
+
+    import app.modules.course_approval.router as approval_router
+    from app.core.auth import get_current_active_user
+    from app.core.config import get_settings
+    from app.core.db import get_db
+    from app.main import app
+
+    tenant_id = uuid4()
+    course_id = uuid4()
+    actor = SimpleNamespace(id=uuid4(), tenant_id=tenant_id, role="methodologist")
+
+    class _Nested:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            return False
+
+    class _DB:
+        def __init__(self):
+            self.idempotency = None
+            self.refreshes = 0
+
+        async def scalar(self, statement):
+            if "workflow_idempotency_keys" in str(statement):
+                return self.idempotency
+            return None
+
+        def begin_nested(self):
+            return _Nested()
+
+        def add(self, value):
+            if value.__class__.__name__ == "WorkflowIdempotencyKey":
+                self.idempotency = value
+
+        async def flush(self):
+            return None
+
+        async def commit(self):
+            return None
+
+        async def refresh(self, policy, attribute_names=None):
+            self.refreshes += 1
+            assert attribute_names == ["requires_approval", "review_enabled", "updated_at"]
+            policy.updated_at = datetime.now(UTC)
+
+    db = _DB()
+    policy = SimpleNamespace(requires_approval=False, review_enabled=True, updated_at=None)
+
+    async def override_db():
+        yield db
+
+    async def override_user():
+        return actor
+
+    async def fake_set_policy(_db, *, requires_approval, review_enabled, **_kwargs):
+        policy.requires_approval = requires_approval
+        policy.review_enabled = review_enabled
+        policy.updated_at = None
+        return policy
+
+    async def fake_log_action(*_args, **_kwargs):
+        return None
+
+    app.dependency_overrides[get_db] = override_db
+    app.dependency_overrides[get_current_active_user] = override_user
+    monkeypatch.setattr(approval_router, "set_policy", fake_set_policy)
+    monkeypatch.setattr(approval_router, "log_action", fake_log_action)
+    path = f"{get_settings().API_PREFIX}/courses/{course_id}/approval-policy"
+    try:
+        with TestClient(app) as client:
+            for value in (False, True, False):
+                result = client.patch(path, json={"requires_approval": value, "review_enabled": True})
+                assert result.status_code == 200
+                assert result.json()["requires_approval"] is value
+                assert result.json()["updated_at"] is not None
+            replay = client.patch(path, json={"requires_approval": False, "review_enabled": True}, headers={"Idempotency-Key": "policy-disable"})
+            assert replay.status_code == 200
+            replay_again = client.patch(path, json={"requires_approval": False, "review_enabled": True}, headers={"Idempotency-Key": "policy-disable"})
+            assert replay_again.status_code == 200
+            assert replay_again.json()["requires_approval"] is False
+            assert replay_again.json()["updated_at"] is not None
+            assert db.refreshes == 4
+    finally:
+        app.dependency_overrides.clear()
+
+
 def test_mixed_guest_and_internal_reviewer_contract_keeps_per_reviewer_identity():
     from app.modules.course_approval.models import CourseApprovalReviewer, WorkflowAccessCredential
 
