@@ -15,6 +15,19 @@ export const api = axios.create({
 });
 
 api.interceptors.request.use((config) => {
+  const reviewAccess = isReviewAccessRequest(config.url);
+  const scopedReview = isScopedReviewRequest(config.url);
+  if (reviewAccess) {
+    if (config.headers) delete config.headers.Authorization;
+    return config;
+  }
+  if (scopedReview) {
+    // reviewConfig supplies the capability explicitly; never replace it with
+    // the signed-in learner/admin token and never inject that token by default.
+    const explicitAuthorization = config.headers?.get?.('Authorization') ?? config.headers?.Authorization;
+    if (!explicitAuthorization && config.headers) delete config.headers.Authorization;
+    return config;
+  }
   const token = getAccessToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
@@ -28,6 +41,19 @@ export function isPublicAuthenticationRequest(url?: string): boolean {
   return normalized.includes('/auth/')
     || normalized.includes('/v1/invitations/')
     || (normalized.includes('/v1/kiosks/') && normalized.endsWith('/identify'));
+}
+
+/** Review capabilities must stay on their purpose-bound endpoints. */
+export function isReviewAccessRequest(url?: string): boolean {
+  return typeof url === 'string' && url.toLowerCase().includes('/v1/course-review-access/');
+}
+
+export function isScopedReviewRequest(url?: string): boolean {
+  if (typeof url !== 'string') return false;
+  const normalized = url.toLowerCase();
+  return normalized.includes('/v1/course-review-requests')
+    || normalized.includes('/v1/course-review-attempts')
+    || /\/v1\/course-approval-requests\/[^/]+\/attempts(?:$|[?#])/.test(normalized);
 }
 
 api.interceptors.response.use(
@@ -45,7 +71,8 @@ api.interceptors.response.use(
     // dashboard's first /api/v1/courses call returned 401 (no cookie /
     // no token) and the OLD interceptor immediately redirected to /login
     // without ever attempting to refresh the session.
-    if (status === 401 && original && !original._retried) {
+    const reviewRequest = isReviewAccessRequest(original?.url) || isScopedReviewRequest(original?.url);
+    if (status === 401 && original && !original._retried && !reviewRequest) {
       const isPublicAuthEndpoint = isPublicAuthenticationRequest(original.url);
       if (!isPublicAuthEndpoint) {
         original._retried = true;
@@ -66,7 +93,7 @@ api.interceptors.response.use(
       }
     }
 
-    if (status === 401 && !isPublicAuthenticationRequest(original?.url)) {
+    if (status === 401 && !isPublicAuthenticationRequest(original?.url) && !reviewRequest) {
       clearStoredAuth();
       if (typeof window !== 'undefined') {
         window.location.href = getAuthenticationEntry(window.location.pathname);
