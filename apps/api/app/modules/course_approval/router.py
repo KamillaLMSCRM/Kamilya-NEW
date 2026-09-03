@@ -317,6 +317,10 @@ async def configure_policy(course_id: UUID, req: ApprovalPolicyRequest, db: Asyn
     if replay is not None:
         return replay
     policy = await set_policy(db, course_id=course_id, tenant_id=user.tenant_id, requires_approval=req.requires_approval, review_enabled=req.review_enabled, actor_id=user.id)
+    # Server defaults/on-update values may be expired after the service flush;
+    # refresh them before synchronous response-model construction so async
+    # SQLAlchemy never attempts implicit IO (MissingGreenlet).
+    await db.refresh(policy, attribute_names=["requires_approval", "review_enabled", "updated_at"])
     response = ApprovalPolicyResponse(course_id=course_id, requires_approval=policy.requires_approval, review_enabled=policy.review_enabled, updated_at=policy.updated_at)
     await db.commit()
     await _write_idempotency(db, tenant_id=user.tenant_id, key=idempotency_key, operation="course_approval.configure", fingerprint=fingerprint, response=response.model_dump(mode="json"))
