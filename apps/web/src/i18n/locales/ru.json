@@ -1987,6 +1987,7 @@
     "answersError": "Не удалось отправить ответы. Повторите попытку.",
     "finishError": "Проверка не завершена. Повторите попытку.",
     "externalGuest": "Внешний рецензент",
+    "createRequest": "Создать снимок и запрос", "cancelConfirmTitle": "Отменить запрос?", "cancelConfirmDescription": "Запрос будет отменён, а ожидающие доставки остановлены.", "confirmCancel": "Отменить запрос", "confirmRotate": "Сменить доступ",
     "guestName": "Имя",
     "guestEmail": "Email гостя",
     "addGuest": "Добавить гостя",
