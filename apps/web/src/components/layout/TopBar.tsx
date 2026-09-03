@@ -8,6 +8,13 @@ import { toast } from '@/components/ui/Toast';
 import { getRoleHome } from '@/lib/rolePolicy';
 import { SupportRequestDialog } from '@/components/support/SupportRequestDialog';
 import { ContextualHelpButton } from '@/components/layout/ContextualHelpButton';
+import {
+  getSafeNotificationActionPath,
+  listNotifications,
+  markAllNotificationsRead,
+  markNotificationRead,
+  type Notification,
+} from '@/lib/notifications';
 import Link from 'next/link';
 
 interface TopBarProps {
@@ -22,7 +29,27 @@ export default function TopBar({ title, onMenuClick }: TopBarProps) {
   const switchRole = useAuthStore((s) => s.switchRole);
   const [isSwitchingRole, setIsSwitchingRole] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [notificationState, setNotificationState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [readingId, setReadingId] = useState<string | null>(null);
+  const [readErrorId, setReadErrorId] = useState<string | null>(null);
+  const [isMarkingAllRead, setIsMarkingAllRead] = useState(false);
+  const notificationRequestRef = useRef(0);
+  const notificationIdentity = `${user?.user_id ?? ''}:${user?.tenant_id ?? ''}:${user?.role ?? ''}`;
+  const notificationIdentityRef = useRef(notificationIdentity);
   const notificationsRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    notificationIdentityRef.current = notificationIdentity;
+    notificationRequestRef.current += 1;
+    setShowNotifications(false);
+    setNotificationState('idle');
+    setNotifications([]);
+    setUnreadCount(0);
+    setReadingId(null);
+    setReadErrorId(null);
+  }, [notificationIdentity]);
 
   // Close notifications on Escape
   useEffect(() => {
@@ -71,6 +98,77 @@ export default function TopBar({ title, onMenuClick }: TopBarProps) {
     if (typeof window !== 'undefined') {
       window.location.href = '/superadmin/login';
     }
+  };
+
+  const loadNotifications = async () => {
+    const requestId = ++notificationRequestRef.current;
+    const requestIdentity = notificationIdentityRef.current;
+    setNotificationState('loading');
+    try {
+      const response = await listNotifications();
+      if (requestId !== notificationRequestRef.current || requestIdentity !== notificationIdentityRef.current) return;
+      setNotifications(response.items);
+      setUnreadCount(Math.max(0, response.unread_count));
+      setNotificationState('ready');
+    } catch {
+      if (requestId === notificationRequestRef.current && requestIdentity === notificationIdentityRef.current) setNotificationState('error');
+    }
+  };
+
+  const toggleNotifications = () => {
+    const nextOpen = !showNotifications;
+    setShowNotifications(nextOpen);
+    if (nextOpen) void loadNotifications();
+  };
+
+  const handleNotificationClick = async (notification: Notification) => {
+    const actionPath = getSafeNotificationActionPath(notification.action_path, notification.kind);
+    if (!actionPath || readingId) return;
+    const requestIdentity = notificationIdentityRef.current;
+    setReadingId(notification.id);
+    setReadErrorId(null);
+    try {
+      const updated = await markNotificationRead(notification.id);
+      if (requestIdentity !== notificationIdentityRef.current) return;
+      setNotifications((current) => current.map((item) => item.id === updated.id ? updated : item));
+      setUnreadCount((count) => Math.max(0, notification.read_at ? count : count - 1));
+      window.location.assign(actionPath);
+    } catch {
+      setReadErrorId(notification.id);
+    } finally {
+      setReadingId(null);
+    }
+  };
+
+  const handleMarkAllRead = async () => {
+    if (isMarkingAllRead || unreadCount === 0) return;
+    setIsMarkingAllRead(true);
+    const requestIdentity = notificationIdentityRef.current;
+    try {
+      const summary = await markAllNotificationsRead();
+      if (requestIdentity !== notificationIdentityRef.current) return;
+      const readAt = new Date().toISOString();
+      setNotifications((current) => current.map((item) => ({ ...item, read_at: item.read_at || readAt })));
+      setUnreadCount(Math.max(0, summary.unread_count));
+    } catch {
+      toast.error(t('topbar.notificationsMarkAllError'));
+    } finally {
+      setIsMarkingAllRead(false);
+    }
+  };
+
+  const notificationCopy = (notification: Notification) => {
+    const courseTitle = typeof notification.context?.course_title === 'string'
+      ? notification.context.course_title
+      : '';
+    const key = notification.kind === 'course_review_assigned'
+      ? 'topbar.notificationAssigned'
+      : notification.kind === 'course_review_reminder'
+        ? 'topbar.notificationReminder'
+        : notification.kind === 'course_review_overdue'
+          ? 'topbar.notificationOverdue'
+          : 'topbar.notificationUnknown';
+    return t(key, courseTitle ? { course: courseTitle } : undefined);
   };
 
   return (
@@ -186,7 +284,8 @@ export default function TopBar({ title, onMenuClick }: TopBarProps) {
         {/* Notifications */}
         <div className="relative" ref={notificationsRef}>
           <button
-            onClick={() => setShowNotifications(!showNotifications)}
+            type="button"
+            onClick={toggleNotifications}
             className="relative flex h-9 w-9 items-center justify-center rounded-xl border border-border text-muted-foreground hover:border-border hover:text-foreground transition-colors"
             aria-label={t('topbar.notifications')}
             aria-expanded={showNotifications}
@@ -197,8 +296,11 @@ export default function TopBar({ title, onMenuClick }: TopBarProps) {
               <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
               <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
             </svg>
-            {/* Notification dot */}
-            <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-card bg-gold-500" aria-hidden="true" />
+            {unreadCount > 0 && (
+              <span className="absolute -right-2 -top-2 min-w-5 rounded-full border-2 border-card bg-gold-500 px-1 text-center text-[10px] font-bold leading-4 text-black" aria-label={t('topbar.unreadCount', { count: unreadCount })}>
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
+            )}
           </button>
 
           {/* Notifications dropdown */}
@@ -207,17 +309,27 @@ export default function TopBar({ title, onMenuClick }: TopBarProps) {
               <div className="fixed inset-0 z-40" onClick={() => setShowNotifications(false)} aria-hidden="true" />
               <div
                 id="notifications-dropdown"
-                role="menu"
+                role="dialog"
                 aria-label={t('topbar.notifications')}
-                className="absolute right-0 top-12 z-50 w-80 rounded-2xl border border-border bg-card shadow-card-lg overflow-hidden"
+                className="absolute right-0 top-12 z-50 w-[min(22rem,calc(100vw-1.5rem))] rounded-2xl border border-border bg-card shadow-card-lg overflow-hidden"
               >
-                <div className="border-b border-border px-4 py-3">
+                <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
                   <h3 className="text-sm font-bold text-foreground font-display">{t('topbar.notifications')}</h3>
+                  <button type="button" onClick={() => void handleMarkAllRead()} disabled={isMarkingAllRead || unreadCount === 0} className="text-xs font-medium text-primary underline-offset-2 hover:underline disabled:cursor-not-allowed disabled:opacity-50">
+                    {isMarkingAllRead ? t('topbar.markingAllRead') : t('topbar.markAllRead')}
+                  </button>
                 </div>
                 <div className="max-h-80 overflow-y-auto p-2">
-                  <div className="rounded-xl px-3 py-3 text-center text-sm text-muted-foreground">
-                    {t('topbar.noNotifications')}
-                  </div>
+                  {notificationState === 'loading' && <div role="status" className="rounded-xl px-3 py-6 text-center text-sm text-muted-foreground">{t('topbar.notificationsLoading')}</div>}
+                  {notificationState === 'error' && <div className="rounded-xl px-3 py-4 text-center text-sm text-muted-foreground"><p>{t('topbar.notificationsError')}</p><button type="button" onClick={() => void loadNotifications()} className="mt-2 font-medium text-primary underline underline-offset-2">{t('topbar.notificationsRetry')}</button></div>}
+                  {notificationState === 'ready' && notifications.length === 0 && <div className="rounded-xl px-3 py-6 text-center text-sm text-muted-foreground">{t('topbar.noNotifications')}</div>}
+                  {notificationState === 'ready' && notifications.length > 0 && <ul className="space-y-1" aria-label={t('topbar.notifications')}>
+                    {notifications.map((notification) => {
+                      const actionPath = getSafeNotificationActionPath(notification.action_path, notification.kind);
+                      const content = <><span className="block text-sm text-foreground">{notificationCopy(notification)}</span>{notification.context?.due_at && <span className="mt-1 block text-xs text-muted-foreground">{t('topbar.notificationDue', { dueAt: String(notification.context.due_at) })}</span>}{readErrorId === notification.id && <span className="mt-1 block text-xs text-destructive">{t('topbar.notificationReadError')}</span>}</>;
+                      return <li key={notification.id} className={`rounded-xl border border-transparent px-3 py-3 ${notification.read_at ? 'bg-muted/30' : 'bg-primary/5'}`}>{actionPath ? <button type="button" role="menuitem" onClick={() => void handleNotificationClick(notification)} disabled={readingId !== null} className="block w-full text-left disabled:opacity-60">{content}</button> : <div aria-label={t('topbar.notificationUnknown')} role="note">{content}</div>}</li>;
+                    })}
+                  </ul>}
                 </div>
               </div>
             </>

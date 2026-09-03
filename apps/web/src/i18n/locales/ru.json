@@ -1031,7 +1031,20 @@
     "notifications": "Уведомления",
     "noNotifications": "Нет новых уведомлений",
     "commandPalette": "Командная палитра",
-    "openCommandPalette": "Открыть командную палитру"
+    "openCommandPalette": "Открыть командную палитру",
+    "unreadCount": "Непрочитанных уведомлений: {count}",
+    "markAllRead": "Отметить всё прочитанным",
+    "markingAllRead": "Отмечаем…",
+    "notificationsLoading": "Загружаем уведомления…",
+    "notificationsError": "Не удалось загрузить уведомления",
+    "notificationsRetry": "Повторить",
+    "notificationAssigned": "Вам назначено согласование курса: {course}",
+    "notificationReminder": "Напоминание о согласовании курса: {course}",
+    "notificationOverdue": "Согласование курса просрочено: {course}",
+    "notificationUnknown": "Новое уведомление",
+    "notificationDue": "Срок: {dueAt}",
+    "notificationReadError": "Не удалось открыть уведомление",
+    "notificationsMarkAllError": "Не удалось отметить уведомления"
   },
   "dialogs": {
     "delete": "Удалить",

@@ -115,7 +115,10 @@ async def test_access_token_is_accepted_by_protected_dependency():
         def scalar_one_or_none(self):
             return user
 
-    db = SimpleNamespace(execute=AsyncMock(side_effect=[object(), Result()]), rollback=AsyncMock())
+    db = SimpleNamespace(
+        execute=AsyncMock(side_effect=[object(), Result(), object()]),
+        rollback=AsyncMock(),
+    )
     credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
 
     assert await auth_module.get_current_user(credentials=credentials, db=db) is user
@@ -149,7 +152,7 @@ async def test_kiosk_access_token_requires_active_credential_and_link():
             return user
 
     db = SimpleNamespace(
-        execute=AsyncMock(side_effect=[object(), Result()]),
+        execute=AsyncMock(side_effect=[object(), Result(), object()]),
         scalar=AsyncMock(return_value=credential_id),
         rollback=AsyncMock(),
     )

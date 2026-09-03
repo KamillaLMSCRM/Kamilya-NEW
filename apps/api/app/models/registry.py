@@ -38,6 +38,7 @@ MODEL_MODULES = (
     "app.modules.learner_assistant.models",
     "app.modules.learning_paths.models",
     "app.modules.learning_cycles.models",
+    "app.modules.notifications.models",
     "app.modules.lessons.models",
     "app.modules.positions.models",
     "app.modules.positions.qualification_models",

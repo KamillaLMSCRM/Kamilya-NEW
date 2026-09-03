@@ -58,6 +58,7 @@ from app.modules.learner_assistant.router import router as learner_assistant_rou
 from app.modules.learning_cycles.router import router as learning_cycles_router
 from app.modules.learning_paths.router import router as learning_paths_router
 from app.modules.lessons.router import router as lessons_router
+from app.modules.notifications.router import router as notifications_router
 from app.modules.organization_units.router import router as organization_units_router
 from app.modules.positions.admin_router import router as positions_admin_router
 from app.modules.positions.jd_router import router as positions_jd_router
@@ -194,6 +195,7 @@ register_error_handlers(app)
 app.include_router(auth_router, prefix=f"{settings.API_PREFIX}")
 app.include_router(courses_router, prefix=f"{settings.API_PREFIX}", tags=["courses"])
 app.include_router(course_approval_router, prefix=f"{settings.API_PREFIX}")
+app.include_router(notifications_router, prefix=f"{settings.API_PREFIX}")
 app.include_router(course_blueprints_router, prefix=f"{settings.API_PREFIX}")
 app.include_router(scorm_router, prefix=f"{settings.API_PREFIX}", tags=["scorm"])
 app.include_router(lessons_router, prefix=f"{settings.API_PREFIX}", tags=["lessons"])

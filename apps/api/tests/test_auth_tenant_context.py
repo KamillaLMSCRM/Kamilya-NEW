@@ -107,7 +107,7 @@ async def test_normal_tenant_path_sets_context_before_loading_user():
         is_active=True,
     )
     db = SimpleNamespace(
-        execute=AsyncMock(side_effect=[object(), _ScalarResult(user)]),
+        execute=AsyncMock(side_effect=[object(), _ScalarResult(user), object()]),
         rollback=AsyncMock(),
     )
 
@@ -123,9 +123,10 @@ async def test_normal_tenant_path_sets_context_before_loading_user():
         result = await get_current_user(credentials=_credentials(), db=db)
 
     assert result is user
-    assert db.execute.await_count == 2
+    assert db.execute.await_count == 3
     assert "set_current_tenant" in str(db.execute.await_args_list[0].args[0])
     assert "FROM users" in str(db.execute.await_args_list[1].args[0])
+    assert "app.user_id" in str(db.execute.await_args_list[2].args[0])
     db.rollback.assert_not_awaited()
 
 
@@ -166,7 +167,7 @@ async def test_impersonation_uses_target_tenant_without_superadmin_rls_bypass():
         is_active=True,
     )
     db = SimpleNamespace(
-        execute=AsyncMock(side_effect=[object(), _ScalarResult(superadmin), object()]),
+        execute=AsyncMock(side_effect=[object(), _ScalarResult(superadmin), object(), object()]),
         rollback=AsyncMock(),
     )
 
@@ -185,10 +186,11 @@ async def test_impersonation_uses_target_tenant_without_superadmin_rls_bypass():
     assert result.is_impersonating is True
     assert result.tenant_id == target_tenant_id
     assert result.role == "methodologist"
-    assert db.execute.await_count == 3
+    assert db.execute.await_count == 4
     statements = [str(call.args[0]) for call in db.execute.await_args_list]
     assert "set_current_tenant" in statements[0]
     assert all("app.is_superadmin" not in statement for statement in statements)
-    assert "app.is_impersonating" in statements[2]
-    assert "app.impersonating_actor_id" in statements[2]
+    assert "app.user_id" in statements[2]
+    assert "app.is_impersonating" in statements[3]
+    assert "app.impersonating_actor_id" in statements[3]
     db.rollback.assert_not_awaited()

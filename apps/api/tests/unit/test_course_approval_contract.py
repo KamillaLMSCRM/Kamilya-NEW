@@ -617,7 +617,9 @@ def test_followup_purge_accepts_only_runtime_role_or_database_owner():
     approval_service = Path(__file__).parents[2] / "app" / "modules" / "course_approval" / "service.py"
     service_source = approval_service.read_text(encoding="utf-8")
     assert "recipient_user_id=reviewer_id if reviewer_email is None else None" in service_source
-    assert "operational_recipient = reviewer_id if reviewer_email is None else None" in service_source
+    assert "due_overdue/cabinet" in service_source
+    assert "due_overdue/email" in service_source
+    assert "recipient_user_id=actor_id" in service_source
 
 
 def test_personal_link_reminders_never_depend_on_plaintext_secret_payloads():
@@ -625,8 +627,10 @@ def test_personal_link_reminders_never_depend_on_plaintext_secret_payloads():
     worker = Path(__file__).parents[2] / "app" / "modules" / "course_approval" / "notification_tasks.py"
     service_source = service.read_text(encoding="utf-8")
     worker_source = worker.read_text(encoding="utf-8")
-    assert 'reminder_channel = "email" if delivery_mode == "email" else "cabinet"' in service_source
-    assert 'payload_encrypted=original.payload_encrypted' in worker_source
+    assert "due_minus_24h/cabinet" in service_source
+    assert "due_minus_24h/email" in service_source
+    assert 'followup_payload_encrypted = encrypt_config({"access_url": access_url})' in service_source
+    assert 'encrypt_config({"access_url": str(access_url)})' in worker_source
     assert 'item.deadline_state = "overdue"' in worker_source
     assert "PIN" not in worker_source
 
