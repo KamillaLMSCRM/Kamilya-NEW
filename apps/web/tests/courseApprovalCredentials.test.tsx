@@ -39,13 +39,16 @@ describe('approval credential reveal', () => {
 
   it('reveals every newly issued credential ephemerally with independent URL and PIN actions', async () => {
     const onClose = vi.fn();
-    render(<ApprovalRequestModal open courseId="course-1" onClose={onClose} />);
+    const onCreated = vi.fn();
+    render(<ApprovalRequestModal open courseId="course-1" onClose={onClose} onCreated={onCreated} />);
     fireEvent.change(screen.getByLabelText('Имя'), { target: { value: 'Guest One' } });
     fireEvent.change(screen.getByLabelText('Email гостя'), { target: { value: 'one@example.test' } });
     fireEvent.click(screen.getByRole('button', { name: 'Добавить гостя' }));
     fireEvent.click(screen.getByLabelText('Ссылка и PIN'));
     fireEvent.click(screen.getByRole('button', { name: 'Отправить запрос' }));
     await waitFor(() => expect(screen.getByText('https://example.test/review/one')).toBeInTheDocument());
+    expect(onCreated).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('https://example.test/review/one')).toBeInTheDocument();
     expect(screen.getByText('https://example.test/review/two')).toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: 'Скопировать ссылку' })).toHaveLength(2);
     expect(screen.getAllByRole('button', { name: 'Скопировать PIN' })).toHaveLength(2);

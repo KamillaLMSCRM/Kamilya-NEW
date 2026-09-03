@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Button, Card, CardContent, Input } from '@/components/ui';
 import { ApprovalPolicyCard } from '@/components/course-approval/ApprovalPolicyCard';
@@ -16,13 +16,14 @@ export default function CourseApprovalsPage() {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const loadedRef = useRef(false);
   const role = useAuthStore((state) => state.user?.role);
   const canRequest = role === 'methodologist';
   const canAudit = canRequest || role === 'admin' || role === 'org_admin';
   const searchParams = useSearchParams();
 
   const load = useCallback(async () => {
-    setLoading(true);
+    if (!loadedRef.current) setLoading(true);
     setError('');
     try {
       const [courseRows, requestRows] = await Promise.all([
@@ -37,7 +38,7 @@ export default function CourseApprovalsPage() {
       if (requestedCourseId) { setCourseId(requestedCourseId); setCourses([{ id: requestedCourseId, title: requestedCourseId }]); }
       if (canAudit) setError('Не удалось загрузить курсы и запросы согласования.');
     }
-    finally { setLoading(false); }
+    finally { loadedRef.current = true; setLoading(false); }
   }, [searchParams, canAudit]);
   useEffect(() => { void load(); }, [load]);
   const selectedCourse = courses.find((course) => course.id === courseId);
