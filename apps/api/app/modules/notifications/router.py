@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -38,22 +38,47 @@ class NotificationReadAllResponse(BaseModel):
 
 
 @router.get("", response_model=NotificationListResponse)
-async def get_notifications(db: DbSession, user: TenantUser, limit: int = Query(20, ge=1, le=50)):
-    rows, unread = await list_notifications(db, tenant_id=user.tenant_id, recipient_user_id=user.id, limit=limit)
-    return {"items": [notification_payload(row) for row in rows], "unread_count": unread}
+async def get_notifications(
+    db: DbSession,
+    user: TenantUser,
+    limit: int = Query(20, ge=1, le=50),
+) -> NotificationListResponse:
+    rows, unread = await list_notifications(
+        db,
+        tenant_id=cast(UUID, user.tenant_id),
+        recipient_user_id=cast(UUID, user.id),
+        limit=limit,
+    )
+    return NotificationListResponse(
+        items=[NotificationItemResponse.model_validate(notification_payload(row)) for row in rows],
+        unread_count=unread,
+    )
 
 
 @router.post("/{notification_id}/read", response_model=NotificationItemResponse)
-async def read_notification(notification_id: UUID, db: DbSession, user: TenantUser):
-    item = await mark_read(db, tenant_id=user.tenant_id, recipient_user_id=user.id, notification_id=notification_id)
+async def read_notification(
+    notification_id: UUID,
+    db: DbSession,
+    user: TenantUser,
+) -> NotificationItemResponse:
+    item = await mark_read(
+        db,
+        tenant_id=cast(UUID, user.tenant_id),
+        recipient_user_id=cast(UUID, user.id),
+        notification_id=notification_id,
+    )
     if item is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Notification not found")
     await db.commit()
-    return notification_payload(item)
+    return NotificationItemResponse.model_validate(notification_payload(item))
 
 
 @router.post("/read-all", response_model=NotificationReadAllResponse)
-async def read_all_notifications(db: DbSession, user: TenantUser):
-    updated = await mark_all_read(db, tenant_id=user.tenant_id, recipient_user_id=user.id)
+async def read_all_notifications(db: DbSession, user: TenantUser) -> NotificationReadAllResponse:
+    updated = await mark_all_read(
+        db,
+        tenant_id=cast(UUID, user.tenant_id),
+        recipient_user_id=cast(UUID, user.id),
+    )
     await db.commit()
-    return {"updated": updated, "unread_count": 0}
+    return NotificationReadAllResponse(updated=updated)

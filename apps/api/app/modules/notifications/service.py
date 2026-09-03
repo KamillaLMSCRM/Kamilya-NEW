@@ -2,6 +2,7 @@
 
 import re
 from datetime import UTC, datetime
+from typing import cast
 from uuid import UUID
 
 from sqlalchemy import func, select, text, update
@@ -38,7 +39,10 @@ async def materialize_notification(db: AsyncSession, intent: WorkflowNotificatio
         text("SELECT set_config('app.user_id', :user_id, true)"),
         {"user_id": str(intent.recipient_user_id)},
     )
-    existing = await db.scalar(select(NotificationInboxItem).where(NotificationInboxItem.source_delivery_id == intent.source_delivery_id, NotificationInboxItem.tenant_id == intent.tenant_id))
+    existing = cast(
+        NotificationInboxItem | None,
+        await db.scalar(select(NotificationInboxItem).where(NotificationInboxItem.source_delivery_id == intent.source_delivery_id, NotificationInboxItem.tenant_id == intent.tenant_id)),
+    )
     if existing is not None:
         if existing.tenant_id != intent.tenant_id or existing.recipient_user_id != intent.recipient_user_id:
             raise ValueError("source delivery ownership conflict") from None
@@ -56,7 +60,10 @@ async def materialize_notification(db: AsyncSession, intent: WorkflowNotificatio
             db.add(item)
             await db.flush()
     except IntegrityError:
-        existing = await db.scalar(select(NotificationInboxItem).where(NotificationInboxItem.source_delivery_id == intent.source_delivery_id, NotificationInboxItem.tenant_id == intent.tenant_id))
+        existing = cast(
+            NotificationInboxItem | None,
+            await db.scalar(select(NotificationInboxItem).where(NotificationInboxItem.source_delivery_id == intent.source_delivery_id, NotificationInboxItem.tenant_id == intent.tenant_id)),
+        )
         if existing is None:
             raise
         if existing.recipient_user_id != intent.recipient_user_id:
@@ -78,7 +85,7 @@ def notification_payload(item: NotificationInboxItem) -> dict[str, object]:
 
 async def list_notifications(db: AsyncSession, *, tenant_id: UUID, recipient_user_id: UUID, limit: int) -> tuple[list[NotificationInboxItem], int]:
     bounded = max(1, min(limit, 50))
-    rows = (await db.scalars(select(NotificationInboxItem).where(NotificationInboxItem.tenant_id == tenant_id, NotificationInboxItem.recipient_user_id == recipient_user_id).order_by(NotificationInboxItem.created_at.desc(), NotificationInboxItem.id.desc()).limit(bounded))).all()
+    rows = list((await db.scalars(select(NotificationInboxItem).where(NotificationInboxItem.tenant_id == tenant_id, NotificationInboxItem.recipient_user_id == recipient_user_id).order_by(NotificationInboxItem.created_at.desc(), NotificationInboxItem.id.desc()).limit(bounded))).all())
     unread = int(await db.scalar(select(func.count()).select_from(NotificationInboxItem).where(NotificationInboxItem.tenant_id == tenant_id, NotificationInboxItem.recipient_user_id == recipient_user_id, NotificationInboxItem.read_at.is_(None))) or 0)
     return rows, unread
 
@@ -94,6 +101,17 @@ async def mark_read(db: AsyncSession, *, tenant_id: UUID, recipient_user_id: UUI
 
 
 async def mark_all_read(db: AsyncSession, *, tenant_id: UUID, recipient_user_id: UUID) -> int:
-    result = await db.execute(update(NotificationInboxItem).where(NotificationInboxItem.tenant_id == tenant_id, NotificationInboxItem.recipient_user_id == recipient_user_id, NotificationInboxItem.read_at.is_(None)).values(read_at=datetime.now(UTC)))
+    updated_ids = (
+        await db.scalars(
+            update(NotificationInboxItem)
+            .where(
+                NotificationInboxItem.tenant_id == tenant_id,
+                NotificationInboxItem.recipient_user_id == recipient_user_id,
+                NotificationInboxItem.read_at.is_(None),
+            )
+            .values(read_at=datetime.now(UTC))
+            .returning(NotificationInboxItem.id)
+        )
+    ).all()
     await db.flush()
-    return int(result.rowcount or 0)
+    return len(updated_ids)

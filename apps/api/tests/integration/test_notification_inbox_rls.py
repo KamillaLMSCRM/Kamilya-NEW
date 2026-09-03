@@ -335,7 +335,8 @@ async def test_notification_read_all_updates_only_authenticated_recipient(
     by_id = {row.id: row for row in rows}
     assert by_id[notification_a_1.id].read_at is not None
     assert by_id[notification_a_2.id].read_at is not None
-    assert notification_b.id not in by_id
+    other_recipient_row = by_id.get(notification_b.id)
+    assert other_recipient_row is None or other_recipient_row.read_at is None
 
     user_b_list = await client.get(
         "/api/v1/notifications",

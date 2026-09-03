@@ -1,5 +1,6 @@
 import logging
 from datetime import UTC, datetime, timedelta
+from typing import cast
 from uuid import UUID, uuid4
 
 import jwt
@@ -315,7 +316,7 @@ async def get_current_user(
     if not user or not user.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found or inactive")
     if tenant_id:
-        await _set_user_security_context(db, user.id)
+        await _set_user_security_context(db, cast(UUID, user.id))
 
     # Role is always from DB, never from JWT (JWT role is just for fast checks)
     # UNLESS this is an impersonation token — in that case, the real sub is
