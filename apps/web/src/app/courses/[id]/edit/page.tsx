@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+
 import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { Card, CardContent, Button, Input, Badge, Modal } from '@/components/ui';
@@ -384,12 +386,12 @@ export default function CourseEditPage() {
             <Sparkles className="w-4 h-4 mr-1" />
             AI-помощник
           </Button>
-          <a
+          <Link
             href={`/admin/course-approvals?courseId=${encodeURIComponent(course.id)}`}
             className="inline-flex min-h-9 items-center justify-center rounded-md border border-input px-3 py-2 text-sm font-medium hover:bg-muted"
           >
             Согласование
-          </a>
+          </Link>
         </div>
       </div>
       <ApprovalPolicyCard courseId={course.id} initialRequiresApproval={Boolean(course.requires_approval)} />
