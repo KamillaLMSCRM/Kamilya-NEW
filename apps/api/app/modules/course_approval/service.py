@@ -32,6 +32,7 @@ from .models import (
 )
 
 PIN_HASHER = PasswordHasher()
+TRANSIENT_DELIVERY_ERRORS = frozenset({"provider_timeout", "provider_unreachable", "provider_rate_limited", "provider_unavailable"})
 
 
 def learner_safe_review_snapshot(snapshot: dict) -> dict:
@@ -241,9 +242,9 @@ async def create_request(db: AsyncSession, *, revision: CourseApprovalRevision, 
             "access_url": f"{(base_url or 'https://app.kml.kz').rstrip('/')}/course-review-access/{raw_token}",
             "pin": pin,
         }) if delivery_mode == "email" else None
-        db.add(WorkflowDelivery(tenant_id=tenant_id, work_item_id=work_item.id, channel="cabinet", recipient_email=recipient_email, payload_encrypted=payload_encrypted, status="queued"))
+        db.add(WorkflowDelivery(tenant_id=tenant_id, work_item_id=work_item.id, channel="cabinet", recipient_email=recipient_email, recipient_user_id=reviewer_id if reviewer_email is None else actor_id, payload_encrypted=payload_encrypted, status="queued"))
         if delivery_mode == "email":
-            db.add(WorkflowDelivery(tenant_id=tenant_id, work_item_id=work_item.id, channel="email", recipient_email=recipient_email, payload_encrypted=payload_encrypted, status="queued"))
+            db.add(WorkflowDelivery(tenant_id=tenant_id, work_item_id=work_item.id, channel="email", recipient_email=recipient_email, recipient_user_id=reviewer_id if reviewer_email is None else None, payload_encrypted=payload_encrypted, status="queued"))
         if delivery_mode in {"personal_link", "email"}:
             db.add(WorkflowAccessCredential(
                 tenant_id=tenant_id, work_item_id=work_item.id, reviewer_user_id=reviewer_id,
@@ -257,9 +258,11 @@ async def create_request(db: AsyncSession, *, revision: CourseApprovalRevision, 
                 first_access_url, first_pin = access_url, pin
         if due_at is not None:
             reminder_at = due_at - timedelta(hours=24)
+            reminder_channel = "email" if delivery_mode == "email" else "cabinet"
+            operational_recipient = reviewer_id if reviewer_email is None else actor_id
             if reminder_at > datetime.now(UTC):
-                db.add(WorkflowReminder(tenant_id=tenant_id, work_item_id=work_item.id, rule_key="due_minus_24h", channel="email", idempotency_key=f"review-reminder/{work_item.id}/due_minus_24h", scheduled_at=reminder_at, recipient_user_id=reviewer_id if reviewer_email is None else None))
-            db.add(WorkflowEscalation(tenant_id=tenant_id, work_item_id=work_item.id, rule_key="due_overdue", channel="email", idempotency_key=f"review-escalation/{work_item.id}/due_overdue", scheduled_at=due_at, recipient_user_id=None))
+                db.add(WorkflowReminder(tenant_id=tenant_id, work_item_id=work_item.id, rule_key="due_minus_24h", channel=reminder_channel, idempotency_key=f"review-reminder/{work_item.id}/due_minus_24h", scheduled_at=reminder_at, recipient_user_id=operational_recipient))
+            db.add(WorkflowEscalation(tenant_id=tenant_id, work_item_id=work_item.id, rule_key="due_overdue", channel=reminder_channel, idempotency_key=f"review-escalation/{work_item.id}/due_overdue", scheduled_at=due_at, recipient_user_id=operational_recipient))
     await db.flush()
     await log_action(db, tenant_id, "course_approval.request_created", "course_approval_revision", revision.id, actor_id, {"reviewer_count": len(reviewer_specs), "delivery_mode": delivery_mode})
     return approval_request, first_work_item, first_access_url, first_pin, access_credentials
@@ -298,19 +301,31 @@ async def record_progress(db: AsyncSession, *, attempt: CourseReviewAttempt, rev
         raise HTTPException(status_code=403, detail="Course review access disabled")
     if revision.state not in {"pending", "changes_requested"}:
         raise HTTPException(status_code=409, detail="Review revision is no longer active")
-    if attempt.activity_state == "completed":
+    if attempt.activity_state in {"completed", "decision_pending"}:
         raise HTTPException(status_code=409, detail="Review attempt is already completed")
     previous = await db.scalar(select(CourseReviewAttemptEvent).where(CourseReviewAttemptEvent.attempt_id == attempt.id, CourseReviewAttemptEvent.tenant_id == tenant_id, CourseReviewAttemptEvent.sequence == sequence))
     payload_hash = canonical_json_sha256(payload)
     if previous:
         if previous.payload_sha256 != payload_hash:
+            await log_action(db, tenant_id, "course_approval.progress_rejected", "course_review_attempt", attempt.id, attempt.reviewer_user_id, {"reason": "sequence_conflict", "sequence": sequence, "payload_sha256": payload_hash})
             raise HTTPException(status_code=409, detail="sequence_conflict")
         return attempt
-    attempt.activity_state = activity_state
+    # Client activity_state is advisory only. Completion is derived from a
+    # complete, ordered checkpoint set in the immutable revision snapshot.
+    lesson_count = sum(len(module.get("lessons", [])) for module in revision.snapshot.get("modules", []))
+    checkpoint_count = await db.scalar(select(func.count(CourseReviewAttemptEvent.id)).where(
+        CourseReviewAttemptEvent.attempt_id == attempt.id,
+        CourseReviewAttemptEvent.tenant_id == tenant_id,
+        CourseReviewAttemptEvent.event_type == "checkpoint",
+        CourseReviewAttemptEvent.sequence <= sequence,
+    ))
+    server_complete = event_type == "checkpoint" and lesson_count > 0 and lesson_position is not None and lesson_position >= lesson_count - 1 and int(checkpoint_count or 0) + 1 >= lesson_count
+    effective_state = "decision_pending" if server_complete else "in_progress"
+    attempt.activity_state = effective_state
     attempt.lesson_position = lesson_position
     attempt.last_activity_at = datetime.now(UTC)
     attempt.started_at = attempt.started_at or attempt.last_activity_at
-    if activity_state == "completed":
+    if server_complete:
         attempt.completed_at = attempt.last_activity_at
     db.add(CourseReviewAttemptEvent(tenant_id=tenant_id, attempt_id=attempt.id, sequence=sequence, event_type=event_type, payload=payload, payload_sha256=payload_hash))
     work_item = await db.scalar(select(WorkflowWorkItem).outerjoin(
@@ -322,8 +337,8 @@ async def record_progress(db: AsyncSession, *, attempt: CourseReviewAttempt, rev
         or_(WorkflowWorkItem.target_user_id == attempt.reviewer_user_id, WorkflowAccessCredential.reviewer_user_id == attempt.reviewer_user_id),
     ).with_for_update())
     if work_item is not None:
-        work_item.activity_state = "completed" if activity_state == "completed" else "in_progress"
-        if activity_state == "completed":
+        work_item.activity_state = "decision_pending" if server_complete else "in_progress"
+        if server_complete:
             work_item.deadline_state = "closed"
         elif work_item.deadline_state in {"scheduled", "due", "overdue"}:
             work_item.deadline_state = "due"
@@ -350,7 +365,7 @@ async def decide(db: AsyncSession, *, attempt: CourseReviewAttempt, revision: Co
         raise HTTPException(status_code=403, detail="Course review access disabled")
     if revision.state not in {"pending", "changes_requested"}:
         raise HTTPException(status_code=409, detail="Review revision is no longer active")
-    validate_decision(decision, reason, warning_acknowledged, complete=attempt.activity_state == "completed")
+    validate_decision(decision, reason, warning_acknowledged, complete=bool(attempt.diagnostics.get("complete")) or attempt.activity_state == "decision_pending")
     if revision.snapshot_sha256 != attempt.snapshot_sha256:
         raise HTTPException(status_code=409, detail="approval_revision_mismatch")
     mapped = "approved" if decision == "approve" else "changes_requested"
@@ -419,8 +434,11 @@ async def verify_access_pin(db: AsyncSession, token: str, pin: str) -> dict:
         credential.failed_attempts += 1
         if credential.failed_attempts >= 5:
             credential.locked_until = now + timedelta(minutes=15)
+        await log_action(db, tenant_id, "course_approval.access_rejected", "workflow_access_credential", credential.id, credential.reviewer_user_id, {"reason": "invalid_pin", "token_hash_prefix": digest[:12]})
         await db.commit()
         raise HTTPException(status_code=401, detail="Review access not verified")
+    # PIN verification is not single-use: the same credential may resume an
+    # active review until expiry/revocation. Rotation is explicit via resend.
     credential.verified_at = now
     credential.opened_at = credential.opened_at or now
     work_item = await db.scalar(select(WorkflowWorkItem).where(WorkflowWorkItem.id == credential.work_item_id, WorkflowWorkItem.tenant_id == credential.tenant_id))
@@ -494,7 +512,7 @@ async def revoke_request_access(db: AsyncSession, *, request_id: UUID, tenant_id
     return work_items[0]
 
 
-async def resend_request_access(db: AsyncSession, *, request_id: UUID, tenant_id: UUID, actor_id: UUID, base_url: str) -> list[dict]:
+async def resend_request_access(db: AsyncSession, *, request_id: UUID, tenant_id: UUID, actor_id: UUID, base_url: str, rotate_credentials: bool = False) -> dict:
     request_row = await db.scalar(select(CourseApprovalRequest).where(CourseApprovalRequest.id == request_id, CourseApprovalRequest.tenant_id == tenant_id).with_for_update())
     if request_row is None:
         raise HTTPException(status_code=404, detail="Approval request not found")
@@ -506,7 +524,22 @@ async def resend_request_access(db: AsyncSession, *, request_id: UUID, tenant_id
         raise HTTPException(status_code=404, detail="Review access not found")
     now = datetime.now(UTC)
     output = []
+    retried = 0
     for item in work_items:
+        channel = "email" if request_row.delivery_mode == "email" else "cabinet"
+        latest_delivery = await db.scalar(select(WorkflowDelivery).where(
+            WorkflowDelivery.work_item_id == item.id,
+            WorkflowDelivery.tenant_id == tenant_id,
+            WorkflowDelivery.channel == channel,
+        ).order_by(WorkflowDelivery.generation.desc()).limit(1).with_for_update())
+        if not rotate_credentials:
+            if latest_delivery is None or latest_delivery.status != "failed" or latest_delivery.error_category not in TRANSIENT_DELIVERY_ERRORS:
+                raise HTTPException(status_code=409, detail="Only retryable failed deliveries can be resent without credential rotation")
+            latest_delivery.status = "queued"
+            latest_delivery.next_attempt_at = None
+            latest_delivery.error_category = None
+            retried += 1
+            continue
         active = (await db.scalars(select(WorkflowAccessCredential).where(WorkflowAccessCredential.work_item_id == item.id, WorkflowAccessCredential.tenant_id == tenant_id, WorkflowAccessCredential.revoked_at.is_(None)).with_for_update())).all()
         for credential in active:
             credential.revoked_at = now
@@ -527,10 +560,9 @@ async def resend_request_access(db: AsyncSession, *, request_id: UUID, tenant_id
         reviewer_id = item.target_user_id or (previous_credential.reviewer_user_id if previous_credential else uuid4())
         db.add(WorkflowAccessCredential(tenant_id=tenant_id, work_item_id=item.id, reviewer_user_id=reviewer_id, reviewer_email=reviewer_email, token_hash=hashlib.sha256(raw_token.encode()).hexdigest(), pin_hash=PIN_HASHER.hash(pin), expires_at=expires_at))
         generation = int(await db.scalar(select(func.max(WorkflowDelivery.generation)).where(WorkflowDelivery.work_item_id == item.id, WorkflowDelivery.tenant_id == tenant_id)) or 0) + 1
-        channel = "email" if request_row.delivery_mode == "email" else "cabinet"
-        db.add(WorkflowDelivery(tenant_id=tenant_id, work_item_id=item.id, channel=channel, generation=generation, recipient_email=reviewer_email, payload_encrypted=payload_encrypted, status="queued"))
+        db.add(WorkflowDelivery(tenant_id=tenant_id, work_item_id=item.id, channel=channel, generation=generation, recipient_email=reviewer_email, recipient_user_id=item.target_user_id if item.target_user_id is not None else actor_id, payload_encrypted=payload_encrypted, status="queued"))
         item.access_state = "issued"
         output.append({"reviewer_id": reviewer_id if item.target_user_id is not None else None, "access_url": f"{base_url.rstrip('/')}/course-review-access/{raw_token}", "temporary_pin": pin, "expires_at": expires_at})
-    await log_action(db, tenant_id, "course_approval.access_resent", "course_approval_request", request_row.id, actor_id, {"reviewer_count": len(output)})
+    await log_action(db, tenant_id, "course_approval.access_resent" if rotate_credentials else "course_approval.delivery_retried", "course_approval_request", request_row.id, actor_id, {"reviewer_count": len(output), "retried": retried, "rotated": rotate_credentials})
     await db.flush()
-    return output
+    return {"rotated": rotate_credentials, "retried": retried, "access_credentials": output}

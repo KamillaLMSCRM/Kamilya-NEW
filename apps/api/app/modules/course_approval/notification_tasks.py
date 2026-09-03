@@ -67,10 +67,10 @@ async def deliver_workflow_delivery(*, tenant_id: UUID, delivery_id: UUID) -> di
             Course.tenant_id == tenant_id,
         ))).one_or_none()
         if row is None:
-            delivery.status = "failed"
+            delivery.status = "terminal"
             delivery.error_category = "binding_missing"
             await db.commit()
-            return {"status": "failed"}
+            return {"status": "terminal"}
         stored_delivery, work_item, revision, course = row
         if stored_delivery.channel == "cabinet":
             stored_delivery.status = "delivered"
@@ -78,25 +78,25 @@ async def deliver_workflow_delivery(*, tenant_id: UUID, delivery_id: UUID) -> di
             await db.commit()
             return {"status": "delivered"}
         if stored_delivery.payload_encrypted is None:
-            stored_delivery.status = "failed"
+            stored_delivery.status = "terminal"
             stored_delivery.error_category = "secret_missing"
             await db.commit()
-            return {"status": "failed"}
+            return {"status": "terminal"}
         try:
             payload = decrypt_config(bytes(stored_delivery.payload_encrypted))
         except Exception:
-            stored_delivery.status = "failed"
+            stored_delivery.status = "terminal"
             stored_delivery.error_category = "secret_invalid"
             await db.commit()
-            return {"status": "failed"}
+            return {"status": "terminal"}
         recipient = stored_delivery.recipient_email
         if not recipient and work_item.target_user_id is not None:
             recipient = await db.scalar(select(User.email).where(User.id == work_item.target_user_id, User.tenant_id == tenant_id, User.is_active.is_(True)))
         if not recipient:
-            stored_delivery.status = "failed"
+            stored_delivery.status = "terminal"
             stored_delivery.error_category = "email_missing"
             await db.commit()
-            return {"status": "failed"}
+            return {"status": "terminal"}
         reviewer_name = await db.scalar(select(CourseApprovalReviewer.reviewer_name).where(
             CourseApprovalReviewer.revision_id == revision.id,
             CourseApprovalReviewer.tenant_id == tenant_id,
@@ -112,16 +112,16 @@ async def deliver_workflow_delivery(*, tenant_id: UUID, delivery_id: UUID) -> di
                 idempotency_key=f"course-review/{stored_delivery.id}/{stored_delivery.generation}",
             )
         except EmailDeliveryError as exc:
-            stored_delivery.status = "failed"
+            stored_delivery.status = "terminal" if exc.category not in TRANSIENT_EMAIL_CATEGORIES else "failed"
             stored_delivery.error_category = exc.category[:64]
             stored_delivery.next_attempt_at = datetime.now(UTC) + timedelta(minutes=min(60, 2 ** min(stored_delivery.attempt_count, 6))) if exc.category in TRANSIENT_EMAIL_CATEGORIES else None
             await db.commit()
-            return {"status": "failed"}
+            return {"status": "failed" if exc.category in TRANSIENT_EMAIL_CATEGORIES else "terminal"}
         except Exception:
-            stored_delivery.status = "failed"
+            stored_delivery.status = "terminal"
             stored_delivery.error_category = "internal_error"
             await db.commit()
-            return {"status": "failed"}
+            return {"status": "terminal"}
         stored_delivery.status = "delivered"
         stored_delivery.provider_message_id = message_id
         stored_delivery.error_category = None
@@ -179,7 +179,7 @@ async def recover_workflow_deadlines(limit: int = 100) -> dict[str, int]:
                 continue
             original = await db.scalar(select(WorkflowDelivery).where(WorkflowDelivery.work_item_id == row.work_item_id, WorkflowDelivery.tenant_id == tenant_id, WorkflowDelivery.channel == row.channel).order_by(WorkflowDelivery.generation.desc()).limit(1))
             if original is not None:
-                db.add(WorkflowDelivery(tenant_id=tenant_id, work_item_id=row.work_item_id, channel=row.channel, recipient_email=original.recipient_email, payload_encrypted=original.payload_encrypted, generation=original.generation + 1, status="queued"))
+                db.add(WorkflowDelivery(tenant_id=tenant_id, work_item_id=row.work_item_id, channel=row.channel, recipient_email=original.recipient_email, recipient_user_id=row.recipient_user_id or original.recipient_user_id, payload_encrypted=original.payload_encrypted, generation=original.generation + 1, status="queued"))
             row.status = "delivered"
             if kind == "reminder":
                 reminder_count += 1

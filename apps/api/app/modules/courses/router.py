@@ -598,7 +598,20 @@ async def unpublish_course(
     request: Request,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_role("superadmin", "methodologist")),
+    idempotency_key: str | None = Header(None, alias="Idempotency-Key"),
 ):
+    from app.modules.course_approval.models import WorkflowIdempotencyKey
+    unpublish_fingerprint = canonical_json_sha256({"course_id": str(course_id)}) if idempotency_key else None
+    if idempotency_key:
+        prior = await db.scalar(select(WorkflowIdempotencyKey).where(WorkflowIdempotencyKey.tenant_id == user.tenant_id, WorkflowIdempotencyKey.key == idempotency_key, WorkflowIdempotencyKey.operation == "course.unpublish"))
+        if prior is not None:
+            if prior.request_fingerprint != unpublish_fingerprint:
+                raise HTTPException(status_code=409, detail="idempotency_conflict")
+            existing = await db.scalar(select(Course).where(Course.id == course_id, Course.tenant_id == user.tenant_id))
+            if existing is None:
+                raise HTTPException(status_code=404, detail="Course not found")
+            existing.reviewer = await _hydrate_reviewer(db, existing)
+            return existing
     result = await db.execute(select(Course).where(Course.id == course_id, Course.tenant_id == user.tenant_id))
     course = result.scalar_one_or_none()
     if not course:
@@ -620,6 +633,9 @@ async def unpublish_course(
     )
     await db.commit()
     course.reviewer = await _hydrate_reviewer(db, course)
+    if idempotency_key:
+        db.add(WorkflowIdempotencyKey(tenant_id=user.tenant_id, key=idempotency_key, operation="course.unpublish", request_fingerprint=unpublish_fingerprint, response={"course_id": str(course.id)}))
+        await db.commit()
     return course
 
 

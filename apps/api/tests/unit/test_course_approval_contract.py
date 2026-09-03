@@ -127,6 +127,83 @@ def test_course_approval_workflow_has_runtime_kill_switch():
     router = Path(__file__).parents[2] / "app" / "modules" / "course_approval" / "router.py"
     assert "COURSE_APPROVAL_WORKFLOW_ENABLED: bool = True" in config.read_text(encoding="utf-8")
     assert "require_course_approval_enabled" in router.read_text(encoding="utf-8")
+    router_source = router.read_text(encoding="utf-8")
+    assert "workflow_write = tenant" in router_source
+    assert 'router = APIRouter(tags=["course-approval"])' in router_source
+    courses_source = (Path(__file__).parents[2] / "app" / "modules" / "courses" / "router.py").read_text(encoding="utf-8")
+    assert "approval_pending" in courses_source
+    assert "COURSE_APPROVAL_WORKFLOW_ENABLED" not in courses_source
+
+
+def test_scoped_projection_and_decision_pending_are_explicit_contracts():
+    router = Path(__file__).parents[2] / "app" / "modules" / "course_approval" / "router.py"
+    schemas = Path(__file__).parents[2] / "app" / "modules" / "course_approval" / "schemas.py"
+    service = Path(__file__).parents[2] / "app" / "modules" / "course_approval" / "service.py"
+    router_source = router.read_text(encoding="utf-8")
+    schemas_source = schemas.read_text(encoding="utf-8")
+    service_source = service.read_text(encoding="utf-8")
+    assert '"/course-review-requests"' in router_source
+    assert '"/course-review-requests/{request_id}"' in router_source
+    assert "ScopedReviewRequestResponse" in schemas_source
+    assert '"decision_pending"' in router_source
+    assert 'effective_state = "decision_pending"' in service_source
+
+
+def test_review_credentials_are_reusable_and_resend_rotation_is_explicit():
+    service = Path(__file__).parents[2] / "app" / "modules" / "course_approval" / "service.py"
+    source = service.read_text(encoding="utf-8")
+    assert "rotate_credentials" in source
+    assert "Only retryable failed deliveries" in source
+    assert "PIN verification is not single-use" in source
+    router = Path(__file__).parents[2] / "app" / "modules" / "course_approval" / "router.py"
+    router_source = router.read_text(encoding="utf-8")
+    assert "credentials_already_issued" in router_source
+    assert '"access_credentials": []' in router_source
+
+
+def test_mixed_guest_and_internal_reviewer_contract_keeps_per_reviewer_identity():
+    from app.modules.course_approval.models import CourseApprovalReviewer, WorkflowAccessCredential
+
+    tenant_id = uuid4()
+    revision_id = uuid4()
+    internal_id = uuid4()
+    guest = CourseApprovalReviewer(tenant_id=tenant_id, revision_id=revision_id, reviewer_email="guest@example.test", reviewer_name="Guest")
+    internal = CourseApprovalReviewer(tenant_id=tenant_id, revision_id=revision_id, reviewer_user_id=internal_id)
+    assert guest.reviewer_user_id is None and guest.reviewer_email == "guest@example.test"
+    assert internal.reviewer_user_id == internal_id and internal.reviewer_email is None
+    assert WorkflowAccessCredential.__table__.c.work_item_id.nullable is False
+
+
+def test_append_only_and_terminal_delivery_controls_are_migration_contracts():
+    migration = Path(__file__).parents[2] / "alembic" / "versions" / "0147_course_approval_workflow.py"
+    source = migration.read_text(encoding="utf-8")
+    assert "REVOKE DELETE" in source
+    assert "Refusing destructive course-approval downgrade" in source
+    assert "'terminal'" in source
+    worker = Path(__file__).parents[2] / "app" / "modules" / "course_approval" / "notification_tasks.py"
+    worker_source = worker.read_text(encoding="utf-8")
+    assert 'status.in_(("queued", "failed"))' in worker_source
+    assert 'status = "terminal"' in worker_source
+
+
+def test_migration_checks_internal_actor_and_recipient_tenant_ownership():
+    migration = Path(__file__).parents[2] / "alembic" / "versions" / "0147_course_approval_workflow.py"
+    source = migration.read_text(encoding="utf-8")
+    assert "policy actor tenant mismatch" in source
+    assert "revision actor tenant mismatch" in source
+    assert "requester tenant mismatch" in source
+    assert "recipient tenant mismatch" in source
+
+
+def test_personal_link_reminders_never_depend_on_plaintext_secret_payloads():
+    service = Path(__file__).parents[2] / "app" / "modules" / "course_approval" / "service.py"
+    worker = Path(__file__).parents[2] / "app" / "modules" / "course_approval" / "notification_tasks.py"
+    service_source = service.read_text(encoding="utf-8")
+    worker_source = worker.read_text(encoding="utf-8")
+    assert 'reminder_channel = "email" if delivery_mode == "email" else "cabinet"' in service_source
+    assert 'payload_encrypted=original.payload_encrypted' in worker_source
+    assert 'item.deadline_state = "overdue"' in worker_source
+    assert "PIN" not in worker_source
 
 
 def test_course_approval_delivery_worker_is_retryable_and_deadline_aware():
@@ -149,3 +226,4 @@ def test_course_approval_mutations_have_persisted_idempotency_boundaries():
     assert 'operation="course_review.decision"' in approval_source
     assert 'operation="course_approval.resend"' in approval_source
     assert 'operation="course.publish"' in courses.read_text(encoding="utf-8")
+    assert 'operation="course.unpublish"' in courses.read_text(encoding="utf-8")

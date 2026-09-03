@@ -12,6 +12,7 @@ from app.core.config import get_settings
 from app.core.db import get_db
 from app.core.permissions import COURSE_APPROVAL_PERMISSIONS, require_permission
 from app.models.users import User
+from app.modules.audit.service import log_action
 
 from .models import (
     CourseApprovalPolicy,
@@ -30,10 +31,13 @@ from .schemas import (
     ApprovalRequestCreate,
     ApprovalRequestResponse,
     ApprovalRevisionResponse,
+    ResendAccessRequest,
     ReviewDecisionRequest,
+    ReviewerStatusResponse,
     ReviewPinRequest,
     ReviewProgressRequest,
     ReviewTestSubmission,
+    ScopedReviewRequestResponse,
 )
 from .service import (
     cancel_request,
@@ -98,8 +102,9 @@ async def _write_idempotency(db: AsyncSession, *, tenant_id: UUID, key: str | No
     await db.commit()
 
 
-router = APIRouter(tags=["course-approval"], dependencies=[Depends(require_course_approval_enabled)])
+router = APIRouter(tags=["course-approval"])
 tenant = [Depends(require_tenant_user())]
+workflow_write = tenant + [Depends(require_course_approval_enabled)]
 review_bearer = HTTPBearer(auto_error=False)
 
 
@@ -107,6 +112,8 @@ async def _request_projection(db: AsyncSession, row: CourseApprovalRequest, tena
     reviewers = (await db.scalars(select(CourseApprovalReviewer).where(CourseApprovalReviewer.revision_id == row.revision_id, CourseApprovalReviewer.tenant_id == tenant_id))).all()
     items = (await db.scalars(select(WorkflowWorkItem).where(WorkflowWorkItem.review_revision_id == row.revision_id, WorkflowWorkItem.tenant_id == tenant_id))).all()
     item_ids = [item.id for item in items]
+    user_ids = [reviewer.reviewer_user_id for reviewer in reviewers if reviewer.reviewer_user_id is not None]
+    users = {user.id: user for user in (await db.scalars(select(User).where(User.id.in_(user_ids), User.tenant_id == tenant_id))).all()} if user_ids else {}
     deliveries = (await db.scalars(select(WorkflowDelivery).where(WorkflowDelivery.work_item_id.in_(item_ids), WorkflowDelivery.tenant_id == tenant_id))).all() if item_ids else []
     attempts = (await db.scalars(select(CourseReviewAttempt).where(CourseReviewAttempt.revision_id == row.revision_id, CourseReviewAttempt.tenant_id == tenant_id))).all()
     return {
@@ -116,10 +123,76 @@ async def _request_projection(db: AsyncSession, row: CourseApprovalRequest, tena
         "delivery_mode": row.delivery_mode,
         "due_at": row.due_at,
         "reviewer_count": len(reviewers),
-        "reviewers": [{"decision": reviewer.decision, "decision_at": reviewer.decision_at, "required": reviewer.required} for reviewer in reviewers],
+        "all_required_approved": all((not reviewer.required) or reviewer.decision == "approved" for reviewer in reviewers),
+        "reviewers": [{"reviewer_id": reviewer.reviewer_user_id, "reviewer_name": reviewer.reviewer_name or (f"{users[reviewer.reviewer_user_id].first_name} {users[reviewer.reviewer_user_id].last_name}".strip() if reviewer.reviewer_user_id in users else None), "reviewer_email": reviewer.reviewer_email or (users[reviewer.reviewer_user_id].email if reviewer.reviewer_user_id in users else None), "decision": reviewer.decision, "decision_at": reviewer.decision_at, "required": reviewer.required} for reviewer in reviewers],
         "work_items": [{"id": item.id, "delivery_state": item.delivery_state, "access_state": item.access_state, "activity_state": item.activity_state, "deadline_state": item.deadline_state, "outcome": item.outcome} for item in items],
         "deliveries": [{"channel": delivery.channel, "status": delivery.status, "attempt_count": delivery.attempt_count, "error_category": delivery.error_category} for delivery in deliveries],
-        "progress": [{"attempt_id": attempt.id, "activity_state": attempt.activity_state, "lesson_position": attempt.lesson_position, "last_activity_at": attempt.last_activity_at, "diagnostics": attempt.diagnostics} for attempt in attempts],
+        "progress": [{"attempt_id": attempt.id, "reviewer_user_id": attempt.reviewer_user_id, "activity_state": attempt.activity_state, "lesson_position": attempt.lesson_position, "last_activity_at": attempt.last_activity_at, "diagnostics": attempt.diagnostics} for attempt in attempts],
+    }
+
+
+async def _scoped_request_projection(db: AsyncSession, *, principal, request_id: UUID | None = None) -> dict:
+    """Return only the request bound to a validated review capability."""
+    work_item = await db.scalar(select(WorkflowWorkItem).where(
+        WorkflowWorkItem.id == principal.review_work_item_id,
+        WorkflowWorkItem.tenant_id == principal.tenant_id,
+        WorkflowWorkItem.review_revision_id == principal.review_revision_id,
+    ))
+    if work_item is None:
+        raise HTTPException(status_code=404, detail="Review request not found")
+    row = await db.scalar(select(CourseApprovalRequest).where(
+        CourseApprovalRequest.revision_id == work_item.review_revision_id,
+        CourseApprovalRequest.tenant_id == principal.tenant_id,
+        *(([CourseApprovalRequest.id == request_id] if request_id is not None else [])),
+    ))
+    if row is None:
+        raise HTTPException(status_code=404, detail="Review request not found")
+    reviewer_filter = CourseApprovalReviewer.reviewer_email == getattr(principal, "reviewer_email", None) if getattr(principal, "reviewer_email", None) else CourseApprovalReviewer.reviewer_user_id == principal.id
+    reviewer = await db.scalar(select(CourseApprovalReviewer).where(
+        CourseApprovalReviewer.revision_id == row.revision_id,
+        CourseApprovalReviewer.tenant_id == principal.tenant_id,
+        reviewer_filter,
+    ))
+    attempt = await db.scalar(select(CourseReviewAttempt).where(
+        CourseReviewAttempt.revision_id == row.revision_id,
+        CourseReviewAttempt.tenant_id == principal.tenant_id,
+        CourseReviewAttempt.reviewer_user_id == principal.id,
+    ))
+    if reviewer is None:
+        raise HTTPException(status_code=404, detail="Review request not found")
+    identity = reviewer.reviewer_user_id
+    if identity is not None and getattr(principal, "role", None) == "methodologist":
+        user = await db.scalar(select(User).where(User.id == identity, User.tenant_id == principal.tenant_id))
+        reviewer_name = reviewer.reviewer_name or (f"{user.first_name} {user.last_name}".strip() if user else None)
+        reviewer_email = reviewer.reviewer_email or (user.email if user else None)
+    else:
+        reviewer_name = reviewer.reviewer_name
+        reviewer_email = reviewer.reviewer_email
+    diagnostics = attempt.diagnostics if attempt is not None else {}
+    progress = {"attempt_id": attempt.id, "activity_state": attempt.activity_state, "lesson_position": attempt.lesson_position, "last_activity_at": attempt.last_activity_at} if attempt is not None else {}
+    required = (await db.scalar(select(CourseApprovalReviewer.id).where(CourseApprovalReviewer.revision_id == row.revision_id, CourseApprovalReviewer.tenant_id == principal.tenant_id, CourseApprovalReviewer.required.is_(True), CourseApprovalReviewer.decision != "approved").limit(1))) is None
+    return {
+        "request_id": row.id,
+        "revision_id": row.revision_id,
+        "outcome": row.outcome,
+        "delivery_mode": row.delivery_mode,
+        "due_at": row.due_at,
+        "reviewer": ReviewerStatusResponse(
+            reviewer_id=identity if getattr(principal, "role", None) == "methodologist" else None,
+            reviewer_name=reviewer_name,
+            reviewer_email=reviewer_email,
+            decision=reviewer.decision,
+            decision_at=reviewer.decision_at,
+            required=reviewer.required,
+            delivery_state=work_item.delivery_state,
+            access_state=work_item.access_state,
+            activity_state=work_item.activity_state,
+            deadline_state=work_item.deadline_state,
+            outcome=work_item.outcome,
+            progress=progress,
+            diagnostics=diagnostics,
+        ),
+        "all_required_approved": required,
     }
 
 
@@ -224,7 +297,7 @@ async def require_review_principal(
     return _ReviewPrincipal(user, work_item_id=work_item_uuid, revision_id=work_item.review_revision_id)
 
 
-@router.patch("/courses/{course_id}/approval-policy", response_model=ApprovalPolicyResponse, dependencies=tenant)
+@router.patch("/courses/{course_id}/approval-policy", response_model=ApprovalPolicyResponse, dependencies=workflow_write)
 async def configure_policy(course_id: UUID, req: ApprovalPolicyRequest, db: AsyncSession = Depends(get_db), user=Depends(require_permission(COURSE_APPROVAL_PERMISSIONS.CONFIGURE)), idempotency_key: str | None = Header(None, alias="Idempotency-Key")):
     fingerprint = canonical_json_sha256({"course_id": str(course_id), "requires_approval": req.requires_approval, "review_enabled": req.review_enabled})
     replay = await _read_idempotency(db, tenant_id=user.tenant_id, key=idempotency_key, operation="course_approval.configure", fingerprint=fingerprint)
@@ -237,7 +310,7 @@ async def configure_policy(course_id: UUID, req: ApprovalPolicyRequest, db: Asyn
     return response
 
 
-@router.post("/courses/{course_id}/approval-revisions", response_model=ApprovalRevisionResponse, dependencies=tenant)
+@router.post("/courses/{course_id}/approval-revisions", response_model=ApprovalRevisionResponse, dependencies=workflow_write)
 async def create_revision(course_id: UUID, db: AsyncSession = Depends(get_db), user=Depends(require_permission(COURSE_APPROVAL_PERMISSIONS.REQUEST)), idempotency_key: str | None = Header(None, alias="Idempotency-Key")):
     fingerprint = canonical_json_sha256({"course_id": str(course_id)})
     replay = await _read_idempotency(db, tenant_id=user.tenant_id, key=idempotency_key, operation="course_approval.revision", fingerprint=fingerprint)
@@ -257,7 +330,7 @@ async def list_revisions(course_id: UUID, db: AsyncSession = Depends(get_db), us
     return list(rows.all())
 
 
-@router.post("/course-approval-revisions/{revision_id}/requests", response_model=ApprovalRequestResponse, dependencies=tenant)
+@router.post("/course-approval-revisions/{revision_id}/requests", response_model=ApprovalRequestResponse, dependencies=workflow_write)
 async def request_review(revision_id: UUID, req: ApprovalRequestCreate, request: Request, db: AsyncSession = Depends(get_db), user=Depends(require_permission(COURSE_APPROVAL_PERMISSIONS.REQUEST)), idempotency_key: str | None = Header(None, alias="Idempotency-Key")):
     revision = await db.scalar(select(CourseApprovalRevision).where(CourseApprovalRevision.id == revision_id, CourseApprovalRevision.tenant_id == user.tenant_id))
     if revision is None:
@@ -269,6 +342,8 @@ async def request_review(revision_id: UUID, req: ApprovalRequestCreate, request:
         if idem is not None:
             if idem.request_fingerprint != fingerprint:
                 raise HTTPException(status_code=409, detail="idempotency_conflict")
+            if idem.response.get("credentials_issued"):
+                raise HTTPException(status_code=409, detail="credentials_already_issued")
             return idem.response
     approval_request, _work_item, access_url, pin, access_credentials = await create_request(db, revision=revision, tenant_id=user.tenant_id, actor_id=user.id, reviewer_ids=req.reviewer_user_ids, guest_reviewers=[item.model_dump() for item in req.guest_reviewers], delivery_mode=req.delivery_mode, due_at=req.due_at, base_url=str(request.base_url).rstrip("/"))
     await db.commit()
@@ -276,7 +351,9 @@ async def request_review(revision_id: UUID, req: ApprovalRequestCreate, request:
     if idempotency_key:
         try:
             async with db.begin_nested():
-                db.add(WorkflowIdempotencyKey(tenant_id=user.tenant_id, key=idempotency_key, operation="course_approval.request", request_fingerprint=fingerprint, response=response.model_dump(mode="json")))
+                persisted = response.model_dump(mode="json")
+                persisted.update({"credentials_issued": bool(response.access_credentials), "access_url": None, "temporary_pin": None, "access_credentials": []})
+                db.add(WorkflowIdempotencyKey(tenant_id=user.tenant_id, key=idempotency_key, operation="course_approval.request", request_fingerprint=fingerprint, response=persisted))
                 await db.flush()
         except IntegrityError:
             existing = await db.scalar(select(WorkflowIdempotencyKey).where(
@@ -286,6 +363,8 @@ async def request_review(revision_id: UUID, req: ApprovalRequestCreate, request:
             ))
             if existing is None or existing.request_fingerprint != fingerprint:
                 raise HTTPException(status_code=409, detail="idempotency_conflict") from None
+            if existing.response.get("credentials_issued"):
+                raise HTTPException(status_code=409, detail="credentials_already_issued")
             return existing.response
         await db.commit()
     return response
@@ -297,6 +376,16 @@ async def list_requests(db: AsyncSession = Depends(get_db), user=Depends(require
     return [await _request_projection(db, row, user.tenant_id) for row in rows.all()]
 
 
+@router.get("/course-review-requests", response_model=ScopedReviewRequestResponse)
+async def list_scoped_requests(db: AsyncSession = Depends(get_db), user=Depends(require_review_principal)):
+    return await _scoped_request_projection(db, principal=user)
+
+
+@router.get("/course-review-requests/{request_id}", response_model=ScopedReviewRequestResponse)
+async def get_scoped_request(request_id: UUID, db: AsyncSession = Depends(get_db), user=Depends(require_review_principal)):
+    return await _scoped_request_projection(db, principal=user, request_id=request_id)
+
+
 @router.get("/course-approval-requests/{request_id}", dependencies=tenant)
 async def get_request(request_id: UUID, db: AsyncSession = Depends(get_db), user=Depends(require_permission(COURSE_APPROVAL_PERMISSIONS.REQUEST))):
     row = await db.scalar(select(CourseApprovalRequest).where(CourseApprovalRequest.id == request_id, CourseApprovalRequest.tenant_id == user.tenant_id))
@@ -305,7 +394,7 @@ async def get_request(request_id: UUID, db: AsyncSession = Depends(get_db), user
     return await _request_projection(db, row, user.tenant_id)
 
 
-@router.post("/course-approval-requests/{request_id}/cancel", dependencies=tenant)
+@router.post("/course-approval-requests/{request_id}/cancel", dependencies=workflow_write)
 async def cancel(request_id: UUID, db: AsyncSession = Depends(get_db), user=Depends(require_permission(COURSE_APPROVAL_PERMISSIONS.REQUEST)), idempotency_key: str | None = Header(None, alias="Idempotency-Key")):
     fingerprint = canonical_json_sha256({"request_id": str(request_id)})
     replay = await _read_idempotency(db, tenant_id=user.tenant_id, key=idempotency_key, operation="course_approval.cancel", fingerprint=fingerprint)
@@ -318,7 +407,7 @@ async def cancel(request_id: UUID, db: AsyncSession = Depends(get_db), user=Depe
     return response
 
 
-@router.post("/course-approval-requests/{request_id}/revoke", dependencies=tenant)
+@router.post("/course-approval-requests/{request_id}/revoke", dependencies=workflow_write)
 async def revoke(request_id: UUID, db: AsyncSession = Depends(get_db), user=Depends(require_permission(COURSE_APPROVAL_PERMISSIONS.REQUEST)), idempotency_key: str | None = Header(None, alias="Idempotency-Key")):
     fingerprint = canonical_json_sha256({"request_id": str(request_id)})
     replay = await _read_idempotency(db, tenant_id=user.tenant_id, key=idempotency_key, operation="course_approval.revoke", fingerprint=fingerprint)
@@ -331,21 +420,24 @@ async def revoke(request_id: UUID, db: AsyncSession = Depends(get_db), user=Depe
     return response
 
 
-@router.post("/course-approval-requests/{request_id}/resend", dependencies=tenant)
-async def resend(request_id: UUID, request: Request, db: AsyncSession = Depends(get_db), user=Depends(require_permission(COURSE_APPROVAL_PERMISSIONS.REQUEST)), idempotency_key: str | None = Header(None, alias="Idempotency-Key")):
-    fingerprint = canonical_json_sha256({"request_id": str(request_id)})
+@router.post("/course-approval-requests/{request_id}/resend", dependencies=workflow_write)
+async def resend(request_id: UUID, request: Request, req: ResendAccessRequest | None = Body(default=None), db: AsyncSession = Depends(get_db), user=Depends(require_permission(COURSE_APPROVAL_PERMISSIONS.REQUEST)), idempotency_key: str | None = Header(None, alias="Idempotency-Key")):
+    req = req or ResendAccessRequest()
+    fingerprint = canonical_json_sha256({"request_id": str(request_id), **req.model_dump(mode="json")})
     replay = await _read_idempotency(db, tenant_id=user.tenant_id, key=idempotency_key, operation="course_approval.resend", fingerprint=fingerprint)
     if replay is not None:
+        if replay.get("rotated"):
+            raise HTTPException(status_code=409, detail="credentials_already_rotated")
         return replay
-    credentials = await resend_request_access(db, request_id=request_id, tenant_id=user.tenant_id, actor_id=user.id, base_url=str(request.base_url).rstrip("/"))
+    result = await resend_request_access(db, request_id=request_id, tenant_id=user.tenant_id, actor_id=user.id, base_url=str(request.base_url).rstrip("/"), rotate_credentials=req.rotate_credentials)
     await db.commit()
-    response = {"request_id": request_id, "access_credentials": credentials}
-    persisted = {"request_id": str(request_id), "access_credentials": [{**item, "reviewer_id": str(item["reviewer_id"]) if item.get("reviewer_id") else None, "expires_at": item["expires_at"].isoformat() if item.get("expires_at") else None} for item in credentials]}
+    response = {"request_id": request_id, **result}
+    persisted = {"request_id": str(request_id), "rotated": result["rotated"], "retried": result["retried"], "access_credentials": []}
     await _write_idempotency(db, tenant_id=user.tenant_id, key=idempotency_key, operation="course_approval.resend", fingerprint=fingerprint, response=persisted)
     return response
 
 
-@router.post("/course-approval-requests/{request_id}/attempts")
+@router.post("/course-approval-requests/{request_id}/attempts", dependencies=workflow_write)
 async def start_attempt(request_id: UUID, db: AsyncSession = Depends(get_db), user=Depends(require_review_principal)):
     request_row = await db.scalar(select(CourseApprovalRequest).where(CourseApprovalRequest.id == request_id, CourseApprovalRequest.tenant_id == user.tenant_id))
     if request_row is None:
@@ -362,11 +454,12 @@ async def start_attempt(request_id: UUID, db: AsyncSession = Depends(get_db), us
     if assignment is None:
         raise HTTPException(status_code=404, detail="Approval request not found")
     attempt, revision = await get_or_create_attempt(db, revision_id=request_row.revision_id, reviewer_user_id=user.id, reviewer_email=getattr(user, "reviewer_email", None), tenant_id=user.tenant_id)
+    await log_action(db, user.tenant_id, "course_approval.attempt_started", "course_review_attempt", attempt.id, user.id, {"revision_id": str(revision.id), "snapshot_sha256": attempt.snapshot_sha256, "active_role": getattr(user, "role", None)})
     await db.commit()
     return {"attempt_id": attempt.id, "revision_id": revision.id, "snapshot_sha256": attempt.snapshot_sha256, "activity_state": attempt.activity_state, "snapshot": learner_safe_review_snapshot(revision.snapshot)}
 
 
-@router.put("/course-review-attempts/{attempt_id}/progress")
+@router.put("/course-review-attempts/{attempt_id}/progress", dependencies=workflow_write)
 async def save_progress(attempt_id: UUID, req: ReviewProgressRequest, db: AsyncSession = Depends(get_db), user=Depends(require_review_principal), idempotency_key: str | None = Header(None, alias="Idempotency-Key")):
     fingerprint = canonical_json_sha256({"attempt_id": str(attempt_id), **req.model_dump(mode="json")})
     replay = await _read_idempotency(db, tenant_id=user.tenant_id, key=idempotency_key, operation="course_review.progress", fingerprint=fingerprint)
@@ -382,13 +475,14 @@ async def save_progress(attempt_id: UUID, req: ReviewProgressRequest, db: AsyncS
     if revision is None:
         raise HTTPException(status_code=404, detail="Review revision not found")
     await record_progress(db, attempt=attempt, revision=revision, tenant_id=user.tenant_id, sequence=req.sequence, event_type=req.event_type, payload=req.payload, lesson_position=req.lesson_position, activity_state=req.activity_state)
+    await log_action(db, user.tenant_id, "course_approval.progress_recorded", "course_review_attempt", attempt.id, user.id, {"revision_id": str(revision.id), "sequence": req.sequence, "event_type": req.event_type, "activity_state": attempt.activity_state, "active_role": getattr(user, "role", None)})
     await db.commit()
     response = {"attempt_id": attempt.id, "activity_state": attempt.activity_state, "lesson_position": attempt.lesson_position}
     await _write_idempotency(db, tenant_id=user.tenant_id, key=idempotency_key, operation="course_review.progress", fingerprint=fingerprint, response={"attempt_id": str(attempt.id), "activity_state": attempt.activity_state, "lesson_position": attempt.lesson_position})
     return response
 
 
-@router.post("/course-review-attempts/{attempt_id}/test")
+@router.post("/course-review-attempts/{attempt_id}/test", dependencies=workflow_write)
 async def submit_test(attempt_id: UUID, req: list[ReviewTestSubmission], db: AsyncSession = Depends(get_db), user=Depends(require_review_principal), idempotency_key: str | None = Header(None, alias="Idempotency-Key")):
     fingerprint = canonical_json_sha256({"attempt_id": str(attempt_id), "submissions": [item.model_dump(mode="json") for item in req]})
     replay = await _read_idempotency(db, tenant_id=user.tenant_id, key=idempotency_key, operation="course_review.test", fingerprint=fingerprint)
@@ -410,7 +504,7 @@ async def submit_test(attempt_id: UUID, req: list[ReviewTestSubmission], db: Asy
     diagnostics = score_review_submission(revision.snapshot, [item.model_dump(mode="json") for item in req])
     attempt.diagnostics = diagnostics
     if diagnostics["complete"]:
-        attempt.activity_state = "completed"
+        attempt.activity_state = "decision_pending"
         attempt.completed_at = datetime.now(UTC)
     attempt.last_activity_at = datetime.now(UTC)
     work_item = await db.scalar(select(WorkflowWorkItem).outerjoin(
@@ -422,15 +516,16 @@ async def submit_test(attempt_id: UUID, req: list[ReviewTestSubmission], db: Asy
         or_(WorkflowWorkItem.target_user_id == attempt.reviewer_user_id, WorkflowAccessCredential.reviewer_user_id == attempt.reviewer_user_id),
     ).with_for_update())
     if work_item is not None:
-        work_item.activity_state = "completed" if diagnostics["complete"] else "in_progress"
+        work_item.activity_state = "decision_pending" if diagnostics["complete"] else "in_progress"
         work_item.deadline_state = "closed" if diagnostics["complete"] else ("due" if work_item.deadline_state in {"scheduled", "due", "overdue"} else work_item.deadline_state)
+    await log_action(db, user.tenant_id, "course_approval.test_submitted", "course_review_attempt", attempt.id, user.id, {"revision_id": str(revision.id), "answered": diagnostics["answered"], "total": diagnostics["total"], "correct": diagnostics["correct"], "complete": diagnostics["complete"], "active_role": getattr(user, "role", None)})
     await db.commit()
     response = {"attempt_id": attempt.id, "diagnostics": diagnostics, "activity_state": attempt.activity_state}
     await _write_idempotency(db, tenant_id=user.tenant_id, key=idempotency_key, operation="course_review.test", fingerprint=fingerprint, response={"attempt_id": str(attempt.id), "diagnostics": diagnostics, "activity_state": attempt.activity_state})
     return response
 
 
-@router.post("/course-review-attempts/{attempt_id}/decision")
+@router.post("/course-review-attempts/{attempt_id}/decision", dependencies=workflow_write)
 async def submit_decision(attempt_id: UUID, req: ReviewDecisionRequest, db: AsyncSession = Depends(get_db), user=Depends(require_review_principal), idempotency_key: str | None = Header(None, alias="Idempotency-Key")):
     fingerprint = canonical_json_sha256({"attempt_id": str(attempt_id), **req.model_dump(mode="json")})
     replay = await _read_idempotency(db, tenant_id=user.tenant_id, key=idempotency_key, operation="course_review.decision", fingerprint=fingerprint)
@@ -450,6 +545,7 @@ async def submit_decision(attempt_id: UUID, req: ReviewDecisionRequest, db: Asyn
     if revision is None or assignment is None:
         raise HTTPException(status_code=404, detail="Reviewer assignment not found")
     result = await decide(db, attempt=attempt, revision=revision, reviewer=assignment, tenant_id=user.tenant_id, actor_id=user.id, decision=req.decision, reason=req.reason, warning_acknowledged=req.acknowledge_incomplete_warning)
+    await log_action(db, user.tenant_id, "course_approval.decision_submitted", "course_review_attempt", attempt.id, user.id, {"revision_id": str(revision.id), "decision": result.decision, "active_role": getattr(user, "role", None)})
     await db.commit()
     response = {"revision_id": revision.id, "decision": result.decision, "outcome": revision.state, "activity_state": attempt.activity_state}
     await _write_idempotency(db, tenant_id=user.tenant_id, key=idempotency_key, operation="course_review.decision", fingerprint=fingerprint, response={"revision_id": str(revision.id), "decision": result.decision, "outcome": revision.state, "activity_state": attempt.activity_state})

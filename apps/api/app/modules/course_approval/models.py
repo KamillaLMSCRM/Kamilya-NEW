@@ -162,6 +162,7 @@ class WorkflowDelivery(Base):
     work_item_id = Column(UUID(as_uuid=True), ForeignKey("workflow_work_items.id", ondelete="CASCADE"), nullable=False)
     channel = Column(String(16), nullable=False)
     recipient_email = Column(String(320), nullable=True)
+    recipient_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     payload_encrypted = Column(BYTEA, nullable=True)
     generation = Column(Integer, nullable=False, default=1, server_default="1")
     status = Column(String(24), nullable=False, default="queued", server_default="queued")
@@ -174,7 +175,7 @@ class WorkflowDelivery(Base):
     __table_args__ = (
         UniqueConstraint("work_item_id", "channel", "generation", name="uq_workflow_delivery_generation"),
         CheckConstraint("channel IN ('cabinet','email')", name="ck_workflow_delivery_channel"),
-        CheckConstraint("status IN ('queued','accepted','delivered','failed')", name="ck_workflow_delivery_status"),
+        CheckConstraint("status IN ('queued','accepted','delivered','failed','terminal')", name="ck_workflow_delivery_status"),
         CheckConstraint("attempt_count >= 0 AND attempt_count <= 8", name="ck_workflow_delivery_attempts"),
     )
 
