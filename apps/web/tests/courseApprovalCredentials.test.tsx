@@ -12,6 +12,7 @@ vi.mock('@/components/ui/Toast', () => ({ toast: { success: vi.fn(), error: vi.f
 import { ApprovalRequestModal } from '@/components/course-approval/ApprovalRequestModal';
 
 let execCommandMock: ReturnType<typeof vi.fn>;
+let originalExecCommandDescriptor: PropertyDescriptor | undefined;
 
 const credentials = [
   { reviewer_id: 'reviewer-1', access_url: 'https://example.test/review/one', temporary_pin: '123456', expires_at: '2027-01-01T00:00:00Z' },
@@ -20,6 +21,7 @@ const credentials = [
 
 describe('approval credential reveal', () => {
   beforeEach(() => {
+    originalExecCommandDescriptor = Object.getOwnPropertyDescriptor(document, 'execCommand');
     getMock.mockReset().mockResolvedValue({ data: [] });
     freezeMock.mockReset().mockResolvedValue({ id: 'revision-1' });
     createMock.mockReset().mockResolvedValue({ request_id: 'request-1', revision_id: 'revision-1', outcome: 'pending', delivery_mode: 'personal_link', access_credentials: credentials });
@@ -30,7 +32,9 @@ describe('approval credential reveal', () => {
   });
 
   afterEach(() => {
-    delete (document as Document & { execCommand?: unknown }).execCommand;
+    if (originalExecCommandDescriptor) Object.defineProperty(document, 'execCommand', originalExecCommandDescriptor);
+    else Reflect.deleteProperty(document, 'execCommand');
+    originalExecCommandDescriptor = undefined;
   });
 
   it('reveals every newly issued credential ephemerally with independent URL and PIN actions', async () => {
@@ -45,8 +49,8 @@ describe('approval credential reveal', () => {
     expect(screen.getByText('https://example.test/review/two')).toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: 'Скопировать ссылку' })).toHaveLength(2);
     expect(screen.getAllByRole('button', { name: 'Скопировать PIN' })).toHaveLength(2);
-    fireEvent.click(screen.getByRole('button', { name: 'Скопировать ссылку' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Скопировать PIN' }));
+    fireEvent.click(screen.getAllByRole('button', { name: 'Скопировать ссылку' })[0]);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Скопировать PIN' })[0]);
     expect(writeTextMock).toHaveBeenNthCalledWith(1, 'https://example.test/review/one');
     expect(writeTextMock).toHaveBeenNthCalledWith(2, '123456');
     fireEvent.click(screen.getByRole('button', { name: 'Я скопировал данные — закрыть' }));
