@@ -201,8 +201,11 @@ async def create_request(db: AsyncSession, *, revision: CourseApprovalRevision, 
         requested_emails = {str(item.get("email", "")).strip().lower() for item in (guest_reviewers or [])}
         if existing_reviewers and (existing_ids != set(reviewer_ids) or existing_emails != requested_emails):
             raise HTTPException(status_code=409, detail="idempotency_conflict")
-        work_item = await db.scalar(select(WorkflowWorkItem).where(WorkflowWorkItem.review_revision_id == revision.id, WorkflowWorkItem.tenant_id == tenant_id))
-        return existing_request, work_item, None, None, []
+        # Never turn a repeated create into a successful response with an
+        # empty credential panel. Raw URL/PIN material is issued only by the
+        # first create or explicit rotation; callers must use rotation after
+        # an existing request is found.
+        raise HTTPException(status_code=409, detail="credentials_already_issued")
     guest_reviewers = guest_reviewers or []
     guest_emails = [str(item.get("email", "")).strip().lower() for item in guest_reviewers]
     if len(set(reviewer_ids)) != len(reviewer_ids) or len(set(guest_emails)) != len(guest_emails) or not all(guest_emails):

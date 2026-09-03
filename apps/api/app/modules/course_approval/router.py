@@ -107,6 +107,13 @@ async def _write_idempotency(db: AsyncSession, *, tenant_id: UUID, key: str | No
     await db.commit()
 
 
+def _redact_issued_credentials(response: ApprovalRequestResponse) -> dict:
+    """Persist/replay request metadata without one-time URL/PIN material."""
+    persisted = response.model_dump(mode="json")
+    persisted.update({"credentials_issued": bool(response.access_credentials), "access_url": None, "temporary_pin": None, "access_credentials": []})
+    return persisted
+
+
 router = APIRouter(tags=["course-approval"])
 tenant = [Depends(require_tenant_user())]
 workflow_write = tenant + [Depends(require_course_approval_enabled)]
@@ -356,8 +363,7 @@ async def request_review(revision_id: UUID, req: ApprovalRequestCreate, request:
     if idempotency_key:
         try:
             async with db.begin_nested():
-                persisted = response.model_dump(mode="json")
-                persisted.update({"credentials_issued": bool(response.access_credentials), "access_url": None, "temporary_pin": None, "access_credentials": []})
+                persisted = _redact_issued_credentials(response)
                 db.add(WorkflowIdempotencyKey(tenant_id=user.tenant_id, key=idempotency_key, operation="course_approval.request", request_fingerprint=fingerprint, response=persisted))
                 await db.flush()
         except IntegrityError:
