@@ -38,7 +38,6 @@ export function ApprovalRequestModal({ open, courseId, onClose, onCreated }: App
       const revision = await freezeApprovalRevision(courseId);
       const request = await createApprovalRequest(revision.id, selected, deliveryMode, dueAt ? new Date(dueAt).toISOString() : undefined, guests);
       setCreated(request);
-      onCreated?.();
       toast.success(t('courseApproval.submit'));
     } catch (error) {
       toast.error(t('courseApproval.errorLoad'), { description: error instanceof Error ? error.message : t('courseApproval.retry') });
@@ -61,7 +60,7 @@ export function ApprovalRequestModal({ open, courseId, onClose, onCreated }: App
   }
 
   function dismissCredentials() {
-    setCreated(null); setCopiedKey(null); setCopyFailedKey(null); onClose();
+    setCreated(null); setCopiedKey(null); setCopyFailedKey(null); onCreated?.(); onClose();
   }
 
   return <Modal open={open} onClose={dismissCredentials} title={created ? t('courseApproval.credentialsTitle') : t('courseApproval.send')} description={created ? t('courseApproval.credentialsWarning') : t('courseApproval.sendDescription')}>

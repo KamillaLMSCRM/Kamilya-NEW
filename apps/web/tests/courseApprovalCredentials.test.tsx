@@ -47,7 +47,7 @@ describe('approval credential reveal', () => {
     fireEvent.click(screen.getByLabelText('Ссылка и PIN'));
     fireEvent.click(screen.getByRole('button', { name: 'Отправить запрос' }));
     await waitFor(() => expect(screen.getByText('https://example.test/review/one')).toBeInTheDocument());
-    expect(onCreated).toHaveBeenCalledTimes(1);
+    expect(onCreated).not.toHaveBeenCalled();
     expect(screen.getByText('https://example.test/review/one')).toBeInTheDocument();
     expect(screen.getByText('https://example.test/review/two')).toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: 'Скопировать ссылку' })).toHaveLength(2);
@@ -57,6 +57,7 @@ describe('approval credential reveal', () => {
     expect(writeTextMock).toHaveBeenNthCalledWith(1, 'https://example.test/review/one');
     expect(writeTextMock).toHaveBeenNthCalledWith(2, '123456');
     fireEvent.click(screen.getByRole('button', { name: 'Я скопировал данные — закрыть' }));
+    expect(onCreated).toHaveBeenCalledTimes(1);
     expect(onClose).toHaveBeenCalledTimes(1);
     expect(screen.queryByText('https://example.test/review/one')).not.toBeInTheDocument();
     expect(screen.queryByText('123456')).not.toBeInTheDocument();
