@@ -6,7 +6,7 @@ import { getApprovalRequest, startReviewAttempt, type ApprovalRequestSummary, ty
 import { ReviewCoursePlayer } from '@/components/course-approval/ReviewCoursePlayer';
 import { ReviewerDecisionPanel } from '@/components/course-approval/ReviewerDecisionPanel';
 
-export function ReviewRequestScreen({ requestId, token, onCompleted }: { requestId: string; token?: string; onCompleted?: () => void }) {
+export function ReviewRequestScreen({ requestId, token, onCompleted, onExit }: { requestId: string; token?: string; onCompleted?: () => void; onExit?: () => void }) {
   const [request, setRequest] = useState<ApprovalRequestSummary | null>(null);
   const [attempt, setAttempt] = useState<ReviewAttempt | null>(null);
   const [complete, setComplete] = useState(false);
@@ -31,5 +31,5 @@ export function ReviewRequestScreen({ requestId, token, onCompleted }: { request
   if (loading) return <div className="p-6">Загрузка…</div>;
   if (error) return <div className="mx-auto max-w-3xl space-y-3 p-6"><p role="alert" className="break-words rounded-lg border border-destructive/40 p-4 text-sm text-destructive">{error}</p><Button variant="outline" onClick={() => void load()}>Повторить</Button></div>;
   if (!request || !attempt) return null;
-  return <div data-review-scope="course_review" className="mx-auto max-w-5xl space-y-6"><header><h1 className="text-2xl font-bold">Проверка версии курса</h1><p className="mt-1 break-all text-sm text-muted-foreground">Запрос {request.request_id} · неизменяемый снимок {attempt.snapshot_sha256}</p></header><ReviewCoursePlayer snapshot={attempt.snapshot} attemptId={attempt.attempt_id} token={token} initialActivityState={attempt.activity_state} onComplete={() => { setComplete(true); onCompleted?.(); }} /><ReviewerDecisionPanel attemptId={attempt.attempt_id} activityState={complete ? 'completed' : attempt.activity_state} token={token} onSubmitted={onCompleted} /></div>;
+  return <div data-review-scope="course_review" className="mx-auto max-w-5xl space-y-6"><header className="flex flex-wrap items-start justify-between gap-3"><div><h1 className="text-2xl font-bold">Проверка версии курса</h1><p className="mt-1 break-all text-sm text-muted-foreground">Запрос {request.request_id} · неизменяемый снимок {attempt.snapshot_sha256}</p></div>{onExit && <Button variant="outline" onClick={onExit}>Выйти</Button>}</header><ReviewCoursePlayer snapshot={attempt.snapshot} attemptId={attempt.attempt_id} token={token} initialActivityState={attempt.activity_state} onComplete={() => { setComplete(true); }} /><ReviewerDecisionPanel attemptId={attempt.attempt_id} activityState={complete ? 'completed' : attempt.activity_state} token={token} onSubmitted={onCompleted} /></div>;
 }

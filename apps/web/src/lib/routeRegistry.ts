@@ -18,12 +18,14 @@ export const CAPABILITIES = [
   'manage_accounts',
   'learn',
   'manage_platform',
-  'manage_course_approval',
+  'configure_course_approval',
+  'request_course_approval',
+  'review_course_approval',
 ] as const;
 export type Capability = (typeof CAPABILITIES)[number];
 
 export const ROLE_CAPABILITIES: Record<AppRole, readonly Capability[]> = {
-  admin: ['manage_profile', 'configure_tenant', 'manage_accounts', 'view_training_reports', 'manage_course_approval'],
+  admin: ['manage_profile', 'configure_tenant', 'manage_accounts', 'view_training_reports', 'configure_course_approval'],
   methodologist: [
     'manage_profile',
     'manage_content',
@@ -35,7 +37,9 @@ export const ROLE_CAPABILITIES: Record<AppRole, readonly Capability[]> = {
     'view_training_reports',
     'manage_communications',
     'configure_training_procedures',
-    'manage_course_approval',
+    'configure_course_approval',
+    'request_course_approval',
+    'review_course_approval',
   ],
   student: ['manage_profile', 'learn'],
   superadmin: ['manage_profile', 'manage_platform'],
@@ -136,7 +140,7 @@ export const ROUTES: readonly AppRoute[] = [
   { id: 'integrations', href: '/admin/settings/integrations', capability: 'configure_tenant', match: 'prefix', labelKey: 'integrations.title', section: 'tenant', icon: 'settings', order: 50, sidebar: true, commandPalette: true },
   { id: 'certificate-settings', href: '/admin/certificates/settings', capability: 'configure_tenant', match: 'prefix', labelKey: 'sidebar.certificateTemplate', section: 'tenant', icon: 'certificate', order: 60, sidebar: true, commandPalette: true },
   { id: 'audit-log', href: '/admin/audit', capability: 'configure_tenant', match: 'prefix', labelKey: 'nav.auditLog', section: 'tenant', icon: 'log', order: 70, sidebar: true, commandPalette: true },
-  { id: 'course-approvals', href: '/admin/course-approvals', capability: 'manage_course_approval', match: 'prefix', labelKey: 'nav.courseApprovals', section: 'tenant', icon: 'clipboard', order: 75, sidebar: true, commandPalette: true },
+  { id: 'course-approvals', href: '/admin/course-approvals', capability: 'configure_course_approval', match: 'prefix', labelKey: 'nav.courseApprovals', section: 'tenant', icon: 'clipboard', order: 75, sidebar: true, commandPalette: true },
 
   { id: 'learner-dashboard', href: '/student', capability: 'learn', labelKey: 'nav.dashboard', section: 'overview', icon: 'dashboard', order: 10, sidebar: true, commandPalette: true },
   { id: 'my-courses', href: '/my-courses', capability: 'learn', labelKey: 'student.enrolledCourses', section: 'learning', icon: 'book', order: 20, sidebar: true, commandPalette: true },
@@ -147,7 +151,7 @@ export const ROUTES: readonly AppRoute[] = [
   { id: 'surveys-learn', href: '/surveys', capability: 'learn' },
 
   { id: 'platform', href: '/admin/super', capability: 'manage_platform', match: 'prefix', labelKey: 'superadmin.tenants.title', section: 'platform', icon: 'building', order: 10, sidebar: true, commandPalette: true },
-  { id: 'course-review', href: '/course-review', capability: 'manage_course_approval', match: 'prefix', labelKey: 'nav.courseReview', section: 'results', icon: 'clipboard', order: 140, sidebar: true, commandPalette: true },
+  { id: 'course-review', href: '/course-review', capability: 'review_course_approval', match: 'prefix', labelKey: 'nav.courseReview', section: 'results', icon: 'clipboard', order: 140, sidebar: true, commandPalette: true },
   { id: 'platform-operations', href: '/admin/super/operations', capability: 'manage_platform', match: 'prefix', labelKey: 'superadmin.operations.navLabel', section: 'platform', icon: 'activity', order: 15, sidebar: true, commandPalette: true },
   { id: 'providers', href: '/admin/providers', capability: 'manage_platform', match: 'prefix', labelKey: 'providers.title', section: 'platform', icon: 'settings', order: 20, sidebar: true, commandPalette: true },
 ];

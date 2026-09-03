@@ -4,9 +4,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const configureMock = vi.hoisted(() => vi.fn());
 const decisionMock = vi.hoisted(() => vi.fn());
 const progressMock = vi.hoisted(() => vi.fn());
+const testMock = vi.hoisted(() => vi.fn());
 vi.mock('@/lib/courseApproval', async () => {
   const actual = await vi.importActual<typeof import('@/lib/courseApproval')>('@/lib/courseApproval');
-  return { ...actual, configureApprovalPolicy: configureMock, submitReviewDecision: decisionMock, saveReviewProgress: progressMock };
+  return { ...actual, configureApprovalPolicy: configureMock, submitReviewDecision: decisionMock, saveReviewProgress: progressMock, submitReviewTest: testMock };
 });
 vi.mock('@/components/ui/Toast', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
@@ -17,7 +18,7 @@ import { ReviewCoursePlayer } from '@/components/course-approval/ReviewCoursePla
 const snapshot = { schema_version: 1, release_version: 3, course: { id: 'course', title: 'Курс' }, modules: [{ id: 'module', title: 'Модуль', lessons: [{ id: 'lesson', title: 'Урок', content_type: 'text', content: 'Текст', order_index: 0, quizzes: [{ id: 'quiz', title: 'Тест', pass_score: 80, questions: [{ id: 'question', text: 'Вопрос', type: 'single_choice', points: 1, choices: [{ id: 'choice-1', text: 'Правильный текст', order_index: 0 }] }] }] }] }] };
 
 describe('course approval workflow UI', () => {
-  beforeEach(() => { configureMock.mockReset().mockResolvedValue({ requires_approval: true }); decisionMock.mockReset().mockResolvedValue({}); progressMock.mockReset().mockResolvedValue({ diagnostics: { score_percent: 100, passed: true } }); });
+  beforeEach(() => { configureMock.mockReset().mockResolvedValue({ requires_approval: true, review_enabled: true }); decisionMock.mockReset().mockResolvedValue({}); progressMock.mockReset().mockResolvedValue({}); testMock.mockReset().mockResolvedValue({ diagnostics: { answered: 1, total: 1, correct: 1, score_percent: 100, complete: true } }); });
 
   it('persists the opt-in policy and gives a clear immutable-snapshot hint', async () => {
     render(<ApprovalPolicyCard courseId="course" />);
@@ -46,7 +47,7 @@ describe('course approval workflow UI', () => {
     render(<ReviewCoursePlayer snapshot={snapshot} attemptId="attempt" onComplete={() => undefined} />);
     fireEvent.click(screen.getByLabelText('Правильный текст'));
     fireEvent.click(screen.getByRole('button', { name: 'Отправить ответы' }));
-    await waitFor(() => expect(progressMock).toHaveBeenCalledWith('attempt', 1, 0, 'in_progress', expect.objectContaining({ activity: 'quiz_submitted', answers: [{ question_id: 'question', choice_id: 'choice-1' }] }), undefined));
+    await waitFor(() => expect(testMock).toHaveBeenCalledWith('attempt', [{ question_id: 'question', selected_choice_ids: ['choice-1'] }], undefined));
     expect(screen.getByRole('status')).toHaveTextContent('100%');
   });
 });

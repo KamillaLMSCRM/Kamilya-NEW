@@ -7,6 +7,7 @@ export type ReviewActivityState = 'not_started' | 'in_progress' | 'completed' | 
 export interface ApprovalPolicy {
   course_id: string;
   requires_approval: boolean;
+  review_enabled: boolean;
   updated_at?: string | null;
 }
 
@@ -29,10 +30,22 @@ export interface ApprovalRequestSummary {
   revision_number?: number;
   snapshot_sha256?: string;
   reviewers?: ReviewerApprovalStatus[];
+  reviewer_count?: number;
+  work_items?: ReviewerApprovalStatus[];
+  deliveries?: DeliveryStatus[];
+  progress?: ReviewProgressStatus[];
 }
 
+export interface DeliveryStatus { channel: 'cabinet' | 'email'; status: 'queued' | 'accepted' | 'delivered' | 'failed'; attempt_count: number; error_category?: string | null }
+export interface ReviewProgressStatus { attempt_id: string; activity_state: ReviewActivityState; lesson_position?: number | null; diagnostics?: ReviewDiagnostic | null; }
+export interface ReviewDiagnostic { answered: number; total: number; correct: number; score_percent: number; complete: boolean; passed?: boolean }
+
 export interface ReviewerApprovalStatus {
-  reviewer_id: string;
+  reviewer_id?: string;
+  id?: string;
+  decision?: 'pending' | 'approved' | 'changes_requested';
+  decision_at?: string | null;
+  required?: boolean;
   delivery_state?: 'queued' | 'accepted' | 'delivered' | 'failed';
   access_state?: 'issued' | 'opened' | 'pin_verified' | 'active' | 'expired' | 'revoked';
   activity_state?: 'not_started' | 'in_progress' | 'completed' | 'decision_pending';
@@ -123,8 +136,8 @@ export interface ReviewProgressResponse {
   attempt_id?: string;
   activity_state?: ReviewActivityState;
   lesson_position?: number | null;
-  diagnostics?: { score_percent?: number; passed?: boolean; answered_count?: number };
-  result?: { score_percent?: number; passed?: boolean };
+  diagnostics?: ReviewDiagnostic;
+  result?: ReviewDiagnostic;
 }
 
 function reviewConfig(token?: string) {
@@ -133,7 +146,7 @@ function reviewConfig(token?: string) {
 }
 
 export async function configureApprovalPolicy(courseId: string, requiresApproval: boolean): Promise<ApprovalPolicy> {
-  const response = await api.patch<ApprovalPolicy>(`/v1/courses/${courseId}/approval-policy`, { requires_approval: requiresApproval });
+  const response = await api.patch<ApprovalPolicy>(`/v1/courses/${courseId}/approval-policy`, { requires_approval: requiresApproval, review_enabled: true });
   return response.data;
 }
 
@@ -147,9 +160,12 @@ export async function listApprovalRevisions(courseId: string): Promise<ApprovalR
   return response.data;
 }
 
-export async function createApprovalRequest(revisionId: string, reviewerUserIds: string[], deliveryMode: ApprovalDeliveryMode, dueAt?: string): Promise<ApprovalRequestResponse> {
+export interface GuestReviewerInput { email: string; name?: string }
+
+export async function createApprovalRequest(revisionId: string, reviewerUserIds: string[], deliveryMode: ApprovalDeliveryMode, dueAt?: string, guestReviewers: GuestReviewerInput[] = []): Promise<ApprovalRequestResponse> {
   const response = await api.post<ApprovalRequestResponse>(`/v1/course-approval-revisions/${revisionId}/requests`, {
     reviewer_user_ids: reviewerUserIds,
+    guest_reviewers: guestReviewers,
     delivery_mode: deliveryMode,
     ...(dueAt ? { due_at: dueAt } : {}),
   });
@@ -271,6 +287,11 @@ export async function saveReviewProgress(attemptId: string, sequence: number, le
     payload: { purpose: 'course_review', ...payload },
     activity_state: activityState,
   }, reviewConfig(token));
+  return response.data;
+}
+
+export async function submitReviewTest(attemptId: string, submissions: Array<{ question_id: string; selected_choice_ids: string[] }>, token?: string): Promise<ReviewProgressResponse> {
+  const response = await api.post<ReviewProgressResponse>(`/v1/course-review-attempts/${attemptId}/test`, submissions, reviewConfig(token));
   return response.data;
 }
 
