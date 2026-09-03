@@ -282,6 +282,155 @@ def test_route_fresh_two_guest_create_returns_credentials_and_replay_is_secret_f
         app.dependency_overrides.clear()
 
 
+def test_guest_pin_verify_token_scopes_request_routes_and_rejects_learner_jwt(monkeypatch):
+    from datetime import UTC, datetime, timedelta
+    from types import SimpleNamespace
+
+    from fastapi import HTTPException
+    from fastapi.testclient import TestClient
+
+    import app.modules.course_approval.router as approval_router
+    from app.core.auth import create_access_token, create_scoped_token
+    from app.core.config import get_settings
+    from app.core.db import get_db
+    from app.main import app
+    from app.modules.course_approval import service as approval_service
+
+    tenant_id = uuid4()
+    revision_id = uuid4()
+    request_id = uuid4()
+    work_item_id = uuid4()
+    guest_identity = uuid4()
+    foreign_request_id = uuid4()
+    guest_email = "guest-reviewer@example.test"
+    now = datetime.now(UTC)
+    work_item = SimpleNamespace(
+        id=work_item_id, tenant_id=tenant_id, review_revision_id=revision_id,
+        target_user_id=None, delivery_state="delivered", access_state="active",
+        activity_state="not_started", deadline_state="unset", outcome="pending",
+    )
+    credential = SimpleNamespace(
+        work_item_id=work_item_id, tenant_id=tenant_id, reviewer_user_id=guest_identity,
+        reviewer_email=guest_email, revoked_at=None, expires_at=now + timedelta(hours=4),
+        verified_at=now,
+    )
+    assignment = SimpleNamespace(
+        reviewer_user_id=None, reviewer_email=guest_email, reviewer_name="Guest Reviewer",
+        decision="pending", decision_at=None, required=True,
+    )
+    request_row = SimpleNamespace(
+        id=request_id, revision_id=revision_id, outcome="pending",
+        delivery_mode="personal_link", due_at=None,
+    )
+    policy = SimpleNamespace(review_enabled=True)
+
+    class _DB:
+        def __init__(self):
+            self.calls = 0
+            self.mode = "list"
+
+        async def execute(self, _statement, _params=None):
+            self.calls = 0
+            return SimpleNamespace(scalar_one_or_none=lambda: None)
+
+        async def scalar(self, statement):
+            self.calls += 1
+            # Scoped-principal authentication performs these five reads in a
+            # fixed order; each route's projection follows a small read set.
+            if self.calls == 1:
+                return work_item
+            if self.calls == 2:
+                return credential
+            if self.calls == 3:
+                return None
+            if self.calls == 4:
+                return assignment
+            if self.calls == 5:
+                return policy
+            if self.mode == "start":
+                return request_row if self.calls == 6 else assignment
+            if self.calls == 6:
+                return work_item
+            if self.calls == 7:
+                return request_row
+            if self.calls == 8:
+                return assignment
+            return None
+
+        async def commit(self):
+            return None
+
+    db = _DB()
+
+    async def override_db():
+        yield db
+
+    scoped_token = create_scoped_token(
+        {
+            "sub": str(work_item_id),
+            "tenant_id": str(tenant_id),
+            "review_work_item_id": str(work_item_id),
+            "review_revision_id": str(revision_id),
+            "reviewer_user_id": str(guest_identity),
+            "reviewer_email": guest_email,
+        },
+        token_type="course_review",
+        expires_delta=timedelta(hours=4),
+    )
+
+    async def fake_verify(_db, _token, _pin):
+        return {"work_item_id": work_item_id, "reviewer_user_id": guest_identity, "access_state": "active", "review_token": scoped_token}
+
+    async def fake_start_attempt(_db, **_kwargs):
+        return SimpleNamespace(id=uuid4(), activity_state="not_started", snapshot_sha256="a" * 64), SimpleNamespace(
+            id=revision_id, snapshot_sha256="a" * 64, snapshot={"course": {"tenant_id": "internal"}, "modules": []}
+        )
+
+    async def fake_log_action(*_args, **_kwargs):
+        return None
+
+    original_projection = approval_router._scoped_request_projection
+    expected_request_id = request_id
+
+    async def projection_with_scope(db_arg, *, principal, request_id=None):
+        if request_id is not None and request_id != expected_request_id:
+            raise HTTPException(status_code=404, detail="Review request not found")
+        return await original_projection(db_arg, principal=principal, request_id=request_id)
+    app.dependency_overrides[get_db] = override_db
+    monkeypatch.setattr(approval_service, "verify_access_pin", fake_verify)
+    monkeypatch.setattr(approval_router, "_scoped_request_projection", projection_with_scope)
+    monkeypatch.setattr(approval_router, "get_or_create_attempt", fake_start_attempt)
+    monkeypatch.setattr(approval_router, "log_action", fake_log_action)
+    verify_path = f"{get_settings().API_PREFIX}/course-review-access/raw-token/verify-pin"
+    list_path = f"{get_settings().API_PREFIX}/course-review-requests"
+    detail_path = f"{list_path}/{request_id}"
+    foreign_path = f"{list_path}/{foreign_request_id}"
+    try:
+        with TestClient(app) as client:
+            verified = client.post(verify_path, json={"pin": "123456"})
+            assert verified.status_code == 200
+            returned_token = verified.json()["review_token"]
+            scoped_headers = {"Authorization": f"Bearer {returned_token}"}
+            listed = client.get(list_path, headers=scoped_headers)
+            assert listed.status_code == 200, listed.text
+            assert listed.json()["request_id"] == str(request_id)
+            detail = client.get(detail_path, headers=scoped_headers)
+            assert detail.status_code == 200
+            assert detail.json()["request_id"] == str(request_id)
+            db.mode = "start"
+            started = client.post(f"{get_settings().API_PREFIX}/course-approval-requests/{request_id}/attempts", headers=scoped_headers)
+            assert started.status_code == 200
+            assert started.json()["snapshot"]["course"].get("tenant_id") is None
+            foreign = client.get(foreign_path, headers=scoped_headers)
+            assert foreign.status_code == 404
+
+            learner_jwt = create_access_token({"sub": str(guest_identity), "tenant_id": str(tenant_id), "role": "student"})
+            rejected = client.get(list_path, headers={"Authorization": f"Bearer {learner_jwt}"})
+            assert rejected.status_code in {401, 403}
+    finally:
+        app.dependency_overrides.clear()
+
+
 def test_mixed_guest_and_internal_reviewer_contract_keeps_per_reviewer_identity():
     from app.modules.course_approval.models import CourseApprovalReviewer, WorkflowAccessCredential
 

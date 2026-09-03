@@ -61,3 +61,11 @@ The runtime kill switch blocks only new approval-workflow writes; historical rea
 - [x] Add one-guest and multi-guest response-shape/redaction contract tests; run targeted and full unit verification.
 
 Verification: FastAPI TestClient route coverage now exercises a fresh two-guest `personal_link` POST and the same-key replay; course-approval contract tests `21 passed`, auth/tenant tests `15 passed`, full unit suite `858 passed`; Ruff, compileall, and diff-check passed. No database or provider access was needed for this response-contract change.
+
+## Scoped guest-token route acceptance
+
+- [x] Verify the PIN response's `review_token` claim type, audience/issuer, expiry, and required `Authorization: Bearer` transport.
+- [x] Allow scoped guest tokens through reviewer write routes without applying the tenant-user-only dependency; retain tenant context setup inside `require_review_principal`.
+- [x] Exercise verify-PIN, scoped list/detail, isolated snapshot start, foreign-request 404, and learner-JWT rejection through FastAPI `TestClient`.
+
+Verification: the route-level scoped-token test passed; course-approval contract/auth/tenant tests `37 passed`, full unit suite `859 passed`, Ruff, compileall, and diff-check passed. No database/provider/production mutation was performed.
