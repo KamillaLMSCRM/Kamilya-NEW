@@ -41,6 +41,7 @@ celery_app = Celery(
         "app.modules.positions.tasks",
         "app.modules.users.tasks",
         "app.modules.enrollments.notification_tasks",
+        "app.modules.course_approval.notification_tasks",
         "app.modules.learning_cycles.tasks",
         "app.modules.candidate_assessments.retention_tasks",
         "app.modules.staff_import_sessions.retention_tasks",
@@ -74,6 +75,9 @@ celery_app.conf.update(
         "users.deliver_invitation": {"queue": "notifications"},
         "enrollments.deliver_assignment_notification": {"queue": "notifications"},
         "enrollments.recover_assignment_notifications": {"queue": "notifications"},
+        "course_approval.deliver_workflow_delivery": {"queue": "notifications"},
+        "course_approval.recover_workflow_deliveries": {"queue": "notifications"},
+        "course_approval.recover_workflow_deadlines": {"queue": "notifications"},
         "learning_cycles.materialize": {"queue": "maintenance"},
         "learning_cycles.recover_due": {"queue": "maintenance"},
         "candidate_assessments.enforce_retention": {"queue": "maintenance"},
@@ -88,6 +92,14 @@ celery_app.conf.update(
         },
         "recover-due-assignment-notifications": {
             "task": "enrollments.recover_assignment_notifications",
+            "schedule": 60.0,
+        },
+        "recover-course-approval-deliveries": {
+            "task": "course_approval.recover_workflow_deliveries",
+            "schedule": 60.0,
+        },
+        "recover-course-approval-deadlines": {
+            "task": "course_approval.recover_workflow_deadlines",
             "schedule": 60.0,
         },
     },

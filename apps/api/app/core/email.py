@@ -358,6 +358,39 @@ class EmailService:
             idempotency_key=idempotency_key,
         )
 
+    async def send_course_review_invitation(
+        self,
+        *,
+        to_email: str,
+        reviewer_name: str | None,
+        course_title: str,
+        access_url: str,
+        pin: str,
+        idempotency_key: str,
+    ) -> str | None:
+        """Send a reviewer link and PIN without logging either secret."""
+        name = reviewer_name or "Коллега"
+        subject = f"Kamilya LMS: проверка курса «{_subject_component(course_title, fallback='Курс')}»"
+        text = (
+            f"{name}, вам назначена проверка курса «{course_title}».\n\n"
+            f"Откройте ссылку: {access_url}\n"
+            f"PIN-код: {pin}\n\n"
+            "Ссылка и PIN действуют ограниченное время и не должны пересылаться другим людям."
+        )
+        html = (
+            f"<p>{escape(name)}, вам назначена проверка курса <strong>{escape(course_title)}</strong>.</p>"
+            f'<p><a href="{escape(access_url, quote=True)}">Открыть проверку курса</a></p>'
+            f'<p>PIN-код: <strong>{escape(pin)}</strong></p>'
+            "<p>Ссылка и PIN действуют ограниченное время и не должны пересылаться другим людям.</p>"
+        )
+        return await self._send(
+            to_email=to_email,
+            subject=subject,
+            text=text,
+            html=html,
+            idempotency_key=idempotency_key,
+        )
+
     async def send_learning_path_assignment(
         self,
         *,

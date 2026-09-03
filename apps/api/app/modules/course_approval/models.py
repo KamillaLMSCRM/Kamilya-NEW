@@ -1,7 +1,18 @@
 from uuid import uuid4
 
-from sqlalchemy import Boolean, CheckConstraint, Column, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, func
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    Column,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+)
+from sqlalchemy.dialects.postgresql import BYTEA, JSONB, UUID
 
 from app.core.db import Base
 
@@ -12,9 +23,22 @@ class CourseApprovalPolicy(Base):
     tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True)
     course_id = Column(UUID(as_uuid=True), ForeignKey("courses.id", ondelete="CASCADE"), nullable=False, unique=True)
     requires_approval = Column(Boolean, nullable=False, default=False, server_default="false")
+    review_enabled = Column(Boolean, nullable=False, default=True, server_default="true")
     updated_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+
+
+class WorkflowIdempotencyKey(Base):
+    __tablename__ = "workflow_idempotency_keys"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True)
+    key = Column(String(200), nullable=False)
+    operation = Column(String(80), nullable=False)
+    request_fingerprint = Column(String(64), nullable=False)
+    response = Column(JSONB, nullable=False, default=dict, server_default="{}")
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    __table_args__ = (UniqueConstraint("tenant_id", "key", "operation", name="uq_workflow_idempotency_key"),)
 
 
 class CourseApprovalRevision(Base):
@@ -59,7 +83,9 @@ class CourseApprovalReviewer(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True)
     revision_id = Column(UUID(as_uuid=True), ForeignKey("course_approval_revisions.id", ondelete="CASCADE"), nullable=False)
-    reviewer_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
+    reviewer_user_id = Column(UUID(as_uuid=True), nullable=True)
+    reviewer_email = Column(String(320), nullable=True)
+    reviewer_name = Column(String(200), nullable=True)
     required = Column(Boolean, nullable=False, default=True, server_default="true")
     decision = Column(String(24), nullable=False, default="pending", server_default="pending")
     decision_reason = Column(Text, nullable=True)
@@ -77,7 +103,8 @@ class CourseReviewAttempt(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True)
     revision_id = Column(UUID(as_uuid=True), ForeignKey("course_approval_revisions.id", ondelete="RESTRICT"), nullable=False)
-    reviewer_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
+    reviewer_user_id = Column(UUID(as_uuid=True), nullable=False)
+    reviewer_email = Column(String(320), nullable=True)
     purpose = Column(String(32), nullable=False, default="course_review", server_default="course_review")
     activity_state = Column(String(24), nullable=False, default="not_started", server_default="not_started")
     snapshot_sha256 = Column(String(64), nullable=False)
@@ -134,6 +161,8 @@ class WorkflowDelivery(Base):
     tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True)
     work_item_id = Column(UUID(as_uuid=True), ForeignKey("workflow_work_items.id", ondelete="CASCADE"), nullable=False)
     channel = Column(String(16), nullable=False)
+    recipient_email = Column(String(320), nullable=True)
+    payload_encrypted = Column(BYTEA, nullable=True)
     generation = Column(Integer, nullable=False, default=1, server_default="1")
     status = Column(String(24), nullable=False, default="queued", server_default="queued")
     attempt_count = Column(Integer, nullable=False, default=0, server_default="0")
@@ -155,7 +184,8 @@ class WorkflowAccessCredential(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     tenant_id = Column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True)
     work_item_id = Column(UUID(as_uuid=True), ForeignKey("workflow_work_items.id", ondelete="CASCADE"), nullable=False)
-    reviewer_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
+    reviewer_user_id = Column(UUID(as_uuid=True), nullable=False)
+    reviewer_email = Column(String(320), nullable=True)
     token_hash = Column(String(64), nullable=False, unique=True)
     pin_hash = Column(Text, nullable=False)
     expires_at = Column(DateTime(timezone=True), nullable=False)
@@ -177,6 +207,7 @@ class WorkflowReminder(Base):
     idempotency_key = Column(String(160), nullable=False, unique=True)
     status = Column(String(24), nullable=False, default="queued", server_default="queued")
     scheduled_at = Column(DateTime(timezone=True), nullable=False)
+    recipient_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     __table_args__ = (CheckConstraint("channel IN ('cabinet','email')", name="ck_workflow_reminder_channel"),)
 
 
