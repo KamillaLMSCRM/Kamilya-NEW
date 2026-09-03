@@ -10,4 +10,12 @@ describe('course approval localization', () => {
       expect(Object.keys(locale.courseApproval)).toEqual(expect.arrayContaining(keys));
     }
   });
+
+  it.each([ru, kk, en])('contains translated one-time credential copy', (locale) => {
+    expect(locale.courseApproval.credentialsTitle).toBeTruthy();
+    expect(locale.courseApproval.credentialsWarning).toBeTruthy();
+    expect(locale.courseApproval.copyUrl).toBeTruthy();
+    expect(locale.courseApproval.copyPin).toBeTruthy();
+    expect(locale.courseApproval.credentialsAcknowledge).toBeTruthy();
+  });
 });
