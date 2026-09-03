@@ -75,4 +75,27 @@ describe('approval credential reveal', () => {
     fireEvent.click(screen.getAllByRole('button', { name: 'Скопировать ссылку' })[0]);
     expect(await screen.findByRole('alert')).toHaveTextContent(/не удалось скопировать/i);
   });
+
+  it('supports multiple guest rows with stable add/remove behavior and submits every valid row', async () => {
+    render(<ApprovalRequestModal open courseId="course-1" onClose={() => undefined} />);
+    fireEvent.change(screen.getByLabelText('Имя'), { target: { value: 'Guest One' } });
+    fireEvent.change(screen.getByLabelText('Email гостя'), { target: { value: 'one@example.test' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Добавить гостя' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Добавить гостя' }));
+    expect(screen.getAllByRole('button', { name: /Удалить гостя/ })).toHaveLength(3);
+    expect(screen.getByLabelText('Имя 2')).toBeInTheDocument();
+    expect(screen.getByLabelText('Имя 3')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Удалить гостя 2' }));
+    expect(screen.getAllByRole('button', { name: /Удалить гостя/ })).toHaveLength(2);
+    fireEvent.change(screen.getByLabelText('Имя 2'), { target: { value: 'Guest Three' } });
+    fireEvent.change(screen.getByLabelText('Email гостя 2'), { target: { value: 'three@example.test' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Отправить запрос' }));
+
+    await waitFor(() => expect(createMock).toHaveBeenCalled());
+    expect(createMock.mock.calls.at(-1)?.[4]).toEqual([
+      { name: 'Guest One', email: 'one@example.test' },
+      { name: 'Guest Three', email: 'three@example.test' },
+    ]);
+  });
 });
