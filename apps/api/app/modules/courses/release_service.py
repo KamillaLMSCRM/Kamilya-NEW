@@ -78,7 +78,8 @@ async def build_course_release_snapshot(
             (
                 await db.execute(
                     select(ContentBlock)
-                    .where(ContentBlock.lesson_id.in_(lesson_ids))
+                    .join(Lesson, Lesson.id == ContentBlock.lesson_id)
+                    .where(ContentBlock.lesson_id.in_(lesson_ids), Lesson.tenant_id == course.tenant_id)
                     .order_by(ContentBlock.lesson_id, ContentBlock.order_index, ContentBlock.id)
                 )
             )
@@ -318,6 +319,13 @@ async def create_course_release(
     *,
     published_by: UUID | None,
 ) -> ContentRelease:
+    # Serialize version allocation per tenant/course.  Without this lock two
+    # concurrent publishes can both compute the same max+1 version.
+    locked = await db.scalar(
+        select(Course).where(Course.id == course.id, Course.tenant_id == course.tenant_id).with_for_update()
+    )
+    if locked is not None:
+        course = locked
     latest_version = await db.scalar(
         select(func.max(ContentRelease.version)).where(
             ContentRelease.course_id == course.id,
@@ -326,6 +334,41 @@ async def create_course_release(
     )
     version = int(latest_version or 0) + 1
     snapshot = await build_course_release_snapshot(db, course, version=version)
+    release = ContentRelease(
+        tenant_id=course.tenant_id,
+        course_id=course.id,
+        version=version,
+        snapshot=snapshot,
+        snapshot_sha256=canonical_json_sha256(snapshot),
+        published_by=published_by,
+    )
+    db.add(release)
+    await db.flush()
+    course.current_release_id = release.id
+    await db.flush()
+    return release
+
+
+async def create_course_release_from_snapshot(
+    db: AsyncSession,
+    course: Course,
+    snapshot: dict,
+    *,
+    published_by: UUID | None,
+) -> ContentRelease:
+    """Persist a release from an already-frozen approval snapshot."""
+    locked = await db.scalar(
+        select(Course).where(Course.id == course.id, Course.tenant_id == course.tenant_id).with_for_update()
+    )
+    if locked is not None:
+        course = locked
+    latest_version = await db.scalar(
+        select(func.max(ContentRelease.version)).where(
+            ContentRelease.course_id == course.id,
+            ContentRelease.tenant_id == course.tenant_id,
+        )
+    )
+    version = int(latest_version or 0) + 1
     release = ContentRelease(
         tenant_id=course.tenant_id,
         course_id=course.id,

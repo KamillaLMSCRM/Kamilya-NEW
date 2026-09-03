@@ -423,6 +423,35 @@ async def publish_course(
         raise HTTPException(status_code=404, detail="Course not found")
     if course.status == "published":
         raise HTTPException(status_code=409, detail="Course is already published")
+    # Optional immutable approval gate.  Existing courses default to off;
+    # enabled courses publish only the latest approved frozen snapshot.
+    from app.modules.course_approval.models import CourseApprovalPolicy, CourseApprovalRevision
+    approval_policy = await db.scalar(
+        select(CourseApprovalPolicy).where(
+            CourseApprovalPolicy.course_id == course.id,
+            CourseApprovalPolicy.tenant_id == user.tenant_id,
+        )
+    )
+    approved_revision = None
+    if approval_policy is not None and approval_policy.requires_approval:
+        approved_revision = await db.scalar(
+            select(CourseApprovalRevision)
+            .where(
+                CourseApprovalRevision.course_id == course.id,
+                CourseApprovalRevision.tenant_id == user.tenant_id,
+            )
+            .order_by(CourseApprovalRevision.revision_number.desc())
+            .limit(1)
+        )
+        if approved_revision is None:
+            raise HTTPException(status_code=409, detail={"code": "approval_required"})
+        if approved_revision.state != "approved":
+            code = "approval_pending" if approved_revision.state == "pending" else "approval_changes_requested" if approved_revision.state == "changes_requested" else "approval_superseded"
+            raise HTTPException(status_code=409, detail={"code": code})
+        from app.modules.courses.release_service import build_course_release_snapshot, canonical_json_sha256
+        current_snapshot = await build_course_release_snapshot(db, course, version=approved_revision.revision_number)
+        if canonical_json_sha256(current_snapshot) != approved_revision.snapshot_sha256:
+            raise HTTPException(status_code=409, detail={"code": "approval_revision_mismatch"})
     blueprint_marker = (course.source_analysis or {}).get("blueprint") or {}
     if blueprint_marker:
         from app.modules.courses.blueprint_service import (
@@ -480,11 +509,18 @@ async def publish_course(
                 "message": ("Генерация курса по должностной инструкции ещё не завершена"),
             },
         )
-    from app.modules.courses.release_service import create_course_release
+    from app.modules.courses.release_service import create_course_release, create_course_release_from_snapshot
 
-    release = await create_course_release(db, course, published_by=user.id)
+    release = (
+        await create_course_release_from_snapshot(db, course, approved_revision.snapshot, published_by=user.id)
+        if approved_revision is not None
+        else await create_course_release(db, course, published_by=user.id)
+    )
     course.status = "published"
     course.published_at = release.published_at or datetime.now(UTC)
+    if approved_revision is not None:
+        approved_revision.state = "published"
+        approved_revision.published_release_id = release.id
     await db.flush()
     await activate_course_assignments(db, course)
     await db.refresh(course)
@@ -499,6 +535,7 @@ async def publish_course(
             "content_release_id": str(release.id),
             "content_release_version": release.version,
             "snapshot_sha256": release.snapshot_sha256,
+            "approval_revision_id": str(approved_revision.id) if approved_revision is not None else None,
         },
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent"),
