@@ -57,11 +57,43 @@ class ApprovalRequestResponse(BaseModel):
     access_credentials: list[ReviewerAccessSecret] = Field(default_factory=list)
 
 
+class ReviewerStatusResponse(BaseModel):
+    reviewer_id: UUID | None = None
+    reviewer_name: str | None = None
+    reviewer_email: str | None = None
+    decision: str
+    decision_at: datetime | None = None
+    required: bool
+    delivery_state: str
+    access_state: str
+    activity_state: str
+    deadline_state: str
+    outcome: str
+    progress: dict = Field(default_factory=dict)
+    diagnostics: dict = Field(default_factory=dict)
+
+
+class ScopedReviewRequestResponse(BaseModel):
+    request_id: UUID
+    revision_id: UUID
+    outcome: str
+    delivery_mode: str
+    due_at: datetime | None = None
+    reviewer: ReviewerStatusResponse
+    all_required_approved: bool
+
+
+class ResendAccessRequest(BaseModel):
+    rotate_credentials: bool = False
+
+
 class ReviewProgressRequest(BaseModel):
     sequence: int = Field(ge=1)
     lesson_position: int | None = Field(default=None, ge=0)
     event_type: str = Field(min_length=1, max_length=48)
     payload: dict = Field(default_factory=dict)
+    # Kept for wire compatibility; the server ignores "completed" claims and
+    # derives completion from validated checkpoints/test diagnostics.
     activity_state: str = Field(default="in_progress", pattern="^(not_started|in_progress|completed)$")
 
 
