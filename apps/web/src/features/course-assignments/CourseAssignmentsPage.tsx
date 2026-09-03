@@ -247,6 +247,10 @@ export default function EnrollmentsPage() {
     if (loading || preselectionApplied.current) return;
     const courseId = searchParams.get('courseId') || searchParams.get('course_id') || searchParams.get('course');
     const userId = searchParams.get('employeeId') || searchParams.get('user_id') || searchParams.get('user');
+    // Do not mark contextual preselection complete until every referenced
+    // entity is present. Fetch effects can commit their collections in
+    // separate renders, and an early ref flip would strand an empty picker.
+    if ((courseId && !courses.some((course) => course.id === courseId)) || (userId && !users.some((user) => user.id === userId))) return;
     if (courseId && courses.some((course) => course.id === courseId)) {
       void fetchEnrollments(courseId);
     }

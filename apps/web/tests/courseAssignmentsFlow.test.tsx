@@ -103,10 +103,11 @@ describe('contextual course assignment flow', () => {
   it('preselects the course and employee from contextual query parameters', async () => {
     render(<CourseAssignmentsPage />);
 
+    const courseSelect = await screen.findByRole('combobox', { name: 'Курс для назначения' });
     await waitFor(() => {
-      expect(screen.getByRole('combobox', { name: 'Курс для назначения' })).toHaveValue('course-1');
+      expect(courseSelect).toHaveValue('course-1');
+      expect(screen.getByRole('checkbox')).toBeChecked();
     });
-    expect(screen.getByRole('checkbox')).toBeChecked();
     expect(screen.queryByRole('option', { name: 'Черновик' })).not.toBeInTheDocument();
     expect(screen.getByText('После назначения будет создана ссылка доступа')).toBeInTheDocument();
   });
