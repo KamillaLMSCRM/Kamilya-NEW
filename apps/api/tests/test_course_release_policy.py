@@ -52,6 +52,7 @@ async def test_methodologist_can_read_draft_course():
     course = _course(tenant_id=tenant_id)
     db = AsyncMock()
     db.execute.return_value = _scalar_result(course)
+    db.scalar.return_value = None
 
     resolved = await require_course_access(db, course.id, user)
 
@@ -120,6 +121,7 @@ async def test_publish_rejects_unapproved_ai_course():
     course = _course(tenant_id=tenant_id, review_status="pending", ai_generated=True)
     db = AsyncMock()
     db.execute.return_value = _scalar_result(course)
+    db.scalar.return_value = None
     request = MagicMock()
     request.client.host = "127.0.0.1"
     request.headers.get.return_value = "pytest"

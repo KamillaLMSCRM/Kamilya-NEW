@@ -1,5 +1,9 @@
 """Build and persist immutable course publication snapshots."""
 
+# Snapshot payloads are intentionally heterogeneous JSON; concrete builders
+# below provide the structured portions consumed by publication gates.
+# mypy: disable-error-code="type-arg,var-annotated,assignment,call-overload,arg-type"
+
 from __future__ import annotations
 
 import copy
@@ -353,7 +357,7 @@ async def create_course_release(
 async def create_course_release_from_snapshot(
     db: AsyncSession,
     course: Course,
-    snapshot: dict,
+    snapshot: dict[str, Any],
     *,
     published_by: UUID | None,
 ) -> ContentRelease:

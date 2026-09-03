@@ -1400,6 +1400,15 @@ ANY TOKEN FAILURE.
 - Verification: focused bundle tests assert `.service` and `.json` preservation, the complete release-plane contract suite passes locally, and the next exact workflow run must pass validation before any install.
 - Prevention: staged artifacts consumed by type-sensitive validators must retain the required filename type, and the bundle contract must test both bytes and validator-visible names.
 
+## CI-003 - Bounded purge rejected the ephemeral CI database owner
+
+- Date: 2026-09-03.
+- Symptom: course-approval DEV acceptance passed under the production-like `lms_app` runtime role, but full GitHub CI failed three guarded tenant-deletion tests with `Active superadmin context is required`.
+- Cause: migration `0148` required `session_user = 'lms_app'` inside its `SECURITY DEFINER` purge functions. Ephemeral integration tests intentionally run the API as the current database owner, which is already the privileged identity used by the established tenant-purge boundary.
+- Fix: additive migration `0149` retains the active `app.is_superadmin` flag and exact slug/protected-tenant checks, while accepting only `lms_app` or the current database owner; every other session role remains rejected and no table-level `DELETE` grant is added.
+- Verification: the Python quality baseline, 55 focused contracts and all 864 backend unit tests pass locally; full ephemeral-PostgreSQL lifecycle verification is required from the replacement exact-SHA GitHub CI before release.
+- Prevention: security-definer migrations must test both the production runtime role and the ephemeral database-owner execution contour. A DEV route smoke under only one database identity is not sufficient release evidence.
+
 ## TOOL-008 - Persistent smoke provisioner crossed the admin/methodologist role boundary
 
 - Date: 2026-08-31.

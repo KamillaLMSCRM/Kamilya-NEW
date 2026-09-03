@@ -596,6 +596,19 @@ def test_tenant_delete_routes_audit_cleanup_through_bounded_function():
     service = Path(__file__).parents[2] / "app" / "modules" / "admin" / "superadmin" / "service.py"
     source = service.read_text(encoding="utf-8")
     assert "superadmin_purge_tenant_audit_logs" in source
+
+
+def test_followup_purge_accepts_only_runtime_role_or_database_owner():
+    migration = Path(__file__).parents[2] / "alembic" / "versions" / "0149_superadmin_purge_database_owner.py"
+    source = migration.read_text(encoding="utf-8")
+
+    assert 'revision = "0149"' in source
+    assert 'down_revision = "0148"' in source
+    assert "current_setting('app.is_superadmin'" in source
+    assert "session_user <> 'lms_app' AND session_user <> database_owner" in source
+    assert "pg_catalog.pg_get_userbyid(d.datdba)" in source
+    assert "persisted_slug = 'kamilya'" in source
+    assert "GRANT DELETE ON audit_logs TO lms_app" not in source
     assert 'DELETE FROM audit_logs WHERE tenant_id = :tenant_id' not in source
     approval_router = Path(__file__).parents[2] / "app" / "modules" / "course_approval" / "router.py"
     approval_source = approval_router.read_text(encoding="utf-8")

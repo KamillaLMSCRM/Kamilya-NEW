@@ -44,9 +44,9 @@ from app.modules.candidate_assessments.router import router as candidate_assessm
 from app.modules.certificates.router import router as certificates_router
 from app.modules.cohorts.router import router as cohorts_router
 from app.modules.competencies.router import router as competencies_router
+from app.modules.course_approval.router import router as course_approval_router
 from app.modules.courses.blueprints_router import router as course_blueprints_router
 from app.modules.courses.router import router as courses_router
-from app.modules.course_approval.router import router as course_approval_router
 from app.modules.demo.router import router as demo_router
 from app.modules.departments.router import router as departments_router
 from app.modules.documents.router import router as documents_router

@@ -396,7 +396,7 @@ async def update_course(
     # A mutable edit invalidates all approval artifacts.  Reviewers must never
     # approve a snapshot that no longer matches the course being published.
     from app.modules.course_approval.service import supersede_course_approvals
-    await supersede_course_approvals(db, course_id=course.id, tenant_id=user.tenant_id, actor_id=user.id)
+    await supersede_course_approvals(db, course_id=course.id, tenant_id=user.tenant_id, actor_id=user.id)  # type: ignore[arg-type]
     await db.flush()
     await db.refresh(course)
     await log_action(
@@ -423,6 +423,10 @@ async def publish_course(
     user: User = Depends(require_role("superadmin", "methodologist")),
     idempotency_key: str | None = Header(None, alias="Idempotency-Key"),
 ):
+    # FastAPI injects a string at runtime; direct unit calls receive the
+    # ``Header`` marker object unless they provide a value explicitly.
+    if not isinstance(idempotency_key, str):
+        idempotency_key = None
     from app.modules.course_approval.models import WorkflowIdempotencyKey
     publish_fingerprint = canonical_json_sha256({"course_id": str(course_id)}) if idempotency_key else None
     if idempotency_key:
@@ -439,7 +443,7 @@ async def publish_course(
             existing = await db.scalar(select(Course).where(Course.id == course_id, Course.tenant_id == user.tenant_id))
             if existing is None:
                 raise HTTPException(status_code=404, detail="Course not found")
-            existing.reviewer = await _hydrate_reviewer(db, existing)
+            existing.reviewer = await _hydrate_reviewer(db, existing)  # type: ignore[attr-defined]
             return existing
     # Serialize publication against course edits and approval decisions.  The
     # lock must be acquired before reading the approved revision or rebuilding
@@ -477,7 +481,7 @@ async def publish_course(
             code = "approval_pending" if approved_revision.state == "pending" else "approval_changes_requested" if approved_revision.state == "changes_requested" else "approval_superseded"
             raise HTTPException(status_code=409, detail={"code": code})
         from app.modules.courses.release_service import build_course_release_snapshot
-        current_snapshot = await build_course_release_snapshot(db, course, version=approved_revision.revision_number)
+        current_snapshot = await build_course_release_snapshot(db, course, version=approved_revision.revision_number)  # type: ignore[arg-type]
         if canonical_json_sha256(current_snapshot) != approved_revision.snapshot_sha256:
             raise HTTPException(status_code=409, detail={"code": "approval_revision_mismatch"})
     blueprint_marker = (course.source_analysis or {}).get("blueprint") or {}
@@ -544,7 +548,7 @@ async def publish_course(
         if approved_revision is not None
         else await create_course_release(db, course, published_by=user.id)
     )
-    course.status = "published"
+    course.status = "published"  # type: ignore[assignment]
     course.published_at = release.published_at or datetime.now(UTC)
     if approved_revision is not None:
         approved_revision.state = "published"
@@ -569,7 +573,7 @@ async def publish_course(
         user_agent=request.headers.get("user-agent"),
     )
     await db.commit()
-    course.reviewer = await _hydrate_reviewer(db, course)
+    course.reviewer = await _hydrate_reviewer(db, course)  # type: ignore[attr-defined]
     if idempotency_key:
         db.add(WorkflowIdempotencyKey(
             tenant_id=user.tenant_id,

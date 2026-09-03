@@ -654,12 +654,19 @@ class SuperadminOperationsService:
         )
         truncated = len(candidates) > MAX_CLEANUP_CANDIDATES
         candidates = candidates[:MAX_CLEANUP_CANDIDATES]
+        # ``delete_tenant`` commits and SQLAlchemy expires ORM instances in
+        # this session.  Keep the initial listing as plain values so a later
+        # candidate cannot trigger implicit async IO (MissingGreenlet).
+        candidate_snapshots = [
+            (candidate.id, candidate.slug, candidate.created_at)
+            for candidate in candidates
+        ]
         results: list[SyntheticCleanupResult] = []
         deleted_count = skipped_count = failed_count = 0
         deletion_service = SuperadminService(self.db)
 
-        for candidate in candidates:
-            created_at = candidate.created_at
+        for candidate_id, candidate_slug, candidate_created_at in candidate_snapshots:
+            created_at = candidate_created_at
             age_hours = round(
                 max(0, (now - (created_at if created_at.tzinfo else created_at.replace(tzinfo=UTC))).total_seconds())
                 / 3600,
@@ -667,13 +674,13 @@ class SuperadminOperationsService:
             )
             # Re-read the row before every destructive operation. A slug or
             # demo flag changed after the initial query must fail closed.
-            current = await self.db.get(Tenant, candidate.id)
+            current = await self.db.get(Tenant, candidate_id)
             if current is None or not _is_allowed_synthetic_tenant(current):
                 skipped_count += 1
                 results.append(
                     SyntheticCleanupResult(
-                        tenant_id=candidate.id,
-                        slug=candidate.slug,
+                        tenant_id=candidate_id,
+                        slug=candidate_slug,
                         created_at=created_at,
                         age_hours=age_hours,
                         action="skipped",
@@ -695,20 +702,20 @@ class SuperadminOperationsService:
                 continue
 
             try:
-                snapshot = await deletion_service.delete_tenant(current.id)
+                await deletion_service.delete_tenant(current.id)
             except Exception as exc:
                 await self.db.rollback()
                 failed_count += 1
                 logger.exception(
                     "superadmin.synthetic_cleanup.failed tenant_id=%s slug=%s",
-                    current.id,
-                    current.slug,
+                    candidate_id,
+                    candidate_slug,
                 )
                 results.append(
                     SyntheticCleanupResult(
-                        tenant_id=current.id,
-                        slug=current.slug,
-                        created_at=current.created_at,
+                        tenant_id=candidate_id,
+                        slug=candidate_slug,
+                        created_at=created_at,
                         age_hours=age_hours,
                         action="failed",
                         reason=f"{type(exc).__name__}: cleanup failed",
@@ -718,14 +725,14 @@ class SuperadminOperationsService:
                 deleted_count += 1
                 logger.warning(
                     "superadmin.synthetic_cleanup.deleted tenant_id=%s slug=%s",
-                    snapshot.id,
-                    snapshot.slug,
+                    candidate_id,
+                    candidate_slug,
                 )
                 results.append(
                     SyntheticCleanupResult(
-                        tenant_id=snapshot.id,
-                        slug=snapshot.slug,
-                        created_at=snapshot.created_at,
+                        tenant_id=candidate_id,
+                        slug=candidate_slug,
+                        created_at=created_at,
                         age_hours=age_hours,
                         action="deleted",
                     )

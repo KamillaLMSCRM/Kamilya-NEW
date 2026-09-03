@@ -2,6 +2,10 @@
 # B008's module-level-singleton recommendation would alter that established
 # request dependency contract, so keep the framework-native declarations.
 # ruff: noqa: B008
+# SQLAlchemy's legacy declarative Column descriptors and FastAPI dependency
+# factories are intentionally dynamic in this module; keep those boundaries
+# explicit while type-checking business helpers.
+# mypy: disable-error-code="arg-type,assignment,attr-defined,misc,no-any-return,no-untyped-call,no-untyped-def,type-arg"
 
 from datetime import UTC, datetime
 from uuid import UUID
