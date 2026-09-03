@@ -67,8 +67,8 @@ describe('approval credential reveal', () => {
     fireEvent.change(screen.getByLabelText('Email гостя'), { target: { value: 'one@example.test' } });
     fireEvent.click(screen.getByRole('button', { name: 'Добавить гостя' }));
     fireEvent.click(screen.getByRole('button', { name: 'Отправить запрос' }));
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Скопировать ссылку' })).toBeInTheDocument());
-    fireEvent.click(screen.getByRole('button', { name: 'Скопировать ссылку' }));
+    await waitFor(() => expect(screen.getAllByRole('button', { name: 'Скопировать ссылку' })).toHaveLength(2));
+    fireEvent.click(screen.getAllByRole('button', { name: 'Скопировать ссылку' })[0]);
     expect(await screen.findByRole('alert')).toHaveTextContent(/не удалось скопировать/i);
   });
 });
