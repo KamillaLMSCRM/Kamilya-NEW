@@ -1,6 +1,6 @@
 # Error and Recurrence Prevention Log
 
-Current as of: 2026-09-03.
+Current as of: 2026-09-04.
 
 This is the single operational log for confirmed Kamilya LMS workflow errors,
 invalid assumptions, fixes, verification, and recurrence prevention. Open product
@@ -1347,6 +1347,15 @@ contract or establish a blocker.
 - Fix: extract the complete eight-space property body with a field-anchored regular expression before asserting `required: false`.
 - Verification: the focused release-plane and workflow contract suite passes after the parser correction.
 - Prevention: indentation-sensitive workflow contract tests must anchor both field and property indentation instead of using a prefix that also matches nested lines.
+
+## TEST-009 - SCORM duplicate-path test depended on a platform-specific ZIP warning
+
+- Date: 2026-09-04.
+- Symptom: the Linux backend unit job failed at `pytest.warns(UserWarning, match="Duplicate name")`, while the same test passed on Windows and the SCORM intake still rejected the archive as `archive_duplicate_path`.
+- Cause: Python's Windows ZIP writer normalized `\\` to `/` while building the fixture and emitted a duplicate-name warning; the Linux writer preserved both spellings and emitted no warning. The warning belongs to fixture construction and is not part of the product security contract.
+- Fix: construct two distinct case variants that remain distinct ZIP members on every supported platform but collide under the intake's canonical `casefold()` identity, then assert only the product rejection code.
+- Verification: run the focused SCORM intake test, the complete backend unit suite and the GitHub Linux CI job on the exact pushed revision.
+- Prevention: cross-platform archive tests must assert application-owned validation outcomes, not incidental warnings emitted by a standard-library writer on only one operating system.
 
 ## GH-001 - Project token could not dispatch the image-build workflow
 

@@ -124,11 +124,10 @@ async def test_inspect_rejects_symlink_entry() -> None:
 
 @pytest.mark.asyncio
 async def test_inspect_rejects_duplicate_normalized_path() -> None:
-    with pytest.warns(UserWarning, match="Duplicate name"):
-        data = _zip_bytes(
-            _manifest(),
-            extra_files=[("content\\lesson.js", b"one"), ("content/lesson.js", b"two")],
-        )
+    data = _zip_bytes(
+        _manifest(),
+        extra_files=[("content/lesson.js", b"one"), ("CONTENT/LESSON.JS", b"two")],
+    )
 
     with pytest.raises(ScormIntakeError) as caught:
         await ScormPackageIntake().inspect(MemoryUpload(data), None)
