@@ -2,9 +2,17 @@ import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
 import DemoLoginPage from '@/app/login/demo/page';
+import LoginPage from '@/app/login/page';
 import SuperadminLoginPage from '@/app/superadmin/login/page';
 
 describe('platform operator login exposure', () => {
+  it('does not advertise the privileged login from the public login page', () => {
+    render(<LoginPage />);
+
+    expect(screen.queryByText(/суперадмин/i)).not.toBeInTheDocument();
+    expect(document.querySelector('a[href="/superadmin/login"]')).toBeNull();
+  });
+
   it('does not advertise the privileged login from the public demo page', () => {
     render(<DemoLoginPage />);
 

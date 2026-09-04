@@ -20,6 +20,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- The public login page no longer advertises the separate platform-superadmin
+  entry point; existing superadmins continue to use the standard email/password
+  login flow.
 - Workforce navigation now keeps positions, employee groups and candidate
   assessments inside an expandable staff section instead of presenting every
   destination as a separate top-level sidebar item.
