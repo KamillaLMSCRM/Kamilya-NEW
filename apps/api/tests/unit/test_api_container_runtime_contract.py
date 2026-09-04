@@ -4,10 +4,23 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).parents[4]
 API_DOCKERFILE = REPO_ROOT / "apps" / "api" / "Dockerfile"
+DOCKERIGNORE = REPO_ROOT / ".dockerignore"
 RELEASE_COMPOSE_FILES = (
     REPO_ROOT / "infra" / "compose" / "kamilya-release-slot.yml",
     REPO_ROOT / "infra" / "compose" / "kamilya-app-worker.yml",
 )
+
+
+def test_docker_build_context_excludes_secrets_and_local_artifacts() -> None:
+    patterns = {
+        line.strip()
+        for line in DOCKERIGNORE.read_text(encoding="utf-8").splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    }
+
+    assert {"**/.env", "**/.env.*", "**/*.pem", "**/*.key"} <= patterns
+    assert {".git", "**/.git", "**/node_modules", "**/.venv"} <= patterns
+    assert {"**/.pytest_cache", "**/__pycache__", "**/.next"} <= patterns
 
 
 def test_api_image_runs_as_a_fixed_unprivileged_identity() -> None:

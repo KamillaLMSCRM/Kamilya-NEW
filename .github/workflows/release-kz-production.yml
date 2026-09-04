@@ -121,6 +121,20 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Verify image identity and secret exclusions
+        shell: bash
+        env:
+          IMAGE: ${{ steps.image.outputs.name }}@${{ steps.build.outputs.digest }}
+        run: |
+          docker pull "${IMAGE}"
+          docker run --rm --entrypoint sh "${IMAGE}" -c '
+            test "$(id -u)" = "10001"
+            test "$(id -g)" = "10001"
+            test ! -e /app/.env
+            test ! -e /app/.env.local
+            test ! -d /app/.pytest_cache
+          '
+
       - name: Attest image provenance
         uses: actions/attest-build-provenance@v2
         with:

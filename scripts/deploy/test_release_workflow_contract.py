@@ -23,6 +23,9 @@ def test_workflow_builds_exact_sha_digest_and_requires_matching_ci() -> None:
     assert '[[ "${conclusion}" == "success" ]]' in build
     assert "apps/api/Dockerfile" in build
     assert "@${{ steps.build.outputs.digest }}" in build
+    assert "Verify image identity and secret exclusions" in build
+    assert 'test ! -e /app/.env' in build
+    assert 'test ! -d /app/.pytest_cache' in build
     assert "actions/attest-build-provenance@v2" in build
 
 

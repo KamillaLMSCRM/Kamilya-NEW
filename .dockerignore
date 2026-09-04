@@ -1,0 +1,40 @@
+## Version-control metadata and local Codex/worktree state
+.git
+.git/**
+**/.git
+**/.git/**
+.codex
+.codex/**
+
+## Secrets and machine-local configuration must never enter an image layer
+**/.env
+**/.env.*
+**/*.env
+**/*.env.*
+**/*.pem
+**/*.key
+
+## Local dependency trees, build outputs, caches, and test artifacts
+**/node_modules
+**/.next
+**/.venv
+**/venv
+**/__pycache__
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+**/.coverage
+**/coverage
+**/coverage.xml
+**/htmlcov
+**/dist
+**/build
+**/*.pyc
+**/*.pyo
+**/*.log
+
+## Editor and OS metadata
+**/.idea
+**/.vscode
+**/.DS_Store
+**/Thumbs.db
