@@ -25,65 +25,12 @@ from app.core.auth import create_access_token, create_refresh_token
 from app.core.db import get_db
 from app.models.users import User
 from app.modules.audit.service import log_action
+from app.modules.auth.browser_session import get_browser_session_policy
 from app.modules.auth.service import issue_refresh_session
-
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 _ph = argon2.PasswordHasher()
-
-
-# Mirror of app.modules.auth.router._set_refresh_cookie — duplicated to keep
-# this module free of an import cycle with router.py.
-REFRESH_COOKIE_NAME = "kamilya_refresh"
-REFRESH_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 30
-
-
-def _is_production() -> bool:
-    from app.core.config import get_settings
-    return get_settings().APP_ENV == "production"
-
-
-def _append_partitioned_cookie_attribute(response: Response, cookie_name: str) -> None:
-    prefix = f"{cookie_name}=".lower().encode()
-    for index in range(len(response.raw_headers) - 1, -1, -1):
-        key, value = response.raw_headers[index]
-        if key.lower() == b"set-cookie" and value.lower().startswith(prefix) and b"partitioned" not in value.lower():
-            response.raw_headers[index] = (key, value + b"; Partitioned")
-            return
-
-
-def _set_refresh_cookie(response: Response, refresh_token: str) -> None:
-    # Mirror of app.modules.auth.router._set_refresh_cookie — see that file
-    # for the full SameSite=None + Partitioned justification.
-    # Secure=True is required by SameSite=None per RFC 6265bis.
-    # Partitioned=True is required for Chrome to store the cookie at all
-    # when the API is on a different eTLD+1 (cross-site context).
-    response.set_cookie(
-        key=REFRESH_COOKIE_NAME,
-        value=refresh_token,
-        max_age=REFRESH_COOKIE_MAX_AGE_SECONDS,
-        path="/api/v1/auth",
-        httponly=True,
-        secure=True,
-        samesite="none",
-    )
-    _append_partitioned_cookie_attribute(response, REFRESH_COOKIE_NAME)
-
-
-def _clear_refresh_cookie(response: Response) -> None:
-    # See router.py for why we use set_cookie(max_age=0) instead of
-    # delete_cookie (starlette 0.41.x doesn't accept partitioned kwarg
-    # in delete_cookie).
-    response.set_cookie(
-        key=REFRESH_COOKIE_NAME,
-        value="",
-        max_age=0,
-        path="/api/v1/auth",
-        secure=True,
-        samesite="none",
-    )
-    _append_partitioned_cookie_attribute(response, REFRESH_COOKIE_NAME)
 
 
 class SuperadminLoginRequest(BaseModel):
@@ -115,6 +62,8 @@ async def superadmin_login(
     """
     import logging
     logger = logging.getLogger(__name__)
+    browser_session = get_browser_session_policy()
+    browser_session.enforce_request(request)
 
     result = await db.execute(
         select(User).where(User.email == req.email, User.tenant_id.is_(None))
@@ -179,14 +128,9 @@ async def superadmin_login(
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent"),
     )
-    # Same httpOnly refresh-cookie contract as /auth/login and /auth/check-code.
-    # Without this, the in-memory access token is the only session anchor and
-    # any page reload would log the superadmin out.
-    # Duplicated from app.modules.auth.router._set_refresh_cookie to avoid a
-    # circular import (router.py imports superadmin_login_router at startup).
     await issue_refresh_session(db, user, refresh_token, user_agent=request.headers.get("user-agent"), ip_address=request.client.host if request.client else None)
     await db.commit()
-    _set_refresh_cookie(response, refresh_token)
+    browser_session.set_refresh_cookie(response, refresh_token)
 
     return SuperadminLoginResponse(
         access_token=access_token,

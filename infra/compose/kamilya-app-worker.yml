@@ -10,6 +10,14 @@ x-app-runtime: &app-runtime
     FORWARDED_ALLOW_IPS: ${KAMILYA_FORWARDED_ALLOW_IPS:?set KAMILYA_FORWARDED_ALLOW_IPS to the exact trusted proxy IP}
   volumes:
     - ${KAMILYA_BLOB_STORAGE_DIR:-/opt/kamilya-runtime/blob-storage}:/app/storage/certificates
+  user: "10001:10001"
+  read_only: true
+  tmpfs:
+    - /tmp:rw,noexec,nosuid,nodev,size=256m,mode=1777
+  cap_drop:
+    - ALL
+  security_opt:
+    - no-new-privileges:true
   restart: unless-stopped
   depends_on:
     valkey:
@@ -38,22 +46,22 @@ services:
     <<: *app-runtime
     ports:
       - "${KAMILYA_BIND_IP:-127.0.0.1}:8000:8000"
-    command: ["poetry", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
     mem_limit: 2g
 
   worker-ai:
     <<: *app-runtime
-    command: ["poetry", "run", "celery", "-A", "app.core.celery_app:celery_app", "worker", "-Q", "ai", "--concurrency=2", "--loglevel=INFO"]
+    command: ["celery", "-A", "app.core.celery_app:celery_app", "worker", "-Q", "ai", "--concurrency=2", "--loglevel=INFO"]
     mem_limit: 4g
 
   worker-documents:
     <<: *app-runtime
-    command: ["poetry", "run", "celery", "-A", "app.core.celery_app:celery_app", "worker", "-Q", "documents", "--concurrency=2", "--loglevel=INFO"]
+    command: ["celery", "-A", "app.core.celery_app:celery_app", "worker", "-Q", "documents", "--concurrency=2", "--loglevel=INFO"]
     mem_limit: 3g
 
   worker-ops:
     <<: *app-runtime
-    command: ["poetry", "run", "celery", "-A", "app.core.celery_app:celery_app", "worker", "-Q", "maintenance,notifications", "--concurrency=2", "--loglevel=INFO"]
+    command: ["celery", "-A", "app.core.celery_app:celery_app", "worker", "-Q", "maintenance,notifications", "--concurrency=2", "--loglevel=INFO"]
     mem_limit: 2g
 
 volumes:

@@ -7,7 +7,7 @@ from app.core.db import get_db
 from app.modules.users import invitations_router
 
 
-def test_accept_invitation_sets_partitioned_http_only_refresh_cookie(monkeypatch):
+def test_accept_invitation_sets_same_site_http_only_refresh_cookie(monkeypatch):
     async def fake_accept_invitation(*_args, **_kwargs):
         user_id = uuid4()
         tenant_id = uuid4()
@@ -52,6 +52,6 @@ def test_accept_invitation_sets_partitioned_http_only_refresh_cookie(monkeypatch
     assert "kamilya_refresh=refresh-token" in cookie
     assert "HttpOnly" in cookie
     assert "Secure" in cookie
-    assert "SameSite=none" in cookie
-    assert "Partitioned" in cookie
+    assert "SameSite=lax" in cookie
+    assert "Partitioned" not in cookie
     assert "Path=/api/v1/auth" in cookie

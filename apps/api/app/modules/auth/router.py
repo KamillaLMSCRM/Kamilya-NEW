@@ -1,5 +1,6 @@
 import logging
 from datetime import datetime, timezone
+from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
@@ -19,6 +20,7 @@ from app.modules.auth.auth_sessions import (
     check_code,
     generate_auth_code,
 )
+from app.modules.auth.browser_session import BrowserSessionPolicy, get_browser_session_policy
 from app.modules.auth.email_otp import consume_email_code, create_email_code
 from app.modules.auth.schemas import (
     LoginRequest,
@@ -41,110 +43,25 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 logger = logging.getLogger(__name__)
 
 
-# ---------------------------------------------------------------------------
-# Refresh-token cookie helpers
-# ---------------------------------------------------------------------------
-# We store the refresh token in an httpOnly cookie so JavaScript cannot read
-# it (XSS-stealing-resistant). The access token is returned in the JSON
-# body and held in-memory by the frontend. On 401 the frontend calls
-# /auth/refresh which reads the refresh-token cookie, mints a new access
-# token, and (optionally) rotates the refresh cookie.
-#
-# Per audit §4.1: in production the cookie MUST be Secure (HTTPS only). In
-# local dev Secure is omitted because browsers refuse to set Secure cookies
-# on plain HTTP.
-#
-# SameSite=None is required because the frontend at app.kml.kz makes
-# cross-origin XHR/fetch requests directly to the API at
-# kamilya-lms-api.onrender.com. Browsers (Chrome/Firefox/Safari) refuse to
-# set a cookie with SameSite=Strict or SameSite=Lax in a cross-origin
-# response, which made the refresh cookie silently disappear — breaking
-# session persistence on every page reload (see session-repair 2026-06-29).
-#
-# IMPORTANT: per RFC 6265bis and the Chrome/Firefox/Safari implementations,
-# a cookie with SameSite=None MUST also have Secure=true or the browser
-# drops it on the floor. We therefore always set Secure=True (the API is
-# always reached via HTTPS — on Render via the *.onrender.com TLS endpoint,
-# and locally via the Vercel preview proxy or a developer-managed reverse
-# proxy that terminates TLS).
-#
-# For local plain-HTTP dev (e.g. uvicorn on http://localhost:8000), the
-# cookie will be ignored by the browser. Workaround: use the Vercel
-# preview URL (https://web-*.vercel.app) which proxies /api/v1/* to
-# localhost via ssh-tunnel or similar — the dev cookie path.
-#
-# CSRF defense instead relies on:
-#   1. The cookie path being /api/v1/auth only — it is never sent on
-#      state-changing endpoints outside auth.
-#   2. The frontend never sending the refresh token in a body or custom
-#      header that an attacker page could forge.
-#   3. rotate-on-use: every /refresh consumes the old refresh and issues a
-#      new one (see service.refresh_access_token), so a stolen refresh
-#      token is single-use.
-# ---------------------------------------------------------------------------
-REFRESH_COOKIE_NAME = "kamilya_refresh"
-REFRESH_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 30  # 30 days, matches REFRESH_TOKEN_EXPIRE_DAYS
+def _enforce_browser_session_request(request: Request) -> BrowserSessionPolicy:
+    """Resolve and enforce the browser boundary before auth/DB dependencies."""
+    browser_session = get_browser_session_policy()
+    browser_session.enforce_request(request)
+    return browser_session
 
 
-def _append_partitioned_cookie_attribute(response: Response, cookie_name: str) -> None:
-    prefix = f"{cookie_name}=".lower().encode()
-    for index in range(len(response.raw_headers) - 1, -1, -1):
-        key, value = response.raw_headers[index]
-        if key.lower() == b"set-cookie" and value.lower().startswith(prefix) and b"partitioned" not in value.lower():
-            response.raw_headers[index] = (key, value + b"; Partitioned")
-            return
-
-
-def _set_refresh_cookie(response: Response, refresh_token: str) -> None:
-    response.set_cookie(
-        key=REFRESH_COOKIE_NAME,
-        value=refresh_token,
-        max_age=REFRESH_COOKIE_MAX_AGE_SECONDS,
-        path="/api/v1/auth",  # Only sent to auth endpoints — minimizes XSRF surface
-        httponly=True,
-        secure=True,  # Required by SameSite=None (RFC 6265bis)
-        samesite="none",
-        # CHIPS (Cookies Having Independent Partitioned State) — lets Chrome
-        # store the cookie even when the API is on a different eTLD+1
-        # (kamilya-lms-api.onrender.com) than the top-level site
-        # (app.kml.kz). Without Partitioned, Chrome's third-party cookie
-        # handling silently drops the cookie on cross-site requests, which
-        # broke login in 2026-06-29 because the Vercel Edge middleware
-        # (apps/web/src/middleware.ts) couldn't see the refresh cookie on
-        # the /dashboard navigation and 307'd the user back to /login.
-    )
-    _append_partitioned_cookie_attribute(response, REFRESH_COOKIE_NAME)
-
-
-def _clear_refresh_cookie(response: Response) -> None:
-    # Note: starlette's Response.delete_cookie() in 0.41.x does NOT accept
-    # the `partitioned` kwarg (only set_cookie does). We work around by
-    # setting a same-attribute Set-Cookie with max-age=0. See
-    # https://github.com/encode/starlette/issues/2529
-    response.set_cookie(
-        key=REFRESH_COOKIE_NAME,
-        value="",
-        max_age=0,
-        path="/api/v1/auth",
-        secure=True,
-        samesite="none",
-    )
-    _append_partitioned_cookie_attribute(response, REFRESH_COOKIE_NAME)
-
-
-def _read_refresh_cookie_or_body(request: Request, body_token: str | None) -> str | None:
-    """Return refresh token from httpOnly cookie if present, else from body.
-
-    Cookie is preferred because it survives across tabs and is rotated by
-    the server on every successful refresh. Body is kept for backward
-    compatibility with clients that haven't migrated yet.
-    """
-    cookie_token = request.cookies.get(REFRESH_COOKIE_NAME)
-    return cookie_token or body_token
+async def _get_browser_session_current_user(
+    _browser_session: Annotated[BrowserSessionPolicy, Depends(_enforce_browser_session_request)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> User:
+    """Order the browser boundary ahead of access-token user resolution."""
+    return current_user
 
 
 @router.post("/login", response_model=TokenResponse)
 async def login(req: LoginRequest, request: Request, response: Response, db=Depends(get_db)):
+    browser_session = get_browser_session_policy()
+    browser_session.enforce_request(request)
     try:
         user, access_token, refresh_token = await authenticate_user(db, req.email, req.password)
     except HTTPException:
@@ -177,7 +94,7 @@ async def login(req: LoginRequest, request: Request, response: Response, db=Depe
     await issue_refresh_session(db, user, refresh_token, user_agent=request.headers.get("user-agent"), ip_address=request.client.host if request.client else None)
     await db.commit()
     # Set refresh token as httpOnly cookie only after its allowlist row is durable.
-    _set_refresh_cookie(response, refresh_token)
+    browser_session.set_refresh_cookie(response, refresh_token)
     user_payload = await build_user_payload(db, user)
     return TokenResponse(
         access_token=access_token,
@@ -188,8 +105,8 @@ async def login(req: LoginRequest, request: Request, response: Response, db=Depe
 
 @router.post("/refresh", response_model=TokenResponse)
 async def refresh(req: RefreshRequest, request: Request, response: Response, db=Depends(get_db)):
-    # Prefer refresh token from cookie; fall back to request body for legacy clients.
-    refresh_token = _read_refresh_cookie_or_body(request, req.refresh_token)
+    browser_session = get_browser_session_policy()
+    refresh_token = browser_session.read_refresh_token(request, req.refresh_token)
     if not refresh_token:
         raise HTTPException(status_code=401, detail="Missing refresh token")
     try:
@@ -199,10 +116,11 @@ async def refresh(req: RefreshRequest, request: Request, response: Response, db=
         # leak which JWT claim failed (e.g. aud vs exp). Lesson 17.
         import logging
         logging.getLogger(__name__).exception("/refresh failed")
-        _clear_refresh_cookie(response)
-        raise HTTPException(status_code=401, detail="Invalid refresh token") from None
+        error_response = JSONResponse(status_code=401, content={"detail": "Invalid refresh token"})
+        browser_session.clear_refresh_cookie(error_response)
+        return error_response
     await db.commit()
-    _set_refresh_cookie(response, new_refresh)
+    browser_session.set_refresh_cookie(response, new_refresh)
     return TokenResponse(
         access_token=new_access,
         expires_in=900,
@@ -215,10 +133,12 @@ async def switch_role(
     req: RoleSwitchRequest,
     request: Request,
     response: Response,
+    browser_session: Annotated[BrowserSessionPolicy, Depends(_enforce_browser_session_request)],
+    current_user: Annotated[User, Depends(_get_browser_session_current_user)],
     db=Depends(get_db),
-    current_user: User = Depends(get_current_user),
 ):
     """Select one of the roles assigned to the current tenant account."""
+    prior_refresh = browser_session.read_refresh_token(request)
     if getattr(current_user, "is_impersonating", False):
         raise HTTPException(status_code=403, detail="Role switching is unavailable while impersonating")
 
@@ -241,7 +161,6 @@ async def switch_role(
         "tenant_id": user.tenant_id,
         "active_role": req.role,
     })
-    prior_refresh = _read_refresh_cookie_or_body(request, None)
     if prior_refresh:
         try:
             await blacklist_refresh_token(db, prior_refresh)
@@ -253,7 +172,7 @@ async def switch_role(
     user_payload = await build_user_payload(db, user, active_role=req.role)
     await issue_refresh_session(db, user, refresh_token)
     await db.commit()
-    _set_refresh_cookie(response, refresh_token)
+    browser_session.set_refresh_cookie(response, refresh_token)
     return TokenResponse(
         access_token=access_token,
         expires_in=900,
@@ -273,7 +192,8 @@ async def logout(req: RefreshRequest, request: Request, response: Response, db=D
     # still in a session we own" — its TTL is 30 days. We decode it,
     # look up the user, blacklist the token, log the action, clear the
     # cookie. No access-token required.
-    refresh_token = _read_refresh_cookie_or_body(request, req.refresh_token)
+    browser_session = get_browser_session_policy()
+    refresh_token = browser_session.read_refresh_token(request, req.refresh_token)
     user = None
     if refresh_token:
         # Best-effort revocation — malformed or expired credentials must not
@@ -298,7 +218,7 @@ async def logout(req: RefreshRequest, request: Request, response: Response, db=D
             user_agent=request.headers.get("user-agent"),
         )
     await db.commit()
-    _clear_refresh_cookie(response)
+    browser_session.clear_refresh_cookie(response)
     return {"status": "ok"}
 
 
@@ -392,7 +312,9 @@ async def request_email_code(req: EmailCodeRequest, db=Depends(get_db)):
 
 
 @router.post("/email/verify-code")
-async def verify_email_code(req: EmailCodeVerifyRequest, response: Response, db=Depends(get_db)):
+async def verify_email_code(req: EmailCodeVerifyRequest, request: Request, response: Response, db=Depends(get_db)):
+    browser_session = get_browser_session_policy()
+    browser_session.enforce_request(request)
     normalized_email = req.email.lower().strip()
     normalized_code = req.code.strip()
     payload = await consume_email_code(email=normalized_email, code=normalized_code)
@@ -436,7 +358,7 @@ async def verify_email_code(req: EmailCodeVerifyRequest, response: Response, db=
         user_id=user.id,
     )
     await db.commit()
-    _set_refresh_cookie(response, refresh_token)
+    browser_session.set_refresh_cookie(response, refresh_token)
     return {
         "verified": True,
         "access_token": access_token,
@@ -472,7 +394,7 @@ async def generate_code():
 
 
 @router.post("/check-code")
-async def check_auth_code(req: CheckCodeRequest, response: Response, db=Depends(get_db)):
+async def check_auth_code(req: CheckCodeRequest, request: Request, response: Response, db=Depends(get_db)):
     """Poll for code verification status. Returns JWT when verified.
 
     On a successful verification we also mint a refresh token and set it
@@ -482,6 +404,8 @@ async def check_auth_code(req: CheckCodeRequest, response: Response, db=Depends(
     does for the email/password flow.
     """
 
+    browser_session = get_browser_session_policy()
+    browser_session.enforce_request(request)
     try:
         result = await check_code(req.code)
     except Exception:
@@ -540,7 +464,7 @@ async def check_auth_code(req: CheckCodeRequest, response: Response, db=Depends(
     )
     await issue_refresh_session(db, user, refresh_token)
     await db.commit()
-    _set_refresh_cookie(response, refresh_token)
+    browser_session.set_refresh_cookie(response, refresh_token)
 
     return {
         "verified": True,
@@ -595,7 +519,7 @@ class DemoLoginRequest(BaseModel):
 
 
 @router.post("/demo-login")
-async def demo_login(req: DemoLoginRequest, response: Response, db=Depends(get_db)):
+async def demo_login(req: DemoLoginRequest, request: Request, response: Response, db=Depends(get_db)):
     """Login as a demo user for the given role. Creates user/tenant if needed.
 
     Production gate (audit §4.8):
@@ -605,6 +529,8 @@ async def demo_login(req: DemoLoginRequest, response: Response, db=Depends(get_d
       temporary opt-ins for E2E testing. E2E tests now exist (see
       apps/web/tests/e2e/) so the opt-in escape hatch is removed.
     """
+    browser_session = get_browser_session_policy()
+    browser_session.enforce_request(request)
     import logging
     settings = get_settings()
     logger = logging.getLogger(__name__)
@@ -738,7 +664,7 @@ async def demo_login(req: DemoLoginRequest, response: Response, db=Depends(get_d
         })
         await issue_refresh_session(db, user, refresh_token)
         await db.commit()
-        _set_refresh_cookie(response, refresh_token)
+        browser_session.set_refresh_cookie(response, refresh_token)
 
         return {
             "access_token": access_token,

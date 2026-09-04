@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Security: run the API/worker image as fixed non-root UID/GID 10001 and confine KZ
+  release services with a read-only rootfs, bounded `/tmp`, dropped capabilities and
+  `no-new-privileges`.
+- Security: remove repository-known MinIO credentials; local Compose now requires
+  operator-supplied non-empty root credentials before service creation.
+- Security: upgrade vulnerable Python runtime/test dependencies and add a blocking,
+  lock-derived production dependency audit to CI with no advisory ignores.
+- Security: keep tenant SMTP transport exception details out of API responses and
+  integration-audit metadata while preserving a stable error category.
+
 ### Added
 
 - Document catalog provenance showing the tenant-local uploader display name
@@ -48,6 +58,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the normal immutability guard and the protected production tenant.
 
 ### Security
+
+- Hardened SCORM 1.2 package intake against unsafe archive paths, duplicate or
+  ambiguous entries, encrypted and symbolic-link members, decompression bombs,
+  oversized manifests and XML entity/DTD expansion before any persistent write.
+- SCORM progress commits now accept only bounded SCORM 1.2 CMI fields with
+  scalar string values, normalized completion statuses and cumulative state
+  limits; an ingress guard rejects oversized bodies before decoding, row locks
+  serialize concurrent commits, and rejected payloads leave attempts unchanged.
+- The LMS frontend now applies one tested security-header policy to every route,
+  including CSP anti-framing and resource boundaries, MIME sniffing protection,
+  referrer and permissions restrictions, and HSTS.
+- Browser refresh sessions now use one policy for exact trusted-Origin and
+  Fetch Metadata checks, production JSON-only mutations, same-site secure
+  cookies, symmetric deletion and production rejection of body-carried refresh
+  tokens across login, OTP, role switch, invitation and trial-registration flows.
 
 ## [0.2.0] - 2026-08-31
 

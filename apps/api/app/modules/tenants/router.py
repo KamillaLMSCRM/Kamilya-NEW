@@ -30,13 +30,13 @@ from app.models.tenants import RegistrationLegalAcceptance, Tenant, TenantLead, 
 from app.models.user_roles import UserRole
 from app.models.users import User
 from app.modules.audit.service import log_action
+from app.modules.auth.browser_session import get_browser_session_policy
 from app.modules.auth.email_otp import (
     REGISTRATION_EMAIL_CODE_PURPOSE,
     consume_email_code,
     create_registration_email_code,
     invalidate_email_code,
 )
-from app.modules.auth.router import _set_refresh_cookie
 from app.modules.auth.service import build_user_payload, issue_refresh_session
 from app.modules.tenants.schemas import (
     PublicLeadRequest,
@@ -432,6 +432,8 @@ async def register_tenant(
     background_tasks: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
+    browser_session = get_browser_session_policy()
+    browser_session.enforce_request(request)
     existing_user = (
         # tenant-gate: allow - globally unique email check before a tenant exists.
         await db.execute(select(User.id).where(User.email == payload.email))
@@ -650,7 +652,7 @@ async def register_tenant(
 
     await db.commit()
     background_tasks.add_task(_dispatch_crm_lead_outbox, outbox_event_id)
-    _set_refresh_cookie(response, refresh_token)
+    browser_session.set_refresh_cookie(response, refresh_token)
 
     await db.execute(text("SELECT set_config('app.tenant_id', :tenant_id, true)"), {"tenant_id": str(tenant.id)})
     await db.refresh(tenant)

@@ -35,6 +35,7 @@ from app.modules.admin.superadmin.router import router as superadmin_router
 from app.modules.ai.router import router as ai_router
 from app.modules.announcements.router import router as announcements_router
 from app.modules.audit.router import router as audit_router
+from app.modules.auth.browser_session import get_browser_session_policy
 from app.modules.auth.router import router as auth_router
 from app.modules.auth.superadmin_login import router as superadmin_login_router
 from app.modules.auth.telegram import router as telegram_router
@@ -70,6 +71,7 @@ from app.modules.positions.router import router as positions_router
 from app.modules.progress.router import router as progress_router
 from app.modules.quizzes.assignment_router import router as quiz_assignments_router
 from app.modules.quizzes.router import router as quizzes_router
+from app.modules.scorm.cmi_ingress import ScormCommitBodyLimitMiddleware
 from app.modules.scorm.router import router as scorm_router
 from app.modules.staff_import_sessions.router import router as staff_import_sessions_router
 from app.modules.staff_sync.router import router as staff_sync_router
@@ -160,6 +162,9 @@ install_sensitive_logging_filters()
 async def lifespan(app: FastAPI):
     """Startup/shutdown lifecycle."""
     # --- startup ---
+    # Fail startup before serving traffic when browser-session topology or
+    # cookie settings violate the environment contract.
+    get_browser_session_policy()
     # Wire stdout/logger into the in-memory ring buffer so /v1/admin/debug/logs
     # can return recent lines without scraping Render Dashboard.
     from app.core import debug_log_buffer
@@ -179,6 +184,10 @@ app = FastAPI(
 )
 
 # Security middleware (outermost = last to execute, first to respond)
+app.add_middleware(
+    ScormCommitBodyLimitMiddleware,
+    api_prefix=settings.API_PREFIX,
+)
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RateLimitMiddleware, redis_url=settings.REDIS_URL)
 

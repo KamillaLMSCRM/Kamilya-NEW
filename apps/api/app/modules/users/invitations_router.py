@@ -14,7 +14,7 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_db
-from app.modules.auth.router import _set_refresh_cookie
+from app.modules.auth.browser_session import get_browser_session_policy
 from app.modules.users.invitations_service import (
     accept_invitation,
     get_public_invitation,
@@ -68,6 +68,8 @@ async def accept_invitation_endpoint(
     accepted_ip / accepted_user_agent in /users/invitations to spot
     suspicious accepts (different IP/UA than expected).
     """
+    browser_session = get_browser_session_policy()
+    browser_session.enforce_request(request)
     # Uvicorn rewrites request.client only when the socket peer is in the exact
     # FORWARDED_ALLOW_IPS allowlist. Never parse a caller-controlled XFF here.
     ip = request.client.host if request.client and request.client.host else None
@@ -82,7 +84,7 @@ async def accept_invitation_endpoint(
             accepted_user_agent=ua,
         )
         if result.get("refresh_token"):
-            _set_refresh_cookie(response, result["refresh_token"])
+            browser_session.set_refresh_cookie(response, result["refresh_token"])
         result.pop("refresh_token", None)
         return result
     except HTTPException:

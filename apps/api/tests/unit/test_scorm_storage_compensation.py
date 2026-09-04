@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, Mock, patch
 from uuid import uuid4
 
 import pytest
-from fastapi import UploadFile
+from fastapi import HTTPException, UploadFile
 
 
 def _scorm12_zip() -> bytes:
@@ -27,6 +27,51 @@ def _scorm12_zip() -> bytes:
         archive.writestr("imsmanifest.xml", manifest)
         archive.writestr("index.html", "<html></html>")
     return output.getvalue()
+
+
+def _entity_manifest_zip() -> bytes:
+    output = BytesIO()
+    with zipfile.ZipFile(output, "w") as archive:
+        archive.writestr(
+            "imsmanifest.xml",
+            """<?xml version="1.0"?>
+<!DOCTYPE manifest [<!ENTITY payload "expanded">]>
+<manifest xmlns="http://www.imsproject.org/xsd/imscp_rootv1p1p2">&payload;</manifest>""",
+        )
+        archive.writestr("index.html", "<html></html>")
+    return output.getvalue()
+
+
+@pytest.mark.asyncio
+async def test_scorm_import_rejects_unsafe_manifest_before_any_side_effect():
+    from app.modules.scorm.router import import_scorm_package
+
+    request = SimpleNamespace(client=SimpleNamespace(host="127.0.0.1"), headers={})
+    upload = UploadFile(filename="course.zip", file=BytesIO(_entity_manifest_zip()))
+    db = AsyncMock()
+    db.add = Mock()
+
+    with (
+        patch("app.core.trial_limits.assert_can_create_courses", AsyncMock()) as trial_check,
+        patch("app.modules.scorm.router.get_storage") as get_storage,
+    ):
+        with pytest.raises(HTTPException) as exc_info:
+            await import_scorm_package(
+                request=request,
+                file=upload,
+                title=None,
+                status="draft",
+                db=db,
+                user=SimpleNamespace(id=uuid4(), tenant_id=uuid4()),
+            )
+
+    assert exc_info.value.status_code == 400
+    assert exc_info.value.detail["code"] == "manifest_forbidden_xml"
+    trial_check.assert_not_awaited()
+    get_storage.assert_not_called()
+    db.add.assert_not_called()
+    db.flush.assert_not_awaited()
+    db.commit.assert_not_awaited()
 
 
 @pytest.mark.asyncio

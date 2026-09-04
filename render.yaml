@@ -83,7 +83,15 @@ services:
       - key: PUBLIC_LEAD_NOTIFICATION_EMAIL
         value: "askar0007amirkhanov@gmail.com"
       - key: CORS_ORIGINS
-        value: '["https://app.kml.kz","https://www.kml.kz","https://web-inky-three-48.vercel.app","https://web-natt1inhm-kamillalmscrms-projects.vercel.app"]'
+        value: '["https://app.kml.kz","https://www.kml.kz","https://kamilya-lms-dev.vercel.app","https://web-inky-three-48.vercel.app","https://web-natt1inhm-kamillalmscrms-projects.vercel.app"]'
+      - key: AUTH_BROWSER_ORIGINS
+        value: '["https://kamilya-lms-dev.vercel.app"]'
+      - key: AUTH_COOKIE_PROFILE
+        value: cross_site
+      - key: AUTH_COOKIE_SECURE
+        value: "true"
+      - key: AUTH_REFRESH_BODY_FALLBACK
+        value: "false"
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_KEY

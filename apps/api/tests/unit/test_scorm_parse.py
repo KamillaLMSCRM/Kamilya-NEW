@@ -1,4 +1,4 @@
-"""Unit tests for SCORM manifest parser (apps/api/app/modules/scorm/router.py).
+"""Unit tests for the public SCORM package-intake boundary.
 
 P0.1 first-tenant hardening.
 
@@ -17,12 +17,36 @@ Covers edge cases that real SCORM packages hit:
 
 from __future__ import annotations
 
+import asyncio
 import io
 import zipfile
 
 import pytest
 
-from app.modules.scorm.router import _parse_manifest, _read_scorm_upload, _safe_zip_names
+from app.modules.scorm.package_intake import (
+    ScormIntakeError,
+    ScormIntakeLimits,
+    ScormPackageIntake,
+)
+from app.modules.scorm.router import _safe_zip_names
+
+
+class _MemoryUpload:
+    def __init__(self, data: bytes) -> None:
+        self._data = data
+        self._offset = 0
+
+    async def read(self, size: int) -> bytes:
+        chunk = self._data[self._offset : self._offset + size]
+        self._offset += len(chunk)
+        return chunk
+
+
+def _inspect_manifest(zf: zipfile.ZipFile) -> dict[str, str | bool | int | None]:
+    buffer = zf.fp
+    assert isinstance(buffer, io.BytesIO)
+    package = asyncio.run(ScormPackageIntake().inspect(_MemoryUpload(buffer.getvalue()), None))
+    return package.manifest.as_dict()
 
 
 def _make_zip(manifest_xml: str, extra_files: list[tuple[str, bytes]] | None = None) -> bytes:
@@ -55,7 +79,7 @@ def test_zip_metadata_rejects_high_compression_ratio(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_streamed_upload_stops_before_reading_past_size_limit(monkeypatch):
+async def test_streamed_upload_stops_before_reading_past_size_limit():
     class Upload:
         def __init__(self):
             self.reads = 0
@@ -64,16 +88,16 @@ async def test_streamed_upload_stops_before_reading_past_size_limit(monkeypatch)
             self.reads += 1
             return b"x" * 8 if self.reads == 1 else b""
 
-    monkeypatch.setattr("app.modules.scorm.router.MAX_SCORM_ZIP_BYTES", 4)
-    with pytest.raises(Exception, match="too large"):
-        await _read_scorm_upload(Upload(), None)
+    intake = ScormPackageIntake(ScormIntakeLimits(zip_bytes=4))
+    with pytest.raises(ScormIntakeError, match="too large"):
+        await intake.inspect(Upload(), None)
 
 
 def _zip_with_manifest(
     manifest_xml: str,
     extra_files: list[tuple[str, bytes]] | None = None,
 ):
-    """Return a (zipfile.ZipFile, names) tuple ready for _parse_manifest.
+    """Return an open in-memory ZIP plus its normalized file names.
 
     By default, includes a placeholder `index.html` so tests asserting
     `entrypoint_exists=True` (i.e. the happy path) work without extra setup.
@@ -185,8 +209,8 @@ def _scorm2004_manifest_via_namespace(resource_href: str = "index.html") -> str:
 
 
 def test_scorm12_explicit_schemaversion_detected():
-    zf, names = _zip_with_manifest(_scorm12_manifest("index.html"))
-    manifest = _parse_manifest(zf, names)
+    zf, _names = _zip_with_manifest(_scorm12_manifest("index.html"))
+    manifest = _inspect_manifest(zf)
     assert manifest["version"] == "scorm_1_2"
     assert manifest["entrypoint"] == "index.html"
     assert manifest["entrypoint_exists"] is True
@@ -208,8 +232,8 @@ def test_scorm12_no_schemaversion_no_namespace_detected_as_12():
     <resource identifier="RES-1" href="index.html"/>
   </resources>
 </manifest>"""
-    zf, names = _zip_with_manifest(xml)
-    manifest = _parse_manifest(zf, names)
+    zf, _names = _zip_with_manifest(xml)
+    manifest = _inspect_manifest(zf)
     assert manifest["version"] == "scorm_1_2"
 
 
@@ -219,18 +243,20 @@ def test_scorm12_no_schemaversion_no_namespace_detected_as_12():
 
 
 def test_scorm2004_explicit_schemaversion_detected():
-    zf, names = _zip_with_manifest(_scorm2004_manifest_via_version())
-    manifest = _parse_manifest(zf, names)
-    assert manifest["version"] == "scorm_2004"
+    zf, _names = _zip_with_manifest(_scorm2004_manifest_via_version())
+    with pytest.raises(ScormIntakeError) as exc_info:
+        _inspect_manifest(zf)
+    assert exc_info.value.code == "unsupported_scorm_version"
 
 
 def test_scorm2004_namespace_only_detected():
     """Regression test for commit 0481f57: when schemaversion is missing
     but the manifest declares the adlcp_v1p3 namespace, we must still
     detect SCORM 2004 (not silently classify it as 1.2)."""
-    zf, names = _zip_with_manifest(_scorm2004_manifest_via_namespace())
-    manifest = _parse_manifest(zf, names)
-    assert manifest["version"] == "scorm_2004"
+    zf, _names = _zip_with_manifest(_scorm2004_manifest_via_namespace())
+    with pytest.raises(ScormIntakeError) as exc_info:
+        _inspect_manifest(zf)
+    assert exc_info.value.code == "unsupported_scorm_version"
 
 
 # ───────────────────────────────────────────────────────────────────
@@ -242,15 +268,15 @@ def test_resource_href_with_query_string():
     """iSpring/Articulate packages commonly declare `index.html?foo=bar`
     in the resource href. The parser must accept this without crashing
     and the entrypoint_exists check must compare against the bare path."""
-    zf, names = _zip_with_manifest(_scorm12_manifest("index.html?loadcss=1"))
-    manifest = _parse_manifest(zf, names)
+    zf, _names = _zip_with_manifest(_scorm12_manifest("index.html?loadcss=1"))
+    manifest = _inspect_manifest(zf)
     assert manifest["entrypoint"] == "index.html?loadcss=1"
     assert manifest["entrypoint_exists"] is True
 
 
 def test_resource_href_with_hash_fragment():
-    zf, names = _zip_with_manifest(_scorm12_manifest("index.html#section-2"))
-    manifest = _parse_manifest(zf, names)
+    zf, _names = _zip_with_manifest(_scorm12_manifest("index.html#section-2"))
+    manifest = _inspect_manifest(zf)
     assert manifest["entrypoint"] == "index.html#section-2"
     assert manifest["entrypoint_exists"] is True
 
@@ -265,8 +291,7 @@ def test_resource_href_in_subdirectory():
         zf.writestr("imsmanifest.xml", sub_manifest)
         zf.writestr("content/index.html", b"<html></html>")
     zf2 = zipfile.ZipFile(io.BytesIO(buf.getvalue()))
-    names = [n.replace("\\", "/") for n in zf2.namelist() if n and not n.endswith("/")]
-    manifest = _parse_manifest(zf2, names)
+    manifest = _inspect_manifest(zf2)
     assert manifest["entrypoint"] == "content/index.html"
     assert manifest["entrypoint_exists"] is True
 
@@ -274,8 +299,8 @@ def test_resource_href_in_subdirectory():
 def test_resource_href_not_in_zip_marks_entrypoint_missing():
     """If the resource href doesn't match any file in the archive,
     entrypoint_exists should be False (not raise)."""
-    zf, names = _zip_with_manifest(_scorm12_manifest("missing.html"))
-    manifest = _parse_manifest(zf, names)
+    zf, _names = _zip_with_manifest(_scorm12_manifest("missing.html"))
+    manifest = _inspect_manifest(zf)
     assert manifest["entrypoint"] == "missing.html"
     assert manifest["entrypoint_exists"] is False
 
@@ -287,34 +312,27 @@ def test_resource_href_not_in_zip_marks_entrypoint_missing():
 
 def test_manifest_missing_imsmanifest_raises():
     """No imsmanifest.xml at all → 400."""
-    from fastapi import HTTPException
-
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w") as zf:
         zf.writestr("index.html", b"<html></html>")
     zf2 = zipfile.ZipFile(io.BytesIO(buf.getvalue()))
-    names = ["index.html"]
-    with pytest.raises(HTTPException) as ei:
-        _parse_manifest(zf2, names)
+    with pytest.raises(ScormIntakeError) as ei:
+        _inspect_manifest(zf2)
     assert ei.value.status_code == 400
     assert "imsmanifest.xml" in ei.value.detail
 
 
 def test_manifest_invalid_xml_raises():
     """Garbage in imsmanifest.xml → 400, not 500."""
-    from fastapi import HTTPException
-
-    zf, names = _zip_with_manifest("<not-xml>")
-    with pytest.raises(HTTPException) as ei:
-        _parse_manifest(zf, names)
+    zf, _names = _zip_with_manifest("<not-xml>")
+    with pytest.raises(ScormIntakeError) as ei:
+        _inspect_manifest(zf)
     assert ei.value.status_code == 400
     assert "valid XML" in ei.value.detail
 
 
 def test_manifest_no_launchable_resource_raises():
     """Resources section exists but no href → 400."""
-    from fastapi import HTTPException
-
     xml = """<?xml version="1.0"?>
 <manifest xmlns="http://www.imsproject.org/xsd/imscp_rootv1p1p2">
   <organizations default="ORG-1">
@@ -326,16 +344,14 @@ def test_manifest_no_launchable_resource_raises():
     <resource identifier="RES-1"/>
   </resources>
 </manifest>"""
-    zf, names = _zip_with_manifest(xml)
-    with pytest.raises(HTTPException) as ei:
-        _parse_manifest(zf, names)
+    zf, _names = _zip_with_manifest(xml)
+    with pytest.raises(ScormIntakeError) as ei:
+        _inspect_manifest(zf)
     assert ei.value.status_code == 400
 
 
 def test_manifest_unsafe_href_raises():
     """Path traversal in resource href → 400, not silently imported."""
-    from fastapi import HTTPException
-
     xml = """<?xml version="1.0"?>
 <manifest xmlns="http://www.imsproject.org/xsd/imscp_rootv1p1p2">
   <organizations default="ORG-1">
@@ -347,8 +363,8 @@ def test_manifest_unsafe_href_raises():
     <resource identifier="RES-1" href="../../etc/passwd"/>
   </resources>
 </manifest>"""
-    zf, names = _zip_with_manifest(xml)
-    with pytest.raises(HTTPException) as ei:
-        _parse_manifest(zf, names)
+    zf, _names = _zip_with_manifest(xml)
+    with pytest.raises(ScormIntakeError) as ei:
+        _inspect_manifest(zf)
     assert ei.value.status_code == 400
     assert "unsafe" in ei.value.detail.lower()

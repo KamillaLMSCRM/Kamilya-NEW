@@ -141,6 +141,76 @@ async def test_scorm_commit_rejects_attempt_from_another_package(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_scorm_commit_rejects_invalid_cmi_before_mutating_attempt(monkeypatch):
+    tenant_id = uuid4()
+    user_id = uuid4()
+    enrollment_id = uuid4()
+    package_id = uuid4()
+    course_id = uuid4()
+    attempt = SimpleNamespace(
+        id=uuid4(),
+        tenant_id=tenant_id,
+        user_id=user_id,
+        enrollment_id=enrollment_id,
+        package_id=package_id,
+        course_id=course_id,
+        cmi_json={"cmi.core.lesson_location": "page-1"},
+        lesson_status="incomplete",
+        score_raw=None,
+        lesson_location="page-1",
+        total_time=None,
+        suspend_data=None,
+        completed_at=None,
+        last_commit_at=None,
+    )
+    payload = {
+        "tenant_id": str(tenant_id),
+        "sub": str(user_id),
+        "package_id": str(package_id),
+        "course_id": str(course_id),
+    }
+    db = SimpleNamespace(execute=AsyncMock(), get=AsyncMock(return_value=attempt), commit=AsyncMock())
+    complete = AsyncMock()
+    monkeypatch.setattr(scorm_router, "_decode_launch_token", lambda token: payload)
+    monkeypatch.setattr(
+        scorm_router,
+        "_require_scorm_token_enrollment",
+        AsyncMock(return_value=enrollment_id),
+    )
+    monkeypatch.setattr(scorm_router, "_complete_from_scorm", complete)
+
+    with pytest.raises(HTTPException) as exc_info:
+        await scorm_router.commit_scorm_attempt(
+            str(attempt.id),
+            ScormCommitRequest(cmi={"cmi.evil.nested": "value"}),
+            Request(
+                {
+                    "type": "http",
+                    "method": "POST",
+                    "scheme": "http",
+                    "path": "/api/v1/scorm/attempts/test/commit",
+                    "raw_path": b"/api/v1/scorm/attempts/test/commit",
+                    "query_string": b"",
+                    "headers": [(b"host", b"testserver")],
+                    "server": ("testserver", 80),
+                    "client": ("127.0.0.1", 50000),
+                }
+            ),
+            token="signed-token",
+            db=db,
+        )
+
+    assert exc_info.value.status_code == 422
+    assert exc_info.value.detail["code"] == "unsupported_cmi_key"
+    assert attempt.cmi_json == {"cmi.core.lesson_location": "page-1"}
+    assert attempt.lesson_status == "incomplete"
+    assert attempt.last_commit_at is None
+    complete.assert_not_awaited()
+    db.get.assert_awaited_once_with(scorm_router.ScormAttempt, str(attempt.id), with_for_update=True)
+    db.commit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_legacy_scorm_attempt_without_enrollment_cannot_complete():
     db = SimpleNamespace(get=AsyncMock())
     attempt = SimpleNamespace(enrollment_id=None)

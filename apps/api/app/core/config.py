@@ -1,6 +1,7 @@
 import ipaddress
 import json
 from functools import lru_cache
+from typing import Literal
 from urllib.parse import urlsplit
 
 from pydantic import Field, field_validator, model_validator
@@ -81,16 +82,23 @@ class Settings(BaseSettings):
     JWT_ISSUER: str = "kamilya-lms"  # claimed in 'iss'; validated on every decode
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30
+    # Browser-session policy is intentionally separate from CORS. Production
+    # uses the same-site KZ app/API topology; legacy cross-site development
+    # must opt in explicitly and cannot be enabled in production.
+    AUTH_BROWSER_ORIGINS: list[str] = ["https://app.kml.kz"]
+    AUTH_COOKIE_PROFILE: Literal["same_site", "cross_site"] = "same_site"
+    AUTH_COOKIE_SECURE: bool = True
+    AUTH_REFRESH_BODY_FALLBACK: bool = False
     # No-email assignment sessions remain memory-only access tokens: unlike a
     # normal login they never receive a refresh cookie. Keep the bounded TTL
     # long enough to complete a course without turning the copied credential
     # into a long-lived session.
     ASSIGNMENT_ACCESS_SESSION_MINUTES: int = Field(default=240, ge=30, le=480)
 
-    # MinIO / S3
+    # Legacy MinIO endpoint metadata. The application has no MinIO credential
+    # consumer; local object-store root credentials belong only to Compose and
+    # must never be embedded in application defaults.
     MINIO_ENDPOINT: str = "localhost:9000"
-    MINIO_ACCESS_KEY: str = "minioadmin"
-    MINIO_SECRET_KEY: str = "minioadmin_secret_2026"
     MINIO_BUCKET: str = "lms-content"
     MINIO_USE_SSL: bool = False
 
@@ -200,7 +208,7 @@ class Settings(BaseSettings):
         "https://www.kml.kz",
     ]
 
-    @field_validator("CORS_ORIGINS", mode="before")
+    @field_validator("CORS_ORIGINS", "AUTH_BROWSER_ORIGINS", mode="before")
     @classmethod
     def parse_cors_origins(cls, v):
         if isinstance(v, str):

@@ -15,17 +15,17 @@ async def test_logout_audits_owner_of_valid_refresh_token():
     query_result = SimpleNamespace(scalar_one_or_none=lambda: user)
     db = AsyncMock()
     db.execute.return_value = query_result
+    token = "valid-refresh-token"
     request = Request(
         {
             "type": "http",
             "method": "POST",
             "path": "/api/v1/auth/logout",
-            "headers": [],
+            "headers": [(b"cookie", f"kamilya_refresh={token}".encode())],
             "client": ("127.0.0.1", 1234),
         }
     )
     response = Response()
-    token = "valid-refresh-token"
 
     with (
         patch(
@@ -39,7 +39,7 @@ async def test_logout_audits_owner_of_valid_refresh_token():
         patch("app.modules.auth.router.log_action", new=AsyncMock()) as audit,
     ):
         result = await logout(
-            RefreshRequest(refresh_token=token),
+            RefreshRequest(),
             request,
             response,
             db,
@@ -56,12 +56,13 @@ async def test_logout_audits_owner_of_valid_refresh_token():
 @pytest.mark.asyncio
 async def test_logout_clears_cookie_when_refresh_token_is_invalid():
     db = AsyncMock()
+    token = "invalid-refresh-token"
     request = Request(
         {
             "type": "http",
             "method": "POST",
             "path": "/api/v1/auth/logout",
-            "headers": [],
+            "headers": [(b"cookie", f"kamilya_refresh={token}".encode())],
             "client": ("127.0.0.1", 1234),
         }
     )
@@ -72,7 +73,7 @@ async def test_logout_clears_cookie_when_refresh_token_is_invalid():
         side_effect=ValueError("malformed"),
     ):
         result = await logout(
-            RefreshRequest(refresh_token="invalid-refresh-token"),
+            RefreshRequest(),
             request,
             response,
             db,
@@ -90,17 +91,17 @@ async def test_superadmin_logout_uses_platform_audit_scope():
     query_result = SimpleNamespace(scalar_one_or_none=lambda: user)
     db = AsyncMock()
     db.execute.return_value = query_result
+    response = Response()
+    token = "valid-platform-refresh-token"
     request = Request(
         {
             "type": "http",
             "method": "POST",
             "path": "/api/v1/auth/logout",
-            "headers": [],
+            "headers": [(b"cookie", f"kamilya_refresh={token}".encode())],
             "client": ("127.0.0.1", 1234),
         }
     )
-    response = Response()
-    token = "valid-platform-refresh-token"
 
     with (
         patch(
@@ -110,7 +111,7 @@ async def test_superadmin_logout_uses_platform_audit_scope():
         patch("app.modules.auth.router.blacklist_refresh_token", new=AsyncMock()) as blacklist,
         patch("app.modules.auth.router.log_action", new=AsyncMock()) as audit,
     ):
-        result = await logout(RefreshRequest(refresh_token=token), request, response, db)
+        result = await logout(RefreshRequest(), request, response, db)
 
     assert result == {"status": "ok"}
     blacklist.assert_awaited_once_with(db, token)

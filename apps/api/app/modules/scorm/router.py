@@ -12,10 +12,9 @@ import zipfile
 from datetime import UTC, datetime, timedelta
 from io import BytesIO
 from pathlib import PurePosixPath
-from typing import Any
+from typing import Any, cast
 from urllib.parse import quote, urlsplit
 from uuid import UUID
-from xml.etree import ElementTree as ET
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import HTMLResponse, Response
@@ -32,7 +31,9 @@ from app.models.users import User
 from app.modules.audit.service import log_action
 from app.modules.certificates.service import issue_certificate
 from app.modules.courses.access import require_course_access
+from app.modules.scorm.cmi_policy import CmiCommitPolicy, CmiPolicyError
 from app.modules.scorm.models import ScormAttempt, ScormPackage
+from app.modules.scorm.package_intake import ScormIntakeError, ScormPackageIntake
 from app.modules.scorm.schemas import (
     ScormCommitRequest,
     ScormCommitResponse,
@@ -46,15 +47,14 @@ router = APIRouter(
 )
 logger = logging.getLogger(__name__)
 
-MAX_SCORM_ZIP_BYTES = int(os.getenv("MAX_SCORM_ZIP_BYTES", str(250 * 1024 * 1024)))
 MAX_SCORM_FILES = int(os.getenv("MAX_SCORM_FILES", "5000"))
 MAX_SCORM_UNCOMPRESSED_BYTES = int(os.getenv("MAX_SCORM_UNCOMPRESSED_BYTES", str(500 * 1024 * 1024)))
 MAX_SCORM_ENTRY_BYTES = int(os.getenv("MAX_SCORM_ENTRY_BYTES", str(100 * 1024 * 1024)))
 MAX_SCORM_COMPRESSION_RATIO = int(os.getenv("MAX_SCORM_COMPRESSION_RATIO", "100"))
-MAX_SCORM_MANIFEST_BYTES = int(os.getenv("MAX_SCORM_MANIFEST_BYTES", str(2 * 1024 * 1024)))
-SCORM_READ_CHUNK_BYTES = 1024 * 1024
 SCORM_LAUNCH_TOKEN_MINUTES = 180
 SCORM_BRIDGE_VERSION = 1
+_SCORM_PACKAGE_INTAKE = ScormPackageIntake()
+_CMI_COMMIT_POLICY = CmiCommitPolicy()
 
 
 def _url_origin(value: str) -> str:
@@ -123,134 +123,6 @@ def _safe_zip_names(zf: zipfile.ZipFile) -> list[str]:
     if len(names) > MAX_SCORM_FILES:
         raise HTTPException(status_code=400, detail=f"SCORM ZIP contains more than {MAX_SCORM_FILES} files")
     return names
-
-
-async def _read_scorm_upload(file: UploadFile, content_length: str | None) -> bytes:
-    if content_length:
-        try:
-            if int(content_length) > MAX_SCORM_ZIP_BYTES:
-                raise HTTPException(status_code=413, detail="SCORM ZIP is too large")
-        except ValueError:
-            raise HTTPException(status_code=400, detail="Invalid Content-Length") from None
-    chunks: list[bytes] = []
-    total = 0
-    while chunk := await file.read(SCORM_READ_CHUNK_BYTES):
-        total += len(chunk)
-        if total > MAX_SCORM_ZIP_BYTES:
-            raise HTTPException(status_code=413, detail="SCORM ZIP is too large")
-        chunks.append(chunk)
-    return b"".join(chunks)
-
-
-def _text_of(root: ET.Element, xpath: str, ns: dict[str, str]) -> str | None:
-    el = root.find(xpath, ns)
-    if el is None or el.text is None:
-        return None
-    value = el.text.strip()
-    return value or None
-
-
-def _parse_manifest(zf: zipfile.ZipFile, names: list[str]) -> dict[str, Any]:
-    manifest_name = next((name for name in names if name.lower().endswith("imsmanifest.xml")), None)
-    if not manifest_name:
-        raise HTTPException(status_code=400, detail="SCORM package must contain imsmanifest.xml")
-
-    manifest_info = zf.getinfo(manifest_name)
-    if manifest_info.file_size > MAX_SCORM_MANIFEST_BYTES:
-        raise HTTPException(status_code=400, detail="SCORM manifest exceeds the allowed size")
-    try:
-        with zf.open(manifest_info) as manifest_file:
-            manifest_bytes = manifest_file.read(MAX_SCORM_MANIFEST_BYTES + 1)
-        if len(manifest_bytes) > MAX_SCORM_MANIFEST_BYTES:
-            raise HTTPException(status_code=400, detail="SCORM manifest exceeds the allowed size")
-        root = ET.fromstring(manifest_bytes)
-    except ET.ParseError:
-        raise HTTPException(status_code=400, detail="imsmanifest.xml is not valid XML") from None
-
-    ns = {
-        "imscp": "http://www.imsproject.org/xsd/imscp_rootv1p1p2",
-        "adlcp": "http://www.adlnet.org/xsd/adlcp_rootv1p2",
-        "adlcp2004": "http://www.adlnet.org/xsd/adlcp_v1p3",
-    }
-    default_org = root.find("imscp:organizations", ns)
-    default_org_id = default_org.attrib.get("default") if default_org is not None else None
-    org = None
-    if default_org is not None and default_org_id:
-        org = default_org.find(f"imscp:organization[@identifier='{default_org_id}']", ns)
-    if org is None and default_org is not None:
-        org = default_org.find("imscp:organization", ns)
-
-    title = _text_of(org, "imscp:title", ns) if org is not None else None
-    item = org.find(".//imscp:item", ns) if org is not None else None
-    resource_id = item.attrib.get("identifierref") if item is not None else None
-    resource = None
-    if resource_id:
-        resource = root.find(f".//imscp:resource[@identifier='{resource_id}']", ns)
-    if resource is None:
-        resource = root.find(".//imscp:resource[@href]", ns)
-    if resource is None:
-        raise HTTPException(status_code=400, detail="SCORM manifest has no launchable resource")
-
-    href = (resource.attrib.get("href") or "").strip()
-    if not href:
-        raise HTTPException(status_code=400, detail="SCORM launch resource has no href")
-    if PurePosixPath(href).is_absolute() or ".." in PurePosixPath(href).parts:
-        raise HTTPException(status_code=400, detail="SCORM manifest contains unsafe launch path")
-
-    # SCORM 2004 manifests reference the adlcp_v1p3 namespace. ElementTree stores
-    # namespace URIs inside BOTH element tag names (e.g. "{.../adlcp_v1p3}item") AND
-    # inside attribute keys (e.g. "{.../adlcp_v1p3}scormtype" on <resource>). The
-    # original fallback searched only root.attrib (which never contains namespace
-    # declarations themselves), so SCORM 2004 packages whose only 2004 marker is an
-    # attribute like `adlcp2004:scormtype="sco"` were silently accepted as 1.2.
-    # Walk all tag names AND every attrib key to find any 2004 marker.
-    version = "unknown"
-    schema_version = _text_of(root, "imscp:metadata/imscp:schemaversion", ns)
-    if schema_version:
-        lowered = schema_version.lower()
-        if "2004" in lowered:
-            version = "scorm_2004"
-        elif "1.2" in lowered or "1,2" in lowered:
-            version = "scorm_1_2"
-    if version == "unknown":
-
-        def _walk(el: ET.Element) -> bool:
-            tag = el.tag if isinstance(el.tag, str) else ""
-            if "adlcp_v1p3" in tag or "adlcp2004" in tag:
-                return True
-            for attr_key in el.attrib:
-                if isinstance(attr_key, str) and ("adlcp_v1p3" in attr_key or "adlcp2004" in attr_key):
-                    return True
-            return any(_walk(child) for child in list(el))
-
-        version = "scorm_2004" if _walk(root) else "scorm_1_2"
-
-    manifest_dir = str(PurePosixPath(manifest_name).parent)
-    entrypoint = href if manifest_dir == "." else f"{manifest_dir}/{href}"
-
-    # Normalize: strip query/hash before checking whether the file is in
-    # the archive. SCORM 1.2 packages sometimes declare `index.html?foo=bar`
-    # in the resource href (iSpring/Articulate authoring tools). The raw
-    # href is preserved in `entrypoint` so the runtime shell can keep the
-    # query string when launching the iframe.
-    entrypoint_for_check = entrypoint.split("?", 1)[0].split("#", 1)[0]
-    if entrypoint_for_check not in names:
-        # Some packages reference a URL with query/hash. The runtime step will handle
-        # that; for import, keep the declared href but warn through manifest metadata.
-        entrypoint_exists = False
-    else:
-        entrypoint_exists = True
-
-    return {
-        "manifest_file": manifest_name,
-        "title": title or "SCORM курс",
-        "version": version,
-        "entrypoint": entrypoint,
-        "entrypoint_exists": entrypoint_exists,
-        "default_organization": default_org_id,
-        "resource_id": resource_id,
-        "file_count": len(names),
-    }
 
 
 def _assert_scorm_12(version: str) -> None:
@@ -510,21 +382,16 @@ async def import_scorm_package(
     if not filename.lower().endswith(".zip"):
         raise HTTPException(status_code=400, detail="Upload a SCORM .zip package")
 
-    data = await _read_scorm_upload(file, request.headers.get("content-length"))
-    if not data:
-        raise HTTPException(status_code=400, detail="SCORM ZIP is empty")
-
     try:
-        with zipfile.ZipFile(BytesIO(data)) as zf:
-            names = _safe_zip_names(zf)
-            manifest = _parse_manifest(zf, names)
-    except zipfile.BadZipFile:
-        raise HTTPException(status_code=400, detail="Uploaded file is not a valid ZIP") from None
-    _assert_scorm_12(manifest["version"])
+        validated = await _SCORM_PACKAGE_INTAKE.inspect(file, request.headers.get("content-length"))
+    except ScormIntakeError as exc:
+        raise HTTPException(status_code=exc.status_code, detail={"code": exc.code, "message": exc.detail}) from None
+    data = validated.content
+    manifest = validated.manifest
 
     await assert_can_create_courses(db, user.tenant_id)
 
-    course_title = (title or manifest["title"]).strip()[:255] or "SCORM курс"
+    course_title = (title or manifest.title).strip()[:255] or "SCORM курс"
     course = Course(
         tenant_id=user.tenant_id,
         title=course_title,
@@ -547,11 +414,15 @@ async def import_scorm_package(
         package = ScormPackage(
             tenant_id=user.tenant_id,
             course_id=course.id,
-            version=manifest["version"],
+            version=manifest.version,
             title=course_title,
-            entrypoint=manifest["entrypoint"],
+            entrypoint=manifest.entrypoint,
             storage_key=storage_key,
-            manifest_json={**manifest, "original_filename": filename, "sha256": hashlib.sha256(data).hexdigest()},
+            manifest_json={
+                **manifest.as_dict(),
+                "original_filename": filename,
+                "sha256": hashlib.sha256(data).hexdigest(),
+            },
             uploaded_by=user.id,
         )
         db.add(package)
@@ -825,7 +696,7 @@ async def commit_scorm_attempt(
     payload = _decode_launch_token(token)
     await _set_scorm_token_tenant_context(db, payload)
     enrollment_id = await _require_scorm_token_enrollment(db, payload, active_only=True)
-    attempt = await db.get(ScormAttempt, attempt_id)
+    attempt = await db.get(ScormAttempt, attempt_id, with_for_update=True)
     if not attempt:
         raise HTTPException(status_code=404, detail="SCORM attempt not found")
     if str(attempt.tenant_id) != payload.get("tenant_id") or str(attempt.user_id) != payload.get("sub"):
@@ -835,19 +706,28 @@ async def commit_scorm_attempt(
     if attempt.enrollment_id != enrollment_id:
         raise HTTPException(status_code=403, detail="SCORM token does not match enrollment")
 
-    cmi = dict(req.cmi or {})
-    attempt.cmi_json = {**(attempt.cmi_json or {}), **cmi}
-    attempt.lesson_status = cmi.get("cmi.core.lesson_status") or attempt.lesson_status
-    attempt.score_raw = cmi.get("cmi.core.score.raw") or attempt.score_raw
-    attempt.lesson_location = cmi.get("cmi.core.lesson_location") or attempt.lesson_location
-    attempt.total_time = cmi.get("cmi.core.total_time") or attempt.total_time
-    attempt.suspend_data = cmi.get("cmi.suspend_data") or attempt.suspend_data
-    attempt.last_commit_at = datetime.now(UTC)
+    try:
+        normalized = _CMI_COMMIT_POLICY.validate(
+            req.cmi or {},
+            cast(dict[str, Any], attempt.cmi_json or {}),
+            raw_content_length=request.headers.get("content-length"),
+        )
+    except CmiPolicyError as exc:
+        raise HTTPException(status_code=exc.status_code, detail={"code": exc.code, "message": exc.detail}) from None
+    cmi = normalized.patch
+    writable_attempt = cast(Any, attempt)
+    writable_attempt.cmi_json = normalized.merged
+    writable_attempt.lesson_status = cmi.get("cmi.core.lesson_status") or attempt.lesson_status
+    writable_attempt.score_raw = cmi.get("cmi.core.score.raw") or attempt.score_raw
+    writable_attempt.lesson_location = cmi.get("cmi.core.lesson_location") or attempt.lesson_location
+    writable_attempt.total_time = cmi.get("cmi.core.total_time") or attempt.total_time
+    writable_attempt.suspend_data = cmi.get("cmi.suspend_data") or attempt.suspend_data
+    writable_attempt.last_commit_at = datetime.now(UTC)
 
     cert_data: dict[str, str | None] = {"certificate_id": None, "certificate_number": None}
-    completed = _is_scorm_completed(attempt.cmi_json)
+    completed = _is_scorm_completed(normalized.merged)
     if completed and attempt.completed_at is None:
-        attempt.completed_at = datetime.now(UTC)
+        writable_attempt.completed_at = datetime.now(UTC)
         cert_data = await _complete_from_scorm(db, attempt, payload["sub"])
 
     await db.commit()

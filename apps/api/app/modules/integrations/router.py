@@ -317,15 +317,16 @@ async def smtp_test(
             timeout=15,
         )
     except Exception as e:
+        error_type = e.__class__.__name__
         row.last_test_at = datetime.now(timezone.utc)
-        row.last_test_status = f"failed: {e.__class__.__name__}: {str(e)[:200]}"
+        row.last_test_status = f"failed: {error_type}"
         db.add(TenantIntegrationAudit(
             tenant_id=user.tenant_id, channel="smtp",
             changed_by=user.id, change_type="test_failed",
-            metadata_json={"error": str(e)[:500]},
+            metadata_json={"error_type": error_type},
         ))
         await db.commit()
-        raise HTTPException(502, detail=f"SMTP send failed: {e}")
+        raise HTTPException(502, detail="SMTP send failed")
 
     row.last_test_at = datetime.now(timezone.utc)
     row.last_test_status = "ok"

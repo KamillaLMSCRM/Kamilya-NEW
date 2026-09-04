@@ -1,5 +1,6 @@
 const DEV_VERCEL_PROJECT_URL = 'kamilya-lms-dev.vercel.app';
 const DEV_API_URL = 'https://kamilya-lms-api.onrender.com/api';
+const { buildSecurityHeaders } = require('./security-headers');
 
 const configuredApiUrl = process.env.NEXT_PUBLIC_API_URL;
 const apiUrl =
@@ -28,6 +29,14 @@ const nextConfig = {
   // even if its dashboard environment variable drifts to api.kml.kz.
   env: {
     NEXT_PUBLIC_API_URL: apiUrl,
+  },
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: buildSecurityHeaders(),
+      },
+    ];
   },
   // API calls now go cross-origin directly to the FastAPI backend.
 // Earlier we had a `rewrites()` block that proxied /api/v1/* through

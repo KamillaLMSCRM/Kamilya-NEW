@@ -2,8 +2,8 @@
 import pytest
 from fastapi import Response
 
+from app.modules.auth.browser_session import get_browser_session_policy
 from app.modules.auth.schemas import LoginRequest, TokenResponse, UserCreate
-from app.modules.auth.router import _set_refresh_cookie
 
 
 class TestAuthSchemas:
@@ -35,7 +35,7 @@ class TestAuthSchemas:
 
     def test_refresh_cookie_is_httponly_and_not_in_response_model(self) -> None:
         response = Response()
-        _set_refresh_cookie(response, "test-refresh-token")
+        get_browser_session_policy().set_refresh_cookie(response, "test-refresh-token")
         cookie = response.headers["set-cookie"].lower()
         assert "httponly" in cookie
         assert "secure" in cookie

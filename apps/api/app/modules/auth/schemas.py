@@ -85,7 +85,7 @@ class TelegramLoginRequest(BaseModel):
 
 class RefreshRequest(BaseModel):
     # Optional because the httpOnly refresh cookie carries the token by
-    # default (see apps/api/app/modules/auth/router.py::_read_refresh_cookie_or_body).
+    # default (see app.modules.auth.browser_session.BrowserSessionPolicy).
     # The body field is kept only as a legacy fallback for clients that
     # don't share the cookie origin.
     refresh_token: str | None = None
