@@ -1,6 +1,6 @@
 # Error and Recurrence Prevention Log
 
-Current as of: 2026-09-03.
+Current as of: 2026-09-04.
 
 This is the single operational log for confirmed Kamilya LMS workflow errors,
 invalid assumptions, fixes, verification, and recurrence prevention. Open product
@@ -1426,3 +1426,12 @@ ANY TOKEN FAILURE.
 - Fix: disabled mode now returns `status=disabled` before opening a session or selecting/claiming rows. Configured delivery derives or accepts an explicit safe health URL, performs a bounded GET health check, and defers before claim on cold/unavailable receivers. Signed payload delivery and post-readiness retry classification remain unchanged. Operations now exposes `integration_status` and `held_count`, with an outer Celery timeout margin.
 - Verification: focused CRM and operations tests pass (`35 passed`), including disabled-mode no-claim, recovery no-select, health-before-payload, wake-then-deliver, URL safety, and timeout-margin cases. Full backend execution was attempted but is blocked in this workstation by local PostgreSQL `ConnectionRefusedError [WinError 1225]`; no production or provider mutation was performed.
 - Prevention: optional integrations must fail closed before durable claims, external wake/readiness must be a separate non-payload phase, and nested timeouts must reserve an explicit outer margin. Observability contracts must distinguish disabled/held integrations from unavailable workers.
+
+## TEST-009 - Managed DEV migration owner could not assume the runtime role
+
+- Date: 2026-09-04.
+- Symptom: the notification-inbox DEV integration suite passed six database-backed checks but failed before the cross-tenant insert assertion because `SET LOCAL ROLE lms_app` returned `InsufficientPrivilegeError`.
+- Cause: DEV intentionally uses separate credentials. `DATABASE_URL` connects directly as the `lms_app` runtime role with `NOBYPASSRLS`; `MIGRATION_DATABASE_URL` connects as the managed `postgres` migration role. PostgreSQL reports that migration-role membership has `inherit_option=false` and `set_option=false`, so it cannot emulate the runtime role inside the fixture transaction.
+- Fix: probe `SET LOCAL ROLE lms_app` inside a savepoint and skip only that role-switch-dependent test when the provider denies the switch. Keep the assertion active in local and CI databases that permit it; verify managed DEV through its dedicated runtime connection.
+- Verification: Alembic reports `0151 (head)`; the DEV integration file passes `6 passed, 1 skipped`; a direct transaction under `current_user=lms_app` proved same-recipient visibility, other-recipient invisibility and rejection of a cross-tenant insert, then rolled back the probe with no persisted row. The Python quality baseline passes at `ruff=1097, mypy=2359`, and `git diff --check` passes.
+- Prevention: tests that depend on role impersonation must distinguish an unsupported provider capability from an RLS failure. Managed environments with separate runtime credentials require direct, rollback-only runtime-role readback for the skipped contour.
