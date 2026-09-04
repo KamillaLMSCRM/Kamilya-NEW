@@ -154,6 +154,16 @@ HTTP 200 или зелёный deploy сам по себе не закрывае
 ## Работа с репозиторием
 
 - Сначала `git status`, не откатывать чужие изменения.
+- Перед Git, DB, provider, deployment или infrastructure действием сначала найти
+  уже проложенный путь в `AGENTS.md`, `ERRORS.md`,
+  `docs/PROJECT-CONTEXT.md` и профильном runbook/skill. Канонический путь
+  выполняется раньше общей диагностики; ambient CLI/keyring/browser state не
+  является основанием объявлять blocker.
+- На этой рабочей станции запрещено запускать или использовать PostgreSQL в
+  локальном Docker для Kamilya dev/integration/migration/RLS проверок. Использовать
+  канонический Supabase DEV/test-контур и предусмотренную изоляцию/cleanup.
+  Локальный Docker разрешён только для проверок сборки и runtime-hardening образов,
+  не требующих базы данных. GitHub CI service containers этим правилом не меняются.
 - Предпочитать существующие паттерны и domain boundaries.
 - Для структурированных данных использовать parser/API, а не string hacks.
 - Комментарии добавлять только там, где код неочевиден.
@@ -609,6 +619,11 @@ Worker на отдельном VPS не обновляется автомати�
   транспортный 403 классифицируется как неверный credential path/account.
 - Не использовать `git reset --hard` и слепой production `git pull`.
 - После push дождаться CI и provider deploys.
+- После каждого успешного push независимо прочитать exact SHA удалённой ветки и
+  немедленно сохранить sanitized evidence: repository, branch, local SHA, remote
+  SHA, account `KamillaLMSCRM`, имя канонического credential path и UTC timestamp
+  в контексте текущей задачи и разрешённой владельцем persistent memory note.
+  Token value не сохранять. Вывод `git push` без remote-SHA readback недостаточен.
 - Документировать только подтверждённый текущий результат.
 
 ## Документация

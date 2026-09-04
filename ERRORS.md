@@ -779,6 +779,17 @@ FORBIDDEN FOR THIS REPOSITORY. RUN THE ROOT-ENV `gh auth status` CHECK AND USE
 THE OFFICIAL PROCESS-LOCAL `gh auth git-credential` HELPER BEFORE CLASSIFYING
 ANY TOKEN FAILURE.
 
+**RECURRENCE 2026-09-04:** the ambient active GitHub CLI account
+`askar0007amirkhanov` reported repository permission `READ`, and this was
+incorrectly presented as a push blocker before consulting the canonical path.
+The root-env `gh auth status` instead identified `KamillaLMSCRM` as the active
+process-local token account, and the official helper's exact-branch
+`git push --dry-run` successfully resolved `2619592..6a7635c`. Before every Git,
+DB, provider, deployment, or infrastructure action, search `AGENTS.md`, this
+journal, `docs/PROJECT-CONTEXT.md`, and the matching runbook for the verified
+path. Ambient CLI/keyring state cannot override a project-specific credential
+contract or establish a blocker.
+
 ## GIT-002 - Landing push used the LMS repository token instead of the landing token
 
 - Date: 2026-08-24.

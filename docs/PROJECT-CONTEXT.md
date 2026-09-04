@@ -88,6 +88,26 @@ project `web`, его branch `master` и `app.kml.kz` нельзя менять 
 задачи. Dev deployment содержит только committed Git SHA: dirty worktree в
 Vercel не попадает.
 
+### GitHub
+
+Для `KamillaLMSCRM/Kamilya-NEW` канонический credential — только
+`GITHUB_TOKEN` из корневого `Kamilya-NEW/.env`; канонический account —
+`KamillaLMSCRM`. Ambient/keyring account `askar0007amirkhanov` не используется
+для push этого репозитория. Точная process-local auth/push-команда и правило
+remote-SHA readback находятся в разделе «Git и release» файла `AGENTS.md` и в
+`ERRORS.md`, `GIT-001`. После каждого подтверждённого push сохраняются только
+repository, branch, local/remote SHA, account, имя credential path и timestamp;
+значение token не сохраняется.
+
+### Database verification
+
+Общий Kamilya dev/test PostgreSQL-контур — Supabase DEV. На этой рабочей станции
+не запускать PostgreSQL в Docker и не подменять им Supabase для integration,
+migration или RLS evidence. Использовать только approved Supabase DEV isolation
+и cleanup path; production CT125 остаётся отдельной release boundary. Локальный
+Docker допускается для database-free image build/runtime probes. GitHub CI
+service containers остаются частью отдельного CI-контракта.
+
 Зона `kml.kz` использует authoritative nameservers Cloudflare
 `sureena.ns.cloudflare.com` и `syeef.ns.cloudflare.com`. Vercel verified domain
 не означает управление DNS-записями: Vercel DNS records для зоны пусты. DNS

@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Security: exclude local environment files, private-key material, dependency
+  trees and test/build caches from Docker build contexts; the immutable-image
+  workflow now blocks images that contain local env files or run as the wrong UID.
 - Security: run the API/worker image as fixed non-root UID/GID 10001 and confine KZ
   release services with a read-only rootfs, bounded `/tmp`, dropped capabilities and
   `no-new-privileges`.
