@@ -117,7 +117,7 @@ def test_incomplete_blueprint_course_cannot_be_approved() -> None:
 def test_blueprint_routes_are_registered_before_release() -> None:
     from app.main import app
 
-    paths = {route.path for route in app.routes}
+    paths = set(app.openapi()["paths"])
     assert "/api/v1/course-blueprints" in paths
     assert "/api/v1/course-blueprints/{blueprint_id}/instantiate" in paths
     assert "/api/v1/courses/{course_id}/blueprint-adaptation" in paths

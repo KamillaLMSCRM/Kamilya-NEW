@@ -1357,6 +1357,15 @@ contract or establish a blocker.
 - Verification: run the focused SCORM intake test, the complete backend unit suite and the GitHub Linux CI job on the exact pushed revision.
 - Prevention: cross-platform archive tests must assert application-owned validation outcomes, not incidental warnings emitted by a standard-library writer on only one operating system.
 
+## TEST-010 - Route registration test inspected FastAPI's internal route representation
+
+- Date: 2026-09-04.
+- Symptom: the complete backend CI suite failed with `AttributeError: '_IncludedRouter' object has no attribute 'path'` while the focused course-blueprint behavior and integration tests remained green.
+- Cause: the test iterated `app.routes` and assumed every internal route object exposed `.path`; the upgraded FastAPI version retains included routers as lazy `_IncludedRouter` objects instead of flattening every route into that private collection.
+- Fix: assert the three registered course-blueprint paths through the application's generated OpenAPI contract, a public representation of the effective HTTP surface.
+- Verification: run the focused route-contract test, the complete local no-DB suite and the exact-revision GitHub backend suite with PostgreSQL, migrations, RLS and coverage.
+- Prevention: application route-contract tests must use public OpenAPI output or supported router APIs and must not depend on private FastAPI route object classes.
+
 ## GH-001 - Project token could not dispatch the image-build workflow
 
 - Date: 2026-08-31.
