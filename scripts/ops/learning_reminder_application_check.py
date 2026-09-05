@@ -8,10 +8,12 @@ recording transport. This is NOT historical-migration or production acceptance.
 from __future__ import annotations
 
 import asyncio
+import ast
 import re
 from contextlib import ExitStack
 from datetime import UTC, datetime, timedelta
 from functools import partial
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 from uuid import UUID, uuid4
@@ -41,6 +43,28 @@ async def check_application(admin, app_engine, schema: str) -> list[str]:
     )
     checks: list[str] = []
     async with admin.begin() as conn:
+        # LIKE INCLUDING ALL does not copy triggers. Preserve the real historical
+        # ownership guard at this boundary so impersonation cannot evade it in tests.
+        source = Path(__file__).resolve().parents[2] / "apps/api/alembic/versions/0143_learning_path_cycle_instances.py"
+        statements = [
+            node.value for node in ast.walk(ast.parse(source.read_text(encoding="utf-8")))
+            if isinstance(node, ast.Constant) and isinstance(node.value, str)
+            and node.value.startswith("CREATE OR REPLACE FUNCTION validate_recurring_learning_rule_ownership()")
+            and "NEW.learning_path_id" in node.value
+        ]
+        assert len(statements) == 1, "canonical_ownership_guard_ambiguous"
+        guard = statements[0].replace(
+            "FUNCTION validate_recurring_learning_rule_ownership()",
+            f'FUNCTION "{schema}".validate_recurring_learning_rule_ownership()',
+        ).replace("search_path=public,pg_temp", f'search_path="{schema}",pg_temp')
+        assert "public" not in guard
+        await conn.execute(text(f'CREATE TABLE "{schema}".user_roles (user_id uuid,tenant_id uuid,role text)'))
+        await conn.execute(text(f'GRANT SELECT ON "{schema}".user_roles TO lms_app'))
+        await conn.execute(text(guard))
+        await conn.execute(text(
+            f'CREATE TRIGGER synthetic_real_rule_ownership BEFORE INSERT OR UPDATE ON "{schema}".recurring_learning_rules '
+            f'FOR EACH ROW EXECUTE FUNCTION "{schema}".validate_recurring_learning_rule_ownership()'
+        ))
         for table in (*TABLES, "content_releases"):
             key = "id" if table == "tenants" else "tenant_id"
             await conn.execute(text(f'ALTER TABLE "{schema}".{table} ENABLE ROW LEVEL SECURITY'))
@@ -126,6 +150,7 @@ async def check_application(admin, app_engine, schema: str) -> list[str]:
                 patch.object(service, "queue_manual_enrollment_notification", AsyncMock(return_value=None))
             )
             tenant, other, methodologist, learner, course, release = [uuid4() for _ in range(6)]
+            platform_actor = uuid4()
             async with owner_sessions() as db:
                 db.add_all(
                     [
@@ -193,10 +218,12 @@ async def check_application(admin, app_engine, schema: str) -> list[str]:
             api.include_router(router.router, prefix="/api/v1")
 
             async def identity(request: Request):
+                impersonating = request.headers.get("x-test-impersonating") == "true"
                 return SimpleNamespace(
-                    id=methodologist,
+                    id=platform_actor if impersonating else methodologist,
                     tenant_id=UUID(request.headers.get("x-test-tenant", str(tenant))),
                     role=request.headers.get("x-test-role", "methodologist"),
+                    is_impersonating=impersonating,
                 )
 
             # Annotation binding is explicit because Request is a local import.
@@ -260,9 +287,11 @@ async def check_application(admin, app_engine, schema: str) -> list[str]:
                 response = await client.request(
                     "POST",
                     "/api/v1/learning-cycles",
+                    headers={"x-test-impersonating": "true"},
                     json={"course_id": str(course), "user_id": str(learner), "cadence_days": 30, "due_days": 1},
                 )
                 assert response.status_code == 201, "create_rule_failed"
+                checks.append("actual_HTTP_impersonated_rule_create_with_historical_tenant_author_guard")
                 rule_id = UUID(response.json()["id"])
                 path = f"/api/v1/learning-cycles/{rule_id}"
                 assert response.json()["reminder_enabled"] is False

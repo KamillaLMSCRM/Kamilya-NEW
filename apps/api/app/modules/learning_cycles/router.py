@@ -35,6 +35,13 @@ from app.modules.learning_paths.models import LearningPath
 router = APIRouter(prefix="/learning-cycles", tags=["learning-cycles"])
 
 
+def _rule_actor_id(user: Any) -> UUID | None:
+    """Return a tenant-valid author while preserving impersonation audit identity."""
+    if getattr(user, "is_impersonating", False):
+        return None
+    return cast(UUID, user.id)
+
+
 def occurrence_reporting_status(
     *,
     stored_status: str,
@@ -171,7 +178,7 @@ async def create_rule(
             db,
             path=path,
             user_id=body.user_id,
-            created_by=user.id,
+            created_by=_rule_actor_id(user),
         )
         if result.rule is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "Active learner not found")
@@ -211,7 +218,7 @@ async def create_rule(
         reminder_enabled=body.reminder_enabled,
         reminder_days_before_due=body.reminder_days_before_due,
         status="draft",
-        created_by=user.id,
+        created_by=_rule_actor_id(user),
     )
     db.add(rule)
     try:
@@ -313,7 +320,7 @@ async def sync_learning_path(
     )
     if path is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Published learning path not found")
-    result = await sync_learning_path_rules(db, path=path, created_by=user.id)
+    result = await sync_learning_path_rules(db, path=path, created_by=_rule_actor_id(user))
     await db.flush()
     return LearningPathSyncResponse(path_id=path.id, **result.__dict__)
 
