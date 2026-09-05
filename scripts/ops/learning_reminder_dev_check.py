@@ -512,7 +512,7 @@ async def run() -> int:
                         f"{Path(frame.filename).name}:{frame.lineno}"
                         for frame in traceback.extract_tb(exc.__traceback__)
                         if Path(frame.filename).name
-                        in {"learning_reminder_dev_check.py", "learning_reminder_application_check.py", "learning_owner_policy_check.py"}
+                        in {"learning_reminder_dev_check.py", "learning_reminder_application_check.py", "learning_owner_policy_check.py", "assignment_owner_policy_check.py"}
                     ],
                 }
             )

@@ -1494,3 +1494,37 @@ contract or establish a blocker.
   before business acceptance. Inspect processed/due, not merely Celery SUCCESS.
 - Safe state: test rule stopped and reminder disabled through UI; three pilot
   accounts soft-deactivated. History and persistent synthetic tenant retained.
+
+## REMINDER-003 — Legacy assignment outbox FORCE RLS blocks recurring materialization
+
+- Date: 2026-09-05
+- Status: FIX IN PROGRESS; production pilot stopped pending exact release.
+- Symptom: on 4aaf0b79 / CT1250153, actual lms_recovery discovers the due
+  synthetic rule, but materialize_rule rolls back at
+  enqueue_course_assignment_notification with InsufficientPrivilegeError on
+  course_assignment_notification_outbox. The table and SECURITY DEFINER function
+  are owned by non-bypass kamilya_migrator, INSERT/UPDATE ACLs are present,
+  FORCE RLS is enabled and no table policy covers that owner.
+- Cause: missing non-bypass function-owner RLS coverage in legacy migration0097.
+- Additional source boundary: course outbox actor FK is nullable, and audited
+  platform impersonation creates recurring rules with created_by=NULL, but the
+  old enqueue function rejects NULL. Path enqueue already permits that system
+  actor and rejects foreign non-null actors.
+- Fix: additive0154 owner-only SELECT/INSERT/UPDATE coverage; discovery
+  sees only due rows without context; writes remain tenant-context constrained.
+  Existing path outbox gets due-only owner SELECT for bounded recovery. Course
+  actor validation permits NULL while preserving foreign-tenant rejection.
+  No runtime table grant, DELETE policy, BYPASSRLS or RLS disable is introduced.
+- Verification: runtime reproduction and empty historical queues confirmed;
+  independent source review passed. DEV baseline reproduces42501 on actual
+  course enqueue;0154 green21 checks across reminder/course/path queues, nullable
+  and foreign actors, due-only owner visibility, direct-ACL negatives, dedup,
+  downgrade/re-upgrade and history preservation. Cleanup: schemas0/roles0;
+  provider calls0/shared-public writes0. Production acceptance remains pending.
+- Prevention: test the actual legacy assignment outbox as well as the new
+  reminder ledger under production-shaped non-bypass ownership. A passing
+  isolated reminder ledger cannot prove materialization-to-delivery acceptance.
+- Safe state: exact synthetic rule inactive/reminder disabled, no occurrence
+  or outbox row committed, no automatic email sent; original customer rules
+  and tenant data untouched. The activated synthetic learner remains available
+  only until the follow-up test and cleanup complete.

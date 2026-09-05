@@ -63,5 +63,10 @@ async def test_learning_owner_policy_db(db_session, monkeypatch) -> None:
         "course_ledger_end_to_end_no_provider",
         "tenant_and_direct_access_negatives",
         "downgrade_preserves_delivery_history",
+        "baseline_course_enqueue_42501",
+        "owner_policy_restores_no_context_due_discovery",
+        "course_nullable_and_nonnull_actor_dedup",
+        "path_enqueue_due_claim_wrong_token_and_finalize",
+        "reupgrade_restores_nullable_actor_and_due_discovery",
     }
     assert required_checks <= set(checks)

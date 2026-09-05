@@ -267,4 +267,23 @@ async def check_owner_policy(conn, schema: str, *, apply_fix: bool) -> list[str]
         await sql(statement)
     assert len((await actor(f"SELECT * FROM {q}.due_recurring_learning_rules(100)", role="lms_recovery")).all()) == 1
     checks.append("reupgrade_restores_bounded_discovery")
+    import sys
+
+    from assignment_owner_policy_check import check_assignment_policy
+
+    checks.extend(
+        await check_assignment_policy(
+            conn,
+            schema,
+            owner=owner,
+            caller=caller,
+            t=t,
+            other=other,
+            u=u,
+            c=c,
+            e=e,
+            assignment=assignment,
+            apply_fix="--assignment-baseline" not in sys.argv,
+        )
+    )
     return checks

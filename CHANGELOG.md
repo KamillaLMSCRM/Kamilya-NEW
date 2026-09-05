@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Legacy assignment outboxes now support their non-bypass function owner under FORCE RLS; course recurrence accepts a nullable audited system actor without admitting foreign-tenant actors.
+
 - Fixed: scheduled recurring learning and reminder payload discovery now work
   with a non-bypass database function owner; additive migration 0153 retains
   tenant isolation and runtime privileges, with rollback-scoped SQL regression.
