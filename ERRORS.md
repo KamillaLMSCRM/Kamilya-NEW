@@ -1455,3 +1455,42 @@ contract or establish a blocker.
 - Fix: disabled mode now returns `status=disabled` before opening a session or selecting/claiming rows. Configured delivery derives or accepts an explicit safe health URL, performs a bounded GET health check, and defers before claim on cold/unavailable receivers. Signed payload delivery and post-readiness retry classification remain unchanged. Operations now exposes `integration_status` and `held_count`, with an outer Celery timeout margin.
 - Verification: focused CRM and operations tests pass (`35 passed`), including disabled-mode no-claim, recovery no-select, health-before-payload, wake-then-deliver, URL safety, and timeout-margin cases. Full backend execution was attempted but is blocked in this workstation by local PostgreSQL `ConnectionRefusedError [WinError 1225]`; no production or provider mutation was performed.
 - Prevention: optional integrations must fail closed before durable claims, external wake/readiness must be a separate non-payload phase, and nested timeouts must reserve an explicit outer margin. Observability contracts must distinguish disabled/held integrations from unavailable workers.
+
+## REMINDER-002 - Non-bypass function owner silently hides due recurring rules
+
+- Date: 2026-09-05. Status: FIXED LOCALLY; production release pending. Owner
+  explicitly approved additional migration and unattended acceptance afterward.
+- Symptom: on release de6684ab, UI creates and activates a synthetic recurring
+  rule, but scheduled recovery repeatedly reports due=0, processed=0. The rule
+  is active and next_run_at is in the past; no occurrence or reminder is created.
+- Cause: due_recurring_learning_rules(integer) is SECURITY DEFINER owned by
+  kamilya_migrator (not superuser, no BYPASSRLS). The FORCE-RLS rules table has
+  only tenant_isolation TO lms_app, so the function owner cannot see due rows.
+  Worker recovery and application connections target the same host/database;
+  actual lms_recovery invocation independently reproduces the empty selection.
+- Verification: scripts/ops/manager_attention_acceptance_readback.sh, pre-cleanup
+  SHA 4d633dad9ec8ad5c2de5977373bfa7a81787b9b85f30173ef2370dc9b290790a;
+  canonical VM126-to-CT125 route, read-only SQL, no provider calls or DB writes
+  from the probe. Final cleanup SHA
+  24715affaa8fefe5fb49433637a576024eed4bdc7b781516ab9ec36aae272569
+  confirms inactive rule, reminder opt-out, zero occurrences/outbox rows,
+  and zero active users among the three owned synthetic pilot users.
+- Fix: additive0153 adds five owner-resolved SELECT policies on four tables.
+  Global discovery only admits active/due rules; reminder-related reads remain
+  tenant-context-bound. Existing policies, runtime grants, FORCE RLS, function
+  bodies and public-function revocations remain intact; no role attributes change.
+  Supabase DEV gate reproduces the empty discovery before the fix and passes10
+  checks after it, including two-tenant course/program payloads, opt-out,
+  duplicate suppression, downgrade/history preservation and re-upgrade.
+  Temporary owner/caller roles are NOLOGIN/non-bypass and rolled back with their
+  membership and ownership changes; zero roles/schemas remain. Supabase admin
+  cannot SET ROLE lms_app/lms_recovery: caller permissions are mirrored only to
+  the temporary caller; actual runtime ACLs are separately checked. This is real
+  non-bypass-owner SQL evidence, not a real production recovery login or SMTP test.
+- Prevention: DEV owner visibility must reproduce production. The existing
+  application harness adds fixture_owner USING(true), which cannot prove the
+  real function-owner RLS path. Require a failing non-bypass-owner reproduction,
+  two-tenant negatives, isolated upgrade/downgrade, and actual scheduled recovery
+  before business acceptance. Inspect processed/due, not merely Celery SUCCESS.
+- Safe state: test rule stopped and reminder disabled through UI; three pilot
+  accounts soft-deactivated. History and persistent synthetic tenant retained.

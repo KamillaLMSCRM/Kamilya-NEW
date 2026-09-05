@@ -159,6 +159,24 @@ async def run() -> int:
                 await db.execute(text(statement))
         await execute(f'GRANT USAGE ON SCHEMA "{schema}" TO lms_app')
         checks.append("actual_migration_sql_in_isolated_schema")
+        if "--owner-policy" in sys.argv:
+            from learning_owner_policy_check import check_owner_policy
+
+            stage = "non_bypass_owner_policy"
+            async with admin.connect() as db:
+                transaction = await db.begin()
+                try:
+                    checks.extend(await check_owner_policy(db, schema, apply_fix="--baseline" not in sys.argv))
+                finally:
+                    await transaction.rollback()
+            owner = schema.replace("r2_reminder_", "r2_owner_")
+            assert (await execute("SELECT count(*) FROM pg_roles WHERE rolname=:r", {"r": owner})).scalar() == 0
+            caller = schema.replace("r2_reminder_", "r2_caller_")
+            assert (await execute("SELECT count(*) FROM pg_roles WHERE rolname=:r", {"r": caller})).scalar() == 0
+            print(json.dumps({"status":"PASS", "checks":checks, "temporary_roles_remaining":0,
+                              "provider_calls":0, "shared_public_writes":0}))
+            code = 0
+            return code
         if application:
             from learning_reminder_application_check import check_application
 
@@ -477,6 +495,8 @@ async def run() -> int:
         original = getattr(exc, "orig", exc)
         sqlstate = getattr(original, "sqlstate", None) or getattr(original, "pgcode", None)
         diagnostic = ""
+        if isinstance(exc, AssertionError) and re.fullmatch(r"[a-z_]+", str(exc)):
+            diagnostic = str(exc)
         if sqlstate in {"42501", "42703", "42702", "42601", "42883", "23514", "P0001"}:
             diagnostic = str(original).splitlines()[0][:240]
         print(
@@ -492,7 +512,7 @@ async def run() -> int:
                         f"{Path(frame.filename).name}:{frame.lineno}"
                         for frame in traceback.extract_tb(exc.__traceback__)
                         if Path(frame.filename).name
-                        in {"learning_reminder_dev_check.py", "learning_reminder_application_check.py"}
+                        in {"learning_reminder_dev_check.py", "learning_reminder_application_check.py", "learning_owner_policy_check.py"}
                     ],
                 }
             )

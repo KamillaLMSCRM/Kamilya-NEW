@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Fixed: scheduled recurring learning and reminder payload discovery now work
+  with a non-bypass database function owner; additive migration 0153 retains
+  tenant isolation and runtime privileges, with rollback-scoped SQL regression.
+
 - Security: exclude local environment files, private-key material, dependency
   trees and test/build caches from Docker build contexts; the immutable-image
   workflow now blocks images that contain local env files or run as the wrong UID.
