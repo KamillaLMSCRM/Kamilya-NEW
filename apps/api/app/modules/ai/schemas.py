@@ -169,10 +169,10 @@ class AIChatResponse(BaseModel):
     strips the tags from `reply`, and exposes the parsed suggestion
     here for the UI's one-click apply button.
     """
-    reply: str
+    reply: str = Field(min_length=1, max_length=12_000)
     apply_lesson_id: Optional[UUID] = None
-    apply_lesson_content: Optional[str] = None
-    apply_lesson_title_hint: Optional[str] = None  # parsed "[APPLY_LESSON:title=...]" hint, optional
+    apply_lesson_content: Optional[str] = Field(default=None, max_length=12_000)
+    apply_lesson_title_hint: Optional[str] = Field(default=None, max_length=240)
     audience_recommendation: AudienceRecommendation | None = None
     model_config = ConfigDict(protected_namespaces=())
 

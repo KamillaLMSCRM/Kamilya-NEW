@@ -20,9 +20,15 @@ from app.core.auth import (
 )
 from app.core.config import get_settings
 from app.core.db import get_db
+from app.core.log_redaction import redact_sensitive_text
 from app.ml_prompts import get_renderer
 from app.models.ai_job import AIJob
 from app.models.users import User
+from app.modules.ai.assistant_policy import (
+    assistant_reply_is_safe,
+    assistant_request_refusal,
+    assistant_scope_refusal,
+)
 from app.modules.ai.job_service import (
     AIJobAdmissionLimitReachedError,
     AIJobSubmissionUnavailableError,
@@ -777,7 +783,7 @@ async def _fetch_target_context(
 async def chat(
     req: AIChatRequest,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_ai_job_access),
 ):
     """Methodologist assistant — short LLM reply grounded in the course.
 
@@ -794,6 +800,18 @@ async def chat(
             status_code=400,
             detail=f"target_id is required when context='{req.context}'",
         )
+    tenant_id = user.tenant_id
+    if tenant_id is None:
+        raise HTTPException(status_code=403, detail="Tenant context required")
+
+    request_refusal = assistant_request_refusal(req.message, req.language)
+    if request_refusal is not None:
+        # Preserve the normal 404 boundary: a refusal must not confirm whether
+        # a course belonging to another tenant exists.
+        visible_summary = await _fetch_course_summary(db, req.course_id, tenant_id)
+        if not visible_summary:
+            raise HTTPException(status_code=404, detail="Course not found")
+        return AIChatResponse(reply=request_refusal)
 
     from app.modules.ai.audience_advisor import is_audience_recommendation_question
 
@@ -812,7 +830,7 @@ async def chat(
             llm = await ResilientLLMClient.from_settings_async(temperature=0.1, max_tokens=900)
         except Exception:
             logger.warning("Could not initialize audience recommendation LLM; using fallback", exc_info=True)
-        recommendation = await recommend_audience(db, user.tenant_id, req.course_id, llm=llm)
+        recommendation = await recommend_audience(db, tenant_id, req.course_id, llm=llm)
         if recommendation is None:
             raise HTTPException(status_code=404, detail="Course not found")
         return AIChatResponse(
@@ -820,22 +838,26 @@ async def chat(
             audience_recommendation=recommendation,
         )
 
-    summary = await _fetch_course_summary(db, req.course_id, user.tenant_id)
+    summary = await _fetch_course_summary(db, req.course_id, tenant_id)
     if not summary:
         raise HTTPException(status_code=404, detail="Course not found")
 
     target_block = ""
     if req.target_id:
         target_block = await _fetch_target_context(
-            db, req.course_id, req.context, req.target_id, user.tenant_id
+            db, req.course_id, req.context, req.target_id, tenant_id
         )
 
     system_prompt = get_renderer().render("router/system_methodology_review.md")
 
-    user_block_parts = [f"Контекст курса:\n{summary}"]
+    safe_summary = redact_sensitive_text(summary)
+    safe_target_block = redact_sensitive_text(target_block)
+    safe_message = redact_sensitive_text(req.message)
+
+    user_block_parts = [f"Контекст курса:\n{safe_summary}"]
     if target_block:
-        user_block_parts.append(f"\nФокус рецензии:\n{target_block}")
-    user_block_parts.append(f"\nСообщение методолога:\n{req.message}")
+        user_block_parts.append(f"\nФокус рецензии:\n{safe_target_block}")
+    user_block_parts.append(f"\nСообщение методолога:\n{safe_message}")
     user_block = "\n".join(user_block_parts)
 
     llm = await ResilientLLMClient.from_settings_async(temperature=0.4, max_tokens=1500)
@@ -849,10 +871,14 @@ async def chat(
         reply = (resp.content or "").strip()
     except Exception as e:
         logger.error("AI chat LLM call failed error_type=%s", type(e).__name__)
-        raise HTTPException(status_code=502, detail="AI assistant is unavailable, try again")
+        raise HTTPException(
+            status_code=502,
+            detail="AI assistant is unavailable, try again",
+        ) from e
 
-    if not reply:
-        reply = "(пустой ответ от модели)"
+    if not assistant_reply_is_safe(reply):
+        logger.warning("AI chat reply blocked by public response policy")
+        return AIChatResponse(reply=assistant_scope_refusal(req.language))
 
     # Parse [APPLY_LESSON:UUID]body[/APPLY_LESSON] blocks — extract the first one
     # if present, strip from reply. Pattern is permissive on whitespace.
@@ -876,6 +902,20 @@ async def chat(
         except (ValueError, AttributeError):
             apply_id = None
             apply_content = None
+
+    # A model-generated marker can only target the lesson explicitly selected
+    # by the methodologist. Never turn an arbitrary UUID into an apply action.
+    if (
+        req.context != "lesson"
+        or req.target_id is None
+        or apply_id != req.target_id
+        or not apply_content
+        or len(apply_content) > 12_000
+        or (apply_title_hint is not None and len(apply_title_hint) > 240)
+    ):
+        apply_id = None
+        apply_content = None
+        apply_title_hint = None
 
     return AIChatResponse(
         reply=reply or "(пустой ответ)",
