@@ -769,3 +769,42 @@ document/course journey remains a separate owner-controlled synthetic rehearsal.
 - `FAIL / PRODUCT_DEFECT`: production assessment generation is not ready for unattended publication. The 25-question synthetic set included semantically incorrect/incomplete answer keys, missing negation/context, fragment answers, raw Markdown and a severe correct-answer verbosity cue. Human methodologist review remains a hard gate; deterministic per-question validation and regeneration are required before changing this verdict.
 - `OPEN`: some methodologist links lose the bounded superadmin impersonation context; program/AI usage counters can disagree with persisted assignments/jobs; learner confirmation wording does not yet match the clearer certificate-versus-evidence contract in the journal.
 - **Verdict:** release-plane self-upgrade is `GO`; the synthetic production operating flow is `GO WITH FOLLOW-UP`; automatically generated assessments are `NO-GO` without human review and quality gating.
+
+## Tenant assistant disclosure hardening — 2026-09-05
+
+- `GIT-DERIVED`: implementation release
+  `aaebce32580586f6109d80c6dd5aad542691348b` passed exact-SHA CI run
+  `33945664789`, including backend, PostgreSQL 17 + pgvector/RLS, AI course,
+  security, frontend, SCA and secret-detection jobs. Local focused checks passed
+  115 tests; release contracts passed with Alembic head `0151`; eight HTTP
+  integration tests passed against isolated Supabase DEV.
+- `PROVIDER-CONFIRMED`: Render DEV deployment
+  `dep-dadq2f8u01pc73brodb0` served the exact release. Its synthetic assistant
+  smoke returned the bounded refusal for model/system-prompt disclosure, `404`
+  for cross-tenant course access and `403` for a tenant admin; both temporary
+  tenants were deleted and the prefix readback was empty.
+- `PROVIDER-CONFIRMED`: protected KZ release workflow run `33946767820`
+  completed successfully with release ID
+  `REL-20260905-ASSISTANT-POLICY-AAEBCE3`. Migration mode was `no-migration`.
+  The immutable image is
+  `ghcr.io/kamillalmscrm/kamilya-api@sha256:c5e5f9ba90037301c8032d6f8ded1897aa6a85835cd78dd476e436abb92074ec`.
+- `RUNTIME-DERIVED`: public and private health reported `production`,
+  `kz-production` and exact release `aaebce32580586f6109d80c6dd5aad542691348b`.
+  The active slot was `green`; API, worker-ai, worker-documents and worker-ops
+  used image ID `sha256:c5e5f9ba90037301c8032d6f8ded1897aa6a85835cd78dd476e436abb92074ec`,
+  were running and had zero restarts. Operational and blob-backup watchdogs
+  were active; root disk usage was 66% and available memory was 13,340 MiB.
+- `RUNTIME-DERIVED`: CT125 remained on Alembic `0151`; the release gate created
+  and verified a fresh encrypted backup before rollout, and postdeploy readback
+  reused the still-fresh verified backup. No database migration or customer-data
+  mutation was performed.
+- `RUNTIME-DERIVED`: production capability smoke used two disposable synthetic
+  tenants and no real PII. It verified the same refusal, cross-tenant `404` and
+  admin-role `403`; both tenants were deleted through the standard superadmin
+  API. No LLM provider call was needed for this early-refusal path.
+- `ROLLBACK-READY`: the previous release
+  `65d97622e628d83afd522cb9a1837558c149f47b` and immutable image
+  `ghcr.io/kamillalmscrm/kamilya-api@sha256:7356d278bfb24b87474c615d75cdcbe48d8cb3a9ce330bfe8676848aefc5c66d`
+  remain recorded in the strict release manifest.
+- **Verdict:** tenant-assistant disclosure hardening is `GO`; the production
+  release and its synthetic cleanup are independently read back.
