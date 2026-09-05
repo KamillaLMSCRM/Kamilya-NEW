@@ -318,6 +318,12 @@ async def recover_due_notifications(limit: int = RECOVERY_BATCH_SIZE) -> dict[st
             )
             continue
         succeeded += 1
+    # The existing broker-independent recovery entrypoint also services reminders.
+    # Keep its result/counters and initial-assignment behavior compatible.
+    if getattr(get_settings(), "LEARNING_REMINDERS_ENABLED", False):
+        from app.modules.learning_reminders.tasks import recover_due_reminders
+
+        await recover_due_reminders(limit=bounded)
     return {
         "due": len(plan),
         "processed": attempted,

@@ -46,6 +46,8 @@ import { SignedScanControl, useSignedScanLedgers } from '@/features/training-evi
  * - Пагинация (limit/offset).
  */
 
+type DeadlineStatus = 'not_applicable' | 'active' | 'overdue' | 'completed_on_time' | 'completed_late';
+
 interface TrainingLogRow {
   user_id: string;
   full_name: string;
@@ -62,6 +64,13 @@ interface TrainingLogRow {
   enrollment_source: string;
   enrolled_at: string | null;
   completed_at: string | null;
+  cycle_id: string | null;
+  cycle_type: 'course' | 'learning_path' | null;
+  cycle_scheduled_for: string | null;
+  // Optional during the additive backend/frontend rollout: legacy responses do
+  // not contain deadline fields and must not be presented as being on track.
+  cycle_due_at?: string | null;
+  deadline_status?: DeadlineStatus;
   enrollment_id: string;
   latest_evidence_event_id: string | null;
   evidence_procedure_type: string | null;
@@ -73,9 +82,8 @@ interface TrainingLogRow {
     confirmation_status: 'not_required' | 'pending' | 'confirmed';
     evidence_state: 'forming' | 'ready' | 'incomplete' | 'revoked' | 'legal_hold';
   }>;
-  // Computed by backend (2026-07-09): honest status from real activity data.
-  // `overdue` was removed because enrollments have no deadline column —
-  // would have been a misleading filter. UI drops the option too.
+  // Computed by backend from real activity data. Deadline status is separate
+  // and only applies to immutable recurring-cycle assignments.
   computed_status: 'assigned' | 'in_progress' | 'completed';
   progress_percent: number;
   best_score: number | null;
@@ -98,17 +106,19 @@ interface TrainingLogSummary {
   assigned: number;
   in_progress: number;
   completed: number;
+  overdue: number;
 }
 
 type Filters = TrainingLogFilters;
 
-// Mirrors backend TrainingLogFilter.status Literal (no `overdue`).
-const STATUS_OPTIONS: Array<{ value: string; label: string }> = [
-  { value: '', label: 'Все статусы' },
-  { value: 'assigned', label: 'Назначен' },
-  { value: 'in_progress', label: 'В процессе' },
-  { value: 'completed', label: 'Завершён' },
-];
+// Mirrors backend TrainingLogFilter.status Literal.
+const STATUS_OPTIONS = [
+  { value: '', labelKey: 'trainingLog.filter.status.all' },
+  { value: 'assigned', labelKey: 'trainingLog.filter.status.assigned' },
+  { value: 'in_progress', labelKey: 'trainingLog.filter.status.inProgress' },
+  { value: 'completed', labelKey: 'trainingLog.filter.status.completed' },
+  { value: 'overdue', labelKey: 'trainingLog.filter.status.overdue' },
+] as const;
 
 const DELIVERY_OPTIONS: Array<{ value: string; label: string }> = [
   { value: '', label: 'Все типы' },
@@ -341,11 +351,12 @@ export default function AdminTrainingLogPage() {
         </div>
       </header>
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         <SummaryCard label={t('trainingLog.title')} value={summary?.total ?? 0} />
         <SummaryCard label={t('trainingLog.filter.status.assigned')} value={summary?.assigned ?? 0} />
         <SummaryCard label={t('trainingLog.filter.status.inProgress')} value={summary?.in_progress ?? 0} />
         <SummaryCard label={t('trainingLog.filter.status.completed')} value={summary?.completed ?? 0} />
+        <SummaryCard label={t('trainingLog.filter.status.overdue')} value={summary?.overdue ?? 0} />
       </div>
 
       {/* Filters */}
@@ -368,7 +379,7 @@ export default function AdminTrainingLogPage() {
           <SelectField
             label={t('trainingLog.filter.status.label')}
             value={filters.status ?? ''}
-            options={STATUS_OPTIONS}
+            options={STATUS_OPTIONS.map((option) => ({ value: option.value, label: t(option.labelKey) }))}
             onChange={(v) => setFilters((f) => ({ ...f, status: (v || undefined) as Filters['status'] }))}
           />
 
@@ -461,6 +472,12 @@ export default function AdminTrainingLogPage() {
                         {row.computed_status === 'completed' ? t('trainingLog.badge.completed') : row.computed_status === 'in_progress' ? t('trainingLog.badge.inProgress') : t('trainingLog.badge.assigned')}
                       </Badge>
                       <span className="text-sm tabular-nums text-muted-foreground">{t('trainingLog.table.progress')}: {row.progress_percent}%</span>
+                      {row.cycle_due_at && (
+                        <span className="text-sm text-muted-foreground">
+                          {t('trainingLog.table.deadline')}: {formatDate(row.cycle_due_at)}
+                        </span>
+                      )}
+                      <DeadlineStatusBadge row={row} t={t} />
                       {row.latest_evidence_event_id && (
                         <EvidenceStatusBadge row={row} t={t} />
                       )}
@@ -493,7 +510,7 @@ export default function AdminTrainingLogPage() {
               </div>
               <Table
                 className="training-log-table-scroll hidden max-w-full rounded-none border-0 lg:block"
-                tableClassName="w-max min-w-[2160px]"
+                tableClassName="w-max min-w-[2340px]"
               >
                 <thead className="sticky top-0 z-10 bg-card">
                   <tr className="text-left text-xs font-medium text-muted-foreground">
@@ -518,6 +535,7 @@ export default function AdminTrainingLogPage() {
                     <th className={columnClass.course}>{t('trainingLog.table.course')}</th>
                     <th className={columnClass.type}>{t('trainingLog.table.type')}</th>
                     <th className={columnClass.status}>{t('trainingLog.table.status')}</th>
+                    <th className={columnClass.deadline}>{t('trainingLog.table.deadline')}</th>
                     <th className="w-72 min-w-72 px-4 py-3">{t('trainingLog.table.evidence')}</th>
                     <th className={columnClass.source}>{t('assignmentSources.title')}</th>
                     <th className={columnClass.progress}>{t('trainingLog.table.progress')}</th>
@@ -585,6 +603,14 @@ export default function AdminTrainingLogPage() {
                               ? t('trainingLog.badge.inProgress')
                               : t('trainingLog.badge.assigned')}
                         </Badge>
+                      </td>
+                      <td className={columnClass.deadline}>
+                        {row.cycle_due_at ? (
+                          <div className="space-y-1">
+                            <div className="text-sm tabular-nums text-foreground">{formatDate(row.cycle_due_at)}</div>
+                            <DeadlineStatusBadge row={row} t={t} />
+                          </div>
+                        ) : <span className="text-sm text-muted-foreground">—</span>}
                       </td>
                       <td className="w-72 min-w-72 px-4 py-3 align-top">
                         {row.latest_evidence_event_id ? (
@@ -703,6 +729,24 @@ function EvidenceStatusBadge({ row, t }: { row: TrainingLogRow; t: ReturnType<ty
           : t('trainingLog.evidence.incomplete');
   const variant = row.evidence_state === 'revoked' ? 'destructive' : row.evidence_confirmation_status === 'confirmed' && row.evidence_state === 'ready' ? 'default' : 'secondary';
   return <Badge variant={variant}>{label}</Badge>;
+}
+
+function DeadlineStatusBadge({ row, t }: { row: Pick<TrainingLogRow, 'cycle_due_at' | 'deadline_status'>; t: ReturnType<typeof useT>['t'] }) {
+  if (!row.cycle_due_at) return null;
+
+  switch (row.deadline_status) {
+    case 'overdue':
+      return <Badge variant="destructive">{t('trainingLog.badge.deadlineOverdue')}</Badge>;
+    case 'completed_late':
+      return <Badge variant="secondary">{t('trainingLog.badge.completedLate')}</Badge>;
+    case 'completed_on_time':
+      return <Badge variant="outline">{t('trainingLog.badge.completedOnTime')}</Badge>;
+    case 'active':
+      return <Badge variant="outline">{t('trainingLog.badge.deadlineActive')}</Badge>;
+    case 'not_applicable':
+    default:
+      return null;
+  }
 }
 
 function EvidenceIconButton({

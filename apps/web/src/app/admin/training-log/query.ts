@@ -2,7 +2,7 @@ export interface TrainingLogFilters {
   course_id?: string;
   department_id?: string;
   position_id?: string;
-  status?: 'assigned' | 'in_progress' | 'completed';
+  status?: 'assigned' | 'in_progress' | 'completed' | 'overdue';
   delivery_type?: 'native' | 'scorm';
   date_from?: string;
   date_to?: string;

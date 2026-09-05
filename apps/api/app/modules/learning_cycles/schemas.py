@@ -6,6 +6,8 @@ from pydantic import BaseModel, Field, model_validator
 
 
 class RuleCreate(BaseModel):
+    reminder_enabled: bool = False
+    reminder_days_before_due: int = Field(1, ge=1, le=30)
     course_id: UUID | None = None
     learning_path_id: UUID | None = None
     user_id: UUID
@@ -31,11 +33,15 @@ class RuleCreate(BaseModel):
 
 
 class RuleUpdate(BaseModel):
+    reminder_enabled: bool | None = None
+    reminder_days_before_due: int | None = Field(None, ge=1, le=30)
     cadence_days: int | None = Field(None, ge=1, le=3660)
     due_days: int | None = Field(None, ge=0, le=3650)
 
 
 class RuleResponse(BaseModel):
+    reminder_enabled: bool = False
+    reminder_days_before_due: int = 1
     id: UUID
     tenant_id: UUID
     target_type: Literal["course", "learning_path"]

@@ -1736,7 +1736,8 @@
         "all": "Все статусы",
         "assigned": "Назначен",
         "inProgress": "В процессе",
-        "completed": "Завершён"
+        "completed": "Завершён",
+        "overdue": "Просрочено"
       },
       "delivery": {
         "label": "Тип курса",
@@ -1759,6 +1760,7 @@
       "course": "Курс",
       "type": "Тип",
       "status": "Статус",
+      "deadline": "Срок",
       "evidence": "Подтверждение",
       "progress": "Прогресс",
       "score": "Лучший балл",
@@ -1771,7 +1773,11 @@
       "scorm": "SCORM",
       "completed": "Завершён",
       "assigned": "Назначен",
-      "inProgress": "В процессе"
+      "inProgress": "В процессе",
+      "deadlineActive": "В срок",
+      "deadlineOverdue": "Просрочено",
+      "completedOnTime": "Завершено в срок",
+      "completedLate": "Завершено с опозданием"
     },
     "export": {
       "csv": "Скачать CSV",

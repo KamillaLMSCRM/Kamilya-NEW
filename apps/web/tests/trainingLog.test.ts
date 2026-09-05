@@ -16,6 +16,8 @@ describe('training-log request and count text', () => {
       .toBe('status=assigned&delivery_type=native&search=QA-UX-20260723-001');
     expect(buildTrainingLogPageQuery(filters, '  QA-UX-20260723-001  ', 100, 0))
       .toBe('status=assigned&delivery_type=native&search=QA-UX-20260723-001&limit=100&offset=0');
+    expect(buildTrainingLogFilterQuery({ status: 'overdue' }, '').toString())
+      .toBe('status=overdue');
   });
 
   it.each([
@@ -32,6 +34,13 @@ describe('training-log request and count text', () => {
     expect(evidence.pending).toBeTruthy();
     expect(evidence.certificateIndependent).toBeTruthy();
     expect(evidence.unavailable).not.toMatch(/certificate|сертификат|сертификат/i);
+  });
+
+  it.each([ru, kk, en])('labels recurring deadlines and overdue attention consistently', (locale) => {
+    expect(locale.trainingLog.filter.status.overdue).toBeTruthy();
+    expect(locale.trainingLog.table.deadline).toBeTruthy();
+    expect(locale.trainingLog.badge.deadlineOverdue).toBeTruthy();
+    expect(locale.trainingLog.badge.completedLate).toBeTruthy();
   });
 });
 
@@ -51,10 +60,11 @@ describe('training-log responsive presentation', () => {
 
     expect(source).toContain('data-testid="training-log-mobile-list"');
     expect(source).toContain('lg:hidden');
-    expect(source).toContain('tableClassName="w-max min-w-[2160px]"');
+    expect(source).toContain('tableClassName="w-max min-w-[2340px]"');
     expect(source).toContain('training-log-table-scroll');
     expect(source).toContain('sticky top-0');
     expect(TRAINING_LOG_COLUMN_CLASS.fullName).toContain('sticky left-0');
+    expect(source).toContain('<DeadlineStatusBadge row={row} t={t} />');
   });
 
   it('shows the returned signed-scan workflow in both responsive presentations for eligible evidence', () => {
@@ -73,6 +83,7 @@ describe('training-log responsive presentation', () => {
       'fullName',
       'course',
       'status',
+      'deadline',
       'progress',
       'personnelNumber',
       'department',

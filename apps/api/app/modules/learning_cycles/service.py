@@ -36,6 +36,16 @@ async def _set_tenant(db: AsyncSession, tenant_id: UUID) -> None:
     await db.execute(text("SELECT set_current_tenant(:tid)"), {"tid": str(tenant_id)})
 
 
+async def _queue_reminder(db: AsyncSession, tenant_id: UUID, *, course_id: UUID | None = None, path_id: UUID | None = None) -> None:
+    if not get_settings().LEARNING_REMINDERS_ENABLED:
+        return
+    await db.flush()
+    await db.execute(
+        text("SELECT public.enqueue_learning_reminder(:tid,:course,:path)"),
+        {"tid": tenant_id, "course": course_id, "path": path_id},
+    )
+
+
 async def _materialize_path_rule(db, rule, *, scheduled_for, now) -> tuple[str, UUID | None]:
     """Materialize one immutable path occurrence inside the caller transaction."""
     path = await db.scalar(
@@ -144,6 +154,7 @@ async def _materialize_path_rule(db, rule, *, scheduled_for, now) -> tuple[str, 
         learning_path_assignment_id=assignment.id,
         assigned_by=rule.created_by,
     )
+    await _queue_reminder(db, rule.tenant_id, path_id=cycle.id)
     return "materialized", notification_id
 
 
@@ -237,6 +248,7 @@ async def materialize_rule(rule_id: UUID, tenant_id: UUID, now=None):
                     notification_id = await queue_manual_enrollment_notification(
                         db, tenant_id=tenant_id, enrollment_id=enrollment.id, assigned_by=rule.created_by
                     )
+                    await _queue_reminder(db, tenant_id, course_id=occurrence.id)
             rule.last_run_at = scheduled_for
             rule.next_run_at = scheduled_for + timedelta(days=rule.cadence_days)
         await db.commit()

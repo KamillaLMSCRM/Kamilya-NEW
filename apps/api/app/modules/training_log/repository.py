@@ -19,6 +19,7 @@ the query plan should stay under 1s on the indexes we have
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 from typing import Any
 from uuid import UUID
 
@@ -39,16 +40,20 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql.elements import ColumnElement
 
 from app.models.department import Department
 from app.models.enrollment import Enrollment
 from app.models.users import User
 from app.modules.courses.models import Course as CourseModel
+from app.modules.learning_cycles.models import LearningPathCycleInstance, RecurringLearningAssignment
+from app.modules.learning_paths.models import LearningPathAssignment
 from app.modules.training_evidence.models import (
     TrainingEvidenceEvent,
     TrainingEvidenceLegalHold,
     TrainingEvidenceStepUpConfirmation,
 )
+from app.modules.training_log.deadline_policy import deadline_status_sql
 from app.modules.training_log.schemas import TrainingLogFilter
 
 logger = logging.getLogger(__name__)
@@ -70,20 +75,97 @@ _quiz_attempts = Table(
 )
 
 
+@dataclass(frozen=True)
+class _CycleReadColumns:
+    cycle_id: Any
+    cycle_type: Any
+    scheduled_for: Any
+    due_at: Any
+    eligible: Any
+
+    def deadline_status(self) -> ColumnElement[str]:
+        return deadline_status_sql(
+            due_at=self.due_at,
+            completed_at=Enrollment.completed_at,
+            enrollment_status=Enrollment.status,
+            eligible=self.eligible,
+        )
+
+
+def _join_cycle_read_model(stmt: Any, tenant_id: UUID) -> tuple[Any, _CycleReadColumns]:
+    """Attach direct-course and learning-path cycle identity without writes."""
+    stmt = stmt.outerjoin(
+        RecurringLearningAssignment,
+        and_(
+            RecurringLearningAssignment.id == Enrollment.recurring_assignment_id,
+            RecurringLearningAssignment.tenant_id == tenant_id,
+            RecurringLearningAssignment.user_id == Enrollment.user_id,
+            RecurringLearningAssignment.course_id == Enrollment.course_id,
+        ),
+    )
+    stmt = stmt.outerjoin(
+        LearningPathAssignment,
+        and_(
+            LearningPathAssignment.id == Enrollment.learning_path_assignment_id,
+            LearningPathAssignment.tenant_id == tenant_id,
+            LearningPathAssignment.user_id == Enrollment.user_id,
+        ),
+    )
+    stmt = stmt.outerjoin(
+        LearningPathCycleInstance,
+        and_(
+            LearningPathCycleInstance.id == LearningPathAssignment.recurrence_instance_id,
+            LearningPathCycleInstance.tenant_id == tenant_id,
+            LearningPathCycleInstance.user_id == Enrollment.user_id,
+            LearningPathCycleInstance.path_id == LearningPathAssignment.path_id,
+        ),
+    )
+    return stmt, _CycleReadColumns(
+        cycle_id=func.coalesce(RecurringLearningAssignment.id, LearningPathCycleInstance.id),
+        cycle_type=case(
+            (RecurringLearningAssignment.id.is_not(None), literal("course")),
+            (LearningPathCycleInstance.id.is_not(None), literal("learning_path")),
+            else_=None,
+        ),
+        scheduled_for=func.coalesce(
+            RecurringLearningAssignment.scheduled_for,
+            LearningPathCycleInstance.scheduled_for,
+        ),
+        due_at=func.coalesce(
+            RecurringLearningAssignment.due_at,
+            LearningPathCycleInstance.due_at,
+        ),
+        eligible=case(
+            (
+                RecurringLearningAssignment.id.is_not(None),
+                RecurringLearningAssignment.status.in_(("assigned", "completed")),
+            ),
+            else_=and_(
+                LearningPathCycleInstance.status.in_(("active", "completed")),
+                LearningPathAssignment.status.in_(("active", "completed")),
+            ),
+        ),
+    )
+
+
 def _apply_filters(stmt, f: TrainingLogFilter, tenant_id: UUID):
     """Apply WHERE clauses shared by count + rows queries.
 
     Status semantics (revised 2026-07-09 for honest filtering):
-    - completed:   enrollment.completed_at IS NOT NULL
+    - completed:   enrollment.status = completed OR completed_at IS NOT NULL
     - assigned:    not completed AND no native lesson progress AND no SCORM attempt
     - in_progress: not completed AND (native lesson progress OR SCORM attempt exists)
-    - overdue:     REMOVED — no deadline column on enrollments, so we can't honestly
-                   compute it. Surfacing a fake filter would mislead HR.
+    - overdue:     unfinished enrollment linked to an immutable course/path cycle
+                   whose effective due_at is before database UTC time.
 
     The 'assigned' / 'in_progress' filters rely on the LEFT-JOINed activity
     subqueries (`_native_activity`, `_scorm_activity`) added by the caller.
     """
-    stmt = stmt.where(User.tenant_id == tenant_id)
+    stmt = stmt.where(
+        User.tenant_id == tenant_id,
+        Enrollment.tenant_id == tenant_id,
+        CourseModel.tenant_id == tenant_id,
+    )
     stmt = stmt.where(User.role.in_(("student",)))  # HR doesn't want to see admins/methodologists in this log
     if f.course_id:
         stmt = stmt.where(CourseModel.id == f.course_id)
@@ -94,7 +176,7 @@ def _apply_filters(stmt, f: TrainingLogFilter, tenant_id: UUID):
     if f.date_to:
         stmt = stmt.where(Enrollment.enrolled_at <= f.date_to)
     if f.status == "completed":
-        stmt = stmt.where(Enrollment.completed_at.is_not(None))
+        stmt = stmt.where(or_(Enrollment.status == "completed", Enrollment.completed_at.is_not(None)))
     # 'assigned' / 'in_progress' are applied by `list_training_log` / `count_training_log`
     # because they reference the LEFT-JOINed activity subqueries that live on the main
     # query, not on the count query.
@@ -197,7 +279,7 @@ def _build_activity_subqueries():
     return native_activity, scorm_activity, course_lessons
 
 
-def _apply_status_filter(stmt, f: TrainingLogFilter, native_activity, scorm_activity):
+def _apply_status_filter(stmt, f: TrainingLogFilter, native_activity, scorm_activity, cycle_columns):
     """Apply the assigned/in_progress filter using the activity subqueries.
 
     `completed` is already handled in `_apply_filters` (uses Enrollment columns).
@@ -207,6 +289,7 @@ def _apply_status_filter(stmt, f: TrainingLogFilter, native_activity, scorm_acti
         stmt = stmt.where(
             and_(
                 Enrollment.completed_at.is_(None),
+                Enrollment.status != "completed",
                 or_(
                     native_activity.c.has_progress.is_(True),
                     scorm_activity.c.has_attempt.is_(True),
@@ -217,10 +300,13 @@ def _apply_status_filter(stmt, f: TrainingLogFilter, native_activity, scorm_acti
         stmt = stmt.where(
             and_(
                 Enrollment.completed_at.is_(None),
+                Enrollment.status != "completed",
                 native_activity.c.has_progress.isnot(True),
                 scorm_activity.c.has_attempt.isnot(True),
             )
         )
+    elif f.status == "overdue":
+        stmt = stmt.where(cycle_columns.deadline_status() == "overdue")
     return stmt
 
 
@@ -239,6 +325,7 @@ async def count_training_log(
         .join(CourseModel, CourseModel.id == Enrollment.course_id)
         .outerjoin(PositionModel, PositionModel.id == User.position_id)
     )
+    stmt, cycle_columns = _join_cycle_read_model(stmt, tenant_id)
     stmt = _apply_filters(stmt, f, tenant_id)
     if f.department_id:
         stmt = stmt.where(PositionModel.department_id == f.department_id)
@@ -253,6 +340,7 @@ async def count_training_log(
         stmt = stmt.where(
             and_(
                 Enrollment.completed_at.is_(None),
+                Enrollment.status != "completed",
                 or_(
                     select(1)
                     .select_from(
@@ -292,6 +380,7 @@ async def count_training_log(
         stmt = stmt.where(
             and_(
                 Enrollment.completed_at.is_(None),
+                Enrollment.status != "completed",
                 ~select(1)
                 .select_from(
                     Table(
@@ -325,6 +414,8 @@ async def count_training_log(
                 .exists(),
             )
         )
+    elif f.status == "overdue":
+        stmt = stmt.where(cycle_columns.deadline_status() == "overdue")
 
     result = await db.execute(stmt)
     return int(result.scalar() or 0)
@@ -555,17 +646,25 @@ async def list_training_log(
         .outerjoin(course_lessons, course_lessons.c.course_id == CourseModel.id)
     )
 
+    stmt, cycle_columns = _join_cycle_read_model(stmt, tenant_id)
+    stmt = stmt.add_columns(
+        cycle_columns.cycle_id.label("cycle_id"),
+        cycle_columns.cycle_type.label("cycle_type"),
+        cycle_columns.scheduled_for.label("cycle_scheduled_for"),
+        cycle_columns.due_at.label("cycle_due_at"),
+        cycle_columns.deadline_status().label("deadline_status"),
+    )
+
     stmt = _apply_filters(stmt, f, tenant_id)
-    stmt = _apply_status_filter(stmt, f, native_activity, scorm_activity)
+    stmt = _apply_status_filter(stmt, f, native_activity, scorm_activity, cycle_columns)
 
     if f.department_id:
         stmt = stmt.where(pos.c.department_id == f.department_id)
     if f.position_id:
         stmt = stmt.where(User.position_id == f.position_id)
 
-    # Order: most recent enrollment first; tie-break on (user_id, course_id)
-    # to make pagination stable.
-    stmt = stmt.order_by(desc(Enrollment.enrolled_at), User.id, CourseModel.id)
+    # Multiple occurrences may share user/course/enrolled_at; identity breaks ties.
+    stmt = stmt.order_by(desc(Enrollment.enrolled_at), User.id, CourseModel.id, Enrollment.id)
     stmt = stmt.limit(limit).offset(offset)
 
     rows = (await db.execute(stmt)).mappings().all()
@@ -771,6 +870,11 @@ async def list_training_log(
                 "content_release_id": r["content_release_id"],
                 "enrolled_at": r["enrolled_at"],
                 "completed_at": r["completed_at"],
+                "cycle_id": r["cycle_id"],
+                "cycle_type": r["cycle_type"],
+                "cycle_scheduled_for": r["cycle_scheduled_for"],
+                "cycle_due_at": r["cycle_due_at"],
+                "deadline_status": r["deadline_status"],
                 "computed_status": computed_status,
                 "progress_percent": progress_percent,
                 "best_score": quiz_info.get("best_score"),

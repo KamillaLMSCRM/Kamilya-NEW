@@ -171,6 +171,7 @@ class Settings(BaseSettings):
     # "smtp". SMTP defaults match the project mail server but credentials must
     # always be supplied by the active environment.
     EMAIL_PROVIDER: str = "log"
+    LEARNING_REMINDERS_ENABLED: bool = False
     RESEND_API_KEY: str = ""
     EMAIL: str = ""
     EMAIL_PASSWORD: str = ""

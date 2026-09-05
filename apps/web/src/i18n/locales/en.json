@@ -1692,7 +1692,8 @@
         "all": "All statuses",
         "assigned": "Assigned",
         "inProgress": "In progress",
-        "completed": "Completed"
+        "completed": "Completed",
+        "overdue": "Overdue"
       },
       "delivery": {
         "label": "Course type",
@@ -1715,6 +1716,7 @@
       "course": "Course",
       "type": "Type",
       "status": "Status",
+      "deadline": "Deadline",
       "evidence": "Evidence",
       "progress": "Progress",
       "score": "Best score",
@@ -1727,7 +1729,11 @@
       "scorm": "SCORM",
       "completed": "Completed",
       "assigned": "Assigned",
-      "inProgress": "In progress"
+      "inProgress": "In progress",
+      "deadlineActive": "On track",
+      "deadlineOverdue": "Overdue",
+      "completedOnTime": "Completed on time",
+      "completedLate": "Completed late"
     },
     "export": {
       "csv": "Download CSV",

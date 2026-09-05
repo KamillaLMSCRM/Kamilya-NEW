@@ -80,14 +80,38 @@ interface VisibleNoEmailAccess extends NoEmailAccessIssue {
 
 interface RecurringLearningRule {
   id: string;
-  course_id: string;
+  course_id: string | null;
+  learning_path_id?: string | null;
+  target_type?: 'course' | 'learning_path';
   user_id: string;
   cadence_days: number;
   due_days: number;
   status: 'draft' | 'active' | 'inactive';
   next_run_at: string | null;
   last_run_at: string | null;
+  reminder_enabled?: boolean;
+  reminder_days_before_due?: number;
 }
+
+interface ReminderDraft {
+  enabled: boolean;
+  daysBeforeDue: string;
+}
+
+interface ReminderStatus {
+  id: string;
+  status: 'queued' | 'sending' | 'sent' | 'failed' | 'skipped' | string;
+  attempt_count: number;
+  scheduled_at: string;
+  delivered_at: string | null;
+  last_error_category: string | null;
+}
+
+type ReminderHistoryState =
+  | { state: 'idle' }
+  | { state: 'loading' }
+  | { state: 'loaded'; items: ReminderStatus[] }
+  | { state: 'error' };
 
 interface RecurringOccurrence {
   id: string;
@@ -133,6 +157,31 @@ const STATUS_BADGE_VARIANT: Record<string, 'default' | 'outline' | 'secondary'> 
   in_progress: 'secondary',
   completed: 'default',
 };
+const REMINDER_STATUS_LABELS: Record<string, string> = {
+  queued: 'В очереди',
+  sending: 'Отправляется',
+  sent: 'Отправлено',
+  failed: 'Не доставлено',
+  skipped: 'Пропущено',
+};
+const REMINDER_ERROR_LABELS: Record<string, string> = {
+  configuration_missing: 'Настройка отправки недоступна',
+  delivery_uncertain: 'Доставка не подтверждена. Автоповтор отключён для защиты от дублей',
+  transport_changed: 'Способ отправки изменён. Требуется проверка администратором',
+  recipient_missing: 'Не указан адрес получателя',
+  activation_required: 'Получателю нужно активировать доступ',
+  ineligible: 'Напоминание больше не требуется',
+  expired: 'Срок напоминания истёк',
+  attempt_limit: 'Лимит попыток исчерпан',
+  retry_window_expired: 'Окно повторной отправки истекло',
+  payload_changed: 'Данные обучения изменились',
+  provider_timeout: 'Сервис отправки не ответил вовремя',
+  provider_unreachable: 'Сервис отправки недоступен',
+  provider_rate_limited: 'Сервис отправки временно ограничил запросы',
+  provider_unavailable: 'Сервис отправки временно недоступен',
+  provider_rejected: 'Сервис отправки отклонил запрос',
+  internal_error: 'Не удалось подготовить напоминание',
+};
 // ── component ─────────────────────────────────────────────
 
 export default function EnrollmentsPage() {
@@ -155,12 +204,31 @@ export default function EnrollmentsPage() {
   const [cadenceDays, setCadenceDays] = useState(180);
   const [dueDays, setDueDays] = useState(14);
   const [savingRule, setSavingRule] = useState(false);
+  const [reminderDrafts, setReminderDrafts] = useState<Record<string, ReminderDraft>>({});
+  const [savingReminderRuleIds, setSavingReminderRuleIds] = useState<Set<string>>(new Set());
+  const [reminderHistories, setReminderHistories] = useState<Record<string, ReminderHistoryState>>({});
   const searchParams = useSearchParams();
   const preselectionApplied = useRef(false);
+  const reminderHistoryControllers = useRef<Record<string, AbortController>>({});
   const token = useAuthStore((s) => s.accessToken);
   const userRole = useAuthStore((s) => s.user?.role);
   const canManageAssignments = userRole === 'methodologist';
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
+  const reminderAuthTokenRef = useRef(token);
+  const reminderRequestEpoch = useRef(0);
+  reminderAuthTokenRef.current = token;
+
+  useEffect(() => {
+    reminderRequestEpoch.current += 1;
+    setReminderDrafts({});
+    setReminderHistories({});
+    setSavingReminderRuleIds(new Set());
+    return () => {
+      reminderRequestEpoch.current += 1;
+      Object.values(reminderHistoryControllers.current).forEach((controller) => controller.abort());
+      reminderHistoryControllers.current = {};
+    };
+  }, [token, canManageAssignments]);
 
   // ── фильтры (UI-side) ──────────────────────────────────
   const [userSearch, setUserSearch] = useState('');
@@ -590,6 +658,96 @@ export default function EnrollmentsPage() {
     });
     if (response.ok) await fetchRecurringRules();
     else toast.error('Не удалось остановить правило');
+  };
+
+  const reminderDraftFor = (rule: RecurringLearningRule): ReminderDraft => (
+    reminderDrafts[rule.id] ?? {
+      enabled: rule.reminder_enabled ?? false,
+      daysBeforeDue: String(rule.reminder_days_before_due ?? 1),
+    }
+  );
+
+  const updateReminderDraft = (rule: RecurringLearningRule, update: Partial<ReminderDraft>) => {
+    setReminderDrafts((current) => ({
+      ...current,
+      [rule.id]: { ...reminderDraftFor(rule), ...update },
+    }));
+  };
+
+  const saveReminderSettings = async (rule: RecurringLearningRule) => {
+    const draft = reminderDraftFor(rule);
+    const daysBeforeDue = Number(draft.daysBeforeDue);
+    if (!Number.isInteger(daysBeforeDue) || daysBeforeDue < 1 || daysBeforeDue > 30) {
+      toast.error('Укажите срок напоминания от 1 до 30 дней');
+      return;
+    }
+    if (savingReminderRuleIds.has(rule.id)) return;
+
+    const requestToken = token;
+    const requestEpoch = reminderRequestEpoch.current;
+    const isCurrentRequest = () => reminderAuthTokenRef.current === requestToken
+      && reminderRequestEpoch.current === requestEpoch;
+    setSavingReminderRuleIds((current) => new Set(current).add(rule.id));
+    try {
+      const response = await fetch(`${API_URL}/v1/learning-cycles/${rule.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          reminder_enabled: draft.enabled,
+          reminder_days_before_due: daysBeforeDue,
+        }),
+      });
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error?.detail || 'Не удалось сохранить настройки напоминания');
+      }
+      const saved = await response.json() as RecurringLearningRule;
+      if (!isCurrentRequest()) return;
+      setRecurringRules((current) => current.map((item) => item.id === rule.id ? saved : item));
+      setReminderDrafts((current) => {
+        const { [rule.id]: _savedDraft, ...remaining } = current;
+        return remaining;
+      });
+      toast.success('Настройки напоминания сохранены');
+    } catch (error: any) {
+      if (isCurrentRequest()) {
+        toast.error('Не удалось сохранить настройки напоминания', { description: error?.message });
+      }
+    } finally {
+      if (isCurrentRequest()) {
+        setSavingReminderRuleIds((current) => {
+          const next = new Set(current);
+          next.delete(rule.id);
+          return next;
+        });
+      }
+    }
+  };
+
+  const loadReminderHistory = async (ruleId: string) => {
+    reminderHistoryControllers.current[ruleId]?.abort();
+    const controller = new AbortController();
+    const requestToken = token;
+    reminderHistoryControllers.current[ruleId] = controller;
+    setReminderHistories((current) => ({ ...current, [ruleId]: { state: 'loading' } }));
+    try {
+      const response = await fetch(`${API_URL}/v1/learning-cycles/${ruleId}/reminders`, {
+        headers: { Authorization: `Bearer ${token}` },
+        signal: controller.signal,
+      });
+      if (!response.ok) throw new Error('Reminder history request failed');
+      const items = await response.json() as ReminderStatus[];
+      if (!controller.signal.aborted && reminderAuthTokenRef.current === requestToken) {
+        setReminderHistories((current) => ({ ...current, [ruleId]: { state: 'loaded', items } }));
+      }
+    } catch (error) {
+      if ((error as Error).name !== 'AbortError' && !controller.signal.aborted && reminderAuthTokenRef.current === requestToken) {
+        setReminderHistories((current) => ({ ...current, [ruleId]: { state: 'error' } }));
+      }
+    }
   };
 
   const activateRecurringRule = async (ruleId: string) => {
@@ -1101,14 +1259,25 @@ export default function EnrollmentsPage() {
               const course = courses.find((item) => item.id === rule.course_id);
               const learner = users.find((item) => item.id === rule.user_id);
               const occurrence = recurringOccurrences.find((item) => item.rule_id === rule.id);
+              const reminderDraft = reminderDraftFor(rule);
+              const savingReminder = savingReminderRuleIds.has(rule.id);
+              const savedReminderEnabled = rule.reminder_enabled ?? false;
+              const savedReminderDays = rule.reminder_days_before_due ?? 1;
+              const reminderDraftIsSaved = reminderDraft.enabled === savedReminderEnabled
+                && Number(reminderDraft.daysBeforeDue) === savedReminderDays;
+              const reminderHistory = reminderHistories[rule.id] ?? { state: 'idle' as const };
               const occurrenceLabel = occurrence ? ({
                 assigned: 'Назначено', overdue: 'Просрочено', completed: 'Завершено',
                 completed_late: 'Завершено с опозданием', skipped: 'Пропущено',
               } as const)[occurrence.status] : null;
+              const targetLabel = course?.title || (rule.target_type === 'learning_path' || rule.learning_path_id
+                ? 'Программа обучения'
+                : 'Курс обучения');
               return (
-                <div key={rule.id} className="flex flex-wrap items-center justify-between gap-3 rounded border p-3">
+                <div key={rule.id} className="space-y-3 rounded border p-3">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
-                    <p className="text-sm font-medium">{course?.title || rule.course_id} · {learner ? `${learner.first_name} ${learner.last_name}` : rule.user_id}</p>
+                    <p className="text-sm font-medium">{targetLabel} · {learner ? `${learner.first_name} ${learner.last_name}` : 'Обучающийся'}</p>
                     <p className="text-xs text-muted-foreground">Каждые {rule.cadence_days} дн., срок {rule.due_days} дн. · Следующий запуск: {rule.next_run_at ? new Date(rule.next_run_at).toLocaleString() : 'не запланирован'}</p>
                     {occurrence && <p className={`mt-1 text-xs ${occurrence.status === 'overdue' || occurrence.status === 'completed_late' ? 'font-medium text-destructive' : 'text-muted-foreground'}`}>
                       Последний период: {occurrenceLabel}. Срок: {new Date(occurrence.due_at).toLocaleString()}.
@@ -1119,6 +1288,68 @@ export default function EnrollmentsPage() {
                     <Badge variant="outline">{rule.status === 'draft' ? 'Черновик' : rule.status === 'active' ? 'Активно' : 'Остановлено'}</Badge>
                     {rule.status === 'active' && <Button size="sm" variant="outline" onClick={() => void deactivateRecurringRule(rule.id)}>Остановить</Button>}
                     {rule.status !== 'active' && <Button size="sm" onClick={() => void activateRecurringRule(rule.id)}>Запустить</Button>}
+                  </div>
+                  </div>
+                  <fieldset className="space-y-2 rounded bg-muted/30 p-3">
+                    <legend className="px-1 text-sm font-medium">Напоминание о сроке</legend>
+                    <p className="text-xs text-muted-foreground">Это настройка правила. Она не подтверждает отправку писем и не включает доставку глобально. Новый срок применяется только к будущим периодам: прошлые периоды не добавляются заново. После отключения новые напоминания не будут подходить для отправки; уже принятый сервисом запрос может не отмениться.</p>
+                    <div className="flex flex-wrap items-end gap-3">
+                      <label className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={reminderDraft.enabled}
+                          disabled={savingReminder}
+                          onChange={(event) => updateReminderDraft(rule, { enabled: event.target.checked })}
+                        />
+                        Включить напоминание
+                      </label>
+                      <label className="text-sm">
+                        За сколько дней до срока
+                        <input
+                          aria-label={`За сколько дней до срока для правила ${rule.id}`}
+                          className="mt-1 block w-28 rounded border bg-background px-2 py-1"
+                          type="number"
+                          min={1}
+                          max={30}
+                          inputMode="numeric"
+                          value={reminderDraft.daysBeforeDue}
+                          disabled={savingReminder}
+                          onChange={(event) => updateReminderDraft(rule, { daysBeforeDue: event.target.value })}
+                        />
+                      </label>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => void saveReminderSettings(rule)}
+                        disabled={savingReminder || reminderDraftIsSaved}
+                      >
+                        {savingReminder ? 'Сохранение…' : 'Сохранить напоминание'}
+                      </Button>
+                      <span className="text-xs text-muted-foreground" aria-live="polite">
+                        {reminderDraftIsSaved ? 'Сохранено' : 'Есть несохранённые изменения'}
+                      </span>
+                    </div>
+                  </fieldset>
+                  <div className="space-y-2">
+                    <Button size="sm" variant="ghost" onClick={() => void loadReminderHistory(rule.id)} disabled={reminderHistory.state === 'loading'}>
+                      {reminderHistory.state === 'loading' ? 'Загрузка статусов…' : 'Показать статусы напоминаний'}
+                    </Button>
+                    <div aria-live="polite">
+                      {reminderHistory.state === 'loading' && <p className="text-xs text-muted-foreground">Загрузка статусов напоминаний…</p>}
+                      {reminderHistory.state === 'error' && <p className="text-xs text-destructive">Не удалось загрузить статусы напоминаний. Попробуйте ещё раз.</p>}
+                      {reminderHistory.state === 'loaded' && reminderHistory.items.length === 0 && <p className="text-xs text-muted-foreground">Статусов напоминаний пока нет.</p>}
+                      {reminderHistory.state === 'loaded' && reminderHistory.items.length > 0 && (
+                        <ul className="space-y-1 text-xs text-muted-foreground" aria-label={`Статусы напоминаний для правила ${rule.id}`}>
+                          {reminderHistory.items.map((status) => (
+                            <li key={status.id}>
+                              {REMINDER_STATUS_LABELS[status.status] || 'Статус неизвестен'} · попыток: {status.attempt_count} · запланировано: {new Date(status.scheduled_at).toLocaleString()}
+                              {status.delivered_at ? ` · отправлено: ${new Date(status.delivered_at).toLocaleString()}` : ''}
+                              {status.last_error_category ? ` · причина: ${REMINDER_ERROR_LABELS[status.last_error_category] || 'Не удалось получить подробности'}` : ''}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
                   </div>
                 </div>
               );

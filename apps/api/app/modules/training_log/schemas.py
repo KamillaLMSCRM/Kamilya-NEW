@@ -22,14 +22,13 @@ class TrainingLogFilter(BaseModel):
     course_id: UUID | None = None
     department_id: UUID | None = None
     position_id: UUID | None = None
-    # enrollment status derived from `enrollments.status` plus activity rules:
+    # enrollment status derived from `enrollments.status`, activity and cycle rules:
     #   assigned    = enrollment exists, no lesson progress, no SCORM attempt
     #   in_progress = enrollment exists, NOT completed, BUT has lesson progress
     #                 (native) or scorm_attempt (scorm)
     #   completed   = enrollment.status='completed' OR enrollment.completed_at IS NOT NULL
-    #   overdue     = REMOVED 2026-07-09: no deadline column on enrollments, so we
-    #                 cannot honestly compute it. UI also drops the option.
-    status: Literal["assigned", "in_progress", "completed"] | None = None
+    #   overdue     = unfinished cycle-linked enrollment after its immutable due_at
+    status: Literal["assigned", "in_progress", "completed", "overdue"] | None = None
     delivery_type: Literal["native", "scorm"] | None = None
     date_from: datetime | None = None
     date_to: datetime | None = None
@@ -77,6 +76,20 @@ class TrainingLogRow(BaseModel):
     enrollment_source: str  # manual / position / department / cohort / learning_path
     enrolled_at: datetime | None = None
     completed_at: datetime | None = None
+
+    # Immutable recurring-cycle read model. Legacy and one-time enrollments have
+    # null cycle fields and deadline_status=not_applicable.
+    cycle_id: UUID | None = None
+    cycle_type: Literal["course", "learning_path"] | None = None
+    cycle_scheduled_for: datetime | None = None
+    cycle_due_at: datetime | None = None
+    deadline_status: Literal[
+        "not_applicable",
+        "active",
+        "overdue",
+        "completed_on_time",
+        "completed_late",
+    ] = "not_applicable"
 
     # Evidence read model. One enrollment can have both training and
     # knowledge_check events; ``evidence_events`` preserves both types while
@@ -131,6 +144,7 @@ class TrainingLogSummary(BaseModel):
     assigned: int
     in_progress: int
     completed: int
+    overdue: int = 0
 
 
 class TrainingLogCSVResponse(BaseModel):
@@ -148,6 +162,10 @@ class TrainingLogCSVResponse(BaseModel):
         "enrollment_source",
         "enrolled_at",
         "completed_at",
+        "cycle_type",
+        "cycle_scheduled_for",
+        "cycle_due_at",
+        "deadline_status",
         "evidence_procedure_type",
         "evidence_confirmation_status",
         "evidence_state",

@@ -326,6 +326,13 @@ class SuperadminService:
         )
         await self.db.execute(
             text(
+                "SELECT public.superadmin_purge_tenant_learning_reminders("
+                ":tenant_id, :confirm_slug)"
+            ),
+            {"tenant_id": str(tenant_id), "confirm_slug": tenant.slug},
+        )
+        await self.db.execute(
+            text(
                 "SELECT public.superadmin_purge_tenant_course_approval("
                 ":tenant_id, :confirm_slug)"
             ),

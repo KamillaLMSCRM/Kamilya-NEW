@@ -175,6 +175,10 @@ async def create_rule(
         )
         if result.rule is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "Active learner not found")
+        if "reminder_enabled" in body.model_fields_set:
+            cast(Any, result.rule).reminder_enabled = body.reminder_enabled
+        if "reminder_days_before_due" in body.model_fields_set:
+            cast(Any, result.rule).reminder_days_before_due = body.reminder_days_before_due
         return result.rule
 
     course = await db.scalar(
@@ -204,6 +208,8 @@ async def create_rule(
         user_id=body.user_id,
         cadence_days=body.cadence_days,
         due_days=body.due_days,
+        reminder_enabled=body.reminder_enabled,
+        reminder_days_before_due=body.reminder_days_before_due,
         status="draft",
         created_by=user.id,
     )
@@ -241,7 +247,27 @@ async def update_rule(
         rule.cadence_days = body.cadence_days
     if body.due_days is not None:
         rule.due_days = body.due_days
+    if body.reminder_enabled is not None:
+        cast(Any, rule).reminder_enabled = body.reminder_enabled
+    if body.reminder_days_before_due is not None:
+        cast(Any, rule).reminder_days_before_due = body.reminder_days_before_due
     return rule
+
+
+@router.get("/{rule_id}/reminders")
+async def reminder_statuses(
+    rule_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    user=Depends(require_role("methodologist")),
+) -> list[dict[str, Any]]:
+    await _owned_rule(db, rule_id, user.tenant_id)
+    from sqlalchemy import text
+
+    rows = await db.execute(
+        text("SELECT * FROM public.learning_reminder_statuses(:tenant_id,:rule_id)"),
+        {"tenant_id": user.tenant_id, "rule_id": rule_id},
+    )
+    return [dict(row) for row in rows.mappings()]
 
 
 @router.post("/{rule_id}/activate", response_model=RuleResponse)

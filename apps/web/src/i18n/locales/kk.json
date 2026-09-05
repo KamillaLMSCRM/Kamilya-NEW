@@ -1692,7 +1692,8 @@
         "all": "Барлық күйлер",
         "assigned": "Тағайындалған",
         "inProgress": "Орындалуда",
-        "completed": "Аяқталған"
+        "completed": "Аяқталған",
+        "overdue": "Мерзімі өтті"
       },
       "delivery": {
         "label": "Курс түрі",
@@ -1715,6 +1716,7 @@
       "course": "Курс",
       "type": "Түрі",
       "status": "Күй",
+      "deadline": "Мерзімі",
       "evidence": "Растау",
       "progress": "Прогресс",
       "score": "Ең жақсы балл",
@@ -1727,7 +1729,11 @@
       "scorm": "SCORM",
       "completed": "Аяқталды",
       "assigned": "Тағайындалды",
-      "inProgress": "Орындалуда"
+      "inProgress": "Орындалуда",
+      "deadlineActive": "Мерзімінде",
+      "deadlineOverdue": "Мерзімі өтті",
+      "completedOnTime": "Мерзімінде аяқталды",
+      "completedLate": "Кеш аяқталды"
     },
     "export": {
       "csv": "CSV жүктеу",

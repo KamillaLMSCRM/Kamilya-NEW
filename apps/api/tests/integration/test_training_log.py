@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import csv
 import io
+from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import pytest
@@ -273,14 +274,14 @@ async def test_training_log_summary_matches_filters_and_fresh_enrollment_state(
     before = await client.get("/api/v1/admin/training-log/summary", headers=headers)
     assert before.status_code == 200
     assert before.headers["cache-control"] == "no-store"
-    assert before.json() == {"total": 0, "assigned": 0, "in_progress": 0, "completed": 0}
+    assert before.json() == {"total": 0, "assigned": 0, "in_progress": 0, "completed": 0, "overdue": 0}
 
     enrollment = await _enroll(db_session, student, course)
     after_assignment = await client.get(
         "/api/v1/admin/training-log/summary?course_id=" + str(course.id), headers=headers
     )
     table_after_assignment = await client.get("/api/v1/admin/training-log?course_id=" + str(course.id), headers=headers)
-    assert after_assignment.json() == {"total": 1, "assigned": 1, "in_progress": 0, "completed": 0}
+    assert after_assignment.json() == {"total": 1, "assigned": 1, "in_progress": 0, "completed": 0, "overdue": 0}
     assert table_after_assignment.json()["total"] == after_assignment.json()["total"]
 
     from datetime import datetime, timezone
@@ -292,7 +293,7 @@ async def test_training_log_summary_matches_filters_and_fresh_enrollment_state(
         "/api/v1/admin/training-log/summary?course_id=" + str(course.id), headers=headers
     )
     table_after_completion = await client.get("/api/v1/admin/training-log?course_id=" + str(course.id), headers=headers)
-    assert after_completion.json() == {"total": 1, "assigned": 0, "in_progress": 0, "completed": 1}
+    assert after_completion.json() == {"total": 1, "assigned": 0, "in_progress": 0, "completed": 1, "overdue": 0}
     assert table_after_completion.json()["total"] == after_completion.json()["total"]
 
 
@@ -512,22 +513,83 @@ async def test_training_log_status_in_progress_scorm_attempt(client, db_session,
 
 
 @pytest.mark.asyncio
-async def test_training_log_status_overdue_returns_422(client, db_session, make_tenant, make_user):
-    """status=overdue was removed (no deadline column on enrollments). The
-    Pydantic Literal must reject it with 422, not silently ignore."""
+async def test_training_log_status_overdue_reads_immutable_cycle_deadline(
+    client,
+    db_session,
+    make_tenant,
+    make_user,
+    make_course,
+    set_current_tenant,
+):
+    """Only cycle-linked unfinished enrollments can be honestly overdue."""
+    from app.models.enrollment import Enrollment
+    from app.modules.learning_cycles.models import RecurringLearningAssignment, RecurringLearningRule
+
     tenant = await make_tenant(name="Acme", slug="acme-od")
     admin = await make_user(tenant, role="methodologist", email="admin@od.example")
+    learner = await make_user(tenant, role="student", email="learner@od.example")
+    course = await make_course(tenant, admin, title="Annual briefing")
+    await set_current_tenant(tenant)
+
+    now = datetime.now(UTC)
+    rule = RecurringLearningRule(
+        tenant_id=tenant.id,
+        course_id=course.id,
+        user_id=learner.id,
+        cadence_days=365,
+        due_days=7,
+        status="active",
+        created_by=admin.id,
+    )
+    db_session.add(rule)
+    await db_session.flush()
+    occurrence = RecurringLearningAssignment(
+        tenant_id=tenant.id,
+        rule_id=rule.id,
+        user_id=learner.id,
+        course_id=course.id,
+        scheduled_for=now - timedelta(days=10),
+        due_at=now - timedelta(days=3),
+        status="assigned",
+    )
+    db_session.add(occurrence)
+    await db_session.flush()
+    enrollment = Enrollment(
+        tenant_id=tenant.id,
+        user_id=learner.id,
+        course_id=course.id,
+        recurring_assignment_id=occurrence.id,
+        status="enrolled",
+        source="recurring",
+        enrolled_at=now - timedelta(days=10),
+    )
+    db_session.add(enrollment)
+    await db_session.flush()
+    occurrence.enrollment_id = enrollment.id
+    await db_session.flush()
 
     token = await _login(client, admin)
     resp = await client.get(
         "/api/v1/admin/training-log?status=overdue",
         headers={"Authorization": f"Bearer {token}"},
     )
-    assert resp.status_code == 422
-    # Error message must mention the offending field so HR can debug.
+    assert resp.status_code == 200, resp.text
     body = resp.json()
-    detail_blob = str(body)
-    assert "overdue" in detail_blob.lower() or "status" in detail_blob.lower()
+    assert body["total"] == 1
+    row = body["items"][0]
+    assert row["enrollment_id"] == str(enrollment.id)
+    assert row["cycle_id"] == str(occurrence.id)
+    assert row["cycle_type"] == "course"
+    assert row["cycle_due_at"] is not None
+    assert row["deadline_status"] == "overdue"
+
+    summary = await client.get(
+        "/api/v1/admin/training-log/summary",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert summary.status_code == 200, summary.text
+    assert summary.json()["total"] == 1
+    assert summary.json()["overdue"] == 1
 
 
 @pytest.mark.asyncio
@@ -549,3 +611,233 @@ async def test_training_log_progress_percent_zero_lessons(client, db_session, ma
     row = resp.json()["items"][0]
     assert row["progress_percent"] == 0
     assert row["computed_status"] == "assigned"
+
+
+@pytest.mark.asyncio
+async def test_training_log_path_cycle_deadlines_and_ineligible_cycles(
+    client, db_session, make_tenant, make_user, make_course, set_current_tenant
+):
+    """Only active/completed recurring path cycles produce a frozen deadline."""
+    from app.models.enrollment import Enrollment
+    from app.modules.learning_cycles.models import (
+        LearningPathCycleInstance,
+        RecurringLearningAssignment,
+        RecurringLearningRule,
+    )
+    from app.modules.learning_paths.models import LearningPath, LearningPathAssignment, LearningPathCourse
+    from app.modules.training_log.repository import list_training_log
+    from app.modules.training_log.schemas import TrainingLogFilter
+
+    tenant = await make_tenant(name="Deadline eligibility", slug="deadline-eligibility")
+    actor = await make_user(tenant, role="methodologist", email="deadline-owner@example.test")
+    learner = await make_user(tenant, role="student", email="deadline-learner@example.test")
+    course = await make_course(tenant, actor, title="Deadline course")
+    await set_current_tenant(tenant)
+    now = datetime.now(UTC)
+    path = LearningPath(
+        tenant_id=tenant.id, family_id=uuid4(), version=1, title="Recurring path", description="",
+        status="draft", sequencing_mode="linear", created_by=actor.id,
+    )
+    db_session.add(path)
+    await db_session.flush()
+    db_session.add(LearningPathCourse(path_id=path.id, course_id=course.id, order_index=0))
+    await db_session.flush()
+    path.status = "published"
+    await db_session.flush()
+    rule = RecurringLearningRule(
+        tenant_id=tenant.id, learning_path_id=path.id, user_id=learner.id, cadence_days=365,
+        due_days=7, status="active", created_by=actor.id,
+    )
+    db_session.add(rule)
+    await db_session.flush()
+
+    sequence_no = 0
+
+    async def path_enrollment(*, cycle_status: str, assignment_status: str, recurring: bool = True):
+        nonlocal sequence_no
+        sequence_no += 1
+        cycle = LearningPathCycleInstance(
+            tenant_id=tenant.id, rule_id=rule.id, path_id=path.id, user_id=learner.id,
+            sequence_no=sequence_no, scheduled_for=now - timedelta(days=10),
+            due_at=now - timedelta(days=1), status=cycle_status,
+            completed_at=now if cycle_status == "completed" else None,
+        )
+        db_session.add(cycle)
+        await db_session.flush()
+        assignment = LearningPathAssignment(
+            tenant_id=tenant.id, path_id=path.id, user_id=learner.id, assigned_by=actor.id,
+            source="recurring" if recurring else "manual", recurrence_instance_id=cycle.id if recurring else None,
+            due_at=now + timedelta(days=5), status=assignment_status,
+        )
+        db_session.add(assignment)
+        await db_session.flush()
+        enrollment = Enrollment(
+            tenant_id=tenant.id, user_id=learner.id, course_id=course.id,
+            learning_path_assignment_id=assignment.id, status="enrolled", source="learning_path",
+            enrolled_at=now - timedelta(days=10),
+        )
+        db_session.add(enrollment)
+        await db_session.flush()
+        return enrollment, cycle
+
+    active_enrollment, active_cycle = await path_enrollment(cycle_status="active", assignment_status="active")
+    cancelled_cycle, _ = await path_enrollment(cycle_status="cancelled", assignment_status="active")
+    skipped_path_cycle, _ = await path_enrollment(cycle_status="skipped", assignment_status="active")
+    cancelled_assignment, _ = await path_enrollment(cycle_status="active", assignment_status="cancelled")
+    manual_path, _ = await path_enrollment(cycle_status="active", assignment_status="active", recurring=False)
+    direct_rule = RecurringLearningRule(
+        tenant_id=tenant.id, course_id=course.id, user_id=learner.id, cadence_days=365,
+        due_days=7, status="active", created_by=actor.id,
+    )
+    db_session.add(direct_rule)
+    await db_session.flush()
+    skipped_occurrence = RecurringLearningAssignment(
+        tenant_id=tenant.id, rule_id=direct_rule.id, user_id=learner.id, course_id=course.id,
+        scheduled_for=now - timedelta(days=10), due_at=now - timedelta(days=1), status="skipped",
+    )
+    db_session.add(skipped_occurrence)
+    await db_session.flush()
+    skipped_enrollment = Enrollment(
+        tenant_id=tenant.id, user_id=learner.id, course_id=course.id,
+        recurring_assignment_id=skipped_occurrence.id, status="enrolled", source="recurring",
+        enrolled_at=now - timedelta(days=10),
+    )
+    db_session.add(skipped_enrollment)
+    await db_session.flush()
+
+    rows = await list_training_log(db_session, tenant.id, TrainingLogFilter(), limit=20)
+    by_id = {row["enrollment_id"]: row for row in rows}
+    assert by_id[active_enrollment.id]["cycle_id"] == active_cycle.id
+    assert by_id[active_enrollment.id]["cycle_due_at"] == active_cycle.due_at
+    assert by_id[active_enrollment.id]["deadline_status"] == "overdue"
+    for enrollment in (cancelled_cycle, skipped_path_cycle, cancelled_assignment, manual_path, skipped_enrollment):
+        assert by_id[enrollment.id]["deadline_status"] == "not_applicable"
+    overdue_rows = await list_training_log(db_session, tenant.id, TrainingLogFilter(status="overdue"), limit=20)
+    assert [row["enrollment_id"] for row in overdue_rows] == [active_enrollment.id]
+
+
+@pytest.mark.asyncio
+async def test_training_log_completed_status_without_timestamp_is_completed_not_overdue(
+    client, db_session, make_tenant, make_user, make_course
+):
+    from app.modules.learning_cycles.models import RecurringLearningAssignment, RecurringLearningRule
+    from app.modules.training_log.repository import list_training_log
+    from app.modules.training_log.schemas import TrainingLogFilter
+
+    tenant = await make_tenant(name="Completed state", slug="completed-state")
+    admin = await make_user(tenant, role="methodologist", email="completed-admin@example.com")
+    learner = await make_user(tenant, role="student", email="completed-learner@example.test")
+    course = await make_course(tenant, admin, title="Completed course")
+    now = datetime.now(UTC)
+    rule = RecurringLearningRule(
+        tenant_id=tenant.id, course_id=course.id, user_id=learner.id,
+        cadence_days=365, due_days=7, status="active", created_by=admin.id,
+    )
+    db_session.add(rule)
+    await db_session.flush()
+    occurrence = RecurringLearningAssignment(
+        tenant_id=tenant.id, rule_id=rule.id, user_id=learner.id, course_id=course.id,
+        scheduled_for=now - timedelta(days=10), due_at=now - timedelta(days=1), status="assigned",
+    )
+    db_session.add(occurrence)
+    await db_session.flush()
+    enrollment = await _enroll(db_session, learner, course)
+    enrollment.source = "recurring"
+    enrollment.recurring_assignment_id = occurrence.id
+    enrollment.status = "completed"
+    enrollment.completed_at = None
+    await db_session.flush()
+
+    rows = await list_training_log(db_session, tenant.id, TrainingLogFilter(), limit=10)
+    assert rows[0]["computed_status"] == "completed"
+    assert rows[0]["deadline_status"] == "not_applicable"
+    assert await list_training_log(db_session, tenant.id, TrainingLogFilter(status="overdue"), limit=10) == []
+    token = await _login(client, admin)
+    summary = await client.get("/api/v1/admin/training-log/summary", headers={"Authorization": f"Bearer {token}"})
+    assert summary.status_code == 200, summary.text
+    assert summary.json() == {"total": 1, "assigned": 0, "in_progress": 0, "completed": 1, "overdue": 0}
+
+
+@pytest.mark.asyncio
+async def test_training_log_equal_due_and_completion_is_on_time_and_pagination_uses_enrollment_id(
+    client, db_session, make_tenant, make_user, make_course, set_current_tenant
+):
+    from app.models.enrollment import Enrollment
+    from app.modules.learning_cycles.models import RecurringLearningAssignment, RecurringLearningRule
+    from app.modules.training_log.repository import list_training_log
+    from app.modules.training_log.schemas import TrainingLogFilter
+
+    tenant = await make_tenant(name="Stable deadline page", slug="stable-deadline-page")
+    actor = await make_user(tenant, role="methodologist", email="stable-owner@example.test")
+    learner = await make_user(tenant, role="student", email="stable-learner@example.test")
+    course = await make_course(tenant, actor, title="Stable course")
+    await set_current_tenant(tenant)
+    stamp = datetime(2026, 1, 1, tzinfo=UTC)
+    rule = RecurringLearningRule(tenant_id=tenant.id, course_id=course.id, user_id=learner.id, cadence_days=365, due_days=7, status="active", created_by=actor.id)
+    db_session.add(rule)
+    await db_session.flush()
+    occurrence = RecurringLearningAssignment(tenant_id=tenant.id, rule_id=rule.id, user_id=learner.id, course_id=course.id, scheduled_for=stamp, due_at=stamp, status="completed")
+    db_session.add(occurrence)
+    await db_session.flush()
+    first = Enrollment(id=uuid4(), tenant_id=tenant.id, user_id=learner.id, course_id=course.id, recurring_assignment_id=occurrence.id, status="completed", completed_at=stamp, enrolled_at=stamp, source="recurring")
+    second = Enrollment(id=uuid4(), tenant_id=tenant.id, user_id=learner.id, course_id=course.id, status="enrolled", enrolled_at=stamp, source="manual")
+    db_session.add_all([first, second])
+    await db_session.flush()
+
+    full = await list_training_log(db_session, tenant.id, TrainingLogFilter(), limit=10)
+    first_page = await list_training_log(db_session, tenant.id, TrainingLogFilter(), limit=1, offset=0)
+    second_page = await list_training_log(db_session, tenant.id, TrainingLogFilter(), limit=1, offset=1)
+    assert next(row for row in full if row["enrollment_id"] == first.id)["deadline_status"] == "completed_on_time"
+    assert [row["enrollment_id"] for row in first_page + second_page] == [row["enrollment_id"] for row in full]
+    assert [row["enrollment_id"] for row in full] == sorted([first.id, second.id])
+
+
+@pytest.mark.asyncio
+async def test_training_log_repository_lms_app_rls_hides_other_tenant_rows_and_counts(
+    client, db_session, make_tenant, make_user, make_course, set_current_tenant
+):
+    from sqlalchemy import text
+
+    from app.modules.training_log.repository import count_training_log, list_training_log
+    from app.modules.training_log.schemas import TrainingLogFilter
+
+    can_assume = await db_session.scalar(text(
+        "SELECT rolsuper OR current_user = 'lms_app' "
+        "FROM pg_roles WHERE rolname = current_user"
+    ))
+    if not can_assume:
+        pytest.skip("Runtime RLS gate unavailable: current DEV role cannot assume lms_app; do not grant privileges in tests")
+
+    tenant_a = await make_tenant(name="Training log RLS A", slug="training-log-rls-a")
+    tenant_b = await make_tenant(name="Training log RLS B", slug="training-log-rls-b")
+    admin_a = await make_user(tenant_a, role="methodologist", email="rls-admin-a@example.test")
+    learner_a = await make_user(tenant_a, role="student", email="rls-learner-a@example.test")
+    learner_b = await make_user(tenant_b, role="student", email="rls-learner-b@example.test")
+    course_a = await make_course(tenant_a, admin_a, title="RLS A course")
+    course_b = await make_course(tenant_b, learner_b, title="RLS B course")
+    await set_current_tenant(tenant_a)
+    await _enroll(db_session, learner_a, course_a)
+    await set_current_tenant(tenant_b)
+    await _enroll(db_session, learner_b, course_b)
+
+    await db_session.execute(text("SET LOCAL ROLE lms_app"))
+    try:
+        role = (await db_session.execute(text(
+            "SELECT current_user, rolsuper, rolbypassrls FROM pg_roles WHERE rolname = current_user"
+        ))).one()
+        assert tuple(role) == ("lms_app", False, False)
+        await set_current_tenant(tenant_a)
+        rows_a = await list_training_log(db_session, tenant_a.id, TrainingLogFilter(), limit=10)
+        count_a = await count_training_log(db_session, tenant_a.id, TrainingLogFilter())
+        assert await count_training_log(db_session, tenant_b.id, TrainingLogFilter()) == 0
+        assert await list_training_log(db_session, tenant_b.id, TrainingLogFilter(), limit=10) == []
+        assert await db_session.scalar(text("SELECT count(*) FROM enrollments WHERE tenant_id = :tid"), {"tid": tenant_b.id}) == 0
+        await set_current_tenant(tenant_b)
+        rows_b = await list_training_log(db_session, tenant_b.id, TrainingLogFilter(), limit=10)
+        count_b = await count_training_log(db_session, tenant_b.id, TrainingLogFilter())
+        assert [row["user_id"] for row in rows_a] == [learner_a.id]
+        assert count_a == 1
+        assert [row["user_id"] for row in rows_b] == [learner_b.id]
+        assert count_b == 1
+    finally:
+        await db_session.execute(text("RESET ROLE"))

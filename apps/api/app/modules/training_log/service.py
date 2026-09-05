@@ -44,6 +44,8 @@ CSV_COLUMNS = {
         ("course_title", "Курс"), ("delivery_type", "Формат курса"),
         ("computed_status", "Статус"), ("enrollment_source", "Источник назначения"),
         ("enrolled_at", "Дата назначения"), ("completed_at", "Дата завершения"),
+        ("cycle_type", "Тип цикла"), ("cycle_scheduled_for", "Дата цикла"),
+        ("cycle_due_at", "Срок"), ("deadline_status", "Статус срока"),
         ("progress_percent", "Прогресс, %"), ("best_score", "Лучший результат, %"),
         ("quiz_attempts_count", "Попыток теста"), ("certificate_number", "Номер сертификата"),
         ("certificate_issued_at", "Дата выдачи сертификата"),
@@ -54,6 +56,8 @@ CSV_COLUMNS = {
         ("course_title", "Курс"), ("delivery_type", "Курс форматы"),
         ("computed_status", "Мәртебе"), ("enrollment_source", "Тағайындау көзі"),
         ("enrolled_at", "Тағайындалған күні"), ("completed_at", "Аяқталған күні"),
+        ("cycle_type", "Цикл түрі"), ("cycle_scheduled_for", "Цикл күні"),
+        ("cycle_due_at", "Мерзімі"), ("deadline_status", "Мерзім күйі"),
         ("progress_percent", "Прогресс, %"), ("best_score", "Үздік нәтиже, %"),
         ("quiz_attempts_count", "Тест әрекеттері"), ("certificate_number", "Сертификат нөмірі"),
         ("certificate_issued_at", "Сертификат берілген күн"),
@@ -64,6 +68,8 @@ CSV_COLUMNS = {
         ("course_title", "Course"), ("delivery_type", "Course format"),
         ("computed_status", "Status"), ("enrollment_source", "Assignment source"),
         ("enrolled_at", "Assigned at"), ("completed_at", "Completed at"),
+        ("cycle_type", "Cycle type"), ("cycle_scheduled_for", "Cycle date"),
+        ("cycle_due_at", "Due at"), ("deadline_status", "Deadline status"),
         ("progress_percent", "Progress, %"), ("best_score", "Best score, %"),
         ("quiz_attempts_count", "Quiz attempts"), ("certificate_number", "Certificate number"),
         ("certificate_issued_at", "Certificate issued at"),
@@ -76,18 +82,27 @@ CSV_VALUE_LABELS = {
         "native": "Курс Kamilya LMS", "scorm": "SCORM 1.2", "manual": "Вручную",
         "position": "По должности", "department": "По подразделению", "cohort": "По группе",
         "auto": "Автоматически", "instruction_replace": "По должностной инструкции",
+        "course": "Курс", "learning_path": "Программа",
+        "not_applicable": "Без срока", "active": "В срок", "overdue": "Просрочено",
+        "completed_on_time": "Завершено в срок", "completed_late": "Завершено с опозданием",
     },
     "kk": {
         "assigned": "Тағайындалды", "in_progress": "Орындалуда", "completed": "Аяқталды",
         "native": "Kamilya LMS курсы", "scorm": "SCORM 1.2", "manual": "Қолмен",
         "position": "Лауазым бойынша", "department": "Бөлімше бойынша", "cohort": "Топ бойынша",
         "auto": "Автоматты түрде", "instruction_replace": "Лауазымдық нұсқаулық бойынша",
+        "course": "Курс", "learning_path": "Бағдарлама",
+        "not_applicable": "Мерзімсіз", "active": "Мерзімінде", "overdue": "Мерзімі өтті",
+        "completed_on_time": "Мерзімінде аяқталды", "completed_late": "Кеш аяқталды",
     },
     "en": {
         "assigned": "Assigned", "in_progress": "In progress", "completed": "Completed",
         "native": "Kamilya LMS course", "scorm": "SCORM 1.2", "manual": "Manual",
         "position": "By position", "department": "By department", "cohort": "By cohort",
         "auto": "Automatic", "instruction_replace": "By job instruction",
+        "course": "Course", "learning_path": "Program",
+        "not_applicable": "No deadline", "active": "On track", "overdue": "Overdue",
+        "completed_on_time": "Completed on time", "completed_late": "Completed late",
     },
 }
 
@@ -95,9 +110,15 @@ CSV_VALUE_LABELS = {
 def _csv_value(field: str, value, lang: str):
     if value is None:
         return ""
-    if field in {"delivery_type", "computed_status", "enrollment_source"}:
+    if field in {"delivery_type", "computed_status", "enrollment_source", "cycle_type", "deadline_status"}:
         return CSV_VALUE_LABELS[lang].get(str(value), value)
-    if field in {"enrolled_at", "completed_at", "certificate_issued_at"}:
+    if field in {
+        "enrolled_at",
+        "completed_at",
+        "cycle_scheduled_for",
+        "cycle_due_at",
+        "certificate_issued_at",
+    }:
         if isinstance(value, (datetime, date)):
             return value.strftime("%d.%m.%Y %H:%M" if isinstance(value, datetime) else "%d.%m.%Y")
         try:
@@ -174,9 +195,11 @@ async def get_training_log_summary(
     assigned = await count_training_log(db, tenant_id, f.model_copy(update={"status": "assigned"}))
     in_progress = await count_training_log(db, tenant_id, f.model_copy(update={"status": "in_progress"}))
     completed = await count_training_log(db, tenant_id, f.model_copy(update={"status": "completed"}))
+    overdue = await count_training_log(db, tenant_id, f.model_copy(update={"status": "overdue"}))
     return TrainingLogSummary(
         total=assigned + in_progress + completed,
         assigned=assigned,
         in_progress=in_progress,
         completed=completed,
+        overdue=overdue,
     )

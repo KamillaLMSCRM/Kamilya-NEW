@@ -50,7 +50,7 @@ async def training_log_summary(
     course_id: UUID | None = Query(default=None),
     department_id: UUID | None = Query(default=None),
     position_id: UUID | None = Query(default=None),
-    status: Literal["assigned", "in_progress", "completed"] | None = Query(default=None),
+    status: Literal["assigned", "in_progress", "completed", "overdue"] | None = Query(default=None),
     delivery_type: Literal["native", "scorm"] | None = Query(default=None),
     date_from: datetime | None = Query(default=None),
     date_to: datetime | None = Query(default=None),
@@ -60,7 +60,7 @@ async def training_log_summary(
 ):
     response.headers["Cache-Control"] = "no-store"
     if user.tenant_id is None:
-        return TrainingLogSummary(total=0, assigned=0, in_progress=0, completed=0)
+        return TrainingLogSummary(total=0, assigned=0, in_progress=0, completed=0, overdue=0)
     return await get_training_log_summary(
         db,
         user.tenant_id,
@@ -84,7 +84,7 @@ async def list_training_log(
     course_id: UUID | None = Query(default=None),
     department_id: UUID | None = Query(default=None),
     position_id: UUID | None = Query(default=None),
-    status: Literal["assigned", "in_progress", "completed"] | None = Query(default=None),
+    status: Literal["assigned", "in_progress", "completed", "overdue"] | None = Query(default=None),
     delivery_type: Literal["native", "scorm"] | None = Query(default=None),
     date_from: datetime | None = Query(default=None),
     date_to: datetime | None = Query(default=None),

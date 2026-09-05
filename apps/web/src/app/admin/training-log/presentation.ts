@@ -6,6 +6,7 @@ export const TRAINING_LOG_COLUMN_CLASS = {
   course: 'w-64 min-w-64 px-4 py-3',
   type: 'w-24 min-w-24 px-4 py-3',
   status: 'w-28 min-w-28 px-4 py-3',
+  deadline: 'w-44 min-w-44 px-4 py-3',
   source: 'w-40 min-w-40 px-4 py-3',
   progress: 'w-24 min-w-24 px-4 py-3',
   score: 'w-28 min-w-28 px-4 py-3',

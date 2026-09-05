@@ -1,6 +1,6 @@
 from uuid import uuid4
 
-from sqlalchemy import CheckConstraint, Column, DateTime, ForeignKey, Integer, Text, UniqueConstraint, func
+from sqlalchemy import Boolean, CheckConstraint, Column, DateTime, ForeignKey, Integer, Text, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import UUID
 
 from app.core.db import Base
@@ -15,6 +15,8 @@ class RecurringLearningRule(Base):
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     cadence_days = Column(Integer, nullable=False)
     due_days = Column(Integer, nullable=False)
+    reminder_enabled = Column(Boolean, nullable=False, default=False, server_default="false")
+    reminder_days_before_due = Column(Integer, nullable=False, default=1, server_default="1")
     status = Column(Text, nullable=False, default="draft", server_default="draft")
     next_run_at = Column(DateTime(timezone=True), nullable=True)
     last_run_at = Column(DateTime(timezone=True), nullable=True)

@@ -5,7 +5,7 @@ import logging
 import smtplib
 import ssl
 from dataclasses import dataclass, fields
-from datetime import datetime
+from datetime import UTC, datetime
 from email.message import EmailMessage
 from email.utils import formataddr
 from hashlib import sha256
@@ -358,6 +358,50 @@ class EmailService:
             idempotency_key=idempotency_key,
         )
 
+    async def send_learning_reminder(
+        self,
+        *,
+        to_email: str,
+        company_name: str,
+        learner_name: str,
+        training_title: str,
+        training_kind: str,
+        due_at: datetime,
+        access_url: str,
+        idempotency_key: str,
+    ) -> str | None:
+        """Send a concise Russian reminder for an existing learning assignment."""
+        if training_kind not in {"course", "learning_path"}:
+            raise ValueError("training_kind must be 'course' or 'learning_path'")
+        if due_at.tzinfo is None or due_at.utcoffset() is None:
+            raise ValueError("due_at must be timezone-aware")
+
+        training_label = "курс" if training_kind == "course" else "программу"
+        subject_training = "курсе" if training_kind == "course" else "программе"
+        deadline = due_at.astimezone(UTC).strftime("%d.%m.%Y %H:%M UTC")
+        subject = f"{_subject_component(company_name, fallback='Kamilya LMS')}: напоминание о {subject_training}"
+        text = (
+            f"{learner_name}, организация {company_name} напоминает: вам нужно пройти "
+            f"{training_label} «{training_title}».\n\n"
+            f"Срок: {deadline}\n"
+            f"Открыть обучение: {access_url}"
+        )
+        html = (
+            f"<p>{escape(learner_name)}, организация <strong>{escape(company_name)}</strong> "
+            f"напоминает: вам нужно пройти {training_label} "
+            f"<strong>{escape(training_title)}</strong>.</p>"
+            f"<p>Срок: {escape(deadline)}</p>"
+            f'<p><a href="{escape(access_url, quote=True)}">Открыть обучение</a></p>'
+        )
+        return await self._send(
+            to_email=to_email,
+            subject=subject,
+            text=text,
+            html=html,
+            idempotency_key=idempotency_key,
+            require_delivery=True,
+        )
+
     async def send_course_review_invitation(
         self,
         *,
@@ -576,9 +620,16 @@ class EmailService:
         html: str,
         idempotency_key: str | None = None,
         reply_to: str | None = None,
+        require_delivery: bool = False,
     ) -> str | None:
         settings = get_settings()
         provider = settings.EMAIL_PROVIDER.lower().strip()
+
+        if require_delivery and not self.delivery_ready():
+            raise EmailDeliveryError(
+                "configuration_missing",
+                "Transactional email delivery is not configured.",
+            )
 
         if provider == "resend" and settings.RESEND_API_KEY:
             return await self._send_resend(
@@ -591,14 +642,27 @@ class EmailService:
             )
 
         if provider == "smtp" and self.delivery_ready():
-            await self._send_smtp(
+            if require_delivery and not idempotency_key:
+                raise EmailDeliveryError(
+                    "idempotency_key_missing",
+                    "Required SMTP delivery needs a stable idempotency key.",
+                )
+
+            message_id = None
+            if require_delivery:
+                assert idempotency_key is not None  # Guarded above; keep the hash input typed.
+                digest = sha256(idempotency_key.encode("utf-8")).hexdigest()
+                message_id = f"<learning-reminder-{digest}@kml.kz>"
+
+            smtp_message_id = await self._send_smtp(
                 to_email=to_email,
                 subject=subject,
                 text=text,
                 html=html,
                 reply_to=reply_to,
+                message_id=message_id,
             )
-            return None
+            return smtp_message_id
 
         logger.info("email_queued", extra={"provider": "log"})
         return None
@@ -611,7 +675,8 @@ class EmailService:
         text: str,
         html: str,
         reply_to: str | None = None,
-    ) -> None:
+        message_id: str | None = None,
+    ) -> str | None:
         """Deliver through the configured authenticated SMTP transport."""
 
         settings = get_settings()
@@ -621,6 +686,8 @@ class EmailService:
         message["Subject"] = subject
         if reply_to:
             message["Reply-To"] = reply_to
+        if message_id:
+            message["Message-ID"] = message_id
         message.set_content(text)
         message.add_alternative(html, subtype="html")
 
@@ -672,6 +739,7 @@ class EmailService:
                 "provider_unreachable",
                 "The email provider could not be reached.",
             ) from exc
+        return message_id
 
     async def _send_resend(
         self,

@@ -22,6 +22,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Methodologist reminder settings and on-demand status history on recurring-rule
+  cards, with 1–30-day validation and reminder-only updates; delivery stays off
+  globally until a separately accepted rollout.
+- Disabled-by-default recurring-learning reminder backend: occurrence-bound
+  outbox, bounded claims/retries, methodologist rule settings/statuses, safe
+  email delivery and tenant-purge guards (additive migration 0152). Production
+  activation and live-provider acceptance remain separately gated.
+- Training-log recurring-cycle deadlines, an overdue filter/count and matching
+  CSV fields; completed, skipped/cancelled and legacy assignments are handled
+  explicitly. Deadline badges remain compatible with older API payloads.
 - Document catalog provenance showing the tenant-local uploader display name
   and the existing creation date/time without exposing user IDs or email.
 - Render-like KZ release plane with immutable GHCR image digests, protected
