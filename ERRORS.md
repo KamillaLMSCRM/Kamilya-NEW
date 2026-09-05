@@ -139,6 +139,23 @@ open, also record status, safe interim path, and review condition.
 - Prevention: test changed async jobs through a real prefork worker. `SUCCESS`
   without result/data verification is not completion proof.
 
+- 2026-09-06 reminder follow-up: d6ec720e production recovery logged one item
+  RuntimeError and asyncpg cross-loop connection termination errors. The next
+  recovery succeeded before sending: actual Gmail reminder received once,
+  ledger sent/attempt_count1. This was a recovered delivery delay, not mail loss.
+  Creating a session inside asyncio.run was insufficient while its imported
+  engine still pooled connections belonging to a previous loop.
+- Bounded correction: learning_reminders.deliver owns a NullPool engine/session
+  for each default invocation and disposes it in finally; injected session
+  factories remain caller-owned. API core pool, tenant context, SQL claim/send
+  reservation, SMTP no-retry and deduplication contracts are unchanged.
+- Verification: read-only Supabase runtime-role reproducer
+  scripts/ops/learning_reminder_loop_dev_check.py --execute --baseline completed
+  first real delivery DB checkout and failed on the next event loop. Fixed
+  default path passes three distinct loops; no DB writes/provider calls.
+  Focused existing reminder tests17PASS; final exact CI/release tracked in the
+  manager-attention plan. Do not substitute one-loop mocked tests for this check.
+
 ## TEST-001 - Mutation smoke tested only SELECT
 
 - Date: 2026-08-13 (original incident: 2026-06-30).

@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- Reminder delivery now owns its async database connections per worker invocation, preventing cross-event-loop failures without changing the API connection pool or email deduplication.
 - Legacy assignment outboxes now support their non-bypass function owner under FORCE RLS; course recurrence accepts a nullable audited system actor without admitting foreign-tenant actors.
 
 - Fixed: scheduled recurring learning and reminder payload discovery now work

@@ -6,7 +6,8 @@ import asyncio
 import hashlib
 import json
 import logging
-from collections.abc import Callable
+from collections.abc import AsyncIterator, Callable
+from contextlib import asynccontextmanager
 from datetime import UTC
 from typing import Any, TypeVar, cast
 from uuid import UUID
@@ -17,7 +18,6 @@ from sqlalchemy.pool import NullPool
 
 from app.core.celery_app import celery_app
 from app.core.config import get_settings
-from app.core.db import async_session_factory
 from app.core.email import EmailDeliveryError, EmailService
 
 from .store import RECOVERY_BATCH_SIZE, ClaimedLearningReminder, LearningReminderPayload, PostgresLearningReminderStore
@@ -79,11 +79,29 @@ async def _finalize(store: PostgresLearningReminderStore, event: ClaimedLearning
     return result
 
 
+@asynccontextmanager
+async def _delivery_session(
+    session_factory: Callable[[], Any] | None, settings: Any,
+) -> AsyncIterator[AsyncSession]:
+    # Celery entrypoints create a new event loop per run. Never borrow the API's
+    # pooled asyncpg connections, which belong to the loop that opened them.
+    engine = None
+    if session_factory is None:
+        engine = create_async_engine(settings.DATABASE_URL, poolclass=NullPool)
+        session_factory = async_sessionmaker(engine, expire_on_commit=False)
+    try:
+        async with session_factory() as db:
+            yield db
+    finally:
+        if engine is not None:
+            await engine.dispose()
+
+
 async def deliver(
     tenant_id: UUID,
     reminder_id: UUID,
     *,
-    session_factory: Callable[[], Any] = async_session_factory,
+    session_factory: Callable[[], Any] | None = None,
     email_factory: Callable[[], EmailService] = EmailService,
     settings_factory: Callable[[], Any] = get_settings,
     store_factory: Callable[[AsyncSession], PostgresLearningReminderStore] = PostgresLearningReminderStore,
@@ -93,7 +111,7 @@ async def deliver(
     if not _enabled(settings):
         return {"status": "disabled"}
 
-    async with session_factory() as db:
+    async with _delivery_session(session_factory, settings) as db:
         await _set_tenant_context(db, tenant_id)
         store = store_factory(db)
         event = await store.claim(tenant_id=tenant_id, reminder_id=reminder_id)
