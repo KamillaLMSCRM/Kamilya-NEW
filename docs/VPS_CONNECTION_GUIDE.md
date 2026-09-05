@@ -1,109 +1,24 @@
 # Kamilya LMS: VPS и подключённые сервисы
 
-**Обновлено:** 2026-08-18
-**Правило:** этот документ описывает только подтверждённое текущее состояние.
+**Документация сверена:** 2026-09-05; runtime заново не проверялся.
+**Правило:** топология и процедуры ниже отделены от датированного evidence.
+Старые PASS, SHA и ревизии не подтверждают состояние нового release.
 Значения паролей, ключей и URL с credentials не приводятся.
 
-## Production VPS
+## Выбор контура и проверочной процедуры
 
-- Host: `173.249.51.164`.
-- Доступ: SSH key; резервные credentials находятся только в локальном `.env`.
-- Основной checkout worker: `/opt/kamilya-worker`.
-- Production API размещён на Render, не на этом VPS.
-- Production PostgreSQL и Storage размещены в Supabase.
+- [Карта окружений и доступов](PROJECT-CONTEXT.md#карта-окружений-и-доступов)
+  определяет production/dev, источники credentials и запрет смешения данных.
+- [KZ deployment procedure](../.codex/skills/kamilya-production-deploy/SKILL.md)
+  определяет проверку exact API/worker identity на VM126. Наличие SSH-доступа
+  не разрешает release, rollback или миграцию CT125.
+- [Backup/restore runbook](BACKUP_RESTORE_RUNBOOK.md) определяет fail-closed
+  проверку, одноразовую target DB и signed drill report. Наличие архивов не
+  является restore proof; secret env/pgpass/key-файлы не выводить.
 
-Переменные доступа в локальном `.env`:
-
-- `VPS_URL`;
-- `vps_root_password`;
-- `REDIS_URL`;
-- связанные TLS-параметры.
-
-Не печатать значения переменных и не добавлять их в команды, попадающие в
-логи.
-
-## Проверенное 2026-08-04
-
-| Компонент | Состояние | Комментарий |
-|---|---|---|
-| `valkey-server` / `valkey` | active | Broker, result backend, OTP/rate-limit/cache |
-| `kamilya-worker.service` | active, enabled | Checkout `fe0f3c97`, очереди `notifications`, `maintenance`, `celery` |
-| `kamilya-worker-documents.service` | active, enabled | Checkout `fe0f3c97`, очередь `documents`, concurrency 1 |
-| `kamilya-worker-ai.service` | active, enabled | Checkout `fe0f3c97`, очередь `ai`, concurrency 2 |
-| Disk `/` | 61% used, около 29 GB free | Watchdog должен контролировать заполнение |
-| `kamilya-backup.timer` | active, enabled | Ежедневный encrypted PostgreSQL backup |
-| `kamilya-ops-check.timer` | active, enabled | Watchdog каждые 5 минут |
-| `kamilya-trial-expiry.timer` | disabled, inactive | Legacy unit отключён |
-
-Реальный backup и portable restore drill PostgreSQL 17 + pgvector пройдены
-2026-07-27. Состояние Docling, WhatsApp gateway, WireGuard и legacy API в эту
-проверку не входило. Перед использованием каждого сервиса нужен отдельный
-health и прикладной smoke; старый отчёт не считается доказательством.
-
-## Быстрая read-only проверка
-
-```bash
-systemctl is-active valkey-server || systemctl is-active valkey
-systemctl is-active kamilya-worker.service
-systemctl is-enabled kamilya-worker.service
-systemctl is-active kamilya-backup.timer kamilya-ops-check.timer
-git -C /opt/kamilya-worker status --short
-git -C /opt/kamilya-worker rev-parse HEAD
-df -h /
-systemctl list-timers --all
-journalctl -u kamilya-worker.service -n 100 --no-pager
-```
-
-Backup/restore:
-
-```bash
-systemctl status kamilya-backup.timer --no-pager
-systemctl status kamilya-ops-check.timer --no-pager
-find /opt/kamilya-backups -maxdepth 1 -type f \
-  \( -name 'kamilya_*.dump.gpg' -o -name 'kamilya_*.dump.gpg.sha256' \) \
-  -printf '%f %s bytes mode=%m\n'
-```
-
-Наличие файлов не является restore proof. Актуальный fail-closed порядок,
-одноразовая target DB и signed drill report описаны в
-[`BACKUP_RESTORE_RUNBOOK.md`](BACKUP_RESTORE_RUNBOOK.md).
-
-Не выводить `/etc/kamilya/backup.env`, `/etc/kamilya/backup.pgpass`,
-`/etc/kamilya/backup.pass` и `/etc/kamilya/ops.env`. Они root-only и содержат
-credentials.
-
-Для worker используется отдельный
-[`INFRA_CELERY_WORKER.md`](INFRA_CELERY_WORKER.md).
-
-## Service ownership
-
-| Сервис | Владелец и назначение |
-|---|---|
-| Render API | FastAPI production |
-| Vercel | Next.js production |
-| Supabase PostgreSQL | Production data and pgvector |
-| Supabase Storage | Documents and generated artifacts |
-| VPS Valkey | Queue/cache/runtime coordination |
-| VPS Celery | AI, ingestion and rule recomputation |
-| Docling | Conversion of supported office/PDF sources when enabled |
-| Resend | Transactional email |
-| Telegram | Alternative auth/invitation channel |
-
-## HostKZ
-
-HostKZ server был заказан как недельный тестовый контур PostgreSQL в
-Казахстане. Он не является production и не должен автоматически получать
-актуальные production secrets или customer data.
-
-До KZ cutover требуется отдельный план:
-
-1. sizing;
-2. hardening;
-3. encrypted backup/PITR;
-4. object storage localization;
-5. migration rehearsal;
-6. rollback;
-7. договорная и правовая проверка.
+Прежний VPS/systemd-профиль до KZ cutover не применяется к production.
+Для его отдельного dev/demo использования нужен точный owner-approved target
+и свежая проверка; старые адреса и имена credentials не являются fallback.
 
 ## Казахстанский production-контур 2026-08-17
 
@@ -111,13 +26,13 @@ HostKZ server был заказан как недельный тестовый �
 этот контур через `https://api.kml.kz/api`. Render и Supabase сохранены для
 dev/demo и rollback, но production customer traffic к ним не направляется.
 
-| Компонент | Подтверждённое состояние |
+| Компонент | Evidence на дату cutover (не новый release readback) |
 |---|---|
 | VM126, приложение | API и три Celery worker из exact release `e9fc8f3`; API привязан только к WireGuard `10.77.77.2:8000` |
 | VM126, broker | Valkey 8.1 с обязательным паролем, AOF и `noeviction`; наружу порт не опубликован |
 | VM126, файлы | общий bind-mount `/opt/kamilya-runtime/blob-storage` для API и worker, корень `0700 root:root` |
 | VM126, backup файлов | `kamilya-blob-backup.timer`; key-only SSH в CT125, шифрование и проверка архива на отдельном узле |
-| CT125, база | native PostgreSQL 17 + pgvector, схема `0111 (head)`, runtime-роль `lms_app` без SUPERUSER/BYPASSRLS |
+| CT125, база | native PostgreSQL 17 + pgvector, ревизия на дату cutover `0111`; runtime-роль `lms_app` без SUPERUSER/BYPASSRLS. Текущую ревизию проверять заново |
 | CT125, backup | `kamilya-pg-backup.timer` active/enabled; encrypted backup, SHA-256 verification и restore drill проверены |
 
 17.08.2026 исправлена проверка freshly encrypted PostgreSQL dump: дешифрованный

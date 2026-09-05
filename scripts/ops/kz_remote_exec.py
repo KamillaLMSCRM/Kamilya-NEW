@@ -72,11 +72,11 @@ FORMATTED_EVIDENCE_PRINTF_RE = re.compile(
     r"^printf '%s\\n' '((?:EVIDENCE(?:\|[a-z][a-z0-9_]{0,63}=[A-Za-z0-9._:/-]{1,256})+))'$"
 )
 DOCKER_EVIDENCE_FORMAT = (
-    "EVIDENCE|container={{.Name}}|image={{.Config.Image}}|"
+    "EVIDENCE|container={{.Name}}|image_id={{.Image}}|"
     "status={{.State.Status}}|restarts={{.RestartCount}}"
 )
 DOCKER_EVIDENCE_CONTAINER_RE = re.compile(
-    r"kamilya-runtime-(?:api|worker-ai|worker-documents|worker-ops)-1"
+    r"kamilya-(?:runtime|blue|green)-(?:api|worker-ai|worker-documents|worker-ops)-1"
 )
 
 MUTATING_PATTERNS = (
@@ -216,6 +216,11 @@ def _assert_read_only(text: str) -> None:
             raise GateBlocked("read_only_command_parse_failed") from exc
         if argv[:2] == ["sudo", "-n"]:
             argv = argv[2:]
+        safe_plain_docker_inspect = (
+            len(argv) == 3
+            and argv[:2] == ["docker", "inspect"]
+            and DOCKER_EVIDENCE_CONTAINER_RE.fullmatch(argv[2]) is not None
+        )
         safe_docker_evidence_format = (
             len(argv) == 5
             and argv[:3] == ["docker", "inspect", "--format"]
@@ -228,6 +233,8 @@ def _assert_read_only(text: str) -> None:
             raise GateBlocked("read_only_command_not_allowed")
         if argv[0] == "docker" and (len(argv) < 2 or argv[1] not in {"ps", "stats", "inspect", "version", "info"}):
             raise GateBlocked("read_only_docker_command_not_allowed")
+        if argv[:2] == ["docker", "inspect"] and not (safe_plain_docker_inspect or safe_docker_evidence_format):
+            raise GateBlocked("read_only_docker_inspect_target_not_allowed")
         if argv[0] == "systemctl" and (len(argv) < 2 or argv[1] not in {"is-active", "is-enabled", "show", "status"}):
             raise GateBlocked("read_only_systemctl_command_not_allowed")
         if argv[0] == "curl":

@@ -311,21 +311,33 @@ def test_read_only_fixed_health_get_is_allowed(monkeypatch, tmp_path) -> None:
     assert manifest.mode == "read-only"
 
 
-def test_read_only_sudo_noninteractive_docker_inspect_is_allowed(monkeypatch, tmp_path) -> None:
+@pytest.mark.parametrize("slot", ("runtime", "blue", "green"))
+@pytest.mark.parametrize(
+    "service", ("api", "worker-ai", "worker-documents", "worker-ops")
+)
+def test_read_only_sudo_noninteractive_docker_inspect_is_allowed(
+    monkeypatch, tmp_path, slot, service
+) -> None:
     _inside_repo(monkeypatch, tmp_path)
-    path = _script(tmp_path, "sudo -n docker inspect kamilya-runtime-api-1")
+    path = _script(tmp_path, f"sudo -n docker inspect kamilya-{slot}-{service}-1")
     manifest = remote.load_script(
         path, target="vm126", mode="read-only", correlation_id="", expected_sha256=""
     )
     assert manifest.mode == "read-only"
 
 
-def test_read_only_sudo_docker_evidence_format_is_narrowly_allowed(monkeypatch, tmp_path) -> None:
+@pytest.mark.parametrize("slot", ("runtime", "blue", "green"))
+@pytest.mark.parametrize(
+    "service", ("api", "worker-ai", "worker-documents", "worker-ops")
+)
+def test_read_only_sudo_docker_evidence_format_is_narrowly_allowed(
+    monkeypatch, tmp_path, slot, service
+) -> None:
     _inside_repo(monkeypatch, tmp_path)
     body = (
         "sudo -n docker inspect --format '"
         + remote.DOCKER_EVIDENCE_FORMAT
-        + "' kamilya-runtime-api-1"
+        + f"' kamilya-{slot}-{service}-1"
     )
     path = _script(tmp_path, body)
     manifest = remote.load_script(
@@ -334,11 +346,25 @@ def test_read_only_sudo_docker_evidence_format_is_narrowly_allowed(monkeypatch, 
     assert manifest.mode == "read-only"
 
 
+def test_docker_evidence_uses_immutable_image_id() -> None:
+    assert "image_id={{.Image}}" in remote.DOCKER_EVIDENCE_FORMAT
+    assert ".Config.Image" not in remote.DOCKER_EVIDENCE_FORMAT
+    assert remote.EVIDENCE_LINE_RE.fullmatch(
+        "EVIDENCE|container=/kamilya-green-api-1|"
+        "image_id=sha256:0123456789abcdef|status=running|restarts=0"
+    )
+
+
 @pytest.mark.parametrize(
     "body",
     (
         "sudo -n docker inspect --format '{{json .Config}}' kamilya-runtime-api-1",
         "sudo -n docker inspect --format 'EVIDENCE|image={{.Config.Image}}' other-container",
+        "sudo -n docker inspect --format 'EVIDENCE|container={{.Name}}|"
+        "image={{.Config.Image}}|status={{.State.Status}}|"
+        "restarts={{.RestartCount}}' kamilya-blue-api-1",
+        "sudo -n docker inspect other-container",
+        "sudo -n docker inspect kamilya-blue-api-1 kamilya-green-api-1",
     ),
 )
 def test_read_only_sudo_docker_evidence_format_rejects_other_shapes(
