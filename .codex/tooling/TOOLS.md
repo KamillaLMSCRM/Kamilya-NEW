@@ -49,6 +49,16 @@ $toolPython = Join-Path $env:USERPROFILE `
 
 ## Packages
 
+### Graphify 0.9.23 (existing pipx environment)
+
+- Distribution: `graphifyy`, command: `graphify`; do not confuse with other packages.
+- Verified Python: `C:/Users/user/AppData/Local/pipx/pipx/venvs/graphifyy/Scripts/python.exe`.
+- Project procedure and bounded ASUS semantics: `.codex/skills/graphify/SKILL.md`.
+- `scripts/ops/graphify_asus.py` uses stdlib HTTP with existing Graphify components;
+  it does not require the optional OpenAI SDK or change application dependencies.
+- Offline tests: run that Python with `-m unittest discover -s scripts/tests -p test_graphify_asus.py`.
+- Shared pipx upgrades remain separately reviewed; no auto-update or new hooks.
+
 ### PyYAML 6.0.3
 
 - Import: `yaml`
