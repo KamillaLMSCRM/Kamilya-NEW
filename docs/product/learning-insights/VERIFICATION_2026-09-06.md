@@ -168,3 +168,15 @@ Operational residual: Test Runner accidentally created an empty Poetry environme
 bootstrap-only contents, but tool policy rejected cleanup before execution.
 The residual is documented in the ledger, is outside the release source tree,
 and is not used. No alternate deletion method attempted.
+
+DEV release progression: shared canonical Supabase DEV migrated0154->0155 with
+empty annotation table and FORCE RLS; exact dev91ce518c pushed/read back on
+2026-09-06T10:36:14Z. Delegated access failed locally; root's same canonical path
+succeeded. Production master/API were not changed. CI34027881507 passed every
+backend/DB/RLS/security job but failed strict frontend lint on two hook warnings.
+Terra repaired only callback-filter construction and primitive review reset state,
+plus one equivalent-rerender regression. Focused17 tests/strict lint/typecheck
+passed and root reviewed the narrow diff; no suppression or contract weakening.
+The replacement commit must pass fresh CI before DEV business acceptance.
+Root independently logged in through the real DEV browser password form using
+only existing dedicated DEV credentials; no password reset or secret output.

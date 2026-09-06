@@ -95,13 +95,6 @@ export function LearningInsightsPanel(props: {
     dateFrom: props.dateFrom,
     dateTo: props.dateTo,
   });
-  const filters: LearningInsightsFilters = {
-    departmentId: props.departmentId,
-    positionId: props.positionId,
-    dateFrom: props.dateFrom,
-    dateTo: props.dateTo,
-  };
-
   const load = useCallback(async () => {
     if (!props.courseId || !allowed) return;
 
@@ -110,6 +103,12 @@ export function LearningInsightsPanel(props: {
     setError(null);
 
     try {
+      const filters: LearningInsightsFilters = {
+        departmentId: props.departmentId,
+        positionId: props.positionId,
+        dateFrom: props.dateFrom,
+        dateTo: props.dateTo,
+      };
       const result = await getCourseInsights(props.courseId, filters);
       if (request === generation.current) {
         setData(result);
@@ -329,6 +328,8 @@ function QuestionReview({
   const mounted = useRef(true);
   const currentReviewKey = useRef(reviewKey);
   currentReviewKey.current = reviewKey;
+  const initialReviewStatus = initialReview.status;
+  const initialReviewUpdatedAt = initialReview.updated_at;
 
   useEffect(() => {
     mounted.current = true;
@@ -341,9 +342,9 @@ function QuestionReview({
   useEffect(() => {
     saveGeneration.current += 1;
     setSaving(pendingReviews.has(reviewKey));
-    setReview(initialReview);
+    setReview({ status: initialReviewStatus, updated_at: initialReviewUpdatedAt });
     setFailedStatus(null);
-  }, [initialReview.status, initialReview.updated_at, reviewKey]);
+  }, [initialReviewStatus, initialReviewUpdatedAt, reviewKey]);
 
   useEffect(() => subscribeToReviews((event) => {
     if (event.key !== reviewKey) return;
