@@ -155,6 +155,15 @@ export function OnboardingChecklist() {
             </li>
           ))}
         </ul>
+        {role === 'methodologist' && (
+          <Link href="/courses" className="mt-4 flex items-center justify-between rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-sm transition-colors hover:bg-primary/10">
+            <span>
+              <span className="block font-medium text-foreground">{t('onboarding.basisStart')}</span>
+              <span className="block text-xs text-muted-foreground">{t('onboarding.basisStartHint')}</span>
+            </span>
+            <ChevronRight className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+          </Link>
+        )}
       </CardContent>
         </Card>
       )}

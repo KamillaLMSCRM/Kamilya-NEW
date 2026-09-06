@@ -8,7 +8,8 @@ import { clearStoredAuth } from '@/lib/auth';
 import { api } from '@/lib/api';
 import { Logo } from '@/components/brand/Logo';
 import { PUBLIC_DEMO_ROLE_IDS } from '@/lib/demoRoleCopy';
-import { BookOpen, GraduationCap, ArrowLeft } from 'lucide-react';
+import { useT } from '@/i18n/useT';
+import { BookOpen, GraduationCap, ArrowLeft, ChevronRight } from 'lucide-react';
 
 interface RoleCard {
   role: string;
@@ -20,32 +21,32 @@ interface RoleCard {
   redirect: string;
 }
 
-const ROLES: RoleCard[] = [
-  {
-    role: PUBLIC_DEMO_ROLE_IDS[0],
-    title: 'Методолог',
-    description: 'Создание и редактирование курсов, просмотр прогресса студентов',
-    icon: <BookOpen className="w-8 h-8" />,
-    color: 'text-success',
-    bg: 'bg-success/10 hover:bg-success/15 border-success/30',
-    redirect: '/courses',
-  },
-  {
-    role: PUBLIC_DEMO_ROLE_IDS[1],
-    title: 'Обучающийся',
-    description: 'Прохождение курсов, тестов и получение сертификатов',
-    icon: <GraduationCap className="w-8 h-8" />,
-    color: 'text-accent',
-    bg: 'bg-accent/10 hover:bg-accent/15 border-accent/30',
-    redirect: '/my-courses',
-  },
-];
-
 export default function DemoLoginPage() {
   const router = useRouter();
+  const { t, lang } = useT();
   const { login } = useAuthStore();
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState('');
+  const roles: RoleCard[] = [
+    {
+      role: PUBLIC_DEMO_ROLE_IDS[0],
+      title: t('users.roleMethodologist'),
+      description: t('demo.login.methodologistDescription'),
+      icon: <BookOpen className="w-8 h-8" />,
+      color: 'text-success',
+      bg: 'bg-success/10 hover:bg-success/15 border-success/30',
+      redirect: '/courses',
+    },
+    {
+      role: PUBLIC_DEMO_ROLE_IDS[1],
+      title: t('users.roleStudent'),
+      description: t('demo.login.studentDescription'),
+      icon: <GraduationCap className="w-8 h-8" />,
+      color: 'text-accent',
+      bg: 'bg-accent/10 hover:bg-accent/15 border-accent/30',
+      redirect: '/my-courses',
+    },
+  ];
 
   const handleDemoLogin = async (card: RoleCard) => {
     setLoading(card.role);
@@ -56,7 +57,7 @@ export default function DemoLoginPage() {
       login(res.data.access_token, res.data.user);
       router.push(card.redirect);
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Ошибка входа');
+      setError(err.response?.data?.detail || t('demo.login.error'));
     } finally {
       setLoading(null);
     }
@@ -69,9 +70,9 @@ export default function DemoLoginPage() {
           <div className="flex justify-center mb-4">
             <Logo variant="full" size={44} />
           </div>
-          <h2 className="text-xl font-semibold mt-2 text-foreground">Демо-доступ</h2>
+          <h2 className="text-xl font-semibold mt-2 text-foreground">{t('demo.login.title')}</h2>
           <p className="text-sm text-muted-foreground mt-2">
-            Общий кабинет с демонстрационными данными. Компания и личный аккаунт не создаются.
+            {t('demo.login.exampleSubtitle')}
           </p>
         </div>
 
@@ -81,8 +82,20 @@ export default function DemoLoginPage() {
           </div>
         )}
 
+        <Link
+          href={`/login/example?lang=${lang}`}
+          className="mb-4 flex items-center justify-between rounded-xl border border-primary/30 bg-primary/5 p-4 text-left transition-colors hover:bg-primary/10"
+        >
+          <span>
+            <span className="block font-semibold text-foreground">{t('demo.login.openExample')}</span>
+            <span className="mt-1 block text-sm text-muted-foreground">{t('demo.login.exampleDescription')}</span>
+          </span>
+          <ChevronRight className="h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
+        </Link>
+
+        <p className="mb-3 text-sm text-muted-foreground">{t('demo.login.workspaceSubtitle')}</p>
         <div className="grid grid-cols-1 gap-4">
-          {ROLES.map((card) => (
+          {roles.map((card) => (
             <button
               key={card.role}
               onClick={() => handleDemoLogin(card)}
@@ -113,13 +126,13 @@ export default function DemoLoginPage() {
             className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-primary transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
-            Назад к входу
+            {t('demo.login.back')}
           </Link>
           <Link
             href="/register-tenant"
             className="text-sm font-medium text-primary hover:underline"
           >
-            Создать отдельный trial для своей компании
+            {t('demo.login.register')}
           </Link>
         </div>
       </main>

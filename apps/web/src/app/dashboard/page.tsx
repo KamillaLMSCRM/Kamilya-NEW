@@ -8,6 +8,7 @@ import { ChevronRight } from 'lucide-react';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/Toast';
 import { OnboardingChecklist } from '@/components/admin/OnboardingChecklist';
+import { TrainingOverview } from '@/components/admin/TrainingOverview';
 
 interface Stat {
   label: string;
@@ -26,7 +27,7 @@ interface PipelineJob {
 
 export default function DashboardPage() {
   const { user } = useAuthStore();
-  const { t } = useT();
+  const { t, lang } = useT();
   const [stats, setStats] = useState<{ totalCourses: number; publishedCourses: number; totalEnrollments: number; completedEnrollments: number; totalEmployees: number } | null>(null);
   const [pipelineJobs, setPipelineJobs] = useState<PipelineJob[]>([]);
   const [recentCourses, setRecentCourses] = useState<any[]>([]);
@@ -137,7 +138,15 @@ export default function DashboardPage() {
     { key: 'architecting', label: t('dashboard.kanban.architecting'), color: 'bg-primary' },
     { key: 'generating', label: t('dashboard.kanban.generating'), color: 'bg-info' },
     { key: 'reviewing', label: t('dashboard.kanban.reviewing'), color: 'bg-accent' },
+    { key: 'failed', label: t('dashboard.kanban.failed'), color: 'bg-destructive' },
+    { key: 'other', label: t('dashboard.kanban.needsAttention'), color: 'bg-warning' },
   ];
+  const canStartLearning = user?.role === 'methodologist';
+  const knownPipelineStatuses = new Set([
+    'queued', 'ingesting', 'ingestion', 'architecting', 'architect',
+    'generating', 'content_generation', 'reviewing', 'review', 'assessment',
+    'failed', 'error', 'cancelled',
+  ]);
 
   return (
     <div className="space-y-8">
@@ -150,17 +159,44 @@ export default function DashboardPage() {
           <p className="mt-1 text-sm text-muted-foreground">{t('dashboard.subtitle')}</p>
         </div>
         <Link
-          href="/ai/generate"
+          href={canStartLearning ? '/ai/generate' : `/login/example?lang=${lang}`}
           className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors shadow-sm"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="M12 5v14M5 12h14" />
           </svg>
-          {t('dashboard.newCourse')}
+          {canStartLearning ? t('dashboard.newCourse') : t('dashboard.openPreview')}
         </Link>
       </div>
 
       <OnboardingChecklist />
+
+      <TrainingOverview />
+
+      <section aria-labelledby="start-options-title" className="rounded-2xl border border-border bg-card p-5 shadow-card sm:p-6">
+        <div className="max-w-2xl">
+          <h2 id="start-options-title" className="text-lg font-bold text-foreground font-display">{t('dashboard.startTitle')}</h2>
+          <p className="mt-1 text-sm text-muted-foreground">{t('dashboard.startSubtitle')}</p>
+        </div>
+        <div className="mt-4 grid gap-3 md:grid-cols-3">
+          <Link href={`/login/example?lang=${lang}`} className="rounded-xl border border-border p-4 transition hover:border-primary/50 hover:bg-primary/5">
+            <span className="text-sm font-semibold text-foreground">{t('dashboard.previewTitle')}</span>
+            <span className="mt-1 block text-sm text-muted-foreground">{t('dashboard.previewDescription')}</span>
+          </Link>
+          {canStartLearning && (
+            <Link href="/ai/generate" className="rounded-xl border border-border p-4 transition hover:border-primary/50 hover:bg-primary/5">
+              <span className="text-sm font-semibold text-foreground">{t('dashboard.materialsTitle')}</span>
+              <span className="mt-1 block text-sm text-muted-foreground">{t('dashboard.materialsDescription')}</span>
+            </Link>
+          )}
+          {canStartLearning && (
+            <Link href="/courses" className="rounded-xl border border-border p-4 transition hover:border-primary/50 hover:bg-primary/5">
+              <span className="text-sm font-semibold text-foreground">{t('dashboard.basisTitle')}</span>
+              <span className="mt-1 block text-sm text-muted-foreground">{t('dashboard.basisDescription')}</span>
+            </Link>
+          )}
+        </div>
+      </section>
 
       {/* Stat cards */}
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -186,8 +222,8 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      {/* Kanban pipeline */}
-      <div>
+      {/* Keep real non-completed jobs reachable; hide only an actually empty board. */}
+      {pipelineJobs.length > 0 && <section>
         <h2 className="text-lg font-bold text-foreground font-display mb-4">{t('dashboard.aiPipeline')}</h2>
         <div className="flex gap-4 overflow-x-auto pb-4">
           {kanbanColumns.map((col) => {
@@ -197,7 +233,8 @@ export default function DashboardPage() {
               if (col.key === 'architecting') return j.status === 'architecting' || j.status === 'architect';
               if (col.key === 'generating') return j.status === 'generating' || j.status === 'content_generation';
               if (col.key === 'reviewing') return j.status === 'reviewing' || j.status === 'review' || j.status === 'assessment';
-              return false;
+              if (col.key === 'failed') return j.status === 'failed' || j.status === 'error' || j.status === 'cancelled';
+              return !knownPipelineStatuses.has(j.status);
             });
 
             return (
@@ -231,7 +268,7 @@ export default function DashboardPage() {
             );
           })}
         </div>
-      </div>
+      </section>}
 
       {/* Recent courses */}
       <div>

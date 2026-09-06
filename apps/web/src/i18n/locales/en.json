@@ -214,17 +214,28 @@
     "allCourses": "All courses",
     "noCoursesHint": "No courses yet. Start with",
     "aiGeneration": "AI generation",
-    "aiPipeline": "AI Pipeline",
+    "aiPipeline": "Course creation progress",
     "kanban": {
       "queued": "Queue",
       "ingesting": "Documents",
       "architecting": "Structure",
       "generating": "Content",
       "reviewing": "Review",
+      "failed": "Needs attention",
+      "needsAttention": "Other status",
       "empty": "Empty"
     },
     "subtitle": "Here's what's happening today",
-    "newCourse": "New course"
+    "newCourse": "New course",
+    "openPreview": "View example",
+    "startTitle": "Choose how to start",
+    "startSubtitle": "See an example first, then begin with your materials or a ready baseline.",
+    "previewTitle": "View example",
+    "previewDescription": "A short illustrative lesson that does not record a result.",
+    "materialsTitle": "Start with materials",
+    "materialsDescription": "Create a course draft from your working materials.",
+    "basisTitle": "Start with a ready baseline",
+    "basisDescription": "Choose a template, adapt it to your organisation, and review it before publishing."
   },
   "aiAssistant": {
     "title": "AI assistant",
@@ -342,7 +353,7 @@
       "catalogNotMandatory": "A template is not a universal requirement: check applicability and your internal basis.",
       "audience": "Audience",
       "applicability": "Applicability",
-      "complianceModes": { "lmsOnly": "LMS only", "blended": "LMS + external requirements", "externalCertified": "External certification" },
+      "complianceModes": { "lmsOnly": "In Kamilya LMS only", "blended": "Kamilya LMS and external requirements", "externalCertified": "External certification" },
       "offerTitle": "Ready information-security course for a financial organization",
       "offerDescription": "Start with a reviewed baseline structure and complete it with your company's internal rules.",
       "open": "Adapt template",
@@ -360,6 +371,7 @@
       "genericIntroBody": "Your answers below will be added to the relevant lessons in the selected template.",
       "introNotice": "Complete the required items before sending the course for approval and publication.",
       "introMicrocopy": "Do not copy entire documents — briefly state the process, responsible roles, and deadlines.",
+      "methodologistResponsibility": "The methodologist supplies the organisation context; the resulting draft still needs review and approval before publication.",
       "checklistEmpty": "This template has no adaptation items yet.",
       "adaptationSteps": "Course setup steps",
       "stepProgress": "Step {current} of {total}",
@@ -380,7 +392,7 @@
       "finalHint": "The editor opens next: review and approve the course before publishing it.",
       "steps": {
         "checklistTitle": "Organisation adaptation",
-        "checklistDescription": "Complete the server-provided questions for this template. Mark items as not applicable when appropriate.",
+        "checklistDescription": "Complete the questions for this template. Mark items as not applicable when appropriate.",
         "accessTitle": "Access and working data",
         "accessDescription": "Who receives access, which systems employees use, and how working information is protected.",
         "operationsTitle": "Devices and operations",
@@ -1409,6 +1421,19 @@
       "defaultMessage": "Demo mode has free-usage limits.",
       "registerCta": "Register",
       "closeCta": "Got it"
+    },
+    "login": {
+      "title": "Demo access",
+      "subtitle": "A shared workspace with demonstration data. It does not create a company or personal account.",
+      "exampleSubtitle": "Try the interactive example first without signing in or recording a result.",
+      "openExample": "Open the interactive example",
+      "exampleDescription": "A short lesson with illustrative feedback; it is not a learning record.",
+      "workspaceSubtitle": "The cards below open a shared demo workspace with demonstration data. It does not create a company or personal account.",
+      "methodologistDescription": "Create and edit courses, work with materials, and manage the learning workflow.",
+      "studentDescription": "Take courses and quizzes, and receive certificates.",
+      "error": "Could not sign in to the demo",
+      "back": "Back to sign in",
+      "register": "Create a separate trial for your company"
     }
   },
   "quizAssignments": {
@@ -1882,7 +1907,9 @@
     "users": "users",
     "allSetTitle": "All set — every step is done",
     "allSetSubtitle": "The core workflow for your role is configured.",
-    "methodologistRequired": "This step is completed by a methodologist. Switch roles or contact a methodologist."
+    "methodologistRequired": "This step is completed by a methodologist. Switch roles or contact a methodologist.",
+    "basisStart": "Start with a ready baseline",
+    "basisStartHint": "Choose a template and adapt it to the organisation before publishing."
   },
   "trialStatus": {
     "active": "Trial active",

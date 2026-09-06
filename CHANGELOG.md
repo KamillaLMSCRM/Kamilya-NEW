@@ -7,7 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Buyer journey: public RU/KK/EN interactive learning example at `/login/example`, with fictional results, answer feedback and explanatory next steps; no tenant writes or AI requests.
+- Methodologist dashboard: real training-summary counts, loading/error isolation and two explicit starting paths (materials or course basis). Empty AI queues are hidden; failed and unknown jobs remain visible.
+
 ### Fixed
+- Demo and blueprint copy now distinguish illustrative examples, available course foundations and company expert approval; Russian catalog limitations no longer fall back to English.
 - Reminder delivery now owns its async database connections per worker invocation, preventing cross-event-loop failures without changing the API connection pool or email deduplication.
 - Legacy assignment outboxes now support their non-bypass function owner under FORCE RLS; course recurrence accepts a nullable audited system actor without admitting foreign-tenant actors.
 

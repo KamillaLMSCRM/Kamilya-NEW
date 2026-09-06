@@ -289,6 +289,7 @@ function BlueprintPageContent() {
             <p className="mt-1 text-sm text-foreground">{t(isFinanceBlueprint ? 'courses.blueprint.introBody' : 'courses.blueprint.genericIntroBody')}</p>
             <p className="mt-2 text-sm text-muted-foreground">{t('courses.blueprint.introNotice')}</p>
             <p className="mt-2 text-xs text-muted-foreground">{t('courses.blueprint.introMicrocopy')}</p>
+            <p className="mt-2 text-xs font-medium text-foreground">{t('courses.blueprint.methodologistResponsibility')}</p>
           </div>
         </div>
       </section>
