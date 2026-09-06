@@ -1591,3 +1591,19 @@ contract or establish a blocker.
 - Prevention: translation mocks must match reference-stability guarantees used by
   effects; verify the full page, not only helper/source-string assertions. Diagnose
   a stuck runner by per-module progress and stop only its owned session, not all Node processes.
+
+## CI-004 - Successful Next build did not satisfy zero-warning ESLint
+
+- Date: 2026-09-06.
+- Symptom: local web tests/build/typecheck passed, but dev CI34027881507 failed
+  frontend lint on two exhaustive-deps warnings in LearningInsights.tsx.
+- Cause: root's local release packet omitted the separate package lint script.
+  Next build tolerates warnings; `eslint . --max-warnings=0` does not. Callback
+  filters and initial review objects were referenced through scalar dependency lists.
+- Fix: create filters inside the callback and derive reset state from primitive
+  review fields. Do not add unstable whole-object dependencies or suppress lint.
+- Verification: strict pnpm lint, focused17 tests and typecheck passed; new
+  regression preserves in-flight save and prevents refetch on equivalent rerender.
+  Replacement exact-SHA CI remains mandatory; earlier failed CI is not a pass.
+- Prevention: frontend release packets name pnpm lint separately from build and
+  typecheck. Preserve reference stability and tenant cancellation when fixing hooks.

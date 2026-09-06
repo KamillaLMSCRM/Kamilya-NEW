@@ -281,6 +281,26 @@ describe('learner answer dialog', () => {
     await waitFor(() => controls.forEach((control) => expect(control).toHaveValue('resolved')));
   });
 
+  it('does not refetch or interrupt a pending review save on an equivalent parent rerender', async () => {
+    const save = deferred<{ data: { status: 'resolved'; updated_at: string } }>();
+    apiMock.get.mockResolvedValue({ data: aggregate() });
+    apiMock.put.mockReturnValueOnce(save.promise as never);
+    const props = { courseId: 'course-1', dateFrom: '2026-09-01', dateTo: '2026-09-06' };
+    const { rerender } = render(<LearningInsightsPanel {...props} />);
+    const select = await screen.findByLabelText(/Methodologist decision|Решение методиста|Әдіскер шешімі/i);
+
+    fireEvent.change(select, { target: { value: 'resolved' } });
+    await waitFor(() => expect(select).toBeDisabled());
+    rerender(<LearningInsightsPanel {...props} />);
+
+    expect(apiMock.get).toHaveBeenCalledTimes(1);
+    expect(select).toBeDisabled();
+    await act(async () => save.resolve({ data: { status: 'resolved', updated_at: '2026-09-06T12:00:00Z' } }));
+    await waitFor(() => expect(select).toHaveValue('resolved'));
+    rerender(<LearningInsightsPanel {...props} />);
+    expect(select).toHaveValue('resolved');
+  });
+
   it('keeps the displayed review at its server value when a save fails and offers retry', async () => {
     apiMock.get.mockResolvedValueOnce({ data: enrollment() });
     apiMock.put.mockRejectedValueOnce(new Error('synthetic save failure'));
