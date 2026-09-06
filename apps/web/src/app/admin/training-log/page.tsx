@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Card,
@@ -30,6 +30,8 @@ import { getAssignmentSourceInfo } from '@/lib/assignmentSource';
 import { downloadGroupEvidence, downloadIndividualEvidence, type EvidenceExportFormat } from '@/features/training-evidence/exportApi';
 import { EvidenceShareDialog } from '@/features/training-evidence/EvidenceShareDialog';
 import { SignedScanControl, useSignedScanLedgers } from '@/features/training-evidence/SignedScanControl';
+import { LearnerAnswers, LearningInsightsPanel, canUseLearningInsights } from '@/features/learning-insights/LearningInsights';
+import { useLearningInsightsT } from '@/features/learning-insights/i18n';
 
 /**
  * Training log — единый журнал обучения (P0.3 first-tenant hardening).
@@ -128,10 +130,12 @@ const DELIVERY_OPTIONS: Array<{ value: string; label: string }> = [
 
 export default function AdminTrainingLogPage() {
   const { t, lang } = useT();
+  const { text: insightsText } = useLearningInsightsT();
   const router = useRouter();
   const accessToken = useAuthStore((s) => s.accessToken);
   const user = useAuthStore((s) => s.user);
   const isMethodologist = user?.role === 'methodologist';
+  const canInspectLearning = canUseLearningInsights(user);
 
   const [filters, setFilters] = useState<Filters>({});
   const [page, setPage] = useState<TrainingLogPage | null>(null);
@@ -143,6 +147,12 @@ export default function AdminTrainingLogPage() {
   const [selectedEvidenceIds, setSelectedEvidenceIds] = useState<Set<string>>(new Set());
   const [exportingKey, setExportingKey] = useState<string | null>(null);
   const [shareEventIds, setShareEventIds] = useState<string[] | null>(null);
+  const [selectedEnrollmentId, setSelectedEnrollmentId] = useState<string | null>(null);
+  const [courseCatalog, setCourseCatalog] = useState<Array<{ id: string; title: string }>>([]);
+  const [courseCatalogScopeKey, setCourseCatalogScopeKey] = useState<string | null>(null);
+  const [courseCatalogError, setCourseCatalogError] = useState<string | null>(null);
+  const [courseCatalogLoading, setCourseCatalogLoading] = useState(false);
+  const courseCatalogGeneration = useRef(0);
 
   const [searchInput, setSearchInput] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -193,6 +203,50 @@ export default function AdminTrainingLogPage() {
       .catch(() => setSummary(null));
   }, [accessToken, summaryQueryString]);
 
+  const courseCatalogIdentityKey = JSON.stringify({
+    tenantId: user?.tenant_id ?? null,
+    userId: user?.user_id ?? null,
+    role: user?.role ?? null,
+  });
+
+  const loadCourseCatalog = useCallback(async () => {
+    const request = ++courseCatalogGeneration.current;
+    if (!accessToken || !canInspectLearning) {
+      setCourseCatalog([]);
+      setCourseCatalogScopeKey(null);
+      setCourseCatalogError(null);
+      return;
+    }
+
+    setCourseCatalogLoading(true);
+    setCourseCatalogError(null);
+    try {
+      const response = await api.get<Array<{ id: string; title: string }>>('/v1/courses');
+      if (request === courseCatalogGeneration.current) {
+        setCourseCatalog(Array.isArray(response.data) ? response.data : []);
+        setCourseCatalogScopeKey(courseCatalogIdentityKey);
+      }
+    } catch (cause: any) {
+      if (request === courseCatalogGeneration.current) {
+        setCourseCatalog([]);
+        setCourseCatalogScopeKey(null);
+        setCourseCatalogError(String(cause?.response?.data?.detail || cause?.message || t('common.loadFailed')));
+      }
+    } finally {
+      if (request === courseCatalogGeneration.current) setCourseCatalogLoading(false);
+    }
+  }, [accessToken, canInspectLearning, courseCatalogIdentityKey, t]);
+
+  useEffect(() => {
+    setCourseCatalog([]);
+    setCourseCatalogScopeKey(null);
+    setCourseCatalogError(null);
+    void loadCourseCatalog();
+    return () => {
+      courseCatalogGeneration.current += 1;
+    };
+  }, [courseCatalogIdentityKey, loadCourseCatalog]);
+
   // Reset pagination when filters change (typical table UX).
   useEffect(() => {
     setOffset(0);
@@ -242,6 +296,13 @@ export default function AdminTrainingLogPage() {
 
   const total = page?.total ?? 0;
   const items = page?.items ?? [];
+  const visibleCourseCatalog = courseCatalogScopeKey === courseCatalogIdentityKey
+    ? courseCatalog
+    : [];
+  const courseOptions = [
+    { value: '', label: insightsText('selectCourse') },
+    ...visibleCourseCatalog.map((course) => ({ value: course.id, label: course.title })),
+  ];
   const hasActiveFilters = Object.values(filters).some(Boolean) || Boolean(searchInput.trim());
   const resetFilters = () => {
     setFilters({});
@@ -402,8 +463,36 @@ export default function AdminTrainingLogPage() {
             value={filters.date_to ?? ''}
             onChange={(v) => setFilters((f) => ({ ...f, date_to: v || undefined }))}
           />
+          {canInspectLearning && (
+            <div className="space-y-2">
+              <SelectField
+                label={insightsText('title')}
+                value={filters.course_id ?? ''}
+                options={courseOptions}
+                onChange={(v) => setFilters((f) => ({ ...f, course_id: v || undefined }))}
+              />
+              {courseCatalogError && (
+                <div className="flex items-center gap-2 text-xs text-destructive" role="alert">
+                  <span>{courseCatalogError}</span>
+                  <Button type="button" variant="outline" size="sm" disabled={courseCatalogLoading} onClick={() => void loadCourseCatalog()}>
+                    {t('common.retry')}
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
+
+      {canInspectLearning && (
+        <LearningInsightsPanel
+          courseId={filters.course_id}
+          departmentId={filters.department_id}
+          positionId={filters.position_id}
+          dateFrom={filters.date_from}
+          dateTo={filters.date_to}
+        />
+      )}
 
       {/* Summary */}
       <div className="flex items-center justify-between text-sm text-muted-foreground">
@@ -504,6 +593,11 @@ export default function AdminTrainingLogPage() {
                         />
                       </div>
                     )}
+                    {canInspectLearning && (
+                      <Button type="button" variant="outline" size="sm" onClick={() => setSelectedEnrollmentId(row.enrollment_id)}>
+                        {insightsText('answers')}
+                      </Button>
+                    )}
                   </article>
                   );
                 })}
@@ -542,7 +636,7 @@ export default function AdminTrainingLogPage() {
                     <th className={columnClass.score}>{t('trainingLog.table.score')}</th>
                     <th className={columnClass.completedAt}>{t('trainingLog.table.completedAt')}</th>
                     <th className={columnClass.certificate}>{t('trainingLog.table.certificate')}</th>
-                    {isMethodologist && <th className="w-44 min-w-44 px-4 py-3">{t('trainingLog.table.actions')}</th>}
+                    {canInspectLearning && <th className="w-44 min-w-44 px-4 py-3">{t('trainingLog.table.actions')}</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -655,9 +749,9 @@ export default function AdminTrainingLogPage() {
                           <span className="text-muted-foreground">—</span>
                         )}
                       </td>
-                      {isMethodologist && (
+                      {canInspectLearning && (
                         <td className="w-44 min-w-44 px-4 py-3 align-top">
-                          {canExportEvidence(row) ? (
+                          {isMethodologist && (canExportEvidence(row) ? (
                             <div className="flex gap-1">
                               <EvidenceIconButton
                                 label={t('trainingLog.evidence.pdf')}
@@ -681,7 +775,10 @@ export default function AdminTrainingLogPage() {
                                 onClick={() => setShareEventIds([row.latest_evidence_event_id as string])}
                               />
                             </div>
-                          ) : <span className="text-xs text-muted-foreground">{t('trainingLog.evidence.unavailable')}</span>}
+                          ) : <span className="text-xs text-muted-foreground">{t('trainingLog.evidence.unavailable')}</span>)}
+                          <Button type="button" variant="outline" size="sm" className="mt-2" onClick={() => setSelectedEnrollmentId(row.enrollment_id)}>
+                            {insightsText('answers')}
+                          </Button>
                         </td>
                       )}
                     </tr>
@@ -698,6 +795,7 @@ export default function AdminTrainingLogPage() {
         eventIds={shareEventIds || []}
         onClose={() => setShareEventIds(null)}
       />
+      <LearnerAnswers enrollmentId={selectedEnrollmentId} onClose={() => setSelectedEnrollmentId(null)} />
     </div>
   );
 }
@@ -820,6 +918,7 @@ function SelectField(props: {
         {props.label}
       </label>
       <select
+        aria-label={props.label}
         value={props.value}
         onChange={(e) => props.onChange(e.target.value)}
         className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"

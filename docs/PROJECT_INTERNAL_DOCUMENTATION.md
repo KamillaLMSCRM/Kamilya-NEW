@@ -6,6 +6,23 @@
 
 ## 1. Назначение продукта
 
+### Learning insights — implementation candidate, 2026-09-06
+
+`learning_insights` is a read-only projection of `QuizAttempt.evidence_snapshot`
+and its SHA-256, with a single tenant-owned annotation table added by migration
+0155. API routes live under `/api/v1/admin/learning-insights`; the existing training
+log is the sole UI entry point. Only the active methodologist role in an exact
+tenant context is admitted, following ADR-0012; platform support uses existing
+authenticated impersonation. Historical evidence is never rebuilt from live questions.
+First/latest observations are fixed per employee/quiz/release before date and
+question projection; unavailable latest comparisons have their own denominator.
+No AI provider, notification, course mutation, or employee-ranking path is added.
+
+Contract: [EPIC and module map](product/learning-insights/MODULE_INDEX.md).
+DEV gate: `scripts/ops/learning_insights_dev_check.py --env-file <canonical LMS env>`;
+synthetic disposable schema only, restricted runtime RLS, exact cleanup, sanitized
+output. This section documents a candidate, not a production deployment.
+
 Kamilya LMS — multi-tenant LMS для корпоративного обучения. Tenant — отдельная компания со своими пользователями, курсами, документами, должностями, назначениями, сертификатами и настройками.
 
 Главная продуктовая идея:
@@ -20,7 +37,7 @@ Kamilya LMS — multi-tenant LMS для корпоративного обуче�
 
 ```text
 apps/api/       FastAPI backend, SQLAlchemy, Alembic
-apps/web/       Next.js 14 frontend, React, TypeScript
+apps/web/       Next.js 15.5.23 frontend, React, TypeScript
 docs/           продуктовые, архитектурные и эксплуатационные документы
 ```
 

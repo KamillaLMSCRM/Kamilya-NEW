@@ -1575,3 +1575,19 @@ contract or establish a blocker.
   Tests that call that boundary directly must seed the same active-job invariant
   as the production queue/worker path; the runtime must not create or infer a
   missing job as a compatibility fallback.
+## TEST-011 - An unstable translation mock can starve journal test timers
+
+- Date: 2026-09-06.
+- Symptom: the full frontend suite kept one worker busy with increasing memory;
+  the isolated `trainingLogDeadlineView.test.tsx` legacy-row case also failed to finish.
+- Cause: its useT mock created a new t function on every render. The journal's
+  fetch callback depends on t, so state changes repeatedly re-triggered the request.
+  The real translation hook preserves function identity with useCallback.
+- Fix: keep the test translator stable and add the supported empty catalog response
+  to the mock. No production fetch logic or deadline assertions were weakened.
+- Verification: the same isolated case completed in ~2 seconds; the four affected
+  feature/journal files passed 35 tests. Full-suite evidence is recorded separately
+  in docs/product/learning-insights/VERIFICATION_2026-09-06.md.
+- Prevention: translation mocks must match reference-stability guarantees used by
+  effects; verify the full page, not only helper/source-string assertions. Diagnose
+  a stuck runner by per-module progress and stop only its owned session, not all Node processes.
