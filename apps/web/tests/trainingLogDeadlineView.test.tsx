@@ -7,17 +7,17 @@ vi.mock('next/navigation', () => ({
 
 vi.mock('@/lib/api', () => ({ api: { get: vi.fn() } }));
 
-vi.mock('@/i18n/useT', () => ({
-  useT: () => ({
-    lang: 'en',
-    t: (key: string) => ({
+vi.mock('@/i18n/useT', () => {
+  // Match useT's stable useCallback identity; creating t on every render
+  // repeatedly invalidates the journal's fetch effect and starves timers.
+  const t = (key: string) => ({
       'trainingLog.badge.deadlineActive': 'On track',
       'trainingLog.badge.deadlineOverdue': 'Overdue',
       'trainingLog.badge.completedOnTime': 'Completed on time',
       'trainingLog.badge.completedLate': 'Completed late',
-    }[key] ?? key),
-  }),
-}));
+    }[key] ?? key);
+  return { useT: () => ({ lang: 'en', t }) };
+});
 
 import AdminTrainingLogPage from '@/app/admin/training-log/page';
 import { api } from '@/lib/api';
@@ -42,6 +42,7 @@ function trainingLogRow(deadline: Record<string, unknown>) {
 
 function renderTrainingLog(deadline: Record<string, unknown>) {
   apiMock.get.mockImplementation(async (url: string) => {
+    if (url === '/v1/courses') return { data: [] } as never;
     if (url.includes('/summary')) return { data: { total: 1, assigned: 0, in_progress: 1, completed: 0, overdue: 0 } } as never;
     if (url.startsWith('/v1/admin/training-log?')) return { data: { items: [trainingLogRow(deadline)], total: 1, limit: 100, offset: 0 } } as never;
     throw new Error(`Unexpected GET ${url}`);

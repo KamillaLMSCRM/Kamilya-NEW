@@ -1,6 +1,6 @@
 # Error and Recurrence Prevention Log
 
-Current as of: 2026-09-05.
+Current as of: 2026-09-06.
 
 This is the single operational log for confirmed Kamilya LMS workflow errors,
 invalid assumptions, fixes, verification, and recurrence prevention. Open product
@@ -1545,3 +1545,19 @@ contract or establish a blocker.
   or outbox row committed, no automatic email sent; original customer rules
   and tenant data untouched. The activated synthetic learner remains available
   only until the follow-up test and cleanup complete.
+## TEST-011 - An unstable translation mock can starve journal test timers
+
+- Date: 2026-09-06.
+- Symptom: the full frontend suite kept one worker busy with increasing memory;
+  the isolated `trainingLogDeadlineView.test.tsx` legacy-row case also failed to finish.
+- Cause: its useT mock created a new t function on every render. The journal's
+  fetch callback depends on t, so state changes repeatedly re-triggered the request.
+  The real translation hook preserves function identity with useCallback.
+- Fix: keep the test translator stable and add the supported empty catalog response
+  to the mock. No production fetch logic or deadline assertions were weakened.
+- Verification: the same isolated case completed in ~2 seconds; the four affected
+  feature/journal files passed 35 tests. Full-suite evidence is recorded separately
+  in docs/product/learning-insights/VERIFICATION_2026-09-06.md.
+- Prevention: translation mocks must match reference-stability guarantees used by
+  effects; verify the full page, not only helper/source-string assertions. Diagnose
+  a stuck runner by per-module progress and stop only its owned session, not all Node processes.

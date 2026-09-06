@@ -190,3 +190,38 @@ Rules:
 - **Cleanup lifecycle:** `PASS`; the first cleanup exposed the immutable `content_releases` deletion gap. The corrected exact-SHA release kept direct release mutation blocked, used the bounded superadmin purge contract, and removed the disposable tenant through the normal API with DELETE `204` and independent GET `404` readback.
 - **Residue:** none. No synthetic tenant, credential, local fixture, email, or external notification remains.
 - **Overall:** `READY` for the assessment-quality scope. Deterministic generation checks and mandatory methodologist review are active in production; ongoing real-document sampling remains a product-quality monitoring activity rather than a release blocker.
+
+## LI-LOCAL-RELEASE-20260906 — Learning Insights local acceptance
+
+- **UTC evidence timestamp:** `2026-09-06T10:26:15Z`.
+- **Worktree identity:** `C:\Kamilya New\Kamilya-NEW\.worktrees\learning-insights`, branch `feat/learning-insights-20260906`, HEAD `5c297eb99c64834aac3f5b57628d017a1006f644`; local Windows only.
+- **Source manifest:** 19 filtered modified/untracked `apps/**` and `scripts/**` source files; before/after manifest digest unchanged at `4b0ab9e39685bf99eeaa716cd1515310114ede2b79d303494799bb9788d1a76c`. Docs/plans/verification and ledger were excluded as authorized; no application/test source changed.
+- **Frontend Vitest:** `pnpm test -- --maxWorkers=2` — **PASS**, 104 files and 535 tests, 86.15s. Non-failing jsdom navigation notice was emitted.
+- **Frontend build:** `NEXT_TELEMETRY_DISABLED=1 pnpm exec next build` — **PASS**, 62/62 static pages generated. Two non-fatal React hook dependency warnings were emitted in `LearningInsights.tsx` at lines 125 and 346.
+- **Frontend typecheck:** `pnpm typecheck` — **PASS**, exit code 0. Build and typecheck ran sequentially.
+- **API focused regression:** canonical `C:\Kamilya New\Kamilya-NEW\.venv\Scripts\python.exe` ran the LI service, evidence, training-log, quiz, and procedure-gate no-DB set — **PASS**, `35 passed, 1 deselected in 2.57s`; the deselected case was the migration-only procedure test.
+- **Python quality baseline:** **BLOCKED / HARNESS_FAILURE**. The canonical maintained venv contains no `ruff.exe`, `mypy.exe`, or importable `ruff`/`mypy` modules; `python_quality_baseline.py` failed before analysis with `FileNotFoundError: [WinError 2]` while resolving `ruff`. No install or ambient fallback was used.
+- **Release-contract gate:** **FAIL / CONTRACT_DEFECT**. Alembic chain, Celery contract, and migration ownership checks passed; the gate failed the existing error-journal contract with `Errors journal contract error: header date must equal the latest entry date`.
+- **Accidental Poetry environment:** the initial forbidden-method correction attempt created `C:\Users\user\AppData\Local\pypoetry\Cache\virtualenvs\api-eEQ5pG_A-py3.12`. No explicit install command was run; the environment lacked `pytest_asyncio`, `ruff`, and `mypy`. It was not deleted pending root review.
+- **Scope/cleanup:** no DB, network, provider, browser, production, secrets, customer data, Git index/history, or dependency installation action. No persistent fixtures created; no owned processes remained.
+- **Root review:** required; local frontend/API tests pass, but canonical Python quality tooling is unavailable and the release-contract gate has an existing journal-date failure.
+
+## LI-LOCAL-RELEASE-20260906-R1 — quality-gate correction
+
+- **UTC evidence timestamp:** `2026-09-06T10:29:08Z`.
+- **Prior-run reference:** correction of `LI-LOCAL-RELEASE-20260906`; prior harness failure is preserved above. Root corrected only the candidate `ERRORS.md` header date and approved the maintained quality environment.
+- **Quality environment:** `C:\Kamilya New\Kamilya-NEW\apps\api\.venv`; Python `3.13.15`, Ruff `0.8.6`, mypy `1.20.2`. Its `Scripts` directory was prepended to `PATH` process-locally; no install or Poetry execution was used.
+- **Python quality baseline:** `C:\Kamilya New\Kamilya-NEW\.worktrees\learning-insights\scripts\ci\python_quality_baseline.py` — **PASS**, `ruff=1091`, `mypy=2356`.
+- **Release-contract gate:** same maintained interpreter and explicit candidate script path — **PASS**. Alembic chain: 153 revisions, head `0155`; Celery contract, migration ownership, and 74-entry secret-safe error-journal structure all passed.
+- **Whitespace check:** `git diff --check` — **PASS**, no output.
+- **Source manifest:** 19 filtered modified/untracked `apps/**` and `scripts/**` files; digest remained `4b0ab9e39685bf99eeaa716cd1515310114ede2b79d303494799bb9788d1a76c`. Only the authorized ledger and root-owned `ERRORS.md` correction were outside that source manifest.
+- **Accidental environment:** `C:\Users\user\AppData\Local\pypoetry\Cache\virtualenvs\api-eEQ5pG_A-py3.12` remains present and was not deleted; root owns cleanup after scope review.
+- **Root review:** required; all authorized local LI checks are now green, while DEV/browser/production acceptance remains a separate gate.
+
+## LI-LOCAL-RELEASE-20260906-R1 — cleanup residual addendum
+
+- **UTC evidence timestamp:** `2026-09-06T10:30:02Z`.
+- **Related entry:** `LI-LOCAL-RELEASE-20260906-R1`.
+- **Residual:** the accidental Poetry virtualenv `C:\Users\user\AppData\Local\pypoetry\Cache\virtualenvs\api-eEQ5pG_A-py3.12` remains present. Root independently verified its creation time and contents as virtualenv bootstrap plus pip `26.0.1`; canonical maintained environments are untouched.
+- **Cleanup attempt:** root attempted guarded native PowerShell cleanup; tool policy rejected the command before execution. No deletion occurred, and no alternate deletion mechanism was attempted.
+- **Status:** cleanup remains root-owned and pending explicit safe execution; no application or test source is affected.
