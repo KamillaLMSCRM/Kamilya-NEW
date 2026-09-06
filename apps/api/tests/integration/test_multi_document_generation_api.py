@@ -9,6 +9,7 @@ as the existing document compatibility tests.
 from __future__ import annotations
 
 import hashlib
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from uuid import uuid4
 
@@ -761,10 +762,12 @@ async def test_mixed_language_requires_explicit_confirmation_before_queueing(
 
 @pytest.mark.asyncio
 async def test_multi_document_provenance_persisted_for_course_and_lessons(
-    db_session, make_tenant, make_user
+    db_session, make_tenant, make_user, monkeypatch
 ):
     """Pipeline save path maps writer source_references to per-lesson
     provenance and course-level source ids for a multi-document set."""
+    from app.models.ai_job import AIJob
+    from app.modules.ai import pipeline
     from app.modules.ai.pipeline import GenerationState, _save_generation_to_db
     from app.modules.ai.writer_schema import CourseContent, LessonContent, ModuleContent
 
@@ -778,8 +781,26 @@ async def test_multi_document_provenance_persisted_for_course_and_lessons(
         {"document": "b.pdf", "doc_id": doc_b, "headings": ["Раздел 2"], "context_sections": []},
     ]
 
+    job_id = str(uuid4())
+    db_session.add(
+        AIJob(
+            id=job_id,
+            tenant_id=tenant.id,
+            user_id=user.id,
+            status="running",
+            stage="writer",
+        )
+    )
+    await db_session.flush()
+
+    @asynccontextmanager
+    async def _transactional_session():
+        yield db_session
+
+    monkeypatch.setattr(pipeline, "async_session_factory", _transactional_session)
+
     state = GenerationState(
-        job_id=str(uuid4()),
+        job_id=job_id,
         source_document_ids=[doc_a, doc_b],
         source_strategy="single_topic",
     )

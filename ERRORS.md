@@ -1558,7 +1558,10 @@ contract or establish a blocker.
   persistence now take the same tenant-scoped `ai_jobs` row lock, and course data,
   job completion, and course linkage commit in one transaction. Diagnostics use
   bounded validation reason codes without generated or tenant content.
-- Verification: focused regression suite 59 passed. A disposable Supabase DEV
+- Verification: focused regression suite 59 passed. Initial CI run `34046308482`
+  exposed one stale integration setup that called the protected save helper without
+  an `AIJob`; the test now runs through a tenant-scoped `running` job in the same
+  rollback transaction. A disposable Supabase DEV
   schema ran six real concurrent save/cancel races; both terminal outcomes occurred
   (latest run: four cancelled/no course, two completed/correct link), with no split
   state. Runtime role remained
@@ -1569,3 +1572,6 @@ contract or establish a blocker.
   `05097f1b-8ae9-47be-ad26-0c65bdfb7a16`, and cancelled job history remain.
 - Prevention: every cancellable background writer must prove both cancellation
   checkpoints and transactional exclusion at the final persistence boundary.
+  Tests that call that boundary directly must seed the same active-job invariant
+  as the production queue/worker path; the runtime must not create or infer a
+  missing job as a compatibility fallback.
