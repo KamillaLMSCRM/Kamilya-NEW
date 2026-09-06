@@ -170,5 +170,5 @@ secrets, tenant payloads, contact data, or raw logs.
 Final output must name the exact release SHA, previous SHA, CI run, archive and
 script hashes, changed services, migration mode, public/private/container
 readback, smoke/cleanup result, rollback state, residual blockers, and honest
-`GO` or `NO-GO`. A script exit code or agent report alone is not production
+`GO` or `NO_GO`. A script exit code or agent report alone is not production
 evidence.

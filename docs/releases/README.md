@@ -38,12 +38,14 @@ the policy, validator, tests, and release tooling must change together.
 2. **Validate** — run `python scripts/validate_version.py` locally and in CI;
    it exits non-zero when `VERSION` and app manifests disagree or the
    changelog has no `[Unreleased]` section.
-3. **Release (root orchestrator only)** — the root orchestrator:
+3. **Release decision (root orchestrator only)** — the root orchestrator:
    - moves `[Unreleased]` changelog entries into a dated
      `## [X.Y.Z] - YYYY-MM-DD` section,
    - bumps `VERSION` and both app manifests to the same `X.Y.Z`,
    - creates the release tag,
-   - claims the release and deploys.
+   - claims the release and authorizes deployment. The already authorized
+     technical execution may be delegated only to the named Release Runner
+     through its complete exact-SHA packet; root retains GO/NO_GO and acceptance.
 4. **Post-release** — a fresh empty `[Unreleased]` section starts the next
    cycle.
 
@@ -54,5 +56,6 @@ comparison URL using the actual repository and the latest published tag.
 ## Rules for all agents
 
 - Add user-visible changes to `CHANGELOG.md` under `[Unreleased]`.
-- Do **not** bump `VERSION`, create tags, claim a release, or deploy. Only the
-  root orchestrator performs those actions (see `AGENTS.md`).
+- Do **not** bump `VERSION`, create tags, claim or authorize a release, or deploy.
+  The only execution exception is the named Release Runner acting inside a
+  complete current exact-SHA packet authorized by root (see `AGENTS.md`).

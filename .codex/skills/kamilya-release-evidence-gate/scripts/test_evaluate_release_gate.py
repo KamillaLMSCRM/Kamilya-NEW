@@ -94,12 +94,95 @@ def complete_profile(profile):
 
 
 class ReleaseGateTests(unittest.TestCase):
+    def test_no_migration_predeploy_requires_exact_readiness_and_authority(self):
+        payload = complete_profile("no_migration_predeploy")
+        result = MODULE.evaluate(payload)
+        self.assertEqual(result["verdict"], "GO")
+        self.assertEqual(result["required_evidence"], 6)
+        self.assertEqual(result["required_approvals"], 2)
+        self.assertIs(result["actionable"], False)
+        self.assertIs(result["root_reference_verification_required"], True)
+
+        for evidence_id in (
+            "EV-CI",
+            "EV-ARTIFACT",
+            "EV-BACKUP-RESTORE",
+            "EV-ROLLBACK-READINESS",
+        ):
+            missing = complete_profile("no_migration_predeploy")
+            missing["evidence"] = [
+                item for item in missing["evidence"]
+                if item["evidence_id"] != evidence_id
+            ]
+            with self.subTest(evidence_id=evidence_id):
+                self.assertIn(
+                    f"MISSING:{evidence_id}", MODULE.evaluate(missing)["blockers"]
+                )
+
+        for scope in ("production_deploy", "production_cleanup"):
+            missing = complete_profile("no_migration_predeploy")
+            missing["approvals"] = [
+                item for item in missing["approvals"] if item["scope"] != scope
+            ]
+            with self.subTest(scope=scope):
+                self.assertIn(
+                    f"MISSING_APPROVAL:{scope}", MODULE.evaluate(missing)["blockers"]
+                )
+
+    def test_no_migration_final_requires_release_signoff_without_migration(self):
+        payload = complete_profile("no_migration_final")
+        result = MODULE.evaluate(payload)
+        self.assertEqual(result["verdict"], "GO")
+        self.assertEqual(result["required_evidence"], 11)
+        self.assertEqual(result["required_approvals"], 2)
+        self.assertNotIn("EV-PROD-MIGRATION", {
+            item["evidence_id"] for item in payload["evidence"]
+        })
+
+        payload["evidence"] = [
+            item for item in payload["evidence"]
+            if item["evidence_id"] != "EV-PROD-READBACK"
+        ]
+        self.assertIn(
+            "MISSING:EV-PROD-READBACK", MODULE.evaluate(payload)["blockers"]
+        )
+
+    def test_no_migration_profiles_reject_migration_evidence_and_approval(self):
+        for profile in ("no_migration_predeploy", "no_migration_final"):
+            with self.subTest(profile=profile, record="evidence"):
+                payload = complete_profile(profile)
+                payload["evidence"].append(evidence("EV-PROD-MIGRATION", 99))
+                with self.assertRaisesRegex(
+                    MODULE.GateContractError,
+                    "evidence_not_applicable_to_profile",
+                ):
+                    MODULE.evaluate(payload)
+
+            with self.subTest(profile=profile, record="approval"):
+                payload = complete_profile(profile)
+                payload["approvals"].append(approval("production_migration", 99))
+                with self.assertRaisesRegex(
+                    MODULE.GateContractError,
+                    "approval_not_applicable_to_profile",
+                ):
+                    MODULE.evaluate(payload)
+
+    def test_no_migration_profiles_reject_wrong_sha(self):
+        for profile in ("no_migration_predeploy", "no_migration_final"):
+            payload = complete_profile(profile)
+            payload["evidence"][0]["release_sha"] = "f" * 40
+            with self.subTest(profile=profile):
+                with self.assertRaisesRegex(
+                    MODULE.GateContractError, "evidence_1_release_mismatch"
+                ):
+                    MODULE.evaluate(payload)
+
     def test_bounded_schema_predeploy_requires_only_applicable_evidence(self):
         payload = complete_profile("bounded_schema_predeploy")
         result = MODULE.evaluate(payload)
         self.assertEqual(result["verdict"], "GO")
         self.assertEqual(result["profile"], "bounded_schema_predeploy")
-        self.assertEqual(result["required_evidence"], 5)
+        self.assertEqual(result["required_evidence"], 6)
         self.assertEqual(result["required_approvals"], 3)
         self.assertNotIn("MISSING:EV-PROD-REINDEX", result["blockers"])
         self.assertNotIn("MISSING_APPROVAL:provider_spend", result["blockers"])

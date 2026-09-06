@@ -35,7 +35,7 @@ STAGES = (
         "EV-DEV-ACTIVE-REVISION", "EV-DEV-FTS-EXPLAIN", "EV-DEV-CLEANUP",
     )),
     ("BUILD", ("EV-CI", "EV-ARTIFACT")),
-    ("READINESS", ("EV-BACKUP-RESTORE",)),
+    ("READINESS", ("EV-BACKUP-RESTORE", "EV-ROLLBACK-READINESS")),
     ("CANARY", (
         "EV-PROD-MIGRATION", "EV-PROD-REINDEX", "EV-PROD-CANARY",
         "EV-PROD-CROSS-TENANT", "EV-PROD-LATENCY-COST",
@@ -59,6 +59,7 @@ EVIDENCE_CONTRACT = {
     "EV-CI": ("github-ci", "repo", {"PROVIDER-CONFIRMED"}),
     "EV-ARTIFACT": ("release-artifact", "repo", {"PROVIDER-CONFIRMED"}),
     "EV-BACKUP-RESTORE": ("kz-production", "prod", {"RUNTIME-DERIVED", "PROVIDER-CONFIRMED"}),
+    "EV-ROLLBACK-READINESS": ("kz-production", "prod", {"RUNTIME-DERIVED", "PROVIDER-CONFIRMED"}),
     "EV-PROD-MIGRATION": ("kz-production", "prod", {"RUNTIME-DERIVED"}),
     "EV-PROD-REINDEX": ("kz-production", "prod", {"RUNTIME-DERIVED"}),
     "EV-PROD-CANARY": ("kz-production", "prod", {"RUNTIME-DERIVED"}),
@@ -84,6 +85,7 @@ EVIDENCE_CAUSALITY = (
     ("EV-RELEASE-IDENTITY", "EV-CI"),
     ("EV-CI", "EV-ARTIFACT"),
     ("EV-ARTIFACT", "EV-BACKUP-RESTORE"),
+    ("EV-ARTIFACT", "EV-ROLLBACK-READINESS"),
     ("EV-ARTIFACT", "EV-PROD-MIGRATION"),
     ("EV-DEV-UPGRADE", "EV-DEV-DOWNGRADE-REUPGRADE"),
     ("EV-BACKUP-RESTORE", "EV-PROD-MIGRATION"),
@@ -95,6 +97,7 @@ EVIDENCE_CAUSALITY = (
     ("EV-PROD-CROSS-TENANT", "EV-PROD-DEPLOY"),
     ("EV-PROD-LATENCY-COST", "EV-PROD-DEPLOY"),
     ("EV-PROD-OBSERVABILITY", "EV-PROD-DEPLOY"),
+    ("EV-ROLLBACK-READINESS", "EV-PROD-DEPLOY"),
     ("EV-PROD-DEPLOY", "EV-PROD-READBACK"),
     ("EV-PROD-READBACK", "EV-PROD-CLEANUP"),
     ("EV-PROD-CLEANUP", "EV-CANONICAL-EVIDENCE"),
@@ -117,7 +120,7 @@ PROFILE_CONTRACTS = {
         "stages": (
             ("LOCAL", ("EV-LOCAL-TESTS", "EV-RELEASE-IDENTITY")),
             ("BUILD", ("EV-CI", "EV-ARTIFACT")),
-            ("READINESS", ("EV-BACKUP-RESTORE",)),
+            ("READINESS", ("EV-BACKUP-RESTORE", "EV-ROLLBACK-READINESS")),
         ),
         "approvals": (
             "production_migration",
@@ -129,7 +132,7 @@ PROFILE_CONTRACTS = {
         "stages": (
             ("LOCAL", ("EV-LOCAL-TESTS", "EV-RELEASE-IDENTITY")),
             ("BUILD", ("EV-CI", "EV-ARTIFACT")),
-            ("READINESS", ("EV-BACKUP-RESTORE",)),
+            ("READINESS", ("EV-BACKUP-RESTORE", "EV-ROLLBACK-READINESS")),
             (
                 "RELEASE",
                 (
@@ -144,6 +147,38 @@ PROFILE_CONTRACTS = {
         ),
         "approvals": (
             "production_migration",
+            "production_deploy",
+            "production_cleanup",
+        ),
+    },
+    "no_migration_predeploy": {
+        "stages": (
+            ("LOCAL", ("EV-LOCAL-TESTS", "EV-RELEASE-IDENTITY")),
+            ("BUILD", ("EV-CI", "EV-ARTIFACT")),
+            ("READINESS", ("EV-BACKUP-RESTORE", "EV-ROLLBACK-READINESS")),
+        ),
+        "approvals": (
+            "production_deploy",
+            "production_cleanup",
+        ),
+    },
+    "no_migration_final": {
+        "stages": (
+            ("LOCAL", ("EV-LOCAL-TESTS", "EV-RELEASE-IDENTITY")),
+            ("BUILD", ("EV-CI", "EV-ARTIFACT")),
+            ("READINESS", ("EV-BACKUP-RESTORE", "EV-ROLLBACK-READINESS")),
+            (
+                "RELEASE",
+                (
+                    "EV-PROD-DEPLOY",
+                    "EV-PROD-READBACK",
+                    "EV-PROD-ROLLBACK",
+                    "EV-PROD-CLEANUP",
+                    "EV-CANONICAL-EVIDENCE",
+                ),
+            ),
+        ),
+        "approvals": (
             "production_deploy",
             "production_cleanup",
         ),

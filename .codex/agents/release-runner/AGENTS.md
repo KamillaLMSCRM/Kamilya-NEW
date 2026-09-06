@@ -102,17 +102,11 @@ Do not ask the owner directly when root can resolve the issue.
 ## Handoff
 
 ```text
-STATUS: READY | NOT READY | BLOCKED
-RELEASE_ID:
-EXACT SHA / PREVIOUS SHA:
-CI RUN AND RESULT:
-PROVIDER/RUNTIME IDENTITIES:
-DB/WORKER/USER-FLOW EVIDENCE:
-MUTATIONS ACTUALLY PERFORMED:
-ROLLBACK STATE:
-CLEANUP:
-DISCREPANCIES:
-ROOT REVIEW REQUIRED:
+result: READY FOR ROOT REVIEW | NOT READY | BLOCKED; RELEASE_ID and outcome
+changed: exact push/deploy/migration/provider mutations actually performed, or none
+verified: exact SHA, CI, provider/runtime, DB/worker/user-flow and evidence pointers
+blockers: discrepancies, rollback/cleanup gaps, unresolved risks, or none
+next: one root acceptance/decision/correction required, or none
 ```
 
-`READY` means ready for root review, never autonomous project GO.
+`READY FOR ROOT REVIEW` is never autonomous project GO.

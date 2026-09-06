@@ -1,313 +1,161 @@
 ---
 name: kamilya-subagent-delegation
-description: Design, dispatch, and review bounded Kamilya subagent work with minimal context, one-writer ownership, secret-safe isolation, and evidence-based handoff. Use when delegation or parallel review materially helps; do not use to offload the root's immediate critical blocker, grant production authority, or accept an agent report as proof.
+description: Plan, dispatch, and accept bounded Kamilya subagent work with minimal context, one-writer ownership, secret-safe isolation, and evidence-based handoff. Use when delegation or parallel review materially helps; not to offload an immediate root blocker, grant external authority, or treat an agent report as proof.
 ---
 
 # Kamilya Subagent Delegation
 
-Delegate only work that can be bounded, isolated, and independently reviewed.
-This skill refines the current `AGENTS.md`; it does not override project scope,
-authority, evidence, secret, PII, Git, Graphify, testing, or approval rules.
+Delegate only a concrete, isolated sidecar whose outcome the root can review.
+This skill refines current project instructions; it never overrides scope, authority,
+secrets/PII, Git, Graphify, testing, or approval rules.
 
-## Decide whether to delegate
+## Choose and scope the work
 
-Before spawning an agent, split the current task into:
+Keep the immediate critical path, ambiguous authority/data boundaries, integration,
+and owner judgement at root. Delegate a self-contained inventory, focused review,
+disjoint-path implementation, repeatable classification, or synthetic evaluation
+only when its benefit exceeds packet and acceptance cost. Do not delegate merely to
+look parallel.
 
-- the immediate critical path the root can advance now;
-- independent sidecars that materially advance the objective;
-- optional work that does not justify context, coordination, or review cost.
+Use the narrowest profile:
 
-Delegate when the subtask is concrete, self-contained, and independently useful,
-for example:
+- `READ_ONLY_WORKER`: named sources/fixtures only; no edits, external systems, or
+  artifacts unless specifically allowed.
+- `BOUNDED_WRITER`: owns explicit non-overlapping paths; uses `apply_patch` only
+  there and runs only named checks; never commits, pushes, deploys, publishes, or
+  mutates external systems.
+- `INDEPENDENT_REVIEWER`: read-only; reports severity-ranked findings and readiness,
+  without silently fixing the work.
+- `SYNTHETIC_EVALUATOR`: isolated synthetic inputs only; no real PII/tenant data,
+  network, provider, production, database, or unrelated files.
 
-- bounded inventory or comparison;
-- variants of copy or formatting;
-- focused source or documentation review;
-- implementation in a disjoint writable path;
-- a realistic opponent/reviewer pass;
-- repeatable low-risk classification;
-- an isolated synthetic behavioral evaluation.
+One person must not write and perform the final independent review of the same
+artifact. Agents are leaf workers by default. Root may use at most two concurrent
+leaf workers, and only with disjoint scopes and independent dependencies. For
+external access or nested delegation, read [rare delegation procedures](references/rare-delegation-procedures.md)
+before dispatching; neither is implied by this skill.
 
-Keep work at the root when:
+## Route model, context, and ownership
 
-- the very next action depends on the result and root can do it directly;
-- the task is the critical integration blocker;
-- authority, target, or data boundary is ambiguous;
-- the work requires broad secrets, production access, or owner judgment;
-- delegation would duplicate work already in progress;
-- review cost is comparable to doing the bounded task once.
+For this owner’s subscription workflow, Astra is the root product-development
+orchestrator for decomposition, contracts, difficult diagnosis, integration, and
+acceptance. Do not translate API prices into subscription cost or change models in
+the LMS application. Check the live spawn tool, explicitly set model and effort,
+and do not silently inherit Astra/high effort:
 
-Do not create agents merely to appear parallel or thorough.
+- `gpt-5.6-luna` / `medium`: narrow inventory, deterministic edit, bounded check,
+  or explicit-criteria review.
+- `gpt-5.6-terra` / `medium`: normal implementation within one defined module.
+- `gpt-5.6-sol` / `high`: difficult bounded implementation/review justified by risk
+  or observed failure; cross-module decisions remain root-owned.
 
-## Agent profiles
+If unavailable, report it and choose a supported equivalent only under owner
+instructions. First distinguish weak specification, missing environment, defect,
+and model limitation; repair the packet/procedure before escalation. Default to
+fresh context for small or blind work; fork only when detailed current reasoning
+cannot safely be summarized.
 
-Choose the narrowest profile that can complete the subtask.
+Use an ownership matrix for writable work. Exactly one writer owns each file, path,
+database object, provider resource, or external mutation at a time. Root owns
+integration files/conflicts, critical blockers, canonical final documentation,
+governing `AGENTS.md`/`ERRORS.md`, commit, push, deployment, and production mutation.
+Serialize shared-file work; a reviewer becomes a writer only after explicit transfer.
 
-### `READ_ONLY_WORKER`
+## Send a minimal packet
 
-- May inspect only named files, sources, fixtures, or synthetic inputs.
-- May return findings, classification, plan, or draft text in its report.
-- Must not edit, test, install, use external systems, or create artifacts unless the
-  assignment explicitly includes one of those local actions.
-
-### `BOUNDED_WRITER`
-
-- Owns an explicit non-overlapping file/path set.
-- May use `apply_patch` only within that set.
-- May run only the checks named in the assignment.
-- Must list every changed path and must not commit, push, deploy, publish, or mutate
-  external systems.
-
-### `INDEPENDENT_REVIEWER`
-
-- Reads the completed artifact and minimum governing rules.
-- Reports findings ordered by severity and a clear readiness verdict.
-- Is read-only and must not silently fix the writer's work.
-- Must evaluate authority, scope, evidence, security, data, and exit-gate behavior,
-  not merely wording or style.
-
-### `SYNTHETIC_EVALUATOR`
-
-- Uses isolated synthetic fixtures and no real PII or tenant payloads.
-- Should start without prior conclusions or expected answers when blind behavior is
-  being evaluated.
-- Must not use network, providers, production, databases, or unrelated files unless
-  a separate exact read-only evaluation explicitly requires them.
-
-Do not combine writer and final independent reviewer roles for the same artifact.
-
-## Model and context choice
-
-- Prefer an affordable model for bounded, low-risk, repetitive, formatting,
-  inventory, and synthetic-evaluation work.
-- Use a stronger model when the subtask itself contains architecture, security,
-  legal interpretation, ambiguous product judgment, or complex integration logic.
-- Do not wait for a specific cheap model when an equivalent bounded option exists.
-- Default to a fresh context for blind evaluation, cross-project isolation, and
-  tasks that need only a small packet.
-- Fork prior context only when the subtask genuinely depends on detailed current
-  reasoning that cannot be safely summarized. A fork also carries stale assumptions,
-  irrelevant scope, and potentially sensitive context, so it is not the default.
-
-Internal root-to-agent and agent-to-root communication for Kamilya is English. State
-that requirement in every assignment. Owner-facing communication remains in the
-owner's language unless requested otherwise.
-
-## Minimal context packet
-
-Pass only what the worker needs. A complete assignment should contain:
+All Kamilya root/agent communication and every assignment are English. Send only:
 
 ```text
 English only.
-
-OBJECTIVE:
-One observable outcome.
-
-PROJECT AND SCOPE:
-Exact repository/project and named files, paths, symbols, fixtures, or provider
-objects. State whether adjacent projects are forbidden.
-
-PROFILE:
-READ_ONLY_WORKER | BOUNDED_WRITER | INDEPENDENT_REVIEWER | SYNTHETIC_EVALUATOR
-
-ALLOWED ACTIONS:
-Exact reads, writes, tests, tools, or synthetic inputs.
-
-FORBIDDEN ACTIONS:
-At minimum: unrelated reads, secret discovery, external mutation, push, deploy,
-publication, and scope expansion unless specifically allowed.
-
-GOVERNING SOURCES:
-Only the relevant AGENTS.md, ERRORS.md entries, skill, plan node, source, tests, or
-fixtures. Do not send the entire project history.
-
-DEPENDENCIES AND ASSUMPTIONS:
-Inputs already established by the root, each with status or evidence role.
-
-EXIT GATE:
-Concrete conditions that make the subtask ready for root review.
-
-HANDOFF:
-Required output fields and explicit readiness verdict.
+OBJECTIVE: one observable outcome.
+PROJECT AND SCOPE: exact project; named files, paths, symbols, fixtures, or objects.
+PROFILE: one defined worker profile.
+ALLOWED ACTIONS / FORBIDDEN ACTIONS: exact reads, writes, checks, tools; prohibit
+unrelated reads, secret discovery, external mutation, push, deploy, publication, and scope expansion unless explicitly allowed.
+GOVERNING SOURCES: minimum relevant instructions, contracts, source, tests, fixtures.
+DEPENDENCIES AND ASSUMPTIONS: root-established inputs and their evidence status.
+EXIT GATE: root-review conditions, expected artifact, acceptance checks, invariants,
+and stopping condition.
+HANDOFF: result, changed, verified, blockers, next; READY means root review only.
 ```
 
-Do not include secret values, `.env` content, tokens, credentials, raw PII, tenant
-payloads, contact data, unrelated logs, or broad session history. Give variable
-names, safe paths, opaque IDs, counts, statuses, and synthetic fixtures instead.
+Include baseline/revision when material; reference a versioned contract rather than
+copying it. A 150–300-word packet is normally enough. Do not send history, secrets,
+`.env` contents, credentials, raw PII, tenant payloads, contact data, unrelated logs,
+or broad session context. Use safe paths, variable names, opaque IDs, counts, and
+synthetic fixtures. Read named skills fully; retain mandatory project reads.
 
-## Ownership and parallelism
+For source investigation, require the project’s Graphify workflow before broad
+reading and confirm graph-derived findings in source/tests. Writers preserve dirty
+work, use existing patterns, avoid unrelated refactors, and name proportionate
+validation. Documentation writers may change only independently verified content.
 
-Build an ownership matrix before dispatching writable work:
+## Stop safely and hand off
 
-| Scope/resource | Writer | Reviewers | Mutation type | Dependencies |
-|---|---|---|---|---|
+Default external access is none. An agent never infers authority from history,
+memory, credentials, or provider access. After one failure, classify the layer and
+change only a safe, assigned assumption/method. After two materially identical
+failures, stop; do not guess credentials, paths, ports, accounts, environments, or
+providers. For an authorization denial, do not seek alternate credentials or routes;
+a second denial on the target escalates. If a required check is unavailable, return
+`BLOCKED` with the exact dependency—never substitute an unapproved check or call an
+edit `READY`.
 
-Rules:
-
-1. Exactly one writer owns each file, path, database object, provider resource, or
-   external mutation at a time.
-2. Parallel writers must have disjoint write sets and independent dependencies.
-3. A reviewer does not become a writer unless ownership is explicitly transferred.
-4. The root owns integration files, conflicts, critical blockers, canonical final
-   documentation, governing `AGENTS.md` files, `ERRORS.md`, commit, push,
-   deployment, and production mutations.
-5. If two useful tasks need the same file, serialize them or let one writer perform
-   both changes and use the second agent as read-only reviewer.
-6. A task graph or plan records ownership for large epics; do not create a second
-   parallel status source.
-
-## Code and documentation work
-
-For code investigation, the assignment must require the project's Graphify workflow
-before broad source reading and require findings to be confirmed in source/tests.
-Graph output remains `GRAPH-DERIVED`.
-
-For a `BOUNDED_WRITER`:
-
-- identify every writable path before dispatch;
-- preserve the dirty worktree and unrelated changes;
-- use existing patterns and domain boundaries;
-- prohibit unrelated refactor;
-- name proportionate validation if validation is part of the delegated scope;
-- instruct the worker not to push, deploy, or update canonical project status;
-- make the root the final owner of `ERRORS.md` unless a unique section was explicitly
-  assigned and the root will reconcile it.
-
-For documentation, an agent report or old plan must not rewrite project truth. The
-writer may patch only independently verified content supplied or confirmed by root.
-
-## External systems and production
-
-Default delegated external access is none. A cheap or isolated worker should not
-receive credentials or production routes merely because it can perform read-only
-work.
-
-If an external read-only task is genuinely delegated, name:
-
-- exact provider/system;
-- exact object or endpoint;
-- canonical access path;
-- safe output fields;
-- prohibited payloads;
-- token handling method;
-- stopping condition;
-- required evidence label.
-
-Subagents do not perform external, destructive, costly, production-mutating, or
-scope-expanding actions unless the root transfers an exact current approval gate.
-General workstream approval is not enough. A subagent never infers authority from a
-historical message, memory, plan, credential presence, or provider access.
-
-## Leaf-only default
-
-Subagents are leaf workers by default and must not spawn descendants. Nested
-delegation adds hidden context, unclear ownership, extra cost, and review gaps.
-
-Permit nested delegation only when the root explicitly defines:
-
-- why the first-level agent must coordinate rather than the root;
-- maximum depth and number of descendants;
-- disjoint scopes;
-- inherited authority and data boundaries;
-- how every child handoff reaches the root;
-- who closes agents and cleans temporary artifacts.
-
-Without that contract, descendant creation is forbidden.
-
-## Failure and escalation
-
-After one failure, classify the layer and change only a safe assumption or method
-within the assignment. After two materially identical failures, the worker stops and
-returns to root; it must not continue credential, path, port, account, environment,
-or provider guessing.
-
-Failures are materially identical when they concern the same target and evidence
-layer, return the same error class, and no new permitted evidence or authority
-changes the next attempt. For `AUTHORIZATION_DENIED`, do not seek alternate
-credentials, historical `.env` files, browser history, accounts, routes, or
-providers after the first denial. The only safe method change is local
-classification or an explicitly authorized diagnostic; a second denial on the
-same target triggers escalation.
-
-If a named required check depends on an unavailable runtime, provider, tool, or
-authority, return `BLOCKED` with that exact dependency. Do not substitute an
-unapproved check or report `READY` merely because the edit was produced.
-
-The escalation packet contains only:
+Every worker returns only:
 
 ```text
-CURRENT STATUS:
-EXACT TARGET:
-ATTEMPTS AND ERROR CLASSES:
-WHAT WAS RULED OUT:
-AUTHORITY OR DECISION REQUIRED:
-SAFE DEFAULT WHILE WAITING:
-TEMPORARY ARTIFACTS REQUIRING CLEANUP:
+result: READY FOR ROOT REVIEW | NOT READY | BLOCKED; observable outcome
+changed: exact paths and mutations, or none
+verified: exact checks/evidence pointers, or NOT VERIFIED
+blockers: unresolved risks, missing check/authority, cleanup residue, or none
+next: one required integration/correction/decision, or none
 ```
 
-The two-failure rule stops blind worker repetition. It does not prevent the root
-from selecting a new safe evidence-based method inside the original authority.
+Keep routine handoffs near 150 words; no raw logs or stale progress. `READY` is not
+completion. Root directly accepts only after confirming scope, artifact/output,
+owned-path delta, evidence claims, proportionate checks, secret/PII/dependency safety,
+cleanup, and the parent exit gate. Return a focused defect to the same owner when
+useful; after two materially identical correction cycles, root decides integration.
+Close completed agents after capture. Do not repeat unchanged passing checks without
+a new risk, though mandatory gates still apply.
 
-## Handoff contract
+## Acceptance review and validation
 
-Every worker returns:
+The independent reviewer and root review four separate dimensions: **requirements**
+(requested behavior, omissions, unrequested additions); **correctness** (affected
+inputs, states, callers, and consumers); **standards** (mandatory project rule versus
+preference); and **complexity** (unnecessary dependency, duplication, or speculative
+flexibility). Complexity never substitutes for the first three. Findings state the
+location, manifestation condition, impact, evidence, and severity.
 
-```text
-STATUS: READY | NOT READY | BLOCKED
-READINESS MEANING: READY FOR ROOT REVIEW | NOT READY | BLOCKED
-DESCENDANT MODE: LEAF; NO DESCENDANTS | exact root-approved nested contract
-OBJECTIVE RESULT:
-SCOPE ACTUALLY USED:
-FILES CHANGED: none or exact paths
-CHECKS RUN: none or exact commands/results
-EVIDENCE: safe pointers and permitted labels
-UNRESOLVED RISKS:
-DEPENDENCY OR APPROVAL GATE:
-CLEANUP: completed, none, or exact residuals
-MUTATIONS: explicit list, normally none
-```
+Understand the changed flow and relevant callers before choosing reuse, a standard
+library, or platform capability. Preserve needed interfaces, validation, transaction
+boundaries, error handling, accessibility, provider isolation, and testability; one
+implementation alone does not prove an abstraction unnecessary.
 
-Do not accept vague statements such as "done", "looks good", "tests pass", or
-"production is healthy" without exact scope and evidence.
+Test expected behavior independently from the implementation—by contract, manually
+checked example, or oracle—using the existing test stack. Choose behavioral or
+internal/DB evidence according to what proves the risk (for example transactions,
+deduplication, or avoided provider calls). Run mandatory checks plus risk-proportionate
+ones. Repeat/broaden checks only for a changed delta/baseline/environment, failure, or
+new unresolved risk. Never claim a run, red/green state, browser pass, integration,
+deployment, or runtime observation that did not occur.
 
-## Root review and integration
+## Learn without creating a parallel operation
 
-An agent's `READY` verdict means ready for root review, not project completion.
-Before adopting the result, the root checks:
+For each accepted task, preserve in the existing task ledger: task ID/type, requested
+and independently observed model/effort when available, elapsed time, first-pass
+acceptance, correction rounds, root review/rework time, and exposed token counters
+(unknown is not zero). Include root work. Daily analysis reads only new events and
+comparable aggregates, retains failed outcomes, identifies up to three evidenced
+patterns, and proposes one bounded measurable improvement. It creates no scheduler,
+dashboard, automatic rule change, invented cost, or quota multiplier.
 
-1. the worker stayed in project and data scope;
-2. the actual artifact or safe output exists;
-3. only owned paths changed;
-4. claims match direct source/test/provider/runtime evidence as appropriate;
-5. tests/checks are proportionate and actually ran when required;
-6. no secret, PII, payload, unsafe log, or unexpected dependency was introduced;
-7. cleanup and residual checks are complete;
-8. the parent node's exit gate is satisfied.
+This is product-engineering routing, not commercial operations. Marketing work stays
+with its owner. Root receives only actionable product evidence: affected journey,
+evidence, desired behavior, acceptance, and urgency. A commercial report neither
+creates a development task nor authorizes mutation.
 
-If review finds a defect, return a focused correction to the same owner when context
-remains useful. After two materially identical writer/reviewer correction cycles,
-return the integration decision to root rather than looping agents.
-
-Close completed agents after their outputs are captured so stale workers do not
-retain concurrency, ownership, or context.
-
-## Output contract for delegation planning
-
-When this skill is used to design delegation, return:
-
-| Subtask | Profile | Model class | Read scope | Write/mutation scope | Dependencies | Exit gate |
-|---|---|---|---|---|---|---|
-
-Then provide:
-
-- `ROOT CRITICAL PATH`: work the root keeps now;
-- `OWNERSHIP CONFLICTS`: none or exact resources requiring serialization;
-- `CONTEXT PACKETS`: one bounded assignment per agent;
-- `REVIEW PLAN`: who reviews what and using which evidence;
-- `APPROVAL GATES`: exact external/mutation approvals, normally none for local
-  read-only delegation;
-- `CLEANUP`: agent closure and temporary artifact plan.
-
-If delegation does not materially help, say `KEEP LOCAL` and explain the coordination
-cost or critical-path reason. Do not spawn an agent merely because this skill was
-loaded.
+For multi-worker planning, keep an internal ownership table plus root critical path,
+conflicts, packets, review plan, approval gates, and cleanup. If delegation does not
+materially help, record `KEEP LOCAL` and why.

@@ -4,7 +4,14 @@
 
 ## Точка входа
 
-Сначала прочитать:
+В новом контексте сначала прочитать применимые `AGENTS.md`, установить scope и
+критерий приёмки. Затем выбрать нужные источники из списка ниже. Не загружать все
+документы ради простого статуса или локальной правки. Уже прочитанные документы
+повторно читать при изменении их содержимого, scope или существенной неопределённости;
+после потери контекста заново загрузить обязательные правила и релевантные разделы.
+Выбранный skill и требуемые им references читать полностью.
+
+Канонические источники (загружать по затронутой области):
 
 1. [`ERRORS.md`](ERRORS.md)
 2. [`docs/CODEX_HANDOFF.md`](docs/CODEX_HANDOFF.md)
@@ -17,6 +24,28 @@
 Git history содержит старые ТЗ и отчёты, но они не являются источником
 текущего поведения.
 
+## Владение governance-интерфейсами
+
+- `AGENTS.md` владеет только общими инвариантами проекта и маршрутизацией к
+  специализированным контрактам.
+- `.codex/agents/<role>/AGENTS.md` — единственный контракт постоянного worker;
+  compatibility entrypoint может содержать только redirect.
+- `.codex/skills/<skill>/SKILL.md` владеет специализированной процедурой,
+  packet/профилями и их stop conditions; корневой файл не повторяет реализацию.
+- `ERRORS.md` владеет подтверждёнными повторяемыми ошибками и профилактикой.
+- `docs/testing/TEST_RUN_LEDGER.md` хранит append-only историю запусков, но не
+  определяет полномочия runner и не является текущим runtime/provider truth.
+- `docs/PRODUCTION_READINESS.md` хранит текущие release gates и принятые evidence;
+  `.codex/skills/kamilya-release-evidence-gate/scripts/evaluate_release_gate.py`
+  только проверяет форму переданного envelope. Отдельный
+  `scripts/ci/release-contract-gate.py` проверяет repository contracts
+  (Alembic/Celery/migration ownership/error journal) и не является production
+  evidence evaluator.
+
+Новый документ не создаётся, если его ответственность уже принадлежит одному из
+этих источников; вместо этого обновляется канонический владелец или ставится
+ссылка на него.
+
 ## Журнал ошибок
 
 Корневой [`ERRORS.md`](ERRORS.md) — единственный действующий журнал
@@ -27,10 +56,13 @@ Git history содержит старые ТЗ и отчёты, но они не
 идентификаторы, сообщения об ошибках, evidence labels и цитируемый runtime
 output необходимо сохранять дословно.
 
-До анализа, кодирования, миграций, provisioning, тестов, build, deployment,
-commit и push агент обязан полностью прочитать `ERRORS.md`. Непосредственно
-перед каждой рискованной процедурой нужно повторно проверить относящиеся к ней
-записи.
+До анализа или изменения найти в `ERRORS.md` записи по задаче, затронутым
+компонентам и известному классу ошибки; выбранные записи прочитать полностью.
+Отсутствие совпадений не доказывает отсутствие риска: расширить поиск по
+обнаруженной зависимости. Полный журнал читать при его аудите или действительно
+широком onboarding. Перед Git, DB, provider, deployment и инфраструктурной
+операцией обязательно повторно проверить относящиеся к ней записи и канонический
+runbook. Экономия контекста не отменяет этот preflight.
 
 Если в ходе задачи возникла новая ошибка, неверное предположение, небезопасный
 fallback или повторяемый сбой, агент обязан в рамках той же задачи:
@@ -50,6 +82,15 @@ fallback или повторяемый сбой, агент обязан в ра
 
 При параллельной работе основной агент владеет финальным обновлением
 `ERRORS.md`; вывод другого агента без проверки не записывается как факт.
+
+## Делегирование разработки продукта
+
+Перед постановкой делегируемой задачи использовать
+`.codex/skills/kamilya-subagent-delegation/SKILL.md`: Astra управляет разработкой,
+исполнители получают явно выбранные недорогие модели, ограниченный контекст,
+границы изменений и проверяемую приёмку. Это не смена моделей внутри LMS.
+Рекламные и коммерческие отчёты остаются в задачах их владельцев; оркестратору
+разработки передаются только конкретные продуктовые доработки и техблокеры.
 
 ## Управляемое самообучение агентов
 
@@ -114,17 +155,25 @@ budget/rate limit, tools, data boundary, notification policy и stop condition.
 Она допускается только когда script не может надёжно классифицировать проблему
 в этих границах.
 
-## Значение команды «проверь»
+## Значение команды «проверь» для root orchestrator
 
-Если пользователь не ограничил задачу read-only, «проверь» означает:
+Для root orchestrator, если пользователь не ограничил задачу read-only,
+«проверь» означает довести диагностику и исправление до проверяемого релизного
+пакета. Узкие workers выполняют только свой canonical packet и не наследуют эту
+расширенную семантику:
 
 1. воспроизвести;
 2. найти root cause;
 3. исправить;
 4. добавить пропорциональные тесты;
 5. прогнать broader checks;
-6. выпустить;
-7. независимо проверить production revision и пользовательский flow.
+6. если release явно входит в текущий запрос и есть точная owner authorization —
+   передать готовый пакет Release Runner;
+7. после разрешённого выпуска независимо проверить production revision и
+   пользовательский flow.
+
+Без текущего разрешения на release шаги 6–7 не выполняются: результатом является
+готовый проверенный пакет и точный непройденный approval gate.
 
 HTTP 200 или зелёный deploy сам по себе не закрывает задачу.
 
@@ -156,9 +205,12 @@ HTTP 200 или зелёный deploy сам по себе не закрывае
 - Сначала `git status`, не откатывать чужие изменения.
 - Перед Git, DB, provider, deployment или infrastructure действием сначала найти
   уже проложенный путь в `AGENTS.md`, `ERRORS.md`,
-  `docs/PROJECT-CONTEXT.md` и профильном runbook/skill. Канонический путь
-  выполняется раньше общей диагностики; ambient CLI/keyring/browser state не
-  является основанием объявлять blocker.
+  `docs/PROJECT-CONTEXT.md` и профильном runbook/skill. Перед таким действием
+  агент обязан полностью прочитать `ERRORS.md`; выбранные записи прочитать
+  полностью. Перед Git, DB, provider, deployment и infrastructure операцией
+  обязательно повторно проверить применимый путь и stop conditions.
+  Канонический путь выполняется раньше общей диагностики; ambient
+  CLI/keyring/browser state не является основанием объявлять blocker.
 - На этой рабочей станции запрещено запускать или использовать PostgreSQL в
   локальном Docker для Kamilya dev/integration/migration/RLS проверок. Использовать
   канонический Supabase DEV/test-контур и предусмотренную изоляцию/cleanup.
@@ -189,21 +241,19 @@ cost требуют соответствующего approval gate.
 желаемое воспроизводимое состояние, а live import/version probe — текущее; ни один
 из них не подменяет другой.
 
-Graphify обязателен для исследования кода как для основного агента, так и для
-subagents:
+Graphify обязателен как первая навигация при исследовании кода для root и
+subagents. Процедура: `.codex/skills/graphify/SKILL.md`. Использовать query для
+поиска, path/explain для связей и affected для области влияния; проверять
+актуальность источников, направление рёбер и вывод по исходникам/тестам.
+После изменения кода обновлять локальный AST-индекс. Не перестраивать его ради
+каждого запроса и не считать отсутствие пути доказательством отсутствия зависимости.
 
-1. перед чтением исходников выполнить scoped-запрос `graphify query`;
-2. для связи компонентов использовать `graphify path`, для отдельного понятия
-   `graphify explain`;
-3. проверить вывод Graphify по реальным исходникам и тестам;
-4. после изменения кода выполнить `graphify update .`;
-5. если индекс отсутствует, построить локальный code-only индекс командой
-   `graphify . --code-only --no-viz`.
-
-Для поиска текста в документации использовать обычный поиск. Graphify является
-индексом связей, а не источником правды. Недоступность Graphify считается
-блокером исследования кода: агент должен сообщить оркестратору, а не молча
-переходить к полному ручному обходу.
+Если CLI/индекс недоступен, проверить документированный локальный путь запуска.
+При неуспехе явно отметить пробел графа и продолжить ограниченное чтение нужных
+исходников; полный ручной обход по привычке не допускается. Это не отменяет
+обязательные тесты, runtime evidence и критические user-journey gates.
+Для обычного поиска текста документации достаточно `rg`; семантическая индексация
+через LLM выполняется только по согласованному безопасному набору файлов.
 
 ## Контрактно-модульная разработка
 
@@ -297,27 +347,14 @@ task graph в `docs/plans/`. Не создавать параллельный к
 `PRODUCT_BACKLOG.md`, `ERRORS.md`, ADR или `CODEX_HANDOFF.md`. Для обычной
 задачи в одном scope достаточно стандартного временного плана выше.
 
-Дешёвые subagents разрешены для ограниченной массовой работы:
-
-- для простых, ограниченных и низкорисковых задач использовать самый дешёвый
-  доступный агент; при наличии предпочитать модель `luna`;
-- если `luna` недоступна в текущем runtime, использовать ближайшую бюджетную
-  модель и не блокировать задачу ожиданием конкретной модели;
-- вся коммуникация между root orchestrator и subagents ведётся только на
-  английском: постановка задачи, уточнения, progress updates, findings,
-  blockers, handoff и финальный отчёт;
-- root orchestrator обязан явно включать English-only requirement в каждую
-  делегированную задачу; subagent не должен отвечать root orchestrator на
-  русском или казахском;
-- с пользователем основной агент продолжает общение на языке пользователя,
-  если пользователь не попросил иначе;
-- особенно подходят для делегирования: варианты текста, инвентаризация,
-  форматирование документации, повторяющиеся проверки и массовый сбор данных;
-- у каждого отдельный read/write scope;
-- не делегировать критический интеграционный blocker;
-- агент не пушит и не деплоит;
-- оркестратор проверяет diff и тесты;
-- отчёт агента не является доказательством.
+Любое временное делегирование выполняется по каноническому skill
+`.codex/skills/kamilya-subagent-delegation/SKILL.md`. Он единолично владеет
+профилями worker, model routing, packet, пяти-полевым handoff, correction loop и
+acceptance checklist. Здесь сохраняются только проектные инварианты: root не
+отдаёт непосредственный критический blocker, каждый writable scope имеет одного
+владельца, одновременно работают не более двух независимых leaf workers, а
+agent report принимается только после root review. Язык коммуникации определён
+workspace `AGENTS.md` и не дублируется в каждом локальном разделе.
 
 После завершения:
 
@@ -331,50 +368,33 @@ task graph в `docs/plans/`. Не создавать параллельный к
 ## Постоянные специализированные рабочие чаты
 
 Kamilya использует два постоянных узких worker-чата под управлением root
-orchestrator. Они не являются временными subagents и не получают общую
-самостоятельность проекта.
+orchestrator. Полные packet, permission, stop, escalation и handoff contracts
+живут только в указанных ниже agent-файлах и не дублируются здесь.
 
 ### Release Runner
 
-- Канонический контракт: `.codex/agents/release-runner/AGENTS.md`.
-- По умолчанию использовать доступную бюджетную модель класса `luna`.
-- Получает только готовый exact SHA и полный release packet от root.
-- Может выполнять push, provider deployment и production readback только когда
-  packet содержит текущую точную owner authorization, target, rollback и stop
-  conditions. Наличие credentials, старое разрешение или skill не являются
-  authority.
-- Не проектирует и не исправляет код, миграции или инфраструктуру. Любое
-  расхождение, неожиданный diff/state, неготовый rollback либо две одинаковые
-  ошибки немедленно возвращаются root.
-- Agent report не закрывает release: root независимо проверяет критические
-  evidence и принимает итоговый GO/NO-GO.
+- Единственный канонический контракт: `.codex/agents/release-runner/AGENTS.md`.
+- Это единственный worker, которому root может передать готовый exact-SHA release
+  packet с текущей точной owner authorization.
+- Его `READY FOR ROOT REVIEW` не является GO: итоговую приёмку делает root.
 
-Это единственное исключение из общего запрета дешёвым агентам push/deploy.
-Исключение относится только к именованному постоянному Release Runner и только
-к exact packet текущего запуска.
+Это единственное исключение из запрета worker-агентам push/deploy и действует
+только в границах exact packet текущего запуска.
 
 ### Test & Evidence Runner
 
-- Канонический контракт: `.codex/agents/test-runner/AGENTS.md`.
-- По умолчанию использовать доступную бюджетную модель класса `luna`.
-- Не исправляет production/source code в обычном режиме; воспроизводит,
-  классифицирует и возвращает failure packet root.
-- Ведёт единый version-controlled журнал `docs/testing/TEST_RUN_LEDGER.md`.
-- Журнал содержит только sanitized evidence: exact SHA, environment, commands,
-  counts, result, failure fingerprint и gates. Secrets, PII и tenant payloads
-  запрещены.
-- Повторяемые подтверждённые failure patterns проходят
-  `kamilya-learning-candidate-triage` и root review; runner не меняет самовольно
-  `ERRORS.md`, `AGENTS.md`, ADR, tests, skills или memory.
+- Единственный канонический контракт: `.codex/agents/test-runner/AGENTS.md`.
+- Compatibility path `.codex/agents/test-evidence-runner/AGENTS.md` содержит
+  только redirect и не создаёт второй контракт.
+- Единственный durable журнал запусков: `docs/testing/TEST_RUN_LEDGER.md`;
+  ownership и правила записи определяет канонический Test Runner contract.
 
 ### Routing rule
 
-Root оставляет у себя architecture, diagnosis, code changes, integration,
-authority decisions и final acceptance. После готовности точного SHA root
-передаёт сначала test packet Test Runner, затем при зелёном gate передаёт release
-packet Release Runner. Рабочие чаты общаются с root только на английском и
-эскалируют через межчатовый инструмент, а не ждут, что пользователь перенесёт
-сообщение вручную.
+Root владеет architecture, diagnosis, code changes, integration, authority
+decisions и final acceptance. После готовности точного SHA root сначала передаёт
+test packet Test Runner, затем при зелёном gate — release packet Release Runner.
+Каждый worker следует только своему каноническому контракту.
 
 Obsidian может использоваться как дополнительный sanitized navigation/index
 слой, если его доступ отдельно подтверждён. Git ledger и канонические документы
@@ -441,16 +461,24 @@ paths must keep its machine-enforced CI gate green.
 
 ## Production
 
-Перед утверждением release проверить независимо:
+Перед утверждением release определить точный контур по
+[`карте окружений`](docs/PROJECT-CONTEXT.md#карта-окружений-и-доступов).
+Для KZ backend применять `.codex/skills/kamilya-production-deploy/SKILL.md`;
+для общей приёмки — `.codex/skills/kamilya-release-evidence-gate/SKILL.md`.
+Эти процедуры не заменяют точное разрешение владельца на release.
+Независимо проверить:
 
 - GitHub commit and CI;
 - Vercel production commit;
-- Render API commit;
+- API exact release SHA и runtime identity целевого контура: KZ production —
+  VM126; Render проверяется отдельно только для явно выбранного dev/demo/rollback;
 - Alembic revision;
 - Celery worker commit and registered tasks;
 - business smoke.
 
-Worker на отдельном VPS не обновляется автоматически вместе с Render.
+API, DB и каждый worker требуют собственного readback; успешный API deploy не
+доказывает обновление worker или миграций. Render health/deploy не закрывает
+KZ production gate. HTTP 200 не заменяет business smoke.
 
 ## Каноническая карта внешних доступов
 
@@ -582,9 +610,11 @@ Worker на отдельном VPS не обновляется автомати�
 - Каждый агент обязан добавлять пользовательски-заметные изменения (features,
   fixes, security) в `CHANGELOG.md` в секцию `[Unreleased]` в подходящую
   категорию (Added/Changed/Fixed/Security) в рамках того же изменения.
-- Только root orchestrator может: изменять `VERSION`, создавать теги,
-  заявлять (claim) релиз, публиковать release notes и выполнять deploy.
-  Остальные агенты эти действия не выполняют даже по просьбе другого агента.
+- Только root orchestrator может изменять `VERSION`, создавать теги, заявлять
+  (claim) релиз, публиковать release notes, принимать GO/NO_GO и разрешать
+  deploy. Техническое выполнение уже разрешённого deploy можно передать только
+  именованному Release Runner через его полный exact-SHA packet; это не передаёт
+  worker право утверждать или расширять release.
 - Семантическое версионирование и lifecycle релиза описаны в
   `docs/releases/README.md`; шаблон release notes —
   `docs/releases/RELEASE_NOTE_TEMPLATE.md`.
@@ -639,17 +669,3 @@ Worker на отдельном VPS не обновляется автомати�
 
 Старый audit, execution report, agent prompt или ТЗ удаляется после переноса
 полезного результата в канонический документ.
-
-## graphify
-
-This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
-
-When the user types `/graphify`, use the installed graphify skill or instructions before doing anything else.
-
-Rules:
-- For codebase questions, first run `graphify query "<question>"` when graphify-out/graph.json exists. Use `graphify path "<A>" "<B>"` for relationships and `graphify explain "<concept>"` for focused concepts. These return a scoped subgraph, usually much smaller than GRAPH_REPORT.md or raw grep output.
-- If graphify-out/graph.json is absent, run `graphify . --code-only --no-viz` before exploring code. This applies to every subagent and isolated worktree.
-- Dirty graphify-out/ files are expected after hooks or incremental updates; dirty graph files are not a reason to skip graphify. Only skip graphify if the task is about stale or incorrect graph output, or the user explicitly says not to use it.
-- If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
-- Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
-- After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).

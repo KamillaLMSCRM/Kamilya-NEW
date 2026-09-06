@@ -50,7 +50,7 @@ justify deletion. These ownership rules concern documentation, not live runtime.
 |---|---|---|
 | Onboarding navigation | [CODEX_HANDOFF.md](CODEX_HANDOFF.md) | Link to environment/release evidence; do not copy mutable release SHA, migration revision or PASS snapshots |
 | Production/dev topology | [Environment map](PROJECT-CONTEXT.md#карта-окружений-и-доступов) | VPS guide uses this map; a dev frontend name does not prove isolated backend/data |
-| Release acceptance | [Root gate](../AGENTS.md#production) and target-specific runbook | Preserve API/DB/worker exact identity and business smoke; Render evidence cannot close KZ production |
+| Release acceptance | [Root gate](../AGENTS.md#production), [production readiness](PRODUCTION_READINESS.md), and target-specific runbook | Preserve API/DB/worker exact identity and business smoke; Render evidence cannot close KZ production |
 | Test & Evidence Runner | [test-runner contract](../.codex/agents/test-runner/AGENTS.md) | Alternate `test-evidence-runner` path is only a redirect for saved references; no second packet or implicit ledger-write permission |
 | API documentation discovery | [Documentation index](DOCUMENTATION_INDEX.md) → environment map | No environment-free Live OpenAPI link that silently selects dev/legacy |
 
