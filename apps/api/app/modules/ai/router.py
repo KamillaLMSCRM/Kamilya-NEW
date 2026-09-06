@@ -569,7 +569,12 @@ async def cancel_generation(
     user: User = Depends(require_ai_job_access),
 ):
     """Cancel a running generation job."""
-    job = await get_ai_job(db, job_id, tenant_id=str(user.tenant_id) if user.tenant_id else None)
+    job = await get_ai_job(
+        db,
+        job_id,
+        tenant_id=str(user.tenant_id) if user.tenant_id else None,
+        for_update=True,
+    )
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
 

@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Methodologist dashboard: real training-summary counts, loading/error isolation and two explicit starting paths (materials or course basis). Empty AI queues are hidden; failed and unknown jobs remain visible.
 
 ### Fixed
+- AI course generation now checks cancellation between assessment requests and
+  retries, reports only completed assessment work, and serializes cancellation
+  with course persistence so a cancelled job cannot leave an unlinked course.
+  Validation diagnostics expose bounded reason codes without model or tenant text.
 - Demo and blueprint copy now distinguish illustrative examples, available course foundations and company expert approval; Russian catalog limitations no longer fall back to English.
 - Reminder delivery now owns its async database connections per worker invocation, preventing cross-event-loop failures without changing the API connection pool or email deduplication.
 - Legacy assignment outboxes now support their non-bypass function owner under FORCE RLS; course recurrence accepts a nullable audited system actor without admitting foreign-tenant actors.

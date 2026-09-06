@@ -25,6 +25,11 @@ from app.core.db import async_session_factory
 
 logger = logging.getLogger(__name__)
 
+GENERATION_FAILURE_CODE = "generation_failed"
+GENERATION_FAILURE_MESSAGE = (
+    "Не удалось сгенерировать курс. Повторите попытку или обратитесь к администратору."
+)
+
 
 def _estimate_lesson_duration_seconds(content: str | None) -> int:
     """Estimate focused reading time at 150 words/minute, with a 2-minute floor."""
@@ -110,13 +115,26 @@ async def _save_generation_to_db(
     user_id: UUID,
 ):
     """Save generated course structure, content, and assessments to DB."""
-    from app.modules.courses.models import Course
-    from app.modules.lessons.models import Module, Lesson
-    from app.modules.quizzes.models import Quiz, Question, QuizChoice
     from sqlalchemy import delete, select, text
+
+    from app.models.ai_job import AIJob
+    from app.modules.courses.models import Course
+    from app.modules.lessons.models import Lesson, Module
+    from app.modules.quizzes.models import Question, Quiz, QuizChoice
 
     async with async_session_factory() as session:
         await session.execute(text("SELECT set_current_tenant(:tid)"), {"tid": str(tenant_id)})
+        job = await session.scalar(
+            select(AIJob)
+            .where(AIJob.id == state.job_id, AIJob.tenant_id == tenant_id)
+            .with_for_update()
+        )
+        if not job:
+            raise RuntimeError("Generation job does not exist in this tenant")
+        if job.status == "cancelled":
+            raise asyncio.CancelledError(f"Job {state.job_id} cancelled")
+        if job.status != "running":
+            raise RuntimeError(f"Generation job is not active: {job.status}")
         if not state.course_id:
             course = Course(
                 id=uuid4(),
@@ -317,6 +335,21 @@ async def _save_generation_to_db(
                                             ))
                                         q_idx += 1
 
+        state.status = "completed"
+        state.stage = "completed"
+        state.progress = 100
+        state.message = "Курс успешно сгенерирован!"
+        completed_at = datetime.now(timezone.utc)  # noqa: UP017 -- Python 3.10 runtime
+        for field_name, value in (
+            ("status", state.status),
+            ("stage", state.stage),
+            ("progress", state.progress),
+            ("message", state.message),
+            ("course_id", course.id),
+            ("completed_at", completed_at),
+            ("updated_at", completed_at),
+        ):
+            setattr(job, field_name, value)
         await session.commit()
         logger.info(f"Saved generation results to DB for course {state.course_id}")
 
@@ -640,6 +673,7 @@ async def run_generation_pipeline(
             language=language,
             on_progress=on_assessment_progress,
             compact=document_profile["all_job_instructions"],
+            check_cancelled=lambda: _check_cancelled_async(job_id, tenant_id=tenant_id),
         )
 
         state.assessment = assessment
@@ -655,34 +689,40 @@ async def run_generation_pipeline(
 
         if tenant_id and user_id:
             await _save_generation_to_db(state, tenant_id, user_id)
-
-        state.status = "completed"
-        state.progress = 100
-        state.message = "Курс успешно сгенерирован!"
-        await _update_job_db(
-            job_id,
-            tenant_id=tenant_id,
-            status="completed",
-            stage="completed",
-            progress=100,
-            message=state.message,
-            course_id=UUID(state.course_id) if state.course_id else None,
-            completed_at=datetime.now(timezone.utc),
-        )
+        else:
+            state.status = "completed"
+            state.stage = "completed"
+            state.progress = 100
+            state.message = "Курс успешно сгенерирован!"
+            await _update_job_db(
+                job_id,
+                tenant_id=tenant_id,
+                status="completed",
+                stage="completed",
+                progress=100,
+                message=state.message,
+                course_id=UUID(state.course_id) if state.course_id else None,
+                completed_at=datetime.now(timezone.utc),
+            )
 
         logger.info(f"Generation pipeline complete for job {job_id}")
 
+    except asyncio.CancelledError:
+        state.status = "cancelled"
+        state.stage = "cancelled"
+        state.message = "Cancelled by user"
+        logger.info("Generation pipeline cancelled for job %s", job_id)
     except Exception as e:
         state.status = "failed"
-        state.message = f"Error: {str(e)}"
-        state.errors.append(str(e))
+        state.message = GENERATION_FAILURE_MESSAGE
+        state.errors.append(GENERATION_FAILURE_CODE)
         await _update_job_db(
             job_id,
             tenant_id=tenant_id,
             status="failed",
             stage="failed",
             message=state.message,
-            errors=[str(e)],
+            errors=[GENERATION_FAILURE_CODE],
             completed_at=datetime.now(timezone.utc),
         )
         if tenant_id and not state.course_id:

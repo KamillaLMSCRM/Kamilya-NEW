@@ -34,6 +34,26 @@ MAX_ASSESSMENT_RETRIES = 4
 MAX_FOCUSED_ATTEMPTS_PER_EVIDENCE = 2
 FOCUSED_OPTION_WORD_COUNT = 6
 
+
+def _assessment_contract_reason_codes(error: Exception) -> str:
+    """Return bounded diagnostic classes without logging model or tenant content."""
+    if isinstance(error, json.JSONDecodeError):
+        return "invalid_json"
+    message = str(error).lower()
+    categories = []
+    checks = (
+        ("evidence_reference", ("missing source evidence", "unknown source evidence")),
+        ("grounding", ("outside lesson data", "does not use", "source evidence")),
+        ("answer_quality", ("correct answer", "distractor", "correct (expected 1)")),
+        ("question_count", ("mcq count",)),
+        ("unsupported_type", ("questions are not allowed",)),
+        ("learner_text_quality", ("incomplete fragment", "multi-part", "markdown", "meta terminology")),
+    )
+    for code, markers in checks:
+        if any(marker in message for marker in markers):
+            categories.append(code)
+    return ",".join(categories) or "schema_or_quality"
+
 _WORD_RE = re.compile(r"[^\W\d_]{4,}", re.UNICODE)
 _META_TERM_RE = re.compile(r"[^\W\d_]{3,}", re.UNICODE)
 _GROUNDING_STOPWORDS = {
@@ -448,6 +468,7 @@ async def _recover_with_focused_questions(
     output_schema: dict[str, Any],
     recovery_pool: list[dict[str, Any]],
     minimum_questions: int,
+    check_cancelled: Callable[[], Any] | None = None,
 ) -> LessonAssessment | None:
     """Request one evidence-bound MCQ at a time when batch output stays invalid."""
     for evidence_id, evidence_quote in list(evidence_bank.items())[:8]:
@@ -498,6 +519,10 @@ Requirements:
                 )
             )
             try:
+                if check_cancelled:
+                    result = check_cancelled()
+                    if hasattr(result, "__await__"):
+                        await result
                 response = await llm.ainvoke(
                     [
                         {"role": "system", "content": system_prompt},
@@ -512,6 +537,10 @@ Requirements:
                         },
                     },
                 )
+                if check_cancelled:
+                    result = check_cancelled()
+                    if hasattr(result, "__await__"):
+                        await result
                 focused_data = _parse_json_response(response.content)
             except (json.JSONDecodeError, ValueError):
                 logger.warning(
@@ -567,6 +596,7 @@ async def generate_lesson_assessment(
     lesson_content: LessonContent,
     language: str = "ru",
     compact: bool = False,
+    check_cancelled: Callable[[], Any] | None = None,
 ) -> LessonAssessment:
     """Generate grounded assessment for a single lesson."""
     lang_names = {"ru": "Русский", "kk": "Қазақша", "en": "English"}
@@ -662,6 +692,10 @@ Output ONLY the JSON data instance:
     for attempt in range(MAX_ASSESSMENT_RETRIES + 1):
         data: dict[str, Any] | None = None
         try:
+            if check_cancelled:
+                result = check_cancelled()
+                if hasattr(result, "__await__"):
+                    await result
             response = await llm.ainvoke(
                 [
                     {"role": "system", "content": system_prompt},
@@ -669,6 +703,10 @@ Output ONLY the JSON data instance:
                 ],
                 response_format=response_format,
             )
+            if check_cancelled:
+                result = check_cancelled()
+                if hasattr(result, "__await__"):
+                    await result
             logger.debug(
                 "[ASSESSMENT_RAW] attempt %d len=%d",
                 attempt + 1,
@@ -706,9 +744,10 @@ Output ONLY the JSON data instance:
             return assessment
         except (json.JSONDecodeError, ValueError) as e:
             logger.warning(
-                "[ASSESSMENT_CONTRACT] attempt %d failed error_type=%s",
+                "[ASSESSMENT_CONTRACT] attempt %d failed error_type=%s reason_codes=%s",
                 attempt + 1,
                 type(e).__name__,
+                _assessment_contract_reason_codes(e),
             )
             if attempt < MAX_ASSESSMENT_RETRIES:
                 user_prompt = (
@@ -749,6 +788,7 @@ Output ONLY the JSON data instance:
                         output_schema=output_schema,
                         recovery_pool=recovery_pool,
                         minimum_questions=minimum_questions,
+                        check_cancelled=check_cancelled,
                     )
                     if focused_recovery is not None:
                         return focused_recovery
@@ -759,8 +799,9 @@ async def generate_course_assessment(
     llm: LLMClient,
     course_content,
     language: str = "ru",
-    on_progress: Callable | None = None,
+    on_progress: Callable[[str], Any] | None = None,
     compact: bool = False,
+    check_cancelled: Callable[[], Any] | None = None,
 ) -> CourseAssessment:
     """Generate assessments for all lessons sequentially."""
     assessments = []
@@ -770,8 +811,8 @@ async def generate_course_assessment(
     for module in course_content.modules:
         for lesson in module.lessons:
             num += 1
-            if on_progress:
-                result = on_progress(f"Generating assessment {num}/{total}: {lesson.title}")
+            if check_cancelled:
+                result = check_cancelled()
                 if hasattr(result, "__await__"):
                     await result
             a = await generate_lesson_assessment(
@@ -779,8 +820,13 @@ async def generate_course_assessment(
                 lesson,
                 language=language,
                 compact=compact,
+                check_cancelled=check_cancelled,
             )
             assessments.append(a)
+            if on_progress:
+                result = on_progress(f"Generated assessment {num}/{total}: {lesson.title}")
+                if hasattr(result, "__await__"):
+                    await result
             if num < total:
                 await asyncio.sleep(5)
 

@@ -273,7 +273,11 @@ async def build_ai_job_queue_metadata(
 
 
 async def get_ai_job(
-    db: AsyncSession, job_id: str, tenant_id: str | None = None
+    db: AsyncSession,
+    job_id: str,
+    tenant_id: str | None = None,
+    *,
+    for_update: bool = False,
 ) -> AIJob | None:
     """Get AI job by ID, scoped to tenant (defense-in-depth, see audit §3.3).
 
@@ -285,6 +289,8 @@ async def get_ai_job(
     stmt = select(AIJob).where(AIJob.id == job_id)
     if tenant_id is not None:
         stmt = stmt.where(AIJob.tenant_id == tenant_id)
+    if for_update:
+        stmt = stmt.with_for_update()
     result = await db.execute(stmt)
     return result.scalar_one_or_none()
 
@@ -297,7 +303,10 @@ async def update_ai_job(
     Same scoping rules as get_ai_job — pass tenant_id for safety. If
     omitted, the lookup is unscoped (superadmin only).
     """
-    job = await get_ai_job(db, job_id, tenant_id=tenant_id)
+    # Serialize every worker callback with cancellation. Without the row lock a
+    # callback can observe "running", wait behind a cancelling transaction, and
+    # then flush stale progress or a terminal state after cancellation commits.
+    job = await get_ai_job(db, job_id, tenant_id=tenant_id, for_update=True)
     if not job:
         return None
     # Recovery/cancellation is terminal. Late worker callbacks must not

@@ -190,3 +190,17 @@ Rules:
 - **Cleanup lifecycle:** `PASS`; the first cleanup exposed the immutable `content_releases` deletion gap. The corrected exact-SHA release kept direct release mutation blocked, used the bounded superadmin purge contract, and removed the disposable tenant through the normal API with DELETE `204` and independent GET `404` readback.
 - **Residue:** none. No synthetic tenant, credential, local fixture, email, or external notification remains.
 - **Overall:** `READY` for the assessment-quality scope. Deterministic generation checks and mandatory methodologist review are active in production; ongoing real-document sampling remains a product-quality monitoring activity rather than a release blocker.
+### 2026-09-06 — AI cancellation repair (LOCAL/DEV PASS)
+
+- TDD red reproduced three missing contracts; implementation adds per-request and
+  per-retry cancellation checks, completed-only progress, shared row locking, and
+  atomic course/job/link completion.
+- Focused API suite: 59 passed, 6 warnings, 7.08s. Operations wrapper: 13 passed.
+- Supabase DEV disposable-schema race: six runs, latest cancelled/no-course=4,
+  completed/correct-link=2, split-state=0; both outcomes observed, restricted
+  runtime role and unchanged
+  shared migration head confirmed; temporary schema removed.
+- Production residual cleanup was separately owner-authorized. Dependency scan:
+  19 course FK paths, only own module cascade nonzero. Exact residual deleted;
+  original synthetic course/source and cancelled job history preserved.
+- Release/CI/image/provider-backed production reacceptance remain NOT VERIFIED.

@@ -1,6 +1,6 @@
 # Error and Recurrence Prevention Log
 
-Current as of: 2026-09-05.
+Current as of: 2026-09-06.
 
 This is the single operational log for confirmed Kamilya LMS workflow errors,
 invalid assumptions, fixes, verification, and recurrence prevention. Open product
@@ -1545,3 +1545,27 @@ contract or establish a blocker.
   or outbox row committed, no automatic email sent; original customer rules
   and tenant data untouched. The activated synthetic learner remains available
   only until the follow-up test and cleanup complete.
+## AI-CANCEL-001 - Cancelled generation persisted an unlinked course
+
+- Date: 2026-09-06. FIXED LOCALLY; production deployment and reacceptance pending.
+- Symptom: synthetic job `6393f0b1-c19b-4f1b-af41-91e51882baa7` was cancelled,
+  but its worker later committed unlinked draft course
+  `c51d62c8-d942-4755-862c-261461c3fa0d`.
+- Cause: cancellation was checked before the assessment stage, while assessment
+  retries and the independent course transaction could continue after cancellation.
+- Fix: cancellation checkpoints surround every assessment model request and retry;
+  progress advances only after a lesson assessment completes. Cancellation and
+  persistence now take the same tenant-scoped `ai_jobs` row lock, and course data,
+  job completion, and course linkage commit in one transaction. Diagnostics use
+  bounded validation reason codes without generated or tenant content.
+- Verification: focused regression suite 59 passed. A disposable Supabase DEV
+  schema ran six real concurrent save/cancel races; both terminal outcomes occurred
+  (latest run: four cancelled/no course, two completed/correct link), with no split
+  state. Runtime role remained
+  non-superuser/non-BYPASSRLS, shared migration head was unchanged, and cleanup passed.
+- Cleanup: after a 19-path foreign-key inventory showed only the course's own
+  cascading module tree, the exact synthetic residual was deleted through the
+  normal API. Original course `67d782f2-0478-4555-9c19-99d4bc071789`, source
+  `05097f1b-8ae9-47be-ad26-0c65bdfb7a16`, and cancelled job history remain.
+- Prevention: every cancellable background writer must prove both cancellation
+  checkpoints and transactional exclusion at the final persistence boundary.

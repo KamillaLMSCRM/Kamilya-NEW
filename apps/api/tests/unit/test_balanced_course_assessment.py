@@ -2,8 +2,13 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.modules.ai.assessment import _build_evidence_bank, generate_lesson_assessment
-from app.modules.ai.writer_schema import LessonContent
+from app.modules.ai.assessment import (
+    _assessment_contract_reason_codes,
+    _build_evidence_bank,
+    generate_course_assessment,
+    generate_lesson_assessment,
+)
+from app.modules.ai.writer_schema import CourseContent, LessonContent, ModuleContent
 
 
 def _questions(
@@ -35,6 +40,16 @@ def _questions(
         }
         for index in range(1, count + 1)
     ]
+
+
+def test_contract_diagnostics_use_bounded_reason_codes():
+    error = ValueError(
+        "MCQ #1: unknown source evidence id; MCQ #2: correct answer is an incomplete fragment"
+    )
+
+    assert _assessment_contract_reason_codes(error) == (
+        "evidence_reference,grounding,answer_quality,learner_text_quality"
+    )
 
 
 @pytest.mark.asyncio
@@ -838,3 +853,90 @@ async def test_focused_assessment_retries_rejected_evidence_candidate():
     assert llm.calls == 11
     assert len(result.mcq) == 3
     assert llm.focused_calls == {"E01": 2, "E02": 2, "E03": 2}
+
+
+@pytest.mark.asyncio
+async def test_assessment_stops_before_retry_when_generation_is_cancelled():
+    class InvalidLLM:
+        calls = 0
+
+        async def ainvoke(self, messages, config=None, response_format=None):
+            self.calls += 1
+            return SimpleNamespace(content="{}")
+
+    checks = 0
+
+    async def check_cancelled():
+        nonlocal checks
+        checks += 1
+        if checks > 1:
+            raise __import__("asyncio").CancelledError
+
+    llm = InvalidLLM()
+    with pytest.raises(__import__("asyncio").CancelledError):
+        await generate_lesson_assessment(
+            llm,
+            LessonContent(
+                title="Cancellation",
+                content="Cancellation is confirmed before another model request is made.",
+                source_references=[],
+            ),
+            language="en",
+            check_cancelled=check_cancelled,
+        )
+
+    assert llm.calls == 1
+
+
+@pytest.mark.asyncio
+async def test_course_assessment_reports_only_completed_lessons():
+    source = "Loan approval occurs after application review."
+
+    class ValidLLM:
+        calls = 0
+
+        async def ainvoke(self, messages, config=None, response_format=None):
+            self.calls += 1
+            return SimpleNamespace(
+                content=__import__("json").dumps(
+                    {
+                        "mcq": _questions(
+                            "loan approval",
+                            "after application review",
+                            source,
+                        ),
+                        "true_false": [],
+                        "matching": [],
+                    }
+                )
+            )
+
+    llm = ValidLLM()
+    progress_after_calls = []
+
+    async def on_progress(message):
+        progress_after_calls.append((llm.calls, message))
+
+    result = await generate_course_assessment(
+        llm,
+        CourseContent(
+            title="Loan lifecycle",
+            modules=[
+                ModuleContent(
+                    title="Module",
+                    lessons=[
+                        LessonContent(title="Approval", content=source, source_references=[]),
+                        LessonContent(title="Review", content=source, source_references=[]),
+                    ],
+                )
+            ],
+        ),
+        language="en",
+        on_progress=on_progress,
+    )
+
+    assert len(result.assessments) == 2
+    assert progress_after_calls == [
+        (1, "Generated assessment 1/2: Approval"),
+        (2, "Generated assessment 2/2: Review"),
+    ]

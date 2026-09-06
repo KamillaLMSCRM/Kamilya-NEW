@@ -18,7 +18,10 @@ async def test_update_ai_job_does_not_resurrect_cancelled_job(monkeypatch):
         result={"checkpoint": "retained"},
     )
 
+    lookup = {}
+
     async def get_cancelled_job(*args, **kwargs):
+        lookup.update(kwargs)
         return job
 
     monkeypatch.setattr(job_service, "get_ai_job", get_cancelled_job)
@@ -39,3 +42,4 @@ async def test_update_ai_job_does_not_resurrect_cancelled_job(monkeypatch):
     assert job.message == "worker diagnostic retained"
     assert job.errors == {"recovery": {"code": "stale_ai_job_recovered"}}
     assert job.result == {"checkpoint": "retained"}
+    assert lookup == {"tenant_id": "tenant-contract", "for_update": True}

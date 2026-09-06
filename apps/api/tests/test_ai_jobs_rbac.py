@@ -138,7 +138,10 @@ async def test_cross_tenant_job_id_is_not_found(handler_name: str):
             await getattr(ai_router, handler_name)("other-tenant-job", db=db, user=user)
 
     assert caught.value.status_code == 404
-    lookup.assert_awaited_once_with(db, "other-tenant-job", tenant_id=str(tenant_id))
+    expected_kwargs = {"tenant_id": str(tenant_id)}
+    if handler_name == "cancel_generation":
+        expected_kwargs["for_update"] = True
+    lookup.assert_awaited_once_with(db, "other-tenant-job", **expected_kwargs)
 
 
 @pytest.mark.asyncio
