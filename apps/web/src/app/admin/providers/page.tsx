@@ -51,7 +51,7 @@ export default function AdminProvidersPage() {
     if (!token) return;
     setLoading(true);
     try {
-      const res = await fetch(`${API_URL}/admin/provider-keys`, {
+      const res = await fetch(`${API_URL}/v1/admin/provider-keys`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -73,7 +73,7 @@ export default function AdminProvidersPage() {
     e.preventDefault();
     setSubmitting(true);
     try {
-      const res = await fetch(`${API_URL}/admin/provider-keys`, {
+      const res = await fetch(`${API_URL}/v1/admin/provider-keys`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -105,7 +105,7 @@ export default function AdminProvidersPage() {
 
   const handleToggleActive = async (key: ProviderKey) => {
     try {
-      const res = await fetch(`${API_URL}/admin/provider-keys/${key.id}`, {
+      const res = await fetch(`${API_URL}/v1/admin/provider-keys/${key.id}`, {
         method: 'PATCH',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -125,7 +125,7 @@ export default function AdminProvidersPage() {
     const label = key.label || key.provider;
     if (!confirm(t('providers.deleteConfirm', { label }))) return;
     try {
-      const res = await fetch(`${API_URL}/admin/provider-keys/${key.id}`, {
+      const res = await fetch(`${API_URL}/v1/admin/provider-keys/${key.id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -141,7 +141,7 @@ export default function AdminProvidersPage() {
   const handleTest = async (key: ProviderKey) => {
     setTestingId(key.id);
     try {
-      const res = await fetch(`${API_URL}/admin/provider-keys/${key.id}/test`, {
+      const res = await fetch(`${API_URL}/v1/admin/provider-keys/${key.id}/test`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
       });

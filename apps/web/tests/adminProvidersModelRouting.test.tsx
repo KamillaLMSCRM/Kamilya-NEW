@@ -75,6 +75,14 @@ describe('superadmin generation model routing modal', () => {
 
   it('keeps DeepSeek first and persists an accessible fallback reorder', async () => {
     render(<AdminProvidersPage />);
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledWith(
+        'https://api.example.test/api/v1/admin/provider-keys',
+        expect.objectContaining({
+          headers: { Authorization: 'Bearer superadmin-token' },
+        }),
+      );
+    });
     fireEvent.click(await screen.findByRole('button', { name: 'Очередность моделей' }));
 
     const dialog = await screen.findByRole('dialog', { name: 'Очередность моделей генерации' });
