@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import logging
+
+import httpx
 import pytest
 from docx import Document
 
@@ -78,3 +81,32 @@ async def test_invalid_ooxml_is_rejected_before_remote_converter(
 
     with pytest.raises(ArchivePreflightError):
         await DocumentConverter("https://converter.example").convert(str(source))
+
+
+@pytest.mark.asyncio
+async def test_remote_http_failure_logs_only_status_and_uses_local_fallback(
+    tmp_path, monkeypatch, caplog
+) -> None:
+    source = tmp_path / "policy.docx"
+    document = Document()
+    document.add_paragraph("Approved policy")
+    document.save(source)
+
+    class FailedResponse(_Response):
+        def raise_for_status(self) -> None:
+            request = httpx.Request("POST", "https://converter.example/convert")
+            response = httpx.Response(503, request=request)
+            raise httpx.HTTPStatusError("unavailable", request=request, response=response)
+
+    class FailedClient(_Client):
+        async def post(self, *args, **kwargs) -> FailedResponse:
+            return FailedResponse()
+
+    monkeypatch.setattr("httpx.AsyncClient", FailedClient)
+    caplog.set_level(logging.WARNING)
+
+    converted = await DocumentConverter("https://converter.example").convert(str(source))
+
+    assert converted["metadata"]["engine"] == "python-docx"
+    assert "error_type=HTTPStatusError status_code=503" in caplog.text
+    assert "Approved policy" not in caplog.text

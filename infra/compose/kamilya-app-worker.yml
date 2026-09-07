@@ -10,6 +10,11 @@ x-app-runtime: &app-runtime
     FORWARDED_ALLOW_IPS: ${KAMILYA_FORWARDED_ALLOW_IPS:?set KAMILYA_FORWARDED_ALLOW_IPS to the exact trusted proxy IP}
   volumes:
     - ${KAMILYA_BLOB_STORAGE_DIR:-/opt/kamilya-runtime/blob-storage}:/app/storage/certificates
+    - type: bind
+      source: ${KAMILYA_BLOB_STORAGE_DIR:-/opt/kamilya-runtime/blob-storage}/summaries
+      target: /app/summaries
+      bind:
+        create_host_path: false
   user: "10001:10001"
   read_only: true
   tmpfs:

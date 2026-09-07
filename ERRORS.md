@@ -1,6 +1,6 @@
 # Error and Recurrence Prevention Log
 
-Current as of: 2026-09-06.
+Current as of: 2026-09-07.
 
 This is the single operational log for confirmed Kamilya LMS workflow errors,
 invalid assumptions, fixes, verification, and recurrence prevention. Open product
@@ -294,6 +294,17 @@ open, also record status, safe interim path, and review condition.
   and approved production-data transfer.
 - Prevention: run cross-container, recreate, backup/restore, and disk-capacity
   checks. Health alone does not prove durability.
+
+**RECURRENCE 2026-09-07:** document indexing also writes short AI summaries to
+`/app/summaries`, but neither production compose mounted that path. With the
+read-only root filesystem and UID/GID `10001:10001`, all fresh text-document
+indexes failed after chunk creation with `PermissionError: './summaries'`.
+Both compose contracts now bind the same host `blob-storage/summaries` directory
+into API and all workers and set `create_host_path: false`, so Docker cannot
+silently create an unusable root-owned source. The host directory must exist as
+`0700 10001:10001` before release. Focused release-contract tests pass (`7 passed`)
+and both compose files pass `docker compose config --no-interpolate --quiet`;
+production runtime and cross-container readback remain pending release approval.
 
 ## ACCESS-001 - Verified domain was mistaken for DNS-management authority
 
@@ -1607,3 +1618,22 @@ contract or establish a blocker.
   Replacement exact-SHA CI remains mandatory; earlier failed CI is not a pass.
 - Prevention: frontend release packets name pnpm lint separately from build and
   typecheck. Preserve reference stability and tenant cancellation when fixing hooks.
+
+## INFRA-009 - Proxy disk exhaustion blocked multipart document uploads
+
+- Date: 2026-09-07.
+- Symptom: a 281596-byte PDF upload returned an nginx HTTP 500 before reaching
+  the API, while a 56-byte text upload succeeded.
+- Cause: the proxy root filesystem had zero available bytes; request bodies that
+  exceeded nginx's in-memory buffer could not be written to its body temp path.
+- Fix: the approved bounded cleanup removed only the apt package cache. No
+  application data, database data, tenant file, release artifact, or log was deleted.
+- Verification: apt cache fell from 328855552 to 20480 bytes, root availability
+  rose from zero to 197349376 bytes, and the exact same PDF upload then returned
+  the application success contract. The cleanup wrapper's `>250 MB` postcondition
+  remained red because the host is still 96% used; that assertion failure is not
+  evidence that the cleanup was rolled back.
+- Prevention: alert on proxy byte and inode headroom before nginx reaches zero;
+  keep package-cache cleanup bounded and recoverable, and do not diagnose a
+  large-body nginx 500 as an application upload failure until temp-path capacity
+  has been read back. Remaining disk pressure requires a separate capacity audit.

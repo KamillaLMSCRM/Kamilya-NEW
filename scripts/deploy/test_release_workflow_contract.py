@@ -4,6 +4,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW = ROOT / ".github" / "workflows" / "release-kz-production.yml"
 COMPOSE = ROOT / "infra" / "compose" / "kamilya-release-slot.yml"
+LEGACY_COMPOSE = ROOT / "infra" / "compose" / "kamilya-app-worker.yml"
 
 
 def _job(text: str, name: str) -> str:
@@ -90,3 +91,17 @@ def test_slot_compose_never_runs_migrations_on_api_start() -> None:
     assert "KAMILYA_SLOT_PORT" in text
     assert "external: true" in text
     assert text.count("<<: *app-runtime") == 4
+
+
+def test_all_app_runtimes_share_a_writable_summary_mount() -> None:
+    expected_source = (
+        "source: ${KAMILYA_BLOB_STORAGE_DIR:-/opt/kamilya-runtime/blob-storage}"
+        "/summaries"
+    )
+    for compose in (COMPOSE, LEGACY_COMPOSE):
+        text = compose.read_text(encoding="utf-8")
+        assert expected_source in text
+        assert "target: /app/summaries" in text
+        assert "create_host_path: false" in text
+        assert 'user: "10001:10001"' in text
+        assert "read_only: true" in text

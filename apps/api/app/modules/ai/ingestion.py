@@ -106,7 +106,13 @@ class DocumentConverter:
                         },
                     }
         except Exception as e:
-            logger.warning("Remote Docling conversion failed error_type=%s", type(e).__name__)
+            response = getattr(e, "response", None)
+            status_code = getattr(response, "status_code", "unknown")
+            logger.warning(
+                "Remote Docling conversion failed error_type=%s status_code=%s",
+                type(e).__name__,
+                status_code,
+            )
 
         # Local fallback
         return await _local_convert(file_path)
