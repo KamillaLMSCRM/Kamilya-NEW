@@ -28,8 +28,8 @@ from app.core.log_redaction import (
 )
 from app.core.rate_limit import RateLimitMiddleware
 from app.core.security import SecurityHeadersMiddleware
-from app.modules.admin.onboarding.router import router as onboarding_router
 from app.modules.admin.model_routing.router import router as model_routing_router
+from app.modules.admin.onboarding.router import router as onboarding_router
 from app.modules.admin.provider_keys.router import router as provider_keys_router
 from app.modules.admin.router import router as admin_router
 from app.modules.admin.superadmin.router import router as superadmin_router

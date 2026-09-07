@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Annotated
+import uuid
+from typing import Annotated, cast
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -39,7 +40,7 @@ RoutingService = Annotated[GenerationModelRoutingService, Depends(_service)]
 async def get_generation_model_routing(
     user: SuperadminUser,
     svc: RoutingService,
-):
+) -> GenerationModelRoutingResponse:
     try:
         return await svc.get()
     except RoutingConfigurationMissingError as exc:
@@ -51,9 +52,9 @@ async def update_generation_model_routing(
     payload: GenerationModelRoutingUpdate,
     user: SuperadminUser,
     svc: RoutingService,
-):
+) -> GenerationModelRoutingResponse:
     try:
-        return await svc.update(payload, user_id=user.id)
+        return await svc.update(payload, user_id=cast(uuid.UUID, user.id))
     except RoutingRevisionConflictError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
     except RoutingPrimaryNotConfiguredError as exc:

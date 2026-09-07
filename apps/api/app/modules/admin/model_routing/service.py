@@ -17,6 +17,7 @@ from app.modules.admin.model_routing.catalog import (
     QWEN38_ROUTE_ID,
     validate_generation_model_order,
 )
+from app.modules.admin.model_routing.models import GenerationModelRouting
 from app.modules.admin.model_routing.schemas import (
     GenerationModelRouteItem,
     GenerationModelRoutingResponse,
@@ -80,7 +81,10 @@ class GenerationModelRoutingService:
         )
         return await self._response(row)
 
-    async def _response(self, row) -> GenerationModelRoutingResponse:
+    async def _response(
+        self,
+        row: GenerationModelRouting,
+    ) -> GenerationModelRoutingResponse:
         settings = get_settings()
         order = validate_generation_model_order(row.ordered_model_ids)
         positions = {route_id: index + 1 for index, route_id in enumerate(order)}
