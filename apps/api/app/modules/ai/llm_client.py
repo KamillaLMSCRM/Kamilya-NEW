@@ -218,7 +218,7 @@ def _qwen38_flash_llm_provider() -> LLMProviderConfig:
     """Return the owner-selected fast ASUS fallback."""
     s = get_settings()
     return LLMProviderConfig(
-        name="qwen38-flash-next-asus",
+        name="custom:qwen38-flash-next",
         base_url=_openai_base_url(s.QWEN38_FLASH_URL),
         api_key=s.LLM_API_KEY or "not-needed",
         model=s.QWEN38_FLASH_MODEL,
@@ -245,10 +245,8 @@ def _glm53_flash_llm_provider() -> LLMProviderConfig:
 
 
 def _generation_fallback_providers() -> list[LLMProviderConfig]:
-    """Select only a production-qualified fallback route."""
-    if get_settings().ASUS_LLM_CHAIN_ENABLED:
-        return [_qwen38_flash_llm_provider(), _glm53_flash_llm_provider()]
-    return [_qwen_llm_provider()]
+    """Return the owner-selected generation fallbacks in their fixed order."""
+    return [_qwen38_flash_llm_provider(), _glm53_flash_llm_provider()]
 
 
 def _deepseek_llm_provider() -> LLMProviderConfig | None:
@@ -449,7 +447,7 @@ class LLMClient(_BaseProviderClient):
         max_retries: int = 2,
     ):
         if config is None:
-            config = _qwen_llm_provider()
+            config = _qwen38_flash_llm_provider()
         super().__init__(config=config, max_retries=max_retries)
         self.temperature = temperature
         self.max_tokens = max_tokens
@@ -595,9 +593,9 @@ class ResilientLLMClient:
     ) -> ResilientLLMClient:
         """Build the production chain from env-only settings.
 
-        DeepSeek is primary when configured. The gated next route is Qwen 3.8
-        Flash Next followed by GLM 5.3 Flash. Until VM126 proves reachability,
-        the established public Qwen remains the fallback.
+        DeepSeek is primary when configured. The fixed fallback route is Qwen
+        3.8 Flash Next followed by GLM 5.3 Flash. The legacy public Qwen is not
+        part of the user-facing generation chain.
 
         Does NOT consult the provider_keys table — used by tests and
         legacy callers that don't pass a DB session. Production code

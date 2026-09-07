@@ -68,12 +68,11 @@ pnpm dev
 - AI-пайплайн генерирует структуру и содержание курсов из документов.
 - Пользовательская генерация проходит через `ResilientLLMClient`. DeepSeek
   используется первым, когда активный ключ настроен через environment или
-  зашифрованное хранилище provider keys. После отдельного VM126 network smoke
-  `ASUS_LLM_CHAIN_ENABLED=true` заменяет старый Qwen fallback на порядок
-  `Qwen 3.8 Flash Next -> GLM 5.3 Flash`; оба приватных endpoint-а работают с
-  коротким connect timeout и без внутренних повторов. Пока gate выключен,
-  сохраняется проверенный `QWEN_API_URL`. Техническую модель пользователь не
-  выбирает.
+  зашифрованное хранилище provider keys. За ним всегда следуют
+  `custom:qwen38-flash-next` и `glm53-flash-asus`; старый Qwen исключён из
+  пользовательской генерации. Оба приватных endpoint-а работают с коротким
+  connect timeout и без внутренних повторов. Техническую модель пользователь
+  не выбирает.
 
 ### Frontend
 
@@ -368,13 +367,12 @@ assignment и evidence-механизмы.
 6. Если релевантные chunks отсутствуют, задача завершается контролируемой ошибкой. Fallback на общие знания LLM запрещён.
 7. Qwen embeddings использует Voyage как fallback. При недоступности обоих провайдеров индексация завершается ошибкой; синтетические hash-векторы не сохраняются.
 
-LLM provider routing отделён от embeddings. `ASUS_LLM_CHAIN_ENABLED` включает
-новый резервный порядок `Qwen 3.8 Flash Next -> GLM 5.3 Flash` после DeepSeek и
-исключает старый Qwen из пользовательской цепочки. Недоступные ASUS endpoint-ы
-имеют короткий connect timeout и нулевой внутренний retry. Флаг остаётся
-выключенным до сетевого smoke из фактического API-host; проверка `/models` с
-рабочей станции не является deployment evidence. Полный контракт закреплён в
-[ADR-0007](adr/0007-ai-pipeline-failover.md).
+LLM provider routing отделён от embeddings. Резервный порядок
+`Qwen 3.8 Flash Next -> GLM 5.3 Flash` всегда следует после DeepSeek и исключает
+старый Qwen из пользовательской цепочки. Недоступные ASUS endpoint-ы
+имеют короткий connect timeout и нулевой внутренний retry. Проверка `/models`
+с рабочей станции не является production-availability evidence. Полный
+контракт закреплён в [ADR-0007](adr/0007-ai-pipeline-failover.md).
 
 При создании ещё одного курса backend ищет tenant-scoped курсы, уже связанные
 с выбранными `source_document_ids` или `source_instruction_id`. Без
