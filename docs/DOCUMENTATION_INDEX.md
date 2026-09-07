@@ -11,6 +11,7 @@ production.
 - [Актуальный продуктовый backlog](PRODUCT_BACKLOG.md)
 - [Внутренняя документация](PROJECT_INTERNAL_DOCUMENTATION.md)
 - [Handoff для нового Codex или другого компьютера](CODEX_HANDOFF.md)
+- [Production frontend на CT137: выпуск и rollback](PRODUCTION_FRONTEND_RUNBOOK.md)
 
 ## Пользователям
 

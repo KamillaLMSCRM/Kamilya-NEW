@@ -469,7 +469,8 @@ paths must keep its machine-enforced CI gate green.
 Независимо проверить:
 
 - GitHub commit and CI;
-- Vercel production commit;
+- frontend exact deployed release SHA, runtime identity и public login/business
+  readback; Vercel проверяется отдельно только как dev или явно выбранный rollback;
 - API exact release SHA и runtime identity целевого контура: KZ production —
   VM126; Render проверяется отдельно только для явно выбранного dev/demo/rollback;
 - Alembic revision;
@@ -494,11 +495,13 @@ KZ production gate. HTTP 200 не заменяет business smoke.
 - Vercel управляется через API-токен `vercel_token` из корневого `.env`.
   Значение загружается в память процесса и передаётся в authorization header;
   его нельзя помещать в аргументы командной строки, URL, вывод или Git.
-- Production frontend — Vercel project `web`, branch `master`, домен
-  `app.kml.kz`. Dev frontend — отдельный project `kamilya-lms-dev`, branch
+- Production frontend — native Next.js на CT137 `webkml`; `app.kml.kz` идёт
+  через Cloudflare DNS-only A-record, public KZ proxy Nginx/TLS и WireGuard peer
+  `10.77.77.3/32`. Vercel project `web`, branch `master`, сохранён только как
+  rollback artifact. Dev frontend — отдельный project `kamilya-lms-dev`, branch
   `dev`, без custom domain. Нельзя связывать локальный checkout или менять env,
-  branch/domain одного проекта, пока его id и текущее состояние не прочитаны
-  обратно через API.
+  branch/domain provider project, пока его id и состояние не прочитаны обратно.
+  Frontend release выполнять по `docs/PRODUCTION_FRONTEND_RUNBOOK.md`.
 - Доступ к публичному proxy VPS берётся только из `C:\Kamilya New\.env`:
   `PROXY_VPS_HOST`, `PROXY_VPS_LOGIN`, `PROXY_VPS_PASSWORD`. Перед SSH
   проверяется фактический target из `PROXY_VPS_HOST` и сохранённый host key;
@@ -509,19 +512,22 @@ KZ production gate. HTTP 200 не заменяет business smoke.
   `PVE_API_TOKEN_SECRET` и `VPS_URL` из корневого `.env`. Права Proxmox на VM
   или CT не доказывают доступ к guest OS. QGA, SSH и встроенная console — разные
   authority boundaries; не заменять одну другой без явного решения.
-- KZ application path: public TLS/DNS -> proxy Nginx -> WireGuard hub
-  `10.77.77.1` -> VM126 `10.77.77.2:8000`. VM126 содержит API, Celery, Valkey и
-  файловый runtime; CT125 содержит native PostgreSQL 17 + pgvector и backup.
-  PostgreSQL нельзя публиковать в Internet.
+- KZ frontend path: `app.kml.kz` -> Cloudflare DNS-only A
+  `92.38.49.167` -> public proxy Nginx/TLS -> WireGuard hub `10.77.77.1` ->
+  CT137 `10.77.77.3` -> native Next.js/Nginx. KZ API path остаётся отдельным:
+  `api.kml.kz` -> тот же proxy -> VM126 `10.77.77.2:8000`. VM126 содержит API,
+  Celery, Valkey и файловый runtime; CT125 содержит native PostgreSQL 17 +
+  pgvector и backup. PostgreSQL нельзя публиковать в Internet.
 - Authoritative DNS для `kml.kz` находится в Cloudflare, не в Vercel. Наличие
   verified domain в Vercel не разрешает создавать DNS record через Vercel API.
   Перед DNS mutation проверить NS и использовать только подтверждённую
   Cloudflare-сессию/API authority.
-- На 17.08.2026 production frontend `app.kml.kz` направлен на
-  `https://api.kml.kz/api` через proxy/WireGuard к VM126 и private DB path в
-  CT125. Render/Supabase сохранены как dev/demo и rollback-контур. Нельзя
-  смешивать production и dev/demo данные, очереди или storage; любое следующее
-  переключение требует нового release gate и rollback.
+- На 07.09.2026 production frontend `app.kml.kz` работает на CT137 и обращается
+  к `https://api.kml.kz/api`; backend по proxy/WireGuard остаётся на VM126, DB —
+  по private path на CT125. Render/Supabase сохранены как dev/demo, Vercel
+  project `web` — как frontend rollback. Нельзя смешивать production и dev/demo
+  данные, очереди или storage; любое следующее переключение требует нового
+  release gate и rollback.
 - Изолированный Vercel project `kamilya-lms-dev` использует
   `NEXT_PUBLIC_API_URL=https://api.kml.kz/api`. Суффикс `/api` обязателен:
   frontend добавляет к base URL пути `/v1/...`. Stable dev origin временно

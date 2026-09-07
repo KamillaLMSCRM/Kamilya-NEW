@@ -94,7 +94,9 @@ pnpm dev
 4. Проверку принадлежности входящих `course_id`, `user_id`, `position_id` текущему tenant.
 5. Тест на доступ между tenant-ами.
 
-Секреты хранятся только в локальном `.env` или в секретах Render/Vercel. В git нельзя добавлять `.env`, API keys, JWT secrets, пароли БД, root/VPS credentials или токены GitHub.
+Секреты хранятся только в локальном `.env` либо в runtime secrets целевого
+production/dev-провайдера. В Git нельзя добавлять `.env`, API keys, JWT secrets,
+пароли БД, root/VPS credentials, WireGuard private keys или токены GitHub.
 
 ## 5. Роли
 
@@ -904,17 +906,17 @@ API изменения course links отклоняет, endpoints apply/progress
 4. выполнить smoke API и frontend;
 5. только затем раскатывать production.
 
-Render и Vercel deploy green не заменяют проверку миграций и ручной happy path.
-
-Текущий P1 рабочего дерева не имеет deployment evidence. До отдельной проверки
-нельзя переносить на него исторические API/web/worker revisions, migration
-state или production smoke. KZ PostgreSQL/object storage и реальный pawnshop
-acceptance test отложены.
+Зелёный provider/deploy status сам по себе не заменяет проверку миграций,
+точной runtime identity и role-specific happy path. Для текущего production
+frontend проверяется CT137; Vercel и Render являются dev/demo или явно выбранным
+rollback-контуром. Актуальные revisions и gates не дублируются здесь — см.
+`PROJECT-CONTEXT.md`, `PRODUCTION_READINESS.md` и
+`PRODUCTION_FRONTEND_RUNBOOK.md`.
 
 Владельцы DDL определены явно:
 
-- Render выполняет `alembic upgrade head` в `preDeployCommand`;
-- Docker API выполняет миграцию до запуска Uvicorn и завершает startup с
+- Render dev/demo выполняет `alembic upgrade head` в `preDeployCommand`;
+- production API container выполняет миграцию до запуска Uvicorn и завершает startup с
   ошибкой, если миграция не прошла;
 - HTTP lifespan приложения миграции не запускает.
 

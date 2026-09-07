@@ -1,7 +1,7 @@
 # Kamilya LMS: текущий контекст проекта
 
 > Living document. Значения секретов здесь не хранятся.
-> Обновлено: 2026-08-17.
+> Обновлено: 2026-09-07.
 
 ## Источники правды
 
@@ -16,6 +16,7 @@
 | Внутренняя архитектура | [`PROJECT_INTERNAL_DOCUMENTATION.md`](PROJECT_INTERNAL_DOCUMENTATION.md) |
 | Эксплуатация worker | [`INFRA_CELERY_WORKER.md`](INFRA_CELERY_WORKER.md) |
 | Доступ и сервисы VPS | [`VPS_CONNECTION_GUIDE.md`](VPS_CONNECTION_GUIDE.md) |
+| Production frontend и rollback | [`PRODUCTION_FRONTEND_RUNBOOK.md`](PRODUCTION_FRONTEND_RUNBOOK.md) |
 | Backup и restore | [`BACKUP_RESTORE_RUNBOOK.md`](BACKUP_RESTORE_RUNBOOK.md) |
 | OCR и KZ infrastructure migration | [`INFRA_KZ_OCR_MIGRATION_ANALYSIS.md`](INFRA_KZ_OCR_MIGRATION_ANALYSIS.md) |
 | Подтверждённые ошибки и профилактика | [`ERRORS.md`](../ERRORS.md) |
@@ -29,22 +30,29 @@
 | Контур | Текущее размещение |
 |---|---|
 | Monorepo | `KamillaLMSCRM/Kamilya-NEW`, branch `master` |
-| Production frontend | Next.js, Vercel project `web`, branch `master`, `https://app.kml.kz` |
+| Production frontend | Native Next.js на CT137 `webkml` (текущее размещение: Proxmox node `pve3`); `https://app.kml.kz` через KZ proxy/WireGuard; exact release проверяется отдельно |
+| Public marketing landing | `https://kml.kz` и `https://www.kml.kz` остаются на Vercel; это отдельный репозиторий/контур без LMS application data |
 | Dev frontend | Vercel project `kamilya-lms-dev`, branch `dev`, `https://kamilya-lms-dev.vercel.app` |
-| API | FastAPI, Render, `https://kamilya-lms-api.onrender.com` |
-| PostgreSQL/pgvector | Supabase, общий dev/test и controlled-pilot контур |
-| Object storage | Supabase Storage, общий dev/test и controlled-pilot контур |
-| Broker/cache | Valkey TLS на VPS |
-| Background jobs | Три Celery worker на VPS: AI, documents и notifications/maintenance |
+| Production API | FastAPI на VM126; публичный вход `https://api.kml.kz/api` через KZ proxy/WireGuard |
+| Production PostgreSQL/pgvector | Native PostgreSQL 17 + pgvector на CT125, private-only path |
+| Production files | Общий файловый runtime API/worker на VM126; backup отдельно |
+| Dev/demo data | Supabase DEV/test PostgreSQL и Storage; не является production |
+| Broker/cache | Valkey на VM126, наружу не опубликован |
+| Background jobs | Три Celery worker на VM126: AI, documents и operations/notifications |
 | Email | Resend, домен `notify.kml.kz` |
 | Telegram | Kamilya bot/auth flow |
 | Document conversion | Ограниченный локальный сервис: MarkItDown для Office/PDF с текстом, Docling для сканов/OCR, LibreOffice для старого `.doc` |
 
-Текущая Supabase используется для разработки, интеграционных тестов и
-контролируемой демонстрации. Реальные данные коммерческого клиента в этот
-контур не загружаются. Для первого клиента до запуска создаётся отдельный
-PostgreSQL и object storage в Казахстане; параметры подключения, backup,
-restore и cutover проходят отдельный release-gate.
+Supabase и Render используются только для разработки, интеграционных тестов,
+контролируемой демонстрации или явно выбранного rollback. Production frontend,
+API, worker, файловый runtime и PostgreSQL размещены в казахстанском контуре;
+каждый из них сохраняет собственный release/backup/readback gate.
+
+Проверка корневого домена `kml.kz` не доказывает размещение LMS application:
+на 2026-09-07 apex и `www` отвечают через Vercel, а `app.kml.kz` и
+`api.kml.kz` — через KZ-IP `92.38.49.167`. Для перевода всего публичного web
+presence в Казахстан требуется отдельный перенос репозитория `kamilya-landing`
+и его DNS. `mail.kml.kz` также является отдельным почтовым контуром.
 
 ## Карта окружений и доступов
 
@@ -52,14 +60,14 @@ restore и cutover проходят отдельный release-gate.
 «через какой узел идёт запрос». Значения токенов, паролей, private keys и DB URL
 здесь не хранятся.
 
-### Vercel
+### Vercel: DEV и rollback
 
 Vercel account/team: user `kamillalmscrm`, team
 `kamillalmscrms-projects` (`team_EknCOCWEL771BUDea5UFM2Ba`).
 
-| Назначение | Project | Git branch | Domain/alias | Backend сейчас |
+| Назначение | Project | Git branch | Domain/alias | Состояние |
 |---|---|---|---|---|
-| Production frontend | `web` (`prj_hJMzgp9QNFCwUMrsDEBZINpJJzBp`) | `master` | `app.kml.kz` | KZ production API `https://api.kml.kz/api` |
+| Production rollback artifact | `web` (`prj_hJMzgp9QNFCwUMrsDEBZINpJJzBp`) | `master` | authoritative DNS не направляет `app.kml.kz` в Vercel | Сохранён для быстрого CNAME rollback; не является текущим runtime |
 | Dev frontend | `kamilya-lms-dev` (`prj_JN1xM4BMmhoHzDt6joPaCBXvOSLk`) | `dev` | `kamilya-lms-dev.vercel.app` | Render DEV API `https://kamilya-lms-api.onrender.com/api` |
 
 Канонический источник API-токена — корневой `.env`, имя `vercel_token`.
@@ -83,10 +91,11 @@ Vercel account/team: user `kamillalmscrm`, team
 5. не использовать локальный `.vercel/project.json` как доказательство
    правильного проекта и не выполнять `vercel link` вслепую.
 
-Dev project собирает только ветку `dev`; custom domain не назначен. Production
-project `web`, его branch `master` и `app.kml.kz` нельзя менять в рамках dev
-задачи. Dev deployment содержит только committed Git SHA: dirty worktree в
-Vercel не попадает.
+Dev project собирает только ветку `dev`; custom domain не назначен. Rollback
+project `web` и его branch `master` нельзя менять в рамках dev-задачи. DNS
+`app.kml.kz` управляется в Cloudflare и направлен на KZ proxy, а не на Vercel.
+Vercel deployment содержит только committed Git SHA: dirty worktree туда не
+попадает.
 
 ### GitHub
 
@@ -121,6 +130,7 @@ service containers остаются частью отдельного CI-кон�
 | Proxmox API | корневой `.env`: `VPS_URL`, `PVE_API_TOKEN_ID`, `PVE_API_TOKEN_SECRET` | VM/CT metadata и только явно разрешённые API/QGA operations; не является guest SSH |
 | Legacy/общий VPS доступ | корневой `.env`: `VPS_LOGIN`, `VPS_PASSWORD`, `vps_root_password` | использовать только после точного сопоставления target; не подставлять для proxy/VM126/CT125 по догадке |
 | Guest VM126/CT125 | подтверждённый host-specific SSH/WireGuard path | routine administration; если путь не подтверждён, это access gap, а не разрешение искать пароль |
+| CT137 frontend | Proxmox node `pve3`; guest IPv4 `192.168.1.237`; WireGuard peer `10.77.77.3/32`; текущий bootstrap подтверждён через явно разрешённую Proxmox console | До следующего release нужен подтверждённый host-specific key-only routine path; не подбирать credentials и не считать console штатным deploy transport |
 
 Состояние на 18.08.2026: SSH-аутентификация к public proxy подтверждена,
 `wg-quick@wg0` active, `10.77.77.2:8000/health` отвечает 200. На proxy создан
@@ -149,10 +159,11 @@ NXDOMAIN. Рабочий SSH/HTTP target берётся из `PROXY_VPS_HOST`; �
 ```text
 Production browser
   -> app.kml.kz
-  -> Vercel project web / master
-  -> https://api.kml.kz/api
+  -> Cloudflare DNS-only A 92.38.49.167
   -> proxy Nginx / TLS
-  -> WireGuard -> VM126 FastAPI/workers/Valkey/file runtime
+  -> WireGuard -> CT137 native Next.js / Nginx
+  -> https://api.kml.kz/api
+  -> proxy/WireGuard -> VM126 FastAPI/workers/Valkey/file runtime
   -> private DB path -> CT125 PostgreSQL/pgvector
 
 Dev browser
@@ -163,8 +174,9 @@ Dev browser
 
 KZ production management/ingress path
   -> public proxy VPS (TLS/Nginx + WireGuard hub 10.77.77.1)
-  -> WireGuard
-  -> VM126 / 10.77.77.2:8000
+  -> app.kml.kz -> CT137 / 10.77.77.3
+       native Next.js + Nginx, no Docker
+  -> api.kml.kz -> VM126 / 10.77.77.2:8000
        API + Celery workers + Valkey + local file runtime
   -> private DB path
   -> CT125: native PostgreSQL 17 + pgvector + encrypted backup
@@ -183,19 +195,31 @@ redirect и внешний HTTPS `/health` вернул 200. После tenant/b
 Render/Supabase остаются dev/demo-контуром и не являются production backend
 для `app.kml.kz`.
 
-### Действующая production-схема после cutover 2026-08-17
+### Действующая production-схема после frontend cutover 2026-09-07
 
-Vercel можно сохранить как frontend. После подтверждённого cutover меняется
-только backend destination конкретного Vercel environment:
+Vercel сохранён как rollback artifact. Текущий production frontend работает на
+CT137; API/worker/database topology не менялась:
 
 ```text
-app.kml.kz on Vercel
-  -> отдельный публичный API hostname с TLS на proxy VPS
-  -> proxy Nginx
-  -> WireGuard 10.77.77.1 -> 10.77.77.2:8000
+app.kml.kz
+  -> Cloudflare DNS-only A 92.38.49.167
+  -> proxy Nginx/TLS
+  -> WireGuard 10.77.77.1 -> CT137 10.77.77.3
+  -> native Next.js release
+  -> api.kml.kz on the same public proxy
+  -> WireGuard 10.77.77.1 -> VM126 10.77.77.2:8000
   -> VM126 API/workers/storage runtime
   -> CT125 PostgreSQL/pgvector по private-only DB path
 ```
+
+Проверенный frontend baseline: exact Git SHA
+`e463527cd8f5e67e987c44d8d769f337714bd25f`, Next.js `15.5.23`, native
+Node.js/OpenRC без Docker. `app.kml.kz/healthz` и `/login` вернули HTTP 200;
+synthetic production methodologist открыл `/dashboard` без page errors или
+failed API requests. WireGuard, приложение и Nginx поднялись после restart.
+Let's Encrypt renewal переведён на `webroot`, `certbot.timer` enabled/active.
+Rollback CNAME и Proxmox snapshot `pre-kml-web-e463527c` сохранены. Подробный
+release/rollback порядок — в `PRODUCTION_FRONTEND_RUNBOOK.md`.
 
 Cutover подтверждён внешним `/health`, production login bundle, API login,
 `/users/me`, courses, documents, training log и staff-structure smoke под
@@ -204,8 +228,9 @@ head `0111`, private runtime roles без SUPERUSER/BYPASSRLS и активны�
 encrypted backup. Render/Supabase сохранены как dev/demo-контур и rollback
 destination; смешивать их очереди, данные или storage с KZ production нельзя.
 
-19.08.2026 отдельно подтверждён candidate assessment production flow. Vercel
-frontend содержит manager/public candidate routes на SHA `7b44f11`; VM126 API и
+19.08.2026 отдельно подтверждён исторический candidate assessment production
+flow на прежнем Vercel frontend с manager/public candidate routes на SHA
+`7b44f11`; VM126 API и
 workers работают на image `kamilya-api:db797fd`, CT125 остаётся на `0111`.
 Полный disposable journey на опубликованном release tenant Sandyk прошёл от
 создания кампании и protected link/PIN до consent, результата и CSV; candidate

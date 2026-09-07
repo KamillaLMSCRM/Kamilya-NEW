@@ -1,6 +1,6 @@
 # Kamilya LMS: handoff для следующего Codex
 
-**Обновлено:** 2026-07-29
+**Обновлено:** 2026-09-07
 **Рабочая папка:** `C:\Kamilya New\Kamilya-NEW`
 **Репозиторий:** `KamillaLMSCRM/Kamilya-NEW`, branch `master`
 
@@ -14,6 +14,7 @@
 6. [`PRODUCT_BACKLOG.md`](PRODUCT_BACKLOG.md)
 7. [`PROJECT_INTERNAL_DOCUMENTATION.md`](PROJECT_INTERNAL_DOCUMENTATION.md)
 8. [`BACKUP_RESTORE_RUNBOOK.md`](BACKUP_RESTORE_RUNBOOK.md)
+9. [`PRODUCTION_FRONTEND_RUNBOOK.md`](PRODUCTION_FRONTEND_RUNBOOK.md)
 
 Не использовать старые commit reports, ТЗ и переписку как описание текущего
 production. Они удалены из рабочего дерева и при необходимости доступны в Git
@@ -23,20 +24,22 @@ history.
 
 | Контур | Состояние |
 |---|---|
-| Проверенный application baseline | `f3df397c9a326964b17d4d8aa9370ecbb5995547`; актуальный docs HEAD проверять через `git rev-parse HEAD` |
-| CI | success, run `30456058225`; локально backend `639 passed`, frontend `204 passed`, typecheck/build passed |
-| Production smoke | GitHub run `30456057602` success; полный synthetic tenant journey на этом release отдельно не повторялся |
-| Vercel | production `READY`, deployment `dpl_5q2sAXiLorhCNHGRukv8yFArGn15`, commit `f3df397` |
-| Render API | live, deploy `dep-d9l0098u01pc73ekuif0`, commit `f3df397` |
-| Production DB | Alembic `0079`, совпадает с repository head |
-| Celery worker | active/enabled, commit `f3df397`, Celery ping passed, обязательные задачи зарегистрированы |
-| Backup | encrypted daily timer active; real backup and restore drill passed |
-| Monitoring | VPS watchdog and GitHub production smoke active |
+| Canonical Git branch | `KamillaLMSCRM/Kamilya-NEW`, `master`; exact remote SHA всегда читать заново |
+| Production frontend | CT137 `webkml` на Proxmox node `pve3`; native Next.js/OpenRC/Nginx без Docker |
+| Frontend ingress | `app.kml.kz` -> Cloudflare DNS-only `92.38.49.167` -> KZ proxy/WireGuard -> CT137 |
+| Frontend release readback | exact SHA `e463527cd8f5e67e987c44d8d769f337714bd25f`; `/healthz` и `/login` HTTP 200 после переноса CT137 с `pve2` на `pve3` |
+| Production API/workers | VM126 в KZ-контуре; public API `https://api.kml.kz/api`; current health exact SHA проверять перед каждым release |
+| Production DB | Native PostgreSQL 17 + pgvector на CT125, private-only; текущую Alembic revision читать отдельно |
+| Dev/demo | Vercel `kamilya-lms-dev`, Render и Supabase DEV/test; не production |
+| Frontend rollback | Vercel project `web`, сохранённый CNAME и Proxmox snapshot; не текущий runtime |
+| Public landing | `kml.kz`/`www.kml.kz` остаются на Vercel и управляются в отдельном repository `kamilya-landing` |
 
 Технический P0 и прикладной synthetic tenant journey закрыты. Перед
 подключением конкретного клиента остаются только условные gates для реально
 заявляемых SCORM/kiosk/KZ-data/capacity возможностей. Подробности:
-[`PRODUCTION_READINESS.md`](PRODUCTION_READINESS.md).
+  [`PRODUCTION_READINESS.md`](PRODUCTION_READINESS.md). Точные CI, worker, DB,
+backup и monitoring states не копировать из старого handoff: читать их заново
+из production и канонического реестра.
 
 ## Продуктовая модель
 
@@ -83,10 +86,10 @@ Tenant admin не занимается курсами, тестами, обуч�
 ## Техническая архитектура
 
 - `apps/api`: FastAPI, SQLAlchemy async, Alembic, PostgreSQL/pgvector.
-- `apps/web`: Next.js 14, React, TypeScript.
-- DB/storage: Supabase production.
-- Queue/cache: Valkey TLS на VPS.
-- Worker: Celery на VPS.
+- `apps/web`: Next.js 15.5.23, React, TypeScript.
+- Production frontend: CT137, native Node.js/OpenRC/Nginx, без Docker.
+- Production DB: PostgreSQL 17 + pgvector на CT125; Supabase — dev/test.
+- Queue/cache and workers: Valkey и Celery на VM126.
 - Email: Resend.
 - Document conversion: Docling.
 - AI jobs: Celery; provider fallback определяется модулем.
@@ -105,8 +108,9 @@ Tenant isolation требует одновременно:
 - Файл: `.env` в корне репозитория.
 - Файл игнорируется Git.
 - Значения не печатать в чат, docs или test output.
-- В `.env` есть доступы к production DB, Render, Vercel, GitHub, Supabase,
-  Resend и VPS.
+- В `.env` есть именованные пути доступа к production/dev providers и
+  инфраструктуре. Использовать только target-specific credential согласно
+  `PROJECT-CONTEXT.md`, не перебирать значения и не выводить их.
 - Перед добавлением переменной сверять `.env.example`.
 
 ## Проверки
@@ -136,8 +140,9 @@ pnpm build
 3. проверить migration head;
 4. push в `master`;
 5. дождаться CI;
-6. проверить Vercel, Render, worker и DB revision независимо;
-7. пройти production smoke.
+6. проверить exact frontend runtime SHA на CT137, API/worker image и DB revision
+   независимо; Vercel/Render проверять только для dev или выбранного rollback;
+7. пройти public и role-specific production smoke.
 
 HTTP health не доказывает, что worker, migrations и пользовательский flow
 актуальны.
@@ -154,8 +159,10 @@ HTTP health не доказывает, что worker, migrations и пользо
 ## Следующий порядок работ
 
 1. Сверить release parity с `PRODUCTION_READINESS.md`.
-2. Пройти клиентскую приёмку на отдельном tenant с его реальными документами.
-3. После первого tenant брать P1 из `PRODUCT_BACKLOG.md` по одному
+2. До следующего frontend release подтвердить host-specific key-only routine
+   admin path к CT137 через proxy/WireGuard; Proxmox console оставлять только
+   bootstrap/recovery путём.
+3. Брать следующий P1 из `PRODUCT_BACKLOG.md` по одному
    каноническому workflow.
 4. Любое изменение UI обновляет пользовательское руководство.
 5. Любое долговечное архитектурное решение получает ADR.

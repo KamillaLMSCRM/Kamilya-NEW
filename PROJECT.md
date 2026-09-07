@@ -128,12 +128,13 @@ Kamilya фиксирует технические доказательства �
 | Frontend | Next.js 15.5.23, React, TypeScript |
 | Backend | FastAPI, SQLAlchemy async, Alembic |
 | Database | PostgreSQL + pgvector |
-| Shared dev/pilot DB and storage | Supabase |
-| Commercial tenant DB | Отдельный PostgreSQL на VPS в Казахстане, до запуска не создан |
-| Queue/cache | Valkey TLS на VPS |
-| Background jobs | Изолированные Celery workers `ai`, `documents`, `notifications/maintenance` на VPS |
-| API hosting | Render |
-| Web hosting | Vercel: production project `web` from `master`; isolated dev project `kamilya-lms-dev` from `dev` |
+| Shared dev/test DB and storage | Supabase; не production |
+| Production DB | Native PostgreSQL 17 + pgvector на CT125 в Казахстане, private-only path |
+| Queue/cache | Valkey на VM126 в Казахстане |
+| Background jobs | Изолированные Celery workers `ai`, `documents`, `operations/notifications` на VM126 |
+| API hosting | VM126 через KZ proxy/WireGuard; Render используется для dev/demo или явно выбранного rollback |
+| Web hosting | CT137 `webkml`, native Next.js/OpenRC/Nginx без Docker; Vercel project `web` сохранён как rollback, `kamilya-lms-dev` — dev |
+| Public marketing landing | `kml.kz`/`www.kml.kz` остаются отдельным Vercel-контуром и не являются LMS application runtime |
 | Email | Resend |
 | Document conversion | Local bounded hybrid service: MarkItDown for Office/text-layer PDF, Docling for scans/OCR, LibreOffice for legacy `.doc` |
 
@@ -199,22 +200,20 @@ email OTP через Resend и Telegram flow.
 - [`docs/PROJECT-CONTEXT.md`](docs/PROJECT-CONTEXT.md);
 - [`docs/PRODUCTION_READINESS.md`](docs/PRODUCTION_READINESS.md).
 
-Исторический pre-P1 baseline и его проверки описаны в production-readiness.
-Deployment текущего P1-контура рабочего дерева не подтверждён: до отдельной
-проверки нельзя переносить на него прежние commit, CI, API/web/worker, DB revision или
-production smoke evidence. В KZ staging создан реальный tenant
-`ТОО «Ломбард Сандық»` со штатной структурой и двумя опубликованными курсами;
-это не является production cutover и не подтверждает публичный доступ клиента.
-Для frontend-разработки создан отдельный Vercel project `kamilya-lms-dev`,
-привязанный к ветке `dev`. Его актуальный deployment использует Render DEV API
-`https://kamilya-lms-api.onrender.com/api`; production project `web`, ветка `master` и домен
-`app.kml.kz` этим не изменялись.
+На 2026-09-07 production frontend `app.kml.kz` работает на CT137 в KZ-контуре,
+production API и workers — на VM126, PostgreSQL/pgvector — на CT125. Frontend
+размещён на Proxmox node `pve3`, запускается как native Next.js/OpenRC/Nginx без
+Docker и обращается к `https://api.kml.kz/api`. Vercel project `web` сохранён
+как rollback artifact; `kamilya-lms-dev` и Render остаются dev/demo-контуром.
+Точные SHA, migration revision и release evidence всегда читаются из текущих
+источников правды выше, а не переносятся из датированных исторических записей.
 
 ## Документация
 
 - [Индекс](docs/DOCUMENTATION_INDEX.md)
 - [Контекст проекта](docs/PROJECT-CONTEXT.md)
 - [Production readiness](docs/PRODUCTION_READINESS.md)
+- [Production frontend: выпуск и rollback](docs/PRODUCTION_FRONTEND_RUNBOOK.md)
 - [Product backlog](docs/PRODUCT_BACKLOG.md)
 - [Журнал ошибок и предотвращения повторов](ERRORS.md)
 - [Внутренняя документация](docs/PROJECT_INTERNAL_DOCUMENTATION.md)

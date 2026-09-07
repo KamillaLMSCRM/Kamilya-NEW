@@ -1,16 +1,17 @@
 # Kamilya LMS: VPS и подключённые сервисы
 
-**Обновлено:** 2026-08-18
+**Обновлено:** 2026-09-07
 **Правило:** этот документ описывает только подтверждённое текущее состояние.
 Значения паролей, ключей и URL с credentials не приводятся.
 
-## Production VPS
+## Legacy VPS baseline 2026-08-04 — историческая запись
 
 - Host: `173.249.51.164`.
 - Доступ: SSH key; резервные credentials находятся только в локальном `.env`.
 - Основной checkout worker: `/opt/kamilya-worker`.
-- Production API размещён на Render, не на этом VPS.
-- Production PostgreSQL и Storage размещены в Supabase.
+- На дату этой записи production API размещался на Render, а PostgreSQL и
+  Storage — в Supabase. Это больше не текущая production topology; актуальный
+  KZ-контур описан ниже.
 
 Переменные доступа в локальном `.env`:
 
@@ -79,17 +80,18 @@ credentials.
 
 | Сервис | Владелец и назначение |
 |---|---|
-| Render API | FastAPI production |
-| Vercel | Next.js production |
-| Supabase PostgreSQL | Production data and pgvector |
-| Supabase Storage | Documents and generated artifacts |
-| VPS Valkey | Queue/cache/runtime coordination |
-| VPS Celery | AI, ingestion and rule recomputation |
+| CT137 `webkml` | Proxmox node `pve3`; native Next.js production frontend, без Docker |
+| Public KZ proxy | TLS/Nginx ingress и WireGuard hub для `app.kml.kz`/`api.kml.kz` |
+| VM126 | FastAPI, три Celery worker, Valkey и общий файловый runtime |
+| CT125 | Native PostgreSQL 17 + pgvector и encrypted backup |
+| Vercel project `web` | Frontend rollback artifact, не текущий `app.kml.kz` runtime |
+| Vercel `kamilya-lms-dev` | Изолированный dev frontend |
+| Render/Supabase | Dev/demo или явно выбранный rollback; не KZ production |
 | Docling | Conversion of supported office/PDF sources when enabled |
 | Resend | Transactional email |
 | Telegram | Alternative auth/invitation channel |
 
-## HostKZ
+## HostKZ — исторический подготовительный этап
 
 HostKZ server был заказан как недельный тестовый контур PostgreSQL в
 Казахстане. Он не является production и не должен автоматически получать
@@ -119,6 +121,52 @@ dev/demo и rollback, но production customer traffic к ним не напра
 | VM126, backup файлов | `kamilya-blob-backup.timer`; key-only SSH в CT125, шифрование и проверка архива на отдельном узле |
 | CT125, база | native PostgreSQL 17 + pgvector, схема `0111 (head)`, runtime-роль `lms_app` без SUPERUSER/BYPASSRLS |
 | CT125, backup | `kamilya-pg-backup.timer` active/enabled; encrypted backup, SHA-256 verification и restore drill проверены |
+
+### Production frontend: текущее состояние 2026-09-07
+
+`app.kml.kz` больше не обслуживается Vercel. Текущий frontend ingress:
+
+```text
+Cloudflare DNS-only A 92.38.49.167
+  -> public KZ proxy Nginx/TLS
+  -> WireGuard 10.77.77.1 -> 10.77.77.3
+  -> CT137 Nginx -> Next.js 127.0.0.1:3000
+```
+
+| Проверка | Результат |
+|---|---|
+| CT137 runtime | Alpine, native Node.js/Next.js `15.5.23`, OpenRC, без Docker |
+| CT137 placement | Proxmox node `pve3`; guest IPv4 `192.168.1.237` |
+| Exact release | `e463527cd8f5e67e987c44d8d769f337714bd25f` |
+| Services | `wg-quick.wg0`, `kamilya-web`, `nginx` started/enabled; restart readback пройден |
+| Public health | `/healthz` HTTP 200 и exact `X-Kamilya-Release`; `/login` HTTP 200 |
+| Browser smoke | synthetic production methodologist открыл `/dashboard`; page errors/failed API requests отсутствуют |
+| DNS | authoritative Cloudflare, Google и Cloudflare public resolver вернули `92.38.49.167` |
+| TLS renewal | Let's Encrypt `webroot`; `certbot.timer` enabled/active |
+| Rollback | Vercel CNAME, proxy config backup и snapshot `pre-kml-web-e463527c` сохранены |
+
+API/worker/database topology в этом frontend cutover не менялась. Frontend
+собран с `NEXT_PUBLIC_API_URL=https://api.kml.kz/api`. Полный preflight,
+release, acceptance и rollback — в
+[`PRODUCTION_FRONTEND_RUNBOOK.md`](PRODUCTION_FRONTEND_RUNBOOK.md).
+
+Граница DNS важна: `app.kml.kz` и `api.kml.kz` указывают на KZ proxy, но
+корневой `kml.kz` и `www.kml.kz` пока обслуживаются Vercel как отдельный
+маркетинговый лендинг. Поэтому проверка географии apex-домена может показывать
+Vercel edge в AS16509/Amazon и не отражает размещение LMS application. Для
+зелёной проверки всего домена нужен отдельный перенос `kamilya-landing`.
+
+Первичная установка выполнена через явно разрешённую Proxmox console. Это
+bootstrap/recovery evidence, а не routine deploy transport. До следующего
+frontend release требуется подтвердить или создать host-specific key-only
+admin path к CT137 через существующий proxy/WireGuard.
+
+CT137 можно переносить между Proxmox nodes без изменения public DNS/proxy,
+если сохраняются guest IPv4, WireGuard identity и service configuration. После
+migration проверяются guest network, три сервиса (`wg-quick.wg0`,
+`kamilya-web`, `nginx`), public exact-SHA `/healthz`, `/login`, API и landing.
+Успешный перенос с `pve2` на `pve3` подтверждён 2026-09-07 этим readback; сам
+Proxmox node не указывается в клиентских технических приложениях.
 
 17.08.2026 исправлена проверка freshly encrypted PostgreSQL dump: дешифрованный
 временный файл теперь передаётся `postgres` с корректным владельцем и затем

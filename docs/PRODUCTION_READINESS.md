@@ -1,6 +1,6 @@
 # Kamilya LMS: готовность первого production-тенанта
 
-**Проверено:** 2026-08-08 по исходникам, CI и production-контурам
+**Проверено:** 2026-09-07 по исходникам и production-контурам
 **Технический P0 baseline:** закрыт
 **Режим запуска:** dev/test и контролируемая демонстрация; подключение первого
 коммерческого tenant с персональными данными остаётся за отдельным KZ
@@ -8,6 +8,27 @@ DB/storage gate и приёмкой клиента
 **Назначение:** единственный актуальный реестр production-gates. История изменений
 остаётся в Git; отдельные датированные отчёты не используются как источник
 текущего состояния.
+
+## Current production frontend — CT137, 2026-09-07
+
+| Gate | Состояние | Подтверждение |
+|---|---|---|
+| Application release | PASS | exact Git SHA `e463527cd8f5e67e987c44d8d769f337714bd25f` |
+| Build | PASS | Next.js `15.5.23`, production build завершён; 62 routes; build-time API `https://api.kml.kz/api` |
+| Runtime | PASS | CT137 `webkml` на Proxmox node `pve3`, Alpine, native Node.js/OpenRC/Nginx, без Docker; отдельный user `kamilya-web` |
+| Ingress | PASS | Cloudflare DNS-only `app.kml.kz -> 92.38.49.167`; public KZ proxy Nginx/TLS -> WireGuard -> CT137 |
+| Startup | PASS | WireGuard, `kamilya-web` и Nginx started/enabled после restart; active release и `/etc/kamilya-web-release` совпадают |
+| TLS | PASS | hostname verification успешна; renewal переведён на `webroot`; `certbot.timer` enabled/active |
+| Public readback | PASS | `/healthz` и `/login` HTTP 200; body/header health содержат exact full SHA |
+| Business smoke | PASS | synthetic production methodologist вошёл на `app.kml.kz` и открыл `/dashboard`; page errors и failed requests к app/API отсутствуют |
+| Unchanged boundaries | PASS | `api.kml.kz/health` и `www.kml.kz/kk` HTTP 200; API, workers, DB, landing, provider plans и billing не менялись |
+| Rollback | PASS | Vercel project/deployment сохранён; предыдущий CNAME и Proxmox snapshot `pre-kml-web-e463527c` зафиксированы |
+| Proxmox migration readback | PASS | После переноса CT137 с `pve2` на `pve3` сохранён guest IPv4 `192.168.1.237`; public DNS `92.38.49.167`, frontend exact-SHA health, login, API health и landing вернули HTTP 200 |
+
+**Verdict:** production frontend cutover GO. `app.kml.kz` больше не обслуживается
+Vercel. Старые Vercel deployment entries ниже остаются корректным датированным
+evidence своих релизов, но не описывают текущий hosting. Release и rollback
+процедура: [`PRODUCTION_FRONTEND_RUNBOOK.md`](PRODUCTION_FRONTEND_RUNBOOK.md).
 
 ## Staff Sync production release 2026-08-26
 
@@ -486,7 +507,7 @@ SCORM ingress must enforce a request-body limit no larger than
 per-entry uncompressed bytes, compression ratio, and manifest bytes; see
 `apps/api/.env.example`.
 
-## KZ production cutover: Lombard Sandyk (2026-08-17)
+## История: KZ backend cutover и прежний Vercel frontend — Lombard Sandyk (2026-08-17)
 
 - Vercel project `web` production env использует
   `NEXT_PUBLIC_API_URL=https://api.kml.kz/api`.
@@ -556,8 +577,9 @@ assessment flow. Он не превращает score/pass в решение о 
 
 Для текущего tenant основная БД, файловый runtime и резервные копии размещены в
 KZ-контуре. Открытым договорным gate остаётся заполнение фактического реестра
-внешних обработчиков и описание минимизированных внешних потоков (Vercel,
-email и выбранные AI/LLM функции); нельзя заменять это утверждением, что вообще
+внешних обработчиков и описание минимизированных внешних потоков (email и
+выбранные AI/LLM функции; Vercel — только если фактически активирован rollback);
+нельзя заменять это утверждением, что вообще
 все виды обработки происходят только в Казахстане.
 
 Durable LMS→CRM lead outbox подготовлен миграцией `0094`: публичный lead и
@@ -590,8 +612,10 @@ Celery. Invitation сохраняется до queue dispatch; lifecycle/provide
 end-to-end delivery smoke.
 
 Также остаются открытыми scheduled purge, backup retention, отдельные
-commission/authorized-decision workflows, KZ PostgreSQL/object storage и
-реальный pawnshop acceptance test. OTP не ЭЦП; generic correction, completion
+commission/authorized-decision workflows и согласованная клиентская приёмка.
+KZ PostgreSQL и файловый runtime уже являются частью действующего production
+контура, но каждый следующий release сохраняет отдельные DB/storage gates.
+OTP не ЭЦП; generic correction, completion
 и quiz не создают training/knowledge/attestation/admission вне своих trusted
 workflows. Остальной backlog ведётся в [`PRODUCT_BACKLOG.md`](PRODUCT_BACKLOG.md).
 ## KZ security release acceptance — 2026-08-22

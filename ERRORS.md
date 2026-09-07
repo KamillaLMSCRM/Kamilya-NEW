@@ -971,11 +971,13 @@ contract or establish a blocker.
   new runtime is healthy, then restart and read back the timer. The watchdog
   EnvironmentFile keys are `EXPECTED_RELEASE` and `EXPECTED_API_IMAGE`; do not
   guess similarly named variables.
-- **Vercel recurrence:** A READY deployment in the dev project does not prove the
-  custom production alias moved. Before and after a frontend rollout, resolve
-  `app.kml.kz` to its actual Vercel project and deployment, then verify that
-  deployment's exact Git commit. On 2026-08-26 the owning production project was
-  `web`, not `kamilya-lms-dev`.
+- **Historical Vercel recurrence (2026-08-26):** A READY deployment in the dev
+  project did not prove the custom production alias moved. On that date the
+  owning production project was `web`, not `kamilya-lms-dev`. Since 2026-09-07
+  `app.kml.kz` is hosted on CT137: before and after a frontend rollout resolve
+  actual DNS, verify the CT active release/full SHA and run public login/business
+  smoke. Vercel identity is checked only for dev or an explicitly selected
+  rollback.
 - **Status:** resolved in canonical dev and deployed to KZ production; business
   flow acceptance remains pending the bounded synthetic rehearsal.
 - **Prevention:** Treat edge 503 without an application error body as a separate
@@ -1685,3 +1687,71 @@ contract or establish a blocker.
 - Prevention: structured internal response metadata must be parsed before public
   content redaction, while every user-visible or persisted field is validated
   separately with deterministic adversarial identifiers.
+
+## INFRA-009 - Frontend hosting and TLS renewal documentation lagged runtime
+
+- Date: 2026-09-07.
+- Symptom: `app.kml.kz` was moved from Vercel to CT137, while canonical current
+  sections still named Vercel as production runtime. The first Let's Encrypt
+  certificate used a manual DNS challenge and therefore was not a suitable
+  unattended renewal configuration.
+- Cause: the frontend hosting boundary changed independently from the existing
+  KZ API/DB cutover. Dated Vercel release evidence and current topology were not
+  clearly separated. Certbot inherited `manual`/DNS preferences when renewal was
+  reconfigured.
+- Fix: production frontend now runs as native Next.js/OpenRC/Nginx on CT137,
+  without Docker, behind the existing public KZ proxy and a narrow WireGuard
+  peer. Cloudflare uses DNS-only `app.kml.kz -> 92.38.49.167`. Certbot renewal
+  was reconfigured to `webroot` with HTTP challenge preference; the temporary
+  DNS challenge record and work directory were removed. Vercel is retained only
+  as the documented CNAME rollback.
+- Verification: authoritative Cloudflare, Google and Cloudflare resolvers returned
+  the new A-record; public TLS, `/healthz`, `/login`, API health and landing health
+  passed. CT services survived restart; exact frontend SHA
+  `e463527cd8f5e67e987c44d8d769f337714bd25f` matched active release and health
+  identity. A synthetic production methodologist reached `/dashboard` without
+  page errors or failed app/API requests. `certbot.timer` is enabled/active and
+  renewal config identifies `webroot`.
+- Prevention: start every frontend release with
+  `docs/PRODUCTION_FRONTEND_RUNBOOK.md`; build only a committed clean SHA, keep
+  immutable releases and an explicit rollback, prove exact runtime identity plus
+  a real role flow, and preserve dated Vercel rows as history rather than current
+  state. A manual certificate success is not automatic-renewal evidence.
+
+## INFRA-010 - Proxmox node migration is not a public routing change
+
+- Date: 2026-09-07.
+- Symptom: after CT137 moved from `pve2` to `pve3`, it was unclear whether
+  Cloudflare, proxy or WireGuard must be reconfigured.
+- Cause: Proxmox placement and application ingress were treated as the same
+  identity, although public routing terminates at the KZ proxy and reaches the
+  preserved WireGuard identity inside the migrated container.
+- Fix: no routing mutation was made. CT137 retained guest IPv4
+  `192.168.1.237`; public DNS remained `92.38.49.167`.
+- Verification: public frontend `/healthz` and `/login`, production API health
+  and landing returned HTTP 200 after migration. Frontend body and
+  `X-Kamilya-Release` matched exact SHA
+  `e463527cd8f5e67e987c44d8d769f337714bd25f`.
+- Prevention: after a Proxmox node migration, verify guest network, WireGuard
+  and application services plus public exact-SHA/business readback before any
+  DNS or proxy change. Update the internal node placement only; do not expose
+  Proxmox topology in client-facing documentation.
+
+## INFRA-011 - Apex geography check was mistaken for LMS application hosting
+
+- Date: 2026-09-07.
+- Symptom: a domain checker reported `kml.kz` at AS16509/Amazon in the US after
+  the production application frontend had moved to CT137 in Kazakhstan.
+- Cause: the checker resolved the apex and `www` marketing landing, which remain
+  on Vercel, rather than the LMS application hostname `app.kml.kz`.
+- Fix: no production routing was changed. Internal documentation now separates
+  `app.kml.kz`/`api.kml.kz` from the independently hosted `kml.kz`/`www.kml.kz`
+  landing and `mail.kml.kz` mail contour.
+- Verification: `app.kml.kz` and `api.kml.kz` resolve to KZ IP `92.38.49.167`
+  and respond through Nginx; `kml.kz` resolves to `64.29.17.1` and
+  `216.198.79.1`, while `www.kml.kz` resolves through the preserved Vercel
+  CNAME and both return Vercel response headers.
+- Prevention: for residency evidence, verify every data-bearing service by its
+  exact hostname and role. Do not claim that an apex-domain geolocation result
+  proves or disproves placement of all subdomains. Moving the public landing is
+  a separate repository, release and DNS change.
