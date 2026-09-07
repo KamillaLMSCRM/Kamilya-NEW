@@ -134,7 +134,7 @@ Kamilya фиксирует технические доказательства �
 | Background jobs | Изолированные Celery workers `ai`, `documents`, `operations/notifications` на VM126 |
 | API hosting | VM126 через KZ proxy/WireGuard; Render используется для dev/demo или явно выбранного rollback |
 | Web hosting | CT137 `webkml`, native Next.js/OpenRC/Nginx без Docker; Vercel project `web` сохранён как rollback, `kamilya-lms-dev` — dev |
-| Public marketing landing | `kml.kz`/`www.kml.kz` остаются отдельным Vercel-контуром и не являются LMS application runtime |
+| Public marketing landing | `kml.kz`/`www.kml.kz`: native Next.js на CT137, отдельный сервис/релиз без Docker; публичный вход через тот же KZ proxy |
 | Email | Resend |
 | Document conversion | Local bounded hybrid service: MarkItDown for Office/text-layer PDF, Docling for scans/OCR, LibreOffice for legacy `.doc` |
 
@@ -205,6 +205,9 @@ production API и workers — на VM126, PostgreSQL/pgvector — на CT125. Fr
 размещён на Proxmox node `pve3`, запускается как native Next.js/OpenRC/Nginx без
 Docker и обращается к `https://api.kml.kz/api`. Vercel project `web` сохранён
 как rollback artifact; `kamilya-lms-dev` и Render остаются dev/demo-контуром.
+Публичный лендинг `kml.kz`/`www.kml.kz` также перенесён с Vercel на CT137 как
+отдельный native Next.js service; его точный релиз — из отдельного репозитория
+`kamilya-landing` и проверяется независимо от LMS frontend.
 Точные SHA, migration revision и release evidence всегда читаются из текущих
 источников правды выше, а не переносятся из датированных исторических записей.
 

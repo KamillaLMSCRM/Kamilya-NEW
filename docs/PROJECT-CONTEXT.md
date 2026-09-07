@@ -31,7 +31,7 @@
 |---|---|
 | Monorepo | `KamillaLMSCRM/Kamilya-NEW`, branch `master` |
 | Production frontend | Native Next.js на CT137 `webkml` (текущее размещение: Proxmox node `pve3`); `https://app.kml.kz` через KZ proxy/WireGuard; exact release проверяется отдельно |
-| Public marketing landing | `https://kml.kz` и `https://www.kml.kz` остаются на Vercel; это отдельный репозиторий/контур без LMS application data |
+| Public marketing landing | Native Next.js на CT137, service `kamilya-landing`, internal Nginx `10.77.77.3:8080`; `https://kml.kz` и `https://www.kml.kz` через KZ proxy; exact source SHA проверяется отдельно |
 | Dev frontend | Vercel project `kamilya-lms-dev`, branch `dev`, `https://kamilya-lms-dev.vercel.app` |
 | Production API | FastAPI на VM126; публичный вход `https://api.kml.kz/api` через KZ proxy/WireGuard |
 | Production PostgreSQL/pgvector | Native PostgreSQL 17 + pgvector на CT125, private-only path |
@@ -48,11 +48,11 @@ Supabase и Render используются только для разработ
 API, worker, файловый runtime и PostgreSQL размещены в казахстанском контуре;
 каждый из них сохраняет собственный release/backup/readback gate.
 
-Проверка корневого домена `kml.kz` не доказывает размещение LMS application:
-на 2026-09-07 apex и `www` отвечают через Vercel, а `app.kml.kz` и
-`api.kml.kz` — через KZ-IP `92.38.49.167`. Для перевода всего публичного web
-presence в Казахстан требуется отдельный перенос репозитория `kamilya-landing`
-и его DNS. `mail.kml.kz` также является отдельным почтовым контуром.
+На 2026-09-07 `kml.kz`, `www.kml.kz`, `app.kml.kz` и `api.kml.kz` направлены
+DNS-only A-записями на KZ-IP `92.38.49.167`. Public proxy завершает TLS и по
+WireGuard направляет лендинг и LMS frontend на разные внутренние listeners
+CT137, а API — на VM126. `mail.kml.kz` остаётся отдельным почтовым контуром и
+не изменялся при переносе web-ресурсов.
 
 ## Карта окружений и доступов
 
@@ -130,7 +130,7 @@ service containers остаются частью отдельного CI-кон�
 | Proxmox API | корневой `.env`: `VPS_URL`, `PVE_API_TOKEN_ID`, `PVE_API_TOKEN_SECRET` | VM/CT metadata и только явно разрешённые API/QGA operations; не является guest SSH |
 | Legacy/общий VPS доступ | корневой `.env`: `VPS_LOGIN`, `VPS_PASSWORD`, `vps_root_password` | использовать только после точного сопоставления target; не подставлять для proxy/VM126/CT125 по догадке |
 | Guest VM126/CT125 | подтверждённый host-specific SSH/WireGuard path | routine administration; если путь не подтверждён, это access gap, а не разрешение искать пароль |
-| CT137 frontend | Proxmox node `pve3`; guest IPv4 `192.168.1.237`; WireGuard peer `10.77.77.3/32`; текущий bootstrap подтверждён через явно разрешённую Proxmox console | До следующего release нужен подтверждённый host-specific key-only routine path; не подбирать credentials и не считать console штатным deploy transport |
+| CT137 frontend | Proxmox node `pve3`; guest IPv4 `192.168.1.237`; WireGuard peer `10.77.77.3/32`; bootstrap через Proxmox console | Routine path: proxy -> restricted key `kamilya-admin@10.77.77.3`; password auth отключён; privilege escalation разрешён только для exact landing deploy helper |
 
 Состояние на 18.08.2026: SSH-аутентификация к public proxy подтверждена,
 `wg-quick@wg0` active, `10.77.77.2:8000/health` отвечает 200. На proxy создан
@@ -158,10 +158,12 @@ NXDOMAIN. Рабочий SSH/HTTP target берётся из `PROXY_VPS_HOST`; �
 
 ```text
 Production browser
-  -> app.kml.kz
+  -> kml.kz / www.kml.kz / app.kml.kz
   -> Cloudflare DNS-only A 92.38.49.167
   -> proxy Nginx / TLS
-  -> WireGuard -> CT137 native Next.js / Nginx
+  -> WireGuard -> CT137 Nginx
+       app.kml.kz -> native LMS Next.js on 127.0.0.1:3000
+       kml.kz/www.kml.kz -> native landing Next.js on 127.0.0.1:3001
   -> https://api.kml.kz/api
   -> proxy/WireGuard -> VM126 FastAPI/workers/Valkey/file runtime
   -> private DB path -> CT125 PostgreSQL/pgvector
@@ -176,6 +178,8 @@ KZ production management/ingress path
   -> public proxy VPS (TLS/Nginx + WireGuard hub 10.77.77.1)
   -> app.kml.kz -> CT137 / 10.77.77.3
        native Next.js + Nginx, no Docker
+  -> kml.kz / www.kml.kz -> CT137 / 10.77.77.3:8080
+       separate native Next.js landing service, no Docker
   -> api.kml.kz -> VM126 / 10.77.77.2:8000
        API + Celery workers + Valkey + local file runtime
   -> private DB path
@@ -220,6 +224,16 @@ failed API requests. WireGuard, приложение и Nginx поднялись
 Let's Encrypt renewal переведён на `webroot`, `certbot.timer` enabled/active.
 Rollback CNAME и Proxmox snapshot `pre-kml-web-e463527c` сохранены. Подробный
 release/rollback порядок — в `PRODUCTION_FRONTEND_RUNBOOK.md`.
+
+Проверенный landing baseline: exact source Git SHA
+`e70534f4814fd743edef16363d7393361fe874c7`, source archive SHA-256
+`3c96987351c2fb763305e361c476ed24b60d4d6cf50aabf24f64cd8f443698ba`,
+Next.js `15.5.23`. Сервис `kamilya-landing` слушает только
+`127.0.0.1:3001`; CT137 Nginx публикует его в WireGuard на
+`10.77.77.3:8080`. Public proxy обслуживает TLS/redirect для
+`kml.kz`/`www.kml.kz`. RU/KK, robots, sitemap, lead validation, CSP, desktop и
+mobile прошли production readback. Внешняя аналитика без согласия не
+загружалась. `mail.kml.kz` и MX не менялись.
 
 Cutover подтверждён внешним `/health`, production login bundle, API login,
 `/users/me`, courses, documents, training log и staff-structure smoke под

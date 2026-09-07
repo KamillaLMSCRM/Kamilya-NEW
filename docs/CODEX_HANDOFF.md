@@ -32,7 +32,7 @@ history.
 | Production DB | Native PostgreSQL 17 + pgvector на CT125, private-only; текущую Alembic revision читать отдельно |
 | Dev/demo | Vercel `kamilya-lms-dev`, Render и Supabase DEV/test; не production |
 | Frontend rollback | Vercel project `web`, сохранённый CNAME и Proxmox snapshot; не текущий runtime |
-| Public landing | `kml.kz`/`www.kml.kz` остаются на Vercel и управляются в отдельном repository `kamilya-landing` |
+| Public landing | `kml.kz`/`www.kml.kz` на CT137 через KZ proxy; native Next.js service `kamilya-landing`, exact source SHA `e70534f4814fd743edef16363d7393361fe874c7` |
 
 Технический P0 и прикладной synthetic tenant journey закрыты. Перед
 подключением конкретного клиента остаются только условные gates для реально
@@ -159,9 +159,10 @@ HTTP health не доказывает, что worker, migrations и пользо
 ## Следующий порядок работ
 
 1. Сверить release parity с `PRODUCTION_READINESS.md`.
-2. До следующего frontend release подтвердить host-specific key-only routine
-   admin path к CT137 через proxy/WireGuard; Proxmox console оставлять только
-   bootstrap/recovery путём.
+2. Для CT137 использовать подтверждённый restricted key-only path через
+   proxy/WireGuard; Proxmox console оставлять только bootstrap/recovery путём.
+   Landing deploy допускается только через exact root-owned helper; общий sudo,
+   парольный SSH и размещение runtime на proxy запрещены.
 3. Брать следующий P1 из `PRODUCT_BACKLOG.md` по одному
    каноническому workflow.
 4. Любое изменение UI обновляет пользовательское руководство.

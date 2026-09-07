@@ -1638,6 +1638,14 @@ contract or establish a blocker.
   keep package-cache cleanup bounded and recoverable, and do not diagnose a
   large-body nginx 500 as an application upload failure until temp-path capacity
   has been read back. Remaining disk pressure requires a separate capacity audit.
+- Recurrence follow-up (2026-09-07): before landing cutover the 4.9 GiB proxy
+  again had only about 56 MiB free. The staged landing archive was only a
+  temporary 4.8 MiB transit file and was removed; the dominant removable growth
+  was systemd journal at about 440 MiB. A bounded vacuum plus apt cleanup raised
+  free space to about 509 MiB. Persistent journald limits now set
+  `SystemMaxUse=100M` and `SystemKeepFree=300M`; after certificate issuance and
+  Nginx config about 399 MiB remained. Proxy scope is Nginx/TLS, WireGuard and
+  SSH transit only; never install application runtimes or retain source archives.
 
 ## AI-PROVIDER-001 - Production could not persist an encrypted provider key
 
@@ -1742,16 +1750,23 @@ contract or establish a blocker.
 - Date: 2026-09-07.
 - Symptom: a domain checker reported `kml.kz` at AS16509/Amazon in the US after
   the production application frontend had moved to CT137 in Kazakhstan.
-- Cause: the checker resolved the apex and `www` marketing landing, which remain
-  on Vercel, rather than the LMS application hostname `app.kml.kz`.
-- Fix: no production routing was changed. Internal documentation now separates
-  `app.kml.kz`/`api.kml.kz` from the independently hosted `kml.kz`/`www.kml.kz`
-  landing and `mail.kml.kz` mail contour.
-- Verification: `app.kml.kz` and `api.kml.kz` resolve to KZ IP `92.38.49.167`
-  and respond through Nginx; `kml.kz` resolves to `64.29.17.1` and
-  `216.198.79.1`, while `www.kml.kz` resolves through the preserved Vercel
-  CNAME and both return Vercel response headers.
-- Prevention: for residency evidence, verify every data-bearing service by its
-  exact hostname and role. Do not claim that an apex-domain geolocation result
-  proves or disproves placement of all subdomains. Moving the public landing is
-  a separate repository, release and DNS change.
+- Cause: at the time of the first check the apex and `www` marketing landing
+  still used Vercel, while the LMS application hostname `app.kml.kz` already
+  used the KZ contour. The checker result was correct for those exact names but
+  was overgeneralized to every Kamilya service.
+- Fix: the separately authorized landing release moved `kml.kz` and
+  `www.kml.kz` to CT137 behind the same KZ proxy. Cloudflare replaced only the
+  two Vercel CNAME records with DNS-only A `92.38.49.167`; mail/MX/TXT were not
+  changed. Vercel remains a rollback artifact.
+- Verification: Cloudflare UI and public resolvers `1.1.1.1` and `8.8.8.8`
+  returned A `92.38.49.167` for apex and `www`. Public TLS, redirects, RU/KK,
+  exact landing release header, CSP, robots, sitemap and safe lead validation
+  passed. `mail.kml.kz` remained `144.91.117.51` and apex MX remained
+  `mail.kml.kz` priority 10. Hoster.KZ still displayed its earlier timestamp and
+  Amazon values immediately after cutover; treat that page as stale until its
+  own cache refreshes.
+- Prevention: verify every hostname by authoritative configuration plus at least
+  two public resolvers and current TLS/runtime readback. Record third-party
+  checker timestamps; a stale page is not authoritative evidence. Landing and
+  LMS frontend remain separate repositories/services/releases even though both
+  run on CT137.

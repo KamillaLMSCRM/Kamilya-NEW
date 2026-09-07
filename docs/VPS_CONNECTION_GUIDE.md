@@ -81,7 +81,7 @@ credentials.
 | Сервис | Владелец и назначение |
 |---|---|
 | CT137 `webkml` | Proxmox node `pve3`; native Next.js production frontend, без Docker |
-| Public KZ proxy | TLS/Nginx ingress и WireGuard hub для `app.kml.kz`/`api.kml.kz` |
+| Public KZ proxy | Только TLS/Nginx ingress, WireGuard hub и SSH transit для `kml.kz`/`www.kml.kz`/`app.kml.kz`/`api.kml.kz`; application runtime запрещён |
 | VM126 | FastAPI, три Celery worker, Valkey и общий файловый runtime |
 | CT125 | Native PostgreSQL 17 + pgvector и encrypted backup |
 | Vercel project `web` | Frontend rollback artifact, не текущий `app.kml.kz` runtime |
@@ -150,16 +150,24 @@ API/worker/database topology в этом frontend cutover не менялась.
 release, acceptance и rollback — в
 [`PRODUCTION_FRONTEND_RUNBOOK.md`](PRODUCTION_FRONTEND_RUNBOOK.md).
 
-Граница DNS важна: `app.kml.kz` и `api.kml.kz` указывают на KZ proxy, но
-корневой `kml.kz` и `www.kml.kz` пока обслуживаются Vercel как отдельный
-маркетинговый лендинг. Поэтому проверка географии apex-домена может показывать
-Vercel edge в AS16509/Amazon и не отражает размещение LMS application. Для
-зелёной проверки всего домена нужен отдельный перенос `kamilya-landing`.
+`kml.kz` и `www.kml.kz` перенесены с Vercel на тот же CT137 как отдельный
+native Next.js service `kamilya-landing`: runtime `127.0.0.1:3001`, внутренний
+Nginx listener `10.77.77.3:8080`, exact source SHA
+`e70534f4814fd743edef16363d7393361fe874c7`. Cloudflare содержит DNS-only A
+для apex и `www` на `92.38.49.167`; public proxy завершает TLS и направляет
+трафик по WireGuard. Vercel остаётся только rollback artifact.
 
-Первичная установка выполнена через явно разрешённую Proxmox console. Это
-bootstrap/recovery evidence, а не routine deploy transport. До следующего
-frontend release требуется подтвердить или создать host-specific key-only
-admin path к CT137 через существующий proxy/WireGuard.
+Первичная установка helper выполнена через явно разрешённую Proxmox console.
+Routine path подтверждён: proxy использует отдельный root-only private key к
+`kamilya-admin@10.77.77.3`; authorized key ограничен source IP и `restrict`,
+password authentication отключена. `doas` разрешает только exact root-owned
+landing deploy helper; общий root/sudo доступ не выдаётся.
+
+Public proxy не содержит Node.js, pnpm, checkout или build/runtime лендинга.
+После освобождения journal/apt cache свободное место выросло примерно с 56 MiB
+до 509 MiB; journald ограничен `SystemMaxUse=100M` и
+`SystemKeepFree=300M`. После TLS-выпуска свободно около 399 MiB. На proxy
+разрешены только Nginx/TLS, WireGuard и SSH transit.
 
 CT137 можно переносить между Proxmox nodes без изменения public DNS/proxy,
 если сохраняются guest IPv4, WireGuard identity и service configuration. После

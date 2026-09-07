@@ -21,7 +21,7 @@ DB/storage gate и приёмкой клиента
 | TLS | PASS | hostname verification успешна; renewal переведён на `webroot`; `certbot.timer` enabled/active |
 | Public readback | PASS | `/healthz` и `/login` HTTP 200; body/header health содержат exact full SHA |
 | Business smoke | PASS | synthetic production methodologist вошёл на `app.kml.kz` и открыл `/dashboard`; page errors и failed requests к app/API отсутствуют |
-| Unchanged boundaries | PASS | `api.kml.kz/health` и `www.kml.kz/kk` HTTP 200; API, workers, DB, landing, provider plans и billing не менялись |
+| Unchanged boundaries | PASS | `api.kml.kz/health` и прежний landing HTTP 200; API, workers, DB, provider plans и billing не менялись в этом app cutover |
 | Rollback | PASS | Vercel project/deployment сохранён; предыдущий CNAME и Proxmox snapshot `pre-kml-web-e463527c` зафиксированы |
 | Proxmox migration readback | PASS | После переноса CT137 с `pve2` на `pve3` сохранён guest IPv4 `192.168.1.237`; public DNS `92.38.49.167`, frontend exact-SHA health, login, API health и landing вернули HTTP 200 |
 
@@ -29,6 +29,29 @@ DB/storage gate и приёмкой клиента
 Vercel. Старые Vercel deployment entries ниже остаются корректным датированным
 evidence своих релизов, но не описывают текущий hosting. Release и rollback
 процедура: [`PRODUCTION_FRONTEND_RUNBOOK.md`](PRODUCTION_FRONTEND_RUNBOOK.md).
+
+## Current public landing — CT137, 2026-09-07
+
+| Gate | Состояние | Подтверждение |
+|---|---|---|
+| Source release | PASS | `kamilya-landing` exact SHA `e70534f4814fd743edef16363d7393361fe874c7`; `origin/master` readback совпал перед сборкой |
+| Source archive | PASS | SHA-256 `3c96987351c2fb763305e361c476ed24b60d4d6cf50aabf24f64cd8f443698ba` |
+| Local release gates | PASS | frozen install; 40 tests; lint; typecheck; Next.js `15.5.23` production build, 22 routes/pages |
+| Runtime | PASS | CT137 native Node.js/OpenRC/Nginx, без Docker; separate build/runtime users; service `kamilya-landing` started/enabled |
+| Identity | PASS | current symlink и `/etc/kamilya-landing-release` равны exact SHA; `X-Kamilya-Landing-Release` совпадает |
+| Ingress | PASS | Next.js `127.0.0.1:3001`; CT Nginx `10.77.77.3:8080`; public KZ proxy только Nginx/TLS/WireGuard/SSH transit |
+| DNS | PASS | authoritative Cloudflare и public resolvers `1.1.1.1`/`8.8.8.8`: apex и `www` A `92.38.49.167`, DNS only |
+| TLS | PASS | Let's Encrypt certificate содержит `kml.kz` и `www.kml.kz`; HTTP/apex redirect на `https://www.kml.kz`; timer enabled/active |
+| Content/API | PASS | RU/KK 200; robots/sitemap 200; `GET /api/leads` 405 + Allow POST; пустой synthetic POST 422 без создания lead |
+| Security/browser | PASS | enforced CSP и security headers; external analytics scripts отсутствуют до consent; desktop и 390x844 RU/KK визуально проверены |
+| Regression | PASS | `app.kml.kz/healthz` и `api.kml.kz/health` остались 200 |
+| Mail boundary | PASS | `mail.kml.kz` сохранил A `144.91.117.51`; MX apex сохранил `mail.kml.kz`, priority 10 |
+| Proxy capacity | PASS with watch | journald ограничен 100 MiB/300 MiB reserve; после выпуска доступно около 399 MiB; application runtime на proxy отсутствует |
+
+**Verdict:** public landing cutover GO. `kml.kz` и `www.kml.kz` больше не
+обслуживаются Vercel. Проверка Hoster.KZ сразу после cutover показывала старый
+timestamp и прежние Amazon IP, поэтому считается stale third-party cache, а не
+актуальным DNS evidence; повторить после истечения его cache.
 
 ## Staff Sync production release 2026-08-26
 

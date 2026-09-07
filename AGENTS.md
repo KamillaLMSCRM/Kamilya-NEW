@@ -502,6 +502,11 @@ KZ production gate. HTTP 200 не заменяет business smoke.
   `dev`, без custom domain. Нельзя связывать локальный checkout или менять env,
   branch/domain provider project, пока его id и состояние не прочитаны обратно.
   Frontend release выполнять по `docs/PRODUCTION_FRONTEND_RUNBOOK.md`.
+- Public landing `kml.kz`/`www.kml.kz` также работает на CT137, но как
+  отдельный service/release из репозитория `kamilya-landing`: Next.js
+  `127.0.0.1:3001`, CT Nginx `10.77.77.3:8080`. Build-time API base лендинга —
+  `https://api.kml.kz` без суффикса `/api`, потому что landing route добавляет
+  `/api/v1/public/leads` самостоятельно.
 - Доступ к публичному proxy VPS берётся только из `C:\Kamilya New\.env`:
   `PROXY_VPS_HOST`, `PROXY_VPS_LOGIN`, `PROXY_VPS_PASSWORD`. Перед SSH
   проверяется фактический target из `PROXY_VPS_HOST` и сохранённый host key;
@@ -512,9 +517,9 @@ KZ production gate. HTTP 200 не заменяет business smoke.
   `PVE_API_TOKEN_SECRET` и `VPS_URL` из корневого `.env`. Права Proxmox на VM
   или CT не доказывают доступ к guest OS. QGA, SSH и встроенная console — разные
   authority boundaries; не заменять одну другой без явного решения.
-- KZ frontend path: `app.kml.kz` -> Cloudflare DNS-only A
+- KZ frontend path: `kml.kz`, `www.kml.kz` и `app.kml.kz` -> Cloudflare DNS-only A
   `92.38.49.167` -> public proxy Nginx/TLS -> WireGuard hub `10.77.77.1` ->
-  CT137 `10.77.77.3` -> native Next.js/Nginx. KZ API path остаётся отдельным:
+  CT137 `10.77.77.3` -> native Next.js/Nginx services. KZ API path остаётся отдельным:
   `api.kml.kz` -> тот же proxy -> VM126 `10.77.77.2:8000`. VM126 содержит API,
   Celery, Valkey и файловый runtime; CT125 содержит native PostgreSQL 17 +
   pgvector и backup. PostgreSQL нельзя публиковать в Internet.
@@ -537,6 +542,12 @@ KZ production gate. HTTP 200 не заменяет business smoke.
   noVNC/встроенная console используется только для bootstrap/recovery по
   явному указанию, а не как автоматический fallback. Если SSH к VM126/CT125 не
   подтверждён, зафиксировать это как gap, а не снова искать credentials.
+- Для CT137 подтверждён отдельный key-only `kamilya-admin` path через proxy;
+  password authentication отключена, authorized key ограничен source IP и
+  `restrict`, а `doas` допускает только exact root-owned landing deploy helper.
+  Public proxy должен оставаться только Nginx/TLS, WireGuard hub и SSH transit:
+  не устанавливать там Node.js/pnpm и не хранить checkout, source archive или
+  application runtime.
 - Доступность SSH к публичному proxy, активный WireGuard и HTTP 200 от VM126 не
   доказывают guest-admin доступ. На 18.08.2026 штатный admin path к VM126
   завершён: private key создан и остаётся на proxy в

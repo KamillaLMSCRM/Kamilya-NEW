@@ -1,6 +1,7 @@
-# Kamilya LMS: production frontend on CT137
+# Kamilya LMS: production web frontends on CT137
 
-**Назначение:** внутренний runbook размещения и выпуска production-фронтенда.
+**Назначение:** внутренний runbook размещения и выпуска LMS frontend и
+публичного лендинга.
 **Состояние проверено:** 2026-09-07.
 
 Документ не содержит паролей, private keys, токенов или значений `.env`.
@@ -17,6 +18,13 @@ app.kml.kz
   -> CT137 webkml: Nginx
   -> Next.js on 127.0.0.1:3000
   -> https://api.kml.kz/api
+
+kml.kz / www.kml.kz
+  -> Cloudflare DNS-only A 92.38.49.167
+  -> public KZ proxy: Nginx + TLS
+  -> WireGuard 10.77.77.1 -> 10.77.77.3:8080
+  -> CT137 Nginx
+  -> separate Next.js landing on 127.0.0.1:3001
 ```
 
 - CT137 работает на Alpine Linux и не содержит Docker runtime для приложения.
@@ -31,12 +39,11 @@ app.kml.kz
   application ports не публикуются в Internet.
 - Production API, workers, Valkey, файловый runtime и CT125 PostgreSQL не были
   перенесены в рамках frontend cutover и остаются отдельным release boundary.
-- Vercel project `web` сохранён как rollback artifact, но больше не обслуживает
-  `app.kml.kz`. Dev project `kamilya-lms-dev` и лендинг `kml.kz`/`www.kml.kz`
-  остаются отдельными контурами.
-- `kml.kz`/`www.kml.kz` пока обслуживаются Vercel как отдельный маркетинговый
-  лендинг. Геопроверка корневого домена поэтому не является evidence размещения
-  LMS application; перенос лендинга требует отдельного release/DNS gate.
+- Vercel projects сохранены как rollback artifacts, но authoritative DNS больше
+  не направляет туда `app.kml.kz`, `kml.kz` или `www.kml.kz`. Dev project
+  `kamilya-lms-dev` остаётся отдельным контуром.
+- Public proxy остаётся только Nginx/TLS, WireGuard hub и SSH transit. Node.js,
+  pnpm, checkout, build и application runtime на proxy запрещены.
 
 ## Проверенный baseline 2026-09-07
 
@@ -53,6 +60,19 @@ app.kml.kz
 | TLS | Let's Encrypt; renewal authenticator `webroot`; `certbot.timer` enabled/active |
 | Recovery | Proxmox snapshot `pre-kml-web-e463527c`; Vercel CNAME rollback сохранён |
 
+Публичный landing baseline:
+
+| Объект | Подтверждённое состояние |
+|---|---|
+| Source | Repository `kamilya-landing`, exact SHA `e70534f4814fd743edef16363d7393361fe874c7` |
+| Source archive | SHA-256 `3c96987351c2fb763305e361c476ed24b60d4d6cf50aabf24f64cd8f443698ba` |
+| Runtime | Next.js `15.5.23`, service `kamilya-landing`, user `kamilya-landing`, без Docker |
+| Build identity | Separate user `kamilya-builder`; immutable root-owned release tree |
+| Listeners | Next.js `127.0.0.1:3001`; CT Nginx `10.77.77.3:8080` |
+| Release identity | `/etc/kamilya-landing-release`, current symlink и `X-Kamilya-Landing-Release` |
+| DNS/TLS | apex и `www` — DNS-only A `92.38.49.167`; Let's Encrypt `kml.kz` + `www.kml.kz` |
+| Acceptance | RU/KK, robots, sitemap, 405/POST lead validation, CSP, desktop/mobile, app/API regression |
+
 ## Existing-path-first preflight
 
 Перед Git, Proxmox, proxy, CT137, DNS или release-действием:
@@ -61,8 +81,9 @@ app.kml.kz
    запись `ERRORS.md`.
 2. Подтвердить `origin/master`, exact candidate SHA и чистоту отдельного
    release-worktree. Не собирать из dirty checkout.
-3. Проверить фактическую Cloudflare-запись `app.kml.kz`, действующий сертификат,
-   public `/healthz` и API `/health` до изменения.
+3. Проверить фактические Cloudflare-записи изменяемых имён, действующие
+   сертификаты, public health и API `/health` до изменения. Mail/MX/TXT не
+   включать в web release.
 4. Проверить identity CT137, active release, состояние трёх сервисов и свободное
    место. HTTP 200 без exact release identity недостаточен.
 5. Зафиксировать rollback: предыдущую DNS-запись, текущий release symlink,
@@ -107,11 +128,32 @@ Release directory всегда называется полным Git SHA. Нел
    отдельной причины.
 6. Проверить локальные `/healthz` и `/login`, затем proxy-to-CT137 health.
 
-Выпуск 2026-09-07 был выполнен через явно разрешённую Proxmox console как
-bootstrap. Console не становится routine deploy path. До следующего release
-нужно отдельно подтвердить или создать host-specific key-only admin path к
-CT137 через существующий proxy/WireGuard; запрещено подбирать credentials или
-ослаблять SSH вместо этого.
+Первичная установка root-owned helper выполнена через явно разрешённую Proxmox
+console как bootstrap. Console не становится routine deploy path. Текущий
+routine path: proxy -> restricted key-only `kamilya-admin@10.77.77.3`;
+password authentication отключена, key ограничен source IP и `restrict`, а
+`doas` разрешает только exact landing deploy helper.
+
+## Выпуск публичного лендинга
+
+1. Работать из чистого worktree exact committed SHA репозитория
+   `kamilya-landing`; использовать только его `.env.local` credential path для
+   Git/provider действий, не копируя значения.
+2. Прогнать `pnpm install --frozen-lockfile`, tests, lint, typecheck и production
+   build последовательно. Build-time значения: API base
+   `https://api.kml.kz`, site `https://www.kml.kz`, app `https://app.kml.kz`.
+3. Создать source archive без `.git`, `.next`, `node_modules` и секретных
+   файлов; записать SHA-256. Передать archive только в
+   `/home/kamilya-admin/incoming/source.tar.gz`, mode `0600`.
+4. Запустить exact root-owned helper через ограниченный `doas`. Helper проверяет
+   archive paths/types/modes, собирает как `kamilya-builder`, запечатывает
+   release root-owned, атомарно переключает symlink, запускает service и
+   проверяет RU/KK/robots/sitemap плюс internal release header.
+5. Если health не проходит, helper восстанавливает прежние service/conf/Nginx,
+   symlink и release marker. Сначала доказать rollback, затем диагностировать.
+6. На proxy размещать только Nginx virtual host и сертификат. Никогда не
+   копировать туда source archive, checkout или Node runtime; временный transit
+   file удаляется сразу после передачи на CT137.
 
 ## Public release gate
 
@@ -126,8 +168,9 @@ CT137 через существующий proxy/WireGuard; запрещено п
 5. синтетический production-методист входит и открывает `/dashboard` без
    page errors и failed requests к `app.kml.kz`/`api.kml.kz`;
 6. `https://api.kml.kz/health` остаётся успешным;
-7. `kml.kz` и `www.kml.kz` не изменились;
-8. restart/reboot readback подтверждает автозапуск WireGuard, приложения и
+7. `kml.kz`/`www.kml.kz` возвращают expected landing SHA, RU/KK и валидный TLS;
+8. `mail.kml.kz` и MX остались без изменений;
+9. restart/reboot readback подтверждает автозапуск WireGuard, приложений и
    Nginx.
 
 ## Перенос CT137 между Proxmox nodes
@@ -148,11 +191,13 @@ proxy или TLS, если контейнер сохранил guest IPv4, WireG
 ## TLS renewal
 
 Nginx на proxy публикует HTTP challenge из `/var/www/letsencrypt`. Renewal
-configuration для `app.kml.kz` должна содержать:
+Renewal configurations соответствующих сертификатов должны использовать:
 
 ```text
 authenticator = webroot
 app.kml.kz = /var/www/letsencrypt
+kml.kz = /var/www/letsencrypt
+www.kml.kz = /var/www/letsencrypt
 ```
 
 `certbot.timer` должен быть `enabled` и `active`. После изменения Nginx,
@@ -175,6 +220,13 @@ TTL: Auto
 
 После изменения повторить DNS, TLS, login и business smoke. `kml.kz`,
 `www.kml.kz` и `api.kml.kz` при этом не менять.
+
+### Быстрый rollback публичного лендинга на Vercel
+
+Вернуть только apex и `www` к ранее зафиксированному target
+`3a49261800d3bbae.vercel-dns-017.com`, DNS only, Auto. Не менять
+`app.kml.kz`, `api.kml.kz`, `mail.kml.kz`, MX или TXT. После переключения
+проверить authoritative DNS, TLS, RU/KK и lead validation.
 
 ### Runtime rollback на CT137
 
