@@ -204,6 +204,7 @@ Rules:
   19 course FK paths, only own module cascade nonzero. Exact residual deleted;
   original synthetic course/source and cancelled job history preserved.
 - Release/CI/image/provider-backed production reacceptance remain NOT VERIFIED.
+
 ## LI-LOCAL-RELEASE-20260906 — Learning Insights local acceptance
 
 - **UTC evidence timestamp:** `2026-09-06T10:26:15Z`.

@@ -1618,7 +1618,6 @@ contract or establish a blocker.
   Replacement exact-SHA CI remains mandatory; earlier failed CI is not a pass.
 - Prevention: frontend release packets name pnpm lint separately from build and
   typecheck. Preserve reference stability and tenant cancellation when fixing hooks.
-
 ## INFRA-009 - Proxy disk exhaustion blocked multipart document uploads
 
 - Date: 2026-09-07.
