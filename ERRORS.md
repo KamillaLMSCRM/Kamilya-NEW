@@ -1696,7 +1696,7 @@ contract or establish a blocker.
   content redaction, while every user-visible or persisted field is validated
   separately with deterministic adversarial identifiers.
 
-## INFRA-009 - Frontend hosting and TLS renewal documentation lagged runtime
+## INFRA-010 - Frontend hosting and TLS renewal documentation lagged runtime
 
 - Date: 2026-09-07.
 - Symptom: `app.kml.kz` was moved from Vercel to CT137, while canonical current
@@ -1726,7 +1726,7 @@ contract or establish a blocker.
   a real role flow, and preserve dated Vercel rows as history rather than current
   state. A manual certificate success is not automatic-renewal evidence.
 
-## INFRA-010 - Proxmox node migration is not a public routing change
+## INFRA-011 - Proxmox node migration is not a public routing change
 
 - Date: 2026-09-07.
 - Symptom: after CT137 moved from `pve2` to `pve3`, it was unclear whether
@@ -1745,7 +1745,7 @@ contract or establish a blocker.
   DNS or proxy change. Update the internal node placement only; do not expose
   Proxmox topology in client-facing documentation.
 
-## INFRA-011 - Apex geography check was mistaken for LMS application hosting
+## INFRA-012 - Apex geography check was mistaken for LMS application hosting
 
 - Date: 2026-09-07.
 - Symptom: a domain checker reported `kml.kz` at AS16509/Amazon in the US after
