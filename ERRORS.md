@@ -1651,6 +1651,11 @@ contract or establish a blocker.
   environment, keep a rollback copy, load it through the normal blue/green
   release, and store the existing DeepSeek key only through the encrypted
   superadmin provider-key endpoint.
+- Verification: the runtime environment now contains a root-owned encryption
+  key and a rollback copy without exposing either value. The current containers
+  have not loaded that key yet; encrypted provider-key roundtrip, DeepSeek
+  activation, live chain readback, and customer-document acceptance remain
+  mandatory after the exact release is deployed.
 - Prevention: production readiness must verify a synthetic provider-key encryption
   roundtrip before declaring provider-key management available. Provider status
   and probes may expose only provider name, activation state, latency and error
