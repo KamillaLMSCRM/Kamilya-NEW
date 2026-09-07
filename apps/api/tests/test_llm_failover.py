@@ -172,7 +172,7 @@ def test_settings_chain_uses_deepseek_then_qwen38_flash_then_glm(monkeypatch):
         name="glm53-flash-asus", base_url="http://glm.test", api_key="key", model="glm53", max_retries=0
     )
     monkeypatch.setattr(llm_client, "_deepseek_llm_provider", lambda: deepseek)
-    monkeypatch.setattr(llm_client, "_generation_fallback_providers", lambda: [qwen, glm])
+    monkeypatch.setattr(llm_client, "_generation_fallback_providers", lambda route_ids=None: [qwen, glm])
 
     chain = ResilientLLMClient.from_settings()
 
@@ -232,13 +232,26 @@ def test_openai_base_url_adds_v1_once():
 async def test_async_settings_chain_prefers_db_deepseek_key(monkeypatch):
     qwen = LLMProviderConfig(name="custom:qwen38-flash-next", base_url="https://qwen.test", api_key="key", model="qwen")
     glm = LLMProviderConfig(name="glm53-flash-asus", base_url="https://glm.test", api_key="key", model="glm")
-    monkeypatch.setattr(llm_client, "_generation_fallback_providers", lambda: [qwen, glm])
+    monkeypatch.setattr(
+        llm_client,
+        "_generation_fallback_providers",
+        lambda route_ids=None: [
+            {"qwen38_flash_next": qwen, "glm53_flash": glm}[route_id]
+            for route_id in (route_ids or ("qwen38_flash_next", "glm53_flash"))
+            if route_id != "deepseek"
+        ],
+    )
     monkeypatch.setattr(llm_client, "_deepseek_llm_provider", lambda: None)
 
     async def resolve_key(provider, env_key):
         return "db-deepseek-key"
 
     monkeypatch.setattr(llm_client, "_resolve_db_key", resolve_key)
+
+    async def resolve_order():
+        return ("deepseek", "qwen38_flash_next", "glm53_flash")
+
+    monkeypatch.setattr(llm_client, "resolve_runtime_generation_model_order", resolve_order)
 
     chain = await ResilientLLMClient.from_settings_async()
 
@@ -254,7 +267,15 @@ async def test_async_settings_chain_without_deepseek_starts_with_qwen38(monkeypa
         model="qwen38",
     )
     glm = LLMProviderConfig(name="glm53-flash-asus", base_url="http://glm.test/v1", api_key="key", model="glm")
-    monkeypatch.setattr(llm_client, "_generation_fallback_providers", lambda: [qwen, glm])
+    monkeypatch.setattr(
+        llm_client,
+        "_generation_fallback_providers",
+        lambda route_ids=None: [
+            {"qwen38_flash_next": qwen, "glm53_flash": glm}[route_id]
+            for route_id in (route_ids or ("qwen38_flash_next", "glm53_flash"))
+            if route_id != "deepseek"
+        ],
+    )
     monkeypatch.setattr(llm_client, "_deepseek_llm_provider", lambda: None)
 
     async def resolve_key(provider, env_key):
@@ -262,12 +283,63 @@ async def test_async_settings_chain_without_deepseek_starts_with_qwen38(monkeypa
 
     monkeypatch.setattr(llm_client, "_resolve_db_key", resolve_key)
 
+    async def resolve_order():
+        return ("deepseek", "qwen38_flash_next", "glm53_flash")
+
+    monkeypatch.setattr(llm_client, "resolve_runtime_generation_model_order", resolve_order)
+
     chain = await ResilientLLMClient.from_settings_async()
 
     assert chain.provider_names == [
         "custom:qwen38-flash-next",
         "glm53-flash-asus",
     ]
+
+
+@pytest.mark.asyncio
+async def test_async_settings_chain_applies_persisted_fallback_order(monkeypatch):
+    qwen = LLMProviderConfig(name="custom:qwen38-flash-next", base_url="x", api_key="y", model="qwen")
+    glm = LLMProviderConfig(name="glm53-flash-asus", base_url="x", api_key="y", model="glm")
+    monkeypatch.setattr(llm_client, "_qwen38_flash_llm_provider", lambda: qwen)
+    monkeypatch.setattr(llm_client, "_glm53_flash_llm_provider", lambda: glm)
+    monkeypatch.setattr(llm_client, "_deepseek_llm_provider", lambda: None)
+
+    async def resolve_key(provider, env_key):
+        return "db-deepseek-key"
+
+    async def resolve_order():
+        return ("deepseek", "glm53_flash", "qwen38_flash_next")
+
+    monkeypatch.setattr(llm_client, "_resolve_db_key", resolve_key)
+    monkeypatch.setattr(llm_client, "resolve_runtime_generation_model_order", resolve_order)
+
+    chain = await ResilientLLMClient.from_settings_async()
+
+    assert chain.provider_names == [
+        "deepseek",
+        "glm53-flash-asus",
+        "custom:qwen38-flash-next",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_async_settings_chain_omits_disabled_fallback(monkeypatch):
+    glm = LLMProviderConfig(name="glm53-flash-asus", base_url="x", api_key="y", model="glm")
+    monkeypatch.setattr(llm_client, "_glm53_flash_llm_provider", lambda: glm)
+    monkeypatch.setattr(llm_client, "_deepseek_llm_provider", lambda: None)
+
+    async def resolve_key(provider, env_key):
+        return "db-deepseek-key"
+
+    async def resolve_order():
+        return ("deepseek", "glm53_flash")
+
+    monkeypatch.setattr(llm_client, "_resolve_db_key", resolve_key)
+    monkeypatch.setattr(llm_client, "resolve_runtime_generation_model_order", resolve_order)
+
+    chain = await ResilientLLMClient.from_settings_async()
+
+    assert chain.provider_names == ["deepseek", "glm53-flash-asus"]
 
 
 def test_embeddings_settings_chain_prefers_voyage(monkeypatch):

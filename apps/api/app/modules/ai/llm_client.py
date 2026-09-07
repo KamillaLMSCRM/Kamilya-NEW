@@ -1,20 +1,17 @@
 """LLM Client — OpenAI-compatible adapters with automatic failover chain.
 
-Chain architecture (August 2026):
+Chain architecture (September 2026):
 
   LLM chain:
     1. DeepSeek v4-flash (when configured)
        → managed primary/reliability provider
-    2. Qwen3.8 27B NVFP4 (private vLLM)
-       → first approved free-pool fallback
-    3. Qwen3.5 4B FP8 (private vLLM)
-       → second approved free-pool fallback
-    4. Existing Qwen3.6 35B-A3B AWQ endpoint
-       → fallback when the free pool is disabled
+    2. Qwen 3.8 Flash Next (private vLLM)
+       → approved fallback
+    3. GLM 5.3 Flash (private vLLM)
+       → approved fallback
 
-  When FREE_LLM_POOL_ENABLED is false, DeepSeek is used first when configured,
-  followed by the established public Qwen endpoint. Without DeepSeek, the
-  established public Qwen endpoint is used alone.
+  The global enabled order is read when each asynchronous client is created.
+  DeepSeek remains first. Endpoints and model IDs remain server-owned settings.
 
   Embeddings chain:
     1. Voyage voyage-4-lite via direct Voyage API (api.voyageai.com/v1)
@@ -46,6 +43,13 @@ from typing import Any, Generic, TypeVar, cast
 import httpx
 
 from app.core.config import get_settings
+from app.modules.admin.model_routing.catalog import (
+    DEEPSEEK_ROUTE_ID,
+    DEFAULT_GENERATION_MODEL_ORDER,
+    GLM53_ROUTE_ID,
+    QWEN38_ROUTE_ID,
+)
+from app.modules.admin.model_routing.runtime import resolve_runtime_generation_model_order
 from app.modules.ai.embedding_space import EmbeddingSpace
 
 logger = logging.getLogger(__name__)
@@ -244,9 +248,15 @@ def _glm53_flash_llm_provider() -> LLMProviderConfig:
     )
 
 
-def _generation_fallback_providers() -> list[LLMProviderConfig]:
-    """Return the owner-selected generation fallbacks in their fixed order."""
-    return [_qwen38_flash_llm_provider(), _glm53_flash_llm_provider()]
+def _generation_fallback_providers(
+    route_ids: Iterable[str] = DEFAULT_GENERATION_MODEL_ORDER,
+) -> list[LLMProviderConfig]:
+    """Build approved fallback providers in the requested persisted order."""
+    factories = {
+        QWEN38_ROUTE_ID: _qwen38_flash_llm_provider,
+        GLM53_ROUTE_ID: _glm53_flash_llm_provider,
+    }
+    return [factories[route_id]() for route_id in route_ids if route_id in factories]
 
 
 def _deepseek_llm_provider() -> LLMProviderConfig | None:
@@ -593,9 +603,9 @@ class ResilientLLMClient:
     ) -> ResilientLLMClient:
         """Build the production chain from env-only settings.
 
-        DeepSeek is primary when configured. The fixed fallback route is Qwen
-        3.8 Flash Next followed by GLM 5.3 Flash. The legacy public Qwen is not
-        part of the user-facing generation chain.
+        DeepSeek is primary when configured. The environment-only fallback
+        route is Qwen 3.8 Flash Next followed by GLM 5.3 Flash. The legacy
+        public Qwen is not part of the user-facing generation chain.
 
         Does NOT consult the provider_keys table — used by tests and
         legacy callers that don't pass a DB session. Production code
@@ -606,7 +616,7 @@ class ResilientLLMClient:
         deepseek = _deepseek_llm_provider()
         if deepseek is not None:
             providers.append(deepseek)
-        providers.extend(_generation_fallback_providers())
+        providers.extend(_generation_fallback_providers(DEFAULT_GENERATION_MODEL_ORDER))
         return cls(
             providers,
             temperature=temperature,
@@ -622,38 +632,41 @@ class ResilientLLMClient:
         max_tokens: int = 8192,
         max_retries_per_provider: int = 2,
     ) -> ResilientLLMClient:
-        """Build the production chain from env + provider_keys table.
+        """Build the production chain from env, DB keys and persisted order.
 
-        Same order as `from_settings()` but each managed provider's API key is
-        resolved by `_resolve_db_key()` which prefers env and falls
-        back to the active global key stored in `provider_keys`.
+        The approved enabled order is loaded from `generation_model_routing`.
+        Each managed provider's API key is resolved by `_resolve_db_key()`
+        which prefers env and falls back to the active global key stored in
+        `provider_keys`.
 
         This is what the AI pipeline (course generation, chat, fallback
         routing) calls — keys added or rotated via the superadmin
         provider-keys UI take effect immediately without a redeploy.
         """
         s = get_settings()
+        route_ids = await resolve_runtime_generation_model_order()
         providers: list[LLMProviderConfig] = []
 
-        deepseek_key = await _resolve_db_key("deepseek", s.DEEPSEEK_API_KEY)
-        if deepseek_key:
-            cfg = _deepseek_llm_provider()
-            if cfg is None:
-                # Env was empty but DB had a key — build config from
-                # defaults + DB key.
-                cfg = LLMProviderConfig(
-                    name="deepseek",
-                    base_url=_openai_base_url(s.DEEPSEEK_BASE_URL),
-                    api_key=deepseek_key,
-                    model=s.DEEPSEEK_MODEL,
-                    timeout=120.0,
-                    extra_body={"thinking": {"type": "disabled"}},
-                )
+        for route_id in route_ids:
+            if route_id == DEEPSEEK_ROUTE_ID:
+                deepseek_key = await _resolve_db_key("deepseek", s.DEEPSEEK_API_KEY)
+                if not deepseek_key:
+                    continue
+                cfg = _deepseek_llm_provider()
+                if cfg is None:
+                    cfg = LLMProviderConfig(
+                        name="deepseek",
+                        base_url=_openai_base_url(s.DEEPSEEK_BASE_URL),
+                        api_key=deepseek_key,
+                        model=s.DEEPSEEK_MODEL,
+                        timeout=120.0,
+                        extra_body={"thinking": {"type": "disabled"}},
+                    )
+                else:
+                    cfg = replace(cfg, api_key=deepseek_key)
+                providers.append(cfg)
             else:
-                cfg = replace(cfg, api_key=deepseek_key)
-        if deepseek_key:
-            providers.append(cfg)
-        providers.extend(_generation_fallback_providers())
+                providers.extend(_generation_fallback_providers((route_id,)))
 
         return cls(
             providers,

@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   longer a generation fallback. Embedding routing is unchanged.
 
 ### Added
+- Superadmin generation-model routing: a secret-free modal can enable approved
+  fallbacks and reorder them below the mandatory DeepSeek primary. Atomic
+  revision checks prevent lost updates, and new AI jobs load the persisted
+  route without a worker restart (additive migration `0156`).
 - Learning insights (release candidate): methodologist answer inspection from immutable quiz evidence, unique-employee first/latest question statistics, explicit unavailable comparisons, and tenant-isolated question follow-up statuses. Additive migration `0155`; no LLM calls or automated training assignments.
 - Buyer journey: public RU/KK/EN interactive learning example at `/login/example`, with fictional results, answer feedback and explanatory next steps; no tenant writes or AI requests.
 - Methodologist dashboard: real training-summary counts, loading/error isolation and two explicit starting paths (materials or course basis). Empty AI queues are hidden; failed and unknown jobs remain visible.

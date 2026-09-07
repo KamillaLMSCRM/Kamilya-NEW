@@ -116,8 +116,8 @@ async def _analyze_jd_content(content: bytes, filename: str) -> dict:
 Если информация не найдена — поставь пустую строку."""
 
     try:
-        from app.modules.ai.llm_client import create_llm
-        llm = create_llm(temperature=0.3, max_tokens=1024)
+        from app.modules.ai.llm_client import ResilientLLMClient
+        llm = await ResilientLLMClient.from_settings_async(temperature=0.3, max_tokens=1024)
         response = await llm.ainvoke([{"role": "user", "content": prompt}])
         raw = response.content.strip()
 
@@ -308,7 +308,7 @@ async def _audit_jd_text(
     if not text.strip():
         return []
 
-    from app.modules.ai.llm_client import create_llm
+    from app.modules.ai.llm_client import ResilientLLMClient
 
     audit_prompt = f"""Ты — HR-эксперт по качеству должностных инструкций в Казахстане.
 Проведи АУДИТ этой ДИ и найди 3-7 проблем или рекомендаций по улучшению.
@@ -341,7 +341,7 @@ async def _audit_jd_text(
 Если ДИ хорошая — всё равно верни 1-2 positive findings (severity="ok")."""
 
     try:
-        llm = create_llm(temperature=0.2, max_tokens=1500)
+        llm = await ResilientLLMClient.from_settings_async(temperature=0.2, max_tokens=1500)
         response = await llm.ainvoke([{"role": "user", "content": audit_prompt}])
         raw = response.content.strip()
         if raw.startswith("```"):
@@ -487,7 +487,7 @@ async def bulk_analyze_jd(
             detail=f"Too many files ({len(files)}). Max 50 per request.",
         )
 
-    from app.modules.ai.llm_client import create_llm
+    from app.modules.ai.llm_client import ResilientLLMClient
 
     items: list[BulkJDItem] = []
 
@@ -524,7 +524,7 @@ async def bulk_analyze_jd(
 
 Если информация не найдена — поставь пустую строку."""
 
-            llm = create_llm(temperature=0.3, max_tokens=1024)
+            llm = await ResilientLLMClient.from_settings_async(temperature=0.3, max_tokens=1024)
             response = await llm.ainvoke([{"role": "user", "content": prompt}])
             raw = response.content.strip()
             if raw.startswith("```"):
@@ -675,7 +675,7 @@ async def jd_preview(
     proposed_req = ""
 
     if req.text.strip():
-        from app.modules.ai.llm_client import create_llm
+        from app.modules.ai.llm_client import ResilientLLMClient
         text = req.text.strip()[:8000]
         prompt = f"""Проанализируй текст должностной инструкции и сравни с текущими значениями.
 
@@ -698,7 +698,7 @@ async def jd_preview(
   "requirements": "(уточнённый текст)"
 }}"""
         try:
-            llm = create_llm(temperature=0.3, max_tokens=1024)
+            llm = await ResilientLLMClient.from_settings_async(temperature=0.3, max_tokens=1024)
             response = await llm.ainvoke([{"role": "user", "content": prompt}])
             raw = response.content.strip()
             if raw.startswith("```"):

@@ -24,6 +24,7 @@ MODEL_MODULES = (
     "app.models.user_sessions",
     "app.models.users",
     "app.modules.admin.provider_keys.models",
+    "app.modules.admin.model_routing.models",
     "app.modules.announcements.models",
     "app.modules.audit.models",
     "app.modules.candidate_assessments.models",

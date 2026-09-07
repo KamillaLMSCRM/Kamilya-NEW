@@ -267,7 +267,7 @@ async def suggest_courses(
     if not (pos.responsibilities.strip() or pos.requirements.strip()):
         return CourseSuggestionsResponse(items=[])
 
-    from app.modules.ai.llm_client import create_llm
+    from app.modules.ai.llm_client import ResilientLLMClient
 
     prompt = f"""На основе должностной инструкции предложи 3-5 тем обучающих курсов для онбординга сотрудника на эту должность.
 
@@ -290,7 +290,7 @@ async def suggest_courses(
 Пиши на русском. Курсы должны быть конкретными и actionable, не общими."""
 
     try:
-        llm = create_llm(temperature=0.5, max_tokens=1500)
+        llm = await ResilientLLMClient.from_settings_async(temperature=0.5, max_tokens=1500)
         response = await llm.ainvoke([{"role": "user", "content": prompt}])
         raw = response.content.strip()
         if raw.startswith("```"):
@@ -643,7 +643,7 @@ async def suggest_onboarding_quiz(
             questions=[],
         )
 
-    from app.modules.ai.llm_client import create_llm
+    from app.modules.ai.llm_client import ResilientLLMClient
 
     jd_text = f"""Должность: {pos.name}
 Отдел: {pos.department or '(не указан)'}
@@ -684,7 +684,7 @@ async def suggest_onboarding_quiz(
 Пиши на русском. Вопросы и варианты — конкретные по этой должности, не общие."""
 
     try:
-        llm = create_llm(temperature=0.6, max_tokens=3500)
+        llm = await ResilientLLMClient.from_settings_async(temperature=0.6, max_tokens=3500)
         response = await llm.ainvoke([{"role": "user", "content": prompt}])
         raw = response.content.strip()
         if raw.startswith("```"):
