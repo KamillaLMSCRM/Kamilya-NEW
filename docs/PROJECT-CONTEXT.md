@@ -60,7 +60,7 @@ Vercel account/team: user `kamillalmscrm`, team
 | Назначение | Project | Git branch | Domain/alias | Backend сейчас |
 |---|---|---|---|---|
 | Production frontend | `web` (`prj_hJMzgp9QNFCwUMrsDEBZINpJJzBp`) | `master` | `app.kml.kz` | KZ production API `https://api.kml.kz/api` |
-| Dev frontend | `kamilya-lms-dev` (`prj_JN1xM4BMmhoHzDt6joPaCBXvOSLk`) | `dev` | `kamilya-lms-dev.vercel.app` | KZ staging `https://api.kml.kz/api` |
+| Dev frontend | `kamilya-lms-dev` (`prj_JN1xM4BMmhoHzDt6joPaCBXvOSLk`) | `dev` | `kamilya-lms-dev.vercel.app` | Render DEV API `https://kamilya-lms-api.onrender.com/api` |
 
 Канонический источник API-токена — корневой `.env`, имя `vercel_token`.
 
@@ -158,9 +158,8 @@ Production browser
 Dev browser
   -> kamilya-lms-dev.vercel.app
   -> Vercel project kamilya-lms-dev / dev
-  -> https://api.kml.kz/api
-  -> proxy Nginx / exact CORS allowlist
-  -> WireGuard -> VM126 FastAPI
+  -> https://kamilya-lms-api.onrender.com/api
+  -> Render DEV FastAPI
 
 KZ production management/ingress path
   -> public proxy VPS (TLS/Nginx + WireGuard hub 10.77.77.1)

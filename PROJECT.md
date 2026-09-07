@@ -125,7 +125,7 @@ Kamilya фиксирует технические доказательства �
 
 | Слой | Реализация |
 |---|---|
-| Frontend | Next.js 14, React, TypeScript |
+| Frontend | Next.js 15.5.23, React, TypeScript |
 | Backend | FastAPI, SQLAlchemy async, Alembic |
 | Database | PostgreSQL + pgvector |
 | Shared dev/pilot DB and storage | Supabase |
@@ -206,8 +206,8 @@ production smoke evidence. В KZ staging создан реальный tenant
 `ТОО «Ломбард Сандық»` со штатной структурой и двумя опубликованными курсами;
 это не является production cutover и не подтверждает публичный доступ клиента.
 Для frontend-разработки создан отдельный Vercel project `kamilya-lms-dev`,
-привязанный к ветке `dev`. Его актуальный deployment использует KZ staging API
-`https://api.kml.kz/api`; production project `web`, ветка `master` и домен
+привязанный к ветке `dev`. Его актуальный deployment использует Render DEV API
+`https://kamilya-lms-api.onrender.com/api`; production project `web`, ветка `master` и домен
 `app.kml.kz` этим не изменялись.
 
 ## Документация
