@@ -1641,7 +1641,8 @@ contract or establish a blocker.
 ## AI-PROVIDER-001 - Production could not persist an encrypted provider key
 
 - Date: 2026-09-07.
-- Status: FIX IN PROGRESS; no provider secret was persisted by the failed calls.
+- Status: resolved in production; no provider secret was persisted by the failed
+  calls.
 - Symptom: the superadmin provider-key endpoint returned HTTP 500 when activating
   the owner-selected DeepSeek primary; the provider list remained empty.
 - Cause: VM126 runtime had no `PROVIDER_KEY_ENCRYPTION_KEY`. A container-local
@@ -1651,11 +1652,18 @@ contract or establish a blocker.
   environment, keep a rollback copy, load it through the normal blue/green
   release, and store the existing DeepSeek key only through the encrypted
   superadmin provider-key endpoint.
-- Verification: the runtime environment now contains a root-owned encryption
-  key and a rollback copy without exposing either value. The current containers
-  have not loaded that key yet; encrypted provider-key roundtrip, DeepSeek
-  activation, live chain readback, and customer-document acceptance remain
-  mandatory after the exact release is deployed.
+- Verification: the runtime environment contains a root-owned encryption key and
+  rollback copy without exposing either value. Release
+  `6de9ebb660ae954aefa7436a7952e45805ca6e1b` loaded it into the API and workers;
+  a synthetic encryption roundtrip passed, the existing DeepSeek key was stored
+  only through the encrypted superadmin endpoint, and the provider probe returned
+  success with `last_error=null`. Real-document generation then completed for a
+  281,596-byte Plus PDF and a 51,712-byte Lombard DOC; all disposable records were
+  removed. Release `9b2fad9056e2e6f64728b99a4c31a14bfb271d7d` fixed the runtime order as
+  `deepseek -> custom:qwen38-flash-next -> glm53-flash-asus`; an independent
+  synthetic completion used DeepSeek without failover. The ASUS fallback network
+  path remains a separate infrastructure gap: VM126 still times out to
+  `10.66.66.30:8888` and `10.66.66.28:8000`.
 - Prevention: production readiness must verify a synthetic provider-key encryption
   roundtrip before declaring provider-key management available. Provider status
   and probes may expose only provider name, activation state, latency and error

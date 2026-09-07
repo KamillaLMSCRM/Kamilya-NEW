@@ -769,3 +769,45 @@ document/course journey remains a separate owner-controlled synthetic rehearsal.
 - `FAIL / PRODUCT_DEFECT`: production assessment generation is not ready for unattended publication. The 25-question synthetic set included semantically incorrect/incomplete answer keys, missing negation/context, fragment answers, raw Markdown and a severe correct-answer verbosity cue. Human methodologist review remains a hard gate; deterministic per-question validation and regeneration are required before changing this verdict.
 - `OPEN`: some methodologist links lose the bounded superadmin impersonation context; program/AI usage counters can disagree with persisted assignments/jobs; learner confirmation wording does not yet match the clearer certificate-versus-evidence contract in the journal.
 - **Verdict:** release-plane self-upgrade is `GO`; the synthetic production operating flow is `GO WITH FOLLOW-UP`; automatically generated assessments are `NO-GO` without human review and quality gating.
+
+## AI provider chain and real-document acceptance — 2026-09-07
+
+- `GIT-DERIVED`: release `9b2fad9056e2e6f64728b99a4c31a14bfb271d7d`
+  fixes the user-facing generation order as DeepSeek `deepseek-v4-flash`,
+  `custom:qwen38-flash-next` / `qwen3.8-flash-next`, then
+  `glm53-flash-asus` / `LibertAIDAI/GLM-5.3-Flash-NVFP4`. The legacy public
+  Qwen is absent from generation routing; embedding routing is unchanged. CI run
+  `34093460886` passed all jobs, including the full backend, tenant/RLS/security,
+  dependency, quality, secrets and frontend gates.
+- `PROVIDER-CONFIRMED`: protected no-migration release
+  `REL-AI-PROVIDER-CHAIN-20260907-R3`, workflow `34093847075`, completed
+  successfully. Production runs immutable image
+  `ghcr.io/kamillalmscrm/kamilya-api@sha256:cf4e011f7d6f530641a1c15b666c632cbf32e0504aace6535113dd3e10b71b09`.
+- `RUNTIME-DERIVED`: public and private health identify exact release
+  `9b2fad9056e2e6f64728b99a4c31a14bfb271d7d` and `kz-production`. API,
+  worker-ai, worker-documents and worker-ops are running with zero restarts.
+  Worker-ai readback returned the exact three-provider order above and no legacy
+  Qwen. A no-PII synthetic completion succeeded through DeepSeek with zero
+  failovers.
+- `RUNTIME-DERIVED`: a 281,596-byte Plus PDF generated a draft with six lessons
+  and 19 valid questions in about 293 seconds. A 51,712-byte Lombard DOC generated
+  six lessons and 21 valid questions in about five minutes. Disposable courses,
+  copied documents and jobs were removed; the synthetic tenant returned to its
+  exact base state.
+- `BLOCKED`: VM126 still times out to both private ASUS endpoints. Therefore the
+  configured second and third providers are not yet operational production
+  fallbacks even though their order is correct. The workstation reaches Qwen
+  `10.66.66.30:8888`, while `https://qwen.kml.kz/v1/models` still exposes only
+  the legacy Qwen model. The verified remediation requires either hub-side
+  registration of a dedicated VM126 WireGuard peer or an independently managed
+  gateway route to the new Qwen endpoint; no unverified network or DNS mutation
+  was made.
+- `BLOCKED`: the 12,430,921-byte scanned Lombard PDF consistently returns
+  `ocr_required`; the remote Docling service is healthy but the deployed source
+  differs from the repository and returned HTTP 422 without a useful converter
+  exception. This is an OCR integration defect, not an LLM model-selection
+  failure.
+- **Verdict:** DeepSeek primary and the provider-order release are `GO`. The new
+  Qwen and GLM fallbacks are `NO-GO` for availability until VM126 connectivity is
+  proven. Human methodologist review remains mandatory for generated courses and
+  assessments.
