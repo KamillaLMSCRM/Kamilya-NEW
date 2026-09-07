@@ -118,6 +118,14 @@ class Settings(BaseSettings):
     FREE_LLM_CONNECT_TIMEOUT_SECONDS: float = Field(default=3.0, ge=1.0, le=15.0)
     FREE_LLM_REQUEST_TIMEOUT_SECONDS: float = Field(default=600.0, ge=30.0, le=900.0)
 
+    # Owner-selected next generation route. Keep disabled until the actual
+    # KZ production API host proves reachability to both ASUS endpoints.
+    ASUS_LLM_CHAIN_ENABLED: bool = False
+    QWEN38_FLASH_URL: str = "http://10.66.66.30:8888/v1"
+    QWEN38_FLASH_MODEL: str = "qwen3.8-flash-next"
+    GLM53_FLASH_URL: str = "http://10.66.66.28:8000/v1"
+    GLM53_FLASH_MODEL: str = "LibertAIDAI/GLM-5.3-Flash-NVFP4"
+
     # Qwen 35B AWQ is the third free model and the established self-hosted
     # provider. It is deliberately reused rather than added to the chain a
     # second time under another name.

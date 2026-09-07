@@ -1637,3 +1637,21 @@ contract or establish a blocker.
   keep package-cache cleanup bounded and recoverable, and do not diagnose a
   large-body nginx 500 as an application upload failure until temp-path capacity
   has been read back. Remaining disk pressure requires a separate capacity audit.
+
+## AI-PROVIDER-001 - Production could not persist an encrypted provider key
+
+- Date: 2026-09-07.
+- Status: FIX IN PROGRESS; no provider secret was persisted by the failed calls.
+- Symptom: the superadmin provider-key endpoint returned HTTP 500 when activating
+  the owner-selected DeepSeek primary; the provider list remained empty.
+- Cause: VM126 runtime had no `PROVIDER_KEY_ENCRYPTION_KEY`. A container-local
+  synthetic encryption roundtrip reproduced `EncryptionKeyMissingError` without
+  reading or emitting any provider secret.
+- Fix: bootstrap one root-owned Fernet key in the canonical production runtime
+  environment, keep a rollback copy, load it through the normal blue/green
+  release, and store the existing DeepSeek key only through the encrypted
+  superadmin provider-key endpoint.
+- Prevention: production readiness must verify a synthetic provider-key encryption
+  roundtrip before declaring provider-key management available. Provider status
+  and probes may expose only provider name, activation state, latency and error
+  category; plaintext and ciphertext never enter evidence or logs.

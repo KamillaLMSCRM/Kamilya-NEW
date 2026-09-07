@@ -214,6 +214,43 @@ def _qwen_free_pool_provider() -> LLMProviderConfig:
     )
 
 
+def _qwen38_flash_llm_provider() -> LLMProviderConfig:
+    """Return the owner-selected fast ASUS fallback."""
+    s = get_settings()
+    return LLMProviderConfig(
+        name="qwen38-flash-next-asus",
+        base_url=_openai_base_url(s.QWEN38_FLASH_URL),
+        api_key=s.LLM_API_KEY or "not-needed",
+        model=s.QWEN38_FLASH_MODEL,
+        timeout=s.FREE_LLM_REQUEST_TIMEOUT_SECONDS,
+        connect_timeout=s.FREE_LLM_CONNECT_TIMEOUT_SECONDS,
+        max_retries=0,
+        extra_body={"chat_template_kwargs": {"enable_thinking": False}},
+    )
+
+
+def _glm53_flash_llm_provider() -> LLMProviderConfig:
+    """Return the last-resort ASUS GLM provider."""
+    s = get_settings()
+    return LLMProviderConfig(
+        name="glm53-flash-asus",
+        base_url=_openai_base_url(s.GLM53_FLASH_URL),
+        api_key=s.LLM_API_KEY or "not-needed",
+        model=s.GLM53_FLASH_MODEL,
+        timeout=s.FREE_LLM_REQUEST_TIMEOUT_SECONDS,
+        connect_timeout=s.FREE_LLM_CONNECT_TIMEOUT_SECONDS,
+        max_retries=0,
+        extra_body={"chat_template_kwargs": {"enable_thinking": False}},
+    )
+
+
+def _generation_fallback_providers() -> list[LLMProviderConfig]:
+    """Select only a production-qualified fallback route."""
+    if get_settings().ASUS_LLM_CHAIN_ENABLED:
+        return [_qwen38_flash_llm_provider(), _glm53_flash_llm_provider()]
+    return [_qwen_llm_provider()]
+
+
 def _deepseek_llm_provider() -> LLMProviderConfig | None:
     """Return DeepSeek provider only if API key is configured."""
     s = get_settings()
@@ -545,7 +582,7 @@ class ResilientLLMClient:
         if not self._clients:
             raise ValueError(
                 "ResilientLLMClient requires at least one provider. "
-                "Check that QWEN_API_URL or DEEPSEEK_API_KEY is configured."
+                "Check that the configured generation provider route is available."
             )
 
     @classmethod
@@ -558,12 +595,9 @@ class ResilientLLMClient:
     ) -> ResilientLLMClient:
         """Build the production chain from env-only settings.
 
-        Order with FREE_LLM_POOL_ENABLED:
-          1. DeepSeek (when configured)
-          2. Qwen3.8 27B NVFP4
-          3. Qwen3.5 4B FP8
-
-        With the pool disabled, use DeepSeek first and public Qwen as fallback.
+        DeepSeek is primary when configured. The gated next route is Qwen 3.8
+        Flash Next followed by GLM 5.3 Flash. Until VM126 proves reachability,
+        the established public Qwen remains the fallback.
 
         Does NOT consult the provider_keys table — used by tests and
         legacy callers that don't pass a DB session. Production code
@@ -572,15 +606,9 @@ class ResilientLLMClient:
         """
         providers: list[LLMProviderConfig] = []
         deepseek = _deepseek_llm_provider()
-        free_providers = _free_llm_providers()
-        if free_providers:
-            if deepseek is not None:
-                providers.append(deepseek)
-            providers.extend(free_providers)
-        else:
-            if deepseek is not None:
-                providers.append(deepseek)
-            providers.append(_qwen_llm_provider())
+        if deepseek is not None:
+            providers.append(deepseek)
+        providers.extend(_generation_fallback_providers())
         return cls(
             providers,
             temperature=temperature,
@@ -625,15 +653,9 @@ class ResilientLLMClient:
                 )
             else:
                 cfg = replace(cfg, api_key=deepseek_key)
-        free_providers = _free_llm_providers()
-        if free_providers:
-            if deepseek_key:
-                providers.append(cfg)
-            providers.extend(free_providers)
-        else:
-            if deepseek_key:
-                providers.append(cfg)
-            providers.append(_qwen_llm_provider())
+        if deepseek_key:
+            providers.append(cfg)
+        providers.extend(_generation_fallback_providers())
 
         return cls(
             providers,

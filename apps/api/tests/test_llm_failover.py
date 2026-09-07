@@ -11,6 +11,7 @@ We use AsyncMock to simulate provider success/failure without any network I/O.
 
 from __future__ import annotations
 
+from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import httpx
@@ -162,58 +163,33 @@ def test_resilient_llm_provider_names():
     assert chain.provider_names == ["qwen-self-hosted", "deepseek"]
 
 
-def test_settings_chain_uses_deepseek_before_public_qwen_when_free_pool_disabled(monkeypatch):
+def test_settings_chain_uses_deepseek_then_qwen38_flash_then_glm(monkeypatch):
     deepseek = LLMProviderConfig(name="deepseek", base_url="https://deepseek.test", api_key="key", model="flash")
-    qwen = LLMProviderConfig(name="qwen-self-hosted", base_url="https://qwen.test", api_key="key", model="qwen")
+    qwen = LLMProviderConfig(
+        name="qwen38-flash-next-asus", base_url="http://qwen.test", api_key="key", model="qwen38", max_retries=0
+    )
+    glm = LLMProviderConfig(
+        name="glm53-flash-asus", base_url="http://glm.test", api_key="key", model="glm53", max_retries=0
+    )
     monkeypatch.setattr(llm_client, "_deepseek_llm_provider", lambda: deepseek)
-    monkeypatch.setattr(llm_client, "_qwen_llm_provider", lambda: qwen)
-    monkeypatch.setattr(llm_client, "_qwen_free_pool_provider", lambda: qwen)
-    monkeypatch.setattr(llm_client, "_free_llm_providers", lambda: [])
+    monkeypatch.setattr(llm_client, "_generation_fallback_providers", lambda: [qwen, glm])
 
     chain = ResilientLLMClient.from_settings()
 
-    assert chain.provider_names == ["deepseek", "qwen-self-hosted"]
-
-
-def test_settings_chain_uses_deepseek_then_qwen27_then_qwen4(monkeypatch):
-    qwen38 = LLMProviderConfig(
-        name="gx10-17-18-qwen38-27b-nvfp4",
-        base_url="http://qwen38.test/v1",
-        api_key="not-needed",
-        model="qwen38",
-        max_retries=0,
-    )
-    qwen4 = LLMProviderConfig(
-        name="gx10-18-qwen35-4b-fp8",
-        base_url="http://qwen4.test/v1",
-        api_key="not-needed",
-        model="qwen4",
-        max_retries=0,
-    )
-    qwen = LLMProviderConfig(
-        name="qwen-self-hosted",
-        base_url="http://awq.test/v1",
-        api_key="not-needed",
-        model="awq",
-    )
-    deepseek = LLMProviderConfig(
-        name="deepseek",
-        base_url="https://deepseek.test/v1",
-        api_key="key",
-        model="flash",
-    )
-    monkeypatch.setattr(llm_client, "_free_llm_providers", lambda: [qwen38, qwen4])
-    monkeypatch.setattr(llm_client, "_qwen_llm_provider", lambda: qwen)
-    monkeypatch.setattr(llm_client, "_deepseek_llm_provider", lambda: deepseek)
-
-    chain = ResilientLLMClient.from_settings(max_retries_per_provider=2)
-
-    assert chain.provider_names == [
-        "deepseek",
-        "gx10-17-18-qwen38-27b-nvfp4",
-        "gx10-18-qwen35-4b-fp8",
-    ]
+    assert chain.provider_names == ["deepseek", "qwen38-flash-next-asus", "glm53-flash-asus"]
     assert [client.max_retries for client in chain._clients] == [2, 0, 0]
+
+
+def test_generation_fallback_gate_replaces_legacy_qwen_with_owner_selected_asus_chain(monkeypatch):
+    qwen = LLMProviderConfig(name="qwen38-flash-next-asus", base_url="x", api_key="y", model="qwen")
+    glm = LLMProviderConfig(name="glm53-flash-asus", base_url="x", api_key="y", model="glm")
+    monkeypatch.setattr(llm_client, "get_settings", lambda: SimpleNamespace(ASUS_LLM_CHAIN_ENABLED=True))
+    monkeypatch.setattr(llm_client, "_qwen38_flash_llm_provider", lambda: qwen)
+    monkeypatch.setattr(llm_client, "_glm53_flash_llm_provider", lambda: glm)
+
+    providers = llm_client._generation_fallback_providers()
+
+    assert [provider.name for provider in providers] == ["qwen38-flash-next-asus", "glm53-flash-asus"]
 
 
 def test_deepseek_uses_supported_json_object_response_format():
@@ -230,11 +206,10 @@ def test_openai_base_url_adds_v1_once():
 
 @pytest.mark.asyncio
 async def test_async_settings_chain_prefers_db_deepseek_key(monkeypatch):
-    qwen = LLMProviderConfig(name="qwen-self-hosted", base_url="https://qwen.test", api_key="key", model="qwen")
-    monkeypatch.setattr(llm_client, "_qwen_llm_provider", lambda: qwen)
-    monkeypatch.setattr(llm_client, "_qwen_free_pool_provider", lambda: qwen)
+    qwen = LLMProviderConfig(name="qwen38-flash-next-asus", base_url="https://qwen.test", api_key="key", model="qwen")
+    glm = LLMProviderConfig(name="glm53-flash-asus", base_url="https://glm.test", api_key="key", model="glm")
+    monkeypatch.setattr(llm_client, "_generation_fallback_providers", lambda: [qwen, glm])
     monkeypatch.setattr(llm_client, "_deepseek_llm_provider", lambda: None)
-    monkeypatch.setattr(llm_client, "_free_llm_providers", lambda: [])
 
     async def resolve_key(provider, env_key):
         return "db-deepseek-key"
@@ -243,38 +218,31 @@ async def test_async_settings_chain_prefers_db_deepseek_key(monkeypatch):
 
     chain = await ResilientLLMClient.from_settings_async()
 
-    assert chain.provider_names == ["deepseek", "qwen-self-hosted"]
+    assert chain.provider_names == ["deepseek", "qwen38-flash-next-asus", "glm53-flash-asus"]
 
 
 @pytest.mark.asyncio
-async def test_async_settings_chain_places_db_deepseek_before_free_pool(monkeypatch):
-    free = LLMProviderConfig(
-        name="gx10-7-thinkingcap",
-        base_url="http://thinkingcap.test/v1",
-        api_key="not-needed",
-        model="thinkingcap",
-        max_retries=0,
-    )
+async def test_async_settings_chain_without_deepseek_starts_with_qwen38(monkeypatch):
     qwen = LLMProviderConfig(
-        name="qwen-self-hosted",
-        base_url="http://awq.test/v1",
+        name="qwen38-flash-next-asus",
+        base_url="http://qwen.test/v1",
         api_key="not-needed",
-        model="awq",
+        model="qwen38",
     )
-    monkeypatch.setattr(llm_client, "_free_llm_providers", lambda: [free])
-    monkeypatch.setattr(llm_client, "_qwen_llm_provider", lambda: qwen)
+    glm = LLMProviderConfig(name="glm53-flash-asus", base_url="http://glm.test/v1", api_key="key", model="glm")
+    monkeypatch.setattr(llm_client, "_generation_fallback_providers", lambda: [qwen, glm])
     monkeypatch.setattr(llm_client, "_deepseek_llm_provider", lambda: None)
 
     async def resolve_key(provider, env_key):
-        return "db-deepseek-key"
+        return None
 
     monkeypatch.setattr(llm_client, "_resolve_db_key", resolve_key)
 
     chain = await ResilientLLMClient.from_settings_async()
 
     assert chain.provider_names == [
-        "deepseek",
-        "gx10-7-thinkingcap",
+        "qwen38-flash-next-asus",
+        "glm53-flash-asus",
     ]
 
 
@@ -635,8 +603,8 @@ def test_create_llm_returns_resilient_client_with_defaults():
 
     client = create_llm()
     assert isinstance(client, ResilientLLMClient)
-    # In test/dev env, DEEPSEEK_API_KEY is empty, so chain has only Qwen.
-    assert "qwen-self-hosted" in client.provider_names
+    # The ASUS chain is gated until the API host proves its private route.
+    assert client.provider_names == ["qwen-self-hosted"]
 
 
 def test_create_embeddings_returns_resilient_client_with_defaults():

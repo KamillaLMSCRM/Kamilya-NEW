@@ -66,12 +66,14 @@ pnpm dev
 - `app.core.auth` отвечает за JWT, текущего пользователя, tenant context и RBAC.
 - `app.core.email.EmailService` поддерживает `log` и Resend.
 - AI-пайплайн генерирует структуру и содержание курсов из документов.
-- Пользовательская генерация проходит через `ResilientLLMClient`. В
-  подтверждённом приватном VPS/WireGuard-контуре опциональный бесплатный пул
-  последовательно пробует ThinkingCap 27B NVFP4, Qwen 35B-A3B NVFP4 и
-  существующий Qwen 35B-A3B AWQ; затем используется DeepSeek. На хосте без
-  подтверждённого приватного маршрута пул выключен, и сохраняется прежний
-  DeepSeek/Qwen fallback. Техническую модель пользователь не выбирает.
+- Пользовательская генерация проходит через `ResilientLLMClient`. DeepSeek
+  используется первым, когда активный ключ настроен через environment или
+  зашифрованное хранилище provider keys. После отдельного VM126 network smoke
+  `ASUS_LLM_CHAIN_ENABLED=true` заменяет старый Qwen fallback на порядок
+  `Qwen 3.8 Flash Next -> GLM 5.3 Flash`; оба приватных endpoint-а работают с
+  коротким connect timeout и без внутренних повторов. Пока gate выключен,
+  сохраняется проверенный `QWEN_API_URL`. Техническую модель пользователь не
+  выбирает.
 
 ### Frontend
 
@@ -366,11 +368,10 @@ assignment и evidence-механизмы.
 6. Если релевантные chunks отсутствуют, задача завершается контролируемой ошибкой. Fallback на общие знания LLM запрещён.
 7. Qwen embeddings использует Voyage как fallback. При недоступности обоих провайдеров индексация завершается ошибкой; синтетические hash-векторы не сохраняются.
 
-LLM provider routing отделён от embeddings. `FREE_LLM_POOL_ENABLED` включает
-два дополнительных приватных vLLM endpoint-а перед существующим Qwen; сам
-Qwen уже является третьей бесплатной моделью и не дублируется. Недоступные
-дополнительные endpoint-ы имеют короткий connect timeout и нулевой внутренний
-retry, после чего вызов продолжает общую цепочку. Render держит флаг
+LLM provider routing отделён от embeddings. `ASUS_LLM_CHAIN_ENABLED` включает
+новый резервный порядок `Qwen 3.8 Flash Next -> GLM 5.3 Flash` после DeepSeek и
+исключает старый Qwen из пользовательской цепочки. Недоступные ASUS endpoint-ы
+имеют короткий connect timeout и нулевой внутренний retry. Флаг остаётся
 выключенным до сетевого smoke из фактического API-host; проверка `/models` с
 рабочей станции не является deployment evidence. Полный контракт закреплён в
 [ADR-0007](adr/0007-ai-pipeline-failover.md).
