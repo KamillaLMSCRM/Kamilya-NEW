@@ -1667,3 +1667,21 @@ contract or establish a blocker.
   roundtrip before declaring provider-key management available. Provider status
   and probes may expose only provider name, activation state, latency and error
   category; plaintext and ciphertext never enter evidence or logs.
+
+## TEST-012 - A phone-shaped apply-marker UUID triggered assistant PII refusal
+
+- Date: 2026-09-07.
+- Symptom: exact-SHA CI failed one otherwise safe assistant test because a random
+  lesson UUID made the public response policy return the generic scope refusal.
+- Cause: the policy scanned the raw model response before parsing the internal
+  `[APPLY_LESSON:UUID]` protocol marker. A UUID ending in eleven decimal digits
+  matched the phone-number redactor even though the UUID was not public content.
+- Fix: parse the marker first, then apply the unchanged fail-closed policy
+  independently to the visible reply, proposed lesson content and optional title.
+  Marker UUIDs remain constrained to the methodologist-selected lesson.
+- Verification: a deterministic phone-shaped UUID reproduces the pre-fix refusal;
+  the corrected assistant policy suite passes all 28 tests, including secret and
+  cross-lesson rejection cases. Replacement exact-SHA CI remains required.
+- Prevention: structured internal response metadata must be parsed before public
+  content redaction, while every user-visible or persisted field is validated
+  separately with deterministic adversarial identifiers.

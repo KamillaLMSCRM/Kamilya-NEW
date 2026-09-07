@@ -881,10 +881,6 @@ async def chat(
             detail="AI assistant is unavailable, try again",
         ) from e
 
-    if not assistant_reply_is_safe(reply):
-        logger.warning("AI chat reply blocked by public response policy")
-        return AIChatResponse(reply=assistant_scope_refusal(req.language))
-
     # Parse [APPLY_LESSON:UUID]body[/APPLY_LESSON] blocks — extract the first one
     # if present, strip from reply. Pattern is permissive on whitespace.
     import re
@@ -908,6 +904,19 @@ async def chat(
             apply_id = None
             apply_content = None
 
+    # The UUID is internal protocol metadata, not public assistant content. A
+    # phone-shaped UUID must not trip the PII detector, but every user-visible
+    # field and every proposed edit still passes the same fail-closed policy.
+    public_reply = reply or "(пустой ответ)"
+    reply_parts = [public_reply]
+    if apply_content is not None:
+        reply_parts.append(apply_content)
+    if apply_title_hint:
+        reply_parts.append(apply_title_hint)
+    if any(not assistant_reply_is_safe(part) for part in reply_parts):
+        logger.warning("AI chat reply blocked by public response policy")
+        return AIChatResponse(reply=assistant_scope_refusal(req.language))
+
     # A model-generated marker can only target the lesson explicitly selected
     # by the methodologist. Never turn an arbitrary UUID into an apply action.
     if (
@@ -923,7 +932,7 @@ async def chat(
         apply_title_hint = None
 
     return AIChatResponse(
-        reply=reply or "(пустой ответ)",
+        reply=public_reply,
         apply_lesson_id=apply_id,
         apply_lesson_content=apply_content,
         apply_lesson_title_hint=apply_title_hint,

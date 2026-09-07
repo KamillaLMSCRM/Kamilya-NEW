@@ -3,7 +3,7 @@ from __future__ import annotations
 import inspect
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 
@@ -239,7 +239,9 @@ async def test_sensitive_context_is_redacted_before_provider_call(monkeypatch) -
 
 @pytest.mark.asyncio
 async def test_apply_marker_is_exposed_only_for_the_selected_lesson(monkeypatch) -> None:
-    selected_lesson_id = uuid4()
+    # This UUID deliberately contains a phone-shaped digit sequence. Internal
+    # protocol metadata must not make an otherwise safe public reply flaky.
+    selected_lesson_id = UUID("60543ca8-cc6a-43b7-86f7-a84483088191")
 
     class LLMWithSelectedTarget:
         async def ainvoke(self, _messages):
