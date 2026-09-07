@@ -29,6 +29,7 @@ const routing = {
 
 describe('superadmin generation model routing modal', () => {
   beforeEach(() => {
+    vi.stubEnv('NEXT_PUBLIC_API_URL', 'https://api.example.test/api');
     useLanguageStore.setState({ lang: 'ru' });
     useAuthStore.setState({
       accessToken: 'superadmin-token',
@@ -69,6 +70,7 @@ describe('superadmin generation model routing modal', () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
   });
 
   it('keeps DeepSeek first and persists an accessible fallback reorder', async () => {
@@ -85,7 +87,7 @@ describe('superadmin generation model routing modal', () => {
 
     await waitFor(() => {
       expect(fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/admin/model-routing'),
+        'https://api.example.test/api/v1/admin/model-routing',
         expect.objectContaining({
           method: 'PUT',
           body: JSON.stringify({

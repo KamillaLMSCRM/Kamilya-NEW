@@ -36,7 +36,7 @@ export async function getGenerationModelRouting(
   apiUrl: string | undefined,
   token: string,
 ): Promise<GenerationModelRouting> {
-  const response = await fetch(`${apiUrl}/admin/model-routing`, {
+  const response = await fetch(`${apiUrl}/v1/admin/model-routing`, {
     headers: { Authorization: `Bearer ${token}` },
   });
   return parseResponse(response);
@@ -48,7 +48,7 @@ export async function saveGenerationModelRouting(
   revision: number,
   orderedModelIds: string[],
 ): Promise<GenerationModelRouting> {
-  const response = await fetch(`${apiUrl}/admin/model-routing`, {
+  const response = await fetch(`${apiUrl}/v1/admin/model-routing`, {
     method: 'PUT',
     headers: {
       Authorization: `Bearer ${token}`,
