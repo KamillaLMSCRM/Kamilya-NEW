@@ -16,6 +16,7 @@ Default repo_root is the parent of this script's directory.
 
 from __future__ import annotations
 
+import argparse
 import json
 import re
 import sys
@@ -85,15 +86,75 @@ def validate(repo: Path) -> list[str]:
     return errors
 
 
-def main(argv: list[str]) -> int:
-    repo = Path(argv[1]).resolve() if len(argv) > 1 else Path(__file__).resolve().parent.parent
+def validate_release(repo: Path, *, expected_version: str = "") -> list[str]:
     errors = validate(repo)
+    try:
+        version = read_version_file(repo)
+    except Exception:
+        return errors
+
+    if expected_version and version != expected_version:
+        errors.append(
+            f"expected version {expected_version!r} does not match VERSION={version!r}"
+        )
+
+    try:
+        changelog = (repo / CHANGELOG).read_text(encoding="utf-8")
+    except OSError as exc:
+        errors.append(f"{CHANGELOG}: {exc}")
+    else:
+        release_heading = re.compile(
+            rf"^## \[{re.escape(version)}\] - \d{{4}}-\d{{2}}-\d{{2}}$",
+            re.MULTILINE,
+        )
+        match = release_heading.search(changelog)
+        if match is None:
+            errors.append(f"{CHANGELOG} has no dated release section for [{version}]")
+        elif "## [Unreleased]" in changelog and changelog.index("## [Unreleased]") > match.start():
+            errors.append(f"{CHANGELOG} [Unreleased] must precede [{version}]")
+
+    notes_rel = f"docs/releases/v{version}.md"
+    notes_path = repo / notes_rel
+    if not notes_path.is_file():
+        errors.append(f"release notes missing: {notes_rel}")
+    else:
+        notes = notes_path.read_text(encoding="utf-8")
+        required_markers = (
+            f"# Release Notes — {version}",
+            f"**Product version:** {version}",
+            f"**Git tag:** `v{version}`",
+        )
+        for marker in required_markers:
+            if marker not in notes:
+                errors.append(f"release notes missing identity marker: {marker}")
+        placeholders = ("[VERSION]", "YYYY-MM-DD", "yes/no", "<full-or-short-SHA>")
+        if any(placeholder in notes for placeholder in placeholders):
+            errors.append(f"release notes contain an unresolved template placeholder: {notes_rel}")
+    return errors
+
+
+def main(argv: list[str]) -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("repo_root", nargs="?")
+    parser.add_argument("--release", action="store_true")
+    parser.add_argument("--expected-version", default="")
+    args = parser.parse_args(argv[1:])
+    repo = Path(args.repo_root).resolve() if args.repo_root else Path(__file__).resolve().parent.parent
+    errors = (
+        validate_release(repo, expected_version=args.expected_version)
+        if args.release
+        else validate(repo)
+    )
     if errors:
         for err in errors:
             print(f"VERSION VALIDATION ERROR: {err}", file=sys.stderr)
         return 1
     version = read_version_file(repo)
-    print(f"VERSION OK: {version} consistent across VERSION, {API_MANIFEST}, {WEB_MANIFEST}")
+    mode = "release" if args.release else "development"
+    print(
+        f"VERSION OK: {version} consistent across VERSION, "
+        f"{API_MANIFEST}, {WEB_MANIFEST} ({mode})"
+    )
     return 0
 
 

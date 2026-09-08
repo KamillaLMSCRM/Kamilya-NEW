@@ -14,7 +14,10 @@ def test_health_exposes_non_secret_deployment_identity():
     assert response.json() == {
         "status": "ok",
         "app": "Kamilya LMS",
+        "product_version": "0.3.0",
         "app_environment": "test",
         "deployment_environment": "local",
         "release_sha": "unknown",
     }
+
+    assert app.version == "0.3.0"

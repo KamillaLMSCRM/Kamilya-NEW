@@ -14,6 +14,10 @@ on:
         description: "Exact 40-character commit SHA"
         required: true
         type: string
+      release_version:
+        description: "Exact approved product version X.Y.Z; required for production deploy"
+        required: false
+        type: string
       ci_run_id:
         description: "Successful CI workflow run ID for this exact SHA"
         required: true
@@ -71,6 +75,7 @@ jobs:
     env:
       CI_RUN_ID: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.id || inputs.ci_run_id }}
       RELEASE_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || inputs.release_sha }}
+      RELEASE_VERSION: ${{ inputs.release_version || '' }}
     outputs:
       image: ${{ steps.image.outputs.name }}
       digest: ${{ steps.build.outputs.digest }}
@@ -96,6 +101,36 @@ jobs:
       - name: Verify checked-out SHA
         shell: bash
         run: test "$(git rev-parse HEAD)" = "${RELEASE_SHA}"
+
+      - name: Validate product version files
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/validate_version.py
+          printf 'PRODUCT_VERSION=%s\n' "$(cat VERSION)" >> "${GITHUB_ENV}"
+
+      - name: Validate immutable product release identity
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy_to_production }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          [[ "${RELEASE_VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          python scripts/validate_version.py --release --expected-version "${RELEASE_VERSION}"
+          tag_object="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/v${RELEASE_VERSION}" --jq '[.object.type,.object.sha] | @tsv')"
+          IFS=$'\t' read -r tag_type tag_sha <<<"${tag_object}"
+          if [[ "${tag_type}" == "tag" ]]; then
+            tag_commit_sha="$(gh api "repos/${GITHUB_REPOSITORY}/git/tags/${tag_sha}" --jq '.object.sha')"
+          else
+            [[ "${tag_type}" == "commit" ]]
+            tag_commit_sha="${tag_sha}"
+          fi
+          [[ "${tag_commit_sha}" == "${RELEASE_SHA}" ]]
+          release_draft="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/v${RELEASE_VERSION}" --jq '.draft')"
+          release_prerelease="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/v${RELEASE_VERSION}" --jq '.prerelease')"
+          [[ "${release_draft}" == "false" ]]
+          [[ "${release_prerelease}" == "false" ]]
 
       - name: Resolve lowercase image name
         id: image
@@ -152,6 +187,7 @@ jobs:
           payload = {
               "schema_version": 1,
               "release_sha": os.environ["RELEASE_SHA"],
+              "product_version": os.environ["PRODUCT_VERSION"],
               "image": os.environ["IMAGE"],
               "ci_run_id": os.environ["CI_RUN_ID"],
           }

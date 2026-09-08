@@ -9,15 +9,12 @@ from __future__ import annotations
 
 import json
 import re
-import shutil
 import sys
 from pathlib import Path
 
-import pytest
-
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from validate_version import validate  # noqa: E402
+from validate_version import validate, validate_release  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 VERSION_FILE = "VERSION"
@@ -111,3 +108,50 @@ def test_missing_unreleased_section_detected(tmp_path: Path) -> None:
     (repo / "CHANGELOG.md").write_text("# Changelog\n", encoding="utf-8")
     errors = validate(repo)
     assert any("Unreleased" in e for e in errors)
+
+
+def test_release_validation_accepts_matching_changelog_and_notes(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    (repo / "CHANGELOG.md").write_text(
+        "# Changelog\n\n## [Unreleased]\n\n## [0.1.0] - 2026-09-08\n",
+        encoding="utf-8",
+    )
+    notes = repo / "docs" / "releases" / "v0.1.0.md"
+    notes.parent.mkdir(parents=True)
+    notes.write_text(
+        "# Release Notes — 0.1.0\n\n"
+        "**Release date:** 2026-09-08  \n"
+        "**Product version:** 0.1.0  \n"
+        "**Git tag:** `v0.1.0`\n",
+        encoding="utf-8",
+    )
+
+    assert validate_release(repo, expected_version="0.1.0") == []
+
+
+def test_release_validation_rejects_missing_notes_and_wrong_expected_version(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    errors = validate_release(repo, expected_version="0.2.0")
+
+    assert any("expected version" in error for error in errors)
+    assert any("release notes" in error for error in errors)
+    assert any("CHANGELOG" in error for error in errors)
+
+
+def test_release_validation_rejects_template_placeholders(tmp_path: Path) -> None:
+    repo = make_repo(tmp_path)
+    (repo / "CHANGELOG.md").write_text(
+        "# Changelog\n\n## [Unreleased]\n\n## [0.1.0] - 2026-09-08\n",
+        encoding="utf-8",
+    )
+    notes = repo / "docs" / "releases" / "v0.1.0.md"
+    notes.parent.mkdir(parents=True)
+    notes.write_text(
+        "# Release Notes — 0.1.0\n\n"
+        "**Product version:** 0.1.0\n\n"
+        "Database migrations: required: yes/no\n",
+        encoding="utf-8",
+    )
+
+    errors = validate_release(repo, expected_version="0.1.0")
+    assert any("placeholder" in error for error in errors)

@@ -14,6 +14,7 @@ from urllib.parse import urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 FULL_SHA = re.compile(r"^[0-9a-fA-F]{40}$")
+SEMVER = re.compile(r"^\d+\.\d+\.\d+$")
 MAX_RESPONSE_BYTES = 1024 * 1024
 
 
@@ -27,6 +28,7 @@ def validate_health_payload(
     *,
     expected_deployment: str,
     expected_release: str,
+    expected_version: str,
 ) -> list[str]:
     errors: list[str] = []
     if not isinstance(payload, dict):
@@ -35,6 +37,11 @@ def validate_health_payload(
         errors.append("status must be ok")
     if payload.get("app") != "Kamilya LMS":
         errors.append("app identity does not match Kamilya LMS")
+    actual_version = payload.get("product_version")
+    if not isinstance(actual_version, str) or SEMVER.fullmatch(actual_version) is None:
+        errors.append("product_version must be an X.Y.Z semantic version")
+    if expected_version and actual_version != expected_version:
+        errors.append("product_version does not match the expected version")
     if payload.get("app_environment") != "production":
         errors.append("app_environment must be production")
     if payload.get("deployment_environment") != expected_deployment:
@@ -86,10 +93,14 @@ def main() -> int:
     parser.add_argument("--web-url", default="https://app.kml.kz/login")
     parser.add_argument("--expected-deployment", default="kz-production")
     parser.add_argument("--expected-release", default=os.getenv("EXPECTED_RELEASE_SHA", ""))
+    parser.add_argument("--expected-version", default=os.getenv("EXPECTED_PRODUCT_VERSION", ""))
     args = parser.parse_args()
 
     if args.expected_release and not FULL_SHA.fullmatch(args.expected_release):
         print("verification failed: expected release must be a full 40-character Git SHA", file=sys.stderr)
+        return 2
+    if args.expected_version and not SEMVER.fullmatch(args.expected_version):
+        print("verification failed: expected version must be an X.Y.Z semantic version", file=sys.stderr)
         return 2
     try:
         payload = _fetch_json_without_redirect(args.api_url)
@@ -97,6 +108,7 @@ def main() -> int:
             payload,
             expected_deployment=args.expected_deployment,
             expected_release=args.expected_release,
+            expected_version=args.expected_version,
         )
         if errors:
             raise RuntimeError("; ".join(errors))

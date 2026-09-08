@@ -43,11 +43,19 @@ the policy, validator, tests, and release tooling must change together.
      `## [X.Y.Z] - YYYY-MM-DD` section,
    - bumps `VERSION` and both app manifests to the same `X.Y.Z`,
    - creates the release tag,
+   - publishes a non-draft, non-prerelease GitHub Release from the matching
+     release-notes file,
    - claims the release and authorizes deployment. The already authorized
      technical execution may be delegated only to the named Release Runner
      through its complete exact-SHA packet; root retains GO/NO_GO and acceptance.
 4. **Post-release** — a fresh empty `[Unreleased]` section starts the next
    cycle.
+
+Production deployment additionally requires an exact `release_version`. The
+protected workflow fails closed unless `VERSION`, the dated changelog section,
+`docs/releases/vX.Y.Z.md`, tag `vX.Y.Z`, published GitHub Release and requested
+release SHA all identify the same immutable commit. Production readback must
+confirm both the semantic `product_version` and the exact `release_sha`.
 
 The first release has no changelog comparison link because no earlier product
 tag exists. From the second release onward, root adds an `[Unreleased]`

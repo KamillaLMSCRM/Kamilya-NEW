@@ -72,6 +72,21 @@ def test_previous_runtime_identity_is_optional_until_production_deploy() -> None
     assert "github.event_name == 'workflow_dispatch' && inputs.deploy_to_production" in deploy
 
 
+def test_production_deploy_requires_version_tag_and_published_release() -> None:
+    text = WORKFLOW.read_text(encoding="utf-8")
+    inputs = text[: text.index("\npermissions:")]
+    build = _job(text, "build-image")
+
+    assert "release_version:" in inputs
+    assert "RELEASE_VERSION: ${{ inputs.release_version || '' }}" in build
+    assert "python scripts/validate_version.py --release" in build
+    assert 'git/ref/tags/v${RELEASE_VERSION}' in build
+    assert 'releases/tags/v${RELEASE_VERSION}' in build
+    assert '[[ "${tag_commit_sha}" == "${RELEASE_SHA}" ]]' in build
+    assert '[[ "${release_draft}" == "false" ]]' in build
+    assert '[[ "${release_prerelease}" == "false" ]]' in build
+
+
 def test_production_job_is_protected_fixed_runner_without_checkout() -> None:
     text = WORKFLOW.read_text(encoding="utf-8")
     deploy = _job(text, "deploy-production")

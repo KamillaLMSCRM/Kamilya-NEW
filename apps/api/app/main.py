@@ -26,6 +26,7 @@ from app.core.log_redaction import (
     install_sensitive_logging_filters,
     scrub_sentry_event,
 )
+from app.core.product_version import PRODUCT_VERSION
 from app.core.rate_limit import RateLimitMiddleware
 from app.core.security import SecurityHeadersMiddleware
 from app.modules.admin.model_routing.router import router as model_routing_router
@@ -178,7 +179,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title=settings.APP_NAME,
-    version="0.1.0",
+    version=PRODUCT_VERSION,
     docs_url=None if settings.APP_ENV == "production" else f"{settings.API_PREFIX}/docs",
     redoc_url=None if settings.APP_ENV == "production" else f"{settings.API_PREFIX}/redoc",
     openapi_url=None if settings.APP_ENV == "production" else f"{settings.API_PREFIX}/openapi.json",
@@ -288,6 +289,7 @@ def _deployment_identity() -> dict[str, str]:
     return {
         "status": "ok",
         "app": settings.APP_NAME,
+        "product_version": PRODUCT_VERSION,
         "app_environment": settings.APP_ENV,
         "deployment_environment": settings.DEPLOYMENT_ENVIRONMENT,
         "release_sha": release_sha,

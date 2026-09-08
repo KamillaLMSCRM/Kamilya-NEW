@@ -7,112 +7,69 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Changed
-- User-facing generation now uses the fixed provider order DeepSeek,
-  `custom:qwen38-flash-next`, then GLM 5.3 Flash; the legacy public Qwen is no
-  longer a generation fallback. Embedding routing is unchanged.
-
 ### Added
-- Superadmin generation-model routing: a secret-free modal can enable approved
-  fallbacks and reorder them below the mandatory DeepSeek primary. Atomic
-  revision checks prevent lost updates, and new AI jobs load the persisted
-  route without a worker restart (additive migration `0156`).
-- Learning insights (release candidate): methodologist answer inspection from immutable quiz evidence, unique-employee first/latest question statistics, explicit unavailable comparisons, and tenant-isolated question follow-up statuses. Additive migration `0155`; no LLM calls or automated training assignments.
-- Buyer journey: public RU/KK/EN interactive learning example at `/login/example`, with fictional results, answer feedback and explanatory next steps; no tenant writes or AI requests.
-- Methodologist dashboard: real training-summary counts, loading/error isolation and two explicit starting paths (materials or course basis). Empty AI queues are hidden; failed and unknown jobs remain visible.
-
-### Fixed
-- AI course generation now checks cancellation between assessment requests and
-  retries, reports only completed assessment work, and serializes cancellation
-  with course persistence so a cancelled job cannot leave an unlinked course.
-  Validation diagnostics expose bounded reason codes without model or tenant text.
-- Demo and blueprint copy now distinguish illustrative examples, available course foundations and company expert approval; Russian catalog limitations no longer fall back to English.
-- Reminder delivery now owns its async database connections per worker invocation, preventing cross-event-loop failures without changing the API connection pool or email deduplication.
-- Legacy assignment outboxes now support their non-bypass function owner under FORCE RLS; course recurrence accepts a nullable audited system actor without admitting foreign-tenant actors.
-
-- Fixed: scheduled recurring learning and reminder payload discovery now work
-  with a non-bypass database function owner; additive migration 0153 retains
-  tenant isolation and runtime privileges, with rollback-scoped SQL regression.
-
-- Security: exclude local environment files, private-key material, dependency
-  trees and test/build caches from Docker build contexts; the immutable-image
-  workflow now blocks images that contain local env files or run as the wrong UID.
-- Security: run the API/worker image as fixed non-root UID/GID 10001 and confine KZ
-  release services with a read-only rootfs, bounded `/tmp`, dropped capabilities and
-  `no-new-privileges`.
-- Security: remove repository-known MinIO credentials; local Compose now requires
-  operator-supplied non-empty root credentials before service creation.
-- Security: upgrade vulnerable Python runtime/test dependencies and add a blocking,
-  lock-derived production dependency audit to CI with no advisory ignores.
-- Security: keep tenant SMTP transport exception details out of API responses and
-  integration-audit metadata while preserving a stable error category.
-
-### Added
-
-- Methodologist reminder settings and on-demand status history on recurring-rule
-  cards, with 1–30-day validation and reminder-only updates; delivery stays off
-  globally until a separately accepted rollout.
-- Disabled-by-default recurring-learning reminder backend: occurrence-bound
-  outbox, bounded claims/retries, methodologist rule settings/statuses, safe
-  email delivery and tenant-purge guards (additive migration 0152). Production
-  activation and live-provider acceptance remain separately gated.
-- Training-log recurring-cycle deadlines, an overdue filter/count and matching
-  CSV fields; completed, skipped/cancelled and legacy assignments are handled
-  explicitly. Deadline badges remain compatible with older API payloads.
-- Document catalog provenance showing the tenant-local uploader display name
-  and the existing creation date/time without exposing user IDs or email.
-- Render-like KZ release plane with immutable GHCR image digests, protected
-  exact-CI deployment manifests, two API slots, synchronized workers,
-  fail-closed rollback, encrypted CT125 backup gating and append-only evidence.
-- Protected release-plane self-upgrade bundles with exact CI/current-controller
-  identity, fixed destinations, atomic installation, rollback and readback, plus
-  an idempotent persistent synthetic production smoke-tenant provisioner.
 
 ### Changed
 
-- The public login page no longer advertises the separate platform-superadmin
-  entry point; existing superadmins continue to use the standard email/password
-  login flow.
-- Workforce navigation now keeps positions, employee groups and candidate
-  assessments inside an expandable staff section instead of presenting every
-  destination as a separate top-level sidebar item.
-- Public trial registration no longer asks for or creates a password; verified
-  owners sign in again with a one-time email code, while existing password-based
-  accounts remain compatible.
-- Course creation now exposes the existing feature-gated YouTube caption
-  analysis flow and returns confirmed imports to generation as selected sources.
-
 ### Fixed
-
-- Opening course generation now restores only an active job for the current
-  tenant; an older failed or cancelled job no longer forces a new form onto the
-  generation-progress step.
-- KZ release controller now supports VM126's stock Python 3.10 runtime, and the
-  protected production workflow invokes only the installed fixed-command wrapper.
-- AI-generated quizzes now keep concise source-grounded answers separate from
-  evidence excerpts, reject answer-length clues and implausible distractors,
-  accumulate only independently validated questions across bounded retries, and
-  require explicit methodologist review before course publication.
-- Superadmin tenant deletion now handles published immutable course releases
-  through an exact-tenant, slug-confirmed security-definer path while preserving
-  the normal immutability guard and the protected production tenant.
 
 ### Security
 
-- Hardened SCORM 1.2 package intake against unsafe archive paths, duplicate or
-  ambiguous entries, encrypted and symbolic-link members, decompression bombs,
-  oversized manifests and XML entity/DTD expansion before any persistent write.
-- SCORM progress commits now accept only bounded SCORM 1.2 CMI fields with
-  scalar string values, normalized completion statuses and cumulative state
-  limits; an ingress guard rejects oversized bodies before decoding, row locks
-  serialize concurrent commits, and rejected payloads leave attempts unchanged.
-- The LMS frontend now applies one tested security-header policy to every route,
-  including CSP anti-framing and resource boundaries, MIME sniffing protection,
-  referrer and permissions restrictions, and HSTS.
-- Browser refresh sessions now use one policy for exact trusted-Origin and
-  Fetch Metadata checks, production JSON-only mutations, same-site secure
-  cookies, symmetric deletion and production rejection of body-carried refresh
-  tokens across login, OTP, role switch, invitation and trial-registration flows.
+## [0.3.0] - 2026-09-08
+
+### Added
+
+- Tenant-scoped course approval and review: methodologists can send a course to
+  internal or guest reviewers, collect decisions and comments, and retain the
+  review context before publication.
+- Learning Insights for methodologists: inspect incorrect learner answers from
+  immutable attempt evidence, compare first and latest answers, view aggregate
+  question statistics, and record a follow-up status without automated actions
+  or LLM calls.
+- Recurring learning programs with cycle deadlines, overdue visibility, CSV
+  reporting, reminder settings and delivery-status history. Global reminder
+  delivery remains disabled until a separately accepted rollout.
+- A public RU/KK/EN interactive learning example and a methodologist dashboard
+  with real training-summary counts and clear starting paths for materials or
+  ready course foundations.
+- Document provenance showing the tenant-local uploader and creation time, plus
+  the existing feature-gated YouTube-caption source flow.
+
+### Changed
+
+- AI-generated assessments require explicit methodologist review before course
+  publication and keep concise answers separate from supporting excerpts.
+- Public trial registration is passwordless; verified owners return through an
+  email code while existing password accounts remain compatible.
+- Staff-related navigation is grouped under one expandable section, and the
+  public login no longer advertises a separate superadmin entry point.
+- Tenant assistant responses are constrained to the tenant learning context and
+  do not disclose model, provider, configuration or secret operational details.
+
+### Fixed
+
+- Course-generation cancellation is serialized with course persistence and is
+  checked between assessment retries, preventing a cancelled job from leaving
+  an unlinked course or reporting unfinished work as complete.
+- New generation forms no longer reopen an old failed or cancelled job, and
+  valid assessment questions can be recovered across bounded retries.
+- Course approval navigation, guest-review credentials, pagination, action
+  confirmations and response serialization now preserve the intended reviewer
+  and tenant context.
+- Browser refresh requests are serialized across tabs, responsive navigation no
+  longer shifts the application shell, and learner program navigation remains
+  available for active recurring programs.
+- Reminder workers own their asynchronous database lifecycle, while recurring
+  learning and assignment outboxes remain usable under non-bypass database
+  ownership without weakening tenant boundaries.
+
+### Security
+
+- SCORM package intake and progress commits reject unsafe archives, XML entity
+  expansion, decompression bombs, invalid fields and oversized cumulative state
+  before persistent writes.
+- Browser-session mutations enforce trusted origins, Fetch Metadata, secure
+  same-site cookies, JSON-only production requests and symmetric token deletion.
 
 ## [0.2.0] - 2026-08-31
 
@@ -152,3 +109,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 ### Security
+
+[Unreleased]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.2.0...v0.3.0

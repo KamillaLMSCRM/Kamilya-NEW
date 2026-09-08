@@ -9,6 +9,10 @@ on:
         description: "Exact deployed release SHA for an explicit post-deploy check"
         required: false
         type: string
+      expected_product_version:
+        description: "Exact deployed X.Y.Z product version for an explicit post-deploy check"
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -31,6 +35,7 @@ jobs:
         shell: bash
         env:
           EXPECTED_RELEASE_SHA: ${{ inputs.expected_release_sha || '' }}
+          EXPECTED_PRODUCT_VERSION: ${{ inputs.expected_product_version || '' }}
         run: |
           set -euo pipefail
           for attempt in {1..12}; do

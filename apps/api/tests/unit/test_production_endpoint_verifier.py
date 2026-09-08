@@ -20,6 +20,7 @@ def test_identity_verifier_rejects_wrong_environment_and_release():
     payload = {
         "status": "ok",
         "app": "Kamilya LMS",
+        "product_version": "0.2.0",
         "app_environment": "production",
         "deployment_environment": "render-development",
         "release_sha": "a" * 40,
@@ -29,10 +30,12 @@ def test_identity_verifier_rejects_wrong_environment_and_release():
         payload,
         expected_deployment="kz-production",
         expected_release="b" * 40,
+        expected_version="0.3.0",
     )
 
     assert any("deployment_environment" in error for error in errors)
     assert any("release_sha" in error for error in errors)
+    assert any("product_version" in error for error in errors)
 
 
 def test_identity_verifier_accepts_exact_kz_release():
@@ -40,6 +43,7 @@ def test_identity_verifier_accepts_exact_kz_release():
     payload = {
         "status": "ok",
         "app": "Kamilya LMS",
+        "product_version": "0.3.0",
         "app_environment": "production",
         "deployment_environment": "kz-production",
         "release_sha": "a" * 40,
@@ -49,6 +53,7 @@ def test_identity_verifier_accepts_exact_kz_release():
         payload,
         expected_deployment="kz-production",
         expected_release="a" * 40,
+        expected_version="0.3.0",
     ) == []
 
 
@@ -57,6 +62,7 @@ def test_identity_verifier_requires_full_commit_sha():
     payload = {
         "status": "ok",
         "app": "Kamilya LMS",
+        "product_version": "0.3.0",
         "app_environment": "production",
         "deployment_environment": "kz-production",
         "release_sha": "short",
@@ -66,6 +72,7 @@ def test_identity_verifier_requires_full_commit_sha():
         payload,
         expected_deployment="kz-production",
         expected_release="",
+        expected_version="0.3.0",
     )
 
     assert any("full 40-character" in error for error in errors)
@@ -90,6 +97,8 @@ def test_monitoring_contract_separates_routine_health_from_post_deploy_release()
     assert 'cron: "*/15 * * * *"' in workflow
     assert "expected_release_sha:" in workflow
     assert "EXPECTED_RELEASE_SHA: ${{ inputs.expected_release_sha || '' }}" in workflow
+    assert "expected_product_version:" in workflow
+    assert "EXPECTED_PRODUCT_VERSION: ${{ inputs.expected_product_version || '' }}" in workflow
     assert "https://api.kml.kz/api/v1/health" in watchdog
     assert "EXPECTED_RELEASE_SHA" in watchdog
     assert "docker compose" in watchdog

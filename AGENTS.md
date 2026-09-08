@@ -635,6 +635,10 @@ KZ production gate. HTTP 200 не заменяет business smoke.
 - Семантическое версионирование и lifecycle релиза описаны в
   `docs/releases/README.md`; шаблон release notes —
   `docs/releases/RELEASE_NOTE_TEMPLATE.md`.
+- Production deploy продукта fail-closed без совпадающих `VERSION`, dated
+  changelog section, `docs/releases/vX.Y.Z.md`, тега `vX.Y.Z`, опубликованного
+  GitHub Release и exact release SHA. Readback обязан подтвердить одновременно
+  `product_version` и полный `release_sha`.
 
 ## Git и release
 
