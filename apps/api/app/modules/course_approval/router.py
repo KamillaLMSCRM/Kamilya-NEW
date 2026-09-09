@@ -22,6 +22,7 @@ from app.core.db import get_db
 from app.core.permissions import COURSE_APPROVAL_PERMISSIONS, require_permission
 from app.models.users import User
 from app.modules.audit.service import log_action
+from app.modules.courses.models import Course
 
 from .models import (
     CourseApprovalPolicy,
@@ -55,6 +56,7 @@ from .service import (
     decide,
     freeze_revision,
     get_or_create_attempt,
+    get_policy,
     learner_safe_review_snapshot,
     record_progress,
     resend_request_access,
@@ -335,6 +337,24 @@ async def configure_policy(course_id: UUID, req: ApprovalPolicyRequest, db: Asyn
     await db.commit()
     await _write_idempotency(db, tenant_id=user.tenant_id, key=idempotency_key, operation="course_approval.configure", fingerprint=fingerprint, response=response.model_dump(mode="json"))
     return response
+
+
+@router.get("/courses/{course_id}/approval-policy", response_model=ApprovalPolicyResponse, dependencies=tenant)
+async def read_policy(course_id: UUID, db: AsyncSession = Depends(get_db), user=Depends(require_permission(COURSE_APPROVAL_PERMISSIONS.CONFIGURE))):
+    # Match the write boundary: a policy row is optional, but the course itself
+    # must belong to the active tenant before its default can be read.
+    course = await db.scalar(select(Course.id).where(Course.id == course_id, Course.tenant_id == user.tenant_id))
+    if course is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found")
+    policy = await get_policy(db, course_id, user.tenant_id)
+    if policy is None:
+        return ApprovalPolicyResponse(course_id=course_id, requires_approval=False, review_enabled=True)
+    return ApprovalPolicyResponse(
+        course_id=course_id,
+        requires_approval=policy.requires_approval,
+        review_enabled=policy.review_enabled,
+        updated_at=policy.updated_at,
+    )
 
 
 @router.post("/courses/{course_id}/approval-revisions", response_model=ApprovalRevisionResponse, dependencies=workflow_write)

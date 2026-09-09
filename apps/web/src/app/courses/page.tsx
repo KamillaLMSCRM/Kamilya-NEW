@@ -8,6 +8,7 @@ import { useT } from '@/i18n/useT';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { toast } from '@/components/ui/Toast';
 import { api } from '@/lib/api';
+import { coursePublicationError } from '@/lib/coursePublicationError';
 import { Archive, GraduationCap, MoreVertical, ShieldCheck, Trash2 } from 'lucide-react';
 import { LoadError } from '@/components/ui/LoadError';
 
@@ -167,7 +168,7 @@ export default function CoursesPage() {
       fetchCourses();
     } catch (err: any) {
       toast.error(t('common.saveFailed'), {
-        description: apiErrorMessage(err, t('common.saveFailed')),
+        description: coursePublicationError(err?.response?.data, t) || apiErrorMessage(err, t('common.saveFailed')),
       });
     }
   };

@@ -15,6 +15,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.3.1] - 2026-09-09
+
+### Fixed
+
+- Course approval settings now load their saved server state when opening or switching courses, instead of displaying an unchecked default. Failed reads show a retry action rather than an incorrect disabled policy.
+- Publication conflicts explain the required approval action in Russian, Kazakh, and English in the course list, editor, and AI-generation result screen. Separate approval remains off by default and is enforced when explicitly enabled.
+
 ## [0.3.0] - 2026-09-08
 
 ### Added
@@ -110,5 +117,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
-[Unreleased]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.2.0...v0.3.0

@@ -1960,6 +1960,10 @@
     "defaultEmailSubject": "Kamilya LMS problem"
   },
   "courseApproval": {
+    "publishRequiresApproval": "Separate approval is enabled for this course. Open Course approval and obtain a reviewer decision. If approval is not required, turn off the setting there.",
+    "publishApprovalPending": "The course is awaiting reviewer decisions. Check its status under Course approval.",
+    "publishChangesRequested": "A reviewer requested changes. Update the course and submit it for approval again.",
+    "publishRevisionChanged": "The course changed after submission for approval. Submit the current version again.",
     "removeGuest": "Remove guest",
     "createRequest": "Create snapshot and request", "cancelConfirmTitle": "Cancel request?", "cancelConfirmDescription": "The request will be cancelled and pending deliveries stopped.", "confirmCancel": "Cancel request", "confirmRotate": "Rotate access",
     "credentialsTitle": "Reviewer access details", "credentialsWarning": "These credentials are shown only now and will not be available again after closing this panel.", "credentialsOneTime": "Hand these details to the reviewer now. Keep the link and PIN private.", "credentialsAcknowledge": "I have copied the credentials — close", "copyUrl": "Copy URL", "copyPin": "Copy PIN", "noCredentials": "No one-time credentials were issued for this delivery.", "copied": "Copied", "copyFailed": "Copy failed. Select and copy the link and PIN manually.", "revoke": "Revoke access",

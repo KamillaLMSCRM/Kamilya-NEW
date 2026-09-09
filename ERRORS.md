@@ -1,6 +1,6 @@
 # Error and Recurrence Prevention Log
 
-Current as of: 2026-09-07.
+Current as of: 2026-09-09.
 
 This is the single operational log for confirmed Kamilya LMS workflow errors,
 invalid assumptions, fixes, verification, and recurrence prevention. Open product
@@ -30,6 +30,25 @@ personal data, or raw logs here.
 Entry format: unique `CATEGORY-NNN`, date, observed symptom, confirmed cause,
 current fix, actual verification, and concrete prevention. If remediation remains
 open, also record status, safe interim path, and review condition.
+
+## APPROVAL-001 - Unchecked control did not reflect the persisted approval policy
+
+- Date: 2026-09-09.
+- Symptom: a methodologist-reviewed draft displayed an unchecked separate-approval
+  control, but publication returned HTTP 409 with `details.code=approval_required`.
+- Cause: the editor course response omitted the policy; the shared card
+  initialized from an absent value as false and never loaded the persisted policy.
+  Database/model defaults are already false; automatic enablement was not found.
+- Interim production recovery: owner-authorized explicit policy disable followed
+  by publication returned HTTP 200 and the published UI state. No bulk policy reset.
+- Fix: prepared tenant-scoped read-only policy endpoint; authoritative shared-card
+  readback, unknown/error states, retry and stale-response isolation; localized
+  publication errors. Existing explicit approval requirements remain enforced.
+- Verification: focused API and UI regression tests cover default/persisted
+  policies, ownership, read failure and course switching. Systemic deployment and
+  production readback remain pending; the customer recovery is not release proof.
+- Prevention: never infer persisted workflow state from an omitted response field.
+  Test reload, course switch and rejected publication; deploy API before frontend.
 
 ## TOOL-001 - Screenshot or browser context was mistaken for project scope
 

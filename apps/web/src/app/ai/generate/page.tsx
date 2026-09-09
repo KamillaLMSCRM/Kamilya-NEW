@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
 import { api } from '@/lib/api';
+import { coursePublicationError } from '@/lib/coursePublicationError';
 import {
   type DocumentCatalogResponse,
   type DocumentIndexStatus,
@@ -560,7 +561,7 @@ export default function AIGeneratePage() {
       toast.success('Курс опубликован', { description: 'Теперь его можно назначать обучающимся.' });
     } catch (error: any) {
       toast.error('Не удалось опубликовать курс', {
-        description: error?.response?.data?.detail || error?.message,
+        description: coursePublicationError(error?.response?.data, t) || error?.response?.data?.detail || error?.message,
       });
     } finally {
       setPublishSubmitting(false);

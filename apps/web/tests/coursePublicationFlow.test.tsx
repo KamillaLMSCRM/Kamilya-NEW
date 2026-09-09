@@ -36,6 +36,7 @@ vi.mock('@/components/ui/Toast', () => ({
 }));
 
 import CoursesPage from '@/app/courses/page';
+import { toast } from '@/components/ui/Toast';
 
 describe('course publication flow', () => {
   beforeEach(() => {
@@ -43,6 +44,7 @@ describe('course publication flow', () => {
     apiMock.post.mockReset();
     apiMock.delete.mockReset();
     confirmMock.mockReset();
+    vi.mocked(toast.error).mockClear();
   });
 
   it('routes an unapproved AI draft to review instead of calling publish', async () => {
@@ -86,6 +88,27 @@ describe('course publication flow', () => {
 
     expect(await screen.findByRole('button', { name: 'courses.publish' })).toBeInTheDocument();
     expect(screen.queryByText('Требует проверки')).not.toBeInTheDocument();
+  });
+
+  it('explains a required separate approval instead of exposing the raw 409 code', async () => {
+    apiMock.get.mockResolvedValue({ data: [{
+      id: 'course-approval', title: 'Reviewed draft', status: 'draft',
+      ai_generated: true, review_status: 'approved', delivery_type: 'native',
+    }] });
+    apiMock.post.mockRejectedValue({ response: { status: 409, data: {
+      error: 'conflict', message: "{'code': 'approval_required'}",
+      details: { code: 'approval_required' },
+    } } });
+
+    render(<CoursesPage />);
+    fireEvent.click(await screen.findByRole('button', { name: 'courses.publish' }));
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ description: 'courseApproval.publishRequiresApproval' }),
+    ));
+    expect(apiMock.post).toHaveBeenCalledWith('/v1/courses/course-approval/publish');
+    expect(screen.queryByRole('button', { name: 'courses.unpublish' })).not.toBeInTheDocument();
   });
 
   it('archives a released course instead of attempting physical deletion', async () => {

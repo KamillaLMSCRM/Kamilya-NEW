@@ -135,6 +135,90 @@ def test_course_approval_workflow_has_runtime_kill_switch():
     assert "COURSE_APPROVAL_WORKFLOW_ENABLED" not in courses_source
 
 
+@pytest.mark.asyncio
+async def test_policy_read_returns_an_unpersisted_false_default_only_for_an_owned_course(monkeypatch):
+    from types import SimpleNamespace
+
+    import app.modules.course_approval.router as approval_router
+
+    course_id = uuid4()
+    tenant_id = uuid4()
+
+    class _DB:
+        def __init__(self):
+            self.statements = []
+
+        async def scalar(self, _statement):
+            self.statements.append(_statement)
+            return course_id
+
+        def add(self, _value):
+            raise AssertionError("a default policy read must not create a row")
+
+        async def commit(self):
+            raise AssertionError("a default policy read must not write")
+
+    async def no_policy(_db, _course_id, _tenant_id):
+        return None
+
+    monkeypatch.setattr(approval_router, "get_policy", no_policy)
+    db = _DB()
+    response = await approval_router.read_policy(course_id, db, SimpleNamespace(tenant_id=tenant_id))
+    assert response.course_id == course_id
+    assert response.requires_approval is False
+    assert response.review_enabled is True
+    assert len(db.statements) == 1
+    params = db.statements[0].compile().params
+    assert course_id in params.values()
+    assert tenant_id in params.values()
+
+
+@pytest.mark.asyncio
+async def test_policy_read_returns_404_for_a_course_outside_the_active_tenant(monkeypatch):
+    from types import SimpleNamespace
+
+    import app.modules.course_approval.router as approval_router
+
+    class _DB:
+        async def scalar(self, _statement):
+            return None
+
+    async def unexpected_policy(*_args):
+        raise AssertionError("policy lookup must not run before the tenant ownership check")
+
+    monkeypatch.setattr(approval_router, "get_policy", unexpected_policy)
+    with pytest.raises(HTTPException) as failure:
+        await approval_router.read_policy(uuid4(), _DB(), SimpleNamespace(tenant_id=uuid4()))
+    assert failure.value.status_code == 404
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("requires_approval", [False, True])
+async def test_policy_read_returns_the_persisted_boolean_for_the_requested_tenant(monkeypatch, requires_approval):
+    from types import SimpleNamespace
+
+    import app.modules.course_approval.router as approval_router
+
+    course_id = uuid4()
+    tenant_id = uuid4()
+
+    class _DB:
+        async def scalar(self, statement):
+            params = statement.compile().params
+            assert course_id in params.values()
+            assert tenant_id in params.values()
+            return course_id
+
+    async def persisted_policy(_db, requested_course_id, requested_tenant_id):
+        assert requested_course_id == course_id
+        assert requested_tenant_id == tenant_id
+        return SimpleNamespace(requires_approval=requires_approval, review_enabled=True, updated_at=None)
+
+    monkeypatch.setattr(approval_router, "get_policy", persisted_policy)
+    response = await approval_router.read_policy(course_id, _DB(), SimpleNamespace(tenant_id=tenant_id))
+    assert response.requires_approval is requires_approval
+
+
 def test_scoped_projection_and_decision_pending_are_explicit_contracts():
     router = Path(__file__).parents[2] / "app" / "modules" / "course_approval" / "router.py"
     schemas = Path(__file__).parents[2] / "app" / "modules" / "course_approval" / "schemas.py"

@@ -2,12 +2,13 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const configureMock = vi.hoisted(() => vi.fn());
+const getPolicyMock = vi.hoisted(() => vi.fn());
 const decisionMock = vi.hoisted(() => vi.fn());
 const progressMock = vi.hoisted(() => vi.fn());
 const testMock = vi.hoisted(() => vi.fn());
 vi.mock('@/lib/courseApproval', async () => {
   const actual = await vi.importActual<typeof import('@/lib/courseApproval')>('@/lib/courseApproval');
-  return { ...actual, configureApprovalPolicy: configureMock, submitReviewDecision: decisionMock, saveReviewProgress: progressMock, submitReviewTest: testMock };
+  return { ...actual, configureApprovalPolicy: configureMock, getApprovalPolicy: getPolicyMock, submitReviewDecision: decisionMock, saveReviewProgress: progressMock, submitReviewTest: testMock };
 });
 vi.mock('@/components/ui/Toast', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
@@ -18,13 +19,49 @@ import { ReviewCoursePlayer } from '@/components/course-approval/ReviewCoursePla
 const snapshot = { schema_version: 1, release_version: 3, course: { id: 'course', title: 'Курс' }, modules: [{ id: 'module', title: 'Модуль', order_index: 0, lessons: [{ id: 'lesson', title: 'Урок', content_type: 'text', content: 'Текст', order_index: 0, quizzes: [{ id: 'quiz', title: 'Тест', pass_score: 80, questions: [{ id: 'question', text: 'Вопрос', type: 'single_choice', points: 1, order_index: 0, choices: [{ id: 'choice-1', text: 'Правильный текст', order_index: 0 }] }] }] }] }] };
 
 describe('course approval workflow UI', () => {
-  beforeEach(() => { configureMock.mockReset().mockResolvedValue({ requires_approval: true, review_enabled: true }); decisionMock.mockReset().mockResolvedValue({}); progressMock.mockReset().mockResolvedValue({}); testMock.mockReset().mockResolvedValue({ diagnostics: { answered: 1, total: 1, correct: 1, score_percent: 100, complete: true } }); });
+  beforeEach(() => { configureMock.mockReset().mockResolvedValue({ requires_approval: true, review_enabled: true }); getPolicyMock.mockReset().mockResolvedValue({ requires_approval: false, review_enabled: true }); decisionMock.mockReset().mockResolvedValue({}); progressMock.mockReset().mockResolvedValue({}); testMock.mockReset().mockResolvedValue({ diagnostics: { answered: 1, total: 1, correct: 1, score_percent: 100, complete: true } }); });
 
   it('persists the opt-in policy and gives a clear immutable-snapshot hint', async () => {
     render(<ApprovalPolicyCard courseId="course" />);
+    await waitFor(() => expect(getPolicyMock).toHaveBeenCalledWith('course'));
     fireEvent.click(screen.getByRole('checkbox'));
     await waitFor(() => expect(configureMock).toHaveBeenCalledWith('course', true));
     expect(screen.getByText(/неизменяемый снимок/i)).toBeInTheDocument();
+  });
+
+  it('keeps writes disabled on a failed policy read instead of assuming an unchecked policy', async () => {
+    getPolicyMock.mockRejectedValueOnce(new Error('offline'));
+    render(<ApprovalPolicyCard courseId="course" />);
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+    expect(await screen.findByRole('alert')).toHaveTextContent('Не удалось открыть проверку');
+    fireEvent.click(screen.getByRole('button', { name: 'Повторить' }));
+    expect(await screen.findByRole('checkbox')).toBeInTheDocument();
+    expect(configureMock).not.toHaveBeenCalled();
+  });
+
+  it('ignores a stale policy response after the course changes', async () => {
+    let resolveFirst: (value: { requires_approval: boolean; review_enabled: boolean }) => void = () => undefined;
+    getPolicyMock.mockImplementationOnce(() => new Promise((resolve) => { resolveFirst = resolve; }));
+    getPolicyMock.mockResolvedValueOnce({ requires_approval: true, review_enabled: true });
+    const view = render(<ApprovalPolicyCard courseId="course-a" />);
+    view.rerender(<ApprovalPolicyCard courseId="course-b" />);
+    await waitFor(() => expect(getPolicyMock).toHaveBeenLastCalledWith('course-b'));
+    expect(await screen.findByRole('checkbox')).toBeChecked();
+    resolveFirst({ requires_approval: false, review_enabled: true });
+    await waitFor(() => expect(screen.getByRole('checkbox')).toBeChecked());
+  });
+
+  it('ignores a pending policy PATCH after switching courses', async () => {
+    let resolvePatch: (value: { requires_approval: boolean; review_enabled: boolean }) => void = () => undefined;
+    configureMock.mockImplementationOnce(() => new Promise((resolve) => { resolvePatch = resolve; }));
+    const view = render(<ApprovalPolicyCard courseId="course-a" />);
+    expect(await screen.findByRole('checkbox')).not.toBeChecked();
+    fireEvent.click(screen.getByRole('checkbox'));
+    await waitFor(() => expect(configureMock).toHaveBeenCalledWith('course-a', true));
+    view.rerender(<ApprovalPolicyCard courseId="course-b" />);
+    expect(await screen.findByRole('checkbox')).not.toBeChecked();
+    resolvePatch({ requires_approval: true, review_enabled: true });
+    await waitFor(() => expect(screen.getByRole('checkbox')).not.toBeChecked());
   });
 
   it('requires acknowledgement before an early approval and requires a return reason', async () => {

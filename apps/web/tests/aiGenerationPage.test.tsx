@@ -4,6 +4,8 @@ import AIGeneratePage from '@/app/ai/generate/page';
 import { api } from '@/lib/api';
 
 vi.mock('@/lib/api', () => ({ api: { get: vi.fn(), post: vi.fn(), patch: vi.fn() } }));
+const toastErrorMock = vi.hoisted(() => vi.fn());
+vi.mock('@/components/ui/Toast', () => ({ toast: { success: vi.fn(), error: toastErrorMock, warning: vi.fn() } }));
 
 const apiMock = vi.mocked(api);
 const activeJob = {
@@ -89,6 +91,31 @@ describe('/ai/generate job workflow parity', () => {
     expect(screen.queryByText('SoftTimeLimitExceeded: generation failed')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Создать новый курс' })).not.toBeInTheDocument();
     expect(apiMock.post).not.toHaveBeenCalledWith('/v1/ai/generate-course', expect.anything());
+  });
+
+  it('maps an approval-required publish conflict before the raw API detail', async () => {
+    const completedJob = { ...activeJob, status: 'completed', stage: 'completed', progress: 100 };
+    apiMock.get.mockImplementation(async (url: string) => {
+      if (url.startsWith('/v1/documents/catalog')) return { data: { items: [], page: { has_more: false } } } as any;
+      if (url === `/v1/ai/jobs/${activeJob.id}`) return { data: completedJob } as any;
+      if (url === `/v1/courses/${activeJob.course_id}/preview`) return { data: { source_documents: [] } } as any;
+      if (url === `/v1/courses/${activeJob.course_id}`) return { data: { id: activeJob.course_id, title: 'Курс', description: '', review_status: 'approved', status: 'draft' } } as any;
+      throw new Error(`Unexpected GET ${url}`);
+    });
+    apiMock.post.mockImplementation(async (url: string) => {
+      if (url === `/v1/courses/${activeJob.course_id}/publish`) {
+        throw { response: { data: { detail: { code: 'approval_required' } } } };
+      }
+      return { data: {} } as any;
+    });
+
+    render(<AIGeneratePage />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Опубликовать курс' }));
+
+    await waitFor(() => expect(toastErrorMock).toHaveBeenCalledWith(
+      'Не удалось опубликовать курс',
+      expect.objectContaining({ description: 'Для курса включено отдельное согласование. Откройте «Согласование» и получите решение рецензента. Если оно не требуется, отключите настройку там.' }),
+    ));
   });
 });
 

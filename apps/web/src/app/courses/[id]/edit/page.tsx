@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { AIChatPanel } from '@/components/ai/AIChatPanel';
 import { ApprovalPolicyCard } from '@/components/course-approval/ApprovalPolicyCard';
+import { coursePublicationError } from '@/lib/coursePublicationError';
 
 interface Lesson {
   id: string;
@@ -294,7 +295,8 @@ export default function CourseEditPage() {
     if (!response.ok) {
       const payload = await response.json().catch(() => null);
       throw new Error(
-        payload?.message
+        coursePublicationError(payload, t)
+        || payload?.message
         || payload?.details?.message
         || payload?.detail?.message
         || payload?.detail

@@ -168,6 +168,11 @@ export async function configureApprovalPolicy(courseId: string, requiresApproval
   return response.data;
 }
 
+export async function getApprovalPolicy(courseId: string): Promise<ApprovalPolicy> {
+  const response = await api.get<ApprovalPolicy>(`/v1/courses/${courseId}/approval-policy`);
+  return response.data;
+}
+
 export async function freezeApprovalRevision(courseId: string): Promise<ApprovalRevision> {
   const response = await api.post<ApprovalRevision>(`/v1/courses/${courseId}/approval-revisions`);
   return response.data;
