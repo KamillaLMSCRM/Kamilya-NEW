@@ -156,13 +156,32 @@ describe('/ai/generate multi-document selection contract', () => {
     expect(screen.getByRole('spinbutton', { name: 'Количество модулей' })).toBeInTheDocument();
   });
 
-  it('keeps not-ready documents disabled with a visible reason', async () => {
+  it('allows an unindexed source but requires original-file verification', async () => {
     mockCatalogWith(readyDocuments);
+    apiMock.post.mockImplementation(async (url: string) => {
+      if (url === '/v1/ai/document-compatibility') return { data: {
+        status: 'unverified', score: null, analysis_mode: 'direct_source', requires_decision: false, clusters: [],
+      } } as any;
+      return { data: {} } as any;
+    });
     render(<AIGeneratePage />);
 
     const broken = await screen.findByRole('checkbox', { name: /Сломанный документ/ });
-    expect(broken).toBeDisabled();
-    expect(screen.getAllByText('Ошибка').length).toBeGreaterThan(0);
+    expect(broken).toBeEnabled();
+    fireEvent.click(broken);
+    expect(await screen.findByText('Исходный файл прочитан. Можно создавать курс без поискового индекса.')).toBeInTheDocument();
+    expect(screen.queryByText('Документы образуют одну тематическую группу. Можно проектировать единый курс.')).not.toBeInTheDocument();
+    expect(apiMock.post).toHaveBeenCalledWith('/v1/ai/document-compatibility', expect.objectContaining({ documents: ['doc-3'] }));
+  });
+
+  it('blocks generation if the original file cannot be verified', async () => {
+    mockCatalogWith(readyDocuments);
+    apiMock.post.mockRejectedValue({ response: { status: 409, data: { detail: { code: 'direct_source_hash_mismatch' } } } });
+    render(<AIGeneratePage />);
+    fireEvent.click(await screen.findByRole('checkbox', { name: /Сломанный документ/ }));
+    expect(await screen.findByText(/Не удалось прочитать выбранные источники/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Генерировать курс \(/ })).toBeDisabled();
+    expect(apiMock.post).not.toHaveBeenCalledWith('/v1/ai/generate-course', expect.anything());
   });
 
   it('submits selected document ids in selection order and shows the selected count', async () => {

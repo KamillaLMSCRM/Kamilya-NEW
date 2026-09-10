@@ -30,6 +30,7 @@ import {
 } from '@/components/ui/AsyncOperationStatus';
 import { useT } from '@/i18n/useT';
 import { api } from '@/lib/api';
+import { documentProcessingErrorMessage } from '@/lib/documentProcessingErrors';
 import { useDebounce } from '@/lib/useDebounce';
 import {
   documentDeleteError,
@@ -1115,7 +1116,7 @@ function StatusBadge({ document, t }: { document: DocumentCatalogItem; t: (key: 
     failed: ['bg-destructive/10 text-destructive border-destructive/30', t('documents.statusFailed')],
   }[document.index.status];
   return (
-    <span className={`inline-flex rounded-full border px-2 py-1 text-xs font-medium ${config[0]}`} title={document.index.message || undefined}>
+    <span className={`inline-flex rounded-full border px-2 py-1 text-xs font-medium ${config[0]}`} title={document.index.status === 'failed' ? documentProcessingErrorMessage(document.index.error_code, document.index.message) : undefined}>
       {config[1]}
     </span>
   );

@@ -13,11 +13,8 @@ Chain architecture (September 2026):
   The global enabled order is read when each asynchronous client is created.
   DeepSeek remains first. Endpoints and model IDs remain server-owned settings.
 
-  Embeddings chain:
-    1. Voyage voyage-4-lite via direct Voyage API (api.voyageai.com/v1)
-       → primary managed embeddings. Free up to 200M tokens / account.
-    2. Qwen self-hosted (Qwen3-Embedding-8B)
-       → fallback, free
+  Embeddings chain: ASUS Qwen → Voyage → Cohere. Tenant BYOK overrides may
+  instead select its explicitly configured provider and never use globals.
 
 Failover semantics
 ------------------
@@ -157,6 +154,11 @@ class LLMProviderConfig:
     # HTTP 4xx/5xx — every ingestion silently fell back to the
     # hash-based embedding and was effectively non-semantic.
     endpoint: str = "/chat/completions"
+    # Embedding-only bounds and provenance. They are intentionally provider
+    # config, rather than chat-Qwen settings, so semantic spaces cannot drift.
+    embedding_max_input_bytes: int | None = None
+    embedding_batch_size: int | None = None
+    embedding_revision: str | None = None
 
 
 def _openai_base_url(value: str) -> str:
@@ -171,7 +173,7 @@ def _free_llm_providers() -> list[LLMProviderConfig]:
     if not s.FREE_LLM_POOL_ENABLED:
         return []
 
-    common = {
+    common: dict[str, Any] = {
         "api_key": s.LLM_API_KEY or "not-needed",
         "timeout": s.FREE_LLM_REQUEST_TIMEOUT_SECONDS,
         "connect_timeout": s.FREE_LLM_CONNECT_TIMEOUT_SECONDS,
@@ -321,17 +323,6 @@ async def _resolve_db_key(provider: str, env_key: str) -> str:
         return ""
 
 
-def _qwen_embed_provider() -> LLMProviderConfig:
-    s = get_settings()
-    return LLMProviderConfig(
-        name="qwen-self-hosted",
-        base_url=_openai_base_url(s.QWEN_EMBEDDING_URL),
-        api_key=s.LLM_API_KEY or "not-needed",
-        model="Qwen3-Embedding-8B",
-        timeout=20.0,
-    )
-
-
 def _voyage_embed_provider() -> LLMProviderConfig | None:
     """Return Voyage provider only if API key is configured."""
     s = get_settings()
@@ -343,6 +334,28 @@ def _voyage_embed_provider() -> LLMProviderConfig | None:
         api_key=s.VOYAGE_API_KEY,
         model=s.VOYAGE_MODEL,
         timeout=30.0,
+    )
+
+
+def _asus_qwen_embed_provider() -> LLMProviderConfig | None:
+    """Return the dedicated ASUS Qwen embedding route, never a chat route."""
+    s = get_settings()
+    if not s.ASUS_EMBEDDINGS_ENABLED:
+        return None
+    return LLMProviderConfig(
+        name="asus-qwen-embedding-8b",
+        base_url=_openai_base_url(s.ASUS_EMBEDDINGS_URL),
+        api_key="not-needed",
+        model=s.ASUS_EMBEDDINGS_MODEL,
+        timeout=s.ASUS_EMBEDDINGS_REQUEST_TIMEOUT_SECONDS,
+        connect_timeout=s.ASUS_EMBEDDINGS_CONNECT_TIMEOUT_SECONDS,
+        max_retries=0,
+        embedding_max_input_bytes=s.ASUS_EMBEDDINGS_MAX_INPUT_BYTES,
+        embedding_batch_size=s.ASUS_EMBEDDINGS_MAX_BATCH_SIZE,
+        embedding_revision=(
+            f"{s.ASUS_EMBEDDINGS_MODEL.replace('/', '-')}:"
+            f"qprefix-v1:l2:storage{s.EMBEDDING_DIMENSIONS}"
+        ),
     )
 
 
@@ -472,11 +485,25 @@ class LLMClient(_BaseProviderClient):
         if isinstance(messages, str):
             messages = [{"role": "user", "content": messages}]
 
+        request_max_tokens = self.max_tokens
+        if config is not None and "max_tokens" in config:
+            configured_max_tokens = config["max_tokens"]
+            if (
+                isinstance(configured_max_tokens, bool)
+                or not isinstance(configured_max_tokens, int)
+                or configured_max_tokens <= 0
+                or configured_max_tokens > self.max_tokens
+            ):
+                raise ValueError(
+                    "config.max_tokens must be a positive integer no greater than the client maximum"
+                )
+            request_max_tokens = configured_max_tokens
+
         payload: dict[str, Any] = {
             "model": self.config.model,
             "messages": messages,
             "temperature": self.temperature,
-            "max_tokens": self.max_tokens,
+            "max_tokens": request_max_tokens,
         }
         # Merge vendor-specific extras (chat_template_kwargs for Qwen,
         # thinking for DeepSeek, etc.). Payload keys take precedence over
@@ -631,6 +658,7 @@ class ResilientLLMClient:
         temperature: float = 0.7,
         max_tokens: int = 8192,
         max_retries_per_provider: int = 2,
+        tenant_id: object | None = None,
     ) -> ResilientLLMClient:
         """Build the production chain from env, DB keys and persisted order.
 
@@ -643,6 +671,23 @@ class ResilientLLMClient:
         routing) calls — keys added or rotated via the superadmin
         provider-keys UI take effect immediately without a redeploy.
         """
+        if tenant_id is not None:
+            from uuid import UUID
+
+            from app.modules.admin.tenant_ai_providers.service import resolve_tenant_provider
+
+            try:
+                override = await resolve_tenant_provider(UUID(str(tenant_id)), "generation")
+            except (TypeError, ValueError) as exc:
+                raise ValueError("invalid_tenant_id") from exc
+            if override is not None:
+                return cls(
+                    [override],
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    max_retries_per_provider=max_retries_per_provider,
+                )
+
         s = get_settings()
         route_ids = await resolve_runtime_generation_model_order()
         providers: list[LLMProviderConfig] = []
@@ -763,13 +808,13 @@ class ResilientLLMClient:
 class EmbeddingsClient(_BaseProviderClient):
     """Single-provider embeddings client.
 
-    Voyage requires `input_type` (document vs query). We send it on
-    embed_documents vs embed_query; the Qwen endpoint ignores it.
+    Voyage and Cohere retain their provider-specific input types. ASUS Qwen
+    receives its required English query prefix only for search queries.
     """
 
     def __init__(self, config: LLMProviderConfig | None = None, max_retries: int = 2):
         if config is None:
-            config = _qwen_embed_provider()
+            raise ValueError("embedding_provider_config_required")
         # OpenAI-compatible providers use /embeddings. Cohere has a native
         # v2 /embed endpoint and a different request/response schema.
         endpoint = "/embed" if config.name == "cohere" else "/embeddings"
@@ -831,6 +876,14 @@ class EmbeddingsClient(_BaseProviderClient):
                         ValueError("invalid_embedding_value"),
                     )
                 normalized.append(numeric)
+            if self.config.name == "asus-qwen-embedding-8b":
+                norm = math.sqrt(sum(item * item for item in normalized))
+                if not math.isfinite(norm) or norm == 0.0:
+                    raise ProviderFailedError(
+                        self.config.name,
+                        ValueError("invalid_embedding_norm"),
+                    )
+                normalized = [item / norm for item in normalized]
             normalized.extend([0.0] * (storage_dimensions - native_dimensions))
             padded_vectors.append(tuple(normalized))
 
@@ -838,7 +891,7 @@ class EmbeddingsClient(_BaseProviderClient):
             space = EmbeddingSpace(
                 provider=self.config.name,
                 model=self.config.model,
-                revision=self.config.model,
+                revision=self.config.embedding_revision or self.config.model,
                 dimensions=native_dimensions,
             )
         except Exception as exc:  # pragma: no cover - defensive, sanitized
@@ -852,34 +905,82 @@ class EmbeddingsClient(_BaseProviderClient):
         )
 
     async def _embed(self, texts: list[str], input_type: str) -> EmbeddingBatchResult:
-        if self.config.name == "cohere":
-            # Cohere v2 accepts at most 96 texts per request. Document
-            # ingestion commonly produces larger batches, so preserve input
-            # order while splitting at the provider's hard limit.
-            embeddings: list[list[float]] = []
-            for offset in range(0, len(texts), 96):
-                batch = texts[offset : offset + 96]
-                payload: dict[str, Any] = {
+        if not texts:
+            raise ProviderFailedError(self.config.name, ValueError("empty_embedding_batch"))
+        is_asus_qwen = self.config.name == "asus-qwen-embedding-8b"
+        request_texts = list(texts)
+        if is_asus_qwen and input_type == "query":
+            request_texts = [
+                "Instruct: Given a user question, retrieve relevant passages that answer the question\n"
+                f"Query: {text}"
+                for text in texts
+            ]
+        max_input_bytes = self.config.embedding_max_input_bytes or 8192
+        if is_asus_qwen and any(len(text.encode("utf-8")) > max_input_bytes for text in request_texts):
+            raise ProviderFailedError(self.config.name, ValueError("embedding_input_too_large"))
+        batch_size = self.config.embedding_batch_size or 32
+        if batch_size < 1 or batch_size > 32:
+            raise ProviderFailedError(self.config.name, ValueError("invalid_embedding_batch_size"))
+
+        embeddings: list[list[float]] = []
+        for offset in range(0, len(request_texts), batch_size):
+            batch = request_texts[offset : offset + batch_size]
+            if self.config.name == "cohere":
+                cohere_payload: dict[str, Any] = {
                     "model": self.config.model,
                     "texts": batch,
                     "input_type": ("search_document" if input_type == "document" else "search_query"),
                     "embedding_types": ["float"],
                     "output_dimension": 1024,
                 }
-                data = await self._request(payload)
+                data = await self._request(cohere_payload)
                 embeddings.extend(data["embeddings"]["float"])
-            return self._build_batch_result(embeddings)
-
-        payload = {
-            "model": self.config.model,
-            "input": texts,
-        }
-        if self.config.name == "voyage":
-            payload["input_type"] = input_type
-
-        data = await self._request(payload)
-        embeddings = [item["embedding"] for item in data["data"]]
+            else:
+                openai_payload: dict[str, Any] = {"model": self.config.model, "input": batch}
+                if self.config.name == "voyage":
+                    openai_payload["input_type"] = input_type
+                elif self.config.name == "openrouter":
+                    # Routing controls are server-owned; input/model stay resolved.
+                    provider_routing = self.config.extra_body.get("provider")
+                    if isinstance(provider_routing, dict):
+                        openai_payload["provider"] = {
+                            key: value
+                            for key, value in provider_routing.items()
+                            if key in {"allow_fallbacks", "data_collection", "max_price"}
+                        }
+                data = await self._request(openai_payload)
+                embeddings.extend(self._ordered_openai_embeddings(data, len(batch)))
+            if len(embeddings) != offset + len(batch):
+                raise ProviderFailedError(self.config.name, ValueError("invalid_embedding_response_count"))
         return self._build_batch_result(embeddings)
+
+    def _ordered_openai_embeddings(self, data: object, expected_count: int) -> list[list[float]]:
+        """Validate and restore indexed OpenAI-compatible embedding responses.
+
+        Servers that omit every ``index`` retain legacy response-order
+        compatibility. Any mixed indexed/unindexed response fails closed.
+        """
+        if not isinstance(data, dict):
+            raise ProviderFailedError(self.config.name, ValueError("invalid_embedding_response"))
+        items = data.get("data")
+        if not isinstance(items, list) or len(items) != expected_count:
+            raise ProviderFailedError(self.config.name, ValueError("invalid_embedding_response_count"))
+        if any(not isinstance(item, dict) or "embedding" not in item for item in items):
+            raise ProviderFailedError(self.config.name, ValueError("invalid_embedding_response"))
+        indexed = ["index" in item for item in items]
+        if not any(indexed):
+            return [item["embedding"] for item in items]
+        if not all(indexed):
+            raise ProviderFailedError(self.config.name, ValueError("invalid_embedding_response_indices"))
+        ordered: list[list[float] | None] = [None] * expected_count
+        for item in items:
+            index = item["index"]
+            if type(index) is not int or not 0 <= index < expected_count or ordered[index] is not None:
+                raise ProviderFailedError(self.config.name, ValueError("invalid_embedding_response_indices"))
+            ordered[index] = item["embedding"]
+        if any(item is None for item in ordered):
+            raise ProviderFailedError(self.config.name, ValueError("invalid_embedding_response_indices"))
+        return [cast(list[float], item) for item in ordered]
 
     async def embed_documents_with_provenance(self, texts: list[str]) -> EmbeddingBatchResult:
         return await self._embed(texts, input_type="document")
@@ -900,9 +1001,9 @@ class ResilientEmbeddingsClient:
     """Embeddings client with automatic failover across providers.
 
     Chain:
-      1. Voyage (only if VOYAGE_API_KEY is set)
-      2. Cohere (only if COHERE_API_KEY is set)
-      3. Qwen self-hosted (always present)
+      1. ASUS Qwen (dedicated private endpoint)
+      2. Voyage (only if configured)
+      3. Cohere (only if configured)
     """
 
     def __init__(
@@ -912,39 +1013,68 @@ class ResilientEmbeddingsClient:
         max_retries_per_provider: int = 2,
     ):
         self._clients: list[EmbeddingsClient] = [
-            EmbeddingsClient(cfg, max_retries=max_retries_per_provider) for cfg in providers
+            EmbeddingsClient(
+                cfg,
+                max_retries=(cfg.max_retries if cfg.max_retries is not None else max_retries_per_provider),
+            )
+            for cfg in providers
         ]
         if not self._clients:
             raise ValueError(
                 "ResilientEmbeddingsClient requires at least one provider. "
-                "Check that QWEN_EMBEDDING_URL is configured."
+                "Configure a supported embedding provider."
             )
 
     @classmethod
     def from_settings(cls, max_retries_per_provider: int = 6) -> ResilientEmbeddingsClient:
         """Build the embeddings chain from env-only settings (tests/legacy)."""
         providers: list[LLMProviderConfig] = []
+        asus_qwen = _asus_qwen_embed_provider()
+        if asus_qwen is not None:
+            providers.append(asus_qwen)
         voyage = _voyage_embed_provider()
         if voyage is not None:
             providers.append(voyage)
         cohere = _cohere_embed_provider()
         if cohere is not None:
             providers.append(cohere)
-        providers.append(_qwen_embed_provider())
         return cls(providers, max_retries_per_provider=max_retries_per_provider)
 
     @classmethod
-    async def from_settings_async(cls, max_retries_per_provider: int = 6) -> ResilientEmbeddingsClient:
+    async def from_settings_async(
+        cls,
+        max_retries_per_provider: int = 6,
+        *,
+        tenant_id: object | None = None,
+    ) -> ResilientEmbeddingsClient:
         """Build the embeddings chain from env + provider_keys table.
 
-        Same order as `from_settings()` but each provider's API key is
+        An explicit enabled tenant override resolves only that tenant's key;
+        resolution failures fail closed and never use global credentials. With
+        no enabled override, each provider's API key is
         resolved by `_resolve_db_key()` which prefers env and falls
         back to the active global key stored in `provider_keys`.
         """
+        if tenant_id is not None:
+            from uuid import UUID
+
+            from app.modules.admin.tenant_ai_providers.service import resolve_tenant_provider
+
+            try:
+                override = await resolve_tenant_provider(UUID(str(tenant_id)), "embedding")
+            except (TypeError, ValueError) as exc:
+                raise ValueError("invalid_tenant_id") from exc
+            if override is not None:
+                return cls([override], max_retries_per_provider=max_retries_per_provider)
+
         from dataclasses import replace
 
         s = get_settings()
         providers: list[LLMProviderConfig] = []
+
+        asus_qwen = _asus_qwen_embed_provider()
+        if asus_qwen is not None:
+            providers.append(asus_qwen)
 
         voyage_key = await _resolve_db_key("voyage", s.VOYAGE_API_KEY)
         if voyage_key:
@@ -975,8 +1105,6 @@ class ResilientEmbeddingsClient:
             else:
                 cfg = replace(cfg, api_key=cohere_key)
             providers.append(cfg)
-        providers.append(_qwen_embed_provider())
-
         return cls(providers, max_retries_per_provider=max_retries_per_provider)
 
     @property

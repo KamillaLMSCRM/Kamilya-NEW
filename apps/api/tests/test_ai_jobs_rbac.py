@@ -102,6 +102,7 @@ async def test_generate_course_keeps_document_analysis_tenant_scoped():
         tenant_id,
         [document_id],
         lock_for_update=True,
+        analysis_mode="direct_source",
     )
 
 

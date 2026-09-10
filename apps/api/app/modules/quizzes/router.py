@@ -579,6 +579,8 @@ async def generate_quiz(
     """
     from app.modules.lessons.models import Lesson
 
+    if user.tenant_id is None:
+        raise HTTPException(status_code=403, detail="Tenant context required")
     lesson = await db.get(Lesson, req.lesson_id)
     if not lesson or lesson.tenant_id != user.tenant_id:
         raise HTTPException(status_code=404, detail="Lesson not found")
@@ -588,6 +590,7 @@ async def generate_quiz(
 
     try:
         draft = await build_quiz_draft(
+            tenant_id=UUID(str(user.tenant_id)),
             lesson_title=title,
             lesson_content=content,
             num_questions=req.num_questions,
@@ -598,7 +601,7 @@ async def generate_quiz(
     except RuntimeError as e:
         # 502 = upstream (LLM) error. Don't leak internals — the message
         # we set in ai.py is already user-safe.
-        raise HTTPException(status_code=502, detail=str(e))
+        raise HTTPException(status_code=502, detail="AI assistant is unavailable, try again") from e
 
     if not draft["questions"]:
         raise HTTPException(

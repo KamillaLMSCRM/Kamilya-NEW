@@ -16,6 +16,7 @@ import logging
 import re
 import time
 from typing import Any
+from uuid import UUID
 
 from app.modules.ai.llm_client import ResilientLLMClient
 
@@ -264,6 +265,7 @@ def _normalize_draft(payload: dict[str, Any], num_questions: int) -> dict[str, A
 
 async def generate_quiz_draft(
     *,
+    tenant_id: UUID,
     lesson_title: str,
     lesson_content: str,
     num_questions: int,
@@ -289,7 +291,7 @@ async def generate_quiz_draft(
     # comes to roughly 250-400 output tokens per question. Cap at 4096
     # to keep DeepSeek fallback under $0.001 per call.
     llm = await ResilientLLMClient.from_settings_async(
-        temperature=0.4, max_tokens=4096
+        tenant_id=tenant_id, temperature=0.4, max_tokens=4096
     )
 
     t0 = time.monotonic()

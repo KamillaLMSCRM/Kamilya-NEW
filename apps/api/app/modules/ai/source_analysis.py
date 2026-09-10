@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import json
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Literal, cast
 from uuid import UUID
 
@@ -12,6 +12,7 @@ from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.document import Document
+from app.modules.ai.direct_source import DirectSourceError, build_direct_source_corpus
 
 DEFAULT_CLUSTER_THRESHOLD = 0.68
 MIXED_THRESHOLD = 0.35
@@ -132,7 +133,7 @@ class DocumentVectorProfile:
     doc_id: UUID
     title: str
     filename: str
-    vector: list[float]
+    vector: list[float] | None
 
 
 @dataclass(frozen=True)
@@ -140,15 +141,18 @@ class SourceCluster:
     id: str
     label: str
     documents: tuple[DocumentVectorProfile, ...]
-    cohesion: float
+    cohesion: float | None
 
 
 @dataclass(frozen=True)
 class CompatibilityAnalysis:
     status: str
-    score: float
+    score: float | None
     requires_decision: bool
     clusters: tuple[SourceCluster, ...]
+    analysis_mode: Literal["semantic", "direct_source"] = "semantic"
+    source_chunk_totals: dict[UUID, int] = field(default_factory=dict)
+    source_languages: dict[UUID, str | None] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -221,12 +225,18 @@ def cosine_similarity(left: list[float], right: list[float]) -> float:
     return max(-1.0, min(1.0, dot / (left_norm * right_norm)))
 
 
+def _required_vector(profile: DocumentVectorProfile) -> list[float]:
+    if profile.vector is None:
+        raise ValueError("Semantic profiles require vectors")
+    return profile.vector
+
+
 def _minimum_similarity(
     left: list[DocumentVectorProfile],
     right: list[DocumentVectorProfile],
 ) -> float:
     return min(
-        cosine_similarity(a.vector, b.vector)
+        cosine_similarity(_required_vector(a), _required_vector(b))
         for a in left
         for b in right
     )
@@ -236,7 +246,10 @@ def _cluster_cohesion(items: list[DocumentVectorProfile]) -> float:
     if len(items) < 2:
         return 1.0
     return min(
-        cosine_similarity(items[i].vector, items[j].vector)
+        cosine_similarity(
+            _required_vector(items[i]),
+            _required_vector(items[j]),
+        )
         for i in range(len(items))
         for j in range(i + 1, len(items))
     )
@@ -256,13 +269,19 @@ def analyze_profiles(
 ) -> CompatibilityAnalysis:
     if not profiles:
         raise ValueError("At least one document profile is required")
+    if any(profile.vector is None for profile in profiles):
+        raise ValueError("Semantic profiles require vectors")
 
     clusters: list[list[DocumentVectorProfile]] = [[profile] for profile in profiles]
     while True:
         best: tuple[float, int, int] | None = None
         for left_idx in range(len(clusters)):
             for right_idx in range(left_idx + 1, len(clusters)):
-                similarity = _minimum_similarity(clusters[left_idx], clusters[right_idx])
+                similarity = min(
+                    cosine_similarity(_required_vector(left), _required_vector(right))
+                    for left in clusters[left_idx]
+                    for right in clusters[right_idx]
+                )
                 if similarity >= cluster_threshold and (best is None or similarity > best[0]):
                     best = (similarity, left_idx, right_idx)
         if best is None:
@@ -276,7 +295,20 @@ def analyze_profiles(
             id=f"group-{index + 1}",
             label=_cluster_label(items),
             documents=tuple(items),
-            cohesion=round(_cluster_cohesion(items), 4),
+            cohesion=round(
+                min(
+                    (
+                        cosine_similarity(
+                            _required_vector(items[i]),
+                            _required_vector(items[j]),
+                        )
+                        for i in range(len(items))
+                        for j in range(i + 1, len(items))
+                    ),
+                    default=1.0,
+                ),
+                4,
+            ),
         )
         for index, items in enumerate(clusters)
     )
@@ -285,7 +317,10 @@ def analyze_profiles(
         score = 1.0
     else:
         score = min(
-            cosine_similarity(profiles[i].vector, profiles[j].vector)
+            cosine_similarity(
+                _required_vector(profiles[i]),
+                _required_vector(profiles[j]),
+            )
             for i in range(len(profiles))
             for j in range(i + 1, len(profiles))
         )
@@ -293,7 +328,7 @@ def analyze_profiles(
         status = "compatible"
     else:
         cross_max = max(
-            cosine_similarity(a.vector, b.vector)
+            cosine_similarity(_required_vector(a), _required_vector(b))
             for left_idx, left in enumerate(source_clusters)
             for right in source_clusters[left_idx + 1 :]
             for a in left.documents
@@ -322,6 +357,7 @@ async def analyze_document_set(
     document_ids: list[UUID],
     *,
     lock_for_update: bool = False,
+    analysis_mode: Literal["semantic", "direct_source"] = "semantic",
 ) -> CompatibilityAnalysis:
     unique_ids = list(dict.fromkeys(document_ids))
     if not unique_ids:
@@ -340,6 +376,57 @@ async def analyze_document_set(
         raise HTTPException(
             status_code=404,
             detail={"code": "documents_not_found", "document_ids": missing},
+        )
+
+    if analysis_mode == "direct_source":
+        ordered_documents = [by_id[document_id] for document_id in unique_ids]
+        try:
+            corpus = await build_direct_source_corpus(
+                ordered_documents,
+                tenant_id=tenant_id,
+            )
+        except DirectSourceError as exc:
+            status_code = 404 if exc.code in {"documents_not_found", "direct_source_blob_missing"} else 409
+            raise HTTPException(
+                status_code=status_code,
+                detail={
+                    "code": exc.code,
+                    "document_ids": list(exc.document_ids),
+                },
+            ) from exc
+        direct_profiles = tuple(
+            DocumentVectorProfile(
+                doc_id=document_id,
+                title=cast(str, by_id[document_id].title),
+                filename=cast(str, by_id[document_id].filename),
+                vector=None,
+            )
+            for document_id in unique_ids
+        )
+        return CompatibilityAnalysis(
+            status="unverified",
+            score=None,
+            requires_decision=len(direct_profiles) > 1,
+            clusters=tuple(
+                SourceCluster(
+                    id=f"source-{index + 1}",
+                    label=profile.title.strip() or profile.filename,
+                    documents=(profile,),
+                    cohesion=None,
+                )
+                for index, profile in enumerate(direct_profiles)
+            ),
+            analysis_mode="direct_source",
+            source_chunk_totals={
+                UUID(document.doc_id): len(document.chunks)
+                for document in corpus.documents
+            },
+            source_languages={
+                UUID(document.doc_id): dominant_language(
+                    "\n".join(chunk.text for chunk in document.chunks)[:2000]
+                )
+                for document in corpus.documents
+            },
         )
 
     not_ready = [str(document.id) for document in documents if document.embedding_status != "success"]

@@ -138,6 +138,7 @@ export const ROUTES: readonly AppRoute[] = [
   { id: 'kiosks', href: '/admin/kiosks', capability: 'configure_tenant', match: 'prefix', labelKey: 'nav.kiosks', section: 'tenant', icon: 'kiosk', order: 30, sidebar: true, commandPalette: true },
   { id: 'tenant-settings', href: '/settings', capability: 'configure_tenant', labelKey: 'settings.title', section: 'tenant', icon: 'settings', order: 40, sidebar: true, commandPalette: true },
   { id: 'integrations', href: '/admin/settings/integrations', capability: 'configure_tenant', match: 'prefix', labelKey: 'integrations.title', section: 'tenant', icon: 'settings', order: 50, sidebar: true, commandPalette: true },
+  { id: 'tenant-ai', href: '/admin/settings/ai', capability: 'configure_tenant', match: 'prefix', labelKey: 'tenantAi.title', section: 'tenant', icon: 'settings', order: 55, sidebar: true, commandPalette: true },
   { id: 'certificate-settings', href: '/admin/certificates/settings', capability: 'configure_tenant', match: 'prefix', labelKey: 'sidebar.certificateTemplate', section: 'tenant', icon: 'certificate', order: 60, sidebar: true, commandPalette: true },
   { id: 'audit-log', href: '/admin/audit', capability: 'configure_tenant', match: 'prefix', labelKey: 'nav.auditLog', section: 'tenant', icon: 'log', order: 70, sidebar: true, commandPalette: true },
   // Approval configuration is intentionally contextual and not added to the global

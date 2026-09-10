@@ -28,6 +28,27 @@ def test_every_public_auth_endpoint_has_an_explicit_rate_limit():
     assert PUBLIC_AUTH_ENDPOINTS <= RATE_LIMITS.keys()
 
 
+@pytest.mark.asyncio
+async def test_original_source_validation_has_a_low_dedicated_limit():
+    config = await RateLimiter().get_rate_limit_config('/api/v1/ai/document-compatibility')
+    assert config.requests_per_minute == 6
+    assert config.requests_per_hour == 60
+    assert config.burst_size == 3
+
+
+@pytest.mark.asyncio
+async def test_original_source_validation_fails_closed_without_limiter():
+    middleware = RateLimitMiddleware(lambda scope, receive, send: None)
+    middleware.limiter.check_rate_limit = AsyncMock(return_value=(False, {'unavailable': True}))
+    downstream = AsyncMock(return_value=Response('must not convert'))
+    token = create_access_token({'sub': 'source-validator', 'tenant_id': 'synthetic-tenant'})
+    with patch('app.core.config.get_settings', return_value=SimpleNamespace(APP_ENV='production')):
+        response = await middleware.dispatch(_request('/api/v1/ai/document-compatibility', authorization=f'Bearer {token}'), downstream)
+    assert response.status_code == 503
+    downstream.assert_not_awaited()
+    assert ':principal:' in middleware.limiter.check_rate_limit.await_args_list[0].args[0]
+
+
 def test_kiosk_identify_is_public_auth_with_hashed_token_bucket():
     path = "/api/v1/kiosks/private-wall-token/identify"
 

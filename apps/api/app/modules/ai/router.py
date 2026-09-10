@@ -116,6 +116,7 @@ def _compatibility_response(analysis) -> DocumentCompatibilityResponse:
     return DocumentCompatibilityResponse(
         status=analysis.status,
         score=analysis.score,
+        analysis_mode=getattr(analysis, "analysis_mode", "semantic"),
         requires_decision=analysis.requires_decision,
         clusters=[
             CompatibilityCluster(
@@ -156,9 +157,9 @@ async def document_compatibility(
             },
         )
     tenant_id = UUID(str(user.tenant_id))
-    analysis = await analyze_document_set(db, tenant_id, req.documents)
+    analysis = await analyze_document_set(db, tenant_id, req.documents, analysis_mode="direct_source")
     response = _compatibility_response(analysis)
-    chunks = await document_chunk_totals(db, tenant_id, req.documents)
+    chunks = analysis.source_chunk_totals if analysis.analysis_mode == "direct_source" else await document_chunk_totals(db, tenant_id, req.documents)
     recommendation = recommend_course_structure(
         total_chunks=sum(chunks.values()),
         document_count=len(req.documents),
@@ -343,10 +344,12 @@ async def generate_course(
         tenant_id,
         req.documents,
         lock_for_update=True,
+        analysis_mode="direct_source",
     )
     # Aggregate source budget for multi-document submissions only. The legacy
     # single-document path keeps its original behavior and limits.
-    chunk_totals = await document_chunk_totals(db, tenant_id, req.documents)
+    direct_mode = getattr(analysis, "analysis_mode", "semantic") == "direct_source"
+    chunk_totals = analysis.source_chunk_totals if direct_mode else await document_chunk_totals(db, tenant_id, req.documents)
     total_chunks = sum(chunk_totals.values())
     structure = recommend_course_structure(
         total_chunks=total_chunks,
@@ -372,8 +375,8 @@ async def generate_course(
         raise HTTPException(
             status_code=409,
             detail={
-                "code": "mixed_document_topics",
-                "message": "Selected documents belong to different thematic groups",
+                "code": "source_combination_goal_required" if direct_mode else "mixed_document_topics",
+                "message": "Provide a shared learning goal for selected sources" if direct_mode else "Selected documents belong to different thematic groups",
                 "analysis": analysis_payload,
             },
         )
@@ -381,7 +384,7 @@ async def generate_course(
     # selection spanning several languages is refused until the methodologist
     # explicitly confirms the course language via `language_confirmed`.
     # Single-document submissions keep the original behavior.
-    document_languages = await document_script_languages(db, tenant_id, req.documents)
+    document_languages = analysis.source_languages if direct_mode else await document_script_languages(db, tenant_id, req.documents)
     detected_languages = sorted({lang for lang in document_languages.values() if lang})
     mixed_language = (
         len(req.documents) >= 2
@@ -1034,7 +1037,7 @@ async def _regenerate_module_job(
             old_lessons = old_lessons_q.scalars().all()
 
             # Generate new module title + lesson plan with architect-style prompt.
-            llm = await ResilientLLMClient.from_settings_async(temperature=0.7, max_tokens=1500)
+            llm = await ResilientLLMClient.from_settings_async(tenant_id=tenant_id, temperature=0.7, max_tokens=1500)
             plan_prompt = (
                 f"Курс: «{course.title}». Текущий модуль: «{module.title}» "
                 f"(описание: {module.description or '(пусто)'}). "
@@ -1257,7 +1260,7 @@ async def _regenerate_lesson_job(
                 )
             )).scalar_one()
 
-            llm = await ResilientLLMClient.from_settings_async(temperature=0.7, max_tokens=2000)
+            llm = await ResilientLLMClient.from_settings_async(tenant_id=tenant_id, temperature=0.7, max_tokens=2000)
             await _rewrite_grounded_lesson(
                 lesson=lesson,
                 module=module,

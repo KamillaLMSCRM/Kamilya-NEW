@@ -6,6 +6,7 @@ import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
 import { api } from '@/lib/api';
 import { coursePublicationError } from '@/lib/coursePublicationError';
+import { documentProcessingErrorMessage } from '@/lib/documentProcessingErrors';
 import {
   type DocumentCatalogResponse,
   type DocumentIndexStatus,
@@ -83,13 +84,14 @@ interface CompatibilityDocument {
 interface CompatibilityCluster {
   id: string;
   label: string;
-  cohesion: number;
+  cohesion: number | null;
   documents: CompatibilityDocument[];
 }
 
 interface DocumentCompatibility {
-  status: 'compatible' | 'mixed' | 'incompatible';
-  score: number;
+  status: 'compatible' | 'mixed' | 'incompatible' | 'unverified';
+  score: number | null;
+  analysis_mode?: 'semantic' | 'direct_source';
   requires_decision: boolean;
   clusters: CompatibilityCluster[];
   recommended_structure?: {
@@ -237,7 +239,7 @@ export default function AIGeneratePage() {
   }, [currentJob?.course_id, programId]);
 
   const selectedDocuments = documents.filter((doc) => selectedDocIds.includes(doc.id));
-  const selectedNotReadyCount = selectedDocuments.filter((doc) => doc.embedding_status !== 'success').length;
+  const selectedNotReadyCount = selectedDocIds.length - selectedDocuments.length;
   const failedDocumentsCount = documents.filter((doc) => doc.index_status === 'failed').length;
   const hasResolvedSourceDecision = !compatibility?.requires_decision
     || (sourceStrategy === 'intentional_combination' && combinationGoal.trim().length >= 20);
@@ -269,6 +271,8 @@ export default function AIGeneratePage() {
       return;
     }
     let cancelled = false;
+    setCompatibility(null);
+    setCompatibilityLoading(true);
     const timer = window.setTimeout(async () => {
       setCompatibilityLoading(true);
       setCompatibilityError('');
@@ -282,7 +286,7 @@ export default function AIGeneratePage() {
       } catch (error: any) {
         if (!cancelled) {
           setCompatibility(null);
-          setCompatibilityError(error?.response?.data?.message || 'Не удалось проверить совместимость документов.');
+          setCompatibilityError('Не удалось прочитать выбранные источники. Проверьте, что файлы содержат текст и доступны в библиотеке.');
         }
       } finally {
         if (!cancelled) setCompatibilityLoading(false);
@@ -401,7 +405,7 @@ export default function AIGeneratePage() {
 
   const toggleDoc = (id: string) => {
     const doc = documents.find((item) => item.id === id);
-    if (doc && doc.embedding_status !== 'success') return;
+    if (!doc) return;
     if (!selectedDocIds.includes(id) && selectedDocIds.length >= 5) {
       toast.warning('Можно выбрать не более 5 документов для одного курса.');
       return;
@@ -448,11 +452,11 @@ export default function AIGeneratePage() {
         setAdmissionRetryAfter(parseRetryAfterSeconds(e));
         return;
       }
-      if (detail?.code === 'mixed_document_topics' && detail.analysis) {
+      if (['mixed_document_topics', 'source_combination_goal_required'].includes(detail?.code) && detail.analysis) {
         setCompatibility(detail.analysis);
         setPageStep('documents');
-        toast.error('Документы относятся к разным темам', {
-          description: 'Выберите одну тематическую группу или задайте общую учебную цель.',
+        toast.error('Укажите общую учебную цель', {
+          description: 'Выберите один источник или объясните, чему должен научить курс по выбранным материалам.',
         });
         return;
       }
@@ -842,16 +846,18 @@ export default function AIGeneratePage() {
                 Загруженные документы ({tp('common.counts.document', selectedDocIds.length)} выбрано)
               </div>
               {documents.map(doc => {
-                const isReady = doc.embedding_status === 'success';
+                // Catalog is filtered to active sources. Original-file validation,
+                // not embedding availability, determines admission on the server.
+                const isReady = true;
                 const isSelected = selectedDocIds.includes(doc.id);
 
                 return (
                   <div
                     key={doc.id}
                     title={doc.index_status === 'failed'
-                      ? doc.embedding_error || 'Документ не прошел индексацию'
+                      ? documentProcessingErrorMessage(null, doc.embedding_error)
                       : doc.index_status === 'partial'
-                        ? doc.embedding_error || 'Часть фрагментов не проиндексирована'
+                        ? documentProcessingErrorMessage(null, doc.embedding_error)
                         : undefined}
                     className={`flex items-center gap-3 rounded-xl border p-3 transition-all ${
                       isSelected
@@ -873,7 +879,7 @@ export default function AIGeneratePage() {
                       <div className="flex items-center gap-2 min-w-0">
                         <div className="text-sm font-medium text-foreground truncate">{doc.title}</div>
                         <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-medium ${documentStatusClass(doc.index_status)}`}>
-                          {documentStatusLabel(doc.index_status)}
+                          {doc.index_status === 'failed' ? 'Без поискового индекса' : documentStatusLabel(doc.index_status)}
                         </span>
                       </div>
                       {doc.short_summary ? (
@@ -882,11 +888,11 @@ export default function AIGeneratePage() {
                         </div>
                       ) : doc.index_status === 'failed' ? (
                         <div className="text-xs text-destructive truncate">
-                          {doc.embedding_error || 'Документ нужно загрузить повторно или проверить формат.'}
+                          Индексация недоступна. Для курса проверим исходный файл напрямую.
                         </div>
                       ) : doc.index_status === 'processing' ? (
                         <div className="text-xs text-warning truncate">
-                          Индексация еще идет. Обновите список через несколько секунд.
+                          Индексация ещё идёт. Исходный файл можно выбрать для курса.
                         </div>
                       ) : doc.description ? (
                         <div className="text-xs text-muted-foreground truncate">{doc.description}</div>
@@ -899,7 +905,7 @@ export default function AIGeneratePage() {
               {failedDocumentsCount > 0 && (
                 <div className="flex items-start justify-between gap-3 rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
                   <span>
-                    Есть документы с ошибкой индексации. Они исключены из генерации. Откройте библиотеку документов, чтобы проверить связи, удалить или загрузить источник повторно.
+                    Поисковый индекс готов не для всех документов. Это не блокирует создание курса: после выбора проверим исходные файлы напрямую.
                   </span>
                   <button
                     type="button"
@@ -925,21 +931,25 @@ export default function AIGeneratePage() {
                   {compatibilityLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Layers3 className="h-5 w-5" />}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <h3 className="text-sm font-semibold text-foreground">Тематическая проверка источников</h3>
+                  <h3 className="text-sm font-semibold text-foreground">Проверка источников</h3>
                   {compatibilityLoading ? (
-                    <p className="mt-1 text-sm text-muted-foreground">Сравниваем содержание выбранных документов...</p>
+                    <p className="mt-1 text-sm text-muted-foreground">Проверяем доступность и читаемость исходных файлов...</p>
                   ) : compatibilityError ? (
                     <p className="mt-1 text-sm text-destructive">{compatibilityError}</p>
                   ) : compatibility && !compatibility.requires_decision ? (
                     <p className="mt-1 text-sm text-success">
-                      Документы образуют одну тематическую группу. Можно проектировать единый курс.
+                      {compatibility.analysis_mode === 'direct_source'
+                        ? 'Исходный файл прочитан. Можно создавать курс без поискового индекса.'
+                        : 'Документы образуют одну тематическую группу. Можно проектировать единый курс.'}
                     </p>
                   ) : compatibility ? (
                     <div className="mt-2 space-y-4">
                       <div className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/10 p-3 text-sm text-foreground">
                         <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
                         <p>
-                          Выбраны материалы из разных предметных областей. Случайное объединение даст нелогичную структуру и слабые тесты. Выберите одну группу или объясните, зачем темы должны быть в одном курсе.
+                          {compatibility.analysis_mode === 'direct_source'
+                            ? 'Исходные файлы прочитаны, но сходство их тем не оценивалось. Выберите один источник или задайте общую учебную цель для объединения материалов.'
+                            : 'Выбраны материалы из разных предметных областей. Выберите одну группу или объясните, зачем темы должны быть в одном курсе.'}
                         </p>
                       </div>
                       <div className="grid gap-3 sm:grid-cols-2">
@@ -1076,7 +1086,7 @@ export default function AIGeneratePage() {
           </button>
           {selectedDocIds.length > 0 && selectedNotReadyCount > 0 && (
             <div className="text-center text-xs text-warning">
-              Генерацию можно запустить только по документам со статусом «Готов».
+              Часть выбранных документов недоступна. Обновите список и выберите источники заново.
             </div>
           )}
         </div>

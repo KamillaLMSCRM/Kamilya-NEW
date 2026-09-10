@@ -37,6 +37,7 @@ async def test_generate_and_regenerate_draft_call_the_ai_builder(monkeypatch):
     generated = await router.generate_quiz(request, db, user)
     assert generated.suggested_title == "Draft"
     builder.assert_awaited_once_with(
+        tenant_id=tenant_id,
         lesson_title="Lesson",
         lesson_content="Source",
         num_questions=3,
@@ -56,6 +57,7 @@ async def test_generate_and_regenerate_draft_call_the_ai_builder(monkeypatch):
     regenerated = await router.regenerate_quiz_draft(quiz_id, request, db, user)
     assert regenerated.suggested_title == "Draft"
     builder.assert_awaited_once_with(
+        tenant_id=tenant_id,
         lesson_title="Lesson",
         lesson_content="Source",
         num_questions=3,

@@ -13,6 +13,7 @@ export default function SettingsPage() {
     { href: '/admin/team', label: t('nav.userManagement'), icon: Users },
     { href: '/admin/kiosks', label: t('nav.kiosks'), icon: Monitor },
     { href: '/admin/settings/integrations', label: t('integrations.title'), icon: SlidersHorizontal },
+    { href: '/admin/settings/ai', label: t('tenantAi.title'), icon: SlidersHorizontal },
     { href: '/admin/certificates/settings', label: t('sidebar.certificateTemplate'), icon: Award },
   ];
 

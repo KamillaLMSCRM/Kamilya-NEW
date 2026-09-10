@@ -9,6 +9,12 @@ from app.modules.ai.writer_schema import LessonContent
 
 @pytest.mark.asyncio
 async def test_compact_assessment_requests_only_three_mcq_questions():
+    duties = [
+        ("кассир", "Кассир", "наличные средства", "принимает", ["проверяет", "хранит", "пересчитывает"]),
+        ("кладовщик", "Кладовщик", "товарные накладные", "проверяет", ["составляет", "выдаёт", "копирует"]),
+        ("бухгалтер", "Бухгалтер", "платёжные документы", "сверяет", ["печатает", "выдаёт", "архивирует"]),
+    ]
+
     class _LLM:
         messages = None
 
@@ -19,32 +25,18 @@ async def test_compact_assessment_requests_only_three_mcq_questions():
                     {
                         "mcq": [
                             {
-                                "question": f"Какие обязанности выполняет кассир? {index}",
+                                "question": f"Какие обязанности выполняет {subject}?",
                                 "options": [
                                     {
-                                        "text": "Кассир принимает наличные средства",
-                                        "is_correct": True,
-                                    },
-                                    {
-                                        "text": "Кассир проверяет наличные средства",
-                                        "is_correct": False,
-                                    },
-                                    {
-                                        "text": "Кассир хранит наличные средства",
-                                        "is_correct": False,
-                                    },
-                                    {
-                                        "text": "Кассир пересчитывает наличные средства",
-                                        "is_correct": False,
-                                    },
+                                        "text": f"{name} {action} {object_text}",
+                                        "is_correct": option_index == 0,
+                                    }
+                                    for option_index, action in enumerate([correct, *alternatives])
                                 ],
-                                "explanation": (
-                                    "Должностная инструкция устанавливает обязанности "
-                                    "кассира по приёму наличных средств."
-                                ),
-                                "source_quote_id": "E01",
+                                "explanation": f"Инструкция устанавливает, что {subject} {correct} {object_text}.",
+                                "source_quote_id": f"E{index:02d}",
                             }
-                            for index in range(1, 4)
+                            for index, (subject, name, object_text, correct, alternatives) in enumerate(duties, start=1)
                         ],
                         "true_false": [],
                         "matching": [],
@@ -59,9 +51,9 @@ async def test_compact_assessment_requests_only_three_mcq_questions():
         LessonContent(
             title="Должностные обязанности",
             objectives=["Знать обязанности"],
-            content=(
-                "Кассир принимает наличные средства и выполняет "
-                "перечисленные обязанности."
+            content=" ".join(
+                f"Инструкция устанавливает, что {subject} {correct} {object_text}."
+                for subject, _, object_text, correct, _ in duties
             ),
         ),
         compact=True,

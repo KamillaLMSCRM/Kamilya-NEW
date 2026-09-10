@@ -129,8 +129,6 @@ class Settings(BaseSettings):
     # provider. It is deliberately reused rather than added to the chain a
     # second time under another name.
     QWEN_API_URL: str = "https://qwen.kml.kz/v1"
-    QWEN_EMBEDDING_URL: str = "https://qwen-embed.kml.kz/v1"
-    EMBEDDING_URL: str = "https://qwen-embed.kml.kz/v1"
     EMBEDDING_DIMENSIONS: int = 4096
     LLM_API_URL: str = "https://qwen.kml.kz/v1"
 
@@ -148,10 +146,22 @@ class Settings(BaseSettings):
     DEEPSEEK_BASE_URL: str = "https://api.deepseek.com/v1"
     DEEPSEEK_MODEL: str = "deepseek-v4-flash"
 
-    # Voyage AI — primary managed embeddings provider. Endpoint is OpenAI-compatible
+    # Dedicated ASUS Qwen embeddings route. This is intentionally separate
+    # from chat Qwen settings: it serves only Qwen3-Embedding-8B through the
+    # OpenAI-compatible embeddings endpoint and has the runtime's 8192-token
+    # input limit, not the model-card maximum context.
+    ASUS_EMBEDDINGS_ENABLED: bool = True
+    ASUS_EMBEDDINGS_URL: str = "http://10.66.66.15:8001/v1"
+    ASUS_EMBEDDINGS_MODEL: str = "Qwen/Qwen3-Embedding-8B"
+    ASUS_EMBEDDINGS_MAX_INPUT_BYTES: int = Field(default=8192, ge=256, le=8192)
+    ASUS_EMBEDDINGS_MAX_BATCH_SIZE: int = Field(default=32, ge=1, le=32)
+    ASUS_EMBEDDINGS_CONNECT_TIMEOUT_SECONDS: float = Field(default=3.0, ge=1.0, le=15.0)
+    ASUS_EMBEDDINGS_REQUEST_TIMEOUT_SECONDS: float = Field(default=12.0, ge=1.0, le=30.0)
+
+    # Voyage AI — managed embeddings fallback. Endpoint is OpenAI-compatible
     # (https://api.voyageai.com/v1). Free tier: 200M tokens per account for
     # voyage-4-lite/voyage-4/voyage-context-3. Activated only when
-    # VOYAGE_API_KEY is set; Qwen embeddings remain the fallback.
+    # VOYAGE_API_KEY is set; ASUS Qwen embeddings are the first global route.
     #   voyage-4-lite        $0.02/M  (free up to 200M)
     #   voyage-4             $0.06/M  (free up to 200M)
     #   voyage-multilingual-2 $0.12/M (free up to 50M)

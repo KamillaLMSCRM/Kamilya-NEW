@@ -15,6 +15,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.4.0] - 2026-09-10
+
+### Added
+
+- Organization administrators can configure their own course/test generation and document-indexing providers separately, with encrypted write-only keys and tenant-scoped settings.
+
+### Changed
+
+- Course generation can use verified original source material when a compatible semantic index is unavailable; available semantic excerpts remain bound to the selected source documents.
+
+### Fixed
+
+- Assessment repair includes actionable answer-length feedback, caps recovered questions to the requested count, and rejects repeated questions with the same evidence and normalized correct answer.
+- Large-source fallback selects whole excerpts within the request budget while retaining every document requested for the lesson.
+- Semantic document search keeps query instructions separate from source material, validates vector-to-fragment ordering, and prevents mixing incompatible embedding spaces during provider fallback.
+
+### Security
+
 ## [0.3.1] - 2026-09-09
 
 ### Fixed
@@ -117,6 +135,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
-[Unreleased]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.3.1...HEAD
+[Unreleased]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.2.0...v0.3.0

@@ -128,6 +128,35 @@ def test_resilient_llm_provider_propagates_provider_failed_error():
     assert excinfo.value.provider_name == "primary"
 
 
+def test_llm_client_applies_only_valid_downward_per_call_max_tokens() -> None:
+    config = LLMProviderConfig(name="primary", base_url="x", api_key="y", model="z")
+    client = LLMClient(config, max_tokens=8192, max_retries=0)
+    payloads: list[dict] = []
+
+    async def fake_request(payload: dict) -> dict:
+        payloads.append(payload)
+        return {
+            "choices": [{
+                "message": {"content": "bounded response"},
+                "finish_reason": "stop",
+            }]
+        }
+
+    client._request = fake_request  # type: ignore[assignment]
+
+    import asyncio
+
+    response = asyncio.run(client.ainvoke("hello", config={"max_tokens": 1024}))
+    assert response.content == "bounded response"
+    assert payloads[0]["max_tokens"] == 1024
+    assert client.max_tokens == 8192
+
+    for invalid in (0, -1, True, "1024", 8193):
+        with pytest.raises(ValueError, match="config.max_tokens"):
+            asyncio.run(client.ainvoke("hello", config={"max_tokens": invalid}))
+    assert len(payloads) == 1
+
+
 def test_resilient_llm_raises_when_all_providers_fail():
     chain = ResilientLLMClient(
         [
@@ -344,21 +373,17 @@ async def test_async_settings_chain_omits_disabled_fallback(monkeypatch):
 
 def test_embeddings_settings_chain_prefers_voyage(monkeypatch):
     voyage = LLMProviderConfig(name="voyage", base_url="https://voyage.test", api_key="key", model="voyage")
-    qwen = LLMProviderConfig(name="qwen-self-hosted", base_url="https://qwen.test", api_key="key", model="qwen")
     monkeypatch.setattr(llm_client, "_voyage_embed_provider", lambda: voyage)
     monkeypatch.setattr(llm_client, "_cohere_embed_provider", lambda: None)
-    monkeypatch.setattr(llm_client, "_qwen_embed_provider", lambda: qwen)
 
     chain = ResilientEmbeddingsClient.from_settings()
 
-    assert chain.provider_names == ["voyage", "qwen-self-hosted"]
-    assert all(client.max_retries == 6 for client in chain._clients)
+    assert chain.provider_names == ["asus-qwen-embedding-8b", "voyage"]
+    assert [client.max_retries for client in chain._clients] == [0, 6]
 
 
 @pytest.mark.asyncio
 async def test_async_embeddings_chain_prefers_db_voyage_key(monkeypatch):
-    qwen = LLMProviderConfig(name="qwen-self-hosted", base_url="https://qwen.test", api_key="key", model="qwen")
-    monkeypatch.setattr(llm_client, "_qwen_embed_provider", lambda: qwen)
     monkeypatch.setattr(llm_client, "_voyage_embed_provider", lambda: None)
 
     async def resolve_key(provider, env_key):
@@ -368,26 +393,22 @@ async def test_async_embeddings_chain_prefers_db_voyage_key(monkeypatch):
 
     chain = await ResilientEmbeddingsClient.from_settings_async()
 
-    assert chain.provider_names == ["voyage", "qwen-self-hosted"]
+    assert chain.provider_names == ["asus-qwen-embedding-8b", "voyage"]
 
 
-def test_embeddings_settings_chain_places_cohere_between_voyage_and_qwen(monkeypatch):
+def test_embeddings_settings_chain_includes_only_configured_managed_providers(monkeypatch):
     voyage = LLMProviderConfig(name="voyage", base_url="https://voyage.test", api_key="key", model="voyage")
     cohere = LLMProviderConfig(name="cohere", base_url="https://cohere.test", api_key="key", model="embed-v4.0")
-    qwen = LLMProviderConfig(name="qwen-self-hosted", base_url="https://qwen.test", api_key="key", model="qwen")
     monkeypatch.setattr(llm_client, "_voyage_embed_provider", lambda: voyage)
     monkeypatch.setattr(llm_client, "_cohere_embed_provider", lambda: cohere)
-    monkeypatch.setattr(llm_client, "_qwen_embed_provider", lambda: qwen)
 
     chain = ResilientEmbeddingsClient.from_settings()
 
-    assert chain.provider_names == ["voyage", "cohere", "qwen-self-hosted"]
+    assert chain.provider_names == ["asus-qwen-embedding-8b", "voyage", "cohere"]
 
 
 @pytest.mark.asyncio
 async def test_async_embeddings_chain_uses_db_cohere_key(monkeypatch):
-    qwen = LLMProviderConfig(name="qwen-self-hosted", base_url="https://qwen.test", api_key="key", model="qwen")
-    monkeypatch.setattr(llm_client, "_qwen_embed_provider", lambda: qwen)
     monkeypatch.setattr(llm_client, "_voyage_embed_provider", lambda: None)
     monkeypatch.setattr(llm_client, "_cohere_embed_provider", lambda: None)
 
@@ -398,7 +419,7 @@ async def test_async_embeddings_chain_uses_db_cohere_key(monkeypatch):
 
     chain = await ResilientEmbeddingsClient.from_settings_async()
 
-    assert chain.provider_names == ["cohere", "qwen-self-hosted"]
+    assert chain.provider_names == ["asus-qwen-embedding-8b", "cohere"]
 
 
 @pytest.mark.asyncio
@@ -410,7 +431,7 @@ async def test_ingestion_embeddings_provider_uses_async_key_resolution(monkeypat
     factory = AsyncMock(return_value=fake_client)
     monkeypatch.setattr(ResilientEmbeddingsClient, "from_settings_async", factory)
 
-    result = await EmbeddingsProvider().embed(["safety"])
+    result = await EmbeddingsProvider(qwen_url="legacy-test-argument").embed(["safety"])
 
     factory.assert_awaited_once()
     fake_client.embed_documents.assert_awaited_once_with(["safety"])
@@ -538,6 +559,58 @@ async def test_embeddings_client_zero_pads_smaller_provider_vectors(monkeypatch)
 
 
 @pytest.mark.asyncio
+async def test_openrouter_embeddings_send_only_approved_free_routing_for_documents_and_queries(monkeypatch):
+    client = EmbeddingsClient(
+        LLMProviderConfig(
+            name="openrouter",
+            base_url="https://openrouter.test/api/v1",
+            api_key="synthetic-test-key",
+            model="nvidia/nemotron-3-embed-1b:free",
+            extra_body={
+                "model": "must-not-override-model",
+                "input": ["must-not-override-input"],
+                "unapproved": "must-not-be-sent",
+                "provider": {
+                    "allow_fallbacks": False,
+                    "data_collection": "deny",
+                    "max_price": {"prompt": 0, "completion": 0, "image": 0, "request": 0},
+                    "unapproved_provider_option": "must-not-be-sent",
+                },
+            },
+        ),
+        max_retries=0,
+    )
+    captured: list[dict] = []
+
+    async def mock_request(payload):
+        captured.append(payload)
+        return {"data": [{"embedding": [0.1] * 1024} for _ in payload["input"]]}
+
+    monkeypatch.setattr(client, "_request", mock_request)
+
+    await client.embed_documents(["first document", "second document"])
+    await client.embed_query("search query")
+
+    expected_provider = {
+        "allow_fallbacks": False,
+        "data_collection": "deny",
+        "max_price": {"prompt": 0, "completion": 0, "image": 0, "request": 0},
+    }
+    assert captured == [
+        {
+            "model": "nvidia/nemotron-3-embed-1b:free",
+            "input": ["first document", "second document"],
+            "provider": expected_provider,
+        },
+        {
+            "model": "nvidia/nemotron-3-embed-1b:free",
+            "input": ["search query"],
+            "provider": expected_provider,
+        },
+    ]
+
+
+@pytest.mark.asyncio
 async def test_embeddings_client_rejects_inconsistent_native_dimensions(monkeypatch):
     client = EmbeddingsClient(
         LLMProviderConfig(name="qwen", base_url="http://mock", api_key="y", model="z"),
@@ -612,10 +685,10 @@ async def test_cohere_embeddings_split_requests_at_provider_batch_limit(monkeypa
 
     result = await client.embed_documents([f"chunk-{index}" for index in range(99)])
 
-    assert batch_sizes == [96, 3]
+    assert batch_sizes == [32, 32, 32, 3]
     assert len(result) == 99
     assert result[0][0] == 1.0
-    assert result[-1][0] == 2.0
+    assert result[-1][0] == 4.0
 
 
 @pytest.mark.asyncio
@@ -706,8 +779,7 @@ def test_create_embeddings_returns_resilient_client_with_defaults():
     from app.modules.ai.llm_client import create_embeddings
 
     client = create_embeddings()
-    assert isinstance(client, ResilientEmbeddingsClient)
-    assert "qwen-self-hosted" in client.provider_names
+    assert client.provider_names == ["asus-qwen-embedding-8b"]
 
 
 def test_create_llm_with_explicit_args_uses_single_provider():

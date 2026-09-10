@@ -8,7 +8,7 @@ import os
 import re
 import time
 from datetime import datetime, timezone
-from typing import Callable
+from typing import Callable, TypedDict, cast
 from dataclasses import dataclass, field
 from uuid import UUID, uuid4
 
@@ -18,6 +18,13 @@ from app.modules.ai.assessment_schema import CourseAssessment, LessonAssessment
 from app.modules.ai.llm_client import LLMClient, ResilientLLMClient, create_llm
 from app.modules.ai.ingestion import VectorStore, DocumentIngestion, EmbeddingsProvider
 from app.modules.ai.architect import run_architect, create_architect_tools
+from app.modules.ai.direct_source import (
+    DirectSourceCorpus,
+    DirectSourceError,
+    load_direct_source_corpus,
+    run_direct_architect,
+    write_direct_course,
+)
 from app.modules.ai.writer import UnsupportedLessonSourceError, write_lesson, write_course
 from app.modules.ai.assessment import generate_lesson_assessment, generate_course_assessment
 from app.modules.ai.reviewer import ReviewerAgent
@@ -31,6 +38,11 @@ GENERATION_FAILURE_MESSAGE = (
 )
 
 
+class _DocumentProfile(TypedDict):
+    all_job_instructions: bool
+    total_chunks: int
+
+
 def _estimate_lesson_duration_seconds(content: str | None) -> int:
     """Estimate focused reading time at 150 words/minute, with a 2-minute floor."""
     word_count = len(re.findall(r"\b[\w-]+\b", content or "", flags=re.UNICODE))
@@ -40,7 +52,7 @@ def _estimate_lesson_duration_seconds(content: str | None) -> int:
 async def _selected_document_profile(
     document_ids: list[str],
     tenant_id: UUID | str | None,
-) -> dict:
+) -> _DocumentProfile:
     if not document_ids or not tenant_id:
         return {"all_job_instructions": False, "total_chunks": 0}
     from sqlalchemy import select, text
@@ -70,9 +82,14 @@ async def _selected_document_profile(
     return {
         "all_job_instructions": (
             len(documents) == len(parsed_ids)
-            and all(document.category == "job_instruction" for document in documents)
+            and all(
+                cast(str, document.category) == "job_instruction"
+                for document in documents
+            )
         ),
-        "total_chunks": sum(document.index_chunks_total or 0 for document in documents),
+        "total_chunks": sum(
+            cast(int, document.index_chunks_total or 0) for document in documents
+        ),
     }
 
 
@@ -402,25 +419,40 @@ async def run_generation_pipeline(
         source_analysis=dict(source_analysis or {}),
         reuse_reason=reuse_reason,
     )
+    direct_mode = state.source_analysis.get("analysis_mode") == "direct_source"
+    direct_corpus: DirectSourceCorpus | None = None
 
     try:
-        # Stage 1: Ingestion вЂ” actually ingest documents into vector store
+        # Stage 1: validate the selected source path before any model call.
         state.stage = "ingestion"
         state.progress = 5
-        state.message = "Проверка эмбеддингов документов..."
+        state.message = (
+            "Проверка исходных документов..."
+            if direct_mode
+            else "Проверка эмбеддингов документов..."
+        )
         await _update_job_db(job_id, tenant_id=tenant_id, status="running", stage="ingestion", progress=5, message=state.message)
 
-        # Documents are ingested at upload time into pgvector.
-        # Here we verify embeddings exist for the requested doc_ids and fail-fast
-        # if NONE of the selected documents have embeddings (otherwise the
-        # Architect agent fails deep inside its loop with a confusing error).
-        if documents:
+        if direct_mode:
+            if not tenant_id:
+                raise DirectSourceError("tenant_id_required")
+            direct_corpus = await load_direct_source_corpus(
+                documents,
+                tenant_id=tenant_id,
+                check_cancelled=lambda: _check_cancelled_async(
+                    job_id,
+                    tenant_id=tenant_id,
+                ),
+            )
+        # Semantic documents are ingested at upload time into pgvector. Keep
+        # the legacy verification path unchanged for semantic generation.
+        elif documents:
             from app.modules.ai.ingestion import VectorStore
-            store = VectorStore()
+            verification_store = VectorStore()
             missing_docs: list[str] = []
             for doc_id in documents:
                 try:
-                    chunks = await store.get_all_chunks(
+                    chunks = await verification_store.get_all_chunks(
                         doc_ids=[doc_id],
                         tenant_id=str(tenant_id) if tenant_id else None,
                     )
@@ -451,17 +483,33 @@ async def run_generation_pipeline(
         state.message = "Проектирование структуры курса..."
         await _update_job_db(job_id, tenant_id=tenant_id, stage="architect", progress=10, message=state.message)
 
-        llm = await ResilientLLMClient.from_settings_async()
-        store = VectorStore()
-        embeddings_provider = EmbeddingsProvider()
-        tools = create_architect_tools(
-            summaries_dir="./summaries",
-            chroma_dir="./chroma_data",
-            doc_ids=documents if documents else None,
-            vector_store=store,
-            tenant_id=str(tenant_id) if tenant_id else None,
-        )
-        document_profile = await _selected_document_profile(documents, tenant_id)
+        llm = await ResilientLLMClient.from_settings_async(tenant_id=tenant_id)
+        semantic_store: VectorStore | None = None
+        semantic_embeddings_provider: EmbeddingsProvider | None = None
+        architect_tools: dict | None = None
+        document_profile: _DocumentProfile
+        if direct_mode:
+            if direct_corpus is None:
+                raise DirectSourceError("direct_source_unavailable")
+            document_profile = {
+                "all_job_instructions": all(
+                    document.category == "job_instruction"
+                    for document in direct_corpus.documents
+                ),
+                "total_chunks": direct_corpus.total_chunks,
+            }
+        else:
+            semantic_store = VectorStore()
+            semantic_embeddings_provider = EmbeddingsProvider(tenant_id=tenant_id)
+            architect_tools = create_architect_tools(
+                summaries_dir="./summaries",
+                chroma_dir="./chroma_data",
+                doc_ids=documents if documents else None,
+                embeddings_client=semantic_embeddings_provider,
+                vector_store=semantic_store,
+                tenant_id=str(tenant_id) if tenant_id else None,
+            )
+            document_profile = await _selected_document_profile(documents, tenant_id)
         effective_guidance = guidance
         if document_profile["all_job_instructions"]:
             compact_instruction = (
@@ -476,21 +524,44 @@ async def run_generation_pipeline(
                 part for part in (guidance, compact_instruction) if part
             )
 
-        structure = await run_architect(
-            llm=llm,
-            tools=tools,
-            goals=goals,
-            course_hours=course_hours,
-            num_modules=num_modules,
-            lessons_per_module=lessons_per_module,
-            language=language,
-            guidance=effective_guidance,
-            on_message=lambda msg: asyncio.create_task(_update_job_db(job_id, tenant_id=tenant_id, message=f"Architect: {msg}")),
-            tenant_id=str(tenant_id) if tenant_id else None,
-            target_audience=target_audience,
-            source_strategy=source_strategy,
-            combination_goal=combination_goal,
-        )
+        if direct_mode:
+            if direct_corpus is None:
+                raise DirectSourceError("direct_source_unavailable")
+            structure = await run_direct_architect(
+                llm,
+                direct_corpus,
+                goals=goals,
+                course_hours=course_hours,
+                num_modules=num_modules,
+                lessons_per_module=lessons_per_module,
+                language=language,
+                guidance=effective_guidance,
+                target_audience=target_audience,
+                source_strategy=source_strategy,
+                combination_goal=combination_goal,
+                check_cancelled=lambda: _check_cancelled_async(
+                    job_id,
+                    tenant_id=tenant_id,
+                ),
+            )
+        else:
+            if architect_tools is None:
+                raise RuntimeError("semantic_architect_tools_unavailable")
+            structure = await run_architect(
+                llm=llm,
+                tools=architect_tools,
+                goals=goals,
+                course_hours=course_hours,
+                num_modules=num_modules,
+                lessons_per_module=lessons_per_module,
+                language=language,
+                guidance=effective_guidance,
+                on_message=lambda msg: asyncio.create_task(_update_job_db(job_id, tenant_id=tenant_id, message=f"Architect: {msg}")),
+                tenant_id=str(tenant_id) if tenant_id else None,
+                target_audience=target_audience,
+                source_strategy=source_strategy,
+                combination_goal=combination_goal,
+            )
 
         state.structure = structure
         state.progress = 25
@@ -521,21 +592,41 @@ async def run_generation_pipeline(
                     message=msg,
                 )
 
-            generated = await write_course(
-                llm=llm,
-                store=store,
-                structure=course_structure,
-                doc_ids=documents if documents else None,
-                language=language,
-                on_progress=on_lesson_progress,
-                embeddings_provider=embeddings_provider,
-                tenant_id=str(tenant_id) if tenant_id else None,
-            )
+            if direct_mode:
+                if direct_corpus is None:
+                    raise DirectSourceError("direct_source_unavailable")
+                generated = await write_direct_course(
+                    llm,
+                    direct_corpus,
+                    course_structure,
+                    tenant_id=tenant_id,
+                    language=language,
+                    on_progress=on_lesson_progress,
+                    check_cancelled=lambda: _check_cancelled_async(
+                        job_id,
+                        tenant_id=tenant_id,
+                    ),
+                )
+            else:
+                if semantic_store is None:
+                    raise RuntimeError("semantic_store_unavailable")
+                generated = await write_course(
+                    llm=llm,
+                    store=semantic_store,
+                    structure=course_structure,
+                    doc_ids=documents if documents else None,
+                    language=language,
+                    on_progress=on_lesson_progress,
+                    embeddings_provider=semantic_embeddings_provider,
+                    tenant_id=str(tenant_id) if tenant_id else None,
+                )
             return generated, total
 
         try:
             content, total_lessons = await write_grounded_course(structure)
         except UnsupportedLessonSourceError as exc:
+            if direct_mode:
+                raise
             state.stage = "architect_recovery"
             state.progress = 28
             state.message = (
@@ -564,9 +655,11 @@ async def run_generation_pipeline(
                 )
                 if part
             )
+            if architect_tools is None:
+                raise RuntimeError("semantic_architect_tools_unavailable") from exc
             structure = await run_architect(
                 llm=llm,
-                tools=tools,
+                tools=architect_tools,
                 goals=goals,
                 course_hours=course_hours,
                 num_modules=num_modules,
@@ -666,6 +759,7 @@ async def run_generation_pipeline(
         assessment_llm = await ResilientLLMClient.from_settings_async(
             temperature=0.2,
             max_tokens=4096,
+            tenant_id=tenant_id,
         )
         assessment = await generate_course_assessment(
             llm=assessment_llm,
@@ -715,14 +809,15 @@ async def run_generation_pipeline(
     except Exception as e:
         state.status = "failed"
         state.message = GENERATION_FAILURE_MESSAGE
-        state.errors.append(GENERATION_FAILURE_CODE)
+        failure_code = e.code if isinstance(e, DirectSourceError) else GENERATION_FAILURE_CODE
+        state.errors.append(failure_code)
         await _update_job_db(
             job_id,
             tenant_id=tenant_id,
             status="failed",
             stage="failed",
             message=state.message,
-            errors=[GENERATION_FAILURE_CODE],
+            errors=[failure_code],
             completed_at=datetime.now(timezone.utc),
         )
         if tenant_id and not state.course_id:

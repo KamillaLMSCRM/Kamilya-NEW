@@ -200,16 +200,44 @@ class DocumentChunker:
     """Split documents into chunks for embedding."""
 
     def __init__(self, chunk_size: int = 1000, chunk_overlap: int = 200):
+        if chunk_size <= 0:
+            raise ValueError("chunk_size must be positive")
+        if chunk_overlap < 0 or chunk_overlap >= chunk_size:
+            raise ValueError("chunk_overlap must be non-negative and smaller than chunk_size")
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
 
     def chunk_markdown(self, markdown: str, doc_id: str, doc_name: str) -> list[dict[str, Any]]:
         """Split markdown into chunks with metadata."""
-        chunks = []
+        chunks: list[dict[str, Any]] = []
         paragraphs = markdown.split("\n\n")
 
         current_chunk = ""
         current_headings: list[str] = []
+
+        def emit_current() -> str:
+            if current_chunk.strip():
+                chunks.append({
+                    "text": current_chunk.strip(),
+                    "metadata": {
+                        "doc_id": doc_id,
+                        "doc_name": doc_name,
+                        "headings": json.dumps(current_headings, ensure_ascii=False),
+                    },
+                })
+            # Reserve room for the separator and at least one new source
+            # character, so a valid overlap always makes forward progress.
+            overlap_size = min(self.chunk_overlap, max(0, self.chunk_size - 3))
+            return current_chunk[-overlap_size:] if overlap_size else ""
+
+        def take_prefix(value: str, available: int) -> str:
+            """Prefer a complete table row or line, but split an oversized cell."""
+            if len(value) <= available:
+                return value
+            newline = value.rfind("\n", 0, available + 1)
+            if newline > 0:
+                return value[: newline + 1]
+            return value[:available]
 
         for para in paragraphs:
             para = para.strip()
@@ -224,21 +252,19 @@ class DocumentChunker:
                     current_headings = current_headings[: level - 1]
                 current_headings.append(title)
 
-            # Check if adding this paragraph exceeds chunk size
-            if len(current_chunk) + len(para) + 2 > self.chunk_size and current_chunk:
-                chunks.append({
-                    "text": current_chunk.strip(),
-                    "metadata": {
-                        "doc_id": doc_id,
-                        "doc_name": doc_name,
-                        "headings": json.dumps(current_headings, ensure_ascii=False),
-                    },
-                })
-                # Keep overlap
-                overlap_text = current_chunk[-self.chunk_overlap:] if self.chunk_overlap else ""
-                current_chunk = overlap_text + "\n\n" + para
-            else:
-                current_chunk += "\n\n" + para if current_chunk else para
+            pending = ("\n\n" if current_chunk else "") + para
+            while pending:
+                available = self.chunk_size - len(current_chunk)
+                if available <= 0:
+                    current_chunk = emit_current()
+                    continue
+                if len(pending) <= available:
+                    current_chunk += pending
+                    break
+                prefix = take_prefix(pending, available)
+                current_chunk += prefix
+                pending = pending[len(prefix):]
+                current_chunk = emit_current()
 
         # Final chunk
         if current_chunk.strip():
@@ -902,22 +928,23 @@ class Summarizer:
 class EmbeddingsProvider:
     """Embeddings with automatic fallback chain.
 
-    Chain (June 2026):
-      1. Qwen self-hosted (primary)
-      1. Voyage voyage-4-lite via ResilientEmbeddingsClient (managed primary)
-      2. Qwen self-hosted embeddings (fallback)
+    The configured managed-provider chain is resolved by
+    ResilientEmbeddingsClient for the trusted tenant.
     Used by retrieval (Architect, Writer) and by DocumentIngestion.
     If both providers fail, indexing fails explicitly. Synthetic vectors are
     not valid for semantic retrieval or document compatibility decisions.
     """
 
-    def __init__(self, qwen_url: str | None = None):
-        # The legacy qwen_url arg is honored for tests but in production the
-        # chain is built from settings (Voyage -> Cohere -> Qwen).
-        from app.core.config import get_settings
-        if qwen_url is None:
-            qwen_url = get_settings().QWEN_EMBEDDING_URL
-        self.qwen_url = qwen_url
+    def __init__(
+        self,
+        qwen_url: str | None = None,
+        *,
+        tenant_id: object | None = None,
+    ):
+        # Keep the argument as a no-op compatibility shim for older callers.
+        # Provider URLs and keys are resolved only by the tenant-aware client.
+        _ = qwen_url
+        self.tenant_id = tenant_id
         # Built lazily on first embed() call so config changes are picked up
         # and we don't spin up an httpx client until needed.
         self._client: ResilientEmbeddingsClient | None = None
@@ -925,7 +952,9 @@ class EmbeddingsProvider:
     async def _get_client(self) -> ResilientEmbeddingsClient:
         if self._client is None:
             from app.modules.ai.llm_client import ResilientEmbeddingsClient
-            self._client = await ResilientEmbeddingsClient.from_settings_async()
+            self._client = await ResilientEmbeddingsClient.from_settings_async(
+                tenant_id=self.tenant_id,
+            )
         return self._client
 
     async def embed(self, texts: list[str]) -> list[list[float]]:
@@ -996,6 +1025,7 @@ class DocumentIngestion:
     ):
         self.persist_dir = persist_dir
         self.summaries_dir = summaries_dir
+        self._qwen_embeddings_url = qwen_embeddings_url
         self.converter = DocumentConverter()
         self.chunker = DocumentChunker(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
         self.store = VectorStore(persist_dir)
@@ -1063,8 +1093,17 @@ class DocumentIngestion:
 
         # Step 3: Embed (Qwen → Voyage → hash fallback)
         texts = [c["text"] for c in chunks]
+        embedding_provider = self.embeddings
+        if isinstance(embedding_provider, EmbeddingsProvider):
+            # Bind the provider to this invocation's trusted document tenant.
+            # A reusable ingestion object must never retain another tenant's
+            # resolved client or provider key.
+            embedding_provider = EmbeddingsProvider(
+                qwen_url=self._qwen_embeddings_url,
+                tenant_id=tenant_id,
+            )
         try:
-            embedding_batch = await self.embeddings.embed_documents_with_provenance(texts)
+            embedding_batch = await embedding_provider.embed_documents_with_provenance(texts)
             embeddings = embedding_batch.as_lists()
             print(
                 f"[INGEST] embedded {len(embeddings)} vectors "

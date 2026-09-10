@@ -25,6 +25,7 @@ MODEL_MODULES = (
     "app.models.users",
     "app.modules.admin.provider_keys.models",
     "app.modules.admin.model_routing.models",
+    "app.modules.admin.tenant_ai_providers.models",
     "app.modules.announcements.models",
     "app.modules.audit.models",
     "app.modules.candidate_assessments.models",

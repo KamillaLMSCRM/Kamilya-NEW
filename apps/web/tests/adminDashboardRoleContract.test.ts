@@ -34,6 +34,7 @@ describe('tenant admin dashboard role contract', () => {
       '/admin/kiosks',
       '/settings',
       '/admin/settings/integrations',
+      '/admin/settings/ai',
       '/admin/certificates/settings',
       '/admin/audit',
       '/training-log',

@@ -68,7 +68,7 @@ class CompatibilityDocument(BaseModel):
 class CompatibilityCluster(BaseModel):
     id: str
     label: str
-    cohesion: float
+    cohesion: float | None
     documents: list[CompatibilityDocument]
 
 
@@ -83,8 +83,9 @@ class CourseStructureRecommendation(BaseModel):
 
 
 class DocumentCompatibilityResponse(BaseModel):
-    status: Literal["compatible", "mixed", "incompatible"]
-    score: float
+    status: Literal["compatible", "mixed", "incompatible", "unverified"]
+    score: float | None
+    analysis_mode: Literal["semantic", "direct_source"] = "semantic"
     requires_decision: bool
     clusters: list[CompatibilityCluster]
     recommended_structure: CourseStructureRecommendation | None = None

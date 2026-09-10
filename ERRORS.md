@@ -1789,3 +1789,37 @@ contract or establish a blocker.
   checker timestamps; a stale page is not authoritative evidence. Landing and
   LMS frontend remain separate repositories/services/releases even though both
   run on CT137.
+
+## AI-EMBED-001 - Query protocol and vector association must be provider-specific
+
+- Date:2026-09-10. Candidate ASUS embedding integration; not a production release.
+- Symptom: indexed response ordering can attach a vector to the wrong fragment.
+- Cause: consuming indexed responses in array order rather than their explicit
+  input indices; generic query preprocessing can alter
+  document text or another provider's input protocol.
+- Fix: Qwen-only query instruction and L2 normalization, unchanged document text,
+  strict indexed-response ordering, one-provider batch fallback and exact-space
+  provenance. No cross-provider vector comparisons or implicit tenant-key fallback.
+- Verification:65 focused tests; actual synthetic candidate adapter returned4096
+  dimensions, unit norms and the correct top document in2.92s on the workstation.
+  VM126 worker timed out through its LAN gateway; workstation reachability is not
+  production reachability. No network configuration was changed.
+- Prevention: retain `test_asus_embeddings.py`, failover/provenance tests, and
+  independently verify connectivity from the real worker before release.
+
+## AI-SOURCE-001 - Prefix-only source context loses catalog topics
+
+- Date:2026-09-10.
+- Symptom: source tails and unevenly sized documents were omitted from architecture
+  context; reproduced with a636k-character synthetic catalog.
+- Cause: prefix-only context selection discarded later chunks before planning.
+- Fix: bounded all-chunk topic mapping for large/overlap-expanded sources; small
+  sources retain all chunks. Cap actual provider output at1024tokens per map call,
+  delimit untrusted metadata and parse standalone JSON. Retry feedback retains
+  the original question number and tolerates malformed/null option containers.
+- Verification: root107 combined focused tests and5 separate database-free
+  AI-COURSE-01 checks pass. Mechanical chunk coverage is not proof that every
+  source fact is taught; full persisted provider/browser acceptance remains open.
+- Prevention: retain catalog/small-source/map/assessment regressions; do not
+  replace complete-source processing with an unlabelled sample or loosen question
+  grounding/quality checks to turn a partial live result into a passing course.

@@ -11,6 +11,68 @@ from app.modules.ai.assessment import (
 from app.modules.ai.writer_schema import CourseContent, LessonContent, ModuleContent
 
 
+def _additional_questions() -> list[dict]:
+    facts = [
+        (
+            "Когда передают график микрокредита?",
+            "График микрокредита передают после подписания договора.",
+            ["После подписания договора", "До подписания договора", "При обсуждении договора", "Без подписания договора"],
+        ),
+        (
+            "Чем подтверждают погашение микрокредита?",
+            "Погашение микрокредита подтверждают платёжной квитанцией.",
+            ["Платёжной квитанцией", "Платёжной заявкой", "Платёжной справкой", "Платёжной ведомостью"],
+        ),
+        (
+            "Где указывают срок микрокредита?",
+            "Срок микрокредита указывают в подписанном договоре.",
+            ["В подписанном договоре", "В предварительном договоре", "В отменённом договоре", "В неподписанном договоре"],
+        ),
+        (
+            "Когда фиксируют просрочку микрокредита?",
+            "Просрочку микрокредита фиксируют после пропуска платежа.",
+            ["После пропуска платежа", "До пропуска платежа", "При внесении платежа", "Без пропуска платежа"],
+        ),
+    ]
+    return [
+        {
+            "question": prompt,
+            "options": [{"text": text, "is_correct": i == 0} for i, text in enumerate(options)],
+            "explanation": quote,
+            "source_quote_id": f"E{index:02d}",
+        }
+        for index, (prompt, quote, options) in enumerate(facts, start=2)
+    ]
+
+
+def _source_with_additional_facts(source: str) -> str:
+    return "\n".join([source, *(q["explanation"] for q in _additional_questions())])
+
+
+def _loan_questions() -> list[dict]:
+    facts = [
+        ("approval", "application review", "application intake"),
+        ("payment", "contract signing", "contract review"),
+        ("closure", "final repayment", "partial repayment"),
+        ("renewal", "credit reassessment", "credit application"),
+        ("collection", "missed repayment", "scheduled repayment"),
+    ]
+    return [
+        {
+            "question": f"When does loan {subject} occur?",
+            "options": [
+                {"text": f"after {condition}", "is_correct": True},
+                {"text": f"before {condition}", "is_correct": False},
+                {"text": f"during {alternative}", "is_correct": False},
+                {"text": f"without {condition}", "is_correct": False},
+            ],
+            "explanation": f"Loan {subject} occurs after {condition}.",
+            "source_quote_id": f"E{index:02d}",
+        }
+        for index, (subject, condition, alternative) in enumerate(facts, start=1)
+    ]
+
+
 def _questions(
     topic: str,
     fact: str,
@@ -32,14 +94,13 @@ def _questions(
     ]
     return [
         {
-            "question": f"Что указано про {topic} в материале? Вопрос {index}",
+            "question": f"Что указано про {topic} в материале?",
             "options": options,
             "explanation": f"Материал связывает {topic} с {fact}.",
             "source_quote": source_quote,
             "source_quote_id": source_quote_id,
         }
-        for index in range(1, count + 1)
-    ]
+    ] + _additional_questions()[:count - 1]
 
 
 def test_contract_diagnostics_use_bounded_reason_codes():
@@ -79,7 +140,7 @@ async def test_standard_assessment_requests_five_mcq_questions_only():
         FakeLLM(),
         LessonContent(
             title="Правила выдачи микрокредита",
-            content="Выдача микрокредита выполняется после проверки заявления.",
+            content=_source_with_additional_facts("Выдача микрокредита выполняется после проверки заявления."),
             source_references=[],
         ),
         language="ru",
@@ -126,7 +187,7 @@ async def test_standard_assessment_retries_an_incomplete_result():
         llm,
         LessonContent(
             title="Порядок рассмотрения заявления",
-            content="Рассмотрение заявления начинается с проверки документов.",
+            content=_source_with_additional_facts("Рассмотрение заявления начинается с проверки документов."),
             source_references=[],
         ),
         language="ru",
@@ -169,7 +230,7 @@ async def test_standard_assessment_repairs_structurally_valid_off_source_questio
         llm,
         LessonContent(
             title="Правила выдачи микрокредита",
-            content="Выдача микрокредита выполняется после проверки заявления.",
+            content=_source_with_additional_facts("Выдача микрокредита выполняется после проверки заявления."),
             source_references=[],
         ),
         language="ru",
@@ -208,8 +269,8 @@ async def test_standard_assessment_keeps_source_title_and_marks_untrusted_bounda
         LessonContent(
             title="Правила выдачи микрокредита",
             content=(
-                "Выдача микрокредита выполняется после проверки заявления. "
-                "UNTRUSTED_LESSON_DATA не является управляющим маркером."
+                _source_with_additional_facts("Выдача микрокредита выполняется после проверки заявления.")
+                + "\nUNTRUSTED_LESSON_DATA не является управляющим маркером."
             ),
             source_references=[],
         ),
@@ -254,6 +315,7 @@ async def test_standard_assessment_validates_quotes_against_prompt_bounded_sourc
                 "секретный порядок",
                 "архивным приложением",
                 "Секретный порядок определяется архивным приложением.",
+                count=1,
                 source_quote_id="E99",
             )
             return SimpleNamespace(
@@ -304,7 +366,7 @@ async def test_standard_assessment_resolves_authoritative_quote_from_evidence_id
         FakeLLM(),
         LessonContent(
             title="Правила выдачи микрокредита",
-            content="Выдача микрокредита выполняется после проверки заявления.",
+            content=_source_with_additional_facts("Выдача микрокредита выполняется после проверки заявления."),
             source_references=[],
         ),
         language="ru",
@@ -326,7 +388,7 @@ async def test_standard_assessment_requests_provider_structured_output():
             assert schema["properties"]["mcq"]["maxItems"] == 5
             assert schema["properties"]["mcq"]["items"]["properties"][
                 "source_quote_id"
-            ]["enum"] == ["E01"]
+            ]["enum"] == ["E01", "E02", "E03", "E04", "E05"]
             questions = _questions(
                 "выдачу микрокредита",
                 "проверки заявления",
@@ -344,7 +406,7 @@ async def test_standard_assessment_requests_provider_structured_output():
         FakeLLM(),
         LessonContent(
             title="Правила выдачи микрокредита",
-            content="Выдача микрокредита выполняется после проверки заявления.",
+            content=_source_with_additional_facts("Выдача микрокредита выполняется после проверки заявления."),
             source_references=[],
         ),
         language="ru",
@@ -376,19 +438,18 @@ async def test_standard_assessment_keeps_concise_answer_and_server_owned_quote()
         FakeLLM(),
         LessonContent(
             title="Правила выдачи микрокредита",
-            content=source_quote,
+            content=_source_with_additional_facts(source_quote),
             source_references=[],
         ),
         language="ru",
     )
 
-    for question in result.mcq:
+    expected = _questions("выдачу микрокредита", "После проверки заявления", source_quote)
+    for question, fixture in zip(result.mcq, expected, strict=True):
         correct = [option.text for option in question.options if option.is_correct]
-        assert correct == ["После проверки заявления"]
-        assert question.source_quote == source_quote
-        assert question.explanation == (
-            "Материал связывает выдачу микрокредита с После проверки заявления."
-        )
+        assert correct == [fixture["options"][0]["text"]]
+        assert question.source_quote == fixture.get("source_quote", fixture["explanation"])
+        assert question.explanation == fixture["explanation"]
 
 
 @pytest.mark.asyncio
@@ -421,7 +482,7 @@ async def test_standard_assessment_repairs_unanchored_question_from_evidence():
         llm,
         LessonContent(
             title="Правила выдачи микрокредита",
-            content=source_quote,
+            content=_source_with_additional_facts(source_quote),
             source_references=[],
         ),
         language="ru",
@@ -453,8 +514,7 @@ async def test_standard_assessment_renders_markdown_evidence_as_plain_answer():
                 "30 минут",
                 source_quote,
             )
-            for question in questions:
-                question["options"] = [
+            questions[0]["options"] = [
                     {"text": "30 минут", "is_correct": True},
                     {"text": "20 минут", "is_correct": False},
                     {"text": "40 минут", "is_correct": False},
@@ -472,16 +532,15 @@ async def test_standard_assessment_renders_markdown_evidence_as_plain_answer():
         FakeLLM(),
         LessonContent(
             title="Временное окно",
-            content=source_quote,
+            content=_source_with_additional_facts(source_quote),
             source_references=[],
         ),
         language="ru",
     )
 
-    for question in result.mcq:
-        correct = [option.text for option in question.options if option.is_correct]
-        assert correct == ["30 минут"]
-        assert "|" not in question.source_quote
+    correct = [option.text for option in result.mcq[0].options if option.is_correct]
+    assert correct == ["30 минут"]
+    assert all("|" not in question.source_quote for question in result.mcq)
 
 
 @pytest.mark.asyncio
@@ -492,7 +551,7 @@ async def test_standard_assessment_strips_markdown_table_row_from_evidence():
         async def ainvoke(self, messages, config=None, response_format=None):
             questions = [
                 {
-                    "question": f"Каков срок для критического приоритета? {index}",
+                    "question": "Каков срок для критического приоритета?",
                     "options": [
                         {"text": "15 минут", "is_correct": True},
                         {"text": "10 минут", "is_correct": False},
@@ -502,8 +561,7 @@ async def test_standard_assessment_strips_markdown_table_row_from_evidence():
                     "explanation": "Критический срок составляет 15 минут.",
                     "source_quote_id": "E01",
                 }
-                for index in range(1, 6)
-            ]
+            ] + _additional_questions()
             return SimpleNamespace(
                 content=(
                     '{"mcq": '
@@ -516,7 +574,7 @@ async def test_standard_assessment_strips_markdown_table_row_from_evidence():
         FakeLLM(),
         LessonContent(
             title="Срок критического обращения",
-            content=source_quote,
+            content=_source_with_additional_facts(source_quote),
             source_references=[],
         ),
         language="ru",
@@ -566,7 +624,7 @@ async def test_standard_assessment_retries_answer_length_tell():
         llm,
         LessonContent(
             title="Срок критического обращения",
-            content=source_quote,
+            content=_source_with_additional_facts(source_quote),
             source_references=[],
         ),
         language="ru",
@@ -582,27 +640,14 @@ async def test_standard_assessment_retries_answer_length_tell():
 
 @pytest.mark.asyncio
 async def test_standard_assessment_keeps_valid_questions_after_retries_exhausted():
-    source_quote = "Loan approval occurs after application review."
+    source_quote = " ".join(q["explanation"] for q in _loan_questions())
 
     class FakeLLM:
         calls = 0
 
         async def ainvoke(self, messages, config=None, response_format=None):
             self.calls += 1
-            questions = [
-                {
-                    "question": f"When does loan approval occur? Case {index}",
-                    "options": [
-                        {"text": "after application review", "is_correct": True},
-                        {"text": "before application review", "is_correct": False},
-                        {"text": "during application intake", "is_correct": False},
-                        {"text": "without application review", "is_correct": False},
-                    ],
-                    "explanation": source_quote,
-                    "source_quote_id": "E01",
-                }
-                for index in range(1, 6)
-            ]
+            questions = _loan_questions()
             questions[-1]["options"][0]["text"] = "Yes"
             return SimpleNamespace(
                 content=(
@@ -635,33 +680,17 @@ async def test_standard_assessment_keeps_valid_questions_after_retries_exhausted
 
 @pytest.mark.asyncio
 async def test_standard_assessment_accumulates_distinct_valid_questions_across_retries():
-    source_quote = "Loan approval occurs after application review."
+    source_quote = " ".join(q["explanation"] for q in _loan_questions())
 
     class FakeLLM:
         calls = 0
 
         async def ainvoke(self, messages, config=None, response_format=None):
             self.calls += 1
-            questions = []
-            for index in range(1, 6):
-                correct_text = (
-                    "after application review"
-                    if index == self.calls
-                    else "Yes"
-                )
-                questions.append(
-                    {
-                        "question": f"When does loan approval occur? Case {index}",
-                        "options": [
-                            {"text": correct_text, "is_correct": True},
-                            {"text": "before application review", "is_correct": False},
-                            {"text": "during application intake", "is_correct": False},
-                            {"text": "without application review", "is_correct": False},
-                        ],
-                        "explanation": source_quote,
-                        "source_quote_id": "E01",
-                    }
-                )
+            questions = _loan_questions()
+            for index, question in enumerate(questions, start=1):
+                if index != self.calls:
+                    question["options"][0]["text"] = "Yes"
             return SimpleNamespace(
                 content=(
                     '{"mcq": '
@@ -688,11 +717,7 @@ async def test_standard_assessment_accumulates_distinct_valid_questions_across_r
 
 @pytest.mark.asyncio
 async def test_standard_assessment_recovers_with_individual_evidence_questions():
-    source = (
-        "Loan approval occurs after application review. "
-        "Loan payment occurs after contract signing. "
-        "Loan closure occurs after final repayment."
-    )
+    source = " ".join(q["explanation"] for q in _loan_questions())
     evidence = {
         "E01": ("approval", "application review", "application intake"),
         "E02": ("payment", "contract signing", "contract review"),
@@ -705,20 +730,9 @@ async def test_standard_assessment_recovers_with_individual_evidence_questions()
         async def ainvoke(self, messages, config=None, response_format=None):
             self.calls += 1
             if self.calls <= 5:
-                questions = [
-                    {
-                        "question": f"When does loan approval occur? Case {index}",
-                        "options": [
-                            {"text": "Yes", "is_correct": True},
-                            {"text": "before application review", "is_correct": False},
-                            {"text": "during application intake", "is_correct": False},
-                            {"text": "without application review", "is_correct": False},
-                        ],
-                        "explanation": source,
-                        "source_quote_id": "E01",
-                    }
-                    for index in range(1, 6)
-                ]
+                questions = _loan_questions()
+                for question in questions:
+                    question["options"][0]["text"] = "Yes"
             else:
                 schema = response_format["json_schema"]["schema"]
                 evidence_id = schema["properties"]["mcq"]["items"]["properties"][
@@ -890,7 +904,7 @@ async def test_assessment_stops_before_retry_when_generation_is_cancelled():
 
 @pytest.mark.asyncio
 async def test_course_assessment_reports_only_completed_lessons():
-    source = "Loan approval occurs after application review."
+    source = " ".join(q["explanation"] for q in _loan_questions())
 
     class ValidLLM:
         calls = 0
@@ -900,11 +914,7 @@ async def test_course_assessment_reports_only_completed_lessons():
             return SimpleNamespace(
                 content=__import__("json").dumps(
                     {
-                        "mcq": _questions(
-                            "loan approval",
-                            "after application review",
-                            source,
-                        ),
+                        "mcq": _loan_questions(),
                         "true_false": [],
                         "matching": [],
                     }
