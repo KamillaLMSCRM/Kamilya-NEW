@@ -690,9 +690,13 @@ zero nodes, a retained index limitation, not evidence that their behavior is abs
   course2f4f20f5-fd2a-4df6-8dd3-cdefd83cf526:3modules/14lessons/14quizzes/54questions.
   Browser acceptance under the synthetic methodologist verified course rendering,
   all14 quiz groups, the first and last tests, source explanations and tail topics.
-- Customer tenant writes remained0 and the original customer source was untouched.
-  The synthetic course remains a draft with review_required=true and is retained
-  for owner inspection; no approval/publication action was performed.
+- Acceptance initially kept customer tenant writes at0. After release acceptance,
+  the exact existing failed customer document153cc494 was reindexed through the
+  normal API: jobf413ce89 completed in202.6seconds, revision2 read back
+  embedding=success/index=ready. Exact103616-byte source hash was checked before
+  reindex and source bytes remained unchanged. The synthetic course remains a
+  draft with review_required=true and is retained for owner inspection; no
+  approval/publication action was performed.
 - Ops-check one-shot passed after binding the watchdog to exact044 SHA/digest;
   timer active and previous config retained for rollback. Client technical GO is
   now YES for large-Excel upload/generation; pedagogical approval remains the

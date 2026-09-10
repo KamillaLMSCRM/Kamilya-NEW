@@ -33,9 +33,13 @@ DB/storage gate и приёмкой клиента
   role in the production UI.
 - **Client technical GO:** upload and course generation from the representative
   large Excel source are operational. The generated course remains a draft and
-  its tests require methodologist review before publication. The customer's
-  original tenant and source were not changed; the synthetic draft is retained
-  temporarily as acceptance evidence.
+  its tests require methodologist review before publication. After acceptance,
+  the customer's exact pre-existing failed document
+  `153cc494-b0c3-4fa2-995f-8372d66eaebe` was reindexed through the normal API:
+  job `f413ce89-3535-41ce-bbc0-91d30dddcd7c` completed in 202.6 seconds,
+  revision `2` read back `embedding_status=success` and `index_status=ready`.
+  Exact source size/hash were verified before the operation and source bytes were
+  unchanged. The synthetic draft is retained temporarily as acceptance evidence.
 
 ## Release 0.4.3 — current application deployment, 2026-09-10
 

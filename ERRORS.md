@@ -1829,7 +1829,10 @@ contract or establish a blocker.
   the owned103616-byte representative Excel copy in744.5seconds and persisted
   3modules/14lessons/14quizzes/54questions. Production browser acceptance under
   the synthetic methodologist verified first/last tests, source explanations and
-  tail topics. Customer tenant writes remained0; the original source was untouched.
+  tail topics. Acceptance customer writes remained0. A subsequent owner-requested
+  repair reindexed the exact existing failed customer document through the normal
+  API: jobf413ce89 completed in202.6seconds, revision2 read back ready/success;
+  exact source size/hash were checked and source bytes remained unchanged.
 - Prevention evidence:1228unitPASS plus focused retry/cache regressions; CI and
   protected release PASS; public health0.4.4/exact SHA; watchdog exact image/SHA
   one-shot PASS and timer active. Keep generated content draft/review-required;
