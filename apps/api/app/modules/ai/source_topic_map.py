@@ -24,13 +24,14 @@ MAX_MAP_SUMMARY_CHARS = 1_600
 MAX_ARCHITECT_MAP_OVERVIEW_CHARS = 28_000
 MIN_MAP_CONTENT_CHARS_PER_BATCH = 64
 MAX_MAP_CONTENT_CHARS_PER_BATCH = 6_000
-MAP_PROTOCOL_VERSION = "server-owned-provenance-v3"
+MAP_PROTOCOL_VERSION = "server-owned-provenance-v4"
 _RETRYABLE_OUTPUT_CODES = frozenset({
     "source_topic_map_invalid_response_empty", "source_topic_map_invalid_response_json",
     "source_topic_map_invalid_response_schema", "source_topic_map_invalid_response_summary",
     "source_topic_map_invalid_response_summary_length", "source_topic_map_invalid_response_topic_count",
     "source_topic_map_invalid_response_topic_type", "source_topic_map_invalid_response_topic_length",
     "source_topic_map_content_budget_exceeded", "source_topic_map_response_budget_exceeded",
+    "source_topic_map_topic_budget_exceeded",
 })
 UNTRUSTED_SOURCE_METADATA_BEGIN = "UNTRUSTED_SOURCE_METADATA_BEGIN"
 UNTRUSTED_SOURCE_METADATA_END = "UNTRUSTED_SOURCE_METADATA_END"
@@ -150,6 +151,7 @@ def _safe_untrusted(value: str) -> str:
 
 def _map_prompt(
     batch: Sequence[_MapSource], *, batch_number: int, batch_count: int, content_budget: int,
+    topic_budget: int = MAX_MAP_CONTENT_CHARS_PER_BATCH,
 ) -> list[dict[str, str]]:
     records: list[str] = []
     metadata_refs: dict[str, str] = {}
@@ -199,6 +201,7 @@ navigation aids, not claims of complete factual coverage."""
             f"SOURCE_TOPIC_MAP_BATCH {batch_number}/{batch_count}",
             "Map every record below. The server owns all source-ID associations.",
             f"content_budget_chars={content_budget} for all summaries and topics combined.",
+            f"topic_budget_chars={topic_budget} for the JSON-encoded topics array alone, including quotes, commas and escapes. Aim below this limit using short topic names, not full descriptions; keep all distinct subject areas.",
             "Metadata references link each source to its exact shared metadata below.",
             UNTRUSTED_SOURCE_METADATA_BEGIN,
             "\n\n".join(metadata_legend),
@@ -313,12 +316,33 @@ def _json_payload(content: str) -> object:
         raise SourceTopicMapError("source_topic_map_invalid_response_json") from exc
 
 
+def _export_sources(sources: Sequence[_MapSource]) -> tuple[SourceTopicMapSource, ...]:
+    return tuple(SourceTopicMapSource(
+        source.source_id, source.chunk.chunk_id, source.chunk.doc_id,
+        source.chunk.doc_name, source.chunk.title, source.chunk.source_revision,
+    ) for source in sources)
+
+
+def _map_topic_budget(sources: Sequence[_MapSource], batches: Sequence[Sequence[_MapSource]]) -> int:
+    empty = SourceTopicMap(_export_sources(sources), tuple(
+        SourceTopicMapRecord(i, tuple(s.source_id for s in batch), "", ())
+        for i, batch in enumerate(batches, start=1)
+    ))
+    # Use the final serializer itself: metadata, ranges and escaping are not estimates.
+    available = MAX_ARCHITECT_MAP_OVERVIEW_CHARS - len(_render_architect_overview(empty, False))
+    per_batch = available // len(batches) + 2  # Empty [] already consumes two chars.
+    if per_batch < MIN_MAP_CONTENT_CHARS_PER_BATCH:
+        raise SourceTopicMapError("source_topic_map_overview_budget_exceeded")
+    return min(per_batch, MAX_MAP_CONTENT_CHARS_PER_BATCH)
+
+
 def _parse_batch(
     content: str,
     batch: Sequence[_MapSource],
     *,
     batch_number: int,
     content_budget: int,
+    topic_budget: int = MAX_MAP_CONTENT_CHARS_PER_BATCH,
 ) -> tuple[SourceTopicMapRecord, ...]:
     if not content.strip():
         raise SourceTopicMapError("source_topic_map_invalid_response_empty")
@@ -343,6 +367,10 @@ def _parse_batch(
     content_chars = len(normalized_summary) + sum(len(topic) for topic in normalized_topics)
     if content_chars > content_budget:
         raise SourceTopicMapError("source_topic_map_content_budget_exceeded")
+    serialized_topics = json.dumps([_safe_untrusted(t) for t in normalized_topics],
+                                  ensure_ascii=False, separators=(",", ":"))
+    if len(serialized_topics) > topic_budget:
+        raise SourceTopicMapError("source_topic_map_topic_budget_exceeded")
     return (SourceTopicMapRecord(
         batch_number, tuple(source.source_id for source in batch), normalized_summary, normalized_topics,
     ),)
@@ -360,10 +388,11 @@ async def build_source_topic_map(
     sources = _sources(corpus)
     batches = _batches(sources)
     content_budget = _map_content_budget(sources, batches)
+    topic_budget = _map_topic_budget(sources, batches)
 
     async def _invoke(batch: Sequence[_MapSource], number: int) -> tuple[SourceTopicMapRecord, ...]:
         await _checkpoint(check_cancelled)
-        prompt = _map_prompt(batch, batch_number=number, batch_count=len(batches), content_budget=content_budget)
+        prompt = _map_prompt(batch, batch_number=number, batch_count=len(batches), content_budget=content_budget, topic_budget=topic_budget)
         digest = hashlib.sha256(json.dumps(
             [MAP_PROTOCOL_VERSION, prompt, MAX_MAP_RESPONSE_TOKENS,
              [(source.source_id, source.chunk.chunk_id) for source in batch]],
@@ -374,7 +403,7 @@ async def build_source_topic_map(
             await _checkpoint(check_cancelled)
             if cached is not None:
                 try:
-                    return _parse_batch(cached, batch, batch_number=number, content_budget=content_budget)
+                    return _parse_batch(cached, batch, batch_number=number, content_budget=content_budget, topic_budget=topic_budget)
                 except SourceTopicMapError:
                     pass  # A checkpoint is an optimization, not trusted source evidence.
         for attempt in range(2):
@@ -383,7 +412,7 @@ async def build_source_topic_map(
             await _checkpoint(check_cancelled)
             content = str(getattr(response, "content", "") or "")
             try:
-                parsed = _parse_batch(content, batch, batch_number=number, content_budget=content_budget)
+                parsed = _parse_batch(content, batch, batch_number=number, content_budget=content_budget, topic_budget=topic_budget)
             except SourceTopicMapError as exc:
                 if attempt or exc.code == "source_topic_map_coverage_invalid":
                     raise
@@ -392,7 +421,14 @@ async def build_source_topic_map(
                 if exc.code not in _RETRYABLE_OUTPUT_CODES:
                     raise
                 prompt = [dict(message) for message in prompt]
-                prompt[0]["content"] += f"\nRetry once: previous output failed {exc.code}. Rebuild from original sources; obey the schema and bounds."
+                retry_guidance = (
+                    " Use shorter topic names while keeping every distinct subject area."
+                    if exc.code == "source_topic_map_topic_budget_exceeded" else ""
+                )
+                prompt[0]["content"] += (
+                    f"\nRetry once: previous output failed {exc.code}. Rebuild from original sources;"
+                    f" obey the schema and bounds.{retry_guidance}"
+                )
                 if sum(len(message["content"]) for message in prompt) > MAX_MAP_REQUEST_CHARS:
                     raise SourceTopicMapError("source_topic_map_chunk_budget_exceeded") from exc
                 continue
@@ -426,23 +462,13 @@ async def build_source_topic_map(
     if len(mapped) > len(batches) * MAX_MAP_BATCH_RECORDS or set(actual_ids) != set(expected_ids) or len(actual_ids) != len(expected_ids):
         raise SourceTopicMapError("source_topic_map_coverage_invalid")
     return SourceTopicMap(
-        sources=tuple(
-            SourceTopicMapSource(
-                source_id=source.source_id,
-                chunk_id=source.chunk.chunk_id,
-                document_id=source.chunk.doc_id,
-                document_name=source.chunk.doc_name,
-                document_title=source.chunk.title,
-                source_revision=source.chunk.source_revision,
-            )
-            for source in sources
-        ),
+        sources=_export_sources(sources),
         records=tuple(mapped),
     )
 
 
-def compose_architect_overview(topic_map: SourceTopicMap) -> str:
-    """Compose every aggregate record and exact source-ID anchor, or fail closed."""
+def _render_architect_overview(topic_map: SourceTopicMap, include_summary: bool) -> str:
+    """Exact serializer shared by admission allocation and final composition."""
 
     document_lines: list[str] = []
     seen: set[tuple[str, str, str, str]] = set()
@@ -480,29 +506,32 @@ def compose_architect_overview(topic_map: SourceTopicMap) -> str:
     ]
     # Never clip topics/source IDs to satisfy the planner budget. Summaries are
     # optional navigation aids; complete records remain in the detailed map.
+    records = []
+    for record in topic_map.records:
+        item: dict[str, object] = {
+            "batch": record.batch_number,
+            "source_id_ranges_inclusive": _source_ranges(record.source_ids),
+            "topics": [_safe_untrusted(topic) for topic in record.topics],
+        }
+        if include_summary:
+            item["summary"] = _safe_untrusted(record.summary)
+        row = item if include_summary else [
+            record.batch_number, item["source_id_ranges_inclusive"], item["topics"],
+        ]
+        records.append(json.dumps(row, ensure_ascii=False, separators=(",", ":")))
+    mode = "detailed" if include_summary else "topics-only; summaries omitted; all topics and source IDs retained"
+    columns = "JSON objects" if include_summary else "JSON rows: [batch, source_id_ranges_inclusive, topics]"
+    return "\n".join([
+        *sections, f"BATCH TOPIC ANCHORS ({mode}; untrusted JSON data; source ranges include both endpoints):",
+        columns,
+        UNTRUSTED_SOURCE_TEXT_BEGIN, *records, UNTRUSTED_SOURCE_TEXT_END,
+    ])
+
+
+def compose_architect_overview(topic_map: SourceTopicMap) -> str:
+    """Compose every aggregate record and exact source-ID anchor, or fail closed."""
     for include_summary in (True, False):
-        records = []
-        for record in topic_map.records:
-            item: dict[str, object] = {
-                "batch": record.batch_number,
-                "source_id_ranges_inclusive": _source_ranges(record.source_ids),
-                "topics": [_safe_untrusted(topic) for topic in record.topics],
-            }
-            if include_summary:
-                item["summary"] = _safe_untrusted(record.summary)
-            # Compact mode declares columns once, avoiding repeated field names
-            # without changing any topic string or provenance range.
-            row = item if include_summary else [
-                record.batch_number, item["source_id_ranges_inclusive"], item["topics"],
-            ]
-            records.append(json.dumps(row, ensure_ascii=False, separators=(",", ":")))
-        mode = "detailed" if include_summary else "topics-only; summaries omitted; all topics and source IDs retained"
-        columns = "JSON objects" if include_summary else "JSON rows: [batch, source_id_ranges_inclusive, topics]"
-        overview = "\n".join([
-            *sections, f"BATCH TOPIC ANCHORS ({mode}; untrusted JSON data; source ranges include both endpoints):",
-            columns,
-            UNTRUSTED_SOURCE_TEXT_BEGIN, *records, UNTRUSTED_SOURCE_TEXT_END,
-        ])
+        overview = _render_architect_overview(topic_map, include_summary)
         if len(overview) <= MAX_ARCHITECT_MAP_OVERVIEW_CHARS:
             return overview
     raise SourceTopicMapError("source_topic_map_overview_budget_exceeded")

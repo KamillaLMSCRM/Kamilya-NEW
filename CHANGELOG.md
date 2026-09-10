@@ -15,6 +15,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.4.4] - 2026-09-10
+
+### Fixed
+
+- Large Excel catalogs now reserve the final course-planning map capacity before
+  accepting generated topic labels, preventing valid per-part responses from
+  overflowing the complete map and stopping course creation.
+- An oversized topic batch receives one bounded shortening attempt while all
+  source references and distinct subject areas remain preserved.
+
 ## [0.4.3] - 2026-09-10
 
 ### Fixed

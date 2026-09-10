@@ -7,6 +7,7 @@ from types import SimpleNamespace
 
 import pytest
 
+import app.modules.ai.source_topic_map as source_topic_map_module
 from app.modules.ai.source_topic_map import (
     SourceTopicMapError,
     build_source_topic_map,
@@ -75,6 +76,126 @@ class MemoryStore:
 
     async def save(self, digest, content):
         self.data[digest] = content
+
+
+@pytest.mark.asyncio
+async def test_cached_schema_valid_topic_overflow_is_recomputed_without_clipping():
+    class LLM:
+        def __init__(self):
+            self.calls = 0
+
+        async def ainvoke(self, messages, config=None):
+            self.calls += 1
+            return SimpleNamespace(content=json.dumps({
+                "summary": "s" * 1600,
+                "topics": [f"Product {i}" for i in range(16)],
+            }))
+
+    llm, store = LLM(), MemoryStore()
+    source = corpus(932)
+    await build_source_topic_map(source, llm, checkpoint_store=store)
+    digest = next(iter(store.data))
+    store.data[digest] = json.dumps({
+        "summary": "cached",
+        "topics": [f"{i}:" + '"' * 155 for i in range(16)],
+    })
+
+    result = await build_source_topic_map(source, llm, checkpoint_store=store)
+
+    assert llm.calls == 44
+    assert all(record.topics == tuple(f"Product {i}" for i in range(16))
+               for record in result.records)
+    assert [source_id for record in result.records for source_id in record.source_ids] == [
+        source_item.source_id for source_item in result.sources
+    ]
+
+
+def test_serialized_topic_budget_accepts_exact_length_and_rejects_one_char_excess():
+    sources = source_topic_map_module._sources(corpus(932))
+    batches = source_topic_map_module._batches(sources)
+    empty = source_topic_map_module.SourceTopicMap(
+        source_topic_map_module._export_sources(sources),
+        tuple(
+            source_topic_map_module.SourceTopicMapRecord(
+                number, tuple(source.source_id for source in batch), "", ()
+            )
+            for number, batch in enumerate(batches, start=1)
+        ),
+    )
+    topic_budget = source_topic_map_module._map_topic_budget(sources, batches)
+    assert topic_budget == (
+        source_topic_map_module.MAX_ARCHITECT_MAP_OVERVIEW_CHARS
+        - len(source_topic_map_module._render_architect_overview(empty, False))
+    ) // len(batches) + 2
+
+    exact_topics = ["t" * 34] * 15 + ["t" * 46]
+    exact_serialized = json.dumps(exact_topics, ensure_ascii=False, separators=(",", ":"))
+    excess_topics = ["t" * 34] * 15 + ["t" * 47]
+    excess_serialized = json.dumps(excess_topics, ensure_ascii=False, separators=(",", ":"))
+    assert len(exact_serialized) == topic_budget
+    assert len(excess_serialized) == topic_budget + 1
+    batch = batches[0]
+    exact = source_topic_map_module._parse_batch(
+        json.dumps({"summary": "s", "topics": exact_topics}),
+        batch,
+        batch_number=1,
+        content_budget=source_topic_map_module.MAX_MAP_CONTENT_CHARS_PER_BATCH,
+        topic_budget=topic_budget,
+    )
+    assert exact[0].topics == tuple(exact_topics)
+    with pytest.raises(SourceTopicMapError, match="topic_budget_exceeded"):
+        source_topic_map_module._parse_batch(
+            json.dumps({"summary": "s", "topics": excess_topics}),
+            batch,
+            batch_number=1,
+            content_budget=source_topic_map_module.MAX_MAP_CONTENT_CHARS_PER_BATCH,
+            topic_budget=topic_budget,
+        )
+
+
+@pytest.mark.asyncio
+async def test_serialized_topic_budget_retries_only_overflow_without_clipping():
+    class LLM:
+        def __init__(self):
+            self.attempts = {}
+            self.retry_prompts = {}
+
+        async def ainvoke(self, messages, config=None):
+            number = int(re.search(r"SOURCE_TOPIC_MAP_BATCH (\d+)/", messages[-1]["content"])[1])
+            self.attempts[number] = self.attempts.get(number, 0) + 1
+            if self.attempts[number] == 2:
+                self.retry_prompts[number] = messages[0]["content"]
+            topics = ([f"Product {i}" for i in range(16)] if self.attempts[number] == 2
+                      else [f"{i}:" + '"' * 155 for i in range(16)])
+            return SimpleNamespace(content=json.dumps({"summary": "s" * 1600, "topics": topics}))
+
+    llm = LLM()
+    result = await build_source_topic_map(corpus(932), llm)
+    overview = compose_architect_overview(result)
+    assert len(overview) <= 28000
+    assert set(llm.attempts.values()) == {2}
+    assert all(r.topics == tuple(f"Product {i}" for i in range(16)) for r in result.records)
+    assert all(len(r.summary) == 1600 for r in result.records)
+    assert [sid for r in result.records for sid in r.source_ids] == [s.source_id for s in result.sources]
+    assert set(llm.retry_prompts) == set(llm.attempts)
+    assert all("shorter topic names" in prompt for prompt in llm.retry_prompts.values())
+
+
+@pytest.mark.asyncio
+async def test_changed_shared_topic_budget_invalidates_checkpoint(monkeypatch):
+    store, llm = MemoryStore(), DetailedLLM()
+    source = corpus(40)
+    await build_source_topic_map(source, llm, checkpoint_store=store)
+    calls_after_first_map = llm.calls
+
+    monkeypatch.setattr(
+        source_topic_map_module,
+        "MAX_ARCHITECT_MAP_OVERVIEW_CHARS",
+        8_000,
+    )
+    await build_source_topic_map(source, llm, checkpoint_store=store)
+
+    assert llm.calls == calls_after_first_map * 2
 
 
 @pytest.mark.asyncio
