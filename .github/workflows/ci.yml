@@ -221,6 +221,7 @@ jobs:
   backend-tests:
     name: Backend tests (pytest + coverage)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: apps/api
@@ -358,6 +359,8 @@ jobs:
             --cov-report=xml \
             --cov-report=term-missing \
             --cov-fail-under=50 \
+            --maxfail=1 \
+            -o faulthandler_timeout=60 \
             --tb=short
 
       - name: Upload coverage artifact

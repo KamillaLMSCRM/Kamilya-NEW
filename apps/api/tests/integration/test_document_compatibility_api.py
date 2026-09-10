@@ -3,23 +3,18 @@ from __future__ import annotations
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import text
-
-
-def _unit_vector(index: int, dimensions: int = 4096) -> str:
-    values = [0.0] * dimensions
-    values[index] = 1.0
-    return "[" + ",".join(str(value) for value in values) + "]"
+from direct_source_fixtures import seed_direct_source_documents
 
 
 @pytest.mark.asyncio
-async def test_mixed_document_topics_are_reported_and_block_generation(
+async def test_multiple_direct_sources_are_unverified_and_require_goal(
     client,
     db_session,
     auth_headers,
     make_tenant,
     make_user,
     make_document,
+    monkeypatch,
 ):
     tenant = await make_tenant(name="Source Governance", slug=f"sources-{uuid4().hex[:8]}")
     methodologist = await make_user(
@@ -32,35 +27,26 @@ async def test_mixed_document_topics_are_reported_and_block_generation(
         methodologist,
         name="fire-safety.md",
         title="Пожарная безопасность",
-        embedding_status="success",
-        index_status="ready",
+        embedding_status="pending",
+        index_status="processing",
     )
     marketing = await make_document(
         tenant,
         methodologist,
         name="brand-playbook.md",
         title="Стандарт рекламы бренда",
-        embedding_status="success",
-        index_status="ready",
+        embedding_status="pending",
+        index_status="processing",
     )
-    for document, vector in ((safety, _unit_vector(0)), (marketing, _unit_vector(1))):
-        await db_session.execute(
-            text(
-                "INSERT INTO document_embeddings "
-                "(id, tenant_id, doc_id, text, headings, doc_name, embedding) "
-                "VALUES (:id, :tenant_id, :doc_id, :text, :headings, :doc_name, CAST(:embedding AS vector))"
-            ),
-            {
-                "id": uuid4().hex,
-                "tenant_id": str(tenant.id),
-                "doc_id": str(document.id),
-                "text": document.title,
-                "headings": "[]",
-                "doc_name": document.filename,
-                "embedding": vector,
-            },
-        )
-    await db_session.flush()
+    await seed_direct_source_documents(
+        db_session,
+        monkeypatch,
+        [safety, marketing],
+        texts={
+            safety.id: "# Пожарная безопасность\n\nПравила безопасной эвакуации сотрудников.",
+            marketing.id: "# Стандарт рекламы бренда\n\nПравила подготовки рекламных материалов.",
+        },
+    )
 
     payload = {"documents": [str(safety.id), str(marketing.id)]}
     headers = auth_headers(methodologist)
@@ -72,7 +58,9 @@ async def test_mixed_document_topics_are_reported_and_block_generation(
 
     assert analysis_response.status_code == 200
     analysis = analysis_response.json()
-    assert analysis["status"] == "incompatible"
+    assert analysis["status"] == "unverified"
+    assert analysis["analysis_mode"] == "direct_source"
+    assert analysis["score"] is None
     assert analysis["requires_decision"] is True
     assert len(analysis["clusters"]) == 2
 
@@ -86,7 +74,9 @@ async def test_mixed_document_topics_are_reported_and_block_generation(
     response_body = generation_response.json()
     assert response_body["error"] == "conflict"
     detail = response_body["details"]
-    assert detail["code"] == "mixed_document_topics"
+    assert detail["code"] == "source_combination_goal_required"
+    assert detail["analysis"]["analysis_mode"] == "direct_source"
+    assert detail["analysis"]["score"] is None
     assert detail["analysis"]["requires_decision"] is True
 
 

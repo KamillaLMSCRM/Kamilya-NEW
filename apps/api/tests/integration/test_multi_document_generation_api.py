@@ -1,6 +1,7 @@
 """Integration coverage for the v1 multi-document generation contract.
 
-Covers: aggregate source budget, document-count cap, index-readiness gate,
+Covers: aggregate source budget derived from original-source chunking,
+document-count cap, original-source admission,
 cross-tenant isolation, duplicate normalization before job submission,
 serialized admission (in-flight idempotency), and the mixed-language
 preflight confirmation flow. Uses the same transactional API client fixtures
@@ -8,113 +9,55 @@ as the existing document compatibility tests.
 """
 from __future__ import annotations
 
-import hashlib
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
+from direct_source_fixtures import seed_direct_source_documents
 from fastapi import Request
 from sqlalchemy import text
 
 
-def _unit_vector(index: int, dimensions: int = 4096) -> str:
-    values = [0.0] * dimensions
-    values[index] = 1.0
-    return "[" + ",".join(str(value) for value in values) + "]"
-
-
-def _same_direction_vector(index: int, dimensions: int = 4096) -> str:
-    values = [0.5] * dimensions
-    values[index] = 1.0
-    return "[" + ",".join(str(value) for value in values) + "]"
-
-
-async def _seed_committed_embedding(session, tenant_id, doc_id, sha) -> None:
-    """Insert one verified embedding row for a committed document.
-
-    Mirrors the provenance contract of `_seed_embeddings` but writes through
-    the caller's session without touching the transactional fixture.
-    """
-    await session.execute(
-        text(
-            "INSERT INTO document_embeddings "
-            "(id, tenant_id, doc_id, text, headings, doc_name, embedding, "
-            "chunk_index, embedding_provenance_state, embedding_provider, "
-            "embedding_model, embedding_revision, embedding_native_dimensions, "
-            "embedding_storage_dimensions, embedding_content_sha256, "
-            "embedding_source_revision, embedding_indexed_at) "
-            "VALUES (:id, :tenant_id, :doc_id, :text, :headings, :doc_name, "
-            "CAST(:embedding AS vector), 0, 'verified', 'test-provider', "
-            "'test-model', 'v1', 4096, 4096, :sha, 'document:' || :sha, now())"
-        ),
-        {
-            "id": uuid4().hex,
-            "tenant_id": str(tenant_id),
-            "doc_id": str(doc_id),
-            "text": "Concurrent document chunk",
-            "headings": "[]",
-            "doc_name": "conc.md",
-            "embedding": _same_direction_vector(0),
-            "sha": sha,
-        },
+def _source_text(title: str, chunk_count: int = 1) -> str:
+    paragraph = "Operational training source content. " + ("Follow the documented procedure. " * 24)
+    return f"# {title}\n\n" + "\n\n".join(
+        f"{paragraph} Section {index + 1}." for index in range(chunk_count)
     )
 
 
-async def _seed_embeddings(db_session, tenant, documents, vector_factory=_unit_vector) -> None:
-    for position, document in enumerate(documents):
-        # Fully verified provenance rows: the language sampling query and the
-        # retrieval path only consider `verified` rows whose source revision
-        # matches the document's current content revision. The sha derives
-        # from the unique doc id so documents never collide on the
-        # (tenant_id, content_sha256) unique index.
-        chunk_text = document.title
-        sha = hashlib.sha256(str(document.id).encode("utf-8")).hexdigest()
-        await db_session.execute(
-            text(
-                "UPDATE documents SET content_sha256 = :sha WHERE id = :doc_id"
-            ),
-            {"sha": sha, "doc_id": str(document.id)},
-        )
-        await db_session.execute(
-            text(
-                "INSERT INTO document_embeddings "
-                "(id, tenant_id, doc_id, text, headings, doc_name, embedding, "
-                "chunk_index, embedding_provenance_state, embedding_provider, "
-                "embedding_model, embedding_revision, embedding_native_dimensions, "
-                "embedding_storage_dimensions, embedding_content_sha256, "
-                "embedding_source_revision, embedding_indexed_at) "
-                "VALUES (:id, :tenant_id, :doc_id, :text, :headings, :doc_name, "
-                "CAST(:embedding AS vector), 0, 'verified', 'test-provider', "
-                "'test-model', 'v1', 4096, 4096, :sha, 'document:' || :sha, now())"
-            ),
-            {
-                "id": uuid4().hex,
-                "tenant_id": str(tenant.id),
-                "doc_id": str(document.id),
-                "text": chunk_text,
-                "headings": "[]",
-                "doc_name": document.filename,
-                "embedding": vector_factory(position),
-                "sha": sha,
-            },
-        )
-    await db_session.flush()
-
-
 @pytest.mark.asyncio
-async def test_failed_index_document_is_rejected_with_clear_code(
-    client, db_session, auth_headers, make_tenant, make_user, make_document
+async def test_failed_index_document_is_accepted_when_original_source_is_valid(
+    client, db_session, auth_headers, make_tenant, make_user, make_document, monkeypatch
 ):
     tenant = await make_tenant(name="Idx Gate", slug=f"idx-{uuid4().hex[:8]}")
     methodologist = await make_user(tenant, role="methodologist")
     document = await make_document(
         tenant,
         methodologist,
-        embedding_status="success",
+        embedding_status="pending",
         index_status="failed",
     )
-    await _seed_embeddings(db_session, tenant, [document])
+    await seed_direct_source_documents(db_session, monkeypatch, [document])
+
+    class _StubJob:
+        id = "stub-job"
+        status = "pending"
+        course_id = None
+        created_at = updated_at = datetime.now(UTC)
+        started_at = None
+        progress = 0
+        stage = "queued"
+        message = ""
+        errors = None
+
+    async def _fake_submit(db, **kwargs):
+        return _StubJob(), {"queue_position": 1, "estimated_wait_seconds": 0,
+                            "tenant_active_jobs": 0, "tenant_active_limit": 2}
+
+    from app.modules.ai import router as ai_router
+
+    monkeypatch.setattr(ai_router, "submit_ai_job", _fake_submit)
 
     response = await client.post(
         "/api/v1/ai/generate-course",
@@ -122,8 +65,7 @@ async def test_failed_index_document_is_rejected_with_clear_code(
         headers=auth_headers(methodologist),
     )
 
-    assert response.status_code == 409
-    assert response.json()["details"]["code"] == "documents_index_failed"
+    assert response.status_code == 202, response.text
 
 
 @pytest.mark.asyncio
@@ -140,7 +82,6 @@ async def test_cross_tenant_documents_are_not_resolvable(
         embedding_status="success",
         index_status="ready",
     )
-    await _seed_embeddings(db_session, owner_tenant, [foreign_document])
 
     response = await client.post(
         "/api/v1/ai/generate-course",
@@ -162,7 +103,7 @@ async def test_duplicate_ids_are_normalized_before_submission(
         await make_document(tenant, methodologist, embedding_status="success", index_status="ready")
         for _ in range(2)
     ]
-    await _seed_embeddings(db_session, tenant, documents, vector_factory=_same_direction_vector)
+    await seed_direct_source_documents(db_session, monkeypatch, documents)
 
     captured: dict = {}
 
@@ -191,6 +132,8 @@ async def test_duplicate_ids_are_normalized_before_submission(
         json={
             "documents": [str(documents[0].id), str(documents[1].id), str(documents[0].id)],
             "target_audience": "Сотрудники",
+            "source_strategy": "intentional_combination",
+            "combination_goal": "Объединить общие правила безопасной работы сотрудников.",
         },
         headers=auth_headers(methodologist),
     )
@@ -201,20 +144,20 @@ async def test_duplicate_ids_are_normalized_before_submission(
 
 
 @pytest.mark.asyncio
-async def test_mixed_topics_still_conflict_without_explicit_strategy(
-    client, db_session, auth_headers, make_tenant, make_user, make_document
+async def test_multiple_direct_sources_require_explicit_strategy_and_goal(
+    client, db_session, auth_headers, make_tenant, make_user, make_document, monkeypatch
 ):
     tenant = await make_tenant(name="Mixed", slug=f"mixed-{uuid4().hex[:8]}")
     methodologist = await make_user(tenant, role="methodologist")
     safety = await make_document(
         tenant, methodologist, name="fire.md", title="Пожарная безопасность",
-        embedding_status="success", index_status="ready",
+        embedding_status="pending", index_status="processing",
     )
     marketing = await make_document(
         tenant, methodologist, name="brand.md", title="Стандарт рекламы бренда",
-        embedding_status="success", index_status="ready",
+        embedding_status="pending", index_status="processing",
     )
-    await _seed_embeddings(db_session, tenant, [safety, marketing])
+    await seed_direct_source_documents(db_session, monkeypatch, [safety, marketing])
 
     response = await client.post(
         "/api/v1/ai/generate-course",
@@ -223,19 +166,13 @@ async def test_mixed_topics_still_conflict_without_explicit_strategy(
     )
 
     assert response.status_code == 409
-    assert response.json()["details"]["code"] == "mixed_document_topics"
+    detail = response.json()["details"]
+    assert detail["code"] == "source_combination_goal_required"
+    assert detail["analysis"]["analysis_mode"] == "direct_source"
+    assert detail["analysis"]["score"] is None
 
 
 # ── Aggregate budget �─────────────────────────────────────────────────
-
-
-async def _set_chunk_totals(db_session, documents, total: int) -> None:
-    for document in documents:
-        await db_session.execute(
-            text("UPDATE documents SET index_chunks_total = :total WHERE id = :doc_id"),
-            {"total": total, "doc_id": str(document.id)},
-        )
-    await db_session.flush()
 
 
 @pytest.mark.asyncio
@@ -243,20 +180,35 @@ async def test_multi_document_submission_above_budget_returns_422(
     client, db_session, auth_headers, make_tenant, make_user, make_document, monkeypatch
 ):
     from app.core.config import get_settings
+    from app.modules.ai.ingestion import DocumentChunker
 
     tenant = await make_tenant(name="Budget", slug=f"budget-{uuid4().hex[:8]}")
     methodologist = await make_user(tenant, role="methodologist")
     documents = [
-        await make_document(tenant, methodologist, embedding_status="success", index_status="ready")
+        await make_document(tenant, methodologist, embedding_status="pending", index_status="processing")
         for _ in range(2)
     ]
-    await _seed_embeddings(db_session, tenant, documents, vector_factory=_same_direction_vector)
-    over_limit = get_settings().AI_MULTI_DOC_MAX_TOTAL_CHUNKS
-    await _set_chunk_totals(db_session, documents, over_limit)
+    texts = {document.id: _source_text(f"{document.title} {document.id}") for document in documents}
+    chunk_counts = {
+        document.id: len(DocumentChunker().chunk_markdown(texts[document.id], str(document.id), f"{document.id}.md"))
+        for document in documents
+    }
+    assert chunk_counts == {document.id: 1 for document in documents}
+    monkeypatch.setattr(get_settings(), "AI_MULTI_DOC_MAX_TOTAL_CHUNKS", 1)
+    await seed_direct_source_documents(
+        db_session,
+        monkeypatch,
+        documents,
+        texts=texts,
+    )
 
     response = await client.post(
         "/api/v1/ai/generate-course",
-        json={"documents": [str(documents[0].id), str(documents[1].id)]},
+        json={
+            "documents": [str(documents[0].id), str(documents[1].id)],
+            "source_strategy": "intentional_combination",
+            "combination_goal": "Объединить общие правила безопасной работы сотрудников.",
+        },
         headers=auth_headers(methodologist),
     )
 
@@ -269,15 +221,23 @@ async def test_single_document_submission_is_exempt_from_multi_doc_budget(
     client, db_session, auth_headers, make_tenant, make_user, make_document, monkeypatch
 ):
     from app.core.config import get_settings
+    from app.modules.ai.ingestion import DocumentChunker
 
     tenant = await make_tenant(name="Single", slug=f"single-{uuid4().hex[:8]}")
     methodologist = await make_user(tenant, role="methodologist")
     document = await make_document(
-        tenant, methodologist, embedding_status="success", index_status="ready"
+        tenant, methodologist, embedding_status="pending", index_status="processing"
     )
-    await _seed_embeddings(db_session, tenant, [document])
-    over_limit = get_settings().AI_MULTI_DOC_MAX_TOTAL_CHUNKS
-    await _set_chunk_totals(db_session, [document], over_limit)
+    text_value = _source_text(document.title, 2)
+    chunk_count = len(DocumentChunker().chunk_markdown(text_value, str(document.id), f"{document.id}.md"))
+    assert chunk_count == 3
+    monkeypatch.setattr(get_settings(), "AI_MULTI_DOC_MAX_TOTAL_CHUNKS", 1)
+    await seed_direct_source_documents(
+        db_session,
+        monkeypatch,
+        [document],
+        texts={document.id: text_value},
+    )
 
     captured: dict = {}
 
@@ -316,16 +276,27 @@ async def test_multi_document_submission_at_budget_limit_is_allowed(
     client, db_session, auth_headers, make_tenant, make_user, make_document, monkeypatch
 ):
     from app.core.config import get_settings
+    from app.modules.ai.ingestion import DocumentChunker
 
     tenant = await make_tenant(name="AtLimit", slug=f"atlimit-{uuid4().hex[:8]}")
     methodologist = await make_user(tenant, role="methodologist")
     documents = [
-        await make_document(tenant, methodologist, embedding_status="success", index_status="ready")
+        await make_document(tenant, methodologist, embedding_status="pending", index_status="processing")
         for _ in range(2)
     ]
-    await _seed_embeddings(db_session, tenant, documents, vector_factory=_same_direction_vector)
-    at_limit = get_settings().AI_MULTI_DOC_MAX_TOTAL_CHUNKS // 2
-    await _set_chunk_totals(db_session, documents, at_limit)
+    texts = {document.id: _source_text(f"{document.title} {document.id}") for document in documents}
+    chunk_counts = {
+        document.id: len(DocumentChunker().chunk_markdown(texts[document.id], str(document.id), f"{document.id}.md"))
+        for document in documents
+    }
+    assert chunk_counts == {document.id: 1 for document in documents}
+    monkeypatch.setattr(get_settings(), "AI_MULTI_DOC_MAX_TOTAL_CHUNKS", 2)
+    await seed_direct_source_documents(
+        db_session,
+        monkeypatch,
+        documents,
+        texts=texts,
+    )
 
     captured: dict = {}
 
@@ -351,7 +322,11 @@ async def test_multi_document_submission_at_budget_limit_is_allowed(
 
     response = await client.post(
         "/api/v1/ai/generate-course",
-        json={"documents": [str(documents[0].id), str(documents[1].id)]},
+        json={
+            "documents": [str(documents[0].id), str(documents[1].id)],
+            "source_strategy": "intentional_combination",
+            "combination_goal": "Объединить общие правила безопасной работы сотрудников.",
+        },
         headers=auth_headers(methodologist),
     )
 
@@ -365,10 +340,9 @@ async def test_more_than_five_unique_documents_returns_stable_code(
     tenant = await make_tenant(name="Cap", slug=f"cap-{uuid4().hex[:8]}")
     methodologist = await make_user(tenant, role="methodologist")
     documents = [
-        await make_document(tenant, methodologist, embedding_status="success", index_status="ready")
+        await make_document(tenant, methodologist, embedding_status="pending", index_status="processing")
         for _ in range(6)
     ]
-    await _seed_embeddings(db_session, tenant, documents, vector_factory=_same_direction_vector)
 
     response = await client.post(
         "/api/v1/ai/generate-course",
@@ -392,10 +366,9 @@ async def test_twenty_one_documents_still_return_stable_code(
     tenant = await make_tenant(name="Cap21", slug=f"cap21-{uuid4().hex[:8]}")
     methodologist = await make_user(tenant, role="methodologist")
     documents = [
-        await make_document(tenant, methodologist, embedding_status="success", index_status="ready")
+        await make_document(tenant, methodologist, embedding_status="pending", index_status="processing")
         for _ in range(21)
     ]
-    await _seed_embeddings(db_session, tenant, documents, vector_factory=_same_direction_vector)
 
     response = await client.post(
         "/api/v1/ai/generate-course",
@@ -420,10 +393,9 @@ async def test_non_active_lifecycle_documents_cannot_enter_generation(
     tenant = await make_tenant(name="Lifecycle", slug=f"lc-{uuid4().hex[:8]}")
     methodologist = await make_user(tenant, role="methodologist")
     document = await make_document(
-        tenant, methodologist, embedding_status="success", index_status="ready",
+        tenant, methodologist, embedding_status="pending", index_status="processing",
         lifecycle_status=lifecycle_status,
     )
-    await _seed_embeddings(db_session, tenant, [document])
 
     response = await client.post(
         "/api/v1/ai/generate-course",
@@ -436,15 +408,34 @@ async def test_non_active_lifecycle_documents_cannot_enter_generation(
 
 
 @pytest.mark.asyncio
-async def test_processing_index_document_is_rejected_as_not_ready(
-    client, db_session, auth_headers, make_tenant, make_user, make_document
+async def test_processing_index_document_is_accepted_when_original_source_is_valid(
+    client, db_session, auth_headers, make_tenant, make_user, make_document, monkeypatch
 ):
     tenant = await make_tenant(name="Processing", slug=f"proc-{uuid4().hex[:8]}")
     methodologist = await make_user(tenant, role="methodologist")
     document = await make_document(
-        tenant, methodologist, embedding_status="success", index_status="processing",
+        tenant, methodologist, embedding_status="pending", index_status="processing",
     )
-    await _seed_embeddings(db_session, tenant, [document])
+    await seed_direct_source_documents(db_session, monkeypatch, [document])
+
+    class _StubJob:
+        id = "stub-job"
+        status = "pending"
+        course_id = None
+        created_at = updated_at = datetime.now(UTC)
+        started_at = None
+        progress = 0
+        stage = "queued"
+        message = ""
+        errors = None
+
+    async def _fake_submit(db, **kwargs):
+        return _StubJob(), {"queue_position": 1, "estimated_wait_seconds": 0,
+                            "tenant_active_jobs": 0, "tenant_active_limit": 2}
+
+    from app.modules.ai import router as ai_router
+
+    monkeypatch.setattr(ai_router, "submit_ai_job", _fake_submit)
 
     response = await client.post(
         "/api/v1/ai/generate-course",
@@ -452,8 +443,7 @@ async def test_processing_index_document_is_rejected_as_not_ready(
         headers=auth_headers(methodologist),
     )
 
-    assert response.status_code == 409
-    assert response.json()["details"]["code"] == "documents_index_not_ready"
+    assert response.status_code == 202, response.text
 
 
 # ── In-flight idempotency �────────────────────────────────────────────
@@ -466,10 +456,10 @@ async def test_in_flight_same_document_set_in_reversed_order_returns_conflict(
     tenant = await make_tenant(name="InFlight", slug=f"inflight-{uuid4().hex[:8]}")
     methodologist = await make_user(tenant, role="methodologist")
     documents = [
-        await make_document(tenant, methodologist, embedding_status="success", index_status="ready")
+        await make_document(tenant, methodologist, embedding_status="pending", index_status="processing")
         for _ in range(2)
     ]
-    await _seed_embeddings(db_session, tenant, documents, vector_factory=_same_direction_vector)
+    await seed_direct_source_documents(db_session, monkeypatch, documents)
 
     from app.models.ai_job import AIJob
 
@@ -486,7 +476,11 @@ async def test_in_flight_same_document_set_in_reversed_order_returns_conflict(
 
     response = await client.post(
         "/api/v1/ai/generate-course",
-        json={"documents": [str(documents[1].id), str(documents[0].id)]},
+        json={
+            "documents": [str(documents[1].id), str(documents[0].id)],
+            "source_strategy": "intentional_combination",
+            "combination_goal": "Объединить общие правила безопасной работы сотрудников.",
+        },
         headers=auth_headers(methodologist),
     )
 
@@ -497,7 +491,7 @@ async def test_in_flight_same_document_set_in_reversed_order_returns_conflict(
 
 
 @pytest.mark.asyncio
-async def test_concurrent_identical_submissions_create_exactly_one_job():
+async def test_concurrent_identical_submissions_create_exactly_one_job(monkeypatch):
     """Two near-simultaneous identical HTTP submissions must admit at most
     one generation job: the admission check + insert is serialized by a
     transaction-scoped advisory lock on the tenant.
@@ -519,38 +513,79 @@ async def test_concurrent_identical_submissions_create_exactly_one_job():
     tenant_id = uuid4()
     user_id = uuid4()
     doc_ids = [uuid4(), uuid4()]
-    shas = [hashlib.sha256(str(doc_id).encode("utf-8")).hexdigest() for doc_id in doc_ids]
+    sessions = []
+    results = None
 
-    async with async_session_factory() as setup:
-        setup.add(
-            Tenant(
-                id=tenant_id,
-                name="Concurrent",
-                slug=f"conc-{uuid4().hex[:8]}",
-                status="active",
-                plan="free",
-                settings={},
-            )
-        )
-        await setup.commit()
+    async def _cleanup_committed_rows() -> None:
+        async with async_session_factory() as cleanup:
+            await cleanup.execute(text("SELECT set_current_tenant(:tid)"), {"tid": str(tenant_id)})
+            await cleanup.execute(text("DELETE FROM ai_jobs WHERE tenant_id = :t"), {"t": str(tenant_id)})
+            await cleanup.execute(text("DELETE FROM documents WHERE tenant_id = :t"), {"t": str(tenant_id)})
+            await cleanup.execute(text("DELETE FROM users WHERE tenant_id = :t"), {"t": str(tenant_id)})
+            await cleanup.execute(text("DELETE FROM tenants WHERE id = :t"), {"t": str(tenant_id)})
+            await cleanup.commit()
 
-    async with async_session_factory() as setup:
-        await setup.execute(
-            text("SELECT set_current_tenant(:tid)"), {"tid": str(tenant_id)}
-        )
-        setup.add(
-            User(
-                id=user_id,
-                tenant_id=tenant_id,
-                email=f"conc-{uuid4().hex[:8]}@example.test",
-                first_name="Conc",
-                last_name="Test",
-                role="methodologist",
-                is_active=True,
+    async def _patched_get_db(request: Request):
+        session = sessions[0 if request.scope["client"][1] == 123 else 1]
+        try:
+            yield session
+        except Exception:
+            await session.rollback()
+            raise
+        else:
+            await session.commit()
+
+    async def run_request(client_port: int) -> object:
+        transport = ASGITransport(app=app, client=("127.0.0.1", client_port))
+        async with AsyncClient(transport=transport, base_url="http://test") as request_client:
+            return await request_client.post(
+                "/api/v1/ai/generate-course", json=payload, headers=headers
             )
-        )
-        for position, (doc_id, sha) in enumerate(zip(doc_ids, shas, strict=True)):
+
+    from app.core.auth import create_access_token
+    from app.modules.ai import job_service
+
+    class _RecordingDispatcher:
+        def __init__(self):
+            self.submissions = []
+
+        def dispatch(self, task_name, *, task_id, kwargs):
+            self.submissions.append((task_name, task_id, kwargs))
+
+    recording_dispatcher = _RecordingDispatcher()
+    original_dispatcher = job_service.CeleryAIJobDispatcher
+    app.dependency_overrides[get_db] = _patched_get_db
+    job_service.CeleryAIJobDispatcher = lambda: recording_dispatcher
+    try:
+        async with async_session_factory() as setup:
             setup.add(
+                Tenant(
+                    id=tenant_id,
+                    name="Concurrent",
+                    slug=f"conc-{uuid4().hex[:8]}",
+                    status="active",
+                    plan="free",
+                    settings={},
+                )
+            )
+            await setup.commit()
+
+        async with async_session_factory() as setup:
+            await setup.execute(
+                text("SELECT set_current_tenant(:tid)"), {"tid": str(tenant_id)}
+            )
+            setup.add(
+                User(
+                    id=user_id,
+                    tenant_id=tenant_id,
+                    email=f"conc-{uuid4().hex[:8]}@example.test",
+                    first_name="Conc",
+                    last_name="Test",
+                    role="methodologist",
+                    is_active=True,
+                )
+            )
+            documents = [
                 Document(
                     id=doc_id,
                     tenant_id=tenant_id,
@@ -562,113 +597,62 @@ async def test_concurrent_identical_submissions_create_exactly_one_job():
                     s3_key=f"tenants/{tenant_id}/{doc_id}",
                     description="",
                     category="general",
-                    embedding_status="success",
+                    embedding_status="pending",
                     source_family_id=doc_id,
                     version=1,
-                    content_sha256=sha,
                     lifecycle_status="active",
-                    index_status="ready",
-                    index_chunks_total=1,
-                    index_chunks_indexed=1,
-                    index_revision=1,
+                    index_status="processing",
                 )
-            )
-        await setup.commit()
+                for position, doc_id in enumerate(doc_ids)
+            ]
+            setup.add_all(documents)
+            await setup.flush()
+            await seed_direct_source_documents(setup, monkeypatch, documents)
+            await setup.commit()
 
-    async with async_session_factory() as setup:
-        await setup.execute(
-            text("SELECT set_current_tenant(:tid)"), {"tid": str(tenant_id)}
+        token = create_access_token(
+            {"sub": str(user_id), "tenant_id": str(tenant_id), "roles": ["methodologist"],
+             "aud": "kamilya-lms"}
         )
-        for doc_id, sha in zip(doc_ids, shas, strict=True):
-            await _seed_committed_embedding(setup, tenant_id, doc_id, sha)
-        await setup.commit()
+        headers = {"Authorization": f"Bearer {token}"}
+        payload = {
+            "documents": [str(doc_id) for doc_id in doc_ids],
+            "target_audience": "Сотрудники",
+            "source_strategy": "intentional_combination",
+            "combination_goal": "Объединить общие правила безопасной работы сотрудников.",
+        }
 
-    from app.core.auth import create_access_token
-
-    token = create_access_token(
-        {"sub": str(user_id), "tenant_id": str(tenant_id), "roles": ["methodologist"],
-         "aud": "kamilya-lms"}
-    )
-    headers = {"Authorization": f"Bearer {token}"}
-    payload = {
-        "documents": [str(doc_id) for doc_id in doc_ids],
-        "target_audience": "Сотрудники",
-    }
-
-    # Two requests must truly race on the same database rows, so each gets its
-    # own real session. The override inspects the ASGI client address, which
-    # each request sets to a distinct value, so concurrent requests never
-    # share a session. Each session's first connection is provisioned
-    # sequentially before the gather: under NullPool concurrent
-    # first-connection provisioning collides on the engine.
-    sessions = []
-
-    async def _patched_get_db(request: Request):
-        session = sessions[0 if request.scope["client"][1] == 123 else 1]
-        yield session
-
-    async def run_request(client_port: int) -> object:
-        transport = ASGITransport(app=app, client=("127.0.0.1", client_port))
-        async with AsyncClient(transport=transport, base_url="http://test") as request_client:
-            return await request_client.post(
-                "/api/v1/ai/generate-course", json=payload, headers=headers
-            )
-
-    app.dependency_overrides[get_db] = _patched_get_db
-
-    from app.modules.ai import job_service
-
-    class _RecordingDispatcher:
-        def __init__(self):
-            self.submissions = []
-
-        def dispatch(self, task_name, *, task_id, kwargs):
-            self.submissions.append((task_name, task_id, kwargs))
-
-    recording_dispatcher = _RecordingDispatcher()
-
-    original_dispatcher = job_service.CeleryAIJobDispatcher
-    job_service.CeleryAIJobDispatcher = lambda: recording_dispatcher
-    try:
         for _ in range(2):
             session = async_session_factory()
             sessions.append(session)
             await session.execute(text("SELECT 1"))
-        results = await asyncio.gather(
-            run_request(123), run_request(124)
+        results = await asyncio.wait_for(
+            asyncio.gather(run_request(123), run_request(124)),
+            timeout=15,
         )
+
+        statuses = sorted(response.status_code for response in results)
+        async with async_session_factory() as check:
+            await check.execute(
+                text("SELECT set_current_tenant(:tid)"), {"tid": str(tenant_id)}
+            )
+            job_count = (
+                await check.execute(
+                    text("SELECT count(*) FROM ai_jobs WHERE tenant_id = :t"),
+                    {"t": str(tenant_id)},
+                )
+            ).scalar_one()
+        assert job_count == 1
+        assert statuses == [202, 409]
+        rejected = [response for response in results if response.status_code == 409][0]
+        assert rejected.json()["details"]["code"] == "generation_already_in_progress"
     finally:
         job_service.CeleryAIJobDispatcher = original_dispatcher
         app.dependency_overrides.pop(get_db, None)
         for session in sessions:
+            await session.rollback()
             await session.close()
-
-    statuses = sorted(response.status_code for response in results)
-    async with async_session_factory() as check:
-        await check.execute(
-            text("SELECT set_current_tenant(:tid)"), {"tid": str(tenant_id)}
-        )
-        job_count = (
-            await check.execute(
-                text("SELECT count(*) FROM ai_jobs WHERE tenant_id = :t"),
-                {"t": str(tenant_id)},
-            )
-        ).scalar_one()
-    assert job_count == 1
-    # One admitted, the duplicate rejected by the serialized admission gate.
-    assert statuses == [202, 409]
-    rejected = [r for r in results if r.status_code == 409][0]
-    assert rejected.json()["details"]["code"] == "generation_already_in_progress"
-
-    # Cleanup committed rows; RLS context scoped per transaction.
-    async with async_session_factory() as cleanup:
-        await cleanup.execute(text("SELECT set_current_tenant(:tid)"), {"tid": str(tenant_id)})
-        await cleanup.execute(text("DELETE FROM ai_jobs WHERE tenant_id = :t"), {"t": str(tenant_id)})
-        await cleanup.execute(text("DELETE FROM document_embeddings WHERE tenant_id = :t"), {"t": str(tenant_id)})
-        await cleanup.execute(text("DELETE FROM documents WHERE tenant_id = :t"), {"t": str(tenant_id)})
-        await cleanup.execute(text("DELETE FROM users WHERE tenant_id = :t"), {"t": str(tenant_id)})
-        await cleanup.execute(text("DELETE FROM tenants WHERE id = :t"), {"t": str(tenant_id)})
-        await cleanup.commit()
+        await _cleanup_committed_rows()
 
 
 # ── Mixed-language explicit warning ──────────────────────────────────
@@ -685,23 +669,21 @@ async def test_mixed_language_requires_explicit_confirmation_before_queueing(
     methodologist = await make_user(tenant, role="methodologist")
     doc_ru = await make_document(
         tenant, methodologist, name="ru.md", title="Правила",
-        embedding_status="success", index_status="ready",
+        embedding_status="pending", index_status="processing",
     )
     doc_kk = await make_document(
         tenant, methodologist, name="kk.md", title="Ережелер",
-        embedding_status="success", index_status="ready",
+        embedding_status="pending", index_status="processing",
     )
-    await _seed_embeddings(db_session, tenant, [doc_ru, doc_kk], vector_factory=_same_direction_vector)
-    # Russian chunk text for doc_ru; Kazakh chunk text for doc_kk.
-    await db_session.execute(
-        text("UPDATE document_embeddings SET text = 'Правила безопасности на производстве' WHERE doc_id = :d"),
-        {"d": str(doc_ru.id)},
+    await seed_direct_source_documents(
+        db_session,
+        monkeypatch,
+        [doc_ru, doc_kk],
+        texts={
+            doc_ru.id: "# Правила\n\nПравила безопасности на производстве.",
+            doc_kk.id: "# Ережелер\n\nЕрежелер қауіпсіздігі бойынша нұсқаулық.",
+        },
     )
-    await db_session.execute(
-        text("UPDATE document_embeddings SET text = 'Ережелер қауіпсіздігі бойынша нұсқаулық' WHERE doc_id = :d"),
-        {"d": str(doc_kk.id)},
-    )
-    await db_session.flush()
 
     class _StubJob:
         id = "stub-job"
@@ -724,7 +706,12 @@ async def test_mixed_language_requires_explicit_confirmation_before_queueing(
 
     first = await client.post(
         "/api/v1/ai/generate-course",
-        json={"documents": [str(doc_ru.id), str(doc_kk.id)], "language": "ru"},
+        json={
+            "documents": [str(doc_ru.id), str(doc_kk.id)],
+            "language": "ru",
+            "source_strategy": "intentional_combination",
+            "combination_goal": "Объединить общие правила безопасной работы сотрудников.",
+        },
         headers=auth_headers(methodologist),
     )
 
@@ -745,6 +732,8 @@ async def test_mixed_language_requires_explicit_confirmation_before_queueing(
             "documents": [str(doc_ru.id), str(doc_kk.id)],
             "language": "ru",
             "language_confirmed": True,
+            "source_strategy": "intentional_combination",
+            "combination_goal": "Объединить общие правила безопасной работы сотрудников.",
         },
         headers=auth_headers(methodologist),
     )

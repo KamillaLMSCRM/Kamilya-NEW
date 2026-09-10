@@ -1,0 +1,86 @@
+name: Build native frontend bundle
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_sha:
+        description: Exact 40-character source commit
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kamilya-native-frontend-build
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      RELEASE_SHA: ${{ inputs.release_sha }}
+    steps:
+      - name: Validate requested identity
+        shell: bash
+        run: '[[ "${RELEASE_SHA}" =~ ^[0-9a-f]{40}$ ]]'
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.release_sha }}
+          persist-credentials: false
+
+      - name: Verify exact checkout
+        run: test "$(git rev-parse HEAD)" = "${RELEASE_SHA}"
+
+      # Build-only Linux container on the existing hosted CI runner. The artifact
+      # runs natively under Node/OpenRC on Alpine CT137; no server Docker install.
+      - name: Build Alpine-compatible native bundle
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          output_dir="$(mktemp -d "${RUNNER_TEMP}/kamilya-web-bundle.XXXXXX")"
+          printf 'BUNDLE_DIR=%s\n' "${output_dir}" >> "${GITHUB_ENV}"
+          docker run --rm \
+            --mount "type=bind,source=${GITHUB_WORKSPACE}/apps/web,target=/src,readonly" \
+            --mount "type=bind,source=${output_dir},target=/out" \
+            --env RELEASE_SHA \
+            --env NEXT_PUBLIC_API_URL=https://api.kml.kz/api \
+            --env NEXT_TELEMETRY_DISABLED=1 \
+            node:20-alpine sh -euc '
+              mkdir /build
+              cp -a /src/. /build/
+              cd /build
+              corepack enable
+              corepack prepare pnpm@10.26.1 --activate
+              pnpm install --frozen-lockfile
+              pnpm run lint
+              pnpm run typecheck
+              pnpm run build
+              pnpm prune --prod
+              test -f .next/BUILD_ID
+              test -f next.config.js
+              test -f security-headers.js
+              test ! -f .env
+              test ! -f .env.local
+              tar --exclude=.next/cache -czf "/out/frontend-native-${RELEASE_SHA}.tar.gz" \
+                .next public node_modules package.json next.config.js security-headers.js
+              mkdir /verify
+              tar -xzf "/out/frontend-native-${RELEASE_SHA}.tar.gz" -C /verify
+              cd /verify
+              NODE_ENV=production node node_modules/next/dist/bin/next start --hostname 127.0.0.1 --port 3300 >/tmp/native-web.log 2>&1 &
+              server_pid=$!
+              trap "kill $server_pid 2>/dev/null || true" EXIT
+              node -e '\''const paths=["/login","/admin/settings/ai"];(async()=>{for(let i=0;i<30;i++){try{const r=await fetch("http://127.0.0.1:3300/login",{signal:AbortSignal.timeout(2000)});if(r.ok)break}catch{}await new Promise(r=>setTimeout(r,1000))}for(const p of paths){const r=await fetch("http://127.0.0.1:3300"+p,{signal:AbortSignal.timeout(5000)});if(!r.ok)throw Error("native_bundle_http_"+r.status);const t=await r.text();if(!t.includes("<html"))throw Error("native_bundle_not_html")}console.log("NATIVE_BUNDLE_RUNTIME_PASS")})().catch(e=>{console.error(e.message);process.exitCode=1})'\''
+              cd /out
+              sha256sum "frontend-native-${RELEASE_SHA}.tar.gz" > bundle.sha256
+              node -e '\''const fs=require("fs");const p=require("/build/package.json");fs.writeFileSync("manifest.json",JSON.stringify({release_sha:process.env.RELEASE_SHA,product_version:p.version,node_version:process.version,platform:process.platform,arch:process.arch,libc:"musl",api_url:process.env.NEXT_PUBLIC_API_URL,sha256:fs.readFileSync("bundle.sha256","utf8").split(" ")[0]},null,2)+"\n")'\''
+            '
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: frontend-native-${{ inputs.release_sha }}
+          path: ${{ env.BUNDLE_DIR }}
+          if-no-files-found: error
+          retention-days: 14
