@@ -1822,6 +1822,32 @@ contract or establish a blocker.
 
 ## AI-SOURCE-001 - Prefix-only source context loses catalog topics
 
+- Resolution2026-09-10: release0.4.4 (`56f07a4bcbb96a32542a5cadf5243c6f5ad4cb47`)
+  deployed the shared exact-serializer budget, per-batch topic allocation,
+  budget-aware cache revalidation and one bounded retry with explicit shorter-name
+  guidance. Normal production job4acdf88a-f023-47f9-8ec0-43771f8ed4d0 processed
+  the owned103616-byte representative Excel copy in744.5seconds and persisted
+  3modules/14lessons/14quizzes/54questions. Production browser acceptance under
+  the synthetic methodologist verified first/last tests, source explanations and
+  tail topics. Customer tenant writes remained0; the original source was untouched.
+- Prevention evidence:1228unitPASS plus focused retry/cache regressions; CI and
+  protected release PASS; public health0.4.4/exact SHA; watchdog exact image/SHA
+  one-shot PASS and timer active. Keep generated content draft/review-required;
+  technical generation success does not replace methodologist approval.
+- Current2026-09-10 MAP-V7 candidate: normal0.4.3 jobf0ef8a9d failed
+  source_topic_map_overview_budget_exceeded before course creation. Legal per-batch
+  outputs had no shared serialized topic allocation. Reserve the exact final
+  serializer's framing first, allocate topics across batches and revalidate both
+  model output and cache hits. Existing one-retry,28k overview,32k planner and
+  90second limits remain; accepted labels/source references are never clipped.
+- Candidate evidence:1178unit tests PASS, Ruff1088/mypy2345 baseline unchanged;
+  real932source/44batch map
+  produced474topics and19499overview chars with45calls in56.27seconds. One earlier
+  isolated probe exited1 without a classified error; do not erase that failed
+  attempt or claim universal provider reliability. The instrumented replay passed.
+  Cached map then produced3modules/14lessons with1architect call in14.42seconds.
+  Script hashes5ef9a627/3eddf4fb; no installed-code/SQL/course writes. Whole queued
+  course, quiz review and cleanup remain mandatory before client GO.
 - Date:2026-09-10.
 - Symptom: source tails and unevenly sized documents were omitted from architecture
   context; reproduced with a636k-character synthetic catalog.

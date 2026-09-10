@@ -632,3 +632,68 @@ zero nodes, a retained index limitation, not evidence that their behavior is abs
   -> normal full-source queue with explicit3modules/2lessons-per-module -> browser
   assessment quality review -> delete all owned test drafts/source, retain audit jobs.
   All final043 gates remain NOT VERIFIED until executed. Current042 stays running.
+
+### Current043 deployed / MAP-V7 correction frontier
+
+- Exact849b6a28/v0.4.3 pushed, branch/tag independent readback receipts saved;
+  CI34473831872/native34473932919/protected34474650006PASS. API/all3workers and
+  CT137 public/private/native identities now849b6a28/0.4.3. Readiness owns hashes.
+- Test Runner43PASS bound to committed hashes without repeating tests after root
+  committed the same worktree bytes. Release Runner twice returned no visible
+  evidence; root stopped its preparation and performed deployment exclusively.
+- CT137 disk stop resolved by removing only checksum-verified old3c051 incoming
+  transfer archive (155423605bytes, local copy retained); current/rollback installs
+  untouched. Final native helper and public text-health readbackPASS.
+- Normal043 jobf0ef8a9d failed source_topic_map_overview_budget_exceeded at~70seconds,
+  no course. Correction: request schema does NOT accept lessons_per_module, so a
+  hidden2lesson override was removed before sending the real request. Same normal
+ 3module/standard settings retained; future smoke must allow6-18lessons, measureactual.
+- One-use synthetic daily-quota relief marker is qa:release043:daily-relief:
+ 2f49b361-ceeb-4e2a-ac98-9518a8e1b67c; cleanup exact marker later. No global limits,
+  customer values, DBschema or invitation protection changed.
+- Real mapper diagnostic44calls/54.69s,932sources/44records/504topics/23602topicchars,
+ 474unique/22406chars; overview27215PASS. This does not reveal failed run's exactsize.
+  Redis artifact ai:acceptance:source-resilience:849b6a28-map-size expires3600seconds.
+- Root synthetic red reproduces legal per-batch responses that overflow finalmap.
+  V7 candidate allocates sharedserializedcapacity before calls; existing34map tests
+  and1176unitPASS, Python baseline unchanged. Terra Copernicus review found no
+  code defect; Luna Averroes added cache-budget and exact-boundary tests,2PASS.
+  Instrumented real probe passed932sources/44records/474topics/19499chars with
+  45calls/56.27s; first uninstrumented probe exited1, exact cause NOT VERIFIED.
+  Architecture from the accepted map passed3modules/14lessons in14.42s, onecall.
+  Full1178unit rerun PASS, Ruff1088/mypy2345 unchanged; AST16186nodes/38852edges.
+  No0.4.4release/version claim yet.
+- Pre-release capacity stop: native CT137 free735344KiB (90% used), insufficient
+  for next archive + protected snapshot + extraction +512MiB reserve. Proposed
+  owner-approved cleanup seam for only old e463527cd8f5e67e987c44d8d769f337714bd25f
+  (878868KiB), after dependency/recoverability checks; preserve current849b6a28,
+  rollbackcf719ec9, old3c051931 and landing. No cleanup/privilege change yet.
+- Subsequent owner-approved maintenance completed:17444entry recovery archive
+  2049cbe2 matches live tree7e3a6e9f;31native helper fixture testsPASS. Owner-installed
+  helper accepted independent plan and prune via restricted SSH. e463527c absent;
+  current/rollback/landing public identities unchanged. Free1060048KiB/86%used.
+  No other release or hidden .pnpm-store cache was removed. About317MiB reclaimed,
+  less than apparent old directory size; metadata shows large multiply-linked
+  legacy package store. Further capacity work requires distinct approved scope.
+- Next: actual candidate map + review -> full release gates -> normal queued full
+  course/browser -> owned drafts/source/diagnostic marker cleanup. Client remainsNO_GO.
+
+### Release044 completed — representative Excel technical GO
+
+- Exact `56f07a4bcbb96a32542a5cadf5243c6f5ad4cb47` / `v0.4.4` passed the full
+  `1228`-test backend suite, unchanged Ruff/mypy baseline, CI34483636646 and
+  protected deployment34484834552. Production API/all workers run exact digest
+  `2d0e0552d9c1b16571f4c4eb78e2631b0d6ca708e70b4954249f15a8db278f96`;
+  public health reports0.4.4/exact SHA; CT125 remains0157.
+- Normal production queue job4acdf88a-f023-47f9-8ec0-43771f8ed4d0 processed the
+  owned103616-byte representative Excel source in744.5seconds and persisted draft
+  course2f4f20f5-fd2a-4df6-8dd3-cdefd83cf526:3modules/14lessons/14quizzes/54questions.
+  Browser acceptance under the synthetic methodologist verified course rendering,
+  all14 quiz groups, the first and last tests, source explanations and tail topics.
+- Customer tenant writes remained0 and the original customer source was untouched.
+  The synthetic course remains a draft with review_required=true and is retained
+  for owner inspection; no approval/publication action was performed.
+- Ops-check one-shot passed after binding the watchdog to exact044 SHA/digest;
+  timer active and previous config retained for rollback. Client technical GO is
+  now YES for large-Excel upload/generation; pedagogical approval remains the
+  methodologist's normal publication responsibility.

@@ -1,6 +1,6 @@
 # Kamilya LMS: готовность первого production-тенанта
 
-**Проверено:** 2026-09-07 по исходникам и production-контурам
+**Проверено:** 2026-09-10 по исходникам и production-контурам
 **Технический P0 baseline:** закрыт
 **Режим запуска:** dev/test и контролируемая демонстрация; подключение первого
 коммерческого tenant с персональными данными остаётся за отдельным KZ
@@ -9,7 +9,87 @@ DB/storage gate и приёмкой клиента
 остаётся в Git; отдельные датированные отчёты не используются как источник
 текущего состояния.
 
-## Release 0.4.2 — current application deployment, 2026-09-10
+## Release 0.4.4 — current API deployment, 2026-09-10
+
+- Source/tag/master/GitHub Release: `56f07a4bcbb96a32542a5cadf5243c6f5ad4cb47`;
+  annotated `v0.4.4` and remote master peel to the same source. CI run
+  `34483636646` and protected release run `34484834552` passed; GitHub
+  deployment `6373148718` succeeded.
+- API and all three workers run exact image
+  `ghcr.io/kamillalmscrm/kamilya-api@sha256:2d0e0552d9c1b16571f4c4eb78e2631b0d6ca708e70b4954249f15a8db278f96`
+  with zero restarts. Public health reports production version `0.4.4` and
+  exact release SHA. Previous `0.4.3` image remains available for rollback.
+- CT125 remains on revision `0157`; no migration was required. A fresh encrypted
+  pre-deploy backup was created and the same-day restore evidence was retained.
+- The production watchdog now expects the exact `0.4.4` release and image;
+  its one-shot check passed and its timer is active. The previous configuration
+  is retained as a root-owned rollback file.
+- Representative production acceptance used an owned copy of the customer's
+  103616-byte Excel source in the synthetic test tenant. Normal API/queue job
+  `4acdf88a-f023-47f9-8ec0-43771f8ed4d0` completed in 744.5 seconds and created
+  draft course `2f4f20f5-fd2a-4df6-8dd3-cdefd83cf526`: 3 modules, 14 lessons,
+  14 quizzes and 54 questions. The first and last tests, source-backed
+  explanations and tail-topic coverage were inspected under the methodologist
+  role in the production UI.
+- **Client technical GO:** upload and course generation from the representative
+  large Excel source are operational. The generated course remains a draft and
+  its tests require methodologist review before publication. The customer's
+  original tenant and source were not changed; the synthetic draft is retained
+  temporarily as acceptance evidence.
+
+## Release 0.4.3 — current application deployment, 2026-09-10
+
+- Source/tag/master/GitHub Release: `849b6a28cc9105f5d02cf5602b7bf6b53935f834`.
+  CI34473831872/native34473932919/protected34474650006PASS; deployment6371200392.
+  Independent Test Runner43focusedPASS reconciled exact committed file hashes;
+  root1175unitPASS and unchanged Ruff1088/mypy2345 baseline.
+- API/all3workers: exact `sha256:61fb5c0653dc748e330d9702a044137e0f0b802fc92f5deafa23ddf5465d66bf`,
+  blue slot, zero restarts; public/private health0.4.3. Independent readback script
+  `cbc697e51f6619ace06497915b1dc9702731eca9b51908e212ff3caca70ca3cc` PASS.
+- CT1250157 unchanged. Fresh encrypted backup gate8de0ad52PASS; same-day signed
+  restore report52cc228f and exact temporary database/plaintext absence independently
+  reverified. No additional restore or migration was performed.
+- CT137: native RELEASE_OK, independent symlink/marker/service and public text
+  `/healthz` body/header exact849b6a28. Archive155408665bytes,
+  SHA25648131a0c0dc6639dfa5cff78a98c975e846ef605fe72c272fac7069fae884475.
+  First attempt stopped before switching on insufficient_disk_space. Removed only
+  the checksum-verified redundant3c051931 incoming archive155423605bytes; identical
+  local copy retained. Installed current/rollback directories preserved; no root
+  console, provider capacity, proxy compute, service config or landing changes.
+- Rollback: prior APIcf719ec9/ed823d10 image and nativecf719ec9 retained.
+- **Client GO: NO.** Normal jobf0ef8a9d-be9f-467b-abf9-c99d8da60799 failed after
+  about70seconds with source_topic_map_overview_budget_exceeded, before course creation.
+  Existing quiz correction is deployed, but the whole-source path remains unstable.
+  Exact synthetic daily quota was released once under owner-approved testing limits;
+  global limits/is_demo/invitation protection unchanged, one-use Redis marker retained.
+- Separate bounded diagnostic (not acceptance): same932chunks/44calls produced504topics,
+ 27215overview chars in54.69seconds. Its KZ-only diagnostic artifact has1hour TTL.
+  Map admission V7 candidate is local; normal full-course/browser/cleanup remain open.
+- V7 isolated live probe:932sources/44records/474topics,19499overview chars,
+  45calls/56.27s, script5ef9a627. Subsequent cached-map architect probe3eddf4fb
+  passed3modules/14lessons/1call/14.42s. Earlier candidate probe exited1 without
+  classified failure evidence; only the instrumented replay is PASS. No course
+  persisted in either probe; this is not normal queue or final acceptance.
+- Next native-release capacity preflight: CT137 free735344KiB, disk90%; installed
+  current849b6a28 and verified rollbackcf719ec9 retained. Old e463527c directory
+  occupies878868KiB, old3c051931574828KiB; incoming304484KiB. Read-only inventory
+  performed without cleanup. Existing helper cannot prune installed releases;
+  bounded cleanup mode/privilege installation and exact obsolete directory removal
+  require owner approval before proceeding. No0.4.4deployment has been attempted.
+- Owner approved the bounded e463527c cleanup and helper update. Local recovery
+  archive2049cbe2,194514092bytes,17444entries matches live tree7e3a6e9f (856920443bytes).
+  New helperaed6b9a8 staged;31native unprivileged fixture tests PASS.
+  Independent review's control-file provenance/race findings fixed and re-reviewed.
+  Owner subsequently ran the pinned installer. Independent SSH cleanup-plan and
+  approved prune PASS; separate inventory proves e463527c absent, current849b6a28,
+  rollbackcf719ec9 and old3c051931 preserved. Restricted root boundary PASS;
+  public apphealth exact849b6a28/login200 and landing66518f84/200 unchanged.
+  Free space735340 ->1060048KiB (86% used). Unexpectedly lower reclamation than
+  old du878868KiB; hidden legacy .pnpm-store700343646logical bytes with23933linked
+  files remains untouched. Next frontend capacity gate is still open; do not claim
+  the completed cleanup alone unblocks the full native release.
+
+## Release 0.4.2 — preceding deployment evidence, 2026-09-10
 
 This exact application release supersedes earlier application-SHA rows below;
 dated infrastructure records remain evidence of their original checks, not a
