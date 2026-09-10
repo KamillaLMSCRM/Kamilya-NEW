@@ -64,6 +64,8 @@ jobs:
               test -f security-headers.js
               test ! -f .env
               test ! -f .env.local
+              # Next.js public assets are optional; preserve a stable archive layout.
+              mkdir -p public
               tar --exclude=.next/cache -czf "/out/frontend-native-${RELEASE_SHA}.tar.gz" \
                 .next public node_modules package.json next.config.js security-headers.js
               mkdir /verify
