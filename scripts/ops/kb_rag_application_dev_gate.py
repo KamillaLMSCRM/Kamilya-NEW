@@ -51,6 +51,7 @@ from scripts.ops.kb_rag_isolated_dev_gate import (  # noqa: E402
 APPROVAL_ID = "HBR-DEV-APP-02"
 SCHEMA_RE = re.compile(r"^hbr_kb_app_[0-9a-f]{12}$")
 SQLSTATE_RE = re.compile(r"^[0-9A-Z]{5}$")
+PUBLIC_REVISION_RE = re.compile(r"^[0-9]{4}$")
 SAFE_ERROR_DETAIL_RE = re.compile(r"^[a-z0-9_:-]{1,96}$")
 SAFE_DOMAIN_ERROR_CLASSES = {
     "EmbeddingReindexPersistenceError",
@@ -71,6 +72,25 @@ def safe_schema_name(value: str) -> str:
     if not SCHEMA_RE.fullmatch(value):
         raise GateBlocked("unsafe_application_schema_name")
     return value
+
+
+def validate_expected_public_revision(value: str) -> str:
+    if not isinstance(value, str) or not PUBLIC_REVISION_RE.fullmatch(value):
+        raise GateBlocked("expected_public_revision_invalid")
+    return value
+
+
+def assert_expected_public_revision(
+    actual: str, expected: str, phase: str
+) -> None:
+    validate_expected_public_revision(expected)
+    if actual != expected:
+        raise GateBlocked(f"public_revision_mismatch:{phase}")
+
+
+def assert_cleanup_readback_ready(public_cleanup_readback: str) -> None:
+    if public_cleanup_readback != "unchanged":
+        raise GateBlocked("cleanup_public_readback_failed")
 
 
 async def set_search_path(connection, schema: str) -> None:
@@ -296,7 +316,7 @@ async def _seed_synthetic_active(
             {
                 "id": f"old-{index}",
                 "tenant": tenant_a,
-                "doc": doc_a,
+                "doc": str(doc_a),
                 "body": value,
                 "content_sha": _content_sha(value),
                 "source_revision": f"document:{'a' * 64}",
@@ -319,7 +339,7 @@ async def _seed_synthetic_active(
         ),
         {
             "tenant": tenant_b,
-            "doc": doc_b,
+            "doc": str(doc_b),
             "body": tenant_b_text,
             "content_sha": _content_sha(tenant_b_text),
             "source_revision": f"document:{'b' * 64}",
@@ -472,13 +492,25 @@ async def _assert_writer_path(store, active_rows, *, tenant_id: str, document_id
     )
     if any(value in rendered for value in forbidden):
         raise GateBlocked("writer_reference_projection_failed")
-    if not references or set(references[0]) != {"document", "headings", "context_sections"}:
+    public_keys = {"document", "doc_id", "doc_name", "headings", "context_sections"}
+    if not references or any(
+        set(reference) != public_keys
+        or reference["doc_id"] != document_id
+        or reference["doc_name"] != anchor_meta["doc_name"]
+        for reference in references
+    ):
         raise GateBlocked("writer_reference_shape_failed")
     return True
 
 
-async def run_gate(database_url: str, supabase_url: str, schema: str) -> dict[str, Any]:
+async def run_gate(
+    database_url: str,
+    supabase_url: str,
+    schema: str,
+    expected_public_revision: str,
+) -> dict[str, Any]:
     safe_schema_name(schema)
+    validate_expected_public_revision(expected_public_revision)
     assert_migration_sources_are_schema_neutral()
     if not same_supabase_project(database_url, supabase_url):
         raise GateBlocked("database_and_supabase_project_mismatch")
@@ -544,8 +576,9 @@ async def run_gate(database_url: str, supabase_url: str, schema: str) -> dict[st
                 raise GateBlocked("unexpected_database_name")
             if server_major != 17:
                 raise GateBlocked("unexpected_postgresql_major")
-            if revision_before != "0127":
-                raise GateBlocked("unexpected_public_alembic_revision")
+            assert_expected_public_revision(
+                revision_before, expected_public_revision, "preflight"
+            )
             if not vector_version or not roles_ready:
                 raise GateBlocked("required_dev_runtime_identity_missing")
             if residual:
@@ -715,7 +748,7 @@ async def run_gate(database_url: str, supabase_url: str, schema: str) -> dict[st
                     f"(SELECT count(*) FROM \"{schema}\".embedding_reindex_runs WHERE document_id=:doc) + "
                     f"(SELECT count(*) FROM \"{schema}\".document_embeddings "
                     "WHERE doc_id=:doc AND embedding_index_revision_id IS NOT NULL)",
-                    doc=doc_b,
+                    doc=str(doc_b),
                 )
             )
         if rollback_residue != 0:
@@ -1000,8 +1033,11 @@ async def run_gate(database_url: str, supabase_url: str, schema: str) -> dict[st
                 raise GateBlocked("disposable_reupgrade_failed")
             public_after = await public_metadata_fingerprint(connection)
             revision_after = await public_revision(connection)
-        if public_after != public_before or revision_after != "0127":
+        if public_after != public_before:
             raise GateBlocked("shared_public_state_changed")
+        assert_expected_public_revision(
+            revision_after, expected_public_revision, "postflight"
+        )
         checks["upgrade_downgrade_reupgrade_0127_0131"] = True
         checks["shared_public_revision_and_metadata_unchanged"] = True
     except Exception as exc:
@@ -1019,10 +1055,11 @@ async def run_gate(database_url: str, supabase_url: str, schema: str) -> dict[st
                 async with engine.connect() as connection:
                     cleanup_revision = await public_revision(connection)
                     cleanup_fingerprint = await public_metadata_fingerprint(connection)
+                assert_expected_public_revision(
+                    cleanup_revision, expected_public_revision, "cleanup"
+                )
                 public_cleanup_readback = (
-                    "unchanged"
-                    if cleanup_revision == "0127" and cleanup_fingerprint == public_before
-                    else "changed"
+                    "unchanged" if cleanup_fingerprint == public_before else "changed"
                 )
             except Exception:
                 public_cleanup_readback = "not_verified"
@@ -1033,6 +1070,7 @@ async def run_gate(database_url: str, supabase_url: str, schema: str) -> dict[st
             f"{failure_detail};cleanup={'passed' if cleanup_ok else 'failed'};"
             f"shared_public={public_cleanup_readback}"
         )
+    assert_cleanup_readback_ready(public_cleanup_readback)
     if not cleanup_ok:
         raise GateBlocked(f"cleanup_failed_at:{stage}")
     checks["disposable_schema_removed"] = True
@@ -1061,6 +1099,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--env-file", type=Path, required=True)
     parser.add_argument("--execute", action="store_true")
     parser.add_argument("--approval-id", default="")
+    parser.add_argument("--expected-public-revision", default=argparse.SUPPRESS)
     parser.add_argument("--evidence-file", type=Path)
     return parser.parse_args()
 
@@ -1073,6 +1112,19 @@ def main() -> int:
     if args.approval_id != APPROVAL_ID:
         print(json.dumps({"status": "BLOCKED", "error_class": "approval_id_required"}))
         return 2
+    expected_public_revision = getattr(args, "expected_public_revision", None)
+    if expected_public_revision is None:
+        print(
+            json.dumps(
+                {"status": "BLOCKED", "error_class": "expected_public_revision_required"}
+            )
+        )
+        return 2
+    try:
+        validate_expected_public_revision(expected_public_revision)
+    except GateBlocked as exc:
+        print(json.dumps({"status": "BLOCKED", "error_class": str(exc)}))
+        return 2
     load_dotenv(args.env_file, override=False)
     database_url = normalize_database_url(
         os.environ.get("MIGRATION_DATABASE_URL", "")
@@ -1084,7 +1136,14 @@ def main() -> int:
         return 2
     schema = f"hbr_kb_app_{uuid.uuid4().hex[:12]}"
     try:
-        evidence = asyncio.run(run_gate(database_url, supabase_url, schema))
+        evidence = asyncio.run(
+            run_gate(
+                database_url,
+                supabase_url,
+                schema,
+                expected_public_revision,
+            )
+        )
     except Exception as exc:
         detail = exc.args[0] if isinstance(exc, GateBlocked) and exc.args else "sanitized"
         print(

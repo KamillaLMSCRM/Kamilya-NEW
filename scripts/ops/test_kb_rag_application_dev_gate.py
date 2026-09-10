@@ -1,5 +1,6 @@
 import json
 import sys
+import uuid
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -26,6 +27,52 @@ def test_application_schema_name_is_strictly_bounded() -> None:
             gate.safe_schema_name(invalid)
 
 
+def test_expected_public_revision_is_required_and_strictly_formatted() -> None:
+    assert gate.validate_expected_public_revision("0156") == "0156"
+    for invalid in ("", "156", "015", "01567", "01a6", " 0156", "0156 "):
+        with pytest.raises(gate.GateBlocked, match="expected_public_revision_invalid"):
+            gate.validate_expected_public_revision(invalid)
+
+
+def test_public_revision_guards_compare_expected_revision_at_each_phase() -> None:
+    for phase in ("preflight", "postflight", "cleanup"):
+        gate.assert_expected_public_revision("0156", "0156", phase)
+        with pytest.raises(gate.GateBlocked, match=f"public_revision_mismatch:{phase}"):
+            gate.assert_expected_public_revision("0127", "0156", phase)
+
+
+def test_success_path_fails_closed_when_public_cleanup_readback_is_not_unchanged() -> None:
+    source = Path(gate.__file__).read_text(encoding="utf-8")
+    assert "assert_cleanup_readback_ready(public_cleanup_readback)" in source
+    with pytest.raises(gate.GateBlocked, match="cleanup_public_readback_failed"):
+        gate.assert_cleanup_readback_ready("changed")
+    gate.assert_cleanup_readback_ready("unchanged")
+
+
+@pytest.mark.asyncio
+async def test_seed_binds_text_document_ids_as_strings() -> None:
+    document_a, document_b = uuid.uuid4(), uuid.uuid4()
+    bound = []
+
+    class Connection:
+        async def execute(self, statement, params=None):
+            if params and "doc" in params:
+                assert isinstance(params["doc"], str)
+                bound.append(params["doc"])
+
+        async def commit(self):
+            pass
+
+    await gate._seed_synthetic_active(
+        Connection(), "hbr_kb_app_0123456789ab", tenant_a=uuid.uuid4(),
+        tenant_b=uuid.uuid4(), doc_a=document_a, doc_b=document_b,
+    )
+    assert bound == [str(document_a), str(document_a), str(document_b)]
+    source = Path(gate.__file__).read_text(encoding="utf-8")
+    assert "doc=doc_b," not in source
+    assert "doc=str(doc_b)," in source
+
+
 def test_runner_covers_exact_migration_chain_and_is_schema_neutral() -> None:
     assert [path.name for path in gate.MIGRATIONS] == [
         "0128_add_embedding_provenance.py",
@@ -34,6 +81,19 @@ def test_runner_covers_exact_migration_chain_and_is_schema_neutral() -> None:
         "0131_add_embedding_reindex_lifecycle.py",
     ]
     gate.assert_migration_sources_are_schema_neutral()
+
+
+def test_gate_reference_shape_matches_current_writer_projection() -> None:
+    from app.modules.ai.writer import RetrievedChunk, _public_source_reference
+    chunk = RetrievedChunk(chunk_id="internal", doc_id="owned-doc", tenant_id="tenant",
+                           doc_name="synthetic.md", headings=[], text="source",
+                           query="q", distance=0.1)
+    reference = _public_source_reference(chunk)
+    assert set(reference) == {"document", "doc_id", "doc_name", "headings", "context_sections"}
+    assert reference["doc_id"] == "owned-doc"
+    source = Path(gate.__file__).read_text(encoding="utf-8")
+    assert 'reference["doc_id"] != document_id' in source
+    assert 'reference["doc_name"] != anchor_meta["doc_name"]' in source
 
 
 def test_candidate_helpers_are_synthetic_and_deterministic() -> None:
@@ -80,6 +140,25 @@ def test_main_refuses_before_loading_env_without_exact_approval(monkeypatch, cap
     )
     assert gate.main() == 2
     assert json.loads(capsys.readouterr().out)["error_class"] == "approval_id_required"
+
+
+def test_main_requires_expected_public_revision_before_loading_env(monkeypatch, capsys) -> None:
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["gate", "--env-file", "missing.env", "--execute", "--approval-id", gate.APPROVAL_ID],
+    )
+    monkeypatch.setattr(
+        gate,
+        "load_dotenv",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("env must not be read")
+        ),
+    )
+    assert gate.main() == 2
+    assert json.loads(capsys.readouterr().out)["error_class"] == (
+        "expected_public_revision_required"
+    )
 
 
 def test_evidence_path_must_remain_inside_repository() -> None:

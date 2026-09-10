@@ -1,6 +1,7 @@
 'use client';
 
-import { Fragment, useState, useEffect, useCallback, useRef, type ReactNode } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { SafeLessonContent } from '@/components/SafeLessonContent';
 import { useParams } from 'next/navigation';
 import { Card, CardHeader, CardTitle, CardContent, Button } from '@/components/ui';
 import Link from 'next/link';
@@ -945,32 +946,4 @@ function formatRemainingTime(seconds: number): string {
   const minutes = Math.floor((seconds % 3600) / 60);
   const remainder = seconds % 60;
   return [hours, minutes, remainder].map((part) => String(part).padStart(2, '0')).join(':');
-}
-
-function SafeLessonContent({ text }: { text: string }) {
-  const lines = text.split('\n');
-
-  return (
-    <div>
-      {lines.map((line, lineIndex) => (
-        <Fragment key={`${lineIndex}:${line}`}>
-          {renderInlineLessonMarkdown(line, lineIndex)}
-          {lineIndex < lines.length - 1 && <br />}
-        </Fragment>
-      ))}
-    </div>
-  );
-}
-
-function renderInlineLessonMarkdown(line: string, lineIndex: number): ReactNode[] {
-  return line.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g).map((segment, segmentIndex) => {
-    const key = `${lineIndex}:${segmentIndex}`;
-    if (segment.startsWith('**') && segment.endsWith('**')) {
-      return <strong key={key}>{segment.slice(2, -2)}</strong>;
-    }
-    if (segment.startsWith('*') && segment.endsWith('*')) {
-      return <em key={key}>{segment.slice(1, -1)}</em>;
-    }
-    return <Fragment key={key}>{segment}</Fragment>;
-  });
 }

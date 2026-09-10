@@ -60,11 +60,10 @@ async def test_large_catalog_maps_every_overlap_chunk_before_architect_receives_
                 source_ids = re.findall(r"^source_id=(s\d+)$", prompt, flags=re.MULTILINE)
                 self.map_batches.append(source_ids)
                 self.map_prompts.append("".join(message["content"] for message in messages))
-                return _Response(json.dumps({"records": [{
-                    "source_ids": source_ids,
+                return _Response(json.dumps({
                     "summary": "batch summary",
                     "topics": ["catalog"],
-                }]}))
+                }))
             self.architect_prompt = prompt
             return _Response(json.dumps({
                 "title": "Catalog course", "description": "Grounded course",
@@ -88,6 +87,10 @@ async def test_large_catalog_maps_every_overlap_chunk_before_architect_receives_
     assert "middlebeta" in all_map_input
     assert "tailomega" in all_map_input
     assert "s000001" in llm.architect_prompt
-    assert "s000501" in llm.architect_prompt
+    anchors = [json.loads(line) for line in llm.architect_prompt.splitlines() if line.startswith('{"batch"')]
+    represented = [f"s{i:06d}" for anchor in anchors
+                   for first, last in anchor['source_id_ranges_inclusive']
+                   for i in range(int(first[1:]), int(last[1:]) + 1)]
+    assert represented == [f"s{i:06d}" for i in range(1, 1001)]
     assert "s001000" in llm.architect_prompt
     assert structure.modules[0].lessons[0].source_doc_ids == ["catalog"]

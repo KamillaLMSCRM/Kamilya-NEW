@@ -1,6 +1,6 @@
 # Error and Recurrence Prevention Log
 
-Current as of: 2026-09-09.
+Current as of: 2026-09-10.
 
 This is the single operational log for confirmed Kamilya LMS workflow errors,
 invalid assumptions, fixes, verification, and recurrence prevention. Open product
@@ -1823,3 +1823,63 @@ contract or establish a blocker.
 - Prevention: retain catalog/small-source/map/assessment regressions; do not
   replace complete-source processing with an unlabelled sample or loosen question
   grounding/quality checks to turn a partial live result into a passing course.
+- 2026-09-10 resilience candidate (not deployed): real932-chunk Excel exposed
+  separate failures in a320-character map-content cap and model-owned source-ID
+  partitioning. New protocol extracts one detailed aggregate per deterministic
+  batch and attaches exact IDs in code. Overview keeps all topics with lossless
+  inclusive ranges/document associations; 28000-char overview stays under the
+  existing32000-char combined architect request guard. Candidate map output cap
+  is2048tokens; current deployed0.4.1 still uses its1024-token protocol.
+- Evidence: first detailed candidate failed coverage after21calls; next mapped
+  all44batches but overview exceeded24000chars. Real cache readback counted501
+  topics/23837chars, explaining that limit independently. Final candidate read
+  all44batches/932sources from Redis with0provider calls, built27441-char overview,
+  and produced3modules/6lessons with1architect call in12.39s total. This is map and
+  architecture acceptance, NOT saved-course/quiz/browser acceptance.
+- Prevent recurrence: tests cover nine-topic/long-summary input, source tail,
+  model-ID rejection, exact multi-document associations, cache identity including
+  ordered chunk IDs and resolved model settings, tenant/job isolation,64-entry
+  atomic TTL bound, one-fault cache circuit breaker and cancellation. Never equate
+  a cached replay's0.43s with fresh full-course generation latency. Checkpoints are
+  same-job only; the current Celery claim does not automatically reopen failed jobs.
+- Writer continuation: the cold real map passed44calls/53.54s, architecture passed
+  at67.85s, then writer rejected the full prompt before its first model call.
+  Source-only24000-char packing ignored repeated Excel headings and metadata in
+  the32000-char serialized request. A representative480-char-heading regression
+  failed for one and two documents; exact serialized-budget packing of whole
+  chunks fixes both while preserving every requested document and sent provenance.
+  Focused writer/direct/semantic/catalog suite29PASS. V4 real candidate generated
+  six lessons/26008chars in107.39s after a cached map; unchanged assessment produced
+  26MCQs. Independent persistence/API verified3modules/6lessons/6quizzes/104choices.
+  These staged measurements do not replace a fresh API-to-Celery production smoke.
+- Browser continuation: page-local inline-only renderer exposed raw Markdown
+  headings/tables. SafeLessonContent now renders bounded semantic blocks as React
+  text, without HTML injection; malformed/escaped-pipe tables retain literal cells.
+  Root review caught and fixed trailing-cell loss before integration. Tests include
+  unsafe HTML/URLs, tables, CRLF, ordered-list start and long/unclosed-fence tails;
+  frontend569tests and typecheck pass. Production renderer still awaits release.
+
+## DEV-GATE-001 - Historical application fixture rejected current DEV
+
+- Date: 2026-09-10.
+- Symptom: application gate required public0127 although verified Supabase DEV is0156;
+  after owner-approved revision parameterization, seeding and rollback readback
+  failed SQLSTATE22000 with expected-str/got-UUID in text document ID bindings.
+- Cause: public revision identity was coupled to the isolated historical fixture;
+  three raw SQL text-column bindings passed UUID objects to asyncpg.
+- Fix: require explicit expected public revision before loading credentials; bind
+  document_embeddings.doc_id and lifecycle document_id values as strings. Keep
+  documents.id UUID values and isolated0127->0131 migration chain unchanged.
+  Public preflight/postflight/cleanup compare the same explicit revision and final
+  success fails closed on unknown/changed cleanup metadata or revision.
+- Verification: offline gate suite18PASS; every failed live attempt removed its
+  exact disposable schema and read back unchanged shared public state. Final
+  HBR-DEV-APP-20260910T104753Z passed all lifecycle/RLS/rollback/retrieval checks,
+  isolated schema removed, public0156/metadata unchanged.
+- Current writer citations additionally contain doc_id/doc_name; the gate now
+  requires those exact owned-document values alongside document/headings/context,
+  while still rejecting private retrieval/model provenance. The old three-key
+  assertion was stale; no production citation contract was changed.
+- Prevention: fixture tests cover typed SQL bindings, mandatory revision argument,
+  and cleanup failure. Do not lower RLS/provenance or public-state checks to accept
+  a stale fixture, and never substitute customer-derived material for synthetic DEV data.

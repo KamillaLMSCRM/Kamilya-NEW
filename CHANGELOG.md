@@ -15,6 +15,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.4.2] - 2026-09-10
+
+### Fixed
+
+- Course generation from large Excel catalogs processes source topics throughout
+  the document and handles long spreadsheet headings when writing lessons.
+- Invalid navigation-map formatting receives one bounded retry; already validated
+  batches can be reused within that same generation job.
+- Generated lesson headings, lists and simple tables are displayed as readable
+  content, with source HTML remaining inert text.
+
 ## [0.4.1] - 2026-09-10
 
 ### Fixed

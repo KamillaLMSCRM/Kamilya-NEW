@@ -30,10 +30,12 @@ Failover semantics
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import json
 import logging
 import math
 from collections.abc import Callable, Iterable
-from dataclasses import dataclass, field, replace
+from dataclasses import asdict, dataclass, field, replace
 from enum import StrEnum
 from typing import Any, Generic, TypeVar, cast
 
@@ -619,6 +621,18 @@ class ResilientLLMClient:
                 "ResilientLLMClient requires at least one provider. "
                 "Check that the configured generation provider route is available."
             )
+
+    def cache_fingerprint(self) -> str:
+        """Opaque identity of this resolved route; never return provider credentials.
+
+        Key rotation, options, model/order and generation limits invalidate same-job
+        checkpoints. The serialized configuration exists only transiently in memory.
+        """
+        payload = {
+            "providers": [asdict(client.config) for client in self._clients],
+            "temperature": self.temperature, "max_tokens": self.max_tokens,
+        }
+        return hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 
     @classmethod
     def from_settings(

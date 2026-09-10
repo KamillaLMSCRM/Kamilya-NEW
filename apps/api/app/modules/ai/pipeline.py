@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import json
 import logging
 import math
 import os
@@ -16,6 +18,7 @@ from app.modules.ai.architect_schema import CourseStructure
 from app.modules.ai.writer_schema import CourseContent, ModuleContent, LessonContent
 from app.modules.ai.assessment_schema import CourseAssessment, LessonAssessment
 from app.modules.ai.llm_client import LLMClient, ResilientLLMClient, create_llm
+from app.modules.ai.source_map_checkpoint import SourceMapCheckpointStore
 from app.modules.ai.ingestion import VectorStore, DocumentIngestion, EmbeddingsProvider
 from app.modules.ai.architect import run_architect, create_architect_tools
 from app.modules.ai.direct_source import (
@@ -41,6 +44,26 @@ GENERATION_FAILURE_MESSAGE = (
 class _DocumentProfile(TypedDict):
     all_job_instructions: bool
     total_chunks: int
+
+
+def _source_map_checkpoint_store(
+    llm: object, tenant_id: UUID | None, job_id: str, options: dict[str, object],
+) -> SourceMapCheckpointStore | None:
+    """Only identified jobs using a resolved route may reuse internal checkpoints."""
+    fingerprint = getattr(llm, "cache_fingerprint", None)
+    if tenant_id is None or not callable(fingerprint):
+        return None
+    route_digest = fingerprint()
+    if not isinstance(route_digest, str) or not re.fullmatch(r"[0-9a-f]{64}", route_digest):
+        return None
+    digest = hashlib.sha256(json.dumps(
+        [route_digest, options], sort_keys=True, separators=(",", ":"),
+    ).encode()).hexdigest()
+    try:
+        return SourceMapCheckpointStore(str(tenant_id), job_id, digest)
+    except ValueError:
+        # Legacy/internal non-UUID job identifiers cannot enter the shared cache.
+        return None
 
 
 def _estimate_lesson_duration_seconds(content: str | None) -> int:
@@ -421,6 +444,7 @@ async def run_generation_pipeline(
     )
     direct_mode = state.source_analysis.get("analysis_mode") == "direct_source"
     direct_corpus: DirectSourceCorpus | None = None
+    map_checkpoints: SourceMapCheckpointStore | None = None
 
     try:
         # Stage 1: validate the selected source path before any model call.
@@ -527,6 +551,12 @@ async def run_generation_pipeline(
         if direct_mode:
             if direct_corpus is None:
                 raise DirectSourceError("direct_source_unavailable")
+            map_checkpoints = _source_map_checkpoint_store(llm, tenant_id, job_id, {
+                "goals": goals, "course_hours": course_hours, "num_modules": num_modules,
+                "lessons_per_module": lessons_per_module, "language": language,
+                "guidance": effective_guidance, "target_audience": target_audience,
+                "source_strategy": source_strategy, "combination_goal": combination_goal,
+            })
             structure = await run_direct_architect(
                 llm,
                 direct_corpus,
@@ -539,6 +569,7 @@ async def run_generation_pipeline(
                 target_audience=target_audience,
                 source_strategy=source_strategy,
                 combination_goal=combination_goal,
+                checkpoint_store=map_checkpoints,
                 check_cancelled=lambda: _check_cancelled_async(
                     job_id,
                     tenant_id=tenant_id,
@@ -840,5 +871,12 @@ async def run_generation_pipeline(
                     job_id,
                 )
         logger.error("Generation pipeline failed for job %s error_type=%s", job_id, type(e).__name__)
+    finally:
+        if map_checkpoints is not None:
+            try:
+                if state.status in {"completed", "cancelled"}:
+                    await map_checkpoints.clear()
+            finally:
+                await map_checkpoints.aclose()
 
     return state
