@@ -442,7 +442,7 @@ production runtime and cross-container readback remain pending release approval.
 
 ## AI-002 - Grounded assessment answers became learner-visible evidence dumps
 
-- Date: 2026-08-20; revised 2026-08-31 after production synthetic acceptance.
+- Date: 2026-08-20; revised 2026-09-10 after representative Excel acceptance.
 - Symptom: earlier runs produced off-source JSON/HTTP/REST questions. After the
   first grounding fix, production generated source-based quizzes whose correct
   options were often the longest, contained complete multi-fact excerpts or raw
@@ -453,8 +453,10 @@ production runtime and cross-container readback remain pending release approval.
 - Fix: rebuild every retry from immutable lesson, never raw prior output. Server
   creates bounded `E01...E24` evidence from the same 8000-character source; model
   selects `source_quote_id`; the server resolves and stores the quote separately.
-  The model writes a concise answer and grounded explanation. Deterministic checks
-  require lexical support, atomic wording, plain learner-visible text and topical
+  The model writes a concise answer. The2026-09-10 correction requires an exact
+  contiguous2-12word evidence span, retaining digits, negation and punctuation;
+  explanation is a localized trusted prefix plus selected display-text evidence.
+  Deterministic checks retain atomic wording, plain learner-visible text and topical
   distractors, then reuse `validate_question_set` for length/style, duplicate,
   malformed and answer-key signals. A failed contract triggers a bounded clean
   retry. If every provider retry still contains a bad question, the server retains
@@ -472,6 +474,17 @@ production runtime and cross-container readback remain pending release approval.
   publication succeeded only after explicit review. No mail was sent and the
   disposable tenant was removed through the normal API with `204` plus `404`
   readback.
+- Follow-up evidence2026-09-10: a normal17lesson/61question job completed, but browser
+  and independent API detected one invented predicate in a keyed answer. The old
+  60percent stem-overlap check ignored digits and admitted invented properties;
+  focused recovery forced6words and encouraged filler. New synthetic red tests
+  reproduce both unsupported predicates and altered numbers. Remove fixed6words,
+  keep bounded recovery/minimum3 and existing balance/distractor checks unchanged.
+  Raw quote explanations collided with the existing answer-leak detector; a trusted
+  language-specific prefix fixes that interaction without weakening its validator.
+ 37focused/1175unit tests and independent review pass. Exact candidate isolated
+  real-provider probe returns3questions/5calls in20.84seconds, DB/runtime edits0.
+  This is candidate evidence, not deployed correction or semantic-entailment proof.
 - Prevention: successful job and valid JSON are not quality evidence. Verify every
   question's source, keyed-answer support, option-length baseline, Markdown-free
   rendering and review state. Retry must preserve the immutable source boundary and
@@ -1883,3 +1896,33 @@ contract or establish a blocker.
 - Prevention: fixture tests cover typed SQL bindings, mandatory revision argument,
   and cleanup failure. Do not lower RLS/provenance or public-state checks to accept
   a stale fixture, and never substitute customer-derived material for synthetic DEV data.
+
+## RELEASE-ID-001 - Protected manifest rejected a noncanonical release ID
+
+- Date: 2026-09-10.
+- Symptom: workflow34469021162 failed release_id_invalid before its production job.
+- Cause: root supplied AI042-prefixed mixed-case correlation instead of the actual
+  release-plane contract ^REL-[A-Z0-9][A-Z0-9-]{7,95}$.
+- Fix: validate REL-AI042-20260910-CF719EC9 against RELEASE_ID_RE before dispatching
+  replacement34469207530 with unchanged source/CI/previous-runtime identities.
+- Verification: ReleaseManifest.parse accepted the complete corrected manifest;
+  first workflow production job skipped. Replacement34469207530 and independent
+  API/all-three-worker exact image readback passed on0.4.2. Windows HostConfig
+  validation cannot validate Linux absolute paths; full config validation ran in
+  the Linux workflow. ReleaseManifest exposes parse, not from_dict.
+- Prevention: validate complete release manifest locally before dispatch. Do not reuse
+  generic operational correlation syntax as a protected release ID.
+
+## AI-SMOKE-RATE-001 - Negative admission probe consumed the next start burst
+
+- Date: 2026-09-10.
+- Symptom: valid owned-source POST returned429 immediately after the unknown-source
+  POST correctly returned404; no generation job was admitted.
+- Cause: generate-course has burst1/10seconds and2requests/minute. Middleware counts
+  rejected requests before application validation; the smoke issued back-to-back POSTs.
+- Fix: space the two probes; when the negative was already independently verified,
+  run only the positive probe after the window. Do not change production rate limits.
+- Verification: unchanged release042 accepted the normal queued generation job on
+  the positive-only run; source ownership/hash and negative404 already passed.
+- Prevention: schedule negative and positive admission tests against actual endpoint
+  rate windows; distinguish429 rate protection from demo quotas or provider failure.

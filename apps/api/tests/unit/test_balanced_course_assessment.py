@@ -449,7 +449,7 @@ async def test_standard_assessment_keeps_concise_answer_and_server_owned_quote()
         correct = [option.text for option in question.options if option.is_correct]
         assert correct == [fixture["options"][0]["text"]]
         assert question.source_quote == fixture.get("source_quote", fixture["explanation"])
-        assert question.explanation == fixture["explanation"]
+        assert question.explanation == f'В исходном материале указано: «{question.source_quote}»'
 
 
 @pytest.mark.asyncio
@@ -832,10 +832,10 @@ async def test_focused_assessment_retries_rejected_evidence_candidate():
                     ]
                 else:
                     options = [
-                        {"text": f"after {correct_suffix} loan {subject} occurs", "is_correct": True},
-                        {"text": f"before {correct_suffix} loan {subject} occurs", "is_correct": False},
-                        {"text": f"during {alternative} loan {subject} occurs", "is_correct": False},
-                        {"text": f"without {correct_suffix} loan {subject} occurs", "is_correct": False},
+                        {"text": f"loan {subject} occurs after {correct_suffix}", "is_correct": True},
+                        {"text": f"loan {subject} occurs before {correct_suffix}", "is_correct": False},
+                        {"text": f"loan {subject} occurs during {alternative}", "is_correct": False},
+                        {"text": f"loan {subject} occurs without {correct_suffix}", "is_correct": False},
                     ]
                 questions = [
                     {

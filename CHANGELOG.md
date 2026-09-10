@@ -15,6 +15,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.4.3] - 2026-09-10
+
+### Fixed
+
+- Generated quiz answers must use a short exact excerpt from their lesson evidence;
+  topic-word overlap no longer admits invented properties or changed numeric values.
+- Quiz explanations quote the selected lesson evidence without adding a second
+  model-authored factual claim. Existing review and question-quality checks remain.
+
 ## [0.4.2] - 2026-09-10
 
 ### Fixed
@@ -153,7 +162,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
-[Unreleased]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.4.3...HEAD
+[0.4.3]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.4.2...v0.4.3
+[0.4.2]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.4.1...v0.4.2
+[0.4.1]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/KamillaLMSCRM/Kamilya-NEW/compare/v0.2.0...v0.3.0

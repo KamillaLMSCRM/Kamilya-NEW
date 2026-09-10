@@ -555,3 +555,80 @@ zero nodes, a retained index limitation, not evidence that their behavior is abs
   No migration in this release; new restore drill not claimed.
 - Source042 commit/push, exact CI/native artifact, protected deployment and normal
   queued large-Excel smoke remain the next mandatory gates.
+
+### Exact042 publication and protected execution
+
+- Source cf719ec996dcb6389bdb12800924e0a0aae048fa pushed to master using
+  KamillaLMSCRM repository-root GITHUB_TOKEN via process-local gh credential helper;
+  independent remote readback matched at2026-09-10T15:49:51+05:00. Tagv0.4.2
+  object5820d0cd8ab78eb07068804fa2316246aa99d24d independently peels sameSHA.
+  GitHub Release published; publication alone is not deployment acceptance.
+- CI34468098651PASS; native build34468134014PASS; initial API build34468407089PASS.
+  Native archive155414861bytes, SHAe974364a9d9089cd1bf10ab78dc6055e0ec09776d155e292e39a806a7fc31712,
+  manifestSHAd270b83ae77164dcb297d1b1af73933bb1745f77b800fbd86eac2c3ca9f6b70c.
+  Both staged to CT137 via restricted ordinary helper, no Proxmox/host build.
+- Owner-approved fresh restore into kamilya_ai042_restore_20260910: signed report
+  kz_restore_drill_20260910T105840Z.json SHA52cc228f42dbb43dd5ba1414fdeae13b2bc90908c041ae24c45eee13ce80d0bc.
+  Independent signature/readback PASS,110tables/105FORCE-RLS, head0157,
+  RPO40s/RTO20s. Exact temporary DB/copies/plaintext absent; backup timer active.
+  Existing live DB and original customer source preserved.
+- Pure no_migration_predeploy evaluator GO,6verified references/2owner scopes;
+  root independently checked evidence. No database migration approved or executed.
+- Initial protected run34469021162 rejected release_id_invalid before VM126 job.
+  Root used wrong correlation syntax. Correct REL-AI042-20260910-CF719EC9 tested
+  against actual RELEASE_ID_RE; replacement run34469207530 dispatched. No earlier
+  production mutation or rollback was necessary. Final image digest/readback pending.
+
+### Release042 actual deployment and ongoing normal queue acceptance
+
+- Protected34469207530PASS; final image
+  ghcr.io/kamillalmscrm/kamilya-api@sha256:ed823d1090feaed21d59c7085e7ebdaafa58303defa83145621da129473678cc.
+  Complete ReleaseManifest.parse passed locally; Linux host-config validation passed
+  in the protected workflow. Independent readback9d9485b1d2209f6cc7dc59b8eb2ca70ca43e29785dd0d76e64ff2398a3e85b50
+  verifies green slot, API/all3workers exactcf719ec9, zero restarts, public/private
+  health0.4.2, CT1250157 unchanged and previous317056image retained.
+- CT137 ordinary native helper RELEASE_OK; independent current symlink, marker,
+  service and publichealth exactcf719ec9. Previous3c051931 retained. No Proxmox,
+  package install, on-host build, proxy compute, DNS or billing mutation.
+- Browser reloaded new release, re-entered ONLY the synthetic methodologist role;
+  first/last pre-existing acceptance lessons and real table layout verified.
+  No learning progress, publication or assignment action was performed.
+- Normal API start admitted job4ed79296-7bbd-44c2-b61e-f56d3ba6eda2 against the
+  exact owned source copy. Initial negative404 followed immediately by positive429
+  was harness burst sequencing, not demo quota; production protections unchanged.
+  Positive-only retry passed202 and is progressing through queue/writer/review/tests.
+- Luna/medium Chandrasekhar performed source-only cleanup-seam review; no external
+  access or writes. Root verified course204/document202/terminal-job audit semantics.
+  Agent closed. Token usage unavailable; first-pass checklist accepted, no correction.
+  Root retains exact cleanup authority and execution. Final course/browser/cleanup
+  result and wall time remain pending, not inferred from the successful deployment.
+
+### Assessment correction043 — current frontier
+
+- Normal042 job completed in901.35seconds:3modules/17lessons/17quizzes/61MCQs.
+  First/last lesson rendering and question navigation pass, but manual review plus
+  independent API found an unsupported keyed-answer predicate. Client GO withheld.
+  Separate guarded SQL read confirms draft/no release/no assignments/progress/attempts,
+  source refs and cross-tenant RLS; no SQL writes. Original customer source untouched.
+- Root reproduced60percent stem-overlap acceptance of invented predicates and
+  altered numbers in synthetic red tests. Accepted V6 changes assessment only:
+  exact2-12word source span, preserved punctuation/numbers, trusted explanation,
+  no fixed6word padding. No public schema/minimum3/retry/persistence change.
+- Terra/medium Archimedes independent review accepted after one correction cycle;
+  root verified current diff and37focusedPASS. Full unit1175PASS, Ruff1088/mypy2345
+  baseline unchanged; release contract88entries and version0.4.3 validation PASS.
+  First baseline attempt lacked venv binaries on subprocess PATH; scoped venv PATH
+  corrected the harness, no dependency install or baseline edits.
+- Actual affected owned lesson: isolated in-memory candidate on existing worker,
+  script04a930b33363c871044e719fb3a8b9161c0d15e337972975a8b9886e0c41ab34
+  returns3questions/5provider calls in20.84seconds; invented predicate absent,
+  evidence explanations pass, DB/runtime source writes0. Not deployed acceptance.
+- AST index updated16169nodes/38816edges/965communities, no dangling/duplicate edges;
+  new validator->evidence consumer/test relationship confirmed in current source.
+- Test Runner local-only packet AI043-LOCAL-20260910 dispatched to persistent Luna;
+  no external/secret/customer access or ledger write. Root remains sole writer.
+- Next gates: independent tests -> exact043commit/remote/CI/native artifact ->
+  backup freshness/currentcf719ec9 rollback binding -> protected API then nativeweb
+  -> normal full-source queue with explicit3modules/2lessons-per-module -> browser
+  assessment quality review -> delete all owned test drafts/source, retain audit jobs.
+  All final043 gates remain NOT VERIFIED until executed. Current042 stays running.

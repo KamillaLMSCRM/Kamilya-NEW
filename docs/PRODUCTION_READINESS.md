@@ -9,7 +9,34 @@ DB/storage gate и приёмкой клиента
 остаётся в Git; отдельные датированные отчёты не используются как источник
 текущего состояния.
 
-## Current production frontend — CT137, 2026-09-07
+## Release 0.4.2 — current application deployment, 2026-09-10
+
+This exact application release supersedes earlier application-SHA rows below;
+dated infrastructure records remain evidence of their original checks, not a
+fresh hosting/security audit. Customer-journey acceptance is blocked on quiz quality.
+
+| Gate | State | Independently verified evidence |
+|---|---|---|
+| Source/version | PASS | `cf719ec996dcb6389bdb12800924e0a0aae048fa`, product0.4.2; master and annotated `v0.4.2` peel agree; project-account GitHub Release published |
+| Tests/DEV | PASS | Backend1208tests; frontend110files/569tests; lint/typecheck and existing Python baseline pass. Supabase isolated application gate `HBR-DEV-APP-20260910T104753Z` passed, public0156 unchanged and temporary schema removed |
+| CI/build | PASS | CI34468098651, native34468134014, protected34469207530 |
+| Restore | PASS | Signed report `kz_restore_drill_20260910T105840Z.json`, SHA256 `52cc228f42dbb43dd5ba1414fdeae13b2bc90908c041ae24c45eee13ce80d0bc`;110tables/105FORCE-RLS; RPO40s/RTO20s. Independent signature and exact temporary-DB/file absence verified |
+| API/workers | PASS | API and all3workers running with zero restarts, release cf719ec9, exact image `ghcr.io/kamillalmscrm/kamilya-api@sha256:ed823d1090feaed21d59c7085e7ebdaafa58303defa83145621da129473678cc`; private/public health0.4.2 |
+| Database | PASS | CT1250157 unchanged, no migration in this release |
+| Frontend | PASS | CT137 native helper RELEASE_OK; independent current symlink/marker/service and public `/healthz` body/header exact cf719ec9. No Proxmox login, on-host build or proxy compute |
+| Frontend artifact | PASS | Archive SHA256 `e974364a9d9089cd1bf10ab78dc6055e0ec09776d155e292e39a806a7fc31712`,155414861bytes; original native manifest retained |
+| Rollback readiness | PASS | Previous API image `sha256:317056d226a21a5d8be100ab9162336135e9fdcfb6b0c5ae9e47a3617e319303` retained; previous frontend3c051931 retained. No deliberate production rollback drill claimed |
+| Representative Excel | BLOCKED_QUALITY | Normal owned-copy job completed in901.35seconds:3modules/17lessons/17quizzes/61MCQs. Browser plus independent API found one unsupported correct-answer predicate; no client GO. Source refs, draft state, no assignments/progress/attempts and cross-tenant RLS passed; disposable cleanup remains pending |
+
+Assessment correction candidate (not deployed): V6 addendum, exact excerpt and
+numeric/punctuation checks, trusted evidence explanation. Independent Terra review
+accepted after correction;37focused/1175unit tests pass. One isolated real-provider
+probe of the affected owned lesson returned3questions/5calls in20.84seconds; script
+SHA256 `04a930b33363c871044e719fb3a8b9161c0d15e337972975a8b9886e0c41ab34`.
+No installed runtime code or DB rows changed in that probe. Exact release and a
+new normal queued course/browser/cleanup remain mandatory.
+
+## Production frontend cutover — CT137, verified 2026-09-07
 
 | Gate | Состояние | Подтверждение |
 |---|---|---|

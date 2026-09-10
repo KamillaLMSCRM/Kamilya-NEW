@@ -32,7 +32,6 @@ from app.modules.editor_assistant.taxonomy import EditorQualityIssueLabel
 logger = logging.getLogger(__name__)
 MAX_ASSESSMENT_RETRIES = 4
 MAX_FOCUSED_ATTEMPTS_PER_EVIDENCE = 2
-FOCUSED_OPTION_WORD_COUNT = 6
 
 
 def _assessment_contract_reason_codes(error: Exception) -> str:
@@ -156,6 +155,21 @@ def _plain_evidence_text(text: str) -> str:
     value = re.sub(r"__(.+?)__", r"\1", value)
     value = re.sub(r"`(.+?)`", r"\1", value)
     return " ".join(value.split())
+
+
+def _is_extractive_answer(answer: str, evidence: str) -> bool:
+    """Require an exact token span, retaining numbers, negation and signs.
+
+    This conservative check is not semantic entailment. Topic-word overlap alone
+    cannot establish that a model-authored predicate or numeric value is supported.
+    """
+    pattern = r"\w+(?:[.,]\d+)?|[^\w\s]"
+    candidate = re.findall(pattern, _plain_evidence_text(answer).casefold())
+    source = re.findall(pattern, _plain_evidence_text(evidence).casefold())
+    return bool(candidate) and any(
+        source[i:i + len(candidate)] == candidate
+        for i in range(len(source) - len(candidate) + 1)
+    )
 
 
 def _split_evidence_chunk(text: str) -> list[str]:
@@ -340,6 +354,13 @@ def _validate_question_evidence(
         # is ignored even if a provider returns it as an extra field.
         answer_text = _plain_evidence_text(source_quote)
         question["source_quote"] = answer_text
+        # The explanation must not add a second, unverified factual assertion.
+        evidence_prefix = {
+            "ru": "В исходном материале указано",
+            "kk": "Сабақ материалында былай көрсетілген",
+            "en": "The lesson source states",
+        }.get(language, "The lesson source states")
+        question["explanation"] = f'{evidence_prefix}: «{answer_text}»'
         options = [option for option in question.get("options", []) if isinstance(option, dict)]
         correct_options = [option for option in options if option.get("is_correct") is True]
         if len(correct_options) != 1:
@@ -357,17 +378,18 @@ def _validate_question_evidence(
         question_stems = _grounding_stems(str(question.get("question", "")))
         correct_answer = _plain_evidence_text(str(correct_options[0].get("text", "")))
         explanation = _plain_evidence_text(str(question.get("explanation", "")))
-        answer_stems = _grounding_stems(correct_answer)
         explanation_stems = _grounding_stems(explanation)
         required_question_anchors = min(1, len(quote_stems))
         if len(quote_stems & question_stems) < required_question_anchors:
             issues.append(f"MCQ #{index}: question does not use enough source evidence")
-        if not answer_stems or len(quote_stems & answer_stems) / len(answer_stems) < 0.6:
+        if not _is_extractive_answer(correct_answer, source_quote):
             issues.append(f"MCQ #{index}: answer does not use its source evidence")
         if not explanation_stems or not quote_stems & explanation_stems:
             issues.append(f"MCQ #{index}: explanation does not use its source evidence")
         if len(correct_answer) < 7 or len(correct_answer.split()) < 2:
             issues.append(f"MCQ #{index}: correct answer is an incomplete fragment")
+        if len(correct_answer.split()) > 12:
+            issues.append(f"MCQ #{index}: correct answer exceeds 12 words")
         if _LIST_QUESTION_RE.search(str(question.get("question", ""))):
             issues.append(f"MCQ #{index}: question requests a multi-part list")
         if any(
@@ -702,11 +724,11 @@ Requirements:
 - Ask one atomic question using concrete terminology from the evidence.
 - Select only {evidence_id}; do not output source_quote text.
 - Write exactly four options with exactly one correct option.
-- Every option must contain exactly {FOCUSED_OPTION_WORD_COUNT} whitespace-separated
-  words. Count the words before returning JSON. No option may be longer or shorter.
+- Copy the correct option as one exact contiguous 2-12 word span of the evidence.
+  Preserve the source's wording, numbers, units and negation; never add filler words.
+- Keep all four options similar in word count; a fixed word count is not required.
 - Every option must repeat at least one exact topical term listed above, use the
   same grammatical form, answer the same question, and have equal specificity.
-- At least four words in the correct option must reuse exact evidence terminology.
 - Each distractor must change only one plausible action, condition, sequence, or
   outcome from the correct option. Never use nonsense or an unrelated subject.
 - Write a grounded explanation and no Markdown or meta commentary.
@@ -720,8 +742,9 @@ Requirements:
                 if focused_attempt == 1
                 else (
                     "\nThe previous candidate failed deterministic quality checks. "
-                    f"Correct it now: all four options must have exactly "
-                    f"{FOCUSED_OPTION_WORD_COUNT} words and each must repeat an "
+                    "Correct it now: copy the correct answer verbatim from the "
+                    "selected evidence, keep all four options similar in length, "
+                    "and ensure each repeats an "
                     "exact topical term. Return a new candidate, not commentary."
                 )
             )
@@ -868,8 +891,10 @@ Grounding requirements:
 - Use at least one concrete term from the selected evidence quote in the question.
 - Ask about one atomic decision or fact. Do not ask the learner to enumerate a list,
   combine several facts, or choose a grammatically inverted negative statement.
-- Mark exactly one option as correct. Write it as a concise 2-12 word answer that
-  reuses the selected evidence terminology; do not copy the full evidence excerpt.
+- Mark exactly one option as correct. Copy a concise 2-12 word contiguous span
+  verbatim from the selected evidence, preserving numbers, units and negation.
+  Do not paraphrase, add filler, or invent a predicate. Choose another fact if
+  the selected quote cannot support a complete short answer.
 - Write three plausible distractors about the same subject. Keep every option close
   in word count and grammatical style so answer length cannot reveal the key.
 - Do not emit Markdown, table syntax, incomplete fragments, or meta commentary in
