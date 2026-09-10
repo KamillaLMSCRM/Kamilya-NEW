@@ -191,6 +191,9 @@ jobs:
       - name: Render-like release-plane contract tests
         run: poetry run pytest -q ../../scripts/deploy/test_release_plane.py ../../scripts/deploy/test_release_workflow_contract.py ../../scripts/deploy/test_release_plane_bundle.py ../../scripts/deploy/test_release_plane_upgrade_workflow_contract.py
 
+      - name: Native CT137 frontend helper safety and rollback state
+        run: poetry run python ../../scripts/ops/test_kamilya_web_deploy.py
+
       - name: Syntax compile (compileall)
         run: |
           echo "Running compileall on app/ + tests/ — fail fast on syntax errors"

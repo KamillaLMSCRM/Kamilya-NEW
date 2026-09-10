@@ -130,7 +130,7 @@ service containers остаются частью отдельного CI-кон�
 | Proxmox API | корневой `.env`: `VPS_URL`, `PVE_API_TOKEN_ID`, `PVE_API_TOKEN_SECRET` | VM/CT metadata и только явно разрешённые API/QGA operations; не является guest SSH |
 | Legacy/общий VPS доступ | корневой `.env`: `VPS_LOGIN`, `VPS_PASSWORD`, `vps_root_password` | использовать только после точного сопоставления target; не подставлять для proxy/VM126/CT125 по догадке |
 | Guest VM126/CT125 | подтверждённый host-specific SSH/WireGuard path | routine administration; если путь не подтверждён, это access gap, а не разрешение искать пароль |
-| CT137 frontend | Proxmox node `pve3`; guest IPv4 `192.168.1.237`; WireGuard peer `10.77.77.3/32`; bootstrap через Proxmox console | Routine path: proxy -> restricted key `kamilya-admin@10.77.77.3`; password auth отключён; privilege escalation разрешён только для exact landing deploy helper |
+| CT137 frontend | Proxmox node `pve3`; guest IPv4 `192.168.1.237`; WireGuard peer `10.77.77.3/32`; одноразовый bootstrap через Proxmox console | Routine path: proxy -> restricted key `kamilya-admin@10.77.77.3`; password auth отключён; отдельные exact helpers для web и landing. Frontend: `scripts/ops/ct137_native_deploy.py`, [runbook](runbooks/ct137-native-frontend-deploy.md); для штатного обновления вход в Proxmox не нужен |
 
 Состояние на 18.08.2026: SSH-аутентификация к public proxy подтверждена,
 `wg-quick@wg0` active, `10.77.77.2:8000/health` отвечает 200. На proxy создан
