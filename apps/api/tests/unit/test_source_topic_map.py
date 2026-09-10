@@ -39,6 +39,54 @@ class _Response:
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("repair_succeeds", [True, False])
+async def test_map_repairs_only_overlong_valid_summaries_once(repair_succeeds: bool) -> None:
+    calls = []
+
+    class _LLM:
+        async def ainvoke(self, messages, config=None):
+            calls.append(messages)
+            if len(calls) == 2:
+                assert "content_budget_chars=320" in messages[-1]["content"]
+                assert "s000001" in messages[-1]["content"]
+            return _Response(json.dumps({"records": [{
+                "source_ids": ["s000001"],
+                "summary": "short" if repair_succeeds and len(calls) == 2 else "x" * 321,
+                "topics": ["mapped"],
+            }]}))
+
+    if repair_succeeds:
+        mapped = await build_source_topic_map(_corpus(chunks=1), _LLM())
+        assert mapped.records[0].source_ids == ("s000001",)
+        assert mapped.records[0].summary == "short"
+    else:
+        with pytest.raises(SourceTopicMapError, match="source_topic_map_overview_budget_exceeded"):
+            await build_source_topic_map(_corpus(chunks=1), _LLM())
+    assert len(calls) == 2
+
+
+@pytest.mark.asyncio
+async def test_map_repair_cannot_reassign_source_groups() -> None:
+    calls = 0
+
+    class _LLM:
+        async def ainvoke(self, messages, config=None):
+            nonlocal calls
+            calls += 1
+            records = [
+                {"source_ids": ["s000001"], "summary": "x" * 321, "topics": ["a"]},
+                {"source_ids": ["s000002"], "summary": "b", "topics": ["b"]},
+            ] if calls == 1 else [
+                {"source_ids": ["s000001", "s000002"], "summary": "merged", "topics": ["a"]},
+            ]
+            return _Response(json.dumps({"records": records}))
+
+    with pytest.raises(SourceTopicMapError, match="source_topic_map_coverage_invalid"):
+        await build_source_topic_map(_corpus(chunks=2), _LLM())
+    assert calls == 2
+
+
+@pytest.mark.asyncio
 async def test_catalog_with_repeated_metadata_fits_existing_map_limits() -> None:
     """932 chunks + long repeated headings reproduced the live batch-limit fault."""
     from app.modules.ai.source_topic_map import MAX_MAP_BATCHES, MAX_MAP_REQUEST_CHARS

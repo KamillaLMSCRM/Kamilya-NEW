@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Large spreadsheet course sources no longer exhaust the topic-map batch budget because identical source metadata is repeated per fragment. Exact source content, provenance, coverage validation, and existing request limits are preserved.
+- An overlong but otherwise valid navigation-map response gets one bounded shortening attempt before failing; source-ID groups, deadlines and output validation remain enforced.
 
 ## [0.4.0] - 2026-09-10
 
