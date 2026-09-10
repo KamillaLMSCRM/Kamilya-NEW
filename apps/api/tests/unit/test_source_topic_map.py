@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import re
+from dataclasses import replace
 
 import pytest
 
@@ -35,6 +36,39 @@ def _corpus(*, chunks: int = 21, chars: int = 1000) -> DirectSourceCorpus:
 class _Response:
     def __init__(self, content: str) -> None:
         self.content = content
+
+
+@pytest.mark.asyncio
+async def test_catalog_with_repeated_metadata_fits_existing_map_limits() -> None:
+    """932 chunks + long repeated headings reproduced the live batch-limit fault."""
+    from app.modules.ai.source_topic_map import MAX_MAP_BATCHES, MAX_MAP_REQUEST_CHARS
+
+    corpus = _corpus(chunks=932, chars=893)
+    original = corpus.documents[0]
+    chunks = tuple(replace(
+        chunk, doc_id="12345678-1234-1234-1234-123456789012",
+        doc_name="Synthetic catalog (2).xlsx", title="QA catalog acceptance",
+        headings=("A" * 240, "B" * 240),
+    ) for chunk in original.chunks)
+    corpus = replace(corpus, documents=(replace(original, chunks=chunks),))
+    calls: list[list[dict[str, str]]] = []
+
+    class _LLM:
+        async def ainvoke(self, messages: list[dict[str, str]], config: dict | None = None) -> _Response:
+            calls.append(messages)
+            ids = re.findall(r"^source_id=(s\d+)$", messages[-1]["content"], re.MULTILINE)
+            return _Response(json.dumps({"records": [{
+                "source_ids": ids, "summary": "Mapped catalogue", "topics": ["Catalogue"],
+            }]}))
+
+    mapped = await build_source_topic_map(corpus, _LLM())
+    assert 0 < len(calls) <= MAX_MAP_BATCHES
+    assert all(sum(len(m["content"]) for m in call) <= MAX_MAP_REQUEST_CHARS for call in calls)
+    assert [sid for record in mapped.records for sid in record.source_ids] == [
+        f"s{index:06d}" for index in range(1, 933)
+    ]
+    for index in range(932):
+        assert any(f"section-{index} " in call[-1]["content"] for call in calls)
 
 
 @pytest.mark.asyncio

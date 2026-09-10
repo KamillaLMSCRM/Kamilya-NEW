@@ -136,6 +136,8 @@ def _map_prompt(
     batch: Sequence[_MapSource], *, batch_number: int, batch_count: int, content_budget: int,
 ) -> list[dict[str, str]]:
     records: list[str] = []
+    metadata_refs: dict[str, str] = {}
+    metadata_legend: list[str] = []
     for source in batch:
         chunk = source.chunk
         metadata = json.dumps(
@@ -149,13 +151,16 @@ def _map_prompt(
             ensure_ascii=False,
             separators=(",", ":"),
         )
+        if metadata not in metadata_refs:
+            metadata_ref = f"m{len(metadata_refs) + 1:06d}"
+            metadata_refs[metadata] = metadata_ref
+            metadata_legend.append(f"metadata_ref={metadata_ref}\n{metadata}")
+        metadata_ref = metadata_refs[metadata]
         records.append(
             "\n".join(
                 (
                     f"source_id={source.source_id}",
-                    UNTRUSTED_SOURCE_METADATA_BEGIN,
-                    metadata,
-                    UNTRUSTED_SOURCE_METADATA_END,
+                    f"metadata_ref={metadata_ref}",
                     UNTRUSTED_SOURCE_TEXT_BEGIN,
                     _safe_untrusted(chunk.text),
                     UNTRUSTED_SOURCE_TEXT_END,
@@ -173,6 +178,10 @@ claims of complete factual coverage."""
             f"SOURCE_TOPIC_MAP_BATCH {batch_number}/{batch_count}",
             "Map every record below. Aggregate only supplied source IDs exactly once.",
             f"content_budget_chars={content_budget} for all summaries and topics combined.",
+            "Metadata references link each source to its exact shared metadata below.",
+            UNTRUSTED_SOURCE_METADATA_BEGIN,
+            "\n\n".join(metadata_legend),
+            UNTRUSTED_SOURCE_METADATA_END,
             "\n\n---\n\n".join(records),
         )
     )
