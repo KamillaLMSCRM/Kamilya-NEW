@@ -284,10 +284,19 @@ async def test_direct_writer_repairs_one_low_quality_lesson_before_accepting_it(
     assert "generic_filler_dominates" in llm.prompts[1]
 
     failing_llm = LLM()
-    failing_llm.responses = [failing_llm.responses[0], failing_llm.responses[0]]
+    failing_llm.responses = [failing_llm.responses[0]] * 3
     with pytest.raises(DirectSourceError, match="direct_source_lesson_quality_failed"):
         await write_direct_course(failing_llm, corpus, structure)
-    assert len(failing_llm.prompts) == 2
+    assert len(failing_llm.prompts) == 3
+
+    recovering_llm = LLM()
+    weak_response, grounded_response = recovering_llm.responses
+    recovering_llm.responses = [weak_response, weak_response, grounded_response]
+    recovered = await write_direct_course(recovering_llm, corpus, structure)
+    assert "шкаф 3DG2S" in recovered.modules[0].lessons[0].content
+    assert len(recovering_llm.prompts) == 3
+    assert "insufficient_source_anchors" in recovering_llm.prompts[2]
+    assert "generic_filler_dominates" in recovering_llm.prompts[2]
 
 
 @pytest.mark.asyncio

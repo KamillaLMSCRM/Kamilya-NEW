@@ -224,6 +224,26 @@ def execute_generation_locally(
         **result,
         "assessment_model_lessons": assessment_paths.count("model"),
         "tabular_assessment_lessons": assessment_paths.count("tabular"),
+        "_lesson_quality_attempts": [
+            {
+                "module_index": evaluation.lesson_identity[0]
+                if evaluation.lesson_identity is not None
+                else None,
+                "lesson_index": evaluation.lesson_identity[1]
+                if evaluation.lesson_identity is not None
+                else None,
+                "title": evaluation.title,
+                "accepted": evaluation.result.accepted,
+                "reason_codes": list(evaluation.result.reason_codes),
+                "source_anchor_matches": evaluation.result.source_anchor_matches,
+                "required_source_anchor_matches": (
+                    evaluation.result.required_source_anchor_matches
+                ),
+                "generic_sentence_share": evaluation.result.generic_sentence_share,
+                "repeated_sentence_count": evaluation.result.repeated_sentence_count,
+            }
+            for evaluation in quality_evaluations
+        ],
         "_accepted_lesson_evidence": [
             {
                 "module_index": evaluation.lesson_identity[0],
@@ -770,6 +790,9 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 ),
                 "tabular_assessment_lessons": local_result.get(
                     "tabular_assessment_lessons", 0
+                ),
+                "lesson_quality_attempts": local_result.get(
+                    "_lesson_quality_attempts", []
                 ),
             }
             assessment_model_lessons = int(

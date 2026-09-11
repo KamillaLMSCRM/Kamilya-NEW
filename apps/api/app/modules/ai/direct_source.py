@@ -46,6 +46,7 @@ MAX_DIRECT_ARCHITECT_PROMPT_CHARS = 32_000
 MAX_DIRECT_WRITER_SOURCE_CHARS = 24_000
 MAX_DIRECT_WRITER_PROMPT_CHARS = 32_000
 MAX_DIRECT_LESSON_OUTPUT_CHARS = 24_000
+MAX_DIRECT_LESSON_QUALITY_ATTEMPTS = 3
 MAX_DIRECT_SEMANTIC_RESULTS = 24
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 _WORD_RE = re.compile(r"[^\W\d_]{3,}", re.UNICODE)
@@ -1014,7 +1015,7 @@ Objectives: {json.dumps(objectives, ensure_ascii=False)}
                 raise DirectSourceError("direct_source_prompt_budget_exceeded")
             content = ""
             quality_feedback: tuple[str, ...] = ()
-            for quality_attempt in range(2):
+            for quality_attempt in range(MAX_DIRECT_LESSON_QUALITY_ATTEMPTS):
                 attempt_prompt = user_prompt
                 if quality_feedback:
                     attempt_prompt += (
@@ -1046,7 +1047,7 @@ Objectives: {json.dumps(objectives, ensure_ascii=False)}
                     if quality.accepted:
                         break
                     quality_feedback = quality.reason_codes
-                if quality_attempt == 1:
+                if quality_attempt == MAX_DIRECT_LESSON_QUALITY_ATTEMPTS - 1:
                     raise DirectSourceError("direct_source_lesson_quality_failed")
             lesson_content = LessonContent(
                     title=lesson.title,
