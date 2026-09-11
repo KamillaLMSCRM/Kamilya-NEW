@@ -825,6 +825,57 @@ async def test_shared_collection_table_builds_three_distinct_lesson_assessments(
     assert len(fact_keys) == len(set(fact_keys)) == 9
 
 
+@pytest.mark.asyncio
+async def test_three_whole_table_lessons_build_fifteen_distinct_questions() -> None:
+    class LLMShouldNotBeCalled:
+        async def ainvoke(self, messages, config=None, response_format=None):
+            raise AssertionError("structured table assessment must not call the model")
+
+    source = _collection_table_source()
+    course = CourseContent(
+        title="Коллекции и сценарии консультации",
+        modules=[
+            ModuleContent(
+                title="Коллекции",
+                lessons=[
+                    LessonContent(
+                        title="Обзор коллекций: стиль, преимущество и материал",
+                        objectives=["Различать стили и преимущества коллекций"],
+                        content=source,
+                        source_chunks=[source],
+                        source_references=[],
+                    ),
+                    LessonContent(
+                        title="Сценарии консультации по коллекциям",
+                        objectives=["Выбирать действие под запрос клиента"],
+                        content=source,
+                        source_chunks=[source],
+                        source_references=[],
+                    ),
+                    LessonContent(
+                        title="Практика: подбор сценария под запрос клиента",
+                        objectives=["Подбирать сценарий консультации"],
+                        content=source,
+                        source_chunks=[source],
+                        source_references=[],
+                    ),
+                ],
+            )
+        ],
+    )
+
+    with capture_assessment_paths() as assessment_paths:
+        result = await generate_course_assessment(
+            LLMShouldNotBeCalled(),
+            course,
+            language="ru",
+            compact=False,
+        )
+
+    assert [len(assessment.mcq) for assessment in result.assessments] == [5, 5, 5]
+    assert assessment_paths == ["tabular", "tabular", "tabular"]
+
+
 def _questions(
     topic: str,
     fact: str,

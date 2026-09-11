@@ -1270,6 +1270,7 @@ def _generate_tabular_assessment(
         )
         candidates: list[dict[str, Any]] = []
         for _overlap, column_index, target_header in ranked_columns:
+            column_candidates: list[dict[str, Any]] = []
             row_values: list[tuple[str, str, str]] = []
             for cells, evidence_id in expanded_rows:
                 subject = cells[0].strip()
@@ -1316,7 +1317,7 @@ def _generate_tabular_assessment(
                 option_values = [answer, *alternatives]
                 shift = row_index % len(option_values)
                 option_values = option_values[shift:] + option_values[:shift]
-                candidates.append(
+                column_candidates.append(
                     {
                         "question": _tabular_question_text(
                             language=language,
@@ -1332,6 +1333,19 @@ def _generate_tabular_assessment(
                         "source_quote_id": evidence_id,
                     }
                 )
+            candidates.extend(column_candidates)
+            column_recovered = _recover_valid_assessment(
+                {"mcq": column_candidates},
+                evidence_bank=evidence_bank,
+                bounded_source=bounded_source,
+                lesson_title=lesson_title,
+                language=language,
+                minimum_questions=question_count,
+                maximum_questions=question_count,
+                excluded_fact_keys=excluded_fact_keys,
+            )
+            if column_recovered is not None:
+                return column_recovered
         recovered = _recover_valid_assessment(
             {"mcq": candidates},
             evidence_bank=evidence_bank,
