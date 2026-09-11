@@ -1,3 +1,4 @@
+import json
 from importlib import util
 from pathlib import Path
 
@@ -118,3 +119,18 @@ def test_output_inspection_matches_each_lesson_by_stable_coordinates() -> None:
     assert "lesson_acceptance_source_evidence_missing" not in failures
     assert "lesson_quality_readback_mismatch" not in failures
     assert facts["captured_lesson_evidence_matches"] == 2
+
+
+def test_operational_metadata_does_not_serialize_review_text(tmp_path: Path) -> None:
+    marker = "CUSTOMER-SOURCE-MARKER-DO-NOT-PERSIST"
+    review_sample = {
+        "modules": [{"lessons": [{"content": marker}]}],
+        "questions": [{"text": "Synthetic question", "explanation": marker}],
+    }
+    review_path = tmp_path / "synthetic-review.json"
+
+    metadata = MODULE.write_synthetic_review_artifact(review_sample, review_path)
+
+    assert marker in review_path.read_text(encoding="utf-8")
+    assert marker not in json.dumps(metadata)
+    assert set(metadata) == {"created", "sha256", "bytes", "lessons", "questions"}

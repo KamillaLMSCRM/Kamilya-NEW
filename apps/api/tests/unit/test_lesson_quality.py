@@ -270,3 +270,14 @@ def test_relationship_claim_tracks_short_alpha_sku_identifiers() -> None:
 
     assert result.accepted is False
     assert "unsupported_relationship_claim" in result.reason_codes
+
+
+def test_relationship_claim_preserves_subject_and_endpoint_direction() -> None:
+    result = evaluate_lesson_quality(
+        title="SKU",
+        content="Цена 10 определяет SKU A1.",
+        source_chunks=["SKU A1 определяет цену 10."],
+    )
+
+    assert result.accepted is False
+    assert "unsupported_relationship_claim" in result.reason_codes

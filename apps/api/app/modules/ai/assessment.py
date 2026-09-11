@@ -1146,7 +1146,14 @@ def _generate_tabular_assessment(
     normalized_scope_text = _normalize_evidence_text(
         f"{lesson_title} {' '.join(lesson_objectives)}"
     )
-    scope_declares_all_subjects = bool(
+    scope_negates_all_subjects = bool(
+        re.search(
+            r"\b(?:не\s+все\s+коллекц(?:ии|ий)|not\s+all\s+collections|"
+            r"барлық\s+топтамалар\s+емес)\b",
+            normalized_scope_text,
+        )
+    )
+    scope_declares_all_subjects = not scope_negates_all_subjects and bool(
         re.search(
             r"\b(?:все\s+коллекц(?:ии|ий)|кажд\w*\s+коллекц\w*|"
             r"all\s+collections|each\s+collection|every\s+collection|"

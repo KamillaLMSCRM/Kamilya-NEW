@@ -14,6 +14,7 @@ import json
 import os
 import re
 import sys
+import tempfile
 import time
 from collections.abc import Callable
 from pathlib import Path
@@ -578,6 +579,33 @@ def build_review_sample(
     }
 
 
+def write_synthetic_review_artifact(
+    review_sample: dict[str, Any], output_path: Path
+) -> dict[str, Any]:
+    """Write learner text only to the OS temp area, never to release evidence."""
+
+    resolved_output = output_path.resolve()
+    resolved_temp = Path(tempfile.gettempdir()).resolve()
+    try:
+        resolved_output.relative_to(resolved_temp)
+    except ValueError as exc:
+        raise AcceptanceError("manual_review_artifact_must_be_in_temp") from exc
+    resolved_output.parent.mkdir(parents=True, exist_ok=True)
+    payload = json.dumps(review_sample, ensure_ascii=False, indent=2)
+    resolved_output.write_text(payload, encoding="utf-8")
+    lesson_count = sum(
+        len(module.get("lessons") or [])
+        for module in review_sample.get("modules") or []
+    )
+    return {
+        "created": True,
+        "sha256": hashlib.sha256(payload.encode("utf-8")).hexdigest(),
+        "bytes": len(payload.encode("utf-8")),
+        "lessons": lesson_count,
+        "questions": len(review_sample.get("questions") or []),
+    }
+
+
 def cleanup_object(action: Callable[[], None], failures: list[str], code: str) -> None:
     try:
         action()
@@ -801,9 +829,15 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         ):
             failures.append("not_all_structured_lessons_used_tabular_assessment")
         report["quality"] = facts
-        report["review_sample"] = build_review_sample(
-            preview,
-            quizzes_response.json(),
+        review_sample = build_review_sample(preview, quizzes_response.json())
+        report["manual_review"] = (
+            write_synthetic_review_artifact(review_sample, args.review_output)
+            if args.review_output
+            else {
+                "created": False,
+                "lessons": facts["lessons"],
+                "questions": facts["questions"],
+            }
         )
         if failures:
             report["quality_failures"] = failures
@@ -878,6 +912,7 @@ def main() -> int:
     parser.add_argument("--index-timeout", type=int, default=600)
     parser.add_argument("--generation-timeout", type=int, default=1800)
     parser.add_argument("--execute-local-worker", action="store_true")
+    parser.add_argument("--review-output", type=Path)
     parser.add_argument("--report", type=Path)
     args = parser.parse_args()
     try:

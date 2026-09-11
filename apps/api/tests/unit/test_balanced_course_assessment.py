@@ -602,6 +602,22 @@ def test_selected_collection_styles_without_names_do_not_mean_all_rows() -> None
     assert result is None
 
 
+@pytest.mark.parametrize("title", ["Не все коллекции", "Not all collections"])
+def test_negated_all_scope_does_not_widen_source_fallback(title: str) -> None:
+    source = _collection_table_source()
+
+    result = _generate_tabular_assessment(
+        evidence_bank=_build_evidence_bank(source),
+        bounded_source=source,
+        lesson_title=title,
+        lesson_objectives=["Познакомиться с ассортиментом"],
+        language="ru",
+        question_count=5,
+    )
+
+    assert result is None
+
+
 def test_generic_one_word_answer_remains_an_incomplete_fragment() -> None:
     source = "Коллекция Альфа: при консультации уточнить размеры помещения."
     evidence_bank = {"E01": source}

@@ -195,7 +195,12 @@ async def test_direct_writer_skips_restored_positions_and_checkpoints_only_new_c
 
 
 @pytest.mark.asyncio
-async def test_direct_writer_rejects_checkpoint_from_older_quality_policy() -> None:
+@pytest.mark.parametrize(
+    "stale_policy_version", ["lesson-quality-v4", "lesson-quality-v5"]
+)
+async def test_direct_writer_rejects_checkpoint_from_older_quality_policy(
+    stale_policy_version: str,
+) -> None:
     chunk = DirectSourceChunk(
         chunk_id="chunk-1",
         doc_id="doc-1",
@@ -231,7 +236,7 @@ async def test_direct_writer_rejects_checkpoint_from_older_quality_policy() -> N
                 (0, 0): LessonContent(
                     title="Lesson 0",
                     content="legacy",
-                    quality_policy_version="lesson-quality-v4",
+                    quality_policy_version=stale_policy_version,
                 )
             },
         )

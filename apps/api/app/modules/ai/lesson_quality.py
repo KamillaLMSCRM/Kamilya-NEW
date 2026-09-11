@@ -80,7 +80,13 @@ _RELATIONSHIP_OPERATOR_ROOTS = (
     "should",
     "need",
 )
-LESSON_QUALITY_POLICY_VERSION = "lesson-quality-v5"
+_RELATIONSHIP_OPERATOR_RE = re.compile(
+    r"\b(?:(?:прямо|напрямую)\s+связан\w*|основ\w*\s+для|"
+    r"определя\w*|обусловлива\w*|привод\w*|требу\w*|поэтому|значит|"
+    r"directly\s+(?:linked|related)|basis\s+for|therefore|"
+    r"determines?|causes?|requires?|must|should|need)\b"
+)
+LESSON_QUALITY_POLICY_VERSION = "lesson-quality-v6"
 
 
 def _normalize(value: str) -> str:
@@ -124,6 +130,23 @@ def _sentences(value: str) -> tuple[str, ...]:
     )
 
 
+def _ordered_relationship_anchors(value: str) -> tuple[set[str], set[str]]:
+    operator = _RELATIONSHIP_OPERATOR_RE.search(value)
+    if operator is None:
+        return set(_relationship_tokens(value)), set()
+
+    def anchors(fragment: str) -> set[str]:
+        return {
+            token
+            for token in _relationship_tokens(fragment)
+            if not any(
+                token.startswith(root) for root in _RELATIONSHIP_OPERATOR_ROOTS
+            )
+        }
+
+    return anchors(value[: operator.start()]), anchors(value[operator.end() :])
+
+
 def _relationship_claim_supported(
     pattern: re.Pattern[str],
     *,
@@ -142,15 +165,25 @@ def _relationship_claim_supported(
         if pattern.search(fragment)
     )
     for claim in content_fragments:
-        claim_tokens = set(_relationship_tokens(claim))
-        anchor_tokens = {
-            token
-            for token in claim_tokens
-            if not any(token.startswith(root) for root in _RELATIONSHIP_OPERATOR_ROOTS)
-        }
+        claim_subject, claim_endpoint = _ordered_relationship_anchors(claim)
         if not any(
-            anchor_tokens
-            and anchor_tokens.issubset(set(_relationship_tokens(source_fragment)))
+            (
+                claim_subject
+                and claim_endpoint
+                and claim_subject.issubset(
+                    _ordered_relationship_anchors(source_fragment)[0]
+                )
+                and claim_endpoint.issubset(
+                    _ordered_relationship_anchors(source_fragment)[1]
+                )
+            )
+            or (
+                not (claim_subject and claim_endpoint)
+                and (claim_subject | claim_endpoint)
+                and (claim_subject | claim_endpoint).issubset(
+                    set(_relationship_tokens(source_fragment))
+                )
+            )
             for source_fragment in source_fragments
         ):
             return False
