@@ -5,8 +5,10 @@ import pytest
 from app.modules.ai.assessment import (
     _assessment_contract_reason_codes,
     _build_evidence_bank,
+    _generate_tabular_assessment,
     _normalize_evidence_text,
     _validate_generated_question_set,
+    _validate_question_evidence,
     generate_course_assessment,
     generate_lesson_assessment,
 )
@@ -213,6 +215,228 @@ def test_fact_identity_normalizes_unicode_markdown_and_punctuation() -> None:
     assert _normalize_evidence_text("**Коллекция «Альфа» — ЛДСП.**") == (
         _normalize_evidence_text("Коллекция Альфа - ЛДСП")
     )
+
+
+def _collection_table_source() -> str:
+    return "\n".join(
+        [
+            "# [Worksheet] Коллекция",
+            "",
+            "| Коллекция | Стиль | Преимущество для клиента | Материал | Сценарий консультации |",
+            "| --- | --- | --- | --- | --- |",
+            "| Альфа | современный | модульная компоновка | ЛДСП | уточнить размеры помещения |",
+            "| Бета | скандинавский | светлые фасады | МДФ | согласовать оттенок |",
+            "| Гамма | лофт | усиленная фурнитура | металл и ЛДСП | обсудить нагрузку |",
+            "| Дельта | минимализм | скрытые ручки | МДФ | показать механизм открывания |",
+            "| Эпсилон | классический | вместительные секции | ЛДСП | уточнить объём хранения |",
+            "| Зета | современный | регулируемые полки | ЛДСП | собрать требования к высоте |",
+        ]
+    )
+
+
+def test_evidence_bank_excludes_markdown_table_header_row() -> None:
+    bank = _build_evidence_bank(_collection_table_source())
+
+    assert all("Преимущество для клиента" not in quote for quote in bank.values())
+    assert any("Альфа" in quote for quote in bank.values())
+    assert any("Зета" in quote for quote in bank.values())
+
+
+def test_tabular_assessment_targets_lesson_column_without_reusing_prior_facts() -> None:
+    source = _collection_table_source()
+    evidence_bank = _build_evidence_bank(source)
+    excluded = frozenset(
+        {
+            (
+                _normalize_evidence_text(next(q for q in evidence_bank.values() if "Альфа" in q)),
+                _normalize_evidence_text("уточнить размеры помещения"),
+            ),
+            (
+                _normalize_evidence_text(next(q for q in evidence_bank.values() if "Бета" in q)),
+                _normalize_evidence_text("согласовать оттенок"),
+            ),
+        }
+    )
+
+    result = _generate_tabular_assessment(
+        evidence_bank=evidence_bank,
+        bounded_source=source,
+        lesson_title="Сценарии консультации по коллекциям",
+        lesson_objectives=["Выбирать действие под запрос клиента"],
+        language="ru",
+        question_count=3,
+        excluded_fact_keys=excluded,
+    )
+
+    assert result is not None
+    assert len(result.mcq) == 3
+    scenario_answers = {
+        "обсудить нагрузку",
+        "показать механизм открывания",
+        "уточнить объём хранения",
+        "собрать требования к высоте",
+    }
+    assert all(
+        next(option.text for option in question.options if option.is_correct)
+        in scenario_answers
+        for question in result.mcq
+    )
+    assert all(len(question.options) == 4 for question in result.mcq)
+    assert all(
+        (
+            _normalize_evidence_text(question.source_quote),
+            _normalize_evidence_text(
+                next(option.text for option in question.options if option.is_correct)
+            ),
+        )
+        not in excluded
+        for question in result.mcq
+    )
+
+
+def test_tabular_assessment_requires_four_distinct_peer_values() -> None:
+    source = "\n".join(
+        [
+            "| Коллекция | Стиль |",
+            "| --- | --- |",
+            "| Альфа | современный |",
+            "| Бета | скандинавский |",
+            "| Гамма | лофт |",
+        ]
+    )
+
+    result = _generate_tabular_assessment(
+        evidence_bank=_build_evidence_bank(source),
+        bounded_source=source,
+        lesson_title="Стили коллекций",
+        lesson_objectives=["Различать стиль каждой коллекции"],
+        language="ru",
+        question_count=3,
+    )
+
+    assert result is None
+
+
+def test_generic_one_word_answer_remains_an_incomplete_fragment() -> None:
+    source = "Коллекция Альфа: при консультации уточнить размеры помещения."
+    evidence_bank = {"E01": source}
+    payload = {
+        "mcq": [
+            {
+                "question": "Что требуется сотруднику при консультации по коллекции Альфа?",
+                "options": [
+                    {"text": "уточнить", "is_correct": True},
+                    {"text": "размеры", "is_correct": False},
+                    {"text": "помещения", "is_correct": False},
+                    {"text": "коллекция", "is_correct": False},
+                ],
+                "source_quote_id": "E01",
+            }
+        ]
+    }
+
+    issues = _validate_question_evidence(
+        payload,
+        evidence_bank=evidence_bank,
+        bounded_source=source,
+        language="ru",
+    )
+
+    assert "MCQ #1: correct answer is an incomplete fragment" in issues
+
+
+@pytest.mark.asyncio
+async def test_compact_spreadsheet_assessment_uses_deterministic_table_path() -> None:
+    class LLMShouldNotBeCalled:
+        async def ainvoke(self, messages, config=None, response_format=None):
+            raise AssertionError("structured table assessment must not call the model")
+
+    result = await generate_lesson_assessment(
+        LLMShouldNotBeCalled(),
+        LessonContent(
+            title="Сценарии консультации по коллекциям",
+            objectives=["Выбирать действие под запрос клиента"],
+            content="Generated prose is not evidence.",
+            source_chunks=[_collection_table_source()],
+            source_references=[],
+        ),
+        language="ru",
+        compact=True,
+    )
+
+    assert len(result.mcq) == 3
+    assert all(
+        next(option.text for option in question.options if option.is_correct)
+        in {
+            "уточнить размеры помещения",
+            "согласовать оттенок",
+            "обсудить нагрузку",
+            "показать механизм открывания",
+            "уточнить объём хранения",
+            "собрать требования к высоте",
+        }
+        for question in result.mcq
+    )
+
+
+@pytest.mark.asyncio
+async def test_shared_collection_table_builds_three_distinct_lesson_assessments() -> None:
+    class LLMShouldNotBeCalled:
+        async def ainvoke(self, messages, config=None, response_format=None):
+            raise AssertionError("structured table assessment must not call the model")
+
+    source = _collection_table_source()
+    course = CourseContent(
+        title="Консультация по коллекциям",
+        modules=[
+            ModuleContent(
+                title="Коллекции",
+                lessons=[
+                    LessonContent(
+                        title="Стили коллекций",
+                        objectives=["Различать стиль каждой коллекции"],
+                        content="Generated prose is not evidence.",
+                        source_chunks=[source],
+                        source_references=[],
+                    ),
+                    LessonContent(
+                        title="Преимущества коллекций для клиента",
+                        objectives=["Называть преимущество каждой коллекции"],
+                        content="Generated prose is not evidence.",
+                        source_chunks=[source],
+                        source_references=[],
+                    ),
+                    LessonContent(
+                        title="Сценарии консультации по коллекциям",
+                        objectives=["Выбирать действие под запрос клиента"],
+                        content="Generated prose is not evidence.",
+                        source_chunks=[source],
+                        source_references=[],
+                    ),
+                ],
+            )
+        ],
+    )
+
+    result = await generate_course_assessment(
+        LLMShouldNotBeCalled(),
+        course,
+        language="ru",
+        compact=True,
+    )
+
+    assert [len(assessment.mcq) for assessment in result.assessments] == [3, 3, 3]
+    fact_keys = [
+        (
+            _normalize_evidence_text(question.source_quote),
+            _normalize_evidence_text(
+                next(option.text for option in question.options if option.is_correct)
+            ),
+        )
+        for assessment in result.assessments
+        for question in assessment.mcq
+    ]
+    assert len(fact_keys) == len(set(fact_keys)) == 9
 
 
 def _questions(

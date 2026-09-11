@@ -114,6 +114,12 @@ _LIST_QUESTION_RE = re.compile(
     re.IGNORECASE,
 )
 _MARKDOWN_ARTIFACT_RE = re.compile(r"(?:^|\s)(?:\|[^\n]+\||`{1,3}|#{1,6}\s)")
+_MARKDOWN_TABLE_SEPARATOR_CELL_RE = re.compile(r"^:?-{3,}:?$")
+_ATTRIBUTE_QUESTION_RE = re.compile(
+    r"(?:какому\s+стилю|какой\s+стиль|какой\s+материал|"
+    r"what\s+(?:style|material)|қай\s+стиль|қандай\s+материал)",
+    re.IGNORECASE,
+)
 _GENERATION_BLOCKING_ISSUES = frozenset(
     {
         EditorQualityIssueLabel.CORRECT_ANSWER_LENGTH_SIGNAL,
@@ -219,8 +225,48 @@ def _split_contextual_list(text: str) -> list[str]:
     return excerpts
 
 
+def _markdown_table_cells(line: str) -> list[str]:
+    stripped = line.strip()
+    if not (stripped.startswith("|") and stripped.endswith("|")):
+        return []
+    return [cell.strip() for cell in stripped.strip("|").split("|")]
+
+
+def _markdown_tables(text: str) -> list[tuple[list[str], list[tuple[list[str], str]]]]:
+    """Return bounded Markdown tables while preserving each exact body row."""
+    lines = text.splitlines()
+    tables: list[tuple[list[str], list[tuple[list[str], str]]]] = []
+    index = 0
+    while index + 1 < len(lines):
+        headers = _markdown_table_cells(lines[index])
+        separator = _markdown_table_cells(lines[index + 1])
+        if (
+            len(headers) >= 2
+            and len(separator) == len(headers)
+            and all(_MARKDOWN_TABLE_SEPARATOR_CELL_RE.fullmatch(cell) for cell in separator)
+        ):
+            rows: list[tuple[list[str], str]] = []
+            cursor = index + 2
+            while cursor < len(lines):
+                cells = _markdown_table_cells(lines[cursor])
+                if len(cells) != len(headers):
+                    break
+                rows.append((cells, lines[cursor].strip()))
+                cursor += 1
+            if rows:
+                tables.append((headers, rows))
+            index = cursor
+            continue
+        index += 1
+    return tables
+
+
 def _build_evidence_bank(bounded_source: str) -> dict[str, str]:
     """Build stable server-owned evidence IDs from the exact bounded source."""
+    table_headers = {
+        _normalize_evidence_text(" — ".join(headers))
+        for headers, _rows in _markdown_tables(bounded_source)
+    }
     candidates: list[str] = []
     cursor = 0
     for contextual_list in _CONTEXTUAL_LIST_RE.finditer(bounded_source):
@@ -242,6 +288,7 @@ def _build_evidence_bank(bounded_source: str) -> dict[str, str]:
             len(plain_candidate) < 12
             or plain_candidate.endswith(":")
             or len(_grounding_stems(plain_candidate)) < 2
+            or normalized in table_headers
             or normalized in seen
         ):
             continue
@@ -268,7 +315,9 @@ def _preferred_evidence_ids(
     """
     if len(evidence_bank) < 2:
         return tuple(evidence_bank)
-    lesson_stems = _grounding_stems(" ".join((lesson_title, *lesson_objectives)))
+    title_stems = _grounding_stems(lesson_title)
+    objective_stems = _grounding_stems(" ".join(lesson_objectives))
+    lesson_stems = title_stems | objective_stems
     if not lesson_stems:
         return ()
     quote_stems = {
@@ -435,7 +484,10 @@ def _validate_question_evidence(
             issues.append(f"MCQ #{index}: answer does not use its source evidence")
         if not explanation_stems or not quote_stems & explanation_stems:
             issues.append(f"MCQ #{index}: explanation does not use its source evidence")
-        if len(correct_answer) < 7 or len(correct_answer.split()) < 2:
+        if len(correct_answer) < 3 or (
+            len(correct_answer.split()) < 2
+            and not _ATTRIBUTE_QUESTION_RE.search(str(question.get("question", "")))
+        ):
             issues.append(f"MCQ #{index}: correct answer is an incomplete fragment")
         if len(correct_answer.split()) > 12:
             issues.append(f"MCQ #{index}: correct answer exceeds 12 words")
@@ -451,11 +503,23 @@ def _validate_question_evidence(
         ):
             issues.append(f"MCQ #{index}: markdown leaked into learner-visible text")
         topical_stems = quote_stems | question_stems
+        all_options_source_grounded = all(
+            any(
+                _is_extractive_answer(str(option.get("text", "")), evidence)
+                for evidence in evidence_bank.values()
+            )
+            for option in options
+        )
+        question["_all_options_source_grounded"] = all_options_source_grounded
         implausible_indices = tuple(
             option_index
             for option_index, option in enumerate(options)
             if option.get("is_correct") is not True
             and not (_grounding_stems(str(option.get("text", ""))) & topical_stems)
+            and not any(
+                _is_extractive_answer(str(option.get("text", "")), evidence)
+                for evidence in evidence_bank.values()
+            )
         )
         question["_implausible_distractor_indices"] = implausible_indices
         generated_meta_stems = {
@@ -604,9 +668,13 @@ def _bounded_rejected_response(
 def _validate_generated_question_set(data: dict[str, Any], language: str) -> list[str]:
     """Apply the shared deterministic editor-quality contract before persistence."""
     questions: list[Question] = []
+    all_options_source_grounded: list[bool] = []
     try:
         for index, raw_question in enumerate(data.get("mcq", []), start=1):
             raw_options = raw_question.get("options", [])
+            all_options_source_grounded.append(
+                bool(raw_question.pop("_all_options_source_grounded", False))
+            )
             questions.append(
                 Question(
                     question_id=f"generated-{index}",
@@ -638,11 +706,21 @@ def _validate_generated_question_set(data: dict[str, Any], language: str) -> lis
     except QuestionValidatorInputError:
         return ["assessment quality validator rejected malformed input"]
 
-    issues = [
-        _quality_retry_feedback(finding.code, finding.field_path)
-        for finding in report.findings
-        if finding.blocking or finding.code in _GENERATION_BLOCKING_ISSUES
-    ]
+    issues = []
+    for finding in report.findings:
+        finding_index = None
+        match = re.match(r"questions\[(\d+)]", finding.field_path)
+        if match:
+            finding_index = int(match.group(1))
+        if (
+            finding.code == EditorQualityIssueLabel.CORRECT_ANSWER_LENGTH_SIGNAL
+            and finding_index is not None
+            and finding_index < len(all_options_source_grounded)
+            and all_options_source_grounded[finding_index]
+        ):
+            continue
+        if finding.blocking or finding.code in _GENERATION_BLOCKING_ISSUES:
+            issues.append(_quality_retry_feedback(finding.code, finding.field_path))
     for index, question in enumerate(questions, start=1):
         tokenized = [
             re.findall(r"[^\W_]+", option.text.casefold(), re.UNICODE)
@@ -667,7 +745,11 @@ def _validate_generated_question_set(data: dict[str, Any], language: str) -> lis
         for finding in report.findings
         if finding.code == EditorQualityIssueLabel.CORRECT_ANSWER_LENGTH_SIGNAL
         for match in [re.match(r"questions\[(\d+)]", finding.field_path)]
-        if match and int(match.group(1)) < len(questions)
+        if (
+            match
+            and int(match.group(1)) < len(questions)
+            and not all_options_source_grounded[int(match.group(1))]
+        )
     }
     for index in sorted(length_indices):
         counts = [len(option.text.split()) for option in questions[index].options]
@@ -747,6 +829,182 @@ def _recover_valid_assessment(
         }
     )
     return recovered
+
+
+def _tabular_question_text(
+    *,
+    language: str,
+    subject: str,
+    target_header: str,
+    variant: int = 0,
+) -> str:
+    header = _normalize_evidence_text(target_header)
+    if language == "ru":
+        if "сценар" in header:
+            templates = (
+                "Какое действие предусмотрено при консультации по коллекции «{subject}»?",
+                "Что должен сделать сотрудник при обсуждении коллекции «{subject}»?",
+                "Какой шаг консультации относится к коллекции «{subject}»?",
+                "Как следует продолжить разговор с клиентом о коллекции «{subject}»?",
+            )
+            return templates[variant % len(templates)].format(subject=subject)
+        if "преимущ" in header or "выгод" in header:
+            templates = (
+                "Какое преимущество коллекции «{subject}» важно назвать клиенту?",
+                "Что важно подчеркнуть клиенту при презентации коллекции «{subject}»?",
+                "Какую выгоду получает клиент, выбирая коллекцию «{subject}»?",
+                "На какой особенности коллекции «{subject}» стоит сделать акцент?",
+            )
+            return templates[variant % len(templates)].format(subject=subject)
+        if "стил" in header:
+            templates = (
+                "К какому стилю относится коллекция «{subject}»?",
+                "Какое стилевое направление использует коллекция «{subject}»?",
+                "Как можно охарактеризовать стиль коллекции «{subject}»?",
+                "Какой стиль указан для коллекции «{subject}»?",
+            )
+            return templates[variant % len(templates)].format(subject=subject)
+        if "материал" in header:
+            templates = (
+                "Какой материал указан для коллекции «{subject}»?",
+                "Из какого материала выполнена коллекция «{subject}»?",
+                "Какой материал нужно назвать при описании коллекции «{subject}»?",
+                "Что используется как материал коллекции «{subject}»?",
+            )
+            return templates[variant % len(templates)].format(subject=subject)
+        return f"Какая характеристика «{target_header}» относится к «{subject}»?"
+    if language == "kk":
+        if "сценар" in header:
+            return f"«{subject}» топтамасы бойынша кеңес бергенде қандай әрекет көзделген?"
+        if "артық" in header or "пайда" in header:
+            return f"Клиентке «{subject}» топтамасының қандай артықшылығын атау керек?"
+        if "стил" in header:
+            return f"«{subject}» топтамасы қай стильге жатады?"
+        if "материал" in header:
+            return f"«{subject}» топтамасы үшін қандай материал көрсетілген?"
+        return f"«{subject}» үшін «{target_header}» сипаттамасының мәні қандай?"
+    if "scenario" in header or "consult" in header:
+        return f"Which action is required when consulting on the “{subject}” collection?"
+    if "advantage" in header or "benefit" in header:
+        return f"Which benefit of the “{subject}” collection should be explained to the customer?"
+    if "style" in header:
+        return f"What style does the “{subject}” collection use?"
+    if "material" in header:
+        return f"What material is specified for the “{subject}” collection?"
+    return f"Which “{target_header}” characteristic belongs to “{subject}”?"
+
+
+def _generate_tabular_assessment(
+    *,
+    evidence_bank: dict[str, str],
+    bounded_source: str,
+    lesson_title: str,
+    lesson_objectives: list[str],
+    language: str,
+    question_count: int,
+    excluded_fact_keys: frozenset[tuple[str, str]] = frozenset(),
+) -> LessonAssessment | None:
+    """Build source-grounded MCQs from a table column selected for the lesson."""
+    title_stems = _grounding_stems(lesson_title)
+    objective_stems = _grounding_stems(" ".join(lesson_objectives))
+    lesson_stems = title_stems | objective_stems
+    if not lesson_stems:
+        return None
+    evidence_ids = {
+        _normalize_evidence_text(quote): evidence_id
+        for evidence_id, quote in evidence_bank.items()
+    }
+    candidates: list[dict[str, Any]] = []
+    for headers, rows in _markdown_tables(bounded_source):
+        ranked_columns = sorted(
+            (
+                (
+                    10 * len(_grounding_stems(header) & title_stems)
+                    + len(_grounding_stems(header) & objective_stems),
+                    column_index,
+                    header,
+                )
+                for column_index, header in enumerate(headers[1:], start=1)
+            ),
+            key=lambda item: (-item[0], item[1]),
+        )
+        for overlap, column_index, target_header in ranked_columns:
+            if overlap == 0:
+                continue
+            row_values: list[tuple[str, str, str]] = []
+            seen_answers: set[str] = set()
+            for cells, raw_row in rows:
+                subject = cells[0].strip()
+                answer = cells[column_index].strip()
+                evidence_id = evidence_ids.get(_normalize_evidence_text(raw_row))
+                normalized_answer = _normalize_evidence_text(answer)
+                if (
+                    not subject
+                    or not answer
+                    or evidence_id is None
+                    or normalized_answer in seen_answers
+                    or len(answer.split()) > 12
+                ):
+                    continue
+                seen_answers.add(normalized_answer)
+                row_values.append((subject, answer, evidence_id))
+            if len(row_values) < 4:
+                continue
+            for row_index, (subject, answer, evidence_id) in enumerate(row_values):
+                source_quote = evidence_bank[evidence_id]
+                fact_key = (
+                    _normalize_evidence_text(_plain_evidence_text(source_quote)),
+                    _normalize_evidence_text(answer),
+                )
+                if fact_key in excluded_fact_keys:
+                    continue
+                alternatives = sorted(
+                    (
+                        value
+                        for _other_subject, value, _other_evidence_id in row_values
+                        if _normalize_evidence_text(value)
+                        != _normalize_evidence_text(answer)
+                    ),
+                    key=lambda value: (
+                        abs(len(value.split()) - len(answer.split())),
+                        abs(len(value) - len(answer)),
+                        value,
+                    ),
+                )[:3]
+                if len(alternatives) != 3:
+                    continue
+                option_values = [answer, *alternatives]
+                shift = row_index % len(option_values)
+                option_values = option_values[shift:] + option_values[:shift]
+                candidates.append(
+                    {
+                        "question": _tabular_question_text(
+                            language=language,
+                            subject=subject,
+                            target_header=target_header,
+                            variant=row_index,
+                        ),
+                        "options": [
+                            {"text": value, "is_correct": value == answer}
+                            for value in option_values
+                        ],
+                        "explanation": source_quote,
+                        "source_quote_id": evidence_id,
+                    }
+                )
+                recovered = _recover_valid_assessment(
+                    {"mcq": candidates},
+                    evidence_bank=evidence_bank,
+                    bounded_source=bounded_source,
+                    lesson_title=lesson_title,
+                    language=language,
+                    minimum_questions=question_count,
+                    maximum_questions=question_count,
+                    excluded_fact_keys=excluded_fact_keys,
+                )
+                if recovered is not None:
+                    return recovered
+    return None
 
 
 async def _recover_with_focused_questions(
@@ -959,6 +1217,23 @@ async def generate_lesson_assessment(
     )
     if not evidence_bank:
         raise ValueError("Lesson content has insufficient material for an assessment")
+    if compact:
+        tabular_assessment = _generate_tabular_assessment(
+            evidence_bank=evidence_bank,
+            bounded_source=bounded_lesson_content,
+            lesson_title=lesson_content.title,
+            lesson_objectives=list(lesson_content.objectives),
+            language=language,
+            question_count=question_count,
+            excluded_fact_keys=excluded_fact_keys,
+        )
+        if tabular_assessment is not None:
+            logger.info(
+                "[ASSESSMENT_TABULAR] generated=%d requested=%d",
+                len(tabular_assessment.mcq),
+                question_count,
+            )
+            return tabular_assessment
     mcq_schema = output_schema["properties"]["mcq"]["items"]
     mcq_schema["properties"].pop("source_quote", None)
     mcq_schema["properties"]["source_quote_id"] = {

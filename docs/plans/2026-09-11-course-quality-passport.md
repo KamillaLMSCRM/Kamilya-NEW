@@ -1,10 +1,10 @@
 # Course quality and document passport plan
 
-Status: slices 1-7 and 9 implemented and locally verified on
+Status: slices 1-7 and 9-10 implemented and locally verified on
 `feat/course-quality-passport-20260911`; DEV human-path re-acceptance is pending.
 Production is unchanged until every mandatory gate below passes.
 
-Local gate evidence: API unit suite `1278 passed`; web suite `578 passed` in
+Local gate evidence: API unit suite `1284 passed`; web suite `578 passed` in
 `111` files; focused generation UI `14 passed`; Next.js `15.5.23` production
 build passed; Python quality baseline passed at `ruff=1066`, `mypy=2339` with
 no new violations; `git diff --check` passed.
@@ -20,8 +20,9 @@ no new violations; `git diff --check` passed.
 | 5. Passport-led architecture | accepted locally | every high/medium-confidence spreadsheet lesson must cite a primary worksheet; low-confidence classification remains advisory; semantic results retain primary evidence |
 | 6. Question quality | accepted locally | both reported patterns and expanded RU/EN variants are rejected before persistence |
 | 7. Lesson quality | accepted locally | one bounded rewrite, fail-closed second failure, and checkpoint policy-version tests pass |
-| 8. Human path | re-test required | first exact-SHA DEV run proved upload, indexing, passport, generation and cleanup, but correctly remained NO-GO after content review found repeated facts across lessons |
+| 8. Human path | re-test required | exact-SHA DEV run `7c270b9b` proved upload, indexing, passport and cleanup but failed at the third assessment; the table-aware repair is locally green and awaits two fresh exact-SHA runs |
 | 9. Course-wide assessment diversity | accepted locally | normalized source-evidence plus correct-answer keys are carried across generated and restored lessons; batch and focused recovery reject repeats |
+| 10. Structured-table assessment | accepted locally | Markdown headers are excluded as facts; lesson-matched columns produce 3+3+3 source-grounded questions across one shared six-row table without an assessment-model call or repeated fact |
 
 ## Outcome
 
@@ -194,6 +195,29 @@ Acceptance:
 - Existing completed checkpoints contribute their facts before resumed work.
 - The full API unit suite and two independent DEV human-path runs pass with zero
   repeated fact identities and zero repeated question prompts.
+
+### 10. Prefer deterministic questions for a well-formed source table
+
+- Exclude Markdown table header and separator rows from the assessment evidence
+  bank so a label such as "Customer benefit" cannot become a correct answer.
+- When a compact lesson clearly matches one table column, build its MCQs from the
+  exact relationship between the row subject and that column value.
+- Draw distractors only from peer values in the same source column. Natural length
+  differences between source-backed peer values must not force invented padding.
+- Rotate question wording and option order while retaining exact source evidence,
+  cross-lesson fact deduplication and the shared editor-quality contract.
+- Fall back to the existing bounded model path when no table column clearly matches
+  the lesson or fewer than four distinct peer values exist.
+
+Acceptance:
+
+- The worksheet header never appears as an assessable fact.
+- Style, customer-benefit and consultation-scenario lessons select their own
+  columns from the same six-row collection table.
+- Three lessons receive three distinct questions each, with no duplicated
+  normalized `(source row, correct value)` pair.
+- A table with ambiguous headings or insufficient alternatives uses the existing
+  bounded model path instead of inventing values.
 
 ## Release decision
 
