@@ -13,7 +13,8 @@ from datetime import UTC, datetime, timezone
 from typing import TypedDict, cast
 from uuid import UUID, uuid4
 
-from billiard.exceptions import SoftTimeLimitExceeded
+from billiard.exceptions import SoftTimeLimitExceeded  # type: ignore[import-untyped]
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import async_session_factory
 from app.modules.ai.architect import create_architect_tools, run_architect
@@ -30,6 +31,7 @@ from app.modules.ai.direct_source import (
 from app.modules.ai.generation_checkpoint import (
     AIGenerationCheckpointError,
     AIGenerationCheckpointRepository,
+    GenerationCheckpointSnapshot,
     GenerationPlan,
     PlannedLesson,
 )
@@ -198,7 +200,11 @@ class GenerationState:
     reuse_reason: str | None = None
 
 
-async def _update_job_db(job_id: str, tenant_id: UUID | str | None = None, **kwargs):
+async def _update_job_db(
+    job_id: str,
+    tenant_id: UUID | str | None = None,
+    **kwargs: object,
+) -> None:
     """Update job state in the database."""
     from sqlalchemy import text
 
@@ -215,7 +221,7 @@ async def _save_generation_to_db(
     state: GenerationState,
     tenant_id: UUID,
     user_id: UUID,
-):
+) -> None:
     """Save generated course structure, content, and assessments to DB."""
     from sqlalchemy import delete, select, text
 
@@ -292,7 +298,7 @@ async def _save_generation_to_db(
             await session.flush()
 
         assessment_by_position: dict[tuple[int, int], LessonAssessment] = {}
-        if state.structure and state.assessment:
+        if state.structure and state.assessment and state.assessment.assessments:
             planned_positions = [
                 (module_index, lesson_index, lesson.title)
                 for module_index, module in enumerate(state.structure.modules)
@@ -356,8 +362,8 @@ async def _save_generation_to_db(
 
                     # Create quiz from assessment
                     if state.assessment:
-                        for lesson_assess in [assessment_by_position[(mod_idx, les_idx)]]:
-                            if lesson_assess.lesson_title == struct_les.title:
+                        for lesson_assess in [assessment_by_position.get((mod_idx, les_idx))]:
+                            if lesson_assess is not None and lesson_assess.lesson_title == struct_les.title:
                                 question_count = (
                                     len(lesson_assess.mcq)
                                     + len(lesson_assess.true_false)
@@ -476,7 +482,10 @@ async def _save_generation_to_db(
         await session.commit()
         logger.info(f"Saved generation results to DB for course {state.course_id}")
 
-async def _check_cancelled_async(job_id: str, tenant_id: UUID | str | None = None):
+async def _check_cancelled_async(
+    job_id: str,
+    tenant_id: UUID | str | None = None,
+) -> None:
     """Async check: raise CancelledError if job status is 'cancelled' in DB."""
     from sqlalchemy import text
 
@@ -747,7 +756,7 @@ async def run_generation_pipeline(
         completed_reviews: dict[tuple[int, int], dict[str, object]] = {}
         completed_assessments: dict[tuple[int, int], LessonAssessment] = {}
         if generation_checkpoints is not None and tenant_id is not None:
-            snapshots = ()
+            snapshots: tuple[GenerationCheckpointSnapshot, ...] = ()
             if generation_plan is not None:
                 async with async_session_factory() as session:
                     snapshots = await generation_checkpoints.load_checkpoints(
@@ -774,7 +783,7 @@ async def run_generation_pipeline(
                 if snapshot.review_payload is not None:
                     completed_reviews[index] = dict(snapshot.review_payload)
                 if snapshot.assessment_payload is not None:
-                    restored_assessment = LessonAssessment.from_dict(
+                    restored_assessment = LessonAssessment.from_dict(  # type: ignore[no-untyped-call]
                         dict(snapshot.assessment_payload)
                     )
                     if restored_assessment.lesson_title != expected_title:
@@ -783,7 +792,7 @@ async def run_generation_pipeline(
                         )
                     completed_assessments[index] = restored_assessment
 
-        async def ensure_generation_plan(session) -> None:
+        async def ensure_generation_plan(session: AsyncSession) -> None:
             nonlocal generation_plan
             if generation_checkpoints is None or tenant_id is None:
                 return
@@ -878,7 +887,7 @@ async def run_generation_pipeline(
                     generation_key=job_id,
                     module_key=module_key,
                     lesson_key=lesson_key,
-                    assessment_payload=lesson_assessment.to_dict(),
+                    assessment_payload=lesson_assessment.to_dict(),  # type: ignore[no-untyped-call]
                     lease_owner=lease_owner,
                 )
                 await session.commit()
@@ -901,7 +910,7 @@ async def run_generation_pipeline(
             total = sum(len(module.lessons) for module in course_structure.modules)
             completed = 0
 
-            async def on_lesson_progress(msg: str):
+            async def on_lesson_progress(msg: str) -> None:
                 nonlocal completed
                 completed += 1
                 pct = 30 + int(completed / total * 40) if total > 0 else 70
@@ -1078,11 +1087,17 @@ async def run_generation_pipeline(
                         },
                     )
                     await checkpoint_lesson_review(mod_idx, les_idx, review)
-                if review["quality_score"] < 5.0:
+                quality_value = review.get("quality_score", 0.0)
+                quality_score = (
+                    float(quality_value)
+                    if isinstance(quality_value, int | float)
+                    else 0.0
+                )
+                if quality_score < 5.0:
                     low_quality_lessons.append({
                         "module": mod_idx,
                         "lesson": les_idx,
-                        "score": review["quality_score"],
+                        "score": quality_score,
                         "issues": review["issues"],
                     })
 
@@ -1102,7 +1117,7 @@ async def run_generation_pipeline(
 
         assessments_done = 0
 
-        async def on_assessment_progress(msg: str):
+        async def on_assessment_progress(msg: str) -> None:
             nonlocal assessments_done
             assessments_done += 1
             pct = 75 + int(assessments_done / total_lessons * 20) if total_lessons > 0 else 95

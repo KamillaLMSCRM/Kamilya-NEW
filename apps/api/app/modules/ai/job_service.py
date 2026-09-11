@@ -6,7 +6,8 @@ import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import Any, Literal, Protocol
+from typing import Any, Literal, Protocol, cast
+from uuid import UUID
 
 from sqlalchemy import and_, func, or_, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -469,7 +470,7 @@ async def resume_interrupted_ai_job(
     db: AsyncSession,
     *,
     job: AIJob,
-    tenant_id,
+    tenant_id: UUID | str,
     task_kwargs: dict[str, Any],
     active_limit: int,
     worker_concurrency: int,
@@ -497,21 +498,22 @@ async def resume_interrupted_ai_job(
             active_limit=active_limit,
         )
 
-    previous_result = locked.result if isinstance(locked.result, dict) else {}
+    previous_result: dict[str, Any] = locked.result if isinstance(locked.result, dict) else {}
     resume_count = int(previous_result.get("resume_count", 0) or 0) + 1
     delivery_task_id = str(uuid.uuid4())
-    locked.status = "pending"
-    locked.stage = "queued"
-    locked.message = "Продолжение генерации поставлено в очередь"
-    locked.errors = None
-    locked.completed_at = None
-    locked.started_at = None
-    locked.result = {
+    mutable_locked = cast(Any, locked)
+    mutable_locked.status = "pending"
+    mutable_locked.stage = "queued"
+    mutable_locked.message = "Продолжение генерации поставлено в очередь"
+    mutable_locked.errors = None
+    mutable_locked.completed_at = None
+    mutable_locked.started_at = None
+    mutable_locked.result = {
         **previous_result,
         "resume_count": resume_count,
         "delivery_task_id": delivery_task_id,
     }
-    locked.updated_at = datetime.now(UTC)
+    mutable_locked.updated_at = datetime.now(UTC)
     await db.flush()
     queue_metadata = await build_ai_job_queue_metadata(
         db,

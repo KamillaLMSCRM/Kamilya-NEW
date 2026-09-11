@@ -1,5 +1,5 @@
 """JWT token tests — create, decode, claims validation."""
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 from uuid import uuid4
@@ -64,7 +64,7 @@ def test_refresh_token_preserves_absolute_login_deadline_across_rotation():
 
 
 def test_refresh_session_older_than_absolute_limit_is_rejected():
-    old_login = int((datetime.now(timezone.utc) - timedelta(hours=9)).timestamp())
+    old_login = int((datetime.now(UTC) - timedelta(hours=9)).timestamp())
 
     with pytest.raises(HTTPException, match="Session expired") as exc_info:
         auth_module.enforce_refresh_session_age({"iat": old_login})

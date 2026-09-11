@@ -5,6 +5,7 @@ import asyncio
 import json
 import logging
 from datetime import datetime, timezone
+from typing import Any, cast
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect
@@ -628,9 +629,9 @@ async def cancel_generation(
 @router.post("/jobs/{job_id}/resume", response_model=AIJobResponse, status_code=202)
 async def resume_generation(
     job_id: str,
-    db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_ai_job_access),
-):
+    db: AsyncSession = Depends(get_db),  # noqa: B008
+    user: User = Depends(require_ai_job_access),  # noqa: B008
+) -> AIJobResponse:
     """Resume missing lesson and assessment checkpoints for one logical job."""
     tenant_id = user.tenant_id
     if tenant_id is None:
@@ -640,7 +641,7 @@ async def resume_generation(
         raise HTTPException(status_code=404, detail="Job not found")
     if job.status != "interrupted":
         raise HTTPException(status_code=409, detail="Job is not resumable")
-    params = job.params if isinstance(job.params, dict) else {}
+    params: dict[str, Any] = job.params if isinstance(job.params, dict) else {}
     documents = params.get("documents")
     course_structure = params.get("course_structure")
     if not isinstance(documents, list) or not documents or not isinstance(course_structure, dict):
@@ -652,7 +653,7 @@ async def resume_generation(
         tenant_id,
         default_limit=settings.AI_MAX_ACTIVE_JOBS_PER_TENANT,
     )
-    task_kwargs = {
+    task_kwargs: dict[str, Any] = {
         "job_id": str(job.id),
         "documents": [str(document_id) for document_id in documents],
         "target_audience": str(params.get("target_audience") or ""),
@@ -672,7 +673,7 @@ async def resume_generation(
         resumed, queue_metadata = await resume_interrupted_ai_job(
             db,
             job=job,
-            tenant_id=tenant_id,
+            tenant_id=cast(UUID, tenant_id),
             task_kwargs=task_kwargs,
             active_limit=active_limit,
             worker_concurrency=settings.AI_WORKER_CONCURRENCY,

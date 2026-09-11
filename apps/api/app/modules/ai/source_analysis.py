@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 import math
 from dataclasses import dataclass, field
-from typing import Literal, cast
+from typing import Literal, TypedDict, cast
 from uuid import UUID
 
 from fastapi import HTTPException
@@ -170,6 +170,15 @@ class CourseStructurePlan:
     reason_codes: tuple[str, ...]
 
 
+class _CourseFormatProfile(TypedDict):
+    coverage: float
+    hard_max: int
+    module_divisor: int
+    minimum_modules: int
+    maximum_modules: int
+    duration: tuple[int, int]
+
+
 def recommend_course_structure(
     *,
     total_chunks: int,
@@ -182,7 +191,7 @@ def recommend_course_structure(
     documents = max(1, int(document_count or 0))
     requested = course_format
     source_lesson_capacity = max(1, math.ceil(math.sqrt(chunks)))
-    format_profiles = {
+    format_profiles: dict[str, _CourseFormatProfile] = {
         "brief": {"coverage": 0.75, "hard_max": 14, "module_divisor": 8, "minimum_modules": 1, "maximum_modules": 3, "duration": (4, 6)},
         "standard": {"coverage": 0.80, "hard_max": 25, "module_divisor": 5, "minimum_modules": 2, "maximum_modules": 6, "duration": (5, 8)},
         "detailed": {"coverage": 1.00, "hard_max": 40, "module_divisor": 3, "minimum_modules": 3, "maximum_modules": 10, "duration": (7, 12)},
