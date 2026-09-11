@@ -79,7 +79,7 @@ _UNSUPPORTED_RELATIONSHIP_PATTERNS = (
     re.compile(
         r"(?:^|[.!?]\s+|\n)\s*(?:[-*+>]\s+|\d+[.)]\s+)?"
         r"(?:(?:action|recommendation)\s*[:\-—]\s*)?"
-        r"(?:please\s+)?(?:\*\*|__)?(?:recommend|offer)\b(?:\*\*|__)?"
+        r"(?:please\s+)?(?:\*\*|__)?(?:recommend|offer)(?:\*\*|__)?(?!\w)"
     ),
     re.compile(
         r"\b(?:(?:we|you)\s+(?:\w+\s+){0,2}|"
@@ -139,7 +139,7 @@ _RELATIONSHIP_OPERATOR_RE = re.compile(
     r"start\w*\s+with|conversation\w*.{0,80}\bbegin\w*|"
     r"используйте|можно\s+использовать|использовать.{0,40}\bкак|построй\w*|подавай\w*|"
     r"соотнес\w*|предложите|предлагайте|предложить|use\w*|can\s+be\s+used|"
-    r"recommend\w*|offer|"
+    r"(?:\*\*|__)?(?:recommend\w*|offer)(?:\*\*|__)?|"
     r"ориентир\w*|serves?\s+as\s+(?:a\s+)?guide\w*)\b"
 )
 _RELATIONSHIP_SHORT_STOP_WORDS = frozenset(
@@ -150,7 +150,7 @@ _RELATIONSHIP_SHORT_STOP_WORDS = frozenset(
         "be", "if",
     }
 )
-LESSON_QUALITY_POLICY_VERSION = "lesson-quality-v13"
+LESSON_QUALITY_POLICY_VERSION = "lesson-quality-v14"
 
 
 def _normalize(value: str) -> str:
@@ -237,7 +237,8 @@ def _relationship_operator(value: str) -> str:
         return "use_instruction"
     if re.search(
         r"построй\w*|подавай\w*|соотнес\w*|предложите|предлагайте|"
-        r"предложить|recommend\w*|\boffer\b",
+        r"предложить|(?<!\w)(?:\*\*|__)?(?:recommend\w*|offer)"
+        r"(?:\*\*|__)?(?!\w)",
         normalized,
     ):
         return "sales_instruction"

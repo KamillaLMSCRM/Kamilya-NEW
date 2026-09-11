@@ -243,6 +243,8 @@ def test_english_offer_and_recommendation_nouns_are_not_sales_commands(
     [
         "- Offer Collection Alpha to the customer.",
         "- **Offer** Collection Alpha to the customer.",
+        "* __Recommend__ Collection Alpha to the customer.",
+        "* __Offer__ Collection Alpha to the customer.",
         "Action: Offer Collection Alpha to the customer.",
         "The consultant should always recommend Collection Alpha to the customer.",
         "Staff may confidently offer Collection Alpha to the customer.",
@@ -268,6 +270,8 @@ def test_markdown_and_modal_sales_commands_require_source_support(
     [
         "- Offer Collection Alpha to the customer.",
         "- **Offer** Collection Alpha to the customer.",
+        "* __Recommend__ Collection Alpha to the customer.",
+        "* __Offer__ Collection Alpha to the customer.",
         "Action: Offer Collection Alpha to the customer.",
         "The consultant should always recommend Collection Alpha to the customer.",
         "Staff may confidently offer Collection Alpha to the customer.",
