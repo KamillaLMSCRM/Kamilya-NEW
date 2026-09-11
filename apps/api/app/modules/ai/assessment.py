@@ -998,20 +998,16 @@ def _generate_tabular_assessment(
         candidates: list[dict[str, Any]] = []
         for _overlap, column_index, target_header in ranked_columns:
             row_values: list[tuple[str, str, str]] = []
-            seen_answers: set[str] = set()
             for cells, evidence_id in expanded_rows:
                 subject = cells[0].strip()
                 answer = cells[column_index].strip()
-                normalized_answer = _normalize_evidence_text(answer)
                 if (
                     not subject
                     or not answer
                     or evidence_id is None
-                    or normalized_answer in seen_answers
                     or len(answer.split()) > 12
                 ):
                     continue
-                seen_answers.add(normalized_answer)
                 row_values.append((subject, answer, evidence_id))
             if len(row_values) < 4:
                 continue
@@ -1029,13 +1025,13 @@ def _generate_tabular_assessment(
                 )
                 if fact_key in excluded_fact_keys:
                     continue
+                alternative_by_normalized: dict[str, str] = {}
+                for _other_subject, value, _other_evidence_id in row_values:
+                    normalized_value = _normalize_evidence_text(value)
+                    if normalized_value != _normalize_evidence_text(answer):
+                        alternative_by_normalized.setdefault(normalized_value, value)
                 alternatives = sorted(
-                    (
-                        value
-                        for _other_subject, value, _other_evidence_id in row_values
-                        if _normalize_evidence_text(value)
-                        != _normalize_evidence_text(answer)
-                    ),
+                    alternative_by_normalized.values(),
                     key=lambda value: (
                         abs(len(value.split()) - len(answer.split())),
                         abs(len(value) - len(answer)),

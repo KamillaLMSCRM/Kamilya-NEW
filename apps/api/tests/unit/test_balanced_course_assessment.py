@@ -355,7 +355,7 @@ def test_tabular_assessment_maps_rendered_lesson_table_to_plain_source_rows() ->
     )
 
 
-def test_tabular_style_assessment_accepts_five_source_attributes() -> None:
+def test_tabular_style_assessment_keeps_two_subjects_with_same_style() -> None:
     source = _collection_table_source()
 
     result = _generate_tabular_assessment(
@@ -364,15 +364,19 @@ def test_tabular_style_assessment_accepts_five_source_attributes() -> None:
         lesson_title="Стили коллекций",
         lesson_objectives=["Различать стилевые направления"],
         language="ru",
-        question_count=5,
+        question_count=6,
     )
 
     assert result is not None
-    assert len(result.mcq) == 5
+    assert len(result.mcq) == 6
     assert all(
         len(next(option.text for option in question.options if option.is_correct).split()) == 1
         for question in result.mcq
     )
+    assert sum(
+        next(option.text for option in question.options if option.is_correct) == "современный"
+        for question in result.mcq
+    ) == 2
 
 
 def test_partial_lesson_table_uses_full_source_only_for_peer_distractors() -> None:

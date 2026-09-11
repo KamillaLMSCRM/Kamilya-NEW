@@ -206,6 +206,8 @@ Acceptance:
   differences between source-backed peer values must not force invented padding.
 - If one lesson shows only part of the source table, use those rows as question
   subjects and the remaining verified source rows only as the peer-option pool.
+- Treat equal values attached to different row subjects as distinct facts while
+  still deduplicating equal option text inside one question.
 - Rotate question wording and option order while retaining exact source evidence,
   cross-lesson fact deduplication and the shared editor-quality contract.
 - Fall back to the existing bounded model path when no table column clearly matches
