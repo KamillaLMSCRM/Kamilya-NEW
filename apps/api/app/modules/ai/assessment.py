@@ -902,9 +902,10 @@ def _generate_tabular_assessment(
     lesson_objectives: list[str],
     language: str,
     question_count: int,
+    lesson_body: str = "",
     excluded_fact_keys: frozenset[tuple[str, str]] = frozenset(),
 ) -> LessonAssessment | None:
-    """Build source-grounded MCQs from a table column selected for the lesson."""
+    """Build source-grounded MCQs from lesson-scoped rows and real peer values."""
     title_stems = _grounding_stems(lesson_title)
     objective_stems = _grounding_stems(" ".join(lesson_objectives))
     lesson_stems = title_stems | objective_stems
@@ -914,7 +915,9 @@ def _generate_tabular_assessment(
         _normalize_evidence_text(quote): evidence_id
         for evidence_id, quote in evidence_bank.items()
     }
-    candidates: list[dict[str, Any]] = []
+    lesson_scope = _normalize_evidence_text(
+        " ".join((lesson_title, *lesson_objectives, lesson_body))
+    )
     for headers, rows in _markdown_tables(bounded_source):
         ranked_columns = sorted(
             (
@@ -928,9 +931,14 @@ def _generate_tabular_assessment(
             ),
             key=lambda item: (-item[0], item[1]),
         )
-        for overlap, column_index, target_header in ranked_columns:
-            if overlap == 0:
-                continue
+        scoped_subjects = {
+            _normalize_evidence_text(cells[0])
+            for cells, _raw_row in rows
+            if cells[0].strip()
+            and _normalize_evidence_text(cells[0]) in lesson_scope
+        }
+        candidates: list[dict[str, Any]] = []
+        for _overlap, column_index, target_header in ranked_columns:
             row_values: list[tuple[str, str, str]] = []
             seen_answers: set[str] = set()
             for cells, raw_row in rows:
@@ -950,7 +958,13 @@ def _generate_tabular_assessment(
                 row_values.append((subject, answer, evidence_id))
             if len(row_values) < 4:
                 continue
-            for row_index, (subject, answer, evidence_id) in enumerate(row_values):
+            candidate_rows = [
+                row
+                for row in row_values
+                if not scoped_subjects
+                or _normalize_evidence_text(row[0]) in scoped_subjects
+            ]
+            for row_index, (subject, answer, evidence_id) in enumerate(candidate_rows):
                 source_quote = evidence_bank[evidence_id]
                 fact_key = (
                     _normalize_evidence_text(_plain_evidence_text(source_quote)),
@@ -992,18 +1006,18 @@ def _generate_tabular_assessment(
                         "source_quote_id": evidence_id,
                     }
                 )
-                recovered = _recover_valid_assessment(
-                    {"mcq": candidates},
-                    evidence_bank=evidence_bank,
-                    bounded_source=bounded_source,
-                    lesson_title=lesson_title,
-                    language=language,
-                    minimum_questions=question_count,
-                    maximum_questions=question_count,
-                    excluded_fact_keys=excluded_fact_keys,
-                )
-                if recovered is not None:
-                    return recovered
+        recovered = _recover_valid_assessment(
+            {"mcq": candidates},
+            evidence_bank=evidence_bank,
+            bounded_source=bounded_source,
+            lesson_title=lesson_title,
+            language=language,
+            minimum_questions=question_count,
+            maximum_questions=question_count,
+            excluded_fact_keys=excluded_fact_keys,
+        )
+        if recovered is not None:
+            return recovered
     return None
 
 
@@ -1217,23 +1231,23 @@ async def generate_lesson_assessment(
     )
     if not evidence_bank:
         raise ValueError("Lesson content has insufficient material for an assessment")
-    if compact:
-        tabular_assessment = _generate_tabular_assessment(
-            evidence_bank=evidence_bank,
-            bounded_source=bounded_lesson_content,
-            lesson_title=lesson_content.title,
-            lesson_objectives=list(lesson_content.objectives),
-            language=language,
-            question_count=question_count,
-            excluded_fact_keys=excluded_fact_keys,
+    tabular_assessment = _generate_tabular_assessment(
+        evidence_bank=evidence_bank,
+        bounded_source=bounded_lesson_content,
+        lesson_title=lesson_content.title,
+        lesson_objectives=list(lesson_content.objectives),
+        lesson_body=lesson_content.content,
+        language=language,
+        question_count=question_count,
+        excluded_fact_keys=excluded_fact_keys,
+    )
+    if tabular_assessment is not None:
+        logger.info(
+            "[ASSESSMENT_TABULAR] generated=%d requested=%d",
+            len(tabular_assessment.mcq),
+            question_count,
         )
-        if tabular_assessment is not None:
-            logger.info(
-                "[ASSESSMENT_TABULAR] generated=%d requested=%d",
-                len(tabular_assessment.mcq),
-                question_count,
-            )
-            return tabular_assessment
+        return tabular_assessment
     mcq_schema = output_schema["properties"]["mcq"]["items"]
     mcq_schema["properties"].pop("source_quote", None)
     mcq_schema["properties"]["source_quote_id"] = {

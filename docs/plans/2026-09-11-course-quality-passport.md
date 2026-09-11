@@ -4,7 +4,7 @@ Status: slices 1-7 and 9-10 implemented and locally verified on
 `feat/course-quality-passport-20260911`; DEV human-path re-acceptance is pending.
 Production is unchanged until every mandatory gate below passes.
 
-Local gate evidence: API unit suite `1284 passed`; web suite `578 passed` in
+Local gate evidence: API unit suite `1285 passed`; web suite `578 passed` in
 `111` files; focused generation UI `14 passed`; Next.js `15.5.23` production
 build passed; Python quality baseline passed at `ruff=1066`, `mypy=2339` with
 no new violations; `git diff --check` passed.
@@ -22,7 +22,7 @@ no new violations; `git diff --check` passed.
 | 7. Lesson quality | accepted locally | one bounded rewrite, fail-closed second failure, and checkpoint policy-version tests pass |
 | 8. Human path | re-test required | exact-SHA DEV run `7c270b9b` proved upload, indexing, passport and cleanup but failed at the third assessment; the table-aware repair is locally green and awaits two fresh exact-SHA runs |
 | 9. Course-wide assessment diversity | accepted locally | normalized source-evidence plus correct-answer keys are carried across generated and restored lessons; batch and focused recovery reject repeats |
-| 10. Structured-table assessment | accepted locally | Markdown headers are excluded as facts; lesson-matched columns produce 3+3+3 source-grounded questions across one shared six-row table without an assessment-model call or repeated fact |
+| 10. Structured-table assessment | accepted locally | Markdown headers are excluded as facts; lesson-scoped rows and matched columns produce 5+5+5 source-grounded questions across one shared six-row table without an assessment-model call, invented options or repeated facts |
 
 ## Outcome
 
@@ -200,8 +200,8 @@ Acceptance:
 
 - Exclude Markdown table header and separator rows from the assessment evidence
   bank so a label such as "Customer benefit" cannot become a correct answer.
-- When a compact lesson clearly matches one table column, build its MCQs from the
-  exact relationship between the row subject and that column value.
+- For compact and standard profiles, scope table rows to the subjects covered by
+  the lesson and build MCQs from exact row-to-column relationships.
 - Draw distractors only from peer values in the same source column. Natural length
   differences between source-backed peer values must not force invented padding.
 - Rotate question wording and option order while retaining exact source evidence,
@@ -212,9 +212,9 @@ Acceptance:
 Acceptance:
 
 - The worksheet header never appears as an assessable fact.
-- Style, customer-benefit and consultation-scenario lessons select their own
-  columns from the same six-row collection table.
-- Three lessons receive three distinct questions each, with no duplicated
+- Style, customer-benefit and consultation-scenario questions use real values
+  from the same six-row collection table.
+- Three standard-profile lessons receive five distinct questions each, with no duplicated
   normalized `(source row, correct value)` pair.
 - A table with ambiguous headings or insufficient alternatives uses the existing
   bounded model path instead of inventing values.

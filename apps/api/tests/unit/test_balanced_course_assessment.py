@@ -380,6 +380,80 @@ async def test_compact_spreadsheet_assessment_uses_deterministic_table_path() ->
 
 
 @pytest.mark.asyncio
+async def test_standard_course_uses_only_real_table_values_for_scoped_lessons() -> None:
+    class LLMShouldNotBeCalled:
+        async def ainvoke(self, messages, config=None, response_format=None):
+            raise AssertionError("structured table assessment must not call the model")
+
+    source = _collection_table_source()
+    course = CourseContent(
+        title="Консультация по коллекциям",
+        modules=[
+            ModuleContent(
+                title="Коллекции",
+                lessons=[
+                    LessonContent(
+                        title="Коллекции Альфа и Бета: стили и выгоды",
+                        objectives=["Объяснять преимущества и сценарии консультации"],
+                        content="Сравним коллекции Альфа и Бета.",
+                        source_chunks=[source],
+                        source_references=[],
+                    ),
+                    LessonContent(
+                        title="Коллекции Гамма и Дельта: выбор для клиента",
+                        objectives=["Различать стили и сценарии консультации"],
+                        content="Сравним коллекции Гамма и Дельта.",
+                        source_chunks=[source],
+                        source_references=[],
+                    ),
+                    LessonContent(
+                        title="Коллекции Эпсилон и Зета: особенности предложения",
+                        objectives=["Называть преимущества и действия сотрудника"],
+                        content="Сравним коллекции Эпсилон и Зета.",
+                        source_chunks=[source],
+                        source_references=[],
+                    ),
+                ],
+            )
+        ],
+    )
+
+    result = await generate_course_assessment(
+        LLMShouldNotBeCalled(),
+        course,
+        language="ru",
+        compact=False,
+    )
+
+    source_values = {
+        "современный",
+        "скандинавский",
+        "лофт",
+        "минимализм",
+        "классический",
+        "модульная компоновка",
+        "светлые фасады",
+        "усиленная фурнитура",
+        "скрытые ручки",
+        "вместительные секции",
+        "регулируемые полки",
+        "уточнить размеры помещения",
+        "согласовать оттенок",
+        "обсудить нагрузку",
+        "показать механизм открывания",
+        "уточнить объём хранения",
+        "собрать требования к высоте",
+    }
+    assert [len(assessment.mcq) for assessment in result.assessments] == [5, 5, 5]
+    assert all(
+        option.text in source_values
+        for assessment in result.assessments
+        for question in assessment.mcq
+        for option in question.options
+    )
+
+
+@pytest.mark.asyncio
 async def test_shared_collection_table_builds_three_distinct_lesson_assessments() -> None:
     class LLMShouldNotBeCalled:
         async def ainvoke(self, messages, config=None, response_format=None):
