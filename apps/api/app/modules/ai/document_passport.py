@@ -10,10 +10,9 @@ from __future__ import annotations
 import json
 import math
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Literal, Protocol
-
 
 _WORKSHEET_PREFIX = "[Worksheet] "
 _TOKEN_RE = re.compile(r"[^\W_]+", re.UNICODE)
@@ -35,18 +34,27 @@ _PRIMARY_MARKERS = frozenset(
 
 
 class _Chunk(Protocol):
-    headings: tuple[str, ...]
-    text: str
+    @property
+    def headings(self) -> tuple[str, ...]: ...
+
+    @property
+    def text(self) -> str: ...
 
 
 class _Document(Protocol):
-    doc_id: str
-    title: str
-    chunks: tuple[_Chunk, ...]
+    @property
+    def doc_id(self) -> str: ...
+
+    @property
+    def title(self) -> str: ...
+
+    @property
+    def chunks(self) -> tuple[_Chunk, ...]: ...
 
 
 class _Corpus(Protocol):
-    documents: tuple[_Document, ...]
+    @property
+    def documents(self) -> tuple[_Document, ...]: ...
 
 
 class SectionRole(StrEnum):
@@ -79,6 +87,26 @@ class DocumentPassport:
     warnings: tuple[str, ...]
 
 
+@dataclass(slots=True)
+class _SectionAggregate:
+    chunks: int = 0
+    chars: int = 0
+    rows: list[str] = field(default_factory=list)
+
+
+@dataclass(frozen=True, slots=True)
+class _RawSection:
+    document_id: str
+    name: str
+    chunks: int
+    chars: int
+    rows: int
+    distinct_rows: int
+    repeated_row_share: float
+    reference_signals: int
+    primary_signals: int
+
+
 def _section_name(document: _Document, chunk: _Chunk) -> str:
     for heading in reversed(chunk.headings):
         if heading.startswith(_WORKSHEET_PREFIX):
@@ -103,29 +131,27 @@ def _tokens(value: str) -> set[str]:
 def build_document_passport(corpus: _Corpus) -> DocumentPassport:
     """Classify every source section and estimate bounded teachable capacity."""
 
-    aggregates: dict[tuple[str, str], dict[str, object]] = {}
+    aggregates: dict[tuple[str, str], _SectionAggregate] = {}
     order: list[tuple[str, str]] = []
     for document in corpus.documents:
         for chunk in document.chunks:
             name = _section_name(document, chunk)
             key = (document.doc_id, name)
             if key not in aggregates:
-                aggregates[key] = {"chunks": 0, "chars": 0, "rows": []}
+                aggregates[key] = _SectionAggregate()
                 order.append(key)
             aggregate = aggregates[key]
-            aggregate["chunks"] = int(aggregate["chunks"]) + 1
-            aggregate["chars"] = int(aggregate["chars"]) + len(chunk.text)
-            rows = aggregate["rows"]
-            assert isinstance(rows, list)
-            rows.extend(_meaningful_rows(chunk.text))
+            aggregate.chunks += 1
+            aggregate.chars += len(chunk.text)
+            aggregate.rows.extend(_meaningful_rows(chunk.text))
 
     if not order:
         raise ValueError("document_passport_requires_source_sections")
 
-    raw_sections: list[dict[str, object]] = []
+    raw_sections: list[_RawSection] = []
     for document_id, name in order:
         aggregate = aggregates[(document_id, name)]
-        rows = list(aggregate["rows"])
+        rows = list(aggregate.rows)
         distinct_rows = list(dict.fromkeys(rows))
         # A short preamble is common in business workbooks, so sample enough
         # bounded rows to see the actual table vocabulary without scanning an
@@ -135,29 +161,31 @@ def build_document_passport(corpus: _Corpus) -> DocumentPassport:
         reference_signals = len(tokens & _REFERENCE_MARKERS)
         primary_signals = len(tokens & _PRIMARY_MARKERS)
         raw_sections.append(
-            {
-                "document_id": document_id,
-                "name": name,
-                "chunks": int(aggregate["chunks"]),
-                "chars": int(aggregate["chars"]),
-                "rows": len(rows),
-                "distinct_rows": len(distinct_rows),
-                "repeated_row_share": round(1 - (len(distinct_rows) / max(1, len(rows))), 4),
-                "reference_signals": reference_signals,
-                "primary_signals": primary_signals,
-            }
+            _RawSection(
+                document_id=document_id,
+                name=name,
+                chunks=aggregate.chunks,
+                chars=aggregate.chars,
+                rows=len(rows),
+                distinct_rows=len(distinct_rows),
+                repeated_row_share=round(
+                    1 - (len(distinct_rows) / max(1, len(rows))), 4
+                ),
+                reference_signals=reference_signals,
+                primary_signals=primary_signals,
+            )
         )
 
     if len(raw_sections) == 1:
         roles = [SectionRole.PRIMARY]
         confidence: Literal["high", "medium", "low"] = "high"
     else:
-        smallest_rows = max(1, min(int(section["distinct_rows"]) for section in raw_sections))
+        smallest_rows = max(1, min(section.distinct_rows for section in raw_sections))
         roles = []
         for section in raw_sections:
-            reference_signals = int(section["reference_signals"])
-            primary_signals = int(section["primary_signals"])
-            much_larger = int(section["distinct_rows"]) >= smallest_rows * 3
+            reference_signals = section.reference_signals
+            primary_signals = section.primary_signals
+            much_larger = section.distinct_rows >= smallest_rows * 3
             if reference_signals >= 2 or (reference_signals >= 1 and much_larger):
                 roles.append(SectionRole.SUPPORTING)
             elif primary_signals > reference_signals:
@@ -169,9 +197,9 @@ def build_document_passport(corpus: _Corpus) -> DocumentPassport:
             candidate = min(
                 range(len(raw_sections)),
                 key=lambda index: (
-                    int(raw_sections[index]["reference_signals"]),
-                    -int(raw_sections[index]["primary_signals"]),
-                    int(raw_sections[index]["distinct_rows"]),
+                    raw_sections[index].reference_signals,
+                    -raw_sections[index].primary_signals,
+                    raw_sections[index].distinct_rows,
                     index,
                 ),
             )
@@ -180,15 +208,15 @@ def build_document_passport(corpus: _Corpus) -> DocumentPassport:
 
     sections = tuple(
         PassportSection(
-            document_id=str(section["document_id"]),
-            name=str(section["name"]),
+            document_id=section.document_id,
+            name=section.name,
             role=role,
-            chunk_count=int(section["chunks"]),
-            character_count=int(section["chars"]),
-            distinct_rows=int(section["distinct_rows"]),
-            repeated_row_share=float(section["repeated_row_share"]),
-            reference_signal_count=int(section["reference_signals"]),
-            primary_signal_count=int(section["primary_signals"]),
+            chunk_count=section.chunks,
+            character_count=section.chars,
+            distinct_rows=section.distinct_rows,
+            repeated_row_share=section.repeated_row_share,
+            reference_signal_count=section.reference_signals,
+            primary_signal_count=section.primary_signals,
         )
         for section, role in zip(raw_sections, roles, strict=True)
     )

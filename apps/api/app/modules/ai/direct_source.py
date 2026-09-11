@@ -24,11 +24,11 @@ from app.modules.ai.document_passport import (
     render_passport_for_architect,
 )
 from app.modules.ai.ingestion import DocumentChunker, DocumentConverter, EmbeddingsProvider, VectorStore
-from app.modules.ai.llm_client import AllProvidersFailedError, ProviderFailedError
 from app.modules.ai.lesson_quality import (
     LESSON_QUALITY_POLICY_VERSION,
     evaluate_lesson_quality,
 )
+from app.modules.ai.llm_client import AllProvidersFailedError, ProviderFailedError
 from app.modules.ai.source_topic_map import (
     SMALL_SOURCE_CONTEXT_CHARS,
     MapCheckpointStore,

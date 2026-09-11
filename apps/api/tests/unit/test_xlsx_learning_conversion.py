@@ -6,9 +6,9 @@ from pathlib import Path
 import pytest
 from openpyxl import Workbook
 
-from app.modules.ai.ingestion import DocumentConverter, DocumentChunker
 from app.modules.ai.direct_source import DirectSourceChunk, DirectSourceCorpus, DirectSourceDocument
 from app.modules.ai.document_passport import SectionRole, build_document_passport
+from app.modules.ai.ingestion import DocumentChunker, DocumentConverter
 
 
 @pytest.mark.asyncio

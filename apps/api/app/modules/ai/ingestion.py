@@ -173,12 +173,12 @@ async def _local_convert(file_path: str) -> dict[str, Any]:
         content = "\n\n".join(blocks)
         engine = "python-docx"
     elif ext == ".xlsx":
-        from openpyxl import load_workbook
+        from openpyxl import load_workbook  # type: ignore[import-untyped]
 
         def cell_text(value: object) -> str:
             if value is None:
                 return ""
-            if isinstance(value, (date, datetime)):
+            if isinstance(value, date | datetime):
                 rendered = value.isoformat()
             else:
                 rendered = str(value)
@@ -200,7 +200,7 @@ async def _local_convert(file_path: str) -> dict[str, Any]:
                 visible_sheet_count += 1
                 if visible_sheet_count > MAX_XLSX_VISIBLE_SHEETS:
                     raise RuntimeError("XLSX source exceeds safe conversion limits")
-                rows: list[list[str]] = []
+                sheet_rows: list[list[str]] = []
                 for row_index, raw_row in enumerate(
                     worksheet.iter_rows(values_only=True),
                     start=1,
@@ -219,11 +219,13 @@ async def _local_convert(file_path: str) -> dict[str, Any]:
                         rendered_chars += sum(len(cell) for cell in row)
                         if rendered_chars > MAX_XLSX_RENDERED_CHARS:
                             raise RuntimeError("XLSX source exceeds safe conversion limits")
-                        rows.append(row)
-                if not rows:
+                        sheet_rows.append(row)
+                if not sheet_rows:
                     continue
-                width = max(len(row) for row in rows)
-                normalized = [row + [""] * (width - len(row)) for row in rows]
+                width = max(len(row) for row in sheet_rows)
+                normalized = [
+                    row + [""] * (width - len(row)) for row in sheet_rows
+                ]
                 sheet_name = cell_text(worksheet.title).replace("[", "(").replace("]", ")")
                 blocks.append(f"# [Worksheet] {sheet_name}")
                 blocks.append("| " + " | ".join(normalized[0]) + " |")

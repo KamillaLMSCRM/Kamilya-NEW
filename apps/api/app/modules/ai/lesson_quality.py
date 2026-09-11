@@ -10,9 +10,8 @@ from __future__ import annotations
 
 import math
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Sequence
-
 
 _TOKEN_RE = re.compile(r"[^\W\d_]{3,}", re.UNICODE)
 _SENTENCE_RE = re.compile(r"(?:\n+|(?<=[.!?])\s+)")
@@ -22,7 +21,7 @@ _STOP_WORDS = frozenset(
         "что", "чтобы", "который", "которая", "которые", "также", "есть",
         "уже", "можно", "нужно", "будет", "быть", "его", "она", "они",
         "and", "the", "this", "that", "with", "from", "into", "your",
-        "для", "мен", "бұл", "және", "немесе", "керек", "болып",
+        "мен", "бұл", "және", "немесе", "керек", "болып",
         "урок", "уроке", "курса", "курс", "раздел", "модуль", "материал",
     }
 )
