@@ -54,6 +54,51 @@ Infrastructure bootstrap or changing the privilege boundary still needs owner ap
 
 ## Capacity, cleanup and recovery
 
+### Explicit no-console cleanup
+
+The maintenance extension adds read-only `cleanup-plan <obsolete> <current>
+<rollback>` and one destructive `cleanup <envelope-sha256>` command. The
+workstation wrapper independently hashes an off-host recovery archive and its
+SHA-scoped manifest, obtains the live cleanup plan, creates the exact
+digest-bound envelope, stages it as `cleanup-envelope-<sha256>.json`, and invokes
+the helper. The envelope is accepted only when its filename digest, exact fields,
+current/rollback identities, tree fingerprint, and the root-owned recovery record
+created when that exact release was deployed all match the live state.
+
+Only an explicitly named obsolete SHA may be selected. The helper holds the
+deployment lock, reads the staged envelope through a no-follow descriptor with
+validated owner/mode/size, rechecks active pointers/configuration/processes,
+mount and path boundaries, and deletes only that exact release directory using
+fd-relative symlink-safe removal. It preserves the current and verified rollback
+release. Before deletion the helper requires at least 512 MiB free and writes a
+root-owned `STARTED` receipt. A successful operation replaces it with `CLEANED`;
+an unexpected deletion or post-check failure leaves a durable failure status.
+Validation failures stop before deletion.
+
+The privileged helper never deletes files from the deploy user's staging folder.
+After a successful root cleanup, the wrapper rechecks the exact envelope and,
+when requested, the matching staged archive and manifest hashes, then removes
+those user-owned duplicates without root privileges.
+
+Example from the workstation (recovery inputs remain off CT137):
+
+```powershell
+& $toolPython scripts/ops/ct137_native_deploy.py `
+  --cleanup <obsolete-sha> <current-sha> <rollback-sha> `
+  --recovery-archive <off-host-archive.tar.gz> `
+  --recovery-manifest <frontend-native-<sha>.manifest.json> `
+  --prune-staged-copy
+```
+
+`--prune-staged-copy` is optional. It removes the matching staged obsolete pair
+only after both remote hashes match the independently verified off-host pair.
+The wrapper emits only sanitized SHA/status evidence. It never builds, installs
+dependencies, starts containers, or requires a Proxmox guest-console login.
+
+The transport stages only digest-qualified maintenance files and the envelope;
+verify their hashes before root execution. `--verify-boundary` requires the
+explicit `--expected-rollback-sha`.
+
 The helper retains current, old and failed releases. It does not silently delete
 them. Disk reserve is512MiB in addition to exact required snapshot/extracted
 bytes; archive512MiB, expanded regular content2GiB, maximum100000entries.

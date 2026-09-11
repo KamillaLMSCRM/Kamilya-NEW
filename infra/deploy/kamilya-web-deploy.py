@@ -5,9 +5,11 @@ Install the reviewed file only after the owner-approved distro Python 3.10+
 dependency is present on webkml, using this fixed command:
   doas install -o root -g root -m 0750 /home/kamilya-admin/incoming/kamilya-web-deploy.py /usr/local/sbin/kamilya-web-deploy
 
-The installed command has two forms:
+The installed command supports deployment and explicitly approved maintenance:
   doas /usr/local/sbin/kamilya-web-deploy status
   doas /usr/local/sbin/kamilya-web-deploy deploy <40-hex-sha> <expected-old-sha> <64-hex-archive-sha256>
+  doas /usr/local/sbin/kamilya-web-deploy cleanup-plan <obsolete-sha> <current-sha> <rollback-sha>
+  doas /usr/local/sbin/kamilya-web-deploy cleanup <envelope-sha256>
 
 It deliberately does not build, install dependencies, run package scripts, use
 containers, contact a network endpoint, or touch the landing service.
@@ -56,6 +58,8 @@ CURRENT = BASE / "current"
 MARKER = Path("/etc/kamilya-web-release")
 NGINX = Path("/etc/nginx/http.d/default.conf")
 INCOMING = Path("/home/kamilya-admin/incoming")
+RECEIPTS = BASE / "cleanup-receipts"
+RECOVERY_RECORDS = BASE / "recovery-evidence"
 LOCK = Path("/run/lock/kamilya-web-deploy.lock")
 MINIMUM_RESERVE_BYTES = 512 * 1024 * 1024
 MAX_ARCHIVE_BYTES = 512 * 1024 * 1024
@@ -639,6 +643,7 @@ def deploy(sha: str, expected_old: str, archive_hash: str) -> None:
                 raise DeployError("new_identity_guard_failed")
             require_nginx_identity(sha)
             wait_for_application_routes(("/login", "/admin/settings/ai"))
+            write_recovery_record(sha, archive_hash, digest_file(sidecar_snapshot))
         except Exception as exc:
             if switched and nginx_backup is not None and marker_backup is not None:
                 try:
@@ -675,6 +680,316 @@ def status() -> dict[str, object]:
     return {"current_sha": sha, "marker_sha": marker, "nginx_sha_occurrences": nginx_count, "kamilya_web_running": service}
 
 
+def tree_fingerprint(path: Path) -> tuple[str, int]:
+    """Hash names, modes, link targets and file bytes without following symlinks."""
+    digest, total, count, rows = hashlib.sha256(), 0, 0, []
+    device = path.lstat().st_dev
+    for parent, directories, files in os.walk(path, followlinks=False):
+        directories.sort()
+        for name in sorted(directories + files):
+            item = Path(parent) / name
+            info = item.lstat()
+            count += 1
+            if count > MAX_MEMBERS or info.st_dev != device or os.path.ismount(item):
+                raise DeployError("cleanup_tree_boundary")
+            row = [item.relative_to(path).as_posix(), stat.S_IMODE(info.st_mode)]
+            if stat.S_ISLNK(info.st_mode):
+                row.extend(["link", os.readlink(item)])
+            elif stat.S_ISDIR(info.st_mode):
+                row.append("directory")
+            elif stat.S_ISREG(info.st_mode):
+                file_hash = hashlib.sha256()
+                with item.open("rb") as stream:
+                    for block in iter(lambda: stream.read(1024 * 1024), b""):
+                        file_hash.update(block)
+                total += info.st_size
+                if total > MAX_EXPANDED_BYTES:
+                    raise DeployError("cleanup_tree_size_limit")
+                row.extend(["file", info.st_size, file_hash.hexdigest()])
+            else:
+                raise DeployError("cleanup_special_file")
+            rows.append(row)
+    for row in sorted(rows, key=lambda row: row[0]):
+        digest.update((json.dumps(row, ensure_ascii=True, separators=(",", ":")) + "\n").encode())
+    return digest.hexdigest(), total
+
+
+def require_cleanup_rollback(current: str, rollback_sha: str) -> None:
+    require_root_directory(BASE)
+    backup_dir = BASE / "deploy-backups"
+    require_root_directory(backup_dir, 0o700)
+    backups = sorted(backup_dir.glob(f"*-{current}.marker"))
+    try:
+        recorded = read_root_control(backups[-1]).decode("ascii").strip() if backups else None
+    except UnicodeError as exc:
+        raise DeployError("cleanup_rollback_invalid") from exc
+    if recorded != rollback_sha:
+        raise DeployError("cleanup_rollback_mismatch")
+    previous = RELEASES / rollback_sha
+    if previous.is_symlink() or not previous.is_dir() or not (previous / "package.json").is_file():
+        raise DeployError("cleanup_rollback_missing")
+
+
+def require_cleanup_dependencies(target: Path) -> None:
+    """Fail closed on active configuration, landing pointers or process references."""
+    for item in [Path("/opt/kamilya-landing/current"), CURRENT]:
+        if item.exists() and item.resolve().is_relative_to(target):
+            raise DeployError("cleanup_active_pointer")
+    configs = [*Path("/etc/nginx").rglob("*.conf"),
+               Path("/etc/init.d/kamilya-web"), Path("/etc/conf.d/kamilya-web"),
+               Path("/etc/init.d/kamilya-landing"), Path("/etc/conf.d/kamilya-landing")]
+    for item in configs:
+        if item.exists() and target.name in item.read_text(encoding="utf-8"):
+            raise DeployError("cleanup_config_reference")
+    for process in Path("/proc").iterdir():
+        if not process.name.isdigit():
+            continue
+        try:
+            # Maintenance CLI contains the SHA, but never the full target path.
+            if str(target).encode() in (process / "cmdline").read_bytes():
+                raise DeployError("cleanup_process_reference")
+            for link in [process / "cwd", process / "exe", *(process / "fd").iterdir()]:
+                try:
+                    value = os.readlink(link)
+                except FileNotFoundError:
+                    continue
+                if value == str(target) or value.startswith(str(target) + "/"):
+                    raise DeployError("cleanup_process_reference")
+        except FileNotFoundError:
+            continue  # The process exited during the read-only scan.
+
+
+def cleanup_plan(sha: str, expected_current: str, rollback_sha: str) -> dict[str, object]:
+    for value in (sha, expected_current, rollback_sha):
+        require_hex(value, "cleanup_sha", 40)
+    if sha in (expected_current, rollback_sha) or expected_current == rollback_sha:
+        raise DeployError("cleanup_protected_release")
+    require_baseline(expected_current)
+    require_cleanup_rollback(expected_current, rollback_sha)
+    target = RELEASES / sha
+    if RELEASES.is_symlink() or target.is_symlink() or not target.is_dir():
+        raise DeployError("cleanup_not_real_directory")
+    if target.resolve().parent != RELEASES.resolve() or os.path.ismount(target):
+        raise DeployError("cleanup_path_boundary")
+    require_cleanup_dependencies(target)
+    fingerprint, size = tree_fingerprint(target)
+    return {"release_sha": sha, "current_sha": expected_current, "rollback_sha": rollback_sha,
+            "tree_sha256": fingerprint, "regular_file_bytes": size}
+
+
+def cleanup_envelope_path(digest: str) -> Path:
+    require_hex(digest, "cleanup_envelope_sha256", 64)
+    return INCOMING / f"cleanup-envelope-{digest}.json"
+
+
+def read_control_file(path: Path, *, owner_uids: tuple[int, ...], max_size: int) -> bytes:
+    """Read a bounded root-controlled file without following a symlink."""
+    if not hasattr(os, "O_NOFOLLOW"):
+        raise DeployError("cleanup_nofollow_required")
+    try:
+        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+        with os.fdopen(fd, "rb") as stream:
+            info = os.fstat(stream.fileno())
+            if (not stat.S_ISREG(info.st_mode) or info.st_uid not in owner_uids
+                    or stat.S_IMODE(info.st_mode) != 0o600 or info.st_size > max_size):
+                raise DeployError("cleanup_control_permissions")
+            content = stream.read(max_size + 1)
+            if len(content) > max_size:
+                raise DeployError("cleanup_control_size")
+            return content
+    except OSError as exc:
+        raise DeployError("cleanup_control_unreadable") from exc
+
+
+def read_root_control(path: Path) -> bytes:
+    """Read one bounded root-owned control file through a verified descriptor."""
+    return read_control_file(path, owner_uids=(0,), max_size=2048)
+
+
+def read_cleanup_envelope(digest: str) -> tuple[dict[str, object], Path]:
+    path = cleanup_envelope_path(digest)
+    require_cleanup_incoming()
+    try:
+        content = read_control_file(path, owner_uids=(INCOMING.lstat().st_uid,), max_size=8192)
+    except DeployError:
+        raise
+    if hashlib.sha256(content).hexdigest() != digest:
+        raise DeployError("cleanup_envelope_digest_mismatch")
+    try:
+        envelope = json.loads(content)
+    except (ValueError, UnicodeError) as exc:
+        raise DeployError("cleanup_envelope_invalid") from exc
+    if not isinstance(envelope, dict):
+        raise DeployError("cleanup_envelope_invalid")
+    required = {"release_sha", "current_sha", "rollback_sha", "tree_sha256", "regular_file_bytes",
+                "recovery_archive_sha256", "recovery_manifest_sha256"}
+    if set(envelope) != required:
+        raise DeployError("cleanup_envelope_fields")
+    for key in ("release_sha", "current_sha", "rollback_sha"):
+        require_hex(str(envelope[key]), key, 40)
+    for key in ("tree_sha256", "recovery_archive_sha256", "recovery_manifest_sha256"):
+        require_hex(str(envelope[key]), key, 64)
+    if (not isinstance(envelope["regular_file_bytes"], int)
+            or not 0 <= envelope["regular_file_bytes"] <= MAX_EXPANDED_BYTES):
+        raise DeployError("cleanup_envelope_regular_file_bytes")
+    return envelope, path
+
+
+def require_cleanup_incoming() -> None:
+    info = INCOMING.lstat()
+    if not stat.S_ISDIR(info.st_mode) or info.st_uid == 0 or stat.S_IMODE(info.st_mode) != 0o700:
+        raise DeployError("cleanup_incoming_permissions")
+
+
+def require_root_directory(path: Path, mode: int | None = None) -> None:
+    try:
+        info = path.lstat()
+    except OSError as exc:
+        raise DeployError("cleanup_control_parent_missing") from exc
+    actual = stat.S_IMODE(info.st_mode)
+    if not stat.S_ISDIR(info.st_mode) or info.st_uid != 0 or actual & 0o022 or (mode is not None and actual != mode):
+        raise DeployError("cleanup_control_parent_permissions")
+
+
+def digest_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for block in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def ensure_root_control_directory(path: Path) -> None:
+    if path.exists() or path.is_symlink():
+        require_root_directory(path, 0o700)
+        return
+    path.mkdir(mode=0o700)
+    os.chown(path, 0, 0)
+    os.chmod(path, 0o700)
+    require_root_directory(path, 0o700)
+
+
+def recovery_record_path(release_sha: str) -> Path:
+    require_hex(release_sha, "recovery_release_sha", 40)
+    return RECOVERY_RECORDS / f"{release_sha}.json"
+
+
+def write_recovery_record(release_sha: str, archive_hash: str, manifest_hash: str) -> None:
+    require_hex(archive_hash, "recovery_archive_sha256", 64)
+    require_hex(manifest_hash, "recovery_manifest_sha256", 64)
+    ensure_root_control_directory(RECOVERY_RECORDS)
+    payload = {
+        "release_sha": release_sha,
+        "recovery_archive_sha256": archive_hash,
+        "recovery_manifest_sha256": manifest_hash,
+    }
+    content = (json.dumps(payload, sort_keys=True, separators=(",", ":")) + "\n").encode("ascii")
+    path = recovery_record_path(release_sha)
+    if path.exists() or path.is_symlink():
+        if read_root_control(path) != content:
+            raise DeployError("recovery_record_mismatch")
+        return
+    atomic_write(path, content, 0o600)
+
+
+def require_recovery_record(envelope: dict[str, object]) -> None:
+    require_root_directory(RECOVERY_RECORDS, 0o700)
+    content = read_root_control(recovery_record_path(str(envelope["release_sha"])))
+    try:
+        record = json.loads(content)
+    except (ValueError, UnicodeError) as exc:
+        raise DeployError("recovery_record_invalid") from exc
+    expected = {
+        "release_sha": envelope["release_sha"],
+        "recovery_archive_sha256": envelope["recovery_archive_sha256"],
+        "recovery_manifest_sha256": envelope["recovery_manifest_sha256"],
+    }
+    if record != expected:
+        raise DeployError("recovery_record_mismatch")
+
+
+def cleanup_receipt_path(envelope_digest: str) -> Path:
+    require_hex(envelope_digest, "cleanup_envelope_sha256", 64)
+    return RECEIPTS / f"{envelope_digest}.json"
+
+
+def write_cleanup_receipt(path: Path, payload: dict[str, object]) -> None:
+    atomic_write(path, (json.dumps(payload, sort_keys=True) + "\n").encode("ascii"), 0o600)
+
+
+def cleanup(envelope_digest: str) -> dict[str, object]:
+    require_hex(envelope_digest, "cleanup_envelope_sha256", 64)
+    with deployment_lock(exclusive=True):
+        envelope, envelope_path = read_cleanup_envelope(envelope_digest)
+        plan = cleanup_plan(str(envelope["release_sha"]), str(envelope["current_sha"]), str(envelope["rollback_sha"]))
+        if any(envelope.get(key) != value for key, value in plan.items()):
+            raise DeployError("cleanup_plan_changed")
+        require_recovery_record(envelope)
+        if not shutil.rmtree.avoids_symlink_attacks:
+            raise DeployError("cleanup_safe_rmtree_required")
+        free_before = shutil.disk_usage(BASE).free
+        if free_before < MINIMUM_RESERVE_BYTES:
+            raise DeployError("cleanup_reserve_already_breached")
+        require_cleanup_parent()
+        ensure_root_control_directory(RECEIPTS)
+        receipt = cleanup_receipt_path(envelope_digest)
+        if receipt.exists() or receipt.is_symlink():
+            raise DeployError("cleanup_receipt_exists")
+        receipt_payload = {
+            **plan,
+            "status": "STARTED",
+            "envelope_sha256": envelope_digest,
+            "recovery_archive_sha256": envelope["recovery_archive_sha256"],
+            "recovery_manifest_sha256": envelope["recovery_manifest_sha256"],
+            "free_before": free_before,
+        }
+        write_cleanup_receipt(receipt, receipt_payload)
+        parent_fd = os.open(RELEASES, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        try:
+            try:
+                shutil.rmtree(str(envelope["release_sha"]), dir_fd=parent_fd)
+            except Exception as exc:
+                write_cleanup_receipt(receipt, {**receipt_payload, "status": "FAILED_AFTER_START"})
+                raise DeployError("cleanup_delete_failed") from exc
+        finally:
+            os.close(parent_fd)
+        free_after = shutil.disk_usage(BASE).free
+        current = str(envelope["current_sha"])
+        rollback = str(envelope["rollback_sha"])
+        try:
+            if free_after < MINIMUM_RESERVE_BYTES:
+                raise DeployError("cleanup_reserve_breached")
+            require_baseline(current)
+            require_cleanup_rollback(current, rollback)
+            if (RELEASES / str(envelope["release_sha"])).exists():
+                raise DeployError("cleanup_absence_failed")
+        except Exception as exc:
+            reason = str(exc) if isinstance(exc, DeployError) else "cleanup_postcheck_failed"
+            try:
+                write_cleanup_receipt(
+                    receipt,
+                    {**receipt_payload, "status": "CLEANED_POSTCHECK_FAILED", "free_after": free_after,
+                     "postcheck_reason": reason},
+                )
+            except Exception:
+                pass  # The durable STARTED receipt still proves mutation began.
+            if isinstance(exc, DeployError):
+                raise
+            raise DeployError("cleanup_postcheck_failed") from exc
+        completed = {**receipt_payload, "status": "CLEANED", "free_after": free_after}
+        try:
+            write_cleanup_receipt(receipt, completed)
+        except Exception as exc:
+            raise DeployError("cleanup_receipt_finalize_failed") from exc
+        return completed
+
+
+def require_cleanup_parent() -> None:
+    parent_info = RELEASES.lstat()
+    if parent_info.st_uid != 0 or stat.S_IMODE(parent_info.st_mode) & 0o022:
+        raise DeployError("cleanup_parent_permissions")
+
+
 def sanitize_environment() -> None:
     os.environ.clear()
     os.environ.update({"PATH": "/usr/sbin:/usr/bin:/sbin:/bin", "HOME": "/root", "LANG": "C", "LC_ALL": "C", "PYTHONNOUSERSITE": "1"})
@@ -697,6 +1012,13 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     deploy_parser.add_argument("sha")
     deploy_parser.add_argument("expected_old")
     deploy_parser.add_argument("archive_sha256")
+    for name in ("cleanup-plan",):
+        maintenance = commands.add_parser(name)
+        maintenance.add_argument("sha")
+        maintenance.add_argument("expected_current")
+        maintenance.add_argument("rollback_sha")
+    cleanup_parser = commands.add_parser("cleanup")
+    cleanup_parser.add_argument("envelope_sha256")
     return parser.parse_args(argv)
 
 
@@ -706,6 +1028,10 @@ def main(argv: list[str] | None = None) -> int:
     require_host()
     if args.command == "status":
         print(json.dumps(status(), sort_keys=True))
+    elif args.command == "cleanup-plan":
+        print(json.dumps(cleanup_plan(args.sha, args.expected_current, args.rollback_sha), sort_keys=True))
+    elif args.command == "cleanup":
+        print(json.dumps(cleanup(args.envelope_sha256), sort_keys=True))
     else:
         deploy(args.sha, args.expected_old, args.archive_sha256)
         print(json.dumps({"status": "RELEASE_OK", "sha": args.sha, "previous": args.expected_old}, sort_keys=True))

@@ -245,7 +245,7 @@ class SourceContractTests(unittest.TestCase):
         self.assertIn("if copied > max_bytes", source)
         self.assertIn("validate_archive_members(tar)", source)
         self.assertIn("wait_for_application_routes((\"/login\", \"/admin/settings/ai\"))", source)
-        status_source = source[source.index("def status"):source.index("def sanitize_environment")]
+        status_source = source[source.index("def status"):source.index("def tree_fingerprint")]
         self.assertNotIn("deployment_lock", status_source)
 
 
