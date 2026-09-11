@@ -7,7 +7,7 @@ import logging
 from collections.abc import Awaitable
 from uuid import UUID
 
-from billiard.exceptions import SoftTimeLimitExceeded
+from billiard.exceptions import SoftTimeLimitExceeded  # type: ignore[import-untyped]
 
 logger = logging.getLogger(__name__)
 

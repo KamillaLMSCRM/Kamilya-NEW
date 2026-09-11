@@ -6,7 +6,7 @@ import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import Any, Literal, Protocol, cast
+from typing import TYPE_CHECKING, Any, Literal, Protocol, cast
 from uuid import UUID
 
 from sqlalchemy import and_, func, or_, select, text, update
@@ -14,6 +14,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.ai_job import AIJob
 from app.models.tenants import Tenant
+
+if TYPE_CHECKING:
+    from app.modules.ai.generation_checkpoint import AIGenerationCheckpointRepository
 
 DEFAULT_TENANT_AI_ACTIVE_LIMIT = 2
 MAX_TENANT_AI_ACTIVE_LIMIT = 8
@@ -390,7 +393,7 @@ async def interrupt_claimed_generation_execution(
         )
     )
     await db.commit()
-    return bool(result.rowcount)
+    return bool(getattr(result, "rowcount", 0))
 
 
 def is_resumable_generation_job(job: AIJob) -> bool:
@@ -404,7 +407,7 @@ def is_resumable_generation_job(job: AIJob) -> bool:
     )
 
 
-def _generation_checkpoint_repository():
+def _generation_checkpoint_repository() -> AIGenerationCheckpointRepository:
     from app.modules.ai.generation_checkpoint import AIGenerationCheckpointRepository
 
     return AIGenerationCheckpointRepository()
