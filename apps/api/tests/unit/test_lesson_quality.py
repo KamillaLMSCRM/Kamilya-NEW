@@ -238,6 +238,54 @@ def test_english_offer_and_recommendation_nouns_are_not_sales_commands(
     assert "unsupported_relationship_claim" not in result.reason_codes
 
 
+@pytest.mark.parametrize(
+    "claim",
+    [
+        "- Offer Collection Alpha to the customer.",
+        "- **Offer** Collection Alpha to the customer.",
+        "Action: Offer Collection Alpha to the customer.",
+        "The consultant should always recommend Collection Alpha to the customer.",
+        "Staff may confidently offer Collection Alpha to the customer.",
+    ],
+)
+def test_markdown_and_modal_sales_commands_require_source_support(
+    claim: str,
+) -> None:
+    source = "Collection Alpha has a modern style and particleboard material."
+
+    result = evaluate_lesson_quality(
+        title="Collection Alpha",
+        content=f"Collection Alpha has a modern style.\n{claim}",
+        source_chunks=[source],
+    )
+
+    assert result.accepted is False
+    assert "unsupported_relationship_claim" in result.reason_codes
+
+
+@pytest.mark.parametrize(
+    "statement",
+    [
+        "- Offer Collection Alpha to the customer.",
+        "- **Offer** Collection Alpha to the customer.",
+        "Action: Offer Collection Alpha to the customer.",
+        "The consultant should always recommend Collection Alpha to the customer.",
+        "Staff may confidently offer Collection Alpha to the customer.",
+    ],
+)
+def test_explicit_markdown_and_modal_sales_commands_are_allowed(
+    statement: str,
+) -> None:
+    result = evaluate_lesson_quality(
+        title="Collection Alpha",
+        content=statement,
+        source_chunks=[statement],
+    )
+
+    assert result.accepted is True
+    assert "unsupported_relationship_claim" not in result.reason_codes
+
+
 def test_supporting_catalog_cannot_be_used_to_justify_primary_scenario() -> None:
     source = (
         "Коллекция Альфа; сценарий консультации: уточнить размеры помещения. "
