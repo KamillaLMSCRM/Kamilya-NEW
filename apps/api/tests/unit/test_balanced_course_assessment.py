@@ -295,6 +295,47 @@ def test_tabular_assessment_targets_lesson_column_without_reusing_prior_facts() 
     )
 
 
+def test_tabular_assessment_keeps_partial_target_facts_before_filling_other_columns() -> None:
+    source = _collection_table_source()
+    evidence_bank = _build_evidence_bank(source)
+    excluded_answers = {
+        "уточнить размеры помещения",
+        "согласовать оттенок",
+        "обсудить нагрузку",
+    }
+    excluded = frozenset(
+        (
+            _normalize_evidence_text(quote),
+            _normalize_evidence_text(answer),
+        )
+        for quote in evidence_bank.values()
+        for answer in excluded_answers
+        if answer in quote
+    )
+
+    result = _generate_tabular_assessment(
+        evidence_bank=evidence_bank,
+        bounded_source=source,
+        lesson_title="Практика: подбор сценария под запрос клиента",
+        lesson_objectives=["Подбирать сценарий консультации"],
+        language="ru",
+        question_count=5,
+        excluded_fact_keys=excluded,
+    )
+
+    assert result is not None
+    correct_answers = {
+        next(option.text for option in question.options if option.is_correct)
+        for question in result.mcq
+    }
+    assert {
+        "показать механизм открывания",
+        "уточнить объём хранения",
+        "собрать требования к высоте",
+    } <= correct_answers
+    assert len(result.mcq) == 5
+
+
 def test_tabular_assessment_requires_four_distinct_peer_values() -> None:
     source = "\n".join(
         [
@@ -874,6 +915,11 @@ async def test_three_whole_table_lessons_build_fifteen_distinct_questions() -> N
 
     assert [len(assessment.mcq) for assessment in result.assessments] == [5, 5, 5]
     assert assessment_paths == ["tabular", "tabular", "tabular"]
+    third_answers = {
+        next(option.text for option in question.options if option.is_correct)
+        for question in result.assessments[2].mcq
+    }
+    assert "собрать требования к высоте" in third_answers
 
 
 def _questions(

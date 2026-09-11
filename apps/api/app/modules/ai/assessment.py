@@ -808,7 +808,7 @@ def _validate_generated_question_set(data: dict[str, Any], language: str) -> lis
         for index, raw_question in enumerate(data.get("mcq", []), start=1):
             raw_options = raw_question.get("options", [])
             all_options_source_grounded.append(
-                bool(raw_question.pop("_all_options_source_grounded", False))
+                bool(raw_question.get("_all_options_source_grounded", False))
             )
             questions.append(
                 Question(
@@ -828,7 +828,7 @@ def _validate_generated_question_set(data: dict[str, Any], language: str) -> lis
                     signals=QuestionSignals(
                         source_support=SourceSupportSignal.SUPPORTED,
                         explicit_implausible_distractor_indices=tuple(
-                            raw_question.pop("_implausible_distractor_indices", ())
+                            raw_question.get("_implausible_distractor_indices", ())
                         ),
                     ),
                 )
@@ -849,9 +849,17 @@ def _validate_generated_question_set(data: dict[str, Any], language: str) -> lis
             finding_index = int(match.group(1))
         if (
             finding.code == EditorQualityIssueLabel.CORRECT_ANSWER_LENGTH_SIGNAL
-            and finding_index is not None
-            and finding_index < len(all_options_source_grounded)
-            and all_options_source_grounded[finding_index]
+            and (
+                (
+                    finding_index is not None
+                    and finding_index < len(all_options_source_grounded)
+                    and all_options_source_grounded[finding_index]
+                )
+                or (
+                    finding.field_path.startswith("questions[*]")
+                    and all(all_options_source_grounded)
+                )
+            )
         ):
             continue
         if finding.blocking or finding.code in _GENERATION_BLOCKING_ISSUES:
@@ -899,20 +907,23 @@ def _validate_generated_question_set(data: dict[str, Any], language: str) -> lis
     return issues
 
 
-def _recover_valid_assessment(
+def _recover_valid_questions(
     data: dict[str, Any],
     *,
     evidence_bank: dict[str, str],
     bounded_source: str,
     lesson_title: str,
     language: str,
-    minimum_questions: int,
     maximum_questions: int | None = None,
     excluded_fact_keys: frozenset[tuple[str, str]] = frozenset(),
-) -> LessonAssessment | None:
-    """Keep only independently valid MCQs after provider retries are exhausted."""
-    valid_questions: list[dict[str, Any]] = []
-    seen_questions: set[str] = set()
+    initial_questions: list[dict[str, Any]] | None = None,
+) -> list[dict[str, Any]]:
+    """Keep valid MCQs in priority order and extend an already valid prefix."""
+    valid_questions = copy.deepcopy(initial_questions or [])
+    seen_questions = {
+        _normalize_evidence_text(str(question.get("question", "")))
+        for question in valid_questions
+    }
     for raw_question in data.get("mcq", []):
         if not isinstance(raw_question, dict):
             continue
@@ -952,6 +963,31 @@ def _recover_valid_assessment(
                 valid_questions.append(question)
                 if maximum_questions is not None and len(valid_questions) >= maximum_questions:
                     break
+
+    return valid_questions
+
+
+def _recover_valid_assessment(
+    data: dict[str, Any],
+    *,
+    evidence_bank: dict[str, str],
+    bounded_source: str,
+    lesson_title: str,
+    language: str,
+    minimum_questions: int,
+    maximum_questions: int | None = None,
+    excluded_fact_keys: frozenset[tuple[str, str]] = frozenset(),
+) -> LessonAssessment | None:
+    """Keep only independently valid MCQs after provider retries are exhausted."""
+    valid_questions = _recover_valid_questions(
+        data,
+        evidence_bank=evidence_bank,
+        bounded_source=bounded_source,
+        lesson_title=lesson_title,
+        language=language,
+        maximum_questions=maximum_questions,
+        excluded_fact_keys=excluded_fact_keys,
+    )
 
     if len(valid_questions) < minimum_questions:
         return None
@@ -1268,7 +1304,7 @@ def _generate_tabular_assessment(
             ),
             key=lambda item: (-item[0], item[1]),
         )
-        candidates: list[dict[str, Any]] = []
+        selected_candidates: list[dict[str, Any]] = []
         for _overlap, column_index, target_header in ranked_columns:
             column_candidates: list[dict[str, Any]] = []
             row_values: list[tuple[str, str, str]] = []
@@ -1333,21 +1369,20 @@ def _generate_tabular_assessment(
                         "source_quote_id": evidence_id,
                     }
                 )
-            candidates.extend(column_candidates)
-            column_recovered = _recover_valid_assessment(
+            selected_candidates = _recover_valid_questions(
                 {"mcq": column_candidates},
                 evidence_bank=evidence_bank,
                 bounded_source=bounded_source,
                 lesson_title=lesson_title,
                 language=language,
-                minimum_questions=question_count,
                 maximum_questions=question_count,
                 excluded_fact_keys=excluded_fact_keys,
+                initial_questions=selected_candidates,
             )
-            if column_recovered is not None:
-                return column_recovered
+            if len(selected_candidates) >= question_count:
+                break
         recovered = _recover_valid_assessment(
-            {"mcq": candidates},
+            {"mcq": selected_candidates},
             evidence_bank=evidence_bank,
             bounded_source=bounded_source,
             lesson_title=lesson_title,
