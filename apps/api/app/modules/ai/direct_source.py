@@ -17,7 +17,7 @@ from uuid import UUID
 
 import httpx
 
-from app.modules.ai.architect_schema import CourseStructure
+from app.modules.ai.architect_schema import CourseStructure, Lesson
 from app.modules.ai.document_passport import (
     DocumentPassport,
     build_document_passport,
@@ -367,6 +367,67 @@ def _parse_structure(content: str) -> CourseStructure:
         raise DirectSourceError("direct_source_structure_invalid") from exc
 
 
+def _ensure_primary_section_grounding(
+    structure: CourseStructure,
+    passport: DocumentPassport,
+) -> None:
+    """Attach server-derived primary headings when the model cites only support data.
+
+    Worksheet labels in the passport are authoritative navigation metadata.  A
+    missing label is repairable without inventing course facts: adding it makes
+    retrieval include the primary learning sheet.  A lesson whose cited source
+    documents contain no primary section is left unchanged and still fails the
+    strict validator below.
+    """
+
+    if passport.confidence == "low":
+        return
+    primary_sections = [
+        section for section in passport.sections if section.role.value == "primary"
+    ]
+    if not primary_sections:
+        return
+    lessons = [lesson for module in structure.modules for lesson in module.lessons]
+
+    def normalized_headings(lesson: Lesson) -> set[str]:
+        return {
+            heading.casefold().removeprefix("[worksheet] ").strip()
+            for heading in lesson.relevant_headings
+            if heading.strip()
+        }
+
+    # Preserve whole-course coverage first.  When several primary worksheets
+    # exist, distribute missing labels across eligible lessons deterministically.
+    covered = set().union(*(normalized_headings(lesson) for lesson in lessons))
+    for section in primary_sections:
+        label = section.name.casefold().strip()
+        if label in covered:
+            continue
+        candidates = [
+            lesson
+            for lesson in lessons
+            if section.document_id in {str(value) for value in lesson.source_doc_ids}
+        ]
+        if not candidates:
+            continue
+        target = min(candidates, key=lambda lesson: len(lesson.relevant_headings))
+        target.relevant_headings.append(section.name)
+        covered.add(label)
+
+    # Every lesson must be grounded in at least one primary section from a
+    # document it already cites.  This prevents a large SKU/price table from
+    # becoming a standalone learning topic while retaining it as evidence.
+    for lesson in lessons:
+        headings = normalized_headings(lesson)
+        eligible = [
+            section
+            for section in primary_sections
+            if section.document_id in {str(value) for value in lesson.source_doc_ids}
+        ]
+        if eligible and not any(section.name.casefold().strip() in headings for section in eligible):
+            lesson.relevant_headings.append(eligible[0].name)
+
+
 def _validate_structure_sources(
     structure: CourseStructure,
     corpus: DirectSourceCorpus,
@@ -535,6 +596,7 @@ SELECTED SOURCES:
         await _checkpoint(check_cancelled)
         try:
             structure = _parse_structure(str(response.content or ""))
+            _ensure_primary_section_grounding(structure, passport)
             _validate_structure_sources(
                 structure,
                 corpus,

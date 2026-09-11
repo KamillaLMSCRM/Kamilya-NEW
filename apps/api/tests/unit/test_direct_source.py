@@ -753,8 +753,17 @@ async def test_direct_architect_enforces_the_adaptive_whole_course_limit():
         )
 
 
+@pytest.mark.parametrize(
+    ("model_headings", "expected_primary"),
+    [
+        (["Collections"], "Collections"),
+        (["SKU catalog"], "Collections"),
+    ],
+)
 @pytest.mark.asyncio
-async def test_direct_architect_accepts_passport_section_name_without_internal_prefix():
+async def test_direct_architect_accepts_and_repairs_passport_section_labels(
+    model_headings: list[str], expected_primary: str
+):
     """The prompt exposes `Collections`, not the converter's `[Worksheet]` marker."""
     from app.modules.ai.direct_source import (
         DirectSourceChunk,
@@ -820,7 +829,7 @@ async def test_direct_architect_accepts_passport_section_name_without_internal_p
                                         "description": "",
                                         "objectives": ["Select a collection"],
                                         "source_doc_ids": [document_id],
-                                        "relevant_headings": ["Collections"],
+                                        "relevant_headings": model_headings,
                                     }
                                 ],
                             }
@@ -837,7 +846,7 @@ async def test_direct_architect_accepts_passport_section_name_without_internal_p
         max_total_lessons=3,
     )
 
-    assert result.modules[0].lessons[0].relevant_headings == ["Collections"]
+    assert expected_primary in result.modules[0].lessons[0].relevant_headings
 
 
 @pytest.mark.asyncio

@@ -21,6 +21,7 @@ from urllib.parse import urlsplit, urlunsplit
 
 import httpx
 from dotenv import dotenv_values, load_dotenv
+from openpyxl import load_workbook
 
 ROOT = Path(__file__).resolve().parents[2]
 API_ROOT = ROOT / "apps" / "api"
@@ -226,6 +227,21 @@ def normalized_words(value: str) -> set[str]:
     return {word.casefold() for word in WORD_RE.findall(value) if word.casefold() not in STOP_WORDS}
 
 
+def fixture_focus_terms(xlsx: Path) -> set[str]:
+    workbook = load_workbook(xlsx, read_only=True, data_only=True)
+    try:
+        if "Коллекция" not in workbook.sheetnames:
+            raise AcceptanceError("fixture_primary_sheet_missing")
+        rows = workbook["Коллекция"].iter_rows(min_row=2, values_only=True)
+        return {
+            str(row[0]).strip().casefold()
+            for row in rows
+            if row and row[0] is not None and len(str(row[0]).strip()) >= 4
+        }
+    finally:
+        workbook.close()
+
+
 def has_meta_question(value: str) -> bool:
     return any(pattern.search(value) for pattern in META_QUESTION_PATTERNS)
 
@@ -246,6 +262,7 @@ def inspect_output(
     preview: dict[str, Any],
     quizzes: list[dict[str, Any]],
     recommendation: dict[str, Any],
+    focus_terms: set[str],
 ) -> tuple[list[str], dict[str, Any]]:
     failures: list[str] = []
     modules = preview.get("modules") or []
@@ -278,6 +295,18 @@ def inspect_output(
         failures.append("lesson_source_references_missing")
     if sku_title_lessons:
         failures.append("supporting_sku_became_lesson_title")
+    visible_course_text = " ".join(
+        [
+            str(preview.get("title") or ""),
+            str(preview.get("description") or ""),
+            *(str(module.get("title") or "") for module in modules),
+            *(str(lesson.get("title") or "") for lesson in lessons),
+            *(str(lesson.get("content_preview") or "") for lesson in lessons),
+        ]
+    ).casefold()
+    matched_focus_terms = {term for term in focus_terms if term in visible_course_text}
+    if len(matched_focus_terms) < min(2, len(focus_terms)):
+        failures.append("primary_collection_focus_missing")
 
     quiz_by_id = {str(quiz.get("id")): quiz for quiz in quizzes}
     expected_quiz_ids = {
@@ -356,6 +385,8 @@ def inspect_output(
         "missing_explanations": missing_explanations,
         "review_state_failures": review_state_failures,
         "duplicate_questions": duplicate_questions,
+        "primary_focus_terms_available": len(focus_terms),
+        "primary_focus_terms_matched": len(matched_focus_terms),
     }
     return failures, facts
 
@@ -376,6 +407,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     xlsx = args.xlsx.resolve(strict=True)
     if xlsx.suffix.casefold() != ".xlsx":
         raise AcceptanceError("fixture_must_be_xlsx")
+    focus_terms = fixture_focus_terms(xlsx)
 
     report: dict[str, Any] = {
         "passed": False,
@@ -434,6 +466,9 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         report["checks"].append("xlsx_uploaded")
 
         document = poll_document(client, document_id, args.index_timeout)
+        index = document["index"]
+        if not index.get("chunks_total") or index.get("chunks_indexed") != index.get("chunks_total"):
+            raise AcceptanceError("document_index_incomplete")
         report["checks"].append(f"document_index_{document['index']['status']}")
 
         stage("compatibility")
@@ -511,7 +546,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         course_id = str(job.get("course_id") or "")
         if job.get("status") != "completed":
             error_codes = [
-                str(error.get("code") or "unknown") if isinstance(error, dict) else "message"
+                str(error.get("code") or "unknown") if isinstance(error, dict) else str(error)
                 for error in job.get("errors") or []
             ]
             report["generation"] = {"status": job.get("status"), "error_codes": error_codes}
@@ -526,7 +561,12 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         preview = preview_response.json()
         quizzes_response = client.request("GET", "v1/quizzes")
         client._expect(quizzes_response, {200}, "quiz_list")
-        failures, facts = inspect_output(preview, quizzes_response.json(), recommendation)
+        failures, facts = inspect_output(
+            preview,
+            quizzes_response.json(),
+            recommendation,
+            focus_terms,
+        )
         report["quality"] = facts
         if failures:
             report["quality_failures"] = failures
