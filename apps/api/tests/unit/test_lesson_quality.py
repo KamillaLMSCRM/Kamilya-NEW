@@ -1,4 +1,5 @@
 from app.modules.ai.lesson_quality import (
+    LessonQualityEvaluation,
     capture_lesson_quality_evaluations,
     evaluate_lesson_quality,
 )
@@ -239,5 +240,33 @@ def test_quality_capture_keeps_exact_writer_corpus_and_accepted_result() -> None
 
     assert result.accepted is True
     assert events == [
-        ("Коллекция Альфа", content, tuple(source_chunks), result)
+        LessonQualityEvaluation(
+            lesson_identity=None,
+            title="Коллекция Альфа",
+            content=content,
+            source_chunks=tuple(source_chunks),
+            result=result,
+        )
     ]
+
+
+def test_relationship_claim_tracks_short_codes_and_numeric_endpoints() -> None:
+    result = evaluate_lesson_quality(
+        title="SKU",
+        content="SKU B2 определяет цену 20.",
+        source_chunks=["SKU A1 определяет цену 10."],
+    )
+
+    assert result.accepted is False
+    assert "unsupported_relationship_claim" in result.reason_codes
+
+
+def test_relationship_claim_tracks_short_alpha_sku_identifiers() -> None:
+    result = evaluate_lesson_quality(
+        title="SKU",
+        content="SKU AB определяет цену 10.",
+        source_chunks=["SKU CD определяет цену 10."],
+    )
+
+    assert result.accepted is False
+    assert "unsupported_relationship_claim" in result.reason_codes

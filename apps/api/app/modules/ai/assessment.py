@@ -1150,9 +1150,14 @@ def _generate_tabular_assessment(
         re.search(
             r"\b(?:все\s+коллекц(?:ии|ий)|кажд\w*\s+коллекц\w*|"
             r"all\s+collections|each\s+collection|every\s+collection|"
-            r"барлық\s+топтамалар|әрбір\s+топтама|"
-            r"коллекц(?:ий|иям|иями|иях)|collections|"
-            r"топтамалар(?:дың|ға|мен|да)?)\b",
+            r"барлық\s+топтамалар|әрбір\s+топтама)\b",
+            normalized_scope_text,
+        )
+    )
+    scope_limits_subjects = bool(
+        re.search(
+            r"\b(?:выбранн\w*|отдельн\w*|двух|тр[её]х|нескольк\w*|"
+            r"selected|specific|some|two|three|таңдалған)\b",
             normalized_scope_text,
         )
     )
@@ -1199,13 +1204,28 @@ def _generate_tabular_assessment(
             if cells and cells[0].strip()
         }
         if table_position >= len(lesson_tables):
+            lesson_scope_prefixes = {
+                stem[:4] for stem in lesson_stems if len(stem) >= 4
+            }
+            targets_non_subject_column = any(
+                any(
+                    len(header_stem) >= 4
+                    and header_stem[:4] in lesson_scope_prefixes
+                    for header_stem in _grounding_stems(header)
+                )
+                for header in headers[1:]
+            )
             lesson_subjects = {
                 _normalize_evidence_text(cells[0])
                 for cells, _evidence_id in resolved_rows
                 if cells
                 and _normalize_evidence_text(cells[0]) in normalized_scope_text
             }
-            if not lesson_subjects and not scope_declares_all_subjects:
+            if (
+                not lesson_subjects
+                and not scope_declares_all_subjects
+                and (scope_limits_subjects or not targets_non_subject_column)
+            ):
                 continue
         expanded_rows = list(resolved_rows)
         if len(source_column_by_table_column) == len(headers):

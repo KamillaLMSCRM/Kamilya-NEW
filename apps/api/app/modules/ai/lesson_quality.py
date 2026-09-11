@@ -16,6 +16,7 @@ from contextvars import ContextVar
 from dataclasses import dataclass
 
 _TOKEN_RE = re.compile(r"[^\W\d_]{3,}", re.UNICODE)
+_RELATIONSHIP_TOKEN_RE = re.compile(r"[\w./-]+", re.UNICODE)
 _SENTENCE_RE = re.compile(r"(?:\n+|(?<=[.!?])\s+)")
 _STOP_WORDS = frozenset(
     {
@@ -43,6 +44,10 @@ _GENERIC_MARKERS = (
 _UNSUPPORTED_RELATIONSHIP_PATTERNS = (
     re.compile(r"\b(?:прямо|напрямую)\s+связан\w*\b"),
     re.compile(r"\bоснов\w*\s+для\b"),
+    re.compile(
+        r"\b[\w./-]+\b.{0,80}\b(?:определя\w*|обусловлива\w*|"
+        r"привод\w*|требу\w*|determines?|causes?|requires?)\b"
+    ),
     re.compile(r"\bпоэтому\b.{0,100}\b(?:важно|нужно|следует|необходимо)\b"),
     re.compile(
         r"\bзначит\b.{0,140}\b(?:рабоч\w*\s+шаг\w*|важно|нужно|следует|необходимо)\b"
@@ -76,9 +81,6 @@ _RELATIONSHIP_OPERATOR_ROOTS = (
     "need",
 )
 LESSON_QUALITY_POLICY_VERSION = "lesson-quality-v5"
-_LESSON_QUALITY_EVENTS: ContextVar[
-    list[tuple[str, str, tuple[str, ...], LessonQualityResult]] | None
-] = ContextVar("lesson_quality_events", default=None)
 
 
 def _normalize(value: str) -> str:
@@ -87,6 +89,29 @@ def _normalize(value: str) -> str:
 
 def _content_tokens(value: str) -> tuple[str, ...]:
     return tuple(token for token in _normalize(value).split() if token not in _STOP_WORDS)
+
+
+def _relationship_tokens(value: str) -> tuple[str, ...]:
+    tokens: list[str] = []
+    raw_tokens = _RELATIONSHIP_TOKEN_RE.findall(value.replace("ё", "е"))
+    for index, raw_token in enumerate(raw_tokens):
+        token = raw_token.casefold().strip("._-/")
+        if not token or token in _STOP_WORDS:
+            continue
+        previous = (
+            raw_tokens[index - 1].casefold().strip("._-/") if index else ""
+        )
+        is_short_identifier = (
+            len(token) >= 2
+            and previous in {"sku", "id", "код", "артикул", "модель"}
+        )
+        if (
+            any(character.isdigit() for character in token)
+            or len(token) >= 3
+            or is_short_identifier
+        ):
+            tokens.append(token)
+    return tuple(tokens)
 
 
 def _sentences(value: str) -> tuple[str, ...]:
@@ -117,7 +142,7 @@ def _relationship_claim_supported(
         if pattern.search(fragment)
     )
     for claim in content_fragments:
-        claim_tokens = set(_content_tokens(claim))
+        claim_tokens = set(_relationship_tokens(claim))
         anchor_tokens = {
             token
             for token in claim_tokens
@@ -125,7 +150,7 @@ def _relationship_claim_supported(
         }
         if not any(
             anchor_tokens
-            and anchor_tokens.issubset(set(_content_tokens(source_fragment)))
+            and anchor_tokens.issubset(set(_relationship_tokens(source_fragment)))
             for source_fragment in source_fragments
         ):
             return False
@@ -142,12 +167,26 @@ class LessonQualityResult:
     repeated_sentence_count: int
 
 
+@dataclass(frozen=True, slots=True)
+class LessonQualityEvaluation:
+    lesson_identity: tuple[int, int] | None
+    title: str
+    content: str
+    source_chunks: tuple[str, ...]
+    result: LessonQualityResult
+
+
+_LESSON_QUALITY_EVENTS: ContextVar[list[LessonQualityEvaluation] | None] = (
+    ContextVar("lesson_quality_events", default=None)
+)
+
+
 @contextmanager
 def capture_lesson_quality_evaluations() -> Iterator[
-    list[tuple[str, str, tuple[str, ...], LessonQualityResult]]
+    list[LessonQualityEvaluation]
 ]:
     """Capture exact validator inputs only inside an explicit task context."""
-    events: list[tuple[str, str, tuple[str, ...], LessonQualityResult]] = []
+    events: list[LessonQualityEvaluation] = []
     token = _LESSON_QUALITY_EVENTS.set(events)
     try:
         yield events
@@ -160,6 +199,7 @@ def evaluate_lesson_quality(
     title: str,
     content: str,
     source_chunks: Sequence[str],
+    lesson_identity: tuple[int, int] | None = None,
 ) -> LessonQualityResult:
     """Evaluate one lesson against the exact excerpts supplied to its writer."""
 
@@ -227,13 +267,22 @@ def evaluate_lesson_quality(
     )
     events = _LESSON_QUALITY_EVENTS.get()
     if events is not None:
-        events.append((title, content, tuple(source_chunks), result))
+        events.append(
+            LessonQualityEvaluation(
+                lesson_identity=lesson_identity,
+                title=title,
+                content=content,
+                source_chunks=tuple(source_chunks),
+                result=result,
+            )
+        )
     return result
 
 
 __all__ = [
     "LESSON_QUALITY_POLICY_VERSION",
     "LessonQualityResult",
+    "LessonQualityEvaluation",
     "capture_lesson_quality_evaluations",
     "evaluate_lesson_quality",
 ]

@@ -1041,6 +1041,7 @@ Objectives: {json.dumps(objectives, ensure_ascii=False)}
                         title=lesson.title,
                         content=content,
                         source_chunks=bounded_texts,
+                        lesson_identity=(module_index, lesson_index),
                     )
                     if quality.accepted:
                         break

@@ -9,6 +9,7 @@ question, and removes only the objects created by this run.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -64,6 +65,9 @@ STOP_WORDS = {
     "будет", "какая", "какие", "какой", "материал", "материале", "правильный",
     "согласно", "указано", "урока", "уроке", "этого", "этой", "является",
 }
+SYNTHETIC_FIXTURE_SHA256 = (
+    "97b6bdc3c2a310aaf0b1fceb685ef5cf7bc0c1a86db5bce0e40cbd7965a9cdf7"
+)
 
 
 class AcceptanceError(RuntimeError):
@@ -220,12 +224,14 @@ def execute_generation_locally(
         "tabular_assessment_lessons": assessment_paths.count("tabular"),
         "_accepted_lesson_evidence": [
             {
-                "title": title,
-                "content": content,
-                "source_chunks": list(source_chunks),
+                "module_index": evaluation.lesson_identity[0],
+                "lesson_index": evaluation.lesson_identity[1],
+                "title": evaluation.title,
+                "content": evaluation.content,
+                "source_chunks": list(evaluation.source_chunks),
             }
-            for title, content, source_chunks, quality in quality_evaluations
-            if quality.accepted
+            for evaluation in quality_evaluations
+            if evaluation.result.accepted and evaluation.lesson_identity is not None
         ],
     }
 
@@ -320,6 +326,8 @@ def choices_share_only_one_word_suffix(choices: list[str]) -> bool:
 def captured_source_chunks_for_lesson(
     accepted_lesson_evidence: list[dict[str, Any]],
     *,
+    module_index: int,
+    lesson_index: int,
     title: str,
     content: str,
 ) -> list[str] | None:
@@ -329,7 +337,10 @@ def captured_source_chunks_for_lesson(
         (
             event
             for event in reversed(accepted_lesson_evidence)
-            if event.get("title") == title and event.get("content") == content
+            if event.get("module_index") == module_index
+            and event.get("lesson_index") == lesson_index
+            and event.get("title") == title
+            and event.get("content") == content
         ),
         None,
     )
@@ -349,7 +360,12 @@ def inspect_output(
 ) -> tuple[list[str], dict[str, Any]]:
     failures: list[str] = []
     modules = preview.get("modules") or []
-    lessons = [lesson for module in modules for lesson in module.get("lessons", [])]
+    lesson_coordinates = [
+        (module_index, lesson_index, lesson)
+        for module_index, module in enumerate(modules)
+        for lesson_index, lesson in enumerate(module.get("lessons", []))
+    ]
+    lessons = [lesson for _module_index, _lesson_index, lesson in lesson_coordinates]
     if not modules:
         failures.append("course_has_no_modules")
     if not lessons:
@@ -389,11 +405,13 @@ def inspect_output(
 
     captured_evidence_matches = 0
     unsupported_relationship_claims = 0
-    for lesson in lessons:
+    for module_index, lesson_index, lesson in lesson_coordinates:
         title = str(lesson.get("title") or "")
         content = str(lesson.get("content_preview") or "")
         source_chunks = captured_source_chunks_for_lesson(
             accepted_lesson_evidence,
+            module_index=module_index,
+            lesson_index=lesson_index,
             title=title,
             content=content,
         )
@@ -517,7 +535,7 @@ def build_review_sample(
     preview: dict[str, Any],
     quizzes: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    """Keep bounded synthetic learner text for a human quality review."""
+    """Keep full generated text for the hash-pinned synthetic fixture only."""
 
     quiz_by_id = {str(quiz.get("id")): quiz for quiz in quizzes}
     modules: list[dict[str, Any]] = []
@@ -528,7 +546,7 @@ def build_review_sample(
             sampled_lessons.append(
                 {
                     "title": str(lesson.get("title") or "")[:240],
-                    "content_preview": str(lesson.get("content_preview") or "")[:8000],
+                    "content": str(lesson.get("content_preview") or ""),
                 }
             )
             quiz = quiz_by_id.get(str(lesson.get("quiz_id") or ""))
@@ -576,12 +594,16 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     xlsx = args.xlsx.resolve(strict=True)
     if xlsx.suffix.casefold() != ".xlsx":
         raise AcceptanceError("fixture_must_be_xlsx")
+    fixture_sha256 = hashlib.sha256(xlsx.read_bytes()).hexdigest()
+    if fixture_sha256 != SYNTHETIC_FIXTURE_SHA256:
+        raise AcceptanceError("fixture_not_approved_synthetic_workbook")
     focus_terms = fixture_focus_terms(xlsx)
 
     report: dict[str, Any] = {
         "passed": False,
         "expected_release_sha": args.expected_release_sha,
         "synthetic_fixture_bytes": xlsx.stat().st_size,
+        "synthetic_fixture_sha256": fixture_sha256,
         "checks": [],
         "quality": {},
         "cleanup": {"course": False, "document": False},

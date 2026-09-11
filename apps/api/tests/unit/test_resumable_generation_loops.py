@@ -227,5 +227,11 @@ async def test_direct_writer_rejects_checkpoint_from_older_quality_policy() -> N
             SimpleNamespace(),
             corpus,
             _structure(1),
-            completed_lessons={(0, 0): LessonContent(title="Lesson 0", content="legacy")},
+            completed_lessons={
+                (0, 0): LessonContent(
+                    title="Lesson 0",
+                    content="legacy",
+                    quality_policy_version="lesson-quality-v4",
+                )
+            },
         )
