@@ -614,9 +614,10 @@ async def cancel_generation(
     try:
         from app.core.celery_app import celery_app
 
+        job_result = getattr(job, "result", None)
         delivery_task_id = (
-            job.result.get("delivery_task_id")
-            if isinstance(job.result, dict)
+            job_result.get("delivery_task_id")
+            if isinstance(job_result, dict)
             else None
         ) or job_id
         celery_app.control.revoke(delivery_task_id, terminate=False)
