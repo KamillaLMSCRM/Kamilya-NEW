@@ -203,6 +203,8 @@ async def test_direct_writer_skips_restored_positions_and_checkpoints_only_new_c
         "lesson-quality-v6",
         "lesson-quality-v7",
         "lesson-quality-v8",
+        "lesson-quality-v9",
+        "lesson-quality-v10",
     ],
 )
 async def test_direct_writer_rejects_checkpoint_from_older_quality_policy(

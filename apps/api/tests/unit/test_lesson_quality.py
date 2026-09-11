@@ -46,7 +46,7 @@ def test_substantive_product_lesson_is_accepted() -> None:
         title="Как подобрать элементы Чикаго",
         content=(
             "## Как подобрать элементы Чикаго\n\n"
-            "Для хранения одежды предложите шкаф 3DG2S. "
+            "Коллекция Чикаго включает шкаф 3DG2S для хранения одежды. "
             "Зеркало LUS/7/10 дополняет комплект. "
             "Оба элемента представлены с фасадами в цвете дуб вотан."
         ),
@@ -130,6 +130,8 @@ def test_tabular_association_remains_valid_when_described_neutrally() -> None:
         "Материал можно использовать как пояснение к сценарию.",
         "Соотнесите запрос клиента с преимуществом коллекции.",
         "Эти атрибуты — ориентиры для построения диалога.",
+        "Предложите коллекцию Альфа покупателю.",
+        "Recommend Collection Alpha to the customer.",
     ],
 )
 def test_tabular_rows_cannot_be_expanded_into_unstated_sales_advice(
@@ -155,6 +157,26 @@ def test_explicit_customer_instruction_from_source_is_allowed() -> None:
         "Если клиенту важна гибкость планировки, предложите коллекцию Альфа."
     )
 
+    result = evaluate_lesson_quality(
+        title="Коллекция Альфа",
+        content=statement,
+        source_chunks=[statement],
+    )
+
+    assert result.accepted is True
+    assert "unsupported_relationship_claim" not in result.reason_codes
+
+
+@pytest.mark.parametrize(
+    "statement",
+    [
+        "Предложите коллекцию Альфа покупателю.",
+        "Recommend Collection Alpha to the customer.",
+    ],
+)
+def test_explicit_direct_sales_instruction_from_source_is_allowed(
+    statement: str,
+) -> None:
     result = evaluate_lesson_quality(
         title="Коллекция Альфа",
         content=statement,
