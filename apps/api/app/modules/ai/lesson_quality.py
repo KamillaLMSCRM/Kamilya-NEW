@@ -17,6 +17,9 @@ from dataclasses import dataclass
 
 _TOKEN_RE = re.compile(r"[^\W\d_]{3,}", re.UNICODE)
 _RELATIONSHIP_TOKEN_RE = re.compile(r"[\w./-]+", re.UNICODE)
+_RELATIONSHIP_FRAGMENT_SPLIT_RE = re.compile(
+    r"(?:[!?]+|\n+|\.(?!\w)|(?<!\w)\.)"
+)
 _SENTENCE_RE = re.compile(r"(?:\n+|(?<=[.!?])\s+)")
 _STOP_WORDS = frozenset(
     {
@@ -43,6 +46,10 @@ _GENERIC_MARKERS = (
 )
 _UNSUPPORTED_RELATIONSHIP_PATTERNS = (
     re.compile(r"\b(?:прямо|напрямую)\s+связан\w*\b"),
+    re.compile(
+        r"\b(?:связан\w*\s+с|links?\s+to|(?:is\s+)?linked\s+to|"
+        r"(?:is\s+)?related\s+to)\b"
+    ),
     re.compile(r"\bоснов\w*\s+для\b"),
     re.compile(
         r"\b[\w./-]+\b.{0,80}\b(?:определя\w*|обусловлива\w*|"
@@ -82,11 +89,21 @@ _RELATIONSHIP_OPERATOR_ROOTS = (
 )
 _RELATIONSHIP_OPERATOR_RE = re.compile(
     r"\b(?:(?:прямо|напрямую)\s+связан\w*|основ\w*\s+для|"
+    r"связан\w*\s+с|links?\s+to|(?:is\s+)?linked\s+to|"
+    r"(?:is\s+)?related\s+to|"
     r"определя\w*|обусловлива\w*|привод\w*|требу\w*|поэтому|значит|"
     r"directly\s+(?:linked|related)|basis\s+for|therefore|"
     r"determines?|causes?|requires?|must|should|need)\b"
 )
-LESSON_QUALITY_POLICY_VERSION = "lesson-quality-v7"
+_RELATIONSHIP_SHORT_STOP_WORDS = frozenset(
+    {
+        "в", "во", "на", "по", "к", "ко", "с", "со", "о", "об", "от",
+        "до", "из", "за", "у", "и", "а", "но", "не", "то", "же", "бы",
+        "ли", "of", "to", "is", "as", "at", "by", "in", "on", "or", "an",
+        "be", "if",
+    }
+)
+LESSON_QUALITY_POLICY_VERSION = "lesson-quality-v8"
 
 
 def _normalize(value: str) -> str:
@@ -100,22 +117,15 @@ def _content_tokens(value: str) -> tuple[str, ...]:
 def _relationship_tokens(value: str) -> tuple[str, ...]:
     tokens: list[str] = []
     raw_tokens = _RELATIONSHIP_TOKEN_RE.findall(value.replace("ё", "е"))
-    for index, raw_token in enumerate(raw_tokens):
+    for raw_token in raw_tokens:
         token = raw_token.casefold().strip("._-/")
-        if not token or token in _STOP_WORDS:
-            continue
-        previous = (
-            raw_tokens[index - 1].casefold().strip("._-/") if index else ""
-        )
-        is_short_identifier = (
-            len(token) >= 2
-            and previous in {"sku", "id", "код", "артикул", "модель"}
-        )
         if (
-            any(character.isdigit() for character in token)
-            or len(token) >= 3
-            or is_short_identifier
+            not token
+            or token in _STOP_WORDS
+            or token in _RELATIONSHIP_SHORT_STOP_WORDS
         ):
+            continue
+        if any(character.isdigit() for character in token) or len(token) >= 2:
             tokens.append(token)
     return tuple(tokens)
 
@@ -134,6 +144,12 @@ def _relationship_operator(value: str) -> str:
     normalized = value.casefold().replace("ё", "е")
     if re.search(r"(?:прямо|напрямую)\s+связан|directly\s+linked", normalized):
         return "direct_link"
+    if re.search(
+        r"связан\w*\s+с|links?\s+to|(?:is\s+)?linked\s+to", normalized
+    ):
+        return "link"
+    if re.search(r"(?:is\s+)?related\s+to", normalized):
+        return "relation"
     if "directly related" in normalized:
         return "direct_relation"
     if re.search(r"основ\w*\s+для|basis\s+for", normalized):
@@ -191,12 +207,12 @@ def _relationship_claim_supported(
     """Require the same relationship and its local anchors in one source fragment."""
     content_fragments = tuple(
         fragment.strip()
-        for fragment in re.split(r"[.!?\n]+", content)
+        for fragment in _RELATIONSHIP_FRAGMENT_SPLIT_RE.split(content)
         if pattern.search(fragment)
     )
     source_fragments = tuple(
         fragment.strip()
-        for fragment in re.split(r"[.!?\n]+", source)
+        for fragment in _RELATIONSHIP_FRAGMENT_SPLIT_RE.split(source)
         if pattern.search(fragment)
     )
     for claim in content_fragments:

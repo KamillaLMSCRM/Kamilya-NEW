@@ -298,3 +298,78 @@ def test_relationship_claim_preserves_operator_identity(source: str) -> None:
 
     assert result.accepted is False
     assert "unsupported_relationship_claim" in result.reason_codes
+
+
+@pytest.mark.parametrize(
+    "claim",
+    [
+        "SKU A1 связан с ценой 10.",
+        "SKU A1 links to price 10.",
+        "SKU A1 is linked to price 10.",
+        "SKU A1 is related to price 10.",
+    ],
+)
+def test_relationship_claim_rejects_unstated_link_operator(claim: str) -> None:
+    result = evaluate_lesson_quality(
+        title="SKU",
+        content=claim,
+        source_chunks=["SKU A1 определяет цену 10."],
+    )
+
+    assert result.accepted is False
+    assert "unsupported_relationship_claim" in result.reason_codes
+
+
+@pytest.mark.parametrize(
+    "statement",
+    [
+        "SKU A1 связан с ценой 10.",
+        "SKU A1 links to price 10.",
+        "SKU A1 is linked to price 10.",
+        "SKU A1 is related to price 10.",
+    ],
+)
+def test_explicit_link_relationship_with_exact_source_is_allowed(
+    statement: str,
+) -> None:
+    result = evaluate_lesson_quality(
+        title="SKU",
+        content=statement,
+        source_chunks=[statement],
+    )
+
+    assert result.accepted is True
+    assert "unsupported_relationship_claim" not in result.reason_codes
+
+
+def test_relationship_claim_tracks_unlabelled_short_alpha_identifiers() -> None:
+    result = evaluate_lesson_quality(
+        title="Codes",
+        content="CD determines price 10.",
+        source_chunks=["AB determines price 10."],
+    )
+
+    assert result.accepted is False
+    assert "unsupported_relationship_claim" in result.reason_codes
+
+
+def test_relationship_claim_preserves_decimal_endpoint() -> None:
+    result = evaluate_lesson_quality(
+        title="Price",
+        content="SKU A1 determines price 10.6.",
+        source_chunks=["SKU A1 determines price 10.5."],
+    )
+
+    assert result.accepted is False
+    assert "unsupported_relationship_claim" in result.reason_codes
+
+
+def test_relationship_claim_preserves_dotted_identifier() -> None:
+    result = evaluate_lesson_quality(
+        title="Codes",
+        content="CD.1 determines price 10.5.",
+        source_chunks=["AB.1 determines price 10.5."],
+    )
+
+    assert result.accepted is False
+    assert "unsupported_relationship_claim" in result.reason_codes
