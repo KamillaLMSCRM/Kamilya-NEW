@@ -8,7 +8,12 @@ from pydantic import BaseModel
 from sqlalchemy import select, text
 from starlette.responses import JSONResponse
 
-from app.core.auth import create_access_token, create_refresh_token, decode_token, get_current_user
+from app.core.auth import (
+    create_access_token,
+    create_refresh_token,
+    decode_token,
+    get_current_user,
+)
 from app.core.config import get_settings
 from app.core.db import get_db
 from app.core.email import EmailService
@@ -35,6 +40,7 @@ from app.modules.auth.service import (
     get_user_roles,
     issue_refresh_session,
     refresh_access_token,
+    validate_active_refresh_session,
 )
 from app.modules.auth.telegram import is_telegram_login_enabled
 from app.modules.demo.service import ensure_demo_student_course
@@ -150,25 +156,29 @@ async def switch_role(
     if req.role not in roles:
         raise HTTPException(status_code=403, detail="Role is not assigned to this account")
 
+    # Role selection must not silently start a fresh eight-hour browser
+    # session. Preserve the original password-login timestamp from the
+    # allowlisted refresh credential and reject stale or mismatched cookies.
+    if not prior_refresh:
+        raise HTTPException(status_code=401, detail="Missing refresh token")
+    prior_payload = await validate_active_refresh_session(db, prior_refresh, expected_user=user)
+    auth_time = prior_payload.get("auth_time", prior_payload["iat"])
+
     access_token = create_access_token({
         "sub": str(user.id),
         "tenant_id": user.tenant_id,
         "roles": roles,
         "active_role": req.role,
+        "auth_time": auth_time,
     })
     refresh_token = create_refresh_token({
         "sub": str(user.id),
         "tenant_id": user.tenant_id,
         "active_role": req.role,
+        "platform": user.tenant_id is None and user.role == "superadmin",
+        "auth_time": auth_time,
     })
-    if prior_refresh:
-        try:
-            await blacklist_refresh_token(db, prior_refresh)
-        except HTTPException:
-            # A stale/invalid cookie must not prevent an authenticated user
-            # from selecting another role. The replacement session below is
-            # still allowlisted before it is returned.
-            pass
+    await blacklist_refresh_token(db, prior_refresh)
     user_payload = await build_user_payload(db, user, active_role=req.role)
     await issue_refresh_session(db, user, refresh_token)
     await db.commit()
@@ -336,17 +346,20 @@ async def verify_email_code(req: EmailCodeVerifyRequest, request: Request, respo
     user.email_verified_at = verified_at
     await db.flush()
     user_payload = await build_user_payload(db, user)
+    auth_time = int(verified_at.timestamp())
 
     access_token = create_access_token({
         "sub": str(user.id),
         "tenant_id": user.tenant_id,
         "roles": user_payload["roles"],
         "active_role": user_payload["role"],
+        "auth_time": auth_time,
     })
     refresh_token = create_refresh_token({
         "sub": str(user.id),
         "tenant_id": user.tenant_id,
         "active_role": user_payload["role"],
+        "auth_time": auth_time,
     })
     await issue_refresh_session(db, user, refresh_token)
     await log_action(
@@ -445,16 +458,19 @@ async def check_auth_code(req: CheckCodeRequest, request: Request, response: Res
     if isinstance(tenant_obj, dict) and isinstance(tenant_obj.get("id"), UUID):
         tenant_obj["id"] = str(tenant_obj["id"])
 
+    auth_time = int(datetime.now(timezone.utc).timestamp())
     access_token = create_access_token({
         "sub": user_data["user_id"],
         "tenant_id": user_data["tenant_id"],
         "roles": [user_data["role"]],
         "active_role": user_data["role"],
+        "auth_time": auth_time,
     })
     refresh_token = create_refresh_token({
         "sub": user_data["user_id"],
         "tenant_id": user_data["tenant_id"],
         "active_role": user_data["role"],
+        "auth_time": auth_time,
     })
     from types import SimpleNamespace
     user = SimpleNamespace(
@@ -632,11 +648,13 @@ async def demo_login(req: DemoLoginRequest, request: Request, response: Response
                     detail="Demo course is temporarily unavailable",
                 )
 
+        auth_time = int(datetime.now(timezone.utc).timestamp())
         access_token = create_access_token({
             "sub": str(user.id),
             "tenant_id": str(user.tenant_id),
             "roles": [user.role],
             "active_role": user.role,
+            "auth_time": auth_time,
         })
 
         user_data = {
@@ -661,6 +679,7 @@ async def demo_login(req: DemoLoginRequest, request: Request, response: Response
             "sub": str(user.id),
             "tenant_id": str(user.tenant_id),
             "active_role": user.role,
+            "auth_time": auth_time,
         })
         await issue_refresh_session(db, user, refresh_token)
         await db.commit()

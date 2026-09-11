@@ -107,15 +107,18 @@ async def superadmin_login(
     await db.flush()
 
     # Build JWT — tenant_id=None is meaningful here (no RLS context set).
+    auth_time = int(user.last_login.timestamp())
     access_token = create_access_token({
         "sub": str(user.id),
         "tenant_id": None,  # explicit — distinguishes from missing key
         "roles": ["superadmin"],
+        "auth_time": auth_time,
     })
     refresh_token = create_refresh_token({
         "sub": str(user.id),
         "tenant_id": None,
         "platform": True,
+        "auth_time": auth_time,
     })
 
     # AuditLog.tenant_id is NOT NULL — use a sentinel UUID for

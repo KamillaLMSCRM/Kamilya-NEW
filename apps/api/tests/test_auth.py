@@ -43,6 +43,28 @@ def test_create_access_token_has_required_claims():
     assert payload["sub"] == data["sub"]
     assert payload["roles"] == data["roles"]
     assert payload["type"] == "access"
+    assert payload["auth_time"] == payload["iat"]
+    assert payload["session_exp"] == payload["auth_time"] + (8 * 60 * 60)
+    assert payload["exp"] <= payload["session_exp"]
+
+
+def test_access_token_preserves_original_browser_session_deadline():
+    auth_time = int((datetime.now(UTC) - timedelta(hours=7, minutes=50)).timestamp())
+    token = auth_module.create_access_token(
+        {"sub": str(uuid4()), "tenant_id": str(uuid4()), "auth_time": auth_time},
+        expires_delta=timedelta(hours=2),
+    )
+    payload = jwt.decode(
+        token,
+        "test-secret-key-for-jwt-validation-2026",
+        algorithms=["HS256"],
+        audience="kamilya-lms",
+        issuer="kamilya-lms",
+    )
+
+    assert payload["auth_time"] == auth_time
+    assert payload["session_exp"] == auth_time + (8 * 60 * 60)
+    assert payload["exp"] == payload["session_exp"]
 
 
 def test_create_refresh_token_has_type_claim():

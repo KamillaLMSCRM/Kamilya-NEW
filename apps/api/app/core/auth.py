@@ -107,13 +107,22 @@ def _json_safe_jwt_payload(data: dict) -> dict:
 def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
     to_encode = _json_safe_jwt_payload(data)
     now = datetime.now(UTC)
-    expire = now + (expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES))
+    auth_time = int(to_encode.get("auth_time") or now.timestamp())
+    session_exp = auth_time + (settings.AUTH_SESSION_MAX_AGE_HOURS * 60 * 60)
+    configured_expire = now + (expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES))
+    expire = min(configured_expire, datetime.fromtimestamp(session_exp, UTC))
     # Standard JWT claims must be NumericDate (Unix seconds, int) per
     # RFC 7519 §4.1. PyJWT verify_exp calls datetime.fromtimestamp()
     # on these — passing isoformat() strings broke /refresh on 2026-06-30.
     to_encode["exp"] = int(expire.timestamp())
     to_encode["iat"] = int(now.timestamp())
     to_encode["nbf"] = int(now.timestamp())
+    # Expose the absolute browser-session deadline to the SPA so an idle,
+    # already-rendered page can close itself without waiting for another API
+    # request. The server remains authoritative and applies the same deadline
+    # to refresh-token rotation.
+    to_encode["auth_time"] = auth_time
+    to_encode["session_exp"] = session_exp
     to_encode["jti"] = str(uuid4())
     # Access tokens are the only JWTs accepted by get_current_user().  Do not
     # let callers accidentally mint a capability token that is also reusable

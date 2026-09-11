@@ -66,6 +66,45 @@ async def issue_refresh_session(
     await db.flush()
 
 
+async def validate_active_refresh_session(
+    db: AsyncSession,
+    refresh_token: str,
+    *,
+    expected_user: User,
+) -> dict:
+    """Lock and validate an allowlisted browser refresh credential."""
+    payload = decode_token(refresh_token)
+    expected_tenant_id = str(expected_user.tenant_id) if expected_user.tenant_id is not None else None
+    if (
+        payload.get("type") != "refresh"
+        or payload.get("sub") != str(expected_user.id)
+        or payload.get("tenant_id") != expected_tenant_id
+    ):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
+    enforce_refresh_session_age(payload)
+    await _set_session_context(
+        db,
+        expected_user.tenant_id,
+        platform=expected_user.tenant_id is None and expected_user.role == "superadmin",
+    )
+    session = (
+        await db.execute(
+            select(UserSession)
+            .where(
+                UserSession.refresh_token == _hash_token(refresh_token),
+                UserSession.user_id == expected_user.id,
+                UserSession.tenant_id.is_(None)
+                if expected_user.tenant_id is None
+                else UserSession.tenant_id == expected_user.tenant_id,
+            )
+            .with_for_update()
+        )
+    ).scalar_one_or_none()
+    if not session or session.expires_at <= datetime.now(timezone.utc):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
+    return payload
+
+
 async def get_user_roles(db: AsyncSession, user: User) -> list[str]:
     """Return assigned roles with the user's primary role first."""
     if user.tenant_id is None:
@@ -196,16 +235,19 @@ async def create_user_and_tokens(
     await db.flush()
 
     roles = [role]
+    auth_time = int(datetime.now(timezone.utc).timestamp())
     access_token = create_access_token({
         "sub": str(user.id),
         "tenant_id": user.tenant_id,  # UUID or None — never str(None)
         "roles": roles,
         "active_role": role,
+        "auth_time": auth_time,
     })
     refresh_token = create_refresh_token({
         "sub": str(user.id),
         "tenant_id": user.tenant_id,
         "active_role": role,
+        "auth_time": auth_time,
     })
     return user, access_token, refresh_token
 
@@ -275,18 +317,21 @@ async def authenticate_user(db: AsyncSession, email: str, password: str) -> tupl
 
     roles = await get_user_roles(db, user)
     active_role = user.role
+    auth_time = int(datetime.now(timezone.utc).timestamp())
 
     access_token = create_access_token({
         "sub": str(user.id),
         "tenant_id": user.tenant_id,  # UUID or None — never str(None)
         "roles": roles,
         "active_role": active_role,
+        "auth_time": auth_time,
     })
     refresh_token = create_refresh_token({
         "sub": str(user.id),
         "tenant_id": user.tenant_id,
         "active_role": active_role,
         "platform": user.tenant_id is None and user.role == "superadmin",
+        "auth_time": auth_time,
     })
     return user, access_token, refresh_token
 
@@ -333,6 +378,7 @@ async def refresh_access_token(db: AsyncSession, refresh_token: str) -> tuple[st
         "tenant_id": user.tenant_id,
         "roles": roles,
         "active_role": active_role,
+        "auth_time": payload.get("auth_time", payload["iat"]),
     })
     new_refresh = create_refresh_token({
         "sub": str(user.id),

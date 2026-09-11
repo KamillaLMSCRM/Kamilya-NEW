@@ -618,17 +618,20 @@ async def register_tenant(
         )
     ).scalar_one()
 
+    auth_time = int(datetime.now(UTC).timestamp())
     access_token = create_access_token(
         {
             "sub": str(user.id),
             "tenant_id": tenant.id,
             "roles": ["methodologist", "admin"],
+            "auth_time": auth_time,
         }
     )
     refresh_token = create_refresh_token(
         {
             "sub": str(user.id),
             "tenant_id": tenant.id,
+            "auth_time": auth_time,
         }
     )
     await issue_refresh_session(db, user, refresh_token, user_agent=request.headers.get("user-agent"), ip_address=request.client.host if request.client else None)

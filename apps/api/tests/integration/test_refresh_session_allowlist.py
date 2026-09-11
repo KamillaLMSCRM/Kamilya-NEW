@@ -1,7 +1,7 @@
 import pytest
 from fastapi import HTTPException
 
-from app.core.auth import create_refresh_token
+from app.core.auth import create_refresh_token, decode_token
 from app.modules.auth.service import (
     blacklist_refresh_token,
     issue_refresh_session,
@@ -17,8 +17,14 @@ async def test_refresh_rotation_replay_and_logout(db_session, make_tenant, make_
     await issue_refresh_session(db_session, user, token)
     await db_session.commit()
 
-    _, rotated, _ = await refresh_access_token(db_session, token)
+    access, rotated, _ = await refresh_access_token(db_session, token)
     await db_session.commit()
+    original_payload = decode_token(token)
+    access_payload = decode_token(access)
+    rotated_payload = decode_token(rotated)
+    assert access_payload["auth_time"] == original_payload["auth_time"]
+    assert access_payload["session_exp"] == original_payload["exp"]
+    assert rotated_payload["auth_time"] == original_payload["auth_time"]
     with pytest.raises(HTTPException, match="Invalid refresh token"):
         await refresh_access_token(db_session, token)
 

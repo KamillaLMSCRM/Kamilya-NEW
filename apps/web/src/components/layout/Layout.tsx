@@ -12,6 +12,8 @@ import { toast } from '@/components/ui/Toast';
 import { DemoLimitProvider } from '@/components/demo/DemoLimitProvider';
 import { DemoBanner } from '@/components/demo/DemoBanner';
 import { getAuthRedirect } from '@/lib/rolePolicy';
+import { getSessionExpiryMs, startSessionDeadlineGuard } from '@/lib/sessionDeadline';
+import { getAccessToken } from '@/lib/auth';
 
 const SidebarContext = createContext({ collapsed: false });
 
@@ -23,7 +25,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const { t } = useT();
-  const { user, accessToken, initialized, initialize } = useAuthStore();
+  const { user, accessToken, initialized, initialize, logout } = useAuthStore();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   // Track active generation to surface a toast when it finishes (so a user
@@ -46,6 +48,43 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (authRedirect) router.replace(authRedirect);
   }, [authRedirect, router]);
+
+  useEffect(() => {
+    if (!initialized || !accessToken) return;
+
+    const expireSession = () => {
+      // A callback already queued by the browser must never clear a newer
+      // login or role-switch token installed after this effect was created.
+      if (getAccessToken() !== accessToken) return;
+      void logout();
+    };
+    const revalidate = async () => {
+      try {
+        await api.get('/v1/users/me');
+      } catch {
+        // 401 is handled centrally by the API interceptor. A network outage
+        // must not erase a still-valid local session.
+      }
+    };
+    const stopGuard = startSessionDeadlineGuard({
+      accessToken,
+      onExpired: expireSession,
+      revalidateLegacySession: revalidate,
+    });
+    const checkOnReturn = () => {
+      if (document.visibilityState !== 'visible') return;
+      const deadline = getSessionExpiryMs(accessToken);
+      if (deadline !== null && Date.now() >= deadline) expireSession();
+      else void revalidate();
+    };
+    window.addEventListener('focus', checkOnReturn);
+    document.addEventListener('visibilitychange', checkOnReturn);
+    return () => {
+      stopGuard();
+      window.removeEventListener('focus', checkOnReturn);
+      document.removeEventListener('visibilitychange', checkOnReturn);
+    };
+  }, [accessToken, initialized, logout]);
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {

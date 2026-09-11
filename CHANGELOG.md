@@ -15,6 +15,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.5.2] - 2026-09-11
+
+### Fixed
+
+- An already-open browser tab now closes the signed-in session at the absolute
+  eight-hour deadline without waiting for the user to make another request.
+- Browser sessions issued before this release are revalidated after their
+  short-lived access token expires and receive the same proactive deadline.
+
+### Security
+
+- Access-token refresh and role switching preserve the original login time;
+  selecting another role cannot extend the browser-session lifetime.
+- Role switching now accepts only an active, allowlisted refresh session owned
+  by the same user and organization.
+
 ## [0.5.1] - 2026-09-11
 
 ### Fixed

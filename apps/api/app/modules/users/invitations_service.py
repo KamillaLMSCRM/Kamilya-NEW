@@ -795,6 +795,7 @@ async def accept_invitation(
             "tenant_id": str(user.tenant_id),
             "roles": roles,
             "active_role": active_role,
+            "auth_time": int(accepted_at.timestamp()),
         }
     )
     refresh_token = create_refresh_token(
@@ -802,6 +803,7 @@ async def accept_invitation(
             "sub": str(user.id),
             "tenant_id": str(user.tenant_id),
             "active_role": active_role,
+            "auth_time": int(accepted_at.timestamp()),
         }
     )
     await issue_refresh_session(db, user, refresh_token, user_agent=accepted_user_agent, ip_address=accepted_ip)

@@ -1,9 +1,16 @@
 """Unit tests for auth module — schemas and token logic."""
-import pytest
-from fastapi import Response
+from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
+from unittest.mock import AsyncMock
+from uuid import uuid4
 
+import pytest
+from fastapi import HTTPException, Response
+
+import app.core.auth as auth_module
 from app.modules.auth.browser_session import get_browser_session_policy
 from app.modules.auth.schemas import LoginRequest, TokenResponse, UserCreate
+from app.modules.auth.service import validate_active_refresh_session
 
 
 class TestAuthSchemas:
@@ -60,3 +67,44 @@ class TestTokenExpiry:
         auth_module.settings.JWT_SECRET = "test"
         auth_module.settings.ACCESS_TOKEN_EXPIRE_MINUTES = 15
         assert auth_module.settings.ACCESS_TOKEN_EXPIRE_MINUTES > 0
+
+
+@pytest.mark.asyncio
+async def test_active_refresh_session_validation_rejects_revoked_token(monkeypatch) -> None:
+    monkeypatch.setattr(auth_module.settings, "JWT_SECRET", "session-allowlist-test-secret-32-bytes-min")
+    user = SimpleNamespace(id=uuid4(), tenant_id=uuid4(), role="methodologist")
+    refresh_token = auth_module.create_refresh_token(
+        {"sub": str(user.id), "tenant_id": str(user.tenant_id), "active_role": user.role}
+    )
+
+    class MissingSession:
+        def scalar_one_or_none(self):
+            return None
+
+    db = SimpleNamespace(execute=AsyncMock(side_effect=[object(), MissingSession()]))
+    with pytest.raises(HTTPException, match="Invalid refresh token") as exc_info:
+        await validate_active_refresh_session(db, refresh_token, expected_user=user)
+    assert exc_info.value.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_active_refresh_session_validation_returns_original_login_time(monkeypatch) -> None:
+    monkeypatch.setattr(auth_module.settings, "JWT_SECRET", "session-allowlist-test-secret-32-bytes-min")
+    user = SimpleNamespace(id=uuid4(), tenant_id=uuid4(), role="methodologist")
+    auth_time = int((datetime.now(UTC) - timedelta(hours=1)).timestamp())
+    refresh_token = auth_module.create_refresh_token(
+        {
+            "sub": str(user.id),
+            "tenant_id": str(user.tenant_id),
+            "active_role": user.role,
+            "auth_time": auth_time,
+        }
+    )
+
+    class ActiveSession:
+        def scalar_one_or_none(self):
+            return SimpleNamespace(expires_at=datetime.now(UTC) + timedelta(hours=1))
+
+    db = SimpleNamespace(execute=AsyncMock(side_effect=[object(), ActiveSession()]))
+    payload = await validate_active_refresh_session(db, refresh_token, expected_user=user)
+    assert payload["auth_time"] == auth_time
