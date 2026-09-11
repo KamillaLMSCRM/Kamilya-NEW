@@ -37,7 +37,9 @@ def _structure(count: int = 25):
 
 
 @pytest.mark.asyncio
-async def test_writer_restores_completed_positions_and_calls_provider_only_for_missing(monkeypatch):
+async def test_writer_restores_completed_positions_and_calls_provider_only_for_missing(
+    monkeypatch,
+):
     structure = _structure()
     restored = {
         (0, index): LessonContent(
@@ -75,8 +77,7 @@ async def test_writer_restores_completed_positions_and_calls_provider_only_for_m
         *(f"generated-{index}" for index in range(15, 25)),
     ]
     restored_bytes = [
-        json.dumps(restored[(0, index)].to_dict(), ensure_ascii=False, sort_keys=True).encode()
-        for index in range(15)
+        json.dumps(restored[(0, index)].to_dict(), ensure_ascii=False, sort_keys=True).encode() for index in range(15)
     ]
     result_bytes = [
         json.dumps(lesson.to_dict(), ensure_ascii=False, sort_keys=True).encode()
@@ -86,18 +87,15 @@ async def test_writer_restores_completed_positions_and_calls_provider_only_for_m
 
 
 @pytest.mark.asyncio
-async def test_assessment_resume_preserves_order_skips_restored_and_does_not_sleep(monkeypatch):
+async def test_assessment_resume_preserves_order_skips_restored_and_does_not_sleep(
+    monkeypatch,
+):
     course = SimpleNamespace(
         modules=[
-            SimpleNamespace(
-                lessons=[SimpleNamespace(title=f"Lesson {index}", content="source") for index in range(25)]
-            )
+            SimpleNamespace(lessons=[SimpleNamespace(title=f"Lesson {index}", content="source") for index in range(25)])
         ]
     )
-    restored = {
-        (0, index): LessonAssessment(lesson_title=f"Lesson {index}")
-        for index in range(15)
-    }
+    restored = {(0, index): LessonAssessment(lesson_title=f"Lesson {index}") for index in range(15)}
     provider_calls: list[int] = []
     completions: list[tuple[int, int]] = []
     claims: list[tuple[int, int]] = []
@@ -125,9 +123,7 @@ async def test_assessment_resume_preserves_order_skips_restored_and_does_not_sle
     assert provider_calls == list(range(15, 25))
     assert completions == [(0, index) for index in range(15, 25)]
     assert claims == [(0, index) for index in range(15, 25)]
-    assert [assessment.lesson_title for assessment in result.assessments] == [
-        f"Lesson {index}" for index in range(25)
-    ]
+    assert [assessment.lesson_title for assessment in result.assessments] == [f"Lesson {index}" for index in range(25)]
     assert sleeps == [5] * 9
 
 
@@ -145,14 +141,16 @@ async def test_direct_writer_skips_restored_positions_and_checkpoints_only_new_c
     )
     corpus = DirectSourceCorpus(
         tenant_id="tenant-1",
-        documents=(DirectSourceDocument(
-            doc_id="doc-1",
-            title="Source",
-            filename="source.txt",
-            category="general",
-            source_revision="a" * 64,
-            chunks=(chunk,),
-        ),),
+        documents=(
+            DirectSourceDocument(
+                doc_id="doc-1",
+                title="Source",
+                filename="source.txt",
+                category="general",
+                source_revision="a" * 64,
+                chunks=(chunk,),
+            ),
+        ),
         total_chars=len(chunk.text),
         total_chunks=1,
     )
@@ -208,6 +206,8 @@ async def test_direct_writer_skips_restored_positions_and_checkpoints_only_new_c
         "lesson-quality-v11",
         "lesson-quality-v12",
         "lesson-quality-v13",
+        "lesson-quality-v14",
+        "lesson-quality-v15",
     ],
 )
 async def test_direct_writer_rejects_checkpoint_from_older_quality_policy(

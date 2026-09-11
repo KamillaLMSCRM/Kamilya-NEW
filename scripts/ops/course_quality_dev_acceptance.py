@@ -30,14 +30,26 @@ ROOT = Path(__file__).resolve().parents[2]
 API_ROOT = ROOT / "apps" / "api"
 TERMINAL_JOB_STATUSES = {"completed", "failed", "cancelled"}
 META_QUESTION_PATTERNS = (
-    re.compile(r"\b(?:о ч[её]м|что именно)\s+(?:этот|в этом)\s+(?:урок|курс|раздел|модул)", re.IGNORECASE),
-    re.compile(r"\bwhat\s+(?:is|does|will)\s+(?:this|the)\s+(?:lesson|course|section|module)", re.IGNORECASE),
+    re.compile(
+        r"\b(?:о ч[её]м|что именно)\s+(?:этот|в этом)\s+(?:урок|курс|раздел|модул)",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\bwhat\s+(?:is|does|will)\s+(?:this|the)\s+(?:lesson|course|section|module)",
+        re.IGNORECASE,
+    ),
     re.compile(r"\bчто\s+(?:включает|содержит)\s+.+\s+согласно\s+заголовку\b", re.IGNORECASE),
-    re.compile(r"\bчто\s+(?:задано|указано|описано)\s+в\s+(?:таблице|исходном\s+материале)\b", re.IGNORECASE),
+    re.compile(
+        r"\bчто\s+(?:задано|указано|описано)\s+в\s+(?:таблице|исходном\s+материале)\b",
+        re.IGNORECASE,
+    ),
     re.compile(r"\bв\s+каком\s+виде\s+.+\s+(?:даны|представлены)\b", re.IGNORECASE),
     re.compile(r"\bчто\s+описывает\s+каждая\s+строка\b", re.IGNORECASE),
     re.compile(r"\bwhat\s+does\s+.+\s+include\s+according\s+to\s+the\s+title\b", re.IGNORECASE),
-    re.compile(r"\bwhat\s+is\s+(?:specified|shown|described)\s+in\s+the\s+(?:table|source)\b", re.IGNORECASE),
+    re.compile(
+        r"\bwhat\s+is\s+(?:specified|shown|described)\s+in\s+the\s+(?:table|source)\b",
+        re.IGNORECASE,
+    ),
     re.compile(r"\bin\s+what\s+form\s+.+\s+(?:given|presented)\b", re.IGNORECASE),
     re.compile(r"\bwhat\s+does\s+each\s+row\s+describe\b", re.IGNORECASE),
     re.compile(r"\b(?:в|во)\s+заголовк\w*\b", re.IGNORECASE),
@@ -45,14 +57,19 @@ META_QUESTION_PATTERNS = (
     re.compile(r"\b(?:разобран\w*|приведен\w*|показан\w*)\s+ниже\b", re.IGNORECASE),
     re.compile(r"\bрассматрива\w*\s+в\s+раздел\w*\b", re.IGNORECASE),
     re.compile(r"\bпредставлен\w*\s+в\s+свидетельств\w*\b", re.IGNORECASE),
-    re.compile(r"\bсогласно\s+(?:урок\w*|раздел\w*|заголовк\w*|материал\w*|текст\w*)\b", re.IGNORECASE),
+    re.compile(
+        r"\bсогласно\s+(?:урок\w*|раздел\w*|заголовк\w*|материал\w*|текст\w*)\b",
+        re.IGNORECASE,
+    ),
     re.compile(r"\bв\s+исходн\w*\s+материал\w*\b", re.IGNORECASE),
-    re.compile(r"\b(?:in|according\s+to)\s+the\s+(?:title|heading|table|section|lesson|source\s+material)\b", re.IGNORECASE),
+    re.compile(
+        r"\b(?:in|according\s+to)\s+the\s+(?:title|heading|table|section|lesson|source\s+material)\b",
+        re.IGNORECASE,
+    ),
     re.compile(r"\b(?:shown|presented|discussed)\s+below\b", re.IGNORECASE),
     re.compile(r"\bчто\s+рассматривается\s+в\s+тем\w*\b", re.IGNORECASE),
     re.compile(
-        r"\bчто\s+в\s+(?:этом|данном)\s+(?:уроке|курсе|разделе|модуле)\s+"
-        r"(?:разбираем|изучаем|рассматриваем)\b",
+        r"\bчто\s+в\s+(?:этом|данном)\s+(?:уроке|курсе|разделе|модуле)\s+" r"(?:разбираем|изучаем|рассматриваем)\b",
         re.IGNORECASE,
     ),
 )
@@ -64,12 +81,22 @@ SUPPORTING_CATALOG_TITLE_PATTERN = re.compile(
 )
 WORD_RE = re.compile(r"[^\W\d_]{4,}", re.UNICODE)
 STOP_WORDS = {
-    "будет", "какая", "какие", "какой", "материал", "материале", "правильный",
-    "согласно", "указано", "урока", "уроке", "этого", "этой", "является",
+    "будет",
+    "какая",
+    "какие",
+    "какой",
+    "материал",
+    "материале",
+    "правильный",
+    "согласно",
+    "указано",
+    "урока",
+    "уроке",
+    "этого",
+    "этой",
+    "является",
 }
-SYNTHETIC_FIXTURE_SHA256 = (
-    "97b6bdc3c2a310aaf0b1fceb685ef5cf7bc0c1a86db5bce0e40cbd7965a9cdf7"
-)
+SYNTHETIC_FIXTURE_SHA256 = "97b6bdc3c2a310aaf0b1fceb685ef5cf7bc0c1a86db5bce0e40cbd7965a9cdf7"
 
 
 class AcceptanceError(RuntimeError):
@@ -226,21 +253,16 @@ def execute_generation_locally(
         "tabular_assessment_lessons": assessment_paths.count("tabular"),
         "_lesson_quality_attempts": [
             {
-                "module_index": evaluation.lesson_identity[0]
-                if evaluation.lesson_identity is not None
-                else None,
-                "lesson_index": evaluation.lesson_identity[1]
-                if evaluation.lesson_identity is not None
-                else None,
+                "module_index": evaluation.lesson_identity[0] if evaluation.lesson_identity is not None else None,
+                "lesson_index": evaluation.lesson_identity[1] if evaluation.lesson_identity is not None else None,
                 "title": evaluation.title,
                 "accepted": evaluation.result.accepted,
                 "reason_codes": list(evaluation.result.reason_codes),
                 "source_anchor_matches": evaluation.result.source_anchor_matches,
-                "required_source_anchor_matches": (
-                    evaluation.result.required_source_anchor_matches
-                ),
+                "required_source_anchor_matches": (evaluation.result.required_source_anchor_matches),
                 "generic_sentence_share": evaluation.result.generic_sentence_share,
                 "repeated_sentence_count": evaluation.result.repeated_sentence_count,
+                "cross_lesson_repeated_sentence_count": (evaluation.result.cross_lesson_repeated_sentence_count),
             }
             for evaluation in quality_evaluations
         ],
@@ -255,12 +277,22 @@ def execute_generation_locally(
             for evaluation in quality_evaluations
             if evaluation.result.accepted and evaluation.lesson_identity is not None
         ],
+        "_lesson_quality_review": [
+            {
+                "module_index": evaluation.lesson_identity[0] if evaluation.lesson_identity is not None else None,
+                "lesson_index": evaluation.lesson_identity[1] if evaluation.lesson_identity is not None else None,
+                "title": evaluation.title,
+                "content": evaluation.content,
+                "source_chunks": list(evaluation.source_chunks),
+                "accepted": evaluation.result.accepted,
+                "reason_codes": list(evaluation.result.reason_codes),
+            }
+            for evaluation in quality_evaluations
+        ],
     }
 
 
-def execute_document_cleanup_locally(
-    *, env_file: Path, job_id: str, document_id: str, tenant_id: str
-) -> None:
+def execute_document_cleanup_locally(*, env_file: Path, job_id: str, document_id: str, tenant_id: str) -> None:
     load_dotenv(env_file, override=True)
     import asyncio
     from uuid import UUID
@@ -269,9 +301,7 @@ def execute_document_cleanup_locally(
         sys.path.insert(0, str(API_ROOT))
     from app.modules.documents.cleanup import run_document_cleanup
 
-    result = asyncio.run(
-        run_document_cleanup(job_id, UUID(document_id), UUID(tenant_id))
-    )
+    result = asyncio.run(run_document_cleanup(job_id, UUID(document_id), UUID(tenant_id)))
     if not result.get("deleted"):
         raise AcceptanceError("local_document_cleanup_failed")
 
@@ -436,6 +466,7 @@ def inspect_output(
 
     captured_evidence_matches = 0
     unsupported_relationship_claims = 0
+    accepted_readback_contents: list[str] = []
     for module_index, lesson_index, lesson in lesson_coordinates:
         title = str(lesson.get("title") or "")
         content = str(lesson.get("content_preview") or "")
@@ -455,11 +486,13 @@ def inspect_output(
             title=title,
             content=content,
             source_chunks=source_chunks,
+            prior_lesson_contents=accepted_readback_contents,
         )
         if not quality.accepted:
             failures.append("lesson_quality_readback_mismatch")
         if "unsupported_relationship_claim" in quality.reason_codes:
             unsupported_relationship_claims += 1
+        accepted_readback_contents.append(content)
     if unsupported_relationship_claims:
         failures.append("unsupported_relationship_claims_present")
     visible_course_text = " ".join(
@@ -476,9 +509,7 @@ def inspect_output(
         failures.append("primary_collection_focus_missing")
 
     quiz_by_id = {str(quiz.get("id")): quiz for quiz in quizzes}
-    expected_quiz_ids = {
-        str(lesson.get("quiz_id")) for lesson in lessons if lesson.get("quiz_id")
-    }
+    expected_quiz_ids = {str(lesson.get("quiz_id")) for lesson in lessons if lesson.get("quiz_id")}
     missing_quizzes = expected_quiz_ids - set(quiz_by_id)
     if missing_quizzes:
         failures.append("preview_quiz_missing_from_api")
@@ -609,9 +640,7 @@ def build_review_sample(
     }
 
 
-def write_synthetic_review_artifact(
-    review_sample: dict[str, Any], output_path: Path
-) -> dict[str, Any]:
+def write_synthetic_review_artifact(review_sample: dict[str, Any], output_path: Path) -> dict[str, Any]:
     """Write learner text only to the OS temp area, never to release evidence."""
 
     resolved_output = output_path.resolve()
@@ -623,10 +652,7 @@ def write_synthetic_review_artifact(
     resolved_output.parent.mkdir(parents=True, exist_ok=True)
     payload = json.dumps(review_sample, ensure_ascii=False, indent=2)
     resolved_output.write_text(payload, encoding="utf-8")
-    lesson_count = sum(
-        len(module.get("lessons") or [])
-        for module in review_sample.get("modules") or []
-    )
+    lesson_count = sum(len(module.get("lessons") or []) for module in review_sample.get("modules") or [])
     return {
         "created": True,
         "sha256": hashlib.sha256(payload.encode("utf-8")).hexdigest(),
@@ -645,8 +671,8 @@ def cleanup_object(action: Callable[[], None], failures: list[str], code: str) -
 
 def run(args: argparse.Namespace) -> dict[str, Any]:
     config = dotenv_values(args.env_file)
-    email = str(config.get("DEV_QA_METHODOLOGIST_EMAIL") or "")
-    password = str(config.get("DEV_QA_METHODOLOGIST_PASSWORD") or "")
+    email = str(os.environ.get("DEV_QA_METHODOLOGIST_EMAIL") or config.get("DEV_QA_METHODOLOGIST_EMAIL") or "")
+    password = str(os.environ.get("DEV_QA_METHODOLOGIST_PASSWORD") or config.get("DEV_QA_METHODOLOGIST_PASSWORD") or "")
     if not email or not password:
         raise AcceptanceError("dev_methodologist_credentials_missing")
     xlsx = args.xlsx.resolve(strict=True)
@@ -674,6 +700,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     assessment_model_lessons = 0
     tabular_assessment_lessons = 0
     accepted_lesson_evidence: list[dict[str, Any]] = []
+    lesson_quality_review: list[dict[str, Any]] = []
     try:
         stage("health")
         health = client.http.get(health_url(args.api_base))
@@ -785,25 +812,14 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             report["local_worker"] = {
                 "used": True,
                 "status": local_result.get("status"),
-                "assessment_model_lessons": local_result.get(
-                    "assessment_model_lessons", 0
-                ),
-                "tabular_assessment_lessons": local_result.get(
-                    "tabular_assessment_lessons", 0
-                ),
-                "lesson_quality_attempts": local_result.get(
-                    "_lesson_quality_attempts", []
-                ),
+                "assessment_model_lessons": local_result.get("assessment_model_lessons", 0),
+                "tabular_assessment_lessons": local_result.get("tabular_assessment_lessons", 0),
+                "lesson_quality_attempts": local_result.get("_lesson_quality_attempts", []),
             }
-            assessment_model_lessons = int(
-                local_result.get("assessment_model_lessons") or 0
-            )
-            tabular_assessment_lessons = int(
-                local_result.get("tabular_assessment_lessons") or 0
-            )
-            accepted_lesson_evidence = list(
-                local_result.get("_accepted_lesson_evidence") or []
-            )
+            assessment_model_lessons = int(local_result.get("assessment_model_lessons") or 0)
+            tabular_assessment_lessons = int(local_result.get("tabular_assessment_lessons") or 0)
+            accepted_lesson_evidence = list(local_result.get("_accepted_lesson_evidence") or [])
+            lesson_quality_review = list(local_result.get("_lesson_quality_review") or [])
 
         job = poll_job(
             client,
@@ -817,7 +833,15 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 str(error.get("code") or "unknown") if isinstance(error, dict) else str(error)
                 for error in job.get("errors") or []
             ]
-            report["generation"] = {"status": job.get("status"), "error_codes": error_codes}
+            report["generation"] = {
+                "status": job.get("status"),
+                "error_codes": error_codes,
+            }
+            if args.review_output and lesson_quality_review:
+                report["manual_review"] = write_synthetic_review_artifact(
+                    {"failed_lesson_attempts": lesson_quality_review},
+                    args.review_output,
+                )
             raise AcceptanceError("generation_not_completed")
         if not course_id:
             raise AcceptanceError("completed_generation_missing_course")
@@ -834,9 +858,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                     raise AcceptanceError("course_preview_lesson_id_missing")
                 lesson_response = client.request("GET", f"v1/lessons/{lesson_id}")
                 client._expect(lesson_response, {200}, "lesson_full_content")
-                lesson["content_preview"] = str(
-                    lesson_response.json().get("content") or ""
-                )
+                lesson["content_preview"] = str(lesson_response.json().get("content") or "")
         quizzes_response = client.request("GET", "v1/quizzes")
         client._expect(quizzes_response, {200}, "quiz_list")
         failures, facts = inspect_output(
@@ -849,15 +871,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         )
         facts["assessment_model_lessons"] = assessment_model_lessons
         facts["tabular_assessment_lessons"] = tabular_assessment_lessons
-        expected_lesson_count = sum(
-            len(module.get("lessons") or []) for module in preview.get("modules") or []
-        )
+        expected_lesson_count = sum(len(module.get("lessons") or []) for module in preview.get("modules") or [])
         if args.execute_local_worker and assessment_model_lessons:
             failures.append("assessment_model_fallback_used_for_structured_fixture")
-        if (
-            args.execute_local_worker
-            and tabular_assessment_lessons != expected_lesson_count
-        ):
+        if args.execute_local_worker and tabular_assessment_lessons != expected_lesson_count:
             failures.append("not_all_structured_lessons_used_tabular_assessment")
         report["quality"] = facts
         review_sample = build_review_sample(preview, quizzes_response.json())
@@ -897,6 +914,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             except Exception:
                 cleanup_failures.append("generation_cancel_failed")
         if course_id:
+
             def delete_course() -> None:
                 response = client.request("DELETE", f"v1/courses/{course_id}")
                 client._expect(response, {204, 404}, "course_cleanup")
@@ -906,6 +924,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         else:
             report["cleanup"]["course"] = True
         if document_id:
+
             def delete_document() -> None:
                 response = client.request("DELETE", f"v1/documents/{document_id}")
                 client._expect(response, {202, 404}, "document_cleanup")
@@ -918,7 +937,12 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                             document_id=document_id,
                             tenant_id=tenant_id,
                         )
-                    cleanup_job = poll_job(client, cleanup_job_id, timeout_seconds=180, label="document_cleanup")
+                    cleanup_job = poll_job(
+                        client,
+                        cleanup_job_id,
+                        timeout_seconds=180,
+                        label="document_cleanup",
+                    )
                     if cleanup_job.get("status") != "completed":
                         raise AcceptanceError("document_cleanup_job_failed")
                 report["cleanup"]["document"] = True

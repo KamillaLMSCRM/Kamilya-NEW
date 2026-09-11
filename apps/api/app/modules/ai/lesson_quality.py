@@ -17,18 +17,55 @@ from dataclasses import dataclass
 
 _TOKEN_RE = re.compile(r"[^\W\d_]{3,}", re.UNICODE)
 _RELATIONSHIP_TOKEN_RE = re.compile(r"[\w./-]+", re.UNICODE)
-_RELATIONSHIP_FRAGMENT_SPLIT_RE = re.compile(
-    r"(?:[!?]+|\n+|\.(?!\w)|(?<!\w)\.)"
-)
+_RELATIONSHIP_FRAGMENT_SPLIT_RE = re.compile(r"(?:[!?]+|\n+|\.(?!\w)|(?<!\w)\.)")
 _SENTENCE_RE = re.compile(r"(?:\n+|(?<=[.!?])\s+)")
 _STOP_WORDS = frozenset(
     {
-        "для", "или", "как", "это", "этот", "эта", "эти", "того", "при",
-        "что", "чтобы", "который", "которая", "которые", "также", "есть",
-        "уже", "можно", "нужно", "будет", "быть", "его", "она", "они",
-        "and", "the", "this", "that", "with", "from", "into", "your",
-        "мен", "бұл", "және", "немесе", "керек", "болып",
-        "урок", "уроке", "курса", "курс", "раздел", "модуль", "материал",
+        "для",
+        "или",
+        "как",
+        "это",
+        "этот",
+        "эта",
+        "эти",
+        "того",
+        "при",
+        "что",
+        "чтобы",
+        "который",
+        "которая",
+        "которые",
+        "также",
+        "есть",
+        "уже",
+        "можно",
+        "нужно",
+        "будет",
+        "быть",
+        "его",
+        "она",
+        "они",
+        "and",
+        "the",
+        "this",
+        "that",
+        "with",
+        "from",
+        "into",
+        "your",
+        "мен",
+        "бұл",
+        "және",
+        "немесе",
+        "керек",
+        "болып",
+        "урок",
+        "уроке",
+        "курса",
+        "курс",
+        "раздел",
+        "модуль",
+        "материал",
     }
 )
 _GENERIC_MARKERS = (
@@ -53,13 +90,10 @@ _UNSUPPORTED_RELATIONSHIP_PATTERNS = (
     ),
     re.compile(r"\bоснов\w*\s+для\b"),
     re.compile(
-        r"\b[\w./-]+\b.{0,80}\b(?:определя\w*|обусловлива\w*|"
-        r"привод\w*|требу\w*|determines?|causes?|requires?)\b"
+        r"\b[\w./-]+\b.{0,80}\b(?:определя\w*|обусловлива\w*|" r"привод\w*|требу\w*|determines?|causes?|requires?)\b"
     ),
     re.compile(r"\bпоэтому\b.{0,100}\b(?:важно|нужно|следует|необходимо)\b"),
-    re.compile(
-        r"\bзначит\b.{0,140}\b(?:рабоч\w*\s+шаг\w*|важно|нужно|следует|необходимо)\b"
-    ),
+    re.compile(r"\bзначит\b.{0,140}\b(?:рабоч\w*\s+шаг\w*|важно|нужно|следует|необходимо)\b"),
     re.compile(
         r"\b(?:преимуществ\w*|материал\w*|размер\w*|каталог\w*)\b.{0,120}"
         r"\b(?:определя\w*|обусловлива\w*|привод\w*|требу\w*)\b"
@@ -67,10 +101,7 @@ _UNSUPPORTED_RELATIONSHIP_PATTERNS = (
     re.compile(r"\b(?:directly linked|directly related|basis for)\b"),
     re.compile(r"\btherefore\b.{0,100}\b(?:must|should|need)\b"),
     re.compile(r"\b(?:если\s+клиент\w*|if\s+(?:the\s+)?customer\w*)\b"),
-    re.compile(
-        r"\b(?:начн\w*\s+с|диалог\w*.{0,80}\bначина\w*|"
-        r"start\w*\s+with|conversation\w*.{0,80}\bbegin\w*)\b"
-    ),
+    re.compile(r"\b(?:начн\w*\s+с|диалог\w*.{0,80}\bначина\w*|" r"start\w*\s+with|conversation\w*.{0,80}\bbegin\w*)\b"),
     re.compile(
         r"\b(?:используйте|можно\s+использовать|использовать.{0,40}\bкак|"
         r"построй\w*|подавай\w*|соотнес\w*|предложите|предлагайте|"
@@ -82,9 +113,7 @@ _UNSUPPORTED_RELATIONSHIP_PATTERNS = (
         r"(?:please\s+)?(?:\*\*|__)?(?:recommend|offer)(?:\*\*|__)?(?!\w)"
     ),
     re.compile(
-        r"\b(?:(?:we|you)\s+(?:\w+\s+){0,2}|"
-        r"(?:should|must|can|may)\s+(?:\w+\s+){0,2})"
-        r"(?:recommend|offer)\b"
+        r"\b(?:(?:we|you)\s+(?:\w+\s+){0,2}|" r"(?:should|must|can|may)\s+(?:\w+\s+){0,2})" r"(?:recommend|offer)\b"
     ),
     re.compile(r"\b(?:ориентир\w*|serves?\s+as\s+(?:a\s+)?guide\w*)\b"),
 )
@@ -144,13 +173,44 @@ _RELATIONSHIP_OPERATOR_RE = re.compile(
 )
 _RELATIONSHIP_SHORT_STOP_WORDS = frozenset(
     {
-        "в", "во", "на", "по", "к", "ко", "с", "со", "о", "об", "от",
-        "до", "из", "за", "у", "и", "а", "но", "не", "то", "же", "бы",
-        "ли", "of", "to", "is", "as", "at", "by", "in", "on", "or", "an",
-        "be", "if",
+        "в",
+        "во",
+        "на",
+        "по",
+        "к",
+        "ко",
+        "с",
+        "со",
+        "о",
+        "об",
+        "от",
+        "до",
+        "из",
+        "за",
+        "у",
+        "и",
+        "а",
+        "но",
+        "не",
+        "то",
+        "же",
+        "бы",
+        "ли",
+        "of",
+        "to",
+        "is",
+        "as",
+        "at",
+        "by",
+        "in",
+        "on",
+        "or",
+        "an",
+        "be",
+        "if",
     }
 )
-LESSON_QUALITY_POLICY_VERSION = "lesson-quality-v14"
+LESSON_QUALITY_POLICY_VERSION = "lesson-quality-v16"
 
 
 def _normalize(value: str) -> str:
@@ -166,11 +226,7 @@ def _relationship_tokens(value: str) -> tuple[str, ...]:
     raw_tokens = _RELATIONSHIP_TOKEN_RE.findall(value.replace("ё", "е"))
     for raw_token in raw_tokens:
         token = raw_token.casefold().strip("._-/")
-        if (
-            not token
-            or token in _STOP_WORDS
-            or token in _RELATIONSHIP_SHORT_STOP_WORDS
-        ):
+        if not token or token in _STOP_WORDS or token in _RELATIONSHIP_SHORT_STOP_WORDS:
             continue
         if any(character.isdigit() for character in token) or len(token) >= 2:
             tokens.append(token)
@@ -179,12 +235,7 @@ def _relationship_tokens(value: str) -> tuple[str, ...]:
 
 def _sentences(value: str) -> tuple[str, ...]:
     cleaned = re.sub(r"^#{1,6}\s+", "", value, flags=re.MULTILINE)
-    return tuple(
-        normalized
-        for raw in _SENTENCE_RE.split(cleaned)
-        for normalized in [_normalize(raw)]
-        if normalized
-    )
+    return tuple(normalized for raw in _SENTENCE_RE.split(cleaned) for normalized in [_normalize(raw)] if normalized)
 
 
 def _relationship_operator(value: str) -> str:
@@ -192,8 +243,7 @@ def _relationship_operator(value: str) -> str:
     if re.search(r"(?:прямо|напрямую)\s+связан|directly\s+linked", normalized):
         return "direct_link"
     if re.search(
-        r"связан\w*\s+с(?:о)?|links?\s+(?:to|with)|"
-        r"(?:is\s+)?linked\s+(?:to|with)",
+        r"связан\w*\s+с(?:о)?|links?\s+(?:to|with)|" r"(?:is\s+)?linked\s+(?:to|with)",
         normalized,
     ):
         return "link"
@@ -224,14 +274,12 @@ def _relationship_operator(value: str) -> str:
     if re.search(r"если\s+клиент\w*|if\s+(?:the\s+)?customer\w*", normalized):
         return "customer_condition"
     if re.search(
-        r"начн\w*\s+с|диалог\w*.{0,80}\bначина\w*|"
-        r"start\w*\s+with|conversation\w*.{0,80}\bbegin\w*",
+        r"начн\w*\s+с|диалог\w*.{0,80}\bначина\w*|" r"start\w*\s+with|conversation\w*.{0,80}\bbegin\w*",
         normalized,
     ):
         return "start_instruction"
     if re.search(
-        r"используйте|можно\s+использовать|использовать.{0,40}\bкак|"
-        r"\buse\b|can\s+be\s+used",
+        r"используйте|можно\s+использовать|использовать.{0,40}\bкак|" r"\buse\b|can\s+be\s+used",
         normalized,
     ):
         return "use_instruction"
@@ -258,9 +306,7 @@ def _ordered_relationship_anchors(
         return {
             token
             for token in _relationship_tokens(fragment)
-            if not any(
-                token.startswith(root) for root in _RELATIONSHIP_OPERATOR_ROOTS
-            )
+            if not any(token.startswith(root) for root in _RELATIONSHIP_OPERATOR_ROOTS)
         }
 
     return (
@@ -278,35 +324,23 @@ def _relationship_claim_supported(
 ) -> bool:
     """Require the same relationship and its local anchors in one source fragment."""
     content_fragments = tuple(
-        fragment.strip()
-        for fragment in _RELATIONSHIP_FRAGMENT_SPLIT_RE.split(content)
-        if pattern.search(fragment)
+        fragment.strip() for fragment in _RELATIONSHIP_FRAGMENT_SPLIT_RE.split(content) if pattern.search(fragment)
     )
     source_fragments = tuple(
-        fragment.strip()
-        for fragment in _RELATIONSHIP_FRAGMENT_SPLIT_RE.split(source)
-        if pattern.search(fragment)
+        fragment.strip() for fragment in _RELATIONSHIP_FRAGMENT_SPLIT_RE.split(source) if pattern.search(fragment)
     )
     for claim in content_fragments:
-        claim_operator, claim_subject, claim_endpoint = (
-            _ordered_relationship_anchors(claim)
-        )
+        claim_operator, claim_subject, claim_endpoint = _ordered_relationship_anchors(claim)
         supported = False
         for source_fragment in source_fragments:
-            source_operator, source_subject, source_endpoint = (
-                _ordered_relationship_anchors(source_fragment)
-            )
+            source_operator, source_subject, source_endpoint = _ordered_relationship_anchors(source_fragment)
             if not claim_operator or claim_operator != source_operator:
                 continue
             if claim_subject and claim_endpoint:
-                supported = claim_subject.issubset(
-                    source_subject
-                ) and claim_endpoint.issubset(source_endpoint)
+                supported = claim_subject.issubset(source_subject) and claim_endpoint.issubset(source_endpoint)
             else:
                 claim_anchors = claim_subject | claim_endpoint
-                supported = bool(claim_anchors) and claim_anchors.issubset(
-                    set(_relationship_tokens(source_fragment))
-                )
+                supported = bool(claim_anchors) and claim_anchors.issubset(set(_relationship_tokens(source_fragment)))
             if supported:
                 break
         if not supported:
@@ -322,6 +356,7 @@ class LessonQualityResult:
     required_source_anchor_matches: int
     generic_sentence_share: float
     repeated_sentence_count: int
+    cross_lesson_repeated_sentence_count: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -333,15 +368,13 @@ class LessonQualityEvaluation:
     result: LessonQualityResult
 
 
-_LESSON_QUALITY_EVENTS: ContextVar[list[LessonQualityEvaluation] | None] = (
-    ContextVar("lesson_quality_events", default=None)
+_LESSON_QUALITY_EVENTS: ContextVar[list[LessonQualityEvaluation] | None] = ContextVar(
+    "lesson_quality_events", default=None
 )
 
 
 @contextmanager
-def capture_lesson_quality_evaluations() -> Iterator[
-    list[LessonQualityEvaluation]
-]:
+def capture_lesson_quality_evaluations() -> Iterator[list[LessonQualityEvaluation]]:
     """Capture exact validator inputs only inside an explicit task context."""
     events: list[LessonQualityEvaluation] = []
     token = _LESSON_QUALITY_EVENTS.set(events)
@@ -356,6 +389,7 @@ def evaluate_lesson_quality(
     title: str,
     content: str,
     source_chunks: Sequence[str],
+    prior_lesson_contents: Sequence[str] = (),
     lesson_identity: tuple[int, int] | None = None,
 ) -> LessonQualityResult:
     """Evaluate one lesson against the exact excerpts supplied to its writer."""
@@ -373,24 +407,26 @@ def evaluate_lesson_quality(
         required_matches = min(5, max(3, math.ceil(len(source_tokens) * 0.08)))
 
     sentences = _sentences(content)
-    generic_count = sum(
-        any(marker in sentence for marker in _GENERIC_MARKERS)
-        for sentence in sentences
-    )
+    generic_count = sum(any(marker in sentence for marker in _GENERIC_MARKERS) for sentence in sentences)
     generic_share = generic_count / len(sentences) if sentences else 1.0
     counts: dict[str, int] = {}
     for sentence in sentences:
         if len(sentence.split()) >= 7:
             counts[sentence] = counts.get(sentence, 0) + 1
     repeated_count = sum(count - 1 for count in counts.values() if count > 1)
+    substantive_sentences = {sentence for sentence in sentences if len(sentence.split()) >= 4}
+    prior_substantive_sentences = {
+        sentence
+        for prior_content in prior_lesson_contents
+        for sentence in _sentences(prior_content)
+        if len(sentence.split()) >= 4
+    }
+    cross_lesson_repeated_count = len(substantive_sentences & prior_substantive_sentences)
     normalized_source_text = "\n".join(
-        " ".join(line.casefold().replace("ё", "е").split())
-        for chunk in source_chunks
-        for line in chunk.splitlines()
+        " ".join(line.casefold().replace("ё", "е").split()) for chunk in source_chunks for line in chunk.splitlines()
     )
     normalized_content_text = "\n".join(
-        " ".join(line.casefold().replace("ё", "е").split())
-        for line in content.splitlines()
+        " ".join(line.casefold().replace("ё", "е").split()) for line in content.splitlines()
     )
     unsupported_relationship = any(
         pattern.search(normalized_content_text)
@@ -409,7 +445,13 @@ def evaluate_lesson_quality(
         reasons.append("generic_filler_dominates")
     if repeated_count:
         reasons.append("repeated_lesson_sentence")
-    if len(source_tokens) >= 20 and len(_content_tokens(content)) < 25:
+    if cross_lesson_repeated_count >= 3 and cross_lesson_repeated_count / max(1, len(substantive_sentences)) >= 0.20:
+        reasons.append("repeated_across_lessons")
+    if (
+        len(source_tokens) >= 20
+        and len(_content_tokens(content)) < 25
+        and normalized_source_text not in normalized_content_text
+    ):
         reasons.append("lesson_too_thin_for_source")
     if unsupported_relationship:
         reasons.append("unsupported_relationship_claim")
@@ -421,6 +463,7 @@ def evaluate_lesson_quality(
         required_source_anchor_matches=required_matches,
         generic_sentence_share=round(generic_share, 4),
         repeated_sentence_count=repeated_count,
+        cross_lesson_repeated_sentence_count=cross_lesson_repeated_count,
     )
     events = _LESSON_QUALITY_EVENTS.get()
     if events is not None:

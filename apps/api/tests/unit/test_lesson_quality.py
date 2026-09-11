@@ -18,6 +18,24 @@ def test_sparse_source_accepts_a_short_but_grounded_lesson() -> None:
     assert result.reason_codes == ()
 
 
+def test_compact_table_containing_full_selected_source_is_not_too_thin() -> None:
+    table = (
+        "| Коллекция | Стиль | Преимущество | Материал | Сценарий |\n"
+        "| --- | --- | --- | --- | --- |\n"
+        "| Бета | скандинавский | светлые фасады | МДФ | согласовать оттенок |\n"
+        "| Эпсилон | классический | вместительные секции | ЛДСП | "
+        "уточнить объём хранения |"
+    )
+    result = evaluate_lesson_quality(
+        title="Коллекции Бета и Эпсилон",
+        content=f"# Коллекции Бета и Эпсилон\n\n{table}",
+        source_chunks=[table],
+    )
+
+    assert result.accepted is True
+    assert "lesson_too_thin_for_source" not in result.reason_codes
+
+
 def test_generic_lesson_without_source_facts_is_rejected() -> None:
     result = evaluate_lesson_quality(
         title="Коллекция Чикаго",
@@ -27,8 +45,7 @@ def test_generic_lesson_without_source_facts_is_rejected() -> None:
             "Подведём итоги: теперь вы знаете основные моменты."
         ),
         source_chunks=[
-            "Коллекция Чикаго включает шкаф 3DG2S и зеркало LUS/7/10. "
-            "Фасады выполнены в цвете дуб вотан."
+            "Коллекция Чикаго включает шкаф 3DG2S и зеркало LUS/7/10. " "Фасады выполнены в цвете дуб вотан."
         ],
     )
 
@@ -67,6 +84,44 @@ def test_exact_sentence_repetition_inside_lesson_is_rejected() -> None:
 
     assert result.accepted is False
     assert "repeated_lesson_sentence" in result.reason_codes
+
+
+def test_substantive_rows_repeated_from_prior_lesson_are_rejected() -> None:
+    source = (
+        "Альфа: стиль современный; материал ЛДСП; сценарий уточнить размеры.\n"
+        "Бета: стиль скандинавский; материал МДФ; сценарий согласовать оттенок.\n"
+        "Гамма: стиль лофт; материал металл; сценарий обсудить нагрузку."
+    )
+    prior = (
+        "Альфа имеет современный стиль и материал ЛДСП.\n"
+        "Бета имеет скандинавский стиль и материал МДФ.\n"
+        "Гамма имеет стиль лофт и материал металл."
+    )
+    result = evaluate_lesson_quality(
+        title="Сценарии консультации",
+        content=(
+            prior + "\nДля Альфы указан сценарий уточнить размеры помещения. "
+            "Для Беты указан сценарий согласовать оттенок."
+        ),
+        source_chunks=[source],
+        prior_lesson_contents=[prior],
+    )
+
+    assert result.accepted is False
+    assert "repeated_across_lessons" in result.reason_codes
+    assert result.cross_lesson_repeated_sentence_count == 3
+
+
+def test_one_shared_context_sentence_does_not_reject_distinct_lesson() -> None:
+    shared = "Таблица содержит сведения о шести коллекциях мебели."
+    result = evaluate_lesson_quality(
+        title="Материалы",
+        content=f"{shared} Для Альфы указан ЛДСП, а для Беты указан МДФ.",
+        source_chunks=[f"{shared} Альфа: материал ЛДСП. Бета: материал МДФ."],
+        prior_lesson_contents=[f"{shared} Альфа относится к современному стилю."],
+    )
+
+    assert "repeated_across_lessons" not in result.reason_codes
 
 
 def test_title_alone_cannot_supply_source_grounding() -> None:
@@ -153,9 +208,7 @@ def test_tabular_rows_cannot_be_expanded_into_unstated_sales_advice(
 
 
 def test_explicit_customer_instruction_from_source_is_allowed() -> None:
-    statement = (
-        "Если клиенту важна гибкость планировки, предложите коллекцию Альфа."
-    )
+    statement = "Если клиенту важна гибкость планировки, предложите коллекцию Альфа."
 
     result = evaluate_lesson_quality(
         title="Коллекция Альфа",
@@ -188,10 +241,7 @@ def test_explicit_direct_sales_instruction_from_source_is_allowed(
 
 
 def test_factual_material_usage_summary_is_not_treated_as_sales_advice() -> None:
-    source = (
-        "Коллекция Альфа; материал ЛДСП. "
-        "Коллекция Бета; материал ЛДСП."
-    )
+    source = "Коллекция Альфа; материал ЛДСП. " "Коллекция Бета; материал ЛДСП."
 
     result = evaluate_lesson_quality(
         title="Материалы коллекций",
@@ -312,8 +362,7 @@ def test_supporting_catalog_cannot_be_used_to_justify_primary_scenario() -> None
 
 def test_primary_attributes_cannot_be_given_an_invented_causal_heading() -> None:
     source = (
-        "Коллекция Альфа; преимущество: модульная компоновка; "
-        "сценарий консультации: уточнить размеры помещения."
+        "Коллекция Альфа; преимущество: модульная компоновка; " "сценарий консультации: уточнить размеры помещения."
     )
 
     result = evaluate_lesson_quality(
@@ -337,10 +386,7 @@ def test_relationship_claim_requires_matching_local_source_anchors() -> None:
 
     result = evaluate_lesson_quality(
         title="Коллекция Альфа",
-        content=(
-            "Преимущество Альфы определяет шаг консультации: "
-            "уточнить размеры помещения."
-        ),
+        content=("Преимущество Альфы определяет шаг консультации: " "уточнить размеры помещения."),
         source_chunks=[source],
     )
 
@@ -362,10 +408,7 @@ def test_relationship_claim_requires_matching_relation_endpoint() -> None:
 
 
 def test_relationship_claim_cannot_join_anchors_across_source_rows() -> None:
-    source = (
-        "Материал Альфы определяет условия хранения\n"
-        "Шаг консультации для Альфы: уточнить размеры помещения"
-    )
+    source = "Материал Альфы определяет условия хранения\n" "Шаг консультации для Альфы: уточнить размеры помещения"
 
     result = evaluate_lesson_quality(
         title="Коллекция Альфа",
@@ -378,17 +421,11 @@ def test_relationship_claim_cannot_join_anchors_across_source_rows() -> None:
 
 
 def test_explicit_relationship_with_matching_source_anchors_is_allowed() -> None:
-    source = (
-        "Для Альфы модульная компоновка определяет шаг консультации: "
-        "уточнить размеры помещения."
-    )
+    source = "Для Альфы модульная компоновка определяет шаг консультации: " "уточнить размеры помещения."
 
     result = evaluate_lesson_quality(
         title="Коллекция Альфа",
-        content=(
-            "Модульная компоновка Альфы определяет шаг консультации: "
-            "уточнить размеры помещения."
-        ),
+        content=("Модульная компоновка Альфы определяет шаг консультации: " "уточнить размеры помещения."),
         source_chunks=[source],
     )
 
@@ -397,9 +434,7 @@ def test_explicit_relationship_with_matching_source_anchors_is_allowed() -> None
 
 
 def test_quality_capture_keeps_exact_writer_corpus_and_accepted_result() -> None:
-    source_chunks = [
-        "Коллекция Альфа; материал ЛДСП; преимущество модульная компоновка."
-    ]
+    source_chunks = ["Коллекция Альфа; материал ЛДСП; преимущество модульная компоновка."]
     content = "Для Альфы указаны ЛДСП и модульная компоновка."
 
     with capture_lesson_quality_evaluations() as events:

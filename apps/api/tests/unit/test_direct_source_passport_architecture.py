@@ -54,7 +54,7 @@ def _corpus() -> DirectSourceCorpus:
     )
 
 
-def _structure(heading: str, *, lesson_title: str = "Product selection") -> str:
+def _structure(heading: str, *, lesson_title: str = "Collection facts") -> str:
     return json.dumps(
         {
             "title": "Product course",
@@ -66,8 +66,8 @@ def _structure(heading: str, *, lesson_title: str = "Product selection") -> str:
                     "lessons": [
                         {
                             "title": lesson_title,
-                            "description": "How to choose a product",
-                            "objectives": ["Explain the customer benefit"],
+                            "description": "Facts stated in the source",
+                            "objectives": ["Describe the source values"],
                             "source_doc_ids": ["doc-1"],
                             "relevant_headings": [heading],
                         }
@@ -122,7 +122,7 @@ async def test_architect_retries_when_supporting_catalog_drives_lesson_title() -
     llm = LLM()
     result = await run_direct_architect(llm, _corpus(), max_total_lessons=4)
 
-    assert result.modules[0].lessons[0].title == "Product selection"
+    assert result.modules[0].lessons[0].title == "Collection facts"
     assert len(llm.prompts) == 2
     assert "direct_source_supporting_section_promoted" in llm.prompts[1]
 
@@ -174,7 +174,12 @@ async def test_low_confidence_passport_is_advisory_not_a_generation_blocker() ->
 
         async def ainvoke(self, _messages):
             self.calls += 1
-            return SimpleNamespace(content=_structure("[Worksheet] Sheet2"))
+            return SimpleNamespace(
+                content=_structure(
+                    "[Worksheet] Sheet2",
+                    lesson_title="Product selection",
+                )
+            )
 
     llm = LLM()
     result = await run_direct_architect(llm, corpus, max_total_lessons=4)

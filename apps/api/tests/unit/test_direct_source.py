@@ -43,6 +43,29 @@ def _document(*, tenant_id, document_id, key: str, filename: str, blob: bytes):
     )
 
 
+def test_architect_retry_guidance_removes_unverified_business_purpose() -> None:
+    from app.modules.ai.direct_source import _architect_validation_repair_instruction
+
+    guidance = _architect_validation_repair_instruction("direct_source_structure_claim_unverified")
+
+    assert "remove every invented learner action or business purpose" in guidance
+    assert "neutral titles and objectives" in guidance
+    assert _architect_validation_repair_instruction("other") == ""
+
+
+def test_structure_action_support_accepts_only_same_concept_variants() -> None:
+    from app.modules.ai.direct_source import _structure_action_is_supported
+
+    assert _structure_action_is_supported(
+        "подбор коллекции",
+        "Методист просит подобрать коллекцию под запрос.",
+    )
+    assert not _structure_action_is_supported(
+        "рекомендация",
+        "Методист просит подобрать коллекцию под запрос.",
+    )
+
+
 @pytest.mark.asyncio
 async def test_direct_source_converts_every_selected_original_without_embeddings() -> None:
     from app.modules.ai.direct_source import build_direct_source_corpus
@@ -198,7 +221,12 @@ async def test_direct_source_generates_grounded_course_from_all_selected_documen
 
 @pytest.mark.asyncio
 async def test_direct_writer_repairs_one_low_quality_lesson_before_accepting_it() -> None:
-    from app.modules.ai.architect_schema import CourseStructure, LearningObjective, Lesson, Module
+    from app.modules.ai.architect_schema import (
+        CourseStructure,
+        LearningObjective,
+        Lesson,
+        Module,
+    )
     from app.modules.ai.direct_source import (
         DirectSourceChunk,
         DirectSourceCorpus,
@@ -208,10 +236,7 @@ async def test_direct_writer_repairs_one_low_quality_lesson_before_accepting_it(
     )
 
     revision = "document:" + "b" * 64
-    source = (
-        "Коллекция Чикаго включает шкаф 3DG2S и зеркало LUS/7/10. "
-        "Фасады выполнены в цвете дуб вотан."
-    )
+    source = "Коллекция Чикаго включает шкаф 3DG2S и зеркало LUS/7/10. " "Фасады выполнены в цвете дуб вотан."
     corpus = DirectSourceCorpus(
         tenant_id="tenant-1",
         documents=(
@@ -314,10 +339,7 @@ async def test_writer_retry_explains_how_to_repair_unsupported_relationships() -
         write_direct_course,
     )
 
-    source = (
-        "Коллекция Альфа. Стиль: минимализм. Материал: металл. "
-        "Сценарий: компактная прихожая."
-    )
+    source = "Коллекция Альфа. Стиль: минимализм. Материал: металл. " "Сценарий: компактная прихожая."
     revision = "sha256:" + hashlib.sha256(source.encode()).hexdigest()
     corpus = DirectSourceCorpus(
         tenant_id="tenant-1",
@@ -367,10 +389,7 @@ async def test_writer_retry_explains_how_to_repair_unsupported_relationships() -
             self.prompts: list[str] = []
             self.responses = [
                 "Если клиенту важен минимализм, предложите коллекцию Альфа.",
-                (
-                    "## Коллекция Альфа\n\nСтиль: минимализм. "
-                    "Материал: металл. Сценарий: компактная прихожая."
-                ),
+                ("## Коллекция Альфа\n\nСтиль: минимализм. " "Материал: металл. Сценарий: компактная прихожая."),
             ]
 
         async def ainvoke(self, messages):
@@ -386,6 +405,98 @@ async def test_writer_retry_explains_how_to_repair_unsupported_relationships() -
     assert "unsupported_relationship_claim" in repair_prompt
     assert "restate each row as independent facts" in repair_prompt
     assert "Do not infer how a seller should act" in repair_prompt
+
+
+@pytest.mark.asyncio
+async def test_writer_renders_high_confidence_primary_table_without_model_prose() -> None:
+    from app.modules.ai.architect_schema import (
+        CourseStructure,
+        LearningObjective,
+        Lesson,
+        Module,
+    )
+    from app.modules.ai.direct_source import (
+        DirectSourceChunk,
+        DirectSourceCorpus,
+        DirectSourceDocument,
+        write_direct_course,
+    )
+
+    source = (
+        "| Коллекция | Стиль | Материал | Сценарий консультации |\n"
+        "| --- | --- | --- | --- |\n"
+        "| Альфа | современный | ЛДСП | уточнить размеры |\n"
+        "| Бета | скандинавский | МДФ | согласовать оттенок |"
+    )
+    supporting = "| SKU | Товар | Цена |\n| --- | --- | --- |\n" "| A-001 | Шкаф | 50250 |\n| A-002 | Зеркало | 12000 |"
+    corpus = DirectSourceCorpus(
+        tenant_id="tenant-1",
+        documents=(
+            DirectSourceDocument(
+                doc_id="doc-1",
+                filename="assortment.xlsx",
+                title="Ассортимент",
+                category="general",
+                source_revision="document:" + "d" * 64,
+                chunks=(
+                    DirectSourceChunk(
+                        chunk_id="direct:doc-1:0",
+                        doc_id="doc-1",
+                        doc_name="assortment.xlsx",
+                        title="Ассортимент",
+                        headings=("[Worksheet] Коллекция",),
+                        text=source,
+                        source_revision="document:" + "d" * 64,
+                        chunk_index=0,
+                    ),
+                    DirectSourceChunk(
+                        chunk_id="direct:doc-1:1",
+                        doc_id="doc-1",
+                        doc_name="assortment.xlsx",
+                        title="Ассортимент",
+                        headings=("[Worksheet] Список",),
+                        text=supporting,
+                        source_revision="document:" + "d" * 64,
+                        chunk_index=1,
+                    ),
+                ),
+            ),
+        ),
+        total_chars=len(source) + len(supporting),
+        total_chunks=2,
+    )
+    structure = CourseStructure(
+        title="Ассортимент",
+        modules=[
+            Module(
+                title="Коллекции",
+                lessons=[
+                    Lesson(
+                        title="Материалы коллекций",
+                        objectives=[LearningObjective("Изучить материалы коллекций")],
+                        source_doc_ids=["doc-1"],
+                        relevant_headings=["[Worksheet] Коллекция"],
+                    )
+                ],
+            )
+        ],
+    )
+
+    class LLM:
+        async def ainvoke(self, _messages):
+            raise AssertionError("high-confidence primary table must not call the model")
+
+    result = await write_direct_course(LLM(), corpus, structure)
+    content = result.modules[0].lessons[0].content
+
+    assert "## Альфа" in content
+    assert "## Бета" in content
+    assert "| Характеристика | Значение |" in content
+    assert "| Материал | ЛДСП |" in content
+    assert "| Материал | МДФ |" in content
+    assert "Стиль" not in content
+    assert "Сценарий консультации" not in content
+    assert "SKU" not in content
 
 
 @pytest.mark.asyncio
@@ -551,7 +662,12 @@ async def test_generation_pipeline_uses_direct_sources_without_embedding_request
             )
         ],
     )
-    calls: dict[str, list] = {"load": [], "architect": [], "writer": [], "factories": []}
+    calls: dict[str, list] = {
+        "load": [],
+        "architect": [],
+        "writer": [],
+        "factories": [],
+    }
 
     async def _load(documents, *, tenant_id, check_cancelled):
         calls["load"].append((documents, tenant_id, check_cancelled))
@@ -696,12 +812,19 @@ async def test_document_ingestion_resolves_embeddings_for_its_trusted_tenant(
     ],
 )
 async def test_direct_source_rejects_unusable_originals_and_cleans_temp_files(case, code):
-    from app.modules.ai.direct_source import DirectSourceError, build_direct_source_corpus
+    from app.modules.ai.direct_source import (
+        DirectSourceError,
+        build_direct_source_corpus,
+    )
 
     tenant_id = uuid4()
     blob = b"Synthetic source with a readable training rule."
     document = _document(
-        tenant_id=tenant_id, document_id=uuid4(), key="synthetic/source", filename="source.txt", blob=blob
+        tenant_id=tenant_id,
+        document_id=uuid4(),
+        key="synthetic/source",
+        filename="source.txt",
+        blob=blob,
     )
     storage = _Storage({"synthetic/source": blob})
     paths = []
@@ -752,7 +875,11 @@ async def test_direct_source_cancelled_before_conversion_reads_nothing():
     tenant_id = uuid4()
     storage = _Storage({"synthetic/source": b"Synthetic"})
     document = _document(
-        tenant_id=tenant_id, document_id=uuid4(), key="synthetic/source", filename="source.txt", blob=b"Synthetic"
+        tenant_id=tenant_id,
+        document_id=uuid4(),
+        key="synthetic/source",
+        filename="source.txt",
+        blob=b"Synthetic",
     )
 
     async def cancelled():
@@ -760,19 +887,35 @@ async def test_direct_source_cancelled_before_conversion_reads_nothing():
 
     with pytest.raises(asyncio.CancelledError):
         await build_direct_source_corpus(
-            [document], tenant_id=tenant_id, storage=storage, converter=_PlainTextConverter(), check_cancelled=cancelled
+            [document],
+            tenant_id=tenant_id,
+            storage=storage,
+            converter=_PlainTextConverter(),
+            check_cancelled=cancelled,
         )
     assert not storage.reads
 
 
 @pytest.mark.asyncio
 async def test_direct_architect_rejects_missing_source_and_prompt_overflow():
-    from app.modules.ai.direct_source import DirectSourceError, build_direct_source_corpus, run_direct_architect
+    from app.modules.ai.direct_source import (
+        DirectSourceError,
+        build_direct_source_corpus,
+        run_direct_architect,
+    )
 
     tenant_id, document_id = uuid4(), uuid4()
     blob = b"Synthetic source."
     corpus = await build_direct_source_corpus(
-        [_document(tenant_id=tenant_id, document_id=document_id, key="source", filename="source.txt", blob=blob)],
+        [
+            _document(
+                tenant_id=tenant_id,
+                document_id=document_id,
+                key="source",
+                filename="source.txt",
+                blob=blob,
+            )
+        ],
         tenant_id=tenant_id,
         storage=_Storage({"source": blob}),
         converter=_PlainTextConverter(),
@@ -818,12 +961,24 @@ async def test_direct_architect_rejects_missing_source_and_prompt_overflow():
 
 @pytest.mark.asyncio
 async def test_direct_architect_enforces_the_adaptive_whole_course_limit():
-    from app.modules.ai.direct_source import DirectSourceError, build_direct_source_corpus, run_direct_architect
+    from app.modules.ai.direct_source import (
+        DirectSourceError,
+        build_direct_source_corpus,
+        run_direct_architect,
+    )
 
     tenant_id, document_id = uuid4(), uuid4()
     blob = b"Synthetic source."
     corpus = await build_direct_source_corpus(
-        [_document(tenant_id=tenant_id, document_id=document_id, key="source", filename="source.txt", blob=blob)],
+        [
+            _document(
+                tenant_id=tenant_id,
+                document_id=document_id,
+                key="source",
+                filename="source.txt",
+                blob=blob,
+            )
+        ],
         tenant_id=tenant_id,
         storage=_Storage({"source": blob}),
         converter=_PlainTextConverter(),
@@ -831,29 +986,43 @@ async def test_direct_architect_enforces_the_adaptive_whole_course_limit():
 
     class LLM:
         async def ainvoke(self, messages):
-            return SimpleNamespace(content=json.dumps({
-                "title": "Course",
-                "description": "",
-                "modules": [{
-                    "title": "Module",
-                    "description": "",
-                    "lessons": [
-                        {"title": f"Lesson {index}", "description": "", "objectives": [],
-                         "source_doc_ids": [str(document_id)], "relevant_headings": []}
-                        for index in range(2)
-                    ],
-                }],
-            }))
+            return SimpleNamespace(
+                content=json.dumps(
+                    {
+                        "title": "Course",
+                        "description": "",
+                        "modules": [
+                            {
+                                "title": "Module",
+                                "description": "",
+                                "lessons": [
+                                    {
+                                        "title": f"Lesson {index}",
+                                        "description": "",
+                                        "objectives": [],
+                                        "source_doc_ids": [str(document_id)],
+                                        "relevant_headings": [],
+                                    }
+                                    for index in range(2)
+                                ],
+                            }
+                        ],
+                    }
+                )
+            )
 
     with pytest.raises(DirectSourceError, match="direct_source_structure_invalid"):
         await run_direct_architect(
-            LLM(), corpus, num_modules=1, lessons_per_module=6, max_total_lessons=1,
+            LLM(),
+            corpus,
+            num_modules=1,
+            lessons_per_module=6,
+            max_total_lessons=1,
         )
 
 
 @pytest.mark.asyncio
-async def test_direct_architect_accepts_and_repairs_passport_section_labels(
-):
+async def test_direct_architect_accepts_and_repairs_passport_section_labels():
     """The prompt exposes `Collections`, not the converter's `[Worksheet]` marker."""
     from app.modules.ai.direct_source import (
         DirectSourceChunk,
@@ -940,14 +1109,211 @@ async def test_direct_architect_accepts_and_repairs_passport_section_labels(
 
 
 @pytest.mark.asyncio
+async def test_blank_intent_builds_adaptive_primary_table_structure_without_model() -> None:
+    from app.modules.ai.direct_source import (
+        DirectSourceChunk,
+        DirectSourceCorpus,
+        DirectSourceDocument,
+        run_direct_architect,
+    )
+
+    document_id = str(uuid4())
+    source = (
+        "| Коллекция | Стиль | Материал |\n| --- | --- | --- |\n"
+        "| Альфа | современный | ЛДСП |\n| Бета | скандинавский | МДФ |\n"
+        "| Гамма | лофт | металл |\n| Дельта | минимализм | МДФ |\n"
+        "| Эпсилон | классический | ЛДСП |\n| Зета | современный | ЛДСП |"
+    )
+    supporting = "| SKU | Товар | Цена |\n| --- | --- | --- |\n" "| A-001 | Шкаф | 50250 |\n| A-002 | Зеркало | 12000 |"
+    corpus = DirectSourceCorpus(
+        tenant_id="tenant-1",
+        documents=(
+            DirectSourceDocument(
+                doc_id=document_id,
+                title="Ассортимент",
+                filename="assortment.xlsx",
+                category="general",
+                source_revision="document:" + "e" * 64,
+                chunks=(
+                    DirectSourceChunk(
+                        chunk_id="direct:doc-1:0",
+                        doc_id=document_id,
+                        doc_name="assortment.xlsx",
+                        title="Ассортимент",
+                        headings=("[Worksheet] Коллекция",),
+                        text=source,
+                        source_revision="document:" + "e" * 64,
+                        chunk_index=0,
+                    ),
+                    DirectSourceChunk(
+                        chunk_id="direct:doc-1:1",
+                        doc_id=document_id,
+                        doc_name="assortment.xlsx",
+                        title="Ассортимент",
+                        headings=("[Worksheet] Список",),
+                        text=supporting,
+                        source_revision="document:" + "e" * 64,
+                        chunk_index=1,
+                    ),
+                ),
+            ),
+        ),
+        total_chars=len(source) + len(supporting),
+        total_chunks=2,
+    )
+
+    class LLM:
+        async def ainvoke(self, _messages):
+            raise AssertionError("blank high-confidence table must not call architect model")
+
+    result = await run_direct_architect(
+        LLM(),
+        corpus,
+        num_modules=1,
+        lessons_per_module=3,
+        max_total_lessons=3,
+    )
+
+    assert len(result.modules) == 1
+    assert len(result.modules[0].lessons) == 3
+    lesson_titles = [lesson.title for lesson in result.modules[0].lessons]
+    assert lesson_titles == [
+        "Коллекции: Альфа и Бета",
+        "Коллекции: Гамма и Дельта",
+        "Коллекции: Эпсилон и Зета",
+    ]
+    assert result.title == "Коллекции"
+    assert all("Список" not in title for title in lesson_titles)
+    assert {
+        name
+        for title in lesson_titles
+        for name in ("Альфа", "Бета", "Гамма", "Дельта", "Эпсилон", "Зета")
+        if name in title
+    } == {"Альфа", "Бета", "Гамма", "Дельта", "Эпсилон", "Зета"}
+
+
+@pytest.mark.asyncio
+async def test_direct_architect_repairs_explicit_supporting_sheet_lesson_theme() -> None:
+    from app.modules.ai.direct_source import (
+        DirectSourceChunk,
+        DirectSourceCorpus,
+        DirectSourceDocument,
+        run_direct_architect,
+    )
+
+    document_id = str(uuid4())
+    primary = (
+        "Коллекция | Стиль | Преимущество | Материал | Сценарий\n"
+        "Альфа | минимализм | компактность | металл | узкая прихожая"
+    )
+    supporting = "SKU | Товар | Цена\nA-001 | Шкаф | 50250\nA-002 | Зеркало | 12000"
+    corpus = DirectSourceCorpus(
+        tenant_id="tenant-1",
+        documents=(
+            DirectSourceDocument(
+                doc_id=document_id,
+                title="Ассортимент",
+                filename="assortment.xlsx",
+                category="general",
+                source_revision="document:" + "c" * 64,
+                chunks=(
+                    DirectSourceChunk(
+                        chunk_id="direct:doc-1:0",
+                        doc_id=document_id,
+                        doc_name="assortment.xlsx",
+                        title="Ассортимент",
+                        headings=("[Worksheet] Коллекция",),
+                        text=primary,
+                        source_revision="document:" + "c" * 64,
+                        chunk_index=0,
+                    ),
+                    DirectSourceChunk(
+                        chunk_id="direct:doc-1:1",
+                        doc_id=document_id,
+                        doc_name="assortment.xlsx",
+                        title="Ассортимент",
+                        headings=("[Worksheet] Список",),
+                        text=supporting,
+                        source_revision="document:" + "c" * 64,
+                        chunk_index=1,
+                    ),
+                ),
+            ),
+        ),
+        total_chars=len(primary) + len(supporting),
+        total_chunks=2,
+    )
+
+    class LLM:
+        def __init__(self) -> None:
+            self.prompts: list[str] = []
+
+        async def ainvoke(self, messages):
+            self.prompts.append(messages[-1]["content"])
+            title = (
+                "Использование листа «Список» при консультации"
+                if len(self.prompts) == 1
+                else "Коллекция Альфа: характеристики и сценарий"
+            )
+            return SimpleNamespace(
+                content=json.dumps(
+                    {
+                        "title": "Ассортимент",
+                        "description": "",
+                        "modules": [
+                            {
+                                "title": "Коллекции",
+                                "description": "",
+                                "lessons": [
+                                    {
+                                        "title": title,
+                                        "description": "",
+                                        "objectives": ["Изучить коллекцию Альфа"],
+                                        "source_doc_ids": [document_id],
+                                        "relevant_headings": ["Коллекция", "Список"],
+                                    }
+                                ],
+                            }
+                        ],
+                    },
+                    ensure_ascii=False,
+                )
+            )
+
+    llm = LLM()
+    result = await run_direct_architect(
+        llm,
+        corpus,
+        num_modules=1,
+        lessons_per_module=3,
+        max_total_lessons=3,
+    )
+
+    assert len(llm.prompts) == 2
+    assert "direct_source_supporting_section_promoted" in llm.prompts[1]
+    assert result.modules[0].lessons[0].title.startswith("Коллекция Альфа")
+
+
+@pytest.mark.asyncio
 async def test_direct_architect_retries_one_invalid_module_count_before_failing():
     """Regression for the Plus Excel job that failed at architect progress 10."""
-    from app.modules.ai.direct_source import build_direct_source_corpus, run_direct_architect
+    from app.modules.ai.direct_source import (
+        build_direct_source_corpus,
+        run_direct_architect,
+    )
 
     tenant_id, document_id = uuid4(), uuid4()
     blob = "\n".join(f"Product group {index}: approved attributes." for index in range(10)).encode()
     corpus = await build_direct_source_corpus(
-        [_document(tenant_id=tenant_id, document_id=document_id, key="source", filename="source.txt", blob=blob)],
+        [
+            _document(
+                tenant_id=tenant_id,
+                document_id=document_id,
+                key="source",
+                filename="source.txt",
+                blob=blob,
+            )
+        ],
         tenant_id=tenant_id,
         storage=_Storage({"source": blob}),
         converter=_PlainTextConverter(),

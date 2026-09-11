@@ -49,20 +49,26 @@ def test_acceptance_uses_only_exact_captured_lesson_corpus() -> None:
         title="Коллекция Альфа",
         content="Для Альфы указаны ЛДСП и модульная компоновка.",
     ) == ["Коллекция Альфа; материал ЛДСП."]
-    assert MODULE.captured_source_chunks_for_lesson(
-        evidence,
-        module_index=0,
-        lesson_index=1,
-        title="Коллекция Альфа",
-        content="Для Альфы указана МДФ.",
-    ) is None
-    assert MODULE.captured_source_chunks_for_lesson(
-        evidence,
-        module_index=0,
-        lesson_index=2,
-        title="Коллекция Альфа",
-        content="Для Альфы указаны ЛДСП и модульная компоновка.",
-    ) is None
+    assert (
+        MODULE.captured_source_chunks_for_lesson(
+            evidence,
+            module_index=0,
+            lesson_index=1,
+            title="Коллекция Альфа",
+            content="Для Альфы указана МДФ.",
+        )
+        is None
+    )
+    assert (
+        MODULE.captured_source_chunks_for_lesson(
+            evidence,
+            module_index=0,
+            lesson_index=2,
+            title="Коллекция Альфа",
+            content="Для Альфы указаны ЛДСП и модульная компоновка.",
+        )
+        is None
+    )
 
 
 def test_output_inspection_matches_each_lesson_by_stable_coordinates() -> None:
@@ -136,9 +142,29 @@ def test_operational_metadata_does_not_serialize_review_text(tmp_path: Path) -> 
     assert set(metadata) == {"created", "sha256", "bytes", "lessons", "questions"}
 
 
-def test_approved_fixture_bytes_are_stable_after_source_path_changes(
-    tmp_path: Path, monkeypatch
-) -> None:
+def test_failed_review_text_stays_only_in_temp_artifact(tmp_path: Path, monkeypatch) -> None:
+    marker = "SYNTHETIC-REJECTED-LESSON-MARKER"
+    monkeypatch.setattr(MODULE.tempfile, "gettempdir", lambda: str(tmp_path))
+    review_path = tmp_path / "failed-review.json"
+
+    metadata = MODULE.write_synthetic_review_artifact(
+        {
+            "failed_lesson_attempts": [
+                {
+                    "content": marker,
+                    "source_chunks": ["Synthetic source"],
+                    "reason_codes": ["unsupported_relationship_claim"],
+                }
+            ]
+        },
+        review_path,
+    )
+
+    assert marker in review_path.read_text(encoding="utf-8")
+    assert marker not in json.dumps(metadata)
+
+
+def test_approved_fixture_bytes_are_stable_after_source_path_changes(tmp_path: Path, monkeypatch) -> None:
     fixture = tmp_path / "fixture.xlsx"
     approved = b"approved synthetic bytes"
     fixture.write_bytes(approved)
