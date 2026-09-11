@@ -369,6 +369,7 @@ def _parse_structure(content: str) -> CourseStructure:
 
 def _ensure_primary_section_grounding(
     structure: CourseStructure,
+    corpus: DirectSourceCorpus,
     passport: DocumentPassport,
 ) -> None:
     """Attach server-derived primary headings when the model cites only support data.
@@ -389,18 +390,83 @@ def _ensure_primary_section_grounding(
         return
     lessons = [lesson for module in structure.modules for lesson in module.lessons]
 
+    def normalize_heading(value: str) -> str:
+        return value.casefold().removeprefix("[worksheet] ").strip()
+
+    canonical_headings = {
+        (chunk.doc_id, normalize_heading(heading)): heading
+        for document in corpus.documents
+        for chunk in document.chunks
+        for heading in chunk.headings
+        if heading.strip()
+    }
+
+    def canonical_heading(document_id: str, section_name: str) -> str:
+        return canonical_headings.get(
+            (document_id, normalize_heading(section_name)),
+            section_name,
+        )
+
     def normalized_headings(lesson: Lesson) -> set[str]:
         return {
-            heading.casefold().removeprefix("[worksheet] ").strip()
+            normalize_heading(heading)
             for heading in lesson.relevant_headings
             if heading.strip()
         }
 
-    # Preserve whole-course coverage first.  When several primary worksheets
-    # exist, distribute missing labels across eligible lessons deterministically.
+    for lesson in lessons:
+        lesson_doc_ids = {str(value) for value in lesson.source_doc_ids}
+        sections = [
+            section
+            for section in passport.sections
+            if section.document_id in lesson_doc_ids
+        ]
+        section_by_name = {
+            normalize_heading(section.name): section for section in sections
+        }
+        normalized: list[str] = []
+        seen: set[str] = set()
+        for heading in lesson.relevant_headings:
+            section = section_by_name.get(normalize_heading(heading))
+            value = (
+                canonical_heading(section.document_id, section.name)
+                if section is not None
+                else heading
+            )
+            key = value.casefold().strip()
+            if key and key not in seen:
+                normalized.append(value)
+                seen.add(key)
+        lesson.relevant_headings = normalized
+
+        eligible_primary = [
+            section for section in sections if section.role.value == "primary"
+        ]
+        headings = normalized_headings(lesson)
+        if eligible_primary and not any(
+            normalize_heading(section.name) in headings
+            for section in eligible_primary
+        ):
+            supporting_names = {
+                normalize_heading(section.name)
+                for section in sections
+                if section.role.value == "supporting"
+            }
+            lesson.relevant_headings = [
+                heading
+                for heading in lesson.relevant_headings
+                if normalize_heading(heading) not in supporting_names
+            ]
+            section = eligible_primary[0]
+            lesson.relevant_headings.append(
+                canonical_heading(section.document_id, section.name)
+            )
+
+    # Preserve whole-course coverage.  When several primary worksheets exist,
+    # distribute any still-missing labels across eligible lessons deterministically.
     covered = set().union(*(normalized_headings(lesson) for lesson in lessons))
     for section in primary_sections:
-        label = section.name.casefold().strip()
+        label = normalize_heading(section.name)
         if label in covered:
             continue
         candidates = [
@@ -411,21 +477,10 @@ def _ensure_primary_section_grounding(
         if not candidates:
             continue
         target = min(candidates, key=lambda lesson: len(lesson.relevant_headings))
-        target.relevant_headings.append(section.name)
+        target.relevant_headings.append(
+            canonical_heading(section.document_id, section.name)
+        )
         covered.add(label)
-
-    # Every lesson must be grounded in at least one primary section from a
-    # document it already cites.  This prevents a large SKU/price table from
-    # becoming a standalone learning topic while retaining it as evidence.
-    for lesson in lessons:
-        headings = normalized_headings(lesson)
-        eligible = [
-            section
-            for section in primary_sections
-            if section.document_id in {str(value) for value in lesson.source_doc_ids}
-        ]
-        if eligible and not any(section.name.casefold().strip() in headings for section in eligible):
-            lesson.relevant_headings.append(eligible[0].name)
 
 
 def _validate_structure_sources(
@@ -596,7 +651,7 @@ SELECTED SOURCES:
         await _checkpoint(check_cancelled)
         try:
             structure = _parse_structure(str(response.content or ""))
-            _ensure_primary_section_grounding(structure, passport)
+            _ensure_primary_section_grounding(structure, corpus, passport)
             _validate_structure_sources(
                 structure,
                 corpus,

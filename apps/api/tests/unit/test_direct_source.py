@@ -756,8 +756,8 @@ async def test_direct_architect_enforces_the_adaptive_whole_course_limit():
 @pytest.mark.parametrize(
     ("model_headings", "expected_primary"),
     [
-        (["Collections"], "Collections"),
-        (["SKU catalog"], "Collections"),
+        (["Collections"], "[Worksheet] Collections"),
+        (["SKU catalog"], "[Worksheet] Collections"),
     ],
 )
 @pytest.mark.asyncio
@@ -846,7 +846,7 @@ async def test_direct_architect_accepts_and_repairs_passport_section_labels(
         max_total_lessons=3,
     )
 
-    assert expected_primary in result.modules[0].lessons[0].relevant_headings
+    assert result.modules[0].lessons[0].relevant_headings == [expected_primary]
 
 
 @pytest.mark.asyncio

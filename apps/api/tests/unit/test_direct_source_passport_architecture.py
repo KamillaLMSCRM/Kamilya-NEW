@@ -98,7 +98,7 @@ async def test_architect_uses_passport_and_repairs_omitted_primary_section() -> 
     assert result.modules[0].lessons[0].relevant_headings == ["[Worksheet] Collections"]
     assert 'section="Collections" role=primary' in llm.prompts[0]
     assert 'section="SKU catalog" role=supporting' in llm.prompts[0]
-    assert "direct_source_lesson_primary_section_missing" in llm.prompts[1]
+    assert len(llm.prompts) == 1
 
 
 @pytest.mark.asyncio
