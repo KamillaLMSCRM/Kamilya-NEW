@@ -5,6 +5,7 @@ from __future__ import annotations
 from importlib import import_module
 
 MODEL_MODULES = (
+    "app.models.ai_generation_checkpoint",
     "app.models.ai_job",
     "app.models.department",
     "app.models.document",

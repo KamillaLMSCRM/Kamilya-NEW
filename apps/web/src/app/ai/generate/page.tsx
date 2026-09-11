@@ -99,6 +99,10 @@ interface DocumentCompatibility {
     resolved_format: 'brief' | 'standard' | 'detailed' | 'custom';
     module_count: number;
     lessons_per_module: number;
+    recommended_total_lessons: number;
+    hard_max_total_lessons: number;
+    duration_min_minutes: number;
+    duration_max_minutes: number;
     estimated_duration_minutes: number;
     quiz_count: number;
   } | null;
@@ -139,6 +143,7 @@ export default function AIGeneratePage() {
     startJob,
     refreshJob,
     cancelJob,
+    resumeJob,
     prepareRetry,
   } = useGenerationWorkflow(requestedProgramId);
   const step = currentJob ? workflowStep : pageStep;
@@ -1057,7 +1062,12 @@ export default function AIGeneratePage() {
               <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 text-sm">
                 <div className="font-medium text-foreground">{t('ai.recommendedStructure')}</div>
                 <div className="mt-1 text-muted-foreground">
-                  {t('ai.recommendedStructureValue', { modules: compatibility.recommended_structure.module_count, lessons: compatibility.recommended_structure.lessons_per_module, minutes: compatibility.recommended_structure.estimated_duration_minutes })}
+                  {t('ai.recommendedStructureValue', {
+                    modules: compatibility.recommended_structure.module_count,
+                    lessons: compatibility.recommended_structure.recommended_total_lessons,
+                    minMinutes: compatibility.recommended_structure.duration_min_minutes,
+                    maxMinutes: compatibility.recommended_structure.duration_max_minutes,
+                  })}
                 </div>
               </div>
             )}
@@ -1099,8 +1109,8 @@ export default function AIGeneratePage() {
             job={currentJob}
             stages={STAGES}
             title={t('ai.progress')}
-            labels={{ queued: t('asyncOperation.queued'), running: t('asyncOperation.running'), completed: t('asyncOperation.completed'), failed: t('asyncOperation.failed'), cancelled: t('asyncOperation.cancelled'), stalled: t('asyncOperation.stalled') }}
-            retryLabel={resolveAsyncOperationState(currentJob) === 'failed' ? t('ai.newCourse') : t('asyncOperation.retry')}
+            labels={{ queued: t('asyncOperation.queued'), running: t('asyncOperation.running'), completed: t('asyncOperation.completed'), failed: t('asyncOperation.failed'), cancelled: t('asyncOperation.cancelled'), interrupted: t('asyncOperation.interrupted'), stalled: t('asyncOperation.stalled') }}
+            retryLabel={currentJob.status === 'interrupted' ? t('asyncOperation.continue') : resolveAsyncOperationState(currentJob) === 'failed' ? t('ai.newCourse') : t('asyncOperation.retry')}
             checkAgainLabel={t('asyncOperation.checkAgain')}
             cancelLabel={t('asyncOperation.cancel')}
             cancelQueuedLabel={t('asyncOperation.cancelQueued')}
@@ -1109,7 +1119,7 @@ export default function AIGeneratePage() {
             queuePosition={t('ai.queuePosition', { position: currentJob.queue_position ?? 0 })}
             estimatedWait={t('ai.estimatedWait', { minutes: Math.max(1, Math.ceil((currentJob.estimated_wait_seconds ?? 0) / 60)) })}
             queueEstimateHint={t('ai.queueEstimateHint')}
-            onRetry={resolveAsyncOperationState(currentJob) === 'stalled' ? () => void refreshJob().catch((error: any) => toast.error(t('common.loadFailed'), { description: error?.response?.data?.detail || error?.message })) : retryGeneration}
+            onRetry={currentJob.status === 'interrupted' ? () => void resumeJob().catch((error: any) => toast.error(t('common.loadFailed'), { description: error?.response?.data?.detail || error?.message })) : resolveAsyncOperationState(currentJob) === 'stalled' ? () => void refreshJob().catch((error: any) => toast.error(t('common.loadFailed'), { description: error?.response?.data?.detail || error?.message })) : retryGeneration}
             onCancel={() => void cancelJob().catch((error) => console.error('Cancel failed', error))}
           />
 

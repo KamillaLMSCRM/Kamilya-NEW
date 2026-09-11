@@ -534,6 +534,7 @@ export default function DocumentsPage() {
             completed: t('asyncOperation.completed'),
             failed: t('asyncOperation.failed'),
             cancelled: t('asyncOperation.cancelled'),
+            interrupted: t('asyncOperation.interrupted'),
             stalled: t('asyncOperation.stalled'),
           }}
         />
@@ -549,6 +550,7 @@ export default function DocumentsPage() {
             completed: t('asyncOperation.completed'),
             failed: t('asyncOperation.failed'),
             cancelled: t('asyncOperation.cancelled'),
+            interrupted: t('asyncOperation.interrupted'),
             stalled: t('asyncOperation.stalled'),
           }}
           retryLabel={

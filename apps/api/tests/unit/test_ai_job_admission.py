@@ -21,6 +21,9 @@ class _Result:
     def scalar_one(self):
         return self.value
 
+    def scalar_one_or_none(self):
+        return self.value
+
 
 class _RecordingSession:
     def __init__(self, values):
@@ -48,6 +51,18 @@ class _ScalarSession:
     async def scalar(self, statement):
         self.statements.append(statement)
         return self.value
+
+
+class _CommitSession:
+    def __init__(self):
+        self.flushed = 0
+        self.committed = 0
+
+    async def flush(self):
+        self.flushed += 1
+
+    async def commit(self):
+        self.committed += 1
 
 
 def _sql(statement) -> str:
@@ -222,3 +237,88 @@ async def test_running_and_terminal_jobs_have_explicit_queue_semantics():
     assert terminal["queue_position"] is None
     assert terminal["estimated_wait_seconds"] is None
     assert len(terminal_db.statements) == 1
+
+
+@pytest.mark.asyncio
+async def test_for_update_refreshes_previously_loaded_job_state():
+    """A cancelling transaction must not be overwritten by stale identity-map state."""
+    tenant_id = uuid4()
+    db = _RecordingSession([None])
+
+    assert (
+        await job_service.get_ai_job(
+            db,
+            "job-1",
+            tenant_id=str(tenant_id),
+            for_update=True,
+        )
+        is None
+    )
+
+    statement = db.statements[0]
+    assert "FOR UPDATE" in _sql(statement)
+    assert statement.get_execution_options()["populate_existing"] is True
+
+
+@pytest.mark.asyncio
+async def test_interrupted_job_resumes_same_lineage_without_new_charge(monkeypatch):
+    tenant_id = uuid4()
+    job = SimpleNamespace(
+        id="job-1",
+        tenant_id=tenant_id,
+        status="interrupted",
+        stage="interrupted",
+        message="paused",
+        errors=["generation_interrupted"],
+        completed_at=datetime.now(UTC),
+        started_at=datetime.now(UTC),
+        result=None,
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
+    )
+    db = _CommitSession()
+    dispatcher = job_service.InMemoryAIJobDispatcher()
+
+    async def noop(*args, **kwargs):
+        return None
+
+    async def locked_job(*args, **kwargs):
+        return job
+
+    async def active_count(*args, **kwargs):
+        return 0
+
+    async def metadata(*args, **kwargs):
+        return {
+            "tenant_active_jobs": 1,
+            "tenant_active_limit": 2,
+            "queue_position": 1,
+            "estimated_wait_seconds": 0,
+        }
+
+    monkeypatch.setattr(job_service, "_lock_tenant_row", noop)
+    monkeypatch.setattr(job_service, "get_ai_job", locked_job)
+    monkeypatch.setattr(job_service, "count_active_ai_jobs", active_count)
+    monkeypatch.setattr(job_service, "build_ai_job_queue_metadata", metadata)
+
+    resumed, queue = await job_service.resume_interrupted_ai_job(
+        db,
+        job=job,
+        tenant_id=tenant_id,
+        task_kwargs={"job_id": "job-1"},
+        active_limit=2,
+        worker_concurrency=2,
+        historical_estimate_seconds=60,
+        dispatcher=dispatcher,
+    )
+
+    assert resumed is job
+    assert job.status == "pending"
+    assert job.result["resume_count"] == 1
+    assert queue["queue_position"] == 1
+    assert db.committed == 1
+    assert len(dispatcher.submissions) == 1
+    task_name, delivery_id, kwargs = dispatcher.submissions[0]
+    assert task_name == "generate_course"
+    assert delivery_id != job.id
+    assert kwargs == {"job_id": "job-1"}

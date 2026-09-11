@@ -54,4 +54,27 @@ describe('AI generation workflow recovery', () => {
     expect(result.current.step).toBe('documents');
     expect(localStorage.getItem('ai_active_job_id')).toBeNull();
   });
+
+  it('restores and resumes an interrupted generation with the same job id', async () => {
+    const interruptedJob = {
+      ...activeJob,
+      status: 'interrupted',
+      stage: 'interrupted',
+      progress: 54,
+      job_type: 'course_generation',
+    };
+    const pendingJob = { ...interruptedJob, status: 'pending', stage: 'queued' };
+    apiMock.get.mockResolvedValueOnce({ data: [interruptedJob] });
+    apiMock.post.mockResolvedValueOnce({ data: pendingJob });
+    const { result } = renderHook(() => useGenerationWorkflow());
+
+    await act(async () => { await result.current.restoreActiveJob(); });
+    expect(result.current.currentJob?.status).toBe('interrupted');
+    expect(result.current.step).toBe('generate');
+
+    await act(async () => { await result.current.resumeJob(); });
+    expect(apiMock.post).toHaveBeenCalledWith('/v1/ai/jobs/current-tenant-job/resume');
+    expect(result.current.currentJob?.id).toBe('current-tenant-job');
+    expect(result.current.currentJob?.status).toBe('pending');
+  });
 });

@@ -161,6 +161,10 @@ class CourseStructurePlan:
     resolved_format: str
     module_count: int
     lessons_per_module: int
+    recommended_total_lessons: int
+    hard_max_total_lessons: int
+    duration_min_minutes: int
+    duration_max_minutes: int
     estimated_duration_minutes: int
     quiz_count: int
     reason_codes: tuple[str, ...]
@@ -177,39 +181,74 @@ def recommend_course_structure(
     chunks = max(1, int(total_chunks or 0))
     documents = max(1, int(document_count or 0))
     requested = course_format
-    reasons: tuple[str, ...]
+    source_lesson_capacity = max(1, math.ceil(math.sqrt(chunks)))
+    format_profiles = {
+        "brief": {"coverage": 0.75, "hard_max": 14, "module_divisor": 8, "minimum_modules": 1, "maximum_modules": 3, "duration": (4, 6)},
+        "standard": {"coverage": 0.80, "hard_max": 25, "module_divisor": 5, "minimum_modules": 2, "maximum_modules": 6, "duration": (5, 8)},
+        "detailed": {"coverage": 1.00, "hard_max": 40, "module_divisor": 3, "minimum_modules": 3, "maximum_modules": 10, "duration": (7, 12)},
+    }
+    capacity_reasons = ["source_capacity_proxy_chunks"]
+    if source_lesson_capacity <= 3:
+        capacity_reasons.append("source_sparse")
     if manual_modules is not None:
-        modules = max(1, min(10, int(manual_modules)))
+        requested_modules = max(1, min(10, int(manual_modules)))
+        modules = min(source_lesson_capacity, requested_modules)
         resolved = "custom"
-        reasons = ("manual_module_override",)
+        profile = format_profiles["standard"]
+        hard_max = min(source_lesson_capacity, 40)
+        recommended = min(
+            hard_max,
+            max(modules, min(hard_max, math.ceil(source_lesson_capacity * profile["coverage"]), modules * 6)),
+        )
+        reasons = tuple(
+            capacity_reasons
+            + (["manual_module_override_bounded_by_source_capacity"] if requested_modules > source_lesson_capacity else [])
+            + ["manual_module_override"]
+        )
     else:
         if course_format == "automatic":
-            if chunks <= 6 and documents <= 2:
+            if source_lesson_capacity <= 6:
                 resolved = "brief"
-            elif chunks >= 24 or documents >= 4:
-                resolved = "detailed"
-            else:
+            elif source_lesson_capacity <= 25:
                 resolved = "standard"
+            else:
+                resolved = "detailed"
         else:
             resolved = course_format
-        divisor = {"brief": 8, "standard": 5, "detailed": 3}[resolved]
-        minimum = {"brief": 1, "standard": 2, "detailed": 3}[resolved]
-        maximum = {"brief": 3, "standard": 6, "detailed": 10}[resolved]
-        modules = max(minimum, min(maximum, math.ceil(chunks / divisor), chunks))
-        reasons = (
-            "source_volume",
+        profile = format_profiles[resolved]
+        hard_max = min(source_lesson_capacity, profile["hard_max"])
+        recommended = min(hard_max, max(1, math.ceil(source_lesson_capacity * profile["coverage"])))
+        modules = max(
+            profile["minimum_modules"],
+            min(
+                profile["maximum_modules"],
+                math.ceil(recommended / profile["module_divisor"]),
+                recommended,
+            ),
+        )
+        reasons_list = capacity_reasons + [
             "multiple_documents" if documents > 1 else "single_document",
             f"format_{resolved}",
-        )
-    lessons_per_module = max(1, min(6, math.ceil(chunks / modules)))
-    duration = max(10, int(math.ceil((chunks * 4) / 5.0) * 5))
+        ]
+        if source_lesson_capacity > profile["hard_max"]:
+            reasons_list.append("source_bounded_by_format")
+        reasons = tuple(reasons_list)
+    modules = min(modules, recommended)
+    lessons_per_module = max(1, min(6, math.ceil(recommended / modules)))
+    duration_min = recommended * profile["duration"][0]
+    duration_max = recommended * profile["duration"][1]
+    duration = (duration_min + duration_max) // 2
     return CourseStructurePlan(
         requested_format=requested,
         resolved_format=resolved,
         module_count=modules,
         lessons_per_module=lessons_per_module,
+        recommended_total_lessons=recommended,
+        hard_max_total_lessons=hard_max,
+        duration_min_minutes=duration_min,
+        duration_max_minutes=duration_max,
         estimated_duration_minutes=duration,
-        quiz_count=modules,
+        quiz_count=recommended,
         reason_codes=reasons,
     )
 

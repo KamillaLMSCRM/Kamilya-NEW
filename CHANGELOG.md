@@ -15,6 +15,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.5.0] - 2026-09-11
+
+### Added
+
+- Interrupted course generation can continue from the last saved lesson without
+  charging the tenant for a second course-generation attempt.
+
+### Changed
+
+- Course scope and estimated learning duration now adapt to the usable amount of
+  source material instead of padding small sources or deriving study time from
+  technical document fragments.
+- Password-based browser sessions now require a new sign-in after at most eight
+  hours, even when a page remains open and background requests continue.
+
+### Fixed
+
+- A structurally invalid first course plan receives one bounded correction
+  attempt while module limits, lesson limits, and source-document coverage remain
+  strictly enforced.
+- Completed lessons, reviews, and tests are checkpointed so a worker interruption
+  no longer discards all successful generation work.
+
+### Security
+
+- Refresh-token rotation preserves the original login time and cannot extend a
+  browser session beyond the configured absolute lifetime.
+
 ## [0.4.4] - 2026-09-10
 
 ### Fixed

@@ -82,6 +82,10 @@ class Settings(BaseSettings):
     JWT_ISSUER: str = "kamilya-lms"  # claimed in 'iss'; validated on every decode
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30
+    # Absolute browser-login lifetime. Refresh-token rotation preserves the
+    # original authentication timestamp, so background polling cannot keep a
+    # browser signed in indefinitely.
+    AUTH_SESSION_MAX_AGE_HOURS: int = Field(default=8, ge=1, le=168)
     # Browser-session policy is intentionally separate from CORS. Production
     # uses the same-site KZ app/API topology; legacy cross-site development
     # must opt in explicitly and cannot be enabled in production.

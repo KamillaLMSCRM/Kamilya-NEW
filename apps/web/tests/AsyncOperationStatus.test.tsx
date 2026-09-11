@@ -12,6 +12,7 @@ const labels = {
   completed: 'Completed',
   failed: 'Failed',
   cancelled: 'Cancelled',
+  interrupted: 'Ready to continue',
   stalled: 'Stalled',
 };
 
@@ -51,6 +52,28 @@ describe('AsyncOperationStatus', () => {
     expect(screen.getByText('Failed')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
     expect(retry).toHaveBeenCalledOnce();
+  });
+
+  it('offers continuation for an interrupted operation', () => {
+    const resume = vi.fn();
+    const cancel = vi.fn();
+    render(
+      <AsyncOperationStatus
+        operation={{ status: 'interrupted', message: '15 of 25 lessons saved' }}
+        title="Course generation"
+        labels={labels}
+        retryLabel="Continue"
+        cancelLabel="Cancel"
+        onRetry={resume}
+        onCancel={cancel}
+      />,
+    );
+
+    expect(screen.getByText('Ready to continue')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    expect(resume).toHaveBeenCalledOnce();
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(cancel).toHaveBeenCalledOnce();
   });
 
   it('supports an upload recovery action for a terminal source error', () => {

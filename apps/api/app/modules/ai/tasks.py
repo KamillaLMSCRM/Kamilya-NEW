@@ -47,6 +47,7 @@ try:
         target_audience: str = "",
         num_modules: int = 3,
         lessons_per_module: int | None = None,
+        max_total_lessons: int | None = None,
         language: str = "ru",
         goals: list[str] | None = None,
         course_hours: float | None = None,
@@ -74,6 +75,10 @@ try:
                 logger.info("Skipping duplicate or terminal generation delivery for job %s", job_id)
                 return {"job_id": job_id, "status": "skipped"}
 
+            from app.modules.ai.generation_checkpoint import (
+                AIGenerationCheckpointRepository,
+            )
+
             result = _run_async(
                 run_generation_pipeline(
                     job_id=job_id,
@@ -81,6 +86,7 @@ try:
                     target_audience=target_audience,
                     num_modules=num_modules,
                     lessons_per_module=lessons_per_module,
+                    max_total_lessons=max_total_lessons,
                     language=language,
                     goals=goals,
                     course_hours=course_hours,
@@ -92,6 +98,12 @@ try:
                     combination_goal=combination_goal,
                     source_analysis=source_analysis,
                     reuse_reason=reuse_reason,
+                    generation_checkpoint_repository=(
+                        AIGenerationCheckpointRepository()
+                        if tenant_id
+                        else None
+                    ),
+                    delivery_id=str(self.request.id or job_id),
                 )
             )
 

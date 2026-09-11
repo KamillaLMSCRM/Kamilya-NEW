@@ -185,5 +185,8 @@ def get_browser_session_policy() -> BrowserSessionPolicy:
         cookie_profile=settings.AUTH_COOKIE_PROFILE,
         cookie_secure=settings.AUTH_COOKIE_SECURE,
         allow_legacy_refresh_body=settings.AUTH_REFRESH_BODY_FALLBACK,
-        refresh_max_age_seconds=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
+        refresh_max_age_seconds=min(
+            settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
+            settings.AUTH_SESSION_MAX_AGE_HOURS * 60 * 60,
+        ),
     )

@@ -8,7 +8,7 @@ from __future__ import annotations
 import json
 import logging
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, replace
 from typing import Any, cast
 
@@ -508,48 +508,70 @@ async def write_course(
     on_progress: Callable | None = None,
     embeddings_provider=None,
     tenant_id: str | None = None,
+    completed_lessons: Mapping[tuple[int, int], LessonContent] | None = None,
+    before_lesson_generate: Callable[[int, int], Any] | None = None,
+    on_lesson_complete: Callable[[int, int, LessonContent], Any] | None = None,
 ) -> CourseContent:
-    """Generate content for all lessons sequentially."""
+    """Generate content for all lessons sequentially, with resumable restoration.
+
+    ``completed_lessons`` is keyed by the stable zero-based plan position
+    ``(module_index, lesson_index)``. Restored lessons are inserted into the
+    result in their plan position and never call the provider. The completion
+    callback runs only after a provider-generated lesson has succeeded, which
+    lets a caller persist a checkpoint before the next lesson starts.
+    """
+    completed_lessons = completed_lessons or {}
     modules = []
     total_lessons = sum(len(m.lessons) for m in structure.modules)
     all_lesson_titles = [lesson.title for course_module in structure.modules for lesson in course_module.lessons]
     lesson_num = 0
 
-    for module in structure.modules:
+    for module_index, module in enumerate(structure.modules):
         lesson_contents = []
-        for lesson in module.lessons:
+        for lesson_index, lesson in enumerate(module.lessons):
             lesson_num += 1
-            if on_progress:
-                result = on_progress(f"Writing lesson {lesson_num}/{total_lessons}: {lesson.title}")
-                if hasattr(result, "__await__"):
-                    await result
-
-            # Check for cancellation
             import asyncio
 
             if asyncio.current_task() and asyncio.current_task().cancelled():
                 raise asyncio.CancelledError()
 
-            objectives = [obj.text for obj in lesson.objectives]
-            lesson_headings = lesson.relevant_headings if lesson.relevant_headings else None
+            restored = completed_lessons.get((module_index, lesson_index))
+            if restored is not None:
+                content = restored
+            else:
+                if before_lesson_generate:
+                    result = before_lesson_generate(module_index, lesson_index)
+                    if hasattr(result, "__await__"):
+                        await result
+                objectives = [obj.text for obj in lesson.objectives]
+                lesson_headings = lesson.relevant_headings if lesson.relevant_headings else None
 
-            lesson_doc_ids = resolve_lesson_doc_ids(lesson.source_doc_ids, doc_ids or [])
-            content = await write_lesson(
-                llm=llm,
-                store=store,
-                lesson_title=lesson.title,
-                objectives=objectives,
-                module_title=module.title,
-                course_title=structure.title,
-                doc_ids=lesson_doc_ids,
-                tenant_id=tenant_id,
-                relevant_headings=lesson_headings,
-                language=language,
-                sibling_lessons=[t for t in all_lesson_titles if t != lesson.title],
-                embeddings_provider=embeddings_provider,
-                require_sources=bool(doc_ids),
-            )
+                lesson_doc_ids = resolve_lesson_doc_ids(lesson.source_doc_ids, doc_ids or [])
+                content = await write_lesson(
+                    llm=llm,
+                    store=store,
+                    lesson_title=lesson.title,
+                    objectives=objectives,
+                    module_title=module.title,
+                    course_title=structure.title,
+                    doc_ids=lesson_doc_ids,
+                    tenant_id=tenant_id,
+                    relevant_headings=lesson_headings,
+                    language=language,
+                    sibling_lessons=[t for t in all_lesson_titles if t != lesson.title],
+                    embeddings_provider=embeddings_provider,
+                    require_sources=bool(doc_ids),
+                )
+                if on_lesson_complete:
+                    result = on_lesson_complete(module_index, lesson_index, content)
+                    if hasattr(result, "__await__"):
+                        await result
+
             lesson_contents.append(content)
+            if on_progress:
+                result = on_progress(f"Completed lesson {lesson_num}/{total_lessons}: {lesson.title}")
+                if hasattr(result, "__await__"):
+                    await result
 
         modules.append(ModuleContent(title=module.title, lessons=lesson_contents))
 

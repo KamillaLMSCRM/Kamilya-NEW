@@ -156,6 +156,28 @@ describe('/ai/generate multi-document selection contract', () => {
     expect(screen.getByRole('spinbutton', { name: 'Количество модулей' })).toBeInTheDocument();
   });
 
+  it('shows an adaptive total lesson count and learning-duration range', async () => {
+    mockCatalogWith(readyDocuments);
+    apiMock.post.mockImplementation(async (url: string) => {
+      if (url === '/v1/ai/document-compatibility') return { data: {
+        status: 'compatible', score: 1, analysis_mode: 'semantic', requires_decision: false, clusters: [],
+        recommended_structure: {
+          requested_format: 'automatic', resolved_format: 'brief', module_count: 1,
+          lessons_per_module: 2, recommended_total_lessons: 2, hard_max_total_lessons: 2,
+          duration_min_minutes: 6, duration_max_minutes: 10,
+          estimated_duration_minutes: 8, quiz_count: 1, reason_codes: ['source_sparse'],
+        },
+      } } as any;
+      return { data: {} } as any;
+    });
+
+    render(<AIGeneratePage />);
+    fireEvent.click(await screen.findByRole('checkbox', { name: /Правила ИБ/ }));
+
+    expect(await screen.findByText('1 мод., до 2 содержательных уроков, ориентировочно 6–10 мин.')).toBeInTheDocument();
+    expect(screen.queryByText(/урока на модуль/)).not.toBeInTheDocument();
+  });
+
   it('allows an unindexed source but requires original-file verification', async () => {
     mockCatalogWith(readyDocuments);
     apiMock.post.mockImplementation(async (url: string) => {

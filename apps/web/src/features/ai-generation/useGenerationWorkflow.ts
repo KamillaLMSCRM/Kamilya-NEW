@@ -16,6 +16,7 @@ import {
 const activeJobStorageKey = 'ai_active_job_id';
 const workflowContextStorageKey = 'ai_generation_workflow_context';
 const isActive = (job: AIGenerationJob) => job.status === 'pending' || job.status === 'running';
+const isRestorable = (job: AIGenerationJob) => isActive(job) || job.status === 'interrupted';
 
 function readWorkflowContext(): AIGenerationWorkflowContext | null {
   const raw = localStorage.getItem(workflowContextStorageKey);
@@ -42,7 +43,7 @@ function clearWorkflowContext() {
 
 function actionForPolledJob(job: AIGenerationJob): GenerationWorkflowAction {
   if (job.status === 'completed') return { type: 'job_completed', job };
-  if (job.status === 'failed' || job.status === 'cancelled') return { type: 'job_terminal', job };
+  if (job.status === 'failed' || job.status === 'cancelled' || job.status === 'interrupted') return { type: 'job_terminal', job };
   return { type: 'job_active', job };
 }
 
@@ -81,10 +82,10 @@ export function useGenerationWorkflow(requestedProgramId: string | null = null) 
       const response = await api.get<AIGenerationJob>(`/v1/ai/jobs/${savedJobId}`);
       const job = response.data;
       const programId = savedContext?.job_id === job.id ? savedContext.program_id : null;
-      if (isActive(job)) dispatch({ type: 'job_restored', job, programId });
+      if (isRestorable(job)) dispatch({ type: 'job_restored', job, programId });
       else if (job.status === 'completed' && job.course_id) dispatch({ type: 'job_restored', job, programId });
       else dispatch({ type: 'job_cleared' });
-      if (!isActive(job)) localStorage.removeItem(activeJobStorageKey);
+      if (!isRestorable(job)) localStorage.removeItem(activeJobStorageKey);
     } catch (error: any) {
       // An impersonation/tenant switch can leave a stale id. On a confirmed
       // 404, clear it and immediately discover the active job in this tenant.
@@ -112,7 +113,7 @@ export function useGenerationWorkflow(requestedProgramId: string | null = null) 
     const response = await api.get<AIGenerationJob>(`/v1/ai/jobs/${state.currentJob.id}`);
     const job = response.data;
     dispatch(actionForPolledJob(job));
-    if (!isActive(job)) localStorage.removeItem(activeJobStorageKey);
+    if (!isRestorable(job)) localStorage.removeItem(activeJobStorageKey);
   }, [state.currentJob]);
 
   const cancelJob = useCallback(async () => {
@@ -122,6 +123,14 @@ export function useGenerationWorkflow(requestedProgramId: string | null = null) 
     clearWorkflowContext();
     dispatch({ type: 'job_cleared' });
   }, [state.currentJob]);
+
+  const resumeJob = useCallback(async () => {
+    if (!state.currentJob || state.currentJob.status !== 'interrupted') return;
+    const response = await api.post<AIGenerationJob>(`/v1/ai/jobs/${state.currentJob.id}/resume`);
+    localStorage.setItem(activeJobStorageKey, response.data.id);
+    persistWorkflowContext(response.data.id, state.programId);
+    dispatch({ type: 'job_started', job: response.data, programId: state.programId });
+  }, [state.currentJob, state.programId]);
 
   const prepareRetry = useCallback(() => {
     localStorage.removeItem(activeJobStorageKey);
@@ -146,6 +155,7 @@ export function useGenerationWorkflow(requestedProgramId: string | null = null) 
     startJob,
     refreshJob,
     cancelJob,
+    resumeJob,
     prepareRetry,
   };
 }

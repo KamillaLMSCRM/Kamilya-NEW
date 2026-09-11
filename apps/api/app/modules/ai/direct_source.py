@@ -9,7 +9,7 @@ import json
 import os
 import re
 import tempfile
-from collections.abc import Awaitable, Callable, Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol, cast
@@ -364,6 +364,7 @@ def _validate_structure_sources(
     *,
     num_modules: int | None,
     lessons_per_module: int | None,
+    max_total_lessons: int | None,
 ) -> None:
     selected = set(corpus.document_ids)
     if not structure.title.strip() or not structure.modules:
@@ -371,17 +372,21 @@ def _validate_structure_sources(
     if num_modules is not None and len(structure.modules) != num_modules:
         raise DirectSourceError("direct_source_structure_invalid")
     used: set[str] = set()
+    total_lessons = 0
     for module in structure.modules:
         if not module.title.strip() or not module.lessons:
             raise DirectSourceError("direct_source_structure_invalid")
         if lessons_per_module is not None and len(module.lessons) > lessons_per_module:
             raise DirectSourceError("direct_source_structure_invalid")
+        total_lessons += len(module.lessons)
         for lesson in module.lessons:
             lesson_ids = list(dict.fromkeys(str(value) for value in lesson.source_doc_ids))
             if not lesson.title.strip() or not lesson_ids or not set(lesson_ids) <= selected:
                 raise DirectSourceError("direct_source_structure_invalid")
             lesson.source_doc_ids = lesson_ids
             used.update(lesson_ids)
+    if max_total_lessons is not None and total_lessons > max_total_lessons:
+        raise DirectSourceError("direct_source_structure_invalid")
     if used != selected:
         raise DirectSourceError(
             "direct_source_documents_omitted",
@@ -397,6 +402,7 @@ async def run_direct_architect(
     course_hours: float | None = None,
     num_modules: int | None = None,
     lessons_per_module: int | None = None,
+    max_total_lessons: int | None = None,
     language: str = "ru",
     guidance: str | None = None,
     target_audience: str = "",
@@ -428,6 +434,7 @@ goals={json.dumps(goals or [], ensure_ascii=False)}
 course_hours={course_hours}
 required_module_count={num_modules}
 maximum_lessons_per_module={lessons_per_module}
+maximum_lessons_in_whole_course={max_total_lessons}
 source_strategy={source_strategy}
 combination_goal={combination_goal.strip()}
 guidance={guidance or ''}
@@ -437,21 +444,47 @@ SELECTED SOURCES:
 """
     if len(system_prompt) + len(user_prompt) > MAX_DIRECT_ARCHITECT_PROMPT_CHARS:
         raise DirectSourceError("direct_source_prompt_budget_exceeded")
-    response = await llm.ainvoke(
-        [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ]
-    )
-    await _checkpoint(check_cancelled)
-    structure = _parse_structure(str(response.content or ""))
-    _validate_structure_sources(
-        structure,
-        corpus,
-        num_modules=num_modules,
-        lessons_per_module=lessons_per_module,
-    )
-    return structure
+    retryable_codes = {
+        "direct_source_structure_invalid",
+        "direct_source_documents_omitted",
+    }
+    validation_error: DirectSourceError | None = None
+    for attempt in range(2):
+        attempt_prompt = user_prompt
+        if validation_error is not None:
+            attempt_prompt += (
+                "\nCORRECTION REQUIRED: the previous JSON failed validation with "
+                f"{validation_error.code}. Return a corrected JSON object and obey every "
+                "numeric limit and source-document requirement exactly.\n"
+            )
+            if len(system_prompt) + len(attempt_prompt) > MAX_DIRECT_ARCHITECT_PROMPT_CHARS:
+                raise validation_error
+
+        await _checkpoint(check_cancelled)
+        response = await llm.ainvoke(
+            [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": attempt_prompt},
+            ]
+        )
+        await _checkpoint(check_cancelled)
+        try:
+            structure = _parse_structure(str(response.content or ""))
+            _validate_structure_sources(
+                structure,
+                corpus,
+                num_modules=num_modules,
+                lessons_per_module=lessons_per_module,
+                max_total_lessons=max_total_lessons,
+            )
+        except DirectSourceError as exc:
+            if attempt == 1 or exc.code not in retryable_codes:
+                raise
+            validation_error = exc
+            continue
+        return structure
+
+    raise validation_error or DirectSourceError("direct_source_structure_invalid")
 
 
 def _tokens(value: str) -> set[str]:
@@ -687,6 +720,9 @@ async def write_direct_course(
     check_cancelled: Callable[[], Awaitable[None] | None] | None = None,
     tenant_id: UUID | str | None = None,
     semantic_selector: Callable[..., Awaitable[list[DirectSourceChunk]]] | None = None,
+    completed_lessons: Mapping[tuple[int, int], LessonContent] | None = None,
+    before_lesson_generate: Callable[[int, int], Awaitable[None] | None] | None = None,
+    on_lesson_complete: Callable[[int, int, LessonContent], Awaitable[None] | None] | None = None,
 ) -> CourseContent:
     """Write every lesson from verified semantic or bounded lexical excerpts."""
 
@@ -696,10 +732,26 @@ async def write_direct_course(
     semantic_embeddings = EmbeddingsProvider(tenant_id=tenant_id) if tenant_id is not None else None
     semantic_store = VectorStore() if tenant_id is not None else None
     semantic_unavailable = False
-    for module in structure.modules:
+    restored = completed_lessons or {}
+    for module_index, module in enumerate(structure.modules):
         lessons: list[LessonContent] = []
-        for lesson in module.lessons:
+        for lesson_index, lesson in enumerate(module.lessons):
             await _checkpoint(check_cancelled)
+            restored_content = restored.get((module_index, lesson_index))
+            if restored_content is not None:
+                lessons.append(restored_content)
+                completed += 1
+                if on_progress:
+                    result = on_progress(
+                        f"Restored lesson {completed}/{total}: {lesson.title}"
+                    )
+                    if inspect.isawaitable(result):
+                        await result
+                continue
+            if before_lesson_generate:
+                result = before_lesson_generate(module_index, lesson_index)
+                if inspect.isawaitable(result):
+                    await result
             objectives = [objective.text for objective in lesson.objectives]
             query = " ".join((lesson.title, module.title, *objectives, *lesson.relevant_headings))
             if tenant_id is None:
@@ -773,15 +825,18 @@ Objectives: {json.dumps(objectives, ensure_ascii=False)}
             content = str(response.content or "").strip()
             if not content or len(content) > MAX_DIRECT_LESSON_OUTPUT_CHARS:
                 raise DirectSourceError("direct_source_lesson_invalid")
-            lessons.append(
-                LessonContent(
+            lesson_content = LessonContent(
                     title=lesson.title,
                     objectives=objectives,
                     content=content,
                     source_chunks=bounded_texts,
                     source_references=[_source_reference(chunk) for chunk in chunks[: len(bounded_texts)]],
                 )
-            )
+            lessons.append(lesson_content)
+            if on_lesson_complete:
+                result = on_lesson_complete(module_index, lesson_index, lesson_content)
+                if inspect.isawaitable(result):
+                    await result
             completed += 1
             if on_progress:
                 result = on_progress(f"Writing lesson {completed}/{total}: {lesson.title}")

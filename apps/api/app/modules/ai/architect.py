@@ -254,6 +254,7 @@ def _build_system_prompt(
     course_hours: float | None = None,
     num_modules: int | None = None,
     lessons_per_module: int | None = None,
+    max_total_lessons: int | None = None,
     language: str = "ru",
     guidance: str | None = None,
     target_audience: str = "",
@@ -272,7 +273,7 @@ def _build_system_prompt(
             "Focus modules and lessons on content that addresses these goals.\n"
         )
 
-    if course_hours is not None or num_modules is not None or lessons_per_module is not None:
+    if course_hours is not None or num_modules is not None or lessons_per_module is not None or max_total_lessons is not None:
         lines = ["\n\n## Course Constraints\n"]
         if course_hours is not None:
             lines.append(f"- Target duration: {course_hours:g} hours")
@@ -280,9 +281,10 @@ def _build_system_prompt(
             lines.append(f"- Modules/sections: {num_modules}")
         if lessons_per_module is not None:
             lines.append(f"- Maximum lessons per module: {lessons_per_module}")
-            if num_modules is not None:
-                lines.append(f"- Maximum lessons in the whole course: {num_modules * lessons_per_module}")
             lines.append("These lesson limits are mandatory. Combine closely related source topics instead of exceeding them.")
+        if max_total_lessons is not None:
+            lines.append(f"- Maximum lessons in the whole course: {max_total_lessons}")
+            lines.append("This whole-course lesson limit is mandatory. Never add filler to reach it.")
         prompt += "\n".join(lines)
 
     lang_names = {"ru": "Русский", "kk": "Қазақша", "en": "English"}
@@ -382,6 +384,7 @@ async def run_architect(
     course_hours: float | None = None,
     num_modules: int | None = None,
     lessons_per_module: int | None = None,
+    max_total_lessons: int | None = None,
     language: str = "ru",
     guidance: str | None = None,
     on_message: Callable | None = None,
@@ -403,6 +406,7 @@ async def run_architect(
         course_hours=course_hours,
         num_modules=num_modules,
         lessons_per_module=lessons_per_module,
+        max_total_lessons=max_total_lessons,
         language=language,
         guidance=guidance,
         target_audience=target_audience,
@@ -525,6 +529,11 @@ When ready to output the final course structure, output ONLY the JSON code block
                         budget_errors.append(
                             f"every module must contain at most {lessons_per_module} lessons"
                         )
+                total_lessons = sum(len(module.lessons) for module in structure.modules)
+                if max_total_lessons is not None and total_lessons > max_total_lessons:
+                    budget_errors.append(
+                        f"the whole course must contain at most {max_total_lessons} lessons"
+                    )
                 if budget_errors:
                     messages.append({"role": "assistant", "content": content})
                     messages.append(

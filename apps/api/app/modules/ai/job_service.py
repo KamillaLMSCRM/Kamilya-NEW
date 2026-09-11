@@ -290,7 +290,11 @@ async def get_ai_job(
     if tenant_id is not None:
         stmt = stmt.where(AIJob.tenant_id == tenant_id)
     if for_update:
-        stmt = stmt.with_for_update()
+        # A caller may already have loaded this job in the same identity map.
+        # After waiting for a concurrent cancellation, FOR UPDATE must refresh
+        # that object from PostgreSQL instead of returning stale ORM state and
+        # accidentally resurrecting a terminal job.
+        stmt = stmt.with_for_update().execution_options(populate_existing=True)
     result = await db.execute(stmt)
     return result.scalar_one_or_none()
 
@@ -459,3 +463,81 @@ async def submit_ai_job(
         raise
 
     return job, queue_metadata
+
+
+async def resume_interrupted_ai_job(
+    db: AsyncSession,
+    *,
+    job: AIJob,
+    tenant_id,
+    task_kwargs: dict[str, Any],
+    active_limit: int,
+    worker_concurrency: int,
+    historical_estimate_seconds: int,
+    dispatcher: AIJobDispatcher | None = None,
+) -> tuple[AIJob, dict[str, int | None]]:
+    """Requeue the same logical generation without charging quota again."""
+    active_limit = _positive_int(active_limit, "active_limit")
+    await _lock_tenant_row(db, tenant_id)
+    locked = await get_ai_job(
+        db,
+        str(job.id),
+        tenant_id=str(tenant_id),
+        for_update=True,
+    )
+    if locked is None:
+        raise AIJobSubmissionUnavailableError("AI job was not found")
+    if locked.status != "interrupted":
+        raise AIJobSubmissionUnavailableError("AI job is not resumable")
+    active_count = await count_active_ai_jobs(db, tenant_id)
+    if active_count >= active_limit:
+        raise AIJobAdmissionLimitReachedError(
+            tenant_id=tenant_id,
+            active_count=active_count,
+            active_limit=active_limit,
+        )
+
+    previous_result = locked.result if isinstance(locked.result, dict) else {}
+    resume_count = int(previous_result.get("resume_count", 0) or 0) + 1
+    delivery_task_id = str(uuid.uuid4())
+    locked.status = "pending"
+    locked.stage = "queued"
+    locked.message = "Продолжение генерации поставлено в очередь"
+    locked.errors = None
+    locked.completed_at = None
+    locked.started_at = None
+    locked.result = {
+        **previous_result,
+        "resume_count": resume_count,
+        "delivery_task_id": delivery_task_id,
+    }
+    locked.updated_at = datetime.now(UTC)
+    await db.flush()
+    queue_metadata = await build_ai_job_queue_metadata(
+        db,
+        locked,
+        active_limit=active_limit,
+        worker_concurrency=worker_concurrency,
+        historical_estimate_seconds=historical_estimate_seconds,
+    )
+    await db.commit()
+
+    try:
+        (dispatcher or CeleryAIJobDispatcher()).dispatch(
+            "generate_course",
+            task_id=delivery_task_id,
+            kwargs=task_kwargs,
+        )
+    except AIJobSubmissionUnavailableError:
+        await update_ai_job(
+            db,
+            str(locked.id),
+            tenant_id=str(tenant_id),
+            status="interrupted",
+            stage="interrupted",
+            message="Не удалось поставить продолжение в очередь",
+        )
+        await db.commit()
+        raise
+
+    return locked, queue_metadata

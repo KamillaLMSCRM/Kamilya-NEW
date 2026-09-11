@@ -621,4 +621,100 @@ async def test_direct_architect_rejects_missing_source_and_prompt_overflow():
     assert llm.calls == 0
     with pytest.raises(DirectSourceError, match="direct_source_structure_invalid"):
         await run_direct_architect(llm, corpus)
-    assert llm.calls == 1
+    assert llm.calls == 2
+
+
+@pytest.mark.asyncio
+async def test_direct_architect_enforces_the_adaptive_whole_course_limit():
+    from app.modules.ai.direct_source import DirectSourceError, build_direct_source_corpus, run_direct_architect
+
+    tenant_id, document_id = uuid4(), uuid4()
+    blob = b"Synthetic source."
+    corpus = await build_direct_source_corpus(
+        [_document(tenant_id=tenant_id, document_id=document_id, key="source", filename="source.txt", blob=blob)],
+        tenant_id=tenant_id,
+        storage=_Storage({"source": blob}),
+        converter=_PlainTextConverter(),
+    )
+
+    class LLM:
+        async def ainvoke(self, messages):
+            return SimpleNamespace(content=json.dumps({
+                "title": "Course",
+                "description": "",
+                "modules": [{
+                    "title": "Module",
+                    "description": "",
+                    "lessons": [
+                        {"title": f"Lesson {index}", "description": "", "objectives": [],
+                         "source_doc_ids": [str(document_id)], "relevant_headings": []}
+                        for index in range(2)
+                    ],
+                }],
+            }))
+
+    with pytest.raises(DirectSourceError, match="direct_source_structure_invalid"):
+        await run_direct_architect(
+            LLM(), corpus, num_modules=1, lessons_per_module=6, max_total_lessons=1,
+        )
+
+
+@pytest.mark.asyncio
+async def test_direct_architect_retries_one_invalid_module_count_before_failing():
+    """Regression for the Plus Excel job that failed at architect progress 10."""
+    from app.modules.ai.direct_source import build_direct_source_corpus, run_direct_architect
+
+    tenant_id, document_id = uuid4(), uuid4()
+    blob = "\n".join(f"Product group {index}: approved attributes." for index in range(10)).encode()
+    corpus = await build_direct_source_corpus(
+        [_document(tenant_id=tenant_id, document_id=document_id, key="source", filename="source.txt", blob=blob)],
+        tenant_id=tenant_id,
+        storage=_Storage({"source": blob}),
+        converter=_PlainTextConverter(),
+    )
+
+    def structure(module_count: int) -> str:
+        return json.dumps(
+            {
+                "title": "Product course",
+                "description": "",
+                "modules": [
+                    {
+                        "title": f"Module {index}",
+                        "description": "",
+                        "lessons": [
+                            {
+                                "title": f"Lesson {index}",
+                                "description": "",
+                                "objectives": [],
+                                "source_doc_ids": [str(document_id)],
+                                "relevant_headings": [],
+                            }
+                        ],
+                    }
+                    for index in range(module_count)
+                ],
+            }
+        )
+
+    class LLM:
+        def __init__(self) -> None:
+            self.responses = [structure(3), structure(10)]
+            self.prompts: list[str] = []
+
+        async def ainvoke(self, messages):
+            self.prompts.append(messages[-1]["content"])
+            return SimpleNamespace(content=self.responses.pop(0))
+
+    llm = LLM()
+    result = await run_direct_architect(
+        llm,
+        corpus,
+        num_modules=10,
+        lessons_per_module=2,
+        max_total_lessons=14,
+    )
+
+    assert len(result.modules) == 10
+    assert len(llm.prompts) == 2
+    assert "direct_source_structure_invalid" in llm.prompts[1]

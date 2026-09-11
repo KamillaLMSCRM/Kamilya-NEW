@@ -17,6 +17,7 @@ export type AsyncOperationState =
   | 'completed'
   | 'failed'
   | 'cancelled'
+  | 'interrupted'
   | 'stalled';
 
 export interface AsyncOperation {
@@ -37,6 +38,7 @@ export const resolveAsyncOperationState = (
   if (operation.status === 'completed') return 'completed';
   if (operation.status === 'failed') return 'failed';
   if (operation.status === 'cancelled') return 'cancelled';
+  if (operation.status === 'interrupted') return 'interrupted';
 
   const lastUpdate = operation.updated_at || operation.created_at;
   if (
@@ -68,6 +70,7 @@ const stateStyles: Record<AsyncOperationState, string> = {
   completed: 'border-success/30 bg-success/10 text-success',
   failed: 'border-destructive/30 bg-destructive/10 text-destructive',
   cancelled: 'border-border bg-muted text-muted-foreground',
+  interrupted: 'border-warning/40 bg-warning/10 text-warning',
   stalled: 'border-warning/40 bg-warning/10 text-warning',
 };
 
@@ -105,7 +108,7 @@ export function AsyncOperationStatus({
     ? CheckCircle2
     : state === 'failed' || state === 'cancelled'
       ? XCircle
-      : state === 'stalled'
+      : state === 'stalled' || state === 'interrupted'
         ? AlertTriangle
         : state === 'queued'
           ? Clock3
@@ -146,7 +149,7 @@ export function AsyncOperationStatus({
           )}
           {(onRetry || onCancel) && (
             <div className="mt-3 flex flex-wrap gap-2">
-              {onRetry && (state === 'failed' || state === 'cancelled' || state === 'stalled') && (
+              {onRetry && (state === 'failed' || state === 'cancelled' || state === 'stalled' || state === 'interrupted') && (
                 <button
                   type="button"
                   onClick={onRetry}
@@ -156,7 +159,7 @@ export function AsyncOperationStatus({
                   {retryLabel}
                 </button>
               )}
-              {onCancel && (state === 'queued' || state === 'running' || state === 'stalled') && (
+              {onCancel && (state === 'queued' || state === 'running' || state === 'stalled' || state === 'interrupted') && (
                 <button
                   type="button"
                   onClick={onCancel}

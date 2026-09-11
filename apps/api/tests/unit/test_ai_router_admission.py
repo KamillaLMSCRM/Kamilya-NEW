@@ -80,6 +80,47 @@ async def test_full_tenant_queue_maps_submission_limit_to_http_429(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_unexpected_submission_failure_also_releases_demo_quota(monkeypatch):
+    tenant_id = uuid4()
+    user = SimpleNamespace(id=uuid4(), tenant_id=tenant_id)
+    request = AIGenerateRequest(documents=[uuid4()])
+    analysis = SimpleNamespace(
+        status="compatible",
+        score=1.0,
+        requires_decision=False,
+        clusters=[],
+    )
+    release_quota = AsyncMock()
+    failure = RuntimeError("queue transport unavailable")
+
+    monkeypatch.setattr(
+        "app.modules.ai.source_analysis.analyze_document_set",
+        AsyncMock(return_value=analysis),
+    )
+    monkeypatch.setattr("app.core.demo_limits.check_ai_generation_quota", AsyncMock())
+    monkeypatch.setattr(
+        "app.core.demo_limits.release_ai_generation_quota",
+        release_quota,
+    )
+    monkeypatch.setattr(router, "submit_ai_job", AsyncMock(side_effect=failure))
+    monkeypatch.setattr(router, "resolve_tenant_ai_active_limit", AsyncMock(return_value=2))
+    monkeypatch.setattr(
+        "app.modules.ai.source_analysis.document_chunk_totals",
+        AsyncMock(return_value={}),
+    )
+    monkeypatch.setattr(
+        "app.modules.ai.source_analysis.document_script_languages",
+        AsyncMock(return_value={}),
+    )
+
+    db = _lenient_db()
+    with pytest.raises(RuntimeError, match="queue transport unavailable"):
+        await router.generate_course(request, db=db, user=user)
+
+    release_quota.assert_awaited_once_with(db, user.id, tenant_id)
+
+
+@pytest.mark.asyncio
 async def test_reused_source_requires_reason_and_returns_only_existing_course_projection(monkeypatch):
     tenant_id = uuid4()
     document_id = uuid4()
@@ -166,6 +207,7 @@ async def test_reuse_reason_is_persisted_and_starts_an_independent_draft(monkeyp
     assert task_kwargs["reuse_reason"] == "different_audience"
     assert task_kwargs["num_modules"] == 1
     assert task_kwargs["lessons_per_module"] == 1
+    assert task_kwargs["max_total_lessons"] == 1
 
 
 def test_reuse_reason_cannot_silently_replace_an_existing_course_regeneration() -> None:
@@ -213,3 +255,48 @@ async def test_existing_course_regeneration_does_not_enter_new_course_reuse_flow
     assert response == {"id": "job-1"}
     assert submit.await_args.kwargs["course_id"] == existing_course_id
     assert submit.await_args.kwargs["reserve_course_generation"] is False
+
+
+@pytest.mark.asyncio
+async def test_resume_endpoint_requeues_same_job_with_persisted_adaptive_scope(monkeypatch):
+    tenant_id = uuid4()
+    user_id = uuid4()
+    document_id = uuid4()
+    job = SimpleNamespace(
+        id="job-1",
+        tenant_id=tenant_id,
+        user_id=user_id,
+        course_id=None,
+        status="interrupted",
+        params={
+            "documents": [str(document_id)],
+            "target_audience": "Sales team",
+            "num_modules": 5,
+            "course_structure": {
+                "lessons_per_module": 5,
+                "recommended_total_lessons": 25,
+            },
+            "language": "ru",
+            "source_strategy": "single_topic",
+            "source_analysis": {"analysis_mode": "direct_source"},
+        },
+    )
+    resumed = AsyncMock(return_value=(job, {"queue_position": 1}))
+    monkeypatch.setattr(router, "get_ai_job", AsyncMock(return_value=job))
+    monkeypatch.setattr(router, "resolve_tenant_ai_active_limit", AsyncMock(return_value=2))
+    monkeypatch.setattr(router, "resume_interrupted_ai_job", resumed)
+    monkeypatch.setattr(router, "_job_response", AsyncMock(return_value={"id": "job-1", "status": "pending"}))
+
+    response = await router.resume_generation(
+        "job-1",
+        db=SimpleNamespace(),
+        user=SimpleNamespace(id=user_id, tenant_id=tenant_id),
+    )
+
+    assert response == {"id": "job-1", "status": "pending"}
+    kwargs = resumed.await_args.kwargs["task_kwargs"]
+    assert kwargs["job_id"] == "job-1"
+    assert kwargs["documents"] == [str(document_id)]
+    assert kwargs["num_modules"] == 5
+    assert kwargs["lessons_per_module"] == 5
+    assert kwargs["max_total_lessons"] == 25

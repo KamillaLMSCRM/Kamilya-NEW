@@ -29,7 +29,7 @@ export function selectOldestActiveCourseJob(
         job.job_type === 'course_generation'
         || (job.job_type === undefined && job.course_id !== null)
       )
-      && (job.status === 'pending' || job.status === 'running')
+      && (job.status === 'pending' || job.status === 'running' || job.status === 'interrupted')
     ))
     .sort((left, right) => Date.parse(left.created_at) - Date.parse(right.created_at));
   return activeJobs[0] ?? null;
@@ -41,7 +41,7 @@ export function selectLatestTerminalCourseJob(
   const terminalJobs = jobs
     .filter((job) => (
       job.job_type === 'course_generation'
-      && (job.status === 'failed' || job.status === 'cancelled')
+      && (job.status === 'failed' || job.status === 'cancelled' || job.status === 'interrupted')
     ))
     .sort((left, right) => Date.parse(right.updated_at) - Date.parse(left.updated_at));
   return terminalJobs[0] ?? null;

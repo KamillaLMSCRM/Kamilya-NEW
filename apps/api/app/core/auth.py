@@ -149,15 +149,32 @@ def create_scoped_token(data: dict, *, token_type: str, expires_delta: timedelta
 def create_refresh_token(data: dict) -> str:
     to_encode = _json_safe_jwt_payload(data)
     now = datetime.now(UTC)
-    expire = now + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+    auth_time = int(to_encode.get("auth_time") or now.timestamp())
+    absolute_expire = datetime.fromtimestamp(auth_time, UTC) + timedelta(
+        hours=settings.AUTH_SESSION_MAX_AGE_HOURS
+    )
+    configured_expire = now + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+    expire = min(absolute_expire, configured_expire)
     to_encode["exp"] = int(expire.timestamp())
     to_encode["iat"] = int(now.timestamp())
     to_encode["nbf"] = int(now.timestamp())
+    to_encode["auth_time"] = auth_time
     to_encode["jti"] = str(uuid4())
     to_encode["type"] = "refresh"
     to_encode.setdefault("aud", settings.JWT_AUDIENCE)
     to_encode.setdefault("iss", settings.JWT_ISSUER)
     return jwt.encode(to_encode, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
+
+
+def enforce_refresh_session_age(payload: dict) -> None:
+    """Reject refresh credentials beyond the original browser login lifetime."""
+
+    auth_time = payload.get("auth_time", payload.get("iat"))
+    if not isinstance(auth_time, (int, float)):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session expired")
+    deadline = float(auth_time) + (settings.AUTH_SESSION_MAX_AGE_HOURS * 60 * 60)
+    if datetime.now(UTC).timestamp() >= deadline:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session expired")
 
 
 def decode_token(token: str) -> dict:

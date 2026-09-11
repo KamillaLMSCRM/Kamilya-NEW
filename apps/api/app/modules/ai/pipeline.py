@@ -6,21 +6,20 @@ import hashlib
 import json
 import logging
 import math
-import os
 import re
 import time
-from datetime import datetime, timezone
-from typing import Callable, TypedDict, cast
 from dataclasses import dataclass, field
+from datetime import UTC, datetime, timezone
+from typing import TypedDict, cast
 from uuid import UUID, uuid4
 
+from billiard.exceptions import SoftTimeLimitExceeded
+
+from app.core.db import async_session_factory
+from app.modules.ai.architect import create_architect_tools, run_architect
 from app.modules.ai.architect_schema import CourseStructure
-from app.modules.ai.writer_schema import CourseContent, ModuleContent, LessonContent
+from app.modules.ai.assessment import generate_course_assessment
 from app.modules.ai.assessment_schema import CourseAssessment, LessonAssessment
-from app.modules.ai.llm_client import LLMClient, ResilientLLMClient, create_llm
-from app.modules.ai.source_map_checkpoint import SourceMapCheckpointStore
-from app.modules.ai.ingestion import VectorStore, DocumentIngestion, EmbeddingsProvider
-from app.modules.ai.architect import run_architect, create_architect_tools
 from app.modules.ai.direct_source import (
     DirectSourceCorpus,
     DirectSourceError,
@@ -28,10 +27,18 @@ from app.modules.ai.direct_source import (
     run_direct_architect,
     write_direct_course,
 )
-from app.modules.ai.writer import UnsupportedLessonSourceError, write_lesson, write_course
-from app.modules.ai.assessment import generate_lesson_assessment, generate_course_assessment
+from app.modules.ai.generation_checkpoint import (
+    AIGenerationCheckpointError,
+    AIGenerationCheckpointRepository,
+    GenerationPlan,
+    PlannedLesson,
+)
+from app.modules.ai.ingestion import EmbeddingsProvider, VectorStore
+from app.modules.ai.llm_client import ResilientLLMClient
 from app.modules.ai.reviewer import ReviewerAgent
-from app.core.db import async_session_factory
+from app.modules.ai.source_map_checkpoint import SourceMapCheckpointStore
+from app.modules.ai.writer import UnsupportedLessonSourceError, write_course
+from app.modules.ai.writer_schema import CourseContent, LessonContent
 
 logger = logging.getLogger(__name__)
 
@@ -72,6 +79,59 @@ def _estimate_lesson_duration_seconds(content: str | None) -> int:
     return max(2, math.ceil(word_count / 150)) * 60
 
 
+def _generation_plan_payload(
+    structure: CourseStructure,
+    *,
+    documents: list[str],
+    options: dict[str, object],
+) -> dict[str, object]:
+    return {
+        "structure": json.loads(structure.to_json()),
+        "source_document_ids": list(documents),
+        "options": options,
+    }
+
+
+def _generation_plan_revision(payload: dict[str, object]) -> str:
+    return hashlib.sha256(
+        json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+    ).hexdigest()
+
+
+def _planned_generation_lessons(structure: CourseStructure) -> tuple[PlannedLesson, ...]:
+    return tuple(
+        PlannedLesson(
+            module_key=f"module-{module_index:03d}",
+            lesson_key=f"lesson-{module_index:03d}-{lesson_index:03d}",
+            module_order=module_index,
+            lesson_order=lesson_index,
+        )
+        for module_index, module in enumerate(structure.modules)
+        for lesson_index, _lesson in enumerate(module.lessons)
+    )
+
+
+def _structure_from_generation_plan(
+    plan: GenerationPlan,
+    *,
+    documents: list[str],
+) -> CourseStructure:
+    payload = dict(plan.plan_payload)
+    if payload.get("source_document_ids") != documents:
+        raise AIGenerationCheckpointError("generation_source_identity_conflict")
+    if _generation_plan_revision(payload) != plan.plan_revision:
+        raise AIGenerationCheckpointError("generation_plan_revision_conflict")
+    structure_payload = payload.get("structure")
+    if not isinstance(structure_payload, dict):
+        raise AIGenerationCheckpointError("invalid_persisted_plan_payload")
+    structure = CourseStructure.from_json(
+        json.dumps(structure_payload, ensure_ascii=False)
+    )
+    if _planned_generation_lessons(structure) != plan.lessons:
+        raise AIGenerationCheckpointError("generation_plan_lesson_identity_conflict")
+    return structure
+
+
 async def _selected_document_profile(
     document_ids: list[str],
     tenant_id: UUID | str | None,
@@ -79,6 +139,7 @@ async def _selected_document_profile(
     if not document_ids or not tenant_id:
         return {"all_job_instructions": False, "total_chunks": 0}
     from sqlalchemy import select, text
+
     from app.models.document import Document
 
     parsed_ids = []
@@ -139,8 +200,9 @@ class GenerationState:
 
 async def _update_job_db(job_id: str, tenant_id: UUID | str | None = None, **kwargs):
     """Update job state in the database."""
+    from sqlalchemy import text
+
     from app.modules.ai.job_service import update_ai_job
-    from sqlalchemy import delete, select, text
     async with async_session_factory() as session:
         tenant_value = str(tenant_id) if tenant_id else None
         if tenant_value:
@@ -229,10 +291,31 @@ async def _save_generation_to_db(
             )
             await session.flush()
 
+        assessment_by_position: dict[tuple[int, int], LessonAssessment] = {}
+        if state.structure and state.assessment:
+            planned_positions = [
+                (module_index, lesson_index, lesson.title)
+                for module_index, module in enumerate(state.structure.modules)
+                for lesson_index, lesson in enumerate(module.lessons)
+            ]
+            if len(planned_positions) != len(state.assessment.assessments):
+                raise AIGenerationCheckpointError("generation_assessment_count_conflict")
+            for position, lesson_assessment in zip(
+                planned_positions,
+                state.assessment.assessments,
+                strict=True,
+            ):
+                module_index, lesson_index, lesson_title = position
+                if lesson_assessment.lesson_title != lesson_title:
+                    raise AIGenerationCheckpointError(
+                        "generation_assessment_identity_conflict"
+                    )
+                assessment_by_position[(module_index, lesson_index)] = lesson_assessment
+
         # Create modules and lessons
         if state.structure and state.content:
             for mod_idx, (struct_mod, content_mod) in enumerate(
-                zip(state.structure.modules, state.content.modules)
+                zip(state.structure.modules, state.content.modules, strict=False)
             ):
                 module = Module(
                     tenant_id=tenant_id,
@@ -246,7 +329,7 @@ async def _save_generation_to_db(
                 await session.flush()
 
                 for les_idx, (struct_les, content_les) in enumerate(
-                    zip(struct_mod.lessons, content_mod.lessons)
+                    zip(struct_mod.lessons, content_mod.lessons, strict=False)
                 ):
                     actual_source_ids = list(dict.fromkeys(
                         str(reference.get("doc_id"))
@@ -273,7 +356,7 @@ async def _save_generation_to_db(
 
                     # Create quiz from assessment
                     if state.assessment:
-                        for lesson_assess in state.assessment.assessments:
+                        for lesson_assess in [assessment_by_position[(mod_idx, les_idx)]]:
                             if lesson_assess.lesson_title == struct_les.title:
                                 question_count = (
                                     len(lesson_assess.mcq)
@@ -395,9 +478,10 @@ async def _save_generation_to_db(
 
 async def _check_cancelled_async(job_id: str, tenant_id: UUID | str | None = None):
     """Async check: raise CancelledError if job status is 'cancelled' in DB."""
-    from app.modules.ai.job_service import get_ai_job
-    from app.core.db import async_session_factory
     from sqlalchemy import text
+
+    from app.core.db import async_session_factory
+    from app.modules.ai.job_service import get_ai_job
     async with async_session_factory() as session:
         tenant_value = str(tenant_id) if tenant_id else None
         if tenant_value:
@@ -413,6 +497,7 @@ async def run_generation_pipeline(
     target_audience: str = "",
     num_modules: int = 3,
     lessons_per_module: int | None = None,
+    max_total_lessons: int | None = None,
     language: str = "ru",
     goals: list[str] | None = None,
     course_hours: float | None = None,
@@ -424,6 +509,8 @@ async def run_generation_pipeline(
     combination_goal: str = "",
     source_analysis: dict | None = None,
     reuse_reason: str | None = None,
+    generation_checkpoint_repository: AIGenerationCheckpointRepository | None = None,
+    delivery_id: str | None = None,
 ) -> GenerationState:
     """
     Full generation pipeline:
@@ -445,6 +532,9 @@ async def run_generation_pipeline(
     direct_mode = state.source_analysis.get("analysis_mode") == "direct_source"
     direct_corpus: DirectSourceCorpus | None = None
     map_checkpoints: SourceMapCheckpointStore | None = None
+    generation_checkpoints = generation_checkpoint_repository if tenant_id else None
+    generation_plan: GenerationPlan | None = None
+    lease_owner = delivery_id or job_id
 
     try:
         # Stage 1: validate the selected source path before any model call.
@@ -548,12 +638,38 @@ async def run_generation_pipeline(
                 part for part in (guidance, compact_instruction) if part
             )
 
-        if direct_mode:
+        if generation_checkpoints is not None and tenant_id is not None:
+            async with async_session_factory() as session:
+                try:
+                    generation_plan = await generation_checkpoints.load_plan(
+                        session,
+                        tenant_id=str(tenant_id),
+                        generation_key=job_id,
+                    )
+                except AIGenerationCheckpointError as exc:
+                    if str(exc) != "generation_plan_not_found":
+                        raise
+
+        if generation_plan is not None:
+            structure = _structure_from_generation_plan(
+                generation_plan,
+                documents=documents,
+            )
+            state.message = "Продолжаем ранее начатую генерацию по сохранённому плану..."
+            await _update_job_db(
+                job_id,
+                tenant_id=tenant_id,
+                stage="architect",
+                progress=10,
+                message=state.message,
+            )
+        elif direct_mode:
             if direct_corpus is None:
                 raise DirectSourceError("direct_source_unavailable")
             map_checkpoints = _source_map_checkpoint_store(llm, tenant_id, job_id, {
                 "goals": goals, "course_hours": course_hours, "num_modules": num_modules,
                 "lessons_per_module": lessons_per_module, "language": language,
+                "max_total_lessons": max_total_lessons,
                 "guidance": effective_guidance, "target_audience": target_audience,
                 "source_strategy": source_strategy, "combination_goal": combination_goal,
             })
@@ -564,6 +680,7 @@ async def run_generation_pipeline(
                 course_hours=course_hours,
                 num_modules=num_modules,
                 lessons_per_module=lessons_per_module,
+                max_total_lessons=max_total_lessons,
                 language=language,
                 guidance=effective_guidance,
                 target_audience=target_audience,
@@ -585,6 +702,7 @@ async def run_generation_pipeline(
                 course_hours=course_hours,
                 num_modules=num_modules,
                 lessons_per_module=lessons_per_module,
+                max_total_lessons=max_total_lessons,
                 language=language,
                 guidance=effective_guidance,
                 on_message=lambda msg: asyncio.create_task(_update_job_db(job_id, tenant_id=tenant_id, message=f"Architect: {msg}")),
@@ -594,10 +712,181 @@ async def run_generation_pipeline(
                 combination_goal=combination_goal,
             )
 
+        plan_options: dict[str, object] = {
+            "target_audience": target_audience,
+            "num_modules": num_modules,
+            "lessons_per_module": lessons_per_module,
+            "max_total_lessons": max_total_lessons,
+            "language": language,
+            "goals": list(goals or []),
+            "course_hours": course_hours,
+            "guidance": effective_guidance or "",
+            "source_strategy": source_strategy,
+            "combination_goal": combination_goal,
+        }
+        plan_payload = _generation_plan_payload(
+            structure,
+            documents=documents,
+            options=plan_options,
+        )
+        planned_lessons = _planned_generation_lessons(structure)
+
         state.structure = structure
         state.progress = 25
         state.message = f"Структура спроектирована: {len(structure.modules)} модулей"
         await _update_job_db(job_id, tenant_id=tenant_id, progress=25, message=state.message)
+
+        checkpoint_keys = {
+            (planned.module_order, planned.lesson_order): (
+                planned.module_key,
+                planned.lesson_key,
+            )
+            for planned in planned_lessons
+        }
+        completed_content: dict[tuple[int, int], LessonContent] = {}
+        completed_reviews: dict[tuple[int, int], dict[str, object]] = {}
+        completed_assessments: dict[tuple[int, int], LessonAssessment] = {}
+        if generation_checkpoints is not None and tenant_id is not None:
+            snapshots = ()
+            if generation_plan is not None:
+                async with async_session_factory() as session:
+                    snapshots = await generation_checkpoints.load_checkpoints(
+                        session,
+                        tenant_id=str(tenant_id),
+                        generation_key=job_id,
+                    )
+            for snapshot in snapshots:
+                index = (snapshot.module_order, snapshot.lesson_order)
+                if checkpoint_keys.get(index) != (snapshot.module_key, snapshot.lesson_key):
+                    raise AIGenerationCheckpointError(
+                        "generation_plan_lesson_identity_conflict"
+                    )
+                expected_title = structure.modules[index[0]].lessons[index[1]].title
+                if snapshot.content_payload is not None:
+                    restored_content = LessonContent.from_dict(
+                        dict(snapshot.content_payload)
+                    )
+                    if restored_content.title != expected_title:
+                        raise AIGenerationCheckpointError(
+                            "generation_content_identity_conflict"
+                        )
+                    completed_content[index] = restored_content
+                if snapshot.review_payload is not None:
+                    completed_reviews[index] = dict(snapshot.review_payload)
+                if snapshot.assessment_payload is not None:
+                    restored_assessment = LessonAssessment.from_dict(
+                        dict(snapshot.assessment_payload)
+                    )
+                    if restored_assessment.lesson_title != expected_title:
+                        raise AIGenerationCheckpointError(
+                            "generation_assessment_identity_conflict"
+                        )
+                    completed_assessments[index] = restored_assessment
+
+        async def ensure_generation_plan(session) -> None:
+            nonlocal generation_plan
+            if generation_checkpoints is None or tenant_id is None:
+                return
+            generation_plan = await generation_checkpoints.create_plan(
+                session,
+                tenant_id=str(tenant_id),
+                generation_key=job_id,
+                plan_revision=_generation_plan_revision(plan_payload),
+                source_job_id=job_id,
+                plan_payload=plan_payload,
+                lessons=planned_lessons,
+            )
+
+        async def claim_generation_item(
+            module_index: int,
+            lesson_index: int,
+            stage: str,
+        ) -> None:
+            if generation_checkpoints is None or tenant_id is None:
+                return
+            module_key, lesson_key = checkpoint_keys[(module_index, lesson_index)]
+            async with async_session_factory() as session:
+                claimed = await generation_checkpoints.claim_item(
+                    session,
+                    tenant_id=str(tenant_id),
+                    generation_key=job_id,
+                    module_key=module_key,
+                    lesson_key=lesson_key,
+                    stage=stage,
+                    lease_owner=lease_owner,
+                )
+                await session.commit()
+            if claimed is None:
+                raise AIGenerationCheckpointError(
+                    "generation_checkpoint_lease_unavailable"
+                )
+
+        async def checkpoint_lesson_content(
+            module_index: int,
+            lesson_index: int,
+            lesson_content: LessonContent,
+        ) -> None:
+            if generation_checkpoints is None or tenant_id is None:
+                return
+            module_key, lesson_key = checkpoint_keys[(module_index, lesson_index)]
+            async with async_session_factory() as session:
+                await ensure_generation_plan(session)
+                await generation_checkpoints.checkpoint_content(
+                    session,
+                    tenant_id=str(tenant_id),
+                    generation_key=job_id,
+                    module_key=module_key,
+                    lesson_key=lesson_key,
+                    content_payload=lesson_content.to_dict(),
+                    lease_owner=lease_owner,
+                )
+                await session.commit()
+
+        async def checkpoint_lesson_review(
+            module_index: int,
+            lesson_index: int,
+            review: dict[str, object],
+        ) -> None:
+            if generation_checkpoints is None or tenant_id is None:
+                return
+            module_key, lesson_key = checkpoint_keys[(module_index, lesson_index)]
+            async with async_session_factory() as session:
+                await generation_checkpoints.checkpoint_review(
+                    session,
+                    tenant_id=str(tenant_id),
+                    generation_key=job_id,
+                    module_key=module_key,
+                    lesson_key=lesson_key,
+                    review_payload=review,
+                    lease_owner=lease_owner,
+                )
+                await session.commit()
+
+        async def checkpoint_lesson_assessment(
+            module_index: int,
+            lesson_index: int,
+            lesson_assessment: LessonAssessment,
+        ) -> None:
+            if generation_checkpoints is None or tenant_id is None:
+                return
+            module_key, lesson_key = checkpoint_keys[(module_index, lesson_index)]
+            async with async_session_factory() as session:
+                await ensure_generation_plan(session)
+                await generation_checkpoints.checkpoint_assessment(
+                    session,
+                    tenant_id=str(tenant_id),
+                    generation_key=job_id,
+                    module_key=module_key,
+                    lesson_key=lesson_key,
+                    assessment_payload=lesson_assessment.to_dict(),
+                    lease_owner=lease_owner,
+                )
+                await session.commit()
+
+        if generation_checkpoints is not None and tenant_id is not None:
+            async with async_session_factory() as session:
+                await ensure_generation_plan(session)
+                await session.commit()
 
         # Stage 3: Content Generation (Writer)
         await _check_cancelled_async(job_id, tenant_id=tenant_id)
@@ -637,6 +926,11 @@ async def run_generation_pipeline(
                         job_id,
                         tenant_id=tenant_id,
                     ),
+                    completed_lessons=completed_content,
+                    before_lesson_generate=lambda module_index, lesson_index: claim_generation_item(
+                        module_index, lesson_index, "content"
+                    ),
+                    on_lesson_complete=checkpoint_lesson_content,
                 )
             else:
                 if semantic_store is None:
@@ -650,6 +944,11 @@ async def run_generation_pipeline(
                     on_progress=on_lesson_progress,
                     embeddings_provider=semantic_embeddings_provider,
                     tenant_id=str(tenant_id) if tenant_id else None,
+                    completed_lessons=completed_content,
+                    before_lesson_generate=lambda module_index, lesson_index: claim_generation_item(
+                        module_index, lesson_index, "content"
+                    ),
+                    on_lesson_complete=checkpoint_lesson_content,
                 )
             return generated, total
 
@@ -658,6 +957,10 @@ async def run_generation_pipeline(
         except UnsupportedLessonSourceError as exc:
             if direct_mode:
                 raise
+            if generation_plan is not None:
+                raise AIGenerationCheckpointError(
+                    "generation_plan_grounding_conflict"
+                ) from exc
             state.stage = "architect_recovery"
             state.progress = 28
             state.message = (
@@ -695,6 +998,7 @@ async def run_generation_pipeline(
                 course_hours=course_hours,
                 num_modules=num_modules,
                 lessons_per_module=lessons_per_module,
+                max_total_lessons=max_total_lessons,
                 language=language,
                 guidance=recovery_guidance,
                 on_message=lambda msg: asyncio.create_task(
@@ -710,6 +1014,22 @@ async def run_generation_pipeline(
                 combination_goal=combination_goal,
             )
             state.structure = structure
+            plan_payload = _generation_plan_payload(
+                structure,
+                documents=documents,
+                options=plan_options,
+            )
+            planned_lessons = _planned_generation_lessons(structure)
+            checkpoint_keys = {
+                (planned.module_order, planned.lesson_order): (
+                    planned.module_key,
+                    planned.lesson_key,
+                )
+                for planned in planned_lessons
+            }
+            completed_content = {}
+            completed_reviews = {}
+            completed_assessments = {}
             state.stage = "content_generation"
             state.progress = 30
             state.message = "Новый план подтверждён источниками. Генерация уроков..."
@@ -746,14 +1066,18 @@ async def run_generation_pipeline(
                     progress=min(72 + int(reviewed_lessons / max(total_lessons, 1) * 3), 74),
                     message=f"Reviewing lesson {reviewed_lessons}/{total_lessons}: {content_les.title if hasattr(content_les, 'title') else ''}",
                 )
-                review = await reviewer.review_lesson(
-                    lesson_content=content_les.content if hasattr(content_les, 'content') else "",
-                    lesson_meta={
-                        "content_type": "text",
-                        "language": language,
-                        "title": content_les.title if hasattr(content_les, 'title') else "",
-                    },
-                )
+                review = completed_reviews.get((mod_idx, les_idx))
+                if review is None:
+                    await claim_generation_item(mod_idx, les_idx, "review")
+                    review = await reviewer.review_lesson(
+                        lesson_content=content_les.content if hasattr(content_les, 'content') else "",
+                        lesson_meta={
+                            "content_type": "text",
+                            "language": language,
+                            "title": content_les.title if hasattr(content_les, 'title') else "",
+                        },
+                    )
+                    await checkpoint_lesson_review(mod_idx, les_idx, review)
                 if review["quality_score"] < 5.0:
                     low_quality_lessons.append({
                         "module": mod_idx,
@@ -799,12 +1123,25 @@ async def run_generation_pipeline(
             on_progress=on_assessment_progress,
             compact=document_profile["all_job_instructions"],
             check_cancelled=lambda: _check_cancelled_async(job_id, tenant_id=tenant_id),
+            completed_assessments=completed_assessments,
+            before_assessment_generate=lambda module_index, lesson_index: claim_generation_item(
+                module_index, lesson_index, "assessment"
+            ),
+            on_assessment_complete=checkpoint_lesson_assessment,
         )
 
         state.assessment = assessment
         state.progress = 95
         state.message = "Тесты сгенерированы"
         await _update_job_db(job_id, tenant_id=tenant_id, progress=95, message=state.message)
+
+        if generation_checkpoints is not None and tenant_id is not None:
+            async with async_session_factory() as session:
+                await generation_checkpoints.assert_complete(
+                    session,
+                    tenant_id=str(tenant_id),
+                    generation_key=job_id,
+                )
 
         # Stage 5: Save to DB
         state.stage = "saving"
@@ -827,11 +1164,28 @@ async def run_generation_pipeline(
                 progress=100,
                 message=state.message,
                 course_id=UUID(state.course_id) if state.course_id else None,
-                completed_at=datetime.now(timezone.utc),
+                completed_at=datetime.now(UTC),
             )
 
         logger.info(f"Generation pipeline complete for job {job_id}")
 
+    except SoftTimeLimitExceeded:
+        state.status = "interrupted"
+        state.stage = "interrupted"
+        state.message = (
+            "Генерация приостановлена по лимиту времени. Готовые уроки сохранены — продолжите с оставшихся."
+        )
+        state.errors = ["generation_interrupted"]
+        await _update_job_db(
+            job_id,
+            tenant_id=tenant_id,
+            status="interrupted",
+            stage="interrupted",
+            message=state.message,
+            errors=state.errors,
+            completed_at=None,
+        )
+        logger.warning("Generation pipeline interrupted for job %s", job_id)
     except asyncio.CancelledError:
         state.status = "cancelled"
         state.stage = "cancelled"
@@ -849,11 +1203,12 @@ async def run_generation_pipeline(
             stage="failed",
             message=state.message,
             errors=[failure_code],
-            completed_at=datetime.now(timezone.utc),
+            completed_at=datetime.now(UTC),
         )
         if tenant_id and not state.course_id:
             try:
                 from sqlalchemy import text
+
                 from app.core.trial_limits import release_ai_course_generation
                 from app.modules.ai.budget import refund_llm_budget
 
@@ -872,6 +1227,22 @@ async def run_generation_pipeline(
                 )
         logger.error("Generation pipeline failed for job %s error_type=%s", job_id, type(e).__name__)
     finally:
+        if generation_checkpoints is not None and tenant_id is not None:
+            try:
+                async with async_session_factory() as session:
+                    await generation_checkpoints.release_leases(
+                        session,
+                        tenant_id=str(tenant_id),
+                        generation_key=job_id,
+                        lease_owner=lease_owner,
+                    )
+                    await session.commit()
+            except Exception as exc:
+                logger.warning(
+                    "Could not release generation leases for job %s error_type=%s",
+                    job_id,
+                    type(exc).__name__,
+                )
         if map_checkpoints is not None:
             try:
                 if state.status in {"completed", "cancelled"}:

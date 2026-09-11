@@ -51,8 +51,8 @@ class TestTokenExpiry:
     """Test token expiry logic."""
 
     def test_access_token_expires_sooner_than_refresh(self) -> None:
-        """Access token (15 min) should expire before refresh (30 days)."""
-        assert 15 < (30 * 24 * 60)  # 15 min < 30 days in minutes
+        """Access token (15 min) should expire before the 8-hour browser session."""
+        assert 15 < (8 * 60)
 
     def test_token_expiry_is_positive(self) -> None:
         """Access token expiry should be positive."""

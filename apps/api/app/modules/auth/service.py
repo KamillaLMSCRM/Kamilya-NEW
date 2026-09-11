@@ -7,7 +7,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import delete, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.auth import create_access_token, create_refresh_token, decode_token
+from app.core.auth import create_access_token, create_refresh_token, decode_token, enforce_refresh_session_age
 from app.models.tenants import Tenant
 from app.models.user_roles import UserRole
 from app.models.user_sessions import UserSession
@@ -301,6 +301,7 @@ async def refresh_access_token(db: AsyncSession, refresh_token: str) -> tuple[st
     payload = decode_token(refresh_token)
     if payload.get("type") != "refresh":
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
+    enforce_refresh_session_age(payload)
     user_id = UUID(payload["sub"])
     tenant_id = payload.get("tenant_id")
 
@@ -338,6 +339,7 @@ async def refresh_access_token(db: AsyncSession, refresh_token: str) -> tuple[st
         "tenant_id": user.tenant_id,
         "active_role": active_role,
         "platform": user.tenant_id is None and user.role == "superadmin",
+        "auth_time": payload.get("auth_time", payload["iat"]),
     })
     await db.delete(session)
     await issue_refresh_session(db, user, new_refresh)

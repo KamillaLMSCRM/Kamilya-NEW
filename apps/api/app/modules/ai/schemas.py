@@ -77,6 +77,10 @@ class CourseStructureRecommendation(BaseModel):
     resolved_format: Literal["brief", "standard", "detailed", "custom"]
     module_count: int = Field(ge=1, le=10)
     lessons_per_module: int = Field(ge=1, le=6)
+    recommended_total_lessons: int = Field(ge=1, le=60)
+    hard_max_total_lessons: int = Field(ge=1, le=60)
+    duration_min_minutes: int = Field(ge=1)
+    duration_max_minutes: int = Field(ge=1)
     estimated_duration_minutes: int = Field(ge=5)
     quiz_count: int = Field(ge=1)
     reason_codes: list[str] = Field(default_factory=list)

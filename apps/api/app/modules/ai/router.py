@@ -35,6 +35,7 @@ from app.modules.ai.job_service import (
     build_ai_job_queue_metadata,
     get_ai_job,
     resolve_tenant_ai_active_limit,
+    resume_interrupted_ai_job,
     submit_ai_job,
     update_ai_job,
 )
@@ -171,6 +172,10 @@ async def document_compatibility(
         resolved_format=recommendation.resolved_format,
         module_count=recommendation.module_count,
         lessons_per_module=recommendation.lessons_per_module,
+        recommended_total_lessons=recommendation.recommended_total_lessons,
+        hard_max_total_lessons=recommendation.hard_max_total_lessons,
+        duration_min_minutes=recommendation.duration_min_minutes,
+        duration_max_minutes=recommendation.duration_max_minutes,
         estimated_duration_minutes=recommendation.estimated_duration_minutes,
         quiz_count=recommendation.quiz_count,
         reason_codes=list(recommendation.reason_codes),
@@ -242,7 +247,7 @@ async def _in_flight_generation_for_documents(
     statement = text(
         "SELECT id FROM ai_jobs "
         "WHERE tenant_id = :tenant_id "
-        "AND status IN ('pending', 'running') "
+        "AND status IN ('pending', 'running', 'interrupted') "
         "AND jsonb_typeof(params->'documents') = 'array' "
         "AND params->'documents' @> CAST(:documents AS jsonb) "
         "AND params->'documents' <@ CAST(:documents AS jsonb) "
@@ -461,6 +466,10 @@ async def generate_course(
                 "course_structure": {
                     "resolved_format": structure.resolved_format,
                     "lessons_per_module": structure.lessons_per_module,
+                    "recommended_total_lessons": structure.recommended_total_lessons,
+                    "hard_max_total_lessons": structure.hard_max_total_lessons,
+                    "duration_min_minutes": structure.duration_min_minutes,
+                    "duration_max_minutes": structure.duration_max_minutes,
                     "estimated_duration_minutes": structure.estimated_duration_minutes,
                     "quiz_count": structure.quiz_count,
                     "reason_codes": list(structure.reason_codes),
@@ -478,6 +487,7 @@ async def generate_course(
                 "target_audience": req.target_audience,
                 "num_modules": resolved_modules,
                 "lessons_per_module": structure.lessons_per_module,
+                "max_total_lessons": structure.recommended_total_lessons,
                 "language": req.language,
                 "course_id": str(target_course_id) if target_course_id else None,
                 "tenant_id": str(user.tenant_id) if user.tenant_id else None,
@@ -493,12 +503,13 @@ async def generate_course(
             generation=True,
             reserve_course_generation=target_course_id is None,
         )
-    except AIJobAdmissionLimitReachedError as exc:
+    except Exception as exc:
         await release_ai_generation_quota(db, user.id, user.tenant_id)
-        raise _admission_http_error(exc) from exc
-    except AIJobSubmissionUnavailableError as exc:
-        await release_ai_generation_quota(db, user.id, user.tenant_id)
-        raise HTTPException(status_code=503, detail=exc.detail) from exc
+        if isinstance(exc, AIJobAdmissionLimitReachedError):
+            raise _admission_http_error(exc) from exc
+        if isinstance(exc, AIJobSubmissionUnavailableError):
+            raise HTTPException(status_code=503, detail=exc.detail) from exc
+        raise
 
     return await _job_response(
         db,
@@ -602,11 +613,76 @@ async def cancel_generation(
     try:
         from app.core.celery_app import celery_app
 
-        celery_app.control.revoke(job_id, terminate=False)
+        delivery_task_id = (
+            job.result.get("delivery_task_id")
+            if isinstance(job.result, dict)
+            else None
+        ) or job_id
+        celery_app.control.revoke(delivery_task_id, terminate=False)
     except Exception:
         logger.warning("Could not revoke Celery task %s; DB cancellation remains authoritative", job_id, exc_info=True)
 
     return {"status": "cancelled"}
+
+
+@router.post("/jobs/{job_id}/resume", response_model=AIJobResponse, status_code=202)
+async def resume_generation(
+    job_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_ai_job_access),
+):
+    """Resume missing lesson and assessment checkpoints for one logical job."""
+    tenant_id = user.tenant_id
+    if tenant_id is None:
+        raise HTTPException(status_code=400, detail="Tenant is required")
+    job = await get_ai_job(db, job_id, tenant_id=str(tenant_id))
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if job.status != "interrupted":
+        raise HTTPException(status_code=409, detail="Job is not resumable")
+    params = job.params if isinstance(job.params, dict) else {}
+    documents = params.get("documents")
+    course_structure = params.get("course_structure")
+    if not isinstance(documents, list) or not documents or not isinstance(course_structure, dict):
+        raise HTTPException(status_code=409, detail="Generation parameters are incomplete")
+
+    settings = get_settings()
+    active_limit = await resolve_tenant_ai_active_limit(
+        db,
+        tenant_id,
+        default_limit=settings.AI_MAX_ACTIVE_JOBS_PER_TENANT,
+    )
+    task_kwargs = {
+        "job_id": str(job.id),
+        "documents": [str(document_id) for document_id in documents],
+        "target_audience": str(params.get("target_audience") or ""),
+        "num_modules": int(params.get("num_modules") or 1),
+        "lessons_per_module": int(course_structure.get("lessons_per_module") or 1),
+        "max_total_lessons": int(course_structure.get("recommended_total_lessons") or 1),
+        "language": str(params.get("language") or "ru"),
+        "course_id": str(job.course_id) if job.course_id else None,
+        "tenant_id": str(tenant_id),
+        "user_id": str(job.user_id),
+        "source_strategy": str(params.get("source_strategy") or "single_topic"),
+        "combination_goal": str(params.get("combination_goal") or ""),
+        "source_analysis": params.get("source_analysis") if isinstance(params.get("source_analysis"), dict) else {},
+        "reuse_reason": params.get("reuse_reason"),
+    }
+    try:
+        resumed, queue_metadata = await resume_interrupted_ai_job(
+            db,
+            job=job,
+            tenant_id=tenant_id,
+            task_kwargs=task_kwargs,
+            active_limit=active_limit,
+            worker_concurrency=settings.AI_WORKER_CONCURRENCY,
+            historical_estimate_seconds=settings.AI_ESTIMATED_JOB_SECONDS,
+        )
+    except AIJobAdmissionLimitReachedError as exc:
+        raise _admission_http_error(exc) from exc
+    except AIJobSubmissionUnavailableError as exc:
+        raise HTTPException(status_code=503, detail=exc.detail) from exc
+    return await _job_response(db, resumed, queue_metadata=queue_metadata)
 
 
 async def _close_ws_with_application_code(

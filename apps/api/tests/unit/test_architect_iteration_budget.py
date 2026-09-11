@@ -114,6 +114,25 @@ async def test_architect_reserves_a_final_turn_when_model_keeps_using_tools(monk
 
 
 @pytest.mark.asyncio
+async def test_architect_enforces_the_adaptive_whole_course_limit(monkeypatch):
+    monkeypatch.setattr(core_db, "async_session_factory", lambda: _SessionContext())
+    llm = _BudgetCorrectingLLM()
+
+    structure = await run_architect(
+        llm=llm,
+        tools={"list_documents": lambda: _async_value('[{"id":"doc-1"}]')},
+        num_modules=1,
+        lessons_per_module=6,
+        max_total_lessons=1,
+        max_iterations=4,
+        tenant_id="00000000-0000-0000-0000-000000000001",
+    )
+
+    assert sum(len(module.lessons) for module in structure.modules) == 1
+    assert llm.calls == 2
+
+
+@pytest.mark.asyncio
 async def test_architect_rejects_oversized_structure_before_lesson_generation(monkeypatch):
     monkeypatch.setattr(core_db, "async_session_factory", lambda: _SessionContext())
     llm = _BudgetCorrectingLLM()

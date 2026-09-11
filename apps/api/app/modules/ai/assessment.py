@@ -7,7 +7,7 @@ import copy
 import json
 import logging
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from typing import Any
 
 from app.ml_prompts import get_renderer
@@ -1066,32 +1066,53 @@ async def generate_course_assessment(
     on_progress: Callable[[str], Any] | None = None,
     compact: bool = False,
     check_cancelled: Callable[[], Any] | None = None,
+    completed_assessments: Mapping[tuple[int, int], LessonAssessment] | None = None,
+    before_assessment_generate: Callable[[int, int], Any] | None = None,
+    on_assessment_complete: Callable[[int, int, LessonAssessment], Any] | None = None,
 ) -> CourseAssessment:
-    """Generate assessments for all lessons sequentially."""
+    """Generate assessments sequentially, restoring completed plan positions.
+
+    ``completed_assessments`` uses stable zero-based ``(module_index,
+    lesson_index)`` keys. Restored items preserve their position and do not
+    invoke the provider or incur the inter-item delay.
+    """
+    completed_assessments = completed_assessments or {}
     assessments = []
     total = sum(len(m.lessons) for m in course_content.modules)
     num = 0
 
-    for module in course_content.modules:
-        for lesson in module.lessons:
+    for module_index, module in enumerate(course_content.modules):
+        for lesson_index, lesson in enumerate(module.lessons):
             num += 1
             if check_cancelled:
                 result = check_cancelled()
                 if hasattr(result, "__await__"):
                     await result
-            a = await generate_lesson_assessment(
-                llm,
-                lesson,
-                language=language,
-                compact=compact,
-                check_cancelled=check_cancelled,
-            )
+            restored = completed_assessments.get((module_index, lesson_index))
+            if restored is not None:
+                a = restored
+            else:
+                if before_assessment_generate:
+                    result = before_assessment_generate(module_index, lesson_index)
+                    if hasattr(result, "__await__"):
+                        await result
+                a = await generate_lesson_assessment(
+                    llm,
+                    lesson,
+                    language=language,
+                    compact=compact,
+                    check_cancelled=check_cancelled,
+                )
+                if on_assessment_complete:
+                    result = on_assessment_complete(module_index, lesson_index, a)
+                    if hasattr(result, "__await__"):
+                        await result
             assessments.append(a)
             if on_progress:
                 result = on_progress(f"Generated assessment {num}/{total}: {lesson.title}")
                 if hasattr(result, "__await__"):
                     await result
-            if num < total:
+            if restored is None and num < total:
                 await asyncio.sleep(5)
 
     return CourseAssessment(assessments=assessments)

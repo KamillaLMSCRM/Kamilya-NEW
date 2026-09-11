@@ -16,12 +16,15 @@ import app.core.auth as auth_module
 def _fake_settings():
     """Provide a fake JWT_SECRET for all JWT tests."""
     original_secret = auth_module.settings.JWT_SECRET
+    original_session_hours = auth_module.settings.AUTH_SESSION_MAX_AGE_HOURS
     auth_module.settings.JWT_SECRET = "test-secret-key-for-jwt-validation-2026"
     auth_module.settings.JWT_ALGORITHM = "HS256"
     auth_module.settings.ACCESS_TOKEN_EXPIRE_MINUTES = 15
     auth_module.settings.REFRESH_TOKEN_EXPIRE_DAYS = 30
+    auth_module.settings.AUTH_SESSION_MAX_AGE_HOURS = 8
     yield
     auth_module.settings.JWT_SECRET = original_secret
+    auth_module.settings.AUTH_SESSION_MAX_AGE_HOURS = original_session_hours
 
 def test_create_access_token_has_required_claims():
     data = {"sub": str(uuid4()), "tenant_id": str(uuid4()), "roles": ["student"]}
@@ -47,6 +50,26 @@ def test_create_refresh_token_has_type_claim():
     token = auth_module.create_refresh_token(data)
     payload = auth_module.decode_token(token)
     assert payload["type"] == "refresh"
+
+
+def test_refresh_token_preserves_absolute_login_deadline_across_rotation():
+    data = {"sub": str(uuid4()), "tenant_id": str(uuid4())}
+    first = auth_module.decode_token(auth_module.create_refresh_token(data))
+    rotated = auth_module.decode_token(
+        auth_module.create_refresh_token({**data, "auth_time": first["auth_time"]})
+    )
+
+    assert rotated["auth_time"] == first["auth_time"]
+    assert rotated["exp"] == first["auth_time"] + (8 * 60 * 60)
+
+
+def test_refresh_session_older_than_absolute_limit_is_rejected():
+    old_login = int((datetime.now(timezone.utc) - timedelta(hours=9)).timestamp())
+
+    with pytest.raises(HTTPException, match="Session expired") as exc_info:
+        auth_module.enforce_refresh_session_age({"iat": old_login})
+
+    assert exc_info.value.status_code == 401
 
 
 def test_decode_expired_token_raises():
