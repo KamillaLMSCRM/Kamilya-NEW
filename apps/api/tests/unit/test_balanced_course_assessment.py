@@ -561,7 +561,7 @@ def test_generic_scope_does_not_widen_source_table_fallback() -> None:
     result = _generate_tabular_assessment(
         evidence_bank=_build_evidence_bank(source),
         bounded_source=source,
-        lesson_title="Обзор продукта",
+        lesson_title="Всесторонний обзор по коллекции",
         lesson_objectives=["Познакомиться с ассортиментом"],
         lesson_body="| Раздел | Примечание |\n| --- | --- |\n| Введение | Обзор |",
         language="ru",

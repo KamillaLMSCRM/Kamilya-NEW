@@ -1148,8 +1148,11 @@ def _generate_tabular_assessment(
     )
     scope_declares_all_subjects = bool(
         re.search(
-            r"\b(?:все\w*|кажд\w*|по\s+коллекц\w*|коллекций|"
-            r"all|each|every|collections|барлық|әрбір)\b",
+            r"\b(?:все\s+коллекц(?:ии|ий)|кажд\w*\s+коллекц\w*|"
+            r"all\s+collections|each\s+collection|every\s+collection|"
+            r"барлық\s+топтамалар|әрбір\s+топтама|"
+            r"коллекц(?:ий|иям|иями|иях)|collections|"
+            r"топтамалар(?:дың|ға|мен|да)?)\b",
             normalized_scope_text,
         )
     )

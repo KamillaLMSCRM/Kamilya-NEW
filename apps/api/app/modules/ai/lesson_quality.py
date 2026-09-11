@@ -10,7 +10,9 @@ from __future__ import annotations
 
 import math
 import re
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass
 
 _TOKEN_RE = re.compile(r"[^\W\d_]{3,}", re.UNICODE)
@@ -52,7 +54,31 @@ _UNSUPPORTED_RELATIONSHIP_PATTERNS = (
     re.compile(r"\b(?:directly linked|directly related|basis for)\b"),
     re.compile(r"\btherefore\b.{0,100}\b(?:must|should|need)\b"),
 )
-LESSON_QUALITY_POLICY_VERSION = "lesson-quality-v4"
+_RELATIONSHIP_OPERATOR_ROOTS = (
+    "определ",
+    "обуслов",
+    "привод",
+    "требу",
+    "связан",
+    "поэтому",
+    "значит",
+    "важно",
+    "нужно",
+    "следует",
+    "необходимо",
+    "direct",
+    "link",
+    "relat",
+    "basis",
+    "therefore",
+    "must",
+    "should",
+    "need",
+)
+LESSON_QUALITY_POLICY_VERSION = "lesson-quality-v5"
+_LESSON_QUALITY_EVENTS: ContextVar[
+    list[tuple[str, str, tuple[str, ...], LessonQualityResult]] | None
+] = ContextVar("lesson_quality_events", default=None)
 
 
 def _normalize(value: str) -> str:
@@ -92,10 +118,14 @@ def _relationship_claim_supported(
     )
     for claim in content_fragments:
         claim_tokens = set(_content_tokens(claim))
-        required_shared = max(2, math.ceil(len(claim_tokens) * 0.75))
+        anchor_tokens = {
+            token
+            for token in claim_tokens
+            if not any(token.startswith(root) for root in _RELATIONSHIP_OPERATOR_ROOTS)
+        }
         if not any(
-            len(claim_tokens & set(_content_tokens(source_fragment)))
-            >= required_shared
+            anchor_tokens
+            and anchor_tokens.issubset(set(_content_tokens(source_fragment)))
             for source_fragment in source_fragments
         ):
             return False
@@ -110,6 +140,19 @@ class LessonQualityResult:
     required_source_anchor_matches: int
     generic_sentence_share: float
     repeated_sentence_count: int
+
+
+@contextmanager
+def capture_lesson_quality_evaluations() -> Iterator[
+    list[tuple[str, str, tuple[str, ...], LessonQualityResult]]
+]:
+    """Capture exact validator inputs only inside an explicit task context."""
+    events: list[tuple[str, str, tuple[str, ...], LessonQualityResult]] = []
+    token = _LESSON_QUALITY_EVENTS.set(events)
+    try:
+        yield events
+    finally:
+        _LESSON_QUALITY_EVENTS.reset(token)
 
 
 def evaluate_lesson_quality(
@@ -144,8 +187,9 @@ def evaluate_lesson_quality(
             counts[sentence] = counts.get(sentence, 0) + 1
     repeated_count = sum(count - 1 for count in counts.values() if count > 1)
     normalized_source_text = "\n".join(
-        " ".join(chunk.casefold().replace("ё", "е").split())
+        " ".join(line.casefold().replace("ё", "е").split())
         for chunk in source_chunks
+        for line in chunk.splitlines()
     )
     normalized_content_text = "\n".join(
         " ".join(line.casefold().replace("ё", "е").split())
@@ -173,7 +217,7 @@ def evaluate_lesson_quality(
     if unsupported_relationship:
         reasons.append("unsupported_relationship_claim")
 
-    return LessonQualityResult(
+    result = LessonQualityResult(
         accepted=not reasons,
         reason_codes=tuple(reasons),
         source_anchor_matches=anchor_matches,
@@ -181,10 +225,15 @@ def evaluate_lesson_quality(
         generic_sentence_share=round(generic_share, 4),
         repeated_sentence_count=repeated_count,
     )
+    events = _LESSON_QUALITY_EVENTS.get()
+    if events is not None:
+        events.append((title, content, tuple(source_chunks), result))
+    return result
 
 
 __all__ = [
     "LESSON_QUALITY_POLICY_VERSION",
     "LessonQualityResult",
+    "capture_lesson_quality_evaluations",
     "evaluate_lesson_quality",
 ]

@@ -192,9 +192,13 @@ def execute_generation_locally(
     # direct runner must establish the same model registry before task import.
     import app.main as _application  # noqa: F401
     from app.modules.ai.assessment import capture_assessment_paths
+    from app.modules.ai.lesson_quality import capture_lesson_quality_evaluations
     from app.modules.ai.tasks import generate_course_task
 
-    with capture_assessment_paths() as assessment_paths:
+    with (
+        capture_assessment_paths() as assessment_paths,
+        capture_lesson_quality_evaluations() as quality_evaluations,
+    ):
         result = generate_course_task.run(
             job_id=job_id,
             documents=[document_id],
@@ -214,6 +218,15 @@ def execute_generation_locally(
         **result,
         "assessment_model_lessons": assessment_paths.count("model"),
         "tabular_assessment_lessons": assessment_paths.count("tabular"),
+        "_accepted_lesson_evidence": [
+            {
+                "title": title,
+                "content": content,
+                "source_chunks": list(source_chunks),
+            }
+            for title, content, source_chunks, quality in quality_evaluations
+            if quality.accepted
+        ],
     }
 
 
@@ -282,21 +295,6 @@ def fixture_focus_terms(xlsx: Path) -> set[str]:
         workbook.close()
 
 
-def fixture_primary_source_chunks(xlsx: Path) -> list[str]:
-    """Build source-faithful primary rows for the shared product validator."""
-    workbook = load_workbook(xlsx, read_only=True, data_only=True)
-    try:
-        if "Коллекция" not in workbook.sheetnames:
-            raise AcceptanceError("fixture_primary_sheet_missing")
-        return [
-            " — ".join(str(value).strip() for value in row if value is not None)
-            for row in workbook["Коллекция"].iter_rows(values_only=True)
-            if any(value is not None for value in row)
-        ]
-    finally:
-        workbook.close()
-
-
 def has_meta_question(value: str) -> bool:
     return any(pattern.search(value) for pattern in META_QUESTION_PATTERNS)
 
@@ -319,12 +317,35 @@ def choices_share_only_one_word_suffix(choices: list[str]) -> bool:
     return common == len(tokenized[0]) - 1
 
 
+def captured_source_chunks_for_lesson(
+    accepted_lesson_evidence: list[dict[str, Any]],
+    *,
+    title: str,
+    content: str,
+) -> list[str] | None:
+    """Return only the exact source corpus accepted for this persisted lesson."""
+
+    captured = next(
+        (
+            event
+            for event in reversed(accepted_lesson_evidence)
+            if event.get("title") == title and event.get("content") == content
+        ),
+        None,
+    )
+    if captured is None:
+        return None
+    return [str(chunk) for chunk in captured.get("source_chunks") or []]
+
+
 def inspect_output(
     preview: dict[str, Any],
     quizzes: list[dict[str, Any]],
     recommendation: dict[str, Any],
     focus_terms: set[str],
-    primary_source_chunks: list[str],
+    accepted_lesson_evidence: list[dict[str, Any]],
+    *,
+    require_captured_evidence: bool,
 ) -> tuple[list[str], dict[str, Any]]:
     failures: list[str] = []
     modules = preview.get("modules") or []
@@ -366,15 +387,30 @@ def inspect_output(
         sys.path.insert(0, str(API_ROOT))
     from app.modules.ai.lesson_quality import evaluate_lesson_quality
 
-    unsupported_relationship_claims = sum(
-        "unsupported_relationship_claim"
-        in evaluate_lesson_quality(
-            title=str(lesson.get("title") or ""),
-            content=str(lesson.get("content_preview") or ""),
-            source_chunks=primary_source_chunks,
-        ).reason_codes
-        for lesson in lessons
-    )
+    captured_evidence_matches = 0
+    unsupported_relationship_claims = 0
+    for lesson in lessons:
+        title = str(lesson.get("title") or "")
+        content = str(lesson.get("content_preview") or "")
+        source_chunks = captured_source_chunks_for_lesson(
+            accepted_lesson_evidence,
+            title=title,
+            content=content,
+        )
+        if source_chunks is None:
+            if require_captured_evidence:
+                failures.append("lesson_acceptance_source_evidence_missing")
+            continue
+        captured_evidence_matches += 1
+        quality = evaluate_lesson_quality(
+            title=title,
+            content=content,
+            source_chunks=source_chunks,
+        )
+        if not quality.accepted:
+            failures.append("lesson_quality_readback_mismatch")
+        if "unsupported_relationship_claim" in quality.reason_codes:
+            unsupported_relationship_claims += 1
     if unsupported_relationship_claims:
         failures.append("unsupported_relationship_claims_present")
     visible_course_text = " ".join(
@@ -472,6 +508,7 @@ def inspect_output(
         "primary_focus_terms_available": len(focus_terms),
         "primary_focus_terms_matched": len(matched_focus_terms),
         "unsupported_relationship_claims": unsupported_relationship_claims,
+        "captured_lesson_evidence_matches": captured_evidence_matches,
     }
     return failures, facts
 
@@ -540,7 +577,6 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     if xlsx.suffix.casefold() != ".xlsx":
         raise AcceptanceError("fixture_must_be_xlsx")
     focus_terms = fixture_focus_terms(xlsx)
-    primary_source_chunks = fixture_primary_source_chunks(xlsx)
 
     report: dict[str, Any] = {
         "passed": False,
@@ -558,6 +594,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     cleanup_failures: list[str] = []
     assessment_model_lessons = 0
     tabular_assessment_lessons = 0
+    accepted_lesson_evidence: list[dict[str, Any]] = []
     try:
         stage("health")
         health = client.http.get(health_url(args.api_base))
@@ -683,6 +720,9 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             tabular_assessment_lessons = int(
                 local_result.get("tabular_assessment_lessons") or 0
             )
+            accepted_lesson_evidence = list(
+                local_result.get("_accepted_lesson_evidence") or []
+            )
 
         job = poll_job(
             client,
@@ -723,7 +763,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             quizzes_response.json(),
             recommendation,
             focus_terms,
-            primary_source_chunks,
+            accepted_lesson_evidence,
+            require_captured_evidence=args.execute_local_worker,
         )
         facts["assessment_model_lessons"] = assessment_model_lessons
         facts["tabular_assessment_lessons"] = tabular_assessment_lessons

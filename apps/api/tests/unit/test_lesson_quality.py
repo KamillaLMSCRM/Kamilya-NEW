@@ -1,4 +1,7 @@
-from app.modules.ai.lesson_quality import evaluate_lesson_quality
+from app.modules.ai.lesson_quality import (
+    capture_lesson_quality_evaluations,
+    evaluate_lesson_quality,
+)
 
 
 def test_sparse_source_accepts_a_short_but_grounded_lesson() -> None:
@@ -186,6 +189,22 @@ def test_relationship_claim_requires_matching_relation_endpoint() -> None:
     assert "unsupported_relationship_claim" in result.reason_codes
 
 
+def test_relationship_claim_cannot_join_anchors_across_source_rows() -> None:
+    source = (
+        "Материал Альфы определяет условия хранения\n"
+        "Шаг консультации для Альфы: уточнить размеры помещения"
+    )
+
+    result = evaluate_lesson_quality(
+        title="Коллекция Альфа",
+        content="Материал Альфы определяет шаг консультации.",
+        source_chunks=[source],
+    )
+
+    assert result.accepted is False
+    assert "unsupported_relationship_claim" in result.reason_codes
+
+
 def test_explicit_relationship_with_matching_source_anchors_is_allowed() -> None:
     source = (
         "Для Альфы модульная компоновка определяет шаг консультации: "
@@ -203,3 +222,22 @@ def test_explicit_relationship_with_matching_source_anchors_is_allowed() -> None
 
     assert result.accepted is True
     assert "unsupported_relationship_claim" not in result.reason_codes
+
+
+def test_quality_capture_keeps_exact_writer_corpus_and_accepted_result() -> None:
+    source_chunks = [
+        "Коллекция Альфа; материал ЛДСП; преимущество модульная компоновка."
+    ]
+    content = "Для Альфы указаны ЛДСП и модульная компоновка."
+
+    with capture_lesson_quality_evaluations() as events:
+        result = evaluate_lesson_quality(
+            title="Коллекция Альфа",
+            content=content,
+            source_chunks=source_chunks,
+        )
+
+    assert result.accepted is True
+    assert events == [
+        ("Коллекция Альфа", content, tuple(source_chunks), result)
+    ]

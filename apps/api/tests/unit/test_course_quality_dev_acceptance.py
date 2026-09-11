@@ -28,3 +28,24 @@ def test_acceptance_allows_distinct_actions_with_same_grammatical_opening() -> N
             "показать материал МДФ",
         ]
     )
+
+
+def test_acceptance_uses_only_exact_captured_lesson_corpus() -> None:
+    evidence = [
+        {
+            "title": "Коллекция Альфа",
+            "content": "Для Альфы указаны ЛДСП и модульная компоновка.",
+            "source_chunks": ["Коллекция Альфа; материал ЛДСП."],
+        }
+    ]
+
+    assert MODULE.captured_source_chunks_for_lesson(
+        evidence,
+        title="Коллекция Альфа",
+        content="Для Альфы указаны ЛДСП и модульная компоновка.",
+    ) == ["Коллекция Альфа; материал ЛДСП."]
+    assert MODULE.captured_source_chunks_for_lesson(
+        evidence,
+        title="Коллекция Альфа",
+        content="Для Альфы указана МДФ.",
+    ) is None
