@@ -4,7 +4,7 @@ Status: slices 1-7 and 9-10 implemented and locally verified on
 `feat/course-quality-passport-20260911`; DEV human-path re-acceptance is pending.
 Production is unchanged until every mandatory gate below passes.
 
-Local gate evidence: API unit suite `1292 passed`; web suite `578 passed` in
+Local gate evidence: API unit suite `1295 passed`; web suite `578 passed` in
 `111` files; focused generation UI `14 passed`; Next.js `15.5.23` production
 build passed; Python quality baseline passed at `ruff=1066`, `mypy=2339` with
 no new violations; `git diff --check` passed.
@@ -164,6 +164,9 @@ Acceptance:
 - For the structured synthetic workbook, all lessons use the deterministic
   table path: zero assessment-model fallback attempts and one tabular result per
   generated lesson.
+- The runner fetches every complete lesson body after generation; a truncated
+  preview cannot hide a late unsupported claim. Assessment-path counts come from
+  explicit per-lesson generator events rather than parsed log text.
 - Every lesson has source references; every quiz remains `needs_review` until a
   methodologist approves it.
 - Exact SHA, CI, image, migration, API, worker and browser readback are recorded

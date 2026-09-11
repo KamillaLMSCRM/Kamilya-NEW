@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import logging
 import os
 import re
 import sys
@@ -86,22 +85,6 @@ STOP_WORDS = {
 
 class AcceptanceError(RuntimeError):
     pass
-
-
-class AssessmentPathCounter(logging.Handler):
-    """Count assessment paths without retaining prompts, answers, or secrets."""
-
-    def __init__(self) -> None:
-        super().__init__(level=logging.INFO)
-        self.contract_attempts = 0
-        self.tabular_lessons = 0
-
-    def emit(self, record: logging.LogRecord) -> None:
-        message = record.getMessage()
-        if "[ASSESSMENT_CONTRACT]" in message:
-            self.contract_attempts += 1
-        if "[ASSESSMENT_TABULAR]" in message:
-            self.tabular_lessons += 1
 
 
 class DevClient:
@@ -225,15 +208,10 @@ def execute_generation_locally(
     # AI jobs, which registers every cross-module SQLAlchemy FK target.  This
     # direct runner must establish the same model registry before task import.
     import app.main as _application  # noqa: F401
+    from app.modules.ai.assessment import capture_assessment_paths
     from app.modules.ai.tasks import generate_course_task
 
-    assessment_logger = logging.getLogger("app.modules.ai.assessment")
-    original_level = assessment_logger.level
-    counter = AssessmentPathCounter()
-    assessment_logger.addHandler(counter)
-    if not assessment_logger.isEnabledFor(logging.INFO):
-        assessment_logger.setLevel(logging.INFO)
-    try:
+    with capture_assessment_paths() as assessment_paths:
         result = generate_course_task.run(
             job_id=job_id,
             documents=[document_id],
@@ -249,13 +227,10 @@ def execute_generation_locally(
             combination_goal="",
             source_analysis=source_analysis,
         )
-    finally:
-        assessment_logger.removeHandler(counter)
-        assessment_logger.setLevel(original_level)
     return {
         **result,
-        "assessment_contract_attempts": counter.contract_attempts,
-        "tabular_assessment_lessons": counter.tabular_lessons,
+        "assessment_model_lessons": assessment_paths.count("model"),
+        "tabular_assessment_lessons": assessment_paths.count("tabular"),
     }
 
 
@@ -512,7 +487,7 @@ def build_review_sample(
             sampled_lessons.append(
                 {
                     "title": str(lesson.get("title") or "")[:240],
-                    "content_preview": str(lesson.get("content_preview") or "")[:1200],
+                    "content_preview": str(lesson.get("content_preview") or "")[:8000],
                 }
             )
             quiz = quiz_by_id.get(str(lesson.get("quiz_id") or ""))
@@ -576,7 +551,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     generation_job_id = ""
     tenant_id = ""
     cleanup_failures: list[str] = []
-    assessment_contract_attempts = 0
+    assessment_model_lessons = 0
     tabular_assessment_lessons = 0
     try:
         stage("health")
@@ -690,15 +665,15 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             report["local_worker"] = {
                 "used": True,
                 "status": local_result.get("status"),
-                "assessment_contract_attempts": local_result.get(
-                    "assessment_contract_attempts", 0
+                "assessment_model_lessons": local_result.get(
+                    "assessment_model_lessons", 0
                 ),
                 "tabular_assessment_lessons": local_result.get(
                     "tabular_assessment_lessons", 0
                 ),
             }
-            assessment_contract_attempts = int(
-                local_result.get("assessment_contract_attempts") or 0
+            assessment_model_lessons = int(
+                local_result.get("assessment_model_lessons") or 0
             )
             tabular_assessment_lessons = int(
                 local_result.get("tabular_assessment_lessons") or 0
@@ -726,6 +701,16 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         preview_response = client.request("GET", f"v1/courses/{course_id}/preview?max_chars=2000")
         client._expect(preview_response, {200}, "course_preview")
         preview = preview_response.json()
+        for module in preview.get("modules") or []:
+            for lesson in module.get("lessons") or []:
+                lesson_id = str(lesson.get("id") or "")
+                if not lesson_id:
+                    raise AcceptanceError("course_preview_lesson_id_missing")
+                lesson_response = client.request("GET", f"v1/lessons/{lesson_id}")
+                client._expect(lesson_response, {200}, "lesson_full_content")
+                lesson["content_preview"] = str(
+                    lesson_response.json().get("content") or ""
+                )
         quizzes_response = client.request("GET", "v1/quizzes")
         client._expect(quizzes_response, {200}, "quiz_list")
         failures, facts = inspect_output(
@@ -734,12 +719,12 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             recommendation,
             focus_terms,
         )
-        facts["assessment_contract_attempts"] = assessment_contract_attempts
+        facts["assessment_model_lessons"] = assessment_model_lessons
         facts["tabular_assessment_lessons"] = tabular_assessment_lessons
         expected_lesson_count = sum(
             len(module.get("lessons") or []) for module in preview.get("modules") or []
         )
-        if args.execute_local_worker and assessment_contract_attempts:
+        if args.execute_local_worker and assessment_model_lessons:
             failures.append("assessment_model_fallback_used_for_structured_fixture")
         if (
             args.execute_local_worker

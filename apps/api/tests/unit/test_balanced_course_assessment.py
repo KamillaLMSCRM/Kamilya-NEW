@@ -9,6 +9,7 @@ from app.modules.ai.assessment import (
     _normalize_evidence_text,
     _validate_generated_question_set,
     _validate_question_evidence,
+    capture_assessment_paths,
     generate_course_assessment,
     generate_lesson_assessment,
 )
@@ -483,7 +484,7 @@ def test_vertical_collection_cards_map_attributes_to_source_columns() -> None:
             "| Зета | современный | регулируемые полки | ЛДСП | собрать требования к высоте |",
         ]
     )
-    lesson_body = "\n".join(
+    lesson_body = "\n\n".join(
         [
             "## Альфа",
             "| Атрибут | Значение |",
@@ -523,6 +524,34 @@ def test_vertical_collection_cards_map_attributes_to_source_columns() -> None:
         any(option.text in evidence for evidence in _build_evidence_bank(source).values())
         for question in result.mcq
         for option in question.options
+    )
+
+
+def test_unrelated_lesson_table_does_not_block_scoped_source_fallback() -> None:
+    source = _collection_table_source()
+    lesson_body = "\n".join(
+        [
+            "| Раздел | Примечание |",
+            "| --- | --- |",
+            "| Введение | Краткий обзор |",
+        ]
+    )
+
+    result = _generate_tabular_assessment(
+        evidence_bank=_build_evidence_bank(source),
+        bounded_source=source,
+        lesson_title="Коллекции Альфа и Бета",
+        lesson_objectives=["Сопоставлять характеристики Альфы и Беты"],
+        lesson_body=lesson_body,
+        language="ru",
+        question_count=5,
+    )
+
+    assert result is not None
+    assert len(result.mcq) == 5
+    assert all(
+        "«Альфа»" in question.question or "«Бета»" in question.question
+        for question in result.mcq
     )
 
 
@@ -627,12 +656,13 @@ async def test_standard_course_uses_only_real_table_values_for_scoped_lessons() 
         ],
     )
 
-    result = await generate_course_assessment(
-        LLMShouldNotBeCalled(),
-        course,
-        language="ru",
-        compact=False,
-    )
+    with capture_assessment_paths() as assessment_paths:
+        result = await generate_course_assessment(
+            LLMShouldNotBeCalled(),
+            course,
+            language="ru",
+            compact=False,
+        )
 
     source_values = {
         "современный",
@@ -654,6 +684,7 @@ async def test_standard_course_uses_only_real_table_values_for_scoped_lessons() 
         "собрать требования к высоте",
     }
     assert [len(assessment.mcq) for assessment in result.assessments] == [5, 5, 5]
+    assert assessment_paths == ["tabular", "tabular", "tabular"]
     assert all(
         option.text in source_values
         for assessment in result.assessments

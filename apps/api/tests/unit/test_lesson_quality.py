@@ -152,3 +152,41 @@ def test_primary_attributes_cannot_be_given_an_invented_causal_heading() -> None
 
     assert result.accepted is False
     assert "unsupported_relationship_claim" in result.reason_codes
+
+
+def test_relationship_claim_requires_matching_local_source_anchors() -> None:
+    source = (
+        "Для Гаммы материал определяет условия хранения. "
+        "Для Альфы указаны модульная компоновка и уточнение размеров помещения."
+    )
+
+    result = evaluate_lesson_quality(
+        title="Коллекция Альфа",
+        content=(
+            "Преимущество Альфы определяет шаг консультации: "
+            "уточнить размеры помещения."
+        ),
+        source_chunks=[source],
+    )
+
+    assert result.accepted is False
+    assert "unsupported_relationship_claim" in result.reason_codes
+
+
+def test_explicit_relationship_with_matching_source_anchors_is_allowed() -> None:
+    source = (
+        "Для Альфы модульная компоновка определяет шаг консультации: "
+        "уточнить размеры помещения."
+    )
+
+    result = evaluate_lesson_quality(
+        title="Коллекция Альфа",
+        content=(
+            "Модульная компоновка Альфы определяет шаг консультации: "
+            "уточнить размеры помещения."
+        ),
+        source_chunks=[source],
+    )
+
+    assert result.accepted is True
+    assert "unsupported_relationship_claim" not in result.reason_codes

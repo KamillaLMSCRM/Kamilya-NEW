@@ -52,28 +52,6 @@ _UNSUPPORTED_RELATIONSHIP_PATTERNS = (
     re.compile(r"\b(?:directly linked|directly related|basis for)\b"),
     re.compile(r"\btherefore\b.{0,100}\b(?:must|should|need)\b"),
 )
-_SOURCE_RELATIONSHIP_SIGNALS = (
-    "прямо связан",
-    "напрямую связан",
-    "основа для",
-    "поэтому",
-    "потому что",
-    "обеспечивает",
-    "позволяет",
-    "необходимо",
-    "следует",
-    "directly linked",
-    "directly related",
-    "basis for",
-    "therefore",
-    "because",
-    "ensures",
-    "requires",
-    "определяет",
-    "обусловливает",
-    "приводит",
-    "требует",
-)
 LESSON_QUALITY_POLICY_VERSION = "lesson-quality-v4"
 
 
@@ -93,6 +71,33 @@ def _sentences(value: str) -> tuple[str, ...]:
         for normalized in [_normalize(raw)]
         if normalized
     )
+
+
+def _relationship_claim_supported(
+    pattern: re.Pattern[str],
+    *,
+    content: str,
+    source: str,
+) -> bool:
+    """Require the same relationship and its local anchors in one source fragment."""
+    content_fragments = tuple(
+        fragment.strip()
+        for fragment in re.split(r"[.!?\n]+", content)
+        if pattern.search(fragment)
+    )
+    source_fragments = tuple(
+        fragment.strip()
+        for fragment in re.split(r"[.!?\n]+", source)
+        if pattern.search(fragment)
+    )
+    for claim in content_fragments:
+        claim_tokens = set(_content_tokens(claim))
+        if not any(
+            len(claim_tokens & set(_content_tokens(source_fragment))) >= 2
+            for source_fragment in source_fragments
+        ):
+            return False
+    return bool(content_fragments)
 
 
 @dataclass(frozen=True, slots=True)
@@ -142,9 +147,14 @@ def evaluate_lesson_quality(
     normalized_content_text = " ".join(
         content.casefold().replace("ё", "е").split()
     )
-    unsupported_relationship = (
-        any(pattern.search(normalized_content_text) for pattern in _UNSUPPORTED_RELATIONSHIP_PATTERNS)
-        and not any(signal in normalized_source_text for signal in _SOURCE_RELATIONSHIP_SIGNALS)
+    unsupported_relationship = any(
+        pattern.search(normalized_content_text)
+        and not _relationship_claim_supported(
+            pattern,
+            content=normalized_content_text,
+            source=normalized_source_text,
+        )
+        for pattern in _UNSUPPORTED_RELATIONSHIP_PATTERNS
     )
 
     reasons: list[str] = []

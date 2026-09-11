@@ -8,7 +8,9 @@ import json
 import logging
 import re
 import unicodedata
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterator, Mapping
+from contextlib import contextmanager
+from contextvars import ContextVar
 from typing import Any
 
 from app.ml_prompts import get_renderer
@@ -33,6 +35,26 @@ from app.modules.editor_assistant.taxonomy import EditorQualityIssueLabel
 logger = logging.getLogger(__name__)
 MAX_ASSESSMENT_RETRIES = 4
 MAX_FOCUSED_ATTEMPTS_PER_EVIDENCE = 2
+_ASSESSMENT_PATH_EVENTS: ContextVar[list[str] | None] = ContextVar(
+    "assessment_path_events", default=None
+)
+
+
+@contextmanager
+def capture_assessment_paths() -> Iterator[list[str]]:
+    """Capture explicit per-lesson assessment paths in the current task context."""
+    events: list[str] = []
+    token = _ASSESSMENT_PATH_EVENTS.set(events)
+    try:
+        yield events
+    finally:
+        _ASSESSMENT_PATH_EVENTS.reset(token)
+
+
+def _record_assessment_path(path: str) -> None:
+    events = _ASSESSMENT_PATH_EVENTS.get()
+    if events is not None:
+        events.append(path)
 
 
 def _assessment_contract_reason_codes(error: Exception) -> str:
@@ -309,7 +331,7 @@ def _structured_evidence_cells(evidence: str) -> list[str]:
 
 def _markdown_key_value_tables(text: str) -> list[tuple[str, list[tuple[str, str]]]]:
     """Return subject-scoped attribute/value tables rendered inside a lesson."""
-    lines = text.splitlines()
+    lines = [line for line in text.splitlines() if line.strip()]
     tables: list[tuple[str, list[tuple[str, str]]]] = []
     subject = ""
     index = 0
@@ -351,6 +373,19 @@ def _markdown_key_value_tables(text: str) -> list[tuple[str, list[tuple[str, str
         while cursor < len(lines):
             cells = _markdown_table_cells(lines[cursor])
             if len(cells) != 2:
+                break
+            following_cells = (
+                _markdown_table_cells(lines[cursor + 1])
+                if cursor + 1 < len(lines)
+                else []
+            )
+            if (
+                len(following_cells) == 2
+                and all(
+                    _MARKDOWN_TABLE_SEPARATOR_CELL_RE.fullmatch(cell)
+                    for cell in following_cells
+                )
+            ):
                 break
             if cells[0] and cells[1]:
                 rows.append((cells[0], cells[1]))
@@ -1107,10 +1142,10 @@ def _generate_tabular_assessment(
         for evidence_id, quote in evidence_bank.items()
     }
     source_tables = _markdown_tables(bounded_source)
-    # The lesson table defines which subjects belong to this lesson. The full
-    # source table remains the fallback and the verified peer-value pool.
-    tables = _markdown_tables(lesson_body) or source_tables
-    for headers, rows in tables:
+    lesson_tables = _markdown_tables(lesson_body)
+    tables = [*lesson_tables]
+    tables.extend(table for table in source_tables if table not in lesson_tables)
+    for table_position, (headers, rows) in enumerate(tables):
         resolved_rows: list[tuple[list[str], str]] = []
         source_column_by_table_column: dict[int, int] = {}
         for cells, raw_row in rows:
@@ -1150,6 +1185,16 @@ def _generate_tabular_assessment(
             for cells, _evidence_id in resolved_rows
             if cells and cells[0].strip()
         }
+        if table_position >= len(lesson_tables):
+            normalized_scope = _normalize_evidence_text(
+                f"{lesson_title} {' '.join(lesson_objectives)}"
+            )
+            lesson_subjects = {
+                _normalize_evidence_text(cells[0])
+                for cells, _evidence_id in resolved_rows
+                if cells
+                and _normalize_evidence_text(cells[0]) in normalized_scope
+            }
         expanded_rows = list(resolved_rows)
         if len(source_column_by_table_column) == len(headers):
             seen_evidence_ids = {evidence_id for _cells, evidence_id in expanded_rows}
@@ -1491,12 +1536,14 @@ async def generate_lesson_assessment(
         excluded_fact_keys=excluded_fact_keys,
     )
     if tabular_assessment is not None:
+        _record_assessment_path("tabular")
         logger.info(
             "[ASSESSMENT_TABULAR] generated=%d requested=%d",
             len(tabular_assessment.mcq),
             question_count,
         )
         return tabular_assessment
+    _record_assessment_path("model")
     mcq_schema = output_schema["properties"]["mcq"]["items"]
     mcq_schema["properties"].pop("source_quote", None)
     mcq_schema["properties"]["source_quote_id"] = {
