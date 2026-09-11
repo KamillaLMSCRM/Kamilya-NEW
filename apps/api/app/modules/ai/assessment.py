@@ -648,12 +648,16 @@ def _validate_generated_question_set(data: dict[str, Any], language: str) -> lis
             re.findall(r"[^\W_]+", option.text.casefold(), re.UNICODE)
             for option in question.options
         ]
+        minimum_length = min(map(len, tokenized), default=0)
+        common_prefix = 0
+        for columns in zip(*tokenized, strict=False):
+            if len(set(columns)) != 1:
+                break
+            common_prefix += 1
         if (
             len(tokenized) >= 3
-            and len({len(tokens) for tokens in tokenized}) == 1
-            and len(tokenized[0]) >= 2
-            and len({tuple(tokens[:-1]) for tokens in tokenized}) == 1
-            and len({tokens[-1] for tokens in tokenized}) >= 2
+            and minimum_length >= 2
+            and common_prefix >= minimum_length - 1
         ):
             issues.append(
                 f"MCQ #{index}: assessment quality low_information_distractors: "
@@ -823,7 +827,8 @@ Requirements:
   same grammatical form, answer the same question, and have equal specificity.
 - Each distractor must express an independently meaningful plausible action,
   condition, sequence, or outcome. Never repeat the same phrase in all options and
-  change only the final word. Never use nonsense or an unrelated subject.
+  change only the final word. Do not start every option with the same generic
+  action verb. Never use nonsense or an unrelated subject.
 - Write a grounded explanation and no Markdown or meta commentary.
 - Output only a JSON data instance matching this schema:
 {json.dumps(focused_schema, indent=2, ensure_ascii=False)}"""
@@ -1027,7 +1032,9 @@ Grounding requirements:
 - Write three independently meaningful and plausible distractors about the same
   subject. Keep every option close in word count and grammatical style so answer
   length cannot reveal the key. Do not repeat an identical phrase in every option
-  and change only its final word.
+  and change only its final word. Do not start every option with the same generic
+  action verb; use genuinely different plausible actions or move shared wording
+  into the question.
 - Do not emit Markdown, table syntax, incomplete fragments, or meta commentary in
   questions, options, or explanations.
 - Explain the correct answer with a concrete fact from the selected evidence.
