@@ -66,6 +66,16 @@ _UNSUPPORTED_RELATIONSHIP_PATTERNS = (
     ),
     re.compile(r"\b(?:directly linked|directly related|basis for)\b"),
     re.compile(r"\btherefore\b.{0,100}\b(?:must|should|need)\b"),
+    re.compile(r"\b(?:если\s+клиент\w*|if\s+(?:the\s+)?customer\w*)\b"),
+    re.compile(
+        r"\b(?:начн\w*\s+с|диалог\w*.{0,80}\bначина\w*|"
+        r"start\w*\s+with|conversation\w*.{0,80}\bbegin\w*)\b"
+    ),
+    re.compile(
+        r"\b(?:используйте|можно\s+использовать|использовать.{0,40}\bкак|"
+        r"построй\w*|подавай\w*|соотнес\w*|use|can\s+be\s+used)\b"
+    ),
+    re.compile(r"\b(?:ориентир\w*|serves?\s+as\s+(?:a\s+)?guide\w*)\b"),
 )
 _RELATIONSHIP_OPERATOR_ROOTS = (
     "определ",
@@ -87,6 +97,20 @@ _RELATIONSHIP_OPERATOR_ROOTS = (
     "must",
     "should",
     "need",
+    "если",
+    "клиент",
+    "начн",
+    "диалог",
+    "использ",
+    "постро",
+    "подава",
+    "соотнес",
+    "ориентир",
+    "customer",
+    "start",
+    "conversation",
+    "use",
+    "guide",
 )
 _RELATIONSHIP_OPERATOR_RE = re.compile(
     r"\b(?:(?:прямо|напрямую)\s+связан\w*|основ\w*\s+для|"
@@ -95,7 +119,13 @@ _RELATIONSHIP_OPERATOR_RE = re.compile(
     r"relates?\s+to|"
     r"определя\w*|обусловлива\w*|привод\w*|требу\w*|поэтому|значит|"
     r"directly\s+(?:linked|related)|basis\s+for|therefore|"
-    r"determines?|causes?|requires?|must|should|need)\b"
+    r"determines?|causes?|requires?|must|should|need|"
+    r"если\s+клиент\w*|if\s+(?:the\s+)?customer\w*|"
+    r"начн\w*\s+с|диалог\w*.{0,80}\bначина\w*|"
+    r"start\w*\s+with|conversation\w*.{0,80}\bbegin\w*|"
+    r"используйте|можно\s+использовать|использовать.{0,40}\bкак|построй\w*|подавай\w*|"
+    r"соотнес\w*|use\w*|can\s+be\s+used|"
+    r"ориентир\w*|serves?\s+as\s+(?:a\s+)?guide\w*)\b"
 )
 _RELATIONSHIP_SHORT_STOP_WORDS = frozenset(
     {
@@ -105,7 +135,7 @@ _RELATIONSHIP_SHORT_STOP_WORDS = frozenset(
         "be", "if",
     }
 )
-LESSON_QUALITY_POLICY_VERSION = "lesson-quality-v9"
+LESSON_QUALITY_POLICY_VERSION = "lesson-quality-v10"
 
 
 def _normalize(value: str) -> str:
@@ -176,6 +206,24 @@ def _relationship_operator(value: str) -> str:
         return "should"
     if re.search(r"\bneed\b", normalized):
         return "need"
+    if re.search(r"если\s+клиент\w*|if\s+(?:the\s+)?customer\w*", normalized):
+        return "customer_condition"
+    if re.search(
+        r"начн\w*\s+с|диалог\w*.{0,80}\bначина\w*|"
+        r"start\w*\s+with|conversation\w*.{0,80}\bbegin\w*",
+        normalized,
+    ):
+        return "start_instruction"
+    if re.search(
+        r"используйте|можно\s+использовать|использовать.{0,40}\bкак|"
+        r"\buse\b|can\s+be\s+used",
+        normalized,
+    ):
+        return "use_instruction"
+    if re.search(r"построй\w*|подавай\w*|соотнес\w*", normalized):
+        return "sales_instruction"
+    if re.search(r"ориентир\w*|serves?\s+as\s+(?:a\s+)?guide\w*", normalized):
+        return "guidance_claim"
     return ""
 
 

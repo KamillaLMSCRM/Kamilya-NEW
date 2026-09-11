@@ -121,6 +121,66 @@ def test_tabular_association_remains_valid_when_described_neutrally() -> None:
     assert "unsupported_relationship_claim" not in result.reason_codes
 
 
+@pytest.mark.parametrize(
+    "claim",
+    [
+        "Если клиенту важна гибкость планировки, предложите коллекцию Альфа.",
+        "Диалог по коллекции Альфа начинается с уточнения размеров помещения.",
+        "Используйте модульную компоновку как аргумент для клиента.",
+        "Материал можно использовать как пояснение к сценарию.",
+        "Соотнесите запрос клиента с преимуществом коллекции.",
+        "Эти атрибуты — ориентиры для построения диалога.",
+    ],
+)
+def test_tabular_rows_cannot_be_expanded_into_unstated_sales_advice(
+    claim: str,
+) -> None:
+    source = (
+        "Коллекция Альфа; стиль современный; преимущество модульная компоновка; "
+        "материал ЛДСП; сценарий консультации: уточнить размеры помещения."
+    )
+
+    result = evaluate_lesson_quality(
+        title="Коллекция Альфа",
+        content=f"Для Альфы указана модульная компоновка. {claim}",
+        source_chunks=[source],
+    )
+
+    assert result.accepted is False
+    assert "unsupported_relationship_claim" in result.reason_codes
+
+
+def test_explicit_customer_instruction_from_source_is_allowed() -> None:
+    statement = (
+        "Если клиенту важна гибкость планировки, предложите коллекцию Альфа."
+    )
+
+    result = evaluate_lesson_quality(
+        title="Коллекция Альфа",
+        content=statement,
+        source_chunks=[statement],
+    )
+
+    assert result.accepted is True
+    assert "unsupported_relationship_claim" not in result.reason_codes
+
+
+def test_factual_material_usage_summary_is_not_treated_as_sales_advice() -> None:
+    source = (
+        "Коллекция Альфа; материал ЛДСП. "
+        "Коллекция Бета; материал ЛДСП."
+    )
+
+    result = evaluate_lesson_quality(
+        title="Материалы коллекций",
+        content="Материал ЛДСП используется в коллекциях Альфа и Бета.",
+        source_chunks=[source],
+    )
+
+    assert result.accepted is True
+    assert "unsupported_relationship_claim" not in result.reason_codes
+
+
 def test_supporting_catalog_cannot_be_used_to_justify_primary_scenario() -> None:
     source = (
         "Коллекция Альфа; сценарий консультации: уточнить размеры помещения. "

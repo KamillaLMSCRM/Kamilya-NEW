@@ -993,6 +993,10 @@ or repeated filler. Preserve the relationship type stated by the source: a table
 or row that places two attributes together proves only an association. Never turn
 co-occurrence into causation, necessity, a customer outcome, a business benefit,
 or a mandatory workplace action unless the supplied source says so explicitly.
+Do not invent customer preferences, sales advice, consultation steps, or suggested
+uses. Phrases equivalent to "if the customer...", "start with...", "use...",
+"can be used...", or "serves as a guide" are allowed only when that instruction
+is explicitly present in the supplied source.
 Return only the lesson Markdown and do not include hidden reasoning."""
             prompt_prefix = f"""Write one grounded educational lesson in {language}.
 Lesson: {lesson.title}
