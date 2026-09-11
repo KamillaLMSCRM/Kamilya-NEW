@@ -54,6 +54,8 @@ from app.modules.ai.schemas import (
     CourseStructureRecommendation,
     DocumentCompatibilityRequest,
     DocumentCompatibilityResponse,
+    DocumentPassportResponse,
+    DocumentPassportSection,
 )
 from app.modules.courses.models import Course
 
@@ -116,6 +118,7 @@ async def _finish_regeneration_job(
 
 
 def _compatibility_response(analysis) -> DocumentCompatibilityResponse:
+    passport = getattr(analysis, "source_passport", None)
     return DocumentCompatibilityResponse(
         status=analysis.status,
         score=analysis.score,
@@ -137,6 +140,28 @@ def _compatibility_response(analysis) -> DocumentCompatibilityResponse:
             )
             for cluster in analysis.clusters
         ],
+        source_passport=(
+            DocumentPassportResponse(
+                confidence=passport.confidence,
+                teachable_units=passport.teachable_units,
+                primary_sections=list(passport.primary_sections),
+                supporting_sections=list(passport.supporting_sections),
+                unknown_sections=list(passport.unknown_sections),
+                warnings=list(passport.warnings),
+                sections=[
+                    DocumentPassportSection(
+                        document_id=section.document_id,
+                        name=section.name,
+                        role=section.role.value,
+                        chunk_count=section.chunk_count,
+                        distinct_rows=section.distinct_rows,
+                    )
+                    for section in passport.sections
+                ],
+            )
+            if passport is not None
+            else None
+        ),
     )
 
 
@@ -168,6 +193,7 @@ async def document_compatibility(
         document_count=len(req.documents),
         course_format=req.course_format,
         manual_modules=req.num_modules,
+        source_passport=getattr(analysis, "source_passport", None),
     )
     response.recommended_structure = CourseStructureRecommendation(
         requested_format=recommendation.requested_format,
@@ -363,6 +389,7 @@ async def generate_course(
         document_count=len(req.documents),
         course_format=req.course_format,
         manual_modules=req.num_modules,
+        source_passport=getattr(analysis, "source_passport", None),
     )
     resolved_modules = structure.module_count
     budget_limit = get_settings().AI_MULTI_DOC_MAX_TOTAL_CHUNKS
@@ -463,6 +490,7 @@ async def generate_course(
             params={
                 "documents": [str(document_id) for document_id in req.documents],
                 "target_audience": req.target_audience,
+                "course_intent": req.course_intent.strip(),
                 "course_format": req.course_format,
                 "num_modules": resolved_modules,
                 "course_structure": {
@@ -487,6 +515,7 @@ async def generate_course(
                 "job_id": str(job.id),
                 "documents": [str(document_id) for document_id in req.documents],
                 "target_audience": req.target_audience,
+                "guidance": req.course_intent.strip(),
                 "num_modules": resolved_modules,
                 "lessons_per_module": structure.lessons_per_module,
                 "max_total_lessons": structure.recommended_total_lessons,
@@ -659,6 +688,7 @@ async def resume_generation(
         "job_id": str(job.id),
         "documents": [str(document_id) for document_id in documents],
         "target_audience": str(params.get("target_audience") or ""),
+        "guidance": str(params.get("course_intent") or ""),
         "num_modules": int(params.get("num_modules") or 1),
         "lessons_per_module": int(course_structure.get("lessons_per_module") or 1),
         "max_total_lessons": int(course_structure.get("recommended_total_lessons") or 1),

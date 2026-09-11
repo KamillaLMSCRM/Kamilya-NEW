@@ -106,6 +106,21 @@ interface DocumentCompatibility {
     estimated_duration_minutes: number;
     quiz_count: number;
   } | null;
+  source_passport?: {
+    confidence: 'high' | 'medium' | 'low';
+    teachable_units: number;
+    primary_sections: string[];
+    supporting_sections: string[];
+    unknown_sections: string[];
+    warnings: string[];
+    sections: Array<{
+      document_id: string;
+      name: string;
+      role: 'primary' | 'supporting' | 'unknown';
+      chunk_count: number;
+      distinct_rows: number;
+    }>;
+  } | null;
 }
 
 type CourseFormat = 'automatic' | 'brief' | 'standard' | 'detailed';
@@ -130,6 +145,7 @@ export default function AIGeneratePage() {
   const [documents, setDocuments] = useState<Document[]>([]);
   const [selectedDocIds, setSelectedDocIds] = useState<string[]>([]);
   const [targetAudience, setTargetAudience] = useState('');
+  const [courseIntent, setCourseIntent] = useState('');
   const [numModules, setNumModules] = useState(3);
   const [courseFormat, setCourseFormat] = useState<CourseFormat>('automatic');
   const [manualModules, setManualModules] = useState(false);
@@ -437,6 +453,7 @@ export default function AIGeneratePage() {
       const res = await api.post('/v1/ai/generate-course', {
         documents: selectedDocIds,
         target_audience: targetAudience,
+        course_intent: courseIntent.trim(),
         course_format: courseFormat,
         ...(manualModules ? { num_modules: numModules } : {}),
         language,
@@ -1020,6 +1037,19 @@ export default function AIGeneratePage() {
           <div className="rounded-2xl border border-border bg-card p-5 space-y-4">
             <h3 className="font-bold text-foreground font-display">Настройки генерации</h3>
             <div>
+              <label htmlFor="course-intent" className="block text-xs font-semibold text-muted-foreground mb-1">{t('ai.courseIntent')}</label>
+              <textarea
+                id="course-intent"
+                value={courseIntent}
+                onChange={(event) => setCourseIntent(event.target.value)}
+                rows={3}
+                maxLength={2000}
+                placeholder={t('ai.courseIntentPlaceholder')}
+                className="w-full rounded-xl border border-border px-3 py-2.5 text-sm outline-none focus:border-primary transition-colors resize-y"
+              />
+              <p className="mt-1 text-xs text-muted-foreground">{t('ai.courseIntentHint')}</p>
+            </div>
+            <div>
               <label className="block text-xs font-semibold text-muted-foreground mb-1">{t('ai.targetAudience')}</label>
               <textarea
                 value={targetAudience}
@@ -1069,6 +1099,34 @@ export default function AIGeneratePage() {
                     maxMinutes: compatibility.recommended_structure.duration_max_minutes,
                   })}
                 </div>
+              </div>
+            )}
+            {compatibility?.source_passport && (
+              <div className="rounded-xl border border-border bg-muted/30 p-3 text-sm">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="font-medium text-foreground">{t('ai.sourceInterpretation')}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {t('ai.interpretationConfidence')}: {t(`ai.confidence.${compatibility.source_passport.confidence}`)}
+                  </div>
+                </div>
+                <div className="mt-1 text-muted-foreground">
+                  {t('ai.primarySections')}: {compatibility.source_passport.primary_sections.join(', ') || t('ai.notIdentified')}
+                </div>
+                {compatibility.source_passport.supporting_sections.length > 0 && (
+                  <div className="mt-1 text-muted-foreground">
+                    {t('ai.supportingSections')}: {compatibility.source_passport.supporting_sections.join(', ')}
+                  </div>
+                )}
+                {compatibility.source_passport.unknown_sections.length > 0 && (
+                  <div className="mt-1 text-warning">
+                    {t('ai.unknownSections')}: {compatibility.source_passport.unknown_sections.join(', ')}
+                  </div>
+                )}
+                <p className="mt-2 text-xs text-muted-foreground">
+                  {compatibility.source_passport.confidence === 'low'
+                    ? t('ai.sourceInterpretationLowHint')
+                    : t('ai.sourceInterpretationHint')}
+                </p>
               </div>
             )}
             <details className="rounded-xl border border-border px-3 py-2">

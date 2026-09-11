@@ -68,7 +68,9 @@ class _LLM:
 
     async def ainvoke(self, messages):
         self.prompts.append(messages[-1]["content"])
-        return SimpleNamespace(content="Grounded lesson")
+        return SimpleNamespace(
+            content="Fire procedure and first aid response are grounded source topics."
+        )
 
 
 def _structure(doc_ids: list[str]) -> CourseStructure:
@@ -114,6 +116,63 @@ async def test_selector_uses_only_exact_verified_corpus_text_and_requires_all_do
     assert store.calls[0]["n_results"] == 24
     assert store.calls[0]["tenant_id"] == tenant_id
     assert store.calls[0]["where"] == {"doc_id": {"$in": ["doc-0", "doc-1"]}}
+
+
+@pytest.mark.asyncio
+async def test_selector_keeps_primary_worksheet_evidence_when_semantic_hits_only_catalog() -> None:
+    tenant_id = str(uuid4())
+    revision = "document:revision-0"
+    primary = DirectSourceChunk(
+        chunk_id="primary",
+        doc_id="doc-0",
+        doc_name="assortment.xlsx",
+        title="Ассортимент",
+        headings=("[Worksheet] Коллекции",),
+        text="Коллекция Чикаго: преимущества и сценарий подбора.",
+        source_revision=revision,
+        chunk_index=0,
+    )
+    catalog = DirectSourceChunk(
+        chunk_id="catalog",
+        doc_id="doc-0",
+        doc_name="assortment.xlsx",
+        title="Ассортимент",
+        headings=("[Worksheet] Номенклатура",),
+        text="SKU 101: шкаф Чикаго 3DG2S.",
+        source_revision=revision,
+        chunk_index=1,
+    )
+    corpus = DirectSourceCorpus(
+        tenant_id=tenant_id,
+        documents=(
+            DirectSourceDocument(
+                doc_id="doc-0",
+                title="Ассортимент",
+                filename="assortment.xlsx",
+                category="general",
+                source_revision=revision,
+                chunks=(primary, catalog),
+            ),
+        ),
+        total_chars=len(primary.text) + len(catalog.text),
+        total_chunks=2,
+    )
+    store = _Store(
+        [catalog.text],
+        [{"doc_id": "doc-0", "tenant_id": tenant_id}],
+    )
+
+    selected = await select_lesson_source_chunks(
+        corpus,
+        document_ids=["doc-0"],
+        query="шкаф Чикаго",
+        preferred_headings=["[Worksheet] Коллекции"],
+        tenant_id=tenant_id,
+        embeddings=_Embedding(),
+        vector_store=store,
+    )
+
+    assert [chunk.chunk_id for chunk in selected] == ["primary", "catalog"]
 
 
 @pytest.mark.asyncio
@@ -230,7 +289,11 @@ async def _too_large_selection(corpus):
 @pytest.mark.asyncio
 async def test_lexical_fallback_bounds_whole_chunks_and_keeps_each_document():
     tenant_id = str(uuid4())
-    corpus = _corpus(tenant_id, "A" * 7000, "B" * 7000)
+    corpus = _corpus(
+        tenant_id,
+        ("Fire procedure " * 1000)[:7000],
+        ("First aid response " * 1000)[:7000],
+    )
     corpus = replace(
         corpus,
         documents=tuple(

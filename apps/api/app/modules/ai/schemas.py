@@ -18,6 +18,11 @@ class AIGenerateRequest(BaseModel):
     # abuse; the endpoint enforces the 5-source product cap.
     documents: List[UUID] = Field(min_length=1, description="Source document IDs")
     target_audience: str = Field(default="", max_length=2000, description="Target audience description")
+    course_intent: str = Field(
+        default="",
+        max_length=2000,
+        description="Optional methodologist guidance; automatic generation remains valid when empty",
+    )
     course_format: CourseFormat = "automatic"
     num_modules: int | None = Field(default=None, ge=1, le=10)
     language: Literal["ru", "kk", "en"] = "ru"
@@ -59,6 +64,24 @@ class DocumentCompatibilityRequest(BaseModel):
     num_modules: int | None = Field(default=None, ge=1, le=10)
 
 
+class DocumentPassportSection(BaseModel):
+    document_id: str
+    name: str
+    role: Literal["primary", "supporting", "unknown"]
+    chunk_count: int = Field(ge=1)
+    distinct_rows: int = Field(ge=0)
+
+
+class DocumentPassportResponse(BaseModel):
+    confidence: Literal["high", "medium", "low"]
+    teachable_units: int = Field(ge=1)
+    primary_sections: list[str]
+    supporting_sections: list[str]
+    unknown_sections: list[str]
+    warnings: list[str]
+    sections: list[DocumentPassportSection]
+
+
 class CompatibilityDocument(BaseModel):
     id: UUID
     title: str
@@ -93,6 +116,7 @@ class DocumentCompatibilityResponse(BaseModel):
     requires_decision: bool
     clusters: list[CompatibilityCluster]
     recommended_structure: CourseStructureRecommendation | None = None
+    source_passport: DocumentPassportResponse | None = None
 
 
 class AIJobResponse(BaseModel):

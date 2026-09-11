@@ -210,6 +210,56 @@ async def test_reuse_reason_is_persisted_and_starts_an_independent_draft(monkeyp
     assert task_kwargs["max_total_lessons"] == 1
 
 
+@pytest.mark.asyncio
+async def test_optional_course_intent_is_persisted_dispatched_and_resumed(monkeypatch):
+    tenant_id = uuid4()
+    request = AIGenerateRequest(
+        documents=[uuid4()],
+        course_intent="Teach consultants to compare collections; use SKU rows only as examples.",
+    )
+    analysis = SimpleNamespace(
+        status="compatible",
+        score=1.0,
+        requires_decision=False,
+        clusters=[],
+    )
+    submit = AsyncMock(return_value=(SimpleNamespace(), {}))
+    monkeypatch.setattr(
+        "app.modules.ai.source_analysis.analyze_document_set",
+        AsyncMock(return_value=analysis),
+    )
+    monkeypatch.setattr(
+        "app.modules.ai.source_analysis.document_chunk_totals",
+        AsyncMock(return_value={}),
+    )
+    monkeypatch.setattr(
+        "app.modules.ai.source_analysis.document_script_languages",
+        AsyncMock(return_value={}),
+    )
+    monkeypatch.setattr("app.core.demo_limits.check_ai_generation_quota", AsyncMock())
+    monkeypatch.setattr(router, "submit_ai_job", submit)
+    monkeypatch.setattr(router, "_job_response", AsyncMock(return_value={"id": "job-1"}))
+    monkeypatch.setattr(router, "resolve_tenant_ai_active_limit", AsyncMock(return_value=2))
+    monkeypatch.setattr(router, "_in_flight_generation_for_documents", AsyncMock(return_value=None))
+    monkeypatch.setattr(router, "_existing_courses_for_source_documents", AsyncMock(return_value=[]))
+
+    await router.generate_course(
+        request,
+        db=SimpleNamespace(execute=AsyncMock()),
+        user=SimpleNamespace(id=uuid4(), tenant_id=tenant_id),
+    )
+
+    assert submit.await_args.kwargs["params"]["course_intent"] == request.course_intent
+    dispatched = submit.await_args.kwargs["task_kwargs"](SimpleNamespace(id="job-1"))
+    assert dispatched["guidance"] == request.course_intent
+
+
+def test_empty_course_intent_is_valid_for_automatic_generation() -> None:
+    request = AIGenerateRequest(documents=[uuid4()])
+
+    assert request.course_intent == ""
+
+
 def test_reuse_reason_cannot_silently_replace_an_existing_course_regeneration() -> None:
     with pytest.raises(ValueError, match="new independent course"):
         AIGenerateRequest(
@@ -271,6 +321,7 @@ async def test_resume_endpoint_requeues_same_job_with_persisted_adaptive_scope(m
         params={
             "documents": [str(document_id)],
             "target_audience": "Sales team",
+            "course_intent": "Teach branch sellers to compare collections.",
             "num_modules": 5,
             "course_structure": {
                 "lessons_per_module": 5,
@@ -300,6 +351,7 @@ async def test_resume_endpoint_requeues_same_job_with_persisted_adaptive_scope(m
     assert kwargs["num_modules"] == 5
     assert kwargs["lessons_per_module"] == 5
     assert kwargs["max_total_lessons"] == 25
+    assert kwargs["guidance"] == "Teach branch sellers to compare collections."
 
 
 @pytest.mark.asyncio

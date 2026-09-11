@@ -178,6 +178,47 @@ describe('/ai/generate multi-document selection contract', () => {
     expect(screen.queryByText(/урока на модуль/)).not.toBeInTheDocument();
   });
 
+  it('shows the automatic source interpretation and submits optional course intent', async () => {
+    mockCatalogWith(readyDocuments);
+    apiMock.post.mockImplementation(async (url: string) => {
+      if (url === '/v1/ai/document-compatibility') return { data: {
+        status: 'unverified', score: null, analysis_mode: 'direct_source', requires_decision: false, clusters: [],
+        source_passport: {
+          confidence: 'high', teachable_units: 4,
+          primary_sections: ['Коллекции'], supporting_sections: ['Номенклатура'],
+          unknown_sections: [], warnings: ['supporting_sections_do_not_define_course_size'],
+          sections: [],
+        },
+        recommended_structure: {
+          requested_format: 'automatic', resolved_format: 'brief', module_count: 1,
+          lessons_per_module: 4, recommended_total_lessons: 4, hard_max_total_lessons: 4,
+          duration_min_minutes: 4, duration_max_minutes: 6,
+          estimated_duration_minutes: 20, quiz_count: 1, reason_codes: ['source_capacity_passport'],
+        },
+      } } as any;
+      if (url === '/v1/ai/generate-course') return { data: activeJob } as any;
+      return { data: {} } as any;
+    });
+
+    render(<AIGeneratePage />);
+    fireEvent.click(await screen.findByRole('checkbox', { name: /Правила ИБ/ }));
+
+    expect(await screen.findByText(/Основные разделы: Коллекции/)).toBeInTheDocument();
+    expect(screen.getByText(/Справочные разделы: Номенклатура/)).toBeInTheDocument();
+    expect(screen.getByText(/Уверенность: высокая/)).toBeInTheDocument();
+    fireEvent.change(screen.getByRole('textbox', { name: 'Что должен дать курс' }), {
+      target: { value: 'Научить продавцов сравнивать коллекции под запрос клиента.' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Генерировать курс/ }));
+
+    await waitFor(() => expect(apiMock.post).toHaveBeenCalledWith(
+      '/v1/ai/generate-course',
+      expect.objectContaining({
+        course_intent: 'Научить продавцов сравнивать коллекции под запрос клиента.',
+      }),
+    ));
+  });
+
   it('allows an unindexed source but requires original-file verification', async () => {
     mockCatalogWith(readyDocuments);
     apiMock.post.mockImplementation(async (url: string) => {

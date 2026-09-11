@@ -1900,6 +1900,21 @@ contract or establish a blocker.
   Root review caught and fixed trailing-cell loss before integration. Tests include
   unsafe HTML/URLs, tables, CRLF, ordered-list start and long/unclosed-fence tails;
   frontend569tests and typecheck pass. Production renderer still awaits release.
+- 2026-09-11 quality/passport candidate (not deployed): a technically complete
+  course could still treat a large reference worksheet as the curriculum and admit
+  generic lessons or meta questions. XLSX conversion also changed the active
+  worksheet heading before flushing the preceding chunk, which could mislabel its
+  provenance. The candidate preserves bounded worksheet boundaries, builds a
+  deterministic primary/supporting/unknown passport, sizes from primary teachable
+  content, keeps low-confidence classification advisory, prioritizes primary
+  evidence during writing, and rejects source-poor lessons and meta questions
+  factual source or a prerequisite. Verification: backend1252 unit tests,
+  frontend578 tests, focused generation UI14 tests, and the Next.js15.5.23
+  production build pass after the final boundary polish; DEV browser acceptance
+  remains required. Prevention: keep the
+  synthetic two-sheet workbook, heading-flush, low-confidence, lesson-admission,
+  question-admission, and versioned-checkpoint regressions; never use raw row or
+  chunk count alone as proof of teachable scope.
 
 ## DEV-GATE-001 - Historical application fixture rejected current DEV
 

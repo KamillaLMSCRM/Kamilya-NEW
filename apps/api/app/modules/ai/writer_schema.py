@@ -13,6 +13,7 @@ class LessonContent:
     content: str = ""
     source_chunks: list[str] = field(default_factory=list)
     source_references: list[dict] = field(default_factory=list)
+    quality_policy_version: str = ""
 
     def to_dict(self) -> dict:
         return asdict(self)

@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.document import Document
 from app.modules.ai.direct_source import DirectSourceError, build_direct_source_corpus
+from app.modules.ai.document_passport import DocumentPassport, build_document_passport
 
 DEFAULT_CLUSTER_THRESHOLD = 0.68
 MIXED_THRESHOLD = 0.35
@@ -153,6 +154,7 @@ class CompatibilityAnalysis:
     analysis_mode: Literal["semantic", "direct_source"] = "semantic"
     source_chunk_totals: dict[UUID, int] = field(default_factory=dict)
     source_languages: dict[UUID, str | None] = field(default_factory=dict)
+    source_passport: DocumentPassport | None = None
 
 
 @dataclass(frozen=True)
@@ -185,18 +187,27 @@ def recommend_course_structure(
     document_count: int,
     course_format: Literal["automatic", "brief", "standard", "detailed"] = "automatic",
     manual_modules: int | None = None,
+    source_passport: DocumentPassport | None = None,
 ) -> CourseStructurePlan:
     """Build a deterministic course shape from aggregate source volume."""
     chunks = max(1, int(total_chunks or 0))
     documents = max(1, int(document_count or 0))
     requested = course_format
-    source_lesson_capacity = max(1, math.ceil(math.sqrt(chunks)))
+    source_lesson_capacity = (
+        max(1, source_passport.teachable_units)
+        if source_passport is not None
+        else max(1, math.ceil(math.sqrt(chunks)))
+    )
     format_profiles: dict[str, _CourseFormatProfile] = {
         "brief": {"coverage": 0.75, "hard_max": 14, "module_divisor": 8, "minimum_modules": 1, "maximum_modules": 3, "duration": (4, 6)},
         "standard": {"coverage": 0.80, "hard_max": 25, "module_divisor": 5, "minimum_modules": 2, "maximum_modules": 6, "duration": (5, 8)},
         "detailed": {"coverage": 1.00, "hard_max": 40, "module_divisor": 3, "minimum_modules": 3, "maximum_modules": 10, "duration": (7, 12)},
     }
-    capacity_reasons = ["source_capacity_proxy_chunks"]
+    capacity_reasons = [
+        "source_capacity_passport"
+        if source_passport is not None
+        else "source_capacity_proxy_chunks"
+    ]
     if source_lesson_capacity <= 3:
         capacity_reasons.append("source_sparse")
     if manual_modules is not None:
@@ -475,6 +486,7 @@ async def analyze_document_set(
                 )
                 for document in corpus.documents
             },
+            source_passport=build_document_passport(corpus),
         )
 
     not_ready = [str(document.id) for document in documents if document.embedding_status != "success"]

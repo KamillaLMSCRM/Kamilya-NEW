@@ -124,6 +124,41 @@ def _token_similarity(left: str, right: str) -> float:
     return len(left_tokens & right_tokens) / len(left_tokens | right_tokens)
 
 
+def _looks_like_generic_meta_prompt(value: str) -> bool:
+    normalized = _normalize_text(value).replace("ё", "е")
+    return bool(
+        re.fullmatch(
+            r"(?:о чем (?:этот|данный) (?:урок|курс|раздел|модуль)|"
+            r"что (?:именно )?(?:разберем|изучим|рассмотрим) в (?:этом|данном) "
+            r"(?:уроке|курсе|разделе|модуле)|"
+            r"what is (?:this|the) (?:lesson|course|section|module) about|"
+            r"what (?:will|do) we (?:cover|learn|review) in (?:this|the) "
+            r"(?:lesson|course|section|module)|"
+            r"what is covered in (?:this|the) (?:lesson|course|section|module)|"
+            r"what (?:will|does) (?:this|the) (?:lesson|course|section|module) "
+            r"(?:teach|cover)|"
+            r"что рассматривается в (?:этом|данном) (?:уроке|курсе|разделе|модуле)|"
+            r"чему посвящен (?:этот|данный) (?:урок|курс|раздел|модуль))",
+            normalized,
+        )
+    )
+
+
+def _explanation_only_restates_prompt(question: Question) -> bool:
+    prompt = _normalize_text(question.prompt)
+    explanation = _normalize_text(question.explanation)
+    if not prompt or not explanation:
+        return False
+    if explanation == prompt:
+        return True
+    prompt_tokens = _tokens(prompt)
+    explanation_tokens = _tokens(explanation)
+    return (
+        prompt in explanation
+        and len(explanation_tokens) <= len(prompt_tokens) + 6
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class ValidatorConfig:
     """Immutable, versioned thresholds and bounded validator settings."""
@@ -524,6 +559,13 @@ def validate_question_set(
         if not question.prompt or len(question.options) < 2:
             add(EditorQualityIssueLabel.MALFORMED_QUESTION, question_path, blocking=True)
             question_malformed = True
+        if _looks_like_generic_meta_prompt(question.prompt):
+            add(
+                EditorQualityIssueLabel.MALFORMED_QUESTION,
+                f"{question_path}.prompt",
+                blocking=True,
+            )
+            question_malformed = True
         if len(correct_indices) != 1:
             add(EditorQualityIssueLabel.MALFORMED_QUESTION, option_path, blocking=True)
             question_malformed = True
@@ -542,6 +584,21 @@ def validate_question_set(
                 )
                 question_malformed = True
         normalized_options = [_normalize_text(option.text) for option in question.options]
+        for option_index, normalized_option in enumerate(normalized_options):
+            if normalized_option and normalized_option == normalized_prompts[index]:
+                add(
+                    EditorQualityIssueLabel.MALFORMED_QUESTION,
+                    f"{option_path}[{option_index}]",
+                    blocking=True,
+                )
+                question_malformed = True
+        if _explanation_only_restates_prompt(question):
+            add(
+                EditorQualityIssueLabel.MALFORMED_QUESTION,
+                f"{question_path}.explanation",
+                blocking=True,
+            )
+            question_malformed = True
         for left_index, left in enumerate(normalized_options):
             for right_index in range(left_index + 1, len(normalized_options)):
                 right = normalized_options[right_index]

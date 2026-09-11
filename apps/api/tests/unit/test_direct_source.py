@@ -197,6 +197,100 @@ async def test_direct_source_generates_grounded_course_from_all_selected_documen
 
 
 @pytest.mark.asyncio
+async def test_direct_writer_repairs_one_low_quality_lesson_before_accepting_it() -> None:
+    from app.modules.ai.architect_schema import CourseStructure, LearningObjective, Lesson, Module
+    from app.modules.ai.direct_source import (
+        DirectSourceChunk,
+        DirectSourceCorpus,
+        DirectSourceDocument,
+        DirectSourceError,
+        write_direct_course,
+    )
+
+    revision = "document:" + "b" * 64
+    source = (
+        "Коллекция Чикаго включает шкаф 3DG2S и зеркало LUS/7/10. "
+        "Фасады выполнены в цвете дуб вотан."
+    )
+    corpus = DirectSourceCorpus(
+        tenant_id="tenant-1",
+        documents=(
+            DirectSourceDocument(
+                doc_id="doc-1",
+                title="Ассортимент",
+                filename="assortment.xlsx",
+                category="general",
+                source_revision=revision,
+                chunks=(
+                    DirectSourceChunk(
+                        chunk_id="direct:doc-1:0",
+                        doc_id="doc-1",
+                        doc_name="assortment.xlsx",
+                        title="Ассортимент",
+                        headings=("[Worksheet] Коллекции",),
+                        text=source,
+                        source_revision=revision,
+                        chunk_index=0,
+                    ),
+                ),
+            ),
+        ),
+        total_chars=len(source),
+        total_chunks=1,
+    )
+    structure = CourseStructure(
+        title="Ассортимент",
+        modules=[
+            Module(
+                title="Коллекции",
+                lessons=[
+                    Lesson(
+                        title="Коллекция Чикаго",
+                        objectives=[LearningObjective("Подобрать элементы коллекции")],
+                        source_doc_ids=["doc-1"],
+                        relevant_headings=["[Worksheet] Коллекции"],
+                    )
+                ],
+            )
+        ],
+    )
+
+    class LLM:
+        def __init__(self) -> None:
+            self.prompts: list[str] = []
+            self.responses = [
+                (
+                    "## Введение\n\nВ этом уроке мы разберём важную тему. "
+                    "Материал поможет лучше понять ассортимент. "
+                    "Подведём итоги: теперь вы знаете основные моменты."
+                ),
+                (
+                    "## Коллекция Чикаго\n\nДля хранения предложите шкаф 3DG2S. "
+                    "Зеркало LUS/7/10 дополняет комплект. "
+                    "Фасады выполнены в цвете дуб вотан."
+                ),
+            ]
+
+        async def ainvoke(self, messages):
+            self.prompts.append(messages[-1]["content"])
+            return SimpleNamespace(content=self.responses.pop(0))
+
+    llm = LLM()
+    content = await write_direct_course(llm, corpus, structure)
+
+    assert "шкаф 3DG2S" in content.modules[0].lessons[0].content
+    assert len(llm.prompts) == 2
+    assert "insufficient_source_anchors" in llm.prompts[1]
+    assert "generic_filler_dominates" in llm.prompts[1]
+
+    failing_llm = LLM()
+    failing_llm.responses = [failing_llm.responses[0], failing_llm.responses[0]]
+    with pytest.raises(DirectSourceError, match="direct_source_lesson_quality_failed"):
+        await write_direct_course(failing_llm, corpus, structure)
+    assert len(failing_llm.prompts) == 2
+
+
+@pytest.mark.asyncio
 async def test_direct_compatibility_is_truthfully_unverified_when_embeddings_failed(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

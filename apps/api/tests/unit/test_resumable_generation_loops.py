@@ -11,8 +11,10 @@ from app.modules.ai.direct_source import (
     DirectSourceChunk,
     DirectSourceCorpus,
     DirectSourceDocument,
+    DirectSourceError,
     write_direct_course,
 )
+from app.modules.ai.lesson_quality import LESSON_QUALITY_POLICY_VERSION
 from app.modules.ai.writer import write_course
 from app.modules.ai.writer_schema import LessonContent
 
@@ -155,7 +157,14 @@ async def test_direct_writer_skips_restored_positions_and_checkpoints_only_new_c
         total_chunks=1,
     )
     structure = _structure(2)
-    restored = {(0, 0): LessonContent(title="Lesson 0", content="restored")}
+    restored = {
+        (0, 0): LessonContent(
+            title="Lesson 0",
+            content="Grounded product information.",
+            source_chunks=["Grounded product information."],
+            quality_policy_version=LESSON_QUALITY_POLICY_VERSION,
+        )
+    }
     completions: list[tuple[int, int]] = []
     claims: list[tuple[int, int]] = []
 
@@ -164,7 +173,7 @@ async def test_direct_writer_skips_restored_positions_and_checkpoints_only_new_c
 
         async def ainvoke(self, messages):
             self.calls += 1
-            return SimpleNamespace(content="generated")
+            return SimpleNamespace(content="Grounded product information.")
 
     llm = LLM()
     result = await write_direct_course(
@@ -179,4 +188,44 @@ async def test_direct_writer_skips_restored_positions_and_checkpoints_only_new_c
     assert llm.calls == 1
     assert completions == [(0, 1)]
     assert claims == [(0, 1)]
-    assert [lesson.content for lesson in result.modules[0].lessons] == ["restored", "generated"]
+    assert [lesson.content for lesson in result.modules[0].lessons] == [
+        "Grounded product information.",
+        "Grounded product information.",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_direct_writer_rejects_checkpoint_from_older_quality_policy() -> None:
+    chunk = DirectSourceChunk(
+        chunk_id="chunk-1",
+        doc_id="doc-1",
+        doc_name="source.txt",
+        title="Source",
+        headings=("Products",),
+        text="Grounded product information.",
+        source_revision="a" * 64,
+        chunk_index=0,
+    )
+    corpus = DirectSourceCorpus(
+        tenant_id="tenant-1",
+        documents=(
+            DirectSourceDocument(
+                doc_id="doc-1",
+                title="Source",
+                filename="source.txt",
+                category="general",
+                source_revision="a" * 64,
+                chunks=(chunk,),
+            ),
+        ),
+        total_chars=len(chunk.text),
+        total_chunks=1,
+    )
+
+    with pytest.raises(DirectSourceError, match="direct_source_checkpoint_quality_policy_stale"):
+        await write_direct_course(
+            SimpleNamespace(),
+            corpus,
+            _structure(1),
+            completed_lessons={(0, 0): LessonContent(title="Lesson 0", content="legacy")},
+        )

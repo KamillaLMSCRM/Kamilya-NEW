@@ -200,6 +200,118 @@ def test_rote_recall_and_explanation_leakage_are_deterministic() -> None:
     assert EditorQualityIssueLabel.EXPLANATION_LEAKED_INTO_ANSWER in codes
 
 
+@pytest.mark.parametrize(
+    "prompt",
+    (
+        "О чём этот урок?",
+        "Что именно разберём в этом уроке?",
+        "What is this lesson about?",
+        "What is covered in this lesson?",
+        "What will this lesson teach?",
+        "What does this lesson cover?",
+    ),
+)
+def test_generic_meta_questions_fail_closed(prompt: str) -> None:
+    result = validate_question_set(
+        QuestionSet(
+            (
+                Question(
+                    "meta-1",
+                    prompt,
+                    (
+                        option("Практическое содержание урока", correct=True),
+                        option("Содержание всего курса"),
+                        option("Название учебного модуля"),
+                    ),
+                ),
+            )
+        )
+    )
+
+    assert result.status is ValidatorStatus.FAIL
+    assert any(
+        finding.code is EditorQualityIssueLabel.MALFORMED_QUESTION
+        and finding.field_path == "questions[0].prompt"
+        and finding.blocking
+        for finding in result.findings
+    )
+
+
+def test_question_repeated_as_answer_option_fails_closed() -> None:
+    result = validate_question_set(
+        QuestionSet(
+            (
+                Question(
+                    "echo-1",
+                    "О чём этот урок?",
+                    (
+                        option("О чём этот урок", correct=True),
+                        option("О чём этот курс"),
+                        option("О чём этот раздел"),
+                    ),
+                ),
+            )
+        )
+    )
+
+    assert result.status is ValidatorStatus.FAIL
+    assert result.metrics.malformed_questions == 1
+
+
+def test_concrete_options_may_share_a_stem_when_the_changed_term_is_meaningful() -> None:
+    result = validate_question_set(
+        QuestionSet(
+            (
+                Question(
+                    "stem-1",
+                    "Какие элементы входят в коллекцию Чикаго?",
+                    (
+                        option(
+                            "как устроены вешалки прихожие гарнитуры и зеркала",
+                            correct=True,
+                        ),
+                        option("как устроены вешалки прихожие гарнитуры и полки"),
+                        option("как устроены вешалки прихожие гарнитуры и столы"),
+                        option("как устроены вешалки прихожие гарнитуры и шкафы"),
+                    ),
+                ),
+            )
+        )
+    )
+
+    assert result.status is ValidatorStatus.PASS
+    assert EditorQualityIssueLabel.MALFORMED_QUESTION not in issue_codes(result)
+
+
+def test_explanation_that_only_restates_question_fails_closed() -> None:
+    result = validate_question_set(
+        QuestionSet(
+            (
+                Question(
+                    "explain-1",
+                    "Какие коллекции представлены в каталоге?",
+                    (
+                        option("Чикаго и Джаггер", correct=True),
+                        option("Только Чикаго"),
+                        option("Только Джаггер"),
+                    ),
+                    explanation=(
+                        "В исходном материале указано: какие коллекции представлены в каталоге."
+                    ),
+                ),
+            )
+        )
+    )
+
+    assert result.status is ValidatorStatus.FAIL
+    assert any(
+        finding.code is EditorQualityIssueLabel.MALFORMED_QUESTION
+        and finding.field_path == "questions[0].explanation"
+        and finding.blocking
+        for finding in result.findings
+    )
+
+
 def test_invalid_schema_error_does_not_reflect_customer_text() -> None:
     secret_text = "CONFIDENTIAL CUSTOMER TEXT"
 

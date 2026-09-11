@@ -5,7 +5,7 @@ import hashlib
 import json
 import logging
 import os
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -19,6 +19,12 @@ if TYPE_CHECKING:
     from app.modules.ai.llm_client import EmbeddingBatchResult, ResilientEmbeddingsClient
 
 logger = logging.getLogger(__name__)
+
+MAX_XLSX_VISIBLE_SHEETS = 64
+MAX_XLSX_ROWS_PER_SHEET = 200_000
+MAX_XLSX_COLUMNS_PER_ROW = 512
+MAX_XLSX_VISITED_CELLS = 2_000_000
+MAX_XLSX_RENDERED_CHARS = 4_000_000
 
 DOCLING_URL = os.getenv("DOCLING_URL", "")
 DOCLING_API_KEY = os.getenv("DOCLING_API_KEY", "")
@@ -65,7 +71,7 @@ class DocumentConverter:
         # Plain text formats are already markdown-compatible. Sending them
         # through remote Docling adds minutes of latency and can make the
         # browser abort otherwise tiny uploads.
-        if ext in (".txt", ".md", ".csv"):
+        if ext in (".txt", ".md", ".csv", ".xlsx"):
             return await _local_convert(file_path)
 
         # Try remote Docling first, but only when operators configured it.
@@ -166,6 +172,76 @@ async def _local_convert(file_path: str) -> dict[str, Any]:
                 blocks.append(text_value)
         content = "\n\n".join(blocks)
         engine = "python-docx"
+    elif ext == ".xlsx":
+        from openpyxl import load_workbook
+
+        def cell_text(value: object) -> str:
+            if value is None:
+                return ""
+            if isinstance(value, (date, datetime)):
+                rendered = value.isoformat()
+            else:
+                rendered = str(value)
+            return rendered.replace("\r", " ").replace("\n", " ").replace("|", "\\|").strip()
+
+        try:
+            workbook = load_workbook(file_path, read_only=True, data_only=False)
+        except Exception as exc:
+            raise RuntimeError("Document conversion is unavailable for .xlsx") from exc
+        blocks = []
+        worksheets: list[dict[str, object]] = []
+        visible_sheet_count = 0
+        visited_cells = 0
+        rendered_chars = 0
+        try:
+            for worksheet in workbook.worksheets:
+                if worksheet.sheet_state != "visible":
+                    continue
+                visible_sheet_count += 1
+                if visible_sheet_count > MAX_XLSX_VISIBLE_SHEETS:
+                    raise RuntimeError("XLSX source exceeds safe conversion limits")
+                rows: list[list[str]] = []
+                for row_index, raw_row in enumerate(
+                    worksheet.iter_rows(values_only=True),
+                    start=1,
+                ):
+                    if row_index > MAX_XLSX_ROWS_PER_SHEET:
+                        raise RuntimeError("XLSX source exceeds safe conversion limits")
+                    if len(raw_row) > MAX_XLSX_COLUMNS_PER_ROW:
+                        raise RuntimeError("XLSX source exceeds safe conversion limits")
+                    visited_cells += len(raw_row)
+                    if visited_cells > MAX_XLSX_VISITED_CELLS:
+                        raise RuntimeError("XLSX source exceeds safe conversion limits")
+                    row = [cell_text(value) for value in raw_row]
+                    while row and not row[-1]:
+                        row.pop()
+                    if row and any(row):
+                        rendered_chars += sum(len(cell) for cell in row)
+                        if rendered_chars > MAX_XLSX_RENDERED_CHARS:
+                            raise RuntimeError("XLSX source exceeds safe conversion limits")
+                        rows.append(row)
+                if not rows:
+                    continue
+                width = max(len(row) for row in rows)
+                normalized = [row + [""] * (width - len(row)) for row in rows]
+                sheet_name = cell_text(worksheet.title).replace("[", "(").replace("]", ")")
+                blocks.append(f"# [Worksheet] {sheet_name}")
+                blocks.append("| " + " | ".join(normalized[0]) + " |")
+                blocks.append("| " + " | ".join(["---"] * width) + " |")
+                blocks.extend("| " + " | ".join(row) + " |" for row in normalized[1:])
+                worksheets.append(
+                    {
+                        "name": sheet_name,
+                        "nonempty_rows": len(normalized),
+                        "nonempty_cells": sum(bool(cell) for row in normalized for cell in row),
+                        "columns": width,
+                    }
+                )
+        finally:
+            workbook.close()
+        content = "\n\n".join(blocks)
+        tables = len(worksheets)
+        engine = "openpyxl"
     elif ext == ".pdf":
         from pypdf import PdfReader
 
@@ -180,18 +256,21 @@ async def _local_convert(file_path: str) -> dict[str, Any]:
         raise RuntimeError(
             f"Document conversion is unavailable for {ext or 'this file type'}"
         )
+    metadata = {
+        "filename": os.path.basename(file_path),
+        "size": os.path.getsize(file_path),
+        "pages": pages,
+        "tables": tables,
+        "engine": engine,
+        "engine_version": None,
+        "fallback_used": ext not in (".txt", ".md", ".csv", ".xlsx"),
+        "warnings": [],
+    }
+    if ext == ".xlsx":
+        metadata["worksheets"] = worksheets
     return {
         "markdown": content,
-        "metadata": {
-            "filename": os.path.basename(file_path),
-            "size": os.path.getsize(file_path),
-            "pages": pages,
-            "tables": tables,
-            "engine": engine,
-            "engine_version": None,
-            "fallback_used": ext not in (".txt", ".md", ".csv"),
-            "warnings": [],
-        },
+        "metadata": metadata,
     }
 
 
@@ -246,6 +325,14 @@ class DocumentChunker:
 
             # Track headings
             if para.startswith("#"):
+                # A heading belongs to the content that follows it. Flush the
+                # previous section before changing metadata so its final chunk
+                # cannot be relabelled. Worksheet boundaries are hard source
+                # boundaries: do not carry overlap from one sheet into another.
+                if current_chunk.strip():
+                    current_chunk = emit_current()
+                    if para.startswith("# [Worksheet] "):
+                        current_chunk = ""
                 level = len(para.split(" ")[0])
                 title = para.lstrip("#").strip()
                 if level <= len(current_headings):

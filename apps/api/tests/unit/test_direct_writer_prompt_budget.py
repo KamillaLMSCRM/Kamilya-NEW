@@ -38,7 +38,7 @@ class Spy:
     async def ainvoke(self, messages):
         self.messages.append(messages)
         assert sum(len(m['content']) for m in messages) <= MAX_DIRECT_WRITER_PROMPT_CHARS
-        return SimpleNamespace(content='Grounded lesson content.')
+        return SimpleNamespace(content='Item source lesson content.')
 
 
 @pytest.mark.asyncio

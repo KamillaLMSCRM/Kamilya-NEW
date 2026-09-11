@@ -5,6 +5,7 @@ import pytest
 from app.modules.ai.assessment import (
     _assessment_contract_reason_codes,
     _build_evidence_bank,
+    _validate_generated_question_set,
     generate_course_assessment,
     generate_lesson_assessment,
 )
@@ -43,6 +44,31 @@ def _additional_questions() -> list[dict]:
         }
         for index, (prompt, quote, options) in enumerate(facts, start=2)
     ]
+
+
+def test_generation_contract_blocks_customer_reported_meta_question_pattern() -> None:
+    issues = _validate_generated_question_set(
+        {
+            "mcq": [
+                {
+                    "question": "Что именно разберём в этом уроке?",
+                    "options": [
+                        {"text": "как устроены вешалки прихожие гарнитуры и зеркала", "is_correct": True},
+                        {"text": "как устроены вешалки прихожие гарнитуры и полки", "is_correct": False},
+                        {"text": "как устроены вешалки прихожие гарнитуры и столы", "is_correct": False},
+                        {"text": "как устроены вешалки прихожие гарнитуры и шкафы", "is_correct": False},
+                    ],
+                    "explanation": (
+                        "В исходном материале указано: что именно разберём в этом уроке."
+                    ),
+                }
+            ]
+        },
+        "ru",
+    )
+
+    assert issues
+    assert any("malformed_question" in issue for issue in issues)
 
 
 def _source_with_additional_facts(source: str) -> str:
