@@ -355,6 +355,26 @@ def test_tabular_assessment_maps_rendered_lesson_table_to_plain_source_rows() ->
     )
 
 
+def test_tabular_style_assessment_accepts_five_source_attributes() -> None:
+    source = _collection_table_source()
+
+    result = _generate_tabular_assessment(
+        evidence_bank=_build_evidence_bank(source),
+        bounded_source=source,
+        lesson_title="Стили коллекций",
+        lesson_objectives=["Различать стилевые направления"],
+        language="ru",
+        question_count=5,
+    )
+
+    assert result is not None
+    assert len(result.mcq) == 5
+    assert all(
+        len(next(option.text for option in question.options if option.is_correct).split()) == 1
+        for question in result.mcq
+    )
+
+
 def test_generic_one_word_answer_remains_an_incomplete_fragment() -> None:
     source = "Коллекция Альфа: при консультации уточнить размеры помещения."
     evidence_bank = {"E01": source}

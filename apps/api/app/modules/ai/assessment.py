@@ -116,8 +116,7 @@ _LIST_QUESTION_RE = re.compile(
 _MARKDOWN_ARTIFACT_RE = re.compile(r"(?:^|\s)(?:\|[^\n]+\||`{1,3}|#{1,6}\s)")
 _MARKDOWN_TABLE_SEPARATOR_CELL_RE = re.compile(r"^:?-{3,}:?$")
 _ATTRIBUTE_QUESTION_RE = re.compile(
-    r"(?:какому\s+стилю|какой\s+стиль|какой\s+материал|"
-    r"what\s+(?:style|material)|қай\s+стиль|қандай\s+материал)",
+    r"(?:стил\w*|материал\w*|style|material|стиль|материал)",
     re.IGNORECASE,
 )
 _GENERATION_BLOCKING_ISSUES = frozenset(
