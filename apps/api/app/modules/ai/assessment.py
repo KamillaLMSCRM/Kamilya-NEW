@@ -266,6 +266,60 @@ def _structured_evidence_cells(evidence: str) -> list[str]:
     return cells if len(cells) >= 2 and all(cells) else []
 
 
+def _markdown_key_value_tables(text: str) -> list[tuple[str, list[tuple[str, str]]]]:
+    """Return subject-scoped attribute/value tables rendered inside a lesson."""
+    lines = text.splitlines()
+    tables: list[tuple[str, list[tuple[str, str]]]] = []
+    subject = ""
+    index = 0
+    while index < len(lines):
+        heading = re.match(r"^#{2,6}\s+(.+?)\s*$", lines[index].strip())
+        if heading:
+            subject = _plain_evidence_text(heading.group(1)).strip()
+            index += 1
+            continue
+        if index + 1 >= len(lines):
+            break
+        headers = _markdown_table_cells(lines[index])
+        separator = _markdown_table_cells(lines[index + 1])
+        normalized_headers = [_normalize_evidence_text(header) for header in headers]
+        is_key_value = (
+            len(headers) == 2
+            and len(separator) == 2
+            and all(_MARKDOWN_TABLE_SEPARATOR_CELL_RE.fullmatch(cell) for cell in separator)
+            and any(
+                token in normalized_headers[0]
+                for token in (
+                    "характерист",
+                    "параметр",
+                    "атрибут",
+                    "attribute",
+                    "сипат",
+                )
+            )
+            and any(
+                token in normalized_headers[1]
+                for token in ("значен", "value", "мән")
+            )
+        )
+        if not is_key_value or not subject:
+            index += 1
+            continue
+        rows: list[tuple[str, str]] = []
+        cursor = index + 2
+        while cursor < len(lines):
+            cells = _markdown_table_cells(lines[cursor])
+            if len(cells) != 2:
+                break
+            if cells[0] and cells[1]:
+                rows.append((cells[0], cells[1]))
+            cursor += 1
+        if rows:
+            tables.append((subject, rows))
+        index = cursor
+    return tables
+
+
 def _build_evidence_bank(bounded_source: str) -> dict[str, str]:
     """Build stable server-owned evidence IDs from the exact bounded source."""
     table_headers = {
@@ -899,6 +953,97 @@ def _tabular_question_text(
     return f"Which “{target_header}” characteristic belongs to “{subject}”?"
 
 
+def _generate_key_value_table_assessment(
+    *,
+    evidence_bank: dict[str, str],
+    bounded_source: str,
+    lesson_body: str,
+    lesson_title: str,
+    language: str,
+    question_count: int,
+    excluded_fact_keys: frozenset[tuple[str, str]],
+) -> LessonAssessment | None:
+    """Build MCQs from vertical subject cards backed by flat source rows."""
+    candidates: list[dict[str, Any]] = []
+    for subject_heading, attribute_rows in _markdown_key_value_tables(lesson_body):
+        normalized_heading = _normalize_evidence_text(subject_heading)
+        for row_index, (target_header, answer) in enumerate(attribute_rows):
+            resolved: tuple[str, list[str], int] | None = None
+            normalized_answer = _normalize_evidence_text(answer)
+            for evidence_id, evidence in evidence_bank.items():
+                evidence_cells = _structured_evidence_cells(evidence)
+                if not evidence_cells:
+                    continue
+                normalized_subject = _normalize_evidence_text(evidence_cells[0])
+                matching_indices = [
+                    index
+                    for index, cell in enumerate(evidence_cells[1:], start=1)
+                    if _normalize_evidence_text(cell) == normalized_answer
+                ]
+                if normalized_subject in normalized_heading and len(matching_indices) == 1:
+                    resolved = (evidence_id, evidence_cells, matching_indices[0])
+                    break
+            if resolved is None:
+                continue
+            evidence_id, evidence_cells, source_column_index = resolved
+            subject = evidence_cells[0]
+            source_quote = evidence_bank[evidence_id]
+            fact_key = (
+                _normalize_evidence_text(_plain_evidence_text(source_quote)),
+                normalized_answer,
+            )
+            if fact_key in excluded_fact_keys:
+                continue
+            peer_by_normalized: dict[str, str] = {}
+            for peer_evidence in evidence_bank.values():
+                peer_cells = _structured_evidence_cells(peer_evidence)
+                if source_column_index >= len(peer_cells):
+                    continue
+                peer_value = peer_cells[source_column_index]
+                normalized_peer = _normalize_evidence_text(peer_value)
+                if normalized_peer != normalized_answer:
+                    peer_by_normalized.setdefault(normalized_peer, peer_value)
+            alternatives = sorted(
+                peer_by_normalized.values(),
+                key=lambda value: (
+                    abs(len(value.split()) - len(answer.split())),
+                    abs(len(value) - len(answer)),
+                    value,
+                ),
+            )[:3]
+            if len(alternatives) != 3:
+                continue
+            option_values = [answer, *alternatives]
+            shift = (len(candidates) + row_index) % len(option_values)
+            option_values = option_values[shift:] + option_values[:shift]
+            candidates.append(
+                {
+                    "question": _tabular_question_text(
+                        language=language,
+                        subject=subject,
+                        target_header=target_header,
+                        variant=row_index,
+                    ),
+                    "options": [
+                        {"text": value, "is_correct": value == answer}
+                        for value in option_values
+                    ],
+                    "explanation": source_quote,
+                    "source_quote_id": evidence_id,
+                }
+            )
+    return _recover_valid_assessment(
+        {"mcq": candidates},
+        evidence_bank=evidence_bank,
+        bounded_source=bounded_source,
+        lesson_title=lesson_title,
+        language=language,
+        minimum_questions=question_count,
+        maximum_questions=question_count,
+        excluded_fact_keys=excluded_fact_keys,
+    )
+
+
 def _generate_tabular_assessment(
     *,
     evidence_bank: dict[str, str],
@@ -1071,7 +1216,15 @@ def _generate_tabular_assessment(
         )
         if recovered is not None:
             return recovered
-    return None
+    return _generate_key_value_table_assessment(
+        evidence_bank=evidence_bank,
+        bounded_source=bounded_source,
+        lesson_body=lesson_body,
+        lesson_title=lesson_title,
+        language=language,
+        question_count=question_count,
+        excluded_fact_keys=excluded_fact_keys,
+    )
 
 
 async def _recover_with_focused_questions(

@@ -570,7 +570,9 @@ worksheet. A role=supporting worksheet may only enrich a lesson already grounded
 a primary worksheet. It must never determine a standalone lesson title, description,
 or objectives. Do not create lessons about SKU lists, product catalogs, article
 numbers, price lists, table rows, or spreadsheet navigation when those worksheets are
-marked role=supporting."""
+marked role=supporting. Never infer a recommendation, requirement, cause, benefit, or
+business rule from a supporting worksheet unless that relationship is explicitly
+stated in a primary source row."""
     user_prompt = f"""Design an editable course with these user-selected options.
 language={language}
 target_audience={target_audience.strip()}

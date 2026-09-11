@@ -113,3 +113,23 @@ def test_tabular_association_remains_valid_when_described_neutrally() -> None:
 
     assert result.accepted is True
     assert "unsupported_relationship_claim" not in result.reason_codes
+
+
+def test_supporting_catalog_cannot_be_used_to_justify_primary_scenario() -> None:
+    source = (
+        "Коллекция Альфа; сценарий консультации: уточнить размеры помещения. "
+        "Каталог: SKU-0006, размер 900x400; SKU-0012, размер 1000x400."
+    )
+
+    result = evaluate_lesson_quality(
+        title="Коллекция Альфа",
+        content=(
+            "Для Альфы указан сценарий: уточнить размеры помещения. "
+            "В каталоге встречаются разные размеры, значит уточнение размеров "
+            "является рабочим шагом для подбора."
+        ),
+        source_chunks=[source],
+    )
+
+    assert result.accepted is False
+    assert "unsupported_relationship_claim" in result.reason_codes

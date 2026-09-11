@@ -4,7 +4,7 @@ Status: slices 1-7 and 9-10 implemented and locally verified on
 `feat/course-quality-passport-20260911`; DEV human-path re-acceptance is pending.
 Production is unchanged until every mandatory gate below passes.
 
-Local gate evidence: API unit suite `1288 passed`; web suite `578 passed` in
+Local gate evidence: API unit suite `1290 passed`; web suite `578 passed` in
 `111` files; focused generation UI `14 passed`; Next.js `15.5.23` production
 build passed; Python quality baseline passed at `ruff=1066`, `mypy=2339` with
 no new violations; `git diff --check` passed.
@@ -19,10 +19,10 @@ no new violations; `git diff --check` passed.
 | 4. Optional course intent | accepted locally | empty value is valid; provided value reaches the architect and resume path; RU/KK/EN UI passes |
 | 5. Passport-led architecture | accepted locally | every high/medium-confidence spreadsheet lesson must cite a primary worksheet; low-confidence classification remains advisory; semantic results retain primary evidence |
 | 6. Question quality | accepted locally | both reported patterns and expanded RU/EN variants are rejected before persistence |
-| 7. Lesson quality | accepted locally | one bounded rewrite, fail-closed second failure, and checkpoint policy-version tests pass |
-| 8. Human path | re-test required | `7c270b9b` failed at the third assessment; later exact-SHA runs completed but manual review rejected a model-invented distractor and model fallback for plain indexed rows; the plain-row adapter is locally green and awaits two fresh exact-SHA runs |
+| 7. Lesson quality | accepted locally | one bounded rewrite, fail-closed second failure, checkpoint policy-version tests, and a regression against an unsupported catalog-to-primary recommendation pass |
+| 8. Human path | re-test required | exact-SHA runs exposed horizontal, partial and vertical table variants plus one unsupported cross-sheet inference; every reproduced shape now has a local regression, and the final package awaits two fresh exact-SHA runs |
 | 9. Course-wide assessment diversity | accepted locally | normalized source-evidence plus correct-answer keys are carried across generated and restored lessons; batch and focused recovery reject repeats |
-| 10. Structured-table assessment | accepted locally | Markdown headers are excluded as facts; indexed plain rows are mapped back to the verified lesson table; lesson-scoped rows and matched columns produce 5+5+5 questions without an assessment-model call, invented options or repeated facts |
+| 10. Structured-table assessment | accepted locally | Markdown headers are excluded as facts; indexed plain rows are mapped back to horizontal tables and vertical attribute/value cards; lesson-scoped subjects and matched source columns produce 5+5+5 questions without an assessment-model call, invented options or repeated facts |
 
 ## Outcome
 
@@ -143,6 +143,8 @@ Acceptance:
 Acceptance:
 
 - Generic introduction/outro filler and source-poor lessons are rejected.
+- A supporting catalog cannot be turned into a recommendation, requirement,
+  cause or benefit unless the primary source explicitly states that relationship.
 - One corrected lesson replaces only its own position and checkpoint.
 - A second failure stops before assessment and save.
 - Resume never restores a checkpoint that predates the quality-policy version.
@@ -208,6 +210,8 @@ Acceptance:
   subjects and the remaining verified source rows only as the peer-option pool.
 - Treat equal values attached to different row subjects as distinct facts while
   still deduplicating equal option text inside one question.
+- Recognize both horizontal source tables and vertical subject cards rendered as
+  `Attribute | Value`, then map every value back to its exact source column.
 - Rotate question wording and option order while retaining exact source evidence,
   cross-lesson fact deduplication and the shared editor-quality contract.
 - Fall back to the existing bounded model path when no table column clearly matches
@@ -222,6 +226,8 @@ Acceptance:
   normalized `(source row, correct value)` pair.
 - A table with ambiguous headings or insufficient alternatives uses the existing
   bounded model path instead of inventing values.
+- A vertical card can ask only about its visible subject while all distractors
+  remain verified peer values from the same source column.
 
 ## Release decision
 

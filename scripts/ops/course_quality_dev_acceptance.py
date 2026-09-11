@@ -60,6 +60,10 @@ UNSUPPORTED_RELATIONSHIP_PATTERNS = (
         r"\bпоэтому\b.{0,100}\b(?:важно|нужно|следует|необходимо)\b",
         re.IGNORECASE,
     ),
+    re.compile(
+        r"\bзначит\b.{0,140}\b(?:рабоч\w*\s+шаг\w*|важно|нужно|следует|необходимо)\b",
+        re.IGNORECASE,
+    ),
 )
 SUPPORTING_CATALOG_TITLE_PATTERN = re.compile(
     r"\b(?:sku(?:[-_ ]?\d+)?|артикул\w*|прайс[-\s]?лист\w*|"

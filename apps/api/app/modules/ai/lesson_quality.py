@@ -42,6 +42,9 @@ _UNSUPPORTED_RELATIONSHIP_PATTERNS = (
     re.compile(r"\b(?:прямо|напрямую)\s+связан\w*\b"),
     re.compile(r"\bоснов\w*\s+для\b"),
     re.compile(r"\bпоэтому\b.{0,100}\b(?:важно|нужно|следует|необходимо)\b"),
+    re.compile(
+        r"\bзначит\b.{0,140}\b(?:рабоч\w*\s+шаг\w*|важно|нужно|следует|необходимо)\b"
+    ),
     re.compile(r"\b(?:directly linked|directly related|basis for)\b"),
     re.compile(r"\btherefore\b.{0,100}\b(?:must|should|need)\b"),
 )
@@ -63,7 +66,7 @@ _SOURCE_RELATIONSHIP_SIGNALS = (
     "ensures",
     "requires",
 )
-LESSON_QUALITY_POLICY_VERSION = "lesson-quality-v2"
+LESSON_QUALITY_POLICY_VERSION = "lesson-quality-v3"
 
 
 def _normalize(value: str) -> str:

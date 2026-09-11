@@ -423,6 +423,60 @@ def test_partial_lesson_table_uses_full_source_only_for_peer_distractors() -> No
     )
 
 
+def test_vertical_collection_cards_map_attributes_to_source_columns() -> None:
+    source = "\n".join(
+        [
+            "Альфа — современный — модульная компоновка — ЛДСП — уточнить размеры помещения",
+            "Бета — скандинавский — светлые фасады — МДФ — согласовать оттенок",
+            "Гамма — лофт — усиленная фурнитура — металл и ЛДСП — обсудить нагрузку",
+            "Дельта — минимализм — скрытые ручки — МДФ — показать механизм открывания",
+            "Эпсилон — классический — вместительные секции — ЛДСП — уточнить объём хранения",
+            "Зета — современный — регулируемые полки — ЛДСП — собрать требования к высоте",
+        ]
+    )
+    lesson_body = "\n".join(
+        [
+            "## Альфа",
+            "| Атрибут | Значение |",
+            "| --- | --- |",
+            "| Стиль | современный |",
+            "| Преимущество для клиента | модульная компоновка |",
+            "| Материал | ЛДСП |",
+            "| Сценарий консультации | уточнить размеры помещения |",
+            "",
+            "## Бета",
+            "| Параметр | Значение |",
+            "| --- | --- |",
+            "| Стиль | скандинавский |",
+            "| Преимущество для клиента | светлые фасады |",
+            "| Материал | МДФ |",
+            "| Сценарий консультации | согласовать оттенок |",
+        ]
+    )
+
+    result = _generate_tabular_assessment(
+        evidence_bank=_build_evidence_bank(source),
+        bounded_source=source,
+        lesson_title="Коллекции Альфа и Бета",
+        lesson_objectives=["Сопоставлять характеристики коллекций"],
+        lesson_body=lesson_body,
+        language="ru",
+        question_count=5,
+    )
+
+    assert result is not None
+    assert len(result.mcq) == 5
+    assert all(
+        "«Альфа»" in question.question or "«Бета»" in question.question
+        for question in result.mcq
+    )
+    assert all(
+        any(option.text in evidence for evidence in _build_evidence_bank(source).values())
+        for question in result.mcq
+        for option in question.options
+    )
+
+
 def test_generic_one_word_answer_remains_an_incomplete_fragment() -> None:
     source = "Коллекция Альфа: при консультации уточнить размеры помещения."
     evidence_bank = {"E01": source}
