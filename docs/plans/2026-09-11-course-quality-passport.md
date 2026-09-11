@@ -4,7 +4,7 @@ Status: slices 1-7 and 9-10 implemented and locally verified on
 `feat/course-quality-passport-20260911`; DEV human-path re-acceptance is pending.
 Production is unchanged until every mandatory gate below passes.
 
-Local gate evidence: API unit suite `1285 passed`; web suite `578 passed` in
+Local gate evidence: API unit suite `1286 passed`; web suite `578 passed` in
 `111` files; focused generation UI `14 passed`; Next.js `15.5.23` production
 build passed; Python quality baseline passed at `ruff=1066`, `mypy=2339` with
 no new violations; `git diff --check` passed.
@@ -20,9 +20,9 @@ no new violations; `git diff --check` passed.
 | 5. Passport-led architecture | accepted locally | every high/medium-confidence spreadsheet lesson must cite a primary worksheet; low-confidence classification remains advisory; semantic results retain primary evidence |
 | 6. Question quality | accepted locally | both reported patterns and expanded RU/EN variants are rejected before persistence |
 | 7. Lesson quality | accepted locally | one bounded rewrite, fail-closed second failure, and checkpoint policy-version tests pass |
-| 8. Human path | re-test required | exact-SHA DEV run `7c270b9b` proved upload, indexing, passport and cleanup but failed at the third assessment; the table-aware repair is locally green and awaits two fresh exact-SHA runs |
+| 8. Human path | re-test required | `7c270b9b` failed at the third assessment; later exact-SHA runs completed but manual review rejected a model-invented distractor and model fallback for plain indexed rows; the plain-row adapter is locally green and awaits two fresh exact-SHA runs |
 | 9. Course-wide assessment diversity | accepted locally | normalized source-evidence plus correct-answer keys are carried across generated and restored lessons; batch and focused recovery reject repeats |
-| 10. Structured-table assessment | accepted locally | Markdown headers are excluded as facts; lesson-scoped rows and matched columns produce 5+5+5 source-grounded questions across one shared six-row table without an assessment-model call, invented options or repeated facts |
+| 10. Structured-table assessment | accepted locally | Markdown headers are excluded as facts; indexed plain rows are mapped back to the verified lesson table; lesson-scoped rows and matched columns produce 5+5+5 questions without an assessment-model call, invented options or repeated facts |
 
 ## Outcome
 

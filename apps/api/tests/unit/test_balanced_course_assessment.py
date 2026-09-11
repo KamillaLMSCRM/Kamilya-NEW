@@ -317,6 +317,44 @@ def test_tabular_assessment_requires_four_distinct_peer_values() -> None:
     assert result is None
 
 
+def test_tabular_assessment_maps_rendered_lesson_table_to_plain_source_rows() -> None:
+    source = "\n".join(
+        [
+            "Альфа — современный — модульная компоновка — ЛДСП — уточнить размеры помещения",
+            "Бета — скандинавский — светлые фасады — МДФ — согласовать оттенок",
+            "Гамма — лофт — усиленная фурнитура — металл и ЛДСП — обсудить нагрузку",
+            "Дельта — минимализм — скрытые ручки — МДФ — показать механизм открывания",
+            "Эпсилон — классический — вместительные секции — ЛДСП — уточнить объём хранения",
+            "Зета — современный — регулируемые полки — ЛДСП — собрать требования к высоте",
+        ]
+    )
+
+    result = _generate_tabular_assessment(
+        evidence_bank=_build_evidence_bank(source),
+        bounded_source=source,
+        lesson_title="Сценарии консультации по коллекциям",
+        lesson_objectives=["Выбирать действие под запрос клиента"],
+        lesson_body=_collection_table_source(),
+        language="ru",
+        question_count=5,
+    )
+
+    assert result is not None
+    assert len(result.mcq) == 5
+    assert all(
+        next(option.text for option in question.options if option.is_correct)
+        in {
+            "уточнить размеры помещения",
+            "согласовать оттенок",
+            "обсудить нагрузку",
+            "показать механизм открывания",
+            "уточнить объём хранения",
+            "собрать требования к высоте",
+        }
+        for question in result.mcq
+    )
+
+
 def test_generic_one_word_answer_remains_an_incomplete_fragment() -> None:
     source = "Коллекция Альфа: при консультации уточнить размеры помещения."
     evidence_bank = {"E01": source}

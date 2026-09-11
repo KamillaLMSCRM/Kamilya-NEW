@@ -915,10 +915,10 @@ def _generate_tabular_assessment(
         _normalize_evidence_text(quote): evidence_id
         for evidence_id, quote in evidence_bank.items()
     }
-    lesson_scope = _normalize_evidence_text(
-        " ".join((lesson_title, *lesson_objectives, lesson_body))
-    )
-    for headers, rows in _markdown_tables(bounded_source):
+    lesson_scope = _normalize_evidence_text(" ".join((lesson_title, *lesson_objectives)))
+    source_tables = _markdown_tables(bounded_source)
+    tables = source_tables or _markdown_tables(lesson_body)
+    for headers, rows in tables:
         ranked_columns = sorted(
             (
                 (
@@ -945,6 +945,19 @@ def _generate_tabular_assessment(
                 subject = cells[0].strip()
                 answer = cells[column_index].strip()
                 evidence_id = evidence_ids.get(_normalize_evidence_text(raw_row))
+                if evidence_id is None:
+                    evidence_id = next(
+                        (
+                            candidate_id
+                            for candidate_id, evidence in evidence_bank.items()
+                            if all(
+                                _is_extractive_answer(cell, evidence)
+                                for cell in cells
+                                if cell.strip()
+                            )
+                        ),
+                        None,
+                    )
                 normalized_answer = _normalize_evidence_text(answer)
                 if (
                     not subject
