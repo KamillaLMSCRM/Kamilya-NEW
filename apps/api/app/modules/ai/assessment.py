@@ -232,23 +232,54 @@ def _markdown_table_cells(line: str) -> list[str]:
 
 
 def _markdown_tables(text: str) -> list[tuple[list[str], list[tuple[list[str], str]]]]:
-    """Return bounded Markdown tables while preserving each exact body row."""
+    """Return bounded Markdown tables while preserving each exact body row.
+
+    Spreadsheet conversion may place an empty line between every Markdown row.
+    Treat those empty lines as layout only, but stop before a following table.
+    """
     lines = text.splitlines()
     tables: list[tuple[list[str], list[tuple[list[str], str]]]] = []
     index = 0
     while index + 1 < len(lines):
         headers = _markdown_table_cells(lines[index])
-        separator = _markdown_table_cells(lines[index + 1])
+        separator_index = index + 1
+        while separator_index < len(lines) and not lines[separator_index].strip():
+            separator_index += 1
+        separator = (
+            _markdown_table_cells(lines[separator_index])
+            if separator_index < len(lines)
+            else []
+        )
         if (
             len(headers) >= 2
             and len(separator) == len(headers)
             and all(_MARKDOWN_TABLE_SEPARATOR_CELL_RE.fullmatch(cell) for cell in separator)
         ):
             rows: list[tuple[list[str], str]] = []
-            cursor = index + 2
+            cursor = separator_index + 1
             while cursor < len(lines):
+                while cursor < len(lines) and not lines[cursor].strip():
+                    cursor += 1
+                if cursor >= len(lines):
+                    break
                 cells = _markdown_table_cells(lines[cursor])
                 if len(cells) != len(headers):
+                    break
+                following = cursor + 1
+                while following < len(lines) and not lines[following].strip():
+                    following += 1
+                following_cells = (
+                    _markdown_table_cells(lines[following])
+                    if following < len(lines)
+                    else []
+                )
+                if (
+                    len(following_cells) == len(headers)
+                    and all(
+                        _MARKDOWN_TABLE_SEPARATOR_CELL_RE.fullmatch(cell)
+                        for cell in following_cells
+                    )
+                ):
                     break
                 rows.append((cells, lines[cursor].strip()))
                 cursor += 1
@@ -262,6 +293,16 @@ def _markdown_tables(text: str) -> list[tuple[list[str], list[tuple[list[str], s
 
 def _structured_evidence_cells(evidence: str) -> list[str]:
     """Split the canonical flat spreadsheet-row representation into exact cells."""
+    markdown_cells = _markdown_table_cells(evidence)
+    if (
+        len(markdown_cells) >= 2
+        and all(markdown_cells)
+        and not all(
+            _MARKDOWN_TABLE_SEPARATOR_CELL_RE.fullmatch(cell)
+            for cell in markdown_cells
+        )
+    ):
+        return markdown_cells
     cells = [cell.strip() for cell in re.split(r"\s+[—–]\s+", evidence.strip())]
     return cells if len(cells) >= 2 and all(cells) else []
 
@@ -901,18 +942,18 @@ def _tabular_question_text(
     if language == "ru":
         if "сценар" in header:
             templates = (
-                "Какое действие предусмотрено при консультации по коллекции «{subject}»?",
-                "Что должен сделать сотрудник при обсуждении коллекции «{subject}»?",
-                "Какой шаг консультации относится к коллекции «{subject}»?",
-                "Как следует продолжить разговор с клиентом о коллекции «{subject}»?",
+                "Какое действие указано в сценарии консультации по коллекции «{subject}»?",
+                "Какой шаг консультации указан для коллекции «{subject}»?",
+                "Какое действие относится к сценарию коллекции «{subject}»?",
+                "Что указано сделать при консультации по коллекции «{subject}»?",
             )
             return templates[variant % len(templates)].format(subject=subject)
         if "преимущ" in header or "выгод" in header:
             templates = (
-                "Какое преимущество коллекции «{subject}» важно назвать клиенту?",
-                "Что важно подчеркнуть клиенту при презентации коллекции «{subject}»?",
-                "Какую выгоду получает клиент, выбирая коллекцию «{subject}»?",
-                "На какой особенности коллекции «{subject}» стоит сделать акцент?",
+                "Какое преимущество указано для коллекции «{subject}»?",
+                "Какая особенность указана как преимущество коллекции «{subject}»?",
+                "Что названо преимуществом коллекции «{subject}»?",
+                "Какое преимущество соответствует коллекции «{subject}»?",
             )
             return templates[variant % len(templates)].format(subject=subject)
         if "стил" in header:
@@ -926,26 +967,26 @@ def _tabular_question_text(
         if "материал" in header:
             templates = (
                 "Какой материал указан для коллекции «{subject}»?",
-                "Из какого материала выполнена коллекция «{subject}»?",
-                "Какой материал нужно назвать при описании коллекции «{subject}»?",
-                "Что используется как материал коллекции «{subject}»?",
+                "Какой материал относится к коллекции «{subject}»?",
+                "Что указано как материал коллекции «{subject}»?",
+                "Какой материал соответствует коллекции «{subject}»?",
             )
             return templates[variant % len(templates)].format(subject=subject)
         return f"Какая характеристика «{target_header}» относится к «{subject}»?"
     if language == "kk":
         if "сценар" in header:
-            return f"«{subject}» топтамасы бойынша кеңес бергенде қандай әрекет көзделген?"
+            return f"«{subject}» топтамасының кеңес беру сценарийінде қандай әрекет көрсетілген?"
         if "артық" in header or "пайда" in header:
-            return f"Клиентке «{subject}» топтамасының қандай артықшылығын атау керек?"
+            return f"«{subject}» топтамасы үшін қандай артықшылық көрсетілген?"
         if "стил" in header:
             return f"«{subject}» топтамасы қай стильге жатады?"
         if "материал" in header:
             return f"«{subject}» топтамасы үшін қандай материал көрсетілген?"
         return f"«{subject}» үшін «{target_header}» сипаттамасының мәні қандай?"
     if "scenario" in header or "consult" in header:
-        return f"Which action is required when consulting on the “{subject}” collection?"
+        return f"Which action is listed in the consultation scenario for the “{subject}” collection?"
     if "advantage" in header or "benefit" in header:
-        return f"Which benefit of the “{subject}” collection should be explained to the customer?"
+        return f"Which benefit is listed for the “{subject}” collection?"
     if "style" in header:
         return f"What style does the “{subject}” collection use?"
     if "material" in header:
@@ -1066,7 +1107,9 @@ def _generate_tabular_assessment(
         for evidence_id, quote in evidence_bank.items()
     }
     source_tables = _markdown_tables(bounded_source)
-    tables = source_tables or _markdown_tables(lesson_body)
+    # The lesson table defines which subjects belong to this lesson. The full
+    # source table remains the fallback and the verified peer-value pool.
+    tables = _markdown_tables(lesson_body) or source_tables
     for headers, rows in tables:
         resolved_rows: list[tuple[list[str], str]] = []
         source_column_by_table_column: dict[int, int] = {}

@@ -133,3 +133,22 @@ def test_supporting_catalog_cannot_be_used_to_justify_primary_scenario() -> None
 
     assert result.accepted is False
     assert "unsupported_relationship_claim" in result.reason_codes
+
+
+def test_primary_attributes_cannot_be_given_an_invented_causal_heading() -> None:
+    source = (
+        "Коллекция Альфа; преимущество: модульная компоновка; "
+        "сценарий консультации: уточнить размеры помещения."
+    )
+
+    result = evaluate_lesson_quality(
+        title="Коллекция Альфа",
+        content=(
+            "## Как преимущество определяет шаг консультации\n\n"
+            "Для Альфы указаны модульная компоновка и уточнение размеров помещения."
+        ),
+        source_chunks=[source],
+    )
+
+    assert result.accepted is False
+    assert "unsupported_relationship_claim" in result.reason_codes

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import os
 import re
 import sys
@@ -64,6 +65,11 @@ UNSUPPORTED_RELATIONSHIP_PATTERNS = (
         r"\bзначит\b.{0,140}\b(?:рабоч\w*\s+шаг\w*|важно|нужно|следует|необходимо)\b",
         re.IGNORECASE,
     ),
+    re.compile(
+        r"\b(?:преимуществ\w*|материал\w*|размер\w*|каталог\w*)\b.{0,120}"
+        r"\b(?:определя\w*|обусловлива\w*|привод\w*|требу\w*)\b",
+        re.IGNORECASE,
+    ),
 )
 SUPPORTING_CATALOG_TITLE_PATTERN = re.compile(
     r"\b(?:sku(?:[-_ ]?\d+)?|артикул\w*|прайс[-\s]?лист\w*|"
@@ -80,6 +86,22 @@ STOP_WORDS = {
 
 class AcceptanceError(RuntimeError):
     pass
+
+
+class AssessmentPathCounter(logging.Handler):
+    """Count assessment paths without retaining prompts, answers, or secrets."""
+
+    def __init__(self) -> None:
+        super().__init__(level=logging.INFO)
+        self.contract_attempts = 0
+        self.tabular_lessons = 0
+
+    def emit(self, record: logging.LogRecord) -> None:
+        message = record.getMessage()
+        if "[ASSESSMENT_CONTRACT]" in message:
+            self.contract_attempts += 1
+        if "[ASSESSMENT_TABULAR]" in message:
+            self.tabular_lessons += 1
 
 
 class DevClient:
@@ -205,21 +227,36 @@ def execute_generation_locally(
     import app.main as _application  # noqa: F401
     from app.modules.ai.tasks import generate_course_task
 
-    return generate_course_task.run(
-        job_id=job_id,
-        documents=[document_id],
-        target_audience="",
-        guidance="",
-        num_modules=int(recommendation.get("module_count") or 1),
-        lessons_per_module=int(recommendation.get("lessons_per_module") or 1),
-        max_total_lessons=int(recommendation.get("recommended_total_lessons") or 1),
-        language="ru",
-        tenant_id=tenant_id,
-        user_id=user_id,
-        source_strategy="single_topic",
-        combination_goal="",
-        source_analysis=source_analysis,
-    )
+    assessment_logger = logging.getLogger("app.modules.ai.assessment")
+    original_level = assessment_logger.level
+    counter = AssessmentPathCounter()
+    assessment_logger.addHandler(counter)
+    if not assessment_logger.isEnabledFor(logging.INFO):
+        assessment_logger.setLevel(logging.INFO)
+    try:
+        result = generate_course_task.run(
+            job_id=job_id,
+            documents=[document_id],
+            target_audience="",
+            guidance="",
+            num_modules=int(recommendation.get("module_count") or 1),
+            lessons_per_module=int(recommendation.get("lessons_per_module") or 1),
+            max_total_lessons=int(recommendation.get("recommended_total_lessons") or 1),
+            language="ru",
+            tenant_id=tenant_id,
+            user_id=user_id,
+            source_strategy="single_topic",
+            combination_goal="",
+            source_analysis=source_analysis,
+        )
+    finally:
+        assessment_logger.removeHandler(counter)
+        assessment_logger.setLevel(original_level)
+    return {
+        **result,
+        "assessment_contract_attempts": counter.contract_attempts,
+        "tabular_assessment_lessons": counter.tabular_lessons,
+    }
 
 
 def execute_document_cleanup_locally(
@@ -539,6 +576,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     generation_job_id = ""
     tenant_id = ""
     cleanup_failures: list[str] = []
+    assessment_contract_attempts = 0
+    tabular_assessment_lessons = 0
     try:
         stage("health")
         health = client.http.get(health_url(args.api_base))
@@ -651,7 +690,19 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             report["local_worker"] = {
                 "used": True,
                 "status": local_result.get("status"),
+                "assessment_contract_attempts": local_result.get(
+                    "assessment_contract_attempts", 0
+                ),
+                "tabular_assessment_lessons": local_result.get(
+                    "tabular_assessment_lessons", 0
+                ),
             }
+            assessment_contract_attempts = int(
+                local_result.get("assessment_contract_attempts") or 0
+            )
+            tabular_assessment_lessons = int(
+                local_result.get("tabular_assessment_lessons") or 0
+            )
 
         job = poll_job(
             client,
@@ -683,6 +734,18 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             recommendation,
             focus_terms,
         )
+        facts["assessment_contract_attempts"] = assessment_contract_attempts
+        facts["tabular_assessment_lessons"] = tabular_assessment_lessons
+        expected_lesson_count = sum(
+            len(module.get("lessons") or []) for module in preview.get("modules") or []
+        )
+        if args.execute_local_worker and assessment_contract_attempts:
+            failures.append("assessment_model_fallback_used_for_structured_fixture")
+        if (
+            args.execute_local_worker
+            and tabular_assessment_lessons != expected_lesson_count
+        ):
+            failures.append("not_all_structured_lessons_used_tabular_assessment")
         report["quality"] = facts
         report["review_sample"] = build_review_sample(
             preview,
