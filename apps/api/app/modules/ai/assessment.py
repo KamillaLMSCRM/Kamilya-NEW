@@ -603,7 +603,7 @@ def _validate_generated_question_set(data: dict[str, Any], language: str) -> lis
         if (
             len(tokenized) >= 3
             and len({len(tokens) for tokens in tokenized}) == 1
-            and len(tokenized[0]) >= 4
+            and len(tokenized[0]) >= 2
             and len({tuple(tokens[:-1]) for tokens in tokenized}) == 1
             and len({tokens[-1] for tokens in tokenized}) >= 2
         ):
@@ -739,6 +739,8 @@ END_UNTRUSTED_LESSON_DATA
 
 Requirements:
 - Ask one atomic question using concrete terminology from the evidence.
+- Test the fact or workplace decision directly. Never ask what is in a title,
+  heading, table, row, section, lesson, evidence, source material, or shown below.
 - Select only {evidence_id}; do not output source_quote text.
 - Write exactly four options with exactly one correct option.
 - Copy the correct option as one exact contiguous 2-12 word span of the evidence.
@@ -746,8 +748,9 @@ Requirements:
 - Keep all four options similar in word count; a fixed word count is not required.
 - Every option must repeat at least one exact topical term listed above, use the
   same grammatical form, answer the same question, and have equal specificity.
-- Each distractor must change only one plausible action, condition, sequence, or
-  outcome from the correct option. Never use nonsense or an unrelated subject.
+- Each distractor must express an independently meaningful plausible action,
+  condition, sequence, or outcome. Never repeat the same phrase in all options and
+  change only the final word. Never use nonsense or an unrelated subject.
 - Write a grounded explanation and no Markdown or meta commentary.
 - Output only a JSON data instance matching this schema:
 {json.dumps(focused_schema, indent=2, ensure_ascii=False)}"""
@@ -908,12 +911,17 @@ Grounding requirements:
 - Use at least one concrete term from the selected evidence quote in the question.
 - Ask about one atomic decision or fact. Do not ask the learner to enumerate a list,
   combine several facts, or choose a grammatically inverted negative statement.
+- Test useful knowledge or a workplace decision directly. Never ask what appears in
+  a title, heading, table, row, section, lesson, evidence quote, source material, or
+  what is shown below. Do not ask how the source is organized or presented.
 - Mark exactly one option as correct. Copy a concise 2-12 word contiguous span
   verbatim from the selected evidence, preserving numbers, units and negation.
   Do not paraphrase, add filler, or invent a predicate. Choose another fact if
   the selected quote cannot support a complete short answer.
-- Write three plausible distractors about the same subject. Keep every option close
-  in word count and grammatical style so answer length cannot reveal the key.
+- Write three independently meaningful and plausible distractors about the same
+  subject. Keep every option close in word count and grammatical style so answer
+  length cannot reveal the key. Do not repeat an identical phrase in every option
+  and change only its final word.
 - Do not emit Markdown, table syntax, incomplete fragments, or meta commentary in
   questions, options, or explanations.
 - Explain the correct answer with a concrete fact from the selected evidence.

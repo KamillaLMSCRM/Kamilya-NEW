@@ -143,10 +143,19 @@ def _looks_like_generic_meta_prompt(value: str) -> bool:
             r"что (?:задано|указано|описано) в (?:рабочей )?таблице .+|"
             r"в каком виде .+ (?:даны|представлены) .+|"
             r"что описывает каждая строка в (?:рабочей )?таблице .+|"
+            r".+ (?:в|во) заголовк\w*|"
+            r".+ в (?:рабочей )?таблиц\w* .+|"
+            r".+ (?:разобран\w*|приведен\w*|показан\w*) ниже .+|"
+            r".+ рассматрива\w* в раздел\w* .+|"
+            r".+ представлен\w* в свидетельств\w*|"
+            r".+ согласно (?:урок\w*|раздел\w*|заголовк\w*|материал\w*|текст\w*)|"
+            r".+ в исходн\w* материал\w*|"
             r"what does .+ (?:include|contain) according to the (?:title|heading)|"
             r"what is (?:specified|shown|described) in the .+ table|"
             r"in what form (?:are|is) .+ (?:shown|presented)|"
-            r"what does each row in the .+ table describe)",
+            r"what does each row in the .+ table describe|"
+            r".+ (?:in|according to) the (?:title|heading|table|section|lesson|source material)|"
+            r".+ (?:shown|presented|discussed) below .+)",
             normalized,
         )
     )

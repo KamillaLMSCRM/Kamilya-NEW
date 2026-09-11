@@ -37,6 +37,15 @@ META_QUESTION_PATTERNS = (
     re.compile(r"\bwhat\s+is\s+(?:specified|shown|described)\s+in\s+the\s+(?:table|source)\b", re.IGNORECASE),
     re.compile(r"\bin\s+what\s+form\s+.+\s+(?:given|presented)\b", re.IGNORECASE),
     re.compile(r"\bwhat\s+does\s+each\s+row\s+describe\b", re.IGNORECASE),
+    re.compile(r"\b(?:в|во)\s+заголовк\w*\b", re.IGNORECASE),
+    re.compile(r"\bв\s+(?:рабочей\s+)?таблиц\w*\b", re.IGNORECASE),
+    re.compile(r"\b(?:разобран\w*|приведен\w*|показан\w*)\s+ниже\b", re.IGNORECASE),
+    re.compile(r"\bрассматрива\w*\s+в\s+раздел\w*\b", re.IGNORECASE),
+    re.compile(r"\bпредставлен\w*\s+в\s+свидетельств\w*\b", re.IGNORECASE),
+    re.compile(r"\bсогласно\s+(?:урок\w*|раздел\w*|заголовк\w*|материал\w*|текст\w*)\b", re.IGNORECASE),
+    re.compile(r"\bв\s+исходн\w*\s+материал\w*\b", re.IGNORECASE),
+    re.compile(r"\b(?:in|according\s+to)\s+the\s+(?:title|heading|table|section|lesson|source\s+material)\b", re.IGNORECASE),
+    re.compile(r"\b(?:shown|presented|discussed)\s+below\b", re.IGNORECASE),
 )
 SUPPORTING_CATALOG_TITLE_PATTERN = re.compile(
     r"\b(?:sku(?:[-_ ]?\d+)?|артикул\w*|прайс[-\s]?лист\w*|"
@@ -270,7 +279,7 @@ def has_supporting_catalog_title(value: str) -> bool:
 
 def choices_share_only_one_word_suffix(choices: list[str]) -> bool:
     tokenized = [[word.casefold() for word in re.findall(r"\S+", choice)] for choice in choices]
-    if len(tokenized) < 3 or min(map(len, tokenized), default=0) < 4:
+    if len(tokenized) < 3 or min(map(len, tokenized), default=0) < 2:
         return False
     common = 0
     for columns in zip(*tokenized, strict=False):

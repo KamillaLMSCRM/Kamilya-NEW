@@ -22,12 +22,22 @@ def _additional_questions() -> list[dict]:
         (
             "Чем подтверждают погашение микрокредита?",
             "Погашение микрокредита подтверждают платёжной квитанцией.",
-            ["Платёжной квитанцией", "Платёжной заявкой", "Платёжной справкой", "Платёжной ведомостью"],
+            [
+                "Платёжной квитанцией",
+                "Квитанцией плательщика",
+                "Черновиком квитанции",
+                "Неподписанной квитанцией",
+            ],
         ),
         (
             "Где указывают срок микрокредита?",
             "Срок микрокредита указывают в подписанном договоре.",
-            ["В подписанном договоре", "В предварительном договоре", "В отменённом договоре", "В неподписанном договоре"],
+            [
+                "подписанном договоре",
+                "предварительном договоре",
+                "отменённом договоре",
+                "неподписанном договоре",
+            ],
         ),
         (
             "Когда фиксируют просрочку микрокредита?",
@@ -54,6 +64,12 @@ def _additional_questions() -> list[dict]:
         "Что задано в таблице коллекций для каждой позиции?",
         "В каком виде ниже даны все шесть коллекций?",
         "Что описывает каждая строка в рабочей таблице «Коллекция»?",
+        "Какие коллекции упоминаются в заголовке?",
+        "Как в таблице коллекций описана каждая позиция?",
+        "Какие коллекции разобраны ниже по этим признакам?",
+        "Какие коллекции рассматриваются в разделе о стиле и материалах?",
+        "Как называется коллекция, представленная в свидетельстве?",
+        "Что представляет собой преимущество для клиента согласно уроку?",
     ],
 )
 def test_generation_contract_blocks_customer_reported_meta_question_pattern(
@@ -139,6 +155,28 @@ def test_generation_contract_blocks_short_choices_that_only_change_last_word() -
     assert any("low_information_distractors" in issue for issue in issues)
 
 
+def test_generation_contract_blocks_two_word_choices_with_shared_prefix() -> None:
+    issues = _validate_generated_question_set(
+        {
+            "mcq": [
+                {
+                    "question": "Какое преимущество закреплено за коллекцией?",
+                    "options": [
+                        {"text": "светлые фасады", "is_correct": True},
+                        {"text": "светлые ручки", "is_correct": False},
+                        {"text": "светлые полки", "is_correct": False},
+                        {"text": "светлые секции", "is_correct": False},
+                    ],
+                    "explanation": "Преимущество коллекции — светлые фасады.",
+                }
+            ]
+        },
+        "ru",
+    )
+
+    assert any("low_information_distractors" in issue for issue in issues)
+
+
 def _source_with_additional_facts(source: str) -> str:
     return "\n".join([source, *(q["explanation"] for q in _additional_questions())])
 
@@ -176,8 +214,9 @@ def _questions(
 ) -> list[dict]:
     fact_words = fact.split()
     distractors = [
-        " ".join([*fact_words[:-1], replacement])
-        for replacement in ("договора", "анкеты", "отчёта")
+        " ".join([*fact_words[:-1], "договора"]),
+        " ".join(["оформления", *fact_words[1:]]),
+        " ".join([fact_words[0], "подписания", *fact_words[2:]]),
     ]
     options = [
         {"text": fact, "is_correct": True},
@@ -188,7 +227,7 @@ def _questions(
     ]
     return [
         {
-            "question": f"Что указано про {topic} в материале?",
+            "question": f"Что требуется для {topic}?",
             "options": options,
             "explanation": f"Материал связывает {topic} с {fact}.",
             "source_quote": source_quote,
