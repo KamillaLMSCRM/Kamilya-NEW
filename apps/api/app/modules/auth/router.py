@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from typing import Annotated
 from uuid import UUID
 
@@ -458,7 +458,7 @@ async def check_auth_code(req: CheckCodeRequest, request: Request, response: Res
     if isinstance(tenant_obj, dict) and isinstance(tenant_obj.get("id"), UUID):
         tenant_obj["id"] = str(tenant_obj["id"])
 
-    auth_time = int(datetime.now(timezone.utc).timestamp())
+    auth_time = int(datetime.now(UTC).timestamp())
     access_token = create_access_token({
         "sub": user_data["user_id"],
         "tenant_id": user_data["tenant_id"],
@@ -648,7 +648,7 @@ async def demo_login(req: DemoLoginRequest, request: Request, response: Response
                     detail="Demo course is temporarily unavailable",
                 )
 
-        auth_time = int(datetime.now(timezone.utc).timestamp())
+        auth_time = int(datetime.now(UTC).timestamp())
         access_token = create_access_token({
             "sub": str(user.id),
             "tenant_id": str(user.tenant_id),

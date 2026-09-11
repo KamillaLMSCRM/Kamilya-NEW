@@ -1,5 +1,5 @@
 import hashlib
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from uuid import UUID, uuid4
 
 import argon2
@@ -71,7 +71,7 @@ async def validate_active_refresh_session(
     refresh_token: str,
     *,
     expected_user: User,
-) -> dict:
+) -> dict[str, object]:
     """Lock and validate an allowlisted browser refresh credential."""
     payload = decode_token(refresh_token)
     expected_tenant_id = str(expected_user.tenant_id) if expected_user.tenant_id is not None else None
@@ -84,8 +84,8 @@ async def validate_active_refresh_session(
     enforce_refresh_session_age(payload)
     await _set_session_context(
         db,
-        expected_user.tenant_id,
-        platform=expected_user.tenant_id is None and expected_user.role == "superadmin",
+        expected_tenant_id,
+        platform=expected_tenant_id is None and expected_user.role == "superadmin",
     )
     session = (
         await db.execute(
@@ -100,7 +100,7 @@ async def validate_active_refresh_session(
             .with_for_update()
         )
     ).scalar_one_or_none()
-    if not session or session.expires_at <= datetime.now(timezone.utc):
+    if not session or session.expires_at <= datetime.now(UTC):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
     return payload
 
@@ -235,7 +235,7 @@ async def create_user_and_tokens(
     await db.flush()
 
     roles = [role]
-    auth_time = int(datetime.now(timezone.utc).timestamp())
+    auth_time = int(datetime.now(UTC).timestamp())
     access_token = create_access_token({
         "sub": str(user.id),
         "tenant_id": user.tenant_id,  # UUID or None — never str(None)
@@ -317,7 +317,7 @@ async def authenticate_user(db: AsyncSession, email: str, password: str) -> tupl
 
     roles = await get_user_roles(db, user)
     active_role = user.role
-    auth_time = int(datetime.now(timezone.utc).timestamp())
+    auth_time = int(datetime.now(UTC).timestamp())
 
     access_token = create_access_token({
         "sub": str(user.id),
