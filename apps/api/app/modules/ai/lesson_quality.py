@@ -74,7 +74,14 @@ _UNSUPPORTED_RELATIONSHIP_PATTERNS = (
     re.compile(
         r"\b(?:используйте|можно\s+использовать|использовать.{0,40}\bкак|"
         r"построй\w*|подавай\w*|соотнес\w*|предложите|предлагайте|"
-        r"предложить|use|can\s+be\s+used|recommend\w*|offer)\b"
+        r"предложить|use|can\s+be\s+used)\b"
+    ),
+    re.compile(
+        r"(?:^|[.!?]\s+|\n)\s*(?:please\s+)?(?:recommend|offer)\b"
+    ),
+    re.compile(
+        r"\b(?:(?:we|you)\s+|(?:should|must|can|may)\s+)"
+        r"(?:recommend|offer)\b"
     ),
     re.compile(r"\b(?:ориентир\w*|serves?\s+as\s+(?:a\s+)?guide\w*)\b"),
 )
@@ -140,7 +147,7 @@ _RELATIONSHIP_SHORT_STOP_WORDS = frozenset(
         "be", "if",
     }
 )
-LESSON_QUALITY_POLICY_VERSION = "lesson-quality-v11"
+LESSON_QUALITY_POLICY_VERSION = "lesson-quality-v12"
 
 
 def _normalize(value: str) -> str:

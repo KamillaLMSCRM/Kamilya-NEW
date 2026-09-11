@@ -203,6 +203,41 @@ def test_factual_material_usage_summary_is_not_treated_as_sales_advice() -> None
     assert "unsupported_relationship_claim" not in result.reason_codes
 
 
+@pytest.mark.parametrize(
+    ("source", "content"),
+    [
+        (
+            "The commercial proposal for Collection Alpha has active status.",
+            "The commercial offer for Collection Alpha has active status.",
+        ),
+        (
+            "Promotion status for Collection Alpha is active.",
+            "Special offer status for Collection Alpha is active.",
+        ),
+        (
+            "The suggested retail price for Collection Alpha is 100.",
+            "The recommended retail price for Collection Alpha is 100.",
+        ),
+        (
+            "The document contains guidance for Collection Alpha consultants.",
+            "The document contains a recommendation for Collection Alpha consultants.",
+        ),
+    ],
+)
+def test_english_offer_and_recommendation_nouns_are_not_sales_commands(
+    source: str,
+    content: str,
+) -> None:
+    result = evaluate_lesson_quality(
+        title="Collection Alpha",
+        content=content,
+        source_chunks=[source],
+    )
+
+    assert result.accepted is True
+    assert "unsupported_relationship_claim" not in result.reason_codes
+
+
 def test_supporting_catalog_cannot_be_used_to_justify_primary_scenario() -> None:
     source = (
         "Коллекция Альфа; сценарий консультации: уточнить размеры помещения. "
