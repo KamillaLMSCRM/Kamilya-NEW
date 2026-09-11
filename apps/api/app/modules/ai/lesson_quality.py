@@ -47,8 +47,9 @@ _GENERIC_MARKERS = (
 _UNSUPPORTED_RELATIONSHIP_PATTERNS = (
     re.compile(r"\b(?:прямо|напрямую)\s+связан\w*\b"),
     re.compile(
-        r"\b(?:связан\w*\s+с|links?\s+to|(?:is\s+)?linked\s+to|"
-        r"(?:is\s+)?related\s+to)\b"
+        r"\b(?:связан\w*\s+с(?:о)?|links?\s+(?:to|with)|"
+        r"(?:is\s+)?linked\s+(?:to|with)|(?:is\s+)?related\s+to|"
+        r"relates?\s+to)\b"
     ),
     re.compile(r"\bоснов\w*\s+для\b"),
     re.compile(
@@ -89,8 +90,9 @@ _RELATIONSHIP_OPERATOR_ROOTS = (
 )
 _RELATIONSHIP_OPERATOR_RE = re.compile(
     r"\b(?:(?:прямо|напрямую)\s+связан\w*|основ\w*\s+для|"
-    r"связан\w*\s+с|links?\s+to|(?:is\s+)?linked\s+to|"
-    r"(?:is\s+)?related\s+to|"
+    r"связан\w*\s+с(?:о)?|links?\s+(?:to|with)|"
+    r"(?:is\s+)?linked\s+(?:to|with)|(?:is\s+)?related\s+to|"
+    r"relates?\s+to|"
     r"определя\w*|обусловлива\w*|привод\w*|требу\w*|поэтому|значит|"
     r"directly\s+(?:linked|related)|basis\s+for|therefore|"
     r"determines?|causes?|requires?|must|should|need)\b"
@@ -103,7 +105,7 @@ _RELATIONSHIP_SHORT_STOP_WORDS = frozenset(
         "be", "if",
     }
 )
-LESSON_QUALITY_POLICY_VERSION = "lesson-quality-v8"
+LESSON_QUALITY_POLICY_VERSION = "lesson-quality-v9"
 
 
 def _normalize(value: str) -> str:
@@ -145,10 +147,12 @@ def _relationship_operator(value: str) -> str:
     if re.search(r"(?:прямо|напрямую)\s+связан|directly\s+linked", normalized):
         return "direct_link"
     if re.search(
-        r"связан\w*\s+с|links?\s+to|(?:is\s+)?linked\s+to", normalized
+        r"связан\w*\s+с(?:о)?|links?\s+(?:to|with)|"
+        r"(?:is\s+)?linked\s+(?:to|with)",
+        normalized,
     ):
         return "link"
-    if re.search(r"(?:is\s+)?related\s+to", normalized):
+    if re.search(r"(?:is\s+)?related\s+to|relates?\s+to", normalized):
         return "relation"
     if "directly related" in normalized:
         return "direct_relation"

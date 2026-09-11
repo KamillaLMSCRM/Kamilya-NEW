@@ -304,9 +304,13 @@ def test_relationship_claim_preserves_operator_identity(source: str) -> None:
     "claim",
     [
         "SKU A1 связан с ценой 10.",
+        "SKU A1 связан со стоимостью 10.",
         "SKU A1 links to price 10.",
+        "SKU A1 links with price 10.",
         "SKU A1 is linked to price 10.",
+        "SKU A1 is linked with price 10.",
         "SKU A1 is related to price 10.",
+        "SKU A1 relates to price 10.",
     ],
 )
 def test_relationship_claim_rejects_unstated_link_operator(claim: str) -> None:
@@ -324,9 +328,13 @@ def test_relationship_claim_rejects_unstated_link_operator(claim: str) -> None:
     "statement",
     [
         "SKU A1 связан с ценой 10.",
+        "SKU A1 связан со стоимостью 10.",
         "SKU A1 links to price 10.",
+        "SKU A1 links with price 10.",
         "SKU A1 is linked to price 10.",
+        "SKU A1 is linked with price 10.",
         "SKU A1 is related to price 10.",
+        "SKU A1 relates to price 10.",
     ],
 )
 def test_explicit_link_relationship_with_exact_source_is_allowed(
