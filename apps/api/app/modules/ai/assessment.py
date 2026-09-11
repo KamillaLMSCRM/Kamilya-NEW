@@ -1143,6 +1143,16 @@ def _generate_tabular_assessment(
     }
     source_tables = _markdown_tables(bounded_source)
     lesson_tables = _markdown_tables(lesson_body)
+    normalized_scope_text = _normalize_evidence_text(
+        f"{lesson_title} {' '.join(lesson_objectives)}"
+    )
+    scope_declares_all_subjects = bool(
+        re.search(
+            r"\b(?:все\w*|кажд\w*|по\s+коллекц\w*|коллекций|"
+            r"all|each|every|collections|барлық|әрбір)\b",
+            normalized_scope_text,
+        )
+    )
     tables = [*lesson_tables]
     tables.extend(table for table in source_tables if table not in lesson_tables)
     for table_position, (headers, rows) in enumerate(tables):
@@ -1186,15 +1196,14 @@ def _generate_tabular_assessment(
             if cells and cells[0].strip()
         }
         if table_position >= len(lesson_tables):
-            normalized_scope = _normalize_evidence_text(
-                f"{lesson_title} {' '.join(lesson_objectives)}"
-            )
             lesson_subjects = {
                 _normalize_evidence_text(cells[0])
                 for cells, _evidence_id in resolved_rows
                 if cells
-                and _normalize_evidence_text(cells[0]) in normalized_scope
+                and _normalize_evidence_text(cells[0]) in normalized_scope_text
             }
+            if not lesson_subjects and not scope_declares_all_subjects:
+                continue
         expanded_rows = list(resolved_rows)
         if len(source_column_by_table_column) == len(headers):
             seen_evidence_ids = {evidence_id for _cells, evidence_id in expanded_rows}

@@ -173,6 +173,19 @@ def test_relationship_claim_requires_matching_local_source_anchors() -> None:
     assert "unsupported_relationship_claim" in result.reason_codes
 
 
+def test_relationship_claim_requires_matching_relation_endpoint() -> None:
+    source = "Материал Альфы определяет условия хранения."
+
+    result = evaluate_lesson_quality(
+        title="Коллекция Альфа",
+        content="Материал Альфы определяет шаг консультации.",
+        source_chunks=[source],
+    )
+
+    assert result.accepted is False
+    assert "unsupported_relationship_claim" in result.reason_codes
+
+
 def test_explicit_relationship_with_matching_source_anchors_is_allowed() -> None:
     source = (
         "Для Альфы модульная компоновка определяет шаг консультации: "

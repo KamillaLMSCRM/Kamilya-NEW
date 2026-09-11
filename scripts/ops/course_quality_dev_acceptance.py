@@ -53,23 +53,6 @@ META_QUESTION_PATTERNS = (
         re.IGNORECASE,
     ),
 )
-UNSUPPORTED_RELATIONSHIP_PATTERNS = (
-    re.compile(r"\b(?:прямо|напрямую)\s+связан\w*\b", re.IGNORECASE),
-    re.compile(r"\bоснов\w*\s+для\b", re.IGNORECASE),
-    re.compile(
-        r"\bпоэтому\b.{0,100}\b(?:важно|нужно|следует|необходимо)\b",
-        re.IGNORECASE,
-    ),
-    re.compile(
-        r"\bзначит\b.{0,140}\b(?:рабоч\w*\s+шаг\w*|важно|нужно|следует|необходимо)\b",
-        re.IGNORECASE,
-    ),
-    re.compile(
-        r"\b(?:преимуществ\w*|материал\w*|размер\w*|каталог\w*)\b.{0,120}"
-        r"\b(?:определя\w*|обусловлива\w*|привод\w*|требу\w*)\b",
-        re.IGNORECASE,
-    ),
-)
 SUPPORTING_CATALOG_TITLE_PATTERN = re.compile(
     r"\b(?:sku(?:[-_ ]?\d+)?|артикул\w*|прайс[-\s]?лист\w*|"
     r"каталог\w*|номенклатур\w*|"
@@ -299,6 +282,21 @@ def fixture_focus_terms(xlsx: Path) -> set[str]:
         workbook.close()
 
 
+def fixture_primary_source_chunks(xlsx: Path) -> list[str]:
+    """Build source-faithful primary rows for the shared product validator."""
+    workbook = load_workbook(xlsx, read_only=True, data_only=True)
+    try:
+        if "Коллекция" not in workbook.sheetnames:
+            raise AcceptanceError("fixture_primary_sheet_missing")
+        return [
+            " — ".join(str(value).strip() for value in row if value is not None)
+            for row in workbook["Коллекция"].iter_rows(values_only=True)
+            if any(value is not None for value in row)
+        ]
+    finally:
+        workbook.close()
+
+
 def has_meta_question(value: str) -> bool:
     return any(pattern.search(value) for pattern in META_QUESTION_PATTERNS)
 
@@ -326,6 +324,7 @@ def inspect_output(
     quizzes: list[dict[str, Any]],
     recommendation: dict[str, Any],
     focus_terms: set[str],
+    primary_source_chunks: list[str],
 ) -> tuple[list[str], dict[str, Any]]:
     failures: list[str] = []
     modules = preview.get("modules") or []
@@ -363,13 +362,18 @@ def inspect_output(
         failures.append("supporting_sku_became_lesson_title")
     if supporting_catalog_title_lessons:
         failures.append("supporting_catalog_became_lesson_title")
+    if str(API_ROOT) not in sys.path:
+        sys.path.insert(0, str(API_ROOT))
+    from app.modules.ai.lesson_quality import evaluate_lesson_quality
+
     unsupported_relationship_claims = sum(
-        1
+        "unsupported_relationship_claim"
+        in evaluate_lesson_quality(
+            title=str(lesson.get("title") or ""),
+            content=str(lesson.get("content_preview") or ""),
+            source_chunks=primary_source_chunks,
+        ).reason_codes
         for lesson in lessons
-        if any(
-            pattern.search(str(lesson.get("content_preview") or ""))
-            for pattern in UNSUPPORTED_RELATIONSHIP_PATTERNS
-        )
     )
     if unsupported_relationship_claims:
         failures.append("unsupported_relationship_claims_present")
@@ -536,6 +540,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     if xlsx.suffix.casefold() != ".xlsx":
         raise AcceptanceError("fixture_must_be_xlsx")
     focus_terms = fixture_focus_terms(xlsx)
+    primary_source_chunks = fixture_primary_source_chunks(xlsx)
 
     report: dict[str, Any] = {
         "passed": False,
@@ -718,6 +723,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             quizzes_response.json(),
             recommendation,
             focus_terms,
+            primary_source_chunks,
         )
         facts["assessment_model_lessons"] = assessment_model_lessons
         facts["tabular_assessment_lessons"] = tabular_assessment_lessons

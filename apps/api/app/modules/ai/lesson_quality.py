@@ -92,8 +92,10 @@ def _relationship_claim_supported(
     )
     for claim in content_fragments:
         claim_tokens = set(_content_tokens(claim))
+        required_shared = max(2, math.ceil(len(claim_tokens) * 0.75))
         if not any(
-            len(claim_tokens & set(_content_tokens(source_fragment))) >= 2
+            len(claim_tokens & set(_content_tokens(source_fragment)))
+            >= required_shared
             for source_fragment in source_fragments
         ):
             return False
@@ -141,11 +143,13 @@ def evaluate_lesson_quality(
         if len(sentence.split()) >= 7:
             counts[sentence] = counts.get(sentence, 0) + 1
     repeated_count = sum(count - 1 for count in counts.values() if count > 1)
-    normalized_source_text = " ".join(
-        " ".join(source_chunks).casefold().replace("ё", "е").split()
+    normalized_source_text = "\n".join(
+        " ".join(chunk.casefold().replace("ё", "е").split())
+        for chunk in source_chunks
     )
-    normalized_content_text = " ".join(
-        content.casefold().replace("ё", "е").split()
+    normalized_content_text = "\n".join(
+        " ".join(line.casefold().replace("ё", "е").split())
+        for line in content.splitlines()
     )
     unsupported_relationship = any(
         pattern.search(normalized_content_text)
