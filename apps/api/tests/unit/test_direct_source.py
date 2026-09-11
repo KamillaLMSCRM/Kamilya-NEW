@@ -754,6 +754,93 @@ async def test_direct_architect_enforces_the_adaptive_whole_course_limit():
 
 
 @pytest.mark.asyncio
+async def test_direct_architect_accepts_passport_section_name_without_internal_prefix():
+    """The prompt exposes `Collections`, not the converter's `[Worksheet]` marker."""
+    from app.modules.ai.direct_source import (
+        DirectSourceChunk,
+        DirectSourceCorpus,
+        DirectSourceDocument,
+        run_direct_architect,
+    )
+
+    document_id = str(uuid4())
+    primary = "Collection | Description | Benefit\nChicago | Modular storage | Easy selection"
+    supporting = "SKU | Item | Size | Price\nSKU-001 | Wardrobe | 900x500 | 50250"
+    corpus = DirectSourceCorpus(
+        tenant_id="tenant-1",
+        documents=(
+            DirectSourceDocument(
+                doc_id=document_id,
+                title="Synthetic catalogue",
+                filename="synthetic.xlsx",
+                category="general",
+                source_revision="document:" + "a" * 64,
+                chunks=(
+                    DirectSourceChunk(
+                        chunk_id="direct:doc-1:0",
+                        doc_id=document_id,
+                        doc_name="synthetic.xlsx",
+                        title="Synthetic catalogue",
+                        headings=("[Worksheet] Collections",),
+                        text=primary,
+                        source_revision="document:" + "a" * 64,
+                        chunk_index=0,
+                    ),
+                    DirectSourceChunk(
+                        chunk_id="direct:doc-1:1",
+                        doc_id=document_id,
+                        doc_name="synthetic.xlsx",
+                        title="Synthetic catalogue",
+                        headings=("[Worksheet] SKU catalog",),
+                        text=supporting,
+                        source_revision="document:" + "a" * 64,
+                        chunk_index=1,
+                    ),
+                ),
+            ),
+        ),
+        total_chars=len(primary) + len(supporting),
+        total_chunks=2,
+    )
+
+    class LLM:
+        async def ainvoke(self, messages):
+            return SimpleNamespace(
+                content=json.dumps(
+                    {
+                        "title": "Collections",
+                        "description": "",
+                        "modules": [
+                            {
+                                "title": "Collection selection",
+                                "description": "",
+                                "lessons": [
+                                    {
+                                        "title": "Chicago",
+                                        "description": "",
+                                        "objectives": ["Select a collection"],
+                                        "source_doc_ids": [document_id],
+                                        "relevant_headings": ["Collections"],
+                                    }
+                                ],
+                            }
+                        ],
+                    }
+                )
+            )
+
+    result = await run_direct_architect(
+        LLM(),
+        corpus,
+        num_modules=1,
+        lessons_per_module=3,
+        max_total_lessons=3,
+    )
+
+    assert result.modules[0].lessons[0].relevant_headings == ["Collections"]
+
+
+@pytest.mark.asyncio
 async def test_direct_architect_retries_one_invalid_module_count_before_failing():
     """Regression for the Plus Excel job that failed at architect progress 10."""
     from app.modules.ai.direct_source import build_direct_source_corpus, run_direct_architect

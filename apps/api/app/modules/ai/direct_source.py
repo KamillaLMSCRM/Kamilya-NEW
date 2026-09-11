@@ -389,11 +389,15 @@ def _validate_structure_sources(
     # but do not turn an uncertain guess into a hard admission rule.
     enforce_primary_worksheets = passport.confidence != "low"
     primary_worksheet_headings = {
-        f"[worksheet] {section.name}".casefold()
+        heading
         for section in passport.sections
         if enforce_primary_worksheets
         and section.role.value == "primary"
         and section.name.casefold() in worksheet_sections
+        for heading in (
+            section.name.casefold(),
+            f"[worksheet] {section.name}".casefold(),
+        )
     }
     if not structure.title.strip() or not structure.modules:
         raise DirectSourceError("direct_source_structure_invalid")
