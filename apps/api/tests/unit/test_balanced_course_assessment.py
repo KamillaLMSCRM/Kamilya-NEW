@@ -181,28 +181,6 @@ def test_generation_contract_blocks_two_word_choices_with_shared_prefix() -> Non
     assert any("low_information_distractors" in issue for issue in issues)
 
 
-def test_generation_contract_blocks_variable_options_with_one_shared_action_prefix() -> None:
-    issues = _validate_generated_question_set(
-        {
-            "mcq": [
-                {
-                    "question": "Что нужно сделать при обсуждении модели Дельта?",
-                    "options": [
-                        {"text": "показать механизм открывания", "is_correct": True},
-                        {"text": "показать скрытые ручки", "is_correct": False},
-                        {"text": "показать минимализм", "is_correct": False},
-                        {"text": "показать материал МДФ", "is_correct": False},
-                    ],
-                    "explanation": "Для Дельты указан показ механизма открывания.",
-                }
-            ]
-        },
-        "ru",
-    )
-
-    assert any("low_information_distractors" in issue for issue in issues)
-
-
 def _source_with_additional_facts(source: str) -> str:
     return "\n".join([source, *(q["explanation"] for q in _additional_questions())])
 

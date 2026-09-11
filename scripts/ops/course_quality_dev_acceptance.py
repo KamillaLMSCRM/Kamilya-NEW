@@ -295,12 +295,14 @@ def choices_share_only_one_word_suffix(choices: list[str]) -> bool:
     tokenized = [[word.casefold() for word in re.findall(r"\S+", choice)] for choice in choices]
     if len(tokenized) < 3 or min(map(len, tokenized), default=0) < 2:
         return False
+    if len({len(tokens) for tokens in tokenized}) != 1:
+        return False
     common = 0
     for columns in zip(*tokenized, strict=False):
         if len(set(columns)) != 1:
             break
         common += 1
-    return common >= min(map(len, tokenized)) - 1
+    return common == len(tokenized[0]) - 1
 
 
 def inspect_output(

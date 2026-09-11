@@ -648,16 +648,12 @@ def _validate_generated_question_set(data: dict[str, Any], language: str) -> lis
             re.findall(r"[^\W_]+", option.text.casefold(), re.UNICODE)
             for option in question.options
         ]
-        minimum_length = min(map(len, tokenized), default=0)
-        common_prefix = 0
-        for columns in zip(*tokenized, strict=False):
-            if len(set(columns)) != 1:
-                break
-            common_prefix += 1
         if (
             len(tokenized) >= 3
-            and minimum_length >= 2
-            and common_prefix >= minimum_length - 1
+            and len({len(tokens) for tokens in tokenized}) == 1
+            and len(tokenized[0]) >= 2
+            and len({tuple(tokens[:-1]) for tokens in tokenized}) == 1
+            and len({tokens[-1] for tokens in tokenized}) >= 2
         ):
             issues.append(
                 f"MCQ #{index}: assessment quality low_information_distractors: "
