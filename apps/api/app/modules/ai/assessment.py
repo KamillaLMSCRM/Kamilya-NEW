@@ -595,6 +595,23 @@ def _validate_generated_question_set(data: dict[str, Any], language: str) -> lis
         for finding in report.findings
         if finding.blocking or finding.code in _GENERATION_BLOCKING_ISSUES
     ]
+    for index, question in enumerate(questions, start=1):
+        tokenized = [
+            re.findall(r"[^\W_]+", option.text.casefold(), re.UNICODE)
+            for option in question.options
+        ]
+        if (
+            len(tokenized) >= 3
+            and len({len(tokens) for tokens in tokenized}) == 1
+            and len(tokenized[0]) >= 5
+            and len({tuple(tokens[:-1]) for tokens in tokenized}) == 1
+            and len({tokens[-1] for tokens in tokenized}) >= 2
+        ):
+            issues.append(
+                f"MCQ #{index}: assessment quality low_information_distractors: "
+                "replace options that repeat the same long phrase and differ only "
+                "in the final word with independently meaningful alternatives"
+            )
     # Give the repair request actionable measurements instead of repeatedly
     # asking a deterministic model to make almost-identical options "similar".
     length_indices = {

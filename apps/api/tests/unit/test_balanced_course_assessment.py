@@ -71,6 +71,40 @@ def test_generation_contract_blocks_customer_reported_meta_question_pattern() ->
     assert any("malformed_question" in issue for issue in issues)
 
 
+def test_generation_contract_blocks_choices_that_only_change_the_last_word() -> None:
+    issues = _validate_generated_question_set(
+        {
+            "mcq": [
+                {
+                    "question": "Какие предметы входят в состав коллекции?",
+                    "options": [
+                        {
+                            "text": "В коллекцию входят вешалки прихожие гарнитуры и зеркала",
+                            "is_correct": True,
+                        },
+                        {
+                            "text": "В коллекцию входят вешалки прихожие гарнитуры и полки",
+                            "is_correct": False,
+                        },
+                        {
+                            "text": "В коллекцию входят вешалки прихожие гарнитуры и столы",
+                            "is_correct": False,
+                        },
+                        {
+                            "text": "В коллекцию входят вешалки прихожие гарнитуры и шкафы",
+                            "is_correct": False,
+                        },
+                    ],
+                    "explanation": "Состав коллекции указан в исходном материале.",
+                }
+            ]
+        },
+        "ru",
+    )
+
+    assert any("low_information_distractors" in issue for issue in issues)
+
+
 def _source_with_additional_facts(source: str) -> str:
     return "\n".join([source, *(q["explanation"] for q in _additional_questions())])
 

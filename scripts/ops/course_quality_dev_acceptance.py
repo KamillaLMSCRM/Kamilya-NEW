@@ -158,6 +158,10 @@ def execute_generation_locally(
         os.environ["STORAGE_BACKEND"] = "supabase"
     if str(API_ROOT) not in sys.path:
         sys.path.insert(0, str(API_ROOT))
+    # A real Celery worker imports the full configured task set before handling
+    # AI jobs, which registers every cross-module SQLAlchemy FK target.  This
+    # direct runner must establish the same model registry before task import.
+    import app.main as _application  # noqa: F401
     from app.modules.ai.tasks import generate_course_task
 
     return generate_course_task.run(
