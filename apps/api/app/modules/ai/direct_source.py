@@ -47,6 +47,29 @@ MAX_DIRECT_WRITER_SOURCE_CHARS = 24_000
 MAX_DIRECT_WRITER_PROMPT_CHARS = 32_000
 MAX_DIRECT_LESSON_OUTPUT_CHARS = 24_000
 MAX_DIRECT_LESSON_QUALITY_ATTEMPTS = 3
+
+_LESSON_QUALITY_REPAIR_INSTRUCTIONS = {
+    "unsupported_relationship_claim": (
+        "Remove every sentence that adds causation, necessity, a customer "
+        "preference, sales advice, a consultation step, a recommendation, or "
+        "a suggested use that is not stated verbatim in the supplied source. "
+        "For tabular source data, restate each row as independent facts under "
+        "its exact item or collection name. Do not infer how a seller should "
+        "act and do not connect columns with if/then, therefore, means, "
+        "determines, helps, suits, recommend, offer, use, or similar wording."
+    ),
+}
+
+
+def _lesson_quality_repair_instruction(reason_codes: tuple[str, ...]) -> str:
+    instructions = [
+        _LESSON_QUALITY_REPAIR_INSTRUCTIONS[reason]
+        for reason in reason_codes
+        if reason in _LESSON_QUALITY_REPAIR_INSTRUCTIONS
+    ]
+    if not instructions:
+        return ""
+    return " Specific repair instructions: " + " ".join(instructions)
 MAX_DIRECT_SEMANTIC_RESULTS = 24
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 _WORD_RE = re.compile(r"[^\W\d_]{3,}", re.UNICODE)
@@ -1027,7 +1050,8 @@ Objectives: {json.dumps(objectives, ensure_ascii=False)}
                         "quality admission with these reason codes: "
                         f"{json.dumps(quality_feedback)}. Rewrite the whole lesson. "
                         "Use concrete names, distinctions, properties, procedures, or examples "
-                        "present in the supplied source excerpts. Do not add generic framing.\n"
+                        "present in the supplied source excerpts. Do not add generic framing."
+                        f"{_lesson_quality_repair_instruction(quality_feedback)}\n"
                     )
                 if len(system_prompt) + len(attempt_prompt) > MAX_DIRECT_WRITER_PROMPT_CHARS:
                     raise DirectSourceError("direct_source_prompt_budget_exceeded")
