@@ -260,6 +260,12 @@ def _markdown_tables(text: str) -> list[tuple[list[str], list[tuple[list[str], s
     return tables
 
 
+def _structured_evidence_cells(evidence: str) -> list[str]:
+    """Split the canonical flat spreadsheet-row representation into exact cells."""
+    cells = [cell.strip() for cell in re.split(r"\s+[—–]\s+", evidence.strip())]
+    return cells if len(cells) >= 2 and all(cells) else []
+
+
 def _build_evidence_bank(bounded_source: str) -> dict[str, str]:
     """Build stable server-owned evidence IDs from the exact bounded source."""
     table_headers = {
@@ -914,10 +920,69 @@ def _generate_tabular_assessment(
         _normalize_evidence_text(quote): evidence_id
         for evidence_id, quote in evidence_bank.items()
     }
-    lesson_scope = _normalize_evidence_text(" ".join((lesson_title, *lesson_objectives)))
     source_tables = _markdown_tables(bounded_source)
     tables = source_tables or _markdown_tables(lesson_body)
     for headers, rows in tables:
+        resolved_rows: list[tuple[list[str], str]] = []
+        source_column_by_table_column: dict[int, int] = {}
+        for cells, raw_row in rows:
+            evidence_id = evidence_ids.get(_normalize_evidence_text(raw_row))
+            if evidence_id is None:
+                evidence_id = next(
+                    (
+                        candidate_id
+                        for candidate_id, evidence in evidence_bank.items()
+                        if all(
+                            _is_extractive_answer(cell, evidence)
+                            for cell in cells
+                            if cell.strip()
+                        )
+                    ),
+                    None,
+                )
+            if evidence_id is None:
+                continue
+            resolved_rows.append((cells, evidence_id))
+            evidence_cells = _structured_evidence_cells(evidence_bank[evidence_id])
+            for table_index, cell in enumerate(cells):
+                matching_indices = [
+                    source_index
+                    for source_index, source_cell in enumerate(evidence_cells)
+                    if _normalize_evidence_text(source_cell)
+                    == _normalize_evidence_text(cell)
+                ]
+                if len(matching_indices) == 1:
+                    source_index = matching_indices[0]
+                    existing = source_column_by_table_column.get(table_index)
+                    if existing is None or existing == source_index:
+                        source_column_by_table_column[table_index] = source_index
+
+        lesson_subjects = {
+            _normalize_evidence_text(cells[0])
+            for cells, _evidence_id in resolved_rows
+            if cells and cells[0].strip()
+        }
+        expanded_rows = list(resolved_rows)
+        if len(source_column_by_table_column) == len(headers):
+            seen_evidence_ids = {evidence_id for _cells, evidence_id in expanded_rows}
+            for evidence_id, evidence in evidence_bank.items():
+                evidence_cells = _structured_evidence_cells(evidence)
+                if evidence_id in seen_evidence_ids or not evidence_cells:
+                    continue
+                max_source_index = max(source_column_by_table_column.values())
+                if max_source_index >= len(evidence_cells):
+                    continue
+                projected_cells = [
+                    evidence_cells[source_column_by_table_column[table_index]]
+                    for table_index in range(len(headers))
+                ]
+                if all(
+                    _is_extractive_answer(cell, evidence)
+                    for cell in projected_cells
+                    if cell.strip()
+                ):
+                    expanded_rows.append((projected_cells, evidence_id))
+
         ranked_columns = sorted(
             (
                 (
@@ -930,33 +995,13 @@ def _generate_tabular_assessment(
             ),
             key=lambda item: (-item[0], item[1]),
         )
-        scoped_subjects = {
-            _normalize_evidence_text(cells[0])
-            for cells, _raw_row in rows
-            if cells[0].strip()
-            and _normalize_evidence_text(cells[0]) in lesson_scope
-        }
         candidates: list[dict[str, Any]] = []
         for _overlap, column_index, target_header in ranked_columns:
             row_values: list[tuple[str, str, str]] = []
             seen_answers: set[str] = set()
-            for cells, raw_row in rows:
+            for cells, evidence_id in expanded_rows:
                 subject = cells[0].strip()
                 answer = cells[column_index].strip()
-                evidence_id = evidence_ids.get(_normalize_evidence_text(raw_row))
-                if evidence_id is None:
-                    evidence_id = next(
-                        (
-                            candidate_id
-                            for candidate_id, evidence in evidence_bank.items()
-                            if all(
-                                _is_extractive_answer(cell, evidence)
-                                for cell in cells
-                                if cell.strip()
-                            )
-                        ),
-                        None,
-                    )
                 normalized_answer = _normalize_evidence_text(answer)
                 if (
                     not subject
@@ -973,8 +1018,8 @@ def _generate_tabular_assessment(
             candidate_rows = [
                 row
                 for row in row_values
-                if not scoped_subjects
-                or _normalize_evidence_text(row[0]) in scoped_subjects
+                if not lesson_subjects
+                or _normalize_evidence_text(row[0]) in lesson_subjects
             ]
             for row_index, (subject, answer, evidence_id) in enumerate(candidate_rows):
                 source_quote = evidence_bank[evidence_id]

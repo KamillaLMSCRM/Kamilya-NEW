@@ -4,7 +4,7 @@ Status: slices 1-7 and 9-10 implemented and locally verified on
 `feat/course-quality-passport-20260911`; DEV human-path re-acceptance is pending.
 Production is unchanged until every mandatory gate below passes.
 
-Local gate evidence: API unit suite `1287 passed`; web suite `578 passed` in
+Local gate evidence: API unit suite `1288 passed`; web suite `578 passed` in
 `111` files; focused generation UI `14 passed`; Next.js `15.5.23` production
 build passed; Python quality baseline passed at `ruff=1066`, `mypy=2339` with
 no new violations; `git diff --check` passed.
@@ -204,6 +204,8 @@ Acceptance:
   the lesson and build MCQs from exact row-to-column relationships.
 - Draw distractors only from peer values in the same source column. Natural length
   differences between source-backed peer values must not force invented padding.
+- If one lesson shows only part of the source table, use those rows as question
+  subjects and the remaining verified source rows only as the peer-option pool.
 - Rotate question wording and option order while retaining exact source evidence,
   cross-lesson fact deduplication and the shared editor-quality contract.
 - Fall back to the existing bounded model path when no table column clearly matches

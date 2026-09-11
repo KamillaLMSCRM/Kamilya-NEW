@@ -375,6 +375,50 @@ def test_tabular_style_assessment_accepts_five_source_attributes() -> None:
     )
 
 
+def test_partial_lesson_table_uses_full_source_only_for_peer_distractors() -> None:
+    source = "\n".join(
+        [
+            "Альфа — современный — модульная компоновка — ЛДСП — уточнить размеры помещения",
+            "Бета — скандинавский — светлые фасады — МДФ — согласовать оттенок",
+            "Гамма — лофт — усиленная фурнитура — металл и ЛДСП — обсудить нагрузку",
+            "Дельта — минимализм — скрытые ручки — МДФ — показать механизм открывания",
+            "Эпсилон — классический — вместительные секции — ЛДСП — уточнить объём хранения",
+            "Зета — современный — регулируемые полки — ЛДСП — собрать требования к высоте",
+        ]
+    )
+    lesson_body = "\n".join(
+        [
+            "| Коллекция | Стиль |",
+            "| --- | --- |",
+            "| Альфа | современный |",
+            "| Бета | скандинавский |",
+            "| Гамма | лофт |",
+        ]
+    )
+
+    result = _generate_tabular_assessment(
+        evidence_bank=_build_evidence_bank(source),
+        bounded_source=source,
+        lesson_title="Стили коллекций Альфа, Бета и Гамма",
+        lesson_objectives=["Различать стили трёх коллекций"],
+        lesson_body=lesson_body,
+        language="ru",
+        question_count=3,
+    )
+
+    assert result is not None
+    assert len(result.mcq) == 3
+    assert all(
+        any(subject in question.question for subject in {"Альфа", "Бета", "Гамма"})
+        for question in result.mcq
+    )
+    assert all(
+        option.text in {"современный", "скандинавский", "лофт", "минимализм", "классический"}
+        for question in result.mcq
+        for option in question.options
+    )
+
+
 def test_generic_one_word_answer_remains_an_incomplete_fragment() -> None:
     source = "Коллекция Альфа: при консультации уточнить размеры помещения."
     evidence_bank = {"E01": source}
