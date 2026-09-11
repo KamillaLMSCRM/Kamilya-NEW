@@ -252,6 +252,43 @@ def _build_evidence_bank(bounded_source: str) -> dict[str, str]:
     return bank
 
 
+def _preferred_evidence_ids(
+    evidence_bank: dict[str, str],
+    *,
+    lesson_title: str,
+    lesson_objectives: list[str],
+) -> tuple[str, ...]:
+    """Identify source excerpts that contain terms distinctive to this lesson.
+
+    A spreadsheet worksheet may arrive as one source chunk shared by several
+    lessons. The evidence bank already splits that chunk into exact rows; this
+    step uses only the architect's title/objectives to prioritize entity-specific
+    rows. The full bank remains valid so sparse lessons and ordinary prose retain
+    enough evidence for their requested question count.
+    """
+    if len(evidence_bank) < 2:
+        return tuple(evidence_bank)
+    lesson_stems = _grounding_stems(" ".join((lesson_title, *lesson_objectives)))
+    if not lesson_stems:
+        return ()
+    quote_stems = {
+        evidence_id: _grounding_stems(_plain_evidence_text(quote))
+        for evidence_id, quote in evidence_bank.items()
+    }
+    discriminative = {
+        stem
+        for stem in lesson_stems
+        if 0 < sum(stem in stems for stems in quote_stems.values()) < len(evidence_bank)
+    }
+    if not discriminative:
+        return ()
+    return tuple(
+        evidence_id
+        for evidence_id, stems in quote_stems.items()
+        if stems & discriminative
+    )
+
+
 def _evidence_anchor_phrase(text: str) -> str:
     words = [
         match.group(0)
@@ -727,6 +764,7 @@ async def _recover_with_focused_questions(
     check_cancelled: Callable[[], Any] | None = None,
     max_requests: int | None = None,
     excluded_fact_keys: frozenset[tuple[str, str]] = frozenset(),
+    preferred_evidence_ids: tuple[str, ...] = (),
 ) -> LessonAssessment | None:
     """Request one evidence-bound MCQ at a time when batch output stays invalid."""
     requests = 0
@@ -738,7 +776,11 @@ async def _recover_with_focused_questions(
         for source, answer in sorted(excluded_fact_keys)
         if source in current_evidence
     ][-24:]
-    for evidence_id, evidence_quote in list(evidence_bank.items())[:8]:
+    ordered_evidence_ids = list(
+        dict.fromkeys((*preferred_evidence_ids, *evidence_bank.keys()))
+    )
+    for evidence_id in ordered_evidence_ids[:8]:
+        evidence_quote = evidence_bank[evidence_id]
         focused_schema = copy.deepcopy(output_schema)
         focused_schema["properties"]["mcq"]["minItems"] = 1
         focused_schema["properties"]["mcq"]["maxItems"] = 1
@@ -909,6 +951,11 @@ async def generate_lesson_assessment(
     )
     bounded_lesson_content = (original_source or lesson_content.content)[:8000]
     evidence_bank = _build_evidence_bank(bounded_lesson_content)
+    preferred_evidence_ids = _preferred_evidence_ids(
+        evidence_bank,
+        lesson_title=lesson_content.title,
+        lesson_objectives=list(lesson_content.objectives),
+    )
     if not evidence_bank:
         raise ValueError("Lesson content has insufficient material for an assessment")
     mcq_schema = output_schema["properties"]["mcq"]["items"]
@@ -948,6 +995,10 @@ ALLOWED_EVIDENCE_BANK
 {json.dumps(evidence_payload, indent=2, ensure_ascii=False)}
 END_ALLOWED_EVIDENCE_BANK
 
+PREFERRED_EVIDENCE_IDS
+{json.dumps(preferred_evidence_ids, ensure_ascii=False)}
+END_PREFERRED_EVIDENCE_IDS
+
 ALREADY_ASSESSED_FACTS
 {json.dumps(already_assessed_payload, indent=2, ensure_ascii=False)}
 END_ALREADY_ASSESSED_FACTS
@@ -957,6 +1008,9 @@ Grounding requirements:
 - Base every question only on the authoritative source excerpts above and reuse
   their concrete terminology. The generated lesson prose is not evidence.
 - For each question, select one existing source_quote_id from ALLOWED_EVIDENCE_BANK.
+- Prefer facts from PREFERRED_EVIDENCE_IDS because they match this lesson's
+  planned title and objectives. Use other allowed evidence only when the preferred
+  excerpts cannot support the requested number of distinct useful questions.
 - Do not repeat any source-evidence and correct-answer pair listed in
   ALREADY_ASSESSED_FACTS. Select a different fact for this lesson.
 - Never invent or modify an evidence ID and do not output source_quote text.
@@ -1108,6 +1162,7 @@ Output ONLY the JSON data instance:
                             check_cancelled=check_cancelled,
                             max_requests=1,
                             excluded_fact_keys=excluded_fact_keys,
+                            preferred_evidence_ids=preferred_evidence_ids,
                         )
                         if completed is not None:
                             return completed
@@ -1134,6 +1189,7 @@ Output ONLY the JSON data instance:
                         minimum_questions=minimum_questions,
                         check_cancelled=check_cancelled,
                         excluded_fact_keys=excluded_fact_keys,
+                        preferred_evidence_ids=preferred_evidence_ids,
                     )
                     if focused_recovery is not None:
                         return focused_recovery

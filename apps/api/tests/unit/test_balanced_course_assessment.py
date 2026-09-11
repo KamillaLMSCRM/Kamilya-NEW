@@ -341,6 +341,93 @@ async def test_generated_assessment_uses_original_source_chunks_as_evidence() ->
 
 
 @pytest.mark.asyncio
+async def test_assessment_prioritizes_shared_spreadsheet_rows_for_lesson_entities() -> None:
+    source = "\n".join(
+        [
+            "Alpha approval occurs after application review.",
+            "Alpha payment occurs after contract signing.",
+            "Beta closure occurs after final repayment.",
+            "Gamma renewal occurs after credit reassessment.",
+        ]
+    )
+    questions = [
+        {
+            "question": prompt,
+            "options": [
+                {"text": correct, "is_correct": True},
+                {"text": wrong[0], "is_correct": False},
+                {"text": wrong[1], "is_correct": False},
+                {"text": wrong[2], "is_correct": False},
+            ],
+            "explanation": quote,
+            "source_quote_id": evidence_id,
+        }
+        for prompt, correct, wrong, quote, evidence_id in [
+            (
+                "When does Alpha approval occur?",
+                "after application review",
+                ("before application review", "during application intake", "without application review"),
+                "Alpha approval occurs after application review.",
+                "E01",
+            ),
+            (
+                "When does Alpha payment occur?",
+                "after contract signing",
+                ("before contract signing", "during contract review", "without contract signing"),
+                "Alpha payment occurs after contract signing.",
+                "E02",
+            ),
+            (
+                "When does Beta closure occur?",
+                "after final repayment",
+                ("before final repayment", "during partial repayment", "without final repayment"),
+                "Beta closure occurs after final repayment.",
+                "E03",
+            ),
+        ]
+    ]
+
+    class InspectingLLM:
+        async def ainvoke(self, messages, config=None, response_format=None):
+            prompt = messages[-1]["content"]
+            evidence_section = prompt.split("ALLOWED_EVIDENCE_BANK", 1)[1].split(
+                "END_ALLOWED_EVIDENCE_BANK", 1
+            )[0]
+            assert "Alpha" in evidence_section
+            assert "Beta" in evidence_section
+            assert "Gamma" in evidence_section
+            preferred_section = prompt.split("PREFERRED_EVIDENCE_IDS", 1)[1].split(
+                "END_PREFERRED_EVIDENCE_IDS", 1
+            )[0]
+            assert "E01" in preferred_section
+            assert "E02" in preferred_section
+            assert "E03" in preferred_section
+            assert "E04" not in preferred_section
+            return SimpleNamespace(
+                content=__import__("json").dumps(
+                    {"mcq": questions, "true_false": [], "matching": []},
+                    ensure_ascii=False,
+                )
+            )
+
+    result = await generate_lesson_assessment(
+        InspectingLLM(),
+        LessonContent(
+            title="Alpha and Beta collections",
+            objectives=["Compare Alpha and Beta facts"],
+            content="Generated prose is not evidence.",
+            source_chunks=[source],
+            source_references=[],
+        ),
+        language="en",
+        compact=True,
+    )
+
+    assert len(result.mcq) == 3
+    assert all("Gamma" not in question.source_quote for question in result.mcq)
+
+
+@pytest.mark.asyncio
 async def test_lesson_assessment_does_not_reuse_a_fact_from_an_earlier_lesson() -> None:
     questions = _questions(
         "выдачу микрокредита",
