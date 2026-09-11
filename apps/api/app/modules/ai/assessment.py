@@ -603,7 +603,7 @@ def _validate_generated_question_set(data: dict[str, Any], language: str) -> lis
         if (
             len(tokenized) >= 3
             and len({len(tokens) for tokens in tokenized}) == 1
-            and len(tokenized[0]) >= 5
+            and len(tokenized[0]) >= 4
             and len({tuple(tokens[:-1]) for tokens in tokenized}) == 1
             and len({tokens[-1] for tokens in tokenized}) >= 2
         ):

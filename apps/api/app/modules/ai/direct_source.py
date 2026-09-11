@@ -17,7 +17,7 @@ from uuid import UUID
 
 import httpx
 
-from app.modules.ai.architect_schema import CourseStructure, Lesson
+from app.modules.ai.architect_schema import CourseStructure
 from app.modules.ai.document_passport import (
     DocumentPassport,
     build_document_passport,
@@ -49,6 +49,13 @@ MAX_DIRECT_LESSON_OUTPUT_CHARS = 24_000
 MAX_DIRECT_SEMANTIC_RESULTS = 24
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 _WORD_RE = re.compile(r"[^\W\d_]{3,}", re.UNICODE)
+_SUPPORTING_STRUCTURE_TITLE_RE = re.compile(
+    r"(?:\bsku\b|\bprice\s+list\b|\bproduct\s+list\b|"
+    r"\bcatalog(?:ue)?\b|\bартикул\w*\b|\bпрайс(?:-лист)?\w*\b|"
+    r"\bкаталог(?:\s+товар\w*)?\b|\bноменклатур\w*\b|"
+    r"\bсписок\s+товар\w*\b)",
+    re.IGNORECASE,
+)
 
 
 class DirectSourceError(RuntimeError):
@@ -367,26 +374,19 @@ def _parse_structure(content: str) -> CourseStructure:
         raise DirectSourceError("direct_source_structure_invalid") from exc
 
 
-def _ensure_primary_section_grounding(
+def _canonicalize_passport_section_labels(
     structure: CourseStructure,
     corpus: DirectSourceCorpus,
     passport: DocumentPassport,
 ) -> None:
-    """Attach server-derived primary headings when the model cites only support data.
+    """Map passport labels to exact converter headings without changing semantics.
 
-    Worksheet labels in the passport are authoritative navigation metadata.  A
-    missing label is repairable without inventing course facts: adding it makes
-    retrieval include the primary learning sheet.  A lesson whose cited source
-    documents contain no primary section is left unchanged and still fails the
-    strict validator below.
+    This function deliberately does not add a primary worksheet to a lesson.
+    Doing so would make an architect response look grounded while its title and
+    objectives could still be driven entirely by a supporting catalog.
     """
 
     if passport.confidence == "low":
-        return
-    primary_sections = [
-        section for section in passport.sections if section.role.value == "primary"
-    ]
-    if not primary_sections:
         return
     lessons = [lesson for module in structure.modules for lesson in module.lessons]
 
@@ -406,13 +406,6 @@ def _ensure_primary_section_grounding(
             (document_id, normalize_heading(section_name)),
             section_name,
         )
-
-    def normalized_headings(lesson: Lesson) -> set[str]:
-        return {
-            normalize_heading(heading)
-            for heading in lesson.relevant_headings
-            if heading.strip()
-        }
 
     for lesson in lessons:
         lesson_doc_ids = {str(value) for value in lesson.source_doc_ids}
@@ -438,49 +431,6 @@ def _ensure_primary_section_grounding(
                 normalized.append(value)
                 seen.add(key)
         lesson.relevant_headings = normalized
-
-        eligible_primary = [
-            section for section in sections if section.role.value == "primary"
-        ]
-        headings = normalized_headings(lesson)
-        if eligible_primary and not any(
-            normalize_heading(section.name) in headings
-            for section in eligible_primary
-        ):
-            supporting_names = {
-                normalize_heading(section.name)
-                for section in sections
-                if section.role.value == "supporting"
-            }
-            lesson.relevant_headings = [
-                heading
-                for heading in lesson.relevant_headings
-                if normalize_heading(heading) not in supporting_names
-            ]
-            section = eligible_primary[0]
-            lesson.relevant_headings.append(
-                canonical_heading(section.document_id, section.name)
-            )
-
-    # Preserve whole-course coverage.  When several primary worksheets exist,
-    # distribute any still-missing labels across eligible lessons deterministically.
-    covered = set().union(*(normalized_headings(lesson) for lesson in lessons))
-    for section in primary_sections:
-        label = normalize_heading(section.name)
-        if label in covered:
-            continue
-        candidates = [
-            lesson
-            for lesson in lessons
-            if section.document_id in {str(value) for value in lesson.source_doc_ids}
-        ]
-        if not candidates:
-            continue
-        target = min(candidates, key=lambda lesson: len(lesson.relevant_headings))
-        target.relevant_headings.append(
-            canonical_heading(section.document_id, section.name)
-        )
-        covered.add(label)
 
 
 def _validate_structure_sources(
@@ -515,6 +465,11 @@ def _validate_structure_sources(
             f"[worksheet] {section.name}".casefold(),
         )
     }
+    has_supporting_worksheets = any(
+        section.role.value == "supporting"
+        and section.name.casefold() in worksheet_sections
+        for section in passport.sections
+    )
     if not structure.title.strip() or not structure.modules:
         raise DirectSourceError("direct_source_structure_invalid")
     if num_modules is not None and len(structure.modules) != num_modules:
@@ -544,6 +499,12 @@ def _validate_structure_sources(
                 raise DirectSourceError(
                     "direct_source_lesson_primary_section_missing"
                 )
+            if (
+                enforce_primary_worksheets
+                and has_supporting_worksheets
+                and _SUPPORTING_STRUCTURE_TITLE_RE.search(lesson.title)
+            ):
+                raise DirectSourceError("direct_source_supporting_section_promoted")
             used.update(lesson_ids)
             covered_headings.update(lesson_headings)
     if max_total_lessons is not None and total_lessons > max_total_lessons:
@@ -603,7 +564,13 @@ knowledge or reveal hidden reasoning. Output one JSON object with title, descrip
 and modules. Each module has title, description, and lessons. Each lesson has title,
 description, objectives (strings), source_doc_ids, and relevant_headings. Every
 selected document ID must appear in at least one lesson, and every lesson must cite
-one or more selected IDs."""
+one or more selected IDs. The DOCUMENT PASSPORT assigns worksheet roles. When its
+confidence is medium or high, every lesson must cite at least one role=primary
+worksheet. A role=supporting worksheet may only enrich a lesson already grounded in
+a primary worksheet. It must never determine a standalone lesson title, description,
+or objectives. Do not create lessons about SKU lists, product catalogs, article
+numbers, price lists, table rows, or spreadsheet navigation when those worksheets are
+marked role=supporting."""
     user_prompt = f"""Design an editable course with these user-selected options.
 language={language}
 target_audience={target_audience.strip()}
@@ -628,15 +595,19 @@ SELECTED SOURCES:
         "direct_source_documents_omitted",
         "direct_source_primary_sections_omitted",
         "direct_source_lesson_primary_section_missing",
+        "direct_source_supporting_section_promoted",
     }
     validation_error: DirectSourceError | None = None
-    for attempt in range(2):
+    for attempt in range(4):
         attempt_prompt = user_prompt
         if validation_error is not None:
             attempt_prompt += (
                 "\nCORRECTION REQUIRED: the previous JSON failed validation with "
                 f"{validation_error.code}. Return a corrected JSON object and obey every "
-                "numeric limit and source-document requirement exactly.\n"
+                "numeric limit and source-document requirement exactly. Every lesson must "
+                "be grounded in role=primary material. Supporting worksheets may provide "
+                "examples or attributes inside such a lesson, but must not become a lesson "
+                "theme, title, objective, or standalone catalog/table lesson.\n"
             )
             if len(system_prompt) + len(attempt_prompt) > MAX_DIRECT_ARCHITECT_PROMPT_CHARS:
                 raise validation_error
@@ -651,7 +622,7 @@ SELECTED SOURCES:
         await _checkpoint(check_cancelled)
         try:
             structure = _parse_structure(str(response.content or ""))
-            _ensure_primary_section_grounding(structure, corpus, passport)
+            _canonicalize_passport_section_labels(structure, corpus, passport)
             _validate_structure_sources(
                 structure,
                 corpus,
@@ -661,7 +632,7 @@ SELECTED SOURCES:
                 max_total_lessons=max_total_lessons,
             )
         except DirectSourceError as exc:
-            if attempt == 1 or exc.code not in retryable_codes:
+            if attempt == 3 or exc.code not in retryable_codes:
                 raise
             validation_error = exc
             continue

@@ -54,7 +54,7 @@ def _corpus() -> DirectSourceCorpus:
     )
 
 
-def _structure(heading: str) -> str:
+def _structure(heading: str, *, lesson_title: str = "Product selection") -> str:
     return json.dumps(
         {
             "title": "Product course",
@@ -65,7 +65,7 @@ def _structure(heading: str) -> str:
                     "description": "Collections and examples",
                     "lessons": [
                         {
-                            "title": "Product selection",
+                            "title": lesson_title,
                             "description": "How to choose a product",
                             "objectives": ["Explain the customer benefit"],
                             "source_doc_ids": ["doc-1"],
@@ -79,7 +79,7 @@ def _structure(heading: str) -> str:
 
 
 @pytest.mark.asyncio
-async def test_architect_uses_passport_and_repairs_omitted_primary_section() -> None:
+async def test_architect_retries_when_a_lesson_omits_the_primary_section() -> None:
     class LLM:
         def __init__(self) -> None:
             self.prompts: list[str] = []
@@ -98,7 +98,33 @@ async def test_architect_uses_passport_and_repairs_omitted_primary_section() -> 
     assert result.modules[0].lessons[0].relevant_headings == ["[Worksheet] Collections"]
     assert 'section="Collections" role=primary' in llm.prompts[0]
     assert 'section="SKU catalog" role=supporting' in llm.prompts[0]
-    assert len(llm.prompts) == 1
+    assert len(llm.prompts) == 2
+    assert "direct_source_lesson_primary_section_missing" in llm.prompts[1]
+
+
+@pytest.mark.asyncio
+async def test_architect_retries_when_supporting_catalog_drives_lesson_title() -> None:
+    class LLM:
+        def __init__(self) -> None:
+            self.prompts: list[str] = []
+            self.responses = [
+                _structure(
+                    "[Worksheet] Collections",
+                    lesson_title="SKU catalog: articles, dimensions and prices",
+                ),
+                _structure("[Worksheet] Collections"),
+            ]
+
+        async def ainvoke(self, messages):
+            self.prompts.append(messages[-1]["content"])
+            return SimpleNamespace(content=self.responses.pop(0))
+
+    llm = LLM()
+    result = await run_direct_architect(llm, _corpus(), max_total_lessons=4)
+
+    assert result.modules[0].lessons[0].title == "Product selection"
+    assert len(llm.prompts) == 2
+    assert "direct_source_supporting_section_promoted" in llm.prompts[1]
 
 
 @pytest.mark.asyncio

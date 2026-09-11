@@ -715,7 +715,7 @@ async def test_direct_architect_rejects_missing_source_and_prompt_overflow():
     assert llm.calls == 0
     with pytest.raises(DirectSourceError, match="direct_source_structure_invalid"):
         await run_direct_architect(llm, corpus)
-    assert llm.calls == 2
+    assert llm.calls == 4
 
 
 @pytest.mark.asyncio
@@ -753,16 +753,8 @@ async def test_direct_architect_enforces_the_adaptive_whole_course_limit():
         )
 
 
-@pytest.mark.parametrize(
-    ("model_headings", "expected_primary"),
-    [
-        (["Collections"], "[Worksheet] Collections"),
-        (["SKU catalog"], "[Worksheet] Collections"),
-    ],
-)
 @pytest.mark.asyncio
 async def test_direct_architect_accepts_and_repairs_passport_section_labels(
-    model_headings: list[str], expected_primary: str
 ):
     """The prompt exposes `Collections`, not the converter's `[Worksheet]` marker."""
     from app.modules.ai.direct_source import (
@@ -829,7 +821,7 @@ async def test_direct_architect_accepts_and_repairs_passport_section_labels(
                                         "description": "",
                                         "objectives": ["Select a collection"],
                                         "source_doc_ids": [document_id],
-                                        "relevant_headings": model_headings,
+                                        "relevant_headings": ["Collections"],
                                     }
                                 ],
                             }
@@ -846,7 +838,7 @@ async def test_direct_architect_accepts_and_repairs_passport_section_labels(
         max_total_lessons=3,
     )
 
-    assert result.modules[0].lessons[0].relevant_headings == [expected_primary]
+    assert result.modules[0].lessons[0].relevant_headings == ["[Worksheet] Collections"]
 
 
 @pytest.mark.asyncio

@@ -29,6 +29,20 @@ TERMINAL_JOB_STATUSES = {"completed", "failed", "cancelled"}
 META_QUESTION_PATTERNS = (
     re.compile(r"\b(?:о ч[её]м|что именно)\s+(?:этот|в этом)\s+(?:урок|курс|раздел|модул)", re.IGNORECASE),
     re.compile(r"\bwhat\s+(?:is|does|will)\s+(?:this|the)\s+(?:lesson|course|section|module)", re.IGNORECASE),
+    re.compile(r"\bчто\s+(?:включает|содержит)\s+.+\s+согласно\s+заголовку\b", re.IGNORECASE),
+    re.compile(r"\bчто\s+(?:задано|указано|описано)\s+в\s+(?:таблице|исходном\s+материале)\b", re.IGNORECASE),
+    re.compile(r"\bв\s+каком\s+виде\s+.+\s+(?:даны|представлены)\b", re.IGNORECASE),
+    re.compile(r"\bчто\s+описывает\s+каждая\s+строка\b", re.IGNORECASE),
+    re.compile(r"\bwhat\s+does\s+.+\s+include\s+according\s+to\s+the\s+title\b", re.IGNORECASE),
+    re.compile(r"\bwhat\s+is\s+(?:specified|shown|described)\s+in\s+the\s+(?:table|source)\b", re.IGNORECASE),
+    re.compile(r"\bin\s+what\s+form\s+.+\s+(?:given|presented)\b", re.IGNORECASE),
+    re.compile(r"\bwhat\s+does\s+each\s+row\s+describe\b", re.IGNORECASE),
+)
+SUPPORTING_CATALOG_TITLE_PATTERN = re.compile(
+    r"\b(?:sku(?:[-_ ]?\d+)?|артикул\w*|прайс[-\s]?лист\w*|"
+    r"каталог\w*|номенклатур\w*|"
+    r"catalog(?:ue)?|price\s*list|nomenclature)\b",
+    re.IGNORECASE,
 )
 WORD_RE = re.compile(r"[^\W\d_]{4,}", re.UNICODE)
 STOP_WORDS = {
@@ -250,9 +264,13 @@ def has_meta_question(value: str) -> bool:
     return any(pattern.search(value) for pattern in META_QUESTION_PATTERNS)
 
 
+def has_supporting_catalog_title(value: str) -> bool:
+    return bool(SUPPORTING_CATALOG_TITLE_PATTERN.search(" ".join(value.split())))
+
+
 def choices_share_only_one_word_suffix(choices: list[str]) -> bool:
     tokenized = [[word.casefold() for word in re.findall(r"\S+", choice)] for choice in choices]
-    if len(tokenized) < 3 or min(map(len, tokenized), default=0) < 5:
+    if len(tokenized) < 3 or min(map(len, tokenized), default=0) < 4:
         return False
     common = 0
     for columns in zip(*tokenized, strict=False):
@@ -286,6 +304,7 @@ def inspect_output(
     unverified_lessons = 0
     lessons_without_sources = 0
     sku_title_lessons = 0
+    supporting_catalog_title_lessons = 0
     for lesson in lessons:
         if lesson.get("source_validation_status") != "verified":
             unverified_lessons += 1
@@ -293,12 +312,16 @@ def inspect_output(
             lessons_without_sources += 1
         if re.search(r"\bSKU[-_ ]?\d+\b", str(lesson.get("title") or ""), re.IGNORECASE):
             sku_title_lessons += 1
+        if has_supporting_catalog_title(str(lesson.get("title") or "")):
+            supporting_catalog_title_lessons += 1
     if unverified_lessons:
         failures.append("lesson_source_validation_not_verified")
     if lessons_without_sources:
         failures.append("lesson_source_references_missing")
     if sku_title_lessons:
         failures.append("supporting_sku_became_lesson_title")
+    if supporting_catalog_title_lessons:
+        failures.append("supporting_catalog_became_lesson_title")
     visible_course_text = " ".join(
         [
             str(preview.get("title") or ""),
@@ -381,6 +404,8 @@ def inspect_output(
         "hard_max_lessons": hard_max,
         "unverified_lessons": unverified_lessons,
         "lessons_without_sources": lessons_without_sources,
+        "sku_title_lessons": sku_title_lessons,
+        "supporting_catalog_title_lessons": supporting_catalog_title_lessons,
         "meta_questions": meta_questions,
         "invalid_correct_counts": invalid_correct_counts,
         "duplicate_choice_sets": duplicate_choice_sets,
@@ -393,6 +418,53 @@ def inspect_output(
         "primary_focus_terms_matched": len(matched_focus_terms),
     }
     return failures, facts
+
+
+def build_review_sample(
+    preview: dict[str, Any],
+    quizzes: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Keep bounded synthetic learner text for a human quality review."""
+
+    quiz_by_id = {str(quiz.get("id")): quiz for quiz in quizzes}
+    modules: list[dict[str, Any]] = []
+    questions: list[dict[str, Any]] = []
+    for module in (preview.get("modules") or [])[:8]:
+        sampled_lessons: list[dict[str, str]] = []
+        for lesson in (module.get("lessons") or [])[:14]:
+            sampled_lessons.append(
+                {
+                    "title": str(lesson.get("title") or "")[:240],
+                    "content_preview": str(lesson.get("content_preview") or "")[:1200],
+                }
+            )
+            quiz = quiz_by_id.get(str(lesson.get("quiz_id") or ""))
+            for question in (quiz.get("questions") if quiz else []) or []:
+                questions.append(
+                    {
+                        "text": str(question.get("text") or "")[:500],
+                        "choices": [
+                            {
+                                "text": str(choice.get("text") or "")[:300],
+                                "is_correct": choice.get("is_correct") is True,
+                            }
+                            for choice in (question.get("choices") or [])[:6]
+                        ],
+                        "explanation": str(question.get("explanation") or "")[:700],
+                    }
+                )
+        modules.append(
+            {
+                "title": str(module.get("title") or "")[:240],
+                "lessons": sampled_lessons,
+            }
+        )
+    return {
+        "course_title": str(preview.get("title") or "")[:240],
+        "course_description": str(preview.get("description") or "")[:700],
+        "modules": modules,
+        "questions": questions[:60],
+    }
 
 
 def cleanup_object(action: Callable[[], None], failures: list[str], code: str) -> None:
@@ -572,6 +644,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             focus_terms,
         )
         report["quality"] = facts
+        report["review_sample"] = build_review_sample(
+            preview,
+            quizzes_response.json(),
+        )
         if failures:
             report["quality_failures"] = failures
             raise AcceptanceError("generated_output_quality_gate_failed")

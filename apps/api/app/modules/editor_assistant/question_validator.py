@@ -138,7 +138,15 @@ def _looks_like_generic_meta_prompt(value: str) -> bool:
             r"what (?:will|does) (?:this|the) (?:lesson|course|section|module) "
             r"(?:teach|cover)|"
             r"что рассматривается в (?:этом|данном) (?:уроке|курсе|разделе|модуле)|"
-            r"чему посвящен (?:этот|данный) (?:урок|курс|раздел|модуль))",
+            r"чему посвящен (?:этот|данный) (?:урок|курс|раздел|модуль)|"
+            r"что (?:включает|содержит) .+ согласно заголовку|"
+            r"что (?:задано|указано|описано) в (?:рабочей )?таблице .+|"
+            r"в каком виде .+ (?:даны|представлены) .+|"
+            r"что описывает каждая строка в (?:рабочей )?таблице .+|"
+            r"what does .+ (?:include|contain) according to the (?:title|heading)|"
+            r"what is (?:specified|shown|described) in the .+ table|"
+            r"in what form (?:are|is) .+ (?:shown|presented)|"
+            r"what does each row in the .+ table describe)",
             normalized,
         )
     )

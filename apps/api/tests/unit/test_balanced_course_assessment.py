@@ -46,12 +46,24 @@ def _additional_questions() -> list[dict]:
     ]
 
 
-def test_generation_contract_blocks_customer_reported_meta_question_pattern() -> None:
+@pytest.mark.parametrize(
+    "question",
+    [
+        "Что именно разберём в этом уроке?",
+        "Что включает обзор коллекций согласно заголовку?",
+        "Что задано в таблице коллекций для каждой позиции?",
+        "В каком виде ниже даны все шесть коллекций?",
+        "Что описывает каждая строка в рабочей таблице «Коллекция»?",
+    ],
+)
+def test_generation_contract_blocks_customer_reported_meta_question_pattern(
+    question: str,
+) -> None:
     issues = _validate_generated_question_set(
         {
             "mcq": [
                 {
-                    "question": "Что именно разберём в этом уроке?",
+                    "question": question,
                     "options": [
                         {"text": "как устроены вешалки прихожие гарнитуры и зеркала", "is_correct": True},
                         {"text": "как устроены вешалки прихожие гарнитуры и полки", "is_correct": False},
@@ -96,6 +108,28 @@ def test_generation_contract_blocks_choices_that_only_change_the_last_word() -> 
                         },
                     ],
                     "explanation": "Состав коллекции указан в исходном материале.",
+                }
+            ]
+        },
+        "ru",
+    )
+
+    assert any("low_information_distractors" in issue for issue in issues)
+
+
+def test_generation_contract_blocks_short_choices_that_only_change_last_word() -> None:
+    issues = _validate_generated_question_set(
+        {
+            "mcq": [
+                {
+                    "question": "Какие сведения даны для позиции?",
+                    "options": [
+                        {"text": "артикулы размеры и цены", "is_correct": True},
+                        {"text": "артикулы размеры и скидки", "is_correct": False},
+                        {"text": "артикулы размеры и бренды", "is_correct": False},
+                        {"text": "артикулы размеры и адреса", "is_correct": False},
+                    ],
+                    "explanation": "Для позиции приведены артикул, размеры и цена.",
                 }
             ]
         },
