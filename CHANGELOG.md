@@ -15,6 +15,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.5.1] - 2026-09-11
+
+### Fixed
+
+- A course-generation worker time limit now preserves the job as resumable
+  instead of reporting a terminal failure after completed lessons, reviews, or
+  tests have already been checkpointed.
+- Jobs affected by the previous timeout classification can be continued only
+  when their exact timeout marker and valid saved generation checkpoints are
+  both present; ordinary failed jobs remain terminal.
+
 ## [0.5.0] - 2026-09-11
 
 ### Added

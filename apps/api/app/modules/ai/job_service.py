@@ -21,6 +21,10 @@ TENANT_AI_ACTIVE_LIMIT_SETTING = "ai_max_active_jobs"
 DEFAULT_AI_WORKER_CONCURRENCY = 2
 DEFAULT_HISTORICAL_JOB_SECONDS = 510
 ACTIVE_AI_JOB_STATUSES = frozenset({"pending", "running"})
+LEGACY_SOFT_TIMEOUT_MESSAGE = "SoftTimeLimitExceeded: generation failed"
+GENERATION_INTERRUPTED_MESSAGE = (
+    "Генерация приостановлена и может быть продолжена без повторной обработки готовых частей"
+)
 AIJobTaskName = Literal["generate_course", "regenerate_module", "regenerate_lesson"]
 logger = logging.getLogger(__name__)
 
@@ -367,6 +371,77 @@ async def fail_claimed_generation_execution(
     return bool(result.rowcount)
 
 
+async def interrupt_claimed_generation_execution(
+    db: AsyncSession, job_id: str, tenant_id: str | None = None
+) -> bool:
+    """Make a claimed generation resumable after a worker soft time limit."""
+    if tenant_id is None:
+        raise ValueError("tenant_id is required for worker generation execution")
+    await db.execute(text("SELECT set_current_tenant(:tid)"), {"tid": tenant_id})
+    predicates = [AIJob.id == job_id, AIJob.status == "running", AIJob.tenant_id == tenant_id]
+    result = await db.execute(
+        update(AIJob).where(*predicates).values(
+            status="interrupted",
+            stage="interrupted",
+            message=GENERATION_INTERRUPTED_MESSAGE,
+            errors=["generation_interrupted"],
+            updated_at=datetime.now(UTC),
+            completed_at=None,
+        )
+    )
+    await db.commit()
+    return bool(result.rowcount)
+
+
+def is_resumable_generation_job(job: AIJob) -> bool:
+    """Recognize current interruptions and the exact legacy timeout shape."""
+    return bool(
+        job.status == "interrupted"
+        or (
+            job.status == "failed"
+            and getattr(job, "message", None) == LEGACY_SOFT_TIMEOUT_MESSAGE
+        )
+    )
+
+
+def _generation_checkpoint_repository():
+    from app.modules.ai.generation_checkpoint import AIGenerationCheckpointRepository
+
+    return AIGenerationCheckpointRepository()
+
+
+async def _legacy_timeout_has_checkpoints(
+    db: AsyncSession, *, tenant_id: UUID | str, generation_key: str
+) -> bool:
+    """Fail closed unless a legacy timeout has a valid persisted plan and work."""
+    from app.modules.ai.generation_checkpoint import AIGenerationCheckpointError
+
+    repository = _generation_checkpoint_repository()
+    try:
+        plan = await repository.load_plan(
+            db,
+            tenant_id=str(tenant_id),
+            generation_key=generation_key,
+        )
+        checkpoints = await repository.load_checkpoints(
+            db,
+            tenant_id=str(tenant_id),
+            generation_key=generation_key,
+        )
+    except AIGenerationCheckpointError:
+        return False
+    return bool(
+        plan.lessons
+        and checkpoints
+        and any(
+            checkpoint.content_payload is not None
+            or checkpoint.review_payload is not None
+            or checkpoint.assessment_payload is not None
+            for checkpoint in checkpoints
+        )
+    )
+
+
 async def get_user_jobs(
     db: AsyncSession, tenant_id, user_id, limit: int = 20
 ) -> list[AIJob]:
@@ -488,7 +563,13 @@ async def resume_interrupted_ai_job(
     )
     if locked is None:
         raise AIJobSubmissionUnavailableError("AI job was not found")
-    if locked.status != "interrupted":
+    if not is_resumable_generation_job(locked):
+        raise AIJobSubmissionUnavailableError("AI job is not resumable")
+    if locked.status == "failed" and not await _legacy_timeout_has_checkpoints(
+        db,
+        tenant_id=tenant_id,
+        generation_key=str(locked.id),
+    ):
         raise AIJobSubmissionUnavailableError("AI job is not resumable")
     active_count = await count_active_ai_jobs(db, tenant_id)
     if active_count >= active_limit:

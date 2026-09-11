@@ -7,6 +7,8 @@ import logging
 from collections.abc import Awaitable
 from uuid import UUID
 
+from billiard.exceptions import SoftTimeLimitExceeded
+
 logger = logging.getLogger(__name__)
 
 
@@ -123,6 +125,29 @@ try:
                 "status": result.status,
                 "message": result.message,
                 "progress": result.progress,
+            }
+
+        except SoftTimeLimitExceeded:
+            from app.core.db import async_session_factory
+            from app.modules.ai.job_service import (
+                GENERATION_INTERRUPTED_MESSAGE,
+                interrupt_claimed_generation_execution,
+            )
+
+            async def interrupt_claimed() -> bool:
+                async with async_session_factory() as session:
+                    return await interrupt_claimed_generation_execution(
+                        session,
+                        job_id,
+                        tenant_id,
+                    )
+
+            _run_async(interrupt_claimed())
+            logger.warning("Generation task reached its soft time limit for job %s", job_id)
+            return {
+                "job_id": job_id,
+                "status": "interrupted",
+                "message": GENERATION_INTERRUPTED_MESSAGE,
             }
 
         except Exception as e:

@@ -35,6 +35,7 @@ from app.modules.ai.job_service import (
     AIJobSubmissionUnavailableError,
     build_ai_job_queue_metadata,
     get_ai_job,
+    is_resumable_generation_job,
     resolve_tenant_ai_active_limit,
     resume_interrupted_ai_job,
     submit_ai_job,
@@ -640,7 +641,7 @@ async def resume_generation(
     job = await get_ai_job(db, job_id, tenant_id=str(tenant_id))
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
-    if job.status != "interrupted":
+    if not is_resumable_generation_job(job):
         raise HTTPException(status_code=409, detail="Job is not resumable")
     params: dict[str, Any] = job.params if isinstance(job.params, dict) else {}
     documents = params.get("documents")

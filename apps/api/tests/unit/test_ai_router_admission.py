@@ -300,3 +300,37 @@ async def test_resume_endpoint_requeues_same_job_with_persisted_adaptive_scope(m
     assert kwargs["num_modules"] == 5
     assert kwargs["lessons_per_module"] == 5
     assert kwargs["max_total_lessons"] == 25
+
+
+@pytest.mark.asyncio
+async def test_resume_endpoint_accepts_legacy_soft_timeout_candidate(monkeypatch):
+    tenant_id = uuid4()
+    user_id = uuid4()
+    document_id = uuid4()
+    job = SimpleNamespace(
+        id="job-timeout",
+        tenant_id=tenant_id,
+        user_id=user_id,
+        course_id=None,
+        status="failed",
+        message="SoftTimeLimitExceeded: generation failed",
+        params={
+            "documents": [str(document_id)],
+            "num_modules": 1,
+            "course_structure": {"lessons_per_module": 1, "recommended_total_lessons": 1},
+        },
+    )
+    resumed = AsyncMock(return_value=(job, {"queue_position": 1}))
+    monkeypatch.setattr(router, "get_ai_job", AsyncMock(return_value=job))
+    monkeypatch.setattr(router, "resolve_tenant_ai_active_limit", AsyncMock(return_value=2))
+    monkeypatch.setattr(router, "resume_interrupted_ai_job", resumed)
+    monkeypatch.setattr(router, "_job_response", AsyncMock(return_value={"id": "job-timeout", "status": "pending"}))
+
+    response = await router.resume_generation(
+        "job-timeout",
+        db=SimpleNamespace(),
+        user=SimpleNamespace(id=user_id, tenant_id=tenant_id),
+    )
+
+    assert response == {"id": "job-timeout", "status": "pending"}
+    resumed.assert_awaited_once()
