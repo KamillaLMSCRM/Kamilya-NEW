@@ -5,10 +5,12 @@ import pytest
 from app.modules.ai.assessment import (
     _assessment_contract_reason_codes,
     _build_evidence_bank,
+    _normalize_evidence_text,
     _validate_generated_question_set,
     generate_course_assessment,
     generate_lesson_assessment,
 )
+from app.modules.ai.assessment_schema import LessonAssessment
 from app.modules.ai.writer_schema import CourseContent, LessonContent, ModuleContent
 
 
@@ -207,6 +209,12 @@ def _loan_questions() -> list[dict]:
     ]
 
 
+def test_fact_identity_normalizes_unicode_markdown_and_punctuation() -> None:
+    assert _normalize_evidence_text("**Коллекция «Альфа» — ЛДСП.**") == (
+        _normalize_evidence_text("Коллекция Альфа - ЛДСП")
+    )
+
+
 def _questions(
     topic: str,
     fact: str,
@@ -330,6 +338,51 @@ async def test_generated_assessment_uses_original_source_chunks_as_evidence() ->
 
     assert len(result.mcq) == 5
     assert all("основа успешной работы" not in item.source_quote for item in result.mcq)
+
+
+@pytest.mark.asyncio
+async def test_lesson_assessment_does_not_reuse_a_fact_from_an_earlier_lesson() -> None:
+    questions = _questions(
+        "выдачу микрокредита",
+        "проверки заявления",
+        "Выдача микрокредита выполняется после проверки заявления.",
+    )
+    source = _source_with_additional_facts(questions[0]["explanation"])
+    excluded_fact = {
+        (
+            _normalize_evidence_text(questions[0]["explanation"]),
+            _normalize_evidence_text(questions[0]["options"][0]["text"]),
+        )
+    }
+
+    class RepeatingLLM:
+        async def ainvoke(self, messages, config=None, response_format=None):
+            prompt = messages[-1]["content"]
+            assert "ALREADY_ASSESSED_FACTS" in prompt
+            return SimpleNamespace(
+                content=(
+                    '{"mcq": '
+                    + __import__("json").dumps(questions, ensure_ascii=False)
+                    + ', "true_false": [], "matching": []}'
+                )
+            )
+
+    result = await generate_lesson_assessment(
+        RepeatingLLM(),
+        LessonContent(
+            title="Продолжение правил выдачи",
+            content=source,
+            source_chunks=[source],
+            source_references=[],
+        ),
+        language="ru",
+        excluded_fact_keys=excluded_fact,
+    )
+
+    assert len(result.mcq) == 4
+    assert all(
+        question.question != questions[0]["question"] for question in result.mcq
+    )
 
 
 @pytest.mark.asyncio
@@ -1084,17 +1137,43 @@ async def test_assessment_stops_before_retry_when_generation_is_cancelled():
 
 @pytest.mark.asyncio
 async def test_course_assessment_reports_only_completed_lessons():
-    source = " ".join(q["explanation"] for q in _loan_questions())
+    first_questions = _loan_questions()
+    second_questions = [
+        {
+            "question": f"When does account {subject} occur?",
+            "options": [
+                {"text": f"after {condition}", "is_correct": True},
+                {"text": f"before {condition}", "is_correct": False},
+                {"text": f"during {alternative}", "is_correct": False},
+                {"text": f"without {condition}", "is_correct": False},
+            ],
+            "explanation": f"Account {subject} occurs after {condition}.",
+            "source_quote_id": f"E{index:02d}",
+        }
+        for index, (subject, condition, alternative) in enumerate(
+            [
+                ("approval", "application review", "application intake"),
+                ("payment", "contract signing", "contract review"),
+                ("closure", "final repayment", "partial repayment"),
+                ("renewal", "credit reassessment", "credit application"),
+                ("collection", "missed repayment", "scheduled repayment"),
+            ],
+            start=1,
+        )
+    ]
+    first_source = " ".join(q["explanation"] for q in first_questions)
+    second_source = " ".join(q["explanation"] for q in second_questions)
 
     class ValidLLM:
         calls = 0
 
         async def ainvoke(self, messages, config=None, response_format=None):
             self.calls += 1
+            questions = first_questions if self.calls == 1 else second_questions
             return SimpleNamespace(
                 content=__import__("json").dumps(
                     {
-                        "mcq": _loan_questions(),
+                        "mcq": questions,
                         "true_false": [],
                         "matching": [],
                     }
@@ -1115,8 +1194,16 @@ async def test_course_assessment_reports_only_completed_lessons():
                 ModuleContent(
                     title="Module",
                     lessons=[
-                        LessonContent(title="Approval", content=source, source_references=[]),
-                        LessonContent(title="Review", content=source, source_references=[]),
+                        LessonContent(
+                            title="Approval",
+                            content=first_source,
+                            source_references=[],
+                        ),
+                        LessonContent(
+                            title="Review",
+                            content=second_source,
+                            source_references=[],
+                        ),
                     ],
                 )
             ],
@@ -1130,3 +1217,61 @@ async def test_course_assessment_reports_only_completed_lessons():
         (1, "Generated assessment 1/2: Approval"),
         (2, "Generated assessment 2/2: Review"),
     ]
+
+
+@pytest.mark.asyncio
+async def test_course_assessment_registers_only_grounded_facts_from_restored_checkpoint():
+    questions = _loan_questions()
+    source = " ".join(q["explanation"] for q in questions)
+    stale = LessonAssessment.from_dict(
+        {
+            "lesson_title": "Approval",
+            "mcq": [
+                {
+                    **questions[0],
+                    "source_quote": "A stale checkpoint fact is not in this lesson.",
+                }
+            ],
+            "true_false": [],
+            "matching": [],
+        }
+    )
+
+    class InspectingLLM:
+        calls = 0
+
+        async def ainvoke(self, messages, config=None, response_format=None):
+            self.calls += 1
+            prompt = messages[-1]["content"]
+            assert "A stale checkpoint fact is not in this lesson" not in prompt
+            return SimpleNamespace(
+                content=__import__("json").dumps(
+                    {
+                        "mcq": questions[:3],
+                        "true_false": [],
+                        "matching": [],
+                    }
+                )
+            )
+
+    result = await generate_course_assessment(
+        InspectingLLM(),
+        CourseContent(
+            title="Loan lifecycle",
+            modules=[
+                ModuleContent(
+                    title="Module",
+                    lessons=[
+                        LessonContent(title="Approval", content=source, source_references=[]),
+                        LessonContent(title="Review", content=source, source_references=[]),
+                    ],
+                )
+            ],
+        ),
+        language="en",
+        compact=True,
+        completed_assessments={(0, 0): stale},
+    )
+
+    assert len(result.assessments) == 2
+    assert len(result.assessments[1].mcq) == 3

@@ -1,10 +1,10 @@
 # Course quality and document passport plan
 
-Status: slices 1-7 implemented and locally verified on
-`feat/course-quality-passport-20260911`; DEV human-path acceptance is pending.
+Status: slices 1-7 and 9 implemented and locally verified on
+`feat/course-quality-passport-20260911`; DEV human-path re-acceptance is pending.
 Production is unchanged until every mandatory gate below passes.
 
-Local gate evidence: API unit suite `1252 passed`; web suite `578 passed` in
+Local gate evidence: API unit suite `1275 passed`; web suite `578 passed` in
 `111` files; focused generation UI `14 passed`; Next.js `15.5.23` production
 build passed; Python quality baseline passed at `ruff=1066`, `mypy=2339` with
 no new violations; `git diff --check` passed.
@@ -20,7 +20,8 @@ no new violations; `git diff --check` passed.
 | 5. Passport-led architecture | accepted locally | every high/medium-confidence spreadsheet lesson must cite a primary worksheet; low-confidence classification remains advisory; semantic results retain primary evidence |
 | 6. Question quality | accepted locally | both reported patterns and expanded RU/EN variants are rejected before persistence |
 | 7. Lesson quality | accepted locally | one bounded rewrite, fail-closed second failure, and checkpoint policy-version tests pass |
-| 8. Human path | pending DEV | requires deployed DEV API/web/worker and a synthetic two-sheet workbook |
+| 8. Human path | re-test required | first exact-SHA DEV run proved upload, indexing, passport, generation and cleanup, but correctly remained NO-GO after content review found repeated facts across lessons |
+| 9. Course-wide assessment diversity | accepted locally | normalized source-evidence plus correct-answer keys are carried across generated and restored lessons; batch and focused recovery reject repeats |
 
 ## Outcome
 
@@ -158,6 +159,32 @@ Acceptance:
   methodologist approves it.
 - Exact SHA, CI, image, migration, API, worker and browser readback are recorded
   before any production release is called complete.
+
+The DEV gate requires two independent generations from a fresh upload with an
+empty optional course intent. Both runs must pass the deterministic report and
+bounded human review; one successful stochastic response is not release proof.
+
+### 9. Prevent the same fact from being tested in several lessons
+
+- Carry normalized `(authoritative source excerpt, correct answer)` identities
+  through the entire course assessment pass.
+- Seed the identity set from restored checkpoints before generating missing
+  assessments, so resume cannot reintroduce an already tested fact.
+- Tell both batch and focused recovery prompts which relevant facts were already
+  assessed, while keeping the prompt bounded to evidence available to the current
+  lesson.
+- Keep distinct questions about different facts from the same source excerpt
+  valid; reject only the same evidence-and-answer pair.
+
+Acceptance:
+
+- A repeated fact from an earlier lesson is rejected and omitted during bounded
+  recovery.
+- A later lesson with different evidence remains a single provider call and
+  preserves progress reporting.
+- Existing completed checkpoints contribute their facts before resumed work.
+- The full API unit suite and two independent DEV human-path runs pass with zero
+  repeated fact identities and zero repeated question prompts.
 
 ## Release decision
 
