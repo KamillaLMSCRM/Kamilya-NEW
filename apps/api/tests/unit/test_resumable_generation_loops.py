@@ -196,7 +196,8 @@ async def test_direct_writer_skips_restored_positions_and_checkpoints_only_new_c
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "stale_policy_version", ["lesson-quality-v4", "lesson-quality-v5"]
+    "stale_policy_version",
+    ["lesson-quality-v4", "lesson-quality-v5", "lesson-quality-v6"],
 )
 async def test_direct_writer_rejects_checkpoint_from_older_quality_policy(
     stale_policy_version: str,

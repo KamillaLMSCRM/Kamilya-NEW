@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import io
 import json
 import os
 import re
@@ -287,8 +288,17 @@ def normalized_words(value: str) -> set[str]:
     return {word.casefold() for word in WORD_RE.findall(value) if word.casefold() not in STOP_WORDS}
 
 
-def fixture_focus_terms(xlsx: Path) -> set[str]:
-    workbook = load_workbook(xlsx, read_only=True, data_only=True)
+def approved_fixture_bytes(xlsx: Path) -> bytes:
+    """Read and approve one immutable byte sequence for parsing and upload."""
+
+    content = xlsx.read_bytes()
+    if hashlib.sha256(content).hexdigest() != SYNTHETIC_FIXTURE_SHA256:
+        raise AcceptanceError("fixture_not_approved_synthetic_workbook")
+    return content
+
+
+def fixture_focus_terms(xlsx_content: bytes) -> set[str]:
+    workbook = load_workbook(io.BytesIO(xlsx_content), read_only=True, data_only=True)
     try:
         if "Коллекция" not in workbook.sheetnames:
             raise AcceptanceError("fixture_primary_sheet_missing")
@@ -622,15 +632,14 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     xlsx = args.xlsx.resolve(strict=True)
     if xlsx.suffix.casefold() != ".xlsx":
         raise AcceptanceError("fixture_must_be_xlsx")
-    fixture_sha256 = hashlib.sha256(xlsx.read_bytes()).hexdigest()
-    if fixture_sha256 != SYNTHETIC_FIXTURE_SHA256:
-        raise AcceptanceError("fixture_not_approved_synthetic_workbook")
-    focus_terms = fixture_focus_terms(xlsx)
+    fixture_content = approved_fixture_bytes(xlsx)
+    fixture_sha256 = hashlib.sha256(fixture_content).hexdigest()
+    focus_terms = fixture_focus_terms(fixture_content)
 
     report: dict[str, Any] = {
         "passed": False,
         "expected_release_sha": args.expected_release_sha,
-        "synthetic_fixture_bytes": xlsx.stat().st_size,
+        "synthetic_fixture_bytes": len(fixture_content),
         "synthetic_fixture_sha256": fixture_sha256,
         "checks": [],
         "quality": {},
@@ -667,19 +676,18 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         report["checks"].append("synthetic_methodologist_login")
 
         stage("upload")
-        with xlsx.open("rb") as handle:
-            upload = client.request(
-                "POST",
-                "v1/documents/upload",
-                files={
-                    "file": (
-                        f"course-quality-{int(time.time())}.xlsx",
-                        handle,
-                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    )
-                },
-                data={"title": "Синтетическая проверка качества курса"},
-            )
+        upload = client.request(
+            "POST",
+            "v1/documents/upload",
+            files={
+                "file": (
+                    f"course-quality-{int(time.time())}.xlsx",
+                    fixture_content,
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                )
+            },
+            data={"title": "Синтетическая проверка качества курса"},
+        )
         client._expect(upload, {201}, "upload")
         upload_payload = upload.json()
         document_id = str(upload_payload.get("id") or "")

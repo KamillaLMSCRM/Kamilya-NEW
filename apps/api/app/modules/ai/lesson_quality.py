@@ -86,7 +86,7 @@ _RELATIONSHIP_OPERATOR_RE = re.compile(
     r"directly\s+(?:linked|related)|basis\s+for|therefore|"
     r"determines?|causes?|requires?|must|should|need)\b"
 )
-LESSON_QUALITY_POLICY_VERSION = "lesson-quality-v6"
+LESSON_QUALITY_POLICY_VERSION = "lesson-quality-v7"
 
 
 def _normalize(value: str) -> str:
@@ -130,10 +130,41 @@ def _sentences(value: str) -> tuple[str, ...]:
     )
 
 
-def _ordered_relationship_anchors(value: str) -> tuple[set[str], set[str]]:
+def _relationship_operator(value: str) -> str:
+    normalized = value.casefold().replace("ё", "е")
+    if re.search(r"(?:прямо|напрямую)\s+связан|directly\s+linked", normalized):
+        return "direct_link"
+    if "directly related" in normalized:
+        return "direct_relation"
+    if re.search(r"основ\w*\s+для|basis\s+for", normalized):
+        return "basis"
+    if re.search(r"определя\w*|determines?", normalized):
+        return "determine"
+    if re.search(r"обусловлива\w*", normalized):
+        return "condition"
+    if re.search(r"привод\w*|causes?", normalized):
+        return "cause"
+    if re.search(r"требу\w*|requires?", normalized):
+        return "require"
+    if re.search(r"поэтому|therefore", normalized):
+        return "therefore"
+    if "значит" in normalized:
+        return "imply"
+    if re.search(r"\bmust\b", normalized):
+        return "must"
+    if re.search(r"\bshould\b", normalized):
+        return "should"
+    if re.search(r"\bneed\b", normalized):
+        return "need"
+    return ""
+
+
+def _ordered_relationship_anchors(
+    value: str,
+) -> tuple[str, set[str], set[str]]:
     operator = _RELATIONSHIP_OPERATOR_RE.search(value)
     if operator is None:
-        return set(_relationship_tokens(value)), set()
+        return "", set(_relationship_tokens(value)), set()
 
     def anchors(fragment: str) -> set[str]:
         return {
@@ -144,7 +175,11 @@ def _ordered_relationship_anchors(value: str) -> tuple[set[str], set[str]]:
             )
         }
 
-    return anchors(value[: operator.start()]), anchors(value[operator.end() :])
+    return (
+        _relationship_operator(operator.group(0)),
+        anchors(value[: operator.start()]),
+        anchors(value[operator.end() :]),
+    )
 
 
 def _relationship_claim_supported(
@@ -165,27 +200,28 @@ def _relationship_claim_supported(
         if pattern.search(fragment)
     )
     for claim in content_fragments:
-        claim_subject, claim_endpoint = _ordered_relationship_anchors(claim)
-        if not any(
-            (
-                claim_subject
-                and claim_endpoint
-                and claim_subject.issubset(
-                    _ordered_relationship_anchors(source_fragment)[0]
-                )
-                and claim_endpoint.issubset(
-                    _ordered_relationship_anchors(source_fragment)[1]
-                )
+        claim_operator, claim_subject, claim_endpoint = (
+            _ordered_relationship_anchors(claim)
+        )
+        supported = False
+        for source_fragment in source_fragments:
+            source_operator, source_subject, source_endpoint = (
+                _ordered_relationship_anchors(source_fragment)
             )
-            or (
-                not (claim_subject and claim_endpoint)
-                and (claim_subject | claim_endpoint)
-                and (claim_subject | claim_endpoint).issubset(
+            if not claim_operator or claim_operator != source_operator:
+                continue
+            if claim_subject and claim_endpoint:
+                supported = claim_subject.issubset(
+                    source_subject
+                ) and claim_endpoint.issubset(source_endpoint)
+            else:
+                claim_anchors = claim_subject | claim_endpoint
+                supported = bool(claim_anchors) and claim_anchors.issubset(
                     set(_relationship_tokens(source_fragment))
                 )
-            )
-            for source_fragment in source_fragments
-        ):
+            if supported:
+                break
+        if not supported:
             return False
     return bool(content_fragments)
 

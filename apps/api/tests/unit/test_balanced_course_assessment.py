@@ -602,7 +602,16 @@ def test_selected_collection_styles_without_names_do_not_mean_all_rows() -> None
     assert result is None
 
 
-@pytest.mark.parametrize("title", ["Не все коллекции", "Not all collections"])
+@pytest.mark.parametrize(
+    "title",
+    [
+        "Не все коллекции",
+        "Не каждая коллекция",
+        "Not all collections",
+        "Not every collection",
+        "Not each collection",
+    ],
+)
 def test_negated_all_scope_does_not_widen_source_fallback(title: str) -> None:
     source = _collection_table_source()
 

@@ -1148,8 +1148,9 @@ def _generate_tabular_assessment(
     )
     scope_negates_all_subjects = bool(
         re.search(
-            r"\b(?:не\s+все\s+коллекц(?:ии|ий)|not\s+all\s+collections|"
-            r"барлық\s+топтамалар\s+емес)\b",
+            r"\b(?:не\s+(?:все|кажд\w*)\s+коллекц\w*|"
+            r"not\s+(?:all\s+collections|each\s+collection|every\s+collection)|"
+            r"(?:барлық\s+топтамалар|әрбір\s+топтама)\s+емес)\b",
             normalized_scope_text,
         )
     )

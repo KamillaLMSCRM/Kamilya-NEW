@@ -134,3 +134,21 @@ def test_operational_metadata_does_not_serialize_review_text(tmp_path: Path) -> 
     assert marker in review_path.read_text(encoding="utf-8")
     assert marker not in json.dumps(metadata)
     assert set(metadata) == {"created", "sha256", "bytes", "lessons", "questions"}
+
+
+def test_approved_fixture_bytes_are_stable_after_source_path_changes(
+    tmp_path: Path, monkeypatch
+) -> None:
+    fixture = tmp_path / "fixture.xlsx"
+    approved = b"approved synthetic bytes"
+    fixture.write_bytes(approved)
+    monkeypatch.setattr(
+        MODULE,
+        "SYNTHETIC_FIXTURE_SHA256",
+        MODULE.hashlib.sha256(approved).hexdigest(),
+    )
+
+    captured = MODULE.approved_fixture_bytes(fixture)
+    fixture.write_bytes(b"replacement customer bytes")
+
+    assert captured == approved

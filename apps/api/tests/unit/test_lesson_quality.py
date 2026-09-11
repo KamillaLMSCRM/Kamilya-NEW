@@ -1,3 +1,5 @@
+import pytest
+
 from app.modules.ai.lesson_quality import (
     LessonQualityEvaluation,
     capture_lesson_quality_evaluations,
@@ -277,6 +279,21 @@ def test_relationship_claim_preserves_subject_and_endpoint_direction() -> None:
         title="SKU",
         content="Цена 10 определяет SKU A1.",
         source_chunks=["SKU A1 определяет цену 10."],
+    )
+
+    assert result.accepted is False
+    assert "unsupported_relationship_claim" in result.reason_codes
+
+
+@pytest.mark.parametrize(
+    "source",
+    ["SKU A1 требует цену 10.", "SKU A1 приводит к цене 10."],
+)
+def test_relationship_claim_preserves_operator_identity(source: str) -> None:
+    result = evaluate_lesson_quality(
+        title="SKU",
+        content="SKU A1 определяет цену 10.",
+        source_chunks=[source],
     )
 
     assert result.accepted is False
