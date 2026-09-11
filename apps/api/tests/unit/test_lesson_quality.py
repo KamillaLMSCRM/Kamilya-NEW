@@ -72,3 +72,44 @@ def test_title_alone_cannot_supply_source_grounding() -> None:
 
     assert result.accepted is False
     assert "insufficient_source_anchors" in result.reason_codes
+
+
+def test_tabular_association_cannot_be_strengthened_into_causation() -> None:
+    source = (
+        "Коллекция Альфа; материал ЛДСП; преимущество модульная компоновка. "
+        "Коллекция Бета; материал МДФ; преимущество светлые фасады."
+    )
+
+    result = evaluate_lesson_quality(
+        title="Материалы коллекций",
+        content=(
+            "## Материалы коллекций\n\n"
+            "Альфа изготовлена из ЛДСП, Бета — из МДФ. "
+            "Материал прямо связан с преимуществом коллекции, поэтому при "
+            "консультации важно называть их вместе."
+        ),
+        source_chunks=[source],
+    )
+
+    assert result.accepted is False
+    assert "unsupported_relationship_claim" in result.reason_codes
+
+
+def test_tabular_association_remains_valid_when_described_neutrally() -> None:
+    source = (
+        "Коллекция Альфа; материал ЛДСП; преимущество модульная компоновка. "
+        "Коллекция Бета; материал МДФ; преимущество светлые фасады."
+    )
+
+    result = evaluate_lesson_quality(
+        title="Материалы коллекций",
+        content=(
+            "## Материалы коллекций\n\n"
+            "Для Альфы в источнике указаны ЛДСП и модульная компоновка. "
+            "Для Беты указаны МДФ и светлые фасады."
+        ),
+        source_chunks=[source],
+    )
+
+    assert result.accepted is True
+    assert "unsupported_relationship_claim" not in result.reason_codes

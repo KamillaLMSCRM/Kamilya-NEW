@@ -38,7 +38,32 @@ _GENERIC_MARKERS = (
     "let us explore",
     "to summarize",
 )
-LESSON_QUALITY_POLICY_VERSION = "lesson-quality-v1"
+_UNSUPPORTED_RELATIONSHIP_PATTERNS = (
+    re.compile(r"\b(?:прямо|напрямую)\s+связан\w*\b"),
+    re.compile(r"\bоснов\w*\s+для\b"),
+    re.compile(r"\bпоэтому\b.{0,100}\b(?:важно|нужно|следует|необходимо)\b"),
+    re.compile(r"\b(?:directly linked|directly related|basis for)\b"),
+    re.compile(r"\btherefore\b.{0,100}\b(?:must|should|need)\b"),
+)
+_SOURCE_RELATIONSHIP_SIGNALS = (
+    "прямо связан",
+    "напрямую связан",
+    "основа для",
+    "поэтому",
+    "потому что",
+    "обеспечивает",
+    "позволяет",
+    "необходимо",
+    "следует",
+    "directly linked",
+    "directly related",
+    "basis for",
+    "therefore",
+    "because",
+    "ensures",
+    "requires",
+)
+LESSON_QUALITY_POLICY_VERSION = "lesson-quality-v2"
 
 
 def _normalize(value: str) -> str:
@@ -100,6 +125,16 @@ def evaluate_lesson_quality(
         if len(sentence.split()) >= 7:
             counts[sentence] = counts.get(sentence, 0) + 1
     repeated_count = sum(count - 1 for count in counts.values() if count > 1)
+    normalized_source_text = " ".join(
+        " ".join(source_chunks).casefold().replace("ё", "е").split()
+    )
+    normalized_content_text = " ".join(
+        content.casefold().replace("ё", "е").split()
+    )
+    unsupported_relationship = (
+        any(pattern.search(normalized_content_text) for pattern in _UNSUPPORTED_RELATIONSHIP_PATTERNS)
+        and not any(signal in normalized_source_text for signal in _SOURCE_RELATIONSHIP_SIGNALS)
+    )
 
     reasons: list[str] = []
     if not content.strip() or anchor_matches < required_matches:
@@ -110,6 +145,8 @@ def evaluate_lesson_quality(
         reasons.append("repeated_lesson_sentence")
     if len(source_tokens) >= 20 and len(_content_tokens(content)) < 25:
         reasons.append("lesson_too_thin_for_source")
+    if unsupported_relationship:
+        reasons.append("unsupported_relationship_claim")
 
     return LessonQualityResult(
         accepted=not reasons,

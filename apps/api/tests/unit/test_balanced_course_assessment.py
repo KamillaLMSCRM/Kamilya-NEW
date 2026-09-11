@@ -70,6 +70,8 @@ def _additional_questions() -> list[dict]:
         "Какие коллекции рассматриваются в разделе о стиле и материалах?",
         "Как называется коллекция, представленная в свидетельстве?",
         "Что представляет собой преимущество для клиента согласно уроку?",
+        "Что рассматривается в теме о стилях и коллекциях?",
+        "Что в этом уроке разбираем о каждой коллекции?",
     ],
 )
 def test_generation_contract_blocks_customer_reported_meta_question_pattern(
@@ -286,6 +288,51 @@ async def test_standard_assessment_requests_five_mcq_questions_only():
 
 
 @pytest.mark.asyncio
+async def test_generated_assessment_uses_original_source_chunks_as_evidence() -> None:
+    source = _source_with_additional_facts(
+        "Выдача микрокредита выполняется после проверки заявления."
+    )
+    generated_intro = (
+        "В этом уроке разбираем правила. Эти правила — основа успешной работы."
+    )
+
+    class FakeLLM:
+        async def ainvoke(self, messages, config=None, response_format=None):
+            prompt = messages[-1]["content"]
+            evidence_payload = prompt.split("ALLOWED_EVIDENCE_BANK", 1)[1].split(
+                "END_ALLOWED_EVIDENCE_BANK", 1
+            )[0]
+            assert "Выдача микрокредита выполняется" in evidence_payload
+            assert generated_intro not in evidence_payload
+            questions = _questions(
+                "выдачу микрокредита",
+                "проверки заявления",
+                "Выдача микрокредита выполняется после проверки заявления.",
+            )
+            return SimpleNamespace(
+                content=(
+                    '{"mcq": '
+                    + __import__("json").dumps(questions, ensure_ascii=False)
+                    + ', "true_false": [], "matching": []}'
+                )
+            )
+
+    result = await generate_lesson_assessment(
+        FakeLLM(),
+        LessonContent(
+            title="Правила выдачи микрокредита",
+            content=generated_intro,
+            source_chunks=[source],
+            source_references=[],
+        ),
+        language="ru",
+    )
+
+    assert len(result.mcq) == 5
+    assert all("основа успешной работы" not in item.source_quote for item in result.mcq)
+
+
+@pytest.mark.asyncio
 async def test_standard_assessment_retries_an_incomplete_result():
     class FakeLLM:
         calls = 0
@@ -299,7 +346,7 @@ async def test_standard_assessment_retries_an_incomplete_result():
             retry_prompt = messages[-1]["content"]
             assert "Порядок рассмотрения заявления" in retry_prompt
             assert "Рассмотрение заявления начинается с проверки документов" in retry_prompt
-            assert "base every question only on the lesson content" in retry_prompt.lower()
+            assert "base every question only on the authoritative source excerpts" in retry_prompt.lower()
             assert "Here is your output" not in retry_prompt
             assert '"source_quote_id"' in retry_prompt
             questions = _questions(

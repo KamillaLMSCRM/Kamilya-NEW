@@ -46,6 +46,20 @@ META_QUESTION_PATTERNS = (
     re.compile(r"\bв\s+исходн\w*\s+материал\w*\b", re.IGNORECASE),
     re.compile(r"\b(?:in|according\s+to)\s+the\s+(?:title|heading|table|section|lesson|source\s+material)\b", re.IGNORECASE),
     re.compile(r"\b(?:shown|presented|discussed)\s+below\b", re.IGNORECASE),
+    re.compile(r"\bчто\s+рассматривается\s+в\s+тем\w*\b", re.IGNORECASE),
+    re.compile(
+        r"\bчто\s+в\s+(?:этом|данном)\s+(?:уроке|курсе|разделе|модуле)\s+"
+        r"(?:разбираем|изучаем|рассматриваем)\b",
+        re.IGNORECASE,
+    ),
+)
+UNSUPPORTED_RELATIONSHIP_PATTERNS = (
+    re.compile(r"\b(?:прямо|напрямую)\s+связан\w*\b", re.IGNORECASE),
+    re.compile(r"\bоснов\w*\s+для\b", re.IGNORECASE),
+    re.compile(
+        r"\bпоэтому\b.{0,100}\b(?:важно|нужно|следует|необходимо)\b",
+        re.IGNORECASE,
+    ),
 )
 SUPPORTING_CATALOG_TITLE_PATTERN = re.compile(
     r"\b(?:sku(?:[-_ ]?\d+)?|артикул\w*|прайс[-\s]?лист\w*|"
@@ -331,6 +345,16 @@ def inspect_output(
         failures.append("supporting_sku_became_lesson_title")
     if supporting_catalog_title_lessons:
         failures.append("supporting_catalog_became_lesson_title")
+    unsupported_relationship_claims = sum(
+        1
+        for lesson in lessons
+        if any(
+            pattern.search(str(lesson.get("content_preview") or ""))
+            for pattern in UNSUPPORTED_RELATIONSHIP_PATTERNS
+        )
+    )
+    if unsupported_relationship_claims:
+        failures.append("unsupported_relationship_claims_present")
     visible_course_text = " ".join(
         [
             str(preview.get("title") or ""),
@@ -425,6 +449,7 @@ def inspect_output(
         "duplicate_questions": duplicate_questions,
         "primary_focus_terms_available": len(focus_terms),
         "primary_focus_terms_matched": len(matched_focus_terms),
+        "unsupported_relationship_claims": unsupported_relationship_claims,
     }
     return failures, facts
 
