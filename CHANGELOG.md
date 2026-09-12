@@ -15,6 +15,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.5.3] - 2026-09-12
+
+### Added
+
+- Multi-sheet spreadsheet sources now receive a bounded document passport that
+  distinguishes the main learning material from supporting reference sheets.
+- The course-generation screen explains that an optional course description can
+  steer the result, while generation remains available without one.
+
+### Changed
+
+- Automatic course scope now follows the amount and structure of teachable
+  source content instead of turning large supporting lists into the curriculum.
+- Structured spreadsheet lessons preserve source entities, attributes, and
+  relationships while grouping them into a concise, reviewable course.
+
+### Fixed
+
+- Generated tests reject generic, presentation-driven, repeated, or
+  unsupported questions and keep answer options grounded in the lesson source.
+- Course generation keeps worksheet provenance and lesson-quality policy
+  identity across resumable checkpoints.
+
 ## [0.5.2] - 2026-09-11
 
 ### Fixed
