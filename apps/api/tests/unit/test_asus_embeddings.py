@@ -7,6 +7,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from app.core.config import Settings
 from app.modules.ai import llm_client
 from app.modules.ai.llm_client import (
     EmbeddingsClient,
@@ -204,8 +205,8 @@ def test_asus_embedding_factory_is_distinct_from_chat_qwen(monkeypatch: pytest.M
         "get_settings",
         lambda: SimpleNamespace(
             ASUS_EMBEDDINGS_ENABLED=True,
-            ASUS_EMBEDDINGS_URL="http://10.66.66.15:8001/v1",
-            ASUS_EMBEDDINGS_MODEL="Qwen/Qwen3-Embedding-8B",
+            ASUS_EMBEDDINGS_URL="https://qwen-embed.kml.kz/v1",
+            ASUS_EMBEDDINGS_MODEL="Qwen3-Embedding-8B",
             ASUS_EMBEDDINGS_REQUEST_TIMEOUT_SECONDS=12.0,
             ASUS_EMBEDDINGS_CONNECT_TIMEOUT_SECONDS=3.0,
             ASUS_EMBEDDINGS_MAX_INPUT_BYTES=8192,
@@ -220,9 +221,14 @@ def test_asus_embedding_factory_is_distinct_from_chat_qwen(monkeypatch: pytest.M
 
     assert provider is not None
     assert (provider.base_url, provider.model, provider.timeout, provider.connect_timeout) == (
-        "http://10.66.66.15:8001/v1", "Qwen/Qwen3-Embedding-8B", 12.0, 3.0,
+        "https://qwen-embed.kml.kz/v1", "Qwen3-Embedding-8B", 12.0, 3.0,
     )
     assert provider.max_retries == 0
+
+
+def test_default_settings_restore_established_production_qwen_gateway() -> None:
+    assert Settings.model_fields["ASUS_EMBEDDINGS_URL"].default == "https://qwen-embed.kml.kz/v1"
+    assert Settings.model_fields["ASUS_EMBEDDINGS_MODEL"].default == "Qwen3-Embedding-8B"
 
 
 @pytest.mark.asyncio

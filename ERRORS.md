@@ -2046,3 +2046,27 @@ contract or establish a blocker.
   bare `pytest`/`pytest -q` as a workstation release gate because it also discovers
   DB integration suites; use the local critical-journey profile plus the isolated
   Supabase DEV application gate.
+
+## AI-EMBED-ROUTE-001 - A proven production gateway was replaced by an unreachable candidate
+
+- Date: 2026-09-12.
+- Symptom: document indexing tried the direct ASUS endpoint first, timed out from
+  the production documents worker and then exhausted rate-limited managed
+  fallbacks, even though the established Qwen embedding gateway remained healthy.
+- Cause: the production default was changed from
+  `https://qwen-embed.kml.kz/v1` to the candidate private address
+  `http://10.66.66.15:8001/v1` after workstation inference passed, although the
+  same review had not proved VM126 reachability and later documented a timeout.
+- Fix: restore the established gateway and its published model ID as the first
+  Qwen embedding provider. Keep the direct ASUS address outside production
+  defaults until the actual production worker passes model discovery and a
+  finite-vector inference through the intended private route.
+- Verification: an immutable production-worker smoke returned HTTP 200 for model
+  discovery and embedding, one finite 4096-dimensional vector, and 0.308 seconds
+  for the synthetic inference. The direct address still timed out before TCP
+  connection and routed through `ens18`, not `wg0`.
+- Prevention: never replace a proven production provider route using workstation
+  evidence alone. Before changing a default endpoint, verify from every consuming
+  production worker: exact route, model identity, one bounded synthetic inference,
+  dimensions, fallback order and rollback. Preserve the proven route until all
+  checks pass, and keep a source-level regression for the production default.

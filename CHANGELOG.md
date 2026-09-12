@@ -15,6 +15,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.5.7] - 2026-09-12
+
+### Fixed
+
+- Restored the production-reachable Qwen embedding gateway as the first
+  document-indexing provider. The unverified direct ASUS route is no longer
+  selected by default from the production worker.
+
 ## [0.5.6] - 2026-09-12
 
 ### Added

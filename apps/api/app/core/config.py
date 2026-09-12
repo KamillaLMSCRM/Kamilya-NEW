@@ -150,13 +150,12 @@ class Settings(BaseSettings):
     DEEPSEEK_BASE_URL: str = "https://api.deepseek.com/v1"
     DEEPSEEK_MODEL: str = "deepseek-v4-flash"
 
-    # Dedicated ASUS Qwen embeddings route. This is intentionally separate
-    # from chat Qwen settings: it serves only Qwen3-Embedding-8B through the
-    # OpenAI-compatible embeddings endpoint and has the runtime's 8192-token
-    # input limit, not the model-card maximum context.
+    # Established Kamilya Qwen embeddings gateway. Keep it separate from chat
+    # Qwen settings. The direct 10.66.66.15 endpoint is not a production route
+    # until VM126 reachability has been independently proved.
     ASUS_EMBEDDINGS_ENABLED: bool = True
-    ASUS_EMBEDDINGS_URL: str = "http://10.66.66.15:8001/v1"
-    ASUS_EMBEDDINGS_MODEL: str = "Qwen/Qwen3-Embedding-8B"
+    ASUS_EMBEDDINGS_URL: str = "https://qwen-embed.kml.kz/v1"
+    ASUS_EMBEDDINGS_MODEL: str = "Qwen3-Embedding-8B"
     ASUS_EMBEDDINGS_MAX_INPUT_BYTES: int = Field(default=8192, ge=256, le=8192)
     ASUS_EMBEDDINGS_MAX_BATCH_SIZE: int = Field(default=32, ge=1, le=32)
     ASUS_EMBEDDINGS_CONNECT_TIMEOUT_SECONDS: float = Field(default=3.0, ge=1.0, le=15.0)
