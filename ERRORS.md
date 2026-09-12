@@ -1,6 +1,6 @@
 # Error and Recurrence Prevention Log
 
-Current as of: 2026-09-10.
+Current as of: 2026-09-12.
 
 This is the single operational log for confirmed Kamilya LMS workflow errors,
 invalid assumptions, fixes, verification, and recurrence prevention. Open product
@@ -1970,3 +1970,37 @@ contract or establish a blocker.
   the positive-only run; source ownership/hash and negative404 already passed.
 - Prevention: schedule negative and positive admission tests against actual endpoint
   rate windows; distinguish429 rate protection from demo quotas or provider failure.
+
+## AI-SOURCE-002 - Supporting-sheet enrichment was rejected as curriculum promotion
+
+- Date: 2026-09-12. Local candidate; production cause and release not claimed.
+- Symptom: a structure grounded in the primary worksheet was rejected when its
+  lesson description named a supporting worksheet as the source of examples.
+- Cause: the structure-wide promotion guard treated titles, objectives and
+  explanatory descriptions as one instructional-subject field. Separately, weak
+  reference columns and a large worksheet could outweigh stronger learning
+  evidence, and worksheet names were compared without document ownership.
+- Fix: keep course/module/lesson titles and lesson objectives grounded in primary
+  material. A supporting worksheet may appear in a description only when the
+  lesson cites that exact worksheet and the wording links its facts to the primary
+  subject; an exact named possessive example is the narrow fallback. Compare
+  worksheet roles with strong reference markers and same-document primary peers,
+  track headings as document-scoped pairs, and reject an ambiguous same-name
+  heading rather than accepting evidence from the wrong document. The unrelated
+  unsupported-action guard remains active over all generated text.
+- Verification: the public-seam regression was RED with
+  `direct_source_supporting_section_promoted` and is now GREEN; the focused
+  two changed-module suites are 28 PASS and the complete API unit suite is
+  1407 PASS. The five database-free `AI-COURSE-01` checks are also PASS. The full
+  owner-provided workbook was
+  converted locally without network access and retained the intended compact
+  primary plus much larger supporting split. Isolated Supabase DEV gate
+  `HBR-DEV-APP-20260912T054348Z` passed, removed its disposable schema and left
+  public revision `0158` plus shared metadata unchanged.
+- Prevention: preserve tests for valid supporting enrichment, standalone
+  supporting subjects, descriptions dominated by catalog data, uncited generic
+  SKU details, same-name headings in different documents, document-scoped action
+  evidence and primary-table rendering, missing primary headings, conflicting
+  worksheet signals, large learning sheets and much larger English or multilingual
+  reference sheets. Do not infer a production model failure from this shared error
+  code without the rejected structure and branch evidence.

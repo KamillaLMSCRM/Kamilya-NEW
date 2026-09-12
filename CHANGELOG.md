@@ -15,6 +15,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.5.4] - 2026-09-12
+
+### Fixed
+
+- Complex spreadsheet planning now allows supporting catalog facts to enrich a
+  lesson grounded in the main learning material, without allowing the catalog to
+  become a standalone lesson subject.
+- Mixed and large learning worksheets are no longer classified as supporting
+  solely because they contain price, identifier or other reference columns.
+
 ## [0.5.3] - 2026-09-12
 
 ### Added

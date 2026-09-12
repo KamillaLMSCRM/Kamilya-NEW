@@ -105,10 +105,19 @@ MAX_DIRECT_SEMANTIC_RESULTS = 24
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 _WORD_RE = re.compile(r"[^\W\d_]{3,}", re.UNICODE)
 _SUPPORTING_STRUCTURE_TITLE_RE = re.compile(
-    r"(?:\bsku\b|\bprice\s+list\b|\bproduct\s+list\b|"
+    r"(?:\bskus?\b|\barticle\s+numbers?\b|\bprice\s+list\b|\bproduct\s+list\b|"
     r"\bcatalog(?:ue)?\b|\bартикул\w*\b|\bпрайс(?:-лист)?\w*\b|"
     r"\bкаталог(?:\s+товар\w*)?\b|\bноменклатур\w*\b|"
     r"\bсписок\s+товар\w*\b)",
+    re.IGNORECASE,
+)
+_SUPPORTING_RELATION_RE = re.compile(
+    r"\b(?:examples?|illustrat\w*|show\w*|enrich\w*|attributes?|"
+    r"пример\w*|иллюстрац\w*|показыва\w*|дополн\w*|характеристик\w*)\b",
+    re.IGNORECASE,
+)
+_SUPPORTING_ANAPHORA_RE = re.compile(
+    r"^\s*(?:its|their|его|ее|её|их|оның|олардың)\b",
     re.IGNORECASE,
 )
 _UNSUPPORTED_STRUCTURE_ACTION_RE = re.compile(
@@ -120,8 +129,7 @@ _UNSUPPORTED_STRUCTURE_ACTION_RE = re.compile(
 )
 _STRUCTURE_ACTION_EQUIVALENCE = (
     re.compile(
-        r"\b(?:подбор\w*|подобра\w*|выбор\w*|выбра\w*|"
-        r"select\w*|selection|choos\w*|choice)\b",
+        r"\b(?:подбор\w*|подобра\w*|выбор\w*|выбра\w*|" r"select\w*|selection|choos\w*|choice)\b",
         re.IGNORECASE,
     ),
     re.compile(r"\b(?:рекомендац\w*|recommend\w*)\b", re.IGNORECASE),
@@ -160,12 +168,32 @@ def _references_named_supporting_section(value: str, section_names: set[str]) ->
     return False
 
 
+def _mentions_named_section(value: str, section_names: set[str]) -> bool:
+    """Detect a section name in subject text, including an unquoted title."""
+
+    normalized = " ".join(value.casefold().replace("ё", "е").split())
+    for raw_name in section_names:
+        name = " ".join(raw_name.casefold().replace("ё", "е").split())
+        if name and re.search(rf"(?<!\w){re.escape(name)}(?!\w)", normalized):
+            return True
+    return False
+
+
 def _tabular_scope_stems(value: str) -> set[str]:
     return {
         token[:4]
         for token in re.findall(r"[^\W\d_]{4,}", value.casefold(), re.UNICODE)
-        if token[:4] not in {"урок", "курс", "колл", "обзо", "данн", "табл"}
+        if token[:4] not in {"урок", "курс", "колл", "обзо", "данн", "табл", "sour"}
     }
+
+
+def _description_is_subject_linked(description: str, subject: str) -> bool:
+    """Require supporting detail prose to retain a lexical link to its subject."""
+
+    if not description.strip():
+        return True
+    subject_stems = _tabular_scope_stems(subject)
+    return bool(subject_stems and subject_stems & _tabular_scope_stems(description))
 
 
 def _render_primary_tabular_lesson(
@@ -180,18 +208,22 @@ def _render_primary_tabular_lesson(
 
     if passport.confidence == "low":
         return None
-    primary_names = {
-        section.name.casefold().strip() for section in passport.sections if section.role.value == "primary"
+    primary_keys = {
+        (section.document_id, section.name.casefold().strip())
+        for section in passport.sections
+        if section.role.value == "primary"
     }
-    if not primary_names:
+    if not primary_keys:
         return None
 
     from app.modules.ai.assessment import _markdown_tables
 
     primary_tables: list[tuple[list[str], list[tuple[list[str], str]]]] = []
     for chunk in chunks:
-        heading_names = {heading.casefold().removeprefix("[worksheet] ").strip() for heading in chunk.headings}
-        if not heading_names & primary_names:
+        heading_keys = {
+            (chunk.doc_id, heading.casefold().removeprefix("[worksheet] ").strip()) for heading in chunk.headings
+        }
+        if not heading_keys & primary_keys:
             continue
         primary_tables.extend(_markdown_tables(chunk.text))
     candidates = [table for table in primary_tables if len(table[0]) >= 2 and len(table[1]) >= 2]
@@ -729,8 +761,8 @@ def _validate_structure_sources(
     allowed_structure_context: str,
 ) -> None:
     selected = set(corpus.document_ids)
-    worksheet_sections = {
-        heading.removeprefix("[Worksheet] ").casefold().strip()
+    worksheet_section_keys = {
+        (chunk.doc_id, heading.removeprefix("[Worksheet] ").casefold().strip())
         for document in corpus.documents
         for chunk in document.chunks
         for heading in chunk.headings
@@ -740,26 +772,56 @@ def _validate_structure_sources(
     # to keep generation possible.  Expose that suggestion to the architect,
     # but do not turn an uncertain guess into a hard admission rule.
     enforce_primary_worksheets = passport.confidence != "low"
-    primary_worksheet_headings = {
-        heading
+    primary_section_keys = {
+        (section.document_id, section.name.casefold().strip())
         for section in passport.sections
         if enforce_primary_worksheets
         and section.role.value == "primary"
-        and section.name.casefold() in worksheet_sections
-        for heading in (
-            section.name.casefold(),
-            f"[worksheet] {section.name}".casefold(),
+        and (section.document_id, section.name.casefold().strip()) in worksheet_section_keys
+    }
+    supporting_section_keys = {
+        (section.document_id, section.name.casefold().strip())
+        for section in passport.sections
+        if section.role.value == "supporting"
+        and (section.document_id, section.name.casefold().strip()) in worksheet_section_keys
+    }
+
+    def scoped_supporting_names(
+        document_ids: set[str],
+        *,
+        suppress_primary_name_collisions: bool = True,
+    ) -> set[str]:
+        supporting = {
+            section.name
+            for section in passport.sections
+            if section.document_id in document_ids
+            and (section.document_id, section.name.casefold().strip()) in supporting_section_keys
+        }
+        if not suppress_primary_name_collisions:
+            return supporting
+        primary_names = {
+            section.name.casefold().strip()
+            for section in passport.sections
+            if section.document_id in document_ids
+            and (section.document_id, section.name.casefold().strip()) in primary_section_keys
+        }
+        return {name for name in supporting if name.casefold().strip() not in primary_names}
+
+    course_supporting_names = scoped_supporting_names(selected)
+    if course_supporting_names and (
+        _mentions_named_section(structure.title, course_supporting_names)
+        or (
+            (
+                _mentions_named_section(structure.description, course_supporting_names)
+                or _SUPPORTING_STRUCTURE_TITLE_RE.search(structure.description)
+            )
+            and not _description_is_subject_linked(
+                structure.description,
+                structure.title,
+            )
         )
-    }
-    has_supporting_worksheets = any(
-        section.role.value == "supporting" and section.name.casefold() in worksheet_sections
-        for section in passport.sections
-    )
-    supporting_worksheet_names = {
-        section.name
-        for section in passport.sections
-        if section.role.value == "supporting" and section.name.casefold() in worksheet_sections
-    }
+    ):
+        raise DirectSourceError("direct_source_supporting_section_promoted")
     structure_values = [structure.title, structure.description]
     structure_values.extend(value for module in structure.modules for value in (module.title, module.description))
     structure_values.extend(
@@ -773,15 +835,6 @@ def _validate_structure_sources(
         )
     )
     structure_text = " ".join(structure_values)
-    if (
-        enforce_primary_worksheets
-        and has_supporting_worksheets
-        and _references_named_supporting_section(
-            structure_text,
-            supporting_worksheet_names,
-        )
-    ):
-        raise DirectSourceError("direct_source_supporting_section_promoted")
     permitted_text = " ".join(
         (
             allowed_structure_context,
@@ -789,8 +842,11 @@ def _validate_structure_sources(
                 chunk.text
                 for document in corpus.documents
                 for chunk in document.chunks
-                if {heading.casefold().removeprefix("[worksheet] ").strip() for heading in chunk.headings}
-                & {section.name.casefold().strip() for section in passport.sections if section.role.value == "primary"}
+                if {
+                    (chunk.doc_id, heading.casefold().removeprefix("[worksheet] ").strip())
+                    for heading in chunk.headings
+                }
+                & primary_section_keys
             ),
         )
     ).casefold()
@@ -809,11 +865,28 @@ def _validate_structure_sources(
     if num_modules is not None and len(structure.modules) != num_modules:
         raise DirectSourceError("direct_source_structure_invalid")
     used: set[str] = set()
-    covered_headings: set[str] = set()
+    covered_primary_keys: set[tuple[str, str]] = set()
     total_lessons = 0
     for module in structure.modules:
         if not module.title.strip() or not module.lessons:
             raise DirectSourceError("direct_source_structure_invalid")
+        module_document_ids = {str(document_id) for lesson in module.lessons for document_id in lesson.source_doc_ids}
+        module_supporting_names = scoped_supporting_names(module_document_ids)
+        if module_supporting_names and (
+            _mentions_named_section(module.title, module_supporting_names)
+            or _SUPPORTING_STRUCTURE_TITLE_RE.search(module.title)
+            or (
+                (
+                    _mentions_named_section(module.description, module_supporting_names)
+                    or _SUPPORTING_STRUCTURE_TITLE_RE.search(module.description)
+                )
+                and not _description_is_subject_linked(
+                    module.description,
+                    module.title,
+                )
+            )
+        ):
+            raise DirectSourceError("direct_source_supporting_section_promoted")
         if lessons_per_module is not None and len(module.lessons) > lessons_per_module:
             raise DirectSourceError("direct_source_structure_invalid")
         total_lessons += len(module.lessons)
@@ -822,29 +895,72 @@ def _validate_structure_sources(
             if not lesson.title.strip() or not lesson_ids or not set(lesson_ids) <= selected:
                 raise DirectSourceError("direct_source_structure_invalid")
             lesson.source_doc_ids = lesson_ids
-            lesson_headings = {heading.casefold().strip() for heading in lesson.relevant_headings if heading.strip()}
-            if primary_worksheet_headings and not (lesson_headings & primary_worksheet_headings):
-                raise DirectSourceError("direct_source_lesson_primary_section_missing")
-            if (
-                enforce_primary_worksheets
-                and has_supporting_worksheets
-                and (
-                    _SUPPORTING_STRUCTURE_TITLE_RE.search(lesson.title)
-                    or _references_named_supporting_section(
-                        " ".join(
-                            (
-                                lesson.title,
-                                lesson.description,
-                                *(objective.text for objective in lesson.objectives),
-                            )
-                        ),
-                        supporting_worksheet_names,
-                    )
-                )
+            lesson_heading_names = {
+                heading.casefold().removeprefix("[worksheet] ").strip()
+                for heading in lesson.relevant_headings
+                if heading.strip()
+            }
+            if any(
+                sum((document_id, heading) in worksheet_section_keys for document_id in lesson_ids) > 1
+                for heading in lesson_heading_names
             ):
-                raise DirectSourceError("direct_source_supporting_section_promoted")
+                raise DirectSourceError("direct_source_heading_document_ambiguous")
+            lesson_heading_keys = {
+                (document_id, heading)
+                for document_id in lesson_ids
+                for heading in lesson_heading_names
+                if (document_id, heading) in worksheet_section_keys
+            }
+            if primary_section_keys and not (lesson_heading_keys & primary_section_keys):
+                raise DirectSourceError("direct_source_lesson_primary_section_missing")
+            lesson_supporting_names = scoped_supporting_names(
+                set(lesson_ids),
+                suppress_primary_name_collisions=False,
+            )
+            if lesson_supporting_names:
+                objective_texts = tuple(objective.text for objective in lesson.objectives)
+                lesson_subject = " ".join((lesson.title, *objective_texts))
+                description_mentions = {
+                    name for name in lesson_supporting_names if _mentions_named_section(lesson.description, {name})
+                }
+                mentioned_supporting_heading_keys = {
+                    (document_id, name.casefold().strip())
+                    for document_id in lesson_ids
+                    for name in description_mentions
+                }
+                description_has_supporting_signal = bool(
+                    description_mentions or _SUPPORTING_STRUCTURE_TITLE_RE.search(lesson.description)
+                )
+                has_cited_supporting_heading = bool(lesson_heading_keys & supporting_section_keys)
+                description_is_linked = _description_is_subject_linked(
+                    lesson.description,
+                    lesson_subject,
+                ) or bool(
+                    description_mentions
+                    and _SUPPORTING_RELATION_RE.search(lesson.description)
+                    and _SUPPORTING_ANAPHORA_RE.search(lesson.description)
+                )
+                objective_promotes_supporting = any(
+                    _SUPPORTING_STRUCTURE_TITLE_RE.search(objective) for objective in objective_texts
+                )
+                if (
+                    _SUPPORTING_STRUCTURE_TITLE_RE.search(lesson.title)
+                    or objective_promotes_supporting
+                    or _mentions_named_section(lesson_subject, lesson_supporting_names)
+                    or _references_named_supporting_section(
+                        lesson_subject,
+                        lesson_supporting_names,
+                    )
+                    or (description_has_supporting_signal and not has_cited_supporting_heading)
+                    or (description_has_supporting_signal and not description_is_linked)
+                    or (
+                        description_mentions
+                        and not (mentioned_supporting_heading_keys & lesson_heading_keys & supporting_section_keys)
+                    )
+                ):
+                    raise DirectSourceError("direct_source_supporting_section_promoted")
             used.update(lesson_ids)
-            covered_headings.update(lesson_headings)
+            covered_primary_keys.update(lesson_heading_keys & primary_section_keys)
     if max_total_lessons is not None and total_lessons > max_total_lessons:
         raise DirectSourceError("direct_source_structure_invalid")
     if used != selected:
@@ -857,11 +973,8 @@ def _validate_structure_sources(
         for section in passport.sections
         if enforce_primary_worksheets
         and section.role.value == "primary"
-        and section.name.casefold() in worksheet_sections
-        and not any(
-            heading == f"[worksheet] {section.name}".casefold() or heading == section.name.casefold()
-            for heading in covered_headings
-        )
+        and (section.document_id, section.name.casefold().strip()) in worksheet_section_keys
+        and (section.document_id, section.name.casefold().strip()) not in covered_primary_keys
     )
     if omitted_primary:
         raise DirectSourceError("direct_source_primary_sections_omitted", omitted_primary)

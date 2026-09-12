@@ -19,16 +19,87 @@ _TOKEN_RE = re.compile(r"[^\W_]+", re.UNICODE)
 _TABLE_SEPARATOR_RE = re.compile(r"^\|?(?:\s*:?-{3,}:?\s*\|)+\s*$")
 _REFERENCE_MARKERS = frozenset(
     {
-        "sku", "артикул", "код", "цена", "price", "barcode", "штрихкод",
-        "размер", "габарит", "id", "номенклатура", "номенклатурный",
-        "каталог", "catalog", "перечень", "список",
+        "sku",
+        "артикул",
+        "код",
+        "цена",
+        "price",
+        "barcode",
+        "штрихкод",
+        "размер",
+        "габарит",
+        "id",
+        "номенклатура",
+        "номенклатурный",
+        "каталог",
+        "catalog",
+        "article",
+        "identifier",
+        "идентификатор",
+        "перечень",
+        "список",
     }
+)
+_STRONG_REFERENCE_MARKERS = frozenset(
+    {
+        "sku",
+        "артикул",
+        "barcode",
+        "штрихкод",
+        "номенклатура",
+        "номенклатурный",
+        "каталог",
+        "catalog",
+        "identifier",
+        "идентификатор",
+        "перечень",
+        "список",
+    }
+)
+_STRONG_REFERENCE_PHRASE_RE = re.compile(
+    r"\b(?:article\s+(?:numbers?|nos?\.?|#)|product\s+codes?|item\s+codes?)\b",
+    re.IGNORECASE,
 )
 _PRIMARY_MARKERS = frozenset(
     {
-        "коллекция", "коллекции", "collection", "описание", "особенности",
-        "преимущества", "инструкция", "instruction", "регламент", "процедура",
-        "политика", "правила", "обучение", "guide", "руководство",
+        "коллекция",
+        "коллекции",
+        "collection",
+        "knowledge",
+        "знания",
+        "описание",
+        "description",
+        "особенности",
+        "преимущества",
+        "инструкция",
+        "instruction",
+        "регламент",
+        "процедура",
+        "политика",
+        "правила",
+        "обучение",
+        "guide",
+        "руководство",
+    }
+)
+_STRONG_PRIMARY_MARKERS = frozenset(
+    {
+        "коллекция",
+        "коллекции",
+        "collection",
+        "knowledge",
+        "знания",
+        "особенности",
+        "преимущества",
+        "инструкция",
+        "instruction",
+        "регламент",
+        "процедура",
+        "политика",
+        "правила",
+        "обучение",
+        "guide",
+        "руководство",
     }
 )
 
@@ -104,7 +175,9 @@ class _RawSection:
     distinct_rows: int
     repeated_row_share: float
     reference_signals: int
+    strong_reference_signals: int
     primary_signals: int
+    strong_primary_signals: int
 
 
 def _section_name(document: _Document, chunk: _Chunk) -> str:
@@ -159,7 +232,11 @@ def build_document_passport(corpus: _Corpus) -> DocumentPassport:
         signal_text = " ".join((name, *distinct_rows[:25]))
         tokens = _tokens(signal_text)
         reference_signals = len(tokens & _REFERENCE_MARKERS)
+        strong_reference_signals = len(tokens & _STRONG_REFERENCE_MARKERS) + len(
+            _STRONG_REFERENCE_PHRASE_RE.findall(signal_text)
+        )
         primary_signals = len(tokens & _PRIMARY_MARKERS)
+        strong_primary_signals = len(tokens & _STRONG_PRIMARY_MARKERS)
         raw_sections.append(
             _RawSection(
                 document_id=document_id,
@@ -168,11 +245,11 @@ def build_document_passport(corpus: _Corpus) -> DocumentPassport:
                 chars=aggregate.chars,
                 rows=len(rows),
                 distinct_rows=len(distinct_rows),
-                repeated_row_share=round(
-                    1 - (len(distinct_rows) / max(1, len(rows))), 4
-                ),
+                repeated_row_share=round(1 - (len(distinct_rows) / max(1, len(rows))), 4),
                 reference_signals=reference_signals,
+                strong_reference_signals=strong_reference_signals,
                 primary_signals=primary_signals,
+                strong_primary_signals=strong_primary_signals,
             )
         )
 
@@ -181,14 +258,31 @@ def build_document_passport(corpus: _Corpus) -> DocumentPassport:
         confidence: Literal["high", "medium", "low"] = "high"
     else:
         smallest_rows = max(1, min(section.distinct_rows for section in raw_sections))
+        strong_primary_documents = {
+            section.document_id for section in raw_sections if section.primary_signals > section.reference_signals
+        }
         roles = []
         for section in raw_sections:
             reference_signals = section.reference_signals
+            strong_reference_signals = section.strong_reference_signals
             primary_signals = section.primary_signals
+            strong_primary_signals = section.strong_primary_signals
             much_larger = section.distinct_rows >= smallest_rows * 3
-            if reference_signals >= 2 or (reference_signals >= 1 and much_larger):
+            has_strong_primary_peer = section.document_id in strong_primary_documents
+            reference_dominates = strong_reference_signals >= 1 and reference_signals - primary_signals >= 2
+            balanced_large_reference = (
+                has_strong_primary_peer
+                and much_larger
+                and strong_reference_signals >= 1
+                and reference_signals >= primary_signals
+                and strong_primary_signals == 0
+            )
+            if reference_dominates or balanced_large_reference:
                 roles.append(SectionRole.SUPPORTING)
-            elif primary_signals > reference_signals:
+            elif (
+                primary_signals >= reference_signals
+                or (strong_primary_signals >= 1 and primary_signals + strong_primary_signals >= reference_signals)
+            ) and primary_signals >= 1:
                 roles.append(SectionRole.PRIMARY)
             else:
                 roles.append(SectionRole.UNKNOWN)
@@ -197,8 +291,8 @@ def build_document_passport(corpus: _Corpus) -> DocumentPassport:
             candidate = min(
                 range(len(raw_sections)),
                 key=lambda index: (
-                    raw_sections[index].reference_signals,
                     -raw_sections[index].primary_signals,
+                    raw_sections[index].reference_signals,
                     raw_sections[index].distinct_rows,
                     index,
                 ),
