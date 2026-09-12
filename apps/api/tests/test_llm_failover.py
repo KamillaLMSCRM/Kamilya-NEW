@@ -372,7 +372,7 @@ async def test_async_settings_chain_omits_disabled_fallback(monkeypatch):
     assert chain.provider_names == ["deepseek", "glm53-flash-asus"]
 
 
-def test_embeddings_settings_chain_prefers_voyage(monkeypatch):
+def test_embeddings_settings_chain_prefers_resilient_qwen_then_voyage(monkeypatch):
     voyage = LLMProviderConfig(name="voyage", base_url="https://voyage.test", api_key="key", model="voyage")
     monkeypatch.setattr(llm_client, "_voyage_embed_provider", lambda: voyage)
     monkeypatch.setattr(llm_client, "_cohere_embed_provider", lambda: None)
@@ -380,8 +380,8 @@ def test_embeddings_settings_chain_prefers_voyage(monkeypatch):
     chain = ResilientEmbeddingsClient.from_settings()
 
     assert chain.provider_names == ["asus-qwen-embedding-8b", "voyage"]
-    assert [client.max_retries for client in chain._clients] == [0, 2]
-    assert [client.config.embedding_batch_size for client in chain._clients] == [32, 128]
+    assert [client.max_retries for client in chain._clients] == [2, 2]
+    assert [client.config.embedding_batch_size for client in chain._clients] == [16, 128]
 
 
 @pytest.mark.asyncio

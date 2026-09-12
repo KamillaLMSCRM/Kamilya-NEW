@@ -15,6 +15,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.5.13] - 2026-09-12
+
+### Changed
+
+- Large-document indexing sends Qwen embedding requests in conservative
+  16-fragment batches and allows up to 30 seconds per request.
+
+### Fixed
+
+- A transient slow Qwen batch is retried in the same embedding space instead
+  of discarding an almost completed large-document indexing attempt.
+- Full-workbook indexing remains provider-atomic: fallback providers start a
+  separate complete attempt and their vectors are never mixed with Qwen.
+
 ## [0.5.12] - 2026-09-12
 
 ### Changed

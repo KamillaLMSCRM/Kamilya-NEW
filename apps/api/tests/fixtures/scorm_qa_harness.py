@@ -3,8 +3,8 @@
 Why this exists
 ---------------
 We need real-package QA for the SCORM import → launch → completion flow
-without depending on third-party authoring tools (iSpring, Articulate,
-Captivate, Chamilo) being installed. The fixtures here reproduce the
+without depending on third-party authoring tools or legacy LMS products being
+installed. The fixtures here reproduce the
 common authoring output shapes:
 
 - minimal: just imsmanifest.xml + index.html, no assets.

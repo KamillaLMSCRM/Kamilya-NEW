@@ -323,16 +323,23 @@ def _asus_qwen_embed_provider() -> LLMProviderConfig | None:
     s = get_settings()
     if not s.ASUS_EMBEDDINGS_ENABLED:
         return None
+    # Large real-world workbooks exposed two unsafe production assumptions:
+    # a 32-item request can exceed the private vLLM server's stable processing
+    # window, and one 12-second tail-latency spike previously discarded every
+    # vector already produced for the document. Keep each request bounded and
+    # retry the failing request in the same embedding space before failover.
+    stable_batch_size = min(s.ASUS_EMBEDDINGS_MAX_BATCH_SIZE, 16)
+    stable_request_timeout = max(s.ASUS_EMBEDDINGS_REQUEST_TIMEOUT_SECONDS, 30.0)
     return LLMProviderConfig(
         name="asus-qwen-embedding-8b",
         base_url=_openai_base_url(s.ASUS_EMBEDDINGS_URL),
         api_key="not-needed",
         model=s.ASUS_EMBEDDINGS_MODEL,
-        timeout=s.ASUS_EMBEDDINGS_REQUEST_TIMEOUT_SECONDS,
+        timeout=stable_request_timeout,
         connect_timeout=s.ASUS_EMBEDDINGS_CONNECT_TIMEOUT_SECONDS,
-        max_retries=0,
+        max_retries=2,
         embedding_max_input_bytes=s.ASUS_EMBEDDINGS_MAX_INPUT_BYTES,
-        embedding_batch_size=s.ASUS_EMBEDDINGS_MAX_BATCH_SIZE,
+        embedding_batch_size=stable_batch_size,
         embedding_revision=(
             f"{s.ASUS_EMBEDDINGS_MODEL.replace('/', '-')}:"
             f"qprefix-v1:l2:storage{s.EMBEDDING_DIMENSIONS}"

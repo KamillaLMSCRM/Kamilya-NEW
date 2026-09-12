@@ -4,7 +4,7 @@
 
 ## Контекст
 
-Kamilya LMS Core заменяет Chamilo 2.0 как LMS-модуль платформы.
+Kamilya LMS Core заменяет прежний LMS-модуль платформы.
 Нужно выбрать стек для frontend и backend. Ограничения:
 
 - Backend Kamilya уже на Python/FastAPI (нельзя выбирать другое)
@@ -77,7 +77,7 @@ Kamilya LMS Core заменяет Chamilo 2.0 как LMS-модуль платф
 
 ## Ревью
 
-- [ ] Chamilo replacement specs
+- [ ] Legacy LMS replacement specs
 - [ ] Kamilya existing stack compatibility
 - [ ] Budget constraints (VPS)
 - [ ] Team capabilities (TypeScript, Python)

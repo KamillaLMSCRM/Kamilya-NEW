@@ -151,9 +151,9 @@ class Settings(BaseSettings):
     ASUS_EMBEDDINGS_URL: str = "http://10.77.77.1:18001/v1"
     ASUS_EMBEDDINGS_MODEL: str = "Qwen/Qwen3-Embedding-8B"
     ASUS_EMBEDDINGS_MAX_INPUT_BYTES: int = Field(default=8192, ge=256, le=8192)
-    ASUS_EMBEDDINGS_MAX_BATCH_SIZE: int = Field(default=32, ge=1, le=32)
+    ASUS_EMBEDDINGS_MAX_BATCH_SIZE: int = Field(default=16, ge=1, le=32)
     ASUS_EMBEDDINGS_CONNECT_TIMEOUT_SECONDS: float = Field(default=3.0, ge=1.0, le=15.0)
-    ASUS_EMBEDDINGS_REQUEST_TIMEOUT_SECONDS: float = Field(default=12.0, ge=1.0, le=30.0)
+    ASUS_EMBEDDINGS_REQUEST_TIMEOUT_SECONDS: float = Field(default=30.0, ge=1.0, le=30.0)
 
     # Voyage AI — managed embeddings fallback. Endpoint is OpenAI-compatible
     # (https://api.voyageai.com/v1). Free tier: 200M tokens per account for

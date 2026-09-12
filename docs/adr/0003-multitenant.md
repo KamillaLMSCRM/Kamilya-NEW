@@ -110,9 +110,9 @@ async def get_db_with_optional_superadmin(
 - **Integration:** реальный Postgres с RLS, пытаемся обойти → должно блокироваться
 - **E2E:** два tenant'а, user A пытается читать tenant B's data → 404/403
 
-## Миграция с Chamilo
+## Миграция из legacy LMS
 
-Chamilo не имеет RLS. При импорте данных:
+Legacy-источник не обеспечивает RLS. При импорте данных:
 1. Сначала `INSERT` без tenant_id
 2. Потом backfill `tenant_id` из source
 3. Затем `ALTER TABLE ... ENABLE ROW LEVEL SECURITY`

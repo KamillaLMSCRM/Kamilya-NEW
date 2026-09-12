@@ -1,7 +1,7 @@
 """add personnel_number + invitation audit fields
 
 Stage 1a patch:
-1. users.personnel_number — universal employee identifier (Chamilo "Official code",
+1. users.personnel_number — universal employee identifier (legacy LMS "Official code",
    Moodle "idnumber"). Nullable (not all tenants have personnel numbers, e.g.
    small offices). Unique within tenant.
 

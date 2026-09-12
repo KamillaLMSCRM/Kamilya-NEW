@@ -157,7 +157,7 @@ async def test_voyage_and_cohere_queries_remain_unprefixed_and_unbounded(
     assert cohere_payloads[0]["input_type"] == "search_query"
 
 
-def test_global_embedding_order_starts_asus_then_managed_and_qwen_has_no_retries(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_global_embedding_order_honors_provider_specific_retry_budget(monkeypatch: pytest.MonkeyPatch) -> None:
     asus = _asus_config()
     voyage = LLMProviderConfig(name="voyage", base_url="https://voyage.test", api_key="key", model="voyage")
     cohere = LLMProviderConfig(name="cohere", base_url="https://cohere.test", api_key="key", model="cohere")
@@ -221,14 +221,17 @@ def test_asus_embedding_factory_is_distinct_from_chat_qwen(monkeypatch: pytest.M
 
     assert provider is not None
     assert (provider.base_url, provider.model, provider.timeout, provider.connect_timeout) == (
-        "http://10.77.77.1:18001/v1", "Qwen/Qwen3-Embedding-8B", 12.0, 3.0,
+        "http://10.77.77.1:18001/v1", "Qwen/Qwen3-Embedding-8B", 30.0, 3.0,
     )
-    assert provider.max_retries == 0
+    assert provider.max_retries == 2
+    assert provider.embedding_batch_size == 16
 
 
 def test_default_settings_use_private_kz_qwen_route() -> None:
     assert Settings.model_fields["ASUS_EMBEDDINGS_URL"].default == "http://10.77.77.1:18001/v1"
     assert Settings.model_fields["ASUS_EMBEDDINGS_MODEL"].default == "Qwen/Qwen3-Embedding-8B"
+    assert Settings.model_fields["ASUS_EMBEDDINGS_MAX_BATCH_SIZE"].default == 16
+    assert Settings.model_fields["ASUS_EMBEDDINGS_REQUEST_TIMEOUT_SECONDS"].default == 30.0
 
 
 @pytest.mark.asyncio

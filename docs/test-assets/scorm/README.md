@@ -53,10 +53,9 @@ proprietary, large, or version-specific):
 - Captivate prepends `index_lms.html` and includes the player shim in
   `scormdriver.js`. Asset proxy must serve `.js`, `.css`, `.swf`, `.png`.
 
-### Chamilo 2.0 export (rare but possible)
+### Legacy LMS export with nested content (rare but possible)
 
-- "Learnpath → Export → SCORM 1.2".
-- Chamilo wraps everything in a `content/` sub-directory; the manifest
+- A legacy export wraps everything in a `content/` sub-directory; the manifest
   references `content/index.html`. Confirms sub-folder resolution.
 
 ### Manual flow
