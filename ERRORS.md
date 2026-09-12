@@ -2074,5 +2074,5 @@ contract or establish a blocker.
   existing KZ WireGuard hub without modifying the active VM126/CT137 peers.
   VM126 reached a private hub listener, model discovery returned the exact
   Qwen/Qwen3-Embedding-8B identifier, and a real synthetic embedding returned
-  one finite 4096-dimensional vector. Release 0.5.8 makes this verified private
+  one finite 4096-dimensional vector. Release 0.5.9 makes this verified private
   route the default; no public embedding hostname is required.

@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
-## [0.5.8] - 2026-09-12
+## [0.5.9] - 2026-09-12
 
 ### Changed
 
@@ -28,6 +28,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Future exact-image deployments retain the verified private embedding route
   as their default instead of silently reverting to the former public gateway.
+
+## [0.5.8] - 2026-09-12
+
+### Changed
+
+- Reserved source tag; superseded by 0.5.9 before production deployment.
+
+### Fixed
+
+- Release metadata was corrected in 0.5.9 before production deployment.
 
 ## [0.5.7] - 2026-09-12
 
