@@ -15,6 +15,8 @@ from app.modules.training_evidence.signed_scan_service import (
     append_signed_scan,
 )
 
+API_ROOT = Path(__file__).resolve().parents[2]
+
 
 @pytest.mark.parametrize(
     ("content_type", "content", "expected"),
@@ -40,7 +42,9 @@ def test_signed_scan_storage_key_is_tenant_and_event_scoped_without_filename():
 
 
 def test_signed_scan_migration_requires_append_only_rls_ownership_and_guarded_downgrade():
-    migration = Path("alembic/versions/0107_training_evidence_signed_scans.py").read_text(encoding="utf-8")
+    migration = (API_ROOT / "alembic/versions/0107_training_evidence_signed_scans.py").read_text(
+        encoding="utf-8"
+    )
 
     assert 'down_revision = "0106"' in migration
     assert "training_evidence_signed_scans" in migration

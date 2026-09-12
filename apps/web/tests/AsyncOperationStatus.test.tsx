@@ -54,6 +54,25 @@ describe('AsyncOperationStatus', () => {
     expect(retry).toHaveBeenCalledOnce();
   });
 
+  it('shows exact completed units and estimated remaining time', () => {
+    render(
+      <AsyncOperationStatus
+        operation={{
+          status: 'running',
+          progress: 48,
+          progress_current: 320,
+          progress_total: 1076,
+          estimated_remaining_seconds: 721,
+        }}
+        title="Document indexing"
+        labels={labels}
+      />,
+    );
+
+    expect(screen.getByText(/^320 \/ 1076 · ≈ 13 /)).toBeInTheDocument();
+    expect(screen.getByText('48%')).toBeInTheDocument();
+  });
+
   it('offers continuation for an interrupted operation', () => {
     const resume = vi.fn();
     const cancel = vi.fn();

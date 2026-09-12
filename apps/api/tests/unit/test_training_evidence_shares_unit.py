@@ -12,6 +12,8 @@ from starlette.requests import Request
 from app.modules.training_evidence import share_service
 from app.modules.training_evidence.export_router import _share_url
 
+API_ROOT = Path(__file__).resolve().parents[2]
+
 
 def _request(ip: str = "203.0.113.10") -> Request:
     return Request({
@@ -81,7 +83,9 @@ def test_package_integrity_mismatch_fails_closed():
 
 
 def test_migration_has_database_level_tenant_invariants_and_force_rls():
-    migration = Path("alembic/versions/0087_training_evidence_shares.py").read_text(encoding="utf-8")
+    migration = (API_ROOT / "alembic/versions/0087_training_evidence_shares.py").read_text(
+        encoding="utf-8"
+    )
 
     assert 'down_revision = "0086"' in migration
     assert "FORCE ROW LEVEL SECURITY" in migration

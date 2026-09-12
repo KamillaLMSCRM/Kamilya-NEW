@@ -69,7 +69,9 @@ def _run(command: list[str]) -> subprocess.CompletedProcess[str]:
 
 
 def collect_current() -> dict[str, Counter[str]]:
-    ruff = _run(["ruff", "check", "app", "tests", "--output-format=json"])
+    ruff = _run(
+        [sys.executable, "-m", "ruff", "check", "app", "tests", "--output-format=json"]
+    )
     mypy = _run([sys.executable, "-m", "mypy", "app", "-O", "json", "--no-error-summary"])
     return {
         "ruff": summarize_ruff(json.loads(ruff.stdout or "[]")),

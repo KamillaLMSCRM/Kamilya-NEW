@@ -18,7 +18,11 @@ from app.modules.ai.embedding_provenance import (
 from app.modules.documents.archive_preflight import preflight_ooxml
 
 if TYPE_CHECKING:
-    from app.modules.ai.llm_client import EmbeddingBatchResult, ResilientEmbeddingsClient
+    from app.modules.ai.llm_client import (
+        EmbeddingBatchResult,
+        EmbeddingProgressCallback,
+        ResilientEmbeddingsClient,
+    )
 
 logger = logging.getLogger(__name__)
 
@@ -1253,13 +1257,23 @@ class EmbeddingsProvider:
             )
             raise
 
-    async def embed_documents_with_provenance(self, texts: list[str]) -> EmbeddingBatchResult:
+    async def embed_documents_with_provenance(
+        self,
+        texts: list[str],
+        *,
+        on_progress: EmbeddingProgressCallback | None = None,
+    ) -> EmbeddingBatchResult:
         """Embed documents and retain the exact provider selected by failover."""
         from app.modules.ai.llm_client import AllProvidersFailedError
 
         try:
             client = await self._get_client()
-            return await client.embed_documents_with_provenance(texts)
+            if on_progress is None:
+                return await client.embed_documents_with_provenance(texts)
+            return await client.embed_documents_with_provenance(
+                texts,
+                on_progress=on_progress,
+            )
         except AllProvidersFailedError:
             logger.error(
                 "[EMBED_FAILOVER] All cloud embedding providers failed; " "document cannot be indexed semantically"
@@ -1316,6 +1330,7 @@ class DocumentIngestion:
         tenant_id: str | None = None,
         *,
         source_revision: str | None = None,
+        on_embedding_progress: EmbeddingProgressCallback | None = None,
     ) -> dict:
         """Ingest a single file through the full pipeline."""
         if not tenant_id:
@@ -1379,7 +1394,13 @@ class DocumentIngestion:
                 tenant_id=tenant_id,
             )
         try:
-            embedding_batch = await embedding_provider.embed_documents_with_provenance(texts)
+            if on_embedding_progress is None:
+                embedding_batch = await embedding_provider.embed_documents_with_provenance(texts)
+            else:
+                embedding_batch = await embedding_provider.embed_documents_with_provenance(
+                    texts,
+                    on_progress=on_embedding_progress,
+                )
             embeddings = embedding_batch.as_lists()
             print(
                 f"[INGEST] embedded {len(embeddings)} vectors " f"(dim={len(embeddings[0]) if embeddings else 0})",

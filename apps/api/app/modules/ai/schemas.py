@@ -133,6 +133,10 @@ class AIJobResponse(BaseModel):
     errors: list[dict[str, str] | str] | None = None
     queue_position: int | None = Field(default=None, ge=1)
     estimated_wait_seconds: int | None = Field(default=None, ge=0)
+    progress_current: int | None = Field(default=None, ge=0)
+    progress_total: int | None = Field(default=None, ge=1)
+    estimated_remaining_seconds: int | None = Field(default=None, ge=0)
+    progress_attempt: int | None = Field(default=None, ge=1)
     tenant_active_jobs: int | None = Field(default=None, ge=0)
     tenant_active_limit: int | None = Field(default=None, ge=1)
     # Present only when the selected multi-document set spans several scripts;

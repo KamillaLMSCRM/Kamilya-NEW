@@ -7,6 +7,10 @@ export interface AIGenerationJob {
   updated_at: string;
   started_at?: string | null;
   progress: number;
+  progress_current?: number | null;
+  progress_total?: number | null;
+  estimated_remaining_seconds?: number | null;
+  progress_attempt?: number | null;
   stage: string;
   message: string;
   queue_position: number | null;

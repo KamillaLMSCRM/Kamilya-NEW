@@ -2042,4 +2042,7 @@ contract or establish a blocker.
   Supabase DEV gate with its normal cleanup/readback.
 - Prevention: use `--execution-profile ci` only in the workflow that provisions its
   declared disposable database. On workstations, never set the CI override and do
-  not replace the Supabase DEV gate with Docker or a localhost service.
+  not replace the Supabase DEV gate with Docker or a localhost service. Do not run
+  bare `pytest`/`pytest -q` as a workstation release gate because it also discovers
+  DB integration suites; use the local critical-journey profile plus the isolated
+  Supabase DEV application gate.

@@ -52,3 +52,18 @@ def test_mypy_json_summary_is_stable_across_line_movement() -> None:
     moved = '{"file":"app/example.py","line":200,"severity":"error","code":"arg-type"}'
 
     assert quality_baseline.summarize_mypy(first) == quality_baseline.summarize_mypy(moved)
+
+
+def test_quality_tools_use_the_active_python_environment(monkeypatch) -> None:
+    commands: list[list[str]] = []
+
+    def capture(command: list[str]):
+        commands.append(command)
+        return type("Result", (), {"stdout": "[]" if "ruff" in command else ""})()
+
+    monkeypatch.setattr(quality_baseline, "_run", capture)
+
+    quality_baseline.collect_current()
+
+    assert commands[0][:3] == [sys.executable, "-m", "ruff"]
+    assert commands[1][:3] == [sys.executable, "-m", "mypy"]

@@ -4,13 +4,15 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import math
 import os
 import tempfile
+import time
 from datetime import UTC, datetime
 from pathlib import Path
 from uuid import UUID
 
-from sqlalchemy import select, text
+from sqlalchemy import select, text, update
 
 from app.core.db import async_session_factory
 from app.core.storage import get_storage
@@ -247,11 +249,63 @@ async def run_document_reindex(
 
         from app.modules.ai.ingestion import DocumentIngestion
 
+        provider_attempt = 0
+        active_provider = ""
+        attempt_started_at = time.monotonic()
+
+        async def report_embedding_progress(completed: int, total: int, provider: str) -> None:
+            nonlocal active_provider, attempt_started_at, provider_attempt
+            if total <= 0 or completed < 0 or completed > total:
+                raise ValueError("invalid_embedding_progress")
+            if provider != active_provider:
+                active_provider = provider
+                provider_attempt += 1
+                attempt_started_at = time.monotonic()
+            elapsed = max(0.0, time.monotonic() - attempt_started_at)
+            eta_seconds = (
+                math.ceil((total - completed) * elapsed / completed)
+                if completed > 0 and completed < total
+                else 0
+            )
+            progress = 30 + round(60 * completed / total)
+            async with async_session_factory() as progress_session:
+                await _set_tenant(progress_session, tenant_id)
+                progress_job = await progress_session.scalar(
+                    select(AIJob).where(AIJob.id == job_id, AIJob.tenant_id == tenant_id)
+                )
+                if progress_job and progress_job.status == "running":
+                    params = {
+                        **dict(progress_job.params or {}),
+                        "progress_detail": {
+                            "current": completed,
+                            "total": total,
+                            "estimated_remaining_seconds": eta_seconds,
+                            "attempt": provider_attempt,
+                        },
+                    }
+                    await progress_session.execute(
+                        update(AIJob)
+                        .where(
+                            AIJob.id == job_id,
+                            AIJob.tenant_id == tenant_id,
+                            AIJob.status == "running",
+                        )
+                        .values(
+                            stage="embedding",
+                            progress=progress,
+                            message="Rebuilding document index",
+                            params=params,
+                            updated_at=datetime.now(UTC),
+                        )
+                    )
+                    await progress_session.commit()
+
         result = await DocumentIngestion().ingest_file(
             temp_path,
             doc_id=str(document_id),
             tenant_id=str(tenant_id),
             source_revision=f"document:{document.content_sha256}",
+            on_embedding_progress=report_embedding_progress,
         )
 
         async with async_session_factory() as session:

@@ -1,7 +1,8 @@
 from datetime import UTC, datetime
 from types import SimpleNamespace
 
-from app.modules.ai.router import _job_type
+from app.modules.ai.pipeline import _timed_progress_detail
+from app.modules.ai.router import _job_progress_detail, _job_type
 from app.modules.ai.schemas import AIJobResponse
 
 
@@ -69,6 +70,59 @@ def test_ai_job_response_uses_flat_queue_metadata_contract():
     assert response.tenant_active_jobs == 2
     assert response.tenant_active_limit == 2
     assert "queue_metadata" not in response.model_dump()
+
+
+def test_ai_job_response_exposes_valid_exact_progress_detail():
+    detail = _job_progress_detail(
+        SimpleNamespace(
+            params={
+                "progress_detail": {
+                    "current": 320,
+                    "total": 1076,
+                    "estimated_remaining_seconds": 721,
+                    "attempt": 2,
+                }
+            }
+        )
+    )
+
+    assert detail == {
+        "progress_current": 320,
+        "progress_total": 1076,
+        "estimated_remaining_seconds": 721,
+        "progress_attempt": 2,
+    }
+
+
+def test_ai_job_response_keeps_counts_when_optional_estimate_is_absent():
+    detail = _job_progress_detail(
+        SimpleNamespace(params={"progress_detail": {"current": 3, "total": 7}})
+    )
+
+    assert detail == {"progress_current": 3, "progress_total": 7}
+
+
+def test_ai_job_response_rejects_invalid_exact_progress_detail():
+    detail = _job_progress_detail(
+        SimpleNamespace(params={"progress_detail": {"current": 8, "total": 7}})
+    )
+
+    assert detail == {}
+
+
+def test_generation_progress_estimate_uses_only_completed_units(monkeypatch):
+    monkeypatch.setattr("app.modules.ai.pipeline.time.monotonic", lambda: 112.0)
+
+    assert _timed_progress_detail(2, 7, 100.0) == {
+        "current": 2,
+        "total": 7,
+        "estimated_remaining_seconds": 30,
+    }
+    assert _timed_progress_detail(7, 7, 100.0) == {
+        "current": 7,
+        "total": 7,
+        "estimated_remaining_seconds": 0,
+    }
 
 
 def test_ai_job_type_uses_persisted_operation_input_before_result_creation():

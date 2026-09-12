@@ -121,7 +121,10 @@ service containers остаются частью отдельного CI-кон�
 Supabase DEV application gate. Профиль `ci` разрешён только workflow, который
 явно поднимает disposable PostgreSQL service и устанавливает его отдельный
 CI-only признак; общий `db_session` останавливает workstation localhost URL до
-попытки подключения.
+попытки подключения. Bare `pytest`/`pytest -q` не является workstation release
+gate: он обнаруживает DB integration suites. Локально использовать
+`critical_journey_gate.py`, а DB-проверки выполнять отдельным approved Supabase
+DEV application gate.
 
 Зона `kml.kz` использует authoritative nameservers Cloudflare
 `sureena.ns.cloudflare.com` и `syeef.ns.cloudflare.com`. Vercel verified domain

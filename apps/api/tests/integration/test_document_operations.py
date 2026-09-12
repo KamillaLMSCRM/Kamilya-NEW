@@ -37,8 +37,18 @@ async def test_document_reindex_worker_completes_and_is_idempotent(
             return source_blob
 
     class IngestionStub:
-        async def ingest_file(self, file_path, doc_id, tenant_id, *, source_revision):
+        async def ingest_file(
+            self,
+            file_path,
+            doc_id,
+            tenant_id,
+            *,
+            source_revision,
+            on_embedding_progress,
+        ):
             observed_source_revisions.append(source_revision)
+            await on_embedding_progress(0, 3, "synthetic-provider")
+            await on_embedding_progress(3, 3, "synthetic-provider")
             return {"chunks": 3, "embeddings_written": 3}
 
     monkeypatch.setattr(operations, "async_session_factory", lambda: SessionContext())
@@ -196,7 +206,16 @@ async def test_document_reindex_preserves_ocr_required_error_code(
             return b"synthetic scanned source"
 
     class IngestionStub:
-        async def ingest_file(self, file_path, doc_id, tenant_id, *, source_revision):
+        async def ingest_file(
+            self,
+            file_path,
+            doc_id,
+            tenant_id,
+            *,
+            source_revision,
+            on_embedding_progress,
+        ):
+            _ = on_embedding_progress
             raise ingestion.DocumentOCRRequiredError(
                 "This scanned PDF has no text layer and requires OCR."
             )

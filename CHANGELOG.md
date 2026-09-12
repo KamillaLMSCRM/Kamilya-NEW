@@ -15,6 +15,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.5.6] - 2026-09-12
+
+### Added
+
+- Document indexing and course generation now report completed units, total
+  units and a measured remaining-time estimate in the tenant interface.
+
+### Changed
+
+- Managed embedding fallbacks use provider-safe larger batches and bounded
+  retries, reducing the number and worst-case duration of requests for large
+  spreadsheet sources.
+- Document status polling respects server backoff and remains available for
+  long-running indexing instead of silently stopping after two minutes.
+
+### Fixed
+
+- Provider failover restarts exact progress for the new attempt without
+  exposing provider names to tenant users.
+- Local quality checks consistently use their active Python environment, and
+  migration source tests no longer depend on the shell working directory.
+
 ## [0.5.5] - 2026-09-12
 
 ### Changed

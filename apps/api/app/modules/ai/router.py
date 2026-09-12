@@ -293,6 +293,34 @@ async def _in_flight_generation_for_documents(
     return UUID(str(row.id)) if row else None
 
 
+def _job_progress_detail(job: AIJob) -> dict[str, int]:
+    params: dict[str, object] = job.params if isinstance(job.params, dict) else {}
+    detail = params.get("progress_detail")
+    if not isinstance(detail, dict):
+        return {}
+    current = detail.get("current")
+    total = detail.get("total")
+    if (
+        type(current) is not int
+        or type(total) is not int
+        or current < 0
+        or total < 1
+        or current > total
+    ):
+        return {}
+    result = {
+        "progress_current": current,
+        "progress_total": total,
+    }
+    remaining = detail.get("estimated_remaining_seconds")
+    if type(remaining) is int and remaining >= 0:
+        result["estimated_remaining_seconds"] = remaining
+    attempt = detail.get("attempt")
+    if type(attempt) is int and attempt >= 1:
+        result["progress_attempt"] = attempt
+    return result
+
+
 async def _job_response(
     db: AsyncSession,
     job: AIJob,
@@ -328,6 +356,7 @@ async def _job_response(
         message=message if message is not None else (job.message or ""),
         errors=job.errors,
         mixed_language_warning=mixed_language_warning,
+        **_job_progress_detail(job),
         **queue_metadata,
     )
 
@@ -588,6 +617,7 @@ async def list_jobs(
             stage=j.stage,
             message=j.message or "",
             errors=j.errors,
+            **_job_progress_detail(j),
         )
         for j in jobs
     ]
@@ -782,6 +812,7 @@ async def job_progress_ws(websocket: WebSocket, job_id: str, token: str = Query(
                 "stage": job.stage,
                 "progress": job.progress,
                 "message": job.message or "",
+                **_job_progress_detail(job),
             })
 
             if job.status in ("completed", "failed", "cancelled"):

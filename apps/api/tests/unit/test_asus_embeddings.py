@@ -167,7 +167,8 @@ def test_global_embedding_order_starts_asus_then_managed_and_qwen_has_no_retries
     chain = ResilientEmbeddingsClient.from_settings()
 
     assert chain.provider_names == ["asus-qwen-embedding-8b", "voyage", "cohere"]
-    assert [client.max_retries for client in chain._clients] == [0, 6, 6]
+    assert [client.max_retries for client in chain._clients] == [0, 2, 2]
+    assert [client.config.embedding_batch_size for client in chain._clients] == [32, 128, 96]
 
 
 @pytest.mark.asyncio
@@ -193,7 +194,8 @@ async def test_async_global_embedding_order_starts_asus_then_managed(monkeypatch
     chain = await ResilientEmbeddingsClient.from_settings_async()
 
     assert chain.provider_names == ["asus-qwen-embedding-8b", "voyage", "cohere"]
-    assert [client.max_retries for client in chain._clients] == [0, 6, 6]
+    assert [client.max_retries for client in chain._clients] == [0, 2, 2]
+    assert [client.config.embedding_batch_size for client in chain._clients] == [32, 128, 96]
 
 
 def test_asus_embedding_factory_is_distinct_from_chat_qwen(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -234,6 +236,10 @@ async def test_qwen_batch_failure_restarts_whole_batch_on_one_managed_space(
     )
     qwen_sizes: list[int] = []
     voyage_sizes: list[int] = []
+    progress_events: list[tuple[int, int, str]] = []
+
+    async def on_progress(completed: int, total: int, provider: str) -> None:
+        progress_events.append((completed, total, provider))
 
     async def qwen_request(payload: dict[str, object]) -> dict[str, object]:
         qwen_sizes.append(len(payload["input"]))
@@ -250,13 +256,22 @@ async def test_qwen_batch_failure_restarts_whole_batch_on_one_managed_space(
     chain = ResilientEmbeddingsClient([_asus_config(), voyage.config], max_retries_per_provider=0)
     chain._clients = [qwen, voyage]
 
-    result = await chain.embed_documents_with_provenance([f"chunk-{index}" for index in range(33)])
+    result = await chain.embed_documents_with_provenance(
+        [f"chunk-{index}" for index in range(33)],
+        on_progress=on_progress,
+    )
 
     assert qwen_sizes == [32, 1]
-    assert voyage_sizes == [32, 1]
+    assert voyage_sizes == [33]
     assert result.provider == "voyage"
     assert result.revision == "voyage"
     assert all(vector[:2] == pytest.approx((0.25, 0.5)) for vector in result.vectors)
+    assert progress_events == [
+        (0, 33, "asus-qwen-embedding-8b"),
+        (32, 33, "asus-qwen-embedding-8b"),
+        (0, 33, "voyage"),
+        (33, 33, "voyage"),
+    ]
 
 
 @pytest.mark.asyncio

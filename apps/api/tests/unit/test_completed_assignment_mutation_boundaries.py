@@ -17,6 +17,8 @@ from app.modules.surveys import router as surveys_router
 from app.modules.surveys.schemas import SurveyAnswerSubmit
 from app.modules.training_evidence import router as evidence_router
 
+API_ROOT = Path(__file__).resolve().parents[2]
+
 
 class _ScalarResult:
     def __init__(self, value):
@@ -43,7 +45,9 @@ def test_scorm_launch_token_carries_current_enrollment(monkeypatch):
 
 
 def test_survey_enrollment_migration_preserves_legacy_rows_and_enforces_scope():
-    source = Path("alembic/versions/0118_survey_response_enrollment_scope.py").read_text(encoding="utf-8")
+    source = (API_ROOT / "alembic/versions/0118_survey_response_enrollment_scope.py").read_text(
+        encoding="utf-8"
+    )
 
     assert 'down_revision = "0117"' in source
     assert "fk_survey_responses_enrollment_id" in source

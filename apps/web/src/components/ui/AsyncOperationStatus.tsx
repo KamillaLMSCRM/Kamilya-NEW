@@ -23,6 +23,10 @@ export type AsyncOperationState =
 export interface AsyncOperation {
   status: string;
   progress?: number | null;
+  progress_current?: number | null;
+  progress_total?: number | null;
+  estimated_remaining_seconds?: number | null;
+  progress_attempt?: number | null;
   stage?: string | null;
   message?: string | null;
   updated_at?: string | null;
@@ -93,6 +97,26 @@ export function AsyncOperationStatus({
   );
   const active = state === 'queued' || state === 'running' || state === 'stalled';
   const progress = Math.max(0, Math.min(100, operation.progress ?? 0));
+  const hasExactProgress = (
+    Number.isInteger(operation.progress_current)
+    && Number.isInteger(operation.progress_total)
+    && (operation.progress_current ?? -1) >= 0
+    && (operation.progress_total ?? 0) > 0
+    && (operation.progress_current ?? 0) <= (operation.progress_total ?? 0)
+  );
+  const remainingMinutes = (
+    Number.isInteger(operation.estimated_remaining_seconds)
+    && (operation.estimated_remaining_seconds ?? 0) > 0
+  )
+    ? Math.ceil((operation.estimated_remaining_seconds ?? 0) / 60)
+    : null;
+  const formattedRemaining = remainingMinutes === null
+    ? null
+    : new Intl.NumberFormat(undefined, {
+      style: 'unit',
+      unit: 'minute',
+      unitDisplay: 'short',
+    }).format(remainingMinutes);
 
   useEffect(() => {
     setNow(Date.now());
@@ -145,6 +169,12 @@ export function AsyncOperationStatus({
                 />
               </div>
               <p className="mt-1 text-right text-xs tabular-nums">{progress}%</p>
+              {hasExactProgress && (
+                <p className="mt-1 text-right text-xs tabular-nums opacity-80">
+                  {operation.progress_current} / {operation.progress_total}
+                  {formattedRemaining !== null ? ` · ≈ ${formattedRemaining}` : ''}
+                </p>
+              )}
             </div>
           )}
           {(onRetry || onCancel) && (

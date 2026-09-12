@@ -186,7 +186,7 @@ export default function DocumentsPage() {
 
   useEffect(() => {
     if (!hasProcessingDocuments) return;
-    const timer = window.setInterval(() => void fetchDocuments(), 3000);
+    const timer = window.setInterval(() => void fetchDocuments(), 10_000);
     return () => window.clearInterval(timer);
   }, [fetchDocuments, hasProcessingDocuments]);
 
@@ -321,8 +321,10 @@ export default function DocumentsPage() {
     if (pollingJobRef.current === jobId) return;
     pollingJobRef.current = jobId;
     try {
-      for (let attempt = 0; attempt < 60; attempt += 1) {
-        await new Promise((resolve) => window.setTimeout(resolve, 2000));
+      let delayMs = 5_000;
+      for (let attempt = 0; attempt < 720; attempt += 1) {
+        await new Promise((resolve) => window.setTimeout(resolve, delayMs));
+        delayMs = 5_000;
         try {
           const response = await api.get(`/v1/ai/jobs/${jobId}`);
           setBackgroundOperation({ document, jobId, job: response.data });
@@ -338,7 +340,17 @@ export default function DocumentsPage() {
             await fetchDocuments();
             return;
           }
-        } catch (error) {
+        } catch (error: any) {
+          if (error?.response?.status === 429) {
+            const retryAfter = Number.parseInt(
+              String(error?.response?.headers?.['retry-after'] || ''),
+              10,
+            );
+            delayMs = Number.isFinite(retryAfter)
+              ? Math.min(Math.max(retryAfter, 5), 120) * 1000
+              : 15_000;
+            continue;
+          }
           console.error('Document job polling failed', error);
         }
       }
@@ -543,6 +555,7 @@ export default function DocumentsPage() {
       {backgroundOperation && (
         <AsyncOperationStatus
           operation={displayedBackgroundJob || backgroundOperation.job}
+          stalledAfterMs={300_000}
           title={`${t('documents.reindex')}: ${backgroundOperation.document.title}`}
           labels={{
             queued: t('asyncOperation.queued'),

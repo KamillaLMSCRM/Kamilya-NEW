@@ -213,8 +213,32 @@ async def _update_job_db(
         tenant_value = str(tenant_id) if tenant_id else None
         if tenant_value:
             await session.execute(text("SELECT set_current_tenant(:tid)"), {"tid": tenant_value})
-        await update_ai_job(session, job_id, tenant_id=tenant_value, **kwargs)
+        progress_detail_supplied = "progress_detail" in kwargs
+        progress_detail = kwargs.pop("progress_detail", None)
+        job = await update_ai_job(session, job_id, tenant_id=tenant_value, **kwargs)
+        if job is not None and progress_detail_supplied:
+            params = dict(job.params or {})
+            if progress_detail is None:
+                params.pop("progress_detail", None)
+            else:
+                params["progress_detail"] = progress_detail
+            job.params = params  # type: ignore[assignment]
         await session.commit()
+
+
+def _timed_progress_detail(completed: int, total: int, started_at: float) -> dict[str, int]:
+    """Build count-based progress with an estimate derived only from completed units."""
+    if total < 1 or completed < 0 or completed > total:
+        raise ValueError("invalid_progress_detail")
+    detail = {"current": completed, "total": total}
+    if completed == total:
+        detail["estimated_remaining_seconds"] = 0
+    elif completed > 0:
+        elapsed = max(0.0, time.monotonic() - started_at)
+        detail["estimated_remaining_seconds"] = math.ceil(
+            (total - completed) * elapsed / completed
+        )
+    return detail
 
 
 async def _save_generation_to_db(
@@ -902,13 +926,21 @@ async def run_generation_pipeline(
         state.stage = "content_generation"
         state.progress = 30
         state.message = "Генерация контента уроков..."
-        await _update_job_db(job_id, tenant_id=tenant_id, stage="content_generation", progress=30, message=state.message)
+        await _update_job_db(
+            job_id,
+            tenant_id=tenant_id,
+            stage="content_generation",
+            progress=30,
+            message=state.message,
+            progress_detail={"current": 0, "total": len(planned_lessons)},
+        )
 
         async def write_grounded_course(
             course_structure: CourseStructure,
         ) -> tuple[CourseContent, int]:
             total = sum(len(module.lessons) for module in course_structure.modules)
             completed = 0
+            content_started_at = time.monotonic()
 
             async def on_lesson_progress(msg: str) -> None:
                 nonlocal completed
@@ -919,6 +951,11 @@ async def run_generation_pipeline(
                     tenant_id=tenant_id,
                     progress=min(pct, 70),
                     message=msg,
+                    progress_detail=_timed_progress_detail(
+                        completed,
+                        total,
+                        content_started_at,
+                    ),
                 )
 
             if direct_mode:
@@ -1061,11 +1098,19 @@ async def run_generation_pipeline(
         state.stage = "review"
         state.progress = 72
         state.message = "Проверка качества контента..."
-        await _update_job_db(job_id, tenant_id=tenant_id, stage="review", progress=72, message=state.message)
+        await _update_job_db(
+            job_id,
+            tenant_id=tenant_id,
+            stage="review",
+            progress=72,
+            message=state.message,
+            progress_detail={"current": 0, "total": total_lessons},
+        )
 
         reviewer = ReviewerAgent(llm_client=llm)
         low_quality_lessons = []
         reviewed_lessons = 0
+        review_started_at = time.monotonic()
         for mod_idx, content_mod in enumerate(content.modules):
             for les_idx, content_les in enumerate(content_mod.lessons):
                 reviewed_lessons += 1
@@ -1074,6 +1119,11 @@ async def run_generation_pipeline(
                     tenant_id=tenant_id,
                     progress=min(72 + int(reviewed_lessons / max(total_lessons, 1) * 3), 74),
                     message=f"Reviewing lesson {reviewed_lessons}/{total_lessons}: {content_les.title if hasattr(content_les, 'title') else ''}",
+                    progress_detail=_timed_progress_detail(
+                        reviewed_lessons,
+                        total_lessons,
+                        review_started_at,
+                    ),
                 )
                 review = completed_reviews.get((mod_idx, les_idx))
                 if review is None:
@@ -1113,15 +1163,33 @@ async def run_generation_pipeline(
         state.stage = "assessment"
         state.progress = 75
         state.message = "Генерация тестов..."
-        await _update_job_db(job_id, tenant_id=tenant_id, stage="assessment", progress=75, message=state.message)
+        await _update_job_db(
+            job_id,
+            tenant_id=tenant_id,
+            stage="assessment",
+            progress=75,
+            message=state.message,
+            progress_detail={"current": 0, "total": total_lessons},
+        )
 
         assessments_done = 0
+        assessment_started_at = time.monotonic()
 
         async def on_assessment_progress(msg: str) -> None:
             nonlocal assessments_done
             assessments_done += 1
             pct = 75 + int(assessments_done / total_lessons * 20) if total_lessons > 0 else 95
-            await _update_job_db(job_id, tenant_id=tenant_id, progress=min(pct, 95), message=msg)
+            await _update_job_db(
+                job_id,
+                tenant_id=tenant_id,
+                progress=min(pct, 95),
+                message=msg,
+                progress_detail=_timed_progress_detail(
+                    assessments_done,
+                    total_lessons,
+                    assessment_started_at,
+                ),
+            )
 
         # Assessment JSON needs deterministic schema/evidence compliance.
         # Do not reuse the more creative writer client (temperature 0.7):
@@ -1162,7 +1230,14 @@ async def run_generation_pipeline(
         state.stage = "saving"
         state.progress = 98
         state.message = "Сохранение результатов..."
-        await _update_job_db(job_id, tenant_id=tenant_id, stage="saving", progress=98, message=state.message)
+        await _update_job_db(
+            job_id,
+            tenant_id=tenant_id,
+            stage="saving",
+            progress=98,
+            message=state.message,
+            progress_detail=None,
+        )
 
         if tenant_id and user_id:
             await _save_generation_to_db(state, tenant_id, user_id)

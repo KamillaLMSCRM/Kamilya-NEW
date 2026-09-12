@@ -34,7 +34,7 @@ import hashlib
 import json
 import logging
 import math
-from collections.abc import Callable, Iterable
+from collections.abc import Awaitable, Callable, Iterable
 from dataclasses import asdict, dataclass, field, replace
 from enum import StrEnum
 from typing import Any, Generic, TypeVar, cast
@@ -50,6 +50,8 @@ from app.modules.admin.model_routing.catalog import (
 )
 from app.modules.admin.model_routing.runtime import resolve_runtime_generation_model_order
 from app.modules.ai.embedding_space import EmbeddingSpace
+
+EmbeddingProgressCallback = Callable[[int, int, str], Awaitable[None]]
 
 logger = logging.getLogger(__name__)
 
@@ -336,6 +338,7 @@ def _voyage_embed_provider() -> LLMProviderConfig | None:
         api_key=s.VOYAGE_API_KEY,
         model=s.VOYAGE_MODEL,
         timeout=30.0,
+        embedding_batch_size=128,
     )
 
 
@@ -373,6 +376,7 @@ def _cohere_embed_provider() -> LLMProviderConfig | None:
         model=s.COHERE_EMBED_MODEL,
         timeout=30.0,
         endpoint="/embed",
+        embedding_batch_size=96,
     )
 
 
@@ -832,7 +836,12 @@ class EmbeddingsClient(_BaseProviderClient):
         # OpenAI-compatible providers use /embeddings. Cohere has a native
         # v2 /embed endpoint and a different request/response schema.
         endpoint = "/embed" if config.name == "cohere" else "/embeddings"
-        config = replace(config, endpoint=endpoint)
+        default_batch_size = 128 if config.name == "voyage" else 96 if config.name == "cohere" else 32
+        config = replace(
+            config,
+            endpoint=endpoint,
+            embedding_batch_size=config.embedding_batch_size or default_batch_size,
+        )
         super().__init__(config=config, max_retries=max_retries)
         self.expected_dimensions = get_settings().EMBEDDING_DIMENSIONS
 
@@ -918,7 +927,13 @@ class EmbeddingsClient(_BaseProviderClient):
             vectors=tuple(padded_vectors),
         )
 
-    async def _embed(self, texts: list[str], input_type: str) -> EmbeddingBatchResult:
+    async def _embed(
+        self,
+        texts: list[str],
+        input_type: str,
+        *,
+        on_progress: EmbeddingProgressCallback | None = None,
+    ) -> EmbeddingBatchResult:
         if not texts:
             raise ProviderFailedError(self.config.name, ValueError("empty_embedding_batch"))
         is_asus_qwen = self.config.name == "asus-qwen-embedding-8b"
@@ -932,8 +947,9 @@ class EmbeddingsClient(_BaseProviderClient):
         max_input_bytes = self.config.embedding_max_input_bytes or 8192
         if is_asus_qwen and any(len(text.encode("utf-8")) > max_input_bytes for text in request_texts):
             raise ProviderFailedError(self.config.name, ValueError("embedding_input_too_large"))
-        batch_size = self.config.embedding_batch_size or 32
-        if batch_size < 1 or batch_size > 32:
+        provider_batch_limit = 128 if self.config.name == "voyage" else 96 if self.config.name == "cohere" else 32
+        batch_size = self.config.embedding_batch_size or provider_batch_limit
+        if batch_size < 1 or batch_size > provider_batch_limit:
             raise ProviderFailedError(self.config.name, ValueError("invalid_embedding_batch_size"))
 
         embeddings: list[list[float]] = []
@@ -966,6 +982,8 @@ class EmbeddingsClient(_BaseProviderClient):
                 embeddings.extend(self._ordered_openai_embeddings(data, len(batch)))
             if len(embeddings) != offset + len(batch):
                 raise ProviderFailedError(self.config.name, ValueError("invalid_embedding_response_count"))
+            if on_progress is not None:
+                await on_progress(offset + len(batch), len(request_texts), self.config.name)
         return self._build_batch_result(embeddings)
 
     def _ordered_openai_embeddings(self, data: object, expected_count: int) -> list[list[float]]:
@@ -996,11 +1014,21 @@ class EmbeddingsClient(_BaseProviderClient):
             raise ProviderFailedError(self.config.name, ValueError("invalid_embedding_response_indices"))
         return [cast(list[float], item) for item in ordered]
 
-    async def embed_documents_with_provenance(self, texts: list[str]) -> EmbeddingBatchResult:
-        return await self._embed(texts, input_type="document")
+    async def embed_documents_with_provenance(
+        self,
+        texts: list[str],
+        *,
+        on_progress: EmbeddingProgressCallback | None = None,
+    ) -> EmbeddingBatchResult:
+        return await self._embed(texts, input_type="document", on_progress=on_progress)
 
-    async def embed_documents(self, texts: list[str]) -> list[list[float]]:
-        result = await self.embed_documents_with_provenance(texts)
+    async def embed_documents(
+        self,
+        texts: list[str],
+        *,
+        on_progress: EmbeddingProgressCallback | None = None,
+    ) -> list[list[float]]:
+        result = await self.embed_documents_with_provenance(texts, on_progress=on_progress)
         return result.as_lists()
 
     async def embed_query_with_provenance(self, text: str) -> EmbeddingBatchResult:
@@ -1040,7 +1068,7 @@ class ResilientEmbeddingsClient:
             )
 
     @classmethod
-    def from_settings(cls, max_retries_per_provider: int = 6) -> ResilientEmbeddingsClient:
+    def from_settings(cls, max_retries_per_provider: int = 2) -> ResilientEmbeddingsClient:
         """Build the embeddings chain from env-only settings (tests/legacy)."""
         providers: list[LLMProviderConfig] = []
         asus_qwen = _asus_qwen_embed_provider()
@@ -1057,7 +1085,7 @@ class ResilientEmbeddingsClient:
     @classmethod
     async def from_settings_async(
         cls,
-        max_retries_per_provider: int = 6,
+        max_retries_per_provider: int = 2,
         *,
         tenant_id: object | None = None,
     ) -> ResilientEmbeddingsClient:
@@ -1100,6 +1128,7 @@ class ResilientEmbeddingsClient:
                     api_key=voyage_key,
                     model=s.VOYAGE_MODEL,
                     timeout=60.0,
+                    embedding_batch_size=128,
                 )
             else:
                 cfg = replace(cfg, api_key=voyage_key)
@@ -1115,6 +1144,7 @@ class ResilientEmbeddingsClient:
                     model=s.COHERE_EMBED_MODEL,
                     timeout=30.0,
                     endpoint="/embed",
+                    embedding_batch_size=96,
                 )
             else:
                 cfg = replace(cfg, api_key=cohere_key)
@@ -1139,6 +1169,10 @@ class ResilientEmbeddingsClient:
         last_exc: BaseException | None = None
         for index, client in enumerate(self._clients):
             try:
+                progress_callback = kwargs.get("on_progress")
+                if fn_name == "embed_documents_with_provenance" and progress_callback is not None:
+                    texts = args[0] if args else []
+                    await progress_callback(0, len(texts), client.config.name)
                 return cast(EmbeddingBatchResult, await getattr(client, fn_name)(*args, **kwargs))
             except ProviderFailedError as e:
                 logger.warning(
@@ -1153,11 +1187,42 @@ class ResilientEmbeddingsClient:
             f"All embedding providers failed: {[c.name for c in self._clients]}"
         ) from last_exc
 
-    async def embed_documents_with_provenance(self, texts: list[str]) -> EmbeddingBatchResult:
-        return await self._call_with_failover_provenance("embed_documents_with_provenance", texts)
+    async def embed_documents_with_provenance(
+        self,
+        texts: list[str],
+        *,
+        on_progress: EmbeddingProgressCallback | None = None,
+    ) -> EmbeddingBatchResult:
+        if on_progress is None:
+            return await self._call_with_failover_provenance(
+                "embed_documents_with_provenance",
+                texts,
+            )
+        return await self._call_with_failover_provenance(
+            "embed_documents_with_provenance",
+            texts,
+            on_progress=on_progress,
+        )
 
-    async def embed_documents(self, texts: list[str]) -> list[list[float]]:
-        return await self._call_with_failover("embed_documents_with_provenance", texts)
+    async def embed_documents(
+        self,
+        texts: list[str],
+        *,
+        on_progress: EmbeddingProgressCallback | None = None,
+    ) -> list[list[float]]:
+        if on_progress is None:
+            return cast(
+                list[list[float]],
+                await self._call_with_failover(
+                    "embed_documents_with_provenance",
+                    texts,
+                ),
+            )
+        return await self._call_with_failover(
+            "embed_documents_with_provenance",
+            texts,
+            on_progress=on_progress,
+        )
 
     async def embed_query_with_provenance(self, text: str) -> EmbeddingBatchResult:
         return await self._call_with_failover_provenance("embed_query_with_provenance", text)

@@ -379,7 +379,8 @@ def test_embeddings_settings_chain_prefers_voyage(monkeypatch):
     chain = ResilientEmbeddingsClient.from_settings()
 
     assert chain.provider_names == ["asus-qwen-embedding-8b", "voyage"]
-    assert [client.max_retries for client in chain._clients] == [0, 6]
+    assert [client.max_retries for client in chain._clients] == [0, 2]
+    assert [client.config.embedding_batch_size for client in chain._clients] == [32, 128]
 
 
 @pytest.mark.asyncio
@@ -685,10 +686,10 @@ async def test_cohere_embeddings_split_requests_at_provider_batch_limit(monkeypa
 
     result = await client.embed_documents([f"chunk-{index}" for index in range(99)])
 
-    assert batch_sizes == [32, 32, 32, 3]
+    assert batch_sizes == [96, 3]
     assert len(result) == 99
     assert result[0][0] == 1.0
-    assert result[-1][0] == 4.0
+    assert result[-1][0] == 2.0
 
 
 @pytest.mark.asyncio
