@@ -1,6 +1,6 @@
 # Kamilya LMS: готовность первого production-тенанта
 
-**Проверено:** 2026-09-10 по исходникам и production-контурам
+**Проверено:** 2026-09-12 по исходникам и production-контурам
 **Технический P0 baseline:** закрыт
 **Режим запуска:** dev/test и контролируемая демонстрация; подключение первого
 коммерческого tenant с персональными данными остаётся за отдельным KZ
@@ -9,7 +9,41 @@ DB/storage gate и приёмкой клиента
 остаётся в Git; отдельные датированные отчёты не используются как источник
 текущего состояния.
 
-## Release 0.4.4 — current API deployment, 2026-09-10
+## Release 0.5.4 — current API deployment, 2026-09-12
+
+- Source SHA `b322fa9c212bdbb8912e0b60f2d77d26bccab4fe`, annotated tag
+  `v0.5.4`, remote `master` at release time and GitHub Release all resolve to
+  the same source. CI run `34676746090` and protected KZ production workflow
+  `34678758147` passed.
+- VM126 API and all three workers run immutable image
+  `ghcr.io/kamillalmscrm/kamilya-api@sha256:56bd1b48b4ef104195b095b0c11bf640dd47ec8eb356abdfe39afc2098ebacbd`
+  in the blue slot. Independent public/private health reports version `0.5.4`,
+  exact release SHA and `kz-production`; all four containers are running with
+  zero restarts and zero bounded fatal-pattern matches in the first 15 minutes.
+- This was a no-migration release. CT125 remains on revision `0158`; runtime
+  role `lms_app` remains non-superuser and non-`BYPASSRLS`. Fresh signed restore
+  report `kz_restore_drill_20260912T063806Z.json` passed for a disposable
+  database: 112 public tables, 107 FORCE-RLS tables, measured RPO 223 seconds
+  and RTO 41 seconds. Independent cleanup readback proved that the temporary
+  database and plaintext restore material are absent.
+- The previous immutable production image remains present for rollback. VM126
+  retained more than 5.2 GiB free disk and 12.9 GiB available memory after the
+  rollout.
+- The existing operational watchdog configuration was reconciled to the exact
+  `0.5.4` release and image after independent runtime readback. Its one-shot
+  check passed; the ops-check and candidate-retention timers are active; the
+  previous watchdog configuration remains as a root-owned rollback file.
+- A database-free synthetic smoke executed inside the deployed API container.
+  It classified an instructional worksheet as primary and an auxiliary catalog
+  as supporting, rejected a catalog-driven learning objective, repaired the
+  structure, and accepted a primary-grounded result. It made no provider call,
+  database write or use of customer data.
+- **Release verdict:** `GO` for the bounded source-role validation repair. Large
+  or unusual workbooks still require methodologist review of the generated
+  draft; this release prevents a known class of source-role mistakes but does
+  not claim perfect pedagogical quality for every arbitrary source.
+
+## Release 0.4.4 — previous API deployment, 2026-09-10
 
 - Source/tag/master/GitHub Release: `56f07a4bcbb96a32542a5cadf5243c6f5ad4cb47`;
   annotated `v0.4.4` and remote master peel to the same source. CI run
@@ -41,7 +75,7 @@ DB/storage gate и приёмкой клиента
   Exact source size/hash were verified before the operation and source bytes were
   unchanged. The synthetic draft is retained temporarily as acceptance evidence.
 
-## Release 0.4.3 — current application deployment, 2026-09-10
+## Release 0.4.3 — previous application deployment, 2026-09-10
 
 - Source/tag/master/GitHub Release: `849b6a28cc9105f5d02cf5602b7bf6b53935f834`.
   CI34473831872/native34473932919/protected34474650006PASS; deployment6371200392.

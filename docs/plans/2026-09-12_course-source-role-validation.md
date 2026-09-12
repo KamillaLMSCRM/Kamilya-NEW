@@ -1,6 +1,6 @@
 # Course source role validation repair
 
-Status: implementation verified locally; release acceptance open
+Status: released and independently accepted in KZ production as version `0.5.4`
 Date: 2026-09-12
 Baseline: `origin/master` at `a507e17b22b170f23c143a2a77182becb273636c`
 Root owner: Codex root orchestrator
@@ -115,10 +115,11 @@ and returns a structure. It does not change DB state.
 
 ## Release boundary and rollback
 
-This plan produces a verified local candidate only. It does not authorize commit,
-push, provider mutation, migration, deployment, or production testing. The code
-rollback is the removal of the bounded implementation change; no data rollback is
-expected because the module is stateless and no migration is planned.
+The initial plan produced a verified local candidate and did not itself authorize
+production work. The owner subsequently approved the exact `0.5.4` release. The
+deployed repair remains stateless and required no database migration. Rollback is
+the retained previous immutable image and release-plane configuration; no data
+rollback is expected.
 
 ## Verification result
 
@@ -143,3 +144,25 @@ expected because the module is stateless and no migration is planned.
   reference sheet remained supporting.
 - Graphify remains unavailable in this clean worktree because the canonical graph
   artifact is absent. No graph-derived completeness claim is made.
+
+## Production acceptance result
+
+- Release/tag SHA: `b322fa9c212bdbb8912e0b60f2d77d26bccab4fe` / `v0.5.4`.
+- CI `34676746090` and protected production workflow `34678758147`: passed.
+- Immutable production image:
+  `ghcr.io/kamillalmscrm/kamilya-api@sha256:56bd1b48b4ef104195b095b0c11bf640dd47ec8eb356abdfe39afc2098ebacbd`.
+- Public and private health: version `0.5.4`, exact release SHA,
+  `kz-production`.
+- API, worker-ai, worker-documents and worker-ops: running the same exact image,
+  zero restarts and zero bounded fatal-pattern matches in the first 15 minutes.
+- CT125: unchanged revision `0158`; disposable restore drill passed and cleanup
+  was independently confirmed.
+- Deployed-code synthetic smoke: primary/supporting classification passed; an
+  invalid catalog-driven objective triggered repair and the corrected
+  primary-grounded structure was accepted. No provider call or database write.
+- Operational watchdog: exact release/image reconciled, one-shot passed, timer
+  active; prior watchdog configuration and previous application image retained
+  for rollback.
+- Final boundary: the known source-role false positive is closed. Methodologist
+  review remains required because source-role validation is not a guarantee of
+  perfect lesson wording or assessment quality for every arbitrary workbook.
