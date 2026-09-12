@@ -110,6 +110,10 @@ def test_ai_job_response_rejects_invalid_exact_progress_detail():
     assert detail == {}
 
 
+def test_ai_job_response_tolerates_legacy_job_without_params():
+    assert _job_progress_detail(SimpleNamespace()) == {}
+
+
 def test_generation_progress_estimate_uses_only_completed_units(monkeypatch):
     monkeypatch.setattr("app.modules.ai.pipeline.time.monotonic", lambda: 112.0)
 

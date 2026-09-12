@@ -294,7 +294,8 @@ async def _in_flight_generation_for_documents(
 
 
 def _job_progress_detail(job: AIJob) -> dict[str, int]:
-    params: dict[str, object] = job.params if isinstance(job.params, dict) else {}
+    raw_params = getattr(job, "params", None)
+    params: dict[str, object] = raw_params if isinstance(raw_params, dict) else {}
     detail = params.get("progress_detail")
     if not isinstance(detail, dict):
         return {}
