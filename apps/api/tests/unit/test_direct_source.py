@@ -1193,6 +1193,186 @@ async def test_blank_intent_builds_adaptive_primary_table_structure_without_mode
 
 
 @pytest.mark.asyncio
+async def test_blank_intent_builds_multi_module_structure_from_split_primary_table() -> None:
+    from app.modules.ai.direct_source import (
+        DirectSourceChunk,
+        DirectSourceCorpus,
+        DirectSourceDocument,
+        run_direct_architect,
+        write_direct_course,
+    )
+
+    document_id = str(uuid4())
+    table_header = "| Поле | Феникс | Чикаго Нео | Чикаго Стрит |\n| --- | --- | --- | --- |\n"
+    primary_chunks = (
+        table_header
+        + "| Стиль | современный | индустриальный | лаконичный |\n"
+        + "| Материалы | ЛДСП | металл | МДФ |\n"
+        + "| Цвета | светлые | контрастные | нейтральные |\n"
+        + "| Фасады | гладкие | комбинированные | рамочные |",
+        table_header
+        + "| Механизмы | push-to-open | направляющие | петли |\n"
+        + "| Комплектация | шкафы | прихожие | зеркала |\n"
+        + "| Отличия | модульность | открытые секции | компактность |\n"
+        + "| Аргументация | единый стиль | сочетание фактур | экономия места |\n"
+        + "| Шкафы | распашные | комбинированные | компактные |\n"
+        + "| Кровати | мягкие | деревянные | подъёмные |\n"
+        + "| Комоды | высокие | широкие | узкие |\n"
+        + "| Преимущество | модульность | фактуры | компактность |\n"
+        + "| Сравнение | единый стиль | открытые секции | малые комнаты |\n"
+        + "| Аудитория | семьи | молодёжь | студии |\n"
+        + "| Сценарий | спальня | прихожая | гостиная |\n"
+        + "| Резюме | базовая коллекция | выразительная коллекция | компактная коллекция |\n"
+        + "| Источник: сайт производителя |  |  |  |",
+    )
+    supporting = "| Артикул | Товар | Цена |\n| --- | --- | --- |\n" + "\n".join(
+        f"| SKU-{index} | Товар {index} | {10000 + index} |" for index in range(40)
+    )
+    chunks = tuple(
+        DirectSourceChunk(
+            chunk_id=f"direct:doc-1:{index}",
+            doc_id=document_id,
+            doc_name="assortment.xlsx",
+            title="Ассортимент",
+            headings=("[Worksheet] Коллекции",),
+            text=text,
+            source_revision="document:" + "f" * 64,
+            chunk_index=index,
+        )
+        for index, text in enumerate(primary_chunks)
+    ) + (
+        DirectSourceChunk(
+            chunk_id="direct:doc-1:2",
+            doc_id=document_id,
+            doc_name="assortment.xlsx",
+            title="Ассортимент",
+            headings=("[Worksheet] Список",),
+            text=supporting,
+            source_revision="document:" + "f" * 64,
+            chunk_index=2,
+        ),
+    )
+    corpus = DirectSourceCorpus(
+        tenant_id="tenant-1",
+        documents=(
+            DirectSourceDocument(
+                doc_id=document_id,
+                title="Ассортимент",
+                filename="assortment.xlsx",
+                category="general",
+                source_revision="document:" + "f" * 64,
+                chunks=chunks,
+            ),
+        ),
+        total_chars=sum(len(chunk.text) for chunk in chunks),
+        total_chunks=len(chunks),
+    )
+
+    class LLM:
+        async def ainvoke(self, _messages):
+            raise AssertionError("blank high-confidence table must not call architect model")
+
+    result = await run_direct_architect(
+        LLM(),
+        corpus,
+        num_modules=2,
+        lessons_per_module=4,
+        max_total_lessons=7,
+    )
+
+    assert len(result.modules) == 2
+    lessons = [lesson for module in result.modules for lesson in module.lessons]
+    assert len(lessons) == 7
+    assert [len(module.lessons) for module in result.modules] == [4, 3]
+    assert all(lesson.relevant_headings == ["[Worksheet] Коллекции"] for lesson in lessons)
+    assert all("Список" not in lesson.title for lesson in lessons)
+    assert all("Источник" not in lesson.title for lesson in lessons)
+    assert all(lesson.title.startswith("Коллекции: ") for lesson in lessons)
+    assert {
+        name
+        for lesson in lessons
+        for name in ("Стиль", "Материалы", "Цвета", "Фасады", "Механизмы", "Комплектация", "Отличия", "Аргументация")
+        if name in lesson.title
+    } == {
+        "Стиль",
+        "Материалы",
+        "Цвета",
+        "Фасады",
+        "Механизмы",
+        "Комплектация",
+        "Отличия",
+        "Аргументация",
+    }
+
+    course = await write_direct_course(LLM(), corpus, result, language="ru")
+    written_lessons = [lesson for module in course.modules for lesson in module.lessons]
+    assert all(len(lesson.source_chunks) == 1 for lesson in written_lessons)
+    assert all("Источник: сайт производителя" not in lesson.source_chunks[0] for lesson in written_lessons)
+
+
+@pytest.mark.asyncio
+async def test_blank_intent_reassembles_column_sliced_primary_table() -> None:
+    from app.modules.ai.direct_source import (
+        DirectSourceChunk,
+        DirectSourceCorpus,
+        DirectSourceDocument,
+        run_direct_architect,
+    )
+
+    document_id = str(uuid4())
+    fragments = (
+        "| Поле | Феникс |\n| --- | --- |\n| Стиль | современный |\n| Материал | ЛДСП |",
+        "| Поле | Чикаго |\n| --- | --- |\n| Стиль | индустриальный |\n| Материал | металл |",
+    )
+    chunks = tuple(
+        DirectSourceChunk(
+            chunk_id=f"direct:doc-1:{index}",
+            doc_id=document_id,
+            doc_name="assortment.xlsx",
+            title="Ассортимент",
+            headings=("[Worksheet] Коллекции",),
+            text=text,
+            source_revision="document:" + "9" * 64,
+            chunk_index=index,
+        )
+        for index, text in enumerate(fragments)
+    )
+    corpus = DirectSourceCorpus(
+        tenant_id="tenant-1",
+        documents=(
+            DirectSourceDocument(
+                doc_id=document_id,
+                title="Ассортимент",
+                filename="assortment.xlsx",
+                category="general",
+                source_revision="document:" + "9" * 64,
+                chunks=chunks,
+            ),
+        ),
+        total_chars=sum(len(chunk.text) for chunk in chunks),
+        total_chunks=len(chunks),
+    )
+
+    class LLM:
+        async def ainvoke(self, _messages):
+            raise AssertionError("column-sliced primary table must remain deterministic")
+
+    result = await run_direct_architect(
+        LLM(),
+        corpus,
+        language="ru",
+        num_modules=1,
+        lessons_per_module=2,
+        max_total_lessons=2,
+    )
+
+    assert result.title == "Коллекции"
+    assert [lesson.title for lesson in result.modules[0].lessons] == [
+        "Коллекции: Стиль и Материал",
+    ]
+
+
+@pytest.mark.asyncio
 async def test_direct_architect_repairs_explicit_supporting_sheet_lesson_theme() -> None:
     from app.modules.ai.direct_source import (
         DirectSourceChunk,

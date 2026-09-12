@@ -116,6 +116,12 @@ migration или RLS evidence. Использовать только approved Su
 и cleanup path; production CT125 остаётся отдельной release boundary. Локальный
 Docker допускается для database-free image build/runtime probes. GitHub CI
 service containers остаются частью отдельного CI-контракта.
+`scripts/ci/critical_journey_gate.py` по умолчанию работает в профиле `local`:
+он выдаёт только database-free pytest selectors, а DB-проверки оставляет
+Supabase DEV application gate. Профиль `ci` разрешён только workflow, который
+явно поднимает disposable PostgreSQL service и устанавливает его отдельный
+CI-only признак; общий `db_session` останавливает workstation localhost URL до
+попытки подключения.
 
 Зона `kml.kz` использует authoritative nameservers Cloudflare
 `sureena.ns.cloudflare.com` и `syeef.ns.cloudflare.com`. Vercel verified domain

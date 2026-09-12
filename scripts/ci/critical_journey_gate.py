@@ -26,6 +26,7 @@ class Journey:
     title: str
     trigger_paths: tuple[str, ...]
     required_tests: tuple[str, ...]
+    database_tests: tuple[str, ...]
     runtime_gates: tuple[str, ...]
     invariants: tuple[str, ...]
 
@@ -83,10 +84,11 @@ def load_contract(path: Path = DEFAULT_CONTRACT) -> tuple[Journey, ...]:
             title=title.strip(),
             trigger_paths=_string_tuple(raw.get("trigger_paths"), field="trigger_paths"),
             required_tests=_string_tuple(raw.get("required_tests"), field="required_tests"),
+            database_tests=_string_tuple(raw.get("database_tests"), field="database_tests"),
             runtime_gates=_string_tuple(raw.get("runtime_gates"), field="runtime_gates"),
             invariants=_string_tuple(raw.get("invariants"), field="invariants"),
         )
-        for selector in journey.required_tests:
+        for selector in (*journey.required_tests, *journey.database_tests):
             if "::" not in selector or not _repo_file(selector).is_file():
                 raise ContractError("required_test_selector_missing")
         for gate in journey.runtime_gates:
@@ -116,11 +118,21 @@ def impacted_journeys(
     )
 
 
-def pytest_selectors(journeys: Iterable[Journey], pytest_root: Path) -> tuple[str, ...]:
+def pytest_selectors(
+    journeys: Iterable[Journey],
+    pytest_root: Path,
+    *,
+    execution_profile: str,
+) -> tuple[str, ...]:
+    if execution_profile not in {"local", "ci"}:
+        raise ContractError("execution_profile_invalid")
     root = pytest_root.resolve()
     selectors: list[str] = []
     for journey in journeys:
-        for selector in journey.required_tests:
+        selected_tests = journey.required_tests
+        if execution_profile == "ci":
+            selected_tests = (*selected_tests, *journey.database_tests)
+        for selector in selected_tests:
             path_text, node = selector.split("::", 1)
             relative = os.path.relpath((REPO_ROOT / path_text).resolve(), root).replace("\\", "/")
             normalized = f"{relative}::{node}"
@@ -136,10 +148,11 @@ def run(
     contract_path: Path,
     pytest_root: Path,
     emit_pytest_args: Path | None,
+    execution_profile: str,
 ) -> dict[str, Any]:
     journeys = load_contract(contract_path)
     selected = journeys if all_journeys else impacted_journeys(journeys, changed_files)
-    selectors = pytest_selectors(selected, pytest_root)
+    selectors = pytest_selectors(selected, pytest_root, execution_profile=execution_profile)
     if emit_pytest_args is not None:
         emit_pytest_args.write_text("".join(f"{selector}\n" for selector in selectors), encoding="utf-8")
     return {
@@ -147,6 +160,12 @@ def run(
         "evidence_label": "GIT-DERIVED",
         "journeys": [journey.journey_id for journey in selected],
         "required_tests": len(selectors),
+        "deferred_database_tests": (
+            sum(len(journey.database_tests) for journey in selected)
+            if execution_profile == "local"
+            else 0
+        ),
+        "execution_profile": execution_profile,
         "runtime_gates": sorted({gate for journey in selected for gate in journey.runtime_gates}),
     }
 
@@ -158,6 +177,12 @@ def main() -> int:
     parser.add_argument("--contract", type=Path, default=DEFAULT_CONTRACT)
     parser.add_argument("--pytest-root", type=Path, default=REPO_ROOT)
     parser.add_argument("--emit-pytest-args", type=Path)
+    parser.add_argument(
+        "--execution-profile",
+        choices=("local", "ci"),
+        default="local",
+        help="Local never selects PostgreSQL tests; CI uses its declared ephemeral service.",
+    )
     args = parser.parse_args()
     if not args.all_journeys and not args.changed_file:
         print(json.dumps({"status": "BLOCKED", "error_class": "changed_files_required"}, sort_keys=True))
@@ -169,6 +194,7 @@ def main() -> int:
             contract_path=args.contract,
             pytest_root=(REPO_ROOT / args.pytest_root if not args.pytest_root.is_absolute() else args.pytest_root),
             emit_pytest_args=args.emit_pytest_args,
+            execution_profile=args.execution_profile,
         )
     except Exception as exc:
         print(json.dumps({"status": "BLOCKED", "error_class": type(exc).__name__}, sort_keys=True))

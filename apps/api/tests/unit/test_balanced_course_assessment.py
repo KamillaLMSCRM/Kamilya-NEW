@@ -4,6 +4,7 @@ import pytest
 
 from app.modules.ai.assessment import (
     _assessment_contract_reason_codes,
+    _assessment_question_count,
     _build_evidence_bank,
     _generate_tabular_assessment,
     _normalize_evidence_text,
@@ -15,6 +16,21 @@ from app.modules.ai.assessment import (
 )
 from app.modules.ai.assessment_schema import LessonAssessment
 from app.modules.ai.writer_schema import CourseContent, LessonContent, ModuleContent
+
+
+def test_structured_lesson_question_count_adapts_to_available_rows() -> None:
+    source = "| Field | Alpha | Beta |\n| --- | --- | --- |\n| Style | modern | classic |"
+
+    assert _assessment_question_count(
+        compact=False,
+        evidence_bank={f"E{index:02d}": f"Fact {index}" for index in range(1, 10)},
+        bounded_source=source,
+    ) == 3
+    assert _assessment_question_count(
+        compact=False,
+        evidence_bank={f"E{index:02d}": f"Fact {index}" for index in range(1, 6)},
+        bounded_source="Five prose facts.",
+    ) == 5
 
 
 def _additional_questions() -> list[dict]:

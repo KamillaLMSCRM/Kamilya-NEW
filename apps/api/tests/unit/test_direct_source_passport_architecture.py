@@ -427,6 +427,54 @@ def test_primary_tabular_renderer_does_not_read_same_named_supporting_sheet() ->
     assert "199000" not in selected_source
 
 
+def test_primary_tabular_renderer_omits_note_only_source_rows() -> None:
+    revision = "document:" + "b" * 64
+    primary = DirectSourceChunk(
+        chunk_id="direct:doc-primary:0",
+        doc_id="doc-primary",
+        doc_name="primary.xlsx",
+        title="Primary",
+        headings=("[Worksheet] Collections",),
+        text=(
+            "| Field | Phoenix | Chicago |\n"
+            "| --- | --- | --- |\n"
+            "| Style | modern | industrial |\n"
+            "| Material | chipboard | metal |\n"
+            "| Source: manufacturer website |  |  |"
+        ),
+        source_revision=revision,
+        chunk_index=0,
+    )
+    corpus = DirectSourceCorpus(
+        tenant_id="tenant-1",
+        documents=(
+            DirectSourceDocument(
+                doc_id="doc-primary",
+                title="Primary",
+                filename="primary.xlsx",
+                category="general",
+                source_revision=revision,
+                chunks=(primary,),
+            ),
+        ),
+        total_chars=len(primary.text),
+        total_chunks=1,
+    )
+
+    rendered = _render_primary_tabular_lesson(
+        chunks=(primary,),
+        passport=build_document_passport(corpus),
+        title="Collection facts",
+        objectives=("Describe the source table",),
+        language="en",
+    )
+
+    assert rendered is not None
+    content, selected_source = rendered
+    assert "manufacturer website" not in content
+    assert "manufacturer website" not in selected_source
+
+
 @pytest.mark.asyncio
 async def test_architect_allows_supporting_catalog_facts_inside_primary_lesson() -> None:
     class LLM:

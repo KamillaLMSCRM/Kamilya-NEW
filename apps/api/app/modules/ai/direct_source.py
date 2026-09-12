@@ -196,6 +196,98 @@ def _description_is_subject_linked(description: str, subject: str) -> bool:
     return bool(subject_stems and subject_stems & _tabular_scope_stems(description))
 
 
+def _merged_worksheet_tables(
+    chunks: Sequence[DirectSourceChunk],
+    accepted_sections: set[tuple[str, str]],
+) -> list[tuple[str, str, str, list[str], list[tuple[list[str], str]]]]:
+    """Reassemble converter-owned row and column slices for one table per sheet."""
+
+    from app.modules.ai.assessment import _markdown_tables
+
+    groups: dict[tuple[str, str, str], dict[str, Any]] = {}
+
+    def merge_fragment(
+        *,
+        chunk: DirectSourceChunk,
+        heading: str,
+        normalized_heading: str,
+        headers: list[str],
+        cells: list[str],
+    ) -> None:
+        if len(headers) < 2 or len(cells) != len(headers) or not headers[0].strip():
+            return
+        key = (chunk.doc_id, normalized_heading, headers[0].casefold().strip())
+        group = groups.setdefault(
+            key,
+            {
+                "heading": heading,
+                "headers": [headers[0]],
+                "subjects": [],
+                "rows": {},
+            },
+        )
+        for header in headers[1:]:
+            if header not in group["headers"]:
+                group["headers"].append(header)
+        subject = cells[0].strip()
+        if subject not in group["rows"]:
+            group["subjects"].append(subject)
+            group["rows"][subject] = {}
+        values = group["rows"][subject]
+        for header, value in zip(headers[1:], cells[1:], strict=True):
+            if not value:
+                continue
+            existing = values.get(header, "")
+            values[header] = existing + value
+
+    for chunk in sorted(chunks, key=lambda item: (item.doc_id, item.chunk_index)):
+        for heading in chunk.headings:
+            normalized_heading = heading.casefold().removeprefix("[worksheet] ").strip()
+            if (chunk.doc_id, normalized_heading) not in accepted_sections:
+                continue
+            fragment = chunk.table_fragment
+            if isinstance(fragment, Mapping):
+                fragment_headers = fragment.get("headers")
+                fragment_cells = fragment.get("cells")
+                if isinstance(fragment_headers, list) and isinstance(fragment_cells, list):
+                    merge_fragment(
+                        chunk=chunk,
+                        heading=heading,
+                        normalized_heading=normalized_heading,
+                        headers=[str(value) for value in fragment_headers],
+                        cells=[str(value) for value in fragment_cells],
+                    )
+            for headers, rows in _markdown_tables(chunk.text):
+                for cells, _raw_row in rows:
+                    merge_fragment(
+                        chunk=chunk,
+                        heading=heading,
+                        normalized_heading=normalized_heading,
+                        headers=headers,
+                        cells=cells,
+                    )
+
+    merged = []
+    for (document_id, normalized_heading, _subject_header), group in groups.items():
+        headers = list(group["headers"])
+        rows = []
+        for subject in group["subjects"]:
+            values = group["rows"][subject]
+            cells = [subject, *(values.get(header, "") for header in headers[1:])]
+            raw_row = "| " + " | ".join(cells) + " |"
+            rows.append((cells, raw_row))
+        merged.append(
+            (
+                document_id,
+                normalized_heading,
+                group["heading"],
+                headers,
+                rows,
+            )
+        )
+    return merged
+
+
 def _render_primary_tabular_lesson(
     *,
     chunks: Sequence[DirectSourceChunk],
@@ -216,20 +308,24 @@ def _render_primary_tabular_lesson(
     if not primary_keys:
         return None
 
-    from app.modules.ai.assessment import _markdown_tables
-
-    primary_tables: list[tuple[list[str], list[tuple[list[str], str]]]] = []
-    for chunk in chunks:
-        heading_keys = {
-            (chunk.doc_id, heading.casefold().removeprefix("[worksheet] ").strip()) for heading in chunk.headings
-        }
-        if not heading_keys & primary_keys:
-            continue
-        primary_tables.extend(_markdown_tables(chunk.text))
-    candidates = [table for table in primary_tables if len(table[0]) >= 2 and len(table[1]) >= 2]
+    candidates = [
+        (headers, rows)
+        for _document_id, _normalized_heading, _heading, headers, rows in _merged_worksheet_tables(
+            chunks,
+            primary_keys,
+        )
+        if len(rows) >= 2
+    ]
     if not candidates:
         return None
     headers, rows = max(candidates, key=lambda table: len(table[1]))
+    rows = [
+        (cells, raw_row)
+        for cells, raw_row in rows
+        if cells[0].strip() and any(cell.strip() for cell in cells[1:])
+    ]
+    if len(rows) < 2:
+        return None
 
     scope_text = " ".join((title, *objectives)).casefold()
     scope_stems = _tabular_scope_stems(scope_text)
@@ -297,43 +393,55 @@ def _build_primary_tabular_structure(
 ) -> CourseStructure | None:
     """Build a neutral adaptive structure when no user learning intent was supplied."""
 
-    if passport.confidence == "low" or num_modules not in {None, 1}:
+    if passport.confidence == "low":
         return None
     primary_sections = {
         (section.document_id, section.name.casefold().strip()): section.name
         for section in passport.sections
         if section.role.value == "primary"
     }
-    from app.modules.ai.assessment import _markdown_tables
-
-    candidates: list[tuple[str, str, str, list[str], list[tuple[list[str], str]]]] = []
-    for document in corpus.documents:
-        for chunk in document.chunks:
-            for heading in chunk.headings:
-                normalized_heading = heading.casefold().removeprefix("[worksheet] ").strip()
-                section_name = primary_sections.get((document.doc_id, normalized_heading))
-                if section_name is None:
-                    continue
-                for headers, rows in _markdown_tables(chunk.text):
-                    if len(headers) >= 2 and len(rows) >= 2:
-                        candidates.append((document.doc_id, heading, section_name, headers, rows))
+    candidates = [
+        (
+            document_id,
+            heading,
+            primary_sections[(document_id, normalized_heading)],
+            headers,
+            rows,
+        )
+        for document_id, normalized_heading, heading, headers, rows in _merged_worksheet_tables(
+            tuple(chunk for document in corpus.documents for chunk in document.chunks),
+            set(primary_sections),
+        )
+        if len(rows) >= 2
+    ]
     if len(candidates) != 1:
         return None
     document_id, heading, section_name, headers, rows = candidates[0]
-    subjects = [cells[0].strip() for cells, _raw_row in rows if cells[0].strip()]
-    if len(subjects) != len(rows) or len(set(subjects)) != len(subjects):
+    instructional_rows = [
+        (cells, raw_row) for cells, raw_row in rows if cells[0].strip() and any(cell.strip() for cell in cells[1:])
+    ]
+    subjects = [cells[0].strip() for cells, _raw_row in instructional_rows]
+    if len(subjects) < 2 or len(set(subjects)) != len(subjects):
         return None
 
+    module_count = num_modules or 1
+    if module_count < 1:
+        return None
     lesson_limit = min(
         len(subjects),
-        lessons_per_module or len(subjects),
+        (lessons_per_module or len(subjects)) * module_count,
         max_total_lessons or len(subjects),
     )
     lesson_count = min(lesson_limit, max(1, math.ceil(len(subjects) / 2)))
     if lesson_count < 1:
         return None
-    group_size = math.ceil(len(subjects) / lesson_count)
-    groups = [subjects[index : index + group_size] for index in range(0, len(subjects), group_size)]
+    base_group_size, extra_groups = divmod(len(subjects), lesson_count)
+    groups: list[list[str]] = []
+    subject_offset = 0
+    for group_index in range(lesson_count):
+        group_size = base_group_size + (1 if group_index < extra_groups else 0)
+        groups.append(subjects[subject_offset : subject_offset + group_size])
+        subject_offset += group_size
 
     def joined_subjects(values: list[str]) -> str:
         if len(values) == 1:
@@ -348,9 +456,12 @@ def _build_primary_tabular_structure(
     for group in groups:
         names = joined_subjects(group)
         if language == "ru":
+            first_header = headers[0].casefold().strip()
             entity_label = (
-                "Коллекции" if len(group) > 1 and headers[0].casefold().strip() == "коллекция" else headers[0]
+                section_name if first_header in {"поле", "характеристика", "параметр", "свойство"} else headers[0]
             )
+            if len(group) > 1 and first_header == "коллекция":
+                entity_label = "Коллекции"
             lesson_title = f"{entity_label}: {names}"
             objective = f"Изучить данные: {names}"
         elif language == "kk":
@@ -379,10 +490,28 @@ def _build_primary_tabular_structure(
     else:
         course_title = section_name
         description = f"Course based on the “{section_name}” source section."
+    if len(lesson_items) < module_count:
+        return None
+    base_size, remainder = divmod(len(lesson_items), module_count)
+    modules: list[Module] = []
+    offset = 0
+    for module_index in range(module_count):
+        size = base_size + (1 if module_index < remainder else 0)
+        module_lessons = lesson_items[offset : offset + size]
+        offset += size
+        if module_count == 1:
+            module_title = course_title
+        elif language == "ru":
+            module_title = f"{course_title} — раздел {module_index + 1}"
+        elif language == "kk":
+            module_title = f"{course_title} — {module_index + 1}-бөлім"
+        else:
+            module_title = f"{course_title} — section {module_index + 1}"
+        modules.append(Module(title=module_title, description="", lessons=module_lessons))
     return CourseStructure(
         title=course_title,
         description=description,
-        modules=[Module(title=course_title, description="", lessons=lesson_items)],
+        modules=modules,
     )
 
 
@@ -413,6 +542,7 @@ class DirectSourceChunk:
     text: str
     source_revision: str
     chunk_index: int
+    table_fragment: Mapping[str, Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -559,6 +689,11 @@ async def build_direct_source_corpus(
                 text=str(chunk.get("text") or ""),
                 source_revision=source_revision,
                 chunk_index=index,
+                table_fragment=(
+                    chunk.get("metadata", {}).get("worksheet_table_fragment")
+                    if isinstance(chunk.get("metadata", {}).get("worksheet_table_fragment"), dict)
+                    else None
+                ),
             )
             for index, chunk in enumerate(raw_chunks)
             if str(chunk.get("text") or "").strip()
@@ -1590,7 +1725,11 @@ Objectives: {json.dumps(objectives, ensure_ascii=False)}
                 title=lesson.title,
                 objectives=objectives,
                 content=content,
-                source_chunks=bounded_texts,
+                source_chunks=(
+                    [tabular_lesson[1]]
+                    if tabular_lesson is not None
+                    else bounded_texts
+                ),
                 source_references=[_source_reference(chunk) for chunk in chunks[: len(bounded_texts)]],
                 quality_policy_version=LESSON_QUALITY_POLICY_VERSION,
             )

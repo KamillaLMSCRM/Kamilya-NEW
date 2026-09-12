@@ -1404,6 +1404,22 @@ def _generate_tabular_assessment(
     )
 
 
+def _assessment_question_count(
+    *,
+    compact: bool,
+    evidence_bank: dict[str, str],
+    bounded_source: str,
+) -> int:
+    """Size structured lessons to their actual evidence instead of padding."""
+
+    if compact:
+        return 3
+    source_tables = _markdown_tables(bounded_source)
+    if source_tables and sum(len(rows) for _headers, rows in source_tables) < 5:
+        return 3
+    return 5
+
+
 async def _recover_with_focused_questions(
     llm: LLMClient,
     *,
@@ -1588,19 +1604,6 @@ async def generate_lesson_assessment(
 
     system_prompt = get_renderer().render("assessment/system.md") + f" Write ALL content in {language} ({lang_name})."
 
-    question_count = 3 if compact else 5
-    question_plan = (
-        f"- Exactly {question_count} single choice questions "
-        "(4 options, ONE correct)\n"
-        "- Do not add true/false or matching questions"
-    )
-    output_schema = copy.deepcopy(ASSESSMENT_JSON_SCHEMA)
-    output_schema["properties"]["mcq"]["minItems"] = question_count
-    output_schema["properties"]["mcq"]["maxItems"] = question_count
-    output_schema["properties"]["true_false"]["minItems"] = 0
-    output_schema["properties"]["true_false"]["maxItems"] = 0
-    output_schema["properties"]["matching"]["minItems"] = 0
-    output_schema["properties"]["matching"]["maxItems"] = 0
     lesson_title = _escape_lesson_boundary(lesson_content.title)
     original_source = "\n".join(
         chunk.strip() for chunk in lesson_content.source_chunks if chunk.strip()
@@ -1614,6 +1617,23 @@ async def generate_lesson_assessment(
     )
     if not evidence_bank:
         raise ValueError("Lesson content has insufficient material for an assessment")
+    question_count = _assessment_question_count(
+        compact=compact,
+        evidence_bank=evidence_bank,
+        bounded_source=bounded_lesson_content,
+    )
+    question_plan = (
+        f"- Exactly {question_count} single choice questions "
+        "(4 options, ONE correct)\n"
+        "- Do not add true/false or matching questions"
+    )
+    output_schema = copy.deepcopy(ASSESSMENT_JSON_SCHEMA)
+    output_schema["properties"]["mcq"]["minItems"] = question_count
+    output_schema["properties"]["mcq"]["maxItems"] = question_count
+    output_schema["properties"]["true_false"]["minItems"] = 0
+    output_schema["properties"]["true_false"]["maxItems"] = 0
+    output_schema["properties"]["matching"]["minItems"] = 0
+    output_schema["properties"]["matching"]["maxItems"] = 0
     tabular_assessment = _generate_tabular_assessment(
         evidence_bank=evidence_bank,
         bounded_source=bounded_lesson_content,

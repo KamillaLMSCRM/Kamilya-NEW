@@ -16,11 +16,13 @@
       ],
       "required_tests": [
         "apps/api/tests/unit/test_document_conversion_fallback.py::test_ingestion_preserves_canonical_document_source_revision",
-        "apps/api/tests/integration/test_document_operations.py::test_document_reindex_worker_completes_and_is_idempotent",
         "apps/api/tests/unit/test_active_document_revision_retrieval.py::test_semantic_fts_and_legacy_chunk_reads_require_active_document_revision",
         "apps/api/tests/unit/test_context_expansion.py::test_expansion_deduplicates_overlapping_context_windows",
         "apps/api/tests/test_ai_pipeline_existing_course.py::test_generated_single_answer_questions_are_saved_as_mcq",
         "scripts/ci/test_kb_rag_schema_contract.py::test_valid_snapshot_returns_sanitized_ci_contract"
+      ],
+      "database_tests": [
+        "apps/api/tests/integration/test_document_operations.py::test_document_reindex_worker_completes_and_is_idempotent"
       ],
       "runtime_gates": [
         "scripts/ci/kb_rag_schema_contract.py",

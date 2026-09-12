@@ -2004,3 +2004,42 @@ contract or establish a blocker.
   worksheet signals, large learning sheets and much larger English or multilingual
   reference sheets. Do not infer a production model failure from this shared error
   code without the rejected structure and branch evidence.
+
+## AI-SOURCE-003 - Wide XLSX rows broke chunk bounds and deterministic reconstruction
+
+- Date: 2026-09-12. Release candidate; production deployment is not claimed here.
+- Symptom: a converter-owned worksheet row could exceed the configured chunk size;
+  splitting a wide comparison table by columns then prevented deterministic course
+  structure, while a note-only `Source:` row could be rendered as lesson content.
+- Cause: the table chunker kept every row whole regardless of size, and downstream
+  grouping used the exact full header tuple instead of the worksheet subject key.
+  The structure builder filtered note-only rows but the lesson renderer did not.
+- Fix: keep ordinary rows grouped, slice oversized rows into bounded parseable
+  column fragments, reassemble fragments only within the same document/worksheet/
+  subject-header boundary, and remove note-only rows before lesson selection.
+- Verification: focused regressions cover the hard size limit, fragmented value
+  reconstruction, column-sliced deterministic structure, source-note exclusion,
+  multi-module partitioning and cross-document isolation. Full API, DEV and
+  production results must be recorded separately after they run.
+- Prevention: never relax the chunk-size invariant to preserve a row. Keep source
+  ownership in the merge key, preserve converter-controlled worksheet boundaries,
+  and require human quality review for the final persisted course and assessments.
+
+## TEST-ENV-001 - Local critical journey silently selected localhost PostgreSQL
+
+- Date: 2026-09-12.
+- Symptom: a workstation critical-journey command ran five database-free checks,
+  then attempted the DB integration selector against an absent local PostgreSQL.
+- Cause: the journey contract mixed workstation-safe tests with a CI database test,
+  while the shared fixture supplied a localhost fallback URL.
+- Fix: the journey runner now defaults to the `local` execution profile and emits
+  only database-free selectors; the DB selector is explicit in the `ci` profile.
+  The DB fixture also rejects workstation localhost PostgreSQL before opening a
+  connection. Only GitHub CI declares its ephemeral Postgres permission explicitly.
+- Verification: runner tests prove local=5 plus one deferred DB check and CI=6;
+  direct workstation invocation fails immediately with `local_postgresql_forbidden`
+  before network access. The deferred application proof belongs to the isolated
+  Supabase DEV gate with its normal cleanup/readback.
+- Prevention: use `--execution-profile ci` only in the workflow that provisions its
+  declared disposable database. On workstations, never set the CI override and do
+  not replace the Supabase DEV gate with Docker or a localhost service.

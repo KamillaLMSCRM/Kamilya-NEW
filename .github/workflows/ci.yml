@@ -264,6 +264,7 @@ jobs:
       APP_ENV: test
       DEBUG: "false"
       RLS_GATE_CONFIRMATION: EPHEMERAL_POSTGRES_ONLY
+      KAMILYA_ALLOW_EPHEMERAL_CI_POSTGRES: "1"
     steps:
       - uses: actions/checkout@v4
 
@@ -343,6 +344,7 @@ jobs:
         run: |
           poetry run python ../../scripts/ci/critical_journey_gate.py \
             --all \
+            --execution-profile ci \
             --pytest-root apps/api \
             --emit-pytest-args /tmp/ai-course-01-tests.txt
           mapfile -t journey_tests < /tmp/ai-course-01-tests.txt

@@ -1,7 +1,7 @@
 # Backend monorepo config
 [tool.poetry]
 name = "api"
-version = "0.5.4"
+version = "0.5.5"
 description = "Kamilya LMS API"
 authors = ["Kamilya Team <dev@kml.kz>"]
 

@@ -1,10 +1,12 @@
 """Document ingestion — parsing, chunking, embedding, vector store."""
+
 from __future__ import annotations
 
 import hashlib
 import json
 import logging
 import os
+import re
 from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -81,13 +83,10 @@ class DocumentConverter:
             if not self.base_url:
                 return await _local_convert(file_path)
             import httpx
+
             with open(file_path, "rb") as f:
                 files = {"file": (filename, f, "application/octet-stream")}
-                headers = (
-                    {"X-Docling-Key": DOCLING_API_KEY}
-                    if DOCLING_API_KEY
-                    else None
-                )
+                headers = {"X-Docling-Key": DOCLING_API_KEY} if DOCLING_API_KEY else None
                 async with httpx.AsyncClient(timeout=DOCLING_TIMEOUT_SECONDS) as client:
                     resp = await client.post(
                         f"{self.base_url}/convert",
@@ -144,19 +143,14 @@ async def _local_convert(file_path: str) -> dict[str, Any]:
         blocks: list[str] = []
         for block in document.iter_inner_content():
             if isinstance(block, Table):
-                rows = [
-                    [cell.text.replace("\n", " ").strip() for cell in row.cells]
-                    for row in block.rows
-                ]
+                rows = [[cell.text.replace("\n", " ").strip() for cell in row.cells] for row in block.rows]
                 if not rows:
                     continue
                 width = max(len(row) for row in rows)
                 normalized = [row + [""] * (width - len(row)) for row in rows]
                 blocks.append("| " + " | ".join(normalized[0]) + " |")
                 blocks.append("| " + " | ".join(["---"] * width) + " |")
-                blocks.extend(
-                    "| " + " | ".join(row) + " |" for row in normalized[1:]
-                )
+                blocks.extend("| " + " | ".join(row) + " |" for row in normalized[1:])
                 tables += 1
                 continue
 
@@ -223,9 +217,7 @@ async def _local_convert(file_path: str) -> dict[str, Any]:
                 if not sheet_rows:
                     continue
                 width = max(len(row) for row in sheet_rows)
-                normalized = [
-                    row + [""] * (width - len(row)) for row in sheet_rows
-                ]
+                normalized = [row + [""] * (width - len(row)) for row in sheet_rows]
                 sheet_name = cell_text(worksheet.title).replace("[", "(").replace("]", ")")
                 blocks.append(f"# [Worksheet] {sheet_name}")
                 blocks.append("| " + " | ".join(normalized[0]) + " |")
@@ -255,9 +247,7 @@ async def _local_convert(file_path: str) -> dict[str, Any]:
         content = "\n\n".join((page.extract_text() or "").strip() for page in reader.pages)
         engine = "pypdf"
     else:
-        raise RuntimeError(
-            f"Document conversion is unavailable for {ext or 'this file type'}"
-        )
+        raise RuntimeError(f"Document conversion is unavailable for {ext or 'this file type'}")
     metadata = {
         "filename": os.path.basename(file_path),
         "size": os.path.getsize(file_path),
@@ -276,7 +266,6 @@ async def _local_convert(file_path: str) -> dict[str, Any]:
     }
 
 
-
 class DocumentChunker:
     """Split documents into chunks for embedding."""
 
@@ -290,6 +279,10 @@ class DocumentChunker:
 
     def chunk_markdown(self, markdown: str, doc_id: str, doc_name: str) -> list[dict[str, Any]]:
         """Split markdown into chunks with metadata."""
+        worksheet_chunks = self._chunk_worksheet_tables(markdown, doc_id, doc_name)
+        if worksheet_chunks is not None:
+            return worksheet_chunks
+
         chunks: list[dict[str, Any]] = []
         paragraphs = markdown.split("\n\n")
 
@@ -298,14 +291,16 @@ class DocumentChunker:
 
         def emit_current() -> str:
             if current_chunk.strip():
-                chunks.append({
-                    "text": current_chunk.strip(),
-                    "metadata": {
-                        "doc_id": doc_id,
-                        "doc_name": doc_name,
-                        "headings": json.dumps(current_headings, ensure_ascii=False),
-                    },
-                })
+                chunks.append(
+                    {
+                        "text": current_chunk.strip(),
+                        "metadata": {
+                            "doc_id": doc_id,
+                            "doc_name": doc_name,
+                            "headings": json.dumps(current_headings, ensure_ascii=False),
+                        },
+                    }
+                )
             # Reserve room for the separator and at least one new source
             # character, so a valid overlap always makes forward progress.
             overlap_size = min(self.chunk_overlap, max(0, self.chunk_size - 3))
@@ -352,19 +347,222 @@ class DocumentChunker:
                     break
                 prefix = take_prefix(pending, available)
                 current_chunk += prefix
-                pending = pending[len(prefix):]
+                pending = pending[len(prefix) :]
                 current_chunk = emit_current()
 
         # Final chunk
         if current_chunk.strip():
-            chunks.append({
-                "text": current_chunk.strip(),
-                "metadata": {
-                    "doc_id": doc_id,
-                    "doc_name": doc_name,
-                    "headings": json.dumps(current_headings, ensure_ascii=False),
-                },
-            })
+            chunks.append(
+                {
+                    "text": current_chunk.strip(),
+                    "metadata": {
+                        "doc_id": doc_id,
+                        "doc_name": doc_name,
+                        "headings": json.dumps(current_headings, ensure_ascii=False),
+                    },
+                }
+            )
+
+        return chunks
+
+    def _chunk_worksheet_tables(
+        self,
+        markdown: str,
+        doc_id: str,
+        doc_name: str,
+    ) -> list[dict[str, Any]] | None:
+        """Keep converter-owned XLSX rows intact and repeat their table schema.
+
+        The local XLSX converter emits one paragraph per worksheet heading,
+        table header, separator, and data row. Generic character chunking can
+        split a long row inside a cell, leaving both retrieval and downstream
+        table parsing without its column meaning. This narrow path recognizes
+        only that controlled representation; all other Markdown continues to
+        use the generic chunker above.
+        """
+
+        paragraphs = [value.strip() for value in markdown.split("\n\n") if value.strip()]
+        if not paragraphs or not any(value.startswith("# [Worksheet] ") for value in paragraphs):
+            return None
+
+        def table_cells(value: str) -> list[str]:
+            line = value.strip()
+            if not (line.startswith("|") and line.endswith("|")):
+                return []
+            return [cell.strip() for cell in re.split(r"(?<!\\)\|", line[1:-1])]
+
+        def is_separator(value: str, width: int) -> bool:
+            cells = table_cells(value)
+            return len(cells) == width and all(re.fullmatch(r":?-{3,}:?", cell) for cell in cells)
+
+        chunks: list[dict[str, Any]] = []
+
+        def append_chunk(
+            text: str,
+            worksheet_name: str,
+            *,
+            table_fragment: dict[str, Any] | None = None,
+        ) -> None:
+            if len(text) > self.chunk_size:
+                raise RuntimeError("worksheet_chunk_size_invariant_failed")
+            metadata = {
+                "doc_id": doc_id,
+                "doc_name": doc_name,
+                "headings": json.dumps([worksheet_name], ensure_ascii=False),
+            }
+            if table_fragment is not None:
+                metadata["worksheet_table_fragment"] = table_fragment
+            chunks.append({"text": text, "metadata": metadata})
+
+        def render_table(heading: str, headers: list[str], rows: list[list[str]]) -> str:
+            header = "| " + " | ".join(headers) + " |"
+            separator = "| " + " | ".join("---" for _header in headers) + " |"
+            body = ["| " + " | ".join(row) + " |" for row in rows]
+            return f"{heading}\n\n{header}\n{separator}\n" + "\n".join(body)
+
+        def append_pathological_column(
+            *,
+            worksheet_name: str,
+            subject_header: str,
+            subject: str,
+            column_header: str,
+            value: str,
+        ) -> None:
+            """Bound visible text while retaining one exact in-memory table record."""
+
+            visible = f"{worksheet_name}\n{subject_header}: {subject}\n{column_header}: {value}"
+            for part_index, offset in enumerate(range(0, len(visible), self.chunk_size)):
+                append_chunk(
+                    visible[offset : offset + self.chunk_size],
+                    worksheet_name,
+                    table_fragment=(
+                        {
+                            "headers": [subject_header, column_header],
+                            "cells": [subject, value],
+                        }
+                        if part_index == 0
+                        else None
+                    ),
+                )
+
+        def append_wide_row(
+            heading: str,
+            worksheet_name: str,
+            headers: list[str],
+            cells: list[str],
+        ) -> None:
+            """Slice a wide row by columns while repeating its subject and schema."""
+
+            subject_header, subject = headers[0], cells[0]
+            selected_headers = [subject_header]
+            selected_cells = [subject]
+
+            def flush_selected() -> None:
+                nonlocal selected_headers, selected_cells
+                if len(selected_headers) > 1:
+                    append_chunk(
+                        render_table(heading, selected_headers, [selected_cells]),
+                        worksheet_name,
+                    )
+                selected_headers = [subject_header]
+                selected_cells = [subject]
+
+            for column_index in range(1, len(headers)):
+                column_header = headers[column_index]
+                value = cells[column_index]
+                candidate = render_table(
+                    heading,
+                    [*selected_headers, column_header],
+                    [[*selected_cells, value]],
+                )
+                if len(candidate) <= self.chunk_size:
+                    selected_headers.append(column_header)
+                    selected_cells.append(value)
+                    continue
+
+                flush_selected()
+                empty_fragment = render_table(
+                    heading,
+                    [subject_header, column_header],
+                    [[subject, ""]],
+                )
+                available = self.chunk_size - len(empty_fragment)
+                if available <= 0:
+                    append_pathological_column(
+                        worksheet_name=worksheet_name,
+                        subject_header=subject_header,
+                        subject=subject,
+                        column_header=column_header,
+                        value=value,
+                    )
+                    continue
+                if not value:
+                    append_chunk(empty_fragment, worksheet_name)
+                    continue
+                for offset in range(0, len(value), available):
+                    fragment = value[offset : offset + available]
+                    append_chunk(
+                        render_table(
+                            heading,
+                            [subject_header, column_header],
+                            [[subject, fragment]],
+                        ),
+                        worksheet_name,
+                    )
+            flush_selected()
+
+        index = 0
+        while index < len(paragraphs):
+            heading = paragraphs[index]
+            if not heading.startswith("# [Worksheet] ") or index + 2 >= len(paragraphs):
+                return None
+            header = paragraphs[index + 1]
+            header_cells = table_cells(header)
+            separator = paragraphs[index + 2]
+            if len(header_cells) < 2 or not is_separator(separator, len(header_cells)):
+                return None
+
+            rows: list[tuple[str, list[str]]] = []
+            index += 3
+            while index < len(paragraphs) and not paragraphs[index].startswith("# [Worksheet] "):
+                row = paragraphs[index]
+                row_cells = table_cells(row)
+                if len(row_cells) != len(header_cells):
+                    return None
+                rows.append((row, row_cells))
+                index += 1
+            if not rows:
+                return None
+
+            worksheet_name = heading.removeprefix("# ").strip()
+            current_rows: list[list[str]] = []
+
+            for _raw_row, row_cells in rows:
+                candidate = render_table(heading, header_cells, [*current_rows, row_cells])
+                if len(candidate) <= self.chunk_size:
+                    current_rows.append(row_cells)
+                    continue
+                if current_rows:
+                    append_chunk(
+                        render_table(heading, header_cells, current_rows),
+                        worksheet_name,
+                    )
+                    current_rows = []
+                single_row = render_table(heading, header_cells, [row_cells])
+                if len(single_row) <= self.chunk_size:
+                    current_rows.append(row_cells)
+                else:
+                    append_wide_row(
+                        heading,
+                        worksheet_name,
+                        header_cells,
+                        row_cells,
+                    )
+            if current_rows:
+                append_chunk(
+                    render_table(heading, header_cells, current_rows),
+                    worksheet_name,
+                )
 
         return chunks
 
@@ -394,6 +592,7 @@ class VectorStore:
     async def _set_tenant_context(self, session: Any, tenant_id: str | None) -> None:
         if tenant_id:
             from sqlalchemy import text
+
             await session.execute(text("SELECT set_current_tenant(:tid)"), {"tid": str(tenant_id)})
 
     async def add_chunks(
@@ -474,9 +673,7 @@ class VectorStore:
                 chunk_text = chunk["text"]
                 chunk_index = meta["chunk_index"]
                 source_revision = meta["source_revision"]
-                chunk_identity = (
-                    f"{tenant_id}|{last_doc_id}|{source_revision}|{chunk_index}|{chunk_text}"
-                )
+                chunk_identity = f"{tenant_id}|{last_doc_id}|{source_revision}|{chunk_index}|{chunk_text}"
                 if index_revision_id is not None:
                     chunk_identity += f"|{index_revision_id}|{reindex_run_id}"
                 chunk_id = hashlib.sha256(chunk_identity.encode("utf-8")).hexdigest()
@@ -485,26 +682,26 @@ class VectorStore:
                         space=embedding_batch.space,
                         native_dimensions=embedding_batch.native_dimensions,
                         storage_dimensions=embedding_batch.storage_dimensions,
-                        content_sha256=hashlib.sha256(
-                            chunk_text.encode("utf-8")
-                        ).hexdigest(),
+                        content_sha256=hashlib.sha256(chunk_text.encode("utf-8")).hexdigest(),
                         source_revision=source_revision,
                         indexed_at=indexed_at,
                     )
                 )
-                rows.append({
-                    "id": chunk_id,
-                    "tenant_id": tenant_id,
-                    "doc_id": last_doc_id,
-                    "text": chunk_text,
-                    "headings": meta.get("headings", ""),
-                    "doc_name": meta.get("doc_name", ""),
-                    "embedding": str(list(vector)),
-                    "chunk_index": chunk_index,
-                    "embedding_index_revision_id": index_revision_id,
-                    "embedding_reindex_run_id": reindex_run_id,
-                    **provenance,
-                })
+                rows.append(
+                    {
+                        "id": chunk_id,
+                        "tenant_id": tenant_id,
+                        "doc_id": last_doc_id,
+                        "text": chunk_text,
+                        "headings": meta.get("headings", ""),
+                        "doc_name": meta.get("doc_name", ""),
+                        "embedding": str(list(vector)),
+                        "chunk_index": chunk_index,
+                        "embedding_index_revision_id": index_revision_id,
+                        "embedding_reindex_run_id": reindex_run_id,
+                        **provenance,
+                    }
+                )
                 inserted += 1
             insert_stmt = text(
                 """INSERT INTO document_embeddings (
@@ -543,7 +740,7 @@ class VectorStore:
                    WHERE document_embeddings.tenant_id = EXCLUDED.tenant_id"""
             )
             for start in range(0, len(rows), 100):
-                await session.execute(insert_stmt, rows[start:start + 100])
+                await session.execute(insert_stmt, rows[start : start + 100])
             # IMPORTANT: explicit flush before the SELECT below. Without it,
             # SQLAlchemy's text() SELECT inside the same session may not see
             # the freshly-INSERTed rows in asyncpg — the unit-of-work
@@ -565,6 +762,7 @@ class VectorStore:
             # active through the tenant context, so a cross-tenant conflict or
             # incomplete write cannot be mistaken for success.
             from app.core.db import async_session_factory as _fresh_factory
+
             async with _fresh_factory() as fresh:
                 await self._set_tenant_context(fresh, tenant_id)
                 verification_sql = (
@@ -706,24 +904,27 @@ class VectorStore:
             rows = result.fetchall()
 
         documents = [[row[1] for row in rows]]
-        metadatas = [[{
-            "chunk_id": str(row[0]),
-            "doc_id": str(row[2]),
-            "tenant_id": str(row[3]),
-            "doc_name": row[4],
-            "headings": row[5],
-            "embedding_provider": row[6],
-            "embedding_model": row[7],
-            "embedding_revision": row[8],
-            "embedding_native_dimensions": row[9],
-            "embedding_storage_dimensions": row[10],
-            "embedding_content_sha256": row[11],
-            "embedding_source_revision": row[12],
-            "embedding_indexed_at": (
-                row[13].isoformat() if hasattr(row[13], "isoformat") else str(row[13])
-            ),
-            "chunk_index": row[14],
-        } for row in rows]]
+        metadatas = [
+            [
+                {
+                    "chunk_id": str(row[0]),
+                    "doc_id": str(row[2]),
+                    "tenant_id": str(row[3]),
+                    "doc_name": row[4],
+                    "headings": row[5],
+                    "embedding_provider": row[6],
+                    "embedding_model": row[7],
+                    "embedding_revision": row[8],
+                    "embedding_native_dimensions": row[9],
+                    "embedding_storage_dimensions": row[10],
+                    "embedding_content_sha256": row[11],
+                    "embedding_source_revision": row[12],
+                    "embedding_indexed_at": (row[13].isoformat() if hasattr(row[13], "isoformat") else str(row[13])),
+                    "chunk_index": row[14],
+                }
+                for row in rows
+            ]
+        ]
         distances = [[row[15] for row in rows]]
 
         return {"documents": documents, "metadatas": metadatas, "distances": distances}
@@ -760,9 +961,7 @@ class VectorStore:
             "tenant_id": tenant_id,
             "limit": limit,
         }
-        placeholders = ", ".join(
-            f":doc_id_{index}" for index in range(len(unique_doc_ids))
-        )
+        placeholders = ", ".join(f":doc_id_{index}" for index in range(len(unique_doc_ids)))
         for index, doc_id in enumerate(unique_doc_ids):
             params[f"doc_id_{index}"] = doc_id
 
@@ -817,9 +1016,7 @@ class VectorStore:
                     "embedding_storage_dimensions": row[10],
                     "embedding_content_sha256": row[11],
                     "embedding_source_revision": row[12],
-                    "embedding_indexed_at": (
-                        row[13].isoformat() if hasattr(row[13], "isoformat") else str(row[13])
-                    ),
+                    "embedding_indexed_at": (row[13].isoformat() if hasattr(row[13], "isoformat") else str(row[13])),
                     "chunk_index": row[14],
                     "postgres_fts_score": float(row[15]),
                 },
@@ -891,9 +1088,7 @@ class VectorStore:
                     "embedding_storage_dimensions": row[10],
                     "embedding_content_sha256": row[11],
                     "embedding_source_revision": row[12],
-                    "embedding_indexed_at": (
-                        row[13].isoformat() if hasattr(row[13], "isoformat") else str(row[13])
-                    ),
+                    "embedding_indexed_at": (row[13].isoformat() if hasattr(row[13], "isoformat") else str(row[13])),
                     "chunk_index": row[14],
                 },
             )
@@ -974,9 +1169,7 @@ class VectorStore:
                     "embedding_storage_dimensions": row[10],
                     "embedding_content_sha256": row[11],
                     "embedding_source_revision": row[12],
-                    "embedding_indexed_at": (
-                        row[13].isoformat() if hasattr(row[13], "isoformat") else str(row[13])
-                    ),
+                    "embedding_indexed_at": (row[13].isoformat() if hasattr(row[13], "isoformat") else str(row[13])),
                     "chunk_index": row[14],
                 },
             )
@@ -1041,6 +1234,7 @@ class EmbeddingsProvider:
     async def _get_client(self) -> ResilientEmbeddingsClient:
         if self._client is None:
             from app.modules.ai.llm_client import ResilientEmbeddingsClient
+
             self._client = await ResilientEmbeddingsClient.from_settings_async(
                 tenant_id=self.tenant_id,
             )
@@ -1049,13 +1243,13 @@ class EmbeddingsProvider:
     async def embed(self, texts: list[str]) -> list[list[float]]:
         """Get embeddings with automatic failover from Qwen to Voyage."""
         from app.modules.ai.llm_client import AllProvidersFailedError
+
         try:
             client = await self._get_client()
             return await client.embed_documents(texts)
         except AllProvidersFailedError:
             logger.error(
-                "[EMBED_FAILOVER] All cloud embedding providers failed; "
-                "document cannot be indexed semantically"
+                "[EMBED_FAILOVER] All cloud embedding providers failed; " "document cannot be indexed semantically"
             )
             raise
 
@@ -1068,22 +1262,19 @@ class EmbeddingsProvider:
             return await client.embed_documents_with_provenance(texts)
         except AllProvidersFailedError:
             logger.error(
-                "[EMBED_FAILOVER] All cloud embedding providers failed; "
-                "document cannot be indexed semantically"
+                "[EMBED_FAILOVER] All cloud embedding providers failed; " "document cannot be indexed semantically"
             )
             raise
 
     async def embed_query(self, text: str) -> list[float]:
         """Embed a single query."""
         from app.modules.ai.llm_client import AllProvidersFailedError
+
         try:
             client = await self._get_client()
             return await client.embed_query(text)
         except AllProvidersFailedError:
-            logger.error(
-                "[EMBED_FAILOVER] All cloud embedding providers failed; "
-                "semantic query cannot be executed"
-            )
+            logger.error("[EMBED_FAILOVER] All cloud embedding providers failed; " "semantic query cannot be executed")
             raise
 
     async def embed_query_with_provenance(self, text: str) -> EmbeddingBatchResult:
@@ -1094,10 +1285,7 @@ class EmbeddingsProvider:
             client = await self._get_client()
             return await client.embed_query_with_provenance(text)
         except AllProvidersFailedError:
-            logger.error(
-                "[EMBED_FAILOVER] All cloud embedding providers failed; "
-                "semantic query cannot be executed"
-            )
+            logger.error("[EMBED_FAILOVER] All cloud embedding providers failed; " "semantic query cannot be executed")
             raise
 
 
@@ -1176,8 +1364,7 @@ class DocumentIngestion:
                     "The OCR service is currently unavailable; retry after it is restored."
                 )
             raise DocumentNoContentError(
-                "Document conversion produced no indexable text. "
-                "Upload a document containing readable text."
+                "Document conversion produced no indexable text. " "Upload a document containing readable text."
             )
 
         # Step 3: Embed (Qwen → Voyage → hash fallback)
@@ -1195,8 +1382,7 @@ class DocumentIngestion:
             embedding_batch = await embedding_provider.embed_documents_with_provenance(texts)
             embeddings = embedding_batch.as_lists()
             print(
-                f"[INGEST] embedded {len(embeddings)} vectors "
-                f"(dim={len(embeddings[0]) if embeddings else 0})",
+                f"[INGEST] embedded {len(embeddings)} vectors " f"(dim={len(embeddings[0]) if embeddings else 0})",
                 flush=True,
             )
         except Exception as e:

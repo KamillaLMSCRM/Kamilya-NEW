@@ -15,6 +15,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.5.5] - 2026-09-12
+
+### Changed
+
+- Structured lessons now receive a question count proportional to their actual
+  source facts, avoiding padded or repetitive tests for compact material.
+- Large comparison worksheets can be split across bounded chunks and assembled
+  back into one coherent, source-grounded course structure.
+
+### Fixed
+
+- Very wide Excel rows, including unusually long cells or labels, no longer
+  exceed the indexing chunk limit or silently lose their table meaning.
+- Source-note rows are no longer rendered as lesson topics or learner content.
+- Local critical-journey checks no longer attempt to use workstation PostgreSQL;
+  database verification is explicitly separated into CI and Supabase DEV paths.
+
 ## [0.5.4] - 2026-09-12
 
 ### Fixed

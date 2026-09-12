@@ -18,10 +18,13 @@ be added later if integration flows need them.
 from __future__ import annotations
 
 import os
+import sys
 from collections.abc import AsyncIterator, Callable
 from typing import Any
+from urllib.parse import urlparse
 from uuid import UUID, uuid4
 
+import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
@@ -44,6 +47,23 @@ os.environ.setdefault("PROVIDER_KEY_ENCRYPTION_KEY", "ZGV2X2tleV9tdXN0X2JlXzMyX2
 os.environ.setdefault("MASTER_ENCRYPTION_KEY", "ZGV2X2tleV9tdXN0X2JlXzMyX2J5dGVzX2xvbmc=")
 
 
+def _forbidden_local_postgres(
+    database_url: str,
+    *,
+    explicitly_allowed: bool,
+    github_actions: bool,
+    platform: str,
+) -> bool:
+    """Block workstation DB fixtures before a localhost connection is attempted."""
+
+    parsed = urlparse(database_url)
+    return (
+        not (explicitly_allowed and github_actions and platform != "win32")
+        and parsed.scheme.startswith("postgresql")
+        and parsed.hostname in {"localhost", "127.0.0.1", "::1"}
+    )
+
+
 @pytest_asyncio.fixture(scope="function")
 async def db_session() -> AsyncIterator[AsyncSession]:
     """Function-scoped async session, isolated by outer-transaction rollback.
@@ -53,6 +73,18 @@ async def db_session() -> AsyncIterator[AsyncSession]:
     Any commit() inside the test becomes a savepoint — visible to the test
     but discarded at teardown so other tests never see it.
     """
+    if _forbidden_local_postgres(
+        os.environ["DATABASE_URL"],
+        explicitly_allowed=os.getenv("KAMILYA_ALLOW_EPHEMERAL_CI_POSTGRES") == "1",
+        github_actions=os.getenv("GITHUB_ACTIONS") == "true",
+        platform=sys.platform,
+    ):
+        pytest.fail(
+            "local_postgresql_forbidden: use the isolated Supabase DEV gate; "
+            "only CI may set KAMILYA_ALLOW_EPHEMERAL_CI_POSTGRES=1",
+            pytrace=False,
+        )
+
     from app.core.db import async_session_factory, engine
 
     async with engine.connect() as connection:
