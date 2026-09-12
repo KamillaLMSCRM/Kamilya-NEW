@@ -15,6 +15,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.5.11] - 2026-09-12
+
+### Changed
+
+- Production web and API security policies no longer trust the retired legacy
+  LMS/CDN hostnames.
+- Deployment documentation now describes the native CT137 frontend and the KZ
+  VM126/CT125 backend path instead of the superseded Render/Vercel topology.
+
+### Fixed
+
+- The production frontend release now includes the exact generation progress
+  from `63ed5fd8` and long-running document polling from the accepted 0.5.x
+  release history, which were not present in the previous CT137 frontend
+  deployment (`a507e17b`).
+
+### Security
+
+- Removed the obsolete `lms.kml.kz` and `cdn.lms.kml.kz` origins from active
+  Content Security Policy and image-host configuration.
+- Production browser connections are restricted to `api.kml.kz`; the isolated
+  DEV build derives its own API origin instead of broadening production CSP.
+
 ## [0.5.10] - 2026-09-12
 
 ### Changed

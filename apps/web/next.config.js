@@ -17,14 +17,6 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: false,
   },
-  images: {
-    remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: 'cdn.lms.kml.kz',
-      },
-    ],
-  },
   // The isolated dev Vercel project must never call the production API,
   // even if its dashboard environment variable drifts to api.kml.kz.
   env: {
@@ -34,7 +26,7 @@ const nextConfig = {
     return [
       {
         source: '/:path*',
-        headers: buildSecurityHeaders(),
+        headers: buildSecurityHeaders({ apiUrl }),
       },
     ];
   },

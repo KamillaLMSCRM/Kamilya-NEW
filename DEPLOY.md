@@ -1,214 +1,89 @@
-# Kamilya LMS Production Deployment
+# Kamilya LMS production deployment
 
-Актуально на 2026-07-29.
+This entrypoint describes the current KZ production contour. Exact release
+identity, open gates and accepted evidence live in
+[`docs/PRODUCTION_READINESS.md`](docs/PRODUCTION_READINESS.md); environment and
+access ownership live in
+[`docs/PROJECT-CONTEXT.md`](docs/PROJECT-CONTEXT.md).
 
-Текущие release blockers ведутся в
-[`docs/PRODUCTION_READINESS.md`](docs/PRODUCTION_READINESS.md).
+## Current topology
 
-## Production Topology
-
-| Component | Runtime |
+| Component | Production runtime |
 |---|---|
-| Web | Vercel, `https://app.kml.kz` |
-| API | Render, service `kamilya-lms-api`, id `srv-d8rp8ej7uimc73fglid0` |
-| DB | Supabase Postgres, pooler `aws-1-eu-central-1.pooler.supabase.com` |
-| Storage | Supabase Storage, bucket `Kamilya LMS` |
-| Queue/cache | Valkey on VPS `173.249.51.164`, TLS port `6380` |
-| Worker | VPS `173.249.51.164`, systemd `kamilya-worker` |
-| Docling | VPS service, `docling.kml.kz` |
-| WhatsApp gateway | VPS service, `wa.kml.kz` |
+| Public application | `https://app.kml.kz`; Cloudflare DNS-only -> KZ proxy -> WireGuard -> CT137 |
+| Public landing | `https://kml.kz` / `https://www.kml.kz`; KZ proxy -> WireGuard -> separate native Next.js service on CT137 |
+| Frontend | Native Next.js/OpenRC/Nginx on CT137 `webkml`, without Docker |
+| API | `https://api.kml.kz/api`; KZ proxy -> WireGuard -> VM126 FastAPI |
+| Workers and queue | Three Celery workers plus Valkey on VM126; API and workers must use one exact image/SHA |
+| Database | Private-only PostgreSQL 17 + pgvector on CT125 |
+| File runtime | Shared API/worker storage on VM126 with encrypted backup |
+| Document conversion | Internal authenticated Docling service; no public hostname is part of the application path |
 
-The old single-VPS Docker Compose deployment is not the production architecture.
+The public proxy is ingress and SSH transport only. Do not build, install or run
+application services there. Vercel project `web` is a rollback artifact, not the
+current production frontend. Render/Supabase are dev/demo or explicitly chosen
+rollback contours and do not prove KZ production state.
 
-## Secrets
+## Required release boundary
 
-Do not commit secrets.
+1. Bind owner approval to one exact SHA, previous SHA/image, service set,
+   migration mode, rollback and smoke/cleanup scope.
+2. Run the deterministic release evidence gate and independently verify its
+   references.
+3. Push only through the canonical Kamilya GitHub credential path in
+   [`AGENTS.md`](AGENTS.md), then read back the remote SHA.
+4. Require successful GitHub CI and immutable artifacts for that same SHA.
+5. For backend/API/worker deployment follow
+   [`.codex/skills/kamilya-production-deploy/SKILL.md`](.codex/skills/kamilya-production-deploy/SKILL.md).
+6. For frontend deployment follow
+   [`docs/runbooks/ct137-native-frontend-deploy.md`](docs/runbooks/ct137-native-frontend-deploy.md).
+7. Independently verify public/private health, all API/worker image identities,
+   CT137 `/healthz`, the changed user journey and disposable cleanup.
 
-Required backend env:
+Dirty working-tree files are never release input. Build backend and frontend
+artifacts from the exact Git object. Do not use blind `git pull`, interactive
+guest console, local Docker PostgreSQL or a provider dashboard as a substitute
+for the documented release path.
 
-```env
-DATABASE_URL=postgres://lms_app.<project-ref>:<password>@aws-1-eu-central-1.pooler.supabase.com:5432/postgres
-MIGRATION_DATABASE_URL=postgres://postgres.<project-ref>:<password>@aws-1-eu-central-1.pooler.supabase.com:5432/postgres
-ASSIGNMENT_RECOVERY_DATABASE_URL=postgres://lms_recovery.<project-ref>:<password>@aws-1-eu-central-1.pooler.supabase.com:5432/postgres
-CANDIDATE_RETENTION_DATABASE_URL=postgres://lms_candidate_retention.<project-ref>:<password>@aws-1-eu-central-1.pooler.supabase.com:5432/postgres
-REDIS_URL=...
-JWT_SECRET=...
-ASSIGNMENT_ACCESS_SESSION_MINUTES=240  # no-email assignment access; 30–480 minutes, no refresh cookie
-SUPABASE_URL=...
-SUPABASE_KEY=...
-SUPABASE_BUCKET=Kamilya LMS
-STORAGE_BACKEND=supabase
-PUBLIC_URL=https://app.kml.kz
-CORS_ORIGINS=["https://app.kml.kz","https://www.kml.kz"]
-EMAIL_PROVIDER=resend
-RESEND_API_KEY=...
-EMAIL_FROM=Kamilya LMS <no-reply@notify.kml.kz>
-```
+## Migration and data rules
 
-Rules:
+- Default mode is `no-migration`. CT125 may change only under an exact approved
+  migration node with fresh backup/restore and rollback evidence.
+- Runtime DB access uses the restricted `lms_app` role and tenant/RLS context.
+- PostgreSQL, Valkey and internal file/document services are not published to
+  the Internet.
+- Never place secrets in commands, Git, release archives, logs or documentation.
 
-- `DATABASE_URL` is runtime only and must use `lms_app`.
-- `MIGRATION_DATABASE_URL` is for Alembic and may use admin DB role.
-- `ASSIGNMENT_RECOVERY_DATABASE_URL` is used only by the bounded assignment-email recovery timer. It must use the dedicated `lms_recovery` role, which has schema usage and execute permission only on the global due-inventory function; never reuse it in the web API.
-- `CANDIDATE_RETENTION_DATABASE_URL` is used only by the hourly candidate-retention timer. It must use `lms_candidate_retention`, which receives schema usage and execute permission only on the bounded enforcement function. Never give this role table access and never reuse it in the API.
-- Supabase service role key stays backend-only.
-- Frontend must never receive service role secrets.
-- `RESEND_API_KEY` stays backend-only. Do not expose it in frontend env or docs.
+## Frontend release
 
-## Backend Deploy On Render
+GitHub workflow `build-native-frontend.yml` builds the exact accepted SHA for
+Linux x64/musl with `NEXT_PUBLIC_API_URL=https://api.kml.kz/api`. The workstation
+stages the digest-bound archive and manifest through
+`scripts/ops/ct137_native_deploy.py`; the restricted CT137 helper validates
+capacity, preserves the current rollback release and atomically switches the
+native service. A Proxmox login is not part of routine deployment.
 
-Render service:
+Acceptance requires `https://app.kml.kz/healthz` to return the full target SHA
+and a browser check of the changed authenticated flow. A marker or HTTP 200 alone
+is insufficient.
 
-```text
-srv-d8rp8ej7uimc73fglid0
-https://kamilya-lms-api.onrender.com
-```
+## Backend release
 
-Deploy command through Render API:
+The protected KZ release path deploys one immutable image to VM126 and recreates
+only the approved API and three worker services. All four containers must report
+the same full release SHA and image digest. Private health precedes public health;
+failure, mixed identity or timeout triggers the reviewed rollback path.
 
-```powershell
-$env:RENDER_SERVICE_ID = "srv-d8rp8ej7uimc73fglid0"
-$headers = @{
-  Authorization = "Bearer $env:RENDER_API_KEY"
-  Accept = "application/json"
-}
-
-Invoke-RestMethod `
-  -Uri "https://api.render.com/v1/services/$env:RENDER_SERVICE_ID/deploys" `
-  -Method POST `
-  -Headers $headers
-```
-
-Health check:
-
-```powershell
-Invoke-WebRequest `
-  -Uri "https://kamilya-lms-api.onrender.com/" `
-  -Method Head `
-  -UseBasicParsing
-
-Invoke-WebRequest `
-  -Uri "https://kamilya-lms-api.onrender.com/api/v1/health" `
-  -UseBasicParsing
-```
-
-Expected:
-
-```json
-{"status":"ok","app":"Kamilya LMS"}
-```
-
-## Database Migrations
-
-Alembic reads `MIGRATION_DATABASE_URL` when it is set:
-
-```powershell
-cd apps/api
-python -m alembic -c alembic.ini current
-python -m alembic -c alembic.ini upgrade head
-```
-
-Production DDL has no best-effort HTTP startup path:
-
-- Render owns migrations through `preDeployCommand`;
-- the API Docker command runs `alembic upgrade head` before Uvicorn and fails
-  closed;
-- `app.main` must not invoke Alembic from FastAPI lifespan.
-
-Do not apply raw `alembic check` autogenerate suggestions until the tracked
-ORM/history drift is reconciled; the current historical schema includes
-SQL-only objects such as `document_embeddings`.
-
-Current production state:
-
-```text
-0079 (head)
-```
-
-## Frontend Deploy On Vercel
-
-Vercel project:
-
-```text
-web
-prj_hJMzgp9QNFCwUMrsDEBZINpJJzBp
-```
-
-Required frontend env:
-
-```env
-NEXT_PUBLIC_API_URL=https://kamilya-lms-api.onrender.com/api
-NEXT_PUBLIC_SUPABASE_URL=...
-NEXT_PUBLIC_SUPABASE_ANON_KEY=...
-```
-
-Build check:
-
-```powershell
-cd apps/web
-.\node_modules\.bin\tsc.cmd --noEmit
-.\node_modules\.bin\next.cmd build
-```
-
-## VPS Worker
-
-Worker runs outside Render:
-
-```bash
-systemctl status kamilya-worker
-journalctl -u kamilya-worker -f
-```
-
-Deployment/update выполняется только на выбранный release SHA:
-
-```bash
-cd /opt/kamilya-worker
-git fetch origin master
-git checkout --detach <release_sha>
-poetry install --only main --no-interaction
-poetry run python -m compileall -q app
-systemctl restart kamilya-worker.service
-systemctl is-active kamilya-worker.service
-```
-
-Не использовать слепой `git pull`: frontend/API docs-only commit и worker могут
-иметь разные зависимости. Полная процедура, smoke и rollback описаны в
-[`docs/INFRA_CELERY_WORKER.md`](docs/INFRA_CELERY_WORKER.md).
-
-The worker env is `/opt/kamilya-worker/apps/api/.env`. It must use the same
-`DATABASE_URL` / `MIGRATION_DATABASE_URL` split, `REDIS_URL`,
-`SUPABASE_URL`, `SUPABASE_KEY`, `SUPABASE_BUCKET` and
-`STORAGE_BACKEND=supabase` as Render. Without storage parity, document
-ingestion, reindex, cleanup and hash backfill run against the VPS local disk
-instead of the production bucket. Valkey is exposed only through TLS with
-certificate verification enabled; do not replace it with a plaintext URL.
-
-Queue/cache checks:
-
-```bash
-systemctl status valkey-server
-systemctl status valkey-certbot-renew.timer
-redis-cli --tls -u "$REDIS_URL" PING
-```
-
-Valkey uses AOF persistence, `appendfsync everysec` and `maxmemory-policy noeviction`. Monitor memory, rejected writes, queue length and certificate renewal before releases that increase AI load.
+For no-migration releases CT125 remains unchanged, but current revision and
+backup/rollback readiness are still read back according to the selected release
+profile.
 
 ## Rollback
 
-Render:
-
-1. Open Render service `kamilya-lms-api`.
-2. Roll back to the previous successful deploy.
-3. If the issue is DB env related, restore previous env value from password manager or Render env history.
-
-VPS worker:
-
-1. Переключить checkout на записанный предыдущий SHA.
-2. Восстановить зависимости для этого SHA.
-3. Restart `kamilya-worker.service`.
-4. Проверить ping, registered tasks и прикладной smoke.
-
-Database:
-
-- Do not downgrade production migrations unless the migration has an explicit tested downgrade path.
-- Prefer forward fix migrations.
+- Frontend: use the previous verified CT137 release retained by the native
+  helper; Vercel remains a separate emergency rollback option only when
+  explicitly selected.
+- Backend: redeploy the recorded previous immutable image/source using the same
+  protected controller and verify API/worker identity again.
+- Database: prefer an additive forward fix. Do not downgrade a migration unless
+  its downgrade path was explicitly approved and tested.

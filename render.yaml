@@ -105,6 +105,6 @@ services:
     healthCheckPath: /api/v1/health
     autoDeploy: true
 
-  # Celery worker: deployed on the project VPS (173.249.51.164, Ubuntu 24.04)
-  # as a systemd unit, NOT as a Render Worker Service. See
-  # docs/INFRA_CELERY_WORKER.md for full setup instructions.
+  # This Render service belongs to the non-production dev/demo contour.
+  # KZ production workers run with the production API on VM126; see
+  # docs/PROJECT-CONTEXT.md and the production deployment skill.

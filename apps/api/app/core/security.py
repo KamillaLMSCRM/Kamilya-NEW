@@ -28,7 +28,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         "style-src": "'self' 'unsafe-inline'",
         "img-src": "'self' data: https:",
         "font-src": "'self'",
-        "connect-src": "'self' https://api.kml.kz https://lms.kml.kz wss:",
+        "connect-src": "'self' https://api.kml.kz wss:",
         "frame-ancestors": "'none'",
         "base-uri": "'self'",
         "form-action": "'self'",

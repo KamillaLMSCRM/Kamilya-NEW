@@ -1,3 +1,5 @@
+const PRODUCTION_API_ORIGIN = 'https://api.kml.kz';
+
 const productionDirectives = [
   "default-src 'self'",
   "base-uri 'self'",
@@ -6,21 +8,42 @@ const productionDirectives = [
   "form-action 'self'",
   "script-src 'self' 'unsafe-inline'",
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob: https://cdn.lms.kml.kz",
+  "img-src 'self' data: blob:",
   "font-src 'self' data:",
   "media-src 'self' blob:",
-  "connect-src 'self' https://api.kml.kz https://kamilya-lms-api.onrender.com",
+  `connect-src 'self' ${PRODUCTION_API_ORIGIN}`,
   "frame-src 'self' https://scorm.kml.kz",
   "worker-src 'self' blob:",
   "manifest-src 'self'",
 ];
 
-function buildSecurityHeaders({ isDevelopment = process.env.NODE_ENV === 'development' } = {}) {
-  const directives = isDevelopment
-    ? productionDirectives.map((directive) =>
-        directive.startsWith('script-src') ? `${directive} 'unsafe-eval'` : directive,
-      )
-    : productionDirectives;
+function resolveApiOrigin(apiUrl) {
+  if (!apiUrl) return PRODUCTION_API_ORIGIN;
+
+  try {
+    const parsed = new URL(apiUrl);
+    return parsed.protocol === 'https:' || parsed.protocol === 'http:'
+      ? parsed.origin
+      : PRODUCTION_API_ORIGIN;
+  } catch {
+    return PRODUCTION_API_ORIGIN;
+  }
+}
+
+function buildSecurityHeaders({
+  isDevelopment = process.env.NODE_ENV === 'development',
+  apiUrl,
+} = {}) {
+  const apiOrigin = resolveApiOrigin(apiUrl);
+  const directives = productionDirectives.map((directive) => {
+    if (directive.startsWith('connect-src')) {
+      return `connect-src 'self' ${apiOrigin}`;
+    }
+    if (isDevelopment && directive.startsWith('script-src')) {
+      return `${directive} 'unsafe-eval'`;
+    }
+    return directive;
+  });
 
   return [
     { key: 'Content-Security-Policy', value: directives.join('; ') },
@@ -35,4 +58,4 @@ function buildSecurityHeaders({ isDevelopment = process.env.NODE_ENV === 'develo
   ];
 }
 
-module.exports = { buildSecurityHeaders };
+module.exports = { buildSecurityHeaders, resolveApiOrigin };

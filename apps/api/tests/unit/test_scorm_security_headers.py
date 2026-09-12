@@ -42,3 +42,5 @@ def test_only_isolated_scorm_origin_is_frameable(monkeypatch):
         trusted_api = client.get("/api/v1/scorm/packages/pkg/launch")
     assert trusted_api.headers["x-frame-options"] == "DENY"
     assert "frame-ancestors 'none'" in trusted_api.headers["content-security-policy"]
+    assert "https://api.kml.kz" in trusted_api.headers["content-security-policy"]
+    assert "lms.kml.kz" not in trusted_api.headers["content-security-policy"]
