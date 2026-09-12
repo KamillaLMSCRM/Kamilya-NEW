@@ -2070,3 +2070,9 @@ contract or establish a blocker.
   production worker: exact route, model identity, one bounded synthetic inference,
   dimensions, fallback order and rollback. Preserve the proven route until all
   checks pass, and keep a source-level regression for the production default.
+- Resolution follow-up (2026-09-12): a separate ASUS peer was connected to the
+  existing KZ WireGuard hub without modifying the active VM126/CT137 peers.
+  VM126 reached a private hub listener, model discovery returned the exact
+  Qwen/Qwen3-Embedding-8B identifier, and a real synthetic embedding returned
+  one finite 4096-dimensional vector. Release 0.5.8 makes this verified private
+  route the default; no public embedding hostname is required.

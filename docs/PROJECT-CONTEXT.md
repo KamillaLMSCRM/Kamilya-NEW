@@ -191,6 +191,10 @@ KZ production management/ingress path
        separate native Next.js landing service, no Docker
   -> api.kml.kz -> VM126 / 10.77.77.2:8000
        API + Celery workers + Valkey + local file runtime
+  -> private embedding route:
+       VM126 -> KZ hub / 10.77.77.1:18001
+       -> ASUS connector / 10.77.77.4:18001
+       -> Qwen embedding runtime / 10.66.66.15:8001
   -> private DB path
   -> CT125: native PostgreSQL 17 + pgvector + encrypted backup
 ```
@@ -207,6 +211,13 @@ redirect и внешний HTTPS `/health` вернул 200. После tenant/b
 `69ef25c3383ddd35443e621618c640d708c867ba`, что и предыдущий frontend.
 Render/Supabase остаются dev/demo-контуром и не являются production backend
 для `app.kml.kz`.
+
+12.09.2026 production VM126 получил отдельный приватный маршрут к
+Qwen/Qwen3-Embedding-8B. Модель не публикуется через домен: documents worker
+обращается к 10.77.77.1:18001, KZ proxy выполняет только внутреннее
+проксирование к отдельному WireGuard peer 10.77.77.4, а peer передаёт запрос
+в существующий ASUS-контур на 10.66.66.15:8001. Действующие peers VM126 и
+CT137 не изменены; публичный embedding hostname в runtime больше не нужен.
 
 ### Действующая production-схема после frontend cutover 2026-09-07
 

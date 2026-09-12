@@ -15,6 +15,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.5.8] - 2026-09-12
+
+### Changed
+
+- Production document indexing now reaches the dedicated Qwen embedding model
+  through the private KZ WireGuard hub instead of a public embedding hostname.
+- The provider uses the exact model identifier published by the private vLLM
+  endpoint.
+
+### Fixed
+
+- Future exact-image deployments retain the verified private embedding route
+  as their default instead of silently reverting to the former public gateway.
+
 ## [0.5.7] - 2026-09-12
 
 ### Fixed

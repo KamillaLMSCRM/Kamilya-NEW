@@ -1,6 +1,6 @@
 # Kamilya LMS: VPS и подключённые сервисы
 
-**Обновлено:** 2026-09-07
+**Обновлено:** 2026-09-12
 **Правило:** этот документ описывает только подтверждённое текущее состояние.
 Значения паролей, ключей и URL с credentials не приводятся.
 
@@ -83,6 +83,7 @@ credentials.
 | CT137 `webkml` | Proxmox node `pve3`; native Next.js production frontend, без Docker |
 | Public KZ proxy | Только TLS/Nginx ingress, WireGuard hub и SSH transit для `kml.kz`/`www.kml.kz`/`app.kml.kz`/`api.kml.kz`; application runtime запрещён |
 | VM126 | FastAPI, три Celery worker, Valkey и общий файловый runtime |
+| ASUS connector 10.77.77.4 | Отдельный WireGuard peer; передаёт только private embedding traffic к 10.66.66.15:8001 |
 | CT125 | Native PostgreSQL 17 + pgvector и encrypted backup |
 | Vercel project `web` | Frontend rollback artifact, не текущий `app.kml.kz` runtime |
 | Vercel `kamilya-lms-dev` | Изолированный dev frontend |
@@ -90,6 +91,22 @@ credentials.
 | Docling | Conversion of supported office/PDF sources when enabled |
 | Resend | Transactional email |
 | Telegram | Alternative auth/invitation channel |
+
+## Private embedding route — проверено 2026-09-12
+
+- VM126 использует http://10.77.77.1:18001/v1; этот listener доступен только
+  внутри WireGuard.
+- KZ proxy остаётся только proxy/VPN hub: внутренний Nginx listener передаёт
+  запросы на отдельный peer 10.77.77.4:18001. Application runtime и модель
+  на proxy не установлены.
+- ASUS connector использует отдельный интерфейс wg-kamilya; существующий
+  ASUS wg0 не изменён. Socket relay передаёт запрос на
+  10.66.66.15:8001.
+- Из VM126 проверены /v1/models и реальный /v1/embeddings: опубликована
+  модель Qwen/Qwen3-Embedding-8B, один синтетический запрос вернул 4096
+  конечных значений.
+- Для маршрута не требуется публичный DNS или сертификат. Voyage и Cohere
+  остаются управляемыми fallback-провайдерами приложения.
 
 ## HostKZ — исторический подготовительный этап
 
