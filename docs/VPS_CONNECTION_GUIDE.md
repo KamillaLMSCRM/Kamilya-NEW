@@ -83,7 +83,7 @@ credentials.
 | CT137 `webkml` | Proxmox node `pve3`; native Next.js production frontend, без Docker |
 | Public KZ proxy | Только TLS/Nginx ingress, WireGuard hub и SSH transit для `kml.kz`/`www.kml.kz`/`app.kml.kz`/`api.kml.kz`; application runtime запрещён |
 | VM126 | FastAPI, три Celery worker, Valkey и общий файловый runtime |
-| ASUS connector 10.77.77.4 | Отдельный WireGuard peer; передаёт только private embedding traffic к 10.66.66.15:8001 |
+| ASUS connector 10.77.77.4 | Отдельный WireGuard peer; передаёт private embedding traffic к 10.66.66.15:8001 и Qwen 3.8 generation fallback к 10.66.66.30:8888 |
 | CT125 | Native PostgreSQL 17 + pgvector и encrypted backup |
 | Vercel project `web` | Frontend rollback artifact, не текущий `app.kml.kz` runtime |
 | Vercel `kamilya-lms-dev` | Изолированный dev frontend |
@@ -105,6 +105,16 @@ credentials.
 - Из VM126 проверены /v1/models и реальный /v1/embeddings: опубликована
   модель Qwen/Qwen3-Embedding-8B, один синтетический запрос вернул 4096
   конечных значений.
+
+## Private Qwen 3.8 generation route — проверено 2026-09-12
+
+- VM126 использует http://10.77.77.1:18002/v1; listener доступен только внутри
+  WireGuard и не имеет DNS-имени.
+- KZ proxy выполняет только внутреннее проксирование к
+  10.77.77.4:18002; модель и application runtime на proxy не установлены.
+- ASUS socket relay передаёт запрос к 10.66.66.30:8888.
+- Из VM126 подтверждены точный model ID `qwen3.8-flash-next` и реальный
+  `/v1/chat/completions` с отключённым thinking.
 - Для маршрута не требуется публичный DNS или сертификат. Voyage и Cohere
   остаются управляемыми fallback-провайдерами приложения.
 

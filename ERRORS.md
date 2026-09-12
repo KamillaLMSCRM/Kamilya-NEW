@@ -2076,3 +2076,21 @@ contract or establish a blocker.
   Qwen/Qwen3-Embedding-8B identifier, and a real synthetic embedding returned
   one finite 4096-dimensional vector. Release 0.5.9 makes this verified private
   route the default; no public embedding hostname is required.
+
+## AI-GENERATION-ROUTE-002 - A configured fallback was unreachable from production
+
+- Date: 2026-09-12.
+- Symptom: Qwen 3.8 was second in the persisted generation order, but its direct
+  ASUS LAN address was unreachable from VM126; a DeepSeek failure would spend
+  the connect budget and skip to the next provider.
+- Cause: workstation and ASUS-side model discovery had been treated as enough
+  evidence even though the production worker had no route to the model LAN.
+- Fix: add a separate private socket relay through the established KZ
+  WireGuard hub and set the durable default to `10.77.77.1:18002`; remove the
+  obsolete public legacy-Qwen defaults.
+- Verification: VM126 discovered exact model `qwen3.8-flash-next` and completed
+  a real chat request with thinking disabled. The embedding route on port 18001
+  and the existing VM126/CT137 peers remained unchanged.
+- Prevention: every provider admitted to the production order must pass model
+  identity and bounded inference from the actual consuming worker. A configured
+  position is not availability evidence.

@@ -15,6 +15,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.5.10] - 2026-09-12
+
+### Changed
+
+- The Qwen 3.8 generation fallback now uses the private KZ WireGuard route
+  instead of an ASUS LAN address that VM126 could not reach directly.
+- Removed the obsolete public legacy-Qwen defaults from application settings.
+
+### Fixed
+
+- The configured second generation provider is now a verified operational
+  fallback: model discovery and a real chat completion pass from VM126.
+
+### Security
+
+- Qwen generation and document embeddings no longer require public model
+  hostnames.
+
 ## [0.5.9] - 2026-09-12
 
 ### Changed

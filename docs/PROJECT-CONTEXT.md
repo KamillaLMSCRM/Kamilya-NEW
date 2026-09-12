@@ -195,6 +195,10 @@ KZ production management/ingress path
        VM126 -> KZ hub / 10.77.77.1:18001
        -> ASUS connector / 10.77.77.4:18001
        -> Qwen embedding runtime / 10.66.66.15:8001
+  -> private Qwen 3.8 generation fallback:
+       VM126 -> KZ hub / 10.77.77.1:18002
+       -> ASUS connector / 10.77.77.4:18002
+       -> Qwen 3.8 runtime / 10.66.66.30:8888
   -> private DB path
   -> CT125: native PostgreSQL 17 + pgvector + encrypted backup
 ```
@@ -218,6 +222,12 @@ Qwen/Qwen3-Embedding-8B. Модель не публикуется через д�
 проксирование к отдельному WireGuard peer 10.77.77.4, а peer передаёт запрос
 в существующий ASUS-контур на 10.66.66.15:8001. Действующие peers VM126 и
 CT137 не изменены; публичный embedding hostname в runtime больше не нужен.
+
+12.09.2026 тем же отдельным peer добавлен приватный маршрут к
+`qwen3.8-flash-next`: VM126 обращается к 10.77.77.1:18002, а ASUS connector
+передаёт запрос к 10.66.66.30:8888. Из VM126 подтверждены `/v1/models` и
+реальный `/v1/chat/completions`. Старый публичный `qwen.kml.kz` не входит в
+пользовательскую цепочку генерации и больше не является runtime-зависимостью.
 
 ### Действующая production-схема после frontend cutover 2026-09-07
 

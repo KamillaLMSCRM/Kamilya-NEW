@@ -986,14 +986,12 @@ document/course journey remains a separate owner-controlled synthetic rehearsal.
   six lessons and 21 valid questions in about five minutes. Disposable courses,
   copied documents and jobs were removed; the synthetic tenant returned to its
   exact base state.
-- `BLOCKED`: VM126 still times out to both private ASUS endpoints. Therefore the
-  configured second and third providers are not yet operational production
-  fallbacks even though their order is correct. The workstation reaches Qwen
-  `10.66.66.30:8888`, while `https://qwen.kml.kz/v1/models` still exposes only
-  the legacy Qwen model. The verified remediation requires either hub-side
-  registration of a dedicated VM126 WireGuard peer or an independently managed
-  gateway route to the new Qwen endpoint; no unverified network or DNS mutation
-  was made.
+- `PASS` (2026-09-12): VM126 reaches Qwen 3.8 through the private KZ WireGuard
+  hub at `10.77.77.1:18002`; the ASUS connector relays only to
+  `10.66.66.30:8888`. Model discovery returned `qwen3.8-flash-next`, and a real
+  chat completion succeeded with thinking disabled. The old public Qwen is not
+  part of the production provider chain. GLM remains third and requires its own
+  production-route acceptance before it is treated as a proven fallback.
 - `BLOCKED`: the 12,430,921-byte scanned Lombard PDF consistently returns
   `ocr_required`; the remote Docling service is healthy but the deployed source
   differs from the repository and returned HTTP 422 without a useful converter

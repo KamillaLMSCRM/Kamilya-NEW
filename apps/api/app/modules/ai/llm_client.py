@@ -200,30 +200,6 @@ def _free_llm_providers() -> list[LLMProviderConfig]:
     ]
 
 
-def _qwen_llm_provider() -> LLMProviderConfig:
-    s = get_settings()
-    return LLMProviderConfig(
-        name="qwen-self-hosted",
-        base_url=_openai_base_url(s.QWEN_API_URL),
-        api_key=s.LLM_API_KEY or "not-needed",
-        model=s.LLM_MODEL or "cyankiwi/Qwen3.6-35B-A3B-AWQ-4bit",
-        # Qwen-specific: disable thinking for snappier responses on
-        # structured tasks (course generation). Harmless on providers that
-        # ignore unknown chat_template_kwargs.
-        extra_body={"chat_template_kwargs": {"enable_thinking": False}},
-    )
-
-
-def _qwen_free_pool_provider() -> LLMProviderConfig:
-    """Reuse the established AWQ endpoint with the free-pool latency budget."""
-    s = get_settings()
-    return replace(
-        _qwen_llm_provider(),
-        connect_timeout=s.FREE_LLM_CONNECT_TIMEOUT_SECONDS,
-        max_retries=0,
-    )
-
-
 def _qwen38_flash_llm_provider() -> LLMProviderConfig:
     """Return the owner-selected fast ASUS fallback."""
     s = get_settings()
@@ -1257,12 +1233,14 @@ def create_llm(
     """
     if base_url is not None or api_key is not None or model is not None:
         # Legacy single-provider path (tests / one-off scripts).
+        if base_url is None or model is None:
+            raise ValueError("base_url_and_model_required_for_custom_llm")
         settings = get_settings()
         config = LLMProviderConfig(
             name="custom",
-            base_url=base_url or settings.QWEN_API_URL,
+            base_url=base_url,
             api_key=api_key or settings.LLM_API_KEY or "not-needed",
-            model=model or settings.LLM_MODEL,
+            model=model,
         )
         client = LLMClient(config, temperature=temperature, max_tokens=max_tokens)
 

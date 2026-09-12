@@ -371,9 +371,11 @@ assignment и evidence-механизмы.
 
 LLM provider routing отделён от embeddings. Резервный порядок
 `Qwen 3.8 Flash Next -> GLM 5.3 Flash` всегда следует после DeepSeek и исключает
-старый Qwen из пользовательской цепочки. Недоступные ASUS endpoint-ы
-имеют короткий connect timeout и нулевой внутренний retry. Проверка `/models`
-с рабочей станции не является production-availability evidence. Полный
+старый Qwen из пользовательской цепочки. Qwen 3.8 доступен production через
+приватный KZ WireGuard hub; GLM пока остаётся неподтверждённым третьим
+fallback. Недоступные ASUS endpoint-ы имеют короткий connect timeout и нулевой
+внутренний retry. Проверка `/models` с рабочей станции не является
+production-availability evidence. Полный
 контракт закреплён в [ADR-0007](adr/0007-ai-pipeline-failover.md).
 
 При создании ещё одного курса backend ищет tenant-scoped курсы, уже связанные

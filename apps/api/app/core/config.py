@@ -124,21 +124,15 @@ class Settings(BaseSettings):
 
     # Owner-selected generation fallback route. DeepSeek remains primary;
     # the legacy public Qwen is not part of this route.
-    QWEN38_FLASH_URL: str = "http://10.66.66.30:8888/v1"
+    QWEN38_FLASH_URL: str = "http://10.77.77.1:18002/v1"
     QWEN38_FLASH_MODEL: str = "qwen3.8-flash-next"
     GLM53_FLASH_URL: str = "http://10.66.66.28:8000/v1"
     GLM53_FLASH_MODEL: str = "LibertAIDAI/GLM-5.3-Flash-NVFP4"
 
-    # Qwen 35B AWQ is the third free model and the established self-hosted
-    # provider. It is deliberately reused rather than added to the chain a
-    # second time under another name.
-    QWEN_API_URL: str = "https://qwen.kml.kz/v1"
     EMBEDDING_DIMENSIONS: int = 4096
-    LLM_API_URL: str = "https://qwen.kml.kz/v1"
 
     # LLM
     LLM_API_KEY: str = ""
-    LLM_MODEL: str = "cyankiwi/Qwen3.6-35B-A3B-AWQ-4bit"
 
     # DeepSeek — owner-selected primary provider. Activated when
     # DEEPSEEK_API_KEY is set. The private production contour falls back to

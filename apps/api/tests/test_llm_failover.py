@@ -17,6 +17,7 @@ from unittest.mock import AsyncMock
 import httpx
 import pytest
 
+from app.core.config import Settings
 from app.modules.ai import llm_client
 from app.modules.ai.llm_client import (
     AllProvidersFailedError,
@@ -225,7 +226,7 @@ def test_generation_fallbacks_use_exact_owner_selected_runtime_contract(monkeypa
         llm_client,
         "get_settings",
         lambda: SimpleNamespace(
-            QWEN38_FLASH_URL="http://10.66.66.30:8888/v1",
+            QWEN38_FLASH_URL="http://10.77.77.1:18002/v1",
             QWEN38_FLASH_MODEL="qwen3.8-flash-next",
             GLM53_FLASH_URL="http://10.66.66.28:8000/v1",
             GLM53_FLASH_MODEL="LibertAIDAI/GLM-5.3-Flash-NVFP4",
@@ -238,7 +239,7 @@ def test_generation_fallbacks_use_exact_owner_selected_runtime_contract(monkeypa
     providers = llm_client._generation_fallback_providers()
 
     assert [(provider.name, provider.base_url, provider.model) for provider in providers] == [
-        ("custom:qwen38-flash-next", "http://10.66.66.30:8888/v1", "qwen3.8-flash-next"),
+        ("custom:qwen38-flash-next", "http://10.77.77.1:18002/v1", "qwen3.8-flash-next"),
         ("glm53-flash-asus", "http://10.66.66.28:8000/v1", "LibertAIDAI/GLM-5.3-Flash-NVFP4"),
     ]
     assert "qwen-self-hosted" not in {provider.name for provider in providers}
@@ -795,6 +796,21 @@ def test_create_llm_with_explicit_args_uses_single_provider():
     )
     # Should not be the multi-provider resilient client.
     assert client.provider_names == ["custom"]
+
+
+def test_generation_defaults_use_private_qwen38_route_without_legacy_public_qwen():
+    settings = Settings(_env_file=None)
+
+    assert settings.QWEN38_FLASH_URL == "http://10.77.77.1:18002/v1"
+    assert not hasattr(settings, "QWEN_API_URL")
+    assert not hasattr(settings, "LLM_API_URL")
+
+
+def test_custom_llm_injection_requires_explicit_endpoint_and_model():
+    from app.modules.ai.llm_client import create_llm
+
+    with pytest.raises(ValueError, match="base_url_and_model_required_for_custom_llm"):
+        create_llm(model="test-model")
 
 
 @pytest.mark.asyncio

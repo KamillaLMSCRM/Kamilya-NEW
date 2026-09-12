@@ -76,8 +76,8 @@ services:
 
   # Optional: stub LLM endpoint that returns canned responses. The real
   # Qwen runs on the DGX and is reachable only via VPN tunnel, so dev
-  # laptops benefit from a local stub. Set LLM_API_URL=http://localhost:8555/v1
-  # in apps/api/.env when using this.
+  # Generation providers use the explicit DeepSeek/Qwen38/GLM settings in
+  # apps/api/.env.
   qwen-stub:
     image: ghcr.io/qwenlm/qwen-api:latest   # placeholder — replace with actual stub image
     container_name: kamilya-qwen-stub
