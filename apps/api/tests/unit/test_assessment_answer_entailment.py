@@ -62,9 +62,12 @@ def test_extractive_answer_starting_quote_does_not_trigger_explanation_leak():
     source = 'Loan approval occurs after application review.'
     data = {'mcq': [{
         'question': 'When does loan approval occur?', 'source_quote_id': 'E01',
-        'options': [{'text': f'loan approval occurs {relation} application review',
-                     'is_correct': relation == 'after'}
-                    for relation in ('after', 'before', 'during', 'without')],
+        'options': [
+            {'text': 'after application review', 'is_correct': True},
+            {'text': 'before application review', 'is_correct': False},
+            {'text': 'during application intake', 'is_correct': False},
+            {'text': 'without manager approval', 'is_correct': False},
+        ],
         'explanation': source,
     }]}
     assert _validate_question_evidence(data, {'E01': source}, source, 'en') == []

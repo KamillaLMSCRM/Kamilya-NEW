@@ -141,6 +141,16 @@ _ATTRIBUTE_QUESTION_RE = re.compile(
     r"(?:стил\w*|материал\w*|style|material|стиль|материал)",
     re.IGNORECASE,
 )
+_WHICH_CATEGORY_QUESTION_RE = re.compile(
+    r"^\s*(?:"
+    r"к\s+как\w+\s+(?:категор\w*|коллекц\w*|линейк\w*|тип\w*|платформ\w*|сери\w*)|"
+    r"как\w+\s+(?:категор\w*|коллекц\w*|линейк\w*|тип\w*|платформ\w*|сери\w*)|"
+    r"which(?:\s+\w+){0,3}\s+(?:category|collection|line|type|platform|series)\b|"
+    r"what\s+(?:category|collection|line|type|platform|series)\b"
+    r")",
+    re.IGNORECASE,
+)
+_NEGATIVE_ANSWER_RE = re.compile(r"^\s*(?:не|not)\b", re.IGNORECASE)
 _GENERATION_BLOCKING_ISSUES = frozenset(
     {
         EditorQualityIssueLabel.CORRECT_ANSWER_LENGTH_SIGNAL,
@@ -170,6 +180,29 @@ def _escape_lesson_boundary(text: str) -> str:
 def _normalize_evidence_text(text: str) -> str:
     plain = unicodedata.normalize("NFKC", _plain_evidence_text(text)).casefold()
     return " ".join(re.sub(r"[^\w]+", " ", plain, flags=re.UNICODE).split())
+
+
+def _answers_are_near_equivalent(left: str, right: str) -> bool:
+    """Match exact answers that differ only by a safe introductory word."""
+    left_tokens = _normalize_evidence_text(left).split()
+    right_tokens = _normalize_evidence_text(right).split()
+    if left_tokens == right_tokens:
+        return bool(left_tokens)
+    safe_intro_words = {
+        "совместим",
+        "совместима",
+        "совместимо",
+        "совместимы",
+        "compatible",
+    }
+    return bool(
+        (left_tokens and left_tokens[0] in safe_intro_words and left_tokens[1:] == right_tokens)
+        or (
+            right_tokens
+            and right_tokens[0] in safe_intro_words
+            and right_tokens[1:] == left_tokens
+        )
+    )
 
 
 def _plain_evidence_text(text: str) -> str:
@@ -559,6 +592,7 @@ def _validate_question_evidence(
     """Resolve server-owned evidence IDs and validate grounded MCQs."""
     issues: list[str] = []
     seen_facts: dict[tuple[str, str], int] = {}
+    seen_answers_by_quote: dict[str, list[tuple[str, int]]] = {}
     normalized_source = _normalize_evidence_text(bounded_source)
     for index, question in enumerate(data.get("mcq", []), start=1):
         initial_issue_count = len(issues)
@@ -609,6 +643,24 @@ def _validate_question_evidence(
             issues.append(
                 f"MCQ #{index}: repeats source evidence and correct answer "
                 "already assessed in another lesson"
+            )
+        elif any(
+            source == fact_key[0]
+            and _answers_are_near_equivalent(answer, fact_key[1])
+            for source, answer in excluded_fact_keys
+        ):
+            issues.append(
+                f"MCQ #{index}: repeats source evidence and an equivalent correct "
+                "answer already assessed in another lesson"
+            )
+        if (
+            _WHICH_CATEGORY_QUESTION_RE.search(str(question.get("question", "")))
+            and _NEGATIVE_ANSWER_RE.search(correct_answer)
+        ):
+            issues.append(
+                f"MCQ #{index}: a negative correct answer does not answer a "
+                "which-category question; ask for the positive category or rewrite "
+                "the question"
             )
         explanation = _plain_evidence_text(str(question.get("explanation", "")))
         explanation_stems = _grounding_stems(explanation)
@@ -668,16 +720,35 @@ def _validate_question_evidence(
         if unsupported_meta:
             issues.append(f"MCQ #{index}: unsupported meta terminology")
         if len(issues) == initial_issue_count:
-            # Compare only resolved evidence and a validated answer. This is
-            # exact normalized equality, not an inference of semantic meaning.
+            # Compare only resolved evidence and a validated answer. The only
+            # non-exact match is an explicitly allowlisted introductory word;
+            # this is not an inference of semantic meaning.
             if fact_key in seen_facts:
                 issues.append(
                     f"MCQ #{index}: repeats the same source evidence and correct answer "
                     f"as MCQ #{seen_facts[fact_key]}; replace this question with a "
                     "different atomic fact from the evidence bank"
                 )
+            elif equivalent_index := next(
+                (
+                    previous_index
+                    for previous_answer, previous_index in seen_answers_by_quote.get(
+                        fact_key[0], []
+                    )
+                    if _answers_are_near_equivalent(previous_answer, fact_key[1])
+                ),
+                None,
+            ):
+                issues.append(
+                    f"MCQ #{index}: repeats the same source evidence and an "
+                    f"equivalent correct answer as MCQ #{equivalent_index}; replace "
+                    "this question with a different atomic fact from the evidence bank"
+                )
             else:
                 seen_facts[fact_key] = index
+                seen_answers_by_quote.setdefault(fact_key[0], []).append(
+                    (fact_key[1], index)
+                )
     return issues
 
 
@@ -869,17 +940,18 @@ def _validate_generated_question_set(data: dict[str, Any], language: str) -> lis
             re.findall(r"[^\W_]+", option.text.casefold(), re.UNICODE)
             for option in question.options
         ]
-        if (
+        low_information = (
             len(tokenized) >= 3
             and len({len(tokens) for tokens in tokenized}) == 1
             and len(tokenized[0]) >= 2
             and len({tuple(tokens[:-1]) for tokens in tokenized}) == 1
             and len({tokens[-1] for tokens in tokenized}) >= 2
-        ):
+        )
+        if low_information:
             issues.append(
                 f"MCQ #{index}: assessment quality low_information_distractors: "
-                "replace options that repeat the same long phrase and differ only "
-                "in the final word with independently meaningful alternatives"
+                "move repeated wording into the question and replace mechanically "
+                "varied options with independently meaningful alternatives"
             )
     # Give the repair request actionable measurements instead of repeatedly
     # asking a deterministic model to make almost-identical options "similar".
@@ -1708,10 +1780,14 @@ Grounding requirements:
   excerpts cannot support the requested number of distinct useful questions.
 - Do not repeat any source-evidence and correct-answer pair listed in
   ALREADY_ASSESSED_FACTS. Select a different fact for this lesson.
+- Treat answers that differ only by introductory wording as the same fact. Do not
+  ask two questions whose correct answers carry the same meaning from one excerpt.
 - Never invent or modify an evidence ID and do not output source_quote text.
 - Use at least one concrete term from the selected evidence quote in the question.
 - Ask about one atomic decision or fact. Do not ask the learner to enumerate a list,
   combine several facts, or choose a grammatically inverted negative statement.
+- A question that asks which category, collection, line, or type something belongs
+  to must have a positive category name as its answer, never only "not X".
 - Test useful knowledge or a workplace decision directly. Never ask what appears in
   a title, heading, table, row, section, lesson, evidence quote, source material, or
   what is shown below. Do not ask how the source is organized or presented.

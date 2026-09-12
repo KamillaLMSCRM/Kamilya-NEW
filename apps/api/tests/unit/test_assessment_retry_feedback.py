@@ -7,8 +7,10 @@ import pytest
 
 from app.modules.ai.assessment import (
     MAX_REJECTED_RESPONSE_CHARS,
+    _answers_are_near_equivalent,
     _bounded_rejected_response,
     _recover_valid_assessment,
+    _validate_question_evidence,
     generate_lesson_assessment,
 )
 from app.modules.ai.writer_schema import LessonContent
@@ -77,6 +79,200 @@ async def test_paraphrased_same_fact_triggers_actionable_retry_then_accepts_dist
 
     assert llm.calls == 2
     assert [q.question for q in result.mcq] == [q["question"] for q in _handling_questions()]
+
+
+@pytest.mark.asyncio
+async def test_same_evidence_with_near_equivalent_correct_answers_retries_as_one_fact():
+    compatibility_quote = (
+        "Совместима с коллекциями Чикаго и Чикаго Нео — весь дом можно собрать в одном ритме."
+    )
+    first = {
+        "question": "С какими коллекциями совместима Чикаго Стрит?",
+        "options": [
+            {"text": "Совместима с коллекциями Чикаго и Чикаго Нео", "is_correct": True},
+            {"text": "Чикаго Стрит работает только как самостоятельная система", "is_correct": False},
+            {"text": "Чикаго Нео нельзя сочетать с другими сериями", "is_correct": False},
+            {"text": "Коллекции Чикаго требуют отдельных цветовых решений", "is_correct": False},
+        ],
+        "explanation": compatibility_quote,
+        "source_quote_id": "E01",
+    }
+
+    class LLM:
+        calls = 0
+
+        async def ainvoke(self, messages, config=None, response_format=None):
+            self.calls += 1
+            questions = _handling_questions()
+            if self.calls == 1:
+                duplicate = {
+                    "question": "С какими коллекциями совместима городская система без ручек?",
+                    "options": [
+                        {"text": "С коллекциями Чикаго и Чикаго Нео", "is_correct": True},
+                        {"text": "С коллекциями Феникс и Феникс Вайт", "is_correct": False},
+                        {"text": "С коллекциями Imperial и Феникс Один", "is_correct": False},
+                        {"text": "С коллекциями Феникс Два и Три", "is_correct": False},
+                    ],
+                    "explanation": compatibility_quote,
+                    "source_quote_id": "E01",
+                }
+                questions = [first, duplicate, questions[1]]
+            else:
+                assert self.calls == 2, messages[-1]["content"]
+                prompt = messages[-1]["content"]
+                assert "repeats the same source evidence and an equivalent correct answer" in prompt
+                assert "different atomic fact" in prompt
+                questions = [first, *_handling_questions()[1:]]
+            return SimpleNamespace(content=json.dumps({"mcq": questions}, ensure_ascii=False))
+
+    llm = LLM()
+    result = await generate_lesson_assessment(
+        llm,
+        LessonContent(
+            title="Совместимость коллекций и обработка товара",
+            content=" ".join(
+                [compatibility_quote, *[q["explanation"] for q in _handling_questions()[1:]]]
+            ),
+        ),
+        compact=True,
+    )
+
+    assert llm.calls == 2
+    assert [q.question for q in result.mcq] == [
+        first["question"],
+        *[q["question"] for q in _handling_questions()[1:]],
+    ]
+
+
+@pytest.mark.asyncio
+async def test_negative_non_answer_to_which_category_question_retries():
+    phoenix_quote = "Платформа Imperial включает Феникс; это не линейка Чикаго."
+    phoenix = {
+        "question": "К какой платформе относится Феникс?",
+        "options": [
+            {"text": "Не линейка Чикаго", "is_correct": True},
+            {"text": "К линейке Чикаго Нео", "is_correct": False},
+            {"text": "К линейке Чикаго Стрит", "is_correct": False},
+            {"text": "К линейке Феникс Вайт", "is_correct": False},
+        ],
+        "explanation": phoenix_quote,
+        "source_quote_id": "E01",
+    }
+    phoenix_fixed = json.loads(json.dumps(phoenix))
+    phoenix_fixed["options"] = [
+        {"text": "Платформа Imperial", "is_correct": True},
+        {"text": "Линейка Чикаго", "is_correct": False},
+        {"text": "Система Феникс", "is_correct": False},
+        {"text": "Серия Imperial", "is_correct": False},
+    ]
+
+    class LLM:
+        calls = 0
+
+        async def ainvoke(self, messages, config=None, response_format=None):
+            self.calls += 1
+            questions = _handling_questions()
+            if self.calls == 1:
+                questions[0] = json.loads(json.dumps(phoenix))
+            else:
+                assert self.calls == 2, messages[-1]["content"]
+                assert "does not answer a which-category question" in messages[-1]["content"]
+                questions = [phoenix_fixed, *_handling_questions()[1:]]
+            return SimpleNamespace(content=json.dumps({"mcq": questions}, ensure_ascii=False))
+
+    llm = LLM()
+    result = await generate_lesson_assessment(
+        llm,
+        LessonContent(
+            title="Линейки Феникс и Чикаго",
+            content=" ".join(
+                [phoenix_quote, *[q["explanation"] for q in _handling_questions()[1:]]]
+            ),
+        ),
+        compact=True,
+    )
+
+    assert llm.calls == 2
+    assert [q.question for q in result.mcq] == [
+        phoenix_fixed["question"],
+        *[q["question"] for q in _handling_questions()[1:]],
+    ]
+
+
+@pytest.mark.parametrize(
+    "question,answer,language",
+    [
+        ("Какой категории относится Феникс?", "Не линейка Чикаго", "ru"),
+        ("Какой коллекции соответствует Феникс?", "Не линейка Чикаго", "ru"),
+        ("Какая категория у Феникса?", "Не линейка Чикаго", "ru"),
+        ("Какую коллекцию представляет Феникс?", "Не линейка Чикаго", "ru"),
+        ("What category does Phoenix belong to?", "Not the Chicago line", "en"),
+        ("Which product line contains Phoenix?", "Not the Chicago line", "en"),
+    ],
+)
+def test_category_question_variants_reject_negative_non_answers(question, answer, language):
+    source = (
+        "Феникс — отдельная платформа, не линейка Чикаго."
+        if language == "ru"
+        else "Phoenix is a separate platform, not the Chicago line."
+    )
+    data = {
+        "mcq": [
+            {
+                "question": question,
+                "source_quote_id": "E01",
+                "options": [
+                    {"text": answer, "is_correct": True},
+                    {"text": "Линейка Чикаго" if language == "ru" else "The Chicago line", "is_correct": False},
+                    {"text": "Платформа Imperial" if language == "ru" else "The Imperial platform", "is_correct": False},
+                    {"text": "Серия Феникс" if language == "ru" else "The Phoenix series", "is_correct": False},
+                ],
+                "explanation": source,
+            }
+        ]
+    }
+
+    issues = _validate_question_evidence(data, {"E01": source}, source, language)
+
+    assert any("does not answer a which-category question" in issue for issue in issues)
+
+
+def test_non_category_which_question_allows_a_supported_negative_answer():
+    source = "The source states that disclosing a password is not permitted."
+    data = {
+        "mcq": [
+            {
+                "question": "Which action is not permitted?",
+                "source_quote_id": "E01",
+                "options": [
+                    {"text": "Not permitted: disclosing a password", "is_correct": True},
+                    {"text": "Permitted: changing a password", "is_correct": False},
+                    {"text": "Permitted: locking a workstation", "is_correct": False},
+                    {"text": "Permitted: reporting an incident", "is_correct": False},
+                ],
+                "explanation": source,
+            }
+        ]
+    }
+
+    issues = _validate_question_evidence(data, {"E01": source}, source, "en")
+
+    assert not any("does not answer a which-category question" in issue for issue in issues)
+
+
+def test_near_equivalent_answers_only_ignore_a_safe_introductory_word():
+    assert _answers_are_near_equivalent(
+        "Совместима с коллекциями Чикаго и Чикаго Нео",
+        "С коллекциями Чикаго и Чикаго Нео",
+    )
+    assert not _answers_are_near_equivalent(
+        "Платформа Imperial включает Феникс",
+        "Платформа Imperial включает Феникс и Чикаго",
+    )
+    assert not _answers_are_near_equivalent(
+        "Переносят товар вдвоём",
+        "Перемещают товар вдвоём",
+    )
 
 
 def test_recovery_drops_paraphrased_same_fact_before_applying_question_cap():

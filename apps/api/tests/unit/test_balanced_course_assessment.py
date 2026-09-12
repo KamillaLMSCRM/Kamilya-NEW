@@ -200,6 +200,72 @@ def test_generation_contract_blocks_two_word_choices_with_shared_prefix() -> Non
     assert any("low_information_distractors" in issue for issue in issues)
 
 
+def test_generation_contract_allows_shared_intro_with_substantive_options() -> None:
+    issues = _validate_generated_question_set(
+        {
+            "mcq": [
+                {
+                    "question": "С какими коллекциями совместима Чикаго Стрит?",
+                    "options": [
+                        {"text": "Совместима с коллекциями Чикаго и Чикаго Нео", "is_correct": True},
+                        {"text": "Совместима с коллекциями Феникс и Вайт", "is_correct": False},
+                        {"text": "Совместима с коллекциями Imperial и Феникс", "is_correct": False},
+                        {"text": "Совместима с коллекциями Феникс Один и Два", "is_correct": False},
+                    ],
+                    "explanation": "Чикаго Стрит совместима с Чикаго и Чикаго Нео.",
+                }
+            ]
+        },
+        "ru",
+    )
+
+    assert not any("low_information_distractors" in issue for issue in issues)
+
+
+def test_generation_contract_blocks_choices_with_repeated_long_tail() -> None:
+    issues = _validate_generated_question_set(
+        {
+            "mcq": [
+                {
+                    "question": "Какое главное преимущество коллекции Феникс?",
+                    "options": [
+                        {"text": "Одна платформа на всю квартиру", "is_correct": True},
+                        {"text": "Одна платформа на всю спальню", "is_correct": False},
+                        {"text": "Одна платформа на всю прихожую", "is_correct": False},
+                        {"text": "Одна платформа на всю витрину", "is_correct": False},
+                    ],
+                    "explanation": "Главное преимущество — одна платформа на всю квартиру.",
+                }
+            ]
+        },
+        "ru",
+    )
+
+    assert any("low_information_distractors" in issue for issue in issues)
+
+
+def test_generation_contract_allows_parallel_options_without_long_repeated_frame() -> None:
+    issues = _validate_generated_question_set(
+        {
+            "mcq": [
+                {
+                    "question": "Когда выполняют проверку товара?",
+                    "options": [
+                        {"text": "Проверку товара выполняют утром до открытия", "is_correct": True},
+                        {"text": "Проверку товара выполняют вечером после смены", "is_correct": False},
+                        {"text": "Проверку товара выполняют ночью при тревоге", "is_correct": False},
+                        {"text": "Проверку товара выполняют днём по графику", "is_correct": False},
+                    ],
+                    "explanation": "Проверку товара выполняют утром до открытия.",
+                }
+            ]
+        },
+        "ru",
+    )
+
+    assert not any("low_information_distractors" in issue for issue in issues)
+
+
 def _source_with_additional_facts(source: str) -> str:
     return "\n".join([source, *(q["explanation"] for q in _additional_questions())])
 
@@ -1875,10 +1941,10 @@ async def test_focused_assessment_retries_rejected_evidence_candidate():
                     ]
                 else:
                     options = [
-                        {"text": f"loan {subject} occurs after {correct_suffix}", "is_correct": True},
-                        {"text": f"loan {subject} occurs before {correct_suffix}", "is_correct": False},
-                        {"text": f"loan {subject} occurs during {alternative}", "is_correct": False},
-                        {"text": f"loan {subject} occurs without {correct_suffix}", "is_correct": False},
+                        {"text": f"after {correct_suffix}", "is_correct": True},
+                        {"text": f"before {correct_suffix}", "is_correct": False},
+                        {"text": f"during {alternative}", "is_correct": False},
+                        {"text": f"without {correct_suffix}", "is_correct": False},
                     ]
                 questions = [
                     {

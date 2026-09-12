@@ -15,6 +15,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.5.12] - 2026-09-12
+
+### Changed
+
+- Generated lesson tests now reject mechanically repeated answer frames that
+  change only the final word; shared wording must be moved into the question.
+- Assessment prompts explicitly require a positive category answer for
+  category, collection, line, and type questions.
+
+### Fixed
+
+- Reject duplicate facts that reuse one source excerpt and a lexically
+  equivalent correct answer with only introductory wording changed.
+- Reject negative non-answers such as "not the Chicago line" when the question
+  asks which line or category an item belongs to.
+
 ## [0.5.11] - 2026-09-12
 
 ### Changed
