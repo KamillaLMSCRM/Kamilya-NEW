@@ -19,6 +19,7 @@ _TOKEN_RE = re.compile(r"[^\W\d_]{3,}", re.UNICODE)
 _RELATIONSHIP_TOKEN_RE = re.compile(r"[\w./-]+", re.UNICODE)
 _RELATIONSHIP_FRAGMENT_SPLIT_RE = re.compile(r"(?:[!?]+|\n+|\.(?!\w)|(?<!\w)\.)")
 _SENTENCE_RE = re.compile(r"(?:\n+|(?<=[.!?])\s+)")
+_MARKDOWN_HEADING_RE = re.compile(r"^\s*#{1,6}\s+(.+?)\s*#*\s*$")
 _STOP_WORDS = frozenset(
     {
         "для",
@@ -221,6 +222,24 @@ def _content_tokens(value: str) -> tuple[str, ...]:
     return tuple(token for token in _normalize(value).split() if token not in _STOP_WORDS)
 
 
+def _without_approved_title_heading(content: str, title: str) -> str:
+    """Remove only a Markdown heading identical to the approved lesson title.
+
+    The architect title is validated before the writer runs. Repeating that
+    title as H1/H2 must neither supply body grounding nor be reclassified as a
+    new relationship claim. Other headings remain part of quality admission.
+    """
+
+    normalized_title = _normalize(title)
+    retained: list[str] = []
+    for line in content.splitlines():
+        match = _MARKDOWN_HEADING_RE.fullmatch(line)
+        if match is not None and _normalize(match.group(1)) == normalized_title:
+            continue
+        retained.append(line)
+    return "\n".join(retained)
+
+
 def _relationship_tokens(value: str) -> tuple[str, ...]:
     tokens: list[str] = []
     raw_tokens = _RELATIONSHIP_TOKEN_RE.findall(value.replace("ё", "е"))
@@ -395,9 +414,10 @@ def evaluate_lesson_quality(
     """Evaluate one lesson against the exact excerpts supplied to its writer."""
 
     source_tokens = set(_content_tokens("\n".join(source_chunks)))
+    body_content = _without_approved_title_heading(content, title)
     # The title comes from the architect and must not make an otherwise generic
     # lesson look grounded. Source anchors must occur in the lesson body.
-    content_tokens = set(_content_tokens(content))
+    content_tokens = set(_content_tokens(body_content))
     anchor_matches = len(source_tokens & content_tokens)
     if len(source_tokens) <= 3:
         required_matches = 1
@@ -406,7 +426,7 @@ def evaluate_lesson_quality(
     else:
         required_matches = min(5, max(3, math.ceil(len(source_tokens) * 0.08)))
 
-    sentences = _sentences(content)
+    sentences = _sentences(body_content)
     generic_count = sum(any(marker in sentence for marker in _GENERIC_MARKERS) for sentence in sentences)
     generic_share = generic_count / len(sentences) if sentences else 1.0
     counts: dict[str, int] = {}
@@ -426,7 +446,7 @@ def evaluate_lesson_quality(
         " ".join(line.casefold().replace("ё", "е").split()) for chunk in source_chunks for line in chunk.splitlines()
     )
     normalized_content_text = "\n".join(
-        " ".join(line.casefold().replace("ё", "е").split()) for line in content.splitlines()
+        " ".join(line.casefold().replace("ё", "е").split()) for line in body_content.splitlines()
     )
     unsupported_relationship = any(
         pattern.search(normalized_content_text)
@@ -439,7 +459,7 @@ def evaluate_lesson_quality(
     )
 
     reasons: list[str] = []
-    if not content.strip() or anchor_matches < required_matches:
+    if not body_content.strip() or anchor_matches < required_matches:
         reasons.append("insufficient_source_anchors")
     if generic_count >= 2 and generic_share >= 0.50:
         reasons.append("generic_filler_dominates")
@@ -449,7 +469,7 @@ def evaluate_lesson_quality(
         reasons.append("repeated_across_lessons")
     if (
         len(source_tokens) >= 20
-        and len(_content_tokens(content)) < 25
+        and len(_content_tokens(body_content)) < 25
         and normalized_source_text not in normalized_content_text
     ):
         reasons.append("lesson_too_thin_for_source")

@@ -135,6 +135,23 @@ def test_title_alone_cannot_supply_source_grounding() -> None:
     assert "insufficient_source_anchors" in result.reason_codes
 
 
+def test_approved_markdown_title_is_not_reclassified_as_an_unsupported_claim() -> None:
+    source = (
+        "Для получения микрокредита клиент предоставляет удостоверение личности "
+        "и заявление на получение микрокредита."
+    )
+    title = "Документы, требуемые для получения микрокредита"
+
+    result = evaluate_lesson_quality(
+        title=title,
+        content=f"# {title}\n\n{source}",
+        source_chunks=[source],
+    )
+
+    assert result.accepted is True
+    assert "unsupported_relationship_claim" not in result.reason_codes
+
+
 def test_tabular_association_cannot_be_strengthened_into_causation() -> None:
     source = (
         "Коллекция Альфа; материал ЛДСП; преимущество модульная компоновка. "

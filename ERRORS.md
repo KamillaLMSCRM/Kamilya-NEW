@@ -2321,6 +2321,28 @@ contract or establish a blocker.
   padding. Full generation is now a final environment acceptance gate, not the
   debugging loop for each validator change.
 
+## AI-QUALITY-018 - Approved lesson title caused an unrecoverable false rejection
+
+- Date: 2026-09-14. Observed in production `0.5.29` during the synthetic
+  human-path acceptance of the 21-page Lombard microcredit-rules PDF.
+- Symptom: OCR and architecture completed, the first of nine lessons passed,
+  then all bounded writer attempts for the next lesson ended with
+  `direct_source_lesson_quality_failed`; no partial course was persisted.
+- Cause: the deterministic lesson validator correctly received the writer body,
+  but also interpreted its Markdown H1/H2 repeating the already validated
+  architect title as a new relationship claim. A title such as `Documents
+  required for a microcredit` could therefore fail even when its body repeated
+  only exact source facts. Rewriting could not recover because every compliant
+  writer response repeated the same approved title.
+- Fix: remove only a Markdown heading whose normalized text is identical to the
+  approved lesson title before measuring body grounding, length, repetition and
+  unsupported relationships. Different headings remain fully validated, so an
+  invented causal or prescriptive heading still fails closed.
+- Prevention: retain the exact legal-document regression together with the
+  existing adversarial test that rejects an invented causal heading. Complete
+  the same production job through resume, then run a fresh DOC human journey;
+  local green tests alone are not production acceptance.
+
 ## DOCLING-001 - Scanned PDF failed before OCR in the production container
 
 - Date: 2026-09-13. Observed on production `0.5.26`; repaired for `0.5.27`.

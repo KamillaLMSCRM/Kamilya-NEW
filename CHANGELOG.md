@@ -15,6 +15,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.5.30] - 2026-09-14
+
+### Fixed
+
+- Do not treat the Markdown heading that exactly repeats an already validated
+  lesson title as a new unsupported factual relationship.
+- Keep lesson grounding strict by excluding that heading from source-anchor,
+  minimum-content and repetition measurements; the lesson body must still pass
+  every quality rule.
+- Continue to reject any other invented causal, prescriptive or sales-oriented
+  heading before a course or its questions can be saved.
+
 ## [0.5.29] - 2026-09-13
 
 ### Fixed
