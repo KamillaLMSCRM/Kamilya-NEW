@@ -159,7 +159,7 @@ async def test_direct_writer_skips_restored_positions_and_checkpoints_only_new_c
         total_chars=len(chunk.text),
         total_chunks=1,
     )
-    structure = _structure(2)
+    structure = _structure(3)
     restored = {
         (0, 0): LessonContent(
             title="Lesson 0",
@@ -170,6 +170,7 @@ async def test_direct_writer_skips_restored_positions_and_checkpoints_only_new_c
     }
     completions: list[tuple[int, int]] = []
     claims: list[tuple[int, int]] = []
+    included: list[tuple[int, int]] = []
 
     class LLM:
         calls = 0
@@ -184,13 +185,16 @@ async def test_direct_writer_skips_restored_positions_and_checkpoints_only_new_c
         corpus,
         structure,
         completed_lessons=restored,
+        completed_omissions={(0, 1): ("unsupported_relationship_claim",)},
         before_lesson_generate=lambda module, lesson: claims.append((module, lesson)),
         on_lesson_complete=lambda module, lesson, content: completions.append((module, lesson)),
+        on_lesson_included=lambda module, lesson, content: included.append((module, lesson)),
     )
 
     assert llm.calls == 1
-    assert completions == [(0, 1)]
-    assert claims == [(0, 1)]
+    assert completions == [(0, 2)]
+    assert claims == [(0, 2)]
+    assert included == [(0, 0), (0, 2)]
     assert [lesson.content for lesson in result.modules[0].lessons] == [
         "Grounded product information.",
         "Grounded product information.",

@@ -15,6 +15,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.5.35] - 2026-09-14
+
+### Fixed
+
+- Preserve each accepted lesson's original plan identity after weaker planned
+  lessons are omitted, so review and question generation checkpoint the lesson
+  that is actually being processed instead of a compacted neighbour.
+- Persist quality-rejected lessons as terminal omissions with sanitized reason
+  codes; resumed jobs skip them without inventing filler or requiring review and
+  assessment checkpoints for content that will not be saved.
+- Keep completed assessments mapped through the same original-to-compacted
+  identity when a generation resumes after interruption.
+
+### Security
+
+- Retain tenant-scoped RLS/FORCE RLS and owner-guarded leases for terminal
+  omissions; the new database state does not relax runtime table privileges.
+
 ## [0.5.34] - 2026-09-14
 
 ### Fixed

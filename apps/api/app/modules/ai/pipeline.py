@@ -799,6 +799,7 @@ async def run_generation_pipeline(
             for planned in planned_lessons
         }
         completed_content: dict[tuple[int, int], LessonContent] = {}
+        completed_omissions: dict[tuple[int, int], tuple[str, ...]] = {}
         completed_reviews: dict[tuple[int, int], dict[str, object]] = {}
         completed_assessments: dict[tuple[int, int], LessonAssessment] = {}
         if generation_checkpoints is not None and tenant_id is not None:
@@ -817,6 +818,24 @@ async def run_generation_pipeline(
                         "generation_plan_lesson_identity_conflict"
                     )
                 expected_title = structure.modules[index[0]].lessons[index[1]].title
+                if snapshot.content_status == "omitted":
+                    if (
+                        snapshot.review_status != "omitted"
+                        or snapshot.assessment_status != "omitted"
+                        or snapshot.content_payload is None
+                    ):
+                        raise AIGenerationCheckpointError(
+                            "generation_omission_checkpoint_invalid"
+                        )
+                    reason_codes = snapshot.content_payload.get("reason_codes")
+                    if not isinstance(reason_codes, list) or not reason_codes or not all(
+                        isinstance(reason, str) and reason for reason in reason_codes
+                    ):
+                        raise AIGenerationCheckpointError(
+                            "generation_omission_checkpoint_invalid"
+                        )
+                    completed_omissions[index] = tuple(reason_codes)
+                    continue
                 if snapshot.content_payload is not None:
                     restored_content = LessonContent.from_dict(
                         dict(snapshot.content_payload)
@@ -897,6 +916,30 @@ async def run_generation_pipeline(
                 )
                 await session.commit()
 
+        async def checkpoint_lesson_omitted(
+            module_index: int,
+            lesson_index: int,
+            reason_codes: tuple[str, ...],
+        ) -> None:
+            normalized_reasons = tuple(reason for reason in reason_codes if reason)
+            if not normalized_reasons:
+                raise AIGenerationCheckpointError("generation_omission_reason_missing")
+            if generation_checkpoints is not None and tenant_id is not None:
+                module_key, lesson_key = checkpoint_keys[(module_index, lesson_index)]
+                async with async_session_factory() as session:
+                    await ensure_generation_plan(session)
+                    await generation_checkpoints.checkpoint_omitted(
+                        session,
+                        tenant_id=str(tenant_id),
+                        generation_key=job_id,
+                        module_key=module_key,
+                        lesson_key=lesson_key,
+                        omission_payload={"reason_codes": list(normalized_reasons)},
+                        lease_owner=lease_owner,
+                    )
+                    await session.commit()
+            completed_omissions[(module_index, lesson_index)] = normalized_reasons
+
         async def checkpoint_lesson_review(
             module_index: int,
             lesson_index: int,
@@ -959,10 +1002,18 @@ async def run_generation_pipeline(
 
         async def write_grounded_course(
             course_structure: CourseStructure,
-        ) -> tuple[CourseContent, int]:
+        ) -> tuple[CourseContent, int, dict[tuple[int, int], tuple[int, int]]]:
             total = sum(len(module.lessons) for module in course_structure.modules)
             completed = 0
             content_started_at = time.monotonic()
+            included_originals: list[tuple[int, int]] = []
+
+            async def record_lesson_included(
+                module_index: int,
+                lesson_index: int,
+                _lesson_content: LessonContent,
+            ) -> None:
+                included_originals.append((module_index, lesson_index))
 
             async def on_lesson_progress(msg: str) -> None:
                 nonlocal completed
@@ -995,10 +1046,13 @@ async def run_generation_pipeline(
                         tenant_id=tenant_id,
                     ),
                     completed_lessons=completed_content,
+                    completed_omissions=completed_omissions,
                     before_lesson_generate=lambda module_index, lesson_index: claim_generation_item(
                         module_index, lesson_index, "content"
                     ),
                     on_lesson_complete=checkpoint_lesson_content,
+                    on_lesson_included=record_lesson_included,
+                    on_lesson_omitted=checkpoint_lesson_omitted,
                 )
             else:
                 if semantic_store is None:
@@ -1019,10 +1073,53 @@ async def run_generation_pipeline(
                     on_lesson_complete=checkpoint_lesson_content,
                 )
             generated_total = sum(len(module.lessons) for module in generated.modules)
-            return generated, generated_total
+            if direct_mode:
+                accepted_origins = included_originals or [
+                    (module_index, lesson_index)
+                    for module_index, module in enumerate(course_structure.modules)
+                    for lesson_index, _lesson in enumerate(module.lessons)
+                    if (module_index, lesson_index) not in completed_omissions
+                ]
+                expected_total = len(accepted_origins)
+                if expected_total != generated_total:
+                    raise AIGenerationCheckpointError(
+                        "generation_compact_lesson_count_conflict"
+                    )
+                origins_by_module: dict[int, list[tuple[int, int]]] = {}
+                for origin in accepted_origins:
+                    origins_by_module.setdefault(origin[0], []).append(origin)
+                compact_origins: dict[tuple[int, int], tuple[int, int]] = {}
+                compact_module_index = 0
+                for original_module_index in range(len(course_structure.modules)):
+                    module_origins = origins_by_module.get(original_module_index, [])
+                    if not module_origins:
+                        continue
+                    if compact_module_index >= len(generated.modules):
+                        raise AIGenerationCheckpointError(
+                            "generation_compact_module_count_conflict"
+                        )
+                    generated_module = generated.modules[compact_module_index]
+                    if len(generated_module.lessons) != len(module_origins):
+                        raise AIGenerationCheckpointError(
+                            "generation_compact_module_lesson_count_conflict"
+                        )
+                    for compact_lesson_index, original in enumerate(module_origins):
+                        compact_origins[(compact_module_index, compact_lesson_index)] = original
+                    compact_module_index += 1
+                if compact_module_index != len(generated.modules):
+                    raise AIGenerationCheckpointError(
+                        "generation_compact_module_count_conflict"
+                    )
+            else:
+                compact_origins = {
+                    (module_index, lesson_index): (module_index, lesson_index)
+                    for module_index, module in enumerate(generated.modules)
+                    for lesson_index, _lesson in enumerate(module.lessons)
+                }
+            return generated, generated_total, compact_origins
 
         try:
-            content, total_lessons = await write_grounded_course(structure)
+            content, total_lessons, compact_lesson_origins = await write_grounded_course(structure)
         except UnsupportedLessonSourceError as exc:
             if direct_mode:
                 raise
@@ -1097,6 +1194,7 @@ async def run_generation_pipeline(
                 for planned in planned_lessons
             }
             completed_content = {}
+            completed_omissions = {}
             completed_reviews = {}
             completed_assessments = {}
             state.stage = "content_generation"
@@ -1109,7 +1207,7 @@ async def run_generation_pipeline(
                 progress=state.progress,
                 message=state.message,
             )
-            content, total_lessons = await write_grounded_course(structure)
+            content, total_lessons, compact_lesson_origins = await write_grounded_course(structure)
 
         state.content = content
         state.progress = 70
@@ -1148,9 +1246,10 @@ async def run_generation_pipeline(
                         review_started_at,
                     ),
                 )
-                review = completed_reviews.get((mod_idx, les_idx))
+                original_index = compact_lesson_origins[(mod_idx, les_idx)]
+                review = completed_reviews.get(original_index)
                 if review is None:
-                    await claim_generation_item(mod_idx, les_idx, "review")
+                    await claim_generation_item(*original_index, "review")
                     review = await reviewer.review_lesson(
                         lesson_content=content_les.content if hasattr(content_les, 'content') else "",
                         lesson_meta={
@@ -1159,7 +1258,7 @@ async def run_generation_pipeline(
                             "title": content_les.title if hasattr(content_les, 'title') else "",
                         },
                     )
-                    await checkpoint_lesson_review(mod_idx, les_idx, review)
+                    await checkpoint_lesson_review(*original_index, review)
                 quality_value = review.get("quality_score", 0.0)
                 quality_score = (
                     float(quality_value)
@@ -1222,6 +1321,26 @@ async def run_generation_pipeline(
             max_tokens=4096,
             tenant_id=tenant_id,
         )
+        compact_completed_assessments = {
+            compact_index: completed_assessments[original_index]
+            for compact_index, original_index in compact_lesson_origins.items()
+            if original_index in completed_assessments
+        }
+
+        async def claim_compact_assessment(
+            module_index: int, lesson_index: int
+        ) -> None:
+            original_index = compact_lesson_origins[(module_index, lesson_index)]
+            await claim_generation_item(*original_index, "assessment")
+
+        async def checkpoint_compact_assessment(
+            module_index: int,
+            lesson_index: int,
+            lesson_assessment: LessonAssessment,
+        ) -> None:
+            original_index = compact_lesson_origins[(module_index, lesson_index)]
+            await checkpoint_lesson_assessment(*original_index, lesson_assessment)
+
         assessment = await generate_course_assessment(
             llm=assessment_llm,
             course_content=content,
@@ -1229,11 +1348,9 @@ async def run_generation_pipeline(
             on_progress=on_assessment_progress,
             compact=document_profile["all_job_instructions"],
             check_cancelled=lambda: _check_cancelled_async(job_id, tenant_id=tenant_id),
-            completed_assessments=completed_assessments,
-            before_assessment_generate=lambda module_index, lesson_index: claim_generation_item(
-                module_index, lesson_index, "assessment"
-            ),
-            on_assessment_complete=checkpoint_lesson_assessment,
+            completed_assessments=compact_completed_assessments,
+            before_assessment_generate=claim_compact_assessment,
+            on_assessment_complete=checkpoint_compact_assessment,
         )
 
         state.assessment = assessment

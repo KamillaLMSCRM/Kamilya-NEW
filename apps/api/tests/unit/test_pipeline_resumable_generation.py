@@ -78,6 +78,16 @@ class _MemoryCheckpoints:
             self.snapshots[index], review_payload=review_payload,
         )
 
+    async def checkpoint_omitted(self, session, *, module_key, lesson_key, omission_payload, **kwargs):
+        index = self._index(module_key, lesson_key)
+        self.snapshots[index] = replace(
+            self.snapshots[index],
+            content_payload=omission_payload,
+            content_status="omitted",
+            review_status="omitted",
+            assessment_status="omitted",
+        )
+
     async def claim_item(self, session, **kwargs):
         return SimpleNamespace(**kwargs)
 
@@ -85,10 +95,16 @@ class _MemoryCheckpoints:
         return None
 
     async def assert_complete(self, session, **kwargs):
-        assert len(self.snapshots) == 25
-        assert all(item.content_payload is not None for item in self.snapshots)
-        assert all(item.review_payload is not None for item in self.snapshots)
-        assert all(item.assessment_payload is not None for item in self.snapshots)
+        assert self.snapshots
+        assert all(
+            item.content_status == "omitted"
+            or (
+                item.content_payload is not None
+                and item.review_payload is not None
+                and item.assessment_payload is not None
+            )
+            for item in self.snapshots
+        )
 
 
 @pytest.mark.asyncio
@@ -227,3 +243,136 @@ async def test_pipeline_resumes_15_of_25_without_repeating_completed_lessons(mon
     assert len(writer_provider_calls) == 25
     assert len(reviewer_provider_calls) == 25
     assert len(assessment_provider_calls) == 25
+
+
+@pytest.mark.asyncio
+async def test_pipeline_keeps_original_checkpoint_identity_after_lessons_are_omitted(monkeypatch):
+    from app.modules.ai import pipeline
+    from app.modules.ai.direct_source import DirectSourceCorpus
+
+    tenant_id = uuid4()
+    document_id = str(uuid4())
+    structure = CourseStructure(
+        title="Grounded course",
+        modules=[
+            Module(
+                title="Module 1",
+                lessons=[
+                    Lesson(title=f"Lesson {index + 1}", source_doc_ids=[document_id])
+                    for index in range(4)
+                ],
+            )
+        ],
+    )
+    checkpoints = _MemoryCheckpoints()
+    reviewed: list[str] = []
+    assessed: list[str] = []
+
+    async def load_corpus(*args, **kwargs):
+        return DirectSourceCorpus(
+            tenant_id=str(tenant_id), documents=(), total_chars=1000, total_chunks=100,
+        )
+
+    async def architect(*args, **kwargs):
+        return structure
+
+    async def writer(
+        *args,
+        completed_lessons=None,
+        completed_omissions=None,
+        before_lesson_generate=None,
+        on_lesson_complete=None,
+        on_lesson_included=None,
+        on_lesson_omitted=None,
+        on_progress=None,
+        **kwargs,
+    ):
+        modules: list[ModuleContent] = []
+        lessons: list[LessonContent] = []
+        omissions = completed_omissions or {}
+        for lesson_index, planned in enumerate(structure.modules[0].lessons):
+            coordinate = (0, lesson_index)
+            if coordinate in omissions:
+                continue
+            if lesson_index == 1:
+                await before_lesson_generate(*coordinate)
+                await on_lesson_omitted(*coordinate, ("unsupported_relationship_claim",))
+                continue
+            content = (completed_lessons or {}).get(coordinate)
+            if content is None:
+                await before_lesson_generate(*coordinate)
+                content = LessonContent(title=planned.title, content=f"Content {planned.title}")
+                await on_lesson_complete(*coordinate, content)
+            lessons.append(content)
+            await on_lesson_included(*coordinate, content)
+            if on_progress:
+                await on_progress(f"Writing lesson {lesson_index + 1}/4: {planned.title}")
+        modules.append(ModuleContent(title="Module 1", lessons=lessons))
+        return CourseContent(title=structure.title, modules=modules)
+
+    async def assessments(
+        *,
+        course_content,
+        completed_assessments=None,
+        before_assessment_generate=None,
+        on_assessment_complete=None,
+        **kwargs,
+    ):
+        result: list[LessonAssessment] = []
+        for lesson_index, lesson in enumerate(course_content.modules[0].lessons):
+            item = (completed_assessments or {}).get((0, lesson_index))
+            if item is None:
+                await before_assessment_generate(0, lesson_index)
+                assessed.append(lesson.title)
+                item = LessonAssessment(lesson_title=lesson.title)
+                await on_assessment_complete(0, lesson_index, item)
+            result.append(item)
+        return CourseAssessment(assessments=result)
+
+    class LLMFactory:
+        @classmethod
+        async def from_settings_async(cls, **kwargs):
+            return object()
+
+    class Reviewer:
+        def __init__(self, llm_client):
+            pass
+
+        async def review_lesson(self, **kwargs):
+            reviewed.append(kwargs["lesson_meta"]["title"])
+            return {"quality_score": 10.0, "issues": []}
+
+    async def noop(*args, **kwargs):
+        return None
+
+    monkeypatch.setattr(pipeline, "load_direct_source_corpus", load_corpus)
+    monkeypatch.setattr(pipeline, "run_direct_architect", architect)
+    monkeypatch.setattr(pipeline, "write_direct_course", writer)
+    monkeypatch.setattr(pipeline, "generate_course_assessment", assessments)
+    monkeypatch.setattr(pipeline, "ResilientLLMClient", LLMFactory)
+    monkeypatch.setattr(pipeline, "ReviewerAgent", Reviewer)
+    monkeypatch.setattr(pipeline, "_update_job_db", noop)
+    monkeypatch.setattr(pipeline, "_check_cancelled_async", noop)
+
+    result = await pipeline.run_generation_pipeline(
+        job_id=str(uuid4()),
+        documents=[document_id],
+        tenant_id=tenant_id,
+        source_analysis={"analysis_mode": "direct_source"},
+        num_modules=1,
+        lessons_per_module=4,
+        max_total_lessons=4,
+        generation_checkpoint_repository=checkpoints,
+    )
+
+    assert result.status == "completed"
+    assert [lesson.title for lesson in result.content.modules[0].lessons] == [
+        "Lesson 1", "Lesson 3", "Lesson 4",
+    ]
+    assert reviewed == ["Lesson 1", "Lesson 3", "Lesson 4"]
+    assert assessed == ["Lesson 1", "Lesson 3", "Lesson 4"]
+    omitted = checkpoints.snapshots[1]
+    assert omitted.content_status == "omitted"
+    assert omitted.content_payload == {"reason_codes": ["unsupported_relationship_claim"]}
+    assert checkpoints.snapshots[2].review_payload is not None
+    assert checkpoints.snapshots[2].assessment_payload is not None

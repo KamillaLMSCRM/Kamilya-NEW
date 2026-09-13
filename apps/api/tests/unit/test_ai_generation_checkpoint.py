@@ -170,7 +170,7 @@ async def test_completed_checkpoint_accepts_identical_payload_but_rejects_replac
         lesson_key="lesson-1", content_payload={"title": "same"},
     )
     sql = next(sql for sql, _ in normal.calls if "UPDATE ai_generation_lesson_checkpoints" in sql)
-    assert "content_status <> 'completed'" in sql
+    assert "content_status NOT IN ('completed', 'omitted')" in sql
     assert "content_payload = CAST(:payload AS jsonb)" in sql
     assert "lease_owner = NULL" in sql
 
@@ -186,7 +186,7 @@ async def test_claim_missing_item_is_atomic_stage_scoped_and_recovers_expired_le
     assert claimed is not None
     assert (claimed.stage, claimed.lease_owner, claimed.attempt_count) == ("assessment", "worker-1", 2)
     sql = next(sql for sql, _ in session.calls if "WITH candidate AS" in sql)
-    assert "checkpoint.assessment_status <> 'completed'" in sql
+    assert "checkpoint.assessment_status NOT IN ('completed', 'omitted')" in sql
     assert "checkpoint.lease_expires_at <= now()" in sql
     assert "FOR UPDATE OF checkpoint SKIP LOCKED" in sql
     assert "attempt_count = checkpoint.attempt_count + 1" in sql
@@ -210,7 +210,7 @@ async def test_claim_exact_item_is_stage_ordered_and_owner_scoped():
 
     assert claimed is not None
     sql = next(sql for sql, _ in session.calls if "RETURNING checkpoint.module_key" in sql)
-    assert "checkpoint.assessment_status <> 'completed'" in sql
+    assert "checkpoint.assessment_status NOT IN ('completed', 'omitted')" in sql
     assert "checkpoint.review_status = 'completed'" in sql
     assert "checkpoint.module_key = :module_key" in sql
     assert "checkpoint.lesson_key = :lesson_key" in sql
@@ -270,6 +270,7 @@ async def test_load_checkpoints_is_ordered_tenant_scoped_and_decodes_completed_p
     assert snapshots[0].assessment_payload is None
     assert snapshots[1].review_payload == {"quality_score": 9}
     assert snapshots[1].assessment_payload == {"mcq": []}
+    assert snapshots[1].content_status == "completed"
     sql = next(sql for sql, _ in session.calls if "SELECT checkpoint.module_key" in sql)
     assert "checkpoint.tenant_id = CAST(:tenant_id AS uuid)" in sql
     assert "run.tenant_id = checkpoint.tenant_id" in sql
@@ -306,6 +307,71 @@ async def test_completion_assertion_fails_until_every_stage_is_checkpointed():
 
     session.missing = []
     await repository.assert_complete(session, tenant_id=TENANT_ID, generation_key="generation-1")
+
+
+@pytest.mark.asyncio
+async def test_omitted_checkpoint_is_terminal_and_keeps_quality_reason():
+    session = Session()
+    repository = AIGenerationCheckpointRepository()
+
+    await repository.checkpoint_omitted(
+        session,
+        tenant_id=TENANT_ID,
+        generation_key="generation-1",
+        module_key="module-1",
+        lesson_key="lesson-1",
+        omission_payload={"reason_codes": ["unsupported_relationship_claim"]},
+        lease_owner="delivery-1",
+    )
+
+    sql, params = next(
+        (sql, params)
+        for sql, params in session.calls
+        if "SET content_status = 'omitted'" in sql
+    )
+    assert "review_status = 'omitted'" in sql
+    assert "assessment_status = 'omitted'" in sql
+    assert "checkpoint.lease_owner = CAST(:lease_owner AS varchar)" in sql
+    assert params["lease_owner"] == "delivery-1"
+    assert params["payload"] == '{"reason_codes":["unsupported_relationship_claim"]}'
+
+    session.missing = [
+        ("module-1", "lesson-1", 0, 0, "omitted", "omitted", "omitted")
+    ]
+    missing = await repository.enumerate_missing_items(
+        session, tenant_id=TENANT_ID, generation_key="generation-1"
+    )
+    assert missing == ()
+
+
+@pytest.mark.asyncio
+async def test_load_checkpoint_decodes_terminal_omission():
+    session = Session()
+    session.checkpoints = [
+        (
+            "module-1",
+            "lesson-1",
+            0,
+            0,
+            "omitted",
+            "omitted",
+            "omitted",
+            '{"reason_codes":["generic_content"]}',
+            None,
+            None,
+        )
+    ]
+
+    snapshot = (
+        await AIGenerationCheckpointRepository().load_checkpoints(
+            session, tenant_id=TENANT_ID, generation_key="generation-1"
+        )
+    )[0]
+
+    assert snapshot.content_status == "omitted"
+    assert snapshot.review_status == "omitted"
+    assert snapshot.assessment_status == "omitted"
+    assert snapshot.content_payload == {"reason_codes": ["generic_content"]}
 
 
 def test_plan_keys_and_lesson_identity_are_bounded_before_persistence():

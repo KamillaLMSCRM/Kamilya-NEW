@@ -1682,8 +1682,11 @@ async def write_direct_course(
     tenant_id: UUID | str | None = None,
     semantic_selector: Callable[..., Awaitable[list[DirectSourceChunk]]] | None = None,
     completed_lessons: Mapping[tuple[int, int], LessonContent] | None = None,
+    completed_omissions: Mapping[tuple[int, int], tuple[str, ...]] | None = None,
     before_lesson_generate: Callable[[int, int], Awaitable[None] | None] | None = None,
     on_lesson_complete: Callable[[int, int, LessonContent], Awaitable[None] | None] | None = None,
+    on_lesson_included: Callable[[int, int, LessonContent], Awaitable[None] | None] | None = None,
+    on_lesson_omitted: Callable[[int, int, tuple[str, ...]], Awaitable[None] | None] | None = None,
 ) -> CourseContent:
     """Write every lesson from verified semantic or bounded lexical excerpts."""
 
@@ -1695,17 +1698,34 @@ async def write_direct_course(
     semantic_store = VectorStore() if tenant_id is not None else None
     semantic_unavailable = False
     restored = completed_lessons or {}
+    restored_omissions = completed_omissions or {}
     passport = build_document_passport(corpus)
     for module_index, module in enumerate(structure.modules):
         lessons: list[LessonContent] = []
         for lesson_index, lesson in enumerate(module.lessons):
             await _checkpoint(check_cancelled)
+            restored_omission = restored_omissions.get((module_index, lesson_index))
+            if restored_omission is not None:
+                completed += 1
+                if on_progress:
+                    result = on_progress(
+                        f"Restored omitted lesson {completed}/{total}: {lesson.title}"
+                    )
+                    if inspect.isawaitable(result):
+                        await result
+                continue
             restored_content = restored.get((module_index, lesson_index))
             if restored_content is not None:
                 if restored_content.quality_policy_version != LESSON_QUALITY_POLICY_VERSION:
                     raise DirectSourceError("direct_source_checkpoint_quality_policy_stale")
                 lessons.append(restored_content)
                 accepted_lesson_contents.append(restored_content.content)
+                if on_lesson_included:
+                    result = on_lesson_included(
+                        module_index, lesson_index, restored_content
+                    )
+                    if inspect.isawaitable(result):
+                        await result
                 completed += 1
                 if on_progress:
                     result = on_progress(f"Restored lesson {completed}/{total}: {lesson.title}")
@@ -1852,6 +1872,13 @@ Objectives: {json.dumps(objectives, ensure_ascii=False)}
                             break
                         quality_feedback = quality.reason_codes
             if not lesson_accepted:
+                omission_reasons = quality_feedback or ("invalid_content",)
+                if on_lesson_omitted:
+                    result = on_lesson_omitted(
+                        module_index, lesson_index, omission_reasons
+                    )
+                    if inspect.isawaitable(result):
+                        await result
                 completed += 1
                 if on_progress:
                     result = on_progress(
@@ -1877,6 +1904,10 @@ Objectives: {json.dumps(objectives, ensure_ascii=False)}
             accepted_lesson_contents.append(content)
             if on_lesson_complete:
                 result = on_lesson_complete(module_index, lesson_index, lesson_content)
+                if inspect.isawaitable(result):
+                    await result
+            if on_lesson_included:
+                result = on_lesson_included(module_index, lesson_index, lesson_content)
                 if inspect.isawaitable(result):
                     await result
             completed += 1

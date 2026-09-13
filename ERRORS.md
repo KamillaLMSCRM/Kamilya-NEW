@@ -2424,6 +2424,34 @@ contract or establish a blocker.
   deterministic correction. The retry must repack source data; it may not merely
   concatenate control text to an already full request.
 
+## AI-CHECKPOINT-003 - Omitted lessons shifted stable checkpoint coordinates
+
+- Date: 2026-09-14. Observed in production `0.5.34` during a fresh
+  methodologist-path generation from the 21-page Lombard microcredit-rules PDF.
+- Symptom: source ingestion, architecture and lesson writing progressed; six of
+  nine planned lessons passed admission and three were intentionally omitted.
+  Review then failed on the second accepted lesson with
+  `AIGenerationCheckpointError` and the public job ended at 73%.
+- Cause: writer checkpoints used original plan coordinates, but the returned
+  course compacted omitted lessons. Review and assessment used compacted list
+  indexes against the original checkpoint map, so the first accepted lesson
+  after an omission claimed a neighbouring planned lesson's identity. Omitted
+  planned items also had no valid terminal state for final completeness checks.
+- Fix: persist quality omissions as the explicit terminal status `omitted`,
+  preserve sanitized reason codes, and translate compact course coordinates
+  back to original plan identities for review and assessment. Resumed writers
+  skip both completed content and terminal omissions.
+- Verification: the RED pipeline regression omits lesson 2 of 4 and reproduces
+  the coordinate failure. GREEN reviews and assesses lessons 1, 3 and 4 under
+  their original checkpoints and accepts lesson 2 as terminally omitted. The
+  isolated Supabase DEV gate passes migration upgrade/downgrade/re-upgrade,
+  competing leases, omission completion, tenant RLS/FORCE RLS and cleanup while
+  leaving the public DEV revision unchanged at `0158`.
+- Prevention: any pipeline that filters, compacts, reorders or groups generated
+  output must keep a tested mapping to immutable plan identity through every
+  durable stage. A deliberately omitted item needs a first-class terminal state;
+  it must not be represented as fake content or left permanently incomplete.
+
 ## AI-MAP-001 - A valid detailed source map exceeded the arbitrary topic count
 
 - Date: 2026-09-14. Observed in production `0.5.32` during the fresh

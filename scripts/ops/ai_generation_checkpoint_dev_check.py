@@ -1,7 +1,7 @@
 """Run the AI generation checkpoint migration against an isolated Supabase DEV schema.
 
 The gate never modifies public application data or the public migration head. It
-creates one random disposable schema, exercises migration 0158 and the runtime
+creates one random disposable schema, exercises migrations 0158-0159 and the runtime
 ``lms_app`` role, then removes that exact schema. Output is deliberately
 sanitized: no connection strings, SQL errors, payloads, or tenant identifiers.
 """
@@ -62,12 +62,16 @@ def migrate(connection, schema: str, direction: str) -> None:
         connection,
         opts={"version_table_schema": schema},
     )
-    module = load_module(
-        "ai_generation_checkpoint_migration",
-        API / "alembic" / "versions" / "0158_ai_generation_checkpoints.py",
+    migrations = (
+        ("ai_generation_checkpoint_migration", "0158_ai_generation_checkpoints.py"),
+        ("ai_generation_omission_migration", "0159_ai_generation_omitted_lessons.py"),
     )
+    if direction == "downgrade":
+        migrations = tuple(reversed(migrations))
     with Operations.context(context):
-        getattr(module, direction)()
+        for module_name, filename in migrations:
+            module = load_module(module_name, API / "alembic" / "versions" / filename)
+            getattr(module, direction)()
 
 
 async def set_tenant(session: AsyncSession, tenant_id: UUID) -> None:
@@ -283,19 +287,19 @@ async def exercise_runtime(
             lease_duration_seconds=30,
         )
         assert reclaimed is not None and reclaimed.attempt_count == 2, "expired_lease_not_reclaimed"
-        await repository.checkpoint_content(
+        await repository.checkpoint_omitted(
             session,
             tenant_id=str(tenant_a),
             generation_key=plan_key,
             module_key="module-1",
             lesson_key="lesson-2",
-            content_payload={"title": "Lesson 2"},
+            omission_payload={"reason_codes": ["unsupported_relationship_claim"]},
             lease_owner="replacement-delivery",
         )
         await session.commit()
-    checks.append("expired_lease_reclaimed")
+    checks.append("expired_lease_reclaimed_as_terminal_omission")
 
-    for lesson in lessons:
+    for lesson in lessons[:1]:
         async with sessions() as session:
             review = await repository.claim_item(
                 session,
@@ -348,7 +352,10 @@ async def exercise_runtime(
             generation_key=plan_key,
         )
         assert len(snapshots) == 2, "checkpoint_snapshot_count"
-    checks.append("all_stages_complete_once")
+        assert snapshots[1].content_status == "omitted", "omission_status_missing"
+        assert snapshots[1].review_status == "omitted", "omission_review_not_terminal"
+        assert snapshots[1].assessment_status == "omitted", "omission_assessment_not_terminal"
+    checks.append("completed_and_omitted_stages_terminal_once")
 
     async with sessions() as session:
         try:

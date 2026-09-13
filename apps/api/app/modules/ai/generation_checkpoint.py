@@ -61,6 +61,9 @@ class GenerationCheckpointSnapshot:
     content_payload: Mapping[str, Any] | None
     review_payload: Mapping[str, Any] | None
     assessment_payload: Mapping[str, Any] | None
+    content_status: str = "pending"
+    review_status: str = "pending"
+    assessment_status: str = "pending"
 
 
 def _row_value(row: Any, name: str, index: int) -> Any:
@@ -297,6 +300,14 @@ class AIGenerationCheckpointRepository:
                 raise AIGenerationCheckpointError("invalid_persisted_review_payload")
             if assessment_status == "completed" and assessment_payload is None:
                 raise AIGenerationCheckpointError("invalid_persisted_assessment_payload")
+            if content_status == "omitted" and (
+                review_status != "omitted"
+                or assessment_status != "omitted"
+                or content_payload is None
+                or review_payload is not None
+                or assessment_payload is not None
+            ):
+                raise AIGenerationCheckpointError("invalid_persisted_omission_payload")
             snapshots.append(
                 GenerationCheckpointSnapshot(
                     module_key=_row_value(row, "module_key", 0),
@@ -306,6 +317,9 @@ class AIGenerationCheckpointRepository:
                     content_payload=content_payload,
                     review_payload=review_payload,
                     assessment_payload=assessment_payload,
+                    content_status=content_status,
+                    review_status=review_status,
+                    assessment_status=assessment_status,
                 )
             )
         return tuple(snapshots)
@@ -315,6 +329,96 @@ class AIGenerationCheckpointRepository:
             session, tenant_id=tenant_id, generation_key=generation_key, module_key=module_key,
             lesson_key=lesson_key, payload=assessment_payload, column="assessment", lease_owner=lease_owner,
         )
+
+    async def checkpoint_omitted(
+        self,
+        session: Any,
+        *,
+        tenant_id: str,
+        generation_key: str,
+        module_key: str,
+        lesson_key: str,
+        omission_payload: Mapping[str, Any],
+        lease_owner: str | None = None,
+    ) -> None:
+        """Persist a quality-rejected planned lesson as an idempotent terminal item."""
+        generation_key = _key(generation_key, error="invalid_generation_key")
+        module_key = _key(module_key, error="invalid_module_key")
+        lesson_key = _key(lesson_key, error="invalid_lesson_key")
+        normalized_lease_owner = (
+            _key(lease_owner, error="invalid_lease_owner") if lease_owner is not None else None
+        )
+        serialized_payload = _json_payload(
+            omission_payload, error="invalid_omission_payload"
+        )
+        await self._set_tenant(session, tenant_id)
+        result = await session.execute(
+            text("""
+                UPDATE ai_generation_lesson_checkpoints AS checkpoint
+                SET content_status = 'omitted',
+                    review_status = 'omitted',
+                    assessment_status = 'omitted',
+                    content_payload = CAST(:payload AS jsonb),
+                    review_payload = NULL,
+                    assessment_payload = NULL,
+                    lease_owner = NULL,
+                    lease_expires_at = NULL,
+                    updated_at = now()
+                FROM ai_generation_runs AS run
+                WHERE checkpoint.tenant_id = CAST(:tenant_id AS uuid)
+                  AND checkpoint.generation_run_id = run.id
+                  AND run.tenant_id = checkpoint.tenant_id
+                  AND run.generation_key = :generation_key
+                  AND checkpoint.module_key = :module_key
+                  AND checkpoint.lesson_key = :lesson_key
+                  AND (
+                      (
+                          checkpoint.content_status NOT IN ('completed', 'omitted')
+                          AND (
+                              CAST(:lease_owner AS varchar) IS NULL
+                              OR checkpoint.lease_owner = CAST(:lease_owner AS varchar)
+                          )
+                      )
+                      OR (
+                          checkpoint.content_status = 'omitted'
+                          AND checkpoint.content_payload = CAST(:payload AS jsonb)
+                      )
+                  )
+                RETURNING checkpoint.id
+            """),
+            {
+                "tenant_id": str(tenant_id),
+                "generation_key": generation_key,
+                "module_key": module_key,
+                "lesson_key": lesson_key,
+                "payload": serialized_payload,
+                "lease_owner": normalized_lease_owner,
+            },
+        )
+        if _first(result) is not None:
+            return
+        existing = await session.execute(
+            text("""
+                SELECT checkpoint.content_status, checkpoint.content_payload
+                FROM ai_generation_lesson_checkpoints AS checkpoint
+                JOIN ai_generation_runs AS run ON run.id = checkpoint.generation_run_id
+                WHERE checkpoint.tenant_id = CAST(:tenant_id AS uuid)
+                  AND run.tenant_id = checkpoint.tenant_id
+                  AND run.generation_key = :generation_key
+                  AND checkpoint.module_key = :module_key
+                  AND checkpoint.lesson_key = :lesson_key
+            """),
+            {
+                "tenant_id": str(tenant_id),
+                "generation_key": generation_key,
+                "module_key": module_key,
+                "lesson_key": lesson_key,
+            },
+        )
+        row = _first(existing)
+        if row is None:
+            raise AIGenerationCheckpointError("generation_lesson_not_found")
+        raise AIGenerationCheckpointError("omission_checkpoint_conflict")
 
     async def _checkpoint(self, session: Any, *, tenant_id: str, generation_key: str, module_key: str, lesson_key: str, payload: Mapping[str, Any], column: str, lease_owner: str | None) -> None:
         column = _stage(column)
@@ -346,8 +450,11 @@ class AIGenerationCheckpointRepository:
                       OR checkpoint.lease_owner = CAST(:lease_owner AS varchar)
                   )
                   AND (
-                      checkpoint.{column}_status <> 'completed'
-                      OR checkpoint.{column}_payload = CAST(:payload AS jsonb)
+                      checkpoint.{column}_status NOT IN ('completed', 'omitted')
+                      OR (
+                          checkpoint.{column}_status = 'completed'
+                          AND checkpoint.{column}_payload = CAST(:payload AS jsonb)
+                      )
                   )
                 RETURNING checkpoint.id
             """),
@@ -422,7 +529,7 @@ class AIGenerationCheckpointRepository:
                   AND run.generation_key = :generation_key
                   AND checkpoint.module_key = :module_key
                   AND checkpoint.lesson_key = :lesson_key
-                  AND checkpoint.{stage}_status <> 'completed'
+                  AND checkpoint.{stage}_status NOT IN ('completed', 'omitted')
                   AND {prerequisite}
                   AND (checkpoint.lease_expires_at IS NULL OR checkpoint.lease_expires_at <= now())
                 RETURNING checkpoint.module_key, checkpoint.lesson_key, checkpoint.module_order,
@@ -495,7 +602,7 @@ class AIGenerationCheckpointRepository:
                     WHERE checkpoint.tenant_id = CAST(:tenant_id AS uuid)
                       AND run.tenant_id = checkpoint.tenant_id
                       AND run.generation_key = :generation_key
-                      AND checkpoint.{stage}_status <> 'completed'
+                       AND checkpoint.{stage}_status NOT IN ('completed', 'omitted')
                       AND (checkpoint.lease_expires_at IS NULL OR checkpoint.lease_expires_at <= now())
                     ORDER BY checkpoint.module_order ASC, checkpoint.lesson_order ASC,
                              checkpoint.module_key ASC, checkpoint.lesson_key ASC
@@ -540,8 +647,9 @@ class AIGenerationCheckpointRepository:
                 WHERE checkpoint.tenant_id = CAST(:tenant_id AS uuid)
                   AND run.tenant_id = checkpoint.tenant_id
                   AND run.generation_key = :generation_key
-                  AND (checkpoint.content_status <> 'completed' OR checkpoint.review_status <> 'completed'
-                       OR checkpoint.assessment_status <> 'completed')
+                  AND (checkpoint.content_status NOT IN ('completed', 'omitted')
+                       OR checkpoint.review_status NOT IN ('completed', 'omitted')
+                       OR checkpoint.assessment_status NOT IN ('completed', 'omitted'))
                 ORDER BY checkpoint.module_order ASC, checkpoint.lesson_order ASC,
                          checkpoint.module_key ASC, checkpoint.lesson_key ASC
             """),
@@ -553,11 +661,11 @@ class AIGenerationCheckpointRepository:
                 "module_key", "lesson_key", "module_order", "lesson_order", "content_status", "review_status",
                 "assessment_status",
             ))}
-            if values["content_status"] != "completed":
+            if values["content_status"] not in {"completed", "omitted"}:
                 missing.append(MissingGenerationItem(stage="content", **{key: values[key] for key in values if not key.endswith("_status")}))
-            if values["review_status"] != "completed":
+            if values["review_status"] not in {"completed", "omitted"}:
                 missing.append(MissingGenerationItem(stage="review", **{key: values[key] for key in values if not key.endswith("_status")}))
-            if values["assessment_status"] != "completed":
+            if values["assessment_status"] not in {"completed", "omitted"}:
                 missing.append(MissingGenerationItem(stage="assessment", **{key: values[key] for key in values if not key.endswith("_status")}))
         return tuple(missing)
 
