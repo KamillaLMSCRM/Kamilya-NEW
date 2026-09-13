@@ -131,7 +131,7 @@ describe('course lesson editor', () => {
     openLessonEditor();
 
     const dialog = await screen.findByRole('dialog', { name: 'Редактирование урока' });
-    expect(dialog.className).toContain('max-w-[1400px]');
+    expect(dialog.className).toContain('!max-w-[1400px]');
     expect(dialog.className).toContain('overflow-hidden');
     expect(dialog.className).toContain('flex-col');
     expect(fetchMock).toHaveBeenCalledWith(

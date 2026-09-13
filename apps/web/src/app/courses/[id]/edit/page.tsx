@@ -545,7 +545,7 @@ export default function CourseEditPage() {
         title="Редактирование урока"
         description="Редактируйте исходный текст слева и сразу проверяйте оформление справа."
         dismissable={false}
-        className="flex h-[calc(100dvh-1rem)] max-h-[960px] w-[calc(100%-1rem)] max-w-[1400px] flex-col overflow-hidden p-4 sm:h-[calc(100dvh-1.5rem)] sm:w-[calc(100%-1.5rem)] sm:p-6"
+        className="flex h-[calc(100dvh-1rem)] max-h-[960px] w-[calc(100%-1rem)] !max-w-[1400px] flex-col overflow-hidden p-4 sm:h-[calc(100dvh-1.5rem)] sm:w-[calc(100%-1.5rem)] sm:p-6"
       >
         <div className="flex min-h-0 flex-1 flex-col gap-4">
           <label className="block shrink-0 space-y-2">

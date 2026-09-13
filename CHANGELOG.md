@@ -15,6 +15,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.5.28] - 2026-09-13
+
+### Fixed
+
+- Convert legacy binary Word `.doc` sources with a request-isolated LibreOffice
+  user profile, instead of failing before conversion under the non-root service
+  account.
+- Ensure the lesson editor's 1400-pixel desktop width overrides the shared
+  dialog's narrow default, while retaining the responsive mobile layout.
+
 ## [0.5.27] - 2026-09-13
 
 ### Added
