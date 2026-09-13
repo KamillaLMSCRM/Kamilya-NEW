@@ -44,14 +44,14 @@ class GoodLLM:
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("repair_succeeds", [True, False])
-async def test_only_overlong_batch_retried_once_with_original_source(repair_succeeds):
+async def test_only_oversized_response_retried_once_with_original_source(repair_succeeds):
     calls = []
 
     class LLM:
         async def ainvoke(self, messages, config=None):
             calls.append(messages)
             return Response(json.dumps({
-                "summary": "short" if repair_succeeds and len(calls) == 2 else "x" * 1601,
+                "summary": "short" if repair_succeeds and len(calls) == 2 else "x" * 8001,
                 "topics": ["mapped"],
             }))
 
@@ -60,11 +60,11 @@ async def test_only_overlong_batch_retried_once_with_original_source(repair_succ
         assert result.records[0].source_ids == ("s000001",)
         assert result.records[0].summary == "short"
     else:
-        with pytest.raises(SourceTopicMapError, match="invalid_response_summary_length"):
+        with pytest.raises(SourceTopicMapError, match="response_budget_exceeded"):
             await build_source_topic_map(_corpus(chunks=1), LLM())
     assert len(calls) == 2
     assert calls[0][1] == calls[1][1]
-    assert "source_topic_map_invalid_response_summary_length" in calls[1][0]["content"]
+    assert "source_topic_map_response_budget_exceeded" in calls[1][0]["content"]
 
 
 @pytest.mark.asyncio
@@ -106,7 +106,6 @@ async def test_catalog_with_repeated_metadata_fits_request_limits_without_source
     (json.dumps({"records": []}), "invalid_response_schema"),
     (json.dumps({"summary": "x", "topics": ["x"], "source_ids": ["s999999"]}), "invalid_response_schema"),
     (json.dumps({"summary": "", "topics": ["x"]}), "invalid_response_summary"),
-    (json.dumps({"summary": "x" * 1601, "topics": ["x"]}), "invalid_response_summary_length"),
     (json.dumps({"summary": "x", "topics": []}), "invalid_response_topic_count"),
     (json.dumps({"summary": "x", "topics": [None]}), "invalid_response_topic_type"),
     (json.dumps({"summary": "x", "topics": ["x" * 161]}), "invalid_response_topic_length"),
@@ -136,6 +135,20 @@ async def test_topic_count_is_bounded_by_payload_budgets_not_an_arbitrary_ceilin
 
     result = await build_source_topic_map(_corpus(chunks=1), LLM())
 
+    assert result.records[0].topics == tuple(topics)
+
+
+@pytest.mark.asyncio
+async def test_verbose_navigation_summary_is_compacted_without_losing_topics():
+    topics = ["Rights and duties", "Required documents", "Microcredit stages"]
+
+    class LLM:
+        async def ainvoke(self, *args, **kwargs):
+            return Response(json.dumps({"summary": "detail " * 400, "topics": topics}))
+
+    result = await build_source_topic_map(_corpus(chunks=1), LLM())
+
+    assert 0 < len(result.records[0].summary) <= 1600
     assert result.records[0].topics == tuple(topics)
 
 

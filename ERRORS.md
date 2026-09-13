@@ -2524,6 +2524,13 @@ contract or establish a blocker.
   per-topic length, 8,000-character response, 6,000-character content,
   serialized-topic, 2,048-token and 28,000-character final-overview limits
   remain mandatory. Protocol revision `v5` prevents reuse of old checkpoints.
+- Recurrence: production `0.5.38` accepted the larger topic list, but both map
+  attempts returned a useful navigation summary above 1,600 characters and the
+  job failed with `source_topic_map_invalid_response_summary_length`. In
+  `0.5.39`, whitespace is normalized and only the auxiliary summary is clipped
+  at a word boundary to its exact remaining budget; every topic anchor is
+  preserved. Oversized JSON/topic payloads still fail closed. Protocol revision
+  `v6` invalidates checkpoints from the prior normalization contract.
 
 ## DOCLING-001 - Scanned PDF failed before OCR in the production container
 

@@ -23,11 +23,11 @@ MAX_MAP_SUMMARY_CHARS = 1_600
 MAX_ARCHITECT_MAP_OVERVIEW_CHARS = 28_000
 MIN_MAP_CONTENT_CHARS_PER_BATCH = 64
 MAX_MAP_CONTENT_CHARS_PER_BATCH = 6_000
-MAP_PROTOCOL_VERSION = "server-owned-provenance-v5"
+MAP_PROTOCOL_VERSION = "server-owned-provenance-v6"
 _RETRYABLE_OUTPUT_CODES = frozenset({
     "source_topic_map_invalid_response_empty", "source_topic_map_invalid_response_json",
     "source_topic_map_invalid_response_schema", "source_topic_map_invalid_response_summary",
-    "source_topic_map_invalid_response_summary_length", "source_topic_map_invalid_response_topic_count",
+    "source_topic_map_invalid_response_topic_count",
     "source_topic_map_invalid_response_topic_type", "source_topic_map_invalid_response_topic_length",
     "source_topic_map_content_budget_exceeded", "source_topic_map_response_budget_exceeded",
     "source_topic_map_topic_budget_exceeded",
@@ -315,6 +315,21 @@ def _json_payload(content: str) -> object:
         raise SourceTopicMapError("source_topic_map_invalid_response_json") from exc
 
 
+def _bounded_summary(value: str, limit: int) -> str:
+    """Compact model-written navigation prose without dropping topic anchors."""
+
+    normalized = " ".join(value.split())
+    if len(normalized) <= limit:
+        return normalized
+    if limit <= 1:
+        return normalized[:limit]
+    prefix = normalized[: limit - 1].rstrip()
+    boundary = prefix.rfind(" ")
+    if boundary >= limit // 2:
+        prefix = prefix[:boundary].rstrip()
+    return f"{prefix}…"
+
+
 def _export_sources(sources: Sequence[_MapSource]) -> tuple[SourceTopicMapSource, ...]:
     return tuple(SourceTopicMapSource(
         source.source_id, source.chunk.chunk_id, source.chunk.doc_id,
@@ -353,16 +368,20 @@ def _parse_batch(
     summary, topics = payload["summary"], payload["topics"]
     if not isinstance(summary, str) or not summary.strip():
         raise SourceTopicMapError("source_topic_map_invalid_response_summary")
-    if len(summary) > MAX_MAP_SUMMARY_CHARS:
-        raise SourceTopicMapError("source_topic_map_invalid_response_summary_length")
     if not isinstance(topics, list) or not topics:
         raise SourceTopicMapError("source_topic_map_invalid_response_topic_count")
     if any(not isinstance(topic, str) or not topic.strip() for topic in topics):
         raise SourceTopicMapError("source_topic_map_invalid_response_topic_type")
     if any(len(topic) > MAX_MAP_TOPIC_CHARS for topic in topics):
         raise SourceTopicMapError("source_topic_map_invalid_response_topic_length")
-    normalized_summary = summary.strip()
     normalized_topics = tuple(topic.strip() for topic in topics)
+    available_summary_chars = min(
+        MAX_MAP_SUMMARY_CHARS,
+        content_budget - sum(len(topic) for topic in normalized_topics),
+    )
+    if available_summary_chars <= 0:
+        raise SourceTopicMapError("source_topic_map_content_budget_exceeded")
+    normalized_summary = _bounded_summary(summary, available_summary_chars)
     content_chars = len(normalized_summary) + sum(len(topic) for topic in normalized_topics)
     if content_chars > content_budget:
         raise SourceTopicMapError("source_topic_map_content_budget_exceeded")

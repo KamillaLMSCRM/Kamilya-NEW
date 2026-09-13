@@ -15,6 +15,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.5.39] - 2026-09-14
+
+### Fixed
+
+- Deterministically compact an overlong model-written source-map summary within
+  its existing character/content budget instead of failing the whole course.
+- Preserve every parsed topic anchor while keeping oversized JSON responses and
+  topic arrays fail-closed under the existing hard size budgets.
+
 ## [0.5.38] - 2026-09-14
 
 ### Fixed
