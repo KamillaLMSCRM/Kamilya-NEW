@@ -289,6 +289,41 @@ def _answers_are_near_equivalent(left: str, right: str) -> bool:
     return longer[-len(shorter) :] == shorter
 
 
+def _answers_share_distinctive_phrase(left: str, right: str) -> bool:
+    """Conservatively match paraphrases built around the same useful claim.
+
+    This is intentionally narrower than general semantic similarity.  It catches
+    answers such as ``platform for the whole apartment`` versus ``constructor
+    for the whole apartment`` while retaining separate facts whose overlap is a
+    deictic shell such as ``in the same colour``.
+    """
+    left_tokens = _normalize_evidence_text(left).split()
+    right_tokens = _normalize_evidence_text(right).split()
+    if len(left_tokens) < 3 or len(right_tokens) < 3:
+        return False
+
+    longest: tuple[str, ...] = ()
+    for left_start in range(len(left_tokens)):
+        for right_start in range(len(right_tokens)):
+            length = 0
+            while (
+                left_start + length < len(left_tokens)
+                and right_start + length < len(right_tokens)
+                and left_tokens[left_start + length] == right_tokens[right_start + length]
+            ):
+                length += 1
+            if length > len(longest):
+                longest = tuple(left_tokens[left_start : left_start + length])
+
+    if len(longest) < 3:
+        return False
+    if len(longest) / len(left_tokens) < 0.6 or len(longest) / len(right_tokens) < 0.6:
+        return False
+    if set(longest) & {"же", "том", "этом", "этой", "этих", "такой", "таким"}:
+        return False
+    return any(len(token) >= 5 and token not in _GROUNDING_STOPWORDS for token in longest)
+
+
 def _plain_evidence_text(text: str) -> str:
     """Return the human-visible text represented by a Markdown excerpt."""
     value = text.strip()
@@ -655,6 +690,7 @@ def _validate_question_evidence(
     issues: list[str] = []
     seen_facts: dict[tuple[str, str], int] = {}
     seen_answers_by_quote: dict[str, list[tuple[str, int]]] = {}
+    seen_answers: list[tuple[str, int]] = []
     seen_atomic_structured_quotes: dict[str, int] = {}
     seen_structured_source_cells: dict[tuple[str, int], int] = {}
     normalized_source = _normalize_evidence_text(bounded_source)
@@ -711,6 +747,9 @@ def _validate_question_evidence(
             _normalize_evidence_text(answer_text),
             _normalize_evidence_text(correct_answer),
         )
+        source_cells = _structured_evidence_cells(source_quote)
+        atomic_structured_source = len(source_cells) == 2
+        structured_source = bool(source_cells or _markdown_tables(bounded_source))
         if fact_key in excluded_fact_keys:
             issues.append(
                 f"MCQ #{index}: repeats source evidence and correct answer " "already assessed in another lesson"
@@ -723,8 +762,12 @@ def _validate_question_evidence(
                 f"MCQ #{index}: repeats source evidence and an equivalent correct "
                 "answer already assessed in another lesson"
             )
-        source_cells = _structured_evidence_cells(source_quote)
-        atomic_structured_source = len(source_cells) == 2
+        elif structured_source and any(
+            _answers_share_distinctive_phrase(answer, fact_key[1]) for _source, answer in excluded_fact_keys
+        ):
+            issues.append(
+                f"MCQ #{index}: semantically overlapping correct answer " "already assessed in another lesson"
+            )
         source_cell_index = _structured_source_cell_index(correct_answer, source_cells)
         question_text = str(question.get("question", ""))
         supported_question_entities = tuple(
@@ -732,7 +775,6 @@ def _validate_question_evidence(
             for entity in _NAMED_ENTITY_RE.findall(question_text)
             if _normalize_evidence_text(entity) in normalized_source
         )
-        structured_source = bool(source_cells or _markdown_tables(bounded_source))
         if (
             structured_source
             and _GENERIC_COLLECTION_REFERENCE_RE.search(question_text)
@@ -857,9 +899,25 @@ def _validate_question_evidence(
                     f"equivalent correct answer as MCQ #{equivalent_index}; replace "
                     "this question with a different atomic fact from the evidence bank"
                 )
+            elif structured_source and (
+                overlap_index := next(
+                    (
+                        previous_index
+                        for previous_answer, previous_index in seen_answers
+                        if _answers_share_distinctive_phrase(previous_answer, fact_key[1])
+                    ),
+                    None,
+                )
+            ):
+                issues.append(
+                    f"MCQ #{index}: semantically overlapping correct answer as "
+                    f"MCQ #{overlap_index}; keep the first question and do not pad "
+                    "the assessment"
+                )
             else:
                 seen_facts[fact_key] = index
                 seen_answers_by_quote.setdefault(fact_key[0], []).append((fact_key[1], index))
+                seen_answers.append((fact_key[1], index))
                 if atomic_structured_source:
                     if previous_index := seen_atomic_structured_quotes.get(fact_key[0]):
                         issues.append(
@@ -2052,6 +2110,7 @@ Output ONLY the JSON data instance:
                         "structured question omits its specific subject",
                         "structured question uses a vague subject without an antecedent",
                         "low_information_distractors",
+                        "semantically overlapping correct answer",
                     )
                 )
                 if drop_without_padding:

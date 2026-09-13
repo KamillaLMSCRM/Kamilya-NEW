@@ -2262,3 +2262,11 @@ contract or establish a blocker.
 - Prevention: assess uniqueness across the whole course, keep requested counts
   as ceilings, and add every human-review escape as a failing regression before
   changing the validators.
+- Recurrence (2026-09-13, `0.5.19` production acceptance): two independently
+  grounded spreadsheet rows expressed the same sales claim as "one platform for
+  the whole apartment" and "a constructor for the whole apartment". Exact
+  evidence keys could not identify the cross-row paraphrase. The `0.5.20` repair
+  uses a conservative shared-phrase check only for structured sources, drops the
+  later question without padding, and retains equal wording when it belongs to a
+  different source subject. The focused RED case and two false-positive guards
+  pass with the related 120-test assessment suite.

@@ -4,6 +4,7 @@ import pytest
 
 from app.modules.ai.assessment import (
     _answers_are_near_equivalent,
+    _answers_share_distinctive_phrase,
     _assessment_contract_reason_codes,
     _assessment_question_count,
     _build_evidence_bank,
@@ -46,6 +47,21 @@ def test_equivalent_structured_answers_ignore_descriptive_subject_prefix() -> No
     assert _answers_are_near_equivalent(
         "Модульная коллекция в матовых моно-оттенках",
         "В матовых моно-оттенках",
+    )
+
+
+def test_semantic_overlap_requires_a_distinctive_shared_phrase() -> None:
+    assert _answers_share_distinctive_phrase(
+        "Одна платформа на всю квартиру",
+        "Конструктор на всю квартиру",
+    )
+    assert not _answers_share_distinctive_phrase(
+        "Феникс в том же цвете",
+        "Чикаго Стрит в том же цвете",
+    )
+    assert not _answers_share_distinctive_phrase(
+        "ЛДСП Kronospan (Австрия)",
+        "МДФ Kronospan (Австрия)",
     )
     assert _answers_are_near_equivalent(
         "Интерьерная платформа Imperial: модульный конструктор из нескольких дизайн-серий",
@@ -1523,6 +1539,76 @@ async def test_model_assessment_keeps_valid_questions_without_padding_after_dupl
         )
         == 1
     )
+
+
+@pytest.mark.asyncio
+async def test_model_assessment_drops_cross_row_paraphrase_without_padding() -> None:
+    source = "\n".join(
+        (
+            "| Главное преимущество | Одна платформа на всю квартиру |",
+            "| Что сказать покупателю | Феникс — это конструктор на всю квартиру |",
+            "| Альтернатива спальни | Один гарнитур на одну спальню |",
+            "| Альтернатива гостиной | Одна витрина на одну гостиную |",
+            "| Альтернатива прихожей | Одна консоль на одну прихожую |",
+        )
+    )
+
+    class LLMWithCrossRowParaphrase:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        async def ainvoke(self, messages, config=None, response_format=None):
+            self.calls += 1
+            return SimpleNamespace(
+                content="""{
+                    "mcq": [
+                        {
+                            "question": "Какое главное преимущество указано для Феникса?",
+                            "options": [
+                                {"text": "Одна платформа на всю квартиру", "is_correct": true},
+                                {"text": "Один гарнитур на одну спальню", "is_correct": false},
+                                {"text": "Одна витрина на одну гостиную", "is_correct": false},
+                                {"text": "Одна консоль на одну прихожую", "is_correct": false}
+                            ],
+                            "explanation": "Одна платформа на всю квартиру",
+                            "source_quote_id": "E01"
+                        },
+                        {
+                            "question": "Как описать Феникс покупателю?",
+                            "options": [
+                                {"text": "Конструктор на всю квартиру", "is_correct": true},
+                                {"text": "Гарнитур на одну спальню", "is_correct": false},
+                                {"text": "Комплект на одну прихожую", "is_correct": false},
+                                {"text": "Набор на одну гостиную", "is_correct": false}
+                            ],
+                            "explanation": "Конструктор на всю квартиру",
+                            "source_quote_id": "E02"
+                        }
+                    ],
+                    "true_false": [],
+                    "matching": []
+                }"""
+            )
+
+    llm = LLMWithCrossRowParaphrase()
+    result = await generate_lesson_assessment(
+        llm,
+        LessonContent(
+            title="Преимущества и консультация по Фениксу",
+            objectives=["Объяснять преимущества и особенности коллекции"],
+            content="Generated prose is not evidence.",
+            source_chunks=[source],
+            source_references=[],
+        ),
+        language="ru",
+        compact=True,
+    )
+
+    assert llm.calls == 1
+    assert len(result.mcq) == 1
+    correct_answers = {next(option.text for option in question.options if option.is_correct) for question in result.mcq}
+    assert "Одна платформа на всю квартиру" in correct_answers
+    assert "Конструктор на всю квартиру" not in correct_answers
 
 
 @pytest.mark.asyncio

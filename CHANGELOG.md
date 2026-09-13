@@ -15,6 +15,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.5.20] - 2026-09-13
+
+### Changed
+
+- Structured-course assessment counts remain ceilings when two answers express
+  the same useful claim across different spreadsheet rows. The first grounded
+  question is kept and the paraphrased repeat is dropped without padding.
+
+### Fixed
+
+- Detect conservative cross-row answer overlap such as "one platform for the
+  whole apartment" versus "a constructor for the whole apartment" while
+  preserving equal wording that belongs to different source subjects.
+
 ## [0.5.19] - 2026-09-13
 
 ### Changed
