@@ -15,6 +15,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.5.22] - 2026-09-13
+
+### Changed
+
+- Treat requested lesson and assessment counts as upper bounds: weak structured-source
+  questions are removed without regeneration or quota padding.
+
+### Fixed
+
+- Reject spreadsheet questions that refer only to "the description" or another
+  source location without naming the collection or subject being tested.
+- Reject questions that reveal the correct answer in their own wording, including
+  partial answer leakage in longer Russian phrases.
+
 ## [0.5.21] - 2026-09-13
 
 ### Fixed

@@ -94,6 +94,7 @@ _GROUNDING_STOPWORDS = {
     "какая",
     "какие",
     "какой",
+    "кто",
     "неверный",
     "объяснение",
     "ответ",
@@ -171,6 +172,7 @@ _ANSWER_LEAK_STOPWORDS = {
     "коллекциями",
     "коллекция",
     "кому",
+    "кто",
     "нужна",
     "нужны",
     "нужно",
@@ -204,6 +206,12 @@ _GENERIC_COLLECTION_REFERENCE_RE = re.compile(
 )
 _VAGUE_STRUCTURED_SUBJECT_RE = re.compile(
     r"\b(?:элемент\w*|издели\w*|предмет\w*|объект\w*|данн\w*|" r"elements?|items?|objects?|data)\b",
+    re.IGNORECASE,
+)
+_SOURCE_REFERENCE_QUESTION_RE = re.compile(
+    r"\b(?:в|из|по)\s+(?:этом\s+|этой\s+)?(?:описан\w*|материал\w*|источник\w*|"
+    r"документ\w*|таблиц\w*|строк\w*|раздел\w*)\b|"
+    r"\b(?:according\s+to|in)\s+(?:the\s+)?(?:description|source|document|table|row|section)\b",
     re.IGNORECASE,
 )
 _GENERATION_BLOCKING_ISSUES = frozenset(
@@ -788,6 +796,12 @@ def _validate_question_evidence(
             issues.append(f"MCQ #{index}: structured question omits its specific subject")
         if structured_source and _VAGUE_STRUCTURED_SUBJECT_RE.search(question_text) and not supported_question_entities:
             issues.append(f"MCQ #{index}: structured question uses a vague subject without an antecedent")
+        if (
+            structured_source
+            and _SOURCE_REFERENCE_QUESTION_RE.search(question_text)
+            and not supported_question_entities
+        ):
+            issues.append(f"MCQ #{index}: structured question references source without a specific subject")
         if atomic_structured_source and any(source == fact_key[0] for source, _answer in excluded_fact_keys):
             issues.append(f"MCQ #{index}: reuses one structured source fact already assessed " "in another lesson")
         if _WHICH_CATEGORY_QUESTION_RE.search(str(question.get("question", ""))) and _NEGATIVE_ANSWER_RE.search(
@@ -830,8 +844,13 @@ def _validate_question_evidence(
         question_content_stems = {
             token.casefold() for token in _META_TERM_RE.findall(str(question.get("question", "")))
         }
-        if (len(normalized_answer) >= 4 and normalized_answer in normalized_question) or (
-            len(answer_content_stems) >= 2 and answer_content_stems <= question_content_stems
+        if (
+            (len(normalized_answer) >= 4 and normalized_answer in normalized_question)
+            or (len(answer_content_stems) >= 2 and answer_content_stems <= question_content_stems)
+            or (
+                len(answer_content_stems) >= 4
+                and len(answer_content_stems & question_content_stems) / len(answer_content_stems) >= 0.6
+            )
         ):
             issues.append(f"MCQ #{index}: question contains its correct answer")
         if not explanation_stems or not quote_stems & explanation_stems:
@@ -2113,8 +2132,10 @@ Output ONLY the JSON data instance:
                         "already assessed in another lesson",
                         "structured question omits its specific subject",
                         "structured question uses a vague subject without an antecedent",
+                        "structured question references source without a specific subject",
                         "low_information_distractors",
                         "semantically overlapping correct answer",
+                        "question contains its correct answer",
                     )
                 )
                 if drop_without_padding:

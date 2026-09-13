@@ -148,6 +148,66 @@ def test_structured_question_rejects_vague_elements_without_antecedent() -> None
     assert "MCQ #1: structured question uses a vague subject without an antecedent" in issues
 
 
+def test_structured_question_rejects_source_reference_without_named_subject() -> None:
+    source = "| Чикаго Нео | Взрослый размер и матовые торцевые ручки |"
+    payload = {
+        "mcq": [
+            {
+                "question": "Какой размер и какие ручки указаны в описании?",
+                "options": [
+                    {"text": "Взрослый размер и матовые торцевые ручки", "is_correct": True},
+                    {"text": "Компактный размер и скрытые ручки", "is_correct": False},
+                    {"text": "Детский размер и накладные ручки", "is_correct": False},
+                    {"text": "Увеличенный размер и глянцевые ручки", "is_correct": False},
+                ],
+                "explanation": source,
+                "source_quote_id": "E01",
+            }
+        ],
+        "true_false": [],
+        "matching": [],
+    }
+
+    issues = _validate_question_evidence(
+        payload,
+        evidence_bank={"E01": source},
+        bounded_source=source,
+        language="ru",
+    )
+
+    assert "MCQ #1: structured question references source without a specific subject" in issues
+
+
+def test_question_leak_detection_ignores_interrogative_who_prefix() -> None:
+    source = "| Кому рекомендовать | Кто делает несколько комнат в одном стиле |"
+    payload = {
+        "mcq": [
+            {
+                "question": "Кому рекомендовать коллекцию, если человек делает несколько комнат в одном стиле?",
+                "options": [
+                    {"text": "Кто делает несколько комнат в одном стиле", "is_correct": True},
+                    {"text": "Кто оформляет одну комнату без хранения", "is_correct": False},
+                    {"text": "Кто выбирает разные стили для комнат", "is_correct": False},
+                    {"text": "Кто подбирает мебель только для офиса", "is_correct": False},
+                ],
+                "explanation": source,
+                "source_quote_id": "E01",
+            }
+        ],
+        "true_false": [],
+        "matching": [],
+    }
+
+    issues = _validate_question_evidence(
+        payload,
+        evidence_bank={"E01": source},
+        bounded_source=source,
+        language="ru",
+    )
+
+    assert "MCQ #1: question contains its correct answer" in issues
+
+
 def test_three_word_options_that_change_only_one_position_are_low_information() -> None:
     payload = {
         "mcq": [
@@ -167,6 +227,36 @@ def test_three_word_options_that_change_only_one_position_are_low_information() 
     issues = _validate_generated_question_set(payload, "ru")
 
     assert any("low_information_distractors" in issue for issue in issues)
+
+
+def test_question_rejects_when_it_reveals_most_of_a_long_correct_answer() -> None:
+    source = "| Профиль покупателя Феникс | хочет матовый минимализм с акцентом ручки |"
+    payload = {
+        "mcq": [
+            {
+                "question": "Какой стиль хочет покупатель с акцентом ручки и нормальными габаритами?",
+                "options": [
+                    {"text": "хочет глянцевый минимализм с акцентом ручки", "is_correct": False},
+                    {"text": "хочет матовый максимализм с акцентом ручки", "is_correct": False},
+                    {"text": "хочет матовый минимализм с акцентом ручки", "is_correct": True},
+                    {"text": "хочет матовый минимализм без акцента ручки", "is_correct": False},
+                ],
+                "explanation": source,
+                "source_quote_id": "E01",
+            }
+        ],
+        "true_false": [],
+        "matching": [],
+    }
+
+    issues = _validate_question_evidence(
+        payload,
+        evidence_bank={"E01": source},
+        bounded_source=source,
+        language="ru",
+    )
+
+    assert "MCQ #1: question contains its correct answer" in issues
 
 
 def test_three_word_role_actions_are_not_treated_as_mechanical_distractors() -> None:
@@ -1613,6 +1703,87 @@ async def test_model_assessment_drops_cross_row_paraphrase_without_padding() -> 
     correct_answers = {next(option.text for option in question.options if option.is_correct) for question in result.mcq}
     assert "Одна платформа на всю квартиру" in correct_answers
     assert "Конструктор на всю квартиру" not in correct_answers
+
+
+@pytest.mark.asyncio
+async def test_model_assessment_drops_weak_structured_questions_without_retry_or_padding() -> None:
+    rows = (
+        "| Материал корпуса Чикаго Нео | ЛДСП Kronospan |",
+        "| Материал корпуса Феникс | МДФ Kronospan |",
+        "| Материал корпуса Чикаго Стрит | массив дуба |",
+        "| Материал корпуса Imperial | мебельная фанера |",
+        "| Особенности Чикаго Нео | Взрослый размер и матовые торцевые ручки |",
+        "| Кому рекомендовать Феникс | Кто делает несколько комнат в одном стиле |",
+    )
+    source = "\n".join(rows)
+    evidence_ids = {quote: evidence_id for evidence_id, quote in _build_evidence_bank(source).items()}
+
+    questions = [
+        {
+            "question": "Какой материал корпуса у Чикаго Нео?",
+            "options": [
+                {"text": "ЛДСП Kronospan", "is_correct": True},
+                {"text": "МДФ Kronospan", "is_correct": False},
+                {"text": "массив дуба", "is_correct": False},
+                {"text": "мебельная фанера", "is_correct": False},
+            ],
+            "explanation": rows[0],
+            "source_quote_id": evidence_ids[rows[0]],
+        },
+        {
+            "question": "Какой размер и какие ручки указаны в описании?",
+            "options": [
+                {"text": "Взрослый размер и матовые торцевые ручки", "is_correct": True},
+                {"text": "Компактный размер и скрытые ручки", "is_correct": False},
+                {"text": "Детский размер и накладные ручки", "is_correct": False},
+                {"text": "Увеличенный размер и глянцевые ручки", "is_correct": False},
+            ],
+            "explanation": rows[4],
+            "source_quote_id": evidence_ids[rows[4]],
+        },
+        {
+            "question": "Кому рекомендовать Феникс, если человек делает несколько комнат в одном стиле?",
+            "options": [
+                {"text": "Кто делает несколько комнат в одном стиле", "is_correct": True},
+                {"text": "Кто оформляет одну комнату без хранения", "is_correct": False},
+                {"text": "Кто выбирает разные стили для комнат", "is_correct": False},
+                {"text": "Кто подбирает мебель только для офиса", "is_correct": False},
+            ],
+            "explanation": rows[5],
+            "source_quote_id": evidence_ids[rows[5]],
+        },
+    ]
+
+    class LLMWithWeakStructuredQuestions:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        async def ainvoke(self, messages, config=None, response_format=None):
+            self.calls += 1
+            return SimpleNamespace(
+                content=__import__("json").dumps(
+                    {"mcq": questions, "true_false": [], "matching": []},
+                    ensure_ascii=False,
+                )
+            )
+
+    llm = LLMWithWeakStructuredQuestions()
+    result = await generate_lesson_assessment(
+        llm,
+        LessonContent(
+            title="Сравнение коллекций",
+            objectives=["Подбирать коллекцию и объяснять её характеристики"],
+            content="Generated prose is not evidence.",
+            source_chunks=[source],
+            source_references=[],
+        ),
+        language="ru",
+        compact=True,
+    )
+
+    assert llm.calls == 1
+    assert len(result.mcq) == 1
+    assert result.mcq[0].question == "Какой материал корпуса у Чикаго Нео?"
 
 
 @pytest.mark.asyncio

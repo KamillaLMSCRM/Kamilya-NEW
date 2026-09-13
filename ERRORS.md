@@ -2278,3 +2278,11 @@ contract or establish a blocker.
   coverage floor; a pairwise replay over all 18 production answers identifies
   exactly that pair and no others. The real long-answer wording is retained as a
   regression alongside the different-subject and deictic false-positive guards.
+- Recurrence (2026-09-13, `0.5.21` production acceptance): after the repeated fact
+  was removed, the full workbook still produced questions that referred only to
+  "the description" without naming a collection and questions whose wording
+  exposed most or all of the correct answer. The `0.5.22` repair classifies both
+  defects as drop-only for structured sources. It does not regenerate replacements
+  or inflate the result to the requested count. Focused regressions cover both
+  Russian formulations and protect the interrogative word "who" from being
+  mistaken for leaked answer content.
