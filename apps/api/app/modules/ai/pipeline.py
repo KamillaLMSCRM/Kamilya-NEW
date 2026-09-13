@@ -1018,7 +1018,8 @@ async def run_generation_pipeline(
                     ),
                     on_lesson_complete=checkpoint_lesson_content,
                 )
-            return generated, total
+            generated_total = sum(len(module.lessons) for module in generated.modules)
+            return generated, generated_total
 
         try:
             content, total_lessons = await write_grounded_course(structure)

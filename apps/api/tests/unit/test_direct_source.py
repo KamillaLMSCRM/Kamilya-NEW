@@ -326,6 +326,101 @@ async def test_direct_writer_repairs_one_low_quality_lesson_before_accepting_it(
 
 
 @pytest.mark.asyncio
+async def test_direct_writer_omits_one_unrecoverable_lesson_when_course_remains_useful() -> None:
+    from app.modules.ai.architect_schema import (
+        CourseStructure,
+        LearningObjective,
+        Lesson,
+        Module,
+    )
+    from app.modules.ai.direct_source import (
+        DirectSourceChunk,
+        DirectSourceCorpus,
+        DirectSourceDocument,
+        write_direct_course,
+    )
+
+    source = (
+        "Для получения микрокредита клиент предоставляет удостоверение личности. "
+        "Сотрудник проверяет документ и оформляет договор микрокредита."
+    )
+    revision = "sha256:" + hashlib.sha256(source.encode()).hexdigest()
+    chunk = DirectSourceChunk(
+        chunk_id="direct:doc-1:0",
+        doc_id="doc-1",
+        doc_name="rules.pdf",
+        title="Правила",
+        headings=("Документы и оформление",),
+        text=source,
+        source_revision=revision,
+        chunk_index=0,
+    )
+    corpus = DirectSourceCorpus(
+        tenant_id="tenant-1",
+        documents=(
+            DirectSourceDocument(
+                doc_id="doc-1",
+                title="Правила",
+                filename="rules.pdf",
+                category="general",
+                source_revision=revision,
+                chunks=(chunk,),
+            ),
+        ),
+        total_chars=len(source),
+        total_chunks=1,
+    )
+    structure = CourseStructure(
+        title="Правила микрокредитования",
+        modules=[
+            Module(
+                title="Работа с клиентом",
+                lessons=[
+                    Lesson(
+                        title="Документы клиента",
+                        objectives=[LearningObjective("Назвать обязательный документ")],
+                        source_doc_ids=["doc-1"],
+                        relevant_headings=["Документы и оформление"],
+                    ),
+                    Lesson(
+                        title="Оформление договора",
+                        objectives=[LearningObjective("Описать оформление")],
+                        source_doc_ids=["doc-1"],
+                        relevant_headings=["Документы и оформление"],
+                    ),
+                ],
+            )
+        ],
+    )
+
+    class LLM:
+        def __init__(self) -> None:
+            self.responses = [
+                "## Документы клиента\n\nКлиент предоставляет удостоверение личности. Сотрудник проверяет документ.",
+                *[
+                    "## Введение\n\nВ этом уроке мы разберём важную тему. "
+                    "Материал поможет лучше понять процесс. Подведём основные итоги."
+                ]
+                * 3,
+            ]
+
+        async def ainvoke(self, messages):
+            return SimpleNamespace(content=self.responses.pop(0))
+
+    progress: list[str] = []
+    result = await write_direct_course(
+        LLM(),
+        corpus,
+        structure,
+        on_progress=progress.append,
+    )
+
+    assert [lesson.title for lesson in result.modules[0].lessons] == ["Документы клиента"]
+    assert len(progress) == 2
+    assert "Omitted lesson 2/2" in progress[-1]
+
+
+@pytest.mark.asyncio
 async def test_writer_retry_explains_how_to_repair_unsupported_relationships() -> None:
     from app.modules.ai.architect_schema import (
         CourseStructure,

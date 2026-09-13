@@ -1686,6 +1686,7 @@ Objectives: {json.dumps(objectives, ensure_ascii=False)}
             )
             content = tabular_lesson[0] if tabular_lesson is not None else ""
             quality_feedback: tuple[str, ...] = ()
+            lesson_accepted = False
             if tabular_lesson is not None:
                 quality = evaluate_lesson_quality(
                     title=lesson.title,
@@ -1694,10 +1695,11 @@ Objectives: {json.dumps(objectives, ensure_ascii=False)}
                     prior_lesson_contents=accepted_lesson_contents,
                     lesson_identity=(module_index, lesson_index),
                 )
-                if not quality.accepted:
-                    raise DirectSourceError("direct_source_lesson_quality_failed")
+                lesson_accepted = quality.accepted
+                if not lesson_accepted:
+                    quality_feedback = quality.reason_codes
             else:
-                for quality_attempt in range(MAX_DIRECT_LESSON_QUALITY_ATTEMPTS):
+                for _quality_attempt in range(MAX_DIRECT_LESSON_QUALITY_ATTEMPTS):
                     attempt_prompt = user_prompt
                     if quality_feedback:
                         attempt_prompt += (
@@ -1729,10 +1731,19 @@ Objectives: {json.dumps(objectives, ensure_ascii=False)}
                             lesson_identity=(module_index, lesson_index),
                         )
                         if quality.accepted:
+                            lesson_accepted = True
                             break
                         quality_feedback = quality.reason_codes
-                    if quality_attempt == MAX_DIRECT_LESSON_QUALITY_ATTEMPTS - 1:
-                        raise DirectSourceError("direct_source_lesson_quality_failed")
+            if not lesson_accepted:
+                completed += 1
+                if on_progress:
+                    result = on_progress(
+                        f"Omitted lesson {completed}/{total} after quality admission: "
+                        f"{','.join(quality_feedback) or 'invalid_content'}"
+                    )
+                    if inspect.isawaitable(result):
+                        await result
+                continue
             lesson_content = LessonContent(
                 title=lesson.title,
                 objectives=objectives,
@@ -1756,7 +1767,12 @@ Objectives: {json.dumps(objectives, ensure_ascii=False)}
                 result = on_progress(f"Writing lesson {completed}/{total}: {lesson.title}")
                 if inspect.isawaitable(result):
                     await result
-        modules.append(ModuleContent(title=module.title, lessons=lessons))
+        if lessons:
+            modules.append(ModuleContent(title=module.title, lessons=lessons))
+    accepted_total = sum(len(module.lessons) for module in modules)
+    minimum_useful_lessons = max(1, min(5, math.ceil(total / 2)))
+    if accepted_total < minimum_useful_lessons:
+        raise DirectSourceError("direct_source_lesson_quality_failed")
     return CourseContent(
         title=structure.title,
         description=structure.description,

@@ -2348,6 +2348,29 @@ contract or establish a blocker.
   the same production job through resume, then run a fresh DOC human journey;
   local green tests alone are not production acceptance.
 
+## AI-QUALITY-019 - One unrecoverable lesson cancelled an otherwise useful course
+
+- Date: 2026-09-14. Observed in production `0.5.30` during the fresh
+  methodologist-path acceptance of the Lombard microcredit-rules PDF.
+- Symptom: OCR and architecture completed and the first of nine lessons passed,
+  but the second lesson exhausted three bounded quality repairs. The whole job
+  failed with `direct_source_lesson_quality_failed` and no useful course was
+  saved.
+- Cause: the direct writer treated the architect lesson count as mandatory.
+  A deterministic quality failure in any one lesson raised immediately even
+  when other planned lessons could still form a grounded course.
+- Fix: omit only the exhausted lesson, continue the remaining plan, remove empty
+  modules, and save only if an adaptive useful core remains. The threshold is
+  half the plan rounded up, capped at five and never below one. Review and
+  assessment use the accepted lesson count.
+- Verification: the RED regression fails the old all-or-nothing writer and the
+  GREEN result keeps one grounded lesson from a two-lesson plan after omitting
+  the exhausted peer. Existing single-lesson rejection and resumable-loop tests
+  remain green. Full production PDF and DOC journeys remain required.
+- Prevention: lesson count is a ceiling, never a reason to pad or retain weak
+  content. Any future partial-generation path must test both a surviving useful
+  core and an all-invalid course that still fails closed.
+
 ## DOCLING-001 - Scanned PDF failed before OCR in the production container
 
 - Date: 2026-09-13. Observed on production `0.5.26`; repaired for `0.5.27`.

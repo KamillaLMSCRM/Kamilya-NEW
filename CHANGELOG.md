@@ -15,6 +15,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.5.31] - 2026-09-14
+
+### Changed
+
+- Treat an architect's requested lesson count as a quality ceiling: after three
+  failed grounded rewrites, omit that lesson and continue the remaining course
+  instead of padding the count or failing all useful work.
+- Require an adaptive useful core before saving: at least half of the planned
+  lessons, capped at five and never below one, must still pass every grounding
+  and quality rule.
+
+### Fixed
+
+- Report the number of accepted lessons to the review and assessment stages so
+  progress and question generation follow the course that is actually saved.
+
 ## [0.5.30] - 2026-09-14
 
 ### Fixed
