@@ -15,6 +15,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.5.19] - 2026-09-13
+
+### Changed
+
+- The requested number of assessment questions remains a ceiling across the
+  whole generated course. A rejected duplicate or weak question is removed
+  without a replacement request made only to restore the nominal count.
+
+### Fixed
+
+- Detect repeated facts across different lessons when one correct answer is a
+  concise form of the other with only a short descriptive prefix.
+- Reject structured-source questions that refer only to a generic collection,
+  item or element without naming the subject being tested.
+- Reject low-information answer sets whose options differ at only one position,
+  including short three-word spreadsheet-derived variants.
+- Preserve structured cell identity when a Markdown table row is split from its
+  trailing delimiter during sentence extraction.
+
 ## [0.5.18] - 2026-09-13
 
 ### Changed

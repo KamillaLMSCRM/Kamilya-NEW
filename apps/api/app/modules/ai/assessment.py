@@ -144,6 +144,7 @@ _ATTRIBUTE_QUESTION_RE = re.compile(
 _WHICH_CATEGORY_QUESTION_RE = re.compile(
     r"^\s*(?:"
     r"к\s+как\w+\s+(?:категор\w*|коллекц\w*|линейк\w*|тип\w*|платформ\w*|сери\w*)|"
+    r"для\s+как\w+\s+(?:категор\w*|коллекц\w*|линейк\w*|тип\w*|платформ\w*|сери\w*)|"
     r"как\w+\s+(?:категор\w*|коллекц\w*|линейк\w*|тип\w*|платформ\w*|сери\w*)|"
     r"which(?:\s+\w+){0,3}\s+(?:category|collection|line|type|platform|series)\b|"
     r"what\s+(?:category|collection|line|type|platform|series)\b"
@@ -195,6 +196,14 @@ _SUSPICIOUS_COMPACT_SHORTHAND_RE = re.compile(
 )
 _CODE_QUESTION_RE = re.compile(
     r"\b(?:артикул\w*|код\w*|модел\w*|обозначен\w*|sku)\b",
+    re.IGNORECASE,
+)
+_GENERIC_COLLECTION_REFERENCE_RE = re.compile(
+    r"\b(?:коллекц\w*|collection\w*|топтам\w*)\b",
+    re.IGNORECASE,
+)
+_VAGUE_STRUCTURED_SUBJECT_RE = re.compile(
+    r"\b(?:элемент\w*|издели\w*|предмет\w*|объект\w*|данн\w*|" r"elements?|items?|objects?|data)\b",
     re.IGNORECASE,
 )
 _GENERATION_BLOCKING_ISSUES = frozenset(
@@ -268,7 +277,16 @@ def _answers_are_near_equivalent(left: str, right: str) -> bool:
         left_tokens = left_tokens[1:]
     while right_tokens and right_tokens[0] in safe_intro_words:
         right_tokens = right_tokens[1:]
-    return bool(left_tokens and left_tokens == right_tokens)
+    if left_tokens and left_tokens == right_tokens:
+        return True
+    shorter, longer = sorted((left_tokens, right_tokens), key=len)
+    if len(shorter) < 4 or len(longer) - len(shorter) > 4:
+        return False
+    # A longer answer may carry a short descriptive subject prefix while keeping
+    # the same factual answer at the end.  A suffix added to the shorter answer
+    # can change the fact (for example, one collection versus two), so it must
+    # not be treated as equivalent.
+    return longer[-len(shorter) :] == shorter
 
 
 def _plain_evidence_text(text: str) -> str:
@@ -408,6 +426,11 @@ def _structured_evidence_cells(evidence: str) -> list[str]:
         and not all(_MARKDOWN_TABLE_SEPARATOR_CELL_RE.fullmatch(cell) for cell in markdown_cells)
     ):
         return markdown_cells
+    stripped = evidence.strip()
+    if stripped.startswith("|") and stripped.count("|") >= 2:
+        incomplete_markdown_cells = [cell.strip() for cell in stripped.strip("|").split("|")]
+        if len(incomplete_markdown_cells) >= 2 and all(incomplete_markdown_cells):
+            return incomplete_markdown_cells
     cells = [cell.strip() for cell in re.split(r"\s+[—–]\s+", evidence.strip())]
     return cells if len(cells) >= 2 and all(cells) else []
 
@@ -703,6 +726,22 @@ def _validate_question_evidence(
         source_cells = _structured_evidence_cells(source_quote)
         atomic_structured_source = len(source_cells) == 2
         source_cell_index = _structured_source_cell_index(correct_answer, source_cells)
+        question_text = str(question.get("question", ""))
+        supported_question_entities = tuple(
+            entity
+            for entity in _NAMED_ENTITY_RE.findall(question_text)
+            if _normalize_evidence_text(entity) in normalized_source
+        )
+        structured_source = bool(source_cells or _markdown_tables(bounded_source))
+        if (
+            structured_source
+            and _GENERIC_COLLECTION_REFERENCE_RE.search(question_text)
+            and not _WHICH_CATEGORY_QUESTION_RE.search(question_text)
+            and not supported_question_entities
+        ):
+            issues.append(f"MCQ #{index}: structured question omits its specific subject")
+        if structured_source and _VAGUE_STRUCTURED_SUBJECT_RE.search(question_text) and not supported_question_entities:
+            issues.append(f"MCQ #{index}: structured question uses a vague subject without an antecedent")
         if atomic_structured_source and any(source == fact_key[0] for source, _answer in excluded_fact_keys):
             issues.append(f"MCQ #{index}: reuses one structured source fact already assessed " "in another lesson")
         if _WHICH_CATEGORY_QUESTION_RE.search(str(question.get("question", ""))) and _NEGATIVE_ANSWER_RE.search(
@@ -1025,6 +1064,11 @@ def _validate_generated_question_set(data: dict[str, Any], language: str) -> lis
             if equal_length and tokenized[0]
             else 0
         )
+        changed_positions = (
+            [position for position in range(len(tokenized[0])) if len({tokens[position] for tokens in tokenized}) > 1]
+            if equal_length and tokenized[0]
+            else []
+        )
         shared_prefix_only = (
             equal_length
             and len(tokenized[0]) >= 2
@@ -1033,7 +1077,7 @@ def _validate_generated_question_set(data: dict[str, Any], language: str) -> lis
         )
         one_changed_position = (
             equal_length
-            and len(tokenized[0]) >= 5
+            and (len(tokenized[0]) >= 5 or (len(tokenized[0]) >= 3 and changed_positions == [0]))
             and common_positions >= len(tokenized[0]) - 1
             and len({tuple(tokens) for tokens in tokenized}) >= 2
             and not all_options_source_grounded[index - 1]
@@ -2004,6 +2048,10 @@ Output ONLY the JSON data instance:
                         "reuses one structured source cell",
                         "incorrect option is also supported by the correct source cell",
                         "opaque compact source shorthand",
+                        "already assessed in another lesson",
+                        "structured question omits its specific subject",
+                        "structured question uses a vague subject without an antecedent",
+                        "low_information_distractors",
                     )
                 )
                 if drop_without_padding:

@@ -3,11 +3,13 @@ from types import SimpleNamespace
 import pytest
 
 from app.modules.ai.assessment import (
+    _answers_are_near_equivalent,
     _assessment_contract_reason_codes,
     _assessment_question_count,
     _build_evidence_bank,
     _generate_tabular_assessment,
     _normalize_evidence_text,
+    _structured_evidence_cells,
     _unsupported_named_entities,
     _validate_generated_question_set,
     _validate_question_evidence,
@@ -38,6 +40,134 @@ def test_structured_lesson_question_count_adapts_to_available_rows() -> None:
         )
         == 5
     )
+
+
+def test_equivalent_structured_answers_ignore_descriptive_subject_prefix() -> None:
+    assert _answers_are_near_equivalent(
+        "Модульная коллекция в матовых моно-оттенках",
+        "В матовых моно-оттенках",
+    )
+    assert _answers_are_near_equivalent(
+        "Интерьерная платформа Imperial: модульный конструктор из нескольких дизайн-серий",
+        "Модульный конструктор из нескольких дизайн-серий",
+    )
+
+
+def test_structured_evidence_cells_accepts_sentence_split_markdown_row() -> None:
+    assert _structured_evidence_cells(
+        "| Что это за коллекция | Интерьерная платформа Imperial: модульный конструктор."
+    ) == [
+        "Что это за коллекция",
+        "Интерьерная платформа Imperial: модульный конструктор.",
+    ]
+
+
+def test_structured_question_rejects_ambiguous_generic_subject() -> None:
+    source = (
+        "| Коллекция | Описание |\n"
+        "| --- | --- |\n"
+        "| Феникс | Интерьерная платформа для всей квартиры |\n"
+        "| Чикаго Нео | Модульная коллекция в матовых моно-оттенках |"
+    )
+    evidence = "| Чикаго Нео | Модульная коллекция в матовых моно-оттенках |"
+    payload = {
+        "mcq": [
+            {
+                "question": "В каких оттенках представлена модульная коллекция?",
+                "options": [
+                    {"text": "в матовых моно-оттенках", "is_correct": True},
+                    {"text": "в глянцевых древесных оттенках", "is_correct": False},
+                    {"text": "в ярких контрастных оттенках", "is_correct": False},
+                    {"text": "в пастельных двухцветных оттенках", "is_correct": False},
+                ],
+                "explanation": evidence,
+                "source_quote_id": "E01",
+            }
+        ],
+        "true_false": [],
+        "matching": [],
+    }
+
+    issues = _validate_question_evidence(
+        payload,
+        evidence_bank={"E01": evidence},
+        bounded_source=source,
+        language="ru",
+    )
+
+    assert "MCQ #1: structured question omits its specific subject" in issues
+
+
+def test_structured_question_rejects_vague_elements_without_antecedent() -> None:
+    source = "| Чикаго Стрит | Совместимы с антресолями и угловым шкафом коллекции Чикаго |"
+    payload = {
+        "mcq": [
+            {
+                "question": "С чем совместимы элементы, позволяющие закрыть комнату на 100%?",
+                "options": [
+                    {"text": "с антресолями и угловым шкафом", "is_correct": True},
+                    {"text": "с витринами и прямым шкафом", "is_correct": False},
+                    {"text": "с консолями и навесной полкой", "is_correct": False},
+                    {"text": "с кроватью и прикроватной тумбой", "is_correct": False},
+                ],
+                "explanation": source,
+                "source_quote_id": "E01",
+            }
+        ],
+        "true_false": [],
+        "matching": [],
+    }
+
+    issues = _validate_question_evidence(
+        payload,
+        evidence_bank={"E01": source},
+        bounded_source=source,
+        language="ru",
+    )
+
+    assert "MCQ #1: structured question uses a vague subject without an antecedent" in issues
+
+
+def test_three_word_options_that_change_only_one_position_are_low_information() -> None:
+    payload = {
+        "mcq": [
+            {
+                "question": "Какие направляющие используются в консолях Феникс?",
+                "options": [
+                    {"text": "роликовые полного выдвижения", "is_correct": False},
+                    {"text": "телескопические полного выдвижения", "is_correct": True},
+                    {"text": "шариковые полного выдвижения", "is_correct": False},
+                    {"text": "скрытые полного выдвижения", "is_correct": False},
+                ],
+                "explanation": "Телескопические полного выдвижения",
+            }
+        ]
+    }
+
+    issues = _validate_generated_question_set(payload, "ru")
+
+    assert any("low_information_distractors" in issue for issue in issues)
+
+
+def test_three_word_role_actions_are_not_treated_as_mechanical_distractors() -> None:
+    payload = {
+        "mcq": [
+            {
+                "question": "Какие обязанности выполняет кассир?",
+                "options": [
+                    {"text": "Кассир принимает наличные", "is_correct": True},
+                    {"text": "Кассир проверяет наличные", "is_correct": False},
+                    {"text": "Кассир хранит наличные", "is_correct": False},
+                    {"text": "Кассир пересчитывает наличные", "is_correct": False},
+                ],
+                "explanation": "Кассир принимает наличные.",
+            }
+        ]
+    }
+
+    issues = _validate_generated_question_set(payload, "ru")
+
+    assert not any("low_information_distractors" in issue for issue in issues)
 
 
 def _additional_questions() -> list[dict]:
@@ -1393,6 +1523,96 @@ async def test_model_assessment_keeps_valid_questions_without_padding_after_dupl
         )
         == 1
     )
+
+
+@pytest.mark.asyncio
+async def test_model_assessment_drops_equivalent_fact_from_another_lesson_without_padding() -> None:
+    first_row = (
+        "| Что это за коллекция | Интерьерная платформа Imperial: " "модульный конструктор из нескольких дизайн-серий |"
+    )
+    source = "\n".join(
+        (
+            first_row,
+            "| Материал корпуса Феникс | ЛДСП Kronospan (Австрия) |",
+            "| Тип ручек Чикаго Нео | металлические торцевые ручки |",
+        )
+    )
+
+    class LLMWithEarlierCourseFact:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        async def ainvoke(self, messages, config=None, response_format=None):
+            self.calls += 1
+            return SimpleNamespace(
+                content="""{
+                    "mcq": [
+                        {
+                            "question": "Что представляет собой коллекция Imperial?",
+                            "options": [
+                                {"text": "модульный конструктор из нескольких дизайн-серий", "is_correct": true},
+                                {"text": "готовый комплект из одной серии", "is_correct": false},
+                                {"text": "отдельная линейка мягкой мебели", "is_correct": false},
+                                {"text": "набор единичных предметов интерьера", "is_correct": false}
+                            ],
+                            "explanation": "модульный конструктор из нескольких дизайн-серий",
+                            "source_quote_id": "E01"
+                        },
+                        {
+                            "question": "Из какого материала сделан корпус Феникс?",
+                            "options": [
+                                {"text": "ЛДСП Kronospan (Австрия)", "is_correct": true},
+                                {"text": "массив светлого дуба", "is_correct": false},
+                                {"text": "берёзовая мебельная фанера", "is_correct": false},
+                                {"text": "окрашенная древесная плита", "is_correct": false}
+                            ],
+                            "explanation": "ЛДСП Kronospan (Австрия)",
+                            "source_quote_id": "E02"
+                        },
+                        {
+                            "question": "Какие ручки используются в Чикаго Нео?",
+                            "options": [
+                                {"text": "металлические торцевые ручки", "is_correct": true},
+                                {"text": "круглые деревянные ручки", "is_correct": false},
+                                {"text": "накладные пластиковые ручки", "is_correct": false},
+                                {"text": "фрезерованные скрытые ручки", "is_correct": false}
+                            ],
+                            "explanation": "металлические торцевые ручки",
+                            "source_quote_id": "E03"
+                        }
+                    ],
+                    "true_false": [],
+                    "matching": []
+                }"""
+            )
+
+    llm = LLMWithEarlierCourseFact()
+    result = await generate_lesson_assessment(
+        llm,
+        LessonContent(
+            title="Сравнение коллекций Imperial",
+            objectives=["Сравнивать материалы и фурнитуру"],
+            content="Generated prose is not evidence.",
+            source_chunks=[source],
+            source_references=[],
+        ),
+        language="ru",
+        compact=True,
+        excluded_fact_keys=frozenset(
+            {
+                (
+                    _normalize_evidence_text(first_row),
+                    _normalize_evidence_text(
+                        "Интерьерная платформа Imperial: модульный конструктор из нескольких дизайн-серий"
+                    ),
+                )
+            }
+        ),
+    )
+
+    assert llm.calls == 1
+    assert len(result.mcq) == 1
+    assert all("Что представляет собой" not in question.question for question in result.mcq)
 
 
 @pytest.mark.asyncio

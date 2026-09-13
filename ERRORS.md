@@ -2237,3 +2237,28 @@ contract or establish a blocker.
   exhaustion keeps a verified original usable for direct-source generation, while
   unexpected conversion, storage, provenance and malformed-vector errors still fail
   closed.
+
+## AI-ASSESSMENT-QUALITY-005 - Cross-lesson duplicates and quota-shaped questions
+
+- Date: 2026-09-13. Observed during the full production Excel acceptance on
+  `0.5.18`; repaired in the `0.5.19` candidate.
+- Symptom: otherwise grounded tests repeated the same collection fact in two
+  different lessons, omitted the collection name from a question, used a vague
+  word such as "elements" without an antecedent, or offered short distractors
+  that differed by only one substituted word.
+- Cause: cross-lesson comparison required nearly exact correct-answer wording,
+  sentence-split Markdown rows could lose their structured-cell identity, and
+  the low-information option detector applied only to five-token answers.
+- Fix: compare concise answers with short descriptive expansions, recover cells
+  from incomplete Markdown rows, require a named subject for structured facts,
+  and apply the one-position distractor rule from three tokens. These failures
+  are drop-only for structured lessons and never trigger quota padding.
+- Verification: five focused regressions failed before the repair, a sixth
+  protects valid role-action choices from over-filtering, and the related suite
+  passed 119 tests. The full API unit suite passed 1480 tests, the frontend
+  passed 584 tests plus lint/typecheck/build, and the database-free critical
+  journey passed 5 tests. Exact-SHA CI, deployment and a fresh full-workbook
+  production acceptance remain release gates.
+- Prevention: assess uniqueness across the whole course, keep requested counts
+  as ceilings, and add every human-review escape as a failing regression before
+  changing the validators.
