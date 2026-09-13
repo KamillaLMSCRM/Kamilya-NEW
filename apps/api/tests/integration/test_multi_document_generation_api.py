@@ -684,6 +684,43 @@ async def test_mixed_language_requires_explicit_confirmation_before_queueing(
             doc_kk.id: "# Ережелер\n\nЕрежелер қауіпсіздігі бойынша нұсқаулық.",
         },
     )
+    # Bounded HTTP admission reads only the already verified active index for
+    # a mixed-language signal.  Seed the same truthful source excerpts as
+    # provenance-verified chunks instead of forcing admission to re-convert
+    # the original files before a job can be queued.
+    for document, sample in (
+        (doc_ru, "# Правила\n\nПравила безопасности на производстве."),
+        (doc_kk, "# Ережелер\n\nЕрежелер қауіпсіздігі бойынша нұсқаулық."),
+    ):
+        await db_session.execute(
+            text(
+                """
+                INSERT INTO document_embeddings (
+                    id, tenant_id, doc_id, text, headings, doc_name,
+                    embedding_provenance_state, embedding_provider,
+                    embedding_model, embedding_revision,
+                    embedding_native_dimensions, embedding_storage_dimensions,
+                    embedding_content_sha256, embedding_source_revision,
+                    embedding_indexed_at, chunk_index
+                ) VALUES (
+                    :id, :tenant_id, :doc_id, :sample, '', :doc_name,
+                    'verified', 'integration', 'integration-language-sample',
+                    'integration-v1', 1, 1, :content_sha256,
+                    :source_revision, NOW(), 0
+                )
+                """
+            ),
+            {
+                "id": f"language-{document.id}",
+                "tenant_id": str(tenant.id),
+                "doc_id": str(document.id),
+                "sample": sample,
+                "doc_name": document.title,
+                "content_sha256": document.content_sha256,
+                "source_revision": f"document:{document.content_sha256}",
+            },
+        )
+    await db_session.flush()
 
     class _StubJob:
         id = "stub-job"
