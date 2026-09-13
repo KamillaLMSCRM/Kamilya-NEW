@@ -2320,3 +2320,26 @@ contract or establish a blocker.
   while preserving the valid question and dropping the invalid one without quota
   padding. Full generation is now a final environment acceptance gate, not the
   debugging loop for each validator change.
+
+## DOCLING-001 - Scanned PDF failed before OCR in the production container
+
+- Date: 2026-09-13. Observed on production `0.5.26`; repaired for `0.5.27`.
+- Symptom: a real 21-page scanned PDF repeatedly finished document reindexing as
+  `ocr_required` at 30%. `/health` stayed green, so service availability alone
+  concealed the conversion failure.
+- Cause: the runtime Docling container first lacked the worker's protected API
+  key, then used `HOME=/`, which made the model cache unwritable for UID 10001,
+  and finally lacked `libGL.so.1`, required when Docling imported OpenCV for its
+  table/layout model.
+- Fix: pass the same 64-character key to the document worker and converter through
+  a root-owned `0600` environment file; run Docling with `HOME`, `XDG_CACHE_HOME`
+  and `HF_HOME` under a persistent `/var/lib/docling` mount owned by
+  `10001:10001` mode `0700`; install the headless OpenCV runtime libraries in the
+  image.
+- Verification: fail-closed authentication, cache ownership, `cv2` import and
+  container health passed independently. The exact source PDF then completed OCR
+  and 99-chunk indexing in 151.7 seconds. Focused converter/runtime tests pass.
+- Prevention: a Docling release is not accepted from `/health` alone. Its gate
+  must convert an image-only multilingual PDF through the authenticated worker
+  path after a cold cache/container recreation and verify meaningful extracted
+  text plus the final document index state.

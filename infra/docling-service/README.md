@@ -70,6 +70,12 @@ the service environment and in the backend environment. `/health` remains
 public. `/convert` always requires the `X-Docling-Key` header. Production
 startup fails closed when the key is absent or too short.
 
+The container image stores Docling and Hugging Face model artifacts under
+`/var/lib/docling`. Production must mount that path on persistent storage owned
+by UID/GID `10001:10001` with mode `0700`; otherwise every container recreation
+re-downloads the models. The same image includes the headless OpenCV runtime
+(`libGL.so.1`) required by Docling's layout and table models.
+
 DOCX/XLSX are checked as bounded OOXML archives before MarkItDown/Docling:
 unsafe paths, symlinks, encrypted entries, generic ZIPs, excessive entry count,
 expanded bytes and compression ratios are rejected before parser invocation.

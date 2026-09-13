@@ -12,8 +12,14 @@ def test_docling_runtime_is_non_root_fail_closed_and_hardened():
 
     assert "USER docling" in dockerfile
     assert "DOCLING_ENV=production" in dockerfile
+    # Docling's table/layout model imports OpenCV even on a headless server.
+    # Without the GL runtime the first real scanned PDF fails before OCR.
+    assert "libgl1" in dockerfile
+    assert "HOME=/var/lib/docling" in dockerfile
+    assert 'VOLUME ["/var/lib/docling"]' in dockerfile
     assert "User=docling" in unit
     assert "Environment=DOCLING_ENV=production" in unit
+    assert "Environment=HF_HOME=/var/lib/docling/cache/huggingface" in unit
     assert "EnvironmentFile=/opt/docling-service/.env" in unit
     assert "StateDirectory=docling" in unit
     assert "UMask=0077" in unit

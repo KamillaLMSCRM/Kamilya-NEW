@@ -73,7 +73,7 @@ const structureWithTwoLessons = {
 const lesson = {
   id: 'lesson-1',
   title: 'Введение',
-  content: '# Старое содержание',
+  content: '# Старое содержание\n\n## Характеристики\n\n| Параметр | Значение |\n| --- | --- |\n| Срок | 30 дней |',
   content_type: 'text',
   order_index: 0,
 };
@@ -131,7 +131,7 @@ describe('course lesson editor', () => {
     openLessonEditor();
 
     const dialog = await screen.findByRole('dialog', { name: 'Редактирование урока' });
-    expect(dialog.className).toContain('max-w-5xl');
+    expect(dialog.className).toContain('max-w-[1400px]');
     expect(dialog.className).toContain('overflow-hidden');
     expect(dialog.className).toContain('flex-col');
     expect(fetchMock).toHaveBeenCalledWith(
@@ -142,8 +142,14 @@ describe('course lesson editor', () => {
     expect(contentEditor.className).toContain('text-base');
     expect(contentEditor.className).toContain('leading-7');
     expect(contentEditor.className).toContain('flex-1');
-    expect(contentEditor.className).toContain('resize-y');
+    expect(contentEditor.className).toContain('resize-none');
     expect(contentEditor.className).not.toContain('font-mono');
+    const preview = within(dialog).getByRole('region', { name: 'Предпросмотр содержания урока' });
+    expect(within(preview).getByRole('heading', { name: 'Старое содержание' })).toBeInTheDocument();
+    expect(within(preview).getByRole('heading', { name: 'Характеристики' })).toBeInTheDocument();
+    expect(within(preview).getByRole('table')).toHaveTextContent('Срок');
+    expect(within(preview).queryByText('# Старое содержание')).not.toBeInTheDocument();
+    expect(within(preview).queryByText('| --- | --- |')).not.toBeInTheDocument();
 
     fireEvent.change(within(dialog).getByRole('textbox', { name: 'Название урока' }), {
       target: { value: 'Новое название' },

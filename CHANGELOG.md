@@ -15,6 +15,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.5.27] - 2026-09-13
+
+### Added
+
+- Show a live, safely rendered lesson preview beside the source editor, including
+  headings, lists and tables without visible Markdown control characters.
+
+### Changed
+
+- Expand the lesson editor to use the available desktop workspace while keeping
+  a responsive single-column layout on smaller screens.
+
+### Fixed
+
+- Restore OCR for scanned PDF sources by supplying Docling's headless OpenCV
+  runtime and a writable persistent model cache.
+- Keep the Docling service and the document worker on the same protected API key
+  so conversion requests fail closed without breaking authorized indexing.
+
 ## [0.5.26] - 2026-09-13
 
 ### Fixed

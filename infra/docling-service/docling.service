@@ -14,6 +14,7 @@ Environment=PYTHONUNBUFFERED=1
 Environment=DOCLING_ENV=production
 Environment=HOME=/var/lib/docling
 Environment=XDG_CACHE_HOME=/var/lib/docling/cache
+Environment=HF_HOME=/var/lib/docling/cache/huggingface
 EnvironmentFile=/opt/docling-service/.env
 StateDirectory=docling
 StateDirectoryMode=0700
