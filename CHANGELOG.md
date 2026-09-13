@@ -15,6 +15,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.5.24] - 2026-09-13
+
+### Fixed
+
+- Drop structured-source questions that ask how the source is worded, omit the
+  concrete subject of an attribute, or use a deictic collection reference.
+- Drop interrogative answer fragments and multi-item answer lists instead of
+  presenting them as single-choice answers.
+- Recognize inflected Russian collection names as the same source-backed subject
+  while excluding sentence-initial question words from named-entity evidence.
+
 ## [0.5.23] - 2026-09-13
 
 ### Fixed

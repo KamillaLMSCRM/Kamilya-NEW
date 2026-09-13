@@ -2293,3 +2293,10 @@ contract or establish a blocker.
   the lesson without a quiz when all candidates are weak, persists that empty
   assessment checkpoint, and restores it without another provider call. RED tests
   cover both the initial all-dropped result and restart-safe restoration.
+- Recurrence (2026-09-13, `0.5.23` production acceptance): the full workbook
+  completed, but manual review still found a source-meta question, an unscoped
+  attribute, a deictic "this collection" reference, an interrogative answer
+  fragment, and a multi-item answer list. The `0.5.24` repair drops all five
+  patterns without padding. Sentence-initial question words no longer count as
+  named subjects, while inflected Russian collection names remain source-backed.
+  Five exact regressions preserve the observed production wording.

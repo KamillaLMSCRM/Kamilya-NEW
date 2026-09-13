@@ -178,6 +178,156 @@ def test_structured_question_rejects_source_reference_without_named_subject() ->
     assert "MCQ #1: structured question references source without a specific subject" in issues
 
 
+def test_structured_question_rejects_source_meta_wording_even_with_named_subject() -> None:
+    source = "| Феникс | Сквозной интерьер: одни пропорции и цвета |"
+    payload = {
+        "mcq": [
+            {
+                "question": "Как в источнике сформулирована основная идея коллекции Феникс?",
+                "options": [
+                    {"text": "Сквозной интерьер: одни пропорции и цвета", "is_correct": True},
+                    {"text": "Контрастный интерьер: разные пропорции и цвета", "is_correct": False},
+                    {"text": "Классический интерьер: тёплые пропорции и цвета", "is_correct": False},
+                    {"text": "Локальный интерьер: отдельные пропорции и цвета", "is_correct": False},
+                ],
+                "explanation": source,
+                "source_quote_id": "E01",
+            }
+        ],
+        "true_false": [],
+        "matching": [],
+    }
+
+    issues = _validate_question_evidence(
+        payload,
+        evidence_bank={"E01": source},
+        bounded_source=source,
+        language="ru",
+    )
+
+    assert "MCQ #1: structured question asks about its source" in issues
+
+
+def test_structured_question_rejects_attribute_without_named_subject() -> None:
+    source = "| Взрослый размер | матовые торцевые ручки |"
+    payload = {
+        "mcq": [
+            {
+                "question": "Какие ручки указаны у взрослого размера?",
+                "options": [
+                    {"text": "матовые торцевые ручки", "is_correct": True},
+                    {"text": "глянцевые накладные ручки", "is_correct": False},
+                    {"text": "скрытые профильные ручки", "is_correct": False},
+                    {"text": "кожаные петлевые ручки", "is_correct": False},
+                ],
+                "explanation": source,
+                "source_quote_id": "E01",
+            }
+        ],
+        "true_false": [],
+        "matching": [],
+    }
+
+    issues = _validate_question_evidence(
+        payload,
+        evidence_bank={"E01": source},
+        bounded_source=source,
+        language="ru",
+    )
+
+    assert "MCQ #1: structured question has an unscoped attribute" in issues
+
+
+def test_sentence_initial_question_word_is_not_treated_as_a_named_subject() -> None:
+    source = "| Что сказать покупателю | современный look без ручек |"
+    payload = {
+        "mcq": [
+            {
+                "question": "Что именно хочет получить покупатель, которому подходит эта коллекция?",
+                "options": [
+                    {"text": "современный look без ручек", "is_correct": True},
+                    {"text": "классический интерьер с ручками", "is_correct": False},
+                    {"text": "контрастный интерьер с декором", "is_correct": False},
+                    {"text": "традиционный гарнитур с фрезеровкой", "is_correct": False},
+                ],
+                "explanation": source,
+                "source_quote_id": "E01",
+            }
+        ],
+        "true_false": [],
+        "matching": [],
+    }
+
+    issues = _validate_question_evidence(
+        payload,
+        evidence_bank={"E01": source},
+        bounded_source=source,
+        language="ru",
+    )
+
+    assert "MCQ #1: structured question omits its specific subject" in issues
+
+
+def test_structured_question_rejects_interrogative_correct_answer() -> None:
+    source = "| Кому рекомендовать Феникс | Кто делает несколько комнат в одном стиле |"
+    payload = {
+        "mcq": [
+            {
+                "question": "Кому рекомендуется коллекция Феникс по стилю оформления нескольких комнат?",
+                "options": [
+                    {"text": "Кто делает несколько комнат в одном стиле", "is_correct": True},
+                    {"text": "Кто оформляет одну комнату без хранения", "is_correct": False},
+                    {"text": "Кто выбирает разные стили для комнат", "is_correct": False},
+                    {"text": "Кто подбирает мебель только для офиса", "is_correct": False},
+                ],
+                "explanation": source,
+                "source_quote_id": "E01",
+            }
+        ],
+        "true_false": [],
+        "matching": [],
+    }
+
+    issues = _validate_question_evidence(
+        payload,
+        evidence_bank={"E01": source},
+        bounded_source=source,
+        language="ru",
+    )
+
+    assert "MCQ #1: correct answer is an interrogative fragment" in issues
+
+
+def test_structured_question_rejects_enumerated_correct_answer() -> None:
+    source = "| Серии 1 / 2 / 3 | двери, угловые, антресоли, комплекты полок и ящиков |"
+    payload = {
+        "mcq": [
+            {
+                "question": "Какие особенности шкафов указаны для Серии 1 / 2 / 3?",
+                "options": [
+                    {"text": "двери, угловые, антресоли, комплекты полок и ящиков", "is_correct": True},
+                    {"text": "двери, витрины, карнизы, подсветка и зеркала", "is_correct": False},
+                    {"text": "полки, тумбы, консоли, панели и стеллажи", "is_correct": False},
+                    {"text": "ящики, пуфы, банкетки, панели и комоды", "is_correct": False},
+                ],
+                "explanation": source,
+                "source_quote_id": "E01",
+            }
+        ],
+        "true_false": [],
+        "matching": [],
+    }
+
+    issues = _validate_question_evidence(
+        payload,
+        evidence_bank={"E01": source},
+        bounded_source=source,
+        language="ru",
+    )
+
+    assert "MCQ #1: correct answer is an enumerated list" in issues
+
+
 def test_question_leak_detection_ignores_interrogative_who_prefix() -> None:
     source = "| Кому рекомендовать | Кто делает несколько комнат в одном стиле |"
     payload = {

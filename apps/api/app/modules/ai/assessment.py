@@ -211,7 +211,18 @@ _VAGUE_STRUCTURED_SUBJECT_RE = re.compile(
 _SOURCE_REFERENCE_QUESTION_RE = re.compile(
     r"\b(?:в|из|по)\s+(?:этом\s+|этой\s+)?(?:описан\w*|материал\w*|источник\w*|"
     r"документ\w*|таблиц\w*|строк\w*|раздел\w*)\b|"
+    r"\bкак\s+(?:в|во)\s+источник\w*\s+(?:описан\w*|указан\w*|представлен\w*|сформулир\w*)\b|"
     r"\b(?:according\s+to|in)\s+(?:the\s+)?(?:description|source|document|table|row|section)\b",
+    re.IGNORECASE,
+)
+_UNSCOPED_STRUCTURED_ATTRIBUTE_RE = re.compile(
+    r"\b(?:стил\w*|материал\w*|фасад\w*|цвет\w*|ручк\w*|направляющ\w*|"
+    r"шкаф\w*|кроват\w*|комод\w*|размер\w*|преимущ\w*|"
+    r"style|material|facade|colour|color|handle|drawer|wardrobe|bed|dresser|size|advantage)\b",
+    re.IGNORECASE,
+)
+_INTERROGATIVE_ANSWER_RE = re.compile(
+    r"^\s*(?:кто|что|кому|кого|какой|какая|какие|какое|where|who|what|which)\b",
     re.IGNORECASE,
 )
 _GENERATION_BLOCKING_ISSUES = frozenset(
@@ -253,6 +264,21 @@ def _unsupported_named_entities(text: str, bounded_source: str) -> tuple[str, ..
         if stem not in source_stems:
             unsupported.append(token)
     return tuple(dict.fromkeys(unsupported))
+
+
+def _supported_named_entities(text: str, normalized_source: str) -> tuple[str, ...]:
+    """Return source-backed proper names, excluding sentence-initial question words."""
+    supported: list[str] = []
+    source_stems = _grounding_stems(normalized_source)
+    for match in _NAMED_ENTITY_RE.finditer(text):
+        entity = match.group(0)
+        if match.start() == 0 and len(text.split()) > 1:
+            following = text[match.end() :]
+            if not re.match(r"\s*(?:[-—–:]|\()", following):
+                continue
+        if _grounding_stems(entity) & source_stems:
+            supported.append(entity)
+    return tuple(dict.fromkeys(supported))
 
 
 def _escape_lesson_boundary(text: str) -> str:
@@ -782,11 +808,7 @@ def _validate_question_evidence(
             )
         source_cell_index = _structured_source_cell_index(correct_answer, source_cells)
         question_text = str(question.get("question", ""))
-        supported_question_entities = tuple(
-            entity
-            for entity in _NAMED_ENTITY_RE.findall(question_text)
-            if _normalize_evidence_text(entity) in normalized_source
-        )
+        supported_question_entities = _supported_named_entities(question_text, normalized_source)
         if (
             structured_source
             and _GENERIC_COLLECTION_REFERENCE_RE.search(question_text)
@@ -796,12 +818,20 @@ def _validate_question_evidence(
             issues.append(f"MCQ #{index}: structured question omits its specific subject")
         if structured_source and _VAGUE_STRUCTURED_SUBJECT_RE.search(question_text) and not supported_question_entities:
             issues.append(f"MCQ #{index}: structured question uses a vague subject without an antecedent")
+        if structured_source and _SOURCE_REFERENCE_QUESTION_RE.search(question_text):
+            issues.append(f"MCQ #{index}: structured question asks about its source")
         if (
             structured_source
             and _SOURCE_REFERENCE_QUESTION_RE.search(question_text)
             and not supported_question_entities
         ):
             issues.append(f"MCQ #{index}: structured question references source without a specific subject")
+        if (
+            structured_source
+            and _UNSCOPED_STRUCTURED_ATTRIBUTE_RE.search(question_text)
+            and not supported_question_entities
+        ):
+            issues.append(f"MCQ #{index}: structured question has an unscoped attribute")
         if atomic_structured_source and any(source == fact_key[0] for source, _answer in excluded_fact_keys):
             issues.append(f"MCQ #{index}: reuses one structured source fact already assessed " "in another lesson")
         if _WHICH_CATEGORY_QUESTION_RE.search(str(question.get("question", ""))) and _NEGATIVE_ANSWER_RE.search(
@@ -861,6 +891,10 @@ def _validate_question_evidence(
             issues.append(f"MCQ #{index}: correct answer is an incomplete fragment")
         if len(correct_answer.split()) > 12:
             issues.append(f"MCQ #{index}: correct answer exceeds 12 words")
+        if structured_source and _INTERROGATIVE_ANSWER_RE.search(correct_answer):
+            issues.append(f"MCQ #{index}: correct answer is an interrogative fragment")
+        if structured_source and (correct_answer.count(",") >= 2 or correct_answer.count(";") >= 2):
+            issues.append(f"MCQ #{index}: correct answer is an enumerated list")
         if _LIST_QUESTION_RE.search(str(question.get("question", ""))):
             issues.append(f"MCQ #{index}: question requests a multi-part list")
         if any(
@@ -2133,9 +2167,13 @@ Output ONLY the JSON data instance:
                         "structured question omits its specific subject",
                         "structured question uses a vague subject without an antecedent",
                         "structured question references source without a specific subject",
+                        "structured question asks about its source",
+                        "structured question has an unscoped attribute",
                         "low_information_distractors",
                         "semantically overlapping correct answer",
                         "question contains its correct answer",
+                        "correct answer is an interrogative fragment",
+                        "correct answer is an enumerated list",
                     )
                 )
                 if drop_without_padding:
