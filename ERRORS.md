@@ -2371,6 +2371,32 @@ contract or establish a blocker.
   content. Any future partial-generation path must test both a surviving useful
   core and an all-invalid course that still fails closed.
 
+## AI-PROMPT-001 - One oversized OCR chunk failed before the first lesson
+
+- Date: 2026-09-14. Observed in production `0.5.31` during a fresh
+  methodologist-path generation from the 21-page Lombard microcredit-rules PDF.
+- Symptom: ingestion and architecture completed, but content generation stopped
+  at 30% with `direct_source_prompt_budget_exceeded` before the provider wrote
+  the first lesson.
+- Cause: the writer packer admitted only complete chunks. If semantic selection
+  returned one relevant OCR chunk larger than the 24,000-character source
+  allowance, it dropped that chunk, concluded that the only selected document
+  was unrepresented and failed the course.
+- Fix: for a single selected document only, fit a sentence- or line-bounded exact
+  prefix of the selected source text against the real serialized prompt budget.
+  Preserve its document identity and headings, and discard table metadata that
+  would no longer describe the shortened text. Multi-document requests still
+  fail if every source cannot be represented without truncation; oversized
+  course metadata still fails before any provider call.
+- Verification: the RED regression reproduces the pre-provider failure with one
+  55,999-character chunk. GREEN invokes the provider with a strict source prefix,
+  keeps the complete prompt at or below 32,000 characters and preserves source
+  references. The combined direct-source, lesson-quality and resumable suites
+  pass 156 tests.
+- Prevention: prompt-budget tests must include both large text and large metadata.
+  Use the deterministic writer seam for recurrence checks; reserve a full OCR and
+  provider journey for final environment acceptance.
+
 ## DOCLING-001 - Scanned PDF failed before OCR in the production container
 
 - Date: 2026-09-13. Observed on production `0.5.26`; repaired for `0.5.27`.

@@ -58,6 +58,52 @@ async def test_writer_budgets_whole_serialized_chunks_and_preserves_documents(do
 
 
 @pytest.mark.asyncio
+async def test_writer_uses_a_grounded_prefix_when_one_source_chunk_exceeds_the_prompt_budget():
+    source_text = ('Item source lesson content. ' * 2000).strip()
+    chunk = DirectSourceChunk(
+        chunk_id='oversized-0',
+        doc_id='doc-0',
+        doc_name='scanned-rules.pdf',
+        title='Rules',
+        headings=('Microcredit rules',),
+        text=source_text,
+        source_revision='document:' + 'b' * 64,
+        chunk_index=0,
+    )
+    corpus = DirectSourceCorpus(
+        'synthetic',
+        (DirectSourceDocument(
+            'doc-0',
+            'Rules',
+            'scanned-rules.pdf',
+            'general',
+            chunk.source_revision,
+            (chunk,),
+        ),),
+        len(source_text),
+        1,
+    )
+    structure = CourseStructure('Rules', modules=[Module('Module', lessons=[
+        Lesson('Lesson', source_doc_ids=['doc-0'])
+    ])])
+    llm = Spy()
+
+    content = await write_direct_course(llm, corpus, structure)
+
+    lesson = content.modules[0].lessons[0]
+    grounded_prefix = lesson.source_chunks[0]
+    assert len(llm.messages) == 1
+    assert 0 < len(grounded_prefix) <= MAX_DIRECT_WRITER_SOURCE_CHARS
+    assert len(grounded_prefix) < len(source_text)
+    assert source_text.startswith(grounded_prefix)
+    assert grounded_prefix in llm.messages[0][-1]['content']
+    assert len(lesson.source_references) == 1
+    assert lesson.source_references[0]['doc_id'] == 'doc-0'
+    assert lesson.source_references[0]['doc_name'] == 'scanned-rules.pdf'
+    assert lesson.source_references[0]['headings'] == ['Microcredit rules']
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize('kwargs', [{'heading_chars': 33000}, {'title': 'x' * 33000}])
 async def test_unrepresentable_writer_request_fails_before_provider(kwargs):
     corpus, structure = fixture(**kwargs)

@@ -15,6 +15,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.5.32] - 2026-09-14
+
+### Fixed
+
+- Keep a single large scanned-document excerpt within the lesson-writer prompt
+  budget by using an exact, source-grounded prefix instead of rejecting the
+  whole course before the first lesson.
+- Preserve document identity, headings and source references for the bounded
+  excerpt while continuing to reject unrepresentable course metadata and
+  multi-document requests that cannot include every source without truncation.
+- Validate production release correlation IDs and rollback identity formats
+  before starting the immutable API image build.
+
 ## [0.5.31] - 2026-09-14
 
 ### Changed

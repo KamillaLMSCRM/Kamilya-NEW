@@ -11,7 +11,7 @@ import os
 import re
 import tempfile
 from collections.abc import Awaitable, Callable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Protocol, cast
 from uuid import UUID
@@ -1393,8 +1393,38 @@ def _round_robin_bounded_chunks(
                     break
         if not progressed:
             break
-    if {chunk.doc_id for chunk in selected} != set(by_document):
+    represented = {chunk.doc_id for chunk in selected}
+    if represented != set(by_document) and len(by_document) != 1:
         return None
+    for document_id, options in by_document.items():
+        if document_id in represented:
+            continue
+        separator_cost = 1 if selected else 0
+        remaining_serialized = (
+            None if serialized_budget is None else serialized_budget - serialized_used
+        )
+        fragment = next(
+            (
+                fitted
+                for chunk in options
+                if (
+                    fitted := _fit_writer_source_fragment(
+                        chunk,
+                        max_chars=max_chars - used,
+                        serialized_budget=remaining_serialized,
+                        separator_cost=separator_cost,
+                    )
+                )
+                is not None
+            ),
+            None,
+        )
+        if fragment is None:
+            return None
+        selected.append(fragment)
+        used += len(fragment.text)
+        serialized_used += len(_writer_source_section(fragment)) + separator_cost
+        represented.add(document_id)
     return selected
 
 
@@ -1416,6 +1446,55 @@ def _writer_source_section(chunk: DirectSourceChunk) -> str:
     return (
         f"SOURCE {escape(metadata)}\nUNTRUSTED_SOURCE_TEXT_BEGIN\n" f"{escape(chunk.text)}\nUNTRUSTED_SOURCE_TEXT_END"
     )
+
+
+def _fit_writer_source_fragment(
+    chunk: DirectSourceChunk,
+    *,
+    max_chars: int,
+    serialized_budget: int | None,
+    separator_cost: int,
+) -> DirectSourceChunk | None:
+    """Fit an exact source prefix without weakening metadata budget checks."""
+
+    upper = min(len(chunk.text), max_chars)
+    if upper <= 0:
+        return None
+
+    def fits(text_length: int) -> bool:
+        candidate = replace(chunk, text=chunk.text[:text_length], table_fragment=None)
+        return serialized_budget is None or (
+            len(_writer_source_section(candidate)) + separator_cost <= serialized_budget
+        )
+
+    if not fits(1):
+        return None
+    low = 1
+    high = upper
+    while low < high:
+        midpoint = (low + high + 1) // 2
+        if fits(midpoint):
+            low = midpoint
+        else:
+            high = midpoint - 1
+
+    raw_prefix = chunk.text[:low]
+    if low < len(chunk.text):
+        boundary_floor = max(1, low * 3 // 5)
+        boundaries = [
+            raw_prefix.rfind("\n\n"),
+            raw_prefix.rfind("\n"),
+            raw_prefix.rfind(". "),
+            raw_prefix.rfind("! "),
+            raw_prefix.rfind("? "),
+        ]
+        boundary = max(boundaries)
+        if boundary >= boundary_floor:
+            raw_prefix = raw_prefix[: boundary + (1 if raw_prefix[boundary] in ".!?" else 0)]
+    bounded_text = raw_prefix.rstrip()
+    if not bounded_text:
+        return None
+    return replace(chunk, text=bounded_text, table_fragment=None)
 
 
 async def select_lesson_source_chunks(

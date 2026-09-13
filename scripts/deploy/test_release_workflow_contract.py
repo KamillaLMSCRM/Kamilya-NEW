@@ -72,6 +72,21 @@ def test_previous_runtime_identity_is_optional_until_production_deploy() -> None
     assert "github.event_name == 'workflow_dispatch' && inputs.deploy_to_production" in deploy
 
 
+def test_production_identity_formats_are_validated_before_image_build() -> None:
+    text = WORKFLOW.read_text(encoding="utf-8")
+    build = _job(text, "build-image")
+    validation = build[
+        build.index("      - name: Validate exact successful CI identity") :
+        build.index("      - uses: actions/checkout@v4")
+    ]
+
+    assert "Exact approved ID matching REL-[A-Z0-9][A-Z0-9-]{7,95}" in text
+    assert '[[ "${RELEASE_ID}" =~ ^REL-[A-Z0-9][A-Z0-9-]{7,95}$ ]]' in validation
+    assert '[[ "${PREVIOUS_RELEASE_SHA}" =~ ^[0-9a-f]{40}$ ]]' in validation
+    assert "@sha256:[0-9a-f]{64}$" in validation
+    assert '"${DEPLOY_TO_PRODUCTION}" == "true"' in validation
+
+
 def test_production_deploy_requires_version_tag_and_published_release() -> None:
     text = WORKFLOW.read_text(encoding="utf-8")
     inputs = text[: text.index("\npermissions:")]

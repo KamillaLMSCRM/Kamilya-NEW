@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       release_id:
-        description: "Exact approved release correlation ID"
+        description: "Exact approved ID matching REL-[A-Z0-9][A-Z0-9-]{7,95}"
         required: true
         type: string
       release_sha:
@@ -27,7 +27,7 @@ on:
         required: false
         type: string
       previous_image:
-        description: "Current immutable GHCR image with sha256 digest; required for production deploy"
+        description: "Exact currently deployed GHCR image@sha256 digest; required for production deploy"
         required: false
         type: string
       migration_mode:
@@ -84,9 +84,18 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_ID: ${{ inputs.release_id || '' }}
+          PREVIOUS_RELEASE_SHA: ${{ inputs.previous_release_sha || '' }}
+          PREVIOUS_IMAGE: ${{ inputs.previous_image || '' }}
+          DEPLOY_TO_PRODUCTION: ${{ inputs.deploy_to_production || false }}
         run: |
           set -euo pipefail
           [[ "${RELEASE_SHA}" =~ ^[0-9a-f]{40}$ ]]
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" && "${DEPLOY_TO_PRODUCTION}" == "true" ]]; then
+            [[ "${RELEASE_ID}" =~ ^REL-[A-Z0-9][A-Z0-9-]{7,95}$ ]]
+            [[ "${PREVIOUS_RELEASE_SHA}" =~ ^[0-9a-f]{40}$ ]]
+            [[ "${PREVIOUS_IMAGE}" =~ ^ghcr\.io/[a-z0-9._/-]+@sha256:[0-9a-f]{64}$ ]]
+          fi
           actual_sha="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${CI_RUN_ID}" --jq '.head_sha')"
           workflow_name="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${CI_RUN_ID}" --jq '.name')"
           conclusion="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${CI_RUN_ID}" --jq '.conclusion')"
