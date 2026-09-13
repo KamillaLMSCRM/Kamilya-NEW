@@ -15,6 +15,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.5.17] - 2026-09-13
+
+### Changed
+
+- Production embedding routing now uses three independent private Qwen3 replicas
+  before Voyage and Cohere. All replicas share one canonical semantic-space
+  identity while retaining route-specific names and API model IDs for failover
+  diagnostics.
+- A readable uploaded source remains available for direct-source course generation
+  when every semantic embedding provider is temporarily unavailable. The document
+  is shown as partially ready without claiming that its search index exists.
+
+### Fixed
+
+- Restore the inactive private embedding relay and add independently verified
+  gx10-12 and gx10-4 relay paths. The gx10-4 adapter uses its actual unnamespaced
+  `Qwen3-Embedding-8B` API model ID instead of the rejected namespaced identifier.
+- Document upload and reindex jobs no longer fail the whole source after the Qwen,
+  Voyage and Cohere embedding chain is exhausted. They complete with a stable
+  `embedding_providers_unavailable` degraded status, zero indexed chunks and an
+  explicit source-ready result.
+- Unexpected converter, storage and malformed-vector failures remain terminal and
+  are not hidden by the provider-outage recovery path.
+
 ## [0.5.16] - 2026-09-13
 
 ### Added

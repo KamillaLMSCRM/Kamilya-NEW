@@ -2108,6 +2108,14 @@ contract or establish a blocker.
   Qwen/Qwen3-Embedding-8B identifier, and a real synthetic embedding returned
   one finite 4096-dimensional vector. Release 0.5.9 makes this verified private
   route the default; no public embedding hostname is required.
+- Recurrence and fix (2026-09-13): the model at `10.66.66.15:8001` remained
+  healthy, but its enabled connector socket was inactive while the KZ proxy
+  listener remained active. VM126 therefore received an upstream HTTP error.
+  The socket was restored and two independent private replicas were added on
+  ports `18003` and `18004`. Fresh VM126 inference produced one finite
+  4096-dimensional vector through each of the three paths. The application chain
+  now tries all three replicas before Voyage and Cohere, and treats them as one
+  canonical semantic space despite route-specific API model IDs.
 
 ## AI-GENERATION-ROUTE-002 - A configured fallback was unreachable from production
 
@@ -2196,3 +2204,26 @@ contract or establish a blocker.
   primary-sheet role, row/column orientation, real peer-option count, all-tabular
   assessment paths, no provider delay, no answer leakage and human review of the
   persisted draft before production acceptance.
+
+## AI-EMBED-RESILIENCE-005 - Provider exhaustion made a readable source look unusable
+
+- Date: 2026-09-13. Reproduced in production while reindexing the complete
+  `Империал_Феникс_Чикаго.xlsx` source on `0.5.16`.
+- Symptom: exact progress reached 384/1076 fragments and then the reindex job and
+  document entered an error state after Qwen, Voyage and Cohere were exhausted,
+  even though the original workbook remained readable by the direct-source course
+  path.
+- Cause: `DocumentIngestion.ingest_file` re-raised the typed all-provider failure,
+  and the document operation classified it together with converter, storage and
+  malformed-content failures.
+- Fix: handle only the typed all-provider exhaustion as a degraded semantic-index
+  result. Preserve truthful zero-vector evidence, mark the document partially ready,
+  complete the job with `source_ready=true`, and leave unrelated failures terminal.
+- Verification: the regression first failed on the exact typed exception and then
+  passed with two readable source chunks, zero embeddings, no vector-store or
+  summarizer call, and `embedding_providers_unavailable`. Full CI, DEV and
+  production browser acceptance remain release gates for `0.5.17`.
+- Prevention: every embedding-chain change must test both boundaries: total provider
+  exhaustion keeps a verified original usable for direct-source generation, while
+  unexpected conversion, storage, provenance and malformed-vector errors still fail
+  closed.

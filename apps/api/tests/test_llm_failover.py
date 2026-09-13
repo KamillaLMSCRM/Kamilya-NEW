@@ -379,9 +379,14 @@ def test_embeddings_settings_chain_prefers_resilient_qwen_then_voyage(monkeypatc
 
     chain = ResilientEmbeddingsClient.from_settings()
 
-    assert chain.provider_names == ["asus-qwen-embedding-8b", "voyage"]
-    assert [client.max_retries for client in chain._clients] == [2, 2]
-    assert [client.config.embedding_batch_size for client in chain._clients] == [16, 128]
+    assert chain.provider_names == [
+        "asus-qwen-embedding-gx10-12",
+        "asus-qwen-embedding-gx10-2",
+        "asus-qwen-embedding-gx10-4",
+        "voyage",
+    ]
+    assert [client.max_retries for client in chain._clients] == [2, 2, 2, 2]
+    assert [client.config.embedding_batch_size for client in chain._clients] == [16, 16, 16, 128]
 
 
 @pytest.mark.asyncio
@@ -395,7 +400,12 @@ async def test_async_embeddings_chain_prefers_db_voyage_key(monkeypatch):
 
     chain = await ResilientEmbeddingsClient.from_settings_async()
 
-    assert chain.provider_names == ["asus-qwen-embedding-8b", "voyage"]
+    assert chain.provider_names == [
+        "asus-qwen-embedding-gx10-12",
+        "asus-qwen-embedding-gx10-2",
+        "asus-qwen-embedding-gx10-4",
+        "voyage",
+    ]
 
 
 def test_embeddings_settings_chain_includes_only_configured_managed_providers(monkeypatch):
@@ -406,7 +416,13 @@ def test_embeddings_settings_chain_includes_only_configured_managed_providers(mo
 
     chain = ResilientEmbeddingsClient.from_settings()
 
-    assert chain.provider_names == ["asus-qwen-embedding-8b", "voyage", "cohere"]
+    assert chain.provider_names == [
+        "asus-qwen-embedding-gx10-12",
+        "asus-qwen-embedding-gx10-2",
+        "asus-qwen-embedding-gx10-4",
+        "voyage",
+        "cohere",
+    ]
 
 
 @pytest.mark.asyncio
@@ -421,7 +437,12 @@ async def test_async_embeddings_chain_uses_db_cohere_key(monkeypatch):
 
     chain = await ResilientEmbeddingsClient.from_settings_async()
 
-    assert chain.provider_names == ["asus-qwen-embedding-8b", "cohere"]
+    assert chain.provider_names == [
+        "asus-qwen-embedding-gx10-12",
+        "asus-qwen-embedding-gx10-2",
+        "asus-qwen-embedding-gx10-4",
+        "cohere",
+    ]
 
 
 @pytest.mark.asyncio
@@ -781,7 +802,11 @@ def test_create_embeddings_returns_resilient_client_with_defaults():
     from app.modules.ai.llm_client import create_embeddings
 
     client = create_embeddings()
-    assert client.provider_names == ["asus-qwen-embedding-8b"]
+    assert client.provider_names == [
+        "asus-qwen-embedding-gx10-12",
+        "asus-qwen-embedding-gx10-2",
+        "asus-qwen-embedding-gx10-4",
+    ]
 
 
 def test_create_llm_with_explicit_args_uses_single_provider():

@@ -10,6 +10,7 @@ import tempfile
 import time
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any, cast
 from uuid import UUID
 
 from sqlalchemy import select, text, update
@@ -39,6 +40,7 @@ def apply_ingestion_result(document: Document, result: dict) -> None:
 
     chunks = int(result.get("chunks", 0))
     embeddings_written = int(result.get("embeddings_written", 0))
+    embedding_unavailable = result.get("embedding_unavailable") is True
     document.index_error_code = None
     if chunks == 0:
         message = "Ingestion produced 0 chunks (file may be empty or unsupported)"
@@ -47,6 +49,17 @@ def apply_ingestion_result(document: Document, result: dict) -> None:
         document.index_status = "failed"
         document.index_error_code = "no_chunks"
         document.index_message = message
+    elif embeddings_written == 0 and embedding_unavailable:
+        message = (
+            "Source file is ready for course generation; "
+            "semantic search index is temporarily unavailable."
+        )
+        degraded_document = cast(Any, document)
+        degraded_document.embedding_status = "failed"
+        degraded_document.embedding_error = message
+        degraded_document.index_status = "partial"
+        degraded_document.index_error_code = "embedding_providers_unavailable"
+        degraded_document.index_message = message
     elif embeddings_written == 0:
         message = (
             f"All {chunks} embeddings were malformed and dropped; "
@@ -335,7 +348,11 @@ async def run_document_reindex(
             job.status = "completed"
             job.stage = "completed"
             job.progress = 100
-            job.message = "Document index rebuilt"
+            job.message = (
+                "Document source ready without semantic index"
+                if result.get("embedding_unavailable") is True
+                else "Document index rebuilt"
+            )
             job.result = {
                 "document_id": str(document_id),
                 "revision": revision,
@@ -343,6 +360,8 @@ async def run_document_reindex(
                 "embeddings_written": document.index_chunks_indexed,
                 "index_status": document.index_status,
                 "conversion": result.get("conversion", {}),
+                "source_ready": result.get("source_ready") is True,
+                "embedding_unavailable": result.get("embedding_unavailable") is True,
             }
             job.updated_at = now
             job.completed_at = now

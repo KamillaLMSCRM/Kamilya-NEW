@@ -17,18 +17,29 @@ from app.modules.ai.llm_client import (
 )
 
 
-def _asus_config() -> LLMProviderConfig:
+def _asus_config(
+    name: str = "asus-qwen-embedding-gx10-12",
+    base_url: str = "http://10.77.77.1:18003/v1",
+    model: str = "Qwen/Qwen3-Embedding-8B",
+) -> LLMProviderConfig:
     return LLMProviderConfig(
-        name="asus-qwen-embedding-8b",
-        base_url="http://10.77.77.1:18001/v1",
+        name=name,
+        base_url=base_url,
         api_key="not-needed",
-        model="Qwen/Qwen3-Embedding-8B",
+        model=model,
         timeout=12.0,
         connect_timeout=3.0,
         max_retries=0,
         embedding_max_input_bytes=8192,
         embedding_batch_size=32,
         embedding_revision="Qwen-Qwen3-Embedding-8B:qprefix-v1:l2:storage4096",
+        embedding_space_provider="asus-qwen-embedding-8b",
+        embedding_space_model="Qwen/Qwen3-Embedding-8B",
+        embedding_query_prefix=(
+            "Instruct: Given a user question, retrieve relevant passages that answer the question\n"
+            "Query: "
+        ),
+        embedding_l2_normalize=True,
     )
 
 
@@ -53,6 +64,8 @@ async def test_asus_qwen_prefixes_only_queries_normalizes_and_batches(monkeypatc
         "Query: where is the exit?"
     ]
     assert result.revision == "Qwen-Qwen3-Embedding-8B:qprefix-v1:l2:storage4096"
+    assert result.provider == "asus-qwen-embedding-8b"
+    assert result.model == "Qwen/Qwen3-Embedding-8B"
     assert result.vectors[0][:2] == pytest.approx((0.6, 0.8))
     assert math.sqrt(sum(value * value for value in query)) == pytest.approx(1.0)
 
@@ -158,24 +171,46 @@ async def test_voyage_and_cohere_queries_remain_unprefixed_and_unbounded(
 
 
 def test_global_embedding_order_honors_provider_specific_retry_budget(monkeypatch: pytest.MonkeyPatch) -> None:
-    asus = _asus_config()
+    asus = [
+        _asus_config(),
+        _asus_config("asus-qwen-embedding-gx10-2", "http://10.77.77.1:18001/v1"),
+        _asus_config(
+            "asus-qwen-embedding-gx10-4",
+            "http://10.77.77.1:18004/v1",
+            "Qwen3-Embedding-8B",
+        ),
+    ]
     voyage = LLMProviderConfig(name="voyage", base_url="https://voyage.test", api_key="key", model="voyage")
     cohere = LLMProviderConfig(name="cohere", base_url="https://cohere.test", api_key="key", model="cohere")
-    monkeypatch.setattr(llm_client, "_asus_qwen_embed_provider", lambda: asus)
+    monkeypatch.setattr(llm_client, "_asus_qwen_embed_providers", lambda: asus)
     monkeypatch.setattr(llm_client, "_voyage_embed_provider", lambda: voyage)
     monkeypatch.setattr(llm_client, "_cohere_embed_provider", lambda: cohere)
 
     chain = ResilientEmbeddingsClient.from_settings()
 
-    assert chain.provider_names == ["asus-qwen-embedding-8b", "voyage", "cohere"]
-    assert [client.max_retries for client in chain._clients] == [0, 2, 2]
-    assert [client.config.embedding_batch_size for client in chain._clients] == [32, 128, 96]
+    assert chain.provider_names == [
+        "asus-qwen-embedding-gx10-12",
+        "asus-qwen-embedding-gx10-2",
+        "asus-qwen-embedding-gx10-4",
+        "voyage",
+        "cohere",
+    ]
+    assert [client.max_retries for client in chain._clients] == [0, 0, 0, 2, 2]
+    assert [client.config.embedding_batch_size for client in chain._clients] == [32, 32, 32, 128, 96]
 
 
 @pytest.mark.asyncio
 async def test_async_global_embedding_order_starts_asus_then_managed(monkeypatch: pytest.MonkeyPatch) -> None:
-    asus = _asus_config()
-    monkeypatch.setattr(llm_client, "_asus_qwen_embed_provider", lambda: asus)
+    asus = [
+        _asus_config(),
+        _asus_config("asus-qwen-embedding-gx10-2", "http://10.77.77.1:18001/v1"),
+        _asus_config(
+            "asus-qwen-embedding-gx10-4",
+            "http://10.77.77.1:18004/v1",
+            "Qwen3-Embedding-8B",
+        ),
+    ]
+    monkeypatch.setattr(llm_client, "_asus_qwen_embed_providers", lambda: asus)
     monkeypatch.setattr(llm_client, "_voyage_embed_provider", lambda: None)
     monkeypatch.setattr(llm_client, "_cohere_embed_provider", lambda: None)
     monkeypatch.setattr(
@@ -194,9 +229,15 @@ async def test_async_global_embedding_order_starts_asus_then_managed(monkeypatch
     monkeypatch.setattr(llm_client, "_resolve_db_key", resolve_key)
     chain = await ResilientEmbeddingsClient.from_settings_async()
 
-    assert chain.provider_names == ["asus-qwen-embedding-8b", "voyage", "cohere"]
-    assert [client.max_retries for client in chain._clients] == [0, 2, 2]
-    assert [client.config.embedding_batch_size for client in chain._clients] == [32, 128, 96]
+    assert chain.provider_names == [
+        "asus-qwen-embedding-gx10-12",
+        "asus-qwen-embedding-gx10-2",
+        "asus-qwen-embedding-gx10-4",
+        "voyage",
+        "cohere",
+    ]
+    assert [client.max_retries for client in chain._clients] == [0, 0, 0, 2, 2]
+    assert [client.config.embedding_batch_size for client in chain._clients] == [32, 32, 32, 128, 96]
 
 
 def test_asus_embedding_factory_is_distinct_from_chat_qwen(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -205,8 +246,12 @@ def test_asus_embedding_factory_is_distinct_from_chat_qwen(monkeypatch: pytest.M
         "get_settings",
         lambda: SimpleNamespace(
             ASUS_EMBEDDINGS_ENABLED=True,
+            ASUS_EMBEDDINGS_GX10_12_URL="http://10.77.77.1:18003/v1",
+            ASUS_EMBEDDINGS_GX10_12_MODEL="Qwen/Qwen3-Embedding-8B",
             ASUS_EMBEDDINGS_URL="http://10.77.77.1:18001/v1",
             ASUS_EMBEDDINGS_MODEL="Qwen/Qwen3-Embedding-8B",
+            ASUS_EMBEDDINGS_GX10_4_URL="http://10.77.77.1:18004/v1",
+            ASUS_EMBEDDINGS_GX10_4_MODEL="Qwen3-Embedding-8B",
             ASUS_EMBEDDINGS_REQUEST_TIMEOUT_SECONDS=12.0,
             ASUS_EMBEDDINGS_CONNECT_TIMEOUT_SECONDS=3.0,
             ASUS_EMBEDDINGS_MAX_INPUT_BYTES=8192,
@@ -217,21 +262,137 @@ def test_asus_embedding_factory_is_distinct_from_chat_qwen(monkeypatch: pytest.M
         ),
     )
 
-    provider = llm_client._asus_qwen_embed_provider()
+    providers = llm_client._asus_qwen_embed_providers()
 
-    assert provider is not None
-    assert (provider.base_url, provider.model, provider.timeout, provider.connect_timeout) == (
-        "http://10.77.77.1:18001/v1", "Qwen/Qwen3-Embedding-8B", 30.0, 3.0,
-    )
-    assert provider.max_retries == 2
-    assert provider.embedding_batch_size == 16
+    assert [(provider.name, provider.base_url, provider.model) for provider in providers] == [
+        (
+            "asus-qwen-embedding-gx10-12",
+            "http://10.77.77.1:18003/v1",
+            "Qwen/Qwen3-Embedding-8B",
+        ),
+        (
+            "asus-qwen-embedding-gx10-2",
+            "http://10.77.77.1:18001/v1",
+            "Qwen/Qwen3-Embedding-8B",
+        ),
+        (
+            "asus-qwen-embedding-gx10-4",
+            "http://10.77.77.1:18004/v1",
+            "Qwen3-Embedding-8B",
+        ),
+    ]
+    assert all(provider.timeout == 30.0 for provider in providers)
+    assert all(provider.connect_timeout == 3.0 for provider in providers)
+    assert all(provider.max_retries == 2 for provider in providers)
+    assert all(provider.embedding_batch_size == 16 for provider in providers)
+    assert len({provider.embedding_revision for provider in providers}) == 1
+    assert len({provider.embedding_space_provider for provider in providers}) == 1
+    assert len({provider.embedding_space_model for provider in providers}) == 1
 
 
 def test_default_settings_use_private_kz_qwen_route() -> None:
+    assert Settings.model_fields["ASUS_EMBEDDINGS_GX10_12_URL"].default == "http://10.77.77.1:18003/v1"
     assert Settings.model_fields["ASUS_EMBEDDINGS_URL"].default == "http://10.77.77.1:18001/v1"
     assert Settings.model_fields["ASUS_EMBEDDINGS_MODEL"].default == "Qwen/Qwen3-Embedding-8B"
+    assert Settings.model_fields["ASUS_EMBEDDINGS_GX10_4_URL"].default == "http://10.77.77.1:18004/v1"
+    assert Settings.model_fields["ASUS_EMBEDDINGS_GX10_4_MODEL"].default == "Qwen3-Embedding-8B"
     assert Settings.model_fields["ASUS_EMBEDDINGS_MAX_BATCH_SIZE"].default == 16
     assert Settings.model_fields["ASUS_EMBEDDINGS_REQUEST_TIMEOUT_SECONDS"].default == 30.0
+
+
+@pytest.mark.asyncio
+async def test_all_private_replicas_share_one_semantic_space_but_keep_api_model_ids(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    configs = [
+        _asus_config(),
+        _asus_config("asus-qwen-embedding-gx10-2", "http://10.77.77.1:18001/v1"),
+        _asus_config(
+            "asus-qwen-embedding-gx10-4",
+            "http://10.77.77.1:18004/v1",
+            "Qwen3-Embedding-8B",
+        ),
+    ]
+    payload_models: list[str] = []
+    spaces: list[tuple[str, str, str]] = []
+
+    for config in configs:
+        client = EmbeddingsClient(config, max_retries=0)
+
+        async def request(payload: dict[str, object]) -> dict[str, object]:
+            payload_models.append(str(payload["model"]))
+            return {"data": [{"embedding": [3.0, 4.0]}]}
+
+        monkeypatch.setattr(client, "_request", request)
+        result = await client.embed_documents_with_provenance(["document"])
+        spaces.append((result.provider, result.model, result.revision))
+
+    assert payload_models == [
+        "Qwen/Qwen3-Embedding-8B",
+        "Qwen/Qwen3-Embedding-8B",
+        "Qwen3-Embedding-8B",
+    ]
+    assert len(set(spaces)) == 1
+    assert spaces[0] == (
+        "asus-qwen-embedding-8b",
+        "Qwen/Qwen3-Embedding-8B",
+        "Qwen-Qwen3-Embedding-8B:qprefix-v1:l2:storage4096",
+    )
+
+
+@pytest.mark.asyncio
+async def test_private_replica_failover_reaches_third_before_managed_provider(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    configs = [
+        _asus_config(),
+        _asus_config("asus-qwen-embedding-gx10-2", "http://10.77.77.1:18001/v1"),
+        _asus_config(
+            "asus-qwen-embedding-gx10-4",
+            "http://10.77.77.1:18004/v1",
+            "Qwen3-Embedding-8B",
+        ),
+        LLMProviderConfig(
+            name="voyage",
+            base_url="https://voyage.test/v1",
+            api_key="key",
+            model="voyage",
+            max_retries=0,
+        ),
+    ]
+    chain = ResilientEmbeddingsClient(configs, max_retries_per_provider=0)
+    attempted: list[str] = []
+
+    for client in chain._clients[:2]:
+        async def unavailable(
+            _payload: dict[str, object],
+            provider: str = client.config.name,
+        ) -> dict[str, object]:
+            attempted.append(provider)
+            raise ProviderFailedError(provider, RuntimeError("unavailable"))
+
+        monkeypatch.setattr(client, "_request", unavailable)
+
+    async def third(payload: dict[str, object]) -> dict[str, object]:
+        attempted.append(chain._clients[2].config.name)
+        assert payload["model"] == "Qwen3-Embedding-8B"
+        return {"data": [{"embedding": [3.0, 4.0]}]}
+
+    async def managed_must_not_run(_payload: dict[str, object]) -> dict[str, object]:
+        raise AssertionError("managed provider must not run while the third replica works")
+
+    monkeypatch.setattr(chain._clients[2], "_request", third)
+    monkeypatch.setattr(chain._clients[3], "_request", managed_must_not_run)
+
+    result = await chain.embed_documents_with_provenance(["document"])
+
+    assert attempted == [
+        "asus-qwen-embedding-gx10-12",
+        "asus-qwen-embedding-gx10-2",
+        "asus-qwen-embedding-gx10-4",
+    ]
+    assert result.provider == "asus-qwen-embedding-8b"
+    assert result.vectors[0][:2] == pytest.approx((0.6, 0.8))
 
 
 @pytest.mark.asyncio
@@ -253,7 +414,7 @@ async def test_qwen_batch_failure_restarts_whole_batch_on_one_managed_space(
     async def qwen_request(payload: dict[str, object]) -> dict[str, object]:
         qwen_sizes.append(len(payload["input"]))
         if len(qwen_sizes) == 2:
-            raise ProviderFailedError("asus-qwen-embedding-8b", RuntimeError("unavailable"))
+            raise ProviderFailedError("asus-qwen-embedding-gx10-12", RuntimeError("unavailable"))
         return {"data": [{"embedding": [1.0, 0.0]} for _ in payload["input"]]}
 
     async def voyage_request(payload: dict[str, object]) -> dict[str, object]:
@@ -276,8 +437,8 @@ async def test_qwen_batch_failure_restarts_whole_batch_on_one_managed_space(
     assert result.revision == "voyage"
     assert all(vector[:2] == pytest.approx((0.25, 0.5)) for vector in result.vectors)
     assert progress_events == [
-        (0, 33, "asus-qwen-embedding-8b"),
-        (32, 33, "asus-qwen-embedding-8b"),
+        (0, 33, "asus-qwen-embedding-gx10-12"),
+        (32, 33, "asus-qwen-embedding-gx10-12"),
         (0, 33, "voyage"),
         (33, 33, "voyage"),
     ]
@@ -288,7 +449,7 @@ async def test_explicit_tenant_override_never_constructs_global_asus_chain(monke
     tenant_provider = LLMProviderConfig(
         name="tenant-provider", base_url="https://tenant.test", api_key="tenant-key", model="tenant-model",
     )
-    monkeypatch.setattr(llm_client, "_asus_qwen_embed_provider", lambda: _asus_config())
+    monkeypatch.setattr(llm_client, "_asus_qwen_embed_providers", lambda: [_asus_config()])
 
     async def resolve_tenant_provider(*_args: object) -> LLMProviderConfig:
         return tenant_provider

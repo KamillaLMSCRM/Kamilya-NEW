@@ -13,8 +13,9 @@ Chain architecture (September 2026):
   The global enabled order is read when each asynchronous client is created.
   DeepSeek remains first. Endpoints and model IDs remain server-owned settings.
 
-  Embeddings chain: ASUS Qwen → Voyage → Cohere. Tenant BYOK overrides may
-  instead select its explicitly configured provider and never use globals.
+  Embeddings chain: three private ASUS Qwen replicas → Voyage → Cohere.
+  Tenant BYOK overrides may instead select its explicitly configured provider
+  and never use globals.
 
 Failover semantics
 ------------------
@@ -163,6 +164,10 @@ class LLMProviderConfig:
     embedding_max_input_bytes: int | None = None
     embedding_batch_size: int | None = None
     embedding_revision: str | None = None
+    embedding_space_provider: str | None = None
+    embedding_space_model: str | None = None
+    embedding_query_prefix: str | None = None
+    embedding_l2_normalize: bool = False
 
 
 def _openai_base_url(value: str) -> str:
@@ -318,11 +323,17 @@ def _voyage_embed_provider() -> LLMProviderConfig | None:
     )
 
 
-def _asus_qwen_embed_provider() -> LLMProviderConfig | None:
-    """Return the dedicated ASUS Qwen embedding route, never a chat route."""
+_QWEN_QUERY_PREFIX = (
+    "Instruct: Given a user question, retrieve relevant passages that answer the question\n"
+    "Query: "
+)
+
+
+def _asus_qwen_embed_providers() -> list[LLMProviderConfig]:
+    """Return the ordered private replica pool, never any chat route."""
     s = get_settings()
     if not s.ASUS_EMBEDDINGS_ENABLED:
-        return None
+        return []
     # Large real-world workbooks exposed two unsafe production assumptions:
     # a 32-item request can exceed the private vLLM server's stable processing
     # window, and one 12-second tail-latency spike previously discarded every
@@ -330,21 +341,50 @@ def _asus_qwen_embed_provider() -> LLMProviderConfig | None:
     # retry the failing request in the same embedding space before failover.
     stable_batch_size = min(s.ASUS_EMBEDDINGS_MAX_BATCH_SIZE, 16)
     stable_request_timeout = max(s.ASUS_EMBEDDINGS_REQUEST_TIMEOUT_SECONDS, 30.0)
-    return LLMProviderConfig(
-        name="asus-qwen-embedding-8b",
-        base_url=_openai_base_url(s.ASUS_EMBEDDINGS_URL),
-        api_key="not-needed",
-        model=s.ASUS_EMBEDDINGS_MODEL,
-        timeout=stable_request_timeout,
-        connect_timeout=s.ASUS_EMBEDDINGS_CONNECT_TIMEOUT_SECONDS,
-        max_retries=2,
-        embedding_max_input_bytes=s.ASUS_EMBEDDINGS_MAX_INPUT_BYTES,
-        embedding_batch_size=stable_batch_size,
-        embedding_revision=(
-            f"{s.ASUS_EMBEDDINGS_MODEL.replace('/', '-')}:"
+    common: dict[str, Any] = {
+        "api_key": "not-needed",
+        "timeout": stable_request_timeout,
+        "connect_timeout": s.ASUS_EMBEDDINGS_CONNECT_TIMEOUT_SECONDS,
+        "max_retries": 2,
+        "embedding_max_input_bytes": s.ASUS_EMBEDDINGS_MAX_INPUT_BYTES,
+        "embedding_batch_size": stable_batch_size,
+        # Preserve the historical storage-space identity so existing vectors
+        # remain searchable after adding replica-specific route names.
+        "embedding_space_provider": "asus-qwen-embedding-8b",
+        "embedding_space_model": "Qwen/Qwen3-Embedding-8B",
+        "embedding_revision": (
+            "Qwen-Qwen3-Embedding-8B:"
             f"qprefix-v1:l2:storage{s.EMBEDDING_DIMENSIONS}"
         ),
-    )
+        "embedding_query_prefix": _QWEN_QUERY_PREFIX,
+        "embedding_l2_normalize": True,
+    }
+    return [
+        LLMProviderConfig(
+            name="asus-qwen-embedding-gx10-12",
+            base_url=_openai_base_url(s.ASUS_EMBEDDINGS_GX10_12_URL),
+            model=s.ASUS_EMBEDDINGS_GX10_12_MODEL,
+            **common,
+        ),
+        LLMProviderConfig(
+            name="asus-qwen-embedding-gx10-2",
+            base_url=_openai_base_url(s.ASUS_EMBEDDINGS_URL),
+            model=s.ASUS_EMBEDDINGS_MODEL,
+            **common,
+        ),
+        LLMProviderConfig(
+            name="asus-qwen-embedding-gx10-4",
+            base_url=_openai_base_url(s.ASUS_EMBEDDINGS_GX10_4_URL),
+            model=s.ASUS_EMBEDDINGS_GX10_4_MODEL,
+            **common,
+        ),
+    ]
+
+
+def _asus_qwen_embed_provider() -> LLMProviderConfig | None:
+    """Compatibility accessor for the first private Qwen replica."""
+    providers = _asus_qwen_embed_providers()
+    return providers[0] if providers else None
 
 
 def _cohere_embed_provider() -> LLMProviderConfig | None:
@@ -882,7 +922,7 @@ class EmbeddingsClient(_BaseProviderClient):
                         ValueError("invalid_embedding_value"),
                     )
                 normalized.append(numeric)
-            if self.config.name == "asus-qwen-embedding-8b":
+            if self.config.embedding_l2_normalize:
                 norm = math.sqrt(sum(item * item for item in normalized))
                 if not math.isfinite(norm) or norm == 0.0:
                     raise ProviderFailedError(
@@ -895,8 +935,8 @@ class EmbeddingsClient(_BaseProviderClient):
 
         try:
             space = EmbeddingSpace(
-                provider=self.config.name,
-                model=self.config.model,
+                provider=self.config.embedding_space_provider or self.config.name,
+                model=self.config.embedding_space_model or self.config.model,
                 revision=self.config.embedding_revision or self.config.model,
                 dimensions=native_dimensions,
             )
@@ -919,16 +959,13 @@ class EmbeddingsClient(_BaseProviderClient):
     ) -> EmbeddingBatchResult:
         if not texts:
             raise ProviderFailedError(self.config.name, ValueError("empty_embedding_batch"))
-        is_asus_qwen = self.config.name == "asus-qwen-embedding-8b"
         request_texts = list(texts)
-        if is_asus_qwen and input_type == "query":
-            request_texts = [
-                "Instruct: Given a user question, retrieve relevant passages that answer the question\n"
-                f"Query: {text}"
-                for text in texts
-            ]
+        if self.config.embedding_query_prefix and input_type == "query":
+            request_texts = [f"{self.config.embedding_query_prefix}{text}" for text in texts]
         max_input_bytes = self.config.embedding_max_input_bytes or 8192
-        if is_asus_qwen and any(len(text.encode("utf-8")) > max_input_bytes for text in request_texts):
+        if self.config.embedding_max_input_bytes is not None and any(
+            len(text.encode("utf-8")) > max_input_bytes for text in request_texts
+        ):
             raise ProviderFailedError(self.config.name, ValueError("embedding_input_too_large"))
         provider_batch_limit = 128 if self.config.name == "voyage" else 96 if self.config.name == "cohere" else 32
         batch_size = self.config.embedding_batch_size or provider_batch_limit
@@ -1026,9 +1063,11 @@ class ResilientEmbeddingsClient:
     """Embeddings client with automatic failover across providers.
 
     Chain:
-      1. ASUS Qwen (dedicated private endpoint)
-      2. Voyage (only if configured)
-      3. Cohere (only if configured)
+      1. ASUS Qwen gx10-12 (private replica)
+      2. ASUS Qwen gx10-2 (private replica)
+      3. ASUS Qwen gx10-4 (private replica, unnamespaced API model ID)
+      4. Voyage (only if configured)
+      5. Cohere (only if configured)
     """
 
     def __init__(
@@ -1054,9 +1093,7 @@ class ResilientEmbeddingsClient:
     def from_settings(cls, max_retries_per_provider: int = 2) -> ResilientEmbeddingsClient:
         """Build the embeddings chain from env-only settings (tests/legacy)."""
         providers: list[LLMProviderConfig] = []
-        asus_qwen = _asus_qwen_embed_provider()
-        if asus_qwen is not None:
-            providers.append(asus_qwen)
+        providers.extend(_asus_qwen_embed_providers())
         voyage = _voyage_embed_provider()
         if voyage is not None:
             providers.append(voyage)
@@ -1097,9 +1134,7 @@ class ResilientEmbeddingsClient:
         s = get_settings()
         providers: list[LLMProviderConfig] = []
 
-        asus_qwen = _asus_qwen_embed_provider()
-        if asus_qwen is not None:
-            providers.append(asus_qwen)
+        providers.extend(_asus_qwen_embed_providers())
 
         voyage_key = await _resolve_db_key("voyage", s.VOYAGE_API_KEY)
         if voyage_key:

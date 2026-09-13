@@ -144,12 +144,17 @@ class Settings(BaseSettings):
     DEEPSEEK_BASE_URL: str = "https://api.deepseek.com/v1"
     DEEPSEEK_MODEL: str = "deepseek-v4-flash"
 
-    # Dedicated Qwen embeddings route through the private KZ WireGuard hub.
-    # Keep it separate from chat Qwen settings. VM126 reaches only the private
-    # hub listener; the ASUS model endpoint is not published through DNS.
+    # Dedicated Qwen embedding replicas through the private KZ WireGuard hub.
+    # Keep them separate from chat Qwen settings. VM126 reaches only the private
+    # hub listeners; the ASUS model endpoints are not published through DNS.
     ASUS_EMBEDDINGS_ENABLED: bool = True
+    ASUS_EMBEDDINGS_GX10_12_URL: str = "http://10.77.77.1:18003/v1"
+    ASUS_EMBEDDINGS_GX10_12_MODEL: str = "Qwen/Qwen3-Embedding-8B"
+    # Compatibility name retained for the established gx10-2 route.
     ASUS_EMBEDDINGS_URL: str = "http://10.77.77.1:18001/v1"
     ASUS_EMBEDDINGS_MODEL: str = "Qwen/Qwen3-Embedding-8B"
+    ASUS_EMBEDDINGS_GX10_4_URL: str = "http://10.77.77.1:18004/v1"
+    ASUS_EMBEDDINGS_GX10_4_MODEL: str = "Qwen3-Embedding-8B"
     ASUS_EMBEDDINGS_MAX_INPUT_BYTES: int = Field(default=8192, ge=256, le=8192)
     ASUS_EMBEDDINGS_MAX_BATCH_SIZE: int = Field(default=16, ge=1, le=32)
     ASUS_EMBEDDINGS_CONNECT_TIMEOUT_SECONDS: float = Field(default=3.0, ge=1.0, le=15.0)

@@ -1382,7 +1382,9 @@ class DocumentIngestion:
                 "Document conversion produced no indexable text. " "Upload a document containing readable text."
             )
 
-        # Step 3: Embed (Qwen → Voyage → hash fallback)
+        # Step 3: Embed (Qwen → Voyage → Cohere). A readable original is the
+        # source of truth for course generation, so total provider exhaustion
+        # degrades semantic search but must not make the source unusable.
         texts = [c["text"] for c in chunks]
         embedding_provider = self.embeddings
         if isinstance(embedding_provider, EmbeddingsProvider):
@@ -1407,6 +1409,23 @@ class DocumentIngestion:
                 flush=True,
             )
         except Exception as e:
+            from app.modules.ai.llm_client import AllProvidersFailedError
+
+            if isinstance(e, AllProvidersFailedError):
+                logger.warning(
+                    "[EMBED_DEGRADED] Semantic indexing providers are unavailable; "
+                    "the verified original source remains ready for direct-source generation"
+                )
+                return {
+                    "doc_id": doc_id,
+                    "filename": filename,
+                    "chunks": len(chunks),
+                    "summary": None,
+                    "embeddings_written": 0,
+                    "conversion": conversion_metadata,
+                    "source_ready": True,
+                    "embedding_unavailable": True,
+                }
             # If the embedding chain blew up (not just failed-over), surface
             # it loudly. Status will be set to 'failed' by the caller.
             print(f"[INGEST] EMBED RAISED: {type(e).__name__}: {e}", flush=True)

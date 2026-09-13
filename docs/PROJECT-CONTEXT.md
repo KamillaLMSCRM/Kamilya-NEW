@@ -191,10 +191,10 @@ KZ production management/ingress path
        separate native Next.js landing service, no Docker
   -> api.kml.kz -> VM126 / 10.77.77.2:8000
        API + Celery workers + Valkey + local file runtime
-  -> private embedding route:
-       VM126 -> KZ hub / 10.77.77.1:18001
-       -> ASUS connector / 10.77.77.4:18001
-       -> Qwen embedding runtime / 10.66.66.15:8001
+  -> private embedding replica pool:
+       VM126 -> KZ hub / 10.77.77.1:18003, 18001, 18004
+       -> ASUS connector / 10.77.77.4 on the same relay ports
+       -> Qwen embedding runtimes / 10.66.66.25, .15, .7:8001
   -> private Qwen 3.8 generation fallback:
        VM126 -> KZ hub / 10.77.77.1:18002
        -> ASUS connector / 10.77.77.4:18002
@@ -216,12 +216,13 @@ redirect и внешний HTTPS `/health` вернул 200. После tenant/b
 Render/Supabase остаются dev/demo-контуром и не являются production backend
 для `app.kml.kz`.
 
-12.09.2026 production VM126 получил отдельный приватный маршрут к
-Qwen/Qwen3-Embedding-8B. Модель не публикуется через домен: documents worker
-обращается к 10.77.77.1:18001, KZ proxy выполняет только внутреннее
-проксирование к отдельному WireGuard peer 10.77.77.4, а peer передаёт запрос
-в существующий ASUS-контур на 10.66.66.15:8001. Действующие peers VM126 и
-CT137 не изменены; публичный embedding hostname в runtime больше не нужен.
+13.09.2026 production embedding route расширен до трёх приватных реплик.
+Documents worker последовательно использует listener-ы `10.77.77.1:18003`,
+`:18001` и `:18004`; KZ proxy выполняет только внутреннее проксирование к
+WireGuard peer `10.77.77.4`, который передаёт запросы на Qwen embedding runtime
+`10.66.66.25:8001`, `10.66.66.15:8001` и `10.66.66.7:8001`. Для каждого пути
+из VM126 подтверждены model discovery и один конечный 4096-мерный вектор.
+Публичный embedding hostname не нужен.
 
 12.09.2026 тем же отдельным peer добавлен приватный маршрут к
 `qwen3.8-flash-next`: VM126 обращается к 10.77.77.1:18002, а ASUS connector

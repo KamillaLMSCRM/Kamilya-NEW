@@ -83,7 +83,7 @@ credentials.
 | CT137 `webkml` | Proxmox node `pve3`; native Next.js production frontend, без Docker |
 | Public KZ proxy | Только TLS/Nginx ingress, WireGuard hub и SSH transit для `kml.kz`/`www.kml.kz`/`app.kml.kz`/`api.kml.kz`; application runtime запрещён |
 | VM126 | FastAPI, три Celery worker, Valkey и общий файловый runtime |
-| ASUS connector 10.77.77.4 | Отдельный WireGuard peer; передаёт private embedding traffic к 10.66.66.15:8001 и Qwen 3.8 generation fallback к 10.66.66.30:8888 |
+| ASUS connector 10.77.77.4 | Отдельный WireGuard peer; передаёт private embedding traffic к трём Qwen3-Embedding-8B узлам и Qwen 3.8 generation fallback к 10.66.66.30:8888 |
 | CT125 | Native PostgreSQL 17 + pgvector и encrypted backup |
 | Vercel project `web` | Frontend rollback artifact, не текущий `app.kml.kz` runtime |
 | Vercel `kamilya-lms-dev` | Изолированный dev frontend |
@@ -92,19 +92,20 @@ credentials.
 | Resend | Transactional email |
 | Telegram | Alternative auth/invitation channel |
 
-## Private embedding route — проверено 2026-09-12
+## Private embedding replica pool — проверено 2026-09-13
 
-- VM126 использует http://10.77.77.1:18001/v1; этот listener доступен только
-  внутри WireGuard.
-- KZ proxy остаётся только proxy/VPN hub: внутренний Nginx listener передаёт
-  запросы на отдельный peer 10.77.77.4:18001. Application runtime и модель
-  на proxy не установлены.
+- VM126 использует три listener-а только внутри WireGuard: `18003` для gx10-12,
+  `18001` для gx10-2 и `18004` для gx10-4.
+- KZ proxy остаётся только proxy/VPN hub: внутренние Nginx listener-ы передают
+  запросы на соответствующие socket relay порты peer `10.77.77.4`. Application
+  runtime и модели на proxy не установлены.
 - ASUS connector использует отдельный интерфейс wg-kamilya; существующий
-  ASUS wg0 не изменён. Socket relay передаёт запрос на
-  10.66.66.15:8001.
-- Из VM126 проверены /v1/models и реальный /v1/embeddings: опубликована
-  модель Qwen/Qwen3-Embedding-8B, один синтетический запрос вернул 4096
-  конечных значений.
+  ASUS wg0 не изменён. Socket relay передаёт запросы соответственно на
+  `10.66.66.25:8001`, `10.66.66.15:8001` и `10.66.66.7:8001`.
+- Из VM126 для всех трёх маршрутов проверены `/v1/models` и реальный
+  `/v1/embeddings`: каждый синтетический запрос вернул один конечный вектор
+  размерности 4096. gx10-4 публикует и принимает `Qwen3-Embedding-8B` без
+  namespace; другие две реплики используют `Qwen/Qwen3-Embedding-8B`.
 
 ## Private Qwen 3.8 generation route — проверено 2026-09-12
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+from types import SimpleNamespace
 
 import pytest
 from docx import Document
@@ -11,6 +12,8 @@ from app.modules.ai.ingestion import (
     DocumentOCRRequiredError,
     _local_convert,
 )
+from app.modules.ai.llm_client import AllProvidersFailedError
+from app.modules.documents.operations import apply_ingestion_result
 
 
 @pytest.mark.asyncio
@@ -159,5 +162,98 @@ async def test_scanned_pdf_requires_ocr_before_embedding(tmp_path) -> None:
         await ingestion.ingest_file(
             str(source),
             doc_id="scanned-policy",
+            tenant_id="00000000-0000-0000-0000-000000000001",
+        )
+
+
+@pytest.mark.asyncio
+async def test_readable_source_remains_usable_when_all_embedding_providers_fail(tmp_path) -> None:
+    source = tmp_path / "catalog.xlsx"
+    source.write_bytes(b"synthetic readable workbook")
+    source_revision = f"document:{hashlib.sha256(source.read_bytes()).hexdigest()}"
+
+    class ConverterStub:
+        async def convert(self, file_path: str) -> dict:
+            return {
+                "markdown": "# Collections\n\nPhoenix and Chicago product facts.",
+                "metadata": {"engine": "test"},
+            }
+
+    class ChunkerStub:
+        def chunk_markdown(self, markdown: str, doc_id: str, filename: str) -> list[dict]:
+            return [
+                {"text": "Phoenix facts", "metadata": {}},
+                {"text": "Chicago facts", "metadata": {}},
+            ]
+
+    class EmbeddingsUnavailable:
+        async def embed_documents_with_provenance(self, texts: list[str]):
+            raise AllProvidersFailedError("embedding providers exhausted")
+
+    class StoreMustNotRun:
+        async def add_chunks(self, chunks, embedding_batch, *, tenant_id: str) -> int:
+            raise AssertionError("vectors must not be stored after provider exhaustion")
+
+    class SummarizerMustNotRun:
+        async def summarize(self, markdown: str, doc_id: str, filename: str) -> dict:
+            raise AssertionError("degraded indexing must not add another provider dependency")
+
+    ingestion = DocumentIngestion(summaries_dir=str(tmp_path / "summaries"))
+    ingestion.converter = ConverterStub()
+    ingestion.chunker = ChunkerStub()
+    ingestion.embeddings = EmbeddingsUnavailable()
+    ingestion.store = StoreMustNotRun()
+    ingestion.summarizer = SummarizerMustNotRun()
+
+    result = await ingestion.ingest_file(
+        str(source),
+        doc_id="catalog-document",
+        tenant_id="00000000-0000-0000-0000-000000000001",
+        source_revision=source_revision,
+    )
+
+    assert result["chunks"] == 2
+    assert result["embeddings_written"] == 0
+    assert result["source_ready"] is True
+    assert result["embedding_unavailable"] is True
+    assert result["summary"] is None
+
+    document = SimpleNamespace()
+    apply_ingestion_result(document, result)
+
+    assert document.embedding_status == "failed"
+    assert document.index_status == "partial"
+    assert document.index_error_code == "embedding_providers_unavailable"
+    assert document.index_chunks_total == 2
+    assert document.index_chunks_indexed == 0
+    assert "ready for course generation" in document.index_message
+
+
+@pytest.mark.asyncio
+async def test_unexpected_embedding_failure_remains_terminal(tmp_path) -> None:
+    source = tmp_path / "catalog.xlsx"
+    source.write_bytes(b"synthetic readable workbook")
+
+    class ConverterStub:
+        async def convert(self, file_path: str) -> dict:
+            return {"markdown": "# Collections", "metadata": {"engine": "test"}}
+
+    class ChunkerStub:
+        def chunk_markdown(self, markdown: str, doc_id: str, filename: str) -> list[dict]:
+            return [{"text": "Phoenix facts", "metadata": {}}]
+
+    class UnexpectedEmbeddingFailure:
+        async def embed_documents_with_provenance(self, texts: list[str]):
+            raise RuntimeError("unexpected storage contract failure")
+
+    ingestion = DocumentIngestion(summaries_dir=str(tmp_path / "summaries"))
+    ingestion.converter = ConverterStub()
+    ingestion.chunker = ChunkerStub()
+    ingestion.embeddings = UnexpectedEmbeddingFailure()
+
+    with pytest.raises(RuntimeError, match="unexpected storage contract failure"):
+        await ingestion.ingest_file(
+            str(source),
+            doc_id="catalog-document",
             tenant_id="00000000-0000-0000-0000-000000000001",
         )
