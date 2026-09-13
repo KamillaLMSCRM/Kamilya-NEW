@@ -1787,6 +1787,112 @@ async def test_model_assessment_drops_weak_structured_questions_without_retry_or
 
 
 @pytest.mark.asyncio
+async def test_model_assessment_keeps_lesson_without_quiz_when_all_structured_questions_are_weak() -> None:
+    rows = (
+        "| Особенности Чикаго Нео | Взрослый размер и матовые торцевые ручки |",
+        "| Кому рекомендовать Феникс | Кто делает несколько комнат в одном стиле |",
+    )
+    source = "\n".join(rows)
+    evidence_ids = {quote: evidence_id for evidence_id, quote in _build_evidence_bank(source).items()}
+    questions = [
+        {
+            "question": "Какой размер и какие ручки указаны в описании?",
+            "options": [
+                {"text": "Взрослый размер и матовые торцевые ручки", "is_correct": True},
+                {"text": "Компактный размер и скрытые ручки", "is_correct": False},
+                {"text": "Детский размер и накладные ручки", "is_correct": False},
+                {"text": "Увеличенный размер и глянцевые ручки", "is_correct": False},
+            ],
+            "explanation": rows[0],
+            "source_quote_id": evidence_ids[rows[0]],
+        },
+        {
+            "question": "Кому рекомендовать Феникс, если человек делает несколько комнат в одном стиле?",
+            "options": [
+                {"text": "Кто делает несколько комнат в одном стиле", "is_correct": True},
+                {"text": "Кто оформляет одну комнату без хранения", "is_correct": False},
+                {"text": "Кто выбирает разные стили для комнат", "is_correct": False},
+                {"text": "Кто подбирает мебель только для офиса", "is_correct": False},
+            ],
+            "explanation": rows[1],
+            "source_quote_id": evidence_ids[rows[1]],
+        },
+    ]
+
+    class LLMWithOnlyWeakQuestions:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        async def ainvoke(self, messages, config=None, response_format=None):
+            self.calls += 1
+            return SimpleNamespace(
+                content=__import__("json").dumps(
+                    {"mcq": questions, "true_false": [], "matching": []},
+                    ensure_ascii=False,
+                )
+            )
+
+    llm = LLMWithOnlyWeakQuestions()
+    result = await generate_lesson_assessment(
+        llm,
+        LessonContent(
+            title="Позиционирование коллекций",
+            objectives=["Подбирать коллекцию под запрос покупателя"],
+            content="Generated prose is not evidence.",
+            source_chunks=[source],
+            source_references=[],
+        ),
+        language="ru",
+        compact=True,
+    )
+
+    assert llm.calls == 1
+    assert result.lesson_title == "Позиционирование коллекций"
+    assert result.mcq == []
+
+
+@pytest.mark.asyncio
+async def test_course_assessment_restores_intentionally_empty_structured_quiz_without_provider_call() -> None:
+    source = "| Особенности Чикаго Нео | Взрослый размер и матовые торцевые ручки |"
+
+    class ProviderMustNotRun:
+        calls = 0
+
+        async def ainvoke(self, messages, config=None, response_format=None):
+            self.calls += 1
+            raise AssertionError("an intentionally empty assessment checkpoint must be restored")
+
+    llm = ProviderMustNotRun()
+    result = await generate_course_assessment(
+        llm,
+        CourseContent(
+            title="Коллекции",
+            modules=[
+                ModuleContent(
+                    title="Ассортимент",
+                    lessons=[
+                        LessonContent(
+                            title="Позиционирование коллекций",
+                            objectives=["Подбирать коллекцию под запрос покупателя"],
+                            content="Generated prose is not evidence.",
+                            source_chunks=[source],
+                            source_references=[],
+                        )
+                    ],
+                )
+            ],
+        ),
+        language="ru",
+        compact=True,
+        completed_assessments={(0, 0): LessonAssessment(lesson_title="Позиционирование коллекций")},
+    )
+
+    assert llm.calls == 0
+    assert len(result.assessments) == 1
+    assert result.assessments[0].mcq == []
+
+
+@pytest.mark.asyncio
 async def test_model_assessment_drops_equivalent_fact_from_another_lesson_without_padding() -> None:
     first_row = (
         "| Что это за коллекция | Интерьерная платформа Imperial: " "модульный конструктор из нескольких дизайн-серий |"

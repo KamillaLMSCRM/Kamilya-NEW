@@ -2157,6 +2157,12 @@ Output ONLY the JSON data instance:
                             question_count,
                         )
                         return recovered
+                    logger.warning(
+                        "[ASSESSMENT_FILTERED] kept=0 requested=%d; lesson retained "
+                        "without a quiz instead of regenerating weak questions",
+                        question_count,
+                    )
+                    return LessonAssessment(lesson_title=lesson_content.title)
                 raise ValueError("; ".join(issues))
             return assessment
         except (json.JSONDecodeError, ValueError) as e:
@@ -2257,6 +2263,8 @@ def _restored_assessment_is_valid(
     evidence_bank = _build_evidence_bank(bounded_source)
     if not evidence_bank:
         return False
+    if not assessment.mcq and not assessment.true_false and not assessment.matching:
+        return any(_markdown_table_cells(evidence) for evidence in evidence_bank.values())
     evidence_ids_by_quote: dict[str, list[str]] = {}
     for evidence_id, evidence in evidence_bank.items():
         evidence_ids_by_quote.setdefault(_normalize_evidence_text(_plain_evidence_text(evidence)), []).append(
@@ -2290,8 +2298,8 @@ def _restored_assessment_is_valid(
         evidence_bank=evidence_bank,
         bounded_source=bounded_source,
     )
-    if not (1 <= len(restored.mcq) <= expected_count):
-        issues.append(f"MCQ count is {len(restored.mcq)} " f"(expected between 1 and {expected_count})")
+    if len(restored.mcq) > expected_count:
+        issues.append(f"MCQ count is {len(restored.mcq)} " f"(expected between 0 and {expected_count})")
     if restored.true_false or restored.matching:
         issues.append("restored assessment contains unsupported question types")
     return not issues

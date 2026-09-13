@@ -2286,3 +2286,10 @@ contract or establish a blocker.
   or inflate the result to the requested count. Focused regressions cover both
   Russian formulations and protect the interrogative word "who" from being
   mistaken for leaked answer content.
+- Recurrence (2026-09-13, `0.5.22` production acceptance): one lesson contained no
+  question that survived the structured-source quality gate. The partial-recovery
+  branch required at least one survivor, so it retried the provider five times and
+  failed the entire course at assessment progress 85%. The `0.5.23` repair keeps
+  the lesson without a quiz when all candidates are weak, persists that empty
+  assessment checkpoint, and restores it without another provider call. RED tests
+  cover both the initial all-dropped result and restart-safe restoration.

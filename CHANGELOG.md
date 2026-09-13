@@ -15,6 +15,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.5.23] - 2026-09-13
+
+### Fixed
+
+- Keep a structured-source lesson without a quiz when every generated question
+  fails the quality gate, instead of retrying weak questions and failing the
+  entire course.
+- Restore an intentionally empty assessment checkpoint without calling the model
+  again after a worker restart.
+
 ## [0.5.22] - 2026-09-13
 
 ### Changed
