@@ -15,6 +15,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.5.18] - 2026-09-13
+
+### Changed
+
+- The requested question count is now a ceiling for structured lessons. Invalid
+  duplicates and ambiguous questions are removed without asking the model to pad
+  the test back to a nominal size.
+- A short source-backed test is accepted when the lesson contains only a small
+  number of independent assessable facts.
+
+### Fixed
+
+- Detect two differently worded questions that target the same spreadsheet cell,
+  including answers that differ only by a short introductory preposition.
+- Reject an incorrect option when it is also supported by the same source cell as
+  the marked correct answer.
+- Keep opaque compact spreadsheet shorthand out of learner-visible options unless
+  the question explicitly asks for a code, model or article.
+- Native frontend release preflight now reports invalid or missing CLI parameters
+  as bounded usage errors instead of exposing a raw assertion traceback.
+
 ## [0.5.17] - 2026-09-13
 
 ### Changed

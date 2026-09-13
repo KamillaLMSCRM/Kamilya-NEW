@@ -22,16 +22,22 @@ from app.modules.ai.writer_schema import CourseContent, LessonContent, ModuleCon
 def test_structured_lesson_question_count_adapts_to_available_rows() -> None:
     source = "| Field | Alpha | Beta |\n| --- | --- | --- |\n| Style | modern | classic |"
 
-    assert _assessment_question_count(
-        compact=False,
-        evidence_bank={f"E{index:02d}": f"Fact {index}" for index in range(1, 10)},
-        bounded_source=source,
-    ) == 3
-    assert _assessment_question_count(
-        compact=False,
-        evidence_bank={f"E{index:02d}": f"Fact {index}" for index in range(1, 6)},
-        bounded_source="Five prose facts.",
-    ) == 5
+    assert (
+        _assessment_question_count(
+            compact=False,
+            evidence_bank={f"E{index:02d}": f"Fact {index}" for index in range(1, 10)},
+            bounded_source=source,
+        )
+        == 3
+    )
+    assert (
+        _assessment_question_count(
+            compact=False,
+            evidence_bank={f"E{index:02d}": f"Fact {index}" for index in range(1, 6)},
+            bounded_source="Five prose facts.",
+        )
+        == 5
+    )
 
 
 def _additional_questions() -> list[dict]:
@@ -39,7 +45,12 @@ def _additional_questions() -> list[dict]:
         (
             "Когда передают график микрокредита?",
             "График микрокредита передают после подписания договора.",
-            ["После подписания договора", "До подписания договора", "При обсуждении договора", "Без подписания договора"],
+            [
+                "После подписания договора",
+                "До подписания договора",
+                "При обсуждении договора",
+                "Без подписания договора",
+            ],
         ),
         (
             "Чем подтверждают погашение микрокредита?",
@@ -111,9 +122,7 @@ def test_generation_contract_blocks_customer_reported_meta_question_pattern(
                         {"text": "как устроены вешалки прихожие гарнитуры и столы", "is_correct": False},
                         {"text": "как устроены вешалки прихожие гарнитуры и шкафы", "is_correct": False},
                     ],
-                    "explanation": (
-                        "В исходном материале указано: что именно разберём в этом уроке."
-                    ),
+                    "explanation": ("В исходном материале указано: что именно разберём в этом уроке."),
                 }
             ]
         },
@@ -170,10 +179,7 @@ def test_generation_contract_blocks_invented_named_entity_in_distractor() -> Non
 
 
 def test_generation_contract_blocks_incorrect_option_supported_by_selected_evidence() -> None:
-    source = (
-        "| Для каких комнат | Спальня (шкафы и хранение), прихожая, "
-        "гостиная, гардеробная. |"
-    )
+    source = "| Для каких комнат | Спальня (шкафы и хранение), прихожая, " "гостиная, гардеробная. |"
     data = {
         "mcq": [
             {
@@ -256,9 +262,7 @@ def test_generation_contract_blocks_reused_correct_answer_from_another_lesson() 
     )
 
     assert any(
-        "repeats source evidence and correct answer already assessed in another lesson"
-        in issue
-        for issue in issues
+        "repeats source evidence and correct answer already assessed in another lesson" in issue for issue in issues
     )
 
 
@@ -267,9 +271,7 @@ def test_generation_contract_allows_same_answer_for_a_distinct_source_fact() -> 
     previous = frozenset(
         {
             (
-                _normalize_evidence_text(
-                    "| Аргументация | единый стиль | сочетание фактур | экономия места |"
-                ),
+                _normalize_evidence_text("| Аргументация | единый стиль | сочетание фактур | экономия места |"),
                 _normalize_evidence_text("единый стиль"),
             )
         }
@@ -302,8 +304,7 @@ def test_generation_contract_allows_same_answer_for_a_distinct_source_fact() -> 
 
 def test_generation_contract_blocks_two_questions_from_one_structured_source_fact() -> None:
     source = (
-        "| Кому рекомендовать | Кто делает несколько комнат в одном стиле, "
-        "любит конструктор и скрытое открывание. |"
+        "| Кому рекомендовать | Кто делает несколько комнат в одном стиле, " "любит конструктор и скрытое открывание. |"
     )
     data = {
         "mcq": [
@@ -335,6 +336,90 @@ def test_generation_contract_blocks_two_questions_from_one_structured_source_fac
     issues = _validate_question_evidence(data, {"E01": source}, source, "ru")
 
     assert any("reuses one structured source fact" in issue for issue in issues)
+
+
+def test_generation_contract_blocks_equivalent_answers_from_one_structured_cell() -> None:
+    source = "| Особенности кроватей | подъёмное основание | " "с основанием на гибких ламелях | мягкое изголовье |"
+    data = {
+        "mcq": [
+            {
+                "question": "На каком основании выполнена кровать Чикаго Нео?",
+                "options": [
+                    {"text": "с основанием на гибких ламелях", "is_correct": True},
+                    {"text": "на сплошном деревянном щите", "is_correct": False},
+                    {"text": "на металлической сетке", "is_correct": False},
+                ],
+                "source_quote_id": "E01",
+            },
+            {
+                "question": "Чем отличается основание кровати Чикаго Нео?",
+                "options": [
+                    {"text": "основанием на гибких ламелях", "is_correct": True},
+                    {"text": "основанием на жёсткой панели", "is_correct": False},
+                    {"text": "основанием без отдельных ламелей", "is_correct": False},
+                ],
+                "source_quote_id": "E01",
+            },
+        ]
+    }
+
+    issues = _validate_question_evidence(data, {"E01": source}, source, "ru")
+
+    assert any("reuses one structured source cell" in issue for issue in issues)
+
+
+def test_generation_contract_blocks_distractor_supported_by_correct_source_cell() -> None:
+    source = (
+        "| Кому рекомендовать | Кто делает несколько комнат в одном стиле, "
+        "любит конструктор и скрытое открывание | Для небольшой комнаты |"
+    )
+    data = {
+        "mcq": [
+            {
+                "question": "Кому рекомендовать модульную коллекцию?",
+                "options": [
+                    {
+                        "text": "Кто делает несколько комнат в одном стиле",
+                        "is_correct": True,
+                    },
+                    {
+                        "text": "Кто любит конструктор и скрытое открывание",
+                        "is_correct": False,
+                    },
+                    {"text": "Кто выбирает готовый комплект", "is_correct": False},
+                ],
+                "source_quote_id": "E01",
+            }
+        ]
+    }
+
+    issues = _validate_question_evidence(data, {"E01": source}, source, "ru")
+
+    assert any("incorrect option is also supported by the correct source cell" in issue for issue in issues)
+
+
+def test_generation_contract_blocks_opaque_compact_source_shorthand_in_options() -> None:
+    source = "| Особенности комодов | два ящика | три ящика | " "1д4ящ с закрытым отделением |"
+    data = {
+        "mcq": [
+            {
+                "question": "Какая особенность указана для комода?",
+                "options": [
+                    {"text": "два ящика", "is_correct": True},
+                    {"text": "три ящика", "is_correct": False},
+                    {
+                        "text": "1д4ящ с закрытым отделением",
+                        "is_correct": False,
+                    },
+                ],
+                "source_quote_id": "E01",
+            }
+        ]
+    }
+
+    issues = _validate_question_evidence(data, {"E01": source}, source, "ru")
+
+    assert any("opaque compact source shorthand" in issue for issue in issues)
 
 
 @pytest.mark.parametrize(
@@ -613,17 +698,14 @@ def test_tabular_assessment_targets_lesson_column_without_reusing_prior_facts() 
         "собрать требования к высоте",
     }
     assert all(
-        next(option.text for option in question.options if option.is_correct)
-        in scenario_answers
+        next(option.text for option in question.options if option.is_correct) in scenario_answers
         for question in result.mcq
     )
     assert all(len(question.options) == 4 for question in result.mcq)
     assert all(
         (
             _normalize_evidence_text(question.source_quote),
-            _normalize_evidence_text(
-                next(option.text for option in question.options if option.is_correct)
-            ),
+            _normalize_evidence_text(next(option.text for option in question.options if option.is_correct)),
         )
         not in excluded
         for question in result.mcq
@@ -661,11 +743,7 @@ def test_three_subject_table_uses_three_grounded_options_without_model_fallback(
         "строгий минимализм",
         "городской минимализм",
     }
-    assert {
-        option.text
-        for question in result.mcq
-        for option in question.options
-    } == source_values
+    assert {option.text for question in result.mcq for option in question.options} == source_values
 
 
 def test_tabular_assessment_keeps_partial_target_facts_before_filling_other_columns() -> None:
@@ -697,10 +775,7 @@ def test_tabular_assessment_keeps_partial_target_facts_before_filling_other_colu
     )
 
     assert result is not None
-    correct_answers = {
-        next(option.text for option in question.options if option.is_correct)
-        for question in result.mcq
-    }
+    correct_answers = {next(option.text for option in question.options if option.is_correct) for question in result.mcq}
     assert {
         "показать механизм открывания",
         "уточнить объём хранения",
@@ -759,11 +834,7 @@ def test_tabular_assessment_caps_options_at_four_with_more_peer_values() -> None
     assert result is not None
     assert len(result.mcq) == 5
     assert all(len(question.options) == 4 for question in result.mcq)
-    assert all(
-        option.text in source
-        for question in result.mcq
-        for option in question.options
-    )
+    assert all(option.text in source for question in result.mcq for option in question.options)
 
 
 def test_tabular_assessment_adapts_to_available_structured_facts() -> None:
@@ -856,10 +927,13 @@ def test_tabular_style_assessment_keeps_two_subjects_with_same_style() -> None:
         len(next(option.text for option in question.options if option.is_correct).split()) == 1
         for question in result.mcq
     )
-    assert sum(
-        next(option.text for option in question.options if option.is_correct) == "современный"
-        for question in result.mcq
-    ) == 2
+    assert (
+        sum(
+            next(option.text for option in question.options if option.is_correct) == "современный"
+            for question in result.mcq
+        )
+        == 2
+    )
 
 
 def test_partial_lesson_table_uses_full_source_only_for_peer_distractors() -> None:
@@ -895,10 +969,7 @@ def test_partial_lesson_table_uses_full_source_only_for_peer_distractors() -> No
 
     assert result is not None
     assert len(result.mcq) == 3
-    assert all(
-        any(subject in question.question for subject in {"Альфа", "Бета", "Гамма"})
-        for question in result.mcq
-    )
+    assert all(any(subject in question.question for subject in {"Альфа", "Бета", "Гамма"}) for question in result.mcq)
     assert all(
         option.text in {"современный", "скандинавский", "лофт", "минимализм", "классический"}
         for question in result.mcq
@@ -942,15 +1013,8 @@ def test_converter_spaced_source_table_keeps_lesson_subject_scope() -> None:
 
     assert result is not None
     assert len(result.mcq) == 5
-    assert all(
-        any(subject in question.question for subject in {"Альфа", "Бета", "Гамма"})
-        for question in result.mcq
-    )
-    assert all(
-        option.text in source
-        for question in result.mcq
-        for option in question.options
-    )
+    assert all(any(subject in question.question for subject in {"Альфа", "Бета", "Гамма"}) for question in result.mcq)
+    assert all(option.text in source for question in result.mcq for option in question.options)
 
 
 def test_vertical_collection_cards_map_attributes_to_source_columns() -> None:
@@ -998,10 +1062,7 @@ def test_vertical_collection_cards_map_attributes_to_source_columns() -> None:
 
     assert result is not None
     assert len(result.mcq) == 5
-    assert all(
-        "«Альфа»" in question.question or "«Бета»" in question.question
-        for question in result.mcq
-    )
+    assert all("«Альфа»" in question.question or "«Бета»" in question.question for question in result.mcq)
     assert all(
         any(option.text in evidence for evidence in _build_evidence_bank(source).values())
         for question in result.mcq
@@ -1047,15 +1108,11 @@ def test_vertical_three_collection_cards_keep_each_question_within_one_attribute
         {"модульные шкафы", "готовые прихожие", "настенные зеркала"},
     )
     assert all(
-        any(
-            {option.text for option in question.options} == values
-            for values in attribute_value_sets
-        )
+        any({option.text for option in question.options} == values for values in attribute_value_sets)
         for question in result.mcq
     )
     assert all(
-        any(name in question.question for name in {"Феникс", "Чикаго Нео", "Чикаго Стрит"})
-        for question in result.mcq
+        any(name in question.question for name in {"Феникс", "Чикаго Нео", "Чикаго Стрит"}) for question in result.mcq
     )
 
 
@@ -1102,10 +1159,7 @@ def test_vertical_collection_cards_map_to_plain_converter_rows() -> None:
 
     assert result is not None
     assert len(result.mcq) == 2
-    assert all(
-        "«Альфа»" in question.question or "«Бета»" in question.question
-        for question in result.mcq
-    )
+    assert all("«Альфа»" in question.question or "«Бета»" in question.question for question in result.mcq)
 
 
 def test_unrelated_lesson_table_does_not_block_scoped_source_fallback() -> None:
@@ -1130,10 +1184,7 @@ def test_unrelated_lesson_table_does_not_block_scoped_source_fallback() -> None:
 
     assert result is not None
     assert len(result.mcq) == 5
-    assert all(
-        "«Альфа»" in question.question or "«Бета»" in question.question
-        for question in result.mcq
-    )
+    assert all("«Альфа»" in question.question or "«Бета»" in question.question for question in result.mcq)
 
 
 def test_generic_scope_does_not_widen_source_table_fallback() -> None:
@@ -1271,6 +1322,80 @@ async def test_compact_spreadsheet_assessment_uses_deterministic_table_path() ->
 
 
 @pytest.mark.asyncio
+async def test_model_assessment_keeps_valid_questions_without_padding_after_duplicate() -> None:
+    source = "| Особенности кроватей | Чикаго Нео | " "с основанием на гибких ламелях |"
+
+    class LLMWithOneDuplicate:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        async def ainvoke(self, messages, config=None, response_format=None):
+            self.calls += 1
+            return SimpleNamespace(
+                content="""{
+                    "mcq": [
+                        {
+                            "question": "На каком основании выполнена кровать Чикаго Нео?",
+                            "options": [
+                                {"text": "с основанием на гибких ламелях", "is_correct": true},
+                                {"text": "на сплошном деревянном щите", "is_correct": false},
+                                {"text": "на металлической сетке", "is_correct": false}
+                            ],
+                            "explanation": "с основанием на гибких ламелях",
+                            "source_quote_id": "E01"
+                        },
+                        {
+                            "question": "Чем отличается основание кровати Чикаго Нео?",
+                            "options": [
+                                {"text": "основанием на гибких ламелях", "is_correct": true},
+                                {"text": "основанием на жёсткой панели", "is_correct": false},
+                                {"text": "основанием без отдельных ламелей", "is_correct": false}
+                            ],
+                            "explanation": "основанием на гибких ламелях",
+                            "source_quote_id": "E01"
+                        },
+                        {
+                            "question": "Для какой коллекции указаны гибкие ламели?",
+                            "options": [
+                                {"text": "Чикаго Нео", "is_correct": true},
+                                {"text": "Первая коллекция", "is_correct": false},
+                                {"text": "Базовая коллекция", "is_correct": false}
+                            ],
+                            "explanation": "Чикаго Нео",
+                            "source_quote_id": "E01"
+                        }
+                    ],
+                    "true_false": [],
+                    "matching": []
+                }"""
+            )
+
+    llm = LLMWithOneDuplicate()
+    result = await generate_lesson_assessment(
+        llm,
+        LessonContent(
+            title="Кровати коллекции Чикаго Нео",
+            objectives=["Объяснять особенности основания кровати"],
+            content="Generated prose is not evidence.",
+            source_chunks=[source],
+            source_references=[],
+        ),
+        language="ru",
+        compact=True,
+    )
+
+    assert llm.calls == 1
+    assert len(result.mcq) == 2
+    assert (
+        sum(
+            "гибких ламелях" in next(option.text for option in question.options if option.is_correct)
+            for question in result.mcq
+        )
+        == 1
+    )
+
+
+@pytest.mark.asyncio
 async def test_standard_course_uses_only_real_table_values_for_scoped_lessons() -> None:
     class LLMShouldNotBeCalled:
         async def ainvoke(self, messages, config=None, response_format=None):
@@ -1342,10 +1467,7 @@ async def test_standard_course_uses_only_real_table_values_for_scoped_lessons() 
     assert [len(assessment.mcq) for assessment in result.assessments] == [5, 5, 5]
     assert assessment_paths == ["tabular", "tabular", "tabular"]
     actual_options = {
-        option.text
-        for assessment in result.assessments
-        for question in assessment.mcq
-        for option in question.options
+        option.text for assessment in result.assessments for question in assessment.mcq for option in question.options
     }
     assert actual_options <= source_values
 
@@ -1400,9 +1522,7 @@ async def test_shared_collection_table_builds_three_distinct_lesson_assessments(
     fact_keys = [
         (
             _normalize_evidence_text(question.source_quote),
-            _normalize_evidence_text(
-                next(option.text for option in question.options if option.is_correct)
-            ),
+            _normalize_evidence_text(next(option.text for option in question.options if option.is_correct)),
         )
         for assessment in result.assessments
         for question in assessment.mcq
@@ -1460,8 +1580,7 @@ async def test_three_whole_table_lessons_build_fifteen_distinct_questions() -> N
     assert [len(assessment.mcq) for assessment in result.assessments] == [5, 5, 5]
     assert assessment_paths == ["tabular", "tabular", "tabular"]
     third_answers = {
-        next(option.text for option in question.options if option.is_correct)
-        for question in result.assessments[2].mcq
+        next(option.text for option in question.options if option.is_correct) for question in result.assessments[2].mcq
     }
     assert "собрать требования к высоте" in third_answers
 
@@ -1481,10 +1600,7 @@ def _questions(
     ]
     options = [
         {"text": fact, "is_correct": True},
-        *[
-            {"text": distractor, "is_correct": False}
-            for distractor in distractors
-        ],
+        *[{"text": distractor, "is_correct": False} for distractor in distractors],
     ]
     return [
         {
@@ -1494,13 +1610,11 @@ def _questions(
             "source_quote": source_quote,
             "source_quote_id": source_quote_id,
         }
-    ] + _additional_questions()[:count - 1]
+    ] + _additional_questions()[: count - 1]
 
 
 def test_contract_diagnostics_use_bounded_reason_codes():
-    error = ValueError(
-        "MCQ #1: unknown source evidence id; MCQ #2: correct answer is an incomplete fragment"
-    )
+    error = ValueError("MCQ #1: unknown source evidence id; MCQ #2: correct answer is an incomplete fragment")
 
     assert _assessment_contract_reason_codes(error) == (
         "evidence_reference,grounding,answer_quality,learner_text_quality"
@@ -1548,19 +1662,13 @@ async def test_standard_assessment_requests_five_mcq_questions_only():
 
 @pytest.mark.asyncio
 async def test_generated_assessment_uses_original_source_chunks_as_evidence() -> None:
-    source = _source_with_additional_facts(
-        "Выдача микрокредита выполняется после проверки заявления."
-    )
-    generated_intro = (
-        "В этом уроке разбираем правила. Эти правила — основа успешной работы."
-    )
+    source = _source_with_additional_facts("Выдача микрокредита выполняется после проверки заявления.")
+    generated_intro = "В этом уроке разбираем правила. Эти правила — основа успешной работы."
 
     class FakeLLM:
         async def ainvoke(self, messages, config=None, response_format=None):
             prompt = messages[-1]["content"]
-            evidence_payload = prompt.split("ALLOWED_EVIDENCE_BANK", 1)[1].split(
-                "END_ALLOWED_EVIDENCE_BANK", 1
-            )[0]
+            evidence_payload = prompt.split("ALLOWED_EVIDENCE_BANK", 1)[1].split("END_ALLOWED_EVIDENCE_BANK", 1)[0]
             assert "Выдача микрокредита выполняется" in evidence_payload
             assert generated_intro not in evidence_payload
             questions = _questions(
@@ -1641,15 +1749,11 @@ async def test_assessment_prioritizes_shared_spreadsheet_rows_for_lesson_entitie
     class InspectingLLM:
         async def ainvoke(self, messages, config=None, response_format=None):
             prompt = messages[-1]["content"]
-            evidence_section = prompt.split("ALLOWED_EVIDENCE_BANK", 1)[1].split(
-                "END_ALLOWED_EVIDENCE_BANK", 1
-            )[0]
+            evidence_section = prompt.split("ALLOWED_EVIDENCE_BANK", 1)[1].split("END_ALLOWED_EVIDENCE_BANK", 1)[0]
             assert "Alpha" in evidence_section
             assert "Beta" in evidence_section
             assert "Gamma" in evidence_section
-            preferred_section = prompt.split("PREFERRED_EVIDENCE_IDS", 1)[1].split(
-                "END_PREFERRED_EVIDENCE_IDS", 1
-            )[0]
+            preferred_section = prompt.split("PREFERRED_EVIDENCE_IDS", 1)[1].split("END_PREFERRED_EVIDENCE_IDS", 1)[0]
             assert "E01" in preferred_section
             assert "E02" in preferred_section
             assert "E03" in preferred_section
@@ -1718,9 +1822,7 @@ async def test_lesson_assessment_does_not_reuse_a_fact_from_an_earlier_lesson() 
     )
 
     assert len(result.mcq) == 4
-    assert all(
-        question.question != questions[0]["question"] for question in result.mcq
-    )
+    assert all(question.question != questions[0]["question"] for question in result.mcq)
 
 
 @pytest.mark.asyncio
@@ -1731,9 +1833,7 @@ async def test_standard_assessment_retries_an_incomplete_result():
         async def ainvoke(self, messages, config=None, response_format=None):
             self.calls += 1
             if self.calls == 1:
-                return SimpleNamespace(
-                    content='{"mcq": [], "true_false": [], "matching": []}'
-                )
+                return SimpleNamespace(content='{"mcq": [], "true_false": [], "matching": []}')
             retry_prompt = messages[-1]["content"]
             assert "Порядок рассмотрения заявления" in retry_prompt
             assert "Рассмотрение заявления начинается с проверки документов" in retry_prompt
@@ -1943,9 +2043,7 @@ async def test_standard_assessment_resolves_authoritative_quote_from_evidence_id
         language="ru",
     )
 
-    assert result.mcq[0].source_quote == (
-        "Выдача микрокредита выполняется после проверки заявления."
-    )
+    assert result.mcq[0].source_quote == ("Выдача микрокредита выполняется после проверки заявления.")
 
 
 @pytest.mark.asyncio
@@ -1957,9 +2055,13 @@ async def test_standard_assessment_requests_provider_structured_output():
             schema = response_format["json_schema"]["schema"]
             assert schema["properties"]["mcq"]["minItems"] == 5
             assert schema["properties"]["mcq"]["maxItems"] == 5
-            assert schema["properties"]["mcq"]["items"]["properties"][
-                "source_quote_id"
-            ]["enum"] == ["E01", "E02", "E03", "E04", "E05"]
+            assert schema["properties"]["mcq"]["items"]["properties"]["source_quote_id"]["enum"] == [
+                "E01",
+                "E02",
+                "E03",
+                "E04",
+                "E05",
+            ]
             questions = _questions(
                 "выдачу микрокредита",
                 "проверки заявления",
@@ -2020,7 +2122,7 @@ async def test_standard_assessment_keeps_concise_answer_and_server_owned_quote()
         correct = [option.text for option in question.options if option.is_correct]
         assert correct == [fixture["options"][0]["text"]]
         assert question.source_quote == fixture.get("source_quote", fixture["explanation"])
-        assert question.explanation == f'В исходном материале указано: «{question.source_quote}»'
+        assert question.explanation == f"В исходном материале указано: «{question.source_quote}»"
 
 
 @pytest.mark.asyncio
@@ -2086,11 +2188,11 @@ async def test_standard_assessment_renders_markdown_evidence_as_plain_answer():
                 source_quote,
             )
             questions[0]["options"] = [
-                    {"text": "30 минут", "is_correct": True},
-                    {"text": "20 минут", "is_correct": False},
-                    {"text": "40 минут", "is_correct": False},
-                    {"text": "60 минут", "is_correct": False},
-                ]
+                {"text": "30 минут", "is_correct": True},
+                {"text": "20 минут", "is_correct": False},
+                {"text": "40 минут", "is_correct": False},
+                {"text": "60 минут", "is_correct": False},
+            ]
             return SimpleNamespace(
                 content=(
                     '{"mcq": '
@@ -2152,9 +2254,7 @@ async def test_standard_assessment_strips_markdown_table_row_from_evidence():
     )
 
     assert all("|" not in question.source_quote for question in result.mcq)
-    assert result.mcq[0].source_quote == (
-        "Критический приоритет — Не позднее 15 минут"
-    )
+    assert result.mcq[0].source_quote == ("Критический приоритет — Не позднее 15 минут")
 
 
 @pytest.mark.asyncio
@@ -2202,11 +2302,7 @@ async def test_standard_assessment_retries_answer_length_tell():
     )
 
     assert llm.calls == 2
-    assert all(
-        max(len(option.text) for option in question.options)
-        < len(source_quote)
-        for question in result.mcq
-    )
+    assert all(max(len(option.text) for option in question.options) < len(source_quote) for question in result.mcq)
 
 
 @pytest.mark.asyncio
@@ -2241,12 +2337,7 @@ async def test_standard_assessment_keeps_valid_questions_after_retries_exhausted
 
     assert llm.calls == 5
     assert len(result.mcq) == 4
-    assert all(
-        option.text != "Yes"
-        for question in result.mcq
-        for option in question.options
-        if option.is_correct
-    )
+    assert all(option.text != "Yes" for question in result.mcq for option in question.options if option.is_correct)
 
 
 @pytest.mark.asyncio
@@ -2306,9 +2397,7 @@ async def test_standard_assessment_recovers_with_individual_evidence_questions()
                     question["options"][0]["text"] = "Yes"
             else:
                 schema = response_format["json_schema"]["schema"]
-                evidence_id = schema["properties"]["mcq"]["items"]["properties"][
-                    "source_quote_id"
-                ]["enum"][0]
+                evidence_id = schema["properties"]["mcq"]["items"]["properties"]["source_quote_id"]["enum"][0]
                 subject, correct_suffix, alternative = evidence[evidence_id]
                 questions = [
                     {
@@ -2386,9 +2475,7 @@ async def test_focused_assessment_retries_rejected_evidence_candidate():
                 ]
             else:
                 schema = response_format["json_schema"]["schema"]
-                evidence_id = schema["properties"]["mcq"]["items"]["properties"][
-                    "source_quote_id"
-                ]["enum"][0]
+                evidence_id = schema["properties"]["mcq"]["items"]["properties"]["source_quote_id"]["enum"][0]
                 self.focused_calls[evidence_id] = self.focused_calls.get(evidence_id, 0) + 1
                 subject, correct_suffix, alternative = evidence[evidence_id]
                 if self.focused_calls[evidence_id] == 1:
@@ -2643,9 +2730,7 @@ async def test_course_assessment_regenerates_invalid_restored_meta_question():
         }
         for question in questions
     ]
-    restored_questions[0]["question"] = (
-        "How is loan approval described in the source material?"
-    )
+    restored_questions[0]["question"] = "How is loan approval described in the source material?"
     stale = LessonAssessment.from_dict(
         {
             "lesson_title": "Approval",

@@ -2204,6 +2204,16 @@ contract or establish a blocker.
   primary-sheet role, row/column orientation, real peer-option count, all-tabular
   assessment paths, no provider delay, no answer leakage and human review of the
   persisted draft before production acceptance.
+- Recurrence and fix (2026-09-13): production acceptance on `0.5.17` found two
+  differently worded questions about the same spreadsheet cell, one distractor
+  supported by the same cell as the marked answer, and opaque compact source
+  shorthand in another distractor. The validator now resolves the exact supporting
+  cell, rejects same-cell ambiguity and repeated use, and excludes compact shorthand
+  unless the question explicitly teaches a code. Structured assessment counts are
+  ceilings: invalid questions are dropped without provider padding. The four exact
+  regressions passed, followed by the complete 1473-test API unit suite and the
+  five database-free `AI-COURSE-01` checks. CI, deployment and a fresh persisted
+  production draft remain separate evidence gates.
 
 ## AI-EMBED-RESILIENCE-005 - Provider exhaustion made a readable source look unusable
 
