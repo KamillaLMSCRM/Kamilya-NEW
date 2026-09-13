@@ -2476,6 +2476,27 @@ contract or establish a blocker.
   assessment matching and persistence. Acceptance must include the real save
   boundary, not stop after successful model calls.
 
+## AI-PROVIDER-002 - One transient primary connection failure aborted a concurrent source map
+
+- Date: 2026-09-14. Observed in production `0.5.36` during the fresh
+  methodologist-path generation from the controlled Lombard microcredit-rules
+  PDF.
+- Symptom: document conversion completed and two concurrent DeepSeek map calls
+  returned HTTP 200, but a third call hit `ConnectError`. Its private Qwen and
+  GLM fallbacks were unavailable, so the whole job failed at architect progress
+  10 despite the primary provider being healthy for sibling requests.
+- Cause: `_BaseProviderClient._request` retried timeouts and transient 5xx
+  responses but classified `httpx.ConnectError` as an immediate hard failure.
+- Fix: retry `ConnectError` on the same provider using the existing bounded
+  per-provider retry budget before entering the fallback chain.
+- Verification: a RED transport regression reproduces one connection failure
+  followed by a successful response from the same provider. GREEN returns that
+  response after exactly two calls; the focused failover and source-map suite
+  passes 70 tests.
+- Prevention: concurrent map acceptance must include a transient connection
+  fault in one batch while the provider remains available to sibling batches.
+  A single socket failure is not provider-outage evidence.
+
 ## AI-MAP-001 - A valid detailed source map exceeded the arbitrary topic count
 
 - Date: 2026-09-14. Observed in production `0.5.32` during the fresh

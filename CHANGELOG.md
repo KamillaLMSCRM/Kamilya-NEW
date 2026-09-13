@@ -15,6 +15,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.5.37] - 2026-09-14
+
+### Fixed
+
+- Retry a transient DeepSeek connection failure on the same provider before
+  failing over, so one interrupted concurrent source-map batch no longer
+  aborts an otherwise healthy course-generation job.
+- Keep the existing finite provider retry budget and fallback order; permanent
+  failures still terminate without an unbounded retry loop.
+
 ## [0.5.36] - 2026-09-14
 
 ### Fixed

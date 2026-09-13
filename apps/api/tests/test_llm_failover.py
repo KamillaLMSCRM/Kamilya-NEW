@@ -129,6 +129,52 @@ def test_resilient_llm_provider_propagates_provider_failed_error():
     assert excinfo.value.provider_name == "primary"
 
 
+@pytest.mark.asyncio
+async def test_llm_client_retries_transient_connect_error_before_failover(monkeypatch):
+    """A single refused/reset connection must not discard a source-map batch."""
+
+    request = httpx.Request("POST", "https://provider.test/v1/chat/completions")
+    calls = 0
+
+    class FakeAsyncClient:
+        def __init__(self, *, timeout):
+            self.timeout = timeout
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, traceback):
+            return False
+
+        async def post(self, url, *, json, headers):
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                raise httpx.ConnectError("transient connection failure", request=request)
+            return httpx.Response(
+                200,
+                request=request,
+                json={"choices": [{"message": {"content": "recovered"}, "finish_reason": "stop"}]},
+            )
+
+    monkeypatch.setattr(llm_client.httpx, "AsyncClient", FakeAsyncClient)
+    monkeypatch.setattr(llm_client.asyncio, "sleep", AsyncMock())
+    client = LLMClient(
+        LLMProviderConfig(
+            name="primary",
+            base_url="https://provider.test/v1",
+            api_key="key",
+            model="model",
+        ),
+        max_retries=2,
+    )
+
+    response = await client.ainvoke("hello")
+
+    assert response.content == "recovered"
+    assert calls == 2
+
+
 def test_llm_client_applies_only_valid_downward_per_call_max_tokens() -> None:
     config = LLMProviderConfig(name="primary", base_url="x", api_key="y", model="z")
     client = LLMClient(config, max_tokens=8192, max_retries=0)

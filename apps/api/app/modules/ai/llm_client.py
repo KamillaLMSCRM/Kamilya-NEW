@@ -443,8 +443,22 @@ class _BaseProviderClient:
                 if attempt < self.max_retries:
                     await asyncio.sleep(wait)
                 continue
+            except httpx.ConnectError as e:
+                # A concurrent source-map batch can hit a short-lived socket,
+                # DNS, or connection-pool failure while sibling calls to the
+                # same provider succeed. Honour the provider retry budget
+                # before abandoning that batch and the whole generation job.
+                last_exc = e
+                wait = min(2**attempt, 8)
+                logger.warning(
+                    f"[{self.config.name}] connect error attempt "
+                    f"{attempt+1}/{self.max_retries+1}, retrying in {wait}s"
+                )
+                if attempt < self.max_retries:
+                    await asyncio.sleep(wait)
+                continue
             except httpx.HTTPError as e:
-                # Connection refused, DNS, etc. — not retryable.
+                # Other HTTP client errors are not safe to retry here.
                 raise ProviderFailedError(self.config.name, e) from e
 
             if resp.status_code == 429:
