@@ -2310,3 +2310,13 @@ contract or establish a blocker.
   question is dropped without retry or count padding. A lesson with no survivor
   remains valid without a quiz. The exact behavior was RED at five calls and is
   GREEN at one call; the complete API unit suite passes 1494 tests.
+- Recurrence (2026-09-13, `0.5.25` production acceptance): the same workbook
+  again stopped at assessment progress 88%. The structural policy still detected
+  only pipe-delimited Markdown rows, while Excel evidence may be flattened as
+  `field — value`. The `0.5.26` repair identifies flattened rows from their
+  explicit `[Worksheet]` provenance while keeping Markdown-row compatibility;
+  punctuation alone never classifies ordinary prose as a spreadsheet. An offline
+  provider replay reproduces five retries before the repair and one call after it,
+  while preserving the valid question and dropping the invalid one without quota
+  padding. Full generation is now a final environment acceptance gate, not the
+  debugging loop for each validator change.

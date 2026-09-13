@@ -15,6 +15,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.5.26] - 2026-09-13
+
+### Fixed
+
+- Apply the structured-source drop-without-padding policy to flattened Excel
+  evidence written as `field — value`, not only to Markdown table rows.
+- Prevent the assessment stage from making five provider retries and failing a
+  whole course when the remaining invalid questions came from flattened rows.
+
+### Changed
+
+- Treat requested lesson and question counts as ceilings for structured source
+  material. Invalid or duplicate questions are removed without regeneration;
+  useful surviving questions and lessons remain intact.
+
 ## [0.5.25] - 2026-09-13
 
 ### Changed

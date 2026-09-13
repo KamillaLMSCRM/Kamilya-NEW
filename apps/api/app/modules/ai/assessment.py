@@ -1779,6 +1779,26 @@ def _assessment_question_count(
     return 5
 
 
+def _lesson_uses_structured_source(
+    lesson_content: LessonContent,
+    evidence_bank: dict[str, str],
+) -> bool:
+    """Use explicit worksheet provenance instead of guessing from punctuation."""
+
+    if any(_markdown_table_cells(evidence) for evidence in evidence_bank.values()):
+        return True
+    for reference in lesson_content.source_references:
+        if not isinstance(reference, dict):
+            continue
+        headings = reference.get("headings")
+        if isinstance(headings, list) and any(
+            isinstance(heading, str) and heading.casefold().startswith("[worksheet]")
+            for heading in headings
+        ):
+            return True
+    return False
+
+
 async def _recover_with_focused_questions(
     llm: LLMClient,
     *,
@@ -2155,12 +2175,18 @@ Output ONLY the JSON data instance:
             if assessment.matching:
                 issues.append("matching questions are not allowed")
             if issues:
-                table_source = any(_markdown_table_cells(evidence) for evidence in evidence_bank.values())
+                structured_source = _lesson_uses_structured_source(
+                    lesson_content,
+                    evidence_bank,
+                )
                 # Structured sources often have fewer independently useful facts
                 # than the requested ceiling. Once the provider returned parseable
                 # questions, retain only those that pass every deterministic gate;
                 # never spend retries manufacturing replacements to satisfy a count.
-                drop_without_padding = table_source
+                # Excel rows can be represented either as Markdown tables or as
+                # flattened ``field — value`` evidence, so both forms follow this
+                # policy.
+                drop_without_padding = structured_source
                 if drop_without_padding:
                     recovered = _recover_valid_assessment(
                         {"mcq": recovery_pool},
@@ -2287,7 +2313,7 @@ def _restored_assessment_is_valid(
     if not evidence_bank:
         return False
     if not assessment.mcq and not assessment.true_false and not assessment.matching:
-        return any(_markdown_table_cells(evidence) for evidence in evidence_bank.values())
+        return _lesson_uses_structured_source(lesson_content, evidence_bank)
     evidence_ids_by_quote: dict[str, list[str]] = {}
     for evidence_id, evidence in evidence_bank.items():
         evidence_ids_by_quote.setdefault(_normalize_evidence_text(_plain_evidence_text(evidence)), []).append(

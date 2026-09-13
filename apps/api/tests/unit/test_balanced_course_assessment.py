@@ -2005,7 +2005,7 @@ async def test_model_assessment_keeps_lesson_without_quiz_when_all_structured_qu
 async def test_structured_assessment_drops_any_invalid_question_without_provider_retry(
     monkeypatch,
 ) -> None:
-    source = "| Материал корпуса Чикаго Нео | ЛДСП Kronospan |"
+    source = "Материал корпуса Чикаго Нео — ЛДСП Kronospan"
 
     def evidence_issues(data, *args, **kwargs):
         return [
@@ -2066,7 +2066,7 @@ async def test_structured_assessment_drops_any_invalid_question_without_provider
             objectives=["Называть материал корпуса"],
             content="Generated prose is not evidence.",
             source_chunks=[source],
-            source_references=[],
+            source_references=[{"headings": ["[Worksheet] Коллекции"]}],
         ),
         language="ru",
         compact=True,
