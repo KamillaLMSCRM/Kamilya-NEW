@@ -31,6 +31,12 @@ def test_acceptance_allows_distinct_actions_with_same_grammatical_opening() -> N
     )
 
 
+def test_acceptance_flags_contextless_comparison_and_positional_module_title() -> None:
+    assert MODULE.has_meta_question("Чем отличается от двух других?")
+    assert MODULE.has_generic_module_title("Коллекции — раздел 2")
+    assert not MODULE.has_generic_module_title("Коллекции: Комоды — Резюме")
+
+
 def test_acceptance_uses_only_exact_captured_lesson_corpus() -> None:
     evidence = [
         {
@@ -125,6 +131,70 @@ def test_output_inspection_matches_each_lesson_by_stable_coordinates() -> None:
     assert "lesson_acceptance_source_evidence_missing" not in failures
     assert "lesson_quality_readback_mismatch" not in failures
     assert facts["captured_lesson_evidence_matches"] == 2
+
+
+def test_output_inspection_rejects_blind_fixed_position_and_longest_strategies() -> None:
+    lesson_content = "Для коллекции Альфа указана единая платформа для всей квартиры."
+    preview = {
+        "modules": [
+            {
+                "title": "Коллекция Альфа",
+                "lessons": [
+                    {
+                        "title": "Преимущества коллекции Альфа",
+                        "content_preview": lesson_content,
+                        "source_validation_status": "verified",
+                        "source_document_ids": ["doc"],
+                        "source_references": [{"chunk_id": "one"}],
+                        "quiz_id": "quiz-1",
+                    }
+                ],
+            }
+        ],
+    }
+    questions = [
+        {
+            "id": f"question-{index}",
+            "text": f"Какое преимущество указано для коллекции Альфа, вариант {index}?",
+            "explanation": lesson_content,
+            "choices": [
+                {"text": "единая платформа для всей квартиры", "is_correct": True},
+                {"text": "светлые фасады", "is_correct": False},
+                {"text": "открытые секции", "is_correct": False},
+                {"text": "скрытые ручки", "is_correct": False},
+            ],
+        }
+        for index in range(5)
+    ]
+
+    failures, facts = MODULE.inspect_output(
+        preview,
+        quizzes=[
+            {
+                "id": "quiz-1",
+                "pass_score": 80,
+                "review_status": "needs_review",
+                "questions": questions,
+            }
+        ],
+        recommendation={"recommended_total_lessons": 1},
+        focus_terms=set(),
+        accepted_lesson_evidence=[
+            {
+                "module_index": 0,
+                "lesson_index": 0,
+                "title": "Преимущества коллекции Альфа",
+                "content": lesson_content,
+                "source_chunks": [lesson_content],
+            }
+        ],
+        require_captured_evidence=True,
+    )
+
+    assert "blind_fixed_position_can_pass" in failures
+    assert "blind_longest_answer_can_pass" in failures
+    assert facts["blind_fixed_position_quizzes"] == 1
+    assert facts["blind_longest_answer_quizzes"] == 1
 
 
 def test_operational_metadata_does_not_serialize_review_text(tmp_path: Path) -> None:

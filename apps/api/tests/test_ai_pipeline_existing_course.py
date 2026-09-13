@@ -210,6 +210,62 @@ async def test_generated_single_answer_questions_are_saved_as_mcq(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_generated_mcq_correct_answers_are_balanced_across_persisted_positions(monkeypatch):
+    from app.modules.ai import pipeline
+
+    tenant_id = uuid4()
+    course = Course(
+        id=uuid4(),
+        tenant_id=tenant_id,
+        title="Placeholder",
+        description="",
+        status="draft",
+        created_by=uuid4(),
+        ai_generated=False,
+    )
+    session = FakeSession(course)
+    monkeypatch.setattr(pipeline, "async_session_factory", lambda: session)
+
+    lesson_title = "Balanced answers"
+    questions = [
+        MCQQuestion(
+            question=f"Question {index + 1}?",
+            options=[
+                MCQOption(text=f"Correct {index + 1}", is_correct=True),
+                MCQOption(text=f"Wrong A {index + 1}", is_correct=False),
+                MCQOption(text=f"Wrong B {index + 1}", is_correct=False),
+                MCQOption(text=f"Wrong C {index + 1}", is_correct=False),
+            ],
+        )
+        for index in range(4)
+    ]
+    state = GenerationState(
+        job_id="job-balanced",
+        course_id=str(course.id),
+        structure=CourseStructure(
+            title="Generated title",
+            modules=[StructureModule(title="Module", lessons=[StructureLesson(title=lesson_title)])],
+        ),
+        content=CourseContent(
+            title="Generated title",
+            modules=[ModuleContent(title="Module", lessons=[LessonContent(title=lesson_title, content="Body")])],
+        ),
+        assessment=CourseAssessment(
+            assessments=[LessonAssessment(lesson_title=lesson_title, mcq=questions)]
+        ),
+    )
+
+    await _save_generation_to_db(state, tenant_id, course.created_by)
+
+    choices = [value for value in session.added if isinstance(value, QuizChoice)]
+    persisted_questions = [choices[index : index + 4] for index in range(0, len(choices), 4)]
+    assert [
+        next(choice.order_index for choice in question_choices if choice.is_correct)
+        for question_choices in persisted_questions
+    ] == [0, 1, 2, 3]
+
+
+@pytest.mark.asyncio
 async def test_cancelled_generation_does_not_persist_a_new_course(monkeypatch):
     from app.modules.ai import pipeline
 

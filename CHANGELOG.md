@@ -15,6 +15,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.5.14] - 2026-09-13
+
+### Changed
+
+- Generated multiple-choice tests distribute correct answers across saved
+  positions instead of using one predictable position throughout a quiz.
+- On a repeat attempt, learners see multiple-choice options in a different
+  order while the stable choice identifiers and grading contract stay intact.
+- Multi-module courses generated directly from structured tables use
+  source-grounded topic ranges in module titles instead of numbered placeholders.
+
+### Fixed
+
+- Reject contextless comparison questions, invented named entities in
+  distractors, and mechanically repeated answer variants before a generated
+  assessment can be saved.
+- Keep duplicate-fact detection active even when another distractor-quality
+  issue is present, so retries receive the complete corrective feedback.
+- Extend the course-quality acceptance gate with blind fixed-position and
+  longest-answer baselines plus generic-module-title detection.
+
 ## [0.5.13] - 2026-09-12
 
 ### Changed

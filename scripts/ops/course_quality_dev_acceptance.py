@@ -72,11 +72,16 @@ META_QUESTION_PATTERNS = (
         r"\bчто\s+в\s+(?:этом|данном)\s+(?:уроке|курсе|разделе|модуле)\s+" r"(?:разбираем|изучаем|рассматриваем)\b",
         re.IGNORECASE,
     ),
+    re.compile(r"^\s*чем\s+отлича\w+\s+от\s+(?:двух|тр[её]х|других)(?:\s+\w+)?\s*\??$", re.IGNORECASE),
 )
 SUPPORTING_CATALOG_TITLE_PATTERN = re.compile(
     r"\b(?:sku(?:[-_ ]?\d+)?|артикул\w*|прайс[-\s]?лист\w*|"
     r"каталог\w*|номенклатур\w*|"
     r"catalog(?:ue)?|price\s*list|nomenclature)\b",
+    re.IGNORECASE,
+)
+GENERIC_MODULE_TITLE_PATTERN = re.compile(
+    r"(?:^|\s(?:—|-)\s)(?:модуль|раздел|module|section)\s*\d+\s*$",
     re.IGNORECASE,
 )
 WORD_RE = re.compile(r"[^\W\d_]{4,}", re.UNICODE)
@@ -370,6 +375,10 @@ def has_supporting_catalog_title(value: str) -> bool:
     return bool(SUPPORTING_CATALOG_TITLE_PATTERN.search(" ".join(value.split())))
 
 
+def has_generic_module_title(value: str) -> bool:
+    return bool(GENERIC_MODULE_TITLE_PATTERN.search(" ".join(value.split())))
+
+
 def choices_share_only_one_word_suffix(choices: list[str]) -> bool:
     tokenized = [[word.casefold() for word in re.findall(r"\S+", choice)] for choice in choices]
     if len(tokenized) < 3 or min(map(len, tokenized), default=0) < 2:
@@ -431,6 +440,11 @@ def inspect_output(
         failures.append("course_has_no_modules")
     if not lessons:
         failures.append("course_has_no_lessons")
+    generic_module_titles = sum(
+        has_generic_module_title(str(module.get("title") or "")) for module in modules
+    )
+    if generic_module_titles:
+        failures.append("generic_module_titles_present")
 
     hard_max = int(recommendation.get("hard_max_total_lessons") or 0)
     recommended = int(recommendation.get("recommended_total_lessons") or 0)
@@ -524,13 +538,16 @@ def inspect_output(
     review_state_failures = 0
     seen_questions: set[str] = set()
     duplicate_questions = 0
+    blind_fixed_position_quizzes = 0
+    blind_longest_answer_quizzes = 0
     for quiz_id in expected_quiz_ids:
         quiz = quiz_by_id.get(quiz_id)
         if not quiz:
             continue
         if quiz.get("review_status") != "needs_review":
             review_state_failures += 1
-        for question in quiz.get("questions") or []:
+        quiz_questions = quiz.get("questions") or []
+        for question in quiz_questions:
             questions.append(question)
             text = " ".join(str(question.get("text") or "").split())
             normalized_question = text.casefold()
@@ -551,6 +568,43 @@ def inspect_output(
             if not str(question.get("explanation") or "").strip():
                 missing_explanations += 1
 
+        keyed_questions = [
+            question
+            for question in quiz_questions
+            if len(question.get("choices") or []) >= 2
+            and sum(
+                choice.get("is_correct") is True
+                for choice in question.get("choices") or []
+            ) == 1
+        ]
+        if keyed_questions:
+            pass_score = float(quiz.get("pass_score") or 80)
+            maximum_choices = max(len(question.get("choices") or []) for question in keyed_questions)
+            fixed_position_scores = [
+                100
+                * sum(
+                    position < len(question.get("choices") or [])
+                    and question["choices"][position].get("is_correct") is True
+                    for question in keyed_questions
+                )
+                / len(keyed_questions)
+                for position in range(maximum_choices)
+            ]
+            if max(fixed_position_scores, default=0) >= pass_score:
+                blind_fixed_position_quizzes += 1
+
+            longest_correct = 0
+            for question in keyed_questions:
+                choices = question.get("choices") or []
+                longest_index = max(
+                    range(len(choices)),
+                    key=lambda index: len(str(choices[index].get("text") or "").split()),
+                )
+                if choices[longest_index].get("is_correct") is True:
+                    longest_correct += 1
+            if 100 * longest_correct / len(keyed_questions) >= pass_score:
+                blind_longest_answer_quizzes += 1
+
     if not questions:
         failures.append("course_has_no_questions")
     for count, code in (
@@ -562,6 +616,8 @@ def inspect_output(
         (missing_explanations, "question_explanation_missing"),
         (review_state_failures, "quiz_not_marked_needs_review"),
         (duplicate_questions, "duplicate_questions_present"),
+        (blind_fixed_position_quizzes, "blind_fixed_position_can_pass"),
+        (blind_longest_answer_quizzes, "blind_longest_answer_can_pass"),
     ):
         if count:
             failures.append(code)
@@ -573,6 +629,7 @@ def inspect_output(
         "questions": len(questions),
         "recommended_lessons": recommended,
         "hard_max_lessons": hard_max,
+        "generic_module_titles": generic_module_titles,
         "unverified_lessons": unverified_lessons,
         "lessons_without_sources": lessons_without_sources,
         "sku_title_lessons": sku_title_lessons,
@@ -585,6 +642,8 @@ def inspect_output(
         "missing_explanations": missing_explanations,
         "review_state_failures": review_state_failures,
         "duplicate_questions": duplicate_questions,
+        "blind_fixed_position_quizzes": blind_fixed_position_quizzes,
+        "blind_longest_answer_quizzes": blind_longest_answer_quizzes,
         "primary_focus_terms_available": len(focus_terms),
         "primary_focus_terms_matched": len(matched_focus_terms),
         "unsupported_relationship_claims": unsupported_relationship_claims,

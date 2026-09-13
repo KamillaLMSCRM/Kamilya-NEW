@@ -425,7 +425,15 @@ async def _save_generation_to_db(
                                     session.add(question)
                                     await session.flush()
 
-                                    for c_idx, option in enumerate(mcq.options):
+                                    correct_options = [option for option in mcq.options if option.is_correct]
+                                    incorrect_options = [option for option in mcq.options if not option.is_correct]
+                                    ordered_options = list(incorrect_options)
+                                    if len(correct_options) == 1:
+                                        correct_position = q_idx % len(mcq.options)
+                                        ordered_options.insert(correct_position, correct_options[0])
+                                    else:
+                                        ordered_options = list(mcq.options)
+                                    for c_idx, option in enumerate(ordered_options):
                                         choice = QuizChoice(
                                             question_id=question.id,
                                             text=option.text,

@@ -231,6 +231,12 @@ export default function QuizPlayerPage() {
   const nextLessonHref = parentCourseId && nextLesson
     ? `/courses/${parentCourseId}?lessonId=${encodeURIComponent(nextLesson.id)}`
     : null;
+  const choiceRotation = currentQ?.type === 'MCQ' && currentQ.choices.length > 1
+    ? attemptsUsed % currentQ.choices.length
+    : 0;
+  const displayedChoices = currentQ
+    ? [...currentQ.choices.slice(choiceRotation), ...currentQ.choices.slice(0, choiceRotation)]
+    : [];
 
   return (
     <div className="min-h-screen bg-muted">
@@ -354,7 +360,7 @@ export default function QuizPlayerPage() {
                 {t('quiz.points')}: {currentQ.points} · {currentQ.type}
               </p>
               <div className="space-y-2">
-                {currentQ.choices.map((choice, choiceIndex) => {
+                {displayedChoices.map((choice, choiceIndex) => {
                   const isSelected = (answers[currentQ.id] || []).includes(choice.id);
                   return (
                     <label

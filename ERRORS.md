@@ -442,7 +442,7 @@ production runtime and cross-container readback remain pending release approval.
 
 ## AI-002 - Grounded assessment answers became learner-visible evidence dumps
 
-- Date: 2026-08-20; revised 2026-09-10 after representative Excel acceptance.
+- Date: 2026-08-20; revised 2026-09-13 after representative Excel acceptance.
 - Symptom: earlier runs produced off-source JSON/HTTP/REST questions. After the
   first grounding fix, production generated source-based quizzes whose correct
   options were often the longest, contained complete multi-fact excerpts or raw
@@ -485,6 +485,16 @@ production runtime and cross-container readback remain pending release approval.
  37focused/1175unit tests and independent review pass. Exact candidate isolated
   real-provider probe returns3questions/5calls in20.84seconds, DB/runtime edits0.
   This is candidate evidence, not deployed correction or semantic-entailment proof.
+- Follow-up 2026-09-13: the full production workbook path on release `0.5.13`
+  persisted all 15 correct choices at position zero. Review also found a
+  contextless comparison, invented city-name distractors, mechanically repeated
+  options and numbered module placeholders. The candidate distributes persisted
+  answer positions, rotates MCQ display order between attempts, rejects those
+  question/distractor classes, and derives module titles from source topic ranges.
+  The acceptance runner now fails when a fixed-position or longest-answer blind
+  strategy can pass a quiz, or when generic module titles remain. Focused RED/GREEN
+  regressions, 1443 API unit tests and 581 frontend tests pass; DEV, exact release
+  CI and production reacceptance remain separate gates.
 - Prevention: successful job and valid JSON are not quality evidence. Verify every
   question's source, keyed-answer support, option-length baseline, Markdown-free
   rendering and review state. Retry must preserve the immutable source boundary and

@@ -51,9 +51,22 @@ const quiz = {
   }],
 };
 
+let quizPayload = quiz;
+let previousAttempts: QuizAttemptFixture[] = [];
+
+interface QuizAttemptFixture {
+  id: string;
+  score_percent: number;
+  passed: boolean;
+  started_at: string;
+  completed_at: string | null;
+}
+
 describe('learner quiz result navigation', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    quizPayload = quiz;
+    previousAttempts = [];
     useAuthStore.setState({
       accessToken: 'student-token',
       user: { id: 'student-1', email: 'student@example.com', role: 'student' } as never,
@@ -61,8 +74,8 @@ describe('learner quiz result navigation', () => {
     });
     fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
-      if (url.endsWith('/v1/quizzes/quiz-1') && init?.method !== 'POST') return jsonResponse(quiz);
-      if (url.endsWith('/v1/quizzes/quiz-1/attempts')) return jsonResponse([]);
+      if (url.endsWith('/v1/quizzes/quiz-1') && init?.method !== 'POST') return jsonResponse(quizPayload);
+      if (url.endsWith('/v1/quizzes/quiz-1/attempts')) return jsonResponse(previousAttempts);
       if (url.endsWith('/v1/courses/course-1/structure')) {
         return jsonResponse({ modules: [{ lessons: [
           { id: 'lesson-1', title: 'Первый урок', order_index: 0 },
@@ -98,5 +111,41 @@ describe('learner quiz result navigation', () => {
     expect(screen.getByRole('link', { name: 'Следующий урок' })).toHaveAttribute(
       'href', '/courses/course-1?lessonId=lesson-2',
     );
+  });
+
+  it('rotates MCQ choices between attempts while keeping their ids selectable', async () => {
+    quizPayload = {
+      ...quiz,
+      questions: [{
+        ...quiz.questions[0],
+        order_index: 1,
+        choices: [
+          { id: 'choice-a', text: 'Вариант A', order_index: 0 },
+          { id: 'choice-b', text: 'Вариант B', order_index: 1 },
+          { id: 'choice-c', text: 'Вариант C', order_index: 2 },
+          { id: 'choice-d', text: 'Вариант D', order_index: 3 },
+        ],
+      }],
+    };
+    previousAttempts = [{
+      id: 'attempt-previous',
+      score_percent: 25,
+      passed: false,
+      started_at: '2026-09-13T00:00:00Z',
+      completed_at: '2026-09-13T00:01:00Z',
+    }];
+
+    render(<QuizPlayerPage />);
+
+    await screen.findByText('Верный ответ?');
+    const labels = screen.getAllByRole('radio').map((radio) => radio.parentElement?.textContent);
+    expect(labels).toEqual(['Вариант B', 'Вариант C', 'Вариант D', 'Вариант A']);
+    fireEvent.click(screen.getAllByRole('radio')[0]);
+    fireEvent.click(screen.getByRole('button', { name: 'quiz.finish' }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining('/v1/quizzes/quiz-1/submit'),
+      expect.objectContaining({ body: expect.stringContaining('choice-b') }),
+    ));
   });
 });

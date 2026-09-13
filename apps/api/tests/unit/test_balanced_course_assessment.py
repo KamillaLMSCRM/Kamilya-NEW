@@ -8,6 +8,7 @@ from app.modules.ai.assessment import (
     _build_evidence_bank,
     _generate_tabular_assessment,
     _normalize_evidence_text,
+    _unsupported_named_entities,
     _validate_generated_question_set,
     _validate_question_evidence,
     capture_assessment_paths,
@@ -120,6 +121,89 @@ def test_generation_contract_blocks_customer_reported_meta_question_pattern(
 
     assert issues
     assert any("malformed_question" in issue for issue in issues)
+
+
+def test_generation_contract_blocks_contextless_comparison_question() -> None:
+    issues = _validate_generated_question_set(
+        {
+            "mcq": [
+                {
+                    "question": "Чем отличается от двух других?",
+                    "options": [
+                        {"text": "единая платформа для квартиры", "is_correct": True},
+                        {"text": "открытые секции для прихожей", "is_correct": False},
+                        {"text": "компактное решение для студии", "is_correct": False},
+                        {"text": "контрастные фасады для спальни", "is_correct": False},
+                    ],
+                    "explanation": "Коллекция использует единую платформу для квартиры.",
+                }
+            ]
+        },
+        "ru",
+    )
+
+    assert any("malformed_question" in issue for issue in issues)
+
+
+def test_generation_contract_blocks_invented_named_entity_in_distractor() -> None:
+    source = "Феникс — единая платформа для квартиры. Чикаго — открытые секции для прихожей."
+    data = {
+        "mcq": [
+            {
+                "question": "Какое преимущество указано для коллекции Феникс?",
+                "options": [
+                    {"text": "единая платформа для квартиры", "is_correct": True},
+                    {"text": "линейка Бостона для спальни", "is_correct": False},
+                    {"text": "открытые секции для прихожей", "is_correct": False},
+                    {"text": "контрастные фасады для спальни", "is_correct": False},
+                ],
+                "explanation": source,
+                "source_quote_id": "E01",
+            }
+        ]
+    }
+
+    issues = _validate_question_evidence(data, {"E01": source}, source, "ru")
+
+    assert any("unsupported named entity" in issue for issue in issues)
+
+
+@pytest.mark.parametrize(
+    "option, source, expected",
+    [
+        ("Бостон — линейка для спальни", "Феникс — линейка для прихожей", ("Бостон",)),
+        ("линейка Өркен для спальни", "Феникс — линейка для прихожей", ("Өркен",)),
+        ("Коллекция подходит для прихожей", "Коллекция Феникс подходит для прихожей", ()),
+    ],
+)
+def test_named_entity_guard_handles_leading_labels_and_kazakh_letters(
+    option: str,
+    source: str,
+    expected: tuple[str, ...],
+) -> None:
+    assert _unsupported_named_entities(option, source) == expected
+
+
+def test_generation_contract_blocks_choices_that_change_one_middle_token() -> None:
+    issues = _validate_generated_question_set(
+        {
+            "mcq": [
+                {
+                    "question": "Как описана комплектация коллекции?",
+                    "options": [
+                        {"text": "в комплект входят зеркала и вешалки", "is_correct": True},
+                        {"text": "в комплект входят полки и вешалки", "is_correct": False},
+                        {"text": "в комплект входят столы и вешалки", "is_correct": False},
+                        {"text": "в комплект входят шкафы и вешалки", "is_correct": False},
+                    ],
+                    "explanation": "В комплект входят зеркала и вешалки.",
+                }
+            ]
+        },
+        "ru",
+    )
+
+    assert any("low_information_distractors" in issue for issue in issues)
 
 
 def test_generation_contract_blocks_choices_that_only_change_the_last_word() -> None:

@@ -151,6 +151,12 @@ _WHICH_CATEGORY_QUESTION_RE = re.compile(
     re.IGNORECASE,
 )
 _NEGATIVE_ANSWER_RE = re.compile(r"^\s*(?:не|not)\b", re.IGNORECASE)
+_NAMED_ENTITY_RE = re.compile(
+    r"\b(?:[A-ZА-ЯЁӘҒҚҢӨҰҮҺІ][a-zа-яёәғқңөұүһі]{2,}"
+    r"(?:-[A-ZА-ЯЁӘҒҚҢӨҰҮҺІ]?[a-zа-яёәғқңөұүһі]+)*|"
+    r"[A-ZА-ЯЁӘҒҚҢӨҰҮҺІ]{2,}[A-ZА-ЯЁӘҒҚҢӨҰҮҺІ0-9-]*)\b"
+)
+_ENTITY_SOURCE_WORD_RE = re.compile(r"[^\W\d_]{3,}", re.UNICODE)
 _GENERATION_BLOCKING_ISSUES = frozenset(
     {
         EditorQualityIssueLabel.CORRECT_ANSWER_LENGTH_SIGNAL,
@@ -170,6 +176,26 @@ def _grounding_stems(text: str) -> set[str]:
     """Return conservative lexical anchors for deterministic grounding checks."""
     tokens = {token.lower() for token in _WORD_RE.findall(text) if token.lower() not in _GROUNDING_STOPWORDS}
     return {token[:5] if len(token) >= 5 else token for token in tokens}
+
+
+def _unsupported_named_entities(text: str, bounded_source: str) -> tuple[str, ...]:
+    """Return proper-looking option tokens that are absent from lesson evidence."""
+    source_stems = {
+        token.casefold()[:5] if len(token) >= 5 else token.casefold()
+        for token in _ENTITY_SOURCE_WORD_RE.findall(bounded_source)
+    }
+    unsupported: list[str] = []
+    for match in _NAMED_ENTITY_RE.finditer(text):
+        token = match.group(0)
+        normalized = token.casefold()
+        if match.start() == 0 and len(text.split()) > 1:
+            following = text[match.end() :]
+            if not re.match(r"\s*(?:[-—–:]|\()", following):
+                continue
+        stem = normalized[:5] if len(normalized) >= 5 else normalized
+        if stem not in source_stems:
+            unsupported.append(token)
+    return tuple(dict.fromkeys(unsupported))
 
 
 def _escape_lesson_boundary(text: str) -> str:
@@ -595,7 +621,6 @@ def _validate_question_evidence(
     seen_answers_by_quote: dict[str, list[tuple[str, int]]] = {}
     normalized_source = _normalize_evidence_text(bounded_source)
     for index, question in enumerate(data.get("mcq", []), start=1):
-        initial_issue_count = len(issues)
         if not isinstance(question, dict):
             issues.append(f"MCQ #{index}: missing source evidence")
             continue
@@ -632,6 +657,17 @@ def _validate_question_evidence(
             if option.get("is_correct") is not True
         ):
             issues.append(f"MCQ #{index}: distractor duplicates the correct answer")
+        unsupported_named_entities = tuple(
+            entity
+            for option in options
+            if option.get("is_correct") is not True
+            for entity in _unsupported_named_entities(
+                str(option.get("text", "")),
+                f"{bounded_source}\n{question.get('question', '')}",
+            )
+        )
+        if unsupported_named_entities:
+            issues.append(f"MCQ #{index}: unsupported named entity in distractor")
         quote_stems = _grounding_stems(source_quote)
         question_stems = _grounding_stems(str(question.get("question", "")))
         correct_answer = _plain_evidence_text(str(correct_options[0].get("text", "")))
@@ -719,10 +755,11 @@ def _validate_question_evidence(
         unsupported_meta = (generated_meta_stems & _UNSUPPORTED_META_STEMS) - source_meta_stems
         if unsupported_meta:
             issues.append(f"MCQ #{index}: unsupported meta terminology")
-        if len(issues) == initial_issue_count:
-            # Compare only resolved evidence and a validated answer. The only
-            # non-exact match is an explicitly allowlisted introductory word;
-            # this is not an inference of semantic meaning.
+        if _is_extractive_answer(correct_answer, source_quote):
+            # Compare resolved evidence and a source-grounded answer even when
+            # another independent option-quality issue is present. Otherwise a
+            # duplicate fact can hide behind a bad distractor and evade the
+            # focused retry instruction.
             if fact_key in seen_facts:
                 issues.append(
                     f"MCQ #{index}: repeats the same source evidence and correct answer "
@@ -940,13 +977,29 @@ def _validate_generated_question_set(data: dict[str, Any], language: str) -> lis
             re.findall(r"[^\W_]+", option.text.casefold(), re.UNICODE)
             for option in question.options
         ]
-        low_information = (
-            len(tokenized) >= 3
-            and len({len(tokens) for tokens in tokenized}) == 1
+        equal_length = len(tokenized) >= 3 and len({len(tokens) for tokens in tokenized}) == 1
+        common_positions = (
+            sum(
+                len({tokens[position] for tokens in tokenized}) == 1
+                for position in range(len(tokenized[0]))
+            )
+            if equal_length and tokenized[0]
+            else 0
+        )
+        shared_prefix_only = (
+            equal_length
             and len(tokenized[0]) >= 2
             and len({tuple(tokens[:-1]) for tokens in tokenized}) == 1
             and len({tokens[-1] for tokens in tokenized}) >= 2
         )
+        one_changed_position = (
+            equal_length
+            and len(tokenized[0]) >= 5
+            and common_positions >= len(tokenized[0]) - 1
+            and len({tuple(tokens) for tokens in tokenized}) >= 2
+            and not all_options_source_grounded[index - 1]
+        )
+        low_information = shared_prefix_only or one_changed_position
         if low_information:
             issues.append(
                 f"MCQ #{index}: assessment quality low_information_distractors: "

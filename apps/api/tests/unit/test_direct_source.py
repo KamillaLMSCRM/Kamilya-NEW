@@ -1281,6 +1281,10 @@ async def test_blank_intent_builds_multi_module_structure_from_split_primary_tab
     )
 
     assert len(result.modules) == 2
+    assert [module.title for module in result.modules] == [
+        "Коллекции: Стиль — Кровати",
+        "Коллекции: Комоды — Резюме",
+    ]
     lessons = [lesson for module in result.modules for lesson in module.lessons]
     assert len(lessons) == 7
     assert [len(module.lessons) for module in result.modules] == [4, 3]

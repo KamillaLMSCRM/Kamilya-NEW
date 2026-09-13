@@ -137,6 +137,7 @@ def _looks_like_generic_meta_prompt(value: str) -> bool:
             r"what is covered in (?:this|the) (?:lesson|course|section|module)|"
             r"what (?:will|does) (?:this|the) (?:lesson|course|section|module) "
             r"(?:teach|cover)|"
+            r"чем отлича\w+ от (?:двух|трех|других)(?: \w+)?|"
             r"что рассматривается в (?:этом|данном) (?:уроке|курсе|разделе|модуле)|"
             r"что рассматривается в тем\w* .+|"
             r"что в (?:этом|данном) (?:уроке|курсе|разделе|модуле) "

@@ -498,15 +498,16 @@ def _build_primary_tabular_structure(
     for module_index in range(module_count):
         size = base_size + (1 if module_index < remainder else 0)
         module_lessons = lesson_items[offset : offset + size]
+        module_groups = groups[offset : offset + size]
         offset += size
         if module_count == 1:
             module_title = course_title
         elif language == "ru":
-            module_title = f"{course_title} — раздел {module_index + 1}"
+            module_title = f"{course_title}: {module_groups[0][0]} — {module_groups[-1][-1]}"
         elif language == "kk":
-            module_title = f"{course_title} — {module_index + 1}-бөлім"
+            module_title = f"{course_title}: {module_groups[0][0]} — {module_groups[-1][-1]}"
         else:
-            module_title = f"{course_title} — section {module_index + 1}"
+            module_title = f"{course_title}: {module_groups[0][0]} — {module_groups[-1][-1]}"
         modules.append(Module(title=module_title, description="", lessons=module_lessons))
     return CourseStructure(
         title=course_title,
