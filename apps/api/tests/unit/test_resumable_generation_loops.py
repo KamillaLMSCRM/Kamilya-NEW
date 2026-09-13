@@ -104,6 +104,7 @@ async def test_assessment_resume_preserves_order_skips_restored_and_does_not_sle
     async def fake_generate(llm, lesson, **kwargs):
         index = int(lesson.title.split()[-1])
         provider_calls.append(index)
+        kwargs["on_path"]("model")
         return LessonAssessment(lesson_title=lesson.title)
 
     async def fake_sleep(seconds):

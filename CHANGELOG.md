@@ -15,6 +15,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.5.16] - 2026-09-13
+
+### Added
+
+- The course-generation page shows numeric document-indexing progress, percentage,
+  processed and total fragments, and an estimated remaining time while the job is
+  active.
+
+### Changed
+
+- Lesson duration now includes both reading time and the expected time for answering
+  its generated questions, so the saved course duration reflects the actual learning
+  workload instead of a fixed two-minute placeholder.
+- Structured primary tables with three real comparison subjects produce three
+  source-grounded answer options. The system no longer invents a fourth option just
+  to satisfy the generic model prompt.
+- Deterministic table assessments no longer wait for the external-model rate-limit
+  delay when no provider request was made.
+
+### Fixed
+
+- Preserve the orientation of primary worksheet matrices when the course writer
+  renders them as lesson cards. Questions now ask about the collection and its
+  attribute, rather than reversing the collection and attribute labels.
+- Keep auxiliary catalog worksheets out of the lesson plan when the primary
+  collection worksheet contains the authoritative training structure.
+- Reject questions that contain their own correct answer, reuse the same atomic
+  source fact, or refer to how information appears in a source, table, lesson, or
+  section.
+- Avoid over-broad duplicate suppression: the same words may remain valid answers
+  for genuinely different source facts, while an already-assessed source fact cannot
+  be repeated in another lesson.
+- Stop terminal document-indexing jobs from being polled indefinitely and refresh the
+  document catalog once when indexing completes.
+
 ## [0.5.15] - 2026-09-13
 
 ### Fixed

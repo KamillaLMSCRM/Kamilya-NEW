@@ -169,6 +169,174 @@ def test_generation_contract_blocks_invented_named_entity_in_distractor() -> Non
     assert any("unsupported named entity" in issue for issue in issues)
 
 
+def test_generation_contract_blocks_incorrect_option_supported_by_selected_evidence() -> None:
+    source = (
+        "| Для каких комнат | Спальня (шкафы и хранение), прихожая, "
+        "гостиная, гардеробная. |"
+    )
+    data = {
+        "mcq": [
+            {
+                "question": "Для каких комнат предназначены шкафы и хранение?",
+                "options": [
+                    {"text": "Спальня (шкафы и хранение)", "is_correct": True},
+                    {"text": "Прихожая", "is_correct": False},
+                    {"text": "Гостиная", "is_correct": False},
+                    {"text": "Гардеробная", "is_correct": False},
+                ],
+                "explanation": source,
+                "source_quote_id": "E01",
+            }
+        ]
+    }
+
+    issues = _validate_question_evidence(data, {"E01": source}, source, "ru")
+
+    assert any("incorrect option is also supported by selected source evidence" in issue for issue in issues)
+
+
+def test_generation_contract_blocks_question_that_contains_its_correct_answer() -> None:
+    source = "Кому нужна гостиная + шкафы, а не кровать в том же артикуле."
+    data = {
+        "mcq": [
+            {
+                "question": (
+                    "Что важно подчеркнуть покупателю, которому нужна гостиная "
+                    "и шкафы, но не кровать в том же артикуле?"
+                ),
+                "options": [
+                    {"text": "Кому нужна гостиная + шкафы", "is_correct": True},
+                    {"text": "Кому нужна спальня с кроватью", "is_correct": False},
+                    {"text": "Кому нужна только прихожая", "is_correct": False},
+                    {"text": "Кому нужна детская с витринами", "is_correct": False},
+                ],
+                "explanation": source,
+                "source_quote_id": "E01",
+            }
+        ]
+    }
+
+    issues = _validate_question_evidence(data, {"E01": source}, source, "ru")
+
+    assert any("question contains its correct answer" in issue for issue in issues)
+
+
+def test_generation_contract_blocks_reused_correct_answer_from_another_lesson() -> None:
+    source = "Коллекция выполнена в матовых моно-оттенках."
+    previous = frozenset(
+        {
+            (
+                _normalize_evidence_text(source),
+                _normalize_evidence_text("в матовых моно-оттенках"),
+            )
+        }
+    )
+    data = {
+        "mcq": [
+            {
+                "question": "В каких оттенках выполнена коллекция?",
+                "options": [
+                    {"text": "в матовых моно-оттенках", "is_correct": True},
+                    {"text": "в глянцевых моно-оттенках", "is_correct": False},
+                    {"text": "в матовых контрастных оттенках", "is_correct": False},
+                    {"text": "в глянцевых контрастных оттенках", "is_correct": False},
+                ],
+                "explanation": source,
+                "source_quote_id": "E01",
+            }
+        ]
+    }
+
+    issues = _validate_question_evidence(
+        data,
+        {"E01": source},
+        source,
+        "ru",
+        previous,
+    )
+
+    assert any(
+        "repeats source evidence and correct answer already assessed in another lesson"
+        in issue
+        for issue in issues
+    )
+
+
+def test_generation_contract_allows_same_answer_for_a_distinct_source_fact() -> None:
+    source = "| Сравнение | единый стиль | открытые секции | малые комнаты |"
+    previous = frozenset(
+        {
+            (
+                _normalize_evidence_text(
+                    "| Аргументация | единый стиль | сочетание фактур | экономия места |"
+                ),
+                _normalize_evidence_text("единый стиль"),
+            )
+        }
+    )
+    data = {
+        "mcq": [
+            {
+                "question": "Какая характеристика сравнения относится к Фениксу?",
+                "options": [
+                    {"text": "единый стиль", "is_correct": True},
+                    {"text": "открытые секции", "is_correct": False},
+                    {"text": "малые комнаты", "is_correct": False},
+                ],
+                "explanation": source,
+                "source_quote_id": "E01",
+            }
+        ]
+    }
+
+    issues = _validate_question_evidence(
+        data,
+        {"E01": source},
+        source,
+        "ru",
+        previous,
+    )
+
+    assert not any("already assessed in another lesson" in issue for issue in issues)
+
+
+def test_generation_contract_blocks_two_questions_from_one_structured_source_fact() -> None:
+    source = (
+        "| Кому рекомендовать | Кто делает несколько комнат в одном стиле, "
+        "любит конструктор и скрытое открывание. |"
+    )
+    data = {
+        "mcq": [
+            {
+                "question": "Кому стоит рекомендовать коллекцию?",
+                "options": [
+                    {"text": "Любит конструктор и скрытое открывание", "is_correct": True},
+                    {"text": "Любит готовый гарнитур", "is_correct": False},
+                    {"text": "Любит классический стиль", "is_correct": False},
+                    {"text": "Любит мягкую мебель", "is_correct": False},
+                ],
+                "explanation": source,
+                "source_quote_id": "E01",
+            },
+            {
+                "question": "Какой покупатель подходит для этой коллекции?",
+                "options": [
+                    {"text": "Кто делает несколько комнат в одном стиле", "is_correct": True},
+                    {"text": "Кто оформляет одну комнату", "is_correct": False},
+                    {"text": "Кто выбирает разные стили", "is_correct": False},
+                    {"text": "Кто не использует шкафы", "is_correct": False},
+                ],
+                "explanation": source,
+                "source_quote_id": "E01",
+            },
+        ]
+    }
+
+    issues = _validate_question_evidence(data, {"E01": source}, source, "ru")
+
+    assert any("reuses one structured source fact" in issue for issue in issues)
+
+
 @pytest.mark.parametrize(
     "option, source, expected",
     [
@@ -462,6 +630,44 @@ def test_tabular_assessment_targets_lesson_column_without_reusing_prior_facts() 
     )
 
 
+def test_three_subject_table_uses_three_grounded_options_without_model_fallback() -> None:
+    source = "\n".join(
+        [
+            "# [Worksheet] Коллекции",
+            "",
+            "| Коллекция | Стиль | Материал | Сценарий консультации |",
+            "| --- | --- | --- | --- |",
+            "| Феникс | современный минимализм | ЛДСП | уточнить комнаты |",
+            "| Чикаго Нео | строгий минимализм | МДФ | согласовать стиль |",
+            "| Чикаго Стрит | городской минимализм | металл | показать модули |",
+        ]
+    )
+    evidence_bank = _build_evidence_bank(source)
+
+    result = _generate_tabular_assessment(
+        evidence_bank=evidence_bank,
+        bounded_source=source,
+        lesson_title="Стили коллекций",
+        lesson_objectives=["Различать стиль каждой коллекции"],
+        language="ru",
+        question_count=3,
+    )
+
+    assert result is not None
+    assert len(result.mcq) == 3
+    assert all(len(question.options) == 3 for question in result.mcq)
+    source_values = {
+        "современный минимализм",
+        "строгий минимализм",
+        "городской минимализм",
+    }
+    assert {
+        option.text
+        for question in result.mcq
+        for option in question.options
+    } == source_values
+
+
 def test_tabular_assessment_keeps_partial_target_facts_before_filling_other_columns() -> None:
     source = _collection_table_source()
     evidence_bank = _build_evidence_bank(source)
@@ -503,7 +709,7 @@ def test_tabular_assessment_keeps_partial_target_facts_before_filling_other_colu
     assert len(result.mcq) == 5
 
 
-def test_tabular_assessment_requires_four_distinct_peer_values() -> None:
+def test_tabular_assessment_uses_all_three_distinct_peer_values() -> None:
     source = "\n".join(
         [
             "| Коллекция | Стиль |",
@@ -523,7 +729,75 @@ def test_tabular_assessment_requires_four_distinct_peer_values() -> None:
         question_count=3,
     )
 
-    assert result is None
+    assert result is not None
+    assert len(result.mcq) == 3
+    assert all(len(question.options) == 3 for question in result.mcq)
+
+
+def test_tabular_assessment_caps_options_at_four_with_more_peer_values() -> None:
+    source = "\n".join(
+        [
+            "| Коллекция | Стиль |",
+            "| --- | --- |",
+            "| Альфа | современный |",
+            "| Бета | скандинавский |",
+            "| Гамма | лофт |",
+            "| Дельта | минимализм |",
+            "| Эпсилон | классический |",
+        ]
+    )
+
+    result = _generate_tabular_assessment(
+        evidence_bank=_build_evidence_bank(source),
+        bounded_source=source,
+        lesson_title="Стили коллекций",
+        lesson_objectives=["Различать стиль каждой коллекции"],
+        language="ru",
+        question_count=5,
+    )
+
+    assert result is not None
+    assert len(result.mcq) == 5
+    assert all(len(question.options) == 4 for question in result.mcq)
+    assert all(
+        option.text in source
+        for question in result.mcq
+        for option in question.options
+    )
+
+
+def test_tabular_assessment_adapts_to_available_structured_facts() -> None:
+    source = "\n".join(
+        [
+            "Альфа — современный — ЛДСП — белый",
+            "Бета — скандинавский — МДФ — серый",
+            "Гамма — лофт — металл — чёрный",
+        ]
+    )
+    lesson_body = "\n".join(
+        [
+            "### Альфа",
+            "| Характеристика | Значение |",
+            "| --- | --- |",
+            "| Стиль | современный |",
+            "| Материал | ЛДСП |",
+            "| Цвет | белый |",
+        ]
+    )
+
+    result = _generate_tabular_assessment(
+        evidence_bank=_build_evidence_bank(source),
+        bounded_source=source,
+        lesson_title="Характеристики коллекции Альфа",
+        lesson_objectives=["Консультировать по коллекции Альфа"],
+        lesson_body=lesson_body,
+        language="ru",
+        question_count=5,
+    )
+
+    assert result is not None
+    assert len(result.mcq) == 3
+    assert all(len(question.options) == 3 for question in result.mcq)
 
 
 def test_tabular_assessment_maps_rendered_lesson_table_to_plain_source_rows() -> None:
@@ -732,6 +1006,56 @@ def test_vertical_collection_cards_map_attributes_to_source_columns() -> None:
         any(option.text in evidence for evidence in _build_evidence_bank(source).values())
         for question in result.mcq
         for option in question.options
+    )
+
+
+def test_vertical_three_collection_cards_keep_each_question_within_one_attribute() -> None:
+    source = "\n".join(
+        [
+            "| Поле | Феникс | Чикаго Нео | Чикаго Стрит |",
+            "| --- | --- | --- | --- |",
+            "| Фасады | гладкие фасады | комбинированные фасады | рамочные фасады |",
+            "| Механизмы | скрытое открывание | роликовые направляющие | накладные петли |",
+            "| Комплектация | модульные шкафы | готовые прихожие | настенные зеркала |",
+        ]
+    )
+    lesson_body = "\n\n".join(
+        [
+            "## Феникс\n| Характеристика | Значение |\n| --- | --- |\n"
+            "| Фасады | гладкие фасады |\n| Механизмы | скрытое открывание |\n| Комплектация | модульные шкафы |",
+            "## Чикаго Нео\n| Характеристика | Значение |\n| --- | --- |\n"
+            "| Фасады | комбинированные фасады |\n| Механизмы | роликовые направляющие |\n| Комплектация | готовые прихожие |",
+            "## Чикаго Стрит\n| Характеристика | Значение |\n| --- | --- |\n"
+            "| Фасады | рамочные фасады |\n| Механизмы | накладные петли |\n| Комплектация | настенные зеркала |",
+        ]
+    )
+
+    result = _generate_tabular_assessment(
+        evidence_bank=_build_evidence_bank(source),
+        bounded_source=source,
+        lesson_title="Коллекции: Фасады, Механизмы и Комплектация",
+        lesson_objectives=["Сопоставлять характеристики трёх коллекций"],
+        lesson_body=lesson_body,
+        language="ru",
+        question_count=5,
+    )
+
+    assert result is not None
+    attribute_value_sets = (
+        {"гладкие фасады", "комбинированные фасады", "рамочные фасады"},
+        {"скрытое открывание", "роликовые направляющие", "накладные петли"},
+        {"модульные шкафы", "готовые прихожие", "настенные зеркала"},
+    )
+    assert all(
+        any(
+            {option.text for option in question.options} == values
+            for values in attribute_value_sets
+        )
+        for question in result.mcq
+    )
+    assert all(
+        any(name in question.question for name in {"Феникс", "Чикаго Нео", "Чикаго Стрит"})
+        for question in result.mcq
     )
 
 
@@ -1005,6 +1329,9 @@ async def test_standard_course_uses_only_real_table_values_for_scoped_lessons() 
         "скрытые ручки",
         "вместительные секции",
         "регулируемые полки",
+        "ЛДСП",
+        "МДФ",
+        "металл и ЛДСП",
         "уточнить размеры помещения",
         "согласовать оттенок",
         "обсудить нагрузку",
@@ -1014,12 +1341,13 @@ async def test_standard_course_uses_only_real_table_values_for_scoped_lessons() 
     }
     assert [len(assessment.mcq) for assessment in result.assessments] == [5, 5, 5]
     assert assessment_paths == ["tabular", "tabular", "tabular"]
-    assert all(
-        option.text in source_values
+    actual_options = {
+        option.text
         for assessment in result.assessments
         for question in assessment.mcq
         for option in question.options
-    )
+    }
+    assert actual_options <= source_values
 
 
 @pytest.mark.asyncio

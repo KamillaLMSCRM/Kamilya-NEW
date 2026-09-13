@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import AIGeneratePage from '@/app/ai/generate/page';
 import { api } from '@/lib/api';
@@ -67,6 +67,72 @@ describe('/ai/generate job workflow parity', () => {
 
     expect(await screen.findByText('Этот файл уже есть в библиотеке: «Правила ИБ», версия 2.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Открыть существующий документ' })).toBeInTheDocument();
+  });
+
+  it('shows exact document indexing progress from the returned indexing job', async () => {
+    localStorage.clear();
+    const processingDocument = {
+      ...readyDocuments[0],
+      index: {
+        ...readyDocuments[0].index,
+        status: 'processing',
+        chunks_total: null,
+        chunks_indexed: null,
+      },
+    };
+    const indexingJob = {
+      id: 'index-job-1',
+      status: 'running',
+      progress_current: 3,
+      progress_total: 8,
+      estimated_remaining_seconds: 95,
+    };
+    let indexingJobPolls = 0;
+    let catalogReads = 0;
+    apiMock.get.mockImplementation(async (url: string) => {
+      if (url.startsWith('/v1/documents/catalog')) {
+        catalogReads += 1;
+        return { data: { items: [processingDocument], page: { has_more: false } } } as any;
+      }
+      if (url === '/v1/ai/jobs') return { data: [] } as any;
+      if (url === '/v1/ai/jobs/index-job-1') {
+        indexingJobPolls += 1;
+        return { data: indexingJobPolls === 1 ? indexingJob : { ...indexingJob, status: 'completed', estimated_remaining_seconds: 0 } } as any;
+      }
+      throw new Error(`Unexpected GET ${url}`);
+    });
+    apiMock.post.mockImplementation(async (url: string) => {
+      if (url === '/v1/documents/upload') {
+        return { data: { id: processingDocument.id, indexing_job_id: indexingJob.id } } as any;
+      }
+      return { data: {} } as any;
+    });
+
+    const jobInterval = vi.spyOn(window, 'setInterval');
+    const { container } = render(<AIGeneratePage />);
+    const input = container.querySelector('input[type="file"]');
+    expect(input).not.toBeNull();
+    fireEvent.change(input!, {
+      target: { files: [new File(['document'], 'rules.pdf', { type: 'application/pdf' })] },
+    });
+
+    expect(await screen.findByText('Индексация: 3 / 8')).toBeInTheDocument();
+    expect(screen.getByText('38%')).toBeInTheDocument();
+    expect(screen.getByText('Осталось примерно: 2 мин')).toBeInTheDocument();
+    expect(screen.getByRole('progressbar', { name: 'Индексация документа Правила ИБ' })).toHaveAttribute('aria-valuenow', '38');
+
+    const intervalCallback = jobInterval.mock.calls.at(-1)?.[0] as (() => void) | undefined;
+    expect(intervalCallback).toBeDefined();
+    await act(async () => {
+      intervalCallback!();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(indexingJobPolls).toBe(2);
+    await waitFor(() => expect(screen.queryByText('Индексация: 3 / 8')).not.toBeInTheDocument());
+    expect(indexingJobPolls).toBe(2);
+    expect(catalogReads).toBe(3);
+    jobInterval.mockRestore();
   });
 
   it('does not let an old failed job take over a new generation form', async () => {

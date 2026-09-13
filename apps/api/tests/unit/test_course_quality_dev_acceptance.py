@@ -33,8 +33,38 @@ def test_acceptance_allows_distinct_actions_with_same_grammatical_opening() -> N
 
 def test_acceptance_flags_contextless_comparison_and_positional_module_title() -> None:
     assert MODULE.has_meta_question("Чем отличается от двух других?")
+    assert MODULE.has_meta_question("Как в источнике описана эта коллекция?")
+    assert MODULE.has_meta_question("As in the source material, how is this collection described?")
     assert MODULE.has_generic_module_title("Коллекции — раздел 2")
     assert not MODULE.has_generic_module_title("Коллекции: Комоды — Резюме")
+
+
+def test_acceptance_rejects_question_that_contains_the_correct_answer() -> None:
+    choices = [
+        {"text": "гостиная и шкафы", "is_correct": True},
+        {"text": "спальня и кровать", "is_correct": False},
+        {"text": "прихожая и зеркало", "is_correct": False},
+    ]
+
+    assert MODULE.question_contains_correct_answer(
+        "Что предложить покупателю, которому нужны гостиная и шкафы?",
+        choices,
+    )
+    assert not MODULE.question_contains_correct_answer(
+        "Что предложить покупателю для обустройства двух комнат?",
+        choices,
+    )
+    assert not MODULE.question_contains_correct_answer(
+        "С какими коллекциями совместима Чикаго Стрит?",
+        [
+            {
+                "text": "Совместима с коллекциями Чикаго и Чикаго Нео",
+                "is_correct": True,
+            },
+            {"text": "Только с коллекцией Феникс", "is_correct": False},
+            {"text": "Только с коллекцией Imperial", "is_correct": False},
+        ],
+    )
 
 
 def test_acceptance_uses_only_exact_captured_lesson_corpus() -> None:

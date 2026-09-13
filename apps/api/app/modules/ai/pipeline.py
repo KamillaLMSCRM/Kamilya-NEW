@@ -75,10 +75,15 @@ def _source_map_checkpoint_store(
         return None
 
 
-def _estimate_lesson_duration_seconds(content: str | None) -> int:
-    """Estimate focused reading time at 150 words/minute, with a 2-minute floor."""
+def _estimate_lesson_duration_seconds(
+    content: str | None,
+    assessment_question_count: int = 0,
+) -> int:
+    """Estimate total study time from reading plus one minute per question."""
     word_count = len(re.findall(r"\b[\w-]+\b", content or "", flags=re.UNICODE))
-    return max(2, math.ceil(word_count / 150)) * 60
+    reading_minutes = max(2, math.ceil(word_count / 150))
+    question_minutes = max(0, int(assessment_question_count))
+    return (reading_minutes + question_minutes) * 60
 
 
 def _generation_plan_payload(
@@ -361,6 +366,14 @@ async def _save_generation_to_db(
                 for les_idx, (struct_les, content_les) in enumerate(
                     zip(struct_mod.lessons, content_mod.lessons, strict=False)
                 ):
+                    lesson_assess = assessment_by_position.get((mod_idx, les_idx))
+                    assessment_question_count = 0
+                    if lesson_assess is not None:
+                        assessment_question_count = (
+                            len(lesson_assess.mcq)
+                            + len(lesson_assess.true_false)
+                            + sum(len(mq.pairs) for mq in lesson_assess.matching)
+                        )
                     actual_source_ids = list(dict.fromkeys(
                         str(reference.get("doc_id"))
                         for reference in content_les.source_references
@@ -373,7 +386,8 @@ async def _save_generation_to_db(
                         content_type="text",
                         content=content_les.content if hasattr(content_les, 'content') else "",
                         duration_seconds=_estimate_lesson_duration_seconds(
-                            content_les.content if hasattr(content_les, "content") else ""
+                            content_les.content if hasattr(content_les, "content") else "",
+                            assessment_question_count,
                         ),
                         order_index=les_idx,
                         ai_generated=True,
@@ -386,12 +400,12 @@ async def _save_generation_to_db(
 
                     # Create quiz from assessment
                     if state.assessment:
-                        for lesson_assess in [assessment_by_position.get((mod_idx, les_idx))]:
-                            if lesson_assess is not None and lesson_assess.lesson_title == struct_les.title:
+                        for saved_assessment in (lesson_assess,):
+                            if saved_assessment is not None and saved_assessment.lesson_title == struct_les.title:
                                 question_count = (
-                                    len(lesson_assess.mcq)
-                                    + len(lesson_assess.true_false)
-                                    + sum(len(mq.pairs) for mq in lesson_assess.matching)
+                                    len(saved_assessment.mcq)
+                                    + len(saved_assessment.true_false)
+                                    + sum(len(mq.pairs) for mq in saved_assessment.matching)
                                 )
                                 if question_count == 0:
                                     logger.warning("Skipping empty quiz for lesson %s", struct_les.title)
@@ -413,7 +427,7 @@ async def _save_generation_to_db(
                                 q_idx = 0
 
                                 # MCQ questions
-                                for mcq in lesson_assess.mcq:
+                                for mcq in saved_assessment.mcq:
                                     question = Question(
                                         quiz_id=quiz.id,
                                         text=mcq.question,
@@ -444,7 +458,7 @@ async def _save_generation_to_db(
                                     q_idx += 1
 
                                 # True/False questions
-                                for tf in lesson_assess.true_false:
+                                for tf in saved_assessment.true_false:
                                     question = Question(
                                         quiz_id=quiz.id,
                                         text=tf.statement,
@@ -471,7 +485,7 @@ async def _save_generation_to_db(
                                     q_idx += 1
 
                                 # Matching questions (stored as MCQ with pair text)
-                                for mq in lesson_assess.matching:
+                                for mq in saved_assessment.matching:
                                     for pair in mq.pairs:
                                         question = Question(
                                             quiz_id=quiz.id,

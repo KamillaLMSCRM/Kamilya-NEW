@@ -2165,3 +2165,34 @@ contract or establish a blocker.
   third regression. The focused validator and resume suites then passed 110 tests.
 - Prevention: add every production quality escape to the generation-contract,
   shared-editor and checkpoint-resume suites before changing the detector.
+
+## AI-ASSESSMENT-QUALITY-004 - Structured Excel assessment reversed fields and collections
+
+- Date: 2026-09-13. Observed during the full production Excel acceptance on
+  `0.5.15`; repaired in the `0.5.16` candidate.
+- Symptom: questions could ask which “Phoenix” characteristic belonged to “Style”,
+  use options taken from unrelated table rows, repeat one atomic fact, reveal the
+  correct answer in the question, or fall back to the model for a three-collection
+  source and receive a fabricated fourth distractor.
+- Cause: the lesson writer rendered a primary worksheet matrix as vertical cards,
+  while the deterministic assessment mapper treated the card heading as the source
+  subject in only one orientation. The generic four-option contract then rejected a
+  valid three-subject row and sent it to the model. A first duplicate guard also
+  compared answer text without requiring the same source fact, which could exhaust
+  valid facts in later lessons. Deterministic lessons still incurred the model-only
+  five-second inter-request delay.
+- Fix: map both matrix orientations back to the exact source row and column; build
+  distractors only from peer values in that row; allow three source-grounded options
+  for three subjects; deduplicate by exact source fact plus answer and by atomic
+  structured source reuse; block answer leakage and expanded source-container
+  wording. Report the assessment path explicitly and sleep only after a real model
+  call.
+- Verification: 144 focused assessment/resume/pipeline tests, 70 passport/direct-
+  source tests, 10 operational acceptance tests and the seven-lesson split-primary-
+  table regression pass. The regression forbids a model call, provider delay,
+  auxiliary-sheet promotion and non-source answer options. Frontend generation
+  workflow tests pass 27 cases with lint and typecheck green.
+- Prevention: every representative structured-source release must assert the exact
+  primary-sheet role, row/column orientation, real peer-option count, all-tabular
+  assessment paths, no provider delay, no answer leakage and human review of the
+  persisted draft before production acceptance.

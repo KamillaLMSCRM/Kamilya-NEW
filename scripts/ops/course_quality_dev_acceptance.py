@@ -63,10 +63,15 @@ META_QUESTION_PATTERNS = (
     ),
     re.compile(r"\bв\s+исходн\w*\s+материал\w*\b", re.IGNORECASE),
     re.compile(
+        r"\bкак\s+в\s+(?:исходник\w*|источник\w*|материал\w*)\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
         r"\b(?:in|according\s+to)\s+the\s+(?:title|heading|table|section|lesson|source\s+material)\b",
         re.IGNORECASE,
     ),
     re.compile(r"\b(?:shown|presented|discussed)\s+below\b", re.IGNORECASE),
+    re.compile(r"\bas\s+in\s+(?:the\s+)?(?:source|source\s+material)\b", re.IGNORECASE),
     re.compile(r"\bчто\s+рассматривается\s+в\s+тем\w*\b", re.IGNORECASE),
     re.compile(
         r"\bчто\s+в\s+(?:этом|данном)\s+(?:уроке|курсе|разделе|модуле)\s+" r"(?:разбираем|изучаем|рассматриваем)\b",
@@ -85,6 +90,39 @@ GENERIC_MODULE_TITLE_PATTERN = re.compile(
     re.IGNORECASE,
 )
 WORD_RE = re.compile(r"[^\W\d_]{4,}", re.UNICODE)
+ANSWER_LEAK_WORD_RE = re.compile(r"[^\W\d_]{3,}", re.UNICODE)
+ANSWER_LEAK_STOPWORDS = {
+    "belong",
+    "belongs",
+    "collection",
+    "collections",
+    "compatible",
+    "need",
+    "needs",
+    "specified",
+    "what",
+    "which",
+    "важно",
+    "какая",
+    "какие",
+    "какой",
+    "коллекции",
+    "коллекциями",
+    "коллекция",
+    "кому",
+    "нужна",
+    "нужны",
+    "нужно",
+    "относится",
+    "подчеркнуть",
+    "покупателю",
+    "совместим",
+    "совместима",
+    "совместимы",
+    "указан",
+    "указана",
+    "указано",
+}
 STOP_WORDS = {
     "будет",
     "какая",
@@ -393,6 +431,26 @@ def choices_share_only_one_word_suffix(choices: list[str]) -> bool:
     return common == len(tokenized[0]) - 1
 
 
+def question_contains_correct_answer(
+    question_text: str,
+    choices: list[dict[str, Any]],
+) -> bool:
+    correct = [choice for choice in choices if choice.get("is_correct") is True]
+    if len(correct) != 1:
+        return False
+    answer = " ".join(str(correct[0].get("text") or "").casefold().split())
+    question = " ".join(question_text.casefold().split())
+    if len(answer) >= 4 and answer in question:
+        return True
+    answer_terms = {
+        word.casefold()
+        for word in ANSWER_LEAK_WORD_RE.findall(answer)
+        if word.casefold() not in ANSWER_LEAK_STOPWORDS
+    }
+    question_terms = {word.casefold() for word in ANSWER_LEAK_WORD_RE.findall(question)}
+    return len(answer_terms) >= 2 and answer_terms <= question_terms
+
+
 def captured_source_chunks_for_lesson(
     accepted_lesson_evidence: list[dict[str, Any]],
     *,
@@ -538,6 +596,7 @@ def inspect_output(
     review_state_failures = 0
     seen_questions: set[str] = set()
     duplicate_questions = 0
+    answer_leakage_questions = 0
     blind_fixed_position_quizzes = 0
     blind_longest_answer_quizzes = 0
     for quiz_id in expected_quiz_ids:
@@ -557,6 +616,8 @@ def inspect_output(
             if has_meta_question(text):
                 meta_questions += 1
             choices = [" ".join(str(choice.get("text") or "").split()) for choice in question.get("choices") or []]
+            if question_contains_correct_answer(text, question.get("choices") or []):
+                answer_leakage_questions += 1
             if sum(bool(choice.get("is_correct")) for choice in question.get("choices") or []) != 1:
                 invalid_correct_counts += 1
             if len(choices) != len({choice.casefold() for choice in choices}):
@@ -616,6 +677,7 @@ def inspect_output(
         (missing_explanations, "question_explanation_missing"),
         (review_state_failures, "quiz_not_marked_needs_review"),
         (duplicate_questions, "duplicate_questions_present"),
+        (answer_leakage_questions, "question_contains_correct_answer"),
         (blind_fixed_position_quizzes, "blind_fixed_position_can_pass"),
         (blind_longest_answer_quizzes, "blind_longest_answer_can_pass"),
     ):
@@ -642,6 +704,7 @@ def inspect_output(
         "missing_explanations": missing_explanations,
         "review_state_failures": review_state_failures,
         "duplicate_questions": duplicate_questions,
+        "answer_leakage_questions": answer_leakage_questions,
         "blind_fixed_position_quizzes": blind_fixed_position_quizzes,
         "blind_longest_answer_quizzes": blind_longest_answer_quizzes,
         "primary_focus_terms_available": len(focus_terms),

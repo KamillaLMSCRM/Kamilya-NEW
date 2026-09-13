@@ -154,10 +154,17 @@ def _looks_like_generic_meta_prompt(value: str) -> bool:
             r".+ представлен\w* в свидетельств\w*|"
             r".+ согласно (?:урок\w*|раздел\w*|заголовк\w*|материал\w*|текст\w*)|"
             r".+ в исходн\w* материал\w*(?: .+)?|"
+            r"как (?:в|во) источн\w* (?:описан\w*|указан\w*|представлен\w*) .+|"
+            r"согласно источн\w* как (?:описан\w*|указан\w*|представлен\w*) .+|"
+            r"что (?:именно )?(?:описан\w*|указан\w*|представлен\w*) (?:в|во) источн\w* .+|"
+            r"что (?:именно )?(?:описан\w*|указан\w*|представлен\w*) согласно источн\w* .+|"
             r"what does .+ (?:include|contain) according to the (?:title|heading)|"
             r"what is (?:specified|shown|described) in the .+ table|"
+            r"what is (?:described|specified|presented) in the source(?: material)?(?: .+)?|"
             r"in what form (?:are|is) .+ (?:shown|presented)|"
             r"what does each row in the .+ table describe|"
+            r"how .+ (?:describ\w*|specif\w*|present\w*) in the source(?: material)?|"
+            r"according to the source how .+ (?:describ\w*|specif\w*|present\w*)|"
             r".+ (?:in|according to) the (?:title|heading|table|section|lesson|source material)(?: .+)?|"
             r".+ (?:shown|presented|discussed) below .+)",
             normalized,

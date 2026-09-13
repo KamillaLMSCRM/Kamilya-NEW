@@ -12,6 +12,7 @@ import {
   type DocumentIndexStatus,
   getDuplicateDocumentConflict,
 } from '@/lib/documentCatalog';
+import type { AIGenerationJob } from '@/lib/aiGenerationJobs';
 import { toast } from '@/components/ui/Toast';
 import { resolveAsyncOperationState } from '@/components/ui/AsyncOperationStatus';
 import {
@@ -127,6 +128,14 @@ type CourseFormat = 'automatic' | 'brief' | 'standard' | 'detailed';
 
 type Step = 'documents' | 'generate' | 'review';
 
+interface DocumentIndexProgress {
+  jobId: string;
+  current: number | null;
+  total: number | null;
+  estimatedRemainingSeconds: number | null;
+  status: string;
+}
+
 const STAGES = [
   { key: 'ingestion', label: 'Обработка документов', icon: FileText, color: 'text-primary' },
   { key: 'architect', label: 'Проектирование структуры', icon: Building2, color: 'text-accent' },
@@ -167,6 +176,8 @@ export default function AIGeneratePage() {
   const [dragOver, setDragOver] = useState(false);
   const [uploadingCount, setUploadingCount] = useState(0);
   const [uploadingFiles, setUploadingFiles] = useState<string[]>([]);
+  const [documentIndexProgress, setDocumentIndexProgress] = useState<Record<string, DocumentIndexProgress>>({});
+  const documentIndexProgressRef = useRef(documentIndexProgress);
   const [uploadError, setUploadError] = useState('');
   const [youtubeImportAvailability, setYoutubeImportAvailability] = useState<'checking' | 'enabled' | 'disabled'>('checking');
   const [duplicateDocument, setDuplicateDocument] = useState<{
@@ -251,6 +262,16 @@ export default function AIGeneratePage() {
   const [editForm, setEditForm] = useState<{ title: string; content: string }>({ title: '', content: '' });
   const [editSaving, setEditSaving] = useState(false);
 
+  const documentIndexJobKey = Object.entries(documentIndexProgress)
+    .filter(([, progress]) => progress.status === 'pending' || progress.status === 'running')
+    .map(([documentId, progress]) => `${documentId}:${progress.jobId}`)
+    .sort()
+    .join('|');
+
+  useEffect(() => {
+    documentIndexProgressRef.current = documentIndexProgress;
+  }, [documentIndexProgress]);
+
   useEffect(() => {
     const contextualProgramId = new URLSearchParams(window.location.search).get('program_id')?.trim();
     setRequestedProgramId(contextualProgramId || null);
@@ -284,6 +305,12 @@ export default function AIGeneratePage() {
     if (status === 'partial') return 'bg-warning/10 text-warning border-warning/30';
     if (status === 'failed') return 'bg-destructive/10 text-destructive border-destructive/30';
     return 'bg-primary/10 text-primary border-primary/30';
+  };
+
+  const formatIndexingEta = (seconds: number | null) => {
+    if (!Number.isInteger(seconds) || (seconds ?? 0) < 0) return null;
+    if ((seconds ?? 0) < 60) return `${seconds} с`;
+    return `${Math.ceil((seconds ?? 0) / 60)} мин`;
   };
 
   useEffect(() => {
@@ -398,9 +425,24 @@ export default function AIGeneratePage() {
     formData.append('file', file);
     formData.append('title', file.name.replace(/\.[^/.]+$/, ''));
     try {
-      await api.post('/v1/documents/upload', formData, {
+      const response = await api.post<{
+        id: string;
+        indexing_job_id?: string | null;
+      }>('/v1/documents/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
+      if (response.data.id && response.data.indexing_job_id) {
+        setDocumentIndexProgress((progress) => ({
+          ...progress,
+          [response.data.id]: {
+            jobId: response.data.indexing_job_id!,
+            current: null,
+            total: null,
+            estimatedRemainingSeconds: null,
+            status: 'pending',
+          },
+        }));
+      }
       await fetchDocuments();
     } catch (e) {
       const duplicate = getDuplicateDocumentConflict(e);
@@ -416,6 +458,71 @@ export default function AIGeneratePage() {
       setUploadingFiles((files) => files.filter((name) => name !== file.name));
     }
   }, [fetchDocuments]);
+
+  useEffect(() => {
+    const entries = Object.entries(documentIndexProgressRef.current).filter(([, progress]) => (
+      progress.status === 'pending' || progress.status === 'running'
+    ));
+    if (entries.length === 0) return;
+
+    let cancelled = false;
+    const poll = async () => {
+      const updates = await Promise.all(entries.map(async ([documentId, progress]) => {
+        try {
+          const response = await api.get<AIGenerationJob>(`/v1/ai/jobs/${progress.jobId}`);
+          const job = response.data;
+          return [documentId, job] as const;
+        } catch {
+          return null;
+        }
+      }));
+      if (cancelled) return;
+      setDocumentIndexProgress((current) => {
+        const next = { ...current };
+        let changed = false;
+        for (const update of updates) {
+          if (!update) continue;
+          const [documentId, job] = update;
+          const previous = current[documentId];
+          if (['completed', 'failed', 'cancelled', 'interrupted'].includes(job.status)) {
+            if (previous) {
+              delete next[documentId];
+              changed = true;
+            }
+            continue;
+          }
+          const value: DocumentIndexProgress = {
+            ...previous,
+            current: Number.isInteger(job.progress_current) ? job.progress_current ?? null : previous?.current ?? null,
+            total: Number.isInteger(job.progress_total) ? job.progress_total ?? null : previous?.total ?? null,
+            estimatedRemainingSeconds: Number.isInteger(job.estimated_remaining_seconds)
+              ? job.estimated_remaining_seconds ?? null
+              : previous?.estimatedRemainingSeconds ?? null,
+            status: job.status,
+          };
+          if (!previous
+            || previous.current !== value.current
+            || previous.total !== value.total
+            || previous.estimatedRemainingSeconds !== value.estimatedRemainingSeconds
+            || previous.status !== value.status) {
+            next[documentId] = value;
+            changed = true;
+          }
+        }
+        return changed ? next : current;
+      });
+      if (!cancelled && updates.some((update) => update && ['completed', 'failed', 'cancelled', 'interrupted'].includes(update[1].status))) {
+        void fetchDocuments();
+      }
+    };
+
+    void poll();
+    const timer = window.setInterval(() => void poll(), 3000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [documentIndexJobKey, fetchDocuments]);
 
   const handleFileInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -907,6 +1014,19 @@ export default function AIGeneratePage() {
                 // not embedding availability, determines admission on the server.
                 const isReady = true;
                 const isSelected = selectedDocIds.includes(doc.id);
+                const indexProgress = documentIndexProgress[doc.id];
+                const hasExactIndexProgress = doc.index_status === 'processing'
+                  && Number.isInteger(indexProgress?.current)
+                  && Number.isInteger(indexProgress?.total)
+                  && (indexProgress?.current ?? -1) >= 0
+                  && (indexProgress?.total ?? 0) > 0
+                  && (indexProgress?.current ?? 0) <= (indexProgress?.total ?? 0);
+                const indexPercent = hasExactIndexProgress
+                  ? Math.round(((indexProgress?.current ?? 0) / (indexProgress?.total ?? 1)) * 100)
+                  : null;
+                const indexEta = hasExactIndexProgress
+                  ? formatIndexingEta(indexProgress?.estimatedRemainingSeconds ?? null)
+                  : null;
 
                 return (
                   <div
@@ -939,7 +1059,25 @@ export default function AIGeneratePage() {
                           {doc.index_status === 'failed' ? 'Без поискового индекса' : documentStatusLabel(doc.index_status)}
                         </span>
                       </div>
-                      {doc.short_summary ? (
+                      {hasExactIndexProgress ? (
+                        <div className="mt-1 space-y-1 text-xs text-warning" role="status" aria-live="polite">
+                          <div className="flex items-center justify-between gap-2 tabular-nums">
+                            <span>Индексация: {indexProgress?.current} / {indexProgress?.total}</span>
+                            <span>{indexPercent}%</span>
+                          </div>
+                          <div
+                            className="h-1.5 overflow-hidden rounded-full bg-warning/20"
+                            role="progressbar"
+                            aria-label={`Индексация документа ${doc.title}`}
+                            aria-valuemin={0}
+                            aria-valuemax={100}
+                            aria-valuenow={indexPercent ?? 0}
+                          >
+                            <div className="h-full rounded-full bg-warning transition-[width] duration-500" style={{ width: `${indexPercent}%` }} />
+                          </div>
+                          {indexEta !== null && <div className="tabular-nums">Осталось примерно: {indexEta}</div>}
+                        </div>
+                      ) : doc.short_summary ? (
                         <div className="text-xs text-primary/80 truncate italic">
                           {doc.summary_ready ? '📄 ' : '⚠️ '}{doc.short_summary}
                         </div>

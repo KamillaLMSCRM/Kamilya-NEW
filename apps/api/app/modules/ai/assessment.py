@@ -138,7 +138,10 @@ _LIST_QUESTION_RE = re.compile(
 _MARKDOWN_ARTIFACT_RE = re.compile(r"(?:^|\s)(?:\|[^\n]+\||`{1,3}|#{1,6}\s)")
 _MARKDOWN_TABLE_SEPARATOR_CELL_RE = re.compile(r"^:?-{3,}:?$")
 _ATTRIBUTE_QUESTION_RE = re.compile(
-    r"(?:стил\w*|материал\w*|style|material|стиль|материал)",
+    r"(?:стил\w*|материал\w*|фасад\w*|механизм\w*|комплектац\w*|"
+    r"цвет\w*|ручк\w*|направляющ\w*|шкаф\w*|кроват\w*|комод\w*|"
+    r"преимущ\w*|отлич\w*|style|material|facade|mechanism|colour|color|"
+    r"handle|drawer|wardrobe|bed|dresser|advantage|difference)",
     re.IGNORECASE,
 )
 _WHICH_CATEGORY_QUESTION_RE = re.compile(
@@ -151,6 +154,38 @@ _WHICH_CATEGORY_QUESTION_RE = re.compile(
     re.IGNORECASE,
 )
 _NEGATIVE_ANSWER_RE = re.compile(r"^\s*(?:не|not)\b", re.IGNORECASE)
+_ANSWER_LEAK_STOPWORDS = {
+    "belong",
+    "belongs",
+    "collection",
+    "collections",
+    "compatible",
+    "need",
+    "needs",
+    "specified",
+    "what",
+    "which",
+    "важно",
+    "какая",
+    "какие",
+    "какой",
+    "коллекции",
+    "коллекциями",
+    "коллекция",
+    "кому",
+    "нужна",
+    "нужны",
+    "нужно",
+    "относится",
+    "подчеркнуть",
+    "покупателю",
+    "совместим",
+    "совместима",
+    "совместимы",
+    "указан",
+    "указана",
+    "указано",
+}
 _NAMED_ENTITY_RE = re.compile(
     r"\b(?:[A-ZА-ЯЁӘҒҚҢӨҰҮҺІ][a-zа-яёәғқңөұүһі]{2,}"
     r"(?:-[A-ZА-ЯЁӘҒҚҢӨҰҮҺІ]?[a-zа-яёәғқңөұүһі]+)*|"
@@ -619,6 +654,7 @@ def _validate_question_evidence(
     issues: list[str] = []
     seen_facts: dict[tuple[str, str], int] = {}
     seen_answers_by_quote: dict[str, list[tuple[str, int]]] = {}
+    seen_atomic_structured_quotes: dict[str, int] = {}
     normalized_source = _normalize_evidence_text(bounded_source)
     for index, question in enumerate(data.get("mcq", []), start=1):
         if not isinstance(question, dict):
@@ -689,6 +725,15 @@ def _validate_question_evidence(
                 f"MCQ #{index}: repeats source evidence and an equivalent correct "
                 "answer already assessed in another lesson"
             )
+        source_cells = _structured_evidence_cells(source_quote)
+        atomic_structured_source = len(source_cells) == 2
+        if atomic_structured_source and any(
+            source == fact_key[0] for source, _answer in excluded_fact_keys
+        ):
+            issues.append(
+                f"MCQ #{index}: reuses one structured source fact already assessed "
+                "in another lesson"
+            )
         if (
             _WHICH_CATEGORY_QUESTION_RE.search(str(question.get("question", "")))
             and _NEGATIVE_ANSWER_RE.search(correct_answer)
@@ -705,6 +750,32 @@ def _validate_question_evidence(
             issues.append(f"MCQ #{index}: question does not use enough source evidence")
         if not _is_extractive_answer(correct_answer, source_quote):
             issues.append(f"MCQ #{index}: answer does not use its source evidence")
+        if atomic_structured_source and any(
+            option.get("is_correct") is not True
+            and _is_extractive_answer(str(option.get("text", "")), source_quote)
+            for option in options
+        ):
+            issues.append(
+                f"MCQ #{index}: incorrect option is also supported by selected source evidence"
+            )
+        normalized_answer = _normalize_evidence_text(correct_answer)
+        normalized_question = _normalize_evidence_text(str(question.get("question", "")))
+        answer_content_stems = {
+            token.casefold()
+            for token in _META_TERM_RE.findall(correct_answer)
+            if token.casefold() not in _ANSWER_LEAK_STOPWORDS
+        }
+        question_content_stems = {
+            token.casefold() for token in _META_TERM_RE.findall(str(question.get("question", "")))
+        }
+        if (
+            (len(normalized_answer) >= 4 and normalized_answer in normalized_question)
+            or (
+                len(answer_content_stems) >= 2
+                and answer_content_stems <= question_content_stems
+            )
+        ):
+            issues.append(f"MCQ #{index}: question contains its correct answer")
         if not explanation_stems or not quote_stems & explanation_stems:
             issues.append(f"MCQ #{index}: explanation does not use its source evidence")
         if len(correct_answer) < 3 or (
@@ -786,6 +857,15 @@ def _validate_question_evidence(
                 seen_answers_by_quote.setdefault(fact_key[0], []).append(
                     (fact_key[1], index)
                 )
+                if atomic_structured_source:
+                    if previous_index := seen_atomic_structured_quotes.get(fact_key[0]):
+                        issues.append(
+                            f"MCQ #{index}: reuses one structured source fact as MCQ "
+                            f"#{previous_index}; replace this question with a different "
+                            "atomic fact from the evidence bank"
+                        )
+                    else:
+                        seen_atomic_structured_quotes[fact_key[0]] = index
     return issues
 
 
@@ -1201,29 +1281,74 @@ def _generate_key_value_table_assessment(
     excluded_fact_keys: frozenset[tuple[str, str]],
 ) -> LessonAssessment | None:
     """Build MCQs from vertical subject cards backed by flat source rows."""
+    evidence_ids = {
+        _normalize_evidence_text(evidence): evidence_id
+        for evidence_id, evidence in evidence_bank.items()
+    }
+    transposed_lookup: dict[
+        tuple[str, str, str], tuple[str, list[str], int, str]
+    ] = {}
+    for headers, rows in _markdown_tables(bounded_source):
+        for subject_index, subject in enumerate(headers[1:], start=1):
+            normalized_subject = _normalize_evidence_text(subject)
+            for cells, raw_row in rows:
+                if subject_index >= len(cells):
+                    continue
+                evidence_id = evidence_ids.get(_normalize_evidence_text(raw_row))
+                if evidence_id is None:
+                    continue
+                normalized_field = _normalize_evidence_text(cells[0])
+                normalized_value = _normalize_evidence_text(cells[subject_index])
+                transposed_lookup[
+                    (normalized_subject, normalized_field, normalized_value)
+                ] = (evidence_id, cells, subject_index, "collection_heading")
+                transposed_lookup[
+                    (normalized_field, normalized_subject, normalized_value)
+                ] = (evidence_id, cells, subject_index, "field_heading")
     candidates: list[dict[str, Any]] = []
     for subject_heading, attribute_rows in _markdown_key_value_tables(lesson_body):
         normalized_heading = _normalize_evidence_text(subject_heading)
         for row_index, (target_header, answer) in enumerate(attribute_rows):
-            resolved: tuple[str, list[str], int] | None = None
+            resolved: tuple[str, list[str], int, str] | None = None
             normalized_answer = _normalize_evidence_text(answer)
-            for evidence_id, evidence in evidence_bank.items():
-                evidence_cells = _structured_evidence_cells(evidence)
-                if not evidence_cells:
-                    continue
-                normalized_subject = _normalize_evidence_text(evidence_cells[0])
-                matching_indices = [
-                    index
-                    for index, cell in enumerate(evidence_cells[1:], start=1)
-                    if _normalize_evidence_text(cell) == normalized_answer
-                ]
-                if normalized_subject in normalized_heading and len(matching_indices) == 1:
-                    resolved = (evidence_id, evidence_cells, matching_indices[0])
-                    break
+            resolved = transposed_lookup.get(
+                (
+                    normalized_heading,
+                    _normalize_evidence_text(target_header),
+                    normalized_answer,
+                )
+            )
+            if resolved is None:
+                for evidence_id, evidence in evidence_bank.items():
+                    evidence_cells = _structured_evidence_cells(evidence)
+                    if not evidence_cells:
+                        continue
+                    normalized_subject = _normalize_evidence_text(evidence_cells[0])
+                    matching_indices = [
+                        index
+                        for index, cell in enumerate(evidence_cells[1:], start=1)
+                        if _normalize_evidence_text(cell) == normalized_answer
+                    ]
+                    if normalized_subject in normalized_heading and len(matching_indices) == 1:
+                        resolved = (
+                            evidence_id,
+                            evidence_cells,
+                            matching_indices[0],
+                            "generic",
+                        )
+                        break
             if resolved is None:
                 continue
-            evidence_id, evidence_cells, source_column_index = resolved
-            subject = evidence_cells[0]
+            evidence_id, evidence_cells, source_column_index, orientation = resolved
+            if orientation == "collection_heading":
+                question_subject = subject_heading
+                question_header = target_header
+            elif orientation == "field_heading":
+                question_subject = target_header
+                question_header = subject_heading
+            else:
+                question_subject = evidence_cells[0]
+                question_header = target_header
             source_quote = evidence_bank[evidence_id]
             fact_key = (
                 _normalize_evidence_text(_plain_evidence_text(source_quote)),
@@ -1232,14 +1357,20 @@ def _generate_key_value_table_assessment(
             if fact_key in excluded_fact_keys:
                 continue
             peer_by_normalized: dict[str, str] = {}
-            for peer_evidence in evidence_bank.values():
-                peer_cells = _structured_evidence_cells(peer_evidence)
-                if source_column_index >= len(peer_cells):
-                    continue
-                peer_value = peer_cells[source_column_index]
-                normalized_peer = _normalize_evidence_text(peer_value)
-                if normalized_peer != normalized_answer:
-                    peer_by_normalized.setdefault(normalized_peer, peer_value)
+            if orientation != "generic":
+                for peer_value in evidence_cells[1:]:
+                    normalized_peer = _normalize_evidence_text(peer_value)
+                    if normalized_peer != normalized_answer:
+                        peer_by_normalized.setdefault(normalized_peer, peer_value)
+            else:
+                for peer_evidence in evidence_bank.values():
+                    peer_cells = _structured_evidence_cells(peer_evidence)
+                    if source_column_index >= len(peer_cells):
+                        continue
+                    peer_value = peer_cells[source_column_index]
+                    normalized_peer = _normalize_evidence_text(peer_value)
+                    if normalized_peer != normalized_answer:
+                        peer_by_normalized.setdefault(normalized_peer, peer_value)
             alternatives = sorted(
                 peer_by_normalized.values(),
                 key=lambda value: (
@@ -1248,7 +1379,7 @@ def _generate_key_value_table_assessment(
                     value,
                 ),
             )[:3]
-            if len(alternatives) != 3:
+            if len(alternatives) < 2:
                 continue
             option_values = [answer, *alternatives]
             shift = (len(candidates) + row_index) % len(option_values)
@@ -1257,8 +1388,8 @@ def _generate_key_value_table_assessment(
                 {
                     "question": _tabular_question_text(
                         language=language,
-                        subject=subject,
-                        target_header=target_header,
+                        subject=question_subject,
+                        target_header=question_header,
                         variant=row_index,
                     ),
                     "options": [
@@ -1269,13 +1400,16 @@ def _generate_key_value_table_assessment(
                     "source_quote_id": evidence_id,
                 }
             )
+    # Structured sources define the useful assessment size.  Keep three
+    # grounded questions when a lesson exposes only three distinct facts
+    # instead of padding the requested standard target with invented facts.
     return _recover_valid_assessment(
         {"mcq": candidates},
         evidence_bank=evidence_bank,
         bounded_source=bounded_source,
         lesson_title=lesson_title,
         language=language,
-        minimum_questions=question_count,
+        minimum_questions=min(3, question_count),
         maximum_questions=question_count,
         excluded_fact_keys=excluded_fact_keys,
     )
@@ -1298,6 +1432,17 @@ def _generate_tabular_assessment(
     lesson_stems = title_stems | objective_stems
     if not lesson_stems:
         return None
+    key_value_assessment = _generate_key_value_table_assessment(
+        evidence_bank=evidence_bank,
+        bounded_source=bounded_source,
+        lesson_body=lesson_body,
+        lesson_title=lesson_title,
+        language=language,
+        question_count=question_count,
+        excluded_fact_keys=excluded_fact_keys,
+    )
+    if key_value_assessment is not None:
+        return key_value_assessment
     evidence_ids = {
         _normalize_evidence_text(quote): evidence_id
         for evidence_id, quote in evidence_bank.items()
@@ -1444,7 +1589,7 @@ def _generate_tabular_assessment(
                 ):
                     continue
                 row_values.append((subject, answer, evidence_id))
-            if len(row_values) < 4:
+            if len(row_values) < 3:
                 continue
             candidate_rows = [
                 row
@@ -1473,7 +1618,7 @@ def _generate_tabular_assessment(
                         value,
                     ),
                 )[:3]
-                if len(alternatives) != 3:
+                if len(alternatives) < 2:
                     continue
                 option_values = [answer, *alternatives]
                 shift = row_index % len(option_values)
@@ -1722,6 +1867,7 @@ async def generate_lesson_assessment(
     compact: bool = False,
     check_cancelled: Callable[[], Any] | None = None,
     excluded_fact_keys: frozenset[tuple[str, str]] = frozenset(),
+    on_path: Callable[[str], None] | None = None,
 ) -> LessonAssessment:
     """Generate grounded assessment for a single lesson."""
     lang_names = {"ru": "Русский", "kk": "Қазақша", "en": "English"}
@@ -1771,6 +1917,8 @@ async def generate_lesson_assessment(
     )
     if tabular_assessment is not None:
         _record_assessment_path("tabular")
+        if on_path:
+            on_path("tabular")
         logger.info(
             "[ASSESSMENT_TABULAR] generated=%d requested=%d",
             len(tabular_assessment.mcq),
@@ -1778,6 +1926,8 @@ async def generate_lesson_assessment(
         )
         return tabular_assessment
     _record_assessment_path("model")
+    if on_path:
+        on_path("model")
     mcq_schema = output_schema["properties"]["mcq"]["items"]
     mcq_schema["properties"].pop("source_quote", None)
     mcq_schema["properties"]["source_quote_id"] = {
@@ -2131,7 +2281,14 @@ async def generate_course_assessment(
                 restored = None
             if restored is not None:
                 a = restored
+                used_model = False
             else:
+                used_model = False
+
+                def record_path(path: str) -> None:
+                    nonlocal used_model
+                    used_model = path == "model"
+
                 if before_assessment_generate:
                     result = before_assessment_generate(module_index, lesson_index)
                     if hasattr(result, "__await__"):
@@ -2143,6 +2300,7 @@ async def generate_course_assessment(
                     compact=compact,
                     check_cancelled=check_cancelled,
                     excluded_fact_keys=frozenset(assessed_fact_keys),
+                    on_path=record_path,
                 )
                 if on_assessment_complete:
                     result = on_assessment_complete(module_index, lesson_index, a)
@@ -2164,7 +2322,7 @@ async def generate_course_assessment(
                 result = on_progress(f"Generated assessment {num}/{total}: {lesson.title}")
                 if hasattr(result, "__await__"):
                     await result
-            if restored is None and num < total:
+            if restored is None and used_model and num < total:
                 await asyncio.sleep(5)
 
     return CourseAssessment(assessments=assessments)

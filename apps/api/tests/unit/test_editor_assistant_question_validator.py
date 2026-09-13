@@ -210,6 +210,10 @@ def test_rote_recall_and_explanation_leakage_are_deterministic() -> None:
         "What will this lesson teach?",
         "What does this lesson cover?",
         "Как в исходном материале описаны цвета коллекции Чикаго Стрит?",
+        "Согласно источнику, как описаны цвета коллекции Чикаго Стрит?",
+        "Что именно описано в источнике о коллекции Чикаго Стрит?",
+        "How are the colours of the Chicago Street collection described in the source?",
+        "According to the source, how are the colours of the Chicago Street collection described?",
     ),
 )
 def test_generic_meta_questions_fail_closed(prompt: str) -> None:
@@ -236,6 +240,34 @@ def test_generic_meta_questions_fail_closed(prompt: str) -> None:
         and finding.blocking
         for finding in result.findings
     )
+
+
+@pytest.mark.parametrize(
+    "prompt",
+    (
+        "Какие цвета указаны в источнике для коллекции Чикаго Стрит?",
+        "According to the source, which colors are listed for the Chicago Street collection?",
+    ),
+)
+def test_concrete_source_grounded_questions_are_not_generic_meta_prompts(prompt: str) -> None:
+    result = validate_question_set(
+        QuestionSet(
+            (
+                Question(
+                    "grounded-1",
+                    prompt,
+                    (
+                        option("Белый и графитовый", correct=True),
+                        option("Только белый"),
+                        option("Только графитовый"),
+                    ),
+                ),
+            )
+        )
+    )
+
+    assert result.status is not ValidatorStatus.FAIL
+    assert EditorQualityIssueLabel.MALFORMED_QUESTION not in issue_codes(result)
 
 
 def test_question_repeated_as_answer_option_fails_closed() -> None:
