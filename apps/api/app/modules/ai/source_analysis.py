@@ -417,6 +417,7 @@ async def analyze_document_set(
     *,
     lock_for_update: bool = False,
     analysis_mode: Literal["semantic", "direct_source"] = "semantic",
+    inspect_content: bool = True,
 ) -> CompatibilityAnalysis:
     unique_ids = list(dict.fromkeys(document_ids))
     if not unique_ids:
@@ -439,6 +440,44 @@ async def analyze_document_set(
 
     if analysis_mode == "direct_source":
         ordered_documents = [by_id[document_id] for document_id in unique_ids]
+        direct_profiles = tuple(
+            DocumentVectorProfile(
+                doc_id=document_id,
+                title=cast(str, by_id[document_id].title),
+                filename=cast(str, by_id[document_id].filename),
+                vector=None,
+            )
+            for document_id in unique_ids
+        )
+        if not inspect_content:
+            # HTTP admission must remain bounded.  The worker verifies the
+            # immutable original, converts it and builds the authoritative
+            # source passport once the queued job starts.  Repeating that
+            # potentially expensive conversion here made large scanned PDFs
+            # block the UI before a job could even be created.
+            return CompatibilityAnalysis(
+                status="unverified",
+                score=None,
+                requires_decision=len(direct_profiles) > 1,
+                clusters=tuple(
+                    SourceCluster(
+                        id=f"source-{index + 1}",
+                        label=profile.title.strip() or profile.filename,
+                        documents=(profile,),
+                        cohesion=None,
+                    )
+                    for index, profile in enumerate(direct_profiles)
+                ),
+                analysis_mode="direct_source",
+                source_chunk_totals={
+                    document_id: max(
+                        1,
+                        int(getattr(by_id[document_id], "index_chunks_total", 0) or 0),
+                    )
+                    for document_id in unique_ids
+                },
+                source_languages={document_id: None for document_id in unique_ids},
+            )
         try:
             corpus = await build_direct_source_corpus(
                 ordered_documents,
@@ -453,15 +492,6 @@ async def analyze_document_set(
                     "document_ids": list(exc.document_ids),
                 },
             ) from exc
-        direct_profiles = tuple(
-            DocumentVectorProfile(
-                doc_id=document_id,
-                title=cast(str, by_id[document_id].title),
-                filename=cast(str, by_id[document_id].filename),
-                vector=None,
-            )
-            for document_id in unique_ids
-        )
         return CompatibilityAnalysis(
             status="unverified",
             score=None,

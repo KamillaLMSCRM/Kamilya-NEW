@@ -15,6 +15,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.5.29] - 2026-09-13
+
+### Fixed
+
+- Keep the document-compatibility and course-submission requests bounded by
+  using persisted source metadata instead of converting a large original a
+  second time before its background generation job can be queued.
+- Continue to verify, convert and inspect the immutable original inside the
+  generation worker, preserving source-grounding and fail-closed behavior.
+
 ## [0.5.28] - 2026-09-13
 
 ### Fixed

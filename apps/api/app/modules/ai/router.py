@@ -185,7 +185,13 @@ async def document_compatibility(
             },
         )
     tenant_id = UUID(str(user.tenant_id))
-    analysis = await analyze_document_set(db, tenant_id, req.documents, analysis_mode="direct_source")
+    analysis = await analyze_document_set(
+        db,
+        tenant_id,
+        req.documents,
+        analysis_mode="direct_source",
+        inspect_content=False,
+    )
     response = _compatibility_response(analysis)
     chunks = analysis.source_chunk_totals if analysis.analysis_mode == "direct_source" else await document_chunk_totals(db, tenant_id, req.documents)
     recommendation = recommend_course_structure(
@@ -408,6 +414,7 @@ async def generate_course(
         req.documents,
         lock_for_update=True,
         analysis_mode="direct_source",
+        inspect_content=False,
     )
     # Aggregate source budget for multi-document submissions only. The legacy
     # single-document path keeps its original behavior and limits.

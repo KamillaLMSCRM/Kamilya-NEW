@@ -4,6 +4,7 @@ import hashlib
 import json
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
 from uuid import uuid4
 
 import pytest
@@ -607,6 +608,67 @@ async def test_direct_compatibility_is_truthfully_unverified_when_embeddings_fai
     assert [cluster.cohesion for cluster in result.clusters] == [None, None]
     assert result.source_chunk_totals == {first_id: 1, second_id: 1}
     assert result.source_languages == {first_id: "ru", second_id: "kk"}
+
+
+@pytest.mark.asyncio
+async def test_direct_admission_uses_metadata_without_reconverting_originals(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.modules.ai import source_analysis
+
+    tenant_id = uuid4()
+    first_id, second_id = uuid4(), uuid4()
+    documents = [
+        _document(
+            tenant_id=tenant_id,
+            document_id=first_id,
+            key="tenant/first",
+            filename="first.txt",
+            blob=b"first",
+        ),
+        _document(
+            tenant_id=tenant_id,
+            document_id=second_id,
+            key="tenant/second",
+            filename="second.txt",
+            blob=b"second",
+        ),
+    ]
+    documents[0].index_chunks_total = 99
+    documents[1].index_chunks_total = 0
+
+    class _Scalars:
+        def all(self):
+            return documents
+
+    class _Result:
+        def scalars(self):
+            return _Scalars()
+
+    class _DB:
+        async def execute(self, statement):
+            return _Result()
+
+    reconvert = AsyncMock(
+        side_effect=AssertionError("admission must not reconvert originals")
+    )
+    monkeypatch.setattr(source_analysis, "build_direct_source_corpus", reconvert)
+
+    result = await source_analysis.analyze_document_set(
+        _DB(),
+        tenant_id,
+        [first_id, second_id],
+        analysis_mode="direct_source",
+        inspect_content=False,
+    )
+
+    reconvert.assert_not_awaited()
+    assert result.analysis_mode == "direct_source"
+    assert result.status == "unverified"
+    assert result.requires_decision is True
+    assert result.source_chunk_totals == {first_id: 99, second_id: 1}
+    assert result.source_languages == {first_id: None, second_id: None}
+    assert result.source_passport is None
 
 
 @pytest.mark.asyncio

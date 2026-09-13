@@ -34,22 +34,38 @@ async def test_compatibility_uses_original_metadata_and_no_semantic_score(monkey
     assert result.status == 'unverified' and result.score is None
     assert result.recommended_structure is not None
     indexed.assert_not_awaited()
-    analyze.assert_awaited_once_with(db, tenant_id, [document_id], analysis_mode='direct_source')
+    analyze.assert_awaited_once_with(
+        db,
+        tenant_id,
+        [document_id],
+        analysis_mode='direct_source',
+        inspect_content=False,
+    )
 
 
 @pytest.mark.asyncio
 async def test_multiple_direct_sources_require_goal_without_claiming_mixed_topics(monkeypatch):
     tenant_id = uuid4()
     ids = [uuid4(), uuid4()]
-    monkeypatch.setattr(source_analysis, 'analyze_document_set', AsyncMock(return_value=analysis_for(ids)))
+    analyze = AsyncMock(return_value=analysis_for(ids))
+    monkeypatch.setattr(source_analysis, 'analyze_document_set', analyze)
     indexed = AsyncMock(side_effect=AssertionError('Index must not be read'))
     monkeypatch.setattr(source_analysis, 'document_chunk_totals', indexed)
     submit = AsyncMock()
     monkeypatch.setattr(router, 'submit_ai_job', submit)
+    db = SimpleNamespace()
     with pytest.raises(HTTPException) as failure:
-        await router.generate_course(AIGenerateRequest(documents=ids), db=SimpleNamespace(), user=SimpleNamespace(id=uuid4(), tenant_id=tenant_id))
+        await router.generate_course(AIGenerateRequest(documents=ids), db=db, user=SimpleNamespace(id=uuid4(), tenant_id=tenant_id))
     assert failure.value.status_code == 409
     assert failure.value.detail['code'] == 'source_combination_goal_required'
     assert failure.value.detail['analysis']['score'] is None
     submit.assert_not_awaited()
     indexed.assert_not_awaited()
+    analyze.assert_awaited_once_with(
+        db,
+        tenant_id,
+        ids,
+        lock_for_update=True,
+        analysis_mode='direct_source',
+        inspect_content=False,
+    )

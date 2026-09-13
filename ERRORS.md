@@ -2350,3 +2350,22 @@ contract or establish a blocker.
   `-env:UserInstallation=file://.../lo-profile` inside the request-scoped temporary
   directory. The regression test requires that isolated profile argument, and
   production acceptance must include one real binary `.doc`, not only DOCX/PDF.
+
+## AI-ADMISSION-001 - Large source was converted twice before generation started
+
+- Date: 2026-09-13. Observed during the production methodologist journey on
+  `0.5.28`; repaired for `0.5.29`.
+- Symptom: selecting a ready 21-page scanned PDF left "Проверка источников" on
+  screen for more than 60 seconds and kept the generation button disabled.
+- Cause: both the compatibility request and the generation-submission request
+  synchronously downloaded, hash-checked, OCR-converted and chunked every
+  immutable original. The worker then repeated the same authoritative conversion.
+- Fix: HTTP admission now reads only tenant-owned document metadata and persisted
+  chunk totals. The queued worker remains the single place that verifies the
+  original hash, converts the source, builds its passport and generates content.
+- Verification: RED tests require both HTTP routes to request bounded admission
+  and require `build_direct_source_corpus` not to run in that mode. The original
+  full-content path remains covered separately for worker-side source analysis.
+- Prevention: no admission endpoint may perform OCR, office conversion or full
+  source reconstruction. Potentially long source work belongs to a persisted job
+  whose stage, progress and failure are visible to the methodologist.
