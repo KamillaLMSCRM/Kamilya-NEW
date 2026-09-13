@@ -1,6 +1,6 @@
 ---
 name: kamilya-evidence-reconciliation
-description: Reconcile Kamilya Git, CI, provider, deployment, database, backup, and runtime claims through exact read-only evidence. Use for release readback, production verification, security sign-off evidence, or conflicting handoffs; do not use to deploy, mutate providers, query tenant payloads, or authorize remediation.
+description: Read back and reconcile exact Kamilya Git, CI, provider, database, backup, and runtime claims. Use for release or production verification; it is read-only and does not deploy or authorize remediation.
 ---
 
 # Kamilya Evidence Reconciliation

@@ -1,6 +1,6 @@
 ---
 name: graphify
-description: Use Kamilya's local Graphify index first for code navigation, dependency paths and impact analysis; use the reviewed ASUS semantic sidecar for its approved engineering documents. Not a source of runtime truth or permission to scan/upload arbitrary files.
+description: Navigate non-trivial Kamilya code dependencies and impact with the local Graphify index. Use for cross-module flow or blast-radius analysis, not exact-file edits, text search, runtime verification, or permission decisions.
 ---
 
 # Kamilya Graphify
@@ -15,17 +15,6 @@ description: Use Kamilya's local Graphify index first for code navigation, depen
 - Status-only or instruction editing does not require a graph rebuild.
 - Never merge Kamilya LMS and landing implicitly, install hooks/watchers, change
   global config, or upgrade a shared package as a side effect.
-
-## Verified workstation setup
-
-CLI: `graphify`, package `graphifyy==0.9.23` in pipx.
-Python: `C:/Users/user/AppData/Local/pipx/pipx/venvs/graphifyy/Scripts/python.exe`.
-Run from the actual repository root; never from `C:/Kamilya New`.
-Check version/import before relying on this machine-specific path after drift.
-
-`graphify-out/.graphify_python` must be UTF-8 text containing that interpreter
-path, not bytes copied from a Windows executable. `.graphify_root` must name
-the actual repository. Do not interpret executable bytes as a shebang.
 
 ## Navigate and verify
 
@@ -48,53 +37,14 @@ the actual repository. Do not interpret executable bytes as a shebang.
    Do not auto-save conversational answers as project truth or flood the owner
    with graph dumps, mandatory follow-up questions or community reports.
 
-If the CLI fails, try the documented Python with `-m graphify`. If the graph is
-unavailable/stale, report the gap and continue narrowly scoped source inspection;
-this does not waive required tests, journey gates or runtime verification.
+If the CLI fails or the index must be created/updated, read
+[local operations](references/local-operations.md). If the graph remains
+unavailable or stale, continue with narrowly scoped source inspection and report
+the navigation gap; required tests and runtime verification still apply.
 
-## Update without sending code to a model
-
-`graphify update .` is AST-only in the pinned CLI. For a missing index:
-`graphify extract . --code-only --max-workers 2`.
-Before rebuilding, check exclusions, exact root, dirty files and existing index.
-Keep the shrink guard; review removed source files before approving any force.
-A successful exit alone is insufficient: check counts, source existence,
-diagnostics, and a representative query/path against source. Index freshness is
-not a requirement for a clean checkout; account for the actual working files.
-
-Existing canonical index: `graphify-out/graph.json`. It is derived local data,
-not a deliverable, deployed artifact or replacement for project documentation.
-
-## ASUS semantic sidecar
-
-For the owner-approved engineering documentation index, read
-`docs/SEMANTIC_ENGINEERING_INDEX.md`. Corpus preparation is local and separate
-from inference; authorize an exact reviewed digest. The corpus runner uses
-bounded cached chunks and records full/partial sanitized-prose coverage,
-exclusions and quote provenance in `graphify-out/docs-semantic/`.
-Do not confuse completed chunk coverage with exhaustive fact extraction or
-unused-code proof. The two-ADR pilot below remains a separate compatibility probe.
-
-Current owner-approved endpoint: `http://10.66.66.28:8000/v1`, model
-`LibertAIDAI/GLM-5.3-Flash-NVFP4`; verify identity per request.
-Use the pinned Python above:
-- `scripts/ops/graphify_asus.py --probe`: one synthetic compatibility request.
-- `scripts/ops/graphify_asus.py`: only selected session-transport and role-ownership
-  sections of hash-reviewed ADR-0008 and ADR-0012;
-  changed documents require root review before updating the allowlist.
-
-This adapter uses Graphify's extraction prompt, parser and directed graph builder.
-No external SDK installation, .env, secret, proxy, redirect, retry or provider
-fallback. One request, up to 6 nodes/6 edges, output cap 2048 tokens, socket timeout
-90 seconds. This is a bounded navigation summary, not exhaustive ADR extraction.
-Cache identity includes content, prompt, model, output settings and Graphify
-version. Cache hits do not call the server. No paid resource is created.
-
-Outputs: `graphify-out/asus/graph.json` and `evidence.json`.
-Query using `graphify query "active role" --graph graphify-out/asus/graph.json --budget 700`.
-This is a separate limited document graph, not full-repository semantic coverage.
-Inspect extracted claims against the ADR before using them. Do not promote stale
-ADR statements into current runtime claims. No arbitrary document/media upload.
+The reviewed ASUS semantic documentation sidecar is a separate opt-in workflow.
+Read [ASUS semantic sidecar](references/asus-semantic-sidecar.md) only when the
+task explicitly concerns that engineering-document index.
 
 ## Advanced workflows
 

@@ -1,6 +1,6 @@
 ---
 name: kamilya-release-evidence-gate
-description: Evaluate a sanitized Kamilya release evidence envelope and return deterministic GO or NO_GO without performing any mutation. Use before dev database gates, CI/release, canary, deployment, or production sign-off; do not treat the output as evidence itself or access files, Git, networks, databases, providers, secrets, PII, or production.
+description: Validate a sanitized Kamilya release-evidence envelope and return deterministic GO or NO_GO. Use at a release decision gate; it performs no evidence gathering, external access, or mutation.
 ---
 
 # Kamilya Release Evidence Gate

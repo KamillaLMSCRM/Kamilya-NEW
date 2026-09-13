@@ -1,6 +1,6 @@
 ---
 name: kamilya-context-compression
-description: Compress long Kamilya task or session context into a loss-audited continuation packet while preserving approvals, exact evidence identifiers, negative findings, blockers, and cleanup. Use before handoff or context rollover; do not treat the packet as evidence, delete raw history, persist secrets or PII, or authorize mutation.
+description: Create a loss-audited continuation packet for a long Kamilya task before handoff or context rollover. Preserve approvals, evidence IDs, blockers, and cleanup; never include secrets or treat the packet as proof.
 ---
 
 # Kamilya Context Compression

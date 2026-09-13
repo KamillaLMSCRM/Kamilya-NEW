@@ -1,6 +1,6 @@
 ---
 name: kamilya-production-deploy
-description: Deploy an exact Kamilya backend release to KZ production on VM126 with reviewed immutable scripts, rollback, synchronized API/worker identity, and independent readback. Use for production rollout or rollback preparation; never treat the skill as approval, run migrations implicitly, or target CT125/proxy compute.
+description: Deploy or roll back one exact Kamilya backend release on VM126 after current approval and release evidence are complete. Not for source repair, implicit migrations, CT125, or proxy compute.
 ---
 
 # Kamilya Production Deploy
@@ -40,14 +40,14 @@ preservation requirements, stop conditions, and rollback operation.
 - CT125 runs PostgreSQL. A backend release is `no-migration` unless an approved
   migration node explicitly names CT125, the revision, backup/restore evidence,
   runtime roles, cleanup, and rollback limits.
-- Public traffic is Vercel frontend -> `api.kml.kz` -> proxy -> WireGuard ->
-  VM126. Validate frontend/backend compatibility, but do not mutate Vercel from
-  this backend deployment unless the approval explicitly includes it.
-- When frontend deployment is approved, resolve the custom production alias to
-  its actual Vercel project before deployment. A READY deployment in a dev
-  project is not production evidence. After deployment, prove `app.kml.kz`
-  points to the target deployment and that deployment carries the exact release
-  SHA.
+- Production frontend runs natively on CT137; `app.kml.kz` and `api.kml.kz`
+  traverse the public proxy and WireGuard to their distinct application targets.
+  Validate frontend/backend compatibility, but do not mutate CT137 from this
+  backend deployment unless the approval explicitly includes it.
+- Vercel is a dev/explicit rollback contour, not the default production frontend.
+  When a frontend deployment is separately approved, follow
+  `docs/PRODUCTION_FRONTEND_RUNBOOK.md` and prove the public alias, runtime and
+  exact release SHA independently.
 
 ## Required release inputs
 

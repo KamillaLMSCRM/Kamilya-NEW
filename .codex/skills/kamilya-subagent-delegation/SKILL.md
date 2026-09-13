@@ -1,6 +1,6 @@
 ---
 name: kamilya-subagent-delegation
-description: Plan, dispatch, and accept bounded Kamilya subagent work with minimal context, one-writer ownership, secret-safe isolation, and evidence-based handoff. Use when delegation or parallel review materially helps; not to offload an immediate root blocker, grant external authority, or treat an agent report as proof.
+description: Delegate a bounded Kamilya subtask when parallel work or independent review materially helps. Define one-writer scope, minimal context, checks, and handoff; delegation never grants external authority.
 ---
 
 # Kamilya Subagent Delegation
@@ -85,10 +85,12 @@ copying it. A 150–300-word packet is normally enough. Do not send history, sec
 or broad session context. Use safe paths, variable names, opaque IDs, counts, and
 synthetic fixtures. Read named skills fully; retain mandatory project reads.
 
-For source investigation, require the project’s Graphify workflow before broad
-reading and confirm graph-derived findings in source/tests. Writers preserve dirty
-work, use existing patterns, avoid unrelated refactors, and name proportionate
-validation. Documentation writers may change only independently verified content.
+For non-trivial cross-module source investigation, use the project Graphify
+workflow before broad reading and confirm graph-derived findings in source/tests.
+Exact-file edits and direct text lookup do not require Graphify. Writers preserve
+dirty work, use existing patterns, avoid unrelated refactors, and name
+proportionate validation. Documentation writers may change only independently
+verified content.
 
 ## Stop safely and hand off
 

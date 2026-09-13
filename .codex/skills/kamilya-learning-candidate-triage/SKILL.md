@@ -1,6 +1,6 @@
 ---
 name: kamilya-learning-candidate-triage
-description: Deterministically triage sanitized recurring Kamilya observations into inert learning candidates for root review. Use to propose ERRORS, test, rule, ADR, or skill follow-up without an LLM scheduler; do not persist source events, activate generated rules, handle secrets or PII, or mutate project and external state.
+description: Turn repeated sanitized Kamilya observations into inert candidates for tests, ERRORS, ADRs, rules, or skills. Use for deterministic local triage; it neither persists nor activates candidates.
 ---
 
 # Kamilya Learning Candidate Triage

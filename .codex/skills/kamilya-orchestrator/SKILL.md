@@ -1,6 +1,6 @@
 ---
 name: kamilya-orchestrator
-description: Coordinate large multi-agent or cross-repository Kamilya epics with explicit ownership, dependencies, evidence provenance, and approval gates. Use when work spans multiple repositories, three or more agents, multiple external systems or approvals, or several sessions; do not use for routine single-scope edits.
+description: Coordinate a Kamilya epic spanning repositories, multiple agents, external systems, approvals, or sessions. Use task-graph ownership and evidence gates; skip routine single-scope work.
 ---
 
 # Kamilya Orchestrator
@@ -43,7 +43,9 @@ canonical source and remove the temporary epic plan.
 
 Perform a read-only inventory before assigning new implementation work:
 
-1. Read the applicable `AGENTS.md` files and the canonical sources above.
+1. Read the applicable `AGENTS.md`, then select only canonical sources owned by
+   the repositories, environments and decisions in the epic; do not load the
+   complete list by default.
 2. Record every repository, exact checkout commit, dirty-worktree status,
    environment, external provider, and current release target in scope.
 3. Inspect only discoverable current tasks. An absent task is `NOT DISCOVERED`,

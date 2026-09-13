@@ -1,6 +1,6 @@
 ---
 name: kamilya-knowledge-router
-description: Deterministically route a sanitized local Kamilya question over ephemeral cited records from canonical docs, Graphify, source/tests/migrations, Git evidence, and inert learning candidates. Use for bounded agent knowledge lookup; do not scan files, persist an index, activate candidates, or access network, databases, providers, secrets, PII, or production.
+description: Rank caller-supplied sanitized Kamilya records for a bounded local knowledge lookup. The script does not scan, persist, use external systems, or grant evidence or authority.
 ---
 
 # Kamilya Knowledge Router

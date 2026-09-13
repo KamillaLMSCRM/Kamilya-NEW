@@ -29,9 +29,9 @@ preflight above; its read-only label does not waive that requirement.
 This is the sole Test & Evidence Runner contract. The `test-evidence-runner`
 path is a compatibility redirect, not an additional role or authority source.
 
-Use Graphify query/path/explain before source impact exploration. Confirm graph
-claims in source/tests. Do not rebuild or broad-scan when the packet already names
-the exact test scope.
+Use Graphify query/path/explain only for non-trivial cross-module impact
+exploration. Confirm graph claims in source/tests. Do not rebuild, invoke Graphify
+for exact-file checks, or broad-scan when the packet already names the test scope.
 
 ## Required test packet
 

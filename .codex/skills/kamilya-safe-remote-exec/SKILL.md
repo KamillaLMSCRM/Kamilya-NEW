@@ -1,6 +1,6 @@
 ---
 name: kamilya-safe-remote-exec
-description: Execute reviewed Kamilya scripts through the canonical Windows-to-proxy SSH route without nested inline shell quoting. Use for VM126 diagnostics, deployment, or maintenance and for explicitly approved CT125 work through VM126. Do not use for local commands, public HTTP checks, or proxy mutations.
+description: Run a reviewed Kamilya script on VM126 through the canonical SSH route. Use for authorized remote diagnostics or maintenance, not local/public checks, proxy mutation, or implicit CT125 access.
 ---
 
 # Kamilya Safe Remote Execution

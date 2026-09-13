@@ -22,8 +22,8 @@ For every run, read only the relevant parts of:
 6. `docs/PROJECT-CONTEXT.md`, `docs/VPS_CONNECTION_GUIDE.md`, and
    `docs/PRODUCTION_READINESS.md` only for the named target.
 
-Use Graphify before source-code exploration. A prepared release normally requires
-no broad source reading.
+Use Graphify only if packet validation exposes a non-trivial source dependency. A
+prepared release normally requires neither source exploration nor graph loading.
 
 ## Required release packet
 
