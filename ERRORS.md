@@ -2300,3 +2300,13 @@ contract or establish a blocker.
   patterns without padding. Sentence-initial question words no longer count as
   named subjects, while inflected Russian collection names remain source-backed.
   Five exact regressions preserve the observed production wording.
+- Recurrence (2026-09-13, `0.5.24` production acceptance): the full workbook
+  reached assessment progress 88%, but five provider attempts still ended in
+  grounding and learner-text quality failures. The drop-only branch recognized
+  a closed list of known issue messages, so another valid question-level failure
+  retried and ultimately failed the whole course. The `0.5.25` repair makes the
+  rule structural rather than message-based: after any parseable assessment for
+  a table source, independently valid questions are retained and every invalid
+  question is dropped without retry or count padding. A lesson with no survivor
+  remains valid without a quiz. The exact behavior was RED at five calls and is
+  GREEN at one call; the complete API unit suite passes 1494 tests.

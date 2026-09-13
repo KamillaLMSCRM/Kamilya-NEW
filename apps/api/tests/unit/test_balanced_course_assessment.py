@@ -2002,6 +2002,83 @@ async def test_model_assessment_keeps_lesson_without_quiz_when_all_structured_qu
 
 
 @pytest.mark.asyncio
+async def test_structured_assessment_drops_any_invalid_question_without_provider_retry(
+    monkeypatch,
+) -> None:
+    source = "| Материал корпуса Чикаго Нео | ЛДСП Kronospan |"
+
+    def evidence_issues(data, *args, **kwargs):
+        return [
+            f"MCQ #{index}: answer does not use its source evidence"
+            for index, question in enumerate(data.get("mcq", []), start=1)
+            if "ненадёжный" in str(question.get("question", ""))
+        ]
+
+    monkeypatch.setattr(
+        "app.modules.ai.assessment._validate_question_evidence",
+        evidence_issues,
+    )
+    monkeypatch.setattr(
+        "app.modules.ai.assessment._validate_generated_question_set",
+        lambda data, language: [],
+    )
+
+    class LLMWithOneInvalidStructuredQuestion:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        async def ainvoke(self, messages, config=None, response_format=None):
+            self.calls += 1
+            return SimpleNamespace(
+                content="""{
+                    "mcq": [
+                        {
+                            "question": "Какой материал корпуса у Чикаго Нео?",
+                            "options": [
+                                {"text": "ЛДСП Kronospan", "is_correct": true},
+                                {"text": "МДФ Kronospan", "is_correct": false},
+                                {"text": "массив дуба", "is_correct": false}
+                            ],
+                            "explanation": "ЛДСП Kronospan",
+                            "source_quote_id": "E01"
+                        },
+                        {
+                            "question": "Какой ненадёжный материал указан для Чикаго Нео?",
+                            "options": [
+                                {"text": "натуральный металл", "is_correct": true},
+                                {"text": "МДФ Kronospan", "is_correct": false},
+                                {"text": "массив дуба", "is_correct": false}
+                            ],
+                            "explanation": "натуральный металл",
+                            "source_quote_id": "E01"
+                        }
+                    ],
+                    "true_false": [],
+                    "matching": []
+                }"""
+            )
+
+    llm = LLMWithOneInvalidStructuredQuestion()
+    result = await generate_lesson_assessment(
+        llm,
+        LessonContent(
+            title="Материалы коллекции Чикаго Нео",
+            objectives=["Называть материал корпуса"],
+            content="Generated prose is not evidence.",
+            source_chunks=[source],
+            source_references=[],
+        ),
+        language="ru",
+        compact=True,
+    )
+
+    assert llm.calls == 1
+    assert [question.question for question in result.mcq] == [
+        "Какой материал корпуса у Чикаго Нео?"
+    ]
+
+
+@pytest.mark.asyncio
 async def test_course_assessment_restores_intentionally_empty_structured_quiz_without_provider_call() -> None:
     source = "| Особенности Чикаго Нео | Взрослый размер и матовые торцевые ручки |"
 

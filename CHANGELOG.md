@@ -15,6 +15,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.5.25] - 2026-09-13
+
+### Changed
+
+- Treat every deterministically invalid question from a structured source as
+  removable after the first parseable provider response. Keep only independently
+  valid questions and never regenerate replacements to satisfy a target count.
+
+### Fixed
+
+- Prevent a structured-source course from failing after repeated assessment
+  quality retries when the model cannot produce enough valid questions. A lesson
+  may contain fewer questions or no quiz when its useful source facts are exhausted.
+
 ## [0.5.24] - 2026-09-13
 
 ### Fixed

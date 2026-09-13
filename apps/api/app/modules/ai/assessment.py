@@ -2156,26 +2156,11 @@ Output ONLY the JSON data instance:
                 issues.append("matching questions are not allowed")
             if issues:
                 table_source = any(_markdown_table_cells(evidence) for evidence in evidence_bank.values())
-                drop_without_padding = table_source and any(
-                    marker in issue
-                    for issue in issues
-                    for marker in (
-                        "reuses one structured source cell",
-                        "incorrect option is also supported by the correct source cell",
-                        "opaque compact source shorthand",
-                        "already assessed in another lesson",
-                        "structured question omits its specific subject",
-                        "structured question uses a vague subject without an antecedent",
-                        "structured question references source without a specific subject",
-                        "structured question asks about its source",
-                        "structured question has an unscoped attribute",
-                        "low_information_distractors",
-                        "semantically overlapping correct answer",
-                        "question contains its correct answer",
-                        "correct answer is an interrogative fragment",
-                        "correct answer is an enumerated list",
-                    )
-                )
+                # Structured sources often have fewer independently useful facts
+                # than the requested ceiling. Once the provider returned parseable
+                # questions, retain only those that pass every deterministic gate;
+                # never spend retries manufacturing replacements to satisfy a count.
+                drop_without_padding = table_source
                 if drop_without_padding:
                     recovered = _recover_valid_assessment(
                         {"mcq": recovery_pool},
