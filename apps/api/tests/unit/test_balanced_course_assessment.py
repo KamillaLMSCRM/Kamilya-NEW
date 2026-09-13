@@ -55,6 +55,10 @@ def test_semantic_overlap_requires_a_distinctive_shared_phrase() -> None:
         "Одна платформа на всю квартиру",
         "Конструктор на всю квартиру",
     )
+    assert _answers_share_distinctive_phrase(
+        "Одна платформа на всю квартиру плюс торцевые модули",
+        "Феникс — это конструктор на всю квартиру",
+    )
     assert not _answers_share_distinctive_phrase(
         "Феникс в том же цвете",
         "Чикаго Стрит в том же цвете",

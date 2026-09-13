@@ -15,6 +15,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.5.21] - 2026-09-13
+
+### Fixed
+
+- Drop a repeated structured-source claim even when one correct answer adds a
+  useful qualification around the same distinctive phrase. The later question
+  is removed without a quota-filling model call.
+
 ## [0.5.20] - 2026-09-13
 
 ### Changed

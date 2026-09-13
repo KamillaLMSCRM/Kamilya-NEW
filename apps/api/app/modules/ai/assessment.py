@@ -317,7 +317,11 @@ def _answers_share_distinctive_phrase(left: str, right: str) -> bool:
 
     if len(longest) < 3:
         return False
-    if len(longest) / len(left_tokens) < 0.6 or len(longest) / len(right_tokens) < 0.6:
+    # A source-backed answer may append one useful qualification (for example,
+    # end modules) while still repeating the same central sales claim.
+    # Requiring a third of each answer keeps that case visible without treating
+    # a two-word product/material suffix as semantic equivalence.
+    if len(longest) / len(left_tokens) < 0.35 or len(longest) / len(right_tokens) < 0.35:
         return False
     if set(longest) & {"же", "том", "этом", "этой", "этих", "такой", "таким"}:
         return False

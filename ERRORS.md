@@ -2270,3 +2270,11 @@ contract or establish a blocker.
   later question without padding, and retains equal wording when it belongs to a
   different source subject. The focused RED case and two false-positive guards
   pass with the related 120-test assessment suite.
+- Recurrence (2026-09-13, `0.5.20` production acceptance): the real provider
+  expanded the first correct answer with a source-backed qualification, reducing
+  the shared phrase below the initial coverage threshold. The result still kept
+  both "platform for the whole apartment plus end modules" and "constructor for
+  the whole apartment". The `0.5.21` repair lowers only the structured-source
+  coverage floor; a pairwise replay over all 18 production answers identifies
+  exactly that pair and no others. The real long-answer wording is retained as a
+  regression alongside the different-subject and deictic false-positive guards.
