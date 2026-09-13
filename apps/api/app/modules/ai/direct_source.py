@@ -1497,6 +1497,43 @@ def _fit_writer_source_fragment(
     return replace(chunk, text=bounded_text, table_fragment=None)
 
 
+def _bounded_writer_prompt(
+    *,
+    system_prompt: str,
+    prompt_prefix: str,
+    source_candidates: Sequence[DirectSourceChunk],
+    document_ids: Sequence[str],
+    correction: str = "",
+) -> tuple[list[DirectSourceChunk], list[str], str]:
+    """Pack verified source text against the complete current writer request."""
+
+    serialized_budget = (
+        MAX_DIRECT_WRITER_PROMPT_CHARS
+        - len(system_prompt)
+        - len(prompt_prefix)
+        - len(correction)
+        - 1
+    )
+    selected_chunks = _round_robin_bounded_chunks(
+        source_candidates,
+        document_ids,
+        max_chars=MAX_DIRECT_WRITER_SOURCE_CHARS,
+        serialized_budget=serialized_budget,
+    )
+    if selected_chunks is None:
+        raise DirectSourceError("direct_source_prompt_budget_exceeded")
+    selected_texts = [chunk.text for chunk in selected_chunks]
+    prompt = (
+        prompt_prefix
+        + "\n".join(_writer_source_section(chunk) for chunk in selected_chunks)
+        + "\n"
+        + correction
+    )
+    if len(system_prompt) + len(prompt) > MAX_DIRECT_WRITER_PROMPT_CHARS:
+        raise DirectSourceError("direct_source_prompt_budget_exceeded")
+    return selected_chunks, selected_texts, prompt
+
+
 async def select_lesson_source_chunks(
     corpus: DirectSourceCorpus,
     *,
@@ -1742,20 +1779,13 @@ Course: {structure.title}
 Objectives: {json.dumps(objectives, ensure_ascii=False)}
 
 """
-            budget = MAX_DIRECT_WRITER_PROMPT_CHARS - len(system_prompt) - len(prompt_prefix) - 1
-            bounded_chunks = _round_robin_bounded_chunks(
-                chunks,
-                lesson.source_doc_ids,
-                max_chars=MAX_DIRECT_WRITER_SOURCE_CHARS,
-                serialized_budget=budget,
+            source_candidates = chunks
+            chunks, bounded_texts, user_prompt = _bounded_writer_prompt(
+                system_prompt=system_prompt,
+                prompt_prefix=prompt_prefix,
+                source_candidates=source_candidates,
+                document_ids=lesson.source_doc_ids,
             )
-            if bounded_chunks is None:
-                raise DirectSourceError("direct_source_prompt_budget_exceeded")
-            chunks = bounded_chunks
-            bounded_texts = [chunk.text for chunk in chunks]
-            user_prompt = prompt_prefix + "\n".join(_writer_source_section(chunk) for chunk in chunks) + "\n"
-            if len(system_prompt) + len(user_prompt) > MAX_DIRECT_WRITER_PROMPT_CHARS:
-                raise DirectSourceError("direct_source_prompt_budget_exceeded")
             tabular_lesson = _render_primary_tabular_lesson(
                 chunks=chunks,
                 passport=passport,
@@ -1779,9 +1809,9 @@ Objectives: {json.dumps(objectives, ensure_ascii=False)}
                     quality_feedback = quality.reason_codes
             else:
                 for _quality_attempt in range(MAX_DIRECT_LESSON_QUALITY_ATTEMPTS):
-                    attempt_prompt = user_prompt
+                    correction = ""
                     if quality_feedback:
-                        attempt_prompt += (
+                        correction = (
                             "\nCORRECTION REQUIRED: the previous lesson failed deterministic "
                             "quality admission with these reason codes: "
                             f"{json.dumps(quality_feedback)}. Rewrite the whole lesson. "
@@ -1789,8 +1819,16 @@ Objectives: {json.dumps(objectives, ensure_ascii=False)}
                             "present in the supplied source excerpts. Do not add generic framing."
                             f"{_lesson_quality_repair_instruction(quality_feedback)}\n"
                         )
-                    if len(system_prompt) + len(attempt_prompt) > MAX_DIRECT_WRITER_PROMPT_CHARS:
-                        raise DirectSourceError("direct_source_prompt_budget_exceeded")
+                    if correction:
+                        chunks, bounded_texts, attempt_prompt = _bounded_writer_prompt(
+                            system_prompt=system_prompt,
+                            prompt_prefix=prompt_prefix,
+                            source_candidates=source_candidates,
+                            document_ids=lesson.source_doc_ids,
+                            correction=correction,
+                        )
+                    else:
+                        attempt_prompt = user_prompt
                     response = await llm.ainvoke(
                         [
                             {"role": "system", "content": system_prompt},

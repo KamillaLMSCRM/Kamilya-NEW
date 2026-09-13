@@ -2397,6 +2397,33 @@ contract or establish a blocker.
   Use the deterministic writer seam for recurrence checks; reserve a full OCR and
   provider journey for final environment acceptance.
 
+## AI-PROMPT-002 - Quality retry overflowed an otherwise valid writer prompt
+
+- Date: 2026-09-14. Observed in production `0.5.33` during a fresh
+  methodologist-path generation from the 21-page Lombard microcredit-rules PDF.
+- Symptom: source ingestion and the 17-to-24-topic source map completed, the
+  job entered content generation with nine planned lessons, then failed at 30%
+  with `direct_source_prompt_budget_exceeded` while correcting the first lesson.
+- Cause: the initial writer request packed grounded excerpts up to the exact
+  32,000-character provider limit. When deterministic quality admission rejected
+  the response, the retry appended correction instructions without recalculating
+  how much room remained for source excerpts.
+- Fix: build every retry from the original verified candidates and repack the
+  grounded excerpts against the actual serialized budget after subtracting the
+  current correction text. Preserve representation of every requested document,
+  source identity, headings and references; fail before the provider if those
+  invariants cannot fit.
+- Verification: the RED regression fills the initial writer budget, rejects the
+  first response with `unsupported_relationship_claim`, and reproduces the
+  overflow before a second provider call. GREEN makes two bounded calls, includes
+  the correction, keeps both complete prompts at or below 32,000 characters and
+  returns a grounded lesson. The full production PDF and DOC journeys remain the
+  environment acceptance gate.
+- Prevention: every bounded provider prompt with an appended repair or retry
+  instruction must test the largest initial payload followed by at least one
+  deterministic correction. The retry must repack source data; it may not merely
+  concatenate control text to an already full request.
+
 ## AI-MAP-001 - A valid detailed source map exceeded the arbitrary topic count
 
 - Date: 2026-09-14. Observed in production `0.5.32` during the fresh

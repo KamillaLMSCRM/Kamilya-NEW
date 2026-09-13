@@ -15,6 +15,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.5.34] - 2026-09-14
+
+### Fixed
+
+- Recalculate the source-excerpt allowance when a deterministic lesson-quality
+  check asks the model for a corrected version, so the correction instructions
+  and grounded source remain inside the same strict provider prompt limit.
+- Preserve document identity, headings and source references on every retry;
+  oversized or otherwise unrepresentable metadata still fails before a
+  provider call.
+
 ## [0.5.33] - 2026-09-14
 
 ### Fixed

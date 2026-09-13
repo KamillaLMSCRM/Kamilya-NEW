@@ -2,6 +2,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from app.modules.ai import direct_source as direct_source_module
 from app.modules.ai.architect_schema import CourseStructure, Lesson, Module
 from app.modules.ai.direct_source import (
     MAX_DIRECT_WRITER_PROMPT_CHARS,
@@ -101,6 +102,33 @@ async def test_writer_uses_a_grounded_prefix_when_one_source_chunk_exceeds_the_p
     assert lesson.source_references[0]['doc_id'] == 'doc-0'
     assert lesson.source_references[0]['doc_name'] == 'scanned-rules.pdf'
     assert lesson.source_references[0]['headings'] == ['Microcredit rules']
+
+
+@pytest.mark.asyncio
+async def test_writer_rebudgets_source_when_quality_retry_adds_correction(monkeypatch):
+    corpus, structure = fixture()
+    llm = Spy()
+    admissions = iter((False, True))
+
+    def fake_quality(**_kwargs):
+        accepted = next(admissions)
+        return SimpleNamespace(
+            accepted=accepted,
+            reason_codes=() if accepted else ('unsupported_relationship_claim',),
+        )
+
+    monkeypatch.setattr(direct_source_module, 'evaluate_lesson_quality', fake_quality)
+
+    content = await write_direct_course(llm, corpus, structure)
+
+    assert len(content.modules[0].lessons) == 1
+    assert len(llm.messages) == 2
+    assert 'CORRECTION REQUIRED' in llm.messages[1][-1]['content']
+    assert all(
+        sum(len(message['content']) for message in invocation)
+        <= MAX_DIRECT_WRITER_PROMPT_CHARS
+        for invocation in llm.messages
+    )
 
 
 @pytest.mark.asyncio
