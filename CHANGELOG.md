@@ -37,6 +37,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   issue is present, so retries receive the complete corrective feedback.
 - Extend the course-quality acceptance gate with blind fixed-position and
   longest-answer baselines plus generic-module-title detection.
+- Resolve the canonical workspace credential file from the primary repository
+  when protected operations run from a linked release worktree; reject malformed
+  or noncanonical Git metadata instead of consulting a neighbouring directory.
 
 ## [0.5.13] - 2026-09-12
 

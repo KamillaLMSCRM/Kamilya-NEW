@@ -1567,6 +1567,28 @@ contract or establish a blocker.
 - Safe state: test rule stopped and reminder disabled through UI; three pilot
   accounts soft-deactivated. History and persistent synthetic tenant retained.
 
+## TOOL-009 - Linked release worktree looked for credentials beside `.worktrees`
+
+- Date: 2026-09-13.
+- Symptom: a reviewed protected restore drill passed its dry-run contract but the
+  execution gate stopped with `credential_source_unavailable` before opening a
+  network connection.
+- Cause: `kz_remote_exec.py` derived the workspace as `REPO_ROOT.parent`. That is
+  correct for the primary checkout, but from a linked release worktree it points
+  to `C:\Kamilya New\.worktrees` instead of the canonical workspace root.
+- Fix: resolve the primary repository through the linked worktree `.git` pointer,
+  require the canonical `.git/worktrees/<name>` shape, and derive the shared
+  workspace from the primary repository. Malformed or foreign metadata fails
+  closed; the environment-file allowlist remains unchanged.
+- Verification: the defect was first reproduced by two failing public-seam tests.
+  The complete protected remote-exec contract now passes 53 tests covering a
+  primary checkout, a linked worktree and rejection of a noncanonical Git path.
+  The failed pre-fix attempt performed no network, server, backup or database
+  mutation.
+- Prevention: every operational helper that derives a workspace-owned trust path
+  must be tested from both the primary checkout and a real linked-worktree shape.
+  Do not duplicate secrets into `.worktrees` to mask an incorrect path.
+
 ## REMINDER-003 — Legacy assignment outbox FORCE RLS blocks recurring materialization
 
 - Date: 2026-09-05

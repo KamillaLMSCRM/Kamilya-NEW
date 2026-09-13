@@ -8,7 +8,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from scripts.ops import kz_remote_exec as remote
+from scripts.ops import kz_remote_exec as remote  # noqa: E402
 
 
 def _script(tmp_path: Path, body: str, *, mode: str = "read-only", correlation: str = "none") -> Path:
@@ -300,6 +300,43 @@ def test_only_canonical_trust_paths_are_allowed(tmp_path) -> None:
         remote.assert_canonical_trust_paths(tmp_path / ".env", remote.DEFAULT_KNOWN_HOSTS)
     with pytest.raises(remote.GateBlocked, match="noncanonical_known_hosts_not_allowed"):
         remote.assert_canonical_trust_paths(remote.DEFAULT_ENV_FILE, tmp_path / "known_hosts")
+
+
+def test_linked_worktree_uses_primary_repository_workspace_env(tmp_path) -> None:
+    workspace = tmp_path / "workspace"
+    primary_repo = workspace / "Kamilya-NEW"
+    common_git_dir = primary_repo / ".git"
+    linked_repo = workspace / ".worktrees" / "release-candidate"
+    linked_git_dir = common_git_dir / "worktrees" / "release-candidate"
+    linked_git_dir.mkdir(parents=True)
+    linked_repo.mkdir(parents=True)
+    (linked_repo / ".git").write_text(
+        f"gitdir: {linked_git_dir}\n",
+        encoding="utf-8",
+    )
+
+    assert remote.resolve_workspace_root(linked_repo) == workspace.resolve()
+
+
+def test_primary_checkout_uses_its_parent_as_workspace(tmp_path) -> None:
+    repo = tmp_path / "workspace" / "Kamilya-NEW"
+    (repo / ".git").mkdir(parents=True)
+
+    assert remote.resolve_workspace_root(repo) == repo.parent.resolve()
+
+
+def test_linked_worktree_rejects_noncanonical_gitdir(tmp_path) -> None:
+    repo = tmp_path / "workspace" / ".worktrees" / "release-candidate"
+    foreign_git_dir = tmp_path / "foreign" / ".git" / "release-candidate"
+    repo.mkdir(parents=True)
+    foreign_git_dir.mkdir(parents=True)
+    (repo / ".git").write_text(
+        f"gitdir: {foreign_git_dir}\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(remote.GateBlocked, match="linked_worktree_gitdir_invalid"):
+        remote.resolve_workspace_root(repo)
 
 
 def test_read_only_fixed_health_get_is_allowed(monkeypatch, tmp_path) -> None:

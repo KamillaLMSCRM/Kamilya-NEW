@@ -16,8 +16,6 @@ from typing import Any, Callable
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-WORKSPACE_ROOT = REPO_ROOT.parent
-DEFAULT_ENV_FILE = WORKSPACE_ROOT / ".env"
 DEFAULT_KNOWN_HOSTS = Path.home() / ".ssh" / "known_hosts"
 MAX_SCRIPT_BYTES = 1024 * 1024
 MAX_REMOTE_OUTPUT_BYTES = 64 * 1024
@@ -109,6 +107,38 @@ class GateBlocked(RuntimeError):
     def __init__(self, error_class: str) -> None:
         super().__init__(error_class)
         self.error_class = error_class
+
+
+def resolve_workspace_root(repo_root: Path) -> Path:
+    """Resolve the shared workspace for a primary checkout or linked worktree."""
+    git_marker = repo_root / ".git"
+    if git_marker.is_dir():
+        return repo_root.parent.resolve()
+    if not git_marker.is_file():
+        raise GateBlocked("repository_metadata_unavailable")
+
+    try:
+        marker = git_marker.read_text(encoding="utf-8").strip()
+    except OSError as exc:
+        raise GateBlocked("repository_metadata_unavailable") from exc
+    if not marker.startswith("gitdir: "):
+        raise GateBlocked("linked_worktree_gitdir_invalid")
+
+    git_dir = Path(marker.removeprefix("gitdir: "))
+    if not git_dir.is_absolute():
+        git_dir = git_marker.parent / git_dir
+    git_dir = git_dir.resolve()
+    common_git_dir = git_dir.parent.parent
+    if git_dir.parent.name != "worktrees" or common_git_dir.name != ".git":
+        raise GateBlocked("linked_worktree_gitdir_invalid")
+    primary_repo = common_git_dir.parent
+    if not primary_repo.is_dir():
+        raise GateBlocked("linked_worktree_gitdir_invalid")
+    return primary_repo.parent.resolve()
+
+
+WORKSPACE_ROOT = resolve_workspace_root(REPO_ROOT)
+DEFAULT_ENV_FILE = WORKSPACE_ROOT / ".env"
 
 
 class RemoteScriptBlocked(GateBlocked):
