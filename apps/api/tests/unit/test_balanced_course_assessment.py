@@ -734,6 +734,55 @@ def test_vertical_collection_cards_map_attributes_to_source_columns() -> None:
     )
 
 
+def test_vertical_collection_cards_map_to_plain_converter_rows() -> None:
+    source = "\n".join(
+        [
+            "Альфа — современный — модульная компоновка — ЛДСП — уточнить размеры помещения",
+            "Бета — скандинавский — светлые фасады — МДФ — согласовать оттенок",
+            "Гамма — лофт — усиленная фурнитура — металл и ЛДСП — обсудить нагрузку",
+            "Дельта — минимализм — скрытые ручки — МДФ — показать механизм открывания",
+            "Эпсилон — классический — вместительные секции — ЛДСП — уточнить объём хранения",
+            "Зета — современный — регулируемые полки — ЛДСП — собрать требования к высоте",
+        ]
+    )
+    lesson_body = "\n\n".join(
+        [
+            "## Альфа",
+            "| Характеристика | Значение |",
+            "| --- | --- |",
+            "| Стиль | современный |",
+            "| Преимущество для клиента | модульная компоновка |",
+            "| Материал | ЛДСП |",
+            "| Сценарий консультации | уточнить размеры помещения |",
+            "",
+            "## Бета",
+            "| Характеристика | Значение |",
+            "| --- | --- |",
+            "| Стиль | скандинавский |",
+            "| Преимущество для клиента | светлые фасады |",
+            "| Материал | МДФ |",
+            "| Сценарий консультации | согласовать оттенок |",
+        ]
+    )
+
+    result = _generate_tabular_assessment(
+        evidence_bank=_build_evidence_bank(source),
+        bounded_source=source,
+        lesson_title="Коллекции: Альфа и Бета",
+        lesson_objectives=["Сопоставлять характеристики коллекций"],
+        lesson_body=lesson_body,
+        language="ru",
+        question_count=2,
+    )
+
+    assert result is not None
+    assert len(result.mcq) == 2
+    assert all(
+        "«Альфа»" in question.question or "«Бета»" in question.question
+        for question in result.mcq
+    )
+
+
 def test_unrelated_lesson_table_does_not_block_scoped_source_fallback() -> None:
     source = _collection_table_source()
     lesson_body = "\n".join(

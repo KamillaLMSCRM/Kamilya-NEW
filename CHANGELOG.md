@@ -25,6 +25,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   order while the stable choice identifiers and grading contract stay intact.
 - Multi-module courses generated directly from structured tables use
   source-grounded topic ranges in module titles instead of numbered placeholders.
+- Structured-table lessons use peer values from the same primary worksheet to
+  build deterministic distractors without promoting auxiliary catalog rows.
 
 ### Fixed
 

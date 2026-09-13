@@ -421,10 +421,11 @@ def test_primary_tabular_renderer_does_not_read_same_named_supporting_sheet() ->
     )
 
     assert rendered is not None
-    content, selected_source = rendered
+    content, selected_source, assessment_source = rendered
     assert "Modular storage" in content
     assert "199000" not in content
     assert "199000" not in selected_source
+    assert "199000" not in assessment_source
 
 
 def test_primary_tabular_renderer_omits_note_only_source_rows() -> None:
@@ -470,9 +471,63 @@ def test_primary_tabular_renderer_omits_note_only_source_rows() -> None:
     )
 
     assert rendered is not None
-    content, selected_source = rendered
+    content, selected_source, assessment_source = rendered
     assert "manufacturer website" not in content
     assert "manufacturer website" not in selected_source
+    assert "manufacturer website" not in assessment_source
+
+
+def test_primary_tabular_renderer_keeps_peer_rows_for_assessment_only() -> None:
+    revision = "document:" + "c" * 64
+    primary = DirectSourceChunk(
+        chunk_id="direct:doc-primary:0",
+        doc_id="doc-primary",
+        doc_name="primary.xlsx",
+        title="Primary",
+        headings=("[Worksheet] Коллекции",),
+        text=(
+            "| Коллекция | Стиль | Преимущество для клиента | Материал | Сценарий консультации |\n"
+            "| --- | --- | --- | --- | --- |\n"
+            "| Альфа | современный | модульная компоновка | ЛДСП | уточнить размеры помещения |\n"
+            "| Бета | скандинавский | светлые фасады | МДФ | согласовать оттенок |\n"
+            "| Гамма | лофт | усиленная фурнитура | металл и ЛДСП | обсудить нагрузку |\n"
+            "| Дельта | минимализм | скрытые ручки | МДФ | показать механизм открывания |\n"
+            "| Эпсилон | классический | вместительные секции | ЛДСП | уточнить объём хранения |\n"
+            "| Зета | современный | регулируемые полки | ЛДСП | собрать требования к высоте |"
+        ),
+        source_revision=revision,
+        chunk_index=0,
+    )
+    corpus = DirectSourceCorpus(
+        tenant_id="tenant-1",
+        documents=(
+            DirectSourceDocument(
+                doc_id="doc-primary",
+                title="Primary",
+                filename="primary.xlsx",
+                category="general",
+                source_revision=revision,
+                chunks=(primary,),
+            ),
+        ),
+        total_chars=len(primary.text),
+        total_chunks=1,
+    )
+
+    rendered = _render_primary_tabular_lesson(
+        chunks=(primary,),
+        passport=build_document_passport(corpus),
+        title="Коллекции: Альфа и Бета",
+        objectives=("Сопоставлять характеристики коллекций",),
+        language="ru",
+    )
+
+    assert rendered is not None
+    content, selected_source, assessment_source = rendered
+    assert "Гамма" not in content
+    assert "Гамма" not in selected_source
+    assert "Гамма" in assessment_source
+    assert "Альфа" in assessment_source
 
 
 @pytest.mark.asyncio

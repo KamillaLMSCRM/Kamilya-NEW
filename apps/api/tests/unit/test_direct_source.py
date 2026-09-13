@@ -1310,7 +1310,17 @@ async def test_blank_intent_builds_multi_module_structure_from_split_primary_tab
 
     course = await write_direct_course(LLM(), corpus, result, language="ru")
     written_lessons = [lesson for module in course.modules for lesson in module.lessons]
-    assert all(len(lesson.source_chunks) == 1 for lesson in written_lessons)
+    assert all(len(lesson.source_chunks) == 2 for lesson in written_lessons)
+    assert all(
+        "SKU-" not in source_chunk
+        for lesson in written_lessons
+        for source_chunk in lesson.source_chunks
+    )
+    assert all(
+        "Примечание: цены ориентировочные" not in source_chunk
+        for lesson in written_lessons
+        for source_chunk in lesson.source_chunks
+    )
     assert all("Источник: сайт производителя" not in lesson.source_chunks[0] for lesson in written_lessons)
 
 

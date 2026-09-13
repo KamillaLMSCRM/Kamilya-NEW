@@ -295,8 +295,8 @@ def _render_primary_tabular_lesson(
     title: str,
     objectives: Sequence[str],
     language: str,
-) -> tuple[str, str] | None:
-    """Render source-exact subject cards for a high-confidence primary table."""
+) -> tuple[str, str, str] | None:
+    """Render subject cards plus selected and peer assessment evidence."""
 
     if passport.confidence == "low":
         return None
@@ -379,7 +379,18 @@ def _render_primary_tabular_lesson(
         "| " + " | ".join(escaped(cells[index]) for index in selected_columns) + " |" for cells in selected_rows
     )
     selected_source = "\n".join(selected_source_lines)
-    return content, selected_source
+    assessment_source_lines = [
+        "| " + " | ".join(escaped(value) for value in selected_headers) + " |",
+        "| " + " | ".join("---" for _value in selected_headers) + " |",
+    ]
+    assessment_source_lines.extend(
+        "| "
+        + " | ".join(escaped(cells[index]) for index in selected_columns)
+        + " |"
+        for cells, _raw_row in rows
+    )
+    assessment_source = "\n".join(assessment_source_lines)
+    return content, selected_source, assessment_source
 
 
 def _build_primary_tabular_structure(
@@ -1727,7 +1738,7 @@ Objectives: {json.dumps(objectives, ensure_ascii=False)}
                 objectives=objectives,
                 content=content,
                 source_chunks=(
-                    [tabular_lesson[1]]
+                    list(dict.fromkeys((tabular_lesson[1], tabular_lesson[2])))
                     if tabular_lesson is not None
                     else bounded_texts
                 ),
