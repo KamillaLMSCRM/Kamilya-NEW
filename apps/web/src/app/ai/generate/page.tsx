@@ -161,6 +161,7 @@ export default function AIGeneratePage() {
     cancelJob,
     resumeJob,
     prepareRetry,
+    resetWorkflow,
   } = useGenerationWorkflow(requestedProgramId);
   const step = currentJob ? workflowStep : pageStep;
   const [dragOver, setDragOver] = useState(false);
@@ -549,6 +550,40 @@ export default function AIGeneratePage() {
   const retryGeneration = () => {
     setPageStep('documents');
     prepareRetry();
+  };
+
+  const createNewCourse = () => {
+    setPageStep('documents');
+    resetWorkflow();
+    setSelectedDocIds([]);
+    setTargetAudience('');
+    setCourseIntent('');
+    setNumModules(3);
+    setCourseFormat('automatic');
+    setManualModules(false);
+    setLanguage('ru');
+    setPreview(null);
+    setCourseMeta(null);
+    setPreviewLoading(false);
+    setProgramAttachState('idle');
+    setReviewDialog({ open: false, status: 'approved', comment: '' });
+    setChatMessages([]);
+    setChatInput('');
+    setChatContext({ context: 'course' });
+    setRegenJob(null);
+    setEditingLessonId(null);
+    setEditForm({ title: '', content: '' });
+    setUploadError('');
+    setDocumentLoadError('');
+    setCompatibility(null);
+    setCompatibilityError('');
+    setCompatibilityLoading(false);
+    setSourceStrategy('single_topic');
+    setCombinationGoal('');
+    setAdmissionError(false);
+    setAdmissionRetryAfter(null);
+    setAcknowledgements({ languageConfirmed: false, reuseReason: null });
+    if (fileRef.current) fileRef.current.value = '';
   };
 
   const attachPublishedCourseToProgram = async (courseId: string) => {
@@ -1205,6 +1240,16 @@ export default function AIGeneratePage() {
             <p className="text-sm text-success mt-1">
               Проверьте структуру ниже. Методолог должен одобрить курс перед публикацией.
             </p>
+          </div>
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={createNewCourse}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-card px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Создать новый курс
+            </button>
           </div>
 
           {/* Course meta + review status */}

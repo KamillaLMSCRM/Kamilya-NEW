@@ -77,4 +77,25 @@ describe('AI generation workflow recovery', () => {
     expect(result.current.currentJob?.id).toBe('current-tenant-job');
     expect(result.current.currentJob?.status).toBe('pending');
   });
+
+  it('clears a restored completed workflow when starting a new course', async () => {
+    const completedJob = { ...activeJob, status: 'completed', stage: 'completed', progress: 100 };
+    localStorage.setItem('ai_active_job_id', completedJob.id);
+    localStorage.setItem('ai_generation_workflow_context', JSON.stringify({
+      job_id: completedJob.id,
+      program_id: 'program-1',
+    }));
+    apiMock.get.mockResolvedValueOnce({ data: completedJob });
+    const { result } = renderHook(() => useGenerationWorkflow());
+
+    await act(async () => { await result.current.restoreActiveJob(); });
+    expect(result.current.step).toBe('review');
+
+    act(() => { result.current.resetWorkflow(); });
+
+    expect(result.current.currentJob).toBeNull();
+    expect(result.current.step).toBe('documents');
+    expect(localStorage.getItem('ai_active_job_id')).toBeNull();
+    expect(localStorage.getItem('ai_generation_workflow_context')).toBeNull();
+  });
 });

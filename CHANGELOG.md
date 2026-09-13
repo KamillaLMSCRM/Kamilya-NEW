@@ -15,6 +15,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.5.15] - 2026-09-13
+
+### Fixed
+
+- After reviewing a completed AI-generated course, methodologists can start a
+  new course from the same page. The action clears only the finished workflow
+  and its persisted browser context, then returns to a clean document-selection
+  step without signing the user out.
+- Generated tests reject questions that describe facts through the source
+  container (for example, “how the source material describes ...”) instead of
+  asking the learner about the fact itself.
+- Restored assessment checkpoints are revalidated against the current lesson
+  source and quality contract; invalid saved questions are regenerated.
+
 ## [0.5.14] - 2026-09-13
 
 ### Changed

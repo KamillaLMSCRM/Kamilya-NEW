@@ -110,6 +110,10 @@ async def test_assessment_resume_preserves_order_skips_restored_and_does_not_sle
         sleeps.append(seconds)
 
     monkeypatch.setattr("app.modules.ai.assessment.generate_lesson_assessment", fake_generate)
+    monkeypatch.setattr(
+        "app.modules.ai.assessment._restored_assessment_is_valid",
+        lambda *args, **kwargs: True,
+    )
     monkeypatch.setattr("app.modules.ai.assessment.asyncio.sleep", fake_sleep)
 
     result = await generate_course_assessment(

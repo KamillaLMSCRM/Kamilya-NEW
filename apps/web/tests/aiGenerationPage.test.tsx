@@ -117,6 +117,35 @@ describe('/ai/generate job workflow parity', () => {
       expect.objectContaining({ description: 'Для курса включено отдельное согласование. Откройте «Согласование» и получите решение рецензента. Если оно не требуется, отключите настройку там.' }),
     ));
   });
+
+  it('lets the methodologist start a new course from a restored completed review', async () => {
+    const completedJob = { ...activeJob, status: 'completed', stage: 'completed', progress: 100 };
+    localStorage.setItem('ai_generation_workflow_context', JSON.stringify({
+      job_id: completedJob.id,
+      program_id: 'program-1',
+    }));
+    apiMock.get.mockImplementation(async (url: string) => {
+      if (url.startsWith('/v1/documents/catalog')) return { data: { items: [], page: { has_more: false } } } as any;
+      if (url === `/v1/ai/jobs/${activeJob.id}`) return { data: completedJob } as any;
+      if (url === `/v1/courses/${activeJob.course_id}/preview`) {
+        return { data: { source_documents: [], modules: [], modules_count: 0, lessons_count: 0, quizzes_count: 0 } } as any;
+      }
+      if (url === `/v1/courses/${activeJob.course_id}`) {
+        return { data: { id: activeJob.course_id, title: 'Старый курс', description: 'Старый результат', review_status: 'approved', status: 'draft' } } as any;
+      }
+      throw new Error(`Unexpected GET ${url}`);
+    });
+
+    render(<AIGeneratePage />);
+
+    expect(await screen.findByText('Старый курс')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Создать новый курс' }));
+
+    expect(await screen.findByText(/Перетащите документы/)).toBeInTheDocument();
+    expect(screen.queryByText('Старый курс')).not.toBeInTheDocument();
+    expect(localStorage.getItem('ai_active_job_id')).toBeNull();
+    expect(localStorage.getItem('ai_generation_workflow_context')).toBeNull();
+  });
 });
 
 const readyDocuments = [

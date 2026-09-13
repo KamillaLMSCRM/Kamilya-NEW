@@ -92,6 +92,7 @@ def _additional_questions() -> list[dict]:
         "Какие коллекции рассматриваются в разделе о стиле и материалах?",
         "Как называется коллекция, представленная в свидетельстве?",
         "Что представляет собой преимущество для клиента согласно уроку?",
+        "Как в исходном материале описаны цвета коллекции Чикаго Стрит?",
         "Что рассматривается в теме о стилях и коллекциях?",
         "Что в этом уроке разбираем о каждой коллекции?",
     ],
@@ -2231,6 +2232,19 @@ async def test_course_assessment_reports_only_completed_lessons():
 @pytest.mark.asyncio
 async def test_course_assessment_registers_only_grounded_facts_from_restored_checkpoint():
     questions = _loan_questions()
+    questions.append(
+        {
+            "question": "When does loan delinquency occur?",
+            "options": [
+                {"text": "after a missed due date", "is_correct": True},
+                {"text": "before a missed due date", "is_correct": False},
+                {"text": "during a scheduled due date", "is_correct": False},
+                {"text": "without a recorded due date", "is_correct": False},
+            ],
+            "explanation": "Loan delinquency occurs after a missed due date.",
+            "source_quote_id": "E06",
+        }
+    )
     source = " ".join(q["explanation"] for q in questions)
     stale = LessonAssessment.from_dict(
         {
@@ -2253,18 +2267,20 @@ async def test_course_assessment_registers_only_grounded_facts_from_restored_che
             self.calls += 1
             prompt = messages[-1]["content"]
             assert "A stale checkpoint fact is not in this lesson" not in prompt
+            selected = questions[:3] if self.calls == 1 else questions[3:6]
             return SimpleNamespace(
                 content=__import__("json").dumps(
                     {
-                        "mcq": questions[:3],
+                        "mcq": selected,
                         "true_false": [],
                         "matching": [],
                     }
                 )
             )
 
+    llm = InspectingLLM()
     result = await generate_course_assessment(
-        InspectingLLM(),
+        llm,
         CourseContent(
             title="Loan lifecycle",
             modules=[
@@ -2282,5 +2298,74 @@ async def test_course_assessment_registers_only_grounded_facts_from_restored_che
         completed_assessments={(0, 0): stale},
     )
 
+    assert llm.calls == 2
+    assert len(result.assessments[0].mcq) == 3
     assert len(result.assessments) == 2
     assert len(result.assessments[1].mcq) == 3
+
+
+@pytest.mark.asyncio
+async def test_course_assessment_regenerates_invalid_restored_meta_question():
+    questions = _loan_questions()
+    source = " ".join(q["explanation"] for q in questions)
+    restored_questions = [
+        {
+            **question,
+            "source_quote": question["explanation"],
+        }
+        for question in questions
+    ]
+    restored_questions[0]["question"] = (
+        "How is loan approval described in the source material?"
+    )
+    stale = LessonAssessment.from_dict(
+        {
+            "lesson_title": "Approval",
+            "mcq": restored_questions,
+            "true_false": [],
+            "matching": [],
+        }
+    )
+
+    class ValidLLM:
+        calls = 0
+
+        async def ainvoke(self, messages, config=None, response_format=None):
+            self.calls += 1
+            return SimpleNamespace(
+                content=__import__("json").dumps(
+                    {
+                        "mcq": questions,
+                        "true_false": [],
+                        "matching": [],
+                    }
+                )
+            )
+
+    llm = ValidLLM()
+    regenerated: list[LessonAssessment] = []
+    result = await generate_course_assessment(
+        llm,
+        CourseContent(
+            title="Loan lifecycle",
+            modules=[
+                ModuleContent(
+                    title="Module",
+                    lessons=[
+                        LessonContent(
+                            title="Approval",
+                            content=source,
+                            source_references=[],
+                        )
+                    ],
+                )
+            ],
+        ),
+        language="en",
+        completed_assessments={(0, 0): stale},
+        on_assessment_complete=lambda _module, _lesson, item: regenerated.append(item),
+    )
+
+    assert llm.calls == 1
+    assert len(regenerated) == 1
+    assert result.assessments[0].mcq[0].question == "When does loan approval occur?"

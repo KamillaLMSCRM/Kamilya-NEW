@@ -2022,6 +2022,68 @@ Output ONLY the JSON data instance:
             raise
 
 
+def _restored_assessment_is_valid(
+    assessment: LessonAssessment,
+    lesson_content: LessonContent,
+    *,
+    language: str,
+    compact: bool,
+    excluded_fact_keys: frozenset[tuple[str, str]],
+) -> bool:
+    """Reapply the current source and quality contract to a saved checkpoint."""
+    if assessment.lesson_title != lesson_content.title:
+        return False
+    original_source = "\n".join(
+        chunk.strip() for chunk in lesson_content.source_chunks if chunk.strip()
+    )
+    bounded_source = (original_source or lesson_content.content)[:8000]
+    evidence_bank = _build_evidence_bank(bounded_source)
+    if not evidence_bank:
+        return False
+    evidence_ids_by_quote: dict[str, list[str]] = {}
+    for evidence_id, evidence in evidence_bank.items():
+        evidence_ids_by_quote.setdefault(
+            _normalize_evidence_text(_plain_evidence_text(evidence)), []
+        ).append(evidence_id)
+
+    data = assessment.to_dict()
+    for question in data.get("mcq", []):
+        if not isinstance(question, dict):
+            return False
+        matching_ids = evidence_ids_by_quote.get(
+            _normalize_evidence_text(
+                _plain_evidence_text(str(question.get("source_quote", "")))
+            ),
+            [],
+        )
+        if len(matching_ids) != 1:
+            return False
+        question["source_quote_id"] = matching_ids[0]
+
+    issues = _validate_question_evidence(
+        data,
+        evidence_bank,
+        bounded_source,
+        language,
+        excluded_fact_keys,
+    )
+    issues.extend(_validate_generated_question_set(data, language))
+    restored = LessonAssessment.from_dict(data)  # type: ignore[no-untyped-call]
+    issues.extend(_validate_assessment(restored))
+    expected_count = _assessment_question_count(
+        compact=compact,
+        evidence_bank=evidence_bank,
+        bounded_source=bounded_source,
+    )
+    if len(restored.mcq) != expected_count:
+        issues.append(
+            f"MCQ count is {len(restored.mcq)} (expected exactly {expected_count})"
+        )
+    if restored.true_false or restored.matching:
+        issues.append("restored assessment contains unsupported question types")
+    return not issues
+
+
 async def generate_course_assessment(
     llm: LLMClient,
     course_content,
@@ -2053,6 +2115,20 @@ async def generate_course_assessment(
                 if hasattr(result, "__await__"):
                     await result
             restored = completed_assessments.get((module_index, lesson_index))
+            if restored is not None and not _restored_assessment_is_valid(
+                restored,
+                lesson,
+                language=language,
+                compact=compact,
+                excluded_fact_keys=frozenset(assessed_fact_keys),
+            ):
+                logger.warning(
+                    "[ASSESSMENT_CHECKPOINT_REJECTED] module=%d lesson=%d title=%r",
+                    module_index,
+                    lesson_index,
+                    lesson.title,
+                )
+                restored = None
             if restored is not None:
                 a = restored
             else:

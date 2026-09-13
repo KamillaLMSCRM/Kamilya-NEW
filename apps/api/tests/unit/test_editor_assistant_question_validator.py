@@ -209,6 +209,7 @@ def test_rote_recall_and_explanation_leakage_are_deterministic() -> None:
         "What is covered in this lesson?",
         "What will this lesson teach?",
         "What does this lesson cover?",
+        "Как в исходном материале описаны цвета коллекции Чикаго Стрит?",
     ),
 )
 def test_generic_meta_questions_fail_closed(prompt: str) -> None:

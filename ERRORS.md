@@ -2126,3 +2126,42 @@ contract or establish a blocker.
 - Prevention: every provider admitted to the production order must pass model
   identity and bounded inference from the actual consuming worker. A configured
   position is not availability evidence.
+
+## UI-001 - Completed course generation trapped the methodologist on the old result
+
+- Date: 2026-09-13. Observed in production after the native `0.5.14` frontend
+  readback.
+- Symptom: reopening `/ai/generate` restored the last completed course and showed
+  its review screen, but offered no action to begin another course. Navigation
+  away and back restored the same completed workflow again.
+- Cause: completed jobs were intentionally restorable, while the review branch
+  exposed only review, edit and course-list actions. The existing workflow reset
+  was wired only to failed-generation retry.
+- Fix: expose a dedicated `Create new course` action for a completed review. It
+  clears the stored job and workflow context, resets page-scoped generation state
+  and returns to document selection without changing the authenticated session.
+- Verification: focused hook and page regressions are 19 PASS; frontend lint with
+  zero warnings and TypeScript typecheck pass. Exact production browser readback
+  belongs to the `0.5.15` release evidence.
+- Prevention: every terminal generation state must offer an explicit next action.
+  Keep completed-result recovery and new-workflow reset covered independently so
+  persistence cannot turn recovery into a navigation dead end.
+
+## AI-ASSESSMENT-QUALITY-003 - Source-container wording escaped the assessment gate
+
+- Date: 2026-09-13. Observed by the full production Excel acceptance on `0.5.14`.
+- Symptom: a grounded test still asked how colours were “described in the source
+  material” instead of asking the learner directly which colours applied.
+- Cause: the shared generic-meta detector rejected a source reference only when
+  “source material” ended the question, so a factual suffix escaped the anchored
+  expression. In addition, an assessment restored from a generation checkpoint
+  bypassed the current source and quality validators.
+- Fix: reject the same source-container wording with or without a following factual
+  suffix, with equivalent Russian and English handling. Revalidate every restored
+  assessment against the current lesson evidence, expected question count and
+  quality contract; discard and regenerate invalid checkpoints.
+- Verification: the exact escaped production wording first failed two new
+  regressions, and an invalid restored checkpoint first bypassed the provider in a
+  third regression. The focused validator and resume suites then passed 110 tests.
+- Prevention: add every production quality escape to the generation-contract,
+  shared-editor and checkpoint-resume suites before changing the detector.

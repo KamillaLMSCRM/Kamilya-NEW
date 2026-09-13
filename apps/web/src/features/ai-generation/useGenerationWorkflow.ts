@@ -138,6 +138,12 @@ export function useGenerationWorkflow(requestedProgramId: string | null = null) 
     dispatch({ type: 'job_cleared' });
   }, []);
 
+  const resetWorkflow = useCallback(() => {
+    localStorage.removeItem(activeJobStorageKey);
+    clearWorkflowContext();
+    dispatch({ type: 'job_cleared' });
+  }, []);
+
   useEffect(() => {
     const job = state.currentJob;
     if (!job || !isActive(job)) return;
@@ -157,5 +163,6 @@ export function useGenerationWorkflow(requestedProgramId: string | null = null) 
     cancelJob,
     resumeJob,
     prepareRetry,
+    resetWorkflow,
   };
 }
