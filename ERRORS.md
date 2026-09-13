@@ -2343,3 +2343,10 @@ contract or establish a blocker.
   must convert an image-only multilingual PDF through the authenticated worker
   path after a cold cache/container recreation and verify meaningful extracted
   text plus the final document index state.
+- Recurrence: after PDF OCR passed, a real legacy `.doc` still returned HTTP 422.
+  LibreOffice resolved the unprivileged service account's passwd home
+  (`/nonexistent`) while creating its first-run user profile and exited with code
+  77 before producing DOCX. Every conversion now receives its own explicit
+  `-env:UserInstallation=file://.../lo-profile` inside the request-scoped temporary
+  directory. The regression test requires that isolated profile argument, and
+  production acceptance must include one real binary `.doc`, not only DOCX/PDF.

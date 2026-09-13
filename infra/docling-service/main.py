@@ -327,9 +327,16 @@ def _convert_sync(*, tmp_path: str, filename: str, suffix: str) -> dict:
                 )
             conversion_dir = tempfile.mkdtemp(prefix="docling-docx-")
             try:
+                # LibreOffice otherwise resolves the container user's passwd
+                # home (/nonexistent) and fails before conversion while trying
+                # to create its per-user profile.  A unique profile inside the
+                # already isolated conversion directory also prevents parallel
+                # requests from sharing lock/state files.
+                user_installation = (Path(conversion_dir) / "lo-profile").as_uri()
                 process = subprocess.run(
                     [
                         libreoffice,
+                        f"-env:UserInstallation={user_installation}",
                         "--headless",
                         "--convert-to",
                         "docx",

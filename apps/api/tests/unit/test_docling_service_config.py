@@ -154,7 +154,14 @@ async def test_convert_legacy_doc_uses_libreoffice_before_docling(
         stderr = ""
 
     def fake_run(args, **kwargs):
+        profile_args = [
+            argument
+            for argument in args
+            if argument.startswith("-env:UserInstallation=file://")
+        ]
+        assert len(profile_args) == 1
         output_dir = Path(args[args.index("--outdir") + 1])
+        assert profile_args[0] == f"-env:UserInstallation={(output_dir / 'lo-profile').as_uri()}"
         source = Path(args[-1])
         (output_dir / f"{source.stem}.docx").write_bytes(_minimal_ooxml(".docx"))
         return Completed()
