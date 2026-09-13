@@ -46,6 +46,28 @@ async def test_nine_topics_and_long_summary_are_not_course_failure():
 
 
 @pytest.mark.asyncio
+async def test_seventeen_distinct_topics_from_one_large_source_are_not_course_failure():
+    class SeventeenTopicLLM:
+        calls = 0
+
+        async def ainvoke(self, messages, config=None):
+            self.calls += 1
+            return SimpleNamespace(content=json.dumps({
+                "summary": "Detailed regulatory material.",
+                "topics": [f"Distinct regulatory topic {i}" for i in range(17)],
+            }))
+
+    llm = SeventeenTopicLLM()
+
+    result = await build_source_topic_map(corpus(), llm)
+
+    assert llm.calls == 1
+    assert result.records[0].topics == tuple(
+        f"Distinct regulatory topic {i}" for i in range(17)
+    )
+
+
+@pytest.mark.asyncio
 async def test_full_catalog_overview_retains_all_topics_and_source_ids():
     llm = DetailedLLM()
     result = await build_source_topic_map(corpus(932), llm)

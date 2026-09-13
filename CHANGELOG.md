@@ -15,6 +15,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.5.33] - 2026-09-14
+
+### Fixed
+
+- Accept up to 24 distinct navigation topics from one large source-map batch,
+  instead of failing a grounded course when the model returns 17 to 24 concise
+  topics within every response and architect-overview budget.
+- Keep source coverage server-owned and continue to reject empty topic lists,
+  more than 24 topics, overlong topics and over-budget serialized output.
+
 ## [0.5.32] - 2026-09-14
 
 ### Fixed

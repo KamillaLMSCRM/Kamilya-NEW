@@ -2397,6 +2397,27 @@ contract or establish a blocker.
   Use the deterministic writer seam for recurrence checks; reserve a full OCR and
   provider journey for final environment acceptance.
 
+## AI-MAP-001 - A valid detailed source map exceeded the arbitrary topic count
+
+- Date: 2026-09-14. Observed in production `0.5.32` during the fresh
+  methodologist-path generation from the 21-page Lombard microcredit-rules PDF.
+- Symptom: OCR completed and the job entered course architecture, then both
+  bounded map attempts ended with `source_topic_map_invalid_response_topic_count`.
+- Cause: the source-map response contract allowed only 16 topics per batch. A
+  detailed regulatory source can yield 17 to 24 concise, nonempty topics while
+  still remaining inside the existing 8,000-character response, 6,000-character
+  content and 28,000-character architect-overview budgets.
+- Fix: raise only the per-record topic-count ceiling to 24 and publish the same
+  limit in the model protocol. All byte, character, serialization, coverage and
+  source-identity budgets remain unchanged.
+- Verification: the RED regression returns 17 distinct regulatory topics and
+  fails twice under the old limit. GREEN accepts all 17 in one call without
+  truncation. Existing validation now rejects 25 topics and still covers empty,
+  non-string, overlong and serialized-overflow responses.
+- Prevention: do not use a small presentation-oriented count as a reliability
+  boundary when independent serialized and final-overview budgets already cap
+  the response. Keep the exact 17-topic production shape as a regression.
+
 ## DOCLING-001 - Scanned PDF failed before OCR in the production container
 
 - Date: 2026-09-13. Observed on production `0.5.26`; repaired for `0.5.27`.

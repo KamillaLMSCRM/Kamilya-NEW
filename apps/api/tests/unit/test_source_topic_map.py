@@ -74,7 +74,7 @@ async def test_model_protocol_does_not_request_source_id_bookkeeping():
     system = llm.calls[0][0][0]["content"]
     assert "server attaches exact source references" in system
     assert "Do not return source IDs" in system
-    assert "1 to 16" in system and "1600 characters" in system
+    assert "1 to 24" in system and "1600 characters" in system
     assert all(config == {"max_tokens": MAX_MAP_RESPONSE_TOKENS} for _, config in llm.calls)
 
 
@@ -107,7 +107,7 @@ async def test_catalog_with_repeated_metadata_fits_request_limits_without_source
     (json.dumps({"summary": "", "topics": ["x"]}), "invalid_response_summary"),
     (json.dumps({"summary": "x" * 1601, "topics": ["x"]}), "invalid_response_summary_length"),
     (json.dumps({"summary": "x", "topics": []}), "invalid_response_topic_count"),
-    (json.dumps({"summary": "x", "topics": ["x"] * 17}), "invalid_response_topic_count"),
+    (json.dumps({"summary": "x", "topics": ["x"] * 25}), "invalid_response_topic_count"),
     (json.dumps({"summary": "x", "topics": [None]}), "invalid_response_topic_type"),
     (json.dumps({"summary": "x", "topics": ["x" * 161]}), "invalid_response_topic_length"),
     ("x" * 8001, "response_budget_exceeded"),
