@@ -2046,7 +2046,7 @@ def _restored_assessment_is_valid(
             _normalize_evidence_text(_plain_evidence_text(evidence)), []
         ).append(evidence_id)
 
-    data = assessment.to_dict()
+    data = assessment.to_dict()  # type: ignore[no-untyped-call]
     for question in data.get("mcq", []):
         if not isinstance(question, dict):
             return False
