@@ -15,6 +15,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.5.38] - 2026-09-14
+
+### Fixed
+
+- Remove the arbitrary per-batch topic-count ceiling from source mapping;
+  detailed regulatory and catalog sources are now bounded by the existing
+  response, content, serialized-JSON, token and final-overview budgets.
+- Invalidate prior source-map checkpoints after the protocol change so resumed
+  jobs cannot mix responses produced under different validation contracts.
+
 ## [0.5.37] - 2026-09-14
 
 ### Fixed

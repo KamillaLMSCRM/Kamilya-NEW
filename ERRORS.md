@@ -2517,6 +2517,13 @@ contract or establish a blocker.
 - Prevention: do not use a small presentation-oriented count as a reliability
   boundary when independent serialized and final-overview budgets already cap
   the response. Keep the exact 17-topic production shape as a regression.
+- Recurrence: production `0.5.37` reached the same map after the connection
+  retry repair, but the real PDF produced more than 24 concise topics and was
+  rejected again. Raising 16 to 24 had moved the arbitrary boundary rather than
+  removed it. Production `0.5.38` removes the upper item count; nonempty/type/
+  per-topic length, 8,000-character response, 6,000-character content,
+  serialized-topic, 2,048-token and 28,000-character final-overview limits
+  remain mandatory. Protocol revision `v5` prevents reuse of old checkpoints.
 
 ## DOCLING-001 - Scanned PDF failed before OCR in the production container
 
