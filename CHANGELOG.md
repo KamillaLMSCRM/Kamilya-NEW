@@ -15,6 +15,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.5.36] - 2026-09-14
+
+### Fixed
+
+- Compact the final course structure to the lessons actually accepted from a
+  source before matching generated assessments and saving the draft.
+- Preserve original plan coordinates only for durable checkpoint recovery;
+  omitted lessons no longer remain in the separate structure used by the
+  persistence layer.
+
 ## [0.5.35] - 2026-09-14
 
 ### Fixed

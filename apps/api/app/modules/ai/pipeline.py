@@ -8,7 +8,7 @@ import logging
 import math
 import re
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timezone
 from typing import TypedDict, cast
 from uuid import UUID, uuid4
@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.db import async_session_factory
 from app.modules.ai.architect import create_architect_tools, run_architect
 from app.modules.ai.architect_schema import CourseStructure
+from app.modules.ai.architect_schema import Module as StructureModule
 from app.modules.ai.assessment import generate_course_assessment
 from app.modules.ai.assessment_schema import CourseAssessment, LessonAssessment
 from app.modules.ai.direct_source import (
@@ -97,6 +98,72 @@ def _generation_plan_payload(
         "source_document_ids": list(documents),
         "options": options,
     }
+
+
+def _compact_structure_for_generated_content(
+    structure: CourseStructure,
+    content: CourseContent,
+    compact_lesson_origins: dict[tuple[int, int], tuple[int, int]],
+) -> CourseStructure:
+    """Align persisted structure with the lessons retained by direct-source writing.
+
+    Checkpoint coordinates remain tied to the immutable original plan, while the
+    course saved for a methodologist must contain only accepted lessons.  The
+    compact-to-original mapping is therefore consumed once here to build the
+    final structure used by assessment identity checks and persistence.
+    """
+    modules: list[StructureModule] = []
+    seen_original_modules: set[int] = set()
+    for compact_module_index, content_module in enumerate(content.modules):
+        original_module_index: int | None = None
+        lessons = []
+        for compact_lesson_index, content_lesson in enumerate(content_module.lessons):
+            original = compact_lesson_origins.get(
+                (compact_module_index, compact_lesson_index)
+            )
+            if original is None:
+                raise AIGenerationCheckpointError(
+                    "generation_compact_lesson_identity_missing"
+                )
+            module_index, lesson_index = original
+            if original_module_index is None:
+                original_module_index = module_index
+            elif original_module_index != module_index:
+                raise AIGenerationCheckpointError(
+                    "generation_compact_module_identity_conflict"
+                )
+            try:
+                original_lesson = structure.modules[module_index].lessons[lesson_index]
+            except IndexError as exc:
+                raise AIGenerationCheckpointError(
+                    "generation_compact_lesson_identity_conflict"
+                ) from exc
+            lessons.append(
+                replace(
+                    original_lesson,
+                    title=content_lesson.title or original_lesson.title,
+                )
+            )
+        if original_module_index is None:
+            raise AIGenerationCheckpointError("generation_compact_module_empty")
+        if original_module_index in seen_original_modules:
+            raise AIGenerationCheckpointError(
+                "generation_compact_module_identity_conflict"
+            )
+        seen_original_modules.add(original_module_index)
+        original_module = structure.modules[original_module_index]
+        modules.append(
+            StructureModule(
+                title=original_module.title,
+                description=original_module.description,
+                lessons=lessons,
+            )
+        )
+    return CourseStructure(
+        title=structure.title,
+        description=structure.description,
+        modules=modules,
+    )
 
 
 def _generation_plan_revision(payload: dict[str, object]) -> str:
@@ -1210,6 +1277,13 @@ async def run_generation_pipeline(
             content, total_lessons, compact_lesson_origins = await write_grounded_course(structure)
 
         state.content = content
+        if direct_mode:
+            structure = _compact_structure_for_generated_content(
+                structure,
+                content,
+                compact_lesson_origins,
+            )
+            state.structure = structure
         state.progress = 70
         state.message = "Контент сгенерирован"
         await _update_job_db(job_id, tenant_id=tenant_id, progress=70, message=state.message)

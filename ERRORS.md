@@ -2452,6 +2452,30 @@ contract or establish a blocker.
   durable stage. A deliberately omitted item needs a first-class terminal state;
   it must not be represented as fake content or left permanently incomplete.
 
+## AI-CHECKPOINT-004 - Omitted lessons remained in the structure used for saving
+
+- Date: 2026-09-14. Observed on production `0.5.35` during the fresh
+  methodologist-path generation from the Lombard microcredit-rules PDF.
+- Symptom: generation completed content, review and assessments for seven
+  accepted lessons out of nine planned lessons, then failed at 98% while saving.
+- Cause: original coordinates were correctly retained for checkpoint recovery,
+  but `GenerationState.structure` still contained all nine planned lessons.
+  Persistence therefore compared nine structural positions with seven final
+  assessments and raised `generation_assessment_count_conflict`.
+- Fix: after direct-source writing, build a separate final structure from the
+  compact-to-original identity map. It contains only accepted lessons and uses
+  their final content titles, while checkpoint callbacks continue to address
+  the immutable original plan.
+- Verification: the RED regression omitted lesson 2 and showed that the final
+  structure still contained lessons 1-4. GREEN passes lessons 1, 3 and 4 to the
+  persistence boundary, with review and assessment still checkpointed under
+  their original identities. The focused checkpoint/direct-source/pipeline
+  suite passes 72 tests and the full API unit suite passes 1507 tests.
+- Prevention: whenever generated output is filtered, keep two explicit views:
+  immutable plan identity for recovery and compact accepted structure for
+  assessment matching and persistence. Acceptance must include the real save
+  boundary, not stop after successful model calls.
+
 ## AI-MAP-001 - A valid detailed source map exceeded the arbitrary topic count
 
 - Date: 2026-09-14. Observed in production `0.5.32` during the fresh

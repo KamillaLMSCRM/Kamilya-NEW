@@ -267,6 +267,7 @@ async def test_pipeline_keeps_original_checkpoint_identity_after_lessons_are_omi
     checkpoints = _MemoryCheckpoints()
     reviewed: list[str] = []
     assessed: list[str] = []
+    saved: list[list[str]] = []
 
     async def load_corpus(*args, **kwargs):
         return DirectSourceCorpus(
@@ -345,6 +346,18 @@ async def test_pipeline_keeps_original_checkpoint_identity_after_lessons_are_omi
     async def noop(*args, **kwargs):
         return None
 
+    async def save(compacted_state, tenant_id, user_id):
+        saved.append(
+            [
+                lesson.title
+                for module in compacted_state.structure.modules
+                for lesson in module.lessons
+            ]
+        )
+        compacted_state.status = "completed"
+        compacted_state.stage = "completed"
+        compacted_state.progress = 100
+
     monkeypatch.setattr(pipeline, "load_direct_source_corpus", load_corpus)
     monkeypatch.setattr(pipeline, "run_direct_architect", architect)
     monkeypatch.setattr(pipeline, "write_direct_course", writer)
@@ -353,11 +366,13 @@ async def test_pipeline_keeps_original_checkpoint_identity_after_lessons_are_omi
     monkeypatch.setattr(pipeline, "ReviewerAgent", Reviewer)
     monkeypatch.setattr(pipeline, "_update_job_db", noop)
     monkeypatch.setattr(pipeline, "_check_cancelled_async", noop)
+    monkeypatch.setattr(pipeline, "_save_generation_to_db", save)
 
     result = await pipeline.run_generation_pipeline(
         job_id=str(uuid4()),
         documents=[document_id],
         tenant_id=tenant_id,
+        user_id=uuid4(),
         source_analysis={"analysis_mode": "direct_source"},
         num_modules=1,
         lessons_per_module=4,
@@ -369,8 +384,12 @@ async def test_pipeline_keeps_original_checkpoint_identity_after_lessons_are_omi
     assert [lesson.title for lesson in result.content.modules[0].lessons] == [
         "Lesson 1", "Lesson 3", "Lesson 4",
     ]
+    assert [lesson.title for lesson in result.structure.modules[0].lessons] == [
+        "Lesson 1", "Lesson 3", "Lesson 4",
+    ]
     assert reviewed == ["Lesson 1", "Lesson 3", "Lesson 4"]
     assert assessed == ["Lesson 1", "Lesson 3", "Lesson 4"]
+    assert saved == [["Lesson 1", "Lesson 3", "Lesson 4"]]
     omitted = checkpoints.snapshots[1]
     assert omitted.content_status == "omitted"
     assert omitted.content_payload == {"reason_codes": ["unsupported_relationship_claim"]}
