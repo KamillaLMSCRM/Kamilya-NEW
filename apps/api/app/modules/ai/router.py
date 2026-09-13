@@ -455,7 +455,16 @@ async def generate_course(
     # selection spanning several languages is refused until the methodologist
     # explicitly confirms the course language via `language_confirmed`.
     # Single-document submissions keep the original behavior.
-    document_languages = analysis.source_languages if direct_mode else await document_script_languages(db, tenant_id, req.documents)
+    # The lightweight direct-source admission intentionally skips original
+    # conversion, so it has no language sample of its own.  For a combined
+    # source set, recover only this small signal from the already verified
+    # active index.  This preserves the mixed-language confirmation contract
+    # without re-running Docling/OCR before the job can be queued.
+    document_languages = (
+        await document_script_languages(db, tenant_id, req.documents)
+        if len(req.documents) >= 2
+        else getattr(analysis, "source_languages", {})
+    )
     detected_languages = sorted({lang for lang in document_languages.values() if lang})
     mixed_language = (
         len(req.documents) >= 2

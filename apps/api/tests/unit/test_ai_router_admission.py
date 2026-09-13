@@ -260,6 +260,52 @@ def test_empty_course_intent_is_valid_for_automatic_generation() -> None:
     assert request.course_intent == ""
 
 
+@pytest.mark.asyncio
+async def test_direct_source_multi_document_admission_detects_languages_from_verified_index(monkeypatch):
+    tenant_id = uuid4()
+    document_ids = [uuid4(), uuid4()]
+    request = AIGenerateRequest(
+        documents=document_ids,
+        language="ru",
+        source_strategy="intentional_combination",
+        combination_goal="Combine the two policies into one course.",
+    )
+    analysis = SimpleNamespace(
+        status="unverified",
+        score=None,
+        requires_decision=True,
+        clusters=[],
+        analysis_mode="direct_source",
+        source_chunk_totals={document_id: 2 for document_id in document_ids},
+        source_languages={document_id: None for document_id in document_ids},
+        source_passport=None,
+    )
+    detect_languages = AsyncMock(
+        return_value={document_ids[0]: "ru", document_ids[1]: "kk"}
+    )
+
+    monkeypatch.setattr(
+        "app.modules.ai.source_analysis.analyze_document_set",
+        AsyncMock(return_value=analysis),
+    )
+    monkeypatch.setattr(
+        "app.modules.ai.source_analysis.document_script_languages",
+        detect_languages,
+    )
+
+    with pytest.raises(HTTPException) as error:
+        await router.generate_course(
+            request,
+            db=_lenient_db(),
+            user=SimpleNamespace(id=uuid4(), tenant_id=tenant_id),
+        )
+
+    assert error.value.status_code == 409
+    assert error.value.detail["code"] == "mixed_language_sources"
+    assert set(error.value.detail["detected_languages"]) == {"ru", "kk"}
+    detect_languages.assert_awaited_once()
+
+
 def test_reuse_reason_cannot_silently_replace_an_existing_course_regeneration() -> None:
     with pytest.raises(ValueError, match="new independent course"):
         AIGenerateRequest(
