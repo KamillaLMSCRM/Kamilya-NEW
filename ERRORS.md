@@ -1,6 +1,6 @@
 # Error and Recurrence Prevention Log
 
-Current as of: 2026-09-13.
+Current as of: 2026-09-14.
 
 This is the single operational log for confirmed Kamilya LMS workflow errors,
 invalid assumptions, fixes, verification, and recurrence prevention. Open product
@@ -2338,6 +2338,11 @@ contract or establish a blocker.
   approved lesson title before measuring body grounding, length, repetition and
   unsupported relationships. Different headings remain fully validated, so an
   invented causal or prescriptive heading still fails closed.
+- Verification: the exact legal-document RED case fails on `0.5.29` and passes
+  with the repair; 72 lesson-quality tests and the combined 103-test
+  lesson/direct-source/resume set pass, including the existing adversarial
+  invented-heading case. Production resume and a fresh DOC journey remain the
+  mandatory environment acceptance.
 - Prevention: retain the exact legal-document regression together with the
   existing adversarial test that rejects an invented causal heading. Complete
   the same production job through resume, then run a fresh DOC human journey;
