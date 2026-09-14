@@ -2638,6 +2638,8 @@ contract or establish a blocker.
 ## AI-SCAN-001 - Layout OCR converted an empty percentage field into a numeric claim
 
 - Date: 2026-09-14.
+- Symptom: a generated lesson repeated a percentage absent from the scanned form.
+- Cause: layout OCR supplied an invented value as apparently authoritative text.
 - Evidence: a saved source checkpoint already contained the invented percentage;
   writer-only provenance checks could not detect this upstream error. A bounded
   original-byte replay reproduced the layout-OCR claim before the candidate guard.
@@ -2652,10 +2654,13 @@ contract or establish a blocker.
   cover other formats, table provenance, budgets, serialization and persistence.
 - Limits: agreement between OCR passes is not proof of factual correctness.
   Missing confirmation means uncertainty; review the original before publication.
+- Prevention: keep the bounded scan check and uncertainty propagation under tests;
+  verify original pages, not only downstream writer output.
 
 ## AI-SIZING-001 - Lightweight admission estimate became an authoritative course size
 
 - Date: 2026-09-14.
+- Symptom: a supporting catalogue caused an excessively large lesson estimate.
 - Cause: bounded HTTP admission intentionally skipped source conversion, but its
   all-chunk size estimate then entered the worker unchanged. Supporting catalogue
   rows inflated the requested structure despite an available worker passport.
@@ -2671,6 +2676,8 @@ contract or establish a blocker.
 ## AI-REPLAY-001 - Quality corrections need contextual regression cases
 
 - Date: 2026-09-14.
+- Symptom: extractive answers still produced reversed actions and repeated facts.
+- Cause: answer-string grounding alone did not prove the question's meaning.
 - Fix: replay extractive-but-action-inverted questions, duplicate rate facts with
   the same conditions, and positive cases with distinct subjects/conditions.
   Discard only explicit invalid/duplicate classes without question-count padding.
@@ -2683,3 +2690,7 @@ contract or establish a blocker.
   oversized repairs report the prompt-budget error without an extra provider call.
 - Limits: these deterministic guards are not a universal semantic evaluator.
   Content acceptance still requires reviewing the resulting lessons and quizzes.
+- Verification: contextual positive/negative regressions, checkpoint-policy and
+  repair-budget tests passed in the final combined quality matrix.
+- Prevention: replay the complete question, all options and governing source
+  sentence; run the release-contract gate before publishing a candidate tag.
